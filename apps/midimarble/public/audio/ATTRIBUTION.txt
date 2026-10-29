@@ -1,0 +1,13 @@
+GeneralUser GS v2.0.3 by S. Christian Collins
+https://www.schristiancollins.com/generaluser.php
+Source: https://github.com/mrbumpy409/GeneralUser-GS
+
+The unmodified GeneralUser-GS.sf2 is served locally as general-user-gs.sf2.
+See GENERALUSER-LICENSE.txt for the original author's license.
+Audio synthesis uses SpessaSynth core, Apache-2.0, by Spessasus.
+https://github.com/spessasus/spessasynth_core
+See SPESSASYNTH-LICENSE.txt for its full license.
+
+SpessaSynth's bundled worker dependencies:
+fflate v0.8.3, MIT. See FFLATE-LICENSE.txt.
+stb-vorbis v0.0.6, Apache-2.0. See STB-VORBIS-LICENSE.txt.

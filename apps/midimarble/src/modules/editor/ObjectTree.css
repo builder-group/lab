@@ -1,0 +1,62 @@
+.object-tree .tree-search input {
+	min-width: 0;
+}
+.object-tree .tree-search-clear {
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	flex-shrink: 0;
+	color: #aaa;
+}
+.object-tree .tree-filters {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	padding: 0 8px 7px;
+}
+.object-tree .tree-filters button {
+	padding: 3px 7px;
+	border-radius: 3px;
+	font-size: 9px;
+	color: #aaa;
+}
+.object-tree .tree-filters button[aria-pressed='true'] {
+	background: #4b4b4b;
+	color: #eee;
+}
+.object-tree .tree-filters > span {
+	margin-left: auto;
+	color: #888;
+	font-size: 9px;
+}
+.object-tree .tree-collection > .tree-row > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.object-tree .tree-collection > .tree-row > svg {
+	flex-shrink: 0;
+}
+.object-tree .tree-collection > .tree-row.contains-selection {
+	color: #ffbf8d;
+	background: #493b30;
+}
+.object-tree .tree-context {
+	position: fixed;
+	z-index: 100;
+}
+.object-tree .tree-context button:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+.object-tree .tree-context button:disabled:hover {
+	background: transparent;
+}
+.object-tree .tree-context button:focus-visible {
+	outline: 1px solid #d29c72;
+	background: #535353;
+}
+.object-tree .empty-tree p {
+	margin: 0 0 8px;
+}

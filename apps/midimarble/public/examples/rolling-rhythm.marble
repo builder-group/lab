@@ -1,0 +1,578 @@
+{
+  "format": "midimarble",
+  "version": 1,
+  "id": "example-rolling-rhythm",
+  "name": "Rolling rhythm",
+  "bpm": 70.58823529411765,
+  "duration": 8.5,
+  "tracks": [
+    {
+      "id": "rolling",
+      "name": "Soft mallets",
+      "color": "#ac429b",
+      "instrument": 11,
+      "muted": false
+    }
+  ],
+  "notes": [
+    {
+      "id": "rolling-note-0",
+      "trackId": "rolling",
+      "time": 0.8,
+      "duration": 0.4,
+      "midi": 69,
+      "velocity": 0.75
+    },
+    {
+      "id": "rolling-note-1",
+      "trackId": "rolling",
+      "time": 1.65,
+      "duration": 0.4,
+      "midi": 76,
+      "velocity": 0.75
+    },
+    {
+      "id": "rolling-note-2",
+      "trackId": "rolling",
+      "time": 4,
+      "duration": 0.4,
+      "midi": 72,
+      "velocity": 0.75
+    },
+    {
+      "id": "rolling-note-3",
+      "trackId": "rolling",
+      "time": 4.85,
+      "duration": 0.4,
+      "midi": 76,
+      "velocity": 0.75
+    },
+    {
+      "id": "rolling-note-4",
+      "trackId": "rolling",
+      "time": 5.7,
+      "duration": 0.4,
+      "midi": 79,
+      "velocity": 0.75
+    },
+    {
+      "id": "rolling-note-5",
+      "trackId": "rolling",
+      "time": 6.55,
+      "duration": 0.4,
+      "midi": 74,
+      "velocity": 0.75
+    },
+    {
+      "id": "rolling-note-6",
+      "trackId": "rolling",
+      "time": 7.4,
+      "duration": 0.4,
+      "midi": 69,
+      "velocity": 0.75
+    }
+  ],
+  "objects": [
+    {
+      "id": "example-rolling-rhythm-key-rolling-note-0",
+      "name": "A4 · 1",
+      "kind": "bar",
+      "binding": {
+        "noteId": "rolling-note-0",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        0.6382563639996844,
+        0.4855037657965572,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#dba1dc",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-rolling-rhythm-key-rolling-note-1",
+      "name": "E5 · 2",
+      "kind": "bar",
+      "binding": {
+        "noteId": "rolling-note-1",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -3.4623024691460924,
+        -2.970015016342267,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#dba1dc",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-rolling-rhythm-key-rolling-note-2",
+      "name": "C5 · 3",
+      "kind": "bar",
+      "binding": {
+        "noteId": "rolling-note-2",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        5.57965257061704,
+        -8.367346254135237,
+        0.6470398306846619
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#dba1dc",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-rolling-rhythm-key-rolling-note-3",
+      "name": "E5 · 4",
+      "kind": "bar",
+      "binding": {
+        "noteId": "rolling-note-3",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        3.1826927434088392,
+        -9.381631341720686,
+        0.6457265615463257
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "wood",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#72482d",
+      "materialFinish": "painted",
+      "glowColor": "#dba1dc",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-rolling-rhythm-key-rolling-note-4",
+      "name": "G5 · 5",
+      "kind": "bar",
+      "binding": {
+        "noteId": "rolling-note-4",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        5.78907754315122,
+        -12.171927896286116,
+        0.6404736638069153
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#dba1dc",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-rolling-rhythm-key-rolling-note-5",
+      "name": "D5 · 6",
+      "kind": "bar",
+      "binding": {
+        "noteId": "rolling-note-5",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        2.996018625366847,
+        -14.33176180436717,
+        0.6376283168792725
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#dba1dc",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-rolling-rhythm-key-rolling-note-6",
+      "name": "A4 · 7",
+      "kind": "bar",
+      "binding": {
+        "noteId": "rolling-note-6",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        5.44124677075132,
+        -16.428619828964344,
+        0.6336157321929932
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#dba1dc",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "rolling-rail",
+      "name": "Paired-wire interlude",
+      "kind": "rail",
+      "binding": null,
+      "position": [
+        -2.066109696812631,
+        -2.870418117599338,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        3.5,
+        0.05,
+        0.28
+      ],
+      "restitution": 0,
+      "material": "metal",
+      "friction": 0.5,
+      "modelId": "rail-curve",
+      "color": "#bba073",
+      "materialFinish": "bare",
+      "emission": 0,
+      "path": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0.14583333333333334,
+          -0.14707288199397686,
+          0
+        ],
+        [
+          0.2916666666666667,
+          -0.2878873434775717,
+          0
+        ],
+        [
+          0.4375,
+          -0.4224433844507846,
+          0
+        ],
+        [
+          0.5833333333333334,
+          -0.5507410049136154,
+          0
+        ],
+        [
+          0.7291666666666666,
+          -0.6727802048660644,
+          0
+        ],
+        [
+          0.875,
+          -0.7885609843081313,
+          0
+        ],
+        [
+          1.0208333333333333,
+          -0.8980833432398161,
+          0
+        ],
+        [
+          1.1666666666666667,
+          -1.001347281661119,
+          0
+        ],
+        [
+          1.3125,
+          -1.09835279957204,
+          0
+        ],
+        [
+          1.4583333333333333,
+          -1.1890998969725788,
+          0
+        ],
+        [
+          1.6041666666666667,
+          -1.2735885738627357,
+          0
+        ],
+        [
+          1.75,
+          -1.3518188302425107,
+          0
+        ],
+        [
+          1.8958333333333333,
+          -1.4237906661119037,
+          0
+        ],
+        [
+          2.0416666666666665,
+          -1.4895040814709146,
+          0
+        ],
+        [
+          2.1875,
+          -1.5489590763195435,
+          0
+        ],
+        [
+          2.3333333333333335,
+          -1.6021556506577905,
+          0
+        ],
+        [
+          2.4791666666666665,
+          -1.6490938044856553,
+          0
+        ],
+        [
+          2.625,
+          -1.6897735378031384,
+          0
+        ],
+        [
+          2.7708333333333335,
+          -1.7241948506102394,
+          0
+        ],
+        [
+          2.9166666666666665,
+          -1.7523577429069583,
+          0
+        ],
+        [
+          3.0625,
+          -1.7742622146932954,
+          0
+        ],
+        [
+          3.2083333333333335,
+          -1.7899082659692502,
+          0
+        ],
+        [
+          3.3541666666666665,
+          -1.7992958967348234,
+          0
+        ],
+        [
+          3.5,
+          -1.8024251069900143,
+          0
+        ]
+      ]
+    }
+  ],
+  "launch": {
+    "position": [
+      0,
+      4,
+      0.65
+    ],
+    "velocity": [
+      0.6,
+      -0.2,
+      0
+    ],
+    "radius": 0.22
+  },
+  "gravity": 9.81,
+  "restitution": 0,
+  "aspectRatio": "9:16",
+  "marbleColor": "#ac429b",
+  "marbleStyle": "ribbon",
+  "marbleEffect": "none",
+  "audio": {
+    "musicVolume": 0.72,
+    "surfaceVolume": 0.48,
+    "surfacesEnabled": true
+  },
+  "scene": {
+    "theme": "wall",
+    "background": "#d0c7b7",
+    "keyColor": "#fff2de",
+    "fillColor": "#dae6f4",
+    "exposure": 0.9,
+    "bloom": 0.12,
+    "viewTransform": "agx",
+    "wallClearance": 0.06,
+    "wallPosition": 0,
+    "keyPosition": [
+      -3,
+      7,
+      9
+    ],
+    "keyIntensity": 2.6,
+    "fillIntensity": 0.55,
+    "environmentIntensity": 0.5
+  },
+  "camera": {
+    "fov": 38,
+    "distance": 12.5,
+    "azimuth": 0.1,
+    "elevation": 0.03,
+    "lead": 0.15,
+    "keyframes": [],
+    "followMarbles": true
+  }
+}

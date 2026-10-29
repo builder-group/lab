@@ -1,0 +1,61 @@
+.context-help-trigger {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: #aaa;
+	cursor: pointer;
+	pointer-events: auto;
+}
+.context-help-trigger:hover,
+.context-help-trigger[aria-expanded='true'] {
+	background: #ffffff12;
+	color: #eee;
+}
+.property-section > summary > .context-help-trigger {
+	margin: -5px 0 -5px auto;
+	width: 22px;
+	height: 22px;
+}
+.context-help-popover {
+	pointer-events: auto;
+	position: fixed;
+	inset: auto;
+	margin: 0;
+	box-sizing: border-box;
+	max-height: min(380px, 70vh);
+	overflow: auto;
+	padding: 13px 15px;
+	border: 1px solid #555;
+	border-radius: 6px;
+	background: #292929;
+	color: #c7c7c7;
+	box-shadow: 0 6px 24px #0008;
+	font:
+		12px/1.6 Inter,
+		system-ui,
+		sans-serif;
+	white-space: normal;
+	text-shadow: none;
+}
+.context-help-popover > strong {
+	display: block;
+	margin-bottom: 7px;
+	color: #eee;
+	font-size: 12px;
+}
+.context-help-popover p {
+	margin: 7px 0 0;
+}
+.context-help-popover kbd {
+	padding: 1px 4px;
+	border: 1px solid #ffffff20;
+	border-radius: 3px;
+	font: inherit;
+	color: #eee;
+}

@@ -1,0 +1,50 @@
+{
+	"name": "@repo/midimarble",
+	"version": "0.0.1",
+	"private": true,
+	"description": "A musical marble-run studio for the browser",
+	"keywords": [],
+	"bugs": {
+		"url": "https://github.com/builder-group/lab/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/builder-group/lab.git"
+	},
+	"license": "AGPL-3.0-or-later",
+	"author": "@bennobuilder",
+	"type": "module",
+	"scripts": {
+		"build": "pnpm typecheck && vite build",
+		"clean": "shx rm -rf .output && shx rm -rf .tanstack && shx rm -rf .turbo && shx rm -rf node_modules",
+		"generate:examples": "bun src/modules/project/generate-examples.ts",
+		"install:clean": "pnpm run clean && pnpm install",
+		"lint": "eslint .",
+		"start:dev": "vite dev",
+		"studio": "bun src/tools/studio.ts",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit",
+		"update:latest": "pnpm update --latest"
+	},
+	"dependencies": {
+		"@dimforge/rapier3d-compat": "^0.21.0",
+		"@tanstack/react-router": "^1.170.46",
+		"@tanstack/react-start": "^1.169.4",
+		"@tonejs/midi": "^2.0.28",
+		"lucide-react": "^1.31.0",
+		"mediabunny": "^1.62.1",
+		"react": "^19.3.1",
+		"react-dom": "^19.3.1",
+		"spessasynth_core": "^4.4.1",
+		"three": "^0.186.1"
+	},
+	"devDependencies": {
+		"@blgc/config": "^0.1.2",
+		"@types/node": "^26.6.5",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
+		"@types/three": "^0.186.0",
+		"@vitejs/plugin-react": "^6.1.2",
+		"nitro": "3.0.260903-beta"
+	}
+}

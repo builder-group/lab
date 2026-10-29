@@ -1,0 +1,60 @@
+.rail-profile-editor {
+	display: block;
+	margin: 3px 0 9px;
+	background: #202123;
+	border: 1px solid #393a3d;
+	border-radius: 4px;
+	touch-action: none;
+	user-select: none;
+}
+.rail-profile-axis {
+	stroke: #ffffff0d;
+	stroke-width: 1;
+}
+.rail-profile-curve,
+.rail-profile-original {
+	fill: none;
+	stroke: #b8bdc7;
+	stroke-width: 2;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+}
+.rail-profile-original {
+	stroke: #777d87;
+	stroke-width: 1;
+	stroke-dasharray: 3 3;
+	opacity: 0.6;
+}
+.rail-profile-editor[data-editing] .rail-profile-curve {
+	stroke: #8ab8f8;
+}
+.rail-profile-label {
+	fill: #777d87;
+	font-size: 8px;
+	font-family: inherit;
+}
+.rail-profile-handle {
+	fill: #303338;
+	stroke: #b8bdc7;
+	stroke-width: 1.5;
+	cursor: grab;
+	outline: none;
+}
+.rail-profile-handle[data-entrance] {
+	fill: #b27743;
+	stroke: #f1a55e;
+}
+.rail-profile-handle:hover,
+.rail-profile-handle:focus-visible,
+.rail-profile-handle[data-active] {
+	fill: #629eea;
+	stroke: #d8e7ff;
+	stroke-width: 2;
+}
+.rail-profile-handle[data-active] {
+	cursor: grabbing;
+}
+.rail-profile-handle[aria-disabled='true'] {
+	cursor: default;
+	opacity: 0.5;
+}

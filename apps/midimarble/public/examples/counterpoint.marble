@@ -1,0 +1,1301 @@
+{
+  "format": "midimarble",
+  "version": 1,
+  "id": "example-counterpoint",
+  "name": "Counterpoint",
+  "bpm": 70.58823529411765,
+  "duration": 12,
+  "tracks": [
+    {
+      "id": "melody",
+      "name": "Jade melody",
+      "color": "#63a99e",
+      "instrument": 10,
+      "muted": false
+    },
+    {
+      "id": "answer",
+      "name": "Amber answer",
+      "color": "#cc9454",
+      "instrument": 11,
+      "muted": false
+    }
+  ],
+  "notes": [
+    {
+      "id": "melody-0",
+      "trackId": "melody",
+      "time": 0.8,
+      "duration": 0.55,
+      "midi": 72,
+      "velocity": 0.82
+    },
+    {
+      "id": "melody-1",
+      "trackId": "melody",
+      "time": 1.65,
+      "duration": 0.55,
+      "midi": 76,
+      "velocity": 0.69
+    },
+    {
+      "id": "melody-2",
+      "trackId": "melody",
+      "time": 2.5,
+      "duration": 0.55,
+      "midi": 79,
+      "velocity": 0.69
+    },
+    {
+      "id": "melody-3",
+      "trackId": "melody",
+      "time": 3.3499999999999996,
+      "duration": 0.55,
+      "midi": 76,
+      "velocity": 0.69
+    },
+    {
+      "id": "melody-4",
+      "trackId": "melody",
+      "time": 4.2,
+      "duration": 0.55,
+      "midi": 74,
+      "velocity": 0.82
+    },
+    {
+      "id": "melody-5",
+      "trackId": "melody",
+      "time": 5.05,
+      "duration": 0.55,
+      "midi": 77,
+      "velocity": 0.69
+    },
+    {
+      "id": "melody-6",
+      "trackId": "melody",
+      "time": 5.8999999999999995,
+      "duration": 0.55,
+      "midi": 81,
+      "velocity": 0.69
+    },
+    {
+      "id": "melody-7",
+      "trackId": "melody",
+      "time": 6.75,
+      "duration": 0.55,
+      "midi": 77,
+      "velocity": 0.69
+    },
+    {
+      "id": "melody-8",
+      "trackId": "melody",
+      "time": 7.6,
+      "duration": 0.55,
+      "midi": 72,
+      "velocity": 0.82
+    },
+    {
+      "id": "melody-9",
+      "trackId": "melody",
+      "time": 8.45,
+      "duration": 0.55,
+      "midi": 76,
+      "velocity": 0.69
+    },
+    {
+      "id": "melody-10",
+      "trackId": "melody",
+      "time": 9.3,
+      "duration": 0.55,
+      "midi": 79,
+      "velocity": 0.69
+    },
+    {
+      "id": "melody-11",
+      "trackId": "melody",
+      "time": 10.15,
+      "duration": 0.7,
+      "midi": 72,
+      "velocity": 0.69
+    },
+    {
+      "id": "answer-0",
+      "trackId": "answer",
+      "time": 0.92,
+      "duration": 0.55,
+      "midi": 60,
+      "velocity": 0.82
+    },
+    {
+      "id": "answer-1",
+      "trackId": "answer",
+      "time": 1.77,
+      "duration": 0.55,
+      "midi": 64,
+      "velocity": 0.69
+    },
+    {
+      "id": "answer-2",
+      "trackId": "answer",
+      "time": 2.62,
+      "duration": 0.55,
+      "midi": 67,
+      "velocity": 0.69
+    },
+    {
+      "id": "answer-3",
+      "trackId": "answer",
+      "time": 3.4699999999999998,
+      "duration": 0.55,
+      "midi": 64,
+      "velocity": 0.69
+    },
+    {
+      "id": "answer-4",
+      "trackId": "answer",
+      "time": 4.32,
+      "duration": 0.55,
+      "midi": 62,
+      "velocity": 0.82
+    },
+    {
+      "id": "answer-5",
+      "trackId": "answer",
+      "time": 5.17,
+      "duration": 0.55,
+      "midi": 65,
+      "velocity": 0.69
+    },
+    {
+      "id": "answer-6",
+      "trackId": "answer",
+      "time": 6.02,
+      "duration": 0.55,
+      "midi": 69,
+      "velocity": 0.69
+    },
+    {
+      "id": "answer-7",
+      "trackId": "answer",
+      "time": 6.87,
+      "duration": 0.55,
+      "midi": 65,
+      "velocity": 0.69
+    },
+    {
+      "id": "answer-8",
+      "trackId": "answer",
+      "time": 7.72,
+      "duration": 0.55,
+      "midi": 60,
+      "velocity": 0.82
+    },
+    {
+      "id": "answer-9",
+      "trackId": "answer",
+      "time": 8.57,
+      "duration": 0.55,
+      "midi": 64,
+      "velocity": 0.69
+    },
+    {
+      "id": "answer-10",
+      "trackId": "answer",
+      "time": 9.42,
+      "duration": 0.55,
+      "midi": 67,
+      "velocity": 0.69
+    },
+    {
+      "id": "answer-11",
+      "trackId": "answer",
+      "time": 10.27,
+      "duration": 0.7,
+      "midi": 60,
+      "velocity": 0.69
+    }
+  ],
+  "objects": [
+    {
+      "id": "example-counterpoint-key-melody-0",
+      "name": "C5 · 1",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-0",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -1.0016919146658583,
+        1.7057830421675595,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-0",
+      "name": "C4 · 1",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-0",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        0.965684437819481,
+        1.062344589256182,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-1",
+      "name": "E5 · 2",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-1",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -3.694200061690648,
+        -0.4650095672856419,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-1",
+      "name": "E4 · 2",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-1",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        4.022378532620112,
+        -1.1309124461581959,
+        0.6499999962707231
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-2",
+      "name": "G5 · 3",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-2",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -2.064394689667384,
+        -1.1605029375802127,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-2",
+      "name": "G4 · 3",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-2",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        2.5360802704772953,
+        -1.6061873626481145,
+        0.6499999933203071
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-3",
+      "name": "E5 · 4",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-3",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -3.448252561620712,
+        -2.5986260989756027,
+        0.649999934515112
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-3",
+      "name": "E4 · 4",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-3",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        3.897714783481597,
+        -3.1554816961060594,
+        0.6499999946954025
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-4",
+      "name": "D5 · 5",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-4",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -1.5926669608236952,
+        -4.162775483871564,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-4",
+      "name": "D4 · 5",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-4",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        1.9635768030764256,
+        -4.7361661386262055,
+        0.6499999953338101
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-5",
+      "name": "F5 · 6",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-5",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -3.2667110194085436,
+        -5.400783506179914,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-5",
+      "name": "F4 · 6",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-5",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        3.6256356208839406,
+        -5.931539315359855,
+        0.6499999947421929
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-6",
+      "name": "A5 · 7",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-6",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -1.6699124346853909,
+        -6.765913930679422,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-6",
+      "name": "A4 · 7",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-6",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        2.0439714517873138,
+        -7.301944278058473,
+        0.6499999945114587
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-7",
+      "name": "F5 · 8",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-7",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -3.364722989928563,
+        -8.176020112777815,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-7",
+      "name": "F4 · 8",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-7",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        3.7487392732817337,
+        -8.71798048652914,
+        0.6499999936373767
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-8",
+      "name": "C5 · 9",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-8",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -1.6973665724875135,
+        -9.51851889207469,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-8",
+      "name": "C4 · 9",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-8",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        2.085737786956788,
+        -10.04809157051351,
+        0.649999989099665
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-9",
+      "name": "E5 · 10",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-9",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -3.343151829572359,
+        -10.880252174481814,
+        0.6499999376026911
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-9",
+      "name": "E4 · 10",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-9",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        3.723089407416026,
+        -11.405740729944972,
+        0.6499999904221052
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-10",
+      "name": "G5 · 11",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-10",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -1.6784016858221693,
+        -12.254855600143538,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-10",
+      "name": "G4 · 11",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-10",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        2.056851035622914,
+        -12.781542442616887,
+        0.6499999893243043
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-melody-11",
+      "name": "C5 · 12",
+      "kind": "bar",
+      "binding": {
+        "noteId": "melody-11",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        -3.3411078680871324,
+        -13.617035356308088,
+        0.6499999761581421
+      ],
+      "rotation": [
+        0,
+        0,
+        -0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "main",
+      "modelId": "key-bar",
+      "color": "#39766d",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    },
+    {
+      "id": "example-counterpoint-key-answer-11",
+      "name": "C4 · 12",
+      "kind": "bar",
+      "binding": {
+        "noteId": "answer-11",
+        "offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "position": [
+        3.717826300593059,
+        -14.13752471285767,
+        0.6499999890754755
+      ],
+      "rotation": [
+        0,
+        0,
+        0.64
+      ],
+      "size": [
+        0.85,
+        0.09,
+        1.2
+      ],
+      "restitution": 0.4,
+      "material": "metal",
+      "friction": 0.12,
+      "glowMode": "impact",
+      "mountStyle": "pins",
+      "roundedNose": true,
+      "marbleId": "answer",
+      "modelId": "key-bar",
+      "color": "#a87439",
+      "materialFinish": "painted",
+      "glowColor": "#ffd493",
+      "glowFade": 0.24,
+      "emission": 0.35,
+      "flex": 0.08
+    }
+  ],
+  "launch": {
+    "position": [
+      -1.4,
+      4,
+      0.65
+    ],
+    "velocity": [
+      0.3,
+      -0.2,
+      0
+    ],
+    "radius": 0.22
+  },
+  "gravity": 6,
+  "restitution": 0.25,
+  "aspectRatio": "1:1",
+  "marbleColor": "#188e70",
+  "marbleStyle": "ribbon",
+  "marbleEffect": "none",
+  "audio": {
+    "musicVolume": 0.8,
+    "surfaceVolume": 0.18,
+    "surfacesEnabled": true
+  },
+  "marbles": [
+    {
+      "id": "answer",
+      "launch": {
+        "position": [
+          1.4,
+          4,
+          0.65
+        ],
+        "velocity": [
+          -0.3,
+          -0.2,
+          0
+        ],
+        "radius": 0.22
+      },
+      "color": "#ce8a19",
+      "name": "Amber",
+      "style": "ribbon"
+    }
+  ],
+  "scene": {
+    "theme": "wall",
+    "background": "#d0c7b7",
+    "keyColor": "#fff2de",
+    "fillColor": "#dae6f4",
+    "exposure": 0.9,
+    "bloom": 0.12,
+    "viewTransform": "agx",
+    "wallClearance": 0.06,
+    "wallPosition": 0,
+    "keyPosition": [
+      -3,
+      7,
+      9
+    ],
+    "keyIntensity": 2.6,
+    "fillIntensity": 0.55,
+    "environmentIntensity": 0.5
+  },
+  "camera": {
+    "fov": 38,
+    "distance": 13,
+    "azimuth": 0.1,
+    "elevation": 0.03,
+    "lead": 0.15,
+    "keyframes": [],
+    "followMarbles": true
+  }
+}

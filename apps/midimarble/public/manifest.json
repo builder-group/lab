@@ -1,0 +1,16 @@
+{
+	"short_name": "MidiMarble",
+	"name": "MidiMarble",
+	"description": "A musical marble-run studio with MIDI, physics, and video export.",
+	"icons": [
+		{
+			"src": "/marble.svg",
+			"sizes": "any",
+			"type": "image/svg+xml"
+		}
+	],
+	"start_url": "/",
+	"display": "standalone",
+	"theme_color": "#202020",
+	"background_color": "#202020"
+}
