@@ -1,17 +1,25 @@
-import { Hand, Link2, MousePointer2, Move3D, Rotate3D, Scaling } from 'lucide-react';
+import { Hand, Link2, type LucideIcon, MousePointer2, Move3D, Rotate3D, Scaling } from 'lucide-react';
 import { objectCatalog } from '../project';
 import type { TEditorCommand } from './CommandPalette';
+import type { TEditorTool } from './editor-types';
 
 export const menuNames = ['File', 'Edit', 'Add', 'View', 'Help'] as const;
 
-export const sceneTools = [
+export const sceneTools: readonly TSceneTool[] = [
 	{ id: 'select', label: 'Select', shortcut: 'V', Icon: MousePointer2 },
 	{ id: 'move', label: 'Move', shortcut: 'G', Icon: Move3D },
 	{ id: 'rotate', label: 'Rotate', shortcut: 'R', Icon: Rotate3D },
 	{ id: 'scale', label: 'Scale', shortcut: 'S', Icon: Scaling },
 	{ id: 'hand', label: 'Hand', shortcut: 'H', Icon: Hand },
 	{ id: 'link', label: 'Link', shortcut: 'L', Icon: Link2 }
-] as const;
+];
+
+interface TSceneTool {
+	id: TEditorTool;
+	label: string;
+	shortcut: string;
+	Icon: LucideIcon;
+}
 
 export const editorCommands: TEditorCommand[] = [
 	...sceneTools.map((tool) => ({
