@@ -100,7 +100,11 @@ export const ExportPanel: React.FC<TExportPanelProps> = (props) => {
 							<p className="helper-text">
 								WebM · VP9/VP8 + Opus · synchronized audio. All processing stays in your browser.
 							</p>
-							<button className="button full" disabled={unavailableReason != null} onClick={saveFrame}>
+							<button
+								className="button full"
+								disabled={unavailableReason != null}
+								onClick={saveFrame}
+							>
 								Save current frame
 							</button>
 						</>

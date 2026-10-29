@@ -1,6 +1,6 @@
-import { createDemoProject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
 import { type TProject } from '../project';
+import { createDemoProject } from '../project/fixtures/sample-project';
 import { getAudioSignature } from './audio-signature';
 
 describe('getAudioSignature function', () => {

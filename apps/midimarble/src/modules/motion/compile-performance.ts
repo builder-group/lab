@@ -11,8 +11,8 @@ import type {
 } from '../project/types';
 import { getFrontFlangeGeometry } from './key-geometry';
 import type { TCompileOptions } from './motion-progress';
-import { getPlacementPrefix } from './placement-prefix';
 import { createNoteMarkers } from './note-markers';
+import { getPlacementPrefix } from './placement-prefix';
 import { getRailGeometry } from './rail-geometry';
 
 export { samplePerformance } from './sample-performance';
@@ -72,9 +72,14 @@ export async function compilePerformance(
 		);
 	}
 
-	const reused = options.previous?.performance.influenceBounds == null
-		? [] : getPlacementPrefix(project, boundObjects, options.previous);
-	const influenceBounds = { min: [Infinity, Infinity, Infinity] as TVec3, max: [-Infinity, -Infinity, -Infinity] as TVec3 };
+	const reused =
+		options.previous?.performance.influenceBounds == null
+			? []
+			: getPlacementPrefix(project, boundObjects, options.previous);
+	const influenceBounds = {
+		min: [Infinity, Infinity, Infinity] as TVec3,
+		max: [-Infinity, -Infinity, -Infinity] as TVec3
+	};
 	// Reused placements can depend on predictor paths absent from the final playback.
 	if (reused.length > 0 && options.previous?.performance.influenceBounds != null)
 		includeBounds(influenceBounds, options.previous.performance.influenceBounds);
@@ -165,9 +170,11 @@ export async function compilePerformance(
 				if (marble?.body.isEnabled() && !track.samples.length)
 					track.samples.push(readMarbleSample(marble.body, (step - 1) * fixedStep));
 			}
-			const previousPositions = new Map([...context.marbles.values()]
-				.filter((marble) => marble.body.isEnabled())
-				.map((marble) => [marble.id, marble.body.translation()]));
+			const previousPositions = new Map(
+				[...context.marbles.values()]
+					.filter((marble) => marble.body.isEnabled())
+					.map((marble) => [marble.id, marble.body.translation()])
+			);
 			const previousVelocities = new Map(
 				[...context.marbles.values()].map((marble) => [marble.id, marble.body.linvel()])
 			);
@@ -176,8 +183,17 @@ export async function compilePerformance(
 				const before = previousPositions.get(marble.id);
 				const velocity = previousVelocities.get(marble.id);
 				if (before == null || velocity == null) continue;
-				includeBounds(influenceBounds, getSweepBounds(before, marble.body.translation(), velocity,
-					marble.body.linvel(), marble.radius, project.gravity));
+				includeBounds(
+					influenceBounds,
+					getSweepBounds(
+						before,
+						marble.body.translation(),
+						velocity,
+						marble.body.linvel(),
+						marble.radius,
+						project.gravity
+					)
+				);
 			}
 			const time = step * fixedStep;
 			context.events.drainCollisionEvents((first, second, started) => {
@@ -625,8 +641,9 @@ function objectColliders(object: TResolvedObject): RAPIER.ColliderDesc[] {
 	if (flange != null) {
 		const [lipWidth, lipHeight, lipDepth] = flange.size;
 		result.push(
-			RAPIER.ColliderDesc.cuboid(lipWidth / 2, lipHeight / 2, lipDepth / 2)
-				.setTranslation(...flange.position)
+			RAPIER.ColliderDesc.cuboid(lipWidth / 2, lipHeight / 2, lipDepth / 2).setTranslation(
+				...flange.position
+			)
 		);
 	}
 	return result;
@@ -818,8 +835,14 @@ function createPredictor(
 			for (const state of before) {
 				const after = state.marble.body.translation();
 				const nextVelocity = state.marble.body.linvel();
-				const sweep = getSweepBounds(state.position, after, state.velocity, nextVelocity,
-					state.marble.radius, project.gravity);
+				const sweep = getSweepBounds(
+					state.position,
+					after,
+					state.velocity,
+					nextVelocity,
+					state.marble.radius,
+					project.gravity
+				);
 				frameSweeps.push(sweep);
 				includeBounds(influenceBounds, sweep);
 			}
@@ -911,13 +934,26 @@ function getSweepBounds(
 	gravity: number
 ): TPerformance['bounds'] {
 	// Includes substep travel around a contact and the solver's contact margin.
-	const padding = radius + fixedStep * Math.max(Math.hypot(velocity.x, velocity.y, velocity.z),
-		Math.hypot(nextVelocity.x, nextVelocity.y, nextVelocity.z)) + gravity * fixedStep ** 2 + 0.05;
+	const padding =
+		radius +
+		fixedStep *
+			Math.max(
+				Math.hypot(velocity.x, velocity.y, velocity.z),
+				Math.hypot(nextVelocity.x, nextVelocity.y, nextVelocity.z)
+			) +
+		gravity * fixedStep ** 2 +
+		0.05;
 	return {
-		min: [Math.min(before.x, after.x) - padding, Math.min(before.y, after.y) - padding,
-			Math.min(before.z, after.z) - padding],
-		max: [Math.max(before.x, after.x) + padding, Math.max(before.y, after.y) + padding,
-			Math.max(before.z, after.z) + padding]
+		min: [
+			Math.min(before.x, after.x) - padding,
+			Math.min(before.y, after.y) - padding,
+			Math.min(before.z, after.z) - padding
+		],
+		max: [
+			Math.max(before.x, after.x) + padding,
+			Math.max(before.y, after.y) + padding,
+			Math.max(before.z, after.z) + padding
+		]
 	};
 }
 

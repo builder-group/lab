@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createAuthoredTestProject } from './fixtures/authored-project';
 import { createEmptyProject } from './project';
 import {
 	getProjectFileName,
@@ -6,13 +7,15 @@ import {
 	readWorkingProject,
 	serializeProjectFile
 } from './project-file';
-import { createAuthoredTestProject } from './fixtures/authored-project';
 
 describe('project-file module', () => {
 	describe('serializeProjectFile function', () => {
 		it('should roundtrip a complete authored project in a tagged JSON document', () => {
 			const project = createAuthoredTestProject();
-			project.tempos = [{ time: 0, bpm: 120 }, { time: 12, bpm: 98 }];
+			project.tempos = [
+				{ time: 0, bpm: 120 },
+				{ time: 12, bpm: 98 }
+			];
 			project.titles = [{ id: 'title', time: 1, duration: 2, text: 'Portable scene' }];
 			const track = project.tracks[0];
 			if (track == null) throw new Error('Expected an authored track.');
@@ -79,7 +82,9 @@ describe('project-file module', () => {
 		});
 
 		it('should reject oversized text before attempting to parse it', () => {
-			expect(() => parseProjectFile(' '.repeat(20 * 1024 * 1024 + 1))).toThrow('smaller than 20 MB');
+			expect(() => parseProjectFile(' '.repeat(20 * 1024 * 1024 + 1))).toThrow(
+				'smaller than 20 MB'
+			);
 		});
 
 		it('should enforce the file size limit for multibyte text', () => {

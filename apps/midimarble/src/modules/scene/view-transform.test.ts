@@ -1,8 +1,8 @@
-import { createDemoProject } from '../project/fixtures/sample-project';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { getMotionSignature } from '../motion/motion-signature';
 import { parseProject, type TSceneStyle } from '../project';
+import { createDemoProject } from '../project/fixtures/sample-project';
 import { getViewTransformToneMapping } from './view-transform';
 
 describe('getViewTransformToneMapping function', () => {

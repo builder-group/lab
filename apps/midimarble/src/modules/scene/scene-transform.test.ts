@@ -1,7 +1,7 @@
-import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { parseProject } from '../project';
+import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import { axisDragDistance, boundTransform } from './scene-transform';
 
 describe('axisDragDistance function', () => {

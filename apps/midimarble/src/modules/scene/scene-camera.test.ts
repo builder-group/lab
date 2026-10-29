@@ -1,7 +1,7 @@
-import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { type TPerformance } from '../project';
+import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import { evaluateCamera, samplePosition } from './scene-camera';
 
 const performance: TPerformance = {
@@ -149,15 +149,26 @@ describe('scene camera evaluation', () => {
 	it('should preserve coincident-key ordering and reflect edits to the same authored array', () => {
 		const project = createDemoProject();
 		const key = (id: string, time: number, x: number) => ({
-			id, time, position: [x, 0, 8] as [number, number, number],
-			target: [0, 0, 0] as [number, number, number], fov: 40
+			id,
+			time,
+			position: [x, 0, 8] as [number, number, number],
+			target: [0, 0, 0] as [number, number, number],
+			fov: 40
 		});
 		const middle = key('middle-last', 5, 20);
 		project.camera = {
-			distance: 8, azimuth: 0, elevation: 0, lead: 0, fov: 40,
+			distance: 8,
+			azimuth: 0,
+			elevation: 0,
+			lead: 0,
+			fov: 40,
 			keyframes: [
-				key('start-first', 0, 0), key('middle-first', 5, 10), key('end-first', 10, 30),
-				middle, key('start-last', 0, 4), key('end-last', 10, 40)
+				key('start-first', 0, 0),
+				key('middle-first', 5, 10),
+				key('end-first', 10, 30),
+				middle,
+				key('start-last', 0, 4),
+				key('end-last', 10, 40)
 			]
 		};
 		expect(evaluateCamera(project, performance, 0, 1).position[0]).toBe(0);

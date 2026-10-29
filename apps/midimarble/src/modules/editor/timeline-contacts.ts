@@ -16,7 +16,8 @@ export function summarizeTimelineContacts(
 	}
 	return {
 		linked: linked.length,
-		aligned: linked.filter((marker) => marker.error != null && Math.abs(marker.error) < 0.035).length,
+		aligned: linked.filter((marker) => marker.error != null && Math.abs(marker.error) < 0.035)
+			.length,
 		unlinked: performance.noteMarkers.length - linked.length,
 		recontacts,
 		extra

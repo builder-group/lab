@@ -3,7 +3,9 @@ import type { TProject } from '../project/types';
 /** Identifies the inputs used by the physical solver, independently of sound and presentation. */
 export function getMotionSignature(project: TProject): string {
 	const linkedNotes = new Set(
-		project.objects.flatMap((object) => object.binding != null && !object.disabled ? [object.binding.noteId] : [])
+		project.objects.flatMap((object) =>
+			object.binding != null && !object.disabled ? [object.binding.noteId] : []
+		)
 	);
 	return JSON.stringify([
 		'rapier-240hz-6-1-v2',

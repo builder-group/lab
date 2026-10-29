@@ -1,8 +1,7 @@
-import { createDemoProject } from './fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
+import { createDemoProject } from './fixtures/sample-project';
 import { createProjectHistory } from './history';
 import { addProjectNotes, deleteProjectNotes, updateProjectNotes } from './note-actions';
-
 import type { TNote } from './types';
 
 describe('project note actions', () => {

@@ -1,8 +1,8 @@
-import { createDemoProject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
 import { getMotionSignature } from '../motion/motion-signature';
 import { getAudioSignature } from '../music/audio-signature';
 import { parseProject, type TSceneStyle } from '../project';
+import { createDemoProject } from '../project/fixtures/sample-project';
 import { evaluateLighting } from './scene-lighting';
 
 describe('evaluateLighting function', () => {

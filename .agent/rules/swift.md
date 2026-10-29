@@ -1,85 +1,28 @@
-# Swift Rules
+# Swift Conventions
 
-Write Swift, SwiftUI, and native bridge code so UI, platform, and FFI boundaries stay clear.
+Apply these defaults to Swift and SwiftUI code.
 
-## Enforce
+- Use `PascalCase` filenames matching the primary nominal type. Focused helper files may own top-level functions.
+- Organize SwiftUI views as properties and derived values, UI, then actions. Extract private computed view sections when they improve readability.
+- Use `// MARK: - UI` and `// MARK: - Actions` sparingly in larger views
+- Confirm suspected compiler failures with the owning project build when editor diagnostics disagree
 
-### General
+## Native Boundaries
 
-- Use `PascalCase` for Swift files; when a file has one primary nominal type, make the type match the file name
-- Allow focused helper files with top-level functions when the file owns one native capability or bridge concern
-- Prefer descriptive names for booleans, view sections, actions, and native bridge helpers
-- Trust Xcode builds over editor-only Swift language-server errors when they disagree
+- Keep UIKit, AppKit, WebKit, SwiftUI, and Accessibility mutations on their required thread
+- Keep run-loop ownership, native resource lifetime, and cancellation explicit
+- Restrict `nonisolated(unsafe)` to boundaries that require it
 
-### SwiftUI
+### Rust Bridges
 
-- Keep SwiftUI views in a simple top-to-bottom flow: stored properties, UI, then actions
-- Use `// MARK: - UI` and `// MARK: - Actions` sparingly in larger views that benefit from structure
-- Keep view sections in private computed properties when that makes the body easier to read
+Apply these constraints when Swift is called from Rust.
 
-### Native Bridge
+- Preserve `_cdecl` exports, signatures, ownership, and return conventions, updating Rust declarations together when contracts change
+- Keep `SRString` conversion and nullable pointer handling explicit where the bridge uses them
 
-- Preserve `_cdecl` symbol names, argument types, ownership, and return conventions when touching Rust-callable Swift
-- Keep `SRString` conversion and nullable pointer handling explicit at the bridge boundary
-- Keep AppKit, WebKit, and Accessibility mutations on the expected main thread
-- Make run-loop ownership, background monitor lifetime, and cancellation behavior clear in monitoring code
-- Use `nonisolated(unsafe)` only at boundaries that require it, and keep the surrounding code small enough to audit
+### Expo Modules
 
-## Avoid
+Apply these constraints when Swift implements Expo modules.
 
-- Do not add more and more `// MARK: -` sections when the view should be split instead
-- Do not keep large chunks of inline view code in `body` when a named section would read better
-- Do not use generic names like `section`, `data`, or `save` when the purpose can be stated clearly
-- Do not treat editor false positives as real compile failures without checking Xcode
-- Do not rename `_cdecl` exports or change bridge signatures without updating the Rust declarations that call them
-- Do not move AppKit, WebKit, or Accessibility work off the required thread just to simplify control flow
-- Do not spread `nonisolated(unsafe)` through ordinary Swift code
-
-## Examples
-
-### Good
-
-```swift
-struct SettingsView: View {
-    @State private var isEnabled = false
-
-    // MARK: - UI
-
-    var body: some View {
-        VStack {
-            toggleSection
-        }
-    }
-
-    private var toggleSection: some View {
-        Toggle("Enabled", isOn: $isEnabled)
-    }
-
-    // MARK: - Actions
-
-    private func saveChanges() {
-        // Persist changes after the user confirms
-    }
-}
-```
-
-### Avoid
-
-```swift
-struct SettingsView: View {
-    // MARK: - Properties
-    @State private var enabled = false
-
-    // MARK: - UI
-    var body: some View {
-        Form {
-            Toggle("Enabled", isOn: $enabled)
-        }
-    }
-
-    // MARK: - Toggle UI
-    // MARK: - Footer UI
-    // MARK: - Actions
-    private func save() {}
-}
-```
+- Keep module names, method signatures, return values, and event payloads aligned with TypeScript declarations
+- Clean up owned native resources and listeners when the module or view is destroyed

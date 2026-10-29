@@ -31,7 +31,7 @@
 		"@tanstack/react-router": "^1.170.46",
 		"@tanstack/react-start": "^1.169.4",
 		"@tonejs/midi": "^2.0.28",
-		"lucide-react": "^1.31.0",
+		"lucide-react": "^1.62.0",
 		"mediabunny": "^1.62.1",
 		"react": "^19.3.1",
 		"react-dom": "^19.3.1",

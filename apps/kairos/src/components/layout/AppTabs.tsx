@@ -1,4 +1,4 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/native-tabs';
 import React from 'react';
 import { hexToRgba } from '@/lib';
 import { useTheme } from '../provider';

@@ -582,9 +582,10 @@ export function updateInstrumentReaction(
 		flex.position.y = object.kind === 'bar' ? 0 : bend * 0.035 * scale;
 		flex.rotation.x = object.kind === 'bar' ? 0 : bend * 0.035 * scale;
 	}
-	const reactionMaterials =
-		(group.userData['reactionMaterials'] as THREE.MeshStandardMaterial[] | undefined) ??
-		[group.userData['surfaceMaterial'] as THREE.MeshStandardMaterial | undefined];
+	const reactionMaterials = (group.userData['reactionMaterials'] as
+		THREE.MeshStandardMaterial[] | undefined) ?? [
+		group.userData['surfaceMaterial'] as THREE.MeshStandardMaterial | undefined
+	];
 	for (const material of reactionMaterials) {
 		if (material == null) continue;
 		const uniform = material.userData['flexUniform'] as { value: number } | undefined;

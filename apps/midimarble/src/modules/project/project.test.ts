@@ -1,9 +1,9 @@
-import { createDemoProject, createWorldObject } from './fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
 import { getMotionSignature } from '../motion/motion-signature';
 import { getAudioSignature } from '../music/audio-signature';
-import { createEmptyProject, parseProject } from './project';
 import { createAuthoredTestProject } from './fixtures/authored-project';
+import { createDemoProject, createWorldObject } from './fixtures/sample-project';
+import { createEmptyProject, parseProject } from './project';
 import type { TMarbleDefinition, TProject } from './types';
 
 describe('createEmptyProject function', () => {
@@ -413,7 +413,15 @@ describe('parseProject function', () => {
 			...project,
 			camera: {
 				...project.camera,
-				keyframes: [{ id: 'late', time: project.duration + 1, position: [0, 0, 0], target: [0, 0, 0], fov: 38 }]
+				keyframes: [
+					{
+						id: 'late',
+						time: project.duration + 1,
+						position: [0, 0, 0],
+						target: [0, 0, 0],
+						fov: 38
+					}
+				]
 			}
 		};
 		expect(() => parseProject(JSON.stringify(invalidCamera))).toThrow('Camera keyframe time');

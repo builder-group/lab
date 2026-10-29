@@ -1,6 +1,5 @@
-import { createDemoProject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
-
+import { createDemoProject } from '../project/fixtures/sample-project';
 import type { TPerformance } from '../project/types';
 import { compilePerformance } from './compile-performance';
 import { canReuseWorldEdit } from './reuse-world-edit';
@@ -36,8 +35,18 @@ describe('canReuseWorldEdit function', () => {
 		const model = createDemoProject().objects[0];
 		if (model == null) throw new Error('Expected an instrument.');
 		const changed = structuredClone(project);
-		changed.objects = [{ ...model, binding: null, kind: 'rail', position: [100, 0, 0],
-			path: [[0, 0, 0], [-100, 0, 0]] }];
+		changed.objects = [
+			{
+				...model,
+				binding: null,
+				kind: 'rail',
+				position: [100, 0, 0],
+				path: [
+					[0, 0, 0],
+					[-100, 0, 0]
+				]
+			}
+		];
 		expect(canReuseWorldEdit(changed, { project, performance })).toBe(false);
 	});
 
@@ -51,7 +60,8 @@ describe('canReuseWorldEdit function', () => {
 			{ ...project, gravity: project.gravity + 1 },
 			{ ...project, duration: 2 },
 			{ ...project, launch: { ...project.launch, velocity: [1, 2, 3] as [number, number, number] } }
-		]) expect(canReuseWorldEdit(changed, { project, performance })).toBe(false);
+		])
+			expect(canReuseWorldEdit(changed, { project, performance })).toBe(false);
 		const linked = structuredClone(project);
 		const linkedObject = linked.objects[0];
 		if (linkedObject == null) throw new Error('Expected a linked object.');
@@ -64,14 +74,23 @@ describe('canReuseWorldEdit function', () => {
 		project.duration = 1;
 		project.objects = [];
 		project.notes = [];
-		project.marbles = [{ id: 'second', launch: { ...project.launch, position: [20, 30, 40] }, color: '#ffffff' }];
+		project.marbles = [
+			{ id: 'second', launch: { ...project.launch, position: [20, 30, 40] }, color: '#ffffff' }
+		];
 		const performance = await compilePerformance(project);
 		const bounds = performance.influenceBounds;
 		if (bounds == null) throw new Error('Expected swept influence bounds.');
-		for (const sample of [...performance.samples, ...(performance.additionalMarbles ?? []).flatMap((marble) => marble.samples)]) {
+		for (const sample of [
+			...performance.samples,
+			...(performance.additionalMarbles ?? []).flatMap((marble) => marble.samples)
+		]) {
 			for (let axis = 0; axis < 3; axis++) {
-				expect(bounds.min[axis]).toBeLessThanOrEqual((sample.position[axis] ?? 0) - project.launch.radius);
-				expect(bounds.max[axis]).toBeGreaterThanOrEqual((sample.position[axis] ?? 0) + project.launch.radius);
+				expect(bounds.min[axis]).toBeLessThanOrEqual(
+					(sample.position[axis] ?? 0) - project.launch.radius
+				);
+				expect(bounds.max[axis]).toBeGreaterThanOrEqual(
+					(sample.position[axis] ?? 0) + project.launch.radius
+				);
 			}
 		}
 	});

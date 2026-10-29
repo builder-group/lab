@@ -1,5 +1,10 @@
 import React from 'react';
-import { getProjectFileName, serializeProjectFile, triggerDownload, type TProject } from '../project';
+import {
+	getProjectFileName,
+	serializeProjectFile,
+	triggerDownload,
+	type TProject
+} from '../project';
 
 /** Keeps the latest project download available when the browser blocks the automatic attempt. */
 export function useProjectDownload() {

@@ -1,4 +1,12 @@
-import { Hand, Link2, type LucideIcon, MousePointer2, Move3D, Rotate3D, Scaling } from 'lucide-react';
+import {
+	Hand,
+	Link2,
+	MousePointer2,
+	Move3D,
+	Rotate3D,
+	Scaling,
+	type LucideIcon
+} from 'lucide-react';
 import { objectCatalog } from '../project';
 import type { TEditorCommand } from './CommandPalette';
 import type { TEditorTool } from './editor-types';

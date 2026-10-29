@@ -1,12 +1,15 @@
-import { createWorldObject } from './sample-project';
 import { createEmptyProject } from '../project';
 import type { TProject } from '../types';
+import { createWorldObject } from './sample-project';
 
 export function createAuthoredTestProject(): TProject {
 	const project = createEmptyProject();
 	project.id = 'authored-test-project';
 	project.name = 'A synthetic scene';
-	project.tempos = [{ time: 0, bpm: 120 }, { time: 8, bpm: 96 }];
+	project.tempos = [
+		{ time: 0, bpm: 120 },
+		{ time: 8, bpm: 96 }
+	];
 	project.notes = [
 		{ id: 'first', trackId: 'piano', time: 1, duration: 0.5, midi: 60, velocity: 0.8 },
 		{ id: 'second', trackId: 'piano', time: 3, duration: 0.75, midi: 67, velocity: 0.6 },
@@ -20,7 +23,10 @@ export function createAuthoredTestProject(): TProject {
 			instrument: 0,
 			muted: false,
 			solo: true,
-			controls: [{ number: 64, time: 1, value: 1 }, { number: 64, time: 2, value: 0 }],
+			controls: [
+				{ number: 64, time: 1, value: 1 },
+				{ number: 64, time: 2, value: 0 }
+			],
 			pitchBends: [{ time: 3, value: -0.25 }]
 		},
 		{
@@ -50,7 +56,11 @@ export function createAuthoredTestProject(): TProject {
 			...createWorldObject('rail', [1, -3, 0.5]),
 			id: 'curved-rail',
 			modelId: 'rail-curve',
-			path: [[-1, 0, 0], [0, -0.4, 0], [1, -0.2, 0]],
+			path: [
+				[-1, 0, 0],
+				[0, -0.4, 0],
+				[1, -0.2, 0]
+			],
 			friction: 0.4
 		},
 		{
@@ -60,16 +70,18 @@ export function createAuthoredTestProject(): TProject {
 			trajectoryAnchor: { time: 7, offset: [0.2, -0.1, 0] }
 		}
 	];
-	project.marbles = [{
-		id: 'answer',
-		name: 'Answer',
-		startTime: 2,
-		launch: { position: [2, 4, 0.8], velocity: [-0.5, 0, 0], radius: 0.2 },
-		color: '#e0a357',
-		style: 'glass',
-		effect: 'flow',
-		effectSpeed: 0.6
-	}];
+	project.marbles = [
+		{
+			id: 'answer',
+			name: 'Answer',
+			startTime: 2,
+			launch: { position: [2, 4, 0.8], velocity: [-0.5, 0, 0], radius: 0.2 },
+			color: '#e0a357',
+			style: 'glass',
+			effect: 'flow',
+			effectSpeed: 0.6
+		}
+	];
 	project.audio = { musicVolume: 0.8, surfaceVolume: 0.2, surfacesEnabled: true };
 	project.camera = {
 		fov: 40,
@@ -86,14 +98,16 @@ export function createAuthoredTestProject(): TProject {
 	};
 	if (project.scene == null) throw new Error('Expected the empty project to define its lighting.');
 	project.scene.theme = 'wall';
-	project.scene.keyframes = [{
-		id: 'lighting-end',
-		time: 8,
-		background: '#192c38',
-		keyColor: '#ffe8ce',
-		fillColor: '#9abddd',
-		exposure: 0.9
-	}];
+	project.scene.keyframes = [
+		{
+			id: 'lighting-end',
+			time: 8,
+			background: '#192c38',
+			keyColor: '#ffe8ce',
+			fillColor: '#9abddd',
+			exposure: 0.9
+		}
+	];
 	project.titles = [{ id: 'title', time: 1, duration: 2, text: 'A synthetic scene' }];
 	return project;
 }

@@ -1,5 +1,5 @@
-import { createDemoProject } from './fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
+import { createDemoProject } from './fixtures/sample-project';
 import { createProjectHistory } from './history';
 
 describe('createProjectHistory function', () => {

@@ -22,7 +22,9 @@ export function parseProjectFile(text: string): TProject {
 		'format' in document &&
 		document.format !== 'midimarble'
 	) {
-		throw new Error('This file uses a different project format. Choose a MidiMarble .marble project.');
+		throw new Error(
+			'This file uses a different project format. Choose a MidiMarble .marble project.'
+		);
 	}
 	return parseProject(text);
 }
@@ -56,7 +58,8 @@ export function readWorkingProject(saved: string | null): TWorkingProject {
 	} catch (error) {
 		return {
 			project: null,
-			error: error instanceof Error ? error.message : 'The browser working copy could not be opened.'
+			error:
+				error instanceof Error ? error.message : 'The browser working copy could not be opened.'
 		};
 	}
 }

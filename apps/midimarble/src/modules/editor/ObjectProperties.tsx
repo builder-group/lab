@@ -411,9 +411,15 @@ const RailProperties: React.FC<{
 }> = (props) => {
 	const { object, onUpdateObject } = props;
 	const width = object.size[0];
-	const path = React.useMemo(() => object.path ?? [
-		[-width / 2, 0, 0], [width / 2, 0, 0]
-	] as TVec3[], [object.path, width]);
+	const path = React.useMemo(
+		() =>
+			object.path ??
+			([
+				[-width / 2, 0, 0],
+				[width / 2, 0, 0]
+			] as TVec3[]),
+		[object.path, width]
+	);
 	return (
 		<PropertySection
 			title="Rail curve"

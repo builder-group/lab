@@ -33,7 +33,11 @@ export function prepareKeyFlexGeometry(geometry: THREE.BufferGeometry, object: T
 }
 
 /** Rounded boxes otherwise have long flat faces with vertices only at their ends. */
-function subdivideUnsupportedSpan(geometry: THREE.BufferGeometry, axis: number, length: number): void {
+function subdivideUnsupportedSpan(
+	geometry: THREE.BufferGeometry,
+	axis: number,
+	length: number
+): void {
 	const positions = geometry.getAttribute('position');
 	let minimum = Infinity;
 	let maximum = -Infinity;

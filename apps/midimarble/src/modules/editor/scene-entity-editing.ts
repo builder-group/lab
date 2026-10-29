@@ -37,9 +37,10 @@ export function getSceneEntityMovePatch(
 			keyframes: [],
 			distance: clamp(distance, 3, 200),
 			azimuth: distance > 0 ? Math.atan2(offset[0], offset[2]) : camera.azimuth,
-			elevation: distance > 0
-				? clamp(Math.atan2(offset[1], Math.hypot(offset[0], offset[2])), -1.55, 1.55)
-				: camera.elevation
+			elevation:
+				distance > 0
+					? clamp(Math.atan2(offset[1], Math.hypot(offset[0], offset[2])), -1.55, 1.55)
+					: camera.elevation
 		}
 	};
 }

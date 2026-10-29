@@ -1,6 +1,6 @@
-import { createWorldObject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
 import { type TPerformance, type TSceneObject } from '../project';
+import { createWorldObject } from '../project/fixtures/sample-project';
 import { getVisualObjects } from './scene-objects';
 
 describe('getVisualObjects function', () => {

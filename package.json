@@ -15,27 +15,27 @@
 	"author": "@bennobuilder",
 	"scripts": {
 		"build": "turbo run build",
-		"clean": "turbo run clean --force && shx rm -rf .turbo && shx rm -rf .vercel && shx rm -rf node_modules",
+		"clean": "turbo run clean && shx rm -rf .turbo && shx rm -rf .vercel && shx rm -rf node_modules",
 		"format": "prettier --write \"**/*.{ts,tsx,js,jsx,cjs,mjs,md,mdx,json,css,html}\"",
-		"install:clean": "pnpm clean && pnpm install && pnpm build",
+		"install:clean": "pnpm run clean && pnpm install && pnpm build",
 		"lint": "turbo run lint",
 		"lint:fix": "turbo run lint --force -- --fix",
 		"start:dev": "turbo run start:dev",
 		"test": "turbo run test",
 		"typecheck": "turbo run typecheck",
-		"update:latest": "turbo run update:latest --force --concurrency=1 && pnpm update --latest '!typescript' && pnpm build"
+		"update:latest": "turbo run update:latest --concurrency=1 && pnpm update --latest '!typescript' && pnpm build"
 	},
 	"devDependencies": {
 		"@blgc/config": "^0.1.2",
-		"eslint": "^10.8.1",
-		"prettier": "^3.9.6",
+		"eslint": "^10.13.0",
+		"prettier": "^3.9.10",
 		"shx": "^0.4.0",
-		"turbo": "^2.10.9",
+		"turbo": "^2.11.10",
 		"typescript": "^6.0.3",
-		"vite": "^8.2.1",
-		"vitest": "^4.1.10"
+		"vite": "^8.3.5",
+		"vitest": "^5.0.5"
 	},
-	"packageManager": "pnpm@11.21.0",
+	"packageManager": "pnpm@12.16.1",
 	"engines": {
 		"node": ">=24"
 	}

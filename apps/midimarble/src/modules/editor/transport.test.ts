@@ -1,7 +1,7 @@
-import { createDemoProject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
 import type { TAudioEngine } from '../music';
 import { type TPerformance, type TProject } from '../project';
+import { createDemoProject } from '../project/fixtures/sample-project';
 import {
 	createTransportController,
 	type TTransportController,

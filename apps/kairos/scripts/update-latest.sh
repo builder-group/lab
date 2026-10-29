@@ -7,9 +7,10 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${PROJECT_ROOT}"
 
-# Update packages outside Expo's native compatibility matrix first
+# Update packages outside Expo's compatibility list
 pnpm update --latest \
-	'!typescript' \
+	'!nativewind' \
+	'!react-native-css' \
 	'!@expo/*' \
 	'!expo' \
 	'!expo-*' \
@@ -19,12 +20,9 @@ pnpm update --latest \
 	'!react-native-*' \
 	'!@react-native-async-storage/async-storage'
 
-# Bump Expo separately, then let Expo align React and every native module
-# https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/
-pnpm add expo@latest
-pnpm exec expo install --fix
-pnpm dlx expo-doctor@latest
+pnpm update expo --latest
 
-if [[ -d ios ]]; then
-	pnpm dlx pod-install@latest
-fi
+# Note: EXPO_OFFLINE=1 makes Expo use the installed SDK's package versions
+# Online recommendations can include packages still blocked by pnpm's release delay
+EXPO_OFFLINE=1 pnpm exec expo install --fix
+EXPO_OFFLINE=1 pnpm dlx expo-doctor@latest

@@ -3,7 +3,7 @@ import React from 'react';
 import { useColorScheme, type ViewProps } from 'react-native';
 
 export const DurationPickerView: React.FC<TDurationPickerViewProps> = (props) => {
-	const colorScheme = useColorScheme();
+	const colorScheme = useColorScheme() ?? 'light';
 	return <NativeDurationPickerView {...props} colorScheme={colorScheme} />;
 };
 

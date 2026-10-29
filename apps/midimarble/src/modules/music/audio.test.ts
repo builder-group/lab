@@ -57,9 +57,11 @@ class TestAudioBuffer {
 }
 
 class TestAudioWorker {
-	onmessage: ((event: {
-		data: { id: number; left: Float32Array; right: Float32Array; sampleRate: number };
-	}) => void) | null = null;
+	onmessage:
+		| ((event: {
+				data: { id: number; left: Float32Array; right: Float32Array; sampleRate: number };
+		  }) => void)
+		| null = null;
 
 	postMessage(request: { id: number }): void {
 		queueMicrotask(() =>

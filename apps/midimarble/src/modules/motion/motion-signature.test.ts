@@ -1,6 +1,5 @@
-import { createDemoProject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
-
+import { createDemoProject } from '../project/fixtures/sample-project';
 import type { TProject } from '../project/types';
 import { getMotionSignature } from './motion-signature';
 

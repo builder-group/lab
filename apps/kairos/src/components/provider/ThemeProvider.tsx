@@ -35,7 +35,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 	// Sync native color scheme whenever the setting changes
 	useListener(settingsCx.$settings, ({ value }) => {
 		const pref = value.appearance.theme;
-		Appearance.setColorScheme((pref === 'system' ? null : pref) as ColorSchemeName);
+		Appearance.setColorScheme(pref === 'system' ? 'auto' : pref);
 	});
 
 	// MARK: - UI
@@ -58,6 +58,6 @@ export function useTheme(): TThemeCx {
 	return cx;
 }
 
-function resolveSystemTheme(systemTheme: ColorSchemeName): TThemeMode {
+function resolveSystemTheme(systemTheme: ColorSchemeName | null): TThemeMode {
 	return systemTheme === 'dark' ? 'dark' : 'light';
 }

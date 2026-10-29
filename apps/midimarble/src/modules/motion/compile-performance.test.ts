@@ -1,6 +1,9 @@
-import { createDemoProject, createObjectForNote, createWorldObject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
-
+import {
+	createDemoProject,
+	createObjectForNote,
+	createWorldObject
+} from '../project/fixtures/sample-project';
 import type { TProject, TSceneObject } from '../project/types';
 import { compilePerformance, samplePerformance, type TMotionProgress } from './index';
 
@@ -455,9 +458,9 @@ describe('compilePerformance function', () => {
 		const cold = await compilePerformance(changed);
 		expect(updates[0]?.reused).toBe(0);
 		// A warm build retains conservative sweep evidence from the earlier placement prediction.
-			const { influenceBounds: _warmBounds, ...warmBake } = warm;
-			const { influenceBounds: _coldBounds, ...coldBake } = cold;
-			expect(warmBake).toEqual(coldBake);
+		const { influenceBounds: _warmBounds, ...warmBake } = warm;
+		const { influenceBounds: _coldBounds, ...coldBake } = cold;
+		expect(warmBake).toEqual(coldBake);
 		expect(warm.objects.find((object) => object.id === 'bar-1')?.position).not.toEqual(
 			before.objects[0]?.position
 		);
@@ -474,9 +477,9 @@ describe('compilePerformance function', () => {
 		const warm = await compilePerformance(changed, { previous: { project, performance: before } });
 		const cold = await compilePerformance(changed);
 		// A warm build retains conservative sweep evidence from the earlier placement prediction.
-			const { influenceBounds: _warmBounds, ...warmBake } = warm;
-			const { influenceBounds: _coldBounds, ...coldBake } = cold;
-			expect(warmBake).toEqual(coldBake);
+		const { influenceBounds: _warmBounds, ...warmBake } = warm;
+		const { influenceBounds: _coldBounds, ...coldBake } = cold;
+		expect(warmBake).toEqual(coldBake);
 		expect(warm.samples).not.toEqual(before.samples);
 		expect(warm.warnings.length).toBeGreaterThan(0);
 	});

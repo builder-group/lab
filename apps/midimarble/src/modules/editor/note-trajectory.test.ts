@@ -1,6 +1,6 @@
-import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
 import { type TProject } from '../project';
+import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import { getNextUnlinkedNote, getNoteTrajectory } from './note-trajectory';
 
 describe('getNoteTrajectory function', () => {

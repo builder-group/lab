@@ -17,7 +17,11 @@ describe('getSceneEntityMovePatch function', () => {
 		const patch = getSceneEntityMovePatch(project, 'camera', [4, 6, 3], [1, 2, 3]);
 
 		expect(patch?.camera).toMatchObject({
-			fov: 55, lead: 0.7, followMarbles: true, keyframeSpace: 'follow', distance: 5
+			fov: 55,
+			lead: 0.7,
+			followMarbles: true,
+			keyframeSpace: 'follow',
+			distance: 5
 		});
 		expect(patch?.camera?.azimuth).toBeCloseTo(Math.PI / 2);
 		expect(patch?.camera?.elevation).toBeCloseTo(Math.atan2(4, 3));
@@ -44,10 +48,17 @@ describe('getSceneEntityMovePatch function', () => {
 
 	it('should leave authored animation untouched and only block the selected animated entity', () => {
 		const project = createEmptyProject();
-		if (project.camera == null || project.scene == null) throw new Error('Expected studio settings.');
-		project.camera.keyframes = [{
-			id: 'camera', time: 0, position: [0, 0, 8], target: [0, 0, 0], fov: 40
-		}];
+		if (project.camera == null || project.scene == null)
+			throw new Error('Expected studio settings.');
+		project.camera.keyframes = [
+			{
+				id: 'camera',
+				time: 0,
+				position: [0, 0, 8],
+				target: [0, 0, 0],
+				fov: 40
+			}
+		];
 		const original = structuredClone(project);
 		expect(getSceneEntityMovePatch(project, 'camera', [1, 2, 8], [0, 0, 0])).toBeNull();
 		expect(getSceneEntityMovePatch(project, 'lighting', [1, 2, 8], [0, 0, 0])).not.toBeNull();
@@ -64,10 +75,18 @@ describe('getSceneEntityMovePatch function', () => {
 		const camera = getSceneEntityMovePatch(project, 'camera', [0, 0, 9.2], [0, 0, 0]);
 		const light = getSceneEntityMovePatch(project, 'lighting', [2, 3, 4], [0, 0, 0]);
 		expect(camera?.camera).toEqual({
-			fov: 36, distance: 9.2, azimuth: 0, elevation: 0, lead: 0.42, keyframes: []
+			fov: 36,
+			distance: 9.2,
+			azimuth: 0,
+			elevation: 0,
+			lead: 0.42,
+			keyframes: []
 		});
 		expect(light?.scene).toEqual({
-			theme: 'studio', bloom: 1, ...evaluateLighting(undefined, 0), keyPosition: [2, 3, 4]
+			theme: 'studio',
+			bloom: 1,
+			...evaluateLighting(undefined, 0),
+			keyPosition: [2, 3, 4]
 		});
 	});
 
@@ -78,7 +97,9 @@ describe('getSceneEntityMovePatch function', () => {
 		expect(camera?.camera).toMatchObject({ distance: 200, elevation: 1.55 });
 		expect(light?.scene?.keyPosition).toEqual([-100, 100, -100]);
 		expect(parseProject(JSON.stringify({ ...project, ...camera, ...light }))).toEqual({
-			...project, ...camera, ...light
+			...project,
+			...camera,
+			...light
 		});
 	});
 
@@ -86,11 +107,15 @@ describe('getSceneEntityMovePatch function', () => {
 		const project = createEmptyProject();
 		const patch = getSceneEntityMovePatch(project, 'camera', [1, 2, 3], [1, 2, 3]);
 		expect(patch?.camera).toMatchObject({
-			distance: 3, azimuth: project.camera?.azimuth, elevation: project.camera?.elevation
+			distance: 3,
+			azimuth: project.camera?.azimuth,
+			elevation: project.camera?.elevation
 		});
 	});
 
 	it.each(['camera', 'lighting'] as const)('should ignore a non-finite %s drag', (entity) => {
-		expect(getSceneEntityMovePatch(createEmptyProject(), entity, [NaN, 2, 3], [0, 0, 0])).toBeNull();
+		expect(
+			getSceneEntityMovePatch(createEmptyProject(), entity, [NaN, 2, 3], [0, 0, 0])
+		).toBeNull();
 	});
 });

@@ -1,6 +1,5 @@
-import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
-
+import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import { getAdjacentObjectId, getObjectCollections } from './outliner';
 
 describe('getObjectCollections function', () => {

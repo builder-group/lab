@@ -61,8 +61,14 @@ export function makeMarble(
 		colors = [
 			`#${primary.clone().offsetHSL(0, 0.16, -0.15).getHexString()}`,
 			'#ffac3a',
-			`#${primary.clone().offsetHSL(warmRibbon ? 0.035 : -0.13, 0.08, -0.12).getHexString()}`,
-			`#${primary.clone().offsetHSL(warmRibbon ? -0.025 : 0.05, -0.05, 0.08).getHexString()}`
+			`#${primary
+				.clone()
+				.offsetHSL(warmRibbon ? 0.035 : -0.13, 0.08, -0.12)
+				.getHexString()}`,
+			`#${primary
+				.clone()
+				.offsetHSL(warmRibbon ? -0.025 : 0.05, -0.05, 0.08)
+				.getHexString()}`
 		];
 	}
 	for (let petal = 0; petal < colors.length; petal++) {
@@ -72,7 +78,8 @@ export function makeMarble(
 			const t = step / 60;
 			const y = (t * 2 - 1) * radius * 0.82;
 			const amplitude = (0.18 + Math.sin(t * Math.PI) * 0.67) * radius;
-			const angle = t * Math.PI * (berryRibbon ? 1.25 : 2.15) + (petal * Math.PI * 2) / colors.length;
+			const angle =
+				t * Math.PI * (berryRibbon ? 1.25 : 2.15) + (petal * Math.PI * 2) / colors.length;
 			const spread =
 				(isRibbon ? 0.11 + Math.sin(t * Math.PI) * 0.3 : 0.15 + Math.sin(t * Math.PI) * 0.39) *
 				(berryRibbon ? (petal === 1 ? 0.6 : 1.1) : 1);

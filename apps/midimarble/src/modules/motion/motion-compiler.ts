@@ -29,7 +29,8 @@ export function createMotionCompiler(options: TMotionCompilerOptions = {}): TMot
 
 	function reuse(project: TProject): TPerformance | null {
 		const signature = getMotionSignature(project);
-		const cached = cache.get(signature) ??
+		const cached =
+			cache.get(signature) ??
 			(previous != null && canReuseWorldEdit(project, previous) ? previous.performance : undefined);
 		if (cached == null) return null;
 		cancelPending('An existing bake replaced this prediction.');
@@ -197,8 +198,14 @@ function refreshObjectPresentation(performance: TPerformance, project: TProject)
 		noteMarkers: createNoteMarkers(project.notes, performance),
 		objects: project.objects.map((current) => {
 			const baked = resolved.get(current.id);
-			if (baked == null || (current.binding == null && current.trajectoryAnchor == null)) return current;
-			return { ...current, position: baked.position, rotation: baked.rotation, binding: baked.binding };
+			if (baked == null || (current.binding == null && current.trajectoryAnchor == null))
+				return current;
+			return {
+				...current,
+				position: baked.position,
+				rotation: baked.rotation,
+				binding: baked.binding
+			};
 		})
 	};
 }

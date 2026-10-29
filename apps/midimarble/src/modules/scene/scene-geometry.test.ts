@@ -1,7 +1,6 @@
-import { createWorldObject } from '../project/fixtures/sample-project';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-
+import { createWorldObject } from '../project/fixtures/sample-project';
 import { reconcileSceneObjects } from './scene-geometry';
 
 describe('reconcileSceneObjects function', () => {
@@ -47,14 +46,32 @@ describe('reconcileSceneObjects function', () => {
 	});
 
 	it('should rebuild a rounded nose while reusing the legacy blunt profile', () => {
-		const root = new THREE.Group(), groups = new Map<string, THREE.Group>(), signatures = new Map<string, string>();
+		const root = new THREE.Group(),
+			groups = new Map<string, THREE.Group>(),
+			signatures = new Map<string, string>();
 		const object = { ...createWorldObject('bar', [1, 2, 3]), modelId: 'key-spoon' as const };
 		const build = () => new THREE.Group();
 		reconcileSceneObjects(root, groups, signatures, [object], -0.7, build, () => {});
 		const blunt = groups.get(object.id);
-		reconcileSceneObjects(root, groups, signatures, [{ ...object, roundedNose: false }], -0.7, build, () => {});
+		reconcileSceneObjects(
+			root,
+			groups,
+			signatures,
+			[{ ...object, roundedNose: false }],
+			-0.7,
+			build,
+			() => {}
+		);
 		expect(groups.get(object.id)).toBe(blunt);
-		reconcileSceneObjects(root, groups, signatures, [{ ...object, roundedNose: true }], -0.7, build, () => {});
+		reconcileSceneObjects(
+			root,
+			groups,
+			signatures,
+			[{ ...object, roundedNose: true }],
+			-0.7,
+			build,
+			() => {}
+		);
 		expect(groups.get(object.id)).not.toBe(blunt);
 		expect(groups.get(object.id)?.position.toArray()).toEqual(object.position);
 	});

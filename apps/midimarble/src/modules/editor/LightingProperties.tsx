@@ -150,9 +150,9 @@ export const LightingProperties: React.FC<TLightingPropertiesProps> = (props) =>
 				icon={<Lightbulb size={12} />}
 				help={
 					<p>
-						Key light position is relative to the shot's focus. Move the light in Layout or edit
-						its coordinates here. A larger Z shortens shadows on the wall. When lighting is
-						animated, select a key to edit its look.
+						Key light position is relative to the shot's focus. Move the light in Layout or edit its
+						coordinates here. A larger Z shortens shadows on the wall. When lighting is animated,
+						select a key to edit its look.
 					</p>
 				}
 			>
@@ -253,8 +253,8 @@ export const LightingProperties: React.FC<TLightingPropertiesProps> = (props) =>
 				icon={<Diamond size={12} />}
 				help={
 					<p>
-						Key current lighting captures the look at the playhead. Drag Lighting diamonds in
-						the timeline to retime the blend. Base lighting applies before the first key.
+						Key current lighting captures the look at the playhead. Drag Lighting diamonds in the
+						timeline to retime the blend. Base lighting applies before the first key.
 					</p>
 				}
 			>

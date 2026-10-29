@@ -1,6 +1,5 @@
-import { createDemoProject } from '../project/fixtures/sample-project';
 import { describe, expect, it, vi } from 'vitest';
-
+import { createDemoProject } from '../project/fixtures/sample-project';
 import type { TPerformance, TProject } from '../project/types';
 import { createMotionCompiler, type TMotionWorker } from './motion-compiler';
 
@@ -19,12 +18,16 @@ describe('createMotionCompiler function', () => {
 		edited.objects.push({ ...model, id: 'distant', binding: null, position: [100, 100, 100] });
 		const added = await compiler.compile(edited);
 		expect(added.samples).toBe(bake.samples);
-		expect(added.objects.find((object) => object.id === 'distant')?.position).toEqual([100, 100, 100]);
+		expect(added.objects.find((object) => object.id === 'distant')?.position).toEqual([
+			100, 100, 100
+		]);
 		const object = edited.objects.find((object) => object.id === 'distant');
 		if (object == null) throw new Error('Expected the added world object.');
 		object.position = [110, 100, 100];
 		const moved = await compiler.compile(edited);
-		expect(moved.objects.find((candidate) => candidate.id === 'distant')?.position).toEqual([110, 100, 100]);
+		expect(moved.objects.find((candidate) => candidate.id === 'distant')?.position).toEqual([
+			110, 100, 100
+		]);
 		expect(workers).toHaveLength(1);
 		object.position = [0, 0, 0];
 		const rebuilt = compiler.compile(edited);
@@ -38,7 +41,11 @@ describe('createMotionCompiler function', () => {
 		const project = createDemoProject();
 		const bake = createPerformance(project);
 		bake.dt = 1;
-		bake.samples = [0, 1, 2, 3].map((time) => ({ time, position: [time * 2, 4, 0], rotation: [0, 0, 0, 1] }));
+		bake.samples = [0, 1, 2, 3].map((time) => ({
+			time,
+			position: [time * 2, 4, 0],
+			rotation: [0, 0, 0, 1]
+		}));
 		const load = vi.fn().mockResolvedValue(bake);
 		const { compiler, workers } = createCompilerWithFakeWorkers(load);
 		await compiler.compile(project);
@@ -50,11 +57,16 @@ describe('createMotionCompiler function', () => {
 		const added = await compiler.compile(edited);
 		expect(added.samples).toBe(bake.samples);
 		expect(added.noteMarkers.find((marker) => marker.noteId === 'music-only')).toMatchObject({
-			time: 1.25, position: [2.5, 4, 0], objectId: null, error: null
+			time: 1.25,
+			position: [2.5, 4, 0],
+			objectId: null,
+			error: null
 		});
 		musicNote.time = 2.5;
 		const moved = await compiler.compile(edited);
-		expect(moved.noteMarkers.find((marker) => marker.noteId === 'music-only')?.position).toEqual([5, 4, 0]);
+		expect(moved.noteMarkers.find((marker) => marker.noteId === 'music-only')?.position).toEqual([
+			5, 4, 0
+		]);
 		expect(workers).toHaveLength(0);
 		expect(load).toHaveBeenCalledOnce();
 		compiler.dispose();

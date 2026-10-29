@@ -1,6 +1,5 @@
-import { createWorldObject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
-
+import { createWorldObject } from '../project/fixtures/sample-project';
 import { getStrikePoint, getStrikePointPatch } from './object-editing';
 
 describe('getStrikePointPatch function', () => {

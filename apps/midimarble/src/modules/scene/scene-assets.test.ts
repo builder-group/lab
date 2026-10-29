@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { createCatalogObject, type TObjectModelId } from '../project';
-import { clearGroup } from './scene-resources';
 import {
 	createMaterials,
 	makeInstrument,
 	updateInstrumentReaction,
 	type TMaterials
 } from './scene-assets';
+import { clearGroup } from './scene-resources';
 
 describe('createMaterials function', () => {
 	it('should create refractive glass and preserve thin glass dimensions and metallic supports', () => {
@@ -128,8 +128,9 @@ describe('makeInstrument function', () => {
 			const length = Math.max(object.size[0], object.size[2]);
 			for (const side of [-1, 1]) {
 				const support = side * 0.31 * length;
-				const vertices = Array.from({ length: position.count }, (_, index) => index)
-					.filter((index) => Math.abs(position.getComponent(index, axis) - support) < 1e-6);
+				const vertices = Array.from({ length: position.count }, (_, index) => index).filter(
+					(index) => Math.abs(position.getComponent(index, axis) - support) < 1e-6
+				);
 				expect(vertices.length).toBeGreaterThan(0);
 				for (const index of vertices) {
 					expect(body.geometry.getAttribute('aKeyFlex').getX(index)).toBeCloseTo(0, 10);
@@ -485,7 +486,10 @@ describe('makeInstrument function', () => {
 		expect(group.getObjectByName('key-mount-bridge')).toBeUndefined();
 	});
 
-	it.each<[number, number, number]>([[0.35, 0.045, 1.5], [1.5, 0.045, 0.35]])(
+	it.each<[number, number, number]>([
+		[0.35, 0.045, 1.5],
+		[1.5, 0.045, 0.35]
+	])(
 		'should put the front flange at the positive length-axis tip (%s, %s, %s)',
 		(width, height, depth) => {
 			const object = {
@@ -518,12 +522,24 @@ describe('makeInstrument function', () => {
 
 describe('updateInstrumentReaction function', () => {
 	it('should keep rails unlit during impacts and continuous contact even with saved glow settings', () => {
-		const object = { ...createCatalogObject('rail-wave'), emission: 8, glowMode: 'contact' as const };
+		const object = {
+			...createCatalogObject('rail-wave'),
+			emission: 8,
+			glowMode: 'contact' as const
+		};
 		const mesh = makeInstrument(object, makeMaterials(), -0.7, true);
 		const material = mesh.userData['surfaceMaterial'] as THREE.MeshStandardMaterial;
 		for (const glowMode of ['contact', 'impact'] as const) {
-			expect(updateInstrumentReaction(mesh, { ...object, glowMode }, 1.04,
-				[{ time: 1, strength: 1 }], 1, [{ start: 1, end: 2 }])).toBe(0);
+			expect(
+				updateInstrumentReaction(
+					mesh,
+					{ ...object, glowMode },
+					1.04,
+					[{ time: 1, strength: 1 }],
+					1,
+					[{ start: 1, end: 2 }]
+				)
+			).toBe(0);
 			expect(material.emissiveIntensity).toBe(0);
 		}
 	});
@@ -652,7 +668,9 @@ describe('updateInstrumentReaction function', () => {
 				} as Parameters<THREE.Material['onBeforeCompile']>[0];
 				source.onBeforeCompile(shader, {} as THREE.WebGLRenderer);
 				expect(shader.vertexShader).toContain('transformed.y += aKeyFlex * uFlex');
-				expect(shader.vertexShader).toContain('objectNormal.z -= aKeyFlexSlope * uFlex * objectNormal.y');
+				expect(shader.vertexShader).toContain(
+					'objectNormal.z -= aKeyFlexSlope * uFlex * objectNormal.y'
+				);
 				expect(shader.uniforms['uFlex']).toBe(material.userData['flexUniform']);
 				return shader;
 			}

@@ -45,9 +45,10 @@ export function usePanelLayout() {
 					: requestedPanel;
 			const { variable, axis, invert } = PANELS[panel];
 			const original = root.style.getPropertyValue(variable);
-			const initial = panel === 'piano'
-				? timeline?.getBoundingClientRect().height ?? NaN
-				: Number.parseFloat(getComputedStyle(root).getPropertyValue(variable));
+			const initial =
+				panel === 'piano'
+					? (timeline?.getBoundingClientRect().height ?? NaN)
+					: Number.parseFloat(getComputedStyle(root).getPropertyValue(variable));
 			if (!Number.isFinite(initial)) return;
 			const start = axis === 'x' ? event.clientX : event.clientY;
 			let size = initial;

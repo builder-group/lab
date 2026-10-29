@@ -1,12 +1,5 @@
 import { objectCatalog } from './object-catalog';
-import type {
-	TLightingKeyframe,
-	TNote,
-	TProject,
-	TSceneObject,
-	TTrack,
-	TVec3
-} from './types';
+import type { TLightingKeyframe, TNote, TProject, TSceneObject, TTrack, TVec3 } from './types';
 
 export function createEmptyProject(): TProject {
 	return {
@@ -167,7 +160,11 @@ export function parseProject(text: string): TProject {
 	if (value['scene'] !== undefined) {
 		const scene = readRecord(value['scene'], 'Scene style');
 		project.scene = {
-			theme: readChoice(scene['theme'] === 'reference' ? 'wall' : scene['theme'], ['studio', 'wall'], 'Scene theme'),
+			theme: readChoice(
+				scene['theme'] === 'reference' ? 'wall' : scene['theme'],
+				['studio', 'wall'],
+				'Scene theme'
+			),
 			background: readColor(scene['background'], 'Background color'),
 			keyColor: readColor(scene['keyColor'], 'Key light color'),
 			fillColor: readColor(scene['fillColor'], 'Fill light color'),

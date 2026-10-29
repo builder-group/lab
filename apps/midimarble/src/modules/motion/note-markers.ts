@@ -23,21 +23,27 @@ export function createNoteMarkers(
 			{ ...performance, samples: track.samples }
 		])
 	);
-	return notes.filter((note) => note.time >= 0 && note.time <= until).map((note) => {
-		const object = objects.get(note.id);
-		let nearest: TImpact | undefined;
-		for (const impact of impacts.get(object?.id ?? '') ?? []) {
-			if (impact.noteId !== note.id) continue;
-			if (nearest == null || Math.abs(impact.time - note.time) < Math.abs(nearest.time - note.time))
-				nearest = impact;
-		}
-		const voice = object?.marbleId == null ? performance : (voices.get(object.marbleId) ?? performance);
-		return {
-			noteId: note.id,
-			time: note.time,
-			position: samplePerformance(voice, note.time).position,
-			objectId: object?.id ?? null,
-			error: nearest == null ? null : nearest.time - note.time
-		};
-	});
+	return notes
+		.filter((note) => note.time >= 0 && note.time <= until)
+		.map((note) => {
+			const object = objects.get(note.id);
+			let nearest: TImpact | undefined;
+			for (const impact of impacts.get(object?.id ?? '') ?? []) {
+				if (impact.noteId !== note.id) continue;
+				if (
+					nearest == null ||
+					Math.abs(impact.time - note.time) < Math.abs(nearest.time - note.time)
+				)
+					nearest = impact;
+			}
+			const voice =
+				object?.marbleId == null ? performance : (voices.get(object.marbleId) ?? performance);
+			return {
+				noteId: note.id,
+				time: note.time,
+				position: samplePerformance(voice, note.time).position,
+				objectId: object?.id ?? null,
+				error: nearest == null ? null : nearest.time - note.time
+			};
+		});
 }

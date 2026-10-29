@@ -1,7 +1,7 @@
-import { createWorldObject } from '../project/fixtures/sample-project';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { createEmptyProject } from '../project';
+import { createWorldObject } from '../project/fixtures/sample-project';
 import { getPhysicalBounds, getWallPosition } from './scene-bounds';
 
 describe('getPhysicalBounds function', () => {

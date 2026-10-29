@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TVec3 } from '../project';
-import { createCatalogRailPath } from '../project';
+import { createCatalogRailPath, type TVec3 } from '../project';
 import { deformRailProfile, getRailProfileHandles, getRailProfileProjection } from './rail-profile';
 
 describe('rail profile editing functions', () => {
@@ -19,7 +18,14 @@ describe('rail profile editing functions', () => {
 	});
 
 	it('should clamp moved coordinates while keeping the original depth', () => {
-		const changed = deformRailProfile([[99.9, -99.9, 0.3], [1, 1, 0.2]], 0, [5, -5]);
+		const changed = deformRailProfile(
+			[
+				[99.9, -99.9, 0.3],
+				[1, 1, 0.2]
+			],
+			0,
+			[5, -5]
+		);
 		expect(changed[0]).toEqual([100, -100, 0.3]);
 	});
 
@@ -31,7 +37,10 @@ describe('rail profile editing functions', () => {
 		expect(handles.at(-1)).toBe(path.length - 1);
 		expect(handles.length).toBeGreaterThanOrEqual(4);
 		expect(handles.length).toBeLessThanOrEqual(7);
-		const low = path.reduce((best, point, index) => point[1] < (path[best]?.[1] ?? Infinity) ? index : best, 0);
+		const low = path.reduce(
+			(best, point, index) => (point[1] < (path[best]?.[1] ?? Infinity) ? index : best),
+			0
+		);
 		expect(handles).toContain(low);
 	});
 
@@ -41,7 +50,16 @@ describe('rail profile editing functions', () => {
 	});
 
 	it('should keep a finite, uniform side-view scale for a flat or vertical profile', () => {
-		for (const path of [[[0, 0, 0], [6, 0, 0]], [[0, -2, 0], [0, 2, 0]]] as TVec3[][]) {
+		for (const path of [
+			[
+				[0, 0, 0],
+				[6, 0, 0]
+			],
+			[
+				[0, -2, 0],
+				[0, 2, 0]
+			]
+		] as TVec3[][]) {
 			const projection = getRailProfileProjection(path);
 			expect(Number.isFinite(projection.scale)).toBe(true);
 			for (const point of path) {

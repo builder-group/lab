@@ -13,7 +13,9 @@ describe('prepareKeyFlexGeometry function', () => {
 			geometry.setAttribute(
 				'position',
 				new THREE.Float32BufferAttribute(
-					along.flatMap((value) => axis === 'x' ? [value * length, 0, 0] : [0, 0, value * length]),
+					along.flatMap((value) =>
+						axis === 'x' ? [value * length, 0, 0] : [0, 0, value * length]
+					),
 					3
 				)
 			);

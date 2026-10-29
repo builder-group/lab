@@ -1,6 +1,6 @@
-import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
 import { type TPerformance } from '../project';
+import { createDemoProject, createWorldObject } from '../project/fixtures/sample-project';
 import { mixSurfaceAudio } from './surface-audio';
 
 describe('mixSurfaceAudio function', () => {

@@ -1,7 +1,7 @@
-import { createDemoProject } from '../project/fixtures/sample-project';
 import { describe, expect, it } from 'vitest';
 import { getMotionSignature } from '../motion/motion-signature';
 import { type TCameraSettings, type TPerformance, type TProject, type TVec3 } from '../project';
+import { createDemoProject } from '../project/fixtures/sample-project';
 import {
 	cameraPoseToKeyframeSpace,
 	convertCameraKeyframeSpace,
