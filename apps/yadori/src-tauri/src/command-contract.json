@@ -1,0 +1,2549 @@
+{
+	"format": "yadori/project@3",
+	"commands": {
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"maxItems": 1000,
+		"type": "array",
+		"items": {
+			"oneOf": [
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "part.add"
+						},
+						"part": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string",
+									"minLength": 1
+								},
+								"brand": {
+									"type": "string"
+								},
+								"description": {
+									"type": "string"
+								},
+								"capabilities": {
+									"type": "object",
+									"propertyNames": {
+										"type": "string",
+										"minLength": 1
+									},
+									"additionalProperties": {
+										"type": "object",
+										"properties": {
+											"$schema": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"required": ["$schema"],
+										"additionalProperties": {
+											"$ref": "#/$defs/__schema0"
+										}
+									}
+								},
+								"properties": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string",
+												"minLength": 1,
+												"maxLength": 200
+											},
+											"name": {
+												"type": "string"
+											},
+											"value": {
+												"$ref": "#/$defs/__schema0"
+											},
+											"unit": {
+												"type": ["string", "null"]
+											},
+											"sourceId": {
+												"anyOf": [
+													{
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													},
+													{
+														"type": "null"
+													}
+												]
+											}
+										},
+										"required": ["id", "name", "value", "unit", "sourceId"],
+										"additionalProperties": false
+									}
+								},
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"buildState": {
+									"type": "string",
+									"enum": ["wishlist", "in-build", "archived"]
+								},
+								"unit": {
+									"type": "string",
+									"enum": ["each", "m"]
+								},
+								"quantity": {
+									"type": "number",
+									"minimum": 0
+								},
+								"plannedQuantity": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"purchasePackQuantity": {
+									"anyOf": [
+										{
+											"type": "number",
+											"exclusiveMinimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"estimatedUnitPrice": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"notes": {
+									"type": "string"
+								},
+								"tags": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								},
+								"sourceIds": {
+									"type": "array",
+									"items": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 200
+									}
+								},
+								"sections": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								},
+								"libraryOrigin": {
+									"anyOf": [
+										{
+											"type": "object",
+											"properties": {
+												"itemId": {
+													"type": "string",
+													"minLength": 1,
+													"maxLength": 200
+												},
+												"revision": {
+													"type": "integer",
+													"exclusiveMinimum": 0,
+													"maximum": 9007199254740991
+												}
+											},
+											"required": ["itemId", "revision"],
+											"additionalProperties": false
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"libraryLink": {
+									"anyOf": [
+										{
+											"type": "object",
+											"properties": {
+												"itemId": {
+													"type": "string",
+													"minLength": 1,
+													"maxLength": 200
+												},
+												"appliedRevision": {
+													"type": "integer",
+													"exclusiveMinimum": 0,
+													"maximum": 9007199254740991
+												},
+												"base": {
+													"type": "object",
+													"properties": {
+														"name": {
+															"type": "string",
+															"minLength": 1
+														},
+														"brand": {
+															"type": "string"
+														},
+														"description": {
+															"type": "string"
+														},
+														"capabilities": {
+															"type": "object",
+															"propertyNames": {
+																"type": "string",
+																"minLength": 1
+															},
+															"additionalProperties": {
+																"type": "object",
+																"properties": {
+																	"$schema": {
+																		"type": "string",
+																		"minLength": 1
+																	}
+																},
+																"required": ["$schema"],
+																"additionalProperties": {
+																	"$ref": "#/$defs/__schema0"
+																}
+															}
+														},
+														"properties": {
+															"type": "array",
+															"items": {
+																"type": "object",
+																"properties": {
+																	"id": {
+																		"type": "string",
+																		"minLength": 1,
+																		"maxLength": 200
+																	},
+																	"name": {
+																		"type": "string"
+																	},
+																	"value": {
+																		"$ref": "#/$defs/__schema0"
+																	},
+																	"unit": {
+																		"type": ["string", "null"]
+																	},
+																	"sourceId": {
+																		"anyOf": [
+																			{
+																				"type": "string",
+																				"minLength": 1,
+																				"maxLength": 200
+																			},
+																			{
+																				"type": "null"
+																			}
+																		]
+																	}
+																},
+																"required": ["id", "name", "value", "unit", "sourceId"],
+																"additionalProperties": false
+															}
+														}
+													},
+													"required": [
+														"name",
+														"brand",
+														"description",
+														"capabilities",
+														"properties"
+													],
+													"additionalProperties": false
+												}
+											},
+											"required": ["itemId", "appliedRevision", "base"],
+											"additionalProperties": false
+										},
+										{
+											"type": "null"
+										}
+									]
+								}
+							},
+							"required": [
+								"name",
+								"brand",
+								"description",
+								"capabilities",
+								"properties",
+								"id",
+								"buildState",
+								"unit",
+								"quantity",
+								"plannedQuantity",
+								"purchasePackQuantity",
+								"estimatedUnitPrice",
+								"notes",
+								"tags",
+								"sourceIds",
+								"sections",
+								"libraryOrigin",
+								"libraryLink"
+							],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "part"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "part.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string",
+									"minLength": 1
+								},
+								"brand": {
+									"type": "string"
+								},
+								"description": {
+									"type": "string"
+								},
+								"capabilities": {
+									"type": "object",
+									"propertyNames": {
+										"type": "string",
+										"minLength": 1
+									},
+									"additionalProperties": {
+										"type": "object",
+										"properties": {
+											"$schema": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"required": ["$schema"],
+										"additionalProperties": {
+											"$ref": "#/$defs/__schema0"
+										}
+									}
+								},
+								"properties": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string",
+												"minLength": 1,
+												"maxLength": 200
+											},
+											"name": {
+												"type": "string"
+											},
+											"value": {
+												"$ref": "#/$defs/__schema0"
+											},
+											"unit": {
+												"type": ["string", "null"]
+											},
+											"sourceId": {
+												"anyOf": [
+													{
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													},
+													{
+														"type": "null"
+													}
+												]
+											}
+										},
+										"required": ["id", "name", "value", "unit", "sourceId"],
+										"additionalProperties": false
+									}
+								},
+								"buildState": {
+									"type": "string",
+									"enum": ["wishlist", "in-build", "archived"]
+								},
+								"unit": {
+									"type": "string",
+									"enum": ["each", "m"]
+								},
+								"quantity": {
+									"type": "number",
+									"minimum": 0
+								},
+								"plannedQuantity": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"purchasePackQuantity": {
+									"anyOf": [
+										{
+											"type": "number",
+											"exclusiveMinimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"estimatedUnitPrice": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"notes": {
+									"type": "string"
+								},
+								"tags": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								},
+								"sourceIds": {
+									"type": "array",
+									"items": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 200
+									}
+								},
+								"sections": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								},
+								"libraryOrigin": {
+									"anyOf": [
+										{
+											"type": "object",
+											"properties": {
+												"itemId": {
+													"type": "string",
+													"minLength": 1,
+													"maxLength": 200
+												},
+												"revision": {
+													"type": "integer",
+													"exclusiveMinimum": 0,
+													"maximum": 9007199254740991
+												}
+											},
+											"required": ["itemId", "revision"],
+											"additionalProperties": false
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"libraryLink": {
+									"anyOf": [
+										{
+											"type": "object",
+											"properties": {
+												"itemId": {
+													"type": "string",
+													"minLength": 1,
+													"maxLength": 200
+												},
+												"appliedRevision": {
+													"type": "integer",
+													"exclusiveMinimum": 0,
+													"maximum": 9007199254740991
+												},
+												"base": {
+													"type": "object",
+													"properties": {
+														"name": {
+															"type": "string",
+															"minLength": 1
+														},
+														"brand": {
+															"type": "string"
+														},
+														"description": {
+															"type": "string"
+														},
+														"capabilities": {
+															"type": "object",
+															"propertyNames": {
+																"type": "string",
+																"minLength": 1
+															},
+															"additionalProperties": {
+																"type": "object",
+																"properties": {
+																	"$schema": {
+																		"type": "string",
+																		"minLength": 1
+																	}
+																},
+																"required": ["$schema"],
+																"additionalProperties": {
+																	"$ref": "#/$defs/__schema0"
+																}
+															}
+														},
+														"properties": {
+															"type": "array",
+															"items": {
+																"type": "object",
+																"properties": {
+																	"id": {
+																		"type": "string",
+																		"minLength": 1,
+																		"maxLength": 200
+																	},
+																	"name": {
+																		"type": "string"
+																	},
+																	"value": {
+																		"$ref": "#/$defs/__schema0"
+																	},
+																	"unit": {
+																		"type": ["string", "null"]
+																	},
+																	"sourceId": {
+																		"anyOf": [
+																			{
+																				"type": "string",
+																				"minLength": 1,
+																				"maxLength": 200
+																			},
+																			{
+																				"type": "null"
+																			}
+																		]
+																	}
+																},
+																"required": ["id", "name", "value", "unit", "sourceId"],
+																"additionalProperties": false
+															}
+														}
+													},
+													"required": [
+														"name",
+														"brand",
+														"description",
+														"capabilities",
+														"properties"
+													],
+													"additionalProperties": false
+												}
+											},
+											"required": ["itemId", "appliedRevision", "base"],
+											"additionalProperties": false
+										},
+										{
+											"type": "null"
+										}
+									]
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "part.remove"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "part.detach"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "part.apply-library"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"item": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string",
+									"minLength": 1
+								},
+								"brand": {
+									"type": "string"
+								},
+								"description": {
+									"type": "string"
+								},
+								"capabilities": {
+									"type": "object",
+									"propertyNames": {
+										"type": "string",
+										"minLength": 1
+									},
+									"additionalProperties": {
+										"type": "object",
+										"properties": {
+											"$schema": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"required": ["$schema"],
+										"additionalProperties": {
+											"$ref": "#/$defs/__schema0"
+										}
+									}
+								},
+								"properties": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string",
+												"minLength": 1,
+												"maxLength": 200
+											},
+											"name": {
+												"type": "string"
+											},
+											"value": {
+												"$ref": "#/$defs/__schema0"
+											},
+											"unit": {
+												"type": ["string", "null"]
+											},
+											"sourceId": {
+												"anyOf": [
+													{
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													},
+													{
+														"type": "null"
+													}
+												]
+											}
+										},
+										"required": ["id", "name", "value", "unit", "sourceId"],
+										"additionalProperties": false
+									}
+								},
+								"$schema": {
+									"type": "string",
+									"const": "yadori/library-item@1"
+								},
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"revision": {
+									"type": "integer",
+									"exclusiveMinimum": 0,
+									"maximum": 9007199254740991
+								},
+								"tags": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								},
+								"sourceUrl": {
+									"type": ["string", "null"]
+								}
+							},
+							"required": [
+								"name",
+								"brand",
+								"description",
+								"capabilities",
+								"properties",
+								"$schema",
+								"id",
+								"revision",
+								"tags",
+								"sourceUrl"
+							],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "item"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "part.reset-library-field"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"field": {
+							"type": "string",
+							"enum": ["name", "brand", "description", "capabilities", "properties"]
+						}
+					},
+					"required": ["type", "id", "field"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "alternative.add"
+						},
+						"alternative": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"aPartId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"bPartId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								}
+							},
+							"required": ["id", "aPartId", "bPartId"],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "alternative"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "alternative.remove"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "alternative.use"
+						},
+						"chosenId": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"replacedId": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "chosenId", "replacedId"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "instance.add"
+						},
+						"instance": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"partId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"label": {
+									"type": "string"
+								},
+								"installed": {
+									"type": "boolean"
+								}
+							},
+							"required": ["id", "partId", "label", "installed"],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "instance"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "instance.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"partId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"label": {
+									"type": "string"
+								},
+								"installed": {
+									"type": "boolean"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "instance.remove"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "layout.add"
+						},
+						"layout": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"name": {
+									"type": "string",
+									"minLength": 1
+								},
+								"widthMm": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"heightMm": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"kind": {
+									"type": "string",
+									"enum": ["board", "wall", "floor"]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"required": ["id", "name", "widthMm", "heightMm", "kind", "notes"],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "layout"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "layout.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string",
+									"minLength": 1
+								},
+								"widthMm": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"heightMm": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"kind": {
+									"type": "string",
+									"enum": ["board", "wall", "floor"]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "placement.add"
+						},
+						"placement": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"instanceId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"layoutId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"xMm": {
+									"type": "number"
+								},
+								"yMm": {
+									"type": "number"
+								},
+								"rotation": {
+									"anyOf": [
+										{
+											"type": "number",
+											"const": 0
+										},
+										{
+											"type": "number",
+											"const": 90
+										},
+										{
+											"type": "number",
+											"const": 180
+										},
+										{
+											"type": "number",
+											"const": 270
+										}
+									]
+								}
+							},
+							"required": ["id", "instanceId", "layoutId", "xMm", "yMm", "rotation"],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "placement"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "placement.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"instanceId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"layoutId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"xMm": {
+									"type": "number"
+								},
+								"yMm": {
+									"type": "number"
+								},
+								"rotation": {
+									"anyOf": [
+										{
+											"type": "number",
+											"const": 0
+										},
+										{
+											"type": "number",
+											"const": 90
+										},
+										{
+											"type": "number",
+											"const": 180
+										},
+										{
+											"type": "number",
+											"const": 270
+										}
+									]
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "placement.remove"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "run.add"
+						},
+						"run": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"name": {
+									"type": "string"
+								},
+								"layoutId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"materialPartId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"topology": {
+									"type": "string",
+									"enum": ["standard", "series"]
+								},
+								"conductors": {
+									"minItems": 1,
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string",
+												"minLength": 1,
+												"maxLength": 200
+											},
+											"name": {
+												"type": "string"
+											},
+											"coreIndex": {
+												"type": "integer",
+												"minimum": 0,
+												"maximum": 9007199254740991
+											},
+											"from": {
+												"type": "object",
+												"properties": {
+													"instanceId": {
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													},
+													"portId": {
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													}
+												},
+												"required": ["instanceId", "portId"],
+												"additionalProperties": false
+											},
+											"to": {
+												"type": "object",
+												"properties": {
+													"instanceId": {
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													},
+													"portId": {
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													}
+												},
+												"required": ["instanceId", "portId"],
+												"additionalProperties": false
+											}
+										},
+										"required": ["id", "name", "coreIndex", "from", "to"],
+										"additionalProperties": false
+									}
+								},
+								"route": {
+									"minItems": 2,
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"x": {
+												"type": "number"
+											},
+											"y": {
+												"type": "number"
+											}
+										},
+										"required": ["x", "y"],
+										"additionalProperties": false
+									}
+								},
+								"lengthBasis": {
+									"type": "string",
+									"enum": ["route", "manual", "measured"]
+								},
+								"sizing": {
+									"anyOf": [
+										{
+											"type": "object",
+											"properties": {
+												"circuit": {
+													"type": "string",
+													"enum": ["dc", "ac", "unknown"]
+												},
+												"voltageV": {
+													"anyOf": [
+														{
+															"type": "number",
+															"exclusiveMinimum": 0
+														},
+														{
+															"type": "null"
+														}
+													]
+												},
+												"maxDropPercent": {
+													"type": "number",
+													"exclusiveMinimum": 0,
+													"exclusiveMaximum": 100
+												},
+												"roundTripFactor": {
+													"anyOf": [
+														{
+															"type": "number",
+															"const": 1
+														},
+														{
+															"type": "number",
+															"const": 2
+														}
+													]
+												},
+												"conductorTemperatureC": {
+													"type": "number",
+													"minimum": -20,
+													"maximum": 105
+												}
+											},
+											"required": [
+												"circuit",
+												"voltageV",
+												"maxDropPercent",
+												"roundTripFactor",
+												"conductorTemperatureC"
+											],
+											"additionalProperties": false
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"lengthM": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"extraLengthM": {
+									"type": "number",
+									"minimum": 0
+								},
+								"currentA": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"fuseA": {
+									"anyOf": [
+										{
+											"type": "number",
+											"exclusiveMinimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"id",
+								"name",
+								"layoutId",
+								"materialPartId",
+								"topology",
+								"conductors",
+								"route",
+								"lengthBasis",
+								"sizing",
+								"lengthM",
+								"extraLengthM",
+								"currentA",
+								"fuseA",
+								"notes"
+							],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "run"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "run.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								},
+								"layoutId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"materialPartId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"topology": {
+									"type": "string",
+									"enum": ["standard", "series"]
+								},
+								"conductors": {
+									"minItems": 1,
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string",
+												"minLength": 1,
+												"maxLength": 200
+											},
+											"name": {
+												"type": "string"
+											},
+											"coreIndex": {
+												"type": "integer",
+												"minimum": 0,
+												"maximum": 9007199254740991
+											},
+											"from": {
+												"type": "object",
+												"properties": {
+													"instanceId": {
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													},
+													"portId": {
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													}
+												},
+												"required": ["instanceId", "portId"],
+												"additionalProperties": false
+											},
+											"to": {
+												"type": "object",
+												"properties": {
+													"instanceId": {
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													},
+													"portId": {
+														"type": "string",
+														"minLength": 1,
+														"maxLength": 200
+													}
+												},
+												"required": ["instanceId", "portId"],
+												"additionalProperties": false
+											}
+										},
+										"required": ["id", "name", "coreIndex", "from", "to"],
+										"additionalProperties": false
+									}
+								},
+								"route": {
+									"minItems": 2,
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"x": {
+												"type": "number"
+											},
+											"y": {
+												"type": "number"
+											}
+										},
+										"required": ["x", "y"],
+										"additionalProperties": false
+									}
+								},
+								"lengthBasis": {
+									"type": "string",
+									"enum": ["route", "manual", "measured"]
+								},
+								"sizing": {
+									"anyOf": [
+										{
+											"type": "object",
+											"properties": {
+												"circuit": {
+													"type": "string",
+													"enum": ["dc", "ac", "unknown"]
+												},
+												"voltageV": {
+													"anyOf": [
+														{
+															"type": "number",
+															"exclusiveMinimum": 0
+														},
+														{
+															"type": "null"
+														}
+													]
+												},
+												"maxDropPercent": {
+													"type": "number",
+													"exclusiveMinimum": 0,
+													"exclusiveMaximum": 100
+												},
+												"roundTripFactor": {
+													"anyOf": [
+														{
+															"type": "number",
+															"const": 1
+														},
+														{
+															"type": "number",
+															"const": 2
+														}
+													]
+												},
+												"conductorTemperatureC": {
+													"type": "number",
+													"minimum": -20,
+													"maximum": 105
+												}
+											},
+											"required": [
+												"circuit",
+												"voltageV",
+												"maxDropPercent",
+												"roundTripFactor",
+												"conductorTemperatureC"
+											],
+											"additionalProperties": false
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"lengthM": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"extraLengthM": {
+									"type": "number",
+									"minimum": 0
+								},
+								"currentA": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"fuseA": {
+									"anyOf": [
+										{
+											"type": "number",
+											"exclusiveMinimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "run.remove"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "source.add"
+						},
+						"source": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"partId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"kind": {
+									"type": "string",
+									"enum": ["product", "seller", "video", "datasheet", "other"]
+								},
+								"title": {
+									"type": "string"
+								},
+								"url": {
+									"type": "string"
+								},
+								"provider": {
+									"anyOf": [
+										{
+											"type": "string",
+											"enum": ["idealo", "agent"]
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"productId": {
+									"type": ["string", "null"]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"id",
+								"partId",
+								"kind",
+								"title",
+								"url",
+								"provider",
+								"productId",
+								"notes"
+							],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "source"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "source.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"partId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"kind": {
+									"type": "string",
+									"enum": ["product", "seller", "video", "datasheet", "other"]
+								},
+								"title": {
+									"type": "string"
+								},
+								"url": {
+									"type": "string"
+								},
+								"provider": {
+									"anyOf": [
+										{
+											"type": "string",
+											"enum": ["idealo", "agent"]
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"productId": {
+									"type": ["string", "null"]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "source.remove"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "quote.add"
+						},
+						"quote": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"partId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"sourceId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"observedAt": {
+									"type": "string"
+								},
+								"currency": {
+									"type": "string",
+									"const": "EUR"
+								},
+								"price": {
+									"type": "number",
+									"minimum": 0
+								},
+								"packQuantity": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"unit": {
+									"type": "string",
+									"enum": ["each", "m"]
+								},
+								"seller": {
+									"type": ["string", "null"]
+								},
+								"shipping": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"tax": {
+									"type": "string",
+									"enum": ["gross", "net", "unknown"]
+								},
+								"condition": {
+									"type": "string",
+									"enum": ["new", "used", "unknown"]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"id",
+								"partId",
+								"sourceId",
+								"observedAt",
+								"currency",
+								"price",
+								"packQuantity",
+								"unit",
+								"seller",
+								"shipping",
+								"tax",
+								"condition",
+								"notes"
+							],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "quote"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "purchase.add"
+						},
+						"purchase": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"partId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"sourceId": {
+									"anyOf": [
+										{
+											"type": "string",
+											"minLength": 1,
+											"maxLength": 200
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"orderedAt": {
+									"type": "string"
+								},
+								"quantity": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"unit": {
+									"type": "string",
+									"enum": ["each", "m"]
+								},
+								"totalPrice": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"shipping": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"status": {
+									"type": "string",
+									"enum": ["ordered", "received", "returned"]
+								},
+								"receiptAssetId": {
+									"anyOf": [
+										{
+											"type": "string",
+											"minLength": 1,
+											"maxLength": 200
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"id",
+								"partId",
+								"sourceId",
+								"orderedAt",
+								"quantity",
+								"unit",
+								"totalPrice",
+								"shipping",
+								"status",
+								"receiptAssetId",
+								"notes"
+							],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "purchase"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "purchase.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"partId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"sourceId": {
+									"anyOf": [
+										{
+											"type": "string",
+											"minLength": 1,
+											"maxLength": 200
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"orderedAt": {
+									"type": "string"
+								},
+								"quantity": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"unit": {
+									"type": "string",
+									"enum": ["each", "m"]
+								},
+								"totalPrice": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"shipping": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"status": {
+									"type": "string",
+									"enum": ["ordered", "received", "returned"]
+								},
+								"receiptAssetId": {
+									"anyOf": [
+										{
+											"type": "string",
+											"minLength": 1,
+											"maxLength": 200
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "stock.add"
+						},
+						"stock": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"partId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"purchaseId": {
+									"anyOf": [
+										{
+											"type": "string",
+											"minLength": 1,
+											"maxLength": 200
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"label": {
+									"type": "string"
+								},
+								"lengthM": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"continuity": {
+									"type": "string",
+									"enum": ["continuous", "unknown"]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"required": ["id", "partId", "purchaseId", "label", "lengthM", "continuity", "notes"],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "stock"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "stock.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"partId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"purchaseId": {
+									"anyOf": [
+										{
+											"type": "string",
+											"minLength": 1,
+											"maxLength": 200
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"label": {
+									"type": "string"
+								},
+								"lengthM": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"continuity": {
+									"type": "string",
+									"enum": ["continuous", "unknown"]
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "stock.remove"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "cut.add"
+						},
+						"cut": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"stockPieceId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"runId": {
+									"anyOf": [
+										{
+											"type": "string",
+											"minLength": 1,
+											"maxLength": 200
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"lengthM": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"wasteM": {
+									"type": "number",
+									"minimum": 0
+								},
+								"recordedAt": {
+									"type": "string"
+								},
+								"installed": {
+									"type": "boolean"
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"id",
+								"stockPieceId",
+								"runId",
+								"lengthM",
+								"wasteM",
+								"recordedAt",
+								"installed",
+								"notes"
+							],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "cut"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "cut.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"stockPieceId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"runId": {
+									"anyOf": [
+										{
+											"type": "string",
+											"minLength": 1,
+											"maxLength": 200
+										},
+										{
+											"type": "null"
+										}
+									]
+								},
+								"lengthM": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								},
+								"wasteM": {
+									"type": "number",
+									"minimum": 0
+								},
+								"recordedAt": {
+									"type": "string"
+								},
+								"installed": {
+									"type": "boolean"
+								},
+								"notes": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "cut.remove"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "allocation.add"
+						},
+						"allocation": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"stockPieceId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"runId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"lengthM": {
+									"type": "number",
+									"exclusiveMinimum": 0
+								}
+							},
+							"required": ["id", "stockPieceId", "runId", "lengthM"],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "allocation"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "allocation.remove"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						}
+					},
+					"required": ["type", "id"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "asset.add"
+						},
+						"asset": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"name": {
+									"type": "string"
+								},
+								"mediaType": {
+									"type": "string"
+								},
+								"relativePath": {
+									"type": "string",
+									"minLength": 1
+								},
+								"sourceUrl": {
+									"type": ["string", "null"]
+								},
+								"attribution": {
+									"type": ["string", "null"]
+								}
+							},
+							"required": ["id", "name", "mediaType", "relativePath", "sourceUrl", "attribution"],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "asset"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "review.add"
+						},
+						"review": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"targetType": {
+									"type": "string",
+									"enum": ["project", "part", "run"]
+								},
+								"targetId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"title": {
+									"type": "string"
+								},
+								"text": {
+									"type": "string"
+								},
+								"status": {
+									"type": "string",
+									"enum": ["open", "resolved"]
+								},
+								"source": {
+									"type": "string",
+									"enum": ["user", "agent"]
+								},
+								"createdAt": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"id",
+								"targetType",
+								"targetId",
+								"title",
+								"text",
+								"status",
+								"source",
+								"createdAt"
+							],
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "review"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "review.update"
+						},
+						"id": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 200
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"targetType": {
+									"type": "string",
+									"enum": ["project", "part", "run"]
+								},
+								"targetId": {
+									"type": "string",
+									"minLength": 1,
+									"maxLength": 200
+								},
+								"title": {
+									"type": "string"
+								},
+								"text": {
+									"type": "string"
+								},
+								"status": {
+									"type": "string",
+									"enum": ["open", "resolved"]
+								},
+								"source": {
+									"type": "string",
+									"enum": ["user", "agent"]
+								},
+								"createdAt": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "id", "patch"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "project.update"
+						},
+						"patch": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string",
+									"minLength": 1
+								},
+								"budget": {
+									"anyOf": [
+										{
+											"type": "number",
+											"minimum": 0
+										},
+										{
+											"type": "null"
+										}
+									]
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"required": ["type", "patch"],
+					"additionalProperties": false
+				}
+			]
+		},
+		"$defs": {
+			"__schema0": {
+				"anyOf": [
+					{
+						"type": "string"
+					},
+					{
+						"type": "number"
+					},
+					{
+						"type": "boolean"
+					},
+					{
+						"type": "null"
+					},
+					{
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/__schema0"
+						}
+					},
+					{
+						"type": "object",
+						"propertyNames": {
+							"type": "string"
+						},
+						"additionalProperties": {
+							"$ref": "#/$defs/__schema0"
+						}
+					}
+				]
+			}
+		}
+	},
+	"guidance": "Submit small command batches at the saved base revision. Keep stable IDs. Add source URLs for researched facts; keep uncertain ratings unknown. Use review.add for findings. Commands are validated and dry-run in the UI before user approval; never write project files directly."
+}

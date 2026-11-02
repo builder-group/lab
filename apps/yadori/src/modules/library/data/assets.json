@@ -1,0 +1,306 @@
+[
+	{
+		"id": "library:battery-12-200",
+		"name": "battery-12-200.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/battery-12-200.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/BAT512120610%20LiFePO4%20Battery%2012%2C8V-200Ah%20Smart%20%28front%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:orion-12-24-15",
+		"name": "orion-12-24-15.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/orion-12-24-15.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/Orion-Tr%20Smart%2012-24-15%20%28front%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:orion-12-12-30",
+		"name": "orion-12-12-30.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/orion-12-12-30.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/Orion-Tr%20Smart%2012-12-30%20%28front%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:orion-24-12-20",
+		"name": "orion-24-12-20.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/orion-24-12-20.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/Orion-Tr%20Smart%2024-12-20%20%28front%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:mppt-100-30",
+		"name": "mppt-100-30.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/mppt-100-30.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/SmartSolar%20MPPT%20100-30%20%28front%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:mppt-100-50",
+		"name": "mppt-100-50.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/mppt-100-50.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/SmartSolar%20MPPT%20100-50%20%28front%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:multiplus-24-3000",
+		"name": "multiplus-24-3000.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/multiplus-24-3000.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/MultiPlus-II%2024V%203kVA%20%28front%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:lynx-power-in",
+		"name": "lynx-power-in.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/lynx-power-in.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/Lynx%20power%20in%20%28front_open%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:lynx-shunt",
+		"name": "lynx-shunt.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/lynx-shunt.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/Lynx%20shunt%20VE.Can%20%28front_open%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:cerbo-gx",
+		"name": "cerbo-gx.webp",
+		"mediaType": "image/webp",
+		"relativePath": "library/cerbo-gx.webp",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/Cerbo%20GX%20%28front%29.png",
+		"attribution": "Victron Energy — official product download. Manufacturer copyright; prototype reference use."
+	},
+	{
+		"id": "library:switch",
+		"name": "switch.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/switch.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:display",
+		"name": "display.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/display.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:solar",
+		"name": "solar.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/solar.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:vehicle-battery",
+		"name": "vehicle-battery.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/vehicle-battery.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:controller",
+		"name": "controller.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/controller.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:fuse-block",
+		"name": "fuse-block.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/fuse-block.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:load",
+		"name": "load.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/load.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:shore",
+		"name": "shore.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/shore.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:ac-distribution",
+		"name": "ac-distribution.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/ac-distribution.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:outlet",
+		"name": "outlet.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/outlet.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:fuse",
+		"name": "fuse.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/fuse.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:ground",
+		"name": "ground.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/ground.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:busbar",
+		"name": "busbar.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/busbar.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:pump",
+		"name": "pump.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/pump.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:heater",
+		"name": "heater.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/heater.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:converter",
+		"name": "converter.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/converter.svg",
+		"sourceUrl": null,
+		"attribution": "Yadori — original generic planning symbol. Illustrative; not a manufacturer mounting drawing."
+	},
+	{
+		"id": "library:battery-12-200-flat-v2",
+		"name": "battery-12-200-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/battery-12-200-flat-v2.svg",
+		"sourceUrl": "https://app.wireelectric.nl/symbols/victron-smart-lithium.svg",
+		"attribution": "WireElectric-hosted vector illustration; Victron Energy branding. Original authorship of the simplified vector is unverified. Body-only calibrated derivative for this private prototype; see docs/artwork-sources.md."
+	},
+	{
+		"id": "library:lynx-power-in-flat-v2",
+		"name": "lynx-power-in-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/lynx-power-in-flat-v2.svg",
+		"sourceUrl": "https://app.wireelectric.nl/symbols/victron-lynx-power-in.svg",
+		"attribution": "WireElectric-hosted vector illustration; Victron Energy branding. Original authorship of the simplified vector is unverified. Body-only calibrated derivative for this private prototype; see docs/artwork-sources.md."
+	},
+	{
+		"id": "library:mppt-100-30-flat-v2",
+		"name": "mppt-100-30-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/mppt-100-30-flat-v2.svg",
+		"sourceUrl": "https://app.wireelectric.nl/symbols/victron-smartsolar-mppt-6466d7.svg",
+		"attribution": "WireElectric-hosted vector illustration; Victron Energy branding. Original authorship of the simplified vector is unverified. Body-only calibrated derivative for this private prototype; see docs/artwork-sources.md."
+	},
+	{
+		"id": "library:mppt-100-50-flat-v2",
+		"name": "mppt-100-50-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/mppt-100-50-flat-v2.svg",
+		"sourceUrl": "https://app.wireelectric.nl/symbols/victron-smartsolar-mppt.svg",
+		"attribution": "WireElectric-hosted vector illustration; Victron Energy branding. Original authorship of the simplified vector is unverified. Body-only calibrated derivative for this private prototype; see docs/artwork-sources.md."
+	},
+	{
+		"id": "library:orion-12-12-30-flat-v2",
+		"name": "orion-12-12-30-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/orion-12-12-30-flat-v2.svg",
+		"sourceUrl": "https://app.wireelectric.nl/symbols/victron-orion-tr-smart-charger.svg",
+		"attribution": "WireElectric-hosted vector illustration; Victron Energy branding. Original authorship of the simplified vector is unverified. Body-only calibrated derivative for this private prototype; see docs/artwork-sources.md."
+	},
+	{
+		"id": "library:orion-12-24-15-flat-v2",
+		"name": "orion-12-24-15-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/orion-12-24-15-flat-v2.svg",
+		"sourceUrl": "https://app.wireelectric.nl/symbols/victron-orion-tr-smart-charger.svg",
+		"attribution": "WireElectric-hosted vector illustration; Victron Energy branding. Original authorship of the simplified vector is unverified. Body-only calibrated derivative for this private prototype; see docs/artwork-sources.md."
+	},
+	{
+		"id": "library:orion-24-12-20-flat-v2",
+		"name": "orion-24-12-20-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/orion-24-12-20-flat-v2.svg",
+		"sourceUrl": "https://app.wireelectric.nl/symbols/victron-orion-tr-smart-charger.svg",
+		"attribution": "WireElectric-hosted vector illustration; Victron Energy branding. Original authorship of the simplified vector is unverified. Body-only calibrated derivative for this private prototype; see docs/artwork-sources.md."
+	},
+	{
+		"id": "library:multiplus-24-3000-flat-v2",
+		"name": "multiplus-24-3000-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/multiplus-24-3000-flat-v2.svg",
+		"sourceUrl": "https://app.wireelectric.nl/symbols/victron-multiplus-ii-939c14.svg",
+		"attribution": "WireElectric-hosted vector illustration; Victron Energy branding. Original authorship of the simplified vector is unverified. Body-only calibrated derivative for this private prototype; see docs/artwork-sources.md."
+	},
+	{
+		"id": "library:cerbo-gx-flat-v2",
+		"name": "cerbo-gx-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/cerbo-gx-flat-v2.svg",
+		"sourceUrl": "https://app.wireelectric.nl/symbols/victron-cerbo-gx-4ed8b3.svg",
+		"attribution": "WireElectric-hosted vector illustration; Victron Energy branding. Original authorship of the simplified vector is unverified. Body-only calibrated derivative for this private prototype; see docs/artwork-sources.md."
+	},
+	{
+		"id": "library:gx-touch-70-drawing-flat-v2",
+		"name": "gx-touch-70-drawing-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/gx-touch-70-drawing-flat-v2.svg",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/GX-Touch-70.pdf",
+		"attribution": "Victron Energy official dimension drawing, converted to a body-only orthographic SVG crop; © Victron Energy. Private prototype reference."
+	},
+	{
+		"id": "library:lynx-shunt-drawing-flat-v2",
+		"name": "lynx-shunt-drawing-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/lynx-shunt-drawing-flat-v2.svg",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/Lynx-Shunt-VE.Can.pdf",
+		"attribution": "Victron Energy official dimension drawing, converted to a body-only orthographic SVG crop; © Victron Energy. Private prototype reference."
+	},
+	{
+		"id": "library:orion-24-12-70-drawing-flat-v2",
+		"name": "orion-24-12-70-drawing-flat-v2.svg",
+		"mediaType": "image/svg+xml",
+		"relativePath": "library/orion-24-12-70-drawing-flat-v2.svg",
+		"sourceUrl": "https://www.victronenergy.com/upload/documents/DimensionDrawing_Orion24-12-70.pdf",
+		"attribution": "Victron Energy official dimension drawing, converted to a body-only orthographic SVG crop; © Victron Energy. Private prototype reference."
+	}
+]

@@ -1,0 +1,3026 @@
+{
+	"$schema": "yadori/library@1",
+	"revision": 3,
+	"items": [
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-lithium-smart-12-200",
+			"revision": 2,
+			"name": "Lithium Smart 12.8V / 200Ah",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive",
+							"kind": "positive",
+							"direction": "bidirectional",
+							"voltageV": 12.8,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": 12.8,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "bms",
+							"name": "BMS / balance lead",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "Victron battery BMS lead",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:battery-12-200-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.82251,
+							"y": 0.055426
+						},
+						"negative": {
+							"x": 0.17749,
+							"y": 0.055426
+						},
+						"bms": {
+							"x": 0.045498,
+							"y": 0.160316
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 321,
+					"heightMm": 237,
+					"depthMm": 152,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "third-party-illustration",
+					"sourceUrl": "https://app.wireelectric.nl/symbols/victron-smart-lithium.svg",
+					"catalogSourceUrl": "https://app.wireelectric.nl/api/v1/catalog/components",
+					"sourceVariant": "smart-lithium-12-8-200",
+					"projection": "front",
+					"physicalWidthMm": 321,
+					"physicalHeightMm": 237,
+					"dimensionSourceUrl": "https://www.victronenergy.com/media/pg/Lithium_Battery_Smart/en/technical-data.html",
+					"sourceBodyBounds": {
+						"x": 19.2,
+						"y": 15.44,
+						"width": 156.6,
+						"height": 124.13
+					},
+					"sourceOuterViewBox": [0.0, 0.0, 195.0, 155.0],
+					"sourceBodyViewBox": [0.0, 0.0, 440.0, 349.0],
+					"anchorsBasis": "source-illustration-landmarks",
+					"notes": "WireElectric family SVG body with external handle circles/gutters removed; body mapped to manufacturer dimension envelope. Terminal anchors follow visible source landmarks and remain illustrative."
+				}
+			},
+			"properties": [
+				{
+					"id": "capacity",
+					"name": "Capacity",
+					"value": 200,
+					"unit": "Ah",
+					"sourceId": null
+				},
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/media/pg/Lithium_Battery_Smart/en/technical-data.html",
+					"unit": null,
+					"sourceId": null
+				},
+				{
+					"id": "reference:artwork",
+					"name": "Artwork source",
+					"value": "https://app.wireelectric.nl/symbols/victron-smart-lithium.svg",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/batteries/lithium-battery-12-8v"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-lynx-power-in",
+			"revision": 2,
+			"name": "Lynx Power In",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "battery-positive",
+							"name": "Battery +",
+							"kind": "positive",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "battery-negative",
+							"name": "Battery −",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "system-positive",
+							"name": "System +",
+							"kind": "positive",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "system-negative",
+							"name": "System −",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:lynx-power-in-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"battery-positive": {
+							"x": 0.04991,
+							"y": 0.160402
+						},
+						"battery-negative": {
+							"x": 0.04991,
+							"y": 0.839492
+						},
+						"system-positive": {
+							"x": 0.95009,
+							"y": 0.160402
+						},
+						"system-negative": {
+							"x": 0.95009,
+							"y": 0.839492
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 290,
+					"heightMm": 170,
+					"depthMm": 80,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "third-party-illustration",
+					"sourceUrl": "https://app.wireelectric.nl/symbols/victron-lynx-power-in.svg",
+					"catalogSourceUrl": "https://app.wireelectric.nl/api/v1/catalog/components",
+					"sourceVariant": "lynx-power-in",
+					"projection": "front",
+					"physicalWidthMm": 290,
+					"physicalHeightMm": 170,
+					"dimensionSourceUrl": "https://www.victronenergy.com/upload/documents/Lynx-PowerIn.pdf",
+					"sourceBodyBounds": {
+						"x": 19.2,
+						"y": 11.47,
+						"width": 155.6,
+						"height": 94.07
+					},
+					"sourceOuterViewBox": [0.0, 0.0, 194.0, 117.0],
+					"sourceBodyViewBox": [0.0, 0.0, 440.0, 266.0],
+					"anchorsBasis": "source-illustration-landmarks",
+					"notes": "WireElectric family SVG body with external handle circles/gutters removed; body mapped to manufacturer dimension envelope. Terminal anchors follow visible source landmarks and remain illustrative. Source label corrected/generalized: {\"lynx power in (M10)\": \"Lynx Power In\"}. Shared M8/M10 enclosure family; stud variant must be specified separately. Legacy battery/system ports map to distinct side interconnects."
+				}
+			},
+			"properties": [
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/upload/documents/Lynx-PowerIn.pdf",
+					"unit": null,
+					"sourceId": null
+				},
+				{
+					"id": "reference:artwork",
+					"name": "Artwork source",
+					"value": "https://app.wireelectric.nl/symbols/victron-lynx-power-in.svg",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/dc-distribution-systems/lynx-power-in"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-lynx-shunt",
+			"revision": 2,
+			"name": "Lynx Shunt VE.Can",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "battery-positive",
+							"name": "Battery +",
+							"kind": "positive",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "battery-negative",
+							"name": "Battery −",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "system-positive",
+							"name": "System +",
+							"kind": "positive",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "system-negative",
+							"name": "System −",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "ve-can",
+							"name": "VE.Can",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "RJ45 · VE.Can",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:lynx-shunt-drawing-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"battery-positive": {
+							"x": 0.073,
+							"y": 0.241
+						},
+						"battery-negative": {
+							"x": 0.073,
+							"y": 0.764
+						},
+						"system-positive": {
+							"x": 0.98,
+							"y": 0.241
+						},
+						"system-negative": {
+							"x": 0.98,
+							"y": 0.764
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 186,
+					"heightMm": 166.6,
+					"depthMm": 80.5,
+					"verified": false
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "manufacturer-dimension-drawing",
+					"sourceUrl": "https://www.victronenergy.com/upload/documents/Lynx-Shunt-VE.Can.pdf",
+					"sourceVariant": "LYN040102100 M8",
+					"projection": "front",
+					"physicalWidthMm": 186,
+					"physicalHeightMm": 166.6,
+					"dimensionSourceUrl": "https://www.victronenergy.com/upload/documents/Lynx-Shunt-VE.Can.pdf",
+					"sourceBodyBounds": {
+						"x": 137.8515831784055,
+						"y": 156.875500793011,
+						"width": 263.7148143049964,
+						"height": 235.98390619290777
+					},
+					"anchorsBasis": "manufacturer-drawing-projective-landmarks",
+					"notes": "LYN040102100 M8 engineering outline. Confirm M8/M10 hardware revision before mounting. Side busbar attachment locations are schematic projections; VE.Can is on the connector face and not located in this view."
+				}
+			},
+			"properties": [
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/upload/documents/Lynx-Shunt-VE.Can.pdf",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/dc-distribution-systems/lynx-shunt-ve-can"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "battery-master-switch",
+			"revision": 1,
+			"name": "Battery master switch",
+			"brand": "Generic",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "in",
+							"name": "Input +",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "out",
+							"name": "Output +",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:switch",
+					"projection": "front",
+					"anchors": {
+						"in": {
+							"x": 0.2,
+							"y": 0.5
+						},
+						"out": {
+							"x": 0.8,
+							"y": 0.5
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.bluesea.com/products/category/11/Manual_Battery_Switches"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-cerbo-gx",
+			"revision": 2,
+			"name": "Cerbo GX",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive",
+							"kind": "positive",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ve-direct",
+							"name": "VE.Direct",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "VE.Direct",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "ve-bus",
+							"name": "VE.Bus",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "RJ45 · VE.Bus",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "ve-can",
+							"name": "VE.Can",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "RJ45 · VE.Can",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "gx-touch",
+							"name": "GX Touch",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "HDMI / USB",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "tank",
+							"name": "Tank input",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "Resistive tank sender",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:cerbo-gx-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.838635,
+							"y": 0.885136
+						},
+						"negative": {
+							"x": 0.797449,
+							"y": 0.885136
+						},
+						"ve-direct": {
+							"x": 0.575506,
+							"y": 0.0552
+						},
+						"ve-bus": {
+							"x": 0.799737,
+							"y": 0.0552
+						},
+						"ve-can": {
+							"x": 0.44051,
+							"y": 0.0552
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 154,
+					"heightMm": 78,
+					"depthMm": 48,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "third-party-illustration",
+					"sourceUrl": "https://app.wireelectric.nl/symbols/victron-cerbo-gx-4ed8b3.svg",
+					"catalogSourceUrl": "https://app.wireelectric.nl/api/v1/catalog/components",
+					"sourceVariant": "cerbo-gx",
+					"projection": "front",
+					"physicalWidthMm": 154,
+					"physicalHeightMm": 78,
+					"dimensionSourceUrl": "https://www.victronenergy.com/upload/documents/Cerbo_GX/140558-CCGX__Venus_GX__Cerbo_GX__Cerbo-S_GX_Manual-pdf-en.pdf",
+					"sourceBodyBounds": {
+						"x": 19.2,
+						"y": 13.28,
+						"width": 266.6,
+						"height": 181.45
+					},
+					"sourceOuterViewBox": [0.0, 0.0, 305.0, 208.0],
+					"sourceBodyViewBox": [0.0, 0.0, 440.0, 299.0],
+					"anchorsBasis": "source-illustration-landmarks",
+					"notes": "WireElectric family SVG body with external handle circles/gutters removed; body mapped to manufacturer dimension envelope. Terminal anchors follow visible source landmarks and remain illustrative. HDMI/GX Touch and tank connector anchors omitted: not located in this source projection."
+				}
+			},
+			"properties": [
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/upload/documents/Cerbo_GX/140558-CCGX__Venus_GX__Cerbo_GX__Cerbo-S_GX_Manual-pdf-en.pdf",
+					"unit": null,
+					"sourceId": null
+				},
+				{
+					"id": "reference:artwork",
+					"name": "Artwork source",
+					"value": "https://app.wireelectric.nl/symbols/victron-cerbo-gx-4ed8b3.svg",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/communication-centres/cerbo-gx"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-gx-touch-70",
+			"revision": 2,
+			"name": "GX Touch 70",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "gx-touch",
+							"name": "GX Touch cable",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "HDMI / USB",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:gx-touch-70-drawing-flat-v2",
+					"projection": "front",
+					"anchors": {}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 176.2,
+					"heightMm": 113.2,
+					"depthMm": 13.5,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "manufacturer-dimension-drawing",
+					"sourceUrl": "https://www.victronenergy.com/upload/documents/GX-Touch-70.pdf",
+					"sourceVariant": "BPP900455070",
+					"projection": "front",
+					"physicalWidthMm": 176.2,
+					"physicalHeightMm": 113.2,
+					"dimensionSourceUrl": "https://www.victronenergy.com/upload/documents/GX-Touch-70.pdf",
+					"sourceBodyBounds": {
+						"x": 125.55468514541865,
+						"y": 110.58264153447914,
+						"width": 332.8514988633413,
+						"height": 213.8433017118533
+					},
+					"anchorsBasis": "unlocated-rear-connector",
+					"notes": "Fixed cable exits rear; free HDMI/USB plug location is not a physical front-face terminal. No invented front anchor."
+				}
+			},
+			"properties": [
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/upload/documents/GX-Touch-70.pdf",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/communication-centres/gx-touch-50"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-mppt-100-30",
+			"revision": 2,
+			"name": "SmartSolar MPPT 100/30",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "pv-positive",
+							"name": "PV +",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "pv-negative",
+							"name": "PV −",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "battery-positive",
+							"name": "Battery +",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "battery-negative",
+							"name": "Battery −",
+							"kind": "negative",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ve-direct",
+							"name": "VE.Direct",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "VE.Direct",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:mppt-100-30-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"pv-positive": {
+							"x": 0.599899,
+							"y": 0.885208
+						},
+						"pv-negative": {
+							"x": 0.534848,
+							"y": 0.885208
+						},
+						"battery-positive": {
+							"x": 0.395455,
+							"y": 0.885208
+						},
+						"battery-negative": {
+							"x": 0.458182,
+							"y": 0.885208
+						},
+						"ve-direct": {
+							"x": 0.300202,
+							"y": 0.900291
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 186,
+					"heightMm": 130,
+					"depthMm": 70,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "third-party-illustration",
+					"sourceUrl": "https://app.wireelectric.nl/symbols/victron-smartsolar-mppt-6466d7.svg",
+					"catalogSourceUrl": "https://app.wireelectric.nl/api/v1/catalog/components",
+					"sourceVariant": "smartsolar-mppt-100-30",
+					"projection": "front",
+					"physicalWidthMm": 186,
+					"physicalHeightMm": 130,
+					"dimensionSourceUrl": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_100-30__100-50/en/technical-specifications.html",
+					"sourceBodyBounds": {
+						"x": 19.2,
+						"y": 14.02,
+						"width": 237.6,
+						"height": 174.96
+					},
+					"sourceOuterViewBox": [0.0, 0.0, 276.0, 203.0],
+					"sourceBodyViewBox": [0.0, 0.0, 440.0, 324.0],
+					"anchorsBasis": "source-illustration-landmarks",
+					"notes": "WireElectric family SVG body with external handle circles/gutters removed; body mapped to manufacturer dimension envelope. Terminal anchors follow visible source landmarks and remain illustrative."
+				}
+			},
+			"properties": [
+				{
+					"id": "pv-max",
+					"name": "Maximum PV open-circuit voltage",
+					"value": 100,
+					"unit": "V",
+					"sourceId": null
+				},
+				{
+					"id": "output-current",
+					"name": "Maximum charge output",
+					"value": 30,
+					"unit": "A",
+					"sourceId": null
+				},
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_100-30__100-50/en/technical-specifications.html",
+					"unit": null,
+					"sourceId": null
+				},
+				{
+					"id": "reference:artwork",
+					"name": "Artwork source",
+					"value": "https://app.wireelectric.nl/symbols/victron-smartsolar-mppt-6466d7.svg",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/solar-charge-controllers/smartsolar-100-30-100-50"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-mppt-100-50",
+			"revision": 2,
+			"name": "SmartSolar MPPT 100/50",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "pv-positive",
+							"name": "PV +",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "pv-negative",
+							"name": "PV −",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "battery-positive",
+							"name": "Battery +",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "battery-negative",
+							"name": "Battery −",
+							"kind": "negative",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ve-direct",
+							"name": "VE.Direct",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "VE.Direct",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:mppt-100-50-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"pv-positive": {
+							"x": 0.599899,
+							"y": 0.885208
+						},
+						"pv-negative": {
+							"x": 0.534848,
+							"y": 0.885208
+						},
+						"battery-positive": {
+							"x": 0.395455,
+							"y": 0.885208
+						},
+						"battery-negative": {
+							"x": 0.458182,
+							"y": 0.885208
+						},
+						"ve-direct": {
+							"x": 0.300202,
+							"y": 0.900291
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 186,
+					"heightMm": 130,
+					"depthMm": 70,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "third-party-illustration",
+					"sourceUrl": "https://app.wireelectric.nl/symbols/victron-smartsolar-mppt.svg",
+					"catalogSourceUrl": "https://app.wireelectric.nl/api/v1/catalog/components",
+					"sourceVariant": "smartsolar-mppt-100-50",
+					"projection": "front",
+					"physicalWidthMm": 186,
+					"physicalHeightMm": 130,
+					"dimensionSourceUrl": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_100-30__100-50/en/technical-specifications.html",
+					"sourceBodyBounds": {
+						"x": 19.2,
+						"y": 14.02,
+						"width": 237.6,
+						"height": 174.96
+					},
+					"sourceOuterViewBox": [0.0, 0.0, 276.0, 203.0],
+					"sourceBodyViewBox": [0.0, 0.0, 440.0, 324.0],
+					"anchorsBasis": "source-illustration-landmarks",
+					"notes": "WireElectric family SVG body with external handle circles/gutters removed; body mapped to manufacturer dimension envelope. Terminal anchors follow visible source landmarks and remain illustrative. Source label corrected/generalized: {\"MPPT 100 | 30\": \"MPPT 100 | 50\"}."
+				}
+			},
+			"properties": [
+				{
+					"id": "pv-max",
+					"name": "Maximum PV open-circuit voltage",
+					"value": 100,
+					"unit": "V",
+					"sourceId": null
+				},
+				{
+					"id": "output-current",
+					"name": "Maximum charge output",
+					"value": 50,
+					"unit": "A",
+					"sourceId": null
+				},
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/media/pg/Manual_SmartSolar_MPPT_100-30__100-50/en/technical-specifications.html",
+					"unit": null,
+					"sourceId": null
+				},
+				{
+					"id": "reference:artwork",
+					"name": "Artwork source",
+					"value": "https://app.wireelectric.nl/symbols/victron-smartsolar-mppt.svg",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/solar-charge-controllers/smartsolar-100-30-100-50"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-orion-12-12-30",
+			"revision": 2,
+			"name": "Orion-Tr Smart 12/12-30",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "input-positive",
+							"name": "Positive in",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "input-negative",
+							"name": "Negative in",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "output-positive",
+							"name": "Positive out",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "output-negative",
+							"name": "Negative out",
+							"kind": "negative",
+							"direction": "output",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "remote",
+							"name": "Remote H/L",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "Remote H/L",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:orion-12-12-30-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"input-positive": {
+							"x": 0.404706,
+							"y": 0.832022
+						},
+						"input-negative": {
+							"x": 0.454622,
+							"y": 0.832022
+						},
+						"output-positive": {
+							"x": 0.572605,
+							"y": 0.832022
+						},
+						"output-negative": {
+							"x": 0.521555,
+							"y": 0.832022
+						},
+						"remote": {
+							"x": 0.249286,
+							"y": 0.904545
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 187,
+					"heightMm": 133,
+					"depthMm": 86,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "third-party-illustration",
+					"sourceUrl": "https://app.wireelectric.nl/symbols/victron-orion-tr-smart-charger.svg",
+					"catalogSourceUrl": "https://app.wireelectric.nl/api/v1/catalog/components",
+					"sourceVariant": "orion-tr-smart-12-12-30",
+					"projection": "front",
+					"physicalWidthMm": 187,
+					"physicalHeightMm": 133,
+					"dimensionSourceUrl": "https://www.victronenergy.com/upload/documents/Orion-Tr-Smart-Charger-Isolated-12V-24V-360W.pdf",
+					"sourceBodyBounds": {
+						"x": 19.2,
+						"y": 15.69,
+						"width": 285.6,
+						"height": 235.62
+					},
+					"sourceOuterViewBox": [0.0, 0.0, 324.0, 267.0],
+					"sourceBodyViewBox": [0.0, 0.0, 440.0, 363.0],
+					"anchorsBasis": "source-illustration-landmarks",
+					"notes": "WireElectric family SVG body with external handle circles/gutters removed; body mapped to manufacturer dimension envelope. Terminal anchors follow visible source landmarks and remain illustrative. Isolated charger family drawing; do not substitute for the non-isolated Orion 24/12-70."
+				}
+			},
+			"properties": [
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/upload/documents/Orion-Tr-Smart-Charger-Isolated-12V-24V-360W.pdf",
+					"unit": null,
+					"sourceId": null
+				},
+				{
+					"id": "reference:artwork",
+					"name": "Artwork source",
+					"value": "https://app.wireelectric.nl/symbols/victron-orion-tr-smart-charger.svg",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/dc-dc-converters/orion-tr-smart"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-orion-12-24-15",
+			"revision": 2,
+			"name": "Orion-Tr Smart 12/24-15",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "input-positive",
+							"name": "Positive in",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "input-negative",
+							"name": "Negative in",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "output-positive",
+							"name": "Positive out",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": 24,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "output-negative",
+							"name": "Negative out",
+							"kind": "negative",
+							"direction": "output",
+							"voltageV": 24,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "remote",
+							"name": "Remote H/L",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "Remote H/L",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:orion-12-24-15-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"input-positive": {
+							"x": 0.404706,
+							"y": 0.832022
+						},
+						"input-negative": {
+							"x": 0.454622,
+							"y": 0.832022
+						},
+						"output-positive": {
+							"x": 0.572605,
+							"y": 0.832022
+						},
+						"output-negative": {
+							"x": 0.521555,
+							"y": 0.832022
+						},
+						"remote": {
+							"x": 0.249286,
+							"y": 0.904545
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 187,
+					"heightMm": 133,
+					"depthMm": 86,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "third-party-illustration",
+					"sourceUrl": "https://app.wireelectric.nl/symbols/victron-orion-tr-smart-charger.svg",
+					"catalogSourceUrl": "https://app.wireelectric.nl/api/v1/catalog/components",
+					"sourceVariant": "orion-tr-smart-12-24-15",
+					"projection": "front",
+					"physicalWidthMm": 187,
+					"physicalHeightMm": 133,
+					"dimensionSourceUrl": "https://www.victronenergy.com/upload/documents/Orion-Tr-Smart-Charger-Isolated-12V-24V-360W.pdf",
+					"sourceBodyBounds": {
+						"x": 19.2,
+						"y": 15.69,
+						"width": 285.6,
+						"height": 235.62
+					},
+					"sourceOuterViewBox": [0.0, 0.0, 324.0, 267.0],
+					"sourceBodyViewBox": [0.0, 0.0, 440.0, 363.0],
+					"anchorsBasis": "source-illustration-landmarks",
+					"notes": "WireElectric family SVG body with external handle circles/gutters removed; body mapped to manufacturer dimension envelope. Terminal anchors follow visible source landmarks and remain illustrative. Source label corrected/generalized: {\"12 | 12-30\": \"12 | 24-15\"}. Isolated charger family drawing; do not substitute for the non-isolated Orion 24/12-70."
+				}
+			},
+			"properties": [
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/upload/documents/Orion-Tr-Smart-Charger-Isolated-12V-24V-360W.pdf",
+					"unit": null,
+					"sourceId": null
+				},
+				{
+					"id": "reference:artwork",
+					"name": "Artwork source",
+					"value": "https://app.wireelectric.nl/symbols/victron-orion-tr-smart-charger.svg",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/dc-dc-converters/orion-tr-smart"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-orion-24-12-20",
+			"revision": 2,
+			"name": "Orion-Tr Smart 24/12-20",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "input-positive",
+							"name": "Positive in",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": 24,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "input-negative",
+							"name": "Negative in",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": 24,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "output-positive",
+							"name": "Positive out",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "output-negative",
+							"name": "Negative out",
+							"kind": "negative",
+							"direction": "output",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "remote",
+							"name": "Remote H/L",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "Remote H/L",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:orion-24-12-20-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"input-positive": {
+							"x": 0.404706,
+							"y": 0.832022
+						},
+						"input-negative": {
+							"x": 0.454622,
+							"y": 0.832022
+						},
+						"output-positive": {
+							"x": 0.572605,
+							"y": 0.832022
+						},
+						"output-negative": {
+							"x": 0.521555,
+							"y": 0.832022
+						},
+						"remote": {
+							"x": 0.249286,
+							"y": 0.904545
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 186,
+					"heightMm": 130,
+					"depthMm": 70,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "third-party-illustration",
+					"sourceUrl": "https://app.wireelectric.nl/symbols/victron-orion-tr-smart-charger.svg",
+					"catalogSourceUrl": "https://app.wireelectric.nl/api/v1/catalog/components",
+					"sourceVariant": "orion-tr-smart-24-12-20",
+					"projection": "front",
+					"physicalWidthMm": 186,
+					"physicalHeightMm": 130,
+					"dimensionSourceUrl": "https://www.victronenergy.com/media/pg/Orion-Tr_Smart_DC-DC_Charger_-_Isolated/en/specifications.html",
+					"sourceBodyBounds": {
+						"x": 19.2,
+						"y": 15.69,
+						"width": 285.6,
+						"height": 235.62
+					},
+					"sourceOuterViewBox": [0.0, 0.0, 324.0, 267.0],
+					"sourceBodyViewBox": [0.0, 0.0, 440.0, 363.0],
+					"anchorsBasis": "source-illustration-landmarks",
+					"notes": "WireElectric family SVG body with external handle circles/gutters removed; body mapped to manufacturer dimension envelope. Terminal anchors follow visible source landmarks and remain illustrative. Source label corrected/generalized: {\"12 | 12-30\": \"24 | 12-20\"}. Isolated charger family drawing; do not substitute for the non-isolated Orion 24/12-70."
+				}
+			},
+			"properties": [
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/media/pg/Orion-Tr_Smart_DC-DC_Charger_-_Isolated/en/specifications.html",
+					"unit": null,
+					"sourceId": null
+				},
+				{
+					"id": "reference:artwork",
+					"name": "Artwork source",
+					"value": "https://app.wireelectric.nl/symbols/victron-orion-tr-smart-charger.svg",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/dc-dc-converters/orion-tr-smart"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-orion-24-12-70",
+			"revision": 2,
+			"name": "Orion 24/12-70",
+			"brand": "Victron Energy",
+			"description": "24V to 12V converter candidate. Exact model and dimensions must be checked before relying on the drawing.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "input-positive",
+							"name": "Positive in",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": 24,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "input-negative",
+							"name": "Negative in",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": 24,
+							"connector": "Common 0V post (input/output share one terminal)",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "output-positive",
+							"name": "Positive out",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "output-negative",
+							"name": "Negative out",
+							"kind": "negative",
+							"direction": "output",
+							"voltageV": 12,
+							"connector": "Common 0V post (input/output share one terminal)",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:orion-24-12-70-drawing-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"input-positive": {
+							"x": 0.3,
+							"y": 0.39
+						},
+						"input-negative": {
+							"x": 0.5,
+							"y": 0.69
+						},
+						"output-positive": {
+							"x": 0.7,
+							"y": 0.39
+						},
+						"output-negative": {
+							"x": 0.5,
+							"y": 0.69
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 91,
+					"heightMm": 67,
+					"depthMm": 195,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "manufacturer-dimension-drawing",
+					"sourceUrl": "https://www.victronenergy.com/upload/documents/DimensionDrawing_Orion24-12-70.pdf",
+					"sourceVariant": "ORI241270020 / ORI241270030 connector-end",
+					"projection": "front",
+					"physicalWidthMm": 91,
+					"physicalHeightMm": 67,
+					"dimensionSourceUrl": "https://www.victronenergy.com/upload/documents/DimensionDrawing_Orion24-12-70.pdf",
+					"sourceBodyBounds": {
+						"x": 131.98438010087202,
+						"y": 577.2340460231841,
+						"width": 171.57029962069467,
+						"height": 126.38254213406168
+					},
+					"anchorsBasis": "manufacturer-drawing-projective-landmarks",
+					"notes": "Connector-end front projection, not the long top/mounting projection. Footprint in this view is91×67mm; axial body depth195mm. Input/output negatives are aliases of one common negative post, not separate isolated terminals. Polarity locations checked against official product front photo; this derivative contains no photo."
+				}
+			},
+			"properties": [
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/upload/documents/DimensionDrawing_Orion24-12-70.pdf",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/dc-dc-converters/orion-24-12-5-10-20-40"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "victron-multiplus-24-3000",
+			"revision": 2,
+			"name": "MultiPlus-II 24/3000/70-32",
+			"brand": "Victron Energy",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive",
+							"kind": "positive",
+							"direction": "bidirectional",
+							"voltageV": 24,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": 24,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ac-in-live",
+							"name": "Live in",
+							"kind": "live",
+							"direction": "input",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ac-in-neutral",
+							"name": "Neutral in",
+							"kind": "neutral",
+							"direction": "input",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ac-in-earth",
+							"name": "Protective earth in",
+							"kind": "earth",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ac-out-live",
+							"name": "Live out",
+							"kind": "live",
+							"direction": "output",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ac-out-neutral",
+							"name": "Neutral out",
+							"kind": "neutral",
+							"direction": "output",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ac-out-earth",
+							"name": "Protective earth out",
+							"kind": "earth",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "ve-bus",
+							"name": "VE.Bus",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": "RJ45 · VE.Bus",
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:multiplus-24-3000-flat-v2",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.680015,
+							"y": 0.909924
+						},
+						"negative": {
+							"x": 0.79053,
+							"y": 0.909924
+						},
+						"ac-in-live": {
+							"x": 0.100094,
+							"y": 0.909924
+						},
+						"ac-in-neutral": {
+							"x": 0.200356,
+							"y": 0.909924
+						},
+						"ac-in-earth": {
+							"x": 0.300617,
+							"y": 0.909924
+						},
+						"ac-out-live": {
+							"x": 0.38037,
+							"y": 0.909924
+						},
+						"ac-out-neutral": {
+							"x": 0.420247,
+							"y": 0.909924
+						},
+						"ac-out-earth": {
+							"x": 0.460123,
+							"y": 0.909924
+						},
+						"ve-bus": {
+							"x": 0.799644,
+							"y": 0.859822
+						}
+					}
+				},
+				"dimensions": {
+					"$schema": "yadori/dimensions@1",
+					"widthMm": 268,
+					"heightMm": 499,
+					"depthMm": 141,
+					"verified": true
+				},
+				"artwork-calibration": {
+					"$schema": "yadori/artwork-calibration@1",
+					"sourceKind": "third-party-illustration",
+					"sourceUrl": "https://app.wireelectric.nl/symbols/victron-multiplus-ii-939c14.svg",
+					"catalogSourceUrl": "https://app.wireelectric.nl/api/v1/catalog/components",
+					"sourceVariant": "multiplus-ii-24-3000-70-32",
+					"projection": "front",
+					"physicalWidthMm": 268,
+					"physicalHeightMm": 499,
+					"dimensionSourceUrl": "https://www.victronenergy.com/upload/documents/MultiPlus-II_230V/32424-MultiPlus-II___Quattro-II-pdf-en.pdf",
+					"sourceBodyBounds": {
+						"x": 19.2,
+						"y": 34.04,
+						"width": 275.6,
+						"height": 490.92
+					},
+					"sourceOuterViewBox": [0.0, 0.0, 314.0, 559.0],
+					"sourceBodyViewBox": [0.0, 0.0, 247.0, 440.0],
+					"anchorsBasis": "source-illustration-landmarks",
+					"notes": "WireElectric family SVG body with external handle circles/gutters removed; body mapped to manufacturer dimension envelope. Terminal anchors follow visible source landmarks and remain illustrative."
+				}
+			},
+			"properties": [
+				{
+					"id": "reference:dimensions",
+					"name": "Dimensions source",
+					"value": "https://www.victronenergy.com/upload/documents/MultiPlus-II_230V/32424-MultiPlus-II___Quattro-II-pdf-en.pdf",
+					"unit": null,
+					"sourceId": null
+				},
+				{
+					"id": "reference:artwork",
+					"name": "Artwork source",
+					"value": "https://app.wireelectric.nl/symbols/victron-multiplus-ii-939c14.svg",
+					"unit": null,
+					"sourceId": null
+				}
+			],
+			"tags": ["Electrical"],
+			"sourceUrl": "https://www.victronenergy.com/inverters-chargers/multiplus-ii"
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "solar-panel-200",
+			"revision": 1,
+			"name": "Solar panel · 200W",
+			"brand": "Generic",
+			"description": "200W panel placeholder. Set the exact selected model, Voc/Isc and measured enclosure dimensions.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "PV +",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "PV −",
+							"kind": "negative",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:solar",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.3,
+							"y": 0.98
+						},
+						"negative": {
+							"x": 0.7,
+							"y": 0.98
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "vehicle-battery-12",
+			"revision": 1,
+			"name": "Starter battery · 12V",
+			"brand": "Generic",
+			"description": "Vehicle starter battery planning reference; confirm vehicle charging and grounding requirements.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive",
+							"kind": "positive",
+							"direction": "bidirectional",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:vehicle-battery",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.8,
+							"y": 0.08
+						},
+						"negative": {
+							"x": 0.2,
+							"y": 0.08
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "bms-controller",
+			"revision": 1,
+			"name": "Battery management controller",
+			"brand": "Generic",
+			"description": "Unspecified BMS controller. A symbol is not proof of complete protection; choose exact equipment and control interfaces.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "battery",
+							"name": "Battery control",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "charger",
+							"name": "Charge disconnect",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "load",
+							"name": "Load disconnect",
+							"kind": "signal",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:controller",
+					"projection": "front",
+					"anchors": {
+						"battery": {
+							"x": 0.25,
+							"y": 1
+						},
+						"charger": {
+							"x": 0.5,
+							"y": 1
+						},
+						"load": {
+							"x": 0.75,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "dc-fuse-block",
+			"revision": 1,
+			"name": "DC fuse block",
+			"brand": "Generic",
+			"description": "Six-branch DC fuse block. Confirm exact model, fuse sizes and terminal ratings.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive supply",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative bus",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "branch-1",
+							"name": "Branch 1",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "branch-2",
+							"name": "Branch 2",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "branch-3",
+							"name": "Branch 3",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "branch-4",
+							"name": "Branch 4",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "branch-5",
+							"name": "Branch 5",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "branch-6",
+							"name": "Branch 6",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:fuse-block",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.1111111111111111,
+							"y": 1
+						},
+						"negative": {
+							"x": 0.2222222222222222,
+							"y": 1
+						},
+						"branch-1": {
+							"x": 0.3333333333333333,
+							"y": 1
+						},
+						"branch-2": {
+							"x": 0.4444444444444444,
+							"y": 1
+						},
+						"branch-3": {
+							"x": 0.5555555555555556,
+							"y": 1
+						},
+						"branch-4": {
+							"x": 0.6666666666666666,
+							"y": 1
+						},
+						"branch-5": {
+							"x": 0.7777777777777778,
+							"y": 1
+						},
+						"branch-6": {
+							"x": 0.8888888888888888,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "dc-load-12",
+			"revision": 1,
+			"name": "DC appliance · 12V",
+			"brand": "Generic",
+			"description": "Editable appliance placeholder. Add its current/power and exact product data.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:load",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.3333333333333333,
+							"y": 1
+						},
+						"negative": {
+							"x": 0.6666666666666666,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "dc-load-24",
+			"revision": 1,
+			"name": "DC appliance · 24V",
+			"brand": "Generic",
+			"description": "Editable appliance placeholder. Add its current/power and exact product data.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": 24,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": 24,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:load",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.3333333333333333,
+							"y": 1
+						},
+						"negative": {
+							"x": 0.6666666666666666,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "shore-inlet-230",
+			"revision": 1,
+			"name": "Shore inlet · 230V",
+			"brand": "Generic",
+			"description": "AC shore-inlet planning symbol. Verify the actual inlet and installation requirements.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "live",
+							"name": "Live",
+							"kind": "live",
+							"direction": "output",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "neutral",
+							"name": "Neutral",
+							"kind": "neutral",
+							"direction": "output",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "earth",
+							"name": "Protective earth",
+							"kind": "earth",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:shore",
+					"projection": "front",
+					"anchors": {
+						"live": {
+							"x": 0.25,
+							"y": 1
+						},
+						"neutral": {
+							"x": 0.5,
+							"y": 1
+						},
+						"earth": {
+							"x": 0.75,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "ac-distribution",
+			"revision": 2,
+			"name": "AC RCD / distribution",
+			"brand": "Generic",
+			"description": "AC distribution planning symbol. Protective device selection, bonding and installation approval remain outside this generic symbol.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "in-live",
+							"name": "Live in",
+							"kind": "live",
+							"direction": "input",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "in-neutral",
+							"name": "Neutral in",
+							"kind": "neutral",
+							"direction": "input",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "in-earth",
+							"name": "Protective earth in",
+							"kind": "earth",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "out-live",
+							"name": "Live out",
+							"kind": "live",
+							"direction": "output",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "out-neutral",
+							"name": "Neutral out",
+							"kind": "neutral",
+							"direction": "output",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "out-earth",
+							"name": "Protective earth out",
+							"kind": "earth",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:ac-distribution",
+					"projection": "front",
+					"anchors": {
+						"in-live": {
+							"x": 0.14285714285714285,
+							"y": 1
+						},
+						"in-neutral": {
+							"x": 0.2857142857142857,
+							"y": 1
+						},
+						"in-earth": {
+							"x": 0.42857142857142855,
+							"y": 1
+						},
+						"out-live": {
+							"x": 0.5714285714285714,
+							"y": 1
+						},
+						"out-neutral": {
+							"x": 0.7142857142857143,
+							"y": 1
+						},
+						"out-earth": {
+							"x": 0.8571428571428571,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "ac-outlet",
+			"revision": 1,
+			"name": "Outlet · 230V",
+			"brand": "Generic",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "live",
+							"name": "Live",
+							"kind": "live",
+							"direction": "input",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "neutral",
+							"name": "Neutral",
+							"kind": "neutral",
+							"direction": "input",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "earth",
+							"name": "Protective earth",
+							"kind": "earth",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:outlet",
+					"projection": "front",
+					"anchors": {
+						"live": {
+							"x": 0.25,
+							"y": 1
+						},
+						"neutral": {
+							"x": 0.5,
+							"y": 1
+						},
+						"earth": {
+							"x": 0.75,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "main-fuse-holder",
+			"revision": 1,
+			"name": "Main fuse holder",
+			"brand": "Generic",
+			"description": "Main fuse holder placeholder. Set interrupt capacity, fuse standard/rating and terminal compatibility.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "in",
+							"name": "Supply +",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "out",
+							"name": "Protected +",
+							"kind": "positive",
+							"direction": "output",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:fuse",
+					"projection": "front",
+					"anchors": {
+						"in": {
+							"x": 0.3333333333333333,
+							"y": 1
+						},
+						"out": {
+							"x": 0.6666666666666666,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "chassis-earth",
+			"revision": 1,
+			"name": "Chassis / protective earth",
+			"brand": "Generic",
+			"description": "Editable planning data. Verify exact model, terminal ratings and connector specifications against the manufacturer documentation.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "earth",
+							"name": "Earth / chassis",
+							"kind": "earth",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:ground",
+					"projection": "front",
+					"anchors": {
+						"earth": {
+							"x": 0.5,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "dc-busbar",
+			"revision": 1,
+			"name": "DC busbar",
+			"brand": "Generic",
+			"description": "Editable distribution assembly with independent positive and negative buses; not an internal short between buses.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive bus",
+							"kind": "positive",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative bus",
+							"kind": "negative",
+							"direction": "bidirectional",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": true,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:busbar",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.3333333333333333,
+							"y": 1
+						},
+						"negative": {
+							"x": 0.6666666666666666,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "freshwater-pump-12",
+			"revision": 1,
+			"name": "Freshwater pump · 12V",
+			"brand": "Generic",
+			"description": "Electrical-only pump candidate. Choose exact model and extend with fluid ports when plumbing is implemented.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:pump",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.3333333333333333,
+							"y": 1
+						},
+						"negative": {
+							"x": 0.6666666666666666,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "heater-boiler",
+			"revision": 1,
+			"name": "Heater / boiler",
+			"brand": "Generic",
+			"description": "Electrical planning placeholder. Confirm DC variant, AC heater supply and manufacturer installation requirements.",
+			"capabilities": {
+				"electrical": {
+					"$schema": "yadori/electrical-device@1",
+					"ports": [
+						{
+							"id": "positive",
+							"name": "Positive",
+							"kind": "positive",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "negative",
+							"name": "Negative",
+							"kind": "negative",
+							"direction": "input",
+							"voltageV": 12,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "live",
+							"name": "Live",
+							"kind": "live",
+							"direction": "input",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "neutral",
+							"name": "Neutral",
+							"kind": "neutral",
+							"direction": "input",
+							"voltageV": 230,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						},
+						{
+							"id": "earth",
+							"name": "Protective earth",
+							"kind": "earth",
+							"direction": "input",
+							"voltageV": null,
+							"connector": null,
+							"minCrossSectionMm2": null,
+							"maxCrossSectionMm2": null,
+							"maxCurrentA": null,
+							"multiple": false,
+							"verified": false
+						}
+					]
+				},
+				"appearance": {
+					"$schema": "yadori/appearance@1",
+					"assetId": "library:heater",
+					"projection": "front",
+					"anchors": {
+						"positive": {
+							"x": 0.16666666666666666,
+							"y": 1
+						},
+						"negative": {
+							"x": 0.3333333333333333,
+							"y": 1
+						},
+						"live": {
+							"x": 0.5,
+							"y": 1
+						},
+						"neutral": {
+							"x": 0.6666666666666666,
+							"y": 1
+						},
+						"earth": {
+							"x": 0.8333333333333334,
+							"y": 1
+						}
+					}
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "generic-copper-cable-6mm2",
+			"revision": 1,
+			"name": "Copper cable · 6 mm²",
+			"brand": "",
+			"description": "Generic single-core copper cable planning profile, not a retail product. Select a suitable cable and confirm its insulation, current and voltage ratings before building.",
+			"capabilities": {
+				"cable": {
+					"$schema": "yadori/electrical-cable@1",
+					"crossSectionMm2": 6,
+					"coreCount": 1,
+					"conductor": "copper",
+					"color": null,
+					"outerDiameterMm": null,
+					"ratedCurrentA": null,
+					"voltageRatingV": null,
+					"verified": false
+				},
+				"linearMaterial": {
+					"$schema": "yadori/linear-material@1",
+					"unit": "m",
+					"continuous": true,
+					"cutLossMm": 0
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical", "Cable"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "generic-copper-cable-16mm2",
+			"revision": 1,
+			"name": "Copper cable · 16 mm²",
+			"brand": "",
+			"description": "Generic single-core copper cable planning profile, not a retail product. Select a suitable cable and confirm its insulation, current and voltage ratings before building.",
+			"capabilities": {
+				"cable": {
+					"$schema": "yadori/electrical-cable@1",
+					"crossSectionMm2": 16,
+					"coreCount": 1,
+					"conductor": "copper",
+					"color": null,
+					"outerDiameterMm": null,
+					"ratedCurrentA": null,
+					"voltageRatingV": null,
+					"verified": false
+				},
+				"linearMaterial": {
+					"$schema": "yadori/linear-material@1",
+					"unit": "m",
+					"continuous": true,
+					"cutLossMm": 0
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical", "Cable"],
+			"sourceUrl": null
+		},
+		{
+			"$schema": "yadori/library-item@1",
+			"id": "generic-copper-cable-35mm2",
+			"revision": 1,
+			"name": "Copper cable · 35 mm²",
+			"brand": "",
+			"description": "Generic single-core copper cable planning profile, not a retail product. Select a suitable cable and confirm its insulation, current and voltage ratings before building.",
+			"capabilities": {
+				"cable": {
+					"$schema": "yadori/electrical-cable@1",
+					"crossSectionMm2": 35,
+					"coreCount": 1,
+					"conductor": "copper",
+					"color": null,
+					"outerDiameterMm": null,
+					"ratedCurrentA": null,
+					"voltageRatingV": null,
+					"verified": false
+				},
+				"linearMaterial": {
+					"$schema": "yadori/linear-material@1",
+					"unit": "m",
+					"continuous": true,
+					"cutLossMm": 0
+				}
+			},
+			"properties": [],
+			"tags": ["Electrical", "Cable"],
+			"sourceUrl": null
+		}
+	]
+}

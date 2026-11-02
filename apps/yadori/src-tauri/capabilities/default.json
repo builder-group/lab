@@ -1,0 +1,22 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "default",
+	"description": "Capability for the main window",
+	"windows": ["main"],
+	"permissions": [
+		"core:default",
+		"core:window:allow-start-dragging",
+		{
+			"identifier": "opener:allow-open-url",
+			"allow": [
+				{
+					"url": "https://*"
+				},
+				{
+					"url": "http://*"
+				}
+			]
+		},
+		"core:window:allow-destroy"
+	]
+}

@@ -2,11 +2,12 @@
 
 Experimental applications and product prototypes maintained by builder.group.
 
-| App                                                 | Stack                                           |
-| --------------------------------------------------- | ----------------------------------------------- |
-| [Kairos](apps/kairos/README.md)                     | Expo and React Native interval timer for iPhone |
-| [LearnLinesFaster](apps/learnlinesfaster/README.md) | React Router web app with Vercel deployment     |
-| [MidiMarble](apps/midimarble/README.md)             | React, Three.js, and Rapier browser studio      |
+| App                                                 | Stack                                                             |
+| --------------------------------------------------- | ----------------------------------------------------------------- |
+| [Kairos](apps/kairos/README.md)                     | Expo and React Native interval timer for iPhone                   |
+| [LearnLinesFaster](apps/learnlinesfaster/README.md) | React Router web app with Vercel deployment                       |
+| [MidiMarble](apps/midimarble/README.md)             | React, Three.js, and Rapier browser studio                        |
+| [Yadori](apps/yadori/README.md)                     | Current local desktop prototype for planning portable-home builds |
 
 ## Development
 
