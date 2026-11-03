@@ -1,4 +1,5 @@
 import type { TVec2 } from '@/modules/project';
+import type { TPieceShape } from './shapes';
 
 // Contract between the simulation engine and its consumers (Compose view, Blender handoff, fixtures).
 // Units: metres, seconds, radians. Wall-plane coordinates: x right, y up; the wall surface is z = 0.
@@ -57,6 +58,26 @@ export interface TResolvedPiece {
 	/** The hit time this piece was placed for, if linked */
 	hitTime: number | null;
 	status: TPieceStatus;
+	/**
+	 * Every collider primitive in world coordinates, for drawing physics shapes. Set for rails, tunnels
+	 * and windmills; windmills show their pose at insertion.
+	 */
+	shapes?: TPieceShape[];
+	/** Smoothed support line of a rail or tunnel floor in world coordinates */
+	path?: TVec2[];
+	/** When the marble enters a follower rail or tunnel, `hitTime + entryDelay` */
+	entryTime?: number;
+	/**
+	 * Rotation of a moving piece around its `position`, unwrapped so it never jumps by 2π. The first
+	 * sample is at the run start. Samples then follow every physics step from the piece's insertion; in
+	 * between the piece rests or turns linearly at its motor speed.
+	 */
+	motion?: TPieceMotionSample[];
+}
+
+export interface TPieceMotionSample {
+	time: number;
+	angle: number;
 }
 
 export type TPieceStatus =
@@ -90,6 +111,8 @@ export interface THitResult {
 	/** actualTime - targetTime */
 	error: number | null;
 	status: THitStatus;
+	/** Set on open hits with a dot: true when the dot lies outside the frame band */
+	outOfFrame?: boolean;
 }
 
 export type THitStatus =
@@ -109,10 +132,25 @@ export interface TPieceDefinition {
 	/** Parameter defaults and limits, in metres or radians */
 	params: Record<
 		string,
-		{ default: number; min: number; max: number; label: string; unit: 'm' | 'rad' | '' }
+		{
+			default: number;
+			min: number;
+			max: number;
+			label: string;
+			unit: 'm' | 'rad' | 's' | 'rad/s' | '';
+			/** Rounded to a whole number when resolved */
+			integer?: boolean;
+		}
 	>;
 	/** Distance of the piece from the wall surface along +z, so Blender and Compose agree on depth */
 	wallOffset: number;
 	restitution: number;
 	friction: number;
+	/**
+	 * How the piece is built: `box` (default) is a platform bar, `path` a rail along `path` points,
+	 * `tube` a tunnel along `path` points and `rotor` a windmill turning around its hub
+	 */
+	layout?: 'box' | 'path' | 'tube' | 'rotor';
+	/** Local control points used when a path piece has no `path` component */
+	defaultPath?: TVec2[];
 }

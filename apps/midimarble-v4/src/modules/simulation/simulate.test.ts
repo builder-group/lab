@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { createLane, parseProject, type TEntity, type TProject } from '@/modules/project';
 import { createStaircaseProject } from './fixture-projects';
 import { createLinkedPiece } from './placement';
+import { projectOnPath } from './shapes';
 import { createSimulator, type TSimulator } from './simulate';
 import { HIT_DRIFT, type TSimulationResult } from './types';
 
@@ -35,14 +36,20 @@ function addMarble(
 	return lane.id;
 }
 
-function addLinkedHit(project: TProject, laneId: string, time: number, angle: number): string {
+function addLinkedHit(
+	project: TProject,
+	laneId: string,
+	time: number,
+	angle: number,
+	type = 'platform'
+): string {
 	const lane = project.music.lanes.find((l) => l.id === laneId);
 	if (lane == null) throw new Error('Missing lane');
 	const hitId = `${laneId}-hit-${lane.hits.length + 1}`;
 	lane.hits.push({ id: hitId, time });
 	const id = `piece-${hitId}`;
 	project.entities.push(
-		createLinkedPiece('platform', laneId, hitId, angle, { entities: project.entities, id })
+		createLinkedPiece(type, laneId, hitId, angle, { entities: project.entities, id })
 	);
 	return id;
 }
@@ -158,6 +165,24 @@ describe('simulate', () => {
 			expect(incremental.stats.steps).toBeLessThan(full.stats.steps);
 			expect(withoutStats(incremental)).toEqual(withoutStats(full));
 		}
+
+		// Rails, tunnels and windmills resume from snapshots too, including the windmill's motion
+		for (const name of ['windmill.marble.json', 'long-gap.marble.json']) {
+			const fixture = loadFixture(name);
+			simulator.simulate(fixture);
+			for (const [entityId, angle] of [
+				['piece-1-5', 0.25],
+				['piece-1-2', 0.28]
+			] as const) {
+				setAngle(fixture, entityId, angle);
+				const incremental = simulator.simulate(fixture);
+				const fresh = await createSimulator();
+				const full = fresh.simulate(fixture);
+				fresh.dispose();
+				expect(incremental.stats.reusedUntil).toBeGreaterThan(0);
+				expect(withoutStats(incremental)).toEqual(withoutStats(full));
+			}
+		}
 	});
 
 	it('marks a piece blocked when the earlier trajectory passes through it', () => {
@@ -196,6 +221,118 @@ describe('simulate', () => {
 		// Head-on at 2 m/s closing speed, touching when the centres are 16 mm apart
 		expect(marbleContacts[0]?.time).toBeCloseTo((0.2 - 0.016) / 2, 3);
 		expect(marbleContacts[0]?.position.x).toBeCloseTo(0, 6);
+	});
+
+	it('lands a hit on a rail and rolls the marble along it', () => {
+		const project = createBareProject(1.5);
+		const laneId = addMarble(project, 0, {
+			position: { x: 0, y: 0.5 },
+			time: 0,
+			velocity: { x: 0.2, y: 0 }
+		});
+		const railId = addLinkedHit(project, laneId, 0.3, -0.1, 'rail');
+		const result = simulator.simulate(project);
+		expect(result.hits[0]?.status).toBe('onTime');
+		const rail = result.pieces.find((piece) => piece.entityId === railId);
+		expect(rail?.status).toBe('placed');
+		expect(rail?.shapes?.every((shape) => shape.kind === 'capsule')).toBe(true);
+		// Rolling on the support: the centre stays one marble and wire radius above the path
+		const path = rail?.path ?? [];
+		const end = path[path.length - 1];
+		const onRail = result.marbles[0]?.samples.filter(
+			(sample) => sample.time > 0.4 && sample.position.x < (end?.x ?? 0) - 0.02
+		);
+		expect(onRail?.length).toBeGreaterThan(20);
+		for (const sample of onRail ?? []) {
+			const gap = projectOnPath(path, sample.position.x, sample.position.y).distance;
+			expect(Math.abs(gap - 0.008 - 0.0025)).toBeLessThan(0.002);
+		}
+		expect(result.contacts.filter((contact) => contact.otherEntityId === railId)).toHaveLength(1);
+	});
+
+	it('keeps the marble inside a tunnel', () => {
+		const project = createBareProject(1.2);
+		const laneId = addMarble(project, 0, {
+			position: { x: 0, y: 0.5 },
+			time: 0,
+			velocity: { x: 0.2, y: 0 }
+		});
+		const tunnelId = addLinkedHit(project, laneId, 0.3, -0.15, 'tunnel');
+		const result = simulator.simulate(project);
+		expect(result.hits[0]?.status).toBe('onTime');
+		const tunnel = result.pieces.find((piece) => piece.entityId === tunnelId);
+		const floor = (tunnel?.path?.length ?? 0) - 1;
+		expect(tunnel?.shapes?.length).toBeGreaterThan(floor);
+		const path = tunnel?.path ?? [];
+		const end = path[path.length - 1];
+		for (const sample of result.marbles[0]?.samples ?? []) {
+			if (sample.time < 0.35 || sample.position.x > (end?.x ?? 0) - 0.03) continue;
+			const gap = projectOnPath(path, sample.position.x, sample.position.y).distance;
+			// Never higher than the bore allows
+			expect(gap).toBeLessThan(0.0025 + 0.016 + 0.004 + 0.001);
+		}
+	});
+
+	it('turns a motor windmill before and after its hit', () => {
+		const project = createBareProject(1.2);
+		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
+		const windmillId = addLinkedHit(project, laneId, 0.4, 0.2, 'windmill');
+		const entity = project.entities.find((item) => item.id === windmillId);
+		if (entity?.components.piece == null) throw new Error('Missing windmill');
+		entity.components.piece.params['motorSpeed'] = 2;
+		const result = simulator.simulate(project);
+		expect(result.hits[0]?.status).toBe('onTime');
+		const motion = result.pieces.find((piece) => piece.entityId === windmillId)?.motion ?? [];
+		expect(motion[0]?.time).toBe(0);
+		expect(motion[0]?.angle).toBeCloseTo(0.2 - 2 * 0.4, 9);
+		const last = motion[motion.length - 1];
+		// A kinematic motor keeps its speed through the strike
+		expect(last?.angle).toBeCloseTo(0.2 + 2 * (1.2 - 0.4), 3);
+	});
+
+	it('builds free rails and windmills from their transform', () => {
+		const project = createBareProject(0.5);
+		addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
+		project.entities.push(
+			{
+				id: 'free-rail',
+				components: {
+					piece: { type: 'rail', params: {} },
+					transform: { position: { x: 0.1, y: 0.2 }, angle: 0 },
+					path: {
+						points: [
+							{ x: 0, y: 0 },
+							{ x: 0.1, y: -0.01 }
+						]
+					}
+				}
+			},
+			{
+				id: 'free-windmill',
+				components: {
+					piece: { type: 'windmill', params: { bladeCount: 3 } },
+					transform: { position: { x: -0.1, y: 0.2 }, angle: 0.5 }
+				}
+			}
+		);
+		const result = simulator.simulate(project);
+		const rail = result.pieces.find((piece) => piece.entityId === 'free-rail');
+		expect(rail?.status).toBe('free');
+		expect(rail?.path?.[0]).toEqual({ x: 0.1, y: 0.2 });
+		expect(rail?.path?.[1]?.x).toBeCloseTo(0.2, 12);
+		const windmill = result.pieces.find((piece) => piece.entityId === 'free-windmill');
+		expect(windmill?.shapes).toHaveLength(4);
+		expect(windmill?.motion?.[0]).toEqual({ time: 0, angle: 0.5 });
+		// Untouched, so it rests
+		for (const sample of windmill?.motion ?? []) expect(sample.angle).toBeCloseTo(0.5, 6);
+	});
+
+	it('flags open dots outside the frame band', () => {
+		const project = createBareProject(1);
+		addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0, velocity: { x: 0.5, y: 0 } });
+		project.music.lanes[0]?.hits.push({ id: 'near', time: 0.2 }, { id: 'far', time: 0.8 });
+		const result = simulator.simulate(project);
+		expect(result.hits.map((hit) => hit.outOfFrame)).toEqual([false, true]);
 	});
 
 	it('reports open hits with dots on the free-fall path', () => {

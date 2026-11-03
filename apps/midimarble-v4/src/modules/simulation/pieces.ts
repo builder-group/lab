@@ -1,3 +1,4 @@
+import type { TVec2 } from '@/modules/project';
 import type { TPieceDefinition } from './types';
 
 /** Flat bar the marble bounces off. The collider is a box; its top face is the contact surface. */
@@ -14,8 +15,81 @@ export const platformDefinition: TPieceDefinition = {
 	friction: 0.3
 };
 
+/**
+ * Wire rail the marble lands on and rolls along. The path is smoothed into a chain of capsules the
+ * marble rides on top of. The film shows two wires `gap` apart in depth; since marbles are locked to
+ * the wall plane, physics models them as one support line of the wire radius.
+ */
+export const railDefinition: TPieceDefinition = {
+	type: 'rail',
+	label: 'Rail',
+	params: {
+		radius: { default: 0.0025, min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
+		gap: { default: 0.01, min: 0.004, max: 0.02, label: 'Wire gap', unit: 'm' },
+		entryDelay: { default: 0, min: 0, max: 2, label: 'Entry after hit', unit: 's' }
+	},
+	wallOffset: 0,
+	restitution: 0.15,
+	friction: 0.4,
+	layout: 'path',
+	defaultPath: [
+		{ x: -0.006, y: 0 },
+		{ x: 0, y: 0 },
+		{ x: 0.15, y: -0.012 }
+	]
+};
+
+/**
+ * Closed tube along a path. The floor works like a rail, and a ceiling `bore` above the marble starts
+ * `mouth` after the entry so the marble can drop in. Blender hides the marble while it is inside.
+ */
+export const tunnelDefinition: TPieceDefinition = {
+	type: 'tunnel',
+	label: 'Tunnel',
+	params: {
+		radius: { default: 0.002, min: 0.001, max: 0.006, label: 'Wall radius', unit: 'm' },
+		bore: { default: 0.004, min: 0.001, max: 0.02, label: 'Clearance', unit: 'm' },
+		mouth: { default: 0.03, min: 0.01, max: 0.1, label: 'Mouth', unit: 'm' },
+		entryDelay: { default: 0, min: 0, max: 2, label: 'Entry after hit', unit: 's' }
+	},
+	wallOffset: 0,
+	restitution: 0.15,
+	friction: 0.4,
+	layout: 'tube',
+	defaultPath: [
+		{ x: -0.006, y: 0 },
+		{ x: 0, y: 0 },
+		{ x: 0.15, y: -0.02 }
+	]
+};
+
+/**
+ * Blades on a hub that turns around the wall normal. The marble strikes a blade face; with no motor the
+ * windmill turns freely and slows down by `damping`, with a motor it turns at `motorSpeed` regardless.
+ */
+export const windmillDefinition: TPieceDefinition = {
+	type: 'windmill',
+	label: 'Windmill',
+	params: {
+		bladeCount: { default: 4, min: 2, max: 8, label: 'Blades', unit: '', integer: true },
+		bladeLength: { default: 0.06, min: 0.02, max: 0.2, label: 'Blade length', unit: 'm' },
+		bladeThickness: { default: 0.006, min: 0.003, max: 0.02, label: 'Blade thickness', unit: 'm' },
+		hubRadius: { default: 0.008, min: 0.004, max: 0.03, label: 'Hub radius', unit: 'm' },
+		damping: { default: 0.5, min: 0, max: 10, label: 'Damping', unit: '' },
+		motorSpeed: { default: 0, min: -20, max: 20, label: 'Motor speed', unit: 'rad/s' },
+		depth: { default: 0.03, min: 0.02, max: 0.08, label: 'Depth', unit: 'm' }
+	},
+	wallOffset: 0,
+	restitution: 0.5,
+	friction: 0.3,
+	layout: 'rotor'
+};
+
 export const pieceDefinitions: Record<string, TPieceDefinition> = {
-	[platformDefinition.type]: platformDefinition
+	[platformDefinition.type]: platformDefinition,
+	[railDefinition.type]: railDefinition,
+	[tunnelDefinition.type]: tunnelDefinition,
+	[windmillDefinition.type]: windmillDefinition
 };
 
 export function getPieceDefinition(type: string): TPieceDefinition | undefined {
@@ -32,7 +106,22 @@ export function resolvePieceParams(
 	const resolved: Record<string, number> = {};
 	for (const [name, spec] of Object.entries(definition.params)) {
 		const value = params[name] ?? spec.default;
-		resolved[name] = Math.min(spec.max, Math.max(spec.min, value));
+		const clamped = Math.min(spec.max, Math.max(spec.min, value));
+		resolved[name] = spec.integer === true ? Math.round(clamped) : clamped;
 	}
 	return resolved;
+}
+
+/** Local control points of a path piece, falling back to the definition's default path */
+export function resolvePiecePath(type: string, points: TVec2[] | undefined): TVec2[] {
+	if (points != null && points.length >= 2) return points;
+	return getPieceDefinition(type)?.defaultPath ?? [];
+}
+
+/**
+ * Pieces that follow a hit instead of sounding it: a rail or tunnel entered `entryDelay` seconds after
+ * its linked hit. The hit keeps its own piece.
+ */
+export function isFollowerPiece(params: Record<string, number>): boolean {
+	return (params['entryDelay'] ?? 0) > 0;
 }

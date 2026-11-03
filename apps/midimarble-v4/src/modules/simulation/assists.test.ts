@@ -1,0 +1,220 @@
+import { beforeAll, describe, expect, it } from 'vitest';
+import type { TEntity, TProject } from '@/modules/project';
+import {
+	autoPlace,
+	continueSuggestions,
+	copyLinkedPiece,
+	findLongGaps,
+	mirrorPiece,
+	nextOpenHit,
+	repeatPiece,
+	type TSimulateFn
+} from './assists';
+import { createBareRunProject } from './fixture-projects';
+import { createRailForGap } from './gap-pieces';
+import { createLinkedPiece, frameBand } from './placement';
+import { createSimulator } from './simulate';
+
+let simulate: TSimulateFn;
+
+beforeAll(async () => {
+	const simulator = await createSimulator();
+	simulate = (project) => simulator.simulate(project);
+});
+
+function zigzagStart(hitTimes: number[]): TProject {
+	const project = createBareRunProject({
+		id: 'assists',
+		title: 'Assists',
+		end: 4,
+		marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes }]
+	});
+	project.entities.push(
+		createLinkedPiece('platform', 'lane-1', 'hit-1-1', -0.3, { id: 'piece-1-1' }),
+		createLinkedPiece('platform', 'lane-1', 'hit-1-2', 0.3, { id: 'piece-1-2' })
+	);
+	return project;
+}
+
+function evenTimes(count: number): number[] {
+	return Array.from({ length: count }, (_, i) => Math.round((0.15 + 0.3 * i) * 1000) / 1000);
+}
+
+describe('assists', () => {
+	it('finds the next open hit after the last piece', () => {
+		const project = zigzagStart(evenTimes(4));
+		const open = nextOpenHit(project, simulate(project), 'lane-1');
+		expect(open?.hit.id).toBe('hit-1-3');
+		expect(open?.previous?.entity.id).toBe('piece-1-2');
+		expect(open?.result?.status).toBe('open');
+	});
+
+	it('repeats and mirrors the previous piece', () => {
+		const project = zigzagStart(evenTimes(4));
+		const result = simulate(project);
+		const [isRepeatOk, , repeated] = repeatPiece(project, result, 'lane-1', { id: 'r' });
+		expect(isRepeatOk).toBe(true);
+		expect(repeated?.hitId).toBe('hit-1-3');
+		expect(repeated?.entity.components.hitLink?.angle).toBe(0.3);
+		const [isMirrorOk, , mirrored] = mirrorPiece(project, result, 'lane-1', { id: 'm' });
+		expect(isMirrorOk).toBe(true);
+		expect(mirrored?.entity.components.hitLink).toMatchObject({ hitId: 'hit-1-3', angle: -0.3 });
+		expect(mirrored?.commands).toEqual([{ type: 'upsertEntity', entity: mirrored?.entity }]);
+
+		const empty = createBareRunProject({
+			id: 'empty',
+			title: 'Empty',
+			end: 1,
+			marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: [0.3] }]
+		});
+		const [isEmptyOk, emptyErr] = repeatPiece(empty, null, 'lane-1');
+		expect(isEmptyOk).toBe(false);
+		expect(emptyErr?.message).toMatch(/no earlier piece/);
+	});
+
+	it('mirrors each piece type across the vertical axis', () => {
+		const platform = createLinkedPiece('platform', 'lane-1', 'a', 0.2, { id: 'p' });
+		if (platform.components.hitLink != null) platform.components.hitLink.contactAt = 0.3;
+		expect(copyLinkedPiece(platform, 'b', true).components.hitLink).toMatchObject({
+			angle: -0.2,
+			contactAt: 0.7
+		});
+		const windmill = createLinkedPiece('windmill', 'lane-1', 'a', 0.2, { id: 'w' });
+		expect(copyLinkedPiece(windmill, 'b', true).components.hitLink?.angle).toBeCloseTo(
+			Math.PI - 0.2,
+			12
+		);
+		const rail: TEntity = {
+			...createLinkedPiece('rail', 'lane-1', 'a', 0.1, { id: 'r' }),
+			components: {
+				...createLinkedPiece('rail', 'lane-1', 'a', 0.1, { id: 'r' }).components,
+				path: {
+					points: [
+						{ x: 0, y: 0 },
+						{ x: 0.1, y: -0.02 }
+					]
+				}
+			}
+		};
+		const mirroredRail = copyLinkedPiece(rail, 'b', true);
+		expect(mirroredRail.components.path?.points).toEqual([
+			{ x: -0, y: 0 },
+			{ x: -0.1, y: -0.02 }
+		]);
+		expect(mirroredRail.components.hitLink?.angle).toBe(-0.1);
+	});
+
+	it('auto places deterministically with the next dot in frame', () => {
+		const project = zigzagStart(evenTimes(4));
+		const result = simulate(project);
+		const [isPlacedOk, placedErr, placed] = autoPlace(project, result, 'lane-1', 'hit-1-3', {
+			simulate,
+			id: 'auto'
+		});
+		if (!isPlacedOk) throw placedErr;
+		const [, , again] = autoPlace(project, result, 'lane-1', 'hit-1-3', { simulate, id: 'auto' });
+		expect(again?.angle).toBe(placed.angle);
+		expect(Math.abs(placed.angle)).toBeLessThanOrEqual((40 * Math.PI) / 180 + 1e-9);
+		const band = frameBand(project);
+		expect(Math.abs((placed.nextDot?.x ?? Infinity) - band.centerX)).toBeLessThanOrEqual(
+			band.halfWidth * 0.9
+		);
+		const placedProject = { ...project, entities: [...project.entities, placed.entity] };
+		const after = simulate(placedProject);
+		expect(after.hits[2]?.status).toBe('onTime');
+		expect(after.hits[3]?.dot).toEqual(placed.nextDot);
+	});
+
+	it('continues a mirrored pattern while the rhythm repeats', () => {
+		// The eighth interval is 0.1 s longer, so Continue stops before it
+		const times = evenTimes(10).map((time, i) => (i >= 7 ? time + 0.1 : time));
+		const project = zigzagStart(times);
+		const continued = continueSuggestions(project, simulate(project), 'lane-1', {
+			simulate,
+			idFor: (hitId) => `ghost-${hitId}`
+		});
+		expect(continued?.pattern).toBe('mirror');
+		const suggestions = continued?.suggestions ?? [];
+		expect(suggestions.map((s) => s.hitId)).toEqual([
+			'hit-1-3',
+			'hit-1-4',
+			'hit-1-5',
+			'hit-1-6',
+			'hit-1-7'
+		]);
+		expect(
+			suggestions.every((s) => s.isOk && s.status === 'onTime' && s.piece?.status === 'placed')
+		).toBe(true);
+		expect(suggestions.map((s) => s.entity.components.hitLink?.angle)).toEqual([
+			-0.3, 0.3, -0.3, 0.3, -0.3
+		]);
+		expect(continued?.commands).toHaveLength(5);
+	});
+
+	it('stops Continue at the first ghost that leaves the frame', () => {
+		const project = createBareRunProject({
+			id: 'drift',
+			title: 'Drift',
+			end: 4,
+			marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(10) }]
+		});
+		project.entities.push(
+			createLinkedPiece('platform', 'lane-1', 'hit-1-1', -0.2, { id: 'piece-1-1' }),
+			createLinkedPiece('platform', 'lane-1', 'hit-1-2', -0.2, { id: 'piece-1-2' })
+		);
+		const continued = continueSuggestions(project, simulate(project), 'lane-1', { simulate });
+		expect(continued?.pattern).toBe('repeat');
+		const suggestions = continued?.suggestions ?? [];
+		const last = suggestions[suggestions.length - 1];
+		expect(last?.isOk).toBe(false);
+		expect(suggestions.slice(0, -1).every((s) => s.isOk)).toBe(true);
+		expect(continued?.commands).toHaveLength(suggestions.length - 1);
+	});
+
+	it('finds long gaps and bridges one with a rail', () => {
+		const project = zigzagStart([0.15, 0.45, 0.75, 2.25]);
+		project.entities.push(
+			createLinkedPiece('platform', 'lane-1', 'hit-1-3', -0.3, { id: 'piece-1-3' })
+		);
+		expect(findLongGaps(project, 'lane-1')).toEqual([
+			{
+				laneId: 'lane-1',
+				fromHitId: 'hit-1-3',
+				toHitId: 'hit-1-4',
+				from: 0.75,
+				to: 2.25,
+				duration: 1.5,
+				bridgedBy: null
+			}
+		]);
+		expect(findLongGaps(project, 'lane-1', 2)).toEqual([]);
+
+		const result = simulate(project);
+		const [isRailOk, railErr, rail] = createRailForGap(
+			project,
+			result,
+			'lane-1',
+			'hit-1-3',
+			'hit-1-4',
+			{
+				simulate,
+				id: 'rail'
+			}
+		);
+		if (!isRailOk) throw railErr;
+		expect(rail.entity.components.piece?.params['entryDelay']).toBeGreaterThan(0);
+		expect(rail.check?.pieceStatus).toBe('placed');
+		expect(rail.check?.isRunInFrame).toBe(true);
+		expect(rail.check?.isDotInFrame).toBe(true);
+		const bridged = { ...project, entities: [...project.entities, rail.entity] };
+		expect(findLongGaps(bridged, 'lane-1')[0]?.bridgedBy).toBe('rail');
+		// The rail follows hit 3 and does not take over its result
+		const after = simulate(bridged);
+		expect(after.hits[2]?.pieceEntityId).toBe('piece-1-3');
+		expect(after.hits[2]?.status).toBe('onTime');
+
+		const [isBadOk, badErr] = createRailForGap(project, result, 'lane-1', 'hit-1-4', 'hit-1-3');
+		expect(isBadOk).toBe(false);
+		expect(badErr?.message).toMatch(/end after/);
+	});
+});

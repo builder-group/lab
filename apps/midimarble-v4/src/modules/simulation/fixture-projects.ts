@@ -1,4 +1,4 @@
-import { createLane, type TEntity, type TProject } from '@/modules/project';
+import { createLane, type TEntity, type TProject, type TVec2 } from '@/modules/project';
 import { createLinkedPiece } from './placement';
 
 // Deterministic example projects for fixtures and tests. Pieces are linked to hits, so their positions
@@ -39,11 +39,43 @@ interface TRunMarble {
 	angles: (hitIndex: number) => number;
 }
 
+interface TBareRunMarble {
+	x: number;
+	y: number;
+	releaseTime: number;
+	velocity?: TVec2;
+	hitTimes: number[];
+}
+
 function createRunProject(options: {
 	id: string;
 	title: string;
 	end: number;
 	marbles: TRunMarble[];
+}): TProject {
+	const project = createBareRunProject(options);
+	const { entities } = project;
+	options.marbles.forEach((marble, index) => {
+		const lane = project.music.lanes[index];
+		if (lane == null) return;
+		lane.hits.forEach((hit, hitIndex) => {
+			entities.push(
+				createLinkedPiece('platform', lane.id, hit.id, marble.angles(hitIndex), {
+					entities,
+					id: `piece-${index + 1}-${hitIndex + 1}`
+				})
+			);
+		});
+	});
+	return project;
+}
+
+/** Lanes `lane-N` with hits `hit-N-M` and marbles `marble-N`, without pieces */
+export function createBareRunProject(options: {
+	id: string;
+	title: string;
+	end: number;
+	marbles: TBareRunMarble[];
 }): TProject {
 	const lanes = options.marbles.map((marble, index) => {
 		const lane = createLane(index, `lane-${index + 1}`);
@@ -57,25 +89,18 @@ function createRunProject(options: {
 	options.marbles.forEach((marble, index) => {
 		const lane = lanes[index];
 		if (lane == null) return;
+		const release: NonNullable<TEntity['components']['release']> = {
+			position: { x: marble.x, y: marble.y },
+			time: marble.releaseTime
+		};
+		if (marble.velocity != null) release.velocity = marble.velocity;
 		entities.push({
 			id: `marble-${index + 1}`,
 			name: lane.name,
 			components: {
 				marble: { laneId: lane.id, radius: 0.008, color: lane.color },
-				release: { position: { x: marble.x, y: marble.y }, time: marble.releaseTime }
+				release
 			}
-		});
-	});
-	options.marbles.forEach((marble, index) => {
-		const lane = lanes[index];
-		if (lane == null) return;
-		lane.hits.forEach((hit, hitIndex) => {
-			entities.push(
-				createLinkedPiece('platform', lane.id, hit.id, marble.angles(hitIndex), {
-					entities,
-					id: `piece-${index + 1}-${hitIndex + 1}`
-				})
-			);
 		});
 	});
 	return {

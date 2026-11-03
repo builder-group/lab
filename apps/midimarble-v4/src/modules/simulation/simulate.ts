@@ -1,17 +1,29 @@
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
 import type { TProject, TVec2 } from '@/modules/project';
+import { ballistic, GRAVITY_Y } from './geometry';
 import {
-	ballistic,
-	boxDistance,
-	boxExtents,
-	closestPointOnBox,
-	GRAVITY_Y,
-	placeBoxAtContact,
-	placeBoxAtMarble,
-	surfaceNormal,
-	type TBox2
-} from './geometry';
-import { getPieceDefinition, resolvePieceParams } from './pieces';
+	layoutAtContact,
+	layoutAtMarble,
+	layoutFree,
+	type TLayoutInput,
+	type TPieceLayout
+} from './piece-layout';
+import {
+	getPieceDefinition,
+	isFollowerPiece,
+	resolvePieceParams,
+	resolvePiecePath
+} from './pieces';
+import { frameBand } from './placement';
+import {
+	shapeClosestPoint,
+	shapeDistance,
+	shapesBounds,
+	transformShape,
+	wrapAngle,
+	type TBounds2,
+	type TPieceShape
+} from './shapes';
 import {
 	HIT_DRIFT,
 	HIT_TOLERANCE,
@@ -20,6 +32,7 @@ import {
 	type THitResult,
 	type TMarbleSample,
 	type TPieceDefinition,
+	type TPieceMotionSample,
 	type TResolvedPiece,
 	type TSimulationResult
 } from './types';
@@ -45,7 +58,14 @@ const MAX_SNAPSHOTS = 512;
 const PARKING_INTERVAL = 6;
 const PARKING_MARGIN = 0.05;
 const STEP_EPSILON = 1e-7;
-const SIGNATURE_VERSION = 'sim@1';
+const SIGNATURE_VERSION = 'sim@2';
+// Windmill parts are light wood
+const ROTOR_DENSITY = 600;
+// Collision groups as membership << 16 | filter. Marbles keep the default and meet everything. Static
+// pieces meet everything but rotors, and rotors meet only marbles, so a turning blade never jams on a
+// platform next to it.
+const STATIC_GROUPS = 0x0002ffff;
+const ROTOR_GROUPS = 0x00040001;
 
 export interface TSimulator {
 	/** Simulates the project, resuming from the latest snapshot whose inputs are unchanged */
@@ -147,7 +167,7 @@ interface TStaticPiece {
 	entityId: string;
 	definition: TPieceDefinition;
 	params: Record<string, number>;
-	box: TBox2;
+	layout: TPieceLayout;
 	resolved: TResolvedPiece;
 }
 
@@ -155,9 +175,13 @@ interface TPlanEvent {
 	entityId: string;
 	definition: TPieceDefinition;
 	params: Record<string, number>;
+	/** Local control points of rails and tunnels */
+	path: TVec2[];
 	angle: number;
 	contactAt: number;
+	/** When the piece is placed: the hit time, plus the entry delay for follower rails and tunnels */
 	time: number;
+	hitTime: number;
 	step: number;
 	/** Index into `TPlan.marbles`, -1 when the lane has no marble */
 	marbleIndex: number;
@@ -187,86 +211,71 @@ function createPlan(project: TProject): TPlan {
 	const staticPieces: TStaticPiece[] = [];
 	const events: TPlanEvent[] = [];
 	const linkedHitTimes = new Map<string, number | null>();
+	const defaultRadius = marbles[0]?.radius ?? 0.008;
 	for (const entity of project.entities) {
 		const { piece, hitLink, transform } = entity.components;
 		if (piece == null) continue;
 		const definition = getPieceDefinition(piece.type);
 		if (definition == null) continue;
 		const params = resolvePieceParams(piece.type, piece.params);
-		const length = params['length'] ?? 0.06;
-		const thickness = params['thickness'] ?? 0.008;
+		const path = resolvePiecePath(piece.type, entity.components.path?.points);
 
 		if (hitLink != null) {
 			const time = hitTimes.get(`${hitLink.laneId}/${hitLink.hitId}`) ?? null;
 			linkedHitTimes.set(entity.id, time);
+			const marbleIndex = marbles.findIndex((marble) => marble.laneId === hitLink.laneId);
+			const input: TLayoutInput = {
+				type: piece.type,
+				params,
+				path,
+				angle: hitLink.angle,
+				contactAt: hitLink.contactAt,
+				marbleRadius: marbles[marbleIndex]?.radius ?? defaultRadius
+			};
 			if (hitLink.pinned && hitLink.pinnedPosition != null) {
 				// Pinned pieces keep the unflipped normal since the incoming direction is unknown at time 0
-				const placement = placeBoxAtContact(
-					hitLink.pinnedPosition,
-					surfaceNormal(hitLink.angle),
-					hitLink.angle,
-					hitLink.contactAt,
-					length,
-					thickness
-				);
+				const layout = layoutAtContact(input, hitLink.pinnedPosition);
 				staticPieces.push({
 					entityId: entity.id,
 					definition,
 					params,
-					box: placement.box,
-					resolved: {
-						entityId: entity.id,
-						type: piece.type,
-						position: { x: placement.box.cx, y: placement.box.cy },
-						angle: hitLink.angle,
-						params,
-						contactPoint: placement.contactPoint,
-						contactNormal: placement.contactNormal,
-						hitTime: time,
-						status: 'pinned'
-					}
+					layout,
+					resolved: resolvedFromLayout(entity.id, piece.type, params, layout, time, 'pinned')
 				});
 				continue;
 			}
 			if (time == null) continue;
+			const eventTime = time + (isFollowerPiece(params) ? (params['entryDelay'] ?? 0) : 0);
 			events.push({
 				entityId: entity.id,
 				definition,
 				params,
+				path,
 				angle: hitLink.angle,
 				contactAt: hitLink.contactAt,
-				time,
-				step: Math.floor(time * PHYSICS_HZ + STEP_EPSILON),
-				marbleIndex: marbles.findIndex((marble) => marble.laneId === hitLink.laneId)
+				time: eventTime,
+				hitTime: time,
+				step: Math.floor(eventTime * PHYSICS_HZ + STEP_EPSILON),
+				marbleIndex
 			});
 			continue;
 		}
 
 		if (transform == null) continue;
-		const box: TBox2 = {
-			cx: transform.position.x,
-			cy: transform.position.y,
-			angle: transform.angle,
-			halfLength: length / 2,
-			halfThickness: thickness / 2
-		};
-		staticPieces.push({
-			entityId: entity.id,
-			definition,
-			params,
-			box,
-			resolved: {
-				entityId: entity.id,
+		const layout = layoutFree(
+			{
 				type: piece.type,
-				position: transform.position,
-				angle: transform.angle,
 				params,
-				contactPoint: null,
-				contactNormal: null,
-				hitTime: null,
-				status: 'free'
-			}
-		});
+				path,
+				angle: transform.angle,
+				contactAt: 0.5,
+				marbleRadius: defaultRadius
+			},
+			transform.position
+		);
+		const resolved = resolvedFromLayout(entity.id, piece.type, params, layout, null, 'free');
+		resolved.position = transform.position;
+		staticPieces.push({ entityId: entity.id, definition, params, layout, resolved });
 	}
 	events.sort(
 		(a, b) => a.time - b.time || (a.entityId < b.entityId ? -1 : a.entityId > b.entityId ? 1 : 0)
@@ -282,7 +291,12 @@ function createPlan(project: TProject): TPlan {
 			SIGNATURE_VERSION,
 			startStep,
 			marbles,
-			staticPieces.map((piece) => [piece.entityId, piece.definition.type, piece.params, piece.box])
+			staticPieces.map((piece) => [
+				piece.entityId,
+				piece.definition.type,
+				piece.params,
+				piece.layout.shapes
+			])
 		])
 	);
 	const eventKeys: string[] = [];
@@ -293,6 +307,7 @@ function createPlan(project: TProject): TPlan {
 				event.entityId,
 				event.definition.type,
 				event.params,
+				event.path,
 				event.angle,
 				event.contactAt,
 				event.time,
@@ -313,7 +328,9 @@ interface TMarbleRun {
 }
 
 type TColliderInfo =
-	{ kind: 'marble'; marbleIndex: number } | { kind: 'piece'; entityId: string; box: TBox2 };
+	| { kind: 'marble'; marbleIndex: number }
+	/** `shape` is in world coordinates for static pieces and relative to the hub for rotors */
+	| { kind: 'piece'; entityId: string; shape: TPieceShape; rotorIndex: number };
 
 interface TPlacement {
 	piece: TResolvedPiece;
@@ -331,8 +348,11 @@ interface TRunState {
 	lowestPieceY: number;
 	/** Every piece inserted so far, in insertion order */
 	pieces: TPieceRecord[];
-	/** Collider handle per piece, -1 while parked */
-	pieceHandles: number[];
+	/** Collider handles per piece, empty while parked */
+	pieceHandles: number[][];
+	rotors: TRotorRun[];
+	/** Touching collider count per marble index and piece entity, so a rail logs one contact */
+	touching: Map<string, number>;
 	/** Per marble bounds of complete sample chunks, derived from samples and never snapshotted */
 	chunkBounds: number[][];
 }
@@ -341,8 +361,18 @@ interface TPieceRecord {
 	entityId: string;
 	definition: TPieceDefinition;
 	params: Record<string, number>;
-	box: TBox2;
-	extents: TVec2;
+	shapes: TPieceShape[];
+	bounds: TBounds2;
+	/** Index into `TRunState.rotors`, -1 for static pieces, which may be parked */
+	rotorIndex: number;
+}
+
+interface TRotorRun {
+	entityId: string;
+	bodyHandle: number;
+	hub: TVec2;
+	motorSpeed: number;
+	motion: TPieceMotionSample[];
 }
 
 interface TSnapshot {
@@ -361,7 +391,9 @@ interface TSnapshot {
 	placements: Map<string, TPlacement>;
 	lowestPieceY: number;
 	pieces: TPieceRecord[];
-	pieceHandles: number[];
+	pieceHandles: number[][];
+	rotors: (Omit<TRotorRun, 'motion'> & { motion: TPieceMotionSample[]; count: number })[];
+	touching: Map<string, number>;
 }
 
 function createInitialState(plan: TPlan, world: RAPIER.World): TRunState {
@@ -375,10 +407,12 @@ function createInitialState(plan: TPlan, world: RAPIER.World): TRunState {
 		lowestPieceY: Infinity,
 		pieces: [],
 		pieceHandles: [],
+		rotors: [],
+		touching: new Map(),
 		chunkBounds: plan.marbles.map(() => [])
 	};
 	for (const piece of plan.staticPieces)
-		insertPiece(world, state, piece.entityId, piece.definition, piece.params, piece.box);
+		insertPiece(world, state, piece.entityId, piece.definition, piece.params, piece.layout);
 	return state;
 }
 
@@ -399,7 +433,9 @@ function takeSnapshot(world: RAPIER.World, state: TRunState): TSnapshot {
 		placements: new Map(state.placements),
 		lowestPieceY: state.lowestPieceY,
 		pieces: state.pieces.slice(),
-		pieceHandles: state.pieceHandles.slice()
+		pieceHandles: state.pieceHandles.slice(),
+		rotors: state.rotors.map((rotor) => ({ ...rotor, count: rotor.motion.length })),
+		touching: new Map(state.touching)
 	};
 }
 
@@ -418,6 +454,11 @@ function restoreState(snapshot: TSnapshot): TRunState {
 		lowestPieceY: snapshot.lowestPieceY,
 		pieces: snapshot.pieces.slice(),
 		pieceHandles: snapshot.pieceHandles.slice(),
+		rotors: snapshot.rotors.map(({ count, ...rotor }) => ({
+			...rotor,
+			motion: rotor.motion.slice(0, count)
+		})),
+		touching: new Map(snapshot.touching),
 		chunkBounds: snapshot.marbles.map(() => [])
 	};
 }
@@ -464,8 +505,9 @@ function advance(
 		state.step++;
 		steps++;
 		sampleMarbles(world, plan, state);
+		sampleRotors(world, state);
 		queue.drainCollisionEvents((handleA, handleB, started) => {
-			if (started) recordContact(plan, state, handleA, handleB);
+			recordContact(plan, state, handleA, handleB, started);
 		});
 	}
 	queue.free();
@@ -543,36 +585,183 @@ function sampleMarbles(world: RAPIER.World, plan: TPlan, state: TRunState): void
 	}
 }
 
+function sampleRotors(world: RAPIER.World, state: TRunState): void {
+	const time = state.step / PHYSICS_HZ;
+	for (const rotor of state.rotors) {
+		const body = world.getRigidBody(rotor.bodyHandle);
+		const rotation = body.rotation();
+		const previous = rotor.motion[rotor.motion.length - 1]?.angle ?? 0;
+		const raw = 2 * Math.atan2(rotation.z, rotation.w);
+		rotor.motion.push({ time, angle: previous + wrapAngle(raw - previous) });
+	}
+}
+
 function insertPiece(
 	world: RAPIER.World,
 	state: TRunState,
 	entityId: string,
 	definition: TPieceDefinition,
 	params: Record<string, number>,
-	box: TBox2
+	layout: TPieceLayout
 ): void {
-	state.pieces.push({ entityId, definition, params, box, extents: boxExtents(box) });
-	state.pieceHandles.push(-1);
-	addPieceCollider(world, state, state.pieces.length - 1);
-	state.lowestPieceY = Math.min(state.lowestPieceY, box.cy);
+	const bounds = shapesBounds(layout.shapes);
+	let rotorIndex = -1;
+	if (layout.rotor != null) {
+		rotorIndex = state.rotors.length;
+		// Adding zero turns the -0 of step 0 into 0
+		const time = state.step / PHYSICS_HZ + 0;
+		state.rotors.push({
+			entityId,
+			bodyHandle: -1,
+			hub: layout.rotor.hub,
+			motorSpeed: layout.rotor.motorSpeed,
+			motion: [{ time, angle: layout.rotor.angle }]
+		});
+	}
+	state.pieces.push({ entityId, definition, params, shapes: layout.shapes, bounds, rotorIndex });
+	state.pieceHandles.push([]);
+	const index = state.pieces.length - 1;
+	if (layout.rotor != null) addRotorBody(world, state, index, layout);
+	else addPieceColliders(world, state, index);
+	state.lowestPieceY = Math.min(
+		state.lowestPieceY,
+		layout.box != null ? layout.box.cy : bounds.minY
+	);
 }
 
-function addPieceCollider(world: RAPIER.World, state: TRunState, index: number): void {
+function addPieceColliders(world: RAPIER.World, state: TRunState, index: number): void {
 	const piece = state.pieces[index];
 	if (piece == null) return;
-	const { definition, params, box } = piece;
-	const depth = params['depth'] ?? 0.03;
-	const collider = world.createCollider(
-		RAPIER.ColliderDesc.cuboid(box.halfLength, box.halfThickness, depth / 2)
-			.setTranslation(box.cx, box.cy, definition.wallOffset + depth / 2)
-			.setRotation({ x: 0, y: 0, z: Math.sin(box.angle / 2), w: Math.cos(box.angle / 2) })
-			.setRestitution(definition.restitution)
-			.setFriction(definition.friction)
-			.setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min)
-			.setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
-	);
-	state.colliders.set(collider.handle, { kind: 'piece', entityId: piece.entityId, box });
-	state.pieceHandles[index] = collider.handle;
+	const { definition, params } = piece;
+	const handles: number[] = [];
+	for (const shape of piece.shapes) {
+		const desc = staticColliderDesc(shape, params, definition);
+		if (desc == null) continue;
+		const collider = world.createCollider(
+			desc
+				.setRestitution(definition.restitution)
+				.setFriction(definition.friction)
+				.setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min)
+				.setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
+				.setCollisionGroups(STATIC_GROUPS)
+		);
+		state.colliders.set(collider.handle, {
+			kind: 'piece',
+			entityId: piece.entityId,
+			shape,
+			rotorIndex: -1
+		});
+		handles.push(collider.handle);
+	}
+	state.pieceHandles[index] = handles;
+}
+
+function staticColliderDesc(
+	shape: TPieceShape,
+	params: Record<string, number>,
+	definition: TPieceDefinition
+): RAPIER.ColliderDesc | null {
+	switch (shape.kind) {
+		case 'box': {
+			const { box } = shape;
+			const depth = params['depth'] ?? 0.03;
+			return RAPIER.ColliderDesc.cuboid(box.halfLength, box.halfThickness, depth / 2)
+				.setTranslation(box.cx, box.cy, definition.wallOffset + depth / 2)
+				.setRotation(zRotation(box.angle));
+		}
+		case 'capsule': {
+			// Rapier capsules run along y; wires sit in the marble plane so contact normals stay in xy
+			const dx = shape.b.x - shape.a.x;
+			const dy = shape.b.y - shape.a.y;
+			const length = Math.hypot(dx, dy);
+			const desc =
+				length > 1e-9
+					? RAPIER.ColliderDesc.capsule(length / 2, shape.radius).setRotation(
+							zRotation(Math.atan2(dy, dx) - Math.PI / 2)
+						)
+					: RAPIER.ColliderDesc.ball(shape.radius);
+			return desc.setTranslation(
+				(shape.a.x + shape.b.x) / 2,
+				(shape.a.y + shape.b.y) / 2,
+				MARBLE_Z
+			);
+		}
+		case 'ball':
+			return RAPIER.ColliderDesc.ball(shape.radius).setTranslation(
+				shape.center.x,
+				shape.center.y,
+				MARBLE_Z
+			);
+	}
+}
+
+/**
+ * A windmill is a body that may only turn around the wall normal through its hub. Without a motor it is
+ * dynamic with angular damping; with a motor it is kinematic at a fixed angular velocity, so strikes
+ * never slow it down.
+ */
+function addRotorBody(
+	world: RAPIER.World,
+	state: TRunState,
+	index: number,
+	layout: TPieceLayout
+): void {
+	const piece = state.pieces[index];
+	const rotor = layout.rotor;
+	const run = state.rotors[piece?.rotorIndex ?? -1];
+	if (piece == null || rotor == null || run == null) return;
+	const hasMotor = rotor.motorSpeed !== 0;
+	const bodyDesc = (
+		hasMotor
+			? RAPIER.RigidBodyDesc.kinematicVelocityBased().setAngvel({ x: 0, y: 0, z: rotor.motorSpeed })
+			: RAPIER.RigidBodyDesc.dynamic()
+					.enabledTranslations(false, false, false)
+					.enabledRotations(false, false, true)
+					.setAngularDamping(rotor.damping)
+	)
+		.setTranslation(rotor.hub.x, rotor.hub.y, MARBLE_Z)
+		.setRotation(zRotation(rotor.angle))
+		.setCanSleep(false);
+	const body = world.createRigidBody(bodyDesc);
+	const handles: number[] = [];
+	for (const shape of rotor.localShapes) {
+		let desc: RAPIER.ColliderDesc;
+		if (shape.kind === 'box') {
+			const { box } = shape;
+			desc = RAPIER.ColliderDesc.cuboid(box.halfLength, box.halfThickness, rotor.depth / 2)
+				.setTranslation(box.cx, box.cy, piece.definition.wallOffset + rotor.depth / 2 - MARBLE_Z)
+				.setRotation(zRotation(box.angle));
+		} else if (shape.kind === 'ball') {
+			desc = RAPIER.ColliderDesc.ball(shape.radius).setTranslation(
+				shape.center.x,
+				shape.center.y,
+				0
+			);
+		} else continue;
+		const collider = world.createCollider(
+			desc
+				.setDensity(ROTOR_DENSITY)
+				.setRestitution(piece.definition.restitution)
+				.setFriction(piece.definition.friction)
+				.setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min)
+				.setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
+				.setCollisionGroups(ROTOR_GROUPS),
+			body
+		);
+		state.colliders.set(collider.handle, {
+			kind: 'piece',
+			entityId: piece.entityId,
+			shape,
+			rotorIndex: piece.rotorIndex
+		});
+		handles.push(collider.handle);
+	}
+	run.bodyHandle = body.handle;
+	state.pieceHandles[index] = handles;
+}
+
+function zRotation(angle: number): RAPIER.Rotation {
+	return { x: 0, y: 0, z: Math.sin(angle / 2), w: Math.cos(angle / 2) };
 }
 
 /** Keeps only pieces a marble could reach before the next check in the world */
@@ -598,19 +787,25 @@ function parkPieces(world: RAPIER.World, plan: TPlan, state: TRunState): void {
 	}
 	for (let index = 0; index < state.pieces.length; index++) {
 		const piece = state.pieces[index];
-		if (piece == null) continue;
+		// Rotors stay in the world so they keep turning
+		if (piece == null || piece.rotorIndex >= 0) continue;
+		const { bounds } = piece;
 		const isNear = reachable.some(
 			(marble) =>
-				Math.abs(marble.x - piece.box.cx) <= piece.extents.x + marble.reach &&
-				Math.abs(marble.y - piece.box.cy) <= piece.extents.y + marble.reach
+				marble.x >= bounds.minX - marble.reach &&
+				marble.x <= bounds.maxX + marble.reach &&
+				marble.y >= bounds.minY - marble.reach &&
+				marble.y <= bounds.maxY + marble.reach
 		);
-		const handle = state.pieceHandles[index] ?? -1;
-		if (isNear && handle < 0) {
-			addPieceCollider(world, state, index);
-		} else if (!isNear && handle >= 0) {
-			world.removeCollider(world.getCollider(handle), false);
-			state.colliders.delete(handle);
-			state.pieceHandles[index] = -1;
+		const handles = state.pieceHandles[index] ?? [];
+		if (isNear && !handles.length) {
+			addPieceColliders(world, state, index);
+		} else if (!isNear && handles.length > 0) {
+			for (const handle of handles) {
+				world.removeCollider(world.getCollider(handle), false);
+				state.colliders.delete(handle);
+			}
+			state.pieceHandles[index] = [];
 		}
 	}
 }
@@ -621,8 +816,6 @@ function processEvent(world: RAPIER.World, plan: TPlan, state: TRunState, event:
 	const marble = plan.marbles[event.marbleIndex];
 	const run = state.marbles[event.marbleIndex];
 	const last = run?.samples[run.samples.length - 1];
-	const length = event.params['length'] ?? 0.06;
-	const thickness = event.params['thickness'] ?? 0.008;
 	const unreached: TPlacement = {
 		piece: {
 			entityId: event.entityId,
@@ -632,12 +825,13 @@ function processEvent(world: RAPIER.World, plan: TPlan, state: TRunState, event:
 			params: event.params,
 			contactPoint: null,
 			contactNormal: null,
-			hitTime: event.time,
+			hitTime: event.hitTime,
 			status: 'unreached'
 		},
 		dot: null,
 		velocity: null
 	};
+	if (event.time !== event.hitTime) unreached.piece.entryTime = event.time;
 	if (
 		marble == null ||
 		run == null ||
@@ -654,63 +848,132 @@ function processEvent(world: RAPIER.World, plan: TPlan, state: TRunState, event:
 		last.velocity,
 		Math.max(0, event.time - last.time)
 	);
-	const placement = placeBoxAtMarble(
-		position,
-		velocity,
-		marble.radius,
-		event.angle,
-		event.contactAt,
-		length,
-		thickness
-	);
-	const isBlocked = isBoxBlocked(plan, state, placement.box);
-	state.placements.set(event.entityId, {
-		piece: {
-			...unreached.piece,
-			position: { x: placement.box.cx, y: placement.box.cy },
-			contactPoint: placement.contactPoint,
-			contactNormal: placement.contactNormal,
-			status: isBlocked ? 'blocked' : 'placed'
+	const layout = layoutAtMarble(
+		{
+			type: event.definition.type,
+			params: event.params,
+			path: event.path,
+			angle: event.angle,
+			contactAt: event.contactAt,
+			marbleRadius: marble.radius
 		},
-		dot: position,
+		position,
 		velocity
-	});
-	if (!isBlocked)
-		insertPiece(world, state, event.entityId, event.definition, event.params, placement.box);
+	);
+	const isBlocked = isLayoutBlocked(plan, state, layout, event.time);
+	const resolved = resolvedFromLayout(
+		event.entityId,
+		event.definition.type,
+		event.params,
+		layout,
+		event.hitTime,
+		isBlocked ? 'blocked' : 'placed'
+	);
+	if (unreached.piece.entryTime != null) resolved.entryTime = unreached.piece.entryTime;
+	state.placements.set(event.entityId, { piece: resolved, dot: position, velocity });
+	if (!isBlocked) insertPiece(world, state, event.entityId, event.definition, event.params, layout);
+}
+
+function resolvedFromLayout(
+	entityId: string,
+	type: string,
+	params: Record<string, number>,
+	layout: TPieceLayout,
+	hitTime: number | null,
+	status: TResolvedPiece['status']
+): TResolvedPiece {
+	const resolved: TResolvedPiece = {
+		entityId,
+		type,
+		position: layout.position,
+		angle: layout.angle,
+		params,
+		contactPoint: layout.contactPoint,
+		contactNormal: layout.contactNormal,
+		hitTime,
+		status
+	};
+	if (layout.box == null) resolved.shapes = layout.shapes;
+	if (layout.path != null) resolved.path = layout.path;
+	return resolved;
 }
 
 const CHUNK = 64;
 
-/** True when any earlier sample of any marble overlaps the box */
-function isBoxBlocked(plan: TPlan, state: TRunState, box: TBox2): boolean {
-	const extents = boxExtents(box);
+/**
+ * True when any earlier sample of any marble overlaps the piece. A motor windmill is checked against its
+ * blades where they were at each sample's time, since it turns before its hit.
+ */
+function isLayoutBlocked(
+	plan: TPlan,
+	state: TRunState,
+	layout: TPieceLayout,
+	time: number
+): boolean {
+	const rotor = layout.rotor;
+	const hasMotor = rotor != null && rotor.motorSpeed !== 0;
+	let bounds = shapesBounds(layout.shapes);
+	if (hasMotor) {
+		// The swept disc
+		const local = shapesBounds(rotor.localShapes);
+		const reach = Math.max(
+			Math.hypot(local.minX, local.minY),
+			Math.hypot(local.maxX, local.maxY),
+			Math.hypot(local.minX, local.maxY),
+			Math.hypot(local.maxX, local.minY)
+		);
+		bounds = {
+			minX: rotor.hub.x - reach,
+			minY: rotor.hub.y - reach,
+			maxX: rotor.hub.x + reach,
+			maxY: rotor.hub.y + reach
+		};
+	}
+	const distance = (sample: TMarbleSample): number => {
+		if (!hasMotor) {
+			let d = Infinity;
+			for (const shape of layout.shapes)
+				d = Math.min(d, shapeDistance(shape, sample.position.x, sample.position.y));
+			return d;
+		}
+		// Moves the sample into the rotor frame at its time instead of turning every blade
+		const angle = rotor.angle + rotor.motorSpeed * (sample.time - time);
+		const cos = Math.cos(-angle);
+		const sin = Math.sin(-angle);
+		const dx = sample.position.x - rotor.hub.x;
+		const dy = sample.position.y - rotor.hub.y;
+		const x = dx * cos - dy * sin;
+		const y = dx * sin + dy * cos;
+		let d = Infinity;
+		for (const shape of rotor.localShapes) d = Math.min(d, shapeDistance(shape, x, y));
+		return d;
+	};
 	for (let m = 0; m < state.marbles.length; m++) {
 		const run = state.marbles[m];
 		const marble = plan.marbles[m];
-		const bounds = state.chunkBounds[m];
-		if (run == null || marble == null || bounds == null) continue;
+		const chunkBounds = state.chunkBounds[m];
+		if (run == null || marble == null || chunkBounds == null) continue;
 		const reach = marble.radius - BLOCK_TOLERANCE;
-		const minX = box.cx - extents.x - reach;
-		const maxX = box.cx + extents.x + reach;
-		const minY = box.cy - extents.y - reach;
-		const maxY = box.cy + extents.y + reach;
+		const minX = bounds.minX - reach;
+		const maxX = bounds.maxX + reach;
+		const minY = bounds.minY - reach;
+		const maxY = bounds.maxY + reach;
 		const { samples } = run;
-		updateChunkBounds(samples, bounds);
+		updateChunkBounds(samples, chunkBounds);
 		for (let start = 0; start < samples.length; start += CHUNK) {
 			const chunk = start / CHUNK;
-			if (chunk * 4 < bounds.length) {
+			if (chunk * 4 < chunkBounds.length) {
 				const isOutside =
-					(bounds[chunk * 4 + 2] ?? 0) < minX ||
-					(bounds[chunk * 4] ?? 0) > maxX ||
-					(bounds[chunk * 4 + 3] ?? 0) < minY ||
-					(bounds[chunk * 4 + 1] ?? 0) > maxY;
+					(chunkBounds[chunk * 4 + 2] ?? 0) < minX ||
+					(chunkBounds[chunk * 4] ?? 0) > maxX ||
+					(chunkBounds[chunk * 4 + 3] ?? 0) < minY ||
+					(chunkBounds[chunk * 4 + 1] ?? 0) > maxY;
 				if (isOutside) continue;
 			}
 			const end = Math.min(samples.length, start + CHUNK);
 			for (let i = start; i < end; i++) {
 				const sample = samples[i];
-				if (sample != null && boxDistance(box, sample.position.x, sample.position.y) < reach)
-					return true;
+				if (sample != null && distance(sample) < reach) return true;
 			}
 		}
 	}
@@ -738,18 +1001,55 @@ function updateChunkBounds(samples: TMarbleSample[], bounds: number[]): void {
 
 // Contacts
 
-function recordContact(plan: TPlan, state: TRunState, handleA: number, handleB: number): void {
+function recordContact(
+	plan: TPlan,
+	state: TRunState,
+	handleA: number,
+	handleB: number,
+	started: boolean
+): void {
 	const a = state.colliders.get(handleA);
 	const b = state.colliders.get(handleB);
 	if (a == null || b == null) return;
 	if (a.kind === 'marble' && b.kind === 'marble') {
-		recordMarbleContact(plan, state, a.marbleIndex, b.marbleIndex);
+		if (started) recordMarbleContact(plan, state, a.marbleIndex, b.marbleIndex);
 		return;
 	}
-	if (a.kind === 'marble' && b.kind === 'piece')
-		recordPieceContact(plan, state, a.marbleIndex, b.entityId, b.box);
-	else if (a.kind === 'piece' && b.kind === 'marble')
-		recordPieceContact(plan, state, b.marbleIndex, a.entityId, a.box);
+	const pair =
+		a.kind === 'marble' && b.kind === 'piece'
+			? { marbleIndex: a.marbleIndex, piece: b }
+			: a.kind === 'piece' && b.kind === 'marble'
+				? { marbleIndex: b.marbleIndex, piece: a }
+				: null;
+	if (pair == null) return;
+	// A piece made of several colliders logs a contact only when the marble starts touching any of them
+	const key = `${pair.marbleIndex}|${pair.piece.entityId}`;
+	const count = state.touching.get(key) ?? 0;
+	if (!started) {
+		if (count <= 1) state.touching.delete(key);
+		else state.touching.set(key, count - 1);
+		return;
+	}
+	state.touching.set(key, count + 1);
+	if (count > 0) return;
+	recordPieceContact(
+		plan,
+		state,
+		pair.marbleIndex,
+		pair.piece.entityId,
+		worldShape(state, pair.piece)
+	);
+}
+
+/** World shape of a piece collider; rotor parts use the pose at the start of the step */
+function worldShape(
+	state: TRunState,
+	info: Extract<TColliderInfo, { kind: 'piece' }>
+): TPieceShape {
+	const rotor = state.rotors[info.rotorIndex];
+	if (rotor == null) return info.shape;
+	const angle = rotor.motion[rotor.motion.length - 2]?.angle ?? rotor.motion[0]?.angle ?? 0;
+	return transformShape(info.shape, rotor.hub, angle);
 }
 
 /** The state at the start of the step that produced the event, or null if the marble has no such state */
@@ -767,7 +1067,7 @@ function recordPieceContact(
 	state: TRunState,
 	marbleIndex: number,
 	entityId: string,
-	box: TBox2
+	shape: TPieceShape
 ): void {
 	const marble = plan.marbles[marbleIndex];
 	const run = state.marbles[marbleIndex];
@@ -780,7 +1080,7 @@ function recordPieceContact(
 	if (pre != null) {
 		const gap = (tau: number): number => {
 			const { position } = ballistic(pre.position, pre.velocity, tau);
-			return boxDistance(box, position.x, position.y) - marble.radius;
+			return shapeDistance(shape, position.x, position.y) - marble.radius;
 		};
 		const tau = findFirstRoot(gap, 3 * DT);
 		if (tau != null) {
@@ -793,7 +1093,7 @@ function recordPieceContact(
 		marbleEntityId: marble.entityId,
 		otherEntityId: entityId,
 		kind: 'piece',
-		position: closestPointOnBox(box, centre.x, centre.y)
+		position: shapeClosestPoint(shape, centre.x, centre.y)
 	});
 }
 
@@ -875,7 +1175,8 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 		if (piece == null || getPieceDefinition(piece.type) == null) continue;
 		const resolved = staticById.get(entity.id) ?? state.placements.get(entity.id)?.piece;
 		if (resolved != null) {
-			pieces.push(resolved);
+			const rotor = state.rotors.find((r) => r.entityId === entity.id);
+			pieces.push(rotor != null ? { ...resolved, motion: rotorMotion(plan, rotor) } : resolved);
 			continue;
 		}
 		// Linked pieces that were never processed: missing hit, hit after the end or before the start
@@ -899,11 +1200,14 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 	const linkByHit = new Map<string, string>();
 	for (const entity of project.entities) {
 		const { hitLink } = entity.components;
-		if (hitLink == null || !pieceById.has(entity.id)) continue;
+		const piece = pieceById.get(entity.id);
+		// Follower rails and tunnels do not sound their hit
+		if (hitLink == null || piece == null || isFollowerPiece(piece.params)) continue;
 		const key = `${hitLink.laneId}/${hitLink.hitId}`;
 		if (!linkByHit.has(key)) linkByHit.set(key, entity.id);
 	}
 
+	const band = frameBand(project);
 	const hits: THitResult[] = [];
 	for (const lane of project.music.lanes) {
 		const marbleIndex = plan.marbles.findIndex((marble) => marble.laneId === lane.id);
@@ -927,6 +1231,8 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 			};
 			if (piece == null || marble == null) {
 				if (piece != null) result.status = 'missed';
+				else if (result.dot != null)
+					result.outOfFrame = Math.abs(result.dot.x - band.centerX) > band.halfWidth;
 				hits.push(result);
 				continue;
 			}
@@ -973,6 +1279,18 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 		hits,
 		stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
 	};
+}
+
+/** Motion with a first sample at the run start when the rotor entered later */
+function rotorMotion(plan: TPlan, rotor: TRotorRun): TPieceMotionSample[] {
+	// Adding zero turns the -0 of a release at time 0 into 0
+	const startTime = plan.startStep / PHYSICS_HZ + 0;
+	const first = rotor.motion[0];
+	if (first == null || first.time <= startTime) return rotor.motion;
+	return [
+		{ time: startTime, angle: first.angle - rotor.motorSpeed * (first.time - startTime) },
+		...rotor.motion
+	];
 }
 
 /** Marble state at `time`, extrapolated along free flight from the sample at or before it */

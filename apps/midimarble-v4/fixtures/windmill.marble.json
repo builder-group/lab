@@ -1,0 +1,236 @@
+{
+	"$schema": "marble-project@1",
+	"id": "windmill",
+	"title": "Windmill",
+	"revision": 0,
+	"frame": {
+		"width": 9,
+		"height": 16
+	},
+	"end": 2.6,
+	"music": {
+		"sources": [],
+		"lanes": [
+			{
+				"id": "lane-1",
+				"name": "Marble 1",
+				"color": "#3478f6",
+				"instrument": 9,
+				"hits": [
+					{
+						"id": "hit-1-1",
+						"time": 0.15
+					},
+					{
+						"id": "hit-1-2",
+						"time": 0.45
+					},
+					{
+						"id": "hit-1-3",
+						"time": 0.75
+					},
+					{
+						"id": "hit-1-4",
+						"time": 1.05
+					},
+					{
+						"id": "hit-1-5",
+						"time": 1.35
+					},
+					{
+						"id": "hit-1-6",
+						"time": 1.65
+					},
+					{
+						"id": "hit-1-7",
+						"time": 1.95
+					}
+				]
+			}
+		]
+	},
+	"entities": [
+		{
+			"id": "marble-1",
+			"name": "Marble 1",
+			"components": {
+				"marble": {
+					"laneId": "lane-1",
+					"radius": 0.008,
+					"color": "#3478f6"
+				},
+				"release": {
+					"position": {
+						"x": 0,
+						"y": 0.6
+					},
+					"time": 0
+				}
+			}
+		},
+		{
+			"id": "piece-1-1",
+			"name": "Platform 1",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-1",
+					"angle": -0.3,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-2",
+			"name": "Platform 1",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-2",
+					"angle": 0.3,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "windmill-1",
+			"name": "Windmill 1",
+			"components": {
+				"piece": {
+					"type": "windmill",
+					"params": {
+						"bladeCount": 4,
+						"bladeLength": 0.06,
+						"bladeThickness": 0.006,
+						"hubRadius": 0.008,
+						"damping": 0.5,
+						"motorSpeed": 0,
+						"depth": 0.03
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-3",
+					"angle": -0.3,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-4",
+			"name": "Platform 3",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-4",
+					"angle": 0.17453292519943295,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-5",
+			"name": "Platform 4",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-5",
+					"angle": -0.19198621771937624,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-6",
+			"name": "Platform 5",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-6",
+					"angle": 0.22689280275926285,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-7",
+			"name": "Platform 6",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-7",
+					"angle": -0.22689280275926285,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		}
+	],
+	"design": {
+		"theme": "pegboard",
+		"renderPreset": "balanced",
+		"loop": false,
+		"camera": {
+			"mode": "rig",
+			"distance": 0.6,
+			"pitch": 0.7,
+			"lead": 0.15,
+			"smoothing": 0.6,
+			"shots": []
+		}
+	}
+}
