@@ -1,19 +1,32 @@
-import { createLane, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import { createLane, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import { KIT_SCALE } from './pieces';
 import { createLinkedPiece } from './placement';
 
 // Deterministic example projects for fixtures and tests. Pieces are linked to hits, so their positions
 // come from the simulation and the documents stay stable.
 
 export function createStaircaseProject(): TProject {
-	return createRunProject({
+	const project = createRunProject({
 		id: 'staircase',
 		title: 'Staircase',
 		end: 4.5,
 		marbles: [
-			// The marble falls 1.8 m to the first hit; a low bounce keeps the following hits on its way down
-			{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(0.6, 0.4, 8), angles: () => -0.05, bounce: 0.55 }
+			// The marble falls 1.8 m to the first hit; a low bounce keeps the following hits on its way down. The
+			// hand-set angles were made for the Marble Race Kit, so the staircase keeps its 1× sizes.
+			{
+				x: 0,
+				y: 0.6,
+				releaseTime: 0,
+				hitTimes: evenTimes(0.6, 0.4, 8),
+				angles: () => -0.05,
+				bounce: 0.55,
+				radius: 0.008,
+				platform: { length: 0.06, thickness: 0.008, depth: 0.03 }
+			}
 		]
 	});
+	project.design.camera.distance = 0.6;
+	return project;
 }
 
 /** Four marbles over 60 seconds with a platform every 0.6 seconds each, for performance checks */
@@ -40,6 +53,9 @@ interface TRunMarble {
 	angles: (hitIndex: number) => number;
 	/** Bounce of every platform, the definition default when unset */
 	bounce?: number;
+	/** Marble radius and platform sizes, the default kit when unset */
+	radius?: number;
+	platform?: Record<string, number>;
 }
 
 interface TBareRunMarble {
@@ -68,8 +84,12 @@ function createRunProject(options: {
 			});
 			if (marble.bounce != null && piece.components.piece != null)
 				piece.components.piece.params['bounce'] = marble.bounce;
+			if (marble.platform != null && piece.components.piece != null)
+				Object.assign(piece.components.piece.params, marble.platform);
 			entities.push(piece);
 		});
+		const component = entities.find((entity) => entity.components.marble?.laneId === lane.id)?.components.marble;
+		if (marble.radius != null && component != null) component.radius = marble.radius;
 	});
 	return project;
 }
@@ -102,7 +122,7 @@ export function createBareRunProject(options: {
 			id: `marble-${index + 1}`,
 			name: lane.name,
 			components: {
-				marble: { laneId: lane.id, radius: 0.008, color: lane.color },
+				marble: { laneId: lane.id, radius: DEFAULT_MARBLE_RADIUS, color: lane.color },
 				release
 			}
 		});
@@ -120,7 +140,8 @@ export function createBareRunProject(options: {
 			theme: 'pegboard',
 			renderPreset: 'balanced',
 			loop: false,
-			camera: { mode: 'rig', distance: 0.6, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots: [] }
+			// 0.6 m frames the Marble Race Kit; the default kit is KIT_SCALE times larger
+			camera: { mode: 'rig', distance: 0.6 * KIT_SCALE, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots: [] }
 		}
 	};
 }

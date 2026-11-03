@@ -1,5 +1,13 @@
 import type { TEntity, TLane, TProject } from './schema';
 
+/**
+ * Marble radius of new projects. The kit is 1.5 times the Marble Race Kit scale (16 mm marbles), which reads at
+ * the reference film's size; piece defaults follow `KIT_SCALE` in the simulation's piece definitions.
+ */
+export const DEFAULT_MARBLE_RADIUS = 0.012;
+/** Distance between the releases of neighbouring marbles, and between their lanes' bands in the frame */
+export const LANE_SPACING = 0.26;
+
 export function createId(prefix: string): string {
 	const random = Math.random().toString(36).slice(2, 10);
 	return `${prefix}-${Date.now().toString(36)}${random}`;
@@ -21,7 +29,8 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 			theme: 'pegboard',
 			renderPreset: 'balanced',
 			loop: false,
-			camera: { mode: 'rig', distance: 0.65, pitch: 1.0, lead: 0.15, smoothing: 0.6, shots: [] }
+			// Far enough for the 1.5× kit to read like the reference film: a bar spans about a quarter of the frame
+			camera: { mode: 'rig', distance: 0.85, pitch: 1.0, lead: 0.15, smoothing: 0.6, shots: [] }
 		}
 	};
 }
@@ -49,7 +58,7 @@ export function createMarble(lane: TLane, position: { x: number; y: number }): T
 		id: createId('marble'),
 		name: lane.name,
 		components: {
-			marble: { laneId: lane.id, radius: 0.008, color: lane.color },
+			marble: { laneId: lane.id, radius: DEFAULT_MARBLE_RADIUS, color: lane.color },
 			release: { position, time: 0 }
 		}
 	};

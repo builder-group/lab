@@ -122,7 +122,8 @@ const SShot = z.strictObject({
 
 const SDesign = z.strictObject({
 	theme: z.string(),
-	renderPreset: z.enum(['fast', 'balanced', 'best']),
+	// `draft` was added later; files without it stay valid
+	renderPreset: z.enum(['draft', 'fast', 'balanced', 'best']),
 	loop: z.boolean(),
 	camera: z.strictObject({
 		mode: z.enum(['rig', 'manual']),

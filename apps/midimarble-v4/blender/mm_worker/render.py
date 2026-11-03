@@ -2,8 +2,9 @@
 
 `render_film` saves a copy of the live scene into `renders/.jobs/<jobId>/scene.blend` and starts a background
 Blender on it with `blender/render_job.py`, then answers right away with the job ID, so the live worker stays
-responsive. The job renders frames to PNG, writes progress to `.bridge/outbox/<jobId>.progress.json`, muxes the
-frames and the soundtrack WAV into an MP4 (H.264 + AAC) with FFmpeg, and finishes with the usual response envelope
+responsive. The job renders frames to PNG (JPEG for drafts), writes progress to
+`.bridge/outbox/<jobId>.progress.json`, muxes the frames and the soundtrack WAV into an MP4 (H.264 + AAC) with
+FFmpeg, and finishes with the usual response envelope
 in `.bridge/outbox/<jobId>.json`. Without an FFmpeg binary it encodes with Blender's own FFmpeg through the
 sequencer instead.
 
@@ -14,6 +15,10 @@ Frames are rendered by time, not by frame number: output frame i shows time i / 
 presets work regardless of the frame rate the keyframes were written at. A loop scene (`mm_loop` from
 `apply_scene`) renders its loop range instead: frame i shows loop start + i / fps, up to the frame before the loop
 end.
+
+The draft preset renders the same scene with Workbench instead of the requested engine: solid colours from each
+material's viewport colour, shadows, cavity and outlines, and no lighting, depth of field or motion blur. Like every
+engine setting, it is applied only inside the job process, so the saved scene keeps its own engine.
 """
 import json
 import math
@@ -31,6 +36,10 @@ from .preview import temporary
 from .util import WorkerError, resolve_package_path, write_json_atomic
 
 PRESETS = {
+    # Draft always renders with Workbench: solid theme colours, no lighting or materials, for judging motion fast
+    # Its frames go through JPEG: writing PNG took as long as rendering the frame
+    'draft': {'short': 720, 'fps': 30, 'engine': 'workbench', 'workbench': 8, 'frames': 'jpg', 'x264': 'veryfast',
+              'crf': 23},
     'fast': {'short': 720, 'fps': 30, 'eevee': 16, 'cycles': 32, 'x264': 'veryfast', 'crf': 20},
     'balanced': {'short': 1080, 'fps': 30, 'eevee': 32, 'cycles': 64, 'x264': 'medium', 'crf': 18},
     'best': {'short': 1080, 'fps': 60, 'eevee': 64, 'cycles': 128, 'x264': 'slow', 'crf': 17},
@@ -48,10 +57,13 @@ RENDER_JOB_SCRIPT = Path(__file__).resolve().parents[1] / 'render_job.py'
 def start_render_film(worker, args):
     preset_name = args.get('preset', 'balanced')
     if preset_name not in PRESETS:
-        raise WorkerError('INVALID_ARGS', 'preset must be fast, balanced or best')
+        raise WorkerError('INVALID_ARGS', 'preset must be draft, fast, balanced or best')
+    preset = PRESETS[preset_name]
     engine = args.get('engine') or 'eevee'
     if engine not in ('eevee', 'cycles'):
         raise WorkerError('INVALID_ARGS', 'engine must be eevee or cycles')
+    # A preset with its own engine overrides the requested one
+    engine = preset.get('engine', engine)
     output = resolve_package_path(worker.project_dir, args.get('outputPath') or 'renders/film-%s.mp4' % preset_name)
     if output.suffix.lower() != '.mp4':
         raise WorkerError('INVALID_ARGS', 'outputPath must end in .mp4')
@@ -73,7 +85,6 @@ def start_render_film(worker, args):
     if job_dir.exists():
         shutil.rmtree(job_dir)
     job_dir.mkdir(parents=True)
-    preset = PRESETS[preset_name]
     width, height = preset_size(scene, preset['short'])
     scene_fps = scene.render.fps / scene.render.fps_base
     start_time = scene.frame_start / scene_fps
@@ -97,6 +108,7 @@ def start_render_film(worker, args):
         'startTime': start_time,
         'loop': loop is not None,
         'samples': int(samples) if isinstance(samples, (int, float)) and samples > 0 else preset[engine],
+        'frameFormat': preset.get('frames', 'png'),
         'x264Preset': preset['x264'],
         'crf': preset['crf'],
         'output': str(output),
@@ -238,11 +250,67 @@ def engine_settings(scene, engine, samples, width, height):
         settings += [(scene.render, 'engine', 'CYCLES')]
         if samples:
             settings += [(scene.cycles, 'samples', samples), (scene.cycles, 'use_denoising', True)]
+    elif engine == 'workbench':
+        settings += workbench_settings(scene, samples)
     else:
         settings += [(scene.render, 'engine', 'BLENDER_EEVEE')]
         if samples:
             settings += [(scene.eevee, 'taa_render_samples', samples)]
     return settings
+
+
+WORKBENCH_AA = ((0, 'OFF'), (1, 'FXAA'), (5, '5'), (8, '8'), (11, '11'), (16, '16'), (32, '32'))
+DEFAULT_DIFFUSE = (0.8, 0.8, 0.8)
+DRAFT_LIGHT = (-0.25, 0.55, 0.8)
+
+
+def workbench_settings(scene, samples):
+    """Draft look: Workbench solid shading in each material's colour, with shadows and outlines so pieces and
+    marbles read against the wall. Neutral colour management, no depth of field or motion blur."""
+    shading = scene.display.shading
+    aa = min(WORKBENCH_AA, key=lambda item: abs(item[0] - (samples or 8)))[1]
+    settings = [
+        (scene.render, 'engine', 'BLENDER_WORKBENCH'),
+        (scene.render, 'use_motion_blur', False),
+        (scene.display, 'render_aa', aa),
+        (shading, 'light', 'STUDIO'),
+        (shading, 'color_type', 'MATERIAL'),
+        (shading, 'show_specular_highlight', True),
+        (shading, 'show_shadows', True),
+        (shading, 'shadow_intensity', 0.4),
+        # Each piece drops a short shadow down and to the right onto the wall behind it
+        (scene.display, 'light_direction', DRAFT_LIGHT),
+        (shading, 'show_cavity', True),
+        (shading, 'cavity_type', 'SCREEN'),
+        (shading, 'curvature_ridge_factor', 1.0),
+        (shading, 'curvature_valley_factor', 1.0),
+        (shading, 'show_object_outline', True),
+        (shading, 'object_outline_color', (0.06, 0.06, 0.07)),
+        (scene.view_settings, 'view_transform', 'Standard'),
+        (scene.view_settings, 'look', 'None'),
+        (scene.view_settings, 'exposure', 0.0),
+        (scene.view_settings, 'gamma', 1.0),
+    ]
+    if scene.camera is not None and scene.camera.type == 'CAMERA':
+        settings.append((scene.camera.data.dof, 'use_dof', False))
+    # Workbench shows a material's viewport colour; give materials that kept the default grey their base colour
+    for material in bpy.data.materials:
+        color = base_color(material)
+        if color is not None and all(abs(a - b) < 1e-3 for a, b in zip(material.diffuse_color[:3], DEFAULT_DIFFUSE)):
+            settings.append((material, 'diffuse_color', (*color[:3], 1.0)))
+    return settings
+
+
+def base_color(material):
+    """Unlinked Base Color of the material's Principled BSDF, if it has one"""
+    if not material.use_nodes or material.node_tree is None:
+        return None
+    for node in material.node_tree.nodes:
+        if node.type == 'BSDF_PRINCIPLED':
+            socket = node.inputs.get('Base Color')
+            if socket is not None and not socket.is_linked:
+                return tuple(socket.default_value)
+    return None
 
 
 def use_gpu_for_cycles(scene):
@@ -324,11 +392,14 @@ def render_job(job, job_dir, outbox):
 
     report(0.0, 'Preparing')
     settings = engine_settings(scene, engine, job['samples'], job['width'], job['height'])
+    extension = frame_extension(job)
+    if extension == 'jpg':
+        settings += [(scene.render.image_settings, 'file_format', 'JPEG'), (scene.render.image_settings, 'quality', 92)]
     with temporary(settings):
         for index in range(count):
             check_cancel(job, job_dir)
             set_time(scene, job['startTime'] + index / fps)
-            scene.render.filepath = str(frames_dir / ('%05d.png' % index))
+            scene.render.filepath = str(frames_dir / ('%05d.%s' % (index, extension)))
             bpy.ops.render.render(write_still=True)
             elapsed = time.perf_counter() - began
             now = time.monotonic()
@@ -363,6 +434,10 @@ def render_job(job, job_dir, outbox):
     }
 
 
+def frame_extension(job):
+    return 'jpg' if job.get('frameFormat') == 'jpg' else 'png'
+
+
 def check_cancel(job, job_dir):
     if (job_dir / 'cancel').is_file():
         raise Cancelled()
@@ -391,7 +466,7 @@ def encode(job, job_dir, frames_dir, output):
     if ffmpeg is None:
         encode_with_blender(job, frames_dir, output)
         return 'blender'
-    command = [ffmpeg, '-y', '-loglevel', 'error', '-framerate', str(job['fps']), '-i', str(frames_dir / '%05d.png')]
+    command = [ffmpeg, '-y', '-loglevel', 'error', '-framerate', str(job['fps']), '-i', str(frames_dir / ('%05d.' + frame_extension(job)))]
     if job.get('audio'):
         command += ['-i', job['audio'], '-map', '0:v:0', '-map', '1:a:0', '-c:a', 'aac', '-b:a', '192k']
     command += ['-c:v', 'libx264', '-preset', job['x264Preset'], '-crf', str(job['crf']), '-pix_fmt', 'yuv420p',
@@ -411,7 +486,7 @@ def encode(job, job_dir, frames_dir, output):
 
 def encode_with_blender(job, frames_dir, output):
     """Encodes the frames and soundtrack with Blender's FFmpeg through a sequencer scene"""
-    frames = sorted(frames_dir.glob('*.png'))
+    frames = sorted(frames_dir.glob('*.' + frame_extension(job)))
     scene = bpy.data.scenes.new('MM encode')
     scene.render.fps = int(job['fps'])
     scene.render.fps_base = 1.0

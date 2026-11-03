@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createLane, parseProject, type TEntity, type TProject } from '@/modules/project';
 import { createStaircaseProject } from './fixture-projects';
+import { resolvePieceParams } from './pieces';
 import { createLinkedPiece } from './placement';
 import { projectOnPath } from './shapes';
 import { createSimulator, type TSimulator } from './simulate';
@@ -248,7 +249,7 @@ describe('simulate', () => {
 		expect(onRail?.length).toBeGreaterThan(20);
 		for (const sample of onRail ?? []) {
 			const gap = projectOnPath(path, sample.position.x, sample.position.y).distance;
-			expect(Math.abs(gap - 0.008 - 0.0025)).toBeLessThan(0.002);
+			expect(Math.abs(gap - 0.008 - (resolvePieceParams('rail', {})['radius'] ?? 0))).toBeLessThan(0.002);
 		}
 		expect(result.contacts.filter((contact) => contact.otherEntityId === railId)).toHaveLength(1);
 	});
@@ -314,7 +315,7 @@ describe('simulate', () => {
 				id: 'free-windmill',
 				components: {
 					piece: { type: 'windmill', params: { bladeCount: 3 } },
-					transform: { position: { x: -0.1, y: 0.2 }, angle: 0.5 }
+					transform: { position: { x: -0.2, y: 0.2 }, angle: 0.5 }
 				}
 			}
 		);
@@ -334,7 +335,8 @@ describe('simulate', () => {
 		const project = createBareProject(0.7);
 		// The marble starts at rest on a free bar, so the linked piece that appears under it at its hit is
 		// touched without being struck
-		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.4125 }, time: 0 });
+		const shelfTop = 0.4 + (resolvePieceParams('platform', {})['thickness'] ?? 0) / 2;
+		const laneId = addMarble(project, 0, { position: { x: 0, y: shelfTop + 0.0085 }, time: 0 });
 		project.entities.push({
 			id: 'shelf',
 			components: {

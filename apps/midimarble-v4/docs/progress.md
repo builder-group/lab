@@ -5,11 +5,19 @@ The autonomous build updates this log after every slice. Newest entries go first
 ## Current state
 
 - Milestones: M0–M4 done; M5 Design in progress (UI, library and agent runner done; Blender consumption of asset skins, per-piece reactions and wall text in progress); M6 render pipeline, follow camera and seamless loops done, shot markers open
-- Next steps: re-render Jingle Bells with the camera following `descent` and check the wall covers the 16 m run (the engine side of the Jingle Bells gaps is done, see `references.md`), Blender geometry for switchbacks (`TResolvedPiece.paths`), a native export test, density at reference hit rates, a focus-marble control in the Design inspector
+- Next steps: looser group framing in the film camera for two-lane runs (see the larger-kit entry and `references.md`), a held ending for Jingle Bells, a native export test, density at reference hit rates, a focus-marble control in the Design inspector
 - Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### Draft film preset
+
+- New `draft` render preset for judging placement, motion, timing and camera quickly: 720p 30 fps, rendered with Workbench from the same scene, camera, frame range, loop range and soundtrack as the other presets, whatever renderer is chosen. Workbench settings live only in the job process (`workbench_settings` in `render.py` through `temporary`): material viewport colours (materials still at the default grey take their Principled base colour), studio light, short shadows down and to the right, screen cavity, dark outlines, Standard view transform, no depth of field or motion blur. Draft frames are written as JPEG (quality 92); PNG writing took as long as the Workbench render itself
+- Schema: `design.renderPreset` accepts `draft` additively, so every `marble-project@2` file stays valid. Export sheet picker reads "Draft · 720p · fast preview of motion" and the renderer caption says Draft renders with Workbench; Design inspector Render menu, and Draft/Fast/Balanced/Best Render Preset commands in the command palette. Estimate: a measured draft film by engine `workbench`, otherwise a typical 70 ms per 720×1280 frame (`basis: 'typical'`), never the Eevee preview
+- Timings (M-series Mac, film job only): Jingle Bells 1050 frames in 73 s (70 ms per frame, 76 s with encoding) against about 481 ms per frame and 505 s for Fast; reference-20 600 frames in 32 s (53 ms per frame, 34 s) against 470 ms and 285 s. With PNG frames the first draft run was 142 and 98 ms per frame
+- Outputs in `.local/draft/`: `films/jingle-bells-draft.mp4`, `films/reference-20-draft.mp4`, `jingle-bells-draft-contact.jpg`, `reference-20-draft-contact.jpg`, `jingle-bells-draft-12.5s.png`. Readability: brass bars, chrome brackets and switchbacks, device skins with their red accents, wall titles and both marbles (blue, orange) read clearly; hit flashes and emission glows do not show in Workbench. Seen in the Jingle Bells draft: the orange marble leaves the frame from 0:32 and the last seconds show an empty wall
+- Checks: `typecheck`, `lint`, `test` (196), `blender:check` (103) and `blender:film` (20, new: draft overrides Cycles with Workbench, the live scene keeps Eevee, 720×1280 with AAC, same frame count as Fast, marble and brass colours in a decoded frame; 198 frames in 4.7 s, 24 ms per frame) pass
 
 ### Export preflight
 
@@ -25,7 +33,9 @@ The autonomous build updates this log after every slice. Newest entries go first
 - Assists for narrow lanes: half-degree refinement with several marbles, quarter degrees within ±3° for arrivals faster than 3 m/s, comfortable travel capped at the band's half width, Continue leaves a lane's last hit to Auto place, stray-contact frontiers also start at the launch into an unbridged long gap, rail and tunnel suggestions probe the next hit for room
 - Fixture builders: staircase keeps the 1× kit (hand-set angles), zigzag starts at 0.45 rad and long-gap at 0.4 rad with the new kit, two-marbles releases on the lane centres at ±0.65 m/s (collision at 0.18 s), the example projects' camera is 0.9 m. Jingle Bells: releases at ±0.13 m; the simulated user now rotates the previous piece before rotating the target by hand
 - Jingle Bells: 115/115 on time, 12 switchbacks, 7 manual steps (1 hand rotation, 6 rotations of the previous piece), every dot within 0.21 m of y*, marbles at most 0.66 m apart vertically. Reference-20 64/64, loop 21/21 and passes `checkLoop`, all fixtures regenerate byte-identically
+- Film: `.local/look4/films/jingle-bells-fast.mp4` (rendered with `blender/tests/render_look.py --film fast`), contact sheet `.local/look4/jingle-bells-contact.jpg`, compare `.local/look4/jingle-compare.jpg`. Bars 12 to 19 % of the frame width (was 8 to 11 %), marbles 3.3 to 4 % (reference 25 to 30 % and about 7 %). The group camera is the remaining limit: keeping both marbles' full bounce arcs inside 55 % of the half frame needs about 1.3 m of distance. With its group framing loosened in memory to 0.8 and 0.85 (`.local/look4/patched_look.py`, `framing-compare.jpg`) bars reach 23 to 25 % and marbles about 4.5 % with both marbles in frame; that change belongs in `blender/mm_worker/camera.py`
 - Checks: `typecheck`, `lint`, `test` (184) pass
+- Next: looser group framing in the camera (Blender side); a held ending so the film does not end on empty wall; lanes closer than 0.26 m only with per-lane collisions and depth offsets
 
 ### Owner feedback after the first films
 

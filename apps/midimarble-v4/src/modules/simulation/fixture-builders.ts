@@ -1,4 +1,4 @@
-import { applyProjectCommands, type TProject, type TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, LANE_SPACING, type TProject, type TProjectCommand } from '@/modules/project';
 import { autoPlace, continueSuggestions, mirrorPiece, type TSimulateFn } from './assists';
 import { createBareRunProject } from './fixture-projects';
 import { createRailForGap, createTunnelForGap } from './gap-pieces';
@@ -16,7 +16,8 @@ export function buildZigzagProject(simulate: TSimulateFn): TProject {
 		marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(0.15, 0.3, 16) }]
 	});
 	const laneId = 'lane-1';
-	const first = createLinkedPiece('platform', laneId, 'hit-1-1', -0.4, { id: 'piece-1-1' });
+	// With the default kit's 9 cm bars and the default bounce, a 0.45 rad start mirrors into sixteen clean hits
+	const first = createLinkedPiece('platform', laneId, 'hit-1-1', -0.45, { id: 'piece-1-1' });
 	project = apply(project, [{ type: 'upsertEntity', entity: first }]);
 	const [isMirrorOk, mirrorErr, mirrored] = mirrorPiece(project, simulate(project), laneId, {
 		id: 'piece-1-2'
@@ -106,8 +107,8 @@ export function buildTwoMarblesProject(simulate: TSimulateFn): TProject {
 		title: 'Two marbles',
 		end: 1.8,
 		marbles: [
-			{ x: -0.1, y: 0.6, releaseTime: 0, velocity: { x: 0.5, y: 0 }, hitTimes: [0.45, 0.85, 1.25] },
-			{ x: 0.1, y: 0.6, releaseTime: 0, velocity: { x: -0.5, y: 0 }, hitTimes: [0.5, 0.9, 1.3] }
+			{ x: -LANE_SPACING / 2, y: 0.6, releaseTime: 0, velocity: { x: 0.65, y: 0 }, hitTimes: [0.45, 0.85, 1.25] },
+			{ x: LANE_SPACING / 2, y: 0.6, releaseTime: 0, velocity: { x: -0.65, y: 0 }, hitTimes: [0.5, 0.9, 1.3] }
 		]
 	});
 	for (const hit of [1, 2, 3]) {

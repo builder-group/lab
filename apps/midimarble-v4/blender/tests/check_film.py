@@ -2,7 +2,8 @@
 
 Builds a synthetic but representative run (a zigzag of platform hits on brackets, a rail at the end and a spinning
 windmill), renders stills at hit times with Eevee and Cycles, then renders a film through `render_film` with a test
-soundtrack and checks the MP4 with ffprobe. Outputs are copied to `.local/look/` for review.
+soundtrack and checks the MP4 with ffprobe. Then renders the same film with the draft preset (Workbench) and checks its
+size, soundtrack and colours. Outputs are copied to `.local/look/` for review.
 
 Run: Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_film.py [-- --quick]
 """
@@ -184,6 +185,43 @@ def ffprobe(path):
     return json.loads(result.stdout)
 
 
+def check_draft_film(worker, root, scene, fast_started):
+    """The draft preset renders the same range with Workbench, whatever engine is asked for, and leaves the scene be"""
+    engine_before = scene.render.engine
+    began = time.perf_counter()
+    started = worker.handle('render_film', {'preset': 'draft', 'engine': 'cycles', 'outputPath': 'renders/film-draft.mp4',
+                                            'audioPath': 'renders/soundtrack.wav', 'jobId': 'film-draft-check'})
+    check(started['engine'] == 'workbench', 'draft preset renders with Workbench even when Cycles is asked for')
+    check(scene.render.engine == engine_before, 'draft render leaves the live scene engine at %s' % engine_before)
+    envelope = render.wait_for_job(root, 'film-draft-check', timeout=1800)
+    check(envelope['ok'], 'draft render_film finishes: %s' % envelope.get('error'))
+    result = envelope['result']
+    film = OUT / 'brass-film-draft.mp4'
+    shutil.copy(result['path'], film)
+    probe = ffprobe(film)
+    streams = {stream['codec_type']: stream for stream in probe['streams']}
+    check(result['engine'] == 'workbench' and (streams['video']['width'], streams['video']['height']) == (720, 1280),
+          'draft film is Workbench at 720x1280')
+    check(streams['audio']['codec_name'] == 'aac', 'draft film carries the AAC soundtrack')
+    check(started['frames'] == fast_started['frames'] and started['fps'] == 30, 'draft film covers the same frames as fast')
+    # A frame at the fourth hit: the blue marble and the brass bars must read as their colours on the wall
+    pixels = film_frame(film, started['width'], started['height'], math.ceil(FIRST_HIT * 30 + 3 * HIT_GAP * 30) / 30)
+    red, green, blue = (pixels[..., channel].astype(float) for channel in range(3))
+    marble = int(((blue > red + 60) & (blue > green + 30)).sum())
+    brass = int(((red > blue + 50) & (green > blue + 20)).sum())
+    check(marble > 40 and brass > 400, 'draft frame shows the blue marble (%d px) and brass bars (%d px)' % (marble, brass))
+    summary.append('draft film: %d frames in %.1f s (%.0f ms/frame render), total %.1f s' % (
+        result['frames'], result['renderSeconds'], result['msPerFrame'], time.perf_counter() - began))
+
+
+def film_frame(path, width, height, seconds):
+    """One decoded RGB frame of a film as a (height, width, 3) array"""
+    tool = shutil.which('ffmpeg') or '/opt/homebrew/bin/ffmpeg'
+    data = subprocess.run([tool, '-v', 'error', '-ss', '%.3f' % seconds, '-i', str(path), '-frames:v', '1', '-f', 'rawvideo',
+                           '-pix_fmt', 'rgb24', '-'], capture_output=True, check=True).stdout
+    return np.frombuffer(data, dtype=np.uint8).reshape(height, width, 3)
+
+
 def main():
     root = Path(tempfile.mkdtemp(prefix='mm-film-')) / 'Film.marble'
     root.mkdir(parents=True)
@@ -244,6 +282,7 @@ def main():
     check(last.get('frames') == started['frames'], 'progress reports frames')
     summary.append('film: %d frames in %.1f s (%.0f ms/frame render), total %.1f s' % (
         result['frames'], result['renderSeconds'], result['msPerFrame'], time.perf_counter() - began))
+    check_draft_film(worker, root, scene, started)
     for name, values in timings.items():
         summary.append('%s: %s' % (name, ', '.join('%.1f s' % value for value in values)))
     shutil.rmtree(root.parent, ignore_errors=True)

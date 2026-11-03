@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LANE_SPACING } from '@/modules/project';
 import { createBareRunProject } from './fixture-projects';
 import { descentPace, descentPoints, longGapThreshold, paceAt, paceRate, PACE_LIMIT } from './pace';
 import { frameBand } from './placement';
@@ -60,33 +61,34 @@ describe('pace', () => {
 	});
 
 	describe('frameBand function', () => {
-		it('should give each lane its own band side by side in a wider frame', () => {
+		it('should give each lane its own band, LANE_SPACING apart', () => {
 			const project = createBareRunProject({
 				id: 'bands',
 				title: 'Bands',
 				end: 2,
 				marbles: [
-					{ x: 0.16, y: 0.6, releaseTime: 0, hitTimes: [0.5] },
-					{ x: -0.16, y: 0.6, releaseTime: 0, hitTimes: [0.5] }
+					{ x: 0.0825, y: 0.6, releaseTime: 0, hitTimes: [0.5] },
+					{ x: -0.0825, y: 0.6, releaseTime: 0, hitTimes: [0.5] }
 				]
 			});
 			const whole = frameBand(project);
 			expect(whole.centerX).toBeCloseTo(0, 12);
-			expect(whole.halfWidth).toBeCloseTo(0.315, 12);
-			// Lanes follow their releases from left to right, with a gutter between them
+			expect(whole.halfWidth).toBeCloseTo(LANE_SPACING / 2 + frameBand(project, 'lane-1').halfWidth, 12);
+			// Lanes follow their releases from left to right; neighbouring bands meet without a gap
 			const left = frameBand(project, 'lane-2');
 			const right = frameBand(project, 'lane-1');
-			expect(left.centerX).toBeCloseTo(-0.1575, 12);
-			expect(right.centerX).toBeCloseTo(0.1575, 12);
-			expect(right.centerX - right.halfWidth - (left.centerX + left.halfWidth)).toBeCloseTo(0.024, 12);
-			// One marble keeps the 0.45 m frame
+			expect(left.centerX).toBeCloseTo(-LANE_SPACING / 2, 12);
+			expect(right.centerX).toBeCloseTo(LANE_SPACING / 2, 12);
+			expect(left.centerX + left.halfWidth).toBeGreaterThanOrEqual(right.centerX - right.halfWidth - 1e-12);
+			// One marble gets the film frame: 0.45 m at the original 0.65 m camera distance, wider further away
 			const single = createBareRunProject({
 				id: 'single',
 				title: 'Single',
 				end: 1,
 				marbles: [{ x: 0.1, y: 0.6, releaseTime: 0, hitTimes: [0.5] }]
 			});
-			expect(frameBand(single, 'lane-1')).toEqual({ centerX: 0.1, halfWidth: 0.225 });
+			expect(frameBand(single, 'lane-1').centerX).toBe(0.1);
+			expect(frameBand(single, 'lane-1').halfWidth).toBeCloseTo((0.225 * single.design.camera.distance) / 0.65, 12);
 		});
 	});
 });

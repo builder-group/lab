@@ -101,7 +101,7 @@ Gaps found above, now:
 1. Long notes: closed. Gaps longer than about 0.68 s at this pace (where a bounce would rise more than 0.4 m) get a switchback. The twelve hold the marble 0.28 to 1.37 s (1 to 3 legs, 7 to 15 cm tall) and release it so the next dot lies within 0.11 m of y*; the two 2 s whole notes use 2 and 3 legs at 3° and 5°.
 2. Vertical drift: closed for the dots; between dots a marble is up to 0.68 m from y*, mostly while a switchback holds it above the pace.
 3. Finite wall: not addressed here. The simulation now reports the pace as `TSimulationResult.descent` for the Blender camera to follow; the run covers about 16 m of wall over 31 s.
-4. One frame band: closed. Each lane has its own band in a frame widened to 0.63 m for two marbles.
+4. One frame band: closed. Each lane has its own band (in this rebuild a frame widened to 0.63 m for two marbles; see the next section for the larger kit's lanes).
 5. Fast arrivals: closed for the first fall; the 4.9 m fall from a 0 s release settles in one hit on a nearly flat platform with bounce 0.2. Two hand steps remain, both where a bass bounce near the end would touch the melody's last piece.
 6. Launch angles: closed. Auto place launches with a 1.2 m/s hop that drops the marble beside the piece into the switchback.
 7. Continue before a long gap: closed. Ghosts stop before the launch hit.
@@ -116,8 +116,22 @@ Compared on 2026-11-03 after the shared descent pace, side-by-side lane bands, i
 - Still behind the Blender prototype: at that distance the 6 cm pieces fill 8 to 11 % of the frame width and the marbles are small dots (the bass reads only by colour). Switchbacks look like small chrome wire cages up close but are faint at film distance. The film opens on two lone marbles and ends with a 15 m solo fall of the melody
 - Remaining gap: lanes side by side 0.3 m apart cost scale. Narrower lane bands or a larger kit scale (as in `reference-20`) would bring pieces to the reference's 12 to 15 % of the frame width
 
+### Larger kit and closer lanes
+
+Rebuilt and rendered on 2026-11-03 after the 1.5× default kit and the 0.26 m lane spacing (`architecture.md`, Units and Simulation). Film: `.local/look4/films/jingle-bells-fast.mp4` (1050 frames, Eevee fast preset, 720×1280), 1 fps contact sheet `.local/look4/jingle-bells-contact.jpg`, side by side with the previous film in `.local/look4/jingle-compare.jpg`. Sizes are measured on 360 px wide frames at 5, 11 and 20 s; the reference sheets were read the same way.
+
+| | Previous film (`.local/look3`) | This film | Reference short |
+| --- | --- | --- | --- |
+| Bar length in frame width | 8 to 11 % | 12 to 19 % (16 % typical) | 25 to 30 % |
+| Marble diameter in frame width | about 1.7 % (12 px at 720p) | 3.3 to 4 % | about 7 % |
+| Bars per frame | 15 to 25, tiny | 12 to 18 | 10 to 14 |
+| Both marbles in frame | yes | yes, 1 to 31 s | one marble |
+| Build | 115/115, 12 switchbacks | 115/115, 12 switchbacks, 7 manual steps, every dot within 0.21 m of y*, marbles at most 0.66 m apart vertically | |
+
+Verdict: better than the previous film, with pieces about one and a half times larger and the marbles readable, but still about half the reference's scale. The remaining limit is the group camera, not the lanes. It keeps every marble within 55 % of the half frame height (65 % of the half width) and holds the widest need for a second. A 0.5 s bounce sags gT²/8 ≈ 0.31 m from the straight pace line between its dots, so the bass alone asks for about 1.3 m of camera distance against the set 0.85 m, and the lane spacing about 1.1 m. Rendering the same package with the group framing loosened in memory to 0.8 of the half height and 0.85 of the half width (`.local/look4/patched_look.py`, nothing in `blender/` changed; stills in `.local/look4/framing-compare.jpg`) gives bars of 23 to 25 % and marbles of about 4.5 %, with both marbles still in frame. Lanes at the requested 0.15 to 0.18 m were not reachable: all marbles share one physics world, so interleaved lanes strike each other's bars and every build attempt failed within 2 to 13 s; they would need collisions limited to a lane's own pieces and a depth offset per lane in Blender. The film still ends with three seconds of empty wall after the last notes.
+
 ## Scale
 
-Blender's default unit is the metre, and the purchased Marble Race Kit uses real scale: marbles are 16 mm and track modules about 0.2 m. MidiMarble uses the same scale. Rapier and Blender then share units, and lighting, depth of field and physics behave like real objects.
+Blender's default unit is the metre, and the purchased Marble Race Kit uses real scale: marbles are 16 mm and track modules about 0.2 m. MidiMarble works in the same units; its default kit is 1.5 times that size (24 mm marbles, 9 cm bars), which reads at the reference film's scale, as `reference-20` showed first. Rapier and Blender then share units, and lighting, depth of field and physics behave like real objects.
 
 The Marble Race Kit (`assets/3D/blender/Marble Race Kit_v2.2`) is a purchased local reference. It can inform proportions and be used in a personal library, but it is not shipped with the app.

@@ -1,5 +1,5 @@
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
-import type { TProject, TVec2 } from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TProject, type TVec2 } from '@/modules/project';
 import { ballistic, GRAVITY_Y } from './geometry';
 import {
 	layoutAtContact,
@@ -215,7 +215,7 @@ function createPlan(project: TProject): TPlan {
 	const staticPieces: TStaticPiece[] = [];
 	const events: TPlanEvent[] = [];
 	const linkedHitTimes = new Map<string, number | null>();
-	const defaultRadius = marbles[0]?.radius ?? 0.008;
+	const defaultRadius = marbles[0]?.radius ?? DEFAULT_MARBLE_RADIUS;
 	for (const entity of project.entities) {
 		const { piece, hitLink, transform } = entity.components;
 		if (piece == null) continue;

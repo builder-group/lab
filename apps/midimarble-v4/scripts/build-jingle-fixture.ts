@@ -13,6 +13,7 @@ import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '.
 import {
 	applyProjectCommands,
 	createProject,
+	LANE_SPACING,
 	parseProject,
 	serializeProject,
 	type TProject,
@@ -40,11 +41,12 @@ const IMPORT_START = 1;
 const MAX_MARBLES = 2;
 const GLOCKENSPIEL = 9;
 const CELESTA = 8;
-// Melody on the left of the frame, bass on the right, both released at 0 s like the import's default, so the
-// first strike at 1 s comes after a 4.9 m fall that Auto place settles in one hit
+// Melody on the left of the frame, bass on the right, one lane spacing apart like the import places them and
+// released at 0 s like the import's default, so the first strike at 1 s comes after a 4.9 m fall that Auto place
+// settles in one hit
 const RELEASES = [
-	{ x: -0.16, y: 0.6, time: 0 },
-	{ x: 0.16, y: 0.6, time: 0 }
+	{ x: -LANE_SPACING / 2, y: 0.6, time: 0 },
+	{ x: LANE_SPACING / 2, y: 0.6, time: 0 }
 ];
 const DEGREE = Math.PI / 180;
 
@@ -113,7 +115,11 @@ for (let step = 0; step < 400; step++) {
 	if (target == null) break;
 	counts.next++;
 	reasons.length = 0;
-	const next = buildStep(project, target) ?? (target.dot != null ? backtrack(project, target) : null);
+	// The assists first, then what a user tries: rotating the previous piece, then rotating this one by hand
+	const next =
+		buildStep(project, target, false) ??
+		(target.dot != null ? backtrack(project, target) : null) ??
+		buildStep(project, target, true);
 	if (next == null) {
 		// The build stops at the first step no assist can take: both lanes keep only the hits before it
 		failures.push(`${target.hitId} at ${target.targetTime.toFixed(2)} s: ${reasons.join('; ') || 'no assist found a piece'}`);
@@ -151,7 +157,7 @@ writeFileSync(new URL('build-log.txt', OUT), `${log.join('\n')}\n`);
  * into the coming switchback before a long gap). Each option must keep every placed hit on time, the lane's next
  * dot in its frame band and near the pace; the first that does wins.
  */
-function buildStep(current: TProject, target: THitResult): TProject | null {
+function buildStep(current: TProject, target: THitResult, canLean: boolean): TProject | null {
 	const { laneId, hitId } = target;
 	const result = simulate(current);
 	const gap = findLongGaps(current, laneId).find((item) => item.toHitId === hitId && item.bridgedBy == null);
@@ -197,7 +203,8 @@ function buildStep(current: TProject, target: THitResult): TProject | null {
 		}
 	}
 
-	if (!isLaunch && repeatsInterval(current, laneId, hitId)) {
+	const isLast = current.music.lanes.find((lane) => lane.id === laneId)?.hits.at(-1)?.id === hitId;
+	if (!isLaunch && !isLast && repeatsInterval(current, laneId, hitId)) {
 		const [isMirrorOk, , mirrored] = mirrorPiece(current, result, laneId, { id: pieceId(hitId) });
 		const accepted = isMirrorOk ? accept(current, mirrored.commands, laneId) : null;
 		if (accepted != null) {
@@ -231,6 +238,7 @@ function buildStep(current: TProject, target: THitResult): TProject | null {
 		counts.wide++;
 		return widened;
 	}
+	if (!canLean) return null;
 	// What a user does when Auto place finds nothing: rotate the piece by hand until the next dot comes back
 	// as close to the marble's band as it gets, keeping every hit on time
 	const band = frameBand(current, laneId);
@@ -276,6 +284,11 @@ function accept(current: TProject, commands: TProjectCommand[], laneId: string, 
 		const marbleId = applied.entities.find((entity) => entity.components.marble?.laneId === hit.laneId)?.id ?? '';
 		frontier.set(marbleId, Math.min(frontier.get(marbleId) ?? Infinity, hit.targetTime));
 	}
+	// Across a long gap that nothing bridges yet the marble falls freely until its switchback exists
+	for (const lane of applied.music.lanes) {
+		const marbleId = applied.entities.find((entity) => entity.components.marble?.laneId === lane.id)?.id ?? '';
+		for (const gap of openLongGaps(applied, lane.id)) frontier.set(marbleId, Math.min(frontier.get(marbleId) ?? Infinity, gap.from + 0.3));
+	}
 	const othersFrontier = (laneId: string): number =>
 		Math.min(
 			Infinity,
@@ -299,7 +312,7 @@ function accept(current: TProject, commands: TProjectCommand[], laneId: string, 
 	const band = frameBand(applied, laneId);
 	const next = nextOpenPerLane(result).get(laneId);
 	if (next?.dot == null || isBeforeLongGap(applied, next)) return applied;
-	if (!isInBand(next.dot, band, (band.halfWidth - 0.03) / band.halfWidth)) return reject(`out of band ${next.hitId}@${next.dot.x.toFixed(2)}`);
+	if (!isInBand(next.dot, band, 0.9)) return reject(`out of band ${next.hitId}@${next.dot.x.toFixed(2)}`);
 	// A flat platform must still fit at the next dot, as Auto place checks for its own pieces
 	const probe = createLinkedPiece('platform', laneId, next.hitId, 0, { id: 'accept-probe' });
 	const probed = simulate({ ...applied, entities: [...applied.entities, probe], end: Math.min(applied.end, next.targetTime + 0.05) });
@@ -370,7 +383,7 @@ function backtrack(current: TProject, target: THitResult): TProject | null {
 		if (turned == null) continue;
 		const moved = simulate(turned).hits.find((hit) => hit.hitId === target.hitId);
 		if (moved?.dot == null || moved.status !== 'open') continue;
-		const next = buildStep(turned, moved);
+		const next = buildStep(turned, moved, false);
 		if (next != null) {
 			counts.backtrack++;
 			say(`  ${previous.id}: rotated by ${delta}° by hand so ${target.hitId} can be placed`);

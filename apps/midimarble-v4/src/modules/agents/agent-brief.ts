@@ -1,5 +1,5 @@
 import type { TAssetRole } from '@/modules/library';
-import type { TProject, TVec2 } from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TProject, type TVec2 } from '@/modules/project';
 import {
 	getPieceDefinition,
 	resolvePieceParams,
@@ -35,7 +35,6 @@ export type TAgentTarget =
 	| { kind: 'scene' }
 	| { kind: 'wall'; point: TVec2; role?: 'decoration' | 'text' };
 
-const DEFAULT_MARBLE_RADIUS = 0.008;
 
 /** Builds the brief for a target from the project and its latest simulation result */
 export function buildAgentBrief(options: {

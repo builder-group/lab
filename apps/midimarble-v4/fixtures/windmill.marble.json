@@ -56,7 +56,7 @@
 			"components": {
 				"marble": {
 					"laneId": "lane-1",
-					"radius": 0.008,
+					"radius": 0.012,
 					"color": "#3478f6"
 				},
 				"release": {
@@ -75,9 +75,9 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
 						"bounce": 0.65
 					}
 				},
@@ -97,9 +97,9 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
 						"bounce": 0.65
 					}
 				},
@@ -120,12 +120,12 @@
 					"type": "windmill",
 					"params": {
 						"bladeCount": 4,
-						"bladeLength": 0.06,
-						"bladeThickness": 0.006,
-						"hubRadius": 0.008,
+						"bladeLength": 0.09,
+						"bladeThickness": 0.009,
+						"hubRadius": 0.012,
 						"damping": 0.5,
 						"motorSpeed": 0,
-						"depth": 0.03,
+						"depth": 0.045,
 						"bounce": 0.5
 					}
 				},
@@ -145,16 +145,16 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
 						"bounce": 0.46
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-4",
-					"angle": 0.19198621771937624,
+					"angle": 0.2617993877991494,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -167,16 +167,16 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.64
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
+						"bounce": 0.62
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-5",
-					"angle": -0.29670597283903605,
+					"angle": -0.4363323129985824,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -189,16 +189,16 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.65
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
+						"bounce": 0.63
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
-					"angle": 0.2792526803190927,
+					"angle": 0.4188790204786391,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -211,16 +211,16 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
 						"bounce": 0.65
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-7",
-					"angle": -0.22689280275926285,
+					"angle": -0.3141592653589793,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -233,7 +233,7 @@
 		"loop": false,
 		"camera": {
 			"mode": "rig",
-			"distance": 0.6,
+			"distance": 0.8999999999999999,
 			"pitch": 0.7,
 			"lead": 0.15,
 			"smoothing": 0.6,

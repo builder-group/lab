@@ -60,7 +60,7 @@
 			"components": {
 				"marble": {
 					"laneId": "lane-1",
-					"radius": 0.008,
+					"radius": 0.012,
 					"color": "#3478f6"
 				},
 				"release": {
@@ -79,9 +79,9 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
 						"bounce": 0.65
 					}
 				},
@@ -101,9 +101,9 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
 						"bounce": 0.65
 					}
 				},
@@ -123,9 +123,9 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
 						"bounce": 0.65
 					}
 				},
@@ -145,15 +145,15 @@
 				"piece": {
 					"type": "rail",
 					"params": {
-						"radius": 0.0025,
-						"gap": 0.01,
+						"radius": 0.00375,
+						"gap": 0.015,
 						"entryDelay": 0.263
 					}
 				},
 				"path": {
 					"points": [
 						{
-							"x": 0.05421,
+							"x": 0.14107,
 							"y": 0
 						},
 						{
@@ -161,7 +161,7 @@
 							"y": 0
 						},
 						{
-							"x": -0.16563,
+							"x": -0.15057,
 							"y": 0
 						}
 					]
@@ -182,16 +182,16 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.95
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
+						"bounce": 0.9
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-4",
-					"angle": -0.08726646259971647,
+					"angle": -0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -204,16 +204,16 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.61
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
+						"bounce": 0.69
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-5",
-					"angle": -0.29670597283903605,
+					"angle": 0,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -226,16 +226,16 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
 						"bounce": 0.65
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
-					"angle": 0.15,
+					"angle": -0.4,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -248,16 +248,16 @@
 				"piece": {
 					"type": "tunnel",
 					"params": {
-						"radius": 0.002,
-						"bore": 0.004,
-						"mouth": 0.03,
-						"entryDelay": 0.442
+						"radius": 0.003,
+						"bore": 0.006,
+						"mouth": 0.045,
+						"entryDelay": 0.208
 					}
 				},
 				"path": {
 					"points": [
 						{
-							"x": -0.04102,
+							"x": 0.37869,
 							"y": 0
 						},
 						{
@@ -265,7 +265,7 @@
 							"y": 0
 						},
 						{
-							"x": 0.25246,
+							"x": -0.05003,
 							"y": 0
 						}
 					]
@@ -273,7 +273,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
-					"angle": -0.13962634015954636,
+					"angle": 0.13962634015954636,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -286,16 +286,16 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.68
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
+						"bounce": 0.43
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-7",
-					"angle": 0.6806784082777885,
+					"angle": -0.20943951023931956,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -308,16 +308,16 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045,
 						"bounce": 0.65
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-8",
-					"angle": -0.33161255787892263,
+					"angle": 0.3490658503988659,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -330,7 +330,7 @@
 		"loop": false,
 		"camera": {
 			"mode": "rig",
-			"distance": 0.6,
+			"distance": 0.8999999999999999,
 			"pitch": 0.7,
 			"lead": 0.15,
 			"smoothing": 0.6,

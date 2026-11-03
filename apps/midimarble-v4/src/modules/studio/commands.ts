@@ -1,6 +1,7 @@
 import type { TMenuItem } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
+import type { TRenderPreset } from '@/modules/blender';
 import { themeCommands } from '@/modules/design/design-commands';
 import { parseHitKey } from './selection';
 import { focusedLane, type StudioCx } from './StudioCx';
@@ -46,6 +47,20 @@ function unlinkedSelection(cx: StudioCx): string[] {
 	const links = cx.design.$links.get();
 	return cx.$selection.get().filter((id) => links[id]?.link === 'unlinked');
 }
+
+function presetCommand(id: TPresetCommandId, preset: TRenderPreset, title: string): TCommand {
+	return {
+		id,
+		title,
+		section: 'Design',
+		keywords: preset === 'draft' ? 'render preset film workbench quick preview motion timing' : 'render preset film quality export',
+		isEnabled: hasProject,
+		isChecked: (cx) => cx.project?.design.renderPreset === preset,
+		run: (cx) => cx.execute([{ type: 'setDesign', design: { renderPreset: preset } }])
+	};
+}
+
+type TPresetCommandId = 'design.presetDraft' | 'design.presetFast' | 'design.presetBalanced' | 'design.presetBest';
 
 function themeCommand(id: 'design.themePegboard' | 'design.themeBrass', theme: string, title: string): TCommand {
 	return {
@@ -238,6 +253,10 @@ export const commands: readonly TCommand[] = [
 	},
 	themeCommand('design.themePegboard', 'pegboard', 'Pegboard Theme'),
 	themeCommand('design.themeBrass', 'brass', 'Brass Theme'),
+	presetCommand('design.presetDraft', 'draft', 'Draft Render Preset'),
+	presetCommand('design.presetFast', 'fast', 'Fast Render Preset'),
+	presetCommand('design.presetBalanced', 'balanced', 'Balanced Render Preset'),
+	presetCommand('design.presetBest', 'best', 'Best Render Preset'),
 	{
 		id: 'design.loop',
 		title: 'Loop',
@@ -293,6 +312,7 @@ export type TCommandId =
 	| 'design.regenerateCamera'
 	| 'design.themePegboard'
 	| 'design.themeBrass'
+	| TPresetCommandId
 	| 'design.loop'
 	| 'design.cancelExport'
 	| 'edit.undo'

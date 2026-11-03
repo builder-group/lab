@@ -1,13 +1,12 @@
-import { createId, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import { createId, LANE_SPACING, type TEntity, type TProject, type TVec2 } from '@/modules/project';
 import { getPieceDefinition } from './pieces';
 
 const DEFAULT_TILT = (15 * Math.PI) / 180;
 // Dots closer than this to the frame centre lean against the horizontal motion instead
 const CENTRE_DEADBAND = 0.02;
-// Space between neighbouring lane bands, so marbles keep clear of each other's pieces
-const LANE_GUTTER = 0.024;
-// Each lane of a project with several marbles needs this share of a one-marble frame for its zigzag
-const LANE_SHARE = 0.7;
+// Half width of a lane's band with several marbles: two columns of default bars at least a bar and a
+// clearance apart, with half a bar to spare at each side
+const LANE_HALF_WIDTH = 0.13;
 
 /**
  * Default surface angle for a new piece at a hit dot. The surface tilts by 15° so its normal leans toward
@@ -59,16 +58,18 @@ export interface TFrameBand {
 }
 
 /**
- * Horizontal band the run should stay within. The film frame is 0.45 m wide at 9:16 and scales with the
- * project's aspect. With one marble it is centred on that marble's release. With several it widens to
- * `LANE_SHARE` of that width per marble (0.63 m for two), is centred on the mean of their releases and is
- * split into one band per lane, side by side in the order of the
- * releases from left to right with a 2.4 cm gutter between them, wider than a marble; `laneId` picks a lane's band, and without
- * it the whole frame is returned.
+ * Horizontal band the run should stay within. With one marble it is the film frame: 0.45 m wide at 9:16 for
+ * the camera's original 0.65 m distance, scaled with the project's aspect and camera distance (0.59 m at the
+ * 0.85 m default of new projects), centred on the marble's release. With several marbles each lane gets a
+ * band `2 · LANE_HALF_WIDTH` wide, room for a zigzag of the default kit, and the lanes sit `LANE_SPACING`
+ * apart in the order of their releases from left to right, centred on the mean release. Neighbouring bands
+ * overlap a little; the assists keep the marbles off each other and off the other lanes' pieces by
+ * simulation. `laneId` picks a lane's band; without it the band covering every lane is returned.
  */
 export function frameBand(project: TProject, laneId?: string): TFrameBand {
 	const aspect = project.frame.width / project.frame.height;
-	const width = 0.45 * (aspect / (9 / 16));
+	const distance = project.design.camera.distance;
+	const width = 0.45 * (aspect / (9 / 16)) * (distance > 0 ? distance / 0.65 : 1);
 	const marbles = project.entities.filter(
 		(entity) => entity.components.marble != null && entity.components.release != null
 	);
@@ -77,18 +78,13 @@ export function frameBand(project: TProject, laneId?: string): TFrameBand {
 			.release;
 		return { centerX: release?.position.x ?? 0, halfWidth: width / 2 };
 	}
-	// Lanes side by side need room for a zigzag each, so the frame widens and the camera frames that width
-	const shared = width * Math.max(1, LANE_SHARE * marbles.length);
 	const releaseX = (entity: TEntity): number => entity.components.release?.position.x ?? 0;
 	const centerX = marbles.reduce((sum, entity) => sum + releaseX(entity), 0) / marbles.length;
 	const ordered = marbles
 		.map((entity, index) => ({ entity, index }))
 		.sort((a, b) => releaseX(a.entity) - releaseX(b.entity) || a.index - b.index);
 	const slot = ordered.findIndex((item) => item.entity.components.marble?.laneId === laneId);
-	if (laneId == null || slot < 0) return { centerX, halfWidth: shared / 2 };
-	const share = shared / marbles.length;
-	return {
-		centerX: centerX - shared / 2 + (slot + 0.5) * share,
-		halfWidth: share / 2 - LANE_GUTTER / 2
-	};
+	const span = (marbles.length - 1) * LANE_SPACING;
+	if (laneId == null || slot < 0) return { centerX, halfWidth: span / 2 + LANE_HALF_WIDTH };
+	return { centerX: centerX - span / 2 + slot * LANE_SPACING, halfWidth: LANE_HALF_WIDTH };
 }

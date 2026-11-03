@@ -294,12 +294,15 @@ export interface TInspectResult {
 	fps: number;
 }
 
-export type TRenderPreset = 'fast' | 'balanced' | 'best';
+export type TRenderPreset = 'draft' | 'fast' | 'balanced' | 'best';
+
+/** Engine a film renders with; the draft preset always uses Workbench */
+export type TFilmEngine = 'eevee' | 'cycles' | 'workbench';
 
 export interface TRenderFilmOptions {
-	/** Fast 720p 30 fps, Balanced 1080p 30 fps, Best 1080p 60 fps; short side for portrait frames */
+	/** Draft 720p 30 fps in Workbench, Fast 720p 30 fps, Balanced 1080p 30 fps, Best 1080p 60 fps; short side for portrait frames */
 	preset: TRenderPreset;
-	/** Eevee by default; Cycles for final quality */
+	/** Eevee by default; Cycles for final quality. Ignored by the draft preset, which renders with Workbench. */
 	engine?: 'eevee' | 'cycles';
 	/** Package-relative `.mp4` path */
 	outputPath: string;
@@ -317,7 +320,7 @@ export interface TRenderFilmStarted {
 	fps: number;
 	width: number;
 	height: number;
-	engine: 'eevee' | 'cycles';
+	engine: TFilmEngine;
 	jobDir: string;
 }
 
@@ -346,7 +349,7 @@ export interface TRenderFilmResult {
 	width: number;
 	height: number;
 	duration: number;
-	engine: 'eevee' | 'cycles';
+	engine: TFilmEngine;
 	samples: number;
 	/** `ffmpeg`, or `blender` when no FFmpeg binary was found */
 	encoder: 'ffmpeg' | 'blender';

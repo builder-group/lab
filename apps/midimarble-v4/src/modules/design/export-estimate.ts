@@ -1,5 +1,6 @@
-import type { TRenderPreset } from '@/modules/blender';
+import type { TFilmEngine, TRenderPreset } from '@/modules/blender';
 
+/** Renderer chosen in the export sheet; the draft preset renders with Workbench instead */
 export type TRenderEngine = 'eevee' | 'cycles';
 
 export interface TRenderPresetInfo {
@@ -8,17 +9,32 @@ export interface TRenderPresetInfo {
 	/** Short side of the film in pixels; the long side follows the project frame */
 	shortSide: number;
 	fps: number;
+	/** Engine the preset always renders with, whatever renderer is chosen */
+	engine?: TFilmEngine;
+	/** What the preset is for, shown in the preset picker */
+	purpose?: string;
 }
 
 /** Export presets from ux.md; there is no 4K preset */
 export const renderPresets: readonly TRenderPresetInfo[] = [
+	{ id: 'draft', label: 'Draft', shortSide: 720, fps: 30, engine: 'workbench', purpose: 'fast preview of motion' },
 	{ id: 'fast', label: 'Fast', shortSide: 720, fps: 30 },
 	{ id: 'balanced', label: 'Balanced', shortSide: 1080, fps: 30 },
 	{ id: 'best', label: 'Best', shortSide: 1080, fps: 60 }
 ];
 
 export function getRenderPreset(id: TRenderPreset): TRenderPresetInfo {
-	return renderPresets.find((preset) => preset.id === id) ?? (renderPresets[1] as TRenderPresetInfo);
+	return renderPresets.find((preset) => preset.id === id) ?? (renderPresets[2] as TRenderPresetInfo);
+}
+
+/** Preset picker entry: `Draft · 720p · fast preview of motion`, `Balanced · 1080p, 30 fps` */
+export function renderPresetOption(preset: TRenderPresetInfo): string {
+	return preset.purpose != null ? `${preset.label} · ${preset.shortSide}p · ${preset.purpose}` : `${preset.label} · ${preset.shortSide}p, ${preset.fps} fps`;
+}
+
+/** Engine a film renders with: the preset's own engine, or the chosen renderer */
+export function filmEngine(preset: TRenderPreset, engine: TRenderEngine): TFilmEngine {
+	return getRenderPreset(preset).engine ?? engine;
 }
 
 /** `Balanced · 1080p 30 fps` */
@@ -43,7 +59,7 @@ export function filmFrameCount(duration: number, fps: number): number {
 /** A per-frame time measured by an earlier film render */
 export interface TMeasuredRender {
 	preset: TRenderPreset;
-	engine: TRenderEngine;
+	engine: TFilmEngine;
 	msPerFrame: number;
 	/** Pixels per frame of that render */
 	pixels: number;
@@ -53,18 +69,25 @@ export interface TExportEstimate {
 	frames: number;
 	msPerFrame: number | null;
 	seconds: number | null;
-	/** `measured` from an earlier film render with this engine, `preview` scaled from the playhead preview */
-	basis: 'measured' | 'preview' | 'none';
+	/**
+	 * `measured` from an earlier film render with this engine, `preview` scaled from the playhead preview,
+	 * `typical` from Workbench times measured on the reference fixtures
+	 */
+	basis: 'measured' | 'preview' | 'typical' | 'none';
 }
 
 // Note: Cycles per-frame time is guessed from Eevee previews; a measured Cycles render replaces the guess
 const CYCLES_FACTOR = 12;
 // Encoding and muxing after the last frame, relative to the render time
 const ENCODE_OVERHEAD = 0.05;
+// Draft (Workbench) films at 720x1280 measured 53 ms per frame for reference-20 and 70 ms for Jingle Bells
+const WORKBENCH_TYPICAL_MS = 70;
+const WORKBENCH_TYPICAL_PIXELS = 720 * 1280;
 
 /**
  * Estimated export time: frame count times the per-frame time. A film render measured with the same engine
- * is scaled by pixel count; otherwise the last Eevee playhead preview is scaled to the film size.
+ * is scaled by pixel count; otherwise the last Eevee playhead preview is scaled to the film size. Workbench
+ * (the draft preset) is not comparable with the Eevee preview and falls back to its typical time.
  */
 export function estimateExport(options: {
 	duration: number;
@@ -74,7 +97,8 @@ export function estimateExport(options: {
 	measured?: TMeasuredRender | null;
 	preview?: { renderMs: number; width: number; height: number } | null;
 }): TExportEstimate {
-	const { preset, engine, measured, preview } = options;
+	const { preset, measured, preview } = options;
+	const engine = filmEngine(preset, options.engine);
 	const frames = filmFrameCount(options.duration, getRenderPreset(preset).fps);
 	const size = filmSize(options.frame, preset);
 	const pixels = size.width * size.height;
@@ -83,6 +107,9 @@ export function estimateExport(options: {
 	if (measured != null && measured.engine === engine && measured.pixels > 0) {
 		msPerFrame = measured.msPerFrame * (pixels / measured.pixels);
 		basis = 'measured';
+	} else if (engine === 'workbench') {
+		msPerFrame = WORKBENCH_TYPICAL_MS * (pixels / WORKBENCH_TYPICAL_PIXELS);
+		basis = 'typical';
 	} else if (preview != null && preview.renderMs > 0 && preview.width * preview.height > 0) {
 		msPerFrame = preview.renderMs * (pixels / (preview.width * preview.height)) * (engine === 'cycles' ? CYCLES_FACTOR : 1);
 		basis = 'preview';

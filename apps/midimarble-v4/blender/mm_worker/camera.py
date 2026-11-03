@@ -61,7 +61,11 @@ MIN_PIECE_FRACTION = 0.06
 ZOOM_LIMIT = 3.0
 # Fraction of the half frame width a framed group may use; side-by-side lanes may come closer to the sides than a
 # followed marble, which the camera keeps nearer the centre (FRAME_KEEP)
-GROUP_KEEP_X = 0.65
+GROUP_KEEP_X = 0.75
+# Fraction of the half frame height a framed group may use. Looser than FRAME_KEEP so one marble's bounce does not
+# pull the camera back. A Jingle Bells test with 0.8 here and 0.85 for the width grew bars from about 16 % to 23–25 %
+# of the frame width; the width stays at 0.75 because 0.85 let a rolled camera crop a marble
+GROUP_KEEP_Y = 0.8
 SENSOR = 36.0
 # Seconds over which the camera eases between framing the group and following the focus marble
 GROUP_EASE = 1.2
@@ -190,7 +194,7 @@ def in_flight_count(marbles, motions, times):
 
 def spread_need(marbles, motions, times, centre, lens):
     """Distance at which every marble in flight stays inside the framing box around the centre, per frame"""
-    reach = SENSOR / 2 / lens * FRAME_KEEP
+    reach = SENSOR / 2 / lens * GROUP_KEEP_Y
     reach_x = SENSOR / 2 / lens * GROUP_KEEP_X * ASPECT_GUESS
     required = np.zeros(len(times))
     for marble in marbles:

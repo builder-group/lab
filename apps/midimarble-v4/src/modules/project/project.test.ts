@@ -20,6 +20,15 @@ describe('project document', () => {
 		expect(parsed).toEqual(project);
 	});
 
+	it('accepts the draft render preset alongside the earlier presets', () => {
+		const project = createProject();
+		for (const renderPreset of ['draft', 'fast', 'balanced', 'best'] as const) {
+			const [isParsedOk, , parsed] = parseProject(serializeProject({ ...project, design: { ...project.design, renderPreset } }));
+			expect(isParsedOk).toBe(true);
+			expect(parsed?.design.renderPreset).toBe(renderPreset);
+		}
+	});
+
 	it('rejects unknown versions and malformed files', () => {
 		const project = createProject();
 		expect(parseProject(JSON.stringify({ ...project, $schema: 'marble-project@99' }))[0]).toBe(false);

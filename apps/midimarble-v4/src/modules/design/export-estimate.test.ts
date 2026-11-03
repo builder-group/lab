@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateExport, filmFileName, filmFrameCount, filmSize, formatClock, formatEstimate, remainingExportSeconds } from './export-estimate';
+import { estimateExport, filmEngine, filmFileName, filmFrameCount, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresetOption } from './export-estimate';
 import { resolveFilmOutput } from './FilmExportCx';
 
 const portrait = { width: 9, height: 16 };
@@ -8,6 +8,7 @@ describe('filmSize function', () => {
 	it('should keep the preset short side and an even long side', () => {
 		expect(filmSize(portrait, 'balanced')).toEqual({ width: 1080, height: 1920 });
 		expect(filmSize(portrait, 'fast')).toEqual({ width: 720, height: 1280 });
+		expect(filmSize(portrait, 'draft')).toEqual({ width: 720, height: 1280 });
 		expect(filmSize({ width: 16, height: 9 }, 'best')).toEqual({ width: 1920, height: 1080 });
 	});
 });
@@ -47,6 +48,32 @@ describe('estimateExport function', () => {
 	it('should report no estimate without a measurement or a preview', () => {
 		const estimate = estimateExport({ duration: 2, frame: portrait, preset: 'fast', engine: 'cycles', measured: { preset: 'fast', engine: 'eevee', msPerFrame: 100, pixels: 1 } });
 		expect(estimate).toMatchObject({ basis: 'none', seconds: null });
+	});
+
+	it('should estimate the draft preset from Workbench times, not the Eevee preview', () => {
+		const preview = { renderMs: 450, width: 540, height: 960 };
+		const typical = estimateExport({ duration: 10, frame: portrait, preset: 'draft', engine: 'cycles', preview });
+		expect(typical.basis).toBe('typical');
+		expect(typical.frames).toBe(301);
+		expect(typical.msPerFrame).toBeLessThan(200);
+		const measured = estimateExport({
+			duration: 10,
+			frame: portrait,
+			preset: 'draft',
+			engine: 'eevee',
+			measured: { preset: 'draft', engine: 'workbench', msPerFrame: 40, pixels: 720 * 1280 },
+			preview
+		});
+		expect(measured).toMatchObject({ basis: 'measured', msPerFrame: 40 });
+	});
+});
+
+describe('draft preset', () => {
+	it('should always render with Workbench and name its purpose in the picker', () => {
+		expect(filmEngine('draft', 'cycles')).toBe('workbench');
+		expect(filmEngine('fast', 'cycles')).toBe('cycles');
+		expect(renderPresetOption(getRenderPreset('draft'))).toBe('Draft · 720p · fast preview of motion');
+		expect(renderPresetOption(getRenderPreset('best'))).toBe('Best · 1080p, 60 fps');
 	});
 });
 

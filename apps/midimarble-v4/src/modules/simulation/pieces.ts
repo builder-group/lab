@@ -2,6 +2,16 @@ import type { TVec2 } from '@/modules/project';
 import type { TPieceDefinition } from './types';
 
 /**
+ * Size of the default kit relative to the Marble Race Kit (16 mm marbles, 6 cm bars). At 1.5 times, with 24 mm
+ * marbles and 9 cm bars, a run reads at the reference film's size. Saved projects keep their explicit parameters.
+ */
+export const KIT_SCALE = 1.5;
+
+function kit(value: number): number {
+	return Math.round(value * KIT_SCALE * 1e6) / 1e6;
+}
+
+/**
  * Flat bar the marble bounces off. The collider is a box; its top face is the contact surface.
  * `bounce` is the restitution e of every marble contact with it. With a hit every T seconds the marble
  * settles at a drop per hit of (1 − e) / (1 + e) · gT² / 2, and after a bounce it rises e² / (1 − e²)
@@ -13,9 +23,9 @@ export const platformDefinition: TPieceDefinition = {
 	type: 'platform',
 	label: 'Platform',
 	params: {
-		length: { default: 0.06, min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
-		thickness: { default: 0.008, min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
-		depth: { default: 0.03, min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
+		length: { default: kit(0.06), min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
+		thickness: { default: kit(0.008), min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
+		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' }
 	},
 	wallOffset: 0,
@@ -32,8 +42,8 @@ export const railDefinition: TPieceDefinition = {
 	type: 'rail',
 	label: 'Rail',
 	params: {
-		radius: { default: 0.0025, min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
-		gap: { default: 0.01, min: 0.004, max: 0.02, label: 'Wire gap', unit: 'm' },
+		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
+		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Wire gap', unit: 'm' },
 		entryDelay: { default: 0, min: 0, max: 2, label: 'Entry after hit', unit: 's' }
 	},
 	wallOffset: 0,
@@ -41,9 +51,9 @@ export const railDefinition: TPieceDefinition = {
 	friction: 0.4,
 	layout: 'path',
 	defaultPath: [
-		{ x: -0.006, y: 0 },
+		{ x: kit(-0.006), y: 0 },
 		{ x: 0, y: 0 },
-		{ x: 0.15, y: -0.012 }
+		{ x: kit(0.15), y: kit(-0.012) }
 	]
 };
 
@@ -55,9 +65,9 @@ export const tunnelDefinition: TPieceDefinition = {
 	type: 'tunnel',
 	label: 'Tunnel',
 	params: {
-		radius: { default: 0.002, min: 0.001, max: 0.006, label: 'Wall radius', unit: 'm' },
-		bore: { default: 0.004, min: 0.001, max: 0.02, label: 'Clearance', unit: 'm' },
-		mouth: { default: 0.03, min: 0.01, max: 0.1, label: 'Mouth', unit: 'm' },
+		radius: { default: kit(0.002), min: 0.001, max: 0.006, label: 'Wall radius', unit: 'm' },
+		bore: { default: kit(0.004), min: 0.001, max: 0.02, label: 'Clearance', unit: 'm' },
+		mouth: { default: kit(0.03), min: 0.01, max: 0.1, label: 'Mouth', unit: 'm' },
 		entryDelay: { default: 0, min: 0, max: 2, label: 'Entry after hit', unit: 's' }
 	},
 	wallOffset: 0,
@@ -65,9 +75,9 @@ export const tunnelDefinition: TPieceDefinition = {
 	friction: 0.4,
 	layout: 'tube',
 	defaultPath: [
-		{ x: -0.006, y: 0 },
+		{ x: kit(-0.006), y: 0 },
 		{ x: 0, y: 0 },
-		{ x: 0.15, y: -0.02 }
+		{ x: kit(0.15), y: kit(-0.02) }
 	]
 };
 
@@ -80,12 +90,12 @@ export const windmillDefinition: TPieceDefinition = {
 	label: 'Windmill',
 	params: {
 		bladeCount: { default: 4, min: 2, max: 8, label: 'Blades', unit: '', integer: true },
-		bladeLength: { default: 0.06, min: 0.02, max: 0.2, label: 'Blade length', unit: 'm' },
-		bladeThickness: { default: 0.006, min: 0.003, max: 0.02, label: 'Blade thickness', unit: 'm' },
-		hubRadius: { default: 0.008, min: 0.004, max: 0.03, label: 'Hub radius', unit: 'm' },
+		bladeLength: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Blade length', unit: 'm' },
+		bladeThickness: { default: kit(0.006), min: 0.003, max: 0.02, label: 'Blade thickness', unit: 'm' },
+		hubRadius: { default: kit(0.008), min: 0.004, max: 0.03, label: 'Hub radius', unit: 'm' },
 		damping: { default: 0.5, min: 0, max: 10, label: 'Damping', unit: '' },
 		motorSpeed: { default: 0, min: -20, max: 20, label: 'Motor speed', unit: 'rad/s' },
-		depth: { default: 0.03, min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
+		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.5, min: 0.2, max: 0.95, label: 'Bounce', unit: '' }
 	},
 	wallOffset: 0,
@@ -107,12 +117,12 @@ export const switchbackDefinition: TPieceDefinition = {
 	type: 'switchback',
 	label: 'Switchback',
 	params: {
-		width: { default: 0.1, min: 0.06, max: 0.2, label: 'Width', unit: 'm' },
+		width: { default: kit(0.1), min: 0.06, max: 0.3, label: 'Width', unit: 'm' },
 		legs: { default: 3, min: 1, max: 6, label: 'Legs', unit: '', integer: true },
-		drop: { default: 0.035, min: 0.026, max: 0.12, label: 'Leg spacing', unit: 'm' },
-		opening: { default: 0.032, min: 0.026, max: 0.06, label: 'Opening', unit: 'm' },
-		lip: { default: 0.04, min: 0, max: 0.1, label: 'Catch lip', unit: 'm' },
-		radius: { default: 0.0025, min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
+		drop: { default: kit(0.035), min: 0.026, max: 0.15, label: 'Leg spacing', unit: 'm' },
+		opening: { default: kit(0.032), min: 0.026, max: 0.09, label: 'Opening', unit: 'm' },
+		lip: { default: kit(0.04), min: 0, max: 0.15, label: 'Catch lip', unit: 'm' },
+		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
 		entryDelay: { default: 0, min: 0, max: 2, label: 'Entry after hit', unit: 's' }
 	},
 	wallOffset: 0,

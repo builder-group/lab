@@ -17,7 +17,7 @@ import {
 import { GRAVITY_Y } from './geometry';
 import { descentPace, paceAt } from './pace';
 import { layoutOf, switchbackGeometry, switchbackHoldTime } from './piece-layout';
-import { getPieceDefinition, resolvePieceParams } from './pieces';
+import { getPieceDefinition, KIT_SCALE, resolvePieceParams } from './pieces';
 import { createLinkedPiece, frameBand } from './placement';
 import { projectOnPath, shapesBounds } from './shapes';
 import { trajectoryAt } from './simulate';
@@ -32,7 +32,7 @@ import { PHYSICS_HZ, type THitStatus, type TSimulationResult } from './types';
 export interface TGapPieceOptions {
 	/** When the marble enters. Defaults to shortly after the bounce apex following the first hit. */
 	entryTime?: number;
-	/** Horizontal run downhill from the entry in metres. Defaults to what fits in the frame band, at most 0.25 m. */
+	/** Horizontal run downhill from the entry in metres. Defaults to what fits in the frame band, at most 0.375 m. */
 	length?: number;
 	/** Downhill slope along the travel direction in radians, 6° by default */
 	slope?: number;
@@ -97,7 +97,8 @@ export function createTunnelForGap(
 const DEGREE = Math.PI / 180;
 const LEAD_IN = 0.006;
 const FRAME_MARGIN = 0.03;
-const MAX_LENGTH = 0.25;
+// The default kit's longest straight rail
+const MAX_LENGTH = 0.25 * KIT_SCALE;
 // The marble should drop for about this long between leaving the piece and the next hit
 const PREFERRED_DROP = 0.15;
 
@@ -194,9 +195,18 @@ function createGapPiece(
 	if (options.simulate != null) {
 		const simulate = options.simulate;
 		let best: { score: number; candidate: TGapCandidate; check: TGapPieceCheck } | null = null;
+		const hasPiece = hitOwners(project, laneId).has(to.id);
 		for (const candidate of candidates) {
 			const entity = build(candidate);
-			const trial = simulateTrial(simulate, withEntities(project, [entity]), to.time + 0.02);
+			// A flat probe on the next hit checks that the marble has left the piece with room for a platform
+			const probe = !hasPiece
+				? createLinkedPiece('platform', laneId, to.id, 0, { id: `${entity.id}-probe` })
+				: null;
+			const trial = simulateTrial(
+				simulate,
+				withEntities(project, probe != null ? [entity, probe] : [entity]),
+				to.time + 0.02
+			);
 			const played = checkGapPiece(
 				trial,
 				project,
@@ -212,7 +222,8 @@ function createGapPiece(
 				(played.isRunInFrame ? 0 : 5) +
 				(played.leaveTime == null ? 20 : Math.abs(to.time - played.leaveTime - PREFERRED_DROP)) +
 				(played.nextStatus === 'missed' || played.nextStatus === 'blocked' ? 10 : 0);
-			if (best == null || score < best.score - 1e-9) best = { score, candidate, check: played };
+			if (best == null || score < best.score - 1e-9)
+				best = { score, candidate, check: hasPiece ? played : { ...played, nextStatus: null } };
 		}
 		if (best == null) return Err(new Error('Every candidate crosses the earlier trajectory'));
 		chosen = best.candidate;
@@ -345,11 +356,13 @@ function findGapPiece(project: TProject, laneId: string, hitId: string): TEntity
 const GRAVITY = -GRAVITY_Y;
 const SWITCHBACK_MARGIN = 0.01;
 // How far below the launching hit the marble enters, so the switchback stays clear of the piece above it
-const ENTRY_DROPS = [0.04, 0.08];
+// In marble diameters
+const ENTRY_DROPS = [1.25, 2.5];
 const SWITCHBACK_SLOPES = [3, 5, 8, 12, 17].map((degrees) => degrees * DEGREE);
 const SWITCHBACK_LEGS = [1, 2, 3, 4, 5];
 const SWITCHBACK_ENTRIES = [0.25, 0.5, 0.75];
-const SWITCHBACK_WIDTHS = [0.1, 0.08];
+// Shares of the default width
+const SWITCHBACK_WIDTHS = [1, 0.8, 0.65];
 // The marble must fall this far below the switchback before the next hit, on top of how high the bounce
 // at that hit rises, so neither the next piece nor that bounce touches the switchback
 const EXIT_CLEARANCE = 0.06;
@@ -425,7 +438,9 @@ export function createSwitchbackForGap(
 	const entryTimes =
 		options.entryTime != null
 			? [options.entryTime]
-			: ENTRY_DROPS.map((drop) => findDropTime(samples, from.time, to.time, launch.y - drop)).filter(
+			: ENTRY_DROPS.map((drop) =>
+					findDropTime(samples, from.time, to.time, launch.y - drop * 2 * marbleRadius)
+				).filter(
 					(time): time is number => time != null
 				);
 	const slopes = options.slope != null ? [options.slope] : SWITCHBACK_SLOPES;
@@ -434,7 +449,7 @@ export function createSwitchbackForGap(
 	for (const entryTime of [...new Set(entryTimes)]) {
 		const entry = trajectoryAt(samples, entryTime);
 		if (entry == null) continue;
-		for (const width of SWITCHBACK_WIDTHS) {
+		for (const width of SWITCHBACK_WIDTHS.map((share) => share * (defaults['width'] ?? 0.15))) {
 			const fits: Omit<TSwitchbackCandidate, 'legs' | 'slope'>[] = [];
 			for (const downhill of [1, -1]) {
 				for (const contactAt of SWITCHBACK_ENTRIES) {

@@ -2,6 +2,7 @@ import {
 	createId,
 	createLane,
 	createMarble,
+	LANE_SPACING,
 	type THit,
 	type TLane,
 	type TProject,
@@ -37,7 +38,7 @@ export function createImportCommands(
 			hits: notes.map((note) => noteToHit(note))
 		};
 		commands.push({ type: 'upsertLane', lane });
-		commands.push({ type: 'upsertEntity', entity: createMarble(lane, { x: index * 0.12, y: 0.6 }) });
+		commands.push({ type: 'upsertEntity', entity: createMarble(lane, { x: index * LANE_SPACING, y: 0.6 }) });
 		index++;
 	}
 	if (end != null && end > project.end) commands.push({ type: 'setEnd', end });

@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import { host } from '@/environment';
-import { blender, renderFilm, type TRenderFilmResult, type TRenderPreset } from '@/modules/blender';
+import { blender, renderFilm, type TFilmEngine, type TRenderFilmResult, type TRenderPreset } from '@/modules/blender';
 import type { TResolveSourceUrl } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import type { DesignCx } from './DesignCx';
@@ -18,7 +18,7 @@ export class FilmExportCx {
 	readonly $settings = createState<TExportSettings>({ preset: 'balanced', engine: 'eevee', fileName: 'Film.mp4', chosenPath: null });
 	readonly $job = createState<TExportJob>(IDLE_JOB);
 	/** Per-frame times of earlier film renders by engine, for the estimate */
-	readonly $measured = createState<Partial<Record<TRenderEngine, TMeasuredRender>>>(readMeasured());
+	readonly $measured = createState<Partial<Record<TFilmEngine, TMeasuredRender>>>(readMeasured());
 
 	private abort: AbortController | null = null;
 
@@ -201,10 +201,10 @@ export function resolveFilmOutput(packagePath: string, settings: Pick<TExportSet
 	return { relativePath: `${RENDERS_FOLDER}/${filmFileName(settings.fileName)}`, outsidePackage: settings.chosenPath != null };
 }
 
-function readMeasured(): Partial<Record<TRenderEngine, TMeasuredRender>> {
+function readMeasured(): Partial<Record<TFilmEngine, TMeasuredRender>> {
 	try {
 		const value: unknown = JSON.parse(localStorage.getItem(MEASURED_KEY) ?? '{}');
-		return value != null && typeof value === 'object' ? (value as Partial<Record<TRenderEngine, TMeasuredRender>>) : {};
+		return value != null && typeof value === 'object' ? (value as Partial<Record<TFilmEngine, TMeasuredRender>>) : {};
 	} catch {
 		return {};
 	}
