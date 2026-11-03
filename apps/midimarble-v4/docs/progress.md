@@ -6,7 +6,7 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 - Milestones: M0–M4 done; M5 Design in progress (UI, library and agent runner done; Blender consumption of asset skins, per-piece reactions and wall text in progress); M6 render pipeline and follow camera done, loops and shot markers open
 - Next steps: Jingle Bells end to end, a native export test, loops, film-look round 3 (piece detail, density at reference hit rates)
-- Blockers: the Claude CLI on this Mac is not logged in (`claude /login`), so no live agent run has succeeded yet
+- Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
@@ -19,6 +19,11 @@ The autonomous build updates this log after every slice. Newest entries go first
 - Film output: host command `copy_file_out` and `renderFilm({destinationPath})` copy the finished film to the save-panel location. Still to do in `FilmExportCx` (design module): pass `destinationPath: settings.chosenPath` when `resolveFilmOutput` reports `outsidePackage`
 - Checks: `blender:design` (new, 41 assertions, including a 6-frame `render_film`), `blender:check` (80), `cargo test` (23), `test` (158) and `lint` pass. `typecheck` fails only in files outside this slice (`scripts/build-jingle-fixture.ts`, `src/modules/music/midi.ts`, in progress elsewhere). Brass still with a library skin and a wall title: `.local/design/design-brass.png`
 - Not verified: rail and tunnel library skins beyond a scripted bend check (a box section follows the curve within 0.5 mm), wobble and glow on real agent assets, font files other than the built-in font
+
+### Live agent run
+
+- First successful agent run with Claude Code 2.1.311: "a simple brushed brass bar with a small chrome end cap" produced `asset.blend`, `manifest.json` and a preview in 74 s, with no files changed outside the candidate folder
+- The runner now picks the newest installed CLI; the old 2.0.76 failed with an API error on its first tool use
 
 ### Native test, schema v2, Design workspace
 
