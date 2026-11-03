@@ -11,6 +11,12 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### Owner decision: camera with several marbles
+
+- Zooming out when a second marble joins is fine, as in the reference films that go from one marble to two, as long as every marble stays decently visible and trackable. The target for multi-marble films is trackability, not single-marble reference scale
+- Open: Jingle Bells loses the orange marble for its last 3 s; fix in the layout (shared ending) or end the film at the last note
+- Backlog from the pitch-coloured tube reference: a theme that sets colour and tube length from each hit's pitch, pieces angled into depth on brackets, screen-overlay titles in the export
+
 ### Group framing measured
 
 - Looser group framing (vertical keep 0.8, horizontal 0.75) on Jingle Bells in Draft: typical bar length 11.3 % → 13.3 % of frame width, marbles 3.9–4.1 % → 4.5–4.8 %, three fewer bars per frame. Reference: bars 25–30 %, marble about 7 %
