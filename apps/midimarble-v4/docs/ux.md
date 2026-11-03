@@ -57,6 +57,8 @@ Rotation follows Figma: dragging rotates freely around the hit point with a live
 | Tunnel   | Physical tube that hides the marble; length and slope set the travel time |
 | Windmill | Moving piece the marble strikes; spins with damping or a motor |
 
+Rails and tunnels shape the path through long gaps; they do not have to deliver the marble to an exact point. The user places one onto the trajectory and adjusts its length and shape while the live trajectory shows where the marble goes. After it, the marble is in free flight again, and the next hit's platform is placed where the marble is at that note's time, so the hit stays on time.
+
 Each piece type is one self-contained definition with a physics shape, a few parameters and a default skin. Parameters are physical: platform length and thickness, rail radius, tunnel length, windmill blade count, blade length and damping. Adding a piece type later means adding one definition.
 
 Each marble has a release with its own position on the wall and time on the timeline, independent of the first hit. Like a clip in a video editor, the release can be moved earlier to leave a gap before the first hit, and that stretch can hold any pieces.
