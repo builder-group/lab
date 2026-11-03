@@ -24,6 +24,7 @@ from .util import DEFAULT_MARBLE_RADIUS, DEFAULT_PIECE_DEPTH, MARBLE_WALL_GAP, O
 
 DEFAULT_SKIN = 'default'
 REACTION_PATHS = (('location', 2), ('rotation_euler', 1), ('["mm_flash"]', -1))
+VISIBILITY_PATHS = ('hide_render', 'hide_viewport')
 
 
 def skin_context(theme, marble_radius=DEFAULT_MARBLE_RADIUS, reactions=None):
@@ -53,10 +54,12 @@ def refresh_default_skin(skin, kind, entity, context, collection=None):
     stored = skin.get('mm_skin_print')
     if stored is not None and stored != fingerprint(skin):
         return 'edited'
+    holder = skin.parent
+    if kind == 'marble' and holder is not None and not skin.get('mm_visibility'):
+        add_visibility(skin, holder)
     key = skin_key(kind, entity, context)
     if skin.get('mm_skin_key') == key:
         return 'kept'
-    holder = skin.parent
     spec = build_spec(kind, entity, context)
     previous = skin.data
     skin.data = spec['root']
@@ -76,9 +79,31 @@ def refresh_default_skin(skin, kind, entity, context, collection=None):
     return 'rebuilt'
 
 
+def add_visibility(skin, holder):
+    """Hides a marble skin while its holder's `mm_visible` is 0, such as inside a tunnel"""
+    if 'mm_visible' not in holder:
+        holder['mm_visible'] = 1.0
+    for path in VISIBILITY_PATHS:
+        driver = skin.driver_add(path).driver
+        driver.type = 'SCRIPTED'
+        variable = driver.variables[0] if len(driver.variables) else driver.variables.new()
+        variable.name = 'v'
+        variable.type = 'SINGLE_PROP'
+        variable.targets[0].id_type = 'OBJECT'
+        variable.targets[0].id = holder
+        variable.targets[0].data_path = '["mm_visible"]'
+        driver.expression = 'v < 0.5'
+    skin['mm_visibility'] = True
+
+
 def release_reactions(obj):
-    """Removes the app's reaction drivers, used when a skin leaves its holder"""
-    if not obj.get('mm_part') or obj.animation_data is None:
+    """Removes the app's reaction and visibility drivers, used when a skin leaves its holder"""
+    if obj.animation_data is None:
+        return
+    if obj.get('mm_visibility'):
+        for path in VISIBILITY_PATHS:
+            obj.driver_remove(path)
+    if not obj.get('mm_part'):
         return
     for path, index in REACTION_PATHS:
         try:
@@ -114,7 +139,7 @@ def skin_key(kind, entity, context):
             sorted((name, round(float(value), 6)) for name, value in (entity.get('params') or {}).items()),
             round(frame.wall_offset, 6), round(context['marbleRadius'], 6),
             [[round(value, 5) for value in point] for point in frame.local_path()],
-            math.copysign(1.0, frame.angle), sorted(context['reactions'].items()),
+            math.copysign(1.0, frame.angle), sorted(context['reactions'].items()), frame.finish,
         ]
     return hashlib.sha1(json.dumps(values).encode()).hexdigest()[:16]
 
@@ -139,6 +164,8 @@ def _create(holder, kind, entity, collection, context):
     skin.matrix_parent_inverse.identity()
     skin['mm_skin'] = DEFAULT_SKIN
     skin['mm_owner'] = OWNER
+    if kind == 'marble':
+        add_visibility(skin, holder)
     for part_spec in spec['parts']:
         _add_part(skin, holder, part_spec, collection, entity, context)
     skin['mm_skin_key'] = skin_key(kind, entity, context)
@@ -203,6 +230,9 @@ class PieceFrame:
         self.origin = (float(position['x']), float(position['y']))
         self.path = [(float(point['x']), float(point['y'])) for point in (piece.get('path') or [])]
         self.color = piece.get('color') or '#c8b89a'
+        # Built-in bar finishes are chosen with skin asset IDs `brass:<finish>`; other skins keep the theme default
+        asset = ((piece.get('skin') or {}).get('assetId') or '')
+        self.finish = asset.split(':', 1)[1] if asset.startswith('brass:') else 'gold'
 
     def to_local(self, point):
         dx, dy = point[0] - self.origin[0], point[1] - self.origin[1]
@@ -232,39 +262,44 @@ def platform_spec(frame, piece, theme):
     length = params.get('length', 0.06)
     thickness = params.get('thickness', 0.008)
     if theme == 'brass':
-        chrome, brass = themes.chrome_material(), themes.brass_material()
-        standoff = 0.0025
-        bar_depth = min(max(frame.depth * 0.72, 0.014), 0.026)
+        chrome, metal = themes.chrome_material(), themes.bar_material(frame.finish)
+        # Bracket parts scale with the kit, measured against the 16 mm marble of the Marble Race Kit
+        k = frame.marble_radius / 0.008
+        standoff = 0.0025 * k
+        bar_depth = min(max(frame.depth * 0.72, 1.7 * frame.marble_radius), 3.2 * frame.marble_radius)
         bar_y = frame.wall_y - standoff - bar_depth / 2
+        # The top face is the collider's contact surface; the underside is slimmer than the collider so the
+        # bar reads thin like the reference
+        bar_thickness = thickness * 0.62
+        bar_z = thickness / 2 - bar_thickness / 2
         bar = MeshBuilder()
-        bar.box((length, bar_depth, thickness), (0.0, bar_y, 0.0), bevel=min(thickness, bar_depth) * 0.38, segments=5)
-        # End caps a little proud of the bar, like the clamped ends of the reference bars
+        bar.box((length, bar_depth, bar_thickness), (0.0, bar_y, bar_z), bevel=bar_thickness * 0.22, segments=3)
         for side in (-1, 1):
-            bar.box((0.005, bar_depth * 1.04, thickness * 1.12), (side * (length / 2 - 0.0025), bar_y, 0.0),
-                    bevel=0.001, material=1)
+            bar.box((0.0045 * k, bar_depth * 1.04, bar_thickness * 1.15), (side * (length / 2 - 0.00225 * k), bar_y, bar_z),
+                    bevel=0.0007 * k, material=1)
         bracket = MeshBuilder()
-        # Long enough that the bent arm shows below the bar from the steep follow camera
-        drop = max(0.024, thickness * 3.0)
-        base_z = -thickness / 2 - drop
-        bracket.cylinder(0.0055, 0.003, (0.0, frame.wall_y - 0.0015, base_z), axis='Y', bevel=0.0008, segments=28)
-        bracket.cylinder(0.0028, 0.003, (0.0, frame.wall_y - 0.0042, base_z), axis='Y', bevel=0.0006, segments=20)
+        underside = bar_z - bar_thickness / 2
+        drop = max(0.022 * k, thickness * 2.6)
+        base_z = underside - drop
+        bracket.cylinder(0.0055 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, base_z), axis='Y', bevel=0.0008 * k, segments=28)
+        bracket.cylinder(0.0028 * k, 0.003 * k, (0.0, frame.wall_y - 0.0042 * k, base_z), axis='Y', bevel=0.0006 * k, segments=20)
         rod = rounded_polyline([
-            (0.0, frame.wall_y - 0.004, base_z),
+            (0.0, frame.wall_y - 0.004 * k, base_z),
             (0.0, bar_y, base_z),
-            (0.0, bar_y, -thickness / 2 + 0.0004),
-        ], 0.004)
-        bracket.tube(rod, 0.0012, sides=10)
+            (0.0, bar_y, underside + 0.0004 * k),
+        ], 0.004 * k)
+        bracket.tube(rod, 0.0012 * k, sides=10)
         for side in (-1, 1):
             arm = rounded_polyline([
-                (side * 0.001, bar_y, base_z + 0.002),
-                (side * length * 0.16, bar_y, -thickness / 2 - 0.002),
-                (side * length * 0.22, bar_y, -thickness / 2 + 0.0004),
-            ], 0.003)
-            bracket.tube(arm, 0.0009, sides=8)
-        bracket.box((length * 0.46, bar_depth * 0.7, 0.0012), (0.0, bar_y, -thickness / 2 - 0.0006), bevel=0.0004)
+                (side * 0.001 * k, bar_y, base_z + 0.002 * k),
+                (side * length * 0.16, bar_y, underside - 0.002 * k),
+                (side * length * 0.22, bar_y, underside + 0.0004 * k),
+            ], 0.003 * k)
+            bracket.tube(arm, 0.0009 * k, sides=8)
+        bracket.box((length * 0.46, bar_depth * 0.7, 0.0012 * k), (0.0, bar_y, underside - 0.0006 * k), bevel=0.0004 * k)
         return {
             'root': bracket.to_mesh('MM bracket', [chrome]),
-            'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [brass, chrome]), 'reactive': True}],
+            'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [metal, chrome]), 'reactive': True}],
         }
     wood = themes.wood_material()
     bar = MeshBuilder()

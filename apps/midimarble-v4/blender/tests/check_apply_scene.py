@@ -147,7 +147,9 @@ def main():
     check(marble['mm_owner'] == 'midimarble' and marble['mm_role'] == 'marble', 'holder carries mm_ tags')
     samples = marble_records.astype(np.float64)
     worst = 0.0
-    for frame in (6, 7, 20, 23, 31, 45, 59, 60):
+    # Frames away from the hit play the samples exactly; frames near it are time-warped onto the contact frame
+    contact_frame = round(hit * 30) * 2
+    for frame in (6, 7, 14, 31, 45, 59, 60):
         scene.frame_set(frame)
         t = frame / FPS
         expected = (
@@ -159,7 +161,17 @@ def main():
         worst = max(worst, max(abs(actual[index] - expected[index]) for index in range(3)))
         expected_rotation = -np.interp(t, samples[:, 0], samples[:, 3])
         check(abs(marble.rotation_euler.y - expected_rotation) < 1e-3, 'marble rotation at frame %d' % frame)
-    check(worst < 1e-4, 'marble world location matches samples (worst %.2e m)' % worst)
+    check(worst < 1e-4, 'marble world location matches samples away from hits (worst %.2e m)' % worst)
+    scene.frame_set(contact_frame)
+    contact_z = PLATFORM_Y + PLATFORM['thickness'] / 2 + RADIUS
+    check(abs(marble.matrix_world.translation.z - contact_z) < 1e-4,
+          'the contact frame %d shows the marble touching the platform' % contact_frame)
+    check(abs(contact_frame / FPS - hit) <= 1 / 60 + 1e-9, 'the contact frame is within one 60 fps frame of the hit')
+    heights = []
+    for frame in range(contact_frame - 8, contact_frame + 9):
+        scene.frame_set(frame)
+        heights.append(marble.matrix_world.translation.z)
+    check(int(np.argmin(heights)) == 8, 'the marble is lowest on the contact frame')
     skin = marble.children[0]
     check((skin.matrix_world.translation - marble.matrix_world.translation).length < 1e-9, 'marble skin follows its holder')
 
@@ -185,12 +197,11 @@ def main():
 
     # Hit value peaks at the hit
     fcurve = next(curve for curve in bpy_channelbag(platform).fcurves if curve.data_path == '["mm_hit"]')
-    hit_frame = hit * FPS
-    check(abs(fcurve.evaluate(hit_frame) - 1.0) < 1e-5, 'mm_hit is 1 at the hit time (frame %.3f)' % hit_frame)
-    check(fcurve.evaluate(math.floor(hit_frame) - 1) < 1e-6, 'mm_hit is 0 before the hit')
+    check(abs(fcurve.evaluate(contact_frame) - 1.0) < 1e-5, 'mm_hit is 1 on the contact frame %d' % contact_frame)
+    check(fcurve.evaluate(contact_frame - 1) < 1e-6, 'mm_hit is 0 before the contact frame')
     whole = [fcurve.evaluate(frame) for frame in range(scene.frame_end + 1)]
-    check(int(np.argmax(whole)) == math.ceil(hit_frame), 'mm_hit peaks on the first whole frame after the hit')
-    check(fcurve.evaluate((hit + 0.26) * FPS) < 1e-6, 'mm_hit decays to 0 within 0.25 s')
+    check(int(np.argmax(whole)) == contact_frame, 'mm_hit peaks on the contact frame')
+    check(fcurve.evaluate(contact_frame + 0.26 * FPS) < 1e-6, 'mm_hit decays to 0 within 0.25 s')
     check(all(point.interpolation == 'LINEAR' for point in fcurve.keyframe_points), 'keys interpolate linearly')
 
     # Preview render and object ID pass
@@ -350,6 +361,22 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     check(marble_skin.data.materials[0] == user_material, 'the edited marble skin still survives')
     write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig)
     worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+
+    # A marble inside a tunnel is hidden through its holder's mm_visible
+    from mm_worker import contacts
+    tunnel = {'type': 'tunnel', 'params': {'radius': 0.002, 'bore': 0.004}, 'path': [{'x': 0.0, 'y': 0.0}, {'x': 0.2, 'y': 0.0}]}
+    centre_y = RADIUS + 0.002
+    visible = contacts.tunnel_visibility(np.array([-0.05, 0.005, 0.1, 0.195, 0.1]), np.array([centre_y] * 4 + [0.05]), RADIUS, [tunnel])
+    check(list(visible) == [1, 1, 0, 1, 1], 'a marble is hidden only while fully inside a tunnel')
+    marble_skin = next(child for child in marble.children if child.get('mm_visibility'))
+    marble['mm_visible'] = 0.0
+    marble.update_tag()
+    scene.frame_set(scene.frame_current + 1)
+    hidden = marble_skin.hide_render
+    marble['mm_visible'] = 1.0
+    marble.update_tag()
+    scene.frame_set(scene.frame_current - 1)
+    check(hidden and not marble_skin.hide_render, 'mm_visible drives the marble skin visibility')
 
     # A film job runs in its own process and can be cancelled
     try:

@@ -1,0 +1,1950 @@
+{
+	"$schema": "marble-project@1",
+	"id": "reference-20",
+	"title": "Reference 20",
+	"revision": 0,
+	"frame": {
+		"width": 9,
+		"height": 16
+	},
+	"end": 20,
+	"music": {
+		"sources": [],
+		"lanes": [
+			{
+				"id": "lane-1",
+				"name": "Marble 1",
+				"color": "#3478f6",
+				"instrument": 9,
+				"hits": [
+					{
+						"id": "hit-1-1",
+						"time": 0.15
+					},
+					{
+						"id": "hit-1-2",
+						"time": 0.45
+					},
+					{
+						"id": "hit-1-3",
+						"time": 0.75
+					},
+					{
+						"id": "hit-1-4",
+						"time": 1.05
+					},
+					{
+						"id": "hit-1-5",
+						"time": 1.35
+					},
+					{
+						"id": "hit-1-6",
+						"time": 1.65
+					},
+					{
+						"id": "hit-1-7",
+						"time": 1.95
+					},
+					{
+						"id": "hit-1-8",
+						"time": 2.25
+					},
+					{
+						"id": "hit-1-9",
+						"time": 2.55
+					},
+					{
+						"id": "hit-1-10",
+						"time": 2.85
+					},
+					{
+						"id": "hit-1-11",
+						"time": 3.15
+					},
+					{
+						"id": "hit-1-12",
+						"time": 3.45
+					},
+					{
+						"id": "hit-1-13",
+						"time": 3.75
+					},
+					{
+						"id": "hit-1-14",
+						"time": 4.05
+					},
+					{
+						"id": "hit-1-15",
+						"time": 4.35
+					},
+					{
+						"id": "hit-1-16",
+						"time": 4.65
+					},
+					{
+						"id": "hit-1-17",
+						"time": 4.95
+					},
+					{
+						"id": "hit-1-18",
+						"time": 5.25
+					},
+					{
+						"id": "hit-1-19",
+						"time": 5.55
+					},
+					{
+						"id": "hit-1-20",
+						"time": 5.85
+					},
+					{
+						"id": "hit-1-21",
+						"time": 6.15
+					},
+					{
+						"id": "hit-1-22",
+						"time": 6.45
+					},
+					{
+						"id": "hit-1-23",
+						"time": 6.75
+					},
+					{
+						"id": "hit-1-24",
+						"time": 7.05
+					},
+					{
+						"id": "hit-1-25",
+						"time": 7.35
+					},
+					{
+						"id": "hit-1-26",
+						"time": 7.65
+					},
+					{
+						"id": "hit-1-27",
+						"time": 7.95
+					},
+					{
+						"id": "hit-1-28",
+						"time": 8.25
+					},
+					{
+						"id": "hit-1-29",
+						"time": 8.55
+					},
+					{
+						"id": "hit-1-30",
+						"time": 8.85
+					},
+					{
+						"id": "hit-1-31",
+						"time": 9.15
+					},
+					{
+						"id": "hit-1-32",
+						"time": 9.45
+					},
+					{
+						"id": "hit-1-33",
+						"time": 10.05
+					},
+					{
+						"id": "hit-1-34",
+						"time": 10.35
+					},
+					{
+						"id": "hit-1-35",
+						"time": 10.65
+					},
+					{
+						"id": "hit-1-36",
+						"time": 10.95
+					},
+					{
+						"id": "hit-1-37",
+						"time": 11.25
+					},
+					{
+						"id": "hit-1-38",
+						"time": 11.55
+					},
+					{
+						"id": "hit-1-39",
+						"time": 11.85
+					},
+					{
+						"id": "hit-1-40",
+						"time": 12.15
+					},
+					{
+						"id": "hit-1-41",
+						"time": 12.45
+					},
+					{
+						"id": "hit-1-42",
+						"time": 12.75
+					},
+					{
+						"id": "hit-1-43",
+						"time": 13.05
+					},
+					{
+						"id": "hit-1-44",
+						"time": 13.35
+					},
+					{
+						"id": "hit-1-45",
+						"time": 13.65
+					},
+					{
+						"id": "hit-1-46",
+						"time": 13.95
+					},
+					{
+						"id": "hit-1-47",
+						"time": 14.25
+					},
+					{
+						"id": "hit-1-48",
+						"time": 14.55
+					},
+					{
+						"id": "hit-1-49",
+						"time": 14.85
+					},
+					{
+						"id": "hit-1-50",
+						"time": 15.15
+					},
+					{
+						"id": "hit-1-51",
+						"time": 15.45
+					},
+					{
+						"id": "hit-1-52",
+						"time": 15.75
+					},
+					{
+						"id": "hit-1-53",
+						"time": 16.05
+					},
+					{
+						"id": "hit-1-54",
+						"time": 16.35
+					},
+					{
+						"id": "hit-1-55",
+						"time": 16.65
+					},
+					{
+						"id": "hit-1-56",
+						"time": 16.95
+					},
+					{
+						"id": "hit-1-57",
+						"time": 17.25
+					},
+					{
+						"id": "hit-1-58",
+						"time": 17.55
+					},
+					{
+						"id": "hit-1-59",
+						"time": 17.85
+					},
+					{
+						"id": "hit-1-60",
+						"time": 18.15
+					},
+					{
+						"id": "hit-1-61",
+						"time": 18.45
+					},
+					{
+						"id": "hit-1-62",
+						"time": 18.75
+					},
+					{
+						"id": "hit-1-63",
+						"time": 19.05
+					},
+					{
+						"id": "hit-1-64",
+						"time": 19.35
+					}
+				]
+			}
+		]
+	},
+	"entities": [
+		{
+			"id": "marble-1",
+			"name": "Marble 1",
+			"components": {
+				"marble": {
+					"laneId": "lane-1",
+					"radius": 0.012,
+					"color": "#3478f6"
+				},
+				"release": {
+					"position": {
+						"x": 0,
+						"y": 0.6
+					},
+					"time": 0
+				}
+			}
+		},
+		{
+			"id": "piece-1-1",
+			"name": "Platform 1",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-1",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-2",
+			"name": "Platform 2",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-2",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-3",
+			"name": "Platform 3",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-3",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-4",
+			"name": "Platform 4",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-4",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-5",
+			"name": "Platform 5",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-5",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-6",
+			"name": "Platform 6",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-6",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-7",
+			"name": "Platform 7",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-7",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-8",
+			"name": "Platform 8",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-8",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-9",
+			"name": "Platform 9",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-9",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-10",
+			"name": "Platform 10",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-10",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-11",
+			"name": "Platform 11",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-11",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-12",
+			"name": "Platform 12",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-12",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-13",
+			"name": "Platform 13",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-13",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-14",
+			"name": "Platform 14",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-14",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-15",
+			"name": "Platform 15",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-15",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-16",
+			"name": "Platform 16",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-16",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-17",
+			"name": "Platform 17",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-17",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-18",
+			"name": "Platform 18",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-18",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-19",
+			"name": "Platform 19",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-19",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-20",
+			"name": "Platform 20",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-20",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-21",
+			"name": "Platform 21",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-21",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-22",
+			"name": "Platform 22",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-22",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-23",
+			"name": "Platform 23",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-23",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-24",
+			"name": "Platform 24",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-24",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-25",
+			"name": "Platform 25",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-25",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-26",
+			"name": "Platform 26",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-26",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-27",
+			"name": "Platform 27",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-27",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-28",
+			"name": "Platform 28",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-28",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-29",
+			"name": "Platform 29",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-29",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-30",
+			"name": "Platform 30",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-30",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-31",
+			"name": "Platform 31",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-31",
+					"angle": -0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:silver",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-32",
+			"name": "Platform 32",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-32",
+					"angle": 0.44999999999999996,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:gold",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "rail-1",
+			"name": "Rail 1",
+			"components": {
+				"piece": {
+					"type": "rail",
+					"params": {
+						"radius": 0.0025,
+						"gap": 0.01,
+						"entryDelay": 0.146
+					}
+				},
+				"path": {
+					"points": [
+						{
+							"x": 0.00607,
+							"y": 0
+						},
+						{
+							"x": 0,
+							"y": 0
+						},
+						{
+							"x": -0.20965,
+							"y": 0
+						}
+					]
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-32",
+					"angle": 0.15707963267948966,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-33",
+			"name": "Platform 33",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-33",
+					"angle": -0.6981317007977318,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-34",
+			"name": "Platform 34",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-34",
+					"angle": 0.017453292519943295,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-35",
+			"name": "Platform 35",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-35",
+					"angle": 0.08726646259971647,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-36",
+			"name": "Platform 36",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-36",
+					"angle": 0.29670597283903605,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-37",
+			"name": "Platform 37",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-37",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-38",
+			"name": "Platform 38",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-38",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-39",
+			"name": "Platform 39",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-39",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-40",
+			"name": "Platform 40",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-40",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-41",
+			"name": "Platform 41",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-41",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-42",
+			"name": "Platform 42",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-42",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-43",
+			"name": "Platform 43",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-43",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-44",
+			"name": "Platform 44",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-44",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-45",
+			"name": "Platform 45",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-45",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-46",
+			"name": "Platform 46",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-46",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-47",
+			"name": "Platform 47",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-47",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-48",
+			"name": "Platform 48",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-48",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-49",
+			"name": "Platform 49",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-49",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-50",
+			"name": "Platform 50",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-50",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-51",
+			"name": "Platform 51",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-51",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-52",
+			"name": "Platform 52",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-52",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-53",
+			"name": "Platform 53",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-53",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-54",
+			"name": "Platform 54",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-54",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-55",
+			"name": "Platform 55",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-55",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-56",
+			"name": "Platform 56",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-56",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-57",
+			"name": "Platform 57",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-57",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-58",
+			"name": "Platform 58",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-58",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-59",
+			"name": "Platform 59",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-59",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-60",
+			"name": "Platform 60",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-60",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-61",
+			"name": "Platform 61",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-61",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-62",
+			"name": "Platform 62",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-62",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-63",
+			"name": "Platform 63",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-63",
+					"angle": -0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:dark",
+					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "piece-1-64",
+			"name": "Platform 64",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.09,
+						"thickness": 0.012,
+						"depth": 0.045
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-64",
+					"angle": 0.24434609527920614,
+					"contactAt": 0.5,
+					"pinned": false
+				},
+				"skin": {
+					"assetId": "brass:copper",
+					"link": "linked"
+				}
+			}
+		}
+	],
+	"design": {
+		"theme": "brass",
+		"renderPreset": "balanced",
+		"loop": false,
+		"camera": {
+			"mode": "rig",
+			"distance": 0.6,
+			"pitch": 0.7,
+			"lead": 0.15,
+			"smoothing": 0.6,
+			"shots": []
+		}
+	}
+}

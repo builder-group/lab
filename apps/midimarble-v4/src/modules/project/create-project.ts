@@ -21,7 +21,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 			theme: 'pegboard',
 			renderPreset: 'balanced',
 			loop: false,
-			camera: { mode: 'rig', distance: 1.0, pitch: 0.45, lead: 0.15, smoothing: 0.6, shots: [] }
+			camera: { mode: 'rig', distance: 0.65, pitch: 1.0, lead: 0.15, smoothing: 0.6, shots: [] }
 		}
 	};
 }

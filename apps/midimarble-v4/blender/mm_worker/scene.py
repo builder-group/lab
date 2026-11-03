@@ -11,7 +11,7 @@ import time
 import bpy
 import numpy as np
 
-from . import anim, camera, skins, studio, themes
+from . import anim, camera, contacts, skins, studio, themes
 from .util import (
     DEFAULT_MARBLE_RADIUS,
     DEFAULT_PIECE_DEPTH,
@@ -33,7 +33,7 @@ SCENE_DESCRIPTION_VERSION = 1
 HIT_DECAY = 0.25
 HIT_TAU = HIT_DECAY / 5
 
-KEYED_PATHS = ('location', 'rotation_euler', '["mm_hit"]')
+KEYED_PATHS = ('location', 'rotation_euler', '["mm_hit"]', '["mm_visible"]')
 # Transform channels as [location xyz, rotation xyz, scale xyz]; animated channels are excluded from link checks
 MARBLE_ANIMATED = {0, 2, 4}
 MOVING_PIECE_ANIMATED = {4}
@@ -80,7 +80,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
         if not created and marble['id'] not in relink and link_state(holder)[0] == 'unlinked':
             report['skipped'].append(marble['id'])
             continue
-        report['keyframes'] += write_marble(holder, marble, marble_motion[marble['id']], fps)
+        report['keyframes'] += write_marble(holder, marble, marble_motion[marble['id']], fps, pieces)
         record_skins(report, marble['id'], ensure_skin(holder, 'marble', marble, managed, context))
         report['created' if created else 'updated'].append(marble['id'])
 
@@ -251,7 +251,7 @@ def link_state(holder):
 # Keyframes
 
 
-def write_marble(holder, marble, motion, fps):
+def write_marble(holder, marble, motion, fps, pieces=()):
     radius = finite(marble['radius'], 'radius')
     channelbag = anim.ensure_channelbag(holder)
     anim.clear_channels(holder, KEYED_PATHS)
@@ -262,6 +262,10 @@ def write_marble(holder, marble, motion, fps):
     count = 0
     if len(motion):
         frames, times = frames_covering(motion[:, 0], fps)
+        # Every hit lands on a frame, so contact frames show the marble touching its piece
+        hits = contacts.marble_contacts(motion, radius, pieces)
+        motion = contacts.with_contact_samples(motion, hits)
+        times = np.clip(contacts.warp(times, hits, contacts.snap_grid(fps)), motion[0, 0], motion[-1, 0])
         x = np.interp(times, motion[:, 0], motion[:, 1])
         y = np.interp(times, motion[:, 0], motion[:, 2])
         angle = np.interp(times, motion[:, 0], np.unwrap(motion[:, 3]))
@@ -269,6 +273,11 @@ def write_marble(holder, marble, motion, fps):
         anim.write_fcurve(channelbag, 'location', 2, frames, y)
         anim.write_fcurve(channelbag, 'rotation_euler', 1, frames, -angle)
         count = len(frames) * 3
+        visible = contacts.tunnel_visibility(x, y, radius, pieces)
+        if not visible.all():
+            anim.write_fcurve(channelbag, '["mm_visible"]', 0, frames, visible)
+            count += len(frames)
+    holder['mm_visible'] = 1.0
     remember_written(holder, MARBLE_ANIMATED)
     return count
 
@@ -293,7 +302,8 @@ def write_piece(holder, piece, motion, fps):
         animated = MOVING_PIECE_ANIMATED
     holder['mm_hit'] = 0.0
     holder.id_properties_ui('mm_hit').update(min=0.0, max=1.0, soft_min=0.0, soft_max=1.0)
-    hit_frames, hit_values = hit_keys(piece.get('hitTimes') or [], fps)
+    grid = contacts.snap_grid(fps)
+    hit_frames, hit_values = hit_keys([contacts.snap(hit, grid) for hit in piece.get('hitTimes') or []], fps)
     anim.write_fcurve(channelbag, '["mm_hit"]', 0, hit_frames, hit_values)
     count += len(hit_frames)
     holder['mm_hit_times'] = [float(value) for value in piece.get('hitTimes') or []]

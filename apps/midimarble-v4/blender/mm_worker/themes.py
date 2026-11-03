@@ -117,41 +117,63 @@ def wood_material():
     return _shared('MM · wood', build)
 
 
+# Bar finishes: base color, metallic, roughness range and coat. Gold is the reference's brushed brass.
+FINISHES = {
+    'gold': {'base': (1.0, 0.74, 0.30), 'metallic': 1.0, 'roughness': (0.12, 0.24), 'coat': 0.0},
+    'copper': {'base': (0.93, 0.42, 0.24), 'metallic': 1.0, 'roughness': (0.22, 0.36), 'coat': 0.0},
+    'silver': {'base': (0.62, 0.64, 0.68), 'metallic': 1.0, 'roughness': (0.2, 0.34), 'coat': 0.0},
+    'dark': {'base': (0.035, 0.038, 0.045), 'metallic': 0.0, 'roughness': (0.30, 0.42), 'coat': 0.6},
+}
+
+
 def brass_material():
-    """Brushed brass: metallic gold with anisotropic streaks along the bar (object X)"""
+    return bar_material('gold')
+
+
+def bar_material(finish):
+    """Brushed bar metal: streaked roughness along the bar (object X) with anisotropic highlights"""
+    finish = finish if finish in FINISHES else 'gold'
+    spec = FINISHES[finish]
+
     def build(material):
         tree = material.node_tree
         principled = _principled(material)
-        base = (0.92, 0.47, 0.06, 1.0)
+        base = (*spec['base'], 1.0)
         material.diffuse_color = base
         _set(principled, 'Base Color', base)
-        # Partly diffuse so the sun warms the bars like the reference's bright gold, not only mirrored wall
-        _set(principled, 'Metallic', 0.78)
-        _set(principled, 'Anisotropic', 0.55)
+        _set(principled, 'Metallic', spec['metallic'])
+        _set(principled, 'Anisotropic', 0.6 if spec['metallic'] else 0.0)
+        _set(principled, 'Coat Weight', spec['coat'])
+        _set(principled, 'Coat Roughness', 0.05)
         coordinates = tree.nodes.new('ShaderNodeTexCoord')
         mapping = tree.nodes.new('ShaderNodeMapping')
-        mapping.inputs['Scale'].default_value = (4.0, 900.0, 900.0)
+        mapping.inputs['Scale'].default_value = (3.0, 1400.0, 1400.0)
         noise = tree.nodes.new('ShaderNodeTexNoise')
         noise.inputs['Scale'].default_value = 1.0
-        noise.inputs['Detail'].default_value = 4.0
+        noise.inputs['Detail'].default_value = 6.0
         roughness = tree.nodes.new('ShaderNodeMapRange')
         roughness.inputs['From Min'].default_value = 0.3
         roughness.inputs['From Max'].default_value = 0.7
-        roughness.inputs['To Min'].default_value = 0.14
-        roughness.inputs['To Max'].default_value = 0.26
+        roughness.inputs['To Min'].default_value = spec['roughness'][0]
+        roughness.inputs['To Max'].default_value = spec['roughness'][1]
         tree.links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
         tree.links.new(mapping.outputs['Vector'], noise.inputs['Vector'])
         tree.links.new(noise.outputs['Fac'], roughness.inputs['Value'])
         tree.links.new(roughness.outputs['Result'], principled.inputs['Roughness'])
+        # Brushing streaks also darken the base slightly so the grain reads at film resolution
+        grain = tree.nodes.new('ShaderNodeMix')
+        grain.data_type = 'RGBA'
+        grain.blend_type = 'MULTIPLY'
+        grain.inputs['Factor'].default_value = 0.1
+        grain.inputs['A'].default_value = base
+        tree.links.new(noise.outputs['Color'], grain.inputs['B'])
+        tree.links.new(grain.outputs['Result'], principled.inputs['Base Color'])
         tangent = tree.nodes.new('ShaderNodeTangent')
         tangent.direction_type = 'RADIAL'
         tangent.axis = 'X'
-        # The radial tangent around X is perpendicular to the bar; rotating the anisotropy by a quarter turn
-        # streaks the highlights along the bar
         tree.links.new(tangent.outputs['Tangent'], principled.inputs['Tangent'])
-        _set(principled, 'Anisotropic Rotation', 0.25)
         _flash_emission(material, base)
-    return _shared('MM · brass', build)
+    return _shared('MM · brass' if finish == 'gold' else 'MM · bar ' + finish, build)
 
 
 def chrome_material():
@@ -199,19 +221,21 @@ def glass_marble_material(color):
         wave = nodes.new('ShaderNodeTexWave')
         wave.wave_type = 'BANDS'
         wave.bands_direction = 'DIAGONAL'
-        wave.inputs['Scale'].default_value = 1.2
-        wave.inputs['Distortion'].default_value = 9.0
-        wave.inputs['Detail'].default_value = 3.0
+        # Generated coordinates span the sphere once, so the swirl has the same size on any marble
+        wave.inputs['Scale'].default_value = 1.6
+        wave.inputs['Distortion'].default_value = 7.0
+        wave.inputs['Detail'].default_value = 2.0
+        wave.inputs['Detail Scale'].default_value = 1.5
         ramp = nodes.new('ShaderNodeValToRGB')
-        deep = tuple(channel * 0.6 for channel in linear[:3]) + (1.0,)
-        light = tuple(min(1.0, 0.45 + channel * 0.9) for channel in linear[:3]) + (1.0,)
+        deep = tuple(channel * 0.45 for channel in linear[:3]) + (1.0,)
+        light = tuple(min(1.0, 0.35 + channel * 0.8) for channel in linear[:3]) + (1.0,)
         ramp.color_ramp.elements[0].color = deep
-        ramp.color_ramp.elements[0].position = 0.25
+        ramp.color_ramp.elements[0].position = 0.4
         ramp.color_ramp.elements[1].color = light
-        ramp.color_ramp.elements[1].position = 0.8
+        ramp.color_ramp.elements[1].position = 0.9
         middle = ramp.color_ramp.elements.new(0.55)
         middle.color = linear
-        links.new(coordinates.outputs['Object'], wave.inputs['Vector'])
+        links.new(coordinates.outputs['Generated'], wave.inputs['Vector'])
         links.new(wave.outputs['Fac'], ramp.inputs['Fac'])
         links.new(ramp.outputs['Color'], core.inputs['Base Color'])
         core.inputs['Roughness'].default_value = 0.25

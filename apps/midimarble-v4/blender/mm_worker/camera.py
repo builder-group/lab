@@ -1,21 +1,22 @@
 """Follow camera baked from the marble motion.
 
-The camera looks steeply down along the wall and travels with the marbles, like the reference short:
+The camera looks steeply along the wall and travels with the marbles, like the reference short:
 
 1. Follow point per frame: the weighted centre of the marbles in flight. A marble weighs 1 while its samples
    cover the time and 0.05 before its release or after its last sample, so a single marble that has not been
-   released yet still anchors the shot. With several marbles the camera therefore frames their centre; a lead-only
-   choice jumps when the lead changes, a weighted centre stays continuous.
-2. Target = follow point moved toward where it is at `t + lead` (at most LEAD_LIMIT * distance), smoothed with a zero-phase critically damped filter (a forward and a
-   backward pass of a second-order filter with time constant 0.04 + 0.5 * smoothing seconds), so the camera neither
-   lags nor overshoots. Where smoothing still lets a marble drift towards the frame edge (free falls accelerate),
-   the target is pulled along. The target also sits a little further down the run so the marble stays above frame centre.
-3. Heading: the camera stands back up the run. Its azimuth on the wall follows the run's local direction, heavily
-   smoothed (time constant ~1.5 s) and scaled by ROLL_FOLLOW, so columns turn from diagonal to near vertical and back
-   slowly. Shot markers add roll and set the distance with eased transitions.
-   With several marbles the distance also widens so every marble in flight fits the frame.
-4. Position = target + distance * (sin(pitch) * back + cos(pitch) * out of the wall); `pitch` is measured from the
-   wall normal. The camera looks at the target with the run's back direction as image up.
+   released yet still anchors the shot. With several marbles the camera frames their centre; a lead-only choice
+   jumps when the lead changes, a weighted centre stays continuous. Several marbles also widen the distance so every
+   marble in flight fits the frame.
+2. Target: the follow point moved toward where it is at `t + lead` (at most LEAD_LIMIT * distance), smoothed with a
+   zero-phase critically damped filter (a forward and a backward pass of a second-order filter with time constant
+   0.04 + 0.5 * smoothing seconds), so the camera neither lags nor overshoots. Where smoothing still lets a marble
+   drift toward the frame edge (free falls accelerate), the target is pulled along.
+3. Placement: the camera stands `distance` from the target at `pitch` from the wall normal, above and to the side
+   of the run (SIDE_ANGLE from straight below, following the run direction by SIDE_FOLLOW). Seen from there the
+   bars show their long sides and tops, the wall recedes like a floor and the two columns run diagonally.
+4. Roll: image up is the wall's up direction turned by a slow function of the run direction plus a slow drift
+   (ROLL_DRIFT over ROLL_PERIOD), so the columns turn between diagonal and near vertical. Shot markers add roll and
+   set the distance with eased transitions.
 
 Everything is baked as keyframes on the studio camera (location, rotation, focus distance), so the camera works in
 plain Blender. A camera the user edited is taken over and never regenerated unless the app asks.
@@ -29,10 +30,16 @@ from mathutils import Matrix, Vector
 from . import anim
 from .util import MARBLE_WALL_GAP
 
-ROLL_FOLLOW = 0.55
+# Image roll per radian of run direction, its limit, and a slow drift that turns the columns between diagonal and
+# near vertical like the reference
+ROLL_FOLLOW = 0.5
 ROLL_LIMIT = math.radians(40)
+ROLL_DRIFT = math.radians(16)
+ROLL_PERIOD = 14.0
+# Where the camera stands around the target on the wall: 0 straight below, positive to the right
+SIDE_ANGLE = math.radians(150)
+SIDE_FOLLOW = 0.3
 HEADING_TAU = 1.5
-AIM_DROP = 0.0
 # The lead may move the target at most this fraction of the camera distance ahead of the marble
 LEAD_LIMIT = 0.04
 # Fraction of the half frame the marble may move away from the target before the camera is pulled along
@@ -40,7 +47,7 @@ FRAME_KEEP = 0.55
 # Width over height of the framing box; portrait films are 9:16
 ASPECT_GUESS = 0.56
 SHOT_EASE = 0.8
-LENS = 85.0
+LENS = 50.0
 CAMERA_PATHS = ('location', 'rotation_euler')
 CAMERA_DATA_PATHS = ('dof.focus_distance',)
 SIGNATURE_VERSION = 2
@@ -219,20 +226,24 @@ def bake(scene, camera, settings, marbles, motions, fps):
     moving = np.linalg.norm(direction, axis=1) > 1e-4
     heading = np.where(moving, np.arctan2(direction[:, 0], -direction[:, 1]), 0.0)
     heading = critically_damped(np.clip(heading, -math.pi / 2, math.pi / 2)[:, None], fps, HEADING_TAU)[:, 0]
-    azimuth = np.clip(ROLL_FOLLOW * heading, -ROLL_LIMIT, ROLL_LIMIT) + shot_roll
+    # The camera stands below and to the side of the target, looking up along the run; the side follows the run
+    # direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
+    side = SIDE_ANGLE + SIDE_FOLLOW * heading
+    roll = np.clip(ROLL_FOLLOW * heading, -ROLL_LIMIT, ROLL_LIMIT) + ROLL_DRIFT * np.sin(2 * math.pi * times / ROLL_PERIOD) + shot_roll
 
     pitch = settings['pitch']
     locations = np.empty((len(frames), 3))
     rotations = np.empty((len(frames), 3))
     focus = np.empty(len(frames))
     previous = None
+    out = Vector((0.0, -1.0, 0.0))
     for index in range(len(frames)):
-        back = Vector((-math.sin(azimuth[index]), 0.0, math.cos(azimuth[index])))
-        aim = Vector((target[index, 0], -depth, target[index, 1])) - back * (AIM_DROP * distance[index])
-        out = Vector((0.0, -1.0, 0.0))
-        position = aim + (back * math.sin(pitch) + out * math.cos(pitch)) * distance[index]
-        euler = look_rotation(position, aim, back).to_euler('XYZ', previous) if previous else \
-            look_rotation(position, aim, back).to_euler('XYZ')
+        foot = Vector((math.sin(side[index]), 0.0, -math.cos(side[index])))
+        up = Vector((-math.sin(roll[index]), 0.0, math.cos(roll[index])))
+        aim = Vector((target[index, 0], -depth, target[index, 1]))
+        position = aim + (foot * math.sin(pitch) + out * math.cos(pitch)) * distance[index]
+        rotation = look_rotation(position, aim, up)
+        euler = rotation.to_euler('XYZ', previous) if previous else rotation.to_euler('XYZ')
         previous = euler
         locations[index] = position
         rotations[index] = tuple(euler)
