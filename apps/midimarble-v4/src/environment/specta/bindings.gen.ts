@@ -20,6 +20,8 @@ export const commands = {
 	blenderShow: (packagePath: string) => typedError<BlenderSessionDto, string>(__TAURI_INVOKE("blender_show", { packagePath })),
 	/**  Writes bytes to a package-relative path, such as motion files under `.cache/motion/` */
 	writePackageFile: (packagePath: string, relativePath: string, bytes: number[]) => typedError<string, string>(__TAURI_INVOKE("write_package_file", { packagePath, relativePath, bytes })),
+	/**  Polls a background job such as `render_film`, which runs in its own Blender process */
+	blenderJobPoll: (packagePath: string, jobId: string) => typedError<BlenderJobPollDto, string>(__TAURI_INVOKE("blender_job_poll", { packagePath, jobId })),
 };
 
 /* Types */
@@ -34,6 +36,13 @@ export type AppInfoDto = {
 export type BlenderInstallDto = {
 	path: string | null,
 	version: string | null,
+};
+
+export type BlenderJobPollDto = {
+	/**  Latest `.bridge/outbox/<jobId>.progress.json`, if any */
+	progressJson: string | null,
+	/**  The job's response envelope `{id, ok, result | error}` once it finished; taken on read */
+	responseJson: string | null,
 };
 
 export type BlenderSessionDto = {

@@ -158,10 +158,10 @@ Scene decorations follow the same review as skins. The user clicks a point on th
 
 ### Camera
 
-The default camera is a rig of native Blender objects:
+The default camera is a native Blender camera with baked keyframes:
 
-- A rail curve that follows the smoothed trajectory at a distance from the wall
-- A target that leads the marble
+- It follows the smoothed trajectory at a distance from the wall, looking down along the run
+- Its target leads the marble, and its roll follows the run's direction slowly
 - Shot markers on the timeline, such as wide, push in, roll or close on a hit, with eased transitions
 
 The Design tab exposes distance, downward angle, lead, smoothing and shot markers. The app regenerates the rail when the motion changes. Editing the rig in Blender takes over the camera, and the app then asks before regenerating it.

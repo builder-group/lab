@@ -92,6 +92,26 @@ pub fn take_response(package: &Path, id: &str) -> Result<Option<Value>, MailboxE
     return Ok(Some(value));
 }
 
+/// Progress and, once finished, the response of a background job such as a film render. The job writes the
+/// same files as a request; the response is taken (removed) like a request's.
+pub fn poll_job(package: &Path, id: &str) -> Result<(Option<Value>, Option<Value>), MailboxError> {
+    if !is_valid_id(id) {
+        return Err(MailboxError::InvalidResponse(format!("job {}", id)));
+    }
+    let progress = read_json(&progress_path(package, id)).ok();
+    let response = take_response(package, id)?;
+    return Ok((progress, response));
+}
+
+/// Request and job IDs use `[A-Za-z0-9_-]{1,100}` like the worker's file name rule
+pub fn is_valid_id(id: &str) -> bool {
+    return !id.is_empty()
+        && id.len() <= 100
+        && id
+            .chars()
+            .all(|value| value.is_ascii_alphanumeric() || value == '-' || value == '_');
+}
+
 pub fn read_status(package: &Path) -> Option<Value> {
     return read_json(&bridge_dir(package).join(STATUS_FILE)).ok();
 }
@@ -217,6 +237,34 @@ mod tests {
         assert!(first
             .chars()
             .all(|value| value.is_ascii_alphanumeric() || value == '-' || value == '_'));
+    }
+
+    #[test]
+    fn polls_job_progress_and_response() {
+        let package = temp_package("job");
+        ensure_bridge(&package).unwrap();
+        assert!(poll_job(&package, "../x").is_err());
+        let (progress, response) = poll_job(&package, "film-1").unwrap();
+        assert!(progress.is_none() && response.is_none());
+        write_atomic(
+            &progress_path(&package, "film-1"),
+            json!({"id": "film-1", "progress": 0.5}).to_string().as_bytes(),
+        )
+        .unwrap();
+        let (progress, response) = poll_job(&package, "film-1").unwrap();
+        assert_eq!(progress.unwrap()["progress"], 0.5);
+        assert!(response.is_none());
+        write_atomic(
+            &response_path(&package, "film-1"),
+            json!({"id": "film-1", "ok": true, "result": {"path": "x.mp4"}})
+                .to_string()
+                .as_bytes(),
+        )
+        .unwrap();
+        let (_, response) = poll_job(&package, "film-1").unwrap();
+        assert_eq!(response.unwrap()["result"]["path"], "x.mp4");
+        assert!(!response_path(&package, "film-1").exists());
+        fs::remove_dir_all(&package).unwrap();
     }
 
     #[test]

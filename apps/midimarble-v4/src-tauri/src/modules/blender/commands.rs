@@ -148,6 +148,27 @@ pub async fn blender_show(
     .await;
 }
 
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BlenderJobPollDto {
+    /// Latest `.bridge/outbox/<jobId>.progress.json`, if any
+    pub progress_json: Option<String>,
+    /// The job's response envelope `{id, ok, result | error}` once it finished; taken on read
+    pub response_json: Option<String>,
+}
+
+/// Polls a background job such as `render_film`, which runs in its own Blender process
+#[tauri::command]
+#[specta::specta]
+pub fn blender_job_poll(package_path: String, job_id: String) -> Result<BlenderJobPollDto, String> {
+    let (progress, response) = mailbox::poll_job(&PathBuf::from(package_path), &job_id)
+        .map_err(|error| error.to_string())?;
+    return Ok(BlenderJobPollDto {
+        progress_json: progress.map(|value| value.to_string()),
+        response_json: response.map(|value| value.to_string()),
+    });
+}
+
 /// Writes bytes to a package-relative path, such as motion files under `.cache/motion/`
 #[tauri::command]
 #[specta::specta]

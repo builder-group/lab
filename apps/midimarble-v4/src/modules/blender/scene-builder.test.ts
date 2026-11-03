@@ -132,6 +132,70 @@ describe('buildSceneDescription', () => {
 	});
 });
 
+describe('buildSceneDescription with moving and path pieces', () => {
+	it('writes windmill motion as [time, angle] records', () => {
+		const { project, result } = fixture();
+		result.pieces.push({
+			entityId: 'windmill-1',
+			type: 'windmill',
+			position: { x: 0, y: 0.1 },
+			angle: 0,
+			params: { bladeCount: 4 },
+			contactPoint: null,
+			contactNormal: null,
+			hitTime: null,
+			status: 'placed',
+			motion: [
+				{ time: 0, angle: 0 },
+				{ time: 0.5, angle: 1.25 }
+			]
+		});
+		const { description, motionFiles } = buildSceneDescription(project, result, { fps: 60 });
+		const windmill = description.pieces.find((piece) => piece.id === 'windmill-1');
+		expect(windmill?.motionPath).toBe(`${MOTION_FOLDER}/windmill-1.bin`);
+		expect(windmill?.sampleCount).toBe(2);
+		const file = motionFiles.find((entry) => entry.path === windmill?.motionPath);
+		expect(decode(file?.bytes ?? new Uint8Array())).toEqual([0, 0, 0.5, 1.25]);
+	});
+
+	it('passes the resolved rail path in wall coordinates', () => {
+		const { project, result } = fixture();
+		const path = [
+			{ x: 0, y: 0.1 },
+			{ x: 0.15, y: 0.088 }
+		];
+		result.pieces.push({
+			entityId: 'rail-1',
+			type: 'rail',
+			position: { x: 0, y: 0.1 },
+			angle: 0,
+			params: { radius: 0.0025, gap: 0.01 },
+			contactPoint: null,
+			contactNormal: null,
+			hitTime: null,
+			status: 'placed',
+			path
+		});
+		const { description } = buildSceneDescription(project, result, { fps: 60 });
+		expect(description.pieces.find((piece) => piece.id === 'rail-1')?.path).toEqual(path);
+		expect(description.pieces[0]?.path).toBeNull();
+	});
+
+	it('passes the design camera rig settings', () => {
+		const { project, result } = fixture();
+		project.design.camera.shots.push({ id: 'shot-1', time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4 });
+		const { description } = buildSceneDescription(project, result, { fps: 60 });
+		expect(description.camera).toEqual({
+			mode: project.design.camera.mode,
+			distance: project.design.camera.distance,
+			pitch: project.design.camera.pitch,
+			lead: project.design.camera.lead,
+			smoothing: project.design.camera.smoothing,
+			shots: [{ time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4 }]
+		});
+	});
+});
+
 describe('encodeRecords', () => {
 	it('packs little-endian Float32 values', () => {
 		const bytes = encodeRecords([

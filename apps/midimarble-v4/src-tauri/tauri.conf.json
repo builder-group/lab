@@ -35,6 +35,7 @@
 		],
 		"resources": {
 			"../blender/worker.py": "blender/worker.py",
+			"../blender/render_job.py": "blender/render_job.py",
 			"../blender/mm_worker/*.py": "blender/mm_worker/"
 		},
 		"macOS": {

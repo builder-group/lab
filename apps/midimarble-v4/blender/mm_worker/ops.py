@@ -4,7 +4,7 @@ from pathlib import Path
 
 import bpy
 
-from . import preview, scene
+from . import preview, render, scene
 from .util import WorkerError
 
 PROTOCOL_VERSION = 1
@@ -14,6 +14,9 @@ class Worker:
     def __init__(self, project_dir):
         self.project_dir = Path(project_dir).resolve()
         self.stop = False
+        self.host_pid = None
+        # Film render processes by job ID
+        self.jobs = {}
 
     def handle(self, op, args, progress=lambda fraction, phase: None):
         if not isinstance(args, dict):
@@ -30,15 +33,23 @@ class Worker:
             return scene.apply_scene(self.project_dir, args, progress)
         if op == 'preview_frame':
             return preview.preview_frame(self.project_dir, args)
+        if op == 'render_film':
+            return render.start_render_film(self, args)
+        if op == 'cancel':
+            return render.cancel(self, args)
         if op == 'inspect':
             return scene.inspect()
         if op == 'save':
             return self.save()
         if op == 'shutdown':
             result = self.save()
+            render.stop_all(self)
             self.stop = True
             return {**result, 'closing': True}
         raise WorkerError('UNKNOWN_OP', 'Unknown operation: ' + str(op))
+
+    def poll_jobs(self):
+        render.poll_jobs(self)
 
     def save(self):
         target = self.project_dir / 'scene.blend'

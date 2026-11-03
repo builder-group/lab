@@ -38,6 +38,7 @@ class Bridge:
         except BlockingIOError:
             raise SystemExit('Another Blender worker already serves ' + str(self.worker.project_dir))
         self.host_pid = host_pid
+        self.worker.host_pid = host_pid
         self.busy = None
         self.ready = False
         self.last_status = 0.0
@@ -81,6 +82,7 @@ class Bridge:
         now = time.monotonic()
         if now - self.last_host_check > HOST_CHECK_SECONDS:
             self.last_host_check = now
+            self.worker.poll_jobs()
             if not self.host_alive():
                 self.on_host_gone()
         if now - self.last_status > STATUS_SECONDS or self.stop:

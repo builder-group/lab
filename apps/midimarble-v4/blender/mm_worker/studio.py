@@ -1,35 +1,55 @@
-"""Default pegboard studio: wall, sun, world light, front camera and render settings.
+"""Studio: wall, sun, world light, camera and render look.
 
-Created on the first apply only. Later applies change only the camera framing while the camera keeps the
-transform the app last wrote; any user edit hands the camera over to Blender.
+The studio objects are created once. Afterwards the app changes a studio object only while it still holds what the
+app last wrote (`mm_written` fingerprints); a wall, sun or world the user edited belongs to Blender. A theme
+switch re-themes the untouched objects and resets the render look. The camera is framed or rig-baked unless the user
+took it over.
 """
+import json
 import math
 
 import bpy
-from mathutils import Euler, Vector
+from mathutils import Euler
 
+from . import camera as camera_rig
+from . import themes
 from .util import STUDIO_COLLECTION, ensure_collection, tag
 
 STUDIO_VERSION = 1
 PEG_PITCH = 0.025
-WALL_MARGIN = 1.0
+WALL_MARGIN = 5.0
 FRAME_MARGIN = 1.15
 
 
-def ensure_studio(scene, bounds):
-    """Creates the default studio once per scene. Returns True when it was created by this call."""
-    if scene.get('mm_studio_version'):
-        return False
+def ensure_studio(scene, bounds, theme):
+    """Creates missing studio objects and applies `theme` to untouched ones. Returns `{created, themed}`."""
+    theme = themes.theme_name(theme)
+    created = not scene.get('mm_studio_version')
     collection = ensure_collection(STUDIO_COLLECTION)
-    create_wall(collection, bounds)
-    create_sun(collection)
-    create_world(scene)
-    camera = create_camera(collection)
-    scene.camera = camera
-    scene.render.engine = 'BLENDER_EEVEE'
-    scene.view_settings.view_transform = 'AgX'
+    switched = scene.get('mm_theme') != theme
+    wall = studio_object('studio.wall')
+    if wall is None and created:
+        wall = create_wall(collection)
+    if wall is not None:
+        update_wall(wall, bounds, theme)
+    sun = studio_object('studio.sun')
+    if sun is None and created:
+        sun = create_sun(collection)
+    if sun is not None and (switched or created):
+        update_sun(sun, theme)
+    if created:
+        create_world(scene)
+    if switched or created:
+        update_world(scene, theme)
+    camera = studio_object('studio.camera')
+    if camera is None and created:
+        camera = create_camera(collection)
+        scene.camera = camera
+    if switched or created:
+        themes.apply_render_look(scene, theme)
+        scene['mm_theme'] = theme
     scene['mm_studio_version'] = STUDIO_VERSION
-    return True
+    return {'created': created, 'themed': switched or created}
 
 
 def studio_object(role):
@@ -42,72 +62,94 @@ def studio_object(role):
     return None
 
 
-def create_wall(collection, bounds):
-    (min_x, min_y), (max_x, max_y) = bounds
-    half_width = (max_x - min_x) / 2 + WALL_MARGIN
-    half_height = (max_y - min_y) / 2 + WALL_MARGIN
-    center_x, center_y = (min_x + max_x) / 2, (min_y + max_y) / 2
+def written(obj, values):
+    obj['mm_written_json'] = json.dumps(values)
+
+
+def untouched(obj, values):
+    stored = obj.get('mm_written_json')
+    return stored is None or json.loads(stored) == values
+
+
+# Wall
+
+
+def create_wall(collection):
     mesh = bpy.data.meshes.new('MM wall')
-    # Local XY plane; the object rotation turns it into Blender XZ with its normal facing the camera (-Y)
-    mesh.from_pydata(
-        [(-half_width, -half_height, 0), (half_width, -half_height, 0), (half_width, half_height, 0), (-half_width, half_height, 0)],
-        [],
-        [(0, 1, 2, 3)],
-    )
-    wall = bpy.data.objects.new('Pegboard wall', mesh)
-    wall.location = (center_x, 0.0, center_y)
+    wall = bpy.data.objects.new('Wall', mesh)
     wall.rotation_euler = (math.pi / 2, 0.0, 0.0)
-    mesh.materials.append(pegboard_material())
     collection.objects.link(wall)
     tag(wall, 'studio.wall', 'studio.wall')
     return wall
 
 
-def pegboard_material():
-    material = bpy.data.materials.new('MM · pegboard')
-    material['mm_owner'] = 'midimarble'
-    material.diffuse_color = (0.55, 0.42, 0.28, 1.0)
-    tree = material.node_tree
-    nodes, links = tree.nodes, tree.links
-    principled = nodes.get('Principled BSDF')
-    coordinates = nodes.new('ShaderNodeTexCoord')
-    mapping = nodes.new('ShaderNodeMapping')
-    mapping.inputs['Scale'].default_value = (1 / PEG_PITCH, 1 / PEG_PITCH, 1.0)
-    fraction = nodes.new('ShaderNodeVectorMath')
-    fraction.operation = 'FRACTION'
-    center = nodes.new('ShaderNodeVectorMath')
-    center.operation = 'SUBTRACT'
-    center.inputs[1].default_value = (0.5, 0.5, 0.0)
-    length = nodes.new('ShaderNodeVectorMath')
-    length.operation = 'LENGTH'
-    ramp = nodes.new('ShaderNodeValToRGB')
-    ramp.color_ramp.interpolation = 'CONSTANT'
-    ramp.color_ramp.elements[0].position = 0.0
-    ramp.color_ramp.elements[0].color = (0.035, 0.025, 0.018, 1.0)
-    ramp.color_ramp.elements[1].position = 0.15
-    ramp.color_ramp.elements[1].color = (0.55, 0.40, 0.25, 1.0)
-    links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
-    links.new(mapping.outputs['Vector'], fraction.inputs[0])
-    links.new(fraction.outputs['Vector'], center.inputs[0])
-    links.new(center.outputs['Vector'], length.inputs[0])
-    links.new(length.outputs['Value'], ramp.inputs['Fac'])
-    links.new(ramp.outputs['Color'], principled.inputs['Base Color'])
-    principled.inputs['Roughness'].default_value = 0.8
-    return material
+def wall_signature(wall):
+    mesh = wall.data
+    corners = [round(value, 5) for vertex in mesh.vertices for value in vertex.co] if wall.type == 'MESH' else []
+    materials = [material.name if material else None for material in mesh.materials] if wall.type == 'MESH' else []
+    return [corners, [round(value, 5) for value in (*wall.location, *wall.rotation_euler, *wall.scale)], materials]
+
+
+def update_wall(wall, bounds, theme):
+    """Fits an untouched wall to the run with a margin and gives it the theme's material"""
+    if wall.type != 'MESH' or not untouched(wall, wall_signature(wall)):
+        return False
+    (min_x, min_y), (max_x, max_y) = bounds
+    half_width = (max_x - min_x) / 2 + WALL_MARGIN
+    half_height = (max_y - min_y) / 2 + WALL_MARGIN
+    mesh = wall.data
+    if len(mesh.vertices) != 4:
+        mesh.clear_geometry()
+        mesh.from_pydata([(0, 0, 0)] * 4, [], [(0, 1, 2, 3)])
+    # Local XY plane; the object rotation turns it into Blender XZ with its normal facing the camera (-Y)
+    for vertex, corner in zip(mesh.vertices, ((-1, -1), (1, -1), (1, 1), (-1, 1))):
+        vertex.co = (corner[0] * half_width, corner[1] * half_height, 0.0)
+    mesh.update()
+    wall.location = ((min_x + max_x) / 2, 0.0, (min_y + max_y) / 2)
+    wall.rotation_euler = (math.pi / 2, 0.0, 0.0)
+    material = themes.wall_material(theme, PEG_PITCH)
+    if len(mesh.materials):
+        mesh.materials[0] = material
+    else:
+        mesh.materials.append(material)
+    written(wall, wall_signature(wall))
+    return True
+
+
+# Sun and world
 
 
 def create_sun(collection):
     light = bpy.data.lights.new('MM sun', 'SUN')
-    light.energy = 3.0
-    light.angle = math.radians(25)
     sun = bpy.data.objects.new('Sun', light)
-    # Shines from the upper left, slightly in front of the wall
-    direction = Vector((1.0, 1.2, -1.1)).normalized()
-    sun.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
     sun.location = (-1.0, -1.5, 2.0)
     collection.objects.link(sun)
     tag(sun, 'studio.sun', 'studio.sun')
     return sun
+
+
+def sun_signature(sun):
+    light = sun.data
+    return [round(light.energy, 4), round(light.angle, 5), [round(value, 4) for value in light.color],
+            [round(value, 5) for value in sun.rotation_euler]]
+
+
+def update_sun(sun, theme):
+    if sun.type != 'LIGHT' or sun.data.type != 'SUN' or not untouched(sun, sun_signature(sun)):
+        return False
+    settings = themes.sun_settings(theme)
+    sun.data.energy = settings['energy']
+    sun.data.angle = settings['angle']
+    sun.data.color = settings['color']
+    sun.data.use_shadow = True
+    # Fine shadow maps and jittered soft shadows keep long grazing shadows free of stair steps
+    sun.data.shadow_maximum_resolution = 0.0002
+    sun.data.use_shadow_jitter = True
+    sun.data.shadow_jitter_overblur = 10.0
+    sun.data.shadow_filter_radius = 1.5
+    sun.rotation_euler = Euler(settings['rotation'])
+    written(sun, sun_signature(sun))
+    return True
 
 
 def create_world(scene):
@@ -116,18 +158,42 @@ def create_world(scene):
         return
     world = bpy.data.worlds.new('MM studio')
     world['mm_owner'] = 'midimarble'
-    background = world.node_tree.nodes.get('Background') if world.node_tree else None
-    if background is not None:
-        background.inputs['Color'].default_value = (0.75, 0.78, 0.82, 1.0)
-        background.inputs['Strength'].default_value = 0.6
-    world.color = (0.75, 0.78, 0.82)
     scene.world = world
+
+
+def world_signature(world):
+    background = world.node_tree.nodes.get('Background') if world.node_tree else None
+    if background is None:
+        return None
+    return [[round(value, 4) for value in background.inputs['Color'].default_value],
+            round(background.inputs['Strength'].default_value, 4)]
+
+
+def update_world(scene, theme):
+    world = scene.world
+    if world is None or world.get('mm_owner') != 'midimarble':
+        return False
+    if not world.use_nodes:
+        world.use_nodes = True
+    if world_signature(world) is None or not untouched(world, world_signature(world)):
+        return False
+    settings = themes.theme_settings(theme)['world']
+    background = world.node_tree.nodes['Background']
+    themes.studio_environment(world, settings)
+    background.inputs['Color'].default_value = (*settings['color'], 1.0)
+    background.inputs['Strength'].default_value = settings['strength']
+    world.color = settings['color']
+    written(world, world_signature(world))
+    return True
+
+
+# Camera
 
 
 def create_camera(collection):
     data = bpy.data.cameras.new('MM camera')
     data.type = 'ORTHO'
-    camera = bpy.data.objects.new('Front camera', data)
+    camera = bpy.data.objects.new('Camera', data)
     # Camera looks along its local -Z; +90 degrees around X points it at the wall (+Y)
     camera.rotation_euler = (math.pi / 2, 0.0, 0.0)
     collection.objects.link(camera)
@@ -148,18 +214,53 @@ def set_resolution(scene, frame):
     scene.render.resolution_percentage = 100
 
 
-def camera_signature(camera):
+def legacy_signature(camera):
     return [round(value, 6) for value in (*camera.location, *camera.rotation_euler, camera.data.ortho_scale)]
 
 
-def frame_camera(scene, bounds):
-    """Frames the run with the app camera unless the user changed it since the app last wrote it"""
+def camera_owned(camera):
+    """True while the camera holds what the app last wrote"""
+    if camera.get('mm_written_json') is not None:
+        return json.loads(camera['mm_written_json']) == camera_rig.signature(camera)
+    legacy = camera.get('mm_written')
+    if legacy is not None:
+        return list(legacy) == legacy_signature(camera)
+    return True
+
+
+def remember_camera(camera):
+    if 'mm_written' in camera:
+        del camera['mm_written']
+    camera['mm_written_json'] = json.dumps(camera_rig.signature(camera))
+
+
+def update_camera(scene, bounds, settings, marbles, motions, fps, regenerate=False):
+    """Bakes the follow rig, or frames the run with a static front camera without rig settings.
+
+    Returns `framed`, `baked`, `takenOver`, `manual` or `missing`.
+    """
     camera = studio_object('studio.camera')
     if camera is None or camera.type != 'CAMERA':
-        return False
-    written = camera.get('mm_written')
-    if written is not None and list(written) != camera_signature(camera):
-        return False
+        return 'missing'
+    if settings is not None and settings['mode'] == 'manual':
+        return 'manual'
+    if not regenerate and not camera_owned(camera):
+        return 'takenOver'
+    if settings is None:
+        camera_rig.clear(camera)
+        frame_front(scene, camera, bounds)
+        remember_camera(camera)
+        return 'framed'
+    if not camera_rig.bake(scene, camera, settings, marbles, motions, fps):
+        camera_rig.clear(camera)
+        frame_front(scene, camera, bounds)
+        remember_camera(camera)
+        return 'framed'
+    remember_camera(camera)
+    return 'baked'
+
+
+def frame_front(scene, camera, bounds):
     (min_x, min_y), (max_x, max_y) = bounds
     width = (max_x - min_x) * FRAME_MARGIN
     height = (max_y - min_y) * FRAME_MARGIN
@@ -168,8 +269,7 @@ def frame_camera(scene, bounds):
     scale = max(width, height * aspect) if aspect >= 1 else max(height, width / aspect)
     camera.data.type = 'ORTHO'
     camera.data.ortho_scale = max(scale, 0.1)
+    camera.data.dof.use_dof = False
     camera.location = ((min_x + max_x) / 2, -10.0, (min_y + max_y) / 2)
     camera.rotation_euler = Euler((math.pi / 2, 0.0, 0.0))
     camera.data.clip_end = 100.0
-    camera['mm_written'] = camera_signature(camera)
-    return True

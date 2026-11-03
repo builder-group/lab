@@ -10,6 +10,10 @@ MANAGED_COLLECTION = 'MidiMarble · managed'
 DETACHED_COLLECTION = 'MidiMarble · detached'
 STUDIO_COLLECTION = 'MidiMarble · studio'
 OWNER = 'midimarble'
+# Space between a marble and the wall so its skin never intersects the wall plane
+MARBLE_WALL_GAP = 0.0005
+DEFAULT_PIECE_DEPTH = 0.02
+DEFAULT_MARBLE_RADIUS = 0.008
 
 
 class WorkerError(Exception):

@@ -93,7 +93,8 @@ Operations:
 | `apply_scene`    | Create or update holders, skins and keyframes from a scene description      |
 | `preview_frame`  | Render an Eevee frame and an object ID pass at a time                       |
 | `preview_clip`   | Render a short low-resolution clip                                          |
-| `render`         | Render the film with a preset, cancellable with progress                    |
+| `render_film`    | Start a film render with a preset in a separate Blender process             |
+| `cancel`         | Cancel a film render job                                                    |
 | `inspect`        | Report link states, detached objects and Blender-owned changes              |
 | `preview_asset`  | Render a candidate asset in isolation                                       |
 | `accept_asset`   | Copy an accepted candidate into the project library                         |
@@ -101,6 +102,17 @@ Operations:
 | `save`, `shutdown` | Save `scene.blend` and close cleanly                                      |
 
 Motion moves as a binary file rather than JSON. The app writes sampled positions and rotations as Float32 arrays into `.cache/motion/`, and the worker reads them with NumPy and writes F-curves with `foreach_set`. Keyframes are written at the render frame rate. Hit values become an animated custom property per piece.
+
+### Themes, reactions and camera
+
+- `TSceneDescription.theme` selects a procedural theme in `blender/mm_worker/themes.py`: `pegboard` (flat toy colors, pegboard wall, wooden pegs) and `brass` (the reference look: lavender plaster wall, brushed brass bars on bent chrome brackets with round wall bases, chrome two-wire rails, satin tunnels, brass windmills, a glass marble with a swirl core in the lane color, one soft low sun from the upper left, a studio environment for metal reflections, AgX). Themes are data; materials are shared and created once, so Blender edits to them survive.
+- Default skins are built per theme and piece type (`skins.py`). A skin root carries a fingerprint of what the app built; the app rebuilds only unedited default skins of linked holders when the theme or parameters change. Edited skins, custom skins and objects outside the MidiMarble collections are never touched. Studio objects (wall, sun, world) are re-themed only while they hold what the app last wrote.
+- Reactions: a platform's bar is a child part whose drivers read the holder's `mm_hit`: it presses along its normal and tilts a few degrees around the bracket, springing back as `mm_hit` decays. An optional emission flash uses the `mm_flash` object property. Reactions never touch holders or their keyframes. `TSceneDescription.reactions` overrides the theme values.
+- Camera: with `TSceneDescription.camera` (from `design.camera`) the worker bakes a follow camera in `camera.py`. Follow point: the weighted centre of the marbles in flight. Target: moved up to `lead` seconds ahead, smoothed with a zero-phase critically damped filter (time constant `0.04 + 0.5 * smoothing` s) and pulled along where a fast fall would leave the frame. The camera stands `distance` away at `pitch` from the wall normal, up the run; its azimuth follows the run's direction slowly, which rolls the columns between diagonal and vertical. Shots set distance and extra roll with eased transitions and appear as `MM · <kind>` timeline markers. Several marbles widen the distance so all stay in frame. Lens 85 mm by default (`camera.lens`): the reference's perspective changes only about 13 % across the frame, which a long lens at a modest pitch reproduces (`distance` 1.0 and `pitch` 0.45 match the reference framing). Keyframes are baked on the studio camera, so Blender plays it without add-ons. A camera edited in Blender is taken over: `apply_scene` reports `camera: 'takenOver'` and regenerates only with `regenerateCamera`. `mode: 'manual'` leaves the camera alone.
+
+### Film render
+
+`render_film {preset, engine?, outputPath, audioPath?, samples?, jobId?}` saves a copy of the live scene to `renders/.jobs/<jobId>/scene.blend`, starts a background Blender on it with `blender/render_job.py` and answers with the job right away, so the live worker stays responsive. Presets: Fast 720p 30 fps, Balanced 1080p 30 fps, Best 1080p 60 fps, by the short side (portrait 9:16 gives 1080x1920). Output frame i shows time i / fps, independent of the keyframe rate. The job writes progress to `.bridge/outbox/<jobId>.progress.json`, renders PNG frames, muxes them with the soundtrack WAV into an MP4 (H.264, AAC) with FFmpeg (or with Blender's own FFmpeg through the sequencer when no binary is found) and writes the response envelope to `.bridge/outbox/<jobId>.json`. The host reads both with `blender_job_poll`. `cancel {jobId}` sets a cancel flag the job checks between frames and stops the process after a grace period. The job also stops when the app exits, and the live worker reports jobs that end without an answer. `renderFilm` in `src/modules/blender/render-film.ts` writes `renders/soundtrack.wav` from `renderProjectAudio` and follows the job.
 
 Scene structure in Blender:
 

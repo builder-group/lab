@@ -14,9 +14,48 @@ export interface TSceneDescription {
 	fps: number;
 	duration: number;
 	frame: { width: number; height: number };
+	/** `pegboard` or `brass`; unknown themes fall back to `pegboard` */
 	theme: string;
 	marbles: TSceneMarble[];
 	pieces: TScenePiece[];
+	/**
+	 * Follow-camera rig settings from the project's `design.camera`. Without them the worker frames the run with
+	 * a static front camera.
+	 */
+	camera?: TSceneCamera;
+	/** Overrides of the theme's hit reactions */
+	reactions?: TSceneReactions;
+}
+
+export interface TSceneCamera {
+	/** `manual` leaves the camera to Blender */
+	mode: 'rig' | 'manual';
+	/** Camera distance from the followed point in metres */
+	distance: number;
+	/** Downward angle from the wall normal in radians; larger looks more steeply along the wall */
+	pitch: number;
+	/** Seconds the target leads the marble */
+	lead: number;
+	/** 0 to 1; larger follows more calmly */
+	smoothing: number;
+	shots: TSceneShot[];
+}
+
+export interface TSceneShot {
+	time: number;
+	kind: string;
+	/** Extra roll around the followed point in radians */
+	roll: number;
+	distance: number;
+}
+
+export interface TSceneReactions {
+	/** Bar tilt at a hit in degrees */
+	dip?: number;
+	/** Bar press along its normal at a hit in metres */
+	press?: number;
+	/** Emission strength of the hit flash; 0 turns it off */
+	flash?: number;
 }
 
 export interface TSceneMarble {
@@ -44,6 +83,12 @@ export interface TScenePiece {
 	/** Optional package-relative Float32 file with records [time, angle] for moving pieces such as windmills */
 	motionPath: string | null;
 	sampleCount: number;
+	/**
+	 * Support line of rails and tunnels in wall coordinates: the resolved, smoothed polyline the simulation
+	 * collides with (derived from the entity's `path` component). The marble centre rides `radius + wire radius`
+	 * above it.
+	 */
+	path?: { x: number; y: number }[] | null;
 	skin: { assetId: string; link: 'linked' | 'unlinked' } | null;
 	color: string;
 }

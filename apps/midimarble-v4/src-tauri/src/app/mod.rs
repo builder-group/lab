@@ -20,6 +20,7 @@ pub fn run() {
         blender::commands::blender_status,
         blender::commands::blender_show,
         blender::commands::write_package_file,
+        blender::commands::blender_job_poll,
     ]);
 
     #[cfg(debug_assertions)]

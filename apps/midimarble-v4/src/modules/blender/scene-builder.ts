@@ -1,7 +1,13 @@
-import type { TProject } from '@/modules/project';
+import type { TDesign, TProject } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation/pieces';
 import type { TSimulationResult } from '@/modules/simulation/types';
-import { SCENE_DESCRIPTION_VERSION, type TSceneDescription, type TSceneMarble, type TScenePiece } from './scene-description';
+import {
+	SCENE_DESCRIPTION_VERSION,
+	type TSceneCamera,
+	type TSceneDescription,
+	type TSceneMarble,
+	type TScenePiece
+} from './scene-description';
 
 export const MOTION_FOLDER = '.cache/motion';
 export const SCENE_DESCRIPTION_PATH = '.cache/scene.json';
@@ -42,6 +48,16 @@ export function buildSceneDescription(
 	const pieces: TScenePiece[] = result.pieces.map((piece) => {
 		const entity = entities.get(piece.entityId);
 		const laneId = entity?.components.hitLink?.laneId;
+		let motionPath: string | null = null;
+		let sampleCount = 0;
+		if (piece.motion != null && piece.motion.length > 0) {
+			motionPath = `${MOTION_FOLDER}/${piece.entityId}.bin`;
+			sampleCount = piece.motion.length;
+			motionFiles.push({
+				path: motionPath,
+				bytes: encodeRecords(piece.motion.map((sample) => [sample.time, sample.angle]))
+			});
+		}
 		return {
 			id: piece.entityId,
 			name: entity?.name ?? piece.entityId,
@@ -51,10 +67,11 @@ export function buildSceneDescription(
 			angle: piece.angle,
 			wallOffset: getPieceDefinition(piece.type)?.wallOffset ?? 0,
 			hitTimes: hitTimesFor(result, piece.entityId),
-			motionPath: null,
-			sampleCount: 0,
+			motionPath,
+			sampleCount,
 			skin: entity?.components.skin ?? null,
-			color: (laneId != null ? laneColors.get(laneId) : undefined) ?? DEFAULT_PIECE_COLOR
+			color: (laneId != null ? laneColors.get(laneId) : undefined) ?? DEFAULT_PIECE_COLOR,
+			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null
 		};
 	});
 
@@ -68,9 +85,21 @@ export function buildSceneDescription(
 			frame: { width: project.frame.width, height: project.frame.height },
 			theme: project.design.theme,
 			marbles,
-			pieces
+			pieces,
+			camera: buildSceneCamera(project.design.camera)
 		},
 		motionFiles
+	};
+}
+
+export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
+	return {
+		mode: camera.mode,
+		distance: camera.distance,
+		pitch: camera.pitch,
+		lead: camera.lead,
+		smoothing: camera.smoothing,
+		shots: camera.shots.map((shot) => ({ time: shot.time, kind: shot.kind, roll: shot.roll, distance: shot.distance }))
 	};
 }
 

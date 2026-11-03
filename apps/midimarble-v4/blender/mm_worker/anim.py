@@ -7,9 +7,9 @@ from bpy_extras import anim_utils
 INTERPOLATION_LINEAR = 1
 
 
-def ensure_channelbag(holder):
+def ensure_channelbag(holder, action_name=None):
     """Returns the channelbag of the holder's own action, creating the action and slot when missing"""
-    action_name = 'MM · ' + holder['mm_id']
+    action_name = action_name or 'MM · ' + holder['mm_id']
     animation = holder.animation_data or holder.animation_data_create()
     action = animation.action
     if action is None or action.get('mm_owner') != 'midimarble':
@@ -18,7 +18,7 @@ def ensure_channelbag(holder):
         animation.action = action
     slot = animation.action_slot
     if slot is None:
-        slot = action.slots[0] if len(action.slots) else action.slots.new('OBJECT', holder.name)
+        slot = action.slots[0] if len(action.slots) else action.slots.new(holder.id_type, holder.name)
         animation.action_slot = slot
     return anim_utils.action_ensure_channelbag_for_slot(action, slot)
 

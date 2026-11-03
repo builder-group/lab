@@ -11,9 +11,12 @@ import time
 import bpy
 import numpy as np
 
-from . import anim, skins, studio
+from . import anim, camera, skins, studio, themes
 from .util import (
+    DEFAULT_MARBLE_RADIUS,
+    DEFAULT_PIECE_DEPTH,
     DETACHED_COLLECTION,
+    MARBLE_WALL_GAP,
     MANAGED_COLLECTION,
     OWNER,
     WorkerError,
@@ -26,9 +29,6 @@ from .util import (
 )
 
 SCENE_DESCRIPTION_VERSION = 1
-# Space between a marble and the wall so its skin never intersects the wall plane
-MARBLE_WALL_GAP = 0.0005
-DEFAULT_PIECE_DEPTH = 0.02
 # `mm_hit` rises to 1 at a hit and decays to 0 over this many seconds
 HIT_DECAY = 0.25
 HIT_TAU = HIT_DECAY / 5
@@ -66,9 +66,12 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     scene = bpy.context.scene
     set_frame_rate(scene, fps, duration)
     studio.set_resolution(scene, description.get('frame') or {'width': 9, 'height': 16})
+    theme = themes.theme_name(description.get('theme'))
+    marble_radius = max([float(marble['radius']) for marble in marbles] or [DEFAULT_MARBLE_RADIUS])
+    context = skins.skin_context(theme, marble_radius, description.get('reactions'))
     managed = ensure_collection(MANAGED_COLLECTION)
     holders = {obj['mm_id']: obj for obj in managed.objects if is_holder(obj)}
-    report = {'created': [], 'updated': [], 'skipped': [], 'removed': [], 'keyframes': 0}
+    report = {'created': [], 'updated': [], 'skipped': [], 'removed': [], 'keyframes': 0, 'skins': {}}
     total = max(1, len(marbles) + len(pieces))
 
     for index, marble in enumerate(marbles):
@@ -78,7 +81,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
             report['skipped'].append(marble['id'])
             continue
         report['keyframes'] += write_marble(holder, marble, marble_motion[marble['id']], fps)
-        ensure_skin(holder, 'marble', marble, managed)
+        record_skins(report, marble['id'], ensure_skin(holder, 'marble', marble, managed, context))
         report['created' if created else 'updated'].append(marble['id'])
 
     for index, piece in enumerate(pieces):
@@ -88,7 +91,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
             report['skipped'].append(piece['id'])
             continue
         report['keyframes'] += write_piece(holder, piece, piece_motion.get(piece['id']), fps)
-        ensure_skin(holder, 'piece', piece, managed)
+        record_skins(report, piece['id'], ensure_skin(holder, 'piece', piece, managed, context))
         report['created' if created else 'updated'].append(piece['id'])
 
     if holders:
@@ -98,8 +101,16 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
             report['removed'].append(mm_id)
 
     bounds = scene_bounds(marbles, marble_motion, pieces)
-    report['studioCreated'] = studio.ensure_studio(scene, bounds)
-    report['cameraFramed'] = studio.frame_camera(scene, bounds)
+    studio_report = studio.ensure_studio(scene, bounds, theme)
+    report['studioCreated'] = studio_report['created']
+    report['themed'] = studio_report['themed']
+    report['theme'] = theme
+    camera_settings = None
+    if description.get('camera') is not None:
+        camera_settings = camera.settings_from(description['camera'], themes.theme_settings(theme))
+    report['camera'] = studio.update_camera(
+        scene, bounds, camera_settings, marbles, marble_motion, fps, regenerate=bool(args.get('regenerateCamera')))
+    report['cameraFramed'] = report['camera'] in ('framed', 'baked')
     scene['mm_revision'] = int(description.get('revision', 0))
     scene['mm_project_id'] = str(description.get('projectId', ''))
     scene.frame_set(scene.frame_current)
@@ -170,21 +181,29 @@ def take_holder(holders, managed, mm_id, name, role, display_size):
     return holder, True
 
 
-def ensure_skin(holder, kind, entity, managed):
-    """Keeps an existing child skin and its local offset; creates the default skin only for a bare holder"""
+def ensure_skin(holder, kind, entity, managed, context):
+    """Keeps existing child skins and their local offsets, rebuilding only unedited default skins; creates the
+    default skin for a bare holder. Returns the state of each skin."""
     if holder.children:
-        for child in holder.children:
-            skins.refresh_default_skin(child, kind, entity)
-        return
+        return [skins.refresh_default_skin(child, kind, entity, context, managed) for child in holder.children]
     if kind == 'marble':
-        skins.create_marble_skin(holder, entity, managed)
+        skins.create_marble_skin(holder, entity, managed, context)
     else:
-        skins.create_piece_skin(holder, entity, managed)
+        skins.create_piece_skin(holder, entity, managed, context)
+    return ['created']
+
+
+def record_skins(report, mm_id, states):
+    for state in states:
+        if state in ('edited', 'custom'):
+            report['skins'][mm_id] = state
 
 
 def detach(holder, managed, detached):
     """Moves the holder's skins to the detached collection in place and deletes the holder"""
     for child in list(holder.children):
+        for obj in [child, *descendants(child)]:
+            skins.release_reactions(obj)
         matrix = child.matrix_world.copy()
         child.parent = None
         child.matrix_world = matrix
@@ -349,9 +368,15 @@ def scene_bounds(marbles, marble_motion, pieces):
             xs += [motion[:, 1].min() - radius, motion[:, 1].max() + radius]
             ys += [motion[:, 2].min() - radius, motion[:, 2].max() + radius]
     for piece in pieces:
-        half = float((piece.get('params') or {}).get('length', 0.02)) / 2
+        params = piece.get('params') or {}
+        half = float(params.get('length', 0.02)) / 2
+        if 'bladeLength' in params:
+            half = float(params['bladeLength']) + float(params.get('hubRadius', 0.0))
         xs += [piece['position']['x'] - half, piece['position']['x'] + half]
         ys += [piece['position']['y'] - half, piece['position']['y'] + half]
+        for point in piece.get('path') or []:
+            xs.append(float(point['x']))
+            ys.append(float(point['y']))
     if not xs:
         return (-0.5, -0.5), (0.5, 0.5)
     return (float(min(xs)), float(min(ys))), (float(max(xs)), float(max(ys)))

@@ -62,7 +62,7 @@ def ballistic():
     return np.stack([times, x, y, angle], axis=1).astype('<f4'), hit
 
 
-def write_package(root, marble_records, hit, platform_position, platform_angle, with_windmill):
+def write_package(root, marble_records, hit, platform_position, platform_angle, with_windmill, theme='pegboard', camera=None):
     motion = root / '.cache' / 'motion'
     motion.mkdir(parents=True, exist_ok=True)
     marble_records.tofile(motion / 'marble-1.bin')
@@ -83,13 +83,15 @@ def write_package(root, marble_records, hit, platform_position, platform_angle, 
         })
     description = {
         'version': 1, 'projectId': 'check', 'revision': 1, 'fps': FPS, 'duration': DURATION,
-        'frame': {'width': 1080, 'height': 1920}, 'theme': 'pegboard',
+        'frame': {'width': 1080, 'height': 1920}, 'theme': theme,
         'marbles': [{
             'id': 'marble-1', 'name': 'Marble 1', 'radius': RADIUS, 'color': '#d94f4f',
             'motionPath': '.cache/motion/marble-1.bin', 'sampleCount': len(marble_records),
         }],
         'pieces': pieces,
     }
+    if camera is not None:
+        description['camera'] = camera
     (root / '.cache' / 'scene.json').write_text(json.dumps(description))
     return windmill
 
@@ -249,6 +251,8 @@ def main():
     check(windmill_skin.name not in bpy.data.collections[MANAGED_COLLECTION].objects, 'detached skin leaves the managed collection')
     check(all(abs(a - b) < 1e-6 for a, b in zip(np.array(windmill_skin.matrix_world).ravel(), np.array(world_before).ravel())), 'detached skin keeps its world transform')
 
+    check_themes_camera_and_render(worker, root, marble_records, hit, moved)
+
     # Bad requests fail cleanly
     try:
         worker.handle('apply_scene', {'descriptionPath': '../outside.json'})
@@ -264,6 +268,102 @@ def main():
     shutil.rmtree(root.parent, ignore_errors=True)
     print('\n'.join(summary))
     print('CHECK PASSED: %d assertions' % sum(1 for line in summary if line.startswith('ok')))
+
+
+def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
+    from bpy_extras.object_utils import world_to_camera_view
+    from mm_worker import render
+    scene = bpy.context.scene
+    rig = {'mode': 'rig', 'distance': 0.5, 'pitch': 0.45, 'lead': 0.15, 'smoothing': 0.6,
+           'shots': [{'id': 's1', 'time': 0.6, 'kind': 'pushIn', 'roll': 0.1, 'distance': 0.4}]}
+
+    # A user-edited default skin and a custom skin survive a theme switch; untouched default skins are rebuilt
+    platform = holder('platform-1')
+    marble = holder('marble-1')
+    platform_skin = platform.children[0]
+    marble_skin = marble.children[0]
+    custom = bpy.data.objects.new('Custom skin', bpy.data.meshes.new('Custom mesh'))
+    bpy.data.collections[MANAGED_COLLECTION].objects.link(custom)
+    custom.parent = marble
+    custom['mm_skin'] = 'user'
+    user_material = bpy.data.materials.new('User paint')
+    marble_skin.data.materials[0] = user_material
+    write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig)
+    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+    check(report['theme'] == 'brass' and report['themed'], 'theme switch to brass re-themes the studio')
+    check(report['skins'].get('marble-1') in ('edited', 'custom'), 'apply reports user-owned marble skins')
+    check(marble_skin.data.materials[0] == user_material, 'a user-edited default skin is not rebuilt')
+    check(custom.name in bpy.data.objects and custom.parent == marble, 'a custom skin stays untouched')
+    platform_skin = platform.children[0]
+    parts = {child['mm_part']: child for child in platform_skin.children if child.get('mm_part')}
+    check('bar' in parts, 'brass platform skin has a reactive bar part')
+    check(any(slot.material and slot.material.name == 'MM · chrome' for slot in platform_skin.material_slots), 'bracket is chrome')
+    check(parts['bar'].material_slots[0].material.name == 'MM · brass', 'bar is brass')
+    windmill = holder('windmill-1')
+    check(windmill.children[0].data.materials[0].name == 'MM · brass', 'windmill skin is rebuilt in brass')
+    wall = next(obj for obj in bpy.data.collections['MidiMarble · studio'].objects if obj.get('mm_role') == 'studio.wall')
+    check(wall.data.materials[0].name == 'MM · wall plaster', 'untouched wall gets the brass plaster')
+
+    # Reactions: the bar dips at the hit and rests otherwise; holder keys and marble motion are unchanged
+    keys_before = list(platform['mm_keys'])
+    bar = parts['bar']
+    scene.frame_set(math.ceil(hit * FPS))
+    dip = bar.location.z
+    tilt = bar.rotation_euler.y
+    scene.frame_set(0)
+    check(dip < -0.0005 and abs(tilt) > math.radians(1), 'bar dips and tilts at the hit (%.4f m, %.2f deg)' % (dip, math.degrees(tilt)))
+    check(abs(bar.location.z) < 1e-9 and abs(bar.rotation_euler.y) < 1e-9, 'bar rests away from hits')
+    check(list(platform['mm_keys']) == keys_before, 'reactions leave holder keyframes unchanged')
+    states = {item['mmId']: item['link'] for item in worker.handle('inspect', {})['holders']}
+    check(all(state == 'linked' for state in states.values()), 'reactions do not unlink holders')
+
+    # Camera rig follows the marble with keyframes and keeps it in frame
+    check(report['camera'] == 'baked', 'apply bakes the follow camera')
+    camera = scene.camera
+    check(camera.data.type == 'PERSP' and camera.animation_data is not None, 'camera is a keyframed perspective camera')
+    worst = 0.0
+    for frame in range(6, scene.frame_end + 1, 3):
+        scene.frame_set(frame)
+        view = world_to_camera_view(scene, camera, marble.matrix_world.translation)
+        worst = max(worst, abs(view.x - 0.5), abs(view.y - 0.5))
+    check(worst < 0.45, 'marble stays inside the frame (worst offset %.2f)' % worst)
+    check(any(marker.name == 'MM · pushIn' for marker in scene.timeline_markers), 'shot markers are on the timeline')
+
+    # Editing the camera hands it over to Blender until the app regenerates it on request
+    from bpy_extras import anim_utils
+    channelbag = anim_utils.animdata_get_channelbag_for_assigned_slot(camera.animation_data)
+    channelbag.fcurves.find('location', index=2).keyframe_points[10].co.y += 0.05
+    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+    check(report['camera'] == 'takenOver', 'an edited camera is taken over')
+    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json', 'regenerateCamera': True})
+    check(report['camera'] == 'baked', 'regenerateCamera rebuilds a taken-over camera')
+    rig_manual = dict(rig, mode='manual')
+    write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig_manual)
+    check(worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})['camera'] == 'manual', 'manual camera mode is left alone')
+    write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig)
+    worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+
+    # Switching back rebuilds only untouched default skins
+    write_package(root, marble_records, hit, moved, 0.3, True, theme='pegboard', camera=rig)
+    worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+    check(holder('platform-1').children[0].children[0].material_slots[0].material.name.startswith('MM · flat'), 'pegboard rebuilds the bar')
+    check(marble_skin.data.materials[0] == user_material, 'the edited marble skin still survives')
+    write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig)
+    worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+
+    # A film job runs in its own process and can be cancelled
+    try:
+        worker.handle('render_film', {'preset': 'ultra', 'outputPath': 'renders/x.mp4'})
+        check(False, 'unknown presets are rejected')
+    except Exception as error:
+        check(getattr(error, 'code', None) == 'INVALID_ARGS', 'unknown presets are rejected')
+    started = worker.handle('render_film', {'preset': 'fast', 'outputPath': 'renders/cancel.mp4', 'jobId': 'job-cancel'})
+    check(started['frames'] == 30 and (started['width'], started['height']) == (720, 1280), 'fast preset is 720x1280 at 30 fps')
+    time.sleep(1.0)
+    worker.handle('cancel', {'jobId': 'job-cancel'})
+    envelope = render.wait_for_job(root, 'job-cancel', timeout=30)
+    check(not envelope['ok'] and envelope['error']['code'] == 'CANCELLED', 'cancel stops the render job')
+    check(not (root / 'renders' / 'cancel.mp4').exists(), 'a cancelled job writes no film')
 
 
 def bpy_channelbag(obj):

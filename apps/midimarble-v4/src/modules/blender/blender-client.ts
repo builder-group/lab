@@ -80,11 +80,14 @@ export const blender = {
 		return Ok(result.data);
 	},
 
-	/** Writes the motion files and the description into the package, then applies them in Blender */
+	/**
+	 * Writes the motion files and the description into the package, then applies them in Blender.
+	 * `regenerateCamera` rebuilds a follow camera the user took over in Blender; ask the user first.
+	 */
 	async applyScene(
 		packagePath: string,
 		build: TSceneBuild,
-		options: { relink?: string[] } = {}
+		options: { relink?: string[]; regenerateCamera?: boolean } = {}
 	): Promise<TResult<TApplySceneResult, BlenderError>> {
 		for (const file of build.motionFiles) {
 			const [isWrittenOk, writtenErr] = await this.writePackageFile(packagePath, file.path, file.bytes);
@@ -96,7 +99,11 @@ export const blender = {
 		return this.request<TApplySceneResult>(
 			packagePath,
 			'apply_scene',
-			{ descriptionPath: SCENE_DESCRIPTION_PATH, relink: options.relink ?? [] },
+			{
+				descriptionPath: SCENE_DESCRIPTION_PATH,
+				relink: options.relink ?? [],
+				regenerateCamera: options.regenerateCamera ?? false
+			},
 			{ timeoutMs: 120_000 }
 		);
 	},
@@ -111,6 +118,45 @@ export const blender = {
 			{ time: options.time, width: options.width ?? 540, engine: 'eevee' },
 			{ timeoutMs: 120_000 }
 		);
+	},
+
+	/**
+	 * Starts a film render in a separate Blender process and answers right away with the job. Follow it with
+	 * `pollJob` and stop it with `cancelJob`.
+	 */
+	startRenderFilm(
+		packagePath: string,
+		options: TRenderFilmOptions
+	): Promise<TResult<TRenderFilmStarted, BlenderError>> {
+		return this.request<TRenderFilmStarted>(
+			packagePath,
+			'render_film',
+			{
+				preset: options.preset,
+				engine: options.engine ?? 'eevee',
+				outputPath: options.outputPath,
+				audioPath: options.audioPath ?? null,
+				...(options.jobId != null ? { jobId: options.jobId } : {}),
+				...(options.samples != null ? { samples: options.samples } : {})
+			},
+			{ timeoutMs: 120_000 }
+		);
+	},
+
+	/** Reads a job's progress and, once it finished, its result or error. A finished job is reported once. */
+	async pollJob<GResult>(packagePath: string, jobId: string): Promise<TResult<TJobPoll<GResult>, BlenderError>> {
+		if (!isTauri()) return Err(unavailable());
+		const result = await specta.commands.blenderJobPoll(packagePath, jobId);
+		if (result.status === 'error') return Err(new BlenderError('HOST', result.error));
+		const progress = result.data.progressJson != null ? (JSON.parse(result.data.progressJson) as TJobProgress) : null;
+		if (result.data.responseJson == null) return Ok({ progress, done: false });
+		const response = JSON.parse(result.data.responseJson) as TBlenderResponse<GResult>;
+		if (!response.ok) return Ok({ progress, done: true, error: new BlenderError(response.error.code, response.error.message) });
+		return Ok({ progress, done: true, result: response.result });
+	},
+
+	cancelJob(packagePath: string, jobId: string): Promise<TResult<{ jobId: string; cancelled: boolean }, BlenderError>> {
+		return this.request(packagePath, 'cancel', { jobId }, { timeoutMs: 30_000 });
 	},
 
 	inspect(packagePath: string): Promise<TResult<TInspectResult, BlenderError>> {
@@ -180,7 +226,17 @@ export interface TApplySceneResult {
 	removed: string[];
 	keyframes: number;
 	studioCreated: boolean;
+	/** The studio and render look were (re)themed because the theme changed */
+	themed: boolean;
+	theme: string;
+	/**
+	 * `baked` follow rig, `framed` static front camera, `takenOver` when the user edited the camera in Blender
+	 * (ask before applying with `regenerateCamera`), `manual` for the manual camera mode, `missing` without a camera
+	 */
+	camera: 'baked' | 'framed' | 'takenOver' | 'manual' | 'missing';
 	cameraFramed: boolean;
+	/** Holders whose skins belong to the user and were left alone: `edited` default skins and `custom` skins */
+	skins: Record<string, 'edited' | 'custom'>;
 	fps: number;
 	frameStart: number;
 	frameEnd: number;
@@ -219,4 +275,65 @@ export interface TInspectResult {
 	frameStart: number;
 	frameEnd: number;
 	fps: number;
+}
+
+export type TRenderPreset = 'fast' | 'balanced' | 'best';
+
+export interface TRenderFilmOptions {
+	/** Fast 720p 30 fps, Balanced 1080p 30 fps, Best 1080p 60 fps; short side for portrait frames */
+	preset: TRenderPreset;
+	/** Eevee by default; Cycles for final quality */
+	engine?: 'eevee' | 'cycles';
+	/** Package-relative `.mp4` path */
+	outputPath: string;
+	/** Package-relative WAV muxed as AAC */
+	audioPath?: string | null;
+	jobId?: string;
+	/** Overrides the preset's samples per frame */
+	samples?: number;
+}
+
+export interface TRenderFilmStarted {
+	jobId: string;
+	pid: number;
+	frames: number;
+	fps: number;
+	width: number;
+	height: number;
+	engine: 'eevee' | 'cycles';
+	jobDir: string;
+}
+
+/** `.bridge/outbox/<jobId>.progress.json` of a film job */
+export interface TJobProgress {
+	id: string;
+	/** 0 to 1; rendering covers 0 to 0.95, encoding the rest */
+	progress: number;
+	phase: string;
+	frame: number | null;
+	frames: number;
+	msPerFrame: number | null;
+	updatedAt: number;
+}
+
+export type TJobPoll<GResult> =
+	| { progress: TJobProgress | null; done: false }
+	| { progress: TJobProgress | null; done: true; result: GResult }
+	| { progress: TJobProgress | null; done: true; error: BlenderError };
+
+export interface TRenderFilmResult {
+	/** Absolute path of the MP4 */
+	path: string;
+	frames: number;
+	fps: number;
+	width: number;
+	height: number;
+	duration: number;
+	engine: 'eevee' | 'cycles';
+	samples: number;
+	/** `ffmpeg`, or `blender` when no FFmpeg binary was found */
+	encoder: 'ffmpeg' | 'blender';
+	renderSeconds: number;
+	msPerFrame: number;
+	hasAudio: boolean;
 }
