@@ -11,6 +11,11 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### Owner feedback after the first films
+
+- Jingle Bells after the engine work is clearly better than before; the zigzag reads well; the marble is too small compared with the reference; the rolling camera can stay as a hook, no extra camera setting (Take Over Camera covers custom work)
+- Next: windmills, rails, tunnels and switchbacks become scenery that never uses up a note; switchbacks get smooth curved turns instead of sharp corners; windmills and other creative pieces as time holders come later
+
 ### Switchbacks in Blender, two-marble framing
 
 - Scene description: pieces carry `paths` (switchback wires in wall coordinates: two walls, then the legs), passed from `TResolvedPiece.paths`; scene bounds include them
