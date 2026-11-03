@@ -4,9 +4,12 @@ import { ContextMenuHost } from '@/components';
 import { ExportSheet } from '@/modules/design/ExportSheet';
 import { AgentChat } from './AgentChat';
 import { CommandPalette } from './CommandPalette';
+import { HintLayer } from './HintLayer';
 import { ImportMidiSheet } from './ImportMidiSheet';
 import { Inspector } from './Inspector';
 import { Notice } from './Notice';
+import { QuickHelp } from './QuickHelp';
+import { SaveChangesAlert } from './SaveChangesAlert';
 import { Sidebar } from './Sidebar';
 import type { StudioCx } from './StudioCx';
 import { TitleBar } from './TitleBar';
@@ -33,7 +36,7 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 				<div className="flex min-w-0 flex-1 flex-col">
 					<div className="flex min-h-0 flex-1">
 						<ToolRail cx={cx} />
-						<main className="relative min-w-0 flex-1" aria-label={workspace === 'compose' ? 'Compose wall' : 'Film preview'}>
+						<main className="relative min-w-0 flex-1" data-quick-help="wall" aria-label={workspace === 'compose' ? 'Compose wall' : 'Film preview'}>
 							{canvas}
 							<Notice cx={cx} />
 						</main>
@@ -46,6 +49,9 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 			<ImportMidiSheet cx={cx} />
 			<ExportSheet cx={cx} />
 			<CommandPalette cx={cx} />
+			<SaveChangesAlert cx={cx} />
+			<HintLayer cx={cx} />
+			<QuickHelp cx={cx} />
 			<ContextMenuHost />
 			{isDropping ? <DropOverlay /> : null}
 		</div>

@@ -114,9 +114,9 @@ project.entities.forEach((entity, index) => {
 
 // Build
 
-// Speed: the user sets full gravity in the World panel. At the default half gravity the build stops early for
-// every release lead tried (23 s at 0.35 s, 1.5 s at 0.7 s, 29 s at 1 s); at full gravity it completes
-const GRAVITY_SCALE = 1;
+// Speed: new projects' default half gravity, which a beginner importing the song gets. Full gravity (1) also
+// builds; half gravity stacks each column's pieces closer and moves the film slower, like the reference films
+const GRAVITY_SCALE = 0.5;
 project.physics.gravityScale = GRAVITY_SCALE;
 
 const simulator = await createSimulator();
@@ -345,9 +345,9 @@ function ask(current: TProject, request: Parameters<typeof answerWorkerRequest>[
 
 /**
  * Applies the commands when every hit with a piece stays on time afterwards (a resting first contact counts
- * as missed) up to the other marbles' next open hits, each marble touches only its own pieces, and the
- * lane's next open dot lies in its band and within the pace limit of y* (or no further than the target dot
- * already was). Before a long gap the dot cannot do either until a gap piece exists.
+ * as missed), in the lane being built and in the other lanes up to the other marbles' next open hits, each
+ * marble touches only its own pieces, and the lane's next open dot lies in its band and within the pace
+ * limit of y* (or no further than the target dot already was). Before a long gap the dot cannot do either until a gap piece exists.
  */
 function accept(current: TProject, commands: TProjectCommand[], laneId: string, checkFrame = true): TProject | null {
 	const [isAppliedOk, , applied] = applyProjectCommands(current, commands);
@@ -373,8 +373,13 @@ function accept(current: TProject, commands: TProjectCommand[], laneId: string, 
 				.filter((entity) => entity.components.marble != null && entity.components.marble.laneId !== laneId)
 				.map((entity) => frontier.get(entity.id) ?? Infinity)
 		);
+	// The lane being built keeps all its placed hits on time; another lane's hits only count up to where this
+	// lane's path is final
 	const late = result.hits.filter(
-		(hit) => hit.status !== 'open' && hit.status !== 'onTime' && hit.targetTime < othersFrontier(hit.laneId)
+		(hit) =>
+			hit.status !== 'open' &&
+			hit.status !== 'onTime' &&
+			(hit.laneId === laneId || hit.targetTime < othersFrontier(hit.laneId))
 	);
 	if (late.length > 0) return reject(`late ${late.map((hit) => `${hit.hitId}:${hit.reason ?? hit.status}`).join(' ')}`);
 	// Each marble may only touch its own lane's pieces and never the other marble

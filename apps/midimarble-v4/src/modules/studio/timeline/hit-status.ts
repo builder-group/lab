@@ -2,8 +2,12 @@ import type { THit } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { noteName } from '../format';
 
-/** The timing status of a hit in the words of `docs/words.md`: a Title Case label and a sentence-case tooltip */
-export function hitTiming(result: THitResult | undefined, names: THitNames): THitTiming {
+/**
+ * The timing status of a hit in the words of `docs/words.md`: a Title Case label and a sentence-case tooltip.
+ * `unreachable` is the Too Soon or Out of Reach status of an open hit that cannot get a platform.
+ */
+export function hitTiming(result: THitResult | undefined, names: THitNames, unreachable?: { label: string; detail: string } | null): THitTiming {
+	if (result?.status === 'open' && unreachable != null) return { state: 'unreachable', label: unreachable.label, tooltip: unreachable.detail };
 	const note = names.pitch == null ? 'its note' : noteName(names.pitch);
 	switch (result?.status) {
 		case 'onTime':
@@ -31,18 +35,19 @@ export interface THitNames {
 }
 
 export interface THitTiming {
-	// Drawing state: Stopped and Blocked share Missed's red
-	state: 'open' | 'onTime' | 'drifting' | 'missed';
+	// Drawing state: Stopped and Blocked share Missed's red; Too Soon and Out of Reach are hollow amber
+	state: 'open' | 'onTime' | 'drifting' | 'missed' | 'unreachable';
 	label: string;
 	tooltip: string;
 }
 
 /**
  * The project's hit summary for the timeline header: how many hits are on time and the hits that need attention
- * (early, late, missed, blocked or stopped) in time order. Open hits count toward the total only.
+ * (early, late, missed, blocked or stopped, and `unreachable` open hits: Too Soon or Out of Reach) in time order.
+ * Other open hits count toward the total only.
  */
-export function hitSummary(results: THitResult[]): THitSummary {
-	const problems = results.filter((hit) => hit.status === 'drifting' || hit.status === 'missed' || hit.status === 'blocked').sort((a, b) => a.targetTime - b.targetTime);
+export function hitSummary(results: THitResult[], unreachable: THitResult[] = []): THitSummary {
+	const problems = [...results.filter((hit) => hit.status === 'drifting' || hit.status === 'missed' || hit.status === 'blocked'), ...unreachable].sort((a, b) => a.targetTime - b.targetTime);
 	const onTime = results.filter((hit) => hit.status === 'onTime').length;
 	const total = results.length;
 	if (problems.length > 0) {

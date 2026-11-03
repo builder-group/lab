@@ -240,6 +240,9 @@ const CLEARANCE = 0.004;
 const COMFORT_TRAVEL = 2;
 const LAUNCH_TRAVEL = 4 / 3;
 const LAST_HIT_HORIZON = 0.5;
+// At Earth's gravity. The launch hop rises the same height at any gravity, so its flight and this horizon
+// last 1 / √(gravity scale) as long; a fixed horizon at half gravity ended before the hop came back down and
+// missed launches that fell back onto their own piece
 const LAUNCH_HORIZON = 0.3;
 const LAUNCH_TAKEOFF = 1.2;
 // Least falling speed at a hit that launches into a long gap, at Earth's gravity: half the launch takeoff
@@ -371,7 +374,7 @@ export function autoPlace(
 	const until =
 		nextHit != null
 			? nextHit.time + 0.02
-			: hit.time + (followingHit != null ? LAUNCH_HORIZON : LAST_HIT_HORIZON);
+			: hit.time + (followingHit != null ? launchHorizon(project) : LAST_HIT_HORIZON);
 	const marbleRadius =
 		project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components
 			.marble?.radius ?? 0;
@@ -1161,9 +1164,14 @@ function openFrontiers(project: TProject, result: TSimulationResult): Map<string
 	};
 	for (const hit of result.hits) if (hit.status === 'open') earlier(marbleOf(hit.laneId), hit.targetTime);
 	for (const lane of project.music.lanes) {
-		for (const gap of openLongGaps(project, lane.id)) earlier(marbleOf(lane.id), gap.from + LAUNCH_HORIZON);
+		for (const gap of openLongGaps(project, lane.id)) earlier(marbleOf(lane.id), gap.from + launchHorizon(project));
 	}
 	return frontiers;
+}
+
+/** How long after a launch hit Auto place follows the hop into the coming gap */
+function launchHorizon(project: TProject): number {
+	return LAUNCH_HORIZON / Math.sqrt(gravityOf(project) / GRAVITY_Y);
 }
 
 function staysInBand(

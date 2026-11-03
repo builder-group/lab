@@ -18,7 +18,12 @@ export interface TDescentPace {
 
 /** Hard limit of a dot's distance from y* that the assists accept */
 export const PACE_LIMIT = 0.25;
-/** Highest a bounce may rise above its takeoff before the gap counts as long and needs a holder */
+/**
+ * Highest a bounce may rise above its takeoff at Earth's gravity before the gap counts as long and needs a
+ * holder. It scales with the project's gravity, like every height at a given rhythm: the pace drop per hit
+ * and so the spacing of a lane's earlier pieces above the marble shrink with gravity, and a fixed 0.4 m
+ * bounce at half gravity rose through the two pieces above it.
+ */
 export const MAX_BOUNCE_RISE = 0.4;
 const MIN_RATE = 0.15;
 const MAX_RATE = 0.8;
@@ -28,9 +33,20 @@ const DEFAULT_INTERVAL = 0.3;
 const EARTH = -GRAVITY_Y;
 
 /**
+ * Least height between the top of a bounce at the pace and the piece two hits back, the one a zigzag
+ * passes under on its way to the next piece of that column. The default bounce at full gravity and a 0.5 s
+ * rhythm leaves 7 cm; at half gravity it left 3.5 cm, and the marbles struck those pieces.
+ */
+export const COLUMN_CLEARANCE = 0.065;
+
+/**
  * Descent rate for the project: (1 − e) / (1 + e) · g · T / 2 for the project's gravity g, the default platform bounce e and the
  * median interval T between consecutive hits of all lanes, ignoring long notes. A single regular lane
  * therefore keeps the descent its default bounce gives, and lanes with different rhythms share one.
+ *
+ * With several marbles the rate is at least `columnRate`, so a zigzag at the pace keeps `COLUMN_CLEARANCE`
+ * under its earlier pieces. Every height at a rhythm scales with gravity but the pieces do not, so at low
+ * gravity or fast rhythms the default bounce stacks the pieces of a narrow lane too densely.
  */
 export function paceRate(project: TProject): number {
 	const intervals: number[] = [];
@@ -48,8 +64,25 @@ export function paceRate(project: TProject): number {
 			: ((intervals[middle - 1] ?? 0) + (intervals[middle] ?? 0)) / 2
 		: DEFAULT_INTERVAL;
 	const bounce = platformDefinition.params['bounce']?.default ?? 0.65;
-	const rate = (((1 - bounce) / (1 + bounce)) * -gravityOf(project) * median) / 2;
+	const g = -gravityOf(project);
+	const marbles = project.entities.filter((entity) => entity.components.marble != null).length;
+	const rate = Math.max(
+		(((1 - bounce) / (1 + bounce)) * g * median) / 2,
+		marbles > 1 ? columnRate(median, g) : 0
+	);
 	return Math.min(MAX_RATE, Math.max(MIN_RATE, rate));
+}
+
+/**
+ * Least descent rate at which bounces every `interval` seconds keep `COLUMN_CLEARANCE` under the piece two
+ * hits back. With a drop d per hit and k = g·T²/2 a bounce rises r = (k − d)² / 4k above its piece, which
+ * lies d below the piece two hits back, so d − r = clearance gives d = 3k − √(8k² − 4k · clearance).
+ */
+export function columnRate(interval: number, g = EARTH, clearance = COLUMN_CLEARANCE): number {
+	if (interval <= 0) return 0;
+	const k = (g * interval * interval) / 2;
+	const drop = 3 * k - Math.sqrt(Math.max(0, 8 * k * k - 4 * k * clearance));
+	return drop / interval;
 }
 
 /** The pace of a project, anchored at its earliest hit that has a dot; null without one */
@@ -97,12 +130,14 @@ export function takeoffSpeed(fromY: number, targetY: number, interval: number, g
 }
 
 /**
- * Interval above which one bounce at the project's pace rises higher than `MAX_BOUNCE_RISE` above its
- * takeoff, so the gap needs a holder or rail. Between 0.6 and 2 seconds; lower gravity makes it longer.
+ * Interval above which one bounce at the project's pace rises higher than `MAX_BOUNCE_RISE`, scaled with
+ * gravity, above its takeoff, so the gap needs a holder or rail. Between 0.6 and 2 seconds. Since the rise,
+ * the pace and the column spacing all scale with gravity, the threshold depends on the rhythm alone.
  */
 export function longGapThreshold(project: TProject): number {
 	const rate = paceRate(project);
 	const g = -gravityOf(project);
-	const interval = (2 * (Math.sqrt(2 * g * MAX_BOUNCE_RISE) + rate)) / g;
+	const rise = (MAX_BOUNCE_RISE * g) / EARTH;
+	const interval = (2 * (Math.sqrt(2 * g * rise) + rate)) / g;
 	return Math.min(2, Math.max(0.6, Math.round(interval * 1000) / 1000));
 }

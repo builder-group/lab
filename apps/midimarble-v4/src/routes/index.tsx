@@ -25,8 +25,13 @@ function RouteComponent() {
 				) : (
 					<DesignView
 						cx={cx.design}
+						studio={cx}
 						frame={history.present.frame}
-						onPick={(id) => cx.$selection.set(id == null ? [] : [id])}
+						onPick={(id, shiftKey) => {
+							const selection = cx.$selection.get();
+							if (!shiftKey) cx.$selection.set(id == null ? [] : [id]);
+							else if (id != null) cx.$selection.set(selection.includes(id) ? selection.filter((item) => item !== id) : [...selection, id]);
+						}}
 						onPlace={(u, v) => cx.placeWallText(u, v)}
 						onDropAsset={(entityId, asset) => {
 							const item = [...cx.library.$projectItems.get(), ...cx.library.$globalItems.get()].find((candidate) => candidate.id === asset.id && candidate.scope === asset.scope);

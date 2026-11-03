@@ -25,10 +25,11 @@ export function handNotes(cx: StudioCx, keys: string[], target: string | 'new'):
 	const moved = assigned.filter((command) => command.type === 'upsertEntity' && command.entity.components.hitLink?.laneId === laneId).length;
 	const name = (id: string): string => project.entities.find((entity) => entity.id === id)?.name ?? 'Platform';
 	const owner = project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the new marble';
-	if (removed.length === 1) cx.notify(`${name(removed[0] ?? '')} removed: Backing needs no platform`);
-	else if (removed.length > 1) cx.notify(`${removed.length} platforms removed: Backing needs no platform`);
-	else if (moved === 1) cx.notify(`Its platform now plays in ${owner}'s run`);
-	else if (moved > 1) cx.notify(`${moved} platforms now play in ${owner}'s run`);
+	// Each notice offers Undo; when the edit breaks later hits, Compose adds Re-place to it once the run is simulated
+	if (removed.length === 1) cx.notifyEdit(`${name(removed[0] ?? '')} removed: Backing needs no platform`);
+	else if (removed.length > 1) cx.notifyEdit(`${removed.length} platforms removed: Backing needs no platform`);
+	else if (moved === 1) cx.notifyEdit(`Its platform now plays in ${owner}'s run`);
+	else if (moved > 1) cx.notifyEdit(`${moved} platforms now play in ${owner}'s run`);
 	return true;
 }
 

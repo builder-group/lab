@@ -36,6 +36,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-start border-r border-b border-[var(--separator)] pr-2 pl-1"
 				style={{ width: HEADER_WIDTH }}
 				data-track={SONG_KEY}
+				data-quick-help="song"
+				data-hint-anchor="song"
 				data-selected={selection.includes(SONG_KEY)}
 				data-expanded={isExpanded}
 				onClick={() => cx.$selection.set([SONG_KEY])}
@@ -95,6 +97,7 @@ export const EmptySongTrack: React.FC<{ cx: StudioCx; width: number }> = (props)
 			<div
 				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-b border-[var(--separator)] pr-2 pl-5 text-[var(--text-secondary)]"
 				style={{ width: HEADER_WIDTH }}
+				data-quick-help="song"
 			>
 				<span className="mm-song-icon">
 					<Music size={12} strokeWidth={1.75} />

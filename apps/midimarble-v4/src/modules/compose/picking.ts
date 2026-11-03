@@ -86,7 +86,8 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 	return null;
 }
 
-export const TRACK_PICK_RADIUS = 6;
+// About a fingertip on a trackpad: a click this close to a trajectory still lands on it
+export const TRACK_PICK_RADIUS = 12;
 
 /** The trajectory point nearest to `point` within a few pixels, with its time interpolated along the segment */
 export function pickTrack(point: TVec2, tracks: TScreenTrack[], radius = TRACK_PICK_RADIUS): TPick | null {

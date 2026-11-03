@@ -1,12 +1,19 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, LoaderCircle, Monitor, Type } from 'lucide-react';
+import { LoaderCircle, Type } from 'lucide-react';
 import React from 'react';
+import { isEditingTarget } from '@/lib';
+import type { StudioCx } from '@/modules/studio/StudioCx';
 import type { DesignCx } from './DesignCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
+import { DraftPreview } from './DraftPreview';
 
-/** Viewer for the Blender scene at the playhead, like the viewer of Final Cut Pro */
+/**
+ * Viewer for the Blender scene at the playhead, like the viewer of Final Cut Pro. While Blender's preview is not
+ * there (the browser, Blender not installed, starting or failed) the Draft Preview draws the run through the same
+ * camera in the app, like Final Cut's proxy playback.
+ */
 export const DesignView: React.FC<TDesignViewProps> = (props) => {
-	const { cx, frame, onPick, onPlace, onDropAsset } = props;
+	const { cx, studio, frame, onPick, onPlace, onDropAsset } = props;
 	const status = useFeatureState(cx.$status);
 	const preview = useFeatureState(cx.$preview);
 	const error = useFeatureState(cx.$error);
@@ -27,20 +34,20 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 		return () => window.removeEventListener('keydown', onKeyDown, true);
 	}, [cx, placing]);
 
-	if (status === 'unavailable') {
-		return (
-			<Placeholder icon={<Monitor size={22} strokeWidth={1.4} />} title="Film Runs in the Desktop App">
-				The browser preview has no Blender. Open MidiMarble on your Mac to see the film at the playhead.
-			</Placeholder>
-		);
-	}
-	if (status === 'missing') {
-		return (
-			<Placeholder icon={<Box size={22} strokeWidth={1.4} />} title="Blender Isn't Installed">
-				Install Blender 4.2 or later to preview and export films, then come back to Film.
-			</Placeholder>
-		);
-	}
+	// Escape clears the selection (a piece, a title, shots) as it does on the Compose canvas. Menus, sheets and text
+	// fields handle their own Escape first.
+	React.useEffect(() => {
+		function onKeyDown(event: KeyboardEvent): void {
+			if (event.key !== 'Escape' || event.defaultPrevented || isEditingTarget(event) || event.metaKey || event.altKey || event.ctrlKey) return;
+			if (!studio.$selection.get().length) return;
+			event.preventDefault();
+			studio.$selection.set([]);
+		}
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [studio]);
+
+	const isDraft = preview == null || status === 'unavailable' || status === 'missing' || status === 'error';
 
 	function toImage(event: React.MouseEvent<HTMLElement>): { u: number; v: number } {
 		const rect = event.currentTarget.getBoundingClientRect();
@@ -53,7 +60,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 			onPlace(u, v);
 			return;
 		}
-		onPick(await cx.pick(u, v));
+		onPick(await cx.pick(u, v), event.shiftKey);
 	}
 
 	async function onDrop(event: React.DragEvent<HTMLImageElement>): Promise<void> {
@@ -68,7 +75,17 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 
 	return (
 		<div className="relative flex h-full w-full items-center justify-center bg-[var(--canvas)] p-8">
-			{preview != null ? (
+			{isDraft ? (
+				<DraftPreview
+					studio={studio}
+					frame={frame}
+					isPlacing={placing != null}
+					isBusy={busy}
+					onPick={onPick}
+					onPlace={onPlace}
+					onDropAsset={onDropAsset}
+				/>
+			) : preview != null ? (
 				<img
 					alt="Blender preview at the playhead"
 					style={{
@@ -106,7 +123,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					<span>Click the wall to place a title</span>
 					<kbd className="mm-keycap">esc</kbd>
 				</div>
-			) : preview != null && busy ? (
+			) : !isDraft && busy ? (
 				<div className="mm-floating absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
 					<LoaderCircle className="animate-spin" size={11} />
 					Preview out of date
@@ -131,21 +148,12 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 
 interface TDesignViewProps {
 	cx: DesignCx;
+	studio: StudioCx;
 	frame: { width: number; height: number };
-	onPick: (entityId: string | null) => void;
+	/** A click on the preview; Shift adds to or removes from the selection */
+	onPick: (entityId: string | null, shiftKey: boolean) => void;
 	/** Click while placing, in 0..1 image coordinates */
 	onPlace: (u: number, v: number) => void;
 	/** A library item dropped on a piece of the preview */
 	onDropAsset: (entityId: string, asset: { id: string; scope: string }) => void;
 }
-
-const Placeholder: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = (props) => {
-	const { icon, title, children } = props;
-	return (
-		<div className="mm-placeholder bg-[var(--canvas)]">
-			<span className="mb-1 text-[var(--text-tertiary)]">{icon}</span>
-			<span className="mm-placeholder-title">{title}</span>
-			<span className="mm-placeholder-body">{children}</span>
-		</div>
-	);
-};

@@ -4,7 +4,9 @@ import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, MenuButton, NoteRow, Panel, ReadoutField, ScrubField, SelectField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { PieceIcon } from '@/modules/compose/piece-icons';
-import { PieceInspector } from '@/modules/compose/PieceInspector';
+import { unreachableActions } from '@/modules/compose/AssistCx';
+import { PieceInspector, ReplaceButton } from '@/modules/compose/PieceInspector';
+import { hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/compose/reachability';
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { DesignInspector } from '@/modules/design/DesignInspector';
@@ -31,7 +33,7 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	if (project == null) return null;
 	if (workspace === 'design') {
 		return (
-			<aside className="mm-inspector" aria-label="Inspector">
+			<aside className="mm-inspector" aria-label="Inspector" data-quick-help="inspector">
 				<InspectorTopBar cx={cx} />
 				<div className="mm-insp-scroll">
 					<DesignInspector cx={cx} project={project} selection={selection} />
@@ -45,7 +47,7 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	const marbleLane = project.music.lanes.find((lane) => lane.id === entity?.components.marble?.laneId);
 
 	return (
-		<aside className="mm-inspector" aria-label="Inspector">
+		<aside className="mm-inspector" aria-label="Inspector" data-quick-help="inspector">
 			<InspectorTopBar cx={cx} />
 			<div className="mm-insp-scroll">
 				{pieceIds.length > 0 ? (
@@ -273,7 +275,16 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 		(entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id && entity.components.hitLink.hitId === hit.id
 	);
 	const hitResult = result?.hits.find((item) => item.laneId === lane.id && item.hitId === hit.id);
-	const timing = piece == null ? null : timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult);
+	// An open hit no platform can play yet says why (Too Soon, Out of Reach) and offers the fixes in Played By
+	const reach = !isBacking && piece == null && hitResult?.status === 'open' ? hitReach(project, result, hitResult) : null;
+	const unreachable = reach != null && hitResult != null && isUnreachable(reach) ? unreachableStatus(project, result, hitResult) : null;
+	const fixes = unreachable != null && reach != null && hitResult != null ? unreachableActions(cx, hitResult, releaseFixFor(project, hitResult, reach)) : [];
+	const timing =
+		piece == null
+			? unreachable == null
+				? null
+				: { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
+			: timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult);
 	const openHit = hitResult?.status === 'open' && hitResult.dot != null ? hitResult : null;
 	const pieceLabel = piece == null ? '' : (piece.name ?? getPieceDefinition(piece.components.piece?.type ?? '')?.label ?? 'Piece');
 
@@ -298,7 +309,14 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				icon={<HitGlyph color={lane.color} />}
 				title={isBacking ? `Note ${index + 1}` : `Hit ${index + 1}`}
 				subtitle={`${lane.name} · ${formatTime(hit.time)}`}
-				status={timing == null ? null : <StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />}
+				status={
+					timing == null ? null : (
+						<>
+							{timing.tone === 'bad' && piece != null && !isBacking ? <ReplaceButton cx={cx} laneId={lane.id} hitId={hit.id} /> : null}
+							<StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />
+						</>
+					)
+				}
 			/>
 			<Panel id="hit.note" title="Note" accessory={<HelpTip text="Type a note name such as A4 or F#3. Up and Down step a semitone, Shift an octave. Changing the pitch plays it." />}>
 				<PitchField pitch={hit.pitch} onChange={setPitch} />
@@ -332,6 +350,12 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					<LinkRow icon={<PieceIcon type={piece.components.piece?.type ?? 'platform'} size={14} />} title={`Select ${pieceLabel}`} onOpen={() => cx.reveal([piece.id])}>
 						{pieceLabel}
 					</LinkRow>
+				) : fixes.length > 0 ? (
+					fixes.map((action) => (
+						<button key={action.label} className="mm-button" data-span="2" onClick={action.run} title={action.title} type="button">
+							{action.label}
+						</button>
+					))
 				) : (
 					<button className="mm-button" data-span="2" disabled={openHit == null} onClick={addPlatform} title="Add an auto-placed platform that plays this hit (A)" type="button">
 						<Plus size={12} strokeWidth={2} />

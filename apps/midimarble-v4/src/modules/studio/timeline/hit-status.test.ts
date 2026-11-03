@@ -17,6 +17,7 @@ describe('hitTiming function', () => {
 		expect(hitTiming(result('a', 'missed', 1, { reason: 'resting' }), names).label).toBe('Stopped');
 		expect(hitTiming(result('a', 'blocked', 1), names).tooltip).toContain('Platform 3');
 		expect(hitTiming(undefined, names)).toMatchObject({ state: 'open', label: 'Open' });
+		expect(hitTiming(result('a', 'open', 1), names, { label: 'Too Soon', detail: "Marble 1 can't reach a platform by 0:01.00" })).toMatchObject({ state: 'unreachable', label: 'Too Soon' });
 	});
 });
 
@@ -31,5 +32,14 @@ describe('hitSummary function', () => {
 
 		expect(summary.label).toBe('2 hits need attention');
 		expect(summary.problems.map((hit) => hit.hitId)).toEqual(['early', 'late']);
+	});
+
+	it('should count open hits that cannot get a platform as needing attention', () => {
+		const tooSoon = result('first', 'open', 1);
+
+		const summary = hitSummary([tooSoon, result('b', 'onTime', 2)], [tooSoon]);
+
+		expect(summary.label).toBe('1 hit needs attention');
+		expect(summary.problems).toEqual([tooSoon]);
 	});
 });

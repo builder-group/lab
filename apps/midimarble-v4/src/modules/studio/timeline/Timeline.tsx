@@ -29,6 +29,7 @@ import {
 	SONG_ROW_HEIGHT
 } from './timeline-layout';
 import { $expandedLanes, $songExpanded } from './timeline-state';
+import { TitlesRow } from './TitlesRow';
 import { TrackHeader } from './TrackHeader';
 import { Transport } from './Transport';
 
@@ -235,6 +236,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<div
 							className="mm-track-header sticky left-0 z-10 flex shrink-0 items-center gap-0.5 border-r border-b border-[var(--separator)] pr-1.5 pl-3"
 							style={{ width: HEADER_WIDTH }}
+							data-quick-help="tracks"
 						>
 							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Tracks</span>
 							<MenuButton className="mm-icon-button !h-5 !w-5" label={<Plus size={13} strokeWidth={2} />} title="Add" items={addMenu(cx)} />
@@ -291,6 +293,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 					) : null}
 					{/* The track column is the timed part of the Layers outline, in the same order: Song, marbles, Camera */}
 					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
+					{showsCamera ? <TitlesRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{/* The header column continues below the last lane, like Logic's track list */}
 					<div className="flex flex-1">
 						<div className="mm-track-header sticky left-0 z-20 shrink-0 border-r border-[var(--separator)]" style={{ width: HEADER_WIDTH }} />

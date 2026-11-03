@@ -529,15 +529,23 @@ function bentWire(
 	return points;
 }
 
+// Share of its entry speed a marble keeps rolling onto the first leg, fitted to simulated Jingle Bells
+// switchbacks at full and half gravity
+const ENTRY_SPEED_SHARE = 0.35;
+
 /**
- * Rough time a marble spends in a switchback: the drop onto the first leg, then each leg rolled from rest
- * at the rolling acceleration 5/7 · g · sin(slope) and each drop through an opening. Used to rank
- * candidates before simulating them.
+ * Rough time a marble spends in a switchback: the drop onto the first leg, then each leg rolled at the
+ * rolling acceleration 5/7 · g · sin(slope) and each drop through an opening. The marble starts the first
+ * leg with `ENTRY_SPEED_SHARE` of `entrySpeed` and keeps its speed through the bends, so later legs pass
+ * quicker. Rolling every leg from rest instead overestimated simulated holds two to five times, most at low
+ * gravity and shallow slopes; this estimate is within about 0.2 s (rms) at full and half gravity. Used to
+ * rank candidates before simulating them.
  */
 export function switchbackHoldTime(
 	params: Record<string, number>,
 	slope: number,
-	g = -GRAVITY_Y
+	g = -GRAVITY_Y,
+	entrySpeed = 0
 ): number {
 	const width = params['width'] ?? 0.1;
 	const legCount = Math.max(1, Math.round(params['legs'] ?? 3));
@@ -545,10 +553,16 @@ export function switchbackHoldTime(
 	const opening = params['opening'] ?? 0.032;
 	const limited = Math.min(MAX_LEG_SLOPE, Math.max(MIN_LEG_SLOPE, Math.abs(slope)));
 	const along = (width - opening) / Math.cos(limited);
-	const roll = Math.sqrt((2 * along) / ((5 / 7) * g * Math.sin(limited)));
+	const acceleration = (5 / 7) * g * Math.sin(limited);
 	const fall = Math.sqrt((2 * drop) / g);
-	const entry = Math.sqrt((2 * WALL_RISE) / g);
-	return entry + legCount * roll + (legCount - 1) * fall;
+	let time = Math.sqrt((2 * WALL_RISE) / g) + (legCount - 1) * fall;
+	let speed = ENTRY_SPEED_SHARE * entrySpeed;
+	for (let leg = 0; leg < legCount; leg++) {
+		const end = Math.sqrt(speed * speed + 2 * acceleration * along);
+		time += (end - speed) / acceleration;
+		speed = end;
+	}
+	return time;
 }
 
 function holderLayout(input: TLayoutInput, entry: TVec2, velocity: TVec2 | null): TPieceLayout {

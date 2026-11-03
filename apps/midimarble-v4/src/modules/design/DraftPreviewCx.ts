@@ -1,0 +1,227 @@
+import { createState } from 'feature-state';
+import type { TScenePiece } from '@/modules/blender/scene-description';
+import { createCameraPose, sampleCameraTrack, verticalFov, type TCameraPose } from '@/modules/camera';
+import { ComposeRenderer, MARBLE_Z, type TRenderPiece } from '@/modules/compose/ComposeRenderer';
+import { distanceToSegment, isPointInPolygon } from '@/modules/compose/picking';
+import { marblePositionAt, pieceAngleAt, pieceKind, pieceOutline } from '@/modules/compose/scene';
+import type { TVec2 } from '@/modules/project';
+import type { TResolvedPiece } from '@/modules/simulation';
+import type { StudioCx } from '@/modules/studio/StudioCx';
+import { draftPieceColors, draftWall, titleOpacity, type TDraftColors } from './draft-look';
+import { filmCamera, imageToWall, type TFilmCamera } from './film-camera';
+
+/**
+ * Film Draft Preview: the run through the film's follow camera at the playhead, drawn in the app with the theme's
+ * look approximated, for whenever Blender's preview is not there (browser, not installed, starting, failed).
+ * Reuses the Compose renderer's Camera view; the canvas is exactly the film frame.
+ */
+export class DraftPreviewCx {
+	/** Bumps after every draw, so the overlay of rails, titles and selection reprojects */
+	readonly $frame = createState(0);
+	/** The project's camera is manual, so the draft follows the automatic camera */
+	readonly $isManualCamera = createState(false);
+
+	private renderer: ComposeRenderer | null = null;
+	private size = { width: 1, height: 1 };
+	private camera: { key: string; value: TFilmCamera } | null = null;
+	private pose: TCameraPose | null = null;
+	private wallTheme: string | null = null;
+	private readonly scratchPose = createCameraPose();
+
+	constructor(readonly studio: StudioCx) {}
+
+	mount(container: HTMLElement, canvas: HTMLCanvasElement): () => void {
+		const renderer = new ComposeRenderer(canvas);
+		this.renderer = renderer;
+		this.wallTheme = null;
+		renderer.setCamera({ mode: 'camera', view: { center: { x: 0, y: 0 }, scale: 1000 }, yaw: 0, pitch: 0 });
+		const observer = new ResizeObserver(() => {
+			const rect = container.getBoundingClientRect();
+			this.size = { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
+			renderer.setViewport(this.size, Math.min(window.devicePixelRatio || 1, 3));
+			this.draw();
+		});
+		observer.observe(container);
+		const studio = this.studio;
+		const cleanups = [
+			studio.$history.listen(() => this.draw()),
+			studio.simulation.$result.listen(() => this.draw()),
+			studio.$playhead.listen(() => this.draw()),
+			studio.$hidden.listen(() => this.draw())
+		];
+		this.draw();
+		return () => {
+			observer.disconnect();
+			for (const cleanup of cleanups) cleanup();
+			renderer.dispose();
+			this.renderer = null;
+			this.pose = null;
+		};
+	}
+
+	/** CSS pixel position in the frame of a wall point at depth `z`, through the film camera */
+	toScreen(point: TVec2, z = MARBLE_Z): TVec2 {
+		return this.renderer?.project(point, z) ?? { x: Number.NaN, y: Number.NaN };
+	}
+
+	/** Wall point under a point of the frame in 0..1 image coordinates */
+	toWall(u: number, v: number): TVec2 | null {
+		return this.pose != null ? imageToWall(this.pose, this.aspect(), u, v) : null;
+	}
+
+	/** CSS pixels per wall metre at the followed point, for line widths */
+	screenScale(): number {
+		if (this.pose == null) return 1000;
+		const halfFrame = Math.tan((verticalFov(this.pose.lens, this.aspect()) * Math.PI) / 360);
+		return this.size.height / 2 / (halfFrame * Math.max(this.pose.focus, 1e-3));
+	}
+
+	/** Scene description entry of a piece, for its theme colours */
+	scenePiece(entityId: string): TScenePiece | undefined {
+		return this.camera?.value.build.description.pieces.find((piece) => piece.id === entityId);
+	}
+
+	/** Theme colours of a piece in the draft */
+	colorsOf(piece: TResolvedPiece): TDraftColors {
+		const project = this.studio.project;
+		const scene = this.scenePiece(piece.entityId);
+		const theme = project?.design.theme ?? 'pegboard';
+		return draftPieceColors(theme, scene ?? { type: piece.type, color: '#c8b89a', skin: null }, project?.design.themeOptions?.colorByNote === true);
+	}
+
+	/** Pieces in the draft: the run's pieces without the hidden ones */
+	pieces(): TResolvedPiece[] {
+		const hidden = this.studio.$hidden.get();
+		return (this.studio.simulation.$result.get()?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId));
+	}
+
+	/** Titles with their frame position, on-screen size and angle and their opacity at the playhead */
+	titles(): TDraftTitle[] {
+		const project = this.studio.project;
+		if (project == null || this.pose == null) return [];
+		const time = this.studio.$playhead.get();
+		return project.entities.flatMap((entity) => {
+			const text = entity.components.wallText;
+			const transform = entity.components.transform;
+			if (text == null || transform == null) return [];
+			const z = text.depth;
+			const center = this.toScreen(transform.position, z);
+			const step = 0.01;
+			const along = this.toScreen({ x: transform.position.x + Math.cos(transform.angle) * step, y: transform.position.y + Math.sin(transform.angle) * step }, z);
+			const pixelsPerMetre = Math.hypot(along.x - center.x, along.y - center.y) / step;
+			if (!Number.isFinite(pixelsPerMetre) || !Number.isFinite(center.x)) return [];
+			return [
+				{
+					entityId: entity.id,
+					text: text.text,
+					color: text.color,
+					center,
+					fontSize: text.size * pixelsPerMetre,
+					angle: (Math.atan2(along.y - center.y, along.x - center.x) * 180) / Math.PI,
+					opacity: titleOpacity(time, text)
+				}
+			];
+		});
+	}
+
+	/** Title or piece under a CSS pixel point of the frame, titles first like the Blender ID pass shows them on top */
+	pick(point: TVec2, titleBoxes: Map<string, TVec2[]>): string | null {
+		for (const title of this.titles()) {
+			const box = titleBoxes.get(title.entityId);
+			if (title.opacity > 0 && box != null && isPointInPolygon(point, box)) return title.entityId;
+		}
+		let best: { id: string; distance: number } | null = null;
+		for (const piece of this.pieces()) {
+			const kind = pieceKind(piece);
+			const wall = pieceOutline(piece);
+			if (kind === 'path' || kind === 'tube') {
+				const outline = wall.map((corner) => this.toScreen(corner, MARBLE_Z));
+				if (isPointInPolygon(point, outline)) return piece.entityId;
+				// Thin rails stay pickable within a few pixels of their outline
+				const distance = distanceToOutline(point, outline);
+				if (distance < 6 && (best == null || distance < best.distance)) best = { id: piece.entityId, distance };
+				continue;
+			}
+			// The steep film camera sees bars from above: the piece covers its outline at the wall, at its front and the
+			// sides between them
+			const depth = piece.params['depth'] ?? 0.03;
+			const back = wall.map((corner) => this.toScreen(corner, 0));
+			const front = wall.map((corner) => this.toScreen(corner, depth));
+			const sides = wall.map((_, index) => {
+				const next = (index + 1) % wall.length;
+				return [back[index], back[next], front[next], front[index]].filter((corner) => corner != null);
+			});
+			if ([back, front, ...sides].some((polygon) => isPointInPolygon(point, polygon))) return piece.entityId;
+			const distance = Math.min(distanceToOutline(point, back), distanceToOutline(point, front));
+			if (distance < 6 && (best == null || distance < best.distance)) best = { id: piece.entityId, distance };
+		}
+		return best?.id ?? null;
+	}
+
+	private aspect(): number {
+		const frame = this.studio.project?.frame;
+		return frame != null ? frame.width / frame.height : 9 / 16;
+	}
+
+	private filmCamera(): TFilmCamera | null {
+		const project = this.studio.project;
+		const result = this.studio.simulation.$result.get();
+		if (project == null || result == null) return null;
+		// The result changes with every edit; the description also carries skins, colours and theme options
+		const key = `${result.revision}:${project.revision}`;
+		if (this.camera?.key !== key) {
+			this.camera = { key, value: filmCamera(project, result) };
+			this.$isManualCamera.set(this.camera.value.isManual);
+		}
+		return this.camera.value;
+	}
+
+	private draw(): void {
+		const renderer = this.renderer;
+		const project = this.studio.project;
+		if (renderer == null || project == null) return;
+		const theme = project.design.theme;
+		if (this.wallTheme !== theme) {
+			renderer.setWallLook(draftWall(theme));
+			this.wallTheme = theme;
+		}
+		const playhead = this.studio.$playhead.get();
+		const track = this.filmCamera()?.track ?? null;
+		this.pose = track != null ? sampleCameraTrack(track, playhead, this.scratchPose) : null;
+		renderer.setFilm(this.pose != null ? { pose: this.pose, aspect: this.aspect(), frame: { x: 0, y: 0, ...this.size } } : null);
+
+		const items: TRenderPiece[] = this.pieces().map((piece) => ({ piece, ghost: false, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece) }));
+		renderer.setPieces(items);
+		const result = this.studio.simulation.$result.get();
+		const hidden = this.studio.$hidden.get();
+		renderer.setMarbles(
+			project.entities.flatMap((entity) => {
+				const { marble, release } = entity.components;
+				if (marble == null || release == null || hidden.includes(entity.id)) return [];
+				const motion = result?.marbles.find((item) => item.entityId === entity.id);
+				return [{ entityId: entity.id, color: marble.color, radius: marble.radius, position: marblePositionAt(motion, playhead, release.position) }];
+			})
+		);
+		renderer.render();
+		this.$frame.set((value) => value + 1);
+	}
+}
+
+export interface TDraftTitle {
+	entityId: string;
+	text: string;
+	color: string;
+	center: TVec2;
+	/** Letter height in CSS pixels */
+	fontSize: number;
+	/** Screen angle in degrees, clockwise */
+	angle: number;
+	opacity: number;
+}
+
+function distanceToOutline(point: TVec2, outline: TVec2[]): number {
+	return outline.reduce((best, a, index) => {
+		const b = outline[(index + 1) % outline.length] ?? a;
+		return Math.min(best, distanceToSegment(point, a, b));
+	}, Infinity);
+}

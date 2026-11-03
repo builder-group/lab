@@ -359,6 +359,46 @@ def main():
     # Brass still with the asset skin and a wall title, on the contact frame
     for obj in list(detached.objects):
         bpy.data.objects.remove(obj)
+    # Title timing: a title with In and Out shows only inside its range and fades at both ends
+    timed = dict(title, id='text-timed', text='Timed', **{'in': 0.1, 'out': 0.45})
+    whole = dict(title, id='text-whole', text='Whole', position={'x': 0.05, 'y': 0.05}, angle=0.0)
+    write_package(root, records, hit, asset=True, texts=[timed, whole])
+    apply(worker)
+    timed_obj, whole_obj = text_object('text-timed'), text_object('text-whole')
+
+    def visible_at(obj, seconds):
+        scene.frame_set(round(seconds * FPS))
+        return obj.get('mm_visible'), obj.hide_render
+
+    check(visible_at(timed_obj, 0.0) == (0.0, True), 'a timed title is hidden before its In time')
+    value, hidden = visible_at(timed_obj, 0.3)
+    check(value > 0.8 and not hidden, 'a timed title shows inside its range (%.2f)' % value)
+    value, hidden = visible_at(timed_obj, 0.4)
+    check(0.0 < value < 0.5 and not hidden, 'a timed title fades out before its Out time (%.2f)' % value)
+    check(visible_at(timed_obj, 0.5)[1], 'a timed title is hidden after its Out time')
+    check(visible_at(whole_obj, 0.0) == (1.0, False) and visible_at(whole_obj, 0.5) == (1.0, False),
+          'a title without timing shows for the whole film')
+    title_tree = timed_obj.data.materials[0].node_tree
+    check(any(node.type == 'ATTRIBUTE' and node.attribute_name == 'mm_visible' for node in title_tree.nodes)
+          and any(node.type == 'BSDF_TRANSPARENT' for node in title_tree.nodes), 'the title material fades by mm_visible')
+    states = {item['mmId']: item['link'] for item in worker.handle('inspect', {})['texts']}
+    check(states == {'text-timed': 'linked', 'text-whole': 'linked'}, 'timing keys do not detach a title')
+    def id_pixels_of(preview, mm_id):
+        key = next(key for key, value in preview['ids'].items() if value == mm_id)
+        target = np.array([int(key[i:i + 2], 16) for i in (1, 3, 5)])
+        image = bpy.data.images.load(preview['idPath'])
+        pixels = (np.array(image.pixels[:]).reshape(-1, 4) * 255).round()
+        bpy.data.images.remove(image)
+        return int(np.sum(np.all(np.abs(pixels[:, :3] - target) <= 1, axis=1) & (pixels[:, 3] > 200)))
+
+    hidden_pixels = id_pixels_of(worker.handle('preview_frame', {'time': 0.0, 'width': 240}), 'text-timed')
+    shown_pixels = id_pixels_of(worker.handle('preview_frame', {'time': 0.3, 'width': 240}), 'text-timed')
+    check(hidden_pixels == 0 and shown_pixels > 0, 'the ID pass picks a timed title only inside its range (%d, %d px)' % (hidden_pixels, shown_pixels))
+    write_package(root, records, hit, asset=True, texts=[dict(timed, **{'in': 0.0, 'out': DURATION})])
+    apply(worker)
+    check(visible_at(text_object('text-timed'), 0.0) == (1.0, False), 'a range covering the film clears the timing')
+    scene.frame_set(0)
+
     title_text = dict(title, text='MIDI MARBLE', size=0.026, depth=0.003, color='#b8892b', position={'x': 0.0, 'y': 0.215}, angle=0.0)
     write_package(root, records, hit, asset=True, texts=[title_text])
     apply(worker)

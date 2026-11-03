@@ -19,6 +19,13 @@ export function useStudioShortcuts(cx: StudioCx): void {
 			// The canvas handles its keys first and marks them, such as arrows while a piece is selected
 			if (isEditingTarget(event) || event.defaultPrevented) return;
 
+			// ⇧⌘/ is ⌘? on US layouts, the macOS Help shortcut
+			if (command && event.shiftKey && !event.ctrlKey && (event.code === 'Slash' || event.key === '?')) {
+				event.preventDefault();
+				getCommand('help.quickHelp').run(cx);
+				return;
+			}
+
 			if (command && key === 'z') {
 				event.preventDefault();
 				if (event.shiftKey) cx.redo();

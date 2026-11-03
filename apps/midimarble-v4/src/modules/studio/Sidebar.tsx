@@ -33,7 +33,7 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 		<aside className="mm-sidebar flex w-[248px] shrink-0 flex-col" aria-label="Sidebar">
 			<ProjectHeader cx={cx} project={project} />
 			<div className="px-3 pb-1">
-				<div className="mm-segmented flex w-full" role="tablist" aria-label="Workspace">
+				<div className="mm-segmented flex w-full" role="tablist" aria-label="Workspace" data-quick-help="workspace">
 					{workspaces.map((item) => (
 						<button
 							key={item.id}
@@ -42,6 +42,7 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 							onClick={() => cx.$workspace.set(item.id)}
 							role="tab"
 							aria-selected={workspace === item.id}
+							data-hint-anchor={item.id === 'design' ? 'film' : undefined}
 							title={`${item.label} (${item.shortcut})`}
 							type="button"
 						>
@@ -62,6 +63,7 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 							role="tab"
 							aria-selected={tab === item.id}
 							aria-controls={`sidebar-panel-${item.id}`}
+							data-quick-help={item.id}
 							type="button"
 						>
 							{item.label}

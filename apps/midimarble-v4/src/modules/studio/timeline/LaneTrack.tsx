@@ -1,5 +1,6 @@
 import React from 'react';
 import { openContextMenu } from '@/components';
+import { unreachableStatus } from '@/modules/compose/reachability';
 import { findLaneConflicts, MIN_HIT_GAP } from '@/modules/music';
 import { createId, type THit, type TLane } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
@@ -13,7 +14,7 @@ import { NOTE_ROW_HEIGHT, ROW_HEIGHT, round } from './timeline-layout';
 
 /**
  * A collapsed track: its hits in one flat row, each drawn by its timing status: green On Time, amber Early or
- * Late, red Missed, Blocked or Stopped, hollow Open. Shapes differ too, so colour is never the only signal.
+ * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so colour is never the only signal.
  */
 export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
@@ -175,7 +176,9 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 	// Hits of selected pieces are outlined, like keyframes of the selected object in Blender
 	const isLinked = status?.pieceEntityId != null && selection.includes(status.pieceEntityId);
 	const piece = status?.pieceEntityId == null ? undefined : cx.project?.entities.find((entity) => entity.id === status.pieceEntityId)?.name;
-	const timing = hitTiming(status, { marble: lane.name, pitch: hit.pitch, piece });
+	const project = cx.project;
+	const unreachable = status?.status === 'open' && project != null ? unreachableStatus(project, cx.simulation.$result.get(), status) : null;
+	const timing = hitTiming(status, { marble: lane.name, pitch: hit.pitch, piece }, unreachable);
 	return (
 		<button
 			aria-label={`Hit ${index + 1}${hit.pitch == null ? '' : ` ${noteName(hit.pitch)}`} at ${formatTime(hit.time)}`}

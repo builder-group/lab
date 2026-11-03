@@ -29,9 +29,9 @@ beforeAll(async () => {
 const TILT = 0.25;
 const CONTINUE_TILT = 0.45;
 
-function zigzagStart(hitTimes: number[], tilt = TILT): TProject {
+function zigzagStart(hitTimes: number[], tilt = TILT, gravityScale = 1): TProject {
 	const project = createBareRunProject({
-		gravityScale: 1,
+		gravityScale,
 		id: 'assists',
 		title: 'Assists',
 		end: 4,
@@ -46,6 +46,33 @@ function zigzagStart(hitTimes: number[], tilt = TILT): TProject {
 
 function evenTimes(count: number, gap = 0.3, start = 0.15): number[] {
 	return Array.from({ length: count }, (_, i) => Math.round((start + gap * i) * 1000) / 1000);
+}
+
+/**
+ * Two marbles in their lanes at half gravity, released 0.5 s before their first hits, with the first
+ * `placed` hits of lane 1 auto placed. Lane 2 plays quarter notes and has no pieces yet.
+ */
+function halfGravityRun(hitTimes: number[], placed: number): TProject {
+	const end = (hitTimes.at(-1) ?? 0) + 1;
+	let project = createBareRunProject({
+		gravityScale: 0.5,
+		id: 'half',
+		title: 'Half gravity',
+		end,
+		marbles: [
+			{ x: -LANE_SPACING / 2, y: 0.6, releaseTime: (hitTimes[0] ?? 0.5) - 0.5, hitTimes },
+			{ x: LANE_SPACING / 2, y: 0.6, releaseTime: 0.5, hitTimes: evenTimes(Math.floor(end / 0.5) - 1, 0.5, 1) }
+		]
+	});
+	for (const hit of project.music.lanes[0]?.hits.slice(0, placed) ?? []) {
+		const [isPlacedOk, placedErr, piece] = autoPlace(project, simulate(project), 'lane-1', hit.id, {
+			simulate,
+			id: hit.id.replace('hit', 'piece')
+		});
+		if (!isPlacedOk) throw new Error(`${hit.id}: ${placedErr.message}`);
+		project = { ...project, entities: [...project.entities, piece.entity] };
+	}
+	return project;
 }
 
 // Shorter than a platform plus its clearance, so a step this short would put two pieces side by side
@@ -363,7 +390,45 @@ describe('assists', () => {
 		const mirrored = copyLinkedPiece(held.entity, 'hit-1-3', true);
 		expect(mirrored.components.hitLink?.angle).toBe(-(held.entity.components.hitLink?.angle ?? 0));
 		expect(mirrored.components.hitLink?.contactAt).toBe(held.entity.components.hitLink?.contactAt);
+	}, 20000);
+
+	it('launches at half gravity with a hop that stays in its lane until it falls back', () => {
+		// The hop rises as high as at full gravity but stays in the air √2 times as long, about 0.35 s
+		const project = halfGravityRun([1, 1.5, 2, 4], 2);
+		const [isPlacedOk, placedErr, placed] = autoPlace(project, simulate(project), 'lane-1', 'hit-1-3', {
+			simulate,
+			id: 'launch'
+		});
+		if (!isPlacedOk) throw placedErr;
+		const after = simulate({ ...project, entities: [...project.entities, placed.entity] });
+		expect(after.hits[2]?.status).toBe('onTime');
+		const dot = after.hits[2]?.dot;
+		if (dot == null) throw new Error('No launch dot');
+		const band = frameBand(project, 'lane-1');
+		const hop = after.marbles[0]?.samples.filter((sample) => sample.time > 2 && sample.time < 2.5) ?? [];
+		expect(hop.some((sample) => sample.position.y < dot.y)).toBe(true);
+		for (const sample of hop)
+			expect(Math.abs(sample.position.x - band.centerX), sample.time.toFixed(3)).toBeLessThanOrEqual(band.halfWidth);
+		expect(after.contacts.filter((contact) => contact.otherEntityId === 'launch' && contact.time > 2.05 && contact.time < 2.5)).toEqual([]);
 	});
+
+	it('holds the marble across a 2 s gap at half gravity in a switchback near the pace', () => {
+		let project = halfGravityRun([1, 1.5, 2, 4, 4.5], 2);
+		const [isLaunchOk, launchErr, launch] = autoPlace(project, simulate(project), 'lane-1', 'hit-1-3', {
+			simulate,
+			id: 'piece-1-3'
+		});
+		if (!isLaunchOk) throw launchErr;
+		project = { ...project, entities: [...project.entities, launch.entity] };
+		const [isHeldOk, heldErr, held] = createSwitchbackForGap(project, simulate(project), 'lane-1', 'hit-1-3', 'hit-1-4', {
+			simulate,
+			id: 'switchback'
+		});
+		if (!isHeldOk) throw heldErr;
+		expect(held.check).toMatchObject({ pieceStatus: 'placed', isDotInFrame: true });
+		expect(held.check?.leaveTime).toBeLessThan(4);
+		expect(Math.abs(held.check?.paceError ?? Infinity)).toBeLessThan(0.25);
+	}, 20000);
 
 	it('stops Continue before the hit ahead of a launch into a long gap', () => {
 		// hit-1-5 launches into the gap, and hit-1-4's piece sets how firmly it is struck

@@ -1,6 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronFirst, ChevronLast, Minus, MoveHorizontal, Pause, Play, Plus, SkipBack } from 'lucide-react';
+import { ChevronDown, ChevronFirst, ChevronLast, Minus, MoveHorizontal, Pause, Play, Plus, SkipBack } from 'lucide-react';
 import React from 'react';
+import { MenuButton, openContextMenu, type TMenuEntry } from '@/components';
+import { brokenHits } from '@/modules/compose/fix-it';
+import { unreachableHits } from '@/modules/compose/reachability';
 import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';
 import { formatTime } from '../format';
@@ -23,7 +26,7 @@ export const Transport: React.FC<TTransportProps> = (props) => {
 		<div className="mm-transport" role="toolbar" aria-label="Transport">
 			<div className="flex min-w-0 flex-1 items-center">{results != null && results.length > 0 ? <HitSummary cx={cx} results={results} /> : null}</div>
 			<div className="flex items-center gap-2">
-				<div className="flex items-center gap-px" role="group" aria-label="Playback">
+				<div className="flex items-center gap-px" role="group" aria-label="Playback" data-quick-help="transport">
 					<TransportButton cx={cx} command="play.start" icon={<SkipBack size={16} strokeWidth={1.75} />} />
 					<TransportButton cx={cx} command="play.previousHit" icon={<ChevronFirst size={17} strokeWidth={1.75} />} />
 					<TransportButton
@@ -61,32 +64,50 @@ interface TTransportProps {
 
 /**
  * "12 of 12 hits on time", or "2 hits need attention" in amber, which selects and reveals the first problem hit
- * and moves the playhead to it, like Xcode's issue count
+ * and moves the playhead to it, like Xcode's issue count. Its menu (the chevron or a right-click) also offers
+ * Re-place Broken Platforms, the Fix-it for a run an edit broke.
  */
 const HitSummary: React.FC<{ cx: StudioCx; results: THitResult[] }> = (props) => {
 	const { cx, results } = props;
-	const summary = React.useMemo(() => hitSummary(results), [results]);
+	const project = useFeatureState(cx.$history)?.present ?? null;
+	const compose = useFeatureState(cx.$compose);
+	const summary = React.useMemo(() => hitSummary(results, project == null ? [] : unreachableHits(project, cx.simulation.$result.get())), [results, project, cx]);
 	const first = summary.problems[0];
 	const isGood = first == null && summary.onTime === summary.total;
 
 	if (first == null) {
 		return (
-			<span className="mm-hit-summary" data-tone={isGood ? 'good' : 'neutral'} role="status">
+			<span className="mm-hit-summary" data-tone={isGood ? 'good' : 'neutral'} role="status" data-quick-help="hitSummary">
 				{summary.label}
 			</span>
 		);
 	}
+	const reveal = (hit: THitResult): void => cx.revealIssue({ ids: [hit.pieceEntityId ?? toHitKey(hit.laneId, hit.hitId)], point: hit.dot ?? undefined, time: hit.targetTime });
+	const broken = brokenHits(results).length;
+	const menu = (): TMenuEntry[] => [
+		{ label: 'Show First Problem', onSelect: () => reveal(first) },
+		{
+			label: broken > 0 ? `Re-place Broken Platforms (${broken})` : 'Re-place Broken Platforms',
+			disabled: broken === 0 || compose == null || compose.assist.isReplacing,
+			onSelect: () => void compose?.assist.replace()
+		}
+	];
 	return (
-		<button
-			className="mm-hit-summary"
-			data-tone="warn"
-			onClick={() => cx.revealIssue({ ids: [first.pieceEntityId ?? toHitKey(first.laneId, first.hitId)], point: first.dot ?? undefined, time: first.targetTime })}
-			title="Show the first hit that needs attention"
-			type="button"
-		>
-			<span className="mm-hit-summary-dot" aria-hidden />
-			{summary.label}
-		</button>
+		<span className="inline-flex items-center">
+			<button
+				className="mm-hit-summary"
+				data-tone="warn"
+				data-quick-help="hitSummary"
+				onClick={() => reveal(first)}
+				onContextMenu={(event) => openContextMenu(event, menu())}
+				title="Show the first hit that needs attention"
+				type="button"
+			>
+				<span className="mm-hit-summary-dot" aria-hidden />
+				{summary.label}
+			</button>
+			<MenuButton className="mm-icon-button !h-5 !w-5" label={<ChevronDown size={12} strokeWidth={2} />} title="Fix the hits that need attention" items={menu()} />
+		</span>
 	);
 };
 

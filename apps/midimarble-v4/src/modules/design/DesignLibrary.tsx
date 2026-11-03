@@ -38,7 +38,7 @@ export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 
 	const entries = React.useMemo(() => libraryEntries(projectItems, globalItems), [projectItems, globalItems]);
 	const selectedPieces = project.entities.filter((entity) => selection.includes(entity.id) && entity.components.piece != null);
-	const pieceType = selectedPieces[0]?.components.piece?.type ?? null;
+	const pieceType = commonPieceType(selectedPieces);
 	const typeLabel = pieceType != null ? (getPieceDefinition(pieceType)?.label ?? pieceType) : null;
 	const isUnavailable = status === 'unavailable';
 	const words = query.trim().toLowerCase();
@@ -132,7 +132,10 @@ const ThemeSection: React.FC<{
 
 	return (
 		<>
-			<SectionTitle title="Themes" help="A theme dresses the whole film: wall, light, marbles and a skin for every piece type. Select a piece to see its skins" />
+			<SectionTitle
+				title="Themes"
+				help="A theme dresses the whole film: wall, light, marbles and a skin for every piece type. Select a piece to see its skins; select several, such as a section with Shift-click in Layers, to skin them all at once"
+			/>
 			<div className="mm-tile-grid" role="list" aria-label="Themes">
 				{themes.map((theme) => (
 					<ThemeCard key={theme.id} theme={theme} isInUse={project.design.theme === theme.id} isColorByNote={isColorByNote} onApply={() => cx.execute(themeCommands(project, theme.id))} />
@@ -201,7 +204,7 @@ const SkinSection: React.FC<{
 		<>
 			<SectionTitle
 				title={`${typeLabel} Skins`}
-				help={`Click applies to the selected ${typeLabel.toLowerCase()}s, ⌥-click to every ${typeLabel.toLowerCase()}${isMixed ? `. Other selected pieces keep their skin` : ''}`}
+				help={`Click applies to every selected ${typeLabel.toLowerCase()}, ⌥-click to every ${typeLabel.toLowerCase()} in the project. To give a section its own look, Shift-click its first and last ${typeLabel.toLowerCase()} in Layers, then pick a skin${isMixed ? `. Other selected pieces keep their skin` : ''}`}
 			/>
 			<div className="mm-tile-grid" role="listbox" aria-label={`${typeLabel} skins`}>
 				{builtIn.map((skin) => (
@@ -378,3 +381,15 @@ const EmptyRow: React.FC<{ text: string; help: string }> = (props) => {
 		</div>
 	);
 };
+
+/** The piece type most of the selected pieces have, so a section selected as a range in Layers shows its platforms' skins */
+function commonPieceType(pieces: TEntity[]): string | null {
+	const counts = new Map<string, number>();
+	for (const entity of pieces) {
+		const type = entity.components.piece?.type;
+		if (type != null) counts.set(type, (counts.get(type) ?? 0) + 1);
+	}
+	let best: string | null = null;
+	for (const [type, count] of counts) if (best == null || count > (counts.get(best) ?? 0)) best = type;
+	return best;
+}

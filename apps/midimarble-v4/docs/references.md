@@ -138,6 +138,36 @@ Measured on 2026-11-03 with `reference-20`. Its dots step down 0.244 m per colum
 - Most of the packed look is the camera: the reference looks almost along the wall. At pitch 1.15 rad (66° from the wall normal, before 0.85 and 1.0) perspective folds the 2.7 bar steps together and a frame shows 6 to 8 bars per column receding along the wall; at 1.3 the near bars are oversized and the wall edge shows at the bottom. The follow camera keeps every marble in frame as well as before (port measurement on both fixtures). New projects and both fixtures now use 1.15
 - Still different: our columns are about twice as far apart as the reference's (the hop sideways at this rhythm), so the middle of the frame is empty wall where the reference's columns nearly touch
 
+### Half gravity
+
+Measured on 2026-11-03. New projects default to half gravity (Marble Speed 0.50×), but `pnpm fixtures:jingle` only completed at full gravity. With `GRAVITY_SCALE = 0.5` and the import's 0.5 s release lead the build stopped at 11.5 s. Every height at a given rhythm halves with gravity (drop per hit, bounce rise, pace), while pieces, marbles and lanes keep their size, and four things broke on that. The blocked check was not too strict: blocked candidates overlapped the marble's own path from 0.1 to 1 s earlier, not far in the past.
+
+1. Switchback hold estimate. `switchbackHoldTime` rolled every leg from rest, but the marble keeps its entry speed through the bends. Simulated on the 2 s whole note at 7 s, holds were 0.22 to 0.27 s per leg at any slope while the estimate gave 0.38 to 1.09 s per leg (4 legs at 12°: 2.24 s estimated, 1.06 s simulated; 6 legs at 2°: 6.16 against 1.31 s). At full gravity it was 1.6 to 4 times too long as well, but there the shortlist still caught good candidates. At half gravity it shortlisted only switchbacks that released too early: the build took 4 legs at 13° and the melody ended 1.61 m below y*, although 537 of 3156 simulated candidates (mostly 4 to 6 legs) ended within 0.25 m. Rolling from 0.35 of the entry speed and keeping the speed through the bends fits both gravities within 0.23 s rms.
+2. Long-gap threshold. `MAX_BOUNCE_RISE` was 0.4 m at any gravity, so at half gravity the threshold rose from 0.68 to 0.91 s and 0.75 s notes became bounces rising 0.25 m, while the lane's earlier pieces sat 0.13 and 0.26 m above. Auto place found only near vertical bounces (13 mm sideways) that struck their own piece again, after which no angle at the next dot cleared the marble's own path (167 of 167 blocked). The rise now scales with gravity, so the threshold stays at 0.68 s.
+3. Column clearance. A zigzag passes under the piece two hits back on its way to the next piece of that column, d − r below it for a drop d per hit and a bounce rise r. The default bounce leaves 7 cm at full gravity and 0.5 s, but 3.5 cm at half gravity, about a marble diameter plus half a bar. The bass, a plain quarter-note line, ended up resting on its pieces and needed hand rotations; with fixes 1 and 2 the build stopped at 11.5 s on a resting bass hit. With several marbles the pace now falls at least at `columnRate`, which keeps 6.5 cm: 0.304 m/s instead of 0.260 at half gravity and 0.5 s (a bounce of about 0.60 instead of 0.65), unchanged at full gravity. The build then reached 28.5 s.
+4. Launch horizon. The launch hop rises the same 7 cm at any gravity but stays in the air 0.35 s instead of 0.25 s, and Auto place followed it for a fixed 0.3 s. Hops that fell back onto their own piece or left the lane after 0.3 s passed, and no switchback fitted after them: the 2 s gap at 23 s got a rail and the melody fell 4.45 m below y*. The horizon is now 0.3 s / √gravityScale.
+
+The build script also accepted a step that left an earlier hit of the lane being built blocked by its own path, when that hit lay beyond the other marble's frontier; every later step of the other lane then failed (26.75 s). It now checks the built lane's hits in full.
+
+| Jingle Bells build | Half gravity | Full gravity |
+| --- | --- | --- |
+| Hits on time | 51/51 melody, 64/64 bass | 51/51, 64/64 |
+| Release position | the first one tried | the first one tried (before: the fifth) |
+| Next presses | 108: 10 switchbacks, 1 rail, 12 launches, 53 Auto place, 28 Mirror, 22 ghosts from 4 Continue accepts | 73: 12 switchbacks, 12 launches, 41 Auto place, 3 Mirror, 58 ghosts from 4 Continue accepts, 1 wide search |
+| Manual steps | 10 rotations of the previous piece, no hand rotations | 3 rotations of the previous piece (before: 5) |
+| Pace | 0.304 m/s | 0.520 m/s |
+| \|y − y*\| over samples | melody max 0.37 m, mean 0.11; bass max 0.39, mean 0.16 | melody max 0.53, mean 0.17; bass max 0.32, mean 0.18 |
+| Dots beyond 0.25 m of y* | none (melody max 0.21 m, bass 0.25 m) | none (melody 0.24 m, bass 0.05 m) |
+| Largest vertical distance between the marbles | 0.56 m | 0.49 m |
+| Same-column step (median) | 0.32 m melody, 0.29 m bass | 0.53 m, 0.52 m |
+| Platforms per metre of wall | 5.7 melody, 6.6 bass (6 to 7 per 1.05 m frame height) | 3.3, 3.9 (3.5 to 4) |
+| Wall covered | 9 to 10 m | 15.5 to 16.5 m |
+| Export preflight | clean | clean |
+
+Decision: the fixture is rebuilt at half gravity. It is what a beginner importing the song gets, its columns stack 1.7 times denser, closer to the reference's half-bar spacing, and the run covers 40 % less wall at a slower camera, at the cost of seven more manual steps, all rotations of the previous piece. The 0.75 s note at 6 s still gets a rail instead of a switchback, because every switchback there crosses the earlier path.
+
+Other release leads at half gravity, which stopped at 23 s (0.35 s) and 29 s (1 s) before: 0.35 s completes on the third release position (shifted −1 cm) with 7 rotations of the previous piece and a clean preflight; 1 s completes on the first with 17 manual steps (4 by hand) and 4 dots outside their lane, which the preflight reports.
+
 ## Scale
 
 Blender's default unit is the metre, and the purchased Marble Race Kit uses real scale: marbles are 16 mm and track modules about 0.2 m. MidiMarble works in the same units; its default kit is 1.5 times that size (24 mm marbles, 9 cm bars), which reads at the reference film's scale, as `reference-20` showed first. Rapier and Blender then share units, and lighting, depth of field and physics behave like real objects.

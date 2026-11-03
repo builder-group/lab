@@ -102,7 +102,8 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
             detach(holder, managed, detached)
             report['removed'].append(mm_id)
     report['texts'] = walltext.apply_texts(
-        project_dir, description.get('wallTexts') or [], managed, lambda: ensure_collection(DETACHED_COLLECTION))
+        project_dir, description.get('wallTexts') or [], managed, lambda: ensure_collection(DETACHED_COLLECTION),
+        fps=fps, duration=duration)
 
     bounds = scene_bounds(marbles, marble_motion, pieces)
     studio_report = studio.ensure_studio(scene, theme)

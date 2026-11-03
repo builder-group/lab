@@ -789,6 +789,59 @@ button.mm-hit-summary:hover {
 	background: var(--warn);
 }
 
+/* Hits that cannot get a platform (Too Soon, Out of Reach): hollow like Open, with an amber dashed outline */
+.mm-hit[data-state='unreachable'] > span {
+	background: var(--content);
+	border: 1.5px dashed var(--warn);
+}
+
+.mm-note[data-state='unreachable'] {
+	background: color-mix(in srgb, var(--warn) 18%, var(--content));
+	box-shadow: inset 0 0 0 1.5px var(--warn);
+}
+
+/* Notice actions such as Undo and Re-place, plain text buttons like Mail's undo toast */
+.mm-notice-action {
+	height: 24px;
+	padding: 0 8px;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text);
+	white-space: nowrap;
+}
+
+.mm-notice-action:hover {
+	background: var(--hover);
+}
+
+.mm-notice-action[data-variant='primary'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+/* A Fix-it beside a status pill, such as Re-place in a Blocked platform's inspector header */
+.mm-fix-it {
+	height: 20px;
+	padding: 0 8px;
+	flex-shrink: 0;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--text);
+	background: var(--control);
+	box-shadow: inset 0 0 0 0.5px var(--control-border);
+	white-space: nowrap;
+}
+
+.mm-fix-it:hover {
+	background: var(--hover);
+}
+
+.mm-fix-it:disabled {
+	opacity: 0.5;
+}
+
 /* MARK: - Menus */
 
 /* Context and pull-down menus drawn like macOS menus: translucent material, 22 px items, glyph shortcuts */
@@ -881,6 +934,15 @@ button.mm-hit-summary:hover {
 .mm-pegboard[data-mode='orbit'],
 .mm-pegboard[data-mode='camera'] {
 	background-image: none;
+}
+
+/* A newly opened project shows its wall once the first run has framed it, so the zoom never jumps */
+.mm-pegboard[data-opening='true'] {
+	background-image: none;
+}
+
+.mm-pegboard[data-opening='true'] > * {
+	visibility: hidden;
 }
 
 /* MARK: - Floating canvas UI */
@@ -1571,6 +1633,35 @@ button.mm-hit-summary:hover {
 
 .mm-preview[data-placing='true'] {
 	cursor: crosshair;
+}
+
+/* Title clips on the Film timeline's Titles track, like Final Cut's title clips */
+.mm-title-clip {
+	background: color-mix(in srgb, var(--text) 12%, var(--content));
+	color: var(--text);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-title-clip[data-selected='true'] {
+	background: var(--accent);
+	color: #1d1d1f;
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.mm-title-clip-edge {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 5px;
+	cursor: ew-resize;
+}
+
+.mm-title-clip-edge[data-edge='in'] {
+	left: 0;
+}
+
+.mm-title-clip-edge[data-edge='out'] {
+	right: 0;
 }
 
 .mm-preview[data-drop-target='true'] {
@@ -2775,4 +2866,108 @@ button.mm-layer-disclosure:hover {
 .mm-mention-picker > button[data-highlighted='true'] {
 	background: var(--selection-active);
 	color: var(--on-selection-active);
+}
+
+/* MARK: - Quick Help and first-run hints */
+
+/* Quick Help, like GarageBand's: each region outlined with a label card beside it; nothing takes the pointer */
+.mm-qh-region {
+	position: fixed;
+	border-radius: 6px;
+	box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent-strong) 70%, transparent);
+	pointer-events: none;
+}
+
+.mm-qh-label {
+	position: fixed;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	width: max-content;
+	max-width: 220px;
+	padding: 5px 8px 6px;
+	border-radius: 7px;
+	border-left: 3px solid var(--accent);
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+	line-height: 1.35;
+	pointer-events: none;
+	animation: mm-fade-in 0.12s ease-out;
+}
+
+.mm-qh-label-title {
+	color: var(--text);
+	font-weight: 600;
+}
+
+/* Logic's Quick Help panel: what the control under the pointer does, from its own tooltip */
+.mm-qh-panel {
+	position: fixed;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: 260px;
+	min-height: 76px;
+	padding: 8px 8px 10px 12px;
+	border-radius: 10px;
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+}
+
+/* A first-run hint: one calm line where the next step is, with a caret toward it and a dismiss button */
+.mm-first-hint {
+	position: fixed;
+	z-index: 44;
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	height: 30px;
+	padding: 0 5px 0 10px;
+	border-radius: 8px;
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+	white-space: nowrap;
+	animation: mm-fade-in 0.16s ease-out;
+}
+
+.mm-first-hint-dot {
+	width: 7px;
+	height: 7px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: var(--accent);
+}
+
+.mm-first-hint-caret {
+	position: absolute;
+	width: 10px;
+	height: 10px;
+	background: var(--content-raised);
+	transform: translateX(-50%) rotate(45deg);
+}
+
+.mm-first-hint[data-side='above'] .mm-first-hint-caret {
+	bottom: -4px;
+	box-shadow: 0.5px 0.5px 0 0 var(--control-border);
+}
+
+.mm-first-hint[data-side='below'] .mm-first-hint-caret {
+	top: -4px;
+	box-shadow: -0.5px -0.5px 0 0 var(--control-border);
+}
+
+.mm-first-hint[data-side='right'] .mm-first-hint-caret {
+	top: 50%;
+	left: 0;
+	transform: translate(-50%, -50%) rotate(45deg);
+	box-shadow: -0.5px 0.5px 0 0 var(--control-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mm-qh-label,
+	.mm-first-hint {
+		animation: none;
+	}
 }

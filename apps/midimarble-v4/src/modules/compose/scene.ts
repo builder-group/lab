@@ -197,6 +197,70 @@ export function contentBounds(project: TProject, result: TSimulationResult | nul
 	return { minX, minY, maxX, maxY };
 }
 
+/**
+ * What Zoom to Fit frames. `all` holds the releases, the pieces, every hit dot and each marble's trajectory up
+ * to its lane's last hit, but not the fall after it, which can run for metres. `pieces` holds the releases and
+ * the pieces, which a fit never cuts off.
+ */
+export function fitTargets(project: TProject, result: TSimulationResult | null): { all: TBounds; pieces: TBounds | null } {
+	const anchors: TVec2[] = [];
+	for (const entity of project.entities) {
+		const release = entity.components.release;
+		if (release != null) anchors.push(release.position);
+	}
+	for (const piece of result?.pieces ?? []) anchors.push(...pieceOutline(piece));
+	const points = [...anchors];
+	for (const hit of result?.hits ?? []) if (hit.dot != null) points.push(hit.dot);
+	for (const track of result?.marbles ?? []) {
+		const last = Math.max(...(result?.hits ?? []).filter((hit) => hit.laneId === track.laneId).map((hit) => hit.targetTime));
+		if (!Number.isFinite(last)) continue;
+		for (let i = 0; i < track.samples.length; i += 4) {
+			const sample = track.samples[i];
+			if (sample == null || sample.time > last) break;
+			points.push(sample.position);
+		}
+	}
+	const band = frameBand(project);
+	const bounds = boundsOfPoints(points);
+	let minY = bounds?.minY ?? -0.2;
+	const maxY = bounds?.maxY ?? 0.2;
+	// A run with only a release still shows a frame-shaped area below it
+	if (maxY - minY < 0.3) minY = maxY - 0.3;
+	return {
+		all: { minX: Math.min(band.centerX - band.halfWidth, bounds?.minX ?? 0), maxX: Math.max(band.centerX + band.halfWidth, bounds?.maxX ?? 0), minY, maxY },
+		pieces: boundsOfPoints(anchors)
+	};
+}
+
+/** Time of the trajectory sample closest to `point`, or null for an empty trajectory */
+export function nearestMoment(samples: { time: number; position: TVec2 }[], point: TVec2): number | null {
+	let best: number | null = null;
+	let bestDistance = Number.POSITIVE_INFINITY;
+	for (const sample of samples) {
+		const distance = Math.hypot(sample.position.x - point.x, sample.position.y - point.y);
+		if (distance < bestDistance) {
+			best = sample.time;
+			bestDistance = distance;
+		}
+	}
+	return best;
+}
+
+function boundsOfPoints(points: TVec2[]): TBounds | null {
+	if (!points.length) return null;
+	let minX = Number.POSITIVE_INFINITY;
+	let minY = Number.POSITIVE_INFINITY;
+	let maxX = Number.NEGATIVE_INFINITY;
+	let maxY = Number.NEGATIVE_INFINITY;
+	for (const point of points) {
+		minX = Math.min(minX, point.x);
+		minY = Math.min(minY, point.y);
+		maxX = Math.max(maxX, point.x);
+		maxY = Math.max(maxY, point.y);
+	}
+	return { minX, minY, maxX, maxY };
+}
+
 export function boundsOfPieces(pieces: TResolvedPiece[]): TBounds | null {
 	const corners = pieces.flatMap(pieceOutline);
 	if (!corners.length) return null;

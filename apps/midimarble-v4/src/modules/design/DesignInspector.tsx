@@ -8,6 +8,7 @@ import type { TDesign, TEntity, TProject, TShot } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { getCommand } from '@/modules/studio/commands';
+import { formatTime } from '@/modules/studio/format';
 import { toShotKey } from '@/modules/studio/selection';
 import {
 	cameraCommands,
@@ -27,6 +28,7 @@ import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
 import { renderPresetLabel, renderPresetOption, renderPresets } from './export-estimate';
 import { describeLoop } from './loop-status';
 import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
+import { titleSpan, withTitleTime } from './titles';
 
 /** Properties of the Film workspace on the inspector grid: the project, a piece's look, a title or a shot */
 export const DesignInspector: React.FC<TDesignInspectorProps> = (props) => {
@@ -196,8 +198,7 @@ const WallTextPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 	const texts = project.entities.filter((entity) => entity.components.wallText != null);
 
 	function add(): void {
-		if (cx.design.$preview.get() != null) cx.design.$placing.set(placing === 'text' ? null : 'text');
-		else cx.placeWallText();
+		cx.design.$placing.set(placing === 'text' ? null : 'text');
 	}
 
 	return (
@@ -263,13 +264,27 @@ const WallTextInspector: React.FC<{ cx: StudioCx; entity: TEntity }> = (props) =
 	const { cx, entity } = props;
 	const text = entity.components.wallText;
 	const transform = entity.components.transform;
+	const filmEnd = useFeatureState(cx.$history)?.present.end ?? 0;
+	const [timingKey, setTimingKey] = React.useState(0);
 	if (text == null) return null;
+	const span = titleSpan(text, filmEnd);
 
 	function setText(patch: Partial<NonNullable<TEntity['components']['wallText']>>): void {
 		if (text == null) return;
 		const value = { ...text, ...patch };
 		// The entity name follows the text so lists and the outliner read the same
 		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
+	}
+
+	function setTime(field: 'in' | 'out', typed: string): void {
+		if (text == null) return;
+		const value = withTitleTime(text, field, typed, filmEnd);
+		if (value == null) {
+			// Not a time, or the title would end before it starts: the field shows the time it had
+			setTimingKey((key) => key + 1);
+			return;
+		}
+		cx.execute([{ type: 'setComponent', entityId: entity.id, component: { name: 'wallText', value } }]);
 	}
 
 	function setPosition(axis: 'x' | 'y', value: number): void {
@@ -286,11 +301,15 @@ const WallTextInspector: React.FC<{ cx: StudioCx; entity: TEntity }> = (props) =
 				<ScrubField id="text-depth" label="Depth" name="Depth" value={text.depth * 1000} unit="mm" step={0.1} precision={1} min={0} max={50} onCommit={(value) => setText({ depth: value / 1000 })} />
 				<span className="mm-ifield" data-span="2">
 					<label htmlFor="text-color" className="mm-ifield-label">
-						Color
+						Colour
 					</label>
 					<input id="text-color" type="color" className="mm-color" value={text.color} onChange={(event) => setText({ color: event.target.value })} />
 					<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span>
 				</span>
+			</Panel>
+			<Panel id="design.wallText.timing" title="Timing" accessory={<HelpTip text="When the title shows: it fades in at In and out at Out. The defaults are the start and the end of the film." />}>
+				<TextField key={`in-${timingKey}`} id="text-in" label="In" name="Time the title appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
+				<TextField key={`out-${timingKey}`} id="text-out" label="Out" name="Time the title disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
 			<Panel id="design.wallText.position" title="Position">
 				<ScrubField id="text-x" label="X" name="X" value={(transform?.position.x ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />

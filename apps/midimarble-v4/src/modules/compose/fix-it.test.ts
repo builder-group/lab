@@ -1,0 +1,189 @@
+import { readFileSync } from 'node:fs';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { assignNotesCommands } from '@/modules/music';
+import { applyProjectCommands, BACKING_ID, createProject, parseProject, type TProject } from '@/modules/project';
+import {
+	autoPlace,
+	createRailForGap,
+	createSimulator,
+	createSwitchbackForGap,
+	createTunnelForGap,
+	type THitResult,
+	type TSimulationResult
+} from '@/modules/simulation';
+import { hitSummary } from '@/modules/studio/timeline/hit-status';
+import { brokenHits, newlyBroken, releaseFix, replaceBroken, replaceLabel, replaceTargets, type TReplaceDeps } from './fix-it';
+
+function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
+	return {
+		laneId: 'lane-1',
+		hitId: `h${time}`,
+		targetTime: time,
+		pieceEntityId: status === 'open' ? null : `p${time}`,
+		dot: { x: 0, y: -time },
+		velocity: { x: 0, y: -1 },
+		actualTime: null,
+		error: null,
+		status,
+		...options
+	};
+}
+
+function oneMarble(): TProject {
+	const project = createProject();
+	const lane = project.music.lanes[0];
+	if (lane != null) lane.id = 'lane-1';
+	const marble = project.entities.find((entity) => entity.components.marble != null);
+	if (marble?.components.marble != null) marble.components.marble.laneId = 'lane-1';
+	return project;
+}
+
+describe('brokenHits function', () => {
+	it('should count broken hits and the early or late hits after the first broken one', () => {
+		// Prepare
+		const hits = [hit(1, 'drifting'), hit(2, 'onTime'), hit(3, 'blocked'), hit(4, 'drifting'), hit(5, 'missed'), hit(6, 'open')];
+
+		// Act
+		const broken = brokenHits(hits);
+
+		// Assert
+		expect(broken.map((item) => item.targetTime)).toEqual([3, 4, 5]);
+	});
+
+	it('should keep only the named hits that are off time', () => {
+		const hits = [hit(1, 'onTime'), hit(2, 'blocked'), hit(3, 'missed')];
+
+		expect(brokenHits(hits, ['lane-1/h1', 'lane-1/h2']).map((item) => item.targetTime)).toEqual([2]);
+	});
+});
+
+describe('replaceTargets function', () => {
+	it('should start at the platform before the first broken hit and take every platform before a problem', () => {
+		// Prepare
+		const project = oneMarble();
+		const hits = [hit(1, 'onTime'), hit(2, 'onTime'), hit(3, 'onTime'), hit(4, 'blocked'), hit(5, 'onTime'), hit(6, 'onTime'), hit(7, 'missed')];
+
+		// Act
+		const targets = replaceTargets(project, hits);
+
+		// Assert
+		expect(targets.map((item) => item.targetTime)).toEqual([3, 4, 6, 7]);
+	});
+
+	it('should start where an on-time run left the frame before it broke', () => {
+		const project = oneMarble();
+		const hits = [hit(1, 'onTime'), hit(2, 'onTime', { dot: { x: 2, y: -2 } }), hit(3, 'blocked')];
+
+		expect(replaceTargets(project, hits).map((item) => item.targetTime)).toEqual([1, 2, 3]);
+	});
+
+	it('should leave a marble without broken hits alone', () => {
+		const project = oneMarble();
+
+		expect(replaceTargets(project, [hit(1, 'drifting'), hit(2, 'onTime')])).toEqual([]);
+	});
+});
+
+describe('newlyBroken function', () => {
+	it('should name only the hits an edit broke', () => {
+		const before = [hit(1, 'blocked'), hit(2, 'onTime'), hit(3, 'onTime')];
+		const after = [hit(1, 'blocked'), hit(2, 'missed'), hit(3, 'onTime')];
+
+		expect(newlyBroken(before, after).map((item) => item.targetTime)).toEqual([2]);
+	});
+});
+
+describe('replaceLabel function', () => {
+	it('should count platforms in Title Case', () => {
+		expect(replaceLabel(24)).toBe('Re-place 24 Platforms');
+		expect(replaceLabel(1, 'Platform 3')).toBe('Re-place Platform 3');
+	});
+});
+
+describe('releaseFix function', () => {
+	it('should release the marble so it arrives where and how fast it did before the edit', () => {
+		// Prepare
+		const project = oneMarble();
+		const lane = project.music.lanes[0];
+		if (lane != null) lane.hits = [{ id: 'h5', time: 5 }];
+		const before = [hit(5, 'onTime', { dot: { x: 0.1, y: -2 }, velocity: { x: 0.2, y: -1 } })];
+		const after = [hit(5, 'blocked')];
+
+		// Act
+		const commands = releaseFix(project, after, 'lane-1', before);
+
+		// Assert
+		const command = commands[0];
+		expect(command?.type).toBe('setComponent');
+		if (command?.type !== 'setComponent' || command.component.name !== 'release') throw new Error('Expected a release');
+		const release = command.component.value;
+		// At half gravity the marble falls back to 1 m/s in about 0.2 s
+		const lead = 5 - release.time;
+		expect(lead).toBeCloseTo(1 / 4.905, 3);
+		expect(release.velocity?.y).toBeCloseTo(0, 3);
+		const g = 4.905;
+		expect(release.position.x + (release.velocity?.x ?? 0) * lead).toBeCloseTo(0.1, 3);
+		expect(release.position.y + (release.velocity?.y ?? 0) * lead - (g * lead * lead) / 2).toBeCloseTo(-2, 3);
+	});
+
+	it('should leave a short first fall alone', () => {
+		const project = oneMarble();
+		const lane = project.music.lanes[0];
+		if (lane != null) lane.hits = [{ id: 'h1', time: 0.8 }];
+
+		expect(releaseFix(project, [hit(0.8, 'blocked')], 'lane-1', [hit(0.8, 'onTime')])).toEqual([]);
+	});
+});
+
+// MARK: - Recovery
+
+describe('replaceBroken function', () => {
+	let simulate: (project: TProject) => TSimulationResult;
+
+	beforeAll(async () => {
+		const simulator = await createSimulator();
+		simulate = (project) => simulator.simulate(project);
+	});
+
+	function deps(): TReplaceDeps {
+		return {
+			simulate: async (project) => simulate(project),
+			autoPlace: async (project, target, entity) => {
+				const [isOk, error, placement] = autoPlace(project, simulate(project), target.laneId, target.hitId, { simulate, type: entity.components.piece?.type });
+				if (!isOk) throw error;
+				return placement.entity;
+			},
+			gapPiece: async (project, gap, type, id) => {
+				const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
+				const [isOk, error, proposal] = create(project, simulate(project), gap.laneId, gap.fromHitId, gap.toHitId, { simulate, id });
+				if (!isOk) throw error;
+				return proposal.entity;
+			},
+			commit: (project, commands) => {
+				const [isOk, error, next] = applyProjectCommands(project, commands);
+				if (!isOk) throw error;
+				return next;
+			}
+		};
+	}
+
+	it('should recover Jingle Bells after its first 6 Melody notes become Backing', async () => {
+		// Prepare
+		const [isProjectOk, projectErr, project] = parseProject(readFileSync(new URL('../../../fixtures/jingle-bells.marble.json', import.meta.url), 'utf8'));
+		if (!isProjectOk) throw projectErr;
+		const before = simulate(project);
+		const melody = project.music.lanes[0];
+		if (melody == null) throw new Error('Jingle Bells has a Melody track');
+		const [isEditOk, editErr, edited] = applyProjectCommands(project, assignNotesCommands(project, before, melody.hits.slice(0, 6).map((item) => item.id), BACKING_ID));
+		if (!isEditOk) throw editErr;
+		const broken = simulate(edited);
+		expect(brokenHits(broken.hits).length).toBeGreaterThan(0);
+
+		// Act
+		const outcome = await replaceBroken(edited, broken, deps(), { before: before.hits });
+
+		// Assert
+		expect(outcome.releases).toEqual([melody.id]);
+		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
+	}, 120_000);
+});

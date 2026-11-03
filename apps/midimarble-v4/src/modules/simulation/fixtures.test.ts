@@ -159,6 +159,8 @@ describe('fixtures', () => {
 		expectAllOnTime(result, 115);
 		expect(project.music.lanes.map((lane) => lane.instrument)).toEqual([9, 8]);
 		expect(project.design.theme).toBe('brass');
+		// Built at new projects' default half gravity, which the assists keep on the shared pace
+		expect(project.physics.gravityScale).toBe(0.5);
 		// Switchbacks hold the melody across its long notes
 		expect(result.pieces.filter((piece) => piece.type === 'switchback').length).toBeGreaterThanOrEqual(10);
 		// While both marbles play, they never touch each other or the other lane's pieces
@@ -186,6 +188,15 @@ describe('fixtures', () => {
 			if (sample.time >= 1 && sample.time <= until && other != null) spread = Math.max(spread, Math.abs(sample.position.y - other));
 		}
 		expect(spread).toBeLessThan(1);
+		// Half gravity stacks each column's pieces about 0.3 m apart, against 0.52 m at full gravity
+		const melodyLane = project.music.lanes[0]?.id;
+		const platforms = result.pieces.filter(
+			(piece) =>
+				piece.type === 'platform' &&
+				project.entities.find((entity) => entity.id === piece.entityId)?.components.hitLink?.laneId === melodyLane
+		);
+		const heights = platforms.map((piece) => piece.position.y);
+		expect(platforms.length / (Math.max(...heights) - Math.min(...heights))).toBeGreaterThan(5);
 		// The film camera follows the sampled pace
 		expect(result.descent?.length).toBeGreaterThan(60);
 		expect(result.descent?.[10]?.y).toBeCloseTo(paceAt(pace, result.descent?.[10]?.time ?? 0), 12);

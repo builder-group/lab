@@ -112,7 +112,10 @@ const SWallTextComponent = z.strictObject({
 	font: z.string(),
 	size: z.number().positive(),
 	depth: z.number().nonnegative(),
-	color: z.string()
+	color: z.string(),
+	// Film time in seconds when the title appears and disappears; absent means the start and the end of the film
+	in: z.number().nonnegative().optional(),
+	out: z.number().nonnegative().optional()
 });
 
 export const SComponents = z.strictObject({

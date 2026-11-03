@@ -174,6 +174,12 @@ export interface TSceneWallText {
 	color: string;
 	position: { x: number; y: number };
 	angle: number;
+	/**
+	 * Seconds when the title fades in and out; absent means the start and the end of the film. The worker hides it
+	 * outside the range with a quick fade. Optional and additive.
+	 */
+	in?: number;
+	out?: number;
 }
 
 export interface TSceneThemeOptions {

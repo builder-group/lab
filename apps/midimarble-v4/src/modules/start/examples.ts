@@ -64,7 +64,7 @@ export interface TExampleFile {
 	url: string;
 }
 
-/** A fresh, independent copy of an example with the song files it ships, ready to save as a new project */
+/** A fresh, independent copy of an example with the song files it ships, ready to open as an unsaved project */
 export async function loadExample(example: TExample): Promise<TResult<TLoadedExample, Error>> {
 	const load = fixtures[fixturePath(example.id)];
 	if (load == null) return Err(new Error(`${example.title} isn't included in this build. Choose another example.`));

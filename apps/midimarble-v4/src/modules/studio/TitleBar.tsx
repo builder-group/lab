@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { House, PanelBottom, PanelLeft, PanelRight, Sparkles } from 'lucide-react';
+import { CircleHelp, House, PanelBottom, PanelLeft, PanelRight, Sparkles } from 'lucide-react';
 import React from 'react';
 import { MenuButton, RenameField, WindowControlsInset, type TMenuEntry } from '@/components';
 import { host } from '@/environment';
@@ -7,6 +7,7 @@ import { openExternalUrl } from '@/lib';
 import { blenderState } from '@/modules/design/blender-state';
 import { exportStatusLabel } from '@/modules/design/ExportSheet';
 import { commandItem } from './commands';
+import { hasUnsavedChanges } from './document';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 
 const BLENDER_DOWNLOAD_URL = 'https://www.blender.org/download/';
@@ -14,11 +15,12 @@ const BLENDER_DOWNLOAD_URL = 'https://www.blender.org/download/';
 /**
  * Unified title bar of a one-document window, like a macOS document app: the traffic lights, the sidebar
  * toggle and Home on the left, the document title with its edited state in the centre, then the project's
- * actions on the right: the Blender chip, Agent, Export Film… and the panel toggles
+ * actions on the right: the Blender chip, Quick Help, Agent, Export Film… and the panel toggles
  */
 export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 	const { cx } = props;
 	const panels = useFeatureState(cx.$panels);
+	const isQuickHelpOn = useFeatureState(cx.$quickHelp);
 	const runs = useFeatureState(cx.agents.$runs);
 	const isAgentWorking = runs.some((run) => run.phase === 'working');
 
@@ -31,9 +33,23 @@ export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 			</button>
 			<DocumentTitle cx={cx} />
 			<div data-tauri-drag-region className="h-full flex-1" />
-			<BlenderChip cx={cx} />
+			<span className="inline-flex" data-quick-help="blender">
+				<BlenderChip cx={cx} />
+			</span>
+			<button
+				className="mm-icon-button !h-7 !w-7"
+				data-active={isQuickHelpOn}
+				aria-pressed={isQuickHelpOn}
+				aria-label="Quick Help"
+				onClick={() => cx.$quickHelp.set(!isQuickHelpOn)}
+				title={`${isQuickHelpOn ? 'Hide' : 'Show'} Quick Help (⇧⌘/)`}
+				type="button"
+			>
+				<CircleHelp size={15} strokeWidth={1.6} />
+			</button>
 			<button
 				className="mm-titlebar-agent"
+				data-quick-help="agent"
 				data-active={panels.agent}
 				aria-pressed={panels.agent}
 				onClick={() => cx.togglePanel('agent')}
@@ -56,17 +72,27 @@ interface TTitleBarProps {
 	cx: StudioCx;
 }
 
-/** Centred title like a macOS document window: a dot while edited, double-click renames */
+/**
+ * Centred title like a macOS document window: a dot while edited, double-click renames. An unsaved document,
+ * such as an opened example, shows "Not Saved" once it has changes, like an untitled macOS document's Edited
+ */
 const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
-	const title = useFeatureState(cx.$history)?.present.title ?? 'Untitled';
+	const history = useFeatureState(cx.$history);
+	const isTemporary = useFeatureState(cx.$isTemporary);
 	const save = useFeatureState(cx.$save);
 	const [isRenaming, setIsRenaming] = React.useState(false);
-	const isEdited = save === 'dirty' || save === 'saving';
+	const title = history?.present.title ?? 'Untitled';
+	const isEdited = !isTemporary && (save === 'dirty' || save === 'saving');
+	const isUnsaved = isTemporary && history != null && hasUnsavedChanges(history);
 
 	return (
 		<div data-tauri-drag-region className="pointer-events-none absolute inset-x-0 flex justify-center">
-			<div className="mm-titlebar-title pointer-events-auto" onDoubleClick={() => setIsRenaming(true)} title={isRenaming ? undefined : 'Double-click to rename'}>
+			<div
+				className="mm-titlebar-title pointer-events-auto"
+				onDoubleClick={() => setIsRenaming(true)}
+				title={isRenaming ? undefined : isTemporary ? 'Not saved yet. Press ⌘S to choose where to save it' : 'Double-click to rename'}
+			>
 				{isRenaming ? (
 					<RenameField
 						value={title}
@@ -79,6 +105,7 @@ const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 					<>
 						<span className="truncate">{title}</span>
 						{isEdited ? <span className="mm-doc-dot" title={save === 'saving' ? 'Saving…' : 'Edited'} aria-label="Edited" /> : null}
+						{isUnsaved && save !== 'failed' ? <span className="text-[11px] font-normal text-[var(--text-secondary)]">Not Saved</span> : null}
 						{save === 'failed' ? <span className="text-[11px] font-normal text-[var(--bad)]">Not Saved</span> : null}
 					</>
 				)}
@@ -154,6 +181,7 @@ const ExportButton: React.FC<{ cx: StudioCx }> = (props) => {
 		<button
 			className="mm-button mm-titlebar-export"
 			data-variant="primary"
+			data-quick-help="export"
 			onClick={() => cx.film.openSheet()}
 			title={title}
 			aria-label={showsActivity ? title : 'Export Film…'}

@@ -27,7 +27,7 @@ export interface TCommand {
 	run: (cx: StudioCx) => void;
 }
 
-export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Pieces' | 'Marble' | 'Film';
+export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Pieces' | 'Marble' | 'Film' | 'Help';
 
 function compose(cx: StudioCx): ComposeCx | null {
 	return cx.$workspace.get() === 'compose' ? cx.$compose.get() : null;
@@ -127,7 +127,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.new', title: 'New Project', section: 'File', shortcut: '⌘N', run: (cx) => void cx.newProject() },
 	{ id: 'file.open', title: 'Open Project…', section: 'File', shortcut: '⌘O', run: (cx) => void cx.openProject() },
 	{ id: 'file.close', title: 'Close Project', section: 'File', isEnabled: hasProject, run: (cx) => void cx.closeProject() },
-	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', isEnabled: hasProject, run: (cx) => void cx.flush() },
+	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', keywords: 'keep unsaved example', isEnabled: hasProject, run: (cx) => void cx.save() },
 	{ id: 'file.importMidi', title: 'Import Song…', section: 'File', shortcut: '⌘I', keywords: 'midi recording audio wav mp3 music', isEnabled: hasProject, run: (cx) => void cx.importSong() },
 	{ id: 'file.importAudio', title: 'Import Song…', section: 'File', isHidden: true, isEnabled: hasProject, run: (cx) => void cx.importSong() },
 	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: hasSong, run: (cx) => void cx.sources.replaceSong() },
@@ -274,9 +274,8 @@ export const commands: readonly TCommand[] = [
 		isEnabled: inDesign,
 		isChecked: (cx) => cx.design.$placing.get() === 'text',
 		run: (cx) => {
-			// With a preview the next click places the text; without one it goes to the middle of the frame
-			if (cx.design.$preview.get() != null) cx.design.$placing.set(cx.design.$placing.get() === 'text' ? null : 'text');
-			else cx.placeWallText();
+			// The next click on the Blender preview or the Draft Preview places the title
+			cx.design.$placing.set(cx.design.$placing.get() === 'text' ? null : 'text');
 		}
 	},
 	{
@@ -362,7 +361,20 @@ export const commands: readonly TCommand[] = [
 			const laneId = focusedLaneId(cx);
 			if (laneId != null) cx.toggleSolo(laneId);
 		}
-	}
+	},
+
+	// MARK: - Help
+	{
+		id: 'help.quickHelp',
+		title: 'Quick Help',
+		section: 'Help',
+		shortcut: '⇧⌘/',
+		keywords: 'explain regions tooltip beginner what is this',
+		isEnabled: hasProject,
+		isChecked: (cx) => cx.$quickHelp.get(),
+		run: (cx) => cx.$quickHelp.set(!cx.$quickHelp.get())
+	},
+	{ id: 'help.resetHints', title: 'Reset Hints', section: 'Help', keywords: 'tips onboarding beginner show again first run', run: (cx) => cx.hints.reset() }
 ];
 
 export type TCommandId =
@@ -435,7 +447,9 @@ export type TCommandId =
 	| 'tool.tunnel'
 	| 'tool.windmill'
 	| 'tool.switchback'
-	| 'tool.insert';
+	| 'tool.insert'
+	| 'help.quickHelp'
+	| 'help.resetHints';
 
 export function getCommand(id: TCommandId): TCommand {
 	const command = commands.find((item) => item.id === id);

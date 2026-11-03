@@ -23,6 +23,8 @@ import {
 	type TSource,
 	type TVec2
 } from '@/modules/project';
+import { hasUnsavedChanges, saveChangesQuestion } from './document';
+import { HintsCx } from './HintsCx';
 import { parseHitKey } from './selection';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
@@ -36,6 +38,15 @@ export class StudioCx {
 	readonly $path = createState<string | null>(null);
 	readonly $save = createState<TSaveState>('saved');
 	readonly $recent = createState<THostRecentProject[]>([]);
+	/**
+	 * Whether the open project is an unsaved document in the host's temporary location, such as an opened example.
+	 * It autosaves there, stays out of Recent, and Save asks where to keep it.
+	 */
+	readonly $isTemporary = createState(false);
+	/** The Save Changes alert of an unsaved document with changes that is being closed */
+	readonly $closePrompt = createState<TClosePrompt | null>(null);
+	/** Quick Help labels the window's regions and explains the control under the pointer. Always off at launch. */
+	readonly $quickHelp = createState(false);
 	readonly $workspace = createState<TWorkspace>('compose');
 	readonly $selection = createState<TSelection>([]);
 	readonly $playhead = createState(0);
@@ -66,6 +77,7 @@ export class StudioCx {
 	/** Text and mentions the agent composer takes over once, such as the library's New Theme with Agent… */
 	readonly $agentDraft = createState<TAgentDraft | null>(null);
 	readonly sources = new SourcesCx(this);
+	readonly hints = new HintsCx(this);
 	readonly simulation = new SimulationCx(this);
 	readonly design = new DesignCx({
 		getProject: () => this.project,
@@ -96,6 +108,7 @@ export class StudioCx {
 	private saveTimer: ReturnType<typeof setTimeout> | undefined;
 	private savedRevision = 0;
 	private noticeTimer: ReturnType<typeof setTimeout> | undefined;
+	private answerClosePrompt: ((choice: TClosePromptChoice) => void) | null = null;
 
 	get project(): TProject | null {
 		return this.$history.get()?.present ?? null;
@@ -107,11 +120,13 @@ export class StudioCx {
 		const unmountSimulation = this.simulation.mount();
 		const unmountDesign = this.mountDesign();
 		const unmountAgents = this.agents.mount();
+		const unmountHints = this.hints.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		return () => {
 			unmountSimulation();
 			unmountDesign();
 			unmountAgents();
+			unmountHints();
 			stopHeight();
 			void this.design.close();
 			clearTimeout(this.noticeTimer);
@@ -213,6 +228,7 @@ export class StudioCx {
 	async newProject(
 		options: { title?: string; project?: TProject; prepare?: (packagePath: string) => Promise<TResult<void, Error>> } = {}
 	): Promise<boolean> {
+		if (!(await this.confirmClose())) return false;
 		const project = options.project ?? createProject({ title: options.title ?? 'Untitled' });
 		const path = await host.chooseNewProjectPath(project.title);
 		if (path == null) return false;
@@ -229,6 +245,25 @@ export class StudioCx {
 			if (!isPreparedOk) this.notify(preparedErr.message, 'error');
 		}
 		this.load(named, created.path);
+		return true;
+	}
+
+	/**
+	 * Opens a project as an unsaved document in the host's temporary location, like an example: it is not added to
+	 * Recent, and Save asks where to keep it. `prepare` fills the package first, such as with the example's song.
+	 */
+	async openTemporary(project: TProject, prepare?: (packagePath: string) => Promise<TResult<void, Error>>): Promise<boolean> {
+		if (!(await this.confirmClose())) return false;
+		const [isCreatedOk, createdErr, created] = await host.createTemporaryProject(project.title, serializeProject(project));
+		if (!isCreatedOk) {
+			this.notify(`${project.title} couldn't be opened: ${createdErr.message}`, 'error');
+			return false;
+		}
+		if (prepare != null) {
+			const [isPreparedOk, preparedErr] = await prepare(created.path);
+			if (!isPreparedOk) this.notify(preparedErr.message, 'error');
+		}
+		this.load(project, created.path, true);
 		return true;
 	}
 
@@ -257,6 +292,7 @@ export class StudioCx {
 	}
 
 	async openProject(path?: string): Promise<boolean> {
+		if (!(await this.confirmClose())) return false;
 		const target = path ?? (await host.chooseProjectToOpen());
 		if (target == null) return false;
 		const [isOpenedOk, openedErr, opened] = await host.openProject(target);
@@ -283,27 +319,117 @@ export class StudioCx {
 		this.isRestoring = true;
 		const [isOpenedOk, , opened] = await host.openProject(path);
 		const [isProjectOk, , project] = isOpenedOk ? parseProject(opened.projectJson) : [false, null, null];
+		const isTemporary = isOpenedOk && (await host.isTemporaryProject(opened.path));
 		this.isRestoring = false;
 		if (!isOpenedOk || !isProjectOk || project == null) {
 			writeText(OPEN_PROJECT_KEY, null);
 			return;
 		}
-		if (this.$history.get() == null) this.load(project, opened.path);
+		if (this.$history.get() == null) this.load(project, opened.path, isTemporary);
 	}
 
-	async closeProject(): Promise<void> {
+	/** Returns false when the user cancels closing an unsaved document with changes */
+	async closeProject(): Promise<boolean> {
+		if (!(await this.confirmClose())) return false;
+		const path = this.$path.get();
+		const isTemporary = this.$isTemporary.get();
 		writeText(OPEN_PROJECT_KEY, null);
 		await this.flush();
 		await this.design.close();
+		if (isTemporary && path != null) host.discardTemporaryProject(path);
+		this.$isTemporary.set(false);
 		this.$history.set(null);
 		this.$path.set(null);
 		this.$selection.set([]);
 		this.$playhead.set(0);
 		this.$playing.set(false);
 		await this.refreshRecent();
+		return true;
 	}
 
-	private load(project: TProject, path: string): void {
+	/** Whether the open project is an unsaved document with changes, which closing would lose */
+	hasUnsavedChanges(): boolean {
+		const history = this.$history.get();
+		return this.$isTemporary.get() && history != null && hasUnsavedChanges(history);
+	}
+
+	/**
+	 * Save (⌘S). A saved project writes at once. An unsaved document asks where to save it with the save panel and
+	 * moves its package there with every file, so it continues as a project in Recent. Returns false when cancelled
+	 * or failed.
+	 */
+	async save(): Promise<boolean> {
+		if (!this.$isTemporary.get()) {
+			await this.flush();
+			return this.$save.get() !== 'failed';
+		}
+		const project = this.project;
+		const from = this.$path.get();
+		if (project == null || from == null) return false;
+		const destination = await host.chooseNewProjectPath(project.title);
+		if (destination == null) return false;
+		await this.flush();
+		if (this.$save.get() === 'failed') return false;
+		// Blender's worker holds the package path; it starts again at the new place
+		const wasInFilm = this.$workspace.get() === 'design';
+		await this.design.close();
+		const [isMovedOk, movedErr, path] = await host.moveProject(from, destination);
+		if (!isMovedOk) {
+			this.notify(`${project.title} couldn't be saved: ${movedErr.message}. It stays open as an unsaved project.`, 'error');
+			if (wasInFilm) void this.design.activate();
+			return false;
+		}
+		this.$isTemporary.set(false);
+		this.$path.set(path);
+		writeText(OPEN_PROJECT_KEY, path);
+		this.retitle(projectName(path));
+		if (wasInFilm) void this.design.activate();
+		void this.refreshRecent();
+		return true;
+	}
+
+	/** The title follows the saved file's name, like a macOS document, in every undo step so undo keeps it */
+	private retitle(title: string): void {
+		const history = this.$history.get();
+		if (history == null || history.present.title === title) return;
+		const named = (item: TProject): TProject => ({ ...item, title });
+		this.$history.set({
+			past: history.past.map(named),
+			present: { ...named(history.present), revision: history.present.revision + 1 },
+			future: history.future.map(named)
+		});
+		this.scheduleSave();
+	}
+
+	/**
+	 * Before an unsaved document with changes closes, asks "Save changes to Jingle Bells?" with Save…, Don't Save
+	 * and Cancel. Resolves true when closing may go on. Unchanged documents close without asking.
+	 */
+	private async confirmClose(): Promise<boolean> {
+		const project = this.project;
+		if (project == null || !this.hasUnsavedChanges()) return true;
+		this.answerClosePrompt?.('cancel');
+		const choice = await new Promise<TClosePromptChoice>((resolve) => {
+			this.answerClosePrompt = resolve;
+			this.$closePrompt.set({ question: saveChangesQuestion(project.title) });
+		});
+		this.answerClosePrompt = null;
+		this.$closePrompt.set(null);
+		if (choice === 'cancel') return false;
+		if (choice === 'save') return this.save();
+		return true;
+	}
+
+	/** The Save Changes alert's buttons */
+	answerClose(choice: TClosePromptChoice): void {
+		this.answerClosePrompt?.(choice);
+	}
+
+	private load(project: TProject, path: string, isTemporary = false): void {
+		const previous = this.$path.get();
+		// An unsaved document that another project replaces was closed with Don't Save or had no changes
+		if (this.$isTemporary.get() && previous != null && previous !== path) host.discardTemporaryProject(previous);
+		this.$isTemporary.set(isTemporary);
 		this.savedRevision = project.revision;
 		this.$history.set(createHistory(project));
 		this.$path.set(path);
@@ -454,10 +580,60 @@ export class StudioCx {
 
 	// MARK: - Feedback
 
-	notify(message: string, tone: TNotice['tone'] = 'info'): void {
+	/**
+	 * Shows a notice above the canvas. Actions sit in it like the Undo of Mail's and Finder's toasts; a notice
+	 * with actions stays longer, one with `progress` until it is replaced. Returns the notice's id.
+	 */
+	notify(message: string, tone: TNotice['tone'] = 'info', options: TNoticeOptions = {}): number {
+		const id = ++this.noticeId;
+		this.$notice.set({ id, message, tone, ...options });
+		this.scheduleNoticeEnd();
+		return id;
+	}
+
+	/** Reports an edit that just happened with an Undo action for it, such as "6 platforms removed" */
+	notifyEdit(message: string, actions: TNoticeAction[] = []): number {
+		const revision = this.project?.revision;
+		const undo: TNoticeAction = {
+			label: 'Undo',
+			title: 'Undo this edit (⌘Z)',
+			// Only while that edit is still the latest; otherwise Undo would take back something else
+			run: () => {
+				if (revision != null && this.project?.revision === revision) this.undo();
+			}
+		};
+		return this.notify(message, 'info', { actions: [...actions, undo], revision });
+	}
+
+	/** Changes the notice `id` while it is still shown, for progress and actions that arrive later */
+	updateNotice(id: number, patch: Partial<Omit<TNotice, 'id'>>): boolean {
+		const notice = this.$notice.get();
+		if (notice?.id !== id) return false;
+		this.$notice.set({ ...notice, ...patch });
+		this.scheduleNoticeEnd();
+		return true;
+	}
+
+	/** Keeps the notice while the pointer is over it, like macOS banners */
+	holdNotice(isHeld: boolean): void {
 		clearTimeout(this.noticeTimer);
-		this.$notice.set({ message, tone });
-		this.noticeTimer = setTimeout(() => this.$notice.set(null), tone === 'error' ? 8000 : 3500);
+		if (!isHeld) this.scheduleNoticeEnd();
+	}
+
+	dismissNotice(id?: number): void {
+		if (id != null && this.$notice.get()?.id !== id) return;
+		clearTimeout(this.noticeTimer);
+		this.$notice.set(null);
+	}
+
+	private noticeId = 0;
+
+	private scheduleNoticeEnd(): void {
+		clearTimeout(this.noticeTimer);
+		const notice = this.$notice.get();
+		if (notice == null || notice.progress != null) return;
+		const duration = notice.tone === 'error' ? 8000 : notice.actions?.length ? 6000 : 3500;
+		this.noticeTimer = setTimeout(() => this.$notice.set(null), duration);
 	}
 }
 
@@ -532,6 +708,12 @@ function writeNumber(key: string, value: number): void {
 	}
 }
 export type TSaveState = 'saved' | 'dirty' | 'saving' | 'failed';
+
+export interface TClosePrompt {
+	question: string;
+}
+
+export type TClosePromptChoice = 'save' | 'discard' | 'cancel';
 export type TSelection = string[];
 
 export interface TReveal {
@@ -539,9 +721,25 @@ export interface TReveal {
 	point?: TVec2;
 }
 
-export interface TNotice {
+export interface TNotice extends TNoticeOptions {
+	id: number;
 	message: string;
 	tone: 'info' | 'error';
+}
+
+export interface TNoticeOptions {
+	/** Buttons in the notice, the first drawn as the default */
+	actions?: TNoticeAction[];
+	/** Share done from 0 to 1 while a long task runs; the notice stays until it is replaced */
+	progress?: number;
+	/** Revision right after the edit the notice reports */
+	revision?: number;
+}
+
+export interface TNoticeAction {
+	label: string;
+	title?: string;
+	run: () => void;
 }
 
 /** The lane of the selected marble or hit, otherwise the first lane */

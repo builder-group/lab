@@ -8,6 +8,10 @@ edited in Blender, or marked `mm_link = 'unlinked'`, is left alone; when its ent
 
 Fonts: `font` names a loaded Blender font (the built-in one is `Bfont Regular`) or a font file, package-relative
 or absolute. Font files are packed so the scene keeps them.
+
+Timing: optional `in` and `out` seconds show a title only inside its range. The object property `mm_visible` fades
+from 0 to 1 over `FADE` seconds after `in` and back to 0 over the `FADE` seconds before `out`; the title material
+mixes to transparent by it, and `hide_render` keeps the title out of renders and the ID pass while it is hidden.
 """
 import hashlib
 import json
@@ -17,20 +21,26 @@ from pathlib import Path
 import bpy
 from mathutils import Matrix
 
-from . import themes
-from .util import OWNER, WorkerError, finite, link_only_to, resolve_package_path, tag
+from . import anim, themes
+from .util import OWNER, WorkerError, finite, link_only_to, parse_color, resolve_package_path, tag
 
 TEXT_ROLE = 'text'
 BUILTIN_FONT = 'Bfont Regular'
 # Gap between the back of the letters and the wall plane so they never z-fight with it
 WALL_GAP = 0.0002
+# Seconds a timed title takes to fade in after its `in` time and out before its `out` time
+FADE = 0.25
+VISIBLE_PROPERTY = 'mm_visible'
+TIMING_PATHS = ('["%s"]' % VISIBLE_PROPERTY, 'hide_render')
+# `KeyframePoint.interpolation` enum value for CONSTANT
+INTERPOLATION_CONSTANT = 0
 
 
 def is_text(obj):
     return obj.get('mm_owner') == OWNER and obj.get('mm_role') == TEXT_ROLE and obj.type == 'FONT'
 
 
-def apply_texts(project_dir, texts, managed, detached_collection):
+def apply_texts(project_dir, texts, managed, detached_collection, fps=30.0, duration=None):
     report = {'created': [], 'updated': [], 'skipped': [], 'removed': []}
     existing = {obj['mm_id']: obj for obj in managed.objects if is_text(obj)}
     for entry in texts or []:
@@ -48,6 +58,7 @@ def apply_texts(project_dir, texts, managed, detached_collection):
             managed.objects.link(obj)
             tag(obj, mm_id, TEXT_ROLE)
         write_text(project_dir, obj, entry)
+        write_timing(obj, entry, fps, duration)
         report['created' if created else 'updated'].append(mm_id)
     for mm_id, obj in existing.items():
         if link_state(obj) == 'unlinked':
@@ -77,7 +88,7 @@ def write_text(project_dir, obj, entry):
     font = resolve_font(project_dir, entry.get('font'))
     if font is not None:
         data.font = font
-    material = themes.flat_material(entry.get('color') or '#1d1d1f', 0.38, 0.0, flash=False)
+    material = title_material(entry.get('color') or '#1d1d1f')
     if len(data.materials):
         data.materials[0] = material
     else:
@@ -94,6 +105,75 @@ def write_text(project_dir, obj, entry):
     if label and obj.name != label and not obj.name.startswith(label + '.'):
         obj.name = label
     obj['mm_written'] = signature(obj)
+
+
+def title_material(color):
+    """Flat title colour that mixes to transparent by the object's `mm_visible`, shared per colour"""
+    def build(material):
+        linear = parse_color(color)
+        material.diffuse_color = linear
+        tree = material.node_tree
+        principled = themes._principled(material)
+        themes._set(principled, 'Base Color', linear)
+        themes._set(principled, 'Roughness', 0.38)
+        output = next(node for node in tree.nodes if node.type == 'OUTPUT_MATERIAL')
+        transparent = tree.nodes.new('ShaderNodeBsdfTransparent')
+        mix = tree.nodes.new('ShaderNodeMixShader')
+        visible = tree.nodes.new('ShaderNodeAttribute')
+        visible.attribute_type = 'OBJECT'
+        visible.attribute_name = VISIBLE_PROPERTY
+        tree.links.new(visible.outputs['Fac'], mix.inputs['Fac'])
+        tree.links.new(transparent.outputs['BSDF'], mix.inputs[1])
+        tree.links.new(principled.outputs['BSDF'], mix.inputs[2])
+        tree.links.new(mix.outputs['Shader'], output.inputs['Surface'])
+    return themes._shared('MM · title ' + color, build)
+
+
+def title_range(entry, duration):
+    """`(start, end)` seconds of a timed title, or None when it shows for the whole film"""
+    start = entry.get('in')
+    end = entry.get('out')
+    start = max(0.0, finite(start, 'in')) if start is not None else 0.0
+    end = finite(end, 'out') if end is not None else None
+    if start <= 0.0 and (end is None or (duration is not None and end >= duration)):
+        return None
+    if end is None:
+        end = float('inf')
+    return start, max(start, end)
+
+
+def write_timing(obj, entry, fps, duration):
+    """Keys `mm_visible` and `hide_render` for a timed title, or clears them for a title shown throughout"""
+    anim.clear_channels(obj, TIMING_PATHS)
+    obj[VISIBLE_PROPERTY] = 1.0
+    obj.hide_render = False
+    span = title_range(entry, duration)
+    if span is None:
+        return
+    start, end = span
+    fade = min(FADE, (end - start) / 2) if math.isfinite(end) else FADE
+    times, values = [], []
+    if start > 0.0:
+        times += [start, start + fade]
+        values += [0.0, 1.0]
+    if math.isfinite(end):
+        times += [end - fade, end]
+        values += [1.0, 0.0]
+    channelbag = anim.ensure_channelbag(obj)
+    anim.write_fcurve(channelbag, TIMING_PATHS[0], 0, [time * fps for time in times], values)
+    # Hidden before `in` and from `out` on, so the ID pass cannot pick a title the film does not show
+    hidden_times, hidden_values = [0.0], [1.0 if start > 0.0 else 0.0]
+    if start > 0.0:
+        hidden_times.append(start)
+        hidden_values.append(0.0)
+    if math.isfinite(end):
+        hidden_times.append(end)
+        hidden_values.append(1.0)
+    curve = anim.write_fcurve(channelbag, TIMING_PATHS[1], 0, [time * fps for time in hidden_times], hidden_values)
+    for point in curve.keyframe_points:
+        point.interpolation = 'CONSTANT'
+    obj[VISIBLE_PROPERTY] = values[0] if start > 0.0 else 1.0
+    obj.hide_render = start > 0.0
 
 
 def resolve_font(project_dir, name):

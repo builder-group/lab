@@ -38,6 +38,35 @@ export const host = {
 		return toResult(await specta.commands.openProject(path));
 	},
 
+	/**
+	 * An unsaved project, such as an opened example, in a temporary location the host controls: a folder in the
+	 * app's cache on macOS, a separate key range in the browser. It stays out of Recent until `moveProject` saves it.
+	 */
+	async createTemporaryProject(name: string, projectJson: string): Promise<TResult<THostProject, Error>> {
+		if (!isTauri()) return browserPackages.createTemporary(name, projectJson);
+		return toResult(await specta.commands.createTemporaryProject(name, projectJson));
+	},
+
+	async isTemporaryProject(path: string): Promise<boolean> {
+		if (!isTauri()) return path.startsWith(BROWSER_TEMPORARY_PREFIX);
+		return specta.commands.isTemporaryProject(path);
+	},
+
+	/** Moves a package with its files to `destinationPath` and adds it to Recent; returns the new package path */
+	async moveProject(path: string, destinationPath: string): Promise<TResult<string, Error>> {
+		if (!isTauri()) return Ok(browserPackages.move(path, destinationPath));
+		const result = await specta.commands.moveProject(path, destinationPath);
+		return result.status === 'ok' ? Ok(result.data) : Err(new Error(result.error));
+	},
+
+	/**
+	 * Forgets an unsaved project closed with Don't Save. On macOS the cache folder is cleared when the next unsaved
+	 * project opens, so a closed one costs nothing until then.
+	 */
+	discardTemporaryProject(path: string): void {
+		if (!isTauri() && path.startsWith(BROWSER_TEMPORARY_PREFIX)) browserPackages.remove(path);
+	},
+
 	async saveProject(path: string, projectJson: string): Promise<TResult<void, Error>> {
 		if (!isTauri()) return browserPackages.save(path, projectJson);
 		const result = await specta.commands.saveProject(path, projectJson);
@@ -195,6 +224,31 @@ const browserFiles = {
 		} catch {
 			return {};
 		}
+	},
+	/** Moves every file under the `from` prefix to the `to` prefix, for a package that moved */
+	move(from: string, to: string): void {
+		this.rewrite((path) => (path.startsWith(from) ? `${to}${path.slice(from.length)}` : path));
+	},
+	remove(prefix: string): void {
+		this.rewrite((path) => (path.startsWith(prefix) ? null : path));
+	},
+	rewrite(map: (path: string) => string | null): void {
+		for (const [path, url] of [...this.session]) {
+			const next = map(path);
+			if (next === path) continue;
+			this.session.delete(path);
+			if (next != null) this.session.set(next, url);
+		}
+		const stored: Record<string, string> = {};
+		for (const [path, url] of Object.entries(this.read())) {
+			const next = map(path);
+			if (next != null) stored[next] = url;
+		}
+		try {
+			localStorage.setItem(this.key, JSON.stringify(stored));
+		} catch {
+			// Without storage the files last for the session
+		}
 	}
 };
 
@@ -230,6 +284,9 @@ function toResult(
 	if (result.status === 'error') return Err(new Error(result.error));
 	return Ok({ path: result.data.path, projectJson: result.data.projectJson });
 }
+
+// Unsaved projects of the browser development surface, kept with the packages but not listed in Recent
+const BROWSER_TEMPORARY_PREFIX = '/unsaved/';
 
 const browserPackages = {
 	key: 'midimarble-v4:packages',
@@ -270,8 +327,33 @@ const browserPackages = {
 		this.write(packages);
 		return Ok(undefined);
 	},
+	/** Like the macOS cache folder, earlier unsaved projects are cleared when a new one opens */
+	createTemporary(name: string, json: string): TResult<THostProject, Error> {
+		for (const path of Object.keys(this.read())) {
+			if (path.startsWith(BROWSER_TEMPORARY_PREFIX)) this.remove(path);
+		}
+		return this.create(`${BROWSER_TEMPORARY_PREFIX}${name.replaceAll('/', '-')}.marble`, json);
+	},
+	/** Moves the package and its files to a free path next to `destination`; returns the path it got */
+	move(path: string, destination: string): string {
+		const packages = this.read();
+		let unique = destination;
+		for (let index = 2; packages[unique] != null; index++) {
+			unique = destination.replace(/\.marble$/, ` ${index}.marble`);
+		}
+		const { [path]: item, ...others } = packages;
+		if (item != null) this.write({ ...others, [unique]: { ...item, openedAt: Date.now() } });
+		browserFiles.move(`${path}/`, `${unique}/`);
+		return unique;
+	},
+	remove(path: string): void {
+		const { [path]: _removed, ...others } = this.read();
+		this.write(others);
+		browserFiles.remove(`${path}/`);
+	},
 	list(): THostRecentProject[] {
 		return Object.entries(this.read())
+			.filter(([path]) => !path.startsWith(BROWSER_TEMPORARY_PREFIX))
 			.map(([path, item]) => ({
 				path,
 				name: path.split('/').pop()?.replace(/\.marble$/, '') ?? path,

@@ -468,7 +468,9 @@ export function createSwitchbackForGap(
 			for (const legs of SWITCHBACK_LEGS) {
 				for (const slope of slopes) {
 					const sized = { ...params, legs };
-					const exitTime = entryTime + switchbackHoldTime(sized, slope, GRAVITY);
+					const exitTime =
+						entryTime +
+						switchbackHoldTime(sized, slope, GRAVITY, Math.hypot(entry.velocity.x, entry.velocity.y));
 					const fall = to.time - exitTime;
 					if (fall < minExitFall - ESTIMATE_SLACK) continue;
 					const geometry = switchbackGeometry(sized, -slope, 0.5, entry.position, marbleRadius, null);

@@ -13,6 +13,7 @@ import {
 	layoutOf,
 	resolvePieceParams,
 	resolvePiecePath,
+	soundsHit,
 	trajectoryAt,
 	type THitResult,
 	type TResolvedPiece,
@@ -42,10 +43,11 @@ import { ComposeRenderer, MARBLE_Z, type TComposeCamera, type TFilmView } from '
 import { composeKeyAction, toolPieceType, type TComposeKeyAction, type TComposeTool, type TPathType } from './keys';
 import { insertTool, type TInsertItem } from './library';
 import { dotMenu } from './menus';
-import { distanceToSegment, pick, pickTrack, piecesInRect, rectFromPoints, type TPick, type TPickScene, type TScreenTrack } from './picking';
+import { distanceToSegment, pick, pickTrack, piecesInRect, rectFromPoints, TRACK_PICK_RADIUS, type TPick, type TPickScene, type TScreenTrack } from './picking';
 import {
 	boundsOfPieces,
 	contentBounds,
+	fitTargets,
 	marblePositionAt,
 	pathHandles,
 	pathToLocal,
@@ -64,6 +66,7 @@ import {
 	boundsOf,
 	filmFrameRect,
 	fitBounds,
+	fitContent,
 	gridLayers,
 	isBoundsVisible,
 	panBy,
@@ -104,6 +107,13 @@ export class ComposeCx {
 	 * frame while the what-if trajectory arrives from the worker
 	 */
 	readonly $override = createState<TResolvedPiece | null>(null);
+	/**
+	 * A platform added at a dot, shown at its first-guess pose (the default tilt on the dot) from the click
+	 * until the placement commits, so it appears at once while Auto place solves the tilt
+	 */
+	readonly $placing = createState<TResolvedPiece | null>(null);
+	/** What a drop does, beside the piece dragged in from the Insert library */
+	readonly $insertSnap = createState<{ position: TVec2; snap: TSnap | null } | null>(null);
 	readonly assist: AssistCx;
 	/**
 	 * What the Camera view shows: the film frame on the canvas and the follow camera's pose at the playhead. Null
@@ -203,11 +213,15 @@ export class ComposeCx {
 				this.syncGuides();
 				this.syncFilm();
 				this.frameIfNeeded();
+				this.followPhysics(value);
 				this.revealPlaced();
 				this.revealHistory(value);
 			}),
 			this.$override.listen(() => this.syncPieces()),
+			this.$placing.listen(() => this.syncPieces()),
 			this.studio.$hidden.listen(() => this.syncPieces()),
+			// Stopping at the start shows every piece solid, playing from there dims the ones ahead
+			this.studio.$playing.listen(() => this.syncPieces()),
 			this.studio.$playhead.subscribe(({ value }) => {
 				// The film camera moves first, so the overlays drawn for this playhead project through its new pose
 				this.syncFilm();
@@ -217,9 +231,12 @@ export class ComposeCx {
 				this.followPlayback();
 			}),
 			this.studio.$history.listen(() => {
-				// Release positions show immediately, before the new result arrives
+				// Release positions and newly placed platforms show immediately, before the new result arrives
 				this.syncMarbles();
 				this.syncGuides();
+				this.syncPieces();
+				// A newly opened project is framed at once, before its first run arrives
+				this.frameIfNeeded();
 			}),
 			this.studio.$selection.listen(({ value }) => {
 				this.syncPieces();
@@ -256,6 +273,7 @@ export class ComposeCx {
 		return () => {
 			for (const cleanup of cleanups) cleanup();
 			this.studio.simulation.endPreview();
+			window.clearTimeout(this.openingTimer);
 			renderer.dispose();
 			this.renderer = null;
 			this.container = null;
@@ -276,15 +294,55 @@ export class ComposeCx {
 		return screenToWorld(this.$camera.get().view, this.$viewport.get(), point);
 	}
 
-	/** Pieces as the canvas shows them: the run's poses with the dragged piece where the pointer holds it */
+	/**
+	 * Pieces as the canvas shows them: the run's poses with the dragged piece where the pointer holds it, and
+	 * platforms the run has not caught up with yet on their dots
+	 */
 	displayPieces(result: TSimulationResult | null = this.result): TResolvedPiece[] {
 		const override = this.$override.get();
 		const hidden = this.studio.$hidden.get();
 		const pieces = (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId));
+		pieces.push(...this.pendingPieces(result, hidden));
+		const placing = this.$placing.get();
+		if (placing != null) pieces.push(placing);
 		if (override == null) return pieces;
 		const index = pieces.findIndex((piece) => piece.entityId === override.entityId);
 		if (index < 0) return [...pieces, override];
 		return pieces.map((piece, i) => (i === index ? override : piece));
+	}
+
+	/**
+	 * Platforms on a dot that the project has but the result does not yet, placed on their dot at their stored
+	 * tilt the way the run will start them. A new run takes about a second on a long song; until then the
+	 * placed platform shows here instead of nowhere.
+	 */
+	private pendingPieces(result: TSimulationResult | null, hidden: string[]): TResolvedPiece[] {
+		const project = this.project;
+		if (project == null || result == null || result.revision >= project.revision) return [];
+		const pending: TResolvedPiece[] = [];
+		for (const entity of project.entities) {
+			const link = entity.components.hitLink;
+			if (link == null || !soundsHit(entity.components.piece?.type ?? '', link) || hidden.includes(entity.id)) continue;
+			if (result.pieces.some((piece) => piece.entityId === entity.id)) continue;
+			const hit = result.hits.find((item) => item.laneId === link.laneId && item.hitId === link.hitId);
+			if (hit?.dot == null) continue;
+			pending.push(displayPiece(entity, { pose: { position: hit.dot, angle: link.angle }, dot: hit.dot, velocity: hit.velocity }, this.marbleRadius(link.laneId)));
+		}
+		return pending;
+	}
+
+	/**
+	 * Adds an auto-placed platform at an open dot. The platform shows at once at the default tilt while Auto
+	 * place looks for the tilt that lands the next note, then the solved one takes its place.
+	 */
+	placePlatform(hit: THitResult): void {
+		const project = this.project;
+		if (project != null && hit.dot != null) {
+			const guess = pieceForHit(project, hit, 'platform', 'default', 'placing');
+			const angle = guess.components.hitLink?.angle ?? 0;
+			this.$placing.set(displayPiece(guess, { pose: { position: hit.dot, angle }, dot: hit.dot, velocity: hit.velocity }, this.marbleRadius(hit.laneId)));
+		}
+		void this.assist.place(hit, 'platform').finally(() => this.$placing.set(null));
 	}
 
 	/** Grip and pivot of the selected piece's rotation handle in screen space */
@@ -409,10 +467,17 @@ export class ComposeCx {
 		this.$camera.set((camera) => ({ ...camera, view: zoomAt(camera.view, viewport, point, factor) }));
 	}
 
+	/**
+	 * ⇧1: fits the pieces, the releases and the run up to the last hit, zoomed no further out than a default
+	 * platform at `MIN_FIT_PLATFORM_PX`, unless the pieces need it
+	 */
 	fitAll(): void {
 		const project = this.project;
-		if (project == null) return;
-		this.fit(contentBounds(project, this.result));
+		const viewport = this.$viewport.get();
+		if (project == null || viewport.width <= 1) return;
+		const { all, pieces } = fitTargets(project, this.result);
+		const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
+		this.$camera.set((camera) => ({ ...camera, view: fitContent(all, pieces, viewport, canvasPadding, MIN_FIT_PLATFORM_PX / length) }));
 	}
 
 	/**
@@ -556,15 +621,67 @@ export class ComposeCx {
 		this.$camera.set((camera) => ({ ...camera, view: fitBounds(bounds, viewport, canvasPadding) }));
 	}
 
-	/** Frames the run once per opened project, as soon as there is something to show */
+	/**
+	 * Frames each opened project once. The film-frame view needs only the project and the canvas size, so it is
+	 * set before the first paint instead of after the first run; the run's first hits widen it when they arrive.
+	 */
 	private frameIfNeeded(): void {
 		const project = this.project;
-		if (project == null || this.framedProjectId === project.id || this.result == null || this.$viewport.get().width <= 1) return;
-		this.framedProjectId = project.id;
-		this.fitFrame();
+		if (project == null || this.$viewport.get().width <= 1) return;
+		if (this.framedProjectId !== project.id) {
+			this.framedProjectId = project.id;
+			this.revealedProjectId = null;
+			this.fitFrame();
+			// The first run may still widen the view to its first hits, so the wall stays hidden until it does
+			// instead of showing a zoom jump, for at most a moment on a long song
+			this.setOpening(true);
+			window.clearTimeout(this.openingTimer);
+			this.openingTimer = window.setTimeout(() => this.setOpening(false), OPENING_WAIT_MS);
+		}
+		if (this.result == null || this.revealedProjectId === project.id) return;
+		this.revealedProjectId = project.id;
 		this.revealFirstHits(project);
+		this.setOpening(false);
 		// A reveal sent while Compose was not mounted, such as from the export preflight in Design
 		this.revealPending();
+	}
+
+	private openingTimer: number | undefined;
+
+	private setOpening(isOpening: boolean): void {
+		if (this.container == null) return;
+		if (isOpening) this.container.dataset['opening'] = 'true';
+		else delete this.container.dataset['opening'];
+	}
+
+	/** Project whose first hits the opening view has been widened to */
+	private revealedProjectId: string | null = null;
+	/** Physics the latest current run was made with, to notice a project-wide change such as Marble Speed */
+	private physicsKey: { projectId: string; key: string } | null = null;
+
+	/**
+	 * A project-wide physics change, such as Marble Speed, moves every marble and piece. Once its run arrives
+	 * the view pans to the marble at the playhead when it has left the view, keeping the zoom.
+	 */
+	private followPhysics(result: TSimulationResult | null): void {
+		const project = this.project;
+		if (project == null || result == null || result.revision !== project.revision) return;
+		const key = JSON.stringify(project.physics ?? null);
+		const previous = this.physicsKey;
+		this.physicsKey = { projectId: project.id, key };
+		if (previous == null || previous.projectId !== project.id || previous.key === key) return;
+		const camera = this.$camera.get();
+		const viewport = this.$viewport.get();
+		const focus = this.marbleFocus();
+		if (focus == null || camera.mode !== '2d' || this.$drag.get() != null || viewport.width <= 1) return;
+		const margin = 0.02;
+		if (isBoundsVisible(camera.view, viewport, { minX: focus.x - margin, maxX: focus.x + margin, minY: focus.y - margin, maxY: focus.y + margin }, 48)) return;
+		const screen = worldToScreen(camera.view, viewport, focus);
+		const isOutsideX = screen.x < 48 || screen.x > viewport.width - 48;
+		this.$camera.set({
+			...camera,
+			view: { ...camera.view, center: { x: isOutsideX ? focus.x : camera.view.center.x, y: focus.y - (viewport.height * 0.18) / camera.view.scale } }
+		});
 	}
 
 	/**
@@ -933,7 +1050,7 @@ export class ComposeCx {
 			if (hit == null) return;
 			if (tool === 'platform') {
 				// The fast path: with the Platform tool a dot gets an auto placed platform right away
-				void this.assist.place(hit, 'platform');
+				this.placePlatform(hit);
 				this.$tool.set('select');
 			} else if (this.isSceneryTool()) {
 				this.addFollower(laneId, hit.targetTime);
@@ -1039,6 +1156,7 @@ export class ComposeCx {
 			}
 			drag.candidate = null;
 			drag.at = null;
+			this.$insertSnap.set(null);
 			return false;
 		}
 		const world = this.toWorld(point);
@@ -1053,6 +1171,7 @@ export class ComposeCx {
 		const candidate = withSnap(project, entity, pose, snap);
 		const radius = this.marbleRadius(snap?.laneId);
 		this.$override.set(snap?.kind === 'link' ? displayPiece(candidate, { pose, dot: snap.dot, velocity: snap.velocity }, radius) : displayPiece(candidate, { pose }, radius));
+		this.$insertSnap.set({ position: world, snap });
 		drag.candidate = candidate;
 		this.studio.simulation.startPreview(withEntity(project, candidate));
 		return true;
@@ -1063,6 +1182,7 @@ export class ComposeCx {
 		const drag = this.insertDrag;
 		this.insertDrag = null;
 		this.$inserting.set(null);
+		this.$insertSnap.set(null);
 		if (drag == null) return;
 		if (drag.item === 'marble') {
 			if (isDrop && drag.at != null && this.studio.addMarble(drag.at) != null) this.$tool.set('select');
@@ -1108,9 +1228,18 @@ export class ComposeCx {
 		const samples = this.result?.marbles.find((track) => track.laneId === laneId)?.samples ?? [];
 		const at = project != null ? trajectoryAt(samples, time, gravityOf(project)) : null;
 		if (project == null || at == null) return;
-		const [isOk, error, entity] = followerAt(project, laneId, type, time, at.position, at.velocity);
+		const [isOk, error, follower] = followerAt(project, laneId, type, time, at.position, at.velocity);
+		// Before the lane's first hit the piece follows the marble from its release, counted back from that hit,
+		// the same anchor a drop near the trajectory makes
+		let entity: TEntity | null = follower ?? null;
 		if (!isOk) {
-			this.studio.notify(error.message);
+			// Laid out against the marble the way a follower is, so a windmill meets it with a blade, not its hub
+			const free = createFreePiece(type, { position: at.position, angle: 0 }, project.entities);
+			const met = displayPiece(free, { pose: { position: at.position, angle: 0 }, dot: at.position, velocity: at.velocity }, this.marbleRadius(laneId));
+			entity = asAnchored(project, free, { position: met.position, angle: met.angle }, laneId, time, at.position);
+		}
+		if (entity == null) {
+			if (!isOk) this.studio.notify(error.message);
 			return;
 		}
 		if (!this.studio.execute([{ type: 'upsertEntity', entity }])) return;
@@ -1275,7 +1404,20 @@ export class ComposeCx {
 		// A windmill meets the marble with its blades, so it anchors wherever its blade circle crosses a trajectory
 		const params = resolvePieceParams(type, entity.components.piece?.params ?? {});
 		const bladeReach = layoutOf(type) === 'rotor' ? ((params['bladeLength'] ?? 0) + (params['hubRadius'] ?? 0)) * scale : 0;
-		const near = pickTrack(center, drag.tracks, Math.max(14, Math.min(halfLength, 40), bladeReach));
+		const reach = Math.max(14, Math.min(halfLength, 40), bladeReach);
+		// A bar also anchors where either end crosses the trajectory, so long platforms at a close zoom snap too
+		const tangent = { x: Math.cos(pose.angle) * halfLength, y: -Math.sin(pose.angle) * halfLength };
+		const probes = layoutOf(type) === 'box' ? [center, { x: center.x - tangent.x, y: center.y - tangent.y }, { x: center.x + tangent.x, y: center.y + tangent.y }] : [center];
+		let near: TPick | null = null;
+		let nearDistance = Number.POSITIVE_INFINITY;
+		for (const probe of probes) {
+			const found = pickTrack(probe, drag.tracks, probe === center ? reach : TRACK_PICK_RADIUS);
+			const distance = found?.kind === 'track' ? Math.hypot(found.position.x - probe.x, found.position.y - probe.y) : Number.POSITIVE_INFINITY;
+			if (distance < nearDistance) {
+				near = found;
+				nearDistance = distance;
+			}
+		}
 		if (near?.kind !== 'track') return null;
 		const time = near.time - ANCHOR_LEAD;
 		const track = result.marbles.find((item) => item.laneId === near.laneId);
@@ -1696,19 +1838,25 @@ export class ComposeCx {
 		if (this.renderer == null) return;
 		const playhead = this.studio.$playhead.get();
 		const isFilm = this.$camera.get().mode === 'camera';
-		// Selected pieces stay solid so the piece being edited is never washed out
-		const selection = this.studio.$selection.get();
 		this.renderer.setPieces(
-			this.displayPieces().map((piece) => {
-				const time = pieceTime(piece);
-				return {
-					piece,
-					// The film shows every piece solid; the wall views fade pieces the marble has not reached yet
-					ghost: !isFilm && time != null && time > playhead + 1e-4 && !selection.includes(piece.entityId),
-					angle: pieceAngleAt(piece, playhead)
-				};
-			})
+			this.displayPieces().map((piece) => ({
+				piece,
+				// The film shows every piece solid; the wall views fade pieces the marble has not reached yet
+				ghost: !isFilm && this.isUpcoming(piece, playhead),
+				angle: pieceAngleAt(piece, playhead)
+			}))
 		);
+	}
+
+	/**
+	 * True for a piece the marble reaches after the playhead, which the wall views draw lighter. Selected
+	 * pieces stay solid so the piece being edited is never washed out, and nothing is dimmed while stopped at
+	 * the start, where every piece is still ahead.
+	 */
+	isUpcoming(piece: TResolvedPiece, playhead = this.studio.$playhead.get()): boolean {
+		if (playhead <= 1e-3 && !this.studio.$playing.get()) return false;
+		const time = pieceTime(piece);
+		return time != null && time > playhead + 1e-4 && !this.studio.$selection.get().includes(piece.entityId);
 	}
 
 	syncMarbles(): void {
@@ -1829,6 +1977,12 @@ export type TComposeDrag =
 	| { kind: 'path'; entityId: string; handle: 'end' | 'bend'; points: TVec2[]; start: TVec2[]; moved: boolean }
 	| { kind: 'marquee'; from: TVec2; to: TVec2; base: string[] }
 	| { kind: 'click'; target: TPick | null; start: TVec2 };
+
+/** Longest time a newly opened project's wall stays hidden while its first run frames it */
+const OPENING_WAIT_MS = 400;
+
+/** Zoom to Fit stops zooming out where a default platform is this many CSS pixels long */
+const MIN_FIT_PLATFORM_PX = 24;
 
 // Keeps framed content clear of the corner controls and the contextual bar
 const canvasPadding: TPadding = { top: 56, right: 56, bottom: 72, left: 56 };

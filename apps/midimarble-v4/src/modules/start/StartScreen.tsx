@@ -34,7 +34,8 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 			cx.notify(exampleErr.message, 'error');
 			return;
 		}
-		await cx.newProject({ project: loaded.project, prepare: (packagePath) => copyExampleFiles(packagePath, loaded.files) });
+		// An example opens unsaved, like a macOS untitled document, so Recent does not fill with copies
+		await cx.openTemporary(loaded.project, (packagePath) => copyExampleFiles(packagePath, loaded.files));
 	}
 
 	return (

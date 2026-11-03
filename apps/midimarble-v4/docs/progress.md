@@ -11,6 +11,14 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### Assists at half gravity, Jingle Bells rebuilt at the default speed
+
+- Root causes and numbers in `references.md`, Half gravity. `switchbackHoldTime` carries the entry speed through the legs (it overestimated holds two to five times); `MAX_BOUNCE_RISE` scales with gravity, so the long-gap threshold stays at 0.68 s; with several marbles `paceRate` is at least `columnRate`, which keeps 6.5 cm (`COLUMN_CLEARANCE`) between a bounce and the piece two hits back (0.304 m/s at half gravity and 0.5 s, full gravity unchanged); Auto place follows a launch for 0.3 s / √gravityScale. The Jingle build script checks the built lane's own hits in full.
+- `fixtures/jingle-bells.marble.json` rebuilt at half gravity: 115/115 on time, 108 Next presses, 10 rotations of the previous piece, clean preflight, pace 0.304 m/s, 6 to 7 platforms per frame height against 3.5 to 4. The full-gravity build also completes, on the first release position with 3 manual steps.
+- Tests: half-gravity launch and 2 s switchback in `assists.test.ts`, column rate and gravity-independent threshold in `pace.test.ts`, gravity and column density in the Jingle fixture test
+- Checks: `typecheck` passes apart from `src/scratch-tmp/probe.test.ts` (another session's scratch file), `lint`, `test` (timing tests in `performance.test.ts` and `request-queue.test.ts` fail under load and pass alone), `camera:check` (jingle-bells 0.002 mm, 0.016°), `blender:check` 122 assertions
+- Next: re-render the Jingle Bells film from the half-gravity fixture; the 0.75 s note at 6 s still gets a rail
+
 ### Words, song model, Colour by Note, Best film (owner direction: clearest possible UX and copy)
 
 - `docs/words.md`: one word per concept (Project, Song, Note, Beat, Backing, Marble, Track, Hit, Piece, Platform, Path, Wall, Plays / Follows / Free / Detach, Compose and Film, Project inspector, Marble Speed, Export Film…, Draft / Standard / High / Best, Theme, Skin, Reaction, Title, Shot, Library, Keep in Library, In Use, Detached, Layers, Advanced, Lighting, Result), timing statuses with tooltips, assist names, capitalization and tone after Apple's HIG Writing and Buttons pages (read first-hand), patterns for buttons, toggles, tooltips, empty states, errors, progress and confirmations, the structure of tracks and the beginner path. The research notes (from memory, the fetch tools were down) are in `.local/ux-study.md`

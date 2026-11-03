@@ -1,4 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
+import { createState } from 'feature-state';
 import { Anchor, Unlink2 } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, NoteRow, Panel, ScrubField, StatusPill } from '@/components';
@@ -69,7 +70,15 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				title={title}
 				subtitle={subtitle}
 				onRename={isSingle ? (name) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name } }]) : undefined}
-				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
+				status={
+					status == null ? null : (
+						<>
+							{/* The Fix-it sits next to the problem */}
+							{status.tone === 'bad' && link != null && isMusicalPiece(type) ? <ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} /> : null}
+							<StatusPill tone={status.tone} label={status.label} detail={status.detail} />
+						</>
+					)
+				}
 			/>
 			{entities.every((entity) => isPathPieceType(entity.components.piece?.type)) ? <PathTypeSection cx={cx} project={project} entities={entities} /> : null}
 			<Panel id="piece.position" title="Position" accessory={!isFree && isSingle ? <HelpTip text="A piece that plays a note or follows a marble moves with the run, so its position comes from there. Detach it to move it freely." /> : null}>
@@ -163,6 +172,29 @@ interface TPieceInspectorProps {
 	project: TProject;
 	ids: string[];
 }
+
+/**
+ * Re-place beside a Blocked, Missed or Stopped platform's status pill, like an Xcode Fix-it: Auto place again for
+ * this platform alone, as one undo step
+ */
+export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: string }> = (props) => {
+	const { cx, laneId, hitId } = props;
+	const compose = useFeatureState(cx.$compose);
+	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
+	return (
+		<button
+			className="mm-fix-it"
+			disabled={compose == null || replacing != null}
+			onClick={() => void compose?.assist.replace([`${laneId}/${hitId}`])}
+			title="Run Auto place again for this platform"
+			type="button"
+		>
+			{replacing != null ? 'Re-placing…' : 'Re-place'}
+		</button>
+	);
+};
+
+const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
 
 /** The header subtitle, the piece's tie as words.md names it: `Plays C4 · 0:03.2`, `Follows Marble 1 at 0:03.2` or `Free` */
 function tieLabel(project: TProject, entity: TEntity): string {

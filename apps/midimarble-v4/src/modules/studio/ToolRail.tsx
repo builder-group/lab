@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Hand, Image, MousePointer2, PenTool, Plus, Type } from 'lucide-react';
+import { Hand, MousePointer2, PenTool, Plus, Type } from 'lucide-react';
 import React from 'react';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { InsertDragGhost, InsertLibrary } from '@/modules/compose/InsertLibrary';
@@ -16,7 +16,7 @@ export const ToolRail: React.FC<TToolRailProps> = (props) => {
 	const workspace = useFeatureState(cx.$workspace);
 	const compose = useFeatureState(cx.$compose);
 	return (
-		<nav className="mm-tool-rail" aria-label="Tools">
+		<nav className="mm-tool-rail" aria-label="Tools" data-quick-help="tools">
 			{workspace === 'compose' ? compose != null ? <ComposeTools compose={compose} /> : null : <DesignTools cx={cx} />}
 		</nav>
 	);
@@ -94,9 +94,7 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 			<RailButton label="Title" detail="Click the wall to place a title" shortcut="T" isActive={placing === 'text'} onClick={() => getCommand('tool.text').run(cx)}>
 				<Type size={17} strokeWidth={1.6} />
 			</RailButton>
-			<RailButton label="Library" detail="Skins and decorations for the pieces" isActive={false} onClick={() => getCommand('tool.asset').run(cx)}>
-				<Image size={17} strokeWidth={1.6} />
-			</RailButton>
+			{/* The rail holds tools only; the Library is the sidebar's Library tab, also Show Library in ⌘K */}
 		</>
 	);
 };

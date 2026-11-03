@@ -5,7 +5,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const PROJECT_FILE: &str = "project.json";
 pub const PACKAGE_EXTENSION: &str = "marble";
-const PACKAGE_FOLDERS: [&str; 6] = ["audio", "assets", "candidates", "renders", ".cache", ".bridge"];
+const PACKAGE_FOLDERS: [&str; 6] = [
+    "audio",
+    "assets",
+    "candidates",
+    "renders",
+    ".cache",
+    ".bridge",
+];
 
 #[derive(Debug, thiserror::Error)]
 pub enum PackageError {
@@ -93,6 +100,47 @@ pub fn import_source(package: &Path, source: &Path) -> Result<String, PackageErr
     return Ok(format!("audio/{}", name));
 }
 
+/// Moves a package to a new path, such as an unsaved example to where the user saves it. A move to another
+/// volume copies the package and then removes the original.
+pub fn move_package(from: &Path, to: &Path) -> Result<PathBuf, PackageError> {
+    if !from.join(PROJECT_FILE).is_file() {
+        return Err(PackageError::NotAPackage(display(from)));
+    }
+    let target = package_path(to);
+    if target.exists() {
+        return Err(PackageError::AlreadyExists(display(&target)));
+    }
+    if fs::rename(from, &target).is_ok() {
+        return Ok(target);
+    }
+    if let Err(error) = copy_dir(from, &target) {
+        let _ = fs::remove_dir_all(&target);
+        return Err(error);
+    }
+    fs::remove_dir_all(from).map_err(|source| io("remove", from, source))?;
+    return Ok(target);
+}
+
+fn copy_dir(from: &Path, to: &Path) -> Result<(), PackageError> {
+    fs::create_dir_all(to).map_err(|source| io("create", to, source))?;
+    for entry in fs::read_dir(from).map_err(|source| io("read", from, source))? {
+        let entry = entry.map_err(|source| io("read", from, source))?;
+        let source_path = entry.path();
+        let target_path = to.join(entry.file_name());
+        let is_dir = entry
+            .file_type()
+            .map_err(|source| io("read", &source_path, source))?
+            .is_dir();
+        if is_dir {
+            copy_dir(&source_path, &target_path)?;
+        } else {
+            fs::copy(&source_path, &target_path)
+                .map_err(|source| io("copy", &source_path, source))?;
+        }
+    }
+    return Ok(());
+}
+
 /// Writes through a sibling temporary file and a rename so a crash never leaves a partial file
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), PackageError> {
     let nanos = SystemTime::now()
@@ -100,7 +148,8 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), PackageError> {
         .map(|value| value.as_nanos())
         .unwrap_or_default();
     let temporary = path.with_extension(format!("tmp-{}", nanos));
-    let mut file = fs::File::create(&temporary).map_err(|source| io("write", &temporary, source))?;
+    let mut file =
+        fs::File::create(&temporary).map_err(|source| io("write", &temporary, source))?;
     file.write_all(bytes)
         .and_then(|_| file.sync_all())
         .map_err(|source| io("write", &temporary, source))?;
@@ -108,7 +157,7 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), PackageError> {
     return Ok(());
 }
 
-fn io(action: &'static str, path: &Path, source: std::io::Error) -> PackageError {
+pub(super) fn io(action: &'static str, path: &Path, source: std::io::Error) -> PackageError {
     return PackageError::Io {
         action,
         path: display(path),
@@ -166,8 +215,54 @@ mod tests {
         let source = root.join("Theme.MID");
         fs::write(&source, b"MThd").unwrap();
         assert_eq!(import_source(&package, &source).unwrap(), "audio/Theme.mid");
-        assert_eq!(import_source(&package, &source).unwrap(), "audio/Theme 2.mid");
-        assert_eq!(fs::read(package.join("audio/Theme 2.mid")).unwrap(), b"MThd");
+        assert_eq!(
+            import_source(&package, &source).unwrap(),
+            "audio/Theme 2.mid"
+        );
+        assert_eq!(
+            fs::read(package.join("audio/Theme 2.mid")).unwrap(),
+            b"MThd"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn moves_a_package_with_its_files() {
+        let root = temporary_root("move");
+        let package = create_package(&root.join("Jingle Bells"), "{}").unwrap();
+        fs::write(package.join("audio/song.mid"), b"MThd").unwrap();
+        let moved = move_package(&package, &root.join("Mine")).unwrap();
+        assert_eq!(moved, root.join("Mine.marble"));
+        assert!(!package.exists());
+        assert_eq!(fs::read(moved.join("audio/song.mid")).unwrap(), b"MThd");
+        assert_eq!(read_project(&moved).unwrap(), "{}");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_a_move_onto_an_existing_package() {
+        let root = temporary_root("move-existing");
+        let package = create_package(&root.join("A"), "{}").unwrap();
+        create_package(&root.join("B"), "{}").unwrap();
+        assert!(matches!(
+            move_package(&package, &root.join("B.marble")),
+            Err(PackageError::AlreadyExists(_))
+        ));
+        assert!(package.join(PROJECT_FILE).is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn copies_nested_folders() {
+        let root = temporary_root("copy");
+        let package = create_package(&root.join("A"), "{}").unwrap();
+        fs::write(package.join("assets/item.txt"), b"x").unwrap();
+        copy_dir(&package, &root.join("Copy.marble")).unwrap();
+        assert_eq!(
+            fs::read(root.join("Copy.marble/assets/item.txt")).unwrap(),
+            b"x"
+        );
+        assert!(root.join("Copy.marble/.bridge").is_dir());
         fs::remove_dir_all(root).unwrap();
     }
 

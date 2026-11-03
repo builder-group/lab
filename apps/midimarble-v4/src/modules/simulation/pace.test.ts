@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { LANE_SPACING } from '@/modules/project';
 import { createBareRunProject } from './fixture-projects';
-import { descentPace, descentPoints, longGapThreshold, paceAt, paceRate, PACE_LIMIT } from './pace';
+import {
+	COLUMN_CLEARANCE,
+	columnRate,
+	descentPace,
+	descentPoints,
+	longGapThreshold,
+	paceAt,
+	paceRate,
+	PACE_LIMIT
+} from './pace';
 import { frameBand } from './placement';
 
 function evenTimes(count: number, gap: number, start = 0.5): number[] {
@@ -36,6 +45,50 @@ describe('pace', () => {
 			expect(paceRate(project)).toBeCloseTo((0.35 / 1.65) * 9.81 * 0.25, 6);
 			// A bounce at 0.52 m/s rises past 0.4 m above about 0.68 s
 			expect(longGapThreshold(project)).toBeCloseTo(0.677, 2);
+		});
+
+		it('should keep a zigzag of several marbles clear of the piece two hits back at half gravity', () => {
+			const duet = (gravityScale: number, count: number) =>
+				createBareRunProject({
+					gravityScale,
+					id: 'pace',
+					title: 'Pace',
+					end: 6,
+					marbles: Array.from({ length: count }, (_, i) => ({
+						x: i * LANE_SPACING,
+						y: 0.6,
+						releaseTime: 0,
+						hitTimes: evenTimes(9, 0.5)
+					}))
+				});
+			const g = 9.81 * 0.5;
+			const bounceRate = (0.35 / 1.65) * g * 0.25;
+			// One marble keeps the descent of its default bounce
+			expect(paceRate(duet(0.5, 1))).toBeCloseTo(bounceRate, 6);
+			// Two marbles descend faster, so a bounce at the pace stays COLUMN_CLEARANCE below the piece two hits back
+			const rate = paceRate(duet(0.5, 2));
+			expect(rate).toBeCloseTo(columnRate(0.5, g), 6);
+			expect(rate).toBeGreaterThan(bounceRate * 1.1);
+			const drop = rate * 0.5;
+			const takeoff = (-drop + (g * 0.25) / 2) / 0.5;
+			expect(drop - (takeoff * takeoff) / (2 * g)).toBeCloseTo(COLUMN_CLEARANCE, 6);
+			// Full gravity at this rhythm already leaves the clearance with the default bounce
+			expect(paceRate(duet(1, 2))).toBeCloseTo((0.35 / 1.65) * 9.81 * 0.25, 6);
+		});
+
+		it('should scale the bounce rise of a long gap with gravity', () => {
+			const solo = (gravityScale: number) =>
+				createBareRunProject({
+					gravityScale,
+					id: 'pace',
+					title: 'Pace',
+					end: 6,
+					marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(9, 0.5) }]
+				});
+			// Rise and pace both halve with gravity, so the threshold stays at about 0.68 s and a 0.75 s note
+			// is a long gap at either speed
+			expect(longGapThreshold(solo(0.5))).toBeCloseTo(longGapThreshold(solo(1)), 3);
+			expect(longGapThreshold(solo(0.5))).toBeLessThan(0.75);
 		});
 	});
 

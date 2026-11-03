@@ -11,6 +11,15 @@ export const commands = {
 	saveProject: (path: string, projectJson: string) => typedError<null, string>(__TAURI_INVOKE("save_project", { path, projectJson })),
 	listRecentProjects: () => __TAURI_INVOKE<RecentProjectDto[]>("list_recent_projects"),
 	importSource: (packagePath: string, sourcePath: string) => typedError<string, string>(__TAURI_INVOKE("import_source", { packagePath, sourcePath })),
+	/**
+	 *  Creates an unsaved project, such as an opened example, in the app's cache folder. It is not added to Recent;
+	 *  `move_project` saves it where the user chooses.
+	 */
+	createTemporaryProject: (name: string, projectJson: string) => typedError<OpenedProjectDto, string>(__TAURI_INVOKE("create_temporary_project", { name, projectJson })),
+	/**  Moves a package to a chosen path and adds it to Recent. Returns the new package path. */
+	moveProject: (path: string, destinationPath: string) => typedError<string, string>(__TAURI_INVOKE("move_project", { path, destinationPath })),
+	/**  Whether a package is an unsaved project in the app's cache folder */
+	isTemporaryProject: (path: string) => __TAURI_INVOKE<boolean>("is_temporary_project", { path }),
 	blenderDetect: () => typedError<BlenderInstallDto, string>(__TAURI_INVOKE("blender_detect")),
 	blenderStart: (packagePath: string, visible: boolean) => typedError<BlenderSessionDto, string>(__TAURI_INVOKE("blender_start", { packagePath, visible })),
 	/**  Sends one operation to the package's worker. Returns the response envelope `{id, ok, result | error}` as JSON. */

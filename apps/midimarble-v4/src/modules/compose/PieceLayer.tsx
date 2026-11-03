@@ -3,8 +3,8 @@ import React from 'react';
 import type { TVec2 } from '@/modules/project';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
-import { paletteOf } from './ComposeRenderer';
-import { offsetPolyline, pieceKind, pieceTime, tubeCeiling } from './scene';
+import { paletteOf, UPCOMING_OPACITY } from './ComposeRenderer';
+import { offsetPolyline, pieceKind, tubeCeiling } from './scene';
 
 /**
  * Pieces the overlay draws in screen space: rails and tunnels, which are thin lines on the wall, and a
@@ -21,8 +21,10 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	useFeatureState(compose.$film);
 	const isFilm = camera.mode === 'camera';
 	const playhead = useFeatureState(cx.$playhead);
-	const selection = useFeatureState(cx.$selection);
+	useFeatureState(cx.$selection);
+	useFeatureState(cx.$playing);
 	useFeatureState(compose.$override);
+	useFeatureState(compose.$placing);
 	useFeatureState(cx.$hidden);
 	if (result == null) return null;
 	const scale = compose.screenScale();
@@ -30,9 +32,7 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	return (
 		<g>
 			{compose.displayPieces(result).map((piece) => {
-				const time = pieceTime(piece);
-				const isGhost = !isFilm && time != null && time > playhead + 1e-4 && !selection.includes(piece.entityId);
-				const opacity = isGhost ? 0.34 : 1;
+				const opacity = !isFilm && compose.isUpcoming(piece, playhead) ? UPCOMING_OPACITY : 1;
 				const kind = pieceKind(piece);
 				if (kind === 'path') return <RailShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={opacity} />;
 				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={opacity} />;
@@ -50,8 +50,8 @@ interface TPieceLayerProps {
 /** Two wires with ties between them, like a toy rail seen from the front */
 export const RailShape: React.FC<TShapeProps> = (props) => {
 	const { compose, piece, scale, opacity, dashed = false, tint } = props;
-	const palette = paletteOf(piece.type);
-	const path = (piece.path ?? []).map((point) => compose.toScreen(point));
+	const palette = props.palette ?? paletteOf(piece.type);
+	const path = finitePoints((piece.path ?? []).map((point) => compose.toScreen(point)));
 	if (path.length < 2) return null;
 	const radius = piece.params['radius'] ?? 0.0025;
 	const wire = Math.max(radius * scale * 0.9, 1.25);
@@ -73,9 +73,9 @@ export const RailShape: React.FC<TShapeProps> = (props) => {
 /** A translucent tube between the floor and the ceiling, open at the mouth where the marble drops in */
 export const TunnelShape: React.FC<TShapeProps> = (props) => {
 	const { compose, piece, scale, opacity, dashed = false, tint } = props;
-	const palette = paletteOf(piece.type);
-	const floor = (piece.path ?? []).map((point) => compose.toScreen(point));
-	const ceiling = tubeCeiling(piece).map((point) => compose.toScreen(point));
+	const palette = props.palette ?? paletteOf(piece.type);
+	const floor = finitePoints((piece.path ?? []).map((point) => compose.toScreen(point)));
+	const ceiling = finitePoints(tubeCeiling(piece).map((point) => compose.toScreen(point)));
 	if (floor.length < 2) return null;
 	const wall = Math.max((piece.params['radius'] ?? 0.002) * 2 * scale, 1.5);
 	const stroke = tint ?? palette.nub;
@@ -96,7 +96,7 @@ export const TunnelShape: React.FC<TShapeProps> = (props) => {
 /** Walls and legs of a switchback as single wires */
 export const SwitchbackShape: React.FC<TShapeProps> = (props) => {
 	const { compose, piece, scale, opacity, dashed = false, tint } = props;
-	const palette = paletteOf(piece.type);
+	const palette = props.palette ?? paletteOf(piece.type);
 	const wire = Math.max((piece.params['radius'] ?? 0.0025) * 2 * scale, 1.5);
 	const color = tint ?? palette.bar;
 	return (
@@ -116,14 +116,21 @@ export const SwitchbackShape: React.FC<TShapeProps> = (props) => {
 	);
 };
 
+/** What the shapes need to draw: wall points to CSS pixels, as the Compose canvas or the Film Draft Preview projects them */
+export interface TScreenProjection {
+	toScreen: (point: TVec2, z?: number) => TVec2;
+}
+
 interface TShapeProps {
-	compose: ComposeCx;
+	compose: TScreenProjection;
 	piece: TResolvedPiece;
 	scale: number;
 	opacity: number;
 	dashed?: boolean;
 	/** Overrides the wire or wall colour, for ghosts that will not fit */
 	tint?: string;
+	/** Overrides the piece type's colours, for a theme's look */
+	palette?: { bar: string; nub: string };
 }
 
 /** Ties every 2.5 cm along the rail, left out when they would crowd together on screen */
@@ -187,6 +194,18 @@ const MinimumShape: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; opacit
 	return <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={palette.bar} strokeWidth={2.5} strokeLinecap="round" opacity={opacity} />;
 };
 
+/** SVG `points` of screen points, leaving out any that did not project to a number */
 export function toPoints(points: TVec2[]): string {
-	return points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+	return finitePoints(points)
+		.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+		.join(' ');
+}
+
+/** The points whose coordinates are both finite */
+function finitePoints(points: TVec2[]): TVec2[] {
+	return points.every(isFinitePoint) ? points : points.filter(isFinitePoint);
+}
+
+function isFinitePoint(point: TVec2): boolean {
+	return Number.isFinite(point.x) && Number.isFinite(point.y);
 }

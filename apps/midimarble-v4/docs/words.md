@@ -49,6 +49,8 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | A piece's appearance | **Skin** | asset, mesh, model | |
 | Motion on a hit | **Reaction** (Press, Wobble, Glow) | animation, driver | |
 | Text on the wall | **Title** | wall text, label | the reference films call them titles |
+| When a title shows | **In** and **Out** in a Timing section, times as m:ss.cc; a Titles track of clips in Film | start/end, keyframes, duration | Final Cut's In and Out points; defaults are the start and the end of the film |
+| The in-app stand-in for Blender's render | **Draft Preview** with the help "Blender draws the real look. This preview follows the same camera." | proxy, fallback, mock | Final Cut's proxy playback, named for what it is |
 | A camera change at a time | **Shot** (Wide, Follow, Push In, Close-Up) | marker, keyframe | film language |
 | The agent | **Agent** (Claude Code, Codex as the engine name in its menu) | AI, assistant, bot | |
 
@@ -116,6 +118,7 @@ The timeline's left column is **Tracks**:
 1. **Song** at the top: the song's file name and kind ("MIDI · 120 BPM" or "Recording · 0:35"). It expands into a piano roll of every note, coloured by the marble that plays it, Backing in grey. Selecting notes and pressing 1 to 9 hands them to that marble, 0 makes them Backing; the context menu says "Play With ▸ Marble 1 … · New Marble · Backing". A recording shows its waveform and its beats
 2. **One track per marble**: the marble's name and instrument, Mute and Solo, its hits in a flat row with their timing status; it expands into a piano roll of just its notes
 3. **Camera** in Film: shots
+4. **Titles** in Film, when the project has titles: one clip per title from its In to its Out time
 
 A note belongs to exactly one place: a marble, or Backing. A platform exists to play its note, so it goes with it: handed to another marble, the platform plays the note in that marble's run; handed to Backing, the platform is removed. A notice says which, and undo brings it back. (Leaving it Free on the wall would put an obstacle in every marble's path.)
 
@@ -125,7 +128,7 @@ A note belongs to exactly one place: a marble, or Backing. A platform exists to 
 
 ### Start screen
 
-Actions: **New Project…** (it asks where to save), **Import Song…** (MIDI or recording, one picker), **Open Project…**. Examples below them: Songs and Techniques. Opening an example opens a copy named after it, saved only when it is changed, so Recent does not fill with copies.
+Actions: **New Project…** (it asks where to save), **Import Song…** (MIDI or recording, one picker), **Open Project…**. Examples below them: Songs and Techniques. Opening an example opens it unsaved under its own name, like an untitled document, so Recent does not fill with copies. The title says **Not Saved** once it has changes; Save asks where to keep it, and closing it with changes asks "Save changes to Jingle Bells?" · Save… · Don't Save · Cancel.
 
 ## Beginner path
 

@@ -30,6 +30,16 @@ export interface TRenderPiece {
 	ghost: boolean;
 	/** Current rotation, which differs from the resolved angle for moving pieces such as windmills */
 	angle: number;
+	/** Overrides the piece type's flat colours, for the Film Draft Preview's theme look */
+	colors?: { bar: string; nub: string };
+}
+
+/** Wall surface in the orbit and camera views: its colour and the peg hole colour, or no holes for a plain wall */
+export interface TWallLook {
+	color: string;
+	holes: string | null;
+	/** Hole radius as a fraction of the 2.5 cm peg pitch; 0.09 when absent */
+	holeRadius?: number;
 }
 
 export interface TRenderMarble {
@@ -147,6 +157,20 @@ export class ComposeRenderer {
 		this.invalidate();
 	}
 
+	/** Repaints the wall texture, such as a theme's wall in the Film Draft Preview; null restores the pegboard */
+	setWallLook(look: TWallLook | null): void {
+		const material = this.wall.material;
+		const previous = material.map;
+		material.map = createPegTexture(look ?? undefined);
+		if (previous != null) {
+			material.map.repeat.copy(previous.repeat);
+			material.map.offset.copy(previous.offset);
+			previous.dispose();
+		}
+		material.needsUpdate = true;
+		this.invalidate();
+	}
+
 	/** Platforms and windmills; rails and tunnels are flat lines drawn by the canvas overlay */
 	setPieces(items: TRenderPiece[]): void {
 		const seen = new Set<string>();
@@ -173,7 +197,7 @@ export class ComposeRenderer {
 			const definition = getPieceDefinition(piece.type);
 			object.group.position.set(piece.position.x, piece.position.y, definition?.wallOffset ?? 0);
 			object.group.rotation.z = item.angle;
-			for (const part of object.parts) part.mesh.material = this.pieceMaterial(piece.type, part.role, item.ghost);
+			for (const part of object.parts) part.mesh.material = this.pieceMaterial(piece.type, part.role, item.ghost, item.colors);
 			// Ghosts draw after solid content so transparency blends over it
 			object.group.renderOrder = item.ghost ? 2 + index : 1;
 			for (const part of object.parts) part.mesh.renderOrder = object.group.renderOrder;
@@ -438,15 +462,15 @@ export class ComposeRenderer {
 		return parts;
 	}
 
-	private pieceMaterial(type: string, part: 'bar' | 'nub', ghost: boolean): THREE.Material {
-		const key = `piece:${type}:${part}:${ghost}`;
+	private pieceMaterial(type: string, part: 'bar' | 'nub', ghost: boolean, colors?: { bar: string; nub: string }): THREE.Material {
+		const key = colors != null ? `piece:${colors.bar}:${colors.nub}:${part}:${ghost}` : `piece:${type}:${part}:${ghost}`;
 		let material = this.materials.get(key);
 		if (material == null) {
-			const palette = piecePalette[type] ?? piecePalette['platform'];
+			const palette = colors ?? piecePalette[type] ?? piecePalette['platform'];
 			material = new THREE.MeshLambertMaterial({
 				color: part === 'bar' ? palette?.bar : palette?.nub,
 				transparent: ghost,
-				opacity: ghost ? 0.32 : 1,
+				opacity: ghost ? UPCOMING_OPACITY : 1,
 				depthWrite: !ghost
 			});
 			this.materials.set(key, material);
@@ -464,6 +488,12 @@ export class ComposeRenderer {
 		return material;
 	}
 }
+
+/**
+ * Opacity of pieces the marble has not reached yet at the playhead. Light enough to tell apart, solid enough
+ * not to read as the dashed suggestion ghosts.
+ */
+export const UPCOMING_OPACITY = 0.62;
 
 /** Flat toy colours per piece type: the body and a darker shade for brackets, hubs and outlines */
 export const piecePalette: Record<string, { bar: string; nub: string }> = {
@@ -494,19 +524,21 @@ interface TPieceObject {
 }
 
 /** Pegboard holes for the orbit wall, one hole per texture repeat */
-function createPegTexture(): THREE.Texture {
+function createPegTexture(look: TWallLook = { color: '#f2f1ee', holes: 'rgba(0, 0, 0, 0.16)' }): THREE.Texture {
 	const size = 64;
 	const canvas = document.createElement('canvas');
 	canvas.width = size;
 	canvas.height = size;
 	const context = canvas.getContext('2d');
 	if (context != null) {
-		context.fillStyle = '#f2f1ee';
+		context.fillStyle = look.color;
 		context.fillRect(0, 0, size, size);
-		context.fillStyle = 'rgba(0, 0, 0, 0.16)';
-		context.beginPath();
-		context.arc(size / 2, size / 2, size * 0.09, 0, Math.PI * 2);
-		context.fill();
+		if (look.holes != null) {
+			context.fillStyle = look.holes;
+			context.beginPath();
+			context.arc(size / 2, size / 2, size * (look.holeRadius ?? 0.09), 0, Math.PI * 2);
+			context.fill();
+		}
 	}
 	const texture = new THREE.CanvasTexture(canvas);
 	texture.wrapS = THREE.RepeatWrapping;

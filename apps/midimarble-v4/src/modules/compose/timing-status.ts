@@ -16,9 +16,15 @@ export interface TTimingNames {
 
 /**
  * Timing of a linked piece for the status pill, with the words of the Timing statuses table in words.md: On Time
- * in green, "12 ms Late" in amber, Missed, Stopped and Blocked in red, Open for a note without a platform
+ * in green, "12 ms Late" in amber, Missed, Stopped and Blocked in red, Open for a note without a platform, and
+ * `unreachable` (Too Soon or Out of Reach) in amber for an open note no platform can play yet
  */
-export function timingStatus(piece: Pick<TResolvedPiece, 'status'> | undefined, hit: THitResult | undefined, names: TTimingNames = {}): TTimingStatus {
+export function timingStatus(
+	piece: Pick<TResolvedPiece, 'status'> | undefined,
+	hit: THitResult | undefined,
+	names: TTimingNames = {},
+	unreachable?: { label: string; detail: string } | null
+): TTimingStatus {
 	const marble = names.marble ?? 'The marble';
 	const target = names.piece == null ? 'this piece' : names.piece;
 	if (piece?.status === 'blocked' || hit?.status === 'blocked') {
@@ -39,6 +45,7 @@ export function timingStatus(piece: Pick<TResolvedPiece, 'status'> | undefined, 
 			if (hit.error == null) return { tone: 'bad', label: 'Missed', detail: `${marble} passes ${target} without touching it` };
 			return { tone: 'bad', label: 'Missed', detail: landsDetail(hit.error) };
 		case 'open':
+			if (unreachable != null) return { tone: 'warn', label: unreachable.label, detail: unreachable.detail };
 			return { tone: 'neutral', label: 'Open', detail: 'No platform plays this note yet' };
 	}
 }

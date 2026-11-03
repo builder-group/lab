@@ -1,6 +1,8 @@
 import type { TLibraryItem } from '@/modules/library';
 import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { sampleCameraTrack } from '@/modules/camera';
 import { frameBand, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
+import { filmCamera, imageToWall } from './film-camera';
 
 // Project edits made from the Design workspace. Each function returns the commands of one undoable edit.
 
@@ -181,8 +183,9 @@ export function addWallTextCommands(point: TVec2, text = DEFAULT_WALL_TEXT.text)
 }
 
 /**
- * Wall point under a click on the preview, in 0..1 image coordinates. Approximates the film camera as a
- * front view of the frame band centred on the marble at the playhead; the inspector refines the position.
+ * Wall point under a click on the preview, in 0..1 image coordinates, through the film's follow camera at `time`.
+ * Without a camera track it approximates the film camera as a front view of the frame band centred on the marble
+ * at the playhead; the inspector refines the position.
  */
 export function previewPointToWall(
 	project: TProject,
@@ -191,6 +194,9 @@ export function previewPointToWall(
 	u: number,
 	v: number
 ): TVec2 {
+	const camera = result != null ? filmCamera(project, result).track : null;
+	const point = camera != null ? imageToWall(sampleCameraTrack(camera, time), project.frame.width / project.frame.height, u, v) : null;
+	if (point != null) return point;
 	const band = frameBand(project);
 	const marble = project.entities.find((entity) => entity.components.marble != null);
 	const track = result?.marbles.find((item) => item.entityId === marble?.id);
