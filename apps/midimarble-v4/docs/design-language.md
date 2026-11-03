@@ -37,6 +37,18 @@ Reference apps:
 
 Names, labels and every other string follow [words.md](words.md), which takes precedence over wording elsewhere in this document.
 
+## Round 3 decisions: one outline, one library, themes that dress everything
+
+From the owner's review on 2026-11-03 night. Goal: films at the level of the reference channels (virtual3dworld_1000, marvinblend), made reliably by beginners and power users alike. Compose is where both work the same way; Film is where they differ: a beginner picks a theme or asks the agent, a power user opens Blender. Wording follows [words.md](words.md).
+
+- **Title bar carries the project's actions.** Left: sidebar toggle, Home. Centre: title. Right: the Blender status chip, Agent, **Export Film…** (the one accent button, the only export button in the window), panel toggles. The Blender chip shows its state with a dot and a word (Ready, Starting, Rendering Preview, Not Installed, Error) and opens a menu: Open in Blender, Restart Blender, Show Blender Log. The inspector header keeps only the zoom
+- **One outline in both workspaces.** The sidebar's Layers tree is the outline of the whole project: Song, each Marble with the pieces it plays or that follow it in hit order, Free Pieces, Camera with its shots, Titles. Rows that also have a timeline track carry a small track glyph; selecting a row selects its track and the other way round. The timeline's track column is the timed part of the same outline, in the same order. One Add menu (+) serves both places: Marble, Piece ▸, Title, Shot, Song…
+- **Sidebar tabs: Layers and Library**, like Figma's Layers and Assets. The Library is one browser in both workspaces, filtered by what you are doing: in Compose it lists pieces to place (the Insert popover is its quick form), in Film it lists themes and skins to dress the run
+- **Themes dress everything.** A theme is a complete look: wall, light, marble and a default skin for every piece type, plus the variants it offers per type (Brass: Gold, Copper, Silver, Device, Key, Knob platforms). Picking a theme card restyles the film. A theme has options that change the whole look at once, such as **Colour by Note** (each platform takes its note's colour, like boomwhackers). Power users duplicate a theme to change its options; the agent can make a new theme from a sentence ("New Theme with Agent…")
+- **Skins follow the selection.** With a platform selected, the Library shows platform skins: the current theme's variants first, then skins made with the agent or imported. Click applies to the selection, ⌥-click to every piece of that type. With nothing selected it shows themes
+- **No storage words.** There is no "In This Project" or "My Library". Every item shows where it comes from as a quiet line (Brass Theme, Made with Agent, Imported) and an In Use badge when the project uses it. A star (**Keep in Library**) makes an item available in every project; items a project uses are copied into it silently so it stays portable
+- **Blender for power users, in place.** Open in Blender opens the scene file; edits made there show in Layers as a Detached glyph and in the inspector as one row with Reset to Theme. Nothing else in the app talks about Blender internals
+
 ## Round 2 decisions
 
 From the owner's review of the open-canvas build on 2026-11-03. These take precedence over older sections below until those are rewritten to match.

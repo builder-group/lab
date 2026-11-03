@@ -34,8 +34,15 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | How fast marbles fall | **Marble Speed** | gravity, physics scale | "Gravity" only in its tooltip |
 | The output | **Film**; the action **Export Film…** | render, video, encode | Final Cut's Export File; "render" only in progress text |
 | Render quality | **Draft**, **Standard**, **High**, **Best** with size and frame rate as detail | fast, balanced, Eevee, Workbench, samples | Blender names only in tooltips |
-| Blender | **Blender** (status beside Export) | worker, bridge, mailbox | |
-| A look preset | **Theme** (Pegboard, Brass) | style, material | |
+| Blender | **Blender**: a status chip in the title bar (Ready, Starting, Rendering Preview, Not Installed, Error) with Open in Blender, Restart Blender, Show Blender Log | worker, bridge, mailbox | |
+| Changed in Blender | **Detached** with **Reset to Theme** | unlinked, taken over, edited | |
+| The project's outline | **Layers**: Song, Marbles, Free Pieces, Camera, Titles | tree, scene graph | Figma |
+| A look preset | **Theme** (Pegboard, Brass): wall, light, marble and a default skin per piece type | style, material, preset | |
+| A theme setting that changes the whole look | **Theme option** (Colour by Note) | parameter | |
+| The browser of themes, skins and pieces | **Library** | assets, My Library, In This Project | Figma's Assets panel; one place, no storage scopes |
+| Making an item available in every project | **Keep in Library** (star) | save to My Library, publish | |
+| An item the project uses | **In Use** badge | applied, local | |
+| Where an item comes from | **Brass Theme**, **Made with Agent**, **Imported** | scope, source | |
 | A piece's appearance | **Skin** | asset, mesh, model | |
 | Motion on a hit | **Reaction** (Press, Wobble, Glow) | animation, driver | |
 | Text on the wall | **Title** | wall text, label | the reference films call them titles |
