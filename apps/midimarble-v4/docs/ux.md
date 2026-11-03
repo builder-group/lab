@@ -22,6 +22,20 @@ The default frame is 9:16. It can be changed, but Compose warnings use the chose
 
 Compose is the app's editor. It has full direct control and a deliberately small set of pieces.
 
+### Open canvas
+
+This section takes precedence over the step-loop sections below where they differ; it follows the owner's hands-on test.
+
+Compose is an open canvas like Figma. Everything on it is an element the user can add, select, move, rotate and delete freely:
+
+- **Marbles are elements.** Adding a marble with the Marble tool places its release point on the canvas and creates its lane in the timeline. A marble shows its live trajectory and the dots of its lane's hits.
+- **Pieces are placed anywhere.** Platforms, windmills and tunnels are drawn or dropped at any point on the wall and act physically at once. Placement on a trajectory is a convenience, not a requirement.
+- **Linking is optional.** Clicking a hit dot with the Platform tool places a linked platform that plays that note. Dragging a free platform onto a dot snaps it there and offers to link it; a linked platform can be unlinked and stays where it is. Only linked platforms play notes; windmills, rails, tunnels and switchbacks never do.
+- **Rails are drawn with a pen tool**, like Figma's: click to add points, drag for curves, Return or a click on the first point to finish. A rail that crosses a trajectory simply interacts with the marble; it can optionally be anchored to the trajectory so it follows upstream edits.
+- **Assists are contextual.** Next, Repeat, Mirror, Auto place and Continue appear in a small contextual bar next to the selected last piece or the next open dot, like Figma's selection toolbar, and their keys keep working. The floating tool bar holds tools only: Move, Hand, Marble, Platform, Pen, Tunnel, Windmill.
+- **Transport lives in the timeline.** Play, previous and next hit and the time display sit in the timeline header, like a video editor. The window toolbar keeps the workspace switch and panel toggles.
+- **Speed is a project setting.** The World panel shown without a selection sets the marble speed (gravity scale). Slower speed gives smaller hops and denser columns while every linked hit stays on time. Platforms keep their own bounce.
+
 ### Music lanes
 
 Each marble has one lane. A lane is a row of hits on the shared timeline. There is no piano roll.
