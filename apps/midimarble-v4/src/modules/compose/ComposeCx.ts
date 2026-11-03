@@ -46,6 +46,7 @@ import {
 	isBoundsVisible,
 	panBy,
 	screenToWorld,
+	worldToScreen,
 	zoomAt,
 	type TBounds,
 	type TPadding,
@@ -149,6 +150,7 @@ export class ComposeCx {
 				renderer.setPlayhead(value);
 				this.syncPieces();
 				this.syncMarbles();
+				this.followPlayback();
 			}),
 			this.studio.$history.listen(() => {
 				// Release positions show immediately, before the new result arrives
@@ -286,6 +288,51 @@ export class ComposeCx {
 		this.fit(contentBounds(project, this.result));
 	}
 
+	/**
+	 * Zooms to the width of the film frame and centres the focused marble at the playhead. This is the
+	 * working view: pieces read at their real size, like the camera of the finished film.
+	 */
+	fitFrame(): void {
+		const project = this.project;
+		const viewport = this.$viewport.get();
+		if (project == null || viewport.width <= 1) return;
+		const band = frameBand(project);
+		const focus = this.marbleFocus() ?? { x: band.centerX, y: 0 };
+		const halfWidth = band.halfWidth * 1.35;
+		this.fit({ minX: band.centerX - halfWidth, maxX: band.centerX + halfWidth, minY: focus.y - 0.02, maxY: focus.y + 0.02 });
+		// The marble sits in the upper third so the path ahead stays visible, like the film camera
+		this.$camera.set((camera) => ({
+			...camera,
+			view: { ...camera.view, center: { x: band.centerX, y: focus.y - (viewport.height * 0.18) / camera.view.scale } }
+		}));
+	}
+
+	/** Position of the selected or first marble at the playhead, or its release before it starts */
+	private marbleFocus(): TVec2 | null {
+		const project = this.project;
+		if (project == null) return null;
+		const selected = this.studio.$selection.get();
+		const marbles = project.entities.filter((entity) => entity.components.marble != null);
+		const marble = marbles.find((entity) => selected.includes(entity.id)) ?? marbles[0];
+		if (marble == null) return null;
+		const track = this.result?.marbles.find((item) => item.entityId === marble.id);
+		const at = track == null ? null : trajectoryAt(track.samples, this.studio.$playhead.get());
+		return at?.position ?? marble.components.release?.position ?? null;
+	}
+
+	/** While playing, keeps the marble inside the middle of the canvas by panning vertically */
+	private followPlayback(): void {
+		const camera = this.$camera.get();
+		const viewport = this.$viewport.get();
+		if (!this.studio.$playing.get() || camera.mode !== '2d' || viewport.height <= 1) return;
+		const focus = this.marbleFocus();
+		if (focus == null) return;
+		const screen = worldToScreen(camera.view, viewport, focus);
+		if (screen.y > viewport.height * 0.2 && screen.y < viewport.height * 0.6) return;
+		const centerY = focus.y - (viewport.height * 0.18) / camera.view.scale;
+		this.$camera.set({ ...camera, view: { ...camera.view, center: { x: camera.view.center.x, y: centerY } } });
+	}
+
 	fitSelection(): void {
 		const project = this.project;
 		const result = this.result;
@@ -331,7 +378,7 @@ export class ComposeCx {
 		const project = this.project;
 		if (project == null || this.framedProjectId === project.id || this.result == null || this.$viewport.get().width <= 1) return;
 		this.framedProjectId = project.id;
-		this.fitAll();
+		this.fitFrame();
 	}
 
 	/** Pans to entities that are out of view, keeping the zoom unless they do not fit */
@@ -763,6 +810,7 @@ export class ComposeCx {
 				return true;
 			case 'fit':
 				if (action.target === 'all') this.fitAll();
+				else if (action.target === 'frame') this.fitFrame();
 				else this.fitSelection();
 				return true;
 			case 'tool':

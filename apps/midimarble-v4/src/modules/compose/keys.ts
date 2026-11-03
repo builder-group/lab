@@ -21,7 +21,7 @@ export interface TKeyContext {
 
 export type TComposeKeyAction =
 	| { type: 'zoom'; factor: number }
-	| { type: 'fit'; target: 'all' | 'selection' }
+	| { type: 'fit'; target: 'all' | 'selection' | 'frame' }
 	| { type: 'tool'; tool: 'select' | 'hand' }
 	| { type: 'pieceType'; pieceType: string }
 	| { type: 'next' }
@@ -51,8 +51,9 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 		return null;
 	}
 	if (input.metaKey || input.ctrlKey || input.altKey) return null;
-	if (input.shiftKey && (input.code === 'Digit1' || input.code === 'Digit2')) {
-		return { type: 'fit', target: input.code === 'Digit1' ? 'all' : 'selection' };
+	if (input.shiftKey && (input.code === 'Digit1' || input.code === 'Digit2' || input.code === 'Digit3')) {
+		const target = input.code === 'Digit1' ? 'all' : input.code === 'Digit2' ? 'selection' : 'frame';
+		return { type: 'fit', target };
 	}
 
 	switch (input.key) {

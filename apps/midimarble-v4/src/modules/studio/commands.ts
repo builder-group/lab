@@ -105,6 +105,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.zoomIn', title: 'Zoom In', section: 'View', shortcut: '⌘+', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(2) },
 	{ id: 'view.zoomOut', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(0.5) },
 	{ id: 'view.fitAll', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
+	{ id: 'view.fitFrame', title: 'Zoom to Film Frame', section: 'View', shortcut: '⇧3', keywords: 'frame film width follow marble', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitFrame() },
 	{ id: 'view.fitSelection', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => compose(cx)?.fitSelection() },
 	{ id: 'view.wall', title: 'Wall View', section: 'View', keywords: '2d front', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === '2d', run: (cx) => compose(cx)?.setMode('2d') },
 	{ id: 'view.orbit', title: 'Orbit View', section: 'View', keywords: '3d perspective', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'orbit', run: (cx) => compose(cx)?.setMode('orbit') },
@@ -209,6 +210,7 @@ export type TCommandId =
 	| 'view.zoomOut'
 	| 'view.fitAll'
 	| 'view.fitSelection'
+	| 'view.fitFrame'
 	| 'view.wall'
 	| 'view.orbit'
 	| 'play.toggle'

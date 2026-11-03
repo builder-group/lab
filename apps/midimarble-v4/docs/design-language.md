@@ -55,9 +55,10 @@ Floating UI belongs to the canvas, as in Figma UI3: the tool bar floats at the b
 - Suggestions are ghosts: dashed, see-through pieces with dashed dots and a small hint chip showing the key that accepts them
 
 - Two-finger scroll pans, pinch zooms, Space and drag pans
-- ⌘+ and ⌘− zoom, ⇧1 fits everything, ⇧2 fits the selection
+- ⌘+ and ⌘− zoom, ⇧1 fits everything, ⇧2 fits the selection, ⇧3 zooms to the film frame width around the marble
 - The 2D and orbit toggle sits in the canvas corner; Blender users can orbit with the middle mouse button
 - The dot grid fades between densities while zooming
+- Projects open in the film-frame view, with the marble in the upper third; during playback the canvas follows the marble vertically
 
 ## Selection and editing
 
