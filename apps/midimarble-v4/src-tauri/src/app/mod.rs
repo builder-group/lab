@@ -1,7 +1,7 @@
 mod commands;
 pub mod window;
 
-use crate::modules::package;
+use crate::modules::{blender, package};
 use specta_typescript::Typescript;
 use tauri_specta::{collect_commands, Builder as SpectaBuilder};
 
@@ -13,6 +13,13 @@ pub fn run() {
         package::commands::save_project,
         package::commands::list_recent_projects,
         package::commands::import_source,
+        blender::commands::blender_detect,
+        blender::commands::blender_start,
+        blender::commands::blender_request,
+        blender::commands::blender_stop,
+        blender::commands::blender_status,
+        blender::commands::blender_show,
+        blender::commands::write_package_file,
     ]);
 
     #[cfg(debug_assertions)]
@@ -27,6 +34,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(blender::BlenderState::default())
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             // https://docs.rs/tauri-specta/2.0.0-rc.21/tauri_specta/index.html

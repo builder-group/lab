@@ -1,0 +1,357 @@
+"""`apply_scene` and `inspect`: app-owned holders, skins and keyframes from a scene description.
+
+Coordinate mapping: a wall point (x, y) at distance d from the wall becomes Blender (x, -d, y). A wall angle a
+(counter-clockwise as seen from the front) becomes a rotation of -a around Blender +Y, which is a
+counter-clockwise rotation as seen by the front camera looking along +Y.
+"""
+import json
+import math
+import time
+
+import bpy
+import numpy as np
+
+from . import anim, skins, studio
+from .util import (
+    DETACHED_COLLECTION,
+    MANAGED_COLLECTION,
+    OWNER,
+    WorkerError,
+    descendants,
+    ensure_collection,
+    finite,
+    link_only_to,
+    resolve_package_path,
+    tag,
+)
+
+SCENE_DESCRIPTION_VERSION = 1
+# Space between a marble and the wall so its skin never intersects the wall plane
+MARBLE_WALL_GAP = 0.0005
+DEFAULT_PIECE_DEPTH = 0.02
+# `mm_hit` rises to 1 at a hit and decays to 0 over this many seconds
+HIT_DECAY = 0.25
+HIT_TAU = HIT_DECAY / 5
+
+KEYED_PATHS = ('location', 'rotation_euler', '["mm_hit"]')
+# Transform channels as [location xyz, rotation xyz, scale xyz]; animated channels are excluded from link checks
+MARBLE_ANIMATED = {0, 2, 4}
+MOVING_PIECE_ANIMATED = {4}
+
+
+def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
+    began = time.perf_counter()
+    description_path = resolve_package_path(project_dir, args.get('descriptionPath'))
+    if not description_path.is_file():
+        raise WorkerError('NOT_FOUND', 'Scene description not found: ' + str(description_path))
+    description = json.loads(description_path.read_text())
+    if description.get('version') != SCENE_DESCRIPTION_VERSION:
+        raise WorkerError('UNSUPPORTED_VERSION', 'Unsupported scene description version: ' + str(description.get('version')))
+    fps = finite(description.get('fps'), 'fps')
+    duration = finite(description.get('duration'), 'duration')
+    if fps <= 0 or duration < 0:
+        raise WorkerError('INVALID_DESCRIPTION', 'fps must be positive and duration non-negative')
+    marbles = description.get('marbles') or []
+    pieces = description.get('pieces') or []
+    relink = set(args.get('relink') or [])
+
+    # Read every motion file before changing the scene, so a bad file leaves the scene untouched
+    marble_motion = {marble['id']: read_motion(project_dir, marble['motionPath'], 4, marble.get('sampleCount')) for marble in marbles}
+    piece_motion = {
+        piece['id']: read_motion(project_dir, piece['motionPath'], 2, piece.get('sampleCount'))
+        for piece in pieces
+        if piece.get('motionPath')
+    }
+
+    scene = bpy.context.scene
+    set_frame_rate(scene, fps, duration)
+    studio.set_resolution(scene, description.get('frame') or {'width': 9, 'height': 16})
+    managed = ensure_collection(MANAGED_COLLECTION)
+    holders = {obj['mm_id']: obj for obj in managed.objects if is_holder(obj)}
+    report = {'created': [], 'updated': [], 'skipped': [], 'removed': [], 'keyframes': 0}
+    total = max(1, len(marbles) + len(pieces))
+
+    for index, marble in enumerate(marbles):
+        progress(index / total, 'Writing marble ' + marble.get('name', marble['id']))
+        holder, created = take_holder(holders, managed, marble['id'], marble.get('name'), 'marble', float(marble['radius']))
+        if not created and marble['id'] not in relink and link_state(holder)[0] == 'unlinked':
+            report['skipped'].append(marble['id'])
+            continue
+        report['keyframes'] += write_marble(holder, marble, marble_motion[marble['id']], fps)
+        ensure_skin(holder, 'marble', marble, managed)
+        report['created' if created else 'updated'].append(marble['id'])
+
+    for index, piece in enumerate(pieces):
+        progress((len(marbles) + index) / total, 'Writing piece ' + piece.get('name', piece['id']))
+        holder, created = take_holder(holders, managed, piece['id'], piece.get('name'), 'piece', 0.02)
+        if not created and piece['id'] not in relink and link_state(holder)[0] == 'unlinked':
+            report['skipped'].append(piece['id'])
+            continue
+        report['keyframes'] += write_piece(holder, piece, piece_motion.get(piece['id']), fps)
+        ensure_skin(holder, 'piece', piece, managed)
+        report['created' if created else 'updated'].append(piece['id'])
+
+    if holders:
+        detached = ensure_collection(DETACHED_COLLECTION)
+        for mm_id, holder in holders.items():
+            detach(holder, managed, detached)
+            report['removed'].append(mm_id)
+
+    bounds = scene_bounds(marbles, marble_motion, pieces)
+    report['studioCreated'] = studio.ensure_studio(scene, bounds)
+    report['cameraFramed'] = studio.frame_camera(scene, bounds)
+    scene['mm_revision'] = int(description.get('revision', 0))
+    scene['mm_project_id'] = str(description.get('projectId', ''))
+    scene.frame_set(scene.frame_current)
+    report.update({
+        'fps': fps,
+        'frameStart': scene.frame_start,
+        'frameEnd': scene.frame_end,
+        'revision': scene['mm_revision'],
+        'ms': round((time.perf_counter() - began) * 1000, 1),
+    })
+    return report
+
+
+def inspect():
+    managed = bpy.data.collections.get(MANAGED_COLLECTION)
+    detached = bpy.data.collections.get(DETACHED_COLLECTION)
+    holders = []
+    for obj in (managed.objects if managed else []):
+        if not is_holder(obj):
+            continue
+        state, reason = link_state(obj)
+        holders.append({
+            'mmId': obj['mm_id'],
+            'role': obj['mm_role'],
+            'name': obj.name,
+            'link': state,
+            'reason': reason,
+            'skins': [child.name for child in obj.children],
+        })
+    studio_collection = bpy.data.collections.get(studio.STUDIO_COLLECTION)
+    scene = bpy.context.scene
+    return {
+        'holders': holders,
+        'detached': [obj.name for obj in (detached.objects if detached else [])],
+        'studio': [
+            {'name': obj.name, 'role': obj.get('mm_role')}
+            for obj in (studio_collection.objects if studio_collection else [])
+        ],
+        'revision': scene.get('mm_revision'),
+        'frameStart': scene.frame_start,
+        'frameEnd': scene.frame_end,
+        'fps': scene.render.fps / scene.render.fps_base,
+    }
+
+
+# Holders
+
+
+def is_holder(obj):
+    return obj.get('mm_owner') == OWNER and obj.get('mm_role') in ('marble', 'piece') and obj.type == 'EMPTY'
+
+
+def take_holder(holders, managed, mm_id, name, role, display_size):
+    holder = holders.pop(mm_id, None)
+    if holder is not None:
+        if name and holder.name != name:
+            holder.name = name
+        return holder, False
+    holder = bpy.data.objects.new(name or mm_id, None)
+    holder.empty_display_type = 'PLAIN_AXES'
+    holder.empty_display_size = display_size
+    holder.rotation_mode = 'XYZ'
+    holder.lock_location = (True, True, True)
+    holder.lock_rotation = (True, True, True)
+    holder.lock_scale = (True, True, True)
+    tag(holder, mm_id, role)
+    managed.objects.link(holder)
+    return holder, True
+
+
+def ensure_skin(holder, kind, entity, managed):
+    """Keeps an existing child skin and its local offset; creates the default skin only for a bare holder"""
+    if holder.children:
+        for child in holder.children:
+            skins.refresh_default_skin(child, kind, entity)
+        return
+    if kind == 'marble':
+        skins.create_marble_skin(holder, entity, managed)
+    else:
+        skins.create_piece_skin(holder, entity, managed)
+
+
+def detach(holder, managed, detached):
+    """Moves the holder's skins to the detached collection in place and deletes the holder"""
+    for child in list(holder.children):
+        matrix = child.matrix_world.copy()
+        child.parent = None
+        child.matrix_world = matrix
+        for obj in [child, *descendants(child)]:
+            link_only_to(obj, detached, remove_from=managed)
+    action = holder.animation_data.action if holder.animation_data else None
+    bpy.data.objects.remove(holder)
+    if action is not None and action.get('mm_owner') == OWNER and action.users == 0:
+        bpy.data.actions.remove(action)
+
+
+# Link state
+
+
+def transform_values(holder):
+    return [*holder.location, *holder.rotation_euler, *holder.scale]
+
+
+def remember_written(holder, animated):
+    values = transform_values(holder)
+    holder['mm_written'] = [round(value, 6) for value in values]
+    holder['mm_animated'] = sorted(animated)
+    holder['mm_keys'] = anim.keyframe_signature(holder, KEYED_PATHS)
+
+
+def link_state(holder):
+    """`unlinked` when the user marked the holder or changed what the app last wrote"""
+    if holder.get('mm_link') == 'unlinked':
+        return 'unlinked', 'marked'
+    written = holder.get('mm_written')
+    if written is None:
+        return 'linked', None
+    animated = set(holder.get('mm_animated', []))
+    current = transform_values(holder)
+    for index, value in enumerate(written):
+        if index not in animated and abs(current[index] - value) > 1e-5:
+            return 'unlinked', 'transform'
+    signature = list(holder.get('mm_keys', [0.0, 0]))
+    current_signature = anim.keyframe_signature(holder, KEYED_PATHS)
+    if current_signature[1] != signature[1] or abs(current_signature[0] - signature[0]) > 1e-2 + abs(signature[0]) * 1e-6:
+        return 'unlinked', 'keyframes'
+    return 'linked', None
+
+
+# Keyframes
+
+
+def write_marble(holder, marble, motion, fps):
+    radius = finite(marble['radius'], 'radius')
+    channelbag = anim.ensure_channelbag(holder)
+    anim.clear_channels(holder, KEYED_PATHS)
+    holder.location = (0.0, -(radius + MARBLE_WALL_GAP), 0.0)
+    holder.rotation_euler = (0.0, 0.0, 0.0)
+    holder.scale = (1.0, 1.0, 1.0)
+    holder.empty_display_size = radius
+    count = 0
+    if len(motion):
+        frames, times = frames_covering(motion[:, 0], fps)
+        x = np.interp(times, motion[:, 0], motion[:, 1])
+        y = np.interp(times, motion[:, 0], motion[:, 2])
+        angle = np.interp(times, motion[:, 0], np.unwrap(motion[:, 3]))
+        anim.write_fcurve(channelbag, 'location', 0, frames, x)
+        anim.write_fcurve(channelbag, 'location', 2, frames, y)
+        anim.write_fcurve(channelbag, 'rotation_euler', 1, frames, -angle)
+        count = len(frames) * 3
+    remember_written(holder, MARBLE_ANIMATED)
+    return count
+
+
+def write_piece(holder, piece, motion, fps):
+    params = piece.get('params') or {}
+    depth = float(params.get('depth', DEFAULT_PIECE_DEPTH))
+    wall_offset = finite(piece.get('wallOffset', 0.0), 'wallOffset')
+    position = piece['position']
+    channelbag = anim.ensure_channelbag(holder)
+    anim.clear_channels(holder, KEYED_PATHS)
+    holder.location = (finite(position['x'], 'x'), -(wall_offset + depth / 2), finite(position['y'], 'y'))
+    holder.rotation_euler = (0.0, -finite(piece.get('angle', 0.0), 'angle'), 0.0)
+    holder.scale = (1.0, 1.0, 1.0)
+    count = 0
+    animated = set()
+    if motion is not None and len(motion):
+        frames, times = frames_covering(motion[:, 0], fps)
+        angle = np.interp(times, motion[:, 0], np.unwrap(motion[:, 1]))
+        anim.write_fcurve(channelbag, 'rotation_euler', 1, frames, -angle)
+        count += len(frames)
+        animated = MOVING_PIECE_ANIMATED
+    holder['mm_hit'] = 0.0
+    holder.id_properties_ui('mm_hit').update(min=0.0, max=1.0, soft_min=0.0, soft_max=1.0)
+    hit_frames, hit_values = hit_keys(piece.get('hitTimes') or [], fps)
+    anim.write_fcurve(channelbag, '["mm_hit"]', 0, hit_frames, hit_values)
+    count += len(hit_frames)
+    holder['mm_hit_times'] = [float(value) for value in piece.get('hitTimes') or []]
+    remember_written(holder, animated)
+    return count
+
+
+def frames_covering(times, fps):
+    """Whole frames inside the sampled time range; the curve holds its end values outside it"""
+    first = math.ceil(times[0] * fps - 1e-6)
+    last = math.floor(times[-1] * fps + 1e-6)
+    if last < first:
+        last = first
+    frames = np.arange(first, last + 1, dtype=np.float64)
+    return frames, frames / fps
+
+
+def hit_keys(hit_times, fps):
+    """`mm_hit` keys: 0 on the frame before a hit, 1 at the exact hit time, exponential decay to 0 over HIT_DECAY"""
+    if not hit_times:
+        return [0.0], [0.0]
+    hits = np.asarray(sorted(float(value) for value in hit_times), dtype=np.float64)
+    frames = set()
+    for hit in hits:
+        hit_frame = hit * fps
+        frames.add(round(hit_frame, 4))
+        frames.add(float(math.floor(hit_frame - 1e-4)))
+        for frame in range(math.ceil(hit_frame + 1e-4), math.ceil((hit + HIT_DECAY) * fps) + 1):
+            frames.add(float(frame))
+    frames = np.asarray(sorted(frames), dtype=np.float64)
+    times = frames / fps
+    elapsed = times[:, None] - hits[None, :]
+    active = (elapsed >= -1e-6) & (elapsed < HIT_DECAY)
+    values = np.where(active, np.exp(-np.clip(elapsed, 0, None) / HIT_TAU), 0.0).max(axis=1)
+    return frames, values
+
+
+# Files and bounds
+
+
+def read_motion(project_dir, relative, columns, expected_count):
+    path = resolve_package_path(project_dir, relative)
+    if not path.is_file():
+        raise WorkerError('NOT_FOUND', 'Motion file not found: ' + relative)
+    data = np.fromfile(path, dtype='<f4')
+    if data.size % columns:
+        raise WorkerError('INVALID_MOTION', relative + ' is not a sequence of ' + str(columns) + '-float records')
+    records = data.reshape(-1, columns).astype(np.float64)
+    if expected_count is not None and len(records) != expected_count:
+        raise WorkerError('INVALID_MOTION', relative + ' has ' + str(len(records)) + ' records, expected ' + str(expected_count))
+    if not np.isfinite(records).all():
+        raise WorkerError('INVALID_MOTION', relative + ' contains non-finite values')
+    if len(records) > 1 and np.any(np.diff(records[:, 0]) <= 0):
+        raise WorkerError('INVALID_MOTION', relative + ' times must increase')
+    return records
+
+
+def set_frame_rate(scene, fps, duration):
+    whole = max(1, round(fps))
+    scene.render.fps = whole
+    scene.render.fps_base = whole / fps
+    scene.frame_start = 0
+    scene.frame_end = max(1, math.ceil(duration * fps - 1e-6))
+
+
+def scene_bounds(marbles, marble_motion, pieces):
+    xs, ys = [], []
+    for marble in marbles:
+        motion = marble_motion[marble['id']]
+        if len(motion):
+            radius = float(marble['radius'])
+            xs += [motion[:, 1].min() - radius, motion[:, 1].max() + radius]
+            ys += [motion[:, 2].min() - radius, motion[:, 2].max() + radius]
+    for piece in pieces:
+        half = float((piece.get('params') or {}).get('length', 0.02)) / 2
+        xs += [piece['position']['x'] - half, piece['position']['x'] + half]
+        ys += [piece['position']['y'] - half, piece['position']['y'] + half]
+    if not xs:
+        return (-0.5, -0.5), (0.5, 0.5)
+    return (float(min(xs)), float(min(ys))), (float(max(xs)), float(max(ys)))

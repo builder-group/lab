@@ -33,6 +33,10 @@
 				}
 			}
 		],
+		"resources": {
+			"../blender/worker.py": "blender/worker.py",
+			"../blender/mm_worker/*.py": "blender/mm_worker/"
+		},
 		"macOS": {
 			"minimumSystemVersion": "12.0"
 		},

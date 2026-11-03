@@ -1,0 +1,188 @@
+use super::detect;
+use super::mailbox;
+use super::session::BlenderState;
+use serde::Serialize;
+use std::path::PathBuf;
+use std::time::Duration;
+use tauri::{AppHandle, Manager, State};
+
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BlenderInstallDto {
+    pub path: Option<String>,
+    pub version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BlenderSessionDto {
+    pub package_path: String,
+    pub pid: u32,
+    pub visible: bool,
+}
+
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BlenderStatusDto {
+    pub running: bool,
+    pub pid: Option<u32>,
+    pub visible: bool,
+    /// Contents of `.bridge/status.json` written by the worker, if any
+    pub status_json: Option<String>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn blender_detect() -> Result<BlenderInstallDto, String> {
+    return run_blocking(|| {
+        let path = detect::blender_path();
+        let version = path.as_ref().and_then(detect::blender_version);
+        return Ok(BlenderInstallDto {
+            path: path.map(|value| value.display().to_string()),
+            version,
+        });
+    })
+    .await;
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn blender_start(
+    app: AppHandle,
+    state: State<'_, BlenderState>,
+    package_path: String,
+    visible: bool,
+) -> Result<BlenderSessionDto, String> {
+    let worker = worker_script(&app)?;
+    let state = state.inner().clone();
+    return run_blocking(move || {
+        let package = PathBuf::from(&package_path);
+        let session = state.start(&worker, &package, visible)?;
+        return Ok(BlenderSessionDto {
+            package_path,
+            pid: session.pid,
+            visible: session.visible,
+        });
+    })
+    .await;
+}
+
+/// Sends one operation to the package's worker. Returns the response envelope `{id, ok, result | error}` as JSON.
+#[tauri::command]
+#[specta::specta]
+pub async fn blender_request(
+    state: State<'_, BlenderState>,
+    package_path: String,
+    op: String,
+    args_json: String,
+    timeout_ms: u32,
+) -> Result<String, String> {
+    let args: serde_json::Value = serde_json::from_str(&args_json)
+        .map_err(|error| format!("Invalid request arguments: {}", error))?;
+    let state = state.inner().clone();
+    return run_blocking(move || {
+        let response = state.request(
+            &PathBuf::from(package_path),
+            &op,
+            args,
+            Duration::from_millis(u64::from(timeout_ms)),
+        )?;
+        return Ok(response.to_string());
+    })
+    .await;
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn blender_stop(state: State<'_, BlenderState>, package_path: String) -> Result<(), String> {
+    let state = state.inner().clone();
+    return run_blocking(move || state.stop(&PathBuf::from(package_path))).await;
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn blender_status(
+    state: State<'_, BlenderState>,
+    package_path: String,
+) -> Result<BlenderStatusDto, String> {
+    let package = PathBuf::from(package_path);
+    let session = state.session(&package)?;
+    return Ok(BlenderStatusDto {
+        running: session.is_some(),
+        pid: session.as_ref().map(|value| value.pid),
+        visible: session.as_ref().map(|value| value.visible).unwrap_or(false),
+        status_json: mailbox::read_status(&package).map(|value| value.to_string()),
+    });
+}
+
+/// Opens the package scene in a Blender window. A background worker saves and restarts with a window.
+#[tauri::command]
+#[specta::specta]
+pub async fn blender_show(
+    app: AppHandle,
+    state: State<'_, BlenderState>,
+    package_path: String,
+) -> Result<BlenderSessionDto, String> {
+    let worker = worker_script(&app)?;
+    let state = state.inner().clone();
+    return run_blocking(move || {
+        let package = PathBuf::from(&package_path);
+        if let Some(session) = state.session(&package)? {
+            if session.visible {
+                // TODO: Bring the existing Blender window to the front
+                return Ok(BlenderSessionDto {
+                    package_path,
+                    pid: session.pid,
+                    visible: true,
+                });
+            }
+            state.stop(&package)?;
+        }
+        let session = state.start(&worker, &package, true)?;
+        return Ok(BlenderSessionDto {
+            package_path,
+            pid: session.pid,
+            visible: session.visible,
+        });
+    })
+    .await;
+}
+
+/// Writes bytes to a package-relative path, such as motion files under `.cache/motion/`
+#[tauri::command]
+#[specta::specta]
+pub fn write_package_file(
+    package_path: String,
+    relative_path: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    let package = PathBuf::from(package_path);
+    if !package.join("project.json").is_file() {
+        return Err(format!("{} is not a MidiMarble project", package.display()));
+    }
+    let path = mailbox::write_package_file(&package, &relative_path, &bytes)
+        .map_err(|error| error.to_string())?;
+    return Ok(path.display().to_string());
+}
+
+/// The worker runs from the source tree in debug builds and from bundled resources in release builds
+fn worker_script(app: &AppHandle) -> Result<PathBuf, String> {
+    if cfg!(debug_assertions) {
+        return Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../blender/worker.py"));
+    }
+    let resources = app
+        .path()
+        .resource_dir()
+        .map_err(|error| error.to_string())?;
+    return Ok(resources.join("blender/worker.py"));
+}
+
+async fn run_blocking<T, F>(task: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    return tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|error| error.to_string())?;
+}

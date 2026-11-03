@@ -10,6 +10,16 @@ export const commands = {
 	saveProject: (path: string, projectJson: string) => typedError<null, string>(__TAURI_INVOKE("save_project", { path, projectJson })),
 	listRecentProjects: () => __TAURI_INVOKE<RecentProjectDto[]>("list_recent_projects"),
 	importSource: (packagePath: string, sourcePath: string) => typedError<string, string>(__TAURI_INVOKE("import_source", { packagePath, sourcePath })),
+	blenderDetect: () => typedError<BlenderInstallDto, string>(__TAURI_INVOKE("blender_detect")),
+	blenderStart: (packagePath: string, visible: boolean) => typedError<BlenderSessionDto, string>(__TAURI_INVOKE("blender_start", { packagePath, visible })),
+	/**  Sends one operation to the package's worker. Returns the response envelope `{id, ok, result | error}` as JSON. */
+	blenderRequest: (packagePath: string, op: string, argsJson: string, timeoutMs: number) => typedError<string, string>(__TAURI_INVOKE("blender_request", { packagePath, op, argsJson, timeoutMs })),
+	blenderStop: (packagePath: string) => typedError<null, string>(__TAURI_INVOKE("blender_stop", { packagePath })),
+	blenderStatus: (packagePath: string) => typedError<BlenderStatusDto, string>(__TAURI_INVOKE("blender_status", { packagePath })),
+	/**  Opens the package scene in a Blender window. A background worker saves and restarts with a window. */
+	blenderShow: (packagePath: string) => typedError<BlenderSessionDto, string>(__TAURI_INVOKE("blender_show", { packagePath })),
+	/**  Writes bytes to a package-relative path, such as motion files under `.cache/motion/` */
+	writePackageFile: (packagePath: string, relativePath: string, bytes: number[]) => typedError<string, string>(__TAURI_INVOKE("write_package_file", { packagePath, relativePath, bytes })),
 };
 
 /* Types */
@@ -19,6 +29,25 @@ export type AppInfoDto = {
 	version: string,
 	stage: Stage,
 	distribution: AppDistribution,
+};
+
+export type BlenderInstallDto = {
+	path: string | null,
+	version: string | null,
+};
+
+export type BlenderSessionDto = {
+	packagePath: string,
+	pid: number,
+	visible: boolean,
+};
+
+export type BlenderStatusDto = {
+	running: boolean,
+	pid: number | null,
+	visible: boolean,
+	/**  Contents of `.bridge/status.json` written by the worker, if any */
+	statusJson: string | null,
 };
 
 export type OpenedProjectDto = {
