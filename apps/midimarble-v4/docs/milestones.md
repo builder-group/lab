@@ -2,7 +2,7 @@
 
 Each milestone ends with checks that a person or an agent can run. A milestone is done only when its checks pass and the results are reported. Later milestones may refine earlier ones but must keep their checks passing.
 
-Development works against the project's own fixtures and playgrounds. Each fixture isolates one behavior so failures point at a cause. Performance tests run beside the hit checks and track simulation, reflow and Blender handoff times. The reference short is a final validation in M6, not a development target. When it falls short, the gaps become new fixtures and the work iterates on those.
+Development works against the project's own fixtures and playgrounds, including sandbox projects for individual behaviors such as fast passages, long gaps, crossing marbles, steep angles and dense chords, with Jingle Bells as the running end-to-end project. Each fixture isolates one behavior so failures point at a cause. Performance tests run beside the hit checks and track simulation, reflow and Blender handoff times. The reference short is a final validation in M6, not a development target. When it falls short, the gaps become new fixtures and the work iterates on those.
 
 ## Fixtures
 

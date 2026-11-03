@@ -2,10 +2,13 @@
 
 MidiMarble should feel like a native Mac app that people already know how to use. When a pattern exists in an established app, use it instead of inventing one. Innovation belongs in the musical track building, not in basic controls.
 
+Blender is the main reference, because the film is finished in Blender and the app should feel like a friendly front end to it: its timeline and dope sheet for time, its properties editor for structured settings, and its shortcuts where they fit (G, R, Tab, numpad framing). The surface is Apple-native rather than Blender's custom toolkit: system font, translucent sidebar, native menus and sheets. Figma is the reference for canvas navigation and selection.
+
 Reference apps:
 
 | App                   | Patterns to borrow                                                   |
 | --------------------- | -------------------------------------------------------------------- |
+| Blender               | Timeline and dope sheet, properties sections, keyframe vocabulary, G/R shortcuts, framing |
 | Logic Pro, GarageBand | Lanes, playhead, transport, timeline zoom, Space to play             |
 | Final Cut Pro         | Workspace switching, inspector, clips moved on a timeline            |
 | Figma, FigJam         | Canvas navigation, dot grid, selection, scrubbable fields, components |
