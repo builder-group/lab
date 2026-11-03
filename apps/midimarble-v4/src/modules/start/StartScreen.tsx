@@ -1,8 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
-import { AudioLines, FileMusic, FolderOpen, Plus } from 'lucide-react';
+import { AudioLines, FileMusic, FolderOpen, LayoutTemplate, Plus } from 'lucide-react';
 import React from 'react';
 import { WindowHeader } from '@/components';
 import { host } from '@/environment';
+import { examples, loadExample, type TExample } from './examples';
 import type { StudioCx } from '@/modules/studio';
 
 /** Welcome window modeled on Xcode: actions on the left, recent projects on the right */
@@ -26,6 +27,15 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}, [cx]);
+
+	async function openExample(example: TExample): Promise<void> {
+		const [isExampleOk, exampleErr, project] = await loadExample(example);
+		if (!isExampleOk) {
+			cx.notify(exampleErr.message, 'error');
+			return;
+		}
+		await cx.newProject({ project });
+	}
 
 	async function startFrom(kind: 'midi' | 'audio'): Promise<void> {
 		const file = await host.chooseSourceFile(kind);
@@ -75,7 +85,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 					/>
 				</div>
 			</section>
-			<aside className="flex w-[300px] flex-col bg-[var(--chrome)] pt-12" aria-label="Recent projects">
+			<aside className="flex w-[300px] flex-col overflow-y-auto bg-[var(--chrome)] pt-12 pb-4" aria-label="Recent projects and examples">
 				<div className="mm-section-title">Recent</div>
 				{!recent.length ? (
 					<div className="mm-placeholder !h-auto pt-10">
@@ -101,6 +111,21 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 						</button>
 					))
 				)}
+				<div className="mm-section-title mt-4">Examples</div>
+				{examples.map((example) => (
+					<button
+						key={example.id}
+						className="mm-row !h-11 w-[calc(100%-16px)] text-left"
+						onClick={() => void openExample(example)}
+						type="button"
+					>
+						<LayoutTemplate size={18} strokeWidth={1.4} className="shrink-0 text-[var(--text-secondary)]" />
+						<span className="flex min-w-0 flex-col leading-tight">
+							<span className="truncate font-medium">{example.title}</span>
+							<span className="truncate text-[11px] text-[var(--text-secondary)]">{example.detail}</span>
+						</span>
+					</button>
+				))}
 			</aside>
 		</div>
 	);
