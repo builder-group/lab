@@ -14,6 +14,14 @@ import type { TSourceAnalysis } from './SourcesCx';
 const HEADER_WIDTH = 232;
 const RULER_HEIGHT = 24;
 const ROW_HEIGHT = 44;
+// Transport bar above the ruler
+const TRANSPORT_HEIGHT = 36;
+
+/** Height that shows every lane with a little room, like a video editor sizing its timeline to the tracks */
+function fittedHeight(lanes: number): number {
+	const content = TRANSPORT_HEIGHT + RULER_HEIGHT + Math.max(1, lanes) * ROW_HEIGHT + 20;
+	return Math.round(Math.min(Math.max(content, 150), window.innerHeight * 0.45));
+}
 const MIN_ZOOM = 20;
 const MAX_ZOOM = 800;
 const MIN_HEIGHT = 120;
@@ -148,7 +156,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	return (
 		<section
 			className="relative flex shrink-0 flex-col border-t border-[var(--separator)] bg-[var(--content)]"
-			style={{ height }}
+			style={{ height: height > 0 ? height : fittedHeight(project.music.lanes.length) }}
 			aria-label="Timeline"
 		>
 			<ResizeHandle cx={cx} />
@@ -315,7 +323,8 @@ const ResizeHandle: React.FC<{ cx: StudioCx }> = (props) => {
 			onPointerDown={(event) => {
 				if (event.button !== 0) return;
 				event.currentTarget.setPointerCapture(event.pointerId);
-				startRef.current = { y: event.clientY, height: cx.$timelineHeight.get() };
+				const element = event.currentTarget.parentElement;
+				startRef.current = { y: event.clientY, height: cx.$timelineHeight.get() || (element?.getBoundingClientRect().height ?? 212) };
 			}}
 			onPointerMove={(event) => {
 				const start = startRef.current;
@@ -326,7 +335,7 @@ const ResizeHandle: React.FC<{ cx: StudioCx }> = (props) => {
 			onPointerUp={() => {
 				startRef.current = null;
 			}}
-			onDoubleClick={() => cx.$timelineHeight.set(212)}
+			onDoubleClick={() => cx.$timelineHeight.set(0)}
 		/>
 	);
 };

@@ -45,7 +45,8 @@ export class StudioCx {
 	 */
 	readonly $reveal = createState<TReveal | null>(null);
 	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true });
-	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 212));
+	// Zero fits the timeline to its lanes until the user drags it to a height of their own
+	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));
 	readonly $paletteOpen = createState(false);
 	/** Muted and soloed lanes, like the M and S buttons of a Logic track header. View state, not saved. */
 	readonly $mix = createState<TLaneMix>({ muted: [], solo: [] });

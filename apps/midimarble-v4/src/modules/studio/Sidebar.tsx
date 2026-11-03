@@ -45,8 +45,7 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 			</div>
 			{workspace === 'compose' ? (
 				<div className="min-h-0 flex-1 overflow-y-auto pb-3">
-					<Marbles cx={cx} project={project} />
-					<Layers cx={cx} project={project} />
+					<Layers cx={cx} project={project} canAdd />
 				</div>
 			) : (
 				<>
@@ -92,63 +91,11 @@ const ProjectHeader: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 	);
 };
 
-// MARK: - Marbles
-
-const Marbles: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
-	const selection = useFeatureState(cx.$selection);
-	const renaming = useFeatureState(cx.$renaming);
-	const result = useFeatureState(cx.simulation.$result);
-
-	return (
-		<section aria-label="Marbles">
-			<SectionHeader title="Marbles">
-				<MenuButton
-					className="mm-icon-button !h-5 !w-5"
-					label={<Plus size={13} strokeWidth={2} />}
-					title="Add"
-					items={[commandItem(cx, 'marble.add'), commandItem(cx, 'tool.marble', 'Place Marble on Canvas'), 'separator', commandItem(cx, 'file.importMidi'), commandItem(cx, 'file.importAudio')]}
-				/>
-			</SectionHeader>
-			<div className="flex flex-col gap-px" role="listbox" aria-label="Marbles">
-				{project.music.lanes.map((lane) => {
-					const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
-					const id = marble?.id ?? lane.id;
-					const placed = result?.hits.filter((hit) => hit.laneId === lane.id && hit.status !== 'open').length ?? 0;
-					return (
-						<LayerRow
-							key={lane.id}
-							depth={0}
-							isActive={selection[0] === id}
-							isSelected={selection.includes(id)}
-							icon={<span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: lane.color, boxShadow: 'inset 0 0 0 0.5px rgb(0 0 0 / 0.2)' }} />}
-							label={lane.name}
-							isRenaming={renaming === id}
-							onRename={(name) => {
-								cx.$renaming.set(null);
-								if (name != null && name !== lane.name) cx.execute([{ type: 'upsertLane', lane: { ...lane, name } }]);
-							}}
-							trailing={<span className="mm-row-secondary" title={`${placed} of ${lane.hits.length} hits have a platform`}>{`${placed}/${lane.hits.length}`}</span>}
-							onClick={(event) => selectRow(cx, id, event)}
-							onDoubleClick={() => cx.$renaming.set(id)}
-							onContextMenu={(event) => {
-								if (!selection.includes(id)) cx.$selection.set([id]);
-								openContextMenu(event, laneMenu(cx, lane));
-							}}
-						/>
-					);
-				})}
-			</div>
-			{!project.music.lanes.length ? <div className="mm-caption px-4 py-1">Add a marble with + or the Marble tool (O).</div> : null}
-		</section>
-	);
-};
-
 // MARK: - Layers
 
 /** Figma-like layer list: each marble with the pieces attached to it, then the free pieces, newest first */
-const Layers: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
+const Layers: React.FC<{ cx: StudioCx; project: TProject; canAdd?: boolean }> = (props) => {
+	const { cx, project, canAdd = false } = props;
 	const selection = useFeatureState(cx.$selection);
 	const renaming = useFeatureState(cx.$renaming);
 	const result = useFeatureState(cx.simulation.$result);
@@ -187,7 +134,16 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 
 	return (
 		<section aria-label="Layers">
-			<SectionHeader title="Layers" />
+			<SectionHeader title="Layers">
+				{canAdd ? (
+					<MenuButton
+						className="mm-icon-button !h-5 !w-5"
+						label={<Plus size={13} strokeWidth={2} />}
+						title="Add"
+						items={[commandItem(cx, 'marble.add'), commandItem(cx, 'tool.marble', 'Place Marble on Canvas'), 'separator', commandItem(cx, 'file.importMidi'), commandItem(cx, 'file.importAudio')]}
+					/>
+				) : null}
+			</SectionHeader>
 			<div role="tree" aria-label="Layers" className="flex flex-col gap-px">
 				{project.music.lanes.map((lane) => {
 					const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
