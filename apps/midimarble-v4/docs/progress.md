@@ -4,13 +4,20 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Current state
 
-- Milestone: M3 Assists and pieces
-- Next step: Rapier simulation module with headless fixture runs
-- Blockers: none
-- UI pass against Blender, macOS and Figma UI3 done; open items are listed in its log entry
-- Not committed on purpose: `pnpm-lock.yaml` (also holds unrelated local changes) and the lab `.claude/launch.json`
+- Milestones: M0–M4 done; M5 Design in progress (UI, library and agent runner done; Blender consumption of asset skins, per-piece reactions and wall text in progress); M6 render pipeline and follow camera done, loops and shot markers open
+- Next steps: Jingle Bells end to end, a native export test, loops, film-look round 3 (piece detail, density at reference hit rates)
+- Blockers: the Claude CLI on this Mac is not logged in (`claude /login`), so no live agent run has succeeded yet
+- Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### Native test, schema v2, Design workspace
+
+- Bundled app: opening a package, Compose physics in WebKit and the Design preview rendered by a background Blender all work natively. Fixed: asset protocol refused paths under dot folders (`requireLiteralLeadingDot: false`), cache-busting query broke asset URLs, toolbar overlapped the traffic lights
+- `marble-project@2`: piece physics parameters are explicit; the migration gives version 1 platforms their original bounce 0.55 so saved runs do not change when defaults change
+- Platform `bounce` parameter, default 0.65 (0.85 makes zigzags impossible because the marble rises past the other column); Auto place also sets bounce so arrivals settle in one hit
+- Design workspace: library sidebar with themes and asset tiles, Blender-style Scene, Look, Link and Agent panels, wall text, ⌘E export sheet with estimate, progress, player and Reveal in Finder, activity view
+- Film look round 2: steep follow camera with slow roll, two-column zigzags with section finishes after a rail, `reference-20` sandbox with 64 on-time hits, contact-exact frames, tunnels hide the marble. Still behind the reference: density per frame, piece detail, silver finish, wall titles
 
 ### UI and UX pass
 
