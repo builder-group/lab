@@ -1,16 +1,17 @@
 import { AudioLines, ChevronRight, Music } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import type { TProject, TSource } from '@/modules/project';
+import { BACKING_ID, type TProject, type TSource } from '@/modules/project';
 import { commandItem } from '../commands';
 import { SONG_KEY } from '../selection';
 import { formatTime } from '../format';
 import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
-import { BACKING_COLOR } from './hand-notes';
-import type { TPitchRange } from './piano-roll';
+import { auditionNote, BACKING_COLOR } from './hand-notes';
+import { rowCount, type TPitchRange } from './piano-roll';
 import { SongRoll } from './SongRoll';
-import { HEADER_WIDTH, SONG_ROW_HEIGHT } from './timeline-layout';
+import { HEADER_WIDTH, NOTE_ROW_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
+import { Keyboard } from './TrackHeader';
 import { toggleSongExpanded } from './timeline-state';
 
 /**
@@ -30,11 +31,34 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 		openContextMenu(event, [{ section: 'Song' }, commandItem(cx, 'file.replaceSong'), commandItem(cx, 'file.removeSong')]);
 	}
 
+	// An expanded roll taller than its track scrolls inside it, keyboard and notes together, like GarageBand's
+	// editor; the wheel goes to the timeline once the roll reaches its top or bottom
+	const rowRef = React.useRef<HTMLDivElement>(null);
+	const rollHeight = range == null ? 0 : rowCount(range) * NOTE_ROW_HEIGHT;
+	const maxOffset = isExpanded ? Math.max(0, rollHeight - height) : 0;
+	const [offset, setOffset] = React.useState<number | null>(null);
+	// Opens centred on the notes, whose margin rows sit at both ends
+	const shown = Math.min(maxOffset, Math.max(0, offset ?? maxOffset / 2));
+
+	React.useEffect(() => {
+		const element = rowRef.current;
+		if (element == null || maxOffset === 0) return;
+		function onWheel(event: WheelEvent): void {
+			if (event.ctrlKey || event.metaKey || event.shiftKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+			const next = Math.min(maxOffset, Math.max(0, shown + event.deltaY));
+			if (next === shown) return;
+			event.preventDefault();
+			setOffset(next);
+		}
+		element.addEventListener('wheel', onWheel, { passive: false });
+		return () => element.removeEventListener('wheel', onWheel);
+	}, [maxOffset, shown]);
+
 	return (
-		<div className="flex shrink-0" style={{ height }}>
+		<div ref={rowRef} className="flex shrink-0" style={{ height }}>
 			<div
-				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-start border-r border-b border-[var(--separator)] pr-2 pl-1"
-				style={{ width: HEADER_WIDTH }}
+				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-start border-r border-b border-[var(--separator)] pl-1"
+				style={{ width: HEADER_WIDTH, paddingRight: isExpanded ? 0 : 8 }}
 				data-track={SONG_KEY}
 				data-quick-help="song"
 				data-hint-anchor="song"
@@ -44,7 +68,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 				onContextMenu={openMenu}
 				title={song.name}
 			>
-				<div className="flex min-w-0 flex-1 items-center gap-1.5" style={{ height: SONG_ROW_HEIGHT }}>
+				<div className="flex min-w-0 flex-1 items-center gap-1.5 pr-1.5" style={{ height: SONG_ROW_HEIGHT }}>
 					{range != null ? (
 						<button
 							className="mm-disclosure"
@@ -66,9 +90,18 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 						<span className="truncate text-[11px] text-[var(--text-secondary)]">{details.filter(Boolean).join(' · ')}</span>
 					</span>
 				</div>
+				{isExpanded && range != null ? (
+					<div className="flex self-stretch" onClick={(event) => event.stopPropagation()}>
+						<Keyboard name="Song" range={range} offset={shown} onPlay={(pitch) => auditionNote(cx, BACKING_ID, pitch)} />
+					</div>
+				) : null}
 			</div>
 			{isExpanded && range != null ? (
-				<SongRoll cx={cx} project={project} range={range} zoom={zoom} width={width} selection={selection} />
+				<div className="relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }}>
+					<div style={{ transform: shown === 0 ? undefined : `translateY(${-shown}px)` }}>
+						<SongRoll cx={cx} project={project} range={range} zoom={zoom} width={width} selection={selection} />
+					</div>
+				</div>
 			) : (
 			<div className="mm-song-lane relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }} onContextMenu={openMenu} aria-label={`Song ${song.name}`}>
 				{isAudio && analysis != null ? (

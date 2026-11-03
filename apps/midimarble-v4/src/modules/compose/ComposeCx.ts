@@ -1711,7 +1711,8 @@ export class ComposeCx {
 			hasPieces: project != null && (selectedPieceIds(project, selection).length > 0 || project.entities.some((entity) => selection.includes(entity.id) && entity.components.marble != null)),
 			hasSelection: selection.length > 0,
 			hasGhosts: this.assist.hasGhosts,
-			isDrawing: this.$pen.get() != null
+			isDrawing: this.$pen.get() != null,
+			hasNotes: selection.length > 0 && selection.every((key) => parseHitKey(key) != null)
 		});
 		if (action == null) return;
 		if (this.runKeyAction(action)) event.preventDefault();

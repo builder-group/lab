@@ -18,6 +18,7 @@ import { formatTime, noteName, parseNoteName, stepPitch } from './format';
 import { parseHitKey } from './selection';
 import type { StudioCx } from './StudioCx';
 import { auditionNote, BACKING_COLOR, handNotes } from './timeline/hand-notes';
+import { parseTime } from './timeline/parse-time';
 import { songFitEnd } from './world';
 
 /**
@@ -261,7 +262,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					subtitle={[...ownerIds].map((id) => owners.find((owner) => owner.id === id)?.name).join(', ')}
 					status={<HelpTip text="Drag hits in the timeline to move them together. Press 1 to 9 to hand the notes to that marble, 0 to make them Backing. Press Delete to remove them." />}
 				/>
-				<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
+				<Panel id="hit.playedBy" title="Play With" accessory={<HelpTip text="Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 					{playedBy}
 				</Panel>
 			</>
@@ -275,7 +276,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 		(entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id && entity.components.hitLink.hitId === hit.id
 	);
 	const hitResult = result?.hits.find((item) => item.laneId === lane.id && item.hitId === hit.id);
-	// An open hit no platform can play yet says why (Too Soon, Out of Reach) and offers the fixes in Played By
+	// An open hit no platform can play yet says why (Too Soon, Out of Reach) and offers the fixes in Play With
 	const reach = !isBacking && piece == null && hitResult?.status === 'open' ? hitReach(project, result, hitResult) : null;
 	const unreachable = reach != null && hitResult != null && isUnreachable(reach) ? unreachableStatus(project, result, hitResult) : null;
 	const fixes = unreachable != null && reach != null && hitResult != null ? unreachableActions(cx, hitResult, releaseFixFor(project, hitResult, reach)) : [];
@@ -336,15 +337,17 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					label="Time"
 					name="Time"
 					value={hit.time}
-					unit="s"
+					unit=""
 					step={0.005}
 					precision={3}
+					format={formatTime}
+					parse={parseTime}
 					min={0}
 					max={project.end}
 					onCommit={(time) => setHit({ time })}
 				/>
 			</Panel>
-			<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Backing is heard in the film, no piece needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
+			<Panel id="hit.playedBy" title="Play With" accessory={<HelpTip text="Backing is heard in the film, no piece needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 				{playedBy}
 				{isBacking ? null : piece != null ? (
 					<LinkRow icon={<PieceIcon type={piece.components.piece?.type ?? 'platform'} size={14} />} title={`Select ${pieceLabel}`} onOpen={() => cx.reveal([piece.id])}>
@@ -460,7 +463,7 @@ const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
 						if (next != null) cx.execute([{ type: 'setFrame', width: next.width, height: next.height }]);
 					}}
 				/>
-				<ScrubField id="project-end" label="Length" name="Film length" value={project.end} unit="s" step={0.05} precision={2} min={0.5} onCommit={(end) => cx.execute([{ type: 'setEnd', end }])} />
+				<ScrubField id="project-end" label="Length" name="Film length" value={project.end} unit="" step={0.05} precision={2} min={0.5} format={formatTime} parse={parseTime} onCommit={(end) => cx.execute([{ type: 'setEnd', end }])} />
 				<button
 					className="mm-button"
 					disabled={fitEnd == null || Math.abs(fitEnd - project.end) < 0.005}

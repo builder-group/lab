@@ -2,6 +2,8 @@ export const HEADER_WIDTH = 232;
 export const RULER_HEIGHT = 24;
 export const ROW_HEIGHT = 44;
 export const SONG_ROW_HEIGHT = 40;
+// The expanded Song piano roll scrolls inside this height, so the canvas and the marble tracks stay in view
+export const SONG_ROLL_MAX_HEIGHT = 240;
 // Transport bar above the ruler
 export const TRANSPORT_HEIGHT = 40;
 // Camera track of the Film workspace, the last track

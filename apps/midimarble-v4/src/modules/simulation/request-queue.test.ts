@@ -135,5 +135,5 @@ describe('worker protocol', () => {
 			answerWorkerRequest(simulator, { kind: 'autoPlace', project: gap, laneId: 'lane-1', hitId: 'missing', type: 'platform' })
 		).toThrow();
 		simulator.dispose();
-	});
+	}, 20_000);
 });

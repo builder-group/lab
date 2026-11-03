@@ -102,7 +102,8 @@ export interface TReplaceDeps {
 	gapPiece: (project: TProject, gap: TLongGap, type: TGapPieceType, entityId: string) => Promise<TEntity>;
 	/** Applies one step's commands; the first step starts the undo step, later ones join it. Null stops. */
 	commit: (project: TProject, commands: TProjectCommand[], isFirst: boolean) => TProject | null;
-	onProgress?: (done: number, total: number) => void;
+	/** `at` is the time of the hit being worked on, for progress through the song */
+	onProgress?: (done: number, total: number, at: number) => void;
 	isCancelled?: () => boolean;
 }
 
@@ -141,10 +142,9 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 	let failed = 0;
 	let isFirst = true;
 	const tries = new Map<string, number>();
-	const keys = only;
 
 	let total = replaceTargets(current, latest.hits, only).length;
-	deps.onProgress?.(0, total);
+	deps.onProgress?.(0, total, result.hits.length ? Math.min(...brokenHits(result.hits, only).map((hit) => hit.targetTime)) : 0);
 	const releases: string[] = [];
 	const stopped = (): TReplaceOutcome => ({ project: current, result: latest, replaced, failed, releases, isStopped: true });
 	if (only == null) {
@@ -159,7 +159,7 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 			latest = await deps.simulate(current);
 		}
 		total = replaceTargets(current, latest.hits).length;
-		deps.onProgress?.(0, total);
+		deps.onProgress?.(0, total, result.hits.length ? Math.min(...brokenHits(result.hits, only).map((hit) => hit.targetTime)) : 0);
 	}
 
 	let done = 0;
@@ -176,7 +176,7 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 		const count = rebridged.get(bridge.id) ?? 0;
 		if (count >= 2) return 'none';
 		rebridged.set(bridge.id, count + 1);
-		let suggested: TEntity | null = null;
+		let suggested: TEntity | null;
 		try {
 			suggested = await deps.gapPiece({ ...current, entities: current.entities.filter((item) => item.id !== bridge.id) }, gap, bridgeType, bridge.id);
 		} catch {
@@ -232,7 +232,7 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 			if (placed == null && isBroken(target)) failed++;
 		}
 		if ((await rebridge(target)) === 'stopped') return stopped();
-		deps.onProgress?.(done, total);
+		deps.onProgress?.(done, total, target.targetTime);
 	}
 	return { project: current, result: latest, replaced, failed, releases, isStopped: deps.isCancelled?.() === true };
 }

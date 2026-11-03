@@ -1,5 +1,5 @@
 import React from 'react';
-import { isEditingTarget } from '@/lib';
+import { isEditingTarget, isTextEntryTarget } from '@/lib';
 import { deleteSelectedHits, getCommand, isCommandEnabled } from './commands';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 
@@ -16,6 +16,14 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				cx.$paletteOpen.set(!cx.$paletteOpen.get());
 				return;
 			}
+			// Undo and redo reach the project from a focused checkbox, select or segmented control; only text fields
+			// keep ⌘Z for their own text
+			if (command && !event.ctrlKey && !event.altKey && key === 'z' && !isTextEntryTarget(event) && !event.defaultPrevented) {
+				event.preventDefault();
+				if (event.shiftKey) cx.redo();
+				else cx.undo();
+				return;
+			}
 			// The canvas handles its keys first and marks them, such as arrows while a piece is selected
 			if (isEditingTarget(event) || event.defaultPrevented) return;
 
@@ -26,12 +34,6 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				return;
 			}
 
-			if (command && key === 'z') {
-				event.preventDefault();
-				if (event.shiftKey) cx.redo();
-				else cx.undo();
-				return;
-			}
 			const shortcut = command && !event.ctrlKey && !event.shiftKey ? commandKeys[key] : undefined;
 			if (shortcut != null) {
 				const target = getCommand(shortcut);

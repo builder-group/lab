@@ -65,7 +65,9 @@ export function findStepTarget(project: TProject, result: TSimulationResult, sel
 			const focused = open.find((hit) => hit.laneId === hitKey.laneId && hit.hitId === hitKey.hitId);
 			if (focused != null) return focused;
 			const time = result.hits.find((hit) => hit.laneId === hitKey.laneId && hit.hitId === hitKey.hitId)?.targetTime;
-			return open.find((hit) => hit.laneId === hitKey.laneId && hit.targetTime > (time ?? -1)) ?? null;
+			// A Backing note belongs to no marble, so the next step is the first open dot of any marble
+			if (time == null) return open[0] ?? null;
+			return open.find((hit) => hit.laneId === hitKey.laneId && hit.targetTime > time) ?? null;
 		}
 		const piece = linkedPieces(project).find((item) => item.entity.id === key);
 		if (piece != null) return open.find((hit) => hit.laneId === piece.laneId && hit.targetTime > piece.time) ?? null;

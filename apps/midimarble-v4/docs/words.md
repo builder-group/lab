@@ -66,8 +66,23 @@ One status per hit, shown as a pill on pieces, in the inspector header and on th
 | **Blocked** | the marble's own run already passes through the platform's spot earlier | "Melody already passes through this spot earlier in its run" (name the marble) |
 | **Stopped** | the marble comes to rest on the platform | "Marble 1 stops on this platform" |
 | **Open** | the note has no platform yet | "No platform plays this note yet" |
+| **Too Soon** | an open note before the marble's release, or so soon after it that the marble cannot fall its diameter and reach strike speed | "Marble 1 can't reach a platform by 0:01.00" |
+| **Out of Reach** | an open note after the marble fell out of the run, or while it lies still on a piece | "Marble 1 has fallen out of the run by 0:06.00", "Marble 1 lies still on a piece at 0:03.00" |
 
-A summary sits in the timeline header for the whole project: "12 of 12 hits on time", or "2 hits need attention", which jumps to the first problem when clicked, like Xcode's issue count.
+Too Soon and Out of Reach are drawn hollow with an amber dashed outline and count as needing attention. Their fixes are **Move Release Earlier** (Too Soon: the release moves 0.5 s before the note, never before the song starts) or **Move Release Later** (Out of Reach on the marble's first note), and **Make Backing**; a fix that does not help is not offered.
+
+A summary sits in the timeline header for the whole project: "12 of 12 hits on time", or "2 hits need attention", which jumps to the first problem when clicked, like Xcode's issue count. Its menu (the chevron or a right-click) has Show First Problem and **Re-place Broken Platforms (24)**.
+
+## Fix-its
+
+A fix sits next to the problem, like Xcode's Fix-its.
+
+| Action | Where | Meaning |
+| --- | --- | --- |
+| **Undo** | in every notice that reports an edit, like Mail's and Finder's undo toasts | takes back that edit while it is still the latest; ⌘Z in the tooltip |
+| **Re-place 24 Platforms** | in the notice of an edit that left later hits Blocked or Missed (or "3 later hits are now Blocked or Missed" when the edit had no notice), and as Re-place Broken Platforms in the hit summary's menu | runs Add Platform's Auto place again from the first broken hit onward, as one undo step; the count is the broken hits |
+| **Re-place** | the wand beside a Blocked, Missed or Stopped platform's status pill in the inspector header | Auto place again for that platform alone |
+| **Stop** | in the Re-place progress notice | keeps what is re-placed so far |
 
 ## Assists
 
@@ -106,7 +121,10 @@ A summary sits in the timeline header for the whole project: "12 of 12 hits on t
 | Tooltip | What it does + shortcut | "Add a platform for the next note (Return)" |
 | Empty state | What is missing, one line, plus the action | "No song yet" · Import Song… |
 | Error | What happened. What to do. | "Blender isn't installed. Install Blender 4.2 or later to preview and export films." |
-| Progress | What is happening, how far, how long | "Exporting film · frame 120 of 600 · about 3 min left" |
+| Progress | What is happening, how far, how long | "Exporting film · frame 120 of 600 · about 3 min left", "Re-placing platforms · 0:12.50 of 0:31.00" |
+| Notice | What happened, one line, then its actions; the default action first | "6 platforms removed: Backing needs no platform" · Re-place 45 Platforms · Undo |
+| Unreachable note | What happened. What to do, naming the fixes. | "Hit 1 is too soon for Marble 1. Move the release earlier or make it Backing." |
+| Fix result | What changed: how the run stands | "Melody now starts just before its first note. Re-placed 15 platforms: 109 of 109 hits on time" |
 | Confirmation | Question naming the thing + the action as the button | "Delete Marble 2 and its 12 hits?" · Delete · Cancel |
 
 ## Structure

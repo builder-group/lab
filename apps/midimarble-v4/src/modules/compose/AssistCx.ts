@@ -14,6 +14,7 @@ import {
 	type THitResult,
 	type TSimulationResult
 } from '@/modules/simulation';
+import { formatTime } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { handNotes } from '@/modules/studio/timeline/hand-notes';
@@ -56,6 +57,8 @@ export class AssistCx {
 				if (value != null) this.dispatch({ type: 'revision', revision: value.present.revision });
 			})
 		];
+		// The run shown at mount is what the first edit is compared with
+		this.offerFixIt();
 		this.refresh();
 		return () => {
 			this.isMounted = false;
@@ -313,6 +316,7 @@ export class AssistCx {
 	/** Per marble, its hits from the latest result in which none of them was broken, for moving a release back */
 	private lastGood = new Map<string, THitResult[]>();
 	private lastGoodProjectId: string | null = null;
+	private replacedRevision: number | null = null;
 
 	/**
 	 * After an edit, compares the new run with the one before it. When later hits became Blocked or Missed, the
@@ -325,7 +329,8 @@ export class AssistCx {
 		const previous = this.baseline;
 		if (previous?.projectId === project.id && previous.revision === result.revision) return;
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
-		this.rememberGood(project, result);
+		// A run Re-place made is not a reference for the next one: its release came from the reference itself
+		if (this.replaceRun == null && result.revision !== this.replacedRevision) this.rememberGood(project, result);
 		if (previous == null || previous.projectId !== project.id || previous.revision > result.revision || this.replaceRun != null) return;
 		if (this.studio.$historyReveal.get()?.revision === result.revision) return;
 		const broken = newlyBroken(previous.hits, result.hits);
@@ -374,7 +379,12 @@ export class AssistCx {
 		const startRevision = project.revision;
 		let expected = startRevision;
 		const stop = { label: 'Stop', title: 'Keep the platforms re-placed so far', run: () => (run.isCancelled = true) };
-		const progressId = this.studio.notify(`Re-placing platforms · 0 of ${targets.length}`, 'info', { progress: 0, actions: [stop] });
+		// Progress runs through the song from the first broken hit to the last hit, since each new tilt can change
+		// how many platforms after it still need one
+		const from = targets[0]?.targetTime ?? 0;
+		const to = Math.max(from, ...(only != null ? targets : result.hits.filter((hit) => hit.pieceEntityId != null)).map((hit) => hit.targetTime));
+		const progressText = (at: number): string => (only != null ? `Re-placing the platform at ${formatTime(at)}` : `Re-placing platforms · ${formatTime(at)} of ${formatTime(to)}`);
+		const progressId = this.studio.notify(progressText(from), 'info', { progress: 0, actions: [stop] });
 		const before = only == null ? [...this.lastGood.values()].flat() : undefined;
 		let outcome: TReplaceOutcome | null = null;
 		try {
@@ -398,9 +408,9 @@ export class AssistCx {
 						expected = this.studio.project?.revision ?? expected;
 						return this.studio.project;
 					},
-					onProgress: (done, total) => {
+					onProgress: (done, total, at) => {
 						this.$replacing.set({ done, total });
-						this.studio.updateNotice(progressId, { message: `Re-placing platforms · ${Math.min(done, total)} of ${total}`, progress: total > 0 ? Math.min(1, done / total) : 0 });
+						this.studio.updateNotice(progressId, { message: progressText(at), progress: to > from ? Math.min(1, Math.max(0, (at - from) / (to - from))) : 0 });
 					},
 					isCancelled: () => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected
 				},
@@ -414,7 +424,7 @@ export class AssistCx {
 		}
 		if (outcome == null) return null;
 		this.baseline = { projectId: project.id, revision: outcome.result.revision, hits: outcome.result.hits };
-		this.rememberGood(outcome.project, outcome.result);
+		this.replacedRevision = outcome.result.revision;
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 		const changed = this.studio.project?.revision !== startRevision;
 		const summary = hitSummary(outcome.result.hits);
@@ -532,7 +542,26 @@ function focusedLaneId(project: TProject, selection: string[]): string | null {
 
 /** Actions for an unreachable hit: the release change that fixes it, when one does, and Make Backing */
 export function unreachableActions(studio: StudioCx, hit: THitResult, fix: ReturnType<typeof releaseFixFor>): { label: string; title?: string; run: () => void }[] {
-	const backing = { label: 'Make Backing', title: 'Heard in the film, no platform needed (0)', run: () => void handNotes(studio, [toHitKey(hit.laneId, hit.hitId)], BACKING_ID) };
+	// Fixed from the inspector, the notice that explained the problem goes too
+	const backing = {
+		label: 'Make Backing',
+		title: 'Heard in the film, no platform needed (0)',
+		run: () => {
+			studio.dismissNotice();
+			handNotes(studio, [toHitKey(hit.laneId, hit.hitId)], BACKING_ID);
+		}
+	};
 	if (fix == null) return [backing];
-	return [{ label: fix.label, run: () => void studio.execute(fix.commands) }, backing];
+	const release = {
+		label: fix.label,
+		run: () => {
+			studio.dismissNotice();
+			if (!studio.execute(fix.commands)) return;
+			const command = fix.commands[0];
+			const time = command?.type === 'setComponent' && command.component.name === 'release' ? command.component.value.time : null;
+			const marble = studio.project?.music.lanes.find((lane) => lane.id === hit.laneId)?.name ?? 'The marble';
+			if (time != null) studio.notifyEdit(`${marble} now starts at ${formatTime(time)}`);
+		}
+	};
+	return [release, backing];
 }

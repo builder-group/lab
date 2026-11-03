@@ -26,6 +26,7 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 
 	useStudioShortcuts(cx);
 	usePlayback(cx);
+	useInspectorAutoHide(cx);
 	const isDropping = useFileDrop(cx);
 
 	return (
@@ -61,6 +62,35 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 interface TStudioProps {
 	cx: StudioCx;
 	canvas: React.ReactNode;
+}
+
+// Below this window width the agent chat and the inspector together leave too little canvas
+const AGENT_SIDE_BY_SIDE_WIDTH = 1600;
+
+/**
+ * Hides the inspector while the agent chat is open in a window narrower than 1600 px and brings it back
+ * when the chat closes, like Xcode's inspector auto-hide. Showing the inspector again while the chat is open
+ * keeps it, and it then stays when the chat closes.
+ */
+function useInspectorAutoHide(cx: StudioCx): void {
+	React.useEffect(() => {
+		let isAutoHidden = false;
+		let wasAgent = cx.$panels.get().agent;
+		return cx.$panels.listen(({ value }) => {
+			const isOpening = value.agent && !wasAgent;
+			const isClosing = !value.agent && wasAgent;
+			wasAgent = value.agent;
+			if (isOpening && value.inspector && window.innerWidth < AGENT_SIDE_BY_SIDE_WIDTH) {
+				isAutoHidden = true;
+				cx.$panels.set({ ...value, inspector: false });
+			} else if (isClosing && isAutoHidden) {
+				isAutoHidden = false;
+				if (!value.inspector) cx.$panels.set({ ...value, inspector: true });
+			} else if (value.agent && value.inspector) {
+				isAutoHidden = false;
+			}
+		});
+	}, [cx]);
 }
 
 /** Drop target highlight while a file is dragged over the window, like Finder and Logic */

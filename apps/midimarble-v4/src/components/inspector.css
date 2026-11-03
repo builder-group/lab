@@ -357,6 +357,16 @@ input.mm-insp-name {
 	-webkit-appearance: none;
 }
 
+/* A value always shows five characters whole; a narrow field drops its unit first (see ScrubField) */
+.mm-ifield > input:not([type='color']) {
+	min-width: calc(5ch + 8px);
+}
+
+.mm-ifield[data-compact='true'] .mm-ifield-unit {
+	position: absolute;
+	visibility: hidden;
+}
+
 .mm-ifield input::placeholder {
 	color: var(--text-tertiary);
 }

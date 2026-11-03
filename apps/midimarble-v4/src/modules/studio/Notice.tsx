@@ -16,7 +16,7 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 	return (
 		<div
 			role="status"
-			className="mm-notice absolute left-1/2 z-30 max-w-[560px] -translate-x-1/2 overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]"
+			className="mm-notice absolute left-1/2 z-30 w-max max-w-[min(640px,calc(100%-32px))] -translate-x-1/2 overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]"
 			style={{
 				// Compose notices sit above the floating tool bar
 				bottom: workspace === 'compose' ? 64 : 16,

@@ -62,7 +62,8 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 					className="mm-track-title flex h-full min-w-0 flex-1 flex-col justify-center text-left leading-tight"
 					onClick={() => cx.$selection.set([id])}
 					onDoubleClick={() => setIsRenaming(true)}
-					title="Double-click to rename"
+					aria-label={lane.name}
+					title={`Select ${lane.name}; double-click to rename`}
 					type="button"
 				>
 					{isRenaming ? (
@@ -99,7 +100,7 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 					</div>
 				)}
 			</div>
-			{isExpanded && range != null ? <Keyboard cx={cx} lane={lane} range={range} /> : null}
+			{isExpanded && range != null ? <Keyboard name={lane.name} range={range} onPlay={(pitch) => cx.audition(lane.id, pitch)} /> : null}
 		</div>
 	);
 };
@@ -124,34 +125,46 @@ const TrackToggle: React.FC<{ title: string; isOn: boolean; tone: 'mute' | 'solo
 	);
 };
 
-/** Vertical keyboard of an expanded track, one key per semitone row, C keys labelled; a click plays the key */
-const Keyboard: React.FC<{ cx: StudioCx; lane: TLane; range: TPitchRange }> = (props) => {
-	const { cx, lane, range } = props;
+/**
+ * Vertical keyboard of an expanded track, one key per semitone row, C keys labelled; a click plays the key.
+ * `offset` scrolls it with a piano roll that is taller than its track.
+ */
+export const Keyboard: React.FC<TKeyboardProps> = (props) => {
+	const { name, range, offset = 0, onPlay } = props;
 	const pitches = Array.from({ length: rowCount(range) }, (_, index) => range.high - index);
 	return (
-		<div className="mm-keyboard relative shrink-0" style={{ width: KEYBOARD_WIDTH }} role="group" aria-label={`${lane.name} keyboard`}>
-			{pitches.map((pitch) => {
-				const isBlack = isBlackKey(pitch);
-				const isC = pitch % 12 === 0;
-				return (
-					<button
-						key={pitch}
-						className="mm-key"
-						data-black={isBlack}
-						data-c={isC}
-						style={{ top: pitchToRow(pitch, range) * NOTE_ROW_HEIGHT, height: NOTE_ROW_HEIGHT }}
-						onPointerDown={(event) => {
-							if (event.button !== 0) return;
-							cx.audition(lane.id, pitch);
-						}}
-						title={noteName(pitch)}
-						aria-label={`Play ${noteName(pitch)}`}
-						type="button"
-					>
-						{isC ? <span className="mm-key-label">{noteName(pitch)}</span> : null}
-					</button>
-				);
-			})}
+		<div className="mm-keyboard relative shrink-0 overflow-hidden" style={{ width: KEYBOARD_WIDTH }} role="group" aria-label={`${name} keyboard`}>
+			<div className="absolute inset-x-0 top-0" style={{ transform: offset === 0 ? undefined : `translateY(${-offset}px)` }}>
+				{pitches.map((pitch) => {
+					const isBlack = isBlackKey(pitch);
+					const isC = pitch % 12 === 0;
+					return (
+						<button
+							key={pitch}
+							className="mm-key"
+							data-black={isBlack}
+							data-c={isC}
+							style={{ top: pitchToRow(pitch, range) * NOTE_ROW_HEIGHT, height: NOTE_ROW_HEIGHT }}
+							onPointerDown={(event) => {
+								if (event.button !== 0) return;
+								onPlay(pitch);
+							}}
+							title={noteName(pitch)}
+							aria-label={`Play ${noteName(pitch)}`}
+							type="button"
+						>
+							{isC ? <span className="mm-key-label">{noteName(pitch)}</span> : null}
+						</button>
+					);
+				})}
+			</div>
 		</div>
 	);
 };
+
+interface TKeyboardProps {
+	name: string;
+	range: TPitchRange;
+	offset?: number;
+	onPlay: (pitch: number) => void;
+}

@@ -3,6 +3,7 @@ import { FileMusic, FolderOpen, LayoutTemplate, Music, Plus } from 'lucide-react
 import React from 'react';
 import { WindowHeader } from '@/components';
 import { copyExampleFiles, exampleGroups, loadExample, type TExample } from './examples';
+import { host } from '@/environment';
 import type { StudioCx } from '@/modules/studio';
 
 /** Welcome window modeled on Xcode: actions on the left, recent projects on the right */
@@ -115,11 +116,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 								onClick={() => void openExample(example)}
 								type="button"
 							>
-								{group.hasSong ? (
-									<Music size={18} strokeWidth={1.4} className="shrink-0 text-[var(--text-secondary)]" />
-								) : (
-									<LayoutTemplate size={18} strokeWidth={1.4} className="shrink-0 text-[var(--text-secondary)]" />
-								)}
+								<ExampleThumbnail id={example.id} icon={group.hasSong ? <Music size={16} strokeWidth={1.4} /> : <LayoutTemplate size={16} strokeWidth={1.4} />} />
 								<span className="flex min-w-0 flex-col leading-tight">
 									<span className="truncate font-medium">{example.title}</span>
 									<span className="truncate text-[11px] text-[var(--text-secondary)]">{example.detail}</span>
@@ -140,6 +137,20 @@ interface TStartScreenProps {
 	cx: StudioCx;
 	extraActions?: React.ReactNode;
 }
+
+/**
+ * A still of the example's run rendered in Blender, like the template previews in Xcode and GarageBand; the
+ * group icon stands in until it loads or when it is missing
+ */
+const ExampleThumbnail: React.FC<{ id: string; icon: React.ReactNode }> = (props) => {
+	const { id, icon } = props;
+	const [hasImage, setHasImage] = React.useState(true);
+	return (
+		<span className="mm-example-thumb" aria-hidden>
+			{hasImage ? <img alt="" src={`/examples/${id}.jpg`} loading="lazy" draggable={false} onError={() => setHasImage(false)} /> : icon}
+		</span>
+	);
+};
 
 export const StartAction: React.FC<TStartActionProps> = (props) => {
 	const { icon, title, detail, onClick } = props;
@@ -163,7 +174,9 @@ interface TStartActionProps {
 	onClick: () => void;
 }
 
+/** The folder of a project, home as ~; nothing in the browser, whose packages have no folder */
 function shortenPath(path: string): string {
+	if (!host.isDesktop()) return '';
 	return path.replace(/^\/Users\/[^/]+/, '~').replace(/\/[^/]+$/, '');
 }
 

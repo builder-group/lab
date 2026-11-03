@@ -337,6 +337,28 @@ textarea {
 	background: var(--hover);
 }
 
+/* A start screen example's still in the film's portrait frame, like a template preview */
+.mm-example-thumb {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 48px;
+	flex-shrink: 0;
+	margin: 0 6px 0 2px;
+	overflow: hidden;
+	border-radius: 4px;
+	background: var(--hover);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+	color: var(--text-secondary);
+}
+
+.mm-example-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
 .mm-row[data-selected='true'] {
 	background: var(--selection);
 }
@@ -822,16 +844,15 @@ button.mm-hit-summary:hover {
 
 /* A Fix-it beside a status pill, such as Re-place in a Blocked platform's inspector header */
 .mm-fix-it {
+	display: inline-grid;
+	place-items: center;
+	width: 22px;
 	height: 20px;
-	padding: 0 8px;
 	flex-shrink: 0;
 	border-radius: 999px;
-	font-size: 11px;
-	font-weight: 500;
 	color: var(--text);
 	background: var(--control);
 	box-shadow: inset 0 0 0 0.5px var(--control-border);
-	white-space: nowrap;
 }
 
 .mm-fix-it:hover {

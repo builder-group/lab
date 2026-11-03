@@ -632,7 +632,8 @@ export class StudioCx {
 		clearTimeout(this.noticeTimer);
 		const notice = this.$notice.get();
 		if (notice == null || notice.progress != null) return;
-		const duration = notice.tone === 'error' ? 8000 : notice.actions?.length ? 6000 : 3500;
+		// Long enough to read the message and reach a Fix-it or Undo in it
+		const duration = notice.tone === 'error' ? 8000 : notice.actions?.length ? 10000 : 3500;
 		this.noticeTimer = setTimeout(() => this.$notice.set(null), duration);
 	}
 }

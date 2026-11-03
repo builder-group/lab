@@ -9,8 +9,10 @@ import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { getCommand } from '@/modules/studio/commands';
 import { formatTime } from '@/modules/studio/format';
+import { parseTime } from '@/modules/studio/timeline/parse-time';
 import { toShotKey } from '@/modules/studio/selection';
 import {
+	builtInSkinLabel,
 	cameraCommands,
 	clearSkinCommands,
 	colorByNoteCommands,
@@ -238,7 +240,7 @@ const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> 
 			<InspectorHeader icon={<Bookmark size={16} strokeWidth={1.7} />} title={shotKindLabel(shot.kind)} subtitle="Shot" />
 			<Panel id="design.shot" title="Shot" accessory={<HelpTip text="When the shot starts, the camera eases to its distance and roll over 0.8 s. Drag the shot on the timeline to move it." />}>
 				<SelectField id="shot-kind" label="Kind" value={shot.kind} options={shotKinds.map((item) => ({ value: item.kind, label: item.label }))} onChange={(value) => set({ kind: value as TShotKind })} />
-				<ScrubField id="shot-time" label="Time" name="Time" value={shot.time} unit="s" step={0.01} precision={2} min={0} max={project.end} onCommit={(value) => set({ time: value })} />
+				<ScrubField id="shot-time" label="Time" name="Time" value={shot.time} unit="" step={0.01} precision={2} min={0} max={project.end} format={formatTime} parse={parseTime} onCommit={(value) => set({ time: value })} />
 				<ScrubField id="shot-roll" label="Roll" name="Roll" value={(shot.roll * 180) / Math.PI} unit="°" step={0.5} precision={1} min={-90} max={90} onCommit={(value) => set({ roll: (value * Math.PI) / 180 })} />
 				<ScrubField id="shot-distance" label="Distance" name="Distance" value={shot.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
 				<button
@@ -373,7 +375,7 @@ const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }
 		if (item != null) void cx.library.applySkin(item, { kind: 'entities', entityIds: ids });
 	}
 
-	const skinName = skinValue === MIXED ? 'Mixed skins' : current != null ? libraryItemLabel(current) : skinValue === '' ? 'Theme default' : skinLabel(skinValue);
+	const skinName = skinValue === MIXED ? 'Mixed skins' : current != null ? libraryItemLabel(current) : skinValue === '' ? 'Theme Default' : skinLabel(skinValue);
 
 	return (
 		<>
@@ -469,6 +471,8 @@ function itemValue(item: TLibraryItem): string {
 
 /** Built-in skins such as `brass:gold` read as `Brass Gold` */
 function skinLabel(assetId: string): string {
+	const builtIn = builtInSkinLabel(assetId);
+	if (builtIn != null) return builtIn;
 	return assetId
 		.split(/[:_-]/)
 		.filter(Boolean)

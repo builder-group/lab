@@ -50,6 +50,14 @@ const BRASS_PLATFORM_VARIANTS: readonly { id: string; label: string }[] = [
 	{ id: 'knob', label: 'Knob' }
 ];
 
+/** The name a built-in skin shows everywhere, as on its Library tile: `brass:copper` reads "Copper" */
+export function builtInSkinLabel(assetId: string): string | null {
+	if (!assetId.startsWith('brass:')) return null;
+	const id = assetId.slice('brass:'.length);
+	if (id === 'gold') return 'Gold';
+	return BRASS_PLATFORM_VARIANTS.find((variant) => variant.id === id)?.label ?? null;
+}
+
 /** The theme's skins for a piece type, its default first; empty for a type or theme without previews */
 export function themeSkins(themeId: string, pieceType: string): TThemeSkin[] {
 	const theme = themePresets.find((item) => item.id === themeId);

@@ -3,11 +3,12 @@ import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import type { TRenderPreset } from '@/modules/blender';
-import { themeCommands } from '@/modules/design/design-commands';
+import { cameraCommands, colorByNoteCommands, themeCommands } from '@/modules/design/design-commands';
+import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { parseHitKey, parseShotKey, toShotKey } from './selection';
 import { setSidebarTab } from './sidebar-state';
-import { focusedLane, type StudioCx } from './StudioCx';
+import { focusedLane, type StudioCx, type TWorkspace } from './StudioCx';
 
 // Every studio command in one list. The command palette lists them all; context menus and the
 // keyboard handlers run the same actions, so each command reads the same everywhere with its shortcut.
@@ -22,6 +23,11 @@ export interface TCommand {
 	keywords?: string;
 	/** Kept for menus that still name it, left out of the palette because another command does the same */
 	isHidden?: boolean;
+	/**
+	 * The workspace the command acts in when its section does not say it, such as the Compose canvas's zoom.
+	 * Tools and Pieces belong to Compose and Film to Film; the rest work in both.
+	 */
+	workspace?: TWorkspace;
 	isEnabled?: (cx: StudioCx) => boolean;
 	isChecked?: (cx: StudioCx) => boolean;
 	run: (cx: StudioCx) => void;
@@ -151,7 +157,7 @@ export const commands: readonly TCommand[] = [
 		}
 	},
 	{
-		id: 'edit.selectAll',
+		id: 'edit.selectAll', workspace: 'compose',
 		title: 'Select All Pieces',
 		section: 'Edit',
 		shortcut: '⌘A',
@@ -167,11 +173,11 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.inspector', title: 'Inspector', section: 'View', shortcut: '⌃⌘I', keywords: 'properties panel', isChecked: (cx) => cx.$panels.get().inspector, run: (cx) => cx.togglePanel('inspector') },
 	{ id: 'view.timeline', title: 'Timeline', section: 'View', shortcut: '⌃⌘T', keywords: 'tracks dope sheet panel', isChecked: (cx) => cx.$panels.get().timeline, run: (cx) => cx.togglePanel('timeline') },
 	{ id: 'view.agent', title: 'Agent', section: 'View', shortcut: '⌘J', keywords: 'chat ai assistant claude codex ask', isEnabled: hasProject, isChecked: (cx) => cx.$panels.get().agent, run: (cx) => cx.togglePanel('agent') },
-	{ id: 'view.zoomIn', title: 'Zoom In', section: 'View', shortcut: '⌘+', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(2) },
-	{ id: 'view.zoomOut', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(0.5) },
-	{ id: 'view.fitAll', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
-	{ id: 'view.fitFrame', title: 'Zoom to Film Frame', section: 'View', shortcut: '⇧3', keywords: 'frame film width follow marble', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitFrame() },
-	{ id: 'view.fitSelection', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => compose(cx)?.fitSelection() },
+	{ id: 'view.zoomIn', workspace: 'compose', title: 'Zoom In', section: 'View', shortcut: '⌘+', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(2) },
+	{ id: 'view.zoomOut', workspace: 'compose', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(0.5) },
+	{ id: 'view.fitAll', workspace: 'compose', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
+	{ id: 'view.fitFrame', workspace: 'compose', title: 'Zoom to Film Frame', section: 'View', shortcut: '⇧3', keywords: 'frame film width follow marble', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitFrame() },
+	{ id: 'view.fitSelection', workspace: 'compose', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => compose(cx)?.fitSelection() },
 	{
 		id: 'view.snap',
 		title: 'Snap',
@@ -180,9 +186,9 @@ export const commands: readonly TCommand[] = [
 		isChecked: (cx) => cx.$snapping.get(),
 		run: (cx) => cx.$snapping.set(!cx.$snapping.get())
 	},
-	{ id: 'view.wall', title: 'Wall View', section: 'View', keywords: '2d front', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === '2d', run: (cx) => compose(cx)?.setMode('2d') },
-	{ id: 'view.orbit', title: 'Orbit View', section: 'View', keywords: '3d perspective', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'orbit', run: (cx) => compose(cx)?.setMode('orbit') },
-	{ id: 'view.camera', title: 'Preview Film Camera', section: 'View', shortcut: '0', keywords: 'camera view follow viewfinder numpad', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'camera', run: (cx) => compose(cx)?.toggleCameraView() },
+	{ id: 'view.wall', workspace: 'compose', title: 'Wall View', section: 'View', keywords: '2d front', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === '2d', run: (cx) => compose(cx)?.setMode('2d') },
+	{ id: 'view.orbit', workspace: 'compose', title: 'Orbit View', section: 'View', keywords: '3d perspective', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'orbit', run: (cx) => compose(cx)?.setMode('orbit') },
+	{ id: 'view.camera', workspace: 'compose', title: 'Preview Film Camera', section: 'View', shortcut: '0', keywords: 'camera view follow viewfinder numpad', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'camera', run: (cx) => compose(cx)?.toggleCameraView() },
 
 	// MARK: - Playback
 	{ id: 'play.toggle', title: 'Play', section: 'Playback', shortcut: 'Space', keywords: 'pause stop', isEnabled: hasProject, run: (cx) => cx.$playing.set(!cx.$playing.get()) },
@@ -334,6 +340,49 @@ export const commands: readonly TCommand[] = [
 		isChecked: (cx) => cx.project?.design.loop === true,
 		run: (cx) => cx.execute([{ type: 'setDesign', design: { loop: cx.project?.design.loop !== true } }])
 	},
+	{
+		id: 'design.colorByNote',
+		title: 'Colour by Note',
+		section: 'Film',
+		keywords: 'theme option color colour pitch rainbow boomwhacker',
+		isEnabled: hasProject,
+		isChecked: (cx) => cx.project?.design.themeOptions?.colorByNote === true,
+		run: (cx) => {
+			const project = cx.project;
+			if (project != null) cx.execute(colorByNoteCommands(project, project.design.themeOptions?.colorByNote !== true));
+		}
+	},
+	{
+		id: 'design.takeOverCamera',
+		title: 'Take Over Camera',
+		section: 'Film',
+		keywords: 'manual camera animate blender',
+		isEnabled: (cx) => inDesign(cx) && cx.project?.design.camera.mode !== 'manual',
+		run: (cx) => {
+			const project = cx.project;
+			if (project != null) cx.execute(cameraCommands(project, { mode: 'manual' }));
+		}
+	},
+	{
+		id: 'design.newTheme',
+		title: 'New Theme with Agent…',
+		section: 'Film',
+		keywords: 'ai claude codex generate look skins style',
+		isEnabled: inDesign,
+		run: (cx) => {
+			const project = cx.project;
+			if (project == null) return;
+			// One mention per piece type, as the Library's button starts it: each run makes that type's skin
+			const seen = new Set<string>();
+			const mentionIds = project.entities.flatMap((entity) => {
+				const type = entity.components.piece?.type;
+				if (type == null || seen.has(type)) return [];
+				seen.add(type);
+				return [entity.id];
+			});
+			cx.openAgent({ text: NEW_THEME_PROMPT, mentionIds: mentionIds.length > 0 ? mentionIds : ['scene'] });
+		}
+	},
 	{ id: 'design.cancelExport', title: 'Cancel Export', section: 'Film', keywords: 'stop render film', isEnabled: (cx) => cx.film.isRunning, run: (cx) => cx.film.cancel() },
 
 	// MARK: - Marble
@@ -399,6 +448,9 @@ export type TCommandId =
 	| 'design.themeBrass'
 	| TPresetCommandId
 	| 'design.loop'
+	| 'design.colorByNote'
+	| 'design.takeOverCamera'
+	| 'design.newTheme'
 	| 'design.cancelExport'
 	| 'edit.undo'
 	| 'edit.redo'
@@ -455,6 +507,47 @@ export function getCommand(id: TCommandId): TCommand {
 	const command = commands.find((item) => item.id === id);
 	if (command == null) throw new Error(`Unknown command ${id}`);
 	return command;
+}
+
+/** The workspace a command acts in, or null when it works in both */
+export function commandWorkspace(command: TCommand): TWorkspace | null {
+	if (command.workspace != null) return command.workspace;
+	if (command.section === 'Tools' || command.section === 'Pieces') return 'compose';
+	if (command.section === 'Film') return 'design';
+	return null;
+}
+
+/**
+ * Runs a command from the other workspace by opening that workspace first, as the palette's dimmed results
+ * promise. Compose commands wait for the canvas to mount; one that is not enabled once there does nothing.
+ */
+export function runInWorkspace(cx: StudioCx, command: TCommand): void {
+	const target = commandWorkspace(command);
+	if (target == null || cx.$workspace.get() === target) {
+		if (isCommandEnabled(cx, command)) command.run(cx);
+		return;
+	}
+	cx.$workspace.set(target);
+	const runWhenReady = (): void => {
+		if (isCommandEnabled(cx, command)) command.run(cx);
+	};
+	if (target === 'design' || cx.$compose.get() != null) {
+		requestAnimationFrame(runWhenReady);
+		return;
+	}
+	// The canvas registers itself once mounted; give up after a second rather than run late
+	let isDone = false;
+	const stop = cx.$compose.listen(({ value }) => {
+		if (value == null || isDone) return;
+		isDone = true;
+		stop();
+		requestAnimationFrame(runWhenReady);
+	});
+	window.setTimeout(() => {
+		if (isDone) return;
+		isDone = true;
+		stop();
+	}, 1000);
 }
 
 export function isCommandEnabled(cx: StudioCx, command: TCommand): boolean {

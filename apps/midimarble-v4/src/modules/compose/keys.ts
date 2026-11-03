@@ -21,6 +21,8 @@ export interface TKeyContext {
 	hasGhosts: boolean;
 	/** A rail is being drawn with the path tool */
 	isDrawing?: boolean;
+	/** The selection holds notes, whose piano roll owns 0 to 9 for handing them over */
+	hasNotes?: boolean;
 }
 
 /** Tools of the Compose tool rail, in rail order, then the pieces only the Insert library arms */
@@ -98,7 +100,8 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 			return { type: 'nudge', degrees: (input.key === 'ArrowRight' ? -1 : 1) * (input.shiftKey ? 5 : 1) };
 	}
 	if (input.shiftKey) return input.code === 'KeyI' ? { type: 'library' } : null;
-	if (input.code === 'Digit0' || input.code === 'Numpad0') return { type: 'cameraView' };
+	// One key, one meaning: with notes selected 0 makes them Backing in the piano roll, so it leaves the camera alone
+	if ((input.code === 'Digit0' || input.code === 'Numpad0') && context.hasNotes !== true) return { type: 'cameraView' };
 
 	const tool = toolKeys.find((item) => item.code === input.code);
 	if (tool != null) return tool.tool === 'path' ? { type: 'tool', tool: 'path', pathType: 'rail' } : { type: 'tool', tool: tool.tool };

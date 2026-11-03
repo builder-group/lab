@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import { createState } from 'feature-state';
-import { Anchor, Unlink2 } from 'lucide-react';
+import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, NoteRow, Panel, ScrubField, StatusPill } from '@/components';
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
@@ -186,10 +186,12 @@ export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: stri
 			className="mm-fix-it"
 			disabled={compose == null || replacing != null}
 			onClick={() => void compose?.assist.replace([`${laneId}/${hitId}`])}
-			title="Run Auto place again for this platform"
+			title="Re-place: tilt this platform again with Auto place"
+			aria-label="Re-place"
 			type="button"
 		>
-			{replacing != null ? 'Re-placing…' : 'Re-place'}
+			{/* Auto place's wand, as in the step bar; the header has no room for a word beside the title and pill */}
+			<WandSparkles size={12} strokeWidth={1.9} />
 		</button>
 	);
 };

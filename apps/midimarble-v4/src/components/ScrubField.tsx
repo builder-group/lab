@@ -18,11 +18,14 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 		max = Number.POSITIVE_INFINITY,
 		disabled = false,
 		span,
+		format: formatValue,
+		parse,
 		onPreview,
 		onCommit,
 		onCancel
 	} = props;
-	const text = value == null ? '' : format(value, precision);
+	const show = (next: number): string => (formatValue != null ? formatValue(next) : format(next, precision));
+	const text = value == null ? '' : show(value);
 	const [draft, setDraft] = React.useState(text);
 	const [source, setSource] = React.useState(text);
 	const scrubRef = React.useRef<{ x: number; start: number; current: number; moved: boolean } | null>(null);
@@ -39,7 +42,7 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 
 	function commitDraft(): void {
 		if (draft === text) return;
-		const parsed = Number(draft.replace(',', '.').replace(/[^\d.+-]/g, ''));
+		const parsed = parse != null ? (parse(draft) ?? Number.NaN) : Number(draft.replace(',', '.').replace(/[^\d.+-]/g, ''));
 		if (draft.trim() === '' || !Number.isFinite(parsed)) {
 			setDraft(text);
 			return;
@@ -48,15 +51,16 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 	}
 
 	const isGlyph = typeof label === 'string' && label.length <= 1;
+	const [fieldRef, isCompact] = useCompactUnit(unit);
 
 	return (
-		<div className="mm-ifield" data-disabled={disabled} data-span={span}>
+		<div ref={fieldRef} className="mm-ifield" data-disabled={disabled} data-span={span} data-compact={isCompact}>
 			<label
 				htmlFor={id}
 				className="mm-ifield-label"
 				data-scrub={!disabled}
 				data-glyph={isGlyph}
-				title={disabled ? name : `${name}: drag to change, hold Shift for larger steps`}
+				title={`${name}${unit.length > 0 ? ` (${unit})` : ''}${disabled ? '' : ': drag to change, hold Shift for larger steps'}`}
 				onPointerDown={(event) => {
 					if (event.button !== 0 || disabled) return;
 					event.preventDefault();
@@ -71,7 +75,7 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 					if (!scrub.moved && Math.abs(dx) < 2) return;
 					scrub.moved = true;
 					scrub.current = clamp(scrub.start + dx * step * (event.shiftKey ? 10 : 1));
-					setDraft(format(scrub.current, precision));
+					setDraft(show(scrub.current));
 					onPreview?.(scrub.current);
 				}}
 				onPointerUp={() => {
@@ -93,7 +97,7 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 				disabled={disabled}
 				value={draft}
 				placeholder={value == null ? 'Mixed' : undefined}
-				inputMode="decimal"
+				inputMode={parse != null ? 'text' : 'decimal'}
 				onChange={(event) => setDraft(event.target.value)}
 				onBlur={commitDraft}
 				onKeyDown={(event) => {
@@ -114,6 +118,32 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 	);
 };
 
+/**
+ * True when the field is too narrow for its label, a five-character value and the unit, so the unit steps
+ * aside and the value stays whole; the label's tooltip still names the unit
+ */
+function useCompactUnit(unit: string): [React.RefObject<HTMLDivElement | null>, boolean] {
+	const ref = React.useRef<HTMLDivElement>(null);
+	const [value, setValue] = React.useState(false);
+	React.useLayoutEffect(() => {
+		const field = ref.current;
+		if (field == null || !unit.length) return;
+		const measure = (): void => {
+			const label = field.querySelector<HTMLElement>('.mm-ifield-label');
+			const input = field.querySelector('input');
+			const unitElement = field.querySelector<HTMLElement>('.mm-ifield-unit');
+			if (label == null || input == null || unitElement == null) return;
+			const minValue = Number.parseFloat(getComputedStyle(input).minWidth) || 0;
+			setValue(label.offsetWidth + minValue + unitElement.offsetWidth > field.clientWidth);
+		};
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(field);
+		return () => observer.disconnect();
+	}, [unit]);
+	return [ref, value];
+}
+
 interface TScrubFieldProps {
 	id: string;
 	/** Short label inside the field: a letter or glyph such as `X` or `∠`, or a short word */
@@ -133,6 +163,12 @@ interface TScrubFieldProps {
 	disabled?: boolean;
 	/** `2` spans both columns of the inspector grid */
 	span?: 2;
+	/**
+	 * Own text for the value and its reader, such as the timeline LCD's `m:ss.cc` for times; null from `parse`
+	 * rejects the text. `precision` still sets how finely a typed or scrubbed value is kept.
+	 */
+	format?: (value: number) => string;
+	parse?: (text: string) => number | null;
 	onPreview?: (value: number) => void;
 	onCommit: (value: number) => void;
 	onCancel?: () => void;
@@ -142,3 +178,4 @@ function format(value: number, precision: number): string {
 	const text = value.toFixed(precision);
 	return /^-0(\.0+)?$/.test(text) ? text.slice(1) : text;
 }
+

@@ -2,6 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Anchor, AudioLines, Bookmark, ChevronRight, Eye, EyeOff, Folder, Lock, LockOpen, Music, Plus, Type, Video } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu, RenameField } from '@/components';
+import { attachState } from '@/modules/compose/attach-edit';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
 import { DesignLibrary } from '@/modules/design/DesignLibrary';
@@ -10,6 +11,7 @@ import type { TEntity, TProject } from '@/modules/project';
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
 import { addMenu } from './add-menu';
 import { commandItem } from './commands';
+import { formatTime } from './format';
 import { laneMenu, pieceMenu } from './menus';
 import { buildOutline, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import { PieceLibrary } from './PieceLibrary';
@@ -150,7 +152,8 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	const selectedLanes = new Set(selection.flatMap((key) => (key.startsWith('hit:') ? [key.split(':')[1] ?? ''] : [])));
 
 	function isSelected(row: TOutlineRow): boolean {
-		if (row.kind === 'group') return row.childIds.length > 0 && row.childIds.every((id) => selectedSet.has(id));
+		// A group such as Free Pieces only gathers rows; like Figma only the selected rows are tinted, not their group
+		if (row.kind === 'group') return false;
 		return selectedSet.has(row.id);
 	}
 
@@ -391,6 +394,11 @@ const PieceRow: React.FC<
 	const name = piece.name ?? type;
 	const link = piece.components.hitLink;
 	const isLinked = soundsHit(type, link);
+	// A piece that follows a moment names it, as the inspector header does: "Follows Marble 1 at 0:03.2"
+	const project = cx.project;
+	const attach = link != null && !isLinked && project != null ? attachState(project, piece) : null;
+	const followLabel =
+		attach?.kind === 'anchored' ? `Follows ${project?.music.lanes.find((lane) => lane.id === attach.laneId)?.name ?? 'a marble'} at ${formatTime(attach.time)}` : null;
 	// Like Xcode's navigator, only problems get a badge; on-time pieces stay quiet
 	const status = isLinked ? badgeStatus(resolved?.status, hit) : resolved?.status === 'blocked' ? 'blocked' : null;
 	const isProblem = status != null && status !== 'onTime';
@@ -414,7 +422,11 @@ const PieceRow: React.FC<
 			meta={
 				<>
 					{isProblem ? <StatusIcon status={status} size={11} /> : null}
-					{link != null && !isLinked ? <Anchor size={11} strokeWidth={1.8} aria-label="Follows a marble" /> : null}
+					{followLabel != null ? (
+						<span className="inline-flex" title={followLabel} aria-label={followLabel} role="img">
+							<Anchor size={11} strokeWidth={1.8} aria-hidden />
+						</span>
+					) : null}
 					{isLinked && hit != null ? <span>{formatShortTime(hit.targetTime)}</span> : null}
 				</>
 			}

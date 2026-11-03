@@ -26,6 +26,7 @@ import {
 	ROW_HEIGHT,
 	round,
 	RULER_HEIGHT,
+	SONG_ROLL_MAX_HEIGHT,
 	SONG_ROW_HEIGHT
 } from './timeline-layout';
 import { $expandedLanes, $songExpanded } from './timeline-state';
@@ -85,7 +86,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			const owner = ownerForKey(current, event.key);
 			if (owner == null) return;
 			event.preventDefault();
-			event.stopPropagation();
+			// Other window listeners, such as the canvas's, must not see the key as well
+			event.stopImmediatePropagation();
 			handNotes(cx, keys, owner);
 		}
 		window.addEventListener('keydown', onKeyDown, true);
@@ -217,7 +219,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		const range = ranges.get(lane.id);
 		return expanded.includes(lane.id) && range != null ? rowCount(range) * NOTE_ROW_HEIGHT : ROW_HEIGHT;
 	});
-	const songHeight = isSongExpanded && songRows != null ? Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT) : SONG_ROW_HEIGHT;
+	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
 	const rowsHeight = laneHeights.reduce((sum, value) => sum + value, 0) + (song != null ? songHeight : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
 
 	// MARK: - UI

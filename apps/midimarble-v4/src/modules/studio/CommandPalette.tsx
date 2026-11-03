@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Search } from 'lucide-react';
 import React from 'react';
-import { commands, isCommandEnabled, type TCommand } from './commands';
+import { commands, commandWorkspace, isCommandEnabled, runInWorkspace, type TCommand } from './commands';
 import type { StudioCx } from './StudioCx';
 
 /** ⌘K command palette listing every command with its shortcut, like Linear, Raycast and Blender's F3 search */
@@ -30,9 +30,9 @@ const PaletteDialog: React.FC<{ cx: StudioCx; onClose: () => void }> = (props) =
 	}, [highlighted, query]);
 
 	function run(command: TCommand | undefined): void {
-		if (command == null || !isCommandEnabled(cx, command)) return;
+		if (command == null || !canRun(cx, command)) return;
 		onClose();
-		command.run(cx);
+		runInWorkspace(cx, command);
 	}
 
 	function onKeyDown(event: React.KeyboardEvent): void {
@@ -84,8 +84,9 @@ const PaletteDialog: React.FC<{ cx: StudioCx; onClose: () => void }> = (props) =
 					) : null}
 					{results.map((command, index) => {
 						const showSection = !query.trim() && command.section !== results[index - 1]?.section;
-						const enabled = isCommandEnabled(cx, command);
-						const checked = command.isChecked?.(cx) === true;
+						const opens = opensWorkspace(cx, command);
+						const enabled = canRun(cx, command);
+						const checked = opens == null && command.isChecked?.(cx) === true;
 						return (
 							<React.Fragment key={command.id}>
 								{showSection ? <div className="px-2.5 pt-2 pb-1 text-[11px] font-semibold text-[var(--text-secondary)]">{command.section}</div> : null}
@@ -96,13 +97,17 @@ const PaletteDialog: React.FC<{ cx: StudioCx; onClose: () => void }> = (props) =
 									aria-disabled={!enabled}
 									data-highlighted={index === highlighted}
 									className="flex h-8 items-center gap-2 rounded-[6px] px-2.5 data-[highlighted=true]:bg-[var(--accent)] data-[highlighted=true]:text-[var(--on-accent)]"
-									style={{ opacity: enabled ? 1 : 0.4 }}
+									style={{ opacity: !enabled ? 0.4 : opens != null && index !== highlighted ? 0.6 : 1 }}
 									onPointerMove={() => setHighlighted(index)}
 									onClick={() => run(command)}
 								>
 									<span className="w-3 shrink-0 text-center text-[11px]">{checked ? '✓' : ''}</span>
 									<span className="min-w-0 flex-1 truncate">{command.title}</span>
-									{query.trim() ? <span className="text-[11px] opacity-55">{command.section}</span> : null}
+									{opens != null ? (
+										<span className="text-[11px] opacity-70">Opens {opens === 'compose' ? 'Compose' : 'Film'}</span>
+									) : query.trim() ? (
+										<span className="text-[11px] opacity-55">{command.section}</span>
+									) : null}
 									{command.shortcut != null ? <Shortcut value={command.shortcut} /> : null}
 								</div>
 							</React.Fragment>
@@ -141,23 +146,33 @@ function splitShortcut(value: string): string[] {
 	return keys;
 }
 
-/** Commands matching every word of the query at a word start, title matches first, in section order */
+/** The other workspace a command opens before it runs, or null when it runs here */
+function opensWorkspace(cx: StudioCx, command: TCommand): 'compose' | 'design' | null {
+	const target = commandWorkspace(command);
+	return target == null || target === cx.$workspace.get() ? null : target;
+}
+
+/** A command of the other workspace runs once it is open, so only a project is needed to offer it */
+function canRun(cx: StudioCx, command: TCommand): boolean {
+	return opensWorkspace(cx, command) != null ? cx.project != null : isCommandEnabled(cx, command);
+}
+
+/**
+ * Commands matching every word of the query at a word start, title matches first, in section order. The
+ * open list shows this workspace's commands; a search also finds the other workspace's, after these and
+ * dimmed with the workspace they open, like Raycast's grouped results.
+ */
 function searchCommands(cx: StudioCx, query: string): TCommand[] {
 	const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-	const workspace = cx.$workspace.get();
-	const available = commands.filter(
-		(command) =>
-			command.isHidden !== true &&
-			(workspace === 'compose' ? command.section !== 'Film' : command.section !== 'Tools' && command.section !== 'Pieces')
-	);
-	if (!words.length) return available;
-	const scored = available.flatMap((command) => {
+	const visible = commands.filter((command) => command.isHidden !== true);
+	if (!words.length) return visible.filter((command) => opensWorkspace(cx, command) == null);
+	const scored = visible.flatMap((command) => {
 		const title = command.title.toLowerCase();
 		const haystack = `${title} ${command.section.toLowerCase()} ${command.keywords ?? ''}`;
 		const tokens = haystack.split(/[\s.…°]+/);
 		const matches = words.every((word) => tokens.some((token) => token.startsWith(word)) || haystack.includes(word));
 		if (!matches) return [];
-		const score = (title.startsWith(words[0] ?? '') ? 0 : 1) + (words.every((word) => title.includes(word)) ? 0 : 1);
+		const score = (title.startsWith(words[0] ?? '') ? 0 : 1) + (words.every((word) => title.includes(word)) ? 0 : 1) + (opensWorkspace(cx, command) != null ? 10 : 0);
 		return [{ command, score }];
 	});
 	return scored.sort((a, b) => a.score - b.score).map((item) => item.command);
