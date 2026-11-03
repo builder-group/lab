@@ -90,6 +90,7 @@ export class StudioCx {
 	});
 	private audioEngine: TAudioEngine | null = null;
 
+	private isRestoring = false;
 	private saveTimer: ReturnType<typeof setTimeout> | undefined;
 	private savedRevision = 0;
 	private noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -100,6 +101,7 @@ export class StudioCx {
 
 	mount(): () => void {
 		void this.refreshRecent();
+		void this.restoreOpenProject();
 		const unmountSimulation = this.simulation.mount();
 		const unmountDesign = this.mountDesign();
 		const unmountAgents = this.agents.mount();
@@ -242,7 +244,26 @@ export class StudioCx {
 		return true;
 	}
 
+	/**
+	 * Like macOS window restoration: the document that was open when the app quit or reloaded opens again. A moved
+	 * or deleted package leaves the start screen
+	 */
+	private async restoreOpenProject(): Promise<void> {
+		const path = readText(OPEN_PROJECT_KEY);
+		if (path == null || this.isRestoring || this.$history.get() != null) return;
+		this.isRestoring = true;
+		const [isOpenedOk, , opened] = await host.openProject(path);
+		const [isProjectOk, , project] = isOpenedOk ? parseProject(opened.projectJson) : [false, null, null];
+		this.isRestoring = false;
+		if (!isOpenedOk || !isProjectOk || project == null) {
+			writeText(OPEN_PROJECT_KEY, null);
+			return;
+		}
+		if (this.$history.get() == null) this.load(project, opened.path);
+	}
+
 	async closeProject(): Promise<void> {
+		writeText(OPEN_PROJECT_KEY, null);
 		await this.flush();
 		await this.design.close();
 		this.$history.set(null);
@@ -257,6 +278,7 @@ export class StudioCx {
 		this.savedRevision = project.revision;
 		this.$history.set(createHistory(project));
 		this.$path.set(path);
+		writeText(OPEN_PROJECT_KEY, path);
 		this.$save.set('saved');
 		this.$selection.set([]);
 		this.$hidden.set([]);
@@ -424,6 +446,7 @@ export function audibleProject(project: TProject, mix: TLaneMix): TProject {
 }
 
 const TIMELINE_HEIGHT_KEY = 'midimarble-v4:timeline-height';
+const OPEN_PROJECT_KEY = 'midimarble-v4:open-project';
 
 function toggleItem(items: string[], item: string): string[] {
 	return items.includes(item) ? items.filter((value) => value !== item) : [...items, item];
@@ -435,6 +458,23 @@ function readNumber(key: string, fallback: number): number {
 		return Number.isFinite(value) && value > 0 ? value : fallback;
 	} catch {
 		return fallback;
+	}
+}
+
+function readText(key: string): string | null {
+	try {
+		return localStorage.getItem(key);
+	} catch {
+		return null;
+	}
+}
+
+function writeText(key: string, value: string | null): void {
+	try {
+		if (value == null) localStorage.removeItem(key);
+		else localStorage.setItem(key, value);
+	} catch {
+		// Storage can be unavailable; the app then starts on the start screen
 	}
 }
 

@@ -78,7 +78,6 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 			<AssistBar compose={compose} />
 			<CornerControls compose={compose} />
 			<SimulatingIndicator cx={cx} />
-			<EmptyState compose={compose} />
 		</div>
 	);
 };
@@ -117,33 +116,6 @@ function openCanvasMenu(compose: ComposeCx, event: React.MouseEvent<HTMLElement>
 			openContextMenu(event, canvasMenu(compose));
 	}
 }
-
-/** First-run guidance: what to do with no hits */
-const EmptyState: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
-	const cx = compose.studio;
-	const project = useFeatureState(cx.$history)?.present;
-	const isImporting = useFeatureState(cx.sources.$midiImport) != null;
-	if (project == null || isImporting) return null;
-	const hasHits = project.music.lanes.some((lane) => lane.hits.length > 0);
-	if (hasHits) return null;
-	return (
-		<div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center">
-			<div className="mm-floating pointer-events-auto flex items-center gap-3 py-2 pr-2 pl-3.5">
-				<div className="flex flex-col leading-tight">
-					<span className="font-semibold">Add Music</span>
-					<span className="text-[11px] text-[var(--text-secondary)]">Import a song, or double-click a lane in the timeline to add hits</span>
-				</div>
-				<button className="mm-button" data-variant="primary" onClick={() => void cx.sources.pickMidi()} type="button">
-					MIDI…
-				</button>
-				<button className="mm-button" onClick={() => void cx.sources.pickAudio()} type="button">
-					Audio…
-				</button>
-			</div>
-		</div>
-	);
-};
 
 // MARK: - Overlay
 

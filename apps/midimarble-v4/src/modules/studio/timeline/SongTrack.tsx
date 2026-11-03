@@ -53,6 +53,36 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	);
 };
 
+/**
+ * The Song track before a song exists: where a file goes, like GarageBand's empty track that asks for a loop.
+ * Files dropped anywhere on the window import too.
+ */
+export const EmptySongTrack: React.FC<{ cx: StudioCx; width: number }> = (props) => {
+	const { cx, width } = props;
+	return (
+		<div className="flex shrink-0" style={{ height: SONG_ROW_HEIGHT }}>
+			<div
+				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-b border-[var(--separator)] pr-2 pl-5 text-[var(--text-secondary)]"
+				style={{ width: HEADER_WIDTH }}
+			>
+				<span className="mm-song-icon">
+					<Music size={12} strokeWidth={1.75} />
+				</span>
+				<span className="truncate font-medium">Song</span>
+			</div>
+			<div className="mm-song-lane mm-song-empty relative flex flex-1 items-center gap-2 border-b border-[var(--separator)] px-3" style={{ minWidth: width }}>
+				<span className="text-[11px] text-[var(--text-tertiary)]">Drop a MIDI or audio file, or</span>
+				<button className="mm-link-button" onClick={() => void cx.sources.pickMidi()} type="button">
+					Import MIDI…
+				</button>
+				<button className="mm-link-button" onClick={() => void cx.sources.pickAudio()} type="button">
+					Import Audio…
+				</button>
+			</div>
+		</div>
+	);
+};
+
 interface TSongTrackProps {
 	cx: StudioCx;
 	project: TProject;

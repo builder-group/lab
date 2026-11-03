@@ -533,6 +533,34 @@ textarea {
 	background: color-mix(in srgb, var(--text) 2.5%, transparent);
 }
 
+/* An empty Song track reads as a drop target */
+.mm-song-empty {
+	background-image: repeating-linear-gradient(90deg, var(--separator) 0 6px, transparent 6px 12px);
+	background-size: 100% 1px;
+	background-repeat: no-repeat;
+	background-position: 0 50%;
+	background-color: color-mix(in srgb, var(--text) 1.5%, transparent);
+}
+
+.mm-song-empty > * {
+	position: relative;
+	z-index: 1;
+	padding: 0 4px;
+	background: var(--content);
+}
+
+/* Text-only action inside a row, like a link in a Finder empty state */
+.mm-link-button {
+	border-radius: 4px;
+	color: var(--text);
+	font-size: 11px;
+	font-weight: 500;
+}
+
+.mm-link-button:hover {
+	background: var(--hover);
+}
+
 /* Piano roll keyboard, like Logic's: black keys reach in from the left, C keys carry their octave */
 .mm-keyboard {
 	border-left: 1px solid var(--separator);

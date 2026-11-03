@@ -12,7 +12,7 @@ import { CameraRow } from './CameraRow';
 import { LaneTrack, PianoRollTrack, type TDrag, type TDragStart } from './LaneTrack';
 import { pitchDeltaFor, pitchRange, rowCount } from './piano-roll';
 import { PlayheadLine, Ruler } from './Ruler';
-import { SongTrack } from './SongTrack';
+import { EmptySongTrack, SongTrack } from './SongTrack';
 import {
 	CAMERA_ROW_HEIGHT,
 	clampZoom,
@@ -217,7 +217,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
 					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
-					{song != null ? <SongTrack cx={cx} project={project} song={song} analysis={analysis[song.id]} zoom={zoom} width={trackWidth} /> : null}
+					{song != null ? <SongTrack cx={cx} project={project} song={song} analysis={analysis[song.id]} zoom={zoom} width={trackWidth} /> : <EmptySongTrack cx={cx} width={trackWidth} />}
 					{project.music.lanes.map((lane, index) => {
 						const range = ranges.get(lane.id) ?? null;
 						const isExpanded = expanded.includes(lane.id) && range != null;
