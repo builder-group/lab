@@ -90,7 +90,7 @@ Camera rig with rail, target and shot markers, take over, export presets, loop m
 
 Done when:
 
-- `reference-20` renders at the Best preset with a travelling camera and slow roll, and a side-by-side review against the reference shows comparable structure and polish
+- `reference-20` matches the reference's structure in the film camera: column density, piece and marble scale, section change, titles, travelling camera and slow roll, judged side by side in Compose's Camera view and in Draft or Fast stills and films. Lighting and materials are Blender's and are judged on stills; a Best render is optional (owner decision, 2026-11-03)
 - `jingle-bells` renders as a full film and is compared with the earlier attempts
 - `loop` passes the loop check and plays seamlessly when repeated
 - A take-over camera survives a Compose edit, and the app asks before regenerating it
