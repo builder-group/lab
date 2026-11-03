@@ -7,6 +7,7 @@ The autonomous build updates this log after every slice. Newest entries go first
 - Milestone: M2 Compose core
 - Next step: Rapier simulation module with headless fixture runs
 - Blockers: none
+- Planned after the Compose canvas: a UI pass that follows Figma UI3 and Premiere Pro more closely (floating canvas tool bar, Figma-style inspector sections, Premiere-style track headers and playhead), reviewed with fresh eyes against screenshots of those apps
 - Not committed on purpose: `pnpm-lock.yaml` (also holds unrelated local changes) and the lab `.claude/launch.json`
 
 ## Log

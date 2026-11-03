@@ -34,12 +34,12 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 					aria-label={workspace === 'compose' ? 'Compose canvas' : 'Design preview'}
 				>
 					{canvas}
+					<Notice cx={cx} />
 				</main>
 				{panels.inspector ? <Inspector cx={cx} /> : null}
 			</div>
 			{panels.timeline ? <Timeline cx={cx} /> : null}
 			<ImportMidiSheet cx={cx} />
-			<Notice cx={cx} />
 		</div>
 	);
 };

@@ -45,6 +45,10 @@ Reference apps:
 
 ## Canvas
 
+Floating UI belongs to the canvas, as in Figma UI3: the tool bar floats at the bottom centre of the canvas, notices appear above it, and nothing floats over the timeline or panels.
+
+- Floating tool bar: Select (V), Hand (H), the piece types, then Repeat, Mirror, Auto place and Continue
+
 - Two-finger scroll pans, pinch zooms, Space and drag pans
 - ⌘+ and ⌘− zoom, ⇧1 fits everything, ⇧2 fits the selection
 - The 2D and orbit toggle sits in the canvas corner; Blender users can orbit with the middle mouse button

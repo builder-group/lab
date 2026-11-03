@@ -18,6 +18,7 @@
 		"build": "tauri build",
 		"build:prod": "tauri build --config src-tauri/tauri.prod.conf.json",
 		"clean": "shx rm -rf target && shx rm -rf dist && shx rm -rf .tanstack && shx rm -rf .turbo && shx rm -rf node_modules",
+		"fixtures:build": "tsx scripts/build-fixtures.ts",
 		"install:clean": "pnpm run clean && pnpm install",
 		"lint": "eslint .",
 		"soundbank:build": "tsx scripts/build-soundbank.ts",
@@ -29,6 +30,7 @@
 		"update:latest": "pnpm update --latest"
 	},
 	"dependencies": {
+		"@dimforge/rapier3d-deterministic-compat": "^0.21.0",
 		"@tanstack/react-router": "^1.170.46",
 		"@tauri-apps/api": "^2.12.4",
 		"@tauri-apps/plugin-dialog": "^2.4.0",
@@ -43,6 +45,7 @@
 		"react-dom": "^19.3.1",
 		"spessasynth_core": "^4.4.1",
 		"tailwind-merge": "^3.7.0",
+		"three": "^0.186.1",
 		"tuple-result": "^0.1.0",
 		"versjon": "^0.0.3",
 		"zod": "^4.6.7"
@@ -55,6 +58,7 @@
 		"@types/node": "^26.6.5",
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
+		"@types/three": "^0.186.0",
 		"@vitejs/plugin-react": "^6.1.2",
 		"shx": "^0.4.0",
 		"tailwindcss": "^4.3.3",
