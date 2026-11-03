@@ -17,7 +17,8 @@ import {
 	type TProject,
 	type TProjectCommand,
 	type TProjectHistory,
-	type TSource
+	type TSource,
+	type TVec2
 } from '@/modules/project';
 import { parseHitKey } from './selection';
 import { SimulationCx } from './SimulationCx';
@@ -37,8 +38,11 @@ export class StudioCx {
 	readonly $playhead = createState(0);
 	readonly $playing = createState(false);
 	readonly $notice = createState<TNotice | null>(null);
-	/** Entity IDs the canvas should bring into view, set by lists outside the canvas */
-	readonly $reveal = createState<{ ids: string[] } | null>(null);
+	/**
+	 * Selection keys and an optional wall point the Compose canvas should bring into view, set by lists
+	 * outside the canvas. The canvas clears it once handled, so a reveal sent from Design waits for Compose.
+	 */
+	readonly $reveal = createState<TReveal | null>(null);
 	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true });
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 212));
 	readonly $paletteOpen = createState(false);
@@ -163,9 +167,22 @@ export class StudioCx {
 	}
 
 	/** Selects entities and asks the canvas to frame them when they are out of view */
-	reveal(ids: string[]): void {
+	reveal(ids: string[], point?: TVec2): void {
 		this.$selection.set(ids);
-		this.$reveal.set({ ids });
+		this.$reveal.set({ ids, point });
+	}
+
+	/**
+	 * Shows an export preflight issue in Compose, like a click in Xcode's issue navigator: closes the
+	 * export sheet, moves the playhead to the issue and selects and frames what it is about
+	 */
+	revealIssue(target: { ids: string[]; point?: TVec2; time?: number }): void {
+		this.film.closeSheet();
+		this.$playing.set(false);
+		this.$workspace.set('compose');
+		this.reveal(target.ids, target.point);
+		// After the selection, which moves the playhead to a selected piece's own hit
+		if (target.time != null) this.$playhead.set(target.time);
 	}
 
 	// MARK: - Projects
@@ -391,6 +408,11 @@ function writeNumber(key: string, value: number): void {
 }
 export type TSaveState = 'saved' | 'dirty' | 'saving' | 'failed';
 export type TSelection = string[];
+
+export interface TReveal {
+	ids: string[];
+	point?: TVec2;
+}
 
 export interface TNotice {
 	message: string;

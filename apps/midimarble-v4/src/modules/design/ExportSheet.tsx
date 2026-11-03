@@ -4,9 +4,10 @@ import { CircleAlert, CircleCheck, Film, Monitor } from 'lucide-react';
 import React from 'react';
 import { Select } from '@/components';
 import { host } from '@/environment';
-import type { TRenderPreset } from '@/modules/blender';
+import type { TFilmEngine, TRenderPreset } from '@/modules/blender';
 import type { StudioCx } from '@/modules/studio';
-import { estimateExport, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresets, type TRenderEngine } from './export-estimate';
+import { estimateExport, filmEngine, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresetOption, renderPresets, type TExportEstimate, type TRenderEngine } from './export-estimate';
+import { ExportPreflight, useExportPreflight } from './ExportPreflight';
 import type { TExportJob } from './FilmExportCx';
 
 /** Export Film sheet, like a macOS export sheet: settings and an estimate, then progress, then the film */
@@ -64,13 +65,16 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 	const preview = useFeatureState(cx.design.$preview);
 	const result = useFeatureState(cx.simulation.$result);
 	const project = useFeatureState(cx.$history)?.present;
+	const preflight = useExportPreflight(cx);
 	const isAvailable = cx.film.isAvailable;
-	if (project == null) return null;
+	if (project == null || preflight == null) return null;
+	// Issues never block an export; the default button only says that it goes ahead despite them
+	const exportLabel = preflight.warnings > 0 ? 'Export Anyway' : 'Export';
 
 	const duration = result?.duration ?? project.end;
 	const preset = getRenderPreset(settings.preset);
 	const size = filmSize(project.frame, settings.preset);
-	const estimate = estimateExport({ duration, frame: project.frame, preset: settings.preset, engine: settings.engine, measured: measured[settings.engine], preview });
+	const estimate = estimateExport({ duration, frame: project.frame, preset: settings.preset, engine: settings.engine, measured: measured[filmEngine(settings.preset, settings.engine)], preview });
 
 	return (
 		<>
@@ -91,7 +95,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				<Select
 					id="export-preset"
 					value={settings.preset}
-					options={renderPresets.map((item) => ({ value: item.id, label: `${item.label} · ${item.shortSide}p, ${item.fps} fps` }))}
+					options={renderPresets.map((item) => ({ value: item.id, label: renderPresetOption(item) }))}
 					onChange={(value) => cx.film.updateSettings({ preset: value as TRenderPreset })}
 				/>
 				<span className="mm-form-label">Renderer</span>
@@ -110,7 +114,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 							</button>
 						))}
 					</div>
-					<div className="mm-caption mt-1">{engines.find((engine) => engine.id === settings.engine)?.description}</div>
+					<div className="mm-caption mt-1">{preset.engine === 'workbench' ? 'Draft renders with Workbench: solid colours, no lighting or materials' : engines.find((engine) => engine.id === settings.engine)?.description}</div>
 				</div>
 				<label htmlFor="export-name">Save As</label>
 				<div className="flex gap-1.5">
@@ -135,16 +139,18 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				</div>
 				<div className="flex items-baseline justify-between gap-3">
 					<span className="font-medium">{estimate.seconds != null ? formatEstimate(estimate.seconds) : 'Time unknown'}</span>
-					<span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, settings.engine)}</span>
+					<span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, filmEngine(settings.preset, settings.engine))}</span>
 				</div>
 			</div>
+
+			<ExportPreflight cx={cx} preflight={preflight} />
 
 			<div className="flex justify-end gap-2">
 				<button className="mm-button" data-size="dialog" onClick={() => cx.film.closeSheet()} title="Cancel (Esc)" type="button">
 					Cancel
 				</button>
-				<button className="mm-button" data-size="dialog" data-variant="primary" disabled={!isAvailable} onClick={() => void cx.film.start()} title="Export (↩)" type="button">
-					Export
+				<button className="mm-button" data-size="dialog" data-variant="primary" disabled={!isAvailable} onClick={() => void cx.film.start()} title={`${exportLabel} (↩)`} type="button">
+					{exportLabel}
 				</button>
 			</div>
 		</>
@@ -272,8 +278,9 @@ export function exportStatusLabel(job: TExportJob): string {
 	}
 }
 
-function basisLabel(basis: 'measured' | 'preview' | 'none', engine: TRenderEngine): string {
-	if (basis === 'measured') return `From your last ${engine === 'eevee' ? 'Eevee' : 'Cycles'} export`;
+function basisLabel(basis: TExportEstimate['basis'], engine: TFilmEngine): string {
+	if (basis === 'measured') return `From your last ${engine === 'eevee' ? 'Eevee' : engine === 'cycles' ? 'Cycles' : 'Draft'} export`;
+	if (basis === 'typical') return 'Typical Workbench speed';
 	if (basis === 'preview') return engine === 'cycles' ? 'Rough guess from the Eevee preview' : 'From the playhead preview';
 	return 'Shown after the first preview render';
 }

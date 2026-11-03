@@ -11,6 +11,22 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### Export preflight
+
+- `export-preflight.ts` checks the current result before an export: missed hits with their reason, blocked and drifting hits, open hits and dots outside the frame or lane band (grouped per lane), stray contacts (marble pairs, another lane's pieces, free platforms; own pieces and free scenery are expected), lanes more than 2 × `PACE_LIMIT` off the shared pace when `descent` is set, loop mismatches through `describeLoop`, and a stale or missing result. Warnings change the default button to Export Anyway; notes do not
+- Export sheet shows a disclosing summary line with warning and note rows; a row closes the sheet, switches to Compose, sets the playhead and selects and frames the piece or hit dot. `StudioCx.revealIssue`; `$reveal` now carries an optional wall point and hit keys, and stays pending until a Compose canvas mounts and frames it. The Design inspector's Output panel shows the summary
+- Observations: `jingle-bells` and `zigzag` pass clean; `loop` has one note (a dot 1 cm outside the frame); `two-marbles` reports its marbles colliding at 0:00.18 before the first hit. Own-lane re-contacts after a hit are common in clean fixtures (7 in Jingle Bells), so they are not flagged
+- Checks: `typecheck` and `lint` pass; `test` 195 of 196; the one failure is a timing test in `simulation/performance.test.ts` (a different reflow budget on each run while other work loads the machine); 10 new preflight tests. Browser check at 1440 × 900 in light and dark: Zigzag clean ("All 16 hits on time", Export); with Platform 5 turned to 70° "2 issues · 1 note" (resting miss, blocked hit, 9 dots outside the frame), Export Anyway; clicking the blocked row from Design opened Compose with Platform 16 selected, framed and the playhead at 0:04.65
+
+### Larger default kit, closer lanes
+
+- Default kit 1.5× the Marble Race Kit for new projects (`KIT_SCALE`, `DEFAULT_MARBLE_RADIUS` 0.012 m): every piece default scaled (platform 9 × 1.2 × 4.5 cm, rails, tunnels, windmills, switchbacks, rail and tunnel default paths), default camera distance 0.85 m like `reference-20`, the MIDI import places marbles `LANE_SPACING` apart. Saved projects keep their explicit sizes. Kit-relative assist constants: comfortable and launch travel in piece lengths, switchback entry drops in marble diameters, switchback widths as shares of the default, rail length cap scaled
+- Lanes: 0.26 m wide and 0.26 m apart (`LANE_HALF_WIDTH`, `LANE_SPACING`), so the two-lane band is 0.52 m; one marble's band is the film frame scaled with the camera distance (0.59 m at 0.85 m). Tried and rejected: 0.165, 0.18 and 0.22 m spacing with overlapping 0.21 to 0.30 m lanes. All marbles share one world, so interleaved lanes strike each other's bars and the Jingle Bells build failed within 2 to 13 s each time. Lanes at the target 0.15 to 0.18 m would need lane-separated collisions plus depth offsets in Blender
+- Assists for narrow lanes: half-degree refinement with several marbles, quarter degrees within ±3° for arrivals faster than 3 m/s, comfortable travel capped at the band's half width, Continue leaves a lane's last hit to Auto place, stray-contact frontiers also start at the launch into an unbridged long gap, rail and tunnel suggestions probe the next hit for room
+- Fixture builders: staircase keeps the 1× kit (hand-set angles), zigzag starts at 0.45 rad and long-gap at 0.4 rad with the new kit, two-marbles releases on the lane centres at ±0.65 m/s (collision at 0.18 s), the example projects' camera is 0.9 m. Jingle Bells: releases at ±0.13 m; the simulated user now rotates the previous piece before rotating the target by hand
+- Jingle Bells: 115/115 on time, 12 switchbacks, 7 manual steps (1 hand rotation, 6 rotations of the previous piece), every dot within 0.21 m of y*, marbles at most 0.66 m apart vertically. Reference-20 64/64, loop 21/21 and passes `checkLoop`, all fixtures regenerate byte-identically
+- Checks: `typecheck`, `lint`, `test` (184) pass
+
 ### Owner feedback after the first films
 
 - Jingle Bells after the engine work is clearly better than before; the zigzag reads well; the marble is too small compared with the reference; the rolling camera can stay as a hook, no extra camera setting (Take Over Camera covers custom work)

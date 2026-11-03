@@ -8,5 +8,7 @@ export * from './DesignLibrary';
 export * from './DesignLibraryCx';
 export * from './DesignView';
 export * from './export-estimate';
+export * from './export-preflight';
+export * from './ExportPreflight';
 export * from './ExportSheet';
 export * from './FilmExportCx';

@@ -1210,6 +1210,58 @@ textarea {
 	font-size: var(--text-body);
 }
 
+/* Export preflight: a summary line that discloses an issue list, like Xcode's issue navigator */
+.mm-preflight {
+	display: flex;
+	flex-direction: column;
+	border-radius: 8px;
+	background: var(--canvas);
+	overflow: hidden;
+}
+
+.mm-preflight-summary {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	min-height: 32px;
+	padding: 0 12px;
+	text-align: left;
+}
+
+.mm-preflight-summary:not(:disabled):hover {
+	background: var(--hover);
+}
+
+.mm-preflight-list {
+	max-height: 196px;
+	padding: 2px 0 4px;
+	border-top: 0.5px solid var(--separator);
+	overflow-y: auto;
+}
+
+.mm-preflight-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 7px;
+	width: 100%;
+	padding: 4px 12px;
+	text-align: left;
+}
+
+.mm-preflight-row[data-clickable]:hover {
+	background: var(--hover);
+}
+
+.mm-preflight-row[data-clickable]:focus-visible {
+	outline: 2px solid var(--accent-strong);
+	outline-offset: -2px;
+}
+
+.mm-preflight-detail {
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+}
+
 .mm-progress {
 	width: 100%;
 	height: 6px;

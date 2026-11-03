@@ -24,6 +24,7 @@ import type { TDesignLink } from './DesignCx';
 import { libraryItemLabel } from './DesignLibraryCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
 import { renderPresetLabel, renderPresets } from './export-estimate';
+import { PreflightIcon, useExportPreflight } from './ExportPreflight';
 import { describeLoop } from './loop-status';
 
 /** Properties of the Design workspace in Blender-style panels: the scene, a piece's look or wall text */
@@ -100,11 +101,25 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 			<AgentPanel cx={cx} target={sceneTarget} targetLabel="the scene" placeholder="Describe the scene, such as warm evening light…" />
 			<Panel id="design.output" title="Output">
 				<p className="mm-caption">Renders the film in Blender in the background with the soundtrack.</p>
+				<OutputPreflight cx={cx} />
 				<button className="mm-button self-start" onClick={() => cx.film.openSheet()} title="Export Film (⌘E)" type="button">
 					Export Film…
 				</button>
 			</Panel>
 		</>
+	);
+};
+
+/** The export preflight's summary line; the export sheet lists the issues */
+const OutputPreflight: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	const preflight = useExportPreflight(cx);
+	if (preflight == null) return null;
+	return (
+		<div className="flex items-center gap-1.5" aria-label="Preflight">
+			<PreflightIcon preflight={preflight} />
+			<span className="min-w-0 truncate">{preflight.summary}</span>
+		</div>
 	);
 };
 

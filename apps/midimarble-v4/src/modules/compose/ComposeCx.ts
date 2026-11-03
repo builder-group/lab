@@ -162,7 +162,7 @@ export class ComposeCx {
 				this.followSelection(value);
 			}),
 			this.studio.$reveal.listen(({ value }) => {
-				if (value != null) this.reveal(value.ids);
+				if (value != null) this.revealPending();
 			})
 		);
 
@@ -379,13 +379,44 @@ export class ComposeCx {
 		if (project == null || this.framedProjectId === project.id || this.result == null || this.$viewport.get().width <= 1) return;
 		this.framedProjectId = project.id;
 		this.fitFrame();
+		// A reveal sent while Compose was not mounted, such as from the export preflight in Design
+		this.revealPending();
 	}
 
-	/** Pans to entities that are out of view, keeping the zoom unless they do not fit */
-	private reveal(ids: string[]): void {
+	/** Handles the studio's pending reveal once the canvas can frame it */
+	private revealPending(): void {
+		const pending = this.studio.$reveal.get();
+		if (pending == null || this.result == null || this.$viewport.get().width <= 1) return;
+		this.studio.$reveal.set(null);
+		this.reveal(pending.ids, pending.point);
+	}
+
+	/**
+	 * Pans to pieces, hit dots and a point that are out of view, keeping the zoom unless they do not fit.
+	 * Hit keys reveal their dot.
+	 */
+	private reveal(ids: string[], point?: TVec2): void {
 		const result = this.result;
 		if (result == null) return;
-		const bounds = boundsOfPieces(result.pieces.filter((piece) => ids.includes(piece.entityId)));
+		const points: TVec2[] = point != null ? [point] : [];
+		for (const id of ids) {
+			const key = parseHitKey(id);
+			const dot = key != null ? result.hits.find((hit) => hit.laneId === key.laneId && hit.hitId === key.hitId)?.dot : null;
+			if (dot != null) points.push(dot);
+		}
+		const margin = 0.03;
+		const bounds = [
+			boundsOfPieces(result.pieces.filter((piece) => ids.includes(piece.entityId))),
+			...points.map((item) => ({ minX: item.x - margin, minY: item.y - margin, maxX: item.x + margin, maxY: item.y + margin }))
+		].reduce<TBounds | null>(
+			(union, item) =>
+				item == null
+					? union
+					: union == null
+						? item
+						: { minX: Math.min(union.minX, item.minX), minY: Math.min(union.minY, item.minY), maxX: Math.max(union.maxX, item.maxX), maxY: Math.max(union.maxY, item.maxY) },
+			null
+		);
 		if (bounds == null) return;
 		const viewport = this.$viewport.get();
 		const camera = this.$camera.get();
