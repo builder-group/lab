@@ -63,11 +63,46 @@ pub fn search_dirs() -> Vec<PathBuf> {
     return dirs;
 }
 
+/// The newest installation when several exist, because an outdated CLI can fail where a current one works
 pub fn find(cli: AgentCli) -> Option<PathBuf> {
-    return search_dirs()
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    for path in search_dirs().into_iter().map(|dir| dir.join(cli.binary())) {
+        if !path.is_file() {
+            continue;
+        }
+        let resolved = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+        let duplicate = candidates
+            .iter()
+            .any(|known| std::fs::canonicalize(known).unwrap_or_else(|_| known.clone()) == resolved);
+        if !duplicate {
+            candidates.push(path);
+        }
+    }
+    if candidates.len() <= 1 {
+        return candidates.into_iter().next();
+    }
+    return candidates
         .into_iter()
-        .map(|dir| dir.join(cli.binary()))
-        .find(|path| path.is_file());
+        .map(|path| {
+            let parsed = version(&path).map(|text| parse_version(&text)).unwrap_or_default();
+            return (parsed, path);
+        })
+        .max_by(|a, b| a.0.cmp(&b.0))
+        .map(|(_, path)| path);
+}
+
+/// Numeric parts of the first version-like word, such as `2.1.311` in `2.1.311 (Claude Code)`
+fn parse_version(text: &str) -> Vec<u64> {
+    return text
+        .split_whitespace()
+        .find(|word| word.chars().next().is_some_and(|c| c.is_ascii_digit()))
+        .map(|word| {
+            word.split(|c: char| !c.is_ascii_digit())
+                .filter(|part| !part.is_empty())
+                .filter_map(|part| part.parse().ok())
+                .collect()
+        })
+        .unwrap_or_default();
 }
 
 pub fn version(path: &Path) -> Option<String> {
@@ -174,5 +209,17 @@ mod tests {
             .windows(2)
             .any(|pair| pair == ["--sandbox", "workspace-write"]));
         assert_eq!(args.last().map(String::as_str), Some("-"));
+    }
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::parse_version;
+
+    #[test]
+    fn orders_cli_versions_numerically() {
+        assert!(parse_version("2.1.311 (Claude Code)") > parse_version("2.0.76 (Claude Code)"));
+        assert!(parse_version("codex-cli 0.9.0") < parse_version("codex-cli 0.10.1"));
+        assert_eq!(parse_version("no version"), Vec::<u64>::new());
     }
 }
