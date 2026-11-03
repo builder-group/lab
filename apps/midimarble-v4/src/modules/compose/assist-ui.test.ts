@@ -94,10 +94,11 @@ describe('compose keys', () => {
 		expect(press('v')).toEqual({ type: 'tool', tool: 'select' });
 		expect(press('o')).toEqual({ type: 'tool', tool: 'marble' });
 		expect(press('p')).toEqual({ type: 'tool', tool: 'platform' });
-		expect(press('b')).toEqual({ type: 'tool', tool: 'path' });
-		expect(press('u')).toEqual({ type: 'tool', tool: 'tunnel' });
+		expect(press('b')).toEqual({ type: 'tool', tool: 'path', pathType: 'rail' });
+		expect(press('u')).toEqual({ type: 'tool', tool: 'path', pathType: 'tunnel' });
 		expect(press('w')).toEqual({ type: 'tool', tool: 'windmill' });
 		expect(press('!', { code: 'Digit1', shiftKey: true })).toEqual({ type: 'fit', target: 'all' });
+		expect(press('I', { code: 'KeyI', shiftKey: true })).toEqual({ type: 'library' });
 		expect(press('v', { metaKey: true })).toBeNull();
 	});
 

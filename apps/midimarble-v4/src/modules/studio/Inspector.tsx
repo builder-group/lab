@@ -9,7 +9,7 @@ import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { blenderState } from '@/modules/design/blender-state';
 import { DesignInspector } from '@/modules/design/DesignInspector';
-import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP } from '@/modules/music';
+import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, suggestedHitTimes } from '@/modules/music';
 import { createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { commandItem } from './commands';
@@ -137,16 +137,12 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 
 	function addSuggestedHits(): void {
 		if (audio == null || suggestions == null) return;
-		const existing = lane.hits.map((hit) => hit.time);
-		const hits = [];
-		let last = Number.NEGATIVE_INFINITY;
-		for (const onset of suggestions) {
-			const time = Math.round((onset + audio.offset) * 10000) / 10000;
-			if (time - last < MIN_HIT_GAP) continue;
-			if (existing.some((item) => Math.abs(item - time) < MIN_HIT_GAP)) continue;
-			hits.push({ id: createId('hit'), time });
-			last = time;
-		}
+		const times = suggestedHitTimes(
+			suggestions,
+			audio.offset,
+			lane.hits.map((hit) => hit.time)
+		);
+		const hits = times.map((time) => ({ id: createId('hit'), time }));
 		cx.execute([{ type: 'upsertHits', laneId: lane.id, hits }]);
 	}
 

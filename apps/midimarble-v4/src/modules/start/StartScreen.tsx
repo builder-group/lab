@@ -1,9 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
-import { AudioLines, FileMusic, FolderOpen, LayoutTemplate, Plus } from 'lucide-react';
+import { AudioLines, FileMusic, FolderOpen, LayoutTemplate, Music, Plus } from 'lucide-react';
 import React from 'react';
 import { WindowHeader } from '@/components';
 import { host } from '@/environment';
-import { examples, loadExample, type TExample } from './examples';
+import { copyExampleFiles, exampleGroups, loadExample, type TExample } from './examples';
 import type { StudioCx } from '@/modules/studio';
 
 /** Welcome window modeled on Xcode: actions on the left, recent projects on the right */
@@ -30,12 +30,12 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 	}, [cx]);
 
 	async function openExample(example: TExample): Promise<void> {
-		const [isExampleOk, exampleErr, project] = await loadExample(example);
+		const [isExampleOk, exampleErr, loaded] = await loadExample(example);
 		if (!isExampleOk) {
 			cx.notify(exampleErr.message, 'error');
 			return;
 		}
-		await cx.newProject({ project });
+		await cx.newProject({ project: loaded.project, prepare: (packagePath) => copyExampleFiles(packagePath, loaded.files) });
 	}
 
 	async function startFrom(kind: 'midi' | 'audio'): Promise<void> {
@@ -121,20 +121,28 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 						{showAllRecent ? 'Show Less' : `Show All ${recent.length}`}
 					</button>
 				) : null}
-				<div className="mm-section-title mt-4">Examples</div>
-				{examples.map((example) => (
-					<button
-						key={example.id}
-						className="mm-row !h-11 w-[calc(100%-16px)] shrink-0 text-left"
-						onClick={() => void openExample(example)}
-						type="button"
-					>
-						<LayoutTemplate size={18} strokeWidth={1.4} className="shrink-0 text-[var(--text-secondary)]" />
-						<span className="flex min-w-0 flex-col leading-tight">
-							<span className="truncate font-medium">{example.title}</span>
-							<span className="truncate text-[11px] text-[var(--text-secondary)]">{example.detail}</span>
-						</span>
-					</button>
+				{exampleGroups.map((group) => (
+					<React.Fragment key={group.title}>
+						<div className="mm-section-title mt-4">{group.title}</div>
+						{group.examples.map((example) => (
+							<button
+								key={example.id}
+								className="mm-row !h-11 w-[calc(100%-16px)] shrink-0 text-left"
+								onClick={() => void openExample(example)}
+								type="button"
+							>
+								{group.hasSong ? (
+									<Music size={18} strokeWidth={1.4} className="shrink-0 text-[var(--text-secondary)]" />
+								) : (
+									<LayoutTemplate size={18} strokeWidth={1.4} className="shrink-0 text-[var(--text-secondary)]" />
+								)}
+								<span className="flex min-w-0 flex-col leading-tight">
+									<span className="truncate font-medium">{example.title}</span>
+									<span className="truncate text-[11px] text-[var(--text-secondary)]">{example.detail}</span>
+								</span>
+							</button>
+						))}
+					</React.Fragment>
 				))}
 			</aside>
 		</div>

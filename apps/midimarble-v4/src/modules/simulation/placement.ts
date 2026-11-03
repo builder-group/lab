@@ -1,4 +1,5 @@
 import { createId, LANE_SPACING, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import { nextPieceName } from './piece-names';
 import { getPieceDefinition } from './pieces';
 
 const DEFAULT_TILT = (15 * Math.PI) / 180;
@@ -41,10 +42,9 @@ export function createLinkedPiece(
 	const definition = getPieceDefinition(type);
 	const params: Record<string, number> = {};
 	for (const [name, spec] of Object.entries(definition?.params ?? {})) params[name] = spec.default;
-	const count = entities.filter((entity) => entity.components.piece?.type === type).length;
 	return {
 		id,
-		name: `${definition?.label ?? type} ${count + 1}`,
+		name: nextPieceName(type, entities),
 		components: {
 			piece: { type, params },
 			hitLink: { laneId, hitId, angle, contactAt: 0.5, pinned: false }

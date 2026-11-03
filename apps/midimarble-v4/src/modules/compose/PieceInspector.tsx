@@ -8,7 +8,7 @@ import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
-import { attachState } from './attach-edit';
+import { attachState, isPathPieceType, pathPieceTypes, withPathType, type TPathPieceType } from './attach-edit';
 import { PieceIcon } from './piece-icons';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
 import { pieceAngle } from './step-loop';
@@ -71,6 +71,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				onRename={isSingle ? (name) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name } }]) : undefined}
 				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
 			/>
+			{entities.every((entity) => isPathPieceType(entity.components.piece?.type)) ? <PathTypeSection cx={cx} project={project} entities={entities} /> : null}
 			<Panel id="piece.position" title="Position" accessory={!isFree && isSingle ? <HelpTip text="A linked or anchored piece follows its hit, so its position comes from the run. Detach it to move it freely." /> : null}>
 				{isSingle && position != null ? (
 					<>
@@ -301,6 +302,41 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 };
 
 // MARK: - Rails and tunnels
+
+/** Rail or Tunnel for a drawn path, switched in one edit that keeps the path and where it sits */
+const PathTypeSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[] }> = (props) => {
+	const { cx, project, entities } = props;
+	const types = new Set(entities.map((entity) => entity.components.piece?.type));
+	const current = types.size === 1 ? [...types][0] : null;
+
+	function switchTo(type: TPathPieceType): void {
+		const switched: TEntity[] = [];
+		for (const entity of entities) switched.push(withPathType(entity, type, [...project.entities, ...switched]));
+		const commands = switched.filter((entity, index) => entity !== entities[index]).map((entity): TProjectCommand => ({ type: 'upsertEntity', entity }));
+		if (commands.length > 0) cx.execute(commands);
+	}
+
+	return (
+		<Panel id="piece.pathType" title="Path" accessory={<HelpTip text="A rail carries the marble on top; a tunnel closes over it so it rolls through hidden. Switching keeps the drawn path." />}>
+			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Path piece">
+				{pathPieceTypes.map((type) => (
+					<button
+						key={type}
+						className="inline-flex items-center justify-center gap-1.5"
+						role="radio"
+						aria-checked={current === type}
+						data-active={current === type}
+						onClick={() => switchTo(type)}
+						type="button"
+					>
+						<PieceIcon type={type} size={14} />
+						{getPieceDefinition(type)?.label ?? type}
+					</button>
+				))}
+			</div>
+		</Panel>
+	);
+};
 
 /** Length and slope of a rail or tunnel run, edited by scaling and turning it around the entry */
 const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity; piece: TResolvedPiece }> = (props) => {

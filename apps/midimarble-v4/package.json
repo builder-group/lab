@@ -27,6 +27,7 @@
 		"fixtures:jingle": "tsx scripts/build-jingle-fixture.ts",
 		"fixtures:loop": "tsx scripts/build-loop-fixture.ts",
 		"fixtures:reference": "tsx scripts/build-reference-fixture.ts",
+		"fixtures:tap": "tsx scripts/build-tap-fixture.ts",
 		"install:clean": "pnpm run clean && pnpm install",
 		"lint": "eslint .",
 		"soundbank:build": "tsx scripts/build-soundbank.ts",

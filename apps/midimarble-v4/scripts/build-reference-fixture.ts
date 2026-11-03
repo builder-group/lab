@@ -4,7 +4,7 @@
 // their own brass skin (`brass:<skin>` skin asset IDs) and a wall title at its start, like the reference's skin
 // sets and song titles per song.
 // Usage: tsx scripts/build-reference-fixture.ts [--dress]
-//   --dress re-applies skins and titles to the existing fixture without rebuilding its pieces
+//   --dress re-applies skins, titles and piece names to the existing fixture without rebuilding its pieces
 import { readFileSync, writeFileSync } from 'node:fs';
 import {
 	applyProjectCommands,
@@ -17,6 +17,7 @@ import {
 import { autoPlace, continueSuggestions, mirrorPiece } from '../src/modules/simulation/assists';
 import { createBareRunProject } from '../src/modules/simulation/fixture-projects';
 import { createRailForGap } from '../src/modules/simulation/gap-pieces';
+import { namePiecesInOrder } from '../src/modules/simulation/piece-names';
 import { createLinkedPiece } from '../src/modules/simulation/placement';
 import { createSimulator } from '../src/modules/simulation/simulate';
 
@@ -57,7 +58,7 @@ const simulate = (project: TProject) => simulator.simulate(project);
 if (process.argv.includes('--dress')) {
 	const [isFixtureOk, fixtureErr, fixture] = parseProject(readFileSync(FIXTURE_URL, 'utf8'));
 	if (!isFixtureOk) throw fixtureErr;
-	writeFileSync(FIXTURE_URL, serializeProject(apply(dress(fixture), [], fixture.revision)));
+	writeFileSync(FIXTURE_URL, serializeProject(namePiecesInOrder(apply(dress(fixture), [], fixture.revision))));
 	simulator.dispose();
 	console.log('dressed');
 	process.exit(0);
@@ -118,7 +119,8 @@ const finalResult = createSimulatorResult(project);
 simulator.dispose();
 // Assists accept a marble that comes to rest on stacked pieces; a section must keep travelling down the wall
 if (finalResult.descent1 < 2 || finalResult.descent2 < 2) throw new Error('A section stopped descending');
-const json = serializeProject(apply(project, [], 0));
+// Pieces are named in time order last, so the Layers list reads Platform 1, 2, 3 down the marble
+const json = serializeProject(namePiecesInOrder(apply(project, [], 0)));
 const [isProjectOk, projectErr] = parseProject(json);
 if (!isProjectOk) throw projectErr;
 writeFileSync(FIXTURE_URL, json);

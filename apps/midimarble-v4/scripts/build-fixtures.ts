@@ -10,6 +10,7 @@ import {
 	buildZigzagProject
 } from '../src/modules/simulation/fixture-builders';
 import { createStaircaseProject } from '../src/modules/simulation/fixture-projects';
+import { namePiecesInOrder } from '../src/modules/simulation/piece-names';
 import { createSimulator } from '../src/modules/simulation/simulate';
 
 const simulator = await createSimulator();
@@ -25,7 +26,8 @@ const fixtures: [string, TProject][] = [
 simulator.dispose();
 
 for (const [name, project] of fixtures) {
-	const json = serializeProject(project);
+	// Pieces are named in time order last, so the Layers list reads Platform 1, 2, 3 down each marble
+	const json = serializeProject(namePiecesInOrder(project));
 	const [isProjectOk, projectErr] = parseProject(json);
 	if (!isProjectOk) throw new Error(`${name} is not a valid project: ${projectErr.message}`);
 	writeFileSync(new URL(`../fixtures/${name}`, import.meta.url), json);

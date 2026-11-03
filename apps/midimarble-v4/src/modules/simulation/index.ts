@@ -5,6 +5,7 @@ export * from './geometry';
 export * from './loop';
 export * from './pace';
 export * from './piece-layout';
+export * from './piece-names';
 export * from './pieces';
 export * from './placement';
 export * from './shapes';

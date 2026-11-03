@@ -1805,6 +1805,139 @@ button.mm-layer-disclosure:hover {
 	transform: translateY(-50%);
 }
 
+.mm-tool-button[data-open='true']:not([data-active='true']) {
+	background: var(--pressed);
+}
+
+/* Insert library popover beside the tool rail, after Figma's assets and Paper's insert panel */
+.mm-library,
+.mm-library-ghost {
+	--preview-marble: #3a3a3c;
+	--preview-well: var(--canvas);
+}
+
+.mm-library {
+	position: fixed;
+	z-index: 90;
+	width: 268px;
+	padding: 4px 8px 10px;
+	border-radius: 12px;
+	background: var(--menu);
+	box-shadow: var(--shadow-popover);
+	-webkit-backdrop-filter: blur(30px) saturate(1.6);
+	backdrop-filter: blur(30px) saturate(1.6);
+}
+
+.mm-library-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 36px;
+	padding: 0 4px;
+}
+
+.mm-library kbd,
+.mm-library-head kbd {
+	font-family: var(--font);
+	font-size: var(--text-small);
+	color: var(--text-tertiary);
+}
+
+.mm-library-section + .mm-library-section {
+	margin-top: 8px;
+}
+
+.mm-library-section-title {
+	padding: 0 4px 6px;
+	font-size: var(--text-small);
+	font-weight: 500;
+	color: var(--text-secondary);
+}
+
+.mm-library-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+
+.mm-library-tile {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	padding: 4px 4px 5px;
+	border-radius: 9px;
+	text-align: left;
+	cursor: grab;
+	touch-action: none;
+}
+
+.mm-library-tile:hover {
+	background: var(--hover);
+}
+
+.mm-library-tile:active {
+	cursor: grabbing;
+}
+
+.mm-library-tile:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -1px;
+}
+
+.mm-library-preview {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 64px;
+	border-radius: 6px;
+	background: var(--preview-well);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-library-tile[data-armed='true'] .mm-library-preview {
+	box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.mm-library-label {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 2px;
+	font-size: var(--text-small);
+	font-weight: 500;
+}
+
+.mm-library-tile .mm-tooltip {
+	bottom: auto;
+	top: calc(100% + 4px);
+	z-index: 2;
+}
+
+.mm-library-tile:hover .mm-tooltip {
+	opacity: 1;
+	transition-delay: 0.5s;
+}
+
+.mm-library-ghost {
+	position: fixed;
+	z-index: 120;
+	padding: 4px;
+	border-radius: 8px;
+	background: var(--preview-well);
+	box-shadow: var(--shadow-popover);
+	opacity: 0.92;
+	pointer-events: none;
+	transform: translate(-50%, -50%);
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-library,
+	.mm-library-ghost {
+		--preview-marble: rgb(255 255 255 / 0.86);
+	}
+}
+
 .mm-inspector {
 	display: flex;
 	flex-direction: column;

@@ -68,6 +68,21 @@ export const host = {
 		return result.status === 'ok' ? Ok(result.data) : Err(new Error(result.error));
 	},
 
+	/**
+	 * Copies a file the app ships, such as an example's song, into the package at a package-relative path. The
+	 * browser development surface keeps the URL instead of the bytes.
+	 */
+	async addPackageFile(packagePath: string, relativePath: string, url: string): Promise<TResult<string, Error>> {
+		if (!isTauri()) {
+			browserFiles.set(`${packagePath}/${relativePath}`, url);
+			return Ok(relativePath);
+		}
+		const [isBytesOk, bytesErr, bytes] = await host.readFile(url);
+		if (!isBytesOk) return Err(bytesErr);
+		const result = await specta.commands.writePackageFile(packagePath, relativePath, Array.from(new Uint8Array(bytes)));
+		return result.status === 'ok' ? Ok(relativePath) : Err(new Error(result.error));
+	},
+
 	sourceUrl(packagePath: string, relativePath: string): string | null {
 		const path = `${packagePath}/${relativePath}`;
 		if (!isTauri()) return browserFiles.get(path) ?? null;
@@ -136,8 +151,33 @@ export interface THostPickedFile {
 	path: string;
 }
 
-// Blob URLs for files picked in the browser development surface, keyed by their pseudo path
-const browserFiles = new Map<string, string>();
+/**
+ * URLs for files of the browser development surface, keyed by their pseudo path. Blob URLs of picked files last
+ * for the session; URLs of files the app ships persist with the packages in localStorage.
+ */
+const browserFiles = {
+	key: 'midimarble-v4:files',
+	session: new Map<string, string>(),
+	get(path: string): string | undefined {
+		return this.session.get(path) ?? this.read()[path];
+	},
+	set(path: string, url: string): void {
+		this.session.set(path, url);
+		if (url.startsWith('blob:')) return;
+		try {
+			localStorage.setItem(this.key, JSON.stringify({ ...this.read(), [path]: url }));
+		} catch {
+			// Without storage the file lasts for the session
+		}
+	},
+	read(): Record<string, string> {
+		try {
+			return JSON.parse(localStorage.getItem(this.key) ?? '{}') as Record<string, string>;
+		} catch {
+			return {};
+		}
+	}
+};
 
 function pickBrowserFile(extensions: string[]): Promise<THostPickedFile | null> {
 	return new Promise((resolve) => {

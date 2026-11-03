@@ -261,7 +261,7 @@
 		},
 		{
 			"id": "piece-1-2",
-			"name": "Platform 1",
+			"name": "Platform 2",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -288,7 +288,7 @@
 		},
 		{
 			"id": "piece-1-3",
-			"name": "Platform 1",
+			"name": "Platform 3",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -477,7 +477,7 @@
 		},
 		{
 			"id": "piece-1-10",
-			"name": "Platform 1",
+			"name": "Platform 10",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -504,7 +504,7 @@
 		},
 		{
 			"id": "piece-1-11",
-			"name": "Platform 1",
+			"name": "Platform 11",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -531,7 +531,7 @@
 		},
 		{
 			"id": "piece-1-12",
-			"name": "Platform 1",
+			"name": "Platform 12",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -585,7 +585,7 @@
 		},
 		{
 			"id": "piece-1-14",
-			"name": "Platform 1",
+			"name": "Platform 14",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -612,7 +612,7 @@
 		},
 		{
 			"id": "piece-1-15",
-			"name": "Platform 1",
+			"name": "Platform 15",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -639,7 +639,7 @@
 		},
 		{
 			"id": "piece-1-16",
-			"name": "Platform 1",
+			"name": "Platform 16",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -666,7 +666,7 @@
 		},
 		{
 			"id": "piece-1-17",
-			"name": "Platform 1",
+			"name": "Platform 17",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -693,7 +693,7 @@
 		},
 		{
 			"id": "piece-1-18",
-			"name": "Platform 1",
+			"name": "Platform 18",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -919,7 +919,7 @@
 		},
 		{
 			"id": "piece-1-25",
-			"name": "Platform 1",
+			"name": "Platform 25",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -946,7 +946,7 @@
 		},
 		{
 			"id": "piece-1-26",
-			"name": "Platform 1",
+			"name": "Platform 26",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -973,7 +973,7 @@
 		},
 		{
 			"id": "piece-1-27",
-			"name": "Platform 1",
+			"name": "Platform 27",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1054,7 +1054,7 @@
 		},
 		{
 			"id": "piece-1-30",
-			"name": "Platform 1",
+			"name": "Platform 30",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1081,7 +1081,7 @@
 		},
 		{
 			"id": "piece-1-31",
-			"name": "Platform 1",
+			"name": "Platform 31",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1108,7 +1108,7 @@
 		},
 		{
 			"id": "piece-1-32",
-			"name": "Platform 1",
+			"name": "Platform 32",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1135,7 +1135,7 @@
 		},
 		{
 			"id": "piece-1-33",
-			"name": "Platform 1",
+			"name": "Platform 33",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1162,7 +1162,7 @@
 		},
 		{
 			"id": "piece-1-34",
-			"name": "Platform 1",
+			"name": "Platform 34",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1189,7 +1189,7 @@
 		},
 		{
 			"id": "piece-1-35",
-			"name": "Platform 1",
+			"name": "Platform 35",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1216,7 +1216,7 @@
 		},
 		{
 			"id": "piece-1-36",
-			"name": "Platform 1",
+			"name": "Platform 36",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1243,7 +1243,7 @@
 		},
 		{
 			"id": "piece-1-37",
-			"name": "Platform 1",
+			"name": "Platform 37",
 			"components": {
 				"piece": {
 					"type": "platform",

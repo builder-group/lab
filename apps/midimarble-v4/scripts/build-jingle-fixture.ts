@@ -5,9 +5,11 @@
 // Every lane keeps to its own frame band and to the shared descent pace y*(t). Where the assists find nothing,
 // the build does what a user would: rotates the piece or the one before it by hand. Every step must keep all hits
 // on time and each marble on its own pieces; the build stops at the first step that cannot. Writes the MIDI file
-// and a build log with the pace measurements to `.local/jingle/`.
-// Usage: tsx scripts/build-jingle-fixture.ts
-import { mkdirSync, writeFileSync } from 'node:fs';
+// and a build log with the pace measurements to `.local/jingle/`. The fixture ships the MIDI file next to it as
+// `fixtures/jingle-bells.mid`, its song, which the example copies into the new package.
+// Usage: tsx scripts/build-jingle-fixture.ts [--finalize]
+//   --finalize re-applies the song and piece names to the existing fixture without rebuilding its pieces
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as toneMidi from '@tonejs/midi';
 import { preflightExport } from '../src/modules/design/export-preflight';
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
@@ -18,7 +20,8 @@ import {
 	parseProject,
 	serializeProject,
 	type TProject,
-	type TProjectCommand
+	type TProjectCommand,
+	type TSource
 } from '../src/modules/project';
 import {
 	autoPlace,
@@ -29,6 +32,7 @@ import {
 	type TSimulateFn
 } from '../src/modules/simulation/assists';
 import { paceAt } from '../src/modules/simulation/pace';
+import { namePiecesInOrder } from '../src/modules/simulation/piece-names';
 import { createLinkedPiece, frameBand } from '../src/modules/simulation/placement';
 import { createSimulator } from '../src/modules/simulation/simulate';
 import type { THitResult, TSimulationResult } from '../src/modules/simulation/types';
@@ -37,6 +41,9 @@ import { answerWorkerRequest, type TGapPieceType, type TWorkerAnswers } from '..
 // Node loads the CommonJS build of @tonejs/midi, whose exports sit on `default`
 const { Midi } = (toneMidi as unknown as { default?: typeof toneMidi }).default ?? toneMidi;
 const OUT = new URL('../.local/jingle/', import.meta.url);
+const FIXTURE_URL = new URL('../fixtures/jingle-bells.marble.json', import.meta.url);
+const SONG_NAME = 'jingle-bells.mid';
+const TEMPO = 120;
 // Same as the import sheet: notes start after a one second lead-in, at most two marbles
 const IMPORT_START = 1;
 const MAX_MARBLES = 2;
@@ -62,7 +69,17 @@ const say = (line: string): void => {
 // MIDI file and import
 
 const midiBytes = createJingleMidi();
-writeFileSync(new URL('jingle-bells.mid', OUT), midiBytes);
+writeFileSync(new URL(SONG_NAME, OUT), midiBytes);
+writeFileSync(new URL(`../fixtures/${SONG_NAME}`, import.meta.url), midiBytes);
+
+if (process.argv.includes('--finalize')) {
+	const [isFixtureOk, fixtureErr, fixture] = parseProject(readFileSync(FIXTURE_URL, 'utf8'));
+	if (!isFixtureOk) throw fixtureErr;
+	writeFileSync(FIXTURE_URL, serializeProject(finalized(fixture)));
+	console.log('finalized');
+	process.exit(0);
+}
+
 const [isMidiOk, midiErr, midi] = parseMidiFile(midiBytes);
 if (!isMidiOk) throw midiErr;
 const notes = midi.tracks.flatMap((track) => track.notes);
@@ -182,11 +199,22 @@ say(`heights every 4 s (melody | bass | y*, m): ${describeHeights(finalResult)}`
 for (const failure of failures) say(`failed: ${failure}`);
 say(`export preflight: ${preflightExport(project, finalResult).issues.map((issue) => `${issue.title} (${issue.detail})`).join('; ') || 'clean'}`);
 
-const json = serializeProject(apply(project, [], 0));
+const json = serializeProject(finalized(apply(project, [], 0)));
 const [isProjectOk, projectErr] = parseProject(json);
 if (!isProjectOk) throw projectErr;
-writeFileSync(new URL('../fixtures/jingle-bells.marble.json', import.meta.url), json);
+writeFileSync(FIXTURE_URL, json);
 writeFileSync(new URL('build-log.txt', OUT), `${log.join('\n')}\n`);
+
+/**
+ * What the import sheet records besides the marbles: the MIDI file as the project's song, starting where its
+ * first note plays, and its tempo. Pieces are named in time order last. Neither changes the run.
+ */
+function finalized(current: TProject): TProject {
+	const source: TSource = { id: 'source-1', kind: 'midi', path: `audio/${SONG_NAME}`, name: SONG_NAME, offset: IMPORT_START };
+	const removed = current.music.sources.map((item) => ({ type: 'removeSource' as const, sourceId: item.id }));
+	const song = apply(current, [...removed, { type: 'upsertSource', source }, { type: 'setTempo', tempo: { bpm: TEMPO, beatsPerBar: 4 } }], current.revision);
+	return namePiecesInOrder(song);
+}
 
 /** At most two dots beyond the pace limit, and none by more than 0.15 m beyond it */
 function keepsPace(result: TSimulationResult): boolean {
@@ -629,7 +657,7 @@ function createJingleMidi(): Uint8Array {
 
 	const file = new Midi();
 	file.name = 'Jingle Bells';
-	file.header.setTempo(120);
+	file.header.setTempo(TEMPO);
 	const seconds = 0.5;
 	for (const [name, program, list, velocity] of [
 		['Melody', GLOCKENSPIEL, melody, 0.85],

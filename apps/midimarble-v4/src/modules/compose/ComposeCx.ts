@@ -28,6 +28,7 @@ import {
 	canLink,
 	createFreePiece,
 	displayPiece,
+	isPathPieceType,
 	piecePose,
 	railPath,
 	rotateResolved,
@@ -38,7 +39,8 @@ import {
 } from './attach-edit';
 import { rebaseNodes, withNodeHandle, withNodePoint } from './bezier';
 import { ComposeRenderer, MARBLE_Z, type TComposeCamera, type TFilmView } from './ComposeRenderer';
-import { composeKeyAction, toolPieceType, type TComposeKeyAction, type TComposeTool } from './keys';
+import { composeKeyAction, toolPieceType, type TComposeKeyAction, type TComposeTool, type TPathType } from './keys';
+import { insertTool, type TInsertItem } from './library';
 import { dotMenu } from './menus';
 import { distanceToSegment, pick, pickTrack, piecesInRect, rectFromPoints, type TPick, type TPickScene, type TScreenTrack } from './picking';
 import {
@@ -84,6 +86,12 @@ export class ComposeCx {
 	readonly $camera = createState<TComposeCamera>({ mode: '2d', view: { center: { x: 0, y: 0.4 }, scale: 900 }, yaw: -0.55, pitch: 0.28 });
 	readonly $viewport = createState<TViewport>({ width: 0, height: 0 });
 	readonly $tool = createState<TComposeTool>('select');
+	/** Piece the path tool draws, set by B (rail), U (tunnel) or the Insert library */
+	readonly $pathType = createState<TPathType>('rail');
+	/** The Insert library popover of the tool rail is open */
+	readonly $libraryOpen = createState(false);
+	/** Library item being dragged onto the canvas */
+	readonly $inserting = createState<TInsertItem | null>(null);
 	readonly $hover = createState<TPick | null>(null);
 	readonly $drag = createState<TComposeDrag | null>(null);
 	readonly $spaceHeld = createState(false);
@@ -927,7 +935,7 @@ export class ComposeCx {
 				// The fast path: with the Platform tool a dot gets an auto placed platform right away
 				void this.assist.place(hit, 'platform');
 				this.$tool.set('select');
-			} else if (tool === 'tunnel' || tool === 'windmill') {
+			} else if (this.isSceneryTool()) {
 				this.addFollower(laneId, hit.targetTime);
 			} else {
 				this.openInsertMenu(hit, point);
@@ -961,8 +969,8 @@ export class ComposeCx {
 	/** What a pointer at `point` would act on, in canvas pixels */
 	pickAt(point: TVec2): TPick | null {
 		const picked = pick(point, this.pickScene());
-		if (picked != null || !this.isPathTool()) return picked;
-		// Tunnels and windmills can also start anywhere on a trajectory, not only at a hit
+		if (picked != null || !this.isSceneryTool()) return picked;
+		// Windmills and switchbacks can also start anywhere on a trajectory, not only at a hit
 		return pickTrack(point, this.screenTrackPoints());
 	}
 
@@ -971,10 +979,105 @@ export class ComposeCx {
 		return 'platform';
 	}
 
-	/** True for a scenery tool (tunnel, windmill), which anchors its piece where the trajectory is clicked */
-	isPathTool(): boolean {
+	/** True for a scenery tool (windmill, switchback), which anchors its piece where the trajectory is clicked */
+	isSceneryTool(): boolean {
 		const tool = this.$tool.get();
-		return tool === 'tunnel' || tool === 'windmill';
+		return tool === 'windmill' || tool === 'switchback';
+	}
+
+	/** Arms a tool; the path tool takes the piece it draws, a rail unless asked for a tunnel */
+	armTool(tool: TComposeTool, pathType: TPathType = 'rail'): void {
+		const pen = this.$pen.get();
+		if (tool === 'path' && pathType !== this.$pathType.get()) {
+			this.$pathType.set(pathType);
+			// A path in progress takes the new type and the name that goes with it
+			if (pen != null) {
+				this.$pen.set({ ...pen, id: null });
+				this.previewPen();
+			}
+		}
+		this.$tool.set(tool);
+		this.$libraryOpen.set(false);
+	}
+
+	// MARK: - Insert library
+
+	/** A library item dragged out of the Insert popover, shown on the canvas while the pointer is over it */
+	private insertDrag: TInsertDrag | null = null;
+
+	/** A click on a library tile arms the tool that places it */
+	armInsert(item: TInsertItem): void {
+		const { tool, pathType } = insertTool(item);
+		this.armTool(tool, pathType);
+	}
+
+	beginInsertDrag(item: TInsertItem): void {
+		// Snap targets come from the run before the drop, like a move
+		const dots = (this.result?.hits ?? []).flatMap((hit) =>
+			hit.dot != null && hit.status === 'open' ? [{ laneId: hit.laneId, hitId: hit.hitId, dot: hit.dot, velocity: hit.velocity, screen: this.toScreen(hit.dot) }] : []
+		);
+		this.insertDrag = { item, entity: null, candidate: null, at: null, dots, tracks: this.screenTrackPoints() };
+		this.$libraryOpen.set(false);
+		this.$inserting.set(item);
+	}
+
+	/**
+	 * Moves the dragged item to a client point. Over the wall a piece shows where it would land, with the
+	 * snap, link and anchor rules of a move; ⌥ drops it free. Returns true when the canvas shows the piece.
+	 */
+	moveInsertDrag(client: TVec2, isFree: boolean): boolean {
+		const drag = this.insertDrag;
+		const project = this.project;
+		const rect = this.container?.getBoundingClientRect();
+		if (drag == null || project == null || rect == null) return false;
+		const point = { x: client.x - rect.left, y: client.y - rect.top };
+		const isOver = this.$camera.get().mode === '2d' && point.x >= 0 && point.y >= 0 && point.x <= rect.width && point.y <= rect.height;
+		if (!isOver) {
+			if (drag.candidate != null) {
+				this.$override.set(null);
+				this.studio.simulation.endPreview();
+			}
+			drag.candidate = null;
+			drag.at = null;
+			return false;
+		}
+		const world = this.toWorld(point);
+		drag.at = world;
+		if (drag.item === 'marble') return false;
+		const pose = { position: world, angle: 0 };
+		// Rails and tunnels get their default run as an explicit path, so switching the type keeps the shape
+		const path = isPathPieceType(drag.item) ? { points: resolvePiecePath(drag.item, undefined).map((item) => ({ ...item })) } : undefined;
+		const entity = drag.entity ?? createFreePiece(drag.item, pose, project.entities, path);
+		drag.entity = entity;
+		const snap = !isFree && this.studio.$snapping.get() ? this.findSnap(entity, pose, drag) : null;
+		const candidate = withSnap(project, entity, pose, snap);
+		const radius = this.marbleRadius(snap?.laneId);
+		this.$override.set(snap?.kind === 'link' ? displayPiece(candidate, { pose, dot: snap.dot, velocity: snap.velocity }, radius) : displayPiece(candidate, { pose }, radius));
+		drag.candidate = candidate;
+		this.studio.simulation.startPreview(withEntity(project, candidate));
+		return true;
+	}
+
+	/** Drops the dragged item where the pointer is over the wall, or cancels it */
+	endInsertDrag(isDrop: boolean): void {
+		const drag = this.insertDrag;
+		this.insertDrag = null;
+		this.$inserting.set(null);
+		if (drag == null) return;
+		if (drag.item === 'marble') {
+			if (isDrop && drag.at != null && this.studio.addMarble(drag.at) != null) this.$tool.set('select');
+			return;
+		}
+		const candidate = drag.candidate;
+		this.studio.simulation.endPreview();
+		if (!isDrop || candidate == null) {
+			this.$override.set(null);
+			return;
+		}
+		if (this.commit([{ type: 'upsertEntity', entity: candidate }])) {
+			this.studio.$selection.set([candidate.id]);
+			this.$tool.set('select');
+		}
 	}
 
 	private screenTracks: TScreenTrack[] | null = null;
@@ -1322,7 +1425,7 @@ export class ComposeCx {
 		const first = nodes[0];
 		if (project == null || first == null || nodes.length < 2) return null;
 		const local = nodes.map((node) => ({ ...node, point: { x: node.point.x - first.point.x, y: node.point.y - first.point.y } }));
-		const entity = createFreePiece('rail', { position: first.point, angle: 0 }, project.entities, railPath(local));
+		const entity = createFreePiece(this.$pathType.get(), { position: first.point, angle: 0 }, project.entities, railPath(local));
 		return pen.id != null ? { ...entity, id: pen.id.id, name: pen.id.name } : entity;
 	}
 
@@ -1333,7 +1436,7 @@ export class ComposeCx {
 		const entity = this.penEntity(pen, true);
 		if (entity == null) return;
 		if (pen.id == null) {
-			pen = { ...pen, id: { id: entity.id, name: entity.name ?? 'Rail' } };
+			pen = { ...pen, id: { id: entity.id, name: entity.name ?? 'Path' } };
 			this.$pen.set(pen);
 		}
 		const transform = entity.components.transform;
@@ -1489,7 +1592,10 @@ export class ComposeCx {
 				else this.fitSelection();
 				return true;
 			case 'tool':
-				this.$tool.set(action.tool);
+				this.armTool(action.tool, action.pathType);
+				return true;
+			case 'library':
+				this.$libraryOpen.set(!this.$libraryOpen.get());
 				return true;
 			case 'next':
 				this.next();
@@ -1535,7 +1641,11 @@ export class ComposeCx {
 
 	/** Escape cancels a drag or a rail in progress, then dismisses ghosts, then leaves a tool, then clears the selection */
 	escape(): void {
-		if (this.$drag.get() != null) {
+		if (this.insertDrag != null) {
+			this.endInsertDrag(false);
+		} else if (this.$libraryOpen.get()) {
+			this.$libraryOpen.set(false);
+		} else if (this.$drag.get() != null) {
 			this.$drag.set(null);
 			this.$override.set(null);
 			this.studio.simulation.endPreview();
@@ -1660,6 +1770,17 @@ interface TMoveDrag {
 	snap: TSnap | null;
 	candidate: TEntity | null;
 	moved: boolean;
+	dots: TSnapDot[];
+	tracks: TScreenTrack[];
+}
+
+interface TInsertDrag {
+	item: TInsertItem;
+	/** The new piece, created when the pointer first reaches the wall so it keeps one id */
+	entity: TEntity | null;
+	candidate: TEntity | null;
+	/** Wall point under the pointer, null while it is outside the canvas */
+	at: TVec2 | null;
 	dots: TSnapDot[];
 	tracks: TScreenTrack[];
 }

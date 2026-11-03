@@ -15,6 +15,7 @@ import {
 import { autoPlace, continueSuggestions, mirrorPiece } from '../src/modules/simulation/assists';
 import { createBareRunProject } from '../src/modules/simulation/fixture-projects';
 import { checkLoop, createLoop } from '../src/modules/simulation/loop';
+import { namePiecesInOrder } from '../src/modules/simulation/piece-names';
 import { createLinkedPiece } from '../src/modules/simulation/placement';
 import { createSimulator } from '../src/modules/simulation/simulate';
 
@@ -83,7 +84,8 @@ const check = checkLoop(project, result, loop);
 simulator.dispose();
 if (!check.isOk) throw new Error(`The loop check fails: ${JSON.stringify(check.issues)}`);
 
-const json = serializeProject(apply(project, [], 0));
+// Pieces are named in time order last, so the Layers list reads Platform 1, 2, 3 down each marble
+const json = serializeProject(namePiecesInOrder(apply(project, [], 0)));
 const [isProjectOk, projectErr] = parseProject(json);
 if (!isProjectOk) throw projectErr;
 writeFileSync(new URL('../fixtures/loop.marble.json', import.meta.url), json);

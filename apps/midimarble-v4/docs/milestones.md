@@ -6,7 +6,7 @@ Development works against the project's own fixtures and playgrounds, including 
 
 ## Fixtures
 
-Example projects live in `fixtures/` and grow with the milestones. Each one states its expected hits.
+Example projects live in `fixtures/` and grow with the milestones. Each one states its expected hits. An example with a song ships the file next to its JSON, named like its source path, and the start window copies it into the new package.
 
 | Fixture       | Content                                                      | From |
 | ------------- | ------------------------------------------------------------ | ---- |
@@ -15,9 +15,10 @@ Example projects live in `fixtures/` and grow with the milestones. Each one stat
 | `long-gap`    | Hits with a 1.5 second gap bridged by a rail and a tunnel    | M3   |
 | `windmill`    | A windmill hit between platforms                             | M3   |
 | `two-marbles` | Two lanes in one world with one intended marble collision    | M3   |
-| `jingle-bells`| The opening phrase, compared with the earlier attempts       | M4   |
+| `jingle-bells`| The refrain from `jingle-bells.mid` (115 hits, two marbles), compared with the earlier attempts | M4   |
 | `reference-20`| The first 20 seconds of the reference short structure       | M6   |
 | `loop`        | A short run whose last frame flows into its first            | M6   |
+| `tap-along`   | An original 9.7 s recording (`tap-along.wav`, 125 BPM marimba) with 16 suggested hits, all on time | M6   |
 
 ## M0 Foundation
 

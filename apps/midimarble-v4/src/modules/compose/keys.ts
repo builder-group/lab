@@ -1,4 +1,5 @@
-// Compose keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B), the build assists
+// Compose keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B, W), U draws a tunnel with
+// the path tool, ⇧I opens the Insert library like Figma's assets, the build assists
 // keep theirs (N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma, 0 toggles the Camera view like Blender's Numpad 0 and
 // T stays free for tapping hits.
 
@@ -22,13 +23,17 @@ export interface TKeyContext {
 	isDrawing?: boolean;
 }
 
-/** Tools of the Compose tool rail, in rail order */
-export type TComposeTool = 'select' | 'hand' | 'marble' | 'platform' | 'path' | 'tunnel' | 'windmill';
+/** Tools of the Compose tool rail, in rail order, then the pieces only the Insert library arms */
+export type TComposeTool = 'select' | 'hand' | 'marble' | 'platform' | 'path' | 'windmill' | 'switchback';
+
+/** Piece the path tool draws; the inspector switches a drawn path between both */
+export type TPathType = 'rail' | 'tunnel';
 
 export type TComposeKeyAction =
 	| { type: 'zoom'; factor: number }
 	| { type: 'fit'; target: 'all' | 'selection' | 'frame' }
-	| { type: 'tool'; tool: TComposeTool }
+	| { type: 'tool'; tool: TComposeTool; pathType?: TPathType }
+	| { type: 'library' }
 	| { type: 'next' }
 	| { type: 'acceptGhosts' }
 	| { type: 'escape' }
@@ -48,12 +53,14 @@ export const toolKeys: { tool: TComposeTool; code: string; key: string }[] = [
 	{ tool: 'marble', code: 'KeyO', key: 'O' },
 	{ tool: 'platform', code: 'KeyP', key: 'P' },
 	{ tool: 'path', code: 'KeyB', key: 'B' },
-	{ tool: 'tunnel', code: 'KeyU', key: 'U' },
 	{ tool: 'windmill', code: 'KeyW', key: 'W' }
 ];
 
-/** Piece type each piece tool places */
-export const toolPieceType: Partial<Record<TComposeTool, string>> = { platform: 'platform', path: 'rail', tunnel: 'tunnel', windmill: 'windmill' };
+/** U arms the path tool with the tunnel type, like Figma's shape tools that share one rail slot */
+export const tunnelPathKey = { code: 'KeyU', key: 'U' };
+
+/** Piece type each placing tool puts down with a click or drag; the path tool draws instead */
+export const toolPieceType: Partial<Record<TComposeTool, string>> = { platform: 'platform', windmill: 'windmill', switchback: 'switchback' };
 
 /** The action a key press asks for, or null when Compose leaves it to the studio or the browser */
 export function composeKeyAction(input: TKeyInput, context: TKeyContext): TComposeKeyAction | null {
@@ -90,11 +97,12 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 			// Positive angles turn counter-clockwise, so Right turns the bar clockwise like a dial
 			return { type: 'nudge', degrees: (input.key === 'ArrowRight' ? -1 : 1) * (input.shiftKey ? 5 : 1) };
 	}
-	if (input.shiftKey) return null;
+	if (input.shiftKey) return input.code === 'KeyI' ? { type: 'library' } : null;
 	if (input.code === 'Digit0' || input.code === 'Numpad0') return { type: 'cameraView' };
 
 	const tool = toolKeys.find((item) => item.code === input.code);
-	if (tool != null) return { type: 'tool', tool: tool.tool };
+	if (tool != null) return tool.tool === 'path' ? { type: 'tool', tool: 'path', pathType: 'rail' } : { type: 'tool', tool: tool.tool };
+	if (input.code === tunnelPathKey.code) return { type: 'tool', tool: 'path', pathType: 'tunnel' };
 	switch (key) {
 		case 'n':
 			return { type: 'next' };

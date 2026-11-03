@@ -290,7 +290,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 				{pathHandles != null && single != null ? <PathHandles handles={pathHandles} hover={hover} drag={drag} entityId={single.entityId} /> : null}
 				{frame != null && single != null ? <RailNodes compose={compose} entityId={single.entityId} frame={frame} hover={hover} drag={drag} /> : null}
 				{hover?.kind === 'track' && drag == null ? (
-					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf(tool === 'tunnel' ? 'tunnel' : 'windmill').bar} strokeWidth={2} />
+					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf(tool === 'switchback' ? 'switchback' : 'windmill').bar} strokeWidth={2} />
 				) : null}
 				{drag?.kind === 'marquee' ? <Marquee from={drag.from} to={drag.to} /> : null}
 			</svg>

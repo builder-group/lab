@@ -1,6 +1,6 @@
 import type { TMenuItem } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
-import { toolKeys, type TComposeTool } from '@/modules/compose/keys';
+import { toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import type { TRenderPreset } from '@/modules/blender';
 import { themeCommands } from '@/modules/design/design-commands';
@@ -108,8 +108,8 @@ function toolCommand(tool: TComposeTool, title: string, keywords: string): TComm
 		shortcut: toolKeys.find((item) => item.tool === tool)?.key,
 		keywords,
 		isEnabled: (cx) => compose(cx) != null,
-		isChecked: (cx) => isTool(cx, tool),
-		run: (cx) => compose(cx)?.$tool.set(tool)
+		isChecked: (cx) => isTool(cx, tool) && (tool !== 'path' || compose(cx)?.$pathType.get() === 'rail'),
+		run: (cx) => compose(cx)?.armTool(tool)
 	};
 }
 
@@ -188,8 +188,27 @@ export const commands: readonly TCommand[] = [
 	toolCommand('marble', 'Marble Tool', 'add marble release lane ball'),
 	toolCommand('platform', 'Platform Tool', 'piece add place bar'),
 	toolCommand('path', 'Path Tool', 'rail pen bezier curve draw'),
-	toolCommand('tunnel', 'Tunnel Tool', 'piece add tube'),
+	{
+		id: 'tool.tunnel',
+		title: 'Path Tool: Tunnel',
+		section: 'Tools',
+		shortcut: tunnelPathKey.key,
+		keywords: 'tunnel tube pen bezier curve draw',
+		isEnabled: (cx) => compose(cx) != null,
+		isChecked: (cx) => isTool(cx, 'path') && compose(cx)?.$pathType.get() === 'tunnel',
+		run: (cx) => compose(cx)?.armTool('path', 'tunnel')
+	},
 	toolCommand('windmill', 'Windmill Tool', 'piece add rotor blades'),
+	toolCommand('switchback', 'Switchback Tool', 'piece add holder zigzag long gap'),
+	{
+		id: 'tool.insert',
+		title: 'Insert…',
+		section: 'Tools',
+		shortcut: '⇧I',
+		keywords: 'library assets add piece windmill switchback rail tunnel',
+		isEnabled: (cx) => compose(cx) != null,
+		run: (cx) => compose(cx)?.$libraryOpen.set(true)
+	},
 	{
 		id: 'tool.text',
 		title: 'Text Tool',
@@ -402,7 +421,9 @@ export type TCommandId =
 	| 'marble.solo'
 	| 'tool.platform'
 	| 'tool.tunnel'
-	| 'tool.windmill';
+	| 'tool.windmill'
+	| 'tool.switchback'
+	| 'tool.insert';
 
 export function getCommand(id: TCommandId): TCommand {
 	const command = commands.find((item) => item.id === id);

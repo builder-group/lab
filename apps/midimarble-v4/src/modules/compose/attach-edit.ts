@@ -1,6 +1,7 @@
 import { createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TPathNode, type TProject, type TVec2 } from '@/modules/project';
 import {
 	anchorHit,
+	nextPieceName,
 	freePose,
 	getPieceDefinition,
 	layoutAtMarble,
@@ -134,16 +135,44 @@ export function createFreePiece(type: string, pose: TPose, entities: TEntity[], 
 	const definition = getPieceDefinition(type);
 	const params: Record<string, number> = {};
 	for (const [name, spec] of Object.entries(definition?.params ?? {})) if (name !== 'entryDelay') params[name] = spec.default;
-	const count = entities.filter((entity) => entity.components.piece?.type === type).length;
 	return {
 		id: createId('piece'),
-		name: `${definition?.label ?? type} ${count + 1}`,
+		name: nextPieceName(type, entities),
 		components: {
 			piece: { type, params },
 			transform: { position: { ...pose.position }, angle: pose.angle },
 			...(path != null ? { path } : {})
 		}
 	};
+}
+
+/** Piece types a drawn path can be: the path tool draws a rail and the inspector switches it to a tunnel */
+export const pathPieceTypes = ['rail', 'tunnel'] as const;
+
+export type TPathPieceType = (typeof pathPieceTypes)[number];
+
+export function isPathPieceType(type: string | undefined): type is TPathPieceType {
+	return type === 'rail' || type === 'tunnel';
+}
+
+/**
+ * The path piece as `type`, keeping its path, transform or anchor and its anchor moment. The other type's
+ * parameters take their defaults, and a default name such as `Rail 2` is renumbered after the new type.
+ */
+export function withPathType(entity: TEntity, type: TPathPieceType, entities: TEntity[]): TEntity {
+	const piece = entity.components.piece;
+	if (piece == null || piece.type === type || !isPathPieceType(piece.type)) return entity;
+	const params: Record<string, number> = {};
+	for (const [name, spec] of Object.entries(getPieceDefinition(type)?.params ?? {})) if (name !== 'entryDelay') params[name] = spec.default;
+	const entryDelay = piece.params['entryDelay'];
+	if (entryDelay != null) params['entryDelay'] = entryDelay;
+	// A piece on its definition's default path keeps that shape, since the other type's default differs
+	const path = entity.components.path ?? { points: resolvePiecePath(piece.type, undefined).map((point) => ({ ...point })) };
+	const oldLabel = getPieceDefinition(piece.type)?.label ?? piece.type;
+	const isDefaultName = entity.name == null || new RegExp(`^${oldLabel} \\d+$`).test(entity.name);
+	const count = entities.filter((item) => item.id !== entity.id && item.components.piece?.type === type).length;
+	const name = isDefaultName ? `${getPieceDefinition(type)?.label ?? type} ${count + 1}` : entity.name;
+	return { ...entity, ...(name != null ? { name } : {}), components: { ...entity.components, piece: { type, params }, path } };
 }
 
 /** Rail drawn with the path tool: the first node is the local origin, so the transform sits on it */

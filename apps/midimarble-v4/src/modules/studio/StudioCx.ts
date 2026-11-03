@@ -1,4 +1,5 @@
 import { createState } from 'feature-state';
+import type { TResult } from 'tuple-result';
 import { host, type THostRecentProject } from '@/environment';
 import { createAudioEngine, type TAudioEngine } from '@/modules/music';
 import {
@@ -201,7 +202,10 @@ export class StudioCx {
 		this.$recent.set(await host.listRecentProjects());
 	}
 
-	async newProject(options: { title?: string; project?: TProject } = {}): Promise<boolean> {
+	/** `prepare` fills the new package before the project opens, such as an example's song files */
+	async newProject(
+		options: { title?: string; project?: TProject; prepare?: (packagePath: string) => Promise<TResult<void, Error>> } = {}
+	): Promise<boolean> {
 		const project = options.project ?? createProject({ title: options.title ?? 'Untitled' });
 		const path = await host.chooseNewProjectPath(project.title);
 		if (path == null) return false;
@@ -211,6 +215,11 @@ export class StudioCx {
 		if (!isCreatedOk) {
 			this.notify(createdErr.message, 'error');
 			return false;
+		}
+		if (options.prepare != null) {
+			// The project still opens without the files; the song then shows as missing
+			const [isPreparedOk, preparedErr] = await options.prepare(created.path);
+			if (!isPreparedOk) this.notify(preparedErr.message, 'error');
 		}
 		this.load(named, created.path);
 		return true;

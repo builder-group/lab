@@ -189,5 +189,19 @@ describe('fixtures', () => {
 		// The film camera follows the sampled pace
 		expect(result.descent?.length).toBeGreaterThan(60);
 		expect(result.descent?.[10]?.y).toBeCloseTo(paceAt(pace, result.descent?.[10]?.time ?? 0), 12);
+		// The MIDI file is the project's song
+		expect(project.music.sources).toEqual([expect.objectContaining({ kind: 'midi', path: 'audio/jingle-bells.mid' })]);
+		expect(project.music.tempo?.bpm).toBe(120);
+	});
+
+	it('tap-along: hits suggested from the recording, every one on time and in frame', () => {
+		const project = loadFixture('tap-along');
+		const result = simulator.simulate(project);
+		expectAllOnTime(result, 16);
+		expectDotsInFrame(project, result);
+		expect(project.music.sources).toEqual([expect.objectContaining({ kind: 'audio', path: 'audio/tap-along.wav', offset: 1 })]);
+		// The recording keeps an even 125 BPM rhythm, which the onsets keep to the detector's 11 ms frames
+		const times = project.music.lanes[0]?.hits.map((hit) => hit.time) ?? [];
+		times.slice(1).forEach((time, index) => expect(time - (times[index] ?? 0)).toBeCloseTo(0.48, 1));
 	});
 });

@@ -1,3 +1,5 @@
+import { MIN_HIT_GAP } from './lane-proposal';
+
 // Spectral-flux onset detection: log-compressed magnitude increases, an adaptive median and mean threshold and peak picking
 export function detectOnsets(
 	samples: Float32Array,
@@ -45,6 +47,23 @@ export function detectOnsets(
 		onsets.push((frame * hop + size / 2) / sampleRate);
 	}
 	return onsets;
+}
+
+/**
+ * Timeline times for a recording's onsets, as Add Suggested Hits places them: shifted by the source offset,
+ * rounded to 0.1 ms, at least `minGap` apart and away from the hits the lane already has
+ */
+export function suggestedHitTimes(onsets: number[], offset: number, existing: number[] = [], minGap = MIN_HIT_GAP): number[] {
+	const times: number[] = [];
+	let last = Number.NEGATIVE_INFINITY;
+	for (const onset of onsets) {
+		const time = Math.round((onset + offset) * 10000) / 10000;
+		if (time - last < minGap) continue;
+		if (existing.some((item) => Math.abs(item - time) < minGap)) continue;
+		times.push(time);
+		last = time;
+	}
+	return times;
 }
 
 export interface TDetectOnsetsOptions {

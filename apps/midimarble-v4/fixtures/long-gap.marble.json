@@ -226,7 +226,7 @@
 		},
 		{
 			"id": "piece-1-6",
-			"name": "Platform 1",
+			"name": "Platform 6",
 			"components": {
 				"piece": {
 					"type": "platform",
