@@ -35,6 +35,8 @@ Reference apps:
 - **Honest feedback:** timing, misses and stale previews are always visible, never hidden behind a check button
 - **Progressive depth:** the default path needs no Blender knowledge; depth appears through the inspector, Blender and agents
 
+Names, labels and every other string follow [words.md](words.md), which takes precedence over wording elsewhere in this document.
+
 ## Round 2 decisions
 
 From the owner's review of the open-canvas build on 2026-11-03. These take precedence over older sections below until those are rewritten to match.

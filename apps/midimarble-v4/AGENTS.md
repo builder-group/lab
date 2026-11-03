@@ -6,6 +6,7 @@ These rules extend the lab [AGENTS.md](../../AGENTS.md) for this app. Where they
 
 - [docs/ux.md](docs/ux.md): product behavior
 - [docs/design-language.md](docs/design-language.md): UI patterns and visual rules
+- [docs/words.md](docs/words.md): concepts, vocabulary and copy rules every string follows
 - [docs/architecture.md](docs/architecture.md): stack, data model, modules and bridges
 - [docs/milestones.md](docs/milestones.md): milestones, fixtures and done checks
 - [docs/references.md](docs/references.md): target films and scale
