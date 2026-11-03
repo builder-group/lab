@@ -20,6 +20,8 @@ Reference apps:
 
 ## Principles
 
+- **Best parts, not copies:** take the strongest pattern for each job from Paper, Figma, video editors, Blender and native macOS apps such as GarageBand, Logic and Photos, then make them read as one coherent native app. No reference is copied one to one
+
 - **Little text:** labels stay short and explanations live behind a small question-mark icon with a tooltip, so panels stay compact. Icons are fine wherever they are unambiguous and carry a tooltip with the shortcut
 - **Figma-like panels:** the sidebar reads like Figma's layers panel and the inspector like Figma's properties panel: compact rows, clear hierarchy, no prose
 - **A real timeline:** the timeline behaves like a video editor or Blender's timeline and dope sheet: tracks with headers, a ruler with a draggable playhead, keyframe-style hits, transport in its header
