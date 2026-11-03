@@ -44,10 +44,10 @@ const SECTIONS = [
 		gap: GAP,
 		count: Math.round(9.6 / GAP),
 		skins: ['key', 'knob'],
-		title: { text: 'Night Keys', dx: 0.08, dy: -0.04, angle: 4 * DEGREE }
+		title: { text: 'Night Keys', dx: 0.37, dy: -0.15, angle: 4 * DEGREE }
 	}
 ];
-const TITLE = { size: 0.05, depth: 0.003, color: '#ffffff', font: 'Bfont Regular', rise: 0.1 };
+const TITLE = { size: 0.04, depth: 0.003, color: '#ffffff', font: 'Bfont Regular', rise: 0.1 };
 const CAMERA = { distance: 0.85, pitch: 1.15 };
 const FIXTURE_URL = new URL('../fixtures/reference-20.marble.json', import.meta.url);
 
@@ -91,7 +91,8 @@ for (const [sectionIndex, section] of SECTIONS.entries()) {
 		project = apply(project, rail.commands);
 	}
 	// A tilted platform and its mirror start the zigzag; Continue repeats it
-	project = startZigzag(project, first, sectionIndex === 0 ? -0.45 : 0.45);
+	// A gentle opening tilt keeps the hop sideways short, so the two columns sit closer like the reference's
+	project = startZigzag(project, first, sectionIndex === 0 ? -0.3 : 0.3);
 	let placed = first + 1;
 	while (placed < last) {
 		const continued = continueSuggestions(project, simulate(project), LANE, {
@@ -124,10 +125,10 @@ writeFileSync(FIXTURE_URL, json);
 console.log(JSON.stringify(finalResult));
 
 function startZigzag(current: TProject, index: number, angle: number): TProject {
-	// Try a few opening tilts and keep the one whose continuation descends furthest, so the section keeps
-	// travelling down the wall instead of bouncing in place
+	// Try the tilt and its mirror and keep the one whose continuation descends furthest, so the section keeps
+	// travelling down the wall instead of bouncing in place. Steeper tilts descend further but spread the columns
 	let best: { project: TProject; descent: number } | null = null;
-	for (const tilt of [angle, -angle, angle * 0.5, -angle * 0.5, angle * 1.5, -angle * 1.5]) {
+	for (const tilt of [angle, -angle]) {
 		const tilted = apply(current, [
 			{ type: 'upsertEntity', entity: scaled(createLinkedPiece('platform', LANE, hitId(index), tilt, { id: pieceId(index) })) }
 		]);
