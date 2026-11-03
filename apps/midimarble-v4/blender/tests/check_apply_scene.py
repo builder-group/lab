@@ -299,6 +299,7 @@ def main():
     check(Path(saved['path']).is_file(), 'save writes scene.blend')
     shutil.rmtree(root.parent, ignore_errors=True)
     check_device_skins()
+    check_color_by_note()
     check_switchback_skins()
     check_readable_camera_and_wall()
     print('\n'.join(summary))
@@ -462,6 +463,31 @@ def check_device_skins():
             check('MM · bar copper' in materials and 'MM · slot' in materials, 'brass:device-copper has copper ends and a grille')
         if skin == 'unknown':
             check(materials[0] == 'MM · brass', 'an unknown brass skin falls back to the gold bar')
+
+
+
+def check_color_by_note():
+    """Colour by Note gives every platform that plays a note its pitch class colour in both themes; without the
+    option or without a note the theme's own material stays, and the skin key changes with the pitch class"""
+    from mm_worker import skins
+    for theme, plain in (('pegboard', 'MM · flat'), ('brass', 'MM · brass')):
+        on = skins.skin_context(theme, RADIUS, options={'colorByNote': True})
+        off = skins.skin_context(theme, RADIUS)
+        piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 69}
+        coloured = [material.name for material in skins.build_spec('piece', piece, on)['parts'][0]['mesh'].materials]
+        check('MM · note A' in coloured, '%s: Colour by Note colours an A platform (%s)' % (theme, coloured))
+        default = [material.name for material in skins.build_spec('piece', piece, off)['parts'][0]['mesh'].materials]
+        check(not any(name.startswith('MM · note') for name in default) and default[0].startswith(plain),
+              '%s: without the option the theme material stays (%s)' % (theme, default))
+        octave = dict(piece, notePitch=81)
+        other = dict(piece, notePitch=70)
+        check(skins.skin_key('piece', piece, on) == skins.skin_key('piece', octave, on)
+              and skins.skin_key('piece', piece, on) != skins.skin_key('piece', other, on),
+              '%s: the skin key follows the pitch class' % theme)
+    key = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 60,
+           'skin': {'assetId': 'brass:key', 'link': 'linked'}}
+    names = [material.name for material in skins.build_spec('piece', key, skins.skin_context('brass', RADIUS, options={'colorByNote': True}))['parts'][0]['mesh'].materials]
+    check('MM · note C' in names, 'brass:key takes the note colour for its key (%s)' % names)
 
 
 def bent_wire(wall_u, top, high_y, along, slope, low_u, low_y, bend, points=12):

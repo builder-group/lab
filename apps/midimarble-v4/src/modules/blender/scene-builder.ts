@@ -1,4 +1,4 @@
-import type { TDesign, TProject } from '@/modules/project';
+import type { TDesign, TEntity, TProject } from '@/modules/project';
 import { createLoop } from '@/modules/simulation/loop';
 import { getPieceDefinition } from '@/modules/simulation/pieces';
 import type { TMarbleSample, TMarbleTrack, TSimulationResult } from '@/modules/simulation/types';
@@ -9,7 +9,8 @@ import {
 	type TSceneDescentPoint,
 	type TSceneDescription,
 	type TSceneMarble,
-	type TScenePiece
+	type TScenePiece,
+	type TSceneThemeOptions
 } from './scene-description';
 
 export const MOTION_FOLDER = '.cache/motion';
@@ -107,6 +108,7 @@ export function buildSceneDescription(
 			assetPath: skinAssetPath(entity?.components.skin?.assetId),
 			reaction: entity?.components.reaction ?? null,
 			color: (laneId != null ? laneColors.get(laneId) : undefined) ?? DEFAULT_PIECE_COLOR,
+			...notePitchOf(project, entity),
 			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
 			paths: piece.paths?.map((wire) => wire.map((point) => ({ x: point.x, y: point.y }))) ?? null
 		};
@@ -121,6 +123,7 @@ export function buildSceneDescription(
 			duration: loop?.end ?? result.duration,
 			frame: { width: project.frame.width, height: project.frame.height },
 			theme: project.design.theme,
+			...themeOptionsOf(project),
 			marbles,
 			pieces,
 			camera: { ...buildSceneCamera(project.design.camera), descent: descentCurve(result) },
@@ -220,4 +223,18 @@ export function encodeRecords(records: number[][]): Uint8Array {
 		}
 	}
 	return bytes;
+}
+
+/** The pitch of the note a linked platform plays; anchored and free pieces play none */
+function notePitchOf(project: TProject, entity: TEntity | undefined): { notePitch?: number } {
+	const link = entity?.components.hitLink;
+	if (link == null || link.anchored === true || getPieceDefinition(entity?.components.piece?.type ?? '')?.musical !== true) return {};
+	const pitch = project.music.lanes.find((lane) => lane.id === link.laneId)?.hits.find((hit) => hit.id === link.hitId)?.pitch;
+	return pitch == null ? {} : { notePitch: pitch };
+}
+
+function themeOptionsOf(project: TProject): { themeOptions?: TSceneThemeOptions } {
+	// Optional in the schema; absent keeps the theme as it is
+	const options = (project.design as { themeOptions?: TSceneThemeOptions }).themeOptions;
+	return options?.colorByNote === true ? { themeOptions: { colorByNote: true } } : {};
 }

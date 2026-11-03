@@ -27,6 +27,8 @@ export interface TSceneDescription {
 	camera?: TSceneCamera;
 	/** Overrides of the theme's hit reactions */
 	reactions?: TSceneReactions;
+	/** Theme options from Design; absent keeps the theme as it is. Additive like `wallTexts`. */
+	themeOptions?: TSceneThemeOptions;
 	/** Wall text placed in Design. Optional and additive; workers that do not know it ignore it. */
 	wallTexts?: TSceneWallText[];
 	/**
@@ -156,6 +158,8 @@ export interface TScenePiece {
 	/** Hit reaction chosen in Design (`none`, `press`, `wobble` or `glow`); absent keeps the theme default */
 	reaction?: { preset: string; params: Record<string, number> } | null;
 	color: string;
+	/** MIDI pitch of the note a platform plays, for themes that colour pieces by note; absent for other pieces */
+	notePitch?: number;
 }
 
 /** Native Blender text object on the wall, from an entity's `wallText` and `transform` components */
@@ -170,4 +174,9 @@ export interface TSceneWallText {
 	color: string;
 	position: { x: number; y: number };
 	angle: number;
+}
+
+export interface TSceneThemeOptions {
+	/** Platforms take their note's colour, boomwhacker style */
+	colorByNote?: boolean;
 }

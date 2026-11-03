@@ -68,7 +68,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     studio.set_resolution(scene, description.get('frame') or {'width': 9, 'height': 16})
     theme = themes.theme_name(description.get('theme'))
     marble_radius = max([float(marble['radius']) for marble in marbles] or [DEFAULT_MARBLE_RADIUS])
-    context = skins.skin_context(theme, marble_radius, description.get('reactions'))
+    context = skins.skin_context(theme, marble_radius, description.get('reactions'), description.get('themeOptions'))
     context['projectDir'] = project_dir
     context['assets'] = {}
     managed = ensure_collection(MANAGED_COLLECTION)

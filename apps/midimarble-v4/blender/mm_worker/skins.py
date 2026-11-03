@@ -44,13 +44,15 @@ HIT_DECAY = 0.25
 HIT_TAU = HIT_DECAY / 5
 
 
-def skin_context(theme, marble_radius=DEFAULT_MARBLE_RADIUS, reactions=None):
+def skin_context(theme, marble_radius=DEFAULT_MARBLE_RADIUS, reactions=None, options=None):
     settings = themes.theme_settings(theme)
     merged = dict(settings['reactions'])
     for name, value in (reactions or {}).items():
         if name in merged and isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
             merged[name] = float(value)
-    return {'theme': themes.theme_name(theme), 'marbleRadius': float(marble_radius), 'reactions': merged}
+    color_by_note = bool((options or {}).get('colorByNote'))
+    return {'theme': themes.theme_name(theme), 'marbleRadius': float(marble_radius), 'reactions': merged,
+            'colorByNote': color_by_note}
 
 
 # Public entry points
@@ -256,6 +258,7 @@ def skin_key(kind, entity, context):
             [[round(value, 5) for value in point] for point in frame.local_path()],
             [[[round(value, 5) for value in point] for point in wire] for wire in frame.local_wires()],
             math.copysign(1.0, frame.angle), sorted(piece_reaction(entity, context).items()), frame.finish,
+            None if frame.note_pitch is None else int(round(frame.note_pitch)) % 12,
         ]
     return hashlib.sha1(json.dumps(values).encode()).hexdigest()[:16]
 
@@ -373,6 +376,9 @@ class PieceFrame:
         self.color = piece.get('color') or '#c8b89a'
         # Built-in brass skins are chosen with skin asset IDs `brass:<skin>`; other skins keep the theme default
         self.finish = brass_skin(piece)
+        # Colour by Note: a platform that plays a note takes its pitch class colour
+        pitch = piece.get('notePitch')
+        self.note_pitch = float(pitch) if context.get('colorByNote') and isinstance(pitch, (int, float)) else None
         self.device, self.trim = device_parts(self.finish)
 
     def to_local(self, point):
@@ -408,7 +414,8 @@ def platform_spec(frame, piece, theme):
     if theme == 'brass' and frame.device is not None:
         return device_spec(frame, length, thickness)
     if theme == 'brass':
-        chrome, metal = themes.chrome_material(), themes.bar_material(frame.finish)
+        chrome = themes.chrome_material()
+        metal = themes.note_material(frame.note_pitch) if frame.note_pitch is not None else themes.bar_material(frame.finish)
         # Bracket parts scale with the kit, measured against the 16 mm marble of the Marble Race Kit
         k = frame.marble_radius / 0.008
         standoff = 0.0025 * k
@@ -455,8 +462,14 @@ def platform_spec(frame, piece, theme):
     peg.cylinder(0.0028, frame.depth * 0.9, (0.0, frame.wall_y - frame.depth * 0.45, -thickness / 2 - 0.0035), axis='Y', bevel=0.0006)
     return {
         'root': peg.to_mesh('MM peg', [wood]),
-        'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [themes.flat_material(frame.color, 0.42, 0.3)]), 'reactive': True}],
+        'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [pegboard_bar_material(frame)]), 'reactive': True}],
     }
+
+
+def pegboard_bar_material(frame):
+    if frame.note_pitch is not None:
+        return themes.note_material(frame.note_pitch)
+    return themes.flat_material(frame.color, 0.42, 0.3)
 
 
 def device_spec(frame, length, thickness):
@@ -492,7 +505,8 @@ def device_spec(frame, length, thickness):
                      bevel=0.0003 * k, material=2)
         body.sphere(height * 0.3, (span / 2 + (length - 2 * end) * 0.02, front + 0.0006 * k, top - height * 0.5), material=0,
                     segments=24, rings=12)
-        materials = [themes.bar_material('silver'), themes.bar_material(frame.trim), themes.slot_material()]
+        trim = themes.note_material(frame.note_pitch) if frame.note_pitch is not None else themes.bar_material(frame.trim)
+        materials = [themes.bar_material('silver'), trim, themes.slot_material()]
     elif frame.device == 'key':
         # Dark housing with a white key that runs over the top and down the front
         height = thickness * 2.0
@@ -502,7 +516,8 @@ def device_spec(frame, length, thickness):
         key_height = height * 0.42
         body.box((length * 0.66, key_back - key_front, key_height), (length * 0.06, (key_front + key_back) / 2, top - key_height / 2),
                  bevel=0.0009 * k, material=1, segments=3)
-        materials = [themes.housing_material(), themes.key_material()]
+        key = themes.note_material(frame.note_pitch) if frame.note_pitch is not None else themes.key_material()
+        materials = [themes.housing_material(), key]
     else:
         # Dark knob housing with a red lens at its outer end
         height = thickness * 1.7
@@ -511,7 +526,8 @@ def device_spec(frame, length, thickness):
         side = -1.0 if frame.angle >= 0 else 1.0
         body.box((lens, 0.0024 * k, height * 0.56), (side * (length / 2 - lens / 2 - 0.003 * k), front - 0.0004 * k, top - height / 2),
                  bevel=min(0.0011 * k, height * 0.25), material=1, segments=4)
-        materials = [themes.housing_material(), themes.glow_material(KNOB_GLOW)]
+        glow = KNOB_GLOW if frame.note_pitch is None else themes.note_color(frame.note_pitch)
+        materials = [themes.housing_material(), themes.glow_material(glow)]
     return {'root': root, 'parts': [{'role': 'bar', 'mesh': body.to_mesh('MM ' + frame.device, materials), 'reactive': True}]}
 
 

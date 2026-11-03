@@ -192,6 +192,33 @@ def plastic_material(name, color, roughness, coat=0.0, flash=False):
     return _shared('MM · ' + name, build)
 
 
+# Note colours for Colour by Note, one per pitch class from C, after the boomwhacker colour wheel
+NOTE_COLORS = (
+    (0.86, 0.12, 0.12), (0.93, 0.33, 0.10), (0.98, 0.55, 0.10), (0.98, 0.75, 0.12),
+    (0.95, 0.87, 0.16), (0.60, 0.84, 0.18), (0.20, 0.70, 0.32), (0.12, 0.62, 0.62),
+    (0.18, 0.42, 0.86), (0.44, 0.26, 0.82), (0.64, 0.22, 0.74), (0.88, 0.26, 0.58),
+)
+NOTE_NAMES = ('C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B')
+
+
+def note_color(pitch):
+    """Linear colour of a MIDI pitch's pitch class, or None without a pitch. The table is in display (sRGB) values,
+    so it is converted to the linear values Blender's shaders expect; that keeps the colours saturated"""
+    if pitch is None:
+        return None
+    return tuple(_srgb_to_linear(value) for value in NOTE_COLORS[int(round(pitch)) % 12])
+
+
+def note_material(pitch):
+    """Glossy coloured plastic like a boomwhacker tube, shared per pitch class; flashes on a hit"""
+    index = int(round(pitch)) % 12
+    return plastic_material('note ' + NOTE_NAMES[index], note_color(index), 0.26, coat=0.7, flash=True)
+
+
+def _srgb_to_linear(value):
+    return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+
 def key_material():
     return plastic_material('key', (0.86, 0.87, 0.88), 0.22, coat=0.4, flash=True)
 
