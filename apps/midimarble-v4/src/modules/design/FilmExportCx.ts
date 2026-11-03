@@ -90,6 +90,8 @@ export class FilmExportCx {
 			preset: settings.preset,
 			engine: settings.engine,
 			outputPath: output.relativePath,
+			// The worker writes inside the package; a location outside it receives a copy when the film is done
+			destinationPath: output.outsidePackage ? (settings.chosenPath ?? undefined) : undefined,
 			signal: abort.signal,
 			onStarted: (started) => {
 				if (import.meta.env.DEV) console.debug('[export] started', started);

@@ -198,9 +198,6 @@ const ExportDone: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 				{result.width} × {result.height} · {result.fps} fps · {formatClock(result.duration)} · rendered in {formatClock(seconds)}
 				{result.hasAudio ? '' : ' · no soundtrack'}
 			</div>
-			{job.outsidePackage ? (
-				<p className="mm-caption">Films are written inside the project for now, so it is in the project’s Renders folder. Reveal it to move it.</p>
-			) : null}
 			<div className="flex justify-end gap-2">
 				<button className="mm-button" onClick={() => void reveal()} type="button">
 					<Film size={12} strokeWidth={1.8} />
