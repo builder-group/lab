@@ -73,8 +73,9 @@ interface TTitleBarProps {
 }
 
 /**
- * Centred title like a macOS document window: a dot while edited, double-click renames. An unsaved document,
- * such as an opened example, shows "Not Saved" once it has changes, like an untitled macOS document's Edited
+ * Centred title like a macOS document window; double-click renames. A saved project autosaves every edit within a
+ * second, so it shows no edited dot, which would only flicker; a failed save shows a red "Not Saved". An unsaved
+ * document, such as an opened example, shows "Not Saved" once it has changes, like an untitled macOS document's Edited
  */
 const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
@@ -83,7 +84,6 @@ const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 	const save = useFeatureState(cx.$save);
 	const [isRenaming, setIsRenaming] = React.useState(false);
 	const title = history?.present.title ?? 'Untitled';
-	const isEdited = !isTemporary && (save === 'dirty' || save === 'saving');
 	const isUnsaved = isTemporary && history != null && hasUnsavedChanges(history);
 
 	return (
@@ -91,7 +91,7 @@ const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 			<div
 				className="mm-titlebar-title pointer-events-auto"
 				onDoubleClick={() => setIsRenaming(true)}
-				title={isRenaming ? undefined : isTemporary ? 'Not saved yet. Press ⌘S to choose where to save it' : 'Double-click to rename'}
+				title={isRenaming ? undefined : isTemporary ? 'Not saved yet. Press ⌘S to choose where to save it' : 'Saved automatically. Double-click to rename'}
 			>
 				{isRenaming ? (
 					<RenameField
@@ -104,7 +104,6 @@ const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 				) : (
 					<>
 						<span className="truncate">{title}</span>
-						{isEdited ? <span className="mm-doc-dot" title={save === 'saving' ? 'Saving…' : 'Edited'} aria-label="Edited" /> : null}
 						{isUnsaved && save !== 'failed' ? <span className="text-[11px] font-normal text-[var(--text-secondary)]">Not Saved</span> : null}
 						{save === 'failed' ? <span className="text-[11px] font-normal text-[var(--bad)]">Not Saved</span> : null}
 					</>

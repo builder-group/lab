@@ -22,6 +22,8 @@ export class DesignCx {
 	readonly $camera = createState<TApplySceneResult['camera'] | null>(null);
 	/** Set while the next click on the preview places something on the wall */
 	readonly $placing = createState<'text' | null>(null);
+	/** A title just placed, whose Text field takes focus with its contents selected; the inspector clears it */
+	readonly $editingTitle = createState<string | null>(null);
 
 	private syncedKey: string | null = null;
 	private idPixels: TIdPixels | null = null;

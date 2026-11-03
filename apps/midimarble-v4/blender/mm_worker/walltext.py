@@ -12,6 +12,11 @@ or absolute. Font files are packed so the scene keeps them.
 Timing: optional `in` and `out` seconds show a title only inside its range. The object property `mm_visible` fades
 from 0 to 1 over `FADE` seconds after `in` and back to 0 over the `FADE` seconds before `out`; the title material
 mixes to transparent by it, and `hide_render` keeps the title out of renders and the ID pass while it is hidden.
+
+Styles: `style` `wall` (the default) and `songName` sit on the wall as above. `caption` (near the top of the frame)
+and `endCard` (centred) are screen titles: `attach_screen_texts` parents them to the film camera, after the camera
+exists, and drivers on its lens and distance keep them the same size and place in the frame while it moves. Their
+`size` is the letter height as a fraction of the frame height; they cast no shadow and have no extrusion.
 """
 import hashlib
 import json
@@ -34,6 +39,14 @@ VISIBLE_PROPERTY = 'mm_visible'
 TIMING_PATHS = ('["%s"]' % VISIBLE_PROPERTY, 'hide_render')
 # `KeyframePoint.interpolation` enum value for CONSTANT
 INTERPOLATION_CONSTANT = 0
+SCREEN_STYLES = ('caption', 'endCard')
+SCREEN_PROPERTY = 'mm_screen'
+# Screen titles sit this far along the way from the camera to the closer of its focus and the wall, in front of the
+# pieces and close to the focus so depth of field keeps them nearly sharp
+SCREEN_DEPTH = 0.85
+# Height of a caption's centre above the frame centre, as a fraction of the half frame height
+CAPTION_HEIGHT = 0.7
+SCREEN_PATHS = (('location', 1), ('location', 2), ('scale', 0), ('scale', 1), ('scale', 2))
 
 
 def is_text(obj):
@@ -77,38 +90,126 @@ def write_text(project_dir, obj, entry):
     data = obj.data
     size = finite(entry.get('size', 0.03), 'size')
     depth = max(0.0, finite(entry.get('depth', 0.0), 'depth'))
+    screen = entry.get('style') if entry.get('style') in SCREEN_STYLES else None
     data.body = str(entry.get('text') or '')
-    data.size = max(size, 1e-4)
-    # Extrusion grows both ways from the text plane, so half the depth each way
-    data.extrude = depth / 2
-    data.bevel_depth = min(depth * 0.12, size * 0.01)
+    if screen is not None:
+        # Unit letters scaled by the camera drivers; `size` is a fraction of the frame height
+        data.size = 1.0
+        data.extrude = 0.0
+        data.bevel_depth = 0.0
+        obj[SCREEN_PROPERTY] = screen
+        obj['mm_screen_size'] = max(size, 1e-3)
+    else:
+        data.size = max(size, 1e-4)
+        # Extrusion grows both ways from the text plane, so half the depth each way
+        data.extrude = depth / 2
+        data.bevel_depth = min(depth * 0.12, size * 0.01)
+        detach_from_camera(obj)
     data.bevel_resolution = 2
     data.align_x = 'CENTER'
     data.align_y = 'CENTER'
     font = resolve_font(project_dir, entry.get('font'))
     if font is not None:
         data.font = font
-    material = title_material(entry.get('color') or '#1d1d1f')
+    material = title_material(entry.get('color') or '#1d1d1f', screen is not None)
     if len(data.materials):
         data.materials[0] = material
     else:
         data.materials.append(material)
     position = entry.get('position') or {'x': 0.0, 'y': 0.0}
     angle = finite(entry.get('angle', 0.0), 'angle')
-    # Text local +Z points at the camera (-Y), local +Y up the wall; the wall angle turns it in the wall plane
-    obj.matrix_basis = (
-        Matrix.Translation((finite(position['x'], 'x'), -(depth / 2 + WALL_GAP), finite(position['y'], 'y')))
-        @ Matrix.Rotation(-angle, 4, 'Y')
-        @ Matrix.Rotation(math.pi / 2, 4, 'X')
-    )
+    if screen is None:
+        # Text local +Z points at the camera (-Y), local +Y up the wall; the wall angle turns it in the wall plane
+        obj.matrix_basis = (
+            Matrix.Translation((finite(position['x'], 'x'), -(depth / 2 + WALL_GAP), finite(position['y'], 'y')))
+            @ Matrix.Rotation(-angle, 4, 'Y')
+            @ Matrix.Rotation(math.pi / 2, 4, 'X')
+        )
     label = str(entry.get('text') or '').strip()[:48]
     if label and obj.name != label and not obj.name.startswith(label + '.'):
         obj.name = label
     obj['mm_written'] = signature(obj)
 
 
-def title_material(color):
-    """Flat title colour that mixes to transparent by the object's `mm_visible`, shared per colour"""
+def attach_screen_texts(managed, camera, scene):
+    """
+    Parents caption and end card titles to the film camera. Drivers place them at `SCREEN_DEPTH` of the way to the
+    closer of the focus distance and the wall, and scale them by the frame height there, so a caption stays at the
+    top of the frame at its size whatever the camera does. Returns how many were attached.
+    """
+    if camera is None or camera.type != 'CAMERA' or managed is None:
+        return 0
+    # The sensor spans the longer image side, so the half frame height per metre is shorter in landscape
+    width, height = scene.render.resolution_x, max(scene.render.resolution_y, 1)
+    fit = min(1.0, height / max(width, 1))
+    # An orthographic camera (the framed still camera) sees the same frame height at every distance
+    ortho = camera.data.type == 'ORTHO'
+    count = 0
+    for obj in managed.objects:
+        style = obj.get(SCREEN_PROPERTY) if is_text(obj) else None
+        if style not in SCREEN_STYLES or link_state(obj) == 'unlinked':
+            continue
+        obj.parent = camera
+        obj.matrix_parent_inverse.identity()
+        obj.matrix_basis = Matrix.Identity(4)
+        obj.visible_shadow = False
+        size = float(obj.get('mm_screen_size', 0.06))
+        distance = '%g*abs(wall)' % SCREEN_DEPTH if ortho else '%g*min(focus, abs(wall))' % SCREEN_DEPTH
+        frame_half = 'ortho*%g' % (fit / 2) if ortho else '(%s)*%g/lens' % (distance, camera.data.sensor_width / 2 * fit)
+        expressions = {
+            ('location', 1): '%s*%g' % (frame_half, CAPTION_HEIGHT if style == 'caption' else 0.0),
+            ('location', 2): '-(%s)' % distance,
+        }
+        for index in range(3):
+            # Letter height is `size` of the full frame height
+            expressions[('scale', index)] = '%s*%g' % (frame_half, 2 * size)
+        for path, index in SCREEN_PATHS:
+            obj.driver_remove(path, index)
+            driver = obj.driver_add(path, index).driver
+            driver.type = 'SCRIPTED'
+            add_variable(driver, 'focus', camera.data, 'dof.focus_distance')
+            add_variable(driver, 'lens', camera.data, 'lens')
+            add_variable(driver, 'ortho', camera.data, 'ortho_scale')
+            wall = driver.variables.new()
+            wall.name = 'wall'
+            wall.type = 'TRANSFORMS'
+            wall.targets[0].id = camera
+            wall.targets[0].transform_type = 'LOC_Y'
+            wall.targets[0].transform_space = 'WORLD_SPACE'
+            driver.expression = expressions[(path, index)]
+        obj['mm_written'] = signature(obj)
+        count += 1
+    return count
+
+
+def add_variable(driver, name, target_id, data_path):
+    variable = driver.variables.new()
+    variable.name = name
+    variable.type = 'SINGLE_PROP'
+    variable.targets[0].id_type = 'CAMERA'
+    variable.targets[0].id = target_id
+    variable.targets[0].data_path = data_path
+
+
+def detach_from_camera(obj):
+    """Turns a screen title back into a wall title: no camera parent, drivers or screen tags"""
+    if SCREEN_PROPERTY not in obj and obj.parent is None:
+        return
+    for path, index in SCREEN_PATHS:
+        obj.driver_remove(path, index)
+    obj.parent = None
+    obj.visible_shadow = True
+    obj.scale = (1.0, 1.0, 1.0)
+    for name in (SCREEN_PROPERTY, 'mm_screen_size'):
+        if name in obj:
+            del obj[name]
+
+
+def title_material(color, emissive=False):
+    """
+    Title colour that mixes to transparent by the object's `mm_visible`, shared per colour. Screen titles glow in
+    their colour instead of taking the scene's light, so a white caption reads white over any wall.
+    """
     def build(material):
         linear = parse_color(color)
         material.diffuse_color = linear
@@ -117,6 +218,11 @@ def title_material(color):
         themes._set(principled, 'Base Color', linear)
         themes._set(principled, 'Roughness', 0.38)
         output = next(node for node in tree.nodes if node.type == 'OUTPUT_MATERIAL')
+        if emissive:
+            emission = tree.nodes.new('ShaderNodeEmission')
+            emission.inputs['Color'].default_value = linear
+            emission.inputs['Strength'].default_value = 1.0
+            principled = emission
         transparent = tree.nodes.new('ShaderNodeBsdfTransparent')
         mix = tree.nodes.new('ShaderNodeMixShader')
         visible = tree.nodes.new('ShaderNodeAttribute')
@@ -124,9 +230,9 @@ def title_material(color):
         visible.attribute_name = VISIBLE_PROPERTY
         tree.links.new(visible.outputs['Fac'], mix.inputs['Fac'])
         tree.links.new(transparent.outputs['BSDF'], mix.inputs[1])
-        tree.links.new(principled.outputs['BSDF'], mix.inputs[2])
+        tree.links.new(principled.outputs[0], mix.inputs[2])
         tree.links.new(mix.outputs['Shader'], output.inputs['Surface'])
-    return themes._shared('MM · title ' + color, build)
+    return themes._shared(('MM · screen title ' if emissive else 'MM · title ') + color, build)
 
 
 def title_range(entry, duration):
@@ -200,8 +306,12 @@ def resolve_font(project_dir, name):
 
 def signature(obj):
     data = obj.data
+    # Camera drivers move screen titles every frame, so their place is the style and size instead of the transform
+    screen = obj.get(SCREEN_PROPERTY)
+    placement = ([screen, round(float(obj.get('mm_screen_size', 0.0)), 6), obj.parent.name if obj.parent else None] if screen
+                 else [round(value, 6) for value in (*obj.location, *obj.rotation_euler, *obj.scale)])
     values = [
-        [round(value, 6) for value in (*obj.location, *obj.rotation_euler, *obj.scale)],
+        placement,
         data.body, round(data.size, 6), round(data.extrude, 6), round(data.bevel_depth, 6),
         data.font.name if data.font else None,
         [material.name if material else None for material in data.materials],

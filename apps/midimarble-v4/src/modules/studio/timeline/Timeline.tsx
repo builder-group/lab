@@ -229,6 +229,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			className="relative flex shrink-0 flex-col border-t border-[var(--separator)] bg-[var(--content)]"
 			style={{ height: height > 0 ? height : fittedHeight(rowsHeight) }}
 			aria-label="Timeline"
+			onMouseDown={keepFocusOnButtonClick}
 		>
 			<ResizeHandle cx={cx} />
 			<Transport cx={cx} results={result?.hits ?? null} zoom={zoom} onZoom={(next) => zoomTo(next)} onZoomToFit={zoomToFit} />
@@ -322,6 +323,20 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 interface TTimelineProps {
 	cx: StudioCx;
+}
+
+/**
+ * A pointer click on a timeline button leaves keyboard focus where it was, like AppKit's non-key buttons, so
+ * Return and Space keep their studio meaning instead of pressing the last-clicked button again. Tab still
+ * focuses buttons for keyboard use.
+ */
+function keepFocusOnButtonClick(event: React.MouseEvent): void {
+	const target = event.target as HTMLElement;
+	if (target.closest('button') == null || target.closest('input, textarea, select, [contenteditable="true"]') != null) return;
+	event.preventDefault();
+	// A field being edited still ends its edit, as a click elsewhere would
+	const active = document.activeElement;
+	if (active instanceof HTMLElement && active.matches('input, textarea, select, [contenteditable="true"]')) active.blur();
 }
 
 /** Splitter on the top edge; drag to resize like Logic's track area, double-click to reset */

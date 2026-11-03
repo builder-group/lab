@@ -1,4 +1,5 @@
 import type { TMenuEntry } from '@/components';
+import { canMakeBacking } from '@/modules/compose/reachability';
 import { assignNotesCommands, DEFAULT_BACKING_INSTRUMENT, newMarbleCommands } from '@/modules/music';
 import { BACKING_ID, type THit, type TProject } from '@/modules/project';
 import { parseHitKey, toHitKey } from '../selection';
@@ -13,6 +14,11 @@ export function handNotes(cx: StudioCx, keys: string[], target: string | 'new'):
 	if (project == null) return false;
 	const notes = selectedNotes(project, keys);
 	if (!notes.length) return false;
+	// Backing notes live in the Song track; without a song they could not be seen or selected again
+	if (target === BACKING_ID && !canMakeBacking(project)) {
+		cx.notify('Backing needs a song. Delete the hits instead, or import a song first.');
+		return false;
+	}
 	const hitIds = notes.map((item) => item.hit.id);
 	const result = cx.simulation.$result.get();
 	const created = target === 'new' ? newMarbleCommands(project, Math.min(...notes.map((item) => item.hit.time))) : null;
@@ -48,7 +54,7 @@ export function playWithMenu(cx: StudioCx, keys: string[]): TMenuEntry[] {
 			onSelect: () => void handNotes(cx, keys, lane.id)
 		})),
 		{ label: 'New Marble', onSelect: () => void handNotes(cx, keys, 'new') },
-		{ label: 'Backing', shortcut: '0', checked: only === BACKING_ID, onSelect: () => void handNotes(cx, keys, BACKING_ID) }
+		{ label: 'Backing', shortcut: '0', checked: only === BACKING_ID, disabled: !canMakeBacking(project), onSelect: () => void handNotes(cx, keys, BACKING_ID) }
 	];
 }
 

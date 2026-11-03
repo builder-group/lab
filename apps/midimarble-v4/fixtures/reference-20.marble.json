@@ -1,5 +1,5 @@
 {
-	"$schema": "marble-project@3",
+	"$schema": "marble-project@4",
 	"id": "reference-20",
 	"title": "Reference 20",
 	"revision": 0,
@@ -211,7 +211,8 @@
 					}
 				]
 			}
-		]
+		],
+		"backing": []
 	},
 	"entities": [
 		{
@@ -1612,7 +1613,7 @@
 		"loop": false,
 		"camera": {
 			"mode": "rig",
-			"distance": 0.85,
+			"distance": 0.7,
 			"pitch": 1.15,
 			"lead": 0.15,
 			"smoothing": 0.6,

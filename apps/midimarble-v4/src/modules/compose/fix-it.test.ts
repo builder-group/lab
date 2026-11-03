@@ -2,17 +2,9 @@ import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { assignNotesCommands } from '@/modules/music';
 import { applyProjectCommands, BACKING_ID, createProject, parseProject, type TProject } from '@/modules/project';
-import {
-	autoPlace,
-	createRailForGap,
-	createSimulator,
-	createSwitchbackForGap,
-	createTunnelForGap,
-	type THitResult,
-	type TSimulationResult
-} from '@/modules/simulation';
+import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
-import { brokenHits, newlyBroken, releaseFix, replaceBroken, replaceLabel, replaceTargets, type TReplaceDeps } from './fix-it';
+import { brokenHits, moveClear, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceTargets, type TReplaceDeps } from './fix-it';
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
@@ -174,7 +166,15 @@ describe('replaceBroken function', () => {
 		const before = simulate(project);
 		const melody = project.music.lanes[0];
 		if (melody == null) throw new Error('Jingle Bells has a Melody track');
-		const [isEditOk, editErr, edited] = applyProjectCommands(project, assignNotesCommands(project, before, melody.hits.slice(0, 6).map((item) => item.id), BACKING_ID));
+		const [isEditOk, editErr, edited] = applyProjectCommands(
+			project,
+			assignNotesCommands(
+				project,
+				before,
+				melody.hits.slice(0, 6).map((item) => item.id),
+				BACKING_ID
+			)
+		);
 		if (!isEditOk) throw editErr;
 		const broken = simulate(edited);
 		expect(brokenHits(broken.hits).length).toBeGreaterThan(0);
@@ -185,5 +185,90 @@ describe('replaceBroken function', () => {
 		// Assert
 		expect(outcome.releases).toEqual([melody.id]);
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
+		const summary = hitSummary(outcome.result.hits);
+		expect(replaceResultMessage(outcome.project, broken.hits, outcome, summary.label, 0)).toMatch(
+			new RegExp(`^Melody now starts just before its first note\\. Re-placed \\d+ platforms? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`)
+		);
 	}, 120_000);
+});
+
+describe('moveClear function', () => {
+	// A windmill that follows Marble 1 at 0:02.00, sitting on the marble's straight fall from 0:00 to 0:01
+	function createBlocked(): { project: TProject; result: TSimulationResult } {
+		const base = createProject({ title: 'Move Clear' });
+		const lane = base.music.lanes[0];
+		if (lane == null) throw new Error('A new project has a marble');
+		const project: TProject = {
+			...base,
+			music: { ...base.music, lanes: [{ ...lane, hits: [{ id: 'h1', time: 1.5 }] }] },
+			entities: [
+				...base.entities,
+				{
+					id: 'windmill',
+					name: 'Windmill 1',
+					components: {
+						piece: { type: 'windmill', params: { entryDelay: 0.5 } },
+						transform: { position: { x: 0, y: 0 }, angle: 0 },
+						hitLink: { laneId: lane.id, hitId: 'h1', angle: 0, contactAt: 0.5, pinned: false, anchored: true, offset: { x: 0.1, y: 0.2 } }
+					}
+				}
+			]
+		};
+		const samples = Array.from({ length: 101 }, (_, index) => ({ time: index / 100, position: { x: 0, y: 0.2 - index * 0.004 }, angle: 0, velocity: { x: 0, y: -0.4 } }));
+		const result: TSimulationResult = {
+			revision: project.revision,
+			duration: 3,
+			marbles: [{ entityId: 'marble', laneId: lane.id, radius: 0.008, samples }],
+			pieces: [
+				{
+					entityId: 'windmill',
+					type: 'windmill',
+					position: { x: 0, y: 0 },
+					angle: 0,
+					params: { motorSpeed: 0 },
+					contactPoint: null,
+					contactNormal: null,
+					hitTime: 1.5,
+					status: 'blocked',
+					entryTime: 2,
+					shapes: [{ kind: 'ball', center: { x: 0, y: 0 }, radius: 0.02 }]
+				}
+			],
+			contacts: [],
+			hits: [],
+			stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
+		};
+		return { project, result };
+	}
+
+	it('should nudge the offset just far enough to clear the earlier run and keep the tie', () => {
+		// Prepare
+		const { project, result } = createBlocked();
+
+		// Act
+		const move = moveClear(project, result, 'windmill');
+
+		// Assert: the ball of 2 cm clears a marble of 8 mm with a 3 mm margin on the first 5 mm ring past 3.1 cm
+		expect(move?.distance).toBeCloseTo(0.035, 6);
+		const command = move?.commands[0];
+		if (command?.type !== 'setComponent' || command.component.name !== 'hitLink') throw new Error('Move Clear sets the tie');
+		const { offset, laneId, hitId, anchored } = command.component.value;
+		expect({ laneId, hitId, anchored }).toEqual({ laneId: project.music.lanes[0]?.id, hitId: 'h1', anchored: true });
+		expect(Math.hypot((offset?.x ?? 0) - 0.1, (offset?.y ?? 0) - 0.2)).toBeCloseTo(0.035, 4);
+	});
+
+	it('should name Move Clear in the Re-place plan for Blocked scenery', () => {
+		const { project, result } = createBlocked();
+
+		const plan = replacePlan(project, result);
+
+		expect(plan).toEqual(expect.objectContaining({ label: 'Move Windmill 1 Clear', platforms: 0, scenery: ['Windmill 1'], isEmpty: false }));
+	});
+
+	it('should leave pieces that are not Blocked alone', () => {
+		const { project, result } = createBlocked();
+		const placed = { ...result, pieces: result.pieces.map((piece) => ({ ...piece, status: 'placed' as const })) };
+
+		expect(moveClear(project, placed, 'windmill')).toBeNull();
+	});
 });

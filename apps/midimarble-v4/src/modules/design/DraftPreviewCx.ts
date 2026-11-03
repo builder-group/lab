@@ -7,7 +7,7 @@ import { marblePositionAt, pieceAngleAt, pieceKind, pieceOutline } from '@/modul
 import type { TVec2 } from '@/modules/project';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { draftPieceColors, draftWall, titleOpacity, type TDraftColors } from './draft-look';
+import { CAPTION_HEIGHT, draftPieceColors, draftWall, titleOpacity, type TDraftColors } from './draft-look';
 import { filmCamera, imageToWall, type TFilmCamera } from './film-camera';
 
 /**
@@ -103,7 +103,14 @@ export class DraftPreviewCx {
 		return project.entities.flatMap((entity) => {
 			const text = entity.components.wallText;
 			const transform = entity.components.transform;
-			if (text == null || transform == null) return [];
+			if (text == null) return [];
+			if (text.style === 'caption' || text.style === 'endCard') {
+				// Screen titles hang from the camera in Blender: a fixed place and size in the frame, like there
+				const { width, height } = this.size;
+				const center = { x: width / 2, y: text.style === 'caption' ? height * (0.5 - CAPTION_HEIGHT / 2) : height / 2 };
+				return [{ entityId: entity.id, text: text.text, color: text.color, center, fontSize: text.size * height, angle: 0, opacity: titleOpacity(time, text) }];
+			}
+			if (transform == null) return [];
 			const z = text.depth;
 			const center = this.toScreen(transform.position, z);
 			const step = 0.01;

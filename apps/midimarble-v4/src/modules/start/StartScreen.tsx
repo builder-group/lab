@@ -3,7 +3,7 @@ import { FileMusic, FolderOpen, LayoutTemplate, Music, Plus } from 'lucide-react
 import React from 'react';
 import { WindowHeader } from '@/components';
 import { copyExampleFiles, exampleGroups, loadExample, type TExample } from './examples';
-import { host } from '@/environment';
+import { host, newProjectTitle } from '@/environment';
 import type { StudioCx } from '@/modules/studio';
 
 /** Welcome window modeled on Xcode: actions on the left, recent projects on the right */
@@ -53,7 +53,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 				<div className="flex w-[300px] flex-col gap-1">
 					<StartAction
 						icon={<Plus size={18} strokeWidth={1.7} />}
-						title="New Project"
+						title={newProjectTitle()}
 						detail="Start with an empty wall"
 						onClick={() => void cx.newProject()}
 					/>

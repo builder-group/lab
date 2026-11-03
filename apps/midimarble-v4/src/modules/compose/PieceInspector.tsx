@@ -2,9 +2,9 @@ import { useFeatureState } from 'feature-react/state';
 import { createState } from 'feature-state';
 import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InspectorHeader, LinkRow, NoteRow, Panel, ScrubField, StatusPill } from '@/components';
+import { HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, StatusPill } from '@/components';
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { getPieceDefinition, isMusicalPiece, layoutOf, resolvePiecePath, unanchorPiece, unlinkPiece, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { getPieceDefinition, isMusicalPiece, layoutOf, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
@@ -12,6 +12,7 @@ import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { attachState, isPathPieceType, pathPieceTypes, withPathType, type TPathPieceType } from './attach-edit';
 import { PieceIcon } from './piece-icons';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
+import { moveClear } from './fix-it';
 import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
 
@@ -74,7 +75,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					status == null ? null : (
 						<>
 							{/* The Fix-it sits next to the problem */}
-							{status.tone === 'bad' && link != null && isMusicalPiece(type) ? <ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} /> : null}
+							{status.tone === 'bad' && link != null && soundsHit(type, link) ? <ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} /> : null}
+							{resolved?.status === 'blocked' && link != null && !soundsHit(type, link) ? <MoveClearButton cx={cx} entityId={first.id} /> : null}
 							<StatusPill tone={status.tone} label={status.label} detail={status.detail} />
 						</>
 					)
@@ -196,6 +198,36 @@ export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: stri
 	);
 };
 
+/**
+ * Move Clear beside a Blocked piece that follows a marble: nudges it off the marble's earlier run, keeping its
+ * tie, as one undo step. Re-place Broken Platforms does the same for every Blocked piece.
+ */
+export const MoveClearButton: React.FC<{ cx: StudioCx; entityId: string }> = (props) => {
+	const { cx, entityId } = props;
+	const compose = useFeatureState(cx.$compose);
+	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
+	function run(): void {
+		const project = cx.project;
+		const result = cx.simulation.$result.get();
+		if (project == null || result == null || result.revision !== project.revision) return;
+		const entity = project.entities.find((item) => item.id === entityId);
+		const name = entity?.name ?? getPieceDefinition(entity?.components.piece?.type ?? '')?.label ?? 'The piece';
+		const move = moveClear(project, result, entityId);
+		if (move == null) {
+			cx.notify(`No spot within 40 cm clears the run for ${name}. Drag it by hand or Detach it.`);
+			return;
+		}
+		if (!cx.execute(move.commands)) return;
+		const marble = project.music.lanes.find((lane) => lane.id === entity?.components.hitLink?.laneId)?.name ?? 'the marble';
+		cx.notifyEdit(`${name} moved ${Math.max(1, Math.round(move.distance * 100))} cm, clear of ${marble}'s run`);
+	}
+	return (
+		<button className="mm-fix-it mm-fix-it-label" disabled={replacing != null} onClick={run} title="Move this piece off the marble's earlier run, keeping what it follows" type="button">
+			Move Clear
+		</button>
+	);
+};
+
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
 
 /** The header subtitle, the piece's tie as words.md names it: `Plays C4 · 0:03.2`, `Follows Marble 1 at 0:03.2` or `Free` */
@@ -291,13 +323,14 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 		<Panel
 			id="piece.attach"
 			title={attach.kind === 'linked' ? 'Plays' : attach.kind === 'anchored' ? 'Follows' : 'Free'}
+			isEmpty={attach.kind === 'free'}
 			accessory={
-				<HelpTip text="Drop a platform on a note's dot and it plays that note. Drop any piece near the line a marble falls along and it follows that marble without playing. Hold ⌥ while dragging to drop it free." />
+				<HelpTip
+					text={`${attach.kind === 'free' ? 'Free: tied to no note and no marble, so it stays where it is. ' : ''}Drop a platform on a note's dot and it plays that note. Drop any piece near the line a marble falls along and it follows that marble without playing. Hold ⌥ while dragging to drop it free.`}
+				/>
 			}
 		>
-			{attach.kind === 'free' ? (
-				<NoteRow>Not tied to a note or a marble</NoteRow>
-			) : attach.kind === 'linked' ? (
+			{attach.kind === 'free' ? null : attach.kind === 'linked' ? (
 				<LinkRow
 					title={`Select Note ${hitIndex + 1}`}
 					onOpen={openHit}
@@ -448,7 +481,7 @@ const ParamsSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEnti
 			{names.map((name) => {
 				const spec = definition.params[name];
 				if (spec == null) return null;
-				const label = (type === 'tunnel' && name === 'radius' ? 'Wall' : shortLabels[name]) ?? spec.label;
+				const label = spec.short ?? spec.label;
 				const display = displayUnit(name, spec.unit, spec.integer === true);
 				const values = entities.map((entity) => resolvedParam(entity, name));
 				const shared = values.every((value) => Math.abs(value - (values[0] ?? 0)) < 1e-12) ? (values[0] ?? null) : null;
@@ -484,25 +517,6 @@ function paramRank(name: string): number {
 	const index = ['bounce', 'thickness', 'depth'].indexOf(name);
 	return index < 0 ? 3 : index;
 }
-
-// Labels that fit inside a half-width field; the full name shows in the tooltip
-const shortLabels: Record<string, string> = {
-	bladeCount: 'Blades',
-	bladeLength: 'Blade',
-	bladeThickness: 'Thick',
-	hubRadius: 'Hub',
-	motorSpeed: 'Motor',
-	damping: 'Friction',
-	radius: 'Wire',
-	gap: 'Spacing',
-	bore: 'Room',
-	mouth: 'Mouth',
-	width: 'Width',
-	drop: 'Drop',
-	opening: 'Open',
-	lip: 'Lip',
-	bend: 'Bend'
-};
 
 function displayUnit(name: string, unit: string, isInteger: boolean): { unit: string; factor: number; step: number; precision: number } {
 	if (isInteger) return { unit: '', factor: 1, step: 0.05, precision: 0 };

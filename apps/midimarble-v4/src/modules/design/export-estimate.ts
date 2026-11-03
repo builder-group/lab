@@ -11,26 +11,29 @@ export interface TRenderPresetInfo {
 	fps: number;
 	/** Engine the preset always renders with, whatever renderer is chosen */
 	engine?: TFilmEngine;
-	/** What the preset is for, shown in the preset picker */
-	purpose?: string;
+	/** What sets the preset apart in the picker, beside its size: `Flat Light`, `60 fps` */
+	detail?: string;
 }
 
-/** Export qualities from words.md: Draft, Standard, High, Best; the ids are older names kept in saved projects. No 4K. */
+/**
+ * Export qualities from words.md: Draft, Standard, High, Best; the ids are older names kept in saved projects.
+ * No 4K. Draft and Standard share a size; Draft renders flat colours without lighting (Workbench).
+ */
 export const renderPresets: readonly TRenderPresetInfo[] = [
-	{ id: 'draft', label: 'Draft', shortSide: 720, fps: 30, engine: 'workbench', purpose: 'quick check of motion' },
+	{ id: 'draft', label: 'Draft', shortSide: 720, fps: 30, engine: 'workbench', detail: 'Flat Light' },
 	{ id: 'fast', label: 'Standard', shortSide: 720, fps: 30 },
 	{ id: 'balanced', label: 'High', shortSide: 1080, fps: 30 },
-	{ id: 'best', label: 'Best', shortSide: 1080, fps: 60 }
+	{ id: 'best', label: 'Best', shortSide: 1080, fps: 60, detail: '60 fps' }
 ];
 
 export function getRenderPreset(id: TRenderPreset): TRenderPresetInfo {
 	return renderPresets.find((preset) => preset.id === id) ?? (renderPresets[2] as TRenderPresetInfo);
 }
 
-/** Quality picker entry: `Draft · 720p, 30 fps · quick check of motion`, `High · 1080p, 30 fps` */
+/** Quality picker entry: `Draft · 720p · Flat Light`, `High · 1080p`, `Best · 1080p · 60 fps` */
 export function renderPresetOption(preset: TRenderPresetInfo): string {
-	const size = `${preset.label} · ${preset.shortSide}p, ${preset.fps} fps`;
-	return preset.purpose != null ? `${size} · ${preset.purpose}` : size;
+	const size = `${preset.label} · ${preset.shortSide}p`;
+	return preset.detail != null ? `${size} · ${preset.detail}` : size;
 }
 
 /** Engine a film renders with: the preset's own engine, or the chosen renderer */
@@ -38,10 +41,9 @@ export function filmEngine(preset: TRenderPreset, engine: TRenderEngine): TFilmE
 	return getRenderPreset(preset).engine ?? engine;
 }
 
-/** `High · 1080p, 30 fps` */
+/** `High · 1080p` */
 export function renderPresetLabel(id: TRenderPreset): string {
-	const preset = getRenderPreset(id);
-	return `${preset.label} · ${preset.shortSide}p, ${preset.fps} fps`;
+	return renderPresetOption(getRenderPreset(id));
 }
 
 /** Film size in pixels for a frame aspect, with even sides as video encoders expect */

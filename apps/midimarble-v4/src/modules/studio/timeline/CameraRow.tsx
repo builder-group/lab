@@ -7,6 +7,8 @@ import { commandItem } from '../commands';
 import { formatTime } from '../format';
 import { CAMERA_KEY, parseShotKey, toShotKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
+import { CameraIssues } from './CameraIssues';
+import { CameraShotSpans } from './CameraShotSpans';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
 
 /**
@@ -50,6 +52,8 @@ export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 					if (cx.execute(shotCommands)) cx.$selection.set([toShotKey(shotId)]);
 				}}
 			>
+				<CameraShotSpans project={project} zoom={zoom} selection={selection} dragged={drag?.moved ? drag : null} />
+				<CameraIssues cx={cx} project={project} zoom={zoom} />
 				{shots.map((shot) => {
 					const key = toShotKey(shot.id);
 					const isSelected = selection.includes(key);

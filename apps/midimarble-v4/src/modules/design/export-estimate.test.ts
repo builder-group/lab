@@ -69,11 +69,12 @@ describe('estimateExport function', () => {
 });
 
 describe('draft preset', () => {
-	it('should always render with Workbench and name its purpose in the picker', () => {
+	it('should always render with Workbench and set Draft apart from Standard in the picker', () => {
 		expect(filmEngine('draft', 'cycles')).toBe('workbench');
 		expect(filmEngine('fast', 'cycles')).toBe('cycles');
-		expect(renderPresetOption(getRenderPreset('draft'))).toBe('Draft · 720p, 30 fps · quick check of motion');
-		expect(renderPresetOption(getRenderPreset('best'))).toBe('Best · 1080p, 60 fps');
+		expect(renderPresetOption(getRenderPreset('draft'))).toBe('Draft · 720p · Flat Light');
+		expect(renderPresetOption(getRenderPreset('fast'))).toBe('Standard · 720p');
+		expect(renderPresetOption(getRenderPreset('best'))).toBe('Best · 1080p · 60 fps');
 	});
 });
 

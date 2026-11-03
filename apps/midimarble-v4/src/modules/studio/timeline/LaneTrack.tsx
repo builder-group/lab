@@ -1,5 +1,5 @@
 import React from 'react';
-import { openContextMenu } from '@/components';
+import { HelpTip, openContextMenu } from '@/components';
 import { unreachableStatus } from '@/modules/compose/reachability';
 import { findLaneConflicts, MIN_HIT_GAP } from '@/modules/music';
 import { createId, type THit, type TLane } from '@/modules/project';
@@ -36,8 +36,9 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 			}}
 		>
 			{!lane.hits.length ? (
-				<span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[11px] text-[var(--text-tertiary)]">
-					Double-click to add a hit, or press T while playing to tap along
+				<span className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1.5 text-[11px] text-[var(--text-tertiary)]">
+					No hits yet
+					<HelpTip side="right" text="Double-click the track to add a hit, or press T while playing to tap along" />
 				</span>
 			) : null}
 			{lane.hits.map((hit, index) => {

@@ -1,7 +1,9 @@
 import type { TMenuItem } from '@/components';
+import { newProjectTitle } from '@/environment';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
+import { detachSelection, followSelection, hasTiedSelection } from '@/modules/compose/tie-commands';
 import type { TRenderPreset } from '@/modules/blender';
 import { cameraCommands, colorByNoteCommands, themeCommands } from '@/modules/design/design-commands';
 import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
@@ -130,7 +132,7 @@ function toolCommand(tool: TComposeTool, title: string, keywords: string): TComm
 
 export const commands: readonly TCommand[] = [
 	// MARK: - File
-	{ id: 'file.new', title: 'New Project', section: 'File', shortcut: '⌘N', run: (cx) => void cx.newProject() },
+	{ id: 'file.new', title: newProjectTitle(), section: 'File', shortcut: '⌘N', run: (cx) => void cx.newProject() },
 	{ id: 'file.open', title: 'Open Project…', section: 'File', shortcut: '⌘O', run: (cx) => void cx.openProject() },
 	{ id: 'file.close', title: 'Close Project', section: 'File', isEnabled: hasProject, run: (cx) => void cx.closeProject() },
 	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', keywords: 'keep unsaved example', isEnabled: hasProject, run: (cx) => void cx.save() },
@@ -165,6 +167,7 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => cx.$selection.set(cx.project?.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id) ?? [])
 	},
 	{ id: 'edit.deselect', title: 'Deselect All', section: 'Edit', isEnabled: (cx) => cx.$selection.get().length > 0, run: (cx) => cx.$selection.set([]) },
+	{ id: 'edit.firstProblem', title: 'Show First Problem', section: 'Edit', keywords: 'issue error attention broken next jump hit summary', isEnabled: hasProject, run: (cx) => cx.showFirstProblem() },
 
 	// MARK: - View
 	{ id: 'view.compose', title: 'Compose', section: 'View', shortcut: '⌘1', keywords: 'workspace', isChecked: (cx) => cx.$workspace.get() === 'compose', run: (cx) => cx.$workspace.set('compose') },
@@ -264,6 +267,16 @@ export const commands: readonly TCommand[] = [
 		}
 	},
 	{ id: 'build.continue', title: 'Continue Pattern', section: 'Pieces', shortcut: '⇥', keywords: 'accept ghosts suggestions repeat tab assist', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.acceptGhosts() },
+	{
+		id: 'build.replace',
+		title: 'Re-place Broken Platforms',
+		section: 'Pieces',
+		keywords: 're-place replace fix repair blocked missed stopped broken move clear release',
+		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isReplacing !== true,
+		run: (cx) => void compose(cx)?.assist.replace()
+	},
+	{ id: 'piece.follow', title: 'Follow Marble', section: 'Pieces', keywords: 'anchor attach tie follows nearest marble', isEnabled: hasPieces, run: (cx) => followSelection(cx) },
+	{ id: 'piece.detach', title: 'Detach', section: 'Pieces', keywords: 'unlink unanchor untie free', isEnabled: (cx) => hasPieces(cx) && hasTiedSelection(cx), run: (cx) => detachSelection(cx) },
 	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Pieces', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.dismiss() },
 	{ id: 'build.rotateLeft', title: 'Rotate 5° Counterclockwise', section: 'Pieces', shortcut: '⇧←', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(5) },
 	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Pieces', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
@@ -297,17 +310,17 @@ export const commands: readonly TCommand[] = [
 	},
 	{
 		id: 'design.resetToCompose',
-		title: 'Reset to Compose',
+		title: 'Discard Blender Changes',
 		section: 'Film',
-		keywords: 'relink linked detached discard blender changes',
+		keywords: 'reset to compose relink linked detached undo blender edits',
 		isEnabled: (cx) => hasBlender(cx) && unlinkedSelection(cx).length > 0,
 		run: (cx) => void cx.design.relink(unlinkedSelection(cx))
 	},
 	{
 		id: 'design.regenerateCamera',
-		title: 'Regenerate Camera',
+		title: 'Reset Camera',
 		section: 'Film',
-		keywords: 'rig follow camera taken over reset',
+		keywords: 'regenerate rig follow automatic camera taken over discard blender changes',
 		isEnabled: (cx) => hasBlender(cx) && cx.design.$camera.get() === 'takenOver',
 		run: (cx) => void cx.design.regenerateCamera()
 	},
@@ -387,6 +400,7 @@ export const commands: readonly TCommand[] = [
 
 	// MARK: - Marble
 	{ id: 'marble.add', title: 'Add Marble', section: 'Marble', keywords: 'track new ball', isEnabled: hasProject, run: (cx) => void cx.addMarble() },
+	{ id: 'marble.speed', workspace: 'compose', title: 'Marble Speed', section: 'Marble', keywords: 'speed gravity fall fast slow physics', isEnabled: hasProject, run: (cx) => focusMarbleSpeed(cx) },
 	{
 		id: 'marble.mute',
 		title: 'Mute Marble',
@@ -458,6 +472,7 @@ export type TCommandId =
 	| 'edit.delete'
 	| 'edit.selectAll'
 	| 'edit.deselect'
+	| 'edit.firstProblem'
 	| 'view.compose'
 	| 'view.design'
 	| 'view.sidebar'
@@ -490,9 +505,13 @@ export type TCommandId =
 	| 'build.autoPlace'
 	| 'build.continue'
 	| 'build.dismiss'
+	| 'build.replace'
+	| 'piece.follow'
+	| 'piece.detach'
 	| 'build.rotateLeft'
 	| 'build.rotateRight'
 	| 'marble.add'
+	| 'marble.speed'
 	| 'marble.mute'
 	| 'marble.solo'
 	| 'tool.platform'
@@ -586,6 +605,22 @@ export function deleteSelectedHits(cx: StudioCx): boolean {
 	const applied = cx.execute([...byLane].map(([laneId, hitIds]) => ({ type: 'removeHits' as const, laneId, hitIds })));
 	if (applied) cx.$selection.set([]);
 	return applied;
+}
+
+/** Marble Speed sits in the Project inspector: clear the selection, show the inspector and focus the value */
+function focusMarbleSpeed(cx: StudioCx): void {
+	cx.$selection.set([]);
+	if (!cx.$panels.get().inspector) cx.togglePanel('inspector');
+	// After the inspector renders the Project
+	requestAnimationFrame(() =>
+		requestAnimationFrame(() => {
+			const field = document.getElementById('world-speed-value');
+			if (field instanceof HTMLInputElement) {
+				field.focus();
+				field.select();
+			}
+		})
+	);
 }
 
 function focusedLaneId(cx: StudioCx): string | undefined {

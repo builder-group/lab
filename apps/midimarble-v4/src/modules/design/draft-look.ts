@@ -94,6 +94,9 @@ const BRASS_SKINS = ['gold', 'silver', 'copper', 'dark', 'device', 'key', 'knob'
 /** Seconds a timed title takes to fade, the same as `FADE` in walltext.py */
 export const TITLE_FADE = 0.25;
 
+/** Height of a caption's centre above the frame centre, as a fraction of the half frame height, like walltext.py */
+export const CAPTION_HEIGHT = 0.7;
+
 /**
  * Opacity of a title at `time` for its optional In and Out times, fading like the Blender worker: up over
  * `TITLE_FADE` after In, down over the `TITLE_FADE` before Out

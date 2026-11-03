@@ -174,7 +174,7 @@ export class ComposeRenderer {
 	/** Platforms and windmills; rails and tunnels are flat lines drawn by the canvas overlay */
 	setPieces(items: TRenderPiece[]): void {
 		const seen = new Set<string>();
-		items.forEach((item, index) => {
+		items.forEach((item) => {
 			const { piece } = item;
 			const kind = layoutOf(piece.type);
 			if (kind !== 'box' && kind !== 'rotor') return;
@@ -198,9 +198,8 @@ export class ComposeRenderer {
 			object.group.position.set(piece.position.x, piece.position.y, definition?.wallOffset ?? 0);
 			object.group.rotation.z = item.angle;
 			for (const part of object.parts) part.mesh.material = this.pieceMaterial(piece.type, part.role, item.ghost, item.colors);
-			// Ghosts draw after solid content so transparency blends over it
-			object.group.renderOrder = item.ghost ? 2 + index : 1;
-			for (const part of object.parts) part.mesh.renderOrder = object.group.renderOrder;
+			object.group.renderOrder = 1;
+			for (const part of object.parts) part.mesh.renderOrder = 1;
 		});
 		for (const [id, object] of this.pieces) {
 			if (seen.has(id)) continue;
@@ -467,12 +466,9 @@ export class ComposeRenderer {
 		let material = this.materials.get(key);
 		if (material == null) {
 			const palette = colors ?? piecePalette[type] ?? piecePalette['platform'];
-			material = new THREE.MeshLambertMaterial({
-				color: part === 'bar' ? palette?.bar : palette?.nub,
-				transparent: ghost,
-				opacity: ghost ? UPCOMING_OPACITY : 1,
-				depthWrite: !ghost
-			});
+			const color = (part === 'bar' ? palette?.bar : palette?.nub) ?? '#888888';
+			// Upcoming pieces stay opaque: blending with the wall washed them out on light walls and muddied them on dark ones
+			material = new THREE.MeshLambertMaterial({ color: ghost ? upcomingColor(color) : color });
 			this.materials.set(key, material);
 		}
 		return material;
@@ -490,10 +486,24 @@ export class ComposeRenderer {
 }
 
 /**
- * Opacity of pieces the marble has not reached yet at the playhead. Light enough to tell apart, solid enough
- * not to read as the dashed suggestion ghosts.
+ * Colour of a piece the marble has not reached yet at the playhead: the same hue and lightness with less
+ * saturation, so it reads as a real, solid piece still to come and never as a see-through suggestion ghost
  */
-export const UPCOMING_OPACITY = 0.62;
+export function upcomingColor(color: string): string {
+	const cached = upcomingColors.get(color);
+	if (cached != null) return cached;
+	const hsl = { h: 0, s: 0, l: 0 };
+	const value = new THREE.Color(color);
+	value.getHSL(hsl);
+	value.setHSL(hsl.h, hsl.s * UPCOMING_SATURATION, hsl.l);
+	const result = `#${value.getHexString()}`;
+	upcomingColors.set(color, result);
+	return result;
+}
+
+/** Share of a piece colour's saturation that upcoming pieces keep */
+const UPCOMING_SATURATION = 0.45;
+const upcomingColors = new Map<string, string>();
 
 /** Flat toy colours per piece type: the body and a darker shade for brackets, hubs and outlines */
 export const piecePalette: Record<string, { bar: string; nub: string }> = {

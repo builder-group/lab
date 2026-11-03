@@ -7,8 +7,10 @@ import type { TEntity, TProject } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import {
+	commonPieceType,
 	itemFitsPieceType,
 	showsThemeSkin,
+	skinAppliedMessage,
 	themeCommands,
 	themePresets,
 	themeSkinCommands,
@@ -153,9 +155,7 @@ const ThemeSection: React.FC<{
 					<ItemGrid cx={cx} project={project} entries={items} selectedPieces={[]} pieceType={null} />
 				</>
 			) : isUnavailable ? (
-				<div className="px-3 pt-1">
-					<EmptyRow text="Agent skins show in the desktop app" help="Skins made with the agent are Blender files, so they show in the desktop app" />
-				</div>
+				<SectionTitle title="Skins and Decorations" help="Skins made with the agent are Blender files, so they show in the desktop app" />
 			) : null}
 		</>
 	);
@@ -197,7 +197,8 @@ const SkinSection: React.FC<{
 	const selectionTarget: TSkinTarget = { kind: 'entities', entityIds: selectedPieces.filter((entity) => entity.components.piece?.type === pieceType).map((entity) => entity.id) };
 
 	function applyThemeSkin(skin: TThemeSkin, toAll: boolean): void {
-		cx.execute(themeSkinCommands(project, toAll ? { kind: 'pieceType', pieceType } : selectionTarget, skin));
+		if (!cx.execute(themeSkinCommands(project, toAll ? { kind: 'pieceType', pieceType } : selectionTarget, skin)) || toAll) return;
+		notifySkinApplied(cx, project, skin.label, pieceType, selectedPieces);
 	}
 
 	return (
@@ -223,15 +224,11 @@ const SkinSection: React.FC<{
 			</div>
 			{items.length > 0 ? (
 				<ItemGrid cx={cx} project={project} entries={items} selectedPieces={selectedPieces} pieceType={pieceType} />
-			) : isUnavailable ? (
-				<div className="px-3 pt-1">
-					<EmptyRow text="Agent skins show in the desktop app" help="Skins made with the agent are Blender files, so they show in the desktop app" />
-				</div>
-			) : (
+			) : !isUnavailable ? (
 				<div className="px-3 pt-1">
 					<EmptyRow text={`Ask the agent for a ${typeLabel.toLowerCase()} skin (⌘J)`} help="Accepted Results show here with Made with Agent; star one to keep it for every project" />
 				</div>
-			)}
+			) : null}
 		</>
 	);
 };
@@ -241,10 +238,15 @@ const ItemGrid: React.FC<{ cx: StudioCx; project: TProject; entries: TLibraryEnt
 	const { cx, project, entries, selectedPieces, pieceType } = props;
 	const selectedIds = selectedPieces.filter((entity) => entity.components.piece?.type === pieceType).map((entity) => entity.id);
 
-	function apply(item: TLibraryItem, toAll: boolean): void {
+	async function apply(item: TLibraryItem, toAll: boolean): Promise<void> {
 		const type = item.manifest?.pieceType ?? pieceType;
-		if (toAll && type != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
-		else void cx.library.applySkin(item, { kind: 'entities', entityIds: selectedIds });
+		if (toAll && type != null) {
+			await cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
+			return;
+		}
+		if ((await cx.library.applySkin(item, { kind: 'entities', entityIds: selectedIds })) && pieceType != null) {
+			notifySkinApplied(cx, project, libraryItemLabel(item), pieceType, selectedPieces);
+		}
 	}
 
 	function menu(entry: TLibraryEntry, isInUse: boolean): TMenuEntry[] {
@@ -253,7 +255,7 @@ const ItemGrid: React.FC<{ cx: StudioCx; project: TProject; entries: TLibraryEnt
 		const typeLabel = type != null ? (getPieceDefinition(type)?.label ?? type) : null;
 		const isSkin = item.manifest?.role === 'skin';
 		return [
-			...(isSkin && typeLabel != null ? applyMenu(typeLabel, selectedIds.length, (toAll) => apply(item, toAll)) : []),
+			...(isSkin && typeLabel != null ? applyMenu(typeLabel, selectedIds.length, (toAll) => void apply(item, toAll)) : []),
 			...(isSkin && typeLabel != null ? ['separator' as const] : []),
 			{ label: 'Keep in Library', checked: entry.isKept, onSelect: () => void cx.library.setKept(entry, !entry.isKept) },
 			// Removing an item the film still shows would leave its pieces without a skin
@@ -282,7 +284,7 @@ const ItemGrid: React.FC<{ cx: StudioCx; project: TProject; entries: TLibraryEnt
 						onKeep={() => void cx.library.setKept(entry, !entry.isKept)}
 						typeLabel={typeLabel}
 						isDisabled={!isSkin && pieceType != null}
-						onApply={isSkin && selectedIds.length > 0 ? (toAll) => apply(item, toAll) : null}
+						onApply={isSkin && selectedIds.length > 0 ? (toAll) => void apply(item, toAll) : null}
 						onMenu={() => menu(entry, isInUse)}
 						onDragStart={(event) => {
 							event.dataTransfer.setData(LIBRARY_DRAG_TYPE, JSON.stringify({ id: item.id, scope: item.scope }));
@@ -349,6 +351,12 @@ const SkinTile: React.FC<{
 
 // MARK: - Helpers
 
+/** Says what a skin did when the film alone doesn't show it: other piece types kept, or Colour by Note on */
+export function notifySkinApplied(cx: StudioCx, project: TProject, skinLabel: string, pieceType: string, selected: TEntity[]): void {
+	const message = skinAppliedMessage({ skinLabel, pieceType, selected, colorByNote: project.design.themeOptions?.colorByNote === true });
+	if (message != null) cx.notifyEdit(message);
+}
+
 function applyMenu(typeLabel: string, selectedCount: number, apply: (toAll: boolean) => void): TMenuEntry[] {
 	return [
 		{ label: selectedCount > 1 ? `Apply to ${selectedCount} ${typeLabel}s` : 'Apply to Selection', disabled: selectedCount === 0, onSelect: () => apply(false) },
@@ -381,15 +389,3 @@ const EmptyRow: React.FC<{ text: string; help: string }> = (props) => {
 		</div>
 	);
 };
-
-/** The piece type most of the selected pieces have, so a section selected as a range in Layers shows its platforms' skins */
-function commonPieceType(pieces: TEntity[]): string | null {
-	const counts = new Map<string, number>();
-	for (const entity of pieces) {
-		const type = entity.components.piece?.type;
-		if (type != null) counts.set(type, (counts.get(type) ?? 0) + 1);
-	}
-	let best: string | null = null;
-	for (const [type, count] of counts) if (best == null || count > (counts.get(best) ?? 0)) best = type;
-	return best;
-}

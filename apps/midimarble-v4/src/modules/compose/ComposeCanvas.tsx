@@ -135,6 +135,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	useFeatureState(compose.$override);
 	const hidden = useFeatureState(cx.$hidden);
 	const insertSnap = useFeatureState(compose.$insertSnap);
+	const hoverPreview = useFeatureState(compose.$hoverPreview);
 	const project = history?.present;
 	if (project == null || result == null || viewport.width <= 1) return null;
 	// The Camera view moves every frame and previews; it only outlines the selection
@@ -272,7 +273,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 				) : null}
 				{drag?.kind === 'marquee' ? <Marquee from={drag.from} to={drag.to} /> : null}
 			</svg>
-			{hoveredDot != null && drag == null ? <DotTooltip compose={compose} project={project} hit={hoveredDot} /> : null}
+			{hoveredDot != null && drag == null && hoverPreview == null ? <DotTooltip compose={compose} project={project} hit={hoveredDot} /> : null}
 			{hintDot != null && drag == null && is2d ? (
 				<span data-hint-anchor="dot" className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2" style={{ left: hintDot.x, top: hintDot.y }} />
 			) : null}
@@ -280,6 +281,13 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 				<CanvasTooltip position={hover.position}>
 					<span className="font-medium">Follows {project.music.lanes.find((lane) => lane.id === hover.laneId)?.name ?? 'Marble'}</span>
 					<span className="mm-tabular ml-1 text-[var(--text-secondary)]">at {formatTime(hover.time)}</span>
+					<WhatIfCount compose={compose} result={result} />
+				</CanvasTooltip>
+			) : null}
+			{hoverPreview != null && hover?.kind !== 'track' && drag == null ? (
+				<CanvasTooltip position={hoverPreview.position}>
+					{hoverPreview.label != null ? <span className="font-medium">{hoverPreview.label}</span> : null}
+					<WhatIfCount compose={compose} result={result} isFirst={hoverPreview.label == null} />
 				</CanvasTooltip>
 			) : null}
 			{drag?.kind === 'move' && drag.moved ? <SnapChip compose={compose} project={project} position={drag.current.position} snap={drag.snap} /> : null}
@@ -371,7 +379,24 @@ const SnapChip: React.FC<{ compose: ComposeCx; project: TProject; position: TVec
 		<div className="mm-snap-chip" data-snapped={snap != null} style={{ left: center.x + 18, top: center.y + 14 }}>
 			{content}
 			{snap != null ? <kbd className="opacity-60">⌥ free</kbd> : null}
+			<WhatIfCount compose={compose} result={compose.result} isInChip />
 		</div>
+	);
+};
+
+/**
+ * What the shown what-if does to the run, beside a hover or drag: "Breaks 86 hits" in red, or "Breaks no hits".
+ * Nothing shows until the what-if run arrives.
+ */
+const WhatIfCount: React.FC<{ compose: ComposeCx; result: TSimulationResult | null; isFirst?: boolean; isInChip?: boolean }> = (props) => {
+	const { compose, result, isFirst = false, isInChip = false } = props;
+	const count = compose.whatIfBreaks(result);
+	if (count == null) return null;
+	const text = count === 0 ? 'Breaks no hits' : `Breaks ${count} ${count === 1 ? 'hit' : 'hits'}`;
+	return (
+		<span className="mm-whatif-count" data-bad={count > 0} data-chip={isInChip} data-first={isFirst}>
+			{text}
+		</span>
 	);
 };
 
@@ -671,6 +696,7 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 	const pen = useFeatureState(compose.$pen);
 	const tool = useFeatureState(compose.$tool);
 	const ghosts = useFeatureState(compose.assist.$ghosts);
+	const queued = useFeatureState(compose.assist.$queuedNext);
 	const camera = useFeatureState(compose.$camera);
 	const viewport = useFeatureState(compose.$viewport);
 	// The bar's measured size, so it can move off ghosts it would cover
@@ -711,8 +737,15 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 
 	return (
 		<div ref={barRef} className="mm-assist-bar mm-ghost-in" style={{ left, top }} role="toolbar" aria-label="Assists">
-			<AssistButton label="Place Next Platform" detail="Add the platform for the next open note" shortcut="N" onClick={() => compose.next()} isText>
-				Next
+			<AssistButton
+				label="Place Next Platform"
+				detail={queued > 0 ? `${queued} more ${queued === 1 ? 'press' : 'presses'} waiting for the run · esc cancels` : 'Add the platform for the next open note'}
+				shortcut="N"
+				onClick={() => compose.next()}
+				isText
+			>
+				{/* Presses made while the run catches up queue up, like key repeat in a text field */}
+				{queued > 0 ? <span className="tabular-nums">Next ×{queued}</span> : 'Next'}
 			</AssistButton>
 			<div className="mm-assist-divider" />
 			<AssistButton label="Repeat Last Platform" detail="The same tilt again" shortcut="R" onClick={() => compose.step('repeat')}>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, type TProject } from '@/modules/project';
 import type { THitResult, TSimulationResult } from '@/modules/simulation/types';
-import { buildSceneDescription, encodeRecords, LOOP_GHOST_SUFFIX, MOTION_FOLDER } from './scene-builder';
+import { buildSceneDescription, encodeRecords, lastHitTime, LOOP_GHOST_SUFFIX, MOTION_FOLDER } from './scene-builder';
 
 function fixture(): { project: TProject; result: TSimulationResult; marbleId: string; laneId: string } {
 	const project = createProject({ title: 'Song', id: 'project-1' });
@@ -288,10 +288,19 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			pitch: project.design.camera.pitch,
 			lead: project.design.camera.lead,
 			smoothing: project.design.camera.smoothing,
-			shots: [{ time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4 }],
+			// A Push In without a length of its own holds 2 s before the camera eases back
+			shots: [{ time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4, length: 2 }],
 			focusMarbleId: null,
-			descent: null
+			descent: null,
+			holdAfter: lastHitTime(result)
 		});
+	});
+
+	it('holds the camera on the last struck hit', () => {
+		const { project, result } = fixture();
+		const struck = result.hits.flatMap((hit) => (hit.actualTime != null ? [hit.actualTime] : []));
+		const { description } = buildSceneDescription(project, result, { fps: 60 });
+		expect(description.camera?.holdAfter).toBe(struck.length ? Math.round(Math.max(...struck) * 1e4) / 1e4 : null);
 	});
 
 	it('passes the focus marble and a shared descent curve when the result has one', () => {

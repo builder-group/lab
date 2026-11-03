@@ -3,6 +3,7 @@ import type { TResult } from 'tuple-result';
 import { host, notSongFileMessage, songFileKind, type THostPickedFile, type THostRecentProject } from '@/environment';
 import { createAudioEngine, type TAudioEngine } from '@/modules/music';
 import {
+	amendHistory,
 	applyProjectCommands,
 	changedEntityIds,
 	createHistory,
@@ -30,7 +31,8 @@ import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { AgentCx } from '@/modules/agents';
-import { addWallTextCommands, DesignCx, DesignLibraryCx, FilmExportCx, previewPointToWall } from '@/modules/design';
+import { addWallTextCommands, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall } from '@/modules/design';
+import { preflightExport, problemSummary, type TPreflightTarget } from '@/modules/design/export-preflight';
 
 /** Owns the open project, its history, persistence and the shared editing state of the studio */
 export class StudioCx {
@@ -122,12 +124,14 @@ export class StudioCx {
 		const unmountAgents = this.agents.mount();
 		const unmountHints = this.hints.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
+		const stopNotices = this.$history.listen(() => this.retireFixNotice());
 		return () => {
 			unmountSimulation();
 			unmountDesign();
 			unmountAgents();
 			unmountHints();
 			stopHeight();
+			stopNotices();
 			void this.design.close();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
@@ -194,9 +198,14 @@ export class StudioCx {
 		const project = this.project;
 		if (project == null) return;
 		this.design.$placing.set(null);
-		const point = previewPointToWall(project, this.simulation.$result.get(), this.$playhead.get(), u, v);
-		const { commands, entityId } = addWallTextCommands(point);
-		if (this.execute(commands)) this.$selection.set([entityId]);
+		const result = this.simulation.$result.get();
+		const time = this.$playhead.get();
+		const point = previewPointToWall(project, result, time, u, v);
+		const { commands, entityId } = addWallTextCommands(point, { theme: project.design.theme, frameHeight: frameHeightOnWall(project, result, time) });
+		if (!this.execute(commands)) return;
+		this.$selection.set([entityId]);
+		// Typing starts at once, like Figma's text tool: the inspector focuses the Text field with its contents selected
+		this.design.$editingTitle.set(entityId);
 	}
 
 	/** Selects entities and asks the canvas to frame them when they are out of view */
@@ -206,16 +215,34 @@ export class StudioCx {
 	}
 
 	/**
-	 * Shows an export preflight issue in Compose, like a click in Xcode's issue navigator: closes the
-	 * export sheet, moves the playhead to the issue and selects and frames what it is about
+	 * Shows a problem like a click in Xcode's issue navigator: closes the export sheet, moves the playhead to the
+	 * problem and selects and frames what it is about, in Compose, or in Film with the Camera for framing problems
 	 */
-	revealIssue(target: { ids: string[]; point?: TVec2; time?: number }): void {
+	revealIssue(target: TPreflightTarget): void {
 		this.film.closeSheet();
 		this.$playing.set(false);
-		this.$workspace.set('compose');
-		this.reveal(target.ids, target.point);
+		this.$workspace.set(target.workspace ?? 'compose');
+		if (target.workspace === 'design') this.$selection.set(target.ids);
+		else this.reveal(target.ids, target.point);
 		// After the selection, which moves the playhead to a selected piece's own hit
 		if (target.time != null) this.$playhead.set(target.time);
+	}
+
+	/** Show First Problem: the earliest problem of the hit summary, or a notice when there is none */
+	showFirstProblem(): void {
+		const project = this.project;
+		if (project == null) return;
+		const summary = problemSummary(preflightExport(project, this.simulation.$result.get()));
+		if (summary.state === 'pending') {
+			this.notify('Checking the run…');
+			return;
+		}
+		const first = summary.problems[0];
+		if (first?.target == null) {
+			this.notify(summary.problems.length > 0 ? (first?.title ?? summary.label) : `No problems: ${summary.label}`);
+			return;
+		}
+		this.revealIssue(first.target);
 	}
 
 	// MARK: - Projects
@@ -394,6 +421,7 @@ export class StudioCx {
 		if (history == null || history.present.title === title) return;
 		const named = (item: TProject): TProject => ({ ...item, title });
 		this.$history.set({
+			...history,
 			past: history.past.map(named),
 			present: { ...named(history.present), revision: history.present.revision + 1 },
 			future: history.future.map(named)
@@ -449,9 +477,11 @@ export class StudioCx {
 
 	/**
 	 * Applies commands as one undoable edit and schedules an autosave. `amend` folds them into the
-	 * latest edit instead, for refinements that arrive a moment after the edit they belong to.
+	 * latest edit instead, for refinements that arrive a moment after the edit they belong to. `group`
+	 * folds them into the latest edit only while it is the edit of that group (see `editGroup`), so a
+	 * multi-step edit stays one undo step and never swallows an edit the user made in between.
 	 */
-	execute(commands: TProjectCommand[], options: { amend?: boolean } = {}): boolean {
+	execute(commands: TProjectCommand[], options: { amend?: boolean; group?: number } = {}): boolean {
 		const history = this.$history.get();
 		if (history == null || !commands.length) return false;
 		const [isEditOk, editErr, edited] = applyProjectCommands(history.present, commands);
@@ -459,9 +489,14 @@ export class StudioCx {
 			this.notify(editErr.message, 'error');
 			return false;
 		}
-		this.$history.set(options.amend === true ? { ...history, present: edited } : pushHistory(history, edited));
+		this.$history.set(options.amend === true ? amendHistory(history, edited) : pushHistory(history, edited, options.group));
 		this.scheduleSave();
 		return true;
+	}
+
+	/** The undo group of the latest edit, for folding later commands into it or binding a notice's Undo to it */
+	get editGroup(): number | null {
+		return this.$history.get()?.groups.present ?? null;
 	}
 
 	/** Adds a marble with its lane, released at `position` or to the right of the last marble */
@@ -549,6 +584,11 @@ export class StudioCx {
 
 	private stepHistory(history: TProjectHistory, next: TProjectHistory): void {
 		this.$history.set(next);
+		// A piece the step removed leaves the selection, so the inspector does not keep showing it
+		const kept = new Set(next.present.entities.map((entity) => entity.id));
+		const removed = new Set(history.present.entities.filter((entity) => !kept.has(entity.id)).map((entity) => entity.id));
+		const selection = this.$selection.get();
+		if (selection.some((id) => removed.has(id))) this.$selection.set(selection.filter((id) => !removed.has(id)));
 		this.$historyReveal.set({ ids: changedEntityIds(history.present, next.present), revision: next.present.revision });
 		this.scheduleSave();
 	}
@@ -586,6 +626,7 @@ export class StudioCx {
 	 */
 	notify(message: string, tone: TNotice['tone'] = 'info', options: TNoticeOptions = {}): number {
 		const id = ++this.noticeId;
+		this.noticeShownAt = this.project?.revision ?? null;
 		this.$notice.set({ id, message, tone, ...options });
 		this.scheduleNoticeEnd();
 		return id;
@@ -594,12 +635,16 @@ export class StudioCx {
 	/** Reports an edit that just happened with an Undo action for it, such as "6 platforms removed" */
 	notifyEdit(message: string, actions: TNoticeAction[] = []): number {
 		const revision = this.project?.revision;
+		// Bound to the undo group of the edit, so refinements folded into it since still undo with it
+		const group = this.editGroup;
 		const undo: TNoticeAction = {
 			label: 'Undo',
 			title: 'Undo this edit (⌘Z)',
-			// Only while that edit is still the latest; otherwise Undo would take back something else
+			isUndo: true,
 			run: () => {
-				if (revision != null && this.project?.revision === revision) this.undo();
+				if (group != null && this.editGroup === group) this.undo();
+				// Otherwise Undo would take back a later edit instead
+				else this.notify('A later edit came after this one. Press ⌘Z to undo edits in order.');
 			}
 		};
 		return this.notify(message, 'info', { actions: [...actions, undo], revision });
@@ -627,15 +672,33 @@ export class StudioCx {
 	}
 
 	private noticeId = 0;
+	/** Project revision when the notice was shown, so a later edit can retire a notice that offers a fix */
+	private noticeShownAt: number | null = null;
+
+	/**
+	 * A notice that carries a fix (an action besides Undo, such as Re-place 45 Platforms) stays until it is acted
+	 * on or another edit is made, like Mail's undo-send; this retires it on that edit
+	 */
+	private retireFixNotice(): void {
+		const notice = this.$notice.get();
+		const revision = this.project?.revision ?? null;
+		if (notice == null || notice.progress != null || !hasFix(notice)) return;
+		if (revision === this.noticeShownAt || revision === notice.revision) return;
+		this.dismissNotice(notice.id);
+	}
 
 	private scheduleNoticeEnd(): void {
 		clearTimeout(this.noticeTimer);
 		const notice = this.$notice.get();
-		if (notice == null || notice.progress != null) return;
+		if (notice == null || notice.progress != null || hasFix(notice)) return;
 		// Long enough to read the message and reach a Fix-it or Undo in it
 		const duration = notice.tone === 'error' ? 8000 : notice.actions?.length ? 10000 : 3500;
 		this.noticeTimer = setTimeout(() => this.$notice.set(null), duration);
 	}
+}
+
+function hasFix(notice: TNotice): boolean {
+	return notice.actions?.some((action) => action.isUndo !== true) === true;
 }
 
 export type TWorkspace = 'compose' | 'design';
@@ -740,6 +803,8 @@ export interface TNoticeOptions {
 export interface TNoticeAction {
 	label: string;
 	title?: string;
+	/** The Undo every edit notice carries; any other action is a fix that keeps the notice until acted on */
+	isUndo?: boolean;
 	run: () => void;
 }
 

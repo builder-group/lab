@@ -1,5 +1,6 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { createId, type TLane } from '@/modules/project';
+import { isMusicalPiece } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime } from './format';
 import { toHitKey } from './selection';
@@ -10,8 +11,11 @@ import { playWithMenu } from './timeline/hand-notes';
 
 /** Right-click on a piece, on the canvas or in the sidebar */
 export function pieceMenu(cx: StudioCx): TMenuEntry[] {
+	// Add Platform re-tilts the selected platform; for scenery such as a switchback it would have no clear target
+	const selected = cx.project?.entities.filter((entity) => cx.$selection.get().includes(entity.id)) ?? [];
+	const isPlatforms = selected.length > 0 && selected.every((entity) => isMusicalPiece(entity.components.piece?.type ?? ''));
 	return tidyMenu([
-		commandItem(cx, 'build.autoPlace'),
+		isPlatforms ? commandItem(cx, 'build.autoPlace') : null,
 		'separator',
 		commandItem(cx, 'build.rotateLeft'),
 		commandItem(cx, 'build.rotateRight'),

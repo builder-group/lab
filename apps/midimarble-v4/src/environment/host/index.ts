@@ -176,6 +176,14 @@ export const host = {
 	}
 };
 
+/**
+ * Name of New Project: the desktop app asks where to save first, so it has an ellipsis; the browser surface names
+ * the package itself and opens it at once
+ */
+export function newProjectTitle(): string {
+	return isTauri() ? 'New Project…' : 'New Project';
+}
+
 /** Whether a picked or dropped song file is MIDI or a recording, by its extension; null for anything else */
 export function songFileKind(name: string): 'midi' | 'audio' | null {
 	const extension = name.split('.').pop()?.toLowerCase() ?? '';

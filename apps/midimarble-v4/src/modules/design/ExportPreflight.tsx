@@ -14,7 +14,8 @@ export function useExportPreflight(cx: StudioCx): TExportPreflight | null {
 
 /**
  * Preflight in the export sheet, like Final Cut's share warnings with Xcode's issue list: a summary line
- * that discloses the issues. Clicking an issue closes the sheet and shows it in Compose.
+ * that discloses the issues, the same problem model as the hit summary. Clicking an issue closes the sheet and
+ * shows it in Compose, or in Film with the Camera selected for a framing problem.
  */
 export const ExportPreflight: React.FC<TExportPreflightProps> = (props) => {
 	const { cx, preflight } = props;
@@ -66,7 +67,7 @@ const PreflightRow: React.FC<{ issue: TPreflightIssue; onReveal?: () => void }> 
 	);
 	if (onReveal == null) return <div className="mm-preflight-row">{content}</div>;
 	return (
-		<button className="mm-preflight-row" data-clickable onClick={onReveal} title="Show in Compose" type="button">
+		<button className="mm-preflight-row" data-clickable onClick={onReveal} title={issue.target?.workspace === 'design' ? 'Show in Film with the Camera' : 'Show in Compose'} type="button">
 			{content}
 		</button>
 	);

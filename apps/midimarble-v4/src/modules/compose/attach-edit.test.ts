@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { TEntity } from '@/modules/project';
-import { createLinkedPiece, resolvePiecePath, tunnelDefinition } from '@/modules/simulation';
-import { createFreePiece, railPath, withPathType } from './attach-edit';
+import { createProject, type TEntity } from '@/modules/project';
+import { createLinkedPiece, resolvePiecePath, tunnelDefinition, type TSimulationResult } from '@/modules/simulation';
+import { clearRotorPosition, createFreePiece, railPath, ROTOR_CLEARANCE, withPathType } from './attach-edit';
 
 describe('withPathType function', () => {
 	const nodes = [
@@ -53,5 +53,42 @@ describe('withPathType function', () => {
 	it('should leave other piece types unchanged', () => {
 		const windmill = createFreePiece('windmill', { position: { x: 0, y: 0 }, angle: 0 }, []);
 		expect(withPathType(windmill, 'tunnel', [windmill])).toBe(windmill);
+	});
+});
+
+describe('clearRotorPosition function', () => {
+	// A marble falling straight down at x = 0 and a second one 0.2 m to its right
+	const fall = (x: number) => Array.from({ length: 100 }, (_, i) => ({ time: i * 0.01, position: { x, y: 0.6 - i * 0.01 }, angle: 0, velocity: { x: 0, y: -1 } }));
+	const result = {
+		marbles: [
+			{ entityId: 'marble-1', laneId: 'lane-1', radius: 0.012, samples: fall(0) },
+			{ entityId: 'marble-2', laneId: 'lane-2', radius: 0.012, samples: fall(0.2) }
+		],
+		pieces: []
+	} as unknown as TSimulationResult;
+	const distanceToFall = (point: { x: number }, x: number): number => Math.abs(point.x - x);
+
+	it('should put the hub beside the fall with the arm circle clear of every marble', () => {
+		// Prepare
+		const reach = 0.06;
+
+		// Act
+		const hub = clearRotorPosition(createProject(), result, { position: { x: 0, y: 0.3 }, velocity: { x: 0, y: -1 } }, reach, 'lane-1');
+
+		// Assert
+		expect(distanceToFall(hub, 0) - 0.012 - reach).toBeGreaterThanOrEqual(ROTOR_CLEARANCE - 1e-9);
+		expect(distanceToFall(hub, 0.2) - 0.012 - reach).toBeGreaterThanOrEqual(ROTOR_CLEARANCE - 1e-9);
+		expect(hub.y).toBeCloseTo(0.3);
+	});
+
+	it('should take the other side when the first one crosses another marble', () => {
+		// Prepare: the right side is taken by the second marble whatever the stretch
+		const reach = 0.09;
+
+		// Act
+		const hub = clearRotorPosition(createProject(), result, { position: { x: 0, y: 0.3 }, velocity: { x: 0, y: -1 } }, reach, 'lane-1');
+
+		// Assert
+		expect(hub.x).toBeLessThan(0);
 	});
 });

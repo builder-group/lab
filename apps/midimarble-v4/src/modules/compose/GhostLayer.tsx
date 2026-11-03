@@ -13,13 +13,13 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 	const { compose } = props;
 	const state = useFeatureState(compose.assist.$ghosts);
 	const camera = useFeatureState(compose.$camera);
-	useFeatureState(compose.$viewport);
+	const viewport = useFeatureState(compose.$viewport);
 	const project = useFeatureState(compose.studio.$history)?.present;
 	// Suggestions belong to the run before an edit; while an element is dragged or drawn they would mislead
 	const isEditing = useFeatureState(compose.$override) != null;
 	const { ghost } = state;
 	// The Camera view shows the film, not suggestions
-	if (ghost == null || project == null || isEditing || camera.mode === 'camera') return null;
+	if (ghost == null || project == null || isEditing || camera.mode === 'camera' || viewport.width <= 1) return null;
 	const laneColor = project.music.lanes.find((lane) => lane.id === ghost.answer.laneId)?.color ?? 'var(--text)';
 
 	if (ghost.kind === 'gap') {
@@ -60,17 +60,9 @@ const GhostPiece: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; scale: n
 	if (kind === 'holder') return <SwitchbackShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	const palette = paletteOf(piece.type);
 	const outline = compose.screenOutline(piece);
-	return (
-		<polygon
-			points={toPoints(outline)}
-			fill={palette.bar}
-			fillOpacity={isOk ? 0.22 : 0.1}
-			stroke={isOk ? palette.nub : 'var(--bad)'}
-			strokeWidth={1.25}
-			strokeDasharray="4 3"
-			strokeLinejoin="round"
-		/>
-	);
+	// Colours come in as variables so dark mode can lighten the outline and raise the fill (styles.css)
+	const style = { '--ghost-fill': palette.bar, '--ghost-stroke': isOk ? palette.nub : 'var(--bad)' } as React.CSSProperties;
+	return <polygon className="mm-ghost-piece" data-ok={isOk} points={toPoints(outline)} style={style} strokeWidth={1.25} strokeDasharray="4 3" strokeLinejoin="round" />;
 };
 
 const GhostDot: React.FC<{ position: TVec2; color: string }> = (props) => {

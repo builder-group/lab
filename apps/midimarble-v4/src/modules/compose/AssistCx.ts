@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { BACKING_ID, createId, type TProject } from '@/modules/project';
+import { createId, type TProject } from '@/modules/project';
 import {
 	defaultPlatformAngle,
 	findLongGaps,
@@ -17,10 +17,10 @@ import {
 import { formatTime } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { handNotes } from '@/modules/studio/timeline/hand-notes';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
-import { brokenHits, newlyBroken, replaceBroken, replaceLabel, type TReplaceOutcome } from './fix-it';
-import { hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
+import { blockedScenery, brokenHits, newlyBroken, replaceBroken, replacePlan, replaceResultMessage, type TReplaceOutcome, type TReplacePlan } from './fix-it';
+import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
+import { unreachableActions } from './unreachable-fixes';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState } from './ghosts';
 import { commitAtHit, findStepTarget, pieceAngleCommands, pieceForHit, previousPiece, selectedPieceIds } from './step-loop';
 
@@ -37,8 +37,11 @@ export class AssistCx {
 	/** Wall time of the latest answer per assist, in milliseconds, for the status readout and checks */
 	readonly $latency = createState<Partial<Record<TAssistKind, number>>>({});
 
+	/** Next presses made while a placement or its run was still on the way, shown on the build bar as "Next ×5" */
+	readonly $queuedNext = createState(0);
+
 	private continueKey: string | null = null;
-	/** Next pressed while the result was still catching up with the latest edit; runs when it arrives */
+	/** Type and time of the latest queued Next press; the presses run one by one as each run arrives */
 	private queuedNext: { type: string; at: number } | null = null;
 	private isMounted = false;
 
@@ -89,6 +92,7 @@ export class AssistCx {
 		if (result == null || this.isPlacing) {
 			// Pressing Next quickly in a row must not lose a press while the run re-simulates
 			this.queuedNext = { type, at: performance.now() };
+			this.$queuedNext.set(this.$queuedNext.get() + 1);
 			return;
 		}
 		const target = findStepTarget(project, result, this.studio.$selection.get());
@@ -98,16 +102,20 @@ export class AssistCx {
 			.filter((item) => target == null || item.laneId === target.laneId || item.to <= target.targetTime)
 			.sort((a, b) => a.to - b.to)[0];
 		if (gap != null && (target == null || gap.to <= target.targetTime + 1e-9)) {
+			// A suggestion waits for the user to accept it, so presses queued behind it end here
+			this.clearQueuedNext();
 			this.suggestGapPiece('switchback', gap.laneId, gap.fromHitId, gap.toHitId, { fallback: 'rail' });
 			return;
 		}
 		const unreachable = this.firstUnreachable(project, result, target);
 		if (unreachable != null) {
+			this.clearQueuedNext();
 			this.explainUnreachable(project, result, unreachable);
 			return;
 		}
 		if (target == null) {
-			this.studio.notify('Every note this marble reaches already has a platform');
+			this.clearQueuedNext();
+			this.studio.notify(everyNotePlacedMessage(project, this.studio.$selection.get()));
 			return;
 		}
 		void this.place(target, type, 'next');
@@ -129,7 +137,7 @@ export class AssistCx {
 		const lane = project.music.lanes.find((item) => item.id === hit.laneId);
 		const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 		const fix = releaseFixFor(project, hit, reach);
-		const message = reachMessage(reach, { hit: `Hit ${index + 1}`, marble: lane?.name ?? 'The marble' }, fix);
+		const message = reachMessage(reach, { hit: `Hit ${index + 1}`, marble: lane?.name ?? 'The marble' }, fix, canMakeBacking(project));
 		if (message == null) return;
 		this.studio.$selection.set([toHitKey(hit.laneId, hit.hitId)]);
 		if (!this.studio.$playing.get()) this.studio.$playhead.set(hit.targetTime);
@@ -139,9 +147,19 @@ export class AssistCx {
 	private runQueuedNext(): void {
 		const queued = this.queuedNext;
 		if (queued == null || this.currentResult() == null || this.isPlacing) return;
-		this.queuedNext = null;
-		// A press older than this belongs to a moment the user has moved on from
+		const count = this.$queuedNext.get() - 1;
+		this.queuedNext = count > 0 ? { ...queued, at: performance.now() } : null;
+		this.$queuedNext.set(Math.max(0, count));
+		// A press older than this belongs to a moment the user has moved on from; while the queue runs, each
+		// placement counts as the latest press
 		if (performance.now() - queued.at < 1500) this.next(queued.type);
+		else this.clearQueuedNext();
+	}
+
+	/** Drops Next presses still queued, when Next stops at something to read or accept, or on Escape */
+	clearQueuedNext(): void {
+		this.queuedNext = null;
+		if (this.$queuedNext.get() !== 0) this.$queuedNext.set(0);
 	}
 
 	/** A: re-solves the selected piece's angle, or places the next open hit like Next */
@@ -233,14 +251,15 @@ export class AssistCx {
 		if (quick === 'failed') this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the run needs it.');
 		if (quick !== 'slow') return;
 		const placedRevision = this.studio.project?.revision;
+		const placedGroup = this.studio.editGroup ?? undefined;
 		request.then(
 			(answer) => {
 				this.record('autoPlace', startedAt);
 				const latest = this.studio.project;
 				const link = latest?.entities.find((entity) => entity.id === id)?.components.hitLink;
-				// Only refine while nothing else happened since the default placement
+				// Only refine while nothing else happened since the default placement; the tilt undoes with it
 				if (latest == null || link == null || latest.revision !== placedRevision) return;
-				this.studio.execute(pieceAngleCommands(latest, new Map([[id, answer.angle]])), { amend: true });
+				this.studio.execute(pieceAngleCommands(latest, new Map([[id, answer.angle]])), { group: placedGroup });
 			},
 			() => undefined
 		);
@@ -335,8 +354,8 @@ export class AssistCx {
 		if (this.studio.$historyReveal.get()?.revision === result.revision) return;
 		const broken = newlyBroken(previous.hits, result.hits);
 		if (!broken.length) return;
-		const count = brokenHits(result.hits).length;
-		const action = { label: replaceLabel(count), title: 'Run Auto place again from the first broken hit', run: () => void this.replace() };
+		const plan = this.replacePlan(project, result);
+		const action = { label: plan.label, title: plan.title, run: () => void this.replace() };
 		const notice = this.studio.$notice.get();
 		if (notice != null && notice.revision === result.revision && notice.progress == null) {
 			this.studio.updateNotice(notice.id, { actions: [action, ...(notice.actions ?? [])] });
@@ -359,6 +378,11 @@ export class AssistCx {
 		return this.replaceRun != null;
 	}
 
+	/** What Re-place Broken Platforms will change for the run as it is, for its label in the notice and the hit summary */
+	replacePlan(project: TProject, result: TSimulationResult): TReplacePlan {
+		return replacePlan(project, result, [...this.lastGood.values()].flat());
+	}
+
 	/**
 	 * Re-place: runs Auto place again from the first broken hit onward as one undo step, with progress in the
 	 * notice and Stop. With `only` (`laneId/hitId` keys), just those platforms.
@@ -369,7 +393,8 @@ export class AssistCx {
 		const client = this.studio.simulation.assists;
 		if (project == null || result == null || client == null || this.replaceRun != null) return null;
 		const targets = brokenHits(result.hits, only);
-		if (!targets.length) {
+		const scenery = only == null ? blockedScenery(project, result) : [];
+		if (!targets.length && !scenery.length) {
 			this.studio.notify(only == null ? 'Every platform lands its note; nothing to re-place' : 'This platform already lands on time');
 			return null;
 		}
@@ -381,7 +406,7 @@ export class AssistCx {
 		const stop = { label: 'Stop', title: 'Keep the platforms re-placed so far', run: () => (run.isCancelled = true) };
 		// Progress runs through the song from the first broken hit to the last hit, since each new tilt can change
 		// how many platforms after it still need one
-		const from = targets[0]?.targetTime ?? 0;
+		const from = Math.min(targets[0]?.targetTime ?? Infinity, ...scenery.map((piece) => piece.entryTime ?? piece.hitTime ?? Infinity));
 		const to = Math.max(from, ...(only != null ? targets : result.hits.filter((hit) => hit.pieceEntityId != null)).map((hit) => hit.targetTime));
 		const progressText = (at: number): string => (only != null ? `Re-placing the platform at ${formatTime(at)}` : `Re-placing platforms · ${formatTime(at)} of ${formatTime(to)}`);
 		const progressId = this.studio.notify(progressText(from), 'info', { progress: 0, actions: [stop] });
@@ -428,15 +453,11 @@ export class AssistCx {
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 		const changed = this.studio.project?.revision !== startRevision;
 		const summary = hitSummary(outcome.result.hits);
-		const releases = outcome.releases.map((laneId) => outcome.project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the marble');
-		const moved = releases.length ? `${releases.join(' and ')} now starts just before its first note. ` : '';
 		const message = !changed
 			? only != null
 				? "No tilt lands this platform on time. Choose Re-place Broken Platforms in the hit summary's menu, or turn it by hand."
 				: 'No new tilt helps these platforms. Turn them by hand, or undo the edit that broke them.'
-			: summary.problems.length === 0
-				? `${moved}Re-placed ${outcome.replaced} ${outcome.replaced === 1 ? 'platform' : 'platforms'}: ${summary.label}`
-				: `${moved}Re-placed ${outcome.replaced} ${outcome.replaced === 1 ? 'platform' : 'platforms'}. ${summary.label}: turn them by hand or undo the edit.`;
+			: replaceResultMessage(outcome.project, result.hits, outcome, summary.label, summary.problems.length);
 		if (changed) this.studio.notifyEdit(outcome.isStopped && !run.isCancelled ? `${message} Stopped by another edit.` : message);
 		else this.studio.notify(message);
 		return outcome;
@@ -528,6 +549,14 @@ function gapFailure(type: TGapPieceType, message: string): string {
 	return `No ${piece} fits this gap. ${message}.`;
 }
 
+/** Next's message when it has nothing left to place, naming the marble in focus */
+function everyNotePlacedMessage(project: TProject, selection: string[]): string {
+	const laneId = focusedLaneId(project, selection);
+	const marble = laneId != null ? project.music.lanes.find((lane) => lane.id === laneId)?.name : undefined;
+	if (marble != null) return `Every note ${marble} reaches already has a platform`;
+	return project.music.lanes.length === 1 ? `Every note ${project.music.lanes[0]?.name ?? 'the marble'} reaches already has a platform` : 'Every note the marbles reach already has a platform';
+}
+
 /** The lane of the selected hit or piece, if any */
 function focusedLaneId(project: TProject, selection: string[]): string | null {
 	for (const key of selection) {
@@ -538,30 +567,4 @@ function focusedLaneId(project: TProject, selection: string[]): string | null {
 		if (lane != null) return lane.id;
 	}
 	return null;
-}
-
-/** Actions for an unreachable hit: the release change that fixes it, when one does, and Make Backing */
-export function unreachableActions(studio: StudioCx, hit: THitResult, fix: ReturnType<typeof releaseFixFor>): { label: string; title?: string; run: () => void }[] {
-	// Fixed from the inspector, the notice that explained the problem goes too
-	const backing = {
-		label: 'Make Backing',
-		title: 'Heard in the film, no platform needed (0)',
-		run: () => {
-			studio.dismissNotice();
-			handNotes(studio, [toHitKey(hit.laneId, hit.hitId)], BACKING_ID);
-		}
-	};
-	if (fix == null) return [backing];
-	const release = {
-		label: fix.label,
-		run: () => {
-			studio.dismissNotice();
-			if (!studio.execute(fix.commands)) return;
-			const command = fix.commands[0];
-			const time = command?.type === 'setComponent' && command.component.name === 'release' ? command.component.value.time : null;
-			const marble = studio.project?.music.lanes.find((lane) => lane.id === hit.laneId)?.name ?? 'The marble';
-			if (time != null) studio.notifyEdit(`${marble} now starts at ${formatTime(time)}`);
-		}
-	};
-	return [release, backing];
 }

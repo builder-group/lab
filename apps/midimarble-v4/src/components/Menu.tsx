@@ -25,7 +25,7 @@ export const ContextMenuHost: React.FC = () => {
  * menu and never reach the canvas, and it stays inside the window like a native menu.
  */
 export const MenuList: React.FC<TMenuListProps> = (props) => {
-	const { entries, anchor, onClose, onDone = onClose, label } = props;
+	const { entries, anchor, onClose, onDone = onClose, label, minWidth } = props;
 	const ref = React.useRef<HTMLDivElement>(null);
 	const items = entries.filter(isItem);
 	const [highlighted, setHighlighted] = React.useState<number | null>(null);
@@ -126,7 +126,7 @@ export const MenuList: React.FC<TMenuListProps> = (props) => {
 			tabIndex={-1}
 			className="mm-menu"
 			data-submenu={props.isSubmenu === true}
-			style={{ left: position?.left ?? anchor.x, top: position?.top ?? anchor.y, visibility: position == null ? 'hidden' : undefined }}
+			style={{ left: position?.left ?? anchor.x, top: position?.top ?? anchor.y, minWidth, visibility: position == null ? 'hidden' : undefined }}
 			onKeyDown={onKeyDown}
 			onContextMenu={(event) => event.preventDefault()}
 			// An open submenu keeps its item highlighted, like macOS
@@ -201,6 +201,8 @@ interface TMenuListProps {
 	onDone?: () => void;
 	label?: string;
 	isSubmenu?: boolean;
+	/** At least the width of the control that opened it, like a pop-up button's menu */
+	minWidth?: number;
 }
 
 export interface TMenuItem {

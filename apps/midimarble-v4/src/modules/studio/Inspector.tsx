@@ -4,9 +4,9 @@ import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, MenuButton, NoteRow, Panel, ReadoutField, ScrubField, SelectField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { PieceIcon } from '@/modules/compose/piece-icons';
-import { unreachableActions } from '@/modules/compose/AssistCx';
+import { unreachableActions } from '@/modules/compose/unreachable-fixes';
 import { PieceInspector, ReplaceButton } from '@/modules/compose/PieceInspector';
-import { hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/compose/reachability';
+import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/compose/reachability';
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { DesignInspector } from '@/modules/design/DesignInspector';
@@ -229,7 +229,8 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const compose = useFeatureState(cx.$compose);
 	// Backing joins the marbles' lanes so a Backing note shows like a hit without a marble
 	const backing: TLane = { id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, instrument: project.music.backingInstrument ?? 0, hits: project.music.backing };
-	const owners = [...project.music.lanes, backing];
+	// Without a song Backing is not offered: its notes show only in the Song track (see canMakeBacking)
+	const owners = canMakeBacking(project) || project.music.backing.length > 0 ? [...project.music.lanes, backing] : project.music.lanes;
 	const hits = hitKeys.flatMap((key) => {
 		const parsed = parseHitKey(key);
 		const lane = owners.find((item) => item.id === parsed?.laneId);
@@ -245,7 +246,11 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			value={ownerIds.size === 1 ? ([...ownerIds][0] ?? '') : ''}
 			options={[
 				...(ownerIds.size === 1 ? [] : [{ value: '', label: 'Several' }]),
-				...owners.map((owner, index) => ({ value: owner.id, label: owner.id === BACKING_ID ? 'Backing' : `${owner.name}${index < 9 ? ` (${index + 1})` : ''}` }))
+				...owners.map((owner, index) => ({
+					value: owner.id,
+					label: owner.id === BACKING_ID ? 'Backing' : owner.name,
+					shortcut: owner.id === BACKING_ID ? '0' : index < 9 ? String(index + 1) : undefined
+				}))
 			]}
 			onChange={(value) => {
 				if (value !== '') handNotes(cx, hitKeys, value);
@@ -320,7 +325,19 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				}
 			/>
 			<Panel id="hit.note" title="Note" accessory={<HelpTip text="Type a note name such as A4 or F#3. Up and Down step a semitone, Shift an octave. Changing the pitch plays it." />}>
-				<PitchField pitch={hit.pitch} onChange={setPitch} />
+				{hit.pitch == null ? (
+					<>
+						<ReadoutField label="Pitch" name="Pitch">
+							<span className="text-[var(--text-tertiary)]">No Pitch</span>
+						</ReadoutField>
+						<button className="mm-button" onClick={() => setPitch(nearbyPitch(lane, hit))} title={`Give this hit a note, starting at ${noteName(nearbyPitch(lane, hit))}`} type="button">
+							<Plus size={12} strokeWidth={2} />
+							Add Pitch
+						</button>
+					</>
+				) : (
+					<PitchField pitch={hit.pitch} onChange={setPitch} />
+				)}
 				<ScrubField
 					id="hit-velocity"
 					label="Vel"
@@ -370,6 +387,13 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	);
 };
 
+/** Pitch a tapped hit starts with: the closest earlier pitched hit of its marble, else the next one, else C4 */
+function nearbyPitch(lane: TLane, hit: THit): number {
+	const pitched = lane.hits.filter((item) => item.pitch != null && item.id !== hit.id);
+	const earlier = pitched.filter((item) => item.time <= hit.time).at(-1);
+	return earlier?.pitch ?? pitched.find((item) => item.time > hit.time)?.pitch ?? 60;
+}
+
 /** Note name field with a semitone stepper; Up and Down step a semitone, Shift an octave */
 const PitchField: React.FC<{ pitch: number | undefined; onChange: (pitch: number | null) => void }> = (props) => {
 	const { pitch, onChange } = props;
@@ -380,7 +404,6 @@ const PitchField: React.FC<{ pitch: number | undefined; onChange: (pitch: number
 			label="Pitch"
 			name="Pitch"
 			value={pitch == null ? '' : noteName(pitch)}
-			placeholder="None"
 			onCommit={(value) => {
 				const next = parseNoteName(value);
 				if (next !== undefined) onChange(next);

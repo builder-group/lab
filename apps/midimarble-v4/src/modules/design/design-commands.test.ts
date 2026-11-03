@@ -14,8 +14,12 @@ import {
 	showsThemeSkin,
 	skinCommands,
 	themeCommands,
+	pieceCountLabel,
+	skinAppliedMessage,
 	themeSkinCommands,
-	themeSkins
+	themeSkins,
+	themeTitleColor,
+	withTitleStyle
 } from './design-commands';
 import { isNewThemeRequest, libraryEntries } from './DesignLibraryCx';
 
@@ -113,7 +117,7 @@ describe('design commands', () => {
 
 	it('should add wall text as an entity with a transform that reaches the scene description', () => {
 		const project = createStaircaseProject();
-		const { commands, entityId } = addWallTextCommands({ x: 0.1, y: 0.3 }, 'Fin');
+		const { commands, entityId } = addWallTextCommands({ x: 0.1, y: 0.3 }, { theme: 'pegboard', frameHeight: 0.5, text: 'Fin' });
 		const next = apply(project, commands);
 		const entity = next.entities.find((item) => item.id === entityId);
 		expect(entity?.components.wallText?.text).toBe('Fin');
@@ -156,5 +160,36 @@ describe('itemFitsPieceType function', () => {
 		expect(itemFitsPieceType(item('rail'), 'platform')).toBe(false);
 		expect(itemFitsPieceType(item(undefined), 'windmill')).toBe(true);
 		expect(itemFitsPieceType(item('platform', 'decoration'), 'platform')).toBe(false);
+	});
+
+	it('should say what a skin did on a selection with other piece types or under Colour by Note', () => {
+		const piece = (id: string, type: string, name: string): TProject['entities'][number] => ({ id, name, components: { piece: { type, params: {} } } }) as TProject['entities'][number];
+		const platforms = [1, 2, 3, 4, 5].map((index) => piece(`p${index}`, 'platform', `Platform ${index}`));
+		const rail = piece('r1', 'rail', 'Rail 1');
+		expect(pieceCountLabel([...platforms, rail])).toBe('5 Platforms, 1 Rail');
+		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: [...platforms, rail], colorByNote: false })).toBe('Copper applied to 5 platforms; Rail 1 kept its skin');
+		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms, colorByNote: false })).toBeNull();
+		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms.slice(0, 1), colorByNote: true })).toBe("Copper applied to 1 platform. Colour by Note sets the platform's colour");
+	});
+
+	it('should give a title style its size and default timing, keeping times set by hand', () => {
+		const text = { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#ffffff' };
+		const context = { frameHeight: 0.5, playhead: 6, end: 35, songName: 'Jingle Bells' };
+		expect(withTitleStyle(text, 'caption', context)).toEqual({ ...text, style: 'caption', size: 0.06 });
+		expect(withTitleStyle(text, 'songName', context)).toEqual({ ...text, text: 'Jingle Bells', style: 'songName', size: 0.04, in: 6, out: 10 });
+		expect(withTitleStyle(text, 'endCard', context)).toEqual({ ...text, style: 'endCard', size: 0.08, in: 32 });
+		expect(withTitleStyle({ ...text, in: 2 }, 'endCard', context).in).toBe(2);
+		expect(withTitleStyle({ ...text, style: 'caption', size: 0.06 }, 'wall', context)).toEqual({ ...text, size: 0.03 });
+	});
+
+	it('should recolour titles that still have the old theme\'s title colour when the theme changes', () => {
+		const project = createStaircaseProject();
+		const title = { id: 'text-1', name: 'Title', components: { wallText: { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: themeTitleColor(project.design.theme) }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
+		const custom = { ...title, id: 'text-2', components: { ...title.components, wallText: { ...title.components.wallText, color: '#ff0000' } } };
+		const withTitles = apply(project, [{ type: 'upsertEntity', entity: title }, { type: 'upsertEntity', entity: custom }]);
+		const other = withTitles.design.theme === 'brass' ? 'pegboard' : 'brass';
+		const next = apply(withTitles, themeCommands(withTitles, other));
+		expect(next.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe(themeTitleColor(other));
+		expect(next.entities.find((entity) => entity.id === 'text-2')?.components.wallText?.color).toBe('#ff0000');
 	});
 });

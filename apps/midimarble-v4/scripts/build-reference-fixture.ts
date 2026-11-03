@@ -8,6 +8,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import {
 	applyProjectCommands,
+	DEFAULT_CAMERA_DISTANCE,
+	DEFAULT_CAMERA_PITCH,
 	parseProject,
 	serializeProject,
 	type TEntity,
@@ -49,7 +51,7 @@ const SECTIONS = [
 	}
 ];
 const TITLE = { size: 0.04, depth: 0.003, color: '#ffffff', font: 'Bfont Regular', rise: 0.1 };
-const CAMERA = { distance: 0.85, pitch: 1.15 };
+const CAMERA = { distance: DEFAULT_CAMERA_DISTANCE, pitch: DEFAULT_CAMERA_PITCH };
 const FIXTURE_URL = new URL('../fixtures/reference-20.marble.json', import.meta.url);
 
 const simulator = await createSimulator();
@@ -224,7 +226,7 @@ function dress(current: TProject): TProject {
 			}
 		});
 	}
-	// A slightly wider, steeper camera shows more rows per column, like the reference
+	// The default close, steep camera: the marble and the next pieces fill the frame and a column's rows stack
 	commands.push({ type: 'setDesign', design: { camera: { ...current.design.camera, ...CAMERA } } });
 	return apply(current, commands);
 }

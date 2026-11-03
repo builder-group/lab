@@ -6,8 +6,10 @@ The camera looks steeply along the wall and travels with the marbles, like the r
    the weighted centre of the marbles in flight (a marble weighs 1 while its samples cover the time, up to a moment
    after its last note when another marble plays on (`activeUntil`), and 0.05 before and after) and the distance
    widens so every marble fits. When a shared descent curve is given (`descent`, the common pace y*(t) of the
-   lanes) the group centre's height follows it instead. The distance never exceeds a readable maximum: pieces stay
-   at least MIN_PIECE_FRACTION of the frame width and the camera at most ZOOM_LIMIT times its set distance. Where
+   lanes) the group centre's height follows it instead. The distance a group needs is measured along the camera's
+   own axes, with its pitch, side and roll, around the smoothed target of a first pass, so the steep view's
+   foreshortening counts. The distance never exceeds a readable maximum: pieces stay at least MIN_PIECE_FRACTION of
+   the frame width, marbles MIN_MARBLE_FRACTION, and the camera at most ZOOM_LIMIT times its set distance. Where
    the group no longer fits within that maximum, the camera eases over to the focus marble (`focusMarbleId`, else
    the first marble, which carries the melody lane) and lets the others leave the frame.
 2. Target: the follow point moved toward where it is at `t + lead` (at most LEAD_LIMIT * distance), smoothed with a
@@ -19,9 +21,12 @@ The camera looks steeply along the wall and travels with the marbles, like the r
    bars show their long sides and tops, the wall recedes like a floor and the two columns run diagonally.
 4. Roll: image up is the wall's up direction turned by a slow function of the run direction plus a slow drift
    (ROLL_DRIFT over ROLL_PERIOD), so the columns turn between diagonal and near vertical. Shot markers add roll and
-   set the distance with eased transitions.
-
-5. Loop: in a loop scene the last `blend` seconds blend into the poses one loop length earlier, which are baked
+   set the distance with eased transitions; a shot with a `length` eases back to the rig's distance and roll after
+   it unless the next shot comes first.
+5. Hold: from `holdAfter`, the run's last hit, the marbles are read at that time and the follow point eases over
+   HOLD_EASE seconds to the middle of the run's last HOLD_SPAN seconds, so the film ends on the final pieces rather
+   than following a marble down the empty wall. The run direction and the roll drift come to rest with it.
+6. Loop: in a loop scene the last `blend` seconds blend into the poses one loop length earlier, which are baked
    from before the loop start, so the camera at the loop end is the camera at the loop start. Loop ghosts are not
    followed.
 
@@ -55,20 +60,28 @@ FRAME_KEEP = 0.55
 ASPECT_GUESS = 0.56
 SHOT_EASE = 0.8
 LENS = 50.0
-# Readable maximum distance: a typical piece spans at least this fraction of the frame width, and the camera never
-# pulls back further than ZOOM_LIMIT times its set distance
+# Readable maximum distance: a typical piece spans at least MIN_PIECE_FRACTION of the frame width, a marble at least
+# MIN_MARBLE_FRACTION (3.5 %, where a 24 mm marble still reads in a 9:16 film), and the camera never pulls back further
+# than ZOOM_LIMIT times its set distance
 MIN_PIECE_FRACTION = 0.06
+MIN_MARBLE_FRACTION = 0.035
 ZOOM_LIMIT = 3.0
-# Fraction of the half frame width a framed group may use; side-by-side lanes may come closer to the sides than a
-# followed marble, which the camera keeps nearer the centre (FRAME_KEEP)
-GROUP_KEEP_X = 0.75
-# Fraction of the half frame height a framed group may use. Looser than FRAME_KEEP so one marble's bounce does not
-# pull the camera back. A Jingle Bells test with 0.8 here and 0.85 for the width grew bars from about 16 % to 23–25 %
-# of the frame width; the width stays at 0.75 because 0.85 let a rolled camera crop a marble
-GROUP_KEEP_Y = 0.8
+# Fractions of the half frame width and height a framed group may use; side-by-side lanes may come closer to the
+# sides than a followed marble, which the camera keeps nearer the centre (FRAME_KEEP). The group's offsets are seen
+# along the camera's axes with its roll and steep pitch (`spread_need`), so the frame can be used further than when
+# they were measured flat on the wall (0.75 and 0.8 then, as 0.85 let a rolled camera crop a marble). On Jingle Bells
+# 0.85 and 0.85 keep both marbles in frame on every frame at 4.4 % of the frame width or more (p10); 0.9 crops one
+GROUP_KEEP_X = 0.85
+GROUP_KEEP_Y = 0.85
+# Margin on the distance a framed group needs
+GROUP_MARGIN = 1.1
 # Weight in the group centre of a marble past its `activeUntil`
 FINISHED_WEIGHT = 0.001
 SENSOR = 36.0
+# Seconds over which the camera settles once it holds on the last hit, and the stretch of the run before that hit
+# whose middle it settles on
+HOLD_EASE = 1.0
+HOLD_SPAN = 1.0
 # Seconds over which the camera eases between framing the group and following the focus marble
 GROUP_EASE = 1.2
 # A group that needs more than the readable distance for less than this many seconds stays framed
@@ -98,6 +111,7 @@ def settings_from(description_camera, theme_settings):
                 'kind': str(shot.get('kind', 'follow')),
                 'roll': float(shot.get('roll', 0.0)),
                 'distance': max(0.05, float(shot.get('distance', camera.get('distance', 0.6)))),
+                'length': shot_length(shot.get('length')),
             })
         except (KeyError, TypeError, ValueError):
             continue
@@ -113,9 +127,24 @@ def settings_from(description_camera, theme_settings):
         'fstop': float(theme_settings.get('fstop', 4.0)),
         'focus': camera.get('focusMarbleId') if isinstance(camera.get('focusMarbleId'), str) else None,
         'descent': descent_curve(camera.get('descent')),
+        'hold': hold_time(camera.get('holdAfter')),
         # Typical piece length on the wall; `apply_scene` sets it from the pieces
         'pieceLength': None,
     }
+
+
+def shot_length(value):
+    """Seconds a shot holds before the camera eases back to the rig, or None to hold until the next shot"""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+        return None
+    return float(value)
+
+
+def hold_time(value):
+    """Time of the run's last hit, after which the camera holds on it, or None to follow to the end"""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return None
+    return float(value)
 
 
 def descent_curve(value):
@@ -141,12 +170,16 @@ def width_per_metre(lens, aspect):
     return SENSOR * min(aspect, 1.0) / lens
 
 
-def readable_distance(settings, aspect):
-    """Largest distance at which the run still reads"""
+def readable_distance(settings, aspect, radius=None):
+    """Largest distance at which the run still reads: a typical piece spans MIN_PIECE_FRACTION of the frame width, a
+    marble of `radius` MIN_MARBLE_FRACTION, and the camera stands at most ZOOM_LIMIT times its set distance away"""
     limit = settings['distance'] * ZOOM_LIMIT
+    width = width_per_metre(settings['lens'], aspect)
     piece = settings.get('pieceLength')
     if piece:
-        limit = min(limit, piece / (MIN_PIECE_FRACTION * width_per_metre(settings['lens'], aspect)))
+        limit = min(limit, piece / (MIN_PIECE_FRACTION * width))
+    if radius:
+        limit = min(limit, 2 * radius / (MIN_MARBLE_FRACTION * width))
     return max(limit, settings['distance'])
 
 
@@ -206,19 +239,61 @@ def in_flight_count(marbles, motions, times):
     return count
 
 
-def spread_need(marbles, motions, times, centre, lens):
-    """Distance at which every marble in flight stays inside the framing box around the centre, per frame"""
+def drift_times(times, hold):
+    """Times that drive the roll drift: the film time, easing to a stop over HOLD_EASE seconds once the camera holds"""
+    if hold is None:
+        return times
+    past = np.maximum(times - hold, 0.0)
+    return np.minimum(times, hold) + HOLD_EASE * (1.0 - np.exp(-past / HOLD_EASE))
+
+
+def view_turn(times, heading, shot_roll, hold):
+    """Side angle around the target and image roll per frame, from the run direction, the slow drift and the shots"""
+    side = SIDE_ANGLE + SIDE_FOLLOW * heading
+    drift = ROLL_DRIFT * np.sin(2 * math.pi * drift_times(times, hold) / ROLL_PERIOD)
+    roll = np.clip(ROLL_FOLLOW * heading, -ROLL_LIMIT, ROLL_LIMIT) + drift + shot_roll
+    return side, roll
+
+
+def view_axes(side, roll, pitch):
+    """Image right and up and the unit direction from the target toward the camera per frame, (n, 3) arrays each, as
+    `bake` places the camera and `look_rotation` turns it"""
+    count = len(side)
+    toward = np.stack([np.sin(side) * math.sin(pitch), np.full(count, -math.cos(pitch)),
+                       -np.cos(side) * math.sin(pitch)], axis=1)
+    forward = -toward
+    up = np.stack([-np.sin(roll), np.zeros(count), np.cos(roll)], axis=1)
+    right = np.cross(forward, up)
+    flat = np.linalg.norm(right, axis=1) < 1e-8
+    if flat.any():
+        right[flat] = np.cross(forward[flat], np.array([0.0, -1.0, 0.0]))
+    right /= np.linalg.norm(right, axis=1)[:, None]
+    image_up = np.cross(right, forward)
+    image_up /= np.linalg.norm(image_up, axis=1)[:, None]
+    return right, image_up, toward
+
+
+def spread_need(marbles, motions, times, centre, lens, axes):
+    """Distance at which every marble in flight stays inside the framing box around the centre, per frame.
+
+    Each marble's offset from the centre is seen along the camera's axes, so the steep view's foreshortening and the
+    roll count: an offset across the image needs reach_x per metre of distance, one up the image `reach`, and an
+    offset toward the camera that much more distance."""
     reach = SENSOR / 2 / lens * GROUP_KEEP_Y
     reach_x = SENSOR / 2 / lens * GROUP_KEEP_X * ASPECT_GUESS
+    right, image_up, toward = axes
     required = np.zeros(len(times))
     for marble in marbles:
         motion = motions.get(marble['id'])
         if motion is None or not len(motion):
             continue
         inside = in_flight(marble, motion, times)
-        dx = np.abs(np.interp(times, motion[:, 0], motion[:, 1]) - centre[:, 0])
-        dy = np.abs(np.interp(times, motion[:, 0], motion[:, 2]) - centre[:, 1])
-        need = np.maximum(dx / reach_x, dy / reach) * 1.1
+        dx = np.interp(times, motion[:, 0], motion[:, 1]) - centre[:, 0]
+        dy = np.interp(times, motion[:, 0], motion[:, 2]) - centre[:, 1]
+        across = np.abs(dx * right[:, 0] + dy * right[:, 2])
+        high = np.abs(dx * image_up[:, 0] + dy * image_up[:, 2])
+        along = dx * toward[:, 0] + dy * toward[:, 2]
+        need = along + np.maximum(across / reach_x, high / reach) * GROUP_MARGIN
         required = np.maximum(required, np.where(inside, need, 0.0))
     return required
 
@@ -259,22 +334,43 @@ def held(values, fps, seconds, reduce=np.max):
     return np.array([reduce(padded[index:index + 2 * window + 1]) for index in range(len(values))])
 
 
-def group_framing(marbles, motions, times, settings, fps, aspect):
+def settled(points, times, hold):
+    """Follow points that, after the hold time, ease over HOLD_EASE seconds from the last hit to the middle of the
+    path over the HOLD_SPAN seconds before it, so the last frames show the final pieces"""
+    span = (times >= hold - HOLD_SPAN - 1e-9) & (times <= hold + 1e-9)
+    if not span.any() or not (times > hold).any():
+        return points
+    middle = points[span].mean(axis=0)
+    weight = smoothstep((times - hold) / HOLD_EASE)[:, None]
+    return points * (1 - weight) + middle * weight
+
+
+def group_framing(marbles, motions, times, settings, fps, aspect, heading, aim=None):
     """Follow points (current and `lead` ahead), distance and shot roll per time, or None without motion.
 
     A group weight is 1 while the group fits the readable maximum and eases to 0 where the camera follows the focus
-    marble alone; it blends both the follow point and the distance."""
-    centre, depth = follow_points(marbles, motions, times)
-    ahead, _ = follow_points(marbles, motions, times + settings['lead'])
+    marble alone; it blends both the follow point and the distance. `heading` is the run direction the camera turns
+    with and `aim` the smoothed look target, (n, 2), which size the group; without an aim the group is sized around
+    its centre. From the hold time on, the marbles are read at the hold time, so the camera settles
+    on the last hit."""
+    hold = settings.get('hold')
+    sample = times if hold is None else np.minimum(times, hold)
+    lead_sample = times + settings['lead'] if hold is None else np.minimum(times + settings['lead'], hold)
+    centre, depth = follow_points(marbles, motions, sample)
+    ahead, _ = follow_points(marbles, motions, lead_sample)
     if centre is None:
         return None
     descent = settings.get('descent')
     if descent is not None:
-        centre[:, 1] = paced_height(marbles, motions, times, centre[:, 1], descent)
-        ahead[:, 1] = paced_height(marbles, motions, times + settings['lead'], ahead[:, 1], descent)
+        centre[:, 1] = paced_height(marbles, motions, sample, centre[:, 1], descent)
+        ahead[:, 1] = paced_height(marbles, motions, lead_sample, ahead[:, 1], descent)
     base, shot_roll = shot_values(times, settings['distance'], settings['shots'])
-    limit = readable_distance(settings, aspect)
-    raw = spread_need(marbles, motions, times, centre, settings['lens'])
+    radius = min((float(marble['radius']) for marble in marbles
+                  if motions.get(marble['id']) is not None and len(motions[marble['id']])), default=None)
+    limit = readable_distance(settings, aspect, radius)
+    side, roll = view_turn(times, heading, shot_roll, hold)
+    raw = spread_need(marbles, motions, sample, centre if aim is None else aim, settings['lens'],
+                      view_axes(side, roll, settings['pitch']))
     # Hold the widest need for a second so the zoom does not breathe with every bounce; a running median first drops
     # momentary spikes, such as one marble's bounce peak, that the frame margins absorb
     need = held(held(raw, fps, GROUP_SPIKE / 2, np.median), fps, 1.0)
@@ -290,16 +386,18 @@ def group_framing(marbles, motions, times, settings, fps, aspect):
     distance = np.minimum(distance, np.maximum(base, limit))
     focus = focus_marble(marbles, motions, settings.get('focus'))
     if focus is not None and len(marbles) > 1:
-        focus_now = marble_point(focus, motions, times)
-        focus_ahead = marble_point(focus, motions, times + settings['lead'])
+        focus_now = marble_point(focus, motions, sample)
+        focus_ahead = marble_point(focus, motions, lead_sample)
         # Once the focus marble has played its last note, the camera eases back to the marbles that still play
         keep = weight
         if focus.get('activeUntil') is not None:
-            playing = (times <= float(focus['activeUntil']) + 1e-9).astype(np.float64)
+            playing = (sample <= float(focus['activeUntil']) + 1e-9).astype(np.float64)
             playing = np.clip(critically_damped(playing[:, None], fps, GROUP_EASE / 3)[:, 0], 0.0, 1.0)
             keep = np.maximum(weight, 1.0 - playing)
         centre = keep[:, None] * centre + (1 - keep[:, None]) * focus_now
         ahead = keep[:, None] * ahead + (1 - keep[:, None]) * focus_ahead
+    if hold is not None:
+        centre, ahead = settled(centre, times, hold), settled(ahead, times, hold)
     return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'roll': shot_roll}
 
 
@@ -335,18 +433,38 @@ def critically_damped(values, fps, tau):
     return run(forward[::-1])[::-1][pad:pad + len(values)]
 
 
+def smoothstep(progress):
+    progress = np.clip(progress, 0.0, 1.0)
+    return progress * progress * (3 - 2 * progress)
+
+
+def shot_events(shots, base_distance):
+    """(time, distance, roll) the camera eases to from each time on: every shot's values, and the rig's distance
+    without extra roll once a shot with a length has held that long before the next shot starts"""
+    events = []
+    for index, shot in enumerate(shots):
+        events.append((shot['time'], shot['distance'], shot['roll']))
+        following = shots[index + 1]['time'] if index + 1 < len(shots) else math.inf
+        length = shot.get('length')
+        if length is not None and shot['time'] + length < following - 1e-9:
+            events.append((shot['time'] + length, base_distance, 0.0))
+    return events
+
+
 def shot_values(times, base_distance, shots):
-    """Distance and extra roll per time from shot markers, eased over SHOT_EASE seconds after each marker"""
+    """Distance and extra roll per time from shot markers, eased over SHOT_EASE seconds after each marker. A shot with
+    a length eases back to the rig after it; each transition starts where the previous one has got to"""
     distance = np.full(len(times), base_distance)
     roll = np.zeros(len(times))
-    previous_distance, previous_roll = base_distance, 0.0
-    for shot in shots:
-        progress = np.clip((times - shot['time']) / SHOT_EASE, 0.0, 1.0)
-        eased = progress * progress * (3 - 2 * progress)
-        after = times >= shot['time']
-        distance = np.where(after, previous_distance + (shot['distance'] - previous_distance) * eased, distance)
-        roll = np.where(after, previous_roll + (shot['roll'] - previous_roll) * eased, roll)
-        previous_distance, previous_roll = shot['distance'], shot['roll']
+    start, goal, start_time = (base_distance, 0.0), (base_distance, 0.0), -math.inf
+    for time, shot_distance, shot_roll in shot_events(shots, base_distance):
+        reached = float(smoothstep((time - start_time) / SHOT_EASE))
+        start = tuple(begin + (end - begin) * reached for begin, end in zip(start, goal))
+        goal, start_time = (shot_distance, shot_roll), time
+        eased = smoothstep((times - time) / SHOT_EASE)
+        after = times >= time
+        distance = np.where(after, start[0] + (goal[0] - start[0]) * eased, distance)
+        roll = np.where(after, start[1] + (goal[1] - start[1]) * eased, roll)
     return distance, roll
 
 
@@ -362,23 +480,9 @@ def look_rotation(position, target, up):
     return basis.to_quaternion()
 
 
-def bake(scene, camera, settings, marbles, motions, fps):
-    """Writes the follow keyframes; returns the number of frames baked or 0 when there is no motion"""
-    # Loop ghosts replay a marble's entry for the next round; the camera reaches them through the loop blend
-    marbles = [marble for marble in marbles if not marble.get('ghostOf')]
-    loop = settings.get('loop')
-    first_frame = scene.frame_start
-    if loop:
-        # Poses from before the loop start are the blend targets of the loop end
-        first_frame = min(first_frame, math.floor((loop['start'] - loop['blend']) * fps) - 1)
-    frames = np.arange(first_frame, scene.frame_end + 1, dtype=np.float64)
-    times = frames / fps
-    aspect = scene.render.resolution_x / max(1, scene.render.resolution_y)
-    framing = group_framing(marbles, motions, times, settings, fps, aspect)
-    if framing is None:
-        return 0
-    current, ahead_points, depth = framing['current'], framing['ahead'], framing['depth']
-    distance, shot_roll = framing['distance'], framing['roll']
+def follow_target(framing, settings, fps, times):
+    """Look target on the wall per frame, (n, 2), and the run direction (heading) the camera turns with"""
+    current, ahead_points, distance = framing['current'], framing['ahead'], framing['distance']
     # Lead the marble, but never so far that it leaves the upper part of the frame on fast drops
     lead_offset = ahead_points - current
     lead_length = np.linalg.norm(lead_offset, axis=1)
@@ -407,11 +511,43 @@ def bake(scene, camera, settings, marbles, motions, fps):
     direction = ahead - behind
     moving = np.linalg.norm(direction, axis=1) > 1e-4
     heading = np.where(moving, np.arctan2(direction[:, 0], -direction[:, 1]), 0.0)
-    heading = critically_damped(np.clip(heading, -math.pi / 2, math.pi / 2)[:, None], fps, HEADING_TAU)[:, 0]
+    heading = np.clip(heading, -math.pi / 2, math.pi / 2)
+    # While the camera settles on the last hit the target barely moves; the view keeps the run direction it had
+    hold = settings.get('hold')
+    if hold is not None:
+        settling = times > hold - window / fps
+        if settling.any() and not settling.all():
+            heading = np.where(settling, heading[np.argmax(settling) - 1], heading)
+    heading = critically_damped(heading[:, None], fps, HEADING_TAU)[:, 0]
+    return target, heading
+
+
+def bake(scene, camera, settings, marbles, motions, fps):
+    """Writes the follow keyframes; returns the number of frames baked or 0 when there is no motion"""
+    # Loop ghosts replay a marble's entry for the next round; the camera reaches them through the loop blend
+    marbles = [marble for marble in marbles if not marble.get('ghostOf')]
+    loop = settings.get('loop')
+    first_frame = scene.frame_start
+    if loop:
+        # Poses from before the loop start are the blend targets of the loop end
+        first_frame = min(first_frame, math.floor((loop['start'] - loop['blend']) * fps) - 1)
+    frames = np.arange(first_frame, scene.frame_end + 1, dtype=np.float64)
+    times = frames / fps
+    aspect = scene.render.resolution_x / max(1, scene.render.resolution_y)
+    if loop:
+        settings = dict(settings, hold=None)
+    # The group's size in frame depends on where the camera looks from and at: a first pass with the camera straight
+    # and sized around the group's centre gives the run direction and the smoothed target that size the second
+    framing = group_framing(marbles, motions, times, settings, fps, aspect, np.zeros(len(times)))
+    if framing is None:
+        return 0
+    aim, heading = follow_target(framing, settings, fps, times)
+    framing = group_framing(marbles, motions, times, settings, fps, aspect, heading, aim)
+    target, heading = follow_target(framing, settings, fps, times)
+    current, depth, distance = framing['current'], framing['depth'], framing['distance']
     # The camera stands below and to the side of the target, looking up along the run; the side follows the run
     # direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
-    side = SIDE_ANGLE + SIDE_FOLLOW * heading
-    roll = np.clip(ROLL_FOLLOW * heading, -ROLL_LIMIT, ROLL_LIMIT) + ROLL_DRIFT * np.sin(2 * math.pi * times / ROLL_PERIOD) + shot_roll
+    side, roll = view_turn(times, heading, framing['roll'], settings.get('hold'))
 
     pitch = settings['pitch']
     locations = np.empty((len(frames), 3))
@@ -531,8 +667,11 @@ def write_shot_markers(scene, shots, fps):
     for marker in list(scene.timeline_markers):
         if marker.name.startswith('MM · '):
             scene.timeline_markers.remove(marker)
-    for shot in shots:
+    for index, shot in enumerate(shots):
         scene.timeline_markers.new('MM · ' + shot['kind'], frame=int(round(shot['time'] * fps)))
+        following = shots[index + 1]['time'] if index + 1 < len(shots) else math.inf
+        if shot.get('length') is not None and shot['time'] + shot['length'] < following - 1e-9:
+            scene.timeline_markers.new('MM · follow', frame=int(round((shot['time'] + shot['length']) * fps)))
 
 
 def signature(camera):

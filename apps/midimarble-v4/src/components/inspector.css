@@ -344,7 +344,7 @@ input.mm-insp-name {
 }
 
 .mm-ifield input,
-.mm-ifield select {
+.mm-ifield-popup {
 	flex: 1;
 	min-width: 0;
 	height: 100%;
@@ -371,9 +371,11 @@ input.mm-insp-name {
 	color: var(--text-tertiary);
 }
 
-.mm-ifield select {
+.mm-ifield-popup {
+	display: flex;
+	align-items: center;
 	padding-right: 24px;
-	text-overflow: ellipsis;
+	text-align: left;
 }
 
 .mm-ifield-unit {

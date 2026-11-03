@@ -92,15 +92,69 @@ describe('follow camera', () => {
 	it('keeps the marble that still plays in frame after the other has finished', () => {
 		const { project: jingle, result } = fixture('jingle-bells');
 		const track = required(followCameraTrack(jingle, result, 30));
-		// The melody's last note is at 31 s; the bass plays until 32.5 s and falls on to the end
+		// The melody's last note is at 31 s; the bass plays until 32.5 s, where the camera holds
 		const bass = required(result.marbles.find((marble) => marble.laneId === jingle.music.lanes[1]?.id));
-		for (let frame = 30 * 30; frame < track.frameCount; frame += 3) {
+		for (let frame = 30 * 30; frame <= 32.5 * 30; frame += 3) {
 			const sample = bass.samples.find((item) => item.time >= frame / 30);
 			if (sample == null) continue;
 			const [u, v] = project(track, frame, sample.position.x, sample.position.y);
 			expect(Math.min(u, v)).toBeGreaterThan(0.05);
 			expect(Math.max(u, v)).toBeLessThan(0.95);
 		}
+	});
+
+	it('keeps both marbles in frame and readable while both play', () => {
+		const { project: jingle, result } = fixture('jingle-bells');
+		const track = required(followCameraTrack(jingle, result, 30));
+		const halfWidth = Math.tan((verticalFov(track.lens, track.aspect) * Math.PI) / 360) * track.aspect;
+		for (let frame = 30; frame <= 31 * 30; frame += 4) {
+			for (const marble of result.marbles) {
+				const sample = required(marble.samples.find((item) => item.time >= frame / 30));
+				const [u, v] = project(track, frame, sample.position.x, sample.position.y);
+				expect(Math.min(u, v)).toBeGreaterThan(0);
+				expect(Math.max(u, v)).toBeLessThan(1);
+			}
+			// A 24 mm marble at the camera distance spans at least 3.5 % of the frame width
+			expect(0.024 / at(track.distance, frame) / halfWidth / 2).toBeGreaterThan(0.035);
+		}
+	});
+
+	it('holds on the last hit and shows the final pieces', () => {
+		const { project: jingle, result } = fixture('jingle-bells');
+		const track = required(followCameraTrack(jingle, result, 30));
+		const last = Math.max(...result.hits.map((hit) => hit.actualTime ?? -Infinity));
+		const end = track.frameCount - 1;
+		expect(last + 2).toBeLessThan(end / 30);
+		// The camera settles after the hit: well under 1 cm/s at the end against about 50 cm/s while following
+		const speed = (frame: number): number =>
+			Math.hypot(...[0, 1, 2].map((axis) => at(track.position, (frame + 1) * 3 + axis) - at(track.position, frame * 3 + axis))) * 30;
+		expect(speed(end - 1)).toBeLessThan(0.01);
+		const finals = result.pieces
+			.filter((piece) => piece.hitTime != null)
+			.sort((a, b) => (b.hitTime ?? 0) - (a.hitTime ?? 0))
+			.slice(0, 3);
+		for (const piece of finals) {
+			const [u, v] = project(track, end, piece.position.x, piece.position.y);
+			expect(Math.min(u, v)).toBeGreaterThan(0);
+			expect(Math.max(u, v)).toBeLessThan(1);
+		}
+	});
+
+	it('eases a Push In back to the rig after its hold', () => {
+		const { project: reference, result } = fixture('reference-20');
+		const rig = reference.design.camera.distance;
+		const withShot = (length?: number): TProject => ({
+			...reference,
+			design: {
+				...reference.design,
+				camera: { ...reference.design.camera, shots: [{ id: 'shot', time: 6, kind: 'pushIn', roll: 0, distance: rig * 0.7, ...(length != null ? { length } : {}) }] }
+			}
+		});
+		const held = required(followCameraTrack(withShot(), result, 30));
+		expect(at(held.distance, 7.5 * 30)).toBeLessThan(rig * 0.85);
+		expect(at(held.distance, 11 * 30)).toBeCloseTo(rig, 2);
+		const open = required(followCameraTrack(withShot(0), result, 30));
+		expect(at(open.distance, 11 * 30)).toBeCloseTo(rig * 0.7, 2);
 	});
 
 	it('samples between frames', () => {

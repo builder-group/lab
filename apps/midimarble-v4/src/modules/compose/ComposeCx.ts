@@ -19,7 +19,8 @@ import {
 	type TResolvedPiece,
 	type TSimulationResult
 } from '@/modules/simulation';
-import { parseHitKey } from '@/modules/studio/selection';
+import { formatTime } from '@/modules/studio/format';
+import { CAMERA_KEY, parseHitKey, SONG_KEY } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { dragRotation, normalizeSurfaceAngle, screenAngle, snapAngle, toRadians, type TRotationDrag } from './angles';
 import { AssistCx } from './AssistCx';
@@ -27,6 +28,7 @@ import {
 	ANCHOR_LEAD,
 	asAnchored,
 	canLink,
+	clearRotorPosition,
 	createFreePiece,
 	displayPiece,
 	isPathPieceType,
@@ -61,6 +63,7 @@ import {
 	withPathBend,
 	withPathEnd
 } from './scene';
+import { newlyBroken } from './fix-it';
 import { commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
 import {
 	boundsOf,
@@ -247,6 +250,7 @@ export class ComposeCx {
 			}),
 			// Switching tools finishes a rail in progress, like Figma's pen
 			this.$tool.listen(({ value }) => {
+				this.clearHoverPreview();
 				if (value !== 'path' && this.$pen.get() != null) this.finishPen();
 			})
 		);
@@ -416,7 +420,9 @@ export class ComposeCx {
 		const hidden = this.studio.$hidden.get();
 		const locked = this.studio.$locked.get();
 		const selected = selectedPieceIds(project, this.studio.$selection.get()).filter((id) => !locked.includes(id));
-		const pieces = this.displayPieces(result);
+		// The piece a hover what-if shows is not there yet, so the pointer never lands on it
+		const previewId = this.hoverPreview?.entityId;
+		const pieces = this.displayPieces(result).filter((piece) => piece.entityId !== previewId);
 		for (const piece of pieces) {
 			if (!locked.includes(piece.entityId)) scene.pieces.push({ entityId: piece.entityId, corners: this.screenOutline(piece) });
 		}
@@ -631,7 +637,11 @@ export class ComposeCx {
 		if (this.framedProjectId !== project.id) {
 			this.framedProjectId = project.id;
 			this.revealedProjectId = null;
-			this.fitFrame();
+			// The releases and where each marble's free fall meets its first note frame the wall before any run,
+			// so the run's first hits rarely need to widen it afterwards
+			const opening = this.result == null ? openingPoints(project) : [];
+			if (opening.length > 0) this.fitAround(project, boundsOf(opening));
+			else this.fitFrame();
 			// The first run may still widen the view to its first hits, so the wall stays hidden until it does
 			// instead of showing a zoom jump, for at most a moment on a long song
 			this.setOpening(true);
@@ -706,6 +716,12 @@ export class ComposeCx {
 		}
 		const bounds = boundsOf(points);
 		if (bounds == null || isBoundsVisible(camera.view, this.$viewport.get(), bounds, 40)) return;
+		this.fitAround(project, bounds);
+	}
+
+	/** Fits the film frame's width widened to `bounds`, with room below for the fall after them */
+	private fitAround(project: TProject, bounds: TBounds | null): void {
+		if (bounds == null) return;
 		const band = frameBand(project);
 		const halfWidth = band.halfWidth * 1.35;
 		this.fit({
@@ -794,6 +810,8 @@ export class ComposeCx {
 
 	onPointerDown(event: React.PointerEvent<HTMLElement>): void {
 		const point = localPoint(event);
+		// A click places the piece itself; the hover what-if makes way for it
+		this.clearHoverPreview();
 		const camera = this.$camera.get();
 		const tool = this.$tool.get();
 		const is2d = camera.mode === '2d';
@@ -889,6 +907,7 @@ export class ComposeCx {
 			const tool = this.$tool.get();
 			const hover = this.$spaceHeld.get() || tool === 'hand' || tool === 'path' ? null : this.pickAt(point);
 			if (!isSamePick(hover, this.$hover.get())) this.$hover.set(hover);
+			this.updateHoverPreview(point, hover);
 			return;
 		}
 		const project = this.project;
@@ -926,7 +945,7 @@ export class ComposeCx {
 				const local = pathToLocal(piece, drag.start, this.toWorld(point));
 				const points = drag.handle === 'end' ? withPathEnd(drag.start, local) : withPathBend(drag.start, local);
 				this.$drag.set({ ...drag, points, moved: true });
-				this.studio.simulation.startPreview(withPathPoints(project, drag.entityId, points));
+				this.previewWhatIf(withPathPoints(project, drag.entityId, points));
 				return;
 			}
 			case 'release': {
@@ -934,7 +953,7 @@ export class ComposeCx {
 				const world = this.toWorld(point);
 				const position = { x: world.x + drag.offset.x, y: world.y + drag.offset.y };
 				this.$drag.set({ ...drag, position, moved: true });
-				this.studio.simulation.startPreview(withRelease(project, drag.entityId, position));
+				this.previewWhatIf(withRelease(project, drag.entityId, position));
 				this.syncMarbles();
 				return;
 			}
@@ -1037,6 +1056,7 @@ export class ComposeCx {
 
 	onPointerLeave(): void {
 		if (this.$drag.get() == null) this.$hover.set(null);
+		this.clearHoverPreview();
 		const pen = this.$pen.get();
 		if (pen != null && !pen.isDragging) this.$pen.set({ ...pen, pointer: null });
 	}
@@ -1173,7 +1193,7 @@ export class ComposeCx {
 		this.$override.set(snap?.kind === 'link' ? displayPiece(candidate, { pose, dot: snap.dot, velocity: snap.velocity }, radius) : displayPiece(candidate, { pose }, radius));
 		this.$insertSnap.set({ position: world, snap });
 		drag.candidate = candidate;
-		this.studio.simulation.startPreview(withEntity(project, candidate));
+		this.previewWhatIf(withEntity(project, candidate));
 		return true;
 	}
 
@@ -1223,29 +1243,130 @@ export class ComposeCx {
 
 	/** Adds a scenery piece the marble meets at `time`, chosen by clicking its trajectory or a dot */
 	private addFollower(laneId: string, time: number): void {
-		const project = this.project;
-		const type = toolPieceType[this.$tool.get()] ?? 'windmill';
-		const samples = this.result?.marbles.find((track) => track.laneId === laneId)?.samples ?? [];
-		const at = project != null ? trajectoryAt(samples, time, gravityOf(project)) : null;
-		if (project == null || at == null) return;
-		const [isOk, error, follower] = followerAt(project, laneId, type, time, at.position, at.velocity);
-		// Before the lane's first hit the piece follows the marble from its release, counted back from that hit,
-		// the same anchor a drop near the trajectory makes
-		let entity: TEntity | null = follower ?? null;
-		if (!isOk) {
-			// Laid out against the marble the way a follower is, so a windmill meets it with a blade, not its hub
-			const free = createFreePiece(type, { position: at.position, angle: 0 }, project.entities);
-			const met = displayPiece(free, { pose: { position: at.position, angle: 0 }, dot: at.position, velocity: at.velocity }, this.marbleRadius(laneId));
-			entity = asAnchored(project, free, { position: met.position, angle: met.angle }, laneId, time, at.position);
-		}
-		if (entity == null) {
-			if (!isOk) this.studio.notify(error.message);
+		const made = this.followerFor(laneId, time);
+		this.clearHoverPreview();
+		if (made == null) return;
+		if ('error' in made) {
+			this.studio.notify(made.error);
 			return;
 		}
+		const { entity } = made;
 		if (!this.studio.execute([{ type: 'upsertEntity', entity }])) return;
 		this.studio.$selection.set([entity.id]);
 		this.$tool.set('select');
 		if (!this.studio.$playing.get()) this.studio.$playhead.set(time);
+	}
+
+	/**
+	 * The scenery piece the armed tool adds where the marble is at `time`, or why none fits. A windmill sits
+	 * beside the fall, its arms clear of every marble's path, so adding one keeps the run; dragging it into the
+	 * path afterwards makes the marble turn it. A switchback is laid out against the marble, since it holds it.
+	 */
+	private followerFor(laneId: string, time: number): { entity: TEntity; pose: TPose | null } | { error: string } | null {
+		const project = this.project;
+		const result = this.result;
+		const type = toolPieceType[this.$tool.get()] ?? 'windmill';
+		const samples = result?.marbles.find((track) => track.laneId === laneId)?.samples ?? [];
+		const at = project != null ? trajectoryAt(samples, time, gravityOf(project)) : null;
+		if (project == null || result == null || at == null) return null;
+		if (layoutOf(type) === 'rotor') {
+			const free = createFreePiece(type, { position: at.position, angle: 0 }, project.entities);
+			const params = resolvePieceParams(type, free.components.piece?.params ?? {});
+			const reach = (params['hubRadius'] ?? 0) + (params['bladeLength'] ?? 0);
+			const position = clearRotorPosition(project, result, at, reach, laneId);
+			const pose = { position, angle: 0 };
+			// Before the lane's first hit the piece follows the marble from its release, counted back from that hit
+			const entity = asAnchored(project, free, pose, laneId, time, at.position);
+			return entity != null ? { entity, pose } : { error: "A piece can follow this marble only after its first hit. Drop it lower on the marble's fall." };
+		}
+		const [isOk, error, follower] = followerAt(project, laneId, type, time, at.position, at.velocity);
+		if (isOk) return { entity: follower, pose: null };
+		// Laid out against the marble the way a follower is
+		const free = createFreePiece(type, { position: at.position, angle: 0 }, project.entities);
+		const met = displayPiece(free, { pose: { position: at.position, angle: 0 }, dot: at.position, velocity: at.velocity }, this.marbleRadius(laneId));
+		const pose = { position: met.position, angle: met.angle };
+		const entity = asAnchored(project, free, pose, laneId, time, at.position);
+		return entity != null ? { entity, pose } : { error: error.message };
+	}
+
+	// MARK: - What-if
+
+	/** The run before the latest what-if started, which the "Breaks 86 hits" count compares the preview with */
+	private whatIfBase: TSimulationResult | null = null;
+	/** The piece an armed tool would add under the pointer, simulated as a what-if before the click */
+	private hoverPreview: { key: string; entityId: string } | null = null;
+	/** Screen point of the hover what-if, where its count shows */
+	readonly $hoverPreview = createState<{ position: TVec2; label: string | null } | null>(null);
+
+	/** Simulates `project` as a what-if in place of the run, remembering the run it is compared with */
+	private previewWhatIf(project: TProject): void {
+		const simulation = this.studio.simulation;
+		if (!simulation.isPreviewing) this.whatIfBase = simulation.isCurrent ? this.result : null;
+		simulation.startPreview(project);
+	}
+
+	/**
+	 * How many hits the shown what-if breaks compared with the run before it, or null while there is no what-if
+	 * or its run has not arrived yet
+	 */
+	whatIfBreaks(result: TSimulationResult | null = this.result): number | null {
+		const base = this.whatIfBase;
+		if (!this.studio.simulation.isPreviewing || base == null || result == null || result === base) return null;
+		return newlyBroken(base.hits, result.hits).length;
+	}
+
+	/**
+	 * While an armed Windmill or Switchback hovers over a trajectory or a dot, or the Platform tool over a
+	 * trajectory, shows the piece a click would add and the run with it, like a drag's what-if
+	 */
+	private updateHoverPreview(point: TVec2, hover: TPick | null): void {
+		const project = this.project;
+		const result = this.result;
+		const tool = this.$tool.get();
+		if (project == null || result == null || this.$camera.get().mode !== '2d' || this.$pen.get() != null) {
+			this.clearHoverPreview();
+			return;
+		}
+		if (this.isSceneryTool() && (hover?.kind === 'track' || hover?.kind === 'dot')) {
+			const time = hover.kind === 'track' ? hover.time : result.hits.find((hit) => hit.laneId === hover.laneId && hit.hitId === hover.hitId)?.targetTime;
+			if (time == null) return this.clearHoverPreview();
+			const key = `${tool}:${hover.laneId}:${time.toFixed(3)}`;
+			if (key === this.hoverPreview?.key) return;
+			const made = this.followerFor(hover.laneId, time);
+			if (made == null || 'error' in made) return this.clearHoverPreview();
+			const lane = project.music.lanes.find((item) => item.id === hover.laneId)?.name ?? 'Marble';
+			this.showHoverPreview(key, made.entity, made.pose, hover.kind === 'track' ? hover.position : point, hover.kind === 'dot' ? `Follows ${lane} at ${formatTime(time)}` : null);
+			return;
+		}
+		if (tool === 'platform' && hover == null) {
+			// A click on the wall drops a free platform; near a trajectory it changes the run
+			const halfLength = ((resolvePieceParams('platform', {})['length'] ?? 0.09) / 2) * this.$camera.get().view.scale;
+			if (pickTrack(point, this.screenTrackPoints(), Math.max(TRACK_PICK_RADIUS, halfLength + 6)) == null) return this.clearHoverPreview();
+			const key = `platform:${Math.round(point.x)}:${Math.round(point.y)}`;
+			if (key === this.hoverPreview?.key) return;
+			const pose = { position: this.toWorld(point), angle: 0 };
+			this.showHoverPreview(key, createFreePiece('platform', pose, project.entities), pose, point, null);
+			return;
+		}
+		this.clearHoverPreview();
+	}
+
+	private showHoverPreview(key: string, entity: TEntity, pose: TPose | null, position: TVec2, label: string | null): void {
+		const project = this.project;
+		if (project == null) return;
+		this.hoverPreview = { key, entityId: entity.id };
+		const laneId = entity.components.hitLink?.laneId;
+		this.$override.set(pose != null ? displayPiece(entity, { pose }, this.marbleRadius(laneId)) : null);
+		this.$hoverPreview.set({ position, label });
+		this.previewWhatIf(withEntity(project, entity));
+	}
+
+	private clearHoverPreview(): void {
+		if (this.hoverPreview == null) return;
+		this.hoverPreview = null;
+		this.$hoverPreview.set(null);
+		if (this.$drag.get() == null) this.$override.set(null);
+		this.studio.simulation.endPreview();
 	}
 
 	/** True when the hit ends a gap too long for a bounce that no rail or tunnel bridges yet */
@@ -1370,7 +1491,7 @@ export class ComposeCx {
 		const display = snap?.kind === 'link' ? displayPiece(candidate, { pose, dot: snap.dot, velocity: snap.velocity }, radius) : displayPiece(candidate, { pose }, radius);
 		this.$override.set(display);
 		this.$drag.set({ ...drag, current: pose, snap, candidate, moved: true });
-		this.studio.simulation.startPreview(withEntity(project, candidate));
+		this.previewWhatIf(withEntity(project, candidate));
 	}
 
 	/**
@@ -1436,7 +1557,7 @@ export class ComposeCx {
 		const candidate = createFreePiece(type, pose, project.entities);
 		this.$override.set(displayPiece(candidate, { pose }, this.marbleRadius()));
 		this.$drag.set({ kind: 'place', type, start: point, at, angle: 0, candidate, moved: false });
-		this.studio.simulation.startPreview(withEntity(project, candidate));
+		this.previewWhatIf(withEntity(project, candidate));
 	}
 
 	private movePlace(drag: TPlaceDrag, point: TVec2, isSnap: boolean): void {
@@ -1453,7 +1574,7 @@ export class ComposeCx {
 		const candidate = { ...drag.candidate, components: { ...drag.candidate.components, transform: pose } };
 		this.$override.set(displayPiece(candidate, { pose }, this.marbleRadius()));
 		this.$drag.set({ ...drag, angle, candidate, moved: true });
-		this.studio.simulation.startPreview(withEntity(project, candidate));
+		this.previewWhatIf(withEntity(project, candidate));
 	}
 
 	private startRotate(entityId: string, point: TVec2): void {
@@ -1478,7 +1599,7 @@ export class ComposeCx {
 				: rotateResolved(drag.base, drag.pivotWorld, angle - drag.startAngle);
 		this.$override.set(display);
 		this.$drag.set({ ...drag, angle, pointer: point });
-		this.studio.simulation.startPreview(withPieceAngles(project, new Map([[drag.entityId, angle]])));
+		this.previewWhatIf(withPieceAngles(project, new Map([[drag.entityId, angle]])));
 	}
 
 	private startNodeDrag(entityId: string, index: number, handle: 'point' | 'in' | 'out'): void {
@@ -1513,7 +1634,7 @@ export class ComposeCx {
 		const candidate = { ...entity, components };
 		this.$override.set(displayPiece(candidate, { pose: base }, this.marbleRadius(link?.laneId)));
 		this.$drag.set({ ...drag, nodes, candidate, moved: true });
-		this.studio.simulation.startPreview(withEntity(project, candidate));
+		this.previewWhatIf(withEntity(project, candidate));
 	}
 
 	// MARK: - Path tool
@@ -1583,7 +1704,7 @@ export class ComposeCx {
 		}
 		const transform = entity.components.transform;
 		if (transform != null) this.$override.set(displayPiece(entity, { pose: transform }, this.marbleRadius()));
-		this.studio.simulation.startPreview(withEntity(project, entity));
+		this.previewWhatIf(withEntity(project, entity));
 	}
 
 	/** Return, or a click on the first or last point: adds the rail, anchored when it starts on a trajectory */
@@ -1709,7 +1830,8 @@ export class ComposeCx {
 		const selection = this.studio.$selection.get();
 		const action = composeKeyAction(event, {
 			hasPieces: project != null && (selectedPieceIds(project, selection).length > 0 || project.entities.some((entity) => selection.includes(entity.id) && entity.components.marble != null)),
-			hasSelection: selection.length > 0,
+			// A selected Song or Camera track is no Next target, so Return keeps its timeline meaning there
+			hasSelection: selection.some((key) => key !== SONG_KEY && key !== CAMERA_KEY),
 			hasGhosts: this.assist.hasGhosts,
 			isDrawing: this.$pen.get() != null,
 			hasNotes: selection.length > 0 && selection.every((key) => parseHitKey(key) != null)
@@ -1784,7 +1906,9 @@ export class ComposeCx {
 
 	/** Escape cancels a drag or a rail in progress, then dismisses ghosts, then leaves a tool, then clears the selection */
 	escape(): void {
-		if (this.insertDrag != null) {
+		if (this.assist.$queuedNext.get() > 0) {
+			this.assist.clearQueuedNext();
+		} else if (this.insertDrag != null) {
 			this.endInsertDrag(false);
 		} else if (this.$libraryOpen.get()) {
 			this.$libraryOpen.set(false);
@@ -1987,6 +2111,25 @@ const MIN_FIT_PLATFORM_PX = 24;
 
 // Keeps framed content clear of the corner controls and the contextual bar
 const canvasPadding: TPadding = { top: 56, right: 56, bottom: 72, left: 56 };
+
+/**
+ * Each marble's release and where its free fall from there reaches its first note: what the run's first hits
+ * will show, known before the run, so an opened project is framed once
+ */
+function openingPoints(project: TProject): TVec2[] {
+	const gravity = gravityOf(project);
+	const points: TVec2[] = [];
+	for (const entity of project.entities) {
+		const { release, marble } = entity.components;
+		if (release == null || marble == null) continue;
+		points.push(release.position);
+		const first = project.music.lanes.find((lane) => lane.id === marble.laneId)?.hits.reduce<number | null>((min, hit) => (min == null || hit.time < min ? hit.time : min), null);
+		if (first == null) continue;
+		const fall = Math.max(0, first - release.time);
+		points.push({ x: release.position.x, y: release.position.y + 0.5 * gravity * fall * fall });
+	}
+	return points;
+}
 
 function withRelease(project: TProject, entityId: string, position: TVec2): TProject {
 	return {

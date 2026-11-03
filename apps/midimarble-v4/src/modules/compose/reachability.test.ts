@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createProject, type TProject } from '@/modules/project';
 import { createSimulator, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { hitReach, reachMessage, reachStatus, releaseFixFor } from './reachability';
+import { canMakeBacking, hitReach, moveHitLaterFix, reachMessage, reachStatus, releaseFixFor } from './reachability';
 
 let simulate: (project: TProject) => TSimulationResult;
 
@@ -54,6 +54,45 @@ describe('hitReach function', () => {
 
 		expect(hits[0]?.dot).toBeNull();
 		expect(hitReach(project, result, hits[0] as THitResult).kind).toBe('outOfReach');
+	});
+
+	it('should keep notes after an Open note of the same marble Open while that note waits for its platform', () => {
+		// Prepare: a tapped project before any platform; the marble falls out of the run after Hit 1
+		const { project, result, hits } = tapped([1, 3, 4, 5, 6]);
+
+		// Act
+		const kinds = hits.map((hit) => hitReach(project, result, hit).kind);
+
+		// Assert
+		expect(hits.slice(1).every((hit) => hit.dot == null)).toBe(true);
+		expect(kinds).toEqual(['reachable', 'reachable', 'reachable', 'reachable', 'reachable']);
+	});
+});
+
+describe('moveHitLaterFix function', () => {
+	it('should move a Too Soon tapped hit to the first moment the marble can strike', () => {
+		// Prepare: the release is at the start of the song, so it cannot move earlier
+		const { project, result, hits } = tapped([0.02, 1]);
+		const hit = hits[0] as THitResult;
+		const reach = hitReach(project, result, hit);
+
+		// Act
+		const fix = moveHitLaterFix(project, hit, reach);
+
+		// Assert
+		expect(releaseFixFor(project, hit, reach)).toBeNull();
+		expect(reach.kind === 'tooSoon' && fix != null && fix.time > reach.earliest && fix.time < 1).toBe(true);
+		expect(fix?.label).toBe('Move Hit Later');
+		expect(fix?.commands).toEqual([{ type: 'upsertHits', laneId: hit.laneId, hits: [{ id: 'hit-1', time: fix?.time }] }]);
+	});
+
+	it('should not move the notes of a song, which offer Make Backing instead', () => {
+		const { project, result, hits } = tapped([0.02, 1]);
+		project.music.sources = [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }];
+		const hit = hits[0] as THitResult;
+
+		expect(canMakeBacking(project)).toBe(true);
+		expect(moveHitLaterFix(project, hit, hitReach(project, result, hit))).toBeNull();
 	});
 });
 

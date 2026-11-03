@@ -2,6 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Bookmark, Clapperboard, Plus, RotateCcw, Trash2, Type } from 'lucide-react';
 import React from 'react';
 import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, StateRow, TextField } from '@/components';
+import { shotLength } from '@/modules/camera/shots';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import type { TLibraryItem } from '@/modules/library';
 import type { TDesign, TEntity, TProject, TShot } from '@/modules/project';
@@ -16,17 +17,24 @@ import {
 	cameraCommands,
 	clearSkinCommands,
 	colorByNoteCommands,
+	commonPieceType,
+	frameHeightOnWall,
+	isScreenTitle,
 	itemFitsPieceType,
+	pieceCountLabel,
 	reactionChoiceOf,
 	reactionChoices,
 	reactionCommands,
 	themeCommands,
 	themePresets,
-	type TReactionChoice
+	titleStyles,
+	withTitleStyle,
+	type TReactionChoice,
+	type TTitleStyle
 } from './design-commands';
 import type { TDesignLink, TDesignStatus } from './DesignCx';
 import { libraryItemLabel } from './DesignLibraryCx';
-import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
+import { LIBRARY_DRAG_TYPE, notifySkinApplied } from './DesignLibrary';
 import { renderPresetLabel, renderPresetOption, renderPresets } from './export-estimate';
 import { describeLoop } from './loop-status';
 import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
@@ -41,7 +49,7 @@ export const DesignInspector: React.FC<TDesignInspectorProps> = (props) => {
 	const shot = project.design.camera.shots.find((item) => selection.includes(toShotKey(item.id)));
 
 	if (pieces.length > 0) return <PieceLook cx={cx} project={project} pieces={pieces} />;
-	if (text != null) return <WallTextInspector cx={cx} entity={text} />;
+	if (text != null) return <WallTextInspector cx={cx} project={project} entity={text} />;
 	if (shot != null) return <ShotInspector cx={cx} project={project} shot={shot} />;
 	return <SceneInspector cx={cx} project={project} />;
 };
@@ -155,7 +163,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 					</button>
 					{cameraState === 'takenOver' ? (
 						<>
-							<StateRow tone="warn" label="Edited in Blender" detail="The app no longer updates the camera, so your Blender changes stay. Regenerating the camera discards them." />
+							<StateRow tone="warn" label="Edited in Blender" detail="The app no longer updates the camera, so your Blender changes stay. Reset Camera discards them and follows the marbles again." />
 							{isConfirming ? (
 								<>
 									<button className="mm-button" onClick={() => setIsConfirming(false)} type="button">
@@ -170,12 +178,12 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 										}}
 										type="button"
 									>
-										Regenerate Camera
+										Reset Camera
 									</button>
 								</>
 							) : (
 								<button className="mm-button" data-span="2" onClick={() => setIsConfirming(true)} type="button">
-									Regenerate Camera…
+									Reset Camera…
 								</button>
 							)}
 						</>
@@ -228,6 +236,13 @@ const WallTextPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 
 // MARK: - Shot
 
+/** Seconds from the Hold field; "next" or 0 keeps the shot until the next one */
+function parseHold(text: string): number | null {
+	if (/next/i.test(text)) return 0;
+	const value = Number.parseFloat(text);
+	return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
 const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> = (props) => {
 	const { cx, project, shot } = props;
 
@@ -238,11 +253,31 @@ const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> 
 	return (
 		<>
 			<InspectorHeader icon={<Bookmark size={16} strokeWidth={1.7} />} title={shotKindLabel(shot.kind)} subtitle="Shot" />
-			<Panel id="design.shot" title="Shot" accessory={<HelpTip text="When the shot starts, the camera eases to its distance and roll over 0.8 s. Drag the shot on the timeline to move it." />}>
+			<Panel
+				id="design.shot"
+				title="Shot"
+				accessory={
+					<HelpTip text="When the shot starts, the camera eases to its distance and roll over 0.8 s. After its hold it eases back to the automatic camera; a hold of 0 keeps the shot until the next one. Drag the shot on the timeline to move it." />
+				}
+			>
 				<SelectField id="shot-kind" label="Kind" value={shot.kind} options={shotKinds.map((item) => ({ value: item.kind, label: item.label }))} onChange={(value) => set({ kind: value as TShotKind })} />
 				<ScrubField id="shot-time" label="Time" name="Time" value={shot.time} unit="" step={0.01} precision={2} min={0} max={project.end} format={formatTime} parse={parseTime} onCommit={(value) => set({ time: value })} />
 				<ScrubField id="shot-roll" label="Roll" name="Roll" value={(shot.roll * 180) / Math.PI} unit="°" step={0.5} precision={1} min={-90} max={90} onCommit={(value) => set({ roll: (value * Math.PI) / 180 })} />
 				<ScrubField id="shot-distance" label="Distance" name="Distance" value={shot.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
+				<ScrubField
+					id="shot-hold"
+					label="Hold"
+					name="Hold"
+					value={shotLength(shot) ?? 0}
+					unit="s"
+					step={0.05}
+					precision={1}
+					min={0}
+					max={project.end}
+					format={(value) => (value <= 0 ? 'To Next Shot' : `${value.toFixed(1)} s`)}
+					parse={parseHold}
+					onCommit={(value) => set({ length: value })}
+				/>
 				<button
 					className="mm-button"
 					data-span="2"
@@ -262,19 +297,43 @@ const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> 
 
 // MARK: - Title
 
-const WallTextInspector: React.FC<{ cx: StudioCx; entity: TEntity }> = (props) => {
-	const { cx, entity } = props;
+const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
+	const { cx, project, entity } = props;
 	const text = entity.components.wallText;
 	const transform = entity.components.transform;
-	const filmEnd = useFeatureState(cx.$history)?.present.end ?? 0;
+	const filmEnd = project.end;
+	const editingTitle = useFeatureState(cx.design.$editingTitle);
 	const [timingKey, setTimingKey] = React.useState(0);
+
+	// A title just placed starts in its Text field with the text selected, like Figma's text tool
+	React.useEffect(() => {
+		if (editingTitle !== entity.id) return;
+		cx.design.$editingTitle.set(null);
+		const field = document.getElementById('text-content');
+		if (field instanceof HTMLInputElement) {
+			field.focus();
+			field.select();
+		}
+	}, [cx, editingTitle, entity.id]);
+
 	if (text == null) return null;
 	const span = titleSpan(text, filmEnd);
+	const style: TTitleStyle = text.style ?? 'wall';
+	const isScreen = isScreenTitle(style);
 
 	function setText(patch: Partial<NonNullable<TEntity['components']['wallText']>>): void {
 		if (text == null) return;
 		const value = { ...text, ...patch };
 		// The entity name follows the text so lists and the outliner read the same
+		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
+	}
+
+	function setStyle(next: TTitleStyle): void {
+		if (text == null || next === style) return;
+		const playhead = cx.$playhead.get();
+		const songName = project.music.sources[0]?.name.replace(/\.[^.]+$/, '') ?? null;
+		const frameHeight = frameHeightOnWall(project, cx.simulation.$result.get(), playhead);
+		const value = withTitleStyle(text, next, { frameHeight, playhead, end: filmEnd, songName });
 		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
 	}
 
@@ -296,11 +355,35 @@ const WallTextInspector: React.FC<{ cx: StudioCx; entity: TEntity }> = (props) =
 
 	return (
 		<>
-			<InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={text.text || 'Title'} subtitle="Title" />
-			<Panel id="design.wallText" title="Text">
+			<InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={text.text || 'Title'} subtitle={titleStyles.find((item) => item.style === style)?.label ?? 'Title'} />
+			<Panel
+				id="design.wallText"
+				title="Text"
+				accessory={
+					<HelpTip text="Wall Title sits on the wall where you placed it. Song Name is a bigger wall title that shows for a few seconds from the playhead. Caption stays at the top of the frame and End Card in its centre while the camera moves; their size is a share of the frame height." />
+				}
+			>
 				<TextField id="text-content" label="Text" name="Text" value={text.text} span={2} allowEmpty={false} onCommit={(value) => setText({ text: value })} />
-				<ScrubField id="text-size" label="Size" name="Size" value={text.size * 100} unit="cm" step={0.05} precision={1} min={0.2} max={50} onCommit={(value) => setText({ size: value / 100 })} />
-				<ScrubField id="text-depth" label="Depth" name="Depth" value={text.depth * 1000} unit="mm" step={0.1} precision={1} min={0} max={50} onCommit={(value) => setText({ depth: value / 1000 })} />
+				<SelectField id="text-style" label="Style" value={style} options={titleStyles.map((item) => ({ value: item.style, label: item.label }))} onChange={(value) => setStyle(value as TTitleStyle)} />
+				{isScreen ? (
+					<ScrubField
+						id="text-size"
+						label="Size"
+						name="Letter height as a share of the frame height"
+						value={text.size * 100}
+						unit="%"
+						step={0.05}
+						precision={1}
+						min={1}
+						max={40}
+						onCommit={(value) => setText({ size: value / 100 })}
+					/>
+				) : (
+					<>
+						<ScrubField id="text-size" label="Size" name="Letter height" value={text.size * 100} unit="cm" step={0.05} precision={1} min={0.2} max={50} onCommit={(value) => setText({ size: value / 100 })} />
+						<ScrubField id="text-depth" label="Depth" name="Depth" value={text.depth * 1000} unit="mm" step={0.1} precision={1} min={0} max={50} onCommit={(value) => setText({ depth: value / 1000 })} />
+					</>
+				)}
 				<span className="mm-ifield" data-span="2">
 					<label htmlFor="text-color" className="mm-ifield-label">
 						Colour
@@ -314,8 +397,16 @@ const WallTextInspector: React.FC<{ cx: StudioCx; entity: TEntity }> = (props) =
 				<TextField key={`out-${timingKey}`} id="text-out" label="Out" name="Time the title disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
 			<Panel id="design.wallText.position" title="Position">
-				<ScrubField id="text-x" label="X" name="X" value={(transform?.position.x ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />
-				<ScrubField id="text-y" label="Y" name="Y" value={(transform?.position.y ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
+				{isScreen ? (
+					<ReadoutField label="Place" name="Place in the frame" span={2}>
+						{style === 'caption' ? 'Top of the Frame' : 'Centre of the Frame'}
+					</ReadoutField>
+				) : (
+					<>
+						<ScrubField id="text-x" label="X" name="X" value={(transform?.position.x ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />
+						<ScrubField id="text-y" label="Y" name="Y" value={(transform?.position.y ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
+					</>
+				)}
 				<button
 					className="mm-button"
 					data-span="2"
@@ -343,26 +434,34 @@ const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }
 	const [isDropping, setIsDropping] = React.useState(false);
 
 	const first = pieces[0] as TEntity;
-	const type = first.components.piece?.type ?? 'platform';
+	// Skins fit one piece type: with several types selected they go on the most common one, like the Library
+	const type = commonPieceType(pieces) ?? first.components.piece?.type ?? 'platform';
 	const typeLabel = getPieceDefinition(type)?.label ?? type;
 	const ids = pieces.map((entity) => entity.id);
+	const skinned = pieces.filter((entity) => entity.components.piece?.type === type);
+	const skinnedIds = skinned.map((entity) => entity.id);
+	const isMixedTypes = skinned.length < pieces.length;
 	const isSingle = pieces.length === 1;
-	const skinIds = [...new Set(pieces.map((entity) => entity.components.skin?.assetId ?? ''))];
+	const skinIds = [...new Set(skinned.map((entity) => entity.components.skin?.assetId ?? ''))];
 	const skinValue = skinIds.length === 1 ? (skinIds[0] ?? '') : MIXED;
 	const reactions = [...new Set(pieces.map(reactionChoiceOf))];
 	const link = mergedLink(ids.map((id) => links[id]));
 	const unlinked = ids.filter((id) => links[id]?.link === 'unlinked');
 	const fitting = [...projectItems, ...globalItems.filter((item) => !projectItems.some((own) => own.id === item.id))].filter((item) => itemFitsPieceType(item, type));
 	const current = projectItems.find((item) => item.id === skinValue);
-	const name = isSingle ? (first.name ?? typeLabel) : `${pieces.length} Pieces`;
+	const name = isSingle ? (first.name ?? typeLabel) : pieceCountLabel(pieces);
+
+	async function applyItem(item: TLibraryItem): Promise<void> {
+		if (await cx.library.applySkin(item, { kind: 'entities', entityIds: skinnedIds })) notifySkinApplied(cx, project, libraryItemLabel(item), type, pieces);
+	}
 
 	function setSkin(value: string): void {
 		if (value === '') {
-			cx.execute(clearSkinCommands(project, ids));
+			if (cx.execute(clearSkinCommands(project, skinnedIds))) notifySkinApplied(cx, project, 'Theme Default', type, pieces);
 			return;
 		}
 		const item = fitting.find((candidate) => itemValue(candidate) === value);
-		if (item != null) void cx.library.applySkin(item, { kind: 'entities', entityIds: ids });
+		if (item != null) void applyItem(item);
 	}
 
 	function onDrop(event: React.DragEvent): void {
@@ -372,7 +471,7 @@ const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }
 		event.preventDefault();
 		const dropped = JSON.parse(data) as { id: string; scope: string };
 		const item = [...projectItems, ...globalItems].find((candidate) => candidate.id === dropped.id && candidate.scope === dropped.scope);
-		if (item != null) void cx.library.applySkin(item, { kind: 'entities', entityIds: ids });
+		if (item != null) void applyItem(item);
 	}
 
 	const skinName = skinValue === MIXED ? 'Mixed skins' : current != null ? libraryItemLabel(current) : skinValue === '' ? 'Theme Default' : skinLabel(skinValue);
@@ -382,10 +481,18 @@ const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }
 			<InspectorHeader
 				icon={<PieceIcon type={type} size={16} />}
 				title={name}
-				subtitle={isSingle ? typeLabel : `${typeLabel}s`}
+				subtitle={isSingle ? typeLabel : isMixedTypes ? 'Pieces' : `${typeLabel}s`}
 				onRename={isSingle ? (value) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name: value } }]) : undefined}
 			/>
-			<Panel id="design.look" title="Look" accessory={<HelpTip text="Drag a skin from the library onto the tile or the piece. A reaction moves the skin on every hit; it never changes how the marble bounces." />}>
+			<Panel
+				id="design.look"
+				title="Look"
+				accessory={
+					<HelpTip
+						text={`Drag a skin from the library onto the tile or the piece. A reaction moves the skin on every hit; it never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}
+					/>
+				}
+			>
 				<div
 					className="mm-drop-well"
 					data-span="2"
@@ -455,7 +562,7 @@ const LinkState: React.FC<{ cx: StudioCx; status: TDesignStatus; link: TDesignLi
 			label={link === 'mixed' ? 'Some detached' : `Detached${reason != null ? ` · ${reason}` : ''}`}
 			detail="Changed in Blender, so the app no longer moves it. The marble still bounces off the Compose position."
 			action={
-				<button className="mm-icon-button" onClick={() => void cx.design.relink(unlinked)} title="Reset to Compose: discard the Blender changes" aria-label="Reset to Compose" type="button">
+				<button className="mm-icon-button" onClick={() => void cx.design.relink(unlinked)} title="Discard Blender Changes: the app moves it again" aria-label="Discard Blender Changes" type="button">
 					<RotateCcw size={12} strokeWidth={1.9} />
 				</button>
 			}

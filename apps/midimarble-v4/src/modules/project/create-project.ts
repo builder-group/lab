@@ -10,6 +10,14 @@ export const DEFAULT_MARBLE_RADIUS = 0.012;
  * bar length per hit like the reference film; see `progress.md`.
  */
 export const DEFAULT_GRAVITY_SCALE = 0.5;
+/**
+ * Follow camera of new projects. At 0.7 m a single marble spans about 9 % of the frame width and the next four pieces
+ * are in frame with bars at about a fifth of the width, close to the reference shorts; the steep pitch looks along
+ * the wall like the reference, so a column shows several stacked bars. Groups of marbles pull back only as far as
+ * they need (`camera.py`, readable distance). Measured in `references.md`, Close camera.
+ */
+export const DEFAULT_CAMERA_DISTANCE = 0.7;
+export const DEFAULT_CAMERA_PITCH = 1.15;
 /** Distance between the releases of neighbouring marbles, and between their lanes' bands in the frame */
 export const LANE_SPACING = 0.26;
 
@@ -35,9 +43,14 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 			theme: 'pegboard',
 			renderPreset: 'balanced',
 			loop: false,
-			// Far enough for the 1.5× kit to read like the reference film: a bar spans about a quarter of the frame.
-			// The steep pitch looks along the wall like the reference, so a column shows six to eight stacked bars
-			camera: { mode: 'rig', distance: 0.85, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: [] }
+			camera: {
+				mode: 'rig',
+				distance: DEFAULT_CAMERA_DISTANCE,
+				pitch: DEFAULT_CAMERA_PITCH,
+				lead: 0.15,
+				smoothing: 0.6,
+				shots: []
+			}
 		}
 	};
 }

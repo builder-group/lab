@@ -18,11 +18,12 @@ from pathlib import Path
 import bmesh
 import bpy
 import numpy as np
+from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from mm_worker import render  # noqa: E402
+from mm_worker import render, walltext  # noqa: E402
 from mm_worker.ops import Worker  # noqa: E402
 from mm_worker.util import DETACHED_COLLECTION, MANAGED_COLLECTION  # noqa: E402
 
@@ -399,8 +400,50 @@ def main():
     check(visible_at(text_object('text-timed'), 0.0) == (1.0, False), 'a range covering the film clears the timing')
     scene.frame_set(0)
 
+    # Screen titles: a caption near the top and an end card in the centre hang from the camera at a fixed frame size
+    caption = dict(title, id='text-caption', text='CAPTION', style='caption', size=0.06, color='#ffffff')
+    end_card = dict(title, id='text-end', text='END', style='endCard', size=0.08, color='#ffffff')
+    write_package(root, records, hit, asset=True, texts=[caption, end_card])
+    report = apply(worker)
+    camera_obj = scene.camera
+    check(report['texts']['screen'] == 2, 'apply attaches both screen titles to the camera')
+    caption_obj, end_obj = text_object('text-caption'), text_object('text-end')
+    check(caption_obj.parent == camera_obj and end_obj.parent == camera_obj and not caption_obj.visible_shadow,
+          'screen titles are parented to the film camera and cast no shadow')
+    for frame in (0, round(DURATION * FPS)):
+        scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        centre = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world.translation)
+        top = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world @ Vector((0.0, 0.5, 0.0)))
+        end_centre = world_to_camera_view(scene, camera_obj, end_obj.matrix_world.translation)
+        check(abs(centre.y - 0.85) < 0.01 and abs(centre.x - 0.5) < 0.01 and 0 < centre.z,
+              'the caption sits at the top centre of the frame at frame %d (%.3f, %.3f; focus %.3f, camera %s, caption %s, lens %.1f)' % (
+                  frame, centre.x, centre.y, camera_obj.data.dof.focus_distance, tuple(round(v, 3) for v in camera_obj.matrix_world.translation),
+                  tuple(round(v, 3) for v in caption_obj.matrix_world.translation), camera_obj.data.lens))
+        check(abs((top.y - centre.y) * 2 - 0.06) < 0.003, 'the caption keeps its size in the frame at frame %d' % frame)
+        check(abs(end_centre.y - 0.5) < 0.01, 'the end card sits in the centre at frame %d' % frame)
+    # The film's rig camera is perspective and moves; the drivers follow its distance to the wall and its focus
+    camera_obj.data.type = 'PERSP'
+    camera_obj.data.dof.focus_distance = 0.5
+    walltext.attach_screen_texts(bpy.data.collections[MANAGED_COLLECTION], camera_obj, scene)
+    for location in ((0.0, -0.6, 0.1), (0.05, -0.35, 0.2)):
+        camera_obj.location = location
+        bpy.context.view_layer.update()
+        centre = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world.translation)
+        top = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world @ Vector((0.0, 0.5, 0.0)))
+        check(abs(centre.y - 0.85) < 0.01 and abs((top.y - centre.y) * 2 - 0.06) < 0.003 and 0 < centre.z < abs(location[1]),
+              'a perspective camera %.2f m from the wall keeps the caption at the top in front of the wall' % abs(location[1]))
+    states = {item['mmId']: item['link'] for item in worker.handle('inspect', {})['texts']}
+    check(states == {'text-caption': 'linked', 'text-end': 'linked'}, 'camera drivers do not detach a screen title')
+    write_package(root, records, hit, asset=True, texts=[dict(caption, style='wall')])
+    apply(worker)
+    unparented = text_object('text-caption')
+    check(unparented.parent is None and (unparented.animation_data is None or unparented.animation_data.drivers.find('location', index=2) is None),
+          'a caption switched back to a wall title leaves the camera')
+    scene.frame_set(0)
+
     title_text = dict(title, text='MIDI MARBLE', size=0.026, depth=0.003, color='#b8892b', position={'x': 0.0, 'y': 0.215}, angle=0.0)
-    write_package(root, records, hit, asset=True, texts=[title_text])
+    write_package(root, records, hit, asset=True, texts=[title_text, caption])
     apply(worker)
     out = Path(os.environ.get('MM_CHECK_OUT') or APP_DIR / '.local' / 'design')
     out.mkdir(parents=True, exist_ok=True)

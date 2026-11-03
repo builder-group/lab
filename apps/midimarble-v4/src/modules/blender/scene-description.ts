@@ -66,6 +66,11 @@ export interface TSceneCamera {
 	 * marbles at this height instead of their bouncing centre. Optional and additive.
 	 */
 	descent?: TSceneDescentPoint[] | null;
+	/**
+	 * Time of the run's last hit in seconds. From then on the camera holds on that hit instead of following the
+	 * marble down the empty wall. Absent or null follows to the end; loop scenes ignore it. Optional and additive.
+	 */
+	holdAfter?: number | null;
 }
 
 export interface TSceneDescentPoint {
@@ -79,6 +84,11 @@ export interface TSceneShot {
 	/** Extra roll around the followed point in radians */
 	roll: number;
 	distance: number;
+	/**
+	 * Seconds the shot holds before the camera eases back to the rig's distance without extra roll; absent or null
+	 * holds until the next shot. Optional and additive.
+	 */
+	length?: number | null;
 }
 
 export interface TSceneReactions {
@@ -167,7 +177,7 @@ export interface TSceneWallText {
 	id: string;
 	text: string;
 	font: string;
-	/** Letter height in metres */
+	/** Letter height in metres; for a screen title (`caption`, `endCard`) a fraction of the frame height */
 	size: number;
 	/** Extrusion in metres */
 	depth: number;
@@ -180,6 +190,11 @@ export interface TSceneWallText {
 	 */
 	in?: number;
 	out?: number;
+	/**
+	 * `wall` (absent) and `songName` sit on the wall at `position`; `caption` (top of the frame) and `endCard`
+	 * (centre) hang from the film camera. Optional and additive.
+	 */
+	style?: 'wall' | 'caption' | 'songName' | 'endCard';
 }
 
 export interface TSceneThemeOptions {

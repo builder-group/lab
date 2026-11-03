@@ -168,6 +168,32 @@ Decision: the fixture is rebuilt at half gravity. It is what a beginner importin
 
 Other release leads at half gravity, which stopped at 23 s (0.35 s) and 29 s (1 s) before: 0.35 s completes on the third release position (shifted −1 cm) with 7 rotations of the previous piece and a clean preflight; 1 s completes on the first with 17 manual steps (4 by hand) and 4 dots outside their lane, which the preflight reports.
 
+### Close camera
+
+Measured on 2026-11-04 after the Round 4 review (N5: Jingle Bells framed about 40 bars with marbles at 3 % of the frame width, a Push In held to the end, the film ended on empty wall). Numbers come from the TypeScript port at 30 fps projected into the 9:16 frame over the time from the first to the last hit (`.local/camera-framing/measure.ts`; before in `before.txt`, after in `after.jsonl`); Draft films and before/after stills are in `.local/camera-framing/films/`.
+
+| | reference-20 before | reference-20 after | Jingle Bells before | Jingle Bells after |
+| --- | --- | --- | --- | --- |
+| Rig distance, pitch | 0.85 m, 1.15 | 0.7 m, 1.15 | 0.85 m, 1.15 | 0.7 m, 1.15 |
+| Marble in frame width, median (10th percentile) | 7.2 % (6.7) | 8.7 % (8.0) | 4.3 % (3.5) | 5.3 % (4.3) |
+| Pieces in frame, median | 11 | 9 | 27 | 20 |
+| Next four pieces in frame, median | 4 | 4 | 4 | 4 |
+| Bar length in frame width, median | 17 % | 21 % | 12 % | 16 % |
+| All playing marbles in frame | 100 % | 100 % | 99.8 % | 100 % |
+| Camera distance, median and max | 0.85, 0.85 m | 0.7, 0.7 m | 1.33, 1.62 m | 1.06, 1.5 m |
+| At 0:12 | 13 pieces, marble 7.5 % | 11 pieces, 9.1 % | 36 pieces, 3.6 and 3.8 % | 28 pieces, 4.8 and 5.2 % |
+| Last frame | no piece | 4 of the last 5 pieces | no piece | 4 of the last 5 pieces |
+
+What changed:
+
+- Group size as the camera sees it. The group need measured each marble's offset flat on the wall against the frame's width and height. At pitch 1.15 the wall's vertical is foreshortened to about 0.4 and the image is turned some 55° against the wall even without roll, so it overestimated vertical spreads and could not see that the smoothed target sits off the group's centre when marbles weave sideways. It now projects each offset onto the camera's own right and up axes (from the side, pitch and roll it will bake) around the smoothed target of a first pass, plus the depth toward the camera. Measured that way the Jingle Bells group used 43 % of the half frame at the median against its 75 to 80 % budget, so the frame budget rose to 85 % of the half width and height. 0.9 also keeps both marbles in frame (5.5 % median) but puts them within a tenth of the frame edge on 10 % of the frames
+- Marble readability bound. The readable maximum also keeps a marble at 3.5 % of the frame width or more (1.69 m for the 24 mm marble); past it the camera follows the focus marble as before. 4 % left the bass out of shot on 5 % of the frames
+- Rig distance 0.7 m for new projects and both fixtures (0.6 m makes bars 25 % of the frame but leaves 7 pieces and 3 of the next four in frame). The steep 1.15 pitch stays: with two lanes, pitch 1.0 shows 19 pieces against 20 but the marbles shrink to 4.8 %, and single-marble columns lose their stacked rows
+- Shots release. Push In and Close-Up hold 2 s and ease back over 0.8 s, Wide and Follow hold until the next shot; a reference-20 Push In at 6 s is back at the rig distance by 9.5 s
+- Ending. After the last struck hit the camera reads the marbles at that time and eases over a second to the middle of the last second of run, with heading and roll drift coming to rest; the camera slows from about 50 cm/s to under 1 cm/s by the end
+
+Still different from the references: two lanes side by side keep the Jingle Bells camera at about 1 m, so its pieces stay at 16 % of the frame width against the reference's 25 to 30 %; closer needs narrower lane bands (see Larger kit and closer lanes). Zigzag and the other early fixtures keep their 0.9 m, 0.7 rad camera. The closer frame drops reference-20's "Night Keys" title at 0:10 out of shot; its offsets were set for the 0.85 m frame. Before/after Draft stills: `.local/camera-framing/films/*-before-after.jpg` (top row the Round 5 Draft films, bottom row these).
+
 ## Scale
 
 Blender's default unit is the metre, and the purchased Marble Race Kit uses real scale: marbles are 16 mm and track modules about 0.2 m. MidiMarble works in the same units; its default kit is 1.5 times that size (24 mm marbles, 9 cm bars), which reads at the reference film's scale, as `reference-20` showed first. Rapier and Blender then share units, and lighting, depth of field and physics behave like real objects.

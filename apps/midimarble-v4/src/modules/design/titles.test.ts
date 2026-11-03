@@ -30,7 +30,7 @@ describe('title timing', () => {
 	it('should list titles as clips by start and pass the times to the scene description', () => {
 		// Prepare
 		let project: TProject = createProject({ title: 'Titles' });
-		const { commands, entityId } = addWallTextCommands({ x: 0, y: 0.2 }, 'Fin');
+		const { commands, entityId } = addWallTextCommands({ x: 0, y: 0.2 }, { theme: 'pegboard', frameHeight: 0.5, text: 'Fin' });
 		const [isAddedOk, addedErr, added] = applyProjectCommands(project, commands);
 		if (!isAddedOk) throw addedErr;
 		const text = added.entities.find((entity) => entity.id === entityId)?.components.wallText ?? TEXT;

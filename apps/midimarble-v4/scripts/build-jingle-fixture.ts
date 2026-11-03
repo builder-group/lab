@@ -16,6 +16,8 @@ import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '.
 import {
 	applyProjectCommands,
 	createProject,
+	DEFAULT_CAMERA_DISTANCE,
+	DEFAULT_CAMERA_PITCH,
 	LANE_SPACING,
 	parseProject,
 	serializeProject,
@@ -207,12 +209,18 @@ writeFileSync(new URL('build-log.txt', OUT), `${log.join('\n')}\n`);
 
 /**
  * What the import sheet records besides the marbles: the MIDI file as the project's song, starting where its
- * first note plays, and its tempo. Pieces are named in time order last. Neither changes the run.
+ * first note plays, and its tempo, and the default camera of a new project. Pieces are named in time order last. None
+ * of it changes the run.
  */
 function finalized(current: TProject): TProject {
 	const source: TSource = { id: 'source-1', kind: 'midi', path: `audio/${SONG_NAME}`, name: SONG_NAME, offset: IMPORT_START };
 	const removed = current.music.sources.map((item) => ({ type: 'removeSource' as const, sourceId: item.id }));
-	const song = apply(current, [...removed, { type: 'upsertSource', source }, { type: 'setTempo', tempo: { bpm: TEMPO, beatsPerBar: 4 } }], current.revision);
+	const camera = { ...current.design.camera, distance: DEFAULT_CAMERA_DISTANCE, pitch: DEFAULT_CAMERA_PITCH };
+	const song = apply(
+		current,
+		[...removed, { type: 'upsertSource', source }, { type: 'setTempo', tempo: { bpm: TEMPO, beatsPerBar: 4 } }, { type: 'setDesign', design: { camera } }],
+		current.revision
+	);
 	return namePiecesInOrder(song);
 }
 

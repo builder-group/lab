@@ -27,8 +27,15 @@ const SHOT_EASE = 0.8;
 const LENS = 50.0;
 const MIN_PIECE_FRACTION = 0.06;
 const ZOOM_LIMIT = 3.0;
-const GROUP_KEEP_X = 0.75;
-const GROUP_KEEP_Y = 0.8;
+const GROUP_KEEP_X = 0.85;
+const GROUP_KEEP_Y = 0.85;
+/** A marble spans at least this fraction of the frame width at the readable maximum */
+const MIN_MARBLE_FRACTION = 0.035;
+/** Margin on the distance a framed group needs */
+const GROUP_MARGIN = 1.1;
+/** Seconds over which the camera settles once it holds on the last hit, and the stretch of run before that hit */
+const HOLD_EASE = 1.0;
+const HOLD_SPAN = 1.0;
 /** Weight in the group centre of a marble past its `activeUntil`, `FINISHED_WEIGHT` in `camera.py` */
 const FINISHED_WEIGHT = 0.001;
 export const CAMERA_SENSOR = 36.0;
@@ -57,91 +64,30 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	const times = new Float64Array(count);
 	for (let index = 0; index < count; index++) times[index] = (firstFrame + index) / fps;
 	const aspect = renderAspect(input.frame);
-	const framing = groupFraming(marbles, times, settings, fps, aspect);
+	if (loop != null) settings.hold = null;
+	// The group's size in frame depends on where the camera looks from and at: a first pass with the camera straight
+	// and sized around the group's centre gives the run direction and the smoothed target that size the second
+	const straight = groupFraming(marbles, times, settings, fps, aspect, new Float64Array(count), null);
+	if (straight == null) return null;
+	const firstPass = followTarget(straight, settings, fps, times);
+	const framing = groupFraming(marbles, times, settings, fps, aspect, firstPass.heading, [
+		firstPass.targetX,
+		firstPass.targetY
+	]);
 	if (framing == null) return null;
 	const { depth, distance } = framing;
 	const [currentX, currentY] = framing.current;
-	const [aheadX, aheadY] = framing.ahead;
-
-	// Lead the marble, but never so far that it leaves the upper part of the frame on fast drops
-	const followX = new Float64Array(count);
-	const followY = new Float64Array(count);
-	for (let index = 0; index < count; index++) {
-		const dx = (aheadX[index] ?? 0) - (currentX[index] ?? 0);
-		const dy = (aheadY[index] ?? 0) - (currentY[index] ?? 0);
-		const length = Math.hypot(dx, dy);
-		const limit = LEAD_LIMIT * (distance[index] ?? 0);
-		const scale = length > limit ? limit / Math.max(length, 1e-9) : 1.0;
-		followX[index] = (currentX[index] ?? 0) + dx * scale;
-		followY[index] = (currentY[index] ?? 0) + dy * scale;
-	}
-	const tau = 0.04 + 0.5 * settings.smoothing;
-	const targetX = criticallyDamped(followX, fps, tau);
-	const targetY = criticallyDamped(followY, fps, tau);
-	// Pull the target back wherever the marble would leave the inner part of the frame
-	const reach = new Float64Array(count);
-	for (let index = 0; index < count; index++)
-		reach[index] = (((distance[index] ?? 0) * CAMERA_SENSOR) / 2 / settings.lens) * FRAME_KEEP;
-	for (let iteration = 0; iteration < 8; iteration++) {
-		const excessX = new Float64Array(count);
-		const excessY = new Float64Array(count);
-		let isAny = false;
-		for (let index = 0; index < count; index++) {
-			excessX[index] = excess(
-				(currentX[index] ?? 0) - (targetX[index] ?? 0),
-				(reach[index] ?? 0) * ASPECT_GUESS
-			);
-			excessY[index] = excess(
-				(currentY[index] ?? 0) - (targetY[index] ?? 0),
-				(reach[index] ?? 0) * 1.0
-			);
-			if (excessX[index] !== 0 || excessY[index] !== 0) isAny = true;
-		}
-		if (!isAny) break;
-		const smoothX = criticallyDamped(excessX, fps, 0.08);
-		const smoothY = criticallyDamped(excessY, fps, 0.08);
-		for (let index = 0; index < count; index++) {
-			targetX[index] = (targetX[index] ?? 0) + (smoothX[index] ?? 0) * 1.3;
-			targetY[index] = (targetY[index] ?? 0) + (smoothY[index] ?? 0) * 1.3;
-		}
-	}
-	// Safety net for extreme motion: never let a marble leave the frame
-	for (let index = 0; index < count; index++) {
-		targetX[index] =
-			(targetX[index] ?? 0) +
-			excess(
-				(currentX[index] ?? 0) - (targetX[index] ?? 0),
-				(reach[index] ?? 0) * ASPECT_GUESS * 1.5
-			);
-		targetY[index] =
-			(targetY[index] ?? 0) +
-			excess((currentY[index] ?? 0) - (targetY[index] ?? 0), (reach[index] ?? 0) * 1.0 * 1.5);
-	}
-	// Run direction from the smoothed target over one second, then smoothed again for slow heading changes
-	const window = Math.max(1, pyRound(0.5 * fps));
-	const heading = new Float64Array(count);
-	for (let index = 0; index < count; index++) {
-		const ahead = Math.min(count - 1, index + window);
-		const behind = Math.max(0, index - window);
-		const dx = (targetX[ahead] ?? 0) - (targetX[behind] ?? 0);
-		const dy = (targetY[ahead] ?? 0) - (targetY[behind] ?? 0);
-		const isMoving = Math.hypot(dx, dy) > 1e-4;
-		heading[index] = clamp(isMoving ? Math.atan2(dx, -dy) : 0.0, -Math.PI / 2, Math.PI / 2);
-	}
-	const smoothHeading = criticallyDamped(heading, fps, HEADING_TAU);
+	const { targetX, targetY, heading: smoothHeading } = followTarget(framing, settings, fps, times);
+	// The camera stands below and to the side of the target, looking up along the run; the side follows the run
+	// direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
+	const { side, roll } = viewTurn(times, smoothHeading, framing.roll, settings.hold);
 
 	const pitch = settings.pitch;
 	const position = new Float64Array(count * 3);
 	const rotation = new Float64Array(count * 4);
 	const focus = new Float64Array(count);
-	const roll = new Float64Array(count);
 	for (let index = 0; index < count; index++) {
-		const side = SIDE_ANGLE + SIDE_FOLLOW * (smoothHeading[index] ?? 0);
-		roll[index] =
-			clamp(ROLL_FOLLOW * (smoothHeading[index] ?? 0), -ROLL_LIMIT, ROLL_LIMIT) +
-			ROLL_DRIFT * Math.sin((2 * Math.PI * (times[index] ?? 0)) / ROLL_PERIOD) +
-			(framing.roll[index] ?? 0);
-		const foot: TVec3 = [Math.sin(side), 0.0, -Math.cos(side)];
+		const foot: TVec3 = [Math.sin(side[index] ?? 0), 0.0, -Math.cos(side[index] ?? 0)];
 		const up: TVec3 = [-Math.sin(roll[index] ?? 0), 0.0, Math.cos(roll[index] ?? 0)];
 		const aim: TVec3 = [targetX[index] ?? 0, -depth, targetY[index] ?? 0];
 		const along = Math.sin(pitch);
@@ -324,8 +270,10 @@ interface TSettings {
 	lead: number;
 	smoothing: number;
 	lens: number;
-	shots: { time: number; roll: number; distance: number }[];
+	shots: { time: number; roll: number; distance: number; length: number | null }[];
 	focus: string | null;
+	/** Time of the run's last hit, after which the camera holds on it; null follows to the end */
+	hold: number | null;
 	descent: { time: Float64Array; y: Float64Array } | null;
 	pieceLength: number | null;
 }
@@ -335,6 +283,7 @@ interface TFraming {
 	ahead: [Float64Array, Float64Array];
 	depth: number;
 	distance: Float64Array;
+	/** Shot roll per frame */
 	roll: Float64Array;
 }
 
@@ -347,7 +296,11 @@ function settingsFrom(camera: TSceneCamera, pieceLength: number | null): TSettin
 		.map((shot) => ({
 			time: shot.time,
 			roll: shot.roll ?? 0,
-			distance: Math.max(0.05, shot.distance ?? camera.distance ?? 0.6)
+			distance: Math.max(0.05, shot.distance ?? camera.distance ?? 0.6),
+			length:
+				typeof shot.length === 'number' && Number.isFinite(shot.length) && shot.length > 0
+					? shot.length
+					: null
 		}))
 		.sort((a, b) => a.time - b.time);
 	const descent = (camera.descent ?? [])
@@ -362,6 +315,10 @@ function settingsFrom(camera: TSceneCamera, pieceLength: number | null): TSettin
 		lens: LENS,
 		shots,
 		focus: camera.focusMarbleId ?? null,
+		hold:
+			typeof camera.holdAfter === 'number' && Number.isFinite(camera.holdAfter)
+				? camera.holdAfter
+				: null,
 		descent:
 			descent.length >= 2
 				? {
@@ -402,11 +359,16 @@ function widthPerMetre(lens: number, aspect: number): number {
 	return (CAMERA_SENSOR * Math.min(aspect, 1.0)) / lens;
 }
 
-function readableDistance(settings: TSettings, aspect: number): number {
+/**
+ * `readable_distance`: a typical piece spans MIN_PIECE_FRACTION of the frame width, a marble of `radius`
+ * MIN_MARBLE_FRACTION, and the camera stands at most ZOOM_LIMIT times its set distance away
+ */
+function readableDistance(settings: TSettings, aspect: number, radius: number | null): number {
 	let limit = settings.distance * ZOOM_LIMIT;
+	const width = widthPerMetre(settings.lens, aspect);
 	const piece = settings.pieceLength;
-	if (piece)
-		limit = Math.min(limit, piece / (MIN_PIECE_FRACTION * widthPerMetre(settings.lens, aspect)));
+	if (piece) limit = Math.min(limit, piece / (MIN_PIECE_FRACTION * width));
+	if (radius) limit = Math.min(limit, (2 * radius) / (MIN_MARBLE_FRACTION * width));
 	return Math.max(limit, settings.distance);
 }
 
@@ -464,23 +426,73 @@ function focusMarble(marbles: TFollowMarble[], focus: string | null): TFollowMar
 	return moving.find((marble) => marble.id === focus) ?? moving[0] ?? null;
 }
 
+/** `drift_times`: the film time, easing to a stop over HOLD_EASE seconds once the camera holds */
+function driftTime(time: number, hold: number | null): number {
+	if (hold == null) return time;
+	const past = Math.max(time - hold, 0.0);
+	return Math.min(time, hold) + HOLD_EASE * (1.0 - Math.exp(-past / HOLD_EASE));
+}
+
+/** `view_turn`: side angle around the target and image roll per frame */
+function viewTurn(
+	times: Float64Array,
+	heading: Float64Array,
+	shotRoll: Float64Array,
+	hold: number | null
+): { side: Float64Array; roll: Float64Array } {
+	const side = new Float64Array(times.length);
+	const roll = new Float64Array(times.length);
+	for (let index = 0; index < times.length; index++) {
+		const turn = heading[index] ?? 0;
+		side[index] = SIDE_ANGLE + SIDE_FOLLOW * turn;
+		roll[index] =
+			clamp(ROLL_FOLLOW * turn, -ROLL_LIMIT, ROLL_LIMIT) +
+			ROLL_DRIFT * Math.sin((2 * Math.PI * driftTime(times[index] ?? 0, hold)) / ROLL_PERIOD) +
+			(shotRoll[index] ?? 0);
+	}
+	return { side, roll };
+}
+
+/** `view_axes`: image right and up and the unit direction from the target toward the camera for one frame */
+function viewAxes(side: number, roll: number, pitch: number): { right: TVec3; up: TVec3; toward: TVec3 } {
+	const toward: TVec3 = [Math.sin(side) * Math.sin(pitch), -Math.cos(pitch), -Math.cos(side) * Math.sin(pitch)];
+	const forward: TVec3 = [-toward[0], -toward[1], -toward[2]];
+	let right = cross(forward, [-Math.sin(roll), 0.0, Math.cos(roll)]);
+	if (Math.hypot(...right) < 1e-8) right = cross(forward, [0.0, -1.0, 0.0]);
+	right = normalize(right);
+	return { right, up: normalize(cross(right, forward)), toward };
+}
+
+/**
+ * `spread_need`: distance at which every marble in flight stays inside the framing box around the centre, with each
+ * offset seen along the camera's axes
+ */
 function spreadNeed(
 	marbles: TFollowMarble[],
 	times: Float64Array,
 	centre: [Float64Array, Float64Array],
-	lens: number
+	lens: number,
+	turn: { side: Float64Array; roll: Float64Array },
+	pitch: number
 ): Float64Array {
 	const reach = (CAMERA_SENSOR / 2 / lens) * GROUP_KEEP_Y;
 	const reachX = (CAMERA_SENSOR / 2 / lens) * GROUP_KEEP_X * ASPECT_GUESS;
 	const required = new Float64Array(times.length);
+	const axes = Array.from(times, (_, index) =>
+		viewAxes(turn.side[index] ?? 0, turn.roll[index] ?? 0, pitch)
+	);
 	for (const marble of marbles) {
 		if (!hasMotion(marble)) continue;
 		const [x, y] = marblePoint(marble, times);
 		for (let index = 0; index < times.length; index++) {
 			if (!inside(marble, times[index] ?? 0)) continue;
-			const dx = Math.abs((x[index] ?? 0) - (centre[0][index] ?? 0));
-			const dy = Math.abs((y[index] ?? 0) - (centre[1][index] ?? 0));
-			const need = Math.max(dx / reachX, dy / reach) * 1.1;
+			const dx = (x[index] ?? 0) - (centre[0][index] ?? 0);
+			const dy = (y[index] ?? 0) - (centre[1][index] ?? 0);
+			const { right, up, toward } = axes[index] as { right: TVec3; up: TVec3; toward: TVec3 };
+			const across = Math.abs(dx * right[0] + dy * right[2]);
+			const high = Math.abs(dx * up[0] + dy * up[2]);
+			const along = dx * toward[0] + dy * toward[2];
+			const need = along + Math.max(across / reachX, high / reach) * GROUP_MARGIN;
 			required[index] = Math.max(required[index] ?? 0, need);
 		}
 	}
@@ -566,20 +578,30 @@ function groupFraming(
 	times: Float64Array,
 	settings: TSettings,
 	fps: number,
-	aspect: number
+	aspect: number,
+	heading: Float64Array,
+	aim: [Float64Array, Float64Array] | null
 ): TFraming | null {
 	const count = times.length;
-	const { point: centre, depth } = followPoints(marbles, times);
-	const leadTimes = times.map((time) => time + settings.lead);
+	// From the hold time on the marbles are read at the hold time, so the camera settles on the last hit
+	const hold = settings.hold;
+	const sample = hold == null ? times : times.map((time) => Math.min(time, hold));
+	const leadTimes = times.map((time) =>
+		hold == null ? time + settings.lead : Math.min(time + settings.lead, hold)
+	);
+	const { point: centre, depth } = followPoints(marbles, sample);
 	const { point: ahead } = followPoints(marbles, leadTimes);
 	if (centre == null || ahead == null) return null;
 	if (settings.descent != null) {
-		centre[1] = pacedHeight(marbles, times, centre[1], settings.descent);
+		centre[1] = pacedHeight(marbles, sample, centre[1], settings.descent);
 		ahead[1] = pacedHeight(marbles, leadTimes, ahead[1], settings.descent);
 	}
 	const { distance: base, roll } = shotValues(times, settings.distance, settings.shots);
-	const limit = readableDistance(settings, aspect);
-	const raw = spreadNeed(marbles, times, centre, settings.lens);
+	const radii = marbles.filter(hasMotion).map((marble) => marble.radius);
+	const limit = readableDistance(settings, aspect, radii.length ? Math.min(...radii) : null);
+	const turn = viewTurn(times, heading, roll, hold);
+	// Sized around the smoothed target when the first pass gave one, else around the group's centre
+	const raw = spreadNeed(marbles, sample, aim ?? centre, settings.lens, turn, settings.pitch);
 	const need = held(held(raw, fps, GROUP_SPIKE / 2, 'median'), fps, 1.0, 'max');
 	const over = withoutShortRuns(
 		Array.from(raw, (value) => value > limit),
@@ -605,14 +627,14 @@ function groupFraming(
 		distance[index] = Math.min(distance[index] ?? 0, Math.max(base[index] ?? 0, limit));
 	const focus = focusMarble(marbles, settings.focus);
 	if (focus != null && marbles.length > 1) {
-		const focusNow = marblePoint(focus, times);
+		const focusNow = marblePoint(focus, sample);
 		const focusAhead = marblePoint(focus, leadTimes);
 		// Once the focus marble has played its last note, the camera eases back to the marbles that still play
 		let keep = weight;
 		if (focus.activeUntil != null) {
 			const until = focus.activeUntil;
 			const playing = criticallyDamped(
-				times.map((time) => (time <= until + 1e-9 ? 1 : 0)),
+				sample.map((time) => (time <= until + 1e-9 ? 1 : 0)),
 				fps,
 				GROUP_EASE / 3
 			);
@@ -628,7 +650,120 @@ function groupFraming(
 			}
 		}
 	}
+	if (hold != null) {
+		settle(centre, times, hold);
+		settle(ahead, times, hold);
+	}
 	return { current: centre, ahead, depth, distance, roll };
+}
+
+/**
+ * `settled`: after the hold time the points ease over HOLD_EASE seconds from the last hit to the middle of the path
+ * over the HOLD_SPAN seconds before it, so the last frames show the final pieces. Changes the arrays in place.
+ */
+function settle(points: [Float64Array, Float64Array], times: Float64Array, hold: number): void {
+	let count = 0;
+	const middle = [0, 0];
+	for (let index = 0; index < times.length; index++) {
+		const time = times[index] ?? 0;
+		if (time < hold - HOLD_SPAN - 1e-9 || time > hold + 1e-9) continue;
+		count++;
+		middle[0] = (middle[0] ?? 0) + (points[0][index] ?? 0);
+		middle[1] = (middle[1] ?? 0) + (points[1][index] ?? 0);
+	}
+	if (count === 0 || !times.some((time) => time > hold)) return;
+	for (const axis of [0, 1] as const) {
+		const mean = (middle[axis] ?? 0) / count;
+		for (let index = 0; index < times.length; index++) {
+			const weight = smoothstep(((times[index] ?? 0) - hold) / HOLD_EASE);
+			points[axis][index] = (points[axis][index] ?? 0) * (1 - weight) + mean * weight;
+		}
+	}
+}
+
+/** `follow_target`: look target on the wall per frame and the run direction (heading) the camera turns with */
+function followTarget(
+	framing: TFraming,
+	settings: TSettings,
+	fps: number,
+	times: Float64Array
+): { targetX: Float64Array; targetY: Float64Array; heading: Float64Array } {
+	const count = times.length;
+	const { distance } = framing;
+	const [currentX, currentY] = framing.current;
+	const [aheadX, aheadY] = framing.ahead;
+	// Lead the marble, but never so far that it leaves the upper part of the frame on fast drops
+	const followX = new Float64Array(count);
+	const followY = new Float64Array(count);
+	for (let index = 0; index < count; index++) {
+		const dx = (aheadX[index] ?? 0) - (currentX[index] ?? 0);
+		const dy = (aheadY[index] ?? 0) - (currentY[index] ?? 0);
+		const length = Math.hypot(dx, dy);
+		const limit = LEAD_LIMIT * (distance[index] ?? 0);
+		const scale = length > limit ? limit / Math.max(length, 1e-9) : 1.0;
+		followX[index] = (currentX[index] ?? 0) + dx * scale;
+		followY[index] = (currentY[index] ?? 0) + dy * scale;
+	}
+	const tau = 0.04 + 0.5 * settings.smoothing;
+	const targetX = criticallyDamped(followX, fps, tau);
+	const targetY = criticallyDamped(followY, fps, tau);
+	// Pull the target back wherever the marble would leave the inner part of the frame
+	const reach = new Float64Array(count);
+	for (let index = 0; index < count; index++)
+		reach[index] = (((distance[index] ?? 0) * CAMERA_SENSOR) / 2 / settings.lens) * FRAME_KEEP;
+	for (let iteration = 0; iteration < 8; iteration++) {
+		const excessX = new Float64Array(count);
+		const excessY = new Float64Array(count);
+		let isAny = false;
+		for (let index = 0; index < count; index++) {
+			excessX[index] = excess(
+				(currentX[index] ?? 0) - (targetX[index] ?? 0),
+				(reach[index] ?? 0) * ASPECT_GUESS
+			);
+			excessY[index] = excess(
+				(currentY[index] ?? 0) - (targetY[index] ?? 0),
+				(reach[index] ?? 0) * 1.0
+			);
+			if (excessX[index] !== 0 || excessY[index] !== 0) isAny = true;
+		}
+		if (!isAny) break;
+		const smoothX = criticallyDamped(excessX, fps, 0.08);
+		const smoothY = criticallyDamped(excessY, fps, 0.08);
+		for (let index = 0; index < count; index++) {
+			targetX[index] = (targetX[index] ?? 0) + (smoothX[index] ?? 0) * 1.3;
+			targetY[index] = (targetY[index] ?? 0) + (smoothY[index] ?? 0) * 1.3;
+		}
+	}
+	// Safety net for extreme motion: never let a marble leave the frame
+	for (let index = 0; index < count; index++) {
+		targetX[index] =
+			(targetX[index] ?? 0) +
+			excess(
+				(currentX[index] ?? 0) - (targetX[index] ?? 0),
+				(reach[index] ?? 0) * ASPECT_GUESS * 1.5
+			);
+		targetY[index] =
+			(targetY[index] ?? 0) +
+			excess((currentY[index] ?? 0) - (targetY[index] ?? 0), (reach[index] ?? 0) * 1.0 * 1.5);
+	}
+	// Run direction from the smoothed target over one second, then smoothed again for slow heading changes
+	const window = Math.max(1, pyRound(0.5 * fps));
+	const heading = new Float64Array(count);
+	for (let index = 0; index < count; index++) {
+		const ahead = Math.min(count - 1, index + window);
+		const behind = Math.max(0, index - window);
+		const dx = (targetX[ahead] ?? 0) - (targetX[behind] ?? 0);
+		const dy = (targetY[ahead] ?? 0) - (targetY[behind] ?? 0);
+		const isMoving = Math.hypot(dx, dy) > 1e-4;
+		heading[index] = clamp(isMoving ? Math.atan2(dx, -dy) : 0.0, -Math.PI / 2, Math.PI / 2);
+	}
+	// While the camera settles on the last hit the target barely moves; the view keeps the run direction it had
+	if (settings.hold != null) {
+		const settle = settings.hold - window / fps;
+		const first = times.findIndex((time) => time > settle);
+		if (first > 0) heading.fill(heading[first - 1] ?? 0, first);
+	}
+	return { targetX, targetY, heading: criticallyDamped(heading, fps, HEADING_TAU) };
 }
 
 /** Zero-phase smoothing: a critically damped second-order filter run forward then backward */
@@ -669,6 +804,31 @@ function criticallyDamped(values: Float64Array, fps: number, tau: number): Float
 	return backward.slice(pad, pad + count);
 }
 
+function smoothstep(progress: number): number {
+	const value = clamp(progress, 0.0, 1.0);
+	return value * value * (3 - 2 * value);
+}
+
+/**
+ * `shot_events`: the distance and roll the camera eases to from each time on. Every shot's values, and the rig's
+ * distance without extra roll once a shot with a length has held that long before the next shot starts.
+ */
+export function shotEvents(
+	shots: readonly { time: number; roll: number; distance: number; length?: number | null }[],
+	baseDistance: number
+): { time: number; distance: number; roll: number; isRelease: boolean }[] {
+	const events: { time: number; distance: number; roll: number; isRelease: boolean }[] = [];
+	shots.forEach((shot, index) => {
+		events.push({ time: shot.time, distance: shot.distance, roll: shot.roll, isRelease: false });
+		const following = shots[index + 1]?.time ?? Infinity;
+		const length = shot.length;
+		if (length != null && shot.time + length < following - 1e-9)
+			events.push({ time: shot.time + length, distance: baseDistance, roll: 0.0, isRelease: true });
+	});
+	return events;
+}
+
+/** `shot_values`: each transition eases over SHOT_EASE seconds from where the previous one has got to */
 function shotValues(
 	times: Float64Array,
 	baseDistance: number,
@@ -676,18 +836,21 @@ function shotValues(
 ): { distance: Float64Array; roll: Float64Array } {
 	const distance = new Float64Array(times.length).fill(baseDistance);
 	const roll = new Float64Array(times.length);
-	let previousDistance = baseDistance;
-	let previousRoll = 0.0;
-	for (const shot of shots) {
+	let start: [number, number] = [baseDistance, 0.0];
+	let goal: [number, number] = [baseDistance, 0.0];
+	let startTime = -Infinity;
+	for (const event of shotEvents(shots, baseDistance)) {
+		const reached = smoothstep((event.time - startTime) / SHOT_EASE);
+		start = [start[0] + (goal[0] - start[0]) * reached, start[1] + (goal[1] - start[1]) * reached];
+		goal = [event.distance, event.roll];
+		startTime = event.time;
 		for (let index = 0; index < times.length; index++) {
-			if ((times[index] ?? 0) < shot.time) continue;
-			const progress = clamp(((times[index] ?? 0) - shot.time) / SHOT_EASE, 0.0, 1.0);
-			const eased = progress * progress * (3 - 2 * progress);
-			distance[index] = previousDistance + (shot.distance - previousDistance) * eased;
-			roll[index] = previousRoll + (shot.roll - previousRoll) * eased;
+			const time = times[index] ?? 0;
+			if (time < event.time) continue;
+			const eased = smoothstep((time - event.time) / SHOT_EASE);
+			distance[index] = start[0] + (goal[0] - start[0]) * eased;
+			roll[index] = start[1] + (goal[1] - start[1]) * eased;
 		}
-		previousDistance = shot.distance;
-		previousRoll = shot.roll;
 	}
 	return { distance, roll };
 }

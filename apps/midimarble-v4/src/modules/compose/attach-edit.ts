@@ -1,6 +1,7 @@
 import { createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TPathNode, type TProject, type TVec2 } from '@/modules/project';
 import {
 	anchorHit,
+	frameBand,
 	nextPieceName,
 	freePose,
 	getPieceDefinition,
@@ -9,11 +10,14 @@ import {
 	layoutOf,
 	resolvePieceParams,
 	resolvePiecePath,
+	shapeDistance,
 	soundsHit,
 	transformShape,
 	type TLayoutInput,
 	type TPieceLayout,
-	type TResolvedPiece
+	type TPieceShape,
+	type TResolvedPiece,
+	type TSimulationResult
 } from '@/modules/simulation';
 import { sampleNodes } from './bezier';
 
@@ -243,4 +247,54 @@ export function rotateResolved(piece: TResolvedPiece, pivot: TVec2, angle: numbe
 export function withEntity(project: TProject, entity: TEntity): TProject {
 	const exists = project.entities.some((item) => item.id === entity.id);
 	return { ...project, entities: exists ? project.entities.map((item) => (item.id === entity.id ? entity : item)) : [...project.entities, entity] };
+}
+
+/** Gap a windmill added beside a fall keeps between its arm circle and every marble path and piece */
+export const ROTOR_CLEARANCE = 0.004;
+
+/**
+ * Hub position for a windmill that follows the marble at `at`: beside the fall, perpendicular to it, so its arm
+ * circle of radius `reach` clears every marble's path and every piece by `ROTOR_CLEARANCE` and the run stays as
+ * it was. The side towards the frame centre is tried first, then further out. Without a clear spot, the roomiest
+ * one tried.
+ */
+export function clearRotorPosition(project: TProject, result: TSimulationResult, at: { position: TVec2; velocity: TVec2 }, reach: number, laneId: string): TVec2 {
+	const speed = Math.hypot(at.velocity.x, at.velocity.y);
+	const across = speed > 1e-6 ? { x: -at.velocity.y / speed, y: at.velocity.x / speed } : { x: 1, y: 0 };
+	const marbleRadius = result.marbles.find((track) => track.laneId === laneId)?.radius ?? DEFAULT_MARBLE_RADIUS;
+	const centerX = frameBand(project, laneId).centerX;
+	const inward = Math.sign((centerX - at.position.x) * across.x) || 1;
+	const shapes = result.pieces.flatMap(pieceShapes);
+	const base = reach + marbleRadius + ROTOR_CLEARANCE;
+	let best: { position: TVec2; gap: number } | null = null;
+	for (const stretch of [1, 1.3, 1.7, 2.2]) {
+		for (const side of [inward, -inward]) {
+			const position = { x: at.position.x + across.x * side * base * stretch, y: at.position.y + across.y * side * base * stretch };
+			const gap = rotorGap(position, reach, result, shapes);
+			if (gap >= ROTOR_CLEARANCE) return position;
+			if (best == null || gap > best.gap) best = { position, gap };
+		}
+	}
+	return best?.position ?? at.position;
+}
+
+/** Smallest distance from a windmill's arm circle to any marble surface along the run or any piece */
+function rotorGap(center: TVec2, reach: number, result: TSimulationResult, shapes: TPieceShape[]): number {
+	let gap = Infinity;
+	for (const track of result.marbles) {
+		for (let i = 0; i < track.samples.length; i += 2) {
+			const sample = track.samples[i];
+			if (sample == null) continue;
+			gap = Math.min(gap, Math.hypot(sample.position.x - center.x, sample.position.y - center.y) - track.radius - reach);
+		}
+	}
+	for (const shape of shapes) gap = Math.min(gap, shapeDistance(shape, center.x, center.y) - reach);
+	return gap;
+}
+
+/** Collider shapes of a resolved piece; a platform carries only its pose and size */
+function pieceShapes(piece: TResolvedPiece): TPieceShape[] {
+	if (piece.shapes != null) return piece.shapes;
+	const box = { cx: piece.position.x, cy: piece.position.y, angle: piece.angle, halfLength: (piece.params['length'] ?? 0) / 2, halfThickness: (piece.params['thickness'] ?? 0) / 2 };
+	return [{ kind: 'box', box }];
 }

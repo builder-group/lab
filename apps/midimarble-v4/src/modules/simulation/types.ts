@@ -166,7 +166,10 @@ export interface TPieceDefinition {
 			default: number;
 			min: number;
 			max: number;
+			/** Full name in user words, shown in the field's tooltip */
 			label: string;
+			/** Name inside the inspector field when it differs from `label`; up to 7 characters fit a half-width field */
+			short?: string;
 			unit: 'm' | 'rad' | 's' | 'rad/s' | '';
 			/** Rounded to a whole number when resolved */
 			integer?: boolean;

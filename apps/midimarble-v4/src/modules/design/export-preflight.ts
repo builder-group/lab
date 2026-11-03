@@ -1,19 +1,21 @@
+import { hitReach, isUnreachable, reachStatus } from '@/modules/compose/reachability';
 import type { TProject, TVec2 } from '@/modules/project';
-import { frameBand, getPieceDefinition, paceAt, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { frameBand, getPieceDefinition, paceAt, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
-import { toHitKey } from '@/modules/studio/selection';
+import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { describeLoop } from './loop-status';
 
 /**
- * Checks the run before a film export, like Xcode's issue navigator: hits that miss or drift, open hits,
- * dots outside the frame, stray contacts, marbles far off the shared pace, the loop and a stale result.
- * Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
+ * The project's problems, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
+ * Blocked scenery, dots outside the frame, stray contacts, marbles far off the shared pace, the loop and a stale
+ * result. It is the one source for the hit summary in the timeline header, its menu, the export sheet and the
+ * Camera track. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
  */
 export function preflightExport(project: TProject, result: TSimulationResult | null): TExportPreflight {
 	if (result == null || result.revision !== project.revision) {
 		return {
 			state: 'pending',
-			issues: [{ id: 'simulation', severity: 'info', title: 'Checking the run…', detail: 'The run is still updating after the latest edit.', target: null }],
+			issues: [{ id: 'simulation', kind: 'simulation', severity: 'info', title: 'Checking the run…', detail: 'The run is still updating after the latest edit.', target: null }],
 			summary: 'Checking the run…',
 			warnings: 0,
 			notes: 1,
@@ -25,6 +27,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	const names = createNames(project);
 	const issues: TPreflightIssue[] = [
 		...hitIssues(project, result, names),
+		...sceneryIssues(project, result, names),
 		...contactIssues(project, result, names),
 		...paceIssues(result, names),
 		...loopIssues(project, result)
@@ -35,7 +38,46 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	const notes = issues.length - warnings;
 	const hitCount = result.hits.length;
 	const onTimeCount = result.hits.filter((hit) => hit.status === 'onTime').length;
-	return { state: 'checked', issues, summary: summarize(hitCount, onTimeCount, warnings, notes), warnings, notes, hitCount, onTimeCount };
+	const checked: TExportPreflight = { state: 'checked', issues, summary: '', warnings, notes, hitCount, onTimeCount };
+	// The sheet says what the hit summary says, with the tips after it
+	const tips = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
+	return { ...checked, summary: [problemSummary(checked).label, tips].filter(Boolean).join(' · ') };
+}
+
+/**
+ * The hit summary of the timeline header, read from the preflight so it never disagrees with the export sheet,
+ * Layers or the Camera track: "107 of 109 hits on time · 4 other problems", "2 hits need attention", or
+ * "Checking…" until the run for the current edit arrives. Problems are the warnings in time order, so the
+ * summary's click and Show First Problem go to the earliest.
+ */
+export function problemSummary(preflight: TExportPreflight): TProblemSummary {
+	const { hitCount: total, onTimeCount: onTime } = preflight;
+	if (preflight.state === 'pending') return { state: 'pending', tone: 'neutral', label: 'Checking…', problems: [], hitProblems: 0, otherProblems: 0, onTime, total };
+	const problems = preflight.issues.filter((issue) => issue.severity === 'warning').sort((a, b) => (a.time ?? Infinity) - (b.time ?? Infinity));
+	const hitProblems = problems.filter((issue) => issue.kind === 'hit').length;
+	const otherProblems = problems.length - hitProblems;
+	const hits =
+		hitProblems > 0
+			? `${hitProblems} ${hitProblems === 1 ? 'hit needs' : 'hits need'} attention`
+			: total > 0
+				? `${onTime} of ${total} ${total === 1 ? 'hit' : 'hits'} on time`
+				: '';
+	const others = otherProblems > 0 ? `${otherProblems} ${hits === '' ? '' : 'other '}${otherProblems === 1 ? 'problem' : 'problems'}` : '';
+	const label = [hits, others].filter(Boolean).join(' · ') || 'No hits yet';
+	const tone = problems.length > 0 ? 'warn' : total > 0 && onTime === total ? 'good' : 'neutral';
+	return { state: 'checked', tone, label, problems, hitProblems, otherProblems, onTime, total };
+}
+
+export interface TProblemSummary {
+	state: TExportPreflight['state'];
+	tone: 'good' | 'warn' | 'neutral';
+	label: string;
+	/** Warnings in time order; issues without a time come last */
+	problems: TPreflightIssue[];
+	hitProblems: number;
+	otherProblems: number;
+	onTime: number;
+	total: number;
 }
 
 export interface TExportPreflight {
@@ -56,11 +98,18 @@ export type TPreflightSeverity = 'warning' | 'info';
 export interface TPreflightIssue {
 	/** Stable within one result, for React keys */
 	id: string;
+	/**
+	 * What the issue is about: `hit` for a hit that is not on time or cannot be reached, which the hit summary
+	 * counts as hits; `framing` for the camera losing a marble, drawn on the Camera track; the rest are other problems
+	 */
+	kind: TPreflightKind;
 	severity: TPreflightSeverity;
 	title: string;
 	detail?: string;
 	/** Run time the issue happens at, if it has one */
 	time?: number;
+	/** The stretch of the run a framing issue lasts, for the Camera track */
+	span?: { from: number; to: number };
 	/** What Compose selects and frames when the issue is clicked */
 	target: TPreflightTarget | null;
 }
@@ -72,21 +121,16 @@ export interface TPreflightTarget {
 	point?: TVec2;
 	/** Playhead time to show */
 	time?: number;
+	/** The workspace that shows the issue; framing issues open Film with the Camera selected */
+	workspace?: 'compose' | 'design';
 }
+
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'framing' | 'loop' | 'simulation';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
 /** Distance off the shared descent pace, in multiples of the pace limit, at which the camera loses a marble */
 const PACE_FACTOR = 2;
-
-function summarize(hitCount: number, onTimeCount: number, warnings: number, notes: number): string {
-	// Info issues are tips, so the count never reads like musical notes
-	const noteText = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
-	if (warnings > 0) return [`${warnings} ${warnings === 1 ? 'issue' : 'issues'}`, noteText].filter(Boolean).join(' · ');
-	if (!hitCount) return notes > 0 ? noteText : 'No hits to check';
-	const hits = `${onTimeCount} of ${hitCount} ${hitCount === 1 ? 'hit' : 'hits'} on time`;
-	return [hits, noteText].filter(Boolean).join(' · ');
-}
 
 // MARK: - Hits
 
@@ -102,19 +146,38 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		const key = toHitKey(hit.laneId, hit.hitId);
 		const at = `${lane} at ${formatTime(hit.targetTime)}`;
 		const piece = hit.pieceEntityId != null ? pieces.get(hit.pieceEntityId) : undefined;
-		const target: TPreflightTarget = { ids: hit.pieceEntityId != null ? [hit.pieceEntityId] : [key], time: hit.targetTime };
+		const target: TPreflightTarget = { ids: hit.pieceEntityId != null ? [hit.pieceEntityId] : [key], point: hit.dot ?? undefined, time: hit.targetTime };
 		const id = `hit:${hit.laneId}:${hit.hitId}`;
 
 		if (hit.status === 'blocked') {
-			issues.push({ id, severity: 'warning', title: `Blocked hit, ${at}`, detail: `${lane} already passes through this spot earlier in its run, so the platform is left out.`, time: hit.targetTime, target });
+			issues.push({
+				id,
+				kind: 'hit',
+				severity: 'warning',
+				title: `Blocked hit, ${at}`,
+				detail: `${lane} already passes through this spot earlier in its run, so the platform is left out.`,
+				time: hit.targetTime,
+				target
+			});
 		} else if (hit.status === 'missed') {
 			const label = hit.reason === 'resting' && piece?.status !== 'unreached' ? 'Stopped' : 'Missed';
-			issues.push({ id, severity: 'warning', title: `${label} hit, ${at}`, detail: missDetail(hit, piece?.status), time: hit.targetTime, target });
+			issues.push({ id, kind: 'hit', severity: 'warning', title: `${label} hit, ${at}`, detail: missDetail(hit, piece?.status), time: hit.targetTime, target });
 		} else if (hit.status === 'drifting') {
 			const ms = Math.round((hit.error ?? 0) * 1000);
-			issues.push({ id, severity: 'warning', title: `${ms > 0 ? 'Late' : 'Early'} hit, ${at}`, detail: `Lands ${Math.abs(ms)} ms ${ms > 0 ? 'after' : 'before'} the note.`, time: hit.targetTime, target });
+			issues.push({
+				id,
+				kind: 'hit',
+				severity: 'warning',
+				title: `${ms > 0 ? 'Late' : 'Early'} hit, ${at}`,
+				detail: `Lands ${Math.abs(ms)} ms ${ms > 0 ? 'after' : 'before'} the note.`,
+				time: hit.targetTime,
+				target
+			});
 		} else if (hit.status === 'open') {
-			open.push(hit);
+			const reach = hitReach(project, result, hit);
+			const status = isUnreachable(reach) ? reachStatus(reach, { marble: lane, time: formatTime(hit.targetTime) }) : null;
+			if (status != null) issues.push({ id, kind: 'hit', severity: 'warning', title: `${status.label}, ${at}`, detail: `${status.detail}.`, time: hit.targetTime, target });
+			else open.push(hit);
 		}
 
 		if (hit.dot != null && hit.status !== 'blocked' && hit.status !== 'missed') {
@@ -132,9 +195,13 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		const count = hits.length;
 		issues.push({
 			id: `open:${laneId}`,
+			kind: 'open',
 			severity: 'info',
 			title: count === 1 ? `Open note, ${names.lane(laneId)} at ${formatTime(first.targetTime)}` : `${count} open notes on ${names.lane(laneId)}`,
-			detail: count === 1 ? 'No platform plays this note yet. It is heard without a strike.' : `No platforms play these notes yet, from ${formatTime(first.targetTime)}. They are heard without a strike.`,
+			detail:
+				count === 1
+					? 'No platform plays this note yet. It still sounds in the film, without a hit.'
+					: `No platforms play these notes yet, from ${formatTime(first.targetTime)}. They still sound in the film, without hits.`,
 			time: first.targetTime,
 			target: { ids: [toHitKey(laneId, first.hitId)], time: first.targetTime }
 		});
@@ -145,14 +212,17 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		const count = dots.length;
 		const furthest = Math.max(...dots.map((item) => item.overshoot));
 		const where = isShared ? "marble's part of the frame" : 'frame';
+		const last = dots[dots.length - 1] ?? first;
 		issues.push({
 			id: `frame:${laneId}`,
+			kind: 'framing',
 			// With one marble the camera follows it; with several they share one frame
 			severity: isShared ? 'warning' : 'info',
-			title: count === 1 ? `Dot outside the ${where}, ${names.lane(laneId)} at ${formatTime(first.hit.targetTime)}` : `${count} dots outside the ${where} on ${names.lane(laneId)}`,
+			title: count === 1 ? `Hit outside the ${where}, ${names.lane(laneId)} at ${formatTime(first.hit.targetTime)}` : `${count} hits outside the ${where} on ${names.lane(laneId)}`,
 			detail: `${count === 1 ? '' : `From ${formatTime(first.hit.targetTime)}, up to `}${furthest.toFixed(2)} m past the edge. ${isShared ? 'The shared camera may lose this marble.' : 'The camera pans to follow it.'}`,
 			time: first.hit.targetTime,
-			target: first.target
+			span: { from: first.hit.targetTime, to: last.hit.targetTime },
+			target: cameraTarget(first.hit.targetTime)
 		});
 	}
 	return issues;
@@ -170,6 +240,33 @@ function missDetail(hit: THitResult, pieceStatus: string | undefined): string {
 	if (hit.actualTime == null || hit.error == null) return 'The marble passes the platform without touching it.';
 	const ms = Math.round(hit.error * 1000);
 	return `Lands ${Math.abs(ms)} ms ${ms > 0 ? 'after' : 'before'} the note.`;
+}
+
+// MARK: - Scenery
+
+/** Scenery that follows a marble but is left out of the run, because the marble's earlier run passes through it */
+function sceneryIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
+	return result.pieces.flatMap((piece) => {
+		if (piece.status !== 'blocked') return [];
+		const entity = project.entities.find((item) => item.id === piece.entityId);
+		const link = entity?.components.hitLink;
+		// Platforms that play a note are reported with their hit
+		if (link == null || soundsHit(entity?.components.piece?.type ?? piece.type, link)) return [];
+		const lane = names.lane(link.laneId);
+		const time = piece.entryTime ?? piece.hitTime ?? undefined;
+		const type = (getPieceDefinition(piece.type)?.label ?? 'piece').toLowerCase();
+		return [
+			{
+				id: `scenery:${piece.entityId}`,
+				kind: 'scenery' as const,
+				severity: 'warning' as const,
+				title: `Blocked ${names.entity(piece.entityId)}, ${lane}${time != null ? ` at ${formatTime(time)}` : ''}`,
+				detail: `${lane} already passes through this spot earlier in its run, so the ${type} is left out.`,
+				time,
+				target: { ids: [piece.entityId], point: piece.position, time }
+			}
+		];
+	});
 }
 
 // MARK: - Contacts
@@ -218,6 +315,7 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 		if (group.kind === 'marble') {
 			return {
 				id,
+				kind: 'contact' as const,
 				severity: 'warning' as const,
 				title: `${marble} collides with ${other}`,
 				detail: `The marbles touch ${times}.`,
@@ -227,9 +325,10 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 		}
 		return {
 			id,
+			kind: 'contact' as const,
 			severity: 'warning' as const,
-			title: `${marble} strikes ${other} of ${names.lane(laneOfPiece.get(group.otherId) ?? '')}`,
-			detail: `An extra strike ${times}, without a note.`,
+			title: `${marble} hits ${other} of ${names.lane(laneOfPiece.get(group.otherId) ?? '')}`,
+			detail: `Hits it ${times}, without a note.`,
 			time: group.time,
 			target: { ids: [group.otherId], point: group.first, time: group.time }
 		};
@@ -242,21 +341,26 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 function paceIssues(result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	const pace = result.pace;
 	if (pace == null || result.descent == null || result.marbles.length < 2) return [];
-	const worst = new Map<string, { hit: THitResult; offset: number }>();
+	const worst = new Map<string, { hit: THitResult; offset: number; from: number; to: number }>();
 	for (const hit of result.hits) {
 		if (hit.dot == null) continue;
 		const offset = hit.dot.y - paceAt(pace, hit.targetTime);
 		if (Math.abs(offset) <= pace.limit * PACE_FACTOR) continue;
 		const current = worst.get(hit.laneId);
-		if (current == null || Math.abs(offset) > Math.abs(current.offset)) worst.set(hit.laneId, { hit, offset });
+		const from = Math.min(current?.from ?? hit.targetTime, hit.targetTime);
+		const to = Math.max(current?.to ?? hit.targetTime, hit.targetTime);
+		if (current == null || Math.abs(offset) > Math.abs(current.offset)) worst.set(hit.laneId, { hit, offset, from, to });
+		else worst.set(hit.laneId, { ...current, from, to });
 	}
-	return [...worst.values()].map(({ hit, offset }) => ({
+	return [...worst.values()].map(({ hit, offset, from, to }) => ({
 		id: `pace:${hit.laneId}`,
+		kind: 'framing' as const,
 		severity: 'warning' as const,
 		title: `${names.lane(hit.laneId)} falls out of step with the other marbles`,
 		detail: `${Math.abs(offset).toFixed(2)} m ${offset > 0 ? 'above' : 'below'} the other marbles at ${formatTime(hit.targetTime)}, so the camera may lose it.`,
-		time: hit.targetTime,
-		target: { ids: [hit.pieceEntityId ?? toHitKey(hit.laneId, hit.hitId)], time: hit.targetTime }
+		time: from,
+		span: { from, to },
+		target: cameraTarget(from)
 	}));
 }
 
@@ -266,7 +370,7 @@ function loopIssues(project: TProject, result: TSimulationResult): TPreflightIss
 	if (!project.design.loop) return [];
 	const status = describeLoop(project, result);
 	if (status.isOk) return [];
-	return [{ id: 'loop', severity: 'warning', title: status.summary, detail: status.details.join(' '), target: null }];
+	return [{ id: 'loop', kind: 'loop', severity: 'warning', title: status.summary, detail: status.details.join(' '), target: null }];
 }
 
 // MARK: - Names
@@ -286,6 +390,11 @@ function createNames(project: TProject): TNames {
 		})
 	);
 	return { lane: (id) => lanes.get(id) ?? 'Marble', entity: (id) => entities.get(id) ?? id };
+}
+
+/** Framing issues open Film at their time with the Camera selected */
+function cameraTarget(time: number): TPreflightTarget {
+	return { ids: [CAMERA_KEY], time, workspace: 'design' };
 }
 
 function countHits(project: TProject): number {

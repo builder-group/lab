@@ -1615,6 +1615,13 @@
 						"entryDelay": 0.325
 					}
 				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-9",
+					"angle": -0.10471975511965978,
+					"contactAt": 0.5,
+					"pinned": false
+				},
 				"path": {
 					"points": [
 						{
@@ -1630,13 +1637,6 @@
 							"y": 0
 						}
 					]
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-9",
-					"angle": -0.10471975511965978,
-					"contactAt": 0.5,
-					"pinned": false
 				}
 			}
 		},
@@ -3827,20 +3827,20 @@
 			}
 		}
 	],
-	"physics": {
-		"gravityScale": 0.5
-	},
 	"design": {
 		"theme": "brass",
 		"renderPreset": "balanced",
 		"loop": false,
 		"camera": {
 			"mode": "rig",
-			"distance": 0.85,
+			"distance": 0.7,
 			"pitch": 1.15,
 			"lead": 0.15,
 			"smoothing": 0.6,
 			"shots": []
 		}
+	},
+	"physics": {
+		"gravityScale": 0.5
 	}
 }

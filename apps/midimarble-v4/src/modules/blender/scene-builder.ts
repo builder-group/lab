@@ -1,5 +1,6 @@
 import type { TDesign, TEntity, TProject } from '@/modules/project';
 import { createLoop } from '@/modules/simulation/loop';
+import { shotLength } from '@/modules/camera/shots';
 import { getPieceDefinition } from '@/modules/simulation/pieces';
 import type { TMarbleSample, TMarbleTrack, TSimulationResult } from '@/modules/simulation/types';
 import {
@@ -126,7 +127,11 @@ export function buildSceneDescription(
 			...themeOptionsOf(project),
 			marbles,
 			pieces,
-			camera: { ...buildSceneCamera(project.design.camera), descent: descentCurve(result) },
+			camera: {
+				...buildSceneCamera(project.design.camera),
+				descent: descentCurve(result),
+				holdAfter: loop != null ? null : lastHitTime(result)
+			},
 			wallTexts: project.entities.flatMap((entity) => {
 				const text = entity.components.wallText;
 				const transform = entity.components.transform;
@@ -139,6 +144,16 @@ export function buildSceneDescription(
 	};
 }
 
+/**
+ * Time of the run's last struck hit: the camera holds on it to the end of the film rather than following the marble
+ * down the empty wall. Null when no hit is struck.
+ */
+export function lastHitTime(result: TSimulationResult): number | null {
+	let last = -Infinity;
+	for (const hit of result.hits) if (hit.actualTime != null) last = Math.max(last, hit.actualTime);
+	return Number.isFinite(last) ? Math.round(last * 1e4) / 1e4 : null;
+}
+
 export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
 	return {
 		mode: camera.mode,
@@ -146,7 +161,13 @@ export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
 		pitch: camera.pitch,
 		lead: camera.lead,
 		smoothing: camera.smoothing,
-		shots: camera.shots.map((shot) => ({ time: shot.time, kind: shot.kind, roll: shot.roll, distance: shot.distance })),
+		shots: camera.shots.map((shot) => ({
+			time: shot.time,
+			kind: shot.kind,
+			roll: shot.roll,
+			distance: shot.distance,
+			length: shotLength(shot)
+		})),
 		focusMarbleId: camera.focusMarbleId ?? null
 	};
 }

@@ -1,6 +1,7 @@
 import { ChevronRight, ChevronsUpDown } from 'lucide-react';
 import React from 'react';
 import { HelpTip } from './HelpTip';
+import { PopUpButton, type TSelectOption } from './Select';
 
 // Inspector fields on the two-column grid of `Panel`, each with its label inside like Figma UI3
 
@@ -12,13 +13,7 @@ export const SelectField: React.FC<TSelectFieldProps> = (props) => {
 			<label htmlFor={id} className="mm-ifield-label">
 				{label}
 			</label>
-			<select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
-				{options.map((option) => (
-					<option key={option.value} value={option.value}>
-						{option.label}
-					</option>
-				))}
-			</select>
+			<PopUpButton id={id} value={value} options={options} onChange={onChange} className="mm-ifield-popup" />
 			<ChevronsUpDown size={12} strokeWidth={2} className="mm-ifield-chevron" />
 		</span>
 	);
@@ -28,7 +23,7 @@ interface TSelectFieldProps {
 	id: string;
 	label: string;
 	value: string;
-	options: { value: string; label: string }[];
+	options: TSelectOption[];
 	span?: 1 | 2;
 	onChange: (value: string) => void;
 }

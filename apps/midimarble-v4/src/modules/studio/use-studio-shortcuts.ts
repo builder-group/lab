@@ -1,6 +1,7 @@
 import React from 'react';
 import { isEditingTarget, isTextEntryTarget } from '@/lib';
 import { deleteSelectedHits, getCommand, isCommandEnabled } from './commands';
+import { CAMERA_KEY, SONG_KEY } from './selection';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 
 /** Standard macOS and Logic-style shortcuts that apply anywhere in the studio */
@@ -75,7 +76,9 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				cx.$playing.set(!cx.$playing.get());
 				return;
 			}
-			if ((event.key === 'Enter' || event.key === 'Home') && !cx.$playing.get() && !cx.$selection.get().length) {
+			// A selected Song or Camera track keeps Return's meaning, like an empty selection
+			const isTracksOnly = cx.$selection.get().every((key) => key === SONG_KEY || key === CAMERA_KEY);
+			if ((event.key === 'Enter' || event.key === 'Home') && !cx.$playing.get() && isTracksOnly) {
 				cx.$playhead.set(0);
 				return;
 			}

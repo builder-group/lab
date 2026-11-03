@@ -115,7 +115,10 @@ const SWallTextComponent = z.strictObject({
 	color: z.string(),
 	// Film time in seconds when the title appears and disappears; absent means the start and the end of the film
 	in: z.number().nonnegative().optional(),
-	out: z.number().nonnegative().optional()
+	out: z.number().nonnegative().optional(),
+	// `wall` (absent) and `songName` sit on the wall; `caption` and `endCard` sit in the frame, where `size` is the
+	// letter height as a fraction of the frame height
+	style: z.enum(['wall', 'caption', 'songName', 'endCard']).optional()
 });
 
 export const SComponents = z.strictObject({
@@ -141,7 +144,11 @@ const SShot = z.strictObject({
 	time: z.number(),
 	kind: z.enum(['wide', 'follow', 'pushIn', 'closeUp']),
 	roll: z.number(),
-	distance: z.number().positive()
+	distance: z.number().positive(),
+	// Seconds the shot holds before the camera eases back to the rig, 0 until the next shot; absent uses the kind's
+	// default (2 s for Push In and Close-Up, until the next shot for Wide and Follow). Added later; files without it
+	// stay valid
+	length: z.number().nonnegative().optional()
 });
 
 const SDesign = z.strictObject({

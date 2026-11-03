@@ -1,7 +1,7 @@
 import type { TLibraryItem } from '@/modules/library';
 import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { sampleCameraTrack } from '@/modules/camera';
-import { frameBand, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
+import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { filmCamera, imageToWall } from './film-camera';
 
 // Project edits made from the Design workspace. Each function returns the commands of one undoable edit.
@@ -112,9 +112,16 @@ export const reactionChoices: readonly { value: TReactionChoice; label: string }
 
 export type TSkinTarget = { kind: 'entities'; entityIds: string[] } | { kind: 'pieceType'; pieceType: string };
 
+/** Switches the theme; titles still in the old theme's title colour take the new one's */
 export function themeCommands(project: TProject, themeId: string): TProjectCommand[] {
 	if (project.design.theme === themeId) return [];
-	return [{ type: 'setDesign', design: { theme: themeId } }];
+	const oldColor = themeTitleColor(project.design.theme);
+	const titles = project.entities.flatMap((entity) => {
+		const text = entity.components.wallText;
+		if (text == null || text.color.toLowerCase() !== oldColor) return [];
+		return [{ type: 'setComponent' as const, entityId: entity.id, component: { name: 'wallText' as const, value: { ...text, color: themeTitleColor(themeId) } } }];
+	});
+	return [{ type: 'setDesign', design: { theme: themeId } }, ...titles];
 }
 
 export function cameraCommands(project: TProject, patch: Partial<TDesign['camera']>): TProjectCommand[] {
@@ -167,6 +174,56 @@ export function reactionChoiceOf(entity: TEntity): TReactionChoice {
 	return preset === 'none' || preset === 'press' || preset === 'wobble' || preset === 'glow' ? preset : 'theme';
 }
 
+/** The piece type most of the pieces have, so a section selected as a range in Layers shows its platforms' skins */
+export function commonPieceType(pieces: TEntity[]): string | null {
+	const counts = new Map<string, number>();
+	for (const entity of pieces) {
+		const type = entity.components.piece?.type;
+		if (type != null) counts.set(type, (counts.get(type) ?? 0) + 1);
+	}
+	let best: string | null = null;
+	for (const [type, count] of counts) if (best == null || count > (counts.get(best) ?? 0)) best = type;
+	return best;
+}
+
+/** Counts per piece type, most first: `5 Platforms, 1 Rail` */
+export function pieceCountLabel(pieces: TEntity[]): string {
+	const counts = new Map<string, number>();
+	for (const entity of pieces) {
+		const type = entity.components.piece?.type;
+		if (type != null) counts.set(type, (counts.get(type) ?? 0) + 1);
+	}
+	return [...counts]
+		.sort((a, b) => b[1] - a[1])
+		.map(([type, count]) => countOf(count, getPieceDefinition(type)?.label ?? type))
+		.join(', ');
+}
+
+/**
+ * Notice for a skin applied to a selection with other piece types or with Colour by Note on, where the film
+ * alone would not show what happened: `Copper applied to 5 platforms; Rail 1 kept its skin`. Null when the
+ * change speaks for itself.
+ */
+export function skinAppliedMessage(options: { skinLabel: string; pieceType: string; selected: TEntity[]; colorByNote: boolean }): string | null {
+	const { skinLabel, pieceType, selected, colorByNote } = options;
+	const applied = selected.filter((entity) => entity.components.piece?.type === pieceType);
+	const kept = selected.filter((entity) => entity.components.piece != null && entity.components.piece.type !== pieceType);
+	const isColourHidden = colorByNote && pieceType === 'platform';
+	if (!applied.length || (!kept.length && !isColourHidden)) return null;
+	const typeLabel = getPieceDefinition(pieceType)?.label ?? pieceType;
+	let message = `${skinLabel} applied to ${countOf(applied.length, typeLabel).toLowerCase()}`;
+	if (kept.length > 0) {
+		const names = kept.map((entity) => entity.name ?? getPieceDefinition(entity.components.piece?.type ?? '')?.label ?? 'Piece');
+		message += kept.length === 1 ? `; ${names[0]} kept its skin` : kept.length === 2 ? `; ${names[0]} and ${names[1]} kept their skins` : `; ${kept.length} other pieces kept their skins`;
+	}
+	if (isColourHidden) message += `. Colour by Note sets the ${applied.length === 1 ? "platform's" : "platforms'"} colour`;
+	return message;
+}
+
+function countOf(count: number, label: string): string {
+	return `${count} ${label}${count === 1 ? '' : 's'}`;
+}
+
 /** Whether a library item can skin a piece type: a skin made for that type, or for any type */
 export function itemFitsPieceType(item: TLibraryItem, pieceType: string | null): boolean {
 	const manifest = item.manifest;
@@ -174,20 +231,89 @@ export function itemFitsPieceType(item: TLibraryItem, pieceType: string | null):
 	return manifest.pieceType == null || pieceType == null || manifest.pieceType === pieceType;
 }
 
-// MARK: - Wall text
+// MARK: - Titles
 
 export const DEFAULT_WALL_TEXT = { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#1d1d1f' };
 
-export function addWallTextCommands(point: TVec2, text = DEFAULT_WALL_TEXT.text): { commands: TProjectCommand[]; entityId: string } {
+type TWallText = NonNullable<TEntity['components']['wallText']>;
+export type TTitleStyle = NonNullable<TWallText['style']>;
+
+/**
+ * Title styles of the Title inspector. Wall Title and Song Name sit on the wall where they were placed; Caption and
+ * End Card sit in the frame, and Blender hangs them from the film camera, so they stay put while the camera moves.
+ */
+export const titleStyles: readonly { style: TTitleStyle; label: string }[] = [
+	{ style: 'wall', label: 'Wall Title' },
+	{ style: 'caption', label: 'Caption' },
+	{ style: 'songName', label: 'Song Name' },
+	{ style: 'endCard', label: 'End Card' }
+];
+
+// Letter heights as a fraction of the frame height, so titles read at phone size: about 115 px of a 1920 px film
+// for a wall title, more for the song name and the end card
+const TITLE_HEIGHT: Record<TTitleStyle, number> = { wall: 0.06, caption: 0.06, songName: 0.08, endCard: 0.08 };
+// Seconds a song name stays after its In time, and an end card shows before the end of the film
+const SONG_NAME_SECONDS = 4;
+const END_CARD_SECONDS = 3;
+
+/** Caption and End Card sit in the frame, and their size is a fraction of the frame height */
+export function isScreenTitle(style: TWallText['style']): boolean {
+	return style === 'caption' || style === 'endCard';
+}
+
+/** The colour titles start with in a theme: white on Brass's lavender plaster, navy on Pegboard's birch */
+export function themeTitleColor(theme: string): string {
+	return theme === 'brass' ? '#ffffff' : '#1f3a5f';
+}
+
+/** Height of the film frame on the wall at `time`, through the film camera; the letter size of wall titles follows it */
+export function frameHeightOnWall(project: TProject, result: TSimulationResult | null, time: number): number {
+	const top = previewPointToWall(project, result, time, 0.5, 0);
+	const bottom = previewPointToWall(project, result, time, 0.5, 1);
+	const height = Math.hypot(top.x - bottom.x, top.y - bottom.y);
+	return Number.isFinite(height) && height > 0 ? height : 0.5;
+}
+
+/** A new Wall Title at a wall point, in the theme's title colour and a size that reads in the frame */
+export function addWallTextCommands(point: TVec2, options: { theme: string; frameHeight: number; text?: string }): { commands: TProjectCommand[]; entityId: string } {
+	const text = options.text ?? DEFAULT_WALL_TEXT.text;
 	const entity: TEntity = {
 		id: createId('text'),
 		name: text,
 		components: {
-			wallText: { ...DEFAULT_WALL_TEXT, text },
+			wallText: { ...DEFAULT_WALL_TEXT, text, color: themeTitleColor(options.theme), size: wallTitleSize('wall', options.frameHeight) },
 			transform: { position: { x: round(point.x), y: round(point.y) }, angle: 0 }
 		}
 	};
 	return { commands: [{ type: 'upsertEntity', entity }], entityId: entity.id };
+}
+
+/**
+ * The title in another style with that style's size and default timing: a Song Name shows for a few seconds from
+ * the playhead and reads the song's name while the text is still the default, an End Card shows over the last
+ * seconds. Times the user set stay.
+ */
+export function withTitleStyle(text: TWallText, style: TTitleStyle, context: { frameHeight: number; playhead: number; end: number; songName: string | null }): TWallText {
+	const { style: _old, ...rest } = text;
+	const next: TWallText = { ...rest, size: isScreenTitle(style) ? TITLE_HEIGHT[style] : wallTitleSize(style, context.frameHeight) };
+	if (style !== 'wall') next.style = style;
+	if (style === 'songName') {
+		if (text.text === DEFAULT_WALL_TEXT.text && context.songName != null) next.text = context.songName;
+		if (text.in == null && text.out == null) {
+			const start = Math.round(Math.max(0, context.playhead) * 100) / 100;
+			if (start > 0) next.in = start;
+			if (start + SONG_NAME_SECONDS < context.end) next.out = Math.round((start + SONG_NAME_SECONDS) * 100) / 100;
+		}
+	}
+	if (style === 'endCard' && text.in == null && text.out == null && context.end > END_CARD_SECONDS) {
+		next.in = Math.round((context.end - END_CARD_SECONDS) * 100) / 100;
+	}
+	return next;
+}
+
+function wallTitleSize(style: TTitleStyle, frameHeight: number): number {
+	// Rounded to half a centimetre, between 1 cm and 50 cm like the Size field
+	return Math.min(0.5, Math.max(0.01, Math.round((TITLE_HEIGHT[style] * frameHeight) / 0.005) * 0.005));
 }
 
 /**

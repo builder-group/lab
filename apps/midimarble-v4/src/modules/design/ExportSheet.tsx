@@ -2,7 +2,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { useFeatureState } from 'feature-react/state';
 import { CircleAlert, CircleCheck, Film, Monitor } from 'lucide-react';
 import React from 'react';
-import { Select } from '@/components';
+import { HelpTip, Select } from '@/components';
 import { host } from '@/environment';
 import type { TFilmEngine, TRenderPreset } from '@/modules/blender';
 import type { StudioCx } from '@/modules/studio';
@@ -20,6 +20,8 @@ export const ExportSheet: React.FC<TExportSheetProps> = (props) => {
 		if (!isOpen) return;
 		function onKeyDown(event: KeyboardEvent): void {
 			const isTextField = event.target instanceof HTMLInputElement && event.target.type === 'text';
+			// An open pop-up menu in the sheet takes its own Escape and Return
+			if (event.target instanceof Element && event.target.closest('[role="menu"]') != null) return;
 			if (event.key === 'Escape') {
 				event.preventDefault();
 				event.stopPropagation();
@@ -73,6 +75,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 
 	const duration = result?.duration ?? project.end;
 	const preset = getRenderPreset(settings.preset);
+	const isFlat = preset.engine === 'workbench';
 	const size = filmSize(project.frame, settings.preset);
 	const estimate = estimateExport({ duration, frame: project.frame, preset: settings.preset, engine: settings.engine, measured: measured[filmEngine(settings.preset, settings.engine)], preview });
 
@@ -99,14 +102,15 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 					onChange={(value) => cx.film.updateSettings({ preset: value as TRenderPreset })}
 				/>
 				<span className="mm-form-label">Lighting</span>
-				<div>
+				<div className="flex items-center gap-1.5">
 					<div className="mm-segmented" role="radiogroup" aria-label="Lighting">
 						{engines.map((engine) => (
 							<button
 								key={engine.id}
 								role="radio"
-								aria-checked={settings.engine === engine.id}
-								data-active={settings.engine === engine.id}
+								aria-checked={!isFlat && settings.engine === engine.id}
+								data-active={!isFlat && settings.engine === engine.id}
+								disabled={isFlat}
 								onClick={() => cx.film.updateSettings({ engine: engine.id })}
 								title={engine.tooltip}
 								type="button"
@@ -115,7 +119,14 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 							</button>
 						))}
 					</div>
-					<div className="mm-caption mt-1">{preset.engine === 'workbench' ? 'Draft shows solid colours, without lighting or materials' : engines.find((engine) => engine.id === settings.engine)?.description}</div>
+					<HelpTip
+						side="right"
+						text={
+							isFlat
+								? 'Draft uses flat light: solid colours without lighting or materials, to check motion quickly. Choose Standard or higher for Fast or Realistic lighting.'
+								: 'Fast renders materials and light quickly. Realistic lights the wall as a camera sees it and takes much longer.'
+						}
+					/>
 				</div>
 				<label htmlFor="export-name">Save As</label>
 				<div className="flex gap-1.5">
@@ -131,16 +142,23 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 					</button>
 				</div>
 				<span className="mm-form-label">Where</span>
-				<span className="mm-caption self-center">{settings.chosenPath != null ? folderOf(settings.chosenPath) : 'Renders folder in the project'}</span>
+				<span className="flex items-center gap-1.5 self-center">
+					<span className="mm-caption">{settings.chosenPath != null ? folderOf(settings.chosenPath) : 'In the Project'}</span>
+					{settings.chosenPath == null ? <HelpTip side="right" text="Films stay with the project, and Show in Finder finds them. Choose… saves the film somewhere else." /> : null}
+				</span>
 			</div>
 
 			<div className="mm-summary">
 				<div className="mm-tabular">
-					{size.width} × {size.height} · {preset.fps} fps · {estimate.frames} frames · {formatClock(duration)}
+					{size.width} × {size.height} · {preset.fps} fps · {formatClock(duration)}
 				</div>
 				<div className="flex items-baseline justify-between gap-3">
 					<span className="font-medium">{estimate.seconds != null ? formatEstimate(estimate.seconds) : 'Time unknown'}</span>
-					<span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, filmEngine(settings.preset, settings.engine))}</span>
+					{estimate.basis === 'none' ? (
+						<HelpTip side="left" text="The export time shows once Blender has drawn a preview of this project" />
+					) : (
+						<span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, filmEngine(settings.preset, settings.engine))}</span>
+					)}
 				</div>
 			</div>
 
@@ -254,9 +272,9 @@ const SheetHeader: React.FC<{ title: string; subtitle?: string; icon?: React.Rea
 	);
 };
 
-const engines: { id: TRenderEngine; label: string; description: string; tooltip: string }[] = [
-	{ id: 'eevee', label: 'Fast', description: 'Matches the Film preview', tooltip: 'Blender Eevee' },
-	{ id: 'cycles', label: 'Realistic', description: 'Light as a camera sees it, much slower', tooltip: 'Blender Cycles, path traced' }
+const engines: { id: TRenderEngine; label: string; tooltip: string }[] = [
+	{ id: 'eevee', label: 'Fast', tooltip: 'Materials and light, quick to render (Blender Eevee)' },
+	{ id: 'cycles', label: 'Realistic', tooltip: 'Light as a camera sees it, much slower (Blender Cycles)' }
 ];
 
 /** One line for the export's state, shared by the sheet and the toolbar activity view */
@@ -282,8 +300,7 @@ export function exportStatusLabel(job: TExportJob): string {
 function basisLabel(basis: TExportEstimate['basis'], engine: TFilmEngine): string {
 	if (basis === 'measured') return `From your last ${engine === 'eevee' ? 'Fast' : engine === 'cycles' ? 'Realistic' : 'Draft'} export`;
 	if (basis === 'typical') return 'Typical Draft speed';
-	if (basis === 'preview') return engine === 'cycles' ? 'Rough guess from the preview' : 'From the playhead preview';
-	return 'Shown after the first preview';
+	return engine === 'cycles' ? 'Rough guess from the preview' : 'From the playhead preview';
 }
 
 function folderOf(path: string): string {

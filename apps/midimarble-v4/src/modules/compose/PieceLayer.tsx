@@ -3,7 +3,7 @@ import React from 'react';
 import type { TVec2 } from '@/modules/project';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
-import { paletteOf, UPCOMING_OPACITY } from './ComposeRenderer';
+import { paletteOf, upcomingColor } from './ComposeRenderer';
 import { offsetPolyline, pieceKind, tubeCeiling } from './scene';
 
 /**
@@ -16,7 +16,7 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	const cx = compose.studio;
 	const result = useFeatureState(cx.simulation.$result);
 	const camera = useFeatureState(compose.$camera);
-	useFeatureState(compose.$viewport);
+	const viewport = useFeatureState(compose.$viewport);
 	// The Camera view moves with the playhead and shows every piece solid, like the film
 	useFeatureState(compose.$film);
 	const isFilm = camera.mode === 'camera';
@@ -26,18 +26,20 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	useFeatureState(compose.$override);
 	useFeatureState(compose.$placing);
 	useFeatureState(cx.$hidden);
-	if (result == null) return null;
+	// Until the canvas is measured every point projects to NaN, which the browser reports for each attribute
+	if (result == null || viewport.width <= 1) return null;
 	const scale = compose.screenScale();
 
 	return (
 		<g>
 			{compose.displayPieces(result).map((piece) => {
-				const opacity = !isFilm && compose.isUpcoming(piece, playhead) ? UPCOMING_OPACITY : 1;
+				// Pieces still to come keep full opacity in a quieter colour, as the wall renderer draws them
+				const palette = !isFilm && compose.isUpcoming(piece, playhead) ? upcomingPalette(paletteOf(piece.type)) : undefined;
 				const kind = pieceKind(piece);
-				if (kind === 'path') return <RailShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={opacity} />;
-				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={opacity} />;
-				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={opacity} />;
-				return <MinimumShape key={piece.entityId} compose={compose} piece={piece} opacity={opacity} />;
+				if (kind === 'path') return <RailShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
+				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
+				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
+				return <MinimumShape key={piece.entityId} compose={compose} piece={piece} palette={palette} />;
 			})}
 		</g>
 	);
@@ -170,15 +172,16 @@ const RailTies: React.FC<{ path: TVec2[]; spread: number; scale: number; color: 
 };
 
 /** A screen-space stand-in when a platform or windmill shrinks below a few pixels */
-const MinimumShape: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; opacity: number }> = (props) => {
-	const { compose, piece, opacity } = props;
-	const palette = paletteOf(piece.type);
+const MinimumShape: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; palette?: { bar: string; nub: string } }> = (props) => {
+	const { compose, piece } = props;
+	const palette = props.palette ?? paletteOf(piece.type);
 	const outline = compose.screenOutline(piece);
+	if (!outline.length || !outline.every(isFinitePoint)) return null;
 	if (pieceKind(piece) === 'rotor') {
 		const center = compose.toScreen(piece.position, piece.params['depth'] ?? 0.03);
 		const reach = Math.max(...outline.map((point) => Math.hypot(point.x - center.x, point.y - center.y)));
 		if (reach >= 8) return null;
-		return <circle cx={center.x} cy={center.y} r={4} fill={palette.bar} stroke={palette.nub} strokeWidth={1} opacity={opacity} />;
+		return <circle cx={center.x} cy={center.y} r={4} fill={palette.bar} stroke={palette.nub} strokeWidth={1} />;
 	}
 	const [a, b, c, d] = outline;
 	if (a == null || b == null || c == null || d == null) return null;
@@ -191,8 +194,12 @@ const MinimumShape: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; opacit
 	const grow = Math.max(0, 6 - length) / 2 / (length || 1);
 	const from = { x: start.x - (end.x - start.x) * grow, y: start.y - (end.y - start.y) * grow };
 	const to = { x: end.x + (end.x - start.x) * grow, y: end.y + (end.y - start.y) * grow };
-	return <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={palette.bar} strokeWidth={2.5} strokeLinecap="round" opacity={opacity} />;
+	return <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={palette.bar} strokeWidth={2.5} strokeLinecap="round" />;
 };
+
+function upcomingPalette(palette: { bar: string; nub: string }): { bar: string; nub: string } {
+	return { bar: upcomingColor(palette.bar), nub: upcomingColor(palette.nub) };
+}
 
 /** SVG `points` of screen points, leaving out any that did not project to a number */
 export function toPoints(points: TVec2[]): string {

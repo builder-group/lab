@@ -237,16 +237,18 @@ textarea {
 	color: var(--text-tertiary);
 }
 
-/* Pop-up button: a select drawn like an AppKit pop-up with the double chevron on the right */
+/* Pop-up button: drawn like an AppKit pop-up with the double chevron on the right */
 .mm-select {
 	position: relative;
 	display: block;
 	width: 100%;
 }
 
-.mm-select select {
-	appearance: none;
-	-webkit-appearance: none;
+.mm-select > button {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	text-align: left;
 	width: 100%;
 	height: 22px;
 	padding: 0 22px 0 7px;
@@ -257,7 +259,7 @@ textarea {
 	outline: none;
 }
 
-.mm-select select:focus-visible {
+.mm-select > button:focus-visible {
 	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
@@ -800,6 +802,27 @@ textarea {
 	color: var(--text);
 }
 
+/* Checking… or Re-placing…: dimmed, never a stale count */
+.mm-hit-summary[data-tone='pending'] {
+	opacity: 0.6;
+}
+
+/* Framing problems on the Camera track: amber spans under the shot markers */
+.mm-camera-issue {
+	position: absolute;
+	bottom: 3px;
+	height: 5px;
+	min-width: 6px;
+	border-radius: 3px;
+	background: color-mix(in srgb, var(--warn) 55%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 80%, transparent);
+	cursor: pointer;
+}
+
+.mm-camera-issue:hover {
+	background: var(--warn);
+}
+
 button.mm-hit-summary:hover {
 	background: var(--hover);
 }
@@ -861,6 +884,15 @@ button.mm-hit-summary:hover {
 
 .mm-fix-it:disabled {
 	opacity: 0.5;
+}
+
+/* A Fix-it with a word, such as Move Clear */
+.mm-fix-it.mm-fix-it-label {
+	width: auto;
+	padding: 0 8px;
+	font-size: 11px;
+	font-weight: 500;
+	white-space: nowrap;
 }
 
 /* MARK: - Menus */
@@ -1097,6 +1129,31 @@ button.mm-hit-summary:hover {
 		box-shadow:
 			0 0 0 0.5px rgb(255 255 255 / 0.14),
 			0 2px 8px rgb(0 0 0 / 0.4);
+	}
+}
+
+/* A suggested platform: dashed and see-through, never a solid bar */
+.mm-ghost-piece {
+	fill: var(--ghost-fill);
+	fill-opacity: 0.22;
+	stroke: var(--ghost-stroke);
+}
+
+.mm-ghost-piece[data-ok='false'] {
+	fill-opacity: 0.1;
+}
+
+@media (prefers-color-scheme: dark) {
+	/* On a dark wall a low fill and the darker shade read as a solid dark bar; a light outline and more fill keep it a suggestion */
+	.mm-ghost-piece {
+		fill: color-mix(in srgb, var(--ghost-fill) 60%, white);
+		fill-opacity: 0.4;
+		stroke: color-mix(in srgb, var(--ghost-fill) 50%, white);
+	}
+
+	.mm-ghost-piece[data-ok='false'] {
+		fill-opacity: 0.16;
+		stroke: var(--ghost-stroke);
 	}
 }
 
@@ -1725,14 +1782,6 @@ button.mm-hit-summary:hover {
 .mm-titlebar-title .mm-row-input {
 	width: 220px;
 	font-weight: 500;
-}
-
-.mm-doc-dot {
-	width: 6px;
-	height: 6px;
-	flex-shrink: 0;
-	border-radius: 3px;
-	background: var(--text-tertiary);
 }
 
 /* Agent toggle: a labelled toolbar button, like Xcode's and Figma's assistant buttons */
@@ -2511,6 +2560,31 @@ button.mm-layer-disclosure:hover {
 
 .mm-snap-chip kbd {
 	font-family: var(--font);
+}
+
+/* What a what-if does to the run, after the hover tooltip or the drag chip: "Breaks 86 hits" */
+.mm-whatif-count {
+	margin-left: 6px;
+	color: var(--text-secondary);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-whatif-count[data-first='true'] {
+	margin-left: 0;
+}
+
+.mm-whatif-count[data-bad='true'] {
+	color: var(--bad);
+	font-weight: 500;
+}
+
+/* On the accent chip of a snapped drag the count sits in its own light pill so red stays readable */
+.mm-whatif-count[data-chip='true'] {
+	margin: 0 -4px 0 2px;
+	padding: 0 5px;
+	border-radius: 4px;
+	background: var(--content-raised);
+	line-height: 16px;
 }
 
 /* Contextual build bar under the piece or dot it acts on, like Figma's selection toolbar */

@@ -47,8 +47,8 @@ export const railDefinition: TPieceDefinition = {
 	type: 'rail',
 	label: 'Rail',
 	params: {
-		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire size', unit: 'm' },
-		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Wire spacing', unit: 'm' },
+		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Thickness of each rail', short: 'Thickness', unit: 'm' },
+		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Width between the two rails', short: 'Width', unit: 'm' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
 	wallOffset: 0,
@@ -70,9 +70,9 @@ export const tunnelDefinition: TPieceDefinition = {
 	type: 'tunnel',
 	label: 'Tunnel',
 	params: {
-		radius: { default: kit(0.002), min: 0.001, max: 0.006, label: 'Wall thickness', unit: 'm' },
-		bore: { default: kit(0.004), min: 0.001, max: 0.02, label: 'Room around the marble', unit: 'm' },
-		mouth: { default: kit(0.03), min: 0.01, max: 0.1, label: 'Mouth width', unit: 'm' },
+		radius: { default: kit(0.002), min: 0.001, max: 0.006, label: 'Wall thickness', short: 'Wall', unit: 'm' },
+		bore: { default: kit(0.004), min: 0.001, max: 0.02, label: 'Room around the marble', short: 'Room', unit: 'm' },
+		mouth: { default: kit(0.03), min: 0.01, max: 0.1, label: 'Mouth width', short: 'Mouth', unit: 'm' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
 	wallOffset: 0,
@@ -94,12 +94,12 @@ export const windmillDefinition: TPieceDefinition = {
 	type: 'windmill',
 	label: 'Windmill',
 	params: {
-		bladeCount: { default: 4, min: 2, max: 8, label: 'Blades', unit: '', integer: true },
-		bladeLength: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Blade length', unit: 'm' },
-		bladeThickness: { default: kit(0.006), min: 0.003, max: 0.02, label: 'Blade thickness', unit: 'm' },
-		hubRadius: { default: kit(0.008), min: 0.004, max: 0.03, label: 'Hub size', unit: 'm' },
-		damping: { default: 0.5, min: 0, max: 10, label: 'Spin friction', unit: '' },
-		motorSpeed: { default: 0, min: -20, max: 20, label: 'Motor speed', unit: 'rad/s' },
+		bladeCount: { default: 4, min: 2, max: 8, label: 'Number of arms', short: 'Arms', unit: '', integer: true },
+		bladeLength: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Arm length', short: 'Arm Length', unit: 'm' },
+		bladeThickness: { default: kit(0.006), min: 0.003, max: 0.02, label: 'Arm width', short: 'Arm Width', unit: 'm' },
+		hubRadius: { default: kit(0.008), min: 0.004, max: 0.03, label: 'Size of the centre the arms turn on', short: 'Centre Size', unit: 'm' },
+		damping: { default: 0.5, min: 0, max: 10, label: 'Brake: how quickly the spin slows down', short: 'Brake', unit: '' },
+		motorSpeed: { default: 0, min: -20, max: 20, label: 'Spin on its own; 0 turns only when the marble pushes it', short: 'Spin', unit: 'rad/s' },
 		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.5, min: 0.2, max: 0.95, label: 'Bounce', unit: '' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
@@ -126,12 +126,12 @@ export const switchbackDefinition: TPieceDefinition = {
 	label: 'Switchback',
 	params: {
 		width: { default: kit(0.1), min: 0.06, max: 0.3, label: 'Width', unit: 'm' },
-		legs: { default: 3, min: 1, max: 6, label: 'Legs', unit: '', integer: true },
-		drop: { default: kit(0.035), min: 0.026, max: 0.15, label: 'Leg spacing', unit: 'm' },
-		opening: { default: kit(0.032), min: 0.026, max: 0.09, label: 'Opening', unit: 'm' },
-		lip: { default: kit(0.04), min: 0, max: 0.15, label: 'Lip', unit: 'm' },
-		bend: { default: 0.04, min: 0, max: 0.08, label: 'Bend', unit: 'm' },
-		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire size', unit: 'm' },
+		legs: { default: 3, min: 1, max: 6, label: 'Number of runs down the zigzag', short: 'Runs', unit: '', integer: true },
+		drop: { default: kit(0.035), min: 0.026, max: 0.15, label: 'Height between the runs', short: 'Run Height', unit: 'm' },
+		opening: { default: kit(0.032), min: 0.026, max: 0.09, label: 'Gap at each turn where the marble drops through', short: 'Turn Gap', unit: 'm' },
+		lip: { default: kit(0.04), min: 0, max: 0.15, label: 'Height of the guard that catches the marble', short: 'Guard', unit: 'm' },
+		bend: { default: 0.04, min: 0, max: 0.08, label: 'Roundness of each turn', short: 'Turn Curve', unit: 'm' },
+		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Thickness of the rails', short: 'Thickness', unit: 'm' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
 	wallOffset: 0,
