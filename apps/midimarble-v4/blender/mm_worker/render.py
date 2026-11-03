@@ -11,7 +11,9 @@ sequencer instead.
 The live worker notices jobs that exit without an answer and reports them as failed.
 
 Frames are rendered by time, not by frame number: output frame i shows time i / preset fps, so 30 and 60 fps
-presets work regardless of the frame rate the keyframes were written at.
+presets work regardless of the frame rate the keyframes were written at. A loop scene (`mm_loop` from
+`apply_scene`) renders its loop range instead: frame i shows loop start + i / fps, up to the frame before the loop
+end.
 """
 import json
 import math
@@ -74,7 +76,12 @@ def start_render_film(worker, args):
     preset = PRESETS[preset_name]
     width, height = preset_size(scene, preset['short'])
     scene_fps = scene.render.fps / scene.render.fps_base
+    start_time = scene.frame_start / scene_fps
     duration = (scene.frame_end - scene.frame_start) / scene_fps
+    loop = scene.get('mm_loop')
+    if loop is not None and len(loop) >= 2:
+        # A loop film shows [start, end): the frame at `end` repeats the first, so repeating the MP4 is seamless
+        start_time, duration = float(loop[0]), float(loop[1]) - float(loop[0])
     frame_count = max(1, int(round(duration * preset['fps'])))
     samples = args.get('samples')
     job = {
@@ -87,7 +94,8 @@ def start_render_film(worker, args):
         'height': height,
         'frames': frame_count,
         'duration': frame_count / preset['fps'],
-        'startTime': scene.frame_start / scene_fps,
+        'startTime': start_time,
+        'loop': loop is not None,
         'samples': int(samples) if isinstance(samples, (int, float)) and samples > 0 else preset[engine],
         'x264Preset': preset['x264'],
         'crf': preset['crf'],

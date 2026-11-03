@@ -87,6 +87,7 @@ export class FilmExportCx {
 		this.$job.set({ ...this.$job.get(), step: 'Writing the soundtrack…' });
 		const [isRenderedOk, renderedErr, result] = await renderFilm(packagePath, project, {
 			resolveSourceUrl: this.source.resolveSourceUrl,
+			loop: this.source.design.currentLoop(),
 			preset: settings.preset,
 			engine: settings.engine,
 			outputPath: output.relativePath,

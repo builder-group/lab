@@ -4,12 +4,21 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Current state
 
-- Milestones: M0–M4 done; M5 Design in progress (UI, library and agent runner done; Blender consumption of asset skins, per-piece reactions and wall text in progress); M6 render pipeline and follow camera done, loops and shot markers open
-- Next steps: Jingle Bells end to end, a native export test, loops, film-look round 3 (piece detail, density at reference hit rates)
+- Milestones: M0–M4 done; M5 Design in progress (UI, library and agent runner done; Blender consumption of asset skins, per-piece reactions and wall text in progress); M6 render pipeline, follow camera and seamless loops done, shot markers open
+- Next steps: Jingle Bells end to end, a native export test, film-look round 3 (piece detail, density at reference hit rates)
 - Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### Seamless loops
+
+- Approach: entry from above. The film covers [start, end): `start` is the first moment a released marble is 0.75 camera distances below its release, `end` the project end, both on 1/30 s. A ghost instance (`<id>~loop`) replays the marble's fall from its release shifted by the loop length, hidden until its replay begins, so the frame at `end` equals the first frame while the marble itself has fallen out of view. The camera blends its last 0.75 s into its poses from before `start`. The soundtrack holds the loop's hits with note tails folded onto its start (recordings: cut with a 50 ms crossfade). A periodic layout that carries the marble back was not attempted
+- `createLoop` and `checkLoop` in `simulation/loop.ts`; optional `music.tempo` (set by MIDI import, 4/4 assumed) for bars; `setTempo` command; scene description `loop` and `ghostOf`; `mm_loop` scene range read by `render_film`; Design inspector loop status with Snap End to Bar; loop range bar on the timeline ruler
+- `loop` fixture (`scripts/build-loop-fixture.ts`, `fixtures:loop`): 21 eighth notes at 100 bpm on an assisted zigzag, three bars from 0.333 s to 7.533 s, 21 of 21 on time, `checkLoop` passes with a ghost error of 0
+- `blender:loop` (new, 16 assertions): camera at both ends equal (0 m, 0 rad), ghost at the end where the marble starts (0.00 mm), marble out of view on the last frame, ghost hidden until 7.20 s and appearing out of view, Eevee stills at start and end differ by 0.008 of 255, the fast film doubled with FFmpeg concat changes the image by 0.82 at the seam against 0.41 to 1.70 for neighbouring frames. Outputs: `.local/loop/loop-fast.mp4`, `loop-twice.mp4`, `seam-sheet.png`, `blend-sheet.png`
+- Checks: `blender:check` (85, with loop camera closure), `blender:design` (41), `test` (171), `lint`, `cargo test` (24) pass; `typecheck` fails only in `scripts/build-jingle-fixture.ts` and `src/modules/music/midi.ts`, in progress elsewhere
+- Limits: the camera crosses the whole descent in the 0.75 s blend, which reads as a quick pan over bare wall; the entry needs about 0.5 m of fall before the start, so the first hit is fast; marbles released after the start are not ghosted; `stillInView` uses a distance estimate, the Blender check is the exact test; AAC priming adds about 21 ms of audio at the seam when the MP4 is concatenated; the export estimate still counts frames to the project end; audio projects have no tempo
 
 ### Blender consumes Design data
 

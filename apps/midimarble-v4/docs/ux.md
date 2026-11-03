@@ -207,6 +207,10 @@ A run can be marked as a loop so the end of the video flows into its start. A lo
 
 A loop check compares the first and last frames and reports mismatches.
 
+The app builds a loop by entry from above. The film starts once the first marble has fallen three quarters of the camera distance below its release, so the release point is out of view. The film ends at the project end, and both snap to 1/30 s. Before the end a second instance of the marble replays the marble's own fall into the frame, so the frame after the last shows exactly the first frame, while the marble itself has fallen out of view. The camera blends its last 0.75 s into its poses from before the start, which reads as a quick pan back up the run. The soundtrack contains only the hits inside the loop, with ringing notes at the end carried over onto the start.
+
+With **Seamless loop** on, the Design inspector shows the loop range, its bars when the tempo is known (from MIDI import) and either "start and end match" or each mismatch: a hit too soon after the start, a marble still near its entry at the end, a piece still reacting, a windmill at another angle, or a length off whole bars with **Snap End to Bar**. The timeline ruler marks the loop range like Logic's cycle area. Audio projects have no tempo yet, so their loops do not snap to bars.
+
 ## Project file
 
 A project is a `.marble` package, a folder shown as one file on macOS. Moving the package moves the whole project to another computer, so every path inside it is project-relative. It contains the project JSON, `scene.blend` and assets. The `.blend` embeds a copy of the project JSON so the scene keeps its context when opened alone. The JSON stays outside the `.blend` so the app opens projects and shows the library without starting Blender.

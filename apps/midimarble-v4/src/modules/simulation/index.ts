@@ -2,6 +2,7 @@ export * from './assists';
 export * from './client';
 export * from './gap-pieces';
 export * from './geometry';
+export * from './loop';
 export * from './piece-layout';
 export * from './pieces';
 export * from './placement';

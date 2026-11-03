@@ -7,6 +7,7 @@ import {
 	type TDecodedAudio,
 	type TStereoAudio
 } from './synthesize';
+import { cutLoopAudio, foldLoopAudio, LOOP_AUDIO_TAIL, loopLanes, type TLoopRange } from './loop-audio';
 import { decodeAudioFile } from './waveform';
 
 const SAMPLE_RATE = 48000;
@@ -131,10 +132,21 @@ export type TResolveSourceUrl = (source: TSource) => string | null;
 export async function renderProjectAudio(
 	project: TProject,
 	resolveSourceUrl: TResolveSourceUrl,
-	options: { sampleRate?: number } = {}
+	options: { sampleRate?: number; loop?: TLoopRange | null } = {}
 ): Promise<TStereoAudio> {
-	const { sampleRate = SAMPLE_RATE } = options;
+	const { sampleRate = SAMPLE_RATE, loop } = options;
 	const audioSources = project.music.sources.filter((source) => source.kind === 'audio');
+	if (loop != null && !audioSources.length) {
+		const bank = await loadInstrumentBank();
+		const lanes = loopLanes(project.music.lanes, loop);
+		return foldLoopAudio(renderLanes(lanes, { sampleRate, duration: loop.length + LOOP_AUDIO_TAIL, bank }), loop.length);
+	}
+	if (loop != null) {
+		const end = loop.start + loop.length;
+		// Rendered past the loop end so the closing fade of a project render stays outside the loop
+		const full = await renderProjectAudio({ ...project, end: Math.max(project.end, end) + 0.5 }, resolveSourceUrl, { sampleRate });
+		return cutLoopAudio(full, loop);
+	}
 	if (!audioSources.length) {
 		const bank = await loadInstrumentBank();
 		const audio = renderLanes(project.music.lanes, { sampleRate, duration: project.end, bank });

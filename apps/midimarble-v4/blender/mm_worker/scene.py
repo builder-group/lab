@@ -112,6 +112,15 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     camera_settings = None
     if description.get('camera') is not None:
         camera_settings = camera.settings_from(description['camera'], themes.theme_settings(theme))
+    # A loop film renders [start, end); the camera closes the loop and `render_film` reads the range from the scene
+    loop = loop_range(description.get('loop'))
+    if loop is not None:
+        scene['mm_loop'] = [loop['start'], loop['end'], loop['blend']]
+    elif 'mm_loop' in scene:
+        del scene['mm_loop']
+    if camera_settings is not None:
+        camera_settings['loop'] = loop
+    report['loop'] = loop
     report['camera'] = studio.update_camera(
         scene, bounds, camera_settings, marbles, marble_motion, fps, regenerate=bool(args.get('regenerateCamera')))
     report['cameraFramed'] = report['camera'] in ('framed', 'baked')
@@ -323,6 +332,11 @@ def write_marble(holder, marble, motion, fps, pieces=()):
         anim.write_fcurve(channelbag, 'rotation_euler', 1, frames, -angle)
         count = len(frames) * 3
         visible = contacts.tunnel_visibility(x, y, radius, pieces)
+        if marble.get('ghostOf'):
+            # A loop ghost is hidden until its replay begins; the marble it replays has left the release point by
+            # the loop start, so nothing waits there in the first frame either
+            frames = np.concatenate([[frames[0] - 1], frames])
+            visible = np.concatenate([[0.0], visible])
         if not visible.all():
             anim.write_fcurve(channelbag, '["mm_visible"]', 0, frames, visible)
             count += len(frames)
@@ -408,6 +422,18 @@ def read_motion(project_dir, relative, columns, expected_count):
     if len(records) > 1 and np.any(np.diff(records[:, 0]) <= 0):
         raise WorkerError('INVALID_MOTION', relative + ' times must increase')
     return records
+
+
+def loop_range(value):
+    """`{start, end, blend}` of a loop description, or None"""
+    if not isinstance(value, dict):
+        return None
+    start = finite(value.get('start'), 'loop.start')
+    end = finite(value.get('end'), 'loop.end')
+    blend = finite(value.get('blend', 0.0), 'loop.blend')
+    if end <= start:
+        raise WorkerError('INVALID_DESCRIPTION', 'loop.end must be after loop.start')
+    return {'start': start, 'end': end, 'blend': max(0.0, min(blend, (end - start) / 2))}
 
 
 def set_frame_rate(scene, fps, duration):

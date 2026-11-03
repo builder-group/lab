@@ -24,6 +24,7 @@ import type { TDesignLink } from './DesignCx';
 import { libraryItemLabel } from './DesignLibraryCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
 import { renderPresetLabel, renderPresets } from './export-estimate';
+import { describeLoop } from './loop-status';
 
 /** Properties of the Design workspace in Blender-style panels: the scene, a piece's look or wall text */
 export const DesignInspector: React.FC<TDesignInspectorProps> = (props) => {
@@ -92,7 +93,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 						<span>Seamless loop</span>
 					</label>
 				</div>
-				{design.loop ? <p className="mm-caption">The end of the film should flow into its start: the music, the marble and the camera end where they begin.</p> : null}
+				{design.loop ? <LoopStatus cx={cx} project={project} /> : null}
 			</Panel>
 			<CameraPanel cx={cx} project={project} />
 			<WallTextPanel cx={cx} project={project} />
@@ -103,6 +104,33 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 					Export Film…
 				</button>
 			</Panel>
+		</>
+	);
+};
+
+/** Loop range and the loop check of the current simulation, with a fix for a length off the bar grid */
+const LoopStatus: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
+	const { cx, project } = props;
+	const result = useFeatureState(cx.simulation.$result);
+	const status = React.useMemo(
+		() => (result != null && result.revision === project.revision ? describeLoop(project, result) : null),
+		[project, result]
+	);
+	if (status == null) return <p className="mm-caption">Checking the loop…</p>;
+	const { snappedEnd } = status;
+	return (
+		<>
+			<p className="mm-caption">{status.summary}</p>
+			{status.details.map((detail) => (
+				<p key={detail} className="mm-caption">
+					{detail}
+				</p>
+			))}
+			{snappedEnd != null ? (
+				<button className="mm-button self-start" onClick={() => cx.execute([{ type: 'setEnd', end: snappedEnd }])} type="button">
+					Snap End to Bar
+				</button>
+			) : null}
 		</>
 	);
 };

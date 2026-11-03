@@ -84,14 +84,16 @@ export class SourcesCx {
 		};
 		const firstTrack = pending.midi.tracks.find((track) => pending.trackIds.includes(track.id));
 		const lastTime = preview.lanes.flat().reduce((max, note) => Math.max(max, note.time + note.duration), 0);
-		const applied = this.studio.execute(
-			createImportCommands(project, {
+		const applied = this.studio.execute([
+			...createImportCommands(project, {
 				lanes: preview.lanes,
 				source,
 				instrument: firstTrack == null ? undefined : suggestInstrument(firstTrack.program),
 				end: Math.ceil(lastTime + 1.5)
-			})
-		);
+			}),
+			// The time signature is not parsed; most MIDI files are in four
+			...(pending.midi.tempo != null ? [{ type: 'setTempo' as const, tempo: { bpm: pending.midi.tempo, beatsPerBar: 4 } }] : [])
+		]);
 		if (!applied) return;
 		this.$midiImport.set(null);
 		const dropped = preview.dropped.length;

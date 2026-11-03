@@ -18,6 +18,10 @@ The camera looks steeply along the wall and travels with the marbles, like the r
    (ROLL_DRIFT over ROLL_PERIOD), so the columns turn between diagonal and near vertical. Shot markers add roll and
    set the distance with eased transitions.
 
+5. Loop: in a loop scene the last `blend` seconds blend into the poses one loop length earlier, which are baked
+   from before the loop start, so the camera at the loop end is the camera at the loop start. Loop ghosts are not
+   followed.
+
 Everything is baked as keyframes on the studio camera (location, rotation, focus distance), so the camera works in
 plain Blender. A camera the user edited is taken over and never regenerated unless the app asks.
 """
@@ -25,7 +29,7 @@ import math
 
 import bpy
 import numpy as np
-from mathutils import Matrix, Vector
+from mathutils import Euler, Matrix, Vector
 
 from . import anim
 from .util import MARBLE_WALL_GAP
@@ -189,7 +193,14 @@ def look_rotation(position, target, up):
 
 def bake(scene, camera, settings, marbles, motions, fps):
     """Writes the follow keyframes; returns the number of frames baked or 0 when there is no motion"""
-    frames = np.arange(scene.frame_start, scene.frame_end + 1, dtype=np.float64)
+    # Loop ghosts replay a marble's entry for the next round; the camera reaches them through the loop blend
+    marbles = [marble for marble in marbles if not marble.get('ghostOf')]
+    loop = settings.get('loop')
+    first_frame = scene.frame_start
+    if loop:
+        # Poses from before the loop start are the blend targets of the loop end
+        first_frame = min(first_frame, math.floor((loop['start'] - loop['blend']) * fps) - 1)
+    frames = np.arange(first_frame, scene.frame_end + 1, dtype=np.float64)
     times = frames / fps
     ahead_points, depth = follow_points(marbles, motions, times + settings['lead'])
     current, _ = follow_points(marbles, motions, times)
@@ -249,6 +260,10 @@ def bake(scene, camera, settings, marbles, motions, fps):
         rotations[index] = tuple(euler)
         marble = Vector((current[index, 0], -depth, current[index, 1]))
         focus[index] = (marble - position).length
+    if loop:
+        close_loop(frames, locations, rotations, focus, loop, fps)
+    kept = frames >= scene.frame_start
+    frames, locations, rotations, focus = frames[kept], locations[kept], rotations[kept], focus[kept]
 
     camera.rotation_mode = 'XYZ'
     channelbag = anim.ensure_channelbag(camera)
@@ -271,6 +286,28 @@ def bake(scene, camera, settings, marbles, motions, fps):
     anim.write_fcurve(data_bag, 'dof.focus_distance', 0, frames, focus)
     write_shot_markers(scene, settings['shots'], fps)
     return len(frames)
+
+
+def close_loop(frames, locations, rotations, focus, loop, fps):
+    """Blends the poses of the last `blend` seconds into the poses one loop length earlier, with a smoothstep
+    weight, so the frame at the loop end repeats the first frame and the motion continues smoothly across the seam.
+    Rotations are blended as quaternions. Changes the arrays in place."""
+    shift = int(round((loop['end'] - loop['start']) * fps))
+    blend_start = loop['end'] - loop['blend']
+    previous = None
+    for index, frame in enumerate(frames):
+        source = index - shift
+        if frame / fps < blend_start - 1e-9 or source < 0:
+            previous = Euler(rotations[index])
+            continue
+        progress = 1.0 if loop['blend'] <= 0 else min(1.0, (frame / fps - blend_start) / loop['blend'])
+        weight = progress * progress * (3 - 2 * progress)
+        locations[index] = locations[index] * (1 - weight) + locations[source] * weight
+        focus[index] = focus[index] * (1 - weight) + focus[source] * weight
+        rotation = Euler(rotations[index]).to_quaternion().slerp(Euler(rotations[source]).to_quaternion(), weight)
+        euler = rotation.to_euler('XYZ', previous) if previous else rotation.to_euler('XYZ')
+        rotations[index] = tuple(euler)
+        previous = euler
 
 
 def write_shot_markers(scene, shots, fps):

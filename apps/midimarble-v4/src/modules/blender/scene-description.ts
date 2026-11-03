@@ -27,6 +27,17 @@ export interface TSceneDescription {
 	reactions?: TSceneReactions;
 	/** Wall text placed in Design. Optional and additive; workers that do not know it ignore it. */
 	wallTexts?: TSceneWallText[];
+	/**
+	 * Seamless loop: films render [start, end), the camera blends its last `blend` seconds into its poses from before
+	 * `start`, and ghost marbles (`ghostOf`) enter for the next round. `duration` equals `end`.
+	 */
+	loop?: TSceneLoop | null;
+}
+
+export interface TSceneLoop {
+	start: number;
+	end: number;
+	blend: number;
 }
 
 export interface TSceneCamera {
@@ -69,6 +80,11 @@ export interface TSceneMarble {
 	/** Package-relative path of a little-endian Float32 file with records [time, x, y, angle] */
 	motionPath: string;
 	sampleCount: number;
+	/**
+	 * Set on the loop ghost of a marble: a second instance that replays the marble's entry so the loop end shows
+	 * the first frame again. The camera does not follow ghosts.
+	 */
+	ghostOf?: string;
 }
 
 export interface TScenePiece {

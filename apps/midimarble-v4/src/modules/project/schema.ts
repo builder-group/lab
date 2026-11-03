@@ -32,6 +32,12 @@ const SSource = z.strictObject({
 	offset: z.number()
 });
 
+// Musical meter of the project, known from an imported MIDI file; loops snap their length to whole bars with it
+const STempo = z.strictObject({
+	bpm: z.number().positive(),
+	beatsPerBar: z.number().int().positive()
+});
+
 const SMarbleComponent = z.strictObject({
 	laneId: SId,
 	radius: z.number().positive(),
@@ -137,7 +143,8 @@ const projectShape = {
 	end: z.number().positive(),
 	music: z.strictObject({
 		sources: z.array(SSource),
-		lanes: z.array(SLane)
+		lanes: z.array(SLane),
+		tempo: STempo.optional()
 	}),
 	entities: z.array(SEntity),
 	design: SDesign
@@ -187,3 +194,4 @@ export type TComponents = z.infer<typeof SComponents>;
 export type TComponentName = keyof TComponents;
 export type TDesign = z.infer<typeof SDesign>;
 export type TShot = z.infer<typeof SShot>;
+export type TTempo = z.infer<typeof STempo>;

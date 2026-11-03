@@ -1,6 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { encodeWav, renderProjectAudio, type TResolveSourceUrl } from '@/modules/music';
 import type { TProject } from '@/modules/project';
+import type { TLoop } from '@/modules/simulation/loop';
 import {
 	blender,
 	BlenderError,
@@ -27,7 +28,9 @@ export async function renderFilm(
 	project: TProject,
 	options: TRenderFilmHelperOptions
 ): Promise<TResult<TRenderFilmResult, BlenderError>> {
-	const audio = await renderProjectAudio(project, options.resolveSourceUrl, { sampleRate: SOUNDTRACK_SAMPLE_RATE });
+	// A loop film covers the loop range, which the worker reads from the applied scene; its soundtrack matches it
+	const loop = options.loop != null ? { start: options.loop.start, length: options.loop.length } : null;
+	const audio = await renderProjectAudio(project, options.resolveSourceUrl, { sampleRate: SOUNDTRACK_SAMPLE_RATE, loop });
 	const wav = encodeWav(audio.left, audio.right, audio.sampleRate);
 	const [isWrittenOk, writtenErr] = await blender.writePackageFile(packagePath, SOUNDTRACK_PATH, wav);
 	if (!isWrittenOk) return Err(writtenErr);
@@ -74,6 +77,8 @@ async function followJob(
 
 export interface TRenderFilmHelperOptions extends Partial<Pick<TRenderFilmOptions, 'preset' | 'engine' | 'samples'>> {
 	resolveSourceUrl: TResolveSourceUrl;
+	/** Loop of the applied scene (`createLoop`); the soundtrack is cut to it */
+	loop?: Pick<TLoop, 'start' | 'length'> | null;
 	/** Package-relative `.mp4` path; defaults to `renders/film-<preset>.mp4` */
 	outputPath?: string;
 	/** Absolute path chosen in the save panel; the finished film is copied there and the result points at it */

@@ -1,5 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { SProject, type TComponentName, type TComponents, type TDesign, type TEntity, type THit, type TLane, type TProject, type TSource } from './schema';
+import { SProject, type TComponentName, type TComponents, type TDesign, type TEntity, type THit, type TLane, type TProject, type TSource, type TTempo } from './schema';
 
 export type TProjectCommand =
 	| { type: 'setTitle'; title: string }
@@ -15,7 +15,8 @@ export type TProjectCommand =
 	| { type: 'removeEntities'; entityIds: string[] }
 	| { type: 'setComponent'; entityId: string; component: TComponentPatch }
 	| { type: 'removeComponent'; entityId: string; name: TComponentName }
-	| { type: 'setDesign'; design: Partial<TDesign> };
+	| { type: 'setDesign'; design: Partial<TDesign> }
+	| { type: 'setTempo'; tempo: TTempo | null };
 
 export type TComponentPatch = {
 	[GName in TComponentName]: { name: GName; value: NonNullable<TComponents[GName]> };
@@ -114,6 +115,11 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 		case 'setDesign':
 			project.design = { ...project.design, ...command.design };
 			return Ok(project);
+		case 'setTempo': {
+			const { tempo: _previous, ...music } = project.music;
+			project.music = command.tempo == null ? music : { ...music, tempo: command.tempo };
+			return Ok(project);
+		}
 	}
 }
 

@@ -3,7 +3,7 @@ import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { blender, buildSceneDescription, type TApplySceneResult, type TPreviewFrameResult } from '@/modules/blender';
 import type { TProject } from '@/modules/project';
-import type { TSimulationResult } from '@/modules/simulation';
+import { createLoop, type TLoop, type TSimulationResult } from '@/modules/simulation';
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
@@ -31,6 +31,14 @@ export class DesignCx {
 	private queue: Promise<unknown> = Promise.resolve();
 
 	constructor(private readonly source: TDesignSource) {}
+
+	/** Loop range of the current simulation when the project is a seamless loop, as the scene sync writes it */
+	currentLoop(): TLoop | null {
+		const project = this.source.getProject();
+		const result = this.source.getResult();
+		if (project == null || result == null || !project.design.loop) return null;
+		return createLoop(project, result);
+	}
 
 	/** Starts Blender for the open package if needed, syncs the scene and renders the playhead */
 	async activate(): Promise<void> {

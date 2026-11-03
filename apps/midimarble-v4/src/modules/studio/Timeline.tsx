@@ -4,7 +4,7 @@ import React from 'react';
 import { openContextMenu, RenameField } from '@/components';
 import { findLaneConflicts, instruments, MIN_HIT_GAP } from '@/modules/music';
 import type { TLane, TProject } from '@/modules/project';
-import type { THitResult } from '@/modules/simulation';
+import { createLoop, type THitResult } from '@/modules/simulation';
 import { formatTime } from './format';
 import { addHit, hitMenu, laneMenu } from './menus';
 import { toHitKey } from './selection';
@@ -382,8 +382,28 @@ const Ruler: React.FC<{ cx: StudioCx; end: number; zoom: number; width: number; 
 				{/* End bracket, like the end marker of a Logic project */}
 				<span className="w-[3px] rounded-l-[1px] bg-[var(--text-secondary)]" />
 			</span>
+			<LoopRegion cx={cx} zoom={zoom} />
 			<PlayheadHead cx={cx} zoom={zoom} />
 		</div>
+	);
+};
+
+/** The film range of a seamless loop as a bar along the top of the ruler, like Logic's cycle area */
+const LoopRegion: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
+	const { cx, zoom } = props;
+	const result = useFeatureState(cx.simulation.$result);
+	const project = cx.project;
+	const loop = React.useMemo(
+		() => (project?.design.loop === true && result != null ? createLoop(project, result) : null),
+		[project, result]
+	);
+	if (loop == null) return null;
+	return (
+		<span
+			className="pointer-events-none absolute top-0 h-[3px] rounded-[1px] bg-[var(--accent)] opacity-70"
+			style={{ left: loop.start * zoom, width: loop.length * zoom }}
+			title={`Loop ${formatTime(loop.start)} to ${formatTime(loop.end)}`}
+		/>
 	);
 };
 
