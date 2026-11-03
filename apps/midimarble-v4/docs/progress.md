@@ -11,6 +11,15 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### Blender consumes Design data
+
+- Library skins: `assetPath` appends the asset's `MM_ASSET` collection once into a template outside the scene (images packed) and builds skins from object copies, oriented on the contact surface and scaled by `fittedParams`; `MM_REACT_*` parts react from `mm_hit` through delta-transform drivers. Swapping between a library skin and the theme default keeps the user's skin offset; edited skins stay the user's
+- Per-piece reactions: `reaction {preset, params}` overrides the theme reaction (`none`, `press`, `wobble`, `glow`) for default bars and asset parts
+- Wall text: native extruded FONT objects in the managed collection, updated while unedited, left alone after a Blender edit, picked by the ID pass
+- Film output: host command `copy_file_out` and `renderFilm({destinationPath})` copy the finished film to the save-panel location. Still to do in `FilmExportCx` (design module): pass `destinationPath: settings.chosenPath` when `resolveFilmOutput` reports `outsidePackage`
+- Checks: `blender:design` (new, 41 assertions, including a 6-frame `render_film`), `blender:check` (80), `cargo test` (23), `test` (158) and `lint` pass. `typecheck` fails only in files outside this slice (`scripts/build-jingle-fixture.ts`, `src/modules/music/midi.ts`, in progress elsewhere). Brass still with a library skin and a wall title: `.local/design/design-brass.png`
+- Not verified: rail and tunnel library skins beyond a scripted bend check (a box section follows the curve within 0.5 mm), wobble and glow on real agent assets, font files other than the built-in font
+
 ### Native test, schema v2, Design workspace
 
 - Bundled app: opening a package, Compose physics in WebKit and the Design preview rendered by a background Blender all work natively. Fixed: asset protocol refused paths under dot folders (`requireLiteralLeadingDot: false`), cache-busting query broke asset URLs, toolbar overlapped the traffic lights

@@ -16,11 +16,13 @@
 	"type": "module",
 	"scripts": {
 		"blender:check": "/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_apply_scene.py",
+		"blender:design": "/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_design.py",
 		"blender:film": "/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_film.py",
 		"build": "tauri build",
 		"build:prod": "tauri build --config src-tauri/tauri.prod.conf.json",
 		"clean": "shx rm -rf target && shx rm -rf dist && shx rm -rf .tanstack && shx rm -rf .turbo && shx rm -rf node_modules",
 		"fixtures:build": "tsx scripts/build-fixtures.ts",
+		"fixtures:jingle": "tsx scripts/build-jingle-fixture.ts",
 		"fixtures:reference": "tsx scripts/build-reference-fixture.ts",
 		"install:clean": "pnpm run clean && pnpm install",
 		"lint": "eslint .",

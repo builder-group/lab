@@ -23,6 +23,7 @@ pub fn run() {
             blender::commands::blender_show,
             blender::commands::write_package_file,
             blender::commands::blender_job_poll,
+            blender::commands::copy_file_out,
             agents::commands::agents_detect,
             agents::commands::agents_start,
             agents::commands::agents_cancel,

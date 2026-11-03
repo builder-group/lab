@@ -1,4 +1,4 @@
-import { Ok } from 'tuple-result';
+import { Err, Ok } from 'tuple-result';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createProject } from '@/modules/project';
 import { blender, BlenderError, type TJobPoll, type TRenderFilmResult } from './blender-client';
@@ -83,6 +83,44 @@ describe('renderFilm function', () => {
 			samples: undefined
 		});
 		expect(seen).toEqual([0.5, 1]);
+	});
+
+	it('should copy the finished film to the destination path', async () => {
+		vi.spyOn(blender, 'writePackageFile').mockResolvedValue(Ok('/tmp/x'));
+		vi.spyOn(blender, 'startRenderFilm').mockResolvedValue(Ok(started));
+		vi.spyOn(blender, 'pollJob').mockResolvedValue(Ok({ progress: null, done: true, result }));
+		const copy = vi.spyOn(blender, 'copyFileOut').mockResolvedValue(Ok('/Users/me/Movies/Song.mp4'));
+		const project = createProject({ title: 'Song', id: 'project-1' });
+
+		const [isOk, , film] = await renderFilm('/tmp/Song.marble', project, {
+			resolveSourceUrl: () => null,
+			preset: 'fast',
+			outputPath: 'renders/Song.mp4',
+			destinationPath: '/Users/me/Movies/Song.mp4',
+			pollIntervalMs: 0
+		});
+
+		expect(isOk).toBe(true);
+		expect(copy).toHaveBeenCalledWith('/tmp/Song.marble', 'renders/Song.mp4', '/Users/me/Movies/Song.mp4');
+		expect(film).toEqual({ ...result, path: '/Users/me/Movies/Song.mp4' });
+	});
+
+	it('should report a failed copy with the rendered path', async () => {
+		vi.spyOn(blender, 'writePackageFile').mockResolvedValue(Ok('/tmp/x'));
+		vi.spyOn(blender, 'startRenderFilm').mockResolvedValue(Ok(started));
+		vi.spyOn(blender, 'pollJob').mockResolvedValue(Ok({ progress: null, done: true, result }));
+		vi.spyOn(blender, 'copyFileOut').mockResolvedValue(Err(new BlenderError('HOST', 'Permission denied')));
+		const project = createProject({ title: 'Song', id: 'project-1' });
+
+		const [isOk, error] = await renderFilm('/tmp/Song.marble', project, {
+			resolveSourceUrl: () => null,
+			destinationPath: '/Volumes/Locked/Song.mp4',
+			pollIntervalMs: 0
+		});
+
+		expect(isOk).toBe(false);
+		expect(error?.message).toContain(result.path);
+		expect(error?.message).toContain('Permission denied');
 	});
 
 	it('should cancel the job when the signal aborts', async () => {

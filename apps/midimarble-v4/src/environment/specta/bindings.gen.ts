@@ -23,6 +23,11 @@ export const commands = {
 	writePackageFile: (packagePath: string, relativePath: string, bytes: number[]) => typedError<string, string>(__TAURI_INVOKE("write_package_file", { packagePath, relativePath, bytes })),
 	/**  Polls a background job such as `render_film`, which runs in its own Blender process */
 	blenderJobPoll: (packagePath: string, jobId: string) => typedError<BlenderJobPollDto, string>(__TAURI_INVOKE("blender_job_poll", { packagePath, jobId })),
+	/**
+	 *  Copies a package file to an absolute destination, such as a finished film from `renders/` to the path chosen
+	 *  in the save panel. Returns the destination path.
+	 */
+	copyFileOut: (packagePath: string, relativePath: string, destinationPath: string) => typedError<string, string>(__TAURI_INVOKE("copy_file_out", { packagePath, relativePath, destinationPath })),
 	/**  Agent CLIs found on `PATH`, `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin` */
 	agentsDetect: () => typedError<AgentCliDto[], string>(__TAURI_INVOKE("agents_detect")),
 	/**  Writes the brief into `candidates/<runId>/` and starts the CLI there. Output streams as `agent-run-event`. */

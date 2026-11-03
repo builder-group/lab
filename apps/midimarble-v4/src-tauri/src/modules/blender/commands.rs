@@ -186,6 +186,27 @@ pub fn write_package_file(
     return Ok(path.display().to_string());
 }
 
+/// Copies a package file to an absolute destination, such as a finished film from `renders/` to the path chosen
+/// in the save panel. Returns the destination path.
+#[tauri::command]
+#[specta::specta]
+pub async fn copy_file_out(
+    package_path: String,
+    relative_path: String,
+    destination_path: String,
+) -> Result<String, String> {
+    return run_blocking(move || {
+        let package = PathBuf::from(package_path);
+        if !package.join("project.json").is_file() {
+            return Err(format!("{} is not a MidiMarble project", package.display()));
+        }
+        let path = mailbox::copy_file_out(&package, &relative_path, &PathBuf::from(destination_path))
+            .map_err(|error| error.to_string())?;
+        return Ok(path.display().to_string());
+    })
+    .await;
+}
+
 /// The worker runs from the source tree in debug builds and from bundled resources in release builds
 fn worker_script(app: &AppHandle) -> Result<PathBuf, String> {
     if cfg!(debug_assertions) {

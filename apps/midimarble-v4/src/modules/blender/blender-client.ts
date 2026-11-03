@@ -80,6 +80,14 @@ export const blender = {
 		return Ok(result.data);
 	},
 
+	/** Copies a package file to an absolute path, such as a film from `renders/` to the path chosen in the save panel */
+	async copyFileOut(packagePath: string, relativePath: string, destinationPath: string): Promise<TResult<string, BlenderError>> {
+		if (!isTauri()) return Err(unavailable());
+		const result = await specta.commands.copyFileOut(packagePath, relativePath, destinationPath);
+		if (result.status === 'error') return Err(new BlenderError('HOST', result.error));
+		return Ok(result.data);
+	},
+
 	/**
 	 * Writes the motion files and the description into the package, then applies them in Blender.
 	 * `regenerateCamera` rebuilds a follow camera the user took over in Blender; ask the user first.
@@ -235,8 +243,14 @@ export interface TApplySceneResult {
 	 */
 	camera: 'baked' | 'framed' | 'takenOver' | 'manual' | 'missing';
 	cameraFramed: boolean;
-	/** Holders whose skins belong to the user and were left alone: `edited` default skins and `custom` skins */
-	skins: Record<string, 'edited' | 'custom'>;
+	/**
+	 * Skin notes per holder: `edited` app skins and `custom` skins belong to the user and were left alone;
+	 * `missingAsset` and `invalidAsset` name a library skin whose `asset.blend` is missing or has no `MM_ASSET`
+	 * collection (the holder keeps its current skin, or gets the theme default)
+	 */
+	skins: Record<string, 'edited' | 'custom' | 'missingAsset' | 'invalidAsset'>;
+	/** Wall texts by entity ID; `skipped` texts were edited in Blender and left alone */
+	texts: { created: string[]; updated: string[]; skipped: string[]; removed: string[] };
 	fps: number;
 	frameStart: number;
 	frameEnd: number;
@@ -268,8 +282,11 @@ export interface TInspectResult {
 		/** Why a holder is unlinked: `marked`, `transform` or `keyframes` */
 		reason: string | null;
 		skins: string[];
+		/** `default`, `asset` or a user value of the skin root's `mm_skin` */
+		skinKind: string | null;
 	}[];
 	detached: string[];
+	texts: { mmId: string; name: string; text: string; link: 'linked' | 'unlinked' }[];
 	studio: { name: string; role: string | null }[];
 	revision: number | null;
 	frameStart: number;

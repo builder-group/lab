@@ -24,7 +24,22 @@ from .util import DEFAULT_MARBLE_RADIUS, DEFAULT_PIECE_DEPTH, MARBLE_WALL_GAP, O
 
 DEFAULT_SKIN = 'default'
 REACTION_PATHS = (('location', 2), ('rotation_euler', 1), ('["mm_flash"]', -1))
+# Asset reaction parts move through their delta transforms, so their modelled transform stays intact
+ASSET_REACTION_PATHS = (
+    ('delta_location', 0), ('delta_location', 1), ('delta_location', 2),
+    ('delta_rotation_euler', 0), ('delta_rotation_euler', 1), ('delta_rotation_euler', 2), ('["mm_flash"]', -1),
+)
 VISIBILITY_PATHS = ('hide_render', 'hide_viewport')
+# Design reaction presets; anything else keeps the theme's reaction
+REACTION_PRESETS = ('none', 'press', 'wobble', 'glow')
+DEFAULT_PRESS = 0.0015
+DEFAULT_WOBBLE_DEGREES = 8.0
+DEFAULT_WOBBLE_HZ = 10.0
+DEFAULT_GLOW = 6.0
+# `mm_hit` rises to 1 at a hit and decays as exp(-t / HIT_TAU) to 0 over HIT_DECAY seconds; a wobble recovers
+# the time since the hit from the hit value
+HIT_DECAY = 0.25
+HIT_TAU = HIT_DECAY / 5
 
 
 def skin_context(theme, marble_radius=DEFAULT_MARBLE_RADIUS, reactions=None):
@@ -103,13 +118,85 @@ def release_reactions(obj):
     if obj.get('mm_visibility'):
         for path in VISIBILITY_PATHS:
             obj.driver_remove(path)
-    if not obj.get('mm_part'):
-        return
-    for path, index in REACTION_PATHS:
+    paths = REACTION_PATHS if obj.get('mm_part') else ASSET_REACTION_PATHS if obj.get('mm_react') else ()
+    for path, index in paths:
         try:
-            obj.driver_remove(path, index)
+            if index >= 0:
+                obj.driver_remove(path, index)
+            else:
+                obj.driver_remove(path)
         except TypeError:
             pass
+
+
+def piece_reaction(piece, context):
+    """Reaction amounts of a piece: the theme's, or the Design preset with its params.
+
+    `press` (metres along the contact normal) and `dip` (degrees of tilt) for presses, `wobble` (degrees) and
+    `frequency` (Hz) for a decaying wobble, `flash` for the emission strength of a glow.
+    """
+    theme = context['reactions']
+    choice = piece.get('reaction') if isinstance(piece.get('reaction'), dict) else {}
+    preset = choice.get('preset')
+    params = {
+        name: float(value) for name, value in (choice.get('params') or {}).items()
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    }
+    reaction = {'preset': 'theme', 'press': 0.0, 'dip': 0.0, 'flash': 0.0, 'wobble': 0.0, 'frequency': DEFAULT_WOBBLE_HZ}
+    if preset not in REACTION_PRESETS:
+        reaction.update(press=theme.get('press', 0.0), dip=theme.get('dip', 0.0), flash=theme.get('flash', 0.0))
+        return reaction
+    reaction['preset'] = preset
+    if preset == 'press':
+        reaction.update(press=params.get('press', theme.get('press') or DEFAULT_PRESS), dip=params.get('dip', theme.get('dip', 0.0)))
+    elif preset == 'wobble':
+        reaction.update(wobble=params.get('angle', DEFAULT_WOBBLE_DEGREES), frequency=params.get('frequency', DEFAULT_WOBBLE_HZ))
+    elif preset == 'glow':
+        reaction.update(flash=params.get('strength', DEFAULT_GLOW))
+    return reaction
+
+
+def wobble_expression(degrees, frequency):
+    """Decaying oscillation in radians: zero at the hit, swinging at `frequency` while `mm_hit` decays"""
+    if not degrees:
+        return None
+    phase = 2 * math.pi * frequency * HIT_TAU
+    return '%.6f*h*sin(-%.6f*log(max(h, 0.0001)))' % (math.radians(degrees), phase)
+
+
+def drive(obj, path, index, holder, expression):
+    """Adds a simple-expression driver reading the holder's `mm_hit` as `h`"""
+    fcurve = obj.driver_add(path, index) if index >= 0 else obj.driver_add(path)
+    driver = fcurve.driver
+    driver.type = 'SCRIPTED'
+    variable = driver.variables[0] if len(driver.variables) else driver.variables.new()
+    variable.name = 'h'
+    variable.type = 'SINGLE_PROP'
+    variable.targets[0].id_type = 'OBJECT'
+    variable.targets[0].id = holder
+    variable.targets[0].data_path = '["mm_hit"]'
+    driver.expression = expression
+    return fcurve
+
+
+def is_edited(skin):
+    """Whether the user changed an app-built skin since the app last wrote it"""
+    stored = skin.get('mm_skin_print')
+    if skin.get('mm_skin') == DEFAULT_SKIN:
+        return skin.type != 'MESH' or (stored is not None and stored != fingerprint(skin))
+    from . import assets
+    return stored is not None and stored != assets.fingerprint(skin)
+
+
+def user_offset(skin):
+    """Local transform the user gave a skin root; skins are built with an identity root"""
+    return (tuple(skin.location), tuple(skin.rotation_euler), tuple(skin.scale))
+
+
+def apply_offset(skin, offset):
+    if offset is None:
+        return
+    skin.location, skin.rotation_euler, skin.scale = offset
 
 
 def fingerprint(skin):
@@ -139,7 +226,7 @@ def skin_key(kind, entity, context):
             sorted((name, round(float(value), 6)) for name, value in (entity.get('params') or {}).items()),
             round(frame.wall_offset, 6), round(context['marbleRadius'], 6),
             [[round(value, 5) for value in point] for point in frame.local_path()],
-            math.copysign(1.0, frame.angle), sorted(context['reactions'].items()), frame.finish,
+            math.copysign(1.0, frame.angle), sorted(piece_reaction(entity, context).items()), frame.finish,
         ]
     return hashlib.sha1(json.dumps(values).encode()).hexdigest()[:16]
 
@@ -183,26 +270,23 @@ def _add_part(skin, holder, spec, collection, entity, context):
     part['mm_owner'] = OWNER
     part['mm_flash'] = 0.0
     if spec.get('reactive') and holder is not None:
-        add_reaction(part, holder, float(entity.get('angle', 0.0)), context['reactions'])
+        add_reaction(part, holder, float(entity.get('angle', 0.0)), piece_reaction(entity, context))
     return part
 
 
-def add_reaction(part, holder, angle, reactions):
-    """Bar dip: a small press along -z and a tilt around the bracket that follow `mm_hit` and spring back with it"""
-    press = reactions.get('press', 0.0)
-    tilt = math.radians(reactions.get('dip', 0.0)) * (-1.0 if angle >= 0 else 1.0)
-    flash = reactions.get('flash', 0.0)
-    for (path, index), expression in zip(REACTION_PATHS, ('-%.6f*h' % press, '%.6f*h' % tilt, '%.4f*h' % flash)):
-        fcurve = part.driver_add(path, index) if index >= 0 else part.driver_add(path)
-        driver = fcurve.driver
-        driver.type = 'SCRIPTED'
-        variable = driver.variables[0] if len(driver.variables) else driver.variables.new()
-        variable.name = 'h'
-        variable.type = 'SINGLE_PROP'
-        variable.targets[0].id_type = 'OBJECT'
-        variable.targets[0].id = holder
-        variable.targets[0].data_path = '["mm_hit"]'
-        driver.expression = expression
+def add_reaction(part, holder, angle, reaction):
+    """Bar reaction from `mm_hit`: a press along -z with a tilt around the bracket, a decaying wobble in the wall
+    plane, or an emission flash. Every motion springs back as `mm_hit` decays; preset `none` adds no drivers."""
+    if reaction.get('preset') == 'none':
+        return
+    tilt = math.radians(reaction.get('dip', 0.0)) * (-1.0 if angle >= 0 else 1.0)
+    rotation = ['%.6f*h' % tilt]
+    wobble = wobble_expression(reaction.get('wobble', 0.0), reaction.get('frequency', DEFAULT_WOBBLE_HZ))
+    if wobble:
+        rotation.append(wobble)
+    expressions = ('-%.6f*h' % reaction.get('press', 0.0), ' + '.join(rotation), '%.4f*h' % reaction.get('flash', 0.0))
+    for (path, index), expression in zip(REACTION_PATHS, expressions):
+        drive(part, path, index, holder, expression)
 
 
 def build_spec(kind, entity, context):

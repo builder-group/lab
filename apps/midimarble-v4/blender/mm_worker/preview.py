@@ -1,7 +1,7 @@
 """`preview_frame`: an Eevee frame plus a flat object ID image for picking objects in the app.
 
 The ID image is a Workbench render with flat object colors and antialiasing off. Every skin of a managed
-holder gets a unique color for the render only; `ids` maps each `#rrggbb` to its holder's `mm_id`. Pixels of
+holder, and every wall text, gets a unique color for the render only; `ids` maps each `#rrggbb` to its `mm_id`. Pixels of
 other colors belong to unmanaged objects or the background.
 """
 import colorsys
@@ -82,7 +82,8 @@ def render_ids(scene, id_path, width, height):
         key = '#%02x%02x%02x' % srgb
         ids[key] = holder['mm_id']
         linear = (*[srgb_to_linear(channel / 255) for channel in srgb], 1.0)
-        for obj in descendants(holder):
+        # Wall text has no holder: the object itself carries the ID
+        for obj in [holder, *descendants(holder)]:
             overrides.append((obj, 'color', linear))
     shading = scene.display.shading
     settings = [

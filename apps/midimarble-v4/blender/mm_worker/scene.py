@@ -1,4 +1,4 @@
-"""`apply_scene` and `inspect`: app-owned holders, skins and keyframes from a scene description.
+"""`apply_scene` and `inspect`: app-owned holders, skins, wall text and keyframes from a scene description.
 
 Coordinate mapping: a wall point (x, y) at distance d from the wall becomes Blender (x, -d, y). A wall angle a
 (counter-clockwise as seen from the front) becomes a rotation of -a around Blender +Y, which is a
@@ -11,7 +11,7 @@ import time
 import bpy
 import numpy as np
 
-from . import anim, camera, contacts, skins, studio, themes
+from . import anim, assets, camera, contacts, skins, studio, themes, walltext
 from .util import (
     DEFAULT_MARBLE_RADIUS,
     DEFAULT_PIECE_DEPTH,
@@ -29,9 +29,9 @@ from .util import (
 )
 
 SCENE_DESCRIPTION_VERSION = 1
-# `mm_hit` rises to 1 at a hit and decays to 0 over this many seconds
-HIT_DECAY = 0.25
-HIT_TAU = HIT_DECAY / 5
+# `mm_hit` rises to 1 at a hit and decays to 0 over HIT_DECAY seconds
+HIT_DECAY = skins.HIT_DECAY
+HIT_TAU = skins.HIT_TAU
 
 KEYED_PATHS = ('location', 'rotation_euler', '["mm_hit"]', '["mm_visible"]')
 # Transform channels as [location xyz, rotation xyz, scale xyz]; animated channels are excluded from link checks
@@ -69,6 +69,8 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     theme = themes.theme_name(description.get('theme'))
     marble_radius = max([float(marble['radius']) for marble in marbles] or [DEFAULT_MARBLE_RADIUS])
     context = skins.skin_context(theme, marble_radius, description.get('reactions'))
+    context['projectDir'] = project_dir
+    context['assets'] = {}
     managed = ensure_collection(MANAGED_COLLECTION)
     holders = {obj['mm_id']: obj for obj in managed.objects if is_holder(obj)}
     report = {'created': [], 'updated': [], 'skipped': [], 'removed': [], 'keyframes': 0, 'skins': {}}
@@ -99,6 +101,8 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
         for mm_id, holder in holders.items():
             detach(holder, managed, detached)
             report['removed'].append(mm_id)
+    report['texts'] = walltext.apply_texts(
+        project_dir, description.get('wallTexts') or [], managed, lambda: ensure_collection(DETACHED_COLLECTION))
 
     bounds = scene_bounds(marbles, marble_motion, pieces)
     studio_report = studio.ensure_studio(scene, bounds, theme)
@@ -139,12 +143,14 @@ def inspect():
             'link': state,
             'reason': reason,
             'skins': [child.name for child in obj.children],
+            'skinKind': next((child.get('mm_skin') for child in obj.children if child.get('mm_skin')), None),
         })
     studio_collection = bpy.data.collections.get(studio.STUDIO_COLLECTION)
     scene = bpy.context.scene
     return {
         'holders': holders,
         'detached': [obj.name for obj in (detached.objects if detached else [])],
+        'texts': walltext.inspect(managed),
         'studio': [
             {'name': obj.name, 'role': obj.get('mm_role')}
             for obj in (studio_collection.objects if studio_collection else [])
@@ -182,20 +188,63 @@ def take_holder(holders, managed, mm_id, name, role, display_size):
 
 
 def ensure_skin(holder, kind, entity, managed, context):
-    """Keeps existing child skins and their local offsets, rebuilding only unedited default skins; creates the
-    default skin for a bare holder. Returns the state of each skin."""
-    if holder.children:
-        return [skins.refresh_default_skin(child, kind, entity, context, managed) for child in holder.children]
+    """Keeps existing child skins and their local offsets, rebuilding only unedited app skins; creates the wanted
+    skin for a bare holder. Returns the state of each skin.
+
+    A piece wants its library skin when `assetPath` names a loadable asset and the theme default otherwise. An
+    unedited app skin of the other kind is replaced, and the new skin takes over its root offset.
+    """
     if kind == 'marble':
+        if holder.children:
+            return [skins.refresh_default_skin(child, kind, entity, context, managed) for child in holder.children]
         skins.create_marble_skin(holder, entity, managed, context)
-    else:
-        skins.create_piece_skin(holder, entity, managed, context)
-    return ['created']
+        return ['created']
+
+    states = []
+    template, manifest = None, None
+    relative = entity.get('assetPath')
+    if relative:
+        template, manifest, problem = assets.load_asset(context['projectDir'], relative, context['assets'])
+        if problem:
+            states.append(problem)
+    current = [child for child in holder.children if child.get('mm_skin') == assets.ASSET_SKIN and child.get('mm_asset') == relative]
+    if template is None and current:
+        # Keep a skin whose asset file is missing for now rather than swapping it for the default
+        return states + ['kept']
+
+    def create(offset=None):
+        if template is not None:
+            assets.create_asset_skin(holder, entity, template, manifest, managed, context, offset)
+        else:
+            skin = skins.create_piece_skin(holder, entity, managed, context)
+            skins.apply_offset(skin, offset)
+
+    if not holder.children:
+        create()
+        return states + ['created']
+    for child in list(holder.children):
+        owner = child.get('mm_skin')
+        if owner not in (skins.DEFAULT_SKIN, assets.ASSET_SKIN):
+            states.append('custom')
+        elif template is None and owner == skins.DEFAULT_SKIN:
+            states.append(skins.refresh_default_skin(child, kind, entity, context, managed))
+        elif template is not None and owner == assets.ASSET_SKIN and child.get('mm_asset') == relative:
+            states.append(assets.refresh_asset_skin(child, entity, template, manifest, context, managed))
+        elif skins.is_edited(child):
+            states.append('edited')
+        else:
+            offset = skins.user_offset(child)
+            for obj in [child, *descendants(child)]:
+                skins.release_reactions(obj)
+            skins.remove_object(child)
+            create(offset)
+            states.append('replaced')
+    return states
 
 
 def record_skins(report, mm_id, states):
     for state in states:
-        if state in ('edited', 'custom'):
+        if state in ('edited', 'custom', 'missingAsset', 'invalidAsset'):
             report['skins'][mm_id] = state
 
 

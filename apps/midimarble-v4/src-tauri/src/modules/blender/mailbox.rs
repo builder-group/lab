@@ -25,6 +25,8 @@ pub enum MailboxError {
     InvalidResponse(String),
     #[error("{0} leaves the package")]
     OutsidePackage(String),
+    #[error("{0} is not a file path in an existing folder")]
+    InvalidDestination(String),
 }
 
 /// Unique request ID that matches the worker's `[A-Za-z0-9_-]` file name rule
@@ -153,6 +155,47 @@ pub fn write_package_file(
     return Ok(path);
 }
 
+/// Copies a package file to an absolute path outside or inside the package, such as a film from `renders/` to
+/// the location the user chose in the save panel. The copy goes through a sibling temporary file and a rename, so
+/// the destination never holds a partial file; an existing file there is replaced.
+pub fn copy_file_out(
+    package: &Path,
+    relative: &str,
+    destination: &Path,
+) -> Result<PathBuf, MailboxError> {
+    let source = package_file(package, relative)?;
+    if !source.is_file() {
+        return Err(MailboxError::Io {
+            action: "find",
+            path: source.display().to_string(),
+            source: std::io::Error::from(std::io::ErrorKind::NotFound),
+        });
+    }
+    let has_parent_step = destination
+        .components()
+        .any(|component| matches!(component, Component::ParentDir));
+    let file_name = destination.file_name().map(|value| value.to_string_lossy().to_string());
+    let parent = destination.parent().filter(|value| value.is_dir());
+    let (Some(file_name), Some(parent), false, true) =
+        (file_name, parent, has_parent_step, destination.is_absolute())
+    else {
+        return Err(MailboxError::InvalidDestination(destination.display().to_string()));
+    };
+    if destination.is_dir() {
+        return Err(MailboxError::InvalidDestination(destination.display().to_string()));
+    }
+    if fs::canonicalize(parent).ok().map(|value| value.join(&file_name)) == fs::canonicalize(&source).ok() {
+        return Ok(source);
+    }
+    let temporary = parent.join(format!(".{}.tmp-{}", file_name, new_request_id()));
+    fs::copy(&source, &temporary).map_err(|error| io("copy", &temporary, error))?;
+    if let Err(error) = fs::rename(&temporary, destination) {
+        let _ = fs::remove_file(&temporary);
+        return Err(io("replace", destination, error));
+    }
+    return Ok(destination.to_path_buf());
+}
+
 /// Writes through a sibling temporary file and a rename. The temporary name does not end in `.json`,
 /// so mailbox readers never see a partial file.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), MailboxError> {
@@ -265,6 +308,33 @@ mod tests {
         assert_eq!(response.unwrap()["result"]["path"], "x.mp4");
         assert!(!response_path(&package, "film-1").exists());
         fs::remove_dir_all(&package).unwrap();
+    }
+
+    #[test]
+    fn copies_package_files_out() {
+        let package = temp_package("copy");
+        let outside = temp_package("copy-out");
+        write_package_file(&package, "renders/film.mp4", &[7, 8, 9]).unwrap();
+        let destination = outside.join("Film.mp4");
+        let copied = copy_file_out(&package, "renders/film.mp4", &destination).unwrap();
+        assert_eq!(copied, destination);
+        assert_eq!(fs::read(&destination).unwrap(), vec![7, 8, 9]);
+        // Replaces an existing file and leaves no temporary files behind
+        write_package_file(&package, "renders/film.mp4", &[1]).unwrap();
+        copy_file_out(&package, "renders/film.mp4", &destination).unwrap();
+        assert_eq!(fs::read(&destination).unwrap(), vec![1]);
+        assert_eq!(fs::read_dir(&outside).unwrap().count(), 1);
+        // Copying onto itself keeps the file
+        let same = package.join("renders/film.mp4");
+        assert_eq!(copy_file_out(&package, "renders/film.mp4", &same).unwrap(), same);
+        assert_eq!(fs::read(&same).unwrap(), vec![1]);
+        assert!(copy_file_out(&package, "../film.mp4", &destination).is_err());
+        assert!(copy_file_out(&package, "renders/missing.mp4", &destination).is_err());
+        assert!(copy_file_out(&package, "renders/film.mp4", Path::new("relative.mp4")).is_err());
+        assert!(copy_file_out(&package, "renders/film.mp4", &outside.join("missing/Film.mp4")).is_err());
+        assert!(copy_file_out(&package, "renders/film.mp4", &outside).is_err());
+        fs::remove_dir_all(&package).unwrap();
+        fs::remove_dir_all(&outside).unwrap();
     }
 
     #[test]
