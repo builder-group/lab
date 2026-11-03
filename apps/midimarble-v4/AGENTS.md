@@ -10,6 +10,7 @@ These rules extend the lab [AGENTS.md](../../AGENTS.md) for this app. Where they
 - [docs/milestones.md](docs/milestones.md): milestones, fixtures and done checks
 - [docs/references.md](docs/references.md): target films and scale
 - [docs/progress.md](docs/progress.md): current state of the build
+- [docs/ux-review.md](docs/ux-review.md): tasks, heuristics and budgets every UI round is judged by
 
 Read `progress.md` first when resuming work. Update the documents when a decision changes; they are the source of truth. Earlier MidiMarble prototypes are references only.
 
