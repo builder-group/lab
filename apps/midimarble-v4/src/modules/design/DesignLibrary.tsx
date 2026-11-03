@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Box, Check, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import React from 'react';
-import { openContextMenu, type TMenuEntry } from '@/components';
+import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
 import type { TLibraryItem } from '@/modules/library';
 import type { TProject } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
@@ -111,9 +111,9 @@ export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 
 				<LibrarySection id="project" title="In This Project" isOpen={!collapsed.includes('project')} onToggle={toggleSection} count={projectItems.length}>
 					{isUnavailable ? (
-						<p className="mm-caption px-3">Skins and decorations are Blender files. The library opens in the desktop app.</p>
+						<EmptyRow text="Desktop app only" help="Skins and decorations are Blender files, so the library opens in the desktop app." />
 					) : !projectItems.length ? (
-						<p className="mm-caption px-3">Skins you accept from an agent or apply from My Library are copied here, so the project stays portable.</p>
+						<EmptyRow text="No items" help="Skins you accept from an agent or apply from My Library are copied here, so the project stays portable." />
 					) : (
 						<ItemGrid items={filter(projectItems)} active={active} onActivate={setActive} onMenu={itemMenu} selectedType={selectedType} />
 					)}
@@ -121,9 +121,9 @@ export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 
 				<LibrarySection id="global" title="My Library" isOpen={!collapsed.includes('global')} onToggle={toggleSection} count={globalItems.length}>
 					{isUnavailable ? (
-						<p className="mm-caption px-3">Items you save from any project appear here in the desktop app.</p>
+						<EmptyRow text="Desktop app only" help="Items you save from any project appear here in the desktop app." />
 					) : !globalItems.length ? (
-						<p className="mm-caption px-3">Right-click a project item and choose Save to My Library to use it in other projects.</p>
+						<EmptyRow text="No items" help="Right-click a project item and choose Save to My Library to use it in other projects." />
 					) : (
 						<ItemGrid items={filter(globalItems)} active={active} onActivate={setActive} onMenu={itemMenu} selectedType={selectedType} />
 					)}
@@ -278,3 +278,14 @@ function roleLabel(item: TLibraryItem): string {
 	if (manifest.role === 'skin') return manifest.pieceType != null ? `${getPieceDefinition(manifest.pieceType)?.label ?? manifest.pieceType} skin` : 'Skin';
 	return manifest.role === 'text' ? 'Text' : 'Decoration';
 }
+
+/** An empty library section: one short line, with the explanation behind the question mark */
+const EmptyRow: React.FC<{ text: string; help: string }> = (props) => {
+	const { text, help } = props;
+	return (
+		<div className="flex items-center gap-1.5 px-3">
+			<span className="mm-caption">{text}</span>
+			<HelpTip text={help} />
+		</div>
+	);
+};

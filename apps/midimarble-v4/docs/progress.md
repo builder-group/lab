@@ -4,12 +4,23 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Current state
 
-- Milestones: M0–M4 done; M5 Design in progress (UI, library and agent runner done; Blender consumption of asset skins, per-piece reactions and wall text in progress); M6 render pipeline, follow camera and seamless loops done, shot markers open
-- Next steps: looser group framing in the film camera for two-lane runs (see the larger-kit entry and `references.md`), Jingle Bells at the default half speed, a native export test, density at reference hit rates, a focus-marble control in the Design inspector
+- Milestones: M0–M4 done; M5 Design done in the browser and headless Blender (agent chat, library, reactions, wall text, link states), native agent runs and Accept not re-verified after the chat rework; M6 camera with shot markers, render presets and loops done, `reference-20` Best film rendering for the side-by-side review
+- Next steps: review the `reference-20` Best film against the reference and re-render Jingle Bells with the wall fix; native window check of the round 2 UI, export through the sheet and a real agent run from the chat; Jingle Bells at the default half speed; the chat panel narrows the canvas at 1440 px
 - Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### UX round 2 (owner review of the open canvas)
+
+- Owner review of the running app: ugly transport, unclear M and S, no piano roll, an indented and wordy inspector, a pointless Keep in Place, attachments that do not navigate, poorly shown timing, separate tunnel and path tools, pieces scattered over tool buttons, the agent in the inspector with too much subtext, fake document tabs, music import hidden in a World panel. Decisions in `design-language.md` under Round 2 decisions; built in five parallel slices, each verified by hand in its own browser tab at 1440 × 900 in light and dark
+- Timeline (`studio/timeline/`): Logic-style transport (Go to Start, step glyphs for Previous and Next Hit, a plain Play triangle, LCD time that takes typing), Final Cut zoom slider; GarageBand track headers with disclosure, speaker and headphones toggles; MIDI tracks expand into a piano roll (keyboard strip, semitone rows, notes drag in time and pitch, keys audition); a Song track at the top with the file, tempo, waveform or note overview; the add menu imports, replaces and removes the song
+- Inspector (`components/Field.tsx`, `inspector.css`): Figma UI3 layout with in-field labels on one 8 px grid, flush section titles, a status pill in the header (On time, 12 ms late, Missed, Blocked) instead of a Timing section; Attached To row selects its hit, the hit inspector edits pitch (typed note names, semitone stepper with audition), velocity and time and links back to the platform or offers Add Platform; pinning is gone from the UI (the schema field stays); World shows Song and Film with Fit to Song; Blender's state sits beside Export; Design inspectors without prose
+- Window: one document per window (no tab strip), centred title with edited dot, Home, Agent (⌘J); Figma layers with 28 px rows and hit times; agent as a shared chat panel with @-mention chips prefilled from the selection, one status line per run, candidate cards with Accept and Discard
+- Tools: one Path tool draws rails and tunnels (Rail | Tunnel switch in the inspector keeps the path); Insert (+, ⇧I) popover with real-geometry previews for Rail, Tunnel, Platform, Windmill, Switchback and Marble, click to arm, drag to drop
+- Examples: Songs (Jingle Bells with its MIDI, Tap Along with an original recording and found hits, 16 of 16 on time) and Techniques; pieces named in time order; new pieces continue the numbering; library empty states as one line with a question mark
+- Checks: `typecheck` and `lint` pass; `test` 283 of 284 with Blender rendering in the background, the failing reflow timing test passes alone (9 of 9 in its files)
+- Not verified: the round 2 UI in the native window, a real agent run and Accept from the chat, Replace Song through the native picker, audio of key auditions
 
 ### Examples with songs: Jingle Bells MIDI, Tap Along recording, piece names in time order
 
