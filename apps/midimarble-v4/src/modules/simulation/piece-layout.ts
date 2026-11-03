@@ -1,7 +1,8 @@
 import type { TVec2 } from '@/modules/project';
-import { placeBoxAtContact, placeBoxAtMarble, surfaceNormal, type TBox2 } from './geometry';
+import { GRAVITY_Y, placeBoxAtContact, placeBoxAtMarble, surfaceNormal, type TBox2 } from './geometry';
 import { getPieceDefinition } from './pieces';
 import { projectOnPath, smoothPath, transformShape, type TPieceShape } from './shapes';
+import type { TPieceLayoutKind } from './types';
 
 // World layout of every piece type. Linked pieces are placed by construction: their contact surface
 // touches the marble at the placement time, offset by the marble radius along the surface normal.
@@ -19,6 +20,8 @@ export interface TPieceLayout {
 	/** Smoothed support line of rails and tunnels in world coordinates */
 	path: TVec2[] | null;
 	rotor: TRotorLayout | null;
+	/** Wire polylines of a switchback in world coordinates */
+	paths?: TVec2[][];
 }
 
 export interface TRotorLayout {
@@ -47,6 +50,7 @@ export function layoutAtMarble(
 	position: TVec2,
 	velocity: TVec2 | null
 ): TPieceLayout {
+	if (layoutOf(input.type) === 'holder') return holderLayout(input, position, velocity);
 	if (layoutOf(input.type) === 'box') {
 		const { length, thickness } = boxSize(input.params);
 		const placement = placeBoxAtMarble(
@@ -81,6 +85,8 @@ export function layoutAtContact(
 	normal: TVec2 | null = null
 ): TPieceLayout {
 	const kind = layoutOf(input.type);
+	// A switchback has no contact surface; the point is where the marble enters it
+	if (kind === 'holder') return holderLayout(input, contactPoint, null);
 	const n = normal ?? baseNormal(input);
 	if (kind === 'box') {
 		const { length, thickness } = boxSize(input.params);
@@ -116,6 +122,7 @@ export function layoutAtContact(
 /** Places an unlinked piece from its transform */
 export function layoutFree(input: TLayoutInput, position: TVec2): TPieceLayout {
 	const kind = layoutOf(input.type);
+	if (kind === 'holder') return holderLayout(input, position, null);
 	if (kind === 'box') {
 		const { length, thickness } = boxSize(input.params);
 		const box = {
@@ -139,7 +146,7 @@ export function layoutFree(input: TLayoutInput, position: TVec2): TPieceLayout {
 	return pathLayout(input, local, origin, 1, null, null);
 }
 
-export function layoutOf(type: string): 'box' | 'path' | 'tube' | 'rotor' {
+export function layoutOf(type: string): TPieceLayoutKind {
 	return getPieceDefinition(type)?.layout ?? 'box';
 }
 
@@ -347,5 +354,131 @@ function rotorLayout(
 			motorSpeed: input.params['motorSpeed'] ?? 0,
 			depth: input.params['depth'] ?? 0.03
 		}
+	};
+}
+
+// Switchbacks
+
+const DEGREE = Math.PI / 180;
+const MIN_LEG_SLOPE = 2 * DEGREE;
+const MAX_LEG_SLOPE = 25 * DEGREE;
+// Space between the marble at its entry and the switchback's top
+const ENTRY_CLEARANCE = 0.003;
+// How far both walls rise above the first leg's high end
+const WALL_RISE = 0.02;
+
+export interface TSwitchbackGeometry {
+	/** Wall wires from top to bottom: the first leg's high side, then the other side */
+	walls: [TVec2, TVec2][];
+	/** Leg wires from high end to low end, top leg first */
+	legs: [TVec2, TVec2][];
+	/** Middle of the last leg's opening, where the marble leaves, at the low end's height */
+	exit: TVec2;
+	/** Lowest point of the wires */
+	bottom: number;
+	/** Leg slope after limits */
+	slope: number;
+}
+
+/**
+ * Wires of a switchback whose entry point is `entry`. `angle` and `contactAt` come from the hit link and
+ * `velocity`, the marble's at the entry, picks the wall that gets the catch lip.
+ */
+export function switchbackGeometry(
+	params: Record<string, number>,
+	angle: number,
+	contactAt: number,
+	entry: TVec2,
+	marbleRadius: number,
+	velocity: TVec2 | null
+): TSwitchbackGeometry {
+	const width = params['width'] ?? 0.1;
+	const legCount = Math.max(1, Math.round(params['legs'] ?? 3));
+	const drop = params['drop'] ?? 0.035;
+	const opening = params['opening'] ?? 0.032;
+	const lip = params['lip'] ?? 0.04;
+	const radius = params['radius'] ?? 0.0025;
+	const slope = Math.min(MAX_LEG_SLOPE, Math.max(MIN_LEG_SLOPE, Math.abs(angle)));
+	// Like a rail, a negative angle runs the first leg downhill toward +x
+	const direction = angle > 0 ? -1 : 1;
+	const clear = marbleRadius + radius + ENTRY_CLEARANCE;
+	// u runs across the switchback from the first leg's high end (0) toward its low end (width)
+	const entryU = Math.min(width - clear, Math.max(clear, contactAt * width));
+	const toWorld = (u: number, y: number): TVec2 => ({
+		x: entry.x + direction * (u - entryU),
+		y
+	});
+	const rim = entry.y - clear;
+	const moving = velocity != null && Math.abs(velocity.x) > 0.05 ? Math.sign(velocity.x * direction) : 0;
+	const rise = Math.tan(slope) * (width - opening);
+	const legs: [TVec2, TVec2][] = [];
+	let high = rim - WALL_RISE;
+	let lastLow = high;
+	for (let k = 0; k < legCount; k++) {
+		const isEven = k % 2 === 0;
+		const low = high - rise;
+		legs.push([toWorld(isEven ? 0 : width, high), toWorld(isEven ? width - opening : opening, low)]);
+		lastLow = low;
+		if (k < legCount - 1) high = low - drop;
+	}
+	const isLastEven = (legCount - 1) % 2 === 0;
+	const nearBottom = isLastEven ? high : lastLow;
+	const farBottom = isLastEven ? lastLow : high;
+	const walls: [TVec2, TVec2][] = [
+		[toWorld(0, rim + (moving < 0 ? lip : 0)), toWorld(0, nearBottom)],
+		[toWorld(width, rim + (moving > 0 ? lip : 0)), toWorld(width, farBottom)]
+	];
+	return {
+		walls,
+		legs,
+		exit: toWorld(isLastEven ? width - opening / 2 : opening / 2, lastLow),
+		bottom: Math.min(nearBottom, farBottom) - radius,
+		slope
+	};
+}
+
+/**
+ * Rough time a marble spends in a switchback: the drop onto the first leg, then each leg rolled from rest
+ * at the rolling acceleration 5/7 · g · sin(slope) and each drop through an opening. Used to rank
+ * candidates before simulating them.
+ */
+export function switchbackHoldTime(params: Record<string, number>, slope: number): number {
+	const g = -GRAVITY_Y;
+	const width = params['width'] ?? 0.1;
+	const legCount = Math.max(1, Math.round(params['legs'] ?? 3));
+	const drop = params['drop'] ?? 0.035;
+	const opening = params['opening'] ?? 0.032;
+	const limited = Math.min(MAX_LEG_SLOPE, Math.max(MIN_LEG_SLOPE, Math.abs(slope)));
+	const along = (width - opening) / Math.cos(limited);
+	const roll = Math.sqrt((2 * along) / ((5 / 7) * g * Math.sin(limited)));
+	const fall = Math.sqrt((2 * drop) / g);
+	const entry = Math.sqrt((2 * WALL_RISE) / g);
+	return entry + legCount * roll + (legCount - 1) * fall;
+}
+
+function holderLayout(input: TLayoutInput, entry: TVec2, velocity: TVec2 | null): TPieceLayout {
+	const geometry = switchbackGeometry(
+		input.params,
+		input.angle,
+		input.contactAt,
+		entry,
+		input.marbleRadius,
+		velocity
+	);
+	const radius = input.params['radius'] ?? 0.0025;
+	const wires = [...geometry.walls, ...geometry.legs];
+	const shapes: TPieceShape[] = wires.map(([a, b]) => ({ kind: 'capsule', a, b, radius }));
+	const [nearWall, farWall] = geometry.walls;
+	const top = Math.max(nearWall?.[0].y ?? entry.y, farWall?.[0].y ?? entry.y);
+	return {
+		position: { x: ((nearWall?.[0].x ?? 0) + (farWall?.[0].x ?? 0)) / 2, y: top },
+		angle: input.angle,
+		contactPoint: null,
+		contactNormal: null,
+		shapes,
+		box: null,
+		path: null,
+		rotor: null,
+		paths: wires.map(([a, b]) => [a, b])
 	};
 }

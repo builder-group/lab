@@ -731,10 +731,10 @@
 				},
 				"release": {
 					"position": {
-						"x": -0.12,
+						"x": -0.16,
 						"y": 0.6
 					},
-					"time": 0.75
+					"time": 0
 				}
 			}
 		},
@@ -749,10 +749,10 @@
 				},
 				"release": {
 					"position": {
-						"x": 0.12,
+						"x": 0.16,
 						"y": 0.6
 					},
-					"time": 0.75
+					"time": 0
 				}
 			}
 		},
@@ -766,13 +766,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.79
+						"bounce": 0.2
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-1",
-					"angle": -0.06981317007977318,
+					"angle": -0.017453292519943295,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -788,13 +788,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.79
+						"bounce": 0.2
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-1",
-					"angle": -0.06981317007977318,
+					"angle": 0.017453292519943295,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -816,7 +816,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-2",
-					"angle": 0.12217304763960307,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -838,7 +838,7 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-2",
-					"angle": 0.12217304763960307,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -854,13 +854,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.42
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-3",
-					"angle": 0.08726646259971647,
+					"angle": -0.12217304763960307,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -882,7 +882,7 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-3",
-					"angle": -0.12217304763960307,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -904,14 +904,39 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-4",
-					"angle": 0.12217304763960307,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-5",
+			"id": "switchback-1-1",
+			"name": "Switchback 1",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.1,
+						"legs": 2,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.283
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-3",
+					"angle": 0.29671,
+					"contactAt": 0.25,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-4",
 			"name": "Platform 8",
 			"components": {
 				"piece": {
@@ -920,20 +945,20 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.66
+						"bounce": 0.68
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-5",
-					"angle": -0.12217304763960307,
+					"laneId": "lane-1",
+					"hitId": "hit-1-4",
+					"angle": 0.05235987755982989,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-6",
+			"id": "piece-2-5",
 			"name": "Platform 9",
 			"components": {
 				"piece": {
@@ -947,15 +972,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-6",
-					"angle": 0.12217304763960307,
+					"hitId": "hit-2-5",
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-7",
+			"id": "piece-2-6",
 			"name": "Platform 10",
 			"components": {
 				"piece": {
@@ -969,15 +994,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-7",
-					"angle": -0.12217304763960307,
+					"hitId": "hit-2-6",
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-8",
+			"id": "piece-2-7",
 			"name": "Platform 11",
 			"components": {
 				"piece": {
@@ -991,15 +1016,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-8",
-					"angle": 0.12217304763960307,
+					"hitId": "hit-2-7",
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-9",
+			"id": "piece-2-8",
 			"name": "Platform 12",
 			"components": {
 				"piece": {
@@ -1013,15 +1038,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-9",
-					"angle": -0.12217304763960307,
+					"hitId": "hit-2-8",
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-10",
+			"id": "piece-2-9",
 			"name": "Platform 13",
 			"components": {
 				"piece": {
@@ -1035,15 +1060,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-10",
-					"angle": 0.12217304763960307,
+					"hitId": "hit-2-9",
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-11",
+			"id": "piece-2-10",
 			"name": "Platform 14",
 			"components": {
 				"piece": {
@@ -1057,15 +1082,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-11",
-					"angle": -0.12217304763960307,
+					"hitId": "hit-2-10",
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-12",
+			"id": "piece-2-11",
 			"name": "Platform 15",
 			"components": {
 				"piece": {
@@ -1079,15 +1104,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-12",
-					"angle": 0.12217304763960307,
+					"hitId": "hit-2-11",
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-13",
+			"id": "piece-2-12",
 			"name": "Platform 16",
 			"components": {
 				"piece": {
@@ -1101,15 +1126,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-13",
-					"angle": -0.12217304763960307,
+					"hitId": "hit-2-12",
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-14",
+			"id": "piece-2-13",
 			"name": "Platform 17",
 			"components": {
 				"piece": {
@@ -1123,15 +1148,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-14",
-					"angle": 0.12217304763960307,
+					"hitId": "hit-2-13",
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-15",
+			"id": "piece-2-14",
 			"name": "Platform 18",
 			"components": {
 				"piece": {
@@ -1145,15 +1170,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-15",
-					"angle": -0.12217304763960307,
+					"hitId": "hit-2-14",
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-16",
+			"id": "piece-2-15",
 			"name": "Platform 19",
 			"components": {
 				"piece": {
@@ -1167,15 +1192,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-16",
-					"angle": 0.12217304763960307,
+					"hitId": "hit-2-15",
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-17",
+			"id": "piece-2-16",
 			"name": "Platform 20",
 			"components": {
 				"piece": {
@@ -1189,15 +1214,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-17",
-					"angle": -0.12217304763960307,
+					"hitId": "hit-2-16",
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-18",
+			"id": "piece-2-17",
 			"name": "Platform 21",
 			"components": {
 				"piece": {
@@ -1211,15 +1236,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-18",
-					"angle": 0.12217304763960307,
+					"hitId": "hit-2-17",
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-19",
+			"id": "piece-2-18",
 			"name": "Platform 22",
 			"components": {
 				"piece": {
@@ -1233,52 +1258,15 @@
 				},
 				"hitLink": {
 					"laneId": "lane-2",
-					"hitId": "hit-2-19",
-					"angle": -0.12217304763960307,
+					"hitId": "hit-2-18",
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "rail-1-1",
-			"name": "Rail 1",
-			"components": {
-				"piece": {
-					"type": "rail",
-					"params": {
-						"radius": 0.0025,
-						"gap": 0.01,
-						"entryDelay": 0.296
-					}
-				},
-				"path": {
-					"points": [
-						{
-							"x": -0.02823,
-							"y": 0
-						},
-						{
-							"x": 0,
-							"y": 0
-						},
-						{
-							"x": 0.10223,
-							"y": 0
-						}
-					]
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-3",
-					"angle": -0.20943951023931956,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-4",
+			"id": "piece-2-19",
 			"name": "Platform 23",
 			"components": {
 				"piece": {
@@ -1287,181 +1275,12 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.35
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-4",
-					"angle": -0.13962634015954636,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-5",
-			"name": "Platform 24",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.65
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-5",
-					"angle": 0.17453292519943295,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-6",
-			"name": "Platform 1",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.65
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-6",
-					"angle": -0.05235987755982989,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "rail-1-2",
-			"name": "Rail 2",
-			"components": {
-				"piece": {
-					"type": "rail",
-					"params": {
-						"radius": 0.0025,
-						"gap": 0.01,
-						"entryDelay": 0.296
-					}
-				},
-				"path": {
-					"points": [
-						{
-							"x": -0.006,
-							"y": 0
-						},
-						{
-							"x": 0,
-							"y": 0
-						},
-						{
-							"x": 0.10006,
-							"y": 0
-						}
-					]
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-6",
-					"angle": -0.03490658503988659,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-7",
-			"name": "Platform 1",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.65
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-7",
-					"angle": 0.15707963267948966,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-8",
-			"name": "Platform 1",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.65
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-8",
-					"angle": -0.10471975511965978,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-9",
-			"name": "Platform 28",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.95
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-9",
-					"angle": -0.6457718232379019,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-10",
-			"name": "Platform 29",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.2
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-10",
+					"laneId": "lane-2",
+					"hitId": "hit-2-19",
 					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
@@ -1469,133 +1288,8 @@
 			}
 		},
 		{
-			"id": "piece-1-11",
-			"name": "Platform 30",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.65
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-11",
-					"angle": -0.29670597283903605,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "rail-1-3",
-			"name": "Rail 3",
-			"components": {
-				"piece": {
-					"type": "rail",
-					"params": {
-						"radius": 0.0025,
-						"gap": 0.01,
-						"entryDelay": 0.467
-					}
-				},
-				"path": {
-					"points": [
-						{
-							"x": -0.25034,
-							"y": 0
-						},
-						{
-							"x": 0,
-							"y": 0
-						},
-						{
-							"x": 0.05073,
-							"y": 0
-						}
-					]
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-11",
-					"angle": -0.05235987755982989,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-12",
-			"name": "Platform 31",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.95
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-12",
-					"angle": 0.33161255787892263,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-13",
-			"name": "Platform 32",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.59
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-13",
-					"angle": -0.22689280275926285,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-14",
-			"name": "Platform 33",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.95
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-14",
-					"angle": 0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
 			"id": "piece-2-20",
-			"name": "Platform 34",
+			"name": "Platform 24",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1609,6 +1303,50 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-20",
+					"angle": -0.08726646259971647,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-5",
+			"name": "Platform 25",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.67
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-5",
+					"angle": -0.05235987755982989,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-6",
+			"name": "Platform 26",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.42
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-6",
 					"angle": 0.12217304763960307,
 					"contactAt": 0.5,
 					"pinned": false
@@ -1616,30 +1354,33 @@
 			}
 		},
 		{
-			"id": "piece-2-21",
-			"name": "Platform 35",
+			"id": "switchback-1-2",
+			"name": "Switchback 2",
 			"components": {
 				"piece": {
-					"type": "platform",
+					"type": "switchback",
 					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
+						"width": 0.08,
+						"legs": 1,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.304
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-21",
-					"angle": -0.12217304763960307,
-					"contactAt": 0.5,
+					"laneId": "lane-1",
+					"hitId": "hit-1-6",
+					"angle": -0.08727,
+					"contactAt": 0.25,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-22",
-			"name": "Platform 36",
+			"id": "piece-1-7",
+			"name": "Platform 27",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1647,12 +1388,12 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.66
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-22",
+					"laneId": "lane-1",
+					"hitId": "hit-1-7",
 					"angle": 0.12217304763960307,
 					"contactAt": 0.5,
 					"pinned": false
@@ -1660,294 +1401,8 @@
 			}
 		},
 		{
-			"id": "piece-2-23",
-			"name": "Platform 37",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-23",
-					"angle": -0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-24",
-			"name": "Platform 38",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-24",
-					"angle": 0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-25",
-			"name": "Platform 39",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-25",
-					"angle": -0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-26",
-			"name": "Platform 40",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-26",
-					"angle": 0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-27",
-			"name": "Platform 41",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-27",
-					"angle": -0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-28",
-			"name": "Platform 42",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-28",
-					"angle": 0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-29",
-			"name": "Platform 43",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-29",
-					"angle": -0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-30",
-			"name": "Platform 44",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-30",
-					"angle": 0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-31",
-			"name": "Platform 45",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-31",
-					"angle": -0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-32",
-			"name": "Platform 46",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-32",
-					"angle": 0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-33",
-			"name": "Platform 47",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-33",
-					"angle": -0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-34",
-			"name": "Platform 48",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-34",
-					"angle": 0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-2-35",
-			"name": "Platform 49",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.66
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-35",
-					"angle": -0.12217304763960307,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-15",
-			"name": "Platform 1",
+			"id": "piece-1-8",
+			"name": "Platform 28",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1960,8 +1415,237 @@
 				},
 				"hitLink": {
 					"laneId": "lane-1",
+					"hitId": "hit-1-8",
+					"angle": -0.08726646259971647,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-9",
+			"name": "Platform 29",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.42
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-9",
+					"angle": 0.12217304763960307,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "switchback-1-3",
+			"name": "Switchback 3",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.1,
+						"legs": 1,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.304
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-9",
+					"angle": -0.20944,
+					"contactAt": 0.25,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-10",
+			"name": "Platform 30",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.31
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-10",
+					"angle": 0.4014257279586958,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-11",
+			"name": "Platform 31",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.65
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-11",
+					"angle": -0.2617993877991494,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "switchback-1-4",
+			"name": "Switchback 4",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.08,
+						"legs": 2,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.313
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-11",
+					"angle": 0.05236,
+					"contactAt": 0.25,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-12",
+			"name": "Platform 32",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.47
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-12",
+					"angle": 0.10471975511965978,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-13",
+			"name": "Platform 33",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.64
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-13",
+					"angle": -0.10471975511965978,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-14",
+			"name": "Platform 34",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.41
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-14",
+					"angle": 0.10471975511965978,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "switchback-1-5",
+			"name": "Switchback 5",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.08,
+						"legs": 1,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.279
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-14",
+					"angle": -0.13963,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-15",
+			"name": "Platform 35",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.34
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
 					"hitId": "hit-1-15",
-					"angle": 0,
+					"angle": 0.2617993877991494,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -1969,7 +1653,7 @@
 		},
 		{
 			"id": "piece-1-16",
-			"name": "Platform 51",
+			"name": "Platform 36",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1983,15 +1667,15 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-16",
-					"angle": 0.5759586531581288,
+					"angle": -0.22689280275926285,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-1-17",
-			"name": "Platform 52",
+			"id": "piece-2-21",
+			"name": "Platform 37",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1999,12 +1683,12 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.37
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-17",
+					"laneId": "lane-2",
+					"hitId": "hit-2-21",
 					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
@@ -2012,8 +1696,8 @@
 			}
 		},
 		{
-			"id": "piece-1-18",
-			"name": "Platform 53",
+			"id": "piece-1-17",
+			"name": "Platform 38",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2021,12 +1705,34 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.37
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
-					"hitId": "hit-1-18",
+					"hitId": "hit-1-17",
+					"angle": 0.06981317007977318,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-22",
+			"name": "Platform 39",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.66
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-22",
 					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
@@ -2034,8 +1740,8 @@
 			}
 		},
 		{
-			"id": "piece-1-19",
-			"name": "Platform 54",
+			"id": "piece-1-18",
+			"name": "Platform 40",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2043,34 +1749,12 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.37
+						"bounce": 0.71
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
-					"hitId": "hit-1-19",
-					"angle": 0.19198621771937624,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-20",
-			"name": "Platform 55",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.95
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-20",
+					"hitId": "hit-1-18",
 					"angle": -0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
@@ -2078,8 +1762,96 @@
 			}
 		},
 		{
+			"id": "piece-2-23",
+			"name": "Platform 41",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.66
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-23",
+					"angle": 0.08726646259971647,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-19",
+			"name": "Platform 42",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.28
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-19",
+					"angle": 0.15707963267948966,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-24",
+			"name": "Platform 43",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.66
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-24",
+					"angle": -0.08726646259971647,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-20",
+			"name": "Platform 44",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.48
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-20",
+					"angle": -0.3490658503988659,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
 			"id": "piece-1-21",
-			"name": "Platform 56",
+			"name": "Platform 45",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2093,7 +1865,29 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-21",
-					"angle": -1.0122909661567112,
+					"angle": 0.03490658503988659,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-25",
+			"name": "Platform 46",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.66
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-25",
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2101,6 +1895,251 @@
 		},
 		{
 			"id": "piece-1-22",
+			"name": "Platform 47",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.64
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-22",
+					"angle": 0.10471975511965978,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-26",
+			"name": "Platform 48",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.66
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-26",
+					"angle": -0.08726646259971647,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-23",
+			"name": "Platform 49",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.64
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-23",
+					"angle": -0.10471975511965978,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-27",
+			"name": "Platform 50",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.66
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-27",
+					"angle": 0.08726646259971647,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-24",
+			"name": "Platform 51",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.64
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-24",
+					"angle": 0.10471975511965978,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-28",
+			"name": "Platform 52",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.66
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-28",
+					"angle": -0.08726646259971647,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-25",
+			"name": "Platform 53",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.42
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-25",
+					"angle": -0.13962634015954636,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-29",
+			"name": "Platform 54",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.49
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-29",
+					"angle": 0,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-30",
+			"name": "Platform 55",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.56
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-30",
+					"angle": 0.06981317007977318,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "switchback-1-6",
+			"name": "Switchback 6",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.08,
+						"legs": 1,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.304
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-25",
+					"angle": 0.05236,
+					"contactAt": 0.75,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-26",
+			"name": "Platform 56",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.49
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-26",
+					"angle": -0.12217304763960307,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-31",
 			"name": "Platform 57",
 			"components": {
 				"piece": {
@@ -2109,20 +2148,20 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.72
+						"bounce": 0.56
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-22",
-					"angle": 0.20943951023931956,
+					"laneId": "lane-2",
+					"hitId": "hit-2-31",
+					"angle": -0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-1-23",
+			"id": "piece-2-32",
 			"name": "Platform 58",
 			"components": {
 				"piece": {
@@ -2131,20 +2170,45 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.72
+						"bounce": 0.56
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-23",
-					"angle": -0.20943951023931956,
+					"laneId": "lane-2",
+					"hitId": "hit-2-32",
+					"angle": 0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-1-24",
+			"id": "switchback-1-7",
+			"name": "Switchback 7",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.08,
+						"legs": 2,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.304
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-26",
+					"angle": 0.20944,
+					"contactAt": 0.25,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-27",
 			"name": "Platform 59",
 			"components": {
 				"piece": {
@@ -2153,20 +2217,20 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.72
+						"bounce": 0.75
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
-					"hitId": "hit-1-24",
-					"angle": 0.20943951023931956,
+					"hitId": "hit-1-27",
+					"angle": 0.19198621771937624,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-1-25",
+			"id": "piece-2-33",
 			"name": "Platform 60",
 			"components": {
 				"piece": {
@@ -2175,131 +2239,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-25",
-					"angle": -0.17453292519943295,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "rail-1-4",
-			"name": "Rail 4",
-			"components": {
-				"piece": {
-					"type": "rail",
-					"params": {
-						"radius": 0.0025,
-						"gap": 0.01,
-						"entryDelay": 0.342
-					}
-				},
-				"path": {
-					"points": [
-						{
-							"x": 0.04337,
-							"y": 0
-						},
-						{
-							"x": 0,
-							"y": 0
-						},
-						{
-							"x": -0.10223,
-							"y": 0
-						}
-					]
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-25",
-					"angle": 0.20943951023931956,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-26",
-			"name": "Platform 61",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.65
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-26",
-					"angle": -0.29670597283903605,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "rail-1-5",
-			"name": "Rail 5",
-			"components": {
-				"piece": {
-					"type": "rail",
-					"params": {
-						"radius": 0.0025,
-						"gap": 0.01,
-						"entryDelay": 0.558
-					}
-				},
-				"path": {
-					"points": [
-						{
-							"x": 0.09402,
-							"y": 0
-						},
-						{
-							"x": 0,
-							"y": 0
-						},
-						{
-							"x": -0.25095,
-							"y": 0
-						}
-					]
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-26",
-					"angle": 0.08726646259971647,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "piece-1-27",
-			"name": "Platform 62",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.06,
-						"thickness": 0.008,
-						"depth": 0.03,
-						"bounce": 0.65
-					}
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-27",
-					"angle": 0.29670597283903605,
+					"laneId": "lane-2",
+					"hitId": "hit-2-33",
+					"angle": -0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2307,7 +2253,7 @@
 		},
 		{
 			"id": "piece-1-28",
-			"name": "Platform 63",
+			"name": "Platform 61",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2321,7 +2267,29 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-28",
-					"angle": -0.017453292519943295,
+					"angle": -0.10471975511965978,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-34",
+			"name": "Platform 62",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.67
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-34",
+					"angle": 0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2329,6 +2297,28 @@
 		},
 		{
 			"id": "piece-1-29",
+			"name": "Platform 63",
+			"components": {
+				"piece": {
+					"type": "platform",
+					"params": {
+						"length": 0.06,
+						"thickness": 0.008,
+						"depth": 0.03,
+						"bounce": 0.42
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-29",
+					"angle": 0.12217304763960307,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-2-35",
 			"name": "Platform 64",
 			"components": {
 				"piece": {
@@ -2337,13 +2327,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-29",
-					"angle": -0.29670597283903605,
+					"laneId": "lane-2",
+					"hitId": "hit-2-35",
+					"angle": -0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2351,7 +2341,7 @@
 		},
 		{
 			"id": "piece-2-36",
-			"name": "Platform 1",
+			"name": "Platform 65",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2359,51 +2349,39 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-36",
-					"angle": 0,
+					"angle": 0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "rail-1-6",
-			"name": "Rail 6",
+			"id": "switchback-1-8",
+			"name": "Switchback 8",
 			"components": {
 				"piece": {
-					"type": "rail",
+					"type": "switchback",
 					"params": {
+						"width": 0.08,
+						"legs": 1,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
 						"radius": 0.0025,
-						"gap": 0.01,
-						"entryDelay": 0.225
+						"entryDelay": 0.279
 					}
-				},
-				"path": {
-					"points": [
-						{
-							"x": 0.11777,
-							"y": 0
-						},
-						{
-							"x": 0,
-							"y": 0
-						},
-						{
-							"x": -0.10223,
-							"y": 0
-						}
-					]
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-29",
-					"angle": 0.20943951023931956,
-					"contactAt": 0.5,
+					"angle": -0.08727,
+					"contactAt": 0.25,
 					"pinned": false
 				}
 			}
@@ -2418,13 +2396,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.42
+						"bounce": 0.65
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-30",
-					"angle": 0.20943951023931956,
+					"angle": 0.12217304763960307,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2432,7 +2410,7 @@
 		},
 		{
 			"id": "piece-2-37",
-			"name": "Platform 1",
+			"name": "Platform 67",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2440,13 +2418,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-37",
-					"angle": 0.15707963267948966,
+					"angle": -0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2454,7 +2432,7 @@
 		},
 		{
 			"id": "piece-1-31",
-			"name": "Platform 1",
+			"name": "Platform 68",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2462,13 +2440,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-31",
-					"angle": -0.20943951023931956,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2476,7 +2454,7 @@
 		},
 		{
 			"id": "piece-2-38",
-			"name": "Platform 1",
+			"name": "Platform 69",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2484,13 +2462,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-38",
-					"angle": -0.15707963267948966,
+					"angle": 0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2506,13 +2484,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.42
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-32",
-					"angle": 0.22689280275926282,
+					"angle": 0.12217304763960307,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2528,13 +2506,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-39",
-					"angle": 0.15707963267948966,
+					"angle": -0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2550,20 +2528,45 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-40",
-					"angle": -0.15707963267948966,
+					"angle": 0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-2-41",
+			"id": "switchback-1-9",
+			"name": "Switchback 9",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.1,
+						"legs": 2,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.283
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-32",
+					"angle": -0.29671,
+					"contactAt": 0.25,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "piece-1-33",
 			"name": "Platform 73",
 			"components": {
 				"piece": {
@@ -2572,57 +2575,20 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.69
 					}
-				},
-				"hitLink": {
-					"laneId": "lane-2",
-					"hitId": "hit-2-41",
-					"angle": 0,
-					"contactAt": 0.5,
-					"pinned": false
-				}
-			}
-		},
-		{
-			"id": "rail-1-7",
-			"name": "Rail 7",
-			"components": {
-				"piece": {
-					"type": "rail",
-					"params": {
-						"radius": 0.0025,
-						"gap": 0.01,
-						"entryDelay": 0.283
-					}
-				},
-				"path": {
-					"points": [
-						{
-							"x": -0.04398,
-							"y": 0
-						},
-						{
-							"x": 0,
-							"y": 0
-						},
-						{
-							"x": 0.10223,
-							"y": 0
-						}
-					]
 				},
 				"hitLink": {
 					"laneId": "lane-1",
-					"hitId": "hit-1-32",
-					"angle": -0.20943951023931956,
+					"hitId": "hit-1-33",
+					"angle": -0.05235987755982989,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
-			"id": "piece-1-33",
+			"id": "piece-2-41",
 			"name": "Platform 74",
 			"components": {
 				"piece": {
@@ -2631,13 +2597,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.33
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-33",
-					"angle": -0.17453292519943298,
+					"laneId": "lane-2",
+					"hitId": "hit-2-41",
+					"angle": 0.017453292519943295,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2653,13 +2619,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.64
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-34",
-					"angle": 0.06981317007977318,
+					"angle": 0.05235987755982989,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2667,7 +2633,7 @@
 		},
 		{
 			"id": "piece-2-42",
-			"name": "Platform 1",
+			"name": "Platform 76",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2675,13 +2641,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-42",
-					"angle": 0.20943951023931956,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2689,7 +2655,7 @@
 		},
 		{
 			"id": "piece-1-35",
-			"name": "Platform 1",
+			"name": "Platform 77",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2697,13 +2663,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.42
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-35",
-					"angle": 0.10471975511965978,
+					"angle": -0.12217304763960307,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2711,7 +2677,7 @@
 		},
 		{
 			"id": "piece-2-43",
-			"name": "Platform 1",
+			"name": "Platform 78",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2719,13 +2685,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-43",
-					"angle": -0.3141592653589793,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2733,7 +2699,7 @@
 		},
 		{
 			"id": "piece-2-44",
-			"name": "Platform 1",
+			"name": "Platform 79",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2741,14 +2707,39 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-44",
-					"angle": 0.3665191429188092,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "switchback-1-10",
+			"name": "Switchback 10",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.1,
+						"legs": 1,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.304
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-35",
+					"angle": 0.20944,
+					"contactAt": 0.25,
 					"pinned": false
 				}
 			}
@@ -2763,13 +2754,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.41
+						"bounce": 0.33
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-36",
-					"angle": -0.2617993877991494,
+					"angle": -0.4014257279586958,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2785,13 +2776,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-37",
-					"angle": 0.29670597283903605,
+					"angle": 0.2792526803190927,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2799,7 +2790,7 @@
 		},
 		{
 			"id": "piece-2-45",
-			"name": "Platform 1",
+			"name": "Platform 82",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2807,13 +2798,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-45",
-					"angle": -0.3141592653589793,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2821,7 +2812,7 @@
 		},
 		{
 			"id": "piece-2-46",
-			"name": "Platform 1",
+			"name": "Platform 83",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2829,13 +2820,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-46",
-					"angle": 0.20943951023931956,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2843,7 +2834,7 @@
 		},
 		{
 			"id": "piece-2-47",
-			"name": "Platform 1",
+			"name": "Platform 84",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2851,13 +2842,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-47",
-					"angle": -0.10471975511965978,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2873,13 +2864,38 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-48",
-					"angle": 0.10471975511965978,
+					"angle": -0.08726646259971647,
+					"contactAt": 0.5,
+					"pinned": false
+				}
+			}
+		},
+		{
+			"id": "switchback-1-11",
+			"name": "Switchback 11",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.08,
+						"legs": 3,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.308
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-37",
+					"angle": -0.08727,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2895,13 +2911,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.2
+						"bounce": 0.45
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-38",
-					"angle": -0.06981317007977318,
+					"angle": 0.10471975511965978,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2917,13 +2933,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-49",
-					"angle": -0.10471975511965978,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2939,13 +2955,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.95
+						"bounce": 0.61
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-39",
-					"angle": 0.4363323129985824,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2967,7 +2983,7 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-50",
-					"angle": 0.06981317007977318,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -2975,7 +2991,7 @@
 		},
 		{
 			"id": "piece-1-40",
-			"name": "Platform 1",
+			"name": "Platform 90",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -2983,13 +2999,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.42
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-40",
-					"angle": -0.2617993877991494,
+					"angle": 0.12217304763960307,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3011,7 +3027,7 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-51",
-					"angle": -0.06981317007977318,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3019,7 +3035,7 @@
 		},
 		{
 			"id": "piece-2-52",
-			"name": "Platform 1",
+			"name": "Platform 92",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -3027,21 +3043,46 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-52",
-					"angle": 0.10471975511965978,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		},
 		{
+			"id": "switchback-1-12",
+			"name": "Switchback 12",
+			"components": {
+				"piece": {
+					"type": "switchback",
+					"params": {
+						"width": 0.1,
+						"legs": 1,
+						"drop": 0.035,
+						"opening": 0.032,
+						"lip": 0.04,
+						"radius": 0.0025,
+						"entryDelay": 0.308
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-40",
+					"angle": -0.20944,
+					"contactAt": 0.25,
+					"pinned": false
+				}
+			}
+		},
+		{
 			"id": "piece-1-41",
-			"name": "Platform 1",
+			"name": "Platform 93",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -3049,13 +3090,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.33
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-41",
-					"angle": 0.4188790204786391,
+					"angle": 0.4014257279586958,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3077,7 +3118,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-42",
-					"angle": 0.4188790204786391,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3093,13 +3134,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.59
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-53",
-					"angle": -0.10471975511965978,
+					"angle": 0,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3115,13 +3156,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.3
+						"bounce": 0.65
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-43",
-					"angle": -0.03490658503988659,
+					"angle": -0.10471975511965978,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3129,7 +3170,7 @@
 		},
 		{
 			"id": "piece-2-54",
-			"name": "Platform 1",
+			"name": "Platform 97",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -3137,13 +3178,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.61
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-54",
-					"angle": 0,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3159,13 +3200,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.67
+						"bounce": 0.68
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-44",
-					"angle": -0.06981317007977318,
+					"angle": 0,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3173,7 +3214,7 @@
 		},
 		{
 			"id": "piece-2-55",
-			"name": "Platform 1",
+			"name": "Platform 99",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -3181,13 +3222,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.61
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-55",
-					"angle": 0.10471975511965978,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3203,13 +3244,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.67
+						"bounce": 0.27
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-45",
-					"angle": 0.12217304763960307,
+					"angle": 0.19198621771937624,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3225,13 +3266,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.61
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-56",
-					"angle": -0.10471975511965978,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3247,13 +3288,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.95
+						"bounce": 0.47
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-46",
-					"angle": -0.5235987755982988,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3275,7 +3316,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-47",
-					"angle": 0.5759586531581287,
+					"angle": 0.15707963267948966,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3291,13 +3332,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.61
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-57",
-					"angle": 0.10471975511965978,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3305,7 +3346,7 @@
 		},
 		{
 			"id": "piece-1-48",
-			"name": "Platform 1",
+			"name": "Platform 105",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -3313,13 +3354,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-48",
-					"angle": -0.10471975511965978,
+					"angle": -0.05235987755982989,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3335,13 +3376,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.61
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-58",
-					"angle": -0.10471975511965978,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3357,13 +3398,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.5
+						"bounce": 0.57
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-49",
-					"angle": -0.13962634015954636,
+					"angle": 0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3379,13 +3420,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.61
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-59",
-					"angle": 0.10471975511965978,
+					"angle": -0.08726646259971647,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3401,13 +3442,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.5
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-50",
-					"angle": 0.13962634015954636,
+					"angle": -0.10471975511965978,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3423,13 +3464,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.65
+						"bounce": 0.68
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-60",
-					"angle": -0.10471975511965978,
+					"angle": 0,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3445,13 +3486,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.5
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-51",
-					"angle": -0.13962634015954636,
+					"angle": 0.10471975511965978,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3459,7 +3500,7 @@
 		},
 		{
 			"id": "piece-2-61",
-			"name": "Platform 112",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -3503,7 +3544,7 @@
 		},
 		{
 			"id": "piece-2-63",
-			"name": "Platform 1",
+			"name": "Platform 114",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -3517,7 +3558,7 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-63",
-					"angle": 0,
+					"angle": 0.10471975511965978,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -3539,7 +3580,7 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-64",
-					"angle": 0,
+					"angle": -0.10471975511965978,
 					"contactAt": 0.5,
 					"pinned": false
 				}

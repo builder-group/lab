@@ -330,6 +330,39 @@ describe('simulate', () => {
 		for (const sample of windmill?.motion ?? []) expect(sample.angle).toBeCloseTo(0.5, 6);
 	});
 
+	it('counts a first contact without impact as a resting miss', () => {
+		const project = createBareProject(0.7);
+		// The marble starts at rest on a free bar, so the linked piece that appears under it at its hit is
+		// touched without being struck
+		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.4125 }, time: 0 });
+		project.entities.push({
+			id: 'shelf',
+			components: {
+				piece: { type: 'platform', params: { length: 0.2 } },
+				transform: { position: { x: 0, y: 0.4 }, angle: 0 }
+			}
+		});
+		const pieceId = addLinkedHit(project, laneId, 0.5, 0);
+		const result = simulator.simulate(project);
+		const hit = result.hits.find((item) => item.pieceEntityId === pieceId);
+		expect(hit?.status).toBe('missed');
+		expect(hit?.reason).toBe('resting');
+		const contact = result.contacts.find((item) => item.otherEntityId === pieceId);
+		expect(contact?.speed ?? Infinity).toBeLessThan(0.3);
+	});
+
+	it('records the approach speed of a strike and the shared pace', () => {
+		const project = createBareProject(0.6);
+		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
+		const pieceId = addLinkedHit(project, laneId, 0.3, 0);
+		const result = simulator.simulate(project);
+		expect(result.hits[0]?.status).toBe('onTime');
+		const contact = result.contacts.find((item) => item.otherEntityId === pieceId);
+		expect(contact?.speed).toBeCloseTo(9.81 * 0.3, 1);
+		expect(result.pace?.anchorTime).toBe(0.3);
+		expect(result.pace?.anchorY).toBeCloseTo(result.hits[0]?.dot?.y ?? 0, 12);
+	});
+
 	it('flags open dots outside the frame band', () => {
 		const project = createBareProject(1);
 		addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0, velocity: { x: 0.5, y: 0 } });

@@ -5,6 +5,7 @@ import type { TMarbleSample, TMarbleTrack, TSimulationResult } from '@/modules/s
 import {
 	SCENE_DESCRIPTION_VERSION,
 	type TSceneCamera,
+	type TSceneDescentPoint,
 	type TSceneDescription,
 	type TSceneMarble,
 	type TScenePiece
@@ -99,7 +100,7 @@ export function buildSceneDescription(
 			theme: project.design.theme,
 			marbles,
 			pieces,
-			camera: buildSceneCamera(project.design.camera),
+			camera: { ...buildSceneCamera(project.design.camera), descent: descentCurve(result) },
 			wallTexts: project.entities.flatMap((entity) => {
 				const text = entity.components.wallText;
 				const transform = entity.components.transform;
@@ -119,8 +120,26 @@ export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
 		pitch: camera.pitch,
 		lead: camera.lead,
 		smoothing: camera.smoothing,
-		shots: camera.shots.map((shot) => ({ time: shot.time, kind: shot.kind, roll: shot.roll, distance: shot.distance }))
+		shots: camera.shots.map((shot) => ({ time: shot.time, kind: shot.kind, roll: shot.roll, distance: shot.distance })),
+		focusMarbleId: camera.focusMarbleId ?? null
 	};
+}
+
+/**
+ * Shared descent pace of a multi-marble run, when the simulation reports one as `descent: {time, y}[]`. The field is
+ * optional on the result, so older results and single-marble runs give null.
+ */
+export function descentCurve(result: TSimulationResult): TSceneDescentPoint[] | null {
+	const descent: unknown = (result as { descent?: unknown }).descent;
+	if (!Array.isArray(descent)) return null;
+	const points = descent.flatMap((point: unknown) => {
+		if (point == null || typeof point !== 'object') return [];
+		const { time, y } = point as { time?: unknown; y?: unknown };
+		return typeof time === 'number' && typeof y === 'number' && Number.isFinite(time) && Number.isFinite(y)
+			? [{ time, y }]
+			: [];
+	});
+	return points.length >= 2 ? points : null;
 }
 
 /** Package-relative `.blend` of a project library skin; built-in IDs with a colon such as `brass:gold` have none */

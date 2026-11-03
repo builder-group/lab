@@ -1,7 +1,7 @@
 import type { TContinueAnswer, TGapAnswer } from '@/modules/simulation';
 
 // Ghost pieces are suggestions drawn in place before they exist: Continue offers the next pieces of a
-// repeating pattern, and Next offers a rail across a long gap. Suggestions belong to one project
+// repeating pattern, and Next offers a switchback (or a rail) across a long gap. Suggestions belong to one project
 // revision. Any edit makes them stale, so they disappear until the worker answers for the new revision,
 // and answers that arrive for an older revision are dropped.
 

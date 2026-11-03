@@ -17,21 +17,20 @@ from .util import STUDIO_COLLECTION, ensure_collection, tag
 
 STUDIO_VERSION = 1
 PEG_PITCH = 0.025
-WALL_MARGIN = 5.0
+# Wall beyond everything the run and the camera cover
+WALL_MARGIN = 1.5
 FRAME_MARGIN = 1.15
 
 
-def ensure_studio(scene, bounds, theme):
-    """Creates missing studio objects and applies `theme` to untouched ones. Returns `{created, themed}`."""
+def ensure_studio(scene, theme):
+    """Creates missing studio objects and applies `theme` to untouched ones. Returns `{created, themed}`. The wall
+    is sized afterwards by `fit_wall`, once the camera is known."""
     theme = themes.theme_name(theme)
     created = not scene.get('mm_studio_version')
     collection = ensure_collection(STUDIO_COLLECTION)
     switched = scene.get('mm_theme') != theme
-    wall = studio_object('studio.wall')
-    if wall is None and created:
-        wall = create_wall(collection)
-    if wall is not None:
-        update_wall(wall, bounds, theme)
+    if studio_object('studio.wall') is None and created:
+        create_wall(collection)
     sun = studio_object('studio.sun')
     if sun is None and created:
         sun = create_sun(collection)
@@ -90,8 +89,32 @@ def wall_signature(wall):
     return [corners, [round(value, 5) for value in (*wall.location, *wall.rotation_euler, *wall.scale)], materials]
 
 
+def fit_wall(scene, bounds, theme):
+    """Sizes an untouched wall to cover the run and everything the camera sees over the scene range, whatever the
+    run's depth. Returns the wall bounds, or None when there is no wall or the user edited it."""
+    wall = studio_object('studio.wall')
+    if wall is None:
+        return None
+    footprint = camera_rig.view_footprint(scene, studio_object('studio.camera'))
+    if footprint is not None:
+        bounds = ((min(bounds[0][0], footprint[0][0]), min(bounds[0][1], footprint[0][1])),
+                  (max(bounds[1][0], footprint[1][0]), max(bounds[1][1], footprint[1][1])))
+    if not update_wall(wall, bounds, themes.theme_name(theme)):
+        return None
+    return wall_bounds(wall)
+
+
+def wall_bounds(wall):
+    """Wall rectangle in wall coordinates as ((min_x, min_y), (max_x, max_y))"""
+    # The local XY plane turned upright: local x is wall x and local y is wall height
+    xs = [wall.location.x + vertex.co.x for vertex in wall.data.vertices]
+    ys = [wall.location.z + vertex.co.y for vertex in wall.data.vertices]
+    return (min(xs), min(ys)), (max(xs), max(ys))
+
+
 def update_wall(wall, bounds, theme):
-    """Fits an untouched wall to the run with a margin and gives it the theme's material"""
+    """Fits an untouched wall to `bounds` with a margin and gives it the theme's material. The plaster and pegboard
+    materials use object coordinates in metres, so their scale does not change with the wall size."""
     if wall.type != 'MESH' or not untouched(wall, wall_signature(wall)):
         return False
     (min_x, min_y), (max_x, max_y) = bounds

@@ -25,8 +25,9 @@ THEMES = {
     },
     'brass': {
         'wall': {'kind': 'plaster', 'color': (0.42, 0.355, 0.53)},
-        'sun': {'energy': 6.5, 'angle': 6.0, 'color': (1.0, 0.95, 0.88), 'direction': (0.82, 0.40, -0.36)},
-        'world': {'color': (0.53, 0.50, 0.62), 'strength': 0.6, 'studio': True},
+        # A wide sun and a stronger fill keep the long diagonal shadows soft and light like the reference
+        'sun': {'energy': 5.2, 'angle': 16.0, 'color': (1.0, 0.95, 0.88), 'direction': (0.82, 0.40, -0.36)},
+        'world': {'color': (0.53, 0.50, 0.62), 'strength': 1.0, 'studio': True},
         'look': 'AgX - Medium High Contrast',
         'exposure': -1.25,
         'fstop': 8.0,
@@ -119,9 +120,9 @@ def wood_material():
 
 # Bar finishes: base color, metallic, roughness range and coat. Gold is the reference's brushed brass.
 FINISHES = {
-    'gold': {'base': (1.0, 0.74, 0.30), 'metallic': 1.0, 'roughness': (0.12, 0.24), 'coat': 0.0},
+    'gold': {'base': (1.0, 0.68, 0.2), 'metallic': 1.0, 'roughness': (0.12, 0.24), 'coat': 0.0},
     'copper': {'base': (0.93, 0.42, 0.24), 'metallic': 1.0, 'roughness': (0.22, 0.36), 'coat': 0.0},
-    'silver': {'base': (0.62, 0.64, 0.68), 'metallic': 1.0, 'roughness': (0.2, 0.34), 'coat': 0.0},
+    'silver': {'base': (0.46, 0.48, 0.52), 'metallic': 1.0, 'roughness': (0.14, 0.26), 'coat': 0.0},
     'dark': {'base': (0.035, 0.038, 0.045), 'metallic': 0.0, 'roughness': (0.30, 0.42), 'coat': 0.6},
 }
 
@@ -176,6 +177,57 @@ def bar_material(finish):
     return _shared('MM · brass' if finish == 'gold' else 'MM · bar ' + finish, build)
 
 
+def plastic_material(name, color, roughness, coat=0.0, flash=False):
+    """Smooth plastic such as a white key or a grille's dark inside"""
+    def build(material):
+        base = (*color, 1.0)
+        material.diffuse_color = base
+        principled = _principled(material)
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Roughness', roughness)
+        _set(principled, 'Coat Weight', coat)
+        _set(principled, 'Coat Roughness', 0.05)
+        if flash:
+            _flash_emission(material, base)
+    return _shared('MM · ' + name, build)
+
+
+def key_material():
+    return plastic_material('key', (0.86, 0.87, 0.88), 0.22, coat=0.4, flash=True)
+
+
+def housing_material():
+    """Dark coated device housing; it never flashes, so a glowing lens on it stays the only light"""
+    return plastic_material('housing', (0.035, 0.038, 0.045), 0.34, coat=0.6)
+
+
+def slot_material():
+    return plastic_material('slot', (0.012, 0.012, 0.016), 0.6)
+
+
+def glow_material(color, idle=1.6):
+    """Lit lens: a steady glow of strength `idle` that the reaction's `mm_flash` raises"""
+    def build(material):
+        tree = material.node_tree
+        principled = _principled(material)
+        base = (*color, 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Roughness', 0.18)
+        _set(principled, 'Coat Weight', 1.0)
+        _set(principled, 'Coat Roughness', 0.03)
+        _set(principled, 'Emission Color', base)
+        attribute = tree.nodes.new('ShaderNodeAttribute')
+        attribute.attribute_type = 'OBJECT'
+        attribute.attribute_name = 'mm_flash'
+        strength = tree.nodes.new('ShaderNodeMath')
+        strength.operation = 'ADD'
+        strength.inputs[1].default_value = idle
+        tree.links.new(attribute.outputs['Fac'], strength.inputs[0])
+        tree.links.new(strength.outputs['Value'], principled.inputs['Emission Strength'])
+    return _shared('MM · glow %.2f %.2f %.2f' % color, build)
+
+
 def chrome_material():
     def build(material):
         principled = _principled(material)
@@ -210,7 +262,7 @@ def glass_marble_material(color):
         glass = _principled(material)
         linear = parse_color(color)
         material.diffuse_color = linear
-        tint = tuple(0.55 + 0.45 * channel for channel in linear[:3]) + (1.0,)
+        tint = tuple(0.25 + 0.75 * channel for channel in linear[:3]) + (1.0,)
         _set(glass, 'Base Color', tint)
         _set(glass, 'Roughness', 0.02)
         _set(glass, 'Transmission Weight', 1.0)
@@ -222,19 +274,22 @@ def glass_marble_material(color):
         wave.wave_type = 'BANDS'
         wave.bands_direction = 'DIAGONAL'
         # Generated coordinates span the sphere once, so the swirl has the same size on any marble
-        wave.inputs['Scale'].default_value = 1.6
-        wave.inputs['Distortion'].default_value = 7.0
-        wave.inputs['Detail'].default_value = 2.0
-        wave.inputs['Detail Scale'].default_value = 1.5
+        wave.inputs['Scale'].default_value = 1.1
+        wave.inputs['Distortion'].default_value = 4.0
+        wave.inputs['Detail'].default_value = 1.5
+        wave.inputs['Detail Scale'].default_value = 1.0
+        # Mostly the marble colour, with a thin lighter swirl band
         ramp = nodes.new('ShaderNodeValToRGB')
-        deep = tuple(channel * 0.45 for channel in linear[:3]) + (1.0,)
-        light = tuple(min(1.0, 0.35 + channel * 0.8) for channel in linear[:3]) + (1.0,)
+        deep = tuple(channel * 0.55 for channel in linear[:3]) + (1.0,)
+        light = tuple(min(1.0, 0.12 + channel * 1.1) for channel in linear[:3]) + (1.0,)
         ramp.color_ramp.elements[0].color = deep
-        ramp.color_ramp.elements[0].position = 0.4
-        ramp.color_ramp.elements[1].color = light
-        ramp.color_ramp.elements[1].position = 0.9
-        middle = ramp.color_ramp.elements.new(0.55)
+        ramp.color_ramp.elements[0].position = 0.3
+        ramp.color_ramp.elements[1].color = linear
+        ramp.color_ramp.elements[1].position = 0.92
+        middle = ramp.color_ramp.elements.new(0.62)
         middle.color = linear
+        band = ramp.color_ramp.elements.new(0.8)
+        band.color = light
         links.new(coordinates.outputs['Generated'], wave.inputs['Vector'])
         links.new(wave.outputs['Fac'], ramp.inputs['Fac'])
         links.new(ramp.outputs['Color'], core.inputs['Base Color'])
@@ -243,7 +298,7 @@ def glass_marble_material(color):
         core.inputs['Coat Roughness'].default_value = 0.02
         # Light scattered inside the glass keeps the core luminous instead of a dark opaque ball
         links.new(ramp.outputs['Color'], core.inputs['Emission Color'])
-        core.inputs['Emission Strength'].default_value = 0.35
+        core.inputs['Emission Strength'].default_value = 0.2
         # The core shows through the middle of the sphere, the clear glass at the rim
         weight = nodes.new('ShaderNodeLayerWeight')
         weight.inputs['Blend'].default_value = 0.35

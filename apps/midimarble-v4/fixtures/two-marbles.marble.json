@@ -114,7 +114,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-1",
-					"angle": -0.13962634015954636,
+					"angle": -0.017453292519943295,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -130,13 +130,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.32
+						"bounce": 0.34
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-1",
-					"angle": 0.13962634015954636,
+					"angle": 0.10471975511965978,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -158,7 +158,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-2",
-					"angle": 0.17453292519943295,
+					"angle": -0.17453292519943295,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -174,13 +174,13 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.66
+						"bounce": 0.43
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-2",
-					"angle": 0,
+					"angle": -0.10471975511965978,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -202,7 +202,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-3",
-					"angle": 0,
+					"angle": 0.017453292519943295,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -224,7 +224,7 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-3",
-					"angle": -0.017453292519943295,
+					"angle": -0.03490658503988659,
 					"contactAt": 0.5,
 					"pinned": false
 				}

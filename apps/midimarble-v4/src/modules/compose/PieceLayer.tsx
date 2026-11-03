@@ -31,6 +31,7 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 				const kind = pieceKind(piece);
 				if (kind === 'path') return <RailShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={opacity} />;
 				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={opacity} />;
+				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={opacity} />;
 				return <MinimumShape key={piece.entityId} compose={compose} piece={piece} opacity={opacity} />;
 			})}
 		</g>
@@ -83,6 +84,29 @@ export const TunnelShape: React.FC<TShapeProps> = (props) => {
 			{ceiling.length >= 2 ? (
 				<polyline points={toPoints(ceiling)} fill="none" stroke={stroke} strokeWidth={wall} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={dash} />
 			) : null}
+		</g>
+	);
+};
+
+/** Walls and legs of a switchback as single wires */
+export const SwitchbackShape: React.FC<TShapeProps> = (props) => {
+	const { compose, piece, scale, opacity, dashed = false, tint } = props;
+	const palette = paletteOf(piece.type);
+	const wire = Math.max((piece.params['radius'] ?? 0.0025) * 2 * scale, 1.5);
+	const color = tint ?? palette.bar;
+	return (
+		<g opacity={opacity}>
+			{(piece.paths ?? []).map((line) => (
+				<polyline
+					key={line.map((point) => `${point.x.toFixed(5)},${point.y.toFixed(5)}`).join(' ')}
+					points={toPoints(line.map((point) => compose.toScreen(point)))}
+					fill="none"
+					stroke={color}
+					strokeWidth={wire}
+					strokeLinecap="round"
+					strokeDasharray={dashed ? '5 4' : undefined}
+				/>
+			))}
 		</g>
 	);
 };

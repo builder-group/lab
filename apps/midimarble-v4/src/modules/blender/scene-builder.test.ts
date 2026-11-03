@@ -191,8 +191,26 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			pitch: project.design.camera.pitch,
 			lead: project.design.camera.lead,
 			smoothing: project.design.camera.smoothing,
-			shots: [{ time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4 }]
+			shots: [{ time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4 }],
+			focusMarbleId: null,
+			descent: null
 		});
+	});
+
+	it('passes the focus marble and a shared descent curve when the result has one', () => {
+		const { project, result } = fixture();
+		project.design.camera.focusMarbleId = 'marble-2';
+		const descent = [
+			{ time: 0, y: 0.5 },
+			{ time: 1, y: 0.2 },
+			{ time: 2, y: Number.NaN }
+		];
+		const { description } = buildSceneDescription(project, { ...result, descent } as typeof result, { fps: 60 });
+		expect(description.camera?.focusMarbleId).toBe('marble-2');
+		expect(description.camera?.descent).toEqual([
+			{ time: 0, y: 0.5 },
+			{ time: 1, y: 0.2 }
+		]);
 	});
 });
 

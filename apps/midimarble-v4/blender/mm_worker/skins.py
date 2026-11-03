@@ -144,7 +144,10 @@ def piece_reaction(piece, context):
     }
     reaction = {'preset': 'theme', 'press': 0.0, 'dip': 0.0, 'flash': 0.0, 'wobble': 0.0, 'frequency': DEFAULT_WOBBLE_HZ}
     if preset not in REACTION_PRESETS:
-        reaction.update(press=theme.get('press', 0.0), dip=theme.get('dip', 0.0), flash=theme.get('flash', 0.0))
+        # A brass knob's lens lights up on every hit, like the reference's glowing red tops
+        knob = context['theme'] == 'brass' and device_parts(brass_skin(piece))[0] == 'knob'
+        reaction.update(press=theme.get('press', 0.0), dip=theme.get('dip', 0.0),
+                        flash=DEFAULT_GLOW if knob else theme.get('flash', 0.0))
         return reaction
     reaction['preset'] = preset
     if preset == 'press':
@@ -299,6 +302,29 @@ def build_spec(kind, entity, context):
     return builder(frame, entity, theme)
 
 
+# Built-in brass platform skins (`brass:<id>`): plain bars in a finish, and devices. `device` is a chrome housing with
+# a grille and a dome between end blocks in a bar finish (`device-copper` picks the finish), `key` a dark housing with
+# a white key that presses, `knob` a dark housing with a red lens that glows on every hit.
+BAR_FINISHES = ('gold', 'silver', 'copper', 'dark')
+DEVICES = ('device', 'key', 'knob')
+BRASS_SKINS = BAR_FINISHES + DEVICES + tuple('device-' + finish for finish in BAR_FINISHES if finish != 'gold')
+KNOB_GLOW = (0.9, 0.02, 0.012)
+
+
+def brass_skin(piece):
+    asset = ((piece.get('skin') or {}).get('assetId') or '')
+    name = asset.split(':', 1)[1] if asset.startswith('brass:') else 'gold'
+    return name if name in BRASS_SKINS else 'gold'
+
+
+def device_parts(skin):
+    """(device, trim finish) of a brass skin; a plain bar has no device"""
+    device, _, trim = skin.partition('-')
+    if device not in DEVICES:
+        return None, skin
+    return device, trim or 'gold'
+
+
 class PieceFrame:
     """Dimensions of a piece in its holder's local frame"""
 
@@ -314,9 +340,9 @@ class PieceFrame:
         self.origin = (float(position['x']), float(position['y']))
         self.path = [(float(point['x']), float(point['y'])) for point in (piece.get('path') or [])]
         self.color = piece.get('color') or '#c8b89a'
-        # Built-in bar finishes are chosen with skin asset IDs `brass:<finish>`; other skins keep the theme default
-        asset = ((piece.get('skin') or {}).get('assetId') or '')
-        self.finish = asset.split(':', 1)[1] if asset.startswith('brass:') else 'gold'
+        # Built-in brass skins are chosen with skin asset IDs `brass:<skin>`; other skins keep the theme default
+        self.finish = brass_skin(piece)
+        self.device, self.trim = device_parts(self.finish)
 
     def to_local(self, point):
         dx, dy = point[0] - self.origin[0], point[1] - self.origin[1]
@@ -345,6 +371,8 @@ def platform_spec(frame, piece, theme):
     params = frame.params
     length = params.get('length', 0.06)
     thickness = params.get('thickness', 0.008)
+    if theme == 'brass' and frame.device is not None:
+        return device_spec(frame, length, thickness)
     if theme == 'brass':
         chrome, metal = themes.chrome_material(), themes.bar_material(frame.finish)
         # Bracket parts scale with the kit, measured against the 16 mm marble of the Marble Race Kit
@@ -352,15 +380,16 @@ def platform_spec(frame, piece, theme):
         standoff = 0.0025 * k
         bar_depth = min(max(frame.depth * 0.72, 1.7 * frame.marble_radius), 3.2 * frame.marble_radius)
         bar_y = frame.wall_y - standoff - bar_depth / 2
-        # The top face is the collider's contact surface; the underside is slimmer than the collider so the
-        # bar reads thin like the reference
-        bar_thickness = thickness * 0.62
+        # The top face is the collider's contact surface; the bar reaches a little below the collider so it reads
+        # as a solid ingot like the reference
+        bar_thickness = thickness * 1.15
         bar_z = thickness / 2 - bar_thickness / 2
         bar = MeshBuilder()
         bar.box((length, bar_depth, bar_thickness), (0.0, bar_y, bar_z), bevel=bar_thickness * 0.22, segments=3)
         for side in (-1, 1):
-            bar.box((0.0045 * k, bar_depth * 1.04, bar_thickness * 1.15), (side * (length / 2 - 0.00225 * k), bar_y, bar_z),
-                    bevel=0.0007 * k, material=1)
+            # End caps are flush with the contact surface and reach a little further down and out
+            bar.box((0.0045 * k, bar_depth * 1.04, bar_thickness * 1.15),
+                    (side * (length / 2 - 0.00225 * k), bar_y, bar_z - bar_thickness * 0.075), bevel=0.0007 * k, material=1)
         bracket = MeshBuilder()
         underside = bar_z - bar_thickness / 2
         drop = max(0.022 * k, thickness * 2.6)
@@ -394,6 +423,62 @@ def platform_spec(frame, piece, theme):
         'root': peg.to_mesh('MM peg', [wood]),
         'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [themes.flat_material(frame.color, 0.42, 0.3)]), 'reactive': True}],
     }
+
+
+def device_spec(frame, length, thickness):
+    """Brass device skins on a short wall stub. The top face is the collider's contact surface; the housing reaches
+    below the collider like a solid block. Seen from the follow camera the top and the face away from the wall show,
+    so the detail sits there."""
+    k = frame.marble_radius / 0.008
+    standoff = 0.002 * k
+    depth = min(max(frame.depth * 0.8, 2.0 * frame.marble_radius), 3.2 * frame.marble_radius)
+    back = frame.wall_y - standoff
+    front = back - depth
+    middle = (front + back) / 2
+    top = thickness / 2
+    stub = MeshBuilder()
+    stub.cylinder(0.005 * k, 0.0025 * k, (0.0, frame.wall_y - 0.00125 * k, top - thickness), axis='Y', bevel=0.0006 * k, segments=24)
+    stub.cylinder(0.0022 * k, standoff + 0.002 * k, (0.0, back - 0.001 * k + standoff / 2, top - thickness), axis='Y', segments=16)
+    root = stub.to_mesh('MM stub', [themes.chrome_material()])
+    body = MeshBuilder()
+    if frame.device == 'device':
+        # Harmonica-like: chrome housing, a row of grille slots on the front, a dome and end blocks in the trim finish
+        height = thickness * 1.9
+        end = min(0.012 * k, length * 0.16)
+        body.box((length - 2 * end + 0.001 * k, depth * 0.94, height * 0.9), (0.0, middle, top - height * 0.45 - 0.0004 * k),
+                 bevel=0.0012 * k, material=0)
+        for side in (-1, 1):
+            body.box((end, depth, height), (side * (length / 2 - end / 2), middle, top - height / 2), bevel=0.0022 * k,
+                     material=1, segments=4)
+        slots = 7
+        span = (length - 2 * end) * 0.74
+        for index in range(slots):
+            x = -span / 2 + span * index / (slots - 1) - (length - 2 * end) * 0.06
+            body.box((span / slots * 0.55, 0.0012 * k, height * 0.42), (x, front + 0.0004 * k, top - height * 0.52),
+                     bevel=0.0003 * k, material=2)
+        body.sphere(height * 0.3, (span / 2 + (length - 2 * end) * 0.02, front + 0.0006 * k, top - height * 0.5), material=0,
+                    segments=24, rings=12)
+        materials = [themes.bar_material('silver'), themes.bar_material(frame.trim), themes.slot_material()]
+    elif frame.device == 'key':
+        # Dark housing with a white key that runs over the top and down the front
+        height = thickness * 2.0
+        body.box((length, depth, height), (0.0, middle, top - 0.0012 * k - height / 2), bevel=0.0018 * k, material=0, segments=4)
+        key_front = front - 0.0008 * k
+        key_back = min(back - 0.002 * k, frame.marble_y + frame.marble_radius * 1.1)
+        key_height = height * 0.42
+        body.box((length * 0.66, key_back - key_front, key_height), (length * 0.06, (key_front + key_back) / 2, top - key_height / 2),
+                 bevel=0.0009 * k, material=1, segments=3)
+        materials = [themes.housing_material(), themes.key_material()]
+    else:
+        # Dark knob housing with a red lens at its outer end
+        height = thickness * 1.7
+        body.box((length, depth, height), (0.0, middle, top - height / 2), bevel=0.0026 * k, material=0, segments=4)
+        lens = min(length * 0.34, 0.016 * k)
+        side = -1.0 if frame.angle >= 0 else 1.0
+        body.box((lens, 0.0024 * k, height * 0.56), (side * (length / 2 - lens / 2 - 0.003 * k), front - 0.0004 * k, top - height / 2),
+                 bevel=min(0.0011 * k, height * 0.25), material=1, segments=4)
+        materials = [themes.housing_material(), themes.glow_material(KNOB_GLOW)]
+    return {'root': root, 'parts': [{'role': 'bar', 'mesh': body.to_mesh('MM ' + frame.device, materials), 'reactive': True}]}
 
 
 def rail_spec(frame, piece, theme):

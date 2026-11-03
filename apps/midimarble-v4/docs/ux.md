@@ -56,8 +56,11 @@ Rotation follows Figma: dragging rotates freely around the hit point with a live
 | Rail     | Visible path for long gaps and rolling                         |
 | Tunnel   | Physical tube that hides the marble; length and slope set the travel time |
 | Windmill | Moving piece the marble strikes; spins with damping or a motor |
+| Switchback | Holder for long notes: sloped wire legs between two walls that the marble zigzags down for a set time |
 
-Rails and tunnels shape the path through long gaps; they do not have to deliver the marble to an exact point. The user places one onto the trajectory and adjusts its length and shape while the live trajectory shows where the marble goes. After it, the marble is in free flight again, and the next hit's platform is placed where the marble is at that note's time, so the hit stays on time.
+A switchback holds the marble in a narrow column: it drops in at the top, rolls down a leg, falls through the opening at the leg's end onto the next leg, bumps the wall and rolls back, and leaves through the last opening. Leg count, slope and width set how long it holds and how far the marble descends meanwhile. Next offers one for each long gap; it is not on the piece keys.
+
+Switchbacks, rails and tunnels shape the path through long gaps; they do not have to deliver the marble to an exact point. The user places one onto the trajectory and adjusts its length and shape while the live trajectory shows where the marble goes. After it, the marble is in free flight again, and the next hit's platform is placed where the marble is at that note's time, so the hit stays on time.
 
 Each piece type is one self-contained definition with a physics shape, a few parameters and a default skin. Parameters are physical: platform length and thickness, rail radius, tunnel length, windmill blade count, blade length and damping. Adding a piece type later means adding one definition.
 
@@ -77,9 +80,9 @@ Assists inside the loop:
 
 - **Repeat** applies the previous piece's relative angle and offset to the next dot
 - **Mirror** applies the mirrored relationship, which produces a zigzag when alternated
-- **Auto place** lets the solver choose an angle that keeps the next dot in frame and consistent with nearby pieces
-- **Continue** works like tab autocomplete. When the next hits share the rhythm of the last placed hits, ghost pieces repeat or mirror the recent steps, drawn dashed with their predicted dots and a hint chip next to the first one. Tab accepts them all as one undo step; Escape hides them until the next edit, and any edit asks for fresh ghosts.
-- **Next** does the sensible thing for the focused marble's next open hit: an ordinary gap gets an auto placed platform, a long gap gets a rail suggestion shown as a ghost that Return or Tab accepts. A hit right before a long gap gets a clear lean so the marble flies off toward the rail instead of bouncing in place.
+- **Auto place** lets the solver choose an angle that keeps the next dot in frame and consistent with nearby pieces. With several marbles it also sets the platform's bounce so the next dot lands on the shared descent pace (see Several marbles). Before a long gap it gives a short sideways hop that drops the marble beside the piece into the coming switchback.
+- **Continue** works like tab autocomplete. When the next hits share the rhythm of the last placed hits, ghost pieces repeat or mirror the recent steps, drawn dashed with their predicted dots and a hint chip next to the first one. Tab accepts them all as one undo step; Escape hides them until the next edit, and any edit asks for fresh ghosts. Ghosts stop before a hit that starts a long gap, stop when the next hit would have no room for a piece, and with several marbles stop when a dot leaves the descent pace.
+- **Next** does the sensible thing for the focused marble's next open hit: an ordinary gap gets an auto placed platform, a long gap gets a switchback suggestion, or a rail when no switchback fits, shown as a ghost that Return or Tab accepts. The ghost's hint warns when the next dot ends more than 0.25 m off the descent pace. A long gap after the last placed piece comes first, even when the marble falls so far across it that the hit after it has no dot yet. A hit right before a long gap gets a short hop into the switchback instead of bouncing in place.
 
 Assists run in a second simulation worker, so the live trajectory never waits for them. Each kind of assist keeps only its newest question, and answers for an older edit are dropped.
 
@@ -89,7 +92,7 @@ Rails and tunnels can also start anywhere on a trajectory: with the rail or tunn
 
 Guardrails appear while building:
 
-- A gap too long for a bounce offers a rail or tunnel
+- A gap too long for a bounce offers a switchback, rail or tunnel. A gap is long when one bounce at the descent pace would rise more than 0.4 m, about 0.68 s at the pace of a 0.5 s rhythm.
 - A dot turns red when the next hit falls outside the frame or collides with an existing piece
 
 ### Editing earlier pieces
@@ -103,6 +106,15 @@ The playhead works like a rollback marker. Everything after it is shown ghosted,
 All marbles share one physics world. The world is simulated ahead of the playhead to draw every marble's trajectory line. Marbles can collide with each other and with any piece, and a collision between marbles can be an intended effect with its own sound. Compose shows marble contacts as markers on the timeline.
 
 Shared collisions couple the lanes: editing one marble's track can change another's timing. Compose reports newly created or removed marble contacts after each edit so the effect is visible.
+
+One camera frames every marble, so the marbles must stay together:
+
+- **Lanes side by side.** The frame widens to 0.7 of the single-marble frame per marble (0.63 m for two at 9:16) and splits into one band per lane, in the order of the releases from left to right, with a 2.4 cm gutter between bands. Each marble's assists keep its dots, pieces and path inside its own band.
+- **Shared descent pace.** The project has a target height y*(t) that falls at a constant rate, the steady descent of the default bounce at the median hit interval of all lanes, anchored at the earliest hit. The assists keep every marble's dots within 0.25 m of y*: Auto place solves each platform's bounce for it, Continue drops ghosts that leave it and switchbacks hold the marble through long notes so it leaves near it. A marble below the pace climbs back half way per hit; a marble above returns at once. The simulation result carries the pace so the film camera can follow y*.
+
+With one marble the frame stays 0.45 m and the pace is only a reference for the camera: Auto place keeps the steady speed of the default bounce, which falls at the pace rate for a regular rhythm.
+
+A hit sounds only when the marble strikes its piece. A first contact slower than 0.3 m/s along the contact normal, such as a marble resting or rolling onto a piece, counts as missed, and the inspector shows it as Resting.
 
 ### Skins in Compose
 
@@ -171,7 +183,10 @@ The default camera is a native Blender camera with baked keyframes:
 - Its target leads the marble, and its roll follows the run's direction slowly
 - Shot markers on the timeline, such as wide, push in, roll or close on a hit, with eased transitions
 
-The Design tab exposes distance, downward angle, lead, smoothing and shot markers. The app regenerates the rail when the motion changes. Editing the rig in Blender takes over the camera, and the app then asks before regenerating it.
+- It stays readable: it never pulls back past the distance at which a typical piece spans 6 % of the frame width, nor past twice its set distance. Several marbles share the frame only while they fit; otherwise the camera follows the focus marble (the first marble, which carries the melody, or the project's `design.camera.focusMarbleId`) and lets the others leave the frame. With a shared descent pace from the simulation it frames a group at that pace instead of the bouncing centre
+- The wall is generated on every apply to cover the run and everything the camera sees, so the film never shows its edge. A wall edited in Blender is left alone
+
+The Design tab exposes distance, downward angle, lead, smoothing and shot markers; the focus marble has no control yet. The app regenerates the rail when the motion changes. Editing the rig in Blender takes over the camera, and the app then asks before regenerating it.
 
 ### Preview and render
 

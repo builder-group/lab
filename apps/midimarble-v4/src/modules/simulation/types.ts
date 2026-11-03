@@ -1,4 +1,5 @@
 import type { TVec2 } from '@/modules/project';
+import type { TDescentPace, TDescentPoint } from './pace';
 import type { TPieceShape } from './shapes';
 
 // Contract between the simulation engine and its consumers (Compose view, Blender handoff, fixtures).
@@ -10,6 +11,11 @@ export const PHYSICS_HZ = 240;
 export const HIT_TOLERANCE = 0.02;
 /** Errors above this but within tolerance are shown as drifting */
 export const HIT_DRIFT = 0.008;
+/**
+ * A hit needs the marble to strike its piece: the speed at which they approach along the contact normal
+ * must reach this. Slower first contacts are resting or rolling contacts and count as missed.
+ */
+export const IMPACT_SPEED = 0.3;
 
 export interface TSimulationResult {
 	/** Project revision the result was computed for */
@@ -25,6 +31,16 @@ export interface TSimulationResult {
 	hits: THitResult[];
 	/** Milliseconds spent computing this result and how much was reused from snapshots */
 	stats: { computeMs: number; reusedUntil: number; steps: number };
+	/**
+	 * Shared descent pace y*(t) that the assists keep every lane near and the camera can follow. Null
+	 * before any hit has a dot; absent in results made by hand.
+	 */
+	pace?: TDescentPace | null;
+	/**
+	 * The pace sampled every 0.5 s over the run, set when several marbles share the frame, so the film
+	 * camera can follow their common height instead of zooming out over their spread
+	 */
+	descent?: TDescentPoint[] | null;
 }
 
 export interface TMarbleTrack {
@@ -65,6 +81,8 @@ export interface TResolvedPiece {
 	shapes?: TPieceShape[];
 	/** Smoothed support line of a rail or tunnel floor in world coordinates */
 	path?: TVec2[];
+	/** Wire polylines of a switchback in world coordinates: its two walls, then its legs from the top */
+	paths?: TVec2[][];
 	/** When the marble enters a follower rail or tunnel, `hitTime + entryDelay` */
 	entryTime?: number;
 	/**
@@ -94,6 +112,11 @@ export interface TContact {
 	otherEntityId: string;
 	kind: 'piece' | 'marble';
 	position: TVec2;
+	/**
+	 * Speed at which the marble approached the piece along the contact normal, relative to the piece's
+	 * surface, in metres per second. Set for piece contacts.
+	 */
+	speed?: number;
 }
 
 export interface THitResult {
@@ -111,7 +134,9 @@ export interface THitResult {
 	/** actualTime - targetTime */
 	error: number | null;
 	status: THitStatus;
-	/** Set on open hits with a dot: true when the dot lies outside the frame band */
+	/** Why a hit with a piece is missed: `resting` when the first contact is slower than `IMPACT_SPEED` */
+	reason?: 'resting';
+	/** Set on open hits with a dot: true when the dot lies outside the lane's frame band */
 	outOfFrame?: boolean;
 }
 
@@ -119,8 +144,10 @@ export type THitStatus =
 	| 'open' // no piece yet
 	| 'onTime' // |error| <= HIT_DRIFT
 	| 'drifting' // HIT_DRIFT < |error| <= HIT_TOLERANCE
-	| 'missed' // no contact or |error| > HIT_TOLERANCE
+	| 'missed' // no contact, |error| > HIT_TOLERANCE, or a resting first contact
 	| 'blocked'; // the linked piece could not be inserted
+
+export type TPieceLayoutKind = 'box' | 'path' | 'tube' | 'rotor' | 'holder';
 
 /**
  * Piece definitions. Each type builds its colliders from parameters and places its contact surface on a
@@ -149,9 +176,10 @@ export interface TPieceDefinition {
 	friction: number;
 	/**
 	 * How the piece is built: `box` (default) is a platform bar, `path` a rail along `path` points,
-	 * `tube` a tunnel along `path` points and `rotor` a windmill turning around its hub
+	 * `tube` a tunnel along `path` points, `rotor` a windmill turning around its hub and `holder` a
+	 * switchback built from its parameters
 	 */
-	layout?: 'box' | 'path' | 'tube' | 'rotor';
+	layout?: TPieceLayoutKind;
 	/** Local control points used when a path piece has no `path` component */
 	defaultPath?: TVec2[];
 }

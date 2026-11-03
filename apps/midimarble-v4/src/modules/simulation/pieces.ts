@@ -16,7 +16,7 @@ export const platformDefinition: TPieceDefinition = {
 		length: { default: 0.06, min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
 		thickness: { default: 0.008, min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
 		depth: { default: 0.03, min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
-		bounce: { default: 0.65, min: 0.2, max: 0.95, label: 'Bounce', unit: '' }
+		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' }
 	},
 	wallOffset: 0,
 	restitution: 0.55,
@@ -94,11 +94,39 @@ export const windmillDefinition: TPieceDefinition = {
 	layout: 'rotor'
 };
 
+/**
+ * Holder for long gaps: wire legs stacked between two walls, sloping alternately left and right. The
+ * marble drops in at the top, rolls down a leg, falls through the `opening` at its low end onto the next
+ * leg, bumps the wall and rolls back the other way, and leaves through the opening of the last leg, so it
+ * stays in a narrow column for a predictable time. The linked hit's `angle` sets the leg slope, with its
+ * sign the direction of the first leg like a rail (negative runs downhill to +x), and `contactAt` where
+ * the marble enters across the top, from the first leg's high end (0) to its low end (1). The wall the
+ * marble moves toward rises `lip` above the others to catch a sideways entry.
+ */
+export const switchbackDefinition: TPieceDefinition = {
+	type: 'switchback',
+	label: 'Switchback',
+	params: {
+		width: { default: 0.1, min: 0.06, max: 0.2, label: 'Width', unit: 'm' },
+		legs: { default: 3, min: 1, max: 6, label: 'Legs', unit: '', integer: true },
+		drop: { default: 0.035, min: 0.026, max: 0.12, label: 'Leg spacing', unit: 'm' },
+		opening: { default: 0.032, min: 0.026, max: 0.06, label: 'Opening', unit: 'm' },
+		lip: { default: 0.04, min: 0, max: 0.1, label: 'Catch lip', unit: 'm' },
+		radius: { default: 0.0025, min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
+		entryDelay: { default: 0, min: 0, max: 2, label: 'Entry after hit', unit: 's' }
+	},
+	wallOffset: 0,
+	restitution: 0.15,
+	friction: 0.4,
+	layout: 'holder'
+};
+
 export const pieceDefinitions: Record<string, TPieceDefinition> = {
 	[platformDefinition.type]: platformDefinition,
 	[railDefinition.type]: railDefinition,
 	[tunnelDefinition.type]: tunnelDefinition,
-	[windmillDefinition.type]: windmillDefinition
+	[windmillDefinition.type]: windmillDefinition,
+	[switchbackDefinition.type]: switchbackDefinition
 };
 
 export function getPieceDefinition(type: string): TPieceDefinition | undefined {
@@ -136,8 +164,8 @@ export function resolvePiecePath(type: string, points: TVec2[] | undefined): TVe
 }
 
 /**
- * Pieces that follow a hit instead of sounding it: a rail or tunnel entered `entryDelay` seconds after
- * its linked hit. The hit keeps its own piece.
+ * Pieces that follow a hit instead of sounding it: a rail, tunnel or switchback entered `entryDelay`
+ * seconds after its linked hit. The hit keeps its own piece.
  */
 export function isFollowerPiece(params: Record<string, number>): boolean {
 	return (params['entryDelay'] ?? 0) > 0;

@@ -214,6 +214,7 @@ function timingLabel(piece: TResolvedPiece | undefined, hit: THitResult | undefi
 		case 'drifting':
 			return { title: 'Drifting', detail, reason: 'Still within 20 ms, but an earlier change moved it.' };
 		case 'missed':
+			if (hit.reason === 'resting') return { title: 'Resting', detail, reason: 'The marble rolls or rests onto this piece instead of striking it, so no note sounds.' };
 			return hit.error == null
 				? { title: 'Missed', reason: 'The marble does not touch this piece.' }
 				: { title: 'Missed', detail, reason: hit.error > 0 ? 'The marble arrives too late.' : 'The marble arrives too early.' };

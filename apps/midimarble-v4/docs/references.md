@@ -71,7 +71,7 @@ Verdict: v4 is the only attempt that plays the whole refrain with a bass line, k
 
 1. Long notes drop the melody. Next suggests rails only above 1.2 s, but half notes at 120 BPM (1.0 s) cannot be served by a bounce in frame either, so the build asked for rails from 0.9 s. Rails top out at 0.25 m and are straight, so a 2 s whole note still ends in a long free fall. One 2 s gap got no rail because every candidate crossed the bass marble's path, and the melody fell about 17 m there.
 2. Two marbles drift apart vertically. The descent per hit grows with the square of the interval, so the melody and bass fall at different rates: 1 m apart after 4 s, 21 m after 28 s and up to 39 m during free falls. The camera follows both and zooms out until nothing is visible. Nothing in the assists keeps lanes at a common height.
-3. The wall is finite. From 22 s on, with the melody about 20 m down, the camera passes the wall edge.
+3. The wall is finite. From 22 s on, with the melody about 20 m down, the camera passes the wall edge. Fixed: the wall is generated from the run and the camera's view on every apply, and the camera keeps a readable distance and the melody marble (see `progress.md`, Camera readability).
 4. One frame band for all marbles. `frameBand` centres on the first marble's release, so the second marble's assists pull it toward the melody. The build gave each lane its own band by putting its marble first in the project the assists see.
 5. Auto place fails after fast arrivals. A release at 0 s (the import's default) reaches the first hit at about 5 m/s and no angle keeps the next dot in frame; the build released at 0.75 s. Later, 22 hits had no Auto place answer and were rotated by hand, and 9 needed the previous piece rotated first.
 6. Launch angles are too steep. The rail suggestion fails when the piece before a gap throws the marble out of the frame band; 17° to 28° launches failed for 1 s gaps and the build re-tilted the launcher to 5° to 16°.
@@ -80,6 +80,32 @@ Verdict: v4 is the only attempt that plays the whole refrain with a bass line, k
 9. `@tonejs/midi` loaded through its CommonJS build in Node, so `parseMidiFile` did not run outside a bundler. Fixed in `music/midi.ts`.
 
 Next steps: a long-gap piece that holds the marble for 1 to 2 s inside the band (a switchback rail or a cup), a per-lane frame band in the assists, a shared descent rate across lanes (or one camera per marble), an infinite or growing wall, gentler launch angles, and an arrival-speed check in the hit status.
+
+### After the engine iteration
+
+Rebuilt on 2026-11-03 with `pnpm fixtures:jingle` after the shared descent pace, per-lane frame bands, switchbacks and the impact rule (see `architecture.md`, Pieces and Simulation). Both marbles are now released at 0 s, the import's default, and at x = ±0.16 m, the centres of their lane bands. Measured over the time both marbles play, 1 to 31 s, against the pace y*(t) of 0.52 m/s; the "before" column is the previous fixture simulated with the new engine.
+
+| | Before | After |
+| --- | --- | --- |
+| Hits on time | 49/51 melody (2 now count as resting), 64/64 bass | 51/51 melody, 64/64 bass |
+| Melody \|y − y*\| over samples | max 21.0 m, mean 5.65 m | max 0.68 m, mean 0.19 m |
+| Bass \|y − y*\| over samples | max 0.54 m, mean 0.33 m | max 0.54 m, mean 0.25 m |
+| Dots further than 0.25 m from y* | 47 of 51 melody | none (melody max 0.19 m, bass 0.24 m) |
+| Largest vertical distance between the marbles | 21.1 m (mean 5.96 m) | 0.54 m (mean 0.14 m) |
+| Gap pieces | 7 rails | 12 switchbacks (1 to 3 legs) |
+| Manual steps | 34 hand rotations and re-tilts | 2 (one hand rotation, one rotation of the previous piece, both in the bass at 30 s) |
+| Assist steps | 91 Next presses | 111 Next presses: 12 switchbacks, 12 launches, 46 Auto place, 37 Mirror, 19 ghosts from 3 Continue accepts |
+
+Gaps found above, now:
+
+1. Long notes: closed. Gaps longer than about 0.68 s at this pace (where a bounce would rise more than 0.4 m) get a switchback. The twelve hold the marble 0.28 to 1.37 s (1 to 3 legs, 7 to 15 cm tall) and release it so the next dot lies within 0.11 m of y*; the two 2 s whole notes use 2 and 3 legs at 3° and 5°.
+2. Vertical drift: closed for the dots; between dots a marble is up to 0.68 m from y*, mostly while a switchback holds it above the pace.
+3. Finite wall: not addressed here. The simulation now reports the pace as `TSimulationResult.descent` for the Blender camera to follow; the run covers about 16 m of wall over 31 s.
+4. One frame band: closed. Each lane has its own band in a frame widened to 0.63 m for two marbles.
+5. Fast arrivals: closed for the first fall; the 4.9 m fall from a 0 s release settles in one hit on a nearly flat platform with bounce 0.2. Two hand steps remain, both where a bass bounce near the end would touch the melody's last piece.
+6. Launch angles: closed. Auto place launches with a 1.2 m/s hop that drops the marble beside the piece into the switchback.
+7. Continue before a long gap: closed. Ghosts stop before the launch hit.
+8. Resting hits: closed. They count as missed with reason `resting`.
 
 ## Scale
 

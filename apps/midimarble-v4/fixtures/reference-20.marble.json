@@ -317,7 +317,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -369,7 +369,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -421,7 +421,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -473,7 +473,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -525,7 +525,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -577,7 +577,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -629,7 +629,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -681,7 +681,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -733,7 +733,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -785,7 +785,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -837,7 +837,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -889,7 +889,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -941,7 +941,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -993,7 +993,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -1045,7 +1045,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -1097,7 +1097,7 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:silver",
+					"assetId": "brass:device",
 					"link": "linked"
 				}
 			}
@@ -1167,7 +1167,7 @@
 		},
 		{
 			"id": "piece-1-33",
-			"name": "Platform 33",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1186,14 +1186,14 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-34",
-			"name": "Platform 34",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1212,14 +1212,14 @@
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-35",
-			"name": "Platform 35",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1233,19 +1233,19 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-35",
-					"angle": 0.10471975511965978,
+					"angle": 0.3839724354387525,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-36",
-			"name": "Platform 36",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1253,25 +1253,25 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.69
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-36",
-					"angle": 0.6457718232379019,
+					"angle": -0.017453292519943295,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-37",
-			"name": "Platform 37",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1279,25 +1279,25 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.5
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-37",
-					"angle": -0.5585053606381855,
+					"angle": -0.5410520681182421,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-38",
-			"name": "Platform 38",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1305,18 +1305,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.61
+						"bounce": 0.54
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-38",
-					"angle": 0.4886921905584123,
+					"angle": 0.5410520681182421,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1331,18 +1331,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.62
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-39",
-					"angle": -0.4537856055185257,
+					"angle": -0.5410520681182421,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
@@ -1357,18 +1357,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.62
+						"bounce": 0.54
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-40",
-					"angle": 0.4363323129985824,
+					"angle": 0.5410520681182421,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1383,25 +1383,25 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.67
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-41",
-					"angle": -0.4188790204786391,
+					"angle": -0.5410520681182421,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-42",
-			"name": "Platform 42",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1409,25 +1409,25 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.62
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-42",
-					"angle": 0.4188790204786391,
+					"angle": 0.6806784082777885,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-43",
-			"name": "Platform 43",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1435,25 +1435,25 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.57
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-43",
-					"angle": -0.4188790204786391,
+					"angle": -0.4014257279586958,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-44",
-			"name": "Platform 44",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1461,25 +1461,25 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.69
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-44",
-					"angle": 0.4188790204786391,
+					"angle": 0,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-45",
-			"name": "Platform 45",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1487,25 +1487,25 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-45",
-					"angle": -0.4188790204786391,
+					"angle": 0.4886921905584123,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-46",
-			"name": "Platform 46",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1513,25 +1513,25 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.56
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-46",
-					"angle": 0.4188790204786391,
+					"angle": -0.4537856055185257,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-47",
-			"name": "Platform 47",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1539,25 +1539,25 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-47",
-					"angle": -0.4188790204786391,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
 		},
 		{
 			"id": "piece-1-48",
-			"name": "Platform 48",
+			"name": "Platform 1",
 			"components": {
 				"piece": {
 					"type": "platform",
@@ -1565,18 +1565,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-48",
-					"angle": 0.4188790204786391,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1591,18 +1591,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-49",
-					"angle": -0.4188790204786391,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
@@ -1617,18 +1617,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-50",
-					"angle": 0.4188790204786391,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1643,18 +1643,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-51",
-					"angle": -0.4188790204786391,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
@@ -1669,18 +1669,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-52",
-					"angle": 0.4188790204786391,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1695,18 +1695,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-53",
-					"angle": -0.4188790204786391,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
@@ -1721,18 +1721,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-54",
-					"angle": 0.4188790204786391,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1747,18 +1747,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-55",
-					"angle": -0.4188790204786391,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
@@ -1773,18 +1773,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-56",
-					"angle": 0.4188790204786391,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1799,18 +1799,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-57",
-					"angle": -0.4188790204786391,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
@@ -1825,18 +1825,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-58",
-					"angle": 0.4188790204786391,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1851,18 +1851,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-59",
-					"angle": -0.4188790204786391,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
@@ -1877,18 +1877,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-60",
-					"angle": 0.4188790204786391,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1903,18 +1903,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-61",
-					"angle": -0.4188790204786391,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
@@ -1929,18 +1929,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-62",
-					"angle": 0.4188790204786391,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
 				}
 			}
@@ -1955,18 +1955,18 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.66
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-63",
-					"angle": -0.4188790204786391,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:dark",
+					"assetId": "brass:knob",
 					"link": "linked"
 				}
 			}
@@ -1981,19 +1981,59 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.63
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-64",
-					"angle": 0.4188790204786391,
+					"angle": -0.3665191429188092,
 					"contactAt": 0.5,
 					"pinned": false
 				},
 				"skin": {
-					"assetId": "brass:copper",
+					"assetId": "brass:key",
 					"link": "linked"
+				}
+			}
+		},
+		{
+			"id": "title-1",
+			"name": "Title 1",
+			"components": {
+				"transform": {
+					"position": {
+						"x": -0.0748,
+						"y": 0.4727
+					},
+					"angle": 0.8727
+				},
+				"wallText": {
+					"text": "Brass Steps",
+					"font": "Bfont Regular",
+					"size": 0.05,
+					"depth": 0.003,
+					"color": "#ffffff"
+				}
+			}
+		},
+		{
+			"id": "title-2",
+			"name": "Title 2",
+			"components": {
+				"transform": {
+					"position": {
+						"x": -0.1341,
+						"y": -3.2752
+					},
+					"angle": 0.0698
+				},
+				"wallText": {
+					"text": "Night Keys",
+					"font": "Bfont Regular",
+					"size": 0.05,
+					"depth": 0.003,
+					"color": "#ffffff"
 				}
 			}
 		}
@@ -2004,8 +2044,8 @@
 		"loop": false,
 		"camera": {
 			"mode": "rig",
-			"distance": 0.6,
-			"pitch": 0.7,
+			"distance": 0.85,
+			"pitch": 0.85,
 			"lead": 0.15,
 			"smoothing": 0.6,
 			"shots": []

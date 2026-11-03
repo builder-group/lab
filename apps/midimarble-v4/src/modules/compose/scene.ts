@@ -55,7 +55,7 @@ export function pieceCorners(piece: TResolvedPiece): TVec2[] {
 	].map(([x = 0, y = 0]) => ({ x: piece.position.x + x * cos - y * sin, y: piece.position.y + x * sin + y * cos }));
 }
 
-export type TPieceKind = 'box' | 'path' | 'tube' | 'rotor';
+export type TPieceKind = 'box' | 'path' | 'tube' | 'rotor' | 'holder';
 
 export function pieceKind(piece: { type: string }): TPieceKind {
 	return layoutOf(piece.type);
@@ -68,6 +68,20 @@ export function pieceKind(piece: { type: string }): TPieceKind {
 export function pieceOutline(piece: TResolvedPiece): TVec2[] {
 	const kind = pieceKind(piece);
 	if (kind === 'box') return pieceCorners(piece);
+	if (kind === 'holder') {
+		// The rectangle around the walls and legs
+		const points = (piece.paths ?? []).flat();
+		if (!points.length) return [piece.position];
+		const xs = points.map((point) => point.x);
+		const ys = points.map((point) => point.y);
+		const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+		return [
+			{ x: minX, y: minY },
+			{ x: maxX, y: minY },
+			{ x: maxX, y: maxY },
+			{ x: minX, y: maxY }
+		];
+	}
 	if (kind === 'rotor') {
 		const reach = (piece.params['hubRadius'] ?? 0.008) + (piece.params['bladeLength'] ?? 0.06);
 		return Array.from({ length: 48 }, (_, index) => {

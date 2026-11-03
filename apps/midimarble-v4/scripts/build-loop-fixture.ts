@@ -124,8 +124,11 @@ function scaled(entity: TEntity): TEntity {
 }
 
 function place(current: TProject, index: number): TProject {
+	// Auto place tunes the piece already at the hit, so it is seeded with the kit's size
+	const seed = scaled(createLinkedPiece('platform', LANE, hitId(index), 0, { id: pieceId(index) }));
+	const seeded = apply(current, [{ type: 'upsertEntity', entity: seed }]);
 	for (const range of [undefined, [-60 * DEGREE, 60 * DEGREE] as [number, number]]) {
-		const [isPlacedOk, , placed] = autoPlace(current, simulate(current), LANE, hitId(index), { simulate, id: pieceId(index), range });
+		const [isPlacedOk, , placed] = autoPlace(seeded, simulate(seeded), LANE, hitId(index), { simulate, id: pieceId(index), range });
 		if (isPlacedOk) return apply(current, [{ type: 'upsertEntity', entity: scaled(placed.entity) }]);
 	}
 	console.error(`${hitId(index)} stays open`);

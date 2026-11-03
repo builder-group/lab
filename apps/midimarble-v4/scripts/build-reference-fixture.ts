@@ -1,9 +1,11 @@
 // Writes `fixtures/reference-20.marble.json`: a 20 s run shaped like the reference short. Two sections of
 // zigzag hits between two columns, built the way a user would with the assists (one tilted platform, Mirror,
 // then Continue, with Auto place where Continue stops), joined by a rail. Each section gives its two columns
-// their own skin finish (`brass:<finish>` skin asset IDs), like the reference's skin sets per song.
-// Usage: tsx scripts/build-reference-fixture.ts
-import { writeFileSync } from 'node:fs';
+// their own brass skin (`brass:<skin>` skin asset IDs) and a wall title at its start, like the reference's skin
+// sets and song titles per song.
+// Usage: tsx scripts/build-reference-fixture.ts [--dress]
+//   --dress re-applies skins and titles to the existing fixture without rebuilding its pieces
+import { readFileSync, writeFileSync } from 'node:fs';
 import {
 	applyProjectCommands,
 	parseProject,
@@ -26,13 +28,39 @@ const SCALE = 1.5;
 const MARBLE_RADIUS = 0.008 * SCALE;
 const PLATFORM = { length: 0.06 * SCALE, thickness: 0.008 * SCALE, depth: 0.03 * SCALE };
 const GAP = 0.3;
+// Skins per column and an original title per section. Titles are art-directed like a user would in Design: shifted
+// toward where the camera looks when the section starts and turned so they read level in the rolled film
 const SECTIONS = [
-	{ start: 0.15, gap: GAP, count: Math.round(9.6 / GAP), finishes: ['gold', 'silver'] },
-	{ start: 10.05, gap: GAP, count: Math.round(9.6 / GAP), finishes: ['copper', 'dark'] }
+	{
+		start: 0.15,
+		gap: GAP,
+		count: Math.round(9.6 / GAP),
+		skins: ['gold', 'device'],
+		title: { text: 'Brass Steps', dx: -0.19, dy: -0.1, angle: 50 * DEGREE }
+	},
+	{
+		start: 10.05,
+		gap: GAP,
+		count: Math.round(9.6 / GAP),
+		skins: ['key', 'knob'],
+		title: { text: 'Night Keys', dx: 0.08, dy: -0.04, angle: 4 * DEGREE }
+	}
 ];
+const TITLE = { size: 0.05, depth: 0.003, color: '#ffffff', font: 'Bfont Regular', rise: 0.1 };
+const CAMERA = { distance: 0.85, pitch: 0.85 };
+const FIXTURE_URL = new URL('../fixtures/reference-20.marble.json', import.meta.url);
 
 const simulator = await createSimulator();
 const simulate = (project: TProject) => simulator.simulate(project);
+
+if (process.argv.includes('--dress')) {
+	const [isFixtureOk, fixtureErr, fixture] = parseProject(readFileSync(FIXTURE_URL, 'utf8'));
+	if (!isFixtureOk) throw fixtureErr;
+	writeFileSync(FIXTURE_URL, serializeProject(apply(dress(fixture), [], fixture.revision)));
+	simulator.dispose();
+	console.log('dressed');
+	process.exit(0);
+}
 
 const hitTimes = SECTIONS.flatMap((section) =>
 	Array.from({ length: section.count }, (_, i) => Math.round((section.start + section.gap * i) * 1000) / 1000)
@@ -81,10 +109,9 @@ for (const [sectionIndex, section] of SECTIONS.entries()) {
 			project = place(project, placed);
 		}
 	}
-	project = setFinishes(project, first, last, section.finishes);
 	offset = last;
 }
-project = withoutOpenHits(project);
+project = dress(withoutOpenHits(project));
 const finalResult = createSimulatorResult(project);
 simulator.dispose();
 // Assists accept a marble that comes to rest on stacked pieces; a section must keep travelling down the wall
@@ -92,7 +119,7 @@ if (finalResult.descent1 < 2 || finalResult.descent2 < 2) throw new Error('A sec
 const json = serializeProject(apply(project, [], 0));
 const [isProjectOk, projectErr] = parseProject(json);
 if (!isProjectOk) throw projectErr;
-writeFileSync(new URL('../fixtures/reference-20.marble.json', import.meta.url), json);
+writeFileSync(FIXTURE_URL, json);
 console.log(JSON.stringify(finalResult));
 
 function startZigzag(current: TProject, index: number, angle: number): TProject {
@@ -125,9 +152,13 @@ function scaled(entity: TEntity): TEntity {
 }
 
 function place(current: TProject, index: number): TProject {
+	// Auto place tunes the piece already at the hit, so it is seeded with the kit's size and solves angle and
+	// bounce for the piece that will play
+	const seed = scaled(createLinkedPiece('platform', LANE, hitId(index), 0, { id: pieceId(index) }));
+	const seeded = apply(current, [{ type: 'upsertEntity', entity: seed }]);
 	// The assists' default range first, then steeper angles; a hit no angle can serve stays open
 	for (const range of [undefined, [-60 * DEGREE, 60 * DEGREE] as [number, number]]) {
-		const [isPlacedOk, , placed] = autoPlace(current, simulate(current), LANE, hitId(index), {
+		const [isPlacedOk, , placed] = autoPlace(seeded, simulate(seeded), LANE, hitId(index), {
 			simulate,
 			id: pieceId(index),
 			range
@@ -146,25 +177,52 @@ function withoutOpenHits(current: TProject): TProject {
 	return next;
 }
 
-function setFinishes(current: TProject, first: number, last: number, finishes: string[]): TProject {
-	const pieces = current.entities.filter((entity) => {
-		const id = entity.components.hitLink?.hitId;
-		return entity.components.piece?.type === 'platform' && id != null && hitIndex(id) >= first && hitIndex(id) <= last;
-	});
-	return apply(
-		current,
-		pieces.map((entity) => ({
+/** Section skins on alternating columns, a wall title above each section's first piece and the camera framing */
+function dress(current: TProject): TProject {
+	const hitTime = new Map(current.music.lanes.flatMap((lane) => lane.hits.map((hit) => [hit.id, hit.time] as const)));
+	const sectionOf = (time: number): number => SECTIONS.filter((section) => time >= section.start - 1e-6).length - 1;
+	const commands: TProjectCommand[] = [];
+	for (const entity of current.entities) {
+		const hitId = entity.components.hitLink?.hitId;
+		const time = hitId != null ? hitTime.get(hitId) : undefined;
+		if (entity.components.piece?.type !== 'platform' || hitId == null || time == null) continue;
+		const section = SECTIONS[sectionOf(time)];
+		if (section == null) continue;
+		// The zigzag alternates columns hit by hit
+		const skin = { assetId: `brass:${section.skins[hitIndex(hitId) % 2]}`, link: 'linked' as const };
+		commands.push({ type: 'upsertEntity', entity: { ...entity, components: { ...entity.components, skin } } });
+	}
+	const placed = simulate(current).pieces;
+	for (const [index, section] of SECTIONS.entries()) {
+		// The first two pieces of a section are its two columns; the title sits centred above them
+		const firsts = placed
+			.filter((piece) => {
+				const hitId = current.entities.find((entity) => entity.id === piece.entityId)?.components.hitLink?.hitId;
+				const time = hitId != null ? hitTime.get(hitId) : undefined;
+				return piece.type === 'platform' && time != null && sectionOf(time) === index;
+			})
+			.slice(0, 2);
+		if (firsts.length === 0) continue;
+		const x = firsts.reduce((sum, piece) => sum + piece.position.x, 0) / firsts.length + section.title.dx;
+		const y = Math.max(...firsts.map((piece) => piece.position.y)) + TITLE.rise + section.title.dy;
+		commands.push({
 			type: 'upsertEntity',
 			entity: {
-				...entity,
+				id: `title-${index + 1}`,
+				name: `Title ${index + 1}`,
 				components: {
-					...entity.components,
-					// The zigzag alternates columns hit by hit
-					skin: { assetId: `brass:${finishes[hitIndex(entity.components.hitLink?.hitId ?? '') % 2]}`, link: 'linked' }
+					transform: {
+						position: { x: Math.round(x * 1e4) / 1e4, y: Math.round(y * 1e4) / 1e4 },
+						angle: Math.round(section.title.angle * 1e4) / 1e4
+					},
+					wallText: { text: section.title.text, font: TITLE.font, size: TITLE.size, depth: TITLE.depth, color: TITLE.color }
 				}
 			}
-		}))
-	);
+		});
+	}
+	// A slightly wider, steeper camera shows more rows per column, like the reference
+	commands.push({ type: 'setDesign', design: { camera: { ...current.design.camera, ...CAMERA } } });
+	return apply(current, commands);
 }
 
 function createSimulatorResult(current: TProject): {

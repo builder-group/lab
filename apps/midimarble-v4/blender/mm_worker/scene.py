@@ -105,7 +105,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
         project_dir, description.get('wallTexts') or [], managed, lambda: ensure_collection(DETACHED_COLLECTION))
 
     bounds = scene_bounds(marbles, marble_motion, pieces)
-    studio_report = studio.ensure_studio(scene, bounds, theme)
+    studio_report = studio.ensure_studio(scene, theme)
     report['studioCreated'] = studio_report['created']
     report['themed'] = studio_report['themed']
     report['theme'] = theme
@@ -120,10 +120,13 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
         del scene['mm_loop']
     if camera_settings is not None:
         camera_settings['loop'] = loop
+        camera_settings['pieceLength'] = typical_piece_length(pieces)
     report['loop'] = loop
     report['camera'] = studio.update_camera(
         scene, bounds, camera_settings, marbles, marble_motion, fps, regenerate=bool(args.get('regenerateCamera')))
     report['cameraFramed'] = report['camera'] in ('framed', 'baked')
+    # The wall covers the run and the camera's view, so the film never shows its edge
+    report['wall'] = studio.fit_wall(scene, bounds, theme)
     scene['mm_revision'] = int(description.get('revision', 0))
     scene['mm_project_id'] = str(description.get('projectId', ''))
     scene.frame_set(scene.frame_current)
@@ -442,6 +445,18 @@ def set_frame_rate(scene, fps, duration):
     scene.render.fps_base = whole / fps
     scene.frame_start = 0
     scene.frame_end = max(1, math.ceil(duration * fps - 1e-6))
+
+
+def typical_piece_length(pieces):
+    """Median length of the bars and blades on the wall, which sets how far the camera may pull back"""
+    lengths = []
+    for piece in pieces:
+        params = piece.get('params') or {}
+        if 'bladeLength' in params:
+            lengths.append(2 * float(params['bladeLength']) + 2 * float(params.get('hubRadius', 0.0)))
+        elif piece.get('type', 'platform') == 'platform' and 'length' in params:
+            lengths.append(float(params['length']))
+    return float(np.median(lengths)) if lengths else None
 
 
 def scene_bounds(marbles, marble_motion, pieces):

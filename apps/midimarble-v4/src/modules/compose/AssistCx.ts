@@ -6,8 +6,10 @@ import {
 	frameBand,
 	isSuperseded,
 	layoutOf,
+	openLongGaps,
 	type TAutoPlaceAnswer,
 	type TContinueAnswer,
+	type TGapPieceType,
 	type THitResult,
 	type TSimulationResult
 } from '@/modules/simulation';
@@ -63,7 +65,8 @@ export class AssistCx {
 
 	/**
 	 * Return and N. Accepts ghosts when some are shown; otherwise acts on the focused marble's next open
-	 * hit: a long gap asks for a rail, any other gap gets an auto placed piece.
+	 * hit: a long gap asks for a switchback, or a rail when no switchback fits, and any other gap gets an
+	 * auto placed piece. Before a long gap Auto place launches the marble into the coming switchback.
 	 */
 	next(type = 'platform'): void {
 		if (this.$ghosts.get().ghost != null) {
@@ -79,13 +82,17 @@ export class AssistCx {
 			return;
 		}
 		const target = findStepTarget(project, result, this.studio.$selection.get());
-		if (target == null) {
-			this.studio.notify('Every reachable hit of this marble has a piece');
+		// A long gap after the last piece comes first: across it the marble may fall too far to leave a dot
+		const gap = project.music.lanes
+			.flatMap((lane) => openLongGaps(project, lane.id))
+			.filter((item) => target == null || item.laneId === target.laneId || item.to <= target.targetTime)
+			.sort((a, b) => a.to - b.to)[0];
+		if (gap != null && (target == null || gap.to <= target.targetTime + 1e-9)) {
+			this.suggestGapPiece('switchback', gap.laneId, gap.fromHitId, gap.toHitId, { fallback: 'rail' });
 			return;
 		}
-		const gap = findLongGaps(project, target.laneId).find((item) => item.toHitId === target.hitId && item.bridgedBy == null);
-		if (gap != null) {
-			this.suggestGapPiece('rail', target.laneId, gap.fromHitId, gap.toHitId);
+		if (target == null) {
+			this.studio.notify('Every reachable hit of this marble has a piece');
 			return;
 		}
 		void this.place(target, type, 'next');
@@ -167,7 +174,7 @@ export class AssistCx {
 			this.record(kind, startedAt);
 			return;
 		}
-		const request = client.autoPlace({ project, laneId: hit.laneId, hitId: hit.hitId, type, entityId: id, launchAngles: launchAngles(project, hit) });
+		const request = client.autoPlace({ project, laneId: hit.laneId, hitId: hit.hitId, type, entityId: id });
 		const quick = await Promise.race([
 			request.then(
 				(answer): TAutoPlaceAnswer | 'failed' => answer,
@@ -233,8 +240,11 @@ export class AssistCx {
 		return true;
 	}
 
-	/** Asks for a rail or tunnel across a long gap and shows it as a ghost to accept */
-	suggestGapPiece(type: 'rail' | 'tunnel', laneId: string, fromHitId: string, toHitId: string, options: { accept?: boolean } = {}): void {
+	/**
+	 * Asks for a switchback, rail or tunnel across a long gap and shows it as a ghost to accept. With
+	 * `fallback`, a failed search asks for that type instead before telling the user.
+	 */
+	suggestGapPiece(type: TGapPieceType, laneId: string, fromHitId: string, toHitId: string, options: { accept?: boolean; fallback?: TGapPieceType } = {}): void {
 		const project = this.studio.project;
 		const client = this.studio.simulation.assists;
 		if (project == null || client == null) return;
@@ -249,7 +259,11 @@ export class AssistCx {
 			(error: unknown) => {
 				this.dispatch({ type: 'gapFailed', revision: project.revision });
 				if (isSuperseded(error)) return;
-				const label = type === 'rail' ? 'rail' : 'tunnel';
+				if (options.fallback != null && options.fallback !== type) {
+					this.suggestGapPiece(options.fallback, laneId, fromHitId, toHitId, { accept: options.accept });
+					return;
+				}
+				const label = type;
 				const message = error instanceof Error ? error.message : String(error);
 				const hint = message.includes('fall freely') ? ' Tilt the piece before the gap so the marble flies off it, then try again.' : '';
 				this.studio.notify(`No ${label} fits this gap. ${message}.${hint}`);
@@ -312,9 +326,9 @@ export type TAssistKind = 'next' | 'autoPlace' | 'continue' | 'gap' | 'accept';
 const DEGREE = Math.PI / 180;
 
 /**
- * Before a long gap the marble has to fly off sideways so a rail can catch it. Auto place would keep the
- * next dot in frame, which a 1.5 s fall cannot do, and settles on a nearly flat piece that bounces the
- * marble in place. Instead clear leans are tried, mirroring the previous piece first like a zigzag.
+ * Clear leans for the hit before a long gap, mirroring the previous piece first like a zigzag. Auto
+ * place launches the marble into a switchback itself, so Compose no longer sends these; they remain for
+ * a rail that needs a steeper launch.
  */
 export function launchAngles(project: TProject, hit: THitResult): number[] | undefined {
 	const gap = findLongGaps(project, hit.laneId).find((item) => item.fromHitId === hit.hitId && item.bridgedBy == null);

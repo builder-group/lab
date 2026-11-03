@@ -1,7 +1,7 @@
 import type { TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { autoPlace, continueSuggestions, findHitResult, simulateTrial, withEntities, type TContinueResult, type TSimulateFn } from './assists';
 import { createLinkedPiece } from './placement';
-import { createRailForGap, createTunnelForGap, type TGapPieceCheck } from './gap-pieces';
+import { createRailForGap, createSwitchbackForGap, createTunnelForGap, type TGapPieceCheck } from './gap-pieces';
 import type { TSimulator } from './simulate';
 import type { TResolvedPiece, TSimulationResult } from './types';
 
@@ -19,16 +19,16 @@ export type TWorkerRequest =
 			type: string;
 			entityId?: string;
 			/**
-			 * Angles tried in order instead of the Auto place search, for a hit before a long gap: there
-			 * the next dot cannot stay in frame without a bridge, so the first angle that keeps the hit on
-			 * time and sends the marble off the piece wins
+			 * Angles tried in order instead of the Auto place search, for a hit before a long gap: the
+			 * first angle that keeps the hit on time and sends the marble off the piece wins. Auto place
+			 * itself launches into a switchback before a long gap, so Compose no longer sends these.
 			 */
 			launchAngles?: number[];
 	  }
 	| { kind: 'continue'; project: TProject; laneId: string; maxCount?: number }
 	| {
 			kind: 'gapPiece';
-			type: 'rail' | 'tunnel';
+			type: TGapPieceType;
 			project: TProject;
 			laneId: string;
 			fromHitId: string;
@@ -38,10 +38,15 @@ export type TWorkerRequest =
 
 export type TWorkerMessage = TWorkerRequest & { id: number };
 
+/** Pieces that bridge a long gap */
+export type TGapPieceType = 'switchback' | 'rail' | 'tunnel';
+
 export interface TAutoPlaceAnswer {
 	entity: TEntity;
 	angle: number;
 	nextDot: TVec2 | null;
+	/** Height of the next dot above the shared pace y*, when known */
+	paceError?: number | null;
 	/** Milliseconds the worker spent, including the base simulation */
 	computeMs: number;
 }
@@ -55,7 +60,7 @@ export interface TContinueAnswer extends TContinueResult {
 
 export interface TGapAnswer {
 	revision: number;
-	type: 'rail' | 'tunnel';
+	type: TGapPieceType;
 	laneId: string;
 	fromHitId: string;
 	toHitId: string;
@@ -93,7 +98,13 @@ export function answerWorkerRequest(simulator: TSimulator, request: TWorkerReque
 			}
 			const [isOk, error, placement] = autoPlace(project, result, laneId, hitId, { simulate, type, id: entityId });
 			if (!isOk) throw error;
-			return { entity: placement.entity, angle: placement.angle, nextDot: placement.nextDot, computeMs: performance.now() - startedAt };
+			return {
+				entity: placement.entity,
+				angle: placement.angle,
+				nextDot: placement.nextDot,
+				paceError: placement.paceError ?? null,
+				computeMs: performance.now() - startedAt
+			};
 		}
 		case 'continue': {
 			const { project, laneId, maxCount } = request;
@@ -103,7 +114,7 @@ export function answerWorkerRequest(simulator: TSimulator, request: TWorkerReque
 		}
 		case 'gapPiece': {
 			const { project, laneId, fromHitId, toHitId, entityId, type } = request;
-			const create = type === 'rail' ? createRailForGap : createTunnelForGap;
+			const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
 			const [isOk, error, proposal] = create(project, result, laneId, fromHitId, toHitId, { simulate, id: entityId });
 			if (!isOk) throw error;
 			const toTime = project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === toHitId)?.time ?? proposal.entryTime;

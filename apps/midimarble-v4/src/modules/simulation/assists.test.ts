@@ -7,12 +7,14 @@ import {
 	findLongGaps,
 	mirrorPiece,
 	nextOpenHit,
+	openLongGaps,
 	repeatPiece,
 	type TSimulateFn
 } from './assists';
 import { resolvedPieceShapes, shapesGap } from './clearance';
 import { createBareRunProject } from './fixture-projects';
-import { createRailForGap } from './gap-pieces';
+import { createRailForGap, createSwitchbackForGap } from './gap-pieces';
+import { paceAt } from './pace';
 import { createLinkedPiece, frameBand } from './placement';
 import { createSimulator } from './simulate';
 
@@ -317,5 +319,87 @@ describe('assists', () => {
 		const [isBadOk, badErr] = createRailForGap(project, result, 'lane-1', 'hit-1-4', 'hit-1-3');
 		expect(isBadOk).toBe(false);
 		expect(badErr?.message).toMatch(/end after/);
+	});
+
+	it('holds the marble across a long gap in a switchback near the pace', () => {
+		let project = zigzagStart([0.15, 0.45, 0.75, 2.25, 2.55]);
+		const [isLaunchOk, launchErr, launch] = autoPlace(project, simulate(project), 'lane-1', 'hit-1-3', {
+			simulate,
+			id: 'piece-1-3'
+		});
+		if (!isLaunchOk) throw launchErr;
+		project = { ...project, entities: [...project.entities, launch.entity] };
+		expect(openLongGaps(project, 'lane-1').map((gap) => gap.toHitId)).toEqual(['hit-1-4']);
+		const result = simulate(project);
+		const [isHeldOk, heldErr, held] = createSwitchbackForGap(project, result, 'lane-1', 'hit-1-3', 'hit-1-4', {
+			simulate,
+			id: 'switchback'
+		});
+		if (!isHeldOk) throw heldErr;
+		expect(held.entity.components.piece?.type).toBe('switchback');
+		expect(held.entity.components.piece?.params['entryDelay']).toBeGreaterThan(0);
+		expect(held.check).toMatchObject({ pieceStatus: 'placed', isDotInFrame: true, isRunInFrame: true });
+		// The marble drops out below the switchback before the next hit, close to the pace
+		expect(held.check?.leaveTime).toBeLessThan(2.25);
+		expect(Math.abs(held.check?.paceError ?? Infinity)).toBeLessThan(0.25);
+		const bridged = { ...project, entities: [...project.entities, held.entity] };
+		expect(findLongGaps(bridged, 'lane-1')[0]?.bridgedBy).toBe('switchback');
+		expect(openLongGaps(bridged, 'lane-1')).toEqual([]);
+		const after = simulate(bridged);
+		expect(after.hits[2]?.status).toBe('onTime');
+		const dot = after.hits[3]?.dot;
+		const pace = after.pace;
+		if (dot == null || pace == null) throw new Error('No dot after the gap');
+		expect(Math.abs(dot.y - paceAt(pace, 2.25))).toBeLessThan(0.25);
+		// Same result each time, and mirroring flips the first leg's direction
+		const [, , again] = createSwitchbackForGap(project, result, 'lane-1', 'hit-1-3', 'hit-1-4', { simulate, id: 'switchback' });
+		expect(again?.entity).toEqual(held.entity);
+		const mirrored = copyLinkedPiece(held.entity, 'hit-1-3', true);
+		expect(mirrored.components.hitLink?.angle).toBe(-(held.entity.components.hitLink?.angle ?? 0));
+		expect(mirrored.components.hitLink?.contactAt).toBe(held.entity.components.hitLink?.contactAt);
+	});
+
+	it('stops Continue before the hit that launches into a long gap', () => {
+		const project = zigzagStart([0.15, 0.45, 0.75, 1.05, 1.35, 2.85]);
+		const continued = continueSuggestions(project, simulate(project), 'lane-1', {
+			simulate,
+			idFor: (hitId) => `ghost-${hitId}`
+		});
+		expect(continued?.suggestions.map((s) => s.hitId)).toEqual(['hit-1-3', 'hit-1-4']);
+	});
+
+	it('auto places two marbles with different rhythms on one descent pace', () => {
+		let project = createBareRunProject({
+			id: 'duet',
+			title: 'Duet',
+			end: 4,
+			marbles: [
+				{ x: -0.16, y: 0.6, releaseTime: 0, hitTimes: evenTimes(9, 0.25, 0.5) },
+				{ x: 0.16, y: 0.6, releaseTime: 0, hitTimes: evenTimes(5, 0.5, 0.5) }
+			]
+		});
+		const hits = project.music.lanes
+			.flatMap((lane) => lane.hits.map((hit) => ({ laneId: lane.id, hit })))
+			.sort((a, b) => a.hit.time - b.hit.time || a.laneId.localeCompare(b.laneId));
+		for (const { laneId, hit } of hits) {
+			const [isPlacedOk, placedErr, placed] = autoPlace(project, simulate(project), laneId, hit.id, {
+				simulate,
+				id: hit.id.replace('hit', 'piece')
+			});
+			if (!isPlacedOk) throw new Error(`${hit.id}: ${placedErr.message}`);
+			const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, placed.commands);
+			if (!isAppliedOk) throw appliedErr;
+			project = applied;
+		}
+		const result = simulate(project);
+		expect(result.hits.every((hit) => hit.status === 'onTime')).toBe(true);
+		const pace = result.pace;
+		if (pace == null) throw new Error('No pace');
+		for (const hit of result.hits) {
+			expect(Math.abs((hit.dot?.y ?? Infinity) - paceAt(pace, hit.targetTime)), hit.hitId).toBeLessThanOrEqual(pace.limit);
+			const band = frameBand(project, hit.laneId);
+			expect(Math.abs((hit.dot?.x ?? Infinity) - band.centerX), hit.hitId).toBeLessThanOrEqual(band.halfWidth);
+		}
+		expect(result.contacts.filter((contact) => contact.kind === 'marble')).toHaveLength(0);
 	});
 });

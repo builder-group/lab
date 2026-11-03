@@ -15,6 +15,7 @@ import {
 	resolvePieceParams,
 	resolvePiecePath
 } from './pieces';
+import { descentPace, descentPoints } from './pace';
 import { frameBand } from './placement';
 import {
 	shapeClosestPoint,
@@ -28,6 +29,7 @@ import {
 import {
 	HIT_DRIFT,
 	HIT_TOLERANCE,
+	IMPACT_SPEED,
 	PHYSICS_HZ,
 	type TContact,
 	type THitResult,
@@ -60,7 +62,7 @@ const MAX_SNAPSHOTS = 512;
 const PARKING_INTERVAL = 6;
 const PARKING_MARGIN = 0.05;
 const STEP_EPSILON = 1e-7;
-const SIGNATURE_VERSION = 'sim@2';
+const SIGNATURE_VERSION = 'sim@3';
 // Windmill parts are light wood
 const ROTOR_DENSITY = 600;
 // Collision groups as membership << 16 | filter. Marbles keep the default and meet everything. Static
@@ -897,6 +899,7 @@ function resolvedFromLayout(
 	};
 	if (layout.box == null) resolved.shapes = layout.shapes;
 	if (layout.path != null) resolved.path = layout.path;
+	if (layout.paths != null) resolved.paths = layout.paths;
 	return resolved;
 }
 
@@ -1039,7 +1042,8 @@ function recordContact(
 		state,
 		pair.marbleIndex,
 		pair.piece.entityId,
-		worldShape(state, pair.piece)
+		worldShape(state, pair.piece),
+		state.rotors[pair.piece.rotorIndex] ?? null
 	);
 }
 
@@ -1063,13 +1067,15 @@ function preStepSample(run: TMarbleRun | undefined, step: number): TMarbleSample
 }
 
 // Contact times are refined from the state at the start of the step along free flight. Rapier reports
-// contacts per step, sometimes early through predictive contacts, so the search covers three steps.
+// contacts per step, sometimes early through predictive contacts, so the search covers three steps. The
+// approach speed uses the marble velocity at that time and, for windmill blades, the blade's own velocity.
 function recordPieceContact(
 	plan: TPlan,
 	state: TRunState,
 	marbleIndex: number,
 	entityId: string,
-	shape: TPieceShape
+	shape: TPieceShape,
+	rotor: TRotorRun | null
 ): void {
 	const marble = plan.marbles[marbleIndex];
 	const run = state.marbles[marbleIndex];
@@ -1079,6 +1085,7 @@ function recordPieceContact(
 	const last = run.samples[run.samples.length - 1];
 	let time = stepTime;
 	let centre = last?.position ?? marble.release;
+	let velocity = (pre ?? last)?.velocity ?? { x: 0, y: 0 };
 	if (pre != null) {
 		const gap = (tau: number): number => {
 			const { position } = ballistic(pre.position, pre.velocity, tau);
@@ -1087,16 +1094,49 @@ function recordPieceContact(
 		const tau = findFirstRoot(gap, 3 * DT);
 		if (tau != null) {
 			time = pre.time + tau;
-			centre = ballistic(pre.position, pre.velocity, tau).position;
+			const flight = ballistic(pre.position, pre.velocity, tau);
+			centre = flight.position;
+			velocity = flight.velocity;
 		}
 	}
+	const position = shapeClosestPoint(shape, centre.x, centre.y);
 	state.contacts.push({
 		time,
 		marbleEntityId: marble.entityId,
 		otherEntityId: entityId,
 		kind: 'piece',
-		position: shapeClosestPoint(shape, centre.x, centre.y)
+		position,
+		speed: approachSpeed(centre, velocity, position, rotor)
 	});
+}
+
+/** Speed of the marble toward the surface along the contact normal, relative to the surface */
+function approachSpeed(
+	centre: TVec2,
+	velocity: TVec2,
+	point: TVec2,
+	rotor: TRotorRun | null
+): number {
+	let nx = centre.x - point.x;
+	let ny = centre.y - point.y;
+	const length = Math.hypot(nx, ny);
+	// A centre inside the shape has no outline direction; the motion itself is then the approach
+	if (length < 1e-9) return Math.hypot(velocity.x, velocity.y);
+	nx /= length;
+	ny /= length;
+	let vx = velocity.x;
+	let vy = velocity.y;
+	if (rotor != null) {
+		const motion = rotor.motion;
+		const spin =
+			motion.length >= 2
+				? ((motion[motion.length - 1]?.angle ?? 0) - (motion[motion.length - 2]?.angle ?? 0)) *
+					PHYSICS_HZ
+				: rotor.motorSpeed;
+		vx += spin * (point.y - rotor.hub.y);
+		vy -= spin * (point.x - rotor.hub.x);
+	}
+	return Math.max(0, -(vx * nx + vy * ny));
 }
 
 function recordMarbleContact(plan: TPlan, state: TRunState, indexA: number, indexB: number): void {
@@ -1209,9 +1249,9 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 		if (!linkByHit.has(key)) linkByHit.set(key, entity.id);
 	}
 
-	const band = frameBand(project);
 	const hits: THitResult[] = [];
 	for (const lane of project.music.lanes) {
+		const band = frameBand(project, lane.id);
 		const marbleIndex = plan.marbles.findIndex((marble) => marble.laneId === lane.id);
 		const marble = plan.marbles[marbleIndex];
 		const samples = state.marbles[marbleIndex]?.samples ?? [];
@@ -1260,6 +1300,11 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 						: Math.abs(error) <= HIT_TOLERANCE
 							? 'drifting'
 							: 'missed';
+				// A marble that arrives resting or rolling sounds no note
+				if (result.status !== 'missed' && (contact.speed ?? Infinity) < IMPACT_SPEED) {
+					result.status = 'missed';
+					result.reason = 'resting';
+				}
 			} else {
 				result.status = 'missed';
 			}
@@ -1267,6 +1312,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 		}
 	}
 
+	const pace = descentPace(project, hits);
 	return {
 		revision: project.revision,
 		duration: plan.endStep / PHYSICS_HZ,
@@ -1279,7 +1325,12 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 		pieces,
 		contacts,
 		hits,
-		stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
+		stats: { computeMs: 0, reusedUntil: 0, steps: 0 },
+		pace,
+		descent:
+			pace != null && plan.marbles.length > 1
+				? descentPoints(pace, plan.startStep / PHYSICS_HZ + 0, plan.endStep / PHYSICS_HZ)
+				: null
 	};
 }
 

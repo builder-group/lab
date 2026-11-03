@@ -1,11 +1,11 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import type { TVec2 } from '@/modules/project';
-import type { TResolvedPiece } from '@/modules/simulation';
+import { PACE_LIMIT, type TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
 import { acceptableCount, type TGhost } from './ghosts';
-import { RailShape, toPoints, TunnelShape } from './PieceLayer';
+import { RailShape, SwitchbackShape, toPoints, TunnelShape } from './PieceLayer';
 import { pieceKind } from './scene';
 
 /** Suggested pieces drawn dashed and see-through in place, with the dots they would produce */
@@ -54,6 +54,7 @@ const GhostPiece: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; scale: n
 	const tint = isOk ? undefined : 'var(--bad)';
 	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
+	if (kind === 'holder') return <SwitchbackShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	const palette = paletteOf(piece.type);
 	const outline = compose.screenOutline(piece);
 	return (
@@ -76,7 +77,7 @@ const GhostDot: React.FC<{ position: TVec2; color: string }> = (props) => {
 
 /**
  * Inline hint next to the first ghost, like tab completion in a code editor: what Tab or Return adds and
- * that Escape hides it. While a rail is being searched it says so instead.
+ * that Escape hides it. While a gap piece is being searched it says so instead.
  */
 export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 	const { compose } = props;
@@ -93,7 +94,7 @@ export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 		const { laneId, toHitId } = state.pendingGap;
 		const dot = result?.hits.find((hit) => hit.laneId === laneId && hit.hitId === toHitId)?.dot;
 		anchor = dot != null ? compose.toScreen(dot) : null;
-		content = <span className="text-[var(--text-secondary)]">Finding a rail for this gap…</span>;
+		content = <span className="text-[var(--text-secondary)]">Finding a switchback for this gap…</span>;
 	} else if (state.ghost != null) {
 		anchor = hintAnchor(compose, state.ghost);
 		content = <HintContent compose={compose} ghost={state.ghost} />;
@@ -117,8 +118,9 @@ const HintContent: React.FC<{ compose: ComposeCx; ghost: TGhost }> = (props) => 
 	};
 	if (ghost.kind === 'gap') {
 		const { check, type } = ghost.answer;
-		const label = type === 'rail' ? 'Rail' : 'Tunnel';
-		const note = check == null ? null : !check.isDotInFrame ? 'next dot leaves the frame' : check.leaveTime == null ? 'marble stays on it' : null;
+		const label = type === 'switchback' ? 'Switchback' : type === 'rail' ? 'Rail' : 'Tunnel';
+		const offPace = check?.paceError != null && Math.abs(check.paceError) > PACE_LIMIT ? `next dot ${Math.abs(check.paceError).toFixed(2)} m off the descent` : null;
+		const note = check == null ? null : !check.isDotInFrame ? 'next dot leaves the frame' : check.leaveTime == null ? 'marble stays on it' : offPace;
 		return (
 			<>
 				<button className="mm-hint-action" tabIndex={-1} onPointerDown={(event) => event.preventDefault()} onClick={accept} type="button">

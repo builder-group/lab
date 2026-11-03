@@ -117,6 +117,19 @@ describe('worker protocol', () => {
 		// The answer is plain data that survives the structured clone between worker and UI
 		expect(structuredClone(rail)).toEqual(rail);
 
+		const switchback = answerWorkerRequest(simulator, {
+			kind: 'gapPiece',
+			type: 'switchback',
+			project: gap,
+			laneId: 'lane-1',
+			fromHitId: 'hit-1-3',
+			toHitId: 'hit-1-4'
+		}) as TGapAnswer;
+		expect(switchback.type).toBe('switchback');
+		expect(switchback.piece?.status).toBe('placed');
+		expect(switchback.piece?.paths?.length).toBeGreaterThanOrEqual(3);
+		expect(switchback.check?.leaveTime).not.toBeNull();
+
 		expect(() =>
 			answerWorkerRequest(simulator, { kind: 'autoPlace', project: gap, laneId: 'lane-1', hitId: 'missing', type: 'platform' })
 		).toThrow();

@@ -2,11 +2,14 @@
 
 The camera looks steeply along the wall and travels with the marbles, like the reference short:
 
-1. Follow point per frame: the weighted centre of the marbles in flight. A marble weighs 1 while its samples
-   cover the time and 0.05 before its release or after its last sample, so a single marble that has not been
-   released yet still anchors the shot. With several marbles the camera frames their centre; a lead-only choice
-   jumps when the lead changes, a weighted centre stays continuous. Several marbles also widen the distance so every
-   marble in flight fits the frame.
+1. Follow point per frame. With several marbles the camera frames the group while it fits: the follow point is
+   the weighted centre of the marbles in flight (a marble weighs 1 while its samples cover the time and 0.05 before
+   its release or after its last sample) and the distance widens so every marble fits. When a shared descent curve
+   is given (`descent`, the common pace y*(t) of the lanes) the group centre's height follows it instead. The
+   distance never exceeds a readable maximum: pieces stay at least MIN_PIECE_FRACTION of the frame width and the
+   camera at most ZOOM_LIMIT times its set distance. Where the group no longer fits within that maximum, the camera
+   eases over to the focus marble (`focusMarbleId`, else the first marble, which carries the melody lane) and
+   lets the others leave the frame.
 2. Target: the follow point moved toward where it is at `t + lead` (at most LEAD_LIMIT * distance), smoothed with a
    zero-phase critically damped filter (a forward and a backward pass of a second-order filter with time constant
    0.04 + 0.5 * smoothing seconds), so the camera neither lags nor overshoots. Where smoothing still lets a marble
@@ -52,6 +55,15 @@ FRAME_KEEP = 0.55
 ASPECT_GUESS = 0.56
 SHOT_EASE = 0.8
 LENS = 50.0
+# Readable maximum distance: a typical piece spans at least this fraction of the frame width, and the camera never
+# pulls back further than ZOOM_LIMIT times its set distance
+MIN_PIECE_FRACTION = 0.06
+ZOOM_LIMIT = 2.0
+SENSOR = 36.0
+# Seconds over which the camera eases between framing the group and following the focus marble
+GROUP_EASE = 1.2
+# A view ray that misses the wall counts this many camera heights away when sizing the wall
+FAR_REACH = 12.0
 CAMERA_PATHS = ('location', 'rotation_euler')
 CAMERA_DATA_PATHS = ('dof.focus_distance',)
 SIGNATURE_VERSION = 2
@@ -87,7 +99,43 @@ def settings_from(description_camera, theme_settings):
         'lens': number('lens', LENS, 10.0, 300.0),
         'shots': shots,
         'fstop': float(theme_settings.get('fstop', 4.0)),
+        'focus': camera.get('focusMarbleId') if isinstance(camera.get('focusMarbleId'), str) else None,
+        'descent': descent_curve(camera.get('descent')),
+        # Typical piece length on the wall; `apply_scene` sets it from the pieces
+        'pieceLength': None,
     }
+
+
+def descent_curve(value):
+    """Shared descent pace as an (n, 2) array of [time, y] sorted by time, or None"""
+    if not isinstance(value, list):
+        return None
+    points = []
+    for point in value:
+        try:
+            time_value, y = float(point['time']), float(point['y'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if math.isfinite(time_value) and math.isfinite(y):
+            points.append((time_value, y))
+    if len(points) < 2:
+        return None
+    points.sort()
+    return np.array(points)
+
+
+def width_per_metre(lens, aspect):
+    """Frame width per metre of camera distance; the sensor spans the longer image side"""
+    return SENSOR * min(aspect, 1.0) / lens
+
+
+def readable_distance(settings, aspect):
+    """Largest distance at which the run still reads"""
+    limit = settings['distance'] * ZOOM_LIMIT
+    piece = settings.get('pieceLength')
+    if piece:
+        limit = min(limit, piece / (MIN_PIECE_FRACTION * width_per_metre(settings['lens'], aspect)))
+    return max(limit, settings['distance'])
 
 
 def follow_points(marbles, motions, times):
@@ -112,9 +160,32 @@ def follow_points(marbles, motions, times):
     return total / weights[:, None], depth
 
 
-def spread_distance(marbles, motions, times, centre, lens, fps):
-    """Distance at which every marble in flight stays inside the framing box around the centre"""
-    reach = 18.0 / lens * FRAME_KEEP
+def marble_point(marble, motions, times):
+    motion = motions.get(marble['id'])
+    if motion is None or not len(motion):
+        return None
+    return np.stack([np.interp(times, motion[:, 0], motion[:, 1]), np.interp(times, motion[:, 0], motion[:, 2])], axis=1)
+
+
+def focus_marble(marbles, motions, focus):
+    """The marble the camera keeps when the group does not fit: the chosen one, else the first with motion"""
+    moving = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']])]
+    chosen = next((marble for marble in moving if marble['id'] == focus), None)
+    return chosen or (moving[0] if moving else None)
+
+
+def in_flight_count(marbles, motions, times):
+    count = np.zeros(len(times))
+    for marble in marbles:
+        motion = motions.get(marble['id'])
+        if motion is not None and len(motion):
+            count += (times >= motion[0, 0] - 1e-9) & (times <= motion[-1, 0] + 1e-9)
+    return count
+
+
+def spread_need(marbles, motions, times, centre, lens):
+    """Distance at which every marble in flight stays inside the framing box around the centre, per frame"""
+    reach = SENSOR / 2 / lens * FRAME_KEEP
     required = np.zeros(len(times))
     for marble in marbles:
         motion = motions.get(marble['id'])
@@ -125,11 +196,51 @@ def spread_distance(marbles, motions, times, centre, lens, fps):
         dy = np.abs(np.interp(times, motion[:, 0], motion[:, 2]) - centre[:, 1])
         need = np.maximum(dx / (reach * ASPECT_GUESS), dy / reach) * 1.15
         required = np.maximum(required, np.where(inside, need, 0.0))
-    # Hold the widest need for a second around each frame, then ease it so the zoom breathes slowly
-    window = max(1, int(round(fps)))
-    padded = np.concatenate([np.full(window, required[0]), required, np.full(window, required[-1])])
-    held = np.array([padded[index:index + 2 * window + 1].max() for index in range(len(required))])
-    return critically_damped(held[:, None], fps, 0.5)[:, 0]
+    return required
+
+
+def held(values, fps, seconds, reduce=np.max):
+    """`reduce` of the values within `seconds` around each frame, such as the widest zoom need of the last second"""
+    window = max(1, int(round(fps * seconds)))
+    padded = np.concatenate([np.full(window, values[0]), values, np.full(window, values[-1])])
+    return np.array([reduce(padded[index:index + 2 * window + 1]) for index in range(len(values))])
+
+
+def group_framing(marbles, motions, times, settings, fps, aspect):
+    """Follow points (current and `lead` ahead), distance and shot roll per time, or None without motion.
+
+    A group weight is 1 while the group fits the readable maximum and eases to 0 where the camera follows the focus
+    marble alone; it blends both the follow point and the distance."""
+    centre, depth = follow_points(marbles, motions, times)
+    ahead, _ = follow_points(marbles, motions, times + settings['lead'])
+    if centre is None:
+        return None
+    descent = settings.get('descent')
+    if descent is not None:
+        # The shared pace is the group's height without the bounces of each lane
+        several = in_flight_count(marbles, motions, times) >= 2
+        centre[:, 1] = np.where(several, np.interp(times, descent[:, 0], descent[:, 1]), centre[:, 1])
+        several_ahead = in_flight_count(marbles, motions, times + settings['lead']) >= 2
+        ahead[:, 1] = np.where(several_ahead, np.interp(times + settings['lead'], descent[:, 0], descent[:, 1]), ahead[:, 1])
+    base, shot_roll = shot_values(times, settings['distance'], settings['shots'])
+    limit = readable_distance(settings, aspect)
+    # Hold the widest need for a second so the zoom does not breathe with every bounce
+    need = held(spread_need(marbles, motions, times, centre, settings['lens']), fps, 1.0)
+    # The held need already leaves the group a second before it stops fitting, so the camera is on the focus marble
+    # when the zoom would top out, and ignores fits shorter than two seconds
+    fits = (need <= limit).astype(np.float64)
+    weight = critically_damped(fits[:, None], fps, GROUP_EASE / 3)[:, 0]
+    weight = np.clip(weight, 0.0, 1.0)
+    group_distance = np.clip(need, base, np.maximum(base, limit))
+    distance = critically_damped((base + weight * (group_distance - base))[:, None], fps, 0.5)[:, 0]
+    distance = np.minimum(distance, np.maximum(base, limit))
+    focus = focus_marble(marbles, motions, settings.get('focus'))
+    if focus is not None and len(marbles) > 1:
+        focus_now = marble_point(focus, motions, times)
+        focus_ahead = marble_point(focus, motions, times + settings['lead'])
+        centre = weight[:, None] * centre + (1 - weight[:, None]) * focus_now
+        ahead = weight[:, None] * ahead + (1 - weight[:, None]) * focus_ahead
+    return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'roll': shot_roll}
 
 
 def critically_damped(values, fps, tau):
@@ -202,12 +313,12 @@ def bake(scene, camera, settings, marbles, motions, fps):
         first_frame = min(first_frame, math.floor((loop['start'] - loop['blend']) * fps) - 1)
     frames = np.arange(first_frame, scene.frame_end + 1, dtype=np.float64)
     times = frames / fps
-    ahead_points, depth = follow_points(marbles, motions, times + settings['lead'])
-    current, _ = follow_points(marbles, motions, times)
-    if ahead_points is None:
+    aspect = scene.render.resolution_x / max(1, scene.render.resolution_y)
+    framing = group_framing(marbles, motions, times, settings, fps, aspect)
+    if framing is None:
         return 0
-    distance, shot_roll = shot_values(times, settings['distance'], settings['shots'])
-    distance = np.maximum(distance, spread_distance(marbles, motions, times, current, settings['lens'], fps))
+    current, ahead_points, depth = framing['current'], framing['ahead'], framing['depth']
+    distance, shot_roll = framing['distance'], framing['roll']
     # Lead the marble, but never so far that it leaves the upper part of the frame on fast drops
     lead_offset = ahead_points - current
     lead_length = np.linalg.norm(lead_offset, axis=1)
@@ -218,7 +329,7 @@ def bake(scene, camera, settings, marbles, motions, fps):
     target = critically_damped(follow, fps, tau)
     # Smoothing averages accelerating motion such as a free fall, so the target can fall behind; pull it back
     # wherever the marble would leave the inner part of the frame, then smooth the correction lightly
-    reach = distance * 18.0 / settings['lens'] * FRAME_KEEP
+    reach = distance * SENSOR / 2 / settings['lens'] * FRAME_KEEP
     for _ in range(8):
         offset = current - target
         excess = np.maximum(np.abs(offset) - reach[:, None] * np.array([ASPECT_GUESS, 1.0]), 0.0) * np.sign(offset)
@@ -286,6 +397,51 @@ def bake(scene, camera, settings, marbles, motions, fps):
     anim.write_fcurve(data_bag, 'dof.focus_distance', 0, frames, focus)
     write_shot_markers(scene, settings['shots'], fps)
     return len(frames)
+
+
+def view_footprint(scene, camera, step=3):
+    """Wall area the camera sees over the scene range as ((min_x, min_z), (max_x, max_z)), or None.
+
+    The frame's corner rays are intersected with the wall plane (Blender y = 0). A ray that grazes or misses the wall
+    counts up to FAR_REACH camera heights away, so a steep view still gets a wall up to a sensible depth. Poses come
+    from the camera's location and rotation F-curves, so baked, edited and static cameras all work."""
+    if camera is None or camera.type != 'CAMERA':
+        return None
+    curves = {}
+    if camera.animation_data is not None and camera.animation_data.action is not None:
+        from bpy_extras import anim_utils
+        channelbag = anim_utils.animdata_get_channelbag_for_assigned_slot(camera.animation_data)
+        for fcurve in (channelbag.fcurves if channelbag else []):
+            if fcurve.data_path in CAMERA_PATHS:
+                curves[(fcurve.data_path, fcurve.array_index)] = fcurve
+    corners = [Vector(corner) for corner in camera.data.view_frame(scene=scene)]
+    ortho = camera.data.type == 'ORTHO'
+    xs, zs = [], []
+    for frame in range(scene.frame_start, scene.frame_end + 1, max(1, step)):
+        location = Vector([curves[('location', axis)].evaluate(frame) if ('location', axis) in curves
+                           else camera.location[axis] for axis in range(3)])
+        if len(camera.rotation_mode) == 3:
+            rotation = Euler([curves[('rotation_euler', axis)].evaluate(frame) if ('rotation_euler', axis) in curves
+                              else camera.rotation_euler[axis] for axis in range(3)], camera.rotation_mode).to_matrix()
+        else:
+            rotation = camera.matrix_world.to_3x3().normalized()
+        height = max(abs(location.y), 1e-3)
+        for corner in corners:
+            if ortho:
+                origin = location + rotation @ Vector((corner.x, corner.y, 0.0))
+                direction = rotation @ Vector((0.0, 0.0, -1.0))
+            else:
+                origin, direction = location, (rotation @ corner).normalized()
+            # The wall is the plane y = 0 and the camera stands in front of it at y < 0
+            reach = FAR_REACH * height
+            if direction.y > 1e-6:
+                reach = min(reach, -origin.y / direction.y)
+            point = origin + direction * reach
+            xs.append(point.x)
+            zs.append(point.z)
+    if not xs:
+        return None
+    return (min(xs), min(zs)), (max(xs), max(zs))
 
 
 def close_loop(frames, locations, rotations, focus, loop, fps):

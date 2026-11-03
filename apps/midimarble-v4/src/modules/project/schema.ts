@@ -130,7 +130,9 @@ const SDesign = z.strictObject({
 		pitch: z.number(),
 		lead: z.number().nonnegative(),
 		smoothing: z.number().min(0).max(1),
-		shots: z.array(SShot)
+		shots: z.array(SShot),
+		// Marble the camera keeps when several marbles do not fit a readable frame; absent means the first marble
+		focusMarbleId: SId.optional()
 	})
 });
 

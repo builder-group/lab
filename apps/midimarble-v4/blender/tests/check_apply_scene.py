@@ -280,6 +280,8 @@ def main():
     saved = worker.handle('save', {})
     check(Path(saved['path']).is_file(), 'save writes scene.blend')
     shutil.rmtree(root.parent, ignore_errors=True)
+    check_device_skins()
+    check_readable_camera_and_wall()
     print('\n'.join(summary))
     print('CHECK PASSED: %d assertions' % sum(1 for line in summary if line.startswith('ok')))
 
@@ -418,6 +420,112 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig)
     worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
     check('mm_loop' not in scene, 'turning the loop off clears the range')
+
+
+def check_device_skins():
+    """Brass device skins keep the collider's top face as their contact surface; the knob glows on hits"""
+    from mm_worker import skins
+    context = skins.skin_context('brass', RADIUS)
+    for skin in ('device', 'device-copper', 'key', 'knob', 'silver', 'unknown'):
+        piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0},
+                 'skin': {'assetId': 'brass:' + skin, 'link': 'linked'}}
+        spec = skins.build_spec('piece', piece, context)
+        bar = spec['parts'][0]['mesh']
+        top = max(vertex.co.z for vertex in bar.vertices)
+        check(abs(top - PLATFORM['thickness'] / 2) < 1e-4, 'brass:%s top face is the contact surface (%.5f m)' % (skin, top))
+        materials = [material.name for material in bar.materials]
+        reaction = skins.piece_reaction(piece, context)
+        if skin == 'knob':
+            check(any(name.startswith('MM · glow') for name in materials) and reaction['flash'] > 0, 'brass:knob has a lens that glows on hits')
+        if skin == 'key':
+            check('MM · key' in materials, 'brass:key has a white key')
+        if skin == 'device-copper':
+            check('MM · bar copper' in materials and 'MM · slot' in materials, 'brass:device-copper has copper ends and a grille')
+        if skin == 'unknown':
+            check(materials[0] == 'MM · brass', 'an unknown brass skin falls back to the gold bar')
+
+
+def check_readable_camera_and_wall():
+    """Two marbles that drift far apart: the camera frames both while they fit, then keeps the focus marble at no
+    more than the readable distance, and the wall covers every view ray of the film"""
+    from bpy_extras.object_utils import world_to_camera_view
+    from mathutils import Vector
+    from mm_worker import camera as camera_rig
+    from mm_worker.ops import Worker
+    root = Path(tempfile.mkdtemp(prefix='mm-spread-')) / 'Spread.marble'
+    (root / '.cache' / 'motion').mkdir(parents=True)
+    duration, split = 3.0, 1.5
+    times = np.arange(0, int(duration * PHYSICS_HZ) + 1) / PHYSICS_HZ
+    slow = -0.3 * times
+    fast = slow - np.where(times > split, GRAVITY / 2 * (times - split) ** 2, 0.0)
+    tracks = {
+        'marble-1': np.stack([times, 0.03 * np.sin(2 * math.pi * times), slow, times * 0], axis=1),
+        'marble-2': np.stack([times, 0.15 + 0.03 * np.sin(2 * math.pi * times), fast, times * 0], axis=1),
+    }
+    marbles = []
+    for mm_id, records in tracks.items():
+        records.astype('<f4').tofile(root / '.cache' / 'motion' / (mm_id + '.bin'))
+        marbles.append({'id': mm_id, 'name': mm_id, 'radius': RADIUS, 'color': '#3478f6',
+                        'motionPath': '.cache/motion/%s.bin' % mm_id, 'sampleCount': len(records)})
+    pieces = [{
+        'id': 'p%d' % index, 'name': 'p%d' % index, 'type': 'platform', 'params': PLATFORM,
+        'position': {'x': 0.04 * (-1) ** index, 'y': -0.15 * index}, 'angle': 0.2, 'wallOffset': 0.0,
+        'hitTimes': [], 'motionPath': None, 'sampleCount': 0, 'skin': None, 'color': '#e2a33b',
+    } for index in range(6)]
+    rig = {'mode': 'rig', 'distance': 0.5, 'pitch': 1.0, 'lead': 0.15, 'smoothing': 0.6, 'shots': []}
+
+    def apply(focus=None):
+        description = {
+            'version': 1, 'projectId': 'spread', 'revision': 1, 'fps': 30.0, 'duration': duration,
+            'frame': {'width': 1080, 'height': 1920}, 'theme': 'brass', 'marbles': marbles, 'pieces': pieces,
+            'camera': dict(rig, focusMarbleId=focus),
+        }
+        (root / '.cache' / 'scene.json').write_text(json.dumps(description))
+        bpy.ops.wm.read_homefile(use_empty=True)
+        return Worker(root).handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+
+    report = apply()
+    scene = bpy.context.scene
+    camera = scene.camera
+    managed = bpy.data.collections[MANAGED_COLLECTION]
+    marble = {obj['mm_id']: obj for obj in managed.objects if obj.get('mm_role') == 'marble'}
+    aspect = scene.render.resolution_x / scene.render.resolution_y
+    settings = camera_rig.settings_from(rig, {'fstop': 8.0})
+    settings['pieceLength'] = PLATFORM['length']
+    limit = camera_rig.readable_distance(settings, aspect)
+    (min_x, min_y), (max_x, max_y) = report['wall']
+    corners = [Vector(corner) for corner in camera.data.view_frame(scene=scene)]
+
+    def in_view(obj):
+        view = world_to_camera_view(scene, camera, obj.matrix_world.translation)
+        return 0 <= view.x <= 1 and 0 <= view.y <= 1
+
+    farthest, uncovered, focus_lost = 0.0, 0, 0
+    for frame in range(scene.frame_start, scene.frame_end + 1):
+        scene.frame_set(frame)
+        rotation, position = camera.matrix_world.to_3x3(), camera.matrix_world.translation
+        centre = rotation @ Vector((0.0, 0.0, -1.0))
+        farthest = max(farthest, -position.y / centre.y * centre.length)
+        for corner in corners:
+            ray = rotation @ corner
+            point = position + ray * (-position.y / ray.y) if ray.y > 1e-6 else None
+            if point is None or not (min_x <= point.x <= max_x and min_y <= point.z <= max_y):
+                uncovered += 1
+        focus_lost += not in_view(marble['marble-1'])
+    check(farthest <= limit * 1.001, 'camera never pulls back past the readable distance (%.2f of %.2f m)' % (farthest, limit))
+    check(focus_lost == 0, 'the focus marble stays in frame while the other falls away')
+    check(uncovered == 0, 'the wall covers every view ray of the film (wall %.1f m tall for %.1f m of descent)'
+          % (max_y - min_y, -fast[-1]))
+    scene.frame_set(round(0.3 * 30))
+    check(in_view(marble['marble-1']) and in_view(marble['marble-2']), 'two marbles close together share the frame')
+    scene.frame_set(scene.frame_end)
+    check(not in_view(marble['marble-2']), 'a marble far from the focus marble leaves the frame')
+    apply(focus='marble-2')
+    scene = bpy.context.scene
+    marble = {obj['mm_id']: obj for obj in bpy.data.collections[MANAGED_COLLECTION].objects if obj.get('mm_role') == 'marble'}
+    camera = scene.camera
+    scene.frame_set(scene.frame_end)
+    check(in_view(marble['marble-2']), 'focusMarbleId picks the marble the camera keeps')
 
 
 def bpy_channelbag(obj):

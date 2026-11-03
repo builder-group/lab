@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parseProject, type TProject } from '@/modules/project';
 import { findLongGaps } from './assists';
+import { paceAt } from './pace';
 import { frameBand } from './placement';
 import { createSimulator, type TSimulator } from './simulate';
 import { HIT_DRIFT, type TSimulationResult } from './types';
@@ -150,12 +151,33 @@ describe('fixtures', () => {
 		expectAllOnTime(result, 115);
 		expect(project.music.lanes.map((lane) => lane.instrument)).toEqual([9, 8]);
 		expect(project.design.theme).toBe('brass');
-		expect(result.pieces.filter((piece) => piece.type === 'rail').length).toBeGreaterThanOrEqual(4);
-		expect(result.contacts.filter((contact) => contact.kind === 'marble')).toHaveLength(0);
-		// Each marble only touches its own lane's pieces
-		for (const contact of result.contacts.filter((item) => item.kind === 'piece')) {
-			const lane = contact.marbleEntityId.replace('marble-', '');
-			expect(contact.otherEntityId, contact.otherEntityId).toMatch(new RegExp(`^(piece|rail)-${lane}-`));
+		// Switchbacks hold the melody across its long notes
+		expect(result.pieces.filter((piece) => piece.type === 'switchback').length).toBeGreaterThanOrEqual(10);
+		// While both marbles play, they never touch each other or the other lane's pieces
+		const until = Math.min(...project.music.lanes.map((lane) => lane.hits.at(-1)?.time ?? 0));
+		const played = result.contacts.filter((contact) => contact.time <= until);
+		expect(played.filter((contact) => contact.kind === 'marble')).toHaveLength(0);
+		const laneOf = (id: string): string | undefined => {
+			const entity = project.entities.find((item) => item.id === id);
+			return entity?.components.hitLink?.laneId ?? entity?.components.marble?.laneId;
+		};
+		for (const contact of played.filter((item) => item.kind === 'piece'))
+			expect(laneOf(contact.otherEntityId), contact.otherEntityId).toBe(laneOf(contact.marbleEntityId));
+		// Every dot keeps to the shared descent pace, so one camera frames both marbles
+		const pace = result.pace;
+		if (pace == null) throw new Error('The run has no pace');
+		for (const hit of result.hits)
+			expect(Math.abs((hit.dot?.y ?? Infinity) - paceAt(pace, hit.targetTime)), hit.hitId).toBeLessThanOrEqual(pace.limit);
+		const [melody, bass] = result.marbles;
+		const bassY = new Map(bass?.samples.map((sample) => [Math.round(sample.time * 240), sample.position.y]));
+		let spread = 0;
+		for (const sample of melody?.samples ?? []) {
+			const other = bassY.get(Math.round(sample.time * 240));
+			if (sample.time >= 1 && sample.time <= until && other != null) spread = Math.max(spread, Math.abs(sample.position.y - other));
 		}
+		expect(spread).toBeLessThan(1);
+		// The film camera follows the sampled pace
+		expect(result.descent?.length).toBeGreaterThan(60);
+		expect(result.descent?.[10]?.y).toBeCloseTo(paceAt(pace, result.descent?.[10]?.time ?? 0), 12);
 	});
 });
