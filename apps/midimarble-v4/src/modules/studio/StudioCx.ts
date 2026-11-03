@@ -20,6 +20,7 @@ import {
 import { parseHitKey } from './selection';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
+import { DesignCx } from '@/modules/design';
 
 /** Owns the open project, its history, persistence and the shared editing state of the studio */
 export class StudioCx {
@@ -36,6 +37,12 @@ export class StudioCx {
 	readonly $reveal = createState<{ ids: string[] } | null>(null);
 	readonly sources = new SourcesCx(this);
 	readonly simulation = new SimulationCx(this);
+	readonly design = new DesignCx({
+		getProject: () => this.project,
+		getResult: () => this.simulation.$result.get(),
+		getPackagePath: () => this.$path.get(),
+		getPlayhead: () => this.$playhead.get()
+	});
 	private audioEngine: TAudioEngine | null = null;
 
 	private saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -49,11 +56,36 @@ export class StudioCx {
 	mount(): () => void {
 		void this.refreshRecent();
 		const unmountSimulation = this.simulation.mount();
+		const unmountDesign = this.mountDesign();
 		return () => {
 			unmountSimulation();
+			unmountDesign();
+			void this.design.close();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
 			void this.flush();
+		};
+	}
+
+	/** Keeps the Design preview at the playhead while the Design workspace is open */
+	private mountDesign(): () => void {
+		const inDesign = (): boolean => this.$workspace.get() === 'design' && this.project != null;
+		const stops = [
+			this.$workspace.listen(({ value }) => {
+				if (value === 'design') void this.design.activate();
+			}),
+			this.$playhead.listen(() => {
+				if (inDesign() && !this.$playing.get()) this.design.requestPreview();
+			}),
+			this.$playing.listen(({ value }) => {
+				if (inDesign() && !value) this.design.requestPreview();
+			}),
+			this.simulation.$result.listen(() => {
+				if (inDesign() && !this.$playing.get()) this.design.requestPreview(400);
+			})
+		];
+		return () => {
+			for (const stop of stops) stop();
 		};
 	}
 
@@ -122,6 +154,7 @@ export class StudioCx {
 
 	async closeProject(): Promise<void> {
 		await this.flush();
+		await this.design.close();
 		this.$history.set(null);
 		this.$path.set(null);
 		this.$selection.set([]);

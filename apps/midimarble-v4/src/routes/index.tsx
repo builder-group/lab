@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { ComposeCanvas } from '@/modules/compose';
+import { DesignView } from '@/modules/design';
 import { StartScreen } from '@/modules/start';
 import { Studio, StudioCx } from '@/modules/studio';
 
@@ -22,10 +23,11 @@ function RouteComponent() {
 				workspace === 'compose' ? (
 					<ComposeCanvas cx={cx} />
 				) : (
-					<div className="mm-placeholder bg-[var(--content)]">
-						Design preview
-						<small>Blender renders the current playhead here.</small>
-					</div>
+					<DesignView
+						cx={cx.design}
+						frame={history.present.frame}
+						onPick={(id) => cx.$selection.set(id == null ? [] : [id])}
+					/>
 				)
 			}
 		/>
