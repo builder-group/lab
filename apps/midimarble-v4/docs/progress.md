@@ -12,6 +12,15 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### M2 Compose, M4 bridge, Design viewer (in progress)
+
+- Simulation engine (subagent): placement by construction, snapshots for incremental reflow, contacts, blocked detection, shared world. Staircase reflow 8–30 ms; 60 s with 4 marbles and 396 platforms: full 183–228 ms, incremental 103–163 ms
+- Compose canvas (subagent): Three.js over the peg-dot grid, trajectories, hit dots, step loop (click, Return, R, M, P, rotate grip, Shift 5° snap), floating tool bar, piece inspector with scrubbable fields. Live rotation 23–35 ms. Staircase built through the UI with all 8 hits on time
+- Blender bridge (subagent): background worker with mailbox, `apply_scene`, `preview_frame` with object ID pass, `inspect`, link states, detached collection. Headless check 50/50; marble keyframes match physics within 8e-9 m; 540 px Eevee preview about 0.45 s
+- Design viewer: starts the worker, syncs the scene, renders the playhead, picks objects through the ID image, Edit in Blender
+- UI pass notes so far: 6 cm platforms nearly invisible at fit-all zoom; selecting does not move the playhead so later pieces stay ghosted; default 15° tilt can leave the frame band
+- Not yet verified: the Design tab in the native app (needs a bundled build), GUI Blender
+
 ### M1 Music lanes
 
 - MIDI import with a review sheet: track choice, split chords across marbles or keep the top note, marble count, live preview and left-out notes
