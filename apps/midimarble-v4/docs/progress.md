@@ -4,12 +4,22 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Current state
 
-- Milestones: M0–M4 done; M5 Design done in the browser and headless Blender (agent chat, library, reactions, wall text, link states), native agent runs and Accept not re-verified after the chat rework; M6 camera with shot markers, render presets and loops done, `reference-20` Best film rendering for the side-by-side review
-- Next steps: review the `reference-20` Best film against the reference and re-render Jingle Bells with the wall fix; native window check of the round 2 UI, export through the sheet and a real agent run from the chat; Jingle Bells at the default half speed; the chat panel narrows the canvas at 1440 px
+- Milestones: M0–M5 done in the browser and headless Blender; M6 done by the owner's revised check (Camera view, Draft Preview and quick renders; the `reference-20` Best film exists as well). Still unverified in the native window: the round 2–3 UI, export through the sheet, a real agent run from the chat and the unsaved-example save panel
+- Next steps: the native checks above (computer use cannot drive the web view in the background; full-screen control needs the owner); round 4 review findings; Draft Preview look closer to Blender (shadows, metal)
 - Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### Night of 2026-11-03: rounds 3 to 5 (owner asleep, autonomous)
+
+- Round 3 decisions in `design-language.md` (one outline, one library, themes that dress everything, title bar actions) and built: Blender chip, Agent and Export Film… in the title bar, inspector header only zooms; Layers is the outline of the whole project (Song, marbles with their pieces, Free Pieces, Camera with shots, Titles) with track glyphs and cross-selection with the track column, one Add menu with submenus; Layers and Library tabs; Library with theme cards (rendered stills), Colour by Note (Blender and UI), skins that follow the selection with previews (`public/skins/`), origins, In Use and Keep in Library, New Theme with Agent
+- Song model refinement: platforms go with their notes (another marble's run, removed for Backing)
+- Review round 3 (`.local/ux-review-round3.md`, 9/20, 27 findings) and fixes: Draft Preview in Film whenever Blender's preview is missing (follow camera, theme colours, Colour by Note, titles; framing within 1–2 % of Blender's); title In/Out with fades in Blender and a Titles track; anchoring by click (12 px, before the first hit too) and by drop with the chip, Follow Marble ▸ and Detach in the menu; Add Platform drawn at once; Zoom to Fit ignores the fall after the last hit; undo and Re-place in notices; Re-place Broken Platforms (Jingle Bells recovers from handing six notes to Backing); Too Soon and Out of Reach with Move Release Earlier or Later and Make Backing; `0` means one thing; global undo; capped Song roll; fields that fit; palette across workspaces; m:ss time fields; the chat hides the inspector below 1600 px; Quick Help (?, ⇧⌘/) and three first-run hints; examples open unsaved (no Recent copies, Save… asks where, Don't Save); example stills on the start screen
+- Assists scale with gravity (switchback hold estimate, long-gap threshold, shared descent pace, launch horizon); Jingle Bells rebuilt at the default half speed, 115/115, 6–7 platforms per frame height against 3.5–4 (`references.md`, Half gravity)
+- Wall covers far view rays at the steeper pitch (FAR_REACH 60); the Jingle Bells Draft shows no wall edge
+- Tests: performance tests now run after the rest (`pnpm test` runs them in a second Vitest pass) because their budgets only hold on an idle machine; the request-queue test got a 20 s timeout. `test` 369 + 3, `lint` clean, `typecheck` clean, `cargo test` 28, `blender:check` 122, `blender:design` 50, `camera:check` within 0.003 mm
+- Native window: the bundle builds, but computer use refuses to drive the web view in the background ("could not read which file this window is editing"); left for the owner
 
 ### Assists at half gravity, Jingle Bells rebuilt at the default speed
 
