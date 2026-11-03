@@ -2,7 +2,9 @@
 
 MidiMarble should feel like a native Mac app that people already know how to use. When a pattern exists in an established app, use it instead of inventing one. Innovation belongs in the musical track building, not in basic controls.
 
-Blender is the main reference, because the film is finished in Blender and the app should feel like a friendly front end to it: its timeline and dope sheet for time, its properties editor for structured settings, and its shortcuts where they fit (G, R, Tab, numpad framing). The surface is Apple-native rather than Blender's custom toolkit: system font, translucent sidebar, native menus and sheets. Figma is the reference for canvas navigation and selection.
+Paper (paper.design) is the main visual reference: its warm paper-like ground, quiet grey surfaces, calm type, side panels and tools placed at the side rather than a floating bar. The timeline at the bottom borrows behaviour from video editors and Blender but is drawn in Paper's style.
+
+Blender is the main interaction reference, because the film is finished in Blender and the app should feel like a friendly front end to it: its timeline and dope sheet for time, its properties editor for structured settings, and its shortcuts where they fit (G, R, Tab, numpad framing). The surface is Apple-native rather than Blender's custom toolkit: system font, translucent sidebar, native menus and sheets. Figma is the reference for canvas navigation and selection.
 
 Reference apps:
 
