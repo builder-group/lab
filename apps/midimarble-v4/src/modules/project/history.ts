@@ -40,3 +40,14 @@ export function redoHistory(history: TProjectHistory): TProjectHistory {
 		future: history.future.slice(1)
 	};
 }
+
+/** Entities that differ in `after` from `before`, or are new in it: what an undo or redo changed that still exists */
+export function changedEntityIds(before: TProject, after: TProject): string[] {
+	const previous = new Map(before.entities.map((entity) => [entity.id, entity]));
+	return after.entities
+		.filter((entity) => {
+			const old = previous.get(entity.id);
+			return old == null || JSON.stringify(old) !== JSON.stringify(entity);
+		})
+		.map((entity) => entity.id);
+}

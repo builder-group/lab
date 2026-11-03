@@ -196,6 +196,7 @@ export class ComposeCx {
 				this.syncFilm();
 				this.frameIfNeeded();
 				this.revealPlaced();
+				this.revealHistory(value);
 			}),
 			this.$override.listen(() => this.syncPieces()),
 			this.studio.$hidden.listen(() => this.syncPieces()),
@@ -588,6 +589,14 @@ export class ComposeCx {
 			minY: bounds.minY - 0.1,
 			maxY: bounds.maxY + 0.05
 		});
+	}
+
+	/** Undo and redo pan to what they changed, like Figma, once the run for the restored revision arrives */
+	private revealHistory(result: TSimulationResult | null): void {
+		const pending = this.studio.$historyReveal.get();
+		if (pending == null || result == null || result.revision < pending.revision) return;
+		this.studio.$historyReveal.set(null);
+		if (pending.ids.length > 0 && this.$drag.get() == null) this.reveal(pending.ids);
 	}
 
 	/** Handles the studio's pending reveal once the canvas can frame it */

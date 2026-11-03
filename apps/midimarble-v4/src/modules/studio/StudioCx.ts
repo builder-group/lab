@@ -3,6 +3,7 @@ import { host, type THostRecentProject } from '@/environment';
 import { createAudioEngine, type TAudioEngine } from '@/modules/music';
 import {
 	applyProjectCommands,
+	changedEntityIds,
 	createHistory,
 	createId,
 	createLane,
@@ -44,6 +45,8 @@ export class StudioCx {
 	 * outside the canvas. The canvas clears it once handled, so a reveal sent from Design waits for Compose.
 	 */
 	readonly $reveal = createState<TReveal | null>(null);
+	/** Entities the last undo or redo changed; the canvas pans to them once the run for that revision arrives */
+	readonly $historyReveal = createState<{ ids: string[]; revision: number } | null>(null);
 	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true });
 	// Zero fits the timeline to its lanes until the user drags it to a height of their own
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));
@@ -343,14 +346,18 @@ export class StudioCx {
 	undo(): void {
 		const history = this.$history.get();
 		if (history == null || !history.past.length) return;
-		this.$history.set(undoHistory(history));
-		this.scheduleSave();
+		this.stepHistory(history, undoHistory(history));
 	}
 
 	redo(): void {
 		const history = this.$history.get();
 		if (history == null || !history.future.length) return;
-		this.$history.set(redoHistory(history));
+		this.stepHistory(history, redoHistory(history));
+	}
+
+	private stepHistory(history: TProjectHistory, next: TProjectHistory): void {
+		this.$history.set(next);
+		this.$historyReveal.set({ ids: changedEntityIds(history.present, next.present), revision: next.present.revision });
 		this.scheduleSave();
 	}
 
