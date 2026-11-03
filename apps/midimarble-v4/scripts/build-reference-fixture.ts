@@ -48,7 +48,7 @@ const SECTIONS = [
 	}
 ];
 const TITLE = { size: 0.05, depth: 0.003, color: '#ffffff', font: 'Bfont Regular', rise: 0.1 };
-const CAMERA = { distance: 0.85, pitch: 0.85 };
+const CAMERA = { distance: 0.85, pitch: 1.15 };
 const FIXTURE_URL = new URL('../fixtures/reference-20.marble.json', import.meta.url);
 
 const simulator = await createSimulator();

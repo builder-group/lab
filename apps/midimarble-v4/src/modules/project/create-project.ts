@@ -35,8 +35,9 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 			theme: 'pegboard',
 			renderPreset: 'balanced',
 			loop: false,
-			// Far enough for the 1.5× kit to read like the reference film: a bar spans about a quarter of the frame
-			camera: { mode: 'rig', distance: 0.85, pitch: 1.0, lead: 0.15, smoothing: 0.6, shots: [] }
+			// Far enough for the 1.5× kit to read like the reference film: a bar spans about a quarter of the frame.
+			// The steep pitch looks along the wall like the reference, so a column shows six to eight stacked bars
+			camera: { mode: 'rig', distance: 0.85, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: [] }
 		}
 	};
 }

@@ -3724,7 +3724,7 @@
 		"camera": {
 			"mode": "rig",
 			"distance": 0.85,
-			"pitch": 1,
+			"pitch": 1.15,
 			"lead": 0.15,
 			"smoothing": 0.6,
 			"shots": []
