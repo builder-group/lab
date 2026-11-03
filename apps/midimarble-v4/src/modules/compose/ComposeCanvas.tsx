@@ -1,9 +1,11 @@
 import { useFeatureState } from 'feature-react/state';
 import { Box, Square } from 'lucide-react';
 import React from 'react';
+import { openContextMenu } from '@/components';
 import type { TProject, TVec2 } from '@/modules/project';
 import { frameBand, getPieceDefinition, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
+import { laneMenu, pieceMenu } from '@/modules/studio/menus';
 import { parseHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
@@ -11,6 +13,7 @@ import { ComposeCx } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
 import { ComposeToolbar } from './ComposeToolbar';
 import { GhostHint, GhostShapes } from './GhostLayer';
+import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, toPoints } from './PieceLayer';
 import { pathRun, pathToWorld, pieceKind } from './scene';
 import { badgeStatus, StatusBadge } from './status';
@@ -61,12 +64,13 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 				onPointerUp={(event) => compose.onPointerUp(event)}
 				onPointerCancel={(event) => compose.onPointerUp(event)}
 				onPointerLeave={() => compose.onPointerLeave()}
-				onContextMenu={(event) => event.preventDefault()}
+				onContextMenu={(event) => openCanvasMenu(compose, event)}
 			/>
 			<ComposeOverlay compose={compose} />
 			<GhostHint compose={compose} />
 			<CornerControls compose={compose} />
 			<SimulatingIndicator cx={cx} />
+			<EmptyState compose={compose} />
 			<ComposeToolbar compose={compose} />
 		</div>
 	);
@@ -75,6 +79,74 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 interface TComposeCanvasProps {
 	cx: StudioCx;
 }
+
+/** Right-click opens the menu for what is under the pointer, selecting it first like Finder */
+function openCanvasMenu(compose: ComposeCx, event: React.MouseEvent<HTMLElement>): void {
+	const cx = compose.studio;
+	const rect = event.currentTarget.getBoundingClientRect();
+	const target = compose.pickAt({ x: event.clientX - rect.left, y: event.clientY - rect.top });
+	switch (target?.kind) {
+		case 'piece':
+		case 'rotate':
+		case 'pathEnd':
+		case 'pathBend':
+			if (!cx.$selection.get().includes(target.entityId)) cx.$selection.set([target.entityId]);
+			openContextMenu(event, pieceMenu(cx));
+			return;
+		case 'dot':
+			openContextMenu(event, dotMenu(compose, target.laneId, target.hitId));
+			return;
+		case 'release': {
+			const laneId = compose.project?.entities.find((entity) => entity.id === target.entityId)?.components.marble?.laneId;
+			const lane = compose.project?.music.lanes.find((item) => item.id === laneId);
+			cx.$selection.set([target.entityId]);
+			if (lane != null) openContextMenu(event, laneMenu(cx, lane));
+			return;
+		}
+		default:
+			openContextMenu(event, canvasMenu(compose));
+	}
+}
+
+/** First-run guidance: what to do with no hits, then how to place the first piece */
+const EmptyState: React.FC<{ compose: ComposeCx }> = (props) => {
+	const { compose } = props;
+	const cx = compose.studio;
+	const project = useFeatureState(cx.$history)?.present;
+	const notice = useFeatureState(cx.$notice);
+	const playing = useFeatureState(cx.$playing);
+	const isImporting = useFeatureState(cx.sources.$midiImport) != null;
+	if (project == null || isImporting) return null;
+	const hasHits = project.music.lanes.some((lane) => lane.hits.length > 0);
+	const hasPieces = project.entities.some((entity) => entity.components.piece != null);
+
+	if (!hasHits) {
+		return (
+			<div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center pb-16">
+				<div className="mm-floating pointer-events-auto flex w-[300px] flex-col items-center gap-1 px-5 py-4 text-center">
+					<span className="mm-placeholder-title">Add Hits to Start</span>
+					<span className="mm-placeholder-body text-[var(--text-secondary)]">
+						Each hit is a moment the marble strikes a piece. Import music, or double-click a lane in the timeline.
+					</span>
+					<div className="mt-2 flex gap-2">
+						<button className="mm-button" data-variant="primary" onClick={() => void cx.sources.pickMidi()} type="button">
+							Import MIDI…
+						</button>
+						<button className="mm-button" onClick={() => void cx.sources.pickAudio()} type="button">
+							Import Audio…
+						</button>
+					</div>
+				</div>
+			</div>
+		);
+	}
+	if (hasPieces || notice != null || playing) return null;
+	return (
+		<div className="mm-floating pointer-events-none absolute bottom-[64px] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 px-3 py-1.5 text-[11px] whitespace-nowrap">
+			Click the pulsing dot or press <kbd className="mm-keycap">N</kbd> to place the first platform
+		</div>
+	);
+};
 
 // MARK: - Overlay
 
@@ -225,7 +297,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 				<CanvasTooltip position={hover.position}>
 					<div className="font-medium">
 						Start a {placementLabel} here
-						<span className="mm-mono ml-1.5 font-normal text-[var(--text-secondary)]">{formatTime(hover.time)}</span>
+						<span className="mm-tabular ml-1.5 font-normal text-[var(--text-secondary)]">{formatTime(hover.time)}</span>
 					</div>
 					<div className="text-[var(--text-secondary)]">The marble enters it at this moment</div>
 				</CanvasTooltip>
@@ -319,7 +391,7 @@ const PathReadout: React.FC<{ piece: TResolvedPiece; points: TVec2[]; position: 
 	const slope = toDegrees(Math.atan2(entry.y - tip.y, Math.abs(tip.x - entry.x)));
 	return (
 		<div className="absolute z-10" style={{ left: position.x + 12, top: position.y + 10 }}>
-			<span className="mm-mono rounded-[4px] bg-[var(--accent)] px-1 text-[11px] leading-[16px] text-[var(--on-accent)]">
+			<span className="mm-tabular rounded-[4px] bg-[var(--accent)] px-1 text-[11px] leading-[16px] text-[var(--on-accent)]">
 				{(run.length * 100).toFixed(1)} cm · {slope >= 0 ? '↘' : '↗'} {Math.abs(slope).toFixed(1)}°
 			</span>
 		</div>
@@ -416,7 +488,7 @@ const DotTooltip: React.FC<{ compose: ComposeCx; project: TProject; hit: THitRes
 		<CanvasTooltip position={position}>
 			<div className="font-medium">
 				{lane?.name ?? 'Hit'} · Hit {index + 1}
-				<span className="mm-mono ml-1.5 font-normal text-[var(--text-secondary)]">
+				<span className="mm-tabular ml-1.5 font-normal text-[var(--text-secondary)]">
 					{formatTime(hit.targetTime)}
 					{pitch != null ? ` · ${noteName(pitch)}` : ''}
 				</span>
@@ -501,7 +573,7 @@ const AngleReadout: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; positi
 			{editing ? (
 				<input
 					autoFocus
-					className="mm-mono h-[18px] w-[56px] rounded-[4px] border-0 bg-[var(--content-raised)] px-1 text-[11px] outline-none"
+					className="mm-tabular h-[18px] w-[56px] rounded-[4px] border-0 bg-[var(--content-raised)] px-1 text-[11px] outline-none"
 					style={{ boxShadow: '0 0 0 1.5px var(--accent-strong)' }}
 					value={draft}
 					onChange={(event) => setDraft(event.target.value)}
@@ -514,7 +586,7 @@ const AngleReadout: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; positi
 				/>
 			) : (
 				<button
-					className="mm-mono rounded-[4px] bg-[var(--accent)] px-1 text-[11px] leading-[16px] text-[var(--on-accent)]"
+					className="mm-tabular rounded-[4px] bg-[var(--accent)] px-1 text-[11px] leading-[16px] text-[var(--on-accent)]"
 					title="Double-click to type an angle"
 					onDoubleClick={() => {
 						setDraft(formatDegrees(angle).replace('°', ''));
@@ -561,7 +633,7 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 				</button>
 			</div>
 			<div className="mx-0.5 h-4 w-px bg-[var(--separator)]" />
-			<button className="mm-tool-button mm-mono !h-7 !w-auto px-1.5 text-[11px]" onClick={() => compose.fitAll()} type="button">
+			<button className="mm-tool-button mm-tabular !h-7 !w-auto px-1.5 text-[11px]" onClick={() => compose.fitAll()} type="button">
 				{zoom}%<span className="mm-tooltip">Zoom to fit ⇧1</span>
 			</button>
 		</div>

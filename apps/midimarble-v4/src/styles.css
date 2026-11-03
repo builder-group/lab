@@ -27,9 +27,22 @@
 	--good: #28a745;
 	--warn: #e8a100;
 	--bad: #e5484d;
+	--playhead: #ff3b30;
+	/* Window background behind the translucent chrome when no Liquid Glass is present, as in the browser */
+	--window: #ececec;
+	/* Opaque ruler and track header bands, a step off the content like Logic and Blender */
+	--band: #f6f6f6;
+	--band-selected: color-mix(in srgb, var(--accent) 16%, var(--band));
+	--menu: rgb(246 246 246 / 0.86);
+	/* Selected rows: the active row is filled with the accent, other selected rows are tinted */
+	--selection-active: var(--accent);
+	--on-selection-active: var(--on-accent);
+	/* Type scale: 13 px body, 11 px secondary, 15 px only for the command palette search field */
+	--text-body: 13px;
+	--text-small: 11px;
 	color-scheme: light dark;
 	font-family: var(--font);
-	font-size: 13px;
+	font-size: var(--text-body);
 	color: var(--text);
 	-webkit-font-smoothing: antialiased;
 	font-synthesis: none;
@@ -39,7 +52,7 @@
 	:root {
 		--text: rgb(255 255 255 / 0.88);
 		--text-secondary: rgb(255 255 255 / 0.55);
-		--text-tertiary: rgb(255 255 255 / 0.25);
+		--text-tertiary: rgb(255 255 255 / 0.28);
 		--chrome: rgb(40 40 42 / 0.7);
 		--content: #1e1e1f;
 		--content-raised: #2a2a2c;
@@ -53,8 +66,19 @@
 		--shadow-popover: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 10px 30px rgb(0 0 0 / 0.5);
 		--accent: #ffd60a;
 		--accent-strong: #ffd60a;
-		--selection: color-mix(in srgb, var(--accent) 22%, transparent);
+		/* Yellow over dark grey turns olive, so secondary selection stays neutral in dark mode */
+		--selection: rgb(255 255 255 / 0.1);
+		--playhead: #ff453a;
+		--window: #1c1c1e;
+		--band: #232325;
+		--band-selected: #303033;
+		--menu: rgb(40 40 42 / 0.86);
 	}
+}
+
+/* The browser development surface has no Liquid Glass behind the window */
+html[data-host='browser'] body {
+	background: var(--window);
 }
 
 * {
@@ -87,10 +111,13 @@ textarea {
 	-webkit-user-select: text;
 }
 
-:focus-visible {
-	outline: 3px solid color-mix(in srgb, var(--accent) 60%, transparent);
-	outline-offset: 1px;
-	border-radius: 5px;
+/* In the base layer so utilities such as `outline-none` can turn it off for fields that draw their own */
+@layer base {
+	:focus-visible {
+		outline: 3px solid color-mix(in srgb, var(--accent) 60%, transparent);
+		outline-offset: 1px;
+		border-radius: 5px;
+	}
 }
 
 /* MARK: - Controls */
@@ -123,6 +150,11 @@ textarea {
 
 .mm-button:disabled {
 	opacity: 0.4;
+}
+
+/* Dialog push buttons keep a minimum width like AppKit */
+.mm-button[data-size='dialog'] {
+	min-width: 76px;
 }
 
 .mm-icon-button {
@@ -182,9 +214,16 @@ textarea {
 	min-height: 26px;
 }
 
-.mm-field > label {
+.mm-field > label,
+.mm-field > .mm-field-label {
 	color: var(--text-secondary);
 	text-align: right;
+	white-space: nowrap;
+}
+
+/* Scrubbable labels light up like Figma's to show they can be dragged */
+.mm-field > label[data-scrub='true']:hover {
+	color: var(--text);
 }
 
 .mm-input {
@@ -194,6 +233,8 @@ textarea {
 	border-radius: 5px;
 	border: 0.5px solid var(--control-border);
 	background: var(--control);
+	box-shadow: 0 0.5px 0.5px rgb(0 0 0 / 0.04);
+	font-variant-numeric: tabular-nums;
 	outline: none;
 }
 
@@ -202,21 +243,102 @@ textarea {
 	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
-.mm-section-title {
-	padding: 10px 12px 4px;
-	font-size: 11px;
-	font-weight: 600;
+.mm-input::placeholder {
 	color: var(--text-tertiary);
 }
+
+/* Pop-up button: a select drawn like an AppKit pop-up with the double chevron on the right */
+.mm-select {
+	position: relative;
+	display: block;
+	width: 100%;
+}
+
+.mm-select select {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 100%;
+	height: 22px;
+	padding: 0 22px 0 7px;
+	border-radius: 5px;
+	border: 0.5px solid var(--control-border);
+	background: var(--control);
+	box-shadow: 0 0.5px 1px rgb(0 0 0 / 0.08);
+	outline: none;
+}
+
+.mm-select select:focus-visible {
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.mm-select svg {
+	position: absolute;
+	top: 50%;
+	right: 5px;
+	transform: translateY(-50%);
+	pointer-events: none;
+	color: var(--text-secondary);
+}
+
+/* AppKit-sized checkbox: 14 px with a 3.5 px radius, accent fill and a dark check */
+.mm-checkbox {
+	appearance: none;
+	-webkit-appearance: none;
+	display: inline-grid;
+	place-content: center;
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
+	margin: 0;
+	border-radius: 3.5px;
+	border: 0.5px solid var(--control-border);
+	background: var(--control);
+	box-shadow: 0 0.5px 1px rgb(0 0 0 / 0.1);
+}
+
+.mm-checkbox::after {
+	content: '';
+	width: 8px;
+	height: 5px;
+	margin-top: -2px;
+	border-left: 1.75px solid var(--on-accent);
+	border-bottom: 1.75px solid var(--on-accent);
+	transform: rotate(-45deg);
+	opacity: 0;
+}
+
+.mm-checkbox:checked {
+	background: var(--accent);
+	border-color: transparent;
+}
+
+.mm-checkbox:checked::after {
+	opacity: 1;
+}
+
+.mm-checkbox:focus-visible {
+	outline: 3px solid color-mix(in srgb, var(--accent) 60%, transparent);
+	outline-offset: 0;
+}
+
+/* Section header in a source list, like Finder's sidebar */
+.mm-section-title {
+	padding: 10px 12px 4px 16px;
+	font-size: var(--text-small);
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+/* MARK: - Lists */
 
 .mm-row {
 	display: flex;
 	align-items: center;
-	gap: 7px;
-	height: 26px;
+	gap: 6px;
+	height: 24px;
 	margin: 0 8px;
 	padding: 0 8px;
-	border-radius: 6px;
+	border-radius: 5px;
 	white-space: nowrap;
 	overflow: hidden;
 }
@@ -229,28 +351,290 @@ textarea {
 	background: var(--selection);
 }
 
+.mm-row[data-active='true'] {
+	background: var(--selection-active);
+	color: var(--on-selection-active);
+}
+
+.mm-row[data-active='true'] .mm-row-secondary {
+	color: color-mix(in srgb, var(--on-selection-active) 65%, transparent);
+}
+
+.mm-row-secondary {
+	color: var(--text-tertiary);
+	font-size: var(--text-small);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-row-input {
+	min-width: 0;
+	flex: 1;
+	height: 18px;
+	margin-left: -3px;
+	padding: 0 3px;
+	border: 0;
+	border-radius: 3px;
+	background: var(--content);
+	color: var(--text);
+	box-shadow: 0 0 0 2px var(--accent-strong);
+	outline: none;
+}
+
+.mm-disclosure {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
+	margin-left: -4px;
+	border-radius: 3px;
+	color: var(--text-tertiary);
+	transition: transform 0.12s;
+}
+
+.mm-disclosure[data-open='true'] {
+	transform: rotate(90deg);
+}
+
+/* MARK: - Inspector panels */
+
+/* Collapsible panel like Blender's properties editor, with separators like Xcode's inspector */
+.mm-panel + .mm-panel {
+	border-top: 1px solid var(--separator);
+}
+
+.mm-panel-header {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	width: 100%;
+	height: 30px;
+	padding: 0 12px 0 10px;
+	font-weight: 600;
+	text-align: left;
+}
+
+.mm-panel-header:hover .mm-disclosure {
+	color: var(--text-secondary);
+}
+
+.mm-panel-body {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 0 12px 12px;
+}
+
+.mm-caption {
+	font-size: var(--text-small);
+	line-height: 1.35;
+	color: var(--text-secondary);
+}
+
 .mm-placeholder {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 6px;
+	gap: 4px;
 	height: 100%;
 	padding: 24px;
 	text-align: center;
-	color: var(--text-tertiary);
-	font-size: 15px;
-	font-weight: 500;
+	color: var(--text-secondary);
 }
 
-.mm-placeholder small {
-	font-size: 12px;
-	font-weight: 400;
+.mm-placeholder-title {
+	color: var(--text);
+	font-size: var(--text-body);
+	font-weight: 600;
 }
 
-.mm-mono {
-	font-family: var(--font-mono);
+.mm-placeholder-body {
+	max-width: 300px;
+	font-size: var(--text-small);
+	line-height: 1.4;
+}
+
+.mm-tabular {
 	font-variant-numeric: tabular-nums;
+}
+
+/* MARK: - Timeline */
+
+.mm-track-header,
+.mm-ruler {
+	background-color: var(--band);
+}
+
+.mm-ruler {
+	background-size: 100% 4px;
+	background-position: 0 100%;
+	background-repeat: repeat-x;
+}
+
+.mm-track-header[data-selected='true'] {
+	background-color: var(--band-selected);
+}
+
+.mm-out-of-range {
+	background: color-mix(in srgb, var(--text) 5%, transparent);
+	border-left: 1px solid var(--separator);
+}
+
+/* Logic-style track toggles: M turns grey like a muted channel, S turns the accent yellow */
+.mm-track-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 20px;
+	height: 18px;
+	border-radius: 4px;
+	border: 0.5px solid var(--control-border);
+	background: var(--control);
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+	font-weight: 600;
+}
+
+.mm-track-toggle[data-on='true'][data-tone='mute'] {
+	background: var(--text-secondary);
+	border-color: transparent;
+	color: var(--content);
+}
+
+.mm-track-toggle[data-on='true'][data-tone='solo'] {
+	background: var(--accent);
+	border-color: transparent;
+	color: var(--on-accent);
+}
+
+/* Hit diamonds use Blender's keyframe vocabulary: selected keys turn the accent colour */
+.mm-hit {
+	position: absolute;
+	display: grid;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	transform: translate(-50%, -50%);
+}
+
+.mm-hit > span {
+	width: 8px;
+	height: 8px;
+	border-radius: 1.5px;
+	transform: rotate(45deg);
+	background: var(--lane);
+	border: 1px solid color-mix(in srgb, var(--lane) 70%, black);
+}
+
+.mm-hit[data-state='open'] > span {
+	background: var(--content);
+	border: 1.5px solid var(--lane);
+}
+
+.mm-hit[data-state='drifting'] > span {
+	border: 1.5px solid var(--warn);
+}
+
+.mm-hit[data-state='missed'] > span {
+	background: var(--bad);
+	border-color: color-mix(in srgb, var(--bad) 70%, black);
+}
+
+.mm-hit[data-conflict='true'] > span {
+	box-shadow:
+		0 0 0 1.5px var(--content),
+		0 0 0 3px var(--bad);
+}
+
+.mm-hit[data-linked='true'] > span {
+	box-shadow:
+		0 0 0 1.5px var(--content),
+		0 0 0 3px var(--accent-strong);
+}
+
+.mm-hit[data-selected='true'] > span {
+	width: 10px;
+	height: 10px;
+	background: var(--accent);
+	border: 1px solid var(--accent-strong);
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-hit[data-selected='true'] > span {
+		border-color: white;
+	}
+}
+
+/* MARK: - Menus */
+
+/* Context and pull-down menus drawn like macOS menus: translucent material, 22 px items, glyph shortcuts */
+.mm-menu {
+	position: fixed;
+	z-index: 100;
+	min-width: 200px;
+	max-width: 320px;
+	padding: 5px;
+	border-radius: 8px;
+	background: var(--menu);
+	box-shadow: var(--shadow-popover);
+	-webkit-backdrop-filter: blur(30px) saturate(1.6);
+	backdrop-filter: blur(30px) saturate(1.6);
+	outline: none;
+}
+
+.mm-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	height: 22px;
+	padding: 0 10px 0 4px;
+	border-radius: 4px;
+	text-align: left;
+	white-space: nowrap;
+}
+
+.mm-menu-item[data-highlighted='true'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.mm-menu-item:disabled {
+	color: var(--text-tertiary);
+}
+
+.mm-menu-check {
+	width: 12px;
+	flex-shrink: 0;
+	text-align: center;
+	font-size: var(--text-small);
+}
+
+.mm-menu-shortcut {
+	margin-left: auto;
+	padding-left: 24px;
+	color: var(--text-secondary);
+	letter-spacing: 0.5px;
+}
+
+.mm-menu-item[data-highlighted='true'] .mm-menu-shortcut {
+	color: color-mix(in srgb, var(--on-accent) 60%, transparent);
+}
+
+.mm-menu-separator {
+	height: 1px;
+	margin: 5px 10px;
+	background: var(--separator);
+}
+
+.mm-menu-section {
+	padding: 4px 10px 2px 22px;
+	font-size: var(--text-small);
+	font-weight: 600;
+	color: var(--text-secondary);
 }
 
 /* Pegboard dot grid. Holes read as pegs while staying a quiet FigJam-style canvas. The canvas drives

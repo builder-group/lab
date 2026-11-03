@@ -1,3 +1,4 @@
+import { isTauri } from '@tauri-apps/api/core';
 import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -15,6 +16,9 @@ declare global {
 		__TAURI_ROUTER__: typeof router;
 	}
 }
+
+// The desktop window is translucent; the browser surface paints a window background instead
+document.documentElement.dataset['host'] = isTauri() ? 'desktop' : 'browser';
 
 createRoot(document.getElementById('root') as HTMLElement).render(
 	<StrictMode>

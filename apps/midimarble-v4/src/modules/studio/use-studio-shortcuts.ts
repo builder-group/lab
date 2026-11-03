@@ -1,16 +1,23 @@
 import React from 'react';
-import type { TStudioPanel } from './Studio';
-import { deleteSelectedHits } from './Timeline';
-import type { StudioCx } from './StudioCx';
+import { isEditingTarget } from '@/lib';
+import { deleteSelectedHits, getCommand, isCommandEnabled } from './commands';
+import type { StudioCx, TStudioPanel } from './StudioCx';
 
 /** Standard macOS and Logic-style shortcuts that apply anywhere in the studio */
-export function useStudioShortcuts(cx: StudioCx, togglePanel: (panel: TStudioPanel) => void): void {
+export function useStudioShortcuts(cx: StudioCx): void {
 	React.useEffect(() => {
 		function onKeyDown(event: KeyboardEvent): void {
-			// The canvas handles its keys first and marks them, such as arrows while a piece is selected
-			if (isTyping(event) || event.defaultPrevented) return;
 			const command = event.metaKey;
 			const key = event.key.toLowerCase();
+
+			// The palette also opens from a text field, like Spotlight
+			if (command && !event.ctrlKey && !event.shiftKey && key === 'k') {
+				event.preventDefault();
+				cx.$paletteOpen.set(!cx.$paletteOpen.get());
+				return;
+			}
+			// The canvas handles its keys first and marks them, such as arrows while a piece is selected
+			if (isEditingTarget(event) || event.defaultPrevented) return;
 
 			if (command && key === 'z') {
 				event.preventDefault();
@@ -18,9 +25,13 @@ export function useStudioShortcuts(cx: StudioCx, togglePanel: (panel: TStudioPan
 				else cx.undo();
 				return;
 			}
-			if (command && key === 's') {
-				event.preventDefault();
-				void cx.flush();
+			const shortcut = command && !event.ctrlKey && !event.shiftKey ? commandKeys[key] : undefined;
+			if (shortcut != null) {
+				const target = getCommand(shortcut);
+				if (isCommandEnabled(cx, target)) {
+					event.preventDefault();
+					target.run(cx);
+				}
 				return;
 			}
 			if (command && !event.ctrlKey && key === 'i') {
@@ -37,7 +48,7 @@ export function useStudioShortcuts(cx: StudioCx, togglePanel: (panel: TStudioPan
 				const panel = panelKeys[key];
 				if (panel != null) {
 					event.preventDefault();
-					togglePanel(panel);
+					cx.togglePanel(panel);
 				}
 				return;
 			}
@@ -47,7 +58,7 @@ export function useStudioShortcuts(cx: StudioCx, togglePanel: (panel: TStudioPan
 				cx.$playing.set(!cx.$playing.get());
 				return;
 			}
-			if (event.key === 'Enter' && !cx.$playing.get() && !cx.$selection.get().length) {
+			if ((event.key === 'Enter' || event.key === 'Home') && !cx.$playing.get() && !cx.$selection.get().length) {
 				cx.$playhead.set(0);
 				return;
 			}
@@ -56,16 +67,7 @@ export function useStudioShortcuts(cx: StudioCx, togglePanel: (panel: TStudioPan
 				return;
 			}
 			if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-				const times = (cx.project?.music.lanes ?? []).flatMap((lane) => lane.hits.map((hit) => hit.time)).sort((a, b) => a - b);
-				const now = cx.$playhead.get();
-				const next =
-					event.key === 'ArrowRight'
-						? times.find((time) => time > now + 1e-4)
-						: [...times].reverse().find((time) => time < now - 1e-4);
-				if (next != null) {
-					event.preventDefault();
-					cx.$playhead.set(next);
-				}
+				if (cx.stepHit(event.key === 'ArrowRight' ? 1 : -1)) event.preventDefault();
 				return;
 			}
 			if (key === 't') {
@@ -75,15 +77,15 @@ export function useStudioShortcuts(cx: StudioCx, togglePanel: (panel: TStudioPan
 		}
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [cx, togglePanel]);
+	}, [cx]);
 }
 
 const panelKeys: Record<string, TStudioPanel> = { s: 'sidebar', i: 'inspector', t: 'timeline' };
 
-function isTyping(event: KeyboardEvent): boolean {
-	const target = event.target as HTMLElement | null;
-	return (
-		target != null &&
-		(target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-	);
-}
+// ⌘ shortcuts that run a command directly; the ⌃⌘ panel toggles and ⌘1 and ⌘2 are handled above
+const commandKeys: Record<string, 'file.new' | 'file.open' | 'file.save' | 'edit.selectAll' | undefined> = {
+	n: 'file.new',
+	o: 'file.open',
+	s: 'file.save',
+	a: 'edit.selectAll'
+};

@@ -1,5 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
+import { ContextMenuHost } from '@/components';
+import { CommandPalette } from './CommandPalette';
 import { ImportMidiSheet } from './ImportMidiSheet';
 import { Inspector } from './Inspector';
 import { Notice } from './Notice';
@@ -14,19 +16,15 @@ import { useStudioShortcuts } from './use-studio-shortcuts';
 export const Studio: React.FC<TStudioProps> = (props) => {
 	const { cx, canvas } = props;
 	const workspace = useFeatureState(cx.$workspace);
-	const [panels, setPanels] = React.useState({ sidebar: true, inspector: true, timeline: true });
+	const panels = useFeatureState(cx.$panels);
 
-	const togglePanel = React.useCallback((panel: keyof typeof panels) => {
-		setPanels((current) => ({ ...current, [panel]: !current[panel] }));
-	}, []);
-
-	useStudioShortcuts(cx, togglePanel);
+	useStudioShortcuts(cx);
 	usePlayback(cx);
-	useFileDrop(cx);
+	const isDropping = useFileDrop(cx);
 
 	return (
 		<div className="relative flex h-full flex-col">
-			<StudioToolbar cx={cx} panels={panels} onTogglePanel={togglePanel} />
+			<StudioToolbar cx={cx} />
 			<div className="flex min-h-0 flex-1">
 				{panels.sidebar ? <Sidebar cx={cx} /> : null}
 				<main
@@ -40,6 +38,9 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 			</div>
 			{panels.timeline ? <Timeline cx={cx} /> : null}
 			<ImportMidiSheet cx={cx} />
+			<CommandPalette cx={cx} />
+			<ContextMenuHost />
+			{isDropping ? <DropOverlay /> : null}
 		</div>
 	);
 };
@@ -49,4 +50,17 @@ interface TStudioProps {
 	canvas: React.ReactNode;
 }
 
-export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline';
+/** Drop target highlight while a file is dragged over the window, like Finder and Logic */
+const DropOverlay: React.FC = () => (
+	<div className="pointer-events-none absolute inset-0 z-50 p-2">
+		<div
+			className="flex h-full items-center justify-center rounded-[10px] border-2 border-[var(--accent-strong)]"
+			style={{ background: 'color-mix(in srgb, var(--accent) 8%, transparent)' }}
+		>
+			<div className="mm-floating px-4 py-2.5 text-center">
+				<div className="font-semibold">Drop to Import</div>
+				<div className="mm-caption">MIDI files become marbles. Recordings appear behind the lanes.</div>
+			</div>
+		</div>
+	</div>
+);

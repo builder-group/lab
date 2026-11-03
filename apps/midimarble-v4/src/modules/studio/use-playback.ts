@@ -1,6 +1,6 @@
 import { useListener } from 'feature-react/state';
 import React from 'react';
-import type { StudioCx } from './StudioCx';
+import { audibleProject, type StudioCx } from './StudioCx';
 
 /**
  * Drives the playhead from the audio clock while playing. Seeking during playback restarts audio at
@@ -46,7 +46,7 @@ export function usePlayback(cx: StudioCx): void {
 		const from = cx.$playhead.get();
 		void (async () => {
 			try {
-				await cx.audio.prepare(project, cx.resolveSourceUrl);
+				await cx.audio.prepare(audibleProject(project, cx.$mix.get()), cx.resolveSourceUrl);
 				if (!cx.$playing.get()) return;
 				await cx.audio.play(from);
 				if (cx.$playing.get()) startLoop();
@@ -66,7 +66,14 @@ export function usePlayback(cx: StudioCx): void {
 	// Edits while playing re-render the soundtrack; the engine keeps the current position
 	useListener(cx.$history, ({ value }) => {
 		if (!cx.$playing.get() || value == null) return;
-		void cx.audio.prepare(value.present, cx.resolveSourceUrl);
+		void cx.audio.prepare(audibleProject(value.present, cx.$mix.get()), cx.resolveSourceUrl);
+	});
+
+	// Muting or soloing a lane while playing takes effect immediately, like a mixer
+	useListener(cx.$mix, ({ value }) => {
+		const project = cx.project;
+		if (!cx.$playing.get() || project == null) return;
+		void cx.audio.prepare(audibleProject(project, value), cx.resolveSourceUrl);
 	});
 
 	React.useEffect(() => stopLoop, [stopLoop]);

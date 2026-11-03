@@ -40,10 +40,10 @@ Reference apps:
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- The toolbar holds the window controls, project name, the Compose and Design segmented control, transport and the time readout. Long jobs show progress here, like the Xcode activity view.
-- The sidebar is translucent, like Finder and Notes. In Compose it lists marbles and their pieces; in Design it shows the library.
-- The inspector edits the selection. In Design it also hosts the agent conversation for the selection.
-- The timeline is resizable and collapsible. Panels remember their sizes.
+- The toolbar holds the window controls, the sidebar toggle, project name with its save state, the Compose and Design segmented control, transport (Go to Beginning, Previous Hit, Play, Next Hit), the time readout and the timeline and inspector toggles. Long jobs show progress here, like the Xcode activity view.
+- The sidebar is translucent, like Finder and Notes. In Compose it is an outliner like Blender's: marbles with disclosure triangles and a placed/total hit count, their pieces in hit order with a type icon. Only problems get a status badge, like Xcode's navigator. Double-click renames in place.
+- The inspector edits the selection. It opens with a header row naming what is inspected with an icon tile, then collapsible panels like Blender's properties editor (Transform, Physics, Timing for a piece; Hit and Piece for a hit; Marble and Hits for a marble; Project and Music without a selection). Collapsed panels are remembered. In Design it also hosts the agent conversation for the selection.
+- The timeline is resizable from its top edge and collapsible. Its height is remembered; double-clicking the edge resets it.
 - A start window offers Empty, From MIDI, From Audio, Examples and recent projects.
 
 ## Canvas
@@ -64,8 +64,8 @@ Floating UI belongs to the canvas, as in Figma UI3: the tool bar floats at the b
 - Click selects, Shift-click adds, dragging on empty canvas draws a marquee, Escape clears
 - Selecting a piece moves the playhead to its hit, unless playing, so the piece is never shown ghosted
 - Long-gap dots are diamonds with a dashed ring; hovering one offers Add Rail and Add Tunnel. Dots outside the frame are red and say by how much
-- Delete removes, ⌘D duplicates, ⌘Z and ⇧⌘Z undo and redo
-- Right-click opens a native context menu with the same commands as the menu bar
+- Delete removes, ⌘A selects all pieces, ⌘Z and ⇧⌘Z undo and redo. Pieces are bound to hits, so there is no Duplicate; Repeat and Continue copy a piece onto the next hits
+- Right-click selects what is under the pointer and opens a context menu with the same commands and shortcuts as the palette: pieces (Auto Place, Pin, Rotate, Zoom to Selection, Rename, Delete), open dots (place any piece type, bridge a long gap), marbles and lanes (Add Hit, Mute, Solo, Rename, Delete Marble), timeline hits (Go to Hit, Play from Hit, Select Piece, Move to another marble, Delete) and empty canvas (step loop and view)
 - Numeric fields scrub when dragging their label, like Figma, and show units: cm, degrees, ms
 
 ## Step loop keys
@@ -86,7 +86,10 @@ Return acts as Next only while something is selected or offered; otherwise it ke
 ## Timeline
 
 - Space plays and pauses, Return jumps to the start, Left and Right move to the previous and next hit
-- Pinch or ⌘ with scroll zooms the timeline
+- Pinch or ⌘ with scroll zooms the timeline around the pointer; the corner buttons zoom out, in and to fit. A newly opened project shows its whole length
+- Track headers stick to the left like Logic: a colour bar, name, hit count with the instrument, and M and S toggles for mute and solo while lanes are synthesized. Mute and solo are view state and change playback immediately
+- The ruler shows minutes and seconds with minor ticks, a red playhead head and a draggable end bracket for the project length. Time past the end is shaded like Blender's area past the end frame
+- Hits are diamonds, Blender's keyframe shape: hollow until a piece plays them, filled in the lane colour when on time, amber-edged when drifting, red when missed, accent yellow when selected, and outlined in the accent when their piece is selected on the canvas. A red ring marks hits closer than 180 ms
 - Hits are dragged like notes in Logic; a marble's release is dragged like a clip in Final Cut
 - The waveform or MIDI notes sit faintly behind each lane
 
@@ -104,7 +107,7 @@ Colors always come with a shape or label so they remain readable without color.
 
 ## Commands
 
-⌘K opens a command palette with every command, like Linear and Notion. The macOS menu bar lists the same commands with their shortcuts, so features are discoverable without the palette.
+⌘K opens a command palette with every command, like Linear, Raycast and Blender's F3 search. It groups commands by section (File, Edit, View, Playback, Tools, Build, Marble), matches word starts and extra keywords, shows check marks for toggles, dims unavailable commands and draws shortcuts as keycaps. Commands live in one registry that the palette, context menus and the shortcut handlers share, so a command reads and behaves the same everywhere. The macOS menu bar should list the same commands with their shortcuts, so features are discoverable without the palette.
 
 ## Agents
 
@@ -112,8 +115,20 @@ The agent conversation lives in the inspector for the current selection, like a 
 
 ## Visual style
 
-- System font through `-apple-system`, 13 px base, compact density like Finder and Logic
+- System font through `-apple-system`, compact density like Finder and Logic
+- Type scale: 13 px for body, list rows, field labels and values, panel headers (semibold), menus and buttons; 11 px for secondary text, captions, units, section headers and ruler labels. The palette search field is the one 15 px exception. Numbers use tabular figures of the system font, not a monospaced font
 - Brand yellow from the logo (`#FDE200`) as the accent for selection, focus and primary actions, used like the highlight yellow in Photos and Final Cut Pro, with dark text on yellow
-- Follows the system light or dark appearance
-- Thin icons in one family
+- Selection: the active row is filled with the accent and dark text, like a focused macOS source list; other selected rows are tinted. In dark mode the secondary tint is neutral grey, because yellow over dark grey turns olive
+- Follows the system light or dark appearance. Every colour is a token in `styles.css` with a dark value; the browser surface paints a window background where the desktop app shows Liquid Glass
+- Thin lucide icons at 1.6 to 1.8 stroke in one family; piece icons are drawn to match
 - Motion is short and functional; Reduce Motion disables decorative animation
+
+## Controls
+
+- Push buttons are 24 px high; dialog buttons are at least 76 px wide with the default button in the accent, and Return and Escape act on them
+- Fields are 22 px high with a half-pixel border, the unit inside on the right in 11 px tertiary, and an accent focus ring. Numeric labels scrub on drag like Figma and brighten on hover; arrow keys step, Shift steps ten times
+- Pop-up buttons are native selects drawn with the AppKit double chevron. Checkboxes are 14 px with a 3.5 px radius, accent fill and a dark check
+- Menus are translucent with 22 px items, a check mark column, right-aligned shortcut glyphs and section headers. They take keyboard focus: arrows move, Return runs, Escape closes, and they flip to stay inside the window
+- Tooltips on window chrome are native `title` tooltips that name the command and its shortcut, and say Show or Hide for panel toggles; the canvas tool bar uses Figma-style tooltips with a keycap
+- Empty states name the next action with a short title in Title Case, one sentence of help and a button where one fits: no hits shows Import MIDI and Import Audio on the canvas; hits without pieces show a hint to click the pulsing dot or press N
+- Dropping a file shows an accent drop frame over the window, like Finder and Logic

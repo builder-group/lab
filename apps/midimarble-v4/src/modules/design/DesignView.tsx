@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { ExternalLink, LoaderCircle } from 'lucide-react';
+import { Box, ExternalLink, LoaderCircle, Monitor } from 'lucide-react';
 import React from 'react';
 import type { DesignCx, TDesignStatus } from './DesignCx';
 
@@ -14,14 +14,14 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 
 	if (status === 'unavailable') {
 		return (
-			<Placeholder title="Design runs in the desktop app">
-				The browser preview has no Blender. Open MidiMarble on your Mac to see the scene.
+			<Placeholder icon={<Monitor size={22} strokeWidth={1.4} />} title="Design Runs in the Desktop App">
+				The browser preview has no Blender. Open MidiMarble on your Mac to see the scene rendered at the playhead.
 			</Placeholder>
 		);
 	}
 	if (status === 'missing') {
 		return (
-			<Placeholder title="Blender is not installed">
+			<Placeholder icon={<Box size={22} strokeWidth={1.4} />} title="Blender Is Not Installed">
 				Install Blender in your Applications folder, then come back to Design.
 			</Placeholder>
 		);
@@ -106,12 +106,13 @@ const statusLabels: Record<TDesignStatus, string> = {
 	error: 'Blender reported a problem'
 };
 
-const Placeholder: React.FC<{ title: string; children: React.ReactNode }> = (props) => {
-	const { title, children } = props;
+const Placeholder: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = (props) => {
+	const { icon, title, children } = props;
 	return (
 		<div className="mm-placeholder bg-[var(--canvas)]">
-			{title}
-			<small className="max-w-[320px]">{children}</small>
+			<span className="mb-1 text-[var(--text-tertiary)]">{icon}</span>
+			<span className="mm-placeholder-title">{title}</span>
+			<span className="mm-placeholder-body">{children}</span>
 		</div>
 	);
 };

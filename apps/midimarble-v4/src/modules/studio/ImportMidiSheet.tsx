@@ -47,30 +47,29 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 		<div className="absolute inset-0 z-40 flex justify-center bg-black/10" onPointerDown={(event) => event.stopPropagation()}>
 			<div
 				role="dialog"
+				aria-modal
 				aria-label="Import MIDI"
-				className="mt-[52px] flex h-fit w-[520px] flex-col gap-4 rounded-b-[12px] bg-[var(--content-raised)] p-5"
+				className="mt-[60px] flex h-fit w-[480px] flex-col gap-4 rounded-[12px] bg-[var(--content-raised)] p-5"
 				style={{ boxShadow: 'var(--shadow-popover)' }}
 			>
 				<div>
-					<div className="text-[15px] font-semibold">Import “{pending.file.name}”</div>
-					<div className="mt-0.5 text-[12px] text-[var(--text-secondary)]">
-						Each marble plays one note at a time, at least 180 ms apart.
-					</div>
+					<div className="font-semibold">Import “{pending.file.name}”</div>
+					<div className="mm-caption mt-0.5">Each marble plays one note at a time, at least 180 ms apart. Choose the tracks to turn into marbles.</div>
 				</div>
 
-				<div className="flex max-h-[180px] flex-col overflow-y-auto rounded-[8px] border border-[var(--separator)]">
+				<div className="flex max-h-[180px] flex-col overflow-y-auto rounded-[8px] border border-[var(--separator)] bg-[var(--content)]">
 					{pending.midi.tracks.map((track) => (
-						<label key={track.id} className="flex h-8 items-center gap-2 border-b border-[var(--separator)] px-3 last:border-b-0">
-							<input type="checkbox" checked={pending.trackIds.includes(track.id)} onChange={() => toggleTrack(track.id)} />
+						<label key={track.id} className="flex h-7 items-center gap-2 border-b border-[var(--separator)] px-3 last:border-b-0">
+							<input type="checkbox" className="mm-checkbox" checked={pending.trackIds.includes(track.id)} onChange={() => toggleTrack(track.id)} />
 							<span className="flex-1 truncate">{track.name}</span>
 							{track.isDrums ? <span className="text-[11px] text-[var(--text-tertiary)]">Drums</span> : null}
-							<span className="text-[11px] text-[var(--text-secondary)]">{track.notes.length} notes</span>
+							<span className="mm-tabular text-[11px] text-[var(--text-secondary)]">{track.notes.length} notes</span>
 						</label>
 					))}
 				</div>
 
 				<div className="flex items-center gap-3">
-					<span className="w-[70px] text-right text-[var(--text-secondary)]">Chords</span>
+					<span className="w-[64px] text-right text-[var(--text-secondary)]">Chords</span>
 					<div className="mm-segmented">
 						<button
 							data-active={strategy === 'split'}
@@ -90,8 +89,9 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 				</div>
 				{strategy === 'split' ? (
 					<div className="flex items-center gap-3">
-						<span className="w-[70px] text-right text-[var(--text-secondary)]">Marbles</span>
-						<div className="flex items-center gap-1">
+						<span className="w-[64px] text-right text-[var(--text-secondary)]">Marbles</span>
+						<div className="flex items-center gap-1.5">
+							<span className="text-[var(--text-secondary)]">Up to</span>
 							<button
 								className="mm-icon-button !h-6 !w-6"
 								disabled={maxLanes <= 1}
@@ -101,7 +101,7 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 							>
 								<Minus size={13} />
 							</button>
-							<span className="mm-mono w-5 text-center">{maxLanes}</span>
+							<span className="mm-tabular w-5 text-center">{maxLanes}</span>
 							<button
 								className="mm-icon-button !h-6 !w-6"
 								disabled={maxLanes >= 6}
@@ -115,7 +115,7 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 					</div>
 				) : null}
 
-				<div className="rounded-[8px] bg-[var(--canvas)] p-2">
+				<div className="rounded-[8px] bg-[var(--canvas)] px-3 py-2">
 					{preview.lanes.map((lane, index) => (
 						<div key={`${lane[0]?.time ?? 0}-${lane[0]?.pitch ?? 0}`} className="relative h-4">
 							{lane.map((note) => (
@@ -127,18 +127,20 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 							))}
 						</div>
 					))}
-					<div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+					<div className="mm-caption mt-1">
 						{preview.lanes.length} {preview.lanes.length === 1 ? 'marble' : 'marbles'} · {hits} hits
 						{preview.dropped.length > 0 ? ` · ${preview.dropped.length} notes left out` : ''}
 					</div>
 				</div>
 
 				<div className="flex justify-end gap-2">
-					<button className="mm-button" onClick={() => cx.sources.cancelMidiImport()} type="button">
+					<button className="mm-button" data-size="dialog" onClick={() => cx.sources.cancelMidiImport()} title="Cancel (Esc)" type="button">
 						Cancel
 					</button>
 					<button
 						className="mm-button"
+						data-size="dialog"
+						title="Import (↩)"
 						data-variant="primary"
 						disabled={!preview.lanes.length}
 						onClick={() => void cx.sources.confirmMidiImport()}

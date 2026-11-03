@@ -3,8 +3,10 @@ import { host, type THostRecentProject } from '@/environment';
 import { createAudioEngine, type TAudioEngine } from '@/modules/music';
 import {
 	applyProjectCommands,
-	createId,
 	createHistory,
+	createId,
+	createLane,
+	createMarble,
 	createProject,
 	parseProject,
 	pushHistory,
@@ -20,6 +22,7 @@ import {
 import { parseHitKey } from './selection';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
+import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { DesignCx } from '@/modules/design';
 
 /** Owns the open project, its history, persistence and the shared editing state of the studio */
@@ -35,6 +38,15 @@ export class StudioCx {
 	readonly $notice = createState<TNotice | null>(null);
 	/** Entity IDs the canvas should bring into view, set by lists outside the canvas */
 	readonly $reveal = createState<{ ids: string[] } | null>(null);
+	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true });
+	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 212));
+	readonly $paletteOpen = createState(false);
+	/** Muted and soloed lanes, like the M and S buttons of a Logic track header. View state, not saved. */
+	readonly $mix = createState<TLaneMix>({ muted: [], solo: [] });
+	/** The mounted Compose canvas, so commands and menus outside it can drive its tools */
+	readonly $compose = createState<ComposeCx | null>(null);
+	/** Marble entity, lane or piece whose name is being edited in place in the sidebar */
+	readonly $renaming = createState<string | null>(null);
 	readonly sources = new SourcesCx(this);
 	readonly simulation = new SimulationCx(this);
 	readonly design = new DesignCx({
@@ -57,9 +69,11 @@ export class StudioCx {
 		void this.refreshRecent();
 		const unmountSimulation = this.simulation.mount();
 		const unmountDesign = this.mountDesign();
+		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		return () => {
 			unmountSimulation();
 			unmountDesign();
+			stopHeight();
 			void this.design.close();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
@@ -195,6 +209,45 @@ export class StudioCx {
 		return true;
 	}
 
+	addMarble(): void {
+		const project = this.project;
+		if (project == null) return;
+		const lane = createLane(project.music.lanes.length);
+		const marble = createMarble(lane, { x: project.music.lanes.length * 0.12, y: 0.6 });
+		if (this.execute([{ type: 'upsertLane', lane }, { type: 'upsertEntity', entity: marble }])) this.$selection.set([marble.id]);
+	}
+
+	/** Starts renaming the selected marble or piece in the sidebar, like Return in Finder */
+	renameSelection(): void {
+		const id = this.$selection.get()[0];
+		const isEntity = id != null && this.project?.entities.some((entity) => entity.id === id) === true;
+		if (!isEntity) return;
+		this.$panels.set((panels) => ({ ...panels, sidebar: true }));
+		this.$renaming.set(id);
+	}
+
+	togglePanel(panel: TStudioPanel): void {
+		this.$panels.set((panels) => ({ ...panels, [panel]: !panels[panel] }));
+	}
+
+	toggleMute(laneId: string): void {
+		this.$mix.set((mix) => ({ ...mix, muted: toggleItem(mix.muted, laneId) }));
+	}
+
+	toggleSolo(laneId: string): void {
+		this.$mix.set((mix) => ({ ...mix, solo: toggleItem(mix.solo, laneId) }));
+	}
+
+	/** Moves the playhead to the previous or next hit of any lane; returns false at the ends */
+	stepHit(direction: 1 | -1): boolean {
+		const times = (this.project?.music.lanes ?? []).flatMap((lane) => lane.hits.map((hit) => hit.time)).sort((a, b) => a - b);
+		const now = this.$playhead.get();
+		const next = direction === 1 ? times.find((time) => time > now + 1e-4) : [...times].reverse().find((time) => time < now - 1e-4);
+		if (next == null) return false;
+		this.$playhead.set(next);
+		return true;
+	}
+
 	/** Records a hit at the playhead on the lane in focus, for tapping along to the music */
 	tapHit(): void {
 		const project = this.project;
@@ -256,6 +309,46 @@ export class StudioCx {
 }
 
 export type TWorkspace = 'compose' | 'design';
+export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline';
+
+export interface TLaneMix {
+	muted: string[];
+	solo: string[];
+}
+
+/** Whether a lane sounds: soloed lanes win over everything, otherwise every lane that is not muted */
+export function isLaneAudible(mix: TLaneMix, laneId: string): boolean {
+	return mix.solo.length > 0 ? mix.solo.includes(laneId) : !mix.muted.includes(laneId);
+}
+
+/** The project as it should sound with the current mute and solo state */
+export function audibleProject(project: TProject, mix: TLaneMix): TProject {
+	if (!mix.muted.length && !mix.solo.length) return project;
+	return { ...project, music: { ...project.music, lanes: project.music.lanes.filter((lane) => isLaneAudible(mix, lane.id)) } };
+}
+
+const TIMELINE_HEIGHT_KEY = 'midimarble-v4:timeline-height';
+
+function toggleItem(items: string[], item: string): string[] {
+	return items.includes(item) ? items.filter((value) => value !== item) : [...items, item];
+}
+
+function readNumber(key: string, fallback: number): number {
+	try {
+		const value = Number(localStorage.getItem(key));
+		return Number.isFinite(value) && value > 0 ? value : fallback;
+	} catch {
+		return fallback;
+	}
+}
+
+function writeNumber(key: string, value: number): void {
+	try {
+		localStorage.setItem(key, String(Math.round(value)));
+	} catch {
+		// Storage can be unavailable; the size then resets on the next launch
+	}
+}
 export type TSaveState = 'saved' | 'dirty' | 'saving' | 'failed';
 export type TSelection = string[];
 

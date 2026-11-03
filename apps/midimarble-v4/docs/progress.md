@@ -7,10 +7,26 @@ The autonomous build updates this log after every slice. Newest entries go first
 - Milestone: M3 Assists and pieces
 - Next step: Rapier simulation module with headless fixture runs
 - Blockers: none
-- Planned after the Compose canvas: a UI pass that follows Figma UI3 and Premiere Pro more closely (floating canvas tool bar, Figma-style inspector sections, Premiere-style track headers and playhead), reviewed with fresh eyes against screenshots of those apps
+- UI pass against Blender, macOS and Figma UI3 done; open items are listed in its log entry
 - Not committed on purpose: `pnpm-lock.yaml` (also holds unrelated local changes) and the lab `.claude/launch.json`
 
 ## Log
+
+### UI and UX pass
+
+- Critiqued every surface against Blender, macOS (Finder, Logic, Xcode) and Figma UI3 from browser screenshots in light and dark, then fixed them; the rules are in `design-language.md` under Window, Selection, Timeline, Commands, Visual style and Controls
+- Commands: one registry (`studio/commands.ts`) shared by a new ⌘K command palette, context menus and the shortcut handlers; new ⌘N, ⌘O, ⌘A shortcuts and Home for Go to Beginning
+- Context menus on canvas pieces, open dots, marbles, empty canvas, timeline hits, lanes and outliner rows, drawn as macOS menus in a portal with keyboard focus. The sidebar Add menu no longer clips inside the sidebar
+- Timeline: sticky Logic-style track headers with colour bar, instrument, M and S (mute and solo change playback), Blender keyframe diamonds that show placed, drifting and missed hits and the selected piece's hit, a ruler with minor ticks, playhead head and draggable project end, shading past the end, zoom buttons and zoom to fit on open, a resizable height that is remembered
+- Sidebar as an outliner: disclosure triangles, piece icons, pieces in hit order, placed/total counts, problem-only badges, pin glyphs, rename on double-click
+- Inspector: header row with an icon tile, collapsible remembered panels, AppKit-style pop-up buttons and checkboxes, captions for empty states, Select Piece from a hit
+- Toolbar: Previous and Next Hit buttons, a time display that re-renders alone, Show and Hide tooltips. Empty states for no hits, first piece, Design in the browser and an empty library; a drop frame for dragged files; import sheet with rounded corners, dialog-width buttons and an Up to marble stepper
+- Tokens: 13 and 11 px type scale with tabular figures instead of a monospaced font, opaque band colours for ruler and headers, neutral dark-mode selection, a browser window background, the focus ring in the base layer so fields can opt out
+- Fixed: a new or opened project briefly showed the previous project's simulation result
+- Performance: the playhead is subscribed only by the time display, the ruler head and the timeline line; a playhead update costs 0.8 ms median, 1.0 ms p95 including the React commit on the zigzag fixture
+- Checks: `typecheck`, `lint` and `test` (129) pass
+- Not verified: the native window (Liquid Glass behind the translucent chrome, native `title` tooltips, Tauri drag-and-drop enter and leave events), real trackpad pinch on the timeline, playback frame rate (the browser pane throttles animation frames while hidden)
+- Left for later: a native macOS menu bar built from the command registry, arrow-key navigation in the outliner, Blender-style stepper arrows in number fields, lane height zoom, a Design inspector and library once Design has content
 
 ### M3 Compose UI (in progress)
 

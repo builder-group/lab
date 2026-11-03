@@ -1,11 +1,12 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { ScrubField } from '@/components';
+import { InfoRow, InspectorHeader, Panel, ScrubField } from '@/components';
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { getPieceDefinition, resolvePiecePath, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
+import { PieceIcon } from './piece-icons';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
 import { badgeStatus, badgeStyles, StatusIcon } from './status';
 
@@ -45,10 +46,19 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const lengthEdit = (centimetres: number): TPieceEdit => ({ params: { length: centimetres / 100 } });
 	const contactEdit = (percent: number): TPieceEdit => ({ hitLink: { contactAt: percent / 100 } });
 
+	const lane = project.music.lanes.find((item) => item.id === link?.laneId);
+	const hitIndex = lane?.hits.findIndex((item) => item.id === link?.hitId) ?? -1;
+	const subtitle = isSingle
+		? [label, lane != null && hitIndex >= 0 ? `${lane.name} Hit ${hitIndex + 1}` : null].filter(Boolean).join(' · ')
+		: isSameType
+			? 'Mixed values are left empty'
+			: 'Different piece types';
+	const title = isSingle ? (first.name ?? label) : isSameType ? `${entities.length} ${label}s` : `${entities.length} Pieces`;
+
 	return (
-		<div className="flex flex-col gap-1 py-2">
-			<div className="mm-section-title">{isSingle ? label : `${entities.length} ${label}s`}</div>
-			<div className="flex flex-col gap-1.5 px-3">
+		<>
+			<InspectorHeader icon={<PieceIcon type={isSameType ? type : 'platform'} size={16} />} title={title} subtitle={subtitle} />
+			<Panel id="piece.transform" title="Transform">
 				{!isPath ? (
 					<ScrubField
 						id="piece-angle"
@@ -97,12 +107,12 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					/>
 				) : null}
 				<div className="mm-field">
-					<label htmlFor="piece-pinned">Pinned</label>
-					<label className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
+					<span className="mm-field-label">Pinned</span>
+					<label className="flex items-center gap-2">
 						<input
 							id="piece-pinned"
 							type="checkbox"
-							className="accent-[var(--accent)]"
+							className="mm-checkbox"
 							checked={allPinned}
 							onChange={() => {
 								const pin = !allPinned;
@@ -124,10 +134,11 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 								cx.execute(commands);
 							}}
 						/>
-						Keep in place <span className="text-[var(--text-tertiary)]">P</span>
+						Keep in place
+						<kbd className="mm-keycap ml-auto">P</kbd>
 					</label>
 				</div>
-			</div>
+			</Panel>
 			{isSameType && definition != null ? <ParamsSection cx={cx} project={project} entities={entities} type={type} /> : null}
 			{isSingle && isPath && link != null && resolved != null && result != null ? (
 				<RideSection project={project} piece={resolved} result={result} laneId={link.laneId} hitId={link.hitId} />
@@ -141,7 +152,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					hit={result?.hits.find((item) => item.pieceEntityId === first.id || (item.laneId === link.laneId && item.hitId === link.hitId))}
 				/>
 			) : null}
-		</div>
+		</>
 	);
 };
 
@@ -160,11 +171,9 @@ const HitSection: React.FC<THitSectionProps> = (props) => {
 	const timing = timingLabel(piece, hit);
 
 	return (
-		<>
-			<div className="mm-section-title mt-1 border-t border-[var(--separator)] pt-3">Hit</div>
-			<div className="flex flex-col gap-1 px-3">
+		<Panel id="piece.timing" title="Timing">
 				<InfoRow label="Time">
-					<span className="mm-mono">{note == null ? 'Missing' : formatTime(note.time)}</span>
+					<span className="mm-tabular">{note == null ? 'Missing' : formatTime(note.time)}</span>
 					{note?.pitch != null ? <span className="ml-1.5 text-[var(--text-secondary)]">{noteName(note.pitch)}</span> : null}
 				</InfoRow>
 				<InfoRow label="Lane">
@@ -177,11 +186,10 @@ const HitSection: React.FC<THitSectionProps> = (props) => {
 					<span className="ml-1.5" style={{ color: status == null ? undefined : badgeStyles[status].color }}>
 						{timing.title}
 					</span>
-					{timing.detail != null ? <span className="mm-mono ml-1 text-[var(--text-secondary)]">· {timing.detail}</span> : null}
+					{timing.detail != null ? <span className="mm-tabular ml-1 text-[var(--text-secondary)]">· {timing.detail}</span> : null}
 				</InfoRow>
-				{timing.reason != null ? <div className="pl-[84px] text-[11px] leading-snug text-[var(--text-secondary)]">{timing.reason}</div> : null}
-			</div>
-		</>
+				{timing.reason != null ? <div className="mm-caption pl-[84px]">{timing.reason}</div> : null}
+		</Panel>
 	);
 };
 
@@ -192,16 +200,6 @@ interface THitSectionProps {
 	piece: TResolvedPiece | undefined;
 	hit: THitResult | undefined;
 }
-
-const InfoRow: React.FC<{ label: string; children: React.ReactNode }> = (props) => {
-	const { label, children } = props;
-	return (
-		<div className="mm-field">
-			<span className="text-right text-[var(--text-secondary)]">{label}</span>
-			<span className="flex min-w-0 items-center text-[12px]">{children}</span>
-		</div>
-	);
-};
 
 function timingLabel(piece: TResolvedPiece | undefined, hit: THitResult | undefined): { title: string; detail?: string; reason?: string } {
 	if (piece?.status === 'blocked' || hit?.status === 'blocked') {
@@ -298,20 +296,17 @@ const RideSection: React.FC<{ project: TProject; piece: TResolvedPiece; result: 
 	const status = rideStatus(piece, ride, next?.time ?? null, nextIndex, label);
 
 	return (
-		<>
-			<div className="mm-section-title mt-1 border-t border-[var(--separator)] pt-3">Run</div>
-			<div className="flex flex-col gap-1 px-3">
+		<Panel id="piece.run" title="Run">
 				<InfoRow label="Starts">
-					<span className="mm-mono">{formatTime(start)}</span>
+					<span className="mm-tabular">{formatTime(start)}</span>
 					<span className="ml-1.5 truncate text-[var(--text-secondary)]">
 						{delay > 0 ? `${Math.round(delay * 1000)} ms after Hit ${index + 1}` : `at Hit ${index + 1}`}
 					</span>
 				</InfoRow>
-				<div className="flex items-start gap-1.5 pl-[84px] text-[11px] leading-snug" style={{ color: status.tone === 'bad' ? 'var(--bad)' : status.tone === 'warn' ? 'var(--warn)' : 'var(--text-secondary)' }}>
+				<div className="mm-caption pl-[84px]" style={{ color: status.tone === 'bad' ? 'var(--bad)' : status.tone === 'warn' ? 'var(--warn)' : undefined }}>
 					{status.text}
 				</div>
-			</div>
-		</>
+		</Panel>
 	);
 };
 
@@ -345,9 +340,7 @@ const ParamsSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEnti
 	if (definition == null || !names.length) return null;
 
 	return (
-		<>
-			<div className="mm-section-title mt-1 border-t border-[var(--separator)] pt-3">Physics</div>
-			<div className="flex flex-col gap-1.5 px-3">
+		<Panel id="piece.physics" title="Physics">
 				{names.map((name) => {
 					const spec = definition.params[name];
 					if (spec == null) return null;
@@ -375,8 +368,7 @@ const ParamsSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEnti
 						/>
 					);
 				})}
-			</div>
-		</>
+		</Panel>
 	);
 };
 

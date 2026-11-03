@@ -24,11 +24,19 @@ export class SimulationCx {
 
 	mount(): () => void {
 		this.client = createSimulationClient();
+		let projectId: string | null = null;
 		const unlisten = this.studio.$history.subscribe(({ value }) => {
 			if (value == null) {
+				projectId = null;
 				this.preview = null;
 				this.$result.set(null);
 				return;
+			}
+			// Another project's result must not show while the new one simulates
+			if (value.present.id !== projectId) {
+				projectId = value.present.id;
+				this.preview = null;
+				this.$result.set(null);
 			}
 			this.schedule();
 		});
@@ -92,7 +100,7 @@ export class SimulationCx {
 		client.simulate(project).then(
 			(result) => {
 				// Requests replaced while waiting resolve with the same newer result, oldest first
-				if (id < this.accepted) return;
+				if (id < this.accepted || this.studio.project?.id !== project.id) return;
 				this.accepted = id;
 				this.$latency.set(performance.now() - startedAt);
 				if (result !== this.$result.get()) this.$result.set(result);

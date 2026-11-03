@@ -21,6 +21,7 @@
 		"build:prod": "tauri build --config src-tauri/tauri.prod.conf.json",
 		"clean": "shx rm -rf target && shx rm -rf dist && shx rm -rf .tanstack && shx rm -rf .turbo && shx rm -rf node_modules",
 		"fixtures:build": "tsx scripts/build-fixtures.ts",
+		"fixtures:reference": "tsx scripts/build-reference-fixture.ts",
 		"install:clean": "pnpm run clean && pnpm install",
 		"lint": "eslint .",
 		"soundbank:build": "tsx scripts/build-soundbank.ts",

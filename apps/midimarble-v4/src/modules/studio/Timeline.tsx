@@ -1,25 +1,36 @@
 import { useFeatureState } from 'feature-react/state';
+import { ArrowLeftRight, Minus, Plus } from 'lucide-react';
 import React from 'react';
-import { findLaneConflicts, MIN_HIT_GAP } from '@/modules/music';
-import { createId, type TLane, type TProject } from '@/modules/project';
+import { openContextMenu, RenameField } from '@/components';
+import { findLaneConflicts, instruments, MIN_HIT_GAP } from '@/modules/music';
+import type { TLane, TProject } from '@/modules/project';
+import type { THitResult } from '@/modules/simulation';
 import { formatTime } from './format';
-import type { StudioCx } from './StudioCx';
+import { addHit, hitMenu, laneMenu } from './menus';
+import { toHitKey } from './selection';
+import { isLaneAudible, type StudioCx } from './StudioCx';
 import type { TSourceAnalysis } from './SourcesCx';
-import { parseHitKey, toHitKey } from './selection';
 
 const HEADER_WIDTH = 232;
 const RULER_HEIGHT = 24;
 const ROW_HEIGHT = 44;
 const MIN_ZOOM = 20;
 const MAX_ZOOM = 800;
+const MIN_HEIGHT = 120;
 
-/** Music lanes in a Logic-style track area: one row per marble, shared ruler and playhead */
+/**
+ * Music lanes as a Blender-style dope sheet in a Logic-style track area: sticky track headers with
+ * mute and solo, a ruler with a playhead head and a draggable project end, and hit diamonds that show
+ * whether a piece plays them on time
+ */
 export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const { cx } = props;
 	const history = useFeatureState(cx.$history);
-	const playhead = useFeatureState(cx.$playhead);
 	const selection = useFeatureState(cx.$selection);
 	const analysis = useFeatureState(cx.sources.$analysis);
+	const result = useFeatureState(cx.simulation.$result);
+	const mix = useFeatureState(cx.$mix);
+	const height = useFeatureState(cx.$timelineHeight);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const [zoom, setZoom] = React.useState(80);
 	const [drag, setDrag] = React.useState<TDrag | null>(null);
@@ -27,7 +38,18 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	const audio = project?.music.sources.find((source) => source.kind === 'audio');
 	const audioAnalysis = audio == null ? undefined : analysis[audio.id];
-	const width = Math.max((project?.end ?? 1) * zoom + 80, 0);
+	const trackWidth = Math.max((project?.end ?? 1) * zoom + 120, 0);
+
+	// Hit results by lane, so a lane row re-renders only with a new simulation result
+	const hitStatus = React.useMemo(() => {
+		const byLane = new Map<string, Map<string, THitResult>>();
+		for (const hit of result?.hits ?? []) {
+			const lane = byLane.get(hit.laneId) ?? new Map<string, THitResult>();
+			lane.set(hit.hitId, hit);
+			byLane.set(hit.laneId, lane);
+		}
+		return byLane;
+	}, [result]);
 
 	// MARK: - Actions
 
@@ -36,7 +58,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			const element = scrollRef.current;
 			if (element == null) return 0;
 			const rect = element.getBoundingClientRect();
-			return Math.max(0, (clientX - rect.left + element.scrollLeft) / zoom);
+			return Math.max(0, (clientX - rect.left + element.scrollLeft - HEADER_WIDTH) / zoom);
 		},
 		[zoom]
 	);
@@ -58,14 +80,6 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		[audio, audioAnalysis, zoom]
 	);
 
-	function addHit(lane: TLane, time: number): void {
-		const hit = { id: createId('hit'), time: round(time), pitch: nearestPitch(lane, time) };
-		if (cx.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }])) {
-			cx.$selection.set([toHitKey(lane.id, hit.id)]);
-			cx.audition(lane.id, hit.pitch);
-		}
-	}
-
 	function commitMove(delta: number): void {
 		if (project == null || delta === 0) return;
 		const commands = project.music.lanes.flatMap((lane) => {
@@ -77,6 +91,42 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		cx.execute(commands);
 	}
 
+	/** Zooms around a point in the track area, keeping the time under it in place */
+	const zoomTo = React.useCallback(
+		(next: number, clientX?: number) => {
+			const element = scrollRef.current;
+			if (element == null) return;
+			const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
+			const rect = element.getBoundingClientRect();
+			const x = clientX == null ? HEADER_WIDTH + (rect.width - HEADER_WIDTH) / 2 : clientX - rect.left;
+			const anchor = (x + element.scrollLeft - HEADER_WIDTH) / zoom;
+			setZoom(clamped);
+			requestAnimationFrame(() => {
+				element.scrollLeft = anchor * clamped + HEADER_WIDTH - x;
+			});
+		},
+		[zoom]
+	);
+
+	function zoomToFit(): void {
+		const element = scrollRef.current;
+		if (element == null || project == null) return;
+		setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (element.clientWidth - HEADER_WIDTH - 24) / project.end)));
+		requestAnimationFrame(() => {
+			element.scrollLeft = 0;
+		});
+	}
+
+	// A newly opened project shows its whole length, like View All in Blender
+	const projectId = project?.id;
+	React.useEffect(() => {
+		const element = scrollRef.current;
+		const end = cx.project?.end;
+		if (element == null || end == null || projectId == null) return;
+		setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (element.clientWidth - HEADER_WIDTH - 24) / end)));
+		element.scrollLeft = 0;
+	}, [cx, projectId]);
+
 	// Zoom around the pointer with pinch or Command-scroll, like Logic
 	React.useEffect(() => {
 		const element = scrollRef.current;
@@ -84,77 +134,81 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		function onWheel(event: WheelEvent): void {
 			if (!event.ctrlKey && !event.metaKey) return;
 			event.preventDefault();
-			if (element == null) return;
-			const rect = element.getBoundingClientRect();
-			const anchor = (event.clientX - rect.left + element.scrollLeft) / zoom;
-			const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * Math.exp(-event.deltaY * 0.01)));
-			setZoom(next);
-			requestAnimationFrame(() => {
-				element.scrollLeft = anchor * next - (event.clientX - rect.left);
-			});
+			zoomTo(zoom * Math.exp(-event.deltaY * 0.01), event.clientX);
 		}
 		element.addEventListener('wheel', onWheel, { passive: false });
 		return () => element.removeEventListener('wheel', onWheel);
-	}, [zoom]);
-
-	// Keep the playhead visible while playing
-	React.useEffect(() => {
-		const element = scrollRef.current;
-		if (element == null || !cx.$playing.get()) return;
-		const x = playhead * zoom;
-		if (x > element.scrollLeft + element.clientWidth - 40) element.scrollLeft = x - 80;
-		if (x < element.scrollLeft) element.scrollLeft = Math.max(0, x - 80);
-	}, [cx, playhead, zoom]);
+	}, [zoom, zoomTo]);
 
 	if (project == null) return null;
+	const hasRecording = audio != null;
 
 	// MARK: - UI
 
 	return (
 		<section
-			className="relative flex h-[200px] shrink-0 border-t border-[var(--separator)] bg-[var(--content)]"
+			className="relative flex shrink-0 flex-col border-t border-[var(--separator)] bg-[var(--content)]"
+			style={{ height }}
 			aria-label="Timeline"
 		>
-			<div
-				className="shrink-0 border-r border-[var(--separator)] bg-[var(--chrome)]"
-				style={{ width: HEADER_WIDTH, paddingTop: RULER_HEIGHT }}
-			>
-				{project.music.lanes.map((lane) => (
-					<LaneHeader key={lane.id} cx={cx} lane={lane} project={project} />
-				))}
-			</div>
-			<div ref={scrollRef} className="relative min-w-0 flex-1 overflow-x-auto overflow-y-auto">
-				<div className="relative" style={{ width, minHeight: '100%' }}>
-					<Ruler
-						end={project.end}
-						zoom={zoom}
-						onSeek={(clientX) => {
-							cx.$playhead.set(Math.min(project.end, timeAt(clientX)));
-						}}
-					/>
+			<ResizeHandle cx={cx} />
+			<div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
+				<div className="relative flex min-h-full min-w-full flex-col" style={{ width: HEADER_WIDTH + trackWidth }}>
+					<div className="sticky top-0 z-30 flex shrink-0" style={{ height: RULER_HEIGHT }}>
+						<div
+							className="mm-track-header sticky left-0 z-10 flex shrink-0 items-center gap-0.5 border-r border-b border-[var(--separator)] pr-1.5 pl-4"
+							style={{ width: HEADER_WIDTH }}
+						>
+							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Marbles</span>
+							<button className="mm-icon-button !h-5 !w-5" onClick={() => zoomTo(zoom / 1.5)} title="Zoom Out (⌘ Scroll)" aria-label="Zoom Out" type="button">
+								<Minus size={12} strokeWidth={2} />
+							</button>
+							<button className="mm-icon-button !h-5 !w-5" onClick={() => zoomTo(zoom * 1.5)} title="Zoom In (⌘ Scroll)" aria-label="Zoom In" type="button">
+								<Plus size={12} strokeWidth={2} />
+							</button>
+							<button className="mm-icon-button !h-5 !w-5" onClick={zoomToFit} title="Zoom to Fit" aria-label="Zoom to Fit" type="button">
+								<ArrowLeftRight size={12} strokeWidth={2} />
+							</button>
+						</div>
+						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />
+					</div>
 					{project.music.lanes.map((lane) => (
-						<LaneRow
-							key={lane.id}
-							cx={cx}
-							lane={lane}
-							zoom={zoom}
-							selection={selection}
-							drag={drag}
-							audioOffset={audio?.offset ?? 0}
-							analysis={audioAnalysis}
-							onAdd={(time, event) => addHit(lane, snap(time, event.altKey))}
-							onDragStart={(hitKey, clientX) => {
-								const keys = selection.includes(hitKey) ? selection : [hitKey];
-								cx.$selection.set(keys);
-								setDrag({ originX: clientX, delta: 0, keys });
-							}}
-							timeAt={timeAt}
-						/>
+						<div key={lane.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
+							<LaneHeader cx={cx} lane={lane} project={project} selection={selection} hasRecording={hasRecording} />
+							<LaneTrack
+								cx={cx}
+								lane={lane}
+								zoom={zoom}
+								width={trackWidth}
+								selection={selection}
+								drag={drag}
+								statuses={hitStatus.get(lane.id)}
+								isAudible={isLaneAudible(mix, lane.id)}
+								audioOffset={audio?.offset ?? 0}
+								analysis={audioAnalysis}
+								onAdd={(time, event) => addHit(cx, lane, snap(time, event.altKey))}
+								onDragStart={(hitKey, clientX) => {
+									const keys = selection.includes(hitKey) ? selection : [hitKey];
+									cx.$selection.set(keys);
+									setDrag({ originX: clientX, delta: 0, keys });
+								}}
+								timeAt={timeAt}
+							/>
+						</div>
 					))}
-					<div
-						className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-[var(--bad)]"
-						style={{ left: playhead * zoom }}
-					/>
+					{!project.music.lanes.length ? (
+						<div className="mm-placeholder !h-auto !items-start py-6" style={{ paddingLeft: HEADER_WIDTH + 24 }}>
+							<span className="mm-placeholder-title">No marbles</span>
+							<span className="mm-placeholder-body">Import a MIDI file with ⌘I or add a marble from the sidebar.</span>
+						</div>
+					) : null}
+					{/* The header column continues below the last lane, like Logic's track list */}
+					<div className="flex flex-1">
+						<div className="mm-track-header sticky left-0 z-20 shrink-0 border-r border-[var(--separator)]" style={{ width: HEADER_WIDTH }} />
+					</div>
+					{/* Outside the project range is shaded, like the area past Blender's end frame */}
+					<div className="mm-out-of-range pointer-events-none absolute top-0 bottom-0" style={{ left: HEADER_WIDTH + project.end * zoom, right: 0 }} />
+					<PlayheadLine cx={cx} zoom={zoom} scrollRef={scrollRef} />
 				</div>
 			</div>
 			{drag != null ? (
@@ -182,88 +236,233 @@ interface TDrag {
 	keys: string[];
 }
 
-const LaneHeader: React.FC<{ cx: StudioCx; lane: TLane; project: TProject }> = (props) => {
-	const { cx, lane, project } = props;
-	const selection = useFeatureState(cx.$selection);
-	const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
-	const id = marble?.id ?? lane.id;
-	const conflicts = findLaneConflicts(lane).size;
+// MARK: - Chrome
 
+/** Splitter on the top edge; drag to resize like Logic's track area, double-click to reset */
+const ResizeHandle: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	const startRef = React.useRef<{ y: number; height: number } | null>(null);
 	return (
-		<button
-			className="flex w-full items-center gap-2 border-b border-[var(--separator)] px-3 text-left"
-			style={{ height: ROW_HEIGHT }}
-			data-selected={selection.includes(id)}
-			onClick={() => cx.$selection.set([id])}
-			type="button"
-		>
-			<span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: lane.color }} />
-			<span className="flex min-w-0 flex-1 flex-col leading-tight">
-				<span className={`truncate ${selection.includes(id) ? 'font-semibold' : ''}`}>{lane.name}</span>
-				<span className="truncate text-[11px] text-[var(--text-tertiary)]">
-					{lane.hits.length} hits{conflicts > 0 ? ` · ${conflicts} too close` : ''}
-				</span>
-			</span>
-		</button>
+		<div
+			className="absolute -top-[3px] right-0 left-0 z-40 h-[6px] cursor-ns-resize"
+			role="separator"
+			aria-orientation="horizontal"
+			aria-label="Resize timeline"
+			onPointerDown={(event) => {
+				if (event.button !== 0) return;
+				event.currentTarget.setPointerCapture(event.pointerId);
+				startRef.current = { y: event.clientY, height: cx.$timelineHeight.get() };
+			}}
+			onPointerMove={(event) => {
+				const start = startRef.current;
+				if (start == null) return;
+				const max = Math.max(MIN_HEIGHT, window.innerHeight * 0.6);
+				cx.$timelineHeight.set(Math.round(Math.min(max, Math.max(MIN_HEIGHT, start.height - (event.clientY - start.y)))));
+			}}
+			onPointerUp={() => {
+				startRef.current = null;
+			}}
+			onDoubleClick={() => cx.$timelineHeight.set(212)}
+		/>
 	);
 };
 
-const Ruler: React.FC<{ end: number; zoom: number; onSeek: (clientX: number) => void }> = (props) => {
-	const { end, zoom, onSeek } = props;
-	const step = zoom >= 240 ? 0.25 : zoom >= 100 ? 0.5 : zoom >= 40 ? 1 : 2;
-	const ticks = Array.from({ length: Math.floor(end / step) + 1 }, (_, index) => index * step);
+const LaneHeader: React.FC<{ cx: StudioCx; lane: TLane; project: TProject; selection: string[]; hasRecording: boolean }> = (props) => {
+	const { cx, lane, project, selection, hasRecording } = props;
+	const mix = useFeatureState(cx.$mix);
+	const [isRenaming, setIsRenaming] = React.useState(false);
+	const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
+	const id = marble?.id ?? lane.id;
+	const conflicts = findLaneConflicts(lane).size;
+	const isSelected = selection.includes(id) || selection.some((key) => key.startsWith(`hit:${lane.id}:`));
+	const instrument = hasRecording ? null : instruments.find((item) => item.program === lane.instrument)?.name;
+	const details = [`${lane.hits.length} ${lane.hits.length === 1 ? 'hit' : 'hits'}`, conflicts > 0 ? `${conflicts} too close` : instrument].filter(Boolean).join(' · ');
 
 	return (
 		<div
-			className="sticky top-0 z-20 border-b border-[var(--separator)] bg-[var(--content)]"
-			style={{ height: RULER_HEIGHT }}
-			onPointerDown={(event) => {
-				event.currentTarget.setPointerCapture(event.pointerId);
-				onSeek(event.clientX);
-			}}
-			onPointerMove={(event) => {
-				if (event.buttons === 1) onSeek(event.clientX);
-			}}
+			className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-1 border-r border-b border-[var(--separator)] pr-2"
+			style={{ width: HEADER_WIDTH }}
+			data-selected={isSelected}
+			onContextMenu={(event) => openContextMenu(event, laneMenu(cx, lane))}
 		>
-			{ticks.map((tick) => {
-				const major = Math.abs(tick - Math.round(tick)) < 1e-6;
-				return (
-					<span key={tick} className="absolute bottom-0" style={{ left: tick * zoom }}>
-						<span className="absolute bottom-0 w-px bg-[var(--separator)]" style={{ height: major ? 10 : 5 }} />
-						{major ? (
-							<span className="mm-mono absolute bottom-2.5 left-1 text-[10px] text-[var(--text-tertiary)]">
-								{formatTime(tick).replace(/\.00$/, '')}
-							</span>
-						) : null}
-					</span>
-				);
-			})}
-			<span
-				className="absolute top-0 bottom-0 bg-[var(--hover)]"
-				style={{ left: end * zoom, width: 80 }}
-				title="Project end"
-			/>
+			<span className="absolute top-0 bottom-0 left-0 w-[3px]" style={{ background: lane.color }} />
+			<button
+				className="flex h-full min-w-0 flex-1 flex-col justify-center pl-4 text-left leading-tight"
+				onClick={() => cx.$selection.set([id])}
+				onDoubleClick={() => setIsRenaming(true)}
+				title="Double-click to rename"
+				type="button"
+			>
+				{isRenaming ? (
+					<RenameField
+						value={lane.name}
+						onDone={(name) => {
+							setIsRenaming(false);
+							if (name != null && name !== lane.name) cx.execute([{ type: 'upsertLane', lane: { ...lane, name } }]);
+						}}
+					/>
+				) : (
+					<span className="truncate font-medium">{lane.name}</span>
+				)}
+				<span className="truncate text-[11px]" style={{ color: conflicts > 0 ? 'var(--bad)' : 'var(--text-secondary)' }}>
+					{details}
+				</span>
+			</button>
+			{hasRecording ? null : (
+				<>
+					<TrackToggle label="M" title="Mute" isOn={mix.muted.includes(lane.id)} tone="mute" onClick={() => cx.toggleMute(lane.id)} />
+					<TrackToggle label="S" title="Solo" isOn={mix.solo.includes(lane.id)} tone="solo" onClick={() => cx.toggleSolo(lane.id)} />
+				</>
+			)}
 		</div>
 	);
 };
 
-const LaneRow: React.FC<TLaneRowProps> = (props) => {
-	const { cx, lane, zoom, selection, drag, audioOffset, analysis, onAdd, onDragStart, timeAt } = props;
+const TrackToggle: React.FC<{ label: string; title: string; isOn: boolean; tone: 'mute' | 'solo'; onClick: () => void }> = (props) => {
+	const { label, title, isOn, tone, onClick } = props;
+	return (
+		<button className="mm-track-toggle" data-on={isOn} data-tone={tone} aria-pressed={isOn} aria-label={title} title={title} onClick={onClick} type="button">
+			{label}
+		</button>
+	);
+};
+
+/** Time ruler with minor and major ticks, the playhead head and the draggable project end */
+const Ruler: React.FC<{ cx: StudioCx; end: number; zoom: number; width: number; timeAt: (clientX: number) => number }> = (props) => {
+	const { cx, end, zoom, width, timeAt } = props;
+	const [endDrag, setEndDrag] = React.useState<number | null>(null);
+	const { step, minor } = rulerSteps(zoom);
+	const shownEnd = endDrag ?? end;
+	// The ruler can grow past the project to fill a wide window
+	const labels = Array.from({ length: Math.floor(Math.max(width, window.innerWidth) / zoom / step) + 1 }, (_, index) => index * step);
+
+	function seek(clientX: number): void {
+		cx.$playhead.set(Math.min(end, timeAt(clientX)));
+	}
+
+	return (
+		<div
+			className="mm-ruler relative flex-1 border-b border-[var(--separator)]"
+			style={{ minWidth: width, backgroundImage: `repeating-linear-gradient(to right, var(--text-tertiary) 0 1px, transparent 1px ${minor * zoom}px)` }}
+			onPointerDown={(event) => {
+				if (event.button !== 0) return;
+				event.currentTarget.setPointerCapture(event.pointerId);
+				seek(event.clientX);
+			}}
+			onPointerMove={(event) => {
+				if (event.buttons === 1 && endDrag == null) seek(event.clientX);
+			}}
+		>
+			{labels.map((tick) => (
+				<span key={tick} className="pointer-events-none absolute bottom-0" style={{ left: tick * zoom }}>
+					<span className="absolute bottom-0 h-[9px] w-px bg-[var(--text-tertiary)]" />
+					<span className="mm-tabular absolute bottom-[7px] left-[3px] text-[11px] leading-none whitespace-nowrap text-[var(--text-secondary)]">
+						{formatRulerTime(tick, step)}
+					</span>
+				</span>
+			))}
+			<span
+				className="absolute top-0 bottom-0 z-10 flex w-3 -translate-x-full cursor-ew-resize items-stretch justify-end"
+				style={{ left: shownEnd * zoom }}
+				title={`Project end ${formatTime(shownEnd)}. Drag to change.`}
+				onPointerDown={(event) => {
+					if (event.button !== 0) return;
+					event.stopPropagation();
+					event.currentTarget.setPointerCapture(event.pointerId);
+					setEndDrag(end);
+				}}
+				onPointerMove={(event) => {
+					if (endDrag != null) setEndDrag(Math.max(0.5, Math.round(timeAt(event.clientX) * 20) / 20));
+				}}
+				onPointerUp={() => {
+					if (endDrag != null && Math.abs(endDrag - end) > 1e-6) cx.execute([{ type: 'setEnd', end: endDrag }]);
+					setEndDrag(null);
+				}}
+			>
+				{/* End bracket, like the end marker of a Logic project */}
+				<span className="w-[3px] rounded-l-[1px] bg-[var(--text-secondary)]" />
+			</span>
+			<PlayheadHead cx={cx} zoom={zoom} />
+		</div>
+	);
+};
+
+/** Label spacing of at least 56 px, with minor ticks between labels */
+function rulerSteps(zoom: number): { step: number; minor: number } {
+	const steps: [number, number][] = [
+		[0.1, 2],
+		[0.25, 5],
+		[0.5, 5],
+		[1, 4],
+		[2, 4],
+		[5, 5],
+		[10, 5],
+		[15, 3],
+		[30, 3],
+		[60, 4]
+	];
+	const [step, divisions] = steps.find(([candidate]) => candidate * zoom >= 56) ?? [60, 4];
+	return { step, minor: step / divisions };
+}
+
+function formatRulerTime(seconds: number, step: number): string {
+	const minutes = Math.floor(seconds / 60);
+	const rest = seconds - minutes * 60;
+	const decimals = step < 0.5 ? 2 : step < 1 ? 1 : 0;
+	const text = rest.toFixed(decimals);
+	return `${minutes}:${text.padStart(decimals > 0 ? decimals + 3 : 2, '0')}`;
+}
+
+// MARK: - Playhead
+
+/** Playhead head on the ruler. It subscribes on its own so playback re-renders only the head and line. */
+const PlayheadHead: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
+	const { cx, zoom } = props;
+	const playhead = useFeatureState(cx.$playhead);
+	return (
+		<svg className="pointer-events-none absolute top-0 z-20" width={13} height={RULER_HEIGHT} style={{ left: playhead * zoom - 6.5 }} aria-hidden>
+			<path d={`M1 2.5 Q1 1 2.5 1 H10.5 Q12 1 12 2.5 V${RULER_HEIGHT - 9} L6.5 ${RULER_HEIGHT - 3} L1 ${RULER_HEIGHT - 9} Z`} fill="var(--playhead)" />
+		</svg>
+	);
+};
+
+const PlayheadLine: React.FC<{ cx: StudioCx; zoom: number; scrollRef: React.RefObject<HTMLDivElement | null> }> = (props) => {
+	const { cx, zoom, scrollRef } = props;
+	const playhead = useFeatureState(cx.$playhead);
+	const x = playhead * zoom;
+
+	// Keep the playhead in view while playing, paging like Logic
+	React.useEffect(() => {
+		const element = scrollRef.current;
+		if (element == null || !cx.$playing.get()) return;
+		const visible = element.clientWidth - HEADER_WIDTH;
+		if (x > element.scrollLeft + visible - 40) element.scrollLeft = x - 80;
+		if (x < element.scrollLeft) element.scrollLeft = Math.max(0, x - 80);
+	}, [cx, scrollRef, x]);
+
+	return <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-[var(--playhead)]" style={{ left: HEADER_WIDTH + x }} />;
+};
+
+// MARK: - Lanes
+
+const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
+	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, audioOffset, analysis, onAdd, onDragStart, timeAt } = props;
 	const conflicts = React.useMemo(() => findLaneConflicts(lane), [lane]);
 	const pitches = lane.hits.map((hit) => hit.pitch).filter((pitch): pitch is number => pitch != null);
 	const low = pitches.length ? Math.min(...pitches) : 60;
 	const high = pitches.length ? Math.max(...pitches) : 72;
 	const [marquee, setMarquee] = React.useState<{ from: number; to: number } | null>(null);
+	const isLaneSelected = selection.some((key) => key.startsWith(`hit:${lane.id}:`));
 
 	function pitchY(pitch: number | undefined): number {
 		if (pitch == null || high === low) return ROW_HEIGHT / 2;
-		return 34 - ((pitch - low) / (high - low)) * 24;
+		return ROW_HEIGHT - 11 - ((pitch - low) / (high - low)) * (ROW_HEIGHT - 22);
 	}
 
 	return (
 		<div
-			className="relative border-b border-[var(--separator)]"
-			style={{ height: ROW_HEIGHT }}
+			className="relative flex-1 border-b border-[var(--separator)]"
+			style={{ minWidth: width, background: isLaneSelected ? 'color-mix(in srgb, var(--text) 3%, transparent)' : undefined }}
 			onPointerDown={(event) => {
 				if (event.button !== 0 || event.target !== event.currentTarget) return;
 				event.currentTarget.setPointerCapture(event.pointerId);
@@ -289,6 +488,10 @@ const LaneRow: React.FC<TLaneRowProps> = (props) => {
 				if (event.target !== event.currentTarget) return;
 				onAdd(timeAt(event.clientX), event);
 			}}
+			onContextMenu={(event) => {
+				if (event.target !== event.currentTarget) return;
+				openContextMenu(event, laneMenu(cx, lane, timeAt(event.clientX)));
+			}}
 		>
 			{analysis != null ? <Waveform analysis={analysis} offset={audioOffset} zoom={zoom} /> : null}
 			{analysis?.onsets.map((onset) => (
@@ -298,27 +501,36 @@ const LaneRow: React.FC<TLaneRowProps> = (props) => {
 					style={{ left: (onset + audioOffset) * zoom }}
 				/>
 			))}
-			{lane.hits.map((hit) => {
+			{!lane.hits.length ? (
+				<span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[11px] text-[var(--text-tertiary)]">
+					Double-click to add a hit, or press T while playing to tap along
+				</span>
+			) : null}
+			{lane.hits.map((hit, index) => {
 				const key = toHitKey(lane.id, hit.id);
 				const selected = selection.includes(key);
 				const offset = drag?.keys.includes(key) ? drag.delta : 0;
 				const conflict = conflicts.has(hit.id);
+				const status = statuses?.get(hit.id);
+				// Hits of selected pieces are outlined, like keyframes of the selected object in Blender
+				const isLinked = status?.pieceEntityId != null && selection.includes(status.pieceEntityId);
 				return (
 					<button
 						key={hit.id}
-						aria-label={`Hit at ${formatTime(hit.time)}`}
-						className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
+						aria-label={`Hit ${index + 1} at ${formatTime(hit.time)}`}
+						aria-pressed={selected}
+						className="mm-hit"
+						data-selected={selected}
+						data-state={hitState(status)}
+						data-conflict={conflict}
+						data-linked={isLinked}
 						style={{
 							left: Math.max(0, hit.time + offset) * zoom,
 							top: pitchY(hit.pitch),
-							background: lane.color,
-							boxShadow: selected
-								? '0 0 0 2px var(--content), 0 0 0 3.5px var(--accent)'
-								: conflict
-									? '0 0 0 2px var(--content), 0 0 0 3.5px var(--bad)'
-									: undefined
+							['--lane' as string]: lane.color,
+							opacity: isAudible ? 1 : 0.4
 						}}
-						title={conflict ? `Closer than ${MIN_HIT_GAP * 1000} ms to a neighbor` : formatTime(hit.time)}
+						title={hitTitle(index, hit.time, status, conflict)}
 						onPointerDown={(event) => {
 							if (event.button !== 0) return;
 							event.stopPropagation();
@@ -329,13 +541,20 @@ const LaneRow: React.FC<TLaneRowProps> = (props) => {
 							cx.audition(lane.id, hit.pitch);
 							onDragStart(key, event.clientX);
 						}}
+						onContextMenu={(event) => {
+							event.stopPropagation();
+							if (!selected) cx.$selection.set([key]);
+							openContextMenu(event, hitMenu(cx, lane, hit.id));
+						}}
 						type="button"
-					/>
+					>
+						<span />
+					</button>
 				);
 			})}
 			{marquee != null ? (
 				<span
-					className="pointer-events-none absolute top-1 bottom-1 rounded-[3px] border border-[var(--accent)] bg-[var(--selection)]"
+					className="pointer-events-none absolute top-1 bottom-1 rounded-[3px] border border-[var(--accent-strong)] bg-[var(--selection)]"
 					style={{ left: Math.min(marquee.from, marquee.to) * zoom, width: Math.abs(marquee.to - marquee.from) * zoom }}
 				/>
 			) : null}
@@ -343,17 +562,41 @@ const LaneRow: React.FC<TLaneRowProps> = (props) => {
 	);
 };
 
-interface TLaneRowProps {
+interface TLaneTrackProps {
 	cx: StudioCx;
 	lane: TLane;
 	zoom: number;
+	width: number;
 	selection: string[];
 	drag: TDrag | null;
+	statuses: Map<string, THitResult> | undefined;
+	isAudible: boolean;
 	audioOffset: number;
 	analysis: TSourceAnalysis | undefined;
 	onAdd: (time: number, event: React.MouseEvent) => void;
 	onDragStart: (hitKey: string, clientX: number) => void;
 	timeAt: (clientX: number) => number;
+}
+
+/** Diamond fill: hollow until a piece plays the hit, then the lane color, red when it misses */
+function hitState(status: THitResult | undefined): 'open' | 'placed' | 'drifting' | 'missed' {
+	switch (status?.status) {
+		case 'onTime':
+			return 'placed';
+		case 'drifting':
+			return 'drifting';
+		case 'missed':
+		case 'blocked':
+			return 'missed';
+		default:
+			return 'open';
+	}
+}
+
+function hitTitle(index: number, time: number, status: THitResult | undefined, conflict: boolean): string {
+	const state = { open: 'No piece yet', placed: 'On time', drifting: 'Drifting', missed: 'Missed' }[hitState(status)];
+	const warning = conflict ? ` · closer than ${MIN_HIT_GAP * 1000} ms to a neighbor` : '';
+	return `Hit ${index + 1} · ${formatTime(time)} · ${state}${warning}`;
 }
 
 /** Faint waveform of the imported recording behind a lane */
@@ -394,9 +637,7 @@ const Waveform: React.FC<{ analysis: TSourceAnalysis; offset: number; zoom: numb
 };
 
 /** Captures pointer movement for a hit drag across the whole window */
-const DragLayer: React.FC<{ drag: TDrag; zoom: number; onMove: (delta: number) => void; onEnd: (delta: number) => void }> = (
-	props
-) => {
+const DragLayer: React.FC<{ drag: TDrag; zoom: number; onMove: (delta: number) => void; onEnd: (delta: number) => void }> = (props) => {
 	const { drag, zoom, onMove, onEnd } = props;
 	return (
 		<div
@@ -407,34 +648,6 @@ const DragLayer: React.FC<{ drag: TDrag; zoom: number; onMove: (delta: number) =
 		/>
 	);
 };
-
-export function deleteSelectedHits(cx: StudioCx): boolean {
-	const project = cx.project;
-	if (project == null) return false;
-	const byLane = new Map<string, string[]>();
-	for (const key of cx.$selection.get()) {
-		const parsed = parseHitKey(key);
-		if (parsed == null) continue;
-		byLane.set(parsed.laneId, [...(byLane.get(parsed.laneId) ?? []), parsed.hitId]);
-	}
-	if (!byLane.size) return false;
-	const applied = cx.execute([...byLane].map(([laneId, hitIds]) => ({ type: 'removeHits' as const, laneId, hitIds })));
-	if (applied) cx.$selection.set([]);
-	return applied;
-}
-
-function nearestPitch(lane: TLane, time: number): number | undefined {
-	let best: number | undefined;
-	let bestDistance = Number.POSITIVE_INFINITY;
-	for (const hit of lane.hits) {
-		const distance = Math.abs(hit.time - time);
-		if (hit.pitch != null && distance < bestDistance) {
-			best = hit.pitch;
-			bestDistance = distance;
-		}
-	}
-	return best;
-}
 
 function round(value: number): number {
 	return Math.round(value * 10000) / 10000;

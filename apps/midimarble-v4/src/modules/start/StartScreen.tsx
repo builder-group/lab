@@ -10,6 +10,23 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 	const { cx, extraActions } = props;
 	const recent = useFeatureState(cx.$recent);
 
+	// ⌘N and ⌘O work here as in the studio
+	React.useEffect(() => {
+		function onKeyDown(event: KeyboardEvent): void {
+			if (!event.metaKey || event.shiftKey || event.ctrlKey || event.altKey) return;
+			const key = event.key.toLowerCase();
+			if (key === 'n') {
+				event.preventDefault();
+				void cx.newProject();
+			} else if (key === 'o') {
+				event.preventDefault();
+				void cx.openProject();
+			}
+		}
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [cx]);
+
 	async function startFrom(kind: 'midi' | 'audio'): Promise<void> {
 		const file = await host.chooseSourceFile(kind);
 		if (file == null) return;
@@ -26,7 +43,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 				<div className="flex flex-col items-center gap-2">
 					<img alt="" src="/app-icon.svg" className="h-28 w-28" draggable={false} />
 					<h1 className="m-0 text-[28px] font-semibold tracking-tight">MidiMarble</h1>
-					<p className="m-0 text-[13px] text-[var(--text-secondary)]">
+					<p className="m-0 text-[var(--text-secondary)]">
 						Compose a marble run to music, then design it in Blender.
 					</p>
 				</div>
@@ -61,21 +78,25 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 			<aside className="flex w-[300px] flex-col bg-[var(--chrome)] pt-12" aria-label="Recent projects">
 				<div className="mm-section-title">Recent</div>
 				{!recent.length ? (
-					<div className="mm-placeholder !h-auto !text-[13px]">No recent projects</div>
+					<div className="mm-placeholder !h-auto pt-10">
+						<span className="mm-placeholder-title">No Recent Projects</span>
+						<span className="mm-placeholder-body">Projects you open appear here.</span>
+					</div>
 				) : (
 					recent.map((item) => (
 						<button
 							key={item.path}
 							className="mm-row !h-11 w-[calc(100%-16px)] text-left"
 							onClick={() => void cx.openProject(item.path)}
-							onDoubleClick={() => void cx.openProject(item.path)}
 							title={item.path}
 							type="button"
 						>
 							<FileMusic size={20} strokeWidth={1.4} className="shrink-0 text-[var(--text-secondary)]" />
 							<span className="flex min-w-0 flex-col leading-tight">
 								<span className="truncate font-medium">{item.name}</span>
-								<span className="truncate text-[11px] text-[var(--text-tertiary)]">{shortenPath(item.path)}</span>
+								<span className="truncate text-[11px] text-[var(--text-secondary)]">
+									{[shortenPath(item.path), formatOpened(item.openedAt)].filter(Boolean).join(' · ')}
+								</span>
 							</span>
 						</button>
 					))
@@ -114,4 +135,15 @@ interface TStartActionProps {
 
 function shortenPath(path: string): string {
 	return path.replace(/^\/Users\/[^/]+/, '~').replace(/\/[^/]+$/, '');
+}
+
+/** Opened time like Finder's Date Last Opened column: time today, Yesterday, then a short date */
+function formatOpened(openedAt: number): string {
+	if (!openedAt) return '';
+	const date = new Date(openedAt);
+	const today = new Date();
+	const days = Math.round((new Date(today.toDateString()).getTime() - new Date(date.toDateString()).getTime()) / 86_400_000);
+	if (days === 0) return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+	if (days === 1) return 'Yesterday';
+	return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: days > 300 ? 'numeric' : undefined });
 }

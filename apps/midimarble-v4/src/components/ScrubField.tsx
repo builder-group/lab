@@ -35,6 +35,8 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 		<div className="mm-field">
 			<label
 				htmlFor={id}
+				data-scrub="true"
+				title="Drag to change, hold Shift for larger steps"
 				className="cursor-ew-resize touch-none"
 				onPointerDown={(event) => {
 					if (event.button !== 0) return;
@@ -69,7 +71,7 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 			<div className="relative">
 				<input
 					id={id}
-					className="mm-input mm-mono pr-6"
+					className="mm-input pr-7"
 					value={draft}
 					placeholder={value == null ? 'Mixed' : undefined}
 					inputMode="decimal"

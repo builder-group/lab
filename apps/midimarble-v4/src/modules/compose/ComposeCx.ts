@@ -1,6 +1,7 @@
 import { createState } from 'feature-state';
 import type React from 'react';
 import * as THREE from 'three';
+import { isEditingTarget } from '@/lib';
 import type { TProject, TVec2 } from '@/modules/project';
 import { findLongGaps, frameBand, layoutOf, resolvePiecePath, trajectoryAt, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { parseHitKey } from '@/modules/studio/selection';
@@ -175,6 +176,11 @@ export class ComposeCx {
 		cleanups.push(() => {
 			window.removeEventListener('keydown', onKeyDown, true);
 			window.removeEventListener('keyup', onKeyUp, true);
+		});
+
+		this.studio.$compose.set(this);
+		cleanups.push(() => {
+			if (this.studio.$compose.get() === this) this.studio.$compose.set(null);
 		});
 
 		return () => {
@@ -558,7 +564,8 @@ export class ComposeCx {
 		if (this.$drag.get() == null) this.$hover.set(null);
 	}
 
-	private pickAt(point: TVec2): TPick | null {
+	/** What a pointer at `point` would act on, in canvas pixels */
+	pickAt(point: TVec2): TPick | null {
 		const picked = pick(point, this.pickScene());
 		if (picked != null || !this.isPathTool()) return picked;
 		// Rails and tunnels can also start anywhere on a trajectory, not only at a hit
@@ -727,7 +734,7 @@ export class ComposeCx {
 	// MARK: - Keyboard
 
 	private onKeyDown(event: KeyboardEvent): void {
-		if (isTyping(event) || this.studio.$workspace.get() !== 'compose') return;
+		if (isEditingTarget(event) || this.studio.$workspace.get() !== 'compose') return;
 		if (event.key === ' ' && !event.metaKey && !event.ctrlKey && !event.altKey) {
 			// Space and drag pans like Figma; a plain press still plays and pauses on release
 			event.preventDefault();
@@ -930,9 +937,4 @@ function localPoint(event: React.PointerEvent<HTMLElement>): TVec2 {
 
 function isSamePick(a: TPick | null, b: TPick | null): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
-}
-
-function isTyping(event: KeyboardEvent): boolean {
-	const target = event.target as HTMLElement | null;
-	return target != null && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
 }
