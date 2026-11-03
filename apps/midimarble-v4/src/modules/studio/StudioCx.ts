@@ -178,8 +178,11 @@ export class StudioCx {
 
 	// MARK: - Editing
 
-	/** Applies commands as one undoable edit and schedules an autosave */
-	execute(commands: TProjectCommand[]): boolean {
+	/**
+	 * Applies commands as one undoable edit and schedules an autosave. `amend` folds them into the
+	 * latest edit instead, for refinements that arrive a moment after the edit they belong to.
+	 */
+	execute(commands: TProjectCommand[], options: { amend?: boolean } = {}): boolean {
 		const history = this.$history.get();
 		if (history == null || !commands.length) return false;
 		const [isEditOk, editErr, edited] = applyProjectCommands(history.present, commands);
@@ -187,7 +190,7 @@ export class StudioCx {
 			this.notify(editErr.message, 'error');
 			return false;
 		}
-		this.$history.set(pushHistory(history, edited));
+		this.$history.set(options.amend === true ? { ...history, present: edited } : pushHistory(history, edited));
 		this.scheduleSave();
 		return true;
 	}

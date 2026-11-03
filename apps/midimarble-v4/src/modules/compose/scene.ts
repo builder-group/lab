@@ -1,5 +1,14 @@
 import type { TProject, TVec2 } from '@/modules/project';
-import { frameBand, PHYSICS_HZ, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import {
+	frameBand,
+	layoutOf,
+	PHYSICS_HZ,
+	projectOnPath,
+	smoothPath,
+	type TMarbleTrack,
+	type TResolvedPiece,
+	type TSimulationResult
+} from '@/modules/simulation';
 import type { TBounds } from './view';
 
 // Pure derivations from a project and its simulation result that the canvas draws and picks against
@@ -32,7 +41,7 @@ export function trackBuffers(track: TMarbleTrack): { points: Float32Array; times
 	return { points, times };
 }
 
-/** Corners of a piece's outline on the wall, in order around the box */
+/** Corners of a platform's box on the wall, in order around the box */
 export function pieceCorners(piece: TResolvedPiece): TVec2[] {
 	const halfLength = (piece.params['length'] ?? 0.06) / 2;
 	const halfThickness = (piece.params['thickness'] ?? 0.008) / 2;
@@ -46,11 +55,99 @@ export function pieceCorners(piece: TResolvedPiece): TVec2[] {
 	].map(([x = 0, y = 0]) => ({ x: piece.position.x + x * cos - y * sin, y: piece.position.y + x * sin + y * cos }));
 }
 
-/** Rotation pivot and grip of a piece: the pivot is its hit point, the grip sits at the far end of the bar */
+export type TPieceKind = 'box' | 'path' | 'tube' | 'rotor';
+
+export function pieceKind(piece: { type: string }): TPieceKind {
+	return layoutOf(piece.type);
+}
+
+/**
+ * Closed outline of a piece on the wall for picking, selection and framing: the box of a platform, a
+ * band around a rail, the tube of a tunnel and the circle the windmill blades sweep
+ */
+export function pieceOutline(piece: TResolvedPiece): TVec2[] {
+	const kind = pieceKind(piece);
+	if (kind === 'box') return pieceCorners(piece);
+	if (kind === 'rotor') {
+		const reach = (piece.params['hubRadius'] ?? 0.008) + (piece.params['bladeLength'] ?? 0.06);
+		return Array.from({ length: 48 }, (_, index) => {
+			const angle = (index / 48) * Math.PI * 2;
+			return { x: piece.position.x + Math.cos(angle) * reach, y: piece.position.y + Math.sin(angle) * reach };
+		});
+	}
+	const path = piece.path ?? [];
+	if (kind === 'tube') {
+		const ceiling = tubeCeiling(piece);
+		if (ceiling.length >= 2) return [...path, ...[...ceiling].reverse()];
+	}
+	const half = (piece.params['radius'] ?? 0.002) + 0.002;
+	return [...offsetPolyline(path, half), ...offsetPolyline(path, -half).reverse()];
+}
+
+/** Ceiling line of a tunnel, from the capsules after the floor chain */
+export function tubeCeiling(piece: TResolvedPiece): TVec2[] {
+	const path = piece.path ?? [];
+	const capsules = (piece.shapes ?? []).slice(Math.max(0, path.length - 1));
+	const points: TVec2[] = [];
+	for (const shape of capsules) {
+		if (shape.kind !== 'capsule') continue;
+		if (!points.length) points.push(shape.a);
+		points.push(shape.b);
+	}
+	return points;
+}
+
+/** Polyline moved sideways by `offset` along its left normal, with averaged normals at the joins */
+export function offsetPolyline(points: TVec2[], offset: number): TVec2[] {
+	return points.map((point, index) => {
+		const before = points[index - 1] ?? point;
+		const after = points[index + 1] ?? point;
+		const dx = after.x - before.x;
+		const dy = after.y - before.y;
+		const length = Math.hypot(dx, dy) || 1;
+		return { x: point.x - (dy / length) * offset, y: point.y + (dx / length) * offset };
+	});
+}
+
+/** Rotation of a moving piece at `time`, interpolated between motion samples */
+export function pieceAngleAt(piece: TResolvedPiece, time: number): number {
+	const motion = piece.motion;
+	if (motion == null || !motion.length) return piece.angle;
+	const first = motion[0];
+	const last = motion[motion.length - 1];
+	if (first == null || last == null) return piece.angle;
+	if (time <= first.time) return first.angle;
+	if (time >= last.time) return last.angle;
+	let low = 0;
+	let high = motion.length - 1;
+	while (high - low > 1) {
+		const middle = (low + high) >> 1;
+		if ((motion[middle]?.time ?? 0) <= time) low = middle;
+		else high = middle;
+	}
+	const a = motion[low] ?? first;
+	const b = motion[high] ?? last;
+	const t = b.time > a.time ? (time - a.time) / (b.time - a.time) : 0;
+	return a.angle + (b.angle - a.angle) * t;
+}
+
+/** When a piece first matters on the timeline: its hit, or for rails and tunnels the marble's entry */
+export function pieceTime(piece: TResolvedPiece): number | null {
+	return piece.entryTime ?? piece.hitTime;
+}
+
+/**
+ * Rotation pivot and grip of a piece. The pivot is its hit point; the grip sits at the far end of a
+ * platform bar or at the tip of the windmill blade that takes the hit.
+ */
 export function rotationGrip(piece: TResolvedPiece): { pivot: TVec2; grip: TVec2; tangent: TVec2 } {
-	const halfLength = (piece.params['length'] ?? 0.06) / 2;
 	const tangent = { x: Math.cos(piece.angle), y: Math.sin(piece.angle) };
 	const pivot = piece.contactPoint ?? piece.position;
+	if (pieceKind(piece) === 'rotor') {
+		const reach = (piece.params['hubRadius'] ?? 0.008) + (piece.params['bladeLength'] ?? 0.06);
+		return { pivot, grip: { x: piece.position.x + tangent.x * reach, y: piece.position.y + tangent.y * reach }, tangent };
+	}
+	const halfLength = (piece.params['length'] ?? 0.06) / 2;
 	// Project the pivot onto the bar axis and walk to the +tangent end
 	const along = (pivot.x - piece.position.x) * tangent.x + (pivot.y - piece.position.y) * tangent.y;
 	const reach = halfLength - along;
@@ -64,7 +161,7 @@ export function contentBounds(project: TProject, result: TSimulationResult | nul
 		const release = entity.components.release;
 		if (release != null) points.push(release.position);
 	}
-	for (const piece of result?.pieces ?? []) points.push(...pieceCorners(piece));
+	for (const piece of result?.pieces ?? []) points.push(...pieceOutline(piece));
 	for (const hit of result?.hits ?? []) if (hit.dot != null) points.push(hit.dot);
 	const band = frameBand(project);
 	let minX = band.centerX - band.halfWidth;
@@ -87,7 +184,7 @@ export function contentBounds(project: TProject, result: TSimulationResult | nul
 }
 
 export function boundsOfPieces(pieces: TResolvedPiece[]): TBounds | null {
-	const corners = pieces.flatMap(pieceCorners);
+	const corners = pieces.flatMap(pieceOutline);
 	if (!corners.length) return null;
 	return {
 		minX: Math.min(...corners.map((point) => point.x)),
@@ -95,4 +192,154 @@ export function boundsOfPieces(pieces: TResolvedPiece[]): TBounds | null {
 		maxX: Math.max(...corners.map((point) => point.x)),
 		maxY: Math.max(...corners.map((point) => point.y))
 	};
+}
+
+// MARK: - Rails and tunnels
+
+/**
+ * Editable shape of a rail or tunnel. The control points are local: the entry sits at the origin, the
+ * catch section lies behind it and the run ends at the last point. A bend point between entry and end
+ * curves the run.
+ */
+export interface TPathShape {
+	controls: TVec2[];
+	/** Index of the control at the local origin */
+	origin: number;
+	/** Index of the bend control, if the run has one */
+	bend: number | null;
+}
+
+export function pathShape(controls: TVec2[]): TPathShape {
+	let origin = controls.findIndex((point) => Math.hypot(point.x, point.y) < 1e-6);
+	if (origin < 0) origin = controls.length > 2 ? 1 : 0;
+	const bend = controls.length - 1 - origin >= 2 ? origin + 1 : null;
+	return { controls, origin, bend };
+}
+
+/** World position of a local control point, as the layout places it */
+export function pathToWorld(piece: TResolvedPiece, controls: TVec2[], point: TVec2): TVec2 {
+	const anchor = pathAnchor(controls);
+	const cos = Math.cos(piece.angle);
+	const sin = Math.sin(piece.angle);
+	const x = point.x - anchor.x;
+	const y = point.y - anchor.y;
+	return { x: piece.position.x + x * cos - y * sin, y: piece.position.y + x * sin + y * cos };
+}
+
+/** Local control coordinates of a world point, the inverse of `pathToWorld` */
+export function pathToLocal(piece: TResolvedPiece, controls: TVec2[], point: TVec2): TVec2 {
+	const anchor = pathAnchor(controls);
+	const cos = Math.cos(piece.angle);
+	const sin = Math.sin(piece.angle);
+	const x = point.x - piece.position.x;
+	const y = point.y - piece.position.y;
+	return { x: anchor.x + x * cos + y * sin, y: anchor.y - x * sin + y * cos };
+}
+
+function pathAnchor(controls: TVec2[]): TVec2 {
+	return projectOnPath(smoothPath(controls), 0, 0).point;
+}
+
+/** Handles of a selected rail or tunnel: the end of the run and its bend, in local coordinates */
+export function pathHandles(controls: TVec2[]): { end: TVec2; bend: TVec2 } | null {
+	const shape = pathShape(controls);
+	const end = controls[controls.length - 1];
+	const start = controls[shape.origin];
+	if (end == null || start == null || controls.length - 1 === shape.origin) return null;
+	const bend = shape.bend != null ? controls[shape.bend] : undefined;
+	return { end, bend: bend ?? { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 } };
+}
+
+/** Moves the end of the run; the bend keeps its place relative to the run */
+export function withPathEnd(controls: TVec2[], end: TVec2): TVec2[] {
+	const shape = pathShape(controls);
+	const next = controls.map((point) => ({ ...point }));
+	const previousEnd = controls[controls.length - 1];
+	if (shape.bend != null && previousEnd != null) {
+		const bend = controls[shape.bend] as TVec2;
+		// Express the bend in run coordinates, then rebuild it on the new run
+		const run = { x: previousEnd.x, y: previousEnd.y };
+		const runLength = Math.hypot(run.x, run.y) || 1;
+		const along = (bend.x * run.x + bend.y * run.y) / (runLength * runLength);
+		const side = (bend.y * run.x - bend.x * run.y) / (runLength * runLength);
+		next[shape.bend] = { x: end.x * along - end.y * side, y: end.y * along + end.x * side };
+	}
+	next[next.length - 1] = { ...end };
+	return next;
+}
+
+/** Moves the bend of the run, adding a bend control when the run is straight */
+export function withPathBend(controls: TVec2[], bend: TVec2): TVec2[] {
+	const shape = pathShape(controls);
+	const next = controls.map((point) => ({ ...point }));
+	if (shape.bend != null) next[shape.bend] = { ...bend };
+	else next.splice(shape.origin + 1, 0, { ...bend });
+	return next;
+}
+
+/** Straight-line length and local slope of the run from the entry to its end */
+export function pathRun(controls: TVec2[]): { length: number; slope: number } {
+	const end = controls[controls.length - 1] ?? { x: 0, y: 0 };
+	return { length: Math.hypot(end.x, end.y), slope: Math.atan2(end.y, Math.abs(end.x)) };
+}
+
+/** Scales and turns the run around the entry so it reaches `length` at local `slope` */
+export function withPathRun(controls: TVec2[], length: number, slope: number): TVec2[] {
+	const shape = pathShape(controls);
+	const end = controls[controls.length - 1] ?? { x: 1, y: 0 };
+	const current = pathRun(controls);
+	const direction = end.x < 0 ? -1 : 1;
+	const scale = current.length > 1e-9 ? length / current.length : 1;
+	const turn = (slope - current.slope) * direction;
+	const cos = Math.cos(turn);
+	const sin = Math.sin(turn);
+	return controls.map((point, index) => {
+		if (index <= shape.origin) return { ...point };
+		const x = point.x * scale;
+		const y = point.y * scale;
+		return { x: x * cos - y * sin, y: x * sin + y * cos };
+	});
+}
+
+/** Turns the run after the entry by `turn` radians around the entry */
+export function turnPathRun(controls: TVec2[], turn: number): TVec2[] {
+	const shape = pathShape(controls);
+	const cos = Math.cos(turn);
+	const sin = Math.sin(turn);
+	return controls.map((point, index) => (index <= shape.origin ? { ...point } : { x: point.x * cos - point.y * sin, y: point.x * sin + point.y * cos }));
+}
+
+/** Downhill slope of the run on the wall in radians, positive when the end is lower than the entry */
+export function worldRunSlope(piece: TResolvedPiece, controls: TVec2[]): { slope: number; direction: number } {
+	const entry = pathToWorld(piece, controls, { x: 0, y: 0 });
+	const end = pathToWorld(piece, controls, controls[controls.length - 1] ?? { x: 0, y: 0 });
+	return { slope: Math.atan2(entry.y - end.y, Math.abs(end.x - entry.x)), direction: end.x >= entry.x ? 1 : -1 };
+}
+
+export interface TPathRide {
+	/** When the marble first touches the piece */
+	enter: number | null;
+	/** When it leaves again, null when it is still on the piece at `until` */
+	leave: number | null;
+}
+
+/** When the lane's marble rides on a rail or tunnel floor, from the result's samples */
+export function pathRide(result: TSimulationResult, piece: TResolvedPiece, laneId: string, until: number): TPathRide {
+	const marble = result.marbles.find((track) => track.laneId === laneId);
+	const path = piece.path ?? [];
+	const from = (pieceTime(piece) ?? 0) - 2 / PHYSICS_HZ;
+	if (marble == null || path.length < 2) return { enter: null, leave: null };
+	const reach = marble.radius + (piece.params['radius'] ?? 0.002) + 0.002;
+	let enter: number | null = null;
+	let leave: number | null = null;
+	for (const sample of marble.samples) {
+		if (sample.time < from) continue;
+		if (sample.time > until) break;
+		const isNear = projectOnPath(path, sample.position.x, sample.position.y).distance <= reach;
+		if (isNear) {
+			enter ??= sample.time;
+			leave = null;
+		} else if (enter != null && leave == null) leave = sample.time;
+	}
+	return { enter, leave };
 }

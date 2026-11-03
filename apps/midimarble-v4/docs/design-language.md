@@ -50,7 +50,9 @@ Reference apps:
 
 Floating UI belongs to the canvas, as in Figma UI3: the tool bar floats at the bottom centre of the canvas, notices appear above it, and nothing floats over the timeline or panels.
 
-- Floating tool bar: Select (V), Hand (H), the piece types, then Repeat, Mirror, Auto place and Continue
+- Floating tool bar: Select (V), Hand (H), the piece types Platform (1), Rail (2), Tunnel (3) and Windmill (4), then Next, Repeat, Mirror, Auto place and Continue
+- Pieces use flat toy colours: platform coral, rail blue, tunnel violet, windmill green. Every piece keeps a visible minimum size at any zoom, and marbles keep a minimum on-screen radius
+- Suggestions are ghosts: dashed, see-through pieces with dashed dots and a small hint chip showing the key that accepts them
 
 - Two-finger scroll pans, pinch zooms, Space and drag pans
 - ⌘+ and ⌘− zoom, ⇧1 fits everything, ⇧2 fits the selection
@@ -60,21 +62,26 @@ Floating UI belongs to the canvas, as in Figma UI3: the tool bar floats at the b
 ## Selection and editing
 
 - Click selects, Shift-click adds, dragging on empty canvas draws a marquee, Escape clears
+- Selecting a piece moves the playhead to its hit, unless playing, so the piece is never shown ghosted
+- Long-gap dots are diamonds with a dashed ring; hovering one offers Add Rail and Add Tunnel. Dots outside the frame are red and say by how much
 - Delete removes, ⌘D duplicates, ⌘Z and ⇧⌘Z undo and redo
 - Right-click opens a native context menu with the same commands as the menu bar
 - Numeric fields scrub when dragging their label, like Figma, and show units: cm, degrees, ms
 
 ## Step loop keys
 
-| Key    | Action                                     |
-| ------ | ------------------------------------------ |
-| Return | Accept the current piece and go to the next dot |
-| Tab    | Accept the Continue ghosts                 |
-| Escape | Dismiss ghosts                             |
-| R      | Repeat                                     |
-| M      | Mirror                                     |
-| A      | Auto place                                 |
-| P      | Pin or unpin                               |
+| Key        | Action                                                          |
+| ---------- | --------------------------------------------------------------- |
+| Return, N  | Next: place the next dot, or accept the ghosts on screen        |
+| Tab        | Accept the Continue ghosts or the rail suggestion               |
+| Escape     | Cancel the drag, then dismiss ghosts, then leave the piece tool |
+| 1 to 4     | Platform, Rail, Tunnel, Windmill tool                           |
+| R          | Repeat                                                          |
+| M          | Mirror                                                          |
+| A          | Auto place the selected piece, or the next dot                  |
+| P          | Pin or unpin                                                    |
+
+Return acts as Next only while something is selected or offered; otherwise it keeps its timeline meaning and jumps to the start. T stays with the timeline for tapping hits.
 
 ## Timeline
 

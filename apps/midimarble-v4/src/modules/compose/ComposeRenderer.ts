@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { TVec2 } from '@/modules/project';
-import { getPieceDefinition, type TResolvedPiece } from '@/modules/simulation';
+import { getPieceDefinition, layoutOf, rotorLocalShapes, type TResolvedPiece } from '@/modules/simulation';
 import { worldToScreen, type TView, type TViewport } from './view';
 
 // Draws the wall content with WebGL over the CSS dot grid. Objects are kept between updates and only
@@ -18,6 +18,8 @@ export interface TComposeCamera {
 export interface TRenderPiece {
 	piece: TResolvedPiece;
 	ghost: boolean;
+	/** Current rotation, which differs from the resolved angle for moving pieces such as windmills */
+	angle: number;
 }
 
 export interface TRenderMarble {
@@ -42,6 +44,8 @@ export interface TComposeTheme {
 
 /** Marble centres move in this plane, see `MARBLE_Z` in the simulation */
 export const MARBLE_Z = 0.01;
+/** Marbles never shrink below this radius on screen, so a zoomed-out run still shows where they are */
+export const MIN_MARBLE_PX = 3.5;
 const ORBIT_FOV = 35;
 
 export class ComposeRenderer {
@@ -51,7 +55,7 @@ export class ComposeRenderer {
 	private readonly perspective = new THREE.PerspectiveCamera(ORBIT_FOV, 1, 0.005, 200);
 	private readonly wall: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>;
 	private readonly pieces = new Map<string, TPieceObject>();
-	private readonly marbles = new Map<string, THREE.Mesh>();
+	private readonly marbles = new Map<string, { mesh: THREE.Mesh; radius: number }>();
 	private readonly tracks = new Map<string, TrackLine>();
 	private readonly guides: TrackLine;
 	private readonly pieceGeometries = new Map<string, THREE.BufferGeometry>();
@@ -107,6 +111,7 @@ export class ComposeRenderer {
 	setCamera(camera: TComposeCamera): void {
 		this.camera = camera;
 		this.updateCamera();
+		for (const marble of this.marbles.values()) this.scaleMarble(marble);
 		this.invalidate();
 	}
 
@@ -123,36 +128,36 @@ export class ComposeRenderer {
 		this.invalidate();
 	}
 
+	/** Platforms and windmills; rails and tunnels are flat lines drawn by the canvas overlay */
 	setPieces(items: TRenderPiece[]): void {
 		const seen = new Set<string>();
 		items.forEach((item, index) => {
 			const { piece } = item;
+			const kind = layoutOf(piece.type);
+			if (kind !== 'box' && kind !== 'rotor') return;
 			seen.add(piece.entityId);
 			let object = this.pieces.get(piece.entityId);
-			const length = piece.params['length'] ?? 0.06;
-			const thickness = piece.params['thickness'] ?? 0.008;
-			const depth = piece.params['depth'] ?? 0.03;
-			const geometryKey = `${piece.type}:${length}:${thickness}:${depth}`;
 			if (object == null) {
-				object = createPieceObject();
+				object = { group: new THREE.Group(), parts: [], geometryKey: '' };
 				this.pieces.set(piece.entityId, object);
 				this.scene.add(object.group);
 			}
+			const geometryKey = `${piece.type}:${Object.entries(piece.params)
+				.map(([name, value]) => `${name}=${value}`)
+				.join(',')}`;
 			if (object.geometryKey !== geometryKey) {
-				object.bar.geometry = this.pieceGeometry(geometryKey, length, thickness, depth);
+				object.group.clear();
+				object.parts = kind === 'rotor' ? this.rotorParts(piece) : this.platformParts(piece);
+				for (const part of object.parts) object.group.add(part.mesh);
 				object.geometryKey = geometryKey;
-				const nubRadius = Math.min(thickness * 0.32, 0.0028);
-				object.nub.scale.set(nubRadius, nubRadius, depth + 0.0012);
-				object.nub.position.z = (depth + 0.0012) / 2;
-				object.bar.position.z = depth / 2;
 			}
 			const definition = getPieceDefinition(piece.type);
 			object.group.position.set(piece.position.x, piece.position.y, definition?.wallOffset ?? 0);
-			object.group.rotation.z = piece.angle;
-			object.bar.material = this.pieceMaterial(piece.type, 'bar', item.ghost);
-			object.nub.material = this.pieceMaterial(piece.type, 'nub', item.ghost);
+			object.group.rotation.z = item.angle;
+			for (const part of object.parts) part.mesh.material = this.pieceMaterial(piece.type, part.role, item.ghost);
 			// Ghosts draw after solid content so transparency blends over it
 			object.group.renderOrder = item.ghost ? 2 + index : 1;
+			for (const part of object.parts) part.mesh.renderOrder = object.group.renderOrder;
 		});
 		for (const [id, object] of this.pieces) {
 			if (seen.has(id)) continue;
@@ -166,20 +171,22 @@ export class ComposeRenderer {
 		const seen = new Set<string>();
 		for (const item of items) {
 			seen.add(item.entityId);
-			let mesh = this.marbles.get(item.entityId);
-			if (mesh == null) {
-				mesh = new THREE.Mesh(this.sphereGeometry);
+			let marble = this.marbles.get(item.entityId);
+			if (marble == null) {
+				const mesh = new THREE.Mesh(this.sphereGeometry);
 				mesh.renderOrder = 3;
-				this.marbles.set(item.entityId, mesh);
+				marble = { mesh, radius: item.radius };
+				this.marbles.set(item.entityId, marble);
 				this.scene.add(mesh);
 			}
-			mesh.material = this.marbleMaterial(item.color);
-			mesh.scale.setScalar(item.radius);
-			mesh.position.set(item.position.x, item.position.y, MARBLE_Z);
+			marble.radius = item.radius;
+			marble.mesh.material = this.marbleMaterial(item.color);
+			marble.mesh.position.set(item.position.x, item.position.y, MARBLE_Z);
+			this.scaleMarble(marble);
 		}
-		for (const [id, mesh] of this.marbles) {
+		for (const [id, marble] of this.marbles) {
 			if (seen.has(id)) continue;
-			this.scene.remove(mesh);
+			this.scene.remove(marble.mesh);
 			this.marbles.delete(id);
 		}
 		this.invalidate();
@@ -308,7 +315,12 @@ export class ComposeRenderer {
 		}
 	}
 
-	private pieceGeometry(key: string, length: number, thickness: number, depth: number): THREE.BufferGeometry {
+	private scaleMarble(marble: { mesh: THREE.Mesh; radius: number }): void {
+		marble.mesh.scale.setScalar(Math.max(marble.radius, MIN_MARBLE_PX / this.camera.view.scale));
+	}
+
+	private boxGeometry(length: number, thickness: number, depth: number): THREE.BufferGeometry {
+		const key = `box:${length}:${thickness}:${depth}`;
 		let geometry = this.pieceGeometries.get(key);
 		if (geometry == null) {
 			const radius = Math.min(thickness * 0.45, 0.004);
@@ -316,6 +328,44 @@ export class ComposeRenderer {
 			this.pieceGeometries.set(key, geometry);
 		}
 		return geometry;
+	}
+
+	/** A bar on the wall with the round bracket nub that holds it */
+	private platformParts(piece: TResolvedPiece): TPiecePart[] {
+		const length = piece.params['length'] ?? 0.06;
+		const thickness = piece.params['thickness'] ?? 0.008;
+		const depth = piece.params['depth'] ?? 0.03;
+		const bar = new THREE.Mesh(this.boxGeometry(length, thickness, depth));
+		bar.position.z = depth / 2;
+		const nub = new THREE.Mesh(this.nubGeometry);
+		const nubRadius = Math.min(thickness * 0.32, 0.0028);
+		nub.scale.set(nubRadius, nubRadius, depth + 0.0012);
+		nub.position.z = (depth + 0.0012) / 2;
+		return [
+			{ mesh: bar, role: 'bar' },
+			{ mesh: nub, role: 'nub' }
+		];
+	}
+
+	/** Blades and hub of a windmill, posed at angle 0 around the hub so the group turns them */
+	private rotorParts(piece: TResolvedPiece): TPiecePart[] {
+		const depth = piece.params['depth'] ?? 0.03;
+		const parts: TPiecePart[] = [];
+		for (const shape of rotorLocalShapes(piece.params)) {
+			if (shape.kind === 'box') {
+				const { box } = shape;
+				const blade = new THREE.Mesh(this.boxGeometry(box.halfLength * 2, box.halfThickness * 2, depth * 0.8));
+				blade.position.set(box.cx, box.cy, depth * 0.4);
+				blade.rotation.z = box.angle;
+				parts.push({ mesh: blade, role: 'bar' });
+			} else if (shape.kind === 'ball') {
+				const hub = new THREE.Mesh(this.nubGeometry);
+				hub.scale.set(shape.radius, shape.radius, depth);
+				hub.position.set(shape.center.x, shape.center.y, depth / 2);
+				parts.push({ mesh: hub, role: 'nub' });
+			}
+		}
+		return parts;
 	}
 
 	private pieceMaterial(type: string, part: 'bar' | 'nub', ghost: boolean): THREE.Material {
@@ -345,24 +395,27 @@ export class ComposeRenderer {
 	}
 }
 
-/** Flat toy colours per piece type, with a darker bracket nub */
+/** Flat toy colours per piece type: the body and a darker shade for brackets, hubs and outlines */
 export const piecePalette: Record<string, { bar: string; nub: string }> = {
-	platform: { bar: '#f2845c', nub: '#c4603d' }
+	platform: { bar: '#f2845c', nub: '#c4603d' },
+	rail: { bar: '#3c9ee0', nub: '#2373ad' },
+	tunnel: { bar: '#9a7bf0', nub: '#6c4fd0' },
+	windmill: { bar: '#4fb879', nub: '#2f8a52' }
 };
+
+export function paletteOf(type: string): { bar: string; nub: string } {
+	return piecePalette[type] ?? (piecePalette['platform'] as { bar: string; nub: string });
+}
+
+interface TPiecePart {
+	mesh: THREE.Mesh;
+	role: 'bar' | 'nub';
+}
 
 interface TPieceObject {
 	group: THREE.Group;
-	bar: THREE.Mesh;
-	nub: THREE.Mesh;
+	parts: TPiecePart[];
 	geometryKey: string;
-}
-
-function createPieceObject(): TPieceObject {
-	const group = new THREE.Group();
-	const bar = new THREE.Mesh();
-	const nub = new THREE.Mesh();
-	group.add(bar, nub);
-	return { group, bar, nub, geometryKey: '' };
 }
 
 /** Pegboard holes for the orbit wall, one hole per texture repeat */

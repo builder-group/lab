@@ -13,7 +13,7 @@ export interface TPickScene {
 }
 
 export interface TScreenHandle {
-	kind: 'rotate' | 'release';
+	kind: 'rotate' | 'release' | 'pathEnd' | 'pathBend';
 	entityId: string;
 	position: TVec2;
 	radius: number;
@@ -31,11 +31,18 @@ export interface TScreenPiece {
 	corners: TVec2[];
 }
 
+/** A marble trajectory in screen space with the time of each point */
+export interface TScreenTrack {
+	laneId: string;
+	points: TVec2[];
+	times: number[];
+}
+
 export type TPick =
-	| { kind: 'rotate'; entityId: string }
-	| { kind: 'release'; entityId: string }
+	| { kind: 'rotate' | 'release' | 'pathEnd' | 'pathBend'; entityId: string }
 	| { kind: 'dot'; laneId: string; hitId: string }
-	| { kind: 'piece'; entityId: string };
+	| { kind: 'piece'; entityId: string }
+	| { kind: 'track'; laneId: string; time: number; position: TVec2 };
 
 export const DOT_PICK_RADIUS = 10;
 // Thin bars far away are still easy to click within this distance of their outline
@@ -69,6 +76,30 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 		}
 	}
 	return null;
+}
+
+export const TRACK_PICK_RADIUS = 6;
+
+/** The trajectory point nearest to `point` within a few pixels, with its time interpolated along the segment */
+export function pickTrack(point: TVec2, tracks: TScreenTrack[], radius = TRACK_PICK_RADIUS): TPick | null {
+	let best: { laneId: string; time: number; position: TVec2; distance: number } | null = null;
+	for (const track of tracks) {
+		for (let i = 1; i < track.points.length; i++) {
+			const a = track.points[i - 1] as TVec2;
+			const b = track.points[i] as TVec2;
+			const dx = b.x - a.x;
+			const dy = b.y - a.y;
+			const lengthSquared = dx * dx + dy * dy;
+			const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared));
+			const position = { x: a.x + t * dx, y: a.y + t * dy };
+			const d = distance(point, position);
+			if (d <= radius && (best == null || d < best.distance)) {
+				const time = (track.times[i - 1] ?? 0) + ((track.times[i] ?? 0) - (track.times[i - 1] ?? 0)) * t;
+				best = { laneId: track.laneId, time, position, distance: d };
+			}
+		}
+	}
+	return best == null ? null : { kind: 'track', laneId: best.laneId, time: best.time, position: best.position };
 }
 
 export interface TRect {

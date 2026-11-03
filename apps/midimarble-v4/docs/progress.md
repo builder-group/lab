@@ -4,13 +4,23 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Current state
 
-- Milestone: M2 Compose core
+- Milestone: M3 Assists and pieces
 - Next step: Rapier simulation module with headless fixture runs
 - Blockers: none
 - Planned after the Compose canvas: a UI pass that follows Figma UI3 and Premiere Pro more closely (floating canvas tool bar, Figma-style inspector sections, Premiere-style track headers and playhead), reviewed with fresh eyes against screenshots of those apps
 - Not committed on purpose: `pnpm-lock.yaml` (also holds unrelated local changes) and the lab `.claude/launch.json`
 
 ## Log
+
+### M3 Compose UI (in progress)
+
+- Assist worker: a second simulation worker answers `autoPlace`, `continue` and `gapPiece` requests with the newest project; a request queue keeps one waiting request per kind, pairs answers by id and keeps latest-wins merging for plain simulation
+- Tool bar pieces Platform, Rail, Tunnel, Windmill (1 to 4) with flat toy colours; rails as two wires with ties, tunnels as a translucent tube, windmills as hub and blades turning from `motion` at the playhead
+- Rail and tunnel handles (end and bend) with live trajectory, inspector Length, Slope, Physics fields and a ride status line; rails and tunnels can start anywhere on a trajectory
+- Next (Return, N), Auto place (A) with a 150 ms wait then refine, Continue ghosts with a hint chip (Tab, Escape), rail suggestion for long gaps, Next presses queued while re-simulating
+- Guardrails: long-gap diamonds with Add Rail and Add Tunnel, out-of-frame dots with the overshoot; minimum on-screen size for pieces and marbles; selecting a piece moves the playhead to it
+- Browser checks: zigzag from one platform, Mirror and Tab (12 of 12 on time); long gap with Next and the rail suggestion (6 of 6); windmill hit with Next after it (7 of 7). Latency: Auto place 47 to 57 ms, Next 26 to 112 ms, Continue 4 to 18 ms, rail suggestion 189 to 205 ms
+- Checks: `typecheck`, `lint` and `test` (100) pass
 
 ### M2 Compose, M4 bridge, Design viewer (in progress)
 

@@ -2,19 +2,38 @@ import { createState } from 'feature-state';
 import type React from 'react';
 import * as THREE from 'three';
 import type { TProject, TVec2 } from '@/modules/project';
-import { frameBand, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { findLongGaps, frameBand, layoutOf, resolvePiecePath, trajectoryAt, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { parseHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { dragRotation, screenAngle, toRadians, type TRotationDrag } from './angles';
+import { AssistCx } from './AssistCx';
 import { ComposeRenderer, MARBLE_Z, type TComposeCamera } from './ComposeRenderer';
-import { pick, piecesInRect, rectFromPoints, type TPick, type TPickScene } from './picking';
-import { boundsOfPieces, contentBounds, marblePositionAt, pieceCorners, rotationGrip, trackBuffers } from './scene';
+import { composeKeyAction, type TComposeKeyAction } from './keys';
+import { pick, pickTrack, piecesInRect, rectFromPoints, type TPick, type TPickScene, type TScreenTrack } from './picking';
 import {
+	boundsOfPieces,
+	contentBounds,
+	marblePositionAt,
+	pathHandles,
+	pathToLocal,
+	pathToWorld,
+	pieceAngleAt,
+	pieceKind,
+	pieceOutline,
+	pieceTime,
+	rotationGrip,
+	trackBuffers,
+	withPathBend,
+	withPathEnd
+} from './scene';
+import {
+	commitAtHit,
 	findStepTarget,
-	focusHit,
+	followerAt,
+	linkedPieces,
 	pieceAngleCommands,
 	pinCommands,
-	placeAtHit,
+	pieceForHit,
 	selectedPieceIds,
 	withPieceAngles,
 	type TStepMode
@@ -44,13 +63,18 @@ export class ComposeCx {
 	readonly $spaceHeld = createState(false);
 	/** Entity whose angle readout is being typed into */
 	readonly $editingAngle = createState<string | null>(null);
+	/** Long-gap dot whose Add Rail and Add Tunnel actions are open; stays while the pointer is near */
+	readonly $gapMenu = createState<{ laneId: string; hitId: string } | null>(null);
+	readonly assist: AssistCx;
 
 	private renderer: ComposeRenderer | null = null;
 	private framedProjectId: string | null = null;
 	private spacePanned = false;
 	private trackCache = new WeakMap<object, { points: Float32Array; times: Float32Array }>();
 
-	constructor(readonly studio: StudioCx) {}
+	constructor(readonly studio: StudioCx) {
+		this.assist = new AssistCx(studio);
+	}
 
 	get project(): TProject | null {
 		return this.studio.project;
@@ -78,6 +102,8 @@ export class ComposeCx {
 		scheme.addEventListener('change', applyTheme);
 		cleanups.push(() => scheme.removeEventListener('change', applyTheme));
 
+		cleanups.push(this.assist.mount());
+
 		const observer = new ResizeObserver(() => {
 			const rect = container.getBoundingClientRect();
 			const viewport = { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
@@ -104,9 +130,14 @@ export class ComposeCx {
 			this.$camera.subscribe(({ value }) => {
 				renderer.setCamera(value);
 				updateGrid();
+				this.screenTracks = null;
+			}),
+			this.$viewport.listen(() => {
+				this.screenTracks = null;
 			}),
 			this.$viewport.listen(updateGrid),
 			this.studio.simulation.$result.subscribe(() => {
+				this.screenTracks = null;
 				this.syncTracks();
 				this.syncPieces();
 				this.syncMarbles();
@@ -123,7 +154,10 @@ export class ComposeCx {
 				this.syncMarbles();
 				this.syncGuides();
 			}),
-			this.studio.$selection.listen(() => this.syncPieces()),
+			this.studio.$selection.listen(({ value }) => {
+				this.syncPieces();
+				this.followSelection(value);
+			}),
 			this.studio.$reveal.listen(({ value }) => {
 				if (value != null) this.reveal(value.ids);
 			})
@@ -173,9 +207,30 @@ export class ComposeCx {
 		return { pivot: screenPivot, grip: { x: screenEnd.x + (dx / length) * 14, y: screenEnd.y + (dy / length) * 14 } };
 	}
 
-	screenCorners(piece: TResolvedPiece): TVec2[] {
+	/** Outline of a piece in screen space, see `pieceOutline` */
+	screenOutline(piece: TResolvedPiece): TVec2[] {
 		const depth = piece.params['depth'] ?? 0.03;
-		return pieceCorners(piece).map((corner) => this.toScreen(corner, depth));
+		return pieceOutline(piece).map((corner) => this.toScreen(corner, depth));
+	}
+
+	/** End and bend handles of a selected rail or tunnel in screen space */
+	screenPathHandles(piece: TResolvedPiece): { end: TVec2; bend: TVec2; entry: TVec2 } | null {
+		const controls = this.pathControls(piece.entityId);
+		const handles = controls != null ? pathHandles(controls) : null;
+		if (controls == null || handles == null) return null;
+		const toScreen = (point: TVec2): TVec2 => this.toScreen(pathToWorld(piece, controls, point));
+		return { end: toScreen(handles.end), bend: toScreen(handles.bend), entry: toScreen({ x: 0, y: 0 }) };
+	}
+
+	/** Local control points of a rail or tunnel, from the drag in progress or the project */
+	pathControls(entityId: string): TVec2[] | null {
+		const drag = this.$drag.get();
+		if (drag?.kind === 'path' && drag.entityId === entityId) return drag.points;
+		const piece = this.project?.entities.find((entity) => entity.id === entityId)?.components;
+		if (piece?.piece == null) return null;
+		const kind = layoutOf(piece.piece.type);
+		if (kind !== 'path' && kind !== 'tube') return null;
+		return resolvePiecePath(piece.piece.type, piece.path?.points);
 	}
 
 	pickScene(): TPickScene {
@@ -185,7 +240,7 @@ export class ComposeCx {
 		if (project == null || result == null) return scene;
 		const is2d = this.$camera.get().mode === '2d';
 		const selected = selectedPieceIds(project, this.studio.$selection.get());
-		for (const piece of result.pieces) scene.pieces.push({ entityId: piece.entityId, corners: this.screenCorners(piece) });
+		for (const piece of result.pieces) scene.pieces.push({ entityId: piece.entityId, corners: this.screenOutline(piece) });
 		for (const hit of result.hits) {
 			if (hit.status === 'open' && hit.dot != null) {
 				scene.dots.push({ laneId: hit.laneId, hitId: hit.hitId, position: this.toScreen(hit.dot) });
@@ -198,7 +253,14 @@ export class ComposeCx {
 			scene.handles.push({ kind: 'release', entityId: entity.id, position: this.toScreen(release.position), radius: 9 });
 		}
 		const single = selected.length === 1 ? result.pieces.find((piece) => piece.entityId === selected[0]) : undefined;
-		if (single?.contactPoint != null) {
+		const kind = single != null ? pieceKind(single) : null;
+		if (single != null && (kind === 'path' || kind === 'tube')) {
+			const handles = this.screenPathHandles(single);
+			if (handles != null) {
+				scene.handles.push({ kind: 'pathBend', entityId: single.entityId, position: handles.bend, radius: 5 });
+				scene.handles.push({ kind: 'pathEnd', entityId: single.entityId, position: handles.end, radius: 6 });
+			}
+		} else if (single?.contactPoint != null) {
 			scene.handles.push({ kind: 'rotate', entityId: single.entityId, position: this.screenGrip(single).grip, radius: 6 });
 		}
 		return scene;
@@ -224,7 +286,7 @@ export class ComposeCx {
 		if (project == null || result == null) return;
 		const selection = this.studio.$selection.get();
 		const pieces = result.pieces.filter((piece) => selection.includes(piece.entityId));
-		const points: TVec2[] = pieces.flatMap(pieceCorners);
+		const points: TVec2[] = pieces.flatMap(pieceOutline);
 		for (const key of selection) {
 			const parsed = parseHitKey(key);
 			const dot = result.hits.find((hit) => hit.laneId === parsed?.laneId && hit.hitId === parsed.hitId)?.dot;
@@ -331,6 +393,12 @@ export class ComposeCx {
 			this.$drag.set({ kind: 'rotate', entityId: target.entityId, pivot, drag, angle: link.angle, pointer: point });
 			return;
 		}
+		if (target?.kind === 'pathEnd' || target?.kind === 'pathBend') {
+			const points = this.pathControls(target.entityId);
+			if (points == null) return;
+			this.$drag.set({ kind: 'path', entityId: target.entityId, handle: target.kind === 'pathEnd' ? 'end' : 'bend', points, start: points, moved: false });
+			return;
+		}
 		if (target?.kind === 'release') {
 			const release = project.entities.find((entity) => entity.id === target.entityId)?.components.release;
 			if (release == null) return;
@@ -350,7 +418,7 @@ export class ComposeCx {
 			this.$drag.set({ kind: 'click', target, start: point });
 			return;
 		}
-		if (target?.kind === 'dot') {
+		if (target?.kind === 'dot' || target?.kind === 'track') {
 			this.$drag.set({ kind: 'click', target, start: point });
 			return;
 		}
@@ -368,6 +436,7 @@ export class ComposeCx {
 		if (drag == null) {
 			const hover = this.$spaceHeld.get() || this.$tool.get() === 'hand' ? null : this.pickAt(point);
 			if (!isSamePick(hover, this.$hover.get())) this.$hover.set(hover);
+			this.updateGapMenu(point, hover);
 			return;
 		}
 		const project = this.project;
@@ -392,6 +461,16 @@ export class ComposeCx {
 				const angle = dragRotation(drag.drag, drag.pivot, point, event.shiftKey);
 				this.$drag.set({ ...drag, angle, pointer: point });
 				this.studio.simulation.startPreview(withPieceAngles(project, new Map([[drag.entityId, angle]])));
+				return;
+			}
+			case 'path': {
+				const piece = this.result?.pieces.find((item) => item.entityId === drag.entityId);
+				if (project == null || piece == null) return;
+				const world = screenToWorld(this.$camera.get().view, this.$viewport.get(), point);
+				const local = pathToLocal(piece, drag.start, world);
+				const points = drag.handle === 'end' ? withPathEnd(drag.start, local) : withPathBend(drag.start, local);
+				this.$drag.set({ ...drag, points, moved: true });
+				this.studio.simulation.startPreview(withPathPoints(project, drag.entityId, points));
 				return;
 			}
 			case 'release': {
@@ -428,6 +507,13 @@ export class ComposeCx {
 				this.studio.simulation.endPreview();
 				return;
 			}
+			case 'path': {
+				if (drag.moved && project != null) {
+					this.studio.execute([{ type: 'setComponent', entityId: drag.entityId, component: { name: 'path', value: { points: drag.points } } }]);
+				}
+				this.studio.simulation.endPreview();
+				return;
+			}
 			case 'release': {
 				const release = project?.entities.find((entity) => entity.id === drag.entityId)?.components.release;
 				if (drag.moved && release != null) {
@@ -451,7 +537,13 @@ export class ComposeCx {
 				if (drag.target?.kind === 'dot') {
 					const { laneId, hitId } = drag.target;
 					const hit = this.result?.hits.find((item) => item.laneId === laneId && item.hitId === hitId);
-					if (hit != null) placeAtHit(this.studio, hit, this.$pieceType.get());
+					if (hit != null) void this.assist.place(hit, this.placementType());
+					this.$hover.set(null);
+					this.$gapMenu.set(null);
+					return;
+				}
+				if (drag.target?.kind === 'track') {
+					this.addFollower(drag.target.laneId, drag.target.time);
 					this.$hover.set(null);
 					return;
 				}
@@ -467,33 +559,109 @@ export class ComposeCx {
 	}
 
 	private pickAt(point: TVec2): TPick | null {
-		return pick(point, this.pickScene());
+		const picked = pick(point, this.pickScene());
+		if (picked != null || !this.isPathTool()) return picked;
+		// Rails and tunnels can also start anywhere on a trajectory, not only at a hit
+		return pickTrack(point, this.screenTrackPoints());
+	}
+
+	/** Piece type a click or Next places: the chosen piece tool, otherwise a platform */
+	placementType(): string {
+		return this.$tool.get() === 'piece' ? this.$pieceType.get() : 'platform';
+	}
+
+	isPathTool(): boolean {
+		const kind = layoutOf(this.$pieceType.get());
+		return this.$tool.get() === 'piece' && (kind === 'path' || kind === 'tube');
+	}
+
+	private screenTracks: TScreenTrack[] | null = null;
+
+	/** Trajectory points in screen space, thinned to about one per 8 ms, cached until the view changes */
+	private screenTrackPoints(): TScreenTrack[] {
+		if (this.screenTracks != null) return this.screenTracks;
+		const project = this.project;
+		const result = this.result;
+		this.screenTracks = (result?.marbles ?? []).map((track) => {
+			const laneId = project?.entities.find((entity) => entity.id === track.entityId)?.components.marble?.laneId ?? track.laneId;
+			const points: TVec2[] = [];
+			const times: number[] = [];
+			track.samples.forEach((sample, index) => {
+				if (index % 2 !== 0) return;
+				points.push(this.toScreen(sample.position));
+				times.push(sample.time);
+			});
+			return { laneId, points, times };
+		});
+		return this.screenTracks;
+	}
+
+	/** Adds a rail or tunnel the marble enters at `time`, chosen by clicking its trajectory */
+	private addFollower(laneId: string, time: number): void {
+		const project = this.project;
+		const samples = this.result?.marbles.find((track) => track.laneId === laneId)?.samples ?? [];
+		const at = trajectoryAt(samples, time);
+		if (project == null || at == null) return;
+		const [isOk, error, entity] = followerAt(project, laneId, this.$pieceType.get(), time, at.position, at.velocity);
+		if (!isOk) {
+			this.studio.notify(error.message);
+			return;
+		}
+		if (!this.studio.execute([{ type: 'upsertEntity', entity }])) return;
+		this.studio.$selection.set([entity.id]);
+		if (!this.studio.$playing.get()) this.studio.$playhead.set(time);
+	}
+
+	/** Keeps the long-gap actions open while the pointer travels from the dot to them */
+	private updateGapMenu(point: TVec2, hover: TPick | null): void {
+		const menu = this.$gapMenu.get();
+		if (hover?.kind === 'dot') {
+			const isLong = this.isLongGapDot(hover.laneId, hover.hitId);
+			if (isLong && (menu?.laneId !== hover.laneId || menu.hitId !== hover.hitId)) this.$gapMenu.set({ laneId: hover.laneId, hitId: hover.hitId });
+			if (isLong) return;
+		}
+		if (menu == null) return;
+		const dot = this.result?.hits.find((hit) => hit.laneId === menu.laneId && hit.hitId === menu.hitId)?.dot;
+		const screen = dot != null ? this.toScreen(dot) : null;
+		// The menu opens to the upper right of the dot; the pointer may cross that corner to reach it
+		const isNear = screen != null && point.x > screen.x - 24 && point.x < screen.x + 220 && point.y > screen.y - 90 && point.y < screen.y + 24;
+		if (!isNear) this.$gapMenu.set(null);
+	}
+
+	/** True when the hit ends a gap too long for a bounce that no rail or tunnel bridges yet */
+	isLongGapDot(laneId: string, hitId: string): boolean {
+		const project = this.project;
+		if (project == null) return false;
+		return this.longGapKeys(project).has(`${laneId}:${hitId}`);
+	}
+
+	private longGapCache: { project: TProject; keys: Map<string, { fromHitId: string; duration: number }> } | null = null;
+
+	/** Unbridged long gaps keyed by `laneId:toHitId` */
+	longGapKeys(project: TProject): Map<string, { fromHitId: string; duration: number }> {
+		if (this.longGapCache?.project === project) return this.longGapCache.keys;
+		const keys = new Map<string, { fromHitId: string; duration: number }>();
+		for (const lane of project.music.lanes) {
+			for (const gap of findLongGaps(project, lane.id)) {
+				if (gap.bridgedBy == null) keys.set(`${lane.id}:${gap.toHitId}`, { fromHitId: gap.fromHitId, duration: gap.duration });
+			}
+		}
+		this.longGapCache = { project, keys };
+		return keys;
+	}
+
+	/** Selecting one piece moves the playhead to its hit, so it is not shown ghosted, unless playing */
+	private followSelection(selection: string[]): void {
+		if (selection.length !== 1 || this.studio.$playing.get()) return;
+		const project = this.project;
+		if (project == null) return;
+		const linked = linkedPieces(project).find((item) => item.entity.id === selection[0]);
+		if (linked == null) return;
+		const delay = linked.entity.components.piece?.params['entryDelay'] ?? 0;
+		this.studio.$playhead.set(linked.time + delay);
 	}
 
 	// MARK: - Step loop
-
-	/** Return: on a piece, moves to the next open dot of its marble; on a focused dot, places a piece there */
-	accept(): boolean {
-		const project = this.project;
-		const result = this.result;
-		if (project == null || result == null) return false;
-		const selection = this.studio.$selection.get();
-		const target = findStepTarget(project, result, selection);
-		const focusedKey = selection.length === 1 ? parseHitKey(selection[0] ?? '') : null;
-		const isFocused = target != null && focusedKey?.laneId === target.laneId && focusedKey.hitId === target.hitId;
-		if (isFocused) {
-			placeAtHit(this.studio, target, this.$pieceType.get());
-			return true;
-		}
-		if (!selectedPieceIds(project, selection).length) return false;
-		if (target == null) {
-			this.studio.notify('Every reachable hit of this marble has a piece');
-			return true;
-		}
-		focusHit(this.studio, target);
-		this.revealPoint(target.dot);
-		return true;
-	}
 
 	/** Repeat and Mirror place the next dot with the previous piece's angle, as is or mirrored */
 	step(mode: TStepMode): void {
@@ -505,7 +673,7 @@ export class ComposeCx {
 			this.studio.notify('There is no open hit to place');
 			return;
 		}
-		placeAtHit(this.studio, target, this.$pieceType.get(), mode);
+		commitAtHit(this.studio, target, pieceForHit(project, target, this.placementType(), mode));
 		this.revealPoint(target.dot);
 	}
 
@@ -560,20 +728,7 @@ export class ComposeCx {
 
 	private onKeyDown(event: KeyboardEvent): void {
 		if (isTyping(event) || this.studio.$workspace.get() !== 'compose') return;
-		const key = event.key.toLowerCase();
-
-		if (event.metaKey && !event.ctrlKey && !event.altKey) {
-			if (key === '=' || key === '+') this.handled(event, () => this.zoomBy(2));
-			else if (key === '-') this.handled(event, () => this.zoomBy(0.5));
-			return;
-		}
-		if (event.metaKey || event.ctrlKey || event.altKey) return;
-
-		if (event.shiftKey && (event.code === 'Digit1' || event.code === 'Digit2')) {
-			this.handled(event, () => (event.code === 'Digit1' ? this.fitAll() : this.fitSelection()));
-			return;
-		}
-		if (event.key === ' ') {
+		if (event.key === ' ' && !event.metaKey && !event.ctrlKey && !event.altKey) {
 			// Space and drag pans like Figma; a plain press still plays and pauses on release
 			event.preventDefault();
 			if (!event.repeat) {
@@ -582,65 +737,95 @@ export class ComposeCx {
 			}
 			return;
 		}
-
 		const project = this.project;
-		const hasPieces = project != null && selectedPieceIds(project, this.studio.$selection.get()).length > 0;
-		switch (event.key) {
-			case 'Enter':
-				if (this.accept()) event.preventDefault();
-				return;
-			case 'Escape':
-				if (this.$drag.get() != null) {
-					this.$drag.set(null);
-					this.studio.simulation.endPreview();
-					this.syncMarbles();
-				} else if (this.$tool.get() !== 'select') {
-					this.$tool.set('select');
-				} else {
-					this.studio.$selection.set([]);
-				}
-				event.preventDefault();
-				return;
-			case 'Backspace':
-			case 'Delete':
-				if (this.deleteSelection()) event.preventDefault();
-				return;
-			case 'ArrowLeft':
-			case 'ArrowRight':
-				if (!hasPieces) return;
-				// Positive angles turn counter-clockwise, so Right turns the bar clockwise like a dial
-				this.handled(event, () => this.nudge((event.key === 'ArrowRight' ? -1 : 1) * (event.shiftKey ? 5 : 1)));
-				return;
+		const selection = this.studio.$selection.get();
+		const action = composeKeyAction(event, {
+			hasPieces: project != null && selectedPieceIds(project, selection).length > 0,
+			hasSelection: selection.length > 0,
+			hasGhosts: this.assist.hasGhosts
+		});
+		if (action == null) return;
+		if (this.runKeyAction(action)) event.preventDefault();
+	}
+
+	/** Runs a keyboard action; returns false when it did nothing, so the key falls through */
+	runKeyAction(action: TComposeKeyAction): boolean {
+		switch (action.type) {
+			case 'zoom':
+				this.zoomBy(action.factor);
+				return true;
+			case 'fit':
+				if (action.target === 'all') this.fitAll();
+				else this.fitSelection();
+				return true;
+			case 'tool':
+				this.$tool.set(action.tool);
+				return true;
+			case 'pieceType':
+				this.$pieceType.set(action.pieceType);
+				this.$tool.set('piece');
+				return true;
+			case 'next':
+				this.next();
+				return true;
+			case 'acceptGhosts':
+				return this.assist.acceptGhosts();
+			case 'escape':
+				this.escape();
+				return true;
+			case 'delete':
+				return this.deleteSelection();
+			case 'nudge':
+				return this.nudge(action.degrees);
+			case 'repeat':
+				this.step('repeat');
+				return true;
+			case 'mirror':
+				this.step('mirror');
+				return true;
+			case 'autoPlace':
+				this.assist.autoPlace(this.placementType());
+				return true;
+			case 'pin':
+				this.togglePin();
+				return true;
 		}
-		if (event.shiftKey) return;
-		switch (key) {
-			case 'v':
-				this.handled(event, () => this.$tool.set('select'));
-				return;
-			case 'h':
-				this.handled(event, () => this.$tool.set('hand'));
-				return;
-			case 'r':
-				this.handled(event, () => this.step('repeat'));
-				return;
-			case 'm':
-				this.handled(event, () => this.step('mirror'));
-				return;
-			case 'p':
-				if (hasPieces) this.handled(event, () => this.togglePin());
-				return;
+	}
+
+	/** Return and N */
+	next(): void {
+		const before = this.studio.$selection.get();
+		this.assist.next(this.placementType());
+		const after = this.studio.$selection.get();
+		if (after !== before) this.revealSelection();
+	}
+
+	/** Escape cancels a drag, then dismisses ghosts, then leaves a piece tool, then clears the selection */
+	escape(): void {
+		if (this.$drag.get() != null) {
+			this.$drag.set(null);
+			this.studio.simulation.endPreview();
+			this.syncMarbles();
+		} else if (this.assist.dismiss()) {
+			return;
+		} else if (this.$tool.get() !== 'select') {
+			this.$tool.set('select');
+		} else {
+			this.studio.$selection.set([]);
 		}
+	}
+
+	private revealSelection(): void {
+		const result = this.result;
+		const id = this.studio.$selection.get()[0];
+		const piece = result?.pieces.find((item) => item.entityId === id);
+		if (piece?.contactPoint != null) this.revealPoint(piece.contactPoint);
 	}
 
 	private onKeyUp(event: KeyboardEvent): void {
 		if (event.key !== ' ' || !this.$spaceHeld.get()) return;
 		this.$spaceHeld.set(false);
 		if (!this.spacePanned) this.studio.$playing.set(!this.studio.$playing.get());
-	}
-
-	private handled(event: KeyboardEvent, action: () => void): void {
-		event.preventDefault();
-		action();
 	}
 
 	// MARK: - Renderer sync
@@ -668,10 +853,14 @@ export class ComposeCx {
 		// Selected pieces stay solid so the piece being edited is never washed out
 		const selection = this.studio.$selection.get();
 		this.renderer.setPieces(
-			(result?.pieces ?? []).map((piece) => ({
-				piece,
-				ghost: piece.hitTime != null && piece.hitTime > playhead + 1e-4 && !selection.includes(piece.entityId)
-			}))
+			(result?.pieces ?? []).map((piece) => {
+				const time = pieceTime(piece);
+				return {
+					piece,
+					ghost: time != null && time > playhead + 1e-4 && !selection.includes(piece.entityId),
+					angle: pieceAngleAt(piece, playhead)
+				};
+			})
 		);
 	}
 
@@ -709,6 +898,7 @@ export type TComposeDrag =
 	| { kind: 'pan'; last: TVec2; orbit: boolean }
 	| { kind: 'rotate'; entityId: string; pivot: TVec2; drag: TRotationDrag; angle: number; pointer: TVec2 }
 	| { kind: 'release'; entityId: string; offset: TVec2; position: TVec2; moved: boolean }
+	| { kind: 'path'; entityId: string; handle: 'end' | 'bend'; points: TVec2[]; start: TVec2[]; moved: boolean }
 	| { kind: 'marquee'; from: TVec2; to: TVec2; base: string[] }
 	| { kind: 'click'; target: TPick | null; start: TVec2 };
 
@@ -723,6 +913,13 @@ function withRelease(project: TProject, entityId: string, position: TVec2): TPro
 			if (entity.id !== entityId || release == null) return entity;
 			return { ...entity, components: { ...entity.components, release: { ...release, position } } };
 		})
+	};
+}
+
+function withPathPoints(project: TProject, entityId: string, points: TVec2[]): TProject {
+	return {
+		...project,
+		entities: project.entities.map((entity) => (entity.id === entityId ? { ...entity, components: { ...entity.components, path: { points } } } : entity))
 	};
 }
 

@@ -69,18 +69,23 @@ The run is built one hit at a time against a live trajectory:
 
 1. Drag the marble release point. A ghost trajectory shows its fall.
 2. A dot marks where the marble will be at the next hit time.
-3. Click the dot to add a platform with a sensible default angle.
+3. Click the dot to add the chosen piece. Auto place picks its angle when it answers within 150 ms; otherwise the piece starts at the default lean and the answer refines it in the same undo step.
 4. Rotate it. The trajectory after it updates live and the next dot moves along the curve.
-5. Accept and move to the next dot.
+5. Press Next (Return or N) to place the following dot the same way.
 
 Assists inside the loop:
 
 - **Repeat** applies the previous piece's relative angle and offset to the next dot
 - **Mirror** applies the mirrored relationship, which produces a zigzag when alternated
 - **Auto place** lets the solver choose an angle that keeps the next dot in frame and consistent with nearby pieces
-- **Continue** works like tab autocomplete. When the next hits share the rhythm of the last placed hits, ghost pieces repeat or mirror the recent steps. Tab accepts them all; Escape keeps placing one at a time.
+- **Continue** works like tab autocomplete. When the next hits share the rhythm of the last placed hits, ghost pieces repeat or mirror the recent steps, drawn dashed with their predicted dots and a hint chip next to the first one. Tab accepts them all as one undo step; Escape hides them until the next edit, and any edit asks for fresh ghosts.
+- **Next** does the sensible thing for the focused marble's next open hit: an ordinary gap gets an auto placed platform, a long gap gets a rail suggestion shown as a ghost that Return or Tab accepts. A hit right before a long gap gets a clear lean so the marble flies off toward the rail instead of bouncing in place.
+
+Assists run in a second simulation worker, so the live trajectory never waits for them. Each kind of assist keeps only its newest question, and answers for an older edit are dropped.
 
 Repeat, Mirror and Continue turn musical repetition into visual repetition. Named patterns can later be saved Continue setups.
+
+Rails and tunnels can also start anywhere on a trajectory: with the rail or tunnel tool, clicking the line adds one that the marble enters at that moment, linked to the hit before it. A selected rail or tunnel shows an end handle that sets its length and a bend handle that curves it, with the live trajectory following the drag. The inspector reports how the marble rides it, such as "Marble leaves the rail after 1.1 s, then flies 0.12 s to Hit 4".
 
 Guardrails appear while building:
 

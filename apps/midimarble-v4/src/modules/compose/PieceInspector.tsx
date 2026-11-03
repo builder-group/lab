@@ -1,11 +1,12 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { ScrubField } from '@/components';
-import type { TComponents, TEntity, TProject, TProjectCommand } from '@/modules/project';
-import { getPieceDefinition, type THitResult, type TResolvedPiece } from '@/modules/simulation';
+import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
+import { getPieceDefinition, resolvePiecePath, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
+import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
 import { badgeStatus, badgeStyles, StatusIcon } from './status';
 
 /** Inspector for selected pieces, with compact Figma-style sections */
@@ -19,6 +20,10 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const definition = getPieceDefinition(type);
 	const isSingle = entities.length === 1;
 	const label = definition?.label ?? type;
+	const isSameType = entities.every((entity) => entity.components.piece?.type === type);
+	const kind = pieceKind({ type });
+	const isPath = kind === 'path' || kind === 'tube';
+	const resolved = result?.pieces.find((item) => item.entityId === first.id);
 
 	const angles = entities.map((entity) => entity.components.hitLink?.angle).filter((angle) => angle != null);
 	const sharedAngle = angles.length > 0 && angles.every((angle) => Math.abs(angle - (angles[0] ?? 0)) < 1e-9) ? (angles[0] ?? null) : null;
@@ -44,33 +49,40 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 		<div className="flex flex-col gap-1 py-2">
 			<div className="mm-section-title">{isSingle ? label : `${entities.length} ${label}s`}</div>
 			<div className="flex flex-col gap-1.5 px-3">
-				<ScrubField
-					id="piece-angle"
-					label="Angle"
-					value={sharedAngle == null ? null : Math.round(toDegrees(normalizeSurfaceAngle(sharedAngle)) * 10) / 10}
-					unit="°"
-					step={0.5}
-					precision={1}
-					min={-90}
-					max={90}
-					onPreview={(value) => preview(angleEdit(value))}
-					onCommit={(value) => commit(angleEdit(value))}
-					onCancel={() => cx.simulation.endPreview()}
-				/>
-				<ScrubField
-					id="piece-length"
-					label="Length"
-					value={sharedLength == null ? null : Math.round(sharedLength * 1000) / 10}
-					unit="cm"
-					step={0.1}
-					precision={1}
-					min={(definition?.params['length']?.min ?? 0.02) * 100}
-					max={(definition?.params['length']?.max ?? 0.3) * 100}
-					onPreview={(value) => preview(lengthEdit(value))}
-					onCommit={(value) => commit(lengthEdit(value))}
-					onCancel={() => cx.simulation.endPreview()}
-				/>
-				{link != null ? (
+				{!isPath ? (
+					<ScrubField
+						id="piece-angle"
+						label="Angle"
+						value={sharedAngle == null ? null : Math.round(toDegrees(normalizeSurfaceAngle(sharedAngle)) * 10) / 10}
+						unit="°"
+						step={0.5}
+						precision={1}
+						min={-90}
+						max={90}
+						onPreview={(value) => preview(angleEdit(value))}
+						onCommit={(value) => commit(angleEdit(value))}
+						onCancel={() => cx.simulation.endPreview()}
+					/>
+				) : null}
+				{kind === 'box' && isSameType ? (
+					<ScrubField
+						id="piece-length"
+						label="Length"
+						value={sharedLength == null ? null : Math.round(sharedLength * 1000) / 10}
+						unit="cm"
+						step={0.1}
+						precision={1}
+						min={(definition?.params['length']?.min ?? 0.02) * 100}
+						max={(definition?.params['length']?.max ?? 0.3) * 100}
+						onPreview={(value) => preview(lengthEdit(value))}
+						onCommit={(value) => commit(lengthEdit(value))}
+						onCancel={() => cx.simulation.endPreview()}
+					/>
+				) : null}
+				{isPath && isSingle && resolved != null ? (
+					<PathRunFields cx={cx} project={project} entity={first} piece={resolved} />
+				) : null}
+				{link != null && !isPath ? (
 					<ScrubField
 						id="piece-contact"
 						label="Contact"
@@ -116,7 +128,11 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					</label>
 				</div>
 			</div>
-			{isSingle && link != null ? (
+			{isSameType && definition != null ? <ParamsSection cx={cx} project={project} entities={entities} type={type} /> : null}
+			{isSingle && isPath && link != null && resolved != null && result != null ? (
+				<RideSection project={project} piece={resolved} result={result} laneId={link.laneId} hitId={link.hitId} />
+			) : null}
+			{isSingle && link != null && !isPath ? (
 				<HitSection
 					project={project}
 					laneId={link.laneId}
@@ -213,6 +229,181 @@ function timingLabel(piece: TResolvedPiece | undefined, hit: THitResult | undefi
 function formatMs(seconds: number): string {
 	const ms = Math.round(seconds * 10000) / 10;
 	return `${ms > 0 ? '+' : ''}${ms === 0 ? '0.0' : ms.toFixed(1)} ms`;
+}
+
+// MARK: - Rails and tunnels
+
+/** Length and slope of a rail or tunnel run, edited by scaling and turning it around the entry */
+const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity; piece: TResolvedPiece }> = (props) => {
+	const { cx, project, entity, piece } = props;
+	const type = entity.components.piece?.type ?? 'rail';
+	const controls = resolvePiecePath(type, entity.components.path?.points);
+	const run = pathRun(controls);
+	const world = worldRunSlope(piece, controls);
+
+	const withLength = (centimetres: number): TVec2[] => withPathRun(controls, centimetres / 100, run.slope);
+	const withSlope = (degrees: number): TVec2[] => turnPathRun(controls, -(toRadians(degrees) - world.slope) * world.direction);
+	const pathProject = (points: TVec2[]): TProject => ({
+		...project,
+		entities: project.entities.map((item) => (item.id === entity.id ? { ...item, components: { ...item.components, path: { points } } } : item))
+	});
+	const commitPath = (points: TVec2[]): void => {
+		cx.execute([{ type: 'setComponent', entityId: entity.id, component: { name: 'path', value: { points } } }]);
+		cx.simulation.endPreview();
+	};
+
+	return (
+		<>
+			<ScrubField
+				id="path-length"
+				label="Length"
+				value={Math.round(run.length * 1000) / 10}
+				unit="cm"
+				step={0.2}
+				precision={1}
+				min={3}
+				max={60}
+				onPreview={(value) => cx.simulation.startPreview(pathProject(withLength(value)))}
+				onCommit={(value) => commitPath(withLength(value))}
+				onCancel={() => cx.simulation.endPreview()}
+			/>
+			<ScrubField
+				id="path-slope"
+				label="Slope"
+				value={Math.round(toDegrees(world.slope) * 10) / 10}
+				unit="°"
+				step={0.25}
+				precision={1}
+				min={-30}
+				max={60}
+				onPreview={(value) => cx.simulation.startPreview(pathProject(withSlope(value)))}
+				onCommit={(value) => commitPath(withSlope(value))}
+				onCancel={() => cx.simulation.endPreview()}
+			/>
+		</>
+	);
+};
+
+/** What the marble does on a rail or tunnel, read from the simulation */
+const RideSection: React.FC<{ project: TProject; piece: TResolvedPiece; result: TSimulationResult; laneId: string; hitId: string }> = (props) => {
+	const { project, piece, result, laneId, hitId } = props;
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const index = lane?.hits.findIndex((item) => item.id === hitId) ?? -1;
+	const start = pieceTime(piece) ?? 0;
+	const next = lane?.hits.find((hit) => hit.time > start + 1e-3);
+	const nextIndex = next != null ? (lane?.hits.indexOf(next) ?? -1) : -1;
+	const ride = pathRide(result, piece, laneId, next?.time ?? result.duration);
+	const delay = piece.params['entryDelay'] ?? 0;
+	const label = getPieceDefinition(piece.type)?.label.toLowerCase() ?? 'piece';
+	const status = rideStatus(piece, ride, next?.time ?? null, nextIndex, label);
+
+	return (
+		<>
+			<div className="mm-section-title mt-1 border-t border-[var(--separator)] pt-3">Run</div>
+			<div className="flex flex-col gap-1 px-3">
+				<InfoRow label="Starts">
+					<span className="mm-mono">{formatTime(start)}</span>
+					<span className="ml-1.5 truncate text-[var(--text-secondary)]">
+						{delay > 0 ? `${Math.round(delay * 1000)} ms after Hit ${index + 1}` : `at Hit ${index + 1}`}
+					</span>
+				</InfoRow>
+				<div className="flex items-start gap-1.5 pl-[84px] text-[11px] leading-snug" style={{ color: status.tone === 'bad' ? 'var(--bad)' : status.tone === 'warn' ? 'var(--warn)' : 'var(--text-secondary)' }}>
+					{status.text}
+				</div>
+			</div>
+		</>
+	);
+};
+
+function rideStatus(
+	piece: TResolvedPiece,
+	ride: { enter: number | null; leave: number | null },
+	nextTime: number | null,
+	nextIndex: number,
+	label: string
+): { text: string; tone: 'info' | 'warn' | 'bad' } {
+	if (piece.status === 'blocked') return { text: `Blocked: the run before it already passes through this ${label}.`, tone: 'bad' };
+	if (ride.enter == null) return { text: `The marble never touches the ${label}.`, tone: 'bad' };
+	if (ride.leave == null) {
+		return nextTime != null
+			? { text: `The marble is still on the ${label} at Hit ${nextIndex + 1}.`, tone: 'warn' }
+			: { text: `The marble stays on the ${label} to the end.`, tone: 'info' };
+	}
+	const rides = ride.leave - ride.enter;
+	if (nextTime == null) return { text: `Marble leaves the ${label} after ${rides.toFixed(1)} s.`, tone: 'info' };
+	const flight = nextTime - ride.leave;
+	return { text: `Marble leaves the ${label} after ${rides.toFixed(1)} s, then flies ${flight.toFixed(2)} s to Hit ${nextIndex + 1}.`, tone: 'info' };
+}
+
+// MARK: - Parameters
+
+/** Physical parameters of the piece type not shown above, with units people read: cm, mm, ms, rpm */
+const ParamsSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string }> = (props) => {
+	const { cx, project, entities, type } = props;
+	const definition = getPieceDefinition(type);
+	const names = Object.keys(definition?.params ?? {}).filter((name) => !(type === 'platform' && name === 'length'));
+	if (definition == null || !names.length) return null;
+
+	return (
+		<>
+			<div className="mm-section-title mt-1 border-t border-[var(--separator)] pt-3">Physics</div>
+			<div className="flex flex-col gap-1.5 px-3">
+				{names.map((name) => {
+					const spec = definition.params[name];
+					if (spec == null) return null;
+					const display = displayUnit(name, spec.unit, spec.integer === true);
+					const values = entities.map((entity) => resolvedParam(entity, name));
+					const shared = values.every((value) => Math.abs(value - (values[0] ?? 0)) < 1e-12) ? (values[0] ?? null) : null;
+					const edit = (value: number): TPieceEdit => ({ params: { [name]: value / display.factor } });
+					return (
+						<ScrubField
+							key={name}
+							id={`piece-param-${name}`}
+							label={shortLabels[name] ?? spec.label}
+							value={shared == null ? null : Math.round(shared * display.factor * 10 ** display.precision) / 10 ** display.precision}
+							unit={display.unit}
+							step={display.step}
+							precision={display.precision}
+							min={spec.min * display.factor}
+							max={spec.max * display.factor}
+							onPreview={(value) => cx.simulation.startPreview(applyPieceEdit(project, entities, edit(value)).project)}
+							onCommit={(value) => {
+								cx.execute(applyPieceEdit(project, entities, edit(value)).commands);
+								cx.simulation.endPreview();
+							}}
+							onCancel={() => cx.simulation.endPreview()}
+						/>
+					);
+				})}
+			</div>
+		</>
+	);
+};
+
+// Labels that fit the inspector's label column on one line
+const shortLabels: Record<string, string> = {
+	bladeThickness: 'Blade width',
+	motorSpeed: 'Motor',
+	entryDelay: 'Delay'
+};
+
+function displayUnit(name: string, unit: string, isInteger: boolean): { unit: string; factor: number; step: number; precision: number } {
+	if (isInteger) return { unit: '', factor: 1, step: 0.05, precision: 0 };
+	switch (unit) {
+		case 'm':
+			// Wires and walls are millimetres; lengths are centimetres
+			return name === 'radius' || name === 'gap' || name === 'bore' || name.endsWith('Thickness') || name === 'thickness'
+				? { unit: 'mm', factor: 1000, step: 0.05, precision: 1 }
+				: { unit: 'cm', factor: 100, step: 0.1, precision: 1 };
+		case 's':
+			return { unit: 'ms', factor: 1000, step: 2, precision: 0 };
+		case 'rad':
+			return { unit: '°', factor: 180 / Math.PI, step: 0.5, precision: 1 };
+		case 'rad/s':
+			return { unit: 'rpm', factor: 60 / (2 * Math.PI), step: 0.5, precision: 0 };
+		default:
+			return { unit: '', factor: 1, step: 0.02, precision: 2 };
+	}
 }
 
 // MARK: - Edits

@@ -1,6 +1,8 @@
 import type { TProject } from '@/modules/project';
+import { createRequestQueue, type TRequestQueue } from './request-queue';
 import type { TSimulationWorkerRequest, TSimulationWorkerResponse } from './simulation.worker';
 import type { TSimulationResult } from './types';
+import type { TAutoPlaceAnswer, TContinueAnswer, TGapAnswer, TWorkerRequest } from './worker-protocol';
 
 export interface TSimulationClient {
 	/**
@@ -8,65 +10,62 @@ export interface TSimulationClient {
 	 * replaced resolve with its result, whose `revision` tells callers which project it belongs to.
 	 */
 	simulate: (project: TProject) => Promise<TSimulationResult>;
+	/**
+	 * Assists run in a second worker so a slow search never holds up the live trajectory. Each kind keeps
+	 * only its newest waiting request; replaced requests reject with a `SupersededError`.
+	 */
+	autoPlace: (request: Omit<Extract<TWorkerRequest, { kind: 'autoPlace' }>, 'kind'>) => Promise<TAutoPlaceAnswer>;
+	continueRun: (request: Omit<Extract<TWorkerRequest, { kind: 'continue' }>, 'kind'>) => Promise<TContinueAnswer | null>;
+	gapPiece: (request: Omit<Extract<TWorkerRequest, { kind: 'gapPiece' }>, 'kind'>) => Promise<TGapAnswer>;
 	dispose: () => void;
 }
 
-interface TPendingRequest {
-	project: TProject;
-	waiters: { resolve: (result: TSimulationResult) => void; reject: (error: Error) => void }[];
-}
+// Placing at a clicked dot is waited on, a long-gap piece was asked for, Continue is background work
+const assistPriority: Record<string, number> = { autoPlace: 0, gapPiece: 1, continue: 2 };
 
 export function createSimulationClient(): TSimulationClient {
-	const worker = new Worker(new URL('./simulation.worker.ts', import.meta.url), { type: 'module' });
-	let nextId = 1;
-	let running: { id: number; request: TPendingRequest } | null = null;
-	let pending: TPendingRequest | null = null;
-	let isDisposed = false;
-
-	function runNext(): void {
-		if (running != null || pending == null || isDisposed) return;
-		const request = pending;
-		pending = null;
-		running = { id: nextId++, request };
-		const message: TSimulationWorkerRequest = { id: running.id, project: request.project };
-		worker.postMessage(message);
-	}
-
-	worker.addEventListener('message', (event: MessageEvent<TSimulationWorkerResponse>) => {
-		const response = event.data;
-		if (running == null || response.id !== running.id) return;
-		const { waiters } = running.request;
-		running = null;
-		for (const waiter of waiters) {
-			if (response.ok) waiter.resolve(response.result);
-			else waiter.reject(new Error(response.error));
-		}
-		runNext();
-	});
-
-	worker.addEventListener('error', (event) => {
-		const error = new Error(event.message || 'The simulation worker failed');
-		for (const waiter of running?.request.waiters ?? []) waiter.reject(error);
-		running = null;
-		runNext();
-	});
+	const simulation = connect();
+	const assists = connect((channel) => assistPriority[channel] ?? 3);
 
 	return {
 		simulate(project) {
-			if (isDisposed) return Promise.reject(new Error('The simulation client is disposed'));
-			return new Promise<TSimulationResult>((resolve, reject) => {
-				const waiters = [...(pending?.waiters ?? []), { resolve, reject }];
-				pending = { project, waiters };
-				runNext();
-			});
+			return simulation.queue.enqueue<TSimulationResult>('simulate', { kind: 'simulate', project }, { merge: true });
+		},
+		autoPlace(request) {
+			return assists.queue.enqueue<TAutoPlaceAnswer>('autoPlace', { kind: 'autoPlace', ...request });
+		},
+		continueRun(request) {
+			return assists.queue.enqueue<TContinueAnswer | null>('continue', { kind: 'continue', ...request });
+		},
+		gapPiece(request) {
+			return assists.queue.enqueue<TGapAnswer>('gapPiece', { kind: 'gapPiece', ...request });
 		},
 		dispose() {
-			isDisposed = true;
-			const error = new Error('The simulation client is disposed');
-			for (const waiter of [...(running?.request.waiters ?? []), ...(pending?.waiters ?? [])])
-				waiter.reject(error);
-			running = null;
-			pending = null;
+			simulation.dispose();
+			assists.dispose();
+		}
+	};
+}
+
+function connect(priority?: (channel: string) => number): { queue: TRequestQueue<TWorkerRequest>; dispose: () => void } {
+	const worker = new Worker(new URL('./simulation.worker.ts', import.meta.url), { type: 'module' });
+	const queue = createRequestQueue<TWorkerRequest>({
+		send: (id, message) => {
+			const request: TSimulationWorkerRequest = { ...message, id };
+			worker.postMessage(request);
+		},
+		priority
+	});
+	worker.addEventListener('message', (event: MessageEvent<TSimulationWorkerResponse>) => {
+		queue.receive(event.data);
+	});
+	worker.addEventListener('error', (event) => {
+		queue.fail(new Error(event.message || 'The simulation worker failed'));
+	});
+	return {
+		queue,
+		dispose() {
+			queue.dispose();
 			worker.terminate();
 		}
 	};

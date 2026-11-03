@@ -1,8 +1,12 @@
-import type { TEntity, TProject, TProjectCommand } from '@/modules/project';
+import { Err, Ok, type TResult } from 'tuple-result';
+import type { TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import {
 	createLinkedPiece,
 	defaultPlatformAngle,
 	frameBand,
+	getPieceDefinition,
+	layoutOf,
+	resolvePiecePath,
 	type THitResult,
 	type TSimulationResult
 } from '@/modules/simulation';
@@ -85,18 +89,76 @@ export function stepAngle(project: TProject, hit: THitResult, mode: TStepMode): 
 	return defaultPlatformAngle(dot, hit.velocity, frameBand(project).centerX);
 }
 
+/**
+ * The piece a click or step puts at an open hit. Platforms and windmills take the step angle; rails and
+ * tunnels start under the marble and run with its travel, turned back when that would leave the frame.
+ */
+export function pieceForHit(project: TProject, hit: THitResult, type: string, mode: TStepMode = 'default', id?: string): TEntity {
+	const kind = layoutOf(type);
+	if (kind === 'path' || kind === 'tube') {
+		const entity = createLinkedPiece(type, hit.laneId, hit.hitId, 0, { entities: project.entities, id });
+		return withRunDirection(project, entity, hit.dot, hit.velocity);
+	}
+	return createLinkedPiece(type, hit.laneId, hit.hitId, stepAngle(project, hit, mode), { entities: project.entities, id });
+}
+
+/**
+ * A rail or tunnel the marble enters at `time` on its way, linked to the lane's latest hit before that
+ * time with an entry delay. It follows that hit's trajectory like any linked piece.
+ */
+export function followerAt(
+	project: TProject,
+	laneId: string,
+	type: string,
+	time: number,
+	position: TVec2,
+	velocity: TVec2 | null
+): TResult<TEntity, Error> {
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const hit = [...(lane?.hits ?? [])].reverse().find((item) => item.time < time - 0.005);
+	if (hit == null) return Err(new Error('Rails and tunnels start after the first hit of the lane'));
+	const delay = Math.round((time - hit.time) * 1000) / 1000;
+	const maxDelay = getPieceDefinition(type)?.params['entryDelay']?.max ?? 2;
+	if (delay > maxDelay) return Err(new Error(`Start within ${maxDelay} s of a hit; this point is ${delay.toFixed(1)} s after one`));
+	const entity = createLinkedPiece(type, laneId, hit.id, 0, { entities: project.entities });
+	const piece = entity.components.piece;
+	if (piece != null) piece.params = { ...piece.params, entryDelay: delay };
+	return Ok(withRunDirection(project, entity, position, velocity));
+}
+
+/** Points the run of a new rail or tunnel along the horizontal travel, or back when it would leave the frame */
+function withRunDirection(project: TProject, entity: TEntity, position: TVec2 | null, velocity: TVec2 | null): TEntity {
+	const piece = entity.components.piece;
+	if (piece == null) return entity;
+	const points = resolvePiecePath(piece.type, undefined);
+	const reach = Math.max(...points.map((point) => point.x));
+	const band = frameBand(project);
+	const x = position?.x ?? band.centerX;
+	let direction = Math.abs(velocity?.x ?? 0) > 0.05 ? Math.sign(velocity?.x ?? 1) : x <= band.centerX ? 1 : -1;
+	if (Math.abs(x + direction * reach - band.centerX) > band.halfWidth) direction = -direction;
+	return {
+		...entity,
+		components: { ...entity.components, path: { points: points.map((point) => ({ x: point.x * direction, y: point.y })) } }
+	};
+}
+
+/** Adds a piece made for an open hit, selects it, moves the playhead there and plays the note */
+export function commitAtHit(cx: StudioCx, hit: THitResult, entity: TEntity): boolean {
+	const project = cx.project;
+	if (project == null || !cx.execute([{ type: 'upsertEntity', entity }])) return false;
+	cx.$selection.set([entity.id]);
+	if (!cx.$playing.get()) cx.$playhead.set(hit.targetTime);
+	const pitch = project.music.lanes.find((lane) => lane.id === hit.laneId)?.hits.find((item) => item.id === hit.hitId)?.pitch;
+	cx.audition(hit.laneId, pitch);
+	return true;
+}
+
 /** Places a piece of `type` at an open hit, selects it, moves the playhead there and plays the note */
 export function placeAtHit(cx: StudioCx, hit: THitResult, type: string, mode: TStepMode = 'default'): string | null {
 	const project = cx.project;
 	if (project == null || hit.dot == null) return null;
-	const angle = stepAngle(project, hit, mode);
-	const entity = createLinkedPiece(type, hit.laneId, hit.hitId, angle, { entities: project.entities });
-	if (!cx.execute([{ type: 'upsertEntity', entity }])) return null;
-	cx.$selection.set([entity.id]);
-	cx.$playhead.set(hit.targetTime);
-	const pitch = project.music.lanes.find((lane) => lane.id === hit.laneId)?.hits.find((item) => item.id === hit.hitId)?.pitch;
-	cx.audition(hit.laneId, pitch);
-	return entity.id;
+	const entity = pieceForHit(project, hit, type, mode);
+	return commitAtHit(cx, hit, entity) ? entity.id : null;
 }
 
 /** Moves the focus to an open dot without placing anything */

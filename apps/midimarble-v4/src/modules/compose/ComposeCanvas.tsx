@@ -2,13 +2,17 @@ import { useFeatureState } from 'feature-react/state';
 import { Box, Square } from 'lucide-react';
 import React from 'react';
 import type { TProject, TVec2 } from '@/modules/project';
-import { frameBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { frameBand, getPieceDefinition, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { parseHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { formatDegrees, parseDegrees } from './angles';
+import { formatDegrees, parseDegrees, toDegrees } from './angles';
 import { ComposeCx } from './ComposeCx';
+import { paletteOf } from './ComposeRenderer';
 import { ComposeToolbar } from './ComposeToolbar';
+import { GhostHint, GhostShapes } from './GhostLayer';
+import { PieceLayer, toPoints } from './PieceLayer';
+import { pathRun, pathToWorld, pieceKind } from './scene';
 import { badgeStatus, StatusBadge } from './status';
 import { nextOpenHitPerLane, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
@@ -33,17 +37,22 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 	}, [compose, cx]);
 
 	const isPanning = drag?.kind === 'pan';
+	const isMoving = drag?.kind === 'release' || drag?.kind === 'path' || hover?.kind === 'release' || hover?.kind === 'pathEnd' || hover?.kind === 'pathBend';
 	const cursor =
 		isPanning ? 'grabbing'
 		: spaceHeld || tool === 'hand' ? 'grab'
 		: drag?.kind === 'rotate' || hover?.kind === 'rotate' ? 'grab'
-		: drag?.kind === 'release' || hover?.kind === 'release' ? 'move'
-		: hover?.kind === 'dot' || tool === 'piece' ? 'crosshair'
+		: isMoving ? 'move'
+		: hover?.kind === 'dot' || hover?.kind === 'track' || tool === 'piece' ? 'crosshair'
 		: 'default';
 
 	return (
 		<div ref={containerRef} className="mm-pegboard relative h-full w-full overflow-hidden">
 			<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+				<PieceLayer compose={compose} />
+				<GhostShapes compose={compose} />
+			</svg>
 			<div
 				className="absolute inset-0 touch-none"
 				style={{ cursor }}
@@ -55,6 +64,7 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 				onContextMenu={(event) => event.preventDefault()}
 			/>
 			<ComposeOverlay compose={compose} />
+			<GhostHint compose={compose} />
 			<CornerControls compose={compose} />
 			<SimulatingIndicator cx={cx} />
 			<ComposeToolbar compose={compose} />
@@ -79,13 +89,19 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const selection = useFeatureState(cx.$selection);
 	const hover = useFeatureState(compose.$hover);
 	const drag = useFeatureState(compose.$drag);
+	const gapMenu = useFeatureState(compose.$gapMenu);
+	const tool = useFeatureState(compose.$tool);
+	const pieceType = useFeatureState(compose.$pieceType);
 	const project = history?.present;
 	if (project == null || result == null || viewport.width <= 1) return null;
 
 	const is2d = camera.mode === '2d';
 	const selectedPieces = selectedPieceIds(project, selection);
 	const single = selectedPieces.length === 1 ? result.pieces.find((piece) => piece.entityId === selectedPieces[0]) : undefined;
-	const grip = single?.contactPoint != null && is2d ? compose.screenGrip(single) : null;
+	const singleKind = single != null ? pieceKind(single) : null;
+	const isPathPiece = singleKind === 'path' || singleKind === 'tube';
+	const grip = single?.contactPoint != null && is2d && !isPathPiece ? compose.screenGrip(single) : null;
+	const pathHandles = single != null && is2d && isPathPiece ? compose.screenPathHandles(single) : null;
 	const isRotating = drag?.kind === 'rotate';
 	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.entityId));
 	const nextDots = nextOpenHitPerLane(result);
@@ -94,6 +110,9 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const hoveredDot =
 		hover?.kind === 'dot' ? result.hits.find((hit) => hit.status === 'open' && hit.laneId === hover.laneId && hit.hitId === hover.hitId) : undefined;
 	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
+	const longGaps = compose.longGapKeys(project);
+	const gapHit = gapMenu != null ? result.hits.find((hit) => hit.status === 'open' && hit.laneId === gapMenu.laneId && hit.hitId === gapMenu.hitId) : undefined;
+	const placementLabel = getPieceDefinition(tool === 'piece' ? pieceType : 'platform')?.label.toLowerCase() ?? 'platform';
 
 	return (
 		<>
@@ -102,14 +121,14 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					const isSelected = selection.includes(piece.entityId);
 					const isHovered = hoveredPiece === piece.entityId && !isSelected;
 					if (!isSelected && !isHovered) return null;
-					const corners = inflate(compose.screenCorners(piece), 2.5);
+					const outline = pieceKind(piece) === 'box' ? inflate(compose.screenOutline(piece), 2.5) : compose.screenOutline(piece);
 					return (
 						<polygon
 							key={`outline-${piece.entityId}`}
-							points={corners.map((corner) => `${corner.x},${corner.y}`).join(' ')}
+							points={toPoints(outline)}
 							fill="none"
 							stroke="var(--accent-strong)"
-							strokeWidth={isSelected ? 2 : 1.25}
+							strokeWidth={isSelected ? 1.75 : 1.25}
 							strokeOpacity={isSelected ? 1 : 0.75}
 							strokeLinejoin="round"
 						/>
@@ -123,36 +142,21 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					const position = compose.toScreen(hit.dot);
 					const lane = project.music.lanes.find((item) => item.id === hit.laneId);
 					const isNext = nextDots.get(hit.laneId) === hit;
-					const isHovered = hoveredDot === hit;
+					const isHovered = hoveredDot === hit || gapHit === hit;
 					const isFocused = focusedKeys.has(`hit:${hit.laneId}:${hit.hitId}`);
-					const isOutside = Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
+					const isOutside = hit.outOfFrame ?? Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
+					const isLongGap = longGaps.has(`${hit.laneId}:${hit.hitId}`);
 					const color = isOutside ? 'var(--bad)' : (lane?.color ?? 'var(--text)');
-					const radius = (isNext ? 5 : 4) + (isHovered ? 1.5 : 0);
 					return (
-						<g key={`dot-${hit.laneId}-${hit.hitId}`}>
-							{isNext ? (
-								<circle
-									className="mm-dot-pulse"
-									cx={position.x}
-									cy={position.y}
-									r={5}
-									fill="none"
-									stroke={color}
-									strokeWidth={1.5}
-									style={{ transformOrigin: `${position.x}px ${position.y}px` }}
-								/>
-							) : null}
-							{isFocused ? <circle cx={position.x} cy={position.y} r={radius + 4} fill="none" stroke="var(--accent-strong)" strokeWidth={2} /> : null}
-							<circle
-								cx={position.x}
-								cy={position.y}
-								r={radius}
-								fill={isNext ? color : 'var(--canvas)'}
-								stroke={isNext ? 'var(--canvas)' : color}
-								strokeWidth={isNext ? 1.5 : 1.5}
-							/>
-							{isNext ? <circle cx={position.x} cy={position.y} r={radius + 0.75} fill="none" stroke={color} strokeWidth={1} /> : null}
-						</g>
+						<HitDot
+							key={`dot-${hit.laneId}-${hit.hitId}`}
+							position={position}
+							color={color}
+							isNext={isNext}
+							isHovered={isHovered}
+							isFocused={isFocused}
+							isLongGap={isLongGap}
+						/>
 					);
 				})}
 				{is2d
@@ -207,9 +211,25 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 						<circle cx={grip.grip.x} cy={grip.grip.y} r={5} fill="white" stroke="var(--accent-strong)" strokeWidth={1.5} />
 					</g>
 				) : null}
+				{pathHandles != null && single != null ? <PathHandles handles={pathHandles} hover={hover} drag={drag} entityId={single.entityId} /> : null}
+				{hover?.kind === 'track' && drag == null ? (
+					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf(pieceType).bar} strokeWidth={2} />
+				) : null}
 				{drag?.kind === 'marquee' ? <Marquee from={drag.from} to={drag.to} /> : null}
 			</svg>
-			{hoveredDot != null && drag == null ? <DotTooltip compose={compose} project={project} hit={hoveredDot} /> : null}
+			{hoveredDot != null && drag == null && gapHit !== hoveredDot ? (
+				<DotTooltip compose={compose} project={project} hit={hoveredDot} placementLabel={placementLabel} />
+			) : null}
+			{gapHit != null && drag == null ? <GapMenu compose={compose} project={project} hit={gapHit} /> : null}
+			{hover?.kind === 'track' && drag == null ? (
+				<CanvasTooltip position={hover.position}>
+					<div className="font-medium">
+						Start a {placementLabel} here
+						<span className="mm-mono ml-1.5 font-normal text-[var(--text-secondary)]">{formatTime(hover.time)}</span>
+					</div>
+					<div className="text-[var(--text-secondary)]">The marble enters it at this moment</div>
+				</CanvasTooltip>
+			) : null}
 			{single != null && grip != null ? (
 				<AngleReadout
 					compose={compose}
@@ -218,7 +238,91 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					angle={drag?.kind === 'rotate' ? drag.angle : (project.entities.find((entity) => entity.id === single.entityId)?.components.hitLink?.angle ?? single.angle)}
 				/>
 			) : null}
+			{drag?.kind === 'path' && pathHandles != null && single != null ? <PathReadout piece={single} points={drag.points} position={pathHandles.end} /> : null}
 		</>
+	);
+};
+
+/** An open hit dot. Long gaps get a diamond with a dashed ring; dots outside the frame are red. */
+const HitDot: React.FC<{ position: TVec2; color: string; isNext: boolean; isHovered: boolean; isFocused: boolean; isLongGap: boolean }> = (props) => {
+	const { position, color, isNext, isHovered, isFocused, isLongGap } = props;
+	const radius = (isNext ? 5 : 4) + (isHovered ? 1.5 : 0);
+	const { x, y } = position;
+	return (
+		<g>
+			{isNext ? (
+				<circle className="mm-dot-pulse" cx={x} cy={y} r={5} fill="none" stroke={color} strokeWidth={1.5} style={{ transformOrigin: `${x}px ${y}px` }} />
+			) : null}
+			{isFocused ? <circle cx={x} cy={y} r={radius + 4} fill="none" stroke="var(--accent-strong)" strokeWidth={2} /> : null}
+			{isLongGap ? (
+				<>
+					<circle cx={x} cy={y} r={radius + 5} fill="none" stroke={color} strokeWidth={1.25} strokeDasharray="2.5 2.5" />
+					<rect
+						x={x - radius}
+						y={y - radius}
+						width={radius * 2}
+						height={radius * 2}
+						rx={1.5}
+						transform={`rotate(45 ${x} ${y})`}
+						fill={isNext ? color : 'var(--canvas)'}
+						stroke={isNext ? 'var(--canvas)' : color}
+						strokeWidth={1.5}
+					/>
+				</>
+			) : (
+				<circle cx={x} cy={y} r={radius} fill={isNext ? color : 'var(--canvas)'} stroke={isNext ? 'var(--canvas)' : color} strokeWidth={1.5} />
+			)}
+			{isNext && !isLongGap ? <circle cx={x} cy={y} r={radius + 0.75} fill="none" stroke={color} strokeWidth={1} /> : null}
+		</g>
+	);
+};
+
+/** End and bend handles of a selected rail or tunnel, joined by a dashed control line like Blender curves */
+const PathHandles: React.FC<{
+	handles: { end: TVec2; bend: TVec2; entry: TVec2 };
+	hover: ReturnType<ComposeCx['$hover']['get']>;
+	drag: ReturnType<ComposeCx['$drag']['get']>;
+	entityId: string;
+}> = (props) => {
+	const { handles, hover, drag, entityId } = props;
+	const { end, bend, entry } = handles;
+	const isActive = (kind: 'pathEnd' | 'pathBend'): boolean =>
+		(hover?.kind === kind && hover.entityId === entityId) ||
+		(drag?.kind === 'path' && drag.entityId === entityId && drag.handle === (kind === 'pathEnd' ? 'end' : 'bend'));
+	return (
+		<g>
+			<polyline points={toPoints([entry, bend, end])} fill="none" stroke="var(--accent-strong)" strokeWidth={1} strokeDasharray="2 3" strokeOpacity={0.8} />
+			<circle cx={entry.x} cy={entry.y} r={2.5} fill="var(--accent-strong)" />
+			<rect
+				x={bend.x - 4}
+				y={bend.y - 4}
+				width={8}
+				height={8}
+				rx={1.5}
+				transform={`rotate(45 ${bend.x} ${bend.y})`}
+				fill={isActive('pathBend') ? 'var(--accent)' : 'white'}
+				stroke="var(--accent-strong)"
+				strokeWidth={1.5}
+			/>
+			<circle cx={end.x} cy={end.y} r={5} fill={isActive('pathEnd') ? 'var(--accent)' : 'white'} stroke="var(--accent-strong)" strokeWidth={1.5} />
+		</g>
+	);
+};
+
+/** Live length and slope next to the dragged handle */
+const PathReadout: React.FC<{ piece: TResolvedPiece; points: TVec2[]; position: TVec2 }> = (props) => {
+	const { piece, points, position } = props;
+	const run = pathRun(points);
+	const end = points[points.length - 1] ?? { x: 1, y: 0 };
+	const tip = pathToWorld(piece, points, end);
+	const entry = pathToWorld(piece, points, { x: 0, y: 0 });
+	const slope = toDegrees(Math.atan2(entry.y - tip.y, Math.abs(tip.x - entry.x)));
+	return (
+		<div className="absolute z-10" style={{ left: position.x + 12, top: position.y + 10 }}>
+			<span className="mm-mono rounded-[4px] bg-[var(--accent)] px-1 text-[11px] leading-[16px] text-[var(--on-accent)]">
+				{(run.length * 100).toFixed(1)} cm · {slope >= 0 ? '↘' : '↗'} {Math.abs(slope).toFixed(1)}°
+			</span>
+		</div>
 	);
 };
 
@@ -263,22 +367,21 @@ const Marquee: React.FC<{ from: TVec2; to: TVec2 }> = (props) => {
 	);
 };
 
-/** Status badge at the left end of a placed piece */
+/** Status badge off the left end of a placed piece */
 const PieceBadge: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; result: TSimulationResult }> = (props) => {
 	const { compose, piece, result } = props;
 	const status = badgeStatus(piece.status, result.hits.find((item) => item.pieceEntityId === piece.entityId));
 	if (status == null) return null;
-	const [a, b, c, d] = compose.screenCorners(piece);
-	if (a == null || b == null || c == null || d == null) return null;
-	// Midpoints of both short ends; the badge sits off the end further left on screen
-	const [end, other] = [
-		{ x: (a.x + d.x) / 2, y: (a.y + d.y) / 2 },
-		{ x: (b.x + c.x) / 2, y: (b.y + c.y) / 2 }
-	].sort((first, second) => first.x - second.x);
-	if (end == null || other == null) return null;
-	const length = Math.hypot(end.x - other.x, end.y - other.y) || 1;
-	const x = end.x + ((end.x - other.x) / length) * 10;
-	const y = end.y + ((end.y - other.y) / length) * 10;
+	const outline = compose.screenOutline(piece);
+	if (!outline.length) return null;
+	const left = outline.reduce((best, point) => (point.x < best.x ? point : best));
+	const center = {
+		x: outline.reduce((sum, point) => sum + point.x, 0) / outline.length,
+		y: outline.reduce((sum, point) => sum + point.y, 0) / outline.length
+	};
+	const length = Math.hypot(left.x - center.x, left.y - center.y) || 1;
+	const x = left.x + ((left.x - center.x) / length) * 10;
+	const y = left.y + ((left.y - center.y) / length) * 10;
 	return (
 		<g transform={`translate(${x} ${y})`} opacity={status === 'onTime' ? 0.85 : 1}>
 			<StatusBadge status={status} />
@@ -286,20 +389,31 @@ const PieceBadge: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; result: 
 	);
 };
 
-const DotTooltip: React.FC<{ compose: ComposeCx; project: TProject; hit: THitResult }> = (props) => {
-	const { compose, project, hit } = props;
+const CanvasTooltip: React.FC<{ position: TVec2; interactive?: boolean; children: React.ReactNode }> = (props) => {
+	const { position, interactive = false, children } = props;
+	return (
+		<div
+			className={`absolute z-10 rounded-[6px] bg-[var(--content-raised)] px-2 py-1 text-[11px] leading-[15px] whitespace-nowrap ${interactive ? '' : 'pointer-events-none'}`}
+			style={{ left: position.x + 12, top: position.y - 34, boxShadow: 'var(--shadow-popover)' }}
+		>
+			{children}
+		</div>
+	);
+};
+
+const DotTooltip: React.FC<{ compose: ComposeCx; project: TProject; hit: THitResult; placementLabel: string }> = (props) => {
+	const { compose, project, hit, placementLabel } = props;
 	if (hit.dot == null) return null;
 	const position = compose.toScreen(hit.dot);
 	const lane = project.music.lanes.find((item) => item.id === hit.laneId);
 	const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 	const pitch = lane?.hits[index]?.pitch;
 	const band = frameBand(project);
-	const isOutside = Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
+	const overshoot = Math.abs(hit.dot.x - band.centerX) - band.halfWidth;
+	const isOutside = hit.outOfFrame ?? overshoot > 0;
+	const side = hit.dot.x > band.centerX ? 'right' : 'left';
 	return (
-		<div
-			className="pointer-events-none absolute z-10 rounded-[6px] bg-[var(--content-raised)] px-2 py-1 text-[11px] leading-[15px] whitespace-nowrap"
-			style={{ left: position.x + 12, top: position.y - 34, boxShadow: 'var(--shadow-popover)' }}
-		>
+		<CanvasTooltip position={position}>
 			<div className="font-medium">
 				{lane?.name ?? 'Hit'} · Hit {index + 1}
 				<span className="mm-mono ml-1.5 font-normal text-[var(--text-secondary)]">
@@ -307,10 +421,64 @@ const DotTooltip: React.FC<{ compose: ComposeCx; project: TProject; hit: THitRes
 					{pitch != null ? ` · ${noteName(pitch)}` : ''}
 				</span>
 			</div>
-			<div className={isOutside ? 'text-[var(--bad)]' : 'text-[var(--text-secondary)]'}>
-				{isOutside ? 'Outside the frame · click to place anyway' : 'Click to place a platform'}
+			{isOutside ? (
+				<>
+					<div className="text-[var(--bad)]">
+						{overshoot > 0 ? `${(overshoot * 100).toFixed(1)} cm past the ${side} frame edge` : 'Outside the frame'} at this time
+					</div>
+					<div className="text-[var(--text-secondary)]">Turn the piece before it or press A · click to place anyway</div>
+				</>
+			) : (
+				<div className="text-[var(--text-secondary)]">Click to place a {placementLabel}</div>
+			)}
+		</CanvasTooltip>
+	);
+};
+
+/** Guardrail for a long gap: the hit is too far after the previous one for a bounce, so offer a bridge */
+const GapMenu: React.FC<{ compose: ComposeCx; project: TProject; hit: THitResult }> = (props) => {
+	const { compose, project, hit } = props;
+	if (hit.dot == null) return null;
+	const gap = compose.longGapKeys(project).get(`${hit.laneId}:${hit.hitId}`);
+	if (gap == null) return null;
+	const position = compose.toScreen(hit.dot);
+	const lane = project.music.lanes.find((item) => item.id === hit.laneId);
+	const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
+	const add = (type: 'rail' | 'tunnel'): void => {
+		compose.$gapMenu.set(null);
+		compose.assist.suggestGapPiece(type, hit.laneId, gap.fromHitId, hit.hitId, { accept: true });
+	};
+	return (
+		<div
+			className="absolute z-10 flex flex-col gap-1 rounded-[8px] bg-[var(--content-raised)] p-1.5 text-[11px] leading-[15px] whitespace-nowrap"
+			style={{ left: position.x + 12, top: position.y - 70, boxShadow: 'var(--shadow-popover)' }}
+			onPointerLeave={() => compose.$gapMenu.set(null)}
+		>
+			<div className="px-1 font-medium">
+				{lane?.name ?? 'Hit'} · Hit {index + 1}
+				<span className="ml-1.5 font-normal text-[var(--warn)]">{gap.duration.toFixed(1)} s gap</span>
+			</div>
+			<div className="px-1 text-[var(--text-secondary)]">Too long for one bounce. Bridge it, or click the dot for a platform.</div>
+			<div className="flex gap-1">
+				<GapButton type="rail" label="Add Rail" onClick={() => add('rail')} />
+				<GapButton type="tunnel" label="Add Tunnel" onClick={() => add('tunnel')} />
 			</div>
 		</div>
+	);
+};
+
+const GapButton: React.FC<{ type: string; label: string; onClick: () => void }> = (props) => {
+	const { type, label, onClick } = props;
+	return (
+		<button
+			className="flex h-[22px] items-center gap-1.5 rounded-[5px] bg-[var(--control)] px-2 font-medium hover:bg-[var(--hover)]"
+			style={{ boxShadow: 'inset 0 0 0 0.5px var(--control-border)' }}
+			onClick={onClick}
+			type="button"
+		>
+			<span className="inline-block h-2 w-2 rounded-full" style={{ background: paletteOf(type).bar }} />
+			{label}
+		</button>
 	);
 };
 

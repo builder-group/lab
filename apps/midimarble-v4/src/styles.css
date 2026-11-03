@@ -321,6 +321,22 @@ textarea {
 	color: var(--on-accent);
 }
 
+.mm-tool-count {
+	position: absolute;
+	top: 1px;
+	right: 1px;
+	min-width: 13px;
+	height: 13px;
+	padding: 0 3px;
+	border-radius: 7px;
+	background: var(--accent);
+	color: var(--on-accent);
+	font-size: 9px;
+	font-weight: 600;
+	line-height: 13px;
+	text-align: center;
+}
+
 /* Figma-style tooltip with the shortcut, shown above the button after a short delay */
 .mm-tooltip {
 	position: absolute;
@@ -368,6 +384,71 @@ textarea {
 @keyframes mm-fade-in {
 	to {
 		opacity: 1;
+	}
+}
+
+/* Inline suggestion hint next to ghost pieces, like tab completion in a code editor */
+.mm-hint {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	height: 24px;
+	padding: 0 4px 0 3px;
+	border-radius: 7px;
+	background: var(--content-raised);
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.14),
+		0 2px 8px rgb(0 0 0 / 0.1);
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-hint {
+		box-shadow:
+			0 0 0 0.5px rgb(255 255 255 / 0.14),
+			0 2px 8px rgb(0 0 0 / 0.4);
+	}
+}
+
+.mm-hint-action {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 18px;
+	padding: 0 5px 0 2px;
+	border-radius: 5px;
+	font-weight: 500;
+}
+
+.mm-hint-action:hover {
+	background: var(--hover);
+}
+
+.mm-keycap {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 15px;
+	padding: 0 4px;
+	border-radius: 4px;
+	background: var(--pressed);
+	box-shadow: inset 0 -0.5px 0 var(--control-border);
+	color: var(--text-secondary);
+	font-family: var(--font);
+	font-size: 10px;
+	font-weight: 500;
+	line-height: 1;
+}
+
+.mm-ghost-in {
+	animation: mm-ghost-in 0.12s ease-out;
+}
+
+@keyframes mm-ghost-in {
+	from {
+		opacity: 0;
 	}
 }
 

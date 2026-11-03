@@ -20,7 +20,6 @@ export class SimulationCx {
 	private sent = 0;
 	private accepted = 0;
 
-
 	constructor(private readonly studio: StudioCx) {}
 
 	mount(): () => void {
@@ -63,6 +62,16 @@ export class SimulationCx {
 
 	get isPreviewing(): boolean {
 		return this.preview != null;
+	}
+
+	/** The worker client for assists such as Auto place and Continue, while mounted */
+	get assists(): TSimulationClient | null {
+		return this.client;
+	}
+
+	/** The project the shown trajectory is computed for: the drag preview or the history's present */
+	get previewProject(): TProject | null {
+		return this.preview;
 	}
 
 	private schedule(): void {

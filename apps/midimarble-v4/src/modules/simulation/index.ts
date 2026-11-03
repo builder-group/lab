@@ -8,3 +8,5 @@ export * from './placement';
 export * from './shapes';
 export * from './simulate';
 export * from './types';
+export * from './request-queue';
+export * from './worker-protocol';
