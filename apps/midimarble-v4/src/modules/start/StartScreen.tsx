@@ -10,6 +10,7 @@ import type { StudioCx } from '@/modules/studio';
 export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 	const { cx, extraActions } = props;
 	const recent = useFeatureState(cx.$recent);
+	const [showAllRecent, setShowAllRecent] = React.useState(false);
 
 	// ⌘N and ⌘O work here as in the studio
 	React.useEffect(() => {
@@ -93,7 +94,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 						<span className="mm-placeholder-body">Projects you open appear here.</span>
 					</div>
 				) : (
-					recent.map((item) => (
+					(showAllRecent ? recent : recent.slice(0, RECENT_LIMIT)).map((item) => (
 						<button
 							key={item.path}
 							className="mm-row !h-11 w-[calc(100%-16px)] shrink-0 text-left"
@@ -111,6 +112,15 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 						</button>
 					))
 				)}
+				{recent.length > RECENT_LIMIT ? (
+					<button
+						className="mm-row !h-7 w-[calc(100%-16px)] shrink-0 text-left text-[12px] text-[var(--text-secondary)]"
+						onClick={() => setShowAllRecent(!showAllRecent)}
+						type="button"
+					>
+						{showAllRecent ? 'Show Less' : `Show All ${recent.length}`}
+					</button>
+				) : null}
 				<div className="mm-section-title mt-4">Examples</div>
 				{examples.map((example) => (
 					<button
@@ -130,6 +140,9 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 		</div>
 	);
 };
+
+// Enough recent projects to resume work while the examples stay in view
+const RECENT_LIMIT = 6;
 
 interface TStartScreenProps {
 	cx: StudioCx;
