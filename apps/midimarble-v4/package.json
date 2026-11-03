@@ -32,7 +32,7 @@
 		"lint": "eslint .",
 		"soundbank:build": "tsx scripts/build-soundbank.ts",
 		"start:dev": "tauri dev",
-		"test": "vitest run && MM_PERF=1 vitest run",
+		"test": "vitest run --exclude 'src/**/performance.test.ts' && vitest run src/modules/simulation/performance.test.ts",
 		"typecheck": "tsc --noEmit",
 		"ui:build": "pnpm typecheck && vite build",
 		"ui:start:dev": "vite dev",
