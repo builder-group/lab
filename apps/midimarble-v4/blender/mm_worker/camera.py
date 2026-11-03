@@ -73,8 +73,9 @@ SENSOR = 36.0
 GROUP_EASE = 1.2
 # A group that needs more than the readable distance for less than this many seconds stays framed
 GROUP_SPIKE = 0.3
-# A view ray that misses the wall counts this many camera heights away when sizing the wall
-FAR_REACH = 12.0
+# A view ray that misses the wall, or meets it further than this, counts this many camera heights away when sizing
+# the wall. The steep default pitch (1.15 rad) meets the wall up to about 40 heights away at the far frame corner
+FAR_REACH = 60.0
 CAMERA_PATHS = ('location', 'rotation_euler')
 CAMERA_DATA_PATHS = ('dof.focus_distance',)
 SIGNATURE_VERSION = 2
