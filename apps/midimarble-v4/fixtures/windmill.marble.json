@@ -77,7 +77,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.65
 					}
 				},
 				"hitLink": {
@@ -98,7 +99,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.65
 					}
 				},
 				"hitLink": {
@@ -123,7 +125,8 @@
 						"hubRadius": 0.008,
 						"damping": 0.5,
 						"motorSpeed": 0,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.5
 					}
 				},
 				"hitLink": {
@@ -144,7 +147,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.46
 					}
 				},
 				"hitLink": {
@@ -165,13 +169,14 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.64
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-5",
-					"angle": -0.2792526803190927,
+					"angle": -0.29670597283903605,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -186,13 +191,14 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.65
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
-					"angle": 0.5235987755982988,
+					"angle": 0.2792526803190927,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -207,13 +213,14 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.65
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-7",
-					"angle": -0.19198621771937624,
+					"angle": -0.22689280275926285,
 					"contactAt": 0.5,
 					"pinned": false
 				}

@@ -1,6 +1,7 @@
 import type { TMenuItem } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
+import { themeCommands } from '@/modules/design/design-commands';
 import { parseHitKey } from './selection';
 import { focusedLane, type StudioCx } from './StudioCx';
 
@@ -20,7 +21,7 @@ export interface TCommand {
 	run: (cx: StudioCx) => void;
 }
 
-export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Build' | 'Marble';
+export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Build' | 'Marble' | 'Design';
 
 function compose(cx: StudioCx): ComposeCx | null {
 	return cx.$workspace.get() === 'compose' ? cx.$compose.get() : null;
@@ -28,6 +29,37 @@ function compose(cx: StudioCx): ComposeCx | null {
 
 function hasProject(cx: StudioCx): boolean {
 	return cx.project != null;
+}
+
+function inDesign(cx: StudioCx): boolean {
+	return cx.project != null && cx.$workspace.get() === 'design';
+}
+
+/** Whether Blender runs for the Design workspace; false in the browser and without Blender */
+function hasBlender(cx: StudioCx): boolean {
+	const status = cx.design.$status.get();
+	return inDesign(cx) && status !== 'unavailable' && status !== 'missing';
+}
+
+/** Selected pieces that Blender reports as unlinked */
+function unlinkedSelection(cx: StudioCx): string[] {
+	const links = cx.design.$links.get();
+	return cx.$selection.get().filter((id) => links[id]?.link === 'unlinked');
+}
+
+function themeCommand(id: 'design.themePegboard' | 'design.themeBrass', theme: string, title: string): TCommand {
+	return {
+		id,
+		title,
+		section: 'Design',
+		keywords: 'look style art direction',
+		isEnabled: hasProject,
+		isChecked: (cx) => cx.project?.design.theme === theme,
+		run: (cx) => {
+			const project = cx.project;
+			if (project != null) cx.execute(themeCommands(project, theme));
+		}
+	};
 }
 
 function hasPieces(cx: StudioCx): boolean {
@@ -69,6 +101,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', isEnabled: hasProject, run: (cx) => void cx.flush() },
 	{ id: 'file.importMidi', title: 'Import MIDI…', section: 'File', shortcut: '⌘I', isEnabled: hasProject, run: (cx) => void cx.sources.pickMidi() },
 	{ id: 'file.importAudio', title: 'Import Audio…', section: 'File', shortcut: '⇧⌘I', keywords: 'recording wav mp3', isEnabled: hasProject, run: (cx) => void cx.sources.pickAudio() },
+	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.film.openSheet() },
 
 	// MARK: - Edit
 	{ id: 'edit.undo', title: 'Undo', section: 'Edit', shortcut: '⌘Z', isEnabled: (cx) => (cx.$history.get()?.past.length ?? 0) > 0, run: (cx) => cx.undo() },
@@ -160,6 +193,62 @@ export const commands: readonly TCommand[] = [
 	{ id: 'build.rotateLeft', title: 'Rotate 5° Counterclockwise', section: 'Build', shortcut: '⇧←', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(5) },
 	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Build', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
 
+	// MARK: - Design
+	{ id: 'design.editInBlender', title: 'Edit in Blender', section: 'Design', keywords: 'open blender window', isEnabled: hasBlender, run: (cx) => void cx.design.openInBlender() },
+	{ id: 'design.renderPreview', title: 'Render Preview', section: 'Design', keywords: 'refresh update eevee playhead', isEnabled: hasBlender, run: (cx) => cx.design.requestPreview(0) },
+	{
+		id: 'design.addText',
+		title: 'Add Wall Text',
+		section: 'Design',
+		keywords: 'title label type decal',
+		isEnabled: inDesign,
+		isChecked: (cx) => cx.design.$placing.get() === 'text',
+		run: (cx) => {
+			// With a preview the next click places the text; without one it goes to the middle of the frame
+			if (cx.design.$preview.get() != null) cx.design.$placing.set(cx.design.$placing.get() === 'text' ? null : 'text');
+			else cx.placeWallText();
+		}
+	},
+	{
+		id: 'design.askAgent',
+		title: 'Ask Agent…',
+		section: 'Design',
+		keywords: 'ai claude codex generate skin describe',
+		isEnabled: inDesign,
+		run: (cx) => {
+			cx.$panels.set((panels) => ({ ...panels, inspector: true }));
+			requestAnimationFrame(() => document.getElementById('agent-prompt')?.focus());
+		}
+	},
+	{
+		id: 'design.resetToCompose',
+		title: 'Reset to Compose',
+		section: 'Design',
+		keywords: 'relink linked detached discard blender changes',
+		isEnabled: (cx) => hasBlender(cx) && unlinkedSelection(cx).length > 0,
+		run: (cx) => void cx.design.relink(unlinkedSelection(cx))
+	},
+	{
+		id: 'design.regenerateCamera',
+		title: 'Regenerate Camera',
+		section: 'Design',
+		keywords: 'rig follow camera taken over reset',
+		isEnabled: (cx) => hasBlender(cx) && cx.design.$camera.get() === 'takenOver',
+		run: (cx) => void cx.design.regenerateCamera()
+	},
+	themeCommand('design.themePegboard', 'pegboard', 'Pegboard Theme'),
+	themeCommand('design.themeBrass', 'brass', 'Brass Theme'),
+	{
+		id: 'design.loop',
+		title: 'Loop',
+		section: 'Design',
+		keywords: 'seamless repeat',
+		isEnabled: hasProject,
+		isChecked: (cx) => cx.project?.design.loop === true,
+		run: (cx) => cx.execute([{ type: 'setDesign', design: { loop: cx.project?.design.loop !== true } }])
+	},
+	{ id: 'design.cancelExport', title: 'Cancel Export', section: 'Design', keywords: 'stop render film', isEnabled: (cx) => cx.film.isRunning, run: (cx) => cx.film.cancel() },
+
 	// MARK: - Marble
 	{ id: 'marble.add', title: 'Add Marble', section: 'Marble', keywords: 'lane track new', isEnabled: hasProject, run: (cx) => cx.addMarble() },
 	{
@@ -195,6 +284,17 @@ export type TCommandId =
 	| 'file.save'
 	| 'file.importMidi'
 	| 'file.importAudio'
+	| 'file.export'
+	| 'design.editInBlender'
+	| 'design.renderPreview'
+	| 'design.addText'
+	| 'design.askAgent'
+	| 'design.resetToCompose'
+	| 'design.regenerateCamera'
+	| 'design.themePegboard'
+	| 'design.themeBrass'
+	| 'design.loop'
+	| 'design.cancelExport'
 	| 'edit.undo'
 	| 'edit.redo'
 	| 'edit.rename'

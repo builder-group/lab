@@ -27,6 +27,13 @@ function RouteComponent() {
 						cx={cx.design}
 						frame={history.present.frame}
 						onPick={(id) => cx.$selection.set(id == null ? [] : [id])}
+						onPlace={(u, v) => cx.placeWallText(u, v)}
+						onDropAsset={(entityId, asset) => {
+							const item = [...cx.library.$projectItems.get(), ...cx.library.$globalItems.get()].find((candidate) => candidate.id === asset.id && candidate.scope === asset.scope);
+							if (item == null) return;
+							cx.$selection.set([entityId]);
+							void cx.library.applySkin(item, { kind: 'entities', entityIds: [entityId] });
+						}}
 					/>
 				)
 			}

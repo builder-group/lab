@@ -852,6 +852,489 @@ textarea {
 	}
 }
 
+/* MARK: - Design */
+
+/* Search field like Finder's sidebar filter, with the glass on the left */
+.mm-search {
+	padding-left: 22px;
+	border-radius: 6px;
+}
+
+.mm-library-header {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	width: 100%;
+	height: 24px;
+	padding: 0 12px 0 14px;
+	font-size: var(--text-small);
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+.mm-library-header:hover .mm-disclosure {
+	color: var(--text-secondary);
+}
+
+/* Thumbnail grid of Blender's asset browser, sized for the sidebar */
+.mm-tile-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 4px;
+	padding: 2px 10px 4px;
+}
+
+.mm-tile {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 1px;
+	min-width: 0;
+	padding: 4px 4px 5px;
+	border-radius: 8px;
+	text-align: left;
+}
+
+.mm-tile:hover {
+	background: var(--hover);
+}
+
+.mm-tile[data-selected='true'] {
+	background: var(--pressed);
+}
+
+.mm-tile[data-dimmed='true'] {
+	opacity: 0.45;
+}
+
+.mm-tile-thumb {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 4 / 3;
+	margin-bottom: 3px;
+	overflow: hidden;
+	border-radius: 6px;
+	background: var(--canvas);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-tile-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.mm-tile[data-selected='true'] .mm-tile-thumb,
+.mm-tile[data-applied='true'] .mm-tile-thumb {
+	box-shadow:
+		0 0 0 2px var(--accent-strong),
+		inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-tile-label {
+	overflow: hidden;
+	padding: 0 2px;
+	font-size: var(--text-small);
+	font-weight: 500;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.mm-tile-secondary {
+	overflow: hidden;
+	padding: 0 2px;
+	color: var(--text-tertiary);
+	font-size: 10px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.mm-textarea {
+	height: auto;
+	min-height: 52px;
+	padding: 4px 6px;
+	line-height: 1.35;
+	resize: vertical;
+	font-variant-numeric: normal;
+}
+
+.mm-textarea:disabled {
+	opacity: 0.55;
+}
+
+/* Agent requests read like a comment thread in Figma or Pages */
+.mm-thread {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--separator);
+}
+
+.mm-thread[data-closed='true'] {
+	opacity: 0.6;
+}
+
+.mm-thread-author {
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+	font-weight: 600;
+}
+
+.mm-thread-prompt {
+	line-height: 1.35;
+	overflow-wrap: anywhere;
+}
+
+.mm-thread-phase {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	margin-left: auto;
+	font-weight: 500;
+	color: var(--text-tertiary);
+}
+
+.mm-thread-phase[data-phase='review'] {
+	color: var(--accent-strong);
+}
+
+.mm-thread-phase[data-phase='accepted'] {
+	color: var(--good);
+}
+
+.mm-thread-phase[data-phase='failed'],
+.mm-thread-phase[data-phase='incomplete'] {
+	color: var(--bad);
+}
+
+.mm-thread-text {
+	font-size: 12px;
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
+
+.mm-thread-step {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+}
+
+.mm-thread-step[data-status='failed'] {
+	color: var(--bad);
+}
+
+.mm-candidate {
+	margin-top: 6px;
+	overflow: hidden;
+	border-radius: 8px;
+	background: var(--content-raised);
+	box-shadow:
+		0 0 0 0.5px var(--control-border),
+		0 1px 3px rgb(0 0 0 / 0.08);
+}
+
+.mm-candidate img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 1;
+	object-fit: cover;
+	background: var(--canvas);
+}
+
+/* Text button like a link in a macOS inspector */
+.mm-link {
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+	font-weight: 500;
+}
+
+.mm-link:hover {
+	color: var(--text);
+	text-decoration: underline;
+}
+
+.mm-setup-card {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background: var(--hover);
+}
+
+.mm-command {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 3px 3px 7px;
+	border-radius: 5px;
+	background: var(--content);
+	box-shadow: inset 0 0 0 0.5px var(--control-border);
+	font-family: var(--font-mono);
+	font-size: var(--text-small);
+}
+
+/* Current skin of a piece; library tiles can be dropped on it */
+.mm-drop-well {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px;
+	border-radius: 8px;
+	background: var(--hover);
+	outline: 1.5px dashed transparent;
+	outline-offset: -1.5px;
+}
+
+.mm-drop-well[data-dropping='true'] {
+	outline-color: var(--accent-strong);
+	background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.mm-skin-thumb {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	flex-shrink: 0;
+	overflow: hidden;
+	border-radius: 6px;
+	background: var(--content);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+	color: var(--text-secondary);
+}
+
+.mm-skin-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.mm-link-state {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.mm-link-state::before {
+	content: '';
+	width: 7px;
+	height: 7px;
+	border-radius: 999px;
+	background: var(--text-tertiary);
+}
+
+.mm-link-state[data-state='linked']::before {
+	background: var(--good);
+}
+
+.mm-link-state[data-state='unlinked']::before,
+.mm-link-state[data-state='mixed']::before {
+	background: var(--warn);
+}
+
+.mm-color {
+	width: 34px;
+	height: 20px;
+	padding: 0;
+	border: 0.5px solid var(--control-border);
+	border-radius: 5px;
+	background: none;
+}
+
+.mm-color::-webkit-color-swatch-wrapper {
+	padding: 2px;
+}
+
+.mm-color::-webkit-color-swatch {
+	border: 0;
+	border-radius: 3px;
+}
+
+/* macOS sheet sliding from the toolbar */
+.mm-sheet {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	height: fit-content;
+	padding: 20px;
+	border-radius: 12px;
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+	animation: mm-sheet-in 0.16s ease-out;
+}
+
+@keyframes mm-sheet-in {
+	from {
+		transform: translateY(-8px);
+		opacity: 0;
+	}
+}
+
+/* Form with right-aligned labels like AppKit dialogs */
+.mm-form {
+	display: grid;
+	grid-template-columns: 76px 1fr;
+	align-items: start;
+	gap: 10px 10px;
+}
+
+.mm-form > label,
+.mm-form > .mm-form-label {
+	padding-top: 3px;
+	color: var(--text-secondary);
+	text-align: right;
+	white-space: nowrap;
+}
+
+.mm-summary {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 9px 12px;
+	border-radius: 8px;
+	background: var(--canvas);
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+}
+
+.mm-summary .font-medium {
+	color: var(--text);
+	font-size: var(--text-body);
+}
+
+.mm-progress {
+	width: 100%;
+	height: 6px;
+	appearance: none;
+	-webkit-appearance: none;
+	overflow: hidden;
+	border: 0;
+	border-radius: 999px;
+	background: var(--pressed);
+}
+
+.mm-progress::-webkit-progress-bar {
+	background: var(--pressed);
+}
+
+.mm-progress::-webkit-progress-value {
+	border-radius: 999px;
+	background: var(--accent-strong);
+	transition: width 0.25s;
+}
+
+.mm-progress:indeterminate {
+	background: linear-gradient(90deg, var(--pressed) 30%, var(--accent) 50%, var(--pressed) 70%) 0 0 / 300% 100%;
+	animation: mm-indeterminate 1.4s linear infinite;
+}
+
+@keyframes mm-indeterminate {
+	to {
+		background-position: -150% 0;
+	}
+}
+
+.mm-film {
+	display: block;
+	max-height: 360px;
+	margin: 0 auto;
+	border-radius: 8px;
+	background: #000;
+}
+
+.mm-error-box {
+	max-height: 140px;
+	overflow-y: auto;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--bad) 10%, transparent);
+	color: var(--bad);
+	font-size: var(--text-small);
+	line-height: 1.4;
+	white-space: pre-wrap;
+	user-select: text;
+}
+
+.mm-preview[data-placing='true'] {
+	cursor: crosshair;
+}
+
+.mm-preview[data-drop-target='true'] {
+	outline: 2px solid var(--accent-strong);
+	outline-offset: 3px;
+}
+
+/* Activity view like Xcode's: a quiet status pill in the toolbar with a hairline progress bar */
+.mm-activity {
+	position: relative;
+	display: flex;
+	align-items: center;
+	width: 260px;
+	height: 26px;
+	padding: 0 10px;
+	overflow: hidden;
+	border-radius: 6px;
+	background: var(--hover);
+	font-size: var(--text-small);
+	text-align: left;
+}
+
+.mm-activity[data-clickable='true']:hover {
+	background: var(--pressed);
+}
+
+.mm-activity-dot {
+	width: 6px;
+	height: 6px;
+	flex-shrink: 0;
+	border-radius: 999px;
+	background: var(--text-tertiary);
+}
+
+.mm-activity-dot[data-tone='good'] {
+	background: var(--good);
+}
+
+.mm-activity-dot[data-tone='bad'] {
+	background: var(--bad);
+}
+
+.mm-activity-bar {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+}
+
+.mm-activity-bar > span {
+	display: block;
+	height: 100%;
+	background: var(--accent-strong);
+	transition: width 0.25s;
+}
+
+.mm-activity-bar[data-indeterminate='true'] > span {
+	animation: mm-activity-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes mm-activity-slide {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(340%);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	* {
 		transition: none !important;

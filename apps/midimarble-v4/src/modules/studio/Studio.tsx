@@ -1,6 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { ContextMenuHost } from '@/components';
+import { ExportSheet } from '@/modules/design/ExportSheet';
 import { CommandPalette } from './CommandPalette';
 import { ImportMidiSheet } from './ImportMidiSheet';
 import { Inspector } from './Inspector';
@@ -38,6 +39,7 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 			</div>
 			{panels.timeline ? <Timeline cx={cx} /> : null}
 			<ImportMidiSheet cx={cx} />
+			<ExportSheet cx={cx} />
 			<CommandPalette cx={cx} />
 			<ContextMenuHost />
 			{isDropping ? <DropOverlay /> : null}

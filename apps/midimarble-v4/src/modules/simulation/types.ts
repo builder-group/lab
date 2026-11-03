@@ -144,6 +144,7 @@ export interface TPieceDefinition {
 	>;
 	/** Distance of the piece from the wall surface along +z, so Blender and Compose agree on depth */
 	wallOffset: number;
+	/** Restitution of marble contacts, unless the piece has a `bounce` parameter */
 	restitution: number;
 	friction: number;
 	/**

@@ -50,7 +50,7 @@ describe('fixtures', () => {
 			.map((entity) => entity.components.hitLink?.angle)
 			.filter((angle): angle is number => angle != null);
 		expect(angles).toHaveLength(16);
-		angles.forEach((angle, i) => expect(angle).toBeCloseTo(i % 2 === 0 ? -0.3 : 0.3, 12));
+		angles.forEach((angle, i) => expect(angle).toBeCloseTo(i % 2 === 0 ? -0.4 : 0.4, 12));
 		// The dots alternate sides of the frame centre once the zigzag settles
 		const xs = result.hits.slice(6).map((hit) => hit.dot?.x ?? 0);
 		xs.forEach((x, i) => expect(Math.sign(x - (xs[i - 1] ?? -x))).toBe(i % 2 === 0 ? -1 : 1));
@@ -110,6 +110,21 @@ describe('fixtures', () => {
 		const last = motion[motion.length - 1];
 		expect(last?.time).toBeCloseTo(result.duration, 9);
 		expect(Math.abs((last?.angle ?? 0) - (windmill?.angle ?? 0))).toBeGreaterThan(0.5);
+	});
+
+	it('reference-20: two zigzag sections joined by a rail, every hit on time and descending', () => {
+		const project = loadFixture('reference-20');
+		const result = simulator.simulate(project);
+		const hitCount = project.music.lanes.reduce((count, lane) => count + lane.hits.length, 0);
+		expect(hitCount).toBeGreaterThanOrEqual(60);
+		expectAllOnTime(result, hitCount);
+		expect(result.pieces.filter((piece) => piece.type === 'rail')).toHaveLength(1);
+		// Each dot lies below the dot two hits earlier, in the same column of the zigzag
+		const hits = [...result.hits].sort((a, b) => a.targetTime - b.targetTime);
+		hits.slice(2).forEach((hit, i) =>
+			expect(hit.dot?.y ?? Infinity, hit.hitId).toBeLessThan(hits[i]?.dot?.y ?? -Infinity)
+		);
+		expect((hits[0]?.dot?.y ?? 0) - (hits.at(-1)?.dot?.y ?? 0)).toBeGreaterThan(3);
 	});
 
 	it('two-marbles: one intended collision and every hit on time', () => {

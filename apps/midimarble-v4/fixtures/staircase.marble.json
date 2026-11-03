@@ -81,7 +81,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.55
 					}
 				},
 				"hitLink": {
@@ -102,7 +103,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.55
 					}
 				},
 				"hitLink": {
@@ -123,7 +125,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.55
 					}
 				},
 				"hitLink": {
@@ -144,7 +147,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.55
 					}
 				},
 				"hitLink": {
@@ -165,7 +169,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.55
 					}
 				},
 				"hitLink": {
@@ -186,7 +191,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.55
 					}
 				},
 				"hitLink": {
@@ -207,7 +213,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.55
 					}
 				},
 				"hitLink": {
@@ -228,7 +235,8 @@
 					"params": {
 						"length": 0.06,
 						"thickness": 0.008,
-						"depth": 0.03
+						"depth": 0.03,
+						"bounce": 0.55
 					}
 				},
 				"hitLink": {

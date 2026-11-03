@@ -97,6 +97,25 @@ export const host = {
 		return convertFileSrc(file.path);
 	},
 
+	/** Save panel for an exported film; null when cancelled or in the browser */
+	async chooseFilmPath(defaultPath: string): Promise<string | null> {
+		if (!isTauri()) return null;
+		const { save } = await import('@tauri-apps/plugin-dialog');
+		return save({ title: 'Export Film', defaultPath, filters: [{ name: 'MPEG-4 Movie', extensions: ['mp4'] }] });
+	},
+
+	/** Selects a file in a Finder window */
+	async revealInFinder(path: string): Promise<TResult<void, Error>> {
+		if (!isTauri()) return Err(new Error('Finder is available in the desktop app only'));
+		try {
+			const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+			await revealItemInDir(path);
+			return Ok(undefined);
+		} catch (error) {
+			return Err(new Error(String(error)));
+		}
+	},
+
 	async listRecentProjects(): Promise<THostRecentProject[]> {
 		if (!isTauri()) return browserPackages.list();
 		return (await specta.commands.listRecentProjects()).map((item) => ({

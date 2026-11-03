@@ -8,6 +8,7 @@ import {
 	type TVec2
 } from '@/modules/project';
 import { pathGap, resolvedPieceShapes, shapesGap } from './clearance';
+import { GRAVITY_Y } from './geometry';
 import { layoutOf } from './piece-layout';
 import { getPieceDefinition, isFollowerPiece, resolvePieceParams } from './pieces';
 import { createLinkedPiece, frameBand, type TFrameBand } from './placement';
@@ -201,6 +202,10 @@ const DEGREE = Math.PI / 180;
  *
  * The travel and clearance weights dominate, so a short or crowded candidate wins only when nothing else
  * passes the hard checks.
+ *
+ * Before the search, a piece with a `bounce` parameter gets the bounce that brings the marble to the
+ * next hit at the steady speed of the default bounce (`withSettlingBounce`), so a fast or slow arrival
+ * does not carry over into the following hits.
  */
 const CLEARANCE = 0.004;
 const COMFORT_TRAVEL = 0.12;
@@ -245,7 +250,7 @@ export function autoPlace(
 
 	const owners = hitOwners(project, laneId);
 	const existing = owners.get(hitId);
-	const base =
+	let base =
 		existing ??
 		createLinkedPiece(type, laneId, hitId, 0, { entities: project.entities, id: options.id });
 	let previousAngle: number | null = null;
@@ -256,6 +261,10 @@ export function autoPlace(
 	const followingHit = lane.hits[index + 1] ?? null;
 	const nextHit =
 		followingHit != null && followingHit.time - hit.time <= LONG_GAP ? followingHit : null;
+	if (nextHit != null) {
+		const velocity = findHitResult(result, laneId, hitId)?.velocity ?? null;
+		base = withSettlingBounce(base, velocity, nextHit.time - hit.time);
+	}
 	const band = frameBand(project);
 	const until =
 		nextHit != null
@@ -751,6 +760,31 @@ export function isInBand(point: TVec2, band: TFrameBand, share: number): boolean
 
 function isOnTime(status: THitStatus | undefined): boolean {
 	return status === 'onTime' || status === 'drifting';
+}
+
+/**
+ * Sets a piece's `bounce` so the marble reaches the next hit, `interval` seconds later, at the steady
+ * speed of the default bounce. Hits that regular settle where each bounce sends the marble back at the
+ * speed it arrived with, `g·interval / (1 + e)` downward, and a bounce of `e·steady / speed` turns a
+ * faster or slower arrival into that speed. It sheds the energy of a long fall from the release in one
+ * hit, where the default bounce alone would leave the marble rising at the next hits for many more.
+ * Pieces without a `bounce` parameter are unchanged.
+ */
+function withSettlingBounce(entity: TEntity, velocity: TVec2 | null, interval: number): TEntity {
+	const { piece } = entity.components;
+	const spec = piece != null ? getPieceDefinition(piece.type)?.params['bounce'] : undefined;
+	if (piece == null || spec == null || velocity == null) return entity;
+	const steady = (-GRAVITY_Y * interval) / (1 + spec.default);
+	const speed = -velocity.y;
+	const bounce =
+		speed > 0 ? Math.min(spec.max, Math.max(spec.min, (spec.default * steady) / speed)) : spec.max;
+	return {
+		...entity,
+		components: {
+			...entity.components,
+			piece: { ...piece, params: { ...piece.params, bounce: Math.round(bounce * 100) / 100 } }
+		}
+	};
 }
 
 function withAngle(entity: TEntity, angle: number): TEntity {

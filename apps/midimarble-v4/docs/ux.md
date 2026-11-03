@@ -134,6 +134,8 @@ The Design tab supports:
 
 The Design tab has no transform handles. Each change needs a Blender render, so dragging would feel slow and duplicate Blender.
 
+The Design sidebar is the library: Themes (Pegboard, Brass), In This Project and My Library as thumbnail tiles. A tile is dragged onto a piece in the preview or the inspector's Look panel, or applied from its context menu to the selection or to every piece of its type. Applying an item from My Library copies it into the project first. The inspector shows the Scene without a selection (Look, Camera, Wall Text, Agent, Output), a piece's Look, Link and Agent panels, or a selected wall text's Text and Position.
+
 Design owns lighting, the wall, text, effects, decorations and the camera.
 
 ### Library
@@ -175,7 +177,7 @@ The Design tab exposes distance, downward angle, lead, smoothing and shot marker
 
 The Design preview is a low-resolution Eevee render of the current playhead from the real scene. A preview clip renders a short video. The final render runs in Blender in the background with progress shown in the app.
 
-Export offers three presets: Fast (720p, 30 fps), Balanced (1080p, 30 fps) and Best (1080p, 60 fps). There is no 4K preset. Streaming Blender's viewport is a later option if the playhead render does not feel responsive enough.
+Export offers three presets: Fast (720p, 30 fps), Balanced (1080p, 30 fps) and Best (1080p, 60 fps). There is no 4K preset. Export Film (⌘E) opens a sheet with the preset, the renderer (Eevee or Cycles), the file name and an estimated time: the frame count times the per-frame time of the last film rendered with that renderer, or of the playhead preview scaled to the film size. While rendering the sheet shows the frame, elapsed and remaining time and Cancel; it can be hidden while the toolbar activity view keeps the progress. A finished film plays in the sheet with Reveal in Finder. Films are written into the package's `renders/` folder; the worker cannot write outside the package yet. Streaming Blender's viewport is a later option if the playhead render does not feel responsive enough.
 
 ## Ownership
 

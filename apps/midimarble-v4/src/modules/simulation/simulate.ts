@@ -11,6 +11,7 @@ import {
 import {
 	getPieceDefinition,
 	isFollowerPiece,
+	pieceRestitution,
 	resolvePieceParams,
 	resolvePiecePath
 } from './pieces';
@@ -41,8 +42,9 @@ const DT = 1 / PHYSICS_HZ;
 const GLASS_DENSITY = 2500;
 // Marble coefficients sit at the top of the range and pieces use the Min combine rule, which Rapier
 // prefers over the marble's Average rule. A piece's own restitution and friction therefore govern every
-// marble contact with it, while marble pairs combine to these values.
-const MARBLE_RESTITUTION = 0.9;
+// marble contact with it, while marble pairs combine to these values. The marble restitution matches the
+// highest `bounce` a piece allows, so Min never clips a piece's value.
+const MARBLE_RESTITUTION = 0.95;
 const MARBLE_FRICTION = 0.5;
 // Marble centres move in this plane. Pieces span z from their wall offset over their depth, and the
 // smallest allowed depth is 0.02 m, so the plane runs through every piece and contact normals stay in xy.
@@ -639,7 +641,7 @@ function addPieceColliders(world: RAPIER.World, state: TRunState, index: number)
 		if (desc == null) continue;
 		const collider = world.createCollider(
 			desc
-				.setRestitution(definition.restitution)
+				.setRestitution(pieceRestitution(definition, params))
 				.setFriction(definition.friction)
 				.setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min)
 				.setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
@@ -741,7 +743,7 @@ function addRotorBody(
 		const collider = world.createCollider(
 			desc
 				.setDensity(ROTOR_DENSITY)
-				.setRestitution(piece.definition.restitution)
+				.setRestitution(pieceRestitution(piece.definition, piece.params))
 				.setFriction(piece.definition.friction)
 				.setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min)
 				.setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)

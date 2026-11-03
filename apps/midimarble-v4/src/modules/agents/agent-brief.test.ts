@@ -45,8 +45,14 @@ describe('buildAgentBrief function', () => {
 			pieceLabel: 'Platform',
 			pieceCount: 16
 		});
-		expect(brief.params.map((param) => param.name)).toEqual(['length', 'thickness', 'depth']);
-		expect(brief.params.every((param) => param.unit === 'm' && param.value > 0)).toBe(true);
+		expect(brief.params.map((param) => param.name)).toEqual([
+			'length',
+			'thickness',
+			'depth',
+			'bounce'
+		]);
+		expect(brief.params.map((param) => param.unit)).toEqual(['m', 'm', 'm', '']);
+		expect(brief.params.every((param) => param.value > 0)).toBe(true);
 
 		const pose = result.pieces.find((piece) => piece.entityId === platform.id);
 		const hit = result.hits.find((item) => item.pieceEntityId === platform.id);

@@ -25,6 +25,8 @@ export interface TSceneDescription {
 	camera?: TSceneCamera;
 	/** Overrides of the theme's hit reactions */
 	reactions?: TSceneReactions;
+	/** Wall text placed in Design. Optional and additive; workers that do not know it ignore it. */
+	wallTexts?: TSceneWallText[];
 }
 
 export interface TSceneCamera {
@@ -90,5 +92,26 @@ export interface TScenePiece {
 	 */
 	path?: { x: number; y: number }[] | null;
 	skin: { assetId: string; link: 'linked' | 'unlinked' } | null;
+	/**
+	 * Package-relative `.blend` of a library skin, such as `assets/piano-key/asset.blend`. Set when `skin.assetId`
+	 * names a project library item; built-in skins such as `brass:<finish>` have none. Optional and additive.
+	 */
+	assetPath?: string | null;
+	/** Hit reaction chosen in Design (`none`, `press`, `wobble` or `glow`); absent keeps the theme default */
+	reaction?: { preset: string; params: Record<string, number> } | null;
 	color: string;
+}
+
+/** Native Blender text object on the wall, from an entity's `wallText` and `transform` components */
+export interface TSceneWallText {
+	id: string;
+	text: string;
+	font: string;
+	/** Letter height in metres */
+	size: number;
+	/** Extrusion in metres */
+	depth: number;
+	color: string;
+	position: { x: number; y: number };
+	angle: number;
 }

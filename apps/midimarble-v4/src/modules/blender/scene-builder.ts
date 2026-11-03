@@ -70,6 +70,8 @@ export function buildSceneDescription(
 			motionPath,
 			sampleCount,
 			skin: entity?.components.skin ?? null,
+			assetPath: skinAssetPath(entity?.components.skin?.assetId),
+			reaction: entity?.components.reaction ?? null,
 			color: (laneId != null ? laneColors.get(laneId) : undefined) ?? DEFAULT_PIECE_COLOR,
 			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null
 		};
@@ -86,7 +88,13 @@ export function buildSceneDescription(
 			theme: project.design.theme,
 			marbles,
 			pieces,
-			camera: buildSceneCamera(project.design.camera)
+			camera: buildSceneCamera(project.design.camera),
+			wallTexts: project.entities.flatMap((entity) => {
+				const text = entity.components.wallText;
+				const transform = entity.components.transform;
+				if (text == null || transform == null) return [];
+				return [{ id: entity.id, ...text, position: { ...transform.position }, angle: transform.angle }];
+			})
 		},
 		motionFiles
 	};
@@ -102,6 +110,14 @@ export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
 		shots: camera.shots.map((shot) => ({ time: shot.time, kind: shot.kind, roll: shot.roll, distance: shot.distance }))
 	};
 }
+
+/** Package-relative `.blend` of a project library skin; built-in IDs with a colon such as `brass:gold` have none */
+export function skinAssetPath(assetId: string | undefined): string | null {
+	if (assetId == null || !assetId.length || assetId.includes(':')) return null;
+	return `${PROJECT_ASSETS_FOLDER}/${assetId}/asset.blend`;
+}
+
+export const PROJECT_ASSETS_FOLDER = 'assets';
 
 export interface TSceneBuild {
 	description: TSceneDescription;

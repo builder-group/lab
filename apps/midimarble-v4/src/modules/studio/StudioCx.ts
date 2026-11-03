@@ -23,7 +23,8 @@ import { parseHitKey } from './selection';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
-import { DesignCx } from '@/modules/design';
+import { AgentCx } from '@/modules/agents';
+import { addWallTextCommands, DesignCx, DesignLibraryCx, FilmExportCx, previewPointToWall } from '@/modules/design';
 
 /** Owns the open project, its history, persistence and the shared editing state of the studio */
 export class StudioCx {
@@ -55,6 +56,23 @@ export class StudioCx {
 		getPackagePath: () => this.$path.get(),
 		getPlayhead: () => this.$playhead.get()
 	});
+	readonly agents = new AgentCx({
+		getPackagePath: () => this.$path.get(),
+		getProject: () => this.project,
+		getResult: () => this.simulation.$result.get()
+	});
+	readonly library = new DesignLibraryCx({
+		getPackagePath: () => this.$path.get(),
+		getProject: () => this.project,
+		execute: (commands) => this.execute(commands),
+		notify: (message, tone) => this.notify(message, tone)
+	});
+	readonly film = new FilmExportCx({
+		getProject: () => this.project,
+		getPackagePath: () => this.$path.get(),
+		resolveSourceUrl: (source) => this.resolveSourceUrl(source),
+		design: this.design
+	});
 	private audioEngine: TAudioEngine | null = null;
 
 	private saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -69,10 +87,12 @@ export class StudioCx {
 		void this.refreshRecent();
 		const unmountSimulation = this.simulation.mount();
 		const unmountDesign = this.mountDesign();
+		const unmountAgents = this.agents.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		return () => {
 			unmountSimulation();
 			unmountDesign();
+			unmountAgents();
 			stopHeight();
 			void this.design.close();
 			clearTimeout(this.noticeTimer);
@@ -86,7 +106,14 @@ export class StudioCx {
 		const inDesign = (): boolean => this.$workspace.get() === 'design' && this.project != null;
 		const stops = [
 			this.$workspace.listen(({ value }) => {
-				if (value === 'design') void this.design.activate();
+				if (value !== 'design') return;
+				void this.design.activate();
+				void this.library.refresh(false);
+			}),
+			// Runs and library items belong to the package
+			this.$path.listen(() => {
+				void this.agents.reload();
+				void this.library.refresh();
 			}),
 			this.$playhead.listen(() => {
 				if (inDesign() && !this.$playing.get()) this.design.requestPreview();
@@ -120,6 +147,19 @@ export class StudioCx {
 		const lane = project?.music.lanes.find((item) => item.id === laneId);
 		if (project == null || lane == null || project.music.sources.some((source) => source.kind === 'audio')) return;
 		void this.audio.audition(lane, pitch);
+	}
+
+	/**
+	 * Places wall text where the preview was clicked, in 0..1 image coordinates, and selects it so the
+	 * inspector can edit it
+	 */
+	placeWallText(u = 0.5, v = 0.5): void {
+		const project = this.project;
+		if (project == null) return;
+		this.design.$placing.set(null);
+		const point = previewPointToWall(project, this.simulation.$result.get(), this.$playhead.get(), u, v);
+		const { commands, entityId } = addWallTextCommands(point);
+		if (this.execute(commands)) this.$selection.set([entityId]);
 	}
 
 	/** Selects entities and asks the canvas to frame them when they are out of view */

@@ -1,14 +1,22 @@
 import type { TVec2 } from '@/modules/project';
 import type { TPieceDefinition } from './types';
 
-/** Flat bar the marble bounces off. The collider is a box; its top face is the contact surface. */
+/**
+ * Flat bar the marble bounces off. The collider is a box; its top face is the contact surface.
+ * `bounce` is the restitution e of every marble contact with it. With a hit every T seconds the marble
+ * settles at a drop per hit of (1 − e) / (1 + e) · gT² / 2, and after a bounce it rises e² / (1 − e²)
+ * times that drop. Above e = 1 / √2 it rises past the previous piece of the other column in a zigzag
+ * and has to pass beside it on the way down, which the assists cannot keep in frame. The default 0.65
+ * stays below that: at T = 0.3 s it drops about 9.4 cm per hit, against 12.8 cm at 0.55.
+ */
 export const platformDefinition: TPieceDefinition = {
 	type: 'platform',
 	label: 'Platform',
 	params: {
 		length: { default: 0.06, min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
 		thickness: { default: 0.008, min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
-		depth: { default: 0.03, min: 0.02, max: 0.08, label: 'Depth', unit: 'm' }
+		depth: { default: 0.03, min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
+		bounce: { default: 0.65, min: 0.2, max: 0.95, label: 'Bounce', unit: '' }
 	},
 	wallOffset: 0,
 	restitution: 0.55,
@@ -77,7 +85,8 @@ export const windmillDefinition: TPieceDefinition = {
 		hubRadius: { default: 0.008, min: 0.004, max: 0.03, label: 'Hub radius', unit: 'm' },
 		damping: { default: 0.5, min: 0, max: 10, label: 'Damping', unit: '' },
 		motorSpeed: { default: 0, min: -20, max: 20, label: 'Motor speed', unit: 'rad/s' },
-		depth: { default: 0.03, min: 0.02, max: 0.08, label: 'Depth', unit: 'm' }
+		depth: { default: 0.03, min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
+		bounce: { default: 0.5, min: 0.2, max: 0.95, label: 'Bounce', unit: '' }
 	},
 	wallOffset: 0,
 	restitution: 0.5,
@@ -110,6 +119,14 @@ export function resolvePieceParams(
 		resolved[name] = spec.integer === true ? Math.round(clamped) : clamped;
 	}
 	return resolved;
+}
+
+/** Restitution of a piece's colliders: its `bounce` parameter when it has one, else its definition's */
+export function pieceRestitution(
+	definition: TPieceDefinition,
+	params: Record<string, number>
+): number {
+	return params['bounce'] ?? definition.restitution;
 }
 
 /** Local control points of a path piece, falling back to the definition's default path */

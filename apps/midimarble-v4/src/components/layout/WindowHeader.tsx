@@ -1,3 +1,4 @@
+import { isTauri } from '@tauri-apps/api/core';
 import React from 'react';
 import { usePlatform } from '@/hooks';
 import { cn } from '@/lib';
@@ -26,13 +27,15 @@ interface TWindowHeaderProps {
 	className?: string;
 }
 
+/**
+ * Keeps content clear of the macOS traffic lights, which end about 74 px from the window edge in the
+ * native window. The browser surface has no traffic lights and keeps a smaller inset.
+ */
 export const WindowControlsInset: React.FC = () => {
 	const platform = usePlatform();
+	// The user agent backs up the OS plugin, so the inset never disappears in the native window
+	const isMac = platform === 'macos' || navigator.userAgent.includes('Mac');
+	const width = !isMac ? 0 : isTauri() ? 72 : 60;
 
-	return (
-		<div
-			data-tauri-drag-region
-			className={cn(platform === 'macos' ? 'h-full w-[60px] shrink-0' : 'h-full w-0')}
-		/>
-	);
+	return <div data-tauri-drag-region className="h-full shrink-0" style={{ width }} />;
 };

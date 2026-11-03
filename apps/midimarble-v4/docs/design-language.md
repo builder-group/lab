@@ -108,12 +108,21 @@ Colors always come with a shape or label so they remain readable without color.
 
 ## Commands
 
-⌘K opens a command palette with every command, like Linear, Raycast and Blender's F3 search. It groups commands by section (File, Edit, View, Playback, Tools, Build, Marble), matches word starts and extra keywords, shows check marks for toggles, dims unavailable commands and draws shortcuts as keycaps. Commands live in one registry that the palette, context menus and the shortcut handlers share, so a command reads and behaves the same everywhere. The macOS menu bar should list the same commands with their shortcuts, so features are discoverable without the palette.
+⌘K opens a command palette with every command, like Linear, Raycast and Blender's F3 search. It groups commands by section (File, Edit, View, Playback, Tools, Build, Marble, Design; Tools and Build only in Compose, Design only in Design), matches word starts and extra keywords, shows check marks for toggles, dims unavailable commands and draws shortcuts as keycaps. Commands live in one registry that the palette, context menus and the shortcut handlers share, so a command reads and behaves the same everywhere. The macOS menu bar should list the same commands with their shortcuts, so features are discoverable without the palette.
 
 ## Agents
 
 The agent conversation lives in the inspector for the current selection, like a comment thread. Candidates appear as cards with a preview image and Accept and Decline buttons. The canvas shows the candidate in place while it is pending.
 
+
+If no agent CLI is installed, or a run fails because the CLI is not logged in, the panel says so and shows the Terminal command that fixes it, such as `claude /login`, with a copy button. Long runs fold earlier tool steps into a count and keep the latest four.
+
+## Design workspace
+
+- Library tiles follow Blender's asset browser in a Finder-style sidebar: two columns of 4:3 thumbnails with a name and a secondary line, a search field, collapsible sections. The applied theme gets an accent ring and a check badge; a selected item gets a grey tile and the ring. Items that do not fit the selected piece type are dimmed
+- The toolbar activity view (Xcode) sits next to the workspace switcher: Blender's state (Starting, Updating scene, Rendering preview, Ready), agents at work and the export with a hairline progress bar. Clicking it during an export shows the export sheet
+- Placing wall text uses a crosshair cursor and a floating hint with an esc keycap; Escape cancels
+- Sheets (Import MIDI, Export Film) drop from the toolbar with AppKit-style right-aligned form labels and dialog buttons; Return runs the default button and Escape cancels
 ## Visual style
 
 - System font through `-apple-system`, compact density like Finder and Logic

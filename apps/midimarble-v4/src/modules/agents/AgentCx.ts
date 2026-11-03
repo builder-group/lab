@@ -246,13 +246,8 @@ export class AgentCx {
 			manifest = isManifestOk ? parsed : null;
 			manifestError = isManifestOk ? null : manifestErr.message;
 		}
-		const previewUrl =
-			dto.previewPath == null
-				? null
-				: previous?.previewUrl != null && previous.finishedAt === dto.finishedAt
-					? previous.previewUrl
-					: // A new query string makes the image reload after the agent renders again
-						`${convertFileSrc(dto.previewPath)}?v=${dto.finishedAt ?? Date.now()}`;
+		// Note: no cache-busting query string; Tauri's asset protocol reads it as part of the file path
+		const previewUrl = dto.previewPath == null ? null : convertFileSrc(dto.previewPath);
 		return withPhase({
 			id: dto.runId,
 			cli: dto.cli,

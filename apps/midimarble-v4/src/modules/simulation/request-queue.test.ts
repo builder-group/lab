@@ -93,7 +93,7 @@ describe('worker protocol', () => {
 
 	it('answers simulate, autoPlace, continue and gapPiece requests', async () => {
 		const simulator = await createSimulator();
-		const zigzag = bareRun([0.15, 0.45, 0.75, 1.05, 1.35, 1.65], [-0.3, 0.3]);
+		const zigzag = bareRun([0.15, 0.45, 0.75, 1.05, 1.35, 1.65], [-0.4, 0.4]);
 		const placed = answerWorkerRequest(simulator, { kind: 'autoPlace', project: zigzag, laneId: 'lane-1', hitId: 'hit-1-3', type: 'platform', entityId: 'auto-1' });
 		expect(placed).toMatchObject({ entity: { id: 'auto-1' } });
 
@@ -102,7 +102,7 @@ describe('worker protocol', () => {
 		expect(continued.revision).toBe(zigzag.revision);
 		expect(continued.suggestions.filter((item) => item.isOk).length).toBeGreaterThanOrEqual(3);
 
-		const gap = bareRun([0.15, 0.45, 0.75, 2.25, 2.55], [-0.3, 0.3, -0.3]);
+		const gap = bareRun([0.15, 0.45, 0.75, 2.25, 2.55], [-0.4, 0.4, -0.4]);
 		const rail = answerWorkerRequest(simulator, {
 			kind: 'gapPiece',
 			type: 'rail',

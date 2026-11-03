@@ -1,9 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronRight, Library, Pin, Plus } from 'lucide-react';
+import { ChevronRight, Pin, Plus } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu, RenameField } from '@/components';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
+import { DesignLibrary } from '@/modules/design/DesignLibrary';
 import type { TEntity, TLane, TProject } from '@/modules/project';
 import type { THitResult, TResolvedPiece } from '@/modules/simulation';
 import { commandItem } from './commands';
@@ -19,18 +20,11 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 	if (project == null) return null;
 
 	return (
-		<aside className="flex w-[232px] shrink-0 flex-col overflow-y-auto bg-[var(--chrome)] pb-3" aria-label="Sidebar">
+		<aside className={`flex w-[232px] shrink-0 flex-col bg-[var(--chrome)] pb-3 ${workspace === 'compose' ? 'overflow-y-auto' : 'overflow-hidden'}`} aria-label="Sidebar">
 			{workspace === 'compose' ? (
 				<Outliner cx={cx} project={project} />
 			) : (
-				<>
-					<div className="mm-section-title">Library</div>
-					<div className="mm-placeholder !h-auto pt-10">
-						<Library size={22} strokeWidth={1.4} className="mb-1 text-[var(--text-tertiary)]" />
-						<span className="mm-placeholder-title">No Saved Items</span>
-						<span className="mm-placeholder-body">Themes, skins and decorations you save from Design appear here.</span>
-					</div>
-				</>
+				<DesignLibrary cx={cx} project={project} />
 			)}
 		</aside>
 	);

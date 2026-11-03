@@ -23,6 +23,9 @@ beforeAll(async () => {
 	simulate = (project) => simulator.simulate(project);
 });
 
+// Tilt of the hand placed zigzag start. Flatter mirrored tilts drift sideways at the default bounce.
+const TILT = 0.4;
+
 function zigzagStart(hitTimes: number[]): TProject {
 	const project = createBareRunProject({
 		id: 'assists',
@@ -31,8 +34,8 @@ function zigzagStart(hitTimes: number[]): TProject {
 		marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes }]
 	});
 	project.entities.push(
-		createLinkedPiece('platform', 'lane-1', 'hit-1-1', -0.3, { id: 'piece-1-1' }),
-		createLinkedPiece('platform', 'lane-1', 'hit-1-2', 0.3, { id: 'piece-1-2' })
+		createLinkedPiece('platform', 'lane-1', 'hit-1-1', -TILT, { id: 'piece-1-1' }),
+		createLinkedPiece('platform', 'lane-1', 'hit-1-2', TILT, { id: 'piece-1-2' })
 	);
 	return project;
 }
@@ -110,10 +113,10 @@ describe('assists', () => {
 		const [isRepeatOk, , repeated] = repeatPiece(project, result, 'lane-1', { id: 'r' });
 		expect(isRepeatOk).toBe(true);
 		expect(repeated?.hitId).toBe('hit-1-3');
-		expect(repeated?.entity.components.hitLink?.angle).toBe(0.3);
+		expect(repeated?.entity.components.hitLink?.angle).toBe(TILT);
 		const [isMirrorOk, , mirrored] = mirrorPiece(project, result, 'lane-1', { id: 'm' });
 		expect(isMirrorOk).toBe(true);
-		expect(mirrored?.entity.components.hitLink).toMatchObject({ hitId: 'hit-1-3', angle: -0.3 });
+		expect(mirrored?.entity.components.hitLink).toMatchObject({ hitId: 'hit-1-3', angle: -TILT });
 		expect(mirrored?.commands).toEqual([{ type: 'upsertEntity', entity: mirrored?.entity }]);
 
 		const empty = createBareRunProject({
@@ -244,7 +247,7 @@ describe('assists', () => {
 			suggestions.every((s) => s.isOk && s.status === 'onTime' && s.piece?.status === 'placed')
 		).toBe(true);
 		expect(suggestions.map((s) => s.entity.components.hitLink?.angle)).toEqual([
-			-0.3, 0.3, -0.3, 0.3, -0.3
+			-TILT, TILT, -TILT, TILT, -TILT
 		]);
 		expect(continued?.commands).toHaveLength(5);
 	});
@@ -272,7 +275,7 @@ describe('assists', () => {
 	it('finds long gaps and bridges one with a rail', () => {
 		const project = zigzagStart([0.15, 0.45, 0.75, 2.25]);
 		project.entities.push(
-			createLinkedPiece('platform', 'lane-1', 'hit-1-3', -0.3, { id: 'piece-1-3' })
+			createLinkedPiece('platform', 'lane-1', 'hit-1-3', -TILT, { id: 'piece-1-3' })
 		);
 		expect(findLongGaps(project, 'lane-1')).toEqual([
 			{

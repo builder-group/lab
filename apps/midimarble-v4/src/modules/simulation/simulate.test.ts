@@ -204,6 +204,9 @@ describe('simulate', () => {
 		const laneB = addMarble(project, 1, { position: { x: 0.2, y: 0.5 }, time: 0.15 });
 		for (const time of [0.5, 0.9, 1.3]) addLinkedHit(project, laneA, time, -0.1);
 		for (const time of [0.7, 1.1, 1.5]) addLinkedHit(project, laneB, time, 0.1);
+		// After the long first falls, a lower bounce than the default keeps the marbles falling at each hit
+		for (const entity of project.entities)
+			if (entity.components.piece != null) entity.components.piece.params['bounce'] = 0.55;
 		const result = simulator.simulate(project);
 		expect(result.marbles).toHaveLength(2);
 		expect(result.hits).toHaveLength(6);

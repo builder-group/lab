@@ -1,7 +1,8 @@
 import { useFeatureState } from 'feature-react/state';
-import { PanelBottom, PanelLeft, PanelRight, Pause, Play, SkipBack } from 'lucide-react';
+import { PanelBottom, PanelLeft, PanelRight, Pause, Play, Share, SkipBack } from 'lucide-react';
 import React from 'react';
 import { WindowControlsInset } from '@/components';
+import { ActivityView } from '@/modules/design/ActivityView';
 import { formatTime } from './format';
 import type { StudioCx, TStudioPanel, TWorkspace } from './StudioCx';
 
@@ -26,7 +27,7 @@ export const StudioToolbar: React.FC<TStudioToolbarProps> = (props) => {
 					{saveLabels[save]}
 				</span>
 			</div>
-			<div data-tauri-drag-region className="flex flex-1 justify-center">
+			<div data-tauri-drag-region className="flex flex-1 items-center justify-center gap-3">
 				<div className="mm-segmented" role="tablist" aria-label="Workspace">
 					{workspaces.map((item) => (
 						<button
@@ -42,6 +43,7 @@ export const StudioToolbar: React.FC<TStudioToolbarProps> = (props) => {
 						</button>
 					))}
 				</div>
+				<ActivityView cx={cx} />
 			</div>
 			<div className="flex items-center" role="group" aria-label="Transport">
 				<button className="mm-icon-button" onClick={() => cx.$playhead.set(0)} title="Go to Beginning (↩)" aria-label="Go to Beginning" type="button">
@@ -65,6 +67,9 @@ export const StudioToolbar: React.FC<TStudioToolbarProps> = (props) => {
 			</div>
 			<TimeDisplay cx={cx} />
 			<div className="ml-1 flex items-center">
+				<button className="mm-icon-button" onClick={() => cx.film.openSheet()} title="Export Film (⌘E)" aria-label="Export Film" type="button">
+					<Share size={15} strokeWidth={1.7} />
+				</button>
 				<PanelToggle cx={cx} panel="timeline" isOn={panels.timeline} label="Timeline" shortcut="⌃⌘T" icon={<PanelBottom size={16} strokeWidth={1.6} />} />
 				<PanelToggle cx={cx} panel="inspector" isOn={panels.inspector} label="Inspector" shortcut="⌃⌘I" icon={<PanelRight size={16} strokeWidth={1.6} />} />
 			</div>

@@ -144,7 +144,10 @@ function splitShortcut(value: string): string[] {
 /** Commands matching every word of the query at a word start, title matches first, in section order */
 function searchCommands(cx: StudioCx, query: string): TCommand[] {
 	const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-	const available = commands.filter((command) => cx.$workspace.get() === 'compose' || (command.section !== 'Tools' && command.section !== 'Build'));
+	const workspace = cx.$workspace.get();
+	const available = commands.filter((command) =>
+		workspace === 'compose' ? command.section !== 'Design' : command.section !== 'Tools' && command.section !== 'Build'
+	);
 	if (!words.length) return available;
 	const scored = available.flatMap((command) => {
 		const title = command.title.toLowerCase();

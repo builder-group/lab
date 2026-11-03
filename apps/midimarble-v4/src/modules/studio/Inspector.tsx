@@ -3,6 +3,7 @@ import { AudioLines, FileMusic } from 'lucide-react';
 import React from 'react';
 import { InfoRow, InspectorHeader, Panel, Select } from '@/components';
 import { PieceInspector } from '@/modules/compose/PieceInspector';
+import { DesignInspector } from '@/modules/design/DesignInspector';
 import { badgeStatus, badgeStyles, StatusIcon } from '@/modules/compose/status';
 import { findLaneConflicts, instruments, MIN_HIT_GAP } from '@/modules/music';
 import { createId, laneColors, type TLane, type TProject } from '@/modules/project';
@@ -16,8 +17,16 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	const { cx } = props;
 	const history = useFeatureState(cx.$history);
 	const selection = useFeatureState(cx.$selection);
+	const workspace = useFeatureState(cx.$workspace);
 	const project = history?.present;
 	if (project == null) return null;
+	if (workspace === 'design') {
+		return (
+			<aside className="flex w-[264px] shrink-0 flex-col overflow-y-auto border-t border-l border-[var(--separator)] bg-[var(--content)]" aria-label="Inspector">
+				<DesignInspector cx={cx} project={project} selection={selection} />
+			</aside>
+		);
+	}
 	const entity = project.entities.find((item) => item.id === selection[0]);
 	const hitKeys = selection.filter((key) => parseHitKey(key) != null);
 	const pieceIds = selection.filter((id) => project.entities.some((item) => item.id === id && item.components.piece != null));

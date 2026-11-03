@@ -16,7 +16,7 @@ export function buildZigzagProject(simulate: TSimulateFn): TProject {
 		marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(0.15, 0.3, 16) }]
 	});
 	const laneId = 'lane-1';
-	const first = createLinkedPiece('platform', laneId, 'hit-1-1', -0.3, { id: 'piece-1-1' });
+	const first = createLinkedPiece('platform', laneId, 'hit-1-1', -0.4, { id: 'piece-1-1' });
 	project = apply(project, [{ type: 'upsertEntity', entity: first }]);
 	const [isMirrorOk, mirrorErr, mirrored] = mirrorPiece(project, simulate(project), laneId, {
 		id: 'piece-1-2'
@@ -45,7 +45,7 @@ export function buildLongGapProject(simulate: TSimulateFn): TProject {
 		]
 	});
 	const laneId = 'lane-1';
-	project = placeAngles(project, laneId, [-0.3, 0.3, -0.3]);
+	project = placeAngles(project, laneId, [-0.4, 0.4, -0.4]);
 	const [isRailOk, railErr, rail] = createRailForGap(
 		project,
 		simulate(project),
@@ -59,7 +59,7 @@ export function buildLongGapProject(simulate: TSimulateFn): TProject {
 	project = autoPlaceHits(project, laneId, ['hit-1-4', 'hit-1-5'], simulate);
 	// The platform before the tunnel turns the marble toward the frame centre, so the tunnel has room
 	let withTunnel: TProject | null = null;
-	for (const angle of [0.3, -0.3, 0.15, -0.15]) {
+	for (const angle of [0.4, -0.4, 0.3, -0.3, 0.15, -0.15]) {
 		const candidate = placeAngles(project, laneId, [angle], 5);
 		const [isTunnelOk, , tunnel] = createTunnelForGap(
 			candidate,
@@ -97,13 +97,14 @@ export function buildWindmillProject(simulate: TSimulateFn): TProject {
 
 /**
  * Two marbles thrown at each other collide head-on at about 0.18 s, then Auto place sets every
- * platform, which also keeps the marbles from meeting again
+ * platform, which also keeps the marbles from meeting again. The run ends half a second after the last
+ * hit, the horizon Auto place checks after a lane's last hit.
  */
 export function buildTwoMarblesProject(simulate: TSimulateFn): TProject {
 	let project = createBareRunProject({
 		id: 'two-marbles',
 		title: 'Two marbles',
-		end: 2.2,
+		end: 1.8,
 		marbles: [
 			{ x: -0.1, y: 0.6, releaseTime: 0, velocity: { x: 0.5, y: 0 }, hitTimes: [0.45, 0.85, 1.25] },
 			{ x: 0.1, y: 0.6, releaseTime: 0, velocity: { x: -0.5, y: 0 }, hitTimes: [0.5, 0.9, 1.3] }

@@ -10,7 +10,8 @@ export function createStaircaseProject(): TProject {
 		title: 'Staircase',
 		end: 4.5,
 		marbles: [
-			{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(0.6, 0.4, 8), angles: () => -0.05 }
+			// The marble falls 1.8 m to the first hit; a low bounce keeps the following hits on its way down
+			{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(0.6, 0.4, 8), angles: () => -0.05, bounce: 0.55 }
 		]
 	});
 }
@@ -37,6 +38,8 @@ interface TRunMarble {
 	releaseTime: number;
 	hitTimes: number[];
 	angles: (hitIndex: number) => number;
+	/** Bounce of every platform, the definition default when unset */
+	bounce?: number;
 }
 
 interface TBareRunMarble {
@@ -59,12 +62,13 @@ function createRunProject(options: {
 		const lane = project.music.lanes[index];
 		if (lane == null) return;
 		lane.hits.forEach((hit, hitIndex) => {
-			entities.push(
-				createLinkedPiece('platform', lane.id, hit.id, marble.angles(hitIndex), {
-					entities,
-					id: `piece-${index + 1}-${hitIndex + 1}`
-				})
-			);
+			const piece = createLinkedPiece('platform', lane.id, hit.id, marble.angles(hitIndex), {
+				entities,
+				id: `piece-${index + 1}-${hitIndex + 1}`
+			});
+			if (marble.bounce != null && piece.components.piece != null)
+				piece.components.piece.params['bounce'] = marble.bounce;
+			entities.push(piece);
 		});
 	});
 	return project;

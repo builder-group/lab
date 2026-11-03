@@ -1,6 +1,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
-import { blender, buildSceneDescription, type TPreviewFrameResult } from '@/modules/blender';
+import { Err, Ok, type TResult } from 'tuple-result';
+import { blender, buildSceneDescription, type TApplySceneResult, type TPreviewFrameResult } from '@/modules/blender';
 import type { TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 
@@ -15,8 +16,15 @@ export class DesignCx {
 	readonly $preview = createState<TDesignPreview | null>(null);
 	readonly $error = createState<string | null>(null);
 	readonly $blenderVersion = createState<string | null>(null);
+	/** Link state of app-owned holders by entity ID, from `inspect` after each sync */
+	readonly $links = createState<Record<string, TDesignLink>>({});
+	/** Camera state the last sync reported; `takenOver` means the user edited it in Blender */
+	readonly $camera = createState<TApplySceneResult['camera'] | null>(null);
+	/** Set while the next click on the preview places something on the wall */
+	readonly $placing = createState<'text' | null>(null);
 
 	private syncedKey: string | null = null;
+	private idPixels: TIdPixels | null = null;
 	private previewTimer: ReturnType<typeof setTimeout> | undefined;
 	private generation = 0;
 	private startedFor: string | null = null;
@@ -64,18 +72,60 @@ export class DesignCx {
 	async pick(u: number, v: number): Promise<string | null> {
 		const preview = this.$preview.get();
 		if (preview == null) return null;
-		const image = await loadImage(preview.idUrl);
-		const canvas = document.createElement('canvas');
-		canvas.width = image.naturalWidth;
-		canvas.height = image.naturalHeight;
-		const context = canvas.getContext('2d', { willReadFrequently: true });
-		if (context == null) return null;
-		context.drawImage(image, 0, 0);
-		const x = Math.min(canvas.width - 1, Math.max(0, Math.floor(u * canvas.width)));
-		const y = Math.min(canvas.height - 1, Math.max(0, Math.floor(v * canvas.height)));
-		const [r = 0, g = 0, b = 0] = context.getImageData(x, y, 1, 1).data;
-		const hex = `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+		let pixels = this.idPixels?.url === preview.idUrl ? this.idPixels : null;
+		if (pixels == null) {
+			const [isLoadedOk, loadedErr, loaded] = await loadIdPixels(preview.idUrl);
+			if (!isLoadedOk) {
+				if (import.meta.env.DEV) console.warn('[design] object ID image', loadedErr);
+				return null;
+			}
+			pixels = loaded;
+			this.idPixels = loaded;
+		}
+		const x = Math.min(pixels.width - 1, Math.max(0, Math.floor(u * pixels.width)));
+		const y = Math.min(pixels.height - 1, Math.max(0, Math.floor(v * pixels.height)));
+		const offset = (y * pixels.width + x) * 4;
+		const hex = `#${[pixels.data[offset] ?? 0, pixels.data[offset + 1] ?? 0, pixels.data[offset + 2] ?? 0]
+			.map((channel) => channel.toString(16).padStart(2, '0'))
+			.join('')}`;
 		return preview.ids[hex] ?? null;
+	}
+
+	/** Discards Blender changes of unlinked holders and lets the app drive them again */
+	async relink(entityIds: string[]): Promise<boolean> {
+		return this.enqueue(async () => {
+			const applied = await this.sync({ relink: entityIds });
+			if (applied) this.requestPreview(0);
+			return applied;
+		});
+	}
+
+	/** Rebuilds the follow camera after the user took it over in Blender; ask the user first */
+	async regenerateCamera(): Promise<boolean> {
+		return this.enqueue(async () => {
+			const applied = await this.sync({ regenerateCamera: true });
+			if (applied) this.requestPreview(0);
+			return applied;
+		});
+	}
+
+	/** Syncs the scene so a film render sees the project as it is now */
+	prepareRender(): Promise<boolean> {
+		return this.enqueue(() => this.sync());
+	}
+
+	/** Reads link states of app-owned objects from Blender */
+	async refreshLinks(): Promise<void> {
+		const packagePath = this.startedFor;
+		if (packagePath == null) return;
+		const [isInspectOk, inspectErr, inspected] = await blender.inspect(packagePath);
+		if (!isInspectOk) {
+			if (import.meta.env.DEV) console.warn('[design] inspect', inspectErr);
+			return;
+		}
+		const links: Record<string, TDesignLink> = {};
+		for (const holder of inspected.holders) links[holder.mmId] = { link: holder.link, reason: holder.reason };
+		this.$links.set(links);
 	}
 
 	/** Saves and stops the worker of the package that was open */
@@ -84,7 +134,10 @@ export class DesignCx {
 		const packagePath = this.startedFor;
 		this.startedFor = null;
 		this.syncedKey = null;
+		this.idPixels = null;
 		this.$preview.set(null);
+		this.$links.set({});
+		this.$camera.set(null);
 		this.$status.set('idle');
 		if (packagePath == null) return;
 		await blender.save(packagePath);
@@ -115,7 +168,7 @@ export class DesignCx {
 		return true;
 	}
 
-	private async sync(): Promise<boolean> {
+	private async sync(options: { relink?: string[]; regenerateCamera?: boolean } = {}): Promise<boolean> {
 		const project = this.source.getProject();
 		const result = this.source.getResult();
 		const packagePath = this.source.getPackagePath();
@@ -123,15 +176,19 @@ export class DesignCx {
 		if (!(await this.ensureStarted(packagePath))) return false;
 		const fps = renderFps(project);
 		const key = `${packagePath}:${result.revision}:${fps}`;
-		if (this.syncedKey === key) return true;
+		const isForced = (options.relink?.length ?? 0) > 0 || options.regenerateCamera === true;
+		if (this.syncedKey === key && !isForced) return true;
 		this.$status.set('syncing');
 		const build = buildSceneDescription(project, result, { fps });
-		const [isAppliedOk, appliedErr] = await blender.applyScene(packagePath, build);
+		const [isAppliedOk, appliedErr, applied] = await blender.applyScene(packagePath, build, options);
 		if (!isAppliedOk) {
 			this.fail(appliedErr.message);
 			return false;
 		}
+		if (import.meta.env.DEV) console.debug('[design] apply_scene', applied);
+		this.$camera.set(applied.camera);
 		this.syncedKey = key;
+		void this.refreshLinks();
 		return true;
 	}
 
@@ -182,12 +239,25 @@ export function renderFps(project: TProject): number {
 	return project.design.renderPreset === 'best' ? 60 : 30;
 }
 
+export interface TDesignLink {
+	link: 'linked' | 'unlinked';
+	/** Why a holder is unlinked: `marked`, `transform` or `keyframes` */
+	reason: string | null;
+}
+
+interface TIdPixels {
+	url: string;
+	width: number;
+	height: number;
+	data: Uint8ClampedArray;
+}
+
 function toPreview(frame: TPreviewFrameResult, revision: number): TDesignPreview {
-	// The worker reuses file names, so a query string forces the webview to load the new render
-	const stamp = `?v=${Date.now()}`;
+	// Note: no query string for cache busting. Tauri's asset protocol reads it as part of the file path, and
+	// the worker writes every render under a new file name anyway.
 	return {
-		url: `${convertFileSrc(frame.path)}${stamp}`,
-		idUrl: `${convertFileSrc(frame.idPath)}${stamp}`,
+		url: convertFileSrc(frame.path),
+		idUrl: convertFileSrc(frame.idPath),
 		ids: frame.ids,
 		width: frame.width,
 		height: frame.height,
@@ -197,12 +267,24 @@ function toPreview(frame: TPreviewFrameResult, revision: number): TDesignPreview
 	};
 }
 
-function loadImage(url: string): Promise<HTMLImageElement> {
-	return new Promise((resolve, reject) => {
-		const image = new Image();
-		image.crossOrigin = 'anonymous';
-		image.onload = () => resolve(image);
-		image.onerror = () => reject(new Error('The object ID image could not be loaded'));
-		image.src = url;
-	});
+/**
+ * Decodes the object ID image from its bytes. Drawing an asset-protocol `<img>` into a canvas can taint it,
+ * so the pixels are read from a fetched blob, which is never cross-origin.
+ */
+async function loadIdPixels(url: string): Promise<TResult<TIdPixels, Error>> {
+	try {
+		const response = await fetch(url);
+		if (!response.ok) return Err(new Error(`The object ID image could not be loaded (${response.status})`));
+		const bitmap = await createImageBitmap(await response.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+		const canvas = document.createElement('canvas');
+		canvas.width = bitmap.width;
+		canvas.height = bitmap.height;
+		const context = canvas.getContext('2d', { willReadFrequently: true });
+		if (context == null) return Err(new Error('No 2D canvas for the object ID image'));
+		context.drawImage(bitmap, 0, 0);
+		bitmap.close();
+		return Ok({ url, width: canvas.width, height: canvas.height, data: context.getImageData(0, 0, canvas.width, canvas.height).data });
+	} catch (error) {
+		return Err(error instanceof Error ? error : new Error(String(error)));
+	}
 }
