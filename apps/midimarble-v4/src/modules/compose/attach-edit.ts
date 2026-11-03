@@ -1,6 +1,6 @@
 import { createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TPathNode, type TProject, type TVec2 } from '@/modules/project';
 import {
-	ANCHOR_DELAY,
+	anchorHit,
 	freePose,
 	getPieceDefinition,
 	layoutAtMarble,
@@ -90,14 +90,12 @@ export function asLinked(entity: TEntity, pose: TPose, laneId: string, hitId: st
 
 /**
  * A piece anchored to `laneId`'s trajectory at `time`, where the marble is at `marble`. It keeps its pose
- * relative to the marble at that moment and plays no note. Returns null when no hit of the lane lies within
- * `ANCHOR_DELAY` before the moment.
+ * relative to the marble at that moment and plays no note. Returns null when the lane has no hit within
+ * `ANCHOR_DELAY` of the moment (see `anchorHit`).
  */
 export function asAnchored(project: TProject, entity: TEntity, pose: TPose, laneId: string, time: number, marble: TVec2): TEntity | null {
-	const hit = project.music.lanes
-		.find((lane) => lane.id === laneId)
-		?.hits.filter((item) => item.time <= time + 1e-9 && time - item.time <= ANCHOR_DELAY)
-		.at(-1);
+	const hits = project.music.lanes.find((lane) => lane.id === laneId)?.hits ?? [];
+	const hit = anchorHit(hits, time);
 	if (hit == null) return null;
 	const { transform: _, ...components } = entity.components;
 	const piece = components.piece ?? { type: 'platform', params: {} };

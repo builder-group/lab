@@ -31,9 +31,21 @@ export interface TAttachResult {
 }
 
 /**
+ * The hit an anchor at `time` is stored against: the last hit at or before it, or the first hit when the
+ * moment comes before it, so the delay is negative. Null when the moment is more than `ANCHOR_DELAY` away.
+ */
+export function anchorHit<T extends { time: number }>(hits: T[], time: number): T | null {
+	const before = hits.filter((item) => item.time <= time + 1e-9).at(-1);
+	if (before != null) return time - before.time <= ANCHOR_DELAY ? before : null;
+	const first = hits[0];
+	return first != null && first.time - time <= ANCHOR_DELAY ? first : null;
+}
+
+/**
  * Anchors a piece to the trajectory of `laneId`'s marble at `time`. The piece keeps its pose relative to the
  * marble at that moment, so it follows upstream edits, and it never sounds a hit. Any piece type can be
- * anchored; the moment must lie within `ANCHOR_DELAY` seconds after one of the lane's hits.
+ * anchored; the moment must lie within `ANCHOR_DELAY` seconds after one of the lane's hits, or before its
+ * first hit.
  */
 export function anchorPiece(
 	project: TProject,
@@ -47,18 +59,16 @@ export function anchorPiece(
 	const { entity, resolved } = found;
 	const lane = project.music.lanes.find((item) => item.id === laneId);
 	if (lane == null) return Err(new Error(`Lane ${laneId} not found`));
-	const hit = lane.hits
-		.filter((item) => item.time <= time + 1e-9 && time - item.time <= ANCHOR_DELAY)
-		.at(-1);
+	const hit = anchorHit(lane.hits, time);
 	if (hit == null)
-		return Err(new Error(`No hit of ${lane.name} within ${ANCHOR_DELAY} s before that moment`));
+		return Err(new Error(`No hit of ${lane.name} within ${ANCHOR_DELAY} s of that moment`));
 	const track = result.marbles.find((marble) => marble.laneId === laneId);
 	const sample = track != null ? trajectoryAt(track.samples, time, gravityOf(project)) : null;
 	if (track == null || sample == null)
 		return Err(new Error(`The marble of ${lane.name} does not reach that moment`));
 
 	const pose = freePose(entity, resolved, track.radius);
-	const params = { ...entity.components.piece?.params, entryDelay: Math.max(0, time - hit.time) };
+	const params = { ...entity.components.piece?.params, entryDelay: time - hit.time };
 	const next = withPiece(entity, {
 		params,
 		hitLink: {

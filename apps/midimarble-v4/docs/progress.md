@@ -26,14 +26,16 @@ The autonomous build updates this log after every slice. Newest entries go first
 - Browser pane, 1440 × 900, a new empty project and the Zigzag example. Timings are mine as a reviewer who knows the app, so they are lower bounds
 - Passed: add a marble (5 s, Marble tool, lane and inspector appear, tool returns to Move); place a platform on a hit dot (insert menu at the dot, Platform links on time, the playhead jumps to the hit and `commitAtHit` auditions the note); draw a free platform and drag it into the trajectory (what-if deflection); curved rail with the pen and a handle pulled (about 10 s, mirrored handles like Figma, "Return to finish" hint); Continue on Zigzag after deleting the last four platforms (3 s, "Continue 4" in the bar, 16 of 16 on time, toast); undo three changes (under 1 s); change speed (3 s, one undo step)
 - Fixed: the Speed value is now typeable. The slider spans 0.05× to 2× over about 80 px, so a 21 px drag jumped from 0.50× to 1.30×; typed values snap to the 0.05 step and clamp to the range
-- Found, queued until the Camera view slice lands because the fixes live in `ComposeCx.ts`:
-  - Hits added from the timeline in an empty project fall on a long free fall, so Zoom to Fit drops to 1 % and the dots are too small to find. Selecting a hit in the timeline should pan the canvas to its dot, as Final Cut moves the viewer to a selected clip
-  - Anchoring silently fails before a lane's first hit (anchors are stored relative to a hit), so a windmill dropped on the trajectory above Hit 1 stays free with no chip. Anchors before the first hit should count from the release
-  - A windmill anchors only when its hub is within 14 to 40 px of the trajectory; its reach should be the blade circle, since the blades are what the marble meets
+- Fixed after the Camera view slice landed:
+  - Selecting a hit or piece outside the canvas, in the timeline or the layers, pans the view to it when it is off screen (point visibility, no inset, so clicks near the canvas edge never move the view). Hits added from the timeline in an empty project were otherwise lost on a long free fall at 1 % zoom
+  - Anchors before a lane's first hit count back from that hit with a negative `entryDelay` (`anchorHit` in `simulation/attach.ts`, params now allow −10 s to 10 s). The engine already orders anchor events by their own time and places them from the marble's state then; a windmill dropped on the fall above Hit 1 anchors at 0:01.28 and Hit 1 stays on time. A lane with no hits still leaves a drop free
+  - A windmill anchors wherever its blade circle crosses a trajectory, not only when its hub is within 14 to 40 px
+- Still open:
   - A free piece dropped above a linked platform moves that platform with the new trajectory, sometimes off screen; it reads as the piece vanishing. Keep the last position as a faint ghost while it is blocked, or pan to it
   - Undo does not bring the changed area into view
+  - The Camera view label is wider than the frame in a narrow canvas, and the zoom menu still shows a percentage there
 - Not run: Design theme and Draft render (needs the Blender worker in the bundled app); pause, scrub and step (covered in the previous round)
-- Checks: see the commit for this slice
+- Checks: `typecheck`, `lint` and `test` (224) pass; new tests for `anchorHit` and an anchor before the first hit on Zigzag (all hits stay on time). The full suite once failed one test while running alongside lint and passed in three reruns, likely a timing budget under load
 
 ### Open canvas and Paper layout (owner feedback round)
 

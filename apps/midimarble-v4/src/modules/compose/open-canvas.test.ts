@@ -81,9 +81,13 @@ describe('open canvas attachments', () => {
 		expect(anchored?.components.hitLink?.offset?.y).toBeCloseTo(-0.05, 9);
 		expect(anchored?.components.piece?.params['entryDelay']).toBeCloseTo(0.25, 6);
 		expect(attachState(base, anchored as TEntity)).toEqual({ kind: 'anchored', laneId: 'lane-1', hitId: 'hit-b', time: 1.25 });
-		// Before the first hit there is nothing to anchor to, so a drop stays free
-		expect(asAnchored(base, piece, { position: { x: 0, y: 0 }, angle: 0 }, 'lane-1', 0.2, { x: 0, y: 0 })).toBeNull();
-		expect(withSnap(base, piece, { position: { x: 0, y: 0 }, angle: 0 }, { kind: 'anchor', laneId: 'lane-1', time: 0.2, marble: { x: 0, y: 0 } }).components.hitLink).toBeUndefined();
+		// Before the first hit the anchor counts back from it
+		const early = asAnchored(base, piece, { position: { x: 0, y: 0 }, angle: 0 }, 'lane-1', 0.2, { x: 0, y: 0 });
+		expect(early?.components.hitLink).toMatchObject({ hitId: 'hit-a', anchored: true });
+		expect(attachState(base, early as TEntity)).toMatchObject({ kind: 'anchored', hitId: 'hit-a' });
+		expect((attachState(base, early as TEntity) as { time: number }).time).toBeCloseTo(0.2, 6);
+		// A lane without hits has nothing to count from, so a drop stays free
+		expect(withSnap(base, piece, { position: { x: 0, y: 0 }, angle: 0 }, { kind: 'anchor', laneId: 'missing', time: 0.2, marble: { x: 0, y: 0 } }).components.hitLink).toBeUndefined();
 	});
 
 	it('should draw a free piece where the engine lays it out', () => {

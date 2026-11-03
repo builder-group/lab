@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, parseProject, type TEntity, type TProject } from '@/modules/project';
-import { anchorPiece, linkPieceToHit, unanchorPiece, unlinkPiece } from './attach';
+import { ANCHOR_DELAY } from './pieces';
+import { anchorHit, anchorPiece, linkPieceToHit, unanchorPiece, unlinkPiece } from './attach';
 import { createSimulator, type TSimulator } from './simulate';
 import type { TResolvedPiece, TSimulationResult } from './types';
 
@@ -118,5 +119,50 @@ describe('attach helpers', () => {
 
 		expectSamePose(pieceOf(freedResult, 'scenery-switchback'), frozen);
 		expect(unlinkPiece(current, result, 'scenery-rail')[0]).toBe(false);
+	});
+
+	it('should anchor before the first hit with a negative delay on it', () => {
+		const base = loadFixture('zigzag');
+		const lane = base.music.lanes[0];
+		const first = lane?.hits[0];
+		if (lane == null || first == null) throw new Error('No lane');
+		const project = apply(base, [
+			{
+				type: 'upsertEntity',
+				entity: { id: 'early-windmill', name: 'early-windmill', components: { piece: { type: 'windmill', params: {} }, transform: { position: { x: 1.5, y: 0.2 }, angle: 0 } } }
+			}
+		]);
+		const result = simulator.simulate(project);
+		const before = pieceOf(result, 'early-windmill');
+		const time = first.time / 2;
+
+		const [isAnchored, anchorErr, anchored] = anchorPiece(project, result, 'early-windmill', lane.id, time);
+		if (!isAnchored) throw anchorErr;
+		const next = simulator.simulate(apply(project, anchored.commands));
+
+		expect(anchored.entity.components.hitLink?.hitId).toBe(first.id);
+		expect(anchored.entity.components.piece?.params['entryDelay']).toBeCloseTo(time - first.time, 9);
+		expect(pieceOf(next, 'early-windmill').entryTime).toBeCloseTo(time, 9);
+		expectSamePose(pieceOf(next, 'early-windmill'), before);
+		expect(next.hits.filter((item) => item.status !== 'onTime')).toEqual([]);
+	});
+});
+
+describe('anchorHit', () => {
+	const hits = [{ time: 1 }, { time: 2 }, { time: 3 }];
+
+	it('should pick the last hit at or before the moment', () => {
+		expect(anchorHit(hits, 2.5)).toBe(hits[1]);
+		expect(anchorHit(hits, 2)).toBe(hits[1]);
+	});
+
+	it('should pick the first hit for a moment before it', () => {
+		expect(anchorHit(hits, 0.4)).toBe(hits[0]);
+	});
+
+	it('should refuse moments further than the longest delay', () => {
+		expect(anchorHit(hits, 3 + ANCHOR_DELAY + 0.1)).toBeNull();
+		expect(anchorHit(hits, 1 - ANCHOR_DELAY - 0.1)).toBeNull();
+		expect(anchorHit([], 1)).toBeNull();
 	});
 });

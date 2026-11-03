@@ -11,6 +11,7 @@ import {
 	frameBand,
 	gravityOf,
 	layoutOf,
+	resolvePieceParams,
 	resolvePiecePath,
 	trajectoryAt,
 	type THitResult,
@@ -1014,6 +1015,11 @@ export class ComposeCx {
 		if (selection.length !== 1 || this.studio.$playing.get()) return;
 		const project = this.project;
 		if (project == null) return;
+		// Selecting in the timeline or the layers pans to it when it is off screen, like Final Cut's viewer
+		const hitKey = parseHitKey(only ?? '');
+		const hit = hitKey != null ? this.result?.hits.find((item) => item.laneId === hitKey.laneId && item.hitId === hitKey.hitId) : undefined;
+		const piece = this.result?.pieces.find((item) => item.entityId === only);
+		this.revealPoint(hit?.dot ?? piece?.contactPoint ?? piece?.position ?? null, 0, 0);
 		const linked = linkedPieces(project).find((item) => item.entity.id === selection[0]);
 		if (linked == null) return;
 		const delay = linked.entity.components.piece?.params['entryDelay'] ?? 0;
@@ -1121,13 +1127,16 @@ export class ComposeCx {
 			}
 			if (best != null) return { kind: 'link', laneId: best.laneId, hitId: best.hitId, dot: best.dot, velocity: best.velocity };
 		}
-		const near = pickTrack(center, drag.tracks, Math.max(14, Math.min(halfLength, 40)));
+		// A windmill meets the marble with its blades, so it anchors wherever its blade circle crosses a trajectory
+		const params = resolvePieceParams(type, entity.components.piece?.params ?? {});
+		const bladeReach = layoutOf(type) === 'rotor' ? ((params['bladeLength'] ?? 0) + (params['hubRadius'] ?? 0)) * scale : 0;
+		const near = pickTrack(center, drag.tracks, Math.max(14, Math.min(halfLength, 40), bladeReach));
 		if (near?.kind !== 'track') return null;
 		const time = near.time - ANCHOR_LEAD;
 		const track = result.marbles.find((item) => item.laneId === near.laneId);
 		const at = track != null ? trajectoryAt(track.samples, time, gravityOf(project)) : null;
 		if (at == null) return null;
-		// Anchoring needs a hit of the lane before the moment
+		// Anchoring needs a hit of the lane to count the moment from
 		return asAnchored(project, entity, pose, near.laneId, time, at.position) != null ? { kind: 'anchor', laneId: near.laneId, time, marble: at.position } : null;
 	}
 
@@ -1394,13 +1403,16 @@ export class ComposeCx {
 		return true;
 	}
 
-	private revealPoint(point: TVec2 | null): void {
+	/**
+	 * Centres the view on `point` unless it and `margin` metres around it lie at least `inset` pixels inside
+	 * the canvas
+	 */
+	private revealPoint(point: TVec2 | null, inset = 60, margin = 0.03): void {
 		if (point == null) return;
 		const camera = this.$camera.get();
 		const viewport = this.$viewport.get();
-		const margin = 0.03;
 		const bounds = { minX: point.x - margin, minY: point.y - margin, maxX: point.x + margin, maxY: point.y + margin };
-		if (camera.mode !== '2d' || isBoundsVisible(camera.view, viewport, bounds, 60)) return;
+		if (camera.mode !== '2d' || isBoundsVisible(camera.view, viewport, bounds, inset)) return;
 		this.$camera.set({ ...camera, view: { ...camera.view, center: { x: point.x, y: point.y } } });
 	}
 
