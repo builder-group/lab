@@ -6,21 +6,27 @@ const SVec2 = z.strictObject({ x: z.number(), y: z.number() });
 
 const SId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 
-const SHit = z.strictObject({
+const SHitV3 = z.strictObject({
 	id: SId,
 	time: z.number().nonnegative(),
 	pitch: z.number().int().min(0).max(127).optional(),
 	velocity: z.number().min(0).max(1).optional()
 });
 
-const SLane = z.strictObject({
+// A note of the song. Version 4 keeps the length of imported MIDI notes; Backing plays it, a marble strikes it.
+const SHit = SHitV3.extend({ duration: z.number().nonnegative().optional() });
+
+const laneShape = {
 	id: SId,
 	name: z.string(),
 	color: z.string(),
 	// General MIDI program used for MIDI playback and the rendered soundtrack
-	instrument: z.number().int().min(0).max(127),
-	hits: z.array(SHit)
-});
+	instrument: z.number().int().min(0).max(127)
+};
+
+const SLaneV3 = z.strictObject({ ...laneShape, hits: z.array(SHitV3) });
+
+const SLane = z.strictObject({ ...laneShape, hits: z.array(SHit) });
 
 const SSource = z.strictObject({
 	id: SId,
@@ -140,6 +146,13 @@ const SDesign = z.strictObject({
 	// `draft` was added later; files without it stay valid
 	renderPreset: z.enum(['draft', 'fast', 'balanced', 'best']),
 	loop: z.boolean(),
+	// Choices on top of the theme; absent fields keep the theme's defaults, so files without them stay valid
+	themeOptions: z
+		.strictObject({
+			// Platforms take a colour from the pitch they play
+			colorByNote: z.boolean().optional()
+		})
+		.optional(),
 	camera: z.strictObject({
 		mode: z.enum(['rig', 'manual']),
 		distance: z.number().positive(),
@@ -167,12 +180,18 @@ const projectShape = {
 	end: z.number().positive(),
 	music: z.strictObject({
 		sources: z.array(SSource),
-		lanes: z.array(SLane),
+		lanes: z.array(SLaneV3),
 		tempo: STempo.optional()
 	}),
 	entities: z.array(SEntity),
 	design: SDesign
 };
+
+/**
+ * Lane ID that addresses Backing in hit commands and hit selection keys. Lane IDs are created with a prefix
+ * and a random part, so no lane has this ID.
+ */
+export const BACKING_ID = 'backing';
 
 const SProjectV1 = z.strictObject({ $schema: z.literal('marble-project@1'), ...projectShape });
 
@@ -181,9 +200,25 @@ const SProjectV2 = z.strictObject({ $schema: z.literal('marble-project@2'), ...p
 
 // Version 3 makes windmills, rails, tunnels and switchbacks scenery: they never sound a hit, and their hit
 // link only anchors them to the trajectory at the hit time plus their `entryDelay`. It adds project physics.
-export const SProject = z.strictObject({
+const SProjectV3 = z.strictObject({
 	$schema: z.literal('marble-project@3'),
 	...projectShape,
+	physics: SPhysics
+});
+
+// Version 4 keeps every note of the song: `backing` holds the notes no marble plays, heard in the film without a
+// piece. Notes keep their MIDI length in `duration`.
+export const SProject = z.strictObject({
+	$schema: z.literal('marble-project@4'),
+	...projectShape,
+	music: z.strictObject({
+		sources: z.array(SSource),
+		lanes: z.array(SLane),
+		backing: z.array(SHit),
+		// General MIDI program of Backing: the song's first MIDI program when the bank has it; absent means piano
+		backingInstrument: z.number().int().min(0).max(127).optional(),
+		tempo: STempo.optional()
+	}),
 	physics: SPhysics
 });
 
@@ -224,9 +259,16 @@ function asScenery(entity: TEntity, lanes: TLane[]): TEntity {
 
 export const projectDefinition = defineSchema({
 	family: 'marble-project',
-	version: 3,
+	version: 4,
 	schema: SProject,
 	migrations: {
+		// Older projects dropped the notes no marble played, so their Backing starts empty
+		3: defineMigration({
+			schema: SProjectV3,
+			migrate(value) {
+				return { ...value, $schema: 'marble-project@4' as const, music: { ...value.music, backing: [] } };
+			}
+		}),
 		2: defineMigration({
 			schema: SProjectV2,
 			migrate(value) {

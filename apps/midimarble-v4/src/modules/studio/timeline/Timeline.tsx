@@ -2,6 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Plus } from 'lucide-react';
 import React from 'react';
 import { MenuButton, tidyMenu } from '@/components';
+import { isEditingTarget } from '@/lib';
 import type { THitResult } from '@/modules/simulation';
 import { commandItem } from '../commands';
 import { addHit } from '../menus';
@@ -9,9 +10,11 @@ import { parseHitKey, toHitKey } from '../selection';
 import { songSource } from '../SourcesCx';
 import { isLaneAudible, type StudioCx } from '../StudioCx';
 import { CameraRow } from './CameraRow';
+import { handNotes, isNoteSelection, ownerForKey } from './hand-notes';
 import { LaneTrack, PianoRollTrack, type TDrag, type TDragStart } from './LaneTrack';
 import { pitchDeltaFor, pitchRange, rowCount } from './piano-roll';
 import { PlayheadLine, Ruler } from './Ruler';
+import { songRange } from './SongRoll';
 import { EmptySongTrack, SongTrack } from './SongTrack';
 import {
 	CAMERA_ROW_HEIGHT,
@@ -25,13 +28,14 @@ import {
 	RULER_HEIGHT,
 	SONG_ROW_HEIGHT
 } from './timeline-layout';
-import { $expandedLanes } from './timeline-state';
+import { $expandedLanes, $songExpanded } from './timeline-state';
 import { TrackHeader } from './TrackHeader';
 import { Transport } from './Transport';
 
 /**
- * Music lanes as a Blender-style dope sheet in a Logic-style track area: the transport in the header, the
- * song on top, then one track per marble with mute and solo, expandable into a piano roll for MIDI notes
+ * The Tracks as a Blender-style dope sheet in a Logic-style track area: the transport and hit summary in the
+ * header, the Song on top, expandable into every note, then one track per marble with mute and solo, its hits
+ * in a flat row by timing status and expandable into a piano roll of its notes
  */
 export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const { cx } = props;
@@ -43,6 +47,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const height = useFeatureState(cx.$timelineHeight);
 	const workspace = useFeatureState(cx.$workspace);
 	const expanded = useFeatureState($expandedLanes);
+	const isSongExpanded = useFeatureState($songExpanded);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const [zoom, setZoom] = React.useState(80);
 	const [drag, setDrag] = React.useState<TDrag | null>(null);
@@ -66,6 +71,25 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	// Pitch rows of every track that can expand; a dragged note keeps its rows until it is dropped
 	const ranges = React.useMemo(() => new Map((project?.music.lanes ?? []).map((lane) => [lane.id, pitchRange(lane)])), [project?.music.lanes]);
+	const songRows = React.useMemo(() => (project == null || song?.kind !== 'midi' ? null : songRange(project)), [project, song?.kind]);
+
+	// With notes selected, 1 to 9 hand them to that marble in track order and 0 makes them Backing. Captured
+	// before the canvas, whose 0 previews the film camera.
+	React.useEffect(() => {
+		function onKeyDown(event: KeyboardEvent): void {
+			if (event.metaKey || event.ctrlKey || event.altKey || isEditingTarget(event) || !/^[0-9]$/.test(event.key)) return;
+			const current = cx.project;
+			const keys = cx.$selection.get();
+			if (current == null || !isNoteSelection(keys)) return;
+			const owner = ownerForKey(current, event.key);
+			if (owner == null) return;
+			event.preventDefault();
+			event.stopPropagation();
+			handNotes(cx, keys, owner);
+		}
+		window.addEventListener('keydown', onKeyDown, true);
+		return () => window.removeEventListener('keydown', onKeyDown, true);
+	}, [cx]);
 
 	// MARK: - Actions
 
@@ -179,7 +203,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		const range = ranges.get(lane.id);
 		return expanded.includes(lane.id) && range != null ? rowCount(range) * NOTE_ROW_HEIGHT : ROW_HEIGHT;
 	});
-	const rowsHeight = laneHeights.reduce((sum, value) => sum + value, 0) + (song != null ? SONG_ROW_HEIGHT : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
+	const songHeight = isSongExpanded && songRows != null ? Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT) : SONG_ROW_HEIGHT;
+	const rowsHeight = laneHeights.reduce((sum, value) => sum + value, 0) + (song != null ? songHeight : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
 
 	// MARK: - UI
 
@@ -190,7 +215,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			aria-label="Timeline"
 		>
 			<ResizeHandle cx={cx} />
-			<Transport cx={cx} zoom={zoom} onZoom={(next) => zoomTo(next)} onZoomToFit={zoomToFit} />
+			<Transport cx={cx} results={result?.hits ?? null} zoom={zoom} onZoom={(next) => zoomTo(next)} onZoomToFit={zoomToFit} />
 			<div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
 				<div className="relative flex min-h-full min-w-full flex-col" style={{ width: HEADER_WIDTH + trackWidth }}>
 					<div className="sticky top-0 z-30 flex shrink-0" style={{ height: RULER_HEIGHT }}>
@@ -198,7 +223,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							className="mm-track-header sticky left-0 z-10 flex shrink-0 items-center gap-0.5 border-r border-b border-[var(--separator)] pr-1.5 pl-3"
 							style={{ width: HEADER_WIDTH }}
 						>
-							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Marbles</span>
+							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Tracks</span>
 							<MenuButton
 								className="mm-icon-button !h-5 !w-5"
 								label={<Plus size={13} strokeWidth={2} />}
@@ -217,7 +242,22 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
 					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
-					{song != null ? <SongTrack cx={cx} project={project} song={song} analysis={analysis[song.id]} zoom={zoom} width={trackWidth} /> : <EmptySongTrack cx={cx} width={trackWidth} />}
+					{song != null ? (
+						<SongTrack
+							cx={cx}
+							project={project}
+							song={song}
+							analysis={analysis[song.id]}
+							zoom={zoom}
+							width={trackWidth}
+							range={songRows}
+							isExpanded={isSongExpanded && songRows != null}
+							height={songHeight}
+							selection={selection}
+						/>
+					) : (
+						<EmptySongTrack cx={cx} width={trackWidth} />
+					)}
 					{project.music.lanes.map((lane, index) => {
 						const range = ranges.get(lane.id) ?? null;
 						const isExpanded = expanded.includes(lane.id) && range != null;

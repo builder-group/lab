@@ -37,6 +37,9 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | Blender | **Blender**: a status chip in the title bar (Ready, Starting, Rendering Preview, Not Installed, Error) with Open in Blender, Restart Blender, Show Blender Log | worker, bridge, mailbox | |
 | Changed in Blender | **Detached** with **Reset to Theme** | unlinked, taken over, edited | |
 | The project's outline | **Layers**: Song, Marbles, Free Pieces, Camera, Titles | tree, scene graph | Figma |
+| Settings most people never need | **Advanced**, a disclosure at the end of a section | expert, more, details | Final Cut, Logic |
+| How a film is lit and rendered | **Lighting**: Fast or Realistic (Eevee and Cycles in the tooltip) | renderer, engine | |
+| What an agent run produces | **Result**, shown as a card with Accept and Discard | candidate, output, artifact | |
 | A look preset | **Theme** (Pegboard, Brass): wall, light, marble and a default skin per piece type | style, material, preset | |
 | A theme setting that changes the whole look | **Theme option** (Colour by Note) | parameter | |
 | The browser of themes, skins and pieces | **Library** | assets, My Library, In This Project | Figma's Assets panel; one place, no storage scopes |
@@ -56,9 +59,9 @@ One status per hit, shown as a pill on pieces, in the inspector header and on th
 | Status | When | Tooltip |
 | --- | --- | --- |
 | **On Time** | within 5 ms of the note | "Marble 1 hits C4 on time" |
-| **12 ms Early** / **12 ms Late** | within 20 ms | "Lands 12 ms after the note" |
+| **12 ms Early** / **12 ms Late** | 5 to 20 ms off the note; a filter or count that covers both says **Early or Late** | "Lands 12 ms after the note" |
 | **Missed** | the marble does not reach the platform | "Marble 1 passes the platform without touching it" |
-| **Blocked** | another piece is in the way | "Rail 2 is in the way" (name the piece) |
+| **Blocked** | the marble's own run already passes through the platform's spot earlier | "Melody already passes through this spot earlier in its run" (name the marble) |
 | **Stopped** | the marble comes to rest on the platform | "Marble 1 stops on this platform" |
 | **Open** | the note has no platform yet | "No platform plays this note yet" |
 
@@ -69,7 +72,7 @@ A summary sits in the timeline header for the whole project: "12 of 12 hits on t
 | Action | Shortcut | Meaning |
 | --- | --- | --- |
 | **Add Platform** | click an open note's dot | places a platform tilted so the marble lands on time |
-| **Place Next Platform** | Return | adds the platform for the next open note |
+| **Place Next Platform** | N | adds the platform for the next open note |
 | **Continue Pattern** | Tab | repeats the pattern of the last platforms for as many notes as fit; the button shows the count: "Continue Pattern (4)" |
 | **Mirror Last Platform** | M | the last platform's tilt mirrored, for zigzags |
 | **Repeat Last Platform** | R | the same tilt again |
@@ -114,7 +117,7 @@ The timeline's left column is **Tracks**:
 2. **One track per marble**: the marble's name and instrument, Mute and Solo, its hits in a flat row with their timing status; it expands into a piano roll of just its notes
 3. **Camera** in Film: shots
 
-A note belongs to exactly one place: a marble, or Backing. Handing a note to another marble keeps it; the platform that played it stays where it is, Free.
+A note belongs to exactly one place: a marble, or Backing. A platform exists to play its note, so it goes with it: handed to another marble, the platform plays the note in that marble's run; handed to Backing, the platform is removed. A notice says which, and undo brings it back. (Leaving it Free on the wall would put an obstacle in every marble's path.)
 
 ### Inspector headers
 
@@ -122,7 +125,7 @@ A note belongs to exactly one place: a marble, or Backing. Handing a note to ano
 
 ### Start screen
 
-Actions: **New Project**, **Import Song…** (MIDI or recording, one picker), **Open Project…**. Examples below them: Songs and Techniques. Opening an example opens a copy named after it, saved only when it is changed, so Recent does not fill with copies.
+Actions: **New Project…** (it asks where to save), **Import Song…** (MIDI or recording, one picker), **Open Project…**. Examples below them: Songs and Techniques. Opening an example opens a copy named after it, saved only when it is changed, so Recent does not fill with copies.
 
 ## Beginner path
 

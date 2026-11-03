@@ -8,7 +8,8 @@ import { audibleProject, isLaneAudible } from './StudioCx';
 describe('commands', () => {
 	it('should give every command a unique id and title within its section', () => {
 		const ids = commands.map((command) => command.id);
-		const titles = commands.map((command) => `${command.section}:${command.title}`);
+		// A hidden command only keeps an old id working for menus, so it may share its title
+		const titles = commands.filter((command) => command.isHidden !== true).map((command) => `${command.section}:${command.title}`);
 		expect(new Set(ids).size).toBe(ids.length);
 		expect(new Set(titles).size).toBe(titles.length);
 	});

@@ -141,13 +141,13 @@ export function createBareRunProject(options: {
 		});
 	});
 	return {
-		$schema: 'marble-project@3',
+		$schema: 'marble-project@4',
 		id: options.id,
 		title: options.title,
 		revision: 0,
 		frame: { width: 9, height: 16 },
 		end: options.end,
-		music: { sources: [], lanes },
+		music: { sources: [], lanes, backing: [] },
 		entities,
 		physics: { gravityScale: options.gravityScale ?? DEFAULT_GRAVITY_SCALE },
 		design: {

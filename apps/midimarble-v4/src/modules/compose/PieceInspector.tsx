@@ -15,8 +15,8 @@ import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
 
 /**
- * Inspector for selected pieces like Figma UI3: a header with the timing pill, then Position, Attachment
- * and the secondary Physics section
+ * Inspector for selected pieces like Figma UI3: a header with the tie and the timing pill, then Position, the
+ * tie (Plays, Follows or Free) and the collapsed Advanced section
  */
 export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
@@ -58,7 +58,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const positionEdit = (axis: 'x' | 'y', centimetres: number): TPieceEdit => ({ position: { [axis]: centimetres / 100 } });
 
 	const title = isSingle ? (first.name ?? label) : isSameType ? `${entities.length} ${label}s` : `${entities.length} Pieces`;
-	const subtitle = isSingle ? label : isSameType ? 'Multiple selection' : 'Different piece types';
+	const subtitle = isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
 	const position = transform?.position ?? resolved?.position ?? null;
 	const status = isSingle ? pieceStatus(project, first, resolved, result) : null;
 
@@ -72,7 +72,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
 			/>
 			{entities.every((entity) => isPathPieceType(entity.components.piece?.type)) ? <PathTypeSection cx={cx} project={project} entities={entities} /> : null}
-			<Panel id="piece.position" title="Position" accessory={!isFree && isSingle ? <HelpTip text="A linked or anchored piece follows its hit, so its position comes from the run. Detach it to move it freely." /> : null}>
+			<Panel id="piece.position" title="Position" accessory={!isFree && isSingle ? <HelpTip text="A piece that plays a note or follows a marble moves with the run, so its position comes from there. Detach it to move it freely." /> : null}>
 				{isSingle && position != null ? (
 					<>
 						<ScrubField
@@ -139,8 +139,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				{link != null && attach.kind === 'linked' && kind === 'box' ? (
 					<ScrubField
 						id="piece-contact"
-						label="Contact"
-						name="Contact point along the surface"
+						label="Hit Point"
+						name="Where the marble hits along the platform"
 						value={Math.round(link.contactAt * 100)}
 						unit="%"
 						step={0.5}
@@ -164,7 +164,19 @@ interface TPieceInspectorProps {
 	ids: string[];
 }
 
-/** The header pill: the hit's timing for a linked platform, what the marble does for a rail or tunnel */
+/** The header subtitle, the piece's tie as words.md names it: `Plays C4 · 0:03.2`, `Follows Marble 1 at 0:03.2` or `Free` */
+function tieLabel(project: TProject, entity: TEntity): string {
+	const attach = attachState(project, entity);
+	if (attach.kind === 'free') return 'Free';
+	const lane = project.music.lanes.find((item) => item.id === attach.laneId);
+	if (attach.kind === 'anchored') return `Follows ${lane?.name ?? 'a marble'} at ${formatTime(attach.time)}`;
+	const index = lane?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
+	const hit = lane?.hits[index];
+	const note = hit?.pitch != null ? noteName(hit.pitch) : `Note ${index + 1}`;
+	return hit == null ? 'Plays a note' : `Plays ${note} · ${formatTime(hit.time)}`;
+}
+
+/** The header pill: the hit's timing for a platform that plays a note, what the marble does for a rail or tunnel */
 function pieceStatus(project: TProject, entity: TEntity, resolved: TResolvedPiece | undefined, result: TSimulationResult | null): TTimingStatus | null {
 	const link = entity.components.hitLink;
 	const type = entity.components.piece?.type ?? '';
@@ -172,21 +184,14 @@ function pieceStatus(project: TProject, entity: TEntity, resolved: TResolvedPiec
 	const attach = attachState(project, entity);
 	if (attach.kind === 'linked' && isMusicalPiece(type)) {
 		const hit = result?.hits.find((item) => item.pieceEntityId === entity.id || (item.laneId === link.laneId && item.hitId === link.hitId));
-		const status = timingStatus(resolved, hit);
-		return { ...status, detail: [hitLabel(project, link.laneId, link.hitId), status.detail].filter((line) => line != null).join('\n') };
+		const lane = project.music.lanes.find((item) => item.id === link.laneId);
+		const pitch = lane?.hits.find((item) => item.id === link.hitId)?.pitch;
+		return timingStatus(resolved, hit, { marble: lane?.name, note: pitch == null ? undefined : noteName(pitch), piece: entity.name ?? undefined });
 	}
 	const kind = pieceKind({ type });
 	if ((kind === 'path' || kind === 'tube') && resolved != null && result != null) return rideStatus(project, resolved, result, link.laneId);
-	if (resolved?.status === 'blocked') return timingStatus(resolved, undefined);
+	if (resolved?.status === 'blocked') return timingStatus(resolved, undefined, { marble: project.music.lanes.find((item) => item.id === link.laneId)?.name });
 	return null;
-}
-
-/** A hit as people read it, such as `Melody Hit 1 · B4 · 0:01.00` */
-function hitLabel(project: TProject, laneId: string, hitId: string): string {
-	const lane = project.music.lanes.find((item) => item.id === laneId);
-	const index = lane?.hits.findIndex((item) => item.id === hitId) ?? -1;
-	const hit = lane?.hits[index];
-	return [`${lane?.name ?? 'Marble'} Hit ${index + 1}`, hit?.pitch != null ? noteName(hit.pitch) : null, hit != null ? formatTime(hit.time) : null].filter((part) => part != null).join(' · ');
 }
 
 /** What the marble does on a rail or tunnel, read from the simulation */
@@ -197,22 +202,23 @@ function rideStatus(project: TProject, piece: TResolvedPiece, result: TSimulatio
 	const nextIndex = next != null ? (lane?.hits.indexOf(next) ?? -1) : -1;
 	const ride = pathRide(result, piece, laneId, next?.time ?? result.duration);
 	const label = getPieceDefinition(piece.type)?.label.toLowerCase() ?? 'piece';
+	const marble = lane?.name ?? 'The marble';
 	const starts = `Starts at ${formatTime(start)}.`;
-	if (piece.status === 'blocked') return { tone: 'bad', label: 'Blocked', detail: `The run before it already passes through this ${label}.` };
-	if (ride.enter == null) return { tone: 'bad', label: 'Not touched', detail: `${starts}\nThe marble never touches the ${label}.` };
+	if (piece.status === 'blocked') return { tone: 'bad', label: 'Blocked', detail: `${marble} already passes through this spot earlier in its run` };
+	if (ride.enter == null) return { tone: 'bad', label: 'Missed', detail: `${starts}\n${marble} passes the ${label} without touching it.` };
 	if (ride.leave == null) {
 		return next != null
-			? { tone: 'warn', label: 'Still riding', detail: `${starts}\nThe marble is still on the ${label} at Hit ${nextIndex + 1}.` }
-			: { tone: 'neutral', label: 'Rides to end', detail: `${starts}\nThe marble stays on the ${label} to the end.` };
+			? { tone: 'warn', label: 'Still Riding', detail: `${starts}\n${marble} is still on the ${label} at hit ${nextIndex + 1}.` }
+			: { tone: 'neutral', label: 'Rides to End', detail: `${starts}\n${marble} stays on the ${label} to the end.` };
 	}
 	const rides = ride.leave - ride.enter;
-	const flight = next == null ? '' : `, then flies ${(next.time - ride.leave).toFixed(2)} s to Hit ${nextIndex + 1}`;
-	return { tone: 'good', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\nThe marble leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
+	const flight = next == null ? '' : `, then falls ${(next.time - ride.leave).toFixed(2)} s to hit ${nextIndex + 1}`;
+	return { tone: 'good', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\n${marble} leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
 }
 
 /**
- * What the piece is attached to, as one row that selects it: the hit a platform plays, or the marble and
- * moment an anchored piece follows. The icon button detaches it in place.
+ * The piece's tie, as one row that selects what it is tied to: the note a platform plays, or the marble and
+ * moment a piece follows. The icon button detaches it in place.
  */
 const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
 	const { cx, project, entity } = props;
@@ -250,19 +256,19 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 	return (
 		<Panel
 			id="piece.attach"
-			title="Attached To"
+			title={attach.kind === 'linked' ? 'Plays' : attach.kind === 'anchored' ? 'Follows' : 'Free'}
 			accessory={
-				<HelpTip text="Drop a platform on a hit dot to link it: it plays that note. Drop any piece near a trajectory to anchor it: it follows the marble but plays nothing. Hold ⌥ while dragging to drop it free." />
+				<HelpTip text="Drop a platform on a note's dot and it plays that note. Drop any piece near the line a marble falls along and it follows that marble without playing. Hold ⌥ while dragging to drop it free." />
 			}
 		>
 			{attach.kind === 'free' ? (
-				<NoteRow>Nothing, free on the wall</NoteRow>
+				<NoteRow>Not tied to a note or a marble</NoteRow>
 			) : attach.kind === 'linked' ? (
 				<LinkRow
-					title={`Select Hit ${hitIndex + 1}`}
+					title={`Select Note ${hitIndex + 1}`}
 					onOpen={openHit}
 					action={
-						<button className="mm-icon-button" onClick={detach} title="Unlink: keep it where it is, free" aria-label="Unlink" type="button">
+						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, free" aria-label="Detach" type="button">
 							<Unlink2 size={13} strokeWidth={1.9} />
 						</button>
 					}
@@ -270,7 +276,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 					<span className="inline-flex items-center gap-2">
 						{marbleDot}
 						<span>
-							Hit {hitIndex + 1}
+							Note {hitIndex + 1}
 							<span className="mm-insp-secondary">
 								{hit?.pitch != null ? ` · ${noteName(hit.pitch)}` : ''} · {formatTime(hit?.time ?? 0)}
 							</span>
@@ -283,7 +289,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 					title={`Select ${lane?.name ?? 'the marble'}`}
 					onOpen={openMarble}
 					action={
-						<button className="mm-icon-button" onClick={detach} title="Unanchor: keep it where it is, free" aria-label="Unanchor" type="button">
+						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, free" aria-label="Detach" type="button">
 							<Unlink2 size={13} strokeWidth={1.9} />
 						</button>
 					}
@@ -318,7 +324,7 @@ const PathTypeSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEn
 
 	return (
 		<Panel id="piece.pathType" title="Path" accessory={<HelpTip text="A rail carries the marble on top; a tunnel closes over it so it rolls through hidden. Switching keeps the drawn path." />}>
-			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Path piece">
+			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Rail or tunnel">
 				{pathPieceTypes.map((type) => (
 					<button
 						key={type}
@@ -391,24 +397,24 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 	);
 };
 
-// MARK: - Physics
+// MARK: - Advanced
 
 /** Physical parameters of the piece type not shown above, with units people read: cm, mm, ms, rpm */
 const ParamsSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string }> = (props) => {
 	const { cx, project, entities, type } = props;
 	const definition = getPieceDefinition(type);
-	// Length sits in Position and the anchor moment in Attached To
+	// Length sits in Position and the moment a piece follows in its tie
 	const names = Object.keys(definition?.params ?? {})
 		.filter((name) => name !== 'entryDelay' && !(layoutOf(type) === 'box' && name === 'length'))
 		.sort((a, b) => paramRank(a) - paramRank(b));
 	if (definition == null || !names.length) return null;
 
 	return (
-		<Panel id="piece.physics" title="Physics" defaultCollapsed isDense>
+		<Panel id="piece.physics" title="Advanced" defaultCollapsed isDense>
 			{names.map((name) => {
 				const spec = definition.params[name];
 				if (spec == null) return null;
-				const label = shortLabels[name] ?? spec.label;
+				const label = (type === 'tunnel' && name === 'radius' ? 'Wall' : shortLabels[name]) ?? spec.label;
 				const display = displayUnit(name, spec.unit, spec.integer === true);
 				const values = entities.map((entity) => resolvedParam(entity, name));
 				const shared = values.every((value) => Math.abs(value - (values[0] ?? 0)) < 1e-12) ? (values[0] ?? null) : null;
@@ -449,15 +455,15 @@ function paramRank(name: string): number {
 const shortLabels: Record<string, string> = {
 	bladeCount: 'Blades',
 	bladeLength: 'Blade',
-	bladeThickness: 'Width',
+	bladeThickness: 'Thick',
 	hubRadius: 'Hub',
 	motorSpeed: 'Motor',
-	damping: 'Damping',
+	damping: 'Friction',
 	radius: 'Wire',
-	gap: 'Gap',
-	bore: 'Clear',
+	gap: 'Spacing',
+	bore: 'Room',
 	mouth: 'Mouth',
-	width: 'W',
+	width: 'Width',
 	drop: 'Drop',
 	opening: 'Open',
 	lip: 'Lip',

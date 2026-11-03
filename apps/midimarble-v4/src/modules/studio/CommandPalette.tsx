@@ -145,8 +145,10 @@ function splitShortcut(value: string): string[] {
 function searchCommands(cx: StudioCx, query: string): TCommand[] {
 	const words = query.toLowerCase().split(/\s+/).filter(Boolean);
 	const workspace = cx.$workspace.get();
-	const available = commands.filter((command) =>
-		workspace === 'compose' ? command.section !== 'Design' : command.section !== 'Tools' && command.section !== 'Build'
+	const available = commands.filter(
+		(command) =>
+			command.isHidden !== true &&
+			(workspace === 'compose' ? command.section !== 'Film' : command.section !== 'Tools' && command.section !== 'Pieces')
 	);
 	if (!words.length) return available;
 	const scored = available.flatMap((command) => {

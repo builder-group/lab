@@ -29,7 +29,7 @@ function createTwoLaneProject(): TProject {
 		}
 	});
 	return {
-		$schema: 'marble-project@3',
+		$schema: 'marble-project@4',
 		physics: { gravityScale: 1 },
 		id: 'preflight',
 		title: 'Preflight',
@@ -41,7 +41,8 @@ function createTwoLaneProject(): TProject {
 			lanes: [
 				{ id: 'lane-a', name: 'Melody', color: '#3478f6', instrument: 9, hits: [{ id: 'a1', time: 1 }, { id: 'a2', time: 2 }, { id: 'a3', time: 3 }] },
 				{ id: 'lane-b', name: 'Bass', color: '#ff9f0a', instrument: 9, hits: [{ id: 'b1', time: 1.5 }] }
-			]
+			],
+			backing: []
 		},
 		entities: [
 			marble('marble-a', 'lane-a', -0.1),
@@ -99,7 +100,7 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, simulator.simulate(project));
 
 		expect(preflight.issues).toEqual([]);
-		expect(preflight.summary).toBe('All 16 hits on time');
+		expect(preflight.summary).toBe('16 of 16 hits on time');
 	});
 
 	it('should pass Jingle Bells and report dots past the lane band once the bass moves sideways', () => {
@@ -112,7 +113,7 @@ describe('preflightExport function', () => {
 		bass.components.release.position.x += 0.2;
 		const preflight = preflightExport(project, simulator.simulate(project));
 
-		expect(preflight.issues.map((issue) => issue.title)).toContainEqual(expect.stringMatching(/dots? outside the lane band on Bass$/));
+		expect(preflight.issues.map((issue) => issue.title)).toContainEqual(expect.stringMatching(/dots? outside the marble's part of the frame on Bass$/));
 	});
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
@@ -123,7 +124,7 @@ describe('preflightExport function', () => {
 
 		const preflight = preflightExport(project, simulator.simulate(project));
 
-		expect(preflight.summary).toMatch(/^\d+ issues? · 1 note$/);
+		expect(preflight.summary).toMatch(/^\d+ issues? · 1 tip$/);
 		expect(preflight.issues[0]).toEqual(expect.objectContaining({ severity: 'warning', title: expect.stringMatching(/^Blocked hit/) }));
 		expect(preflight.issues.at(-1)).toEqual(expect.objectContaining({ severity: 'info', title: expect.stringMatching(/dots outside the frame on Marble 1$/) }));
 	});
@@ -134,7 +135,7 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, simulator.simulate(project));
 
 		expect(preflight.warnings).toBe(0);
-		expect(preflight.summary).toBe('All 21 hits on time · 1 note');
+		expect(preflight.summary).toBe('21 of 21 hits on time · 1 tip');
 	});
 
 	it('should be pending without a result for the current revision', () => {
@@ -158,10 +159,10 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, result);
 
 		expect(preflight.issues.map((issue) => [issue.title, issue.detail])).toEqual([
-			['Missed hit, Melody at 0:01.00', 'Lands 50 ms late.'],
-			['Blocked hit, Bass at 0:01.50', 'The marble passes through the piece earlier in the run, so it is left out.'],
-			['Missed hit, Melody at 0:02.00', 'The marble rolls onto the piece instead of striking it.'],
-			['Drifting hit, Melody at 0:03.00', 'Lands 12 ms early.']
+			['Missed hit, Melody at 0:01.00', 'Lands 50 ms after the note.'],
+			['Blocked hit, Bass at 0:01.50', 'Bass already passes through this spot earlier in its run, so the platform is left out.'],
+			['Stopped hit, Melody at 0:02.00', 'The marble stops on the platform instead of striking it.'],
+			['Early hit, Melody at 0:03.00', 'Lands 12 ms before the note.']
 		]);
 		expect(preflight.summary).toBe('4 issues');
 		expect(preflight.issues[0]?.target).toEqual({ ids: ['pa1'], time: 1 });
@@ -174,9 +175,9 @@ describe('preflightExport function', () => {
 
 		expect(preflight.warnings).toBe(0);
 		expect(preflight.issues).toEqual([
-			expect.objectContaining({ severity: 'info', title: 'Open hit, Melody at 0:03.00', target: { ids: ['hit:lane-a:a3'], time: 3 } })
+			expect.objectContaining({ severity: 'info', title: 'Open note, Melody at 0:03.00', target: { ids: ['hit:lane-a:a3'], time: 3 } })
 		]);
-		expect(preflight.summary).toBe('3 of 4 hits on time · 1 note');
+		expect(preflight.summary).toBe('3 of 4 hits on time · 1 tip');
 	});
 
 	it('should flag dots outside the lane band when marbles share the frame', () => {
@@ -185,7 +186,7 @@ describe('preflightExport function', () => {
 
 		const preflight = preflightExport(project, result);
 
-		expect(preflight.issues).toEqual([expect.objectContaining({ severity: 'warning', title: 'Dot outside the lane band, Melody at 0:01.00' })]);
+		expect(preflight.issues).toEqual([expect.objectContaining({ severity: 'warning', title: "Dot outside the marble's part of the frame, Melody at 0:01.00" })]);
 	});
 
 	it('should flag stray contacts but not contacts with the marble own pieces, scenery or free pieces', () => {
@@ -234,7 +235,7 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, result);
 
 		expect(preflight.issues.filter((issue) => issue.id.startsWith('pace'))).toEqual([
-			expect.objectContaining({ title: 'Bass leaves the shared pace', detail: '0.95 m below the other marbles at 0:01.50, so the camera may lose it.' })
+			expect.objectContaining({ title: 'Bass falls out of step with the other marbles', detail: '0.95 m below the other marbles at 0:01.50, so the camera may lose it.' })
 		]);
 	});
 

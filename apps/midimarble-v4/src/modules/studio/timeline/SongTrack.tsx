@@ -1,4 +1,4 @@
-import { AudioLines, Music } from 'lucide-react';
+import { AudioLines, ChevronRight, Music } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import type { TProject, TSource } from '@/modules/project';
@@ -6,14 +6,19 @@ import { commandItem } from '../commands';
 import { formatTime } from '../format';
 import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
+import { BACKING_COLOR } from './hand-notes';
+import type { TPitchRange } from './piano-roll';
+import { SongRoll } from './SongRoll';
 import { HEADER_WIDTH, SONG_ROW_HEIGHT } from './timeline-layout';
+import { toggleSongExpanded } from './timeline-state';
 
 /**
  * The project's song as the top track, like the audio clip under a Final Cut storyline: the file name in
- * the header, the waveform of a recording or a small overview of every marble's notes for MIDI
+ * the header, the waveform of a recording or a small overview of every note for MIDI. A MIDI song expands into
+ * a piano roll of every note, where notes are handed to marbles or to Backing.
  */
 export const SongTrack: React.FC<TSongTrackProps> = (props) => {
-	const { cx, project, song, analysis, zoom, width } = props;
+	const { cx, project, song, analysis, zoom, width, range, isExpanded, height, selection } = props;
 	const isAudio = song.kind === 'audio';
 	const tempo = project.music.tempo;
 	const details = isAudio
@@ -25,19 +30,40 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	}
 
 	return (
-		<div className="flex shrink-0" style={{ height: SONG_ROW_HEIGHT }}>
+		<div className="flex shrink-0" style={{ height }}>
 			<div
-				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-b border-[var(--separator)] pr-2 pl-5"
+				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-start border-r border-b border-[var(--separator)] pr-2 pl-1"
 				style={{ width: HEADER_WIDTH }}
+				data-expanded={isExpanded}
 				onContextMenu={openMenu}
 				title={song.name}
 			>
-				<span className="mm-song-icon">{isAudio ? <AudioLines size={12} strokeWidth={1.75} /> : <Music size={12} strokeWidth={1.75} />}</span>
-				<span className="flex min-w-0 flex-1 flex-col leading-tight">
-					<span className="truncate font-medium">{song.name}</span>
-					<span className="truncate text-[11px] text-[var(--text-secondary)]">{details.filter(Boolean).join(' · ')}</span>
-				</span>
+				<div className="flex min-w-0 flex-1 items-center gap-1.5" style={{ height: SONG_ROW_HEIGHT }}>
+					{range != null ? (
+						<button
+							className="mm-disclosure"
+							data-open={isExpanded}
+							onClick={toggleSongExpanded}
+							title={isExpanded ? 'Collapse Song' : 'Show Every Note'}
+							aria-label={isExpanded ? 'Collapse Song' : 'Expand Song'}
+							aria-expanded={isExpanded}
+							type="button"
+						>
+							<ChevronRight size={12} strokeWidth={2.25} />
+						</button>
+					) : (
+						<span className="w-4 shrink-0" />
+					)}
+					<span className="mm-song-icon">{isAudio ? <AudioLines size={12} strokeWidth={1.75} /> : <Music size={12} strokeWidth={1.75} />}</span>
+					<span className="flex min-w-0 flex-1 flex-col leading-tight">
+						<span className="truncate font-medium">{song.name}</span>
+						<span className="truncate text-[11px] text-[var(--text-secondary)]">{details.filter(Boolean).join(' · ')}</span>
+					</span>
+				</div>
 			</div>
+			{isExpanded && range != null ? (
+				<SongRoll cx={cx} project={project} range={range} zoom={zoom} width={width} selection={selection} />
+			) : (
 			<div className="mm-song-lane relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }} onContextMenu={openMenu} aria-label={`Song ${song.name}`}>
 				{isAudio && analysis != null ? (
 					<>
@@ -49,6 +75,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 				) : null}
 				{isAudio ? null : <NoteOverview project={project} zoom={zoom} width={width} height={SONG_ROW_HEIGHT - 1} />}
 			</div>
+			)}
 		</div>
 	);
 };
@@ -90,12 +117,17 @@ interface TSongTrackProps {
 	analysis: TSourceAnalysis | undefined;
 	zoom: number;
 	width: number;
+	// Pitch rows of the expanded piano roll; null when the song cannot expand
+	range: TPitchRange | null;
+	isExpanded: boolean;
+	height: number;
+	selection: string[];
 }
 
-/** Every marble's notes in one strip, higher notes higher, in the marble colours */
+/** Every note in one strip, higher notes higher, in the marble colours and Backing in grey */
 const NoteOverview: React.FC<{ project: TProject; zoom: number; width: number; height: number }> = (props) => {
 	const { project, zoom, width, height } = props;
-	const lanes = project.music.lanes;
+	const lanes = [...project.music.lanes, { id: 'backing', color: BACKING_COLOR, hits: project.music.backing }];
 	const pitches = lanes.flatMap((lane) => lane.hits.flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch])));
 	const low = pitches.length ? Math.min(...pitches) : 60;
 	const high = pitches.length ? Math.max(...pitches) : 72;

@@ -6,8 +6,8 @@ import type { THitResult, TPieceStatus } from '@/modules/simulation';
 export type TBadgeStatus = Exclude<THitResult['status'], 'open'>;
 
 export const badgeStyles: Record<TBadgeStatus, { color: string; glyph: string; label: string }> = {
-	onTime: { color: 'var(--good)', glyph: 'M -2.6 0.2 L -0.8 2 L 2.6 -1.8', label: 'On time' },
-	drifting: { color: 'var(--warn)', glyph: 'M -2.8 0.8 C -1.6 -1.4 -0.4 -1.2 0 0 C 0.4 1.2 1.6 1.4 2.8 -0.8', label: 'Drifting' },
+	onTime: { color: 'var(--good)', glyph: 'M -2.6 0.2 L -0.8 2 L 2.6 -1.8', label: 'On Time' },
+	drifting: { color: 'var(--warn)', glyph: 'M -2.8 0.8 C -1.6 -1.4 -0.4 -1.2 0 0 C 0.4 1.2 1.6 1.4 2.8 -0.8', label: 'Early or Late' },
 	missed: { color: 'var(--bad)', glyph: 'M -2.2 -2.2 L 2.2 2.2 M 2.2 -2.2 L -2.2 2.2', label: 'Missed' },
 	blocked: { color: 'var(--bad)', glyph: 'M 0 -2.8 L 0 0.8 M 0 2.6 L 0 2.7', label: 'Blocked' }
 };
@@ -38,7 +38,7 @@ export const StatusIcon: React.FC<{ status: TBadgeStatus | null; size?: number }
 	const { status, size = 12 } = props;
 	if (status == null) {
 		return (
-			<svg width={size} height={size} viewBox="-6 -6 12 12" aria-label="Not placed">
+			<svg width={size} height={size} viewBox="-6 -6 12 12" aria-label="Open">
 				<circle r={4} fill="none" stroke="var(--text-tertiary)" strokeWidth={1.2} />
 			</svg>
 		);

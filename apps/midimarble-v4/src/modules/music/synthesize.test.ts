@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { SoundBankLoader } from 'spessasynth_core';
 import { describe, expect, it } from 'vitest';
 import type { TLane } from '@/modules/project';
-import { createLaneEvents, mixAudioSource, renderLanes, type TStereoAudio } from './synthesize';
+import { createBackingEvents, createLaneEvents, mixAudioSource, renderLanes, type TStereoAudio } from './synthesize';
 
 const sampleRate = 22050;
 
@@ -28,6 +28,34 @@ describe('renderLanes function', () => {
 			const audio = renderLanes([lane('a', program, [0.05])], { sampleRate, duration: 0.5, bank });
 			expect(peak(audio.left, 0.05, 0.3)).toBeGreaterThan(0.005);
 		}
+	});
+
+	it('should play Backing on its own channel with the notes held for their length', () => {
+		const backing = { instrument: 0, hits: [{ id: 'b', time: 0.2, pitch: 60, duration: 1 }] };
+
+		const audio = renderLanes([lane('a', 9, [])], { sampleRate, duration: 1.5, bank, backing });
+
+		expect(peak(audio.left, 0, 0.19)).toBe(0);
+		expect(peak(audio.left, 0.2, 0.4)).toBeGreaterThan(0.01);
+		expect(peak(audio.left, 0.9, 1.1)).toBeGreaterThan(0.001);
+	});
+
+	it('should end a Backing note before the next note of the same pitch', () => {
+		const events = createBackingEvents(
+			[
+				{ id: 'a', time: 0, pitch: 60, duration: 2 },
+				{ id: 'b', time: 0.5, pitch: 60, duration: 0.1 }
+			],
+			3,
+			100
+		);
+
+		expect(events.map((event) => [event.kind, event.sample])).toEqual([
+			['on', 0],
+			['off', 50],
+			['on', 50],
+			['off', 60]
+		]);
 	});
 
 	it('should render more than nine lanes', () => {

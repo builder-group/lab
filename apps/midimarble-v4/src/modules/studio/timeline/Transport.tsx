@@ -1,23 +1,27 @@
 import { useFeatureState } from 'feature-react/state';
 import { ChevronFirst, ChevronLast, Minus, MoveHorizontal, Pause, Play, Plus, SkipBack } from 'lucide-react';
 import React from 'react';
+import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';
 import { formatTime } from '../format';
+import { toHitKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
+import { hitSummary } from './hit-status';
 import { parseTime } from './parse-time';
 import { sliderToZoom, zoomToSlider } from './timeline-layout';
 
 /**
- * Timeline header like Logic's control bar: Go to Beginning, Previous Hit, Play and Next Hit as plain glyphs
- * beside an LCD time readout in the middle, and Final Cut's zoom slider with Zoom to Fit at the right
+ * Timeline header like Logic's control bar: the hit summary at the left, Go to Beginning, Previous Hit, Play and
+ * Next Hit as plain glyphs beside an LCD time readout in the middle, and Final Cut's zoom slider with Zoom to Fit
+ * at the right
  */
 export const Transport: React.FC<TTransportProps> = (props) => {
-	const { cx, zoom, onZoom, onZoomToFit } = props;
+	const { cx, results, zoom, onZoom, onZoomToFit } = props;
 	const playing = useFeatureState(cx.$playing);
 
 	return (
 		<div className="mm-transport" role="toolbar" aria-label="Transport">
-			<div className="flex-1" />
+			<div className="flex min-w-0 flex-1 items-center">{results != null && results.length > 0 ? <HitSummary cx={cx} results={results} /> : null}</div>
 			<div className="flex items-center gap-2">
 				<div className="flex items-center gap-px" role="group" aria-label="Playback">
 					<TransportButton cx={cx} command="play.start" icon={<SkipBack size={16} strokeWidth={1.75} />} />
@@ -48,10 +52,43 @@ export const Transport: React.FC<TTransportProps> = (props) => {
 
 interface TTransportProps {
 	cx: StudioCx;
+	// Hit results of the latest run; null before the first one
+	results: THitResult[] | null;
 	zoom: number;
 	onZoom: (zoom: number) => void;
 	onZoomToFit: () => void;
 }
+
+/**
+ * "12 of 12 hits on time", or "2 hits need attention" in amber, which selects and reveals the first problem hit
+ * and moves the playhead to it, like Xcode's issue count
+ */
+const HitSummary: React.FC<{ cx: StudioCx; results: THitResult[] }> = (props) => {
+	const { cx, results } = props;
+	const summary = React.useMemo(() => hitSummary(results), [results]);
+	const first = summary.problems[0];
+	const isGood = first == null && summary.onTime === summary.total;
+
+	if (first == null) {
+		return (
+			<span className="mm-hit-summary" data-tone={isGood ? 'good' : 'neutral'} role="status">
+				{summary.label}
+			</span>
+		);
+	}
+	return (
+		<button
+			className="mm-hit-summary"
+			data-tone="warn"
+			onClick={() => cx.revealIssue({ ids: [first.pieceEntityId ?? toHitKey(first.laneId, first.hitId)], point: first.dot ?? undefined, time: first.targetTime })}
+			title="Show the first hit that needs attention"
+			type="button"
+		>
+			<span className="mm-hit-summary-dot" aria-hidden />
+			{summary.label}
+		</button>
+	);
+};
 
 /** A glyph button that runs a playback command and names it with its shortcut in the tooltip */
 const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React.ReactNode; title?: string; isActive?: boolean }> = (props) => {

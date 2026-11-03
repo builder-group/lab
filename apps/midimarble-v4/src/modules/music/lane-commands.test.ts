@@ -20,4 +20,15 @@ describe('createImportCommands', () => {
 		// A note earlier than the lead keeps the release at the start
 		expect(releases[1]).toBe(0);
 	});
+
+	it('should keep every note, with the notes no marble plays in Backing', () => {
+		const project = createProject({ id: 'import', title: 'Import' });
+		const commands = createImportCommands(project, { lanes: [[note(1, 60)]], backing: [note(1, 55), note(1.1, 52)], backingInstrument: 0 });
+		const [isApplied, applyErr, next] = applyProjectCommands(project, commands);
+		if (!isApplied) throw applyErr;
+
+		expect(next.music.lanes[0]?.hits.map((hit) => hit.duration)).toEqual([0.2]);
+		expect(next.music.backing.map((hit) => hit.pitch)).toEqual([55, 52]);
+		expect(next.music.backingInstrument).toBe(0);
+	});
 });

@@ -49,6 +49,6 @@ function describeIssue(issue: TLoopIssue, name: (id: string) => string, start: n
 		case 'movingPiece':
 			return `${name(issue.pieceEntityId)} ends ${((issue.angleError * 180) / Math.PI).toFixed(0)}° turned from its first frame.`;
 		case 'bars':
-			return `The loop is ${Math.abs(issue.offset).toFixed(2)} s ${issue.offset > 0 ? 'longer' : 'shorter'} than whole bars, so the music jumps.`;
+			return `The loop is ${Math.abs(issue.offset).toFixed(2)} s ${issue.offset > 0 ? 'longer' : 'shorter'} than whole bars, so the song jumps.`;
 	}
 }

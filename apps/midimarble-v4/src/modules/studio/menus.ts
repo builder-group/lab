@@ -4,6 +4,7 @@ import { commandItem } from './commands';
 import { formatTime } from './format';
 import { toHitKey } from './selection';
 import type { StudioCx } from './StudioCx';
+import { playWithMenu } from './timeline/hand-notes';
 
 // Context menus list the same commands as the palette and the shortcuts, so each shows its key
 
@@ -28,7 +29,6 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 	const hit = lane.hits.find((item) => item.id === hitId);
 	if (project == null || hit == null) return [];
 	const piece = project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id && entity.components.hitLink.hitId === hitId);
-	const others = project.music.lanes.filter((item) => item.id !== lane.id);
 	const selected = cx.$selection.get();
 	const key = toHitKey(lane.id, hitId);
 	const moving = selected.includes(key) ? selected : [key];
@@ -44,8 +44,8 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 			}
 		},
 		piece != null ? { label: `Select ${piece.name ?? 'Piece'}`, onSelect: () => cx.reveal([piece.id]) } : null,
-		others.length > 0 ? 'separator' : null,
-		...others.map((target) => ({ label: `Move to ${target.name}`, onSelect: () => moveHits(cx, moving, target.id) })),
+		'separator',
+		...playWithMenu(cx, moving),
 		'separator',
 		{ ...commandItem(cx, 'edit.delete'), disabled: false, onSelect: () => removeHits(cx, moving) }
 	]);
@@ -110,18 +110,4 @@ function removeHits(cx: StudioCx, keys: string[]): void {
 		return hitIds.length ? [{ type: 'removeHits' as const, laneId: lane.id, hitIds }] : [];
 	});
 	if (cx.execute(commands)) cx.$selection.set([]);
-}
-
-/** Moves hits to another marble's lane as one edit, keeping their times and pitches */
-function moveHits(cx: StudioCx, keys: string[], laneId: string): void {
-	const project = cx.project;
-	if (project == null) return;
-	const moved = project.music.lanes.flatMap((lane) => (lane.id === laneId ? [] : lane.hits.filter((hit) => keys.includes(toHitKey(lane.id, hit.id))).map((hit) => ({ lane, hit }))));
-	if (!moved.length) return;
-	const removals = project.music.lanes.flatMap((lane) => {
-		const hitIds = moved.filter((item) => item.lane.id === lane.id).map((item) => item.hit.id);
-		return hitIds.length ? [{ type: 'removeHits' as const, laneId: lane.id, hitIds }] : [];
-	});
-	const hits = moved.map((item) => ({ ...item.hit, id: createId('hit') }));
-	if (cx.execute([...removals, { type: 'upsertHits', laneId, hits }])) cx.$selection.set(hits.map((hit) => toHitKey(laneId, hit.id)));
 }

@@ -40,7 +40,7 @@ export function agentRunPhaseLabel(phase: TAgentRunPhase): string {
 		case 'review':
 			return 'Ready for review';
 		case 'incomplete':
-			return 'Finished without a candidate';
+			return 'Finished without a result';
 		case 'failed':
 			return 'Failed';
 		case 'cancelled':

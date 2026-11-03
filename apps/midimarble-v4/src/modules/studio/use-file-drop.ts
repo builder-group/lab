@@ -1,10 +1,7 @@
 import { isTauri } from '@tauri-apps/api/core';
 import React from 'react';
-import { host, type THostPickedFile } from '@/environment';
+import { host, notSongFileMessage, songFileKind, type THostPickedFile } from '@/environment';
 import type { StudioCx } from './StudioCx';
-
-const midiExtensions = ['mid', 'midi'];
-const audioExtensions = ['wav', 'mp3', 'm4a', 'aac', 'aiff', 'aif', 'flac', 'ogg'];
 
 /** Imports MIDI and audio files dropped anywhere on the window; returns true while a file is dragged over it */
 export function useFileDrop(cx: StudioCx): boolean {
@@ -12,10 +9,10 @@ export function useFileDrop(cx: StudioCx): boolean {
 
 	React.useEffect(() => {
 		function importFile(file: THostPickedFile): void {
-			const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-			if (midiExtensions.includes(extension)) void cx.sources.openMidi(file);
-			else if (audioExtensions.includes(extension)) void cx.sources.importAudio(file);
-			else cx.notify(`${file.name} is not a MIDI or audio file`, 'error');
+			const kind = songFileKind(file.name);
+			if (kind === 'midi') void cx.sources.openMidi(file);
+			else if (kind === 'audio') void cx.sources.importAudio(file);
+			else cx.notify(notSongFileMessage(file.name), 'error');
 		}
 
 		if (isTauri()) {

@@ -19,12 +19,14 @@ export interface TCommand {
 	shortcut?: string;
 	/** Extra words the palette matches, such as Blender's names for an action */
 	keywords?: string;
+	/** Kept for menus that still name it, left out of the palette because another command does the same */
+	isHidden?: boolean;
 	isEnabled?: (cx: StudioCx) => boolean;
 	isChecked?: (cx: StudioCx) => boolean;
 	run: (cx: StudioCx) => void;
 }
 
-export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Build' | 'Marble' | 'Design';
+export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Pieces' | 'Marble' | 'Film';
 
 function compose(cx: StudioCx): ComposeCx | null {
 	return cx.$workspace.get() === 'compose' ? cx.$compose.get() : null;
@@ -42,7 +44,7 @@ function inDesign(cx: StudioCx): boolean {
 	return cx.project != null && cx.$workspace.get() === 'design';
 }
 
-/** Whether Blender runs for the Design workspace; false in the browser and without Blender */
+/** Whether Blender runs for the Film workspace; false in the browser and without Blender */
 function hasBlender(cx: StudioCx): boolean {
 	const status = cx.design.$status.get();
 	return inDesign(cx) && status !== 'unavailable' && status !== 'missing';
@@ -58,8 +60,8 @@ function presetCommand(id: TPresetCommandId, preset: TRenderPreset, title: strin
 	return {
 		id,
 		title,
-		section: 'Design',
-		keywords: preset === 'draft' ? 'render preset film workbench quick preview motion timing' : 'render preset film quality export',
+		section: 'Film',
+		keywords: preset === 'draft' ? 'render preset export workbench quick preview motion timing' : 'render preset export eevee cycles',
 		isEnabled: hasProject,
 		isChecked: (cx) => cx.project?.design.renderPreset === preset,
 		run: (cx) => cx.execute([{ type: 'setDesign', design: { renderPreset: preset } }])
@@ -72,8 +74,8 @@ function themeCommand(id: 'design.themePegboard' | 'design.themeBrass', theme: s
 	return {
 		id,
 		title,
-		section: 'Design',
-		keywords: 'look style art direction',
+		section: 'Film',
+		keywords: 'look style art direction design',
 		isEnabled: hasProject,
 		isChecked: (cx) => cx.project?.design.theme === theme,
 		run: (cx) => {
@@ -115,12 +117,12 @@ function toolCommand(tool: TComposeTool, title: string, keywords: string): TComm
 
 export const commands: readonly TCommand[] = [
 	// MARK: - File
-	{ id: 'file.new', title: 'New Project…', section: 'File', shortcut: '⌘N', run: (cx) => void cx.newProject() },
+	{ id: 'file.new', title: 'New Project', section: 'File', shortcut: '⌘N', run: (cx) => void cx.newProject() },
 	{ id: 'file.open', title: 'Open Project…', section: 'File', shortcut: '⌘O', run: (cx) => void cx.openProject() },
 	{ id: 'file.close', title: 'Close Project', section: 'File', isEnabled: hasProject, run: (cx) => void cx.closeProject() },
 	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', isEnabled: hasProject, run: (cx) => void cx.flush() },
-	{ id: 'file.importMidi', title: 'Import MIDI…', section: 'File', shortcut: '⌘I', isEnabled: hasProject, run: (cx) => void cx.sources.pickMidi() },
-	{ id: 'file.importAudio', title: 'Import Audio…', section: 'File', shortcut: '⇧⌘I', keywords: 'recording wav mp3', isEnabled: hasProject, run: (cx) => void cx.sources.pickAudio() },
+	{ id: 'file.importMidi', title: 'Import Song…', section: 'File', shortcut: '⌘I', keywords: 'midi recording audio wav mp3 music', isEnabled: hasProject, run: (cx) => void cx.importSong() },
+	{ id: 'file.importAudio', title: 'Import Song…', section: 'File', isHidden: true, isEnabled: hasProject, run: (cx) => void cx.importSong() },
 	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: hasSong, run: (cx) => void cx.sources.replaceSong() },
 	{ id: 'file.removeSong', title: 'Remove Song', section: 'File', keywords: 'music midi audio soundtrack delete', isEnabled: hasSong, run: (cx) => cx.sources.removeSong() },
 	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.film.openSheet() },
@@ -153,10 +155,10 @@ export const commands: readonly TCommand[] = [
 
 	// MARK: - View
 	{ id: 'view.compose', title: 'Compose', section: 'View', shortcut: '⌘1', keywords: 'workspace', isChecked: (cx) => cx.$workspace.get() === 'compose', run: (cx) => cx.$workspace.set('compose') },
-	{ id: 'view.design', title: 'Design', section: 'View', shortcut: '⌘2', keywords: 'workspace blender', isChecked: (cx) => cx.$workspace.get() === 'design', run: (cx) => cx.$workspace.set('design') },
+	{ id: 'view.design', title: 'Film', section: 'View', shortcut: '⌘2', keywords: 'workspace blender design look export', isChecked: (cx) => cx.$workspace.get() === 'design', run: (cx) => cx.$workspace.set('design') },
 	{ id: 'view.sidebar', title: 'Sidebar', section: 'View', shortcut: '⌃⌘S', keywords: 'outliner panel', isChecked: (cx) => cx.$panels.get().sidebar, run: (cx) => cx.togglePanel('sidebar') },
 	{ id: 'view.inspector', title: 'Inspector', section: 'View', shortcut: '⌃⌘I', keywords: 'properties panel', isChecked: (cx) => cx.$panels.get().inspector, run: (cx) => cx.togglePanel('inspector') },
-	{ id: 'view.timeline', title: 'Timeline', section: 'View', shortcut: '⌃⌘T', keywords: 'lanes dope sheet panel', isChecked: (cx) => cx.$panels.get().timeline, run: (cx) => cx.togglePanel('timeline') },
+	{ id: 'view.timeline', title: 'Timeline', section: 'View', shortcut: '⌃⌘T', keywords: 'tracks dope sheet panel', isChecked: (cx) => cx.$panels.get().timeline, run: (cx) => cx.togglePanel('timeline') },
 	{ id: 'view.agent', title: 'Agent', section: 'View', shortcut: '⌘J', keywords: 'chat ai assistant claude codex ask', isEnabled: hasProject, isChecked: (cx) => cx.$panels.get().agent, run: (cx) => cx.togglePanel('agent') },
 	{ id: 'view.zoomIn', title: 'Zoom In', section: 'View', shortcut: '⌘+', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(2) },
 	{ id: 'view.zoomOut', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(0.5) },
@@ -165,15 +167,15 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.fitSelection', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => compose(cx)?.fitSelection() },
 	{
 		id: 'view.snap',
-		title: 'Snap to Dots and Trajectories',
+		title: 'Snap',
 		section: 'View',
-		keywords: 'magnet snapping link anchor attach',
+		keywords: 'magnet snapping dots trajectories plays follows attach',
 		isChecked: (cx) => cx.$snapping.get(),
 		run: (cx) => cx.$snapping.set(!cx.$snapping.get())
 	},
 	{ id: 'view.wall', title: 'Wall View', section: 'View', keywords: '2d front', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === '2d', run: (cx) => compose(cx)?.setMode('2d') },
 	{ id: 'view.orbit', title: 'Orbit View', section: 'View', keywords: '3d perspective', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'orbit', run: (cx) => compose(cx)?.setMode('orbit') },
-	{ id: 'view.camera', title: 'Camera View', section: 'View', shortcut: '0', keywords: 'film follow camera preview viewfinder numpad', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'camera', run: (cx) => compose(cx)?.toggleCameraView() },
+	{ id: 'view.camera', title: 'Preview Film Camera', section: 'View', shortcut: '0', keywords: 'camera view follow viewfinder numpad', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'camera', run: (cx) => compose(cx)?.toggleCameraView() },
 
 	// MARK: - Playback
 	{ id: 'play.toggle', title: 'Play', section: 'Playback', shortcut: 'Space', keywords: 'pause stop', isEnabled: hasProject, run: (cx) => cx.$playing.set(!cx.$playing.get()) },
@@ -185,9 +187,9 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Tools
 	toolCommand('select', 'Move Tool', 'select pointer arrow'),
 	toolCommand('hand', 'Hand Tool', 'pan'),
-	toolCommand('marble', 'Marble Tool', 'add marble release lane ball'),
+	toolCommand('marble', 'Marble Tool', 'add marble release track ball'),
 	toolCommand('platform', 'Platform Tool', 'piece add place bar'),
-	toolCommand('path', 'Path Tool', 'rail pen bezier curve draw'),
+	toolCommand('path', 'Path Tool', 'rail pen bezier spline curve draw'),
 	{
 		id: 'tool.tunnel',
 		title: 'Path Tool: Tunnel',
@@ -211,19 +213,19 @@ export const commands: readonly TCommand[] = [
 	},
 	{
 		id: 'tool.text',
-		title: 'Text Tool',
-		section: 'Design',
+		title: 'Title Tool',
+		section: 'Film',
 		shortcut: 'T',
-		keywords: 'wall text title label',
+		keywords: 'wall text label credit type',
 		isEnabled: inDesign,
 		isChecked: (cx) => cx.design.$placing.get() === 'text',
 		run: (cx) => getCommand('design.addText').run(cx)
 	},
 	{
 		id: 'tool.asset',
-		title: 'Asset Tool',
-		section: 'Design',
-		keywords: 'library skin decoration theme',
+		title: 'Show Library',
+		section: 'Film',
+		keywords: 'skin decoration theme asset',
 		isEnabled: inDesign,
 		run: (cx) => {
 			cx.$panels.set((panels) => ({ ...panels, sidebar: true }));
@@ -231,35 +233,35 @@ export const commands: readonly TCommand[] = [
 		}
 	},
 
-	// MARK: - Build
-	{ id: 'build.next', title: 'Next', section: 'Build', shortcut: 'N', keywords: 'place step', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.next() },
-	{ id: 'build.repeat', title: 'Repeat', section: 'Build', shortcut: 'R', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('repeat') },
-	{ id: 'build.mirror', title: 'Mirror', section: 'Build', shortcut: 'M', keywords: 'zigzag flip', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('mirror') },
+	// MARK: - Pieces
+	{ id: 'build.next', title: 'Place Next Platform', section: 'Pieces', shortcut: 'N', keywords: 'add step assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.next() },
+	{ id: 'build.repeat', title: 'Repeat Last Platform', section: 'Pieces', shortcut: 'R', keywords: 'copy same tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('repeat') },
+	{ id: 'build.mirror', title: 'Mirror Last Platform', section: 'Pieces', shortcut: 'M', keywords: 'zigzag flip tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('mirror') },
 	{
 		id: 'build.autoPlace',
-		title: 'Auto Place',
-		section: 'Build',
+		title: 'Add Platform',
+		section: 'Pieces',
 		shortcut: 'A',
-		keywords: 'solve angle',
+		keywords: 'auto place solve angle tilt on time assist',
 		isEnabled: (cx) => compose(cx) != null,
 		run: (cx) => {
 			const canvas = compose(cx);
 			canvas?.assist.autoPlace(canvas.placementType());
 		}
 	},
-	{ id: 'build.continue', title: 'Accept Continue', section: 'Build', shortcut: '⇥', keywords: 'ghosts suggestion tab', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.acceptGhosts() },
-	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Build', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.dismiss() },
-	{ id: 'build.rotateLeft', title: 'Rotate 5° Counterclockwise', section: 'Build', shortcut: '⇧←', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(5) },
-	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Build', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
+	{ id: 'build.continue', title: 'Continue Pattern', section: 'Pieces', shortcut: '⇥', keywords: 'accept ghosts suggestions repeat tab assist', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.acceptGhosts() },
+	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Pieces', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.dismiss() },
+	{ id: 'build.rotateLeft', title: 'Rotate 5° Counterclockwise', section: 'Pieces', shortcut: '⇧←', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(5) },
+	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Pieces', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
 
-	// MARK: - Design
-	{ id: 'design.editInBlender', title: 'Edit in Blender', section: 'Design', keywords: 'open blender window', isEnabled: hasBlender, run: (cx) => void cx.design.openInBlender() },
-	{ id: 'design.renderPreview', title: 'Render Preview', section: 'Design', keywords: 'refresh update eevee playhead', isEnabled: hasBlender, run: (cx) => cx.design.requestPreview(0) },
+	// MARK: - Film
+	{ id: 'design.editInBlender', title: 'Edit in Blender', section: 'Film', keywords: 'open blender window', isEnabled: hasBlender, run: (cx) => void cx.design.openInBlender() },
+	{ id: 'design.renderPreview', title: 'Refresh Preview', section: 'Film', keywords: 'render update eevee playhead', isEnabled: hasBlender, run: (cx) => cx.design.requestPreview(0) },
 	{
 		id: 'design.addText',
-		title: 'Add Wall Text',
-		section: 'Design',
-		keywords: 'title label type decal',
+		title: 'Add Title',
+		section: 'Film',
+		keywords: 'wall text label credit type decal',
 		isEnabled: inDesign,
 		isChecked: (cx) => cx.design.$placing.get() === 'text',
 		run: (cx) => {
@@ -271,7 +273,7 @@ export const commands: readonly TCommand[] = [
 	{
 		id: 'design.askAgent',
 		title: 'Ask Agent…',
-		section: 'Design',
+		section: 'Film',
 		keywords: 'ai claude codex generate skin describe',
 		isEnabled: inDesign,
 		run: (cx) => {
@@ -282,7 +284,7 @@ export const commands: readonly TCommand[] = [
 	{
 		id: 'design.resetToCompose',
 		title: 'Reset to Compose',
-		section: 'Design',
+		section: 'Film',
 		keywords: 'relink linked detached discard blender changes',
 		isEnabled: (cx) => hasBlender(cx) && unlinkedSelection(cx).length > 0,
 		run: (cx) => void cx.design.relink(unlinkedSelection(cx))
@@ -290,17 +292,17 @@ export const commands: readonly TCommand[] = [
 	{
 		id: 'design.regenerateCamera',
 		title: 'Regenerate Camera',
-		section: 'Design',
+		section: 'Film',
 		keywords: 'rig follow camera taken over reset',
 		isEnabled: (cx) => hasBlender(cx) && cx.design.$camera.get() === 'takenOver',
 		run: (cx) => void cx.design.regenerateCamera()
 	},
 	{
 		id: 'camera.addShot',
-		title: 'Add Shot Marker',
-		section: 'Design',
+		title: 'Add Shot',
+		section: 'Film',
 		shortcut: '⇧M',
-		keywords: 'camera shot marker push in wide close up roll',
+		keywords: 'camera marker keyframe push in wide follow close up roll',
 		isEnabled: inDesign,
 		run: (cx) => {
 			const project = cx.project;
@@ -311,28 +313,28 @@ export const commands: readonly TCommand[] = [
 	},
 	themeCommand('design.themePegboard', 'pegboard', 'Pegboard Theme'),
 	themeCommand('design.themeBrass', 'brass', 'Brass Theme'),
-	presetCommand('design.presetDraft', 'draft', 'Draft Render Preset'),
-	presetCommand('design.presetFast', 'fast', 'Fast Render Preset'),
-	presetCommand('design.presetBalanced', 'balanced', 'Balanced Render Preset'),
-	presetCommand('design.presetBest', 'best', 'Best Render Preset'),
+	presetCommand('design.presetDraft', 'draft', 'Draft Quality'),
+	presetCommand('design.presetFast', 'fast', 'Standard Quality'),
+	presetCommand('design.presetBalanced', 'balanced', 'High Quality'),
+	presetCommand('design.presetBest', 'best', 'Best Quality'),
 	{
 		id: 'design.loop',
-		title: 'Loop',
-		section: 'Design',
-		keywords: 'seamless repeat',
+		title: 'Seamless Loop',
+		section: 'Film',
+		keywords: 'repeat loop',
 		isEnabled: hasProject,
 		isChecked: (cx) => cx.project?.design.loop === true,
 		run: (cx) => cx.execute([{ type: 'setDesign', design: { loop: cx.project?.design.loop !== true } }])
 	},
-	{ id: 'design.cancelExport', title: 'Cancel Export', section: 'Design', keywords: 'stop render film', isEnabled: (cx) => cx.film.isRunning, run: (cx) => cx.film.cancel() },
+	{ id: 'design.cancelExport', title: 'Cancel Export', section: 'Film', keywords: 'stop render film', isEnabled: (cx) => cx.film.isRunning, run: (cx) => cx.film.cancel() },
 
 	// MARK: - Marble
-	{ id: 'marble.add', title: 'Add Marble', section: 'Marble', keywords: 'lane track new', isEnabled: hasProject, run: (cx) => void cx.addMarble() },
+	{ id: 'marble.add', title: 'Add Marble', section: 'Marble', keywords: 'track new ball', isEnabled: hasProject, run: (cx) => void cx.addMarble() },
 	{
 		id: 'marble.mute',
 		title: 'Mute Marble',
 		section: 'Marble',
-		keywords: 'silence lane',
+		keywords: 'silence track',
 		isEnabled: (cx) => focusedLaneId(cx) != null,
 		isChecked: (cx) => cx.$mix.get().muted.includes(focusedLaneId(cx) ?? ''),
 		run: (cx) => {
@@ -344,7 +346,7 @@ export const commands: readonly TCommand[] = [
 		id: 'marble.solo',
 		title: 'Solo Marble',
 		section: 'Marble',
-		keywords: 'lane',
+		keywords: 'track',
 		isEnabled: (cx) => focusedLaneId(cx) != null,
 		isChecked: (cx) => cx.$mix.get().solo.includes(focusedLaneId(cx) ?? ''),
 		run: (cx) => {
@@ -447,7 +449,7 @@ export function commandItem(cx: StudioCx, id: TCommandId, title?: string): TMenu
 	};
 }
 
-/** Deletes the selected hits, or in Design the selected shot markers */
+/** Deletes the selected hits, or in Film the selected shots */
 export function deleteSelectedHits(cx: StudioCx): boolean {
 	const project = cx.project;
 	if (project == null) return false;

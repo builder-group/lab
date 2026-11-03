@@ -117,10 +117,10 @@ export function followerAt(
 ): TResult<TEntity, Error> {
 	const lane = project.music.lanes.find((item) => item.id === laneId);
 	const hit = [...(lane?.hits ?? [])].reverse().find((item) => item.time < time - 0.005);
-	if (hit == null) return Err(new Error('Scenery starts after the first hit of the lane'));
+	if (hit == null) return Err(new Error("A piece can follow this marble only after its first hit. Drop it lower on the marble's fall."));
 	const delay = Math.round((time - hit.time) * 1000) / 1000;
 	const maxDelay = getPieceDefinition(type)?.params['entryDelay']?.max ?? 2;
-	if (delay > maxDelay) return Err(new Error(`Start within ${maxDelay} s of a hit; this point is ${delay.toFixed(1)} s after one`));
+	if (delay > maxDelay) return Err(new Error(`This spot is ${delay.toFixed(1)} s after the last hit. Drop the piece within ${maxDelay} s of a hit.`));
 	const entity = createLinkedPiece(type, laneId, hit.id, 0, { entities: project.entities });
 	const piece = entity.components.piece;
 	if (piece != null) piece.params = { ...piece.params, entryDelay: delay };

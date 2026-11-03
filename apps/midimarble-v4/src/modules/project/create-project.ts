@@ -22,13 +22,13 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 	const { title = 'Untitled', id = createId('project') } = options;
 	const lane = createLane(0);
 	return {
-		$schema: 'marble-project@3',
+		$schema: 'marble-project@4',
 		id,
 		title,
 		revision: 0,
 		frame: { width: 9, height: 16 },
 		end: 12,
-		music: { sources: [], lanes: [lane] },
+		music: { sources: [], lanes: [lane], backing: [] },
 		entities: [createMarble(lane, { x: 0, y: 0.6 })],
 		physics: { gravityScale: DEFAULT_GRAVITY_SCALE },
 		design: {

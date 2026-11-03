@@ -1498,7 +1498,7 @@ export class ComposeCx {
 		if (project == null || result == null) return;
 		const target = findStepTarget(project, result, this.studio.$selection.get());
 		if (target == null) {
-			this.studio.notify('There is no open hit to place');
+			this.studio.notify('Every note already has a platform');
 			return;
 		}
 		commitAtHit(this.studio, target, pieceForHit(project, target, this.placementType(), mode));

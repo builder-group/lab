@@ -3,7 +3,7 @@ import { applyProjectCommands } from './commands';
 import { createProject } from './create-project';
 import { changedEntityIds, createHistory, pushHistory, redoHistory, undoHistory } from './history';
 import { parseProject, serializeProject } from './project-file';
-import type { TProject } from './schema';
+import { BACKING_ID, type TProject } from './schema';
 
 function firstLaneId(project: TProject): string {
 	const lane = project.music.lanes[0];
@@ -29,6 +29,13 @@ describe('project document', () => {
 		}
 	});
 
+	it('should keep optional theme options and reject unknown ones', () => {
+		const project = createProject();
+		const withOptions = { ...project, design: { ...project.design, themeOptions: { colorByNote: true } } };
+		expect(parseProject(serializeProject(withOptions))[2]?.design.themeOptions).toEqual({ colorByNote: true });
+		expect(parseProject(JSON.stringify({ ...project, design: { ...project.design, themeOptions: { glow: 1 } } }))[0]).toBe(false);
+	});
+
 	it('rejects unknown versions and malformed files', () => {
 		const project = createProject();
 		expect(parseProject(JSON.stringify({ ...project, $schema: 'marble-project@99' }))[0]).toBe(false);
@@ -38,6 +45,30 @@ describe('project document', () => {
 });
 
 describe('commands', () => {
+	it('should hand hits to Backing and back, keeping their IDs and order', () => {
+		const project = createProject();
+		const laneId = firstLaneId(project);
+		const [isEditOk, editErr, edited] = applyProjectCommands(project, [
+			{ type: 'upsertHits', laneId, hits: [{ id: 'a', time: 1 }, { id: 'b', time: 2, duration: 0.25 }] },
+			{ type: 'upsertHits', laneId: BACKING_ID, hits: [{ id: 'c', time: 1.5 }] },
+			{ type: 'assignHits', hitIds: ['b'], laneId: BACKING_ID }
+		]);
+		if (!isEditOk) throw editErr;
+		expect(edited.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['a']);
+		expect(edited.music.backing).toEqual([{ id: 'c', time: 1.5 }, { id: 'b', time: 2, duration: 0.25 }]);
+
+		const [isBackOk, backErr, back] = applyProjectCommands(edited, [{ type: 'assignHits', hitIds: ['c', 'b', 'a'], laneId }]);
+		if (!isBackOk) throw backErr;
+		expect(back.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['a', 'c', 'b']);
+		expect(back.music.backing).toEqual([]);
+	});
+
+	it('should refuse to assign a hit that does not exist', () => {
+		const project = createProject();
+		const [isEditOk] = applyProjectCommands(project, [{ type: 'assignHits', hitIds: ['missing'], laneId: BACKING_ID }]);
+		expect(isEditOk).toBe(false);
+	});
+
 	it('applies a batch as one revision and keeps hits sorted', () => {
 		const project = createProject();
 		const laneId = firstLaneId(project);
@@ -123,7 +154,29 @@ describe('history', () => {
 	});
 });
 
+/** The project as version 3 stored it, before Backing */
+function asVersion3(project: TProject): Record<string, unknown> {
+	const { backing: _backing, backingInstrument: _instrument, ...music } = project.music;
+	return { ...project, $schema: 'marble-project@3', music };
+}
+
 describe('migrations', () => {
+	it('should give version 3 projects an empty Backing and keep everything else', () => {
+		const project = createProject();
+		const [isParsedOk, parsedErr, parsed] = parseProject(JSON.stringify(asVersion3(project)));
+		expect(parsedErr).toBeUndefined();
+		expect(isParsedOk).toBe(true);
+		expect(parsed).toEqual(project);
+	});
+
+	it('should reject note lengths in version 3 files', () => {
+		const project = createProject();
+		const lane = project.music.lanes[0];
+		if (lane == null) throw new Error('No lane');
+		lane.hits = [{ id: 'hit-1', time: 1, duration: 0.5 }];
+		expect(parseProject(JSON.stringify(asVersion3(project)))[0]).toBe(false);
+	});
+
 	it('gives version 1 pieces their original bounce', () => {
 		const project = createProject();
 		const piece = {
@@ -133,12 +186,12 @@ describe('migrations', () => {
 				hitLink: { laneId: firstLaneId(project), hitId: 'hit-1', angle: 0, contactAt: 0.5, pinned: false }
 			}
 		};
-		const { physics: _physics, ...older } = project;
+		const { physics: _physics, ...older } = asVersion3(project);
 		const legacy = { ...older, $schema: 'marble-project@1', entities: [...project.entities, piece] };
 		const [isParsedOk, parsedErr, parsed] = parseProject(JSON.stringify(legacy));
 		expect(parsedErr).toBeUndefined();
 		expect(isParsedOk).toBe(true);
-		expect(parsed?.$schema).toBe('marble-project@3');
+		expect(parsed?.$schema).toBe('marble-project@4');
 		expect(parsed?.entities.find((entity) => entity.id === 'piece-1')?.components.piece?.params['bounce']).toBe(0.55);
 	});
 
@@ -159,7 +212,7 @@ describe('migrations', () => {
 				hitLink: { laneId, hitId, angle: 0.2, contactAt: 0.5, pinned: false }
 			}
 		});
-		const { physics: _physics, ...older } = project;
+		const { physics: _physics, ...older } = asVersion3(project);
 		const legacy = {
 			...older,
 			$schema: 'marble-project@2',
@@ -175,7 +228,7 @@ describe('migrations', () => {
 		const [isParsedOk, parsedErr, parsed] = parseProject(JSON.stringify(legacy));
 		expect(parsedErr).toBeUndefined();
 		expect(isParsedOk).toBe(true);
-		expect(parsed?.$schema).toBe('marble-project@3');
+		expect(parsed?.$schema).toBe('marble-project@4');
 		// Older runs keep Earth gravity
 		expect(parsed?.physics).toEqual({ gravityScale: 1 });
 		const find = (id: string) => parsed?.entities.find((entity) => entity.id === id)?.components;

@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
-import { host, type THostRecentProject } from '@/environment';
+import { host, notSongFileMessage, songFileKind, type THostPickedFile, type THostRecentProject } from '@/environment';
 import { createAudioEngine, type TAudioEngine } from '@/modules/music';
 import {
 	applyProjectCommands,
@@ -227,6 +227,30 @@ export class StudioCx {
 		return true;
 	}
 
+	/** Import Song… on the start screen: a new project named after the song file, then the import */
+	async newProjectFromSong(): Promise<void> {
+		const file = await host.chooseSourceFile('song');
+		if (file == null) return;
+		if (songFileKind(file.name) == null) {
+			this.notify(notSongFileMessage(file.name), 'error');
+			return;
+		}
+		if (await this.newProject({ title: file.name.replace(/\.[^.]+$/, '') })) await this.importSongFile(file);
+	}
+
+	/** Import Song…: one panel for a MIDI file or a recording; the import replaces the current song */
+	async importSong(): Promise<void> {
+		const file = await host.chooseSourceFile('song');
+		if (file != null) await this.importSongFile(file);
+	}
+
+	async importSongFile(file: THostPickedFile): Promise<void> {
+		const kind = songFileKind(file.name);
+		if (kind === 'midi') await this.sources.openMidi(file);
+		else if (kind === 'audio') await this.sources.importAudio(file);
+		else this.notify(notSongFileMessage(file.name), 'error');
+	}
+
 	async openProject(path?: string): Promise<boolean> {
 		const target = path ?? (await host.chooseProjectToOpen());
 		if (target == null) return false;
@@ -237,7 +261,7 @@ export class StudioCx {
 		}
 		const [isProjectOk, projectErr, project] = parseProject(opened.projectJson);
 		if (!isProjectOk) {
-			this.notify(`${target} could not be opened: ${projectErr.message}`, 'error');
+			this.notify(`${projectName(target)} couldn't be opened: ${projectErr.message}`, 'error');
 			return false;
 		}
 		this.load(project, opened.path);
@@ -409,7 +433,7 @@ export class StudioCx {
 		const [isSavedOk, savedErr] = await host.saveProject(path, serializeProject(project));
 		if (!isSavedOk) {
 			this.$save.set('failed');
-			this.notify(`Saving failed: ${savedErr.message}`, 'error');
+			this.notify(`${project.title} couldn't be saved: ${savedErr.message}. Your edits are kept; press ⌘S to try again.`, 'error');
 			return;
 		}
 		this.savedRevision = project.revision;
@@ -439,14 +463,19 @@ export function isLaneAudible(mix: TLaneMix, laneId: string): boolean {
 	return mix.solo.length > 0 ? mix.solo.includes(laneId) : !mix.muted.includes(laneId);
 }
 
-/** The project as it should sound with the current mute and solo state */
+/** The project as it should sound with the current mute and solo state; soloing a marble also silences Backing */
 export function audibleProject(project: TProject, mix: TLaneMix): TProject {
 	if (!mix.muted.length && !mix.solo.length) return project;
-	return { ...project, music: { ...project.music, lanes: project.music.lanes.filter((lane) => isLaneAudible(mix, lane.id)) } };
+	const lanes = project.music.lanes.filter((lane) => isLaneAudible(mix, lane.id));
+	return { ...project, music: { ...project.music, lanes, backing: mix.solo.length > 0 ? [] : project.music.backing } };
 }
 
 const TIMELINE_HEIGHT_KEY = 'midimarble-v4:timeline-height';
 const OPEN_PROJECT_KEY = 'midimarble-v4:open-project';
+
+function projectName(path: string): string {
+	return path.split('/').pop()?.replace(/\.marble$/, '') ?? path;
+}
 
 function toggleItem(items: string[], item: string): string[] {
 	return items.includes(item) ? items.filter((value) => value !== item) : [...items, item];

@@ -1,8 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
-import { AudioLines, FileMusic, FolderOpen, LayoutTemplate, Music, Plus } from 'lucide-react';
+import { FileMusic, FolderOpen, LayoutTemplate, Music, Plus } from 'lucide-react';
 import React from 'react';
 import { WindowHeader } from '@/components';
-import { host } from '@/environment';
 import { copyExampleFiles, exampleGroups, loadExample, type TExample } from './examples';
 import type { StudioCx } from '@/modules/studio';
 
@@ -38,15 +37,6 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 		await cx.newProject({ project: loaded.project, prepare: (packagePath) => copyExampleFiles(packagePath, loaded.files) });
 	}
 
-	async function startFrom(kind: 'midi' | 'audio'): Promise<void> {
-		const file = await host.chooseSourceFile(kind);
-		if (file == null) return;
-		const title = file.name.replace(/\.[^.]+$/, '');
-		if (!(await cx.newProject({ title }))) return;
-		if (kind === 'midi') await cx.sources.openMidi(file);
-		else await cx.sources.importAudio(file);
-	}
-
 	return (
 		<div className="relative flex h-full">
 			<WindowHeader floating />
@@ -55,33 +45,27 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 					<img alt="" src="/app-icon.svg" className="h-28 w-28" draggable={false} />
 					<h1 className="m-0 text-[28px] font-semibold tracking-tight">MidiMarble</h1>
 					<p className="m-0 text-[var(--text-secondary)]">
-						Compose a marble run to music, then design it in Blender.
+						Build a marble run that plays a song, then make the film
 					</p>
 				</div>
 				<div className="flex w-[300px] flex-col gap-1">
 					<StartAction
 						icon={<Plus size={18} strokeWidth={1.7} />}
 						title="New Project"
-						detail="Start with an empty timeline"
+						detail="Start with an empty wall"
 						onClick={() => void cx.newProject()}
 					/>
 					<StartAction
 						icon={<FileMusic size={18} strokeWidth={1.7} />}
-						title="From MIDI File…"
-						detail="Turn a MIDI song into marbles"
-						onClick={() => void startFrom('midi')}
-					/>
-					<StartAction
-						icon={<AudioLines size={18} strokeWidth={1.7} />}
-						title="From Audio File…"
-						detail="Tap along to a recording"
-						onClick={() => void startFrom('audio')}
+						title="Import Song…"
+						detail="Start from a MIDI file or a recording"
+						onClick={() => void cx.newProjectFromSong()}
 					/>
 					{extraActions}
 					<StartAction
 						icon={<FolderOpen size={18} strokeWidth={1.7} />}
 						title="Open Project…"
-						detail="Continue a .marble project"
+						detail="Continue a saved project"
 						onClick={() => void cx.openProject()}
 					/>
 				</div>
@@ -90,8 +74,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 				<div className="mm-section-title">Recent</div>
 				{!recent.length ? (
 					<div className="mm-placeholder !h-auto pt-10">
-						<span className="mm-placeholder-title">No Recent Projects</span>
-						<span className="mm-placeholder-body">Projects you open appear here.</span>
+						<span className="mm-placeholder-body">No recent projects</span>
 					</div>
 				) : (
 					(showAllRecent ? recent : recent.slice(0, RECENT_LIMIT)).map((item) => (

@@ -94,7 +94,7 @@ export function itemFitsPieceType(item: TLibraryItem, pieceType: string | null):
 
 // MARK: - Wall text
 
-export const DEFAULT_WALL_TEXT = { text: 'Text', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#1d1d1f' };
+export const DEFAULT_WALL_TEXT = { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#1d1d1f' };
 
 export function addWallTextCommands(point: TVec2, text = DEFAULT_WALL_TEXT.text): { commands: TProjectCommand[]; entityId: string } {
 	const entity: TEntity = {

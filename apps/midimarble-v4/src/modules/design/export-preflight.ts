@@ -13,7 +13,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	if (result == null || result.revision !== project.revision) {
 		return {
 			state: 'pending',
-			issues: [{ id: 'simulation', severity: 'info', title: 'Checking the run…', detail: 'The simulation has not caught up with the latest edit yet.', target: null }],
+			issues: [{ id: 'simulation', severity: 'info', title: 'Checking the run…', detail: 'The run is still updating after the latest edit.', target: null }],
 			summary: 'Checking the run…',
 			warnings: 0,
 			notes: 1,
@@ -80,10 +80,11 @@ const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 
 const PACE_FACTOR = 2;
 
 function summarize(hitCount: number, onTimeCount: number, warnings: number, notes: number): string {
-	const noteText = notes > 0 ? `${notes} ${notes === 1 ? 'note' : 'notes'}` : '';
+	// Info issues are tips, so the count never reads like musical notes
+	const noteText = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
 	if (warnings > 0) return [`${warnings} ${warnings === 1 ? 'issue' : 'issues'}`, noteText].filter(Boolean).join(' · ');
 	if (!hitCount) return notes > 0 ? noteText : 'No hits to check';
-	const hits = onTimeCount === hitCount ? `All ${hitCount} ${hitCount === 1 ? 'hit' : 'hits'} on time` : `${onTimeCount} of ${hitCount} hits on time`;
+	const hits = `${onTimeCount} of ${hitCount} ${hitCount === 1 ? 'hit' : 'hits'} on time`;
 	return [hits, noteText].filter(Boolean).join(' · ');
 }
 
@@ -105,12 +106,13 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		const id = `hit:${hit.laneId}:${hit.hitId}`;
 
 		if (hit.status === 'blocked') {
-			issues.push({ id, severity: 'warning', title: `Blocked hit, ${at}`, detail: 'The marble passes through the piece earlier in the run, so it is left out.', time: hit.targetTime, target });
+			issues.push({ id, severity: 'warning', title: `Blocked hit, ${at}`, detail: `${lane} already passes through this spot earlier in its run, so the platform is left out.`, time: hit.targetTime, target });
 		} else if (hit.status === 'missed') {
-			issues.push({ id, severity: 'warning', title: `Missed hit, ${at}`, detail: missDetail(hit, piece?.status), time: hit.targetTime, target });
+			const label = hit.reason === 'resting' && piece?.status !== 'unreached' ? 'Stopped' : 'Missed';
+			issues.push({ id, severity: 'warning', title: `${label} hit, ${at}`, detail: missDetail(hit, piece?.status), time: hit.targetTime, target });
 		} else if (hit.status === 'drifting') {
 			const ms = Math.round((hit.error ?? 0) * 1000);
-			issues.push({ id, severity: 'warning', title: `Drifting hit, ${at}`, detail: `Lands ${Math.abs(ms)} ms ${ms > 0 ? 'late' : 'early'}.`, time: hit.targetTime, target });
+			issues.push({ id, severity: 'warning', title: `${ms > 0 ? 'Late' : 'Early'} hit, ${at}`, detail: `Lands ${Math.abs(ms)} ms ${ms > 0 ? 'after' : 'before'} the note.`, time: hit.targetTime, target });
 		} else if (hit.status === 'open') {
 			open.push(hit);
 		}
@@ -131,8 +133,8 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		issues.push({
 			id: `open:${laneId}`,
 			severity: 'info',
-			title: count === 1 ? `Open hit, ${names.lane(laneId)} at ${formatTime(first.targetTime)}` : `${count} open hits on ${names.lane(laneId)}`,
-			detail: count === 1 ? 'No piece yet, so the note plays without a strike.' : `No pieces yet, from ${formatTime(first.targetTime)}. The notes play without a strike.`,
+			title: count === 1 ? `Open note, ${names.lane(laneId)} at ${formatTime(first.targetTime)}` : `${count} open notes on ${names.lane(laneId)}`,
+			detail: count === 1 ? 'No platform plays this note yet. It is heard without a strike.' : `No platforms play these notes yet, from ${formatTime(first.targetTime)}. They are heard without a strike.`,
 			time: first.targetTime,
 			target: { ids: [toHitKey(laneId, first.hitId)], time: first.targetTime }
 		});
@@ -142,7 +144,7 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		if (first == null) continue;
 		const count = dots.length;
 		const furthest = Math.max(...dots.map((item) => item.overshoot));
-		const where = isShared ? 'lane band' : 'frame';
+		const where = isShared ? "marble's part of the frame" : 'frame';
 		issues.push({
 			id: `frame:${laneId}`,
 			// With one marble the camera follows it; with several they share one frame
@@ -163,11 +165,11 @@ function groupByLane<T>(items: T[], laneOf: (item: T) => string): Map<string, T[
 }
 
 function missDetail(hit: THitResult, pieceStatus: string | undefined): string {
-	if (pieceStatus === 'unreached') return 'The marble never reaches this hit.';
-	if (hit.reason === 'resting') return 'The marble rolls onto the piece instead of striking it.';
-	if (hit.actualTime == null || hit.error == null) return 'The marble never touches the piece.';
+	if (pieceStatus === 'unreached') return 'The marble never reaches this platform.';
+	if (hit.reason === 'resting') return 'The marble stops on the platform instead of striking it.';
+	if (hit.actualTime == null || hit.error == null) return 'The marble passes the platform without touching it.';
 	const ms = Math.round(hit.error * 1000);
-	return `Lands ${Math.abs(ms)} ms ${ms > 0 ? 'late' : 'early'}.`;
+	return `Lands ${Math.abs(ms)} ms ${ms > 0 ? 'after' : 'before'} the note.`;
 }
 
 // MARK: - Contacts
@@ -251,7 +253,7 @@ function paceIssues(result: TSimulationResult, names: TNames): TPreflightIssue[]
 	return [...worst.values()].map(({ hit, offset }) => ({
 		id: `pace:${hit.laneId}`,
 		severity: 'warning' as const,
-		title: `${names.lane(hit.laneId)} leaves the shared pace`,
+		title: `${names.lane(hit.laneId)} falls out of step with the other marbles`,
 		detail: `${Math.abs(offset).toFixed(2)} m ${offset > 0 ? 'above' : 'below'} the other marbles at ${formatTime(hit.targetTime)}, so the camera may lose it.`,
 		time: hit.targetTime,
 		target: { ids: [hit.pieceEntityId ?? toHitKey(hit.laneId, hit.hitId)], time: hit.targetTime }
@@ -283,7 +285,7 @@ function createNames(project: TProject): TNames {
 			return [entity.id, entity.name ?? fallback];
 		})
 	);
-	return { lane: (id) => lanes.get(id) ?? 'Lane', entity: (id) => entities.get(id) ?? id };
+	return { lane: (id) => lanes.get(id) ?? 'Marble', entity: (id) => entities.get(id) ?? id };
 }
 
 function countHits(project: TProject): number {

@@ -86,14 +86,14 @@ export class AgentCx {
 		cli?: TAgentCli;
 		focus?: string;
 	}): Promise<TResult<TAgentRun, Error>> {
-		if (!isTauri()) return Err(new Error('Agents need the desktop app'));
+		if (!isTauri()) return Err(new Error('Agents run in the desktop app. Open MidiMarble on your Mac to ask one.'));
 		const packagePath = this.source.getPackagePath();
 		const project = this.source.getProject();
-		if (packagePath == null || project == null) return Err(new Error('Open a project first'));
+		if (packagePath == null || project == null) return Err(new Error('No project is open. Open a project, then ask again.'));
 		const request = options.request.trim();
-		if (!request.length) return Err(new Error('Describe what the agent should make'));
+		if (!request.length) return Err(new Error('The message is empty. Describe what the agent should make.'));
 		const cli = options.cli ?? this.$clis.get()[0]?.cli;
-		if (cli == null) return Err(new Error('No agent CLI was found. Install Claude Code or Codex.'));
+		if (cli == null) return Err(new Error('No agent is installed. Install Claude Code or Codex, then ask again.'));
 
 		const brief = buildAgentBrief({
 			project,
@@ -132,8 +132,8 @@ export class AgentCx {
 		const packagePath = this.source.getPackagePath();
 		const run = this.getRun(runId);
 		if (packagePath == null || run == null)
-			return Err(new Error('The candidate is no longer available'));
-		if (!canAcceptRun(run.phase)) return Err(new Error('The candidate is not ready for review'));
+			return Err(new Error('This result is no longer available. Ask the agent again.'));
+		if (!canAcceptRun(run.phase)) return Err(new Error('The agent is still working. Accept its result once it is ready for review.'));
 		const [isItemOk, itemErr, item] = await library.acceptCandidate(
 			packagePath,
 			runId,
@@ -147,7 +147,7 @@ export class AgentCx {
 	/** Marks the run declined, ending it first if it still works */
 	async decline(runId: string): Promise<TResult<void, Error>> {
 		const run = this.getRun(runId);
-		if (run == null) return Err(new Error('The candidate is no longer available'));
+		if (run == null) return Err(new Error('This result is no longer available. Ask the agent again.'));
 		if (run.status === 'running') await this.cancel(runId);
 		return this.review(runId, 'declined', null);
 	}
@@ -176,7 +176,7 @@ export class AgentCx {
 		acceptedItemId: string | null
 	): Promise<TResult<void, Error>> {
 		const packagePath = this.source.getPackagePath();
-		if (packagePath == null) return Err(new Error('Open a project first'));
+		if (packagePath == null) return Err(new Error('No project is open. Open a project, then ask again.'));
 		const result = await specta.commands.agentsReview(packagePath, runId, review);
 		if (result.status === 'error') return Err(new Error(result.error));
 		this.updateRun(runId, (run) => {

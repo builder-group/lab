@@ -30,7 +30,7 @@ export const platformDefinition: TPieceDefinition = {
 		thickness: { default: kit(0.008), min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
 		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Anchor after hit', unit: 's' }
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.55,
@@ -47,9 +47,9 @@ export const railDefinition: TPieceDefinition = {
 	type: 'rail',
 	label: 'Rail',
 	params: {
-		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
-		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Wire gap', unit: 'm' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Entry after hit', unit: 's' }
+		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire size', unit: 'm' },
+		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Wire spacing', unit: 'm' },
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.15,
@@ -70,10 +70,10 @@ export const tunnelDefinition: TPieceDefinition = {
 	type: 'tunnel',
 	label: 'Tunnel',
 	params: {
-		radius: { default: kit(0.002), min: 0.001, max: 0.006, label: 'Wall radius', unit: 'm' },
-		bore: { default: kit(0.004), min: 0.001, max: 0.02, label: 'Clearance', unit: 'm' },
-		mouth: { default: kit(0.03), min: 0.01, max: 0.1, label: 'Mouth', unit: 'm' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Entry after hit', unit: 's' }
+		radius: { default: kit(0.002), min: 0.001, max: 0.006, label: 'Wall thickness', unit: 'm' },
+		bore: { default: kit(0.004), min: 0.001, max: 0.02, label: 'Room around the marble', unit: 'm' },
+		mouth: { default: kit(0.03), min: 0.01, max: 0.1, label: 'Mouth width', unit: 'm' },
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.15,
@@ -97,12 +97,12 @@ export const windmillDefinition: TPieceDefinition = {
 		bladeCount: { default: 4, min: 2, max: 8, label: 'Blades', unit: '', integer: true },
 		bladeLength: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Blade length', unit: 'm' },
 		bladeThickness: { default: kit(0.006), min: 0.003, max: 0.02, label: 'Blade thickness', unit: 'm' },
-		hubRadius: { default: kit(0.008), min: 0.004, max: 0.03, label: 'Hub radius', unit: 'm' },
-		damping: { default: 0.5, min: 0, max: 10, label: 'Damping', unit: '' },
+		hubRadius: { default: kit(0.008), min: 0.004, max: 0.03, label: 'Hub size', unit: 'm' },
+		damping: { default: 0.5, min: 0, max: 10, label: 'Spin friction', unit: '' },
 		motorSpeed: { default: 0, min: -20, max: 20, label: 'Motor speed', unit: 'rad/s' },
 		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.5, min: 0.2, max: 0.95, label: 'Bounce', unit: '' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Entry after hit', unit: 's' }
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.5,
@@ -129,10 +129,10 @@ export const switchbackDefinition: TPieceDefinition = {
 		legs: { default: 3, min: 1, max: 6, label: 'Legs', unit: '', integer: true },
 		drop: { default: kit(0.035), min: 0.026, max: 0.15, label: 'Leg spacing', unit: 'm' },
 		opening: { default: kit(0.032), min: 0.026, max: 0.09, label: 'Opening', unit: 'm' },
-		lip: { default: kit(0.04), min: 0, max: 0.15, label: 'Catch lip', unit: 'm' },
-		bend: { default: 0.04, min: 0, max: 0.08, label: 'Bend radius', unit: 'm' },
-		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Entry after hit', unit: 's' }
+		lip: { default: kit(0.04), min: 0, max: 0.15, label: 'Lip', unit: 'm' },
+		bend: { default: 0.04, min: 0, max: 0.08, label: 'Bend', unit: 'm' },
+		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire size', unit: 'm' },
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.15,

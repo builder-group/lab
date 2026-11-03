@@ -1,5 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { SProject, type TComponentName, type TComponents, type TDesign, type TEntity, type THit, type TLane, type TPhysics, type TProject, type TSource, type TTempo } from './schema';
+import { BACKING_ID, SProject, type TComponentName, type TComponents, type TDesign, type TEntity, type THit, type TLane, type TPhysics, type TProject, type TSource, type TTempo } from './schema';
 
 export type TProjectCommand =
 	| { type: 'setTitle'; title: string }
@@ -9,8 +9,12 @@ export type TProjectCommand =
 	| { type: 'removeSource'; sourceId: string }
 	| { type: 'upsertLane'; lane: Omit<TLane, 'hits'> & { hits?: THit[] } }
 	| { type: 'removeLane'; laneId: string }
+	// `BACKING_ID` as the lane edits Backing
 	| { type: 'upsertHits'; laneId: string; hits: THit[] }
 	| { type: 'removeHits'; laneId: string; hitIds: string[] }
+	// Moves hits from wherever they are to a lane or to Backing (`BACKING_ID`), keeping their IDs
+	| { type: 'assignHits'; hitIds: string[]; laneId: string }
+	| { type: 'setBackingInstrument'; instrument: number | null }
 	| { type: 'upsertEntity'; entity: TEntity }
 	| { type: 'removeEntities'; entityIds: string[] }
 	| { type: 'setComponent'; entityId: string; component: TComponentPatch }
@@ -77,18 +81,40 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			return Ok(project);
 		}
 		case 'upsertHits': {
-			const lane = project.music.lanes.find((item) => item.id === command.laneId);
-			if (lane == null) return Err(new Error(`Lane ${command.laneId} does not exist`));
-			let hits = lane.hits;
+			const [isOwnerOk, ownerErr, owner] = hitOwner(project, command.laneId);
+			if (!isOwnerOk) return Err(ownerErr);
+			let hits = owner.hits;
 			for (const hit of command.hits) hits = upsertById(hits, hit);
-			lane.hits = sortHits(hits);
+			owner.hits = sortHits(hits);
 			return Ok(project);
 		}
 		case 'removeHits': {
-			const lane = project.music.lanes.find((item) => item.id === command.laneId);
-			if (lane == null) return Err(new Error(`Lane ${command.laneId} does not exist`));
+			const [isOwnerOk, ownerErr, owner] = hitOwner(project, command.laneId);
+			if (!isOwnerOk) return Err(ownerErr);
 			const removed = new Set(command.hitIds);
-			lane.hits = lane.hits.filter((hit) => !removed.has(hit.id));
+			owner.hits = owner.hits.filter((hit) => !removed.has(hit.id));
+			return Ok(project);
+		}
+		case 'assignHits': {
+			const [isTargetOk, targetErr, target] = hitOwner(project, command.laneId);
+			if (!isTargetOk) return Err(targetErr);
+			const wanted = new Set(command.hitIds);
+			const owners = [...project.music.lanes, backingOwner(project)];
+			const moved: THit[] = [];
+			for (const owner of owners) {
+				if (owner.id === command.laneId) continue;
+				moved.push(...owner.hits.filter((hit) => wanted.has(hit.id)));
+				owner.hits = owner.hits.filter((hit) => !wanted.has(hit.id));
+			}
+			const found = new Set([...moved, ...target.hits].map((hit) => hit.id));
+			const missing = command.hitIds.find((id) => !found.has(id));
+			if (missing != null) return Err(new Error(`Hit ${missing} does not exist`));
+			target.hits = sortHits([...target.hits, ...moved]);
+			return Ok(project);
+		}
+		case 'setBackingInstrument': {
+			const { backingInstrument: _previous, ...music } = project.music;
+			project.music = command.instrument == null ? music : { ...music, backingInstrument: command.instrument };
 			return Ok(project);
 		}
 		case 'upsertEntity':
@@ -128,6 +154,31 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			return Ok(project);
 		}
 	}
+}
+
+/** The hit list a command edits: a lane's hits, or Backing for `BACKING_ID`. Writes to `hits` go to the project. */
+function hitOwner(project: TProject, laneId: string): TResult<THitOwner, Error> {
+	if (laneId === BACKING_ID) return Ok(backingOwner(project));
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	if (lane == null) return Err(new Error(`Lane ${laneId} does not exist`));
+	return Ok(lane);
+}
+
+function backingOwner(project: TProject): THitOwner {
+	return {
+		id: BACKING_ID,
+		get hits() {
+			return project.music.backing;
+		},
+		set hits(hits) {
+			project.music.backing = hits;
+		}
+	};
+}
+
+interface THitOwner {
+	id: string;
+	hits: THit[];
 }
 
 function upsertById<GItem extends { id: string }>(items: GItem[], item: GItem): GItem[] {

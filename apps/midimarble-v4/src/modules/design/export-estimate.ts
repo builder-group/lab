@@ -15,11 +15,11 @@ export interface TRenderPresetInfo {
 	purpose?: string;
 }
 
-/** Export presets from ux.md; there is no 4K preset */
+/** Export qualities from words.md: Draft, Standard, High, Best; the ids are older names kept in saved projects. No 4K. */
 export const renderPresets: readonly TRenderPresetInfo[] = [
-	{ id: 'draft', label: 'Draft', shortSide: 720, fps: 30, engine: 'workbench', purpose: 'fast preview of motion' },
-	{ id: 'fast', label: 'Fast', shortSide: 720, fps: 30 },
-	{ id: 'balanced', label: 'Balanced', shortSide: 1080, fps: 30 },
+	{ id: 'draft', label: 'Draft', shortSide: 720, fps: 30, engine: 'workbench', purpose: 'quick check of motion' },
+	{ id: 'fast', label: 'Standard', shortSide: 720, fps: 30 },
+	{ id: 'balanced', label: 'High', shortSide: 1080, fps: 30 },
 	{ id: 'best', label: 'Best', shortSide: 1080, fps: 60 }
 ];
 
@@ -27,9 +27,10 @@ export function getRenderPreset(id: TRenderPreset): TRenderPresetInfo {
 	return renderPresets.find((preset) => preset.id === id) ?? (renderPresets[2] as TRenderPresetInfo);
 }
 
-/** Preset picker entry: `Draft · 720p · fast preview of motion`, `Balanced · 1080p, 30 fps` */
+/** Quality picker entry: `Draft · 720p, 30 fps · quick check of motion`, `High · 1080p, 30 fps` */
 export function renderPresetOption(preset: TRenderPresetInfo): string {
-	return preset.purpose != null ? `${preset.label} · ${preset.shortSide}p · ${preset.purpose}` : `${preset.label} · ${preset.shortSide}p, ${preset.fps} fps`;
+	const size = `${preset.label} · ${preset.shortSide}p, ${preset.fps} fps`;
+	return preset.purpose != null ? `${size} · ${preset.purpose}` : size;
 }
 
 /** Engine a film renders with: the preset's own engine, or the chosen renderer */
@@ -37,10 +38,10 @@ export function filmEngine(preset: TRenderPreset, engine: TRenderEngine): TFilmE
 	return getRenderPreset(preset).engine ?? engine;
 }
 
-/** `Balanced · 1080p 30 fps` */
+/** `High · 1080p, 30 fps` */
 export function renderPresetLabel(id: TRenderPreset): string {
 	const preset = getRenderPreset(id);
-	return `${preset.label} · ${preset.shortSide}p ${preset.fps} fps`;
+	return `${preset.label} · ${preset.shortSide}p, ${preset.fps} fps`;
 }
 
 /** Film size in pixels for a frame aspect, with even sides as video encoders expect */

@@ -72,7 +72,7 @@ export const AgentChat: React.FC<TAgentChatProps> = (props) => {
 				) : (
 					<div className="mm-agent-empty">
 						<Sparkles size={18} strokeWidth={1.5} />
-						<span>Ask for a look, a piece or the scene</span>
+						<span>Ask for a look, a skin or a piece</span>
 					</div>
 				)}
 			</div>
@@ -397,7 +397,7 @@ const Composer: React.FC<{ cx: StudioCx; options: TAgentMention[]; canSend: bool
 					ref={inputRef}
 					className="mm-agent-input"
 					rows={1}
-					placeholder={mentions.length > 0 ? 'Describe the change…' : 'Ask about the scene, or @ a layer…'}
+					placeholder={mentions.length > 0 ? 'Describe the change…' : 'Ask about the project, or @ a layer…'}
 					aria-label="Message the agent"
 					value={text}
 					onChange={(event) => {
@@ -457,7 +457,7 @@ function runLabel(run: TAgentRun, project: TProject | null): string {
 	const target = run.target;
 	if (target?.kind === 'piece') return project?.entities.find((entity) => entity.id === target.entityId)?.name ?? 'Piece';
 	if (target?.kind === 'wall') return 'Wall';
-	return 'Scene';
+	return 'Project';
 }
 
 function phaseLabel(phase: TAgentRunPhase): string {
@@ -467,7 +467,7 @@ function phaseLabel(phase: TAgentRunPhase): string {
 		case 'review':
 			return 'Ready';
 		case 'incomplete':
-			return 'No candidate';
+			return 'No result';
 		case 'failed':
 			return 'Failed';
 		case 'cancelled':

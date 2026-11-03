@@ -23,12 +23,12 @@ import {
 import type { TDesignLink, TDesignStatus } from './DesignCx';
 import { libraryItemLabel } from './DesignLibraryCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
-import { renderPresetLabel, renderPresets } from './export-estimate';
+import { renderPresetLabel, renderPresetOption, renderPresets } from './export-estimate';
 import { useExportPreflight } from './ExportPreflight';
 import { describeLoop } from './loop-status';
 import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
 
-/** Properties of the Design workspace on the inspector grid: the scene, a piece's look, wall text or a shot marker */
+/** Properties of the Film workspace on the inspector grid: the project, a piece's look, a title or a shot */
 export const DesignInspector: React.FC<TDesignInspectorProps> = (props) => {
 	const { cx, project, selection } = props;
 	const entities = project.entities.filter((entity) => selection.includes(entity.id));
@@ -57,7 +57,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 
 	return (
 		<>
-			<InspectorHeader icon={<Clapperboard size={16} strokeWidth={1.7} />} title="Scene" subtitle={`${theme?.label ?? design.theme} · ${renderPresetLabel(design.renderPreset)}`} />
+			<InspectorHeader icon={<Clapperboard size={16} strokeWidth={1.7} />} title="Project" subtitle={`${theme?.label ?? design.theme} · ${renderPresetLabel(design.renderPreset)}`} />
 			<Panel id="design.scene" title="Look">
 				<SelectField
 					id="design-theme"
@@ -68,19 +68,19 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 				/>
 				<SelectField
 					id="design-preset"
-					label="Render"
+					label="Quality"
 					value={design.renderPreset}
-					options={renderPresets.map((preset) => ({ value: preset.id, label: `${preset.label} · ${preset.shortSide}p ${preset.fps}` }))}
+					options={renderPresets.map((preset) => ({ value: preset.id, label: renderPresetOption(preset) }))}
 					onChange={(value) => cx.execute([{ type: 'setDesign', design: { renderPreset: value as TDesign['renderPreset'] } }])}
 				/>
-				<CheckField id="design-loop" label="Seamless loop" checked={design.loop} onChange={(loop) => cx.execute([{ type: 'setDesign', design: { loop } }])} />
+				<CheckField id="design-loop" label="Seamless Loop" checked={design.loop} onChange={(loop) => cx.execute([{ type: 'setDesign', design: { loop } }])} />
 				{design.loop ? <LoopStatus cx={cx} project={project} /> : null}
 			</Panel>
 			<CameraPanel cx={cx} project={project} />
 			<WallTextPanel cx={cx} project={project} />
-			<Panel id="design.output" title="Output" accessory={<HelpTip text="Renders the film in Blender in the background with the soundtrack." />}>
+			<Panel id="design.output" title="Export" accessory={<HelpTip text="Blender makes the film with the song in the background, so you can keep working." />}>
 				<OutputPreflight cx={cx} />
-				<button className="mm-button" data-span="2" onClick={() => cx.film.openSheet()} title="Export Film (⌘E)" type="button">
+				<button className="mm-button" data-span="2" onClick={() => cx.film.openSheet()} title="Export the film (⌘E)" type="button">
 					Export Film…
 				</button>
 			</Panel>
@@ -136,12 +136,12 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		<Panel
 			id="design.camera"
 			title="Camera"
-			accessory={<HelpTip text="Rig: the app bakes a follow camera from the run. Manual: Blender owns the camera, so you move and animate it there and the app leaves it alone." />}
+			accessory={<HelpTip text="Automatic: the camera follows the marbles, shaped by the shots. Manual: you move and animate the camera in Blender and the app leaves it alone." />}
 		>
 			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Camera mode">
 				{(['rig', 'manual'] as const).map((mode) => (
 					<button key={mode} role="radio" aria-checked={camera.mode === mode} data-active={camera.mode === mode} onClick={() => set({ mode })} type="button">
-						{mode === 'rig' ? 'Rig' : 'Manual'}
+						{mode === 'rig' ? 'Automatic' : 'Manual'}
 					</button>
 				))}
 			</div>
@@ -149,22 +149,22 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 				<>
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
 					<ScrubField id="camera-pitch" label="Pitch" name="Downward angle" value={(camera.pitch * 180) / Math.PI} unit="°" step={0.5} min={-80} max={80} onCommit={(value) => set({ pitch: (value * Math.PI) / 180 })} />
-					<ScrubField id="camera-lead" label="Lead" name="Lead" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
+					<ScrubField id="camera-lead" label="Lead" name="How far ahead of the marbles the camera looks" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
 					<ScrubField id="camera-smoothing" label="Smooth" name="Smoothing" value={Math.round(camera.smoothing * 100)} unit="%" step={0.5} min={0} max={100} onCommit={(value) => set({ smoothing: value / 100 })} />
-					<ReadoutField label="Shots" name="Shot markers">
+					<ReadoutField label="Shots" name="Shots">
 						{camera.shots.length}
 					</ReadoutField>
-					<button className="mm-button" onClick={() => getCommand('camera.addShot').run(cx)} title="Add Shot Marker at Playhead (⇧M)" type="button">
+					<button className="mm-button" onClick={() => getCommand('camera.addShot').run(cx)} title="Add a shot at the playhead (⇧M)" type="button">
 						<Plus size={12} strokeWidth={2} />
 						Add Shot
 					</button>
 					{cameraState === 'takenOver' ? (
 						<>
-							<StateRow tone="warn" label="Edited in Blender" detail="The app stopped updating the camera so your Blender changes stay. Regenerating discards them." />
+							<StateRow tone="warn" label="Edited in Blender" detail="The app no longer updates the camera, so your Blender changes stay. Regenerating the camera discards them." />
 							{isConfirming ? (
 								<>
 									<button className="mm-button" onClick={() => setIsConfirming(false)} type="button">
-										Keep
+										Keep Changes
 									</button>
 									<button
 										className="mm-button"
@@ -175,7 +175,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 										}}
 										type="button"
 									>
-										Regenerate
+										Regenerate Camera
 									</button>
 								</>
 							) : (
@@ -212,19 +212,19 @@ const WallTextPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 	return (
 		<Panel
 			id="design.text"
-			title="Wall Text"
+			title="Titles"
 			isEmpty={!texts.length}
 			accessory={
 				<>
-					<HelpTip text="A title or credit on the wall. It becomes a native Blender text object. Click Add, then click the preview where it should go." />
-					<button className="mm-icon-button" data-active={placing === 'text'} onClick={add} title="Add Text (T)" aria-label="Add Text" type="button">
+					<HelpTip text="Text on the wall, such as a title or a credit. Click +, then click the preview where it goes." />
+					<button className="mm-icon-button" data-active={placing === 'text'} onClick={add} title="Add a title (T)" aria-label="Add Title" type="button">
 						<Plus size={13} strokeWidth={2} />
 					</button>
 				</>
 			}
 		>
 			{texts.map((entity) => (
-				<LinkRow key={entity.id} icon={<Type size={13} strokeWidth={1.8} className="shrink-0 text-[var(--text-secondary)]" />} title="Select Text" onOpen={() => cx.$selection.set([entity.id])}>
+				<LinkRow key={entity.id} icon={<Type size={13} strokeWidth={1.8} className="shrink-0 text-[var(--text-secondary)]" />} title="Select Title" onOpen={() => cx.$selection.set([entity.id])}>
 					{entity.components.wallText?.text}
 				</LinkRow>
 			))}
@@ -232,7 +232,7 @@ const WallTextPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 	);
 };
 
-// MARK: - Shot marker
+// MARK: - Shot
 
 const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> = (props) => {
 	const { cx, project, shot } = props;
@@ -243,8 +243,8 @@ const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> 
 
 	return (
 		<>
-			<InspectorHeader icon={<Bookmark size={16} strokeWidth={1.7} />} title={shotKindLabel(shot.kind)} subtitle="Shot Marker" />
-			<Panel id="design.shot" title="Shot" accessory={<HelpTip text="After the marker the camera eases to this distance and roll over 0.8 s. Drag the marker on the timeline to move it." />}>
+			<InspectorHeader icon={<Bookmark size={16} strokeWidth={1.7} />} title={shotKindLabel(shot.kind)} subtitle="Shot" />
+			<Panel id="design.shot" title="Shot" accessory={<HelpTip text="When the shot starts, the camera eases to its distance and roll over 0.8 s. Drag the shot on the timeline to move it." />}>
 				<SelectField id="shot-kind" label="Kind" value={shot.kind} options={shotKinds.map((item) => ({ value: item.kind, label: item.label }))} onChange={(value) => set({ kind: value as TShotKind })} />
 				<ScrubField id="shot-time" label="Time" name="Time" value={shot.time} unit="s" step={0.01} precision={2} min={0} max={project.end} onCommit={(value) => set({ time: value })} />
 				<ScrubField id="shot-roll" label="Roll" name="Roll" value={(shot.roll * 180) / Math.PI} unit="°" step={0.5} precision={1} min={-90} max={90} onCommit={(value) => set({ roll: (value * Math.PI) / 180 })} />
@@ -255,18 +255,18 @@ const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> 
 					onClick={() => {
 						if (cx.execute(removeShotsCommands(project, [shot.id]))) cx.$selection.set([]);
 					}}
-					title="Delete Shot Marker (⌫)"
+					title="Delete the shot (⌫)"
 					type="button"
 				>
 					<Trash2 size={12} strokeWidth={1.8} />
-					Delete Marker
+					Delete Shot
 				</button>
 			</Panel>
 		</>
 	);
 };
 
-// MARK: - Wall text
+// MARK: - Title
 
 const WallTextInspector: React.FC<{ cx: StudioCx; entity: TEntity }> = (props) => {
 	const { cx, entity } = props;
@@ -288,7 +288,7 @@ const WallTextInspector: React.FC<{ cx: StudioCx; entity: TEntity }> = (props) =
 
 	return (
 		<>
-			<InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={text.text || 'Wall Text'} subtitle="Wall Text" />
+			<InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={text.text || 'Title'} subtitle="Title" />
 			<Panel id="design.wallText" title="Text">
 				<TextField id="text-content" label="Text" name="Text" value={text.text} span={2} allowEmpty={false} onCommit={(value) => setText({ text: value })} />
 				<ScrubField id="text-size" label="Size" name="Size" value={text.size * 100} unit="cm" step={0.05} precision={1} min={0.2} max={50} onCommit={(value) => setText({ size: value / 100 })} />
@@ -313,7 +313,7 @@ const WallTextInspector: React.FC<{ cx: StudioCx; entity: TEntity }> = (props) =
 					type="button"
 				>
 					<Trash2 size={12} strokeWidth={1.8} />
-					Delete Text
+					Delete Title
 				</button>
 			</Panel>
 		</>
@@ -373,7 +373,7 @@ const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }
 				subtitle={isSingle ? typeLabel : `${typeLabel}s`}
 				onRename={isSingle ? (value) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name: value } }]) : undefined}
 			/>
-			<Panel id="design.look" title="Look" accessory={<HelpTip text="Drag a skin from the library onto the tile or the piece. Reactions animate the skin on every hit; they never change the physics." />}>
+			<Panel id="design.look" title="Look" accessory={<HelpTip text="Drag a skin from the library onto the tile or the piece. A reaction moves the skin on every hit; it never changes how the marble bounces." />}>
 				<div
 					className="mm-drop-well"
 					data-span="2"
@@ -433,8 +433,8 @@ const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }
 /** Whether the app still drives the piece in Blender, as one row with a dot and a reset button when detached */
 const LinkState: React.FC<{ cx: StudioCx; status: TDesignStatus; link: TDesignLink | 'mixed' | null; unlinked: string[] }> = (props) => {
 	const { cx, status, link, unlinked } = props;
-	if (status === 'unavailable') return <StateRow tone="neutral" label="Link: desktop app only" detail="Blender reports whether a piece was changed there. Open the project in the desktop app." />;
-	if (link == null) return <StateRow tone="neutral" label="Link unknown" detail="Blender reports the link state after the scene is updated." />;
+	if (status === 'unavailable') return <StateRow tone="neutral" label="Blender link in the desktop app" detail="Blender reports whether a piece was changed there. Open the project in the desktop app to see it." />;
+	if (link == null) return <StateRow tone="neutral" label="Link unknown" detail="Blender reports the link once it has updated the preview." />;
 	if (!unlinked.length) return <StateRow tone="good" label="Linked to Blender" detail="The app drives this piece. Changes in Compose appear in Blender." />;
 	const reason = link !== 'mixed' && link.reason != null ? reasonLabel(link.reason) : null;
 	return (
@@ -480,7 +480,7 @@ function reasonLabel(reason: string): string {
 		case 'keyframes':
 			return 'animation edited';
 		case 'marked':
-			return 'unlinked by hand';
+			return 'detached by hand';
 		default:
 			return reason;
 	}

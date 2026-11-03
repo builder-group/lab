@@ -61,7 +61,7 @@ interface TSidebarProps {
 
 const workspaces: { id: TWorkspace; label: string; shortcut: string }[] = [
 	{ id: 'compose', label: 'Compose', shortcut: '⌘1' },
-	{ id: 'design', label: 'Design', shortcut: '⌘2' }
+	{ id: 'design', label: 'Film', shortcut: '⌘2' }
 ];
 
 /** Project name, renamed in place with a double-click like a Finder title */
@@ -161,7 +161,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; canAdd?: boolean; isCo
 						className="mm-icon-button !h-6 !w-6"
 						label={<Plus size={14} strokeWidth={1.8} />}
 						title="Add"
-						items={[commandItem(cx, 'marble.add'), commandItem(cx, 'tool.marble', 'Place Marble on Canvas'), 'separator', commandItem(cx, 'file.importMidi'), commandItem(cx, 'file.importAudio')]}
+						items={[commandItem(cx, 'marble.add'), commandItem(cx, 'tool.marble', 'Place Marble on Wall'), 'separator', commandItem(cx, 'file.importMidi')]}
 					/>
 				) : null}
 			</div>
@@ -315,7 +315,7 @@ const PieceRow: React.FC<{
 			meta={
 				<>
 					{isProblem ? <StatusIcon status={status} size={11} /> : null}
-					{link != null && !isLinked ? <Anchor size={11} strokeWidth={1.8} aria-label="Anchored" /> : null}
+					{link != null && !isLinked ? <Anchor size={11} strokeWidth={1.8} aria-label="Follows a marble" /> : null}
 					{isLinked && hit != null ? <span>{formatShortTime(hit.targetTime)}</span> : null}
 				</>
 			}

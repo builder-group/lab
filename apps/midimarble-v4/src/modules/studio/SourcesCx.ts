@@ -1,15 +1,16 @@
 import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
 import {
-	alignNotes,
 	computePeaks,
 	createImportCommands,
 	decodeAudioFile,
 	detectOnsets,
+	instruments,
 	mixToMono,
 	parseMidiFile,
 	proposeLanes,
 	type TMidiFile,
+	type TMidiNote,
 	type TProposeLanesOptions
 } from '@/modules/music';
 import { createId, type TProject, type TSource } from '@/modules/project';
@@ -83,13 +84,15 @@ export class SourcesCx {
 			offset: preview.offset
 		};
 		const firstTrack = pending.midi.tracks.find((track) => pending.trackIds.includes(track.id));
-		const lastTime = preview.lanes.flat().reduce((max, note) => Math.max(max, note.time + note.duration), 0);
+		const lastTime = [...preview.lanes.flat(), ...preview.backing].reduce((max, note) => Math.max(max, note.time + note.duration), 0);
 		// A film has one song, so a new MIDI file replaces the previous one, as a new recording does
 		const replaced = project.music.sources.filter((item) => item.kind === 'midi');
 		const applied = this.studio.execute([
 			...replaced.map((item) => ({ type: 'removeSource' as const, sourceId: item.id })),
 			...createImportCommands(project, {
 				lanes: preview.lanes,
+				backing: preview.backing,
+				backingInstrument: backingInstrument(pending.midi),
 				source,
 				instrument: firstTrack == null ? undefined : suggestInstrument(firstTrack.program),
 				end: Math.ceil(lastTime + 1.5)
@@ -99,12 +102,9 @@ export class SourcesCx {
 		]);
 		if (!applied) return;
 		this.$midiImport.set(null);
-		const dropped = preview.dropped.length;
-		this.studio.notify(
-			dropped > 0
-				? `Imported ${preview.lanes.length} marbles. ${dropped} notes did not fit and were left out.`
-				: `Imported ${preview.lanes.length} marbles.`
-		);
+		const marbles = `${preview.lanes.length} ${preview.lanes.length === 1 ? 'marble' : 'marbles'}`;
+		const backing = preview.backing.length;
+		this.studio.notify(backing > 0 ? `Imported ${marbles}. ${backing} ${backing === 1 ? 'note plays' : 'notes play'} as Backing.` : `Imported ${marbles}.`);
 	}
 
 	// MARK: - Audio
@@ -220,14 +220,34 @@ export function songSource(project: TProject): TSource | undefined {
 	return sources.find((source) => source.kind === 'audio') ?? sources[0];
 }
 
-/** Proposed lanes for the current import settings, aligned to the import start */
-export function previewMidiImport(pending: TMidiImport): ReturnType<typeof proposeLanes> & { offset: number } {
-	const notes = pending.midi.tracks
-		.filter((track) => pending.trackIds.includes(track.id))
-		.flatMap((track) => track.notes);
-	const first = notes.reduce((min, note) => Math.min(min, note.time), Number.POSITIVE_INFINITY);
-	const proposal = proposeLanes(alignNotes(notes, IMPORT_START), pending.options);
-	return { ...proposal, offset: Number.isFinite(first) ? IMPORT_START - first : IMPORT_START };
+/**
+ * What an import makes with the current settings: notes of the chosen tracks spread over marbles, and Backing for
+ * the notes no marble can play and for the other melodic tracks. Drum tracks are left out, as the instrument bank
+ * has no drums. Every note moves by the same offset, so the first note of the song starts at the import start.
+ */
+export function previewMidiImport(pending: TMidiImport): TMidiImportPreview {
+	const melodic = pending.midi.tracks.filter((track) => pending.trackIds.includes(track.id) || !track.isDrums);
+	const first = melodic.flatMap((track) => track.notes).reduce((min, note) => Math.min(min, note.time), Number.POSITIVE_INFINITY);
+	const offset = Number.isFinite(first) ? IMPORT_START - first : IMPORT_START;
+	const shift = (notes: TMidiNote[]): TMidiNote[] => notes.map((note) => ({ ...note, time: note.time + offset }));
+	const chosen = melodic.filter((track) => pending.trackIds.includes(track.id));
+	const others = melodic.filter((track) => !pending.trackIds.includes(track.id));
+	const proposal = proposeLanes(shift(chosen.flatMap((track) => track.notes)), pending.options);
+	const backing = [...proposal.backing.map((item) => item.note), ...shift(others.flatMap((track) => track.notes))].sort((a, b) => a.time - b.time || b.pitch - a.pitch);
+	return { lanes: proposal.lanes, backing, offset };
+}
+
+export interface TMidiImportPreview {
+	lanes: TMidiNote[][];
+	backing: TMidiNote[];
+	// Seconds added to every note time of the file
+	offset: number;
+}
+
+/** The song's first melodic MIDI program when the instrument bank has it, otherwise piano */
+function backingInstrument(midi: TMidiFile): number {
+	const program = midi.tracks.find((track) => !track.isDrums)?.program;
+	return instruments.some((instrument) => instrument.program === program) && program != null ? program : 0;
 }
 
 // Pitched percussion suits marble strikes; other instruments keep their own sound

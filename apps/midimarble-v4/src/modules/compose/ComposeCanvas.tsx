@@ -691,26 +691,26 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 	const top = Math.min(Math.max(anchor.y, 48), viewport.height - 44);
 
 	return (
-		<div className="mm-assist-bar mm-ghost-in" style={{ left, top }} role="toolbar" aria-label="Build">
-			<AssistButton label="Next" detail="Place the next hit" shortcut="N" onClick={() => compose.next()} isText>
+		<div className="mm-assist-bar mm-ghost-in" style={{ left, top }} role="toolbar" aria-label="Assists">
+			<AssistButton label="Place Next Platform" detail="Add the platform for the next open note" shortcut="N" onClick={() => compose.next()} isText>
 				Next
 			</AssistButton>
 			<div className="mm-assist-divider" />
-			<AssistButton label="Repeat" detail="Copy the last piece's angle" shortcut="R" onClick={() => compose.step('repeat')}>
+			<AssistButton label="Repeat Last Platform" detail="The same tilt again" shortcut="R" onClick={() => compose.step('repeat')}>
 				<Repeat2 size={15} strokeWidth={1.7} />
 			</AssistButton>
-			<AssistButton label="Mirror" detail="Mirror it for a zigzag" shortcut="M" onClick={() => compose.step('mirror')}>
+			<AssistButton label="Mirror Last Platform" detail="The last tilt mirrored, for zigzags" shortcut="M" onClick={() => compose.step('mirror')}>
 				<FlipHorizontal2 size={15} strokeWidth={1.7} />
 			</AssistButton>
-			<AssistButton label="Auto Place" detail="Let the solver pick the angle" shortcut="A" onClick={() => compose.assist.autoPlace(compose.placementType())}>
+			<AssistButton label="Add Platform" detail="Tilted so the marble lands on time" shortcut="A" onClick={() => compose.assist.autoPlace(compose.placementType())}>
 				<WandSparkles size={15} strokeWidth={1.7} />
 			</AssistButton>
 			{continueCount > 0 ? (
 				<>
 					<div className="mm-assist-divider" />
-					<AssistButton label="Continue" detail={`Accept ${continueCount} suggested pieces · esc hides them`} shortcut="⇥" onClick={() => compose.assist.acceptGhosts()} isText>
+					<AssistButton label={`Continue Pattern (${continueCount})`} detail={`Repeat the pattern for ${continueCount} more ${continueCount === 1 ? 'note' : 'notes'} · esc dismisses`} shortcut="⇥" onClick={() => compose.assist.acceptGhosts()} isText>
 						<ChevronsRight size={14} strokeWidth={1.8} />
-						Continue {continueCount}
+						Continue Pattern ({continueCount})
 					</AssistButton>
 				</>
 			) : null}
@@ -744,28 +744,28 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 			<button
 				className="mm-tool-button !h-7 !w-7"
 				data-active={snapping}
-				aria-label="Snap to dots and trajectories"
+				aria-label="Snap"
 				aria-pressed={snapping}
 				onClick={() => compose.studio.$snapping.set(!snapping)}
 				type="button"
 			>
 				<Magnet size={14} strokeWidth={1.7} />
-				<span className="mm-tooltip">Snap to dots and trajectories · hold ⌥ to skip</span>
+				<span className="mm-tooltip">Snap pieces to notes and marbles · hold ⌥ to skip</span>
 			</button>
 			<div className="mx-0.5 h-4 w-px bg-[var(--separator)]" />
 			<div className="flex" role="radiogroup" aria-label="View">
-				<button className="mm-tool-button !h-7 !w-7" data-active={camera.mode === '2d'} aria-label="2D wall view" onClick={() => compose.setMode('2d')} type="button">
+				<button className="mm-tool-button !h-7 !w-7" data-active={camera.mode === '2d'} aria-label="Wall View" onClick={() => compose.setMode('2d')} type="button">
 					<Square size={14} strokeWidth={1.7} />
 					<span className="mm-tooltip">Wall view</span>
 				</button>
-				<button className="mm-tool-button !h-7 !w-7" data-active={camera.mode === 'orbit'} aria-label="Orbit view" onClick={() => compose.setMode('orbit')} type="button">
+				<button className="mm-tool-button !h-7 !w-7" data-active={camera.mode === 'orbit'} aria-label="Orbit View" onClick={() => compose.setMode('orbit')} type="button">
 					<Box size={14} strokeWidth={1.7} />
-					<span className="mm-tooltip">Orbit · middle mouse</span>
+					<span className="mm-tooltip">Orbit view · drag with the middle mouse button</span>
 				</button>
-				<button className="mm-tool-button !h-7 !w-7" data-active={camera.mode === 'camera'} aria-label="Camera view" onClick={() => compose.toggleCameraView()} type="button">
+				<button className="mm-tool-button !h-7 !w-7" data-active={camera.mode === 'camera'} aria-label="Preview Film Camera" onClick={() => compose.toggleCameraView()} type="button">
 					<Video size={14} strokeWidth={1.7} />
 					<span className="mm-tooltip">
-						Camera view <kbd>0</kbd>
+						Preview Film Camera <kbd>0</kbd>
 					</span>
 				</button>
 			</div>
@@ -806,8 +806,8 @@ const FilmViewfinder: React.FC<{ compose: ComposeCx }> = (props) => {
 				role="status"
 			>
 				<Video size={12} strokeWidth={1.8} color={playing ? 'var(--bad)' : 'currentColor'} />
-				<span className="font-medium text-[var(--text)]">Camera view</span>
-				<span>{film.pose == null ? 'Manual camera, framed in Blender' : 'Film camera preview, editing paused'}</span>
+				<span className="font-medium text-[var(--text)]">Film Camera</span>
+				<span>{film.pose == null ? 'Camera set in Blender' : 'Editing paused'}</span>
 				<kbd className="mm-keycap">0</kbd>
 			</div>
 		</>

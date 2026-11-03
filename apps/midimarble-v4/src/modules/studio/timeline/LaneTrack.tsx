@@ -7,22 +7,18 @@ import { formatTime, noteName } from '../format';
 import { hitMenu, laneMenu } from '../menus';
 import { toHitKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
+import { hitTiming, type THitTiming } from './hit-status';
 import { clampPitch, isBlackKey, pitchToRow, rowCount, rowToPitch, type TPitchRange } from './piano-roll';
 import { NOTE_ROW_HEIGHT, ROW_HEIGHT, round } from './timeline-layout';
 
-/** A collapsed track: one compact row of hit diamonds, placed higher for higher notes */
+/**
+ * A collapsed track: its hits in one flat row, each drawn by its timing status: green On Time, amber Early or
+ * Late, red Missed, Blocked or Stopped, hollow Open. Shapes differ too, so colour is never the only signal.
+ */
 export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
 	const conflicts = React.useMemo(() => findLaneConflicts(lane), [lane]);
-	const pitches = lane.hits.map((hit) => hit.pitch).filter((pitch): pitch is number => pitch != null);
-	const low = pitches.length ? Math.min(...pitches) : 60;
-	const high = pitches.length ? Math.max(...pitches) : 72;
 	const marquee = useMarquee(cx, lane, zoom, selection, timeAt);
-
-	function pitchY(pitch: number | undefined): number {
-		if (pitch == null || high === low) return ROW_HEIGHT / 2;
-		return ROW_HEIGHT - 11 - ((pitch - low) / (high - low)) * (ROW_HEIGHT - 22);
-	}
 
 	return (
 		<div
@@ -57,7 +53,7 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 						selection={selection}
 						status={statuses?.get(hit.id)}
 						isConflict={conflicts.has(hit.id)}
-						style={{ left: Math.max(0, hit.time + offset) * zoom, top: pitchY(hit.pitch), opacity: isAudible ? 1 : 0.4 }}
+						style={{ left: Math.max(0, hit.time + offset) * zoom, top: ROW_HEIGHT / 2, opacity: isAudible ? 1 : 0.4 }}
 						onDragStart={(event) => onDragStart(key, event, false)}
 					>
 						<span />
@@ -178,17 +174,19 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 	const isSelected = selection.includes(key);
 	// Hits of selected pieces are outlined, like keyframes of the selected object in Blender
 	const isLinked = status?.pieceEntityId != null && selection.includes(status.pieceEntityId);
+	const piece = status?.pieceEntityId == null ? undefined : cx.project?.entities.find((entity) => entity.id === status.pieceEntityId)?.name;
+	const timing = hitTiming(status, { marble: lane.name, pitch: hit.pitch, piece });
 	return (
 		<button
 			aria-label={`Hit ${index + 1}${hit.pitch == null ? '' : ` ${noteName(hit.pitch)}`} at ${formatTime(hit.time)}`}
 			aria-pressed={isSelected}
 			className={className}
 			data-selected={isSelected}
-			data-state={hitState(status)}
+			data-state={timing.state}
 			data-conflict={isConflict}
 			data-linked={isLinked}
 			style={{ ...style, ['--lane' as string]: lane.color }}
-			title={hitTitle(index, hit, status, isConflict)}
+			title={hitTitle(index, hit, timing, isConflict)}
 			onPointerDown={(event) => {
 				if (event.button !== 0) return;
 				event.stopPropagation();
@@ -280,24 +278,8 @@ function isRollBackground(event: React.MouseEvent<HTMLElement>): boolean {
 	return event.target === event.currentTarget || (event.target as HTMLElement).classList.contains('mm-piano-row');
 }
 
-/** Fill state: hollow until a piece plays the hit, then the lane color, red when it misses */
-function hitState(status: THitResult | undefined): 'open' | 'placed' | 'drifting' | 'missed' {
-	switch (status?.status) {
-		case 'onTime':
-			return 'placed';
-		case 'drifting':
-			return 'drifting';
-		case 'missed':
-		case 'blocked':
-			return 'missed';
-		default:
-			return 'open';
-	}
-}
-
-function hitTitle(index: number, hit: THit, status: THitResult | undefined, isConflict: boolean): string {
-	const state = { open: 'No piece yet', placed: 'On time', drifting: 'Drifting', missed: 'Missed' }[hitState(status)];
+function hitTitle(index: number, hit: THit, timing: THitTiming, isConflict: boolean): string {
 	const note = hit.pitch == null ? '' : ` · ${noteName(hit.pitch)}`;
-	const warning = isConflict ? ` · closer than ${MIN_HIT_GAP * 1000} ms to a neighbor` : '';
-	return `Hit ${index + 1}${note} · ${formatTime(hit.time)} · ${state}${warning}`;
+	const warning = isConflict ? ` · closer than ${MIN_HIT_GAP * 1000} ms to the next hit` : '';
+	return `Hit ${index + 1}${note} · ${formatTime(hit.time)} · ${timing.label}: ${timing.tooltip}${warning}`;
 }

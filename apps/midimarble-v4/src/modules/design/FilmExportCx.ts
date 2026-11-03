@@ -74,17 +74,17 @@ export class FilmExportCx {
 		const abort = new AbortController();
 		this.abort = abort;
 		const startedAt = Date.now();
-		this.$job.set({ ...IDLE_JOB, phase: 'preparing', step: 'Updating the scene…', startedAt, outsidePackage: output.outsidePackage });
+		this.$job.set({ ...IDLE_JOB, phase: 'preparing', step: 'Preparing the film…', startedAt, outsidePackage: output.outsidePackage });
 
 		if (!(await this.source.design.prepareRender())) {
-			this.fail(this.source.design.$error.get() ?? 'Blender could not update the scene');
+			this.fail(this.source.design.$error.get() ?? "Blender couldn't prepare the film. Export again; if it fails twice, quit and reopen MidiMarble.");
 			return;
 		}
 		if (abort.signal.aborted) {
 			this.$job.set({ ...this.$job.get(), phase: 'cancelled' });
 			return;
 		}
-		this.$job.set({ ...this.$job.get(), step: 'Writing the soundtrack…' });
+		this.$job.set({ ...this.$job.get(), step: 'Adding the song…' });
 		const [isRenderedOk, renderedErr, result] = await renderFilm(packagePath, project, {
 			resolveSourceUrl: this.source.resolveSourceUrl,
 			loop: this.source.design.currentLoop(),

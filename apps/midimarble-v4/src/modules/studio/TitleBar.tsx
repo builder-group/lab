@@ -20,7 +20,7 @@ export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 		<header data-tauri-drag-region className="mm-titlebar relative flex h-[38px] shrink-0 items-center gap-0.5 pr-2 pl-3 select-none">
 			<WindowControlsInset />
 			<PanelToggle cx={cx} panel="sidebar" isOn={panels.sidebar} label="Sidebar" shortcut="⌃⌘S" icon={<PanelLeft size={16} strokeWidth={1.6} />} />
-			<button className="mm-icon-button !h-7 !w-7" onClick={() => void cx.closeProject()} title="Home" aria-label="Home" type="button">
+			<button className="mm-icon-button !h-7 !w-7" onClick={() => void cx.closeProject()} title="Close the project and show the start screen" aria-label="Home" type="button">
 				<House size={15} strokeWidth={1.6} />
 			</button>
 			<DocumentTitle cx={cx} />
@@ -89,7 +89,7 @@ const ExportActivity: React.FC<{ cx: StudioCx }> = (props) => {
 	if (isSheetOpen || (!isExporting && job.phase !== 'done' && job.phase !== 'failed')) return null;
 
 	return (
-		<button className="mm-titlebar-export" data-tone={job.phase} onClick={() => cx.film.$isSheetOpen.set(true)} title="Show Export" type="button">
+		<button className="mm-titlebar-export" data-tone={job.phase} onClick={() => cx.film.$isSheetOpen.set(true)} title="Show the export" type="button">
 			{isExporting ? <LoaderCircle size={11} strokeWidth={2.2} className="shrink-0 animate-spin" /> : <span className="mm-activity-dot" data-tone={job.phase === 'done' ? 'good' : 'bad'} />}
 			<span className="truncate">{isExporting ? exportStatusLabel(job) : job.phase === 'done' ? 'Film Exported' : 'Export Failed'}</span>
 		</button>

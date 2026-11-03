@@ -13,11 +13,11 @@ export function blenderState(status: TDesignStatus, version: string | null): TBl
 		case 'unavailable':
 			return { tone: 'idle', label: 'Blender', detail: 'Blender connects in the desktop app' };
 		case 'missing':
-			return { tone: 'bad', label: 'No Blender', detail: 'Blender was not found. Install it in Applications.' };
+			return { tone: 'bad', label: 'No Blender', detail: "Blender isn't installed. Install Blender 4.2 or later to preview and export films." };
 		case 'starting':
 			return { tone: 'busy', label: 'Blender', detail: 'Starting Blender…' };
 		case 'syncing':
-			return { tone: 'busy', label: 'Blender', detail: `${name}: updating the scene…` };
+			return { tone: 'busy', label: 'Blender', detail: `${name}: updating the preview…` };
 		case 'rendering':
 			return { tone: 'busy', label: 'Blender', detail: `${name}: rendering the preview…` };
 		case 'ready':

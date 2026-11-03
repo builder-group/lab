@@ -1,6 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Minus, Plus } from 'lucide-react';
 import React from 'react';
+import { HelpTip } from '@/components';
 import { laneColors } from '@/modules/project';
 import { previewMidiImport } from './SourcesCx';
 import type { StudioCx } from './StudioCx';
@@ -32,8 +33,11 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 	if (pending == null || preview == null) return null;
 	const strategy = pending.options.strategy ?? 'split';
 	const maxLanes = pending.options.maxLanes ?? 4;
-	const hits = preview.lanes.reduce((sum, lane) => sum + lane.length, 0);
-	const end = Math.max(1, ...preview.lanes.flat().map((note) => note.time + note.duration));
+	const end = Math.max(1, ...[...preview.lanes.flat(), ...preview.backing].map((note) => note.time + note.duration));
+	const rows = [
+		...preview.lanes.map((notes, index) => ({ key: `marble-${index}`, name: `Marble ${index + 1}`, color: laneColors[index % laneColors.length] ?? 'var(--accent)', notes })),
+		...(preview.backing.length > 0 ? [{ key: 'backing', name: 'Backing', color: BACKING_COLOR, notes: preview.backing }] : [])
+	];
 
 	function toggleTrack(id: string): void {
 		if (pending == null) return;
@@ -52,9 +56,9 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 				className="mt-[60px] flex h-fit w-[480px] flex-col gap-4 rounded-[12px] bg-[var(--content-raised)] p-5"
 				style={{ boxShadow: 'var(--shadow-popover)' }}
 			>
-				<div>
-					<div className="font-semibold">Import “{pending.file.name}”</div>
-					<div className="mm-caption mt-0.5">Each marble plays one note at a time, at least 180 ms apart. Choose the tracks to turn into marbles.</div>
+				<div className="flex items-center gap-1.5">
+					<div className="flex-1 font-semibold">Import “{pending.file.name}”</div>
+					<HelpTip text="Marbles play the notes of the checked tracks, one note at a time and at least 180 ms apart. Every other note plays as Backing: heard in the film, no piece needed. Drum tracks are left out." />
 				</div>
 
 				<div className="flex max-h-[180px] flex-col overflow-y-auto rounded-[8px] border border-[var(--separator)] bg-[var(--content)]">
@@ -76,14 +80,14 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 							onClick={() => cx.sources.updateMidiImport({ options: { ...pending.options, strategy: 'split' } })}
 							type="button"
 						>
-							Split across marbles
+							Split Across Marbles
 						</button>
 						<button
 							data-active={strategy === 'melody'}
 							onClick={() => cx.sources.updateMidiImport({ options: { ...pending.options, strategy: 'melody' } })}
 							type="button"
 						>
-							Keep top note
+							Keep Top Note
 						</button>
 					</div>
 				</div>
@@ -115,22 +119,24 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 					</div>
 				) : null}
 
-				<div className="rounded-[8px] bg-[var(--canvas)] px-3 py-2">
-					{preview.lanes.map((lane, index) => (
-						<div key={`${lane[0]?.time ?? 0}-${lane[0]?.pitch ?? 0}`} className="relative h-4">
-							{lane.map((note) => (
-								<span
-									key={`${note.time}-${note.pitch}`}
-									className="absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
-									style={{ left: `${(note.time / end) * 100}%`, background: laneColors[index % laneColors.length] }}
-								/>
-							))}
+				<div className="flex flex-col gap-0.5 rounded-[8px] bg-[var(--canvas)] px-3 py-2" aria-label="Where the notes go">
+					{rows.map((row) => (
+						<div key={row.key} className="flex h-4 items-center gap-2">
+							<span className="w-[64px] shrink-0 truncate text-[11px] text-[var(--text-secondary)]">{row.name}</span>
+							<span className="relative h-full flex-1">
+								{row.notes.map((note) => (
+									<span
+										key={`${note.time}-${note.pitch}-${note.duration}-${note.velocity}`}
+										className="absolute top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+										style={{ left: `${(note.time / end) * 100}%`, background: row.color }}
+									/>
+								))}
+							</span>
+							<span className="mm-tabular w-[64px] shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+								{row.notes.length} {row.notes.length === 1 ? 'note' : 'notes'}
+							</span>
 						</div>
 					))}
-					<div className="mm-caption mt-1">
-						{preview.lanes.length} {preview.lanes.length === 1 ? 'marble' : 'marbles'} · {hits} hits
-						{preview.dropped.length > 0 ? ` · ${preview.dropped.length} notes left out` : ''}
-					</div>
 				</div>
 
 				<div className="flex justify-end gap-2">
@@ -157,3 +163,5 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 interface TImportMidiSheetProps {
 	cx: StudioCx;
 }
+
+const BACKING_COLOR = 'var(--text-tertiary)';

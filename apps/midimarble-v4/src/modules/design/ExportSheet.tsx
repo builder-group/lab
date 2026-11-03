@@ -85,22 +85,22 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 						<Monitor size={16} strokeWidth={1.6} className="mt-0.5 shrink-0 text-[var(--text-secondary)]" />
 						<div className="flex flex-col gap-0.5">
 							<div className="font-semibold">Export Runs in the Desktop App</div>
-							<div className="mm-caption">Films render in Blender, which the browser preview cannot start. Open MidiMarble on your Mac to export.</div>
+							<div className="mm-caption">Blender makes the film, and the browser preview can't start it. Open MidiMarble on your Mac to export.</div>
 						</div>
 					</div>
 				</div>
 			) : null}
 			<div className="mm-form">
-				<label htmlFor="export-preset">Preset</label>
+				<label htmlFor="export-preset">Quality</label>
 				<Select
 					id="export-preset"
 					value={settings.preset}
 					options={renderPresets.map((item) => ({ value: item.id, label: renderPresetOption(item) }))}
 					onChange={(value) => cx.film.updateSettings({ preset: value as TRenderPreset })}
 				/>
-				<span className="mm-form-label">Renderer</span>
+				<span className="mm-form-label">Lighting</span>
 				<div>
-					<div className="mm-segmented" role="radiogroup" aria-label="Renderer">
+					<div className="mm-segmented" role="radiogroup" aria-label="Lighting">
 						{engines.map((engine) => (
 							<button
 								key={engine.id}
@@ -108,13 +108,14 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 								aria-checked={settings.engine === engine.id}
 								data-active={settings.engine === engine.id}
 								onClick={() => cx.film.updateSettings({ engine: engine.id })}
+								title={engine.tooltip}
 								type="button"
 							>
 								{engine.label}
 							</button>
 						))}
 					</div>
-					<div className="mm-caption mt-1">{preset.engine === 'workbench' ? 'Draft renders with Workbench: solid colours, no lighting or materials' : engines.find((engine) => engine.id === settings.engine)?.description}</div>
+					<div className="mm-caption mt-1">{preset.engine === 'workbench' ? 'Draft shows solid colours, without lighting or materials' : engines.find((engine) => engine.id === settings.engine)?.description}</div>
 				</div>
 				<label htmlFor="export-name">Save As</label>
 				<div className="flex gap-1.5">
@@ -171,7 +172,7 @@ const ExportProgress: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 				<span>Elapsed {formatClock(elapsed)}</span>
 				<span>{remaining != null ? `About ${formatClock(remaining)} remaining` : job.phase === 'encoding' ? 'Finishing…' : 'Estimating…'}</span>
 			</div>
-			<p className="mm-caption">Blender renders in a separate process. You can hide this sheet and keep working; the toolbar shows the progress.</p>
+			<p className="mm-caption">You can hide this and keep working; the title bar shows the progress.</p>
 			<div className="flex justify-end gap-2">
 				<button className="mm-button" data-size="dialog" onClick={() => cx.film.cancel()} type="button">
 					Cancel Export
@@ -202,12 +203,12 @@ const ExportDone: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 			<video className="mm-film" src={convertFileSrc(result.path)} controls playsInline style={{ aspectRatio: `${result.width} / ${result.height}` }} />
 			<div className="mm-tabular text-[11px] text-[var(--text-secondary)]">
 				{result.width} × {result.height} · {result.fps} fps · {formatClock(result.duration)} · rendered in {formatClock(seconds)}
-				{result.hasAudio ? '' : ' · no soundtrack'}
+				{result.hasAudio ? '' : ' · no song'}
 			</div>
 			<div className="flex justify-end gap-2">
 				<button className="mm-button" onClick={() => void reveal()} type="button">
 					<Film size={12} strokeWidth={1.8} />
-					Reveal in Finder
+					Show in Finder
 				</button>
 				<button className="mm-button" data-size="dialog" data-variant="primary" onClick={() => cx.film.closeSheet()} type="button">
 					Done
@@ -253,9 +254,9 @@ const SheetHeader: React.FC<{ title: string; subtitle?: string; icon?: React.Rea
 	);
 };
 
-const engines: { id: TRenderEngine; label: string; description: string }[] = [
-	{ id: 'eevee', label: 'Eevee', description: 'Fast, matches the Design preview' },
-	{ id: 'cycles', label: 'Cycles', description: 'Path traced, much slower and more realistic' }
+const engines: { id: TRenderEngine; label: string; description: string; tooltip: string }[] = [
+	{ id: 'eevee', label: 'Fast', description: 'Matches the Film preview', tooltip: 'Blender Eevee' },
+	{ id: 'cycles', label: 'Realistic', description: 'Light as a camera sees it, much slower', tooltip: 'Blender Cycles, path traced' }
 ];
 
 /** One line for the export's state, shared by the sheet and the toolbar activity view */
@@ -266,7 +267,7 @@ export function exportStatusLabel(job: TExportJob): string {
 		case 'rendering':
 			return job.frame != null && job.frames != null ? `Rendering frame ${job.frame} of ${job.frames}` : 'Starting Blender…';
 		case 'encoding':
-			return 'Encoding the video…';
+			return 'Finishing the film…';
 		case 'done':
 			return 'Film exported';
 		case 'failed':
@@ -279,10 +280,10 @@ export function exportStatusLabel(job: TExportJob): string {
 }
 
 function basisLabel(basis: TExportEstimate['basis'], engine: TFilmEngine): string {
-	if (basis === 'measured') return `From your last ${engine === 'eevee' ? 'Eevee' : engine === 'cycles' ? 'Cycles' : 'Draft'} export`;
-	if (basis === 'typical') return 'Typical Workbench speed';
-	if (basis === 'preview') return engine === 'cycles' ? 'Rough guess from the Eevee preview' : 'From the playhead preview';
-	return 'Shown after the first preview render';
+	if (basis === 'measured') return `From your last ${engine === 'eevee' ? 'Fast' : engine === 'cycles' ? 'Realistic' : 'Draft'} export`;
+	if (basis === 'typical') return 'Typical Draft speed';
+	if (basis === 'preview') return engine === 'cycles' ? 'Rough guess from the preview' : 'From the playhead preview';
+	return 'Shown after the first preview';
 }
 
 function folderOf(path: string): string {

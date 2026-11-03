@@ -8,18 +8,18 @@ const CHORD_WINDOW = 0.03;
 
 /**
  * Assigns notes to marbles. A marble plays one note at a time with at least `minGap` between strikes,
- * so chords spread across marbles or keep only their top note.
+ * so chords spread across marbles or keep only their top note. Notes no marble can play become Backing.
  */
 export function proposeLanes(notes: TMidiNote[], options: TProposeLanesOptions = {}): TLaneProposal {
 	const { strategy = 'split', maxLanes = 4, minGap = MIN_HIT_GAP } = options;
 	const chords = groupChords(notes);
 	const lanes: TMidiNote[][] = [];
-	const dropped: TDroppedNote[] = [];
+	const backing: TBackingNote[] = [];
 
 	for (const chord of chords) {
 		const candidates = strategy === 'melody' ? chord.slice(0, 1) : chord;
 		if (strategy === 'melody') {
-			for (const note of chord.slice(1)) dropped.push({ note, reason: 'chord' });
+			for (const note of chord.slice(1)) backing.push({ note, reason: 'chord' });
 		}
 		const used = new Set<number>();
 		for (const note of candidates) {
@@ -34,11 +34,11 @@ export function proposeLanes(notes: TMidiNote[], options: TProposeLanesOptions =
 				used.add(lanes.length - 1);
 				continue;
 			}
-			dropped.push({ note, reason: candidates.length > 1 && strategy === 'split' ? 'tooManyVoices' : 'tooClose' });
+			backing.push({ note, reason: candidates.length > 1 && strategy === 'split' ? 'tooManyVoices' : 'tooClose' });
 		}
 	}
 
-	return { lanes, dropped };
+	return { lanes, backing };
 }
 
 export interface TProposeLanesOptions {
@@ -49,10 +49,11 @@ export interface TProposeLanesOptions {
 
 export interface TLaneProposal {
 	lanes: TMidiNote[][];
-	dropped: TDroppedNote[];
+	backing: TBackingNote[];
 }
 
-export interface TDroppedNote {
+/** A note left to Backing, with why no marble plays it */
+export interface TBackingNote {
 	note: TMidiNote;
 	reason: 'chord' | 'tooClose' | 'tooManyVoices';
 }

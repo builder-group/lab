@@ -16,7 +16,7 @@ describe('proposeLanes', () => {
 		const notes = [note(0, 60), note(0.25, 62), note(0.5, 64)];
 		const proposal = proposeLanes(notes);
 		expect(proposal.lanes).toHaveLength(1);
-		expect(proposal.dropped).toEqual([]);
+		expect(proposal.backing).toEqual([]);
 	});
 
 	it('spreads chords across marbles and respects the minimum gap', () => {
@@ -26,7 +26,7 @@ describe('proposeLanes', () => {
 		for (const lane of proposal.lanes) {
 			for (const gap of gaps(lane)) expect(gap).toBeGreaterThanOrEqual(MIN_HIT_GAP - 1e-9);
 		}
-		const total = proposal.lanes.reduce((sum, lane) => sum + lane.length, 0) + proposal.dropped.length;
+		const total = proposal.lanes.reduce((sum, lane) => sum + lane.length, 0) + proposal.backing.length;
 		expect(total).toBe(notes.length);
 	});
 
@@ -39,14 +39,14 @@ describe('proposeLanes', () => {
 		const chord = [note(0, 60), note(0, 64), note(0, 67), note(0, 72)];
 		const proposal = proposeLanes(chord, { maxLanes: 2 });
 		expect(proposal.lanes).toHaveLength(2);
-		expect(proposal.dropped.map((item) => item.reason)).toEqual(['tooManyVoices', 'tooManyVoices']);
+		expect(proposal.backing.map((item) => item.reason)).toEqual(['tooManyVoices', 'tooManyVoices']);
 	});
 
 	it('keeps only top notes in melody mode', () => {
 		const proposal = proposeLanes([note(0, 60), note(0, 72), note(0.1, 74), note(0.4, 70)], { strategy: 'melody' });
 		expect(proposal.lanes).toHaveLength(1);
 		expect(proposal.lanes[0]?.map((item) => item.pitch)).toEqual([72, 70]);
-		expect(proposal.dropped.map((item) => item.reason).sort()).toEqual(['chord', 'tooClose']);
+		expect(proposal.backing.map((item) => item.reason).sort()).toEqual(['chord', 'tooClose']);
 	});
 });
 

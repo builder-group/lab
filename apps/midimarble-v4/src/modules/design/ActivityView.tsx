@@ -25,7 +25,7 @@ export const ActivityView: React.FC<TActivityViewProps> = (props) => {
 	} else if (job.phase === 'done' || job.phase === 'failed') {
 		activity = { label: job.phase === 'done' ? 'Film Exported' : 'Export Failed', detail: job.phase === 'done' ? 'Click to view' : 'Click for details', tone: job.phase === 'done' ? 'good' : 'bad' };
 	} else if (working > 0) {
-		activity = { label: working === 1 ? 'Agent Working' : `${working} Agents Working`, detail: 'Building a candidate in Blender', tone: 'busy' };
+		activity = { label: working === 1 ? 'Agent Working' : `${working} Agents Working`, detail: 'Working in Blender', tone: 'busy' };
 	} else if (workspace === 'design') {
 		activity = designActivity(status, version);
 	}
@@ -39,7 +39,7 @@ export const ActivityView: React.FC<TActivityViewProps> = (props) => {
 			disabled={!isClickable}
 			onClick={() => cx.film.$isSheetOpen.set(true)}
 			aria-live="polite"
-			title={isClickable ? 'Show Export' : activity.detail}
+			title={isClickable ? 'Show the export' : activity.detail}
 			type="button"
 		>
 			<span className="flex min-w-0 items-center gap-1.5">
@@ -76,15 +76,15 @@ function designActivity(status: TDesignStatus, version: string | null): TActivit
 	const blender = version != null ? `Blender ${version.split(' ')[0] ?? ''}` : 'Blender';
 	switch (status) {
 		case 'unavailable':
-			return { label: 'Blender', detail: 'Desktop app only', tone: 'idle' };
+			return { label: 'Blender', detail: 'Connects in the desktop app', tone: 'idle' };
 		case 'missing':
-			return { label: 'Blender Not Found', detail: 'Install it in Applications', tone: 'bad' };
+			return { label: 'Blender Not Installed', detail: 'Install Blender 4.2 or later', tone: 'bad' };
 		case 'starting':
 			return { label: 'Starting Blender', detail: '', tone: 'busy', progress: null };
 		case 'syncing':
-			return { label: blender, detail: 'Updating scene…', tone: 'busy' };
+			return { label: blender, detail: 'Updating the preview…', tone: 'busy' };
 		case 'rendering':
-			return { label: blender, detail: 'Rendering preview…', tone: 'busy' };
+			return { label: blender, detail: 'Rendering the preview…', tone: 'busy' };
 		case 'ready':
 			return { label: blender, detail: 'Ready', tone: 'good' };
 		case 'error':

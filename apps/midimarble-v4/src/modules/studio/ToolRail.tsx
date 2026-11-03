@@ -157,14 +157,14 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 
 	return (
 		<>
-			<RailButton label="Move" detail="Select objects in the preview" shortcut="V" isActive={placing == null} onClick={() => cx.design.$placing.set(null)}>
+			<RailButton label="Move" detail="Select pieces and titles in the preview" shortcut="V" isActive={placing == null} onClick={() => cx.design.$placing.set(null)}>
 				<MousePointer2 size={17} strokeWidth={1.6} />
 			</RailButton>
 			<div className="mm-tool-rail-divider" />
-			<RailButton label="Text" detail="Click the wall to place text" shortcut="T" isActive={placing === 'text'} onClick={() => getCommand('tool.text').run(cx)}>
+			<RailButton label="Title" detail="Click the wall to place a title" shortcut="T" isActive={placing === 'text'} onClick={() => getCommand('tool.text').run(cx)}>
 				<Type size={17} strokeWidth={1.6} />
 			</RailButton>
-			<RailButton label="Asset" detail="Skins and decorations from the library" isActive={false} onClick={() => getCommand('tool.asset').run(cx)}>
+			<RailButton label="Library" detail="Skins and decorations for the pieces" isActive={false} onClick={() => getCommand('tool.asset').run(cx)}>
 				<Image size={17} strokeWidth={1.6} />
 			</RailButton>
 		</>

@@ -30,7 +30,7 @@ export class DesignLibraryCx {
 		const [isGlobalOk, globalErr, globalItems] = await library.list('global', null);
 		const [isProjectOk, projectErr, projectItems] = packagePath == null ? [true, null, []] as const : await library.list('project', packagePath);
 		if (!isGlobalOk || !isProjectOk) {
-			const message = (isGlobalOk ? projectErr : globalErr)?.message ?? 'The library could not be read';
+			const message = (isGlobalOk ? projectErr : globalErr)?.message ?? "The library couldn't be read";
 			if (import.meta.env.DEV) console.warn('[library]', message);
 			this.$error.set(message);
 			this.$status.set('error');
@@ -52,7 +52,7 @@ export class DesignLibraryCx {
 		if (item.scope === 'global') {
 			const [isImportedOk, importedErr, imported] = await library.import(packagePath, item.id);
 			if (!isImportedOk) {
-				this.source.notify(`“${label(item)}” could not be copied into the project: ${importedErr.message}`, 'error');
+				this.source.notify(`“${label(item)}” couldn't be copied into the project: ${importedErr.message}`, 'error');
 				return false;
 			}
 			assetId = imported.id;
@@ -60,7 +60,7 @@ export class DesignLibraryCx {
 		}
 		const commands = skinCommands(project, target, assetId);
 		if (!commands.length) {
-			this.source.notify('Select a piece to apply the skin to');
+			this.source.notify('No piece is selected. Select a piece, then apply the skin.');
 			return false;
 		}
 		return this.source.execute(commands);

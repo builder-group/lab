@@ -6,3 +6,10 @@ export const $expandedLanes = createState<string[]>([]);
 export function toggleExpandedLane(laneId: string): void {
 	$expandedLanes.set((ids) => (ids.includes(laneId) ? ids.filter((id) => id !== laneId) : [...ids, laneId]));
 }
+
+/** Whether the Song track shows every note in a piano roll */
+export const $songExpanded = createState(false);
+
+export function toggleSongExpanded(): void {
+	$songExpanded.set((isExpanded) => !isExpanded);
+}

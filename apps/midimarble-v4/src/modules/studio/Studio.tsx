@@ -33,7 +33,7 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 				<div className="flex min-w-0 flex-1 flex-col">
 					<div className="flex min-h-0 flex-1">
 						<ToolRail cx={cx} />
-						<main className="relative min-w-0 flex-1" aria-label={workspace === 'compose' ? 'Compose canvas' : 'Design preview'}>
+						<main className="relative min-w-0 flex-1" aria-label={workspace === 'compose' ? 'Compose wall' : 'Film preview'}>
 							{canvas}
 							<Notice cx={cx} />
 						</main>
@@ -65,8 +65,8 @@ const DropOverlay: React.FC = () => (
 			style={{ background: 'color-mix(in srgb, var(--accent) 8%, transparent)' }}
 		>
 			<div className="mm-floating px-4 py-2.5 text-center">
-				<div className="font-semibold">Drop to Import</div>
-				<div className="mm-caption">MIDI files become marbles. Recordings appear behind the lanes.</div>
+				<div className="font-semibold">Drop to Import Song</div>
+				<div className="mm-caption">A MIDI file becomes marbles. A recording plays behind the tracks.</div>
 			</div>
 		</div>
 	</div>

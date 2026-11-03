@@ -93,7 +93,7 @@ export class AssistCx {
 			return;
 		}
 		if (target == null) {
-			this.studio.notify('Every reachable hit of this marble has a piece');
+			this.studio.notify('Every note this marble reaches already has a platform');
 			return;
 		}
 		void this.place(target, type, 'next');
@@ -120,12 +120,12 @@ export class AssistCx {
 		if (entity == null || link == null || pieceType == null) {
 			const target = findStepTarget(project, result, this.studio.$selection.get());
 			if (target != null) void this.place(target, type, 'autoPlace');
-			else this.studio.notify('Select a piece or leave an open hit to auto place');
+			else this.studio.notify('No note is open for a platform. Select a platform to tilt it again, or add a note in the timeline.');
 			return;
 		}
 		if (!isMusicalPiece(pieceType)) {
 			const kind = layoutOf(pieceType);
-			this.studio.notify(kind === 'path' || kind === 'tube' ? 'Auto place sets platform angles; drag the rail handles to shape it' : 'Auto place sets platform angles; scenery keeps the angle you give it');
+			this.studio.notify(kind === 'path' || kind === 'tube' ? "Add Platform tilts platforms only. Drag the path's handles to shape it." : 'Add Platform tilts platforms only. Turn this piece by hand.');
 			return;
 		}
 		const startedAt = performance.now();
@@ -136,7 +136,7 @@ export class AssistCx {
 				if (present == null || present.revision !== project.revision) return;
 				const commands = pieceAngleCommands(present, new Map([[entity.id, answer.angle]]));
 				if (!commands.length) {
-					this.studio.notify('Auto place keeps this angle');
+					this.studio.notify('This platform already lands on time');
 					return;
 				}
 				this.studio.execute(commands);
@@ -193,7 +193,7 @@ export class AssistCx {
 		const fallback = pieceForHit(present, hit, type, 'default', id);
 		if (!commitAtHit(this.studio, hit, fallback)) return;
 		this.record(kind, startedAt);
-		if (quick === 'failed') this.studio.notify('Auto place found no angle that keeps the next dot in frame, so the default lean is used');
+		if (quick === 'failed') this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the run needs it.');
 		if (quick !== 'slow') return;
 		const placedRevision = this.studio.project?.revision;
 		request.then(
@@ -225,7 +225,7 @@ export class AssistCx {
 			const time = project.music.lanes.find((lane) => lane.id === ghost.answer.laneId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
 			if (last != null) this.studio.$selection.set([last.entity.id]);
 			if (time != null && !this.studio.$playing.get()) this.studio.$playhead.set(time);
-			this.studio.notify(`Continued ${acceptableCount(ghost)} ${acceptableCount(ghost) === 1 ? 'piece' : 'pieces'}`);
+			this.studio.notify(`Added ${acceptableCount(ghost)} ${acceptableCount(ghost) === 1 ? 'platform' : 'platforms'}`);
 		} else {
 			this.studio.$selection.set([ghost.answer.entity.id]);
 			if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.piece?.entryTime ?? this.studio.$playhead.get());
@@ -264,10 +264,7 @@ export class AssistCx {
 					this.suggestGapPiece(options.fallback, laneId, fromHitId, toHitId, { accept: options.accept });
 					return;
 				}
-				const label = type;
-				const message = error instanceof Error ? error.message : String(error);
-				const hint = message.includes('fall freely') ? ' Tilt the piece before the gap so the marble flies off it, then try again.' : '';
-				this.studio.notify(`No ${label} fits this gap. ${message}.${hint}`);
+				this.studio.notify(gapFailure(type, error instanceof Error ? error.message : String(error)));
 			}
 		);
 	}
@@ -344,6 +341,16 @@ function wait(ms: number): Promise<void> {
 }
 
 function autoPlaceFailure(error: unknown): string {
-	if (error instanceof Error && error.message.startsWith('No angle')) return 'Auto place found no angle that keeps the next dot on time and in frame';
-	return `Auto place failed: ${error instanceof Error ? error.message : String(error)}`;
+	if (error instanceof Error && error.message.startsWith('No angle')) return 'No tilt lands the marble on time with the next note in the frame. Turn the platform by hand or move the note.';
+	return `The platform couldn't be tilted: ${error instanceof Error ? error.message : String(error)}`;
+}
+
+/** The simulation's reason a gap piece found no place, in the app's words, with what to do */
+function gapFailure(type: TGapPieceType, message: string): string {
+	const piece: string = type;
+	if (message.includes('fall freely')) return `No ${piece} fits this gap. Tilt the platform before the gap so the marble flies off it, then try again.`;
+	if (message.includes('fall below')) return `No ${piece} fits this gap. The marble doesn't fall far enough before the next note; try a rail or a tunnel.`;
+	if (message.includes('crosses the earlier trajectory')) return `No ${piece} fits this gap. Every spot crosses the marble's earlier fall; move the pieces around the gap.`;
+	if (message.includes('does not reach the hit')) return `No ${piece} fits this gap. The marble doesn't reach the note before the gap; fix that platform first.`;
+	return `No ${piece} fits this gap. ${message}.`;
 }

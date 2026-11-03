@@ -7,39 +7,58 @@ export interface TTimingStatus {
 	detail?: string;
 }
 
+/** Names the tooltips use, such as `Marble 1` and `C4`; generic words stand in for missing ones */
+export interface TTimingNames {
+	marble?: string;
+	note?: string;
+	piece?: string;
+}
+
 /**
- * Timing of a linked piece for the inspector's status pill: On time in green, a drifting hit as
- * "12 ms late" in amber, Missed, Resting and Blocked in red
+ * Timing of a linked piece for the status pill, with the words of the Timing statuses table in words.md: On Time
+ * in green, "12 ms Late" in amber, Missed, Stopped and Blocked in red, Open for a note without a platform
  */
-export function timingStatus(piece: Pick<TResolvedPiece, 'status'> | undefined, hit: THitResult | undefined): TTimingStatus {
+export function timingStatus(piece: Pick<TResolvedPiece, 'status'> | undefined, hit: THitResult | undefined, names: TTimingNames = {}): TTimingStatus {
+	const marble = names.marble ?? 'The marble';
+	const target = names.piece == null ? 'this piece' : names.piece;
 	if (piece?.status === 'blocked' || hit?.status === 'blocked') {
-		return { tone: 'bad', label: 'Blocked', detail: 'The run before this hit already passes through this spot, so the piece is left out.' };
+		return { tone: 'bad', label: 'Blocked', detail: `${marble} already passes through this spot earlier in its run` };
 	}
-	if (piece?.status === 'unreached') return { tone: 'bad', label: 'Missed', detail: 'The marble never reaches this hit.' };
+	if (piece?.status === 'unreached') return { tone: 'bad', label: 'Missed', detail: `${marble} never reaches ${target}` };
 	if (hit == null) return { tone: 'neutral', label: 'Simulating…' };
-	const offset = hit.error == null ? undefined : signedMs(hit.error);
 	switch (hit.status) {
-		case 'onTime':
-			return { tone: 'good', label: 'On time', detail: offset == null ? undefined : `${offset} from the note` };
-		case 'drifting': {
-			const label = hit.error == null || Math.abs(hit.error) < 0.0005 ? 'Drifting' : lateness(hit.error);
-			return { tone: 'warn', label, detail: `${offset ?? 'Off'} from the note. Still within 20 ms, but an earlier change moved it.` };
+		case 'onTime': {
+			const what = names.note == null ? 'its note' : names.note;
+			const offset = hit.error == null || Math.abs(hit.error) < 0.00005 ? '' : ` (${signedMs(hit.error)})`;
+			return { tone: 'good', label: 'On Time', detail: `${marble} hits ${what} on time${offset}` };
 		}
+		case 'drifting':
+			return { tone: 'warn', label: hit.error == null ? 'Off Time' : latenessLabel(hit.error), detail: hit.error == null ? 'Lands off the note' : landsDetail(hit.error) };
 		case 'missed':
-			if (hit.reason === 'resting') {
-				return { tone: 'bad', label: 'Resting', detail: 'The marble rolls or rests onto this piece instead of striking it, so no note sounds.' };
-			}
-			if (hit.error == null) return { tone: 'bad', label: 'Missed', detail: 'The marble does not touch this piece.' };
-			return { tone: 'bad', label: 'Missed', detail: `The marble arrives ${lateness(hit.error)}.` };
+			if (hit.reason === 'resting') return { tone: 'bad', label: 'Stopped', detail: `${marble} stops on ${target} instead of striking it` };
+			if (hit.error == null) return { tone: 'bad', label: 'Missed', detail: `${marble} passes ${target} without touching it` };
+			return { tone: 'bad', label: 'Missed', detail: landsDetail(hit.error) };
 		case 'open':
-			return { tone: 'neutral', label: 'Not placed' };
+			return { tone: 'neutral', label: 'Open', detail: 'No platform plays this note yet' };
 	}
 }
 
-/** Whole milliseconds with the direction, such as `12 ms late` */
+/** Whole milliseconds with the direction, such as `12 ms late`, for sentences */
 export function lateness(error: number): string {
 	const ms = Math.round(Math.abs(error) * 1000);
 	return `${ms} ms ${error > 0 ? 'late' : 'early'}`;
+}
+
+/** The status pill for an early or late hit, such as `12 ms Late` */
+export function latenessLabel(error: number): string {
+	const ms = Math.round(Math.abs(error) * 1000);
+	return `${ms} ms ${error > 0 ? 'Late' : 'Early'}`;
+}
+
+/** `Lands 12 ms after the note` */
+function landsDetail(error: number): string {
+	const ms = Math.round(Math.abs(error) * 1000);
+	return `Lands ${ms} ms ${error > 0 ? 'after' : 'before'} the note`;
 }
 
 /** Signed milliseconds with one decimal, such as `+12.3 ms` */

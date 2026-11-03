@@ -19,7 +19,7 @@ A first-time user who knows Figma or GarageBand but not MidiMarble should finish
 | Continue a zigzag with the suggested pieces | 15 s |
 | Undo the last three changes | 5 s |
 | Change the marble speed | 10 s |
-| Switch to Design, apply a theme, render a Draft film | 60 s |
+| Switch to Film, apply a theme, export a Draft film | 60 s |
 
 ## Heuristics
 

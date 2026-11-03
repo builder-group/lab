@@ -5,8 +5,8 @@ import type { ComposeCx } from './ComposeCx';
 import { placeAtHit } from './step-loop';
 
 /**
- * Insert menu of an open hit dot, opened by a click or a right-click at the dot: a platform at the default
- * lean, an auto placed platform, and the bridges for a long gap
+ * Insert menu of an open note's dot, opened by a click or a right-click at the dot: a platform tilted to land on
+ * time, one at the default tilt, and the pieces that bridge a long gap
  */
 export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMenuEntry[] {
 	const cx = compose.studio;
@@ -22,20 +22,20 @@ export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMen
 	};
 
 	return tidyMenu([
-		{ section: `Hit ${index + 1} · ${formatTime(hit.targetTime)}${pitch != null ? ` · ${noteName(pitch)}` : ''}` },
-		{ label: 'Auto-Placed Platform', shortcut: 'A', onSelect: () => void compose.assist.place(hit, 'platform') },
-		{ label: 'Platform', onSelect: () => void placeAtHit(cx, hit, 'platform') },
+		{ section: `Note ${index + 1}${pitch != null ? ` · ${noteName(pitch)}` : ''} · ${formatTime(hit.targetTime)}` },
+		{ label: 'Add Platform', shortcut: 'A', onSelect: () => void compose.assist.place(hit, 'platform') },
+		{ label: 'Add Platform at Default Tilt', onSelect: () => void placeAtHit(cx, hit, 'platform') },
 		gap != null ? 'separator' : null,
-		gap != null ? { section: `${gap.duration.toFixed(1)} s gap` } : null,
-		gap != null ? { label: 'Switchback', onSelect: () => bridge('switchback') } : null,
-		gap != null ? { label: 'Rail', onSelect: () => bridge('rail') } : null,
-		gap != null ? { label: 'Tunnel', onSelect: () => bridge('tunnel') } : null,
+		gap != null ? { section: `Long Gap · ${gap.duration.toFixed(1)} s` } : null,
+		gap != null ? { label: 'Add Switchback', onSelect: () => bridge('switchback') } : null,
+		gap != null ? { label: 'Add Rail', onSelect: () => bridge('rail') } : null,
+		gap != null ? { label: 'Add Tunnel', onSelect: () => bridge('tunnel') } : null,
 		'separator',
-		{ label: 'Go to Hit', onSelect: () => cx.$playhead.set(hit.targetTime) }
+		{ label: 'Go to Note', onSelect: () => cx.$playhead.set(hit.targetTime) }
 	]);
 }
 
-/** Right-click on empty canvas: the step loop and view commands */
+/** Right-click on the empty wall: the assists and view commands */
 export function canvasMenu(compose: ComposeCx): TMenuEntry[] {
 	const cx = compose.studio;
 	return tidyMenu([

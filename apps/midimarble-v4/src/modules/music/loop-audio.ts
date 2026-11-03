@@ -1,4 +1,4 @@
-import type { TLane } from '@/modules/project';
+import type { THit, TLane } from '@/modules/project';
 import type { TStereoAudio } from './synthesize';
 
 // Soundtracks of seamless loops. Synthesized lanes are rendered from the hits inside the loop only, and the
@@ -16,12 +16,14 @@ export interface TLoopRange {
 
 /** Lanes with only the hits inside the loop, moved so the loop starts at time 0 */
 export function loopLanes(lanes: TLane[], range: TLoopRange): TLane[] {
-	return lanes.map((lane) => ({
-		...lane,
-		hits: lane.hits
-			.filter((hit) => hit.time >= range.start - 1e-9 && hit.time < range.start + range.length - 1e-9)
-			.map((hit) => ({ ...hit, time: hit.time - range.start }))
-	}));
+	return lanes.map((lane) => ({ ...lane, hits: loopHits(lane.hits, range) }));
+}
+
+/** Hits inside the loop, moved so the loop starts at time 0 */
+export function loopHits(hits: THit[], range: TLoopRange): THit[] {
+	return hits
+		.filter((hit) => hit.time >= range.start - 1e-9 && hit.time < range.start + range.length - 1e-9)
+		.map((hit) => ({ ...hit, time: hit.time - range.start }));
 }
 
 /** Adds everything past `length` seconds onto the beginning, wrapping as often as needed */

@@ -85,7 +85,7 @@ if (!isMidiOk) throw midiErr;
 const notes = midi.tracks.flatMap((track) => track.notes);
 const proposal = proposeLanes(alignNotes(notes, IMPORT_START), { strategy: 'split', maxLanes: MAX_MARBLES });
 say(
-	`import: ${midi.tracks.length} tracks, ${notes.length} notes -> lanes ${proposal.lanes.map((lane) => lane.length).join(' + ')}, ${proposal.dropped.length} dropped`
+	`import: ${midi.tracks.length} tracks, ${notes.length} notes -> lanes ${proposal.lanes.map((lane) => lane.length).join(' + ')}, ${proposal.backing.length} backing`
 );
 const lastTime = proposal.lanes.flat().reduce((max, note) => Math.max(max, note.time + note.duration), 0);
 let project = createProject({ id: 'jingle-bells', title: 'Jingle Bells' });

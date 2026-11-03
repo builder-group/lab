@@ -1,3 +1,4 @@
+export * from './assign-notes';
 export * from './lane-commands';
 export * from './lane-proposal';
 export * from './midi';

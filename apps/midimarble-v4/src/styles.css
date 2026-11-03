@@ -717,6 +717,78 @@ textarea {
 	}
 }
 
+/* A marble track's flat row shows each hit's timing status by colour and shape: a green diamond On Time, an
+   amber circle Early or Late, a red square Missed, Blocked or Stopped, a hollow diamond Open */
+.mm-hit[data-state='onTime'] > span {
+	background: var(--good);
+	border-color: color-mix(in srgb, var(--good) 70%, black);
+}
+
+.mm-hit[data-state='drifting'] > span {
+	border-radius: 50%;
+	transform: none;
+	background: var(--warn);
+	border: 1px solid color-mix(in srgb, var(--warn) 70%, black);
+}
+
+.mm-hit[data-state='missed'] > span {
+	border-radius: 1px;
+	transform: none;
+}
+
+/* Notes of the expanded Song track: blocks as long as the note, in the colour of the marble that plays it */
+.mm-song-note {
+	position: absolute;
+	z-index: 1;
+	border-radius: 2.5px;
+	background: var(--lane);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lane) 65%, black);
+}
+
+.mm-song-note[data-backing='true'] {
+	background: color-mix(in srgb, var(--lane) 45%, var(--content));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lane) 80%, transparent);
+}
+
+.mm-song-note[data-selected='true'] {
+	z-index: 2;
+	outline: 1.5px solid var(--accent-strong);
+	outline-offset: 1px;
+}
+
+/* Hit summary at the left of the timeline header, like Xcode's issue count */
+.mm-hit-summary {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 22px;
+	padding: 0 8px;
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--text-secondary);
+	white-space: nowrap;
+}
+
+.mm-hit-summary[data-tone='good'] {
+	color: var(--good);
+}
+
+.mm-hit-summary[data-tone='warn'] {
+	color: var(--text);
+}
+
+button.mm-hit-summary:hover {
+	background: var(--hover);
+}
+
+.mm-hit-summary-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--warn);
+}
+
 /* MARK: - Menus */
 
 /* Context and pull-down menus drawn like macOS menus: translucent material, 22 px items, glyph shortcuts */

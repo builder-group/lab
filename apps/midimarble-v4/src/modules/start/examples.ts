@@ -17,7 +17,7 @@ export const exampleGroups: TExampleGroup[] = [
 		hasSong: true,
 		examples: [
 			{ id: 'jingle-bells', title: 'Jingle Bells', detail: 'Two marbles play a MIDI song' },
-			{ id: 'tap-along', title: 'Tap Along', detail: 'Hits found in a recording' }
+			{ id: 'tap-along', title: 'Tap Along', detail: 'Beats found in a recording' }
 		]
 	},
 	{
@@ -25,10 +25,10 @@ export const exampleGroups: TExampleGroup[] = [
 		hasSong: false,
 		examples: [
 			{ id: 'staircase', title: 'Staircase', detail: 'One marble, eight even hits' },
-			{ id: 'zigzag', title: 'Zigzag', detail: 'Mirror and Continue' },
-			{ id: 'long-gap', title: 'Long Gap', detail: 'A rail and a tunnel bridge pauses' },
+			{ id: 'zigzag', title: 'Zigzag', detail: 'Mirror Last Platform, Continue Pattern' },
+			{ id: 'long-gap', title: 'Long Gap', detail: 'A rail and a tunnel fill a long pause' },
 			{ id: 'windmill', title: 'Windmill', detail: 'A spinning piece' },
-			{ id: 'two-marbles', title: 'Two Marbles', detail: 'Two lanes in one world' },
+			{ id: 'two-marbles', title: 'Two Marbles', detail: 'Two marbles, one song' },
 			{ id: 'loop', title: 'Seamless Loop', detail: 'Ends where it starts' },
 			{ id: 'reference-20', title: 'Brass Sections', detail: 'Skins and titles per section' }
 		]
@@ -67,13 +67,13 @@ export interface TExampleFile {
 /** A fresh, independent copy of an example with the song files it ships, ready to save as a new project */
 export async function loadExample(example: TExample): Promise<TResult<TLoadedExample, Error>> {
 	const load = fixtures[fixturePath(example.id)];
-	if (load == null) return Err(new Error(`${example.title} is not available`));
+	if (load == null) return Err(new Error(`${example.title} isn't included in this build. Choose another example.`));
 	const [isProjectOk, projectErr, project] = parseProject(JSON.stringify(await load()));
 	if (!isProjectOk) return Err(projectErr);
 	const files: TExampleFile[] = [];
 	for (const source of project.music.sources) {
 		const loadUrl = companions[`../../../fixtures/${source.path.split('/').pop() ?? ''}`];
-		if (loadUrl == null) return Err(new Error(`${example.title} is missing ${source.name}`));
+		if (loadUrl == null) return Err(new Error(`${example.title} is missing its song, ${source.name}. Choose another example.`));
 		files.push({ path: source.path, url: await loadUrl() });
 	}
 	return Ok({ project: { ...project, id: createId('project'), title: example.title, revision: 0 }, files });
@@ -83,7 +83,7 @@ export async function loadExample(example: TExample): Promise<TResult<TLoadedExa
 export async function copyExampleFiles(packagePath: string, files: TExampleFile[]): Promise<TResult<void, Error>> {
 	for (const file of files) {
 		const [isCopiedOk, copiedErr] = await host.addPackageFile(packagePath, file.path, file.url);
-		if (!isCopiedOk) return Err(new Error(`${file.path.split('/').pop()} could not be copied: ${copiedErr.message}`));
+		if (!isCopiedOk) return Err(new Error(`${file.path.split('/').pop()} couldn't be copied into the project: ${copiedErr.message}. The project opens without its song.`));
 	}
 	return Ok(undefined);
 }

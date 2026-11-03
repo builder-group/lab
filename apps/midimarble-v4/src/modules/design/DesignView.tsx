@@ -29,15 +29,15 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 
 	if (status === 'unavailable') {
 		return (
-			<Placeholder icon={<Monitor size={22} strokeWidth={1.4} />} title="Design Runs in the Desktop App">
-				The browser preview has no Blender. Open MidiMarble on your Mac to see the scene rendered at the playhead.
+			<Placeholder icon={<Monitor size={22} strokeWidth={1.4} />} title="Film Runs in the Desktop App">
+				The browser preview has no Blender. Open MidiMarble on your Mac to see the film at the playhead.
 			</Placeholder>
 		);
 	}
 	if (status === 'missing') {
 		return (
-			<Placeholder icon={<Box size={22} strokeWidth={1.4} />} title="Blender Is Not Installed">
-				Install Blender in your Applications folder, then come back to Design.
+			<Placeholder icon={<Box size={22} strokeWidth={1.4} />} title="Blender Isn't Installed">
+				Install Blender 4.2 or later to preview and export films, then come back to Film.
 			</Placeholder>
 		);
 	}
@@ -103,20 +103,20 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 			{placing === 'text' ? (
 				<div className="mm-floating absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-2 px-3 py-1.5 text-[12px]">
 					<Type size={13} strokeWidth={1.8} />
-					<span>Click the wall to place text</span>
+					<span>Click the wall to place a title</span>
 					<kbd className="mm-keycap">esc</kbd>
 				</div>
 			) : preview != null && busy ? (
 				<div className="mm-floating absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
 					<LoaderCircle className="animate-spin" size={11} />
-					Stale preview
+					Preview out of date
 				</div>
 			) : null}
 
 			<button
 				className="mm-button absolute top-3 right-3"
 				onClick={() => void cx.openInBlender()}
-				title="Open this scene in Blender for detailed work"
+				title="Open the project in Blender for detailed work"
 				type="button"
 			>
 				<ExternalLink size={13} />

@@ -84,5 +84,5 @@ const SeverityIcon: React.FC<{ severity: TPreflightIssue['severity'] }> = (props
 	props.severity === 'warning' ? (
 		<TriangleAlert size={14} strokeWidth={1.8} className="mt-px shrink-0 text-[var(--warn)]" aria-label="Warning" />
 	) : (
-		<Info size={14} strokeWidth={1.8} className="mt-px shrink-0 text-[var(--text-secondary)]" aria-label="Note" />
+		<Info size={14} strokeWidth={1.8} className="mt-px shrink-0 text-[var(--text-secondary)]" aria-label="Tip" />
 	);

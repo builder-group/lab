@@ -1,13 +1,14 @@
 import { SoundBankLoader, SpessaLog, type BasicSoundBank } from 'spessasynth_core';
 import type { TLane, TProject, TSource } from '@/modules/project';
 import {
+	backingVoice,
 	DEFAULT_HIT_PITCH,
 	mixAudioSource,
 	renderLanes,
 	type TDecodedAudio,
 	type TStereoAudio
 } from './synthesize';
-import { cutLoopAudio, foldLoopAudio, LOOP_AUDIO_TAIL, loopLanes, type TLoopRange } from './loop-audio';
+import { cutLoopAudio, foldLoopAudio, LOOP_AUDIO_TAIL, loopHits, loopLanes, type TLoopRange } from './loop-audio';
 import { decodeAudioFile } from './waveform';
 
 const SAMPLE_RATE = 48000;
@@ -128,7 +129,7 @@ export interface TAudioEngine {
 
 export type TResolveSourceUrl = (source: TSource) => string | null;
 
-// Imported recordings already contain the music, so lanes are synthesized only without an audio source
+// Imported recordings already contain the music, so lanes and Backing are synthesized only without an audio source
 export async function renderProjectAudio(
 	project: TProject,
 	resolveSourceUrl: TResolveSourceUrl,
@@ -139,7 +140,9 @@ export async function renderProjectAudio(
 	if (loop != null && !audioSources.length) {
 		const bank = await loadInstrumentBank();
 		const lanes = loopLanes(project.music.lanes, loop);
-		return foldLoopAudio(renderLanes(lanes, { sampleRate, duration: loop.length + LOOP_AUDIO_TAIL, bank }), loop.length);
+		const backing = backingVoice(project);
+		const loopedBacking = backing == null ? undefined : { ...backing, hits: loopHits(backing.hits, loop) };
+		return foldLoopAudio(renderLanes(lanes, { sampleRate, duration: loop.length + LOOP_AUDIO_TAIL, bank, backing: loopedBacking }), loop.length);
 	}
 	if (loop != null) {
 		const end = loop.start + loop.length;
@@ -149,7 +152,7 @@ export async function renderProjectAudio(
 	}
 	if (!audioSources.length) {
 		const bank = await loadInstrumentBank();
-		const audio = renderLanes(project.music.lanes, { sampleRate, duration: project.end, bank });
+		const audio = renderLanes(project.music.lanes, { sampleRate, duration: project.end, bank, backing: backingVoice(project) });
 		fadeOut(audio, 0.025);
 		return audio;
 	}
@@ -185,7 +188,9 @@ export function createAudioSignature(
 				instrument: lane.instrument,
 				hits: lane.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null])
 			}));
-	return JSON.stringify({ end: project.end, audioSources, lanes });
+	const backing = audioSources.length ? null : backingVoice(project);
+	const backingKey = backing == null ? null : { instrument: backing.instrument, hits: backing.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null]) };
+	return JSON.stringify({ end: project.end, audioSources, lanes, backing: backingKey });
 }
 
 let bankPromise: Promise<BasicSoundBank> | null = null;

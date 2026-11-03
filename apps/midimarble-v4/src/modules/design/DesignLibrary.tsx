@@ -111,7 +111,7 @@ export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 
 				<LibrarySection id="project" title="In This Project" isOpen={!collapsed.includes('project')} onToggle={toggleSection} count={projectItems.length}>
 					{isUnavailable ? (
-						<EmptyRow text="Desktop app only" help="Skins and decorations are Blender files, so the library opens in the desktop app." />
+						<EmptyRow text="Opens in the desktop app" help="Skins and decorations are Blender files, so the library opens in the desktop app." />
 					) : !projectItems.length ? (
 						<EmptyRow text="No items" help="Skins you accept from an agent or apply from My Library are copied here, so the project stays portable." />
 					) : (
@@ -121,7 +121,7 @@ export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 
 				<LibrarySection id="global" title="My Library" isOpen={!collapsed.includes('global')} onToggle={toggleSection} count={globalItems.length}>
 					{isUnavailable ? (
-						<EmptyRow text="Desktop app only" help="Items you save from any project appear here in the desktop app." />
+						<EmptyRow text="Opens in the desktop app" help="Items you save from any project appear here in the desktop app." />
 					) : !globalItems.length ? (
 						<EmptyRow text="No items" help="Right-click a project item and choose Save to My Library to use it in other projects." />
 					) : (
@@ -222,7 +222,7 @@ const ItemGrid: React.FC<{
 							)}
 						</span>
 						<span className="mm-tile-label">{libraryItemLabel(item)}</span>
-						<span className="mm-tile-secondary">{item.manifestError != null ? 'Invalid manifest' : roleLabel(item)}</span>
+						<span className="mm-tile-secondary">{item.manifestError != null ? "Can't be read" : roleLabel(item)}</span>
 					</button>
 				);
 			})}

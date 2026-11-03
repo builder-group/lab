@@ -4,18 +4,27 @@ import {
 	SpessaSynthProcessor,
 	type BasicSoundBank
 } from 'spessasynth_core';
-import type { TLane } from '@/modules/project';
+import type { THit, TLane, TProject } from '@/modules/project';
 
 export const DEFAULT_HIT_PITCH = 76;
 export const DEFAULT_HIT_VELOCITY = 0.8;
 export const MAX_NOTE_LENGTH = 0.6;
+/** Longest Backing note; held notes of a MIDI file end here so a stuck note cannot ring through the film */
+export const MAX_BACKING_NOTE_LENGTH = 4;
+/** General MIDI program of Backing when the project names none: Acoustic Grand Piano */
+export const DEFAULT_BACKING_INSTRUMENT = 0;
 
+/**
+ * Renders marble lanes as short strikes, one channel each, and Backing on its own channel with the notes' own
+ * lengths
+ */
 export function renderLanes(lanes: TLane[], options: TRenderLanesOptions): TStereoAudio {
-	const { sampleRate, duration, bank } = options;
+	const { sampleRate, duration, bank, backing } = options;
 	const length = Math.max(1, Math.ceil(duration * sampleRate));
 	const left = new Float32Array(length);
 	const right = new Float32Array(length);
-	const events = createLaneEvents(lanes, sampleRate);
+	const backingChannel = laneChannel(lanes.length);
+	const events = [...createLaneEvents(lanes, sampleRate), ...(backing == null ? [] : createBackingEvents(backing.hits, backingChannel, sampleRate))].sort(compareEvents);
 	if (!events.length) return { sampleRate, left, right };
 
 	SpessaLog.setLogLevel(false, false, false);
@@ -29,6 +38,11 @@ export function renderLanes(lanes: TLane[], options: TRenderLanesOptions): TSter
 		while (synth.midiChannels.length <= channel) synth.createMIDIChannel();
 		synth.midiChannels[channel]?.setDrums(false);
 		synth.programChange(channel, lane.instrument);
+	}
+	if (backing != null && backing.hits.length > 0) {
+		while (synth.midiChannels.length <= backingChannel) synth.createMIDIChannel();
+		synth.midiChannels[backingChannel]?.setDrums(false);
+		synth.programChange(backingChannel, backing.instrument);
 	}
 
 	let cursor = 0;
@@ -55,6 +69,20 @@ export interface TRenderLanesOptions {
 	sampleRate: number;
 	duration: number;
 	bank: BasicSoundBank;
+	backing?: TBackingVoice;
+}
+
+/** The notes no marble plays and the program they play with */
+export interface TBackingVoice {
+	instrument: number;
+	hits: THit[];
+}
+
+/** Backing of a project for rendering, or undefined when it has no notes */
+export function backingVoice(project: TProject): TBackingVoice | undefined {
+	const { backing, backingInstrument } = project.music;
+	if (!backing.length) return undefined;
+	return { instrument: backingInstrument ?? DEFAULT_BACKING_INSTRUMENT, hits: backing };
 }
 
 export interface TStereoAudio {
@@ -88,9 +116,29 @@ export function createLaneEvents(lanes: TLane[], sampleRate: number): TLaneEvent
 			});
 		}
 	}
-	return events.sort(
-		(a, b) => a.sample - b.sample || (a.kind === b.kind ? 0 : a.kind === 'off' ? -1 : 1)
-	);
+	return events.sort(compareEvents);
+}
+
+/**
+ * Backing note events on one channel. A note lasts its MIDI length, up to `MAX_BACKING_NOTE_LENGTH`, and ends
+ * before the next note of the same pitch so that note sounds in full.
+ */
+export function createBackingEvents(hits: THit[], channel: number, sampleRate: number): TLaneEvent[] {
+	const events: TLaneEvent[] = [];
+	const sorted = [...hits].sort((a, b) => a.time - b.time);
+	for (const [index, hit] of sorted.entries()) {
+		const pitch = hit.pitch ?? DEFAULT_HIT_PITCH;
+		const next = sorted.slice(index + 1).find((item) => (item.pitch ?? DEFAULT_HIT_PITCH) === pitch);
+		const length = Math.min(hit.duration ?? MAX_NOTE_LENGTH, MAX_BACKING_NOTE_LENGTH, next == null ? Infinity : next.time - hit.time);
+		const velocity = Math.round(1 + (hit.velocity ?? DEFAULT_HIT_VELOCITY) * 126);
+		events.push({ kind: 'on', sample: Math.round(hit.time * sampleRate), channel, pitch, velocity });
+		events.push({ kind: 'off', sample: Math.round((hit.time + Math.max(0, length)) * sampleRate), channel, pitch, velocity: 0 });
+	}
+	return events.sort(compareEvents);
+}
+
+function compareEvents(a: TLaneEvent, b: TLaneEvent): number {
+	return a.sample - b.sample || (a.kind === b.kind ? 0 : a.kind === 'off' ? -1 : 1);
 }
 
 export interface TLaneEvent {

@@ -72,7 +72,7 @@ describe('draft preset', () => {
 	it('should always render with Workbench and name its purpose in the picker', () => {
 		expect(filmEngine('draft', 'cycles')).toBe('workbench');
 		expect(filmEngine('fast', 'cycles')).toBe('cycles');
-		expect(renderPresetOption(getRenderPreset('draft'))).toBe('Draft · 720p · fast preview of motion');
+		expect(renderPresetOption(getRenderPreset('draft'))).toBe('Draft · 720p, 30 fps · quick check of motion');
 		expect(renderPresetOption(getRenderPreset('best'))).toBe('Best · 1080p, 60 fps');
 	});
 });

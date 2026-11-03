@@ -49,10 +49,14 @@ Physics settings sit in `physics`: `gravityScale` (0.05 to 2) scales Earth's gra
 
 Schema `marble-project@3` (migration from `@2`): adds `physics`, and turns scenery that `@2` linked to a hit (windmills, rails, tunnels and switchbacks at or before their hit) into anchors on the lane's previous hit with the delay that keeps their moment, so the hit they used becomes open. Scenery already after its hit keeps its link, which now anchors it.
 
+Schema `marble-project@4` (migration from `@3`): adds `music.backing`, the notes no marble plays, and an optional `duration` on every hit, the note's MIDI length. Migrated projects start with an empty Backing, since older imports dropped those notes. `design.themeOptions` (`{ colorByNote? }`, all optional) needs no migration.
+
 Music is stored beside the entities:
 
 - **Sources:** imported MIDI and audio files, referenced by package-relative path
-- **Lanes:** one per marble, with an instrument for MIDI playback and a list of hits. A hit has a stable ID, time, optional pitch and velocity.
+- **Lanes:** one per marble, with an instrument for MIDI playback and a list of hits. A hit has a stable ID, time, optional pitch, velocity and duration.
+- **Backing:** `music.backing`, hits of the same shape that no marble plays, and `music.backingInstrument`, the General MIDI program they play with (absent means piano). Every note sits in exactly one lane or in Backing; hit IDs are unique across both. Hit commands address Backing with the lane ID `BACKING_ID` (`'backing'`), and so do hit selection keys (`hit:backing:<id>`). `assignHits {hitIds, laneId}` moves hits to a lane or to Backing keeping their IDs. `assignNotesCommands(project, result, hitIds, laneId)` in `music/assign-notes.ts` wraps it: a platform linked to a hit that leaves its lane becomes Free at its resolved pose (`freePose`), and an anchored piece is re-anchored to the lane's nearest remaining hit (`anchorHit`) with the `entryDelay` that keeps its moment, else freed. The simulation reads only lanes; Backing never has hit results.
+- **Sound:** `renderLanes(lanes, {backing})` synthesizes marble lanes as short strikes and Backing on the next free channel with each note's duration (up to 4 s, cut before the next note of the same pitch). `renderProjectAudio` and the audio signature include Backing, so playback and the exported film soundtrack carry it; a recording still plays alone.
 
 Design-only state, such as camera rig settings, shot markers, theme, render preset and loop flag, sits in a `design` section. Detailed Blender edits stay in `scene.blend`.
 

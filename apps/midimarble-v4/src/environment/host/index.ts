@@ -2,6 +2,9 @@ import { convertFileSrc, isTauri } from '@tauri-apps/api/core';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { specta } from '../specta';
 
+export const midiExtensions = ['mid', 'midi'];
+export const audioExtensions = ['wav', 'mp3', 'm4a', 'aac', 'aiff', 'aif', 'flac', 'ogg'];
+
 /**
  * Native project storage. In the browser UI development surface, packages live in localStorage
  * so the studio stays usable without the desktop host.
@@ -41,15 +44,18 @@ export const host = {
 		return result.status === 'ok' ? Ok(undefined) : Err(new Error(result.error));
 	},
 
-	/** Lets the user pick a MIDI or audio file; returns a path the host can import */
-	async chooseSourceFile(kind: 'midi' | 'audio'): Promise<THostPickedFile | null> {
-		const extensions = kind === 'midi' ? ['mid', 'midi'] : ['wav', 'mp3', 'm4a', 'aac', 'aiff', 'aif', 'flac', 'ogg'];
+	/**
+	 * Lets the user pick a song file: a MIDI file, a recording, or with `song` either of them in one panel. Returns
+	 * a path the host can import.
+	 */
+	async chooseSourceFile(kind: 'midi' | 'audio' | 'song' = 'song'): Promise<THostPickedFile | null> {
+		const extensions = kind === 'song' ? [...midiExtensions, ...audioExtensions] : kind === 'midi' ? midiExtensions : audioExtensions;
 		if (!isTauri()) return pickBrowserFile(extensions);
 		const { open } = await import('@tauri-apps/plugin-dialog');
 		const path = await open({
-			title: kind === 'midi' ? 'Import MIDI' : 'Import Audio',
+			title: 'Import Song',
 			multiple: false,
-			filters: [{ name: kind === 'midi' ? 'MIDI' : 'Audio', extensions }]
+			filters: [{ name: kind === 'song' ? 'MIDI File or Recording' : kind === 'midi' ? 'MIDI File' : 'Recording', extensions }]
 		});
 		if (typeof path !== 'string') return null;
 		return { name: path.split('/').pop() ?? path, path };
@@ -60,7 +66,7 @@ export const host = {
 		if (!isTauri()) {
 			const relativePath = `audio/${file.name}`;
 			const url = browserFiles.get(file.path);
-			if (url == null) return Err(new Error(`${file.name} is no longer available`));
+			if (url == null) return Err(new Error(`${file.name} is no longer available. Import it again.`));
 			browserFiles.set(`${packagePath}/${relativePath}`, url);
 			return Ok(relativePath);
 		}
@@ -93,7 +99,7 @@ export const host = {
 	async readFile(url: string): Promise<TResult<ArrayBuffer, Error>> {
 		try {
 			const response = await fetch(url);
-			if (!response.ok) return Err(new Error(`Reading failed with status ${response.status}`));
+			if (!response.ok) return Err(new Error(`The file couldn't be read (status ${response.status})`));
 			return Ok(await response.arrayBuffer());
 		} catch (error) {
 			return Err(error instanceof Error ? error : new Error(String(error)));
@@ -121,7 +127,7 @@ export const host = {
 
 	/** Selects a file in a Finder window */
 	async revealInFinder(path: string): Promise<TResult<void, Error>> {
-		if (!isTauri()) return Err(new Error('Finder is available in the desktop app only'));
+		if (!isTauri()) return Err(new Error('Show in Finder works in the desktop app. Open MidiMarble on your Mac.'));
 		try {
 			const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
 			await revealItemInDir(path);
@@ -140,6 +146,19 @@ export const host = {
 		}));
 	}
 };
+
+/** Whether a picked or dropped song file is MIDI or a recording, by its extension; null for anything else */
+export function songFileKind(name: string): 'midi' | 'audio' | null {
+	const extension = name.split('.').pop()?.toLowerCase() ?? '';
+	if (midiExtensions.includes(extension)) return 'midi';
+	if (audioExtensions.includes(extension)) return 'audio';
+	return null;
+}
+
+/** The error for a file that is neither a MIDI file nor a recording */
+export function notSongFileMessage(name: string): string {
+	return `${name} isn't a MIDI file or a recording. Choose a .mid, .wav, .mp3 or .m4a file.`;
+}
 
 export interface THostProject {
 	path: string;
@@ -240,7 +259,7 @@ const browserPackages = {
 	open(path: string): TResult<THostProject, Error> {
 		const packages = this.read();
 		const item = packages[path];
-		if (item == null) return Err(new Error(`${path} does not exist`));
+		if (item == null) return Err(new Error(`${path.split('/').pop()?.replace(/\.marble$/, '') ?? path} no longer exists. If you moved it, choose it with Open Project…`));
 		item.openedAt = Date.now();
 		this.write(packages);
 		return Ok({ path, projectJson: item.json });
