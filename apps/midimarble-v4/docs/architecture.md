@@ -56,7 +56,14 @@ Each piece type is one definition in a registry:
 - Default skin per theme
 - Optional dynamic behavior, such as the windmill hinge with damping or motor
 
-The first set is platform, rail, tunnel and windmill. A tunnel is a physical tube in the world like a rail. Its length and slope set the travel time, and Blender hides the marble inside it while playing back the recorded keyframes.
+The first set is platform, rail, tunnel and windmill:
+
+- **Platform:** a box whose top face is the contact surface
+- **Rail:** a smoothed path built from thin rounded segments in the marble plane. The two-wire look is visual only.
+- **Tunnel:** a rail floor with a ceiling that starts shortly after the entry. Blender hides the marble inside it.
+- **Windmill:** a hub that turns only around the wall normal, with angular damping or a constant-speed motor. Its angle is recorded every step and becomes rotation keyframes in Blender.
+
+Rails and tunnels are anchored to the trajectory a short delay after the hit before a gap and follow upstream edits like platforms. The next platform is placed where the marble actually is, so hits stay on time whatever the rail does. Gap suggestions search entry, orientation, slope and length and report honestly whether the result stays in frame.
 
 ## Simulation
 
@@ -65,7 +72,7 @@ All marbles share one Rapier world. The simulation module exposes pure operation
 - `simulate` runs the world ahead of the playhead and returns samples, contacts and hit errors
 - Snapshots are taken at each placed piece, so an edit re-simulates from the earliest affected snapshot
 - `place` builds a piece for a hit dot. The contact surface is placed where the marble is at the hit time, offset by the marble radius along the surface normal. Timing is therefore correct by construction for the placed hit, and only its angle changes the future.
-- `repeat`, `mirror`, `autoPlace` and `continue` produce piece edits as commands
+- `repeatPiece`, `mirrorPiece`, `autoPlace`, `continueSuggestions`, `findLongGaps` and the gap helpers produce piece edits. They need a simulate function, so the UI calls them through the simulation worker.
 
 Pegboard snapping applies to angles and to the bracket mount. The contact surface stays on the trajectory, so snapping never moves a hit off its time.
 
