@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { TEntity, TProject } from '@/modules/project';
+import { applyProjectCommands, type TEntity, type TProject } from '@/modules/project';
 import {
 	autoPlace,
 	continueSuggestions,
@@ -10,6 +10,7 @@ import {
 	repeatPiece,
 	type TSimulateFn
 } from './assists';
+import { resolvedPieceShapes, shapesGap } from './clearance';
 import { createBareRunProject } from './fixture-projects';
 import { createRailForGap } from './gap-pieces';
 import { createLinkedPiece, frameBand } from './placement';
@@ -36,8 +37,62 @@ function zigzagStart(hitTimes: number[]): TProject {
 	return project;
 }
 
-function evenTimes(count: number): number[] {
-	return Array.from({ length: count }, (_, i) => Math.round((0.15 + 0.3 * i) * 1000) / 1000);
+function evenTimes(count: number, gap = 0.3, start = 0.15): number[] {
+	return Array.from({ length: count }, (_, i) => Math.round((start + gap * i) * 1000) / 1000);
+}
+
+// Shorter than a platform plus its clearance, so a step this short would put two pieces side by side
+const MIN_TRAVEL = 0.06;
+const MIN_GAP = 0.003;
+
+/** Auto places every open hit of lane 1 in order, as repeated Next presses do */
+function autoPlaceAll(start: TProject): { project: TProject; travels: number[] } {
+	let project = start;
+	const travels: number[] = [];
+	const lane = project.music.lanes[0];
+	for (const hit of lane?.hits ?? []) {
+		if (project.entities.some((entity) => entity.components.hitLink?.hitId === hit.id)) continue;
+		const [isPlacedOk, placedErr, placed] = autoPlace(
+			project,
+			simulate(project),
+			'lane-1',
+			hit.id,
+			{
+				simulate,
+				id: hit.id.replace('hit', 'auto')
+			}
+		);
+		if (!isPlacedOk) throw new Error(`${hit.id}: ${placedErr.message}`);
+		travels.push(placed.travel);
+		const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, placed.commands);
+		if (!isAppliedOk) throw appliedErr;
+		project = applied;
+	}
+	return { project, travels };
+}
+
+/** `chosenFrom` is the index of the first dot an Auto placed piece chose */
+function expectClearRun(project: TProject, travels: number[], chosenFrom = 0): void {
+	const result = simulate(project);
+	expect(result.hits.every((hit) => hit.status === 'onTime')).toBe(true);
+	for (const travel of travels) expect(Math.abs(travel)).toBeGreaterThanOrEqual(MIN_TRAVEL);
+	// Dots of consecutive hits are apart sideways, so the marble never bounces in place
+	result.hits.slice(1).forEach((hit, i) => {
+		const previous = result.hits[i]?.dot?.x ?? 0;
+		expect(Math.abs((hit.dot?.x ?? previous) - previous), hit.hitId).toBeGreaterThanOrEqual(
+			MIN_TRAVEL
+		);
+	});
+	const band = frameBand(project);
+	for (const hit of result.hits.slice(chosenFrom))
+		expect(Math.abs((hit.dot?.x ?? Infinity) - band.centerX)).toBeLessThanOrEqual(band.halfWidth);
+	result.pieces.forEach((piece, i) => {
+		for (const other of result.pieces.slice(i + 1))
+			expect(
+				shapesGap(resolvedPieceShapes(piece), resolvedPieceShapes(other)),
+				`${piece.entityId} and ${other.entityId}`
+			).toBeGreaterThanOrEqual(MIN_GAP);
+	});
 }
 
 describe('assists', () => {
@@ -123,6 +178,49 @@ describe('assists', () => {
 		const after = simulate(placedProject);
 		expect(after.hits[2]?.status).toBe('onTime');
 		expect(after.hits[3]?.dot).toEqual(placed.nextDot);
+	});
+
+	it('auto places a bare run with sideways travel and clear pieces up to the last hit', () => {
+		for (const gap of [0.2, 0.3, 0.45]) {
+			const bare = createBareRunProject({
+				id: 'bare',
+				title: 'Bare',
+				end: 4,
+				marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(8, gap, 0.3) }]
+			});
+			const { project, travels } = autoPlaceAll(bare);
+			expect(travels).toHaveLength(8);
+			expectClearRun(project, travels);
+		}
+	});
+
+	it('auto places a zigzag that keeps alternating', () => {
+		const { project, travels } = autoPlaceAll(zigzagStart(evenTimes(8)));
+		expectClearRun(project, travels);
+		travels.forEach((travel, i) => expect(Math.sign(travel)).toBe(i % 2 === 0 ? 1 : -1));
+	});
+
+	it('auto places after a staircase start without bouncing in place', () => {
+		const project = zigzagStart(evenTimes(8));
+		for (const entity of project.entities)
+			if (entity.components.hitLink != null) entity.components.hitLink.angle = -0.2;
+		// The two hand placed pieces send the third dot out of frame; Auto place brings the marble back
+		const placed = autoPlaceAll(project);
+		expectClearRun(placed.project, placed.travels, 3);
+	});
+
+	it('auto places the hit before a long gap with a sideways launch', () => {
+		const project = zigzagStart([0.15, 0.45, 0.75, 2.25]);
+		const result = simulate(project);
+		const [isPlacedOk, placedErr, placed] = autoPlace(project, result, 'lane-1', 'hit-1-3', {
+			simulate,
+			id: 'launch'
+		});
+		if (!isPlacedOk) throw placedErr;
+		expect(placed.nextDot).toBeNull();
+		expect(Math.abs(placed.travel)).toBeGreaterThanOrEqual(MIN_TRAVEL);
+		const after = simulate({ ...project, entities: [...project.entities, placed.entity] });
+		expect(after.hits[2]?.status).toBe('onTime');
 	});
 
 	it('continues a mirrored pattern while the rhythm repeats', () => {

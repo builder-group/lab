@@ -150,7 +150,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-4",
-					"angle": 0.17453292519943295,
+					"angle": 0.19198621771937624,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -171,7 +171,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-5",
-					"angle": -0.19198621771937624,
+					"angle": -0.2792526803190927,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -192,7 +192,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
-					"angle": 0.22689280275926285,
+					"angle": 0.5235987755982988,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -213,7 +213,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-7",
-					"angle": -0.22689280275926285,
+					"angle": -0.19198621771937624,
 					"contactAt": 0.5,
 					"pinned": false
 				}
