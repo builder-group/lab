@@ -18,6 +18,8 @@ Reference apps:
 
 ## Principles
 
+- **Playback looks like a video editor:** play, pause, previous and next hit and the time sit together in the timeline header, as in Final Cut and Premiere. The play triangle is reserved for playback; no other control uses a triangle or arrow glyph that could be mistaken for it, and assist actions carry text labels
+
 - **Familiar first:** a new user should recognize every control from another app
 - **Native:** system font, menus, context menus, light and dark appearance, standard shortcuts
 - **Canvas first:** panels stay compact and quiet so the track and music lead
