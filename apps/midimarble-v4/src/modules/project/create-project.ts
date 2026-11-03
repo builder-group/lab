@@ -9,7 +9,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 	const { title = 'Untitled', id = createId('project') } = options;
 	const lane = createLane(0);
 	return {
-		$schema: 'marble-project@1',
+		$schema: 'marble-project@2',
 		id,
 		title,
 		revision: 0,

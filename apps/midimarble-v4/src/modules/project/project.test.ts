@@ -100,3 +100,22 @@ describe('history', () => {
 		expect(history.present.revision).toBe(3);
 	});
 });
+
+describe('migrations', () => {
+	it('gives version 1 pieces their original bounce', () => {
+		const project = createProject();
+		const piece = {
+			id: 'piece-1',
+			components: {
+				piece: { type: 'platform', params: { length: 0.06 } },
+				hitLink: { laneId: firstLaneId(project), hitId: 'hit-1', angle: 0, contactAt: 0.5, pinned: false }
+			}
+		};
+		const legacy = { ...project, $schema: 'marble-project@1', entities: [...project.entities, piece] };
+		const [isParsedOk, parsedErr, parsed] = parseProject(JSON.stringify(legacy));
+		expect(parsedErr).toBeUndefined();
+		expect(isParsedOk).toBe(true);
+		expect(parsed?.$schema).toBe('marble-project@2');
+		expect(parsed?.entities.find((entity) => entity.id === 'piece-1')?.components.piece?.params['bounce']).toBe(0.55);
+	});
+});

@@ -108,7 +108,7 @@ export function createBareRunProject(options: {
 		});
 	});
 	return {
-		$schema: 'marble-project@1',
+		$schema: 'marble-project@2',
 		id: options.id,
 		title: options.title,
 		revision: 0,

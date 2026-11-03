@@ -1,4 +1,4 @@
-import { defineSchema, type TSchemaValue } from 'versjon';
+import { defineMigration, defineSchema, type TSchemaValue } from 'versjon';
 import { z } from 'zod';
 
 // Wall-plane coordinates in metres: x points right, y points up, the wall surface is z = 0
@@ -128,8 +128,7 @@ const SDesign = z.strictObject({
 	})
 });
 
-export const SProject = z.strictObject({
-	$schema: z.literal('marble-project@1'),
+const projectShape = {
 	id: SId,
 	title: z.string(),
 	revision: z.number().int().nonnegative(),
@@ -142,12 +141,40 @@ export const SProject = z.strictObject({
 	}),
 	entities: z.array(SEntity),
 	design: SDesign
-});
+};
+
+const SProjectV1 = z.strictObject({ $schema: z.literal('marble-project@1'), ...projectShape });
+
+// Version 2 makes physical piece parameters explicit, so a later change of a default cannot alter saved runs
+export const SProject = z.strictObject({ $schema: z.literal('marble-project@2'), ...projectShape });
+
+/** Bounce values of version 1, before bounce became a piece parameter */
+const legacyBounce: Record<string, number> = { platform: 0.55, windmill: 0.5 };
 
 export const projectDefinition = defineSchema({
 	family: 'marble-project',
-	version: 1,
-	schema: SProject
+	version: 2,
+	schema: SProject,
+	migrations: {
+		1: defineMigration({
+			schema: SProjectV1,
+			migrate(value) {
+				return {
+					...value,
+					$schema: 'marble-project@2' as const,
+					entities: value.entities.map((entity) => {
+						const piece = entity.components.piece;
+						const bounce = piece == null ? undefined : legacyBounce[piece.type];
+						if (piece == null || bounce == null || piece.params['bounce'] != null) return entity;
+						return {
+							...entity,
+							components: { ...entity.components, piece: { ...piece, params: { ...piece.params, bounce } } }
+						};
+					})
+				};
+			}
+		})
+	}
 });
 
 export type TProject = TSchemaValue<typeof projectDefinition>;

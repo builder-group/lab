@@ -1,5 +1,5 @@
 {
-	"$schema": "marble-project@1",
+	"$schema": "marble-project@2",
 	"id": "two-marbles",
 	"title": "Two marbles",
 	"revision": 0,
