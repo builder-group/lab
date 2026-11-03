@@ -3,6 +3,7 @@ import { createLoop } from '@/modules/simulation/loop';
 import { getPieceDefinition } from '@/modules/simulation/pieces';
 import type { TMarbleSample, TMarbleTrack, TSimulationResult } from '@/modules/simulation/types';
 import {
+	CONTACT_MERGE,
 	SCENE_DESCRIPTION_VERSION,
 	type TSceneCamera,
 	type TSceneDescentPoint,
@@ -79,6 +80,8 @@ export function buildSceneDescription(
 			angle: piece.angle,
 			wallOffset: getPieceDefinition(piece.type)?.wallOffset ?? 0,
 			hitTimes: hitTimesFor(result, piece.entityId),
+			contactTimes: contactTimesFor(result, piece.entityId),
+			musical: getPieceDefinition(piece.type)?.musical === true,
 			motionPath,
 			sampleCount,
 			skin: entity?.components.skin ?? null,
@@ -167,6 +170,22 @@ function hitTimesFor(result: TSimulationResult, entityId: string): number[] {
 	return result.hits
 		.flatMap((hit) => (hit.pieceEntityId === entityId && hit.actualTime != null ? [hit.actualTime] : []))
 		.sort((a, b) => a - b);
+}
+
+/**
+ * Times any marble starts touching the piece, sorted. A rolling marble starts contact again and again, so starts
+ * within `CONTACT_MERGE` of the previous kept one are dropped.
+ */
+function contactTimesFor(result: TSimulationResult, entityId: string): number[] {
+	const times = result.contacts
+		.flatMap((contact) => (contact.kind === 'piece' && contact.otherEntityId === entityId ? [contact.time] : []))
+		.sort((a, b) => a - b);
+	const merged: number[] = [];
+	for (const time of times) {
+		const last = merged[merged.length - 1];
+		if (last == null || time - last >= CONTACT_MERGE) merged.push(time);
+	}
+	return merged;
 }
 
 /** Packs fixed-width records into little-endian Float32 bytes */

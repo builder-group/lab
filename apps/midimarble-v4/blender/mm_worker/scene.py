@@ -369,12 +369,25 @@ def write_piece(holder, piece, motion, fps):
     holder['mm_hit'] = 0.0
     holder.id_properties_ui('mm_hit').update(min=0.0, max=1.0, soft_min=0.0, soft_max=1.0)
     grid = contacts.snap_grid(fps)
-    hit_frames, hit_values = hit_keys([contacts.snap(hit, grid) for hit in piece.get('hitTimes') or []], fps)
+    times = reaction_times(piece)
+    hit_frames, hit_values = hit_keys([contacts.snap(value, grid) for value in times], fps)
     anim.write_fcurve(channelbag, '["mm_hit"]', 0, hit_frames, hit_values)
     count += len(hit_frames)
-    holder['mm_hit_times'] = [float(value) for value in piece.get('hitTimes') or []]
+    holder['mm_hit_times'] = times
     remember_written(holder, animated)
     return count
+
+
+def is_musical(piece):
+    """Music pieces sound their hits; scenery (rails, tunnels, windmills, switchbacks) never has hits"""
+    musical = piece.get('musical')
+    return musical if isinstance(musical, bool) else piece.get('type', 'platform') == 'platform'
+
+
+def reaction_times(piece):
+    """Times `mm_hit` fires: the hits of a music piece, the contact starts of scenery"""
+    values = piece.get('hitTimes') if is_musical(piece) else piece.get('contactTimes')
+    return sorted(float(value) for value in values or [] if isinstance(value, (int, float)) and math.isfinite(value))
 
 
 def frames_covering(times, fps):

@@ -36,6 +36,8 @@ DEFAULT_PRESS = 0.0015
 DEFAULT_WOBBLE_DEGREES = 8.0
 DEFAULT_WOBBLE_HZ = 10.0
 DEFAULT_GLOW = 6.0
+# A default windmill skin glows briefly when a marble strikes a blade, unless Design picks another reaction
+WINDMILL_FLASH = 1.2
 # `mm_hit` rises to 1 at a hit and decays as exp(-t / HIT_TAU) to 0 over HIT_DECAY seconds; a wobble recovers
 # the time since the hit from the hit value
 HIT_DECAY = 0.25
@@ -86,6 +88,8 @@ def refresh_default_skin(skin, kind, entity, context, collection=None):
             skin.modifiers.remove(modifier)
     for part in [child for child in skin.children if child.get('mm_part')]:
         remove_object(part)
+    release_root_flash(skin)
+    add_root_flash(skin, holder, spec.get('flash', 0.0))
     collection = collection or (skin.users_collection[0] if skin.users_collection else None)
     for part_spec in spec['parts']:
         _add_part(skin, holder, part_spec, collection, entity, context)
@@ -118,6 +122,7 @@ def release_reactions(obj):
     if obj.get('mm_visibility'):
         for path in VISIBILITY_PATHS:
             obj.driver_remove(path)
+    release_root_flash(obj)
     paths = REACTION_PATHS if obj.get('mm_part') else ASSET_REACTION_PATHS if obj.get('mm_react') else ()
     for path, index in paths:
         try:
@@ -127,6 +132,23 @@ def release_reactions(obj):
                 obj.driver_remove(path)
         except TypeError:
             pass
+
+
+def add_root_flash(skin, holder, strength):
+    """Emission flash of a whole skin from `mm_hit`, for skins without moving parts such as a windmill"""
+    if holder is None or not strength:
+        return
+    skin['mm_flash'] = 0.0
+    drive(skin, '["mm_flash"]', -1, holder, '%.4f*h' % strength)
+    skin['mm_root_flash'] = True
+
+
+def release_root_flash(obj):
+    if obj.get('mm_root_flash') and obj.animation_data is not None:
+        obj.driver_remove('["mm_flash"]')
+        obj['mm_flash'] = 0.0
+    if 'mm_root_flash' in obj:
+        del obj['mm_root_flash']
 
 
 def piece_reaction(piece, context):
@@ -144,6 +166,9 @@ def piece_reaction(piece, context):
     }
     reaction = {'preset': 'theme', 'press': 0.0, 'dip': 0.0, 'flash': 0.0, 'wobble': 0.0, 'frequency': DEFAULT_WOBBLE_HZ}
     if preset not in REACTION_PRESETS:
+        if piece.get('type') == 'windmill':
+            reaction.update(flash=WINDMILL_FLASH)
+            return reaction
         # A brass knob's lens lights up on every hit, like the reference's glowing red tops
         knob = context['theme'] == 'brass' and device_parts(brass_skin(piece))[0] == 'knob'
         reaction.update(press=theme.get('press', 0.0), dip=theme.get('dip', 0.0),
@@ -257,6 +282,7 @@ def _create(holder, kind, entity, collection, context):
     skin['mm_owner'] = OWNER
     if kind == 'marble':
         add_visibility(skin, holder)
+    add_root_flash(skin, holder, spec.get('flash', 0.0))
     for part_spec in spec['parts']:
         _add_part(skin, holder, part_spec, collection, entity, context)
     skin['mm_skin_key'] = skin_key(kind, entity, context)
@@ -335,6 +361,7 @@ class PieceFrame:
         self.depth = self.params.get('depth', DEFAULT_PIECE_DEPTH)
         self.wall_offset = float(piece.get('wallOffset', 0.0))
         self.wall_y = self.wall_offset + self.depth / 2
+        self.context = context
         self.marble_radius = context['marbleRadius']
         self.marble_y = self.wall_y - (self.marble_radius + MARBLE_WALL_GAP)
         self.angle = float(piece.get('angle', 0.0))
@@ -524,12 +551,13 @@ def rail_spec(frame, piece, theme):
 
 
 def switchback_spec(frame, piece, theme):
-    """Switchback: sloped legs stacked between two walls. Each wire is a capsule of `radius` around its segment; the
-    marble rolls on the legs and bumps the walls.
+    """Switchback: one bent wire per leg (its wall, a rounded bend, the leg), then a short exit stop. Each wire is a
+    capsule of `radius` around its polyline; the marble rolls down the legs and through the bends.
 
     Brass draws every wire as a pair of thin chrome wires like the rails, one on each side of the marble's plane and
-    set back so the marble touches both where it touches the capsule, with ties at the ends and posts to the wall.
-    Pegboard draws each wire as one toy-coloured rod on the capsule line with wooden pegs to the wall."""
+    set back toward the wire's far side so the marble touches both where it touches the capsule, with ties at the
+    ends and posts to the wall at the ends and the bend. Pegboard draws each wire as one toy-coloured rod on the
+    capsule line with wooden pegs to the wall at the same places."""
     wires = [wire for wire in frame.local_wires() if len(wire) >= 2]
     physics_radius = frame.params.get('radius', 0.0025)
     k = frame.marble_radius / 0.008
@@ -542,7 +570,7 @@ def switchback_spec(frame, piece, theme):
     if theme != 'brass':
         for wire in wires:
             builder.tube([(x, frame.marble_y, z) for x, z in wire], physics_radius * 0.9, material=0, sides=12)
-            for x, z in (wire[0], wire[-1]):
+            for x, z in (wire[index] for index in wire_post_indices(wire)):
                 builder.cylinder(0.0028, frame.wall_y - frame.marble_y, (x, (frame.wall_y + frame.marble_y) / 2, z), axis='Y',
                                  material=1)
         materials = [themes.flat_material(frame.color, 0.35, 0.4), themes.wood_material()]
@@ -555,20 +583,69 @@ def switchback_spec(frame, piece, theme):
     # Wire centres sit back from the capsule line so the marble rests on both wires where it would touch the capsule
     setback = frame.marble_radius + physics_radius - math.sqrt(reach * reach - half * half)
     for wire in wires:
-        (ax, az), (bx, bz) = wire[0], wire[-1]
-        length = math.hypot(bx - ax, bz - az) or 1.0
-        nx, nz = -(bz - az) / length, (bx - ax) / length
-        # The marble side of a wire faces the inside of the switchback
-        if (centre[0] - (ax + bx) / 2) * nx + (centre[1] - (az + bz) / 2) * nz < 0:
-            nx, nz = -nx, -nz
-        line = [(x - nx * setback, z - nz * setback) for x, z in wire]
+        line = offset_wire(wire, -setback * marble_side(wire, centre))
         for side in (-1, 1):
             builder.tube([(x, frame.marble_y + side * half, z) for x, z in line], radius, material=0, sides=10)
-        for x, z in (line[0], line[-1]):
-            builder.tube([(x, frame.marble_y - half, z), (x, frame.marble_y + half, z)], radius * 0.8, material=0, sides=8)
+        for index in wire_post_indices(line):
+            x, z = line[index]
+            if index in (0, len(line) - 1):
+                builder.tube([(x, frame.marble_y - half, z), (x, frame.marble_y + half, z)], radius * 0.8, material=0, sides=8)
             builder.tube([(x, frame.marble_y + half, z), (x, frame.wall_y, z)], radius * 0.75, material=0, sides=8)
             builder.cylinder(0.0035 * k, 0.0015 * k, (x, frame.wall_y - 0.00075 * k, z), axis='Y', material=0, bevel=0.0004 * k)
     return {'root': builder.to_mesh('MM switchback', [themes.chrome_material()]), 'parts': []}
+
+
+def marble_side(wire, centre):
+    """+1 when the marble rides on the left of the wire's direction, -1 on the right.
+
+    A bent wire turns toward the marble: it rolls inside the bend, above the leg and inside the wall. A straight
+    wire, such as the exit stop, faces the middle of the switchback."""
+    turn = 0.0
+    for (ax, az), (bx, bz), (cx, cz) in zip(wire, wire[1:], wire[2:]):
+        turn += (bx - ax) * (cz - bz) - (bz - az) * (cx - bx)
+    if abs(turn) > 1e-9:
+        return 1.0 if turn > 0 else -1.0
+    (ax, az), (bx, bz) = wire[0], wire[-1]
+    left = (-(bz - az), bx - ax)
+    return 1.0 if (centre[0] - (ax + bx) / 2) * left[0] + (centre[1] - (az + bz) / 2) * left[1] >= 0 else -1.0
+
+
+def offset_wire(wire, distance):
+    """Polyline moved `distance` to the left of its direction, keeping that distance through corners and bends"""
+    result = []
+    for index, (x, z) in enumerate(wire):
+        normals = []
+        for a, b in ((index - 1, index), (index, index + 1)):
+            if a < 0 or b >= len(wire):
+                continue
+            (ax, az), (bx, bz) = wire[a], wire[b]
+            length = math.hypot(bx - ax, bz - az)
+            if length > 1e-9:
+                normals.append((-(bz - az) / length, (bx - ax) / length))
+        if not normals:
+            result.append((x, z))
+            continue
+        nx, nz = sum(n[0] for n in normals), sum(n[1] for n in normals)
+        size = math.hypot(nx, nz) or 1.0
+        nx, nz = nx / size, nz / size
+        # Scale by 1 / cos(half the turn) so the offset line stays parallel to both segments at a corner
+        cos_half = max(0.2, nx * normals[0][0] + nz * normals[0][1])
+        result.append((x + nx * distance / cos_half, z + nz * distance / cos_half))
+    return result
+
+
+def wire_post_indices(wire):
+    """Ends of a wire, plus the middle of its bend where the wire turns, so posts carry the wall, bend and leg"""
+    indices = [0, len(wire) - 1]
+    turning = []
+    for index in range(1, len(wire) - 1):
+        (ax, az), (bx, bz), (cx, cz) = wire[index - 1], wire[index], wire[index + 1]
+        first, second = math.atan2(bz - az, bx - ax), math.atan2(cz - bz, cx - bx)
+        if abs(math.remainder(second - first, 2 * math.pi)) > 1e-3:
+            turning.append(index)
+    if turning:
+        indices.insert(1, turning[len(turning) // 2])
+    return indices
 
 
 def post_indices(line, spacing=0.08):
@@ -628,7 +705,10 @@ def windmill_spec(frame, piece, theme):
     reach = hub + blade_length / 2
     for index in range(count):
         rotated_blade(builder, reach, blade_length, blade_thickness, depth, center_y, 2 * math.pi * index / count)
-    return {'root': builder.to_mesh('MM windmill', materials), 'parts': []}
+    # A windmill has no moving parts of its own: its holder turns, and a strike flashes the whole skin
+    reaction = piece_reaction(piece, frame.context)
+    flash = reaction['flash'] if reaction['preset'] in ('theme', 'glow') else 0.0
+    return {'root': builder.to_mesh('MM windmill', materials), 'parts': [], 'flash': flash}
 
 
 def rotated_blade(builder, reach, length, thickness, depth, center_y, angle):

@@ -5,6 +5,8 @@
 // seen from the front) becomes a rotation of -a around Blender +Y. Frame f shows time f / fps; scenes start at frame 0.
 
 export const SCENE_DESCRIPTION_VERSION = 1;
+/** Contact starts closer than this many seconds to the previous one are one contact in `contactTimes` */
+export const CONTACT_MERGE = 0.1;
 
 export interface TSceneDescription {
 	version: typeof SCENE_DESCRIPTION_VERSION;
@@ -111,8 +113,20 @@ export interface TScenePiece {
 	angle: number;
 	/** Distance of the piece from the wall surface */
 	wallOffset: number;
-	/** Hit times on this piece. The worker animates the custom property `mm_hit` from them. */
+	/** Hit times on this piece. The worker animates the custom property `mm_hit` of music pieces from them. */
 	hitTimes: number[];
+	/**
+	 * Times a marble starts touching this piece, sorted, starts closer than `CONTACT_MERGE` seconds to the previous
+	 * one merged. Scenery never has hits, so the worker animates `mm_hit` of scenery pieces from these. Optional and
+	 * additive.
+	 */
+	contactTimes?: number[];
+	/**
+	 * True for pieces that sound their hits (platforms); their reactions follow `hitTimes`. False for scenery
+	 * (rails, tunnels, windmills, switchbacks), whose reactions follow `contactTimes`. Absent treats platforms as
+	 * music pieces and every other type as scenery. Optional and additive.
+	 */
+	musical?: boolean;
 	/** Optional package-relative Float32 file with records [time, angle] for moving pieces such as windmills */
 	motionPath: string | null;
 	sampleCount: number;
@@ -123,7 +137,8 @@ export interface TScenePiece {
 	 */
 	path?: { x: number; y: number }[] | null;
 	/**
-	 * Wire segments of a switchback in wall coordinates: its two walls, then its legs from the top. Each wire is a
+	 * Wires of a switchback in wall coordinates, from the resolved piece: one bent wire per leg from the top (its
+	 * wall, a rounded bend of the `bend` param's radius, then the leg), then the short exit stop. Each wire is a
 	 * capsule of the piece's `radius` param around its polyline. Optional and additive.
 	 */
 	paths?: { x: number; y: number }[][] | null;

@@ -62,6 +62,10 @@ def ballistic():
     return np.stack([times, x, y, angle], axis=1).astype('<f4'), hit
 
 
+WINDMILL_CONTACT = 0.6
+WINDMILL_STALE_HIT = 0.3
+
+
 def write_package(root, marble_records, hit, platform_position, platform_angle, with_windmill, theme='pegboard', camera=None,
                   loop=None):
     motion = root / '.cache' / 'motion'
@@ -79,7 +83,9 @@ def write_package(root, marble_records, hit, platform_position, platform_angle, 
         pieces.append({
             'id': 'windmill-1', 'name': 'Windmill 1', 'type': 'windmill',
             'params': {'length': 0.05, 'thickness': 0.005, 'depth': 0.02},
-            'position': {'x': 0.25, 'y': 0.4}, 'angle': 0.0, 'wallOffset': 0.002, 'hitTimes': [],
+            'position': {'x': 0.25, 'y': 0.4}, 'angle': 0.0, 'wallOffset': 0.002,
+            # Scenery reacts to contacts; a stray hit time on it is ignored
+            'hitTimes': [WINDMILL_STALE_HIT], 'contactTimes': [WINDMILL_CONTACT], 'musical': False,
             'motionPath': '.cache/motion/windmill-1.bin', 'sampleCount': len(windmill), 'skin': None, 'color': '#5aa5d6',
         })
     description = {
@@ -197,6 +203,18 @@ def main():
         scene.frame_set(frame)
         expected = -np.interp(frame / FPS, windmill[:, 0].astype(np.float64), windmill[:, 1].astype(np.float64))
         check(abs(windmill_holder.rotation_euler.y - expected) < 1e-4, 'windmill rotation at frame %d' % frame)
+
+    # Scenery reacts on contact: the windmill's `mm_hit` follows its contact times, never hit times, and flashes it
+    windmill_hit = next(curve for curve in bpy_channelbag(windmill_holder).fcurves if curve.data_path == '["mm_hit"]')
+    contact = round(WINDMILL_CONTACT * FPS)
+    check(abs(windmill_hit.evaluate(contact) - 1.0) < 1e-5, 'windmill mm_hit is 1 on its contact frame %d' % contact)
+    check(windmill_hit.evaluate(round(WINDMILL_STALE_HIT * FPS)) < 1e-6, 'windmill mm_hit ignores hit times')
+    windmill_skin = next(child for child in windmill_holder.children if child.get('mm_skin') == 'default')
+    scene.frame_set(contact)
+    check(windmill_skin.get('mm_root_flash') and windmill_skin['mm_flash'] > 1.0,
+          'windmill skin flashes on contact (%.2f)' % windmill_skin['mm_flash'])
+    scene.frame_set(contact + round(0.3 * FPS))
+    check(windmill_skin['mm_flash'] < 1e-6, 'windmill flash fades after the contact')
 
     # Hit value peaks at the hit
     fcurve = next(curve for curve in bpy_channelbag(platform).fcurves if curve.data_path == '["mm_hit"]')
@@ -446,21 +464,57 @@ def check_device_skins():
             check(materials[0] == 'MM · brass', 'an unknown brass skin falls back to the gold bar')
 
 
+def bent_wire(wall_u, top, high_y, along, slope, low_u, low_y, bend, points=12):
+    """Python copy of the engine's `bentWire`: a wall, a bend tangent to wall and leg, then the leg"""
+    corner = math.pi / 2 + slope
+    share = 1 / math.tan(corner / 2)
+    radius = min(bend, min(top - high_y, math.hypot(low_u - wall_u, low_y - high_y)) * 0.9 / share)
+    reach = radius * share
+    start = (wall_u, high_y + reach)
+    end = (wall_u + along * math.cos(slope) * reach, high_y - math.sin(slope) * reach)
+    centre = (wall_u + along * radius, high_y + reach)
+    begin = math.atan2(start[1] - centre[1], start[0] - centre[0])
+    sweep = math.atan2(end[1] - centre[1], end[0] - centre[0]) - begin
+    if along > 0 and sweep < 0:
+        sweep += 2 * math.pi
+    if along < 0 and sweep > 0:
+        sweep -= 2 * math.pi
+    arc = [(centre[0] + radius * math.cos(begin + sweep * i / points), centre[1] + radius * math.sin(begin + sweep * i / points))
+           for i in range(1, points)]
+    return [(wall_u, top), start, *arc, end, (low_u, low_y)], centre, radius
+
+
 def check_switchback_skins():
-    """Switchback wires are drawn in both themes along the capsules the simulation collides with"""
+    """Switchback wires are drawn in both themes along the bent capsules the simulation collides with: brass wire
+    pairs stay one setback behind the physics wire through the bend, on the side away from the marble"""
     from mm_worker import skins
-    wires = [[{'x': 0.0, 'y': 0.0}, {'x': 0.0, 'y': -0.1}], [{'x': 0.1, 'y': 0.02}, {'x': 0.1, 'y': -0.1}],
-             [{'x': 0.0, 'y': -0.02}, {'x': 0.068, 'y': -0.04}], [{'x': 0.1, 'y': -0.075}, {'x': 0.032, 'y': -0.095}]]
-    piece = {'type': 'switchback', 'params': {'width': 0.1, 'legs': 2, 'radius': 0.0025}, 'angle': -0.3,
-             'position': {'x': 0.05, 'y': 0.0}, 'paths': wires}
+    slope, bend = math.radians(8), 0.04
+    first, centre_a, radius_a = bent_wire(0.0, 0.0, -0.03, 1, slope, 0.068, -0.03 - math.tan(slope) * 0.068, bend)
+    second, centre_b, radius_b = bent_wire(0.1, -0.04, -0.075, -1, slope, 0.032, -0.075 - math.tan(slope) * 0.068, bend)
+    stop = [(0.0, -0.06), (0.0, -0.12)]
+    wires = [[{'x': x, 'y': y} for x, y in wire] for wire in (first, second, stop)]
+    piece = {'type': 'switchback', 'params': {'width': 0.1, 'legs': 2, 'radius': 0.0025, 'bend': bend}, 'angle': 0.0,
+             'position': {'x': 0.0, 'y': 0.0}, 'paths': wires}
     for theme in ('brass', 'pegboard'):
         mesh = skins.build_spec('piece', piece, skins.skin_context(theme, RADIUS))['root']
         xs = [vertex.co.x for vertex in mesh.vertices]
         zs = [vertex.co.z for vertex in mesh.vertices]
-        # Holder-local coordinates: the piece angle turns the wall frame, so compare extents instead of points
         span = max(max(xs) - min(xs), max(zs) - min(zs))
         check(len(mesh.vertices) > 100 and 0.1 <= span <= 0.16, '%s switchback draws its wires (%.3f m across)' % (theme, span))
         bpy.data.meshes.remove(mesh)
+
+    check(skins.marble_side(first, (0.05, -0.05)) > 0 and skins.marble_side(second, (0.05, -0.05)) < 0,
+          'the marble rides inside each bend')
+    check(skins.marble_side(stop, (0.05, -0.05)) > 0, 'a straight stop faces the middle of the switchback')
+    setback = 0.004
+    for wire, centre, radius, label in ((first, centre_a, radius_a, 'left'), (second, centre_b, radius_b, 'right')):
+        line = skins.offset_wire(wire, -setback * skins.marble_side(wire, (0.05, -0.05)))
+        bend_points = line[1:-1]
+        error = max(abs(math.dist(point, centre) - (radius + setback)) for point in bend_points)
+        check(error < 2e-4, '%s brass wire follows the bend one setback outside it (%.5f m)' % (label, error))
+        low = line[-1]
+        check(low[1] < wire[-1][1] - setback * 0.9, '%s brass wire runs below the leg (%.4f m)' % (label, wire[-1][1] - low[1]))
+        check(len(skins.wire_post_indices(wire)) == 3, '%s bent wire gets a post at its bend' % label)
 
 
 def check_readable_camera_and_wall():

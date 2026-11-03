@@ -81,7 +81,10 @@ export interface TResolvedPiece {
 	shapes?: TPieceShape[];
 	/** Smoothed support line of a rail or tunnel floor in world coordinates */
 	path?: TVec2[];
-	/** Wire polylines of a switchback in world coordinates: its two walls, then its legs from the top */
+	/**
+	 * Wire polylines of a switchback in world coordinates: one bent wire per leg from the top (wall, rounded bend,
+	 * leg), then the short exit stop
+	 */
 	paths?: TVec2[][];
 	/** When a scenery piece is anchored to the trajectory, `hitTime + entryDelay` */
 	entryTime?: number;

@@ -6,7 +6,8 @@ playback time locally so every hit falls exactly on a frame of the snap grid. Th
 rate is a multiple of 30, so the hit shows at both 30 and 60 fps output; otherwise it is the frame rate. The
 shift is at most half a grid step (17 ms at 30 fps), applied with a triangular blend over a short window that
 never reaches a neighbouring hit, so the motion stays continuous and hit sounds stay within 17 ms of their frame.
-Hit values (`mm_hit`) use the same snapped times, so reactions start on the contact frame.
+Hit values (`mm_hit`) use the same snapped times, so reactions start on the contact frame. Scenery has no hits;
+windmill blade strikes from `contactTimes` snap the same way.
 
 Tunnels: the marble is hidden while it is fully inside a tunnel; `mm_visible` on the marble holder drives the
 default skin's visibility.
@@ -29,7 +30,8 @@ def snap(time, grid):
 
 
 def marble_contacts(motion, radius, pieces):
-    """Hit times of `pieces` that this marble makes: the marble is at the piece when the hit happens"""
+    """Strike times this marble makes on `pieces`: hits of music pieces and contact starts with windmill blades,
+    when the marble is at the piece at that time. Rails, tunnels and switchbacks are rolled along, not struck."""
     if not len(motion):
         return []
     contacts = []
@@ -38,7 +40,10 @@ def marble_contacts(motion, radius, pieces):
         reach = float(params.get('length', 0.0)) / 2 + float(params.get('bladeLength', 0.0)) + \
             float(params.get('hubRadius', 0.0)) + float(params.get('thickness', 0.01)) + 2 * radius
         px, py = float(piece['position']['x']), float(piece['position']['y'])
-        for hit in piece.get('hitTimes') or []:
+        strikes = list(piece.get('hitTimes') or [])
+        if piece.get('type') == 'windmill' and piece.get('musical') is not True:
+            strikes += list(piece.get('contactTimes') or [])
+        for hit in strikes:
             if not motion[0, 0] <= hit <= motion[-1, 0]:
                 continue
             x = np.interp(hit, motion[:, 0], motion[:, 1])

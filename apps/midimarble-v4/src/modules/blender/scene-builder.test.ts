@@ -70,6 +70,12 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleId: st
 	return { project, result, marbleId: marble.id, laneId: lane.id };
 }
 
+function firstPiece(result: TSimulationResult): TSimulationResult['pieces'][number] {
+	const piece = result.pieces[0];
+	if (piece == null) throw new Error('Missing piece');
+	return structuredClone(piece);
+}
+
 function decode(bytes: Uint8Array): number[] {
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 	return Array.from({ length: bytes.byteLength / 4 }, (_, index) => view.getFloat32(index * 4, true));
@@ -113,6 +119,64 @@ describe('buildSceneDescription', () => {
 		const { project, result } = fixture();
 		const { description } = buildSceneDescription(project, result, { fps: 60 });
 		expect(description.pieces[0]?.hitTimes).toEqual([0.501, 1.19]);
+	});
+
+	it('collects merged contact starts per piece and marks music pieces', () => {
+		const { project, result, marbleId } = fixture();
+		const contact = (time: number, otherEntityId: string, kind: 'piece' | 'marble' = 'piece') => ({
+			time,
+			marbleEntityId: marbleId,
+			otherEntityId,
+			kind,
+			position: { x: 0, y: 0 }
+		});
+		result.contacts = [
+			contact(1.19, 'piece-1'),
+			contact(0.501, 'piece-1'),
+			contact(0.55, 'piece-1'),
+			contact(0.7, 'piece-1'),
+			contact(0.9, 'piece-1', 'marble'),
+			contact(0.3, 'rail-1')
+		];
+		result.pieces.push({ ...firstPiece(result), entityId: 'rail-1', type: 'rail', hitTime: null });
+		const { description } = buildSceneDescription(project, result, { fps: 60 });
+		const [platform, rail] = description.pieces;
+		expect(platform?.contactTimes).toEqual([0.501, 0.7, 1.19]);
+		expect(platform?.musical).toBe(true);
+		expect(rail?.contactTimes).toEqual([0.3]);
+		expect(rail?.hitTimes).toEqual([]);
+		expect(rail?.musical).toBe(false);
+	});
+
+	it('uses the resolved pose of a free piece, not its transform', () => {
+		const { project, result } = fixture();
+		project.entities.push({
+			id: 'rail-1',
+			name: 'Rail 1',
+			components: {
+				piece: { type: 'rail', params: {} },
+				transform: { position: { x: 0.4, y: 0.4 }, angle: 0.5 }
+			}
+		});
+		const path = [
+			{ x: 0.1, y: 0.3 },
+			{ x: 0.2, y: 0.25 }
+		];
+		result.pieces.push({
+			...firstPiece(result),
+			entityId: 'rail-1',
+			type: 'rail',
+			position: { x: 0.1, y: 0.3 },
+			angle: 0,
+			hitTime: null,
+			status: 'free',
+			path
+		});
+		const { description } = buildSceneDescription(project, result, { fps: 60 });
+		const rail = description.pieces.find((piece) => piece.id === 'rail-1');
+		expect(rail?.position).toEqual({ x: 0.1, y: 0.3 });
+		expect(rail?.angle).toBe(0);
+		expect(rail?.path).toEqual(path);
 	});
 
 	it('carries project metadata and lane colors', () => {
@@ -255,6 +319,30 @@ describe('encodeRecords', () => {
 		]);
 		expect(Array.from(bytes.slice(0, 4))).toEqual([0, 0, 128, 63]);
 		expect(decode(bytes)).toEqual([1, 2, 3, -0.5]);
+	});
+});
+
+describe('buildSceneDescription for scenery', () => {
+	it('gives the windmill fixture contact times and no hit times', async () => {
+		const { readFileSync } = await import('node:fs');
+		const { parseProject } = await import('@/modules/project');
+		const { createSimulator } = await import('@/modules/simulation/simulate');
+		const json = readFileSync(new URL('../../../fixtures/windmill.marble.json', import.meta.url), 'utf8');
+		const [isProjectOk, projectErr, project] = parseProject(json);
+		if (!isProjectOk) throw projectErr;
+		const simulator = await createSimulator();
+		const result = simulator.simulate(project);
+		simulator.dispose();
+
+		const { description } = buildSceneDescription(project, result, { fps: 30 });
+
+		const windmill = description.pieces.find((piece) => piece.type === 'windmill');
+		expect(windmill?.musical).toBe(false);
+		expect(windmill?.hitTimes).toEqual([]);
+		expect(windmill?.contactTimes?.length).toBeGreaterThan(0);
+		const platforms = description.pieces.filter((piece) => piece.type === 'platform');
+		expect(platforms.every((piece) => piece.musical === true)).toBe(true);
+		expect(platforms.some((piece) => piece.hitTimes.length > 0)).toBe(true);
 	});
 });
 
