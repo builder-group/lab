@@ -1,0 +1,9 @@
+node_modules/
+dist/
+target/
+.tanstack/
+.turbo/
+.local/
+__pycache__/
+*.pyc
+*.blend1

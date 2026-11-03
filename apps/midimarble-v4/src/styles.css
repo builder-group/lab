@@ -1,0 +1,268 @@
+@import 'tailwindcss';
+
+/* Native macOS tokens. The window background is Liquid Glass, so chrome stays translucent and content panels are opaque. */
+:root {
+	--font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+	--font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+	--accent: AccentColor;
+	--accent-fallback: #0a84ff;
+	--text: rgb(0 0 0 / 0.85);
+	--text-secondary: rgb(0 0 0 / 0.5);
+	--text-tertiary: rgb(0 0 0 / 0.26);
+	--chrome: rgb(246 246 246 / 0.72);
+	--content: #ffffff;
+	--content-raised: #ffffff;
+	--canvas: #f2f1ee;
+	--canvas-dot: rgb(0 0 0 / 0.13);
+	--separator: rgb(0 0 0 / 0.1);
+	--hover: rgb(0 0 0 / 0.05);
+	--pressed: rgb(0 0 0 / 0.09);
+	--selection: color-mix(in srgb, var(--accent-fallback) 18%, transparent);
+	--control: rgb(255 255 255 / 0.9);
+	--control-border: rgb(0 0 0 / 0.12);
+	--shadow-popover: 0 0 0 0.5px rgb(0 0 0 / 0.15), 0 10px 30px rgb(0 0 0 / 0.18);
+	--good: #28a745;
+	--warn: #e8a100;
+	--bad: #e5484d;
+	color-scheme: light dark;
+	font-family: var(--font);
+	font-size: 13px;
+	color: var(--text);
+	-webkit-font-smoothing: antialiased;
+	font-synthesis: none;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--text: rgb(255 255 255 / 0.88);
+		--text-secondary: rgb(255 255 255 / 0.55);
+		--text-tertiary: rgb(255 255 255 / 0.25);
+		--chrome: rgb(40 40 42 / 0.7);
+		--content: #1e1e1f;
+		--content-raised: #2a2a2c;
+		--canvas: #19191a;
+		--canvas-dot: rgb(255 255 255 / 0.12);
+		--separator: rgb(255 255 255 / 0.1);
+		--hover: rgb(255 255 255 / 0.06);
+		--pressed: rgb(255 255 255 / 0.11);
+		--control: rgb(255 255 255 / 0.08);
+		--control-border: rgb(255 255 255 / 0.1);
+		--shadow-popover: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 10px 30px rgb(0 0 0 / 0.5);
+	}
+}
+
+@supports not (color: AccentColor) {
+	:root {
+		--accent: var(--accent-fallback);
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+	overflow: hidden;
+	background: transparent;
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: default;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+input,
+textarea {
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+:focus-visible {
+	outline: 3px solid color-mix(in srgb, var(--accent-fallback) 45%, transparent);
+	outline-offset: 1px;
+	border-radius: 5px;
+}
+
+/* MARK: - Controls */
+
+.mm-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 24px;
+	padding: 0 10px;
+	border-radius: 6px;
+	border: 0.5px solid var(--control-border);
+	background: var(--control);
+	box-shadow: 0 0.5px 1px rgb(0 0 0 / 0.08);
+	font-size: 13px;
+	white-space: nowrap;
+}
+
+.mm-button:active {
+	background: var(--pressed);
+}
+
+.mm-button[data-variant='primary'] {
+	background: var(--accent);
+	border-color: transparent;
+	color: white;
+}
+
+.mm-button:disabled {
+	opacity: 0.4;
+}
+
+.mm-icon-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 6px;
+	color: var(--text-secondary);
+}
+
+.mm-icon-button:hover {
+	background: var(--hover);
+	color: var(--text);
+}
+
+.mm-icon-button:active,
+.mm-icon-button[data-active='true'] {
+	background: var(--pressed);
+	color: var(--text);
+}
+
+.mm-icon-button:disabled {
+	opacity: 0.35;
+	background: none;
+}
+
+.mm-segmented {
+	display: inline-flex;
+	padding: 2px;
+	border-radius: 7px;
+	background: var(--hover);
+}
+
+.mm-segmented button {
+	height: 22px;
+	padding: 0 14px;
+	border-radius: 5px;
+	color: var(--text-secondary);
+	font-weight: 500;
+}
+
+.mm-segmented button[data-active='true'] {
+	background: var(--content-raised);
+	color: var(--text);
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.08),
+		0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+.mm-field {
+	display: grid;
+	grid-template-columns: 76px 1fr;
+	align-items: center;
+	gap: 8px;
+	min-height: 26px;
+}
+
+.mm-field > label {
+	color: var(--text-secondary);
+	text-align: right;
+}
+
+.mm-input {
+	width: 100%;
+	height: 22px;
+	padding: 0 6px;
+	border-radius: 5px;
+	border: 0.5px solid var(--control-border);
+	background: var(--control);
+	outline: none;
+}
+
+.mm-input:focus {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-fallback) 30%, transparent);
+}
+
+.mm-section-title {
+	padding: 10px 12px 4px;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--text-tertiary);
+}
+
+.mm-row {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	height: 26px;
+	margin: 0 8px;
+	padding: 0 8px;
+	border-radius: 6px;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.mm-row:hover {
+	background: var(--hover);
+}
+
+.mm-row[data-selected='true'] {
+	background: var(--selection);
+}
+
+.mm-placeholder {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 100%;
+	padding: 24px;
+	text-align: center;
+	color: var(--text-tertiary);
+	font-size: 15px;
+	font-weight: 500;
+}
+
+.mm-placeholder small {
+	font-size: 12px;
+	font-weight: 400;
+}
+
+.mm-mono {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Pegboard dot grid. Holes read as pegs while staying a quiet FigJam-style canvas. */
+.mm-pegboard {
+	background-color: var(--canvas);
+	background-image: radial-gradient(circle at center, var(--canvas-dot) 1.6px, transparent 2.2px);
+	background-size: var(--grid, 24px) var(--grid, 24px);
+	background-position: var(--grid-x, 0) var(--grid-y, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+		animation: none !important;
+	}
+}

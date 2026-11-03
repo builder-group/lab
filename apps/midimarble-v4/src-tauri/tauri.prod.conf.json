@@ -1,0 +1,6 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "MidiMarble",
+	"mainBinaryName": "MidiMarble",
+	"identifier": "group.builder.midimarble-v4"
+}

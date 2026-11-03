@@ -1,0 +1,38 @@
+[package]
+name = "midimarble-v4"
+version = "0.0.1"
+description = "Offline marble track builder that renders through Blender"
+authors = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+
+[features]
+app-store = ["desktop-tauri-macos/app-store"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "midimarble_v4_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.3", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.4", features = [] }
+tauri-plugin-opener = "2.7.2"
+tauri-plugin-os = "2.4.0"
+tauri-plugin-dialog = "2"
+
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+specta = { version = "2.0.0-rc.25", features = ["derive"] }
+thiserror = "2"
+tauri-specta = { version = "2.0.0-rc.25", features = ["derive", "typescript"] }
+specta-typescript = "0.0.12"
+
+desktop-tauri-macos = { path = "../crates/macos" }
