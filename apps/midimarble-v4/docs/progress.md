@@ -11,6 +11,12 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### Group framing measured
+
+- Looser group framing (vertical keep 0.8, horizontal 0.75) on Jingle Bells in Draft: typical bar length 11.3 % → 13.3 % of frame width, marbles 3.9–4.1 % → 4.5–4.8 %, three fewer bars per frame. Reference: bars 25–30 %, marble about 7 %
+- Remaining causes are layout, not camera: two side-by-side lanes need a wider frame than a single followed marble, and the orange marble leaves the frame for the last 3 s because the run ends with the marbles diverging
+- Draft renders Jingle Bells (1050 frames) in 76–99 s depending on machine load
+
 ### Draft film preset
 
 - New `draft` render preset for judging placement, motion, timing and camera quickly: 720p 30 fps, rendered with Workbench from the same scene, camera, frame range, loop range and soundtrack as the other presets, whatever renderer is chosen. Workbench settings live only in the job process (`workbench_settings` in `render.py` through `temporary`): material viewport colours (materials still at the default grey take their Principled base colour), studio light, short shadows down and to the right, screen cavity, dark outlines, Standard view transform, no depth of field or motion blur. Draft frames are written as JPEG (quality 92); PNG writing took as long as the Workbench render itself
