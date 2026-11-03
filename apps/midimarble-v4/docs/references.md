@@ -135,3 +135,13 @@ Verdict: better than the previous film, with pieces about one and a half times l
 Blender's default unit is the metre, and the purchased Marble Race Kit uses real scale: marbles are 16 mm and track modules about 0.2 m. MidiMarble works in the same units; its default kit is 1.5 times that size (24 mm marbles, 9 cm bars), which reads at the reference film's scale, as `reference-20` showed first. Rapier and Blender then share units, and lighting, depth of field and physics behave like real objects.
 
 The Marble Race Kit (`assets/3D/blender/Marble Race Kit_v2.2`) is a purchased local reference. It can inform proportions and be used in a personal library, but it is not shipped with the app.
+
+## Second reference: pitch-coloured tubes
+
+A frame from another channel (@marvinblend, "Internet Classics", Boomwhackers section), shared by the owner. Not stored in the repository.
+
+- Two marbles share one frame, each with its own dense column side by side, so two-lane layouts are a legitimate format
+- Scale: tubes about 15–20 % of the frame width, marbles about 5 %
+- Pieces are boomwhacker tubes coloured by note, so pitch is visible. A theme can derive colour and tube length from each hit's pitch
+- Tubes point into depth at varied angles on wire brackets, which adds depth without changing the contact surface
+- Titles are a screen overlay with a translucent box (section number and song), not wall text
