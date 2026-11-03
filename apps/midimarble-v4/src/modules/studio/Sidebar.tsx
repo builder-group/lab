@@ -2,6 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Circle, Plus } from 'lucide-react';
 import React from 'react';
 import { MenuButton } from '@/components';
+import { badgeStatus, StatusIcon } from '@/modules/compose/status';
 import { createLane, createMarble } from '@/modules/project';
 import type { StudioCx } from './StudioCx';
 
@@ -10,6 +11,7 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 	const history = useFeatureState(cx.$history);
 	const selection = useFeatureState(cx.$selection);
 	const workspace = useFeatureState(cx.$workspace);
+	const result = useFeatureState(cx.simulation.$result);
 	const project = history?.present;
 	if (project == null) return null;
 
@@ -62,9 +64,23 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 										key={piece.id}
 										className="mm-row w-[calc(100%-16px)] pl-7 text-left"
 										data-selected={selection.includes(piece.id)}
-										onClick={() => cx.$selection.set([piece.id])}
+										onClick={(event) => {
+											if (event.shiftKey) {
+												const has = selection.includes(piece.id);
+												cx.$selection.set(has ? selection.filter((id) => id !== piece.id) : [...selection, piece.id]);
+												return;
+											}
+											cx.reveal([piece.id]);
+										}}
 										type="button"
 									>
+										<StatusIcon
+											status={badgeStatus(
+												result?.pieces.find((item) => item.entityId === piece.id)?.status,
+												result?.hits.find((item) => item.pieceEntityId === piece.id)
+											)}
+											size={10}
+										/>
 										<span className="flex-1 truncate">{piece.name ?? piece.components.piece?.type ?? 'Piece'}</span>
 									</button>
 								))}

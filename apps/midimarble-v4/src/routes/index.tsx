@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
+import { ComposeCanvas } from '@/modules/compose';
 import { StartScreen } from '@/modules/start';
 import { Studio, StudioCx } from '@/modules/studio';
 
@@ -19,7 +20,7 @@ function RouteComponent() {
 			cx={cx}
 			canvas={
 				workspace === 'compose' ? (
-					<div className="mm-pegboard h-full w-full" />
+					<ComposeCanvas cx={cx} />
 				) : (
 					<div className="mm-placeholder bg-[var(--content)]">
 						Design preview

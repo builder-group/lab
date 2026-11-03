@@ -5,3 +5,9 @@ export function formatTime(seconds: number): string {
 	const rest = safe - minutes * 60;
 	return `${minutes}:${rest.toFixed(2).padStart(5, '0')}`;
 }
+
+export const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+
+export function noteName(pitch: number): string {
+	return `${noteNames[pitch % 12] ?? 'C'}${Math.floor(pitch / 12) - 1}`;
+}

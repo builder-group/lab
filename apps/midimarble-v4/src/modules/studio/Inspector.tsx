@@ -1,7 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
+import { PieceInspector } from '@/modules/compose/PieceInspector';
 import { findLaneConflicts, instruments, MIN_HIT_GAP } from '@/modules/music';
 import { createId, laneColors, type TLane, type TProject } from '@/modules/project';
+import { noteName, noteNames } from './format';
 import { parseHitKey } from './selection';
 import type { StudioCx } from './StudioCx';
 
@@ -13,6 +15,7 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	if (project == null) return null;
 	const entity = project.entities.find((item) => item.id === selection[0]);
 	const hitKeys = selection.filter((key) => parseHitKey(key) != null);
+	const pieceIds = selection.filter((id) => project.entities.some((item) => item.id === id && item.components.piece != null));
 	const marbleLane = project.music.lanes.find((lane) => lane.id === entity?.components.marble?.laneId);
 
 	return (
@@ -20,7 +23,9 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 			className="flex w-[264px] shrink-0 flex-col overflow-y-auto border-t border-l border-[var(--separator)] bg-[var(--content)]"
 			aria-label="Inspector"
 		>
-			{hitKeys.length > 0 ? (
+			{pieceIds.length > 0 ? (
+				<PieceInspector cx={cx} project={project} ids={pieceIds} />
+			) : hitKeys.length > 0 ? (
 				<HitInspector cx={cx} project={project} hitKeys={hitKeys} />
 			) : marbleLane != null ? (
 				<LaneInspector cx={cx} project={project} lane={marbleLane} />
@@ -211,11 +216,6 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	);
 };
 
-const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
-
-function noteName(pitch: number): string {
-	return `${noteNames[pitch % 12] ?? 'C'}${Math.floor(pitch / 12) - 1}`;
-}
 
 /** Parses names like `C5`, `F#4` or a MIDI number; empty clears the pitch, invalid returns undefined */
 function parseNoteName(value: string): number | null | undefined {

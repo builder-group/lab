@@ -253,17 +253,147 @@ textarea {
 	font-variant-numeric: tabular-nums;
 }
 
-/* Pegboard dot grid. Holes read as pegs while staying a quiet FigJam-style canvas. */
+/* Pegboard dot grid. Holes read as pegs while staying a quiet FigJam-style canvas. The canvas drives
+   spacing and offset from its camera; the fine layer fades in between densities while zooming. */
 .mm-pegboard {
 	background-color: var(--canvas);
-	background-image: radial-gradient(circle at center, var(--canvas-dot) 1.6px, transparent 2.2px);
-	background-size: var(--grid, 24px) var(--grid, 24px);
-	background-position: var(--grid-x, 0) var(--grid-y, 0);
+	background-image:
+		radial-gradient(circle at center, var(--canvas-dot) 1.3px, transparent 1.8px),
+		radial-gradient(
+			circle at center,
+			color-mix(in srgb, var(--canvas-dot) calc(var(--grid-fine-alpha, 0) * 100%), transparent) 1.3px,
+			transparent 1.8px
+		);
+	background-size:
+		var(--grid, 24px) var(--grid, 24px),
+		var(--grid-fine, 12px) var(--grid-fine, 12px);
+	background-position:
+		var(--grid-x, 0) var(--grid-y, 0),
+		var(--grid-fine-x, 0) var(--grid-fine-y, 0);
+}
+
+/* The orbit view draws its own wall in perspective */
+.mm-pegboard[data-mode='orbit'] {
+	background-image: none;
+}
+
+/* MARK: - Floating canvas UI */
+
+.mm-floating {
+	border-radius: 12px;
+	background: var(--content-raised);
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.12),
+		0 2px 6px rgb(0 0 0 / 0.08),
+		0 8px 24px rgb(0 0 0 / 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-floating {
+		box-shadow:
+			0 0 0 0.5px rgb(255 255 255 / 0.12),
+			0 2px 6px rgb(0 0 0 / 0.3),
+			0 8px 24px rgb(0 0 0 / 0.35);
+	}
+}
+
+.mm-tool-button {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	color: var(--text);
+}
+
+.mm-tool-button:hover {
+	background: var(--hover);
+}
+
+.mm-tool-button:active {
+	background: var(--pressed);
+}
+
+.mm-tool-button[data-active='true'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+/* Figma-style tooltip with the shortcut, shown above the button after a short delay */
+.mm-tooltip {
+	position: absolute;
+	bottom: calc(100% + 8px);
+	left: 50%;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 7px;
+	border-radius: 5px;
+	background: rgb(30 30 30 / 0.94);
+	color: rgb(255 255 255 / 0.95);
+	font-size: 11px;
+	font-family: var(--font);
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transform: translateX(-50%);
+	transition: opacity 0.12s;
+}
+
+.mm-tooltip kbd {
+	font-family: var(--font);
+	color: rgb(255 255 255 / 0.55);
+}
+
+.mm-tool-button:hover .mm-tooltip {
+	opacity: 1;
+	transition-delay: 0.45s;
+}
+
+.mm-tooltip-below .mm-tooltip {
+	top: calc(100% + 8px);
+	bottom: auto;
+	left: auto;
+	right: 0;
+	transform: none;
+}
+
+.mm-delayed-fade {
+	opacity: 0;
+	animation: mm-fade-in 0.15s 0.25s forwards;
+}
+
+@keyframes mm-fade-in {
+	to {
+		opacity: 1;
+	}
+}
+
+/* The next dot to place breathes softly so the eye finds it */
+.mm-dot-pulse {
+	animation: mm-dot-pulse 1.6s ease-out infinite;
+}
+
+@keyframes mm-dot-pulse {
+	from {
+		transform: scale(1);
+		opacity: 0.55;
+	}
+	to {
+		transform: scale(2.6);
+		opacity: 0;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
 	* {
 		transition: none !important;
 		animation: none !important;
+	}
+
+	.mm-delayed-fade {
+		opacity: 1;
 	}
 }

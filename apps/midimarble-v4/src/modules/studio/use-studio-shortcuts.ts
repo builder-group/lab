@@ -7,7 +7,8 @@ import type { StudioCx } from './StudioCx';
 export function useStudioShortcuts(cx: StudioCx, togglePanel: (panel: TStudioPanel) => void): void {
 	React.useEffect(() => {
 		function onKeyDown(event: KeyboardEvent): void {
-			if (isTyping(event)) return;
+			// The canvas handles its keys first and marks them, such as arrows while a piece is selected
+			if (isTyping(event) || event.defaultPrevented) return;
 			const command = event.metaKey;
 			const key = event.key.toLowerCase();
 

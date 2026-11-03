@@ -18,6 +18,7 @@ import {
 	type TSource
 } from '@/modules/project';
 import { parseHitKey } from './selection';
+import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 
 /** Owns the open project, its history, persistence and the shared editing state of the studio */
@@ -31,7 +32,10 @@ export class StudioCx {
 	readonly $playhead = createState(0);
 	readonly $playing = createState(false);
 	readonly $notice = createState<TNotice | null>(null);
+	/** Entity IDs the canvas should bring into view, set by lists outside the canvas */
+	readonly $reveal = createState<{ ids: string[] } | null>(null);
 	readonly sources = new SourcesCx(this);
+	readonly simulation = new SimulationCx(this);
 	private audioEngine: TAudioEngine | null = null;
 
 	private saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -44,7 +48,9 @@ export class StudioCx {
 
 	mount(): () => void {
 		void this.refreshRecent();
+		const unmountSimulation = this.simulation.mount();
 		return () => {
+			unmountSimulation();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
 			void this.flush();
@@ -68,6 +74,12 @@ export class StudioCx {
 		const lane = project?.music.lanes.find((item) => item.id === laneId);
 		if (project == null || lane == null || project.music.sources.some((source) => source.kind === 'audio')) return;
 		void this.audio.audition(lane, pitch);
+	}
+
+	/** Selects entities and asks the canvas to frame them when they are out of view */
+	reveal(ids: string[]): void {
+		this.$selection.set(ids);
+		this.$reveal.set({ ids });
 	}
 
 	// MARK: - Projects
