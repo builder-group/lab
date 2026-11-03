@@ -1,25 +1,27 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, Square } from 'lucide-react';
+import { Anchor, Box, ChevronsRight, FlipHorizontal2, Link2, Magnet, Repeat2, Square, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import type { TProject, TVec2 } from '@/modules/project';
-import { frameBand, getPieceDefinition, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import type { TPathNode, TProject, TVec2 } from '@/modules/project';
+import { frameBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { laneMenu, pieceMenu } from '@/modules/studio/menus';
 import { parseHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
+import type { TPose } from './attach-edit';
+import { mapNodes, nodesPathData } from './bezier';
 import { ComposeCx } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
-import { ComposeToolbar } from './ComposeToolbar';
+import { acceptableCount } from './ghosts';
 import { GhostHint, GhostShapes } from './GhostLayer';
 import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, toPoints } from './PieceLayer';
 import { pathRun, pathToWorld, pieceKind } from './scene';
 import { badgeStatus, StatusBadge } from './status';
-import { nextOpenHitPerLane, pieceAngleCommands, selectedPieceIds } from './step-loop';
+import { findStepTarget, linkedPieces, nextOpenHitPerLane, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
-/** The Compose pegboard: WebGL content over the CSS dot grid, with screen-space handles on top */
+/** The Compose wall: WebGL content over the CSS dot grid, with screen-space handles on top */
 export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 	const { cx } = props;
 	const [compose] = React.useState(() => new ComposeCx(cx));
@@ -40,13 +42,16 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 	}, [compose, cx]);
 
 	const isPanning = drag?.kind === 'pan';
-	const isMoving = drag?.kind === 'release' || drag?.kind === 'path' || hover?.kind === 'release' || hover?.kind === 'pathEnd' || hover?.kind === 'pathBend';
+	const isMoving = drag?.kind === 'release' || drag?.kind === 'path' || drag?.kind === 'move' || drag?.kind === 'node';
+	const isHandle = hover?.kind === 'release' || hover?.kind === 'pathEnd' || hover?.kind === 'pathBend' || hover?.kind === 'node' || hover?.kind === 'nodeIn' || hover?.kind === 'nodeOut';
 	const cursor =
 		isPanning ? 'grabbing'
 		: spaceHeld || tool === 'hand' ? 'grab'
 		: drag?.kind === 'rotate' || hover?.kind === 'rotate' ? 'grab'
-		: isMoving ? 'move'
-		: hover?.kind === 'dot' || hover?.kind === 'track' || tool === 'piece' ? 'crosshair'
+		: isMoving ? 'grabbing'
+		: isHandle ? 'move'
+		: hover?.kind === 'dot' || hover?.kind === 'track' ? 'pointer'
+		: tool !== 'select' ? 'crosshair'
 		: 'default';
 
 	return (
@@ -67,11 +72,12 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 				onContextMenu={(event) => openCanvasMenu(compose, event)}
 			/>
 			<ComposeOverlay compose={compose} />
+			<PenOverlay compose={compose} />
 			<GhostHint compose={compose} />
+			<AssistBar compose={compose} />
 			<CornerControls compose={compose} />
 			<SimulatingIndicator cx={cx} />
 			<EmptyState compose={compose} />
-			<ComposeToolbar compose={compose} />
 		</div>
 	);
 };
@@ -90,6 +96,9 @@ function openCanvasMenu(compose: ComposeCx, event: React.MouseEvent<HTMLElement>
 		case 'rotate':
 		case 'pathEnd':
 		case 'pathBend':
+		case 'node':
+		case 'nodeIn':
+		case 'nodeOut':
 			if (!cx.$selection.get().includes(target.entityId)) cx.$selection.set([target.entityId]);
 			openContextMenu(event, pieceMenu(cx));
 			return;
@@ -108,42 +117,29 @@ function openCanvasMenu(compose: ComposeCx, event: React.MouseEvent<HTMLElement>
 	}
 }
 
-/** First-run guidance: what to do with no hits, then how to place the first piece */
+/** First-run guidance: what to do with no hits */
 const EmptyState: React.FC<{ compose: ComposeCx }> = (props) => {
 	const { compose } = props;
 	const cx = compose.studio;
 	const project = useFeatureState(cx.$history)?.present;
-	const notice = useFeatureState(cx.$notice);
-	const playing = useFeatureState(cx.$playing);
 	const isImporting = useFeatureState(cx.sources.$midiImport) != null;
 	if (project == null || isImporting) return null;
 	const hasHits = project.music.lanes.some((lane) => lane.hits.length > 0);
-	const hasPieces = project.entities.some((entity) => entity.components.piece != null);
-
-	if (!hasHits) {
-		return (
-			<div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center pb-16">
-				<div className="mm-floating pointer-events-auto flex w-[300px] flex-col items-center gap-1 px-5 py-4 text-center">
-					<span className="mm-placeholder-title">Add Hits to Start</span>
-					<span className="mm-placeholder-body text-[var(--text-secondary)]">
-						Each hit is a moment the marble strikes a piece. Import music, or double-click a lane in the timeline.
-					</span>
-					<div className="mt-2 flex gap-2">
-						<button className="mm-button" data-variant="primary" onClick={() => void cx.sources.pickMidi()} type="button">
-							Import MIDI…
-						</button>
-						<button className="mm-button" onClick={() => void cx.sources.pickAudio()} type="button">
-							Import Audio…
-						</button>
-					</div>
-				</div>
-			</div>
-		);
-	}
-	if (hasPieces || notice != null || playing) return null;
+	if (hasHits) return null;
 	return (
-		<div className="mm-floating pointer-events-none absolute bottom-[64px] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 px-3 py-1.5 text-[11px] whitespace-nowrap">
-			Click the pulsing dot or press <kbd className="mm-keycap">N</kbd> to place the first platform
+		<div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center">
+			<div className="mm-floating pointer-events-auto flex items-center gap-3 py-2 pr-2 pl-3.5">
+				<div className="flex flex-col leading-tight">
+					<span className="font-semibold">Add Music</span>
+					<span className="text-[11px] text-[var(--text-secondary)]">Import a song, or double-click a lane in the timeline to add hits</span>
+				</div>
+				<button className="mm-button" data-variant="primary" onClick={() => void cx.sources.pickMidi()} type="button">
+					MIDI…
+				</button>
+				<button className="mm-button" onClick={() => void cx.sources.pickAudio()} type="button">
+					Audio…
+				</button>
+			</div>
 		</div>
 	);
 };
@@ -161,35 +157,37 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const selection = useFeatureState(cx.$selection);
 	const hover = useFeatureState(compose.$hover);
 	const drag = useFeatureState(compose.$drag);
-	const gapMenu = useFeatureState(compose.$gapMenu);
 	const tool = useFeatureState(compose.$tool);
-	const pieceType = useFeatureState(compose.$pieceType);
+	useFeatureState(compose.$override);
+	const hidden = useFeatureState(cx.$hidden);
 	const project = history?.present;
 	if (project == null || result == null || viewport.width <= 1) return null;
 
 	const is2d = camera.mode === '2d';
+	const pieces = compose.displayPieces(result);
 	const selectedPieces = selectedPieceIds(project, selection);
-	const single = selectedPieces.length === 1 ? result.pieces.find((piece) => piece.entityId === selectedPieces[0]) : undefined;
+	const single = selectedPieces.length === 1 ? pieces.find((piece) => piece.entityId === selectedPieces[0]) : undefined;
 	const singleKind = single != null ? pieceKind(single) : null;
-	const isPathPiece = singleKind === 'path' || singleKind === 'tube';
-	const grip = single?.contactPoint != null && is2d && !isPathPiece ? compose.screenGrip(single) : null;
-	const pathHandles = single != null && is2d && isPathPiece ? compose.screenPathHandles(single) : null;
+	const frame = single != null && is2d ? compose.railFrame(single.entityId) : null;
+	const isPathPiece = singleKind === 'path' || singleKind === 'tube' || singleKind === 'holder';
+	const isMoveDrag = drag?.kind === 'move' && drag.moved;
+	const grip = single != null && is2d && !isPathPiece && !isMoveDrag ? compose.screenGrip(single) : null;
+	const pathHandles = single != null && is2d && isPathPiece && frame == null && singleKind !== 'holder' ? compose.screenPathHandles(single) : null;
 	const isRotating = drag?.kind === 'rotate';
 	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.entityId));
 	const nextDots = nextOpenHitPerLane(result);
 	const band = frameBand(project);
 	const hoveredPiece = hover?.kind === 'piece' ? hover.entityId : null;
-	const hoveredDot =
-		hover?.kind === 'dot' ? result.hits.find((hit) => hit.status === 'open' && hit.laneId === hover.laneId && hit.hitId === hover.hitId) : undefined;
+	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.status === 'open' && hit.laneId === hover.laneId && hit.hitId === hover.hitId) : undefined;
 	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
 	const longGaps = compose.longGapKeys(project);
-	const gapHit = gapMenu != null ? result.hits.find((hit) => hit.status === 'open' && hit.laneId === gapMenu.laneId && hit.hitId === gapMenu.hitId) : undefined;
-	const placementLabel = getPieceDefinition(tool === 'piece' ? pieceType : 'platform')?.label.toLowerCase() ?? 'platform';
+	const snap = drag?.kind === 'move' ? drag.snap : null;
+	const singleEntity = single != null ? project.entities.find((entity) => entity.id === single.entityId) : undefined;
 
 	return (
 		<>
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
-				{result.pieces.map((piece) => {
+				{pieces.map((piece) => {
 					const isSelected = selection.includes(piece.entityId);
 					const isHovered = hoveredPiece === piece.entityId && !isSelected;
 					if (!isSelected && !isHovered) return null;
@@ -206,15 +204,15 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 						/>
 					);
 				})}
-				{result.pieces.map((piece) => (
-					<PieceBadge key={`badge-${piece.entityId}`} compose={compose} piece={piece} result={result} />
-				))}
+				{drag == null
+					? result.pieces.map((piece) => <PieceBadge key={`badge-${piece.entityId}`} compose={compose} piece={piece} result={result} />)
+					: null}
 				{result.hits.map((hit) => {
 					if (hit.status !== 'open' || hit.dot == null) return null;
 					const position = compose.toScreen(hit.dot);
 					const lane = project.music.lanes.find((item) => item.id === hit.laneId);
 					const isNext = nextDots.get(hit.laneId) === hit;
-					const isHovered = hoveredDot === hit || gapHit === hit;
+					const isHovered = hoveredDot === hit;
 					const isFocused = focusedKeys.has(`hit:${hit.laneId}:${hit.hitId}`);
 					const isOutside = hit.outOfFrame ?? Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
 					const isLongGap = longGaps.has(`${hit.laneId}:${hit.hitId}`);
@@ -224,23 +222,26 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 							key={`dot-${hit.laneId}-${hit.hitId}`}
 							position={position}
 							color={color}
-							isNext={isNext}
+							isNext={isNext && drag == null}
 							isHovered={isHovered}
 							isFocused={isFocused}
 							isLongGap={isLongGap}
 						/>
 					);
 				})}
+				{snap?.kind === 'link' ? <SnapRing position={compose.toScreen(snap.dot)} /> : null}
 				{is2d
 					? project.entities.map((entity) => {
 							const { release, marble } = entity.components;
-							if (release == null || marble == null) return null;
+							if (release == null || marble == null || hidden.includes(entity.id)) return null;
 							const position = drag?.kind === 'release' && drag.entityId === entity.id ? drag.position : release.position;
 							const center = compose.toScreen(position);
-							const isActive = (hover?.kind === 'release' && hover.entityId === entity.id) || (drag?.kind === 'release' && drag.entityId === entity.id);
+							const isSelected = selection.includes(entity.id);
+							const isActive = isSelected || (hover?.kind === 'release' && hover.entityId === entity.id) || (drag?.kind === 'release' && drag.entityId === entity.id);
 							const radius = Math.max(9, marble.radius * camera.view.scale + 5);
 							return (
 								<g key={`release-${entity.id}`}>
+									{isSelected ? <circle cx={center.x} cy={center.y} r={radius + 3} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} /> : null}
 									<circle
 										cx={center.x}
 										cy={center.y}
@@ -284,30 +285,26 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					</g>
 				) : null}
 				{pathHandles != null && single != null ? <PathHandles handles={pathHandles} hover={hover} drag={drag} entityId={single.entityId} /> : null}
+				{frame != null && single != null ? <RailNodes compose={compose} entityId={single.entityId} frame={frame} hover={hover} drag={drag} /> : null}
 				{hover?.kind === 'track' && drag == null ? (
-					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf(pieceType).bar} strokeWidth={2} />
+					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf(tool === 'tunnel' ? 'tunnel' : 'windmill').bar} strokeWidth={2} />
 				) : null}
 				{drag?.kind === 'marquee' ? <Marquee from={drag.from} to={drag.to} /> : null}
 			</svg>
-			{hoveredDot != null && drag == null && gapHit !== hoveredDot ? (
-				<DotTooltip compose={compose} project={project} hit={hoveredDot} placementLabel={placementLabel} />
-			) : null}
-			{gapHit != null && drag == null ? <GapMenu compose={compose} project={project} hit={gapHit} /> : null}
+			{hoveredDot != null && drag == null ? <DotTooltip compose={compose} project={project} hit={hoveredDot} /> : null}
 			{hover?.kind === 'track' && drag == null ? (
 				<CanvasTooltip position={hover.position}>
-					<div className="font-medium">
-						Start a {placementLabel} here
-						<span className="mm-tabular ml-1.5 font-normal text-[var(--text-secondary)]">{formatTime(hover.time)}</span>
-					</div>
-					<div className="text-[var(--text-secondary)]">The marble enters it at this moment</div>
+					<span className="font-medium">Anchor here</span>
+					<span className="mm-tabular ml-1.5 text-[var(--text-secondary)]">{formatTime(hover.time)}</span>
 				</CanvasTooltip>
 			) : null}
-			{single != null && grip != null ? (
+			{drag?.kind === 'move' && drag.moved ? <SnapChip compose={compose} project={project} drag={drag} /> : null}
+			{single != null && grip != null && singleEntity != null ? (
 				<AngleReadout
 					compose={compose}
 					piece={single}
 					position={drag?.kind === 'rotate' ? { x: drag.pointer.x + 14, y: drag.pointer.y + 14 } : { x: grip.grip.x + 10, y: grip.grip.y + 8 }}
-					angle={drag?.kind === 'rotate' ? drag.angle : (project.entities.find((entity) => entity.id === single.entityId)?.components.hitLink?.angle ?? single.angle)}
+					angle={drag?.kind === 'rotate' ? drag.angle : (pieceAngle(singleEntity) ?? single.angle)}
 				/>
 			) : null}
 			{drag?.kind === 'path' && pathHandles != null && single != null ? <PathReadout piece={single} points={drag.points} position={pathHandles.end} /> : null}
@@ -322,9 +319,7 @@ const HitDot: React.FC<{ position: TVec2; color: string; isNext: boolean; isHove
 	const { x, y } = position;
 	return (
 		<g>
-			{isNext ? (
-				<circle className="mm-dot-pulse" cx={x} cy={y} r={5} fill="none" stroke={color} strokeWidth={1.5} style={{ transformOrigin: `${x}px ${y}px` }} />
-			) : null}
+			{isNext ? <circle className="mm-dot-pulse" cx={x} cy={y} r={5} fill="none" stroke={color} strokeWidth={1.5} style={{ transformOrigin: `${x}px ${y}px` }} /> : null}
 			{isFocused ? <circle cx={x} cy={y} r={radius + 4} fill="none" stroke="var(--accent-strong)" strokeWidth={2} /> : null}
 			{isLongGap ? (
 				<>
@@ -346,6 +341,139 @@ const HitDot: React.FC<{ position: TVec2; color: string; isNext: boolean; isHove
 			)}
 			{isNext && !isLongGap ? <circle cx={x} cy={y} r={radius + 0.75} fill="none" stroke={color} strokeWidth={1} /> : null}
 		</g>
+	);
+};
+
+/** The dot a dragged platform will link to, ringed in the accent like a Figma snap target */
+const SnapRing: React.FC<{ position: TVec2 }> = (props) => {
+	const { x, y } = props.position;
+	return (
+		<g>
+			<circle cx={x} cy={y} r={9} fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="var(--accent-strong)" strokeWidth={2} />
+			<circle cx={x} cy={y} r={3} fill="var(--accent-strong)" />
+		</g>
+	);
+};
+
+/** What a drop will do, next to the dragged piece: link to a hit, anchor to a moment or stay free */
+const SnapChip: React.FC<{ compose: ComposeCx; project: TProject; drag: Extract<ReturnType<ComposeCx['$drag']['get']>, { kind: 'move' }> }> = (props) => {
+	const { compose, project, drag } = props;
+	const center = compose.toScreen(drag.current.position);
+	const snap = drag.snap;
+	const lane = snap != null ? project.music.lanes.find((item) => item.id === snap.laneId) : undefined;
+	let content: React.ReactNode;
+	if (snap?.kind === 'link') {
+		const index = lane?.hits.findIndex((hit) => hit.id === snap.hitId) ?? -1;
+		const pitch = lane?.hits[index]?.pitch;
+		content = (
+			<>
+				<Link2 size={11} strokeWidth={2.2} />
+				<span className="font-medium">Hit {index + 1}</span>
+				{pitch != null ? <span className="opacity-70">{noteName(pitch)}</span> : null}
+			</>
+		);
+	} else if (snap?.kind === 'anchor') {
+		content = (
+			<>
+				<Anchor size={11} strokeWidth={2.2} />
+				<span className="font-medium">{lane?.name ?? 'Marble'}</span>
+				<span className="mm-tabular opacity-70">{formatTime(snap.time)}</span>
+			</>
+		);
+	} else {
+		content = <span className="font-medium">Free</span>;
+	}
+	return (
+		<div className="mm-snap-chip" data-snapped={snap != null} style={{ left: center.x + 18, top: center.y + 14 }}>
+			{content}
+			{snap != null ? <kbd className="opacity-60">⌥ free</kbd> : null}
+		</div>
+	);
+};
+
+/** Points and handles of a selected rail drawn with the path tool, editable like a Figma vector */
+const RailNodes: React.FC<{
+	compose: ComposeCx;
+	entityId: string;
+	frame: { nodes: TPathNode[]; base: TPose };
+	hover: ReturnType<ComposeCx['$hover']['get']>;
+	drag: ReturnType<ComposeCx['$drag']['get']>;
+}> = (props) => {
+	const { compose, entityId, frame, hover, drag } = props;
+	const map = (point: TVec2): TVec2 => compose.frameToScreen(frame.base, point);
+	const nodes = mapNodes(frame.nodes, map);
+	const isActive = (kind: 'node' | 'nodeIn' | 'nodeOut', index: number): boolean =>
+		(hover != null && 'index' in hover && hover.kind === kind && hover.entityId === entityId && hover.index === index) ||
+		(drag?.kind === 'node' && drag.entityId === entityId && drag.index === index && (drag.handle === 'point' ? 'node' : drag.handle === 'in' ? 'nodeIn' : 'nodeOut') === kind);
+	return (
+		<g>
+			<path d={nodesPathData(frame.nodes, map)} fill="none" stroke="var(--accent-strong)" strokeWidth={1} strokeOpacity={0.9} />
+			{nodes.map((node, index) => (
+				// Nodes keep their order while edited, so the point identifies them
+				<g key={`${node.point.x.toFixed(1)}:${node.point.y.toFixed(1)}:${frame.nodes.length}`}>
+					{node.in != null ? (
+						<>
+							<line x1={node.point.x} y1={node.point.y} x2={node.in.x} y2={node.in.y} stroke="var(--accent-strong)" strokeWidth={1} />
+							<circle cx={node.in.x} cy={node.in.y} r={3.5} fill={isActive('nodeIn', index) ? 'var(--accent)' : 'white'} stroke="var(--accent-strong)" strokeWidth={1.25} />
+						</>
+					) : null}
+					{node.out != null ? (
+						<>
+							<line x1={node.point.x} y1={node.point.y} x2={node.out.x} y2={node.out.y} stroke="var(--accent-strong)" strokeWidth={1} />
+							<circle cx={node.out.x} cy={node.out.y} r={3.5} fill={isActive('nodeOut', index) ? 'var(--accent)' : 'white'} stroke="var(--accent-strong)" strokeWidth={1.25} />
+						</>
+					) : null}
+					<rect
+						x={node.point.x - 4}
+						y={node.point.y - 4}
+						width={8}
+						height={8}
+						rx={1.5}
+						fill={isActive('node', index) ? 'var(--accent)' : 'white'}
+						stroke="var(--accent-strong)"
+						strokeWidth={1.5}
+					/>
+				</g>
+			))}
+		</g>
+	);
+};
+
+/** The rail being drawn with the path tool: placed points, their handles and the next segment */
+const PenOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
+	const { compose } = props;
+	const pen = useFeatureState(compose.$pen);
+	useFeatureState(compose.$camera);
+	useFeatureState(compose.$viewport);
+	if (pen == null) return null;
+	const map = (point: TVec2): TVec2 => compose.toScreen(point);
+	const nodes = mapNodes(pen.nodes, map);
+	const last = pen.nodes[pen.nodes.length - 1];
+	const preview = pen.pointer != null && !pen.isDragging && last != null ? nodesPathData([last, { point: pen.pointer }], map) : null;
+	const first = nodes[0];
+	const end = nodes[nodes.length - 1];
+	return (
+		<>
+			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+				<path d={nodesPathData(pen.nodes, map)} fill="none" stroke="var(--accent-strong)" strokeWidth={1.5} />
+				{preview != null ? <path d={preview} fill="none" stroke="var(--accent-strong)" strokeWidth={1} strokeDasharray="4 3" /> : null}
+				{nodes.map((node, index) => (
+					<g key={`${node.point.x.toFixed(1)}:${node.point.y.toFixed(1)}`}>
+						{node.in != null ? <line x1={node.point.x} y1={node.point.y} x2={node.in.x} y2={node.in.y} stroke="var(--accent-strong)" strokeWidth={1} /> : null}
+						{node.out != null ? <line x1={node.point.x} y1={node.point.y} x2={node.out.x} y2={node.out.y} stroke="var(--accent-strong)" strokeWidth={1} /> : null}
+						{node.in != null ? <circle cx={node.in.x} cy={node.in.y} r={3} fill="white" stroke="var(--accent-strong)" strokeWidth={1.25} /> : null}
+						{node.out != null ? <circle cx={node.out.x} cy={node.out.y} r={3} fill="white" stroke="var(--accent-strong)" strokeWidth={1.25} /> : null}
+						<rect x={node.point.x - 4} y={node.point.y - 4} width={8} height={8} rx={1.5} fill={index === pen.nodes.length - 1 ? 'var(--accent)' : 'white'} stroke="var(--accent-strong)" strokeWidth={1.5} />
+					</g>
+				))}
+			</svg>
+			{end != null && first != null ? (
+				<div className="mm-snap-chip" style={{ left: end.point.x + 14, top: end.point.y + 12 }}>
+					{pen.nodes.length < 2 ? <span>Click the next point · drag for a curve</span> : <span>Return to finish</span>}
+					<kbd className="opacity-60">esc</kbd>
+				</div>
+			) : null}
+		</>
 	);
 };
 
@@ -461,20 +589,20 @@ const PieceBadge: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; result: 
 	);
 };
 
-const CanvasTooltip: React.FC<{ position: TVec2; interactive?: boolean; children: React.ReactNode }> = (props) => {
-	const { position, interactive = false, children } = props;
+const CanvasTooltip: React.FC<{ position: TVec2; children: React.ReactNode }> = (props) => {
+	const { position, children } = props;
 	return (
 		<div
-			className={`absolute z-10 rounded-[6px] bg-[var(--content-raised)] px-2 py-1 text-[11px] leading-[15px] whitespace-nowrap ${interactive ? '' : 'pointer-events-none'}`}
-			style={{ left: position.x + 12, top: position.y - 34, boxShadow: 'var(--shadow-popover)' }}
+			className="pointer-events-none absolute z-10 rounded-[6px] bg-[var(--content-raised)] px-2 py-1 text-[11px] leading-[15px] whitespace-nowrap"
+			style={{ left: position.x + 12, top: position.y - 30, boxShadow: 'var(--shadow-popover)' }}
 		>
 			{children}
 		</div>
 	);
 };
 
-const DotTooltip: React.FC<{ compose: ComposeCx; project: TProject; hit: THitResult; placementLabel: string }> = (props) => {
-	const { compose, project, hit, placementLabel } = props;
+const DotTooltip: React.FC<{ compose: ComposeCx; project: TProject; hit: THitResult }> = (props) => {
+	const { compose, project, hit } = props;
 	if (hit.dot == null) return null;
 	const position = compose.toScreen(hit.dot);
 	const lane = project.music.lanes.find((item) => item.id === hit.laneId);
@@ -483,74 +611,15 @@ const DotTooltip: React.FC<{ compose: ComposeCx; project: TProject; hit: THitRes
 	const band = frameBand(project);
 	const overshoot = Math.abs(hit.dot.x - band.centerX) - band.halfWidth;
 	const isOutside = hit.outOfFrame ?? overshoot > 0;
-	const side = hit.dot.x > band.centerX ? 'right' : 'left';
 	return (
 		<CanvasTooltip position={position}>
-			<div className="font-medium">
-				{lane?.name ?? 'Hit'} · Hit {index + 1}
-				<span className="mm-tabular ml-1.5 font-normal text-[var(--text-secondary)]">
-					{formatTime(hit.targetTime)}
-					{pitch != null ? ` · ${noteName(pitch)}` : ''}
-				</span>
-			</div>
-			{isOutside ? (
-				<>
-					<div className="text-[var(--bad)]">
-						{overshoot > 0 ? `${(overshoot * 100).toFixed(1)} cm past the ${side} frame edge` : 'Outside the frame'} at this time
-					</div>
-					<div className="text-[var(--text-secondary)]">Turn the piece before it or press A · click to place anyway</div>
-				</>
-			) : (
-				<div className="text-[var(--text-secondary)]">Click to place a {placementLabel}</div>
-			)}
+			<span className="font-medium">Hit {index + 1}</span>
+			<span className="mm-tabular ml-1.5 text-[var(--text-secondary)]">
+				{formatTime(hit.targetTime)}
+				{pitch != null ? ` · ${noteName(pitch)}` : ''}
+			</span>
+			{isOutside ? <span className="ml-1.5 text-[var(--bad)]">{overshoot > 0 ? `${(overshoot * 100).toFixed(0)} cm outside` : 'outside'} the frame</span> : null}
 		</CanvasTooltip>
-	);
-};
-
-/** Guardrail for a long gap: the hit is too far after the previous one for a bounce, so offer a bridge */
-const GapMenu: React.FC<{ compose: ComposeCx; project: TProject; hit: THitResult }> = (props) => {
-	const { compose, project, hit } = props;
-	if (hit.dot == null) return null;
-	const gap = compose.longGapKeys(project).get(`${hit.laneId}:${hit.hitId}`);
-	if (gap == null) return null;
-	const position = compose.toScreen(hit.dot);
-	const lane = project.music.lanes.find((item) => item.id === hit.laneId);
-	const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
-	const add = (type: 'rail' | 'tunnel'): void => {
-		compose.$gapMenu.set(null);
-		compose.assist.suggestGapPiece(type, hit.laneId, gap.fromHitId, hit.hitId, { accept: true });
-	};
-	return (
-		<div
-			className="absolute z-10 flex flex-col gap-1 rounded-[8px] bg-[var(--content-raised)] p-1.5 text-[11px] leading-[15px] whitespace-nowrap"
-			style={{ left: position.x + 12, top: position.y - 70, boxShadow: 'var(--shadow-popover)' }}
-			onPointerLeave={() => compose.$gapMenu.set(null)}
-		>
-			<div className="px-1 font-medium">
-				{lane?.name ?? 'Hit'} · Hit {index + 1}
-				<span className="ml-1.5 font-normal text-[var(--warn)]">{gap.duration.toFixed(1)} s gap</span>
-			</div>
-			<div className="px-1 text-[var(--text-secondary)]">Too long for one bounce. Bridge it, or click the dot for a platform.</div>
-			<div className="flex gap-1">
-				<GapButton type="rail" label="Add Rail" onClick={() => add('rail')} />
-				<GapButton type="tunnel" label="Add Tunnel" onClick={() => add('tunnel')} />
-			</div>
-		</div>
-	);
-};
-
-const GapButton: React.FC<{ type: string; label: string; onClick: () => void }> = (props) => {
-	const { type, label, onClick } = props;
-	return (
-		<button
-			className="flex h-[22px] items-center gap-1.5 rounded-[5px] bg-[var(--control)] px-2 font-medium hover:bg-[var(--hover)]"
-			style={{ boxShadow: 'inset 0 0 0 0.5px var(--control-border)' }}
-			onClick={onClick}
-			type="button"
-		>
-			<span className="inline-block h-2 w-2 rounded-full" style={{ background: paletteOf(type).bar }} />
-			{label}
-		</button>
 	);
 };
 
@@ -601,41 +670,124 @@ const AngleReadout: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; positi
 	);
 };
 
+// MARK: - Contextual assists
+
+/**
+ * The build assists next to where they act, like Figma's selection toolbar: under the selected last piece of
+ * a marble, or under the next open dot when nothing is selected. Their keys work everywhere.
+ */
+const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
+	const { compose } = props;
+	const cx = compose.studio;
+	const result = useFeatureState(cx.simulation.$result);
+	const project = useFeatureState(cx.$history)?.present;
+	const selection = useFeatureState(cx.$selection);
+	const playing = useFeatureState(cx.$playing);
+	const drag = useFeatureState(compose.$drag);
+	const pen = useFeatureState(compose.$pen);
+	const tool = useFeatureState(compose.$tool);
+	const ghosts = useFeatureState(compose.assist.$ghosts);
+	const camera = useFeatureState(compose.$camera);
+	const viewport = useFeatureState(compose.$viewport);
+	if (project == null || result == null || playing || drag != null || pen != null || tool === 'path' || camera.mode !== '2d') return null;
+
+	const target = findStepTarget(project, result, selection);
+	if (target?.dot == null) return null;
+	// With a selection, the bar belongs to the selected piece or dot and only shows when Next has a target after it
+	let anchor: TVec2;
+	const pieceId = selection.length === 1 ? selection[0] : undefined;
+	const piece = pieceId != null ? linkedPieces(project).find((item) => item.entity.id === pieceId) : undefined;
+	const resolved = piece != null ? result.pieces.find((item) => item.entityId === piece.entity.id) : undefined;
+	if (selection.length > 0 && piece == null && parseHitKey(selection[0] ?? '') == null) return null;
+	if (resolved != null) {
+		const outline = compose.screenOutline(resolved);
+		anchor = { x: outline.reduce((sum, point) => sum + point.x, 0) / outline.length, y: Math.max(...outline.map((point) => point.y)) + 30 };
+	} else {
+		// Below the ghost piece at the dot when Continue offers one, so the bar never covers it
+		const ghost = ghosts.ghost?.kind === 'continue' ? ghosts.ghost.answer.suggestions.find((item) => item.piece != null)?.piece : null;
+		const outline = ghost != null ? compose.screenOutline(ghost) : [];
+		const dot = compose.toScreen(target.dot);
+		anchor = outline.length ? { x: dot.x, y: Math.max(dot.y, ...outline.map((point) => point.y)) + 26 } : { x: dot.x, y: dot.y + 24 };
+	}
+	// The bar belongs next to what it acts on; when that is out of view it stays away
+	if (anchor.x < 0 || anchor.x > viewport.width || anchor.y < 0 || anchor.y > viewport.height + 20) return null;
+	const continueCount = ghosts.ghost?.kind === 'continue' ? acceptableCount(ghosts.ghost) : 0;
+	const left = Math.min(Math.max(anchor.x, 130), viewport.width - 130);
+	const top = Math.min(Math.max(anchor.y, 48), viewport.height - 44);
+
+	return (
+		<div className="mm-assist-bar mm-ghost-in" style={{ left, top }} role="toolbar" aria-label="Build">
+			<AssistButton label="Next" detail="Place the next hit" shortcut="N" onClick={() => compose.next()} isText>
+				Next
+			</AssistButton>
+			<div className="mm-assist-divider" />
+			<AssistButton label="Repeat" detail="Copy the last piece's angle" shortcut="R" onClick={() => compose.step('repeat')}>
+				<Repeat2 size={15} strokeWidth={1.7} />
+			</AssistButton>
+			<AssistButton label="Mirror" detail="Mirror it for a zigzag" shortcut="M" onClick={() => compose.step('mirror')}>
+				<FlipHorizontal2 size={15} strokeWidth={1.7} />
+			</AssistButton>
+			<AssistButton label="Auto Place" detail="Let the solver pick the angle" shortcut="A" onClick={() => compose.assist.autoPlace(compose.placementType())}>
+				<WandSparkles size={15} strokeWidth={1.7} />
+			</AssistButton>
+			{continueCount > 0 ? (
+				<>
+					<div className="mm-assist-divider" />
+					<AssistButton label="Continue" detail={`Accept ${continueCount} suggested pieces · esc hides them`} shortcut="⇥" onClick={() => compose.assist.acceptGhosts()} isText>
+						<ChevronsRight size={14} strokeWidth={1.8} />
+						Continue {continueCount}
+					</AssistButton>
+				</>
+			) : null}
+		</div>
+	);
+};
+
+const AssistButton: React.FC<{ label: string; detail: string; shortcut: string; onClick: () => void; isText?: boolean; children: React.ReactNode }> = (props) => {
+	const { label, detail, shortcut, onClick, isText = false, children } = props;
+	return (
+		<button className="mm-assist-button" data-text={isText} aria-label={label} onPointerDown={(event) => event.stopPropagation()} onClick={onClick} type="button">
+			{children}
+			{isText ? <kbd className="mm-keycap">{shortcut}</kbd> : null}
+			<span className="mm-tooltip">
+				{label}
+				<span className="text-[rgb(255_255_255/0.6)]">{detail}</span>
+				<kbd>{shortcut}</kbd>
+			</span>
+		</button>
+	);
+};
+
 // MARK: - Canvas chrome
 
 const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 	const { compose } = props;
 	const camera = useFeatureState(compose.$camera);
-	// 100% shows the wall at physical size on a 96 dpi screen
-	const zoom = Math.round((camera.view.scale / 3779.5) * 100);
+	const snapping = useFeatureState(compose.studio.$snapping);
 	return (
 		<div className="mm-floating mm-tooltip-below absolute top-3 right-3 z-20 flex items-center gap-0.5 p-[3px]">
+			<button
+				className="mm-tool-button !h-7 !w-7"
+				data-active={snapping}
+				aria-label="Snap to dots and trajectories"
+				aria-pressed={snapping}
+				onClick={() => compose.studio.$snapping.set(!snapping)}
+				type="button"
+			>
+				<Magnet size={14} strokeWidth={1.7} />
+				<span className="mm-tooltip">Snap to dots and trajectories · hold ⌥ to skip</span>
+			</button>
+			<div className="mx-0.5 h-4 w-px bg-[var(--separator)]" />
 			<div className="flex" role="radiogroup" aria-label="View">
-				<button
-					className="mm-tool-button !h-7 !w-7"
-					data-active={camera.mode === '2d'}
-					aria-label="2D wall view"
-					onClick={() => compose.setMode('2d')}
-					type="button"
-				>
+				<button className="mm-tool-button !h-7 !w-7" data-active={camera.mode === '2d'} aria-label="2D wall view" onClick={() => compose.setMode('2d')} type="button">
 					<Square size={14} strokeWidth={1.7} />
 					<span className="mm-tooltip">Wall view</span>
 				</button>
-				<button
-					className="mm-tool-button !h-7 !w-7"
-					data-active={camera.mode === 'orbit'}
-					aria-label="Orbit view"
-					onClick={() => compose.setMode('orbit')}
-					type="button"
-				>
+				<button className="mm-tool-button !h-7 !w-7" data-active={camera.mode === 'orbit'} aria-label="Orbit view" onClick={() => compose.setMode('orbit')} type="button">
 					<Box size={14} strokeWidth={1.7} />
 					<span className="mm-tooltip">Orbit · middle mouse</span>
 				</button>
 			</div>
-			<div className="mx-0.5 h-4 w-px bg-[var(--separator)]" />
-			<button className="mm-tool-button mm-tabular !h-7 !w-auto px-1.5 text-[11px]" onClick={() => compose.fitAll()} type="button">
-				{zoom}%<span className="mm-tooltip">Zoom to fit ⇧1</span>
-			</button>
 		</div>
 	);
 };

@@ -8,6 +8,7 @@ import {
 	createLane,
 	createMarble,
 	createProject,
+	LANE_SPACING,
 	parseProject,
 	pushHistory,
 	redoHistory,
@@ -52,6 +53,11 @@ export class StudioCx {
 	readonly $compose = createState<ComposeCx | null>(null);
 	/** Marble entity, lane or piece whose name is being edited in place in the sidebar */
 	readonly $renaming = createState<string | null>(null);
+	/** Pieces hidden from the canvas and locked against canvas edits, like Figma's layer toggles. View state, not saved. */
+	readonly $hidden = createState<string[]>([]);
+	readonly $locked = createState<string[]>([]);
+	/** Dropping an element links it to a hit dot or anchors it to a trajectory, like Figma's snapping */
+	readonly $snapping = createState(true);
 	readonly sources = new SourcesCx(this);
 	readonly simulation = new SimulationCx(this);
 	readonly design = new DesignCx({
@@ -240,6 +246,8 @@ export class StudioCx {
 		this.$path.set(path);
 		this.$save.set('saved');
 		this.$selection.set([]);
+		this.$hidden.set([]);
+		this.$locked.set([]);
 		this.$playhead.set(0);
 		this.$workspace.set('compose');
 		this.sources.$analysis.set({});
@@ -266,12 +274,26 @@ export class StudioCx {
 		return true;
 	}
 
-	addMarble(): void {
+	/** Adds a marble with its lane, released at `position` or to the right of the last marble */
+	addMarble(position?: TVec2): string | null {
 		const project = this.project;
-		if (project == null) return;
+		if (project == null) return null;
 		const lane = createLane(project.music.lanes.length);
-		const marble = createMarble(lane, { x: project.music.lanes.length * 0.12, y: 0.6 });
-		if (this.execute([{ type: 'upsertLane', lane }, { type: 'upsertEntity', entity: marble }])) this.$selection.set([marble.id]);
+		const releases = project.entities.flatMap((entity) => (entity.components.release != null ? [entity.components.release.position] : []));
+		const fallback = { x: releases.length ? Math.max(...releases.map((point) => point.x)) + LANE_SPACING : 0, y: releases[0]?.y ?? 0.6 };
+		const marble = createMarble(lane, position ?? fallback);
+		if (!this.execute([{ type: 'upsertLane', lane }, { type: 'upsertEntity', entity: marble }])) return null;
+		this.$selection.set([marble.id]);
+		return marble.id;
+	}
+
+	toggleHidden(id: string): void {
+		this.$hidden.set((ids) => toggleItem(ids, id));
+		if (this.$hidden.get().includes(id)) this.$selection.set(this.$selection.get().filter((item) => item !== id));
+	}
+
+	toggleLocked(id: string): void {
+		this.$locked.set((ids) => toggleItem(ids, id));
 	}
 
 	/** Starts renaming the selected marble or piece in the sidebar, like Return in Finder */

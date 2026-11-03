@@ -90,13 +90,21 @@ describe('compose keys', () => {
 	const press = (key: string, extra: Partial<TKeyInput> = {}, context: TKeyContext = none): ReturnType<typeof composeKeyAction> =>
 		composeKeyAction({ key, code: extra.code ?? `Key${key.toUpperCase()}`, shiftKey: false, metaKey: false, ctrlKey: false, altKey: false, ...extra }, context);
 
-	it('maps piece types to 1 to 4 and leaves ⇧1 and ⇧2 for framing', () => {
-		expect(press('1', { code: 'Digit1' })).toEqual({ type: 'pieceType', pieceType: 'platform' });
-		expect(press('2', { code: 'Digit2' })).toEqual({ type: 'pieceType', pieceType: 'rail' });
-		expect(press('3', { code: 'Digit3' })).toEqual({ type: 'pieceType', pieceType: 'tunnel' });
-		expect(press('4', { code: 'Digit4' })).toEqual({ type: 'pieceType', pieceType: 'windmill' });
+	it('should map the tool rail letters and leave ⇧1 and ⇧2 for framing', () => {
+		expect(press('v')).toEqual({ type: 'tool', tool: 'select' });
+		expect(press('o')).toEqual({ type: 'tool', tool: 'marble' });
+		expect(press('p')).toEqual({ type: 'tool', tool: 'platform' });
+		expect(press('b')).toEqual({ type: 'tool', tool: 'path' });
+		expect(press('u')).toEqual({ type: 'tool', tool: 'tunnel' });
+		expect(press('w')).toEqual({ type: 'tool', tool: 'windmill' });
 		expect(press('!', { code: 'Digit1', shiftKey: true })).toEqual({ type: 'fit', target: 'all' });
-		expect(press('1', { code: 'Digit1', metaKey: true })).toBeNull();
+		expect(press('v', { metaKey: true })).toBeNull();
+	});
+
+	it('should finish and step back a rail being drawn', () => {
+		const drawing = { ...none, isDrawing: true };
+		expect(press('Enter', { code: 'Enter' }, drawing)).toEqual({ type: 'finishPath' });
+		expect(press('Backspace', { code: 'Backspace' }, drawing)).toEqual({ type: 'undoPathPoint' });
 	});
 
 	it('maps the step loop keys', () => {
@@ -115,8 +123,8 @@ describe('compose keys', () => {
 		expect(press('Enter', { code: 'Enter' }, { ...none, hasGhosts: true })).toEqual({ type: 'next' });
 		expect(press('Tab', { code: 'Tab' })).toBeNull();
 		expect(press('Tab', { code: 'Tab' }, { ...none, hasGhosts: true })).toEqual({ type: 'acceptGhosts' });
-		expect(press('p')).toBeNull();
-		expect(press('p', {}, { ...none, hasPieces: true })).toEqual({ type: 'pin' });
+		expect(press('P', { code: 'KeyP', shiftKey: true })).toBeNull();
+		expect(press('P', { code: 'KeyP', shiftKey: true }, { ...none, hasPieces: true })).toEqual({ type: 'pin' });
 	});
 });
 

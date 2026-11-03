@@ -171,15 +171,17 @@ export function focusHit(cx: StudioCx, hit: THitResult): void {
 
 // MARK: - Piece edits
 
-/** Project with new angles for some pieces, for previews that should not enter history */
+/** Project with new angles for some pieces, for previews that should not enter history. Free pieces turn their transform. */
 export function withPieceAngles(project: TProject, angles: Map<string, number>): TProject {
 	return {
 		...project,
 		entities: project.entities.map((entity) => {
 			const angle = angles.get(entity.id);
-			const link = entity.components.hitLink;
-			if (angle == null || link == null) return entity;
-			return { ...entity, components: { ...entity.components, hitLink: { ...link, angle } } };
+			const { hitLink: link, transform } = entity.components;
+			if (angle == null) return entity;
+			if (link != null) return { ...entity, components: { ...entity.components, hitLink: { ...link, angle } } };
+			if (transform != null) return { ...entity, components: { ...entity.components, transform: { ...transform, angle } } };
+			return entity;
 		})
 	};
 }
@@ -188,11 +190,20 @@ export function pieceAngleCommands(project: TProject, angles: Map<string, number
 	const commands: TProjectCommand[] = [];
 	for (const entity of project.entities) {
 		const angle = angles.get(entity.id);
-		const link = entity.components.hitLink;
-		if (angle == null || link == null || link.angle === angle) continue;
-		commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'hitLink', value: { ...link, angle } } });
+		const { hitLink: link, transform } = entity.components;
+		if (angle == null) continue;
+		if (link != null && link.angle !== angle) {
+			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'hitLink', value: { ...link, angle } } });
+		} else if (link == null && transform != null && transform.angle !== angle) {
+			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'transform', value: { ...transform, angle } } });
+		}
 	}
 	return commands;
+}
+
+/** Surface angle of a piece as edited: its link's angle, or its free transform's */
+export function pieceAngle(entity: TEntity): number | null {
+	return entity.components.hitLink?.angle ?? entity.components.transform?.angle ?? null;
 }
 
 /**

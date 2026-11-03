@@ -1,3 +1,4 @@
+export * from './HelpTip';
 export * from './layout';
 export * from './Menu';
 export * from './MenuButton';

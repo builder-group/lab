@@ -37,86 +37,83 @@ Reference apps:
 
 ## Window
 
-Layout, after Paper, stays the same in Compose and Design; only the contents of each region change:
+The layout, after Paper, stays the same in Compose and Design; only the contents of each region change:
 
 ```txt
-┌──────────────────────────────────────────────────────────────────────┐
-│ ● ● ●  Projects │ Song.marble × │ +                                  │  document tabs
-├──────────────┬──┬──────────────────────────────────┬─────────────────┤
-│ Song   [◧]   │ ▸│                                  │ 100% ⌄  Export  │
-│[Compose|Design]│ ✋│                                  │ ─────────────── │
-│ Marbles    +  │ ─│           canvas                 │ World / Piece   │
-│  ● Melody     │ ●│   (pegboard or Blender preview)  │ sections        │
-│  ● Bass       │ ▭│                                  │                 │
-│ Layers        │ ✎│                                  │                 │
-│  ▭ Platform 1 │ ⊂│                                  │                 │
-│  ✎ Rail 1     │ ✳│                                  │                 │
-│               ├──┴──────────────────────────────────┴─────────────────┤
-│               │ ⏮ ▶ ⏭ 0:12.40 │ ruler · playhead · lanes (timeline)   │
-└──────────────┴───────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│ ● ● ● [◧] [⌂] [ Song ● × ] +            activity             [▭] [◨]    │  title bar
+├───────────────┬──┬──────────────────────────────────────┬────────────────┤
+│ Song          │ ▸│                          [⊙ ▢ ◫]    │ 100% ⌄  Export │
+│[Compose|Design]│ ✋│                                      │ World / Piece  │
+│ Marbles     + │ ─│                canvas                │ sections       │
+│  ● Melody 9/16│ ◯│      (pegboard or Blender preview)   │                │
+│ Layers        │ ▭│                                      │                │
+│  ◯ Melody     │ ✎│        [ Next N | ⟳ ⇋ ✦ | » 7 ⇥ ]     │                │
+│    ▭ Platform │ ⊂├──────────────────────────────────────┴────────────────┤
+│  ▭ Platform 9 │ ✳│ ⏮ ◇ ▶ ◇ 0:12.40 / 0:35.00               − + ⇆       │  transport
+│               │  │ Marbles  + │ ruler · playhead · lanes                │  timeline
+└───────────────┴──┴─────────────────────────────────────────────────────────┘
 ```
 
-- Sidebar, full height: project name and sidebar toggle, the Compose and Design segmented control, Marbles (like Paper's Pages, with +), then the layer list of the workspace. In Design the layer list stays and the library sits below it
-- Tool rail: Move and Hand, then the workspace's tools. Compose: Marble, Platform, Path (rails), Tunnel, Windmill. Design: Text and Asset
-- Inspector: zoom and Export at the top, then compact sections for the selection, or World and Project without one
-- Timeline: spans canvas and inspector at the bottom, with transport in its header
-
-```txt
-┌──────────────────────────────────────────────────────────────┐
-│ ● ● ●  Song name   [ Compose | Design ]   ◀ ▶ ■  0:12.40   ⓘ │  unified toolbar
-├────────────┬───────────────────────────────────┬─────────────┤
-│ Sidebar    │ Canvas                            │ Inspector   │
-│ marbles    │ Compose: pegboard view            │ selection   │
-│ pieces     │ Design: rendered preview          │ properties  │
-│ library    │                                   │ agent chat  │
-├────────────┴───────────────────────────────────┴─────────────┤
-│ Timeline: one lane per marble, shot markers in Design        │
-└──────────────────────────────────────────────────────────────┘
-```
-
-- The toolbar holds the window controls, the sidebar toggle, project name with its save state, the Compose and Design segmented control, transport (Go to Beginning, Previous Hit, Play, Next Hit), the time readout and the timeline and inspector toggles. Long jobs show progress here, like the Xcode activity view.
-- The sidebar is translucent, like Finder and Notes. In Compose it is an outliner like Blender's: marbles with disclosure triangles and a placed/total hit count, their pieces in hit order with a type icon. Only problems get a status badge, like Xcode's navigator. Double-click renames in place.
-- The inspector edits the selection. It opens with a header row naming what is inspected with an icon tile, then collapsible panels like Blender's properties editor (Transform, Physics, Timing for a piece; Hit and Piece for a hit; Marble and Hits for a marble; Project and Music without a selection). Collapsed panels are remembered. In Design it also hosts the agent conversation for the selection.
-- The timeline is resizable from its top edge and collapsible. Its height is remembered; double-clicking the edge resets it.
+- Title bar: the traffic lights, the sidebar toggle, a Projects tab (house) that returns to the start window, the open project as a document tab with an edited dot and a close button, + for a new project, the activity view in the middle and the timeline and inspector toggles on the right. Panel toggles say Show or Hide in their native tooltip
+- Sidebar, full height and translucent like Finder and Photos: the project name (double-click renames), the Compose and Design segmented control, Marbles (like Paper's pages, with + for Add Marble, Place Marble on Canvas and the imports) and the layer list. In Design the layer list stays on top and the library sits below it
+- Layers read like Figma's layer list: each marble is a group with the pieces linked or anchored to it in hit order, then the free pieces, newest first. Rows show a type icon, the name, a link or anchor glyph, problem badges only, and eye and lock toggles on hover that stay visible while on. Hidden and locked are view state. Click selects, ⌘-click toggles, Shift-click selects a range, double-click renames
+- Tool rail, 48 px, between sidebar and canvas: Move and Hand, then the workspace's tools. Compose: Marble, Platform, Path (rails), Tunnel, Windmill. Design: Move, Text, Asset. Tooltips open to the right with the name, one line of help and the key
+- Inspector: zoom with its menu (zoom, fit, snapping, wall and orbit) and the Export button at the top, then compact sections for the selection, or the World without one
+- Timeline: spans canvas and inspector at the bottom. Its header holds the transport like a video editor: Go to Beginning, Previous Hit, Play, Next Hit and the time with the length, then the zoom controls at the far end. Play is the one round, filled button in the window
+- Nothing floats over the canvas except feedback and the contextual build bar: the 2D, orbit and snap toggles sit in its top right corner
+- Sheets, the ⌘K palette and context menus are unchanged
 - A start window offers Empty, From MIDI, From Audio, Examples and recent projects.
+
+The inspector edits the selection with a header row naming what is inspected with an icon tile, then collapsible panels whose state is remembered: Transform (X and Y side by side, Angle, Length, Contact), Attachment (Free, Linked to Hit N with the note and Unlink, Anchored to a marble at a time with Unanchor, Pinned), Physics and Timing for a piece; Marble, Release and Hits for a marble; Hit and Piece for a hit; Physics (Speed slider), Film (Frame, Length) and Music for the World. Explanations sit behind a ? icon. Positions of linked and anchored pieces show dimmed, since they follow the marble. In Design the inspector hosts the agent conversation for the selection. The timeline is resizable from its top edge and collapsible; its height is remembered and double-clicking the edge resets it.
 
 ## Canvas
 
-Floating UI belongs to the canvas, as in Figma UI3: the tool bar floats at the bottom centre of the canvas, notices appear above it, and nothing floats over the timeline or panels.
+The canvas is open like Figma: every element is placed with its tool, moved by dragging and turned with its grip.
 
-- Floating tool bar: Select (V), Hand (H), the piece types Platform (1), Rail (2), Tunnel (3) and Windmill (4), then Next, Repeat, Mirror, Auto place and Continue
+- Move (V) selects, drags and turns. Dragging a piece moves it with the pointer every frame while the run behind it re-simulates as a what-if; the trajectory shown is where the marble goes if the piece stays there
+- Drops attach like Figma's snapping, with a chip beside the piece saying what will happen: over a hit dot a platform links (accent ring on the dot, chip "Hit 4 · C5") and plays that note; near a trajectory any piece anchors to that moment (chip with the marble and time); elsewhere it stays free. Hold ⌥ while dragging to drop it free; the magnet toggle in the canvas corner and View › Snap to Dots and Trajectories turn snapping off
+- Shift keeps a move on one axis and snaps rotation to 5°, 15° while placing
+- Marble (O) releases a new marble where clicked and adds its lane. Platform (P) places a free platform on click, or orients it along a drag; on a hit dot it places an auto-placed platform right away. Tunnel (U) and Windmill (W) place free on click, or anchor where a trajectory is clicked
+- Path (B) draws rails like Figma's pen: click adds a point, dragging pulls symmetric curve handles (⌥ moves only the outgoing one), Return or a click on the first or last point finishes, Backspace removes the last point, Escape cancels. The run follows the rail while drawing. A rail that starts on a trajectory is anchored there. A selected drawn rail shows its points and handles for editing; ⌥ breaks a handle's symmetry
+- Clicking an open hit dot opens its insert menu at the dot: Auto-Placed Platform, Platform, and for a long gap Switchback, Rail and Tunnel, then Go to Hit
+- The contextual build bar sits under the selected linked piece, or under the next open dot when nothing is selected, like Figma's selection toolbar: Next, Repeat, Mirror, Auto Place and, when the rhythm repeats, Continue with the count. Its keys work everywhere. It hides while dragging, drawing, playing or when its target is out of view
 - Pieces use flat toy colours: platform coral, rail blue, tunnel violet, windmill green. Every piece keeps a visible minimum size at any zoom, and marbles keep a minimum on-screen radius
-- Suggestions are ghosts: dashed, see-through pieces with dashed dots and a small hint chip showing the key that accepts them
-
+- Suggestions are ghosts: dashed, see-through pieces with dashed dots. They hide while an element is dragged
 - Two-finger scroll pans, pinch zooms, Space and drag pans
 - ⌘+ and ⌘− zoom, ⇧1 fits everything, ⇧2 fits the selection, ⇧3 zooms to the film frame width around the marble
 - The 2D and orbit toggle sits in the canvas corner; Blender users can orbit with the middle mouse button
 - The dot grid fades between densities while zooming
-- Projects open in the film-frame view, with the marble in the upper third; during playback the canvas follows the marble vertically
+- Projects open in the film-frame view, with the marble in the upper third; during playback the canvas follows the marble vertically, and a piece placed by an assist is panned into view
 
 ## Selection and editing
 
 - Click selects, Shift-click adds, dragging on empty canvas draws a marquee, Escape clears
 - Selecting a piece moves the playhead to its hit, unless playing, so the piece is never shown ghosted
-- Long-gap dots are diamonds with a dashed ring; hovering one offers Add Rail and Add Tunnel. Dots outside the frame are red and say by how much
-- Delete removes, ⌘A selects all pieces, ⌘Z and ⇧⌘Z undo and redo. Pieces are bound to hits, so there is no Duplicate; Repeat and Continue copy a piece onto the next hits
+- Long-gap dots are diamonds with a dashed ring; their insert menu offers Switchback, Rail and Tunnel. Dots outside the frame are red and say by how much
+- Delete removes, ⌘A selects all pieces, ⌘Z and ⇧⌘Z undo and redo. There is no Duplicate yet; Repeat and Continue copy a piece onto the next hits
 - Right-click selects what is under the pointer and opens a context menu with the same commands and shortcuts as the palette: pieces (Auto Place, Pin, Rotate, Zoom to Selection, Rename, Delete), open dots (place any piece type, bridge a long gap), marbles and lanes (Add Hit, Mute, Solo, Rename, Delete Marble), timeline hits (Go to Hit, Play from Hit, Select Piece, Move to another marble, Delete) and empty canvas (step loop and view)
 - Numeric fields scrub when dragging their label, like Figma, and show units: cm, degrees, ms
 
-## Step loop keys
+## Keys
 
 | Key        | Action                                                          |
 | ---------- | --------------------------------------------------------------- |
-| Return, N  | Next: place the next dot, or accept the ghosts on screen        |
-| Tab        | Accept the Continue ghosts or the rail suggestion               |
-| Escape     | Cancel the drag, then dismiss ghosts, then leave the piece tool |
-| 1 to 4     | Platform, Rail, Tunnel, Windmill tool                           |
-| R          | Repeat                                                          |
-| M          | Mirror                                                          |
-| A          | Auto place the selected piece, or the next dot                  |
-| P          | Pin or unpin                                                    |
+| V, H       | Move and Hand tools                                             |
+| O          | Marble tool                                                     |
+| P          | Platform tool                                                   |
+| B          | Path tool for rails                                             |
+| U, W       | Tunnel and Windmill tools                                       |
+| T          | Tap a hit at the playhead in Compose; Text tool in Design       |
+| Return, N  | Next: place the next dot, or accept the ghosts on screen; Return finishes a rail being drawn |
+| Tab        | Accept the Continue ghosts or the gap suggestion                |
+| Escape     | Cancel the drag or rail, then dismiss ghosts, then leave the tool, then clear the selection |
+| R, M, A    | Repeat, Mirror, Auto place                                      |
+| ⇧P         | Pin or unpin                                                    |
+| ⌥ (held)   | Drop free while dragging; break handle symmetry on the Path tool |
+| ← →        | Turn selected pieces 1° (⇧ 5°); without pieces, previous and next hit |
 
-Return acts as Next only while something is selected or offered; otherwise it keeps its timeline meaning and jumps to the start. T stays with the timeline for tapping hits.
+Return acts as Next only while something is selected or offered; otherwise it keeps its timeline meaning and jumps to the start.
 
 ## Timeline
 
@@ -154,9 +151,9 @@ If no agent CLI is installed, or a run fails because the CLI is not logged in, t
 ## Design workspace
 
 - Library tiles follow Blender's asset browser in a Finder-style sidebar: two columns of 4:3 thumbnails with a name and a secondary line, a search field, collapsible sections. The applied theme gets an accent ring and a check badge; a selected item gets a grey tile and the ring. Items that do not fit the selected piece type are dimmed
-- The toolbar activity view (Xcode) sits next to the workspace switcher: Blender's state (Starting, Updating scene, Rendering preview, Ready), agents at work and the export with a hairline progress bar. Clicking it during an export shows the export sheet
+- The activity view (Xcode) sits in the middle of the title bar: Blender's state (Starting, Updating scene, Rendering preview, Ready), agents at work and the export with a hairline progress bar. Clicking it during an export shows the export sheet
 - Placing wall text uses a crosshair cursor and a floating hint with an esc keycap; Escape cancels
-- Sheets (Import MIDI, Export Film) drop from the toolbar with AppKit-style right-aligned form labels and dialog buttons; Return runs the default button and Escape cancels
+- Sheets (Import MIDI, Export Film) drop from the title bar with AppKit-style right-aligned form labels and dialog buttons; Return runs the default button and Escape cancels
 ## Visual style
 
 - System font through `-apple-system`, compact density like Finder and Logic
@@ -173,6 +170,6 @@ If no agent CLI is installed, or a run fails because the CLI is not logged in, t
 - Fields are 22 px high with a half-pixel border, the unit inside on the right in 11 px tertiary, and an accent focus ring. Numeric labels scrub on drag like Figma and brighten on hover; arrow keys step, Shift steps ten times
 - Pop-up buttons are native selects drawn with the AppKit double chevron. Checkboxes are 14 px with a 3.5 px radius, accent fill and a dark check
 - Menus are translucent with 22 px items, a check mark column, right-aligned shortcut glyphs and section headers. They take keyboard focus: arrows move, Return runs, Escape closes, and they flip to stay inside the window
-- Tooltips on window chrome are native `title` tooltips that name the command and its shortcut, and say Show or Hide for panel toggles; the canvas tool bar uses Figma-style tooltips with a keycap
-- Empty states name the next action with a short title in Title Case, one sentence of help and a button where one fits: no hits shows Import MIDI and Import Audio on the canvas; hits without pieces show a hint to click the pulsing dot or press N
+- Tooltips on window chrome are native `title` tooltips that name the command and its shortcut, and say Show or Hide for panel toggles; the tool rail and the build bar use Figma-style tooltips with a keycap; inspector explanations sit behind a ? icon with a bubble
+- Empty states name the next action with a short title in Title Case, one sentence of help and a button where one fits: no hits shows Add Music with MIDI and Audio at the bottom of the canvas; with open hits the build bar waits under the pulsing dot
 - Dropping a file shows an accent drop frame over the window, like Finder and Logic

@@ -77,8 +77,18 @@ const SHitLinkComponent = z.strictObject({
 	offset: SVec2.optional()
 });
 
+// Bézier anchor of a rail drawn with the path tool; handles are offsets from the point
+const SPathNode = z.strictObject({
+	point: SVec2,
+	in: SVec2.optional(),
+	out: SVec2.optional()
+});
+
 const SPathComponent = z.strictObject({
-	points: z.array(SVec2).min(2)
+	points: z.array(SVec2).min(2),
+	// The editable curve the points were sampled from, set for rails drawn with the path tool. The engine
+	// only reads `points`; files without nodes stay valid.
+	nodes: z.array(SPathNode).min(2).optional()
 });
 
 const SSkinComponent = z.strictObject({
@@ -262,3 +272,4 @@ export type TDesign = z.infer<typeof SDesign>;
 export type TShot = z.infer<typeof SShot>;
 export type TTempo = z.infer<typeof STempo>;
 export type TPhysics = z.infer<typeof SPhysics>;
+export type TPathNode = z.infer<typeof SPathNode>;

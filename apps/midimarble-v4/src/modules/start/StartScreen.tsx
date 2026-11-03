@@ -96,7 +96,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 					recent.map((item) => (
 						<button
 							key={item.path}
-							className="mm-row !h-11 w-[calc(100%-16px)] text-left"
+							className="mm-row !h-11 w-[calc(100%-16px)] shrink-0 text-left"
 							onClick={() => void cx.openProject(item.path)}
 							title={item.path}
 							type="button"
@@ -115,7 +115,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 				{examples.map((example) => (
 					<button
 						key={example.id}
-						className="mm-row !h-11 w-[calc(100%-16px)] text-left"
+						className="mm-row !h-11 w-[calc(100%-16px)] shrink-0 text-left"
 						onClick={() => void openExample(example)}
 						type="button"
 					>

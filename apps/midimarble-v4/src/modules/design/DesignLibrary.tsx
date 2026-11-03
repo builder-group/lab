@@ -81,6 +81,7 @@ export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 			<div className="relative mx-3 mb-1.5">
 				<Search size={12} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-[var(--text-tertiary)]" />
 				<input
+					id="library-search"
 					className="mm-input mm-search"
 					placeholder="Search"
 					aria-label="Search the library"

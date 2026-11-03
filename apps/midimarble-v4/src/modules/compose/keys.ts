@@ -1,5 +1,5 @@
-// Compose keyboard map. Tools and the step loop use single letters like Blender and Figma; piece types
-// sit on 1 to 4 in tool bar order. ⇧1 and ⇧2 frame like Figma, and T stays free for tapping hits.
+// Compose keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B), the build assists
+// keep theirs (N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma and T stays free for tapping hits.
 
 export interface TKeyInput {
 	key: string;
@@ -17,13 +17,17 @@ export interface TKeyContext {
 	hasSelection: boolean;
 	/** Ghost pieces are on the canvas */
 	hasGhosts: boolean;
+	/** A rail is being drawn with the path tool */
+	isDrawing?: boolean;
 }
+
+/** Tools of the Compose tool rail, in rail order */
+export type TComposeTool = 'select' | 'hand' | 'marble' | 'platform' | 'path' | 'tunnel' | 'windmill';
 
 export type TComposeKeyAction =
 	| { type: 'zoom'; factor: number }
 	| { type: 'fit'; target: 'all' | 'selection' | 'frame' }
-	| { type: 'tool'; tool: 'select' | 'hand' }
-	| { type: 'pieceType'; pieceType: string }
+	| { type: 'tool'; tool: TComposeTool }
 	| { type: 'next' }
 	| { type: 'acceptGhosts' }
 	| { type: 'escape' }
@@ -32,15 +36,23 @@ export type TComposeKeyAction =
 	| { type: 'repeat' }
 	| { type: 'mirror' }
 	| { type: 'autoPlace' }
-	| { type: 'pin' };
+	| { type: 'pin' }
+	| { type: 'finishPath' }
+	| { type: 'undoPathPoint' };
 
-/** Piece types in tool bar order with their number keys */
-export const pieceKeys: { type: string; code: string; key: string }[] = [
-	{ type: 'platform', code: 'Digit1', key: '1' },
-	{ type: 'rail', code: 'Digit2', key: '2' },
-	{ type: 'tunnel', code: 'Digit3', key: '3' },
-	{ type: 'windmill', code: 'Digit4', key: '4' }
+/** Tool rail keys, shared by the rail tooltips and the command palette */
+export const toolKeys: { tool: TComposeTool; code: string; key: string }[] = [
+	{ tool: 'select', code: 'KeyV', key: 'V' },
+	{ tool: 'hand', code: 'KeyH', key: 'H' },
+	{ tool: 'marble', code: 'KeyO', key: 'O' },
+	{ tool: 'platform', code: 'KeyP', key: 'P' },
+	{ tool: 'path', code: 'KeyB', key: 'B' },
+	{ tool: 'tunnel', code: 'KeyU', key: 'U' },
+	{ tool: 'windmill', code: 'KeyW', key: 'W' }
 ];
+
+/** Piece type each piece tool places */
+export const toolPieceType: Partial<Record<TComposeTool, string>> = { platform: 'platform', path: 'rail', tunnel: 'tunnel', windmill: 'windmill' };
 
 /** The action a key press asks for, or null when Compose leaves it to the studio or the browser */
 export function composeKeyAction(input: TKeyInput, context: TKeyContext): TComposeKeyAction | null {
@@ -54,6 +66,10 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 	if (input.shiftKey && (input.code === 'Digit1' || input.code === 'Digit2' || input.code === 'Digit3')) {
 		const target = input.code === 'Digit1' ? 'all' : input.code === 'Digit2' ? 'selection' : 'frame';
 		return { type: 'fit', target };
+	}
+	if (context.isDrawing === true) {
+		if (input.key === 'Enter') return { type: 'finishPath' };
+		if (input.key === 'Backspace' || input.key === 'Delete') return { type: 'undoPathPoint' };
 	}
 
 	switch (input.key) {
@@ -73,15 +89,11 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 			// Positive angles turn counter-clockwise, so Right turns the bar clockwise like a dial
 			return { type: 'nudge', degrees: (input.key === 'ArrowRight' ? -1 : 1) * (input.shiftKey ? 5 : 1) };
 	}
-	if (input.shiftKey) return null;
+	if (input.shiftKey) return key === 'p' && context.hasPieces ? { type: 'pin' } : null;
 
-	const piece = pieceKeys.find((item) => item.code === input.code);
-	if (piece != null) return { type: 'pieceType', pieceType: piece.type };
+	const tool = toolKeys.find((item) => item.code === input.code);
+	if (tool != null) return { type: 'tool', tool: tool.tool };
 	switch (key) {
-		case 'v':
-			return { type: 'tool', tool: 'select' };
-		case 'h':
-			return { type: 'tool', tool: 'hand' };
 		case 'n':
 			return { type: 'next' };
 		case 'r':
@@ -90,8 +102,6 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 			return { type: 'mirror' };
 		case 'a':
 			return { type: 'autoPlace' };
-		case 'p':
-			return context.hasPieces ? { type: 'pin' } : null;
 	}
 	return null;
 }

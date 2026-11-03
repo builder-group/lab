@@ -8,7 +8,8 @@ import { Inspector } from './Inspector';
 import { Notice } from './Notice';
 import { Sidebar } from './Sidebar';
 import type { StudioCx } from './StudioCx';
-import { StudioToolbar } from './StudioToolbar';
+import { TitleBar } from './TitleBar';
+import { ToolRail } from './ToolRail';
 import { Timeline } from './Timeline';
 import { useFileDrop } from './use-file-drop';
 import { usePlayback } from './use-playback';
@@ -25,19 +26,21 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 
 	return (
 		<div className="relative flex h-full flex-col">
-			<StudioToolbar cx={cx} />
+			<TitleBar cx={cx} />
 			<div className="flex min-h-0 flex-1">
 				{panels.sidebar ? <Sidebar cx={cx} /> : null}
-				<main
-					className="relative min-w-0 flex-1 border-t border-[var(--separator)]"
-					aria-label={workspace === 'compose' ? 'Compose canvas' : 'Design preview'}
-				>
-					{canvas}
-					<Notice cx={cx} />
-				</main>
-				{panels.inspector ? <Inspector cx={cx} /> : null}
+				<div className="flex min-w-0 flex-1 flex-col">
+					<div className="flex min-h-0 flex-1">
+						<ToolRail cx={cx} />
+						<main className="relative min-w-0 flex-1" aria-label={workspace === 'compose' ? 'Compose canvas' : 'Design preview'}>
+							{canvas}
+							<Notice cx={cx} />
+						</main>
+						{panels.inspector ? <Inspector cx={cx} /> : null}
+					</div>
+					{panels.timeline ? <Timeline cx={cx} /> : null}
+				</div>
 			</div>
-			{panels.timeline ? <Timeline cx={cx} /> : null}
 			<ImportMidiSheet cx={cx} />
 			<ExportSheet cx={cx} />
 			<CommandPalette cx={cx} />

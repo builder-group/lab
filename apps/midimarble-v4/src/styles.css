@@ -208,7 +208,7 @@ textarea {
 
 .mm-field {
 	display: grid;
-	grid-template-columns: 76px 1fr;
+	grid-template-columns: 76px minmax(0, 1fr);
 	align-items: center;
 	gap: 8px;
 	min-height: 26px;
@@ -1395,5 +1395,404 @@ textarea {
 
 	.mm-delayed-fade {
 		opacity: 1;
+	}
+}
+
+/* MARK: - Window shell (Paper layout, native surfaces) */
+
+/* Document title bar: tabs like Paper's, on the window background like a macOS unified toolbar */
+.mm-titlebar {
+	background: var(--window);
+	border-bottom: 1px solid var(--separator);
+}
+
+.mm-doc-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 26px;
+	max-width: 240px;
+	padding: 0 8px;
+	border-radius: 7px;
+	color: var(--text-secondary);
+	font-weight: 500;
+}
+
+.mm-doc-tab:hover {
+	background: var(--hover);
+	color: var(--text);
+}
+
+.mm-doc-tab[data-active='true'] {
+	padding-right: 4px;
+	background: var(--content-raised);
+	color: var(--text);
+	box-shadow:
+		0 0 0 0.5px var(--control-border),
+		0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+.mm-doc-dot {
+	width: 6px;
+	height: 6px;
+	flex-shrink: 0;
+	border-radius: 3px;
+	background: var(--text-tertiary);
+}
+
+.mm-doc-close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 4px;
+	color: var(--text-tertiary);
+}
+
+.mm-doc-close:hover {
+	background: var(--pressed);
+	color: var(--text);
+}
+
+/* Full-height source list, translucent like Finder and Photos */
+.mm-sidebar {
+	background: var(--chrome);
+	border-right: 1px solid var(--separator);
+	-webkit-backdrop-filter: blur(20px);
+	backdrop-filter: blur(20px);
+}
+
+.mm-layer-row[data-dimmed='true'] > span:not(:last-child) {
+	opacity: 0.4;
+}
+
+/* Eye and lock toggles appear on hover, and stay while on, like Figma's layer list */
+.mm-row-toggle {
+	display: none;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	border-radius: 4px;
+	color: var(--text-secondary);
+}
+
+.mm-row-toggle:hover {
+	background: var(--pressed);
+	color: var(--text);
+}
+
+.mm-layer-row:hover .mm-row-toggle,
+.mm-row-toggle[data-on='true'] {
+	display: inline-flex;
+}
+
+.mm-row[data-active='true'] .mm-row-toggle {
+	color: color-mix(in srgb, var(--on-selection-active) 70%, transparent);
+}
+
+/* Vertical tool rail after Paper */
+.mm-tool-rail {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	width: 48px;
+	flex-shrink: 0;
+	padding: 8px 0;
+	background: var(--content);
+	border-right: 1px solid var(--separator);
+}
+
+.mm-tool-rail .mm-tool-button {
+	width: 34px;
+	height: 34px;
+}
+
+.mm-tool-rail-divider {
+	width: 20px;
+	height: 1px;
+	margin: 4px 0;
+	background: var(--separator);
+}
+
+.mm-tooltip-right {
+	top: 50%;
+	bottom: auto;
+	left: calc(100% + 8px);
+	z-index: 50;
+	transform: translateY(-50%);
+}
+
+.mm-inspector {
+	display: flex;
+	flex-direction: column;
+	overflow-x: hidden;
+	width: 264px;
+	flex-shrink: 0;
+	background: var(--content);
+	border-left: 1px solid var(--separator);
+}
+
+.mm-inspector-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 40px;
+	flex-shrink: 0;
+	padding: 0 10px 0 6px;
+	border-bottom: 1px solid var(--separator);
+}
+
+.mm-zoom-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	height: 24px;
+	padding: 0 6px;
+	border-radius: 6px;
+	color: var(--text);
+}
+
+.mm-zoom-button:hover,
+.mm-zoom-button[data-active='true'] {
+	background: var(--hover);
+}
+
+/* Two compact fields side by side with one-letter labels, like Figma's X and Y */
+.mm-field-pair {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 6px;
+	padding-left: 24px;
+}
+
+.mm-field-pair > .mm-field {
+	grid-template-columns: 12px 1fr;
+	gap: 6px;
+}
+
+.mm-field[data-disabled='true'] .mm-input {
+	opacity: 0.55;
+}
+
+.mm-field[data-disabled='true'] > label {
+	cursor: default;
+}
+
+.mm-attach-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 26px;
+}
+
+/* Question mark that explains a control, with the explanation in a bubble */
+.mm-help {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 8px;
+	color: var(--text-tertiary);
+	cursor: help;
+}
+
+.mm-help:hover,
+.mm-help:focus-visible {
+	color: var(--text-secondary);
+}
+
+.mm-help-bubble {
+	position: absolute;
+	top: calc(100% + 6px);
+	right: -6px;
+	z-index: 60;
+	width: 220px;
+	padding: 6px 8px;
+	border-radius: 7px;
+	background: rgb(30 30 30 / 0.95);
+	color: rgb(255 255 255 / 0.94);
+	font-size: 11px;
+	font-weight: 400;
+	line-height: 1.4;
+	text-align: left;
+	white-space: normal;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.12s;
+}
+
+.mm-help[data-side='right'] .mm-help-bubble {
+	right: auto;
+	left: -6px;
+}
+
+.mm-help:hover .mm-help-bubble,
+.mm-help:focus-visible .mm-help-bubble {
+	opacity: 1;
+	transition-delay: 0.2s;
+}
+
+/* Native-looking slider with the accent fill up to the value */
+.mm-slider {
+	appearance: none;
+	-webkit-appearance: none;
+	height: 4px;
+	border-radius: 2px;
+	background: linear-gradient(to right, var(--accent) var(--fill, 50%), var(--pressed) var(--fill, 50%));
+	outline: none;
+}
+
+.mm-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 16px;
+	height: 16px;
+	border-radius: 8px;
+	background: #fff;
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.2),
+		0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+/* MARK: - Timeline transport */
+
+.mm-transport {
+	display: flex;
+	align-items: center;
+	height: 36px;
+	flex-shrink: 0;
+	padding: 0 8px 0 10px;
+	border-bottom: 1px solid var(--separator);
+	background: var(--content);
+}
+
+/* The one play control: a filled triangle in a round button, like QuickTime and Final Cut */
+.mm-play-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	margin: 0 2px;
+	border-radius: 15px;
+	background: var(--text);
+	color: var(--content);
+	padding-left: 2px;
+}
+
+.mm-play-button[data-playing='true'] {
+	padding-left: 0;
+}
+
+.mm-play-button:hover {
+	opacity: 0.85;
+}
+
+.mm-time-display {
+	display: inline-flex;
+	align-items: center;
+	height: 24px;
+	margin-left: 8px;
+	padding: 0 8px;
+	border-radius: 6px;
+	background: var(--hover);
+	font-size: 12px;
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+/* MARK: - Canvas feedback */
+
+/* What a drop will do, next to the dragged piece */
+.mm-snap-chip {
+	position: absolute;
+	z-index: 15;
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	height: 20px;
+	padding: 0 7px;
+	border-radius: 6px;
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+	font-size: 11px;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.mm-snap-chip[data-snapped='true'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.mm-snap-chip kbd {
+	font-family: var(--font);
+}
+
+/* Contextual build bar under the piece or dot it acts on, like Figma's selection toolbar */
+.mm-assist-bar {
+	position: absolute;
+	z-index: 18;
+	display: flex;
+	align-items: center;
+	gap: 1px;
+	padding: 3px;
+	border-radius: 10px;
+	background: var(--content-raised);
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.12),
+		0 4px 14px rgb(0 0 0 / 0.14);
+	transform: translateX(-50%);
+}
+
+.mm-assist-button {
+	position: relative;
+	white-space: nowrap;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	height: 26px;
+	min-width: 28px;
+	padding: 0 6px;
+	border-radius: 7px;
+	color: var(--text);
+	font-weight: 500;
+}
+
+.mm-assist-button[data-text='true'] {
+	padding: 0 6px 0 9px;
+}
+
+.mm-assist-button:hover {
+	background: var(--hover);
+}
+
+.mm-assist-button:hover .mm-tooltip {
+	opacity: 1;
+	transition-delay: 0.45s;
+}
+
+.mm-assist-divider {
+	width: 1px;
+	height: 16px;
+	margin: 0 3px;
+	background: var(--separator);
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-assist-bar {
+		box-shadow:
+			0 0 0 0.5px rgb(255 255 255 / 0.14),
+			0 4px 14px rgb(0 0 0 / 0.45);
+	}
+
+	.mm-slider::-webkit-slider-thumb {
+		background: #d8d8da;
 	}
 }

@@ -1,5 +1,6 @@
 import type { TMenuItem } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
+import { toolKeys, type TComposeTool } from '@/modules/compose/keys';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import type { TRenderPreset } from '@/modules/blender';
 import { themeCommands } from '@/modules/design/design-commands';
@@ -86,25 +87,20 @@ function hasHits(cx: StudioCx): boolean {
 	return cx.$selection.get().some((key) => parseHitKey(key) != null);
 }
 
-function isTool(cx: StudioCx, tool: 'select' | 'hand'): boolean {
+function isTool(cx: StudioCx, tool: TComposeTool): boolean {
 	return compose(cx)?.$tool.get() === tool;
 }
 
-function isPieceTool(cx: StudioCx, type: string): boolean {
-	const canvas = compose(cx);
-	return canvas?.$tool.get() === 'piece' && canvas.$pieceType.get() === type;
-}
-
-function pieceTool(type: 'platform' | 'rail' | 'tunnel' | 'windmill', title: string, shortcut: string): TCommand {
+function toolCommand(tool: TComposeTool, title: string, keywords: string): TCommand {
 	return {
-		id: `tool.${type}`,
+		id: `tool.${tool}`,
 		title,
 		section: 'Tools',
-		shortcut,
-		keywords: 'piece add place',
+		shortcut: toolKeys.find((item) => item.tool === tool)?.key,
+		keywords,
 		isEnabled: (cx) => compose(cx) != null,
-		isChecked: (cx) => isPieceTool(cx, type),
-		run: (cx) => compose(cx)?.runKeyAction({ type: 'pieceType', pieceType: type })
+		isChecked: (cx) => isTool(cx, tool),
+		run: (cx) => compose(cx)?.$tool.set(tool)
 	};
 }
 
@@ -155,6 +151,14 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.fitAll', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
 	{ id: 'view.fitFrame', title: 'Zoom to Film Frame', section: 'View', shortcut: '⇧3', keywords: 'frame film width follow marble', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitFrame() },
 	{ id: 'view.fitSelection', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => compose(cx)?.fitSelection() },
+	{
+		id: 'view.snap',
+		title: 'Snap to Dots and Trajectories',
+		section: 'View',
+		keywords: 'magnet snapping link anchor attach',
+		isChecked: (cx) => cx.$snapping.get(),
+		run: (cx) => cx.$snapping.set(!cx.$snapping.get())
+	},
 	{ id: 'view.wall', title: 'Wall View', section: 'View', keywords: '2d front', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === '2d', run: (cx) => compose(cx)?.setMode('2d') },
 	{ id: 'view.orbit', title: 'Orbit View', section: 'View', keywords: '3d perspective', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'orbit', run: (cx) => compose(cx)?.setMode('orbit') },
 
@@ -166,12 +170,34 @@ export const commands: readonly TCommand[] = [
 	{ id: 'play.tap', title: 'Tap Hit at Playhead', section: 'Playback', shortcut: 'T', keywords: 'record tap along', isEnabled: hasProject, run: (cx) => cx.tapHit() },
 
 	// MARK: - Tools
-	{ id: 'tool.select', title: 'Select Tool', section: 'Tools', shortcut: 'V', keywords: 'move pointer', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => isTool(cx, 'select'), run: (cx) => compose(cx)?.$tool.set('select') },
-	{ id: 'tool.hand', title: 'Hand Tool', section: 'Tools', shortcut: 'H', keywords: 'pan', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => isTool(cx, 'hand'), run: (cx) => compose(cx)?.$tool.set('hand') },
-	pieceTool('platform', 'Platform Tool', '1'),
-	pieceTool('rail', 'Rail Tool', '2'),
-	pieceTool('tunnel', 'Tunnel Tool', '3'),
-	pieceTool('windmill', 'Windmill Tool', '4'),
+	toolCommand('select', 'Move Tool', 'select pointer arrow'),
+	toolCommand('hand', 'Hand Tool', 'pan'),
+	toolCommand('marble', 'Marble Tool', 'add marble release lane ball'),
+	toolCommand('platform', 'Platform Tool', 'piece add place bar'),
+	toolCommand('path', 'Path Tool', 'rail pen bezier curve draw'),
+	toolCommand('tunnel', 'Tunnel Tool', 'piece add tube'),
+	toolCommand('windmill', 'Windmill Tool', 'piece add rotor blades'),
+	{
+		id: 'tool.text',
+		title: 'Text Tool',
+		section: 'Design',
+		shortcut: 'T',
+		keywords: 'wall text title label',
+		isEnabled: inDesign,
+		isChecked: (cx) => cx.design.$placing.get() === 'text',
+		run: (cx) => getCommand('design.addText').run(cx)
+	},
+	{
+		id: 'tool.asset',
+		title: 'Asset Tool',
+		section: 'Design',
+		keywords: 'library skin decoration theme',
+		isEnabled: inDesign,
+		run: (cx) => {
+			cx.$panels.set((panels) => ({ ...panels, sidebar: true }));
+			requestAnimationFrame(() => document.getElementById('library-search')?.focus());
+		}
+	},
 
 	// MARK: - Build
 	{ id: 'build.next', title: 'Next', section: 'Build', shortcut: 'N', keywords: 'place step', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.next() },
@@ -195,7 +221,7 @@ export const commands: readonly TCommand[] = [
 		id: 'build.pin',
 		title: 'Pin',
 		section: 'Build',
-		shortcut: 'P',
+		shortcut: '⇧P',
 		keywords: 'unpin lock keep in place',
 		isEnabled: hasPieces,
 		isChecked: (cx) => {
@@ -269,7 +295,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'design.cancelExport', title: 'Cancel Export', section: 'Design', keywords: 'stop render film', isEnabled: (cx) => cx.film.isRunning, run: (cx) => cx.film.cancel() },
 
 	// MARK: - Marble
-	{ id: 'marble.add', title: 'Add Marble', section: 'Marble', keywords: 'lane track new', isEnabled: hasProject, run: (cx) => cx.addMarble() },
+	{ id: 'marble.add', title: 'Add Marble', section: 'Marble', keywords: 'lane track new', isEnabled: hasProject, run: (cx) => void cx.addMarble() },
 	{
 		id: 'marble.mute',
 		title: 'Mute Marble',
@@ -340,6 +366,11 @@ export type TCommandId =
 	| 'play.tap'
 	| 'tool.select'
 	| 'tool.hand'
+	| 'tool.marble'
+	| 'tool.path'
+	| 'tool.text'
+	| 'tool.asset'
+	| 'view.snap'
 	| 'build.next'
 	| 'build.repeat'
 	| 'build.mirror'
@@ -353,7 +384,6 @@ export type TCommandId =
 	| 'marble.mute'
 	| 'marble.solo'
 	| 'tool.platform'
-	| 'tool.rail'
 	| 'tool.tunnel'
 	| 'tool.windmill';
 

@@ -5,7 +5,7 @@ import React from 'react';
  * commits once on release; typing commits on Return or blur. Shift scrubs ten times faster.
  */
 export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
-	const { id, label, value, unit, step, precision = 0, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, onPreview, onCommit, onCancel } = props;
+	const { id, label, value, unit, step, precision = 0, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, disabled = false, onPreview, onCommit, onCancel } = props;
 	const text = value == null ? '' : format(value, precision);
 	const [draft, setDraft] = React.useState(text);
 	const [source, setSource] = React.useState(text);
@@ -32,14 +32,14 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 	}
 
 	return (
-		<div className="mm-field">
+		<div className="mm-field" data-disabled={disabled}>
 			<label
 				htmlFor={id}
 				data-scrub="true"
 				title="Drag to change, hold Shift for larger steps"
 				className="cursor-ew-resize touch-none"
 				onPointerDown={(event) => {
-					if (event.button !== 0) return;
+					if (event.button !== 0 || disabled) return;
 					event.preventDefault();
 					event.currentTarget.setPointerCapture(event.pointerId);
 					const start = value ?? 0;
@@ -72,6 +72,7 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 				<input
 					id={id}
 					className="mm-input pr-7"
+					disabled={disabled}
 					value={draft}
 					placeholder={value == null ? 'Mixed' : undefined}
 					inputMode="decimal"
@@ -108,6 +109,8 @@ interface TScrubFieldProps {
 	precision?: number;
 	min?: number;
 	max?: number;
+	/** Shows the value without letting it change, such as the position of a piece that follows its marble */
+	disabled?: boolean;
 	onPreview?: (value: number) => void;
 	onCommit: (value: number) => void;
 	onCancel?: () => void;

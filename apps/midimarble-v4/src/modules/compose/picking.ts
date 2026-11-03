@@ -12,11 +12,15 @@ export interface TPickScene {
 	pieces: TScreenPiece[];
 }
 
+export type THandleKind = 'rotate' | 'release' | 'pathEnd' | 'pathBend' | 'node' | 'nodeIn' | 'nodeOut';
+
 export interface TScreenHandle {
-	kind: 'rotate' | 'release' | 'pathEnd' | 'pathBend';
+	kind: THandleKind;
 	entityId: string;
 	position: TVec2;
 	radius: number;
+	/** Node of a drawn rail, for node and handle kinds */
+	index?: number;
 }
 
 export interface TScreenDot {
@@ -40,6 +44,7 @@ export interface TScreenTrack {
 
 export type TPick =
 	| { kind: 'rotate' | 'release' | 'pathEnd' | 'pathBend'; entityId: string }
+	| { kind: 'node' | 'nodeIn' | 'nodeOut'; entityId: string; index: number }
 	| { kind: 'dot'; laneId: string; hitId: string }
 	| { kind: 'piece'; entityId: string }
 	| { kind: 'track'; laneId: string; time: number; position: TVec2 };
@@ -53,6 +58,9 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 	for (let i = scene.handles.length - 1; i >= 0; i--) {
 		const handle = scene.handles[i];
 		if (handle != null && distance(point, handle.position) <= handle.radius + HANDLE_PICK_SLOP) {
+			if (handle.kind === 'node' || handle.kind === 'nodeIn' || handle.kind === 'nodeOut') {
+				return { kind: handle.kind, entityId: handle.entityId, index: handle.index ?? 0 };
+			}
 			return { kind: handle.kind, entityId: handle.entityId };
 		}
 	}

@@ -19,12 +19,14 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	useFeatureState(compose.$viewport);
 	const playhead = useFeatureState(cx.$playhead);
 	const selection = useFeatureState(cx.$selection);
+	useFeatureState(compose.$override);
+	useFeatureState(cx.$hidden);
 	if (result == null) return null;
 	const scale = camera.view.scale;
 
 	return (
 		<g>
-			{result.pieces.map((piece) => {
+			{compose.displayPieces(result).map((piece) => {
 				const time = pieceTime(piece);
 				const isGhost = time != null && time > playhead + 1e-4 && !selection.includes(piece.entityId);
 				const opacity = isGhost ? 0.34 : 1;

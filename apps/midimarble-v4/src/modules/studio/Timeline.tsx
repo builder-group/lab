@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { ArrowLeftRight, Minus, Plus } from 'lucide-react';
+import { ArrowLeftRight, Minus, Pause, Play, Plus, SkipBack } from 'lucide-react';
 import React from 'react';
 import { openContextMenu, RenameField } from '@/components';
 import { findLaneConflicts, instruments, MIN_HIT_GAP } from '@/modules/music';
@@ -152,6 +152,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			aria-label="Timeline"
 		>
 			<ResizeHandle cx={cx} />
+			<TransportBar cx={cx} onZoomOut={() => zoomTo(zoom / 1.5)} onZoomIn={() => zoomTo(zoom * 1.5)} onZoomToFit={zoomToFit} />
 			<div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
 				<div className="relative flex min-h-full min-w-full flex-col" style={{ width: HEADER_WIDTH + trackWidth }}>
 					<div className="sticky top-0 z-30 flex shrink-0" style={{ height: RULER_HEIGHT }}>
@@ -160,14 +161,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							style={{ width: HEADER_WIDTH }}
 						>
 							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Marbles</span>
-							<button className="mm-icon-button !h-5 !w-5" onClick={() => zoomTo(zoom / 1.5)} title="Zoom Out (⌘ Scroll)" aria-label="Zoom Out" type="button">
-								<Minus size={12} strokeWidth={2} />
-							</button>
-							<button className="mm-icon-button !h-5 !w-5" onClick={() => zoomTo(zoom * 1.5)} title="Zoom In (⌘ Scroll)" aria-label="Zoom In" type="button">
+							<button className="mm-icon-button !h-5 !w-5" onClick={() => void cx.addMarble()} title="Add Marble" aria-label="Add Marble" type="button">
 								<Plus size={12} strokeWidth={2} />
-							</button>
-							<button className="mm-icon-button !h-5 !w-5" onClick={zoomToFit} title="Zoom to Fit" aria-label="Zoom to Fit" type="button">
-								<ArrowLeftRight size={12} strokeWidth={2} />
 							</button>
 						</div>
 						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />
@@ -237,6 +232,75 @@ interface TDrag {
 }
 
 // MARK: - Chrome
+
+/**
+ * Header of the timeline with the transport, like a video editor: Go to Beginning, Previous Hit, Play and
+ * Next Hit beside the time display, and the zoom controls at the far end
+ */
+const TransportBar: React.FC<{ cx: StudioCx; onZoomOut: () => void; onZoomIn: () => void; onZoomToFit: () => void }> = (props) => {
+	const { cx, onZoomOut, onZoomIn, onZoomToFit } = props;
+	const playing = useFeatureState(cx.$playing);
+	return (
+		<div className="mm-transport" role="toolbar" aria-label="Transport">
+			<div className="flex items-center gap-0.5" style={{ width: HEADER_WIDTH - 12 }}>
+				<button className="mm-icon-button !h-7 !w-7" onClick={() => cx.$playhead.set(0)} title="Go to Beginning (↩)" aria-label="Go to Beginning" type="button">
+					<SkipBack size={14} strokeWidth={1.8} />
+				</button>
+				<button className="mm-icon-button !h-7 !w-7" onClick={() => cx.stepHit(-1)} title="Previous Hit (←)" aria-label="Previous Hit" type="button">
+					<JumpHitIcon direction={-1} />
+				</button>
+				<button
+					className="mm-play-button"
+					data-playing={playing}
+					onClick={() => cx.$playing.set(!playing)}
+					title={playing ? 'Pause (Space)' : 'Play (Space)'}
+					aria-label={playing ? 'Pause' : 'Play'}
+					type="button"
+				>
+					{playing ? <Pause size={15} strokeWidth={0} fill="currentColor" /> : <Play size={15} strokeWidth={0} fill="currentColor" />}
+				</button>
+				<button className="mm-icon-button !h-7 !w-7" onClick={() => cx.stepHit(1)} title="Next Hit (→)" aria-label="Next Hit" type="button">
+					<JumpHitIcon direction={1} />
+				</button>
+				<TimeDisplay cx={cx} />
+			</div>
+			<div className="flex-1" />
+			<button className="mm-icon-button !h-6 !w-6" onClick={onZoomOut} title="Zoom Out (⌘ Scroll)" aria-label="Zoom Out" type="button">
+				<Minus size={12} strokeWidth={2} />
+			</button>
+			<button className="mm-icon-button !h-6 !w-6" onClick={onZoomIn} title="Zoom In (⌘ Scroll)" aria-label="Zoom In" type="button">
+				<Plus size={12} strokeWidth={2} />
+			</button>
+			<button className="mm-icon-button !h-6 !w-6" onClick={onZoomToFit} title="Zoom to Fit" aria-label="Zoom to Fit" type="button">
+				<ArrowLeftRight size={12} strokeWidth={2} />
+			</button>
+		</div>
+	);
+};
+
+/** Position readout in its own component so playback ticks re-render only this text, like Logic's LCD */
+const TimeDisplay: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	const playhead = useFeatureState(cx.$playhead);
+	const end = useFeatureState(cx.$history)?.present.end ?? 0;
+	return (
+		<output className="mm-time-display" aria-label="Playhead position" title="Playhead position and length (minutes:seconds)">
+			<span className="text-[var(--text)]">{formatTime(playhead)}</span>
+			<span className="ml-1 text-[var(--text-tertiary)]">/ {formatTime(end)}</span>
+		</output>
+	);
+};
+
+/** Blender's jump-to-keyframe glyph: a hit diamond with a small arrow, never a play triangle */
+const JumpHitIcon: React.FC<{ direction: 1 | -1 }> = (props) => {
+	const { direction } = props;
+	return (
+		<svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ transform: direction === -1 ? 'scaleX(-1)' : undefined }}>
+			<path d="M3 12h6M6.5 9l2.5 3-2.5 3" />
+			<path d="M16 6.5l5.5 5.5-5.5 5.5-5.5-5.5z" />
+		</svg>
+	);
+};
 
 /** Splitter on the top edge; drag to resize like Logic's track area, double-click to reset */
 const ResizeHandle: React.FC<{ cx: StudioCx }> = (props) => {

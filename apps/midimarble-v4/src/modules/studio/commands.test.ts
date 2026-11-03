@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { tidyMenu } from '@/components';
-import { pieceKeys } from '@/modules/compose/keys';
+import { toolKeys } from '@/modules/compose/keys';
 import { createProject } from '@/modules/project';
 import { commands } from './commands';
 import { audibleProject, isLaneAudible } from './StudioCx';
@@ -13,9 +13,9 @@ describe('commands', () => {
 		expect(new Set(titles).size).toBe(titles.length);
 	});
 
-	it('should show the same number keys for piece tools as the Compose key map', () => {
-		for (const piece of pieceKeys) {
-			expect(commands.find((command) => command.id === `tool.${piece.type}`)?.shortcut).toBe(piece.key);
+	it('should show the same keys for tools as the Compose key map', () => {
+		for (const tool of toolKeys) {
+			expect(commands.find((command) => command.id === `tool.${tool.tool}`)?.shortcut).toBe(tool.key);
 		}
 	});
 });

@@ -15,8 +15,10 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 	const camera = useFeatureState(compose.$camera);
 	useFeatureState(compose.$viewport);
 	const project = useFeatureState(compose.studio.$history)?.present;
+	// Suggestions belong to the run before an edit; while an element is dragged or drawn they would mislead
+	const isEditing = useFeatureState(compose.$override) != null;
 	const { ghost } = state;
-	if (ghost == null || project == null) return null;
+	if (ghost == null || project == null || isEditing) return null;
 	const laneColor = project.music.lanes.find((lane) => lane.id === ghost.answer.laneId)?.color ?? 'var(--text)';
 
 	if (ghost.kind === 'gap') {
@@ -95,7 +97,8 @@ export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 		const dot = result?.hits.find((hit) => hit.laneId === laneId && hit.hitId === toHitId)?.dot;
 		anchor = dot != null ? compose.toScreen(dot) : null;
 		content = <span className="text-[var(--text-secondary)]">Finding a switchback for this gap…</span>;
-	} else if (state.ghost != null) {
+	} else if (state.ghost?.kind === 'gap') {
+		// Continue is offered in the contextual build bar; gap pieces keep their own hint
 		anchor = hintAnchor(compose, state.ghost);
 		content = <HintContent compose={compose} ghost={state.ghost} />;
 	}

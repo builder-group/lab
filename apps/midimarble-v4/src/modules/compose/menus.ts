@@ -1,11 +1,13 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
-import { getPieceDefinition } from '@/modules/simulation';
 import { commandItem } from '@/modules/studio/commands';
-import { formatTime } from '@/modules/studio/format';
+import { formatTime, noteName } from '@/modules/studio/format';
 import type { ComposeCx } from './ComposeCx';
-import { pieceKeys } from './keys';
+import { placeAtHit } from './step-loop';
 
-/** Right-click on an open hit dot: place any piece type there, or bridge a long gap */
+/**
+ * Insert menu of an open hit dot, opened by a click or a right-click at the dot: a platform at the default
+ * lean, an auto placed platform, and the bridges for a long gap
+ */
 export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMenuEntry[] {
 	const cx = compose.studio;
 	const project = compose.project;
@@ -13,20 +15,21 @@ export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMen
 	if (project == null || hit == null) return [];
 	const lane = project.music.lanes.find((item) => item.id === laneId);
 	const index = lane?.hits.findIndex((item) => item.id === hitId) ?? -1;
+	const pitch = lane?.hits[index]?.pitch;
 	const gap = compose.longGapKeys(project).get(`${laneId}:${hitId}`);
-	const bridge = (type: 'rail' | 'tunnel'): void => {
+	const bridge = (type: 'switchback' | 'rail' | 'tunnel'): void => {
 		if (gap != null) compose.assist.suggestGapPiece(type, laneId, gap.fromHitId, hitId, { accept: true });
 	};
 
 	return tidyMenu([
-		{ section: `${lane?.name ?? 'Hit'} · Hit ${index + 1} · ${formatTime(hit.targetTime)}` },
-		...pieceKeys.map((item) => ({
-			label: `Place ${getPieceDefinition(item.type)?.label ?? item.type}`,
-			onSelect: () => void compose.assist.place(hit, item.type)
-		})),
-		'separator',
-		gap != null ? { label: 'Bridge Gap with Rail', onSelect: () => bridge('rail') } : null,
-		gap != null ? { label: 'Bridge Gap with Tunnel', onSelect: () => bridge('tunnel') } : null,
+		{ section: `Hit ${index + 1} · ${formatTime(hit.targetTime)}${pitch != null ? ` · ${noteName(pitch)}` : ''}` },
+		{ label: 'Auto-Placed Platform', shortcut: 'A', onSelect: () => void compose.assist.place(hit, 'platform') },
+		{ label: 'Platform', onSelect: () => void placeAtHit(cx, hit, 'platform') },
+		gap != null ? 'separator' : null,
+		gap != null ? { section: `${gap.duration.toFixed(1)} s gap` } : null,
+		gap != null ? { label: 'Switchback', onSelect: () => bridge('switchback') } : null,
+		gap != null ? { label: 'Rail', onSelect: () => bridge('rail') } : null,
+		gap != null ? { label: 'Tunnel', onSelect: () => bridge('tunnel') } : null,
 		'separator',
 		{ label: 'Go to Hit', onSelect: () => cx.$playhead.set(hit.targetTime) }
 	]);
@@ -47,6 +50,7 @@ export function canvasMenu(compose: ComposeCx): TMenuEntry[] {
 		commandItem(cx, 'view.orbit'),
 		'separator',
 		commandItem(cx, 'edit.selectAll'),
-		commandItem(cx, 'marble.add')
+		commandItem(cx, 'marble.add'),
+		commandItem(cx, 'view.snap')
 	]);
 }
