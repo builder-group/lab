@@ -65,6 +65,34 @@ pub fn save_project(package: &Path, project_json: &str) -> Result<(), PackageErr
     return write_atomic(&package.join(PROJECT_FILE), project_json.as_bytes());
 }
 
+/// Copies a source file into the package `audio/` folder and returns its package-relative path
+pub fn import_source(package: &Path, source: &Path) -> Result<String, PackageError> {
+    if !package.join(PROJECT_FILE).is_file() {
+        return Err(PackageError::NotAPackage(display(package)));
+    }
+    let folder = package.join("audio");
+    fs::create_dir_all(&folder).map_err(|source| io("create", &folder, source))?;
+    let stem = source
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("source")
+        .to_string();
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| format!(".{}", value.to_lowercase()))
+        .unwrap_or_default();
+    let mut name = format!("{}{}", stem, extension);
+    let mut index = 2;
+    while folder.join(&name).exists() {
+        name = format!("{} {}{}", stem, index, extension);
+        index += 1;
+    }
+    let target = folder.join(&name);
+    fs::copy(source, &target).map_err(|error| io("copy", source, error))?;
+    return Ok(format!("audio/{}", name));
+}
+
 /// Writes through a sibling temporary file and a rename so a crash never leaves a partial file
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), PackageError> {
     let nanos = SystemTime::now()
@@ -128,6 +156,18 @@ mod tests {
         let moved = root.join("Elsewhere.marble");
         fs::rename(&package, &moved).unwrap();
         assert_eq!(read_project(&moved).unwrap(), "{}");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn imports_sources_with_unique_names() {
+        let root = temporary_root("import");
+        let package = create_package(&root.join("Song"), "{}").unwrap();
+        let source = root.join("Theme.MID");
+        fs::write(&source, b"MThd").unwrap();
+        assert_eq!(import_source(&package, &source).unwrap(), "audio/Theme.mid");
+        assert_eq!(import_source(&package, &source).unwrap(), "audio/Theme 2.mid");
+        assert_eq!(fs::read(package.join("audio/Theme 2.mid")).unwrap(), b"MThd");
         fs::remove_dir_all(root).unwrap();
     }
 

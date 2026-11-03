@@ -1,7 +1,9 @@
 import { createState } from 'feature-state';
 import { host, type THostRecentProject } from '@/environment';
+import { createAudioEngine, type TAudioEngine } from '@/modules/music';
 import {
 	applyProjectCommands,
+	createId,
 	createHistory,
 	createProject,
 	parseProject,
@@ -9,10 +11,14 @@ import {
 	redoHistory,
 	serializeProject,
 	undoHistory,
+	type TLane,
 	type TProject,
 	type TProjectCommand,
-	type TProjectHistory
+	type TProjectHistory,
+	type TSource
 } from '@/modules/project';
+import { parseHitKey } from './selection';
+import { SourcesCx } from './SourcesCx';
 
 /** Owns the open project, its history, persistence and the shared editing state of the studio */
 export class StudioCx {
@@ -25,6 +31,8 @@ export class StudioCx {
 	readonly $playhead = createState(0);
 	readonly $playing = createState(false);
 	readonly $notice = createState<TNotice | null>(null);
+	readonly sources = new SourcesCx(this);
+	private audioEngine: TAudioEngine | null = null;
 
 	private saveTimer: ReturnType<typeof setTimeout> | undefined;
 	private savedRevision = 0;
@@ -38,8 +46,28 @@ export class StudioCx {
 		void this.refreshRecent();
 		return () => {
 			clearTimeout(this.noticeTimer);
+			this.audioEngine?.dispose();
 			void this.flush();
 		};
+	}
+
+	/** Created on first use because WebKit only allows audio after a user gesture */
+	get audio(): TAudioEngine {
+		this.audioEngine ??= createAudioEngine();
+		return this.audioEngine;
+	}
+
+	resolveSourceUrl = (source: TSource): string | null => {
+		const path = this.$path.get();
+		return path == null ? null : host.sourceUrl(path, source.path);
+	};
+
+	/** Plays one hit's sound as feedback when it is placed or selected */
+	audition(laneId: string, pitch?: number): void {
+		const project = this.project;
+		const lane = project?.music.lanes.find((item) => item.id === laneId);
+		if (project == null || lane == null || project.music.sources.some((source) => source.kind === 'audio')) return;
+		void this.audio.audition(lane, pitch);
 	}
 
 	// MARK: - Projects
@@ -98,6 +126,8 @@ export class StudioCx {
 		this.$selection.set([]);
 		this.$playhead.set(0);
 		this.$workspace.set('compose');
+		this.sources.$analysis.set({});
+		this.sources.ensureAnalysis(project);
 		void this.refreshRecent();
 	}
 
@@ -115,6 +145,18 @@ export class StudioCx {
 		this.$history.set(pushHistory(history, edited));
 		this.scheduleSave();
 		return true;
+	}
+
+	/** Records a hit at the playhead on the lane in focus, for tapping along to the music */
+	tapHit(): void {
+		const project = this.project;
+		if (project == null) return;
+		const lane = focusedLane(project, this.$selection.get());
+		if (lane == null) return;
+		const now = this.$playing.get() ? this.audio.getTime() : this.$playhead.get();
+		const time = Math.round(now * 10000) / 10000;
+		const hit = { id: createId('hit'), time };
+		this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }]);
 	}
 
 	undo(): void {
@@ -172,4 +214,16 @@ export type TSelection = string[];
 export interface TNotice {
 	message: string;
 	tone: 'info' | 'error';
+}
+
+/** The lane of the selected marble or hit, otherwise the first lane */
+export function focusedLane(project: TProject, selection: TSelection): TLane | undefined {
+	for (const key of selection) {
+		const hitLane = parseHitKey(key)?.laneId;
+		const entityLane = project.entities.find((entity) => entity.id === key)?.components.marble?.laneId;
+		const laneId = hitLane ?? entityLane;
+		const lane = project.music.lanes.find((item) => item.id === laneId);
+		if (lane != null) return lane;
+	}
+	return project.music.lanes[0];
 }

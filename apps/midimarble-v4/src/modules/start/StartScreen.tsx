@@ -1,13 +1,23 @@
 import { useFeatureState } from 'feature-react/state';
-import { FileMusic, FolderOpen, Plus } from 'lucide-react';
+import { AudioLines, FileMusic, FolderOpen, Plus } from 'lucide-react';
 import React from 'react';
 import { WindowHeader } from '@/components';
+import { host } from '@/environment';
 import type { StudioCx } from '@/modules/studio';
 
 /** Welcome window modeled on Xcode: actions on the left, recent projects on the right */
 export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 	const { cx, extraActions } = props;
 	const recent = useFeatureState(cx.$recent);
+
+	async function startFrom(kind: 'midi' | 'audio'): Promise<void> {
+		const file = await host.chooseSourceFile(kind);
+		if (file == null) return;
+		const title = file.name.replace(/\.[^.]+$/, '');
+		if (!(await cx.newProject({ title }))) return;
+		if (kind === 'midi') await cx.sources.openMidi(file);
+		else await cx.sources.importAudio(file);
+	}
 
 	return (
 		<div className="relative flex h-full">
@@ -26,6 +36,18 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 						title="New Project"
 						detail="Start with an empty timeline"
 						onClick={() => void cx.newProject()}
+					/>
+					<StartAction
+						icon={<FileMusic size={18} strokeWidth={1.7} />}
+						title="From MIDI File…"
+						detail="Turn a MIDI song into marbles"
+						onClick={() => void startFrom('midi')}
+					/>
+					<StartAction
+						icon={<AudioLines size={18} strokeWidth={1.7} />}
+						title="From Audio File…"
+						detail="Tap along to a recording"
+						onClick={() => void startFrom('audio')}
 					/>
 					{extraActions}
 					<StartAction

@@ -4,12 +4,24 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Current state
 
-- Milestone: M1 Music lanes
-- Next step: MIDI import with lane proposals
+- Milestone: M2 Compose core
+- Next step: Rapier simulation module with headless fixture runs
 - Blockers: none
 - Not committed on purpose: `pnpm-lock.yaml` (also holds unrelated local changes) and the lab `.claude/launch.json`
 
 ## Log
+
+### M1 Music lanes
+
+- MIDI import with a review sheet: track choice, split chords across marbles or keep the top note, marble count, live preview and left-out notes
+- Lane proposal keeps the melody on the first marble, leads voices by nearest pitch and respects the 180 ms gap
+- Audio import copies the file into the package, shows a waveform behind the lanes and suggests hits from spectral-flux onsets
+- Editable timeline: zoom with pinch or Command-scroll, ruler seek, double-click to add, drag to move, marquee and Shift selection, Delete, arrow keys between hits, T to tap along
+- Lane and hit inspectors: name, color, instrument, suggested hits, time and note name
+- Audio engine (subagent): trimmed GeneralUser GS bank (3.8 MB, 13 pitched instruments) rendered with SpessaSynth; recordings play alone without synthesized lanes; WAV encoding for the film soundtrack
+- Drag and drop of MIDI and audio files, start screen shortcuts From MIDI and From Audio
+- Checks: `typecheck`, `lint`, `test` (35) and `cargo test` (4) pass. Browser check: Jingle Bells MIDI imports as 2 marbles with 34 hits, playback clock matched wall time within 10 ms over 2 s, a generated WAV with 11 strikes yielded 11 suggested hits
+- Not yet verified: audio in the native WebKit window and tap-along latency against a real recording
 
 ### M0 Foundation
 

@@ -51,3 +51,10 @@ pub fn save_project(path: String, project_json: String) -> Result<(), String> {
 pub fn list_recent_projects(app: AppHandle) -> Vec<RecentProjectDto> {
     return recent::list(&app);
 }
+
+#[tauri::command]
+#[specta::specta]
+pub fn import_source(package_path: String, source_path: String) -> Result<String, String> {
+    return store::import_source(&PathBuf::from(package_path), &PathBuf::from(source_path))
+        .map_err(|error| error.to_string());
+}

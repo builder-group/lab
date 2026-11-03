@@ -12,6 +12,7 @@ pub fn run() {
         package::commands::open_project,
         package::commands::save_project,
         package::commands::list_recent_projects,
+        package::commands::import_source,
     ]);
 
     #[cfg(debug_assertions)]

@@ -9,6 +9,7 @@ export const commands = {
 	openProject: (path: string) => typedError<OpenedProjectDto, string>(__TAURI_INVOKE("open_project", { path })),
 	saveProject: (path: string, projectJson: string) => typedError<null, string>(__TAURI_INVOKE("save_project", { path, projectJson })),
 	listRecentProjects: () => __TAURI_INVOKE<RecentProjectDto[]>("list_recent_projects"),
+	importSource: (packagePath: string, sourcePath: string) => typedError<string, string>(__TAURI_INVOKE("import_source", { packagePath, sourcePath })),
 };
 
 /* Types */

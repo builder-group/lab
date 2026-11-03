@@ -1,4 +1,4 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { convertFileSrc, isTauri } from '@tauri-apps/api/core';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { specta } from '../specta';
 
@@ -41,6 +41,62 @@ export const host = {
 		return result.status === 'ok' ? Ok(undefined) : Err(new Error(result.error));
 	},
 
+	/** Lets the user pick a MIDI or audio file; returns a path the host can import */
+	async chooseSourceFile(kind: 'midi' | 'audio'): Promise<THostPickedFile | null> {
+		const extensions = kind === 'midi' ? ['mid', 'midi'] : ['wav', 'mp3', 'm4a', 'aac', 'aiff', 'aif', 'flac', 'ogg'];
+		if (!isTauri()) return pickBrowserFile(extensions);
+		const { open } = await import('@tauri-apps/plugin-dialog');
+		const path = await open({
+			title: kind === 'midi' ? 'Import MIDI' : 'Import Audio',
+			multiple: false,
+			filters: [{ name: kind === 'midi' ? 'MIDI' : 'Audio', extensions }]
+		});
+		if (typeof path !== 'string') return null;
+		return { name: path.split('/').pop() ?? path, path };
+	},
+
+	/** Copies a picked or dropped file into the package and returns its package-relative path */
+	async importSource(packagePath: string, file: THostPickedFile): Promise<TResult<string, Error>> {
+		if (!isTauri()) {
+			const relativePath = `audio/${file.name}`;
+			const url = browserFiles.get(file.path);
+			if (url == null) return Err(new Error(`${file.name} is no longer available`));
+			browserFiles.set(`${packagePath}/${relativePath}`, url);
+			return Ok(relativePath);
+		}
+		const result = await specta.commands.importSource(packagePath, file.path);
+		return result.status === 'ok' ? Ok(result.data) : Err(new Error(result.error));
+	},
+
+	sourceUrl(packagePath: string, relativePath: string): string | null {
+		const path = `${packagePath}/${relativePath}`;
+		if (!isTauri()) return browserFiles.get(path) ?? null;
+		return convertFileSrc(path);
+	},
+
+	/** Reads a picked file or package file through the asset protocol */
+	async readFile(url: string): Promise<TResult<ArrayBuffer, Error>> {
+		try {
+			const response = await fetch(url);
+			if (!response.ok) return Err(new Error(`Reading failed with status ${response.status}`));
+			return Ok(await response.arrayBuffer());
+		} catch (error) {
+			return Err(error instanceof Error ? error : new Error(String(error)));
+		}
+	},
+
+	/** Makes a browser `File` usable like a picked path in the development surface */
+	registerBrowserFile(file: File): THostPickedFile {
+		const path = `browser:${Date.now()}:${file.name}`;
+		browserFiles.set(path, URL.createObjectURL(file));
+		return { name: file.name, path };
+	},
+
+	pickedFileUrl(file: THostPickedFile): string | null {
+		if (!isTauri()) return browserFiles.get(file.path) ?? null;
+		return convertFileSrc(file.path);
+	},
+
 	async listRecentProjects(): Promise<THostRecentProject[]> {
 		if (!isTauri()) return browserPackages.list();
 		return (await specta.commands.listRecentProjects()).map((item) => ({
@@ -54,6 +110,34 @@ export const host = {
 export interface THostProject {
 	path: string;
 	projectJson: string;
+}
+
+export interface THostPickedFile {
+	name: string;
+	path: string;
+}
+
+// Blob URLs for files picked in the browser development surface, keyed by their pseudo path
+const browserFiles = new Map<string, string>();
+
+function pickBrowserFile(extensions: string[]): Promise<THostPickedFile | null> {
+	return new Promise((resolve) => {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = extensions.map((extension) => `.${extension}`).join(',');
+		input.addEventListener('change', () => {
+			const file = input.files?.[0];
+			if (file == null) {
+				resolve(null);
+				return;
+			}
+			const path = `browser:${Date.now()}:${file.name}`;
+			browserFiles.set(path, URL.createObjectURL(file));
+			resolve({ name: file.name, path });
+		});
+		input.addEventListener('cancel', () => resolve(null));
+		input.click();
+	});
 }
 
 export interface THostRecentProject {

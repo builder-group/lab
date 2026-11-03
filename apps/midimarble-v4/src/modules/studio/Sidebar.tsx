@@ -1,6 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Circle, Plus } from 'lucide-react';
 import React from 'react';
+import { MenuButton } from '@/components';
 import { createLane, createMarble } from '@/modules/project';
 import type { StudioCx } from './StudioCx';
 
@@ -28,9 +29,17 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 				<>
 					<div className="flex items-center justify-between pr-3">
 						<div className="mm-section-title">Marbles</div>
-						<button className="mm-icon-button !h-6 !w-6" onClick={addMarble} title="Add Marble" type="button">
-							<Plus size={14} strokeWidth={1.8} />
-						</button>
+						<MenuButton
+							className="mm-icon-button !h-6 !w-6"
+							label={<Plus size={14} strokeWidth={1.8} />}
+							title="Add"
+							items={[
+								{ label: 'Add Marble', onSelect: addMarble },
+								'separator',
+								{ label: 'Import MIDI…', shortcut: '⌘I', onSelect: () => void cx.sources.pickMidi() },
+								{ label: 'Import Audio…', shortcut: '⇧⌘I', onSelect: () => void cx.sources.pickAudio() }
+							]}
+						/>
 					</div>
 					{project.music.lanes.map((lane) => {
 						const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);

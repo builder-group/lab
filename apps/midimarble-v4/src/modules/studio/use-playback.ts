@@ -2,34 +2,72 @@ import { useListener } from 'feature-react/state';
 import React from 'react';
 import type { StudioCx } from './StudioCx';
 
-/** Advances the playhead in real time while playing and stops at the project end */
+/**
+ * Drives the playhead from the audio clock while playing. Seeking during playback restarts audio at
+ * the new time, and playback stops at the project end.
+ */
 export function usePlayback(cx: StudioCx): void {
 	const frameRef = React.useRef<number | null>(null);
+	// The last playhead value written by this loop, to tell clock updates from user seeks
+	const clockRef = React.useRef<number | null>(null);
 
-	useListener(cx.$playing, ({ value: playing }) => {
+	const stopLoop = React.useCallback(() => {
 		if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
 		frameRef.current = null;
-		if (!playing) return;
-		const end = cx.project?.end ?? 0;
-		if (cx.$playhead.get() >= end) cx.$playhead.set(0);
-		let last = performance.now();
-		const step = (now: number): void => {
-			const next = cx.$playhead.get() + (now - last) / 1000;
-			last = now;
-			if (next >= (cx.project?.end ?? 0)) {
-				cx.$playhead.set(cx.project?.end ?? 0);
+		clockRef.current = null;
+	}, []);
+
+	const startLoop = React.useCallback(() => {
+		const step = (): void => {
+			const end = cx.project?.end ?? 0;
+			const time = cx.audio.getTime();
+			if (time >= end) {
+				clockRef.current = end;
+				cx.$playhead.set(end);
 				cx.$playing.set(false);
 				return;
 			}
-			cx.$playhead.set(next);
+			clockRef.current = time;
+			cx.$playhead.set(time);
 			frameRef.current = requestAnimationFrame(step);
 		};
 		frameRef.current = requestAnimationFrame(step);
+	}, [cx]);
+
+	useListener(cx.$playing, ({ value: playing }) => {
+		stopLoop();
+		if (!playing) {
+			cx.audio.stop();
+			return;
+		}
+		const project = cx.project;
+		if (project == null) return;
+		if (cx.$playhead.get() >= project.end) cx.$playhead.set(0);
+		const from = cx.$playhead.get();
+		void (async () => {
+			try {
+				await cx.audio.prepare(project, cx.resolveSourceUrl);
+				if (!cx.$playing.get()) return;
+				await cx.audio.play(from);
+				if (cx.$playing.get()) startLoop();
+			} catch (error) {
+				cx.$playing.set(false);
+				cx.notify(`Playback failed: ${(error as Error).message}`, 'error');
+			}
+		})();
 	});
 
-	React.useEffect(() => {
-		return () => {
-			if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
-		};
-	}, []);
+	useListener(cx.$playhead, ({ value }) => {
+		if (!cx.$playing.get() || clockRef.current == null || Math.abs(value - clockRef.current) < 1e-6) return;
+		clockRef.current = value;
+		void cx.audio.play(value);
+	});
+
+	// Edits while playing re-render the soundtrack; the engine keeps the current position
+	useListener(cx.$history, ({ value }) => {
+		if (!cx.$playing.get() || value == null) return;
+		void cx.audio.prepare(value.present, cx.resolveSourceUrl);
+	});
+
+	React.useEffect(() => stopLoop, [stopLoop]);
 }

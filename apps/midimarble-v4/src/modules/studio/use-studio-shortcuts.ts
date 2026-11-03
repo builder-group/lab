@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TStudioPanel } from './Studio';
+import { deleteSelectedHits } from './Timeline';
 import type { StudioCx } from './StudioCx';
 
 /** Standard macOS and Logic-style shortcuts that apply anywhere in the studio */
@@ -19,6 +20,11 @@ export function useStudioShortcuts(cx: StudioCx, togglePanel: (panel: TStudioPan
 			if (command && key === 's') {
 				event.preventDefault();
 				void cx.flush();
+				return;
+			}
+			if (command && !event.ctrlKey && key === 'i') {
+				event.preventDefault();
+				void (event.shiftKey ? cx.sources.pickAudio() : cx.sources.pickMidi());
 				return;
 			}
 			if (command && !event.ctrlKey && (key === '1' || key === '2')) {
@@ -42,6 +48,28 @@ export function useStudioShortcuts(cx: StudioCx, togglePanel: (panel: TStudioPan
 			}
 			if (event.key === 'Enter' && !cx.$playing.get() && !cx.$selection.get().length) {
 				cx.$playhead.set(0);
+				return;
+			}
+			if (event.key === 'Backspace' || event.key === 'Delete') {
+				if (deleteSelectedHits(cx)) event.preventDefault();
+				return;
+			}
+			if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+				const times = (cx.project?.music.lanes ?? []).flatMap((lane) => lane.hits.map((hit) => hit.time)).sort((a, b) => a - b);
+				const now = cx.$playhead.get();
+				const next =
+					event.key === 'ArrowRight'
+						? times.find((time) => time > now + 1e-4)
+						: [...times].reverse().find((time) => time < now - 1e-4);
+				if (next != null) {
+					event.preventDefault();
+					cx.$playhead.set(next);
+				}
+				return;
+			}
+			if (key === 't') {
+				event.preventDefault();
+				cx.tapHit();
 			}
 		}
 		window.addEventListener('keydown', onKeyDown);

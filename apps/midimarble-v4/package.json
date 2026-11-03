@@ -20,6 +20,7 @@
 		"clean": "shx rm -rf target && shx rm -rf dist && shx rm -rf .tanstack && shx rm -rf .turbo && shx rm -rf node_modules",
 		"install:clean": "pnpm run clean && pnpm install",
 		"lint": "eslint .",
+		"soundbank:build": "tsx scripts/build-soundbank.ts",
 		"start:dev": "tauri dev",
 		"test": "vitest run",
 		"typecheck": "tsc --noEmit",
@@ -33,12 +34,14 @@
 		"@tauri-apps/plugin-dialog": "^2.4.0",
 		"@tauri-apps/plugin-opener": "^2.7.2",
 		"@tauri-apps/plugin-os": "^2.4.0",
+		"@tonejs/midi": "^2.0.28",
 		"clsx": "^2.1.1",
 		"feature-react": "^0.1.1",
 		"feature-state": "^0.1.1",
 		"lucide-react": "^0.562.0",
 		"react": "^19.3.1",
 		"react-dom": "^19.3.1",
+		"spessasynth_core": "^4.4.1",
 		"tailwind-merge": "^3.7.0",
 		"tuple-result": "^0.1.0",
 		"versjon": "^0.0.3",
@@ -55,6 +58,7 @@
 		"@vitejs/plugin-react": "^6.1.2",
 		"shx": "^0.4.0",
 		"tailwindcss": "^4.3.3",
+		"tsx": "^4.23.15",
 		"vitest": "^5.0.5"
 	}
 }

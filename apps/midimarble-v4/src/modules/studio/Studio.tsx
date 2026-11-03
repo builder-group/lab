@@ -1,11 +1,13 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
+import { ImportMidiSheet } from './ImportMidiSheet';
 import { Inspector } from './Inspector';
 import { Notice } from './Notice';
 import { Sidebar } from './Sidebar';
 import type { StudioCx } from './StudioCx';
 import { StudioToolbar } from './StudioToolbar';
 import { Timeline } from './Timeline';
+import { useFileDrop } from './use-file-drop';
 import { usePlayback } from './use-playback';
 import { useStudioShortcuts } from './use-studio-shortcuts';
 
@@ -20,9 +22,10 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 
 	useStudioShortcuts(cx, togglePanel);
 	usePlayback(cx);
+	useFileDrop(cx);
 
 	return (
-		<div className="flex h-full flex-col">
+		<div className="relative flex h-full flex-col">
 			<StudioToolbar cx={cx} panels={panels} onTogglePanel={togglePanel} />
 			<div className="flex min-h-0 flex-1">
 				{panels.sidebar ? <Sidebar cx={cx} /> : null}
@@ -35,6 +38,7 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 				{panels.inspector ? <Inspector cx={cx} /> : null}
 			</div>
 			{panels.timeline ? <Timeline cx={cx} /> : null}
+			<ImportMidiSheet cx={cx} />
 			<Notice cx={cx} />
 		</div>
 	);
