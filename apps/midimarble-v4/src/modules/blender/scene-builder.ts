@@ -24,6 +24,24 @@ const DEFAULT_MARBLE_COLOR = '#d0d4dc';
  * Marble records are [time, x, y, angle] and use the physics samples as they are; the worker resamples
  * them at `fps`.
  */
+/** Seconds a marble stays in the camera's group after its last note, so the strike and its rebound read */
+export const MARBLE_ACTIVE_TAIL = 0.6;
+
+/**
+ * A marble whose lane has finished falls away from the others; once it no longer plays, the camera keeps the
+ * marbles that still do. The marble that plays last stays framed to the end.
+ */
+function markActiveUntil(project: TProject, result: TSimulationResult, marbles: TSceneMarble[]): void {
+	const lastNote = new Map(project.music.lanes.map((lane) => [lane.id, lane.hits.reduce((max, hit) => Math.max(max, hit.time), -Infinity)]));
+	const lasts = result.marbles.map((track) => lastNote.get(track.laneId) ?? -Infinity);
+	const latest = Math.max(...lasts);
+	result.marbles.forEach((track, index) => {
+		const last = lasts[index] ?? -Infinity;
+		const marble = marbles.find((item) => item.id === track.entityId);
+		if (marble != null && Number.isFinite(last) && last < latest - 1e-6) marble.activeUntil = Math.round((last + MARBLE_ACTIVE_TAIL) * 1e4) / 1e4;
+	});
+}
+
 export function buildSceneDescription(
 	project: TProject,
 	result: TSimulationResult,
@@ -51,6 +69,7 @@ export function buildSceneDescription(
 	};
 	const marbles: TSceneMarble[] = result.marbles.map((track) => marbleFor(track, track.entityId, track.samples));
 	const loop = project.design.loop ? createLoop(project, result) : null;
+	if (loop == null) markActiveUntil(project, result, marbles);
 	for (const ghost of loop?.ghosts ?? []) {
 		const track = result.marbles.find((item) => item.entityId === ghost.marbleEntityId);
 		if (track == null || !ghost.samples.length) continue;

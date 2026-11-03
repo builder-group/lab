@@ -102,14 +102,17 @@ describe('preflightExport function', () => {
 		expect(preflight.summary).toBe('All 16 hits on time');
 	});
 
-	it('should report the two bass dots of Jingle Bells past the lane band after a switchback', () => {
-		// Known build result: a switchback exit sends the bass 7 cm past its band edge at 0:16
+	it('should pass Jingle Bells and report dots past the lane band once the bass moves sideways', () => {
 		const project = loadFixture('jingle-bells');
+		expect(preflightExport(project, simulator.simulate(project)).issues).toEqual([]);
 
+		// The bass pieces follow their marble, so moving its release moves every bass dot out of its band
+		const bass = project.entities.find((entity) => entity.name === 'Bass' && entity.components.release != null);
+		if (bass?.components.release == null) throw new Error('No bass release');
+		bass.components.release.position.x += 0.2;
 		const preflight = preflightExport(project, simulator.simulate(project));
 
-		expect(preflight.issues.map((issue) => issue.title)).toEqual(['2 dots outside the lane band on Bass']);
-		expect(preflight.issues[0]?.time).toBe(16);
+		expect(preflight.issues.map((issue) => issue.title)).toContainEqual(expect.stringMatching(/dots? outside the lane band on Bass$/));
 	});
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {

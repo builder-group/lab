@@ -38,12 +38,24 @@ export function createImportCommands(
 			hits: notes.map((note) => noteToHit(note))
 		};
 		commands.push({ type: 'upsertLane', lane });
-		commands.push({ type: 'upsertEntity', entity: createMarble(lane, { x: index * LANE_SPACING, y: 0.6 }) });
+		const marble = createMarble(lane, { x: index * LANE_SPACING, y: 0.6 });
+		// Released a short drop before its first note, so the film does not open on a long empty fall
+		const first = lane.hits.reduce((min, hit) => Math.min(min, hit.time), Infinity);
+		if (marble.components.release != null && Number.isFinite(first)) {
+			marble.components.release.time = round(Math.max(0, first - IMPORT_RELEASE_LEAD));
+		}
+		commands.push({ type: 'upsertEntity', entity: marble });
 		index++;
 	}
 	if (end != null && end > project.end) commands.push({ type: 'setEnd', end });
 	return commands;
 }
+
+/**
+ * Seconds between an imported marble's release and its first note: a 0.6 m drop at half gravity. Shorter leads
+ * built Jingle Bells worse (0.35 s crossed the lanes), as the first arrival speed shapes the whole run.
+ */
+export const IMPORT_RELEASE_LEAD = 0.5;
 
 export interface TImportCommandsOptions {
 	lanes: TMidiNote[][];

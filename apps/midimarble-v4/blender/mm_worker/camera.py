@@ -3,13 +3,13 @@
 The camera looks steeply along the wall and travels with the marbles, like the reference short:
 
 1. Follow point per frame. With several marbles the camera frames the group while it fits: the follow point is
-   the weighted centre of the marbles in flight (a marble weighs 1 while its samples cover the time and 0.05 before
-   its release or after its last sample) and the distance widens so every marble fits. When a shared descent curve
-   is given (`descent`, the common pace y*(t) of the lanes) the group centre's height follows it instead. The
-   distance never exceeds a readable maximum: pieces stay at least MIN_PIECE_FRACTION of the frame width and the
-   camera at most ZOOM_LIMIT times its set distance. Where the group no longer fits within that maximum, the camera
-   eases over to the focus marble (`focusMarbleId`, else the first marble, which carries the melody lane) and
-   lets the others leave the frame.
+   the weighted centre of the marbles in flight (a marble weighs 1 while its samples cover the time, up to a moment
+   after its last note when another marble plays on (`activeUntil`), and 0.05 before and after) and the distance
+   widens so every marble fits. When a shared descent curve is given (`descent`, the common pace y*(t) of the
+   lanes) the group centre's height follows it instead. The distance never exceeds a readable maximum: pieces stay
+   at least MIN_PIECE_FRACTION of the frame width and the camera at most ZOOM_LIMIT times its set distance. Where
+   the group no longer fits within that maximum, the camera eases over to the focus marble (`focusMarbleId`, else
+   the first marble, which carries the melody lane) and lets the others leave the frame.
 2. Target: the follow point moved toward where it is at `t + lead` (at most LEAD_LIMIT * distance), smoothed with a
    zero-phase critically damped filter (a forward and a backward pass of a second-order filter with time constant
    0.04 + 0.5 * smoothing seconds), so the camera neither lags nor overshoots. Where smoothing still lets a marble
@@ -66,6 +66,8 @@ GROUP_KEEP_X = 0.75
 # pull the camera back. A Jingle Bells test with 0.8 here and 0.85 for the width grew bars from about 16 % to 23–25 %
 # of the frame width; the width stays at 0.75 because 0.85 let a rolled camera crop a marble
 GROUP_KEEP_Y = 0.8
+# Weight in the group centre of a marble past its `activeUntil`
+FINISHED_WEIGHT = 0.001
 SENSOR = 36.0
 # Seconds over which the camera eases between framing the group and following the focus marble
 GROUP_EASE = 1.2
@@ -147,6 +149,15 @@ def readable_distance(settings, aspect):
     return max(limit, settings['distance'])
 
 
+def in_flight(marble, motion, times):
+    """Whether the camera frames the marble at each time: from its first sample to its last, or to `activeUntil`
+    once its lane has finished playing"""
+    end = motion[-1, 0]
+    if marble.get('activeUntil') is not None:
+        end = min(end, float(marble['activeUntil']))
+    return (times >= motion[0, 0] - 1e-9) & (times <= end + 1e-9)
+
+
 def follow_points(marbles, motions, times):
     """Weighted centre of the marbles at each time; returns an (n, 2) array and the depth of the marble plane"""
     total = np.zeros((len(times), 2))
@@ -158,8 +169,10 @@ def follow_points(marbles, motions, times):
             continue
         x = np.interp(times, motion[:, 0], motion[:, 1])
         y = np.interp(times, motion[:, 0], motion[:, 2])
-        inside = (times >= motion[0, 0] - 1e-9) & (times <= motion[-1, 0] + 1e-9)
-        weight = np.where(inside, 1.0, 0.05)
+        inside = in_flight(marble, motion, times)
+        # A marble that has finished playing falls away fast, so even a small weight would drag the centre
+        finished = marble.get('activeUntil') is not None and times > float(marble['activeUntil']) + 1e-9
+        weight = np.where(inside, 1.0, np.where(finished, FINISHED_WEIGHT, 0.05))
         total[:, 0] += x * weight
         total[:, 1] += y * weight
         weights += weight
@@ -188,7 +201,7 @@ def in_flight_count(marbles, motions, times):
     for marble in marbles:
         motion = motions.get(marble['id'])
         if motion is not None and len(motion):
-            count += (times >= motion[0, 0] - 1e-9) & (times <= motion[-1, 0] + 1e-9)
+            count += in_flight(marble, motion, times)
     return count
 
 
@@ -201,7 +214,7 @@ def spread_need(marbles, motions, times, centre, lens):
         motion = motions.get(marble['id'])
         if motion is None or not len(motion):
             continue
-        inside = (times >= motion[0, 0] - 1e-9) & (times <= motion[-1, 0] + 1e-9)
+        inside = in_flight(marble, motion, times)
         dx = np.abs(np.interp(times, motion[:, 0], motion[:, 1]) - centre[:, 0])
         dy = np.abs(np.interp(times, motion[:, 0], motion[:, 2]) - centre[:, 1])
         need = np.maximum(dx / reach_x, dy / reach) * 1.1
@@ -278,8 +291,14 @@ def group_framing(marbles, motions, times, settings, fps, aspect):
     if focus is not None and len(marbles) > 1:
         focus_now = marble_point(focus, motions, times)
         focus_ahead = marble_point(focus, motions, times + settings['lead'])
-        centre = weight[:, None] * centre + (1 - weight[:, None]) * focus_now
-        ahead = weight[:, None] * ahead + (1 - weight[:, None]) * focus_ahead
+        # Once the focus marble has played its last note, the camera eases back to the marbles that still play
+        keep = weight
+        if focus.get('activeUntil') is not None:
+            playing = (times <= float(focus['activeUntil']) + 1e-9).astype(np.float64)
+            playing = np.clip(critically_damped(playing[:, None], fps, GROUP_EASE / 3)[:, 0], 0.0, 1.0)
+            keep = np.maximum(weight, 1.0 - playing)
+        centre = keep[:, None] * centre + (1 - keep[:, None]) * focus_now
+        ahead = keep[:, None] * ahead + (1 - keep[:, None]) * focus_ahead
     return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'roll': shot_roll}
 
 

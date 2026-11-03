@@ -42,12 +42,11 @@ const IMPORT_START = 1;
 const MAX_MARBLES = 2;
 const GLOCKENSPIEL = 9;
 const CELESTA = 8;
-// Melody on the left of the frame, bass on the right, one lane spacing apart like the import places them and
-// released at 0 s like the import's default, so the first strike at 1 s comes after a 4.9 m fall that Auto place
-// settles in one hit
+// Melody on the left of the frame, bass on the right, one lane spacing apart like the import places them. Each
+// keeps the import's release time, a short drop before its first note
 const RELEASES = [
-	{ x: -LANE_SPACING / 2, y: 0.6, time: 0 },
-	{ x: LANE_SPACING / 2, y: 0.6, time: 0 }
+	{ x: -LANE_SPACING / 2, y: 0.6 },
+	{ x: LANE_SPACING / 2, y: 0.6 }
 ];
 const DEGREE = Math.PI / 180;
 // Release shifts the build tries in turn, in metres
@@ -93,13 +92,13 @@ project.entities.forEach((entity, index) => {
 	const release = RELEASES[index];
 	if (entity.components.marble == null || release == null) return;
 	entity.name = index === 0 ? 'Melody' : 'Bass';
-	entity.components.release = { position: { x: release.x, y: release.y }, time: release.time };
+	entity.components.release = { position: { x: release.x, y: release.y }, time: entity.components.release?.time ?? 0 };
 });
 
 // Build
 
-// Speed: the user sets full gravity in the World panel. At the default half gravity the build stops at 29 s
-// (102 of 115 hits, every release shift tried); at full gravity it completes
+// Speed: the user sets full gravity in the World panel. At the default half gravity the build stops early for
+// every release lead tried (23 s at 0.35 s, 1.5 s at 0.7 s, 29 s at 1 s); at full gravity it completes
 const GRAVITY_SCALE = 1;
 project.physics.gravityScale = GRAVITY_SCALE;
 

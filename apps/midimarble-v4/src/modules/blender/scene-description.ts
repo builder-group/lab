@@ -102,6 +102,11 @@ export interface TSceneMarble {
 	 * the first frame again. The camera does not follow ghosts.
 	 */
 	ghostOf?: string;
+	/**
+	 * Seconds after which the follow camera stops framing this marble: a moment after its last note. Absent for
+	 * the marble that plays last, for marbles without notes and in loops, which the camera frames to the end.
+	 */
+	activeUntil?: number;
 }
 
 export interface TScenePiece {

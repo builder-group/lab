@@ -89,6 +89,20 @@ describe('follow camera', () => {
 		}
 	});
 
+	it('keeps the marble that still plays in frame after the other has finished', () => {
+		const { project: jingle, result } = fixture('jingle-bells');
+		const track = required(followCameraTrack(jingle, result, 30));
+		// The melody's last note is at 31 s; the bass plays until 32.5 s and falls on to the end
+		const bass = required(result.marbles.find((marble) => marble.laneId === jingle.music.lanes[1]?.id));
+		for (let frame = 30 * 30; frame < track.frameCount; frame += 3) {
+			const sample = bass.samples.find((item) => item.time >= frame / 30);
+			if (sample == null) continue;
+			const [u, v] = project(track, frame, sample.position.x, sample.position.y);
+			expect(Math.min(u, v)).toBeGreaterThan(0.05);
+			expect(Math.max(u, v)).toBeLessThan(0.95);
+		}
+	});
+
 	it('samples between frames', () => {
 		const { project: zigzag, result } = fixture('zigzag');
 		const track = required(followCameraTrack(zigzag, result, 30));

@@ -29,6 +29,8 @@ const MIN_PIECE_FRACTION = 0.06;
 const ZOOM_LIMIT = 3.0;
 const GROUP_KEEP_X = 0.75;
 const GROUP_KEEP_Y = 0.8;
+/** Weight in the group centre of a marble past its `activeUntil`, `FINISHED_WEIGHT` in `camera.py` */
+const FINISHED_WEIGHT = 0.001;
 export const CAMERA_SENSOR = 36.0;
 const GROUP_EASE = 1.2;
 const GROUP_SPIKE = 0.3;
@@ -247,6 +249,7 @@ export function followCameraInput(
 			id: marble.id,
 			radius: marble.radius,
 			ghostOf: marble.ghostOf,
+			activeUntil: marble.activeUntil,
 			motion: decodeMotion(files.get(marble.motionPath))
 		}))
 	};
@@ -268,6 +271,8 @@ export interface TFollowMarble {
 	id: string;
 	radius: number;
 	ghostOf?: string;
+	/** `activeUntil` of the scene marble: the camera stops framing it then */
+	activeUntil?: number;
 	motion: TMotion;
 }
 
@@ -409,9 +414,11 @@ function hasMotion(marble: TFollowMarble): boolean {
 	return marble.motion.time.length > 0;
 }
 
+/** `in_flight` in `camera.py`: from the first sample to the last, or to `activeUntil` once the lane has finished */
 function inside(marble: TFollowMarble, time: number): boolean {
 	const motion = marble.motion.time;
-	return time >= (motion[0] ?? 0) - 1e-9 && time <= (motion[motion.length - 1] ?? 0) + 1e-9;
+	const end = Math.min(motion[motion.length - 1] ?? 0, marble.activeUntil ?? Infinity);
+	return time >= (motion[0] ?? 0) - 1e-9 && time <= end + 1e-9;
 }
 
 function followPoints(
@@ -427,7 +434,10 @@ function followPoints(
 		const x = interp(times, marble.motion.time, marble.motion.x);
 		const y = interp(times, marble.motion.time, marble.motion.y);
 		for (let index = 0; index < times.length; index++) {
-			const weight = inside(marble, times[index] ?? 0) ? 1.0 : 0.05;
+			// A marble that has finished playing falls away fast, so even a small weight would drag the centre
+			const time = times[index] ?? 0;
+			const isFinished = marble.activeUntil != null && time > marble.activeUntil + 1e-9;
+			const weight = inside(marble, time) ? 1.0 : isFinished ? FINISHED_WEIGHT : 0.05;
 			totalX[index] = (totalX[index] ?? 0) + (x[index] ?? 0) * weight;
 			totalY[index] = (totalY[index] ?? 0) + (y[index] ?? 0) * weight;
 			weights[index] = (weights[index] ?? 0) + weight;
@@ -597,9 +607,20 @@ function groupFraming(
 	if (focus != null && marbles.length > 1) {
 		const focusNow = marblePoint(focus, times);
 		const focusAhead = marblePoint(focus, leadTimes);
+		// Once the focus marble has played its last note, the camera eases back to the marbles that still play
+		let keep = weight;
+		if (focus.activeUntil != null) {
+			const until = focus.activeUntil;
+			const playing = criticallyDamped(
+				times.map((time) => (time <= until + 1e-9 ? 1 : 0)),
+				fps,
+				GROUP_EASE / 3
+			);
+			keep = weight.map((value, index) => Math.max(value, 1 - clamp(playing[index] ?? 0, 0.0, 1.0)));
+		}
 		for (const axis of [0, 1] as const) {
 			for (let index = 0; index < count; index++) {
-				const w = weight[index] ?? 0;
+				const w = keep[index] ?? 0;
 				centre[axis][index] =
 					w * (centre[axis][index] ?? 0) + (1 - w) * (focusNow[axis][index] ?? 0);
 				ahead[axis][index] =

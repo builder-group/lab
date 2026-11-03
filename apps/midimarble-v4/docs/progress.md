@@ -5,11 +5,20 @@ The autonomous build updates this log after every slice. Newest entries go first
 ## Current state
 
 - Milestones: M0–M4 done; M5 Design in progress (UI, library and agent runner done; Blender consumption of asset skins, per-piece reactions and wall text in progress); M6 render pipeline, follow camera and seamless loops done, shot markers open
-- Next steps: looser group framing in the film camera for two-lane runs (see the larger-kit entry and `references.md`), a held ending for Jingle Bells, a native export test, density at reference hit rates, a focus-marble control in the Design inspector
+- Next steps: looser group framing in the film camera for two-lane runs (see the larger-kit entry and `references.md`), Jingle Bells at the default half speed, a native export test, density at reference hit rates, a focus-marble control in the Design inspector
 - Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### Jingle Bells in Compose: opening and ending
+
+- Watched in the Camera view. Three problems: the example opened on two lone marbles with nothing in view (the first note at 1 s came after a 4.9 m fall from a 0 s release), Zoom to Fit was the only way to find the run, and the bass left the frame from 30.8 s to the end, before its last notes at 32.5 s
+- Opening view: a project opens framed on its releases and every marble's first hit when the film-width view misses them (`revealFirstHits` in `ComposeCx`). Staircase, which opened with its run out of frame, now opens on the release and the first platforms
+- Release lead: the MIDI import releases each marble `IMPORT_RELEASE_LEAD` (0.5 s) before its first note. Sweep of the Jingle Bells build at full gravity: 0.35 s lead 115/115 but 9 manual steps, the melody crossed the bass and the preflight warned; 0.5 s 115/115, 5 manual steps, no crossing, preflight clean; 0.7 s 115/115, 4 steps, clean; the old 1 s fall 115/115, 5 steps, one warning. At half gravity every lead stops early (0.35 s at 23 s, 0.7 s at 1.5 s, 1 s at 29 s). The fixture is rebuilt with the 0.5 s lead (`fixtures:jingle`, byte for byte reproducible) and opens at 11 % with both columns in view
+- Ending: the scene description carries `activeUntil` per marble, its last note plus `MARBLE_ACTIVE_TAIL` (0.6 s), for every marble but the one that plays last and not in loops. The camera counts a marble in the group only until then, gives a finished marble a weight of 0.001 instead of 0.05 (at 15 m away 0.05 still dragged the centre 0.7 m), and when the focus marble has finished, eases back from following it to the marbles still playing. Same change in `camera.py` and the TypeScript port. Measured on Jingle Bells through the port: the bass stays within 0.78 of the half frame to the end (before: out from 30.8 s), the camera eases in from 1.21 m to 0.86 m once only the bass plays, and the melody falls out after its last note at 31.9 s
+- Checks: `typecheck`, `lint` and `test` (226) pass; new tests for the import release time, the camera keeping the still-playing marble, and a preflight test that now expects Jingle Bells clean (and checks the lane band by moving the bass release); `camera:check` matches Blender within 0.003 mm and 0.016° on zigzag, reference-20 and jingle-bells; `blender:check` (115) and `blender:film` (20) pass
+- Not rendered yet: a Draft film of the new Jingle Bells
 
 ### Camera view in Compose
 

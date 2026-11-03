@@ -553,8 +553,41 @@ export class ComposeCx {
 		if (project == null || this.framedProjectId === project.id || this.result == null || this.$viewport.get().width <= 1) return;
 		this.framedProjectId = project.id;
 		this.fitFrame();
+		this.revealFirstHits(project);
 		// A reveal sent while Compose was not mounted, such as from the export preflight in Design
 		this.revealPending();
+	}
+
+	/**
+	 * A run that falls a long way to its first piece would open on lone marbles, so the opening view widens
+	 * to the releases and every marble's first hit at the playhead's side of the run
+	 */
+	private revealFirstHits(project: TProject): void {
+		const result = this.result;
+		const camera = this.$camera.get();
+		if (result == null || camera.mode !== '2d') return;
+		const playhead = this.studio.$playhead.get();
+		const points: TVec2[] = [];
+		for (const entity of project.entities) {
+			const release = entity.components.release;
+			if (release != null && playhead <= 1e-3) points.push(release.position);
+		}
+		for (const lane of project.music.lanes) {
+			const first = result.hits
+				.filter((hit) => hit.laneId === lane.id && hit.dot != null && hit.targetTime >= playhead - 1e-3)
+				.sort((a, b) => a.targetTime - b.targetTime)[0];
+			if (first?.dot != null) points.push(first.dot);
+		}
+		const bounds = boundsOf(points);
+		if (bounds == null || isBoundsVisible(camera.view, this.$viewport.get(), bounds, 40)) return;
+		const band = frameBand(project);
+		const halfWidth = band.halfWidth * 1.35;
+		this.fit({
+			minX: Math.min(band.centerX - halfWidth, bounds.minX),
+			maxX: Math.max(band.centerX + halfWidth, bounds.maxX),
+			minY: bounds.minY - 0.1,
+			maxY: bounds.maxY + 0.05
+		});
 	}
 
 	/** Handles the studio's pending reveal once the canvas can frame it */
