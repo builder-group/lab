@@ -140,4 +140,22 @@ describe('fixtures', () => {
 			expect(contact.otherEntityId.startsWith(`piece-${lane}-`)).toBe(true);
 		}
 	});
+
+	it('jingle-bells: melody and bass from the MIDI import, every hit on time without marble contacts', () => {
+		const project = loadFixture('jingle-bells');
+		const result = simulator.simulate(project);
+		const counts = project.music.lanes.map((lane) => lane.hits.length);
+		// The refrain's 51 melody notes and 64 bass notes, none left out by the build
+		expect(counts).toEqual([51, 64]);
+		expectAllOnTime(result, 115);
+		expect(project.music.lanes.map((lane) => lane.instrument)).toEqual([9, 8]);
+		expect(project.design.theme).toBe('brass');
+		expect(result.pieces.filter((piece) => piece.type === 'rail').length).toBeGreaterThanOrEqual(4);
+		expect(result.contacts.filter((contact) => contact.kind === 'marble')).toHaveLength(0);
+		// Each marble only touches its own lane's pieces
+		for (const contact of result.contacts.filter((item) => item.kind === 'piece')) {
+			const lane = contact.marbleEntityId.replace('marble-', '');
+			expect(contact.otherEntityId, contact.otherEntityId).toMatch(new RegExp(`^(piece|rail)-${lane}-`));
+		}
+	});
 });

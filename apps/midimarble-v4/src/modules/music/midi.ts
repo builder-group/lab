@@ -1,9 +1,12 @@
-import { Midi } from '@tonejs/midi';
+import * as toneMidi from '@tonejs/midi';
 import { Err, Ok, type TResult } from 'tuple-result';
+
+// Node loads the package's CommonJS build, whose exports sit on `default`; bundlers expose them directly
+const { Midi } = (toneMidi as unknown as { default?: typeof toneMidi }).default ?? toneMidi;
 
 /** Parses a Standard MIDI File into note lists per track and channel */
 export function parseMidiFile(bytes: ArrayBuffer | Uint8Array): TResult<TMidiFile, Error> {
-	let midi: Midi;
+	let midi: InstanceType<typeof Midi>;
 	try {
 		midi = new Midi(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
 	} catch (error) {

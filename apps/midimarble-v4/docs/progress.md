@@ -5,11 +5,20 @@ The autonomous build updates this log after every slice. Newest entries go first
 ## Current state
 
 - Milestones: M0–M4 done; M5 Design in progress (UI, library and agent runner done; Blender consumption of asset skins, per-piece reactions and wall text in progress); M6 render pipeline, follow camera and seamless loops done, shot markers open
-- Next steps: Jingle Bells end to end, a native export test, film-look round 3 (piece detail, density at reference hit rates)
+- Next steps: the Jingle Bells gaps in `references.md` (long-gap pieces, per-lane frame bands, shared descent across marbles), a native export test, film-look round 3 (piece detail, density at reference hit rates)
 - Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### Jingle Bells end to end
+
+- `scripts/build-jingle-fixture.ts` (`pnpm fixtures:jingle`) generates a public domain refrain plus a quarter-note bass as MIDI, imports it like the import sheet (parse, align to 1 s, split across two marbles, `createImportCommands`) and builds every hit with Next semantics through `answerWorkerRequest`: rails for gaps, Continue ghosts, Mirror, Auto place and launch angles, with hand rotations where those find nothing. Brass theme, Glockenspiel melody, Celesta bass
+- Result: 51/51 melody and 64/64 bass hits on time, 7 rails, no marble contacts, each marble touches only its own pieces; 34 of 115 steps needed a hand rotation. The build is deterministic and takes about 25 s
+- Film: `.local/jingle/jingle-bells-fast.mp4`, 35 s at 720×1280, 1050 frames in 428 s, soundtrack from `renderLanes` and `encodeWav` in Node. It does not read: the marbles drift up to 39 m apart vertically, so the follow camera zooms out until the pieces are specks, and from 22 s it passes the wall edge
+- Comparison with the earlier Jingle Bells attempts and the gaps found are in `references.md` under Jingle Bells comparison
+- Fixed: `parseMidiFile` failed in Node because `@tonejs/midi` loads as CommonJS there
+- Checks: `typecheck`, `lint` and `test` (172) pass; `jingle-bells` added to `fixtures.test.ts`
 
 ### Seamless loops
 
