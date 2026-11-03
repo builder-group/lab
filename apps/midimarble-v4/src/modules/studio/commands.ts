@@ -4,7 +4,8 @@ import { toolKeys, type TComposeTool } from '@/modules/compose/keys';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import type { TRenderPreset } from '@/modules/blender';
 import { themeCommands } from '@/modules/design/design-commands';
-import { parseHitKey } from './selection';
+import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
+import { parseHitKey, parseShotKey, toShotKey } from './selection';
 import { focusedLane, type StudioCx } from './StudioCx';
 
 // Every studio command in one list. The command palette lists them all; context menus and the
@@ -87,6 +88,10 @@ function hasHits(cx: StudioCx): boolean {
 	return cx.$selection.get().some((key) => parseHitKey(key) != null);
 }
 
+function selectedShotIds(cx: StudioCx): string[] {
+	return cx.$selection.get().flatMap((key) => parseShotKey(key) ?? []);
+}
+
 function isTool(cx: StudioCx, tool: TComposeTool): boolean {
 	return compose(cx)?.$tool.get() === tool;
 }
@@ -124,7 +129,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Edit',
 		shortcut: '⌫',
 		keywords: 'remove',
-		isEnabled: (cx) => hasPieces(cx) || hasHits(cx),
+		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && selectedShotIds(cx).length > 0),
 		run: (cx) => {
 			if (compose(cx)?.deleteSelection() === true) return;
 			deleteSelectedHits(cx);
@@ -278,6 +283,20 @@ export const commands: readonly TCommand[] = [
 		isEnabled: (cx) => hasBlender(cx) && cx.design.$camera.get() === 'takenOver',
 		run: (cx) => void cx.design.regenerateCamera()
 	},
+	{
+		id: 'camera.addShot',
+		title: 'Add Shot Marker',
+		section: 'Design',
+		shortcut: '⇧M',
+		keywords: 'camera shot marker push in wide close up roll',
+		isEnabled: inDesign,
+		run: (cx) => {
+			const project = cx.project;
+			if (project == null) return;
+			const { commands: shotCommands, shotId } = addShotCommands(project, cx.$playhead.get());
+			if (cx.execute(shotCommands)) cx.$selection.set([toShotKey(shotId)]);
+		}
+	},
 	themeCommand('design.themePegboard', 'pegboard', 'Pegboard Theme'),
 	themeCommand('design.themeBrass', 'brass', 'Brass Theme'),
 	presetCommand('design.presetDraft', 'draft', 'Draft Render Preset'),
@@ -337,6 +356,7 @@ export type TCommandId =
 	| 'design.askAgent'
 	| 'design.resetToCompose'
 	| 'design.regenerateCamera'
+	| 'camera.addShot'
 	| 'design.themePegboard'
 	| 'design.themeBrass'
 	| TPresetCommandId
@@ -411,9 +431,16 @@ export function commandItem(cx: StudioCx, id: TCommandId, title?: string): TMenu
 	};
 }
 
+/** Deletes the selected hits, or in Design the selected shot markers */
 export function deleteSelectedHits(cx: StudioCx): boolean {
 	const project = cx.project;
 	if (project == null) return false;
+	const shotIds = selectedShotIds(cx);
+	if (inDesign(cx) && shotIds.length > 0) {
+		const applied = cx.execute(removeShotsCommands(project, shotIds));
+		if (applied) cx.$selection.set([]);
+		return applied;
+	}
 	const byLane = new Map<string, string[]>();
 	for (const key of cx.$selection.get()) {
 		const parsed = parseHitKey(key);

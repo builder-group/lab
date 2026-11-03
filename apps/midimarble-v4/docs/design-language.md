@@ -111,6 +111,7 @@ The canvas is open like Figma: every element is placed with its tool, moved by d
 | Escape     | Cancel the drag or rail, then dismiss ghosts, then leave the tool, then clear the selection |
 | R, M, A    | Repeat, Mirror, Auto place                                      |
 | ⇧P         | Pin or unpin                                                    |
+| ⇧M         | Add a camera shot marker at the playhead in Design              |
 | ⌥ (held)   | Drop free while dragging; break handle symmetry on the Path tool |
 | ← →        | Turn selected pieces 1° (⇧ 5°); without pieces, previous and next hit |
 
@@ -125,6 +126,7 @@ Return acts as Next only while something is selected or offered; otherwise it ke
 - Hits are diamonds, Blender's keyframe shape: hollow until a piece plays them, filled in the lane colour when on time, amber-edged when drifting, red when missed, accent yellow when selected, and outlined in the accent when their piece is selected on the canvas. A red ring marks hits closer than 180 ms
 - Hits are dragged like notes in Logic; a marble's release is dragged like a clip in Final Cut
 - The waveform or MIDI notes sit faintly behind each lane
+- In Design a thin Camera row under the ruler shows shot markers as small amber tabs pointing at their time, like Final Cut markers, accent yellow when selected. Its + button and a double-click on the row add one; a marker is dragged sideways to move it
 
 ## Status colors
 

@@ -113,9 +113,12 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			) as TComponents;
 			return Ok(project);
 		}
-		case 'setDesign':
-			project.design = { ...project.design, ...command.design };
+		case 'setDesign': {
+			const design = { ...project.design, ...command.design };
+			// The follow camera reads shot markers in time order
+			project.design = { ...design, camera: { ...design.camera, shots: [...design.camera.shots].sort((a, b) => a.time - b.time) } };
 			return Ok(project);
+		}
 		case 'setPhysics':
 			project.physics = { ...project.physics, ...command.physics };
 			return Ok(project);

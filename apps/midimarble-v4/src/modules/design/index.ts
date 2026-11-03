@@ -12,3 +12,4 @@ export * from './export-preflight';
 export * from './ExportPreflight';
 export * from './ExportSheet';
 export * from './FilmExportCx';
+export * from './shots';

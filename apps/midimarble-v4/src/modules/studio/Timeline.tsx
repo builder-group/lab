@@ -4,10 +4,12 @@ import React from 'react';
 import { openContextMenu, RenameField } from '@/components';
 import { findLaneConflicts, instruments, MIN_HIT_GAP } from '@/modules/music';
 import type { TLane, TProject } from '@/modules/project';
+import { addShotCommands, shotKindLabel, updateShotCommands } from '@/modules/design/shots';
 import { createLoop, type THitResult } from '@/modules/simulation';
+import { getCommand } from './commands';
 import { formatTime } from './format';
 import { addHit, hitMenu, laneMenu } from './menus';
-import { toHitKey } from './selection';
+import { parseShotKey, toHitKey, toShotKey } from './selection';
 import { isLaneAudible, type StudioCx } from './StudioCx';
 import type { TSourceAnalysis } from './SourcesCx';
 
@@ -17,9 +19,12 @@ const ROW_HEIGHT = 44;
 // Transport bar above the ruler
 const TRANSPORT_HEIGHT = 36;
 
+// Camera shot marker row of the Design workspace
+const CAMERA_ROW_HEIGHT = 24;
+
 /** Height that shows every lane with a little room, like a video editor sizing its timeline to the tracks */
-function fittedHeight(lanes: number): number {
-	const content = TRANSPORT_HEIGHT + RULER_HEIGHT + Math.max(1, lanes) * ROW_HEIGHT + 20;
+function fittedHeight(lanes: number, extra: number): number {
+	const content = TRANSPORT_HEIGHT + RULER_HEIGHT + extra + Math.max(1, lanes) * ROW_HEIGHT + 20;
 	return Math.round(Math.min(Math.max(content, 150), window.innerHeight * 0.45));
 }
 const MIN_ZOOM = 20;
@@ -39,6 +44,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const result = useFeatureState(cx.simulation.$result);
 	const mix = useFeatureState(cx.$mix);
 	const height = useFeatureState(cx.$timelineHeight);
+	const workspace = useFeatureState(cx.$workspace);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const [zoom, setZoom] = React.useState(80);
 	const [drag, setDrag] = React.useState<TDrag | null>(null);
@@ -150,13 +156,14 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	if (project == null) return null;
 	const hasRecording = audio != null;
+	const showsCamera = workspace === 'design';
 
 	// MARK: - UI
 
 	return (
 		<section
 			className="relative flex shrink-0 flex-col border-t border-[var(--separator)] bg-[var(--content)]"
-			style={{ height: height > 0 ? height : fittedHeight(project.music.lanes.length) }}
+			style={{ height: height > 0 ? height : fittedHeight(project.music.lanes.length, showsCamera ? CAMERA_ROW_HEIGHT : 0) }}
 			aria-label="Timeline"
 		>
 			<ResizeHandle cx={cx} />
@@ -175,6 +182,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						</div>
 						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
+					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{project.music.lanes.map((lane) => (
 						<div key={lane.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
 							<LaneHeader cx={cx} lane={lane} project={project} selection={selection} hasRecording={hasRecording} />
@@ -534,6 +542,118 @@ const PlayheadLine: React.FC<{ cx: StudioCx; zoom: number; scrollRef: React.RefO
 	}, [cx, scrollRef, x]);
 
 	return <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-[var(--playhead)]" style={{ left: HEADER_WIDTH + x }} />;
+};
+
+// MARK: - Camera
+
+/**
+ * Camera shot markers in the Design workspace, like Final Cut markers above the clips: click selects,
+ * dragging moves the time with one undo step, double-click on the row adds a marker
+ */
+const CameraRow: React.FC<TCameraRowProps> = (props) => {
+	const { cx, project, zoom, width, selection, timeAt } = props;
+	const shots = project.design.camera.shots;
+	const [drag, setDrag] = React.useState<{ shotId: string; grab: number; originX: number; time: number; moved: boolean } | null>(null);
+
+	return (
+		<div className="flex shrink-0" style={{ height: CAMERA_ROW_HEIGHT }}>
+			<div
+				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-0.5 border-r border-b border-[var(--separator)] pr-1.5 pl-4"
+				style={{ width: HEADER_WIDTH }}
+			>
+				<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Camera</span>
+				<button
+					className="mm-icon-button !h-5 !w-5"
+					onClick={() => getCommand('camera.addShot').run(cx)}
+					title="Add Shot Marker at Playhead (⇧M)"
+					aria-label="Add Shot Marker"
+					type="button"
+				>
+					<Plus size={12} strokeWidth={2} />
+				</button>
+			</div>
+			<div
+				className="relative flex-1 border-b border-[var(--separator)]"
+				style={{ minWidth: width }}
+				aria-label="Camera shot markers"
+				onPointerDown={(event) => {
+					if (event.button !== 0 || event.target !== event.currentTarget || event.shiftKey) return;
+					cx.$selection.set(selection.filter((key) => parseShotKey(key) == null));
+				}}
+				onDoubleClick={(event) => {
+					if (event.target !== event.currentTarget) return;
+					const { commands: shotCommands, shotId } = addShotCommands(project, timeAt(event.clientX));
+					if (cx.execute(shotCommands)) cx.$selection.set([toShotKey(shotId)]);
+				}}
+			>
+				{shots.map((shot) => {
+					const key = toShotKey(shot.id);
+					const isSelected = selection.includes(key);
+					const time = drag?.shotId === shot.id ? drag.time : shot.time;
+					return (
+						<button
+							key={shot.id}
+							className="absolute top-0 z-20 flex h-full w-4 -translate-x-1/2 cursor-ew-resize items-start justify-center pt-[3px]"
+							style={{ left: time * zoom }}
+							aria-label={`${shotKindLabel(shot.kind)} shot at ${formatTime(time)}`}
+							aria-pressed={isSelected}
+							title={`${shotKindLabel(shot.kind)} · ${formatTime(time)}`}
+							onPointerDown={(event) => {
+								if (event.button !== 0) return;
+								event.stopPropagation();
+								if (event.shiftKey) {
+									cx.$selection.set(isSelected ? selection.filter((item) => item !== key) : [...selection, key]);
+									return;
+								}
+								event.currentTarget.setPointerCapture(event.pointerId);
+								cx.$selection.set([key]);
+								setDrag({ shotId: shot.id, grab: timeAt(event.clientX) - shot.time, originX: event.clientX, time: shot.time, moved: false });
+							}}
+							onPointerMove={(event) => {
+								if (drag?.shotId !== shot.id) return;
+								const moved = drag.moved || Math.abs(event.clientX - drag.originX) > 2;
+								if (moved) setDrag({ ...drag, moved, time: round(Math.max(0, timeAt(event.clientX) - drag.grab)) });
+							}}
+							onPointerUp={() => {
+								if (drag?.shotId !== shot.id) return;
+								setDrag(null);
+								if (drag.moved && drag.time !== shot.time) cx.execute(updateShotCommands(project, shot.id, { time: drag.time }));
+							}}
+							onPointerCancel={() => setDrag(null)}
+							onDoubleClick={(event) => event.stopPropagation()}
+							type="button"
+						>
+							<ShotGlyph isSelected={isSelected} />
+						</button>
+					);
+				})}
+			</div>
+		</div>
+	);
+};
+
+interface TCameraRowProps {
+	cx: StudioCx;
+	project: TProject;
+	zoom: number;
+	width: number;
+	selection: string[];
+	timeAt: (clientX: number) => number;
+}
+
+/** Final Cut style marker: a small tab with a point at the marker's time */
+const ShotGlyph: React.FC<{ isSelected: boolean }> = (props) => {
+	const { isSelected } = props;
+	return (
+		<svg width={10} height={14} viewBox="0 0 10 14" aria-hidden>
+			<path
+				d="M1.5 1h7a.5.5 0 0 1 .5.5V9l-4 4-4-4V1.5a.5.5 0 0 1 .5-.5z"
+				fill={isSelected ? 'var(--accent)' : 'var(--warn)'}
+				stroke={isSelected ? 'var(--accent-strong)' : 'color-mix(in srgb, var(--warn) 70%, black)'}
+				strokeWidth={1}
+			/>
+		</svg>
+	);
 };
 
 // MARK: - Lanes

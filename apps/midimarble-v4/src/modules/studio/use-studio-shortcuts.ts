@@ -53,6 +53,14 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				return;
 			}
 			if (command || event.altKey || event.ctrlKey) return;
+			if (event.shiftKey && key === 'm') {
+				const target = getCommand('camera.addShot');
+				if (isCommandEnabled(cx, target)) {
+					event.preventDefault();
+					target.run(cx);
+				}
+				return;
+			}
 			if (event.key === ' ') {
 				event.preventDefault();
 				cx.$playing.set(!cx.$playing.get());

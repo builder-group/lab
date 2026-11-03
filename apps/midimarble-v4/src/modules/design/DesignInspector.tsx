@@ -1,13 +1,15 @@
 import { useFeatureState } from 'feature-react/state';
-import { Clapperboard, Plus, Trash2, Type } from 'lucide-react';
+import { Bookmark, Clapperboard, Plus, Trash2, Type } from 'lucide-react';
 import React from 'react';
-import { InfoRow, InspectorHeader, Panel, ScrubField, Select } from '@/components';
+import { HelpTip, InfoRow, InspectorHeader, Panel, ScrubField, Select } from '@/components';
 import type { TAgentTarget } from '@/modules/agents';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import type { TLibraryItem } from '@/modules/library';
-import type { TDesign, TEntity, TProject } from '@/modules/project';
+import type { TDesign, TEntity, TProject, TShot } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
+import { getCommand } from '@/modules/studio/commands';
+import { toShotKey } from '@/modules/studio/selection';
 import { AgentPanel } from './AgentPanel';
 import {
 	cameraCommands,
@@ -26,6 +28,7 @@ import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
 import { renderPresetLabel, renderPresets } from './export-estimate';
 import { PreflightIcon, useExportPreflight } from './ExportPreflight';
 import { describeLoop } from './loop-status';
+import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
 
 /** Properties of the Design workspace in Blender-style panels: the scene, a piece's look or wall text */
 export const DesignInspector: React.FC<TDesignInspectorProps> = (props) => {
@@ -33,9 +36,11 @@ export const DesignInspector: React.FC<TDesignInspectorProps> = (props) => {
 	const entities = project.entities.filter((entity) => selection.includes(entity.id));
 	const pieces = entities.filter((entity) => entity.components.piece != null);
 	const text = entities.find((entity) => entity.components.wallText != null);
+	const shot = project.design.camera.shots.find((item) => selection.includes(toShotKey(item.id)));
 
 	if (pieces.length > 0) return <PieceLook cx={cx} project={project} pieces={pieces} />;
 	if (text != null) return <WallTextInspector cx={cx} entity={text} />;
+	if (shot != null) return <ShotInspector cx={cx} project={project} shot={shot} />;
 	return <SceneInspector cx={cx} project={project} />;
 };
 
@@ -179,6 +184,18 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 					<ScrubField id="camera-pitch" label="Pitch" value={(camera.pitch * 180) / Math.PI} unit="°" step={0.5} min={-80} max={80} onCommit={(value) => set({ pitch: (value * Math.PI) / 180 })} />
 					<ScrubField id="camera-lead" label="Lead" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
 					<ScrubField id="camera-smoothing" label="Smoothing" value={Math.round(camera.smoothing * 100)} unit="%" step={0.5} min={0} max={100} onCommit={(value) => set({ smoothing: value / 100 })} />
+					<div className="mm-field">
+						<span className="mm-field-label">Shots</span>
+						<span className="flex min-w-0 flex-1 items-center gap-1.5">
+							<span className="min-w-0 flex-1 truncate text-[var(--text-secondary)]">
+								{!camera.shots.length ? 'None' : `${camera.shots.length} ${camera.shots.length === 1 ? 'marker' : 'markers'}`}
+							</span>
+							<button className="mm-button" onClick={() => getCommand('camera.addShot').run(cx)} title="Add Shot Marker at Playhead (⇧M)" type="button">
+								<Plus size={12} strokeWidth={2} />
+								Add
+							</button>
+						</span>
+					</div>
 					{cameraState === 'takenOver' ? (
 						<div className="mm-setup-card">
 							<div className="font-semibold">Camera Edited in Blender</div>
@@ -266,6 +283,51 @@ const WallTextPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 				</button>
 			) : null}
 		</Panel>
+	);
+};
+
+// MARK: - Shot marker
+
+const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> = (props) => {
+	const { cx, project, shot } = props;
+
+	function set(patch: Partial<Omit<TShot, 'id'>>): void {
+		cx.execute(updateShotCommands(project, shot.id, patch));
+	}
+
+	return (
+		<>
+			<InspectorHeader icon={<Bookmark size={15} strokeWidth={1.7} />} title={shotKindLabel(shot.kind)} subtitle="Shot Marker" />
+			<Panel
+				id="design.shot"
+				title="Shot"
+				accessory={<HelpTip text="After the marker the camera eases to this distance and roll over 0.8 s. Drag the marker on the timeline to move it." />}
+			>
+				<div className="mm-field">
+					<label htmlFor="shot-kind">Kind</label>
+					<Select
+						id="shot-kind"
+						value={shot.kind}
+						options={shotKinds.map((item) => ({ value: item.kind, label: item.label }))}
+						onChange={(value) => set({ kind: value as TShotKind })}
+					/>
+				</div>
+				<ScrubField id="shot-time" label="Time" value={shot.time} unit="s" step={0.01} precision={2} min={0} max={project.end} onCommit={(value) => set({ time: value })} />
+				<ScrubField id="shot-distance" label="Distance" value={shot.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
+				<ScrubField id="shot-roll" label="Roll" value={(shot.roll * 180) / Math.PI} unit="°" step={0.5} precision={1} min={-90} max={90} onCommit={(value) => set({ roll: (value * Math.PI) / 180 })} />
+				<button
+					className="mm-button self-start"
+					onClick={() => {
+						if (cx.execute(removeShotsCommands(project, [shot.id]))) cx.$selection.set([]);
+					}}
+					title="Delete Shot Marker (⌫)"
+					type="button"
+				>
+					<Trash2 size={12} strokeWidth={1.8} />
+					Delete Marker
+				</button>
+			</Panel>
+		</>
 	);
 };
 
