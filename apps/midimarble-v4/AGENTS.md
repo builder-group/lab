@@ -38,6 +38,7 @@ The build runs autonomously through the milestones without review between steps.
 
 ## Media and assets
 
+- Write temporary files to the system temp folder or the app's ignored `.local/`, never into the repository root; do not point `TMPDIR` or tool caches at the working directory
 - Keep reference media, purchased assets and rendered films out of the repository. Store generated artifacts under the app's ignored `.local/`.
 - Use the reference short only for the final validation in M6
 - Committed music must be original or public domain
