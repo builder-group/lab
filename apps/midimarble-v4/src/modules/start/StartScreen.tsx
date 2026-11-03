@@ -24,7 +24,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 			<WindowHeader floating />
 			<section className="flex flex-1 flex-col items-center justify-center gap-8 bg-[var(--content)] px-10">
 				<div className="flex flex-col items-center gap-2">
-					<img alt="" src="/midimarble.svg" className="h-24 w-24" draggable={false} />
+					<img alt="" src="/app-icon.svg" className="h-28 w-28" draggable={false} />
 					<h1 className="m-0 text-[28px] font-semibold tracking-tight">MidiMarble</h1>
 					<p className="m-0 text-[13px] text-[var(--text-secondary)]">
 						Compose a marble run to music, then design it in Blender.

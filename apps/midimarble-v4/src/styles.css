@@ -4,8 +4,11 @@
 :root {
 	--font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
 	--font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
-	--accent: AccentColor;
-	--accent-fallback: #0a84ff;
+	/* Brand yellow from the MidiMarble logo, used like the highlight yellow of Photos and Final Cut Pro */
+	--brand: #fde200;
+	--accent: #f5c400;
+	--accent-strong: #c99c00;
+	--on-accent: #1d1d1f;
 	--text: rgb(0 0 0 / 0.85);
 	--text-secondary: rgb(0 0 0 / 0.5);
 	--text-tertiary: rgb(0 0 0 / 0.26);
@@ -17,7 +20,7 @@
 	--separator: rgb(0 0 0 / 0.1);
 	--hover: rgb(0 0 0 / 0.05);
 	--pressed: rgb(0 0 0 / 0.09);
-	--selection: color-mix(in srgb, var(--accent-fallback) 18%, transparent);
+	--selection: color-mix(in srgb, var(--accent) 26%, transparent);
 	--control: rgb(255 255 255 / 0.9);
 	--control-border: rgb(0 0 0 / 0.12);
 	--shadow-popover: 0 0 0 0.5px rgb(0 0 0 / 0.15), 0 10px 30px rgb(0 0 0 / 0.18);
@@ -48,12 +51,9 @@
 		--control: rgb(255 255 255 / 0.08);
 		--control-border: rgb(255 255 255 / 0.1);
 		--shadow-popover: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 10px 30px rgb(0 0 0 / 0.5);
-	}
-}
-
-@supports not (color: AccentColor) {
-	:root {
-		--accent: var(--accent-fallback);
+		--accent: #ffd60a;
+		--accent-strong: #ffd60a;
+		--selection: color-mix(in srgb, var(--accent) 22%, transparent);
 	}
 }
 
@@ -88,7 +88,7 @@ textarea {
 }
 
 :focus-visible {
-	outline: 3px solid color-mix(in srgb, var(--accent-fallback) 45%, transparent);
+	outline: 3px solid color-mix(in srgb, var(--accent) 60%, transparent);
 	outline-offset: 1px;
 	border-radius: 5px;
 }
@@ -117,7 +117,8 @@ textarea {
 .mm-button[data-variant='primary'] {
 	background: var(--accent);
 	border-color: transparent;
-	color: white;
+	color: var(--on-accent);
+	font-weight: 500;
 }
 
 .mm-button:disabled {
@@ -197,8 +198,8 @@ textarea {
 }
 
 .mm-input:focus {
-	border-color: var(--accent);
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-fallback) 30%, transparent);
+	border-color: var(--accent-strong);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .mm-section-title {

@@ -48,7 +48,7 @@ export const MenuButton: React.FC<TMenuButtonProps> = (props) => {
 							<button
 								key={item.label}
 								role="menuitem"
-								className="flex h-[22px] w-full items-center justify-between gap-6 rounded-[4px] px-2 text-left hover:bg-[var(--accent)] hover:text-white disabled:opacity-40"
+								className="flex h-[22px] w-full items-center justify-between gap-6 rounded-[4px] px-2 text-left hover:bg-[var(--accent)] hover:text-[var(--on-accent)] disabled:opacity-40"
 								disabled={item.disabled}
 								onClick={() => {
 									setOpen(false);

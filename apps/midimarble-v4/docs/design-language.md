@@ -16,7 +16,7 @@ Reference apps:
 ## Principles
 
 - **Familiar first:** a new user should recognize every control from another app
-- **Native:** system font, accent color, menus, context menus, light and dark appearance, standard shortcuts
+- **Native:** system font, menus, context menus, light and dark appearance, standard shortcuts
 - **Canvas first:** panels stay compact and quiet so the track and music lead
 - **Keyboard and direct manipulation:** every frequent action has a shortcut and can also be done by dragging
 - **Honest feedback:** timing, misses and stale previews are always visible, never hidden behind a check button
@@ -99,7 +99,7 @@ The agent conversation lives in the inspector for the current selection, like a 
 ## Visual style
 
 - System font through `-apple-system`, 13 px base, compact density like Finder and Logic
-- System accent color for selection and focus
+- Brand yellow from the logo (`#FDE200`) as the accent for selection, focus and primary actions, used like the highlight yellow in Photos and Final Cut Pro, with dark text on yellow
 - Follows the system light or dark appearance
 - Thin icons in one family
 - Motion is short and functional; Reduce Motion disables decorative animation
