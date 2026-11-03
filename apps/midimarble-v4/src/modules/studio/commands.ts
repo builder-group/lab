@@ -6,6 +6,7 @@ import type { TRenderPreset } from '@/modules/blender';
 import { themeCommands } from '@/modules/design/design-commands';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { parseHitKey, parseShotKey, toShotKey } from './selection';
+import { setSidebarTab } from './sidebar-state';
 import { focusedLane, type StudioCx } from './StudioCx';
 
 // Every studio command in one list. The command palette lists them all; context menus and the
@@ -48,6 +49,12 @@ function inDesign(cx: StudioCx): boolean {
 function hasBlender(cx: StudioCx): boolean {
 	const status = cx.design.$status.get();
 	return inDesign(cx) && status !== 'unavailable' && status !== 'missing';
+}
+
+/** Whether Blender can run for the open project, in either workspace */
+function canRunBlender(cx: StudioCx): boolean {
+	const status = cx.design.$status.get();
+	return cx.project != null && status !== 'unavailable' && status !== 'missing';
 }
 
 /** Selected pieces that Blender reports as unlinked */
@@ -229,6 +236,7 @@ export const commands: readonly TCommand[] = [
 		isEnabled: inDesign,
 		run: (cx) => {
 			cx.$panels.set((panels) => ({ ...panels, sidebar: true }));
+			setSidebarTab('design', 'library');
 			requestAnimationFrame(() => document.getElementById('library-search')?.focus());
 		}
 	},
@@ -255,7 +263,8 @@ export const commands: readonly TCommand[] = [
 	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Pieces', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
 
 	// MARK: - Film
-	{ id: 'design.editInBlender', title: 'Edit in Blender', section: 'Film', keywords: 'open blender window', isEnabled: hasBlender, run: (cx) => void cx.design.openInBlender() },
+	{ id: 'design.editInBlender', title: 'Open in Blender', section: 'Film', keywords: 'edit blender window scene', isEnabled: canRunBlender, run: (cx) => void cx.design.openInBlender() },
+	{ id: 'design.restartBlender', title: 'Restart Blender', section: 'Film', keywords: 'blender reconnect stuck error', isEnabled: canRunBlender, run: (cx) => void cx.design.restart() },
 	{ id: 'design.renderPreview', title: 'Refresh Preview', section: 'Film', keywords: 'render update eevee playhead', isEnabled: hasBlender, run: (cx) => cx.design.requestPreview(0) },
 	{
 		id: 'design.addText',
@@ -367,6 +376,7 @@ export type TCommandId =
 	| 'file.removeSong'
 	| 'file.export'
 	| 'design.editInBlender'
+	| 'design.restartBlender'
 	| 'design.renderPreview'
 	| 'design.addText'
 	| 'design.askAgent'

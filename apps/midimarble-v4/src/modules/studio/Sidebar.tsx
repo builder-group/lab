@@ -1,26 +1,33 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, ChevronRight, Eye, EyeOff, Lock, LockOpen, Plus } from 'lucide-react';
+import { Anchor, AudioLines, Bookmark, ChevronRight, Eye, EyeOff, Folder, Lock, LockOpen, Music, Plus, Type, Video } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu, RenameField } from '@/components';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
 import { DesignLibrary } from '@/modules/design/DesignLibrary';
-import type { TEntity, TLane, TProject } from '@/modules/project';
+import { shotKindLabel } from '@/modules/design/shots';
+import type { TEntity, TProject } from '@/modules/project';
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
+import { addMenu } from './add-menu';
 import { commandItem } from './commands';
 import { laneMenu, pieceMenu } from './menus';
+import { buildOutline, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
+import { PieceLibrary } from './PieceLibrary';
+import { $sidebarTabs, setSidebarTab, type TSidebarTab } from './sidebar-state';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
 /**
- * Full-height sidebar after Paper and Figma: the project, the Compose and Design switch and the layer list.
- * In Design the library sits below the layers.
+ * Full-height sidebar after Paper and Figma: the project, the Compose and Film switch, then the Layers and
+ * Library tabs like Figma's Layers and Assets. Each workspace remembers its tab.
  */
 export const Sidebar: React.FC<TSidebarProps> = (props) => {
 	const { cx } = props;
 	const history = useFeatureState(cx.$history);
 	const workspace = useFeatureState(cx.$workspace);
+	const tabs = useFeatureState($sidebarTabs);
 	const project = history?.present;
 	if (project == null) return null;
+	const tab = tabs[workspace];
 
 	return (
 		<aside className="mm-sidebar flex w-[248px] shrink-0 flex-col" aria-label="Sidebar">
@@ -43,14 +50,35 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 					))}
 				</div>
 			</div>
-			{workspace === 'compose' ? (
-				<Layers cx={cx} project={project} canAdd />
-			) : (
-				<>
-					<Layers cx={cx} project={project} isCompact />
+			<div className="mm-sidebar-tabs">
+				<div className="flex items-center gap-0.5" role="tablist" aria-label="Sidebar">
+					{sidebarTabs.map((item) => (
+						<button
+							key={item.id}
+							id={`sidebar-tab-${item.id}`}
+							className="mm-sidebar-tab"
+							data-active={tab === item.id}
+							onClick={() => setSidebarTab(workspace, item.id)}
+							role="tab"
+							aria-selected={tab === item.id}
+							aria-controls={`sidebar-panel-${item.id}`}
+							type="button"
+						>
+							{item.label}
+						</button>
+					))}
+				</div>
+				{tab === 'layers' ? <MenuButton className="mm-icon-button !h-6 !w-6" label={<Plus size={14} strokeWidth={1.8} />} title="Add" items={addMenu(cx)} /> : null}
+			</div>
+			<div id={`sidebar-panel-${tab}`} role="tabpanel" aria-labelledby={`sidebar-tab-${tab}`} className="flex min-h-0 flex-1 flex-col">
+				{tab === 'layers' ? (
+					<Layers cx={cx} project={project} workspace={workspace} />
+				) : workspace === 'compose' ? (
+					<PieceLibrary cx={cx} />
+				) : (
 					<DesignLibrary cx={cx} project={project} />
-				</>
-			)}
+				)}
+			</div>
 		</aside>
 	);
 };
@@ -62,6 +90,11 @@ interface TSidebarProps {
 const workspaces: { id: TWorkspace; label: string; shortcut: string }[] = [
 	{ id: 'compose', label: 'Compose', shortcut: '⌘1' },
 	{ id: 'design', label: 'Film', shortcut: '⌘2' }
+];
+
+const sidebarTabs: { id: TSidebarTab; label: string }[] = [
+	{ id: 'layers', label: 'Layers' },
+	{ id: 'library', label: 'Library' }
 ];
 
 /** Project name, renamed in place with a double-click like a Finder title */
@@ -90,11 +123,12 @@ const ProjectHeader: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 // MARK: - Layers
 
 /**
- * Layer list like Figma UI3: each marble is a group with the pieces linked or anchored to it in hit order,
- * then the free pieces, newest first. Up and Down move the selection, Left and Right fold a group.
+ * The project's outline like Figma UI3's layer list, the same in both workspaces. Rows that also have a
+ * timeline track carry the track glyph and share its selection. Camera, shots and titles belong to Film, so a
+ * click on one in Compose opens Film. Up and Down move the selection, Left and Right fold a group.
  */
-const Layers: React.FC<{ cx: StudioCx; project: TProject; canAdd?: boolean; isCompact?: boolean }> = (props) => {
-	const { cx, project, canAdd = false, isCompact = false } = props;
+const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace }> = (props) => {
+	const { cx, project, workspace } = props;
 	const selection = useFeatureState(cx.$selection);
 	const renaming = useFeatureState(cx.$renaming);
 	const result = useFeatureState(cx.simulation.$result);
@@ -106,11 +140,25 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; canAdd?: boolean; isCo
 
 	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.entityId, piece])), [result]);
 	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceEntityId == null ? [] : [[hit.pieceEntityId, hit] as const]))), [result]);
-	const rows = React.useMemo(() => layerRows(project, collapsed), [project, collapsed]);
-	const order = rows.map((row) => row.id);
-	const selectedGroups = new Set(rows.flatMap((row) => (row.kind === 'marble' && selection.includes(row.id) ? [row.lane.id] : [])));
-	// Selected rows and the pieces of a selected group are highlighted
-	const isTinted = (row: TLayerRowModel | undefined): boolean => row != null && (selection.includes(row.id) || (row.kind === 'piece' && row.laneId != null && selectedGroups.has(row.laneId)));
+	const rows = React.useMemo(() => buildOutline(project, { collapsed }), [project, collapsed]);
+	const isFilm = workspace === 'design';
+	// Rows that Shift ranges and the arrow keys visit; Compose's arrows stay out of the Film rows
+	const order = rows.filter((row) => isSelectableRow(row) && (isFilm || !isFilmRow(row))).map((row) => row.id);
+	const selectedSet = new Set(selection);
+	const selectedLanes = new Set(selection.flatMap((key) => (key.startsWith('hit:') ? [key.split(':')[1] ?? ''] : [])));
+
+	function isSelected(row: TOutlineRow): boolean {
+		if (row.kind === 'group') return row.childIds.length > 0 && row.childIds.every((id) => selectedSet.has(id));
+		return selectedSet.has(row.id);
+	}
+
+	// The children of a selected marble or camera and a marble whose hits are selected get the lighter tint
+	function isInSelection(row: TOutlineRow): boolean {
+		if (row.kind === 'marble') return selectedLanes.has(row.lane.id);
+		return row.parentId != null && selectedSet.has(row.parentId);
+	}
+
+	const isTinted = (row: TOutlineRow | undefined): boolean => row != null && (isSelected(row) || isInSelection(row));
 
 	// Return focus to the list after a rename, like Finder, so the arrow keys keep working
 	React.useEffect(() => {
@@ -118,30 +166,65 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; canAdd?: boolean; isCo
 		wasRenamingRef.current = renaming != null && rows.some((row) => row.id === renaming);
 	}, [renaming, rows]);
 
-	function toggleGroup(laneId: string, isOpen?: boolean): void {
+	// A selection made elsewhere, such as a track in the timeline, scrolls its row into view like Figma
+	const first = selection[0];
+	React.useEffect(() => {
+		if (first == null) return;
+		treeRef.current?.querySelector(`[data-id="${CSS.escape(first)}"]`)?.scrollIntoView({ block: 'nearest' });
+	}, [first]);
+
+	function toggleGroup(groupKey: string, isOpen?: boolean): void {
 		setCollapsed((current) => {
-			const open = isOpen ?? current.includes(laneId);
-			return open ? current.filter((item) => item !== laneId) : [...current, laneId];
+			const open = isOpen ?? current.includes(groupKey);
+			return open ? current.filter((item) => item !== groupKey) : [...current, groupKey];
 		});
+	}
+
+	/** Click selects, ⌘-click toggles and Shift-click selects the range of rows, like Figma's layers and Finder */
+	function select(row: TOutlineRow, event?: React.MouseEvent): void {
+		if (!isFilm && isFilmRow(row)) cx.$workspace.set('design');
+		const current = cx.$selection.get();
+		if (row.kind === 'group') {
+			const isAdding = event?.metaKey === true || event?.shiftKey === true;
+			cx.$selection.set(isAdding ? [...current.filter((id) => !row.childIds.includes(id)), ...row.childIds] : row.childIds);
+			return;
+		}
+		const anchor = current[0];
+		if (event?.shiftKey === true && anchor != null && order.includes(anchor) && order.includes(row.id)) {
+			const from = Math.min(order.indexOf(anchor), order.indexOf(row.id));
+			const to = Math.max(order.indexOf(anchor), order.indexOf(row.id));
+			// The first selected row stays the anchor for the next Shift-click
+			cx.$selection.set([anchor, ...order.slice(from, to + 1).filter((item) => item !== anchor)]);
+			return;
+		}
+		if (event?.shiftKey === true || event?.metaKey === true) {
+			cx.$selection.set(current.includes(row.id) ? current.filter((item) => item !== row.id) : [...current, row.id]);
+			return;
+		}
+		// Marbles and pieces are brought into view on the wall
+		if (row.kind === 'marble' || row.kind === 'piece') cx.reveal([row.id]);
+		else cx.$selection.set([row.id]);
 	}
 
 	function onKeyDown(event: React.KeyboardEvent): void {
 		if (event.target !== treeRef.current || event.metaKey || event.ctrlKey || event.altKey) return;
+		const row = rows.find((item) => item.id === selection[0]);
 		const index = order.indexOf(selection[0] ?? '');
-		const row = rows[index];
+		const groupKey = row != null && 'groupKey' in row ? row.groupKey : null;
+		const isOpenGroup = row != null && 'isOpen' in row && row.isOpen && (!('hasChildren' in row) || row.hasChildren);
 		let handled = true;
 		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-			const next = rows[index < 0 ? 0 : Math.min(rows.length - 1, Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1)))];
-			if (next != null) {
-				cx.reveal([next.id]);
-				treeRef.current?.querySelector(`[data-id="${next.id}"]`)?.scrollIntoView({ block: 'nearest' });
-			}
+			const nextId = order[index < 0 ? 0 : Math.min(order.length - 1, Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1)))];
+			const next = rows.find((item) => item.id === nextId);
+			if (next != null) select(next);
 		} else if (event.key === 'ArrowLeft' && row != null) {
-			if (row.kind === 'marble' && row.hasChildren) toggleGroup(row.lane.id, false);
-			else if (row.parentId != null) cx.reveal([row.parentId]);
-		} else if (event.key === 'ArrowRight' && row?.kind === 'marble' && row.hasChildren) {
-			toggleGroup(row.lane.id, true);
-		} else if (event.key === 'Enter' && row != null) {
+			const parent = rows.find((item) => item.id === row.parentId);
+			if (groupKey != null && isOpenGroup) toggleGroup(groupKey, false);
+			else if (parent != null && isSelectableRow(parent)) select(parent);
+			else if (parent != null && 'groupKey' in parent) toggleGroup(parent.groupKey, false);
+		} else if (event.key === 'ArrowRight' && groupKey != null) {
+			toggleGroup(groupKey, true);
+		} else if (event.key === 'Enter' && row != null && canRename(row)) {
 			cx.$renaming.set(row.id);
 		} else {
 			handled = false;
@@ -152,142 +235,156 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; canAdd?: boolean; isCo
 		event.stopPropagation();
 	}
 
+	function openMenu(row: TOutlineRow, event: React.MouseEvent): void {
+		if (!isTinted(row) || row.kind === 'group') select(row);
+		if (row.kind === 'marble') openContextMenu(event, laneMenu(cx, row.lane));
+		else if (row.kind === 'piece') openContextMenu(event, pieceMenu(cx));
+		else if (row.kind === 'song') openContextMenu(event, [{ section: 'Song' }, commandItem(cx, 'file.replaceSong'), commandItem(cx, 'file.removeSong')]);
+		else if (row.kind === 'camera' || row.kind === 'shot') openContextMenu(event, [commandItem(cx, 'camera.addShot'), ...(row.kind === 'shot' ? [commandItem(cx, 'edit.delete')] : [])]);
+		else event.preventDefault();
+	}
+
 	return (
-		<section aria-label="Layers" className={isCompact ? 'flex max-h-[38%] shrink-0 flex-col border-b border-[var(--separator)]' : 'flex min-h-0 flex-1 flex-col'}>
-			<div className="mm-layers-header">
-				<span>Layers</span>
-				{canAdd ? (
-					<MenuButton
-						className="mm-icon-button !h-6 !w-6"
-						label={<Plus size={14} strokeWidth={1.8} />}
-						title="Add"
-						items={[commandItem(cx, 'marble.add'), commandItem(cx, 'tool.marble', 'Place Marble on Wall'), 'separator', commandItem(cx, 'file.importMidi')]}
-					/>
-				) : null}
-			</div>
-			<div ref={treeRef} role="tree" aria-label="Layers" tabIndex={0} className="mm-layers min-h-0 flex-1 overflow-y-auto pb-3" onKeyDown={onKeyDown}>
+		<section aria-label="Layers" className="flex min-h-0 flex-1 flex-col">
+			<div ref={treeRef} role="tree" aria-label="Layers" aria-multiselectable tabIndex={0} className="mm-layers min-h-0 flex-1 overflow-y-auto pb-3" onKeyDown={onKeyDown}>
 				{rows.map((row, index) => {
-					const isSelected = selection.includes(row.id);
-					const isInSelection = row.kind === 'piece' && row.laneId != null && selectedGroups.has(row.laneId);
 					// Like Figma, adjacent highlighted rows join into one block
 					const joins = { top: isTinted(row) && isTinted(rows[index - 1]), bottom: isTinted(row) && isTinted(rows[index + 1]) };
-					if (row.kind === 'marble') {
+					const common = {
+						row,
+						isSelected: isSelected(row),
+						isInSelection: !isSelected(row) && isInSelection(row),
+						joins,
+						hasTrack: row.track != null && (row.track !== 'camera' || isFilm),
+						onClick: (event: React.MouseEvent) => select(row, event),
+						onContextMenu: (event: React.MouseEvent) => openMenu(row, event)
+					};
+					if (row.kind === 'piece') {
 						return (
-							<MarbleRow
+							<PieceRow
 								key={row.id}
+								{...common}
 								cx={cx}
-								row={row}
-								isSelected={isSelected}
-								joins={joins}
+								piece={row.piece}
 								isRenaming={renaming === row.id}
-								onToggle={() => toggleGroup(row.lane.id)}
-								onClick={(event) => selectRow(cx, row.id, event, order)}
-								onContextMenu={(event) => {
-									if (!selection.includes(row.id)) cx.$selection.set([row.id]);
-									openContextMenu(event, laneMenu(cx, row.lane));
-								}}
+								isHidden={hidden.includes(row.id)}
+								isLocked={locked.includes(row.id)}
+								resolved={pieceResults.get(row.id)}
+								hit={hitResults.get(row.id)}
 							/>
 						);
 					}
-					return (
-						<PieceRow
-							key={row.id}
-							cx={cx}
-							piece={row.piece}
-							depth={row.depth}
-							isSelected={isSelected}
-							isInSelection={isInSelection}
-							joins={joins}
-							isRenaming={renaming === row.id}
-							isHidden={hidden.includes(row.id)}
-							isLocked={locked.includes(row.id)}
-							resolved={pieceResults.get(row.id)}
-							hit={hitResults.get(row.id)}
-							onClick={(event) => selectRow(cx, row.id, event, order)}
-							onContextMenu={(event) => {
-								if (!selection.includes(row.id)) cx.reveal([row.id]);
-								openContextMenu(event, pieceMenu(cx));
-							}}
-						/>
-					);
+					return <OutlineRow key={row.id} {...common} cx={cx} isRenaming={renaming === row.id} onToggle={'groupKey' in row ? () => toggleGroup(row.groupKey) : undefined} />;
 				})}
-				{!rows.length ? <div className="mm-layers-empty">No layers</div> : null}
 			</div>
 		</section>
 	);
 };
 
-type TLayerRowModel =
-	| { kind: 'marble'; id: string; depth: 0; lane: TLane; hasChildren: boolean; isOpen: boolean; parentId: null }
-	| { kind: 'piece'; id: string; depth: number; piece: TEntity; laneId: string | null; parentId: string | null };
-
-/** Visible rows in display order, which Shift ranges and arrow keys follow */
-function layerRows(project: TProject, collapsed: string[]): TLayerRowModel[] {
-	const rows: TLayerRowModel[] = [];
-	for (const lane of project.music.lanes) {
-		const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
-		const id = marble?.id ?? lane.id;
-		const pieces = lanePieces(project, lane);
-		const isOpen = !collapsed.includes(lane.id);
-		rows.push({ kind: 'marble', id, depth: 0, lane, hasChildren: pieces.length > 0, isOpen, parentId: null });
-		if (isOpen) for (const piece of pieces) rows.push({ kind: 'piece', id: piece.id, depth: 1, piece, laneId: lane.id, parentId: id });
-	}
-	const free = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink == null).reverse();
-	for (const piece of free) rows.push({ kind: 'piece', id: piece.id, depth: 0, piece, laneId: null, parentId: null });
-	return rows;
-}
-
-const MarbleRow: React.FC<{
-	cx: StudioCx;
-	row: Extract<TLayerRowModel, { kind: 'marble' }>;
+interface TRowProps {
+	row: TOutlineRow;
 	isSelected: boolean;
+	isInSelection: boolean;
 	joins: TJoins;
-	isRenaming: boolean;
-	onToggle: () => void;
+	hasTrack: boolean;
 	onClick: (event: React.MouseEvent) => void;
 	onContextMenu: (event: React.MouseEvent) => void;
-}> = (props) => {
-	const { cx, row, isSelected, joins, isRenaming, onToggle, onClick, onContextMenu } = props;
-	const { lane } = row;
+}
+
+function canRename(row: TOutlineRow): boolean {
+	return row.kind === 'marble' || row.kind === 'piece' || row.kind === 'title';
+}
+
+/** Every row except pieces: the song, marbles, groups, the camera, shots and titles */
+const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onToggle?: () => void }> = (props) => {
+	const { cx, row, isSelected, isInSelection, joins, hasTrack, isRenaming, onToggle, onClick, onContextMenu } = props;
+	const view = outlineRowView(row);
+
+	function rename(value: string | null): void {
+		cx.$renaming.set(null);
+		if (value == null || value === view.label) return;
+		if (row.kind === 'marble') cx.execute([{ type: 'upsertLane', lane: { ...row.lane, name: value } }]);
+		else if (row.kind === 'title') cx.execute([{ type: 'upsertEntity', entity: { ...row.entity, name: value } }]);
+	}
 
 	return (
 		<LayerRow
 			id={row.id}
-			depth={0}
+			depth={row.depth}
 			isSelected={isSelected}
+			isInSelection={isInSelection}
 			joins={joins}
-			isOpen={row.hasChildren ? row.isOpen : undefined}
+			isOpen={view.isOpen}
 			onToggle={onToggle}
-			icon={<span className="mm-layer-chip" style={{ background: lane.color }} />}
-			label={lane.name}
+			icon={view.icon}
+			label={view.label}
+			title={view.title}
 			isRenaming={isRenaming}
-			onRename={(value) => {
-				cx.$renaming.set(null);
-				if (value != null && value !== lane.name) cx.execute([{ type: 'upsertLane', lane: { ...lane, name: value } }]);
-			}}
+			onRename={rename}
+			meta={
+				view.time != null || hasTrack ? (
+					<>
+						{view.time != null ? <span>{formatShortTime(view.time)}</span> : null}
+						{hasTrack ? <TrackGlyph /> : null}
+					</>
+				) : undefined
+			}
 			onClick={onClick}
-			onDoubleClick={() => cx.$renaming.set(row.id)}
+			onDoubleClick={() => {
+				if (canRename(row)) cx.$renaming.set(row.id);
+			}}
 			onContextMenu={onContextMenu}
 		/>
 	);
 };
 
-const PieceRow: React.FC<{
-	cx: StudioCx;
-	piece: TEntity;
-	depth: number;
-	isSelected: boolean;
-	isInSelection: boolean;
-	joins: TJoins;
-	isRenaming: boolean;
-	isHidden: boolean;
-	isLocked: boolean;
-	resolved: TResolvedPiece | undefined;
-	hit: THitResult | undefined;
-	onClick: (event: React.MouseEvent) => void;
-	onContextMenu: (event: React.MouseEvent) => void;
-}> = (props) => {
-	const { cx, piece, depth, isSelected, isInSelection, joins, isRenaming, isHidden, isLocked, resolved, hit, onClick, onContextMenu } = props;
+/** Icon, name, fold state and quiet time of a row */
+function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; isOpen?: boolean; time?: number } {
+	switch (row.kind) {
+		case 'song': {
+			const isRecording = row.source.kind === 'audio';
+			return {
+				icon: isRecording ? <AudioLines size={14} strokeWidth={1.75} /> : <Music size={14} strokeWidth={1.75} />,
+				label: row.source.name,
+				title: isRecording ? 'Song · Recording' : 'Song · MIDI'
+			};
+		}
+		case 'marble':
+			return { icon: <span className="mm-layer-chip" style={{ background: row.lane.color }} />, label: row.lane.name, isOpen: row.hasChildren ? row.isOpen : undefined };
+		case 'group':
+			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, isOpen: row.isOpen };
+		case 'camera':
+			return { icon: <Video size={14} strokeWidth={1.75} />, label: 'Camera', isOpen: row.hasChildren ? row.isOpen : undefined };
+		case 'shot':
+			return { icon: <Bookmark size={13} strokeWidth={1.75} />, label: shotKindLabel(row.shot.kind), time: row.shot.time };
+		case 'title':
+			return { icon: <Type size={14} strokeWidth={1.75} />, label: row.entity.name ?? row.entity.components.wallText?.text ?? 'Title' };
+		case 'piece':
+			return { icon: null, label: row.piece.name ?? '' };
+	}
+}
+
+/** A track with a keyframe: the row also has a track in the timeline, like Final Cut's timeline index */
+const TrackGlyph: React.FC = () => (
+	<svg className="mm-layer-track" width={12} height={12} viewBox="0 0 12 12" role="img" aria-label="In the timeline">
+		<title>In the timeline</title>
+		<path d="M0.5 6h3M8.5 6h3" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" />
+		<path d="M6 3.2 8.8 6 6 8.8 3.2 6z" fill="currentColor" />
+	</svg>
+);
+
+const PieceRow: React.FC<
+	TRowProps & {
+		cx: StudioCx;
+		piece: TEntity;
+		isRenaming: boolean;
+		isHidden: boolean;
+		isLocked: boolean;
+		resolved: TResolvedPiece | undefined;
+		hit: THitResult | undefined;
+	}
+> = (props) => {
+	const { cx, row, piece, isSelected, isInSelection, joins, isRenaming, isHidden, isLocked, resolved, hit, onClick, onContextMenu } = props;
 	const type = piece.components.piece?.type ?? 'platform';
 	const name = piece.name ?? type;
 	const link = piece.components.hitLink;
@@ -299,7 +396,7 @@ const PieceRow: React.FC<{
 	return (
 		<LayerRow
 			id={piece.id}
-			depth={depth}
+			depth={row.depth}
 			isSelected={isSelected}
 			isInSelection={isInSelection}
 			joins={joins}
@@ -359,7 +456,7 @@ const RowToggle: React.FC<{ label: string; isOn: boolean; onClick: () => void; c
 };
 
 const LayerRow: React.FC<TLayerRowProps> = (props) => {
-	const { id, depth, isSelected, isInSelection = false, joins, isDimmed = false, isOpen, onToggle, icon, label, isRenaming, onRename, meta, actions, onClick, onDoubleClick, onContextMenu } = props;
+	const { id, depth, isSelected, isInSelection = false, joins, isDimmed = false, isOpen, onToggle, icon, label, title, isRenaming, onRename, meta, actions, onClick, onDoubleClick, onContextMenu } = props;
 	return (
 		<div
 			role="treeitem"
@@ -373,6 +470,7 @@ const LayerRow: React.FC<TLayerRowProps> = (props) => {
 			data-join-top={joins.top}
 			data-join-bottom={joins.bottom}
 			data-dimmed={isDimmed}
+			title={title}
 			style={{ paddingLeft: 4 + depth * 16 }}
 			onClick={onClick}
 			onDoubleClick={onDoubleClick}
@@ -417,6 +515,7 @@ interface TLayerRowProps {
 	onToggle?: () => void;
 	icon: React.ReactNode;
 	label: string;
+	title?: string;
 	isRenaming: boolean;
 	onRename: (value: string | null) => void;
 	/** Quiet trailing information that gives way to the actions on hover */
@@ -431,32 +530,6 @@ interface TLayerRowProps {
 interface TJoins {
 	top: boolean;
 	bottom: boolean;
-}
-
-/** Click selects, ⌘-click toggles and Shift-click selects the range of rows, like Figma's layers and Finder */
-function selectRow(cx: StudioCx, id: string, event: React.MouseEvent, order: string[] = []): void {
-	const selection = cx.$selection.get();
-	const anchor = selection[0];
-	if (event.shiftKey && anchor != null && order.includes(anchor) && order.includes(id)) {
-		const from = Math.min(order.indexOf(anchor), order.indexOf(id));
-		const to = Math.max(order.indexOf(anchor), order.indexOf(id));
-		// The first selected row stays the anchor for the next Shift-click
-		cx.$selection.set([anchor, ...order.slice(from, to + 1).filter((item) => item !== anchor)]);
-		return;
-	}
-	if (event.shiftKey || event.metaKey) {
-		cx.$selection.set(selection.includes(id) ? selection.filter((item) => item !== id) : [...selection, id]);
-		return;
-	}
-	cx.reveal([id]);
-}
-
-/** Pieces linked or anchored to a lane's hits, in hit order */
-function lanePieces(project: TProject, lane: TLane): TEntity[] {
-	const order = new Map(lane.hits.map((hit, index) => [hit.id, index]));
-	return project.entities
-		.filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id)
-		.sort((a, b) => (order.get(a.components.hitLink?.hitId ?? '') ?? 0) - (order.get(b.components.hitLink?.hitId ?? '') ?? 0));
 }
 
 /** Compact time such as `0:03.2` for a row's secondary column */

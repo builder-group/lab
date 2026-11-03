@@ -20,7 +20,9 @@ export const SAssetManifest = z.strictObject({
 	// Physical parameters the model was built for, in metres or radians
 	fittedParams: z.record(z.string(), z.number()).optional(),
 	reactions: z.array(SAssetReaction).optional(),
-	notes: z.string().optional()
+	notes: z.string().optional(),
+	// Where the item comes from: `agent` is set when a Result is accepted; absent means it was brought in another way
+	origin: z.enum(['agent', 'imported']).optional()
 });
 
 export const assetManifestDefinition = defineSchema({

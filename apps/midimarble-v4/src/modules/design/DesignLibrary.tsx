@@ -1,20 +1,31 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, Check, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { Box, RefreshCw, Search, Sparkles, Star } from 'lucide-react';
 import React from 'react';
 import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
 import type { TLibraryItem } from '@/modules/library';
-import type { TProject } from '@/modules/project';
+import type { TEntity, TProject } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { itemFitsPieceType, themeCommands, themePresets, type TThemePreset } from './design-commands';
-import { libraryItemLabel } from './DesignLibraryCx';
+import {
+	itemFitsPieceType,
+	showsThemeSkin,
+	themeCommands,
+	themePresets,
+	themeSkinCommands,
+	themeSkins,
+	type TSkinTarget,
+	type TThemePreset,
+	type TThemeSkin
+} from './design-commands';
+import { libraryEntries, libraryItemLabel, libraryItemOrigin, NEW_THEME_PROMPT, type TLibraryEntry } from './DesignLibraryCx';
 
 /** MIME type of a library item dragged onto the preview or the inspector */
 export const LIBRARY_DRAG_TYPE = 'application/x-midimarble-asset';
 
 /**
- * Library of the Design sidebar, like Blender's asset browser in a Finder sidebar: themes, the project's
- * items and the user's library as thumbnail tiles. Drag a tile onto a piece, or select it and apply it.
+ * Library of the Film sidebar, like Figma's Assets panel: one place without storage scopes. With nothing selected it
+ * shows the themes; with pieces selected, the skins for that piece type, the current theme's first. Click applies to
+ * the selection, ⌥-click to every piece of that type.
  */
 export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 	const { cx, project } = props;
@@ -24,134 +35,77 @@ export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 	const globalItems = useFeatureState(cx.library.$globalItems);
 	const selection = useFeatureState(cx.$selection);
 	const [query, setQuery] = React.useState('');
-	const [active, setActive] = React.useState<string | null>(null);
-	const [collapsed, setCollapsed] = React.useState<string[]>([]);
 
+	const entries = React.useMemo(() => libraryEntries(projectItems, globalItems), [projectItems, globalItems]);
 	const selectedPieces = project.entities.filter((entity) => selection.includes(entity.id) && entity.components.piece != null);
-	const selectedType = selectedPieces[0]?.components.piece?.type ?? null;
-	const filter = (items: TLibraryItem[]): TLibraryItem[] => {
-		const words = query.trim().toLowerCase();
-		return !words.length ? items : items.filter((item) => `${libraryItemLabel(item)} ${item.manifest?.pieceType ?? ''} ${item.manifest?.role ?? ''}`.toLowerCase().includes(words));
-	};
-	const activeItem = [...projectItems, ...globalItems].find((item) => itemKey(item) === active) ?? null;
+	const pieceType = selectedPieces[0]?.components.piece?.type ?? null;
+	const typeLabel = pieceType != null ? (getPieceDefinition(pieceType)?.label ?? pieceType) : null;
 	const isUnavailable = status === 'unavailable';
+	const words = query.trim().toLowerCase();
+	const matches = (text: string): boolean => !words.length || text.toLowerCase().includes(words);
 
-	function toggleSection(id: string): void {
-		setCollapsed((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
-	}
-
-	function itemMenu(item: TLibraryItem): TMenuEntry[] {
-		const pieceType = item.manifest?.pieceType ?? selectedType;
-		const typeLabel = pieceType == null ? null : getPieceDefinition(pieceType)?.label ?? pieceType;
-		const isSkin = item.manifest?.role === 'skin';
-		return [
-			{
-				label: selectedPieces.length > 1 ? `Apply to ${selectedPieces.length} Pieces` : 'Apply to Selection',
-				disabled: !isSkin || !selectedPieces.length || !itemFitsPieceType(item, selectedType),
-				onSelect: () => void cx.library.applySkin(item, { kind: 'entities', entityIds: selectedPieces.map((entity) => entity.id) })
-			},
-			{
-				label: typeLabel == null ? 'Apply to All Pieces of This Type' : `Apply to All ${typeLabel}s`,
-				disabled: !isSkin || pieceType == null,
-				onSelect: () => {
-					if (pieceType != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType });
-				}
-			},
-			'separator',
-			...(item.scope === 'project' ? [{ label: 'Save to My Library', onSelect: () => void cx.library.promote(item) }] : []),
-			{ label: item.scope === 'project' ? 'Remove from Project' : 'Remove from My Library', onSelect: () => void cx.library.remove(item) }
-		];
+	function newThemeWithAgent(): void {
+		// One run per piece type: each makes the new theme's skin for that type, which Accept puts on every piece of it
+		const seen = new Set<string>();
+		const mentionIds = project.entities.flatMap((entity) => {
+			const type = entity.components.piece?.type;
+			if (type == null || seen.has(type)) return [];
+			seen.add(type);
+			return [entity.id];
+		});
+		cx.openAgent({ text: NEW_THEME_PROMPT, mentionIds: mentionIds.length > 0 ? mentionIds : ['scene'] });
 	}
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex items-center justify-between pr-2">
-				<div className="mm-section-title">Library</div>
+			<div className="mx-3 mt-1 mb-1.5 flex items-center gap-1">
+				<div className="relative min-w-0 flex-1">
+					<Search size={12} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+					<input
+						id="library-search"
+						className="mm-input mm-search"
+						placeholder={typeLabel != null ? `Search ${typeLabel} Skins` : 'Search'}
+						aria-label="Search the library"
+						value={query}
+						onChange={(event) => setQuery(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === 'Escape') setQuery('');
+						}}
+					/>
+				</div>
 				<button
-					className="mm-icon-button !h-5 !w-5"
+					className="mm-icon-button !h-6 !w-6 shrink-0"
 					disabled={isUnavailable || status === 'loading'}
 					onClick={() => void cx.library.refresh()}
-					title="Reload Library"
+					title="Reload the library"
 					aria-label="Reload Library"
 					type="button"
 				>
 					<RefreshCw size={12} strokeWidth={2} className={status === 'loading' ? 'animate-spin' : undefined} />
 				</button>
 			</div>
-			<div className="relative mx-3 mb-1.5">
-				<Search size={12} strokeWidth={2} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-[var(--text-tertiary)]" />
-				<input
-					id="library-search"
-					className="mm-input mm-search"
-					placeholder="Search"
-					aria-label="Search the library"
-					value={query}
-					onChange={(event) => setQuery(event.target.value)}
-					onKeyDown={(event) => {
-						if (event.key === 'Escape') setQuery('');
-					}}
-				/>
-			</div>
 
 			<div className="min-h-0 flex-1 overflow-y-auto pb-2">
-				<LibrarySection id="themes" title="Themes" isOpen={!collapsed.includes('themes')} onToggle={toggleSection}>
-					<div className="mm-tile-grid">
-						{themePresets
-							.filter((theme) => !query.trim() || theme.label.toLowerCase().includes(query.trim().toLowerCase()))
-							.map((theme) => (
-								<ThemeTile
-									key={theme.id}
-									theme={theme}
-									isApplied={project.design.theme === theme.id}
-									onApply={() => cx.execute(themeCommands(project, theme.id))}
-								/>
-							))}
-					</div>
-				</LibrarySection>
-
-				<LibrarySection id="project" title="In This Project" isOpen={!collapsed.includes('project')} onToggle={toggleSection} count={projectItems.length}>
-					{isUnavailable ? (
-						<EmptyRow text="Opens in the desktop app" help="Skins and decorations are Blender files, so the library opens in the desktop app." />
-					) : !projectItems.length ? (
-						<EmptyRow text="No items" help="Skins you accept from an agent or apply from My Library are copied here, so the project stays portable." />
-					) : (
-						<ItemGrid items={filter(projectItems)} active={active} onActivate={setActive} onMenu={itemMenu} selectedType={selectedType} />
-					)}
-				</LibrarySection>
-
-				<LibrarySection id="global" title="My Library" isOpen={!collapsed.includes('global')} onToggle={toggleSection} count={globalItems.length}>
-					{isUnavailable ? (
-						<EmptyRow text="Opens in the desktop app" help="Items you save from any project appear here in the desktop app." />
-					) : !globalItems.length ? (
-						<EmptyRow text="No items" help="Right-click a project item and choose Save to My Library to use it in other projects." />
-					) : (
-						<ItemGrid items={filter(globalItems)} active={active} onActivate={setActive} onMenu={itemMenu} selectedType={selectedType} />
-					)}
-				</LibrarySection>
-
+				{pieceType == null || typeLabel == null ? (
+					<ThemeSection cx={cx} project={project} entries={entries} matches={matches} isUnavailable={isUnavailable} onNewTheme={newThemeWithAgent} />
+				) : (
+					<SkinSection
+						cx={cx}
+						project={project}
+						entries={entries}
+						selectedPieces={selectedPieces}
+						pieceType={pieceType}
+						typeLabel={typeLabel}
+						matches={matches}
+						isUnavailable={isUnavailable}
+					/>
+				)}
 				{status === 'error' && error != null ? (
 					<p role="alert" className="mm-caption px-3 !text-[var(--bad)]">
 						{error}
 					</p>
 				) : null}
 			</div>
-
-			{activeItem != null ? (
-				<div className="flex flex-col gap-1.5 border-t border-[var(--separator)] px-3 pt-2.5">
-					<div className="truncate text-[11px] text-[var(--text-secondary)]">{libraryItemLabel(activeItem)}</div>
-					<div className="flex gap-1.5">
-						{itemMenu(activeItem)
-							.slice(0, 2)
-							.map((entry) =>
-								typeof entry === 'object' && 'label' in entry ? (
-									<button key={entry.label} className="mm-button min-w-0 flex-1 !px-2" disabled={entry.disabled} onClick={entry.onSelect} type="button">
-										<span className="truncate">{entry.label.replace('Apply to ', '')}</span>
-									</button>
-								) : null
-							)}
-					</div>
-				</div>
-			) : null}
 		</div>
 	);
 };
@@ -161,129 +115,264 @@ interface TDesignLibraryProps {
 	project: TProject;
 }
 
-const LibrarySection: React.FC<{ id: string; title: string; isOpen: boolean; onToggle: (id: string) => void; count?: number; children: React.ReactNode }> = (props) => {
-	const { id, title, isOpen, onToggle, count, children } = props;
+// MARK: - Themes
+
+const ThemeSection: React.FC<{
+	cx: StudioCx;
+	project: TProject;
+	entries: TLibraryEntry[];
+	matches: (text: string) => boolean;
+	isUnavailable: boolean;
+	onNewTheme: () => void;
+}> = (props) => {
+	const { cx, project, entries, matches, isUnavailable, onNewTheme } = props;
+	const isColorByNote = project.design.themeOptions?.colorByNote === true;
+	const themes = themePresets.filter((theme) => matches(`${theme.label} ${theme.description}`));
+	const items = entries.filter((entry) => matches(`${libraryItemLabel(entry.item)} ${entry.item.manifest?.pieceType ?? ''} ${libraryItemOrigin(entry.item)}`));
+
 	return (
-		<section aria-label={title} className="mb-2">
-			<button className="mm-library-header" aria-expanded={isOpen} onClick={() => onToggle(id)} type="button">
-				<span className="mm-disclosure" data-open={isOpen}>
-					<ChevronRight size={10} strokeWidth={2.4} />
-				</span>
-				<span className="flex-1 text-left">{title}</span>
-				{count != null && count > 0 ? <span className="mm-tabular font-normal text-[var(--text-tertiary)]">{count}</span> : null}
-			</button>
-			{isOpen ? children : null}
-		</section>
+		<>
+			<SectionTitle title="Themes" help="A theme dresses the whole film: wall, light, marbles and a skin for every piece type. Select a piece to see its skins" />
+			<div className="mm-tile-grid" role="list" aria-label="Themes">
+				{themes.map((theme) => (
+					<ThemeCard key={theme.id} theme={theme} isInUse={project.design.theme === theme.id} isColorByNote={isColorByNote} onApply={() => cx.execute(themeCommands(project, theme.id))} />
+				))}
+			</div>
+			<div className="px-3 pt-1 pb-2">
+				<button className="mm-button w-full" onClick={onNewTheme} title="Describe a look and the agent makes a skin for every piece type" type="button">
+					<Sparkles size={12} strokeWidth={1.8} />
+					New Theme with Agent…
+				</button>
+			</div>
+			{items.length > 0 ? (
+				<>
+					<SectionTitle title="Skins and Decorations" help="Select a piece to apply a skin, or drag an item onto the film" />
+					<ItemGrid cx={cx} project={project} entries={items} selectedPieces={[]} pieceType={null} />
+				</>
+			) : isUnavailable ? (
+				<div className="px-3 pt-1">
+					<EmptyRow text="Agent skins show in the desktop app" help="Skins made with the agent are Blender files, so they show in the desktop app" />
+				</div>
+			) : null}
+		</>
 	);
 };
 
-const ItemGrid: React.FC<{
-	items: TLibraryItem[];
-	active: string | null;
-	selectedType: string | null;
-	onActivate: (key: string | null) => void;
-	onMenu: (item: TLibraryItem) => TMenuEntry[];
+const ThemeCard: React.FC<{ theme: TThemePreset; isInUse: boolean; isColorByNote: boolean; onApply: () => void }> = (props) => {
+	const { theme, isInUse, isColorByNote, onApply } = props;
+	return (
+		<button className="mm-tile" data-applied={isInUse} aria-pressed={isInUse} title={theme.description} onClick={onApply} type="button" role="listitem">
+			<span className="mm-tile-thumb mm-tile-thumb-square">
+				<img alt="" src={isColorByNote ? theme.notePreviewUrl : theme.previewUrl} draggable={false} />
+				{isInUse ? <span className="mm-tile-badge">In Use</span> : null}
+			</span>
+			<span className="mm-tile-label">{theme.label}</span>
+			<span className="mm-tile-secondary">Theme</span>
+		</button>
+	);
+};
+
+// MARK: - Skins
+
+const SkinSection: React.FC<{
+	cx: StudioCx;
+	project: TProject;
+	entries: TLibraryEntry[];
+	selectedPieces: TEntity[];
+	pieceType: string;
+	typeLabel: string;
+	matches: (text: string) => boolean;
+	isUnavailable: boolean;
 }> = (props) => {
-	const { items, active, selectedType, onActivate, onMenu } = props;
-	if (!items.length) return <p className="mm-caption px-3">No matches</p>;
+	const { cx, project, entries, selectedPieces, pieceType, typeLabel, matches, isUnavailable } = props;
+	const theme = themePresets.find((item) => item.id === project.design.theme);
+	const origin = `${theme?.label ?? project.design.theme} Theme`;
+	const builtIn = themeSkins(project.design.theme, pieceType).filter((skin) => matches(`${skin.label} ${origin}`));
+	const items = entries.filter((entry) => itemFitsPieceType(entry.item, pieceType) && matches(`${libraryItemLabel(entry.item)} ${libraryItemOrigin(entry.item)}`));
+	const piecesOfType = project.entities.filter((entity) => entity.components.piece?.type === pieceType);
+	const isMixed = selectedPieces.some((entity) => entity.components.piece?.type !== pieceType);
+	const selectionTarget: TSkinTarget = { kind: 'entities', entityIds: selectedPieces.filter((entity) => entity.components.piece?.type === pieceType).map((entity) => entity.id) };
+
+	function applyThemeSkin(skin: TThemeSkin, toAll: boolean): void {
+		cx.execute(themeSkinCommands(project, toAll ? { kind: 'pieceType', pieceType } : selectionTarget, skin));
+	}
+
+	return (
+		<>
+			<SectionTitle
+				title={`${typeLabel} Skins`}
+				help={`Click applies to the selected ${typeLabel.toLowerCase()}s, ⌥-click to every ${typeLabel.toLowerCase()}${isMixed ? `. Other selected pieces keep their skin` : ''}`}
+			/>
+			<div className="mm-tile-grid" role="listbox" aria-label={`${typeLabel} skins`}>
+				{builtIn.map((skin) => (
+					<SkinTile
+						key={skin.assetId ?? 'default'}
+						label={skin.label}
+						origin={origin}
+						previewUrl={skin.previewUrl}
+						isApplied={selectionTarget.entityIds.length > 0 && selectedPieces.filter((entity) => entity.components.piece?.type === pieceType).every((entity) => showsThemeSkin(entity, skin))}
+						isInUse={piecesOfType.some((entity) => showsThemeSkin(entity, skin))}
+						typeLabel={typeLabel}
+						onApply={(toAll) => applyThemeSkin(skin, toAll)}
+						onMenu={() => applyMenu(typeLabel, selectionTarget.entityIds.length, (toAll) => applyThemeSkin(skin, toAll))}
+					/>
+				))}
+			</div>
+			{items.length > 0 ? (
+				<ItemGrid cx={cx} project={project} entries={items} selectedPieces={selectedPieces} pieceType={pieceType} />
+			) : isUnavailable ? (
+				<div className="px-3 pt-1">
+					<EmptyRow text="Agent skins show in the desktop app" help="Skins made with the agent are Blender files, so they show in the desktop app" />
+				</div>
+			) : (
+				<div className="px-3 pt-1">
+					<EmptyRow text={`Ask the agent for a ${typeLabel.toLowerCase()} skin (⌘J)`} help="Accepted Results show here with Made with Agent; star one to keep it for every project" />
+				</div>
+			)}
+		</>
+	);
+};
+
+/** Skins made with the agent or imported, and decorations, each with its origin, In Use badge and star */
+const ItemGrid: React.FC<{ cx: StudioCx; project: TProject; entries: TLibraryEntry[]; selectedPieces: TEntity[]; pieceType: string | null }> = (props) => {
+	const { cx, project, entries, selectedPieces, pieceType } = props;
+	const selectedIds = selectedPieces.filter((entity) => entity.components.piece?.type === pieceType).map((entity) => entity.id);
+
+	function apply(item: TLibraryItem, toAll: boolean): void {
+		const type = item.manifest?.pieceType ?? pieceType;
+		if (toAll && type != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
+		else void cx.library.applySkin(item, { kind: 'entities', entityIds: selectedIds });
+	}
+
+	function menu(entry: TLibraryEntry, isInUse: boolean): TMenuEntry[] {
+		const { item } = entry;
+		const type = item.manifest?.pieceType ?? pieceType;
+		const typeLabel = type != null ? (getPieceDefinition(type)?.label ?? type) : null;
+		const isSkin = item.manifest?.role === 'skin';
+		return [
+			...(isSkin && typeLabel != null ? applyMenu(typeLabel, selectedIds.length, (toAll) => apply(item, toAll)) : []),
+			...(isSkin && typeLabel != null ? ['separator' as const] : []),
+			{ label: 'Keep in Library', checked: entry.isKept, onSelect: () => void cx.library.setKept(entry, !entry.isKept) },
+			// Removing an item the film still shows would leave its pieces without a skin
+			{ label: 'Remove', disabled: isInUse, onSelect: () => void removeEntry(cx, entry) }
+		];
+	}
+
 	return (
 		<div className="mm-tile-grid" role="listbox" aria-label="Library items">
-			{items.map((item) => {
-				const key = itemKey(item);
-				const pieceType = item.manifest?.pieceType;
-				const fits = selectedType == null || itemFitsPieceType(item, selectedType);
+			{entries.map((entry) => {
+				const { item } = entry;
+				const users = project.entities.filter((entity) => entity.components.skin?.assetId === item.id);
+				const isInUse = users.length > 0;
+				const isSkin = item.manifest?.role === 'skin';
+				const type = item.manifest?.pieceType ?? pieceType;
+				const typeLabel = type != null ? (getPieceDefinition(type)?.label ?? type) : 'piece';
 				return (
-					<button
-						key={key}
-						role="option"
-						aria-selected={active === key}
-						className="mm-tile"
-						data-selected={active === key}
-						data-dimmed={!fits}
-						draggable={item.manifest?.role === 'skin'}
-						title={item.manifestError ?? `${libraryItemLabel(item)}${pieceType != null ? ` · ${getPieceDefinition(pieceType)?.label ?? pieceType}` : ''}`}
-						onClick={() => onActivate(active === key ? null : key)}
-						onDoubleClick={() => onMenu(item).find((entry): entry is Extract<TMenuEntry, { label: string }> => typeof entry === 'object' && 'label' in entry && entry.disabled !== true)?.onSelect()}
-						onContextMenu={(event) => {
-							onActivate(key);
-							openContextMenu(event, onMenu(item));
-						}}
+					<SkinTile
+						key={`${item.scope}:${item.id}`}
+						label={libraryItemLabel(item)}
+						origin={item.manifestError != null ? "Can't be read" : libraryItemOrigin(item)}
+						previewUrl={item.previewUrl}
+						isApplied={selectedIds.length > 0 && selectedIds.every((id) => users.some((entity) => entity.id === id))}
+						isInUse={isInUse}
+						isKept={entry.isKept}
+						onKeep={() => void cx.library.setKept(entry, !entry.isKept)}
+						typeLabel={typeLabel}
+						isDisabled={!isSkin && pieceType != null}
+						onApply={isSkin && selectedIds.length > 0 ? (toAll) => apply(item, toAll) : null}
+						onMenu={() => menu(entry, isInUse)}
 						onDragStart={(event) => {
 							event.dataTransfer.setData(LIBRARY_DRAG_TYPE, JSON.stringify({ id: item.id, scope: item.scope }));
 							event.dataTransfer.effectAllowed = 'copy';
 						}}
-						type="button"
-					>
-						<span className="mm-tile-thumb">
-							{item.previewUrl != null ? (
-								<img alt="" src={item.previewUrl} draggable={false} />
-							) : (
-								<Box size={20} strokeWidth={1.4} className="text-[var(--text-tertiary)]" />
-							)}
-						</span>
-						<span className="mm-tile-label">{libraryItemLabel(item)}</span>
-						<span className="mm-tile-secondary">{item.manifestError != null ? "Can't be read" : roleLabel(item)}</span>
-					</button>
+					/>
 				);
 			})}
 		</div>
 	);
 };
 
-const ThemeTile: React.FC<{ theme: TThemePreset; isApplied: boolean; onApply: () => void }> = (props) => {
-	const { theme, isApplied, onApply } = props;
+const SkinTile: React.FC<{
+	label: string;
+	origin: string;
+	previewUrl: string | null;
+	isApplied: boolean;
+	isInUse: boolean;
+	typeLabel: string;
+	onApply: ((toAll: boolean) => void) | null;
+	onMenu: () => TMenuEntry[];
+	isKept?: boolean;
+	onKeep?: () => void;
+	isDisabled?: boolean;
+	onDragStart?: (event: React.DragEvent) => void;
+}> = (props) => {
+	const { label, origin, previewUrl, isApplied, isInUse, typeLabel, onApply, onMenu, isKept, onKeep, isDisabled, onDragStart } = props;
 	return (
-		<button className="mm-tile" data-applied={isApplied} aria-pressed={isApplied} title={`${theme.label}: ${theme.description}`} onClick={onApply} type="button">
-			<span className="mm-tile-thumb" style={themeArt[theme.id]?.wall}>
-				<span className="absolute top-[38%] left-[18%] h-[9%] w-[46%] -rotate-12 rounded-[2px]" style={themeArt[theme.id]?.bar} />
-				<span className="absolute top-[22%] left-[30%] h-[13%] w-[13%] rounded-full" style={themeArt[theme.id]?.marble} />
-				<span className="absolute top-[62%] left-[46%] h-[9%] w-[40%] rotate-12 rounded-[2px]" style={themeArt[theme.id]?.bar} />
-				{isApplied ? (
-					<span className="absolute right-1 bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--on-accent)]">
-						<Check size={10} strokeWidth={3} />
-					</span>
-				) : null}
-			</span>
-			<span className="mm-tile-label">{theme.label}</span>
-			<span className="mm-tile-secondary">{isApplied ? 'Applied' : 'Theme'}</span>
-		</button>
+		<div className="mm-tile-wrap" role="option" aria-selected={isApplied}>
+			<button
+				className="mm-tile"
+				data-applied={isApplied}
+				data-dimmed={isDisabled === true}
+				draggable={onDragStart != null}
+				title={onApply != null ? `${label}: click applies to the selection, ⌥-click to every ${typeLabel.toLowerCase()}` : label}
+				onClick={(event) => onApply?.(event.altKey)}
+				onContextMenu={(event) => openContextMenu(event, onMenu())}
+				onDragStart={onDragStart}
+				type="button"
+			>
+				<span className="mm-tile-thumb mm-tile-thumb-square">
+					{previewUrl != null ? <img alt="" src={previewUrl} draggable={false} /> : <Box size={20} strokeWidth={1.4} className="text-[var(--text-tertiary)]" />}
+					{isInUse ? <span className="mm-tile-badge">In Use</span> : null}
+				</span>
+				<span className="mm-tile-label">{label}</span>
+				<span className="mm-tile-secondary">{origin}</span>
+			</button>
+			{onKeep != null ? (
+				<button
+					className="mm-tile-star"
+					data-kept={isKept === true}
+					aria-pressed={isKept === true}
+					aria-label="Keep in Library"
+					title={isKept === true ? 'Kept in the library for every project' : 'Keep in Library to use it in every project'}
+					onClick={onKeep}
+					type="button"
+				>
+					<Star size={11} strokeWidth={2} fill={isKept === true ? 'currentColor' : 'none'} />
+				</button>
+			) : null}
+		</div>
 	);
 };
 
-// Small paintings of each theme, standing in for rendered thumbnails until the worker can render them
-const themeArt: Record<string, { wall: React.CSSProperties; bar: React.CSSProperties; marble: React.CSSProperties }> = {
-	pegboard: {
-		wall: {
-			backgroundColor: '#dcc9a6',
-			backgroundImage: 'radial-gradient(circle, rgb(90 64 30 / 0.35) 1px, transparent 1.4px)',
-			backgroundSize: '7px 7px'
-		},
-		bar: { background: '#ff6b5a', boxShadow: '0 1px 1.5px rgb(0 0 0 / 0.25)' },
-		marble: { background: 'radial-gradient(circle at 35% 30%, #fff, #8fb4ff 45%, #3478f6)', boxShadow: '0 1px 2px rgb(0 0 0 / 0.3)' }
-	},
-	brass: {
-		wall: { background: 'radial-gradient(120% 90% at 30% 20%, #8a7aa6, #5c4d78 60%, #43375a)' },
-		bar: { background: 'linear-gradient(180deg, #ffe7a3, #d4a640 45%, #8c6418)', boxShadow: '0 1px 2px rgb(0 0 0 / 0.4)' },
-		marble: { background: 'radial-gradient(circle at 35% 30%, #fff, #c9ccd4 45%, #6d7280)', boxShadow: '0 1px 2px rgb(0 0 0 / 0.4)' }
-	}
+// MARK: - Helpers
+
+function applyMenu(typeLabel: string, selectedCount: number, apply: (toAll: boolean) => void): TMenuEntry[] {
+	return [
+		{ label: selectedCount > 1 ? `Apply to ${selectedCount} ${typeLabel}s` : 'Apply to Selection', disabled: selectedCount === 0, onSelect: () => apply(false) },
+		{ label: `Apply to All ${typeLabel}s`, shortcut: '⌥ Click', onSelect: () => apply(true) }
+	];
+}
+
+async function removeEntry(cx: StudioCx, entry: TLibraryEntry): Promise<void> {
+	if (entry.isKept) await cx.library.setKept(entry, false);
+	if (entry.item.scope === 'project') await cx.library.remove(entry.item);
+}
+
+const SectionTitle: React.FC<{ title: string; help: string }> = (props) => {
+	const { title, help } = props;
+	return (
+		<div className="mm-library-header">
+			<span className="flex-1 text-left">{title}</span>
+			<HelpTip text={help} />
+		</div>
+	);
 };
 
-function itemKey(item: TLibraryItem): string {
-	return `${item.scope}:${item.id}`;
-}
-
-function roleLabel(item: TLibraryItem): string {
-	const manifest = item.manifest;
-	if (manifest == null) return '';
-	if (manifest.role === 'skin') return manifest.pieceType != null ? `${getPieceDefinition(manifest.pieceType)?.label ?? manifest.pieceType} skin` : 'Skin';
-	return manifest.role === 'text' ? 'Text' : 'Decoration';
-}
-
-/** An empty library section: one short line, with the explanation behind the question mark */
+/** An empty line, with the explanation behind the question mark */
 const EmptyRow: React.FC<{ text: string; help: string }> = (props) => {
 	const { text, help } = props;
 	return (
-		<div className="flex items-center gap-1.5 px-3">
+		<div className="flex items-center gap-1.5">
 			<span className="mm-caption">{text}</span>
 			<HelpTip text={help} />
 		</div>

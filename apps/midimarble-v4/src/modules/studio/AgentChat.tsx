@@ -23,7 +23,7 @@ import { PieceIcon } from '@/modules/compose/piece-icons';
 import { agentSetupHint, cliLabel, toThreadItem } from '@/modules/design/agent-thread';
 import { SetupCard } from '@/modules/design/AgentPanel';
 import type { TProject } from '@/modules/project';
-import type { StudioCx } from './StudioCx';
+import type { StudioCx, TAgentDraft } from './StudioCx';
 
 /**
  * One shared agent conversation per project, like the chat panels of Figma and Cursor. The selection is
@@ -254,8 +254,27 @@ const Composer: React.FC<{ cx: StudioCx; options: TAgentMention[]; canSend: bool
 	const [isSending, setIsSending] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const inputRef = React.useRef<HTMLTextAreaElement>(null);
+	const draft = useFeatureState(cx.$agentDraft);
+	const [takenDraft, setTakenDraft] = React.useState<TAgentDraft | null>(null);
 
-	const selected = options.filter((option) => option.kind !== 'scene' && selection.includes(option.id) && !dismissed.includes(option.id));
+	// Take over a prefilled message once, then clear it and put the caret at its end
+	if (draft != null && draft !== takenDraft) {
+		setTakenDraft(draft);
+		setText(draft.text);
+		setExplicit(options.filter((option) => draft.mentionIds.includes(option.id)));
+		setError(null);
+	}
+	React.useEffect(() => {
+		if (draft == null) return;
+		cx.$agentDraft.set(null);
+		requestAnimationFrame(() => {
+			const input = inputRef.current;
+			input?.focus();
+			input?.setSelectionRange(draft.text.length, draft.text.length);
+		});
+	}, [cx, draft]);
+
+	const selected =options.filter((option) => option.kind !== 'scene' && selection.includes(option.id) && !dismissed.includes(option.id));
 	const mentions = [...selected, ...explicit.filter((mention) => !selected.some((item) => item.id === mention.id))];
 	const matches = query != null ? filterMentions(options, query.query, mentions.map((mention) => mention.id)).slice(0, 8) : [];
 	const isPickerOpen = query != null && matches.length > 0;

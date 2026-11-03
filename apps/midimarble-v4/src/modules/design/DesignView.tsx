@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, ExternalLink, LoaderCircle, Monitor, Type } from 'lucide-react';
+import { Box, LoaderCircle, Monitor, Type } from 'lucide-react';
 import React from 'react';
 import type { DesignCx } from './DesignCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
@@ -112,16 +112,6 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					Preview out of date
 				</div>
 			) : null}
-
-			<button
-				className="mm-button absolute top-3 right-3"
-				onClick={() => void cx.openInBlender()}
-				title="Open the project in Blender for detailed work"
-				type="button"
-			>
-				<ExternalLink size={13} />
-				Edit in Blender
-			</button>
 
 			{status === 'error' && error != null ? (
 				<div

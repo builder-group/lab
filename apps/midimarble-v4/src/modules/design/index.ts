@@ -1,4 +1,3 @@
-export * from './ActivityView';
 export * from './agent-thread';
 export * from './AgentPanel';
 export * from './design-commands';

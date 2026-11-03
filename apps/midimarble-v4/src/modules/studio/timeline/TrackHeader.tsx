@@ -35,6 +35,7 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 		<div
 			className="mm-track-header sticky left-0 z-20 flex shrink-0 border-r border-b border-[var(--separator)]"
 			style={{ width: HEADER_WIDTH, height }}
+			data-track={id}
 			data-selected={isSelected}
 			data-muted={isMuted}
 			data-expanded={isExpanded}

@@ -7,7 +7,6 @@ import { PieceIcon } from '@/modules/compose/piece-icons';
 import { PieceInspector } from '@/modules/compose/PieceInspector';
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
-import { blenderState } from '@/modules/design/blender-state';
 import { DesignInspector } from '@/modules/design/DesignInspector';
 import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, suggestedHitTimes } from '@/modules/music';
 import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
@@ -20,8 +19,8 @@ import { auditionNote, BACKING_COLOR, handNotes } from './timeline/hand-notes';
 import { songFitEnd } from './world';
 
 /**
- * Properties of the selection, like Figma UI3's properties panel: zoom, Blender's state and Export at the
- * top, then a header row and sections for the selection, or the Project without one
+ * Properties of the selection, like Figma UI3's properties panel: the zoom at the top in Compose, then a
+ * header row and sections for the selection, or the Project without one
  */
 export const Inspector: React.FC<TInspectorProps> = (props) => {
 	const { cx } = props;
@@ -67,32 +66,19 @@ interface TInspectorProps {
 	cx: StudioCx;
 }
 
-/** Zoom with its menu, Blender's connection state and the Export button, like the top of Figma's right panel */
+/**
+ * The wall's zoom with its menu, like the top of Figma's right panel. Blender and Export live in the title
+ * bar, so Film, which has no zoom, has no top bar
+ */
 const InspectorTopBar: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const compose = useFeatureState(cx.$compose);
 	const workspace = useFeatureState(cx.$workspace);
+	if (workspace !== 'compose' || compose == null) return null;
 	return (
 		<div className="mm-insp-top">
-			{workspace === 'compose' && compose != null ? <ZoomMenu cx={cx} compose={compose} /> : null}
-			<BlenderStatus cx={cx} />
-			<button className="mm-button" data-variant="primary" onClick={() => cx.film.openSheet()} title="Export the film (⌘E)" type="button">
-				Export
-			</button>
+			<ZoomMenu cx={cx} compose={compose} />
 		</div>
-	);
-};
-
-const BlenderStatus: React.FC<{ cx: StudioCx }> = (props) => {
-	const { cx } = props;
-	const status = useFeatureState(cx.design.$status);
-	const version = useFeatureState(cx.design.$blenderVersion);
-	const state = blenderState(status, version);
-	return (
-		<span className="mm-insp-blender" title={state.detail} aria-label={state.detail} role="status">
-			<span className="mm-dot" data-tone={state.tone === 'idle' ? undefined : state.tone} />
-			{state.label}
-		</span>
 	);
 };
 

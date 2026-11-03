@@ -63,6 +63,8 @@ export class StudioCx {
 	readonly $locked = createState<string[]>([]);
 	/** Dropping an element links it to a hit dot or anchors it to a trajectory, like Figma's snapping */
 	readonly $snapping = createState(true);
+	/** Text and mentions the agent composer takes over once, such as the library's New Theme with Agent… */
+	readonly $agentDraft = createState<TAgentDraft | null>(null);
 	readonly sources = new SourcesCx(this);
 	readonly simulation = new SimulationCx(this);
 	readonly design = new DesignCx({
@@ -121,6 +123,8 @@ export class StudioCx {
 	/** Keeps the Design preview at the playhead while the Design workspace is open */
 	private mountDesign(): () => void {
 		const inDesign = (): boolean => this.$workspace.get() === 'design' && this.project != null;
+		// The title bar's Blender chip shows whether Blender is installed in Compose too
+		void this.design.detect();
 		const stops = [
 			this.$workspace.listen(({ value }) => {
 				if (value !== 'design') return;
@@ -129,6 +133,7 @@ export class StudioCx {
 			}),
 			// Runs and library items belong to the package
 			this.$path.listen(() => {
+				void this.design.detect();
 				void this.agents.reload();
 				void this.library.refresh();
 			}),
@@ -368,6 +373,12 @@ export class StudioCx {
 		this.$panels.set((panels) => ({ ...panels, [panel]: !panels[panel] }));
 	}
 
+	/** Opens the agent chat with a prefilled message, like a chat panel's suggested prompt */
+	openAgent(draft: TAgentDraft): void {
+		this.$panels.set((panels) => ({ ...panels, agent: true }));
+		this.$agentDraft.set(draft);
+	}
+
 	toggleMute(laneId: string): void {
 		this.$mix.set((mix) => ({ ...mix, muted: toggleItem(mix.muted, laneId) }));
 	}
@@ -452,6 +463,12 @@ export class StudioCx {
 
 export type TWorkspace = 'compose' | 'design';
 export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline' | 'agent';
+
+/** A message the agent composer starts with; `mentionIds` are layer ids or `scene` */
+export interface TAgentDraft {
+	text: string;
+	mentionIds: string[];
+}
 
 export interface TLaneMix {
 	muted: string[];

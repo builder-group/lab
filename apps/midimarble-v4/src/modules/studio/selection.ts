@@ -1,4 +1,11 @@
-// Selection holds entity IDs, hit keys and shot marker keys. Hit keys carry their lane so one list can mix them.
+// Selection holds entity IDs, hit keys, shot marker keys and the Song and Camera track keys. Hit keys carry
+// their lane so one list can mix them.
+
+/** The Song track and its row in Layers */
+export const SONG_KEY = 'song';
+
+/** The Camera track and its row in Layers */
+export const CAMERA_KEY = 'camera';
 
 export function toShotKey(shotId: string): string {
 	return `shot:${shotId}`;

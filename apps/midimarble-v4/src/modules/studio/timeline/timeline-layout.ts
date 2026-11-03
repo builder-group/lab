@@ -4,8 +4,8 @@ export const ROW_HEIGHT = 44;
 export const SONG_ROW_HEIGHT = 40;
 // Transport bar above the ruler
 export const TRANSPORT_HEIGHT = 40;
-// Camera shot marker row of the Design workspace
-export const CAMERA_ROW_HEIGHT = 24;
+// Camera track of the Film workspace, the last track
+export const CAMERA_ROW_HEIGHT = 32;
 // One semitone of an expanded track
 export const NOTE_ROW_HEIGHT = 12;
 // Keyboard strip at the right of an expanded track header

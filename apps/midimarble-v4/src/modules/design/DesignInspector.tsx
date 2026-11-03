@@ -12,6 +12,7 @@ import { toShotKey } from '@/modules/studio/selection';
 import {
 	cameraCommands,
 	clearSkinCommands,
+	colorByNoteCommands,
 	itemFitsPieceType,
 	reactionChoiceOf,
 	reactionChoices,
@@ -24,7 +25,6 @@ import type { TDesignLink, TDesignStatus } from './DesignCx';
 import { libraryItemLabel } from './DesignLibraryCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
 import { renderPresetLabel, renderPresetOption, renderPresets } from './export-estimate';
-import { useExportPreflight } from './ExportPreflight';
 import { describeLoop } from './loop-status';
 import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
 
@@ -66,6 +66,12 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 					options={[...themePresets.map((item) => ({ value: item.id, label: item.label })), ...(theme == null ? [{ value: design.theme, label: design.theme }] : [])]}
 					onChange={(value) => cx.execute(themeCommands(project, value))}
 				/>
+				<CheckField
+					id="design-color-by-note"
+					label="Colour by Note"
+					checked={design.themeOptions?.colorByNote === true}
+					onChange={(colorByNote) => cx.execute(colorByNoteCommands(project, colorByNote))}
+				/>
 				<SelectField
 					id="design-preset"
 					label="Quality"
@@ -78,23 +84,8 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 			</Panel>
 			<CameraPanel cx={cx} project={project} />
 			<WallTextPanel cx={cx} project={project} />
-			<Panel id="design.output" title="Export" accessory={<HelpTip text="Blender makes the film with the song in the background, so you can keep working." />}>
-				<OutputPreflight cx={cx} />
-				<button className="mm-button" data-span="2" onClick={() => cx.film.openSheet()} title="Export the film (⌘E)" type="button">
-					Export Film…
-				</button>
-			</Panel>
 		</>
 	);
-};
-
-/** The export preflight as one state row; the export sheet lists the issues */
-const OutputPreflight: React.FC<{ cx: StudioCx }> = (props) => {
-	const { cx } = props;
-	const preflight = useExportPreflight(cx);
-	if (preflight == null) return null;
-	const tone = preflight.state === 'pending' ? 'neutral' : preflight.warnings > 0 ? 'warn' : 'good';
-	return <StateRow tone={tone} label={preflight.summary} />;
 };
 
 /** The loop check of the current simulation as one state row, with a fix for a length off the bar grid */
@@ -398,7 +389,7 @@ const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }
 						...(skinValue === MIXED ? [{ value: MIXED, label: 'Mixed' }] : []),
 						{ value: '', label: 'Theme Default' },
 						...(skinValue !== '' && skinValue !== MIXED && current == null ? [{ value: skinValue, label: skinLabel(skinValue) }] : []),
-						...fitting.map((item) => ({ value: itemValue(item), label: `${libraryItemLabel(item)}${item.scope === 'global' ? ' (My Library)' : ''}` }))
+						...fitting.map((item) => ({ value: itemValue(item), label: libraryItemLabel(item) }))
 					]}
 					onChange={setSkin}
 				/>

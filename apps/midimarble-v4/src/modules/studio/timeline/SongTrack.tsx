@@ -3,6 +3,7 @@ import React from 'react';
 import { openContextMenu } from '@/components';
 import type { TProject, TSource } from '@/modules/project';
 import { commandItem } from '../commands';
+import { SONG_KEY } from '../selection';
 import { formatTime } from '../format';
 import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
@@ -34,7 +35,10 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 			<div
 				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-start border-r border-b border-[var(--separator)] pr-2 pl-1"
 				style={{ width: HEADER_WIDTH }}
+				data-track={SONG_KEY}
+				data-selected={selection.includes(SONG_KEY)}
 				data-expanded={isExpanded}
+				onClick={() => cx.$selection.set([SONG_KEY])}
 				onContextMenu={openMenu}
 				title={song.name}
 			>
@@ -98,12 +102,9 @@ export const EmptySongTrack: React.FC<{ cx: StudioCx; width: number }> = (props)
 				<span className="truncate font-medium">Song</span>
 			</div>
 			<div className="mm-song-lane mm-song-empty relative flex flex-1 items-center gap-2 border-b border-[var(--separator)] px-3" style={{ minWidth: width }}>
-				<span className="text-[11px] text-[var(--text-tertiary)]">Drop a MIDI or audio file, or</span>
-				<button className="mm-link-button" onClick={() => void cx.sources.pickMidi()} type="button">
-					Import MIDI…
-				</button>
-				<button className="mm-link-button" onClick={() => void cx.sources.pickAudio()} type="button">
-					Import Audio…
+				<span className="text-[11px] text-[var(--text-tertiary)]">No song yet</span>
+				<button className="mm-link-button" onClick={() => void cx.importSong()} title="Import a MIDI file or a recording, or drop one on the window (⌘I)" type="button">
+					Import Song…
 				</button>
 			</div>
 		</div>

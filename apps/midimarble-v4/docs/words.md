@@ -34,7 +34,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | How fast marbles fall | **Marble Speed** | gravity, physics scale | "Gravity" only in its tooltip |
 | The output | **Film**; the action **Export Film…** | render, video, encode | Final Cut's Export File; "render" only in progress text |
 | Render quality | **Draft**, **Standard**, **High**, **Best** with size and frame rate as detail | fast, balanced, Eevee, Workbench, samples | Blender names only in tooltips |
-| Blender | **Blender**: a status chip in the title bar (Ready, Starting, Rendering Preview, Not Installed, Error) with Open in Blender, Restart Blender, Show Blender Log | worker, bridge, mailbox | |
+| Blender | **Blender**: a status chip in the title bar (Ready, Starting, Rendering Preview, Not Installed, Error; a hollow dot and Blender in the browser) with Open in Blender, Restart Blender, Show Blender Log, or Install Blender… | worker, bridge, mailbox, Edit in Blender | |
 | Changed in Blender | **Detached** with **Reset to Theme** | unlinked, taken over, edited | |
 | The project's outline | **Layers**: Song, Marbles, Free Pieces, Camera, Titles | tree, scene graph | Figma |
 | Settings most people never need | **Advanced**, a disclosure at the end of a section | expert, more, details | Final Cut, Logic |

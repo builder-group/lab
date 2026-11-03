@@ -1,0 +1,97 @@
+import type { TEntity, TLane, TProject, TShot, TSource } from '@/modules/project';
+import { CAMERA_KEY, SONG_KEY, toShotKey } from './selection';
+import { songSource } from './SourcesCx';
+
+/**
+ * The project's outline in display order, which the Layers list draws and Shift ranges and arrow keys follow:
+ * the Song, each marble with the pieces it plays or that follow it in hit order, Free Pieces, the Camera with
+ * its shots and Titles. Rows of a collapsed group leave out their children. The timeline's track column is
+ * the timed part of the same outline: the rows with a `track`.
+ */
+export function buildOutline(project: TProject, options: TOutlineOptions = {}): TOutlineRow[] {
+	const { collapsed = [] } = options;
+	const rows: TOutlineRow[] = [];
+
+	const song = songSource(project);
+	if (song != null) rows.push({ kind: 'song', id: SONG_KEY, depth: 0, parentId: null, track: 'song', source: song });
+
+	for (const lane of project.music.lanes) {
+		const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
+		const id = marble?.id ?? lane.id;
+		const pieces = lanePieces(project, lane);
+		const isOpen = !collapsed.includes(lane.id);
+		rows.push({ kind: 'marble', id, depth: 0, parentId: null, track: 'lane', lane, groupKey: lane.id, hasChildren: pieces.length > 0, isOpen });
+		if (isOpen) for (const piece of pieces) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: id, track: null, piece, laneId: lane.id });
+	}
+
+	// Newest first, like Figma's layer list
+	const free = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink == null).reverse();
+	if (free.length > 0) {
+		const isOpen = !collapsed.includes(FREE_PIECES_KEY);
+		rows.push({ kind: 'group', id: FREE_PIECES_KEY, depth: 0, parentId: null, track: null, label: 'Free Pieces', groupKey: FREE_PIECES_KEY, childIds: free.map((piece) => piece.id), isOpen });
+		if (isOpen) for (const piece of free) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: FREE_PIECES_KEY, track: null, piece, laneId: null });
+	}
+
+	const shots = [...project.design.camera.shots].sort((a, b) => a.time - b.time);
+	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
+	rows.push({ kind: 'camera', id: CAMERA_KEY, depth: 0, parentId: null, track: 'camera', groupKey: CAMERA_KEY, hasChildren: shots.length > 0, isOpen: isCameraOpen });
+	if (isCameraOpen) for (const shot of shots) rows.push({ kind: 'shot', id: toShotKey(shot.id), depth: 1, parentId: CAMERA_KEY, track: null, shot });
+
+	const titles = project.entities.filter((entity) => entity.components.wallText != null).reverse();
+	if (titles.length > 0) {
+		const isOpen = !collapsed.includes(TITLES_KEY);
+		rows.push({ kind: 'group', id: TITLES_KEY, depth: 0, parentId: null, track: null, label: 'Titles', groupKey: TITLES_KEY, childIds: titles.map((title) => title.id), isOpen });
+		if (isOpen) for (const title of titles) rows.push({ kind: 'title', id: title.id, depth: 1, parentId: TITLES_KEY, track: null, entity: title });
+	}
+
+	return rows;
+}
+
+export interface TOutlineOptions {
+	/** Group keys of folded groups: a lane ID, the Camera key or a group row's ID */
+	collapsed?: string[];
+}
+
+/** Group row of the pieces tied to nothing; its ID is never a selection key */
+export const FREE_PIECES_KEY = 'group:free';
+
+/** Group row of the titles on the wall; its ID is never a selection key */
+export const TITLES_KEY = 'group:titles';
+
+/** The timeline track a row also has */
+export type TOutlineTrack = 'song' | 'lane' | 'camera';
+
+interface TOutlineRowBase {
+	/** Selection key of the row, or a group key for a group row */
+	id: string;
+	depth: number;
+	parentId: string | null;
+	track: TOutlineTrack | null;
+}
+
+export type TOutlineRow =
+	| (TOutlineRowBase & { kind: 'song'; track: 'song'; source: TSource })
+	| (TOutlineRowBase & { kind: 'marble'; track: 'lane'; lane: TLane; groupKey: string; hasChildren: boolean; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'piece'; piece: TEntity; laneId: string | null })
+	| (TOutlineRowBase & { kind: 'group'; label: string; groupKey: string; childIds: string[]; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'camera'; track: 'camera'; groupKey: string; hasChildren: boolean; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'shot'; shot: TShot })
+	| (TOutlineRowBase & { kind: 'title'; entity: TEntity });
+
+/** Whether a row belongs to the Film workspace: the camera, its shots and the titles */
+export function isFilmRow(row: TOutlineRow): boolean {
+	return row.kind === 'camera' || row.kind === 'shot' || row.kind === 'title' || (row.kind === 'group' && row.id === TITLES_KEY);
+}
+
+/** Whether a click on the row selects the row itself; group rows select their children instead */
+export function isSelectableRow(row: TOutlineRow): boolean {
+	return row.kind !== 'group';
+}
+
+/** Pieces linked or anchored to a lane's hits, in hit order */
+function lanePieces(project: TProject, lane: TLane): TEntity[] {
+	const order = new Map(lane.hits.map((hit, index) => [hit.id, index]));
+	return project.entities
+		.filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id)
+		.sort((a, b) => (order.get(a.components.hitLink?.hitId ?? '') ?? 0) - (order.get(b.components.hitLink?.hitId ?? '') ?? 0));
+}

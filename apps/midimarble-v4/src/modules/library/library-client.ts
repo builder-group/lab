@@ -31,7 +31,7 @@ export const library = {
 
 	/**
 	 * Validates a candidate's manifest and copies the candidate into the project library under a free ID.
-	 * The stored manifest carries that ID.
+	 * The stored manifest carries that ID and `origin: 'agent'`.
 	 */
 	async acceptCandidate(
 		packagePath: string,
@@ -49,7 +49,7 @@ export const library = {
 			manifest.id,
 			items.map((item) => item.id)
 		);
-		const stored: TAssetManifest = { ...manifest, id: itemId };
+		const stored: TAssetManifest = { ...manifest, id: itemId, origin: 'agent' };
 		const result = await specta.commands.libraryAcceptCandidate(
 			packagePath,
 			runId,

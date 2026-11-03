@@ -39,18 +39,6 @@
 	border-bottom: 1px solid var(--separator);
 }
 
-.mm-insp-blender {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	height: 24px;
-	margin-left: auto;
-	padding: 0 4px;
-	font-size: var(--text-small);
-	color: var(--text-secondary);
-	white-space: nowrap;
-}
-
 .mm-dot {
 	width: 6px;
 	height: 6px;

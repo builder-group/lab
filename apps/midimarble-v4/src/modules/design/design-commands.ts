@@ -8,13 +8,85 @@ export interface TThemePreset {
 	id: string;
 	label: string;
 	description: string;
+	/** Rendered still of Jingle Bells in the theme, plain and with Colour by Note */
+	previewUrl: string;
+	notePreviewUrl: string;
 }
 
 /** Themes the Blender worker ships; unknown themes fall back to Pegboard there */
 export const themePresets: readonly TThemePreset[] = [
-	{ id: 'pegboard', label: 'Pegboard', description: 'Birch pegboard and toy colours, like Compose' },
-	{ id: 'brass', label: 'Brass', description: 'Plaster wall, brass bars and warm studio light' }
+	themePreset('pegboard', 'Pegboard', 'Birch pegboard and toy colours, like Compose'),
+	themePreset('brass', 'Brass', 'Plaster wall, brass bars and warm studio light')
 ];
+
+function themePreset(id: string, label: string, description: string): TThemePreset {
+	return { id, label, description, previewUrl: publicUrl(`themes/${id}-plain.jpg`), notePreviewUrl: publicUrl(`themes/${id}-note.jpg`) };
+}
+
+/**
+ * A skin a theme ships for a piece type. `assetId` null is the theme's default skin, which a piece shows when it
+ * has no skin of its own; variants use the Blender worker's built-in IDs such as `brass:copper`.
+ */
+export interface TThemeSkin {
+	assetId: string | null;
+	label: string;
+	themeId: string;
+	pieceType: string;
+	previewUrl: string;
+}
+
+/** Piece types every theme dresses; `public/skins/` holds a rendered preview of each */
+export const THEME_SKIN_PIECE_TYPES = ['platform', 'rail', 'tunnel', 'windmill', 'switchback'] as const;
+
+// Brass platform variants after the default Gold bar, rendered by `blender/tests/render_skin_previews.py`
+const BRASS_PLATFORM_VARIANTS: readonly { id: string; label: string }[] = [
+	{ id: 'copper', label: 'Copper' },
+	{ id: 'silver', label: 'Silver' },
+	{ id: 'device', label: 'Device' },
+	{ id: 'device-copper', label: 'Copper Device' },
+	{ id: 'key', label: 'Key' },
+	{ id: 'knob', label: 'Knob' }
+];
+
+/** The theme's skins for a piece type, its default first; empty for a type or theme without previews */
+export function themeSkins(themeId: string, pieceType: string): TThemeSkin[] {
+	const theme = themePresets.find((item) => item.id === themeId);
+	if (theme == null || !(THEME_SKIN_PIECE_TYPES as readonly string[]).includes(pieceType)) return [];
+	const isBrassPlatform = themeId === 'brass' && pieceType === 'platform';
+	const skins: TThemeSkin[] = [
+		{ assetId: null, label: isBrassPlatform ? 'Gold' : theme.label, themeId, pieceType, previewUrl: publicUrl(`skins/${themeId}-${pieceType}.png`) }
+	];
+	if (isBrassPlatform) {
+		for (const variant of BRASS_PLATFORM_VARIANTS) {
+			skins.push({ assetId: `brass:${variant.id}`, label: variant.label, themeId, pieceType, previewUrl: publicUrl(`skins/brass-platform-${variant.id}.png`) });
+		}
+	}
+	return skins;
+}
+
+/** Whether a piece shows this theme skin: its own skin, or no skin of its own for the default */
+export function showsThemeSkin(entity: TEntity, skin: TThemeSkin): boolean {
+	const assetId = entity.components.skin?.assetId ?? null;
+	if (skin.assetId != null) return assetId === skin.assetId;
+	// `brass:gold` is the Brass default spelled out
+	return assetId == null || (skin.themeId === 'brass' && assetId === 'brass:gold');
+}
+
+/** Sets a theme skin on the target pieces: a variant links its built-in ID, the default removes their own skin */
+export function themeSkinCommands(project: TProject, target: TSkinTarget, skin: TThemeSkin): TProjectCommand[] {
+	if (skin.assetId != null) return skinCommands(project, target, skin.assetId);
+	return clearSkinCommands(project, skinTargetIds(project, target));
+}
+
+/** Turns Colour by Note on or off; other theme options stay as they are */
+export function colorByNoteCommands(project: TProject, colorByNote: boolean): TProjectCommand[] {
+	if ((project.design.themeOptions?.colorByNote ?? false) === colorByNote) return [];
+	return [{ type: 'setDesign', design: { themeOptions: { ...project.design.themeOptions, colorByNote } } }];
+}
+
+function publicUrl(path: string): string {
+	return `/${path}`;
+}
 
 export type TReactionPreset = 'none' | 'press' | 'wobble' | 'glow';
 /** `theme` removes the piece's own reaction so the theme's default applies */

@@ -42,17 +42,44 @@ export class DesignCx {
 
 	/** Starts Blender for the open package if needed, syncs the scene and renders the playhead */
 	async activate(): Promise<void> {
+		if (await this.detect()) this.requestPreview(0);
+	}
+
+	/** Finds Blender without starting it, so the title bar knows whether it is installed in Compose too */
+	async detect(): Promise<boolean> {
 		if (!blender.isAvailable()) {
 			this.$status.set('unavailable');
-			return;
+			return false;
 		}
 		const install = await blender.detect();
 		if (!install.available) {
 			this.$status.set('missing');
-			return;
+			return false;
 		}
 		this.$blenderVersion.set(install.version);
-		this.requestPreview(0);
+		if (this.$status.get() === 'missing' || this.$status.get() === 'unavailable') this.$status.set('idle');
+		return true;
+	}
+
+	/** Saves and stops the worker, then starts it again and renders the playhead */
+	async restart(): Promise<void> {
+		clearTimeout(this.previewTimer);
+		await this.enqueue(async () => {
+			const packagePath = this.startedFor;
+			this.startedFor = null;
+			this.syncedKey = null;
+			this.$error.set(null);
+			this.$status.set('idle');
+			if (packagePath == null) return;
+			await blender.save(packagePath);
+			await blender.stop(packagePath);
+		});
+		await this.activate();
+	}
+
+	/** The worker's log in the package's bridge folder, once a worker was started for it */
+	logPath(): string | null {
+		return this.startedFor != null ? `${this.startedFor}/.bridge/worker.log` : null;
 	}
 
 	/** Schedules a preview render, coalescing rapid playhead and project changes */

@@ -25,11 +25,17 @@ export const ContextMenuHost: React.FC = () => {
  * menu and never reach the canvas, and it stays inside the window like a native menu.
  */
 export const MenuList: React.FC<TMenuListProps> = (props) => {
-	const { entries, anchor, onClose, label } = props;
+	const { entries, anchor, onClose, onDone = onClose, label } = props;
 	const ref = React.useRef<HTMLDivElement>(null);
 	const items = entries.filter(isItem);
 	const [highlighted, setHighlighted] = React.useState<number | null>(null);
 	const [position, setPosition] = React.useState<{ left: number; top: number } | null>(null);
+	// The item whose submenu is open, with the window rect it opens beside
+	const [submenu, setSubmenu] = React.useState<{ index: number; rect: DOMRect } | null>(null);
+	const closeSubmenu = React.useCallback(() => {
+		setSubmenu(null);
+		ref.current?.focus({ preventScroll: true });
+	}, []);
 
 	// Flip and clamp inside the window once the size is known
 	React.useLayoutEffect(() => {
@@ -49,7 +55,9 @@ export const MenuList: React.FC<TMenuListProps> = (props) => {
 
 	React.useEffect(() => {
 		function onPointerDown(event: PointerEvent): void {
-			if (!ref.current?.contains(event.target as Node)) onClose();
+			// A press in an open submenu stays inside the menu
+			const target = event.target as Element | null;
+			if (!ref.current?.contains(target) && target?.closest?.('[data-submenu="true"]') == null) onClose();
 		}
 		function onBlur(): void {
 			onClose();
@@ -64,10 +72,21 @@ export const MenuList: React.FC<TMenuListProps> = (props) => {
 		};
 	}, [onClose]);
 
-	function run(item: TMenuItem): void {
+	function run(item: TMenuItem, element?: Element | null): void {
 		if (item.disabled === true) return;
-		onClose();
+		if (item.submenu != null) {
+			openSubmenu(item, element);
+			return;
+		}
+		onDone();
 		item.onSelect();
+	}
+
+	function openSubmenu(item: TMenuItem, element?: Element | null): void {
+		const index = items.indexOf(item);
+		const rect = (element ?? ref.current?.querySelector(`[data-index="${index}"]`))?.getBoundingClientRect();
+		if (item.submenu == null || item.disabled === true || rect == null) return;
+		setSubmenu({ index, rect });
 	}
 
 	function move(direction: 1 | -1): void {
@@ -83,15 +102,20 @@ export const MenuList: React.FC<TMenuListProps> = (props) => {
 		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
 			event.preventDefault();
 			move(event.key === 'ArrowDown' ? 1 : -1);
-		} else if (event.key === 'Enter' || event.key === ' ') {
+		} else if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowRight') {
 			event.preventDefault();
 			const item = highlighted == null ? undefined : items[highlighted];
-			if (item != null) run(item);
+			if (item != null && (event.key !== 'ArrowRight' || item.submenu != null)) run(item);
+		} else if (event.key === 'ArrowLeft' && props.isSubmenu === true) {
+			event.preventDefault();
+			onClose();
 		} else if (event.key === 'Escape' || event.key === 'Tab') {
 			event.preventDefault();
 			onClose();
 		}
 	}
+
+	const submenuItem = submenu == null ? undefined : items[submenu.index];
 
 	const indexOf = new Map(items.map((item, index) => [item, index]));
 	return createPortal(
@@ -101,10 +125,12 @@ export const MenuList: React.FC<TMenuListProps> = (props) => {
 			aria-label={label}
 			tabIndex={-1}
 			className="mm-menu"
+			data-submenu={props.isSubmenu === true}
 			style={{ left: position?.left ?? anchor.x, top: position?.top ?? anchor.y, visibility: position == null ? 'hidden' : undefined }}
 			onKeyDown={onKeyDown}
 			onContextMenu={(event) => event.preventDefault()}
-			onPointerLeave={() => setHighlighted(null)}
+			// An open submenu keeps its item highlighted, like macOS
+			onPointerLeave={() => setHighlighted(submenu?.index ?? null)}
 		>
 			{entries.map((entry, position) => {
 				if (entry === 'separator') {
@@ -123,20 +149,44 @@ export const MenuList: React.FC<TMenuListProps> = (props) => {
 						key={`${entry.label}-${index}`}
 						role={entry.checked != null ? 'menuitemcheckbox' : 'menuitem'}
 						aria-checked={entry.checked}
+						aria-haspopup={entry.submenu != null ? 'menu' : undefined}
+						aria-expanded={entry.submenu != null ? submenu?.index === index : undefined}
 						className="mm-menu-item"
+						data-index={index}
 						data-highlighted={highlighted === index}
 						disabled={entry.disabled}
 						tabIndex={-1}
-						onPointerEnter={() => setHighlighted(entry.disabled === true ? null : index)}
-						onClick={() => run(entry)}
+						onPointerEnter={(event) => {
+							setHighlighted(entry.disabled === true ? null : index);
+							if (entry.submenu != null) openSubmenu(entry, event.currentTarget);
+							else if (submenu != null) closeSubmenu();
+						}}
+						onClick={(event) => run(entry, event.currentTarget)}
 						type="button"
 					>
 						<span className="mm-menu-check">{entry.checked === true ? '✓' : ''}</span>
 						<span className="truncate">{entry.label}</span>
-						{entry.shortcut != null ? <span className="mm-menu-shortcut">{entry.shortcut}</span> : null}
+						{entry.submenu != null ? (
+							<span className="mm-menu-shortcut" aria-hidden>
+								▸
+							</span>
+						) : entry.shortcut != null ? (
+							<span className="mm-menu-shortcut">{entry.shortcut}</span>
+						) : null}
 					</button>
 				);
 			})}
+			{submenu != null && submenuItem?.submenu != null ? (
+				<MenuList
+					key={submenu.index}
+					entries={submenuItem.submenu}
+					anchor={{ x: submenu.rect.right - 2, y: submenu.rect.top - 5, alignRight: submenu.rect.left + 2, flipY: submenu.rect.bottom + 5 }}
+					onClose={closeSubmenu}
+					onDone={onDone}
+					label={submenuItem.label}
+					isSubmenu
+				/>
+			) : null}
 		</div>,
 		document.body
 	);
@@ -147,7 +197,10 @@ interface TMenuListProps {
 	/** Top-left corner in window coordinates; `alignRight` and `flipY` are used when the menu would leave the window */
 	anchor: { x: number; y: number; alignRight?: number; flipY?: number };
 	onClose: () => void;
+	/** Closes the whole menu after an item runs; a submenu gets its parent's, so a choice closes both */
+	onDone?: () => void;
 	label?: string;
+	isSubmenu?: boolean;
 }
 
 export interface TMenuItem {
@@ -156,6 +209,8 @@ export interface TMenuItem {
 	disabled?: boolean;
 	/** Shows a check mark column entry, like View menu toggles */
 	checked?: boolean;
+	/** Entries of a submenu that opens beside the item on hover, click or Right Arrow, like Piece ▸ */
+	submenu?: TMenuEntry[];
 	onSelect: () => void;
 }
 

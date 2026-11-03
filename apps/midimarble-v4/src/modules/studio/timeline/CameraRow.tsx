@@ -1,38 +1,40 @@
-import { Plus } from 'lucide-react';
+import { Video } from 'lucide-react';
 import React from 'react';
+import { openContextMenu } from '@/components';
 import { addShotCommands, shotKindLabel, updateShotCommands } from '@/modules/design/shots';
 import type { TProject } from '@/modules/project';
-import { getCommand } from '../commands';
+import { commandItem } from '../commands';
 import { formatTime } from '../format';
-import { parseShotKey, toShotKey } from '../selection';
+import { CAMERA_KEY, parseShotKey, toShotKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
 
 /**
- * Camera shot markers in the Design workspace, like Final Cut markers above the clips: click selects,
- * dragging moves the time with one undo step, double-click on the row adds a marker
+ * The Camera track of the Film workspace, last like the Camera row in Layers: shots as Final Cut markers.
+ * Click selects, dragging moves the time with one undo step, double-click on the row adds a shot; shots are
+ * also added from the Add menu. The header selects the Camera, as its row in Layers does.
  */
 export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 	const { cx, project, zoom, width, selection, timeAt } = props;
 	const shots = project.design.camera.shots;
+	const isSelected = selection.includes(CAMERA_KEY) || selection.some((key) => parseShotKey(key) != null);
 	const [drag, setDrag] = React.useState<{ shotId: string; grab: number; originX: number; time: number; moved: boolean } | null>(null);
 
 	return (
 		<div className="flex shrink-0" style={{ height: CAMERA_ROW_HEIGHT }}>
 			<div
-				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-0.5 border-r border-b border-[var(--separator)] pr-1.5 pl-3"
+				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-b border-[var(--separator)] pr-2.5 pl-5"
 				style={{ width: HEADER_WIDTH }}
+				data-track={CAMERA_KEY}
+				data-selected={isSelected}
+				onClick={() => cx.$selection.set([CAMERA_KEY])}
+				onContextMenu={(event) => openContextMenu(event, [commandItem(cx, 'camera.addShot')])}
 			>
-				<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Camera</span>
-				<button
-					className="mm-icon-button !h-5 !w-5"
-					onClick={() => getCommand('camera.addShot').run(cx)}
-					title="Add Shot Marker at Playhead (⇧M)"
-					aria-label="Add Shot Marker"
-					type="button"
-				>
-					<Plus size={12} strokeWidth={2} />
-				</button>
+				<span className="mm-song-icon">
+					<Video size={12} strokeWidth={1.75} />
+				</span>
+				<span className="min-w-0 flex-1 truncate font-medium">Camera</span>
+				<span className="shrink-0 text-[11px] text-[var(--text-secondary)] tabular-nums">{shots.length === 1 ? '1 shot' : `${shots.length} shots`}</span>
 			</div>
 			<div
 				className="relative flex-1 border-b border-[var(--separator)]"

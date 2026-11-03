@@ -1,14 +1,20 @@
 import { useFeatureState } from 'feature-react/state';
-import { House, LoaderCircle, PanelBottom, PanelLeft, PanelRight, Sparkles } from 'lucide-react';
+import { House, PanelBottom, PanelLeft, PanelRight, Sparkles } from 'lucide-react';
 import React from 'react';
-import { RenameField, WindowControlsInset } from '@/components';
+import { MenuButton, RenameField, WindowControlsInset, type TMenuEntry } from '@/components';
+import { host } from '@/environment';
+import { openExternalUrl } from '@/lib';
+import { blenderState } from '@/modules/design/blender-state';
 import { exportStatusLabel } from '@/modules/design/ExportSheet';
+import { commandItem } from './commands';
 import type { StudioCx, TStudioPanel } from './StudioCx';
+
+const BLENDER_DOWNLOAD_URL = 'https://www.blender.org/download/';
 
 /**
  * Unified title bar of a one-document window, like a macOS document app: the traffic lights, the sidebar
- * toggle and Home on the left, the document title with its edited state in the centre, then the agent and
- * the panel toggles on the right
+ * toggle and Home on the left, the document title with its edited state in the centre, then the project's
+ * actions on the right: the Blender chip, Agent, Export Film… and the panel toggles
  */
 export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 	const { cx } = props;
@@ -25,7 +31,7 @@ export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 			</button>
 			<DocumentTitle cx={cx} />
 			<div data-tauri-drag-region className="h-full flex-1" />
-			<ExportActivity cx={cx} />
+			<BlenderChip cx={cx} />
 			<button
 				className="mm-titlebar-agent"
 				data-active={panels.agent}
@@ -38,6 +44,7 @@ export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 				<span>Agent</span>
 				{isAgentWorking && !panels.agent ? <span className="mm-titlebar-badge" aria-label="Agent working" /> : null}
 			</button>
+			<ExportButton cx={cx} />
 			<span className="mx-1 h-4 w-px bg-[var(--separator)]" />
 			<PanelToggle cx={cx} panel="timeline" isOn={panels.timeline} label="Timeline" shortcut="⌃⌘T" icon={<PanelBottom size={16} strokeWidth={1.6} />} />
 			<PanelToggle cx={cx} panel="inspector" isOn={panels.inspector} label="Inspector" shortcut="⌃⌘I" icon={<PanelRight size={16} strokeWidth={1.6} />} />
@@ -80,19 +87,106 @@ const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 	);
 };
 
-/** Export progress stays visible in the title bar while the sheet is closed; a click shows the sheet */
-const ExportActivity: React.FC<{ cx: StudioCx }> = (props) => {
+/**
+ * Blender's state as a dot and one word, like Xcode's activity view; its menu opens the scene in Blender,
+ * restarts the worker or shows its log. Without Blender it offers only Install Blender…
+ */
+const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	const status = useFeatureState(cx.design.$status);
+	const version = useFeatureState(cx.design.$blenderVersion);
+	const error = useFeatureState(cx.design.$error);
+	const state = blenderState(status, version, error);
+
+	let items: TMenuEntry[];
+	if (status === 'missing') {
+		items = [{ section: 'Blender Not Installed' }, { label: 'Install Blender…', onSelect: () => void openExternalUrl(BLENDER_DOWNLOAD_URL) }];
+	} else {
+		const logPath = cx.design.logPath();
+		items = [
+			{ section: state.detail },
+			commandItem(cx, 'design.editInBlender'),
+			commandItem(cx, 'design.restartBlender'),
+			'separator',
+			{
+				label: 'Show Blender Log',
+				disabled: logPath == null,
+				onSelect: () => {
+					if (logPath == null) return;
+					void host.revealInFinder(logPath).then(([isShownOk, shownErr]) => {
+						if (!isShownOk) cx.notify(shownErr.message, 'error');
+					});
+				}
+			}
+		];
+	}
+
+	return (
+		<MenuButton
+			className="mm-titlebar-chip"
+			title={state.detail}
+			align="right"
+			label={
+				<>
+					<span className="mm-titlebar-chip-dot" data-tone={state.tone} />
+					<span className="truncate">{state.label}</span>
+				</>
+			}
+			items={items}
+		/>
+	);
+};
+
+/**
+ * The window's one accent button. While a film exports with the sheet closed it carries the progress as a
+ * small ring, like Final Cut's background tasks; a finished or failed export leaves a dot until the sheet opens
+ */
+const ExportButton: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const job = useFeatureState(cx.film.$job);
 	const isSheetOpen = useFeatureState(cx.film.$isSheetOpen);
 	const isExporting = job.phase === 'preparing' || job.phase === 'rendering' || job.phase === 'encoding';
-	if (isSheetOpen || (!isExporting && job.phase !== 'done' && job.phase !== 'failed')) return null;
+	const isFinished = job.phase === 'done' || job.phase === 'failed';
+	const showsActivity = !isSheetOpen && (isExporting || isFinished);
+	const title = !showsActivity ? 'Export the film (⌘E)' : isExporting ? `${exportStatusLabel(job)}. Click to show the export` : job.phase === 'done' ? 'Film exported. Click to show it' : 'Export failed. Click for details';
 
 	return (
-		<button className="mm-titlebar-export" data-tone={job.phase} onClick={() => cx.film.$isSheetOpen.set(true)} title="Show the export" type="button">
-			{isExporting ? <LoaderCircle size={11} strokeWidth={2.2} className="shrink-0 animate-spin" /> : <span className="mm-activity-dot" data-tone={job.phase === 'done' ? 'good' : 'bad'} />}
-			<span className="truncate">{isExporting ? exportStatusLabel(job) : job.phase === 'done' ? 'Film Exported' : 'Export Failed'}</span>
+		<button
+			className="mm-button mm-titlebar-export"
+			data-variant="primary"
+			onClick={() => cx.film.openSheet()}
+			title={title}
+			aria-label={showsActivity ? title : 'Export Film…'}
+			type="button"
+		>
+			{showsActivity && isExporting ? <ProgressRing progress={job.phase === 'preparing' ? null : job.progress} /> : null}
+			{showsActivity && isFinished ? <span className="mm-titlebar-export-dot" data-tone={job.phase === 'done' ? 'good' : 'bad'} /> : null}
+			Export Film…
 		</button>
+	);
+};
+
+/** Determinate ring from 0 to 1, or a spinning arc while the length is unknown */
+const ProgressRing: React.FC<{ progress: number | null }> = (props) => {
+	const { progress } = props;
+	const radius = 5.5;
+	const length = 2 * Math.PI * radius;
+	const value = progress == null ? 0.3 : Math.min(1, Math.max(0, progress));
+	return (
+		<svg className="mm-progress-ring" data-indeterminate={progress == null} width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+			<circle cx="7" cy="7" r={radius} fill="none" strokeWidth="2" className="mm-progress-ring-track" />
+			<circle
+				cx="7"
+				cy="7"
+				r={radius}
+				fill="none"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeDasharray={`${value * length} ${length}`}
+				transform="rotate(-90 7 7)"
+				className="mm-progress-ring-value"
+			/>
+		</svg>
 	);
 };
 

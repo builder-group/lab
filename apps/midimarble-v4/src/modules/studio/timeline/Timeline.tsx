@@ -1,10 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
 import { Plus } from 'lucide-react';
 import React from 'react';
-import { MenuButton, tidyMenu } from '@/components';
+import { MenuButton } from '@/components';
 import { isEditingTarget } from '@/lib';
 import type { THitResult } from '@/modules/simulation';
-import { commandItem } from '../commands';
+import { addMenu } from '../add-menu';
 import { addHit } from '../menus';
 import { parseHitKey, toHitKey } from '../selection';
 import { songSource } from '../SourcesCx';
@@ -90,6 +90,19 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		window.addEventListener('keydown', onKeyDown, true);
 		return () => window.removeEventListener('keydown', onKeyDown, true);
 	}, [cx]);
+
+	// A track selected in Layers scrolls into view below the sticky ruler, like Final Cut's timeline index
+	const first = selection[0];
+	React.useEffect(() => {
+		const element = scrollRef.current;
+		if (element == null || first == null) return;
+		const header = element.querySelector(`[data-track="${CSS.escape(first)}"]`);
+		if (header == null) return;
+		const view = element.getBoundingClientRect();
+		const rect = header.getBoundingClientRect();
+		if (rect.top < view.top + RULER_HEIGHT) element.scrollTop -= view.top + RULER_HEIGHT - rect.top;
+		else if (rect.bottom > view.bottom) element.scrollTop += rect.bottom - view.bottom;
+	}, [first]);
 
 	// MARK: - Actions
 
@@ -224,24 +237,10 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							style={{ width: HEADER_WIDTH }}
 						>
 							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Tracks</span>
-							<MenuButton
-								className="mm-icon-button !h-5 !w-5"
-								label={<Plus size={13} strokeWidth={2} />}
-								title="Add Marble or Song"
-								items={tidyMenu([
-									commandItem(cx, 'marble.add'),
-									'separator',
-									commandItem(cx, 'file.importMidi'),
-									commandItem(cx, 'file.importAudio'),
-									song != null ? 'separator' : null,
-									song != null ? commandItem(cx, 'file.replaceSong') : null,
-									song != null ? commandItem(cx, 'file.removeSong') : null
-								])}
-							/>
+							<MenuButton className="mm-icon-button !h-5 !w-5" label={<Plus size={13} strokeWidth={2} />} title="Add" items={addMenu(cx)} />
 						</div>
 						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
-					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{song != null ? (
 						<SongTrack
 							cx={cx}
@@ -290,6 +289,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							<span className="mm-placeholder-body">Import a MIDI file with ⌘I, drop one on the window or add a marble with +.</span>
 						</div>
 					) : null}
+					{/* The track column is the timed part of the Layers outline, in the same order: Song, marbles, Camera */}
+					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{/* The header column continues below the last lane, like Logic's track list */}
 					<div className="flex flex-1">
 						<div className="mm-track-header sticky left-0 z-20 shrink-0 border-r border-[var(--separator)]" style={{ width: HEADER_WIDTH }} />

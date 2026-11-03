@@ -7,12 +7,17 @@ import {
 	addWallTextCommands,
 	cameraCommands,
 	clearSkinCommands,
+	colorByNoteCommands,
 	itemFitsPieceType,
 	previewPointToWall,
 	reactionCommands,
+	showsThemeSkin,
 	skinCommands,
-	themeCommands
+	themeCommands,
+	themeSkinCommands,
+	themeSkins
 } from './design-commands';
+import { isNewThemeRequest, libraryEntries } from './DesignLibraryCx';
 
 function apply(project: TProject, commands: Parameters<typeof applyProjectCommands>[1]): TProject {
 	const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, commands);
@@ -25,6 +30,50 @@ function pieceIds(project: TProject): string[] {
 }
 
 describe('design commands', () => {
+	it('should list the theme default first and the Brass platform variants', () => {
+		expect(themeSkins('pegboard', 'rail').map((skin) => skin.assetId)).toEqual([null]);
+		const brass = themeSkins('brass', 'platform');
+		expect(brass[0]).toMatchObject({ assetId: null, label: 'Gold', previewUrl: '/skins/brass-platform.png' });
+		expect(brass.map((skin) => skin.assetId)).toContain('brass:device-copper');
+		expect(themeSkins('brass', 'unknown')).toEqual([]);
+	});
+
+	it('should link a theme variant and clear the skin for the theme default', () => {
+		const project = createStaircaseProject();
+		const [first] = pieceIds(project);
+		const [gold, copper] = themeSkins('brass', 'platform');
+		if (first == null || gold == null || copper == null) throw new Error('fixture');
+		const linked = apply(project, themeSkinCommands(project, { kind: 'pieceType', pieceType: 'platform' }, copper));
+		const piece = linked.entities.find((entity) => entity.id === first);
+		expect(piece?.components.skin?.assetId).toBe('brass:copper');
+		expect(piece != null && showsThemeSkin(piece, copper)).toBe(true);
+		const cleared = apply(linked, themeSkinCommands(linked, { kind: 'entities', entityIds: [first] }, gold));
+		const clearedPiece = cleared.entities.find((entity) => entity.id === first);
+		expect(clearedPiece?.components.skin).toBeUndefined();
+		expect(clearedPiece != null && showsThemeSkin(clearedPiece, gold)).toBe(true);
+	});
+
+	it('should toggle Colour by Note and skip an unchanged value', () => {
+		const project = createStaircaseProject();
+		expect(colorByNoteCommands(project, false)).toEqual([]);
+		expect(apply(project, colorByNoteCommands(project, true)).design.themeOptions?.colorByNote).toBe(true);
+	});
+
+	it('should show a kept project item once and kept items from other projects', () => {
+		const item = (id: string, scope: 'project' | 'global'): TLibraryItem => ({ id, scope, path: id, manifest: null, manifestError: null, hasAsset: true, previewUrl: null });
+		const entries = libraryEntries([item('a', 'project'), item('b', 'project')], [item('b', 'global'), item('c', 'global')]);
+		expect(entries.map((entry) => [entry.item.id, entry.item.scope, entry.isKept])).toEqual([
+			['a', 'project', false],
+			['b', 'project', true],
+			['c', 'global', true]
+		]);
+	});
+
+	it('should recognise a New Theme request after its mentions', () => {
+		expect(isNewThemeRequest('@[Platform 1] @[Rail 1] New theme: neon arcade')).toBe(true);
+		expect(isNewThemeRequest('Make the platform neon')).toBe(false);
+	});
+
 	it('should set the theme once and skip an unchanged theme', () => {
 		const project = createStaircaseProject();
 		expect(themeCommands(project, project.design.theme)).toEqual([]);

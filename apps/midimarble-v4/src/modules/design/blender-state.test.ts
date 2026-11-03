@@ -3,11 +3,19 @@ import { blenderState } from './blender-state';
 
 describe('blenderState function', () => {
 	it('should show a ready Blender in green with its version in the tooltip', () => {
-		expect(blenderState('ready', '4.5.1 LTS')).toEqual({ tone: 'good', label: 'Blender', detail: 'Blender 4.5.1 is connected' });
+		expect(blenderState('ready', '4.5.1 LTS')).toEqual({ tone: 'good', label: 'Ready', detail: 'Blender 4.5.1 is connected' });
 	});
 
 	it('should mark a missing Blender in red and work without a version', () => {
-		expect(blenderState('missing', null)).toMatchObject({ tone: 'bad', label: 'No Blender' });
-		expect(blenderState('rendering', null).detail).toBe('Blender: rendering the preview…');
+		expect(blenderState('missing', null)).toMatchObject({ tone: 'bad', label: 'Not Installed' });
+		expect(blenderState('rendering', null)).toMatchObject({ label: 'Rendering Preview', detail: 'Blender: rendering the preview…' });
+	});
+
+	it('should show the browser state as a hollow dot rather than a problem', () => {
+		expect(blenderState('unavailable', null)).toMatchObject({ tone: 'off', detail: 'Blender connects in the desktop app' });
+	});
+
+	it('should put the error message in the tooltip', () => {
+		expect(blenderState('error', '4.5.1', 'Worker stopped')).toMatchObject({ label: 'Error', detail: 'Blender 4.5.1 reported a problem: Worker stopped' });
 	});
 });
