@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { CAMERA_CLIP_END, CAMERA_CLIP_START, verticalFov, type TCameraPose } from '@/modules/camera';
 import type { TVec2 } from '@/modules/project';
 import { getPieceDefinition, layoutOf, rotorLocalShapes, type TResolvedPiece } from '@/modules/simulation';
 import { worldToScreen, type TView, type TViewport } from './view';
@@ -8,11 +9,20 @@ import { worldToScreen, type TView, type TViewport } from './view';
 // their buffers and transforms change. Frames render on demand through `invalidate`.
 
 export interface TComposeCamera {
-	mode: '2d' | 'orbit';
+	/** `camera` looks through the film's follow camera, see `setFilm` */
+	mode: '2d' | 'orbit' | 'camera';
 	view: TView;
 	/** Orbit angles in radians around the view centre; ignored in 2D */
 	yaw: number;
 	pitch: number;
+}
+
+/** Film camera pose and where the film frame sits on the canvas, in CSS pixels */
+export interface TFilmView {
+	pose: TCameraPose;
+	/** Film frame width over height */
+	aspect: number;
+	frame: { x: number; y: number; width: number; height: number };
 }
 
 export interface TRenderPiece {
@@ -53,6 +63,8 @@ export class ComposeRenderer {
 	private readonly scene = new THREE.Scene();
 	private readonly orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
 	private readonly perspective = new THREE.PerspectiveCamera(ORBIT_FOV, 1, 0.005, 200);
+	private readonly film = new THREE.PerspectiveCamera(30, 1, CAMERA_CLIP_START, CAMERA_CLIP_END);
+	private filmView: TFilmView | null = null;
 	private readonly wall: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>;
 	private readonly pieces = new Map<string, TPieceObject>();
 	private readonly marbles = new Map<string, { mesh: THREE.Mesh; radius: number }>();
@@ -112,6 +124,13 @@ export class ComposeRenderer {
 		this.camera = camera;
 		this.updateCamera();
 		for (const marble of this.marbles.values()) this.scaleMarble(marble);
+		this.invalidate();
+	}
+
+	/** Pose of the film camera for the Camera view; called every frame while it shows */
+	setFilm(film: TFilmView | null): void {
+		this.filmView = film;
+		this.updateCamera();
 		this.invalidate();
 	}
 
@@ -203,6 +222,7 @@ export class ComposeRenderer {
 				this.tracks.set(item.entityId, track);
 				this.scene.add(track.mesh);
 			}
+			track.mesh.visible = this.camera.mode !== 'camera';
 			track.setColor(item.color);
 			track.setFutureMix(this.theme.canvas);
 			track.setPoints(item.points, item.times, MARBLE_Z);
@@ -237,7 +257,8 @@ export class ComposeRenderer {
 	/** CSS pixel position of a wall point at depth `z` */
 	project(point: TVec2, z = 0): TVec2 {
 		if (this.camera.mode === '2d') return worldToScreen(this.camera.view, this.viewport, point);
-		const vector = new THREE.Vector3(point.x, point.y, z).project(this.perspective);
+		const vector = new THREE.Vector3(point.x, point.y, z).project(this.activeCamera());
+		if (vector.z > 1) return { x: Number.NaN, y: Number.NaN };
 		return { x: ((vector.x + 1) / 2) * this.viewport.width, y: ((1 - vector.y) / 2) * this.viewport.height };
 	}
 
@@ -256,7 +277,12 @@ export class ComposeRenderer {
 		const resolution = new THREE.Vector2(this.viewport.width * this.pixelRatio, this.viewport.height * this.pixelRatio);
 		for (const track of this.tracks.values()) track.setResolution(resolution, this.pixelRatio);
 		this.guides.setResolution(resolution, this.pixelRatio);
-		this.renderer.render(this.scene, this.camera.mode === '2d' ? this.orthographic : this.perspective);
+		this.renderer.render(this.scene, this.activeCamera());
+	}
+
+	private activeCamera(): THREE.Camera {
+		if (this.camera.mode === 'camera') return this.film;
+		return this.camera.mode === '2d' ? this.orthographic : this.perspective;
 	}
 
 	dispose(): void {
@@ -286,7 +312,15 @@ export class ComposeRenderer {
 		this.orthographic.updateProjectionMatrix();
 
 		const isOrbit = mode === 'orbit';
-		this.wall.visible = isOrbit;
+		const isFilm = mode === 'camera';
+		this.wall.visible = isOrbit || isFilm;
+		// The film shows no trajectories or frame guides
+		for (const track of this.tracks.values()) track.mesh.visible = !isFilm;
+		this.guides.mesh.visible = !isFilm;
+		if (isFilm) {
+			this.updateFilmCamera();
+			return;
+		}
 		if (!isOrbit) return;
 		// The orbit camera sees the same wall area as the 2D view when it faces the wall
 		const distance = halfHeight / Math.tan(THREE.MathUtils.degToRad(ORBIT_FOV / 2));
@@ -304,19 +338,55 @@ export class ComposeRenderer {
 		this.perspective.updateProjectionMatrix();
 		// Projection for overlays happens between renders, so the matrices must be current now
 		this.perspective.updateMatrixWorld();
-		// A wall patch around the view, with the peg texture repeating every 2.5 cm
-		const size = Math.max(halfWidth, halfHeight) * 8;
+		this.placeWall(view.center, Math.max(halfWidth, halfHeight) * 8);
+	}
+
+	/**
+	 * The film camera maps Blender's pose (x along the wall, y into it, z up) to the scene (x, y up the wall, z out
+	 * of it). Its field of view makes the film frame rectangle show exactly the film's view; the canvas around it
+	 * shows more of the wall, which the viewfinder mask dims.
+	 */
+	private updateFilmCamera(): void {
+		const film = this.filmView;
+		const { width, height } = this.viewport;
+		if (film == null || film.frame.height <= 0) return;
+		const { position, rotation } = film.pose;
+		this.film.position.set(position[0], position[2], -position[1]);
+		filmRotation.set(rotation[1], rotation[2], rotation[3], rotation[0]);
+		this.film.quaternion.copy(blenderToScene).multiply(filmRotation);
+		const halfFrame = Math.tan(THREE.MathUtils.degToRad(verticalFov(film.pose.lens, film.aspect) / 2));
+		const pixelsPerUnit = film.frame.height / 2 / halfFrame;
+		this.film.aspect = width / height;
+		this.film.fov = THREE.MathUtils.radToDeg(2 * Math.atan(height / 2 / pixelsPerUnit));
+		// A frame off the canvas centre shifts the view so its centre stays on the camera axis
+		const offsetX = film.frame.x + film.frame.width / 2 - width / 2;
+		const offsetY = film.frame.y + film.frame.height / 2 - height / 2;
+		if (Math.abs(offsetX) > 0.5 || Math.abs(offsetY) > 0.5) this.film.setViewOffset(width, height, -offsetX, -offsetY, width, height);
+		else this.film.clearViewOffset();
+		this.film.updateProjectionMatrix();
+		this.film.updateMatrixWorld();
+		// The wall patch covers the view far along the steep wall
+		const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.film.quaternion);
+		const reach = forward.z < -1e-3 ? -this.film.position.z / forward.z : 1;
+		const center = { x: this.film.position.x + forward.x * reach, y: this.film.position.y + forward.y * reach };
+		this.placeWall(center, Math.max(1, this.film.position.z * 40));
+	}
+
+	/** A wall patch around `center`, with the peg texture repeating every 2.5 cm */
+	private placeWall(center: TVec2, size: number): void {
 		this.wall.scale.set(size, size, 1);
-		this.wall.position.set(view.center.x, view.center.y, 0);
+		this.wall.position.set(center.x, center.y, 0);
 		const texture = this.wall.material.map;
 		if (texture != null) {
 			texture.repeat.set(size / 0.025, size / 0.025);
-			texture.offset.set(((view.center.x - size / 2) / 0.025) % 1, ((view.center.y - size / 2) / 0.025) % 1);
+			texture.offset.set(((center.x - size / 2) / 0.025) % 1, ((center.y - size / 2) / 0.025) % 1);
 		}
 	}
 
 	private scaleMarble(marble: { mesh: THREE.Mesh; radius: number }): void {
-		marble.mesh.scale.setScalar(Math.max(marble.radius, MIN_MARBLE_PX / this.camera.view.scale));
+		// The film shows marbles at their real size
+		const minimum = this.camera.mode === 'camera' ? 0 : MIN_MARBLE_PX / this.camera.view.scale;
+		marble.mesh.scale.setScalar(Math.max(marble.radius, minimum));
 	}
 
 	private boxGeometry(length: number, thickness: number, depth: number): THREE.BufferGeometry {
@@ -403,6 +473,10 @@ export const piecePalette: Record<string, { bar: string; nub: string }> = {
 	windmill: { bar: '#4fb879', nub: '#2f8a52' },
 	switchback: { bar: '#d9a520', nub: '#a87c10' }
 };
+
+/** Blender world to scene: a quarter turn around x, so Blender's y (into the wall) becomes -z */
+const blenderToScene = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+const filmRotation = new THREE.Quaternion();
 
 export function paletteOf(type: string): { bar: string; nub: string } {
 	return piecePalette[type] ?? (piecePalette['platform'] as { bar: string; nub: string });

@@ -18,7 +18,8 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 	// Suggestions belong to the run before an edit; while an element is dragged or drawn they would mislead
 	const isEditing = useFeatureState(compose.$override) != null;
 	const { ghost } = state;
-	if (ghost == null || project == null || isEditing) return null;
+	// The Camera view shows the film, not suggestions
+	if (ghost == null || project == null || isEditing || camera.mode === 'camera') return null;
 	const laneColor = project.music.lanes.find((lane) => lane.id === ghost.answer.laneId)?.color ?? 'var(--text)';
 
 	if (ghost.kind === 'gap') {
@@ -84,11 +85,11 @@ const GhostDot: React.FC<{ position: TVec2; color: string }> = (props) => {
 export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 	const { compose } = props;
 	const state = useFeatureState(compose.assist.$ghosts);
-	useFeatureState(compose.$camera);
+	const camera = useFeatureState(compose.$camera);
 	const viewport = useFeatureState(compose.$viewport);
 	const result = useFeatureState(compose.studio.simulation.$result);
 	const drag = useFeatureState(compose.$drag);
-	if (drag != null) return null;
+	if (drag != null || camera.mode === 'camera') return null;
 
 	let anchor: TVec2 | null = null;
 	let content: React.ReactNode = null;

@@ -1,5 +1,6 @@
 // Compose keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B), the build assists
-// keep theirs (N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma and T stays free for tapping hits.
+// keep theirs (N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma, 0 toggles the Camera view like Blender's Numpad 0 and
+// T stays free for tapping hits.
 
 export interface TKeyInput {
 	key: string;
@@ -38,7 +39,8 @@ export type TComposeKeyAction =
 	| { type: 'autoPlace' }
 	| { type: 'pin' }
 	| { type: 'finishPath' }
-	| { type: 'undoPathPoint' };
+	| { type: 'undoPathPoint' }
+	| { type: 'cameraView' };
 
 /** Tool rail keys, shared by the rail tooltips and the command palette */
 export const toolKeys: { tool: TComposeTool; code: string; key: string }[] = [
@@ -90,6 +92,7 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 			return { type: 'nudge', degrees: (input.key === 'ArrowRight' ? -1 : 1) * (input.shiftKey ? 5 : 1) };
 	}
 	if (input.shiftKey) return key === 'p' && context.hasPieces ? { type: 'pin' } : null;
+	if (input.code === 'Digit0' || input.code === 'Numpad0') return { type: 'cameraView' };
 
 	const tool = toolKeys.find((item) => item.code === input.code);
 	if (tool != null) return { type: 'tool', tool: tool.tool };

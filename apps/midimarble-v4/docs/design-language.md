@@ -15,7 +15,7 @@ Reference apps:
 | Final Cut Pro         | Workspace switching, inspector, clips moved on a timeline            |
 | Figma, FigJam         | Canvas navigation, dot grid, selection, scrubbable fields, components |
 | Notion, Linear        | Command palette, keyboard flow, calm visuals                         |
-| Blender               | Orbit and frame shortcuts for users who know it                      |
+| Blender               | Orbit, camera view (0) and frame shortcuts for users who know it     |
 | Xcode                 | Start window with templates, activity view for long jobs             |
 
 ## Principles
@@ -59,9 +59,9 @@ The layout, after Paper, stays the same in Compose and Design; only the contents
 - Sidebar, full height and translucent like Finder and Photos: the project name (double-click renames), the Compose and Design segmented control, Marbles (like Paper's pages, with + for Add Marble, Place Marble on Canvas and the imports) and the layer list. In Design the layer list stays on top and the library sits below it
 - Layers read like Figma's layer list: each marble is a group with the pieces linked or anchored to it in hit order, then the free pieces, newest first. Rows show a type icon, the name, a link or anchor glyph, problem badges only, and eye and lock toggles on hover that stay visible while on. Hidden and locked are view state. Click selects, ⌘-click toggles, Shift-click selects a range, double-click renames
 - Tool rail, 48 px, between sidebar and canvas: Move and Hand, then the workspace's tools. Compose: Marble, Platform, Path (rails), Tunnel, Windmill. Design: Move, Text, Asset. Tooltips open to the right with the name, one line of help and the key
-- Inspector: zoom with its menu (zoom, fit, snapping, wall and orbit) and the Export button at the top, then compact sections for the selection, or the World without one
+- Inspector: zoom with its menu (zoom, fit, snapping, wall, orbit and camera view) and the Export button at the top, then compact sections for the selection, or the World without one
 - Timeline: spans canvas and inspector at the bottom. Its header holds the transport like a video editor: Go to Beginning, Previous Hit, Play, Next Hit and the time with the length, then the zoom controls at the far end. Play is the one round, filled button in the window
-- Nothing floats over the canvas except feedback and the contextual build bar: the 2D, orbit and snap toggles sit in its top right corner
+- Nothing floats over the canvas except feedback and the contextual build bar: the view switch (Wall, Orbit, Camera) and the snap toggle sit in its top right corner
 - Sheets, the ⌘K palette and context menus are unchanged
 - A start window offers Empty, From MIDI, From Audio, Examples and recent projects.
 
@@ -82,7 +82,8 @@ The canvas is open like Figma: every element is placed with its tool, moved by d
 - Suggestions are ghosts: dashed, see-through pieces with dashed dots. They hide while an element is dragged
 - Two-finger scroll pans, pinch zooms, Space and drag pans
 - ⌘+ and ⌘− zoom, ⇧1 fits everything, ⇧2 fits the selection, ⇧3 zooms to the film frame width around the marble
-- The 2D and orbit toggle sits in the canvas corner; Blender users can orbit with the middle mouse button
+- The view switch sits in the canvas corner: Wall view for editing, Orbit (Blender users can orbit with the middle mouse button) and Camera view
+- Camera view, 0 or Numpad 0 like Blender's camera view, toggling back to the view it came from: the canvas looks through the film's follow camera (a TypeScript port of the Blender rig, 50 mm on a 36 mm sensor) at the playhead, live while playing and scrubbing. The film frame sits centred as a viewfinder with corner marks, the canvas outside it dimmed to 78 % canvas colour. Pieces and marbles keep the flat Compose look, all pieces solid and marbles at their real size; trajectories, frame guides, hit dots, badges and ghosts are hidden. A label above the frame says "Camera view · Film camera preview, editing paused" with the 0 keycap. A click selects a piece; dragging, wheel, tools and build keys do nothing until the view returns. Camera settings stay in Design
 - The dot grid fades between densities while zooming
 - Projects open in the film-frame view, with the marble in the upper third; during playback the canvas follows the marble vertically, and a piece placed by an assist is panned into view
 

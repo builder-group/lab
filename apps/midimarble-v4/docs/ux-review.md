@@ -10,6 +10,7 @@ A first-time user who knows Figma or GarageBand but not MidiMarble should finish
 | --- | --- |
 | Open an example and play it | 10 s |
 | Pause, scrub to a hit, step to the next hit | 10 s |
+| Watch the run through the film camera | 5 s |
 | Add a marble to an empty project | 15 s |
 | Place a platform on a hit dot and hear its note | 15 s |
 | Draw a free platform and drag it into the trajectory | 20 s |

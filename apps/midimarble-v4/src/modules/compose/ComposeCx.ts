@@ -3,6 +3,8 @@ import type React from 'react';
 import * as THREE from 'three';
 import { openContextMenu } from '@/components';
 import { isEditingTarget } from '@/lib';
+import { createCameraPose, followCameraTrack, sampleCameraTrack, verticalFov, type TCameraTrack } from '@/modules/camera';
+import { renderFps } from '@/modules/design/DesignCx';
 import type { TEntity, TPathNode, TProject, TVec2 } from '@/modules/project';
 import {
 	findLongGaps,
@@ -34,7 +36,7 @@ import {
 	type TSnap
 } from './attach-edit';
 import { rebaseNodes, withNodeHandle, withNodePoint } from './bezier';
-import { ComposeRenderer, MARBLE_Z, type TComposeCamera } from './ComposeRenderer';
+import { ComposeRenderer, MARBLE_Z, type TComposeCamera, type TFilmView } from './ComposeRenderer';
 import { composeKeyAction, toolPieceType, type TComposeKeyAction, type TComposeTool } from './keys';
 import { dotMenu } from './menus';
 import { distanceToSegment, pick, pickTrack, piecesInRect, rectFromPoints, type TPick, type TPickScene, type TScreenTrack } from './picking';
@@ -57,6 +59,7 @@ import {
 import { commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, pinCommands, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
 import {
 	boundsOf,
+	filmFrameRect,
 	fitBounds,
 	gridLayers,
 	isBoundsVisible,
@@ -93,6 +96,11 @@ export class ComposeCx {
 	 */
 	readonly $override = createState<TResolvedPiece | null>(null);
 	readonly assist: AssistCx;
+	/**
+	 * What the Camera view shows: the film frame on the canvas and the follow camera's pose at the playhead. Null
+	 * outside the Camera view; `pose` is null when the film has no follow camera (manual mode or no motion).
+	 */
+	readonly $film = createState<TFilmState | null>(null);
 
 	private renderer: ComposeRenderer | null = null;
 	private container: HTMLElement | null = null;
@@ -101,6 +109,11 @@ export class ComposeCx {
 	private trackCache = new WeakMap<object, { points: Float32Array; times: Float32Array }>();
 	/** Keeps the override until the result for the committed edit arrives, so a drop never flickers */
 	private settleRevision: number | null = null;
+	/** Follow camera baked once per result and camera settings, sampled every frame in the Camera view */
+	private filmTrack: { result: TSimulationResult; key: string; track: TCameraTrack | null } | null = null;
+	private filmPose = createCameraPose();
+	/** View to return to when the Camera view toggles off */
+	private editMode: '2d' | 'orbit' = '2d';
 
 	constructor(readonly studio: StudioCx) {
 		this.assist = new AssistCx(studio);
@@ -162,9 +175,11 @@ export class ComposeCx {
 				renderer.setCamera(value);
 				updateGrid();
 				this.screenTracks = null;
+				this.syncFilm();
 			}),
 			this.$viewport.listen(() => {
 				this.screenTracks = null;
+				this.syncFilm();
 			}),
 			this.$viewport.listen(updateGrid),
 			this.studio.simulation.$result.subscribe(({ value }) => {
@@ -177,12 +192,15 @@ export class ComposeCx {
 				this.syncPieces();
 				this.syncMarbles();
 				this.syncGuides();
+				this.syncFilm();
 				this.frameIfNeeded();
 				this.revealPlaced();
 			}),
 			this.$override.listen(() => this.syncPieces()),
 			this.studio.$hidden.listen(() => this.syncPieces()),
 			this.studio.$playhead.subscribe(({ value }) => {
+				// The film camera moves first, so the overlays drawn for this playhead project through its new pose
+				this.syncFilm();
 				renderer.setPlayhead(value);
 				this.syncPieces();
 				this.syncMarbles();
@@ -334,6 +352,7 @@ export class ComposeCx {
 		for (const piece of pieces) {
 			if (!locked.includes(piece.entityId)) scene.pieces.push({ entityId: piece.entityId, corners: this.screenOutline(piece) });
 		}
+		if (this.$camera.get().mode === 'camera') return scene;
 		for (const hit of result.hits) {
 			if (hit.status === 'open' && hit.dot != null) {
 				scene.dots.push({ laneId: hit.laneId, hitId: hit.hitId, position: this.toScreen(hit.dot) });
@@ -461,8 +480,64 @@ export class ComposeCx {
 	}
 
 	setMode(mode: TComposeCamera['mode']): void {
+		if (mode !== 'camera') this.editMode = mode;
+		else if (this.$pen.get() != null) this.finishPen();
+		this.$drag.set(null);
 		this.$camera.set((camera) => ({ ...camera, mode }));
 		this.$hover.set(null);
+		this.syncPieces();
+	}
+
+	/** 0 and Numpad 0 like Blender: into the Camera view, and back to the view it came from */
+	toggleCameraView(): void {
+		this.setMode(this.$camera.get().mode === 'camera' ? this.editMode : 'camera');
+	}
+
+	/** CSS pixels per wall metre around the followed point, for strokes drawn at wall size */
+	screenScale(): number {
+		const camera = this.$camera.get();
+		const film = this.$film.get();
+		if (camera.mode !== 'camera' || film?.pose == null) return camera.view.scale;
+		const halfFrame = Math.tan((verticalFov(film.pose.lens, film.aspect) * Math.PI) / 360);
+		return film.frame.height / 2 / (halfFrame * Math.max(film.pose.focus, 1e-3));
+	}
+
+	/** Follow camera of the current run at the film's frame rate, baked once per result and camera settings */
+	cameraTrack(): TCameraTrack | null {
+		const project = this.project;
+		const result = this.result;
+		if (project == null || result == null) return null;
+		const fps = renderFps(project);
+		const key = `${fps}:${JSON.stringify(project.design.camera)}:${project.frame.width}x${project.frame.height}:${project.design.loop}`;
+		if (this.filmTrack?.result !== result || this.filmTrack.key !== key) {
+			this.filmTrack = { result, key, track: followCameraTrack(project, result, fps) };
+		}
+		return this.filmTrack.track;
+	}
+
+	/** Moves the film camera to the playhead while the Camera view shows */
+	private syncFilm(): void {
+		const renderer = this.renderer;
+		const project = this.project;
+		if (renderer == null) return;
+		if (this.$camera.get().mode !== 'camera' || project == null) {
+			if (this.$film.get() != null) {
+				this.$film.set(null);
+				renderer.setFilm(null);
+			}
+			return;
+		}
+		const aspect = project.frame.width / project.frame.height;
+		const frame = filmFrameRect(this.$viewport.get(), aspect);
+		const track = this.cameraTrack();
+		if (track == null) {
+			this.$film.set({ pose: null, aspect, frame });
+			renderer.setFilm(null);
+			return;
+		}
+		const film: TFilmView = { pose: sampleCameraTrack(track, this.studio.$playhead.get(), this.filmPose), aspect, frame };
+		renderer.setFilm(film);
+		this.$film.set(film);
 	}
 
 	private fit(bounds: TBounds): void {
@@ -530,6 +605,8 @@ export class ComposeCx {
 
 	private onWheel(event: WheelEvent, container: HTMLElement): void {
 		event.preventDefault();
+		// The Camera view looks through the film camera, which only the playhead moves
+		if (this.$camera.get().mode === 'camera') return;
 		const rect = container.getBoundingClientRect();
 		const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
 		// Line-based wheels report rows instead of pixels
@@ -552,6 +629,11 @@ export class ComposeCx {
 		const camera = this.$camera.get();
 		const tool = this.$tool.get();
 		const is2d = camera.mode === '2d';
+		if (camera.mode === 'camera') {
+			// The Camera view previews: a click selects a piece, nothing moves
+			if (event.button === 0) this.selectInFilm(this.pickAt(point), event.shiftKey);
+			return;
+		}
 		const isPan = event.button === 1 || tool === 'hand' || this.$spaceHeld.get() || (!is2d && event.button === 0 && this.pickAt(point) == null);
 		if (event.button !== 0 && event.button !== 1) return;
 		event.currentTarget.setPointerCapture(event.pointerId);
@@ -772,6 +854,17 @@ export class ComposeCx {
 				return;
 			}
 		}
+	}
+
+	private selectInFilm(target: TPick | null, shiftKey: boolean): void {
+		const selection = this.studio.$selection.get();
+		if (target?.kind !== 'piece') {
+			if (!shiftKey) this.studio.$selection.set([]);
+			return;
+		}
+		const has = selection.includes(target.entityId);
+		if (!shiftKey) this.studio.$selection.set([target.entityId]);
+		else this.studio.$selection.set(has ? selection.filter((id) => id !== target.entityId) : [...selection, target.entityId]);
 	}
 
 	onPointerLeave(): void {
@@ -1338,7 +1431,12 @@ export class ComposeCx {
 
 	/** Runs a keyboard action; returns false when it did nothing, so the key falls through */
 	runKeyAction(action: TComposeKeyAction): boolean {
+		// The Camera view previews; keys that edit or navigate the wall wait for the Wall view
+		if (this.$camera.get().mode === 'camera' && action.type !== 'cameraView' && action.type !== 'escape') return false;
 		switch (action.type) {
+			case 'cameraView':
+				this.toggleCameraView();
+				return true;
 			case 'zoom':
 				this.zoomBy(action.factor);
 				return true;
@@ -1447,6 +1545,7 @@ export class ComposeCx {
 	private syncPieces(): void {
 		if (this.renderer == null) return;
 		const playhead = this.studio.$playhead.get();
+		const isFilm = this.$camera.get().mode === 'camera';
 		// Selected pieces stay solid so the piece being edited is never washed out
 		const selection = this.studio.$selection.get();
 		this.renderer.setPieces(
@@ -1454,7 +1553,8 @@ export class ComposeCx {
 				const time = pieceTime(piece);
 				return {
 					piece,
-					ghost: time != null && time > playhead + 1e-4 && !selection.includes(piece.entityId),
+					// The film shows every piece solid; the wall views fade pieces the marble has not reached yet
+					ghost: !isFilm && time != null && time > playhead + 1e-4 && !selection.includes(piece.entityId),
 					angle: pieceAngleAt(piece, playhead)
 				};
 			})
@@ -1598,3 +1698,6 @@ function localPoint(event: React.PointerEvent<HTMLElement>): TVec2 {
 function isSamePick(a: TPick | null, b: TPick | null): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
 }
+
+/** The Camera view without a follow camera keeps its frame but has no pose */
+export type TFilmState = TFilmView | { pose: null; aspect: number; frame: TFilmView['frame'] };

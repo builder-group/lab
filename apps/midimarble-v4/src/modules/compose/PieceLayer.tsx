@@ -17,18 +17,21 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	const result = useFeatureState(cx.simulation.$result);
 	const camera = useFeatureState(compose.$camera);
 	useFeatureState(compose.$viewport);
+	// The Camera view moves with the playhead and shows every piece solid, like the film
+	useFeatureState(compose.$film);
+	const isFilm = camera.mode === 'camera';
 	const playhead = useFeatureState(cx.$playhead);
 	const selection = useFeatureState(cx.$selection);
 	useFeatureState(compose.$override);
 	useFeatureState(cx.$hidden);
 	if (result == null) return null;
-	const scale = camera.view.scale;
+	const scale = compose.screenScale();
 
 	return (
 		<g>
 			{compose.displayPieces(result).map((piece) => {
 				const time = pieceTime(piece);
-				const isGhost = time != null && time > playhead + 1e-4 && !selection.includes(piece.entityId);
+				const isGhost = !isFilm && time != null && time > playhead + 1e-4 && !selection.includes(piece.entityId);
 				const opacity = isGhost ? 0.34 : 1;
 				const kind = pieceKind(piece);
 				if (kind === 'path') return <RailShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={opacity} />;

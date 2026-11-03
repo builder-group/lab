@@ -48,6 +48,7 @@ export function canvasMenu(compose: ComposeCx): TMenuEntry[] {
 		commandItem(cx, 'view.fitAll'),
 		commandItem(cx, 'view.wall'),
 		commandItem(cx, 'view.orbit'),
+		commandItem(cx, 'view.camera'),
 		'separator',
 		commandItem(cx, 'edit.selectAll'),
 		commandItem(cx, 'marble.add'),

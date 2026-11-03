@@ -656,8 +656,9 @@ textarea {
 		var(--grid-fine-x, 0) var(--grid-fine-y, 0);
 }
 
-/* The orbit view draws its own wall in perspective */
-.mm-pegboard[data-mode='orbit'] {
+/* The orbit and camera views draw their own wall in perspective */
+.mm-pegboard[data-mode='orbit'],
+.mm-pegboard[data-mode='camera'] {
 	background-image: none;
 }
 

@@ -100,7 +100,8 @@ const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 				'separator',
 				commandItem(cx, 'view.snap'),
 				commandItem(cx, 'view.wall'),
-				commandItem(cx, 'view.orbit')
+				commandItem(cx, 'view.orbit'),
+				commandItem(cx, 'view.camera')
 			]}
 		/>
 	);
@@ -465,7 +466,19 @@ const SliderField: React.FC<TSliderFieldProps> = (props) => {
 					onKeyUp={commit}
 					onBlur={commit}
 				/>
-				<span className="mm-tabular w-[38px] text-right">{format(shown)}</span>
+				{/* The value also takes typing, for exact values the short slider cannot reach */}
+				<div className="mm-tabular w-[58px] shrink-0">
+					<CommitInput
+						id={`${id}-value`}
+						value={format(shown)}
+						onCommit={(text) => {
+							const typed = Number.parseFloat(text.replace(',', '.'));
+							if (!Number.isFinite(typed)) return;
+							const next = Math.min(max, Math.max(min, Math.round(typed / step) * step));
+							if (next !== value) onCommit(Number(next.toFixed(6)));
+						}}
+					/>
+				</div>
 				<HelpTip text={help} />
 			</div>
 		</div>

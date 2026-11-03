@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, Box, ChevronsRight, FlipHorizontal2, Link2, Magnet, Repeat2, Square, WandSparkles } from 'lucide-react';
+import { Anchor, Box, ChevronsRight, FlipHorizontal2, Link2, Magnet, Repeat2, Square, Video, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import type { TPathNode, TProject, TVec2 } from '@/modules/project';
@@ -72,6 +72,7 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 				onContextMenu={(event) => openCanvasMenu(compose, event)}
 			/>
 			<ComposeOverlay compose={compose} />
+			<FilmViewfinder compose={compose} />
 			<PenOverlay compose={compose} />
 			<GhostHint compose={compose} />
 			<AssistBar compose={compose} />
@@ -162,6 +163,8 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const hidden = useFeatureState(cx.$hidden);
 	const project = history?.present;
 	if (project == null || result == null || viewport.width <= 1) return null;
+	// The Camera view moves every frame and previews; it only outlines the selection
+	if (camera.mode === 'camera') return <FilmSelection compose={compose} />;
 
 	const is2d = camera.mode === '2d';
 	const pieces = compose.displayPieces(result);
@@ -787,8 +790,71 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 					<Box size={14} strokeWidth={1.7} />
 					<span className="mm-tooltip">Orbit · middle mouse</span>
 				</button>
+				<button className="mm-tool-button !h-7 !w-7" data-active={camera.mode === 'camera'} aria-label="Camera view" onClick={() => compose.toggleCameraView()} type="button">
+					<Video size={14} strokeWidth={1.7} />
+					<span className="mm-tooltip">
+						Camera view <kbd>0</kbd>
+					</span>
+				</button>
 			</div>
 		</div>
+	);
+};
+
+/**
+ * Camera view chrome: the film frame like a viewfinder, with the canvas outside it dimmed, and a label that says the
+ * view previews the film camera and how to get back to editing
+ */
+const FilmViewfinder: React.FC<{ compose: ComposeCx }> = (props) => {
+	const { compose } = props;
+	const film = useFeatureState(compose.$film);
+	const viewport = useFeatureState(compose.$viewport);
+	const playing = useFeatureState(compose.studio.$playing);
+	if (film == null) return null;
+	const { x, y, width, height } = film.frame;
+	const mask = `M 0 0 H ${viewport.width} V ${viewport.height} H 0 Z M ${x} ${y} V ${y + height} H ${x + width} V ${y} Z`;
+	const corners = [
+		{ cornerX: x, cornerY: y, dx: 1, dy: 1 },
+		{ cornerX: x + width, cornerY: y, dx: -1, dy: 1 },
+		{ cornerX: x, cornerY: y + height, dx: 1, dy: -1 },
+		{ cornerX: x + width, cornerY: y + height, dx: -1, dy: -1 }
+	];
+	return (
+		<>
+			<svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+				<path d={mask} fill="var(--canvas)" fillOpacity={0.78} fillRule="evenodd" />
+				<rect x={x - 0.5} y={y - 0.5} width={width + 1} height={height + 1} fill="none" stroke="var(--text)" strokeOpacity={0.3} />
+				{corners.map(({ cornerX, cornerY, dx, dy }) => (
+					<path key={`${dx}:${dy}`} d={`M ${cornerX + dx * 14} ${cornerY} H ${cornerX} V ${cornerY + dy * 14}`} fill="none" stroke="var(--text)" strokeOpacity={0.7} strokeWidth={1.5} />
+				))}
+			</svg>
+			<div
+				className="mm-floating pointer-events-none absolute z-20 flex items-center gap-1.5 py-1 pr-1 pl-2 text-[11px] text-[var(--text-secondary)]"
+				style={{ left: x, top: Math.max(8, y - 34) }}
+				role="status"
+			>
+				<Video size={12} strokeWidth={1.8} color={playing ? 'var(--bad)' : 'currentColor'} />
+				<span className="font-medium text-[var(--text)]">Camera view</span>
+				<span>{film.pose == null ? 'Manual camera, framed in Blender' : 'Film camera preview, editing paused'}</span>
+				<kbd className="mm-keycap">0</kbd>
+			</div>
+		</>
+	);
+};
+
+/** Selection outlines in the Camera view, redrawn with the film camera every frame */
+const FilmSelection: React.FC<{ compose: ComposeCx }> = (props) => {
+	const { compose } = props;
+	useFeatureState(compose.$film);
+	const selection = useFeatureState(compose.studio.$selection);
+	const pieces = compose.displayPieces().filter((piece) => selection.includes(piece.entityId));
+	if (!pieces.length) return null;
+	return (
+		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+			{pieces.map((piece) => (
+				<polygon key={piece.entityId} points={toPoints(compose.screenOutline(piece))} fill="none" stroke="var(--accent-strong)" strokeWidth={1.5} strokeLinejoin="round" />
+			))}
+		</svg>
 	);
 };
 

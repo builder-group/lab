@@ -161,6 +161,7 @@ export const commands: readonly TCommand[] = [
 	},
 	{ id: 'view.wall', title: 'Wall View', section: 'View', keywords: '2d front', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === '2d', run: (cx) => compose(cx)?.setMode('2d') },
 	{ id: 'view.orbit', title: 'Orbit View', section: 'View', keywords: '3d perspective', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'orbit', run: (cx) => compose(cx)?.setMode('orbit') },
+	{ id: 'view.camera', title: 'Camera View', section: 'View', shortcut: '0', keywords: 'film follow camera preview viewfinder numpad', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'camera', run: (cx) => compose(cx)?.toggleCameraView() },
 
 	// MARK: - Playback
 	{ id: 'play.toggle', title: 'Play', section: 'Playback', shortcut: 'Space', keywords: 'pause stop', isEnabled: hasProject, run: (cx) => cx.$playing.set(!cx.$playing.get()) },
@@ -359,6 +360,7 @@ export type TCommandId =
 	| 'view.fitFrame'
 	| 'view.wall'
 	| 'view.orbit'
+	| 'view.camera'
 	| 'play.toggle'
 	| 'play.start'
 	| 'play.previousHit'
