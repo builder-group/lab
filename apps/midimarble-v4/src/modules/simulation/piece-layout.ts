@@ -364,13 +364,21 @@ const MIN_LEG_SLOPE = 2 * DEGREE;
 const MAX_LEG_SLOPE = 25 * DEGREE;
 // Space between the marble at its entry and the switchback's top
 const ENTRY_CLEARANCE = 0.003;
-// How far both walls rise above the first leg's high end
-const WALL_RISE = 0.02;
+// How far the walls rise above the first leg's high end
+const WALL_RISE = 0.03;
+// Points per bend; a bend of radius 3 cm then turns about 7° between segments
+const BEND_POINTS = 12;
 
 export interface TSwitchbackGeometry {
-	/** Wall wires from top to bottom: the first leg's high side, then the other side */
+	/**
+	 * One bent wire per leg, top leg first: a wall that comes down on the leg's high side, turns through a
+	 * rounded bend of radius `bend` and runs down the leg to its open low end. Then a short stop on the last
+	 * leg's open side, which turns the marble down out of the switchback.
+	 */
+	wires: TVec2[][];
+	/** Straight wall segments of the wires, top to bottom, the vertical part above each bend and the stop */
 	walls: [TVec2, TVec2][];
-	/** Leg wires from high end to low end, top leg first */
+	/** Leg segments from high end to low end, top leg first, before the bends round their high ends */
 	legs: [TVec2, TVec2][];
 	/** Middle of the last leg's opening, where the marble leaves, at the low end's height */
 	exit: TVec2;
@@ -422,19 +430,103 @@ export function switchbackGeometry(
 		if (k < legCount - 1) high = low - drop;
 	}
 	const isLastEven = (legCount - 1) % 2 === 0;
-	const nearBottom = isLastEven ? high : lastLow;
-	const farBottom = isLastEven ? lastLow : high;
-	const walls: [TVec2, TVec2][] = [
-		[toWorld(0, rim + (moving < 0 ? lip : 0)), toWorld(0, nearBottom)],
-		[toWorld(width, rim + (moving > 0 ? lip : 0)), toWorld(width, farBottom)]
-	];
+	// The marble leaving a leg's low end meets the next leg's wall; it rises this far above that end
+	const catchHeight = 2 * marbleRadius + 2 * radius + 0.005;
+	const bend = Math.max(0, params['bend'] ?? 0);
+	const wires: TVec2[][] = [];
+	const walls: [TVec2, TVec2][] = [];
+	legs.forEach(([, low], k) => {
+		const isEven = k % 2 === 0;
+		const wallU = isEven ? 0 : width;
+		const along = isEven ? 1 : -1;
+		const highY = legHigh(k);
+		const lowU = isEven ? width - opening : opening;
+		// The top wall catches the entry, with the lip on the side the marble moves toward; lower walls
+		// catch the marble falling off the leg above
+		// catch the marble falling off the leg above. The second wall stays at the rim on the side the marble came
+		// from, where its earlier path runs
+		const top =
+			k === 0
+				? rim + (moving < 0 ? lip : 0)
+				: k === 1
+					? moving > 0
+						? Math.max(rim + lip, legLow(0) + catchHeight)
+						: Math.min(rim, legLow(0) + catchHeight)
+					: legLow(k - 1) + catchHeight;
+		const canonical = bentWire(wallU, top, highY, along, slope, lowU, low.y, bend);
+		const points = canonical.map(([u, y]) => toWorld(u, y));
+		wires.push(points);
+		walls.push([points[0] as TVec2, toWorld(wallU, highY)]);
+	});
+	// Stop on the exit side, from above the last leg's low end to below it
+	const exitU = isLastEven ? width : 0;
+	const stop: TVec2[] = [toWorld(exitU, lastLow + catchHeight), toWorld(exitU, lastLow - drop / 2)];
+	wires.push(stop);
+	walls.push([stop[0] as TVec2, stop[1] as TVec2]);
 	return {
+		wires,
 		walls,
 		legs,
 		exit: toWorld(isLastEven ? width - opening / 2 : opening / 2, lastLow),
-		bottom: Math.min(nearBottom, farBottom) - radius,
+		bottom: Math.min(lastLow - drop / 2, ...wires.flat().map((point) => point.y)) - radius,
 		slope
 	};
+
+	function legHigh(k: number): number {
+		return rim - WALL_RISE - k * (rise + drop);
+	}
+
+	function legLow(k: number): number {
+		return legHigh(k) - rise;
+	}
+}
+
+/**
+ * A wall at `wallU` from `top` down to a leg's high end at `highY`, turning through a circular bend of
+ * `bend` radius into the leg, which runs along `along` (+1 or −1 in u) down at `slope` to (`lowU`, `lowY`).
+ * The bend is tangent to the wall and the leg, so the marble rolls up it and back instead of striking a
+ * corner. Returns [u, y] points; a radius too large for the wall or leg shrinks to fit.
+ */
+function bentWire(
+	wallU: number,
+	top: number,
+	highY: number,
+	along: number,
+	slope: number,
+	lowU: number,
+	lowY: number,
+	bend: number
+): [number, number][] {
+	// Angle at the corner between the wall going up and the leg going down along `along`
+	const corner = Math.PI / 2 + slope;
+	const tangentShare = 1 / Math.tan(corner / 2);
+	const legLength = Math.hypot(lowU - wallU, lowY - highY);
+	const room = Math.min(top - highY, legLength) * 0.9;
+	const radius = Math.max(0, Math.min(bend, room / tangentShare));
+	const points: [number, number][] = [[wallU, top]];
+	if (radius < 1e-6) {
+		points.push([wallU, highY], [lowU, lowY]);
+		return points;
+	}
+	const reach = radius * tangentShare;
+	const legDirection: [number, number] = [along * Math.cos(slope), -Math.sin(slope)];
+	const start: [number, number] = [wallU, highY + reach];
+	const end: [number, number] = [wallU + legDirection[0] * reach, highY + legDirection[1] * reach];
+	// The centre lies one radius inside the bend from the wall
+	const centre: [number, number] = [wallU + along * radius, highY + reach];
+	const from = Math.atan2(start[1] - centre[1], start[0] - centre[0]);
+	const to = Math.atan2(end[1] - centre[1], end[0] - centre[0]);
+	let sweep = to - from;
+	// The bend turns the short way: counterclockwise from a wall on the left, clockwise from one on the right
+	if (along > 0 && sweep < 0) sweep += 2 * Math.PI;
+	if (along < 0 && sweep > 0) sweep -= 2 * Math.PI;
+	points.push(start);
+	for (let i = 1; i < BEND_POINTS; i++) {
+		const angle = from + (sweep * i) / BEND_POINTS;
+		points.push([centre[0] + radius * Math.cos(angle), centre[1] + radius * Math.sin(angle)]);
+	}
+	points.push(end, [lowU, lowY]);
+	return points;
 }
 
 /**
@@ -442,8 +534,11 @@ export function switchbackGeometry(
  * at the rolling acceleration 5/7 · g · sin(slope) and each drop through an opening. Used to rank
  * candidates before simulating them.
  */
-export function switchbackHoldTime(params: Record<string, number>, slope: number): number {
-	const g = -GRAVITY_Y;
+export function switchbackHoldTime(
+	params: Record<string, number>,
+	slope: number,
+	g = -GRAVITY_Y
+): number {
 	const width = params['width'] ?? 0.1;
 	const legCount = Math.max(1, Math.round(params['legs'] ?? 3));
 	const drop = params['drop'] ?? 0.035;
@@ -466,12 +561,11 @@ function holderLayout(input: TLayoutInput, entry: TVec2, velocity: TVec2 | null)
 		velocity
 	);
 	const radius = input.params['radius'] ?? 0.0025;
-	const wires = [...geometry.walls, ...geometry.legs];
-	const shapes: TPieceShape[] = wires.map(([a, b]) => ({ kind: 'capsule', a, b, radius }));
-	const [nearWall, farWall] = geometry.walls;
-	const top = Math.max(nearWall?.[0].y ?? entry.y, farWall?.[0].y ?? entry.y);
+	const shapes: TPieceShape[] = geometry.wires.flatMap((wire) => capsuleChain(wire, radius));
+	const tops = geometry.wires.slice(0, 2).map((wire) => wire[0] ?? entry);
+	const top = Math.max(...tops.map((point) => point.y));
 	return {
-		position: { x: ((nearWall?.[0].x ?? 0) + (farWall?.[0].x ?? 0)) / 2, y: top },
+		position: { x: tops.reduce((sum, point) => sum + point.x, 0) / Math.max(1, tops.length), y: top },
 		angle: input.angle,
 		contactPoint: null,
 		contactNormal: null,
@@ -479,6 +573,6 @@ function holderLayout(input: TLayoutInput, entry: TVec2, velocity: TVec2 | null)
 		box: null,
 		path: null,
 		rotor: null,
-		paths: wires.map(([a, b]) => [a, b])
+		paths: geometry.wires.map((wire) => wire.map((point) => ({ ...point })))
 	};
 }

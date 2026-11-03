@@ -1,5 +1,5 @@
 {
-	"$schema": "marble-project@2",
+	"$schema": "marble-project@3",
 	"id": "zigzag",
 	"title": "Zigzag",
 	"revision": 0,
@@ -7,7 +7,7 @@
 		"width": 9,
 		"height": 16
 	},
-	"end": 5,
+	"end": 6.7,
 	"music": {
 		"sources": [],
 		"lanes": [
@@ -19,67 +19,67 @@
 				"hits": [
 					{
 						"id": "hit-1-1",
-						"time": 0.15
+						"time": 0.2
 					},
 					{
 						"id": "hit-1-2",
-						"time": 0.45
+						"time": 0.6
 					},
 					{
 						"id": "hit-1-3",
-						"time": 0.75
+						"time": 1
 					},
 					{
 						"id": "hit-1-4",
-						"time": 1.05
+						"time": 1.4
 					},
 					{
 						"id": "hit-1-5",
-						"time": 1.35
+						"time": 1.8
 					},
 					{
 						"id": "hit-1-6",
-						"time": 1.65
+						"time": 2.2
 					},
 					{
 						"id": "hit-1-7",
-						"time": 1.95
+						"time": 2.6
 					},
 					{
 						"id": "hit-1-8",
-						"time": 2.25
+						"time": 3
 					},
 					{
 						"id": "hit-1-9",
-						"time": 2.55
+						"time": 3.4
 					},
 					{
 						"id": "hit-1-10",
-						"time": 2.85
+						"time": 3.8
 					},
 					{
 						"id": "hit-1-11",
-						"time": 3.15
+						"time": 4.2
 					},
 					{
 						"id": "hit-1-12",
-						"time": 3.45
+						"time": 4.6
 					},
 					{
 						"id": "hit-1-13",
-						"time": 3.75
+						"time": 5
 					},
 					{
 						"id": "hit-1-14",
-						"time": 4.05
+						"time": 5.4
 					},
 					{
 						"id": "hit-1-15",
-						"time": 4.35
+						"time": 5.8
 					},
 					{
 						"id": "hit-1-16",
-						"time": 4.65
+						"time": 6.2
 					}
 				]
 			}
@@ -114,7 +114,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -136,7 +137,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -158,7 +160,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -180,7 +183,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -202,7 +206,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -224,7 +229,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -246,7 +252,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -268,7 +275,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -290,7 +298,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -312,7 +321,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -334,7 +344,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -356,7 +367,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -378,7 +390,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -400,7 +413,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -422,7 +436,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -444,7 +459,8 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -457,6 +473,9 @@
 			}
 		}
 	],
+	"physics": {
+		"gravityScale": 0.5
+	},
 	"design": {
 		"theme": "pegboard",
 		"renderPreset": "balanced",

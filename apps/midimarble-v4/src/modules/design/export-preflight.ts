@@ -173,9 +173,9 @@ function missDetail(hit: THitResult, pieceStatus: string | undefined): string {
 // MARK: - Contacts
 
 /**
- * Stray contacts: marbles touching each other, another lane's pieces or a free platform. Contacts with the
- * marble's own pieces are expected even after their hit, such as a second bounce or the ride through a
- * rail, tunnel, switchback or windmill; free scenery pieces are expected too.
+ * Stray contacts: marbles touching each other or another lane's pieces. Contacts with the marble's own pieces
+ * are expected even after their hit, such as a second bounce or the ride through a rail, tunnel, switchback or
+ * windmill. Free pieces, platforms included, are environment the marbles may strike.
  */
 function contactIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	const laneOfMarble = new Map(result.marbles.map((marble) => [marble.entityId, marble.laneId]));
@@ -186,12 +186,11 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 	for (const hit of result.hits) {
 		if (hit.pieceEntityId != null) laneOfPiece.set(hit.pieceEntityId, hit.laneId);
 	}
-	const typeOfPiece = new Map(result.pieces.map((piece) => [piece.entityId, piece.type]));
 
-	const groups = new Map<string, { kind: 'marble' | 'lane' | 'free'; marbleId: string; otherId: string; first: TVec2; time: number; count: number }>();
+	const groups = new Map<string, { kind: 'marble' | 'lane'; marbleId: string; otherId: string; first: TVec2; time: number; count: number }>();
 	for (const contact of result.contacts) {
 		if (contact.time > result.duration) continue;
-		let kind: 'marble' | 'lane' | 'free';
+		let kind: 'marble' | 'lane';
 		if (contact.kind === 'marble') {
 			// Every collision is reported once per marble; keep the pair once
 			if (contact.marbleEntityId > contact.otherEntityId) continue;
@@ -199,14 +198,9 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 		} else {
 			const pieceLane = laneOfPiece.get(contact.otherEntityId);
 			const marbleLane = laneOfMarble.get(contact.marbleEntityId);
-			if (pieceLane != null) {
-				if (pieceLane === marbleLane) continue;
-				kind = 'lane';
-			} else {
-				const layout = getPieceDefinition(typeOfPiece.get(contact.otherEntityId) ?? '')?.layout ?? 'box';
-				if (layout !== 'box') continue;
-				kind = 'free';
-			}
+			// Free pieces are environment; only another lane's attached pieces are stray
+			if (pieceLane == null || pieceLane === marbleLane) continue;
+			kind = 'lane';
 		}
 		const key = `${contact.marbleEntityId}:${contact.otherEntityId}`;
 		const group = groups.get(key);
@@ -232,7 +226,7 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 		return {
 			id,
 			severity: 'warning' as const,
-			title: group.kind === 'lane' ? `${marble} strikes ${other} of ${names.lane(laneOfPiece.get(group.otherId) ?? '')}` : `${marble} strikes the free ${other}`,
+			title: `${marble} strikes ${other} of ${names.lane(laneOfPiece.get(group.otherId) ?? '')}`,
 			detail: `An extra strike ${times}, without a note.`,
 			time: group.time,
 			target: { ids: [group.otherId], point: group.first, time: group.time }

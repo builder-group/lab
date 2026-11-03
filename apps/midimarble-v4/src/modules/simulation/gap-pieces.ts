@@ -14,7 +14,7 @@ import {
 	withEntities,
 	type TSimulateFn
 } from './assists';
-import { GRAVITY_Y } from './geometry';
+import { gravityOf } from './geometry';
 import { descentPace, paceAt } from './pace';
 import { layoutOf, switchbackGeometry, switchbackHoldTime } from './piece-layout';
 import { getPieceDefinition, KIT_SCALE, resolvePieceParams } from './pieces';
@@ -150,7 +150,7 @@ function createGapPiece(
 	const candidates: TGapCandidate[] = [];
 	for (const entryTime of entryTimes) {
 		if (entryTime <= from.time || entryTime >= to.time) continue;
-		const entry = trajectoryAt(samples, entryTime);
+		const entry = trajectoryAt(samples, entryTime, gravityOf(project));
 		if (entry == null) continue;
 		const travel =
 			Math.abs(entry.velocity.x) > 0.05
@@ -353,13 +353,12 @@ function findGapPiece(project: TProject, laneId: string, hitId: string): TEntity
 
 // Switchbacks
 
-const GRAVITY = -GRAVITY_Y;
 const SWITCHBACK_MARGIN = 0.01;
 // How far below the launching hit the marble enters, so the switchback stays clear of the piece above it
 // In marble diameters
 const ENTRY_DROPS = [1.25, 2.5];
-const SWITCHBACK_SLOPES = [3, 5, 8, 12, 17].map((degrees) => degrees * DEGREE);
-const SWITCHBACK_LEGS = [1, 2, 3, 4, 5];
+const SWITCHBACK_SLOPES = [2, 3, 5, 8, 12, 17].map((degrees) => degrees * DEGREE);
+const SWITCHBACK_LEGS = [1, 2, 3, 4, 5, 6];
 const SWITCHBACK_ENTRIES = [0.25, 0.5, 0.75];
 // Shares of the default width
 const SWITCHBACK_WIDTHS = [1, 0.8, 0.65];
@@ -368,8 +367,8 @@ const SWITCHBACK_WIDTHS = [1, 0.8, 0.65];
 const EXIT_CLEARANCE = 0.06;
 // Estimates ignore the speed the marble enters with, so they only rank: this many per entry and width are
 // simulated, and estimates up to `ESTIMATE_SLACK` too long still count
-const SHORTLIST = 6;
-const ESTIMATE_SLACK = 0.25;
+const SHORTLIST = 10;
+const ESTIMATE_SLACK = 0.6;
 
 interface TSwitchbackCandidate {
 	entryTime: number;
@@ -412,8 +411,10 @@ export function createSwitchbackForGap(
 			.marble?.radius ?? 0.008;
 	const band = frameBand(project, laneId);
 	const pace = result.pace ?? descentPace(project, result.hits);
+	const GRAVITY = -gravityOf(project);
 	const launch =
-		findHitResult(result, laneId, fromHitId)?.dot ?? trajectoryAt(samples, from.time)?.position;
+		findHitResult(result, laneId, fromHitId)?.dot ??
+		trajectoryAt(samples, from.time, -GRAVITY)?.position;
 	if (launch == null) return Err(new Error('The marble does not reach the hit before the gap'));
 	const targetY = pace != null ? paceAt(pace, to.time) : null;
 	// The bounce at the hit after the gap rises about v0² / 2g, v0 the pace takeoff for the interval after it
@@ -447,7 +448,7 @@ export function createSwitchbackForGap(
 	type TRanked = { candidate: TSwitchbackCandidate; predicted: number };
 	const ranked: TRanked[] = [];
 	for (const entryTime of [...new Set(entryTimes)]) {
-		const entry = trajectoryAt(samples, entryTime);
+		const entry = trajectoryAt(samples, entryTime, -GRAVITY);
 		if (entry == null) continue;
 		for (const width of SWITCHBACK_WIDTHS.map((share) => share * (defaults['width'] ?? 0.15))) {
 			const fits: Omit<TSwitchbackCandidate, 'legs' | 'slope'>[] = [];
@@ -467,7 +468,7 @@ export function createSwitchbackForGap(
 			for (const legs of SWITCHBACK_LEGS) {
 				for (const slope of slopes) {
 					const sized = { ...params, legs };
-					const exitTime = entryTime + switchbackHoldTime(sized, slope);
+					const exitTime = entryTime + switchbackHoldTime(sized, slope, GRAVITY);
 					const fall = to.time - exitTime;
 					if (fall < minExitFall - ESTIMATE_SLACK) continue;
 					const geometry = switchbackGeometry(sized, -slope, 0.5, entry.position, marbleRadius, null);

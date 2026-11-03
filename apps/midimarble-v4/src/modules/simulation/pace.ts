@@ -1,5 +1,5 @@
 import type { TProject, TVec2 } from '@/modules/project';
-import { GRAVITY_Y } from './geometry';
+import { GRAVITY_Y, gravityOf } from './geometry';
 import { platformDefinition } from './pieces';
 
 // Shared descent pace. Every marble of a project should stay near one height curve y*(t) that falls at a
@@ -25,10 +25,10 @@ const MAX_RATE = 0.8;
 // Intervals longer than this are long notes, not the rhythm
 const RHYTHM_INTERVAL = 0.8;
 const DEFAULT_INTERVAL = 0.3;
-const GRAVITY = -GRAVITY_Y;
+const EARTH = -GRAVITY_Y;
 
 /**
- * Descent rate for the project: (1 − e) / (1 + e) · g · T / 2 for the default platform bounce e and the
+ * Descent rate for the project: (1 − e) / (1 + e) · g · T / 2 for the project's gravity g, the default platform bounce e and the
  * median interval T between consecutive hits of all lanes, ignoring long notes. A single regular lane
  * therefore keeps the descent its default bounce gives, and lanes with different rhythms share one.
  */
@@ -48,7 +48,7 @@ export function paceRate(project: TProject): number {
 			: ((intervals[middle - 1] ?? 0) + (intervals[middle] ?? 0)) / 2
 		: DEFAULT_INTERVAL;
 	const bounce = platformDefinition.params['bounce']?.default ?? 0.65;
-	const rate = (((1 - bounce) / (1 + bounce)) * GRAVITY * median) / 2;
+	const rate = (((1 - bounce) / (1 + bounce)) * -gravityOf(project) * median) / 2;
 	return Math.min(MAX_RATE, Math.max(MIN_RATE, rate));
 }
 
@@ -90,18 +90,19 @@ export function descentPoints(pace: TDescentPace, from: number, to: number, step
 
 /**
  * Upward takeoff speed after a hit that brings the marble to height `targetY` after `interval` seconds of
- * free flight from `fromY`
+ * free flight from `fromY`, under a downward acceleration `g` (Earth's by default)
  */
-export function takeoffSpeed(fromY: number, targetY: number, interval: number): number {
-	return (targetY - fromY + (GRAVITY * interval * interval) / 2) / interval;
+export function takeoffSpeed(fromY: number, targetY: number, interval: number, g = EARTH): number {
+	return (targetY - fromY + (g * interval * interval) / 2) / interval;
 }
 
 /**
  * Interval above which one bounce at the project's pace rises higher than `MAX_BOUNCE_RISE` above its
- * takeoff, so the gap needs a holder or rail. Between 0.6 and 1.2 seconds.
+ * takeoff, so the gap needs a holder or rail. Between 0.6 and 2 seconds; lower gravity makes it longer.
  */
 export function longGapThreshold(project: TProject): number {
 	const rate = paceRate(project);
-	const interval = (2 * (Math.sqrt(2 * GRAVITY * MAX_BOUNCE_RISE) + rate)) / GRAVITY;
-	return Math.min(1.2, Math.max(0.6, Math.round(interval * 1000) / 1000));
+	const g = -gravityOf(project);
+	const interval = (2 * (Math.sqrt(2 * g * MAX_BOUNCE_RISE) + rate)) / g;
+	return Math.min(2, Math.max(0.6, Math.round(interval * 1000) / 1000));
 }

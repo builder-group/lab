@@ -69,7 +69,12 @@ const SHitLinkComponent = z.strictObject({
 	contactAt: z.number().min(0).max(1),
 	pinned: z.boolean(),
 	// Position kept while pinned
-	pinnedPosition: SVec2.optional()
+	pinnedPosition: SVec2.optional(),
+	// An anchored piece follows the trajectory at the hit time plus its `entryDelay` and never sounds the hit.
+	// Scenery pieces are always anchored.
+	anchored: z.boolean().optional(),
+	// Pose origin relative to the marble at the anchor moment; without it the piece is placed touching the marble
+	offset: SVec2.optional()
 });
 
 const SPathComponent = z.strictObject({
@@ -137,6 +142,12 @@ const SDesign = z.strictObject({
 	})
 });
 
+/**
+ * Project physics. `gravityScale` multiplies Earth's 9.81 m/s² for every marble, so a run plays slower and
+ * hops lower at the same rhythm; hits stay on time because pieces are placed where the marble is.
+ */
+const SPhysics = z.strictObject({ gravityScale: z.number().min(0.05).max(2) });
+
 const projectShape = {
 	id: SId,
 	title: z.string(),
@@ -156,16 +167,68 @@ const projectShape = {
 const SProjectV1 = z.strictObject({ $schema: z.literal('marble-project@1'), ...projectShape });
 
 // Version 2 makes physical piece parameters explicit, so a later change of a default cannot alter saved runs
-export const SProject = z.strictObject({ $schema: z.literal('marble-project@2'), ...projectShape });
+const SProjectV2 = z.strictObject({ $schema: z.literal('marble-project@2'), ...projectShape });
+
+// Version 3 makes windmills, rails, tunnels and switchbacks scenery: they never sound a hit, and their hit
+// link only anchors them to the trajectory at the hit time plus their `entryDelay`. It adds project physics.
+export const SProject = z.strictObject({
+	$schema: z.literal('marble-project@3'),
+	...projectShape,
+	physics: SPhysics
+});
 
 /** Bounce values of version 1, before bounce became a piece parameter */
 const legacyBounce: Record<string, number> = { platform: 0.55, windmill: 0.5 };
 
+/** Piece types that became scenery in version 3 */
+const sceneryTypes = new Set(['windmill', 'rail', 'tunnel', 'switchback']);
+/** Longest entry delay a scenery piece allows */
+const MAX_ENTRY_DELAY = 2;
+
+/**
+ * A scenery piece that sounded its hit in version 2 (no entry delay) is anchored to the lane's previous hit
+ * with the delay that keeps it at the same moment, so the run plays as before and the hit is left open for a
+ * platform. Without an earlier hit within the longest delay it stays anchored at its own hit's time.
+ */
+function asScenery(entity: TEntity, lanes: TLane[]): TEntity {
+	const { piece, hitLink } = entity.components;
+	if (piece == null || !sceneryTypes.has(piece.type)) return entity;
+	const delay = piece.params['entryDelay'] ?? 0;
+	let params = { ...piece.params, entryDelay: delay };
+	let link = hitLink;
+	if (hitLink != null && delay <= 0) {
+		const hits = lanes.find((lane) => lane.id === hitLink.laneId)?.hits ?? [];
+		const index = hits.findIndex((hit) => hit.id === hitLink.hitId);
+		const hit = hits[index];
+		const previous = hits[index - 1];
+		const gap = hit != null && previous != null ? hit.time - previous.time : Infinity;
+		if (previous != null && gap <= MAX_ENTRY_DELAY) {
+			link = { ...hitLink, hitId: previous.id };
+			params = { ...params, entryDelay: Math.round(gap * 1e6) / 1e6 };
+		}
+	}
+	const components = { ...entity.components, piece: { ...piece, params } };
+	if (link != null) components.hitLink = link;
+	return { ...entity, components };
+}
+
 export const projectDefinition = defineSchema({
 	family: 'marble-project',
-	version: 2,
+	version: 3,
 	schema: SProject,
 	migrations: {
+		2: defineMigration({
+			schema: SProjectV2,
+			migrate(value) {
+				return {
+					...value,
+					$schema: 'marble-project@3' as const,
+					entities: value.entities.map((entity) => asScenery(entity, value.music.lanes)),
+					// Earth gravity, so saved runs play exactly as before
+					physics: { gravityScale: 1 }
+				};
+			}
+		}),
 		1: defineMigration({
 			schema: SProjectV1,
 			migrate(value) {
@@ -198,3 +261,4 @@ export type TComponentName = keyof TComponents;
 export type TDesign = z.infer<typeof SDesign>;
 export type TShot = z.infer<typeof SShot>;
 export type TTempo = z.infer<typeof STempo>;
+export type TPhysics = z.infer<typeof SPhysics>;

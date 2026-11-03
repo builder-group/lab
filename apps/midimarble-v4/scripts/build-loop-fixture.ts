@@ -1,5 +1,5 @@
 // Writes `fixtures/loop.marble.json`: a short seamless loop. The marble drops in from above the frame, plays
-// 21 eighth notes at 100 bpm on a zigzag between two columns built with the assists (a tilted platform, Mirror,
+// 21 eighth notes at 80 bpm on a zigzag between two columns built with the assists (a tilted platform, Mirror,
 // then Continue, with Auto place where Continue stops), and falls out of the frame before the loop ends. The loop
 // is three bars long, so the music runs on into the start, and `checkLoop` passes on it.
 // Usage: tsx scripts/build-loop-fixture.ts
@@ -23,10 +23,13 @@ const DEGREE = Math.PI / 180;
 const SCALE = 1.5;
 const MARBLE_RADIUS = 0.008 * SCALE;
 const PLATFORM = { length: 0.06 * SCALE, thickness: 0.008 * SCALE, depth: 0.03 * SCALE };
-const BPM = 100;
+// Eighths 0.375 s apart: at the default half gravity a 0.3 s zigzag hops only about half a bar, and 80 bpm keeps
+// three bars on the 1/30 s loop grid
+const BPM = 80;
 const EIGHTH = 30 / BPM;
 const BARS = 3;
-const FIRST_HIT = 0.5;
+// At half gravity the marble needs about 0.45 s to fall into view, plus the entry margin, before the first hit
+const FIRST_HIT = 0.7;
 const HITS = 21;
 // An original phrase in A minor pentatonic, one pitch per eighth note
 const MELODY = [69, 72, 76, 74, 72, 69, 67, 69, 72, 74, 76, 79, 76, 74, 72, 74, 69, 72, 67, 69, 64];
@@ -53,7 +56,7 @@ for (const entity of project.entities) {
 	if (entity.components.marble != null) entity.components.marble.radius = MARBLE_RADIUS;
 }
 
-project = startZigzag(project, 1, -0.3);
+project = startZigzag(project, 1, -0.45);
 let placed = 2;
 while (placed < HITS) {
 	const continued = continueSuggestions(project, simulate(project), LANE, { simulate, idFor: (id) => id.replace('hit', 'piece') });

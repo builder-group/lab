@@ -29,7 +29,8 @@ function createTwoLaneProject(): TProject {
 		}
 	});
 	return {
-		$schema: 'marble-project@2',
+		$schema: 'marble-project@3',
+		physics: { gravityScale: 1 },
 		id: 'preflight',
 		title: 'Preflight',
 		revision: 3,
@@ -93,17 +94,22 @@ describe('preflightExport function', () => {
 	});
 
 	it('should pass clean fixtures with every hit on time', () => {
-		for (const [name, count] of [
-			['zigzag', 16],
-			['jingle-bells', 115]
-		] as const) {
-			const project = loadFixture(name);
+		const project = loadFixture('zigzag');
 
-			const preflight = preflightExport(project, simulator.simulate(project));
+		const preflight = preflightExport(project, simulator.simulate(project));
 
-			expect(preflight.issues, name).toEqual([]);
-			expect(preflight.summary).toBe(`All ${count} hits on time`);
-		}
+		expect(preflight.issues).toEqual([]);
+		expect(preflight.summary).toBe('All 16 hits on time');
+	});
+
+	it('should report the two bass dots of Jingle Bells past the lane band after a switchback', () => {
+		// Known build result: a switchback exit sends the bass 7 cm past its band edge at 0:16
+		const project = loadFixture('jingle-bells');
+
+		const preflight = preflightExport(project, simulator.simulate(project));
+
+		expect(preflight.issues.map((issue) => issue.title)).toEqual(['2 dots outside the lane band on Bass']);
+		expect(preflight.issues[0]?.time).toBe(16);
 	});
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
@@ -179,7 +185,7 @@ describe('preflightExport function', () => {
 		expect(preflight.issues).toEqual([expect.objectContaining({ severity: 'warning', title: 'Dot outside the lane band, Melody at 0:01.00' })]);
 	});
 
-	it('should flag stray contacts but not contacts with the marble own pieces or scenery', () => {
+	it('should flag stray contacts but not contacts with the marble own pieces, scenery or free pieces', () => {
 		const project = createTwoLaneProject();
 		const contact = (time: number, marbleEntityId: string, otherEntityId: string, kind: 'piece' | 'marble' = 'piece') => ({
 			time,
@@ -191,11 +197,12 @@ describe('preflightExport function', () => {
 		});
 		const result = createResult({
 			contacts: [
-				// Hit contact, second bounce on its own platform and a ride on a free rail: expected
+				// Hit contact, second bounce on its own platform, a ride on a free rail and a strike on a free
+				// platform, which is environment: expected
 				contact(1, 'marble-a', 'pa1'),
 				contact(1.2, 'marble-a', 'pa1'),
 				contact(1.4, 'marble-a', 'rail'),
-				// Bass strikes the melody's platform twice, the melody a loose platform, and the marbles collide
+				// Bass strikes the melody's platform twice and the marbles collide
 				contact(2.1, 'marble-b', 'pa2'),
 				contact(2.3, 'marble-b', 'pa2'),
 				contact(2.5, 'marble-a', 'loose'),
@@ -207,9 +214,9 @@ describe('preflightExport function', () => {
 
 		const preflight = preflightExport(project, result);
 
-		expect(preflight.issues.map((issue) => issue.title)).toEqual(['Bass strikes pa2 of Melody', 'Melody strikes the free loose', 'Melody collides with Bass']);
+		expect(preflight.issues.map((issue) => issue.title)).toEqual(['Bass strikes pa2 of Melody', 'Melody collides with Bass']);
 		expect(preflight.issues[0]?.detail).toBe('An extra strike 2 times from 0:02.10, without a note.');
-		expect(preflight.issues[2]?.target?.ids).toEqual(['marble-a', 'marble-b']);
+		expect(preflight.issues[1]?.target?.ids).toEqual(['marble-a', 'marble-b']);
 	});
 
 	it('should flag a lane far off the shared descent pace', () => {

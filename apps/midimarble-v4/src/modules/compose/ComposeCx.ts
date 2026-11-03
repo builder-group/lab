@@ -3,7 +3,7 @@ import type React from 'react';
 import * as THREE from 'three';
 import { isEditingTarget } from '@/lib';
 import type { TProject, TVec2 } from '@/modules/project';
-import { findLongGaps, frameBand, layoutOf, resolvePiecePath, trajectoryAt, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { findLongGaps, frameBand, gravityOf, isMusicalPiece, layoutOf, resolvePiecePath, trajectoryAt, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { parseHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { dragRotation, screenAngle, toRadians, type TRotationDrag } from './angles';
@@ -316,7 +316,7 @@ export class ComposeCx {
 		const marble = marbles.find((entity) => selected.includes(entity.id)) ?? marbles[0];
 		if (marble == null) return null;
 		const track = this.result?.marbles.find((item) => item.entityId === marble.id);
-		const at = track == null ? null : trajectoryAt(track.samples, this.studio.$playhead.get());
+		const at = track == null ? null : trajectoryAt(track.samples, this.studio.$playhead.get(), this.project != null ? gravityOf(this.project) : undefined);
 		return at?.position ?? marble.components.release?.position ?? null;
 	}
 
@@ -621,7 +621,9 @@ export class ComposeCx {
 				if (drag.target?.kind === 'dot') {
 					const { laneId, hitId } = drag.target;
 					const hit = this.result?.hits.find((item) => item.laneId === laneId && item.hitId === hitId);
-					if (hit != null) void this.assist.place(hit, this.placementType());
+					// Scenery never takes a hit; with a scenery tool the dot only marks a moment on the trajectory
+					if (hit != null && this.isPathTool()) this.addFollower(laneId, hit.targetTime);
+					else if (hit != null) void this.assist.place(hit, this.placementType());
 					this.$hover.set(null);
 					this.$gapMenu.set(null);
 					return;
@@ -650,14 +652,15 @@ export class ComposeCx {
 		return pickTrack(point, this.screenTrackPoints());
 	}
 
-	/** Piece type a click or Next places: the chosen piece tool, otherwise a platform */
+	/** Piece type a click or Next places on a hit: the chosen piece tool when it sounds hits, otherwise a platform */
 	placementType(): string {
-		return this.$tool.get() === 'piece' ? this.$pieceType.get() : 'platform';
+		const type = this.$pieceType.get();
+		return this.$tool.get() === 'piece' && isMusicalPiece(type) ? type : 'platform';
 	}
 
+	/** True for a scenery tool (rail, tunnel, windmill), which places its piece on the trajectory, not on a hit */
 	isPathTool(): boolean {
-		const kind = layoutOf(this.$pieceType.get());
-		return this.$tool.get() === 'piece' && (kind === 'path' || kind === 'tube');
+		return this.$tool.get() === 'piece' && !isMusicalPiece(this.$pieceType.get());
 	}
 
 	private screenTracks: TScreenTrack[] | null = null;
@@ -681,11 +684,11 @@ export class ComposeCx {
 		return this.screenTracks;
 	}
 
-	/** Adds a rail or tunnel the marble enters at `time`, chosen by clicking its trajectory */
+	/** Adds a scenery piece the marble meets at `time`, chosen by clicking its trajectory or a dot */
 	private addFollower(laneId: string, time: number): void {
 		const project = this.project;
 		const samples = this.result?.marbles.find((track) => track.laneId === laneId)?.samples ?? [];
-		const at = trajectoryAt(samples, time);
+		const at = project != null ? trajectoryAt(samples, time, gravityOf(project)) : null;
 		if (project == null || at == null) return;
 		const [isOk, error, entity] = followerAt(project, laneId, this.$pieceType.get(), time, at.position, at.velocity);
 		if (!isOk) {

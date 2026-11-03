@@ -103,8 +103,9 @@ export function pieceForHit(project: TProject, hit: THitResult, type: string, mo
 }
 
 /**
- * A rail or tunnel the marble enters at `time` on its way, linked to the lane's latest hit before that
- * time with an entry delay. It follows that hit's trajectory like any linked piece.
+ * A scenery piece (rail, tunnel, windmill) the marble meets at `time` on its way, linked to the lane's latest
+ * hit before that time with an entry delay. It follows that hit's trajectory like any linked piece and never
+ * sounds a hit.
  */
 export function followerAt(
 	project: TProject,
@@ -116,14 +117,15 @@ export function followerAt(
 ): TResult<TEntity, Error> {
 	const lane = project.music.lanes.find((item) => item.id === laneId);
 	const hit = [...(lane?.hits ?? [])].reverse().find((item) => item.time < time - 0.005);
-	if (hit == null) return Err(new Error('Rails and tunnels start after the first hit of the lane'));
+	if (hit == null) return Err(new Error('Scenery starts after the first hit of the lane'));
 	const delay = Math.round((time - hit.time) * 1000) / 1000;
 	const maxDelay = getPieceDefinition(type)?.params['entryDelay']?.max ?? 2;
 	if (delay > maxDelay) return Err(new Error(`Start within ${maxDelay} s of a hit; this point is ${delay.toFixed(1)} s after one`));
 	const entity = createLinkedPiece(type, laneId, hit.id, 0, { entities: project.entities });
 	const piece = entity.components.piece;
 	if (piece != null) piece.params = { ...piece.params, entryDelay: delay };
-	return Ok(withRunDirection(project, entity, position, velocity));
+	const kind = layoutOf(type);
+	return Ok(kind === 'path' || kind === 'tube' ? withRunDirection(project, entity, position, velocity) : entity);
 }
 
 /** Points the run of a new rail or tunnel along the horizontal travel, or back when it would leave the frame */

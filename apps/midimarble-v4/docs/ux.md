@@ -36,7 +36,7 @@ Compose is an open canvas like Figma. Everything on it is an element the user ca
 - **Rails are drawn with a vector path tool**, like Figma's pen, not a freehand brush: click to add points, drag to pull out curve handles, Return or a click on the first point to finish. Points and handles stay editable afterwards.
 - **Assists are contextual.** Next, Repeat, Mirror, Auto place and Continue appear in a small contextual bar next to the selected last piece or the next open dot, like Figma's selection toolbar, and their keys keep working. The floating tool bar holds tools only: Move, Hand, Marble, Platform, Pen, Tunnel, Windmill.
 - **Transport lives in the timeline.** Play, previous and next hit and the time display sit in the timeline header, like a video editor. The window toolbar keeps the workspace switch and panel toggles.
-- **Speed is a project setting.** The World panel shown without a selection sets the marble speed (gravity scale). Slower speed gives smaller hops and denser columns while every linked hit stays on time. Platforms keep their own bounce.
+- **Speed is a project setting.** The World panel shown without a selection sets the marble speed (gravity scale, 0.05 to 2). New projects use half of Earth's gravity: with the 1.5× kit and hits 0.3 s apart an Auto placed hop then spans about 1.4 bar lengths and drops 8 cm, where full gravity spans about 1.9 and drops 12 cm, at 0.58 instead of 0.93 m/s. Slower speed gives smaller hops and denser columns while every linked hit stays on time. Platforms keep their own bounce. Very fast rhythms need care at the default: a mirrored zigzag of hits 0.3 s apart hops only about half a bar, so its bars overlap; 0.4 s apart it zigzags cleanly.
 
 ### Music lanes
 
@@ -66,15 +66,17 @@ Rotation follows Figma: dragging rotates freely around the hit point with a live
 
 ### Pieces
 
-| Piece    | Purpose                                                        |
-| -------- | -------------------------------------------------------------- |
-| Platform | Main hit surface                                               |
-| Rail     | Visible path for long gaps and rolling                         |
-| Tunnel   | Physical tube that hides the marble; length and slope set the travel time |
-| Windmill | Moving piece the marble strikes; spins with damping or a motor |
-| Switchback | Holder for long notes: sloped wire legs between two walls that the marble zigzags down for a set time |
+| Piece    | Kind    | Purpose                                                        |
+| -------- | ------- | -------------------------------------------------------------- |
+| Platform | Music   | Main hit surface; linked to a hit dot it plays that note        |
+| Rail     | Scenery | Visible path for long gaps and rolling                         |
+| Tunnel   | Scenery | Physical tube that hides the marble; length and slope set the travel time |
+| Windmill | Scenery | Moving piece the marble strikes; spins with damping or a motor |
+| Switchback | Scenery | Holder for long notes: sloped wire legs with rounded bends that the marble zigzags down for a set time |
 
-A switchback holds the marble in a narrow column: it drops in at the top, rolls down a leg, falls through the opening at the leg's end onto the next leg, bumps the wall and rolls back, and leaves through the last opening. Leg count, slope and width set how long it holds and how far the marble descends meanwhile. Next offers one for each long gap; it is not on the piece keys.
+Only platforms are music pieces. Scenery never uses up a note: a marble striking a windmill or rolling along a rail is a plain contact, never a hit and never a miss. Scenery is either free on the wall or anchored to a moment on a trajectory, which is how the windmill tool places a windmill: like a rail, on the trajectory, not on a hit dot. The assists never put scenery on a hit. A platform can be anchored too; it then follows the trajectory and plays no note. Free and anchored pieces are environment the marbles may strike; only another lane's music pieces, and the other marbles, count as stray contacts.
+
+A switchback holds the marble in a narrow column: it drops in at the top, rolls down a leg, falls through the opening at the leg's end onto the next leg, rolls through the rounded bend at the wall and back, and leaves through the last opening. Each leg is one bent wire, wall into bend into leg, so the marble rolls through the turn instead of knocking against a corner. Leg count, slope, width and bend radius set how long it holds and how far the marble descends meanwhile. Next offers one for each long gap; it is not on the piece keys.
 
 Switchbacks, rails and tunnels shape the path through long gaps; they do not have to deliver the marble to an exact point. The user places one onto the trajectory and adjusts its length and shape while the live trajectory shows where the marble goes. After it, the marble is in free flight again, and the next hit's platform is placed where the marble is at that note's time, so the hit stays on time.
 

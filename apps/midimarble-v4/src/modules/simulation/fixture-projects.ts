@@ -1,4 +1,11 @@
-import { createLane, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import {
+	createLane,
+	DEFAULT_GRAVITY_SCALE,
+	DEFAULT_MARBLE_RADIUS,
+	type TEntity,
+	type TProject,
+	type TVec2
+} from '@/modules/project';
 import { KIT_SCALE } from './pieces';
 import { createLinkedPiece } from './placement';
 
@@ -26,15 +33,18 @@ export function createStaircaseProject(): TProject {
 		]
 	});
 	project.design.camera.distance = 0.6;
+	project.physics.gravityScale = 1;
 	return project;
 }
 
 /** Four marbles over 60 seconds with a platform every 0.6 seconds each, for performance checks */
 export function createPerfProject(): TProject {
+	// The hand-set ±0.2 rad zigzag is tuned for full gravity
 	return createRunProject({
 		id: 'perf-60s-4marbles',
 		title: 'Performance 60 s, 4 marbles',
 		end: 60,
+		gravityScale: 1,
 		marbles: [0, 1, 2, 3].map((index) => ({
 			x: index * 0.3,
 			y: 0.6,
@@ -71,6 +81,7 @@ function createRunProject(options: {
 	title: string;
 	end: number;
 	marbles: TRunMarble[];
+	gravityScale?: number;
 }): TProject {
 	const project = createBareRunProject(options);
 	const { entities } = project;
@@ -100,6 +111,8 @@ export function createBareRunProject(options: {
 	title: string;
 	end: number;
 	marbles: TBareRunMarble[];
+	/** Share of Earth gravity, the default of new projects when unset */
+	gravityScale?: number;
 }): TProject {
 	const lanes = options.marbles.map((marble, index) => {
 		const lane = createLane(index, `lane-${index + 1}`);
@@ -128,7 +141,7 @@ export function createBareRunProject(options: {
 		});
 	});
 	return {
-		$schema: 'marble-project@2',
+		$schema: 'marble-project@3',
 		id: options.id,
 		title: options.title,
 		revision: 0,
@@ -136,6 +149,7 @@ export function createBareRunProject(options: {
 		end: options.end,
 		music: { sources: [], lanes },
 		entities,
+		physics: { gravityScale: options.gravityScale ?? DEFAULT_GRAVITY_SCALE },
 		design: {
 			theme: 'pegboard',
 			renderPreset: 'balanced',

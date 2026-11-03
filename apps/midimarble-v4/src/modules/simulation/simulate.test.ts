@@ -186,6 +186,38 @@ describe('simulate', () => {
 		}
 	});
 
+	it('resumes past a dragged free piece until a marble could reach it', async () => {
+		const project = loadFixture('zigzag.marble.json');
+		const free = (x: number, y: number): TEntity => ({
+			id: 'dragged',
+			components: { piece: { type: 'platform', params: {} }, transform: { position: { x, y }, angle: 0.3 } }
+		});
+		const base = simulator.simulate(project);
+		const late = base.marbles[0]?.samples.find((sample) => sample.time >= 4.5)?.position;
+		if (late == null) throw new Error('No late sample');
+		// Far away, then onto the trajectory late in the run, then away again, which resumes before the run
+		// that touched it
+		for (const [index, position] of [
+			{ x: 1.5, y: 0 },
+			{ x: 1.4, y: -0.2 },
+			{ x: late.x, y: late.y - 0.02 },
+			{ x: late.x + 0.01, y: late.y - 0.02 },
+			{ x: 1.5, y: 0 }
+		].entries()) {
+			const dragged = { ...project, revision: project.revision + 1, entities: [...project.entities, free(position.x, position.y)] };
+			const incremental = simulator.simulate(dragged);
+			const fresh = await createSimulator();
+			const full = fresh.simulate(dragged);
+			fresh.dispose();
+			expect(incremental.stats.reusedUntil).toBeGreaterThan(index < 2 ? 6 : 3);
+			expect(withoutStats(incremental)).toEqual(withoutStats(full));
+		}
+		// The free piece far away leaves the run exactly as without it
+		const away = simulator.simulate({ ...project, entities: [...project.entities, free(1.5, 0)] });
+		expect(away.marbles).toEqual(base.marbles);
+		expect(away.hits).toEqual(base.hits);
+	});
+
 	it('marks a piece blocked when the earlier trajectory passes through it', () => {
 		const project = createBareProject(1.2);
 		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
@@ -227,7 +259,7 @@ describe('simulate', () => {
 		expect(marbleContacts[0]?.position.x).toBeCloseTo(0, 6);
 	});
 
-	it('lands a hit on a rail and rolls the marble along it', () => {
+	it('anchors a rail at its hit time as scenery and rolls the marble along it', () => {
 		const project = createBareProject(1.5);
 		const laneId = addMarble(project, 0, {
 			position: { x: 0, y: 0.5 },
@@ -236,7 +268,11 @@ describe('simulate', () => {
 		});
 		const railId = addLinkedHit(project, laneId, 0.3, -0.1, 'rail');
 		const result = simulator.simulate(project);
-		expect(result.hits[0]?.status).toBe('onTime');
+		// Scenery never sounds a hit: the hit stays open and the rail is a plain contact at its anchor time
+		expect(result.hits[0]?.status).toBe('open');
+		expect(result.hits[0]?.pieceEntityId).toBeNull();
+		expect(result.pieces.find((piece) => piece.entityId === railId)?.entryTime).toBe(0.3);
+		expect(result.contacts.find((contact) => contact.otherEntityId === railId)?.time).toBeCloseTo(0.3, 2);
 		const rail = result.pieces.find((piece) => piece.entityId === railId);
 		expect(rail?.status).toBe('placed');
 		expect(rail?.shapes?.every((shape) => shape.kind === 'capsule')).toBe(true);
@@ -263,7 +299,8 @@ describe('simulate', () => {
 		});
 		const tunnelId = addLinkedHit(project, laneId, 0.3, -0.15, 'tunnel');
 		const result = simulator.simulate(project);
-		expect(result.hits[0]?.status).toBe('onTime');
+		expect(result.hits[0]?.status).toBe('open');
+		expect(result.pieces.find((piece) => piece.entityId === tunnelId)?.status).toBe('placed');
 		const tunnel = result.pieces.find((piece) => piece.entityId === tunnelId);
 		const floor = (tunnel?.path?.length ?? 0) - 1;
 		expect(tunnel?.shapes?.length).toBeGreaterThan(floor);
@@ -277,7 +314,7 @@ describe('simulate', () => {
 		}
 	});
 
-	it('turns a motor windmill before and after its hit', () => {
+	it('turns a motor windmill before and after the moment it is anchored at', () => {
 		const project = createBareProject(1.2);
 		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
 		const windmillId = addLinkedHit(project, laneId, 0.4, 0.2, 'windmill');
@@ -285,7 +322,9 @@ describe('simulate', () => {
 		if (entity?.components.piece == null) throw new Error('Missing windmill');
 		entity.components.piece.params['motorSpeed'] = 2;
 		const result = simulator.simulate(project);
-		expect(result.hits[0]?.status).toBe('onTime');
+		// The windmill is scenery: the marble strikes it at 0.4 s, but the hit there stays open
+		expect(result.hits[0]?.status).toBe('open');
+		expect(result.contacts.find((contact) => contact.otherEntityId === windmillId)?.time).toBeCloseTo(0.4, 2);
 		const motion = result.pieces.find((piece) => piece.entityId === windmillId)?.motion ?? [];
 		expect(motion[0]?.time).toBe(0);
 		expect(motion[0]?.angle).toBeCloseTo(0.2 - 2 * 0.4, 9);

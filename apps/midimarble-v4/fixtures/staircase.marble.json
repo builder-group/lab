@@ -1,5 +1,5 @@
 {
-	"$schema": "marble-project@2",
+	"$schema": "marble-project@3",
 	"id": "staircase",
 	"title": "Staircase",
 	"revision": 0,
@@ -82,7 +82,8 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.55
+						"bounce": 0.55,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -104,7 +105,8 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.55
+						"bounce": 0.55,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -126,7 +128,8 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.55
+						"bounce": 0.55,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -148,7 +151,8 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.55
+						"bounce": 0.55,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -170,7 +174,8 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.55
+						"bounce": 0.55,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -192,7 +197,8 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.55
+						"bounce": 0.55,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -214,7 +220,8 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.55
+						"bounce": 0.55,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -236,7 +243,8 @@
 						"length": 0.06,
 						"thickness": 0.008,
 						"depth": 0.03,
-						"bounce": 0.55
+						"bounce": 0.55,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
@@ -249,6 +257,9 @@
 			}
 		}
 	],
+	"physics": {
+		"gravityScale": 1
+	},
 	"design": {
 		"theme": "pegboard",
 		"renderPreset": "balanced",

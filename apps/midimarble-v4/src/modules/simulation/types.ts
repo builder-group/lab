@@ -83,7 +83,7 @@ export interface TResolvedPiece {
 	path?: TVec2[];
 	/** Wire polylines of a switchback in world coordinates: its two walls, then its legs from the top */
 	paths?: TVec2[][];
-	/** When the marble enters a follower rail or tunnel, `hitTime + entryDelay` */
+	/** When a scenery piece is anchored to the trajectory, `hitTime + entryDelay` */
 	entryTime?: number;
 	/**
 	 * Rotation of a moving piece around its `position`, unwrapped so it never jumps by 2π. The first
@@ -173,6 +173,12 @@ export interface TPieceDefinition {
 	wallOffset: number;
 	/** Restitution of marble contacts, unless the piece has a `bounce` parameter */
 	restitution: number;
+	/**
+	 * True for pieces that sound the hit they are linked to. Other pieces are scenery: their hit link only
+	 * anchors them to the trajectory at the hit time plus their `entryDelay`, and contacts with them are plain
+	 * contacts, never hits.
+	 */
+	musical?: boolean;
 	friction: number;
 	/**
 	 * How the piece is built: `box` (default) is a platform bar, `path` a rail along `path` points,

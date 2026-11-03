@@ -12,6 +12,7 @@ describe('pace', () => {
 	describe('paceRate function', () => {
 		it('should be the default bounce descent at the median interval', () => {
 			const project = createBareRunProject({
+			gravityScale: 1,
 				id: 'pace',
 				title: 'Pace',
 				end: 4,
@@ -23,6 +24,7 @@ describe('pace', () => {
 
 		it('should share one rate between lanes and ignore long notes', () => {
 			const project = createBareRunProject({
+			gravityScale: 1,
 				id: 'pace',
 				title: 'Pace',
 				end: 8,
@@ -40,6 +42,7 @@ describe('pace', () => {
 	describe('descentPace function', () => {
 		it('should anchor at the earliest dot and fall at the rate', () => {
 			const project = createBareRunProject({
+			gravityScale: 1,
 				id: 'pace',
 				title: 'Pace',
 				end: 2,
@@ -63,6 +66,7 @@ describe('pace', () => {
 	describe('frameBand function', () => {
 		it('should give each lane its own band, LANE_SPACING apart', () => {
 			const project = createBareRunProject({
+			gravityScale: 1,
 				id: 'bands',
 				title: 'Bands',
 				end: 2,
@@ -82,6 +86,7 @@ describe('pace', () => {
 			expect(left.centerX + left.halfWidth).toBeGreaterThanOrEqual(right.centerX - right.halfWidth - 1e-12);
 			// One marble gets the film frame: 0.45 m at the original 0.65 m camera distance, wider further away
 			const single = createBareRunProject({
+			gravityScale: 1,
 				id: 'single',
 				title: 'Single',
 				end: 1,

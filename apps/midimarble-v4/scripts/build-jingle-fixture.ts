@@ -9,6 +9,7 @@
 // Usage: tsx scripts/build-jingle-fixture.ts
 import { mkdirSync, writeFileSync } from 'node:fs';
 import * as toneMidi from '@tonejs/midi';
+import { preflightExport } from '../src/modules/design/export-preflight';
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
 import {
 	applyProjectCommands,
@@ -49,6 +50,8 @@ const RELEASES = [
 	{ x: LANE_SPACING / 2, y: 0.6, time: 0 }
 ];
 const DEGREE = Math.PI / 180;
+// Release shifts the build tries in turn, in metres
+const RELEASE_SHIFTS = [0, 0.01, -0.01, 0.005, -0.005, 0.015, -0.015, 0.02, -0.02, 0.025, -0.025, 0.03, -0.03, 0.04, -0.04];
 
 mkdirSync(OUT, { recursive: true });
 const log: string[] = [];
@@ -95,41 +98,73 @@ project.entities.forEach((entity, index) => {
 
 // Build
 
+// Speed: the user sets full gravity in the World panel. At the default half gravity the build stops at 29 s
+// (102 of 115 hits, every release shift tried); at full gravity it completes
+const GRAVITY_SCALE = 1;
+project.physics.gravityScale = GRAVITY_SCALE;
+
 const simulator = await createSimulator();
 const simulate: TSimulateFn = (current) => simulator.simulate(current);
-const counts = { next: 0, switchback: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, failed: 0 };
-const failures: string[] = [];
+const emptyCounts = () => ({ next: 0, switchback: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, unblock: 0, failed: 0 });
+let counts = emptyCounts();
+let failures: string[] = [];
 const reasons: string[] = [];
 const startedAt = performance.now();
+const imported = project;
 
-for (let step = 0; step < 400; step++) {
-	const result = simulate(project);
-	// Without a selection Next takes the earliest open hit of any marble, or an earlier long gap after the last
-	// piece, across which the marble may have fallen too far to leave a dot
-	const open = openHits(result)[0];
-	const gap = project.music.lanes.flatMap((lane) => openLongGaps(project, lane.id)).sort((a, b) => a.to - b.to)[0];
-	const target =
-		gap != null && (open == null || gap.to <= open.targetTime + 1e-9)
-			? (result.hits.find((hit) => hit.laneId === gap.laneId && hit.hitId === gap.toHitId) ?? open)
-			: open;
-	if (target == null) break;
-	counts.next++;
-	reasons.length = 0;
-	// The assists first, then what a user tries: rotating the previous piece, then rotating this one by hand
-	const next =
-		buildStep(project, target, false) ??
-		(target.dot != null ? backtrack(project, target) : null) ??
-		buildStep(project, target, true);
-	if (next == null) {
-		// The build stops at the first step no assist can take: both lanes keep only the hits before it
-		failures.push(`${target.hitId} at ${target.targetTime.toFixed(2)} s: ${reasons.join('; ') || 'no assist found a piece'}`);
-		say(`  ${target.hitId}: impossible, the build stops at ${target.targetTime.toFixed(2)} s`);
-		project = truncatedAt(project, target.targetTime);
-		counts.failed++;
-		break;
+// The build is sensitive to where the marbles start, like a user's run is. When a build gets stuck, the user
+// moves both releases a few millimetres and builds again; the first complete build that keeps the shared pace wins,
+// else the one that got furthest.
+let best: { project: TProject; counts: typeof counts; failures: string[]; reached: number } | null = null;
+for (const shift of RELEASE_SHIFTS) {
+	project = structuredClone(imported);
+	for (const entity of project.entities) {
+		const release = entity.components.release;
+		if (release != null) release.position = { x: Math.round((release.position.x + shift) * 1e4) / 1e4, y: release.position.y };
 	}
-	project = next;
+	counts = emptyCounts();
+	failures = [];
+	say(`releases shifted by ${shift.toFixed(3)} m`);
+	let reached = Infinity;
+	for (let step = 0; step < 400; step++) {
+		const result = simulate(project);
+		// Without a selection Next takes the earliest open hit of any marble, or an earlier long gap after the last
+		// piece, across which the marble may have fallen too far to leave a dot
+		const open = openHits(result)[0];
+		const gap = project.music.lanes.flatMap((lane) => openLongGaps(project, lane.id)).sort((a, b) => a.to - b.to)[0];
+		const target =
+			gap != null && (open == null || gap.to <= open.targetTime + 1e-9)
+				? (result.hits.find((hit) => hit.laneId === gap.laneId && hit.hitId === gap.toHitId) ?? open)
+				: open;
+		if (target == null) break;
+		counts.next++;
+		reasons.length = 0;
+		// The assists first, then what a user tries: rotating the previous piece, then rotating this one by hand
+		const next =
+			buildStep(project, target, false) ??
+			(target.dot != null ? backtrack(project, target) : null) ??
+			unblock(project, target) ??
+			buildStep(project, target, true);
+		if (next == null) {
+			// The build stops at the first step no assist can take: both lanes keep only the hits before it
+			failures.push(`${target.hitId} at ${target.targetTime.toFixed(2)} s: ${reasons.join('; ') || 'no assist found a piece'}`);
+			say(`  ${target.hitId}: impossible, the build stops at ${target.targetTime.toFixed(2)} s`);
+			project = truncatedAt(project, target.targetTime);
+			counts.failed++;
+			reached = target.targetTime;
+			break;
+		}
+		project = next;
+	}
+	// A complete build must also keep its dots on the shared pace, as the fixture test checks
+	if (reached === Infinity && !keepsPace(simulate(project))) {
+		say('  the dots leave the shared pace, so the build counts as stopped at the end');
+		reached = project.end;
+	}
+	if (best == null || reached > best.reached) best = { project, counts, failures, reached };
+	if (reached === Infinity) break;
 }
+if (best != null) ({ project, counts, failures } = best);
 
 const finalResult = simulate(project);
 simulator.dispose();
@@ -138,18 +173,29 @@ const byLane = project.music.lanes.map((lane) => {
 	return `${lane.name}: ${hits.filter((hit) => hit.status === 'onTime').length}/${hits.length} on time`;
 });
 say(`build: ${Math.round(performance.now() - startedAt)} ms, ${JSON.stringify(counts)}`);
-say(`manual steps: ${counts.lean + counts.backtrack} (${counts.lean} hand rotations, ${counts.backtrack} rotations of the previous piece)`);
+say(
+	`manual steps: ${counts.lean + counts.backtrack + counts.unblock} (${counts.lean} hand rotations, ${counts.backtrack} rotations of the previous piece, ${counts.unblock} of the other lane's piece in the way)`
+);
 say(`hits: ${byLane.join(', ')}`);
 say(`separation: ${describeSeparation(project, finalResult)}`);
 for (const line of describePace(project, finalResult)) say(line);
 say(`heights every 4 s (melody | bass | y*, m): ${describeHeights(finalResult)}`);
 for (const failure of failures) say(`failed: ${failure}`);
+say(`export preflight: ${preflightExport(project, finalResult).issues.map((issue) => `${issue.title} (${issue.detail})`).join('; ') || 'clean'}`);
 
 const json = serializeProject(apply(project, [], 0));
 const [isProjectOk, projectErr] = parseProject(json);
 if (!isProjectOk) throw projectErr;
 writeFileSync(new URL('../fixtures/jingle-bells.marble.json', import.meta.url), json);
 writeFileSync(new URL('build-log.txt', OUT), `${log.join('\n')}\n`);
+
+/** At most two dots beyond the pace limit, and none by more than 0.15 m beyond it */
+function keepsPace(result: TSimulationResult): boolean {
+	const pace = result.pace;
+	if (pace == null) return false;
+	const offsets = result.hits.map((hit) => Math.abs((hit.dot?.y ?? Infinity) - paceAt(pace, hit.targetTime)));
+	return offsets.filter((offset) => offset > pace.limit).length <= 2 && Math.max(...offsets) < pace.limit + 0.15;
+}
 
 /**
  * One press of Next for the earliest open hit: a switchback, or a rail, when a long gap ends at it, otherwise
@@ -204,7 +250,11 @@ function buildStep(current: TProject, target: THitResult, canLean: boolean): TPr
 	}
 
 	const isLast = current.music.lanes.find((lane) => lane.id === laneId)?.hits.at(-1)?.id === hitId;
-	if (!isLaunch && !isLast && repeatsInterval(current, laneId, hitId)) {
+	// Like Continue, Mirror leaves the hit ahead of a launch to Auto place, which checks the launch is struck firmly
+	const hits = current.music.lanes.find((lane) => lane.id === laneId)?.hits ?? [];
+	const following = hits[hits.findIndex((hit) => hit.id === hitId) + 1];
+	const isBeforeLaunch = following != null && findLongGaps(current, laneId).some((item) => item.fromHitId === following.id);
+	if (!isLaunch && !isLast && !isBeforeLaunch && repeatsInterval(current, laneId, hitId)) {
 		const [isMirrorOk, , mirrored] = mirrorPiece(current, result, laneId, { id: pieceId(hitId) });
 		const accepted = isMirrorOk ? accept(current, mirrored.commands, laneId) : null;
 		if (accepted != null) {
@@ -388,6 +438,38 @@ function backtrack(current: TProject, target: THitResult): TProject | null {
 			counts.backtrack++;
 			say(`  ${previous.id}: rotated by ${delta}° by hand so ${target.hitId} can be placed`);
 			return next;
+		}
+	}
+	return null;
+}
+
+/**
+ * When every step fails because a piece of the other lane ends up blocked or resting, the user rotates that
+ * piece by hand so the marbles keep clear of each other, then presses Next again
+ */
+function unblock(current: TProject, target: THitResult): TProject | null {
+	const blocked = [...new Set(reasons.flatMap((reason) => [...reason.matchAll(/(hit-\d+-\d+):(?:blocked|resting)/g)].map((match) => match[1] ?? '')))].filter(
+		(hitId) => hitId !== target.hitId && !hitId.startsWith(target.hitId.replace(/-\d+$/, '-'))
+	);
+	for (const hitId of blocked) {
+		const piece = current.entities.find((entity) => entity.components.hitLink?.hitId === hitId && entity.components.piece?.type === 'platform');
+		const angle = piece?.components.hitLink?.angle;
+		if (piece == null || angle == null) continue;
+		for (const delta of [3, -3, 6, -6, 9, -9]) {
+			const rotated = structuredClone(piece);
+			if (rotated.components.hitLink != null) rotated.components.hitLink.angle = angle + delta * DEGREE;
+			const [isAppliedOk, , turned] = applyProjectCommands(current, [{ type: 'upsertEntity', entity: rotated }]);
+			if (!isAppliedOk) continue;
+			const result = simulate(turned);
+			if (result.hits.some((hit) => hit.status !== 'open' && hit.status !== 'onTime' && hit.targetTime <= target.targetTime)) continue;
+			const moved = result.hits.find((hit) => hit.hitId === target.hitId);
+			if (moved == null) continue;
+			const next = buildStep(turned, moved, false) ?? (moved.dot != null ? backtrack(turned, moved) : null);
+			if (next != null) {
+				counts.unblock++;
+				say(`  ${piece.id}: rotated by ${delta}° by hand so ${target.hitId} keeps clear of it`);
+				return next;
+			}
 		}
 	}
 	return null;

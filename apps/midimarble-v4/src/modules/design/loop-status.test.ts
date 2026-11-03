@@ -18,7 +18,7 @@ describe('describeLoop function', () => {
 
 		const status = describeLoop(project, simulator.simulate(project));
 
-		expect(status).toEqual({ isOk: true, summary: 'Loops 0:00.33 to 0:07.53 · 3 bars · start and end match', details: [], snappedEnd: null });
+		expect(status).toEqual({ isOk: true, summary: 'Loops 0:00.47 to 0:09.47 · 3 bars · start and end match', details: [], snappedEnd: null });
 	});
 
 	it('should offer the bar-aligned end when the loop is off the bar grid', async () => {

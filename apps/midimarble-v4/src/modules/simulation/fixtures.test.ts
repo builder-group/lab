@@ -77,8 +77,9 @@ describe('fixtures', () => {
 			expect(piece?.status).toBe('placed');
 			expect(piece?.entryTime).toBeGreaterThan(from);
 			expect(piece?.path?.length).toBeGreaterThanOrEqual(2);
-			// One contact for the whole roll, and the marble stays in frame through the gap
-			expect(result.contacts.filter((contact) => contact.otherEntityId === id)).toHaveLength(1);
+			// One contact for the whole roll, and the marble stays in frame through the gap. Scenery is
+			// environment, so a later touch after the gap is a plain contact.
+			expect(result.contacts.filter((contact) => contact.otherEntityId === id && contact.time < to)).toHaveLength(1);
 			const contact = result.contacts.find((item) => item.otherEntityId === id);
 			expect(contact?.time).toBeCloseTo(piece?.entryTime ?? 0, 2);
 			const inGap = samples.filter((sample) => sample.time > from && sample.time < to);
@@ -92,7 +93,7 @@ describe('fixtures', () => {
 		}
 	});
 
-	it('windmill: the struck windmill turns and records its motion', () => {
+	it('windmill: the windmill struck between two platforms turns and records its motion', () => {
 		const project = loadFixture('windmill');
 		const result = simulator.simulate(project);
 		expectAllOnTime(result, 7);
@@ -100,8 +101,14 @@ describe('fixtures', () => {
 		const windmill = result.pieces.find((piece) => piece.type === 'windmill');
 		const motion = windmill?.motion ?? [];
 		expect(motion[0]?.time).toBe(0);
-		const struck = result.hits.find((hit) => hit.pieceEntityId === windmill?.entityId);
-		const rest = motion.filter((sample) => sample.time <= (struck?.targetTime ?? 0));
+		// Scenery: no hit belongs to the windmill; the marble strikes it at its anchor, between two platforms
+		expect(result.hits.some((hit) => hit.pieceEntityId === windmill?.entityId)).toBe(false);
+		const anchor = windmill?.entryTime ?? 0;
+		expect(anchor).toBeGreaterThan(0.75);
+		expect(anchor).toBeLessThan(1.05);
+		const strike = result.contacts.find((contact) => contact.otherEntityId === windmill?.entityId);
+		expect(strike?.time).toBeCloseTo(anchor, 2);
+		const rest = motion.filter((sample) => sample.time <= anchor);
 		expect(rest.every((sample) => sample.angle === windmill?.angle)).toBe(true);
 		for (let i = 1; i < motion.length; i++) {
 			expect((motion[i]?.time ?? 0) > (motion[i - 1]?.time ?? 0)).toBe(true);
@@ -117,7 +124,8 @@ describe('fixtures', () => {
 		const project = loadFixture('reference-20');
 		const result = simulator.simulate(project);
 		const hitCount = project.music.lanes.reduce((count, lane) => count + lane.hits.length, 0);
-		expect(hitCount).toBeGreaterThanOrEqual(60);
+		// 24 hits 0.4 s apart per section at the default half gravity, less any hit no angle could serve
+		expect(hitCount).toBeGreaterThanOrEqual(45);
 		expectAllOnTime(result, hitCount);
 		expect(result.pieces.filter((piece) => piece.type === 'rail')).toHaveLength(1);
 		// Each dot lies below the dot two hits earlier, in the same column of the zigzag

@@ -4,6 +4,7 @@ import {
 	defaultPlatformAngle,
 	findLongGaps,
 	frameBand,
+	isMusicalPiece,
 	isSuperseded,
 	layoutOf,
 	openLongGaps,
@@ -122,9 +123,9 @@ export class AssistCx {
 			else this.studio.notify('Select a piece or leave an open hit to auto place');
 			return;
 		}
-		const kind = layoutOf(pieceType);
-		if (kind === 'path' || kind === 'tube') {
-			this.studio.notify('Auto place sets platform and windmill angles; drag the rail handles to shape it');
+		if (!isMusicalPiece(pieceType)) {
+			const kind = layoutOf(pieceType);
+			this.studio.notify(kind === 'path' || kind === 'tube' ? 'Auto place sets platform angles; drag the rail handles to shape it' : 'Auto place sets platform angles; scenery keeps the angle you give it');
 			return;
 		}
 		const startedAt = performance.now();

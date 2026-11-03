@@ -1,6 +1,6 @@
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
 import { DEFAULT_MARBLE_RADIUS, type TProject, type TVec2 } from '@/modules/project';
-import { ballistic, GRAVITY_Y } from './geometry';
+import { ballistic, gravityOf } from './geometry';
 import {
 	layoutAtContact,
 	layoutAtMarble,
@@ -10,7 +10,7 @@ import {
 } from './piece-layout';
 import {
 	getPieceDefinition,
-	isFollowerPiece,
+	soundsHit,
 	pieceRestitution,
 	resolvePieceParams,
 	resolvePiecePath
@@ -103,12 +103,14 @@ function runSimulation(
 	const plan = createPlan(project);
 	const nextCache = new Map<string, TSnapshot>();
 
+	// The latest snapshot whose inputs are unchanged, where edited parkable pieces were still out of reach
 	let resumeIndex = -1;
 	for (let i = plan.events.length - 1; i >= 0; i--) {
 		const event = plan.events[i];
 		const key = plan.eventKeys[i];
 		if (event == null || key == null || event.step > plan.endStep) continue;
-		if (cache.has(key)) {
+		const snapshot = cache.get(key);
+		if (snapshot != null && canResume(plan, snapshot)) {
 			resumeIndex = i;
 			break;
 		}
@@ -121,6 +123,7 @@ function runSimulation(
 		world = RAPIER.World.restoreSnapshot(resumed.world);
 		world.timestep = DT;
 		state = restoreState(resumed);
+		rebaseStaticPieces(plan, state, resumed);
 		for (let i = 0; i <= resumeIndex; i++) {
 			const key = plan.eventKeys[i] ?? '';
 			const snapshot = cache.get(key);
@@ -128,7 +131,7 @@ function runSimulation(
 		}
 	} else {
 		resumeIndex = -1;
-		world = new RAPIER.World({ x: 0, y: GRAVITY_Y, z: 0 });
+		world = new RAPIER.World({ x: 0, y: plan.gravity, z: 0 });
 		world.timestep = DT;
 		state = createInitialState(plan, world);
 	}
@@ -142,13 +145,101 @@ function runSimulation(
 	return [result, trimCache(nextCache)];
 }
 
+/**
+ * True when the snapshot's world matches what a run from scratch would build: every parkable piece that was
+ * added, removed or changed since the snapshot's run was out of every marble's parking reach at every step
+ * up to the snapshot, so it never entered the world. The reach uses the fastest speed so far, a bound on
+ * what each parking check used.
+ */
+function canResume(plan: TPlan, snapshot: TSnapshot): boolean {
+	const before = new Set<string>();
+	for (const piece of snapshot.pieces) if (piece.key !== '') before.add(piece.key);
+	const after = new Set<string>();
+	for (const piece of plan.staticPieces) if (piece.key !== '') after.add(piece.key);
+	const changed: TBounds2[] = [];
+	for (const piece of snapshot.pieces) if (piece.key !== '' && !after.has(piece.key)) changed.push(piece.bounds);
+	for (const piece of plan.staticPieces) {
+		if (piece.key !== '' && !before.has(piece.key)) changed.push(shapesBounds(piece.layout.shapes));
+	}
+	if (!changed.length) return true;
+	// A marble that ended before the snapshot ended at a depth set by the lowest piece
+	if (snapshot.staticLowY !== plan.staticLowY && snapshot.marbles.some((marble) => marble.status === 'ended'))
+		return false;
+
+	let fastest = 0;
+	let radius = 0;
+	for (let i = 0; i < snapshot.marbles.length; i++) {
+		const marble = snapshot.marbles[i];
+		if (marble == null) continue;
+		radius = Math.max(radius, plan.marbles[i]?.radius ?? 0);
+		for (let k = 0; k < marble.count; k++) {
+			const velocity = marble.samples[k]?.velocity;
+			if (velocity != null) fastest = Math.max(fastest, Math.hypot(velocity.x, velocity.y));
+		}
+	}
+	const horizon = (PARKING_INTERVAL + 1) * DT;
+	const reach =
+		(2 * fastest + 1) * horizon - 0.5 * plan.gravity * horizon * horizon + radius + PARKING_MARGIN;
+	for (const marble of snapshot.marbles) {
+		for (let k = 0; k < marble.count; k++) {
+			const position = marble.samples[k]?.position;
+			if (position == null) continue;
+			for (const bounds of changed) {
+				if (
+					position.x >= bounds.minX - reach &&
+					position.x <= bounds.maxX + reach &&
+					position.y >= bounds.minY - reach &&
+					position.y <= bounds.maxY + reach
+				)
+					return false;
+			}
+		}
+	}
+	return true;
+}
+
+/**
+ * Swaps the snapshot's parkable pieces for the plan's, in plan order as a run from scratch inserts them.
+ * Unchanged pieces keep their colliders; edited ones start parked, as `canResume` checked they were.
+ */
+function rebaseStaticPieces(plan: TPlan, state: TRunState, snapshot: TSnapshot): void {
+	const kept = new Map<string, { record: TPieceRecord; handles: number[] }>();
+	const placed: { record: TPieceRecord; handles: number[] }[] = [];
+	for (let i = 0; i < snapshot.pieces.length; i++) {
+		const record = snapshot.pieces[i];
+		if (record == null) continue;
+		const entry = { record, handles: snapshot.pieceHandles[i] ?? [] };
+		if (record.key !== '') kept.set(record.key, entry);
+		else if (plan.staticPieces.some((piece) => piece.key === '' && piece.entityId === record.entityId))
+			kept.set(`rotor:${record.entityId}`, entry);
+		else placed.push(entry);
+	}
+	const pieces: TPieceRecord[] = [];
+	const handles: number[][] = [];
+	for (const piece of plan.staticPieces) {
+		const entry = kept.get(piece.key !== '' ? piece.key : `rotor:${piece.entityId}`);
+		pieces.push(entry?.record ?? staticRecord(piece));
+		handles.push(entry?.handles ?? []);
+	}
+	for (const entry of placed) {
+		pieces.push(entry.record);
+		handles.push(entry.handles);
+	}
+	state.pieces = pieces;
+	state.pieceHandles = handles;
+}
+
 // Plan
 
 interface TPlan {
+	/** Gravity along y, Earth's scaled by the project's `physics.gravityScale` */
+	gravity: number;
 	startStep: number;
 	endStep: number;
 	marbles: TPlanMarble[];
 	staticPieces: TStaticPiece[];
+	/** Lowest point of the static pieces, which bounds how far a marble may fall */
+	staticLowY: number;
 	/** Hit-linked, unpinned pieces in global hit time order */
 	events: TPlanEvent[];
 	/** Signature of the state just before each event is processed */
@@ -173,6 +264,12 @@ interface TStaticPiece {
 	params: Record<string, number>;
 	layout: TPieceLayout;
 	resolved: TResolvedPiece;
+	/**
+	 * Signature of a parkable piece, empty for windmills. Parkable pieces enter the world only when a marble
+	 * comes near, so they stay out of the event chain, and a run resumes past an edit to one of them as long
+	 * as no marble came near its old or new pose before the snapshot.
+	 */
+	key: string;
 }
 
 interface TPlanEvent {
@@ -189,6 +286,10 @@ interface TPlanEvent {
 	step: number;
 	/** Index into `TPlan.marbles`, -1 when the lane has no marble */
 	marbleIndex: number;
+	/** Anchored or scenery: follows the trajectory without sounding its hit */
+	isAnchor: boolean;
+	/** Pose origin relative to the marble at the event, for anchors that keep their pose */
+	offset: TVec2 | null;
 }
 
 function createPlan(project: TProject): TPlan {
@@ -244,12 +345,15 @@ function createPlan(project: TProject): TPlan {
 					definition,
 					params,
 					layout,
-					resolved: resolvedFromLayout(entity.id, piece.type, params, layout, time, 'pinned')
+					resolved: resolvedFromLayout(entity.id, piece.type, params, layout, time, 'pinned'),
+					key: ''
 				});
 				continue;
 			}
 			if (time == null) continue;
-			const eventTime = time + (isFollowerPiece(params) ? (params['entryDelay'] ?? 0) : 0);
+			// Anchored pieces and scenery follow the trajectory at their hit time plus their entry delay
+			const isAnchor = !soundsHit(piece.type, hitLink);
+			const eventTime = time + (isAnchor ? (params['entryDelay'] ?? 0) : 0);
 			events.push({
 				entityId: entity.id,
 				definition,
@@ -260,7 +364,9 @@ function createPlan(project: TProject): TPlan {
 				time: eventTime,
 				hitTime: time,
 				step: Math.floor(eventTime * PHYSICS_HZ + STEP_EPSILON),
-				marbleIndex
+				marbleIndex,
+				isAnchor,
+				offset: hitLink.offset ?? null
 			});
 			continue;
 		}
@@ -279,28 +385,42 @@ function createPlan(project: TProject): TPlan {
 		);
 		const resolved = resolvedFromLayout(entity.id, piece.type, params, layout, null, 'free');
 		resolved.position = transform.position;
-		staticPieces.push({ entityId: entity.id, definition, params, layout, resolved });
+		staticPieces.push({ entityId: entity.id, definition, params, layout, resolved, key: '' });
 	}
 	events.sort(
 		(a, b) => a.time - b.time || (a.entityId < b.entityId ? -1 : a.entityId > b.entityId ? 1 : 0)
 	);
 
 	const startStep = Math.min(0, ...marbles.map((marble) => marble.releaseStep));
+	const gravity = gravityOf(project);
 	const endStep = Math.floor(project.end * PHYSICS_HZ + STEP_EPSILON);
 
-	// Each key covers everything that determines the world up to the event: marbles, static pieces,
-	// every earlier event and the step the event is processed at
+	let staticLowY = Infinity;
+	for (const piece of staticPieces) {
+		staticLowY = Math.min(staticLowY, lowPointOf(piece.layout));
+		if (piece.layout.rotor == null)
+			piece.key = signature(
+				JSON.stringify([piece.entityId, piece.definition.type, piece.params, piece.layout.shapes])
+			);
+	}
+
+	// Each key covers everything that determines the world up to the event: marbles, windmills, every
+	// earlier event and the step the event is processed at. Parkable static pieces are checked on resume.
 	let chain = signature(
 		JSON.stringify([
 			SIGNATURE_VERSION,
+			gravity,
 			startStep,
 			marbles,
-			staticPieces.map((piece) => [
-				piece.entityId,
-				piece.definition.type,
-				piece.params,
-				piece.layout.shapes
-			])
+			staticPieces
+				.filter((piece) => piece.key === '')
+				.map((piece) => [
+					piece.entityId,
+					piece.definition.type,
+					piece.params,
+					piece.layout.shapes,
+					piece.layout.rotor
+				])
 		])
 	);
 	const eventKeys: string[] = [];
@@ -315,12 +435,24 @@ function createPlan(project: TProject): TPlan {
 				event.angle,
 				event.contactAt,
 				event.time,
-				event.marbleIndex
+				event.marbleIndex,
+				event.isAnchor,
+				event.offset
 			])}`
 		);
 	}
 
-	return { startStep, endStep, marbles, staticPieces, events, eventKeys, linkedHitTimes };
+	return {
+		gravity,
+		startStep,
+		endStep,
+		marbles,
+		staticPieces,
+		staticLowY,
+		events,
+		eventKeys,
+		linkedHitTimes
+	};
 }
 
 // Run state
@@ -369,6 +501,8 @@ interface TPieceRecord {
 	bounds: TBounds2;
 	/** Index into `TRunState.rotors`, -1 for static pieces, which may be parked */
 	rotorIndex: number;
+	/** `TStaticPiece.key` of parkable static pieces, empty for windmills and placed pieces */
+	key: string;
 }
 
 interface TRotorRun {
@@ -398,6 +532,7 @@ interface TSnapshot {
 	pieceHandles: number[][];
 	rotors: (Omit<TRotorRun, 'motion'> & { motion: TPieceMotionSample[]; count: number })[];
 	touching: Map<string, number>;
+	staticLowY: number;
 }
 
 function createInitialState(plan: TPlan, world: RAPIER.World): TRunState {
@@ -415,12 +550,35 @@ function createInitialState(plan: TPlan, world: RAPIER.World): TRunState {
 		touching: new Map(),
 		chunkBounds: plan.marbles.map(() => [])
 	};
-	for (const piece of plan.staticPieces)
-		insertPiece(world, state, piece.entityId, piece.definition, piece.params, piece.layout);
+	// Parkable pieces start parked; the first parking check brings in those a marble can reach
+	for (const piece of plan.staticPieces) {
+		if (piece.key === '')
+			insertPiece(world, state, piece.entityId, piece.definition, piece.params, piece.layout, false);
+		else {
+			state.pieces.push(staticRecord(piece));
+			state.pieceHandles.push([]);
+		}
+	}
 	return state;
 }
 
-function takeSnapshot(world: RAPIER.World, state: TRunState): TSnapshot {
+function staticRecord(piece: TStaticPiece): TPieceRecord {
+	return {
+		entityId: piece.entityId,
+		definition: piece.definition,
+		params: piece.params,
+		shapes: piece.layout.shapes,
+		bounds: shapesBounds(piece.layout.shapes),
+		rotorIndex: -1,
+		key: piece.key
+	};
+}
+
+function lowPointOf(layout: TPieceLayout): number {
+	return layout.box != null ? layout.box.cy : shapesBounds(layout.shapes).minY;
+}
+
+function takeSnapshot(world: RAPIER.World, plan: TPlan, state: TRunState): TSnapshot {
 	return {
 		world: world.takeSnapshot(),
 		step: state.step,
@@ -439,7 +597,8 @@ function takeSnapshot(world: RAPIER.World, state: TRunState): TSnapshot {
 		pieces: state.pieces.slice(),
 		pieceHandles: state.pieceHandles.slice(),
 		rotors: state.rotors.map((rotor) => ({ ...rotor, count: rotor.motion.length })),
-		touching: new Map(state.touching)
+		touching: new Map(state.touching),
+		staticLowY: plan.staticLowY
 	};
 }
 
@@ -497,7 +656,7 @@ function advance(
 			const event = plan.events[state.eventIndex];
 			if (event == null || event.step > state.step) break;
 			if (state.eventIndex !== resumeIndex) {
-				cache.set(plan.eventKeys[state.eventIndex] ?? '', takeSnapshot(world, state));
+				cache.set(plan.eventKeys[state.eventIndex] ?? '', takeSnapshot(world, plan, state));
 			}
 			processEvent(world, plan, state, event);
 			state.eventIndex++;
@@ -536,7 +695,8 @@ function releaseMarbles(world: RAPIER.World, plan: TPlan, state: TRunState): boo
 		const { position, velocity } = ballistic(
 			marble.release,
 			marble.releaseVelocity,
-			Math.max(0, time - marble.releaseTime)
+			Math.max(0, time - marble.releaseTime),
+			plan.gravity
 		);
 		const body = world.createRigidBody(
 			RAPIER.RigidBodyDesc.dynamic()
@@ -572,7 +732,8 @@ function sampleMarbles(world: RAPIER.World, plan: TPlan, state: TRunState): void
 		if (run == null || marble == null || run.status !== 'live') continue;
 		const body = world.getRigidBody(run.bodyHandle);
 		const translation = body.translation();
-		if (translation.y < Math.min(marble.release.y, state.lowestPieceY) - FALL_LIMIT) {
+		const lowest = Math.min(marble.release.y, state.lowestPieceY, plan.staticLowY);
+		if (translation.y < lowest - FALL_LIMIT) {
 			for (let c = 0; c < body.numColliders(); c++) state.colliders.delete(body.collider(c).handle);
 			world.removeRigidBody(body);
 			run.status = 'ended';
@@ -606,7 +767,8 @@ function insertPiece(
 	entityId: string,
 	definition: TPieceDefinition,
 	params: Record<string, number>,
-	layout: TPieceLayout
+	layout: TPieceLayout,
+	isPlaced = true
 ): void {
 	const bounds = shapesBounds(layout.shapes);
 	let rotorIndex = -1;
@@ -622,15 +784,13 @@ function insertPiece(
 			motion: [{ time, angle: layout.rotor.angle }]
 		});
 	}
-	state.pieces.push({ entityId, definition, params, shapes: layout.shapes, bounds, rotorIndex });
+	state.pieces.push({ entityId, definition, params, shapes: layout.shapes, bounds, rotorIndex, key: '' });
 	state.pieceHandles.push([]);
 	const index = state.pieces.length - 1;
 	if (layout.rotor != null) addRotorBody(world, state, index, layout);
 	else addPieceColliders(world, state, index);
-	state.lowestPieceY = Math.min(
-		state.lowestPieceY,
-		layout.box != null ? layout.box.cy : bounds.minY
-	);
+	// Static pieces count through `TPlan.staticLowY`
+	if (isPlaced) state.lowestPieceY = Math.min(state.lowestPieceY, lowPointOf(layout));
 }
 
 function addPieceColliders(world: RAPIER.World, state: TRunState, index: number): void {
@@ -786,7 +946,7 @@ function parkPieces(world: RAPIER.World, plan: TPlan, state: TRunState): void {
 		// A collision can at most add the fastest marble's speed, so twice that bounds the next distance
 		const speed = 2 * fastest + 1;
 		const reach =
-			speed * horizon - 0.5 * GRAVITY_Y * horizon * horizon + marble.radius + PARKING_MARGIN;
+			speed * horizon - 0.5 * plan.gravity * horizon * horizon + marble.radius + PARKING_MARGIN;
 		reachable.push({ x: sample.position.x, y: sample.position.y, reach });
 	}
 	for (let index = 0; index < state.pieces.length; index++) {
@@ -835,7 +995,7 @@ function processEvent(world: RAPIER.World, plan: TPlan, state: TRunState, event:
 		dot: null,
 		velocity: null
 	};
-	if (event.time !== event.hitTime) unreached.piece.entryTime = event.time;
+	if (event.isAnchor) unreached.piece.entryTime = event.time;
 	if (
 		marble == null ||
 		run == null ||
@@ -850,20 +1010,22 @@ function processEvent(world: RAPIER.World, plan: TPlan, state: TRunState, event:
 	const { position, velocity } = ballistic(
 		last.position,
 		last.velocity,
-		Math.max(0, event.time - last.time)
+		Math.max(0, event.time - last.time),
+		plan.gravity
 	);
-	const layout = layoutAtMarble(
-		{
-			type: event.definition.type,
-			params: event.params,
-			path: event.path,
-			angle: event.angle,
-			contactAt: event.contactAt,
-			marbleRadius: marble.radius
-		},
-		position,
-		velocity
-	);
+	const input: TLayoutInput = {
+		type: event.definition.type,
+		params: event.params,
+		path: event.path,
+		angle: event.angle,
+		contactAt: event.contactAt,
+		marbleRadius: marble.radius
+	};
+	// An anchor with an offset keeps its pose relative to the marble; others touch the marble
+	const layout =
+		event.offset != null
+			? layoutFree(input, { x: position.x + event.offset.x, y: position.y + event.offset.y })
+			: layoutAtMarble(input, position, velocity);
 	const isBlocked = isLayoutBlocked(plan, state, layout, event.time);
 	const resolved = resolvedFromLayout(
 		event.entityId,
@@ -1088,13 +1250,13 @@ function recordPieceContact(
 	let velocity = (pre ?? last)?.velocity ?? { x: 0, y: 0 };
 	if (pre != null) {
 		const gap = (tau: number): number => {
-			const { position } = ballistic(pre.position, pre.velocity, tau);
+			const { position } = ballistic(pre.position, pre.velocity, tau, plan.gravity);
 			return shapeDistance(shape, position.x, position.y) - marble.radius;
 		};
 		const tau = findFirstRoot(gap, 3 * DT);
 		if (tau != null) {
 			time = pre.time + tau;
-			const flight = ballistic(pre.position, pre.velocity, tau);
+			const flight = ballistic(pre.position, pre.velocity, tau, plan.gravity);
 			centre = flight.position;
 			velocity = flight.velocity;
 		}
@@ -1160,8 +1322,8 @@ function recordMarbleContact(plan: TPlan, state: TRunState, indexA: number, inde
 		const tau = findFirstRoot((t) => Math.hypot(dx + vx * t, dy + vy * t) - reach, 3 * DT);
 		if (tau != null) {
 			time = preA.time + tau;
-			a = ballistic(preA.position, preA.velocity, tau).position;
-			b = ballistic(preB.position, preB.velocity, tau).position;
+			a = ballistic(preA.position, preA.velocity, tau, plan.gravity).position;
+			b = ballistic(preB.position, preB.velocity, tau, plan.gravity).position;
 		}
 	}
 	const share = marbleA.radius / reach;
@@ -1243,13 +1405,15 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 	for (const entity of project.entities) {
 		const { hitLink } = entity.components;
 		const piece = pieceById.get(entity.id);
-		// Follower rails and tunnels do not sound their hit
-		if (hitLink == null || piece == null || isFollowerPiece(piece.params)) continue;
+		// Scenery never sounds its hit
+		if (hitLink == null || piece == null || !soundsHit(piece.type, hitLink)) continue;
 		const key = `${hitLink.laneId}/${hitLink.hitId}`;
 		if (!linkByHit.has(key)) linkByHit.set(key, entity.id);
 	}
 
 	const hits: THitResult[] = [];
+	// Speeds scale with gravity, so the strike threshold does too
+	const impactSpeed = IMPACT_SPEED * (plan.gravity / gravityOf({}));
 	for (const lane of project.music.lanes) {
 		const band = frameBand(project, lane.id);
 		const marbleIndex = plan.marbles.findIndex((marble) => marble.laneId === lane.id);
@@ -1259,7 +1423,8 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 			const pieceEntityId = linkByHit.get(`${lane.id}/${hit.id}`) ?? null;
 			const piece = pieceEntityId != null ? pieceById.get(pieceEntityId) : undefined;
 			const placement = pieceEntityId != null ? state.placements.get(pieceEntityId) : undefined;
-			const onTrajectory = placement?.dot != null ? null : trajectoryAt(samples, hit.time);
+			const onTrajectory =
+				placement?.dot != null ? null : trajectoryAt(samples, hit.time, plan.gravity);
 			const result: THitResult = {
 				laneId: lane.id,
 				hitId: hit.id,
@@ -1301,7 +1466,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 							? 'drifting'
 							: 'missed';
 				// A marble that arrives resting or rolling sounds no note
-				if (result.status !== 'missed' && (contact.speed ?? Infinity) < IMPACT_SPEED) {
+				if (result.status !== 'missed' && (contact.speed ?? Infinity) < impactSpeed) {
 					result.status = 'missed';
 					result.reason = 'resting';
 				}
@@ -1346,17 +1511,21 @@ function rotorMotion(plan: TPlan, rotor: TRotorRun): TPieceMotionSample[] {
 	];
 }
 
-/** Marble state at `time`, extrapolated along free flight from the sample at or before it */
+/**
+ * Marble state at `time`, extrapolated along free flight from the sample at or before it. Pass the project's
+ * gravity (`gravityOf`) for exact values; the extrapolation never spans more than one physics step.
+ */
 export function trajectoryAt(
 	samples: TMarbleSample[],
-	time: number
+	time: number,
+	gravity?: number
 ): { position: TVec2; velocity: TVec2 } | null {
 	const first = samples[0];
 	if (first == null) return null;
 	const index = Math.floor(time * PHYSICS_HZ + STEP_EPSILON) - Math.round(first.time * PHYSICS_HZ);
 	const sample = samples[index];
 	if (sample == null) return null;
-	return ballistic(sample.position, sample.velocity, Math.max(0, time - sample.time));
+	return ballistic(sample.position, sample.velocity, Math.max(0, time - sample.time), gravity);
 }
 
 // Signatures

@@ -12,3 +12,4 @@ export * from './simulate';
 export * from './types';
 export * from './request-queue';
 export * from './worker-protocol';
+export * from './attach';

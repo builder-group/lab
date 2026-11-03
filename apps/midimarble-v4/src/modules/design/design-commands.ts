@@ -1,6 +1,6 @@
 import type { TLibraryItem } from '@/modules/library';
 import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
-import { frameBand, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
+import { frameBand, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 
 // Project edits made from the Design workspace. Each function returns the commands of one undoable edit.
 
@@ -122,7 +122,7 @@ export function previewPointToWall(
 	const band = frameBand(project);
 	const marble = project.entities.find((entity) => entity.components.marble != null);
 	const track = result?.marbles.find((item) => item.entityId === marble?.id);
-	const focus = (track == null ? null : trajectoryAt(track.samples, time)?.position) ?? marble?.components.release?.position ?? { x: band.centerX, y: 0 };
+	const focus = (track == null ? null : trajectoryAt(track.samples, time, gravityOf(project))?.position) ?? marble?.components.release?.position ?? { x: band.centerX, y: 0 };
 	const width = band.halfWidth * 2;
 	const height = width * (project.frame.height / project.frame.width);
 	return { x: band.centerX + (u - 0.5) * width, y: focus.y - (v - 0.5) * height };

@@ -120,11 +120,64 @@ describe('migrations', () => {
 				hitLink: { laneId: firstLaneId(project), hitId: 'hit-1', angle: 0, contactAt: 0.5, pinned: false }
 			}
 		};
-		const legacy = { ...project, $schema: 'marble-project@1', entities: [...project.entities, piece] };
+		const { physics: _physics, ...older } = project;
+		const legacy = { ...older, $schema: 'marble-project@1', entities: [...project.entities, piece] };
 		const [isParsedOk, parsedErr, parsed] = parseProject(JSON.stringify(legacy));
 		expect(parsedErr).toBeUndefined();
 		expect(isParsedOk).toBe(true);
-		expect(parsed?.$schema).toBe('marble-project@2');
+		expect(parsed?.$schema).toBe('marble-project@3');
 		expect(parsed?.entities.find((entity) => entity.id === 'piece-1')?.components.piece?.params['bounce']).toBe(0.55);
+	});
+
+	it('turns version 2 windmills and rails on hits into scenery anchored at the same moment', () => {
+		const project = createProject();
+		const laneId = firstLaneId(project);
+		const lane = project.music.lanes[0];
+		if (lane == null) throw new Error('No lane');
+		lane.hits = [
+			{ id: 'hit-1', time: 0.5 },
+			{ id: 'hit-2', time: 0.8 },
+			{ id: 'hit-3', time: 3.5 }
+		];
+		const linked = (id: string, type: string, hitId: string, params: Record<string, number>) => ({
+			id,
+			components: {
+				piece: { type, params },
+				hitLink: { laneId, hitId, angle: 0.2, contactAt: 0.5, pinned: false }
+			}
+		});
+		const { physics: _physics, ...older } = project;
+		const legacy = {
+			...older,
+			$schema: 'marble-project@2',
+			entities: [
+				...project.entities,
+				linked('windmill-1', 'windmill', 'hit-2', { bladeCount: 4 }),
+				linked('first', 'windmill', 'hit-1', {}),
+				linked('far', 'rail', 'hit-3', { radius: 0.003 }),
+				linked('follower', 'rail', 'hit-1', { entryDelay: 0.2 }),
+				linked('platform', 'platform', 'hit-2', { length: 0.09 })
+			]
+		};
+		const [isParsedOk, parsedErr, parsed] = parseProject(JSON.stringify(legacy));
+		expect(parsedErr).toBeUndefined();
+		expect(isParsedOk).toBe(true);
+		expect(parsed?.$schema).toBe('marble-project@3');
+		// Older runs keep Earth gravity
+		expect(parsed?.physics).toEqual({ gravityScale: 1 });
+		const find = (id: string) => parsed?.entities.find((entity) => entity.id === id)?.components;
+		// Anchored to the previous hit with the gap as its delay: the same moment, and hit 2 is left open
+		expect(find('windmill-1')?.hitLink?.hitId).toBe('hit-1');
+		expect(find('windmill-1')?.piece?.params['entryDelay']).toBeCloseTo(0.3, 9);
+		expect(find('windmill-1')?.piece?.params['bladeCount']).toBe(4);
+		// Without an earlier hit, or one within 2 s, the anchor stays at its own hit's time
+		expect(find('first')?.hitLink?.hitId).toBe('hit-1');
+		expect(find('first')?.piece?.params['entryDelay']).toBe(0);
+		expect(find('far')?.hitLink?.hitId).toBe('hit-3');
+		// Followers and platforms are unchanged
+		expect(find('follower')?.hitLink?.hitId).toBe('hit-1');
+		expect(find('follower')?.piece?.params['entryDelay']).toBe(0.2);
+		expect(find('platform')?.hitLink?.hitId).toBe('hit-2');
+		expect(find('platform')?.piece?.params['entryDelay']).toBeUndefined();
 	});
 });

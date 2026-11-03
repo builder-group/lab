@@ -1,4 +1,5 @@
 import type { TProject, TVec2 } from '@/modules/project';
+import { gravityOf } from './geometry';
 import { trajectoryAt } from './simulate';
 import type { TMarbleSample, TSimulationResult } from './types';
 
@@ -106,9 +107,9 @@ export function checkLoop(project: TProject, result: TSimulationResult, loop: TL
 			issues.push({ kind: 'lateRelease', marbleEntityId: track.entityId });
 			continue;
 		}
-		const atStart = trajectoryAt(track.samples, loop.start);
+		const atStart = trajectoryAt(track.samples, loop.start, gravityOf(project));
 		const ghost = loop.ghosts.find((item) => item.marbleEntityId === track.entityId);
-		const ghostAtEnd = ghost != null ? trajectoryAt(ghost.samples, loop.end) : null;
+		const ghostAtEnd = ghost != null ? trajectoryAt(ghost.samples, loop.end, gravityOf(project)) : null;
 		if (atStart == null || ghostAtEnd == null) {
 			issues.push({ kind: 'state', marbleEntityId: track.entityId, positionError: Infinity, velocityError: Infinity });
 			continue;
@@ -125,7 +126,7 @@ export function checkLoop(project: TProject, result: TSimulationResult, loop: TL
 			issues.push({ kind: 'entry', marbleEntityId: track.entityId, contactTime: firstContact.time });
 
 		// A marble whose samples ended fell out of the world; otherwise it must be far from where the ghost is
-		const atEnd = trajectoryAt(track.samples, loop.end);
+		const atEnd = trajectoryAt(track.samples, loop.end, gravityOf(project));
 		if (atEnd != null && distance(atEnd.position, atStart.position) < reach)
 			issues.push({ kind: 'stillInView', marbleEntityId: track.entityId, distance: distance(atEnd.position, atStart.position) });
 	}

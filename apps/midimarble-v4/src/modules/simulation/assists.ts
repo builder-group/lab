@@ -8,10 +8,10 @@ import {
 	type TVec2
 } from '@/modules/project';
 import { pathGap, resolvedPieceShapes, shapesGap } from './clearance';
-import { GRAVITY_Y, surfaceNormal } from './geometry';
+import { GRAVITY_Y, gravityOf, surfaceNormal } from './geometry';
 import { descentPace, longGapThreshold, paceAt, takeoffSpeed } from './pace';
 import { layoutOf } from './piece-layout';
-import { getPieceDefinition, isFollowerPiece, resolvePieceParams } from './pieces';
+import { getPieceDefinition, isMusicalPiece, resolvePieceParams, soundsHit } from './pieces';
 import { createLinkedPiece, frameBand, type TFrameBand } from './placement';
 import { wrapAngle, type TPieceShape } from './shapes';
 import {
@@ -163,7 +163,7 @@ export interface TAutoPlaceOptions extends TAssistIdOptions {
 	 * −60° to 60° when nothing in it passes.
 	 */
 	range?: [number, number];
-	/** Piece type for a hit without a piece */
+	/** Piece type for a hit without a piece; it must sound hits, so scenery types are refused */
 	type?: string;
 }
 
@@ -242,6 +242,8 @@ const LAUNCH_TRAVEL = 4 / 3;
 const LAST_HIT_HORIZON = 0.5;
 const LAUNCH_HORIZON = 0.3;
 const LAUNCH_TAKEOFF = 1.2;
+// Least falling speed at a hit that launches into a long gap, at Earth's gravity: half the launch takeoff
+const LAUNCH_ARRIVAL = 0.6;
 const MIN_ARRIVAL = 1;
 const PACE_TOLERANCE = 0.02;
 const PACE_SLACK = 0.05;
@@ -289,6 +291,8 @@ export function autoPlace(
 	const hit = lane?.hits[index];
 	if (lane == null || hit == null)
 		return Err(new Error(`Hit ${hitId} does not exist in lane ${laneId}`));
+	if (!isMusicalPiece(type))
+		return Err(new Error(`${getPieceDefinition(type)?.label ?? type} is scenery and never sounds a hit`));
 	const hitResult = findHitResult(result, laneId, hitId);
 	const dot = hitResult?.dot;
 	if (dot == null) return Err(new Error('The marble does not reach this hit'));
@@ -313,11 +317,15 @@ export function autoPlace(
 	const pace = result.pace ?? descentPace(project, result.hits);
 	const isBox = layoutOf(baseType) === 'box';
 	const bounceSpec = getPieceDefinition(baseType)?.params['bounce'];
+	// Speeds scale with the project's gravity, and so do the speed thresholds below
+	const g = -gravityOf(project);
+	const speedScale = g / -GRAVITY_Y;
 	// One marble can be followed by the camera itself and keeps the steady descent of its default bounce,
 	// which is the pace rate for a regular rhythm; several marbles must keep to the shared pace
 	const isShared = project.entities.filter((entity) => entity.components.marble != null).length > 1;
 	const isPaced = isShared && isBox;
-	if (nextHit != null && !isPaced) base = withSettlingBounce(base, velocity, nextHit.time - hit.time);
+	if (nextHit != null && !isPaced)
+		base = withSettlingBounce(base, velocity, nextHit.time - hit.time, g);
 	const interval = nextHit != null ? nextHit.time - hit.time : 0;
 	// Where the next dot should be, and how far from y* it may end up: a dot above the pace returns to it,
 	// and a dot below recovers half its offset per hit and still drops at least `MIN_DROP_SHARE` of the
@@ -339,20 +347,27 @@ export function autoPlace(
 		!isBox || bounceSpec == null
 			? null
 			: isLaunch
-				? LAUNCH_TAKEOFF
+				? LAUNCH_TAKEOFF * Math.sqrt(speedScale)
 				: nextHit != null && isPaced
 					? Math.min(
-							-GRAVITY_Y * interval - MIN_ARRIVAL,
+							g * interval - MIN_ARRIVAL * speedScale,
 							targetY != null
-								? takeoffSpeed(dot.y, targetY, interval)
-								: (-GRAVITY_Y * interval * bounceSpec.default) / (1 + bounceSpec.default)
+								? takeoffSpeed(dot.y, targetY, interval, g)
+								: (g * interval * bounceSpec.default) / (1 + bounceSpec.default)
 						)
 					: null;
 	const band = frameBand(project, laneId);
 	const dotShare = 0.9;
 	// The next strike must come from above. Several marbles in narrow lanes need it firm, so a slow
 	// arrival cannot end as a resting contact; one marble only needs it falling.
-	const fallingSpeed = isShared ? IMPACT_SPEED : 0;
+	// A next hit that launches into a long gap needs a firm strike to throw the marble; a slow arrival there
+	// ends resting on the piece and nothing can bridge the gap
+	const afterNext = nextHit != null ? (lane.hits[index + 2] ?? null) : null;
+	const isNextLaunch = nextHit != null && afterNext != null && afterNext.time - nextHit.time > longGap;
+	const fallingSpeed = Math.max(
+		isShared ? IMPACT_SPEED * speedScale : 0,
+		isNextLaunch ? LAUNCH_ARRIVAL * Math.sqrt(speedScale) : 0
+	);
 	const until =
 		nextHit != null
 			? nextHit.time + 0.02
@@ -547,7 +562,7 @@ export function autoPlace(
 		const target = targetY != null ? targetY + shift : null;
 		const lift =
 			takeoff != null && target != null && shift !== 0
-				? Math.min(-GRAVITY_Y * interval - MIN_ARRIVAL, takeoffSpeed(dot.y, target, interval))
+				? Math.min(g * interval - MIN_ARRIVAL * speedScale, takeoffSpeed(dot.y, target, interval, g))
 				: takeoff;
 		const solved =
 			lift != null && bounceSpec != null ? paceBounce(velocity, angle, lift, bounceSpec) : null;
@@ -597,7 +612,7 @@ export function autoPlace(
 	coarse ??= search(steps(near[0], near[1], step * DEGREE), null, near, 0, step);
 	// A fast arrival turns every degree of tilt into several centimetres of travel per tenth of a second
 	const flat: [number, number] = [-3 * DEGREE, 3 * DEGREE];
-	if (coarse == null && Math.hypot(velocity?.x ?? 0, velocity?.y ?? 0) > FAST_ARRIVAL) {
+	if (coarse == null && Math.hypot(velocity?.x ?? 0, velocity?.y ?? 0) > FAST_ARRIVAL * speedScale) {
 		coarse = search(steps(flat[0], flat[1], DEGREE / 4), null, flat, 0, 0.25);
 	}
 	// Higher and lower arcs pass crowded pieces differently; the pace check still bounds them
@@ -750,7 +765,8 @@ const ANGLE_TOLERANCE = 0.5 * DEGREE;
  * Ghost pieces that continue the lane's recent pattern. The last two to four placed pieces must repeat
  * one angle or alternate it mirrored, and each following open hit must keep the rhythm: its
  * inter-onset interval matches the interval one pattern period earlier. Ghosts stop before a hit that
- * starts a long gap, which needs a launch from Auto place, and after one, and with several marbles before a
+ * starts a long gap, which needs a launch from Auto place, before the hit ahead of it, which must strike the
+ * launch firmly, and after one, and with several marbles before a
  * lane's last hit, whose fall past the other lanes Auto place checks. The ghosts are verified in one
  * simulation and cut after the first that misses, leaves the lane's frame band or, when several marbles
  * share the frame, ends further from the pace y* than the limit (or than the open dot already is, plus a
@@ -816,6 +832,10 @@ export function continueSuggestions(
 		if (owners.has(hit.id)) break;
 		const following = lane.hits[k + 1];
 		if (following != null && following.time - hit.time > longGap) break;
+		// The piece before a launch sets how firmly the launch hit is struck, which Auto place checks
+		const afterFollowing = lane.hits[k + 2];
+		if (following != null && afterFollowing != null && afterFollowing.time - following.time > longGap)
+			break;
 		// With several marbles a lane's last hit needs Auto place's check of the fall after it
 		if (following == null && isSharedFrame) break;
 		const interval = hit.time - previous.time;
@@ -974,14 +994,14 @@ export function openLongGaps(project: TProject, laneId: string): TLongGap[] {
 
 // Shared helpers
 
-/** Pieces that sound each hit of the lane: linked, not followers */
+/** Pieces that sound each hit of the lane: linked musical pieces (platforms), never scenery */
 export function hitOwners(project: TProject, laneId: string): Map<string, TEntity> {
 	const owners = new Map<string, TEntity>();
 	for (const entity of project.entities) {
 		const { piece, hitLink } = entity.components;
 		if (piece == null || hitLink == null || hitLink.laneId !== laneId) continue;
 		if (getPieceDefinition(piece.type) == null) continue;
-		if (isFollowerPiece(resolvePieceParams(piece.type, piece.params))) continue;
+		if (!soundsHit(piece.type, hitLink)) continue;
 		if (!owners.has(hitLink.hitId)) owners.set(hitLink.hitId, entity);
 	}
 	return owners;
@@ -1027,11 +1047,16 @@ function isOnTime(status: THitStatus | undefined): boolean {
  * hit, where the default bounce alone would leave the marble rising at the next hits for many more.
  * Pieces without a `bounce` parameter are unchanged.
  */
-function withSettlingBounce(entity: TEntity, velocity: TVec2 | null, interval: number): TEntity {
+function withSettlingBounce(
+	entity: TEntity,
+	velocity: TVec2 | null,
+	interval: number,
+	g = -GRAVITY_Y
+): TEntity {
 	const { piece } = entity.components;
 	const spec = piece != null ? getPieceDefinition(piece.type)?.params['bounce'] : undefined;
 	if (piece == null || spec == null || velocity == null) return entity;
-	const steady = (-GRAVITY_Y * interval) / (1 + spec.default);
+	const steady = (g * interval) / (1 + spec.default);
 	const speed = -velocity.y;
 	const bounce =
 		speed > 0 ? Math.min(spec.max, Math.max(spec.min, (spec.default * steady) / speed)) : spec.max;
@@ -1087,8 +1112,8 @@ function withAngle(entity: TEntity, angle: number): TEntity {
 }
 
 /**
- * True when, between the hit and `until`, the lane's marble touches another piece or marble, or another
- * marble touches the piece. Another marble counts only up to `frontiers`, its next open hit: after that
+ * True when, between the hit and `until`, the lane's marble touches another hit piece or marble, or another
+ * marble touches the piece. Free, anchored and scenery pieces are environment and may be struck. Another marble counts only up to `frontiers`, its next open hit: after that
  * it flies freely until its own next piece exists.
  */
 function hasStrayContact(
@@ -1101,6 +1126,15 @@ function hasStrayContact(
 	frontiers: Map<string, number> = new Map()
 ): boolean {
 	const marble = project.entities.find((entity) => entity.components.marble?.laneId === laneId);
+	// Free, anchored and scenery pieces are environment the marble may strike; only hit pieces are stray
+	const environment = new Set(
+		project.entities
+			.filter((entity) => {
+				const { piece, hitLink } = entity.components;
+				return piece != null && entity.id !== entityId && !soundsHit(piece.type, hitLink);
+			})
+			.map((entity) => entity.id)
+	);
 	return result.contacts.some((contact) => {
 		if (contact.time <= from + 0.005 || contact.time >= until - 0.03) return false;
 		if (contact.marbleEntityId !== marble?.id) {
@@ -1109,6 +1143,7 @@ function hasStrayContact(
 		}
 		if (contact.kind === 'marble' && contact.time > (frontiers.get(contact.otherEntityId) ?? Infinity))
 			return false;
+		if (contact.kind === 'piece' && environment.has(contact.otherEntityId)) return false;
 		return contact.otherEntityId !== entityId;
 	});
 }

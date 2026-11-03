@@ -7,6 +7,9 @@ import type { TPieceDefinition } from './types';
  */
 export const KIT_SCALE = 1.5;
 
+/** Longest time after its hit that an anchored piece may follow the trajectory */
+export const ANCHOR_DELAY = 10;
+
 function kit(value: number): number {
 	return Math.round(value * KIT_SCALE * 1e6) / 1e6;
 }
@@ -26,11 +29,13 @@ export const platformDefinition: TPieceDefinition = {
 		length: { default: kit(0.06), min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
 		thickness: { default: kit(0.008), min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
 		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
-		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' }
+		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' },
+		entryDelay: { default: 0, min: 0, max: ANCHOR_DELAY, label: 'Anchor after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.55,
-	friction: 0.3
+	friction: 0.3,
+	musical: true
 };
 
 /**
@@ -44,7 +49,7 @@ export const railDefinition: TPieceDefinition = {
 	params: {
 		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
 		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Wire gap', unit: 'm' },
-		entryDelay: { default: 0, min: 0, max: 2, label: 'Entry after hit', unit: 's' }
+		entryDelay: { default: 0, min: 0, max: ANCHOR_DELAY, label: 'Entry after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.15,
@@ -68,7 +73,7 @@ export const tunnelDefinition: TPieceDefinition = {
 		radius: { default: kit(0.002), min: 0.001, max: 0.006, label: 'Wall radius', unit: 'm' },
 		bore: { default: kit(0.004), min: 0.001, max: 0.02, label: 'Clearance', unit: 'm' },
 		mouth: { default: kit(0.03), min: 0.01, max: 0.1, label: 'Mouth', unit: 'm' },
-		entryDelay: { default: 0, min: 0, max: 2, label: 'Entry after hit', unit: 's' }
+		entryDelay: { default: 0, min: 0, max: ANCHOR_DELAY, label: 'Entry after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.15,
@@ -96,7 +101,8 @@ export const windmillDefinition: TPieceDefinition = {
 		damping: { default: 0.5, min: 0, max: 10, label: 'Damping', unit: '' },
 		motorSpeed: { default: 0, min: -20, max: 20, label: 'Motor speed', unit: 'rad/s' },
 		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
-		bounce: { default: 0.5, min: 0.2, max: 0.95, label: 'Bounce', unit: '' }
+		bounce: { default: 0.5, min: 0.2, max: 0.95, label: 'Bounce', unit: '' },
+		entryDelay: { default: 0, min: 0, max: ANCHOR_DELAY, label: 'Entry after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.5,
@@ -105,10 +111,12 @@ export const windmillDefinition: TPieceDefinition = {
 };
 
 /**
- * Holder for long gaps: wire legs stacked between two walls, sloping alternately left and right. The
- * marble drops in at the top, rolls down a leg, falls through the `opening` at its low end onto the next
- * leg, bumps the wall and rolls back the other way, and leaves through the opening of the last leg, so it
- * stays in a narrow column for a predictable time. The linked hit's `angle` sets the leg slope, with its
+ * Holder for long gaps: wire legs stacked in a column, sloping alternately left and right. Each leg is one
+ * bent wire: a wall comes down on its high side and turns through a rounded bend of radius `bend` into the
+ * leg. The marble drops in at the top, rolls down a leg, falls through the `opening` at its low end against
+ * the next leg's wall, rolls up that leg's bend and back down the leg the other way, and leaves through the
+ * opening of the last leg past a short stop, so it stays in a narrow column for a predictable time. A bend
+ * of 0 gives sharp corners. The linked hit's `angle` sets the leg slope, with its
  * sign the direction of the first leg like a rail (negative runs downhill to +x), and `contactAt` where
  * the marble enters across the top, from the first leg's high end (0) to its low end (1). The wall the
  * marble moves toward rises `lip` above the others to catch a sideways entry.
@@ -122,8 +130,9 @@ export const switchbackDefinition: TPieceDefinition = {
 		drop: { default: kit(0.035), min: 0.026, max: 0.15, label: 'Leg spacing', unit: 'm' },
 		opening: { default: kit(0.032), min: 0.026, max: 0.09, label: 'Opening', unit: 'm' },
 		lip: { default: kit(0.04), min: 0, max: 0.15, label: 'Catch lip', unit: 'm' },
+		bend: { default: 0.04, min: 0, max: 0.08, label: 'Bend radius', unit: 'm' },
 		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Wire radius', unit: 'm' },
-		entryDelay: { default: 0, min: 0, max: 2, label: 'Entry after hit', unit: 's' }
+		entryDelay: { default: 0, min: 0, max: ANCHOR_DELAY, label: 'Entry after hit', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.15,
@@ -174,8 +183,21 @@ export function resolvePiecePath(type: string, points: TVec2[] | undefined): TVe
 }
 
 /**
- * Pieces that follow a hit instead of sounding it: a rail, tunnel or switchback entered `entryDelay`
- * seconds after its linked hit. The hit keeps its own piece.
+ * Pieces that sound the hit they are linked to: platforms. Windmills, rails, tunnels and switchbacks are
+ * scenery; their hit link anchors them to the trajectory `entryDelay` seconds after the hit.
+ */
+export function isMusicalPiece(type: string): boolean {
+	return getPieceDefinition(type)?.musical === true;
+}
+
+/** True when a linked piece sounds its hit: a musical piece that is linked, not anchored */
+export function soundsHit(type: string, hitLink: { anchored?: boolean } | undefined): boolean {
+	return hitLink != null && hitLink.anchored !== true && isMusicalPiece(type);
+}
+
+/**
+ * Linked pieces entered `entryDelay` seconds after their hit. Scenery never sounds a hit whatever its delay,
+ * so `isMusicalPiece` decides which pieces own hits.
  */
 export function isFollowerPiece(params: Record<string, number>): boolean {
 	return (params['entryDelay'] ?? 0) > 0;

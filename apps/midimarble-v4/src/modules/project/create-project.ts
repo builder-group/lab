@@ -5,6 +5,11 @@ import type { TEntity, TLane, TProject } from './schema';
  * the reference film's size; piece defaults follow `KIT_SCALE` in the simulation's piece definitions.
  */
 export const DEFAULT_MARBLE_RADIUS = 0.012;
+/**
+ * Gravity of new projects as a share of Earth's. Chosen by measurement so a default-kit zigzag hops about one
+ * bar length per hit like the reference film; see `progress.md`.
+ */
+export const DEFAULT_GRAVITY_SCALE = 0.5;
 /** Distance between the releases of neighbouring marbles, and between their lanes' bands in the frame */
 export const LANE_SPACING = 0.26;
 
@@ -17,7 +22,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 	const { title = 'Untitled', id = createId('project') } = options;
 	const lane = createLane(0);
 	return {
-		$schema: 'marble-project@2',
+		$schema: 'marble-project@3',
 		id,
 		title,
 		revision: 0,
@@ -25,6 +30,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 		end: 12,
 		music: { sources: [], lanes: [lane] },
 		entities: [createMarble(lane, { x: 0, y: 0.6 })],
+		physics: { gravityScale: DEFAULT_GRAVITY_SCALE },
 		design: {
 			theme: 'pegboard',
 			renderPreset: 'balanced',

@@ -31,6 +31,7 @@ const CONTINUE_TILT = 0.45;
 
 function zigzagStart(hitTimes: number[], tilt = TILT): TProject {
 	const project = createBareRunProject({
+		gravityScale: 1,
 		id: 'assists',
 		title: 'Assists',
 		end: 4,
@@ -123,6 +124,7 @@ describe('assists', () => {
 		expect(mirrored?.commands).toEqual([{ type: 'upsertEntity', entity: mirrored?.entity }]);
 
 		const empty = createBareRunProject({
+		gravityScale: 1,
 			id: 'empty',
 			title: 'Empty',
 			end: 1,
@@ -189,6 +191,7 @@ describe('assists', () => {
 	it('auto places a bare run with sideways travel and clear pieces up to the last hit', () => {
 		for (const gap of [0.2, 0.3, 0.45]) {
 			const bare = createBareRunProject({
+		gravityScale: 1,
 				id: 'bare',
 				title: 'Bare',
 				end: 4,
@@ -258,6 +261,7 @@ describe('assists', () => {
 
 	it('stops Continue at the first ghost that leaves the frame', () => {
 		const project = createBareRunProject({
+		gravityScale: 1,
 			id: 'drift',
 			title: 'Drift',
 			end: 4,
@@ -361,17 +365,19 @@ describe('assists', () => {
 		expect(mirrored.components.hitLink?.contactAt).toBe(held.entity.components.hitLink?.contactAt);
 	});
 
-	it('stops Continue before the hit that launches into a long gap', () => {
+	it('stops Continue before the hit ahead of a launch into a long gap', () => {
+		// hit-1-5 launches into the gap, and hit-1-4's piece sets how firmly it is struck
 		const project = zigzagStart([0.15, 0.45, 0.75, 1.05, 1.35, 2.85]);
 		const continued = continueSuggestions(project, simulate(project), 'lane-1', {
 			simulate,
 			idFor: (hitId) => `ghost-${hitId}`
 		});
-		expect(continued?.suggestions.map((s) => s.hitId)).toEqual(['hit-1-3', 'hit-1-4']);
+		expect(continued?.suggestions.map((s) => s.hitId)).toEqual(['hit-1-3']);
 	});
 
 	it('auto places the first strikes of two marbles with different rhythms on one descent pace', () => {
 		let project = createBareRunProject({
+		gravityScale: 1,
 			id: 'duet',
 			title: 'Duet',
 			end: 3,

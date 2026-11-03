@@ -27,7 +27,8 @@ const DEGREE = Math.PI / 180;
 const SCALE = 1.5;
 const MARBLE_RADIUS = 0.008 * SCALE;
 const PLATFORM = { length: 0.06 * SCALE, thickness: 0.008 * SCALE, depth: 0.03 * SCALE };
-const GAP = 0.3;
+// At the default half gravity a 0.3 s zigzag hops about half a bar, so the bars would overlap
+const GAP = 0.4;
 // Skins per column and an original title per section. Titles are art-directed like a user would in Design: shifted
 // toward where the camera looks when the section starts and turned so they read level in the rolled film
 const SECTIONS = [
@@ -90,7 +91,7 @@ for (const [sectionIndex, section] of SECTIONS.entries()) {
 		project = apply(project, rail.commands);
 	}
 	// A tilted platform and its mirror start the zigzag; Continue repeats it
-	project = startZigzag(project, first, sectionIndex === 0 ? -0.3 : 0.3);
+	project = startZigzag(project, first, sectionIndex === 0 ? -0.45 : 0.45);
 	let placed = first + 1;
 	while (placed < last) {
 		const continued = continueSuggestions(project, simulate(project), LANE, {

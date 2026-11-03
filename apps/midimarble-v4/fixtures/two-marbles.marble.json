@@ -1,5 +1,5 @@
 {
-	"$schema": "marble-project@2",
+	"$schema": "marble-project@3",
 	"id": "two-marbles",
 	"title": "Two marbles",
 	"revision": 0,
@@ -108,13 +108,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.35
+						"bounce": 0.36,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-1",
-					"angle": -0.14835298641951802,
+					"angle": -0.2879793265790644,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -130,13 +131,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.34
+						"bounce": 0.35,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-1",
-					"angle": 0.13962634015954636,
+					"angle": 0.2879793265790644,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -152,13 +154,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.39,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-2",
-					"angle": 0.11344640137963143,
+					"angle": 0.20943951023931956,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -174,13 +177,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.87
+						"bounce": 0.73,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-2",
-					"angle": -0.017453292519943295,
+					"angle": -0.2617993877991494,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -196,13 +200,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-3",
-					"angle": -0.3490658503988659,
+					"angle": -0.10471975511965978,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -218,19 +223,23 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65
+						"bounce": 0.65,
+						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-3",
-					"angle": -0.05235987755982989,
+					"angle": 0.06981317007977318,
 					"contactAt": 0.5,
 					"pinned": false
 				}
 			}
 		}
 	],
+	"physics": {
+		"gravityScale": 0.5
+	},
 	"design": {
 		"theme": "pegboard",
 		"renderPreset": "balanced",

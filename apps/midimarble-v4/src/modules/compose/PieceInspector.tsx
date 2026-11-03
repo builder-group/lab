@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { InfoRow, InspectorHeader, Panel, ScrubField } from '@/components';
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { getPieceDefinition, resolvePiecePath, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { getPieceDefinition, isMusicalPiece, resolvePiecePath, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
@@ -143,7 +143,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 			{isSingle && isPath && link != null && resolved != null && result != null ? (
 				<RideSection project={project} piece={resolved} result={result} laneId={link.laneId} hitId={link.hitId} />
 			) : null}
-			{isSingle && link != null && !isPath ? (
+			{isSingle && link != null && !isPath && isMusicalPiece(type) ? (
 				<HitSection
 					project={project}
 					laneId={link.laneId}

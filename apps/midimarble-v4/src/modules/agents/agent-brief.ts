@@ -2,6 +2,7 @@ import type { TAssetRole } from '@/modules/library';
 import { DEFAULT_MARBLE_RADIUS, type TProject, type TVec2 } from '@/modules/project';
 import {
 	getPieceDefinition,
+	isMusicalPiece,
 	resolvePieceParams,
 	type TPieceLayoutKind,
 	type TSimulationResult
@@ -35,6 +36,7 @@ export type TAgentTarget =
 	| { kind: 'scene' }
 	| { kind: 'wall'; point: TVec2; role?: 'decoration' | 'text' };
 
+const TIMING_PARAMS = new Set(['entryDelay']);
 
 /** Builds the brief for a target from the project and its latest simulation result */
 export function buildAgentBrief(options: {
@@ -97,16 +99,27 @@ export function buildAgentBrief(options: {
 	}
 	const definition = getPieceDefinition(piece.type);
 	const resolved = resolvePieceParams(piece.type, piece.params);
-	const params = Object.entries(resolved).map(([name, value]) => ({
-		name,
-		label: definition?.params[name]?.label ?? name,
-		value: round(value),
-		unit: definition?.params[name]?.unit ?? ''
-	}));
+	// Timing parameters say when a piece enters the run, not what it looks like
+	const params = Object.entries(resolved)
+		.filter(([name]) => !TIMING_PARAMS.has(name))
+		.map(([name, value]) => ({
+			name,
+			label: definition?.params[name]?.label ?? name,
+			value: round(value),
+			unit: definition?.params[name]?.unit ?? ''
+		}));
 	const pose = result?.pieces.find((item) => item.entityId === entity.id) ?? null;
-	const hitTimes = (result?.hits ?? [])
-		.filter((hit) => hit.pieceEntityId === entity.id)
-		.map((hit) => round(hit.actualTime ?? hit.targetTime))
+	// Scenery sounds no hit, so its strikes are the contacts that start on it
+	const hitTimes = (
+		isMusicalPiece(piece.type)
+			? (result?.hits ?? [])
+					.filter((hit) => hit.pieceEntityId === entity.id)
+					.map((hit) => hit.actualTime ?? hit.targetTime)
+			: (result?.contacts ?? [])
+					.filter((contact) => contact.otherEntityId === entity.id)
+					.map((contact) => contact.time)
+	)
+		.map(round)
 		.sort((a, b) => a - b);
 	const pieceCount = project.entities.filter(
 		(item) => item.components.piece?.type === piece.type
@@ -158,9 +171,7 @@ function describeContact(
 	}
 }
 
-function reactionSlots(
-	layout: TPieceLayoutKind | undefined
-): TAgentBrief['reactionSlots'] {
+function reactionSlots(layout: TPieceLayoutKind | undefined): TAgentBrief['reactionSlots'] {
 	switch (layout ?? 'box') {
 		case 'box':
 			return [
