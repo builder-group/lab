@@ -18,7 +18,11 @@ Reference apps:
 
 ## Principles
 
-- **Playback looks like a video editor:** play, pause, previous and next hit and the time sit together in the timeline header, as in Final Cut and Premiere. The play triangle is reserved for playback; no other control uses a triangle or arrow glyph that could be mistaken for it, and assist actions carry text labels
+- **Little text:** labels stay short and explanations live behind a small question-mark icon with a tooltip, so panels stay compact. Icons are fine wherever they are unambiguous and carry a tooltip with the shortcut
+- **Figma-like panels:** the sidebar reads like Figma's layers panel and the inspector like Figma's properties panel: compact rows, clear hierarchy, no prose
+- **A real timeline:** the timeline behaves like a video editor or Blender's timeline and dope sheet: tracks with headers, a ruler with a draggable playhead, keyframe-style hits, transport in its header
+
+- **Playback looks like a video editor:** play, pause, previous and next hit and the time sit together in the timeline header, as in Final Cut and Premiere. The play triangle is reserved for playback; no other control uses a glyph that could be mistaken for it
 
 - **Familiar first:** a new user should recognize every control from another app
 - **Native:** system font, menus, context menus, light and dark appearance, standard shortcuts
