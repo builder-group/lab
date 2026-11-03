@@ -229,6 +229,7 @@ def skin_key(kind, entity, context):
             sorted((name, round(float(value), 6)) for name, value in (entity.get('params') or {}).items()),
             round(frame.wall_offset, 6), round(context['marbleRadius'], 6),
             [[round(value, 5) for value in point] for point in frame.local_path()],
+            [[[round(value, 5) for value in point] for point in wire] for wire in frame.local_wires()],
             math.copysign(1.0, frame.angle), sorted(piece_reaction(entity, context).items()), frame.finish,
         ]
     return hashlib.sha1(json.dumps(values).encode()).hexdigest()[:16]
@@ -298,7 +299,8 @@ def build_spec(kind, entity, context):
         return {'root': marble_mesh(entity, theme), 'parts': []}
     piece_type = entity.get('type', 'platform')
     frame = PieceFrame(entity, context)
-    builder = {'rail': rail_spec, 'tunnel': tunnel_spec, 'windmill': windmill_spec}.get(piece_type, platform_spec)
+    builder = {'rail': rail_spec, 'tunnel': tunnel_spec, 'windmill': windmill_spec,
+               'switchback': switchback_spec}.get(piece_type, platform_spec)
     return builder(frame, entity, theme)
 
 
@@ -339,6 +341,8 @@ class PieceFrame:
         position = piece.get('position') or {'x': 0.0, 'y': 0.0}
         self.origin = (float(position['x']), float(position['y']))
         self.path = [(float(point['x']), float(point['y'])) for point in (piece.get('path') or [])]
+        # Switchback wires: two walls, then the legs from the top
+        self.wires = [[(float(point['x']), float(point['y'])) for point in wire] for wire in (piece.get('paths') or [])]
         self.color = piece.get('color') or '#c8b89a'
         # Built-in brass skins are chosen with skin asset IDs `brass:<skin>`; other skins keep the theme default
         self.finish = brass_skin(piece)
@@ -351,6 +355,9 @@ class PieceFrame:
 
     def local_path(self):
         return [self.to_local(point) for point in self.path]
+
+    def local_wires(self):
+        return [[self.to_local(point) for point in wire] for wire in self.wires]
 
     def offset_path(self, distance):
         """World path pushed `distance` along its upward normal, in local wall coordinates"""
@@ -514,6 +521,54 @@ def rail_spec(frame, piece, theme):
     else:
         builder.box((0.02, gap, radius * 2), (0.0, frame.marble_y, 0.0))
     return {'root': builder.to_mesh('MM rail', [wire_material, post_material]), 'parts': []}
+
+
+def switchback_spec(frame, piece, theme):
+    """Switchback: sloped legs stacked between two walls. Each wire is a capsule of `radius` around its segment; the
+    marble rolls on the legs and bumps the walls.
+
+    Brass draws every wire as a pair of thin chrome wires like the rails, one on each side of the marble's plane and
+    set back so the marble touches both where it touches the capsule, with ties at the ends and posts to the wall.
+    Pegboard draws each wire as one toy-coloured rod on the capsule line with wooden pegs to the wall."""
+    wires = [wire for wire in frame.local_wires() if len(wire) >= 2]
+    physics_radius = frame.params.get('radius', 0.0025)
+    k = frame.marble_radius / 0.008
+    builder = MeshBuilder()
+    if not wires:
+        builder.box((0.02, 0.01, 0.004), (0.0, frame.marble_y, 0.0))
+        return {'root': builder.to_mesh('MM switchback', [themes.chrome_material()]), 'parts': []}
+    points = [point for wire in wires for point in wire]
+    centre = (sum(x for x, _ in points) / len(points), sum(z for _, z in points) / len(points))
+    if theme != 'brass':
+        for wire in wires:
+            builder.tube([(x, frame.marble_y, z) for x, z in wire], physics_radius * 0.9, material=0, sides=12)
+            for x, z in (wire[0], wire[-1]):
+                builder.cylinder(0.0028, frame.wall_y - frame.marble_y, (x, (frame.wall_y + frame.marble_y) / 2, z), axis='Y',
+                                 material=1)
+        materials = [themes.flat_material(frame.color, 0.35, 0.4), themes.wood_material()]
+        return {'root': builder.to_mesh('MM switchback', materials), 'parts': []}
+    # Thicker than rail wires: a switchback is seen from further away and its short legs must still read
+    radius = min(physics_radius, 0.0022 * k)
+    gap = 1.25 * frame.marble_radius
+    reach = frame.marble_radius + radius
+    half = min(gap / 2, reach * 0.95)
+    # Wire centres sit back from the capsule line so the marble rests on both wires where it would touch the capsule
+    setback = frame.marble_radius + physics_radius - math.sqrt(reach * reach - half * half)
+    for wire in wires:
+        (ax, az), (bx, bz) = wire[0], wire[-1]
+        length = math.hypot(bx - ax, bz - az) or 1.0
+        nx, nz = -(bz - az) / length, (bx - ax) / length
+        # The marble side of a wire faces the inside of the switchback
+        if (centre[0] - (ax + bx) / 2) * nx + (centre[1] - (az + bz) / 2) * nz < 0:
+            nx, nz = -nx, -nz
+        line = [(x - nx * setback, z - nz * setback) for x, z in wire]
+        for side in (-1, 1):
+            builder.tube([(x, frame.marble_y + side * half, z) for x, z in line], radius, material=0, sides=10)
+        for x, z in (line[0], line[-1]):
+            builder.tube([(x, frame.marble_y - half, z), (x, frame.marble_y + half, z)], radius * 0.8, material=0, sides=8)
+            builder.tube([(x, frame.marble_y + half, z), (x, frame.wall_y, z)], radius * 0.75, material=0, sides=8)
+            builder.cylinder(0.0035 * k, 0.0015 * k, (x, frame.wall_y - 0.00075 * k, z), axis='Y', material=0, bevel=0.0004 * k)
+    return {'root': builder.to_mesh('MM switchback', [themes.chrome_material()]), 'parts': []}
 
 
 def post_indices(line, spacing=0.08):

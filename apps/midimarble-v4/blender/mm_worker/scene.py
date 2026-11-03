@@ -474,7 +474,7 @@ def scene_bounds(marbles, marble_motion, pieces):
             half = float(params['bladeLength']) + float(params.get('hubRadius', 0.0))
         xs += [piece['position']['x'] - half, piece['position']['x'] + half]
         ys += [piece['position']['y'] - half, piece['position']['y'] + half]
-        for point in piece.get('path') or []:
+        for point in [*(piece.get('path') or []), *(point for wire in piece.get('paths') or [] for point in wire)]:
             xs.append(float(point['x']))
             ys.append(float(point['y']))
     if not xs:

@@ -58,10 +58,15 @@ LENS = 50.0
 # Readable maximum distance: a typical piece spans at least this fraction of the frame width, and the camera never
 # pulls back further than ZOOM_LIMIT times its set distance
 MIN_PIECE_FRACTION = 0.06
-ZOOM_LIMIT = 2.0
+ZOOM_LIMIT = 3.0
+# Fraction of the half frame width a framed group may use; side-by-side lanes may come closer to the sides than a
+# followed marble, which the camera keeps nearer the centre (FRAME_KEEP)
+GROUP_KEEP_X = 0.65
 SENSOR = 36.0
 # Seconds over which the camera eases between framing the group and following the focus marble
 GROUP_EASE = 1.2
+# A group that needs more than the readable distance for less than this many seconds stays framed
+GROUP_SPIKE = 0.3
 # A view ray that misses the wall counts this many camera heights away when sizing the wall
 FAR_REACH = 12.0
 CAMERA_PATHS = ('location', 'rotation_euler')
@@ -186,6 +191,7 @@ def in_flight_count(marbles, motions, times):
 def spread_need(marbles, motions, times, centre, lens):
     """Distance at which every marble in flight stays inside the framing box around the centre, per frame"""
     reach = SENSOR / 2 / lens * FRAME_KEEP
+    reach_x = SENSOR / 2 / lens * GROUP_KEEP_X * ASPECT_GUESS
     required = np.zeros(len(times))
     for marble in marbles:
         motion = motions.get(marble['id'])
@@ -194,9 +200,38 @@ def spread_need(marbles, motions, times, centre, lens):
         inside = (times >= motion[0, 0] - 1e-9) & (times <= motion[-1, 0] + 1e-9)
         dx = np.abs(np.interp(times, motion[:, 0], motion[:, 1]) - centre[:, 0])
         dy = np.abs(np.interp(times, motion[:, 0], motion[:, 2]) - centre[:, 1])
-        need = np.maximum(dx / (reach * ASPECT_GUESS), dy / reach) * 1.15
+        need = np.maximum(dx / reach_x, dy / reach) * 1.1
         required = np.maximum(required, np.where(inside, need, 0.0))
     return required
+
+
+def paced_height(marbles, motions, times, centre_y, descent):
+    """The group's height from the shared descent pace, which has no per-lane bounces. It applies while several
+    marbles are in flight within the curve's time range, and stays within a quarter of the marbles' vertical spread
+    from their midpoint, so a lane that briefly falls ahead does not pull the frame off the group."""
+    heights = [np.interp(times, motion[:, 0], motion[:, 2]) for motion in
+               (motions.get(marble['id']) for marble in marbles) if motion is not None and len(motion)]
+    if len(heights) < 2:
+        return centre_y
+    low, high = np.min(heights, axis=0), np.max(heights, axis=0)
+    middle, quarter = (low + high) / 2, (high - low) / 4
+    paced = np.clip(np.interp(times, descent[:, 0], descent[:, 1]), middle - quarter, middle + quarter)
+    covered = (times >= descent[0, 0]) & (times <= descent[-1, 0]) & (in_flight_count(marbles, motions, times) >= 2)
+    return np.where(covered, paced, centre_y)
+
+
+def without_short_runs(flags, shortest):
+    """`flags` with every run of True shorter than `shortest` samples cleared"""
+    result = flags.copy()
+    start = None
+    for index, flag in enumerate(list(flags) + [False]):
+        if flag and start is None:
+            start = index
+        elif not flag and start is not None:
+            if index - start < shortest:
+                result[start:index] = False
+            start = None
+    return result
 
 
 def held(values, fps, seconds, reduce=np.max):
@@ -217,18 +252,19 @@ def group_framing(marbles, motions, times, settings, fps, aspect):
         return None
     descent = settings.get('descent')
     if descent is not None:
-        # The shared pace is the group's height without the bounces of each lane
-        several = in_flight_count(marbles, motions, times) >= 2
-        centre[:, 1] = np.where(several, np.interp(times, descent[:, 0], descent[:, 1]), centre[:, 1])
-        several_ahead = in_flight_count(marbles, motions, times + settings['lead']) >= 2
-        ahead[:, 1] = np.where(several_ahead, np.interp(times + settings['lead'], descent[:, 0], descent[:, 1]), ahead[:, 1])
+        centre[:, 1] = paced_height(marbles, motions, times, centre[:, 1], descent)
+        ahead[:, 1] = paced_height(marbles, motions, times + settings['lead'], ahead[:, 1], descent)
     base, shot_roll = shot_values(times, settings['distance'], settings['shots'])
     limit = readable_distance(settings, aspect)
-    # Hold the widest need for a second so the zoom does not breathe with every bounce
-    need = held(spread_need(marbles, motions, times, centre, settings['lens']), fps, 1.0)
-    # The held need already leaves the group a second before it stops fitting, so the camera is on the focus marble
-    # when the zoom would top out, and ignores fits shorter than two seconds
-    fits = (need <= limit).astype(np.float64)
+    raw = spread_need(marbles, motions, times, centre, settings['lens'])
+    # Hold the widest need for a second so the zoom does not breathe with every bounce; a running median first drops
+    # momentary spikes, such as one marble's bounce peak, that the frame margins absorb
+    need = held(held(raw, fps, GROUP_SPIKE / 2, np.median), fps, 1.0)
+    # The group stops fitting where it would need more than the readable distance for longer than GROUP_SPIKE (the
+    # frame margins absorb a shorter excursion); the camera then leaves it a second early, so it is on the focus
+    # marble when the zoom would top out, and returns only when the group fits again for two seconds
+    over = without_short_runs(raw > limit, int(round(GROUP_SPIKE * fps)))
+    fits = 1.0 - held(over.astype(np.float64), fps, 1.0)
     weight = critically_damped(fits[:, None], fps, GROUP_EASE / 3)[:, 0]
     weight = np.clip(weight, 0.0, 1.0)
     group_distance = np.clip(need, base, np.maximum(base, limit))

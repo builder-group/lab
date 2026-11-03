@@ -107,6 +107,15 @@ Gaps found above, now:
 7. Continue before a long gap: closed. Ghosts stop before the launch hit.
 8. Resting hits: closed. They count as missed with reason `resting`.
 
+### After the engine and camera work
+
+Compared on 2026-11-03 after the shared descent pace, side-by-side lane bands, impact-only hits, switchbacks, the readable camera and the generated wall. Film: `.local/look3/films/jingle-bells-fast.mp4`; contact sheets before and after: `.local/look3/jingle-compare.jpg`.
+
+- Music and timing unchanged: 115 of 115 hits on time; 12 switchbacks hold the long notes
+- The two marbles stay within about 0.3 m of each other until 31.5 s, and the camera frames both the whole time at 1.0 to 1.8 m. Nothing becomes a speck and the wall edge never shows
+- Still behind the Blender prototype: at that distance the 6 cm pieces fill 8 to 11 % of the frame width and the marbles are small dots (the bass reads only by colour). Switchbacks look like small chrome wire cages up close but are faint at film distance. The film opens on two lone marbles and ends with a 15 m solo fall of the melody
+- Remaining gap: lanes side by side 0.3 m apart cost scale. Narrower lane bands or a larger kit scale (as in `reference-20`) would bring pieces to the reference's 12 to 15 % of the frame width
+
 ## Scale
 
 Blender's default unit is the metre, and the purchased Marble Race Kit uses real scale: marbles are 16 mm and track modules about 0.2 m. MidiMarble uses the same scale. Rapier and Blender then share units, and lighting, depth of field and physics behave like real objects.

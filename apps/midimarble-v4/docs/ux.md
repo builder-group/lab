@@ -183,7 +183,7 @@ The default camera is a native Blender camera with baked keyframes:
 - Its target leads the marble, and its roll follows the run's direction slowly
 - Shot markers on the timeline, such as wide, push in, roll or close on a hit, with eased transitions
 
-- It stays readable: it never pulls back past the distance at which a typical piece spans 6 % of the frame width, nor past twice its set distance. Several marbles share the frame only while they fit; otherwise the camera follows the focus marble (the first marble, which carries the melody, or the project's `design.camera.focusMarbleId`) and lets the others leave the frame. With a shared descent pace from the simulation it frames a group at that pace instead of the bouncing centre
+- It stays readable: it never pulls back past the distance at which a typical piece spans 6 % of the frame width, nor past three times its set distance. Several marbles share the frame only while they fit; otherwise the camera follows the focus marble (the first marble, which carries the melody, or the project's `design.camera.focusMarbleId`) and lets the others leave the frame. With a shared descent pace from the simulation it frames a group at that pace instead of the bouncing centre
 - The wall is generated on every apply to cover the run and everything the camera sees, so the film never shows its edge. A wall edited in Blender is left alone
 
 The Design tab exposes distance, downward angle, lead, smoothing and shot markers; the focus marble has no control yet. The app regenerates the rail when the motion changes. Editing the rig in Blender takes over the camera, and the app then asks before regenerating it.

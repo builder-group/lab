@@ -181,6 +181,39 @@ describe('buildSceneDescription with moving and path pieces', () => {
 		expect(description.pieces[0]?.path).toBeNull();
 	});
 
+	it('passes the wires of a switchback in wall coordinates', () => {
+		const { project, result } = fixture();
+		const paths = [
+			[
+				{ x: 0, y: 0.1 },
+				{ x: 0, y: 0 }
+			],
+			[
+				{ x: 0.1, y: 0.1 },
+				{ x: 0.1, y: 0 }
+			],
+			[
+				{ x: 0, y: 0.08 },
+				{ x: 0.07, y: 0.06 }
+			]
+		];
+		result.pieces.push({
+			entityId: 'switchback-1',
+			type: 'switchback',
+			position: { x: 0.05, y: 0.1 },
+			angle: -0.3,
+			params: { width: 0.1, legs: 1, radius: 0.0025 },
+			contactPoint: null,
+			contactNormal: null,
+			hitTime: null,
+			status: 'placed',
+			paths
+		});
+		const { description } = buildSceneDescription(project, result, { fps: 60 });
+		expect(description.pieces.find((piece) => piece.id === 'switchback-1')?.paths).toEqual(paths);
+		expect(description.pieces[0]?.paths).toBeNull();
+	});
+
 	it('passes the design camera rig settings', () => {
 		const { project, result } = fixture();
 		project.design.camera.shots.push({ id: 'shot-1', time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4 });

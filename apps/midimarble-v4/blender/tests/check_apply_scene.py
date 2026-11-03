@@ -281,6 +281,7 @@ def main():
     check(Path(saved['path']).is_file(), 'save writes scene.blend')
     shutil.rmtree(root.parent, ignore_errors=True)
     check_device_skins()
+    check_switchback_skins()
     check_readable_camera_and_wall()
     print('\n'.join(summary))
     print('CHECK PASSED: %d assertions' % sum(1 for line in summary if line.startswith('ok')))
@@ -443,6 +444,23 @@ def check_device_skins():
             check('MM · bar copper' in materials and 'MM · slot' in materials, 'brass:device-copper has copper ends and a grille')
         if skin == 'unknown':
             check(materials[0] == 'MM · brass', 'an unknown brass skin falls back to the gold bar')
+
+
+def check_switchback_skins():
+    """Switchback wires are drawn in both themes along the capsules the simulation collides with"""
+    from mm_worker import skins
+    wires = [[{'x': 0.0, 'y': 0.0}, {'x': 0.0, 'y': -0.1}], [{'x': 0.1, 'y': 0.02}, {'x': 0.1, 'y': -0.1}],
+             [{'x': 0.0, 'y': -0.02}, {'x': 0.068, 'y': -0.04}], [{'x': 0.1, 'y': -0.075}, {'x': 0.032, 'y': -0.095}]]
+    piece = {'type': 'switchback', 'params': {'width': 0.1, 'legs': 2, 'radius': 0.0025}, 'angle': -0.3,
+             'position': {'x': 0.05, 'y': 0.0}, 'paths': wires}
+    for theme in ('brass', 'pegboard'):
+        mesh = skins.build_spec('piece', piece, skins.skin_context(theme, RADIUS))['root']
+        xs = [vertex.co.x for vertex in mesh.vertices]
+        zs = [vertex.co.z for vertex in mesh.vertices]
+        # Holder-local coordinates: the piece angle turns the wall frame, so compare extents instead of points
+        span = max(max(xs) - min(xs), max(zs) - min(zs))
+        check(len(mesh.vertices) > 100 and 0.1 <= span <= 0.16, '%s switchback draws its wires (%.3f m across)' % (theme, span))
+        bpy.data.meshes.remove(mesh)
 
 
 def check_readable_camera_and_wall():

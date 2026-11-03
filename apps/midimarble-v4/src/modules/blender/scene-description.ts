@@ -122,6 +122,11 @@ export interface TScenePiece {
 	 * above it.
 	 */
 	path?: { x: number; y: number }[] | null;
+	/**
+	 * Wire segments of a switchback in wall coordinates: its two walls, then its legs from the top. Each wire is a
+	 * capsule of the piece's `radius` param around its polyline. Optional and additive.
+	 */
+	paths?: { x: number; y: number }[][] | null;
 	skin: { assetId: string; link: 'linked' | 'unlinked' } | null;
 	/**
 	 * Package-relative `.blend` of a library skin, such as `assets/piano-key/asset.blend`. Set when `skin.assetId`

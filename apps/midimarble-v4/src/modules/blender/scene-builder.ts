@@ -85,7 +85,8 @@ export function buildSceneDescription(
 			assetPath: skinAssetPath(entity?.components.skin?.assetId),
 			reaction: entity?.components.reaction ?? null,
 			color: (laneId != null ? laneColors.get(laneId) : undefined) ?? DEFAULT_PIECE_COLOR,
-			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null
+			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
+			paths: piece.paths?.map((wire) => wire.map((point) => ({ x: point.x, y: point.y }))) ?? null
 		};
 	});
 
