@@ -2,7 +2,7 @@
 
 MidiMarble should feel like a native Mac app that people already know how to use. When a pattern exists in an established app, use it instead of inventing one. Innovation belongs in the musical track building, not in basic controls.
 
-Paper (paper.design) is the main visual reference: its warm paper-like ground, quiet grey surfaces, calm type, side panels and tools placed at the side rather than a floating bar. The timeline at the bottom borrows behaviour from video editors and Blender but is drawn in Paper's style.
+Paper (paper.design) is the main reference for layout and interaction: document tabs in the title bar, a full-height left sidebar, a narrow vertical tool rail, a compact right inspector and almost no chrome. Its natural, paper-like look is not copied; surfaces follow Apple Photos and native iOS and macOS, with the yellow accent. The timeline at the bottom borrows behaviour from video editors and Blender and is drawn in the same native style.
 
 Blender is the main interaction reference, because the film is finished in Blender and the app should feel like a friendly front end to it: its timeline and dope sheet for time, its properties editor for structured settings, and its shortcuts where they fit (G, R, Tab, numpad framing). The surface is Apple-native rather than Blender's custom toolkit: system font, translucent sidebar, native menus and sheets. Figma is the reference for canvas navigation and selection.
 
@@ -34,6 +34,30 @@ Reference apps:
 - **Progressive depth:** the default path needs no Blender knowledge; depth appears through the inspector, Blender and agents
 
 ## Window
+
+Layout, after Paper, stays the same in Compose and Design; only the contents of each region change:
+
+```txt
+┌──────────────────────────────────────────────────────────────────────┐
+│ ● ● ●  Projects │ Song.marble × │ +                                  │  document tabs
+├──────────────┬──┬──────────────────────────────────┬─────────────────┤
+│ Song   [◧]   │ ▸│                                  │ 100% ⌄  Export  │
+│[Compose|Design]│ ✋│                                  │ ─────────────── │
+│ Marbles    +  │ ─│           canvas                 │ World / Piece   │
+│  ● Melody     │ ●│   (pegboard or Blender preview)  │ sections        │
+│  ● Bass       │ ▭│                                  │                 │
+│ Layers        │ ✎│                                  │                 │
+│  ▭ Platform 1 │ ⊂│                                  │                 │
+│  ✎ Rail 1     │ ✳│                                  │                 │
+│               ├──┴──────────────────────────────────┴─────────────────┤
+│               │ ⏮ ▶ ⏭ 0:12.40 │ ruler · playhead · lanes (timeline)   │
+└──────────────┴───────────────────────────────────────────────────────┘
+```
+
+- Sidebar, full height: project name and sidebar toggle, the Compose and Design segmented control, Marbles (like Paper's Pages, with +), then the layer list of the workspace. In Design the layer list stays and the library sits below it
+- Tool rail: Move and Hand, then the workspace's tools. Compose: Marble, Platform, Path (rails), Tunnel, Windmill. Design: Text and Asset
+- Inspector: zoom and Export at the top, then compact sections for the selection, or World and Project without one
+- Timeline: spans canvas and inspector at the bottom, with transport in its header
 
 ```txt
 ┌──────────────────────────────────────────────────────────────┐
