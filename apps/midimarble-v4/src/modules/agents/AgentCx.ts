@@ -11,6 +11,7 @@ import {
 import type { TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { buildAgentBrief, type TAgentTarget } from './agent-brief';
+import { agentRunPrompt } from './agent-chat';
 import {
 	appendAgentLine,
 	condenseAgentLines,
@@ -78,11 +79,12 @@ export class AgentCx {
 		return clis;
 	}
 
-	/** Starts an agent for a target with the user's request */
+	/** Starts an agent for a target with the user's request; `focus` names the target in the prompt */
 	async start(options: {
 		target: TAgentTarget;
 		request: string;
 		cli?: TAgentCli;
+		focus?: string;
 	}): Promise<TResult<TAgentRun, Error>> {
 		if (!isTauri()) return Err(new Error('Agents need the desktop app'));
 		const packagePath = this.source.getPackagePath();
@@ -100,7 +102,7 @@ export class AgentCx {
 			request
 		});
 		const runId = createRunId();
-		const prompt = `${request}\n\nRead BRIEF.md in this folder first and follow its output contract.`;
+		const prompt = agentRunPrompt(request, options.focus ?? null);
 		this.targets.set(runId, options.target);
 		const result = await specta.commands.agentsStart(
 			packagePath,

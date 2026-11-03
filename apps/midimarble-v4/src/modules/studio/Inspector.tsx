@@ -1,21 +1,26 @@
 import { useFeatureState } from 'feature-react/state';
-import { AudioLines, ChevronDown, FileMusic, Globe } from 'lucide-react';
+import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InfoRow, InspectorHeader, MenuButton, Panel, ScrubField, Select } from '@/components';
+import { HelpTip, InspectorHeader, LinkRow, MenuButton, NoteRow, Panel, ReadoutField, ScrubField, SelectField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
+import { PieceIcon } from '@/modules/compose/piece-icons';
 import { PieceInspector } from '@/modules/compose/PieceInspector';
+import { placeAtHit } from '@/modules/compose/step-loop';
+import { timingStatus } from '@/modules/compose/timing-status';
+import { blenderState } from '@/modules/design/blender-state';
 import { DesignInspector } from '@/modules/design/DesignInspector';
-import { badgeStatus, badgeStyles, StatusIcon } from '@/modules/compose/status';
-import { findLaneConflicts, instruments, MIN_HIT_GAP } from '@/modules/music';
-import { createId, laneColors, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
+import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP } from '@/modules/music';
+import { createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
+import { getPieceDefinition } from '@/modules/simulation';
 import { commandItem } from './commands';
-import { formatTime, noteName, noteNames } from './format';
+import { formatTime, noteName, parseNoteName, stepPitch } from './format';
 import { parseHitKey } from './selection';
 import type { StudioCx } from './StudioCx';
+import { songFitEnd } from './world';
 
 /**
- * Properties of the selection, like Figma's properties panel: zoom and Export at the top, then compact
- * sections for the selection, or the World without one
+ * Properties of the selection, like Figma UI3's properties panel: zoom, Blender's state and Export at the
+ * top, then a header row and sections for the selection, or the World without one
  */
 export const Inspector: React.FC<TInspectorProps> = (props) => {
 	const { cx } = props;
@@ -28,7 +33,7 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 		return (
 			<aside className="mm-inspector" aria-label="Inspector">
 				<InspectorTopBar cx={cx} />
-				<div className="min-h-0 flex-1 overflow-y-auto">
+				<div className="mm-insp-scroll">
 					<DesignInspector cx={cx} project={project} selection={selection} />
 				</div>
 			</aside>
@@ -42,7 +47,7 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	return (
 		<aside className="mm-inspector" aria-label="Inspector">
 			<InspectorTopBar cx={cx} />
-			<div className="min-h-0 flex-1 overflow-y-auto">
+			<div className="mm-insp-scroll">
 				{pieceIds.length > 0 ? (
 					<PieceInspector cx={cx} project={project} ids={pieceIds} />
 				) : hitKeys.length > 0 ? (
@@ -61,18 +66,32 @@ interface TInspectorProps {
 	cx: StudioCx;
 }
 
-/** Zoom level with its menu and the Export button, like the top of Figma's right panel */
+/** Zoom with its menu, Blender's connection state and the Export button, like the top of Figma's right panel */
 const InspectorTopBar: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const compose = useFeatureState(cx.$compose);
 	const workspace = useFeatureState(cx.$workspace);
 	return (
-		<div className="mm-inspector-top">
-			{workspace === 'compose' && compose != null ? <ZoomMenu cx={cx} compose={compose} /> : <span />}
+		<div className="mm-insp-top">
+			{workspace === 'compose' && compose != null ? <ZoomMenu cx={cx} compose={compose} /> : null}
+			<BlenderStatus cx={cx} />
 			<button className="mm-button" data-variant="primary" onClick={() => cx.film.openSheet()} title="Export Film (⌘E)" type="button">
 				Export
 			</button>
 		</div>
+	);
+};
+
+const BlenderStatus: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	const status = useFeatureState(cx.design.$status);
+	const version = useFeatureState(cx.design.$blenderVersion);
+	const state = blenderState(status, version);
+	return (
+		<span className="mm-insp-blender" title={state.detail} aria-label={state.detail} role="status">
+			<span className="mm-dot" data-tone={state.tone === 'idle' ? undefined : state.tone} />
+			{state.label}
+		</span>
 	);
 };
 
@@ -154,9 +173,7 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 		const marbleComponent = marble.components.marble;
 		cx.execute([
 			{ type: 'upsertLane', lane: { ...lane, color } },
-			...(marble == null || marbleComponent == null
-				? []
-				: [{ type: 'setComponent' as const, entityId: marble.id, component: { name: 'marble' as const, value: { ...marbleComponent, color } } }])
+			...(marbleComponent == null ? [] : [{ type: 'setComponent' as const, entityId: marble.id, component: { name: 'marble' as const, value: { ...marbleComponent, color } } }])
 		]);
 	}
 
@@ -166,71 +183,54 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 				icon={<span className="h-3 w-3 rounded-full" style={{ background: lane.color }} />}
 				title={lane.name}
 				subtitle={`Marble · ${lane.hits.length} ${lane.hits.length === 1 ? 'hit' : 'hits'}`}
+				onRename={(name) => cx.execute([{ type: 'upsertLane', lane: { ...lane, name } }])}
+				status={
+					conflicts > 0 ? (
+						<StatusPill tone="bad" label={`${conflicts} too close`} detail={`Hits closer than ${MIN_HIT_GAP * 1000} ms to a neighbour. Drag them apart or move them to another marble.`} />
+					) : null
+				}
 			/>
 			<Panel id="marble.marble" title="Marble">
-				<div className="mm-field">
-					<label htmlFor="lane-name">Name</label>
-					<CommitInput id="lane-name" value={lane.name} onCommit={(name) => cx.execute([{ type: 'upsertLane', lane: { ...lane, name } }])} />
-				</div>
-				<div className="mm-field">
-					<span className="mm-field-label">Color</span>
-					<div className="flex gap-2" role="radiogroup" aria-label="Color">
-						{laneColors.map((color) => (
-							<button
-								key={color}
-								role="radio"
-								aria-checked={color === lane.color}
-								aria-label={`Color ${color}`}
-								className="h-4 w-4 rounded-full"
-								style={{
-									background: color,
-									boxShadow: color === lane.color ? '0 0 0 2px var(--content), 0 0 0 3.5px var(--text-secondary)' : 'inset 0 0 0 0.5px rgb(0 0 0 / 0.2)'
-								}}
-								onClick={() => setColor(color)}
-								type="button"
-							/>
-						))}
-					</div>
+				<div className="mm-insp-swatches" data-span="2" role="radiogroup" aria-label="Color">
+					{laneColors.map((color) => (
+						<button
+							key={color}
+							role="radio"
+							aria-checked={color === lane.color}
+							aria-label={`Color ${color}`}
+							className="h-4 w-4 rounded-full"
+							style={{
+								background: color,
+								boxShadow: color === lane.color ? '0 0 0 2px var(--content), 0 0 0 3.5px var(--text-secondary)' : 'inset 0 0 0 0.5px rgb(0 0 0 / 0.2)'
+							}}
+							onClick={() => setColor(color)}
+							type="button"
+						/>
+					))}
 				</div>
 				{audio == null ? (
-					<div className="mm-field">
-						<label htmlFor="lane-instrument">Sound</label>
-						<Select
-							id="lane-instrument"
-							value={String(lane.instrument)}
-							options={instruments.map((item) => ({ value: String(item.program), label: item.name }))}
-							onChange={(value) => cx.execute([{ type: 'upsertLane', lane: { ...lane, instrument: Number(value) } }])}
-						/>
-					</div>
+					<SelectField
+						id="lane-instrument"
+						label="Sound"
+						value={String(lane.instrument)}
+						options={instruments.map((item) => ({ value: String(item.program), label: item.name }))}
+						onChange={(value) => cx.execute([{ type: 'upsertLane', lane: { ...lane, instrument: Number(value) } }])}
+					/>
 				) : null}
 			</Panel>
 			{release != null ? (
-				<Panel id="marble.release" title="Release" accessory={<HelpTip text="Where and when the marble starts. Drag its ring on the canvas to move it." />}>
-					<div className="mm-field-pair">
-						<ScrubField id="release-x" label="X" value={round1(release.position.x * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ x: value / 100 })} onCommit={(value) => commitRelease({ x: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
-						<ScrubField id="release-y" label="Y" value={round1(release.position.y * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ y: value / 100 })} onCommit={(value) => commitRelease({ y: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
-					</div>
+				<Panel id="marble.release" title="Release" accessory={<HelpTip text="Where the marble starts. Drag its ring on the canvas to move it." />}>
+					<ScrubField id="release-x" label="X" name="Release X" value={round1(release.position.x * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ x: value / 100 })} onCommit={(value) => commitRelease({ x: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
+					<ScrubField id="release-y" label="Y" name="Release Y" value={round1(release.position.y * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ y: value / 100 })} onCommit={(value) => commitRelease({ y: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
 				</Panel>
 			) : null}
-			<Panel
-				id="marble.hits"
-				title="Hits"
-				accessory={<HelpTip text="Double-click the lane in the timeline to add a hit, or press T while playing to tap along." />}
-			>
-				<InfoRow label="Hits">
-					<span className="mm-tabular">{lane.hits.length}</span>
-					{conflicts > 0 ? (
-						<span className="ml-2 text-[11px] text-[var(--bad)]" title={`Hits closer than ${MIN_HIT_GAP * 1000} ms to a neighbor. Drag them apart or move them to another marble.`}>
-							{conflicts} too close
-						</span>
-					) : null}
-				</InfoRow>
-				{suggestions != null ? (
-					<button className="mm-button self-start" onClick={addSuggestedHits} title={`${suggestions.length} possible hits found in the recording`} type="button">
+			{suggestions != null ? (
+				<Panel id="marble.hits" title="Hits" accessory={<HelpTip text="Double-click the track in the timeline to add a hit, or press T while playing to tap along." />}>
+					<button className="mm-button" data-span="2" onClick={addSuggestedHits} title={`${suggestions.length} possible hits found in the recording`} type="button">
 						Add {suggestions.length} Suggested Hits
 					</button>
-				) : null}
-			</Panel>
+				</Panel>
+			) : null}
 		</>
 	);
 };
@@ -240,6 +240,7 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[] }> = (props) => {
 	const { cx, project, hitKeys } = props;
 	const result = useFeatureState(cx.simulation.$result);
+	const compose = useFeatureState(cx.$compose);
 	const hits = hitKeys.flatMap((key) => {
 		const parsed = parseHitKey(key);
 		const lane = project.music.lanes.find((item) => item.id === parsed?.laneId);
@@ -250,77 +251,120 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 
 	if (single == null) {
 		return (
-			<>
-				<InspectorHeader icon={<HitGlyph />} title={`${hits.length} Hits`} subtitle={[...new Set(hits.map((item) => item.lane.name))].join(', ')} />
-				<Panel id="hit.multiple" title="Hits" accessory={<HelpTip text="Drag to move them together. Right-click to move them to another marble. Press Delete to remove them." />}>
-					<InfoRow label="Selected">
-						<span className="mm-tabular">{hits.length}</span>
-					</InfoRow>
-				</Panel>
-			</>
+			<InspectorHeader
+				icon={<HitGlyph />}
+				title={`${hits.length} Hits`}
+				subtitle={[...new Set(hits.map((item) => item.lane.name))].join(', ')}
+				status={<HelpTip text="Drag them in the timeline to move them together. Right-click to move them to another marble. Press Delete to remove them." />}
+			/>
 		);
 	}
 
-	const index = single.lane.hits.indexOf(single.hit);
+	const { lane, hit } = single;
+	const index = lane.hits.indexOf(hit);
 	const piece = project.entities.find(
-		(entity) => entity.components.piece != null && entity.components.hitLink?.laneId === single.lane.id && entity.components.hitLink.hitId === single.hit.id
+		(entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id && entity.components.hitLink.hitId === hit.id
 	);
-	const hitResult = result?.hits.find((item) => item.laneId === single.lane.id && item.hitId === single.hit.id);
-	const status = badgeStatus(result?.pieces.find((item) => item.entityId === piece?.id)?.status, hitResult);
+	const hitResult = result?.hits.find((item) => item.laneId === lane.id && item.hitId === hit.id);
+	const timing = piece == null ? null : timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult);
+	const openHit = hitResult?.status === 'open' && hitResult.dot != null ? hitResult : null;
+	const pieceLabel = piece == null ? '' : (piece.name ?? getPieceDefinition(piece.components.piece?.type ?? '')?.label ?? 'Piece');
+
+	function setHit(patch: Partial<THit>): void {
+		cx.execute([{ type: 'upsertHits', laneId: lane.id, hits: [{ ...hit, ...patch }] }]);
+	}
+
+	function setPitch(pitch: number | null): void {
+		setHit({ pitch: pitch ?? undefined });
+		if (pitch != null) cx.audition(lane.id, pitch);
+	}
+
+	function addPlatform(): void {
+		if (openHit == null) return;
+		if (compose != null) void compose.assist.place(openHit, 'platform');
+		else placeAtHit(cx, openHit, 'platform');
+	}
 
 	return (
 		<>
-			<InspectorHeader icon={<HitGlyph color={single.lane.color} />} title={`Hit ${index + 1}`} subtitle={`${single.lane.name} · ${formatTime(single.hit.time)}`} />
-			<Panel id="hit.hit" title="Hit">
-				<div className="mm-field">
-					<label htmlFor="hit-time">Time</label>
-					<CommitInput
-						id="hit-time"
-						value={single.hit.time.toFixed(3)}
-						suffix="s"
-						onCommit={(value) => {
-							const time = Number(value.replace(',', '.'));
-							if (Number.isFinite(time) && time >= 0) cx.execute([{ type: 'upsertHits', laneId: single.lane.id, hits: [{ ...single.hit, time }] }]);
-						}}
-					/>
-				</div>
-				<div className="mm-field">
-					<label htmlFor="hit-pitch">Pitch</label>
-					<CommitInput
-						id="hit-pitch"
-						value={single.hit.pitch == null ? '' : noteName(single.hit.pitch)}
-						placeholder="None"
-						onCommit={(value) => {
-							const pitch = parseNoteName(value);
-							if (pitch !== undefined) cx.execute([{ type: 'upsertHits', laneId: single.lane.id, hits: [{ ...single.hit, pitch: pitch ?? undefined }] }]);
-						}}
-					/>
-				</div>
+			<InspectorHeader
+				icon={<HitGlyph color={lane.color} />}
+				title={`Hit ${index + 1}`}
+				subtitle={`${lane.name} · ${formatTime(hit.time)}`}
+				status={timing == null ? null : <StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />}
+			/>
+			<Panel id="hit.note" title="Note" accessory={<HelpTip text="Type a note name such as A4 or F#3. Up and Down step a semitone, Shift an octave. Changing the pitch plays it." />}>
+				<PitchField pitch={hit.pitch} onChange={setPitch} />
+				<ScrubField
+					id="hit-velocity"
+					label="Vel"
+					name="Velocity"
+					value={Math.round((hit.velocity ?? DEFAULT_HIT_VELOCITY) * 100)}
+					unit="%"
+					step={0.5}
+					min={0}
+					max={100}
+					onCommit={(value) => setHit({ velocity: value / 100 })}
+				/>
+				<ScrubField
+					id="hit-time"
+					label="Time"
+					name="Time"
+					value={hit.time}
+					unit="s"
+					step={0.005}
+					precision={3}
+					min={0}
+					max={project.end}
+					onCommit={(time) => setHit({ time })}
+				/>
 			</Panel>
-			<Panel id="hit.piece" title="Piece">
+			<Panel id="hit.playedBy" title="Played By">
 				{piece != null ? (
-					<>
-						<InfoRow label="Played by">
-							<span className="truncate">{piece.name ?? 'Piece'}</span>
-						</InfoRow>
-						<InfoRow label="Timing">
-							<StatusIcon status={status} />
-							<span className="ml-1.5" style={{ color: status == null ? undefined : badgeStyles[status].color }}>
-								{status == null ? 'Simulating…' : badgeStyles[status].label}
-							</span>
-						</InfoRow>
-						<button className="mm-button self-start" onClick={() => cx.reveal([piece.id])} type="button">
-							Select Piece
-						</button>
-					</>
+					<LinkRow icon={<PieceIcon type={piece.components.piece?.type ?? 'platform'} size={14} />} title={`Select ${pieceLabel}`} onOpen={() => cx.reveal([piece.id])}>
+						{pieceLabel}
+					</LinkRow>
 				) : (
-					<InfoRow label="Played by">
-						<span className="text-[var(--text-secondary)]">Nothing yet</span>
-						<HelpTip text="Click the hit's dot on the canvas to insert a platform, or press N to place the next one." />
-					</InfoRow>
+					<button className="mm-button" data-span="2" disabled={openHit == null} onClick={addPlatform} title="Add an auto-placed platform that plays this hit (A)" type="button">
+						<Plus size={12} strokeWidth={2} />
+						Add Platform
+					</button>
 				)}
 			</Panel>
 		</>
+	);
+};
+
+/** Note name field with a semitone stepper; Up and Down step a semitone, Shift an octave */
+const PitchField: React.FC<{ pitch: number | undefined; onChange: (pitch: number | null) => void }> = (props) => {
+	const { pitch, onChange } = props;
+	const step = (semitones: number): void => onChange(stepPitch(pitch ?? 60, semitones));
+	return (
+		<TextField
+			id="hit-pitch"
+			label="Pitch"
+			name="Pitch"
+			value={pitch == null ? '' : noteName(pitch)}
+			placeholder="None"
+			onCommit={(value) => {
+				const next = parseNoteName(value);
+				if (next !== undefined) onChange(next);
+			}}
+			onKeyDown={(event) => {
+				if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+				event.preventDefault();
+				step((event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 12 : 1));
+			}}
+		>
+			<span className="mm-ifield-stepper">
+				<button aria-label="Semitone Up" onClick={() => step(1)} tabIndex={-1} type="button">
+					<ChevronUp size={10} strokeWidth={2.2} />
+				</button>
+				<button aria-label="Semitone Down" onClick={() => step(-1)} tabIndex={-1} type="button">
+					<ChevronDown size={10} strokeWidth={2.2} />
+				</button>
+			</span>
+		</TextField>
 	);
 };
 
@@ -329,102 +373,87 @@ const HitGlyph: React.FC<{ color?: string }> = (props) => {
 	return <span className="h-2.5 w-2.5 rotate-45 rounded-[1.5px]" style={{ background: color ?? 'currentColor' }} />;
 };
 
-/** Parses names like `C5`, `F#4` or a MIDI number; empty clears the pitch, invalid returns undefined */
-function parseNoteName(value: string): number | null | undefined {
-	const text = value.trim().replace('#', '♯');
-	if (!text.length) return null;
-	if (/^\d+$/.test(text)) {
-		const number = Number(text);
-		return number >= 0 && number <= 127 ? number : undefined;
-	}
-	const match = /^([A-Ga-g]♯?)(-?\d)$/.exec(text);
-	if (match == null) return undefined;
-	const index = noteNames.indexOf((match[1] ?? '').toUpperCase());
-	const pitch = index + (Number(match[2]) + 1) * 12;
-	return index < 0 || pitch < 0 || pitch > 127 ? undefined : pitch;
-}
+// MARK: - World
 
-// MARK: - Project
-
-/** Shown without a selection, like page properties in Figma: marble speed, frame, length and music */
+/** Shown without a selection, like page properties in Figma: the song, the film and the physics speed */
 const WorldInspector: React.FC<TWorldInspectorProps> = (props) => {
 	const { cx, project } = props;
 	const aspect = aspects.find((item) => item.width === project.frame.width && item.height === project.frame.height);
 	const sources = project.music.sources;
+	const tempo = project.music.tempo;
 	const speed = project.physics.gravityScale;
+	const fitEnd = songFitEnd(project);
 
 	const withSpeed = (gravityScale: number): TProject => ({ ...project, physics: { ...project.physics, gravityScale } });
 
 	return (
 		<>
-			<InspectorHeader icon={<Globe size={15} strokeWidth={1.7} />} title="World" subtitle={aspect?.label ?? 'Custom frame'} />
-			<Panel id="world.physics" title="Physics">
+			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="World" subtitle={aspect?.label ?? 'Custom frame'} />
+			<Panel id="world.song" title="Song" accessory={<HelpTip text="The soundtrack of the film. Import, replace or remove it from the timeline header or by dropping a file on the timeline." />}>
+				{!sources.length ? <NoteRow>No song yet</NoteRow> : null}
+				{sources.map((source) => (
+					<ReadoutField key={source.id} label={source.kind === 'audio' ? 'Audio' : 'MIDI'} name={source.name} span={2}>
+						<span className="flex items-center gap-2">
+							{source.kind === 'audio' ? <AudioLines size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" /> : <FileMusic size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" />}
+							<span className="truncate">{source.name}</span>
+						</span>
+					</ReadoutField>
+				))}
+				{tempo != null ? (
+					<>
+						<ReadoutField label="Tempo" name="Tempo">
+							{Math.round(tempo.bpm * 10) / 10} <span className="mm-insp-secondary text-[11px]">BPM</span>
+						</ReadoutField>
+						<ReadoutField label="Meter" name="Beats per bar">
+							{tempo.beatsPerBar}/4
+						</ReadoutField>
+					</>
+				) : null}
+			</Panel>
+			<Panel id="world.film" title="Film">
+				<SelectField
+					id="project-frame"
+					label="Frame"
+					value={aspect?.label ?? 'custom'}
+					options={[...aspects.map((item) => ({ value: item.label, label: item.label })), ...(aspect == null ? [{ value: 'custom', label: 'Custom' }] : [])]}
+					onChange={(value) => {
+						const next = aspects.find((item) => item.label === value);
+						if (next != null) cx.execute([{ type: 'setFrame', width: next.width, height: next.height }]);
+					}}
+				/>
+				<ScrubField id="project-end" label="Length" name="Film length" value={project.end} unit="s" step={0.05} precision={2} min={0.5} onCommit={(end) => cx.execute([{ type: 'setEnd', end }])} />
+				<button
+					className="mm-button"
+					disabled={fitEnd == null || Math.abs(fitEnd - project.end) < 0.005}
+					onClick={() => {
+						if (fitEnd != null) cx.execute([{ type: 'setEnd', end: fitEnd }]);
+					}}
+					title={fitEnd == null ? 'Add notes first' : `Set the length to the last note plus 1.5 s (${formatTime(fitEnd)})`}
+					type="button"
+				>
+					Fit to Song
+				</button>
+			</Panel>
+			<Panel
+				id="world.physics"
+				title="Physics"
+				accessory={<HelpTip text="How fast marbles fall, as a share of Earth's gravity. Slower gives smaller hops and denser columns; linked hits stay on time." />}
+			>
 				<SliderField
 					id="world-speed"
 					label="Speed"
-					help="How fast marbles fall, as a share of Earth's gravity. Slower gives smaller hops and denser columns; linked hits stay on time."
 					value={speed}
 					min={0.05}
 					max={2}
 					step={0.05}
-					format={(value) => `${value.toFixed(2)}×`}
+					format={(value) => value.toFixed(2)}
+					unit="×"
 					onPreview={(value) => cx.simulation.startPreview(withSpeed(value))}
 					onCommit={(value) => {
 						cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
 						cx.simulation.endPreview();
 					}}
 				/>
-			</Panel>
-			<Panel id="world.frame" title="Film">
-				<div className="mm-field">
-					<label htmlFor="project-frame">Frame</label>
-					<Select
-						id="project-frame"
-						value={aspect?.label ?? 'custom'}
-						options={[...aspects.map((item) => ({ value: item.label, label: item.label })), ...(aspect == null ? [{ value: 'custom', label: 'Custom' }] : [])]}
-						onChange={(value) => {
-							const next = aspects.find((item) => item.label === value);
-							if (next != null) cx.execute([{ type: 'setFrame', width: next.width, height: next.height }]);
-						}}
-					/>
-				</div>
-				<div className="mm-field">
-					<label htmlFor="project-end">Length</label>
-					<CommitInput
-						id="project-end"
-						value={project.end.toFixed(2)}
-						suffix="s"
-						onCommit={(value) => {
-							const end = Number(value.replace(',', '.'));
-							if (Number.isFinite(end) && end > 0) cx.execute([{ type: 'setEnd', end }]);
-						}}
-					/>
-				</div>
-			</Panel>
-			<Panel
-				id="project.music"
-				title="Music"
-				accessory={<HelpTip text="A MIDI file gives marbles and hits. A recording plays behind the lanes for tapping along with T." />}
-			>
-				{sources.map((source) => (
-					<div key={source.id} className="flex h-6 items-center gap-2">
-						{source.kind === 'audio' ? (
-							<AudioLines size={14} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" />
-						) : (
-							<FileMusic size={14} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" />
-						)}
-						<span className="min-w-0 flex-1 truncate">{source.name}</span>
-						<span className="text-[11px] text-[var(--text-tertiary)]">{source.kind === 'audio' ? 'Recording' : 'MIDI'}</span>
-					</div>
-				))}
-				<div className="flex gap-2">
-					<button className="mm-button" onClick={() => commandItem(cx, 'file.importMidi').onSelect()} title="Import MIDI (⌘I)" type="button">
-						MIDI…
-					</button>
-					<button className="mm-button" onClick={() => commandItem(cx, 'file.importAudio').onSelect()} title="Import Audio (⇧⌘I)" type="button">
-						Audio…
-					</button>
-				</div>
 			</Panel>
 		</>
 	);
@@ -435,9 +464,9 @@ interface TWorldInspectorProps {
 	project: TProject;
 }
 
-/** A slider with its value, previewing while dragged and committing on release, like Figma's sliders */
+/** A slider with a typeable value field beside it, previewing while dragged and committing on release */
 const SliderField: React.FC<TSliderFieldProps> = (props) => {
-	const { id, label, help, value, min, max, step, format, onPreview, onCommit } = props;
+	const { id, label, value, min, max, step, unit, format, onPreview, onCommit } = props;
 	const [draft, setDraft] = React.useState<number | null>(null);
 	const shown = draft ?? value;
 	function commit(): void {
@@ -445,12 +474,12 @@ const SliderField: React.FC<TSliderFieldProps> = (props) => {
 		setDraft(null);
 	}
 	return (
-		<div className="mm-field">
-			<label htmlFor={id}>{label}</label>
-			<div className="flex items-center gap-2">
+		<>
+			<div className="mm-insp-slider">
 				<input
 					id={id}
-					className="mm-slider min-w-0 flex-1"
+					aria-label={label}
+					className="mm-slider"
 					type="range"
 					min={min}
 					max={max}
@@ -466,33 +495,34 @@ const SliderField: React.FC<TSliderFieldProps> = (props) => {
 					onKeyUp={commit}
 					onBlur={commit}
 				/>
-				{/* The value also takes typing, for exact values the short slider cannot reach */}
-				<div className="mm-tabular w-[58px] shrink-0">
-					<CommitInput
-						id={`${id}-value`}
-						value={format(shown)}
-						onCommit={(text) => {
-							const typed = Number.parseFloat(text.replace(',', '.'));
-							if (!Number.isFinite(typed)) return;
-							const next = Math.min(max, Math.max(min, Math.round(typed / step) * step));
-							if (next !== value) onCommit(Number(next.toFixed(6)));
-						}}
-					/>
-				</div>
-				<HelpTip text={help} />
 			</div>
-		</div>
+			{/* The value also takes typing, for exact values the short slider cannot reach */}
+			<TextField
+				id={`${id}-value`}
+				label={label}
+				name={label}
+				value={format(shown)}
+				unit={unit}
+				allowEmpty={false}
+				onCommit={(text) => {
+					const typed = Number.parseFloat(text.replace(',', '.'));
+					if (!Number.isFinite(typed)) return;
+					const next = Math.min(max, Math.max(min, Math.round(typed / step) * step));
+					if (next !== value) onCommit(Number(next.toFixed(6)));
+				}}
+			/>
+		</>
 	);
 };
 
 interface TSliderFieldProps {
 	id: string;
 	label: string;
-	help: string;
 	value: number;
 	min: number;
 	max: number;
 	step: number;
+	unit: string;
 	format: (value: number) => string;
 	onPreview: (value: number) => void;
 	onCommit: (value: number) => void;
@@ -508,51 +538,3 @@ const aspects = [
 	{ label: '4:5 Portrait', width: 4, height: 5 },
 	{ label: '16:9 Landscape', width: 16, height: 9 }
 ];
-
-/** Text input that commits on Return or blur and reverts on Escape, like native inspectors */
-export const CommitInput: React.FC<TCommitInputProps> = (props) => {
-	const { id, value, suffix, placeholder, onCommit } = props;
-	const [draft, setDraft] = React.useState(value);
-	const [source, setSource] = React.useState(value);
-	// Reset the draft during render when the committed value changes elsewhere, such as through undo
-	if (source !== value) {
-		setSource(value);
-		setDraft(value);
-	}
-
-	function commit(): void {
-		if (draft !== value) onCommit(draft);
-	}
-
-	return (
-		<div className="relative">
-			<input
-				id={id}
-				className="mm-input"
-				style={{ paddingRight: suffix != null ? 20 : undefined }}
-				value={draft}
-				placeholder={placeholder}
-				onChange={(event) => setDraft(event.target.value)}
-				onBlur={commit}
-				onKeyDown={(event) => {
-					if (event.key === 'Enter') event.currentTarget.blur();
-					if (event.key === 'Escape') {
-						setDraft(value);
-						requestAnimationFrame(() => (event.target as HTMLInputElement).blur());
-					}
-				}}
-			/>
-			{suffix != null ? (
-				<span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-[11px] text-[var(--text-tertiary)]">{suffix}</span>
-			) : null}
-		</div>
-	);
-};
-
-interface TCommitInputProps {
-	id: string;
-	value: string;
-	suffix?: string;
-	placeholder?: string;
-	onCommit: (value: string) => void;
-}

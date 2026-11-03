@@ -1,19 +1,23 @@
 import { useFeatureState } from 'feature-react/state';
+import { Anchor, Unlink2 } from 'lucide-react';
 import React from 'react';
-import { Anchor, Link2 } from 'lucide-react';
-import { HelpTip, InfoRow, InspectorHeader, Panel, ScrubField } from '@/components';
+import { HelpTip, InspectorHeader, LinkRow, NoteRow, Panel, ScrubField, StatusPill } from '@/components';
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { getPieceDefinition, isMusicalPiece, layoutOf, resolvePiecePath, unanchorPiece, unlinkPiece, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { getPieceDefinition, isMusicalPiece, layoutOf, resolvePiecePath, unanchorPiece, unlinkPiece, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
+import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
-import { attachState, type TAttachState } from './attach-edit';
+import { attachState } from './attach-edit';
 import { PieceIcon } from './piece-icons';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
-import { badgeStatus, badgeStyles, StatusIcon } from './status';
-import { pieceAngle, pinCommands } from './step-loop';
+import { pieceAngle } from './step-loop';
+import { timingStatus, type TTimingStatus } from './timing-status';
 
-/** Inspector for selected pieces, with compact Figma-style sections */
+/**
+ * Inspector for selected pieces like Figma UI3: a header with the timing pill, then Position, Attachment
+ * and the secondary Physics section
+ */
 export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
 	const result = useFeatureState(cx.simulation.$result);
@@ -46,27 +50,34 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 		cx.execute(applyPieceEdit(project, entities, edit).commands);
 		cx.simulation.endPreview();
 	}
+	const cancel = (): void => cx.simulation.endPreview();
 
 	const angleEdit = (degrees: number): TPieceEdit => ({ angle: toRadians(degrees) });
 	const lengthEdit = (centimetres: number): TPieceEdit => ({ params: { length: centimetres / 100 } });
 	const contactEdit = (percent: number): TPieceEdit => ({ hitLink: { contactAt: percent / 100 } });
 	const positionEdit = (axis: 'x' | 'y', centimetres: number): TPieceEdit => ({ position: { [axis]: centimetres / 100 } });
 
-	const lane = project.music.lanes.find((item) => item.id === link?.laneId);
-	const hitIndex = lane?.hits.findIndex((item) => item.id === link?.hitId) ?? -1;
-	const subtitle = isSingle ? attachLabel(project, attach, label) : isSameType ? label : 'Different piece types';
 	const title = isSingle ? (first.name ?? label) : isSameType ? `${entities.length} ${label}s` : `${entities.length} Pieces`;
+	const subtitle = isSingle ? label : isSameType ? 'Multiple selection' : 'Different piece types';
 	const position = transform?.position ?? resolved?.position ?? null;
+	const status = isSingle ? pieceStatus(project, first, resolved, result) : null;
 
 	return (
 		<>
-			<InspectorHeader icon={<PieceIcon type={isSameType ? type : 'platform'} size={16} />} title={title} subtitle={subtitle} />
-			<Panel id="piece.transform" title="Transform">
+			<InspectorHeader
+				icon={<PieceIcon type={isSameType ? type : 'platform'} size={16} />}
+				title={title}
+				subtitle={subtitle}
+				onRename={isSingle ? (name) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name } }]) : undefined}
+				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
+			/>
+			<Panel id="piece.position" title="Position" accessory={!isFree && isSingle ? <HelpTip text="A linked or anchored piece follows its hit, so its position comes from the run. Detach it to move it freely." /> : null}>
 				{isSingle && position != null ? (
-					<div className="mm-field-pair">
+					<>
 						<ScrubField
 							id="piece-x"
 							label="X"
+							name="X"
 							value={Math.round(position.x * 1000) / 10}
 							unit="cm"
 							step={0.1}
@@ -74,11 +85,12 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 							disabled={!isFree}
 							onPreview={(value) => preview(positionEdit('x', value))}
 							onCommit={(value) => commit(positionEdit('x', value))}
-							onCancel={() => cx.simulation.endPreview()}
+							onCancel={cancel}
 						/>
 						<ScrubField
 							id="piece-y"
 							label="Y"
+							name="Y"
 							value={Math.round(position.y * 1000) / 10}
 							unit="cm"
 							step={0.1}
@@ -86,14 +98,15 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 							disabled={!isFree}
 							onPreview={(value) => preview(positionEdit('y', value))}
 							onCommit={(value) => commit(positionEdit('y', value))}
-							onCancel={() => cx.simulation.endPreview()}
+							onCancel={cancel}
 						/>
-					</div>
+					</>
 				) : null}
 				{!isPath || isFree ? (
 					<ScrubField
 						id="piece-angle"
-						label="Angle"
+						label="∠"
+						name="Angle"
 						value={sharedAngle == null ? null : Math.round(toDegrees(kind === 'box' ? normalizeSurfaceAngle(sharedAngle) : sharedAngle) * 10) / 10}
 						unit="°"
 						step={0.5}
@@ -102,13 +115,14 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 						max={kind === 'box' ? 90 : 360}
 						onPreview={(value) => preview(angleEdit(value))}
 						onCommit={(value) => commit(angleEdit(value))}
-						onCancel={() => cx.simulation.endPreview()}
+						onCancel={cancel}
 					/>
 				) : null}
 				{kind === 'box' && isSameType ? (
 					<ScrubField
 						id="piece-length"
-						label="Length"
+						label="L"
+						name="Length"
 						value={sharedLength == null ? null : Math.round(sharedLength * 1000) / 10}
 						unit="cm"
 						step={0.1}
@@ -117,16 +131,15 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 						max={(definition?.params['length']?.max ?? 0.3) * 100}
 						onPreview={(value) => preview(lengthEdit(value))}
 						onCommit={(value) => commit(lengthEdit(value))}
-						onCancel={() => cx.simulation.endPreview()}
+						onCancel={cancel}
 					/>
 				) : null}
-				{isPath && isSingle && resolved != null && first.components.path?.nodes == null ? (
-					<PathRunFields cx={cx} project={project} entity={first} piece={resolved} />
-				) : null}
+				{isPath && isSingle && resolved != null && first.components.path?.nodes == null ? <PathRunFields cx={cx} project={project} entity={first} piece={resolved} /> : null}
 				{link != null && attach.kind === 'linked' && kind === 'box' ? (
 					<ScrubField
 						id="piece-contact"
 						label="Contact"
+						name="Contact point along the surface"
 						value={Math.round(link.contactAt * 100)}
 						unit="%"
 						step={0.5}
@@ -134,43 +147,78 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 						max={100}
 						onPreview={(value) => preview(contactEdit(value))}
 						onCommit={(value) => commit(contactEdit(value))}
-						onCancel={() => cx.simulation.endPreview()}
+						onCancel={cancel}
 					/>
 				) : null}
 			</Panel>
-			{isSingle ? <AttachSection cx={cx} project={project} entity={first} hitIndex={hitIndex} /> : null}
+			{isSingle ? <AttachSection cx={cx} project={project} entity={first} /> : null}
 			{isSameType && definition != null ? <ParamsSection cx={cx} project={project} entities={entities} type={type} /> : null}
-			{isSingle && isPath && link != null && resolved != null && result != null ? (
-				<RideSection project={project} piece={resolved} result={result} laneId={link.laneId} hitId={link.hitId} />
-			) : null}
-			{isSingle && link != null && attach.kind === 'linked' && isMusicalPiece(type) ? (
-				<HitSection
-					project={project}
-					laneId={link.laneId}
-					hitId={link.hitId}
-					piece={result?.pieces.find((item) => item.entityId === first.id)}
-					hit={result?.hits.find((item) => item.pieceEntityId === first.id || (item.laneId === link.laneId && item.hitId === link.hitId))}
-				/>
-			) : null}
 		</>
 	);
 };
 
-/** One line naming how the piece is attached, for the header */
-function attachLabel(project: TProject, attach: TAttachState, label: string): string {
-	if (attach.kind === 'free') return `${label} · Free`;
-	const lane = project.music.lanes.find((item) => item.id === attach.laneId);
-	if (attach.kind === 'anchored') return `${label} · Anchored to ${lane?.name ?? 'a marble'}`;
-	const index = lane?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
-	return `${label} · ${lane?.name ?? 'Marble'} Hit ${index + 1}`;
+interface TPieceInspectorProps {
+	cx: StudioCx;
+	project: TProject;
+	ids: string[];
 }
 
-/** Free, anchored to a moment or linked to a hit, with the action that frees it again */
-const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity; hitIndex: number }> = (props) => {
-	const { cx, project, entity, hitIndex } = props;
+/** The header pill: the hit's timing for a linked platform, what the marble does for a rail or tunnel */
+function pieceStatus(project: TProject, entity: TEntity, resolved: TResolvedPiece | undefined, result: TSimulationResult | null): TTimingStatus | null {
+	const link = entity.components.hitLink;
+	const type = entity.components.piece?.type ?? '';
+	if (link == null) return null;
+	const attach = attachState(project, entity);
+	if (attach.kind === 'linked' && isMusicalPiece(type)) {
+		const hit = result?.hits.find((item) => item.pieceEntityId === entity.id || (item.laneId === link.laneId && item.hitId === link.hitId));
+		const status = timingStatus(resolved, hit);
+		return { ...status, detail: [hitLabel(project, link.laneId, link.hitId), status.detail].filter((line) => line != null).join('\n') };
+	}
+	const kind = pieceKind({ type });
+	if ((kind === 'path' || kind === 'tube') && resolved != null && result != null) return rideStatus(project, resolved, result, link.laneId);
+	if (resolved?.status === 'blocked') return timingStatus(resolved, undefined);
+	return null;
+}
+
+/** A hit as people read it, such as `Melody Hit 1 · B4 · 0:01.00` */
+function hitLabel(project: TProject, laneId: string, hitId: string): string {
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const index = lane?.hits.findIndex((item) => item.id === hitId) ?? -1;
+	const hit = lane?.hits[index];
+	return [`${lane?.name ?? 'Marble'} Hit ${index + 1}`, hit?.pitch != null ? noteName(hit.pitch) : null, hit != null ? formatTime(hit.time) : null].filter((part) => part != null).join(' · ');
+}
+
+/** What the marble does on a rail or tunnel, read from the simulation */
+function rideStatus(project: TProject, piece: TResolvedPiece, result: TSimulationResult, laneId: string): TTimingStatus {
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const start = pieceTime(piece) ?? 0;
+	const next = lane?.hits.find((hit) => hit.time > start + 1e-3);
+	const nextIndex = next != null ? (lane?.hits.indexOf(next) ?? -1) : -1;
+	const ride = pathRide(result, piece, laneId, next?.time ?? result.duration);
+	const label = getPieceDefinition(piece.type)?.label.toLowerCase() ?? 'piece';
+	const starts = `Starts at ${formatTime(start)}.`;
+	if (piece.status === 'blocked') return { tone: 'bad', label: 'Blocked', detail: `The run before it already passes through this ${label}.` };
+	if (ride.enter == null) return { tone: 'bad', label: 'Not touched', detail: `${starts}\nThe marble never touches the ${label}.` };
+	if (ride.leave == null) {
+		return next != null
+			? { tone: 'warn', label: 'Still riding', detail: `${starts}\nThe marble is still on the ${label} at Hit ${nextIndex + 1}.` }
+			: { tone: 'neutral', label: 'Rides to end', detail: `${starts}\nThe marble stays on the ${label} to the end.` };
+	}
+	const rides = ride.leave - ride.enter;
+	const flight = next == null ? '' : `, then flies ${(next.time - ride.leave).toFixed(2)} s to Hit ${nextIndex + 1}`;
+	return { tone: 'good', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\nThe marble leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
+}
+
+/**
+ * What the piece is attached to, as one row that selects it: the hit a platform plays, or the marble and
+ * moment an anchored piece follows. The icon button detaches it in place.
+ */
+const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
+	const { cx, project, entity } = props;
 	const attach = attachState(project, entity);
 	const lane = attach.kind === 'free' ? undefined : project.music.lanes.find((item) => item.id === attach.laneId);
-	const pitch = attach.kind === 'linked' ? lane?.hits[hitIndex]?.pitch : undefined;
+	const hitIndex = attach.kind === 'free' ? -1 : (lane?.hits.findIndex((item) => item.id === attach.hitId) ?? -1);
+	const hit = lane?.hits[hitIndex];
 
 	function detach(): void {
 		const result = cx.simulation.$result.get();
@@ -183,146 +231,74 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 		cx.execute(value.commands);
 	}
 
+	function openHit(): void {
+		if (attach.kind === 'free') return;
+		cx.$selection.set([toHitKey(attach.laneId, attach.hitId)]);
+		if (!cx.$playing.get() && hit != null) cx.$playhead.set(hit.time);
+	}
+
+	function openMarble(): void {
+		if (attach.kind !== 'anchored') return;
+		const marble = project.entities.find((item) => item.components.marble?.laneId === attach.laneId);
+		if (marble != null) cx.$selection.set([marble.id]);
+		if (!cx.$playing.get()) cx.$playhead.set(attach.time);
+	}
+
+	const marbleDot = <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: lane?.color }} />;
+
 	return (
 		<Panel
 			id="piece.attach"
-			title="Attachment"
+			title="Attached To"
 			accessory={
-				<HelpTip text="Drop a platform on a hit dot to link it: it plays that note. Drop any piece near a trajectory to anchor it: it follows the marble but plays nothing. Hold ⌥ while dragging to keep it free." />
+				<HelpTip text="Drop a platform on a hit dot to link it: it plays that note. Drop any piece near a trajectory to anchor it: it follows the marble but plays nothing. Hold ⌥ while dragging to drop it free." />
 			}
 		>
-			<div className="mm-attach-row">
-				{attach.kind === 'free' ? (
-					<span className="text-[var(--text-secondary)]">Free on the wall</span>
-				) : attach.kind === 'linked' ? (
-					<>
-						<Link2 size={13} strokeWidth={1.9} className="shrink-0 text-[var(--text-secondary)]" />
-						<span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: lane?.color }} />
-						<span className="min-w-0 flex-1 truncate">
+			{attach.kind === 'free' ? (
+				<NoteRow>Nothing, free on the wall</NoteRow>
+			) : attach.kind === 'linked' ? (
+				<LinkRow
+					title={`Select Hit ${hitIndex + 1}`}
+					onOpen={openHit}
+					action={
+						<button className="mm-icon-button" onClick={detach} title="Unlink: keep it where it is, free" aria-label="Unlink" type="button">
+							<Unlink2 size={13} strokeWidth={1.9} />
+						</button>
+					}
+				>
+					<span className="inline-flex items-center gap-2">
+						{marbleDot}
+						<span>
 							Hit {hitIndex + 1}
-							<span className="mm-tabular ml-1.5 text-[var(--text-secondary)]">
-								{formatTime(lane?.hits[hitIndex]?.time ?? 0)}
-								{pitch != null ? ` · ${noteName(pitch)}` : ''}
+							<span className="mm-insp-secondary">
+								{hit?.pitch != null ? ` · ${noteName(hit.pitch)}` : ''} · {formatTime(hit?.time ?? 0)}
 							</span>
 						</span>
-						<button className="mm-button !h-[22px] !px-2" onClick={detach} type="button">
-							Unlink
+					</span>
+				</LinkRow>
+			) : (
+				<LinkRow
+					icon={<Anchor size={13} strokeWidth={1.9} className="shrink-0 text-[var(--text-secondary)]" />}
+					title={`Select ${lane?.name ?? 'the marble'}`}
+					onOpen={openMarble}
+					action={
+						<button className="mm-icon-button" onClick={detach} title="Unanchor: keep it where it is, free" aria-label="Unanchor" type="button">
+							<Unlink2 size={13} strokeWidth={1.9} />
 						</button>
-					</>
-				) : (
-					<>
-						<Anchor size={13} strokeWidth={1.9} className="shrink-0 text-[var(--text-secondary)]" />
-						<span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: lane?.color }} />
-						<span className="min-w-0 flex-1 truncate">
+					}
+				>
+					<span className="inline-flex items-center gap-2">
+						{marbleDot}
+						<span>
 							{lane?.name ?? 'Marble'}
-							<span className="mm-tabular ml-1.5 text-[var(--text-secondary)]">{formatTime(attach.time)}</span>
+							<span className="mm-insp-secondary"> · {formatTime(attach.time)}</span>
 						</span>
-						<button className="mm-button !h-[22px] !px-2" onClick={detach} type="button">
-							Unanchor
-						</button>
-					</>
-				)}
-			</div>
-			{attach.kind === 'linked' ? (
-				<label className="mm-field">
-					<span className="mm-field-label">Pinned</span>
-					<span className="flex items-center gap-2">
-						<input
-							id="piece-pinned"
-							type="checkbox"
-							className="mm-checkbox"
-							checked={entity.components.hitLink?.pinned === true}
-							onChange={() => {
-								const commands = pinCommands(project, cx.simulation.$result.get(), [entity.id]);
-								cx.execute(commands);
-							}}
-						/>
-						<span className="flex-1">Keep in place</span>
-						<kbd className="mm-keycap">⇧P</kbd>
 					</span>
-				</label>
-			) : null}
+				</LinkRow>
+			)}
 		</Panel>
 	);
 };
-
-interface TPieceInspectorProps {
-	cx: StudioCx;
-	project: TProject;
-	ids: string[];
-}
-
-const HitSection: React.FC<THitSectionProps> = (props) => {
-	const { project, laneId, hitId, piece, hit } = props;
-	const lane = project.music.lanes.find((item) => item.id === laneId);
-	const index = lane?.hits.findIndex((item) => item.id === hitId) ?? -1;
-	const note = lane?.hits[index];
-	const status = badgeStatus(piece?.status, hit);
-	const timing = timingLabel(piece, hit);
-
-	return (
-		<Panel id="piece.timing" title="Timing">
-				<InfoRow label="Time">
-					<span className="mm-tabular">{note == null ? 'Missing' : formatTime(note.time)}</span>
-					{note?.pitch != null ? <span className="ml-1.5 text-[var(--text-secondary)]">{noteName(note.pitch)}</span> : null}
-				</InfoRow>
-				<InfoRow label="Lane">
-					<span className="inline-block h-2 w-2 rounded-full" style={{ background: lane?.color }} />
-					<span className="ml-1.5 truncate">{lane?.name ?? 'Removed'}</span>
-					{index >= 0 ? <span className="ml-1.5 text-[var(--text-secondary)]">Hit {index + 1}</span> : null}
-				</InfoRow>
-				<InfoRow label="Timing">
-					<StatusIcon status={status} />
-					<span className="ml-1.5" style={{ color: status == null ? undefined : badgeStyles[status].color }}>
-						{timing.title}
-					</span>
-					{timing.detail != null ? <span className="mm-tabular ml-1 text-[var(--text-secondary)]">· {timing.detail}</span> : null}
-					{timing.reason != null ? (
-						<span className="ml-1.5">
-							<HelpTip text={timing.reason} />
-						</span>
-					) : null}
-				</InfoRow>
-		</Panel>
-	);
-};
-
-interface THitSectionProps {
-	project: TProject;
-	laneId: string;
-	hitId: string;
-	piece: TResolvedPiece | undefined;
-	hit: THitResult | undefined;
-}
-
-function timingLabel(piece: TResolvedPiece | undefined, hit: THitResult | undefined): { title: string; detail?: string; reason?: string } {
-	if (piece?.status === 'blocked' || hit?.status === 'blocked') {
-		return { title: 'Blocked', reason: 'The run before this hit already passes through this spot, so the piece is left out.' };
-	}
-	if (piece?.status === 'unreached') return { title: 'Missed', reason: 'The marble never reaches this hit.' };
-	if (hit == null) return { title: 'Simulating…' };
-	const detail = hit.error == null ? undefined : formatMs(hit.error);
-	switch (hit.status) {
-		case 'onTime':
-			return { title: 'On time', detail };
-		case 'drifting':
-			return { title: 'Drifting', detail, reason: 'Still within 20 ms, but an earlier change moved it.' };
-		case 'missed':
-			if (hit.reason === 'resting') return { title: 'Resting', detail, reason: 'The marble rolls or rests onto this piece instead of striking it, so no note sounds.' };
-			return hit.error == null
-				? { title: 'Missed', reason: 'The marble does not touch this piece.' }
-				: { title: 'Missed', detail, reason: hit.error > 0 ? 'The marble arrives too late.' : 'The marble arrives too early.' };
-		case 'open':
-			return { title: 'Not placed' };
-		default:
-			return { title: 'Unknown' };
-	}
-}
-
-function formatMs(seconds: number): string {
-	const ms = Math.round(seconds * 10000) / 10;
-	return `${ms > 0 ? '+' : ''}${ms === 0 ? '0.0' : ms.toFixed(1)} ms`;
-}
 
 // MARK: - Rails and tunnels
 
@@ -349,7 +325,8 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 		<>
 			<ScrubField
 				id="path-length"
-				label="Length"
+				label="L"
+				name="Length"
 				value={Math.round(run.length * 1000) / 10}
 				unit="cm"
 				step={0.2}
@@ -363,6 +340,7 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 			<ScrubField
 				id="path-slope"
 				label="Slope"
+				name="Slope"
 				value={Math.round(toDegrees(world.slope) * 10) / 10}
 				unit="°"
 				step={0.25}
@@ -377,102 +355,77 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 	);
 };
 
-/** What the marble does on a rail or tunnel, read from the simulation */
-const RideSection: React.FC<{ project: TProject; piece: TResolvedPiece; result: TSimulationResult; laneId: string; hitId: string }> = (props) => {
-	const { project, piece, result, laneId, hitId } = props;
-	const lane = project.music.lanes.find((item) => item.id === laneId);
-	const index = lane?.hits.findIndex((item) => item.id === hitId) ?? -1;
-	const start = pieceTime(piece) ?? 0;
-	const next = lane?.hits.find((hit) => hit.time > start + 1e-3);
-	const nextIndex = next != null ? (lane?.hits.indexOf(next) ?? -1) : -1;
-	const ride = pathRide(result, piece, laneId, next?.time ?? result.duration);
-	const delay = piece.params['entryDelay'] ?? 0;
-	const label = getPieceDefinition(piece.type)?.label.toLowerCase() ?? 'piece';
-	const status = rideStatus(piece, ride, next?.time ?? null, nextIndex, label);
-
-	return (
-		<Panel id="piece.run" title="Run">
-				<InfoRow label="Starts">
-					<span className="mm-tabular">{formatTime(start)}</span>
-					<span className="ml-1.5 truncate text-[var(--text-secondary)]">
-						{delay > 0 ? `${Math.round(delay * 1000)} ms after Hit ${index + 1}` : `at Hit ${index + 1}`}
-					</span>
-				</InfoRow>
-				<div className="mm-caption pl-[84px]" style={{ color: status.tone === 'bad' ? 'var(--bad)' : status.tone === 'warn' ? 'var(--warn)' : undefined }}>
-					{status.text}
-				</div>
-		</Panel>
-	);
-};
-
-function rideStatus(
-	piece: TResolvedPiece,
-	ride: { enter: number | null; leave: number | null },
-	nextTime: number | null,
-	nextIndex: number,
-	label: string
-): { text: string; tone: 'info' | 'warn' | 'bad' } {
-	if (piece.status === 'blocked') return { text: `Blocked: the run before it already passes through this ${label}.`, tone: 'bad' };
-	if (ride.enter == null) return { text: `The marble never touches the ${label}.`, tone: 'bad' };
-	if (ride.leave == null) {
-		return nextTime != null
-			? { text: `The marble is still on the ${label} at Hit ${nextIndex + 1}.`, tone: 'warn' }
-			: { text: `The marble stays on the ${label} to the end.`, tone: 'info' };
-	}
-	const rides = ride.leave - ride.enter;
-	if (nextTime == null) return { text: `Marble leaves the ${label} after ${rides.toFixed(1)} s.`, tone: 'info' };
-	const flight = nextTime - ride.leave;
-	return { text: `Marble leaves the ${label} after ${rides.toFixed(1)} s, then flies ${flight.toFixed(2)} s to Hit ${nextIndex + 1}.`, tone: 'info' };
-}
-
-// MARK: - Parameters
+// MARK: - Physics
 
 /** Physical parameters of the piece type not shown above, with units people read: cm, mm, ms, rpm */
 const ParamsSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string }> = (props) => {
 	const { cx, project, entities, type } = props;
 	const definition = getPieceDefinition(type);
-	// Length sits in Transform and the anchor moment in Attachment
-	const names = Object.keys(definition?.params ?? {}).filter((name) => name !== 'entryDelay' && !(layoutOf(type) === 'box' && name === 'length'));
+	// Length sits in Position and the anchor moment in Attached To
+	const names = Object.keys(definition?.params ?? {})
+		.filter((name) => name !== 'entryDelay' && !(layoutOf(type) === 'box' && name === 'length'))
+		.sort((a, b) => paramRank(a) - paramRank(b));
 	if (definition == null || !names.length) return null;
 
 	return (
-		<Panel id="piece.physics" title="Physics">
-				{names.map((name) => {
-					const spec = definition.params[name];
-					if (spec == null) return null;
-					const display = displayUnit(name, spec.unit, spec.integer === true);
-					const values = entities.map((entity) => resolvedParam(entity, name));
-					const shared = values.every((value) => Math.abs(value - (values[0] ?? 0)) < 1e-12) ? (values[0] ?? null) : null;
-					const edit = (value: number): TPieceEdit => ({ params: { [name]: value / display.factor } });
-					return (
-						<ScrubField
-							key={name}
-							id={`piece-param-${name}`}
-							label={shortLabels[name] ?? spec.label}
-							value={shared == null ? null : Math.round(shared * display.factor * 10 ** display.precision) / 10 ** display.precision}
-							unit={display.unit}
-							step={display.step}
-							precision={display.precision}
-							min={spec.min * display.factor}
-							max={spec.max * display.factor}
-							onPreview={(value) => cx.simulation.startPreview(applyPieceEdit(project, entities, edit(value)).project)}
-							onCommit={(value) => {
-								cx.execute(applyPieceEdit(project, entities, edit(value)).commands);
-								cx.simulation.endPreview();
-							}}
-							onCancel={() => cx.simulation.endPreview()}
-						/>
-					);
-				})}
+		<Panel id="piece.physics" title="Physics" defaultCollapsed isDense>
+			{names.map((name) => {
+				const spec = definition.params[name];
+				if (spec == null) return null;
+				const label = shortLabels[name] ?? spec.label;
+				const display = displayUnit(name, spec.unit, spec.integer === true);
+				const values = entities.map((entity) => resolvedParam(entity, name));
+				const shared = values.every((value) => Math.abs(value - (values[0] ?? 0)) < 1e-12) ? (values[0] ?? null) : null;
+				const edit = (value: number): TPieceEdit => ({ params: { [name]: value / display.factor } });
+				return (
+					<ScrubField
+						key={name}
+						id={`piece-param-${name}`}
+						label={label}
+						name={spec.label}
+						span={label.length > 7 ? 2 : undefined}
+						value={shared == null ? null : Math.round(shared * display.factor * 10 ** display.precision) / 10 ** display.precision}
+						unit={display.unit}
+						step={display.step}
+						precision={display.precision}
+						min={spec.min * display.factor}
+						max={spec.max * display.factor}
+						onPreview={(value) => cx.simulation.startPreview(applyPieceEdit(project, entities, edit(value)).project)}
+						onCommit={(value) => {
+							cx.execute(applyPieceEdit(project, entities, edit(value)).commands);
+							cx.simulation.endPreview();
+						}}
+						onCancel={() => cx.simulation.endPreview()}
+					/>
+				);
+			})}
 		</Panel>
 	);
 };
 
-// Labels that fit the inspector's label column on one line
+// Bounce leads, as it is the one people change most; the rest keep the definition's order
+function paramRank(name: string): number {
+	const index = ['bounce', 'thickness', 'depth'].indexOf(name);
+	return index < 0 ? 3 : index;
+}
+
+// Labels that fit inside a half-width field; the full name shows in the tooltip
 const shortLabels: Record<string, string> = {
-	bladeThickness: 'Blade width',
+	bladeCount: 'Blades',
+	bladeLength: 'Blade',
+	bladeThickness: 'Width',
+	hubRadius: 'Hub',
 	motorSpeed: 'Motor',
-	entryDelay: 'Delay'
+	damping: 'Damping',
+	radius: 'Wire',
+	gap: 'Gap',
+	bore: 'Clear',
+	mouth: 'Mouth',
+	width: 'W',
+	drop: 'Drop',
+	opening: 'Open',
+	lip: 'Lip',
+	bend: 'Bend'
 };
 
 function displayUnit(name: string, unit: string, isInteger: boolean): { unit: string; factor: number; step: number; precision: number } {
@@ -505,18 +458,18 @@ interface TPieceEdit {
 	position?: Partial<TVec2>;
 }
 
-/** The same edit for every piece, as a preview project and as the commands that commit it */
+/**
+ * The same edit for every piece, as a preview project and as the commands that commit it. An edited link
+ * drops a pin left by older projects, since a linked piece now always follows its hit.
+ */
 function applyPieceEdit(project: TProject, entities: TEntity[], edit: TPieceEdit): { project: TProject; commands: TProjectCommand[] } {
 	const commands: TProjectCommand[] = [];
 	const edited = new Map<string, TEntity>();
 	for (const entity of entities) {
 		const components = { ...entity.components };
-		if (edit.hitLink != null && components.hitLink != null) {
-			components.hitLink = { ...components.hitLink, ...edit.hitLink };
-			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'hitLink', value: components.hitLink } });
-		}
-		if (edit.angle != null && components.hitLink != null) {
-			components.hitLink = { ...components.hitLink, angle: edit.angle };
+		const linkPatch = edit.hitLink != null || edit.angle != null ? { ...edit.hitLink, ...(edit.angle != null ? { angle: edit.angle } : {}) } : null;
+		if (linkPatch != null && components.hitLink != null) {
+			components.hitLink = { ...components.hitLink, ...linkPatch, pinned: false, pinnedPosition: undefined };
 			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'hitLink', value: components.hitLink } });
 		} else if ((edit.angle != null || edit.position != null) && components.hitLink == null && components.transform != null) {
 			components.transform = { position: { ...components.transform.position, ...edit.position }, angle: edit.angle ?? components.transform.angle };

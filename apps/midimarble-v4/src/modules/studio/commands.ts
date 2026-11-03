@@ -34,6 +34,10 @@ function hasProject(cx: StudioCx): boolean {
 	return cx.project != null;
 }
 
+function hasSong(cx: StudioCx): boolean {
+	return (cx.project?.music.sources.length ?? 0) > 0;
+}
+
 function inDesign(cx: StudioCx): boolean {
 	return cx.project != null && cx.$workspace.get() === 'design';
 }
@@ -117,6 +121,8 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', isEnabled: hasProject, run: (cx) => void cx.flush() },
 	{ id: 'file.importMidi', title: 'Import MIDI…', section: 'File', shortcut: '⌘I', isEnabled: hasProject, run: (cx) => void cx.sources.pickMidi() },
 	{ id: 'file.importAudio', title: 'Import Audio…', section: 'File', shortcut: '⇧⌘I', keywords: 'recording wav mp3', isEnabled: hasProject, run: (cx) => void cx.sources.pickAudio() },
+	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: hasSong, run: (cx) => void cx.sources.replaceSong() },
+	{ id: 'file.removeSong', title: 'Remove Song', section: 'File', keywords: 'music midi audio soundtrack delete', isEnabled: hasSong, run: (cx) => cx.sources.removeSong() },
 	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.film.openSheet() },
 
 	// MARK: - Edit
@@ -151,6 +157,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.sidebar', title: 'Sidebar', section: 'View', shortcut: '⌃⌘S', keywords: 'outliner panel', isChecked: (cx) => cx.$panels.get().sidebar, run: (cx) => cx.togglePanel('sidebar') },
 	{ id: 'view.inspector', title: 'Inspector', section: 'View', shortcut: '⌃⌘I', keywords: 'properties panel', isChecked: (cx) => cx.$panels.get().inspector, run: (cx) => cx.togglePanel('inspector') },
 	{ id: 'view.timeline', title: 'Timeline', section: 'View', shortcut: '⌃⌘T', keywords: 'lanes dope sheet panel', isChecked: (cx) => cx.$panels.get().timeline, run: (cx) => cx.togglePanel('timeline') },
+	{ id: 'view.agent', title: 'Agent', section: 'View', shortcut: '⌘J', keywords: 'chat ai assistant claude codex ask', isEnabled: hasProject, isChecked: (cx) => cx.$panels.get().agent, run: (cx) => cx.togglePanel('agent') },
 	{ id: 'view.zoomIn', title: 'Zoom In', section: 'View', shortcut: '⌘+', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(2) },
 	{ id: 'view.zoomOut', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(0.5) },
 	{ id: 'view.fitAll', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
@@ -223,20 +230,6 @@ export const commands: readonly TCommand[] = [
 	},
 	{ id: 'build.continue', title: 'Accept Continue', section: 'Build', shortcut: '⇥', keywords: 'ghosts suggestion tab', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.acceptGhosts() },
 	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Build', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.dismiss() },
-	{
-		id: 'build.pin',
-		title: 'Pin',
-		section: 'Build',
-		shortcut: '⇧P',
-		keywords: 'unpin lock keep in place',
-		isEnabled: hasPieces,
-		isChecked: (cx) => {
-			const ids = cx.$selection.get();
-			const pieces = cx.project?.entities.filter((entity) => ids.includes(entity.id) && entity.components.hitLink != null) ?? [];
-			return pieces.length > 0 && pieces.every((entity) => entity.components.hitLink?.pinned === true);
-		},
-		run: (cx) => compose(cx)?.togglePin()
-	},
 	{ id: 'build.rotateLeft', title: 'Rotate 5° Counterclockwise', section: 'Build', shortcut: '⇧←', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(5) },
 	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Build', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
 
@@ -349,6 +342,8 @@ export type TCommandId =
 	| 'file.save'
 	| 'file.importMidi'
 	| 'file.importAudio'
+	| 'file.replaceSong'
+	| 'file.removeSong'
 	| 'file.export'
 	| 'design.editInBlender'
 	| 'design.renderPreview'
@@ -373,6 +368,7 @@ export type TCommandId =
 	| 'view.sidebar'
 	| 'view.inspector'
 	| 'view.timeline'
+	| 'view.agent'
 	| 'view.zoomIn'
 	| 'view.zoomOut'
 	| 'view.fitAll'
@@ -399,7 +395,6 @@ export type TCommandId =
 	| 'build.autoPlace'
 	| 'build.continue'
 	| 'build.dismiss'
-	| 'build.pin'
 	| 'build.rotateLeft'
 	| 'build.rotateRight'
 	| 'marble.add'

@@ -47,7 +47,7 @@ export class StudioCx {
 	readonly $reveal = createState<TReveal | null>(null);
 	/** Entities the last undo or redo changed; the canvas pans to them once the run for that revision arrives */
 	readonly $historyReveal = createState<{ ids: string[]; revision: number } | null>(null);
-	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true });
+	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true, agent: false });
 	// Zero fits the timeline to its lanes until the user drags it to a height of their own
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));
 	readonly $paletteOpen = createState(false);
@@ -396,7 +396,7 @@ export class StudioCx {
 }
 
 export type TWorkspace = 'compose' | 'design';
-export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline';
+export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline' | 'agent';
 
 export interface TLaneMix {
 	muted: string[];

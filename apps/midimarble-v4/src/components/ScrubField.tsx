@@ -1,11 +1,27 @@
 import React from 'react';
 
 /**
- * Numeric field whose label scrubs the value when dragged, like Figma. Scrubbing reports previews and
- * commits once on release; typing commits on Return or blur. Shift scrubs ten times faster.
+ * Numeric field with its label inside, like Figma's X, Y and angle fields. Dragging the label scrubs the
+ * value; scrubbing reports previews and commits once on release, typing commits on Return or blur. Shift
+ * scrubs and steps ten times faster.
  */
 export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
-	const { id, label, value, unit, step, precision = 0, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, disabled = false, onPreview, onCommit, onCancel } = props;
+	const {
+		id,
+		label,
+		name,
+		value,
+		unit,
+		step,
+		precision = 0,
+		min = Number.NEGATIVE_INFINITY,
+		max = Number.POSITIVE_INFINITY,
+		disabled = false,
+		span,
+		onPreview,
+		onCommit,
+		onCancel
+	} = props;
 	const text = value == null ? '' : format(value, precision);
 	const [draft, setDraft] = React.useState(text);
 	const [source, setSource] = React.useState(text);
@@ -31,13 +47,16 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 		onCommit(clamp(parsed));
 	}
 
+	const isGlyph = typeof label === 'string' && label.length <= 1;
+
 	return (
-		<div className="mm-field" data-disabled={disabled}>
+		<div className="mm-ifield" data-disabled={disabled} data-span={span}>
 			<label
 				htmlFor={id}
-				data-scrub="true"
-				title="Drag to change, hold Shift for larger steps"
-				className="cursor-ew-resize touch-none"
+				className="mm-ifield-label"
+				data-scrub={!disabled}
+				data-glyph={isGlyph}
+				title={disabled ? name : `${name}: drag to change, hold Shift for larger steps`}
 				onPointerDown={(event) => {
 					if (event.button !== 0 || disabled) return;
 					event.preventDefault();
@@ -68,38 +87,39 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 			>
 				{label}
 			</label>
-			<div className="relative">
-				<input
-					id={id}
-					className="mm-input pr-7"
-					disabled={disabled}
-					value={draft}
-					placeholder={value == null ? 'Mixed' : undefined}
-					inputMode="decimal"
-					onChange={(event) => setDraft(event.target.value)}
-					onBlur={commitDraft}
-					onKeyDown={(event) => {
-						if (event.key === 'Enter') event.currentTarget.blur();
-						if (event.key === 'Escape') {
-							setDraft(text);
-							requestAnimationFrame(() => (event.target as HTMLInputElement).blur());
-						}
-						if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-							event.preventDefault();
-							const delta = (event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 10 : 1) * 10 ** -precision;
-							onCommit(clamp((value ?? 0) + delta));
-						}
-					}}
-				/>
-				<span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-[11px] text-[var(--text-tertiary)]">{unit}</span>
-			</div>
+			<input
+				id={id}
+				aria-label={name}
+				disabled={disabled}
+				value={draft}
+				placeholder={value == null ? 'Mixed' : undefined}
+				inputMode="decimal"
+				onChange={(event) => setDraft(event.target.value)}
+				onBlur={commitDraft}
+				onKeyDown={(event) => {
+					if (event.key === 'Enter') event.currentTarget.blur();
+					if (event.key === 'Escape') {
+						setDraft(text);
+						requestAnimationFrame(() => (event.target as HTMLInputElement).blur());
+					}
+					if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+						event.preventDefault();
+						const delta = (event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 10 : 1) * 10 ** -precision;
+						onCommit(clamp((value ?? 0) + delta));
+					}
+				}}
+			/>
+			{unit.length > 0 ? <span className="mm-ifield-unit">{unit}</span> : null}
 		</div>
 	);
 };
 
 interface TScrubFieldProps {
 	id: string;
-	label: string;
+	/** Short label inside the field: a letter or glyph such as `X` or `∠`, or a short word */
+	label: React.ReactNode;
+	/** Full name for the tooltip and assistive technology, such as `Angle` */
+	name: string;
 	/** Null shows the field as mixed */
 	value: number | null;
 	unit: string;
@@ -109,8 +129,10 @@ interface TScrubFieldProps {
 	precision?: number;
 	min?: number;
 	max?: number;
-	/** Shows the value without letting it change, such as the position of a piece that follows its marble */
+	/** Shows the value without letting it change, such as the position of a piece that follows its hit */
 	disabled?: boolean;
+	/** `2` spans both columns of the inspector grid */
+	span?: 2;
 	onPreview?: (value: number) => void;
 	onCommit: (value: number) => void;
 	onCancel?: () => void;

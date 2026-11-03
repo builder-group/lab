@@ -84,7 +84,10 @@ export class SourcesCx {
 		};
 		const firstTrack = pending.midi.tracks.find((track) => pending.trackIds.includes(track.id));
 		const lastTime = preview.lanes.flat().reduce((max, note) => Math.max(max, note.time + note.duration), 0);
+		// A film has one song, so a new MIDI file replaces the previous one, as a new recording does
+		const replaced = project.music.sources.filter((item) => item.kind === 'midi');
 		const applied = this.studio.execute([
+			...replaced.map((item) => ({ type: 'removeSource' as const, sourceId: item.id })),
 			...createImportCommands(project, {
 				lanes: preview.lanes,
 				source,
@@ -136,6 +139,24 @@ export class SourcesCx {
 			{ type: 'setEnd', end: Math.max(project.end, Math.ceil(source.offset + analysis.duration)) }
 		]);
 		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from the lane inspector or tap along.`);
+	}
+
+	// MARK: - Song
+
+	/** Picks a new file of the same kind as the current song; the import then replaces it */
+	async replaceSong(): Promise<void> {
+		const song = this.studio.project == null ? undefined : songSource(this.studio.project);
+		if (song?.kind === 'audio') await this.pickAudio();
+		else await this.pickMidi();
+	}
+
+	/** Removes the song files from the project; the marbles keep their hits */
+	removeSong(): void {
+		const project = this.studio.project;
+		if (project == null || !project.music.sources.length) return;
+		const name = songSource(project)?.name ?? 'The song';
+		const removed = this.studio.execute(project.music.sources.map((source) => ({ type: 'removeSource' as const, sourceId: source.id })));
+		if (removed) this.studio.notify(`Removed ${name}. The marbles keep their hits.`);
 	}
 
 	/** Loads waveform and onsets for audio sources of a reopened project */
@@ -191,6 +212,12 @@ export interface TSourceAnalysis {
 	peaks: Float32Array;
 	// Source-relative seconds
 	onsets: number[];
+}
+
+/** The project's song: the recording when there is one, since it is what plays, otherwise the MIDI file */
+export function songSource(project: TProject): TSource | undefined {
+	const sources = project.music.sources;
+	return sources.find((source) => source.kind === 'audio') ?? sources[0];
 }
 
 /** Proposed lanes for the current import settings, aligned to the import start */

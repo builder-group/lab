@@ -21,6 +21,8 @@
 	--hover: rgb(0 0 0 / 0.05);
 	--pressed: rgb(0 0 0 / 0.09);
 	--selection: color-mix(in srgb, var(--accent) 26%, transparent);
+	/* Pieces inside a selected layer group, like Figma's lighter child highlight */
+	--layer-group-tint: color-mix(in srgb, var(--accent) 11%, transparent);
 	--control: rgb(255 255 255 / 0.9);
 	--control-border: rgb(0 0 0 / 0.12);
 	--shadow-popover: 0 0 0 0.5px rgb(0 0 0 / 0.15), 0 10px 30px rgb(0 0 0 / 0.18);
@@ -33,6 +35,10 @@
 	/* Opaque ruler and track header bands, a step off the content like Logic and Blender */
 	--band: #f6f6f6;
 	--band-selected: color-mix(in srgb, var(--accent) 16%, var(--band));
+	/* Timeline LCD and piano roll keyboard */
+	--lcd: rgb(0 0 0 / 0.045);
+	--key-white: #fbfbfb;
+	--key-black: #3a3a3c;
 	--menu: rgb(246 246 246 / 0.86);
 	/* Selected rows: the active row is filled with the accent, other selected rows are tinted */
 	--selection-active: var(--accent);
@@ -68,10 +74,14 @@
 		--accent-strong: #ffd60a;
 		/* Yellow over dark grey turns olive, so secondary selection stays neutral in dark mode */
 		--selection: rgb(255 255 255 / 0.1);
+		--layer-group-tint: rgb(255 255 255 / 0.045);
 		--playhead: #ff453a;
 		--window: #1c1c1e;
 		--band: #232325;
 		--band-selected: #303033;
+		--lcd: rgb(0 0 0 / 0.28);
+		--key-white: #3a3a3d;
+		--key-black: #161617;
 		--menu: rgb(40 40 42 / 0.86);
 	}
 }
@@ -204,26 +214,6 @@ textarea {
 	box-shadow:
 		0 0 0 0.5px rgb(0 0 0 / 0.08),
 		0 1px 2px rgb(0 0 0 / 0.12);
-}
-
-.mm-field {
-	display: grid;
-	grid-template-columns: 76px minmax(0, 1fr);
-	align-items: center;
-	gap: 8px;
-	min-height: 26px;
-}
-
-.mm-field > label,
-.mm-field > .mm-field-label {
-	color: var(--text-secondary);
-	text-align: right;
-	white-space: nowrap;
-}
-
-/* Scrubbable labels light up like Figma's to show they can be dragged */
-.mm-field > label[data-scrub='true']:hover {
-	color: var(--text);
 }
 
 .mm-input {
@@ -399,33 +389,6 @@ textarea {
 
 /* MARK: - Inspector panels */
 
-/* Collapsible panel like Blender's properties editor, with separators like Xcode's inspector */
-.mm-panel + .mm-panel {
-	border-top: 1px solid var(--separator);
-}
-
-.mm-panel-header {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	width: 100%;
-	height: 30px;
-	padding: 0 12px 0 10px;
-	font-weight: 600;
-	text-align: left;
-}
-
-.mm-panel-header:hover .mm-disclosure {
-	color: var(--text-secondary);
-}
-
-.mm-panel-body {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	padding: 0 12px 12px;
-}
-
 .mm-caption {
 	font-size: var(--text-small);
 	line-height: 1.35;
@@ -482,32 +445,190 @@ textarea {
 	border-left: 1px solid var(--separator);
 }
 
-/* Logic-style track toggles: M turns grey like a muted channel, S turns the accent yellow */
+/* GarageBand-style track toggles: a speaker for Mute that turns grey and crossed out, headphones for Solo that light up in the accent */
 .mm-track-toggle {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	width: 20px;
-	height: 18px;
-	border-radius: 4px;
-	border: 0.5px solid var(--control-border);
-	background: var(--control);
+	width: 22px;
+	height: 20px;
+	border-radius: 5px;
+	color: var(--text-tertiary);
+}
+
+.mm-track-header:hover .mm-track-toggle,
+.mm-track-header[data-selected='true'] .mm-track-toggle {
 	color: var(--text-secondary);
-	font-size: var(--text-small);
-	font-weight: 600;
+}
+
+.mm-track-toggle:hover {
+	background: var(--hover);
+	color: var(--text);
 }
 
 .mm-track-toggle[data-on='true'][data-tone='mute'] {
-	background: var(--text-secondary);
-	border-color: transparent;
-	color: var(--content);
+	background: var(--pressed);
+	color: var(--text);
 }
 
 .mm-track-toggle[data-on='true'][data-tone='solo'] {
 	background: var(--accent);
-	border-color: transparent;
 	color: var(--on-accent);
+}
+
+/* A tall expanded header takes a lighter tint, so selection does not turn into a block of yellow */
+.mm-track-header[data-expanded='true'][data-selected='true'] {
+	background-color: color-mix(in srgb, var(--band-selected) 50%, var(--band));
+}
+
+.mm-track-header[data-muted='true'] .mm-track-title,
+.mm-track-header[data-muted='true'] .mm-track-chip {
+	opacity: 0.45;
+}
+
+/* Disclosure triangle like a Finder outline; it turns down when the track is expanded */
+.mm-disclosure {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	border-radius: 4px;
+	color: var(--text-tertiary);
+	transition: transform 0.12s ease-out;
+}
+
+.mm-disclosure:hover {
+	color: var(--text-secondary);
+}
+
+.mm-disclosure[data-open='true'] {
+	transform: rotate(90deg);
+}
+
+.mm-track-chip {
+	flex-shrink: 0;
+	width: 10px;
+	height: 10px;
+	border-radius: 5px;
+	box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.18);
+}
+
+/* Song track: a small icon tile beside the file name */
+.mm-song-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	border-radius: 4px;
+	background: var(--pressed);
+	color: var(--text-secondary);
+}
+
+.mm-song-lane {
+	background: color-mix(in srgb, var(--text) 2.5%, transparent);
+}
+
+/* Piano roll keyboard, like Logic's: black keys reach in from the left, C keys carry their octave */
+.mm-keyboard {
+	border-left: 1px solid var(--separator);
+	background: var(--key-white);
+}
+
+.mm-key {
+	position: absolute;
+	right: 0;
+	left: 0;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	padding-right: 4px;
+	border-bottom: 0.5px solid var(--separator);
+}
+
+.mm-key[data-black='true']::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 58%;
+	border-radius: 0 2px 2px 0;
+	background: var(--key-black);
+}
+
+.mm-key:active {
+	background: var(--selection);
+}
+
+.mm-key[data-black='true']:active::before {
+	background: var(--accent-strong);
+}
+
+.mm-key-label {
+	font-size: 9px;
+	line-height: 1;
+	font-weight: 500;
+	color: var(--text-secondary);
+}
+
+.mm-piano-row {
+	position: absolute;
+	right: 0;
+	left: 0;
+}
+
+.mm-piano-row[data-black='true'] {
+	background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+/* Octave lines below each C, like the stronger grid lines of Logic's piano roll */
+.mm-piano-row[data-c='true'] {
+	border-bottom: 1px solid var(--separator);
+}
+
+/* Notes of an expanded track: blocks whose left edge is the hit time, in the same states as the diamonds */
+.mm-note {
+	position: absolute;
+	z-index: 1;
+	width: 12px;
+	border-radius: 2.5px;
+	background: var(--lane);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lane) 65%, black);
+	cursor: move;
+}
+
+.mm-note[data-state='open'] {
+	background: color-mix(in srgb, var(--lane) 22%, var(--content));
+	box-shadow: inset 0 0 0 1.5px var(--lane);
+}
+
+.mm-note[data-state='drifting'] {
+	box-shadow: inset 0 0 0 1.5px var(--warn);
+}
+
+.mm-note[data-state='missed'] {
+	background: var(--bad);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 70%, black);
+}
+
+.mm-note[data-conflict='true'] {
+	outline: 1.5px solid var(--bad);
+	outline-offset: 1px;
+}
+
+.mm-note[data-linked='true'] {
+	outline: 1.5px solid var(--accent-strong);
+	outline-offset: 1px;
+}
+
+.mm-note[data-selected='true'] {
+	background: var(--accent);
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
 }
 
 /* Hit diamonds use Blender's keyframe vocabulary: selected keys turn the accent colour */
@@ -1118,29 +1239,6 @@ textarea {
 	object-fit: cover;
 }
 
-.mm-link-state {
-	display: inline-flex;
-	align-items: center;
-	gap: 5px;
-}
-
-.mm-link-state::before {
-	content: '';
-	width: 7px;
-	height: 7px;
-	border-radius: 999px;
-	background: var(--text-tertiary);
-}
-
-.mm-link-state[data-state='linked']::before {
-	background: var(--good);
-}
-
-.mm-link-state[data-state='unlinked']::before,
-.mm-link-state[data-state='mixed']::before {
-	background: var(--warn);
-}
-
 .mm-color {
 	width: 34px;
 	height: 20px;
@@ -1407,30 +1505,22 @@ textarea {
 	border-bottom: 1px solid var(--separator);
 }
 
-.mm-doc-tab {
+/* Centred document title of a one-document window, like macOS: the name and an edited dot */
+.mm-titlebar-title {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	height: 26px;
-	max-width: 240px;
+	max-width: 36%;
+	height: 24px;
 	padding: 0 8px;
-	border-radius: 7px;
-	color: var(--text-secondary);
+	border-radius: 6px;
+	font-weight: 600;
+	color: var(--text);
+}
+
+.mm-titlebar-title .mm-row-input {
+	width: 220px;
 	font-weight: 500;
-}
-
-.mm-doc-tab:hover {
-	background: var(--hover);
-	color: var(--text);
-}
-
-.mm-doc-tab[data-active='true'] {
-	padding-right: 4px;
-	background: var(--content-raised);
-	color: var(--text);
-	box-shadow:
-		0 0 0 0.5px var(--control-border),
-		0 1px 2px rgb(0 0 0 / 0.06);
 }
 
 .mm-doc-dot {
@@ -1441,17 +1531,56 @@ textarea {
 	background: var(--text-tertiary);
 }
 
-.mm-doc-close {
+/* Agent toggle: a labelled toolbar button, like Xcode's and Figma's assistant buttons */
+.mm-titlebar-agent {
+	position: relative;
 	display: inline-flex;
 	align-items: center;
-	justify-content: center;
-	width: 16px;
-	height: 16px;
-	border-radius: 4px;
-	color: var(--text-tertiary);
+	gap: 5px;
+	height: 26px;
+	padding: 0 9px 0 8px;
+	border-radius: 6px;
+	color: var(--text-secondary);
+	font-weight: 500;
 }
 
-.mm-doc-close:hover {
+.mm-titlebar-agent:hover {
+	background: var(--hover);
+	color: var(--text);
+}
+
+.mm-titlebar-agent[data-active='true'] {
+	background: var(--pressed);
+	color: var(--text);
+}
+
+.mm-titlebar-badge {
+	position: absolute;
+	top: 4px;
+	left: 18px;
+	width: 6px;
+	height: 6px;
+	border-radius: 3px;
+	background: var(--accent-strong);
+	box-shadow: 0 0 0 1.5px var(--window);
+}
+
+.mm-titlebar-export {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 220px;
+	height: 22px;
+	margin-right: 6px;
+	padding: 0 8px;
+	border-radius: 11px;
+	background: var(--hover);
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-titlebar-export:hover {
 	background: var(--pressed);
 	color: var(--text);
 }
@@ -1464,33 +1593,183 @@ textarea {
 	backdrop-filter: blur(20px);
 }
 
-.mm-layer-row[data-dimmed='true'] > span:not(:last-child) {
+/* MARK: - Layers (Figma UI3 layer list) */
+
+.mm-layers-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 32px;
+	flex-shrink: 0;
+	padding: 0 8px 0 16px;
+	font-size: var(--text-small);
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+.mm-layers {
+	outline: none;
+}
+
+.mm-layers-empty {
+	padding: 4px 16px;
+	font-size: var(--text-small);
+	color: var(--text-tertiary);
+}
+
+.mm-layer {
+	display: flex;
+	align-items: center;
+	height: 28px;
+	margin: 0 8px;
+	padding-right: 6px;
+	border-radius: 5px;
+	white-space: nowrap;
+	cursor: default;
+}
+
+.mm-layer:hover {
+	box-shadow: inset 0 0 0 1px var(--control-border);
+}
+
+.mm-layer[data-selected='true'] {
+	background: var(--selection);
+}
+
+.mm-layer[data-in-selection='true'] {
+	background: var(--layer-group-tint);
+}
+
+.mm-layer[data-selected='true']:hover,
+.mm-layer[data-in-selection='true']:hover {
+	box-shadow: none;
+}
+
+.mm-layer[data-join-top='true'] {
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+
+.mm-layer[data-join-bottom='true'] {
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
+/* The focused list shows its selection a step stronger, like a key window */
+.mm-layers:focus-visible .mm-layer[data-selected='true'] {
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.mm-layer-disclosure {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	border-radius: 3px;
+	color: var(--text-tertiary);
+	transition: transform 0.12s;
+}
+
+button.mm-layer-disclosure:hover {
+	color: var(--text);
+}
+
+.mm-layer-disclosure[data-open='true'] {
+	transform: rotate(90deg);
+}
+
+.mm-layer-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	margin-right: 6px;
+	color: var(--text-secondary);
+}
+
+.mm-layer[data-selected='true'] .mm-layer-icon {
+	color: var(--text);
+}
+
+.mm-layer-chip {
+	display: block;
+	flex-shrink: 0;
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
+	box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.2);
+}
+
+.mm-layer-name {
+	min-width: 0;
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mm-layer[data-dimmed='true'] .mm-layer-name,
+.mm-layer[data-dimmed='true'] .mm-layer-icon {
 	opacity: 0.4;
 }
 
-/* Eye and lock toggles appear on hover, and stay while on, like Figma's layer list */
-.mm-row-toggle {
+.mm-layer-meta {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+	padding-left: 6px;
+	color: var(--text-tertiary);
+	font-size: var(--text-small);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-layer[data-selected='true'] .mm-layer-meta {
+	color: var(--text-secondary);
+}
+
+.mm-layer-actions {
 	display: none;
 	align-items: center;
+	flex-shrink: 0;
+	gap: 0;
+	padding-left: 4px;
+}
+
+/* Hover swaps the quiet trailing column for the eye and lock, like Figma */
+.mm-layer:hover .mm-layer-meta {
+	display: none;
+}
+
+.mm-layer:hover .mm-layer-actions,
+.mm-layer:has(.mm-layer-toggle[data-on='true']) .mm-layer-actions {
+	display: inline-flex;
+}
+
+.mm-layer:has(.mm-layer-toggle[data-on='true']) .mm-layer-meta {
+	display: none;
+}
+
+.mm-layer-toggle {
+	display: inline-flex;
+	align-items: center;
 	justify-content: center;
-	width: 18px;
-	height: 18px;
+	width: 22px;
+	height: 22px;
 	border-radius: 4px;
 	color: var(--text-secondary);
 }
 
-.mm-row-toggle:hover {
-	background: var(--pressed);
+.mm-layer:not(:hover) .mm-layer-toggle[data-on='false'] {
+	visibility: hidden;
+}
+
+.mm-layer-toggle:hover {
+	background: var(--hover);
 	color: var(--text);
-}
-
-.mm-layer-row:hover .mm-row-toggle,
-.mm-row-toggle[data-on='true'] {
-	display: inline-flex;
-}
-
-.mm-row[data-active='true'] .mm-row-toggle {
-	color: color-mix(in srgb, var(--on-selection-active) 70%, transparent);
 }
 
 /* Vertical tool rail after Paper */
@@ -1536,16 +1815,6 @@ textarea {
 	border-left: 1px solid var(--separator);
 }
 
-.mm-inspector-top {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	height: 40px;
-	flex-shrink: 0;
-	padding: 0 10px 0 6px;
-	border-bottom: 1px solid var(--separator);
-}
-
 .mm-zoom-button {
 	display: inline-flex;
 	align-items: center;
@@ -1559,34 +1828,6 @@ textarea {
 .mm-zoom-button:hover,
 .mm-zoom-button[data-active='true'] {
 	background: var(--hover);
-}
-
-/* Two compact fields side by side with one-letter labels, like Figma's X and Y */
-.mm-field-pair {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 6px;
-	padding-left: 24px;
-}
-
-.mm-field-pair > .mm-field {
-	grid-template-columns: 12px 1fr;
-	gap: 6px;
-}
-
-.mm-field[data-disabled='true'] .mm-input {
-	opacity: 0.55;
-}
-
-.mm-field[data-disabled='true'] > label {
-	cursor: default;
-}
-
-.mm-attach-row {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	min-height: 26px;
 }
 
 /* Question mark that explains a control, with the explanation in a bubble */
@@ -1664,47 +1905,105 @@ textarea {
 .mm-transport {
 	display: flex;
 	align-items: center;
-	height: 36px;
+	gap: 12px;
+	height: 40px;
 	flex-shrink: 0;
-	padding: 0 8px 0 10px;
+	padding: 0 10px;
 	border-bottom: 1px solid var(--separator);
-	background: var(--content);
+	background: var(--band);
 }
 
-/* The one play control: a filled triangle in a round button, like QuickTime and Final Cut */
-.mm-play-button {
+/* Plain glyph buttons like Logic's control bar; Play has no circle and only fills while playing */
+.mm-transport-button {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	width: 30px;
-	height: 30px;
-	margin: 0 2px;
-	border-radius: 15px;
-	background: var(--text);
-	color: var(--content);
-	padding-left: 2px;
-}
-
-.mm-play-button[data-playing='true'] {
-	padding-left: 0;
-}
-
-.mm-play-button:hover {
-	opacity: 0.85;
-}
-
-.mm-time-display {
-	display: inline-flex;
-	align-items: center;
-	height: 24px;
-	margin-left: 8px;
-	padding: 0 8px;
+	height: 26px;
 	border-radius: 6px;
+	color: var(--text);
+	opacity: 0.78;
+}
+
+.mm-transport-button:hover {
 	background: var(--hover);
-	font-size: 12px;
-	font-weight: 500;
+	opacity: 1;
+}
+
+.mm-transport-button:active {
+	background: var(--pressed);
+	opacity: 1;
+}
+
+.mm-transport-button[data-active='true'] {
+	color: var(--good);
+	opacity: 1;
+}
+
+/* LCD time readout: a recessed display with the playhead time large and the length secondary */
+.mm-lcd {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 8px;
+	height: 28px;
+	padding: 0 10px 0 4px;
+	border-radius: 7px;
+	background: var(--lcd);
+	box-shadow: inset 0 0 0 0.5px var(--control-border);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
+	line-height: 28px;
+}
+
+.mm-lcd-time,
+.mm-lcd-input {
+	width: 74px;
+	height: 22px;
+	align-self: center;
+	padding: 0 6px;
+	border-radius: 5px;
+	font-size: 15px;
+	font-weight: 500;
+	line-height: 22px;
+	letter-spacing: 0.01em;
+	color: var(--text);
+	text-align: left;
+}
+
+.mm-lcd-time {
+	cursor: text;
+}
+
+.mm-lcd-time:hover {
+	background: var(--hover);
+}
+
+.mm-lcd-input {
+	border: 0;
+	outline: none;
+	background: var(--content);
+	box-shadow: 0 0 0 2px var(--accent);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-lcd[data-invalid='true'] .mm-lcd-input {
+	box-shadow: 0 0 0 2px var(--bad);
+}
+
+.mm-lcd-length {
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+}
+
+.mm-zoom-slider {
+	width: 96px;
+	background: var(--pressed);
+}
+
+.mm-zoom-slider::-webkit-slider-thumb {
+	width: 14px;
+	height: 14px;
+	border-radius: 7px;
 }
 
 /* MARK: - Canvas feedback */
@@ -1796,4 +2095,317 @@ textarea {
 	.mm-slider::-webkit-slider-thumb {
 		background: #d8d8da;
 	}
+}
+
+/* MARK: - Agent chat (Figma AI and Cursor chat panels) */
+
+.mm-agent {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 360px;
+	flex-shrink: 0;
+	min-height: 0;
+	background: var(--content);
+	border-left: 1px solid var(--separator);
+}
+
+.mm-agent-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	height: 40px;
+	flex-shrink: 0;
+	padding: 0 8px 0 14px;
+	border-bottom: 1px solid var(--separator);
+}
+
+.mm-agent-scroll {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 18px;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 14px 14px 18px;
+}
+
+.mm-agent-empty {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	color: var(--text-tertiary);
+}
+
+/* The user's message, right-aligned like Messages */
+.mm-agent-bubble {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 3px 4px;
+	align-self: flex-end;
+	max-width: 88%;
+	padding: 6px 10px;
+	border-radius: 12px 12px 4px 12px;
+	background: var(--hover);
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
+
+.mm-mention {
+	font-weight: 600;
+	color: var(--accent-strong);
+}
+
+.mm-agent-reply {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.mm-agent-reply[data-phase='declined'],
+.mm-agent-reply[data-phase='cancelled'] {
+	opacity: 0.6;
+}
+
+/* One compact status line per run that expands to its steps */
+.mm-agent-status {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	height: 24px;
+	margin-left: -6px;
+	padding: 0 6px;
+	border-radius: 6px;
+	color: var(--text-secondary);
+	text-align: left;
+}
+
+.mm-agent-status:hover {
+	background: var(--hover);
+}
+
+.mm-agent-chevron {
+	color: var(--text-tertiary);
+	opacity: 0;
+	transition: transform 0.12s;
+}
+
+.mm-agent-status:hover .mm-agent-chevron,
+.mm-agent-status[data-open='true'] .mm-agent-chevron {
+	opacity: 1;
+}
+
+.mm-agent-status[data-open='true'] .mm-agent-chevron {
+	transform: rotate(90deg);
+}
+
+.mm-agent-dot {
+	width: 7px;
+	height: 7px;
+	margin: 0 2.5px;
+	flex-shrink: 0;
+	border-radius: 999px;
+	background: var(--text-tertiary);
+}
+
+.mm-agent-dot[data-tone='review'] {
+	background: var(--accent-strong);
+}
+
+.mm-agent-steps {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	margin-left: 5px;
+	padding-left: 12px;
+	border-left: 1px solid var(--separator);
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+}
+
+.mm-agent-steps > li {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.mm-agent-steps > li[data-status='failed'] {
+	color: var(--bad);
+}
+
+.mm-agent-steps > li[data-kind='text'] {
+	display: block;
+	padding: 2px 0;
+	color: var(--text);
+	font-size: 12px;
+	line-height: 1.4;
+	white-space: pre-wrap;
+}
+
+.mm-agent-steps > li[data-kind='usage'] {
+	color: var(--text-tertiary);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-agent-error {
+	display: flex;
+	gap: 5px;
+	font-size: var(--text-small);
+	line-height: 1.35;
+	color: var(--bad);
+}
+
+.mm-agent-candidate {
+	margin-top: 0;
+}
+
+.mm-agent-candidate img {
+	aspect-ratio: 16 / 10;
+}
+
+.mm-agent-candidate figcaption {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 6px 6px 10px;
+}
+
+.mm-agent-note {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0 12px 8px;
+	padding: 6px 8px 6px 10px;
+	border-radius: 8px;
+	background: var(--hover);
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+}
+
+.mm-agent-composer-wrap {
+	position: relative;
+	flex-shrink: 0;
+	padding: 0 12px 12px;
+}
+
+/* Composer like Cursor's: mention chips, a growing field and a round send button */
+.mm-agent-composer {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 8px 8px 10px;
+	border-radius: 12px;
+	background: var(--control);
+	box-shadow:
+		inset 0 0 0 0.5px var(--control-border),
+		0 1px 2px rgb(0 0 0 / 0.05);
+	cursor: text;
+}
+
+.mm-agent-composer:focus-within {
+	box-shadow:
+		inset 0 0 0 1px var(--accent-strong),
+		0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.mm-agent-input {
+	width: 100%;
+	min-height: 20px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--text);
+	line-height: 20px;
+	resize: none;
+	outline: none;
+}
+
+.mm-agent-input::placeholder {
+	color: var(--text-tertiary);
+}
+
+.mm-mention-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	height: 22px;
+	padding: 0 3px 0 6px;
+	border-radius: 6px;
+	background: var(--content-raised);
+	box-shadow: inset 0 0 0 0.5px var(--control-border);
+	font-size: 12px;
+	font-weight: 500;
+	cursor: default;
+}
+
+.mm-mention-chip > button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 4px;
+	color: var(--text-tertiary);
+}
+
+.mm-mention-chip > button:hover {
+	background: var(--pressed);
+	color: var(--text);
+}
+
+.mm-agent-send {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.mm-agent-send:disabled {
+	background: var(--pressed);
+	color: var(--text-tertiary);
+}
+
+/* @ picker above the composer, drawn like a native menu */
+.mm-mention-picker {
+	position: absolute;
+	right: 12px;
+	bottom: calc(100% - 4px);
+	left: 12px;
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	padding: 4px;
+	border-radius: 9px;
+	background: var(--menu);
+	box-shadow: var(--shadow-popover);
+	-webkit-backdrop-filter: blur(24px);
+	backdrop-filter: blur(24px);
+}
+
+.mm-mention-picker > button {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 26px;
+	padding: 0 8px;
+	border-radius: 5px;
+	text-align: left;
+}
+
+.mm-mention-picker > button[data-highlighted='true'] {
+	background: var(--selection-active);
+	color: var(--on-selection-active);
 }

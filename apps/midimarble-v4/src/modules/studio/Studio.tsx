@@ -2,6 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { ContextMenuHost } from '@/components';
 import { ExportSheet } from '@/modules/design/ExportSheet';
+import { AgentChat } from './AgentChat';
 import { CommandPalette } from './CommandPalette';
 import { ImportMidiSheet } from './ImportMidiSheet';
 import { Inspector } from './Inspector';
@@ -10,7 +11,7 @@ import { Sidebar } from './Sidebar';
 import type { StudioCx } from './StudioCx';
 import { TitleBar } from './TitleBar';
 import { ToolRail } from './ToolRail';
-import { Timeline } from './Timeline';
+import { Timeline } from './timeline';
 import { useFileDrop } from './use-file-drop';
 import { usePlayback } from './use-playback';
 import { useStudioShortcuts } from './use-studio-shortcuts';
@@ -40,6 +41,7 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 					</div>
 					{panels.timeline ? <Timeline cx={cx} /> : null}
 				</div>
+				{panels.agent ? <AgentChat cx={cx} /> : null}
 			</div>
 			<ImportMidiSheet cx={cx} />
 			<ExportSheet cx={cx} />

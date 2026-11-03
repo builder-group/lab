@@ -206,36 +206,6 @@ export function pieceAngle(entity: TEntity): number | null {
 	return entity.components.hitLink?.angle ?? entity.components.transform?.angle ?? null;
 }
 
-/**
- * Pins unpinned pieces at their current contact point, or unpins them when every piece is pinned already.
- * Pieces without a resolved contact point cannot be pinned.
- */
-export function pinCommands(project: TProject, result: TSimulationResult | null, ids: string[]): TProjectCommand[] {
-	const entities = project.entities.filter((entity) => ids.includes(entity.id) && entity.components.hitLink != null);
-	const shouldPin = entities.some((entity) => entity.components.hitLink?.pinned !== true);
-	const commands: TProjectCommand[] = [];
-	for (const entity of entities) {
-		const link = entity.components.hitLink;
-		if (link == null) continue;
-		if (!shouldPin) {
-			commands.push({
-				type: 'setComponent',
-				entityId: entity.id,
-				component: { name: 'hitLink', value: { ...link, pinned: false, pinnedPosition: undefined } }
-			});
-			continue;
-		}
-		const contact = result?.pieces.find((piece) => piece.entityId === entity.id)?.contactPoint;
-		if (link.pinned || contact == null) continue;
-		commands.push({
-			type: 'setComponent',
-			entityId: entity.id,
-			component: { name: 'hitLink', value: { ...link, pinned: true, pinnedPosition: { ...contact } } }
-		});
-	}
-	return commands;
-}
-
 export function selectedPieceIds(project: TProject, selection: string[]): string[] {
 	return selection.filter((id) => project.entities.some((entity) => entity.id === id && entity.components.piece != null));
 }

@@ -37,7 +37,6 @@ export type TComposeKeyAction =
 	| { type: 'repeat' }
 	| { type: 'mirror' }
 	| { type: 'autoPlace' }
-	| { type: 'pin' }
 	| { type: 'finishPath' }
 	| { type: 'undoPathPoint' }
 	| { type: 'cameraView' };
@@ -91,7 +90,7 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 			// Positive angles turn counter-clockwise, so Right turns the bar clockwise like a dial
 			return { type: 'nudge', degrees: (input.key === 'ArrowRight' ? -1 : 1) * (input.shiftKey ? 5 : 1) };
 	}
-	if (input.shiftKey) return key === 'p' && context.hasPieces ? { type: 'pin' } : null;
+	if (input.shiftKey) return null;
 	if (input.code === 'Digit0' || input.code === 'Numpad0') return { type: 'cameraView' };
 
 	const tool = toolKeys.find((item) => item.code === input.code);

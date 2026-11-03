@@ -57,7 +57,7 @@ import {
 	withPathBend,
 	withPathEnd
 } from './scene';
-import { commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, pinCommands, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
+import { commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
 import {
 	boundsOf,
 	filmFrameRect,
@@ -1402,17 +1402,6 @@ export class ComposeCx {
 		this.revealPoint(target.dot);
 	}
 
-	togglePin(): void {
-		const project = this.project;
-		if (project == null) return;
-		const ids = selectedPieceIds(project, this.studio.$selection.get());
-		const commands = pinCommands(project, this.result, ids);
-		if (!commands.length) return;
-		this.studio.execute(commands);
-		const pinned = commands.some((command) => command.type === 'setComponent' && command.component.name === 'hitLink' && command.component.value.pinned);
-		this.studio.notify(pinned ? 'Pinned: stays in place when the run changes' : 'Unpinned: follows the run again');
-	}
-
 	/** Rotates the selected pieces by `degrees`, as one edit */
 	nudge(degrees: number): boolean {
 		const project = this.project;
@@ -1526,9 +1515,6 @@ export class ComposeCx {
 				return true;
 			case 'autoPlace':
 				this.assist.autoPlace(this.placementType());
-				return true;
-			case 'pin':
-				this.togglePin();
 				return true;
 			case 'finishPath':
 				this.finishPen();

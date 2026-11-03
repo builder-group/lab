@@ -16,6 +16,12 @@ The app is fully offline. It uses tools installed on the computer: Blender is re
 3. **Design** the look through presets, the library and agents, or open Blender for detailed work
 4. **Render** in Blender in the background
 
+## Window
+
+A window holds one project; there are no document tabs until several projects can really be open at once. The title bar shows the project title with its edited state, Home to return to the start window, the panel toggles and the Agent button.
+
+The inspector edits the selection and lets relations navigate. A piece's Attached To row selects the hit it plays (or the marble it follows) and its unlink button detaches it in place; a hit's inspector edits the note's pitch, velocity and time, plays the new pitch, and its Played By row selects the platform again, or Add Platform places an auto-placed one on the open dot. Timing is a status pill in the header (On time, 12 ms late, Missed, Resting, Blocked) with the detail in its tooltip. Without a selection the World shows the song's file and tempo, the film's frame and length with Fit to Song (the last note plus 1.5 s), and the physics speed. The inspector's top bar shows Blender's connection state beside Export.
+
 The default frame is 9:16. It can be changed, but Compose warnings use the chosen frame from the start. The app targets macOS. Project length has no fixed limit; the user decides where the run ends, like the end of a video timeline.
 
 ## Compose
@@ -32,19 +38,19 @@ Compose is an open canvas like Figma. Everything on it is an element the user ca
 - **Pieces are placed anywhere.** Platforms, windmills and tunnels are drawn or dropped at any point on the wall and act physically at once. Placement on a trajectory is a convenience, not a requirement.
 - **Live preview while dragging.** Dragging any element into or across a trajectory recomputes the run continuously and shows what will happen if the element stays there.
 - **Hit dots offer a choice.** Clicking a dot opens a small insert menu at the dot (platform, auto-placed platform, and later instrument pieces) instead of placing a platform right away. With the Platform tool active, a click on a dot places one directly.
-- **Two ways to attach, both optional.** *Anchoring* attaches any element to a moment on a marble's trajectory, so it follows upstream edits; it plays no note. The moment is stored against the lane's hit before it, or its first hit when it comes earlier, so a lane needs at least one hit to anchor to. *Linking* is only for music platforms and only onto hit dots, which are special: clicking a dot with the Platform tool, or dropping a platform on a dot, links it so it plays that note. Unlinking or unanchoring keeps the element where it is. Windmills, rails, tunnels and switchbacks never play notes.
+- **Two ways to attach, both optional.** *Anchoring* attaches any element to a moment on a marble's trajectory, so it follows upstream edits; it plays no note. The moment is stored against the lane's hit before it, or its first hit when it comes earlier, so a lane needs at least one hit to anchor to. *Linking* is only for music platforms and only onto hit dots, which are special: clicking a dot with the Platform tool, or dropping a platform on a dot, links it so it plays that note. Unlinking or unanchoring keeps the element where it is. There is no separate pin: a linked or anchored element follows its hit, and an element is kept in place by detaching it with the unlink button on its Attached To row. Older projects with pinned pieces still load; editing such a piece's link drops the pin. Windmills, rails, tunnels and switchbacks never play notes.
 - **Rails are drawn with a vector path tool**, like Figma's pen, not a freehand brush: click to add points, drag to pull out curve handles, Return or a click on the first point to finish. Points and handles stay editable afterwards.
 - **Assists are contextual.** Next, Repeat, Mirror, Auto place and Continue appear in a small contextual bar next to the selected last piece or the next open dot, like Figma's selection toolbar, and their keys keep working. The tool rail beside the canvas holds tools only: Move, Hand, Marble, Platform, Path, Tunnel, Windmill.
-- **Transport lives in the timeline.** Play, previous and next hit and the time display sit in the timeline header, like a video editor. The window toolbar keeps the workspace switch and panel toggles.
+- **Transport lives in the timeline.** Go to Beginning, previous and next hit, Play and an LCD time readout that accepts a typed time sit in the timeline header, like Logic's control bar, with Final Cut's zoom slider at its right. The window toolbar keeps the workspace switch and panel toggles.
 - **Camera view.** The canvas switches between Wall view, for editing, and Camera view, which plays the run through the film's follow camera in the flat Compose look and in real time, like Blender's camera view. It previews; camera settings stay in Design. Placement, rhythm and framing are judged here before anything is rendered.
 - **Speed is a project setting.** The World panel shown without a selection sets the marble speed (gravity scale, 0.05 to 2). New projects use half of Earth's gravity: with the 1.5× kit and hits 0.3 s apart an Auto placed hop then spans about 1.4 bar lengths and drops 8 cm, where full gravity spans about 1.9 and drops 12 cm, at 0.58 instead of 0.93 m/s. Slower speed gives smaller hops and denser columns while every linked hit stays on time. Platforms keep their own bounce. Very fast rhythms need care at the default: a mirrored zigzag of hits 0.3 s apart hops only about half a bar, so its bars overlap; 0.4 s apart it zigzags cleanly.
 
 ### Music lanes
 
-Each marble has one lane. A lane is a row of hits on the shared timeline. There is no piano roll.
+Each marble has one lane. A lane is a row of hits on the shared timeline. A lane with pitched hits expands into a piano roll, one row per semitone, where a note drags in time and in pitch and a key of the keyboard strip plays its note.
 
 - A hit has a time and a sound, either a pitch or a sample
-- The lane background shows the source: a waveform for audio, note marks for MIDI. This makes it easy to place hits on the music.
+- The project's song, the imported MIDI file or recording, is one Song track above the lanes: a waveform with onset ticks for audio, an overview of every lane's notes for MIDI. A new file of the same kind replaces it; Remove Song keeps the marbles and their hits.
 - MIDI import proposes a lane per voice by channel or pitch range. A marble plays one note at a time with at least 180 ms between hits, so chords spread across marbles. Conflicts are highlighted and hits can be dragged to another lane.
 - Audio import suggests hits from detected onsets. Tap-along records hits while the song plays.
 - An empty project starts with hits clicked or tapped onto lanes
@@ -116,7 +122,7 @@ Guardrails appear while building:
 
 ### Editing earlier pieces
 
-The track behaves like a parametric history. Pieces are bound to their hit. Their position comes from the trajectory and authored tweaks are stored relative to it. Changing an earlier piece re-simulates from that piece onward. Later pieces follow the new trajectory and keep their tweaks. A pinned piece keeps its position when the trajectory moves.
+The track behaves like a parametric history. Pieces are bound to their hit. Their position comes from the trajectory and authored tweaks are stored relative to it. Changing an earlier piece re-simulates from that piece onward. Later pieces follow the new trajectory and keep their tweaks. A free piece keeps its position when the trajectory moves.
 
 The playhead works like a rollback marker. Everything after it is shown ghosted, so the user builds up to the playhead and continues from there.
 
@@ -133,7 +139,7 @@ One camera frames every marble, so the marbles must stay together:
 
 With one marble the frame is the film frame (0.59 m at the default camera distance) and the pace is only a reference for the camera: Auto place keeps the steady speed of the default bounce, which falls at the pace rate for a regular rhythm.
 
-A hit sounds only when the marble strikes its piece. A first contact slower than 0.3 m/s along the contact normal, such as a marble resting or rolling onto a piece, counts as missed, and the inspector shows it as Resting.
+A hit sounds only when the marble strikes its piece. A first contact slower than 0.3 m/s along the contact normal, such as a marble resting or rolling onto a piece, counts as missed, and the inspector's status pill shows it as Resting.
 
 ### Skins in Compose
 
@@ -165,7 +171,7 @@ The Design tab supports:
 
 The Design tab has no transform handles. Each change needs a Blender render, so dragging would feel slow and duplicate Blender.
 
-The Design sidebar is the library: Themes (Pegboard, Brass), In This Project and My Library as thumbnail tiles. A tile is dragged onto a piece in the preview or the inspector's Look panel, or applied from its context menu to the selection or to every piece of its type. Applying an item from My Library copies it into the project first. The inspector shows the Scene without a selection (Look, Camera, Wall Text, Agent, Output), a piece's Look, Link and Agent panels, or a selected wall text's Text and Position.
+The Design sidebar is the library: Themes (Pegboard, Brass), In This Project and My Library as thumbnail tiles. A tile is dragged onto a piece in the preview or the inspector's Look panel, or applied from its context menu to the selection or to every piece of its type. Applying an item from My Library copies it into the project first. The inspector shows the Scene without a selection (Look, Camera, Wall Text, Output), a piece's Look and Link panels, or a selected wall text's Text and Position.
 
 Design owns lighting, the wall, text, effects, decorations and the camera.
 
@@ -180,7 +186,9 @@ Skins, effects and wall decorations are Blender assets. Each item is a `.blend` 
 
 ### Agents
 
-An agent works on a selected object or the scene, such as "make this platform a piano key". Its brief includes the piece's contact surface, hit times and reaction slots, so the model fits the physics shape and rigs its reaction. The agent builds the candidate in a headless Blender. Its preview appears in the agent conversation and as a temporary candidate in the scene preview. Accepting it moves it into the project library and applies it; declining removes it.
+The agent is one shared chat per project, opened from the title bar's Agent button or ⌘J in Compose and Design. Selecting an element mentions it in the composer, and typing @ mentions any layer. Sending starts one run per mentioned piece, or one scene run when only the scene or marbles are mentioned or nothing is; each run reports as one status line that expands to its steps, and its candidate comes back as a card to accept or discard. The conversation is the project's agent runs, so it persists with the package.
+
+An agent works on a mentioned object or the scene, such as "make this platform a piano key". Its brief includes the piece's contact surface, hit times and reaction slots, so the model fits the physics shape and rigs its reaction. The agent builds the candidate in a headless Blender. Its preview appears in the chat and as a temporary candidate in the scene preview. Accepting it moves it into the project library and applies it; declining removes it.
 
 The clearance check warns when a skin intersects the marble path.
 
@@ -205,7 +213,7 @@ The default camera is a native Blender camera with baked keyframes:
 - It stays readable: it never pulls back past the distance at which a typical piece spans 6 % of the frame width, nor past three times its set distance. Several marbles share the frame only while they fit; otherwise the camera follows the focus marble (the first marble, which carries the melody, or the project's `design.camera.focusMarbleId`) and lets the others leave the frame. A marble counts only until 0.6 s after its last note while another marble still plays: then the camera keeps the marbles that play on, also when the finished one is the focus marble, and lets the finished one fall away. With a shared descent pace from the simulation it frames a group at that pace instead of the bouncing centre
 - The wall is generated on every apply to cover the run and everything the camera sees, so the film never shows its edge. A wall edited in Blender is left alone
 
-The Design tab exposes distance, downward angle, lead, smoothing and shot markers; the focus marble has no control yet. Add Shot Marker (⇧M, the Add button in the Camera panel or the + on the timeline's Camera row) places a Push In marker at the playhead at 0.7 times the rig distance; double-clicking the Camera row adds one at that time. Clicking a marker selects it and the inspector shows its Kind, Time, Distance and Roll. Choosing a kind applies its preset distance relative to the rig (Wide 1.6×, Follow 1×, Push In 0.7×, Close-Up 0.45×) and zero roll, which the user can then fine-tune. Dragging a marker moves its time in one undo step, and Delete removes it. Markers stay sorted by time. The app regenerates the rail when the motion changes. Editing the rig in Blender takes over the camera, and the app then asks before regenerating it.
+The Design tab exposes distance, downward angle, lead, smoothing and shot markers; the focus marble has no control yet. Add Shot Marker (⇧M, the Add Shot button in the Camera section or the + on the timeline's Camera row) places a Push In marker at the playhead at 0.7 times the rig distance; double-clicking the Camera row adds one at that time. Clicking a marker selects it and the inspector shows its Kind, Time, Distance and Roll. Choosing a kind applies its preset distance relative to the rig (Wide 1.6×, Follow 1×, Push In 0.7×, Close-Up 0.45×) and zero roll, which the user can then fine-tune. Dragging a marker moves its time in one undo step, and Delete removes it. Markers stay sorted by time. The app regenerates the rail when the motion changes. Editing the rig in Blender takes over the camera, and the app then asks before regenerating it.
 
 ### Preview and render
 
@@ -227,7 +235,7 @@ App-owned objects live in a managed collection with locked transforms. Every app
 - **Linked**: the app drives it
 - **Unlinked**: Blender owns it, the app shows it as detached and stops changing it
 
-An unlinked object can be relinked, which discards its Blender changes, or pushed to Compose, which adopts its Blender transform as a pinned piece and re-simulates. Unlinking is offered, never forced. An unlinked physical piece shows how far its visual position is from the physics it represents, because the marble still collides with the Compose position.
+An unlinked object can be relinked, which discards its Blender changes, or pushed to Compose, which adopts its Blender transform as a free piece and re-simulates. Unlinking is offered, never forced. An unlinked physical piece shows how far its visual position is from the physics it represents, because the marble still collides with the Compose position.
 
 Blender changes never sync back automatically. Physics changes timing, which only Compose can show.
 
@@ -243,7 +251,7 @@ A loop check compares the first and last frames and reports mismatches.
 
 The app builds a loop by entry from above. The film starts once the first marble has fallen three quarters of the camera distance below its release, so the release point is out of view. The film ends at the project end, and both snap to 1/30 s. Before the end a second instance of the marble replays the marble's own fall into the frame, so the frame after the last shows exactly the first frame, while the marble itself has fallen out of view. The camera blends its last 0.75 s into its poses from before the start, which reads as a quick pan back up the run. The soundtrack contains only the hits inside the loop, with ringing notes at the end carried over onto the start.
 
-With **Seamless loop** on, the Design inspector shows the loop range, its bars when the tempo is known (from MIDI import) and either "start and end match" or each mismatch: a hit too soon after the start, a marble still near its entry at the end, a piece still reacting, a windmill at another angle, or a length off whole bars with **Snap End to Bar**. The timeline ruler marks the loop range like Logic's cycle area. Audio projects have no tempo yet, so their loops do not snap to bars.
+With **Seamless loop** on, the Design inspector shows one state row, "Start and end match" or the number of mismatches, with the loop range, its bars when the tempo is known (from MIDI import) and each mismatch in its tooltip: a hit too soon after the start, a marble still near its entry at the end, a piece still reacting, a windmill at another angle, or a length off whole bars with **Snap End to Bar**. The timeline ruler marks the loop range like Logic's cycle area. Audio projects have no tempo yet, so their loops do not snap to bars.
 
 ## Project file
 
@@ -251,8 +259,8 @@ A project is a `.marble` package, a folder shown as one file on macOS. Moving th
 
 ## First version scope
 
-- Music lanes with audio waveform and MIDI note backgrounds, tap-along and hit sounds
-- Compose with platform, rail, tunnel and windmill, the step loop, Repeat, Mirror, Continue, pins and reflow
+- Music lanes with a Song track (audio waveform or MIDI note overview), piano roll editing of MIDI lanes, tap-along and hit sounds
+- Compose with platform, rail, tunnel and windmill, the step loop, Repeat, Mirror, Continue and reflow
 - Shared physics world for up to four marbles
 - Direct `.blend` writing with holders, skins, keyframes and hit values
 - Default pegboard theme, library manifests and agent candidates

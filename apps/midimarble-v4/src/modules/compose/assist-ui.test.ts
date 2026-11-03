@@ -124,7 +124,7 @@ describe('compose keys', () => {
 		expect(press('Tab', { code: 'Tab' })).toBeNull();
 		expect(press('Tab', { code: 'Tab' }, { ...none, hasGhosts: true })).toEqual({ type: 'acceptGhosts' });
 		expect(press('P', { code: 'KeyP', shiftKey: true })).toBeNull();
-		expect(press('P', { code: 'KeyP', shiftKey: true }, { ...none, hasPieces: true })).toEqual({ type: 'pin' });
+		expect(press('P', { code: 'KeyP', shiftKey: true }, { ...none, hasPieces: true })).toBeNull();
 	});
 });
 

@@ -1,0 +1,561 @@
+/*
+ * Inspector layout after Figma UI3's properties panel: a header row, sections with flush-left titles
+ * and hairline separators, and fields on one two-column grid with the label inside the field. Every
+ * size is on an 8 px grid: 16 px side padding, 24 px fields, 8 px gaps.
+ */
+
+.mm-inspector {
+	--insp-pad: 16px;
+	--field-fill: rgb(0 0 0 / 0.045);
+	--field-fill-hover: rgb(0 0 0 / 0.07);
+	--field-ring: rgb(0 0 0 / 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-inspector {
+		--field-fill: rgb(255 255 255 / 0.07);
+		--field-fill-hover: rgb(255 255 255 / 0.1);
+		--field-ring: rgb(255 255 255 / 0.16);
+	}
+}
+
+/* Thin scrollbars keep the grid columns wide where scrollbars take space, as in the browser */
+.mm-insp-scroll {
+	min-height: 0;
+	flex: 1;
+	overflow-y: auto;
+	scrollbar-width: thin;
+}
+
+/* MARK: - Top bar */
+
+.mm-insp-top {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 40px;
+	flex-shrink: 0;
+	padding: 0 var(--insp-pad) 0 8px;
+	border-bottom: 1px solid var(--separator);
+}
+
+.mm-insp-blender {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 24px;
+	margin-left: auto;
+	padding: 0 4px;
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+	white-space: nowrap;
+}
+
+.mm-dot {
+	width: 6px;
+	height: 6px;
+	flex-shrink: 0;
+	border-radius: 999px;
+	background: var(--text-tertiary);
+}
+
+.mm-dot[data-tone='good'] {
+	background: var(--good);
+}
+
+.mm-dot[data-tone='warn'] {
+	background: var(--warn);
+}
+
+.mm-dot[data-tone='bad'] {
+	background: var(--bad);
+}
+
+.mm-dot[data-tone='busy'] {
+	background: var(--warn);
+	animation: mm-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes mm-dot-pulse {
+	50% {
+		opacity: 0.35;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mm-dot[data-tone='busy'] {
+		animation: none;
+	}
+}
+
+/* MARK: - Header */
+
+.mm-insp-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 56px;
+	flex-shrink: 0;
+	padding: 0 var(--insp-pad);
+	border-bottom: 1px solid var(--separator);
+}
+
+.mm-insp-tile {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	flex-shrink: 0;
+	border-radius: 8px;
+	background: var(--field-fill);
+	color: var(--text-secondary);
+}
+
+.mm-insp-titles {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+/* The name renames in place like Figma's layer name; the hover fill shows that it can be edited */
+.mm-insp-name {
+	height: 20px;
+	min-width: 0;
+	max-width: 100%;
+	margin-left: -4px;
+	padding: 0 4px;
+	overflow: hidden;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	font-weight: 600;
+	line-height: 20px;
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	outline: none;
+}
+
+button.mm-insp-name {
+	align-self: flex-start;
+}
+
+button.mm-insp-name:hover {
+	background: var(--field-fill);
+}
+
+input.mm-insp-name {
+	width: 100%;
+	background: var(--field-fill);
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.mm-insp-subtitle {
+	overflow: hidden;
+	font-size: var(--text-small);
+	line-height: 16px;
+	color: var(--text-secondary);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* MARK: - Status pill */
+
+.mm-pill {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: 20px;
+	flex-shrink: 0;
+	padding: 0 8px 0 6px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--pill-color) 14%, transparent);
+	color: color-mix(in srgb, var(--pill-color) 78%, var(--text));
+	font-size: var(--text-small);
+	font-weight: 500;
+	white-space: nowrap;
+	cursor: default;
+	--pill-color: var(--text-tertiary);
+}
+
+.mm-pill[data-tone='good'] {
+	--pill-color: var(--good);
+}
+
+.mm-pill[data-tone='warn'] {
+	--pill-color: var(--warn);
+}
+
+.mm-pill[data-tone='bad'] {
+	--pill-color: var(--bad);
+}
+
+.mm-pill[data-tone='neutral'] {
+	color: var(--text-secondary);
+	background: var(--field-fill);
+}
+
+.mm-pill:hover .mm-help-bubble,
+.mm-pill:focus-visible .mm-help-bubble {
+	opacity: 1;
+	transition-delay: 0.2s;
+}
+
+.mm-pill .mm-help-bubble {
+	white-space: pre-line;
+}
+
+/* MARK: - Sections */
+
+.mm-insp-section {
+	padding: 0 var(--insp-pad) 16px;
+}
+
+.mm-insp-section + .mm-insp-section {
+	border-top: 1px solid var(--separator);
+}
+
+.mm-insp-section[data-collapsed='true'] {
+	padding-bottom: 0;
+}
+
+.mm-insp-section-head {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: 40px;
+}
+
+.mm-insp-section-title {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	height: 24px;
+	font-size: var(--text-small);
+	font-weight: 600;
+	text-align: left;
+}
+
+.mm-insp-section-title[data-collapsed='true'] {
+	color: var(--text-secondary);
+}
+
+/* The chevron appears on hover like Figma's, so open sections stay calm */
+.mm-insp-chevron {
+	display: inline-flex;
+	color: var(--text-tertiary);
+	opacity: 0;
+	transition:
+		opacity 0.12s,
+		transform 0.12s;
+}
+
+.mm-insp-chevron[data-open='true'] {
+	transform: rotate(90deg);
+}
+
+.mm-insp-section-head:hover .mm-insp-chevron,
+.mm-insp-section-title:focus-visible .mm-insp-chevron,
+.mm-insp-chevron[data-open='false'] {
+	opacity: 1;
+}
+
+.mm-insp-accessory {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.mm-insp-accessory .mm-icon-button {
+	width: 24px;
+	height: 24px;
+}
+
+/* MARK: - Field grid */
+
+.mm-insp-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.mm-insp-grid[data-dense='true'] {
+	grid-auto-flow: row dense;
+}
+
+.mm-insp-grid > [data-span='2'] {
+	grid-column: span 2;
+}
+
+.mm-insp-grid > .mm-button {
+	width: 100%;
+	min-width: 0;
+	padding: 0 8px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* A field with its label inside, like Figma's X, Y and angle fields */
+.mm-ifield {
+	position: relative;
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	height: 24px;
+	border-radius: 5px;
+	background: var(--field-fill);
+	box-shadow: inset 0 0 0 0.5px transparent;
+}
+
+.mm-ifield:hover {
+	box-shadow: inset 0 0 0 0.5px var(--field-ring);
+}
+
+.mm-ifield:focus-within {
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.mm-ifield[data-disabled='true'] {
+	opacity: 0.5;
+	box-shadow: none;
+}
+
+.mm-ifield-label {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	min-width: 24px;
+	height: 100%;
+	padding: 0 4px 0 8px;
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+	white-space: nowrap;
+}
+
+.mm-ifield-label[data-glyph='true'] {
+	padding: 0;
+}
+
+.mm-ifield-label[data-scrub='true'] {
+	cursor: ew-resize;
+	touch-action: none;
+}
+
+.mm-ifield-label[data-scrub='true']:hover {
+	color: var(--text);
+}
+
+.mm-ifield[data-disabled='true'] .mm-ifield-label {
+	cursor: default;
+}
+
+.mm-ifield input,
+.mm-ifield select {
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+	padding: 0 8px 0 0;
+	border: 0;
+	background: transparent;
+	font-variant-numeric: tabular-nums;
+	outline: none;
+	appearance: none;
+	-webkit-appearance: none;
+}
+
+.mm-ifield input::placeholder {
+	color: var(--text-tertiary);
+}
+
+.mm-ifield select {
+	padding-right: 24px;
+	text-overflow: ellipsis;
+}
+
+.mm-ifield-unit {
+	flex-shrink: 0;
+	padding-right: 8px;
+	font-size: var(--text-small);
+	color: var(--text-tertiary);
+	pointer-events: none;
+}
+
+.mm-ifield-chevron {
+	position: absolute;
+	top: 50%;
+	right: 6px;
+	transform: translateY(-50%);
+	color: var(--text-secondary);
+	pointer-events: none;
+}
+
+/* Stepper on the right of a field, such as the pitch's semitone up and down */
+.mm-ifield-stepper {
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+	width: 16px;
+	height: 100%;
+	margin-right: 2px;
+}
+
+.mm-ifield-stepper button {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	border-radius: 3px;
+	color: var(--text-secondary);
+}
+
+.mm-ifield-stepper button:hover {
+	background: var(--field-fill-hover);
+	color: var(--text);
+}
+
+/* Read-only value in a field's shape */
+.mm-ifield[data-readonly='true']:hover {
+	box-shadow: none;
+}
+
+.mm-ifield-value {
+	flex: 1;
+	min-width: 0;
+	padding-right: 8px;
+	overflow: hidden;
+	font-variant-numeric: tabular-nums;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* A field-height row naming something related, such as the hit a platform plays; it selects it on click */
+.mm-insp-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	height: 24px;
+	padding: 0 2px 0 8px;
+	border-radius: 5px;
+	background: var(--field-fill);
+}
+
+.mm-insp-row[data-muted='true'] {
+	padding-right: 4px;
+	background: transparent;
+	color: var(--text-secondary);
+	padding-left: 0;
+}
+
+.mm-insp-link {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	height: 100%;
+	text-align: left;
+}
+
+.mm-insp-link-text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mm-insp-link-arrow {
+	flex-shrink: 0;
+	color: var(--text-tertiary);
+}
+
+.mm-insp-row:has(.mm-insp-link:hover) {
+	background: var(--field-fill-hover);
+}
+
+.mm-insp-link:hover .mm-insp-link-arrow {
+	color: var(--text-secondary);
+}
+
+.mm-insp-row .mm-icon-button {
+	width: 20px;
+	height: 20px;
+	border-radius: 4px;
+}
+
+.mm-insp-secondary {
+	color: var(--text-secondary);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Checkbox row on the grid, like Figma's Clip content */
+.mm-insp-check {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 24px;
+}
+
+.mm-insp-grid > .mm-segmented {
+	display: flex;
+	height: 24px;
+	padding: 1px;
+	border-radius: 5px;
+	background: var(--field-fill);
+}
+
+.mm-insp-grid > .mm-segmented button {
+	flex: 1;
+	height: 22px;
+	border-radius: 4px;
+	font-size: var(--text-small);
+}
+
+.mm-insp-swatches {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 24px;
+}
+
+.mm-insp-slider {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 24px;
+}
+
+.mm-insp-slider .mm-slider {
+	flex: 1;
+	min-width: 0;
+}
+
+.mm-ifield input.mm-color {
+	flex: none;
+	width: 20px;
+	height: 16px;
+	margin-right: 8px;
+	padding: 0;
+	border-radius: 4px;
+	appearance: auto;
+	-webkit-appearance: auto;
+}
+
+/* Current skin of a piece on the grid; library tiles can be dropped on it */
+.mm-insp-grid > .mm-drop-well {
+	padding: 4px 8px 4px 4px;
+	border-radius: 6px;
+	background: var(--field-fill);
+}
+
+.mm-insp-grid > .mm-drop-well .mm-skin-thumb {
+	width: 40px;
+	height: 40px;
+}

@@ -11,7 +11,6 @@ import type { StudioCx } from './StudioCx';
 export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 	return tidyMenu([
 		commandItem(cx, 'build.autoPlace'),
-		commandItem(cx, 'build.pin'),
 		'separator',
 		commandItem(cx, 'build.rotateLeft'),
 		commandItem(cx, 'build.rotateRight'),
