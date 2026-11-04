@@ -310,6 +310,9 @@ export class StudioCx {
 			return [{ ...command, entity: { ...command.entity, name: wallText.text, components: { ...command.entity.components, wallText } } }];
 		});
 		if (!this.execute(styled)) return;
+		// Keep the new title in view: a Song Name opens the film and an End Card closes it, wherever the playhead is
+		const text = styled.flatMap((command) => (command.type === 'upsertEntity' && command.entity.id === entityId ? [command.entity.components.wallText] : []))[0];
+		if (text != null && (playhead < (text.in ?? 0) || playhead >= (text.out ?? project.end))) this.$playhead.set(text.in ?? 0);
 		this.$workspace.set('design');
 		this.$selection.set([entityId]);
 		this.design.$editingTitle.set(entityId);
@@ -1009,11 +1012,8 @@ export class StudioCx {
 			label: 'Undo',
 			title: 'Undo this edit (⌘Z)',
 			isUndo: true,
-			run: () => {
-				if (group != null && this.editGroup === group) this.undo();
-				// Otherwise Undo would take back a later edit instead
-				else this.notify('A later edit came after this one. Press ⌘Z to undo edits in order.');
-			}
+			undoGroup: group,
+			run: () => this.undo()
 		};
 		return this.notify(message, 'info', { ...options, actions: [...actions, undo], revision });
 	}
@@ -1182,6 +1182,8 @@ export interface TNoticeAction {
 	title?: string;
 	/** The Undo every edit notice carries; any other action is a fix that keeps the notice until acted on */
 	isUndo?: boolean;
+	/** The undo group this Undo takes back, shown only while that edit is the latest */
+	undoGroup?: number | null;
 	run: () => void;
 }
 

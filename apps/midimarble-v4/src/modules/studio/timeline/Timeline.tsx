@@ -5,7 +5,8 @@ import { isEditingTarget } from '@/lib';
 import { currentMix, EMPTY_MIX, isAudioSong, isPartAudible, songParts } from '@/modules/music';
 import type { THitResult } from '@/modules/simulation';
 import { addHit } from '../menus';
-import { parseHitKey, toHitKey } from '../selection';
+import { TITLES_KEY } from '../outline';
+import { CAMERA_KEY, parseHitKey, parseShotKey, toHitKey } from '../selection';
 import { hasSongLayer, SONG_LAYER_LABEL } from '../song-layer';
 import { songSource } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
@@ -115,13 +116,15 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	React.useEffect(() => {
 		const element = scrollRef.current;
 		if (element == null || first == null) return;
-		const header = element.querySelector(`[data-track="${CSS.escape(first)}"]`);
+		// A title and a shot have their clip in a shared row
+		const track = cx.project?.entities.some((entity) => entity.id === first && entity.components.wallText != null) === true ? TITLES_KEY : parseShotKey(first) != null ? CAMERA_KEY : first;
+		const header = element.querySelector(`[data-track="${CSS.escape(track)}"]`);
 		if (header == null) return;
 		const view = element.getBoundingClientRect();
 		const rect = header.getBoundingClientRect();
 		if (rect.top < view.top + RULER_HEIGHT) element.scrollTop -= view.top + RULER_HEIGHT - rect.top;
-		else if (rect.bottom > view.bottom) element.scrollTop += rect.bottom - view.bottom;
-	}, [first]);
+		else if (rect.bottom > view.bottom - SCROLLBAR_ROOM) element.scrollTop += rect.bottom - view.bottom + SCROLLBAR_ROOM;
+	}, [cx, first]);
 
 	// MARK: - Actions
 
@@ -289,7 +292,6 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 								drag={drag}
 								statuses={hitStatus.get(lane.id)}
 								isAudible={isPartAudible(partMix, lane.id)}
-								hasSong={hasSong}
 								onDragStart={startDrag}
 								timeAt={timeAt}
 								onAdd={(time, event) => addHit(cx, lane, snap(time, event.altKey))}
@@ -383,6 +385,8 @@ const ResizeHandle: React.FC<{ cx: StudioCx }> = (props) => {
 };
 
 // Pixels a note in the Song roll must move sideways before its time changes
+// The horizontal scrollbar along the timeline's bottom edge, which a row scrolled into view stays clear of
+const SCROLLBAR_ROOM = 14;
 const ROLL_TIME_DEAD_ZONE = 3;
 
 /**

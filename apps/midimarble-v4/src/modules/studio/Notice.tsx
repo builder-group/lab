@@ -13,9 +13,11 @@ import type { StudioCx } from './StudioCx';
 export const Notice: React.FC<TNoticeProps> = (props) => {
 	const { cx } = props;
 	const notice = useFeatureState(cx.$notice);
+	useFeatureState(cx.$history);
 	const [openDetails, setOpenDetails] = React.useState<number | null>(null);
 	if (notice == null) return null;
-	const actions = notice.actions ?? [];
+	// An Undo is shown only while its edit is the latest, as it would take back a later edit otherwise
+	const actions = (notice.actions ?? []).filter((action) => action.undoGroup === undefined || action.undoGroup === cx.editGroup);
 	const isOpen = notice.details != null && openDetails === notice.id;
 
 	return (

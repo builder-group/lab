@@ -239,7 +239,10 @@ function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverride
 		case 'marble:glass':
 		case 'marble:glass-green': {
 			const glass = saturate(skin.colour === 'skin' ? (skin.skin === 'marble:glass-green' ? GLASS_GREEN_SKIN : GLASS_SKIN) : color, 1);
-			return chosen({ body: tint(glass, 0.55), rim: null, tone: 'pearl', finish: { kind: 'glass', color: glass, second: '#ffffff' } });
+			const look = chosen({ body: tint(glass, 0.55), rim: null, tone: 'pearl', finish: { kind: 'glass', color: glass, second: '#ffffff' } });
+			// Glass reads by its swirl's colour, which a lightness ratio can't see: a green swirl on a cream wall is close in
+			// lightness and plain to see, so a swirl far enough in colour from all around it counts as reading
+			return around.every((other) => colorDistance(glass, other) >= GLASS_COLOR_DISTANCE) ? { ...look, contrast: Math.max(look.contrast, MARBLE_CONTRAST) } : look;
 		}
 		case 'marble:metal': {
 			const tone = skin.colour === 'marble' ? tint(saturate(color, 1), 0.35) : '#b8bcc4';
@@ -299,6 +302,19 @@ export function contrastRatio(a: string, b: string): number {
 	const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
 	return (high + 0.05) / (low + 0.05);
 }
+
+/** Distance between two display colours in RGB, 0 to about 441 */
+function colorDistance(a: string, b: string): number {
+	const channels = (color: string): number[] => {
+		const value = Number.parseInt(color.replace('#', '').slice(0, 6), 16);
+		return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+	};
+	const [first, second] = [channels(a), channels(b)];
+	return Math.hypot(...first.map((channel, index) => channel - (second[index] ?? 0)));
+}
+
+// RGB distance at which a glass swirl stands apart from what is around it
+const GLASS_COLOR_DISTANCE = 120;
 
 /** WCAG relative luminance of a display colour */
 export function luminance(color: string): number {

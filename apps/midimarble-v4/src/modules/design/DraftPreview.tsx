@@ -38,6 +38,15 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 		return draft.mount(container, canvas);
 	}, [draft]);
 
+	React.useEffect(
+		() =>
+			studio.$selection.listen(({ value }) => {
+				const [only, other] = value;
+				if (only != null && other == null) draft.revealPiece(only);
+			}),
+		[draft, studio]
+	);
+
 	function pointOf(event: React.MouseEvent<HTMLElement>): { point: TVec2; u: number; v: number } {
 		const rect = event.currentTarget.getBoundingClientRect();
 		const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };

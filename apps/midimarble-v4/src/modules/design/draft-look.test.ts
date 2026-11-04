@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveSkinLook } from './skin-catalog';
+import { resolveSkinLook, type TSkinLook } from './skin-catalog';
 import { verticalFov } from '@/modules/camera';
 import {
 	contrastRatio,
@@ -279,3 +279,15 @@ function saturation(color: string): number {
 	const max = Math.max(...channels);
 	return max === 0 ? 0 : (max - Math.min(...channels)) / max;
 }
+
+describe('marbleContrastWarning with a glass skin', () => {
+	const glass = { skin: 'marble:glass-green', isThemeSkin: true, colour: 'marble', onHit: null, glowColor: null, variant: 'swirl', properties: {} } as unknown as TSkinLook;
+
+	it('should not warn for a swirl far in colour from the wall, however close in lightness', () => {
+		expect(marbleContrastWarning('brass', { wallColor: '#fcf3df' }, [{ name: 'Bass', color: '#0c8a3a', skin: glass }])).toBeNull();
+	});
+
+	it('should warn for a swirl close to the wall in colour', () => {
+		expect(marbleContrastWarning('brass', { wallColor: '#16ff6b' }, [{ name: 'Bass', color: '#0c8a3a', skin: glass }])).toBe("Bass's marble is hard to see on this wall");
+	});
+});

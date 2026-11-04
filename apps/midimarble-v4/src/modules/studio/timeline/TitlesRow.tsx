@@ -3,6 +3,7 @@ import React from 'react';
 import { titleClips } from '@/modules/design/titles';
 import type { TComponents, TProject } from '@/modules/project';
 import { formatTime } from '../format';
+import { TITLES_KEY } from '../outline';
 import type { StudioCx } from '../StudioCx';
 import { TimeGutter } from './Ruler';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
@@ -53,6 +54,7 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-b border-[var(--separator)] pr-2.5 pl-5"
 				style={{ width: HEADER_WIDTH }}
 				data-selected={isSelected}
+				data-track={TITLES_KEY}
 				onClick={() => cx.$selection.set(clips.map((clip) => clip.entityId))}
 			>
 				<span className="mm-song-icon">

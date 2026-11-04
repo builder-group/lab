@@ -18,8 +18,8 @@ import { ROW_HEIGHT } from './timeline-layout';
  * The instruction itself, like GarageBand's empty track, not behind a ?, with the recording's suggested hits as a link
  * while the marble has none
  */
-const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane; hasSong: boolean }> = (props) => {
-	const { cx, lane, hasSong } = props;
+const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane }> = (props) => {
+	const { cx, lane } = props;
 	useFeatureState(cx.sources.$analysis);
 	const suggested = suggestedHits(cx, lane).length;
 	return (
@@ -33,7 +33,7 @@ const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane; hasSong: boolean }> =
 					</button>
 				</>
 			) : null}
-			{hasSong ? ' · press T to tap along, or double-click to add a hit' : ' · import a song to tap along to it'}
+			{' · press T to tap along, or double-click to add a hit'}
 		</span>
 	);
 };
@@ -43,7 +43,7 @@ const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane; hasSong: boolean }> =
  * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so colour is never the only signal.
  */
 export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
-	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, hasSong, onAdd, onDragStart, timeAt } = props;
+	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
 	const conflicts = React.useMemo(() => findLaneConflicts(lane), [lane]);
 	const marquee = useMarquee(cx, lane, zoom, selection, timeAt);
 
@@ -62,7 +62,7 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 			}}
 		>
 			{!lane.hits.length ? (
-				<EmptyLaneHint cx={cx} lane={lane} hasSong={hasSong} />
+				<EmptyLaneHint cx={cx} lane={lane} />
 			) : null}
 			{lane.hits.map((hit, index) => {
 				const key = toHitKey(lane.id, hit.id);
@@ -99,7 +99,6 @@ interface TLaneTrackProps {
 	statuses: Map<string, THitResult> | undefined;
 	// Dims the hits of a Part that is muted or left out by a solo
 	isAudible: boolean;
-	hasSong: boolean;
 	onAdd: (time: number, event: React.MouseEvent) => void;
 	onDragStart: TDragStart;
 	timeAt: (clientX: number) => number;

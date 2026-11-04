@@ -141,7 +141,7 @@ export class SourcesCx {
 			{ type: 'upsertSource', source },
 			{ type: 'setEnd', end: Math.max(project.end, Math.ceil(source.offset + analysis.duration)) }
 		]);
-		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's inspector or tap along.`);
+		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's row menu or tap along.`);
 	}
 
 	// MARK: - Song

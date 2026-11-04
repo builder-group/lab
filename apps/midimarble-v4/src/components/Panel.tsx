@@ -98,12 +98,8 @@ export const InspectorHeader: React.FC<TInspectorHeaderProps> = (props) => {
 					</span>
 				) : null}
 			</span>
-			{status != null || fix != null ? (
-				<span className="mm-insp-status">
-					{status}
-					{fix}
-				</span>
-			) : null}
+			{status != null ? <span className="mm-insp-status">{status}</span> : null}
+			{fix != null ? <span className="mm-insp-fix">{fix}</span> : null}
 		</div>
 	);
 };

@@ -2512,6 +2512,20 @@ button.mm-layer-disclosure:hover {
 	left: -6px;
 }
 
+/* In a scrolling Insert panel the bubble hangs off the panel, not its list, so the list neither clips nor scrolls it */
+.mm-library .mm-help {
+	position: static;
+}
+
+.mm-library .mm-help .mm-help-bubble,
+.mm-library .mm-help[data-side='right'] .mm-help-bubble {
+	top: auto;
+	right: auto;
+	left: 8px;
+	width: min(220px, calc(100% - 16px));
+	margin-top: 24px;
+}
+
 .mm-help:hover .mm-help-bubble,
 .mm-help:focus-visible .mm-help-bubble {
 	opacity: 1;

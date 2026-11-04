@@ -81,6 +81,7 @@
 .mm-insp-header {
 	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
 	gap: 8px;
 	min-height: 56px;
 	flex-shrink: 0;
@@ -102,18 +103,22 @@
 
 .mm-insp-titles {
 	display: flex;
-	flex: 1;
+	flex: 1 1 0;
 	flex-direction: column;
 	min-width: 0;
 }
 
-/* The status pill with its Fix-it below, right-aligned */
+/* The status pill beside the title */
 .mm-insp-status {
 	display: flex;
 	flex-shrink: 0;
-	flex-direction: column;
-	align-items: flex-end;
-	gap: 4px;
+}
+
+/* The Fix-it takes a row of its own under the title and the pill, so the title keeps its width */
+.mm-insp-fix {
+	display: flex;
+	flex-basis: 100%;
+	justify-content: flex-end;
 }
 
 /* The name renames in place like Figma's layer name; the hover fill shows that it can be edited */
@@ -143,7 +148,7 @@ span.mm-insp-name {
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 	white-space: normal;
-	overflow-wrap: anywhere;
+	overflow-wrap: break-word;
 }
 
 button.mm-insp-name {

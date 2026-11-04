@@ -201,6 +201,18 @@ export class DraftPreviewCx {
 		});
 	}
 
+	/**
+	 * Selected outside the frame, such as in Layers, a piece comes into view the only way the film's camera can show it:
+	 * the playhead goes to when it plays. A piece no marble times stays where it is.
+	 */
+	revealPiece(id: string): void {
+		const piece = this.pieces().find((item) => item.entityId === id);
+		const time = piece?.hitTime ?? piece?.entryTime;
+		if (piece == null || time == null) return;
+		const isInFrame = this.selectionOutline(piece).some((point) => point.x >= 0 && point.x <= this.size.width && point.y >= 0 && point.y <= this.size.height);
+		if (!isInFrame) this.studio.seek(time);
+	}
+
 	/** Made in Blender objects as faint outlines at the playhead: their look shows only in the Blender preview */
 	blenderOutlines(): { key: string; points: TVec2[]; opacity: number }[] {
 		const project = this.studio.project;
