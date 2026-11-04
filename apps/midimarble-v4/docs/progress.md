@@ -13,6 +13,12 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### 2026-11-04: native window check (debug bundle of e82009b)
+
+- Background computer use now drives the web view. Checked in the real window: Jingle Bells opens from the start screen; playback runs and the Wall view stays still with Follow off; Film shows the Blender preview (Blender Ready) with Camera only in Film's layers; Export Film… at Draft (Quality picked with a short full-screen step, since pop-up menus cannot be opened in the background) rendered 987 frames, 720 × 1280, 0:33, in 1 min 21 s, and the result sheet plays it with Show in Finder; a real agent run ("New theme: warm sunset…", 14 steps, about 3 min) made the Sunset project theme, and Accept applied it in Blender (orange wall); ⌘S on the unsaved example opens the native save panel (cancelled, nothing written)
+- Found: the native menu bar is Tauri's default (File has only Close Window and Close All); the agent's theme result card previews a grey skin still instead of the theme; the save panel for an example is titled New Project; the timeline ruler runs past the project end. Being fixed
+- `test` had one performance-test failure while the bundle compiled at the same time (timing budget under load); 514 others passed
+
 ### 2026-11-04: Layers, each layer owns its settings, Song optional (Round 4)
 
 - One word, Layers: the timeline column header reads Layers, Quick Help's region is Timeline, Tracks/track left the UI strings; words.md has a Layer row and no Track row; design-language.md records Round 4
