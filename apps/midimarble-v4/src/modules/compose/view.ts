@@ -20,6 +20,8 @@ export interface TBounds {
 	maxY: number;
 }
 
+/** 100% shows the wall at physical size on a 96 dpi screen */
+export const ZOOM_100_SCALE = 3779.5;
 export const MIN_SCALE = 20;
 export const MAX_SCALE = 40000;
 

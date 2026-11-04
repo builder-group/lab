@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, type TEntity, type TProject } from '@/modules/project';
-import { inspectorTarget } from './inspector-target';
+import { inspectorTarget, selectionEnteringFilm } from './inspector-target';
 import { buildOutline, DECOR_KEY, isSelectableRow, TITLES_KEY, type TOutlineRow } from './outline';
-import { CAMERA_KEY, KEY_LIGHT_KEY, SONG_KEY, toHitKey, toLightKey, toShotKey, WALL_KEY } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toHitKey, toLightKey, toShotKey, WALL_KEY } from './selection';
 
 function fullProject(): TProject {
 	const project = createProject({ id: 'project', title: 'Jingle Bells' });
@@ -31,11 +31,11 @@ describe('inspectorTarget function', () => {
 		expect(inspectorTarget(project, [KEY_LIGHT_KEY])).toEqual({ kind: 'light', id: 'key' });
 		expect(inspectorTarget(project, [toLightKey('light-1')])).toEqual({ kind: 'light', id: 'light-1' });
 		expect(inspectorTarget(project, [KEY_LIGHT_KEY, toLightKey('light-1')])).toEqual({ kind: 'lights' });
-		expect(inspectorTarget(project, [toLightKey('light-gone')])).toEqual({ kind: 'project' });
+		expect(inspectorTarget(project, [toLightKey('light-gone')])).toEqual({ kind: 'scene' });
 	});
 
 	it('should show the Project without a selection', () => {
-		expect(inspectorTarget(fullProject(), [])).toEqual({ kind: 'project' });
+		expect(inspectorTarget(fullProject(), [])).toEqual({ kind: 'scene' });
 	});
 
 	it('should give every layer in Layers its own inspector', () => {
@@ -43,6 +43,7 @@ describe('inspectorTarget function', () => {
 		const kinds = buildOutline(project).map((row) => [row.id, inspectorTarget(project, rowSelection(row)).kind]);
 
 		expect(kinds).toEqual([
+			[SCENE_KEY, 'scene'],
 			[SONG_KEY, 'song'],
 			[project.entities[0]?.id, 'marble'],
 			['platform-1', 'pieces'],
@@ -56,7 +57,7 @@ describe('inspectorTarget function', () => {
 			[TITLES_KEY, 'titles'],
 			['title-2', 'title'],
 			['title-1', 'title'],
-			[DECOR_KEY, 'project']
+			[DECOR_KEY, 'scene']
 		]);
 	});
 
@@ -88,7 +89,39 @@ describe('inspectorTarget function', () => {
 		const project = fullProject();
 		project.music.sources = [];
 
-		expect(inspectorTarget(project, [SONG_KEY])).toEqual({ kind: 'project' });
+		expect(inspectorTarget(project, [SONG_KEY])).toEqual({ kind: 'scene' });
+	});
+});
+
+describe('the Scene', () => {
+	it('should be what an emptied selection shows, in both workspaces', () => {
+		for (const workspace of ['compose', 'design'] as const) expect(inspectorTarget(fullProject(), [], workspace)).toEqual({ kind: 'scene' });
+	});
+
+	it('should show for a Film layer left selected in Compose, and not in Film', () => {
+		expect(inspectorTarget(fullProject(), [WALL_KEY], 'compose')).toEqual({ kind: 'scene' });
+		expect(inspectorTarget(fullProject(), [KEY_LIGHT_KEY], 'compose')).toEqual({ kind: 'scene' });
+		expect(inspectorTarget(fullProject(), [WALL_KEY], 'design')).toEqual({ kind: 'wall' });
+		expect(inspectorTarget(fullProject(), [CAMERA_KEY], 'compose')).toEqual({ kind: 'camera' });
+	});
+});
+
+describe('selectionEnteringFilm function', () => {
+	it('should select the Scene when Compose left a piece or a hit selected', () => {
+		const project = fullProject();
+		const laneId = project.music.lanes[0]?.id ?? '';
+		expect(selectionEnteringFilm(project, ['platform-1'])).toEqual([]);
+		expect(selectionEnteringFilm(project, ['platform-1', 'rail-1'])).toEqual([]);
+		expect(selectionEnteringFilm(project, [toHitKey(laneId, 'hit-1')])).toEqual([]);
+	});
+
+	it('should keep a layer Film is about', () => {
+		const project = fullProject();
+		const marble = project.entities[0]?.id ?? '';
+		for (const selection of [[WALL_KEY], [CAMERA_KEY], [toShotKey('shot-1')], ['title-1'], [SONG_KEY], [marble], [toLightKey('key')]]) {
+			expect(selectionEnteringFilm(project, selection)).toEqual(selection);
+		}
+		expect(selectionEnteringFilm(project, [])).toEqual([]);
 	});
 });
 
@@ -96,7 +129,7 @@ describe('buildOutline function in Compose', () => {
 	it('should list only the Song and the marbles with their pieces; Film lists every layer', () => {
 		const project = fullProject();
 
-		expect(buildOutline(project, { workspace: 'compose' }).map((row) => row.kind)).toEqual(['song', 'marble', 'piece', 'group', 'piece']);
+		expect(buildOutline(project, { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'song', 'marble', 'piece', 'group', 'piece']);
 		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('camera');
 		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('title');
 	});

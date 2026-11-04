@@ -13,6 +13,58 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### 2026-11-04: Dot previews, hit dots, arrows and ⌫, piano roll notes and keys
+
+- A click on an open dot previews its platform as an outline; click again, Return or N adds it. Every hit keeps a dot in its status colour and the timing badge is gone; a placed dot selects the hit
+- ← → always step hits, ↑ ↓ always tilt, the hit inspector shows the platform's ∠, L and Lands At, Re-place shows on amber, ⌫ never takes music first, Delete Hit leaves nothing tied to the hit
+- Piano roll: double-click adds a note, ⌫ removes it, the right edge resizes, keys tint while notes sound. A marble's note now sounds its own length up to 0.6 s. Backing has a Part only with notes. The Play icon stays neutral
+- Not built from the UX consult: Still Riding as a status (word only), ↑ ↓ on an outline, Esc selecting the Scene with the outline
+
+### 2026-11-04: Garland, Snowfall, Softness, Exposure and Bloom: a cozy Christmas (Round 5)
+
+- Owner: the green thing on the right wasn't understood, the light wasn't cozy, wanted snow on the screen, and showed `apps/.local/midimarble-blender/output/christmas-assets.png` for the side dressing. The Tinsel band left the Christmas theme (the wall kind stays in the catalog)
+- **Garland** and **Snowfall**: new Decor items, `effect` in the catalog, `decor_effects.py`, `decor-effects.ts`, `DraftEffects.tsx`, Library tiles. They hang from the film camera rather than the wall, a deliberate departure from "along the camera track on the wall": the Jingle camera rolls 27 to 55° from the wall's up, so a wall-fixed garland crosses the frame diagonally. The Garland scrolls by a key curve baked from the camera, at the wall's speed. Side, Spacing; Density, Size, Speed, Colour; In and Out; no Position, no Overlaps tip, Scatter ignores them. Flat Light keeps the Garland without its glow and leaves out snow (Workbench outlines turned soft things into rings). Not in a Decor set: Scatter would do nothing with them
+- **Softness** on the Key Light (sun angle), **Exposure** and **Bloom** in its new Whole Film panel, all in `SKeyLightPose`, so Save as Theme, Reset and the scene description carry them. Bloom's compositor also adds a warm vignette at the frame's edges. A project theme's background tints the room's bright end
+- Christmas theme: wall `#fcf3df`, Key Light `#ffe6b3`, Background `#fff2d2`, Softness 55 %, Exposure +0.4, Bloom 50 %, Decor Density 0.18 (116 items, airier), Garland, Snowfall. Baubles glow a little; fairy-light emission 4 to 10. `decorSet` on the theme; the fixture and `export-decor-fixture.ts` hold their item lists now that the catalog has no sets
+- Cost at 720 × 1280, 16 samples: Fast film 703 ms/frame before (`.local/christmas/`), 562 ms/frame now, 1008 frames in 567 s. The drop comes from losing the Tinsel wall and 12 Decor items, measured only as before and after. On one frame: Bloom about +15 ms; Snowfall and Garland no measurable cost (551 to 584 ms with, 536 to 566 ms without)
+- Look, three passes against "cozy, golden, Christmas, snow on screen": first orange-pink under a saturated key, then a yellower key; a straight branch line along each edge looked like a window frame and went; a scale on the Garland's glow part drifted its halos along the strip and left faint bars, fixed. Marble contrast 4.1:1 on the wall, no warning. The Finish's clear chute reads better than on the old white. Still weak: bulbs are smaller and less glowing than the reference; the wall is cream more than gold; gifts stay heavy beside the reference's small platforms, which is the Gift skin's size. Bell under platform not done, as the brief allowed
+- Flat Light's wall reads paler and greyer than Fast: Brass's Flat offset stacks on the theme's Exposure and AgX washes the cream out. Not fixed
+- Film and sheet: `.local/christmas2/jingle-bells-christmas.mp4`, `contact.jpg`, `still-08.png`, `still-20.png`, `still-32.png`
+- Checks: `typecheck`, `lint` clean; `test` 765 + 3; `blender:design`, `blender:film`, `blender:preview` and `camera:check` pass, `check_decor.py` now 86 assertions with Snowfall, Garland and Bloom in Flat Light, `check_design.py` with Softness, Exposure and Bloom. Browser, one look on Jingle Bells in Film: Garland draws in the Draft Preview, Snowfall inspector shows its four controls without Position, no console errors. That look came before the flake sprite gained its rim, and snow was hard to see on cream then. Skipped: dragging Snowfall from the Library, Reduce Motion in a browser, the native window, a film from the app's sheet, a loop film's seam by eye (the Garland's closure is asserted)
+
+### 2026-11-04: Layers slots and title bar from the owner's native findings
+
+- Layers: hover no longer swaps anything. Eye and lock have a reserved slot at the row's right edge, the trailing column stays. The timeline glyph is gone, with the outline's unused `track` field
+- Title bar: the Quick Help ? button is gone (Help › MidiMarble Help, ⇧⌘/, ⌘K remain). Blender and Agent share one secondary style; Blender is its logo tinted by state and its name, with the state word sliding open only while working. A missing Blender is grey, not red
+- `ux-review.md` gains a visual checklist: hover states of every row and control, and a comparison with established apps
+- Round 6 (see design-language.md): the sidebar is Layers alone (no tabs, no second project name, 264 px); one Insert in the tool rail in both workspaces (`FilmInsert.tsx`, shared `InsertPopover`); Film's Title button gone, T stays; Decor categories in the catalog, the Christmas set gone, project themes may carry `decorSet`; the workspace switch in the title bar with a dot for the other workspace's problems; Blender's dot is now its logo, tinted
+
+### 2026-11-04: Compose fixes from UX benchmark 1
+
+- After tapping or importing the Wall glides to the next open dots (`firstHitsView`, `$fitFirstHits`). A dot click places its platform; the options moved to right-click (`dotClickAction`)
+- Duplicate never breaks a hit (`duplicateClear`): nearest clear spot with what-ifs, else beside the run with a notice, else refused. A drag keeps Plays through the simulator's pin (`asPinned`, `playsDrop`) with a live timing chip, a ghost, and a notice with Undo when the tie changes; Re-place and A clear the pin
+- ⇧1 shows the playhead's section on long runs (`playheadSection`), ⌘0 Zoom to 100%, Zoom to Whole Run. Cycle (`cycle.ts`): C, transport toggle, ruler strip, Playback menu. Playback and Piece menus with keys after a tab in the title. Compose keeps its view back from Film
+- Covered window: `backgroundThrottling` Disabled on the window (macOS 14+); playback ticks on a timer when frames stop (`playback-ticker.ts`); export polling already ran on a timer, not frames, and now also wakes on `visibilitychange`
+- Native check left: see ux.md To verify
+
+### 2026-11-04: The Song is the only sound; Parts, timing flashes, Song as a layer (Round 5)
+
+- Marbles make no sound: Instrument left the marble inspector, Mute and Solo left marble rows, their menu and ⌘K. `lane.instrument` stays in the file as the Part's Sound, so older projects load and sound the same.
+- **Parts** (`music/parts.ts`): the expanded Song row shows, below the piano roll, one row per marble that plays notes plus Backing with Sound, Mute, Solo and its notes; the Song inspector lists the same Parts. A recording has one Mute and Solo on its row and its hits as ticks per marble colour on the existing cached waveform.
+- Decision: mute and solo stay session view state, reset when a project opens. **Muted Parts are left out of the film's soundtrack** (`soundtrackProject`), with a quiet line in the export sheet; solo never shapes the film.
+- No hit sounds: `createLaneEvents` skips hits without a pitch, `DEFAULT_HIT_PITCH` is gone, audition needs a pitch and a MIDI Song. A project without a Song renders silence. Hand-placed hits take no pitch; Add Pitch and the No Pitch row are gone, and Velocity shows only for notes.
+- Timing shown: `timeline/hit-flash.ts` flashes the landed hit's dot in its status colour through a data attribute, and `compose/HitFlashLayer.tsx` rings it on the wall; tooltips carry the offset.
+- Hits wait for a Song: T and placing by hand show a notice with Import Song…; the empty wall leads with Import Song…. Hits without a Song show **Add a Song** beside the hit summary and an Export Anyway warning.
+- Note: the `loop` fixture has pitched hits and no song file, so it now plays silently, as the decision says for older projects.
+
+### 2026-11-04: The Scene, Look tiles and the Theme section (Round 5)
+
+- **Scene row** heads Layers in both workspaces; an empty selection is the Scene (`SCENE_KEY` never enters the selection), so an empty click in Layers, on the wall, on or around the Film preview, in a timeline row's empty space, or Esc selects it. The inspector header reads Scene. Entering Film drops a piece or hit selection (`selectionEnteringFilm`), keeping a marble, the Song and Film's layers. ⌘K: Select Scene
+- **Look section**: tiles for marbles, pieces, the Wall (drawn thumbnails, no previews exist) and Decor (`skin-tiles.ts`, `LookTiles.tsx`), Theme Default first, then properties and Reset to Theme, with one undo step per click and ⌥-click for all of a type. Skins made with the agent moved here with their star and menu
+- **Library** in Film holds only Decor; `$filterElement` is gone
+- **Theme section** (`ThemePanel.tsx`) in the Scene inspector: picture and name, picture grid in place with project themes and their origin line, parts list as the film shows it (fixes the stale "Platforms: Gold" after Knob), Duplicate to Edit and Save as Theme. Export Theme… and Import Theme… are the next slice
+- **Titles**: `titleColorOnWall` and `defaultTitleColor`: navy on a light wall, white on a dark one, at creation and for a title with no colour (`wallText.color` is optional now, resolved in the scene description)
+
 ### 2026-11-04: Gift, Tinsel and a Christmas project theme (Round 4)
 
 - Owner decision: Film's look is unique to each project and themes are presets to import and export, so **Christmas is no built-in theme**. It is `design.themes[theme-christmas]` in `fixtures/jingle-bells` with its parts on Brass's render look. The notice offering Scatter on picking a theme was dropped; theme import, export and the picker are the next agent's work

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TEntity, TProject } from '@/modules/project';
 import { buildOutline, DECOR_KEY, FREE_PIECES_KEY, isFilmRow, LIGHTS_KEY, TITLES_KEY } from './outline';
-import { CAMERA_KEY, KEY_LIGHT_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from './selection';
 
 function piece(id: string, hitLink?: { laneId: string; hitId: string }): TEntity {
 	return { id, components: { piece: { type: 'platform' }, ...(hitLink != null ? { hitLink } : {}) } } as unknown as TEntity;
@@ -37,6 +37,7 @@ describe('buildOutline function', () => {
 		);
 
 		expect(rows.map((row) => row.id)).toEqual([
+			SCENE_KEY,
 			SONG_KEY,
 			'marble-1',
 			'p-a',
@@ -57,15 +58,14 @@ describe('buildOutline function', () => {
 		]);
 	});
 
-	it('should list added lights after the Key Light, in Film only and without timeline rows', () => {
+	it('should list added lights after the Key Light, in Film only', () => {
 		const lit = project();
 		lit.design.lights = { added: [{ id: 'light-1', name: 'Fill', color: '#ffffff', strength: 2, side: 0.5, height: 0.3 }] };
 
 		const film = buildOutline(lit);
 		const lights = film.filter((row) => row.kind === 'light');
 		expect(lights.map((row) => row.id)).toEqual([KEY_LIGHT_KEY, toLightKey('light-1')]);
-		expect(film.find((row) => row.kind === 'wall')?.track).toBeNull();
-		expect(lights.every((row) => row.track == null && isFilmRow(row))).toBe(true);
+		expect(lights.every((row) => isFilmRow(row))).toBe(true);
 
 		const compose = buildOutline(lit, { workspace: 'compose' });
 		expect(compose.some((row) => row.id === WALL_KEY || row.id === LIGHTS_KEY || row.kind === 'light')).toBe(false);
@@ -80,22 +80,20 @@ describe('buildOutline function', () => {
 		expect(group?.kind === 'group' ? group.help : null).toBe('Pieces no marble plays or follows; marbles can still hit them');
 	});
 
-	it('should give the Song, marbles and Camera a track and nothing else', () => {
-		const rows = buildOutline(project({ entities: [piece('free-1')] }));
-
-		expect(rows.filter((row) => row.track != null).map((row) => row.track)).toEqual(['song', 'lane', 'lane', 'camera']);
-	});
-
 	it('should leave out the Song without one and an empty Pieces group, and keep Titles and Decor in Film when empty', () => {
 		const rows = buildOutline(project({ hasSong: false }));
 
-		expect(rows.map((row) => row.kind)).toEqual(['marble', 'marble', 'wall', 'group', 'light', 'camera', 'group', 'group']);
+		expect(rows.map((row) => row.kind)).toEqual(['scene', 'marble', 'marble', 'wall', 'group', 'light', 'camera', 'group', 'group']);
 		expect(rows.filter((row) => row.id === TITLES_KEY || row.id === DECOR_KEY)).toMatchObject([{ isEmpty: true, childIds: [] }, { isEmpty: true, childIds: [] }]);
-		expect(buildOutline(project({ hasSong: false }), { workspace: 'compose' }).map((row) => row.kind)).toEqual(['marble', 'marble']);
+		expect(buildOutline(project({ hasSong: false }), { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'marble', 'marble']);
+	});
+
+	it('should start Layers with the Scene in both workspaces, with no timeline row', () => {
+		for (const workspace of ['compose', 'design'] as const) expect(buildOutline(project({}), { workspace })[0]).toMatchObject({ kind: 'scene', id: SCENE_KEY });
 	});
 
 	it('should name the Song row Song, whatever its file is called', () => {
-		expect(buildOutline(project({}))[0]).toMatchObject({ kind: 'song', label: 'Song' });
+		expect(buildOutline(project({}))[1]).toMatchObject({ kind: 'song', label: 'Song' });
 	});
 
 	it('should leave out the children of collapsed groups', () => {
@@ -103,7 +101,7 @@ describe('buildOutline function', () => {
 			collapsed: ['lane-1', FREE_PIECES_KEY, CAMERA_KEY]
 		});
 
-		expect(rows.map((row) => row.id)).toEqual([SONG_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, CAMERA_KEY, TITLES_KEY, DECOR_KEY]);
+		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, CAMERA_KEY, TITLES_KEY, DECOR_KEY]);
 		expect(rows.find((row) => row.id === 'marble-1')).toMatchObject({ hasChildren: true, isOpen: false });
 	});
 

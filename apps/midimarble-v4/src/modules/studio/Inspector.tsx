@@ -5,18 +5,20 @@ import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, Scr
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { unreachableActions } from '@/modules/compose/unreachable-fixes';
-import { PieceInspector, ReplaceButton } from '@/modules/compose/PieceInspector';
+import { PieceInspector, PlatformFields, ReplaceButton } from '@/modules/compose/PieceInspector';
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/compose/reachability';
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
-import { CameraInspector, FilmLookPanel, PieceLook, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
+import { ZOOM_100_SCALE } from '@/modules/compose/view';
+import { CameraInspector, FilmLoopPanel, PieceLook, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
 import { MarbleLook } from '@/modules/design/SkinProperties';
+import { ThemePanel } from '@/modules/design/ThemePanel';
 import { DecorInspector, DecorsInspector, MadeInBlenderInspector } from '@/modules/design/DecorInspector';
 import { KeyLightInspector, LightInspector, LightsInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
 import { addedLights } from '@/modules/design/scene-layers';
-import { DEFAULT_HIT_VELOCITY, endsOnFinish, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_TAIL, suggestedHitTimes } from '@/modules/music';
+import { DEFAULT_HIT_VELOCITY, endsOnFinish, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, SONG_TAIL, songParts, suggestedHitTimes } from '@/modules/music';
 import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
-import { getPieceDefinition } from '@/modules/simulation';
+import { getPieceDefinition, layoutOf, soundsHit } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
@@ -26,11 +28,13 @@ import { songSource } from './SourcesCx';
 import type { StudioCx, TWorkspace } from './StudioCx';
 import { auditionNote, BACKING_COLOR, handNotes } from './timeline/hand-notes';
 import { parseTime } from './timeline/parse-time';
+import { setPartSound } from './timeline/PartRows';
+import { PartToggles } from './timeline/PartToggles';
 import { songFitEnd } from './world';
 
 /**
  * Properties of the selection, like Figma UI3's properties panel: the zoom at the top in Compose, then a
- * header row and sections for the selected layer, or the Project without one. Each layer owns its settings: the
+ * header row and sections for the selected layer, or the Scene without one. Each layer owns its settings: the
  * Song its file and Backing, the Camera its frame and rig, a marble, a piece, a hit, a shot or a title their own.
  */
 export const Inspector: React.FC<TInspectorProps> = (props) => {
@@ -40,7 +44,7 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	const workspace = useFeatureState(cx.$workspace);
 	const project = history?.present;
 	if (project == null) return null;
-	const target = inspectorTarget(project, selection);
+	const target = inspectorTarget(project, selection, workspace);
 
 	return (
 		<aside className="mm-inspector" aria-label="Inspector" data-quick-help="inspector">
@@ -89,28 +93,26 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return <SongInspector cx={cx} project={project} />;
 		case 'camera':
 			return <CameraInspector cx={cx} project={project} />;
-		// Wall and Lights belong to Film; a selection left over in Compose shows the Project
+		// Wall, Lights and Decor belong to Film; inspectorTarget shows the Scene for them in Compose
 		case 'wall':
-			return isFilm ? <WallInspector cx={cx} project={project} /> : <ProjectInspector cx={cx} project={project} look={null} />;
+			return <WallInspector cx={cx} project={project} />;
 		case 'lights':
-			return isFilm ? <LightsInspector cx={cx} project={project} /> : <ProjectInspector cx={cx} project={project} look={null} />;
+			return <LightsInspector cx={cx} project={project} />;
 		case 'light': {
-			if (!isFilm) return <ProjectInspector cx={cx} project={project} look={null} />;
 			if (target.id === KEY_LIGHT_ID) return <KeyLightInspector cx={cx} project={project} />;
 			const light = addedLights(project.design).find((item) => item.id === target.id);
 			return light == null ? null : <LightInspector cx={cx} project={project} light={light} />;
 		}
-		// Decor belongs to Film; a selection left over in Compose shows the Project
 		case 'decor': {
 			const decor = project.design.decor?.find((item) => item.id === target.id);
-			return isFilm && decor != null ? <DecorInspector key={decor.id} cx={cx} project={project} decor={decor} /> : <ProjectInspector cx={cx} project={project} look={null} />;
+			return decor == null ? null : <DecorInspector key={decor.id} cx={cx} project={project} decor={decor} />;
 		}
 		case 'decors':
-			return isFilm ? <DecorsInspector cx={cx} project={project} ids={target.ids} /> : <ProjectInspector cx={cx} project={project} look={null} />;
+			return <DecorsInspector cx={cx} project={project} ids={target.ids} />;
 		case 'madeInBlender':
-			return isFilm ? <MadeInBlenderInspector key={target.name} cx={cx} project={project} name={target.name} /> : <ProjectInspector cx={cx} project={project} look={null} />;
-		case 'project':
-			return <ProjectInspector cx={cx} project={project} look={isFilm ? <FilmLookPanel cx={cx} project={project} /> : null} />;
+			return <MadeInBlenderInspector key={target.name} cx={cx} project={project} name={target.name} />;
+		case 'scene':
+			return <SceneInspector cx={cx} project={project} isFilm={isFilm} />;
 	}
 };
 
@@ -137,8 +139,7 @@ const InspectorTopBar: React.FC<{ cx: StudioCx }> = (props) => {
 const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 	const { cx, compose } = props;
 	const camera = useFeatureState(compose.$camera);
-	// 100% shows the wall at physical size on a 96 dpi screen
-	const zoom = Math.round((camera.view.scale / 3779.5) * 100);
+	const zoom = Math.round((camera.view.scale / ZOOM_100_SCALE) * 100);
 	return (
 		<MenuButton
 			className="mm-zoom-button mm-tabular"
@@ -151,8 +152,10 @@ const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 			items={[
 				commandItem(cx, 'view.zoomIn'),
 				commandItem(cx, 'view.zoomOut'),
+				commandItem(cx, 'view.zoom100'),
 				'separator',
 				commandItem(cx, 'view.fitAll'),
+				commandItem(cx, 'view.fitWhole'),
 				commandItem(cx, 'view.fitSelection'),
 				commandItem(cx, 'view.fitFrame'),
 				'separator',
@@ -241,15 +244,6 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 						/>
 					))}
 				</div>
-				{audio == null ? (
-					<SelectField
-						id="lane-instrument"
-						label="Instrument"
-						value={String(lane.instrument)}
-						options={instruments.map((item) => ({ value: String(item.program), label: item.name }))}
-						onChange={(value) => cx.execute([{ type: 'upsertLane', lane: { ...lane, instrument: Number(value) } }])}
-					/>
-				) : null}
 			</Panel>
 			{release != null ? (
 				<Panel id="marble.release" title="Release" accessory={<HelpTip text="Where the marble starts. Drag its ring on the wall to move it." />}>
@@ -332,14 +326,14 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const reach = !isBacking && piece == null && hitResult?.status === 'open' ? hitReach(project, result, hitResult) : null;
 	const unreachable = reach != null && hitResult != null && isUnreachable(reach) ? unreachableStatus(project, result, hitResult) : null;
 	const fixes = unreachable != null && reach != null && hitResult != null ? unreachableActions(cx, hitResult, releaseFixFor(project, hitResult, reach)) : [];
+	const pieceLabel = piece == null ? '' : (piece.name ?? getPieceDefinition(piece.components.piece?.type ?? '')?.label ?? 'Piece');
 	const timing =
 		piece == null
 			? unreachable == null
 				? null
 				: { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
-			: timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult);
+			: timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult, { marble: lane.name, piece: pieceLabel, isOffDot: piece.components.hitLink?.pinned === true });
 	const openHit = hitResult?.status === 'open' && hitResult.dot != null ? hitResult : null;
-	const pieceLabel = piece == null ? '' : (piece.name ?? getPieceDefinition(piece.components.piece?.type ?? '')?.label ?? 'Piece');
 
 	function setHit(patch: Partial<THit>): void {
 		cx.execute([{ type: 'upsertHits', laneId: lane.id, hits: [{ ...hit, ...patch }] }]);
@@ -363,37 +357,33 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				title={isBacking ? `Note ${index + 1}` : `Hit ${index + 1}`}
 				subtitle={`${lane.name} · ${formatTime(hit.time)}`}
 				status={timing == null ? null : <StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />}
-				fix={timing?.tone === 'bad' && piece != null && !isBacking ? <ReplaceButton cx={cx} laneId={lane.id} hitId={hit.id} /> : null}
+				fix={(timing?.tone === 'bad' || timing?.tone === 'warn') && piece != null && !isBacking ? <ReplaceButton cx={cx} laneId={lane.id} hitId={hit.id} /> : null}
 			/>
-			<Panel id="hit.note" title="Note" accessory={<HelpTip text="Type a note name such as A4 or F#3. Up and Down step a semitone, Shift an octave. Changing the pitch plays it." />}>
-				{hit.pitch == null ? (
+			<Panel
+				id="hit.note"
+				title={hit.pitch != null ? 'Note' : 'Hit'}
+				accessory={<HelpTip text={hit.pitch != null ? 'Type a note name such as A4 or F#3. Up and Down step a semitone, Shift an octave. Changing the pitch plays it.' : 'A tapped hit has no pitch and makes no sound: its timing shows on its dot as the marble lands.'} />}
+			>
+				{hit.pitch != null ? (
 					<>
-						<ReadoutField label="Pitch" name="Pitch">
-							<span className="text-[var(--text-tertiary)]">No Pitch</span>
-						</ReadoutField>
-						<button className="mm-button" onClick={() => setPitch(nearbyPitch(lane, hit))} title={`Give this hit a note, starting at ${noteName(nearbyPitch(lane, hit))}`} type="button">
-							<Plus size={12} strokeWidth={2} />
-							Add Pitch
-						</button>
+						<PitchField pitch={hit.pitch} onChange={setPitch} />
+						<ScrubField
+							id="hit-velocity"
+							label="Velocity"
+							name="Velocity: how hard the note plays"
+							value={Math.round((hit.velocity ?? DEFAULT_HIT_VELOCITY) * 100)}
+							unit="%"
+							step={0.5}
+							min={0}
+							max={100}
+							onCommit={(value) => setHit({ velocity: value / 100 })}
+						/>
 					</>
-				) : (
-					<PitchField pitch={hit.pitch} onChange={setPitch} />
-				)}
-				<ScrubField
-					id="hit-velocity"
-					label="Velocity"
-					name="Velocity: how hard the note plays"
-					value={Math.round((hit.velocity ?? DEFAULT_HIT_VELOCITY) * 100)}
-					unit="%"
-					step={0.5}
-					min={0}
-					max={100}
-					onCommit={(value) => setHit({ velocity: value / 100 })}
-				/>
+				) : null}
 				<ScrubField
 					id="hit-time"
 					label="Time"
-					name="Time"
+					name="Time: moves the note in the song"
 					value={hit.time}
 					unit=""
 					step={0.005}
@@ -405,6 +395,11 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					onCommit={(time) => setHit({ time })}
 				/>
 			</Panel>
+			{piece != null && !isBacking && soundsHit(piece.components.piece?.type ?? '', piece.components.hitLink) && layoutOf(piece.components.piece?.type ?? '') === 'box' ? (
+				<Panel id="hit.platform" title={pieceLabel} accessory={<HelpTip text="The platform that plays this hit. ↑ and ↓ tilt it, ← and → step to the next hit. Tilting it changes where the marble goes next, not this hit's timing." />}>
+					<PlatformFields cx={cx} project={project} entity={piece} />
+				</Panel>
+			) : null}
 			<Panel id="hit.playedBy" title="Play With" accessory={<HelpTip text="Backing is heard in the film, no piece needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 				{playedBy}
 				{isBacking ? null : piece != null ? (
@@ -427,13 +422,6 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 		</>
 	);
 };
-
-/** Pitch a tapped hit starts with: the closest earlier pitched hit of its marble, else the next one, else C4 */
-function nearbyPitch(lane: TLane, hit: THit): number {
-	const pitched = lane.hits.filter((item) => item.pitch != null && item.id !== hit.id);
-	const earlier = pitched.filter((item) => item.time <= hit.time).at(-1);
-	return earlier?.pitch ?? pitched.find((item) => item.time > hit.time)?.pitch ?? 60;
-}
 
 /** Note name field with a semitone stepper; Up and Down step a semitone, Shift an octave */
 const PitchField: React.FC<{ pitch: number | undefined; onChange: (pitch: number | null) => void }> = (props) => {
@@ -475,14 +463,14 @@ const HitGlyph: React.FC<{ color?: string }> = (props) => {
 // MARK: - Song
 
 /**
- * The Song layer's inspector: the file and its kind, tempo and meter, the instrument Backing plays with, and
- * Replace Song… and Delete Song. The layer exists only while the project has a song file or Backing notes.
+ * The Song layer's inspector: the file and its kind, tempo and meter, and Replace Song… and Delete Song, then the
+ * same Parts as the expanded Song row, each with Sound, Mute and Solo, or a recording's one Mute and Solo. The layer exists only while the project has a song file or Backing notes.
  */
 const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const song = songSource(project);
 	const tempo = project.music.tempo;
-	const backing = project.music.backing.length;
+	const parts = songParts(project);
 	const kind = song == null ? 'Backing' : song.kind === 'audio' ? 'Recording' : 'MIDI';
 	const deleteQuestion = deleteSongQuestion(project);
 
@@ -525,32 +513,49 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 					Delete Song
 				</button>
 			</Panel>
-			{backing > 0 || song?.kind === 'midi' ? (
-				<Panel id="song.backing" title="Backing" accessory={<HelpTip text="Notes no marble plays, heard in the film with no piece needed. Select notes in the expanded Song row and press 0 to make them Backing." />}>
-					<ReadoutField label="Notes" name="Backing notes">
-						{backing}
-					</ReadoutField>
-					<SelectField
-						id="song-backing-instrument"
-						label="Sound"
-						value={String(project.music.backingInstrument ?? 0)}
-						options={instruments.map((item) => ({ value: String(item.program), label: item.name }))}
-						onChange={(value) => cx.execute([{ type: 'setBackingInstrument', instrument: Number(value) }])}
-					/>
+			{song?.kind === 'audio' ? (
+				<Panel id="song.sound" title="Sound" accessory={<HelpTip text="The recording is the only sound. Muting it also leaves it out of the film; solo is for listening." />}>
+					<div className="flex items-center justify-between" data-span="2">
+						<span className="truncate">{song.name}</span>
+						<PartToggles cx={cx} id={SONG_MIX_ID} name="Song" />
+					</div>
+				</Panel>
+			) : parts.length > 0 ? (
+				<Panel id="song.parts" title="Parts" accessory={<HelpTip text="Each marble plays a slice of the song; Backing is the notes no marble plays, heard with no piece needed. Solo a Part to hear just that slice. Muted Parts are also left out of the film's sound." />}>
+					{parts.map((part) => (
+						<React.Fragment key={part.id}>
+							<div className="flex min-w-0 items-center gap-1.5" data-span="2">
+								<span className="mm-track-chip shrink-0" style={{ background: part.color }} aria-hidden />
+								<span className="min-w-0 flex-1 truncate font-medium">{part.name}</span>
+								<span className="mm-insp-secondary shrink-0 text-[11px]">
+									{part.noteCount} {part.noteCount === 1 ? 'note' : 'notes'}
+								</span>
+								<PartToggles cx={cx} id={part.id} name={part.name} />
+							</div>
+							<SelectField
+								id={`part-sound-${part.id}`}
+								label="Sound"
+								value={String(part.instrument)}
+								options={instruments.map((item) => ({ value: String(item.program), label: item.name }))}
+								onChange={(value) => setPartSound(cx, part, Number(value))}
+							/>
+						</React.Fragment>
+					))}
 				</Panel>
 			) : null}
 		</>
 	);
 };
 
-// MARK: - Project
+// MARK: - Scene
 
 /**
- * Shown without a selection, like page properties in Figma: only what is project-wide, the length and the
- * Marble Speed every marble shares, plus the film's Look in Film. Each layer keeps its own settings.
+ * The Scene, selected by its row in Layers or by clearing the selection, like Blender's Scene properties: only what the
+ * whole film shares. In Film the theme comes first, then the length and the Marble Speed every marble shares, then
+ * Seamless Loop. Each layer keeps its own settings.
  */
-const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
-	const { cx, project, look } = props;
+const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolean }> = (props) => {
+	const { cx, project, isFilm } = props;
 	const speed = project.physics.gravityScale;
 	const fitEnd = songFitEnd(project);
 
@@ -558,7 +563,8 @@ const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
 
 	return (
 		<>
-			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Project" subtitle={formatTime(project.end)} />
+			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Scene" subtitle={formatTime(project.end)} />
+			{isFilm ? <ThemePanel cx={cx} project={project} /> : null}
 			<Panel id="world.film" title="Length" accessory={<HelpTip text="How long the film runs. Fit to Song ends it shortly after the last note." />}>
 				<ScrubField id="project-end" label="Length" name="Film length" value={project.end} unit="" step={0.05} precision={2} min={0.5} format={formatTime} parse={parseTime} onCommit={(end) => cx.execute([{ type: 'setEnd', end }])} />
 				<button
@@ -592,17 +598,10 @@ const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
 					}}
 				/>
 			</Panel>
-			{look}
+			{isFilm ? <FilmLoopPanel cx={cx} project={project} /> : null}
 		</>
 	);
 };
-
-interface TProjectInspectorProps {
-	cx: StudioCx;
-	project: TProject;
-	/** The film's Look, shown in Film */
-	look: React.ReactNode;
-}
 
 function round1(value: number): number {
 	return Math.round(value * 10) / 10;

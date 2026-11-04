@@ -581,14 +581,3 @@ input.mm-insp-name {
 	-webkit-appearance: auto;
 }
 
-/* Current skin of a piece on the grid; library tiles can be dropped on it */
-.mm-insp-grid > .mm-drop-well {
-	padding: 4px 8px 4px 4px;
-	border-radius: 6px;
-	background: var(--field-fill);
-}
-
-.mm-insp-grid > .mm-drop-well .mm-skin-thumb {
-	width: 40px;
-	height: 40px;
-}

@@ -1,5 +1,14 @@
+import type { TProject } from '@/modules/project';
+
 // Selection holds entity IDs, hit keys, shot marker keys, the Song and Camera track keys and the Wall and light
 // layer keys. Hit keys carry their lane so one list can mix them.
+
+/**
+ * The Scene row in Layers, like Blender's Scene Collection. An empty selection is the Scene, so this key never enters
+ * the selection: whatever clears the selection (an empty click, Esc, deleting the selected layer) selects the Scene,
+ * and nothing can stay stuck on a layer.
+ */
+export const SCENE_KEY = 'scene';
 
 /** The Song track and its row in Layers */
 export const SONG_KEY = 'song';
@@ -48,6 +57,30 @@ export function toShotKey(shotId: string): string {
 
 export function parseShotKey(key: string): string | null {
 	return key.startsWith('shot:') ? key.slice('shot:'.length) : null;
+}
+
+/**
+ * Where Previous and Next Hit go. In Compose they stay on the marble in focus (of the selected hit, platform or marble)
+ * and go on from the selected hit; with nothing in focus, and in Film, they step every marble's hits from the playhead.
+ */
+export function stepHitTarget(project: TProject, selection: readonly string[], playhead: number, direction: 1 | -1, isCompose: boolean): { laneId: string; hitId: string; time: number } | null {
+	const focus = isCompose ? stepFocus(project, selection) : null;
+	const lanes = focus == null ? project.music.lanes : project.music.lanes.filter((lane) => lane.id === focus.laneId);
+	const hits = lanes.flatMap((lane) => lane.hits.map((hit) => ({ laneId: lane.id, hitId: hit.id, time: hit.time }))).sort((a, b) => a.time - b.time);
+	const from = focus?.time ?? playhead;
+	return (direction === 1 ? hits.find((hit) => hit.time > from + 1e-4) : [...hits].reverse().find((hit) => hit.time < from - 1e-4)) ?? null;
+}
+
+function stepFocus(project: TProject, selection: readonly string[]): { laneId: string; time: number | null } | null {
+	for (const key of selection) {
+		const parsed = parseHitKey(key);
+		const entity = project.entities.find((item) => item.id === key);
+		const hitId = parsed?.hitId ?? entity?.components.hitLink?.hitId;
+		const laneId = parsed?.laneId ?? entity?.components.hitLink?.laneId ?? entity?.components.marble?.laneId;
+		const lane = project.music.lanes.find((item) => item.id === laneId);
+		if (lane != null) return { laneId: lane.id, time: lane.hits.find((hit) => hit.id === hitId)?.time ?? null };
+	}
+	return null;
 }
 
 export function toHitKey(laneId: string, hitId: string): string {

@@ -1,10 +1,11 @@
 import { useFeatureState } from 'feature-react/state';
-import { Hand, MousePointer2, PenTool, Plus, Type } from 'lucide-react';
+import { Hand, MousePointer2, PenTool, Plus } from 'lucide-react';
 import React from 'react';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { InsertDragGhost, InsertLibrary } from '@/modules/compose/InsertLibrary';
 import { toolKeys, type TComposeTool } from '@/modules/compose/keys';
 import { PieceIcon } from '@/modules/compose/piece-icons';
+import { FilmInsert } from '@/modules/design/FilmInsert';
 import { isEditingTarget } from '@/lib';
 import { getCommand } from './commands';
 import type { StudioCx } from './StudioCx';
@@ -69,11 +70,23 @@ const ComposeTools: React.FC<{ compose: ComposeCx }> = (props) => {
 const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const placing = useFeatureState(cx.design.$placing);
+	const isInsertOpen = useFeatureState(cx.library.$insertOpen);
+	const insertButtonRef = React.useRef<HTMLButtonElement>(null);
 
-	// V and T switch tools while Design is open; Compose keeps T for tapping hits
+	// Closes with the workspace, so it doesn't come back open
+	React.useEffect(() => () => cx.library.$insertOpen.set(false), [cx]);
+
+	// V and T switch tools and ⇧I opens Insert while Film is open; Compose keeps T for tapping hits
 	React.useEffect(() => {
 		function onKeyDown(event: KeyboardEvent): void {
-			if (isEditingTarget(event) || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+			if (isEditingTarget(event) || event.metaKey || event.ctrlKey || event.altKey) return;
+			if (event.shiftKey) {
+				if (event.code !== 'KeyI') return;
+				cx.library.$insertOpen.set(!cx.library.$insertOpen.get());
+				event.preventDefault();
+				event.stopPropagation();
+				return;
+			}
 			const key = event.key.toLowerCase();
 			if (key === 'v') cx.design.$placing.set(null);
 			else if (key === 't') getCommand('tool.text').run(cx);
@@ -91,10 +104,10 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 				<MousePointer2 size={17} strokeWidth={1.6} />
 			</RailButton>
 			<div className="mm-tool-rail-divider" />
-			<RailButton label="Title" detail="Click the wall to place a title" shortcut="T" isActive={placing === 'text'} onClick={() => getCommand('tool.text').run(cx)}>
-				<Type size={17} strokeWidth={1.6} />
+			<RailButton ref={insertButtonRef} label="Insert" detail="Titles, Decor, a light or a shot" shortcut="⇧I" isActive={false} isOpen={isInsertOpen} onClick={() => cx.library.$insertOpen.set(!isInsertOpen)}>
+				<Plus size={18} strokeWidth={1.6} />
 			</RailButton>
-			{/* The rail holds tools only; the Library is the sidebar's Library tab, also Show Library in ⌘K */}
+			{isInsertOpen ? <FilmInsert cx={cx} anchor={insertButtonRef} onAddLight={() => getCommand('light.add').run(cx)} onAddShot={() => getCommand('camera.addShot').run(cx)} /> : null}
 		</>
 	);
 };

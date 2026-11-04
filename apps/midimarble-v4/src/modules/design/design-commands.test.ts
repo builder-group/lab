@@ -170,7 +170,7 @@ describe('design commands', () => {
 
 	it('should add wall text as an entity with a transform that reaches the scene description', () => {
 		const project = createStaircaseProject();
-		const { commands, entityId } = addWallTextCommands({ x: 0.1, y: 0.3 }, { theme: 'pegboard', frameHeight: 0.5, text: 'Fin' });
+		const { commands, entityId } = addWallTextCommands({ x: 0.1, y: 0.3 }, { color: '#1f3a5f', frameHeight: 0.5, text: 'Fin' });
 		const next = apply(project, commands);
 		const entity = next.entities.find((item) => item.id === entityId);
 		expect(entity?.components.wallText?.text).toBe('Fin');

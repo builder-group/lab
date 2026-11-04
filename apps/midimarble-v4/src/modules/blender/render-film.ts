@@ -30,7 +30,7 @@ export async function renderFilm(
 ): Promise<TResult<TRenderFilmResult, BlenderError>> {
 	// A loop film covers the loop range, which the worker reads from the applied scene; its soundtrack matches it
 	const loop = options.loop != null ? { start: options.loop.start, length: options.loop.length } : null;
-	const audio = await renderProjectAudio(project, options.resolveSourceUrl, { sampleRate: SOUNDTRACK_SAMPLE_RATE, loop });
+	const audio = await renderProjectAudio(options.soundtrack ?? project, options.resolveSourceUrl, { sampleRate: SOUNDTRACK_SAMPLE_RATE, loop });
 	const wav = encodeWav(audio.left, audio.right, audio.sampleRate);
 	const [isWrittenOk, writtenErr] = await blender.writePackageFile(packagePath, SOUNDTRACK_PATH, wav);
 	if (!isWrittenOk) return Err(writtenErr);
@@ -71,12 +71,30 @@ async function followJob(
 		if (!isPollOk) return Err(pollErr);
 		if (poll.progress != null) options.onProgress?.(poll.progress);
 		if (poll.done) return 'error' in poll ? Err(poll.error) : Ok(poll.result);
-		await new Promise((resolve) => setTimeout(resolve, options.pollIntervalMs ?? POLL_INTERVAL_MS));
+		await pollWait(options.pollIntervalMs ?? POLL_INTERVAL_MS);
 	}
+}
+
+/**
+ * The wait between polls. Blender and the host render on whatever the web view does, so progress only needs this
+ * timer: where WebKit still holds timers back for a covered window, it ends as soon as the window shows again.
+ */
+function pollWait(ms: number): Promise<void> {
+	return new Promise((resolve) => {
+		const done = (): void => {
+			clearTimeout(timer);
+			if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', done);
+			resolve();
+		};
+		const timer = setTimeout(done, ms);
+		if (typeof document !== 'undefined') document.addEventListener('visibilitychange', done);
+	});
 }
 
 export interface TRenderFilmHelperOptions extends Partial<Pick<TRenderFilmOptions, 'preset' | 'engine' | 'samples'>> {
 	resolveSourceUrl: TResolveSourceUrl;
+	/** The project as the soundtrack hears it, with muted Parts left out (`soundtrackProject`); defaults to `project` */
+	soundtrack?: TProject;
 	/** Loop of the applied scene (`createLoop`); the soundtrack is cut to it */
 	loop?: Pick<TLoop, 'start' | 'length'> | null;
 	/** Package-relative `.mp4` path; defaults to `renders/film-<preset>.mp4` */

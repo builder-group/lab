@@ -12,6 +12,8 @@ export interface TTimingNames {
 	marble?: string;
 	note?: string;
 	piece?: string;
+	/** Whether a drag left the platform off its dot; says what is behind a late hit when known */
+	isOffDot?: boolean;
 }
 
 /**
@@ -39,7 +41,7 @@ export function timingStatus(
 			return { tone: 'good', label: 'On Time', detail: `${marble} hits ${what} on time${offset}` };
 		}
 		case 'drifting':
-			return { tone: 'warn', label: hit.error == null ? 'Off Time' : latenessLabel(hit.error), detail: hit.error == null ? 'Lands off the note' : landsDetail(hit.error) };
+			return { tone: 'warn', label: hit.error == null ? 'Off Time' : latenessLabel(hit.error), detail: `${hit.error == null ? 'Lands off the note' : landsDetail(hit.error)}${offTimeCause(names)}` };
 		case 'missed':
 			if (hit.reason === 'resting') return { tone: 'bad', label: 'Stopped', detail: `${marble} stops on ${target} instead of striking it` };
 			if (hit.error == null) return { tone: 'bad', label: 'Missed', detail: `${marble} passes ${target} without touching it` };
@@ -48,6 +50,12 @@ export function timingStatus(
 			if (unreachable != null) return { tone: 'warn', label: unreachable.label, detail: unreachable.detail };
 			return { tone: 'neutral', label: 'Open', detail: 'No platform plays this note yet' };
 	}
+}
+
+/** Why a hit is off time, since neither its tilt nor its Time is the fix: the tilt moves the notes after it, the Time moves the note */
+function offTimeCause(names: TTimingNames): string {
+	if (names.isOffDot == null) return '';
+	return names.isOffDot ? `. ${names.piece ?? 'This platform'} sits off its dot: Re-place, or drag it back` : '. The marble arrives off time from the piece before: Re-place';
 }
 
 /** The status pill for an early or late hit, such as `12 ms Late` */

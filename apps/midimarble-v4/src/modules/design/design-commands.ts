@@ -4,10 +4,10 @@ import { canonicalSkinId } from '@/modules/project/skin-ids';
 import { sampleCameraTrack } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { filmCamera, imageToWall } from './film-camera';
-import { copyName, isThemeColorByNote, projectThemes, resolveElementLook, resolveTheme, themePartCommands, themeTitleColor } from './project-themes';
+import { copyName, isThemeColorByNote, projectThemes, resolveElementLook, resolveTheme, themePartCommands } from './project-themes';
 import { catalogSkins, entitySkinElement, type TCatalogSkin, type TSkinElement } from './skin-catalog';
 
-export { themeCommands, themeTitleColor } from './project-themes';
+export { defaultTitleColor, themeCommands, themeTitleColor } from './project-themes';
 export { builtInSkinLabel } from './skin-catalog';
 
 // Project edits made from the Design workspace. Each function returns the commands of one undoable edit.
@@ -264,14 +264,14 @@ export function frameHeightOnWall(project: TProject, result: TSimulationResult |
 	return Number.isFinite(height) && height > 0 ? height : 0.5;
 }
 
-/** A new Wall Title at a wall point, in the theme's title colour and a size that reads in the frame */
-export function addWallTextCommands(point: TVec2, options: { theme: string; frameHeight: number; text?: string }): { commands: TProjectCommand[]; entityId: string } {
+/** A new Wall Title at a wall point, in `color` (`defaultTitleColor`) and a size that reads in the frame */
+export function addWallTextCommands(point: TVec2, options: { color: string; frameHeight: number; text?: string }): { commands: TProjectCommand[]; entityId: string } {
 	const text = options.text ?? DEFAULT_WALL_TEXT.text;
 	const entity: TEntity = {
 		id: createId('text'),
 		name: text,
 		components: {
-			wallText: { ...DEFAULT_WALL_TEXT, text, color: themeTitleColor(options.theme), size: wallTitleSize('wall', options.frameHeight) },
+			wallText: { ...DEFAULT_WALL_TEXT, text, color: options.color, size: wallTitleSize('wall', options.frameHeight) },
 			transform: { position: { x: round(point.x), y: round(point.y) }, angle: 0 }
 		}
 	};

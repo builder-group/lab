@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { addFinishLabel, lanesWithoutFinish } from '@/modules/compose/finish-assist';
 import { createState } from 'feature-state';
-import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, SkipBack } from 'lucide-react';
+import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu, type TMenuEntry } from '@/components';
 import type { TLastFix, TPieceFixCheck } from '@/modules/compose/AssistCx';
@@ -41,6 +41,7 @@ export const Transport: React.FC<TTransportProps> = (props) => {
 						icon={playing ? <Pause size={16} strokeWidth={1.75} fill="currentColor" /> : <Play size={16} strokeWidth={1.75} fill="currentColor" className="translate-x-px" />}
 					/>
 					<TransportButton cx={cx} command="play.nextHit" icon={<ChevronLast size={17} strokeWidth={1.75} />} />
+					<CycleButton cx={cx} />
 				</div>
 				<TimeReadout cx={cx} />
 			</div>
@@ -75,7 +76,8 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const checks = useFeatureState(compose?.assist.$pieceFixes ?? NO_CHECKS);
 	const lastFix = useFeatureState(compose?.assist.$lastFix ?? NO_LAST_FIX);
 	const addingFinish = useFeatureState(compose?.assist.$addingFinish ?? NO_ADDING);
-	const summary = React.useMemo(() => problemSummary(preflightExport(project, result)), [project, result]);
+	const workspace = useFeatureState(cx.$workspace);
+	const summary = React.useMemo(() => problemSummary(preflightExport(project, result), workspace === 'compose' ? 'compose' : 'film'), [project, result, workspace]);
 	const isCurrent = result != null && result.revision === project.revision;
 	// Blocked scenery's Fix-its are tried on a copy of the run before the menu offers them
 	const blocked = React.useMemo(() => (isCurrent ? blockedScenery(project, result).map((piece) => piece.entityId) : []), [isCurrent, project, result]);
@@ -104,7 +106,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			onSelect: () => void compose?.assist.addFinish(laneId)
 		})),
 		...(hasLastFix ? [{ label: 'Show Last Fix', onSelect: () => compose?.assist.showLastFix() }] : []),
-		// Ends the film `filmTail` after the last hit, measured with a Finish, like the Project inspector's Fit to Song
+		// Ends the film `filmTail` after the last hit, measured with a Finish, like the Scene inspector's Fit to Song
 		...(fitEnd != null ? [{ label: 'Fit to Song', onSelect: () => void cx.fitToSong() }] : [])
 	];
 	// Already in time order, as the summary keeps them
@@ -162,6 +164,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	);
 };
 
+/** Beside the summary of a project with hits and no Song: it plays silently, so the summary asks for one */
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
 const NO_CHECKS = createState<Record<string, TPieceFixCheck>>({});
 const NO_LAST_FIX = createState<TLastFix | null>(null);
@@ -175,7 +178,6 @@ const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React
 	return (
 		<button
 			className="mm-transport-button"
-			data-active={isActive}
 			onClick={() => target.run(cx)}
 			title={target.shortcut == null ? label : `${label} (${target.shortcut})`}
 			aria-label={label}
@@ -183,6 +185,20 @@ const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React
 			type="button"
 		>
 			{icon}
+		</button>
+	);
+};
+
+/** Cycle: playback loops the range on the ruler, like Logic's cycle button. A preview only, unrelated to Seamless Loop. */
+const CycleButton: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	useFeatureState(cx.$cycle);
+	useFeatureState(cx.$history);
+	const target = getCommand('play.cycle');
+	const isOn = target.isChecked?.(cx) === true;
+	return (
+		<button className="mm-transport-button" data-cycle={isOn} onClick={() => target.run(cx)} title={`Repeat: play a range on the ruler again and again (${target.shortcut ?? ''})`} aria-label={target.title} aria-pressed={isOn} type="button">
+			<Repeat size={15} strokeWidth={1.75} />
 		</button>
 	);
 };
@@ -222,6 +238,8 @@ const TimeReadout: React.FC<{ cx: StudioCx }> = (props) => {
 					className="mm-lcd-input"
 					value={draft}
 					aria-label="Go to time"
+					aria-invalid={isInvalid}
+					title={isInvalid ? 'Type a time like 1:23.45, 1:23 or seconds' : undefined}
 					spellCheck={false}
 					autoFocus
 					onFocus={(event) => event.currentTarget.select()}
@@ -252,7 +270,7 @@ const TimeReadout: React.FC<{ cx: StudioCx }> = (props) => {
 					{formatTime(playhead)}
 				</button>
 			)}
-			<span className="mm-lcd-length" title="Project length">
+			<span className="mm-lcd-length" title="Film length">
 				{formatTime(end)}
 			</span>
 		</div>

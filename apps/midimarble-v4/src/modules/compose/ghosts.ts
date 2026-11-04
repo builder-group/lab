@@ -1,11 +1,30 @@
-import type { TContinueAnswer, TGapAnswer } from '@/modules/simulation';
+import type { TEntity, TVec2 } from '@/modules/project';
+import type { TContinueAnswer, TGapAnswer, THitResult, TResolvedPiece } from '@/modules/simulation';
 
 // Ghost pieces are suggestions drawn in place before they exist: Continue offers the next pieces of a
-// repeating pattern, and Next offers a switchback (or a rail) across a long gap. Suggestions belong to one project
+// repeating pattern, Next offers a switchback (or a rail) across a long gap, and a click on an open dot shows the
+// piece it would get. Suggestions belong to one project
 // revision. Any edit makes them stale, so they disappear until the worker answers for the new revision,
 // and answers that arrive for an older revision are dropped.
 
-export type TGhost = { kind: 'continue'; answer: TContinueAnswer } | { kind: 'gap'; answer: TGapAnswer };
+export type TGhost = { kind: 'continue'; answer: TContinueAnswer } | { kind: 'gap'; answer: TGapAnswer } | { kind: 'place'; answer: TPlaceAnswer };
+
+/** The piece a clicked open dot would get. `type` names it, so other kinds can be listed later beside the platform. */
+export interface TPlaceAnswer {
+	revision: number;
+	laneId: string;
+	hit: THitResult;
+	type: string;
+	entity: TEntity;
+	/** The piece as it shows at its dot */
+	piece: TResolvedPiece;
+	/** Where the marble's next note lands with this piece; null until Auto place answers */
+	nextDot: TVec2 | null;
+	/** Auto place has answered, so `entity` is what gets added */
+	isSolved: boolean;
+	/** False when no tilt keeps the next note in the frame and the piece has the default tilt */
+	isOk: boolean;
+}
 
 export interface TGhostState {
 	/** Newest project revision seen */
@@ -23,6 +42,8 @@ export type TGhostAction =
 	| { type: 'continueAnswer'; revision: number; answer: TContinueAnswer | null }
 	| { type: 'gapAnswer'; answer: TGapAnswer }
 	| { type: 'gapFailed'; revision: number }
+	| { type: 'preview'; answer: TPlaceAnswer }
+	| { type: 'previewCancelled' }
 	| { type: 'dismiss' }
 	| { type: 'accepted' };
 
@@ -46,8 +67,8 @@ export function ghostReducer(state: TGhostState, action: TGhostAction): TGhostSt
 			};
 		case 'continueAnswer': {
 			if (action.revision !== state.revision || state.dismissedRevision === action.revision) return state;
-			// A gap suggestion the user asked for wins over background Continue ghosts
-			if (state.ghost?.kind === 'gap' || state.pendingGap != null) return state;
+			// A suggestion the user asked for wins over background Continue ghosts
+			if (state.ghost?.kind === 'gap' || state.ghost?.kind === 'place' || state.pendingGap != null) return state;
 			const answer = action.answer;
 			const hasOk = answer != null && answer.suggestions.some((suggestion) => suggestion.isOk);
 			return { ...state, ghost: hasOk ? { kind: 'continue', answer } : null };
@@ -60,6 +81,12 @@ export function ghostReducer(state: TGhostState, action: TGhostAction): TGhostSt
 		case 'gapFailed':
 			if (state.pendingGap?.revision !== action.revision) return state;
 			return { ...state, pendingGap: null };
+		case 'preview':
+			return { ...state, revision: action.answer.revision, ghost: { kind: 'place', answer: action.answer }, pendingGap: null };
+		// Unlike Escape on Continue ghosts, nothing is hidden for the rest of this revision: the click only looked
+		case 'previewCancelled':
+			if (state.ghost == null && state.pendingGap == null) return state;
+			return { ...state, ghost: null, pendingGap: null };
 		case 'dismiss':
 			if (state.ghost == null && state.pendingGap == null) return state;
 			return { ...state, ghost: null, pendingGap: null, dismissedRevision: state.revision };
@@ -75,6 +102,6 @@ export function ghostRevision(ghost: TGhost): number {
 /** Ghosts Tab or Return would add */
 export function acceptableCount(ghost: TGhost | null): number {
 	if (ghost == null) return 0;
-	if (ghost.kind === 'gap') return 1;
+	if (ghost.kind !== 'continue') return 1;
 	return ghost.answer.suggestions.filter((suggestion) => suggestion.isOk).length;
 }

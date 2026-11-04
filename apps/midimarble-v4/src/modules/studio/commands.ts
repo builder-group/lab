@@ -1,3 +1,5 @@
+import { removeSelectedHits } from './timeline/hand-notes';
+import { $rollHasFocus } from './timeline/timeline-state';
 import type { TMenuItem } from '@/components';
 import { lanesWithoutFinish } from '@/modules/compose/finish-assist';
 import { newProjectTitle } from '@/environment';
@@ -7,8 +9,8 @@ import { canMakeBacking } from '@/modules/compose/reachability';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import { armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu } from '@/modules/compose/tie-commands';
 import type { TRenderPreset } from '@/modules/blender';
-import { BACKING_ID } from '@/modules/project';
-import { soundsHit } from '@/modules/simulation';
+import { BACKING_ID, type TProject } from '@/modules/project';
+import { isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
 import { cameraCommands, colorByNoteCommands, themeCommands } from '@/modules/design/design-commands';
 import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
 import { deleteThemeCommands, duplicateThemeCommands, hasLayerChanges, isThemeColorByNote, resolveTheme } from '@/modules/design/project-themes';
@@ -18,12 +20,12 @@ import { deleteDecorCommands, duplicateDecorCommands, selectedDecorIds } from '@
 import { openScatterPanel } from '@/modules/design/decor-actions';
 import { addLightCommands, deleteLightsCommands } from '@/modules/design/scene-layers';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
-import { duplicatePieces } from './duplicate';
+import { shownCycle } from './cycle';
+import { duplicateClear, type TClearDuplicate } from './duplicate';
 import { KEY_LIGHT_ID, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, toDecorKey, toHitKey, toLightKey, toShotKey } from './selection';
 import { hasSongLayer } from './song-layer';
 import { handNotes } from './timeline/hand-notes';
-import { setSidebarTab } from './sidebar-state';
-import { focusedLane, type StudioCx, type TWorkspace } from './StudioCx';
+import type { StudioCx, TWorkspace } from './StudioCx';
 
 // Every studio command in one list. The command palette lists them all; context menus and the
 // keyboard handlers run the same actions, so each command reads the same everywhere with its shortcut.
@@ -157,10 +159,15 @@ function hasPieces(cx: StudioCx): boolean {
 	return project != null && compose(cx) != null && selectedPieceIds(project, cx.$selection.get()).length > 0;
 }
 
-/** Duplicate for the selected pieces: free copies beside them, selected afterwards, as one undo step */
-function duplicateSelection(cx: StudioCx): void {
+let isDuplicating = false;
+
+/**
+ * Duplicate for the selected pieces: free copies clear of every marble's path, selected afterwards, as one undo step.
+ * The spot is checked with what-if runs first, so a copy never breaks a hit; a newer edit in the meantime wins.
+ */
+async function duplicateSelection(cx: StudioCx): Promise<void> {
 	const project = cx.project;
-	if (project == null) return;
+	if (project == null || isDuplicating) return;
 	const decorIds = inDesign(cx) ? selectedDecorIds(cx.$selection.get()) : [];
 	if (decorIds.length > 0) {
 		const copies = duplicateDecorCommands(project, decorIds);
@@ -168,18 +175,44 @@ function duplicateSelection(cx: StudioCx): void {
 		return;
 	}
 	const ids = selectedPieceIds(project, cx.$selection.get());
-	const { commands, copies } = duplicatePieces(project, cx.simulation.$result.get(), ids);
-	if (!copies.length) {
+	const client = cx.simulation.assists;
+	isDuplicating = true;
+	const simulate = async (trial: TProject, retries = 3): Promise<TSimulationResult> => {
+		// A newer what-if of another assist may replace this one while it waits
+		try {
+			return await (client as NonNullable<typeof client>).simulateAssist(trial);
+		} catch (error) {
+			if (retries > 0 && isSuperseded(error)) return simulate(trial, retries - 1);
+			throw error;
+		}
+	};
+	let placed: TClearDuplicate;
+	try {
+		placed = await duplicateClear(project, cx.simulation.$result.get(), ids, client != null ? simulate : null);
+	} catch (error) {
+		cx.notify(`Duplicate failed, so nothing changed: ${(error as Error).message}`, 'error');
+		return;
+	} finally {
+		isDuplicating = false;
+	}
+	if (cx.project !== project) return;
+	const original = project.entities.find((entity) => entity.id === ids[0]);
+	if (placed.spot === 'refused') {
+		const breaks = placed.breaks === 1 ? 'a hit' : `${placed.breaks} hits`;
+		cx.notify(`Every spot for a copy of ${original?.name ?? 'this piece'} would break ${breaks}, so nothing changed`);
+		return;
+	}
+	if (!placed.copies.length) {
 		cx.notify('These pieces have no place in the run yet, so there is nothing to copy');
 		return;
 	}
-	if (!cx.execute(commands)) return;
-	const named = cx.project?.entities.filter((entity) => copies.some((copy) => copy.id === entity.id)) ?? copies;
+	if (!cx.execute(placed.commands)) return;
+	const named = cx.project?.entities.filter((entity) => placed.copies.some((copy) => copy.id === entity.id)) ?? placed.copies;
 	cx.$selection.set(named.map((entity) => entity.id));
-	const original = project.entities.find((entity) => entity.id === ids[0]);
 	const tied = ids.some((id) => project.entities.find((entity) => entity.id === id)?.components.hitLink != null);
 	const what = named.length === 1 ? `${original?.name ?? 'The piece'} duplicated as ${named[0]?.name ?? 'a copy'}` : `${named.length} pieces duplicated`;
-	cx.notifyEdit(tied ? `${what}, tied to nothing` : what);
+	const where = placed.spot === 'beside the run' ? ', beside the run: no free spot near it' : '';
+	cx.notifyEdit(`${what}${tied ? ', tied to nothing' : ''}${where}`);
 }
 
 /** The notes Make Backing hands over: selected notes and hits, and the notes the selected platforms play */
@@ -284,7 +317,7 @@ export const commands: readonly TCommand[] = [
 			deleteSelectedHits(cx);
 		}
 	},
-	{ id: 'edit.duplicate', title: 'Duplicate', section: 'Edit', shortcut: '⌘D', keywords: 'copy clone', isEnabled: (cx) => hasPieces(cx) || (inDesign(cx) && selectedDecorIds(cx.$selection.get()).length > 0), run: (cx) => duplicateSelection(cx) },
+	{ id: 'edit.duplicate', title: 'Duplicate', section: 'Edit', shortcut: '⌘D', keywords: 'copy clone', isEnabled: (cx) => hasPieces(cx) || (inDesign(cx) && selectedDecorIds(cx.$selection.get()).length > 0), run: (cx) => void duplicateSelection(cx) },
 	{
 		id: 'edit.selectAll', workspace: 'compose',
 		title: 'Select All Pieces',
@@ -293,7 +326,7 @@ export const commands: readonly TCommand[] = [
 		isEnabled: (cx) => compose(cx) != null,
 		run: (cx) => cx.$selection.set(cx.project?.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id) ?? [])
 	},
-	{ id: 'edit.deselect', title: 'Deselect All', section: 'Edit', isEnabled: (cx) => cx.$selection.get().length > 0, run: (cx) => cx.$selection.set([]) },
+	{ id: 'edit.deselect', title: 'Select Scene', section: 'Edit', keywords: 'deselect none project length speed theme', isEnabled: (cx) => cx.$selection.get().length > 0, run: (cx) => cx.$selection.set([]) },
 	{
 		id: 'edit.makeBacking',
 		title: 'Make Backing',
@@ -314,7 +347,9 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.agent', title: 'Agent', section: 'View', shortcut: '⌘J', keywords: 'chat ai assistant claude codex ask', isEnabled: hasProject, isChecked: (cx) => cx.$panels.get().agent, run: (cx) => cx.togglePanel('agent') },
 	{ id: 'view.zoomIn', workspace: 'compose', title: 'Zoom In', section: 'View', shortcut: '⌘+', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(2) },
 	{ id: 'view.zoomOut', workspace: 'compose', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(0.5) },
-	{ id: 'view.fitAll', workspace: 'compose', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
+	{ id: 'view.zoom100', workspace: 'compose', title: 'Zoom to 100%', section: 'View', shortcut: '⌘0', keywords: 'actual size reset real', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomTo100() },
+	{ id: 'view.fitAll', workspace: 'compose', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all playhead section', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
+	{ id: 'view.fitWhole', workspace: 'compose', title: 'Zoom to Whole Run', section: 'View', keywords: 'frame all overview everything long', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitWholeRun() },
 	{ id: 'view.fitFrame', workspace: 'compose', title: 'Zoom to Film Frame', section: 'View', shortcut: '⇧3', keywords: 'frame film width follow marble', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitFrame() },
 	{ id: 'view.fitSelection', workspace: 'compose', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => compose(cx)?.fitSelection() },
 	{
@@ -352,6 +387,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'play.start', title: 'Go to Beginning', section: 'Playback', shortcut: '↩', keywords: 'rewind start', isEnabled: hasProject, run: (cx) => cx.$playhead.set(0) },
 	{ id: 'play.previousHit', title: 'Previous Hit', section: 'Playback', shortcut: '←', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(-1) },
 	{ id: 'play.nextHit', title: 'Next Hit', section: 'Playback', shortcut: '→', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(1) },
+	{ id: 'play.cycle', title: 'Repeat Range', section: 'Playback', shortcut: 'C', keywords: 'cycle loop repeat rehearse section range', isEnabled: hasProject, isChecked: (cx) => shownCycle(cx.$cycle.get(), cx.project?.id, cx.project?.end ?? 0)?.isOn === true, run: (cx) => cx.toggleCycle() },
 	{ id: 'play.tap', title: 'Tap Hit at Playhead', section: 'Playback', shortcut: 'T', keywords: 'record tap along', isEnabled: hasProject, run: (cx) => cx.tapHit() },
 
 	// MARK: - Tools
@@ -378,9 +414,12 @@ export const commands: readonly TCommand[] = [
 		title: 'Insert…',
 		section: 'Tools',
 		shortcut: '⇧I',
-		keywords: 'library assets add piece windmill switchback rail tunnel',
-		isEnabled: (cx) => compose(cx) != null,
-		run: (cx) => compose(cx)?.$libraryOpen.set(true)
+		keywords: 'library assets add piece windmill switchback rail tunnel title caption song name end card decor decoration ornament light shot',
+		isEnabled: (cx) => compose(cx) != null || inDesign(cx),
+		run: (cx) => {
+			if (inDesign(cx)) cx.library.$insertOpen.set(true);
+			else compose(cx)?.$libraryOpen.set(true);
+		}
 	},
 	{
 		id: 'tool.text',
@@ -391,18 +430,6 @@ export const commands: readonly TCommand[] = [
 		isEnabled: inDesign,
 		isChecked: (cx) => cx.design.$placing.get() === 'text',
 		run: (cx) => getCommand('design.addText').run(cx)
-	},
-	{
-		id: 'tool.asset',
-		title: 'Show Library',
-		section: 'Film',
-		keywords: 'skin decoration theme asset',
-		isEnabled: inDesign,
-		run: (cx) => {
-			cx.$panels.set((panels) => ({ ...panels, sidebar: true }));
-			setSidebarTab('design', 'library');
-			requestAnimationFrame(() => document.getElementById('library-search')?.focus());
-		}
 	},
 
 	// MARK: - Pieces
@@ -519,7 +546,7 @@ export const commands: readonly TCommand[] = [
 		id: 'decor.scatter',
 		title: 'Scatter Decor…',
 		section: 'Film',
-		keywords: 'decoration bauble snowflake christmas fill wall ornaments',
+		keywords: 'decoration bauble snowflake fill wall ornaments set',
 		isEnabled: hasProject,
 		run: (cx) => openScatterPanel(cx)
 	},
@@ -606,7 +633,7 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => {
 			const project = cx.project;
 			if (project == null) return;
-			// One mention per piece type, as the Library's button starts it: each run makes that type's skin
+			// One mention per piece type, as the Theme section's button starts it: each run makes that type's skin
 			const seen = new Set<string>();
 			const mentionIds = project.entities.flatMap((entity) => {
 				const type = entity.components.piece?.type;
@@ -644,30 +671,6 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Marble
 	{ id: 'marble.add', title: 'Add Marble', section: 'Marble', keywords: 'track new ball', isEnabled: hasProject, run: (cx) => void cx.addMarble() },
 	{ id: 'marble.speed', workspace: 'compose', title: 'Marble Speed', section: 'Marble', keywords: 'speed gravity fall fast slow physics', isEnabled: hasProject, run: (cx) => focusMarbleSpeed(cx) },
-	{
-		id: 'marble.mute',
-		title: 'Mute Marble',
-		section: 'Marble',
-		keywords: 'silence track',
-		isEnabled: (cx) => focusedLaneId(cx) != null,
-		isChecked: (cx) => cx.$mix.get().muted.includes(focusedLaneId(cx) ?? ''),
-		run: (cx) => {
-			const laneId = focusedLaneId(cx);
-			if (laneId != null) cx.toggleMute(laneId);
-		}
-	},
-	{
-		id: 'marble.solo',
-		title: 'Solo Marble',
-		section: 'Marble',
-		keywords: 'track',
-		isEnabled: (cx) => focusedLaneId(cx) != null,
-		isChecked: (cx) => cx.$mix.get().solo.includes(focusedLaneId(cx) ?? ''),
-		run: (cx) => {
-			const laneId = focusedLaneId(cx);
-			if (laneId != null) cx.toggleSolo(laneId);
-		}
-	},
 
 	// MARK: - Help
 	{
@@ -732,7 +735,9 @@ export type TCommandId =
 	| 'view.agent'
 	| 'view.zoomIn'
 	| 'view.zoomOut'
+	| 'view.zoom100'
 	| 'view.fitAll'
+	| 'view.fitWhole'
 	| 'view.fitSelection'
 	| 'view.fitFrame'
 	| 'view.showHitboxes'
@@ -741,13 +746,13 @@ export type TCommandId =
 	| 'play.start'
 	| 'play.previousHit'
 	| 'play.nextHit'
+	| 'play.cycle'
 	| 'play.tap'
 	| 'tool.select'
 	| 'tool.hand'
 	| 'tool.marble'
 	| 'tool.path'
 	| 'tool.text'
-	| 'tool.asset'
 	| 'view.snap'
 	| 'build.next'
 	| 'build.repeat'
@@ -765,8 +770,6 @@ export type TCommandId =
 	| 'build.rotateRight'
 	| 'marble.add'
 	| 'marble.speed'
-	| 'marble.mute'
-	| 'marble.solo'
 	| 'tool.platform'
 	| 'tool.tunnel'
 	| 'tool.windmill'
@@ -862,16 +865,7 @@ export function deleteSelectedHits(cx: StudioCx): boolean {
 		if (applied) cx.$selection.set([]);
 		return applied;
 	}
-	const byLane = new Map<string, string[]>();
-	for (const key of cx.$selection.get()) {
-		const parsed = parseHitKey(key);
-		if (parsed == null) continue;
-		byLane.set(parsed.laneId, [...(byLane.get(parsed.laneId) ?? []), parsed.hitId]);
-	}
-	if (!byLane.size) return false;
-	const applied = cx.execute([...byLane].map(([laneId, hitIds]) => ({ type: 'removeHits' as const, laneId, hitIds })));
-	if (applied) cx.$selection.set([]);
-	return applied;
+	return removeSelectedHits(cx, cx.$selection.get(), $rollHasFocus.get());
 }
 
 /** Marble Speed sits in the Project inspector: clear the selection, show the inspector and focus the value */
@@ -890,7 +884,3 @@ function focusMarbleSpeed(cx: StudioCx): void {
 	);
 }
 
-function focusedLaneId(cx: StudioCx): string | undefined {
-	const project = cx.project;
-	return project == null ? undefined : focusedLane(project, cx.$selection.get())?.id;
-}

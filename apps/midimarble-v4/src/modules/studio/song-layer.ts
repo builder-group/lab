@@ -1,3 +1,4 @@
+import { hasSong } from '@/modules/music';
 import { BACKING_ID, type TProject, type TProjectCommand } from '@/modules/project';
 import { songSource } from './SourcesCx';
 
@@ -6,7 +7,7 @@ import { songSource } from './SourcesCx';
  * project of tapped hits have none, so Layers and the timeline show no Song row until a song is imported.
  */
 export function hasSongLayer(project: TProject): boolean {
-	return project.music.sources.length > 0 || project.music.backing.length > 0;
+	return hasSong(project);
 }
 
 /** The Song layer's name in Layers and the timeline; its file is the subtitle */

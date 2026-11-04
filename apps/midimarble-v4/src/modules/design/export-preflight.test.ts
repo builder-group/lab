@@ -3,13 +3,14 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { parseProject, type TEntity, type TProject } from '@/modules/project';
 import type { THitResult, TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
-import { framingFix, framingProblemAt, preflightExport, problemSummary, struckPieces } from './export-preflight';
+import { framingFix, framingProblemAt, preflightExport, problemSummary, struckPieces, workspaceProblems, type TExportPreflight, type TPreflightIssue } from './export-preflight';
 
 function loadFixture(name: string): TProject {
 	const json = readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8');
 	const [isProjectOk, projectErr, project] = parseProject(json);
 	if (!isProjectOk) throw projectErr;
-	return project;
+	// A Song, so the checks here are about the run and not about the missing Song
+	return { ...project, music: { ...project.music, sources: [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }] } };
 }
 
 // Two lanes side by side with one platform each, a free rail and a free platform
@@ -37,7 +38,7 @@ function createTwoLaneProject(): TProject {
 		frame: { width: 9, height: 16 },
 		end: 4,
 		music: {
-			sources: [],
+			sources: [{ id: 'song', kind: 'midi', path: 'audio/song.mid', name: 'Song', offset: 0 }],
 			lanes: [
 				{
 					id: 'lane-a',
@@ -96,6 +97,21 @@ function createResult(patch: Partial<TSimulationResult> = {}): TSimulationResult
 		...patch
 	};
 }
+
+describe('problem workspaces', () => {
+	const issue = (kind: TPreflightIssue['kind'], id: string): TPreflightIssue => ({ id, kind, severity: 'warning', title: id, detail: '', target: null });
+	const preflight: TExportPreflight = { state: 'checked', issues: [issue('hit', 'a'), issue('framing', 'b'), issue('decor', 'c'), issue('song', 'd')], summary: '', warnings: 4, notes: 0, hitCount: 2, onTimeCount: 1 };
+
+	it('should count hits in Compose and camera and Decor problems in Film, without the Song', () => {
+		expect(workspaceProblems(preflight)).toEqual({ compose: 1, film: 2 });
+	});
+
+	it('should summarize only the workspace it is asked for', () => {
+		expect(problemSummary(preflight, 'compose').label).toBe('1 hit needs attention');
+		expect(problemSummary(preflight, 'film').label).toBe('1 of 2 hits on time · 2 other problems');
+		expect(problemSummary(preflight).problems).toHaveLength(3);
+	});
+});
 
 describe('preflightExport function', () => {
 	let simulator: TSimulator;
@@ -263,6 +279,36 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, simulator.simulate(project));
 
 		expect(preflight.issues.find((issue) => issue.id === 'loop')?.detail).toContain('than whole bars');
+	});
+});
+
+describe('a project with hits and no Song', () => {
+	function noSong(): TProject {
+		const project = createTwoLaneProject();
+		return { ...project, music: { ...project.music, sources: [] } };
+	}
+
+	it('should warn in the sheet and ask for a Song beside the summary, without counting a problem', () => {
+		const project = noSong();
+		const hits = project.music.lanes.flatMap((lane) => lane.hits.map((item) => hit(lane.id, item.id, item.time)));
+
+		const preflight = preflightExport(project, createResult({ hits, revision: project.revision }));
+		const summary = problemSummary(preflight);
+
+		expect(preflight.issues.find((issue) => issue.kind === 'song')).toMatchObject({ severity: 'warning', title: 'Add a Song' });
+		expect(preflight.warnings).toBeGreaterThan(0);
+		expect(preflight.summary).toContain('Add a Song');
+		expect(summary.needsSong).toBe(true);
+		expect(summary.problems.some((issue) => issue.kind === 'song')).toBe(false);
+	});
+
+	it('should not ask for a Song with no hits to play', () => {
+		const empty = noSong();
+		const project = { ...empty, music: { ...empty.music, lanes: empty.music.lanes.map((lane) => ({ ...lane, hits: [] })) } };
+
+		const preflight = preflightExport(project, createResult({ hits: [], revision: project.revision }));
+
+		expect(problemSummary(preflight).needsSong).toBe(false);
 	});
 });
 

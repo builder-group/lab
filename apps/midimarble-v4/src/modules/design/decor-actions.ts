@@ -10,7 +10,7 @@ import { previewPointToWall } from './design-commands';
 import { filmCamera, imageToWall } from './film-camera';
 import { baseThemeOf } from './project-themes';
 
-// Decor's edits that need the studio: what the Add menu, the Library, ⌘K and the viewer's drops share.
+// Decor's edits that need the studio: what the Add menu, Insert, ⌘K and the viewer's drops share.
 
 /** A new decoration at a point of the frame in 0..1 image coordinates at the playhead, selected, as one edit */
 export function placeDecor(cx: StudioCx, source: TDecorSource, u = 0.5, v = 0.5): boolean {
@@ -65,10 +65,11 @@ export interface TScatterPanel {
 
 export const $scatterPanel = createState<TScatterPanel | null>(null);
 
-/** The set Scatter Decor starts with: what the Library has chosen, else the theme's */
-export function defaultScatterSources(cx: StudioCx, project: TProject): string[] {
-	const chosen = cx.library.$decorSet.get();
-	return chosen.length > 0 ? chosen : [...themeDecorSet(baseThemeOf(project.design))];
+/** What Scatter Decor starts with: the theme's Decor set, its own or its base's. With an empty one you pick the items in the panel */
+export function defaultScatterSources(project: TProject): string[] {
+	const { design } = project;
+	const own = design.themes?.find((theme) => theme.id === design.theme)?.decorSet;
+	return [...(own ?? themeDecorSet(baseThemeOf(design)))];
 }
 
 /** Opens the panel and scatters with its first settings */
@@ -76,9 +77,9 @@ export function openScatterPanel(cx: StudioCx, sources?: string[]): void {
 	const project = cx.project;
 	if (project == null) return;
 	cx.$workspace.set('design');
-	const panel: TScatterPanel = { sources: sources ?? defaultScatterSources(cx, project), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, group: null };
+	const panel: TScatterPanel = { sources: sources ?? defaultScatterSources(project), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, group: null };
 	$scatterPanel.set(panel);
-	runScatter(cx, panel);
+	if (panel.sources.length > 0) runScatter(cx, panel);
 }
 
 /** Scatters with the panel's settings; everything the panel does until it closes is one undo step */

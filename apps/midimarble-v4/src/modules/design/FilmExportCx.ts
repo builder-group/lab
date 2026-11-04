@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import { host } from '@/environment';
 import { blender, renderFilm, type TFilmEngine, type TRenderFilmResult, type TRenderPreset } from '@/modules/blender';
-import type { TResolveSourceUrl } from '@/modules/music';
+import { soundtrackProject, type TResolveSourceUrl, type TSongMix } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import type { DesignCx } from './DesignCx';
 import { filmFileName, type TMeasuredRender, type TRenderEngine } from './export-estimate';
@@ -87,6 +87,7 @@ export class FilmExportCx {
 		this.$job.set({ ...this.$job.get(), step: 'Adding the song…' });
 		const [isRenderedOk, renderedErr, result] = await renderFilm(packagePath, project, {
 			resolveSourceUrl: this.source.resolveSourceUrl,
+			soundtrack: soundtrackProject(project, this.source.getMix()),
 			loop: this.source.design.currentLoop(),
 			preset: settings.preset,
 			engine: settings.engine,
@@ -144,6 +145,7 @@ export class FilmExportCx {
 
 export interface TFilmExportSource {
 	getProject: () => TProject | null;
+	getMix: () => TSongMix;
 	getPackagePath: () => string | null;
 	resolveSourceUrl: TResolveSourceUrl;
 	design: DesignCx;

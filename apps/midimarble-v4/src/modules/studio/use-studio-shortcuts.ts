@@ -108,6 +108,14 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				if (cx.stepHit(event.key === 'ArrowRight' ? 1 : -1)) event.preventDefault();
 				return;
 			}
+			if (key === 'c' && !event.shiftKey) {
+				const target = getCommand('play.cycle');
+				if (isCommandEnabled(cx, target)) {
+					event.preventDefault();
+					target.run(cx);
+				}
+				return;
+			}
 			if (key === 't') {
 				event.preventDefault();
 				// A held key repeats; each tap is one press

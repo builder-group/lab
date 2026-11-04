@@ -136,6 +136,8 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     report['cameraFramed'] = report['camera'] in ('framed', 'baked')
     # Captions and end cards hang from the film camera, which exists only once the studio is set up
     report['texts']['screen'] = walltext.attach_screen_texts(managed, studio.studio_object('studio.camera'), scene)
+    # Snowfall and Garland also hang from it, and fit its lens and its path
+    report['decor']['effects'] = decor.attach_effects(description.get('decor') or [], managed, studio.studio_object('studio.camera'), scene, fps, duration, theme)
     # What the user added in Blender stays theirs; only its visibility follows the project's In, Out and Hidden
     report['madeInBlender'] = decor.apply_user_decor(description.get('madeInBlender') or [], scene, fps, duration)
     # The wall covers the run and the camera's view, so the film never shows its edge

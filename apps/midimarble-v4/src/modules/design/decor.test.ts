@@ -17,6 +17,7 @@ import {
 	builtInSource,
 	decorBox,
 	decorOverlaps,
+	decorSourceCommands,
 	deleteDecorCommands,
 	duplicateDecorCommands,
 	madeInBlenderCommands,
@@ -25,7 +26,8 @@ import {
 	overlapLabel,
 	updateDecorCommands
 } from './decor';
-import { DECOR_ITEMS, decorExtent, themeDecorSet } from './decor-catalog';
+import { DECOR_ITEMS, decorExtent, isFrameEffect, themeDecorSet } from './decor-catalog';
+import { effectDefaults, flakeAt, garlandScrollAt, garlandSprigs, GARLAND_PERIOD, snowFlakes } from './decor-effects';
 import { buildObstacleField, distanceToBox, type TWallBox } from './decor-clearance';
 import { SCATTER_MARGIN, scatterDecorCommands, scatterPlacements, seedOf } from './decor-scatter';
 import { decorTips, preflightExport } from './export-preflight';
@@ -65,6 +67,17 @@ function clearanceToRuns(result: TSimulationResult, box: TWallBox): number {
 	}
 	return best;
 }
+
+describe('decorSourceCommands function', () => {
+	it('should change the item, keep its place and take over a name that followed the item', () => {
+		const project = loadFixture('zigzag');
+		const applied = apply(project, addDecorCommands(project, builtInSource('decor:star'), { x: 0.1, y: 0.2 }).commands);
+		const [decor] = applied.design.decor ?? [];
+		const next = apply(applied, decorSourceCommands(applied, [decor?.id ?? ''], builtInSource('decor:bauble-red')));
+		expect(next.design.decor?.[0]).toMatchObject({ source: 'decor:bauble-red', position: { x: 0.1, y: 0.2 }, name: DECOR_ITEMS.find((item) => item.id === 'decor:bauble-red')?.label });
+		expect(decorSourceCommands(next, [decor?.id ?? ''], builtInSource('decor:bauble-red'))).toEqual([]);
+	});
+});
 
 describe('Decor', () => {
 	let simulator: TSimulator;
@@ -294,7 +307,7 @@ describe('Decor', () => {
 			for (const placement of dense) counts.set(placement.source.source, (counts.get(placement.source.source) ?? 0) + 1);
 			expect(counts.size).toBe(items.length);
 			expect(Math.max(...counts.values()) - Math.min(...counts.values())).toBeLessThanOrEqual(1);
-			expect(DECOR_ITEMS.filter((item) => !item.scatter).map((item) => item.label)).toEqual(['Handle', 'Subscribe']);
+			expect(DECOR_ITEMS.filter((item) => !item.scatter).map((item) => item.label)).toEqual(['Handle', 'Subscribe', 'Garland', 'Snowfall']);
 		}, 60_000);
 
 		it('should replace only what it placed, in one edit, and keep clear of the user\'s decor', () => {
@@ -316,7 +329,7 @@ describe('Decor', () => {
 			expect(plans).toHaveLength(3);
 			expect(plans[1]?.target).toEqual({ kind: 'scene', decorSet: { id: 'set-1', index: 2, total: 3 } });
 			expect(plans[1]?.label).toBe('Decor 2 of 3');
-			expect(planAgentRuns([], 'A warm wall')).toEqual([{ target: { kind: 'scene' }, label: 'Project' }]);
+			expect(planAgentRuns([], 'A warm wall')).toEqual([{ target: { kind: 'scene' }, label: 'Scene' }]);
 			expect(planAgentRuns([{ id: 'piece-1', kind: 'piece', label: 'Platform 1' }], 'decor on this piece')[0]?.target).toEqual({ kind: 'piece', entityId: 'piece-1' });
 		});
 
@@ -342,6 +355,76 @@ describe('Decor', () => {
 			expect(new Set(apply(project, commands).design.decor?.map((item) => item.source))).toEqual(new Set(['assets/holly/asset.blend']));
 			expect(seedOf('set-1')).toBe(seedOf('set-1'));
 		}, 60_000);
+	});
+
+	describe('Snowfall and Garland', () => {
+		function withEffects(): { project: TProject; result: TSimulationResult; track: TCameraTrack } {
+			let project = loadFixture('jingle-bells');
+			for (const source of ['decor:snowfall', 'decor:garland']) project = apply(project, addDecorCommands(project, builtInSource(source), { x: 0, y: 0 }).commands);
+			const result = simulator.simulate(project);
+			const track = filmCamera(project, result).track;
+			if (track == null) throw new Error('The fixture has a film camera');
+			return { project, result, track };
+		}
+
+		it('come as Library items with their settings', () => {
+			expect(DECOR_ITEMS.filter((item) => item.effect != null).map((item) => item.label)).toEqual(['Garland', 'Snowfall']);
+			expect(effectDefaults('decor:snowfall')).toEqual({ snowfall: { density: 0.5, size: 1, speed: 1, color: '#fff1d6' } });
+			expect(effectDefaults('decor:garland')).toEqual({ garland: { side: 'both', spacing: 0.14 } });
+			expect(effectDefaults('decor:star')).toEqual({});
+			expect(isFrameEffect({ source: 'decor:snowfall' })).toBe(true);
+			expect(isFrameEffect({ source: 'decor:star' })).toBe(false);
+		});
+
+		it('have no path warning, no pick and survive a save', () => {
+			const { project, result } = withEffects();
+			// At the very start of the run, right over the marble's path, they still overlap nothing
+			expect(decorOverlaps(project, result, [])).toEqual([]);
+			expect(decorTips(preflightExport(project, result, [])).size).toBe(0);
+			const [isOk, err, loaded] = parseProject(serializeProject(project));
+			if (!isOk) throw err;
+			expect(loaded.design.decor?.map((item) => item.snowfall ?? item.garland)).toEqual([{ density: 0.5, size: 1, speed: 1, color: '#fff1d6' }, { side: 'both', spacing: 0.14 }]);
+			expect(buildSceneDescription(project, result, { fps: 30 }).description.decor?.map((item) => item.item)).toEqual(['snowfall', 'garland']);
+		});
+
+		it('Scatter Decor ignores them, as items and as obstacles', () => {
+			const { project, result, track } = withEffects();
+			const items = [builtInSource('decor:star')];
+			const bare = loadFixture('jingle-bells');
+			const barePlacements = scatterPlacements(bare, simulator.simulate(bare), track, { items, density: 0.3, seed: 1 });
+			expect(scatterPlacements(project, result, track, { items, density: 0.3, seed: 1 })).toEqual(barePlacements);
+			expect(scatterPlacements(project, result, track, { items: [builtInSource('decor:snowfall'), builtInSource('decor:garland')], density: 0.3, seed: 1 })).toEqual([]);
+			const placed = scatterPlacements(project, result, track, { items: [...items, builtInSource('decor:snowfall')], density: 0.3, seed: 1 });
+			expect(placed.every((placement) => placement.source.source === 'decor:star')).toBe(true);
+		});
+
+		it('snow is seeded by the layer and placed by time alone', () => {
+			const flakes = snowFlakes('decor-snowfall', 0.5);
+			expect(snowFlakes('decor-snowfall', 0.5)).toEqual(flakes);
+			expect(snowFlakes('other', 0.5)).not.toEqual(flakes);
+			expect(snowFlakes('decor-snowfall', 1).length).toBeGreaterThan(flakes.length);
+			const flake = flakes[0];
+			if (flake == null) throw new Error('There are flakes');
+			expect(flakeAt(flake, 3, 1)).toEqual(flakeAt(flake, 3, 1));
+			expect(flakeAt(flake, 3, 1)).not.toEqual(flakeAt(flake, 4, 1));
+			const place = flakeAt(flake, 1000, 1);
+			expect(place.u >= 0 && place.u < 1 && place.v >= 0 && place.v < 1).toBe(true);
+			// Speed 0: it stays where it fell from, apart from its sway
+			expect(flakeAt(flake, 1, 0).v).toBe(flakeAt(flake, 99, 0).v);
+		});
+
+		it('a garland passes with the camera and repeats its pattern', () => {
+			const { project, track } = withEffects();
+			const aspect = project.frame.width / project.frame.height;
+			expect(garlandScrollAt(track, aspect, 0)).toBe(0);
+			// The camera falls with the run, so the wall and the garland keep going up through the frame
+			expect(garlandScrollAt(track, aspect, 20)).toBeGreaterThan(garlandScrollAt(track, aspect, 10));
+			const sprigs = garlandSprigs(0.14, 0.3);
+			expect(sprigs.every((sprig, index) => index === 0 || sprig.v > (sprigs[index - 1]?.v ?? 0))).toBe(true);
+			expect(sprigs.length).toBeGreaterThanOrEqual(7);
+			const onePeriod = garlandSprigs(0.14, 0.3 + 0.14 * GARLAND_PERIOD);
+			expect(onePeriod.map((sprig) => sprig.bauble)).toEqual(sprigs.map((sprig) => sprig.bauble));
+		});
 	});
 
 	function projectsInside(camera: TCameraTrack, time: number, point: { x: number; y: number }): boolean {

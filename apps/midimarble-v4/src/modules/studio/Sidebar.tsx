@@ -1,11 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, AudioLines, Bookmark, Box, BrickWall, ChevronRight, Eye, EyeOff, Folder, Lightbulb, Lock, LockOpen, Music, Plus, Sparkles, Sun, TriangleAlert, Type, Video } from 'lucide-react';
+import { Anchor, AudioLines, Bookmark, Box, BrickWall, ChevronRight, Eye, EyeOff, Folder, Globe, Lightbulb, Lock, LockOpen, Music, Plus, Sparkles, Sun, TriangleAlert, Type, Video } from 'lucide-react';
 import React from 'react';
 import { HelpTip, MenuButton, openContextMenu, RenameField, type TMenuEntry } from '@/components';
 import { attachState } from '@/modules/compose/attach-edit';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
-import { DesignLibrary } from '@/modules/design/DesignLibrary';
 import { $blenderObjects, deleteDecorCommands, duplicateDecorCommands, madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
 import { moveDecorClearAction, revealMadeInBlender } from '@/modules/design/decor-actions';
 import { decorTips, preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
@@ -16,78 +15,27 @@ import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simul
 import { addMenu, groupAddEntries } from './add-menu';
 import { commandItem } from './commands';
 import { formatTime } from './format';
+import { inspectorTarget } from './inspector-target';
 import { laneMenu, pieceMenu, songMenu } from './menus';
 import { buildOutline, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
-import { PieceLibrary } from './PieceLibrary';
-import { toDecorKey } from './selection';
-import { $sidebarTabs, setSidebarTab, type TSidebarTab } from './sidebar-state';
+import { SCENE_KEY, toDecorKey } from './selection';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
-/**
- * Full-height sidebar after Paper and Figma: the project, the Compose and Film switch, then the Layers and
- * Library tabs like Figma's Layers and Assets. Each workspace remembers its tab.
- */
+/** Full-height sidebar after Paper and Figma, and only Layers; what you add is in the tool rail's Insert */
 export const Sidebar: React.FC<TSidebarProps> = (props) => {
 	const { cx } = props;
 	const history = useFeatureState(cx.$history);
 	const workspace = useFeatureState(cx.$workspace);
-	const tabs = useFeatureState($sidebarTabs);
 	const project = history?.present;
 	if (project == null) return null;
-	const tab = tabs[workspace];
 
 	return (
-		<aside className="mm-sidebar flex w-[248px] shrink-0 flex-col" aria-label="Sidebar">
-			<ProjectHeader cx={cx} project={project} />
-			<div className="px-3 pb-1">
-				<div className="mm-segmented flex w-full" role="tablist" aria-label="Workspace" data-quick-help="workspace">
-					{workspaces.map((item) => (
-						<button
-							key={item.id}
-							className="flex-1"
-							data-active={workspace === item.id}
-							onClick={() => cx.$workspace.set(item.id)}
-							role="tab"
-							aria-selected={workspace === item.id}
-							data-hint-anchor={item.id === 'design' ? 'film' : undefined}
-							title={`${item.purpose} (${item.shortcut})`}
-							type="button"
-						>
-							{item.label}
-						</button>
-					))}
-				</div>
+		<aside className="mm-sidebar flex w-[264px] shrink-0 flex-col" aria-label="Sidebar">
+			<div className="mm-sidebar-head">
+				<span>Layers</span>
+				<MenuButton className="mm-icon-button !h-6 !w-6" label={<Plus size={14} strokeWidth={1.8} />} title="Add" items={addMenu(cx)} />
 			</div>
-			<div className="mm-sidebar-tabs">
-				<div className="flex items-center gap-0.5" role="tablist" aria-label="Sidebar">
-					{sidebarTabs.map((item) => (
-						<button
-							key={item.id}
-							id={`sidebar-tab-${item.id}`}
-							className="mm-sidebar-tab"
-							data-active={tab === item.id}
-							onClick={() => setSidebarTab(workspace, item.id)}
-							role="tab"
-							aria-selected={tab === item.id}
-							aria-controls={`sidebar-panel-${item.id}`}
-							data-quick-help={item.id}
-							type="button"
-						>
-							{item.label}
-						</button>
-					))}
-				</div>
-				{tab === 'layers' ? <MenuButton className="mm-icon-button !h-6 !w-6" label={<Plus size={14} strokeWidth={1.8} />} title="Add" items={addMenu(cx)} /> : null}
-			</div>
-			<div id={`sidebar-panel-${tab}`} role="tabpanel" aria-labelledby={`sidebar-tab-${tab}`} className="flex min-h-0 flex-1 flex-col">
-				{tab === 'layers' ? (
-					<Layers cx={cx} project={project} workspace={workspace} />
-				) : workspace === 'compose' ? (
-					<PieceLibrary cx={cx} />
-				) : (
-					<DesignLibrary cx={cx} project={project} />
-				)}
-			</div>
+			<Layers cx={cx} project={project} workspace={workspace} />
 		</aside>
 	);
 };
@@ -96,46 +44,14 @@ interface TSidebarProps {
 	cx: StudioCx;
 }
 
-const workspaces: { id: TWorkspace; label: string; purpose: string; shortcut: string }[] = [
-	{ id: 'compose', label: 'Compose', purpose: 'Compose: hitboxes and timing', shortcut: '⌘1' },
-	{ id: 'design', label: 'Film', purpose: 'Film: skins, camera and titles', shortcut: '⌘2' }
-];
-
-const sidebarTabs: { id: TSidebarTab; label: string }[] = [
-	{ id: 'layers', label: 'Layers' },
-	{ id: 'library', label: 'Library' }
-];
-
-/** Project name, renamed in place with a double-click like a Finder title */
-const ProjectHeader: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
-	const [isRenaming, setIsRenaming] = React.useState(false);
-	return (
-		<div className="flex h-[40px] shrink-0 items-center gap-2 px-4">
-			{isRenaming ? (
-				<RenameField
-					value={project.title}
-					onDone={(title) => {
-						setIsRenaming(false);
-						if (title != null && title !== project.title) cx.execute([{ type: 'setTitle', title }]);
-					}}
-				/>
-			) : (
-				<span className="min-w-0 flex-1 truncate font-semibold" title="Double-click to rename" onDoubleClick={() => setIsRenaming(true)}>
-					{project.title}
-				</span>
-			)}
-		</div>
-	);
-};
-
 // MARK: - Layers
 
 /**
- * The project's layers like Figma UI3's layer list. Each layer with a row in the timeline carries the timeline
- * glyph and shares its selection, like After Effects. Compose lists the Song and the marbles with their pieces;
- * Film lists every layer, the Wall, the Lights, the Camera with its shots and the titles too. Up and Down move the selection, Left and
- * Right fold a group.
+ * The project's layers like Figma UI3's layer list. Each layer with a row in the timeline shares its selection
+ * with that row, like After Effects. The Scene comes first, like Blender's Scene Collection, and a
+ * click on empty space selects it. Compose lists the Song and the marbles with their pieces; Film lists every layer,
+ * the Wall, the Lights, the Camera with its shots and the titles too. Up and Down move the selection, Left and Right
+ * fold a group.
  */
 const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace }> = (props) => {
 	const { cx, project, workspace } = props;
@@ -161,8 +77,10 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	const order = rows.filter((row) => isSelectableRow(row) && (isFilm || !isFilmRow(row))).map((row) => row.id);
 	const selectedSet = new Set(selection);
 	const selectedLanes = new Set(selection.flatMap((key) => (key.startsWith('hit:') ? [key.split(':')[1] ?? ''] : [])));
+	const isSceneSelected = inspectorTarget(project, selection, workspace).kind === 'scene';
 
 	function isSelected(row: TOutlineRow): boolean {
+		if (row.kind === 'scene') return isSceneSelected;
 		// A group such as Pieces only gathers rows; like Figma only the selected rows are tinted, not their group
 		if (row.kind === 'group') return false;
 		return selectedSet.has(row.id);
@@ -198,6 +116,10 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 
 	/** Click selects, ⌘-click toggles and Shift-click selects the range of rows, like Figma's layers and Finder */
 	function select(row: TOutlineRow, event?: React.MouseEvent): void {
+		if (row.kind === 'scene') {
+			cx.$selection.set([]);
+			return;
+		}
 		if (!isFilm && isFilmRow(row)) cx.$workspace.set('design');
 		const current = cx.$selection.get();
 		if (row.kind === 'group') {
@@ -225,7 +147,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	function onKeyDown(event: React.KeyboardEvent): void {
 		if (event.target !== treeRef.current || event.metaKey || event.ctrlKey || event.altKey) return;
 		const row = rows.find((item) => item.id === selection[0]);
-		const index = order.indexOf(selection[0] ?? '');
+		const index = order.indexOf(selection[0] ?? SCENE_KEY);
 		const groupKey = row != null && 'groupKey' in row ? row.groupKey : null;
 		const isOpenGroup = row != null && 'isOpen' in row && row.isOpen && (!('hasChildren' in row) || row.hasChildren);
 		let handled = true;
@@ -264,8 +186,11 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	}
 
 	return (
-		<section aria-label="Layers" className="flex min-h-0 flex-1 flex-col">
-			<div ref={treeRef} role="tree" aria-label="Layers" aria-multiselectable tabIndex={0} className="mm-layers min-h-0 flex-1 overflow-y-auto pb-3" onKeyDown={onKeyDown}>
+		<section aria-label="Layers" data-quick-help="layers" className="flex min-h-0 flex-1 flex-col">
+			<div ref={treeRef} role="tree" aria-label="Layers" aria-multiselectable tabIndex={0} className="mm-layers min-h-0 flex-1 overflow-y-auto pb-3" onKeyDown={onKeyDown} onClick={(event) => {
+				// Empty space below or beside the rows selects the Scene
+				if (event.target === event.currentTarget && !event.shiftKey && !event.metaKey) cx.$selection.set([]);
+			}}>
 				{rows.map((row, index) => {
 					// Like Figma, adjacent highlighted rows join into one block
 					const joins = { top: isTinted(row) && isTinted(rows[index - 1]), bottom: isTinted(row) && isTinted(rows[index + 1]) };
@@ -274,7 +199,6 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 						isSelected: isSelected(row),
 						isInSelection: !isSelected(row) && isInSelection(row),
 						joins,
-						hasTrack: row.track != null && (row.track !== 'camera' || isFilm),
 						onClick: (event: React.MouseEvent) => select(row, event),
 						onContextMenu: (event: React.MouseEvent) => openMenu(row, event)
 					};
@@ -309,7 +233,6 @@ interface TRowProps {
 	isSelected: boolean;
 	isInSelection: boolean;
 	joins: TJoins;
-	hasTrack: boolean;
 	onClick: (event: React.MouseEvent) => void;
 	onContextMenu: (event: React.MouseEvent) => void;
 }
@@ -320,7 +243,7 @@ function canRename(row: TOutlineRow): boolean {
 
 /** Every row except pieces: the song, marbles, groups, the wall, lights, the camera, shots and titles */
 const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onToggle?: () => void }> = (props) => {
-	const { cx, row, isSelected, isInSelection, joins, hasTrack, isRenaming, onToggle, onClick, onContextMenu } = props;
+	const { cx, row, isSelected, isInSelection, joins, isRenaming, onToggle, onClick, onContextMenu } = props;
 	const view = outlineRowView(row);
 
 	function rename(value: string | null): void {
@@ -346,7 +269,7 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 			isRenaming={isRenaming}
 			onRename={rename}
 			meta={
-				view.time != null || hasTrack || view.help != null || view.subtitle != null || row.kind === 'group' ? (
+				view.time != null || view.help != null || view.subtitle != null || row.kind === 'group' ? (
 					<>
 						{view.subtitle != null ? <span className="max-w-[112px] truncate">{view.subtitle}</span> : null}
 						{view.help != null ? (
@@ -356,7 +279,6 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 							</span>
 						) : null}
 						{view.time != null ? <span>{formatShortTime(view.time)}</span> : null}
-						{hasTrack ? <TrackGlyph /> : null}
 						{row.kind === 'group' ? <GroupAdd cx={cx} groupId={row.id} /> : null}
 					</>
 				) : undefined
@@ -401,6 +323,8 @@ const GroupAdd: React.FC<{ cx: StudioCx; groupId: string }> = ({ cx, groupId }) 
 /** Icon, name, fold state and quiet time of a row */
 function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; subtitle?: string | undefined; help?: string; isOpen?: boolean; time?: number } {
 	switch (row.kind) {
+		case 'scene':
+			return { icon: <Globe size={14} strokeWidth={1.75} />, label: 'Scene', title: 'The film as a whole: length, Marble Speed and, in Film, its theme' };
 		case 'song': {
 			const isRecording = row.source?.kind === 'audio';
 			return {
@@ -510,15 +434,6 @@ function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
 	];
 }
 
-/** A line with a keyframe: the layer also has a row in the timeline, like After Effects' layers */
-const TrackGlyph: React.FC = () => (
-	<svg className="mm-layer-track" width={12} height={12} viewBox="0 0 12 12" role="img" aria-label="In the timeline">
-		<title>In the timeline</title>
-		<path d="M0.5 6h3M8.5 6h3" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" />
-		<path d="M6 3.2 8.8 6 6 8.8 3.2 6z" fill="currentColor" />
-	</svg>
-);
-
 const PieceRow: React.FC<
 	TRowProps & {
 		cx: StudioCx;
@@ -592,7 +507,7 @@ const PieceRow: React.FC<
 	);
 };
 
-/** Eye and lock buttons that show on row hover, and stay when on, like Figma's layer toggles */
+/** Eye and lock buttons in the row's reserved slot: they show on row hover and stay when on, like Figma's layer toggles */
 const RowToggle: React.FC<{ label: string; isOn: boolean; onClick: () => void; children: React.ReactNode }> = (props) => {
 	const { label, isOn, onClick, children } = props;
 	return (
@@ -677,8 +592,9 @@ interface TLayerRowProps {
 	title?: string;
 	isRenaming: boolean;
 	onRename: (value: string | null) => void;
-	/** Quiet trailing information that gives way to the actions on hover */
+	/** Quiet trailing information, always visible and never moved by hover */
 	meta?: React.ReactNode;
+	/** Hover actions; their slot at the row's right edge is reserved, so showing them moves nothing */
 	actions?: React.ReactNode;
 	onClick: (event: React.MouseEvent) => void;
 	onDoubleClick: () => void;

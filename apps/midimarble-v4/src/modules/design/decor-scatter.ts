@@ -2,7 +2,7 @@ import { projectToFrame, type TCameraTrack } from '@/modules/camera';
 import type { TDecor, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { blenderObjectBox, decorBox, decorList, newDecor, setDecorList, type TBlenderObject, type TDecorSource } from './decor';
-import { decorExtent } from './decor-catalog';
+import { decorExtent, isFrameEffect } from './decor-catalog';
 import { cachedObstacleField, isBoxClear, nearestRunPoint, type TWallBox } from './decor-clearance';
 
 // Scatter Decor: fills the free wall the film camera shows, beside the run and clear of every marble's swept path and of
@@ -46,7 +46,9 @@ export interface TScatterPlacement {
 
 /** Items placed for the run, film camera and options, in top to bottom order. Same inputs, same placements. */
 export function scatterPlacements(project: TProject, result: TSimulationResult, track: TCameraTrack, options: TScatterOptions): TScatterPlacement[] {
-	if (!options.items.length || !result.marbles.length) return [];
+	// Snowfall and Garland belong to the frame: there is nothing of theirs to place on the wall
+	const items = options.items.filter((item) => !isFrameEffect({ source: item.source }));
+	if (!items.length || !result.marbles.length) return [];
 	const field = cachedObstacleField(result);
 	const random = mulberry32(options.seed);
 	const spacing = SPACING_SPARSE + (SPACING_DENSE - SPACING_SPARSE) * Math.min(1, Math.max(0, options.density));
@@ -74,7 +76,7 @@ export function scatterPlacements(project: TProject, result: TSimulationResult, 
 	}
 
 	// Items in turn, in a shuffled order that holds for the whole film, so the set stays even
-	const deck = shuffled(options.items, random);
+	const deck = shuffled(items, random);
 	const placements: TScatterPlacement[] = [];
 	const stride = Math.max(1, candidates.length / (MAX_ITEMS * 3));
 	for (let position = 0; position < candidates.length && placements.length < MAX_ITEMS; position += stride) {
@@ -120,7 +122,7 @@ function keptBoxes(project: TProject, blenderObjects: readonly TBlenderObject[])
 		if (text == null || transform == null || (text.style != null && text.style !== 'wall')) return [];
 		return [{ x: transform.position.x, y: transform.position.y, halfX: (Math.max(1, text.text.length) * text.size * 0.62) / 2, halfY: text.size * 0.6, angle: transform.angle }];
 	});
-	return [...decorList(project.design).filter((item) => item.scattered !== true).map(decorBox), ...titles, ...blenderObjects.map(blenderObjectBox)];
+	return [...decorList(project.design).filter((item) => item.scattered !== true && !isFrameEffect(item)).map(decorBox), ...titles, ...blenderObjects.map(blenderObjectBox)];
 }
 
 function boxesTouch(a: TWallBox, b: TWallBox, margin: number): boolean {

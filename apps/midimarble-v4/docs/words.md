@@ -12,11 +12,15 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 
 | Concept | Word | Not | Why |
 | --- | --- | --- | --- |
-| The document | **Project** | scene, session | GarageBand, Logic, Final Cut |
+| The document, as a file | **Project**: New Project, Save, Close Project | session | GarageBand, Logic, Final Cut |
+| The film as a whole, selectable | **Scene**: the first row of Layers and its inspector | Project (in the inspector), World, Settings | Blender's Scene Collection and Scene properties; Project stays for the file |
 | The music | **Song**: a MIDI file or a recording | source, music, audio file, track | GarageBand calls the whole thing a song; "track" stays the name of a MIDI file's parts in the import sheet only |
 | One musical event | **Note**, shown by name: "C4" | event, MIDI note, hit object | Logic's piano roll; keeps notes (music) apart from pieces (things on the wall) |
 | An event found in a recording | **Beat**: a note without a pitch | onset, transient, marker | plain music word; "onset" is engine language |
-| A hit without a pitch (tapped or a beat) | **No Pitch** as a quiet value, with **Add Pitch** | None, empty field | Add Pitch starts from the marble's nearest pitched hit, else C4 |
+| A hit without a pitch (tapped, placed by hand or a beat) | No Pitch row at all: the hit is timing alone and makes no sound | None, empty field, No Pitch, Add Pitch | a hit has a pitch only when it comes from a MIDI note |
+| Where a marble is at a hit's time, on its run line | **Dot**: open in the marble's colour, otherwise in the hit's status colour; a click on an open one shows its platform as an **outline** | ghost (in the UI), marker, landing point | a hit is drawn as a dot on the wall and a diamond in the timeline, and "Hit 4" names it everywhere; **Note N** only for Backing |
+| A hit during a rail or switchback ride | **Still Riding**: "Melody is still on Rail 2 at this hit" | | scenery never sounds a note, so no platform can play it there |
+| One marble's slice of a MIDI Song, or Backing, only while it has notes | **Part**, in the Song's expanded row and inspector, each with **Sound**, Mute and Solo | track, voice, channel, Instrument | "Solo Bass" hears the slice Bass plays; a marble itself has no sound and no Instrument |
 | Notes no marble plays | **Backing**: heard in the film, no piece needed | dropped, unassigned, left out | musicians know a backing track; a beginner reads it as "plays in the back" |
 | The ball | **Marble** | ball, lane | |
 | A thing in the project with its own row in Layers, most also in the timeline | **Layer**: the Song (only while the project has a song file or Backing notes; the row reads **Song**, its file the subtitle; notices about the file still name it), one layer per marble with its pieces, Pieces (the group of those no marble plays or follows), Wall, Lights, Camera with its shots, Titles, Decor. Each layer owns its settings in the inspector; the Wall and the Lights have no timeline row | track, lane, channel | After Effects: each layer has a row in the timeline, so the sidebar outline and the timeline rows are the same objects under one word |
@@ -25,38 +29,42 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | The piece that plays a note | **Platform** | bar, pad, peg | |
 | Other pieces | **Rail**, **Tunnel**, **Windmill**, **Switchback** | scenery | concrete marble-run words; "scenery" is internal |
 | The piece that catches a marble after its last note, so the film ends on the catch | **Finish**, one per marble, in two styles: **Chute** (a curved chute that rolls the marble out of the frame, the default) and **Cup** (a bowl that holds it); it plays no note. Its pill reads **Catches**, **Missed**, **Bounces Out** or **Blocked**; the problem reads "Melody misses the Finish" | catcher, end piece, goal, basket | a race's finish; the reference short ends on its chute |
-| What dresses the film and never collides | **Decor**: a group in Film's Layers, one layer per item, with Position, Scale, Rotation, Depth, In and Out, and the Decor group in the Library | decoration (in the UI), prop, ornament, sticker | one short word; internal docs may say decoration |
-| The built-in Decor items | **Red Bauble**, **Gold Bauble**, **Gold Snowflake**, **Fairy Light**, **Gift Box**, **Star**, **Handle**, **Subscribe** | | named by what they are |
+| What dresses the film and never collides | **Decor**: a group in Film's Layers, one layer per item, with Position, Scale, Rotation, Depth, In and Out, and its sections in Insert (**Ornaments**, **Lights**, **Particles**, **Text**) | decoration (in the UI), prop, ornament, sticker | one short word; internal docs may say decoration |
+| The built-in Decor items | **Red Bauble**, **Gold Bauble**, **Gold Snowflake**, **Fairy Light**, **Gift Box**, **Star**, **Handle**, **Subscribe**, **Garland**, **Snowfall** | | named by what they are |
+| Decor that belongs to the frame | **Snowfall** (Density, Size, Speed, Colour: snow in front of everything, always filling the frame) and **Garland** (Side: **Left**, **Right**, **Both**; Spacing: fir sprigs, fairy lights and baubles down the frame's edges, passing with the wall). Layers in the Decor group with In and Out, without Position, Overlaps or Scatter | particles, overlay, effect (in the UI) | what they are; Scatter has nothing to place on the wall |
 | A faint text watermark on the wall behind the track | **Handle**, reading "@yourchannel" until typed over in its inspector | Watermark, Username, Logo | what a channel calls itself |
 | A small text with an arrow, asking to subscribe | **Subscribe** | CTA, Call to Action, Sticker | the word it shows |
-| Filling the free wall the film camera shows | **Scatter Decor…** (Add menu, ⌘K, the Library when a set is chosen): a small panel with its items, **Density** and **Scatter Again**. It replaces only what it placed; a scattered item moved by hand is the user's | Auto Decorate, Populate, Fill | says what it does; Scatter is Illustrator's word for it |
+| Filling the free wall the film camera shows | **Scatter Decor…** (Insert, Add menu, ⌘K): a small panel with its items, **Density** and **Scatter Again**. It replaces only what it placed; a scattered item moved by hand is the user's | Auto Decorate, Populate, Fill | says what it does; Scatter is Illustrator's word for it |
 | Decor over a marble's run | The amber **Overlaps Melody's path** ("Overlaps Melody's and Bass's paths" with several) as a tip, with **Move Clear** | Collision, Blocked, Warning | it can never change a hit, so it isn't a problem |
 | An object added directly in Blender | Its Blender name in the Decor group, with the origin line **Made in Blender**; **Open in Blender** selects it there. The Draft Preview draws a faint outline, and its inspector says "Shows in the Blender preview" | External, Custom Object, Imported, Unmanaged | says where it comes from |
 | A drawn route for a rail or tunnel | **Path** | spline, curve, Bézier | Figma's pen draws paths |
 | Where pieces sit | **Wall** | canvas, board, pegboard (except as a theme or Skin name) | the 2.5D premise |
 | The layer of the wall in Film | **Wall**: its **Skin** (Plaster, Pegboard, Grid, Tinsel; on Tinsel its **Layout**: **Full Wall**, **Left Side**, **Right Side**), its **Wall** colour and **Background** colour, each reading **From Brass** until the project changes it, with a reset | Backdrop (later, with Decor), Environment, World | a layer the theme dresses, like a piece's skin |
-| The theme's main light | **Key Light**: always there, a layer in the **Lights** group with Colour, Strength, Side and Height; its subtitle reads **From Brass** or **Changed from Brass**, and **Reset to Brass** gives it back. It can't be deleted | Sun, main light | film lighting's key light |
+| The theme's main light | **Key Light**: always there, a layer in the **Lights** group with Colour, Strength, Side, Height and **Softness** (how soft its shadows are), and a **Whole Film** panel with **Exposure** (the film's brightness, as a number of stops: +0.4) and **Bloom** (how much what glows spills soft light); its subtitle reads **From Brass** or **Changed from Brass**, and **Reset to Brass** gives it back. It can't be deleted | Sun, main light | film lighting's key light |
 | A light added to the film | **Light** ("Light 1"), added with **Add Light** in the Add menu or ⌘K: a layer with Colour, Strength, Side and Height and **Delete Light** | lamp, sun, fill | "Sun" is Blender's word, in tooltips at most |
 | Where a light stands | **Side** (far left to far right of the wall) and **Height** (below to above), as % | azimuth, elevation, direction vector | two plain sliders |
 | Lights in the Draft Preview | The ? says "Shows in the Blender preview" | | The Draft Preview draws no light |
 | Compose's flat, free view of the wall | **Wall** (the only view in Compose; the film camera shows only in Film's Draft Preview) | Wall View, Orbit, Camera view, viewport | Figma's canvas: it stays where the user put it |
+| Framing the Wall view | **Zoom to Fit** (⇧1): the run, or on a run too long to read whole the section around the playhead; **Zoom to Whole Run**: all of it, however small; **Zoom to 100%** (⌘0): physical size | Fit All, Home, Actual Size | Figma's zoom commands |
+| A range of the song played again and again while editing | **Repeat Range**: the Repeat toggle in the transport (C) and in Playback. The range appears on the ruler only while it is on. A preview only, never in the film or the project | Cycle, Loop Playback, region | plain word for the Loop button of video editors; **Seamless Loop** is the film's and stays a different word |
 | The Wall view keeping the marble at the playhead in sight | **Follow** (toggle in the canvas corner, F; in ⌘K **Follow Marble in View**), off by default | Catch Playhead, autoscroll, track, lock | Logic's Catch Playhead; the noun is a toggle like Snap, and the palette title says *in View* so it never reads as the piece tie **Follows** |
-| A platform tied to its note | **Plays** Note 3 · C4 | linked, attached, bound | says what it does; Final Cut's connected clip is the model |
+| A platform tied to its note | **Plays** Hit 3 · C4 | linked, attached, bound | says what it does; Final Cut's connected clip is the model |
+| A platform a drag left away from its dot | Still **Plays** Hit 3 · C4, with the timing it gets there (**12 ms Late**, **Missed**); the drag chip reads "Plays Hit 3 · C4" with that timing, or "Detaches Hit 3 · C4" past 25 cm from its note. **Re-place** or A puts it back on its note; a drop on its dot does too | pinned, off-note, Moved | a drag never drops the tie silently; the notice says "Platform 3 no longer plays Note 3 · C4" · Undo when one does |
 | A piece tied to a moment of a marble's fall | **Follows** Marble 1 at 0:03.2 | anchored, parented | says what it does |
 | A piece tied to nothing | Link state **None**, shown only as its subtitle; it sits in the **Pieces** group, whose ? says "Pieces no marble plays or follows; marbles can still hit them". Its menus offer **Play a Note…** and **Follow a Marble…** | Free, Free Pieces, unlinked, static | A piece always collides; only its link is missing |
 | What a marble touches | **Hitbox**: drawn in Compose, shaped in the inspector's Hitbox panel (Arms, Run Height, Thickness…), outlined in Film for a selected piece | collider, physics shape | Unity's collider and mesh; the Skin is the mesh |
 | How a piece behaves | **Physics**: the inspector's panel beside Hitbox (Bounce, Brake, Spin) | Advanced, material, restitution | Named by what it holds |
 | Every piece's outline in Film | **Show Hitboxes** (View menu, ⌘K) | Show Colliders, Gizmos, Debug Physics | Unity's collider gizmos |
 | Undoing those ties | **Detach** | unlink, unanchor | one verb for both |
-| A copy of pieces | **Duplicate** (⌘D): copies tied to nothing beside the originals | clone, copy | Figma and Finder |
+| A copy of pieces | **Duplicate** (⌘D): copies tied to nothing, on the nearest spot clear of every marble's path and every piece. Without one nearby the notice ends ", beside the run: no free spot near it"; when every spot would break hits nothing is copied: "Every spot for a copy of Platform 1 would break 3 hits, so nothing changed" | clone, copy | Figma and Finder: a copy changes nothing else |
 | The two workspaces | **Compose** ("Compose: hitboxes and timing") and **Film** ("Film: skins, camera and titles", and export) | Design, Build, Look | "Film" names what you make; camera and export belong there |
-| Inspector with nothing selected | **Project**: Length with Fit to Song, Marble Speed, the Theme and Seamless Loop | World, Settings, Document | Figma shows the page when nothing is selected |
+| Inspector with nothing selected | **Scene**: in Film the Theme first, then Length with Fit to Song, Marble Speed and Seamless Loop | World, Settings, Document, Project | an empty selection is the Scene: an empty click or Esc selects it |
 | How fast marbles fall | **Marble Speed** | gravity, physics scale | "Gravity" only in its tooltip |
 | The output | **Film**; the action **Export Film…** | render, video, encode | Final Cut's Export File; "render" only in progress text |
 | Render quality | **Draft**, **Standard**, **High**, **Best** with what sets each apart as detail: "Draft · 720p · Flat Light", "Standard · 720p", "High · 1080p", "Best · 1080p · 60 fps" | fast, balanced, Eevee, Workbench, samples | Blender names only in tooltips |
 | How long a film is | minutes and seconds ("0:35"), never a frame count; frames appear only in render progress | frames, 1051 frames | |
 | Where an exported film goes | **In the Project**, or the folder chosen with Choose… | Renders folder, renders/ | the package folder is an implementation detail; Show in Finder finds it |
-| Blender | **Blender**: a status chip in the title bar (Ready, Starting, Rendering Preview, Not Installed, Error; a hollow dot and Blender in the browser) with Open in Blender, Restart Blender, Live Preview, Show Blender Log, or Install Blender… | worker, bridge, mailbox, Edit in Blender | |
+| Blender | **Blender**: a button in the title bar with its logo tinted by state and the word Blender; the state (Ready, Starting, Rendering Preview, Not Installed, Error) is in its tooltip and menu and shows on the button only while working (Starting, Rendering Preview); the menu has Open in Blender, Restart Blender, Live Preview, Show Blender Log, or Install Blender… | worker, bridge, mailbox, Edit in Blender | |
 | Changed in Blender | **Detached** with **Discard Blender Changes**; a camera edited there reads **Edited in Blender** with **Reset Camera** | unlinked, taken over, edited, Reset to Compose, Regenerate Camera | says what the button throws away |
 | The project's outline | **Layers**: Song, Marbles, Pieces, Wall, Lights, Camera, Titles; Compose shows the Song and the marbles with their pieces, Film every layer | tree, scene graph, Tracks | Figma; the timeline's column carries the same name |
 | Settings most people never need | **Advanced**, a disclosure at the end of a section | expert, more, details | Final Cut, Logic |
@@ -67,9 +75,10 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | A theme the project made from another | **Theme** like any other, named "Neon Copy" by **Duplicate Theme**; its origin line reads **Based on Neon** (or **Made with Agent**). Internally a project theme | custom theme, my theme, In This Project, fork | Finder's copy names; the one-library rule keeps storage words out |
 | Editing a built-in theme | **Duplicate to Edit**: built-in themes are read-only | Edit Theme, Unlock | Figma library styles, Keynote themes |
 | The look's colours | **Wall** and **Background** on the Wall layer, **Colour** on a light, **Glow** on a Neon project theme, as colour wells; an unset well shows the theme's colour and reads **From Neon** in grey, normal case (Glow: **Marble Colour**); every well is outlined and named for screen readers ("Wall colour") | override, tint, world, emission | |
-| Turning the Wall and Lights changes into a theme | **Save as Theme** in the Project, in place of Duplicate to Edit once a layer changed something: makes "Brass Copy" holding them | Export Theme, Save Look | Keynote's Save Theme |
+| Turning the Wall and Lights changes into a theme | **Save as Theme** in the Scene's Theme section, in place of Duplicate to Edit once a layer changed something: makes "Brass Copy" holding them | Export Theme, Save Look | Keynote's Save Theme |
 | Removing a project theme | **Delete Theme**; the notice says "Neon Copy deleted; the film uses Neon again" when it was in use | Remove Theme | |
-| The browser of themes, skins and pieces | **Library** | assets, My Library, In This Project | Figma's Assets panel; one place, no storage scopes |
+| What you add: pieces in Compose; titles, Decor, a light and a shot in Film | **Insert**, the + of the tool rail (⇧I); skins and themes are in the inspector | assets, Library tab, Show Library | Paper's insert button, Figma's Assets; one place in both workspaces |
+| Decor the agent made or you imported | **Library**, a section of Film's Insert, each item with its origin line | My Library, In This Project | no storage scopes |
 | Making an item available in every project | **Keep in Library** (star) | save to My Library, publish | |
 | An item the project uses | **In Use** badge | applied, local | |
 | Where an item comes from | **Brass Theme**, **Made with Agent**, **Imported**; a theme card reads **Theme** or **Based on Neon** | scope, source | |
@@ -77,9 +86,10 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | A marble's skins | **Glass** and **Green Glass** (a play marble, Variant **Swirl** or **Cat's-Eye**), **Metal** (a chrome ball bearing), **Magic** (drifting glowing smoke in glass), **Pearl**, **Deep** | | |
 | A skin's settings | **Colour** (**Skin**, **Marble**, **By Note**), **On Hit** (**None**, **Press**, **Wobble**, **Glow**), **Glow Colour**, **Variant**, at most about five with a skin's own such as Gift's **Ribbon Colour** | Reaction, Tint, Emission, Style | Shopify's theme settings: the same names on every skin |
 | What a skin does on a hit, in prose | **Reaction** (the row reads On Hit) | animation, driver | |
-| Back to the theme | **Reset to Theme** | Clear Skin, Default | |
-| What a theme dresses each type with | **Parts**: the Project lists "Platforms: Copper", "Marbles: Glass" | slots, defaults | |
-| Turning the current skins into a theme | **Save as Theme** (the Project, ⌘K), with the Wall and Lights changes | Save Mix | |
+| Back to the theme | **Reset to Theme**; the first tile of a Look section is **Theme Default** | Clear Skin, Default | |
+| The section of a selection's skin and properties | **Look**: tiles with pictures, then the skin's properties | Skin section, Appearance | |
+| What a theme dresses each type with | **Parts**: the Theme section lists "Platforms: Copper", "Marbles: Glass", as the film shows them; each row selects the first of them | slots, defaults | |
+| Turning the current skins into a theme | **Save as Theme** (the Scene's Theme section, ⌘K), with the Wall and Lights changes | Save Mix | |
 | Text on the wall | **Title** | wall text, label | the reference films call them titles |
 | How a title sits in the film | **Style**: **Wall Title** (on the wall where it was placed), **Caption** (top of the frame, 3 s from the playhead), **Song Name** (upper third of the frame over the first 3 s, reading the song's name) and **End Card** (centre of the frame, over the last 3 s) | overlay, HUD, lower third | Caption, Song Name and End Card stay in the frame while the camera moves, on a soft dark backing; their Size is a share of the frame height in %. Choosing a style sets its times while they are still the last style's own, like a title preset in Final Cut |
 | When a title shows | **In** and **Out** in a Timing section, times as m:ss.cc; clips on the Titles layer's row in the timeline in Film | start/end, keyframes, duration | Final Cut's In and Out points; a Wall Title's defaults are the start and the end of the film |
@@ -126,7 +136,7 @@ A fix sits next to the problem, like Xcode's Fix-its.
 
 | Action | Shortcut | Meaning |
 | --- | --- | --- |
-| **Add Platform** | click an open note's dot | places a platform tilted so the marble lands on time |
+| **Add Platform** | click an open note's dot to see it, then click again or ↩; A or N at once | places a platform tilted so the marble lands on time. Until then it is only an outline, dashed, with its hint "↩ Add platform". A long-gap dot shows its Switchback or Rail the same way and a dot no platform can reach says why, as N does; a right-click on a dot has every choice: Add Platform at Default Tilt, Add Switchback, Add Rail, Add Tunnel, Go to Note |
 | **Place Next Platform** | N | adds the platform for the next open note |
 | **Continue Pattern** | Tab | repeats the pattern of the last platforms for as many notes as fit; the button shows the count: "Continue Pattern (4)" |
 | **Mirror Last Platform** | M | the last platform's tilt mirrored, for zigzags |
@@ -177,7 +187,7 @@ The Hitbox and Physics panels name what a piece looks like or does, not how it i
 | Kind | Pattern | Examples |
 | --- | --- | --- |
 | Button | Verb + object | Add Marble, Import Song…, Export Film…, Detach, Add Platform |
-| Toggle | State noun | Snap, Follow, Mute, Solo, Loop Playback |
+| Toggle | State noun | Snap, Follow, Mute, Solo (on the Song and its Parts, never on a marble), Loop Playback |
 | Tooltip | What it does + shortcut | "Add a platform for the next note (Return)" |
 | Empty state | What is missing, one line, plus the action | "No song yet" · Import Song… |
 | Error | What happened. What to do. | "Blender isn't installed. Install Blender 4.2 or later to preview and export films." |
@@ -194,8 +204,8 @@ The Hitbox and Physics panels name what a piece looks like or does, not how it i
 
 The timeline's left column is **Layers**, the timed layers of the sidebar's Layers tab in the same order, each with its row along the time (the Wall and the Lights are not timed, so they stay in the sidebar):
 
-1. **Song** at the top, only while the project has a song file or Backing notes: the song's file name and kind ("MIDI · 120 BPM" or "Recording · 0:35"; "Song" and "Backing · 12 notes" without a file). A new or tapped project has no Song layer; **Add Song…** in the Add menu (+) imports one. Deleting the Song layer removes the song file and Backing, never the marbles' hits. A song with notes expands into a piano roll of every note, coloured by the marble that plays it, Backing in grey; notes drag there in time and in pitch. Selecting notes and pressing 1 to 9 hands them to that marble, 0 makes them Backing; the context menu says "Play With ▸ Marble 1 … · New Marble · Backing". A recording shows its waveform and its beats
-2. **One layer per marble**: the marble's name and instrument, Mute and Solo, its hits in a flat row with their timing status; it never expands, and a hit's pitch is edited in its inspector or the Song's piano roll
+1. **Song** at the top, only while the project has a song file or Backing notes: the song's file name and kind ("MIDI · 120 BPM" or "Recording · 0:35"; "Song" and "Backing · 12 notes" without a file). A new project has no Song layer; **Add Song…** in the Add menu (+) imports one. A song with notes expands to its piano roll and its **Parts**; a recording stays one row with Mute and Solo and its waveform, the hits drawn on it as ticks in their marbles' colours. Deleting the Song layer removes the song file and Backing, never the marbles' hits. A song with notes expands into a piano roll of every note, coloured by the marble that plays it, Backing in grey; notes drag there in time and in pitch. Selecting notes and pressing 1 to 9 hands them to that marble, 0 makes them Backing; the context menu says "Play With ▸ Marble 1 … · New Marble · Backing". A recording shows its waveform and its beats
+2. **One layer per marble**: the marble's name and hit count, its hits in a flat row with their timing status; it has no sound, Mute or Solo of its own, it never expands, and a hit's pitch is edited in its inspector or the Song's piano roll
 3. **Camera** in Film: shots
 4. **Titles** in Film, when the project has titles: one clip per title from its In to its Out time
 
@@ -212,13 +222,13 @@ Actions: **New Project…** (it asks where to save; in the browser it opens at o
 ## Beginner path
 
 1. The start screen shows examples first-class; an example plays on Space at once
-2. Quick Help (the ? button in the title bar, ⇧⌘/) labels the regions of the window in place, like GarageBand's Quick Help; it is optional and never modal
-3. At most three one-line hints appear once, where the next step is, and disappear when done: "This is your song: each marble plays some of its notes" (Song layer) → "Click a note's dot to add a platform" (first open dot) → "Switch to Film to choose the look and export" (after the first full run)
+2. Quick Help (Help › MidiMarble Help, ⇧⌘/, ⌘K) labels the regions of the window in place, like GarageBand's Quick Help; it is optional and never modal
+3. At most three one-line hints appear once, where the next step is, and disappear when done: "This is your song: each marble plays some of its notes" (Song layer) → "Click a note's dot to see its platform" (first open dot) → "Switch to Film to choose the look and export" (after the first full run)
 4. The hit summary in the timeline header says when the run works: "12 of 12 hits on time"
 
 ## Progressive disclosure
 
-- The selection decides what the inspector shows; nothing selected shows the Project
+- The selection decides what the inspector shows; nothing selected shows the Scene
 - Each section shows its everyday controls; technical ones sit under the section's Advanced disclosure, which remembers its state
 - Technical names (Eevee, samples, focal length, restitution) appear only in tooltips or under Advanced
 - No Beginner or Expert mode; the same features in the same places, density grows on demand

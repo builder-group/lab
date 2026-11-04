@@ -83,6 +83,8 @@ def grid_color(wall):
 # shows its tinsel: all over, or as a band along one side of the frame.
 WALL_KINDS = {'plaster': 'plaster', 'pegboard': 'pegboard', 'grid': 'neon', 'tinsel': 'tinsel'}
 WALL_BANDS = ('full', 'left', 'right')
+# The Key Light's Softness runs from a point sun to this angle in degrees; `softnessOf` in scene-layers.ts reads a theme's
+MAX_SUN_ANGLE = 60.0
 _scene_look = {}
 
 
@@ -94,7 +96,7 @@ def set_scene_look(wall_kind, key_light, wall_band=None):
         look['wallKind'] = wall_kind
     if wall_band in WALL_BANDS:
         look['wallBand'] = wall_band
-    for field in ('strength', 'side', 'height'):
+    for field in ('strength', 'side', 'height', 'softness', 'exposure', 'bloom'):
         value = key_light.get(field) if isinstance(key_light, dict) else None
         if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
             look[field] = float(value)
@@ -124,9 +126,15 @@ def _with_scene_look(settings):
         settings['wall']['band'] = _scene_look['wallBand']
     if 'strength' in _scene_look:
         settings['sun']['energy'] = _scene_look['strength']
+    if 'softness' in _scene_look:
+        settings['sun']['angle'] = max(0.0, min(1.0, _scene_look['softness'])) * MAX_SUN_ANGLE
     if 'side' in _scene_look or 'height' in _scene_look:
         side, height = sun_placement(settings['sun']['direction'])
         settings['sun']['direction'] = sun_direction(_scene_look.get('side', side), _scene_look.get('height', height))
+    if 'exposure' in _scene_look:
+        settings['exposure'] = settings['exposure'] + _scene_look['exposure']
+    if 'bloom' in _scene_look:
+        settings['bloom'] = max(0.0, min(1.0, _scene_look['bloom']))
     return settings
 
 
@@ -152,6 +160,7 @@ def resolve_theme(name, overrides=None):
         settings['sun']['color'] = parse_color(overrides['lightColor'])[:3]
     if 'backgroundColor' in overrides:
         settings['world']['color'] = parse_color(overrides['backgroundColor'])[:3]
+        settings['world']['tinted'] = True
     if 'glowColor' in overrides:
         settings['glow'] = parse_color(overrides['glowColor'])[:3]
     return settings
@@ -1033,6 +1042,7 @@ def apply_render_look(scene, theme):
         pass
     scene.render.film_transparent = False
     scene.render.use_motion_blur = False
+    apply_bloom(scene, settings.get('bloom', 0.0))
     # Cycles settings are prepared so switching the engine gives a good final render
     cycles = getattr(scene, 'cycles', None)
     if cycles is not None:
@@ -1044,6 +1054,66 @@ def apply_render_look(scene, theme):
         cycles.caustics_reflective = False
         cycles.caustics_refractive = False
         cycles.blur_glossy = 1.0
+
+
+# Bloom: the Glare node's Bloom type over the render. It reads scene-linear light before the view transform, so the threshold
+# sits above any lit wall and only what glows goes over it. Cost measured in `references.md`; Flat Light skips it.
+BLOOM_GROUP = 'MM · bloom'
+BLOOM_THRESHOLD = 2.2
+BLOOM_STRENGTH = 1.6
+BLOOM_SIZE = 0.72
+BLOOM_QUALITY = 'Low'
+VIGNETTE_START = 0.42
+VIGNETTE_END = 0.9
+VIGNETTE_COLOR = (0.95, 0.75, 0.48)
+
+
+def apply_bloom(scene, amount):
+    """Bloom over the render while `amount` is above 0. The compositor stays the user's when they made their own group."""
+    current = scene.compositing_node_group
+    if current is not None and current.get('mm_owner') != 'midimarble':
+        return
+    if amount <= 0.0:
+        scene.compositing_node_group = None
+        scene.render.use_compositing = False
+        return
+    group = bpy.data.node_groups.get(BLOOM_GROUP)
+    if group is None:
+        group = bpy.data.node_groups.new(BLOOM_GROUP, 'CompositorNodeTree')
+        group['mm_owner'] = 'midimarble'
+        group.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
+        layers = group.nodes.new('CompositorNodeRLayers')
+        glare = group.nodes.new('CompositorNodeGlare')
+        output = group.nodes.new('NodeGroupOutput')
+        glare.name = 'Bloom'
+        # The edges of the picture fall away toward warm amber, by image position only, so it costs next to nothing
+        coordinates = group.nodes.new('CompositorNodeImageCoordinates')
+        distance = group.nodes.new('ShaderNodeVectorMath')
+        distance.operation = 'DISTANCE'
+        distance.inputs[1].default_value = (0.5, 0.5, 0.0)
+        falloff = group.nodes.new('ShaderNodeMapRange')
+        falloff.interpolation_type = 'SMOOTHSTEP'
+        falloff.inputs['From Min'].default_value = VIGNETTE_START
+        falloff.inputs['From Max'].default_value = VIGNETTE_END
+        warm = group.nodes.new('ShaderNodeMix')
+        warm.name = 'Vignette'
+        warm.data_type = 'RGBA'
+        warm.blend_type = 'MULTIPLY'
+        # Mix keeps a socket per data type: 6, 7 and output 2 are the colour ones
+        warm.inputs[7].default_value = (*VIGNETTE_COLOR, 1.0)
+        group.links.new(coordinates.outputs['Normalized'], distance.inputs[0])
+        group.links.new(distance.outputs['Value'], falloff.inputs['Value'])
+        group.links.new(falloff.outputs['Result'], warm.inputs['Factor'])
+        glare.inputs['Type'].default_value = 'Bloom'
+        glare.inputs['Quality'].default_value = BLOOM_QUALITY
+        glare.inputs['Threshold'].default_value = BLOOM_THRESHOLD
+        glare.inputs['Size'].default_value = BLOOM_SIZE
+        group.links.new(layers.outputs['Image'], glare.inputs['Image'])
+        group.links.new(glare.outputs['Image'], warm.inputs[6])
+        group.links.new(warm.outputs[2], output.inputs[0])
+    group.nodes['Bloom'].inputs['Strength'].default_value = amount * BLOOM_STRENGTH
+    scene.compositing_node_group = group
+    scene.render.use_compositing = True
 
 
 def sun_settings(theme):
@@ -1109,7 +1179,10 @@ def studio_environment(world, settings):
     ramp.color_ramp.elements[0].position = 0.0
     ramp.color_ramp.elements[0].color = (0.01, 0.01, 0.015, 1.0)
     ramp.color_ramp.elements[1].position = 1.0
-    ramp.color_ramp.elements[1].color = (3.0, 2.9, 3.1, 1.0)
+    # The bright end of the room: a project theme's background tints it, so a warm room stays warm in its reflections
+    top = settings['color'] if settings.get('tinted') else (1.0, 0.967, 1.033)
+    peak = max(top) or 1.0
+    ramp.color_ramp.elements[1].color = (*(channel / peak * 3.0 for channel in top), 1.0)
     middle = ramp.color_ramp.elements.new(0.5)
     middle.color = (*settings['color'], 1.0)
     links.new(combine.outputs['Value'], ramp.inputs['Fac'])

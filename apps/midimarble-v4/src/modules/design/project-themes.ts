@@ -138,22 +138,40 @@ function linearToHex(linear: readonly number[]): string {
 
 // MARK: - Commands
 
-/** The colour titles start with in a base theme: white on Brass's lavender plaster and Neon's navy, navy on Pegboard's birch */
+/** The relative luminance above which a wall takes dark titles: Pegboard's birch does, Brass's lavender plaster doesn't */
+const LIGHT_WALL_LUMINANCE = 0.4;
+
+/** The title colour that reads on a wall: navy on a light wall, white on a dark one */
+export function titleColorOnWall(wall: string): string {
+	const channel = (start: number): number => {
+		const value = Number.parseInt(wall.slice(start, start + 2), 16) / 255;
+		return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+	};
+	return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) > LIGHT_WALL_LUMINANCE ? '#1f3a5f' : '#ffffff';
+}
+
+/** The colour titles start with in a base theme */
 export function themeTitleColor(base: string): string {
-	return base === 'brass' || base === 'neon' ? '#ffffff' : '#1f3a5f';
+	return titleColorOnWall(themeDefaultColor(base, 'wallColor') ?? '#ffffff');
+}
+
+/** What a title reads in when its own colour is unset, and the colour a new one starts with: it stands apart from the wall the project shows */
+export function defaultTitleColor(design: Pick<TDesign, 'theme' | 'themes' | 'wall'>): string {
+	const theme = resolveTheme(design);
+	return titleColorOnWall(design.wall?.color ?? theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff');
 }
 
 /** Switches the theme; titles still in the old base's title colour take the new one's */
 export function themeCommands(project: TProject, themeId: string): TProjectCommand[] {
 	if (project.design.theme === themeId) return [];
-	const oldColor = themeTitleColor(baseThemeOf(project.design));
-	const newColor = themeTitleColor(resolveTheme(project.design, themeId).base);
+	const oldColor = defaultTitleColor(project.design);
+	const newColor = defaultTitleColor({ ...project.design, theme: themeId });
 	const titles =
 		oldColor === newColor
 			? []
 			: project.entities.flatMap((entity: TEntity) => {
 					const text = entity.components.wallText;
-					if (text == null || text.color.toLowerCase() !== oldColor) return [];
+					if (text?.color == null || text.color.toLowerCase() !== oldColor) return [];
 					return [{ type: 'setComponent' as const, entityId: entity.id, component: { name: 'wallText' as const, value: { ...text, color: newColor } } }];
 				});
 	return [{ type: 'setDesign', design: { theme: themeId } }, ...titles];

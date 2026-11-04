@@ -590,11 +590,13 @@ export function replaceCommands(project: TProject, placed: TEntity): TProjectCom
 	if (current == null || link == null || piece == null) return [];
 	const commands: TProjectCommand[] = [];
 	const currentLink = current.components.hitLink;
-	if (currentLink == null || JSON.stringify(currentLink) !== JSON.stringify({ ...currentLink, angle: link.angle })) {
+	if (currentLink == null || currentLink.pinned || JSON.stringify(currentLink) !== JSON.stringify({ ...currentLink, angle: link.angle })) {
+		// Placed again, a platform a drag left where it lay follows its note once more
+		const { pinnedPosition: _, ...kept } = currentLink ?? link;
 		commands.push({
 			type: 'setComponent',
 			entityId: current.id,
-			component: { name: 'hitLink', value: { ...(currentLink ?? link), angle: link.angle } }
+			component: { name: 'hitLink', value: { ...kept, angle: link.angle, pinned: false } }
 		});
 	}
 	const currentPiece = current.components.piece;
@@ -1100,7 +1102,7 @@ export function addedProblems(
 }
 
 /** `project` with `setComponent`, `upsertEntity` and `removeEntities` commands applied, for a trial run before a commit */
-function withCommands(project: TProject, commands: TProjectCommand[]): TProject {
+export function withCommands(project: TProject, commands: TProjectCommand[]): TProject {
 	let entities = project.entities;
 	for (const command of commands) {
 		if (command.type === 'removeEntities') entities = entities.filter((entity) => !command.entityIds.includes(entity.id));

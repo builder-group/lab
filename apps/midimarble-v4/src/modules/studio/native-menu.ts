@@ -77,7 +77,7 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 	const watchCompose = (): void => {
 		for (const stop of stopCompose) stop();
 		const compose = cx.$compose.get();
-		stopCompose = compose != null ? [compose.$tool.listen(schedule), compose.$follow.listen(schedule), compose.$pathType.listen(schedule)] : [];
+		stopCompose = compose != null ? [compose.$tool.listen(schedule), compose.$follow.listen(schedule), compose.$pathType.listen(schedule), compose.assist.$ghosts.listen(schedule)] : [];
 		schedule();
 	};
 	watchCompose();
@@ -89,6 +89,8 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		cx.$compose.listen(watchCompose),
 		cx.$history.listen(schedule),
 		cx.$selection.listen(schedule),
+		cx.$playing.listen(schedule),
+		cx.$cycle.listen(schedule),
 		cx.$workspace.listen(schedule),
 		cx.$panels.listen(schedule),
 		cx.$quickHelp.listen(schedule),
@@ -96,7 +98,6 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		cx.$showHitboxes.listen(schedule),
 		cx.$save.listen(schedule),
 		cx.$isTemporary.listen(schedule),
-		cx.$mix.listen(schedule),
 		cx.design.$status.listen(schedule),
 		cx.design.$camera.listen(schedule),
 		cx.design.$placing.listen(schedule),

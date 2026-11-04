@@ -34,6 +34,16 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 		);
 	}
 
+	if (ghost.kind === 'place') {
+		const { piece, nextDot, isOk } = ghost.answer;
+		return (
+			<g className="mm-ghost-in">
+				<GhostPiece compose={compose} piece={piece} scale={camera.view.scale} isOk={isOk} />
+				{nextDot != null ? <GhostDot position={compose.toScreen(nextDot)} color={laneColor} /> : null}
+			</g>
+		);
+	}
+
 	return (
 		<g className="mm-ghost-in">
 			{ghost.answer.suggestions.map((suggestion) => (
@@ -91,8 +101,8 @@ export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 		const dot = result?.hits.find((hit) => hit.laneId === laneId && hit.hitId === toHitId)?.dot;
 		anchor = dot != null ? compose.toScreen(dot) : null;
 		content = <span className="text-[var(--text-secondary)]">Finding a switchback for this gap…</span>;
-	} else if (state.ghost?.kind === 'gap') {
-		// Continue is offered in the contextual build bar; gap pieces keep their own hint
+	} else if (state.ghost?.kind === 'gap' || state.ghost?.kind === 'place') {
+		// Continue is offered in the contextual build bar; a dot's piece and gap pieces keep their own hint
 		anchor = hintAnchor(compose, state.ghost);
 		content = <HintContent compose={compose} ghost={state.ghost} />;
 	}
@@ -113,6 +123,21 @@ const HintContent: React.FC<{ compose: ComposeCx; ghost: TGhost }> = (props) => 
 	const accept = (): void => {
 		compose.assist.acceptGhosts();
 	};
+	if (ghost.kind === 'place') {
+		const { type, isOk } = ghost.answer;
+		return (
+			<>
+				<button className="mm-hint-action" tabIndex={-1} onPointerDown={(event) => event.preventDefault()} onClick={accept} type="button">
+					<kbd className="mm-keycap">↩</kbd>
+					Add {type}
+				</button>
+				{isOk ? null : <span className="text-[var(--warn)]">· next note leaves the frame</span>}
+				<span className="text-[var(--text-tertiary)]">
+					<kbd className="mm-keycap">esc</kbd>
+				</span>
+			</>
+		);
+	}
 	if (ghost.kind === 'gap') {
 		const { check, type } = ghost.answer;
 		const label = type === 'switchback' ? 'Switchback' : type === 'rail' ? 'Rail' : 'Tunnel';
@@ -148,7 +173,7 @@ const HintContent: React.FC<{ compose: ComposeCx; ghost: TGhost }> = (props) => 
 
 /** Screen point right of the first ghost piece */
 function hintAnchor(compose: ComposeCx, ghost: TGhost): TVec2 | null {
-	const piece = ghost.kind === 'gap' ? ghost.answer.piece : (ghost.answer.suggestions.find((suggestion) => suggestion.piece != null)?.piece ?? null);
+	const piece = ghost.kind !== 'continue' ? ghost.answer.piece : (ghost.answer.suggestions.find((suggestion) => suggestion.piece != null)?.piece ?? null);
 	if (piece == null) return null;
 	const outline = compose.screenOutline(piece);
 	if (!outline.length) return null;

@@ -4,179 +4,46 @@ import React from 'react';
 import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, StateRow, TextField } from '@/components';
 import { shotLength } from '@/modules/camera/shots';
 import { PieceIcon } from '@/modules/compose/piece-icons';
-import type { TLibraryItem } from '@/modules/library';
 import type { TDesign, TEntity, TProject, TShot } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { duplicateTheme, getCommand } from '@/modules/studio/commands';
+import { getCommand } from '@/modules/studio/commands';
 import { formatTime } from '@/modules/studio/format';
 import { parseTime } from '@/modules/studio/timeline/parse-time';
 import {
-	builtInSkinLabel,
 	cameraCommands,
 	builtInSkinCommands,
 	commonPieceType,
+	defaultTitleColor,
 	frameHeightOnWall,
 	isScreenTitle,
-	itemFitsPieceType,
 	pieceCountLabel,
-	themeCommands,
-	themePresets,
 	titleStyles,
 	withTitleStyle,
 	type TTitleStyle
 } from './design-commands';
 import type { TDesignLink, TDesignStatus } from './DesignCx';
-import { libraryItemLabel } from './DesignLibraryCx';
 import { canonicalSkinId } from '@/modules/project/skin-ids';
-import { catalogSkin, catalogSkins, skinElement } from './skin-catalog';
-import { canSaveAsTheme, ResetToTheme, saveAsTheme, SkinPropertyRows, ThemeParts } from './SkinProperties';
-import { LIBRARY_DRAG_TYPE, notifySkinApplied } from './DesignLibrary';
+import { skinElement } from './skin-catalog';
+import { SkinTiles } from './LookTiles';
+import { ResetToTheme, SkinPropertyRows } from './SkinProperties';
 import { framingFix, framingProblemAt, preflightExport } from './export-preflight';
 import { describeLoop } from './loop-status';
 import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
-import {
-	builtInThemeLabel,
-	projectThemes,
-	renameThemeCommands,
-	resolveTheme,
-	THEME_OVERRIDE_FIELDS,
-	themeDefaultColor,
-	themeOverrideApplies,
-	themeOverrideCommands,
-	type TResolvedTheme
-} from './project-themes';
 import { songDisplayName, titleSpan, withTitleTime } from './titles';
 
 // Inspectors of the Film layers on the inspector grid: a piece's look, a title or the titles, a shot and the
-// Camera, plus the film's Look for the Project. The studio's Inspector picks one for the selection.
+// Camera, plus Seamless Loop for the Scene. The studio's Inspector picks one for the selection.
 
-/** The film's Theme and Seamless Loop in the Project inspector of Film; quality is in the Export sheet, colours on their layers */
-export const FilmLookPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
+/** The film's Seamless Loop in the Scene inspector of Film; quality is in the Export sheet, colours on their layers */
+export const FilmLoopPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const design = project.design;
-	const theme = resolveTheme(design);
-	const themeOptions = [
-		...themePresets.map((item) => ({ value: item.id, label: item.label })),
-		...projectThemes(design).map((item) => ({ value: item.id, label: item.name }))
-	];
-
 	return (
 		<Panel id="design.scene" title="Film">
-			<SelectField
-				id="design-theme"
-				label="Theme"
-				value={design.theme}
-				options={[...themeOptions, ...(themeOptions.some((item) => item.value === design.theme) ? [] : [{ value: design.theme, label: design.theme }])]}
-				onChange={(value) => cx.execute(themeCommands(project, value))}
-			/>
-			<ThemeColors cx={cx} theme={theme} />
-			<ThemeParts cx={cx} project={project} />
 			<CheckField id="design-loop" label="Seamless Loop" checked={design.loop} onChange={(loop) => cx.execute([{ type: 'setDesign', design: { loop } }])} />
 			{design.loop ? <LoopStatus cx={cx} project={project} /> : null}
 		</Panel>
-	);
-};
-
-/**
- * What the Project shows of the applied theme: a project theme's name and, on a Neon base, its Glow; a built-in theme
- * is read-only and offers Duplicate to Edit, like Figma's library styles and Keynote's themes. Once the Wall or Lights
- * layers changed something, Save as Theme makes a theme of that mix. The Wall, Light and Background wells sit on their
- * layers.
- */
-const ThemeColors: React.FC<{ cx: StudioCx; theme: TResolvedTheme }> = (props) => {
-	const { cx, theme } = props;
-	const hasChanges = cx.project != null && canSaveAsTheme(cx.project);
-	const save = hasChanges ? (
-		<button className="mm-button" data-span="2" onClick={() => saveAsTheme(cx)} title={`Make a theme from ${theme.name} with this project's skins, Wall and Lights`} type="button">
-			Save as Theme
-		</button>
-	) : null;
-	if (theme.projectTheme == null) {
-		return (
-			save ?? (
-				<button className="mm-button" data-span="2" onClick={() => duplicateTheme(cx, theme.id)} title={`Make a copy of ${theme.name} in this project to change it`} type="button">
-					Duplicate to Edit
-				</button>
-			)
-		);
-	}
-	return (
-		<>
-			<TextField
-				key={theme.id}
-				id="theme-name"
-				label="Name"
-				span={2}
-				name="Name of this project's theme"
-				value={theme.name}
-				allowEmpty={false}
-				onCommit={(name) => {
-					const project = cx.project;
-					if (project != null) cx.execute(renameThemeCommands(project, theme.id, name));
-				}}
-			/>
-			{THEME_OVERRIDE_FIELDS.filter((field) => field.name === 'glowColor' && themeOverrideApplies(theme.base, field.name)).map((field) => (
-				<ThemeColorField key={field.name} cx={cx} theme={theme} field={field} />
-			))}
-			{save}
-		</>
-	);
-};
-
-/**
- * One theme colour well. Dragging in the colour picker is one undo step: changes fold into the first while it is
- * still the latest edit, until the well loses focus.
- */
-const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (typeof THEME_OVERRIDE_FIELDS)[number] }> = (props) => {
-	const { cx, theme, field } = props;
-	const groupRef = React.useRef<number | null>(null);
-	const value = theme.overrides[field.name];
-	const fallback = themeDefaultColor(theme.base, field.name);
-	const id = `theme-${field.name}`;
-
-	function set(color: string | null): void {
-		const project = cx.project;
-		if (project == null) return;
-		const commands = themeOverrideCommands(project, theme.id, { [field.name]: color });
-		if (!commands.length) return;
-		if (color != null && groupRef.current != null && cx.editGroup === groupRef.current) {
-			cx.execute(commands, { group: groupRef.current });
-			return;
-		}
-		if (cx.execute(commands)) groupRef.current = color != null ? cx.editGroup : null;
-	}
-
-	return (
-		<span className="mm-ifield" data-span="2" title={field.help}>
-			<label htmlFor={id} className="mm-ifield-label">
-				{field.label}
-			</label>
-			<input
-				id={id}
-				type="color"
-				className="mm-color"
-				aria-label={`${field.label} colour`}
-				// An outline keeps a light colour such as Neon's pale Light visible on the white panel
-				style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }}
-				value={value ?? fallback ?? '#ffffff'}
-				onChange={(event) => set(event.target.value)}
-				onBlur={() => {
-					groupRef.current = null;
-				}}
-			/>
-			{/* A set colour reads as its hex; an inherited one names where it comes from in normal case, like Figma's style names */}
-			{value != null ? (
-				<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{value}</span>
-			) : (
-				<span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{fallback != null ? `From ${builtInThemeLabel(theme.base) ?? 'the base theme'}` : 'Marble Colour'}</span>
-			)}
-			{value != null ? (
-				<button className="mm-icon-button" onClick={() => set(null)} title={`Use ${builtInThemeLabel(theme.base) ?? 'the base theme'}'s ${field.label.toLowerCase()} again`} aria-label={`Reset ${field.label}`} type="button">
-					<RotateCcw size={12} strokeWidth={1.9} />
-				</button>
-			) : null}
-		</span>
 	);
 };
 
@@ -479,6 +346,13 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
 	}
 
+	/** The title reads in the colour that stands apart from the wall, whatever the wall becomes */
+	function clearColor(): void {
+		if (text == null) return;
+		const { color: _color, ...value } = text;
+		cx.execute([{ type: 'upsertEntity', entity: { ...entity, components: { ...entity.components, wallText: value } } }]);
+	}
+
 	function setStyle(next: TTitleStyle): void {
 		if (text == null || next === style) return;
 		const playhead = cx.$playhead.get();
@@ -539,8 +413,13 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 					<label htmlFor="text-color" className="mm-ifield-label">
 						Colour
 					</label>
-					<input id="text-color" type="color" className="mm-color" aria-label="Title colour" style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }} value={text.color} onChange={(event) => setText({ color: event.target.value })} />
-					<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span>
+					<input id="text-color" type="color" className="mm-color" aria-label="Title colour" style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }} value={text.color ?? defaultTitleColor(project.design)} onChange={(event) => setText({ color: event.target.value })} />
+					{text.color != null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">Default</span>}
+					{text.color != null && text.color.toLowerCase() !== defaultTitleColor(project.design) ? (
+						<button className="mm-icon-button" onClick={clearColor} title="Use the colour that reads on the wall" aria-label="Reset Colour" type="button">
+							<RotateCcw size={12} strokeWidth={1.9} />
+						</button>
+					) : null}
 				</span>
 			</Panel>
 			<Panel id="design.wallText.timing" title="Timing" accessory={<HelpTip text="When the title shows: it fades in at In and out at Out. A Wall Title shows for the whole film; the other styles bring their own times, and times you type stay." />}>
@@ -582,58 +461,26 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 	const globalItems = useFeatureState(cx.library.$globalItems);
 	const links = useFeatureState(cx.design.$links);
 	const status = useFeatureState(cx.design.$status);
-	const [isDropping, setIsDropping] = React.useState(false);
 
 	const first = pieces[0] as TEntity;
-	// Skins fit one piece type: with several types selected they go on the most common one, like the Library
+	// Skins fit one piece type: with several types selected they go on the most common one
 	const type = commonPieceType(pieces) ?? first.components.piece?.type ?? 'platform';
 	const typeLabel = getPieceDefinition(type)?.label ?? type;
 	const ids = pieces.map((entity) => entity.id);
 	const skinned = pieces.filter((entity) => entity.components.piece?.type === type);
-	const skinnedIds = skinned.map((entity) => entity.id);
 	const isMixedTypes = skinned.length < pieces.length;
 	const isSingle = pieces.length === 1;
-	const skinIds = [...new Set(skinned.map((entity) => (entity.components.skin?.assetId != null ? canonicalSkinId(entity.components.skin.assetId) : '')))];
-	const builtIns = catalogSkins(skinElement(type));
-	const themeSkinLabel = builtInSkinLabel(resolveTheme(project.design).parts[skinElement(type)].skin) ?? 'Theme';
-	const skinValue = skinIds.length === 1 ? (skinIds[0] ?? '') : MIXED;
+	const skinIds = [...new Set(skinned.map((entity) => entity.components.skin?.assetId ?? ''))];
+	const ownSkin = skinIds.length === 1 && skinIds[0] !== '' ? (skinIds[0] as string) : null;
 	const link = mergedLink(ids.map((id) => links[id]));
 	const unlinked = ids.filter((id) => links[id]?.link === 'unlinked');
-	const fitting = [...projectItems, ...globalItems.filter((item) => !projectItems.some((own) => own.id === item.id))].filter((item) => itemFitsPieceType(item, type));
-	const current = projectItems.find((item) => item.id === skinValue);
 	const name = isSingle ? (first.name ?? typeLabel) : pieceCountLabel(pieces);
 
-	async function applyItem(item: TLibraryItem): Promise<void> {
-		if (await cx.library.applySkin(item, { kind: 'entities', entityIds: skinnedIds })) notifySkinApplied(cx, project, libraryItemLabel(item), type, pieces, item.id);
+	function applyToAll(assetId: string): void {
+		const item = [...projectItems, ...globalItems].find((candidate) => candidate.id === assetId);
+		if (item != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
+		else cx.execute(builtInSkinCommands(project, { kind: 'pieceType', pieceType: type }, canonicalSkinId(assetId)));
 	}
-
-	function setSkin(value: string): void {
-		if (value === '') {
-			const commands = skinnedIds.flatMap((id) => builtInSkinCommands(project, { kind: 'entities', entityIds: [id] }, resolveTheme(project.design).parts[skinElement(type)].skin));
-			if (cx.execute(commands)) notifySkinApplied(cx, project, 'Theme Default', type, pieces, null);
-			return;
-		}
-		const builtIn = builtIns.find((skin) => skin.id === value);
-		if (builtIn != null) {
-			if (cx.execute(builtInSkinCommands(project, { kind: 'entities', entityIds: skinnedIds }, builtIn.id))) notifySkinApplied(cx, project, builtIn.label, type, pieces, builtIn.id);
-			return;
-		}
-		const item = fitting.find((candidate) => itemValue(candidate) === value);
-		if (item != null) void applyItem(item);
-	}
-
-	function onDrop(event: React.DragEvent): void {
-		setIsDropping(false);
-		const data = event.dataTransfer.getData(LIBRARY_DRAG_TYPE);
-		if (!data) return;
-		event.preventDefault();
-		const dropped = JSON.parse(data) as { id: string; scope: string };
-		const item = [...projectItems, ...globalItems].find((candidate) => candidate.id === dropped.id && candidate.scope === dropped.scope);
-		if (item != null) void applyItem(item);
-	}
-
-	const skinName = skinValue === MIXED ? 'Mixed skins' : current != null ? libraryItemLabel(current) : skinValue === '' ? `${themeSkinLabel} · Default` : skinLabel(skinValue);
-	const thumb = current?.previewUrl ?? catalogSkin(skinValue === '' ? resolveTheme(project.design).parts[skinElement(type)].skin : skinValue)?.previewUrl ?? null;
 
 	return (
 		<>
@@ -648,51 +495,14 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 				title="Look"
 				accessory={
 					<HelpTip
-						text={`Drag a skin from the library onto the tile or the piece. On Hit moves or lights the skin on every hit; a skin never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}
+						text={`How it looks in the film. A click applies to the selection, ⌥-click to all ${typeLabel.toLowerCase()}s; ask the agent (⌘J) for a skin of your own and it shows here. On Hit moves or lights the skin on every hit; a skin never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}
 					/>
 				}
 			>
-				<div
-					className="mm-drop-well"
-					data-span="2"
-					data-dropping={isDropping}
-					title="Drop a skin from the library here"
-					onDragOver={(event) => {
-						if (!event.dataTransfer.types.includes(LIBRARY_DRAG_TYPE)) return;
-						event.preventDefault();
-						setIsDropping(true);
-					}}
-					onDragLeave={() => setIsDropping(false)}
-					onDrop={onDrop}
-				>
-					<span className="mm-skin-thumb">{thumb != null ? <img alt="" src={thumb} /> : <PieceIcon type={type} size={18} />}</span>
-					<span className="min-w-0 flex-1 truncate">{isDropping ? 'Drop to Apply' : skinName}</span>
-				</div>
-				<SelectField
-					id="piece-skin"
-					label="Skin"
-					value={skinValue === MIXED ? MIXED : current != null ? itemValue(current) : skinValue}
-					options={[
-						...(skinValue === MIXED ? [{ value: MIXED, label: 'Mixed' }] : []),
-						{ value: '', label: `${themeSkinLabel} · Default` },
-						...builtIns.map((skin) => ({ value: skin.id, label: skin.label })),
-						...(skinValue !== '' && skinValue !== MIXED && current == null && !builtIns.some((skin) => skin.id === skinValue) ? [{ value: skinValue, label: skinLabel(skinValue) }] : []),
-						...fitting.map((item) => ({ value: itemValue(item), label: libraryItemLabel(item) }))
-					]}
-					onChange={setSkin}
-				/>
+				<SkinTiles cx={cx} project={project} element={skinElement(type)} pieceType={type} entities={skinned} selected={pieces} />
 				<SkinPropertyRows cx={cx} project={project} entities={pieces} />
-				{skinValue !== '' && skinValue !== MIXED ? (
-					<button
-						className="mm-button"
-						data-span="2"
-						onClick={() => {
-							const item = current ?? fitting.find((candidate) => candidate.id === skinValue);
-							if (item != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
-							else if (catalogSkin(skinValue) != null) cx.execute(builtInSkinCommands(project, { kind: 'pieceType', pieceType: type }, skinValue));
-						}}
-						type="button"
-					>
+				{ownSkin != null ? (
+					<button className="mm-button" data-span="2" onClick={() => applyToAll(ownSkin)} type="button">
 						Apply to All {typeLabel}s
 					</button>
 				) : null}
@@ -723,23 +533,6 @@ const LinkState: React.FC<{ cx: StudioCx; status: TDesignStatus; link: TDesignLi
 		/>
 	);
 };
-
-const MIXED = '__mixed__';
-
-function itemValue(item: TLibraryItem): string {
-	return item.scope === 'project' ? item.id : `global:${item.id}`;
-}
-
-/** A skin id the catalog doesn't know reads as its words */
-function skinLabel(assetId: string): string {
-	const builtIn = builtInSkinLabel(assetId);
-	if (builtIn != null) return builtIn;
-	return assetId
-		.split(/[:_-]/)
-		.filter(Boolean)
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join(' ');
-}
 
 function mergedLink(links: (TDesignLink | undefined)[]): TDesignLink | 'mixed' | null {
 	const known = links.filter((link): link is TDesignLink => link != null);

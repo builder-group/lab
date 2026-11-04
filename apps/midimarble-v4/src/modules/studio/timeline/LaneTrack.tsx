@@ -8,6 +8,7 @@ import { formatTime, noteName } from '../format';
 import { hitMenu, laneMenu } from '../menus';
 import { toHitKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
+import { offsetLabel } from './hit-flash';
 import { hitTiming, type THitTiming } from './hit-status';
 import { ROW_HEIGHT } from './timeline-layout';
 
@@ -16,7 +17,7 @@ import { ROW_HEIGHT } from './timeline-layout';
  * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so colour is never the only signal.
  */
 export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
-	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
+	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, hasSong, onAdd, onDragStart, timeAt } = props;
 	const conflicts = React.useMemo(() => findLaneConflicts(lane), [lane]);
 	const marquee = useMarquee(cx, lane, zoom, selection, timeAt);
 
@@ -40,7 +41,7 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 					className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 truncate text-[11px] text-[var(--text-tertiary)]"
 					data-hint-anchor="tap"
 				>
-					No hits yet · press T to tap along, or double-click to add a hit
+					{hasSong ? 'No hits yet · press T to tap along, or double-click to add a hit' : 'No hits yet · import a song to tap along to it'}
 				</span>
 			) : null}
 			{lane.hits.map((hit, index) => {
@@ -76,7 +77,9 @@ interface TLaneTrackProps {
 	selection: string[];
 	drag: TDrag | null;
 	statuses: Map<string, THitResult> | undefined;
+	// Dims the hits of a Part that is muted or left out by a solo
 	isAudible: boolean;
+	hasSong: boolean;
 	onAdd: (time: number, event: React.MouseEvent) => void;
 	onDragStart: TDragStart;
 	timeAt: (clientX: number) => number;
@@ -96,28 +99,30 @@ export interface TDrag {
 
 export type TDragStart = (hitKey: string, event: { clientX: number; clientY: number }, isPitched: boolean) => void;
 
-/** A hit diamond: click selects and auditions, Shift-click toggles, drag moves */
+/** A hit diamond: click selects and plays its note if it has one, Shift-click toggles, drag moves */
 const HitButton: React.FC<THitButtonProps> = (props) => {
 	const { cx, lane, hit, index, selection, status, isConflict, style, onDragStart, children } = props;
 	const key = toHitKey(lane.id, hit.id);
 	const isSelected = selection.includes(key);
 	// Hits of selected pieces are outlined, like keyframes of the selected object in Blender
 	const isLinked = status?.pieceEntityId != null && selection.includes(status.pieceEntityId);
-	const piece = status?.pieceEntityId == null ? undefined : cx.project?.entities.find((entity) => entity.id === status.pieceEntityId)?.name;
+	const pieceEntity = status?.pieceEntityId == null ? undefined : cx.project?.entities.find((entity) => entity.id === status.pieceEntityId);
+	const piece = pieceEntity?.name;
 	const project = cx.project;
 	const unreachable = status?.status === 'open' && project != null ? unreachableStatus(project, cx.simulation.$result.get(), status) : null;
-	const timing = hitTiming(status, { marble: lane.name, pitch: hit.pitch, piece }, unreachable);
+	const timing = hitTiming(status, { marble: lane.name, pitch: hit.pitch, piece, isOffDot: pieceEntity?.components.hitLink?.pinned === true }, unreachable);
 	return (
 		<button
 			aria-label={`Hit ${index + 1}${hit.pitch == null ? '' : ` ${noteName(hit.pitch)}`} at ${formatTime(hit.time)}`}
 			aria-pressed={isSelected}
 			className="mm-hit"
+			data-hit-key={key}
 			data-selected={isSelected}
 			data-state={timing.state}
 			data-conflict={isConflict}
 			data-linked={isLinked}
 			style={{ ...style, ['--lane' as string]: lane.color }}
-			title={hitTitle(index, hit, timing, isConflict)}
+			title={hitTitle(index, hit, timing, isConflict, status?.error ?? null)}
 			onPointerDown={(event) => {
 				if (event.button !== 0) return;
 				event.stopPropagation();
@@ -203,8 +208,10 @@ interface TMarquee {
 	isLaneSelected: boolean;
 }
 
-function hitTitle(index: number, hit: THit, timing: THitTiming, isConflict: boolean): string {
+function hitTitle(index: number, hit: THit, timing: THitTiming, isConflict: boolean, error: number | null): string {
 	const note = hit.pitch == null ? '' : ` · ${noteName(hit.pitch)}`;
 	const warning = isConflict ? ` · closer than ${MIN_HIT_GAP * 1000} ms to the next hit` : '';
-	return `Hit ${index + 1}${note} · ${formatTime(hit.time)} · ${timing.label}: ${timing.tooltip}${warning}`;
+	// A landed hit names its offset from the note; "12 ms Late" already does
+	const offset = error != null && timing.state === 'onTime' ? ` (${offsetLabel(error)})` : '';
+	return `Hit ${index + 1}${note} · ${formatTime(hit.time)} · ${timing.label}${offset}: ${timing.tooltip}${warning}`;
 }

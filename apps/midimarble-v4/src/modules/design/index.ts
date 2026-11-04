@@ -3,7 +3,7 @@ export * from './AgentPanel';
 export * from './design-commands';
 export * from './DesignCx';
 export * from './DesignInspector';
-export * from './DesignLibrary';
+export * from './FilmInsert';
 export * from './DesignLibraryCx';
 export * from './DesignView';
 export * from './export-estimate';

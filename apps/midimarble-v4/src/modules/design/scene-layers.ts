@@ -29,11 +29,14 @@ export const MAX_LIGHT_STRENGTH = 20;
  * The sun of each built-in theme, from `THEMES` in themes.py: its strength and the direction its light travels in
  * wall terms (right, into the wall, up), and the wall kind of the theme
  */
-const BASE_SCENES: Record<string, { wallKind: TWallKind; strength: number; direction: readonly [number, number, number] }> = {
-	pegboard: { wallKind: 'pegboard', strength: 3.2, direction: [0.62, 0.62, -0.48] },
-	brass: { wallKind: 'plaster', strength: 5.2, direction: [0.82, 0.4, -0.36] },
-	neon: { wallKind: 'grid', strength: 2.6, direction: [0.55, 0.62, -0.56] }
+const BASE_SCENES: Record<string, { wallKind: TWallKind; strength: number; angle: number; direction: readonly [number, number, number] }> = {
+	pegboard: { wallKind: 'pegboard', strength: 3.2, angle: 12, direction: [0.62, 0.62, -0.48] },
+	brass: { wallKind: 'plaster', strength: 5.2, angle: 16, direction: [0.82, 0.4, -0.36] },
+	neon: { wallKind: 'grid', strength: 2.6, angle: 10, direction: [0.55, 0.62, -0.56] }
 };
+
+/** The widest sun in degrees, `MAX_SUN_ANGLE` in themes.py: a Softness of 1 */
+const MAX_SUN_ANGLE = 60;
 
 /** Name a layer reads while the theme dresses it, as in "From Brass" */
 export function themeOriginLabel(design: Pick<TDesign, 'theme' | 'themes'>): string {
@@ -110,6 +113,9 @@ export interface TKeyLightLayer {
 	strength: number;
 	side: number;
 	height: number;
+	softness: number;
+	exposure: number;
+	bloom: number;
 	/** What the project set itself */
 	own: NonNullable<NonNullable<TDesign['lights']>['key']>;
 }
@@ -123,6 +129,9 @@ export function keyLightLayer(design: TSceneDesign): TKeyLightLayer {
 		strength: own.strength ?? themed.strength,
 		side: own.side ?? themed.side,
 		height: own.height ?? themed.height,
+		softness: own.softness ?? themed.softness,
+		exposure: own.exposure ?? themed.exposure,
+		bloom: own.bloom ?? themed.bloom,
 		own
 	};
 }
@@ -135,7 +144,10 @@ function themedKeyLight(theme: TResolvedTheme): Required<TKeyLightPose> & { colo
 		color: theme.overrides.lightColor ?? themeDefaultColor(theme.base, 'lightColor') ?? '#ffffff',
 		strength: pose.strength ?? base.strength,
 		side: pose.side ?? placement.side,
-		height: pose.height ?? placement.height
+		height: pose.height ?? placement.height,
+		softness: pose.softness ?? base.angle / MAX_SUN_ANGLE,
+		exposure: pose.exposure ?? 0,
+		bloom: pose.bloom ?? 0
 	};
 }
 

@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createId, type TProject } from '@/modules/project';
+import { createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
 import {
 	defaultPlatformAngle,
 	findLongGaps,
@@ -12,18 +12,20 @@ import {
 	type TContinueAnswer,
 	type TGapPieceType,
 	type THitResult,
+	type TResolvedPiece,
 	type TSimulationResult
 } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
-import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
+import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replaceCommands, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
 import { findFinish } from './finish-assist';
 import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
 import { unreachableActions } from './unreachable-fixes';
-import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState } from './ghosts';
+import { displayPiece } from './attach-edit';
+import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
 import { commitAtHit, findStepTarget, pieceAngleCommands, pieceForHit, previousPiece, selectedPieceIds } from './step-loop';
 
 /** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterwards */
@@ -46,6 +48,10 @@ export class AssistCx {
 	/** Type and time of the latest queued Next press; the presses run one by one as each run arrives */
 	private queuedNext: { type: string; at: number } | null = null;
 	private isMounted = false;
+	/** Selection key of the hit whose click shows the current suggestion; selecting anything else cancels it */
+	private previewKey: string | null = null;
+	/** Counts previews, so an Auto place answer for an older one is dropped */
+	private previewRun = 0;
 
 	constructor(private readonly studio: StudioCx) {}
 
@@ -57,11 +63,16 @@ export class AssistCx {
 				this.runQueuedNext();
 				this.refresh();
 			}),
-			this.studio.$selection.listen(() => this.refresh()),
+			this.studio.$selection.listen(({ value }) => {
+				if (this.previewKey != null && (value.length !== 1 || value[0] !== this.previewKey)) this.cancelPreview();
+				this.refresh();
+			}),
 			this.studio.$history.listen(({ value }) => {
 				if (value != null) this.dispatch({ type: 'revision', revision: value.present.revision });
+				if (!this.hasGhosts) this.previewKey = null;
 			})
 		];
+		if (this.studio.project != null) this.dispatch({ type: 'revision', revision: this.studio.project.revision });
 		// The run shown at mount is what the first edit is compared with
 		this.offerFixIt();
 		this.refresh();
@@ -191,7 +202,9 @@ export class AssistCx {
 				this.record('autoPlace', startedAt);
 				const present = this.studio.project;
 				if (present == null || present.revision !== project.revision) return;
-				const commands = pieceAngleCommands(present, new Map([[entity.id, answer.angle]]));
+				// A platform a drag left where it lay goes back on its note
+				const current = present.entities.find((item) => item.id === entity.id);
+				const commands = current?.components.hitLink?.pinned === true ? replaceCommands(present, answer.entity) : pieceAngleCommands(present, new Map([[entity.id, answer.angle]]));
 				if (!commands.length) {
 					this.studio.notify('This platform already lands on time');
 					return;
@@ -267,6 +280,76 @@ export class AssistCx {
 		);
 	}
 
+	// MARK: - Dot previews
+
+	/**
+	 * The first click on an open dot: selects the hit and draws the piece it would get, with the next note's dot where
+	 * that piece sends the marble. Nothing changes in the project until it is accepted. It shows at once at the default
+	 * tilt, and Auto place's answer takes its place.
+	 */
+	preview(hit: THitResult, type = 'platform'): void {
+		const project = this.studio.project;
+		const client = this.studio.simulation.assists;
+		const { dot, velocity } = hit;
+		if (project == null || dot == null) return;
+		const run = ++this.previewRun;
+		const key = toHitKey(hit.laneId, hit.hitId);
+		this.previewKey = key;
+		this.studio.$selection.set([key]);
+		const id = createId('piece');
+		const radius = project.entities.find((entity) => entity.components.marble?.laneId === hit.laneId)?.components.marble?.radius ?? DEFAULT_MARBLE_RADIUS;
+		const show = (entity: TEntity, angle: number, nextDot: TVec2 | null, isSolved: boolean, isOk: boolean): void => {
+			const piece = displayPiece(entity, { pose: { position: dot, angle }, dot, velocity }, radius);
+			this.dispatch({ type: 'preview', answer: { revision: project.revision, laneId: hit.laneId, hit, type, entity, piece, nextDot, isSolved, isOk } });
+		};
+		const guess = pieceForHit(project, hit, type, 'default', id);
+		const guessAngle = guess.components.hitLink?.angle ?? 0;
+		const layout = layoutOf(type);
+		if (client == null || layout === 'path' || layout === 'tube') {
+			show(guess, guessAngle, null, true, true);
+			return;
+		}
+		show(guess, guessAngle, null, false, true);
+		client.autoPlace({ project, laneId: hit.laneId, hitId: hit.hitId, type, entityId: id }).then(
+			(answer) => {
+				if (run === this.previewRun && this.studio.project?.revision === project.revision) show(answer.entity, answer.angle, answer.nextDot, true, true);
+			},
+			(error: unknown) => {
+				if (run === this.previewRun && !isSuperseded(error) && this.studio.project?.revision === project.revision) show(guess, guessAngle, null, true, false);
+			}
+		);
+	}
+
+	/** The first click on a long gap's dot: selects the hit and shows what bridges the gap, like `preview` */
+	previewGap(hit: THitResult, fromHitId: string): void {
+		const key = toHitKey(hit.laneId, hit.hitId);
+		this.previewRun++;
+		this.previewKey = key;
+		this.studio.$selection.set([key]);
+		this.suggestGapPiece('switchback', hit.laneId, fromHitId, hit.hitId, { fallback: 'rail' });
+	}
+
+	/** Whether a click on this dot's hit showed the suggestion that is up */
+	isPreviewing(laneId: string, hitId: string): boolean {
+		return this.previewKey === toHitKey(laneId, hitId) && this.hasGhosts;
+	}
+
+	/** The suggested piece a click would add: a dot's preview or a long gap's bridge. Continue ghosts are taken with Tab. */
+	get clickableGhost(): TResolvedPiece | null {
+		const { ghost } = this.$ghosts.get();
+		return ghost == null || ghost.kind === 'continue' ? null : ghost.answer.piece;
+	}
+
+	/** Takes back what a dot's click showed; a Continue offer it replaced comes back */
+	cancelPreview(): void {
+		if (this.previewKey == null) return;
+		this.previewKey = null;
+		this.previewRun++;
+		this.continueKey = null;
+		this.dispatch({ type: 'previewCancelled' });
+		this.refresh();
+	}
+
 	// MARK: - Ghosts
 
 	/** Tab, or Return while ghosts show: adds every acceptable ghost as one edit */
@@ -275,6 +358,9 @@ export class AssistCx {
 		const project = this.studio.project;
 		if (ghost == null || project == null || ghost.answer.revision !== project.revision) return false;
 		const startedAt = performance.now();
+		// Committing selects the new piece, which is no cancel
+		this.previewKey = null;
+		if (ghost.kind === 'place') return this.acceptPreview(ghost.answer, startedAt);
 		const commands = ghost.answer.commands;
 		if (!commands.length || !this.studio.execute(commands)) return false;
 		this.dispatch({ type: 'accepted' });
@@ -292,9 +378,27 @@ export class AssistCx {
 		return true;
 	}
 
-	/** Escape: hides the ghosts until the next edit */
+	private acceptPreview(answer: TPlaceAnswer, startedAt: number): boolean {
+		this.previewRun++;
+		if (!answer.isSolved) {
+			// Auto place hasn't answered: placing waits for it the way a direct placement does, the ghost up meanwhile
+			if (!this.isPlacing) void this.place(answer.hit, answer.type).finally(() => this.dispatch({ type: 'accepted' }));
+			return true;
+		}
+		if (!commitAtHit(this.studio, answer.hit, answer.entity)) return false;
+		this.dispatch({ type: 'accepted' });
+		this.record('accept', startedAt);
+		if (!answer.isOk) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the run needs it.');
+		return true;
+	}
+
+	/** Escape: hides the ghosts until the next edit; a dot's preview only goes away */
 	dismiss(): boolean {
 		if (!this.hasGhosts) return false;
+		if (this.previewKey != null) {
+			this.cancelPreview();
+			return true;
+		}
 		this.dispatch({ type: 'dismiss' });
 		return true;
 	}
@@ -610,7 +714,7 @@ export class AssistCx {
 		const client = this.studio.simulation.assists;
 		if (project == null || result == null || client == null) return;
 		const state = this.$ghosts.get();
-		if (state.dismissedRevision === project.revision || state.pendingGap != null || state.ghost?.kind === 'gap') return;
+		if (state.dismissedRevision === project.revision || state.pendingGap != null || state.ghost?.kind === 'gap' || state.ghost?.kind === 'place') return;
 		const target = findStepTarget(project, result, this.studio.$selection.get());
 		const laneId = target?.laneId ?? null;
 		const key = `${project.revision}:${laneId}`;

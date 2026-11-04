@@ -102,6 +102,7 @@ export class SourcesCx {
 		]);
 		if (!applied) return;
 		this.$midiImport.set(null);
+		this.studio.$fitFirstHits.set(true);
 		const marbles = `${preview.lanes.length} ${preview.lanes.length === 1 ? 'marble' : 'marbles'}`;
 		const backing = preview.backing.length;
 		this.studio.notify(backing > 0 ? `Imported ${marbles}. ${backing} ${backing === 1 ? 'note plays' : 'notes play'} as Backing.` : `Imported ${marbles}.`);
@@ -138,7 +139,7 @@ export class SourcesCx {
 			{ type: 'upsertSource', source },
 			{ type: 'setEnd', end: Math.max(project.end, Math.ceil(source.offset + analysis.duration)) }
 		]);
-		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from the lane inspector or tap along.`);
+		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's inspector or tap along.`);
 	}
 
 	// MARK: - Song

@@ -11,7 +11,7 @@ export interface TAgentMention {
 	label: string;
 }
 
-export const SCENE_MENTION: TAgentMention = { id: 'scene', kind: 'scene', label: 'Project' };
+export const SCENE_MENTION: TAgentMention = { id: 'scene', kind: 'scene', label: 'Scene' };
 
 /** A run the composer starts for a message, with the name its status line shows */
 export interface TAgentRunPlan {

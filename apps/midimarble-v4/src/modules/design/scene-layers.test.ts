@@ -79,6 +79,12 @@ describe('key light layer', () => {
 		expect(keyLightLayer(lit.design)).toMatchObject({ color: '#ff8800', strength: 9, side: 0.25, height: themed.height });
 		expect(sceneThemeOverrides(lit.design)).toEqual({ lightColor: '#ff8800' });
 		expect(sceneLayers(lit.design)).toEqual({ keyLight: { strength: 9, side: 0.25 } });
+		// Softness, Exposure and Bloom: read from the theme until set, stored with the pose, cleared by Reset
+		expect(themed.softness).toBeCloseTo(16 / 60);
+		expect(themed).toMatchObject({ exposure: 0, bloom: 0 });
+		const soft = apply(lit, keyLightCommands(lit, { softness: 0.5, exposure: 0.4, bloom: 0.3 }));
+		expect(keyLightLayer(soft.design)).toMatchObject({ softness: 0.5, exposure: 0.4, bloom: 0.3 });
+		expect(sceneLayers(soft.design).keyLight).toEqual({ strength: 9, side: 0.25, softness: 0.5, exposure: 0.4, bloom: 0.3 });
 
 		const reset = apply(lit, resetKeyLightCommands(lit));
 		expect(reset.design.lights).toBeUndefined();
@@ -138,7 +144,7 @@ describe('save as theme', () => {
 	it("should move the project's Wall and Lights into the new theme and keep the look", () => {
 		const project = withTheme('brass');
 		let current = apply(project, wallCommands(project, { color: '#336699', kind: 'pegboard' }));
-		current = apply(current, keyLightCommands(current, { color: '#ff8800', strength: 7 }));
+		current = apply(current, keyLightCommands(current, { color: '#ff8800', strength: 7, softness: 0.6, exposure: 0.25, bloom: 0.5 }));
 		const { commands: lightCommands, lightId } = addLightCommands(current);
 		current = apply(current, lightCommands);
 		expect(hasLayerChanges(current.design)).toBe(true);
@@ -150,7 +156,7 @@ describe('save as theme', () => {
 		expect(saved.design.wall).toBeUndefined();
 		expect(saved.design.lights).toBeUndefined();
 		expect(hasLayerChanges(saved.design)).toBe(false);
-		expect(resolveTheme(saved.design).projectTheme).toMatchObject({ overrides: { wallColor: '#336699', lightColor: '#ff8800' }, wallKind: 'pegboard', keyLight: { strength: 7 } });
+		expect(resolveTheme(saved.design).projectTheme).toMatchObject({ overrides: { wallColor: '#336699', lightColor: '#ff8800' }, wallKind: 'pegboard', keyLight: { strength: 7, softness: 0.6, exposure: 0.25, bloom: 0.5 } });
 		expect({ overrides: sceneThemeOverrides(saved.design), layers: sceneLayers(saved.design) }).toEqual(before);
 
 		// A light the theme holds is still a layer that edits and deletes

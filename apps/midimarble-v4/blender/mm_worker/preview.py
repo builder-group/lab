@@ -12,6 +12,7 @@ from pathlib import Path
 
 import bpy
 
+from . import decor_effects
 from .util import MANAGED_COLLECTION, WorkerError, descendants, srgb_to_linear
 
 KEEP_PREVIEWS = 8
@@ -110,6 +111,8 @@ def render_ids(scene, id_path, width, height):
         (scene.view_settings, 'exposure', 0.0),
         (scene.view_settings, 'gamma', 1.0),
         (scene.view_settings, 'use_curve_mapping', False),
+        (scene.render, 'use_compositing', False),
+        *decor_effects.id_pass_settings(managed),
         *overrides,
     ]
     with temporary(settings):

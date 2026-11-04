@@ -46,7 +46,7 @@ export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 				aria-label="Camera shot markers"
 				onPointerDown={(event) => {
 					if (event.button !== 0 || event.target !== event.currentTarget || event.shiftKey) return;
-					cx.$selection.set(selection.filter((key) => parseShotKey(key) == null));
+					cx.$selection.set([]);
 				}}
 				onDoubleClick={(event) => {
 					if (event.target !== event.currentTarget) return;

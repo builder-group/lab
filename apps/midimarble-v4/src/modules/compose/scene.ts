@@ -11,7 +11,7 @@ import {
 	type TSimulationResult
 } from '@/modules/simulation';
 import { toHitKey } from '@/modules/studio/selection';
-import type { TBounds } from './view';
+import { fitBounds, isBoundsVisible, type TBounds, type TPadding, type TView, type TViewport } from './view';
 
 // Pure derivations from a project and its simulation result that the canvas draws and picks against
 
@@ -257,6 +257,82 @@ export function fitTargets(project: TProject, result: TSimulationResult | null):
 		all: { minX: Math.min(band.centerX - band.halfWidth, bounds?.minX ?? 0), maxX: Math.max(band.centerX + band.halfWidth, bounds?.maxX ?? 0), minY, maxY },
 		pieces: boundsOfPoints(anchors)
 	};
+}
+
+/**
+ * The stretch of a long run around `time` that fits at `minScale`: the hits and pieces nearest in time, later ones
+ * first, as far as they fit, as wide as the film frame when that fits too. For Zoom to Fit on a run too long to read
+ * whole. Null without hits or pieces.
+ */
+export function playheadSection(project: TProject, result: TSimulationResult, time: number, viewport: TViewport, padding: TPadding, minScale: number): TBounds | null {
+	const ends = workEnds(result.hits);
+	const moments: { time: number; points: TVec2[] }[] = [];
+	for (const hit of result.hits) if (hit.dot != null && hit.targetTime <= (ends.get(hit.laneId) ?? -Infinity)) moments.push({ time: hit.targetTime, points: [hit.dot] });
+	for (const piece of result.pieces) {
+		const at = piece.entryTime ?? piece.hitTime;
+		if (at != null) moments.push({ time: at, points: pieceOutline(piece) });
+	}
+	moments.sort((a, b) => a.time - b.time);
+	if (!moments.length) return null;
+	const roomX = Math.max(1, viewport.width - padding.left - padding.right) / minScale;
+	const roomY = Math.max(1, viewport.height - padding.top - padding.bottom) / minScale;
+	const fits = (bounds: TBounds): boolean => bounds.maxX - bounds.minX <= roomX && bounds.maxY - bounds.minY <= roomY;
+	const startIndex = moments.findIndex((moment) => moment.time >= time);
+	let low = startIndex < 0 ? moments.length - 1 : startIndex;
+	let high = low;
+	let points = [...(moments[low]?.points ?? [])];
+	for (let canGrow = true; canGrow; ) {
+		canGrow = false;
+		for (const index of [high + 1, low - 1]) {
+			const moment = moments[index];
+			if (moment == null) continue;
+			const grown = [...points, ...moment.points];
+			const bounds = boundsOfPoints(grown);
+			if (bounds == null || !fits(bounds)) continue;
+			points = grown;
+			if (index > high) high = index;
+			else low = index;
+			canGrow = true;
+		}
+	}
+	const section = boundsOfPoints(points);
+	if (section == null) return null;
+	const band = frameBand(project);
+	const wide = { ...section, minX: Math.min(section.minX, band.centerX - band.halfWidth), maxX: Math.max(section.maxX, band.centerX + band.halfWidth) };
+	return fits(wide) ? wide : section;
+}
+
+// Room kept around an open dot so its hint and the build bar under it show too
+const FIRST_HITS_MARGIN = 90;
+// Room below the dots for the build bar, and above them, on the wall
+const FIRST_HITS_BELOW = 0.1;
+const FIRST_HITS_ABOVE = 0.05;
+
+/**
+ * The view that shows each marble's next open dot after tapping or importing, with the hint and the build bar beside
+ * it, or null when the view already does or no dot is open. As wide as the film frame like an opened project, with
+ * the releases when they fit at `minScale`.
+ */
+export function firstHitsView(project: TProject, result: TSimulationResult, view: TView, viewport: TViewport, padding: TPadding, minScale: number): TView | null {
+	const next = new Map<string, THitResult>();
+	for (const hit of result.hits) {
+		if (hit.status !== 'open' || hit.dot == null) continue;
+		const known = next.get(hit.laneId);
+		if (known == null || hit.targetTime < known.targetTime) next.set(hit.laneId, hit);
+	}
+	const dots = boundsOfPoints([...next.values()].flatMap((hit) => (hit.dot != null ? [hit.dot] : [])));
+	if (dots == null || isBoundsVisible(view, viewport, dots, FIRST_HITS_MARGIN)) return null;
+	const band = frameBand(project);
+	const around = (bounds: TBounds): TBounds => ({
+		minX: Math.min(band.centerX - band.halfWidth * 1.35, bounds.minX),
+		maxX: Math.max(band.centerX + band.halfWidth * 1.35, bounds.maxX),
+		minY: bounds.minY - FIRST_HITS_BELOW,
+		maxY: bounds.maxY + FIRST_HITS_ABOVE
+	});
+	const releases = project.entities.flatMap((entity) => (entity.components.release != null ? [entity.components.release.position] : []));
+	const all = boundsOfPoints([...releases, { x: dots.minX, y: dots.minY }, { x: dots.maxX, y: dots.maxY }]) ?? dots;
+	const withReleases = fitBounds(around(all), viewport, padding);
+	return withReleases.scale >= minScale ? withReleases : fitBounds(around(dots), viewport, padding);
 }
 
 /**

@@ -6,7 +6,6 @@ import { dirname, join } from 'node:path';
 import { projectToFrame } from '../src/modules/camera';
 import { buildSceneDescription, SCENE_DESCRIPTION_PATH } from '../src/modules/blender/scene-builder';
 import { builtInSource } from '../src/modules/design/decor';
-import { DECOR_SETS } from '../src/modules/design/decor-catalog';
 import { scatterDecorCommands } from '../src/modules/design/decor-scatter';
 import { filmCamera } from '../src/modules/design/film-camera';
 import { applyProjectCommands, parseProject, serializeProject } from '../src/modules/project';
@@ -25,7 +24,7 @@ simulator.dispose();
 const track = filmCamera(base, result).track;
 if (track == null) throw new Error('The fixture has no film camera');
 
-const items = (DECOR_SETS[0]?.items ?? []).map(builtInSource);
+const items = ['decor:bauble-red', 'decor:bauble-gold', 'decor:snowflake-gold', 'decor:gift-box', 'decor:star', 'decor:fairy-light'].map(builtInSource);
 const started = performance.now();
 const { commands, count } = scatterDecorCommands(base, result, track, { items, density: Number(densityText), seed: Number(seedText) });
 const ms = Math.round(performance.now() - started);

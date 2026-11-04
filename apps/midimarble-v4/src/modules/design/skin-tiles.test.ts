@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'vitest';
+import { createProject, type TEntity, type TProject } from '@/modules/project';
+import { catalogSkins } from './skin-catalog';
+import { decorTiles, skinTiles, THEME_DEFAULT_TILE, themePartRows, wallTiles } from './skin-tiles';
+
+function platform(id: string, assetId?: string): TEntity {
+	return { id, components: { piece: { type: 'platform' }, ...(assetId != null ? { skin: { assetId, link: 'linked' } } : {}) } } as unknown as TEntity;
+}
+
+function brassProject(entities: TEntity[] = []): TProject {
+	const project = createProject({ id: 'p', title: 'T' });
+	project.design.theme = 'brass';
+	project.entities.push(...entities);
+	return project;
+}
+
+describe('skinTiles function', () => {
+	it('should list Theme Default first, standing for the theme skin, then the other skins with previews', () => {
+		const tiles = skinTiles(brassProject().design, 'platform', [platform('a')]);
+		expect(tiles[0]).toMatchObject({ id: THEME_DEFAULT_TILE, label: 'Theme Default', detail: 'Gold', isCurrent: true });
+		expect(tiles[0]?.previewUrl).toBe('/skins/platform-gold.png');
+		expect(tiles.some((tile) => tile.id === 'platform:gold')).toBe(false);
+		expect(tiles.length).toBe(catalogSkins('platform').length);
+		expect(tiles.every((tile) => tile.previewUrl != null)).toBe(true);
+	});
+
+	it('should ring the skin the selection wears, and nothing for a mixed selection', () => {
+		const design = brassProject().design;
+		const current = (entities: TEntity[]): string[] => skinTiles(design, 'platform', entities).filter((tile) => tile.isCurrent).map((tile) => tile.id);
+		expect(current([platform('a', 'platform:copper')])).toEqual(['platform:copper']);
+		expect(current([platform('a', 'platform:copper'), platform('b', 'platform:copper')])).toEqual(['platform:copper']);
+		expect(current([platform('a', 'platform:copper'), platform('b', 'platform:silver')])).toEqual([]);
+		expect(current([platform('a', 'platform:copper'), platform('b')])).toEqual([]);
+		// A skin pinned to what the theme already wears reads as the theme's
+		expect(current([platform('a', 'platform:gold')])).toEqual([THEME_DEFAULT_TILE]);
+		// A library skin is none of the built-in tiles
+		expect(current([platform('a', 'asset-1')])).toEqual([]);
+	});
+
+	it("should picture a theme's contrast marble as the skin it resolves to", () => {
+		const marble = { id: 'm', components: { marble: { color: '#e0533d' } } } as unknown as TEntity;
+		const [first] = skinTiles(brassProject().design, 'marble', [marble]);
+		expect(first?.id).toBe(THEME_DEFAULT_TILE);
+		expect(first?.previewUrl).not.toBeNull();
+	});
+});
+
+describe('wallTiles function', () => {
+	it('should follow the theme until the project chooses another wall', () => {
+		const project = brassProject();
+		const tiles = wallTiles(project.design);
+		expect(tiles[0]).toMatchObject({ id: THEME_DEFAULT_TILE, kind: null, isCurrent: true });
+		expect(tiles.filter((tile) => tile.kind === tiles[0]?.shownKind)).toEqual([]);
+		const chosen = wallTiles({ ...project.design, wall: { kind: 'tinsel' } });
+		expect(chosen.filter((tile) => tile.isCurrent).map((tile) => tile.id)).toEqual(['tinsel']);
+	});
+});
+
+describe('decorTiles function', () => {
+	it('should ring the item every selected decoration is', () => {
+		const current = (sources: string[]): string[] => decorTiles(sources.map((source) => ({ source }))).filter((tile) => tile.isCurrent).map((tile) => tile.id);
+		expect(current(['decor:star'])).toEqual(['decor:star']);
+		expect(current(['decor:star', 'decor:bauble-red'])).toEqual([]);
+	});
+});
+
+describe('themePartRows function', () => {
+	it('should read what the film shows and select the first of each element', () => {
+		const rows = themePartRows(brassProject([platform('a', 'platform:knob'), platform('b', 'platform:knob')]), () => null);
+		expect(rows.find((row) => row.element === 'platform')).toMatchObject({ label: 'Platforms: Knob', entityId: 'a' });
+		expect(rows.find((row) => row.element === 'rail')).toMatchObject({ entityId: null });
+	});
+
+	it('should say Mixed, and fall back to the theme without pieces', () => {
+		const rows = themePartRows(brassProject([platform('a', 'platform:knob'), platform('b')]), () => null);
+		expect(rows.find((row) => row.element === 'platform')?.label).toBe('Platforms: Mixed');
+		expect(themePartRows(brassProject(), () => null).find((row) => row.element === 'platform')?.label).toBe('Platforms: Gold');
+	});
+
+	it('should name a library skin', () => {
+		const rows = themePartRows(brassProject([platform('a', 'asset-1')]), (id) => (id === 'asset-1' ? 'Piano Key' : null));
+		expect(rows.find((row) => row.element === 'platform')?.label).toBe('Platforms: Piano Key');
+	});
+});

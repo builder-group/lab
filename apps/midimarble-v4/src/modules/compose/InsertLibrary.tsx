@@ -5,14 +5,11 @@ import { armedInsertItem, insertSections, type TInsertItem } from './library';
 import { PiecePreview } from './PiecePreview';
 
 /**
- * Insert popover of the tool rail, like Figma's assets and Paper's insert panel: a tile per item with a
- * preview of its real geometry. A click arms the item's tool; a drag drops it on the canvas.
+ * The tool rail's Insert popover in both workspaces, like Figma's assets and Paper's insert panel: opens beside its
+ * button, stays inside the window and closes on a press outside.
  */
-export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
-	const { compose, anchor, onStartDrag } = props;
-	const tool = useFeatureState(compose.$tool);
-	const pathType = useFeatureState(compose.$pathType);
-	const armed = armedInsertItem(tool, pathType);
+export const InsertPopover: React.FC<TInsertPopoverProps> = (props) => {
+	const { anchor, onClose, isHidden = false, isDense = false, children } = props;
 	const ref = React.useRef<HTMLDivElement>(null);
 	const [position, setPosition] = React.useState<{ left: number; top: number } | null>(null);
 
@@ -30,11 +27,11 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 		function onPointerDown(event: PointerEvent): void {
 			const target = event.target as Node | null;
 			if (ref.current?.contains(target) === true || anchor.current?.contains(target) === true) return;
-			compose.$libraryOpen.set(false);
+			onClose();
 		}
 		window.addEventListener('pointerdown', onPointerDown, true);
 		return () => window.removeEventListener('pointerdown', onPointerDown, true);
-	}, [compose, anchor]);
+	}, [onClose, anchor]);
 
 	return (
 		<div
@@ -42,12 +39,39 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 			className="mm-library"
 			role="dialog"
 			aria-label="Insert"
-			style={{ left: position?.left ?? -9999, top: position?.top ?? 0, visibility: position == null ? 'hidden' : undefined }}
+			data-dense={isDense}
+			style={{ left: position?.left ?? -9999, top: position?.top ?? 0, visibility: position == null || isHidden ? 'hidden' : undefined }}
 		>
 			<div className="mm-library-head">
 				<span className="font-semibold">Insert</span>
 				<kbd>⇧I</kbd>
 			</div>
+			{children}
+		</div>
+	);
+};
+
+interface TInsertPopoverProps {
+	/** The rail's Insert button, which the popover opens beside */
+	anchor: React.RefObject<HTMLButtonElement | null>;
+	onClose: () => void;
+	/** Out of the way while a tile is dragged out of it */
+	isHidden?: boolean;
+	/** Three columns for a long list, which scrolls when it is taller than the window */
+	isDense?: boolean;
+	children: React.ReactNode;
+}
+
+/** Compose's Insert: a tile per item with a preview of its real geometry. A click arms the item's tool; a drag drops it on the canvas. */
+export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
+	const { compose, anchor, onStartDrag } = props;
+	const tool = useFeatureState(compose.$tool);
+	const pathType = useFeatureState(compose.$pathType);
+	const armed = armedInsertItem(tool, pathType);
+	const close = React.useCallback(() => compose.$libraryOpen.set(false), [compose]);
+
+	return (
+		<InsertPopover anchor={anchor} onClose={close}>
 			{insertSections.map((section) => (
 				<section key={section.title} className="mm-library-section" aria-label={section.title}>
 					<div className="mm-library-section-title">{section.title}</div>
@@ -79,7 +103,7 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 					</div>
 				</section>
 			))}
-		</div>
+		</InsertPopover>
 	);
 };
 

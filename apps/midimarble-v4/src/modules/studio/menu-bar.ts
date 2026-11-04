@@ -19,6 +19,11 @@ export type TMenuLine =
 			panel?: TStudioPanel;
 			/** Leaves the key out of the menu, such as for the second item of a command */
 			hasNoKey?: boolean;
+			/**
+			 * Shows a window key in the title, after a tab. It is no menu key: single keys stay with the web view, so
+			 * typing in a text field never runs a menu command.
+			 */
+			showsKey?: boolean;
 			/** In a focused text field the item acts on the text, as AppKit's own Undo, Redo and Select All do */
 			text?: TTextCommand;
 	  }
@@ -93,7 +98,9 @@ export const menuLayout: readonly TMenuSection[] = [
 			'separator',
 			{ command: 'view.zoomIn' },
 			{ command: 'view.zoomOut' },
+			{ command: 'view.zoom100' },
 			{ command: 'view.fitAll' },
+			{ command: 'view.fitWhole' },
 			{ command: 'view.fitSelection' },
 			{ command: 'view.fitFrame' },
 			'separator',
@@ -103,6 +110,32 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'help.quickHelp', hasNoKey: true },
 			'separator',
 			{ standard: 'fullScreen' }
+		]
+	},
+	{
+		title: 'Playback',
+		items: [
+			{ command: 'play.toggle', showsKey: true },
+			{ command: 'play.start', showsKey: true },
+			'separator',
+			{ command: 'play.previousHit', showsKey: true },
+			{ command: 'play.nextHit', showsKey: true },
+			'separator',
+			{ command: 'play.cycle', showsKey: true }
+		]
+	},
+	{
+		title: 'Piece',
+		items: [
+			{ command: 'build.next', showsKey: true },
+			{ command: 'build.continue', showsKey: true },
+			{ command: 'build.mirror', showsKey: true },
+			{ command: 'build.repeat', showsKey: true },
+			{ command: 'build.addFinish' },
+			'separator',
+			// Edit's Duplicate holds the ⌘D menu key
+			{ command: 'edit.duplicate', variant: 'piece', hasNoKey: true, showsKey: true },
+			{ command: 'piece.detach' }
 		]
 	},
 	{
@@ -185,8 +218,9 @@ export function readMenuItem(cx: StudioCx, line: TCommandLine, isTextFocused: bo
 		const isShown = cx.$panels.get()[line.panel];
 		return { title: `${isShown ? 'Hide' : 'Show'} ${command.title}`, enabled: isCommandEnabled(cx, command), checked: null };
 	}
+	const title = line.title ?? (line.command === 'play.toggle' && cx.$playing.get() ? 'Pause' : command.title);
 	return {
-		title: line.title ?? command.title,
+		title: line.showsKey === true && command.shortcut != null ? `${title}\t${command.shortcut}` : title,
 		enabled: (line.text != null && isTextFocused) || isCommandEnabled(cx, command),
 		checked: command.isChecked != null ? command.isChecked(cx) === true : null
 	};

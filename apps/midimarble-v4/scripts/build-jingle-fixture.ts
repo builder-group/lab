@@ -17,8 +17,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as toneMidi from '@tonejs/midi';
 import { withFinishes } from '../src/modules/compose/finish-assist';
-import { builtInSource } from '../src/modules/design/decor';
-import { DECOR_SETS } from '../src/modules/design/decor-catalog';
+import { builtInSource, newDecor, setDecorList } from '../src/modules/design/decor';
 import { scatterDecorCommands } from '../src/modules/design/decor-scatter';
 import { preflightExport } from '../src/modules/design/export-preflight';
 import { filmCamera } from '../src/modules/design/film-camera';
@@ -34,6 +33,7 @@ import {
 	serializeProject,
 	type TProject,
 	type TProjectCommand,
+	type TDecor,
 	type TProjectTheme,
 	type TSource
 } from '../src/modules/project';
@@ -70,19 +70,19 @@ const RELEASES = [
 	{ x: LANE_SPACING / 2, y: 0.6 }
 ];
 const DEGREE = Math.PI / 180;
-// The film's look lives in the project: a preset of ordinary parts on Brass's render look. Bright Wall and Background make
-// up for Brass's exposure; the Key Light comes from close to the wall's normal, so shadows stay short.
+// The film's look lives in the project: a preset of ordinary parts on Brass's render look. A warm cream wall in a warm
+// room under a golden, soft Key Light from close to the wall's normal, a bit of Bloom for what glows.
+const CHRISTMAS_DECOR = ['decor:bauble-red', 'decor:bauble-gold', 'decor:snowflake-gold', 'decor:gift-box', 'decor:star', 'decor:fairy-light'];
 const CHRISTMAS_THEME: TProjectTheme = {
 	id: 'theme-christmas',
 	name: 'Christmas',
 	base: 'brass',
-	overrides: { wallColor: '#f9f9f8', lightColor: '#fffcf9', backgroundColor: '#ffffff' },
-	wallKind: 'tinsel',
-	wallBand: 'right',
-	keyLight: { strength: 5, side: -0.26, height: 0.35 },
+	overrides: { wallColor: '#fcf3df', lightColor: '#ffe6b3', backgroundColor: '#fff2d2' },
+	keyLight: { strength: 5, side: -0.26, height: 0.35, softness: 0.55, exposure: 0.4, bloom: 0.5 },
+	decorSet: CHRISTMAS_DECOR,
 	parts: { platform: { skin: 'platform:gift' }, rail: { skin: 'rail:candy' }, switchback: { skin: 'switchback:candy' }, marble: { skin: 'marble:glass-green' } }
 };
-const DECOR_DENSITY = 0.3;
+const DECOR_DENSITY = 0.18;
 const DECOR_SEED = 1;
 // Release shifts the build tries in turn, in metres
 const RELEASE_SHIFTS = [0, 0.01, -0.01, 0.005, -0.005, 0.015, -0.015, 0.02, -0.02, 0.025, -0.025, 0.03, -0.03, 0.04, -0.04];
@@ -273,11 +273,17 @@ function dressed(fixture: TProject, simulateFinal: (current: TProject) => TSimul
 	const themed: TProject = { ...fixture, design: { ...fixture.design, theme: CHRISTMAS_THEME.id, themes } };
 	const result = simulateFinal(themed);
 	const track = filmCamera(themed, result).track;
-	const set = DECOR_SETS.find((item) => item.id === 'christmas');
-	if (track == null || set == null) throw new Error('The dress step needs the film camera and the Christmas Decor set');
-	const { commands, count } = scatterDecorCommands(themed, result, track, { items: set.items.map(builtInSource), density: DECOR_DENSITY, seed: DECOR_SEED });
+	if (track == null) throw new Error('The dress step needs the film camera');
+	const { commands, count } = scatterDecorCommands(themed, result, track, { items: CHRISTMAS_DECOR.map(builtInSource), density: DECOR_DENSITY, seed: DECOR_SEED });
 	console.log(`dress: ${CHRISTMAS_THEME.name} with ${count} Decor items`);
-	return apply(themed, commands, themed.revision);
+	const scattered = apply(themed, commands, themed.revision);
+	// The frame's dressing keeps its own IDs, which seed it, so a new dress step shows the same snow
+	const frameItems: TDecor[] = [
+		{ ...newDecor(builtInSource('decor:garland'), { x: 0, y: 0 }, []), id: 'decor-garland' },
+		{ ...newDecor(builtInSource('decor:snowfall'), { x: 0, y: 0 }, []), id: 'decor-snowfall' }
+	];
+	const placed = (scattered.design.decor ?? []).filter((item) => !frameItems.some((frameItem) => frameItem.id === item.id));
+	return apply(scattered, setDecorList([...placed, ...frameItems]), scattered.revision);
 }
 
 /** At most two dots beyond the pace limit, and none by more than 0.15 m beyond it */

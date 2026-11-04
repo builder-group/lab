@@ -1,7 +1,8 @@
 import type { TMenuEntry } from '@/components';
 import { canMakeBacking } from '@/modules/compose/reachability';
-import { assignNotesCommands, DEFAULT_BACKING_INSTRUMENT, newMarbleCommands } from '@/modules/music';
-import { BACKING_ID, type THit, type TProject } from '@/modules/project';
+import { assignNotesCommands, BACKING_COLOR, DEFAULT_BACKING_INSTRUMENT, newMarbleCommands, soundsNotes } from '@/modules/music';
+import { BACKING_ID, type TEntity, type THit, type TProject, type TProjectCommand } from '@/modules/project';
+import { soundsHit, type TSimulationResult } from '@/modules/simulation';
 import { parseHitKey, toHitKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
 
@@ -37,6 +38,59 @@ export function handNotes(cx: StudioCx, keys: string[], target: string | 'new'):
 	else if (moved === 1) cx.notifyEdit(`Its platform now plays in ${owner}'s run`);
 	else if (moved > 1) cx.notifyEdit(`${moved} platforms now play in ${owner}'s run`);
 	return true;
+}
+
+/**
+ * ⌫ on selected hits never takes music first: hits with a platform lose the platform and stay; open hits with a pitch
+ * become Backing, so the note keeps sounding; open tapped hits and Backing notes go. In the piano roll, the song's own
+ * editor, the note itself goes.
+ */
+export function removeSelectedHits(cx: StudioCx, keys: string[], isInRoll: boolean): boolean {
+	const project = cx.project;
+	if (project == null) return false;
+	const notes = selectedNotes(project, keys);
+	if (!notes.length) return false;
+	if (isInRoll) return deleteHits(cx, keys);
+	const platforms = platformsOfHits(project, keys);
+	if (platforms.length > 0) {
+		if (!cx.execute([{ type: 'removeEntities', entityIds: platforms.map((entity) => entity.id) }])) return false;
+		const first = platforms[0]?.name ?? 'Platform';
+		cx.notifyEdit(platforms.length === 1 ? `${first} deleted. Its hit is open` : `${platforms.length} platforms deleted. Their hits are open`);
+		return true;
+	}
+	const toBacking = canMakeBacking(project) ? notes.filter((item) => item.ownerId !== BACKING_ID && item.hit.pitch != null).map((item) => toHitKey(item.ownerId, item.hit.id)) : [];
+	if (toBacking.length > 0) return handNotes(cx, toBacking, BACKING_ID);
+	return deleteHits(cx, keys);
+}
+
+/** Delete Hit: the hit and its note go together with the platform that plays it, as one undo step */
+export function deleteHits(cx: StudioCx, keys: string[]): boolean {
+	const project = cx.project;
+	if (project == null) return false;
+	const applied = cx.execute(deleteHitCommands(project, cx.simulation.$result.get(), keys));
+	if (applied) cx.$selection.set([]);
+	return applied;
+}
+
+/**
+ * Removes hits by way of Backing: the hand-over already takes the platform away and ties pieces following the marble
+ * to the nearest hit left, so nothing stays behind tied to a hit that is gone.
+ */
+export function deleteHitCommands(project: TProject, result: TSimulationResult | null, keys: string[]): TProjectCommand[] {
+	const notes = selectedNotes(project, keys);
+	const hitIds = notes.map((item) => item.hit.id);
+	if (!hitIds.length) return [];
+	const onMarbles = notes.filter((item) => item.ownerId !== BACKING_ID).map((item) => item.hit.id);
+	return [...(onMarbles.length ? assignNotesCommands(project, result, onMarbles, BACKING_ID) : []), { type: 'removeHits', laneId: BACKING_ID, hitIds }];
+}
+
+/** The platforms that play the hits of selection keys */
+export function platformsOfHits(project: TProject, keys: string[]): TEntity[] {
+	const wanted = new Set(keys);
+	return project.entities.filter((entity) => {
+		const link = entity.components.hitLink;
+		return link != null && entity.components.piece != null && soundsHit(entity.components.piece.type, link) && wanted.has(toHitKey(link.laneId, link.hitId));
+	});
 }
 
 /** Context menu entries that hand the selected notes over: each marble with its number key, New Marble, Backing */
@@ -83,7 +137,7 @@ export function isNoteSelection(keys: string[]): boolean {
 	return keys.length > 0 && keys.every((key) => parseHitKey(key) != null);
 }
 
-/** Plays a note as feedback, with its marble's instrument or Backing's */
+/** Plays a note as feedback, with its Part's Sound; a hit without a pitch plays nothing */
 export function auditionNote(cx: StudioCx, ownerId: string, pitch?: number): void {
 	const project = cx.project;
 	if (project == null) return;
@@ -91,10 +145,9 @@ export function auditionNote(cx: StudioCx, ownerId: string, pitch?: number): voi
 		cx.audition(ownerId, pitch);
 		return;
 	}
-	if (project.music.sources.some((source) => source.kind === 'audio')) return;
+	if (pitch == null || !soundsNotes(project)) return;
 	const instrument = project.music.backingInstrument ?? DEFAULT_BACKING_INSTRUMENT;
 	void cx.audio.audition({ id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, instrument, hits: [] }, pitch);
 }
 
-/** Backing notes are grey: heard, but no marble plays them */
-export const BACKING_COLOR = '#8e8e93';
+export { BACKING_COLOR };

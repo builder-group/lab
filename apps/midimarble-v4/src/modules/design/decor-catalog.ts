@@ -1,13 +1,14 @@
 import type { TDecor } from '@/modules/project';
 import catalog from '../../../blender/mm_worker/decor_catalog.json';
 
-// The built-in Decor items, the sets the Library offers and each theme's default set. The Blender worker builds the
+// The built-in Decor items with their categories, and each theme's Decor set. The Blender worker builds the
 // same items from the same file (`decor.py`), and `check_design.py` holds its meshes to these sizes.
 
 export interface TDecorItem {
 	/** `decor:bauble-red`: a project's `source` for this item */
 	id: string;
 	label: string;
+	category: TDecorCategory;
 	previewUrl: string;
 	/** Half width and half height on the wall in metres at scale 1, a text item's for its default text */
 	halfWidth: number;
@@ -20,17 +21,27 @@ export interface TDecorItem {
 	opacity?: number;
 	/** Scatter Decor uses the item; a Handle or Subscribe is placed once, by hand */
 	scatter: boolean;
+	/** Belongs to the frame, not the wall: hangs from the film camera, so it has no place, size or path to overlap */
+	effect?: 'snowfall' | 'garland';
 }
 
-export const DECOR_ITEMS: readonly TDecorItem[] = catalog.items.map(({ preview, ...item }) => ({ ...item, previewUrl: `/decor/${preview}` }));
+export const DECOR_ITEMS: readonly TDecorItem[] = catalog.items.map(({ preview, ...item }) => ({ ...item, previewUrl: `/decor/${preview}` }) as TDecorItem);
 
 const DEFAULT_THEME_SET = catalog.themes.brass;
 
-/** Sets the Library's Decor group offers */
-export const DECOR_SETS: readonly { id: string; label: string; items: readonly string[] }[] = catalog.sets;
+/** What an item is, the sections Insert lists Decor by; never a season or an occasion, which a theme's Decor set carries */
+export const DECOR_CATEGORIES = ['Ornaments', 'Lights', 'Particles', 'Text'] as const;
+
+export type TDecorCategory = (typeof DECOR_CATEGORIES)[number];
+
 
 export function decorItem(source: string): TDecorItem | null {
 	return DECOR_ITEMS.find((item) => item.id === source) ?? null;
+}
+
+/** Whether a decoration belongs to the frame rather than the wall */
+export function isFrameEffect(decor: Pick<TDecor, 'source'>): boolean {
+	return decorItem(decor.source)?.effect != null;
 }
 
 /** The items a built-in theme's Scatter Decor starts with */

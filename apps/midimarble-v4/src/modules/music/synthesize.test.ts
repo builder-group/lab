@@ -83,13 +83,15 @@ describe('createLaneEvents function', () => {
 		]);
 	});
 
-	it('should map pitch and velocity defaults', () => {
-		const [on] = createLaneEvents([{ ...lane('a', 9, []), hits: [{ id: 'h', time: 0 }] }], 1000);
+	it('should map velocity defaults and play nothing for a hit without a pitch', () => {
+		const [on] = createLaneEvents([{ ...lane('a', 9, []), hits: [{ id: 'h', time: 0, pitch: 76 }] }], 1000);
+		const silent = createLaneEvents([{ ...lane('a', 9, []), hits: [{ id: 'h', time: 0 }] }], 1000);
 		const [loud] = createLaneEvents(
 			[{ ...lane('a', 9, []), hits: [{ id: 'h', time: 0, pitch: 60, velocity: 1 }] }],
 			1000
 		);
 
+		expect(silent).toEqual([]);
 		expect(on).toMatchObject({ pitch: 76, velocity: 102 });
 		expect(loud).toMatchObject({ pitch: 60, velocity: 127 });
 	});
@@ -133,7 +135,7 @@ function lane(id: string, instrument: number, times: number[]): TLane {
 		name: id,
 		color: '#000000',
 		instrument,
-		hits: times.map((time, index) => ({ id: `${id}-${index}`, time }))
+		hits: times.map((time, index) => ({ id: `${id}-${index}`, time, pitch: 76 }))
 	};
 }
 

@@ -9,7 +9,7 @@ import { hasSongLayer } from './song-layer';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
 /**
- * The one Add menu (+) of the Layers tab and the timeline's Layers column, like Figma's insert menu: a marble,
+ * The one Add menu (+) of Layers and the timeline's Layers column, like Figma's insert menu: a marble,
  * a piece, a title, a light, a shot, decor and, while the project has none, the song. An item of the other workspace opens that
  * workspace first. Replace Song… and Delete Song live on the Song layer.
  */

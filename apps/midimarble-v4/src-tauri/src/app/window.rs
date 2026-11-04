@@ -1,4 +1,5 @@
 use crate::environment::configs::app::AppConfig;
+use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 #[cfg(target_os = "macos")]
@@ -114,7 +115,10 @@ impl AppWindow {
     ) -> WebviewWindowBuilder<'app, tauri::Wry, AppHandle> {
         let mut builder =
             WebviewWindowBuilder::new(app, self.label(), WebviewUrl::App(path.into()))
-                .title(self.title());
+                .title(self.title())
+                // macOS 14+: WebKit otherwise suspends the page behind a covered window, which holds up export
+                // progress and the run. Frames still stop while covered; `use-playback` ticks on a timer then
+                .background_throttling(BackgroundThrottlingPolicy::Disabled);
 
         if let Some((width, height)) = self.size() {
             builder = builder.inner_size(width, height);

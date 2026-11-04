@@ -21,6 +21,8 @@ export interface TKeyContext {
 	hasGhosts: boolean;
 	/** A rail is being drawn with the path tool */
 	isDrawing?: boolean;
+	/** The selection holds a piece, or a hit with a platform, that ↑ ↓ can tilt */
+	canTilt?: boolean;
 	/** The selection holds notes, whose piano roll owns 0 to 9 for handing them over */
 	hasNotes?: boolean;
 }
@@ -33,6 +35,7 @@ export type TPathType = 'rail' | 'tunnel';
 
 export type TComposeKeyAction =
 	| { type: 'zoom'; factor: number }
+	| { type: 'zoom100' }
 	| { type: 'fit'; target: 'all' | 'selection' | 'frame' }
 	| { type: 'tool'; tool: TComposeTool; pathType?: TPathType }
 	| { type: 'library' }
@@ -73,6 +76,7 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 	if (input.metaKey && !input.ctrlKey && !input.altKey) {
 		if (key === '=' || key === '+') return { type: 'zoom', factor: 2 };
 		if (key === '-') return { type: 'zoom', factor: 0.5 };
+		if (key === '0') return { type: 'zoom100' };
 		return null;
 	}
 	if (input.metaKey || input.ctrlKey || input.altKey) return null;
@@ -96,11 +100,11 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 		case 'Backspace':
 		case 'Delete':
 			return context.hasPieces ? { type: 'delete' } : null;
-		case 'ArrowLeft':
-		case 'ArrowRight':
-			if (!context.hasPieces) return null;
-			// Positive angles turn counter-clockwise, so Right turns the bar clockwise like a dial
-			return { type: 'nudge', degrees: (input.key === 'ArrowRight' ? -1 : 1) * (input.shiftKey ? 5 : 1) };
+		// ← → always step hits (Previous and Next Hit); ↑ ↓ always tilt, raising the value like any scrub field
+		case 'ArrowUp':
+		case 'ArrowDown':
+			if (context.canTilt !== true) return null;
+			return { type: 'nudge', degrees: (input.key === 'ArrowUp' ? 1 : -1) * (input.shiftKey ? 5 : 1) };
 	}
 	if (input.shiftKey) return input.code === 'KeyI' ? { type: 'library' } : null;
 	if (input.code === followKey.code) return { type: 'follow' };

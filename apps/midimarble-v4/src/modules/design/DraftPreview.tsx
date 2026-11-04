@@ -8,7 +8,8 @@ import type { TDesign, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { placeDecor, startDecorDrag } from './decor-actions';
 import { DraftDecorShape } from './DraftDecorShape';
-import { DECOR_DRAG_TYPE, LIBRARY_DRAG_TYPE, readDecorDrop } from './DesignLibrary';
+import { DraftEffects } from './DraftEffects';
+import { dropTitle, isInsertDrag, LIBRARY_DRAG_TYPE, readDecorDrop } from './FilmInsert';
 import { DRAFT_TINSEL, DRAFT_TINSEL_WIDTH, draftTinselBand, SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
 import { appliedOverrides } from './project-themes';
@@ -59,6 +60,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 
 	function onDrop(event: React.DragEvent<HTMLDivElement>): void {
 		setDropTarget(false);
+		if (dropTitle(event, studio)) return;
 		const decor = readDecorDrop(event, studio);
 		if (decor != null) {
 			event.preventDefault();
@@ -75,7 +77,13 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 
 	// Letterboxed: the frame keeps the film's aspect at the largest size the pane fits, however narrow it is
 	return (
-		<div className="flex h-full min-h-0 w-full min-w-0 items-center justify-center" style={{ containerType: 'size', background }}>
+		<div
+			className="flex h-full min-h-0 w-full min-w-0 items-center justify-center"
+			style={{ containerType: 'size', background }}
+			onClick={(event) => {
+				if (event.target === event.currentTarget && !event.shiftKey && !isPlacing) studio.$selection.set([]);
+			}}
+		>
 			<div className="relative" style={{ aspectRatio: `${frame.width} / ${frame.height}`, width: `min(100cqw, 100cqh * ${frame.width / frame.height})` }}>
 				<div
 					ref={containerRef}
@@ -93,7 +101,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 						});
 					}}
 					onDragOver={(event) => {
-						if (!event.dataTransfer.types.includes(LIBRARY_DRAG_TYPE) && !event.dataTransfer.types.includes(DECOR_DRAG_TYPE)) return;
+						if (!isInsertDrag(event)) return;
 						event.preventDefault();
 						event.dataTransfer.dropEffect = 'copy';
 						setDropTarget(true);
@@ -104,6 +112,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 					<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 					{design != null ? <DraftTinselBand design={design} /> : null}
 					<DraftOverlay draft={draft} />
+					<DraftEffects draft={draft} />
 					{cover}
 					<SelectionOverlay draft={draft} />
 					<HitboxOverlay draft={draft} />

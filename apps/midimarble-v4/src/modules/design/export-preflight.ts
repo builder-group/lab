@@ -1,5 +1,6 @@
 import { cachedFollowCameraTrack, followCameraTrack, framingStretches, isInFrame, type TCameraTrack, type TFramingStretch } from '@/modules/camera';
 import { hitReach, isUnreachable, reachStatus } from '@/modules/compose/reachability';
+import { hasSong } from '@/modules/music';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { FINISH_TYPE, finishCatch, getPieceDefinition, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
@@ -36,7 +37,8 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		...contactIssues(project, result, names),
 		...framingIssues(project, result, names),
 		...loopIssues(project, result),
-		...decorIssues(project, result, names, blenderObjects)
+		...decorIssues(project, result, names, blenderObjects),
+		...songIssues(project)
 	];
 	issues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity] || (a.time ?? Infinity) - (b.time ?? Infinity));
 
@@ -47,19 +49,45 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	const checked: TExportPreflight = { state: 'checked', issues, summary: '', warnings, notes, hitCount, onTimeCount };
 	// The sheet says what the hit summary says, with the tips after it
 	const tips = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
-	return { ...checked, summary: [problemSummary(checked).label, tips].filter(Boolean).join(' · ') };
+	const summary = problemSummary(checked);
+	return { ...checked, summary: [summary.label, summary.needsSong ? ADD_SONG_LABEL : '', tips].filter(Boolean).join(' · ') };
+}
+
+export const ADD_SONG_LABEL = 'Add a Song';
+
+/** An older project can have hits without a Song; it plays silently and exports silently, which the sheet warns of */
+function songIssues(project: TProject): TPreflightIssue[] {
+	if (hasSong(project) || countHits(project) === 0) return [];
+	return [{ id: 'song', kind: 'song', severity: 'warning', title: ADD_SONG_LABEL, detail: 'This project has hits but no song, so the film has no sound.', target: null }];
+}
+
+export type TProblemWorkspace = 'compose' | 'film';
+
+/** Where a problem gets fixed: camera framing and Decor in Film, everything about the run in Compose */
+export function problemWorkspace(issue: TPreflightIssue): TProblemWorkspace {
+	return issue.kind === 'framing' || issue.kind === 'decor' ? 'film' : 'compose';
+}
+
+/** Each workspace's open problems, for the dot on the other workspace's switch */
+export function workspaceProblems(preflight: TExportPreflight): Record<TProblemWorkspace, number> {
+	const counts = { compose: 0, film: 0 };
+	for (const issue of preflight.issues) if (issue.severity === 'warning' && issue.kind !== 'song') counts[problemWorkspace(issue)] += 1;
+	return counts;
 }
 
 /**
  * The hit summary of the timeline header, read from the preflight so it never disagrees with the export sheet,
  * Layers or the Camera track: "107 of 109 hits on time · 4 other problems", "2 hits need attention", or
  * "Checking…" until the run for the current edit arrives. Problems are the warnings in time order, so the
- * summary's click and Show First Problem go to the earliest.
+ * summary's click and Show First Problem go to the earliest. With a workspace it counts only that workspace's
+ * problems, so Compose never speaks of the camera; the export sheet passes none and lists them all.
  */
-export function problemSummary(preflight: TExportPreflight): TProblemSummary {
+export function problemSummary(preflight: TExportPreflight, workspace?: TProblemWorkspace): TProblemSummary {
 	const { hitCount: total, onTimeCount: onTime } = preflight;
-	if (preflight.state === 'pending') return { state: 'pending', tone: 'neutral', label: 'Checking…', problems: [], hitProblems: 0, otherProblems: 0, onTime, total };
-	const problems = problemsInTimeOrder(preflight.issues.filter((issue) => issue.severity === 'warning'));
+	if (preflight.state === 'pending') return { state: 'pending', tone: 'neutral', label: 'Checking…', problems: [], hitProblems: 0, otherProblems: 0, needsSong: false, onTime, total };
+	// A missing Song is asked for beside the summary, not counted among the problems of the run
+	const problems = problemsInTimeOrder(preflight.issues.filter((issue) => issue.severity === 'warning' && issue.kind !== 'song' && (workspace == null || problemWorkspace(issue) === workspace)));
+	const needsSong = preflight.issues.some((issue) => issue.kind === 'song');
 	const hitProblems = problems.filter((issue) => issue.kind === 'hit').length;
 	const otherProblems = problems.length - hitProblems;
 	const hits =
@@ -71,7 +99,7 @@ export function problemSummary(preflight: TExportPreflight): TProblemSummary {
 	const others = otherProblems > 0 ? `${otherProblems} ${hits === '' ? '' : 'other '}${otherProblems === 1 ? 'problem' : 'problems'}` : '';
 	const label = [hits, others].filter(Boolean).join(' · ') || 'No hits yet';
 	const tone = problems.length > 0 ? 'warn' : total > 0 && onTime === total ? 'good' : 'neutral';
-	return { state: 'checked', tone, label, problems, hitProblems, otherProblems, onTime, total };
+	return { state: 'checked', tone, label, problems, hitProblems, otherProblems, needsSong, onTime, total };
 }
 
 /**
@@ -108,6 +136,8 @@ export interface TProblemSummary {
 	problems: TPreflightIssue[];
 	hitProblems: number;
 	otherProblems: number;
+	/** Hits without a Song: the film would be silent, so the summary asks for one */
+	needsSong: boolean;
 	onTime: number;
 	total: number;
 }
@@ -185,7 +215,7 @@ export interface TPreflightTarget {
 	workspace?: 'compose' | 'design';
 }
 
-export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'framing' | 'loop' | 'decor' | 'simulation';
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'framing' | 'loop' | 'decor' | 'simulation' | 'song';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 

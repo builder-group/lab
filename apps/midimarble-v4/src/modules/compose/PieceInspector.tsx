@@ -81,7 +81,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
 				fix={
 					// The Fix-it sits under the problem
-					status == null || link == null ? null : status.tone === 'bad' && soundsHit(type, link) ? (
+					status == null || link == null ? null : (status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link) ? (
 						<ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} />
 					) : (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isFinishMissed ? (
 						<FixPieceButton cx={cx} entityId={first.id} isPlatform={soundsHit(type, link)} />
@@ -176,6 +176,70 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	);
 };
 
+/**
+ * The platform's ∠, L and Lands At beside its hit, so stepping through hits leaves the tilt in reach. The same fields and
+ * edits as the piece's own Position panel; Hitbox, Physics and Look stay on the platform.
+ */
+export const PlatformFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
+	const { cx, project, entity } = props;
+	const definition = getPieceDefinition(entity.components.piece?.type ?? 'platform');
+	const angle = pieceAngle(entity);
+	const link = entity.components.hitLink;
+	const preview = (edit: TPieceEdit): void => cx.simulation.startPreview(applyPieceEdit(project, [entity], edit).project);
+	const commit = (edit: TPieceEdit): void => {
+		cx.execute(applyPieceEdit(project, [entity], edit).commands);
+		cx.simulation.endPreview();
+	};
+	const cancel = (): void => cx.simulation.endPreview();
+	return (
+		<>
+			<ScrubField
+				id="hit-platform-angle"
+				label="∠"
+				name="Angle"
+				value={angle == null ? null : Math.round(toDegrees(normalizeSurfaceAngle(angle)) * 10) / 10}
+				unit="°"
+				step={0.5}
+				precision={1}
+				min={-90}
+				max={90}
+				onPreview={(value) => preview({ angle: toRadians(value) })}
+				onCommit={(value) => commit({ angle: toRadians(value) })}
+				onCancel={cancel}
+			/>
+			<ScrubField
+				id="hit-platform-length"
+				label="L"
+				name="Length"
+				value={Math.round(resolvedParam(entity, 'length') * 1000) / 10}
+				unit="cm"
+				step={0.1}
+				precision={1}
+				min={(definition?.params['length']?.min ?? 0.02) * 100}
+				max={(definition?.params['length']?.max ?? 0.3) * 100}
+				onPreview={(value) => preview({ params: { length: value / 100 } })}
+				onCommit={(value) => commit({ params: { length: value / 100 } })}
+				onCancel={cancel}
+			/>
+			{link != null ? (
+				<ScrubField
+					id="hit-platform-contact"
+					label="Lands At"
+					name="Where along the platform the marble lands"
+					value={Math.round(link.contactAt * 100)}
+					unit="%"
+					step={0.5}
+					min={0}
+					max={100}
+					onPreview={(value) => preview({ hitLink: { contactAt: value / 100 } })}
+					onCommit={(value) => commit({ hitLink: { contactAt: value / 100 } })}
+					onCancel={cancel}
+				/>
+			) : null}
+		</>
+	);
+};
+
 interface TPieceInspectorProps {
 	cx: StudioCx;
 	project: TProject;
@@ -183,8 +247,8 @@ interface TPieceInspectorProps {
 }
 
 /**
- * Re-place under a Blocked, Missed or Stopped platform's status pill, like an Xcode Fix-it: places this platform
- * again on its own, as one undo step
+ * Re-place under a Blocked, Missed or Stopped platform's status pill, or an early or late one a drag left where it
+ * lies, like an Xcode Fix-it: places this platform again on its own, as one undo step
  */
 export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: string }> = (props) => {
 	const { cx, laneId, hitId } = props;
@@ -195,7 +259,7 @@ export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: stri
 			className="mm-fix-it mm-fix-it-label"
 			disabled={compose == null || replacing != null}
 			onClick={() => void compose?.assist.replace([`${laneId}/${hitId}`])}
-			title="Tilt this platform again so the marble lands on time"
+			title="Place this platform again so the marble lands on time"
 			type="button"
 		>
 			{/* The placing wand, as in the step bar */}
@@ -264,7 +328,7 @@ function tieLabel(project: TProject, entity: TEntity): string {
 	if (attach.kind === 'anchored') return `Follows ${lane?.name ?? 'a marble'} at ${formatTime(attach.time)}`;
 	const index = lane?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
 	const hit = lane?.hits[index];
-	const note = hit?.pitch != null ? noteName(hit.pitch) : `Note ${index + 1}`;
+	const note = hit?.pitch != null ? noteName(hit.pitch) : `Hit ${index + 1}`;
 	return hit == null ? 'Plays a note' : `Plays ${note} · ${formatTime(hit.time)}`;
 }
 
@@ -278,7 +342,7 @@ function pieceStatus(project: TProject, entity: TEntity, resolved: TResolvedPiec
 		const hit = result?.hits.find((item) => item.pieceEntityId === entity.id || (item.laneId === link.laneId && item.hitId === link.hitId));
 		const lane = project.music.lanes.find((item) => item.id === link.laneId);
 		const pitch = lane?.hits.find((item) => item.id === link.hitId)?.pitch;
-		return timingStatus(resolved, hit, { marble: lane?.name, note: pitch == null ? undefined : noteName(pitch), piece: entity.name ?? undefined });
+		return timingStatus(resolved, hit, { marble: lane?.name, note: pitch == null ? undefined : noteName(pitch), piece: entity.name ?? undefined, isOffDot: link.pinned === true });
 	}
 	const kind = pieceKind({ type });
 	if ((kind === 'path' || kind === 'tube') && resolved != null && result != null) return rideStatus(project, resolved, result, link.laneId);
@@ -376,7 +440,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 		>
 			{attach.kind === 'linked' ? (
 				<LinkRow
-					title={`Select Note ${hitIndex + 1}`}
+					title={`Select Hit ${hitIndex + 1}`}
 					onOpen={openHit}
 					action={
 						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, tied to nothing" aria-label="Detach" type="button">
@@ -387,7 +451,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 					<span className="inline-flex items-center gap-2">
 						{marbleDot}
 						<span>
-							Note {hitIndex + 1}
+							Hit {hitIndex + 1}
 							<span className="mm-insp-secondary">
 								{hit?.pitch != null ? ` · ${noteName(hit.pitch)}` : ''} · {formatTime(hit?.time ?? 0)}
 							</span>

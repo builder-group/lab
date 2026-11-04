@@ -2,6 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { renderedSpans } from '@/modules/design/live-preview';
 import { createLoop } from '@/modules/simulation';
+import { draggedCycleRange, shownCycle, type TCycleDrag } from '../cycle';
 import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';
 import { formatRulerTime, RULER_HEIGHT, rulerSteps, TIME_INSET, TIME_ORIGIN } from './timeline-layout';
@@ -48,7 +49,7 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 			<span
 				className="absolute top-0 bottom-0 z-10 flex w-3 -translate-x-full cursor-ew-resize items-stretch justify-end"
 				style={{ left: shownEnd * zoom }}
-				title={`Project end ${formatTime(shownEnd)}. Drag to change.`}
+				title={`Film end ${formatTime(shownEnd)}. Drag to change.`}
 				onPointerDown={(event) => {
 					if (event.button !== 0) return;
 					event.stopPropagation();
@@ -67,6 +68,7 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 				<span className="w-[3px] rounded-l-[1px] bg-[var(--text-secondary)]" />
 			</span>
 			<LoopRegion cx={cx} zoom={zoom} />
+			<CycleStrip cx={cx} end={end} zoom={zoom} timeAt={timeAt} />
 			<RenderBar cx={cx} zoom={zoom} />
 			<PlayheadHead cx={cx} zoom={zoom} />
 		</div>
@@ -80,6 +82,49 @@ interface TRulerProps {
 	width: number;
 	timeAt: (clientX: number) => number;
 }
+
+// How close to an edge of the cycle range, in pixels, a press takes that edge
+const CYCLE_EDGE_PX = 5;
+
+/** The Repeat range along the top of the ruler, only while Repeat is on, as a video editor's loop range: its edges and body drag */
+const CycleStrip: React.FC<{ cx: StudioCx; end: number; zoom: number; timeAt: (clientX: number) => number }> = (props) => {
+	const { cx, end, zoom, timeAt } = props;
+	const stored = useFeatureState(cx.$cycle);
+	// A range exists on the ruler only while Repeat is on, so moving the playhead can never start one
+	const shown = shownCycle(stored, cx.project?.id, end);
+	const range = shown?.isOn === true ? shown : null;
+	const dragRef = React.useRef<TCycleDrag | null>(null);
+	if (range == null) return null;
+
+	function onPointerDown(event: React.PointerEvent<HTMLElement>): void {
+		if (event.button !== 0 || range == null) return;
+		event.stopPropagation();
+		event.currentTarget.setPointerCapture(event.pointerId);
+		const time = timeAt(event.clientX);
+		const edge = CYCLE_EDGE_PX / zoom;
+		dragRef.current = Math.abs(time - range.start) <= edge ? { mode: 'start', range } : Math.abs(time - range.end) <= edge ? { mode: 'end', range } : { mode: 'move', range, grabbedAt: time };
+	}
+
+	function onPointerMove(event: React.PointerEvent<HTMLElement>): void {
+		const drag = dragRef.current;
+		if (drag == null) return;
+		// The ruler around the range scrubs on a move; this drag is the range's
+		event.stopPropagation();
+		cx.setCycleRange(draggedCycleRange(drag, timeAt(event.clientX), end));
+	}
+
+	return (
+		<span
+			className="mm-cycle-range"
+			style={{ left: range.start * zoom, width: (range.end - range.start) * zoom }}
+			title={`Repeats ${formatTime(range.start)} to ${formatTime(range.end)}. Drag it or its edges; the Repeat button removes it (C)`}
+			onPointerDown={onPointerDown}
+			onPointerMove={onPointerMove}
+			onPointerUp={() => (dragRef.current = null)}
+			onPointerCancel={() => (dragRef.current = null)}
+		/>
+	);
+};
 
 /** The film range of a seamless loop as a bar along the top of the ruler, like Logic's cycle area */
 const LoopRegion: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {

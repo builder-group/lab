@@ -6,7 +6,6 @@ import {
 } from 'spessasynth_core';
 import type { THit, TLane, TProject } from '@/modules/project';
 
-export const DEFAULT_HIT_PITCH = 76;
 export const DEFAULT_HIT_VELOCITY = 0.8;
 export const MAX_NOTE_LENGTH = 0.6;
 /** Longest Backing note; held notes of a MIDI file end here so a stuck note cannot ring through the film */
@@ -91,19 +90,18 @@ export interface TStereoAudio {
 	right: Float32Array;
 }
 
-// Note events sorted by sample; at equal samples note-offs come first so a repeated pitch retriggers
+/**
+ * Note events sorted by sample; at equal samples note-offs come first so a repeated pitch retriggers. Only hits
+ * from a MIDI note sound: a tapped hit has no pitch and plays nothing, and does not shorten the note before it.
+ */
 export function createLaneEvents(lanes: TLane[], sampleRate: number): TLaneEvent[] {
 	const events: TLaneEvent[] = [];
 	for (const [index, lane] of lanes.entries()) {
 		const channel = laneChannel(index);
-		const hits = [...lane.hits].sort((a, b) => a.time - b.time);
+		const hits = lane.hits.filter(hasPitch).sort((a, b) => a.time - b.time);
 		for (const [hitIndex, hit] of hits.entries()) {
-			const next = hits[hitIndex + 1];
-			const length = Math.min(
-				MAX_NOTE_LENGTH,
-				next == null ? MAX_NOTE_LENGTH : next.time - hit.time
-			);
-			const pitch = hit.pitch ?? DEFAULT_HIT_PITCH;
+			const length = laneNoteLength(hit, hits[hitIndex + 1]);
+			const { pitch } = hit;
 			const velocity = Math.round(1 + (hit.velocity ?? DEFAULT_HIT_VELOCITY) * 126);
 			const onSample = Math.round(hit.time * sampleRate);
 			events.push({ kind: 'on', sample: onSample, channel, pitch, velocity });
@@ -125,16 +123,30 @@ export function createLaneEvents(lanes: TLane[], sampleRate: number): TLaneEvent
  */
 export function createBackingEvents(hits: THit[], channel: number, sampleRate: number): TLaneEvent[] {
 	const events: TLaneEvent[] = [];
-	const sorted = [...hits].sort((a, b) => a.time - b.time);
+	const sorted = hits.filter(hasPitch).sort((a, b) => a.time - b.time);
 	for (const [index, hit] of sorted.entries()) {
-		const pitch = hit.pitch ?? DEFAULT_HIT_PITCH;
-		const next = sorted.slice(index + 1).find((item) => (item.pitch ?? DEFAULT_HIT_PITCH) === pitch);
-		const length = Math.min(hit.duration ?? MAX_NOTE_LENGTH, MAX_BACKING_NOTE_LENGTH, next == null ? Infinity : next.time - hit.time);
+		const { pitch } = hit;
+		const next = sorted.slice(index + 1).find((item) => item.pitch === pitch);
+		const length = backingNoteLength(hit, next);
 		const velocity = Math.round(1 + (hit.velocity ?? DEFAULT_HIT_VELOCITY) * 126);
 		events.push({ kind: 'on', sample: Math.round(hit.time * sampleRate), channel, pitch, velocity });
 		events.push({ kind: 'off', sample: Math.round((hit.time + Math.max(0, length)) * sampleRate), channel, pitch, velocity: 0 });
 	}
 	return events.sort(compareEvents);
+}
+
+/** How long a marble's note sounds: its own length up to `MAX_NOTE_LENGTH`, and only until the marble's next note */
+export function laneNoteLength(hit: THit, next: THit | undefined): number {
+	return Math.min(hit.duration ?? MAX_NOTE_LENGTH, MAX_NOTE_LENGTH, next == null ? MAX_NOTE_LENGTH : next.time - hit.time);
+}
+
+/** How long a Backing note sounds: its MIDI length up to `MAX_BACKING_NOTE_LENGTH`, and only until the next note of the same pitch */
+export function backingNoteLength(hit: THit, nextSamePitch: THit | undefined): number {
+	return Math.min(hit.duration ?? MAX_NOTE_LENGTH, MAX_BACKING_NOTE_LENGTH, nextSamePitch == null ? Infinity : nextSamePitch.time - hit.time);
+}
+
+function hasPitch(hit: THit): hit is THit & { pitch: number } {
+	return hit.pitch != null;
 }
 
 function compareEvents(a: TLaneEvent, b: TLaneEvent): number {

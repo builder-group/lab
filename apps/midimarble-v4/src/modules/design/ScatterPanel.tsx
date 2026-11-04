@@ -2,6 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Wand2, X } from 'lucide-react';
 import React from 'react';
 import type { StudioCx } from '@/modules/studio/StudioCx';
+import { assetDecorSource } from './decor';
 import { $scatterPanel, runScatter, type TScatterPanel } from './decor-actions';
 import { DECOR_ITEMS } from './decor-catalog';
 
@@ -12,6 +13,7 @@ import { DECOR_ITEMS } from './decor-catalog';
 export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const panel = useFeatureState($scatterPanel);
+	const projectItems = useFeatureState(cx.library.$projectItems);
 	const [density, setDensity] = React.useState<number | null>(null);
 
 	// Escape closes it before it reaches the studio shortcuts
@@ -29,8 +31,9 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 
 	if (panel == null) return null;
 	const again = (patch: Partial<TScatterPanel>): void => runScatter(cx, { ...panel, ...patch });
-	const assets = panel.sources.filter((source) => !source.startsWith('decor:'));
-	const items = DECOR_ITEMS.filter((item) => item.scatter);
+	// Decor from the Library that is in this project, beside the built-in items
+	const assets = projectItems.flatMap((item) => (item.manifest?.role === 'decoration' ? [{ id: assetDecorSource(item.id, item.manifest.label, item.manifest.fittedParams).source, label: item.manifest.label }] : []));
+	const items = [...DECOR_ITEMS.filter((item) => item.scatter), ...assets];
 
 	function toggle(source: string): void {
 		if (panel == null) return;
@@ -43,7 +46,7 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 			<div className="flex items-center gap-1.5">
 				<Wand2 size={13} strokeWidth={1.8} />
 				<span className="flex-1 font-medium">Scatter Decor</span>
-				<span className="text-[11px] text-[var(--text-secondary)]">{panel.count === 1 ? '1 item' : `${panel.count} items`}</span>
+				<span className="text-[11px] text-[var(--text-secondary)]">{panel.sources.length === 0 ? 'Pick items' : panel.count === 1 ? '1 item' : `${panel.count} items`}</span>
 				<button className="mm-icon-button !h-5 !w-5" onClick={() => $scatterPanel.set(null)} title="Done (esc)" aria-label="Done" type="button">
 					<X size={11} strokeWidth={2} />
 				</button>
@@ -54,7 +57,6 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 						{item.label}
 					</button>
 				))}
-				{assets.length > 0 ? <span className="self-center text-[11px] text-[var(--text-secondary)]">+ {assets.length} from the Library</span> : null}
 			</div>
 			<label className="flex items-center gap-2">
 				<span>Density</span>

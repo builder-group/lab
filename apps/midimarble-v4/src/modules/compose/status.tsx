@@ -15,8 +15,9 @@ export const badgeStyles: Record<TBadgeStatus, { color: string; glyph: string; l
 	struck: { color: 'var(--warn)', glyph: 'M -2.6 -2.2 L 0 0.6 L 2.6 -2.2 M 0 0.6 L 0 2.8', label: 'Hit by Another Marble' }
 };
 
-/** The badge status of a piece, from its own status and the result of its hit */
+/** The badge beside a piece: what its hit's dot can't say. A hit with a dot carries its own status, scenery has none. */
 export function badgeStatus(pieceStatus: TPieceStatus | undefined, hit: THitResult | undefined): TBadgeStatus | null {
+	if (hit?.dot != null) return null;
 	if (pieceStatus === 'blocked') return 'blocked';
 	if (pieceStatus === 'unreached') return 'missed';
 	if (hit == null || hit.status === 'open') return null;

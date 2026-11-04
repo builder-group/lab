@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BACKING_ID, type THit, type TProject, type TSource } from '@/modules/project';
-import { clampPitch, isBlackKey, noteDragCommands, OPENING_GAP, openingRollOffset, pitchDeltaFor, pitchToRow, rowCount, songRollRange } from './piano-roll';
+import { addNoteCommands, clampPitch, isBlackKey, maxNoteLength, noteDragCommands, OPENING_GAP, openingRollOffset, pitchDeltaFor, pitchToRow, resizedNoteLength, rowCount, snapNoteTime, songRollRange } from './piano-roll';
 
 function project(lanes: (number | undefined)[][], backing: (number | undefined)[] = []): TProject {
 	const hits = (id: string, pitches: (number | undefined)[]): THit[] => pitches.map((pitch, index) => ({ id: `${id}-${index}`, time: index, pitch }));
@@ -17,6 +17,31 @@ const midi = { kind: 'midi' } as TSource;
 const audio = { kind: 'audio' } as TSource;
 
 describe('piano roll', () => {
+	describe('adding a note', () => {
+		it('should be one edit that gives the marble a pitched hit with its length, so the run gets a dot for it', () => {
+			const song = project([[64, 60]]);
+			const { hit, commands } = addNoteCommands('lane-0', { time: 0.5, pitch: 67, duration: 0.25 });
+
+			expect(commands).toEqual([{ type: 'upsertHits', laneId: 'lane-0', hits: [hit] }]);
+			expect(hit).toMatchObject({ time: 0.5, pitch: 67, duration: 0.25 });
+			expect(songRollRange(song, midi)).not.toBeNull();
+		});
+
+		it('should snap to the sixteenth only when the pointer is close to it', () => {
+			// 120 BPM: sixteenths every 0.125 s; at 100 px/s a line within 6 px is within 0.06 s
+			expect(snapNoteTime(0.51, 120, 100)).toBeCloseTo(0.5);
+			expect(snapNoteTime(0.56, 120, 100)).toBeCloseTo(0.56);
+			expect(snapNoteTime(0.51, undefined, 100)).toBeCloseTo(0.5);
+		});
+
+		it('should limit a resized note to what it can sound for', () => {
+			expect(resizedNoteLength('lane-0', 0.25, 50, 100)).toBeCloseTo(0.6);
+			expect(resizedNoteLength(BACKING_ID, 0.25, 50, 100)).toBeCloseTo(0.75);
+			expect(resizedNoteLength('lane-0', 0.25, -500, 100)).toBeCloseTo(0.05);
+			expect(maxNoteLength(BACKING_ID)).toBeGreaterThan(maxNoteLength('lane-0'));
+		});
+	});
+
 	describe('songRollRange function', () => {
 		it('should span every note of the marbles and Backing plus two semitones on each side', () => {
 			expect(songRollRange(project([[64, 60]], [67]), midi)).toEqual({ low: 58, high: 69 });

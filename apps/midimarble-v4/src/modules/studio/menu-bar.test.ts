@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getCommand } from './commands';
-import { buildMenuBar, changedMenuItems, findCommandLine, isCommandLine, menuItemId, menuItemStates, menuLayout, parseMenuItemId, toAccelerator } from './menu-bar';
+import { buildMenuBar, changedMenuItems, findCommandLine, isCommandLine, menuItemId, menuItemStates, menuLayout, parseMenuItemId, readMenuItem, toAccelerator } from './menu-bar';
+import type { StudioCx } from './StudioCx';
 
 describe('toAccelerator function', () => {
 	it('should turn ⌘ and ⌃ shortcuts into Tauri accelerators', () => {
@@ -81,7 +82,7 @@ describe('buildMenuBar function', () => {
 		const menus = buildMenuBar(read, []);
 		const save = menus[0]?.items.find((item) => item.kind === 'command' && item.id === 'file.save');
 		expect(save?.kind === 'command' ? save.accelerator : null).toBe('CmdOrCtrl+S');
-		expect(menus.map((menu) => menu.role)).toEqual([null, null, null, 'window', 'help']);
+		expect(menus.map((menu) => menu.role)).toEqual([null, null, null, null, null, 'window', 'help']);
 	});
 });
 
@@ -91,5 +92,38 @@ describe('changedMenuItems function', () => {
 		const after = new Map(before);
 		after.set('file.save', { title: 'Save', enabled: false, checked: null });
 		expect(changedMenuItems(before, after)).toEqual([{ id: 'file.save', title: 'Save', enabled: false, checked: null }]);
+	});
+});
+
+describe('Playback and Piece menus', () => {
+	const section = (title: string): string[] => menuLayout.find((item) => item.title === title)?.items.filter(isCommandLine).map((line) => line.command) ?? [];
+
+	it('should sit between View and Window', () => {
+		expect(menuLayout.map((item) => item.title)).toEqual(['File', 'Edit', 'View', 'Playback', 'Piece', 'Window', 'Help']);
+	});
+
+	it('should list the transport and the piece assists', () => {
+		expect(section('Playback')).toEqual(['play.toggle', 'play.start', 'play.previousHit', 'play.nextHit', 'play.cycle']);
+		expect(section('Piece')).toEqual(['build.next', 'build.continue', 'build.mirror', 'build.repeat', 'build.addFinish', 'edit.duplicate', 'piece.detach']);
+	});
+
+	it('should show single keys in the title and never as menu keys, and name Pause while playing', () => {
+		const line = { command: 'play.toggle' } as const;
+		const shown = { ...line, showsKey: true };
+		const cx = (isPlaying: boolean): StudioCx => ({ $playing: { get: () => isPlaying }, project: {} }) as unknown as StudioCx;
+		expect(readMenuItem(cx(false), shown, false).title).toBe('Play\tSpace');
+		expect(readMenuItem(cx(true), shown, false).title).toBe('Pause\tSpace');
+		const menus = buildMenuBar(() => ({ title: 'x', enabled: true, checked: null }), []);
+		const items = menus.find((menu) => menu.title === 'Playback')?.items ?? [];
+		expect(items.some((item) => item.kind === 'command')).toBe(true);
+		for (const item of items) if (item.kind === 'command') expect(item.accelerator).toBeNull();
+	});
+
+	it('should keep ⌘D on Edit and ⌘0 on View', () => {
+		const menus = buildMenuBar(() => ({ title: 'x', enabled: true, checked: null }), []);
+		const commandItems = menus.flatMap((menu) => menu.items).flatMap((item) => (item.kind === 'command' ? [item] : []));
+		expect(commandItems.filter((item) => item.accelerator === 'CmdOrCtrl+D').map((item) => item.id)).toEqual(['edit.duplicate']);
+		expect(commandItems.find((item) => item.id === 'view.zoom100')?.accelerator).toBe('CmdOrCtrl+0');
+		expect(commandItems.some((item) => item.id === 'view.fitWhole')).toBe(true);
 	});
 });

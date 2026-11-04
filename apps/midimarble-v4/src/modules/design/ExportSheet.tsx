@@ -5,6 +5,7 @@ import React from 'react';
 import { HelpTip, Select } from '@/components';
 import { host } from '@/environment';
 import type { TFilmEngine, TRenderPreset } from '@/modules/blender';
+import { mutedSoundtrackNote } from '@/modules/music';
 import type { StudioCx } from '@/modules/studio';
 import { estimateExport, filmEngine, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresetOption, renderPresets, type TExportEstimate, type TRenderEngine } from './export-estimate';
 import { ExportPreflight, useExportPreflight } from './ExportPreflight';
@@ -68,8 +69,10 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 	const result = useFeatureState(cx.simulation.$result);
 	const project = useFeatureState(cx.$history)?.present;
 	const preflight = useExportPreflight(cx);
+	const mix = useFeatureState(cx.$mix);
 	const isAvailable = cx.film.isAvailable;
 	if (project == null || preflight == null) return null;
+	const mutedNote = mutedSoundtrackNote(project, mix);
 	// Issues never block an export; the default button only says that it goes ahead despite them
 	const exportLabel = preflight.warnings > 0 ? 'Export Anyway' : 'Export';
 
@@ -167,6 +170,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 			</div>
 
 			<ExportPreflight cx={cx} preflight={preflight} />
+			{mutedNote != null ? <p className="text-[11px] leading-snug text-[var(--text-secondary)]">{mutedNote}</p> : null}
 
 			<div className="flex justify-end gap-2">
 				<button className="mm-button" data-size="dialog" onClick={() => cx.film.closeSheet()} title="Cancel (Esc)" type="button">

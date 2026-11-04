@@ -1,8 +1,9 @@
 import { createState } from 'feature-state';
-import { createId, type TDecor, type TDesign, type TMadeInBlender, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { createId, type TDecor, type TDesign, type TMadeInBlender, type TProject, type TProjectCommand, type TGarland, type TSnowfall, type TVec2 } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { parseDecorKey, parseMadeInBlenderKey, toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
-import { decorExtent, decorItem, decorText } from './decor-catalog';
+import { decorExtent, decorItem, decorText, isFrameEffect } from './decor-catalog';
+import { effectDefaults } from './decor-effects';
 import { cachedObstacleField, distanceToBox, isBoxClear, pathOverlaps, type TWallBox } from './decor-clearance';
 import { titleSpan } from './titles';
 
@@ -96,7 +97,8 @@ export function newDecor(source: TDecorSource, point: TVec2, taken: readonly str
 		rotation: 0,
 		depth: 0,
 		...(text != null ? { text } : {}),
-		...(source.footprint != null ? { footprint: source.footprint } : {})
+		...(source.footprint != null ? { footprint: source.footprint } : {}),
+		...effectDefaults(source.source)
 	};
 }
 
@@ -118,6 +120,30 @@ export function updateDecorCommands(project: TProject, ids: readonly string[], p
 			const next: TDecor = { ...(moved ? own : item), ...patch };
 			if (next.hidden !== true) delete next.hidden;
 			return next;
+		})
+	);
+}
+
+/**
+ * Makes the decorations another item, keeping where they sit and when they show. A name still starting with the old
+ * item's label takes the new one's. Like any hand edit it makes them the user's: Scatter Decor leaves them.
+ */
+export function decorSourceCommands(project: TProject, ids: readonly string[], source: TDecorSource): TProjectCommand[] {
+	const list = decorList(project.design);
+	if (!list.some((item) => ids.includes(item.id) && item.source !== source.source)) return [];
+	const text = decorItem(source.source)?.text;
+	return setDecorList(
+		list.map((item) => {
+			if (!ids.includes(item.id) || item.source === source.source) return item;
+			const { scattered: _scattered, footprint: _footprint, text: _text, ...own } = item;
+			const oldLabel = decorItem(item.source)?.label;
+			return {
+				...own,
+				name: oldLabel != null && item.name.startsWith(oldLabel) ? `${source.label}${item.name.slice(oldLabel.length)}` : item.name,
+				source: source.source,
+				...(text != null ? { text } : {}),
+				...(source.footprint != null ? { footprint: source.footprint } : {})
+			};
 		})
 	);
 }
@@ -163,7 +189,7 @@ export function decorAtWall(project: TProject, time: number, point: TVec2): stri
 	const list = decorList(project.design);
 	for (let index = list.length - 1; index >= 0; index--) {
 		const item = list[index];
-		if (item == null || item.hidden === true) continue;
+		if (item == null || item.hidden === true || isFrameEffect(item)) continue;
 		const span = titleSpan(item, project.end);
 		if (time >= span.start && time <= span.end && distanceToBox(decorBox(item), point.x, point.y) === 0) return toDecorKey(item.id);
 	}
@@ -181,7 +207,8 @@ export interface TDecorOverlap {
 /** Layers a marble's path crosses while they show. Hidden layers and layers outside the film overlap nothing. */
 export function decorOverlaps(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[]): TDecorOverlap[] {
 	if (!result.marbles.length) return [];
-	const decor = decorList(project.design).filter((item) => item.hidden !== true);
+	// Snowfall and Garland hang from the camera: nothing they pass over is on their path
+	const decor = decorList(project.design).filter((item) => item.hidden !== true && !isFrameEffect(item));
 	if (!decor.length && !blenderObjects.length) return [];
 	const field = cachedObstacleField(result);
 	const overlaps: TDecorOverlap[] = [];
@@ -263,6 +290,8 @@ export interface TSceneDecorItem {
 	rotation: number;
 	depth: number;
 	text?: string;
+	snowfall?: TSnowfall;
+	garland?: TGarland;
 	in?: number;
 	out?: number;
 	hidden?: boolean;

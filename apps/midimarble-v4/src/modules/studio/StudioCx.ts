@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { host, notSongFileMessage, songFileKind, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, endsOnFinish, isAutoEnd, projectSongEnd, type TAudioEngine } from '@/modules/music';
+import { autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnFinish, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
 import {
 	amendHistory,
 	applyProjectCommands,
@@ -25,17 +25,22 @@ import {
 	type TVec2
 } from '@/modules/project';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
+import { shownCycle, toggledCycle, type TCycle, type TCycleRange } from './cycle';
 import { fittedSongEnd } from '@/modules/camera/finish-exit';
 import { FINISH_TYPE } from '@/modules/simulation/finish';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
-import { parseHitKey } from './selection';
+import { selectionEnteringFilm } from './inspector-target';
+import { parseHitKey, stepHitTarget, toHitKey } from './selection';
 import { TAP_COUNT_IN_SECONDS, tapTime } from './tap';
+import type { THitFlash } from './timeline/hit-flash';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
+import type { TView } from '@/modules/compose/view';
 import { AgentCx } from '@/modules/agents';
-import { addWallTextCommands, baseThemeOf, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall } from '@/modules/design';
+import { addWallTextCommands, defaultTitleColor, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/design';
+import { songDisplayName } from '@/modules/design/titles';
 import { preflightExport, problemSummary, type TPreflightTarget } from '@/modules/design/export-preflight';
 
 /** Owns the open project, its history, persistence and the shared editing state of the studio */
@@ -59,6 +64,12 @@ export class StudioCx {
 	readonly $selection = createState<TSelection>([]);
 	readonly $playhead = createState(0);
 	readonly $playing = createState(false);
+	/** Cycle: the range on the ruler that playback loops. A preview for this session, never saved, unrelated to Seamless Loop. */
+	readonly $cycle = createState<TCycle | null>(null);
+	/** Fit the Wall view to the first open hits, once playback stopped and the run for the latest edit arrived */
+	readonly $fitFirstHits = createState(false);
+	/** The Wall view Compose showed before Film replaced it, so coming back keeps it, like a page's view in Figma */
+	composeView: { projectId: string; view: TView } | null = null;
 	/** Song time before which taps record nothing, set when T starts playback (see `tapHit`) */
 	private tapCountInEnd = -Infinity;
 	/** The playback T started: whether the length followed the song then, and whether a tap added a hit */
@@ -78,8 +89,10 @@ export class StudioCx {
 	// Zero fits the timeline to its lanes until the user drags it to a height of their own
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));
 	readonly $paletteOpen = createState(false);
-	/** Muted and soloed lanes, like the M and S buttons of a Logic track header. View state, not saved. */
-	readonly $mix = createState<TLaneMix>({ muted: [], solo: [] });
+	/** Muted and soloed Parts of the Song. View state, not saved; each opened project starts with everything on. */
+	readonly $mix = createState<TSongMix>(EMPTY_MIX);
+	/** The hits a marble just landed while playing, for their dots to flash (`useHitFlash`) */
+	readonly $hitFlash = createState<THitFlash[]>([]);
 	/** The mounted Compose canvas, so commands and menus outside it can drive its tools */
 	readonly $compose = createState<ComposeCx | null>(null);
 	/** Marble entity, lane or piece whose name is being edited in place in the sidebar */
@@ -117,6 +130,7 @@ export class StudioCx {
 	});
 	readonly film = new FilmExportCx({
 		getProject: () => this.project,
+		getMix: () => this.$mix.get(),
 		getPackagePath: () => this.$path.get(),
 		resolveSourceUrl: (source) => this.resolveSourceUrl(source),
 		design: this.design
@@ -175,6 +189,7 @@ export class StudioCx {
 				// Background preview frames render only while Film is open
 				this.design.live.setActive(value === 'design');
 				if (value !== 'design') return;
+				this.selectEnteringFilm();
 				void this.design.activate();
 				void this.library.refresh(false);
 			}),
@@ -212,11 +227,14 @@ export class StudioCx {
 		return path == null ? null : host.sourceUrl(path, source.path);
 	};
 
-	/** Plays one hit's sound as feedback when it is placed or selected */
+	/**
+	 * Plays a note of the Song as feedback when it is placed or selected. The Song is the only sound, so a tapped hit
+	 * has nothing to play, and neither has a project without a Song or with a recording, which has no notes to pick.
+	 */
 	audition(laneId: string, pitch?: number): void {
 		const project = this.project;
 		const lane = project?.music.lanes.find((item) => item.id === laneId);
-		if (project == null || lane == null || project.music.sources.some((source) => source.kind === 'audio')) return;
+		if (project == null || lane == null || pitch == null || !soundsNotes(project)) return;
 		void this.audio.audition(lane, pitch);
 	}
 
@@ -231,11 +249,40 @@ export class StudioCx {
 		const result = this.simulation.$result.get();
 		const time = this.$playhead.get();
 		const point = previewPointToWall(project, result, time, u, v);
-		const { commands, entityId } = addWallTextCommands(point, { theme: baseThemeOf(project.design), frameHeight: frameHeightOnWall(project, result, time) });
+		const { commands, entityId } = addWallTextCommands(point, { color: defaultTitleColor(project.design), frameHeight: frameHeightOnWall(project, result, time) });
 		if (!this.execute(commands)) return;
 		this.$selection.set([entityId]);
 		// Typing starts at once, like Figma's text tool: the inspector focuses the Text field with its contents selected
 		this.design.$editingTitle.set(entityId);
+	}
+
+	/** A new Caption, Song Name or End Card at its default timing, selected, with its text ready to type */
+	addScreenTitle(style: TTitleStyle): void {
+		const project = this.project;
+		if (project == null) return;
+		this.design.$placing.set(null);
+		const result = this.simulation.$result.get();
+		const playhead = this.$playhead.get();
+		const frameHeight = frameHeightOnWall(project, result, playhead);
+		const { commands, entityId } = addWallTextCommands(previewPointToWall(project, result, playhead, 0.5, 0.5), { color: defaultTitleColor(project.design), frameHeight });
+		const styled = commands.flatMap((command) => {
+			if (command.type !== 'upsertEntity' || command.entity.components.wallText == null) return [command];
+			const wallText = withTitleStyle(command.entity.components.wallText, style, { frameHeight, playhead, end: project.end, songName: songDisplayName(project), aspect: project.frame.width / project.frame.height });
+			return [{ ...command, entity: { ...command.entity, name: wallText.text, components: { ...command.entity.components, wallText } } }];
+		});
+		if (!this.execute(styled)) return;
+		this.$workspace.set('design');
+		this.$selection.set([entityId]);
+		this.design.$editingTitle.set(entityId);
+	}
+
+	/** Film opens on the Scene with its theme in view, unless a layer Film is about stays selected */
+	private selectEnteringFilm(): void {
+		const project = this.project;
+		if (project == null) return;
+		const selection = this.$selection.get();
+		const kept = selectionEnteringFilm(project, selection);
+		if (kept.length !== selection.length) this.$selection.set(kept);
 	}
 
 	/** Selects entities and asks the canvas to frame them when they are out of view */
@@ -546,6 +593,7 @@ export class StudioCx {
 		this.$isTemporary.set(isTemporary);
 		this.savedRevision = project.revision;
 		this.$history.set(createHistory(project));
+		this.$mix.set(EMPTY_MIX);
 		this.$path.set(path);
 		writeText(OPEN_PROJECT_KEY, path);
 		this.$save.set('saved');
@@ -668,21 +716,26 @@ export class StudioCx {
 		this.$agentDraft.set(draft);
 	}
 
-	toggleMute(laneId: string): void {
-		this.$mix.set((mix) => ({ ...mix, muted: toggleItem(mix.muted, laneId) }));
+	toggleMute(partId: string): void {
+		this.$mix.set((mix) => ({ ...mix, muted: toggleItem(mix.muted, partId) }));
 	}
 
-	toggleSolo(laneId: string): void {
-		this.$mix.set((mix) => ({ ...mix, solo: toggleItem(mix.solo, laneId) }));
+	toggleSolo(partId: string): void {
+		this.$mix.set((mix) => ({ ...mix, solo: toggleItem(mix.solo, partId) }));
 	}
 
-	/** Moves the playhead to the previous or next hit of any lane; returns false at the ends */
+	/**
+	 * Moves the playhead to the previous or next hit (see `stepHitTarget`) and, in Compose, selects that hit so the
+	 * inspector is ready to edit it and ↑ ↓ tilt its platform. Returns false at the ends.
+	 */
 	stepHit(direction: 1 | -1): boolean {
-		const times = (this.project?.music.lanes ?? []).flatMap((lane) => lane.hits.map((hit) => hit.time)).sort((a, b) => a - b);
-		const now = this.$playhead.get();
-		const next = direction === 1 ? times.find((time) => time > now + 1e-4) : [...times].reverse().find((time) => time < now - 1e-4);
+		const project = this.project;
+		if (project == null) return false;
+		const isCompose = this.$workspace.get() === 'compose';
+		const next = stepHitTarget(project, this.$selection.get(), this.$playhead.get(), direction, isCompose);
 		if (next == null) return false;
-		this.seek(next);
+		this.seek(next.time);
+		if (isCompose) this.$selection.set([toHitKey(next.laneId, next.hitId)]);
 		return true;
 	}
 
@@ -733,11 +786,31 @@ export class StudioCx {
 		return this.tapSession?.isAutoEnd === true ? Math.max(end, DEFAULT_PROJECT_END) : end;
 	}
 
+	/** The range playback loops: Cycle's while it is on, never while tapping along, which runs on to the end */
+	get cycleRange(): TCycleRange | null {
+		const project = this.project;
+		const cycle = project != null && this.tapSession == null ? shownCycle(this.$cycle.get(), project.id, project.end) : null;
+		return cycle?.isOn === true ? { start: cycle.start, end: cycle.end } : null;
+	}
+
+	/** C: Cycle on or off, with a first range from the playhead when there is none yet */
+	toggleCycle(): void {
+		const project = this.project;
+		if (project != null) this.$cycle.set(toggledCycle(this.$cycle.get(), project.id, project.end, this.$playhead.get()));
+	}
+
+	/** A drag on the ruler's cycle strip sets the range and turns Cycle on */
+	setCycleRange(range: TCycleRange): void {
+		const project = this.project;
+		if (project != null) this.$cycle.set({ projectId: project.id, isOn: true, ...range });
+	}
+
 	/** After tapping stops, a length that follows the song ends with the last hit, folded into the last tap's undo step */
 	private finishTapSession(): void {
 		const session = this.tapSession;
 		this.tapSession = null;
 		const project = this.project;
+		if (session?.hasTapped === true) this.$fitFirstHits.set(true);
 		if (session == null || !session.hasTapped || !session.isAutoEnd || project == null) return;
 		const end = projectSongEnd(project);
 		if (end == null) return;
@@ -893,23 +966,6 @@ export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline' | 'agent';
 export interface TAgentDraft {
 	text: string;
 	mentionIds: string[];
-}
-
-export interface TLaneMix {
-	muted: string[];
-	solo: string[];
-}
-
-/** Whether a lane sounds: soloed lanes win over everything, otherwise every lane that is not muted */
-export function isLaneAudible(mix: TLaneMix, laneId: string): boolean {
-	return mix.solo.length > 0 ? mix.solo.includes(laneId) : !mix.muted.includes(laneId);
-}
-
-/** The project as it should sound with the current mute and solo state; soloing a marble also silences Backing */
-export function audibleProject(project: TProject, mix: TLaneMix): TProject {
-	if (!mix.muted.length && !mix.solo.length) return project;
-	const lanes = project.music.lanes.filter((lane) => isLaneAudible(mix, lane.id));
-	return { ...project, music: { ...project.music, lanes, backing: mix.solo.length > 0 ? [] : project.music.backing } };
 }
 
 const TIMELINE_HEIGHT_KEY = 'midimarble-v4:timeline-height';

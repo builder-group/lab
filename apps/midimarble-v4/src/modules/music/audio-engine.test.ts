@@ -46,9 +46,11 @@ describe('createAudioSignature function', () => {
 	it('should change with hits, instruments and end', () => {
 		const project = withLane(createProject());
 		const base = createAudioSignature(project, resolve);
-		const moved = mapLanes(project, (lane) => ({ ...lane, hits: [{ id: 'hit', time: 0.7 }] }));
+		const moved = mapLanes(project, (lane) => ({ ...lane, hits: [{ id: 'hit', time: 0.7, pitch: 76 }] }));
 		const instrument = mapLanes(project, (lane) => ({ ...lane, instrument: 12 }));
+		const tapped = mapLanes(project, (lane) => ({ ...lane, hits: [...lane.hits, { id: 'tap', time: 0.9 }] }));
 
+		expect(createAudioSignature(tapped, resolve)).toBe(base);
 		expect(createAudioSignature(moved, resolve)).not.toBe(base);
 		expect(createAudioSignature(instrument, resolve)).not.toBe(base);
 		expect(createAudioSignature({ ...project, end: project.end + 1 }, resolve)).not.toBe(base);
@@ -108,8 +110,9 @@ function withLane(project: TProject): TProject {
 		music: {
 			...project.music,
 			lanes: [
-				{ id: 'lane', name: 'Lane', color: '#f00', instrument: 9, hits: [{ id: 'hit', time: 0.5 }] }
-			]
+				{ id: 'lane', name: 'Lane', color: '#f00', instrument: 9, hits: [{ id: 'hit', time: 0.5, pitch: 76 }] }
+			],
+			sources: [{ id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }]
 		}
 	};
 }

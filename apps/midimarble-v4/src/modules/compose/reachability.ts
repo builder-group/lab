@@ -53,6 +53,17 @@ export function hitReach(project: TProject, result: TSimulationResult | null, hi
 	return { kind: 'reachable' };
 }
 
+/**
+ * What a click on an open note's dot does: says why no platform can play it, or shows what bridges its long gap or the
+ * piece it would get. Only the platform is offered for now.
+ */
+export type TDotClickAction = { kind: 'explain' } | { kind: 'bridge'; fromHitId: string } | { kind: 'preview'; type: string };
+
+export function dotClickAction(project: TProject, result: TSimulationResult, hit: THitResult, gap: { fromHitId: string } | undefined): TDotClickAction {
+	if (isUnreachable(hitReach(project, result, hit))) return { kind: 'explain' };
+	return gap != null ? { kind: 'bridge', fromHitId: gap.fromHitId } : { kind: 'preview', type: 'platform' };
+}
+
 /** Whether an open hit has a reason it cannot get a platform */
 export function isUnreachable(reach: THitReach): boolean {
 	return reach.kind !== 'reachable';

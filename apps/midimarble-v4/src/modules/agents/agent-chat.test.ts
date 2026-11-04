@@ -56,7 +56,7 @@ describe('agent chat', () => {
 
 	describe('planAgentRuns function', () => {
 		it('should send a message without mentions to the scene', () => {
-			expect(planAgentRuns([])).toEqual([{ target: { kind: 'scene' }, label: 'Project' }]);
+			expect(planAgentRuns([])).toEqual([{ target: { kind: 'scene' }, label: 'Scene' }]);
 		});
 
 		it('should start one run per mentioned piece', () => {
@@ -69,7 +69,7 @@ describe('agent chat', () => {
 		it('should fold marbles and the scene into one scene run', () => {
 			expect(planAgentRuns([melody, platform1, SCENE_MENTION])).toEqual([
 				{ target: { kind: 'piece', entityId: 'p1' }, label: 'Platform 1' },
-				{ target: { kind: 'scene' }, label: 'Project' }
+				{ target: { kind: 'scene' }, label: 'Scene' }
 			]);
 		});
 	});

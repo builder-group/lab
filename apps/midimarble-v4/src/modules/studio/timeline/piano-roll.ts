@@ -1,4 +1,5 @@
-import { BACKING_ID, type TProject, type TProjectCommand, type TSource } from '@/modules/project';
+import { MAX_BACKING_NOTE_LENGTH, MAX_NOTE_LENGTH } from '@/modules/music';
+import { BACKING_ID, createId, type THit, type TProject, type TProjectCommand, type TSource } from '@/modules/project';
 import { toHitKey } from '../selection';
 import { round } from './timeline-layout';
 
@@ -29,6 +30,42 @@ export function noteDragCommands(project: TProject, drag: { keys: string[]; delt
 			}));
 		return moved.length ? [{ type: 'upsertHits' as const, laneId: owner.id, hits: moved }] : [];
 	});
+}
+
+/** A new note's length until one has been resized, in seconds */
+export const DEFAULT_NOTE_LENGTH = 0.25;
+
+const MIN_NOTE_LENGTH = 0.05;
+
+// A new note only snaps to the grid when the pointer is this close to a line
+const NOTE_SNAP_PIXELS = 6;
+// Sixteenths of the song's tempo, or this many seconds without one
+const FREE_GRID = 0.05;
+
+/** The time a double-click adds a note at: the nearest sixteenth when the pointer is close to it, otherwise where it is */
+export function snapNoteTime(time: number, bpm: number | undefined, zoom: number): number {
+	const step = bpm != null && bpm > 0 ? 60 / bpm / 4 : FREE_GRID;
+	const grid = Math.round(time / step) * step;
+	return Math.max(0, round(Math.abs(grid - time) * zoom <= NOTE_SNAP_PIXELS ? grid : time));
+}
+
+/**
+ * The edit that adds a note: a hit with a pitch in a marble's lane, so the run gets a dot for it, or a Backing note.
+ * One command, so one undo step.
+ */
+export function addNoteCommands(ownerId: string, note: { time: number; pitch: number; duration: number }): { hit: THit; commands: TProjectCommand[] } {
+	const hit: THit = { id: createId('hit'), time: round(note.time), pitch: note.pitch, duration: round(note.duration) };
+	return { hit, commands: [{ type: 'upsertHits', laneId: ownerId, hits: [hit] }] };
+}
+
+/** The longest a note of this owner can be resized to: what it can sound for */
+export function maxNoteLength(ownerId: string): number {
+	return ownerId === BACKING_ID ? MAX_BACKING_NOTE_LENGTH : MAX_NOTE_LENGTH;
+}
+
+/** The length a right-edge drag gives a note */
+export function resizedNoteLength(ownerId: string, start: number, deltaX: number, zoom: number): number {
+	return round(Math.min(maxNoteLength(ownerId), Math.max(MIN_NOTE_LENGTH, start + deltaX / zoom)));
 }
 
 export function rowCount(range: TPitchRange): number {

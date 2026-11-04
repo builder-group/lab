@@ -30,7 +30,6 @@ describe('placeQuickHelpLabels function', () => {
 	const rects: Record<string, TRect> = {
 		workspace: { left: 8, top: 48, right: 232, bottom: 72 },
 		layers: { left: 0, top: 80, right: 240, bottom: 400 },
-		library: { left: 0, top: 80, right: 240, bottom: 400 },
 		tools: { left: 240, top: 40, right: 288, bottom: 640 },
 		wall,
 		inspector: { left: 1180, top: 40, right: 1440, bottom: 640 },

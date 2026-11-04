@@ -6,7 +6,7 @@ import type { StudioCx } from '@/modules/studio/StudioCx';
 import type { DesignCx } from './DesignCx';
 import { decorAtWall } from './decor';
 import { placeDecor, startDecorDrag } from './decor-actions';
-import { DECOR_DRAG_TYPE, LIBRARY_DRAG_TYPE, readDecorDrop } from './DesignLibrary';
+import { dropTitle, isInsertDrag, LIBRARY_DRAG_TYPE, readDecorDrop } from './FilmInsert';
 import { ScatterPanel } from './ScatterPanel';
 import { DraftPreview } from './DraftPreview';
 import { lookupFrame, type TLivePreviewLevel } from './live-preview';
@@ -44,8 +44,8 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 		return () => window.removeEventListener('keydown', onKeyDown, true);
 	}, [cx, placing]);
 
-	// Escape clears the selection (a piece, a title, shots) as it does on the Compose canvas. Menus, sheets and text
-	// fields handle their own Escape first.
+	// Escape selects the Scene, as it does on the Compose canvas. Menus, sheets and text fields handle their own Escape
+	// first.
 	React.useEffect(() => {
 		function onKeyDown(event: KeyboardEvent): void {
 			if (event.key !== 'Escape' || event.defaultPrevented || isEditingTarget(event) || event.metaKey || event.altKey || event.ctrlKey) return;
@@ -89,6 +89,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 
 	async function onDrop(event: React.DragEvent<HTMLImageElement>): Promise<void> {
 		setDropTarget(false);
+		if (dropTitle(event, studio)) return;
 		const decor = readDecorDrop(event, studio);
 		if (decor != null) {
 			event.preventDefault();
@@ -105,7 +106,13 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	}
 
 	return (
-		<div className="relative flex h-full w-full items-center justify-center bg-[var(--canvas)] p-8">
+		<div
+			className="relative flex h-full w-full items-center justify-center bg-[var(--canvas)] p-8"
+			onClick={(event) => {
+				// The surroundings of the preview are empty space, like the wall around a piece
+				if (event.target === event.currentTarget && !event.shiftKey && placing == null) studio.$selection.set([]);
+			}}
+		>
 			{isDraft ? (
 				<DraftPreview
 					studio={studio}
@@ -140,7 +147,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 						});
 					}}
 					onDragOver={(event) => {
-						if (!event.dataTransfer.types.includes(LIBRARY_DRAG_TYPE) && !event.dataTransfer.types.includes(DECOR_DRAG_TYPE)) return;
+						if (!isInsertDrag(event)) return;
 						event.preventDefault();
 						event.dataTransfer.dropEffect = 'copy';
 						setDropTarget(true);

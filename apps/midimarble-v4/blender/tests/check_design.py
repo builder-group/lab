@@ -23,7 +23,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from mm_worker import render, walltext  # noqa: E402
+from mm_worker import render, themes, walltext  # noqa: E402
 from mm_worker.ops import Worker  # noqa: E402
 from mm_worker.util import DETACHED_COLLECTION, MANAGED_COLLECTION, STUDIO_COLLECTION, parse_color  # noqa: E402
 
@@ -488,8 +488,13 @@ def main():
     default_wall = studio('studio.wall').data.materials[0].name
     fill = {'id': 'light-1', 'name': 'Fill', 'color': '#00ff88', 'strength': 4.0, 'side': 0.5, 'height': 0.0}
     write_package(root, records, hit, asset=True, overrides={'wallColor': '#336699', 'backgroundColor': '#102030', 'lightColor': '#ff8800'},
-                  layers={'wallKind': 'grid', 'keyLight': {'strength': 9.0, 'side': 0.5, 'height': 0.0}, 'lights': [fill]})
+                  layers={'wallKind': 'grid', 'keyLight': {'strength': 9.0, 'side': 0.5, 'height': 0.0, 'softness': 0.5, 'exposure': 0.5, 'bloom': 0.4}, 'lights': [fill]})
     report = apply(worker)
+    check(abs(math.degrees(sun.data.angle) - 30.0) < 1e-3, "the Key Light's Softness sets the sun's angle (%.1f degrees)" % math.degrees(sun.data.angle))
+    scene = bpy.context.scene
+    check(abs(scene.view_settings.exposure - themes.THEMES[themes.theme_name(scene.get('mm_theme', '').split(' ')[0])]['exposure'] - 0.5) < 1e-4, 'Exposure adds to the theme')
+    bloom = scene.compositing_node_group
+    check(bloom is not None and scene.render.use_compositing and bloom.nodes['Bloom'].inputs['Type'].default_value == 'Bloom' and abs(bloom.nodes['Bloom'].inputs['Strength'].default_value - 0.4 * themes.BLOOM_STRENGTH) < 1e-4, 'Bloom composites a Glare over the render')
     wall_material = studio('studio.wall').data.materials[0]
     check(wall_material.name.startswith('MM · wall neon ') and near(wall_material.diffuse_color, '#336699'),
           "the Wall layer's Skin and colour apply on a built-in theme (%s)" % wall_material.name)
@@ -508,6 +513,7 @@ def main():
     check(near(light.data.color, '#00ff88') and abs(light.data.energy - 4.0) < 1e-4 and light.name == 'Fill', 'an added light takes its colour, strength and name')
     fill['strength'] = 6.0
     write_package(root, records, hit, asset=True, layers={'lights': [fill]})
+    # (the next apply takes Bloom away again)
     report = apply(worker)
     check(abs(added_light('light-1').data.energy - 6.0) < 1e-4 and report['lights']['updated'] == ['light-1'], 'an edit reaches an untouched added light')
     check(studio('studio.wall').data.materials[0].name == default_wall and abs(sun.data.energy - default_sun[0]) < 1e-4 and close(sun.data.color, default_sun[1], 1e-3) and close(sun.rotation_euler, default_sun[2], 1e-3),

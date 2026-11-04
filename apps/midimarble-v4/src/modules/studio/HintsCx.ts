@@ -76,9 +76,9 @@ export type THintId = 'song' | 'tap' | 'dot' | 'film';
 /** One line each, in the words of `docs/words.md` (sentence case, no period) */
 export const hintTexts: Record<THintId, string> = {
 	song: 'This is your song: each marble plays some of its notes',
-	tap: 'Press T and tap a rhythm: each press adds a hit to this marble',
-	dot: "Click a note's dot to add a platform",
-	film: 'Switch to Film to choose the look and export'
+	tap: 'Press T and tap along: each press adds a hit to this marble',
+	dot: "Click a note's dot to see its platform",
+	film: 'Switch to Film to choose a theme and export'
 };
 
 /** What the hints depend on, read from the open project and its latest run */
@@ -129,8 +129,8 @@ export function hintFacts(
 
 /**
  * The next hint state. The open hint closes when its step is done: the song once it plays or the project is
- * edited, tapping once a marble has a hit or a song, the dot once a platform fills a note, Film once Film is open.
- * Then the next unseen hint whose step is possible opens: the song first, tapping in an empty project, the dot
+ * edited, tapping once a marble has a hit, the dot once a platform fills a note, Film once Film is open.
+ * Then the next unseen hint whose step is possible opens: the song first, tapping once a song has no hits yet, the dot
  * after those, Film after the first edit that leaves every hit on time.
  */
 export function stepHints(state: THintState, facts: THintFacts): THintState {
@@ -153,7 +153,7 @@ function isStepDone(id: THintId, mark: THintMark, facts: THintFacts): boolean {
 		case 'song':
 			return facts.isPlaying || facts.editCount > mark.editCount;
 		case 'tap':
-			return facts.hasHits || facts.hasSong;
+			return facts.hasHits;
 		case 'dot':
 			return facts.openCount != null && facts.openCount < mark.openCount;
 		case 'film':
@@ -167,7 +167,7 @@ function canOpen(id: THintId, seen: THintId[], facts: THintFacts): boolean {
 		case 'song':
 			return facts.hasSong;
 		case 'tap':
-			return !facts.hasSong && !facts.hasHits;
+			return facts.hasSong && !facts.hasHits;
 		case 'dot':
 			return (seen.includes('song') || !facts.hasSong) && (facts.openCount ?? 0) > 0;
 		case 'film':

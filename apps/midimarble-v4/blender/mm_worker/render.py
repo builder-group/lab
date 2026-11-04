@@ -33,9 +33,9 @@ from pathlib import Path
 
 import bpy
 
-from . import themes
+from . import decor_effects, themes
 from .preview import temporary
-from .util import WorkerError, resolve_package_path, write_json_atomic
+from .util import MANAGED_COLLECTION, WorkerError, resolve_package_path, write_json_atomic
 
 PRESETS = {
     # Draft always renders with Workbench: solid theme colours, no lighting or materials, for judging motion fast
@@ -298,6 +298,8 @@ def workbench_settings(scene, samples):
     settings = [
         (scene.render, 'engine', 'BLENDER_WORKBENCH'),
         (scene.render, 'use_motion_blur', False),
+        # Bloom is for Fast and up; Flat Light has no light to bloom
+        (scene.render, 'use_compositing', False),
         (scene.display, 'render_aa', aa),
         (shading, 'light', 'FLAT'),
         (shading, 'color_type', 'MATERIAL'),
@@ -318,6 +320,7 @@ def workbench_settings(scene, samples):
     if scene.camera is not None and scene.camera.type == 'CAMERA':
         settings.append((scene.camera.data.dof, 'use_dof', False))
     settings += [(material, 'diffuse_color', flat_color(material, sheen)) for material in bpy.data.materials]
+    settings += decor_effects.flat_settings(bpy.data.collections.get(MANAGED_COLLECTION))
     return settings
 
 

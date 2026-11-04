@@ -146,7 +146,8 @@ const SWallTextComponent = z.strictObject({
 	font: z.string(),
 	size: z.number().positive(),
 	depth: z.number().nonnegative(),
-	color: z.string(),
+	// Absent reads in the colour that stands apart from the wall (`defaultTitleColor`)
+	color: z.string().optional(),
 	// Film time in seconds when the title appears and disappears; absent means the start and the end of the film
 	in: z.number().nonnegative().optional(),
 	out: z.number().nonnegative().optional(),
@@ -217,7 +218,13 @@ const lightPoseShape = {
 const SKeyLightPose = z.strictObject({
 	strength: lightPoseShape.strength.optional(),
 	side: lightPoseShape.side.optional(),
-	height: lightPoseShape.height.optional()
+	height: lightPoseShape.height.optional(),
+	// How soft its shadows are: a share of the widest sun, 0 hard and 1 very soft
+	softness: z.number().min(0).max(1).optional(),
+	// The whole film's brightness in stops on top of the base theme, and how much what glows spills light. Here because a
+	// film has one Key Light, and it travels with the theme the same way. Added later; files without them stay valid
+	exposure: z.number().min(-3).max(3).optional(),
+	bloom: z.number().min(0).max(1).optional()
 });
 
 /** A light added with Add Light, a layer in Film; a sun like the Key Light */
@@ -240,6 +247,8 @@ const SProjectTheme = z.strictObject({
 	overrides: SThemeOverrides,
 	// `agent` when a New Theme with Agent Result made it; absent for a duplicate
 	origin: z.enum(['agent']).optional(),
+	// Decor sources Scatter Decor starts with; absent takes the base theme's. Added later; files without it stay valid
+	decorSet: z.array(z.string()).optional(),
 	...projectThemeSceneShape,
 	parts: SThemeParts.optional()
 });
@@ -262,6 +271,10 @@ const SDecor = z.strictObject({
 	depth: z.number().nonnegative(),
 	// What a text item reads: the Handle's "@yourchannel"
 	text: z.string().optional(),
+	// A Snowfall's settings: how many flakes (0..1), their size and fall speed as shares of the usual, and their colour
+	snowfall: z.strictObject({ density: z.number().min(0).max(1), size: z.number().positive(), speed: z.number().nonnegative(), color: SHexColor }).optional(),
+	// A Garland's settings: the frame edges it runs along and the distance between sprigs, as a share of the frame's height
+	garland: z.strictObject({ side: z.enum(['left', 'right', 'both']), spacing: z.number().positive() }).optional(),
 	// Half width and half height of an asset at scale 1, from its manifest; built-in items know their own
 	footprint: z.strictObject({ x: z.number().positive(), y: z.number().positive() }).optional(),
 	// Film time in seconds it shows, like a title; absent means the start and the end of the film
@@ -481,6 +494,8 @@ export type TWallKind = z.infer<typeof SWallKind>;
 export type TWallBand = z.infer<typeof SWallBand>;
 export type TLight = z.infer<typeof SLight>;
 export type TDecor = z.infer<typeof SDecor>;
+export type TSnowfall = NonNullable<TDecor['snowfall']>;
+export type TGarland = NonNullable<TDecor['garland']>;
 export type TMadeInBlender = z.infer<typeof SMadeInBlender>;
 export type TKeyLightPose = z.infer<typeof SKeyLightPose>;
 export type TShot = z.infer<typeof SShot>;

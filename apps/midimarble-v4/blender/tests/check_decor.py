@@ -16,7 +16,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from mm_worker import decor  # noqa: E402
+from mm_worker import decor, decor_effects, preview, render  # noqa: E402
 from mm_worker.ops import Worker  # noqa: E402
 from mm_worker.util import MANAGED_COLLECTION  # noqa: E402
 
@@ -81,6 +81,86 @@ def visibility_keys(obj, path):
     return [(round(point.co.x), round(point.co.y)) for point in curve.keyframe_points] if curve else []
 
 
+def evaluated_points(obj, frame):
+    scene = bpy.context.scene
+    scene.frame_set(frame)
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    mesh = obj.evaluated_get(depsgraph).to_mesh()
+    points = np.empty(len(mesh.vertices) * 3)
+    mesh.vertices.foreach_get('co', points)
+    obj.evaluated_get(depsgraph).to_mesh_clear()
+    return points.reshape(-1, 3)
+
+
+def check_effects(worker, root, samples):
+    """Snowfall and Garland: they hang from the camera, depend on the frame alone and never catch a pick or collide"""
+    scene = bpy.context.scene
+    snow_layer = {'id': 'decor:the-snow', 'name': 'Snowfall', 'item': 'snowfall', 'position': {'x': 0, 'y': 0}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0,
+                  'snowfall': {'density': 0.5, 'size': 1.0, 'speed': 1.0, 'color': '#fff1d6'}}
+    garland_layer = {'id': 'decor:the-garland', 'name': 'Garland', 'item': 'garland', 'position': {'x': 0, 'y': 0}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0,
+                     'garland': {'side': 'both', 'spacing': 0.14}, 'in': 1.0, 'out': 3.0}
+    report = apply(worker, root, description(samples, [snow_layer, garland_layer]))
+    check(sorted(report['decor']['effects']) == ['decor:the-garland', 'decor:the-snow'], 'both effects are built')
+    managed = bpy.data.collections[MANAGED_COLLECTION]
+    objects = {obj['mm_id']: obj for obj in managed.objects if decor.is_decor(obj)}
+    snow, garland = objects['decor:the-snow'], objects['decor:the-garland']
+    camera = scene.camera
+    check(snow.parent is camera and garland.parent is camera, 'they hang from the film camera')
+    for obj in (snow, garland):
+        check(obj.rigid_body is None and obj.get('mm_collider') is None and not obj.visible_shadow, obj.name + ' has no collision role and casts no shadow')
+
+    first = evaluated_points(snow, 20)
+    later = evaluated_points(snow, 40)
+    check(np.ptp(first - later) > 1e-4, 'snow moves with the frame')
+    check(np.array_equal(first, evaluated_points(snow, 20)), 'snow is the same when a frame comes back, whatever came before')
+    corners = camera.data.view_frame(scene=scene)
+    half = max(abs(corner.x) for corner in corners)
+    check(np.max(np.abs(first[:, 0])) <= half * decor_effects.SNOW_OVERSCAN * 1.1 and np.ptp(first[:, 0]) > half, 'snow fills the frame and stays around it')
+    # Same layer, same mesh, in a re-apply and in a new scene: a resumed render draws the same frame
+    params = snow.get(decor_effects.PARAMS_PROPERTY)
+    report = apply(worker, root, description(samples, [snow_layer, garland_layer]))
+    check(not report['decor']['effects'] and snow.get(decor_effects.PARAMS_PROPERTY) == params, 're-applying builds nothing new')
+    check(np.array_equal(first, evaluated_points(snow, 20)), 're-applying keeps the snow where it was')
+    more = dict(snow_layer, snowfall={**snow_layer['snowfall'], 'density': 1.0})
+    apply(worker, root, description(samples, [more, garland_layer]))
+    check(len(snow.data.vertices) > len(first), 'Density adds flakes')
+    apply(worker, root, description(samples, [snow_layer, garland_layer]))
+
+    keys = visibility_keys(garland, 'hide_render')
+    check(keys and keys[0][1] == 1, 'In and Out work like on other Decor: %s' % keys)
+    glow = next(child for child in garland.children if child.get(decor_effects.EFFECT_PROPERTY) == decor_effects.GLOW_PART)
+    check(visibility_keys(glow, 'hide_render') == keys, "a Garland's glow keeps its timing")
+    left, both = None, len(garland.data.vertices)
+    apply(worker, root, description(samples, [snow_layer, dict(garland_layer, garland={'side': 'left', 'spacing': 0.14})]))
+    left = garland.data.vertices
+    check(len(left) < both * 0.6, 'Side leaves out the other edge')
+    check(max(vertex.co.x for vertex in left) < 0.0, 'a left Garland stays on the left of the frame')
+    wide = dict(garland_layer, garland={'side': 'both', 'spacing': 0.28})
+    apply(worker, root, description(samples, [snow_layer, wide]))
+    check(len(garland.data.vertices) < both * 0.7, 'Spacing thins it out')
+
+    # The preview's ID pass and Flat Light
+    with preview.temporary(decor_effects.id_pass_settings(managed)):
+        check(snow.hide_render and garland.hide_render and glow.hide_render, 'the ID pass leaves effects out')
+    check(not snow.hide_render, 'and gives them back')
+    scene.frame_set(45)
+    with preview.temporary(decor_effects.flat_settings(managed)):
+        check(snow.hide_render and glow.hide_render and not garland.hide_render, 'Flat Light keeps the Garland without its glow and leaves out the snow')
+    flat = render.workbench_settings(scene, 5)
+    check(any(name == 'use_compositing' and value is False for _target, name, value in flat), 'Flat Light skips Bloom')
+
+    # A loop film closes on itself: the Garland's scroll is a whole number of pattern periods, flakes whole cycles
+    scene['mm_loop'] = [0.0, 2.0, 0.5]
+    loop = decor_effects.loop_frames(scene, FPS)
+    frames, heights = decor_effects.garland_scroll(decor_effects.camera_path(camera, scene), camera, scene, 0.02, wide['garland'] and decor_effects.params_of(wide, 'garland'), loop)
+    period = wide['garland']['spacing'] * decor_effects.frame_half(camera, scene, 0.02)[1] * 2 * decor_effects.GARLAND_PERIOD
+    check(frames and abs((heights[loop] - heights[0]) / period - round((heights[loop] - heights[0]) / period)) < 1e-3, 'a loop film closes the Garland on its pattern')
+    del scene['mm_loop']
+
+    apply(worker, root, description(samples, []))
+    check(bpy.data.objects.get('Snowfall') is None and not [obj for obj in managed.objects if decor_effects.is_effect(obj)], 'deleted effects leave the file, the Garland with its glow')
+
+
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     root = Path(tempfile.mkdtemp(prefix='mm-decor-'))
@@ -103,6 +183,8 @@ def main():
     for item, entry in decor.ITEMS.items():
         obj = objects['decor:' + item]
         check(obj.get('mm_role') == 'decor' and obj.get('mm_collider') is None and obj.rigid_body is None, item + ' has no collision role')
+        if 'effect' in entry:
+            continue
         bounds = decor.wall_bounds(obj)
         width, height = bounds['maxX'] - bounds['minX'], bounds['maxY'] - bounds['minY']
         check(width <= entry['halfWidth'] * 2 * 1.3 and width >= entry['halfWidth'] * 2 * 0.5, '%s width %.3f m matches the catalog' % (item, width))
@@ -201,6 +283,8 @@ def main():
 
     selected = worker.handle('select_objects', {'names': ['User Tree']})
     check(selected['selected'] == ['User Tree'] and tree.select_get(), 'Open in Blender selects it')
+
+    check_effects(worker, root, samples)
 
     print('\n'.join(summary))
     print('DECOR OK', len(summary), 'checks,', 'vertices', total_vertices)

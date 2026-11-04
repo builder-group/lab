@@ -3,18 +3,20 @@ import { Plus } from 'lucide-react';
 import React from 'react';
 import { MenuButton } from '@/components';
 import { isEditingTarget } from '@/lib';
+import { currentMix, EMPTY_MIX, isAudioSong, isPartAudible, songParts } from '@/modules/music';
 import type { THitResult } from '@/modules/simulation';
 import { addMenu } from '../add-menu';
 import { addHit } from '../menus';
 import { parseHitKey, toHitKey } from '../selection';
 import { hasSongLayer, SONG_LAYER_LABEL } from '../song-layer';
 import { songSource } from '../SourcesCx';
-import { isLaneAudible, type StudioCx } from '../StudioCx';
+import type { StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
 import { CameraRow } from './CameraRow';
 import { auditionNote, handNotes, isNoteSelection, ownerForKey, selectedNotes } from './hand-notes';
 import { LaneTrack, type TDrag, type TDragStart } from './LaneTrack';
 import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange } from './piano-roll';
+import { PartRows } from './PartRows';
 import { PlayheadLine, Ruler, TimeGutter } from './Ruler';
 import { SongTrack } from './SongTrack';
 import {
@@ -25,6 +27,7 @@ import {
 	TIME_ORIGIN,
 	MIN_HEIGHT,
 	NOTE_ROW_HEIGHT,
+	PART_ROW_HEIGHT,
 	ROW_HEIGHT,
 	RULER_HEIGHT,
 	SONG_ROLL_MAX_HEIGHT,
@@ -33,13 +36,14 @@ import {
 import { $songExpanded } from './timeline-state';
 import { TitlesRow } from './TitlesRow';
 import { TrackHeader } from './TrackHeader';
+import { flashElement } from './hit-flash';
 import { Transport } from './Transport';
 
 /**
  * The layers along the time, like After Effects' timeline, as a Blender-style dope sheet in a Logic-style track
  * area: the transport and hit summary in the header, the Song on top while the project has one, expandable into
- * every note when it has notes, then one flat row per marble with mute and solo and its hits by timing status, then
- * in Film the Camera and Titles
+ * every note and its Parts when it has notes, with mute and solo on the Song, then one flat row per marble with its
+ * hits by timing status, then in Film the Camera and Titles
  */
 export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const { cx } = props;
@@ -75,6 +79,19 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	// A recording has no notes to expand; MIDI or Backing notes without a file expand into every note
 	const songRows = React.useMemo(() => (project == null || !hasSong ? null : songRollRange(project, song)), [project, hasSong, song]);
+	const parts = React.useMemo(() => (project == null ? [] : songParts(project)), [project]);
+
+	// The hit a marble just landed flashes in its status colour. Set on the element, so no row re-renders while playing.
+	React.useEffect(
+		() =>
+			cx.$hitFlash.listen(({ value }) => {
+				for (const flash of value) {
+					const element = scrollRef.current?.querySelector<HTMLElement>(`[data-hit-key="${CSS.escape(toHitKey(flash.laneId, flash.hitId))}"]`);
+					if (element != null) flashElement(element, flash.tone);
+				}
+			}),
+		[cx]
+	);
 
 	// With notes selected, 1 to 9 hand them to that marble in track order and 0 makes them Backing. Captured
 	// before the canvas, whose 0 previews the film camera.
@@ -212,10 +229,12 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	}, [zoom, zoomTo]);
 
 	if (project == null) return null;
-	const hasRecording = audio != null;
+	// A recording's mute and solo are the Song's alone, so they leave the marbles' hits as they are
+	const partMix = isAudioSong(project) ? EMPTY_MIX : currentMix(project, mix);
+	const showsParts = isSongExpanded && songRows != null;
 	const showsCamera = workspace === 'design';
 	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
-	const rowsHeight = project.music.lanes.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
+	const rowsHeight = project.music.lanes.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
 
 	// MARK: - UI
 
@@ -259,9 +278,10 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							onDragStart={startDrag}
 						/>
 					) : null}
+					{showsParts ? <PartRows cx={cx} project={project} parts={parts} zoom={zoom} width={trackWidth} isAudible={(id) => isPartAudible(partMix, id)} /> : null}
 					{project.music.lanes.map((lane) => (
 						<div key={lane.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
-							<TrackHeader cx={cx} lane={lane} project={project} selection={selection} hasRecording={hasRecording} />
+							<TrackHeader cx={cx} lane={lane} project={project} selection={selection} />
 							<TimeGutter />
 							<LaneTrack
 								cx={cx}
@@ -271,7 +291,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 								selection={selection}
 								drag={drag}
 								statuses={hitStatus.get(lane.id)}
-								isAudible={isLaneAudible(mix, lane.id)}
+								isAudible={isPartAudible(partMix, lane.id)}
+								hasSong={hasSong}
 								onDragStart={startDrag}
 								timeAt={timeAt}
 								onAdd={(time, event) => addHit(cx, lane, snap(time, event.altKey))}
@@ -288,7 +309,12 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{showsCamera ? <TitlesRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{/* The header column continues below the last lane, like Logic's track list */}
-					<div className="flex flex-1">
+					<div
+						className="flex flex-1"
+						onClick={(event) => {
+							if (!event.shiftKey) cx.$selection.set([]);
+						}}
+					>
 						<div className="mm-track-header sticky left-0 z-20 shrink-0 border-r border-[var(--separator)]" style={{ width: HEADER_WIDTH }} />
 					</div>
 					{/* Outside the project range is shaded, like the area past Blender's end frame */}

@@ -26,6 +26,8 @@ export interface TScreenDot {
 	laneId: string;
 	hitId: string;
 	position: TVec2;
+	/** Set for a placed hit's dot, how close a click has to be; an open dot takes `DOT_PICK_RADIUS` and wins over pieces */
+	radius?: number;
 }
 
 export interface TScreenPiece {
@@ -45,10 +47,13 @@ export type TPick =
 	| { kind: 'rotate' | 'release' | 'pathEnd' | 'pathBend'; entityId: string }
 	| { kind: 'node' | 'nodeIn' | 'nodeOut'; entityId: string; index: number }
 	| { kind: 'dot'; laneId: string; hitId: string }
+	| { kind: 'ghost' }
 	| { kind: 'piece'; entityId: string }
 	| { kind: 'track'; laneId: string; time: number; position: TVec2 };
 
 export const DOT_PICK_RADIUS = 10;
+// A placed hit's dot is small: its visible radius and 2 px, and then only when it is nearer than the platform
+export const PLACED_DOT_PICK_RADIUS = 6;
 // Thin bars far away are still easy to click within this distance of their outline
 const PIECE_PICK_SLOP = 4;
 const HANDLE_PICK_SLOP = 4;
@@ -64,25 +69,34 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 		}
 	}
 
-	let nearestDot: TScreenDot | null = null;
-	let nearestDistance = DOT_PICK_RADIUS;
-	for (const dot of scene.dots) {
-		const dotDistance = distance(point, dot.position);
-		if (dotDistance <= nearestDistance) {
-			nearestDot = dot;
-			nearestDistance = dotDistance;
+	// Open dots win over pieces. A placed dot sits against its platform, so it only wins when the pointer is nearer to
+	// it than to any piece: at low zoom the bar stays easy to grab, and a tie goes to the bar.
+	const nearestWithin = (dots: TScreenDot[], radius: number): { dot: TScreenDot; distance: number } | null => {
+		let nearest: { dot: TScreenDot; distance: number } | null = null;
+		for (const dot of dots) {
+			const dotDistance = distance(point, dot.position);
+			if (dotDistance <= radius && (nearest == null || dotDistance <= nearest.distance)) nearest = { dot, distance: dotDistance };
 		}
-	}
-	if (nearestDot != null) return { kind: 'dot', laneId: nearestDot.laneId, hitId: nearestDot.hitId };
+		return nearest;
+	};
+	const open = nearestWithin(scene.dots.filter((dot) => dot.radius == null), DOT_PICK_RADIUS);
+	if (open != null) return { kind: 'dot', laneId: open.dot.laneId, hitId: open.dot.hitId };
 
+	let piecePick: { entityId: string; distance: number } | null = null;
 	for (let i = scene.pieces.length - 1; i >= 0; i--) {
 		const piece = scene.pieces[i];
 		if (piece == null) continue;
-		if (isPointInPolygon(point, piece.corners) || distanceToPolygon(point, piece.corners) <= PIECE_PICK_SLOP) {
-			return { kind: 'piece', entityId: piece.entityId };
-		}
+		const pieceDistance = isPointInPolygon(point, piece.corners) ? 0 : distanceToPolygon(point, piece.corners);
+		if (pieceDistance <= PIECE_PICK_SLOP && (piecePick == null || pieceDistance < piecePick.distance)) piecePick = { entityId: piece.entityId, distance: pieceDistance };
 	}
-	return null;
+	const placed = nearestWithin(scene.dots.filter((dot) => dot.radius != null), PLACED_DOT_PICK_RADIUS);
+	if (placed != null && (piecePick == null || placed.distance < piecePick.distance)) return { kind: 'dot', laneId: placed.dot.laneId, hitId: placed.dot.hitId };
+	return piecePick == null ? null : { kind: 'piece', entityId: piecePick.entityId };
+}
+
+/** Whether a point is on a suggested piece's outline */
+export function isOnGhost(point: TVec2, corners: TVec2[]): boolean {
+	return corners.length > 0 && (isPointInPolygon(point, corners) || distanceToPolygon(point, corners) <= PIECE_PICK_SLOP);
 }
 
 // About a fingertip on a trackpad: a click this close to a trajectory still lands on it

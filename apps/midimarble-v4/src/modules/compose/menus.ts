@@ -5,7 +5,7 @@ import type { ComposeCx } from './ComposeCx';
 import { placeAtHit } from './step-loop';
 
 /**
- * Insert menu of an open note's dot, opened by a click or a right-click at the dot: a platform tilted to land on
+ * Menu of an open note's dot, opened by a right-click (a click shows the platform first): a platform tilted to land on
  * time, one at the default tilt, and the pieces that bridge a long gap
  */
 export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMenuEntry[] {
@@ -22,7 +22,7 @@ export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMen
 	};
 
 	return tidyMenu([
-		{ section: `Note ${index + 1}${pitch != null ? ` · ${noteName(pitch)}` : ''} · ${formatTime(hit.targetTime)}` },
+		{ section: `Hit ${index + 1}${pitch != null ? ` · ${noteName(pitch)}` : ''} · ${formatTime(hit.targetTime)}` },
 		{ label: 'Add Platform', shortcut: 'A', onSelect: () => compose.placePlatform(hit) },
 		{ label: 'Add Platform at Default Tilt', onSelect: () => void placeAtHit(cx, hit, 'platform') },
 		gap != null ? 'separator' : null,

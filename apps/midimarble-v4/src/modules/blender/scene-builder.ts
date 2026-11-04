@@ -1,5 +1,5 @@
 import type { TDesign, TEntity, TProject, TThemeParts } from '@/modules/project';
-import { baseThemeOf, sceneThemeOverrides, sceneThemeParts } from '@/modules/design/project-themes';
+import { baseThemeOf, defaultTitleColor, sceneThemeOverrides, sceneThemeParts } from '@/modules/design/project-themes';
 import { canonicalSkin } from '@/modules/project/skin-ids';
 import { sceneDecor } from '@/modules/design/decor';
 import { sceneLayers } from '@/modules/design/scene-layers';
@@ -158,7 +158,7 @@ export function buildSceneDescription(
 				const text = entity.components.wallText;
 				const transform = entity.components.transform;
 				if (text == null || transform == null) return [];
-				return [{ id: entity.id, ...text, position: { ...transform.position }, angle: transform.angle }];
+				return [{ id: entity.id, ...text, color: text.color ?? defaultTitleColor(project.design), position: { ...transform.position }, angle: transform.angle }];
 			}),
 			loop: loop != null ? { start: loop.start, end: loop.end, blend: loop.blend } : null
 		},

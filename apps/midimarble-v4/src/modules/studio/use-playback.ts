@@ -1,41 +1,52 @@
 import { useListener } from 'feature-react/state';
 import React from 'react';
-import { audibleProject, type StudioCx } from './StudioCx';
+import { cyclePlayFrom, cycleRestart } from './cycle';
+import { startPlaybackTicker } from './playback-ticker';
+import { audibleProject } from '@/modules/music';
+import type { StudioCx } from './StudioCx';
+import { useHitFlash } from './timeline/hit-flash';
 
 // After the project's first run and draw, so the warm-up never delays opening
 const WARM_UP_DELAY_MS = 600;
 
 /**
  * Drives the playhead from the audio clock while playing. Seeking during playback restarts audio at
- * the new time, and playback stops at the project end.
+ * the new time, playback stops at the project end, and with Cycle on it jumps back at the end of the range.
  */
 export function usePlayback(cx: StudioCx): void {
-	const frameRef = React.useRef<number | null>(null);
+	useHitFlash(cx);
+	const stopTickerRef = React.useRef<(() => void) | null>(null);
 	// The last playhead value written by this loop, to tell clock updates from user seeks
 	const clockRef = React.useRef<number | null>(null);
 
 	const stopLoop = React.useCallback(() => {
-		if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
-		frameRef.current = null;
+		stopTickerRef.current?.();
+		stopTickerRef.current = null;
 		clockRef.current = null;
 	}, []);
 
 	const startLoop = React.useCallback(() => {
-		const step = (): void => {
+		stopTickerRef.current = startPlaybackTicker(() => {
 			// Tapping along runs past a length that follows the song (`playbackEnd`)
 			const end = cx.playbackEnd;
 			const time = cx.audio.getTime();
+			const restart = cycleRestart(time, cx.cycleRange);
+			if (restart != null) {
+				clockRef.current = restart;
+				cx.$playhead.set(restart);
+				void cx.audio.play(restart);
+				return true;
+			}
 			if (time >= end) {
 				clockRef.current = end;
 				cx.$playhead.set(end);
 				cx.$playing.set(false);
-				return;
+				return false;
 			}
 			clockRef.current = time;
 			cx.$playhead.set(time);
-			frameRef.current = requestAnimationFrame(step);
-		};
-		frameRef.current = requestAnimationFrame(step);
+			return true;
+		});
 	}, [cx]);
 
 	useListener(cx.$playing, ({ value: playing }) => {
@@ -47,7 +58,8 @@ export function usePlayback(cx: StudioCx): void {
 		const project = cx.project;
 		if (project == null) return;
 		if (cx.$playhead.get() >= cx.playbackEnd) cx.$playhead.set(0);
-		const from = cx.$playhead.get();
+		const from = cyclePlayFrom(cx.$playhead.get(), cx.cycleRange);
+		if (from !== cx.$playhead.get()) cx.$playhead.set(from);
 		void (async () => {
 			try {
 				await cx.audio.prepare(audibleProject(project, cx.$mix.get()), cx.resolveSourceUrl);
@@ -93,7 +105,7 @@ export function usePlayback(cx: StudioCx): void {
 		};
 	}, [cx]);
 
-	// Muting or soloing a lane while playing takes effect immediately, like a mixer
+	// Muting or soloing a Part while playing takes effect immediately, like a mixer
 	useListener(cx.$mix, ({ value }) => {
 		const project = cx.project;
 		if (!cx.$playing.get() || project == null) return;

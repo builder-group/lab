@@ -2,15 +2,33 @@ import { addedLights } from '@/modules/design/scene-layers';
 import type { TProject } from '@/modules/project';
 import { CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseShotKey, SONG_KEY, WALL_KEY } from './selection';
 import { hasSongLayer } from './song-layer';
+import type { TWorkspace } from './StudioCx';
 
 /**
  * What the inspector shows for a selection. Each layer owns its settings, like a layer in After Effects: the
  * Song its file and Backing, the Camera its framing, a shot or a title its own, a marble its colour and release,
  * the Wall its skin and colours, a light its colour, strength and direction.
- * Nothing selected shows the Project. The same selection shows the same inspector whether it was made in Layers
- * or in the timeline, and in either workspace.
+ * Nothing selected is the Scene. The same selection shows the same inspector whether it was made in Layers or in the
+ * timeline, and in either workspace, except that Compose has no Wall, Lights or Decor: a selection left over from Film
+ * shows the Scene there.
  */
-export function inspectorTarget(project: TProject, selection: readonly string[]): TInspectorTarget {
+export function inspectorTarget(project: TProject, selection: readonly string[], workspace: TWorkspace = 'design'): TInspectorTarget {
+	const target = selectedTarget(project, selection);
+	return workspace === 'compose' && FILM_ONLY_TARGETS.includes(target.kind) ? { kind: 'scene' } : target;
+}
+
+const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['wall', 'light', 'lights', 'decor', 'decors', 'madeInBlender'];
+
+/**
+ * What stays selected when Film opens. The piece or hit Compose's work last left selected would hide the theme, so
+ * those go and the Scene shows (ux-benchmark item 3); a marble, the Song and Film's own layers stay.
+ */
+export function selectionEnteringFilm(project: TProject, selection: readonly string[]): string[] {
+	const pieces = new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id));
+	return selection.filter((key) => !pieces.has(key) && parseHitKey(key) == null);
+}
+
+function selectedTarget(project: TProject, selection: readonly string[]): TInspectorTarget {
 	const selected = new Set(selection);
 	const entities = project.entities.filter((entity) => selected.has(entity.id));
 
@@ -49,7 +67,7 @@ export function inspectorTarget(project: TProject, selection: readonly string[])
 	if (selected.has(WALL_KEY)) return { kind: 'wall' };
 	if (selected.has(SONG_KEY) && hasSongLayer(project)) return { kind: 'song' };
 	if (selected.has(CAMERA_KEY)) return { kind: 'camera' };
-	return { kind: 'project' };
+	return { kind: 'scene' };
 }
 
 export type TInspectorTarget =
@@ -67,4 +85,4 @@ export type TInspectorTarget =
 	| { kind: 'wall' }
 	| { kind: 'song' }
 	| { kind: 'camera' }
-	| { kind: 'project' };
+	| { kind: 'scene' };

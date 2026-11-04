@@ -558,7 +558,7 @@ function runLabel(run: TAgentRun, project: TProject | null): string {
 	const target = run.target;
 	if (target?.kind === 'piece') return project?.entities.find((entity) => entity.id === target.entityId)?.name ?? 'Piece';
 	if (target?.kind === 'wall') return 'Wall';
-	return 'Project';
+	return 'Scene';
 }
 
 function phaseLabel(phase: TAgentRunPhase): string {

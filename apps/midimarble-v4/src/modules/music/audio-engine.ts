@@ -2,13 +2,13 @@ import { SoundBankLoader, SpessaLog, type BasicSoundBank } from 'spessasynth_cor
 import type { TLane, TProject, TSource } from '@/modules/project';
 import {
 	backingVoice,
-	DEFAULT_HIT_PITCH,
 	mixAudioSource,
 	renderLanes,
 	type TDecodedAudio,
 	type TStereoAudio
 } from './synthesize';
 import { cutLoopAudio, foldLoopAudio, LOOP_AUDIO_TAIL, loopHits, loopLanes, type TLoopRange } from './loop-audio';
+import { hasSong } from './parts';
 import { decodeAudioFile } from './waveform';
 
 const SAMPLE_RATE = 48000;
@@ -86,13 +86,12 @@ export function createAudioEngine(): TAudioEngine {
 		getTime,
 		isPlaying: () => source != null,
 		async audition(lane, pitch) {
-			const resolvedPitch = pitch ?? DEFAULT_HIT_PITCH;
-			const key = `${lane.instrument}:${resolvedPitch}`;
+			const key = `${lane.instrument}:${pitch}`;
 			let buffer = auditionCache.get(key);
 			if (buffer == null) {
 				const bank = await loadInstrumentBank();
 				const audio = renderLanes(
-					[{ ...lane, hits: [{ id: 'audition', time: 0, pitch: resolvedPitch }] }],
+					[{ ...lane, hits: [{ id: 'audition', time: 0, pitch }] }],
 					{ sampleRate: SAMPLE_RATE, duration: 1, bank }
 				);
 				fadeOut(audio, 0.05);
@@ -128,20 +127,25 @@ export interface TAudioEngine {
 	// Timeline seconds; while stopped, the time playback stopped at
 	getTime: () => number;
 	isPlaying: () => boolean;
-	audition: (lane: TLane, pitch?: number) => Promise<void>;
+	// Plays one note of the Song; a hit without a pitch has nothing to play
+	audition: (lane: TLane, pitch: number) => Promise<void>;
 	setVolume: (volume: number) => void;
 	dispose: () => void;
 }
 
 export type TResolveSourceUrl = (source: TSource) => string | null;
 
-// Imported recordings already contain the music, so lanes and Backing are synthesized only without an audio source
+/**
+ * The Song is the only sound. Imported recordings already contain the music, so lanes and Backing are synthesized
+ * only without an audio source, and a project without a Song renders as silence, whatever pitches its hits keep.
+ */
 export async function renderProjectAudio(
 	project: TProject,
 	resolveSourceUrl: TResolveSourceUrl,
 	options: { sampleRate?: number; loop?: TLoopRange | null } = {}
 ): Promise<TStereoAudio> {
 	const { sampleRate = SAMPLE_RATE, loop } = options;
+	if (!hasSong(project)) return silentAudio(loop?.length ?? project.end, sampleRate);
 	const audioSources = project.music.sources.filter((source) => source.kind === 'audio');
 	if (loop != null && !audioSources.length) {
 		const bank = await loadInstrumentBank();
@@ -162,12 +166,7 @@ export async function renderProjectAudio(
 		fadeOut(audio, FILM_AUDIO_FADE);
 		return audio;
 	}
-	const length = Math.max(1, Math.ceil(project.end * sampleRate));
-	const audio: TStereoAudio = {
-		sampleRate,
-		left: new Float32Array(length),
-		right: new Float32Array(length)
-	};
+	const audio = silentAudio(project.end, sampleRate);
 	const decodedSources = await Promise.all(
 		audioSources.map(async (source) => ({
 			source,
@@ -188,13 +187,14 @@ export function createAudioSignature(
 	const audioSources = project.music.sources
 		.filter((source) => source.kind === 'audio')
 		.map((source) => ({ url: resolveSourceUrl(source), offset: source.offset }));
-	const lanes = audioSources.length
-		? []
-		: project.music.lanes.map((lane) => ({
+	const isSynthesized = !audioSources.length && hasSong(project);
+	const lanes = isSynthesized
+		? project.music.lanes.map((lane) => ({
 				instrument: lane.instrument,
-				hits: lane.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null])
-			}));
-	const backing = audioSources.length ? null : backingVoice(project);
+				hits: lane.hits.flatMap((hit) => (hit.pitch == null ? [] : [[hit.time, hit.pitch, hit.velocity ?? null, hit.duration ?? null]]))
+			}))
+		: [];
+	const backing = isSynthesized ? backingVoice(project) : undefined;
 	const backingKey = backing == null ? null : { instrument: backing.instrument, hits: backing.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null]) };
 	return JSON.stringify({ end: project.end, audioSources, lanes, backing: backingKey });
 }
@@ -229,6 +229,11 @@ function loadSource(url: string | null): Promise<TDecodedAudio | null> {
 		sourceCache.set(url, decoded);
 	}
 	return decoded;
+}
+
+function silentAudio(seconds: number, sampleRate: number): TStereoAudio {
+	const length = Math.max(1, Math.ceil(seconds * sampleRate));
+	return { sampleRate, left: new Float32Array(length), right: new Float32Array(length) };
 }
 
 function fadeOut(audio: TStereoAudio, seconds: number): void {

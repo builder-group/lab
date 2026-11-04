@@ -9,10 +9,9 @@ import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, seedOf } from './decor-s
 import { skinCommands, type TSkinTarget } from './design-commands';
 import { filmCamera } from './film-camera';
 import { agentThemeCommands } from './project-themes';
-import type { TSkinElement } from './skin-catalog';
 
 /**
- * Library of the Film sidebar. Items live in the project's library and, when kept (the star), in the user's global
+ * The library behind Film's Library tab and the inspector's Look tiles. Items live in the project's library and, when kept (the star), in the user's global
  * library; the UI shows one list without those scopes. Applying a kept item copies it into the project first so the
  * package stays portable.
  */
@@ -21,10 +20,8 @@ export class DesignLibraryCx {
 	readonly $globalItems = createState<TLibraryItem[]>([]);
 	readonly $status = createState<'idle' | 'loading' | 'ready' | 'unavailable' | 'error'>('idle');
 	readonly $error = createState<string | null>(null);
-	/** The element type a theme's part opened the Library on, while nothing selected says what to show */
-	readonly $filterElement = createState<TSkinElement | null>(null);
-	/** Decor sources chosen in the Library's Decor group, for Scatter Decor */
-	readonly $decorSet = createState<string[]>([]);
+	/** Film's Insert popover is open */
+	readonly $insertOpen = createState(false);
 
 	private loadedFor: string | null = null;
 	/** Items accepted so far per decor set from the agent */

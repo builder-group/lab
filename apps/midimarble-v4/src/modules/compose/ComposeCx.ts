@@ -1,7 +1,6 @@
 import { createState } from 'feature-state';
 import type React from 'react';
 import * as THREE from 'three';
-import { openContextMenu } from '@/components';
 import { isEditingTarget } from '@/lib';
 import type { TEntity, TPathNode, TProject, TVec2 } from '@/modules/project';
 import {
@@ -18,24 +17,29 @@ import {
 	type TResolvedPiece,
 	type TSimulationResult
 } from '@/modules/simulation';
-import { formatTime } from '@/modules/studio/format';
-import { CAMERA_KEY, parseHitKey, SONG_KEY } from '@/modules/studio/selection';
+import { formatTime, noteName } from '@/modules/studio/format';
+import { CAMERA_KEY, parseHitKey, SONG_KEY, toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { dragRotation, normalizeSurfaceAngle, screenAngle, snapAngle, toRadians, type TRotationDrag } from './angles';
 import { AssistCx } from './AssistCx';
+import { dotClickAction } from './reachability';
 import {
 	ANCHOR_LEAD,
 	asAnchored,
 	canLink,
 	clearRotorPosition,
 	createFreePiece,
+	asPinned,
 	displayPiece,
 	isPathPieceType,
+	KEEP_PLAYS_REACH,
 	piecePose,
+	playsDrop,
 	railPath,
 	rotateResolved,
 	withEntity,
 	withSnap,
+	type TPlaysDrop,
 	type TPose,
 	type TSnap
 } from './attach-edit';
@@ -43,11 +47,11 @@ import { rebaseNodes, withNodeHandle, withNodePoint } from './bezier';
 import { ComposeRenderer, MARBLE_Z, type TComposeCamera } from './ComposeRenderer';
 import { composeKeyAction, toolPieceType, type TComposeKeyAction, type TComposeTool, type TPathType } from './keys';
 import { insertTool, type TInsertItem } from './library';
-import { dotMenu } from './menus';
-import { distanceToSegment, pick, pickTrack, piecesInRect, rectFromPoints, TRACK_PICK_RADIUS, type TPick, type TPickScene, type TScreenTrack } from './picking';
+import { distanceToSegment, isOnGhost, pick, pickTrack, PLACED_DOT_PICK_RADIUS, piecesInRect, rectFromPoints, TRACK_PICK_RADIUS, type TPick, type TPickScene, type TScreenTrack } from './picking';
 import {
 	boundsOfPieces,
 	contentBounds,
+	firstHitsView,
 	fitTargets,
 	marblePositionAt,
 	pathHandles,
@@ -56,6 +60,7 @@ import {
 	pieceAngleAt,
 	pieceKind,
 	pieceOutline,
+	playheadSection,
 	struckAt,
 	rotationGrip,
 	trackBuffers,
@@ -74,6 +79,7 @@ import {
 	screenToWorld,
 	worldToScreen,
 	zoomAt,
+	ZOOM_100_SCALE,
 	type TBounds,
 	type TPadding,
 	type TView,
@@ -220,7 +226,10 @@ export class ComposeCx {
 				this.followPhysics(value);
 				this.revealPlaced();
 				this.revealHistory(value);
+				this.fitFirstHits();
 			}),
+			this.studio.$fitFirstHits.listen(() => this.fitFirstHits()),
+			this.studio.$playing.listen(() => this.fitFirstHits()),
 			this.$override.listen(() => this.syncPieces()),
 			this.$placing.listen(() => this.syncPieces()),
 			this.studio.$hidden.listen(() => this.syncPieces()),
@@ -282,6 +291,8 @@ export class ComposeCx {
 		});
 
 		return () => {
+			const projectId = this.project?.id;
+			if (projectId != null && projectId === this.framedProjectId) this.studio.composeView = { projectId, view: this.$camera.get().view };
 			for (const cleanup of cleanups) cleanup();
 			this.studio.simulation.endPreview();
 			window.clearTimeout(this.openingTimer);
@@ -433,10 +444,11 @@ export class ComposeCx {
 		for (const piece of pieces) {
 			if (!locked.includes(piece.entityId)) scene.pieces.push({ entityId: piece.entityId, corners: this.screenOutline(piece) });
 		}
+		// An armed tool or Play a Note… is after open dots; placed ones select their hit only with the Move tool
+		const pickPlaced = this.$tool.get() === 'select' && this.$playNoteFor.get() == null;
 		for (const hit of result.hits) {
-			if (hit.status === 'open' && hit.dot != null) {
-				scene.dots.push({ laneId: hit.laneId, hitId: hit.hitId, position: this.toScreen(hit.dot) });
-			}
+			if (hit.dot == null || (hit.status !== 'open' && !pickPlaced)) continue;
+			scene.dots.push({ laneId: hit.laneId, hitId: hit.hitId, position: this.toScreen(hit.dot), radius: hit.status === 'open' ? undefined : PLACED_DOT_PICK_RADIUS });
 		}
 		for (const entity of project.entities) {
 			const release = entity.components.release;
@@ -482,15 +494,49 @@ export class ComposeCx {
 
 	/**
 	 * ⇧1: fits the pieces, the releases and the run up to the last hit, zoomed no further out than a default
-	 * platform at `MIN_FIT_PLATFORM_PX`, unless the pieces need it
+	 * platform at `MIN_FIT_PLATFORM_PX`. A run too long for that shows the playhead's section instead of specks;
+	 * Zoom to Whole Run shows it all.
 	 */
 	fitAll(): void {
 		const project = this.project;
 		const viewport = this.$viewport.get();
 		if (project == null || viewport.width <= 1) return;
 		const { all, pieces } = fitTargets(project, this.result);
-		const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
-		this.$camera.set((camera) => ({ ...camera, view: fitContent(all, pieces, viewport, canvasPadding, MIN_FIT_PLATFORM_PX / length) }));
+		const minScale = this.minFitScale();
+		const whole = fitContent(all, pieces, viewport, canvasPadding, minScale);
+		const result = this.result;
+		const section = whole.scale < minScale && result != null ? playheadSection(project, result, this.studio.$playhead.get(), viewport, canvasPadding, minScale) : null;
+		this.$camera.set((camera) => ({ ...camera, view: section != null ? fitBounds(section, viewport, canvasPadding) : whole }));
+	}
+
+	/** Zoom to Whole Run: everything Zoom to Fit would frame, however small that makes it */
+	fitWholeRun(): void {
+		const project = this.project;
+		const viewport = this.$viewport.get();
+		if (project == null || viewport.width <= 1) return;
+		this.$camera.set((camera) => ({ ...camera, view: fitBounds(fitTargets(project, this.result).all, viewport, canvasPadding) }));
+	}
+
+	/** ⌘0: the wall at physical size around the centre of the view, like Figma's Zoom to 100% */
+	zoomTo100(): void {
+		this.zoomBy(ZOOM_100_SCALE / this.$camera.get().view.scale);
+	}
+
+	/** Pixels per metre at which a default platform is still `MIN_FIT_PLATFORM_PX` long */
+	private minFitScale(): number {
+		return MIN_FIT_PLATFORM_PX / (resolvePieceParams('platform', {})['length'] ?? 0.09);
+	}
+
+	/** After tapping or importing, the next open dots come into view with their hint and build bar, once the run shows them */
+	private fitFirstHits(): void {
+		const project = this.project;
+		const result = this.result;
+		const viewport = this.$viewport.get();
+		if (!this.studio.$fitFirstHits.get() || project == null || result == null || result.revision !== project.revision || viewport.width <= 1) return;
+		if (this.studio.$playing.get() || this.$drag.get() != null) return;
+		this.studio.$fitFirstHits.set(false);
+		const view = firstHitsView(project, result, this.$camera.get().view, viewport, canvasPadding, this.minFitScale());
+		if (view != null) this.navigateTo(view);
 	}
 
 	/**
@@ -678,6 +724,14 @@ export class ComposeCx {
 		if (this.framedProjectId !== project.id) {
 			this.framedProjectId = project.id;
 			this.revealedProjectId = null;
+			// Back from Film, the wall stays where the user left it
+			const kept = this.studio.composeView;
+			if (kept?.projectId === project.id) {
+				this.$camera.set((camera) => ({ ...camera, view: kept.view }));
+				this.revealedProjectId = project.id;
+				this.revealPending();
+				return;
+			}
 			// The releases and where each marble's free fall meets its first note frame the wall before any run,
 			// so the run's first hits rarely need to widen it afterwards
 			const opening = this.result == null ? openingPoints(project) : [];
@@ -921,6 +975,7 @@ export class ComposeCx {
 				return;
 			}
 			case 'dot':
+			case 'ghost':
 			case 'track':
 				this.$drag.set({ kind: 'click', target, start: point });
 				return;
@@ -998,9 +1053,21 @@ export class ComposeCx {
 				this.studio.$selection.set([...new Set([...drag.base, ...ids])]);
 				return;
 			}
-			case 'click':
+			case 'click': {
+				// A placed hit's dot sits on its platform: pressing there and dragging still moves the platform
+				const pieceId = drag.target?.kind === 'dot' ? this.placedPieceAt(drag.target.laneId, drag.target.hitId) : null;
+				if (pieceId == null || Math.hypot(point.x - drag.start.x, point.y - drag.start.y) < 4) return;
+				this.studio.$selection.set([pieceId]);
+				this.startMove(pieceId, drag.start);
 				return;
+			}
 		}
+	}
+
+	/** The unlocked platform playing a hit, if it has one */
+	private placedPieceAt(laneId: string, hitId: string): string | null {
+		const id = this.result?.hits.find((hit) => hit.laneId === laneId && hit.hitId === hitId)?.pieceEntityId ?? null;
+		return id != null && !this.studio.$locked.get().includes(id) ? id : null;
 	}
 
 	onPointerUp(event: React.PointerEvent<HTMLElement>): void {
@@ -1026,7 +1093,7 @@ export class ComposeCx {
 					this.$override.set(null);
 					return;
 				}
-				if (drag.candidate != null) this.commit([{ type: 'upsertEntity', entity: drag.candidate }]);
+				if (drag.candidate != null && this.commit([{ type: 'upsertEntity', entity: drag.candidate }]) && project != null) this.noticeOfDrop(project, drag);
 				this.studio.simulation.endPreview();
 				return;
 			}
@@ -1087,20 +1154,27 @@ export class ComposeCx {
 
 	private onClick(target: TPick | null, point: TVec2, shiftKey: boolean): void {
 		const tool = this.$tool.get();
+		if (target?.kind === 'ghost') {
+			this.assist.acceptGhosts();
+			return;
+		}
 		if (target?.kind === 'dot') {
 			const { laneId, hitId } = target;
 			const hit = this.result?.hits.find((item) => item.laneId === laneId && item.hitId === hitId);
 			this.$hover.set(null);
 			if (hit == null) return;
-			if (tool === 'platform') {
-				// The fast path: with the Platform tool a dot gets an auto placed platform right away
-				this.placePlatform(hit);
-				this.$tool.set('select');
-			} else if (this.isSceneryTool()) {
+			if (this.isSceneryTool()) {
 				this.addFollower(laneId, hit.targetTime);
-			} else {
-				this.openInsertMenu(hit, point);
+				return;
 			}
+			if (hit.status !== 'open') {
+				const key = toHitKey(laneId, hitId);
+				const selection = this.studio.$selection.get();
+				this.studio.$selection.set(!shiftKey ? [key] : selection.includes(key) ? selection.filter((item) => item !== key) : [...selection, key]);
+				return;
+			}
+			this.clickOpenDot(hit, tool === 'platform');
+			if (tool === 'platform') this.$tool.set('select');
 			return;
 		}
 		if (target?.kind === 'track') {
@@ -1120,16 +1194,40 @@ export class ComposeCx {
 		if (target == null) this.studio.$selection.set([]);
 	}
 
-	/** The insert menu of an open hit dot, opened at the dot like a Figma popover */
-	openInsertMenu(hit: THitResult, point: TVec2): void {
-		const rect = this.container?.getBoundingClientRect();
-		const entries = dotMenu(this, hit.laneId, hit.hitId);
-		openContextMenu({ clientX: (rect?.left ?? 0) + point.x + 10, clientY: (rect?.top ?? 0) + point.y + 10, preventDefault: () => undefined }, entries);
+	/**
+	 * A click on an open note's dot selects the hit and shows the platform it would get as a ghost, as the first-run
+	 * hint says; a second click, Return or N adds it. A long gap shows what bridges it the same way and a note no
+	 * platform can play says why, as Next does. With the Platform tool armed the piece is already chosen, so it is added
+	 * at once. The other choices are in the dot's right-click menu.
+	 */
+	private clickOpenDot(hit: THitResult, isArmed: boolean): void {
+		const project = this.project;
+		const result = this.result;
+		if (project == null || result == null) return;
+		if (this.assist.isPreviewing(hit.laneId, hit.hitId)) {
+			this.assist.acceptGhosts();
+			return;
+		}
+		const action = dotClickAction(project, result, hit, this.longGapKeys(project).get(`${hit.laneId}:${hit.hitId}`));
+		switch (action.kind) {
+			case 'explain':
+				this.assist.cancelPreview();
+				this.assist.explainUnreachable(project, result, hit);
+				return;
+			case 'bridge':
+				this.assist.previewGap(hit, action.fromHitId);
+				return;
+			case 'preview':
+				if (isArmed) this.placePlatform(hit);
+				else this.assist.preview(hit, action.type);
+		}
 	}
 
 	/** What a pointer at `point` would act on, in canvas pixels */
 	pickAt(point: TVec2): TPick | null {
 		const picked = pick(point, this.pickScene());
+		const ghost = this.assist.clickableGhost;
+		if (ghost != null && picked?.kind !== 'dot' && this.$tool.get() === 'select' && isOnGhost(point, this.screenOutline(ghost))) return { kind: 'ghost' };
 		if (picked != null || !this.isSceneryTool()) return picked;
 		// Windmills and switchbacks can also start anywhere on a trajectory, not only at a hit
 		return pickTrack(point, this.screenTrackPoints());
@@ -1489,6 +1587,8 @@ export class ComposeCx {
 				? [{ laneId: hit.laneId, hitId: hit.hitId, dot: hit.dot, velocity: hit.velocity, screen: this.toScreen(hit.dot) }]
 				: []
 		);
+		const link = entity.components.hitLink;
+		const plays = link != null && soundsHit(entity.components.piece?.type ?? '', link) ? { laneId: link.laneId, hitId: link.hitId, dot: this.result?.hits.find((hit) => hit.laneId === link.laneId && hit.hitId === link.hitId)?.dot ?? null } : null;
 		this.$drag.set({
 			kind: 'move',
 			entityId,
@@ -1500,7 +1600,10 @@ export class ComposeCx {
 			candidate: null,
 			moved: false,
 			dots,
-			tracks: this.screenTrackPoints()
+			tracks: this.screenTrackPoints(),
+			plays,
+			playsDrop: null,
+			origin: resolved ?? null
 		});
 	}
 
@@ -1518,13 +1621,24 @@ export class ComposeCx {
 			else dx = 0;
 		}
 		const pose = { position: { x: drag.pose.position.x + dx, y: drag.pose.position.y + dy }, angle: drag.pose.angle };
-		const snap = !isFree && this.studio.$snapping.get() ? this.findSnap(entity, pose, drag) : null;
-		const candidate = withSnap(project, entity, pose, snap);
-		const radius = this.marbleRadius(snap?.laneId);
+		const found = !isFree && this.studio.$snapping.get() ? this.findSnap(entity, pose, drag) : null;
+		const reach = Math.max(KEEP_PLAYS_REACH, 120 / this.$camera.get().view.scale);
+		const drop = drag.plays != null ? playsDrop(drag.plays, drag.pose.position, pose.position, found, { isFree, reach }) : null;
+		// A platform near its note keeps playing it, wherever a trajectory runs past
+		const snap = drop === 'keeps' ? null : found;
+		const radius = this.marbleRadius(snap?.laneId ?? drag.plays?.laneId);
+		const candidate = drop === 'keeps' ? asPinned(entity, pose, radius) : withSnap(project, entity, pose, snap);
 		const display = snap?.kind === 'link' ? displayPiece(candidate, { pose, dot: snap.dot, velocity: snap.velocity }, radius) : displayPiece(candidate, { pose }, radius);
 		this.$override.set(display);
-		this.$drag.set({ ...drag, current: pose, snap, candidate, moved: true });
+		this.$drag.set({ ...drag, current: pose, snap, candidate, moved: true, playsDrop: drop });
 		this.previewWhatIf(withEntity(project, candidate));
+	}
+
+	/** A drop that changed which note a platform plays says so, with Undo */
+	private noticeOfDrop(project: TProject, drag: TMoveDrag): void {
+		const name = project.entities.find((entity) => entity.id === drag.entityId)?.name ?? 'The platform';
+		if (drag.plays != null && drag.playsDrop === 'frees') this.studio.notifyEdit(`${name} no longer plays ${noteLabel(project, drag.plays.laneId, drag.plays.hitId)}`);
+		else if (drag.playsDrop === 'otherNote' && drag.snap?.kind === 'link') this.studio.notifyEdit(`${name} now plays ${noteLabel(project, drag.snap.laneId, drag.snap.hitId)}`);
 	}
 
 	/**
@@ -1805,15 +1919,33 @@ export class ComposeCx {
 	nudge(degrees: number): boolean {
 		const project = this.project;
 		if (project == null) return false;
-		const ids = selectedPieceIds(project, this.studio.$selection.get());
+		const ids = this.tiltTargets(project);
 		const angles = new Map<string, number>();
 		for (const entity of project.entities) {
 			const angle = pieceAngle(entity);
 			if (angle != null && ids.includes(entity.id)) angles.set(entity.id, angle + toRadians(degrees));
 		}
 		if (!angles.size) return false;
-		this.studio.execute(pieceAngleCommands(project, angles));
+		// A hold or a quick run of presses is one undo step
+		const now = performance.now();
+		const group = this.lastNudge != null && now - this.lastNudge.at < NUDGE_FOLD_MS ? this.lastNudge.group : undefined;
+		this.studio.execute(pieceAngleCommands(project, angles), { group });
+		this.lastNudge = { at: now, group: this.studio.editGroup ?? 0 };
 		return true;
+	}
+
+	private lastNudge: { at: number; group: number } | null = null;
+
+	/** What ↑ ↓ tilt: the selected pieces and the platforms of the selected hits */
+	private tiltTargets(project: TProject): string[] {
+		const selection = this.studio.$selection.get();
+		const ofHits = selection.flatMap((key) => {
+			const parsed = parseHitKey(key);
+			if (parsed == null) return [];
+			const piece = project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === parsed.laneId && entity.components.hitLink.hitId === parsed.hitId && soundsHit(entity.components.piece.type, entity.components.hitLink));
+			return piece == null ? [] : [piece.id];
+		});
+		return [...selectedPieceIds(project, selection), ...ofHits];
 	}
 
 	/** Deletes the selected pieces, and selected marbles with their lanes while another marble remains */
@@ -1866,6 +1998,7 @@ export class ComposeCx {
 			// A selected Song or Camera track is no Next target, so Return keeps its timeline meaning there
 			hasSelection: selection.some((key) => key !== SONG_KEY && key !== CAMERA_KEY),
 			hasGhosts: this.assist.hasGhosts,
+			canTilt: project != null && this.tiltTargets(project).length > 0,
 			isDrawing: this.$pen.get() != null,
 			hasNotes: selection.length > 0 && selection.every((key) => parseHitKey(key) != null)
 		});
@@ -1881,6 +2014,9 @@ export class ComposeCx {
 				return true;
 			case 'zoom':
 				this.zoomBy(action.factor);
+				return true;
+			case 'zoom100':
+				this.zoomTo100();
 				return true;
 			case 'fit':
 				if (action.target === 'all') this.fitAll();
@@ -1903,12 +2039,8 @@ export class ComposeCx {
 				return true;
 			case 'delete':
 				return this.deleteSelection();
-			case 'nudge': {
-				const project = this.project;
-				// Arrow keys turn pieces; with only a marble selected they keep moving between hits
-				if (project == null || !selectedPieceIds(project, this.studio.$selection.get()).length) return false;
+			case 'nudge':
 				return this.nudge(action.degrees);
-			}
 			case 'repeat':
 				this.step('repeat');
 				return true;
@@ -2053,6 +2185,14 @@ export class ComposeCx {
 	}
 }
 
+/** "Hit 3 · C4", as the Plays row names a hit */
+export function noteLabel(project: TProject, laneId: string, hitId: string): string {
+	const hits = project.music.lanes.find((lane) => lane.id === laneId)?.hits ?? [];
+	const index = hits.findIndex((hit) => hit.id === hitId);
+	const pitch = hits[index]?.pitch;
+	return `Hit ${index + 1}${pitch != null ? ` · ${noteName(pitch)}` : ''}`;
+}
+
 export interface TSnapDot {
 	laneId: string;
 	hitId: string;
@@ -2085,6 +2225,12 @@ interface TMoveDrag {
 	moved: boolean;
 	dots: TSnapDot[];
 	tracks: TScreenTrack[];
+	/** The note a platform plays at the start of the drag, with its dot, for the live timing and the ghost */
+	plays: { laneId: string; hitId: string; dot: TVec2 | null } | null;
+	/** What a drop does to that note, once the pointer moved */
+	playsDrop: TPlaysDrop | null;
+	/** The piece where the drag began, drawn as a ghost while a platform that plays a note moves */
+	origin: TResolvedPiece | null;
 }
 
 interface TInsertDrag {
@@ -2197,6 +2343,9 @@ function localPoint(event: React.PointerEvent<HTMLElement>): TVec2 {
 function isSamePick(a: TPick | null, b: TPick | null): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
 }
+
+// ↑ ↓ presses this close together fold into one undo step
+const NUDGE_FOLD_MS = 700;
 
 const FOLLOW_KEY = 'midimarble-v4:follow';
 

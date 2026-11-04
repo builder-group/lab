@@ -1,69 +1,64 @@
 import { useFeatureState } from 'feature-react/state';
-import { CircleHelp, House, PanelBottom, PanelLeft, PanelRight, Sparkles } from 'lucide-react';
+import { House, PanelBottom, PanelLeft, PanelRight, Sparkles } from 'lucide-react';
 import React from 'react';
 import { MenuButton, RenameField, WindowControlsInset, type TMenuEntry } from '@/components';
 import { host } from '@/environment';
 import { openExternalUrl } from '@/lib';
-import { blenderState } from '@/modules/design/blender-state';
+import { blenderState, type TBlenderState } from '@/modules/design/blender-state';
+import { $blenderObjects } from '@/modules/design/decor';
+import { preflightExport, workspaceProblems } from '@/modules/design/export-preflight';
 import { exportStatusLabel } from '@/modules/design/ExportSheet';
 import { commandItem } from './commands';
 import { hasUnsavedChanges } from './document';
-import type { StudioCx, TStudioPanel } from './StudioCx';
+import type { StudioCx, TStudioPanel, TWorkspace } from './StudioCx';
 
 const BLENDER_DOWNLOAD_URL = 'https://www.blender.org/download/';
 
 /**
- * Unified title bar of a one-document window, like a macOS document app: the traffic lights, the sidebar
- * toggle and Home on the left, the document title with its edited state in the centre, then the project's
- * actions on the right: the Blender chip, Quick Help, Agent, Export Film… and the panel toggles
+ * Unified title bar of a one-document window, like a macOS document app: the traffic lights, the sidebar toggle, Home
+ * and the workspace switch on the left, as Blender keeps its workspaces in its top bar, the document title with its
+ * edited state in the centre, then the project's actions on the right: Blender, Agent, Export Film… and the panel
+ * toggles. Three columns, so the title stays centred while there is room and truncates instead of reaching a side.
  */
 export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 	const { cx } = props;
 	const panels = useFeatureState(cx.$panels);
-	const isQuickHelpOn = useFeatureState(cx.$quickHelp);
 	const runs = useFeatureState(cx.agents.$runs);
 	const isAgentWorking = runs.some((run) => run.phase === 'working');
 
 	return (
-		<header data-tauri-drag-region className="mm-titlebar relative flex h-[38px] shrink-0 items-center gap-0.5 pr-2 pl-3 select-none">
-			<WindowControlsInset />
-			<PanelToggle cx={cx} panel="sidebar" isOn={panels.sidebar} label="Sidebar" shortcut="⌃⌘S" icon={<PanelLeft size={16} strokeWidth={1.6} />} />
-			<button className="mm-icon-button !h-7 !w-7" onClick={() => void cx.closeProject()} title="Close the project and show the start screen" aria-label="Home" type="button">
-				<House size={15} strokeWidth={1.6} />
-			</button>
+		<header data-tauri-drag-region className="mm-titlebar h-[38px] shrink-0 pr-2 pl-3 select-none">
+			<div data-tauri-drag-region className="flex h-full items-center gap-0.5">
+				<WindowControlsInset />
+				<PanelToggle cx={cx} panel="sidebar" isOn={panels.sidebar} label="Sidebar" shortcut="⌃⌘S" icon={<PanelLeft size={16} strokeWidth={1.6} />} />
+				<button className="mm-icon-button !h-7 !w-7" onClick={() => void cx.closeProject()} title="Close the project and show the start screen" aria-label="Home" type="button">
+					<House size={15} strokeWidth={1.6} />
+				</button>
+				<WorkspaceSwitch cx={cx} />
+			</div>
 			<DocumentTitle cx={cx} />
-			<div data-tauri-drag-region className="h-full flex-1" />
-			<span className="inline-flex" data-quick-help="blender">
-				<BlenderChip cx={cx} />
-			</span>
-			<button
-				className="mm-icon-button !h-7 !w-7"
-				data-active={isQuickHelpOn}
-				aria-pressed={isQuickHelpOn}
-				aria-label="Quick Help"
-				onClick={() => cx.$quickHelp.set(!isQuickHelpOn)}
-				title={`${isQuickHelpOn ? 'Hide' : 'Show'} Quick Help (⇧⌘/)`}
-				type="button"
-			>
-				<CircleHelp size={15} strokeWidth={1.6} />
-			</button>
-			<button
-				className="mm-titlebar-agent"
-				data-quick-help="agent"
-				data-active={panels.agent}
-				aria-pressed={panels.agent}
-				onClick={() => cx.togglePanel('agent')}
-				title={`${panels.agent ? 'Hide' : 'Show'} Agent (⌘J)`}
-				type="button"
-			>
-				<Sparkles size={14} strokeWidth={1.7} />
-				<span>Agent</span>
-				{isAgentWorking && !panels.agent ? <span className="mm-titlebar-badge" aria-label="Agent working" /> : null}
-			</button>
-			<ExportButton cx={cx} />
-			<span className="mx-1 h-4 w-px bg-[var(--separator)]" />
-			<PanelToggle cx={cx} panel="timeline" isOn={panels.timeline} label="Timeline" shortcut="⌃⌘T" icon={<PanelBottom size={16} strokeWidth={1.6} />} />
-			<PanelToggle cx={cx} panel="inspector" isOn={panels.inspector} label="Inspector" shortcut="⌃⌘I" icon={<PanelRight size={16} strokeWidth={1.6} />} />
+			<div data-tauri-drag-region className="flex h-full items-center justify-end gap-0.5">
+				<span className="inline-flex" data-quick-help="blender">
+					<BlenderChip cx={cx} />
+				</span>
+				<button
+					className="mm-titlebar-agent"
+					data-quick-help="agent"
+					data-active={panels.agent}
+					aria-pressed={panels.agent}
+					onClick={() => cx.togglePanel('agent')}
+					title={`${panels.agent ? 'Hide' : 'Show'} Agent (⌘J)`}
+					type="button"
+				>
+					<Sparkles size={14} strokeWidth={1.7} />
+					<span>Agent</span>
+					{isAgentWorking && !panels.agent ? <span className="mm-titlebar-badge" aria-label="Agent working" /> : null}
+				</button>
+				<ExportButton cx={cx} />
+				<span className="mx-1 h-4 w-px bg-[var(--separator)]" />
+				<PanelToggle cx={cx} panel="timeline" isOn={panels.timeline} label="Timeline" shortcut="⌃⌘T" icon={<PanelBottom size={16} strokeWidth={1.6} />} />
+				<PanelToggle cx={cx} panel="inspector" isOn={panels.inspector} label="Inspector" shortcut="⌃⌘I" icon={<PanelRight size={16} strokeWidth={1.6} />} />
+			</div>
 		</header>
 	);
 };
@@ -71,6 +66,50 @@ export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 interface TTitleBarProps {
 	cx: StudioCx;
 }
+
+const workspaces: { id: TWorkspace; label: string; purpose: string; shortcut: string }[] = [
+	{ id: 'compose', label: 'Compose', purpose: 'Compose: hitboxes and timing', shortcut: '⌘1' },
+	{ id: 'design', label: 'Film', purpose: 'Film: skins, camera and titles', shortcut: '⌘2' }
+];
+
+function problemsLabel(workspace: TWorkspace, count: number): string {
+	if (workspace === 'compose') return count === 1 ? '1 hit needs attention' : `${count} hits need attention`;
+	return count === 1 ? '1 problem needs attention' : `${count} problems need attention`;
+}
+
+/** Compose and Film, the window's two workspaces; a quiet amber dot says the other one has problems */
+const WorkspaceSwitch: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	const workspace = useFeatureState(cx.$workspace);
+	const project = useFeatureState(cx.$history)?.present;
+	const result = useFeatureState(cx.simulation.$result);
+	const blenderObjects = useFeatureState($blenderObjects);
+	const problems = React.useMemo(() => (project != null && result != null && result.revision === project.revision ? workspaceProblems(preflightExport(project, result, blenderObjects)) : null), [project, result, blenderObjects]);
+	return (
+		<div className="mm-segmented mm-titlebar-workspace" role="tablist" aria-label="Workspace" data-quick-help="workspace">
+			{workspaces.map((item) => {
+				// Only the other workspace's problems: the one you are in shows its own in place, like Xcode's tab badges
+				const count = item.id === workspace || problems == null ? 0 : problems[item.id === 'design' ? 'film' : 'compose'];
+				const attention = count > 0 ? problemsLabel(item.id, count) : null;
+				return (
+					<button
+						key={item.id}
+						data-active={workspace === item.id}
+						onClick={() => cx.$workspace.set(item.id)}
+						role="tab"
+						aria-selected={workspace === item.id}
+						data-hint-anchor={item.id === 'design' ? 'film' : undefined}
+						title={`${attention != null ? `${attention} · ` : ''}${item.purpose} (${item.shortcut})`}
+						type="button"
+					>
+						{item.label}
+						{attention != null ? <span className="mm-titlebar-workspace-dot" role="img" aria-label={attention} /> : null}
+					</button>
+				);
+			})}
+		</div>
+	);
+};
 
 /**
  * Centred title like a macOS document window; double-click renames. A saved project autosaves every edit within a
@@ -87,9 +126,9 @@ const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 	const isUnsaved = isTemporary && history != null && hasUnsavedChanges(history);
 
 	return (
-		<div data-tauri-drag-region className="pointer-events-none absolute inset-x-0 flex justify-center">
+		<div data-tauri-drag-region className="flex h-full min-w-0 items-center justify-center px-2">
 			<div
-				className="mm-titlebar-title pointer-events-auto"
+				className="mm-titlebar-title"
 				onDoubleClick={() => setIsRenaming(true)}
 				title={isRenaming ? undefined : isTemporary ? 'Not saved yet. Press ⌘S to choose where to save it' : 'Saved automatically. Double-click to rename'}
 			>
@@ -114,8 +153,9 @@ const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 };
 
 /**
- * Blender's state as a dot and one word, like Xcode's activity view; its menu opens the scene in Blender,
- * restarts the worker or shows its log. Without Blender it offers only Install Blender…
+ * Blender's state as its logo tinted by state beside its neutral name, a neutral secondary button like Xcode's activity view: the state
+ * word joins it only while Blender works and is otherwise in the tooltip and the menu. The menu opens the scene in
+ * Blender, restarts the worker or shows its log. Without Blender it offers only Install Blender…
  */
 const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
@@ -125,6 +165,7 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 	const isRenderingPreview = useFeatureState(cx.design.live.$isRendering);
 	const isLiveEnabled = useFeatureState(cx.design.live.$enabled);
 	const state = blenderState(status, version, error, isRenderingPreview);
+	const working = useWorkingWord(state.tone === 'busy' ? state.label : null);
 
 	let items: TMenuEntry[];
 	if (status === 'missing') {
@@ -161,14 +202,44 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 			align="right"
 			label={
 				<>
-					<span className="mm-titlebar-chip-dot" data-tone={state.tone} />
-					<span className="truncate">{state.label}</span>
+					<BlenderGlyph tone={state.tone} />
+					<span>Blender</span>
+					<span className="mm-titlebar-chip-state" data-shown={working.isShown}>
+						{working.word}
+					</span>
 				</>
 			}
 			items={items}
 		/>
 	);
 };
+
+/** Blender's logo in one colour, the state's: green connected, amber pulsing while working, red on error, grey otherwise */
+const BlenderGlyph: React.FC<{ tone: TBlenderState['tone'] }> = (props) => (
+	<svg className="mm-titlebar-chip-glyph" data-tone={props.tone} width={14} height={14} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+		<path d="M12.51 13.214c.046-.8.438-1.506 1.03-2.006a3.424 3.424 0 0 1 2.212-.79c.85 0 1.631.3 2.211.79.592.5.983 1.206 1.028 2.005.045.823-.285 1.586-.865 2.153a3.389 3.389 0 0 1-2.374.938 3.393 3.393 0 0 1-2.376-.938c-.58-.567-.91-1.33-.865-2.152M7.35 14.831c.006.314.106.922.256 1.398a7.372 7.372 0 0 0 1.593 2.757 8.227 8.227 0 0 0 2.787 2.001 8.947 8.947 0 0 0 3.66.76 8.964 8.964 0 0 0 3.657-.772 8.285 8.285 0 0 0 2.785-2.01 7.428 7.428 0 0 0 1.592-2.762 6.964 6.964 0 0 0 .25-3.074 7.123 7.123 0 0 0-1.016-2.779 7.764 7.764 0 0 0-1.852-2.043h.002L13.566 2.55c-.003-.002-.006-.005-.01-.006-.52-.4-1.396-.398-1.968.002-.58.405-.647 1.074-.132 1.498l-.002.002 3.08 2.503-9.35.01h-.013c-.755.001-1.48.491-1.623 1.112-.148.623.365 1.139 1.15 1.142V8.6l4.739-.01-8.466 6.497-.032.025c-.799.611-1.057 1.628-.554 2.271.511.652 1.597.654 2.403.003L7 12.89s-.067.507-.062.809zm11.886 1.683c-.976.994-2.344 1.557-3.822 1.56-1.48.003-2.85-.555-3.826-1.547a4.548 4.548 0 0 1-1.037-1.623 4.22 4.22 0 0 1-.236-1.799 4.36 4.36 0 0 1 .518-1.705 4.795 4.795 0 0 1 1.177-1.4 5.384 5.384 0 0 1 3.4-1.19 5.363 5.363 0 0 1 3.4 1.18c.52.421.915.897 1.176 1.4.26.518.417 1.085.516 1.705.05.603-.03 1.212-.236 1.799a4.55 4.55 0 0 1-1.034 1.62" />
+	</svg>
+);
+
+/** Long enough that a quick scene update doesn't resize the button */
+const WORKING_SHOW_DELAY_MS = 400;
+/** Long enough that a burst of updates reads as one, rather than the button opening and closing */
+const WORKING_HOLD_MS = 1000;
+
+/** The state word the Blender button shows: it waits out short work, and keeps its text while the button closes */
+function useWorkingWord(label: string | null): { word: string; isShown: boolean } {
+	const [word, setWord] = React.useState('');
+	const [isShown, setIsShown] = React.useState(false);
+	const isWorking = label != null;
+	if (label != null && label !== word) setWord(label);
+
+	React.useEffect(() => {
+		const timer = window.setTimeout(() => setIsShown(isWorking), isWorking ? WORKING_SHOW_DELAY_MS : WORKING_HOLD_MS);
+		return () => window.clearTimeout(timer);
+	}, [isWorking]);
+
+	return { word, isShown };
+}
 
 /**
  * The window's one accent button. While a film exports with the sheet closed it carries the progress as a

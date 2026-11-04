@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildSceneDescription } from '@/modules/blender/scene-builder';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
-import { addWallTextCommands } from './design-commands';
+import { addWallTextCommands, defaultTitleColor, themeCommands, themeTitleColor } from './design-commands';
+import { titleColorOnWall } from './project-themes';
 import { songDisplayName, titleClips, titleSpan, withTitleTime } from './titles';
 
 const TEXT = { text: 'Fin', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#1d1d1f' };
@@ -30,7 +31,7 @@ describe('title timing', () => {
 	it('should list titles as clips by start and pass the times to the scene description', () => {
 		// Prepare
 		let project: TProject = createProject({ title: 'Titles' });
-		const { commands, entityId } = addWallTextCommands({ x: 0, y: 0.2 }, { theme: 'pegboard', frameHeight: 0.5, text: 'Fin' });
+		const { commands, entityId } = addWallTextCommands({ x: 0, y: 0.2 }, { color: '#1f3a5f', frameHeight: 0.5, text: 'Fin' });
 		const [isAddedOk, addedErr, added] = applyProjectCommands(project, commands);
 		if (!isAddedOk) throw addedErr;
 		const text = added.entities.find((entity) => entity.id === entityId)?.components.wallText ?? TEXT;
@@ -72,5 +73,40 @@ describe('songDisplayName function', () => {
 		expect(songDisplayName(song(null, 'Morning Run'))).toBe('Morning Run');
 		expect(songDisplayName(song(null, 'Untitled 8'))).toBeNull();
 		expect(songDisplayName(song(null, 'Untitled'))).toBeNull();
+	});
+});
+
+describe('title colour', () => {
+	const DARK = '#1f3a5f';
+	const WHITE = '#ffffff';
+
+	it('should read on the wall: dark on a light wall, white on a dark one', () => {
+		expect(titleColorOnWall('#f7f5f0')).toBe(DARK);
+		expect(titleColorOnWall('#141a2a')).toBe(WHITE);
+	});
+
+	it("should keep the built-in themes' title colours", () => {
+		expect(themeTitleColor('pegboard')).toBe(DARK);
+		expect(themeTitleColor('brass')).toBe(WHITE);
+		expect(themeTitleColor('neon')).toBe(WHITE);
+	});
+
+	it('should follow the wall the project shows: its own colour, then its theme', () => {
+		const project = createProject({ id: 'p', title: 'T' });
+		const christmas = { id: 'theme-x', name: 'Christmas', base: 'brass', overrides: { wallColor: '#f7f5f0' } };
+		expect(defaultTitleColor({ ...project.design, theme: 'brass' })).toBe(WHITE);
+		expect(defaultTitleColor({ ...project.design, theme: 'theme-x', themes: [christmas] })).toBe(DARK);
+		expect(defaultTitleColor({ ...project.design, theme: 'theme-x', themes: [christmas], wall: { color: '#101010' } })).toBe(WHITE);
+	});
+
+	it('should give an unset title the default in the scene, and leave one out of a theme switch', () => {
+		const project = createProject({ id: 'p', title: 'T' });
+		project.design.theme = 'pegboard';
+		const { color: _color, ...unset } = TEXT;
+		const entity = { id: 'text-1', name: 'Fin', components: { wallText: unset, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
+		project.entities.push(entity);
+		const build = buildSceneDescription(project, { revision: project.revision, duration: 1, marbles: [], pieces: [], hits: [] } as never, { fps: 30 });
+		expect(build.description.wallTexts?.[0]?.color).toBe(DARK);
+		expect(themeCommands(project, 'neon')).toHaveLength(1);
 	});
 });

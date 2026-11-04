@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { tidyMenu } from '@/components';
 import { toolKeys } from '@/modules/compose/keys';
-import { createProject } from '@/modules/project';
 import { commands } from './commands';
-import { audibleProject, isLaneAudible } from './StudioCx';
 
 describe('commands', () => {
 	it('should give every command a unique id and title within its section', () => {
@@ -25,20 +23,5 @@ describe('tidyMenu function', () => {
 	it('should drop leading, trailing and doubled separators and skipped entries', () => {
 		const item = { label: 'Pin', onSelect: () => undefined };
 		expect(tidyMenu(['separator', null, item, 'separator', false, 'separator', item, 'separator'])).toEqual([item, 'separator', item]);
-	});
-});
-
-describe('lane mix', () => {
-	it('should let soloed lanes win over muted ones', () => {
-		expect(isLaneAudible({ muted: ['a'], solo: [] }, 'a')).toBe(false);
-		expect(isLaneAudible({ muted: ['a'], solo: ['a'] }, 'a')).toBe(true);
-		expect(isLaneAudible({ muted: [], solo: ['a'] }, 'b')).toBe(false);
-	});
-
-	it('should leave out silent lanes from the project that is played', () => {
-		const project = createProject({ title: 'Mix' });
-		const laneId = project.music.lanes[0]?.id ?? '';
-		expect(audibleProject(project, { muted: [], solo: [] })).toBe(project);
-		expect(audibleProject(project, { muted: [laneId], solo: [] }).music.lanes).toHaveLength(0);
 	});
 });

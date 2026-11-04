@@ -68,7 +68,7 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 				aria-label="Title clips"
 				onPointerDown={(event) => {
 					if (event.button !== 0 || event.target !== event.currentTarget || event.shiftKey) return;
-					cx.$selection.set(selection.filter((key) => !clips.some((clip) => clip.entityId === key)));
+					cx.$selection.set([]);
 				}}
 			>
 				{clips.map((clip, index) => {

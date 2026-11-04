@@ -1,9 +1,10 @@
 import type { TDesignStatus } from './DesignCx';
 
-/** Blender's connection as a dot, one word and the detail for the tooltip, for the title bar's Blender chip */
+/** Blender's connection as the logo's tint, the state word and the detail for the tooltip, for the title bar's Blender button */
 export interface TBlenderState {
-	/** `off` draws a hollow dot: Blender can't run here, which is expected rather than a problem */
+	/** The logo's tint: green, red, amber, grey; `off` is a fainter grey, since Blender can't run here, which is expected rather than a problem */
 	tone: 'good' | 'bad' | 'busy' | 'idle' | 'off';
+	/** The button shows it only while Blender works */
 	label: string;
 	detail: string;
 }
@@ -18,7 +19,7 @@ export function blenderState(status: TDesignStatus, version: string | null, erro
 		case 'unavailable':
 			return { tone: 'off', label: 'Blender', detail: 'Blender connects in the desktop app' };
 		case 'missing':
-			return { tone: 'bad', label: 'Not Installed', detail: "Blender isn't installed. Install Blender 4.2 or later to preview and export films." };
+			return { tone: 'idle', label: 'Not Installed', detail: "Blender isn't installed. Install Blender 4.2 or later to preview and export films." };
 		case 'starting':
 			return { tone: 'busy', label: 'Starting', detail: 'Starting Blender…' };
 		case 'syncing':

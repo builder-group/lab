@@ -5,6 +5,7 @@ import {
 	nextPieceName,
 	freePose,
 	getPieceDefinition,
+	layoutAtContact,
 	layoutAtMarble,
 	layoutFree,
 	layoutOf,
@@ -120,6 +121,45 @@ export function asAnchored(project: TProject, entity: TEntity, pose: TPose, lane
 			}
 		}
 	};
+}
+
+/**
+ * A platform that keeps playing its note where the drag left it. The run keeps it there at `pose` and measures how
+ * the marble lands on it, so the note reads On Time, Late or Missed instead of the platform following the marble.
+ */
+export function asPinned(entity: TEntity, pose: TPose, marbleRadius = DEFAULT_MARBLE_RADIUS): TEntity {
+	const link = entity.components.hitLink;
+	if (link == null) return entity;
+	const type = entity.components.piece?.type ?? 'platform';
+	const input: TLayoutInput = {
+		type,
+		params: resolvePieceParams(type, entity.components.piece?.params ?? {}),
+		path: resolvePiecePath(type, entity.components.path?.points),
+		angle: pose.angle,
+		contactAt: link.contactAt,
+		marbleRadius
+	};
+	const contact = layoutFree(input, pose.position).contactPoint ?? pose.position;
+	// The run lays a pinned piece out from its contact point, so that point is taken from what the run would place
+	const placed = layoutAtContact(input, contact).position;
+	const pinnedPosition = { x: contact.x + pose.position.x - placed.x, y: contact.y + pose.position.y - placed.y };
+	return { ...entity, components: { ...entity.components, hitLink: { ...link, angle: pose.angle, pinned: true, pinnedPosition } } };
+}
+
+/** How far from its note, in metres, a dragged platform still plays it; a drop further away frees it */
+export const KEEP_PLAYS_REACH = 0.25;
+
+/**
+ * What dropping a platform that plays a note does: back on its dot it follows its note again, on another open dot it
+ * plays that note, near its note it keeps playing it where it lies, and with ⌥ or far away it is free.
+ */
+export type TPlaysDrop = 'onNote' | 'otherNote' | 'keeps' | 'frees';
+
+export function playsDrop(note: { laneId: string; hitId: string; dot: TVec2 | null }, startPosition: TVec2, position: TVec2, snap: TSnap | null, options: { isFree: boolean; reach: number }): TPlaysDrop {
+	if (snap?.kind === 'link') return snap.laneId === note.laneId && snap.hitId === note.hitId ? 'onNote' : 'otherNote';
+	if (options.isFree) return 'frees';
+	const from = note.dot ?? startPosition;
+	return Math.hypot(position.x - from.x, position.y - from.y) <= options.reach ? 'keeps' : 'frees';
 }
 
 /** The entity a drop produces at `pose` for a snap, falling back to free when the anchor has no hit before it */

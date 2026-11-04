@@ -1,11 +1,12 @@
 import { BrickWall, Lightbulb, Plus, RotateCcw, Sun, Trash2, TriangleAlert } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, SelectField, SliderField } from '@/components';
-import type { TLight, TProject, TProjectCommand, TWallBand, TWallKind } from '@/modules/project';
+import type { TLight, TProject, TProjectCommand, TWallBand } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { getCommand } from '@/modules/studio/commands';
 import { KEY_LIGHT_KEY, toLightKey } from '@/modules/studio/selection';
 import { marbleContrastWarning } from './draft-look';
+import { WallTiles } from './LookTiles';
 import { appliedOverrides, baseThemeOf, resolveTheme } from './project-themes';
 import {
 	addedLights,
@@ -18,8 +19,7 @@ import {
 	updateLightCommands,
 	wallCommands,
 	wallLayer,
-	WALL_BANDS,
-	WALL_KINDS
+	WALL_BANDS
 } from './scene-layers';
 
 // Inspectors of the Wall and Lights layers of Film. Values the theme sets read "From Brass"; a value the project sets
@@ -37,20 +37,13 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 	const isOwn = Object.keys(wall.own).length > 0;
 	const marbles = project.entities.flatMap((entity) => (entity.components.marble != null ? [{ name: entity.name ?? 'Marble', color: entity.components.marble.color }] : []));
 	const warning = marbleContrastWarning(baseThemeOf(design), appliedOverrides(design), marbles);
-	const kindLabel = (kind: TWallKind): string => WALL_KINDS.find((item) => item.kind === kind)?.label ?? kind;
 	const bandLabel = (band: TWallBand): string => WALL_BANDS.find((item) => item.band === band)?.label ?? band;
 
 	return (
 		<>
 			<InspectorHeader icon={<BrickWall size={16} strokeWidth={1.7} />} title="Wall" subtitle={isOwn ? `Changed from ${themeName}` : origin} />
-			<Panel id="design.wall" title="Wall" accessory={<HelpTip text="What the marbles fall in front of. The Background surrounds the wall and lights and reflects in the pieces." />}>
-				<SelectField
-					id="wall-kind"
-					label="Skin"
-					value={wall.own.kind ?? ''}
-					options={[{ value: '', label: `${origin} · ${kindLabel(wall.theme.kind)}` }, ...WALL_KINDS.map((item) => ({ value: item.kind, label: item.label }))]}
-					onChange={(value) => cx.execute(wallCommands(project, { kind: value === '' ? null : (value as TWallKind) }))}
-				/>
+			<Panel id="design.wall" title="Look" accessory={<HelpTip text="What the marbles fall in front of. The Background surrounds the wall and lights and reflects in the pieces." />}>
+				<WallTiles cx={cx} project={project} />
 				{wall.kind === 'tinsel' ? (
 					<SelectField
 						id="wall-band"
@@ -88,6 +81,12 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 					resetTitle={`Use ${themeName}'s background colour again`}
 					commandsFor={(backgroundColor) => wallCommands(requireProject(cx), { backgroundColor })}
 				/>
+				{isOwn ? (
+					<button className="mm-button" data-span="2" onClick={() => cx.execute(wallCommands(project, { kind: null, band: null, color: null, backgroundColor: null }))} title={`Show ${themeName}'s wall and colours again`} type="button">
+						<RotateCcw size={12} strokeWidth={1.9} />
+						Reset to Theme
+					</button>
+				) : null}
 			</Panel>
 		</>
 	);
@@ -118,10 +117,15 @@ export const KeyLightInspector: React.FC<{ cx: StudioCx; project: TProject }> = 
 					commandsFor={(color) => keyLightCommands(requireProject(cx), { color })}
 				/>
 				<LightSliders idPrefix="key-light" strength={key.strength} side={key.side} height={key.height} onChange={(patch) => cx.execute(keyLightCommands(requireProject(cx), patch))} />
+				<SliderField id="key-light-softness" label="Softness" value={key.softness * 100} min={0} max={100} step={1} format={(value) => String(Math.round(value))} unit="%" onCommit={(value) => cx.execute(keyLightCommands(requireProject(cx), { softness: value / 100 }))} />
 				<button className="mm-button" data-span="2" disabled={!isOwn} onClick={() => cx.execute(resetKeyLightCommands(requireProject(cx)))} title={`Use ${themeName}'s Key Light again`} type="button">
 					<RotateCcw size={12} strokeWidth={1.8} />
 					Reset to {themeName}
 				</button>
+			</Panel>
+			<Panel id="design.keyLight.film" title="Whole Film" accessory={<HelpTip text="Exposure brightens or darkens the whole film. Bloom lets what glows spill soft light: fairy lights, baubles, snow. Flat Light shows neither." />}>
+				<SliderField id="key-light-exposure" label="Exposure" value={key.exposure} min={-2} max={2} step={0.05} format={(value) => (value > 0 ? `+${value.toFixed(2)}` : value.toFixed(2))} unit="" onCommit={(value) => cx.execute(keyLightCommands(requireProject(cx), { exposure: value }))} />
+				<SliderField id="key-light-bloom" label="Bloom" value={key.bloom * 100} min={0} max={100} step={1} format={(value) => String(Math.round(value))} unit="%" onCommit={(value) => cx.execute(keyLightCommands(requireProject(cx), { bloom: value / 100 }))} />
 			</Panel>
 		</>
 	);
@@ -208,7 +212,7 @@ const LightSliders: React.FC<{ idPrefix: string; strength: number; side: number;
  * Dragging in the colour picker is one undo step: changes fold into the first while it is still the latest edit, until
  * the well loses focus.
  */
-const ColorWell: React.FC<{
+export const ColorWell: React.FC<{
 	cx: StudioCx;
 	id: string;
 	label: string;

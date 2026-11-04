@@ -6,7 +6,7 @@ import { commandItem, getCommand, runInWorkspace } from './commands';
 import { formatTime } from './format';
 import { toHitKey } from './selection';
 import type { StudioCx } from './StudioCx';
-import { playWithMenu } from './timeline/hand-notes';
+import { deleteHits, playWithMenu } from './timeline/hand-notes';
 
 // Context menus list the same commands as the palette and the shortcuts, so each shows its key
 
@@ -68,7 +68,7 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 		'separator',
 		...playWithMenu(cx, moving),
 		'separator',
-		{ ...commandItem(cx, 'edit.delete'), disabled: false, onSelect: () => removeHits(cx, moving) }
+		{ label: 'Delete Hit', onSelect: () => void deleteHits(cx, moving) }
 	]);
 }
 
@@ -77,16 +77,11 @@ export function laneMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[]
 	const project = cx.project;
 	if (project == null) return [];
 	const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
-	const hasRecording = project.music.sources.some((source) => source.kind === 'audio');
-	const mix = cx.$mix.get();
 
 	return tidyMenu([
 		{ section: lane.name },
 		time != null ? { label: `Add Hit at ${formatTime(time)}`, onSelect: () => addHit(cx, lane, time) } : null,
 		{ label: 'Select All Hits', disabled: !lane.hits.length, onSelect: () => cx.$selection.set(lane.hits.map((hit) => toHitKey(lane.id, hit.id))) },
-		'separator',
-		hasRecording ? null : { label: 'Mute', checked: mix.muted.includes(lane.id), onSelect: () => cx.toggleMute(lane.id) },
-		hasRecording ? null : { label: 'Solo', checked: mix.solo.includes(lane.id), onSelect: () => cx.toggleSolo(lane.id) },
 		'separator',
 		marble != null
 			? {
@@ -103,34 +98,9 @@ export function laneMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[]
 }
 
 export function addHit(cx: StudioCx, lane: TLane, time: number): void {
-	const hit = { id: createId('hit'), time: Math.round(time * 10000) / 10000, pitch: nearestPitch(lane, time) };
-	if (cx.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }])) {
-		cx.$selection.set([toHitKey(lane.id, hit.id)]);
-		cx.audition(lane.id, hit.pitch);
-	}
-}
-
-function nearestPitch(lane: TLane, time: number): number | undefined {
-	let best: number | undefined;
-	let bestDistance = Number.POSITIVE_INFINITY;
-	for (const hit of lane.hits) {
-		const distance = Math.abs(hit.time - time);
-		if (hit.pitch != null && distance < bestDistance) {
-			best = hit.pitch;
-			bestDistance = distance;
-		}
-	}
-	return best;
-}
-
-function removeHits(cx: StudioCx, keys: string[]): void {
-	const project = cx.project;
-	if (project == null) return;
-	const commands = project.music.lanes.flatMap((lane) => {
-		const hitIds = lane.hits.filter((hit) => keys.includes(toHitKey(lane.id, hit.id))).map((hit) => hit.id);
-		return hitIds.length ? [{ type: 'removeHits' as const, laneId: lane.id, hitIds }] : [];
-	});
-	if (cx.execute(commands)) cx.$selection.set([]);
+	// A hit has a pitch only when it comes from a MIDI note; one placed by hand is timing alone
+	const hit = { id: createId('hit'), time: Math.round(time * 10000) / 10000 };
+	if (cx.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }])) cx.$selection.set([toHitKey(lane.id, hit.id)]);
 }
 
 /** The Song layer's menu, in Layers and on its timeline row */

@@ -26,7 +26,7 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
-from . import anim, assets, themes, walltext
+from . import anim, assets, decor_effects, themes, walltext
 from .util import (
     DETACHED_COLLECTION,
     MANAGED_COLLECTION,
@@ -200,11 +200,12 @@ def _looks(item_id):
     item = ITEMS[item_id]
     color = item['color']
     if item_id.startswith('bauble'):
-        return [item_material(item_id, color, roughness=0.14, metallic=0.75), item_material('bauble cap', '#c9b37a', roughness=0.3, metallic=1.0)]
+        # A faint glow of its own, for Bloom and for warmth; Bloom also catches the sun in its gloss
+        return [item_material(item_id, color, roughness=0.14, metallic=0.75, emission=0.35), item_material('bauble cap', '#c9b37a', roughness=0.3, metallic=1.0)]
     if item_id == 'snowflake-gold':
         return [item_material(item_id, color, roughness=0.3, metallic=1.0)]
     if item_id == 'fairy-light':
-        return [item_material('fairy wire', '#3a3a3a', roughness=0.6), item_material(item_id, color, roughness=0.4, emission=4.0)]
+        return [item_material('fairy wire', '#3a3a3a', roughness=0.6), item_material(item_id, color, roughness=0.4, emission=10.0)]
     if item_id == 'gift-box':
         return [item_material(item_id, color, roughness=0.55), item_material('gift ribbon', item['second'], roughness=0.3, metallic=0.4)]
     if item_id == 'star':
@@ -296,6 +297,10 @@ def create_decor(project_dir, entry, managed, asset_cache):
         item = ITEMS.get(item_id)
         if item is None:
             return None, 'Unknown decor item: ' + str(item_id)
+        if decor_effects.effect_of(item) is not None:
+            obj = decor_effects.create(name, item['effect'], managed)
+            tag(obj, entry['id'], DECOR_ROLE)
+            return obj, None
         if item.get('text') is not None:
             return create_text_decor(entry, item, item_id, name, managed), None
         obj = bpy.data.objects.new(name, shared_mesh(item_id, item_id))
@@ -347,6 +352,7 @@ def write_decor(obj, entry, fps, duration):
     scale = finite(entry.get('scale', 1.0), 'scale')
     rotation = finite(entry.get('rotation', 0.0), 'rotation')
     depth = max(0.0, finite(entry.get('depth', 0.0), 'depth'))
+    is_effect = decor_effects.is_effect(obj)
     if obj.type == 'FONT':
         obj.data.body = str(entry.get('text') or '')
         for child in obj.children:
@@ -354,12 +360,14 @@ def write_decor(obj, entry, fps, duration):
                 half = len(obj.data.body) * obj.data.size * 0.27
                 child.matrix_basis = Matrix.Translation((half + 0.006, 0.0, 0.0))
     # Local +Z points at the camera (-Y), local +Y up the wall, as a title's; the wall angle turns it in the wall plane
-    obj.matrix_basis = (
-        Matrix.Translation((finite(position['x'], 'x'), -(depth + WALL_GAP), finite(position['y'], 'y')))
-        @ Matrix.Rotation(-rotation, 4, 'Y')
-        @ Matrix.Rotation(math.pi / 2, 4, 'X')
-        @ Matrix.Diagonal((scale, scale, scale, 1.0))
-    )
+    # An effect hangs from the camera (`decor_effects.attach`); it has no place on the wall
+    if not is_effect:
+        obj.matrix_basis = (
+            Matrix.Translation((finite(position['x'], 'x'), -(depth + WALL_GAP), finite(position['y'], 'y')))
+            @ Matrix.Rotation(-rotation, 4, 'Y')
+            @ Matrix.Rotation(math.pi / 2, 4, 'X')
+            @ Matrix.Diagonal((scale, scale, scale, 1.0))
+        )
     label = str(entry.get('name') or '').strip()[:48]
     if label and obj.name != label and not obj.name.startswith(label + '.'):
         obj.name = label
@@ -374,16 +382,25 @@ def write_decor(obj, entry, fps, duration):
     obj['mm_written'] = signature(obj)
 
 
+def attach_effects(entries, managed, camera, scene, fps, duration, theme):
+    """Snowfall and Garland: see `decor_effects`"""
+    return decor_effects.attach(entries, managed, camera, scene, fps, duration, theme)
+
+
 def remove_tree(obj):
     for member in [*parts_of(obj), obj]:
         data = member.data
         bpy.data.objects.remove(member)
-        # Shared meshes stay for the next copy; a text decoration's curve is its own
+        # Shared meshes stay for the next copy; a text decoration's curve and an effect's mesh are its own
         if isinstance(data, bpy.types.Curve) and data.users == 0:
             bpy.data.curves.remove(data)
+        elif isinstance(data, bpy.types.Mesh) and data.users == 0 and data.name.startswith(('MM snowfall', 'MM garland')):
+            bpy.data.meshes.remove(data)
 
 
 def signature(obj):
+    if decor_effects.is_effect(obj):
+        return decor_effects.signature(obj)
     placement = [round(value, 6) for value in (*obj.location, *obj.rotation_euler, *obj.scale)]
     body = obj.data.body if obj.type == 'FONT' else None
     return hashlib.sha1(json.dumps([placement, body, obj.get(SOURCE_PROPERTY)]).encode()).hexdigest()[:16]
@@ -392,6 +409,9 @@ def signature(obj):
 def link_state(obj):
     if obj.get('mm_link') == 'unlinked':
         return 'unlinked'
+    # Nothing an effect holds is the user's to place: the camera carries it
+    if decor_effects.is_effect(obj):
+        return 'linked'
     written = obj.get('mm_written')
     if written is not None and written != signature(obj):
         return 'unlinked'

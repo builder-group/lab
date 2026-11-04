@@ -44,10 +44,14 @@ describe('stepHints function', () => {
 		expect(stepHints(empty, facts({ hasSong: false })).open).toBe('dot');
 	});
 
-	it('should open the tap hint in an empty project and close it once a marble has a hit', () => {
+	it('should not offer tapping without a song', () => {
+		expect(stepHints(empty, facts({ hasSong: false, hasHits: false, openCount: 0 })).open).toBeNull();
+	});
+
+	it('should open the tap hint for a song without hits and close it once a marble has a hit', () => {
 		// Act
-		const opened = stepHints(empty, facts({ hasSong: false, hasHits: false, openCount: 0 }));
-		const tapped = stepHints(opened, facts({ hasSong: false, hasHits: true, openCount: 1, editCount: 1 }));
+		const opened = stepHints({ ...empty, seen: ['song'] }, facts({ hasSong: true, hasHits: false, openCount: 0 }));
+		const tapped = stepHints(opened, facts({ hasSong: true, hasHits: true, openCount: 1, editCount: 1 }));
 
 		// Assert
 		expect(opened.open).toBe('tap');

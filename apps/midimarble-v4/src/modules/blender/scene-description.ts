@@ -263,6 +263,12 @@ export interface TSceneKeyLight {
 	strength?: number;
 	side?: number;
 	height?: number;
+	/** Sun angle as a share of `MAX_SUN_ANGLE` in themes.py */
+	softness?: number;
+	/** Stops on top of the base theme's exposure */
+	exposure?: number;
+	/** Glare over the render, 0 none; Flat Light skips it */
+	bloom?: number;
 }
 
 export interface TSceneLight {

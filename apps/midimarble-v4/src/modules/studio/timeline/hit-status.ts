@@ -16,7 +16,7 @@ export function hitTiming(result: THitResult | undefined, names: THitNames, unre
 			const error = result.error ?? 0;
 			const ms = Math.max(1, Math.round(Math.abs(error) * 1000));
 			const isLate = error > 0;
-			return { state: 'drifting', label: `${ms} ms ${isLate ? 'Late' : 'Early'}`, tooltip: `Lands ${ms} ms ${isLate ? 'after' : 'before'} the note` };
+			return { state: 'drifting', label: `${ms} ms ${isLate ? 'Late' : 'Early'}`, tooltip: `Lands ${ms} ms ${isLate ? 'after' : 'before'} the note${names.isOffDot === true ? `. ${names.piece ?? 'Its platform'} sits off its dot` : ''}` };
 		}
 		case 'missed':
 			if (result.reason === 'resting') return { state: 'missed', label: 'Stopped', tooltip: `${names.marble} stops on this platform` };
@@ -32,6 +32,7 @@ export interface THitNames {
 	marble: string;
 	pitch?: number;
 	piece?: string;
+	isOffDot?: boolean;
 }
 
 export interface THitTiming {
