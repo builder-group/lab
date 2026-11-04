@@ -1,33 +1,12 @@
 // Writes `fixtures/jingle-bells.marble.json`: the public domain Jingle Bells refrain with a simple bass line,
 // imported like the app's MIDI import sheet (split across up to two marbles, aligned to the import start) and
-// built hit by hit with Next semantics through the assist worker's request handler: a switchback (or a rail when
-// none fits) for a long gap, accepted Continue ghosts, Mirror when the interval repeats and Auto place otherwise.
-// Every lane keeps to its own frame band and to the shared descent pace y*(t). Where the assists find nothing,
-// the build does what a user would: rotates the piece or the one before it by hand. Every step must keep all hits
-// on time, every gap piece in the run and each marble on its own pieces; the build stops at the first step that cannot. Writes the MIDI file
-// and a build log with the pace measurements to `.local/jingle/`. The fixture ships the MIDI file next to it as
-// `fixtures/jingle-bells.mid`, its song, which the example copies into the new package.
-// Each marble then gets a Finish after its last note (Add Finish), and the film ends with their catch.
-// Last it is dressed for the film: a Christmas project theme stored in the fixture and a seeded scatter of the Christmas
-// Decor set, which never changes a hit.
-// The committed fixture predates Build Track and keeps its hits and pieces: a rebuilt one plays 115/115 with a clean
-// preflight, but Re-place's two Jingle Bells recovery tests are tuned to the old track (docs/references.md, Build Track).
-// So a build lands in `.local/jingle/` and replaces the fixture only with --write.
-// Usage: tsx scripts/build-jingle-fixture.ts [--write] [--finalize] [--dress]
-//   --finalize re-applies the song, the Finishes, piece names and the film end to the existing fixture without
-//   rebuilding its pieces
-//   --dress only re-applies the theme and the Decor to the existing fixture
-// Writes `fixtures/jingle-bells.marble.json`: the public domain Jingle Bells refrain with a simple bass line,
-// imported like the app's MIDI import sheet (split across up to two marbles, aligned to the import start) and
 // built by Build Track, the app's own builder (`src/modules/compose/build-track.ts`), which ends each marble in a
 // Finish. Writes the MIDI file and a build log with the pace measurements to `.local/jingle/`. The fixture ships the
 // MIDI file next to it as `fixtures/jingle-bells.mid`, its song, which the example copies into the new package.
 // The film ends with the marbles' catch.
 // Last it is dressed for the film: a Christmas project theme stored in the fixture and a seeded scatter of the Christmas
 // Decor set, which never changes a hit.
-// The committed fixture predates Build Track and keeps its hits and pieces: a rebuilt one plays 115/115 with a clean
-// preflight, but Re-place's two Jingle Bells recovery tests are tuned to the old track (docs/references.md, Build Track).
-// So a build lands in `.local/jingle/` and replaces the fixture only with --write.
+// A build lands in `.local/jingle/` and replaces the fixture only with --write.
 // Usage: tsx scripts/build-jingle-fixture.ts [--write] [--finalize] [--dress]
 //   --finalize re-applies the song, the Finishes, piece names and the film end to the existing fixture without
 //   rebuilding its pieces
@@ -40,6 +19,7 @@ import { builtInSource, newDecor, setDecorList } from '../src/modules/design/dec
 import { scatterDecorCommands } from '../src/modules/design/decor-scatter';
 import { preflightExport } from '../src/modules/design/export-preflight';
 import { filmCamera } from '../src/modules/design/film-camera';
+import { catalogSkin } from '../src/modules/design/skin-catalog';
 import { fittedSongEnd } from '../src/modules/camera/finish-exit';
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
 import {
@@ -89,7 +69,7 @@ const CHRISTMAS_THEME: TProjectTheme = {
 	base: 'brass',
 	overrides: { wallColor: '#fcf3df', lightColor: '#ffe6b3', backgroundColor: '#fff2d2' },
 	keyLight: { strength: 5, side: -0.26, height: 0.35, softness: 0.55, exposure: 0.4, bloom: 0.5 },
-	parts: { platform: { skin: 'platform:gift' }, rail: { skin: 'rail:candy' }, switchback: { skin: 'switchback:candy' }, marble: { skin: 'marble:glass-green' } }
+	parts: { platform: { skin: 'platform:gift' }, rail: { skin: 'rail:candy' }, switchback: { skin: 'switchback:candy' }, marble: { skin: 'marble:glass-green', colour: 'marble' } }
 };
 const DECOR_DENSITY = 0.18;
 const DECOR_SEED = 1;
@@ -222,7 +202,8 @@ async function finalized(fixture: TProject, simulateFinish: TSimulateFn): Promis
 /** The film's look: the project's Christmas theme with the Christmas Decor set scattered. No hit can change. */
 function dressed(fixture: TProject, simulateFinal: (current: TProject) => TSimulationResult): TProject {
 	const themes = [...(fixture.design.themes ?? []).filter((theme) => theme.id !== CHRISTMAS_THEME.id), CHRISTMAS_THEME];
-	const themed: TProject = { ...fixture, design: { ...fixture.design, theme: CHRISTMAS_THEME.id, themes } };
+	const inTheme: TProject = { ...fixture, design: { ...fixture.design, theme: CHRISTMAS_THEME.id, themes } };
+	const themed = inTheme;
 	const result = simulateFinal(themed);
 	const track = filmCamera(themed, result).track;
 	if (track == null) throw new Error('The dress step needs the film camera');

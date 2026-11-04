@@ -8,7 +8,7 @@ use tauri_specta::{collect_commands, collect_events, Builder as SpectaBuilder};
 
 fn specta_builder() -> SpectaBuilder<tauri::Wry> {
     return SpectaBuilder::<tauri::Wry>::new()
-        .events(collect_events![agents::AgentRunEvent, menu::MenuCommandEvent, mcp::McpRequestEvent, mcp::McpClientsEvent])
+        .events(collect_events![menu::MenuCommandEvent, mcp::McpRequestEvent, mcp::McpClientsEvent])
         .commands(collect_commands![
             commands::get_app_info,
             package::commands::create_project,
@@ -35,11 +35,6 @@ fn specta_builder() -> SpectaBuilder<tauri::Wry> {
             blender::commands::blender_preview_frames,
             blender::commands::blender_preview_target,
             blender::commands::blender_preview_cancel,
-            agents::commands::agents_detect,
-            agents::commands::agents_start,
-            agents::commands::agents_cancel,
-            agents::commands::agents_list,
-            agents::commands::agents_review,
             agents::commands::agent_folder_ensure,
             agents::commands::agent_references_read,
             agents::commands::agent_references_set,
@@ -49,7 +44,6 @@ fn specta_builder() -> SpectaBuilder<tauri::Wry> {
             mcp::commands::mcp_respond,
             mcp::commands::mcp_write_workspace,
             library::commands::library_list,
-            library::commands::library_accept_candidate,
             library::commands::library_promote,
             library::commands::library_import,
             library::commands::library_remove,
@@ -78,7 +72,6 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(blender::BlenderState::default())
-        .manage(agents::AgentState::default())
         .manage(menu::MenuState::default())
         .manage(mcp::McpState::default())
         .menu(menu::initial_menu)

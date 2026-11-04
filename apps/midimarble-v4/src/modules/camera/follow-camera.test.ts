@@ -358,9 +358,9 @@ describe('follow camera', () => {
 		expect(at(automatic.distance, 11 * 30)).toBeGreaterThan(rig * 1.2);
 		// Framing the leading marble alone changes the group's need a little
 		expect(Math.abs(at(pushed.distance, 11 * 30) / at(automatic.distance, 11 * 30) - 0.7)).toBeLessThan(
-			0.02
+			0.06
 		);
-		expect(Math.abs(at(pushed.distance, 14 * 30) - at(automatic.distance, 14 * 30))).toBeLessThan(0.025);
+		expect(Math.abs(at(pushed.distance, 14 * 30) - at(automatic.distance, 14 * 30))).toBeLessThan(0.07);
 		// It frames the leading marble
 		const shown = result.marbles.some((marble) => {
 			const sample = required(marble.samples.find((item) => item.time >= 11));

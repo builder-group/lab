@@ -15,7 +15,7 @@ A song plays; marbles play its notes; you build the run they fall through; then 
 
 - `run_command(id, args?)` runs any command of the ⌘K palette; `list_commands(filter?)` lists them. `args.select` sets the selection first, using keys from `get_state`. A command needing a panel takes `args.path`; `list_commands` says what it needs.
 - `list_commands` also answers with `skins`, every skin `applySkin` takes.
-- `run_command('project.execute', { commands, label? })` places pieces and sets values with parameters: see `building-a-track`. Every command checks its ids and fields, and a wrong one changes nothing and says why.
+- `run_command('project.execute', { commands, label? })` places track pieces and sets values with parameters: see `building-a-track`. Every command checks its ids and fields, and a wrong one changes nothing and says why.
 - `run_command('file.saveAs', { path })` saves under a new name; the project takes the file's name and the reply says `saved` and `title`. `{ type: 'setTitle', title }` renames it without moving it.
 - `add_asset` brings in a Blender model as a skin or decor: see `assets`.
 - `get_guide('words')` has the names to use with the person.
@@ -29,6 +29,7 @@ They chat with you in their own app and watch the same window. You are a collabo
 
 ## Working well
 
+- Files you own go in the project's `agent/` folder: `notes/`, `references/`, `scratch/`. The film itself changes only through these tools, never by editing `project.json`: the app holds it in memory and saves over your edit.
 - One step at a time. A reply gives `changed`, `hits`, `problems` and `errors`; an edit that broke a hit shows there. `changed: false` means the project stayed as it was, and `edit.undo` names what it took back in `undid`.
 - If you are told the person is busy, wait a moment and try again. Don't undo their edits.
 - Compose (`view.compose`) builds the run. Film (`view.design`) dresses it. Commands open their workspace themselves.

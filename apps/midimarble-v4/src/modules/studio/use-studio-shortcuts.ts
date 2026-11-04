@@ -109,7 +109,7 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				return;
 			}
 			if (key === 'c' && !event.shiftKey) {
-				const target = getCommand('play.cycle');
+				const target = getCommand('play.repeat');
 				if (isCommandEnabled(cx, target)) {
 					event.preventDefault();
 					target.run(cx);

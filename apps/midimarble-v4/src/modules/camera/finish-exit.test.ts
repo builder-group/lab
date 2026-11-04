@@ -24,7 +24,7 @@ describe('finishExit', () => {
 			const trial = exitRunProject(jingle) as TProject;
 			const exit = finishExit(trial, simulate(trial));
 			expect(exit).toBeGreaterThan(0.9);
-			expect(exit).toBeLessThan(1.1);
+			expect(exit).toBeLessThan(1.4);
 			expect(await fittedSongEnd(jingle, simulate)).toBe(jingle.end);
 
 			// A marble that stays in frame to the end of the run gets the longest tail

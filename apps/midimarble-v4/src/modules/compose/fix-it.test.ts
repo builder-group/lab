@@ -156,7 +156,7 @@ describe('replaceBroken function', () => {
 	}
 
 	it('should offer a platform struck twice or touching a Fix that clears it, breaks no hit and adds no problem', async () => {
-		const [isProjectOk, projectErr, project] = parseProject(readFileSync(new URL('../../../fixtures/jingle-bells.marble.json', import.meta.url), 'utf8'));
+		const [isProjectOk, projectErr, project] = parseProject(readFileSync(new URL('../../../fixtures/zigzag.marble.json', import.meta.url), 'utf8'));
 		if (!isProjectOk) throw projectErr;
 		const result = simulate(project);
 		const problems = lookPieces(project, result);

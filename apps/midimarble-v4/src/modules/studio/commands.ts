@@ -20,7 +20,7 @@ import { builtInSource, deleteDecorCommands, duplicateDecorCommands, selectedDec
 import { openScatterPanel, placeDecor } from '@/modules/design/decor-actions';
 import { addLightCommands, deleteLightsCommands } from '@/modules/design/scene-layers';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
-import { shownCycle } from './cycle';
+import { shownRepeatRange } from './repeat-range';
 import { duplicateClear, type TClearDuplicate } from './duplicate';
 import { CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey } from './selection';
 import { hasSongLayer } from './song-layer';
@@ -385,7 +385,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'play.start', title: 'Go to Beginning', section: 'Playback', shortcut: '↩', keywords: 'rewind start', isEnabled: hasProject, run: (cx) => cx.$playhead.set(0) },
 	{ id: 'play.previousHit', title: 'Previous Hit', section: 'Playback', shortcut: '←', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(-1) },
 	{ id: 'play.nextHit', title: 'Next Hit', section: 'Playback', shortcut: '→', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(1) },
-	{ id: 'play.cycle', title: 'Repeat Range', section: 'Playback', shortcut: 'C', keywords: 'cycle loop repeat rehearse section range', isEnabled: hasProject, isChecked: (cx) => shownCycle(cx.$cycle.get(), cx.project?.id, cx.project?.end ?? 0)?.isOn === true, run: (cx) => cx.toggleCycle() },
+	{ id: 'play.repeat', title: 'Repeat Range', section: 'Playback', shortcut: 'C', keywords: 'cycle loop repeat rehearse section range', isEnabled: hasProject, isChecked: (cx) => shownRepeatRange(cx.$repeatRange.get(), cx.project?.id, cx.project?.end ?? 0)?.isOn === true, run: (cx) => cx.toggleRepeatRange() },
 	{ id: 'play.tap', title: 'Tap Hit at Playhead', section: 'Playback', shortcut: 'T', keywords: 'record tap along', isEnabled: hasProject, run: (cx) => cx.tapHit() },
 
 	// MARK: - Tools
@@ -761,7 +761,7 @@ export type TCommandId =
 	| 'play.start'
 	| 'play.previousHit'
 	| 'play.nextHit'
-	| 'play.cycle'
+	| 'play.repeat'
 	| 'play.tap'
 	| 'tool.select'
 	| 'tool.hand'

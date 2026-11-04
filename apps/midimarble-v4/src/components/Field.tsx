@@ -132,15 +132,6 @@ interface TLinkRowProps {
 	children: React.ReactNode;
 }
 
-/** A quiet row for a state without a value, such as a piece that is not attached */
-export const NoteRow: React.FC<{ children: React.ReactNode }> = (props) => {
-	return (
-		<div className="mm-insp-row" data-muted="true" data-span="2">
-			{props.children}
-		</div>
-	);
-};
-
 /** One compact state line with a dot, such as Blender's link to a piece, with the detail in a help tip */
 export const StateRow: React.FC<TStateRowProps> = (props) => {
 	const { tone, label, detail, action } = props;

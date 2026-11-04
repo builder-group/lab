@@ -10,7 +10,6 @@ import { $blenderObjects, findDecor, madeInBlenderCommands, madeInBlenderLayer, 
 import { moveDecorClearAction, revealMadeInBlender } from './decor-actions';
 import { decorItem, decorText } from './decor-catalog';
 import { garlandOf, SNOWFALL_DEFAULTS, snowfallOf } from './decor-effects';
-import { DECOR_HELP } from './concept-words';
 import { ColorWell } from './SceneLayerInspector';
 import { decorTips, preflightExport } from './export-preflight';
 import { titleSpan, withTitleTime } from './titles';
@@ -119,7 +118,7 @@ const GARLAND_SIDES: { value: string; label: string }[] = [
 
 /** Several decorations selected together */
 export const DecorsInspector: React.FC<{ cx: StudioCx; project: TProject; ids: string[] }> = (props) => {
-	const { cx, project, ids } = props;
+	const { project, ids } = props;
 	const list = ids.flatMap((id) => findDecor(project.design, id) ?? []);
 	return (
 		<>

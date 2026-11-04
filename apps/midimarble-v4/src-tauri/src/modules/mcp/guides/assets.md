@@ -49,6 +49,6 @@ A marble skin with one fixed colour adds `"color": "#22ff66"`: the marble takes 
 
 ## add_asset
 
-`add_asset({ path, role: 'skin', name: 'Brass bar', pieceType: 'platform' })` with `path` a folder holding those files, or the `.blend` with `manifest.json` beside it. `name`, `role` and `pieceType` override the manifest and can be left out when it says them (`label`, `role`, `pieceType`). The checks are the same as accepting an agent's result. It answers with the item's id and how to use it, and nothing changes on screen until you use it.
+`add_asset({ path, role: 'skin', name: 'Brass bar', pieceType: 'platform' })` with `path` a folder holding those files, or the `.blend` with `manifest.json` beside it. `name`, `role` and `pieceType` override the manifest and can be left out when it says them (`label`, `role`, `pieceType`). It checks the manifest first and answers with the item's id and how to use it, and nothing changes on screen until you use it.
 
 Add `pack: 'Christmas'` to group items in a Pack of this project, which also becomes their origin line. Then `run_command('design.exportPack', { path, name: 'Christmas', theme: true, items: [ids] })` writes a `.marblepack` others can add. Packs hold themes, skins and decor only.

@@ -10,6 +10,7 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStat
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { ZOOM_100_SCALE } from '@/modules/compose/view';
+import { fixedColorSkinLabel } from '@/modules/design/design-commands';
 import { CameraInspector, FormatField, PieceSkin, SeamlessLoopRows, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
 import { MarbleSkin } from '@/modules/design/SkinProperties';
 import { THEME_HELP } from '@/modules/design/concept-words';
@@ -209,7 +210,7 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 
 	// One colour per marble: the commands keep the lane and the marble on it
 	const colorCommands = (color: string): TProjectCommand[] => [{ type: 'upsertLane', lane: { ...lane, color } }];
-	const fixedBy = [...projectItems, ...globalItems].find((item) => item.id === marble.components.skin?.assetId && item.manifest?.color != null);
+	const fixedBy = fixedColorSkinLabel(project.design, marble.components.skin, [...projectItems, ...globalItems]);
 
 	return (
 		<>
@@ -229,7 +230,7 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 					<ReadoutField label="Colour" name="Marble colour" span={2}>
 						<span className="flex items-center gap-1.5">
 							<span className="h-3 w-3 shrink-0 rounded-full" style={{ background: lane.color }} aria-hidden />
-							<span className="truncate">Set by {fixedBy.manifest?.label}</span>
+							<span className="truncate">Set by {fixedBy}</span>
 						</span>
 					</ReadoutField>
 				) : (

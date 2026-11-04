@@ -42,7 +42,7 @@ export const Transport: React.FC<TTransportProps> = (props) => {
 						icon={playing ? <Pause size={16} strokeWidth={1.75} fill="currentColor" /> : <Play size={16} strokeWidth={1.75} fill="currentColor" className="translate-x-px" />}
 					/>
 					<TransportButton cx={cx} command="play.nextHit" icon={<ChevronLast size={17} strokeWidth={1.75} />} />
-					<CycleButton cx={cx} />
+					<RepeatButton cx={cx} />
 				</div>
 				<TimeReadout cx={cx} />
 			</div>
@@ -195,15 +195,15 @@ const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React
 	);
 };
 
-/** Cycle: playback loops the range on the ruler, like Logic's cycle button. A preview only, unrelated to Seamless Loop. */
-const CycleButton: React.FC<{ cx: StudioCx }> = (props) => {
+/** Repeat Range: playback loops the range on the ruler, like Logic's cycle button. A preview only, unrelated to Seamless Loop. */
+const RepeatButton: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
-	useFeatureState(cx.$cycle);
+	useFeatureState(cx.$repeatRange);
 	useFeatureState(cx.$history);
-	const target = getCommand('play.cycle');
+	const target = getCommand('play.repeat');
 	const isOn = target.isChecked?.(cx) === true;
 	return (
-		<button className="mm-transport-button" data-cycle={isOn} onClick={() => target.run(cx)} title={`Repeat: play a range on the ruler again and again (${target.shortcut ?? ''})`} aria-label={target.title} aria-pressed={isOn} type="button">
+		<button className="mm-transport-button" data-repeat={isOn} onClick={() => target.run(cx)} title={`Repeat: play a range on the ruler again and again (${target.shortcut ?? ''})`} aria-label={target.title} aria-pressed={isOn} type="button">
 			<Repeat size={15} strokeWidth={1.75} />
 		</button>
 	);

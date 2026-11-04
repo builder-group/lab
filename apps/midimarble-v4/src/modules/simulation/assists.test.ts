@@ -29,7 +29,6 @@ beforeAll(async () => {
 
 // Tilt of the hand placed zigzag start for the default kit. Steeper starts crowd its 9 cm bars at 0.3 s.
 const TILT = 0.25;
-const CONTINUE_TILT = 0.45;
 
 function zigzagStart(hitTimes: number[], tilt = TILT, gravityScale = 1): TProject {
 	const project = createBareRunProject({

@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildAgentBrief } from '@/modules/agents/agent-brief';
 import { buildSceneDescription } from '@/modules/blender';
 import { parseCandidateManifest } from '@/modules/library';
 import { applyProjectCommands, createHistory, createProject, pushHistory, undoHistory, type TProject, type TProjectCommand } from '@/modules/project';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
 import { draftPieceColors, draftWall } from './draft-look';
 import {
-	agentThemeCommands,
 	baseThemeOf,
 	hasSkinChoices,
 	currentLookThemeCommands,
@@ -128,18 +126,6 @@ describe('project theme commands', () => {
 		expect(themed.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe('#ffffff');
 	});
 
-	it('should add an agent theme once and update it by name', () => {
-		const project = withTheme('brass');
-		const first = agentThemeCommands(project, { name: 'Sunset', base: 'brass', overrides: { wallColor: '#3B2A4A' } });
-		const added = apply(project, first.commands);
-		expect(resolveTheme(added.design)).toMatchObject({ name: 'Sunset', base: 'brass', overrides: { wallColor: '#3b2a4a' } });
-		expect(themeOrigin(resolveTheme(added.design))).toBe('Made by Agent');
-		const again = agentThemeCommands(added, { name: 'Sunset', base: 'chalk', overrides: { lightColor: '#ffb070' } });
-		const updated = apply(added, again.commands);
-		expect(again.themeId).toBe(first.themeId);
-		expect(updated.design.themes).toHaveLength(1);
-		expect(resolveTheme(updated.design).overrides).toEqual({ wallColor: '#3b2a4a', lightColor: '#ffb070' });
-	});
 });
 
 describe('project themes in Blender and the Draft Preview', () => {
@@ -166,19 +152,7 @@ describe('project themes in Blender and the Draft Preview', () => {
 	});
 });
 
-describe('New Theme with Agent', () => {
-	it('should ask for a theme only in a New Theme brief, from the current theme', () => {
-		const project = withTheme('neon');
-		const { commands } = duplicateThemeCommands(project, 'neon');
-		const copied = apply(project, commands);
-		const colored = apply(copied, themeOverrideCommands(copied, copied.design.theme, { wallColor: '#112233' }));
-		const brief = buildAgentBrief({ project: colored, result: null, target: { kind: 'scene' }, request: '@[Project] New theme: deep sea' });
-		expect(brief.theme?.base).toBe('neon');
-		expect(brief.theme?.bases).toEqual(['pegboard', 'brass', 'neon']);
-		expect(brief.theme?.fields.find((field) => field.name === 'wallColor')?.value).toBe('#112233');
-		expect(buildAgentBrief({ project, result: null, target: { kind: 'scene' }, request: 'add fog' }).theme).toBeUndefined();
-	});
-
+describe('Theme manifests and parts', () => {
 	it("should keep an agent's theme in its manifest with only the known colours", () => {
 		const manifest = {
 			$schema: 'marble-asset@1',

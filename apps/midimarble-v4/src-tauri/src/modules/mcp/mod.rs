@@ -11,4 +11,3 @@ pub mod stdio;
 mod workspace;
 
 pub use host::{McpClientsEvent, McpRequestEvent, McpState};
-pub use workspace::toml_string;

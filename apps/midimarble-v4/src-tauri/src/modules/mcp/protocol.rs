@@ -256,12 +256,12 @@ pub fn tool_definitions() -> Vec<Value> {
         ),
         tool(
             "add_asset",
-            "Adds a .blend with its manifest to the project as a skin or decor, with the same checks as accepting an agent's result. See the assets guide.",
+            "Adds a .blend with its manifest to the project as a skin or decor, after checking the manifest. See the assets guide.",
             json!({
                 "path": { "type": "string", "description": "A folder with asset.blend and manifest.json, or a .blend file with manifest.json beside it" },
                 "role": { "type": "string", "enum": ["skin", "decor"] },
                 "name": { "type": "string" },
-                "pieceType": { "type": "string", "description": "The piece type a skin fits, such as platform" },
+                "pieceType": { "type": "string", "description": "The kind of track piece a skin fits, such as platform" },
                 "pack": { "type": "string", "description": "Name of a new or existing Pack in this project to add it to" }
             }),
             &["path", "role", "name"],

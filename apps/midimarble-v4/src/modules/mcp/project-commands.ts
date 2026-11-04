@@ -334,7 +334,7 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 		case 'applySkin': {
 			const target = command.entityIds != null ? { kind: 'entities' as const, entityIds: command.entityIds } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
 			if (target == null) return Err(new Error('applySkin needs a pieceType or entityIds'));
-			const fixedColor = items.find((item) => item.id === command.assetId)?.manifest?.color;
+			const fixedColor = items.find((item) => item.id === command.assetId)?.manifest?.color ?? catalogSkin(command.assetId)?.color ?? undefined;
 			const commands = [...skinCommands(project, target, command.assetId.includes(':') ? canonicalSkinId(command.assetId) : command.assetId), ...fixedColorCommands(project, skinTargetIds(project, target), fixedColor)];
 			return commands.length > 0 ? Ok({ commands }) : Err(new Error(`Nothing is a ${command.pieceType ?? 'target'} in this project yet, so ${command.assetId} has nothing to dress.`));
 		}

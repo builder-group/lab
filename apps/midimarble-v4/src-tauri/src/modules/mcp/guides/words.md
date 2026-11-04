@@ -14,7 +14,7 @@ Use these with the person. One word per thing.
 | Dot | ghost, marker | Where a marble is at a hit's time |
 | Part | track, voice | One marble's slice of the song, or Backing |
 | Backing | dropped, unassigned | Notes no marble plays; heard in the film |
-| Piece | object, prop, asset | Anything placed on the wall |
+| Track Piece | object, prop, asset | One of any kind of thing the marbles run on, when the kind doesn't matter; after the first mention, piece |
 | Platform | bar, pad, peg | The piece that plays a note |
 | Rail, Tunnel, Windmill, Switchback, Finish | scenery | The other pieces |
 | On Time, Early, Late, Missed, Stopped, Blocked, Open | | A hit's status |

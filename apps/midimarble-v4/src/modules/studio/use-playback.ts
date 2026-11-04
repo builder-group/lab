@@ -1,6 +1,6 @@
 import { useListener } from 'feature-react/state';
 import React from 'react';
-import { cyclePlayFrom, cycleRestart } from './cycle';
+import { repeatPlayFrom, repeatRestart } from './repeat-range';
 import { startPlaybackTicker } from './playback-ticker';
 import { audibleProject } from '@/modules/music';
 import type { StudioCx } from './StudioCx';
@@ -11,7 +11,7 @@ const WARM_UP_DELAY_MS = 600;
 
 /**
  * Drives the playhead from the audio clock while playing. Seeking during playback restarts audio at
- * the new time, playback stops at the project end, and with Cycle on it jumps back at the end of the range.
+ * the new time, playback stops at the project end, and with Repeat Range on it jumps back at the end of the range.
  */
 export function usePlayback(cx: StudioCx): void {
 	useHitFlash(cx);
@@ -30,7 +30,7 @@ export function usePlayback(cx: StudioCx): void {
 			// Tapping along runs past a length that follows the song (`playbackEnd`)
 			const end = cx.playbackEnd;
 			const time = cx.audio.getTime();
-			const restart = cycleRestart(time, cx.cycleRange);
+			const restart = repeatRestart(time, cx.repeatSpan);
 			if (restart != null) {
 				clockRef.current = restart;
 				cx.$playhead.set(restart);
@@ -58,7 +58,7 @@ export function usePlayback(cx: StudioCx): void {
 		const project = cx.project;
 		if (project == null) return;
 		if (cx.$playhead.get() >= cx.playbackEnd) cx.$playhead.set(0);
-		const from = cyclePlayFrom(cx.$playhead.get(), cx.cycleRange);
+		const from = repeatPlayFrom(cx.$playhead.get(), cx.repeatSpan);
 		if (from !== cx.$playhead.get()) cx.$playhead.set(from);
 		void (async () => {
 			try {

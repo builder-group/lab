@@ -54,19 +54,6 @@ export const commands = {
 	blenderPreviewTarget: (packagePath: string, signature: string, targetJson: string) => typedError<null, string>(__TAURI_INVOKE("blender_preview_target", { packagePath, signature, targetJson })),
 	/**  Stops the preview job after its current chunk; its frames stay */
 	blenderPreviewCancel: (packagePath: string, signature: string) => typedError<null, string>(__TAURI_INVOKE("blender_preview_cancel", { packagePath, signature })),
-	/**  Agent CLIs found on `PATH`, `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin` */
-	agentsDetect: () => typedError<AgentCliDto[], string>(__TAURI_INVOKE("agents_detect")),
-	/**
-	 *  Sends a chat message: runs the CLI in the project's `agent/` folder with the app's MCP tools, continuing the project's
-	 *  session when there is one. Output streams as `agent-run-event`.
-	 */
-	agentsStart: (packagePath: string, title: string, cli: AgentCli, runId: string, request: string, prompt: string, briefJson: string) => typedError<AgentRunDto, string>(__TAURI_INVOKE("agents_start", { packagePath, title, cli, runId, request, prompt, briefJson })),
-	/**  Ends a running agent. Returns false when the run is not running. */
-	agentsCancel: (runId: string) => typedError<boolean, string>(__TAURI_INVOKE("agents_cancel", { runId })),
-	/**  Candidate runs of the package, newest first */
-	agentsList: (packagePath: string) => __TAURI_INVOKE<AgentRunDto[]>("agents_list", { packagePath }),
-	/**  Records the user's decision on a candidate. The candidate folder stays for reference. */
-	agentsReview: (packagePath: string, runId: string, review: AgentReview) => typedError<AgentRunDto, string>(__TAURI_INVOKE("agents_review", { packagePath, runId, review })),
 	/**  Creates the package's agent folder on first use and returns its path */
 	agentFolderEnsure: (packagePath: string, title: string) => typedError<string, string>(__TAURI_INVOKE("agent_folder_ensure", { packagePath, title })),
 	agentReferencesRead: (packagePath: string) => __TAURI_INVOKE<AgentReferencesDto>("agent_references_read", { packagePath }),
@@ -82,11 +69,6 @@ export const commands = {
 	mcpWriteWorkspace: () => typedError<string, string>(__TAURI_INVOKE("mcp_write_workspace")),
 	/**  Items of the project library (`<package>/assets/`) or the global library in the app's support folder */
 	libraryList: (scope: LibraryScope, packagePath: string | null) => typedError<LibraryItemDto[], string>(__TAURI_INVOKE("library_list", { scope, packagePath })),
-	/**
-	 *  Copies a candidate's `asset.blend` and `preview.png` into `assets/<itemId>/` with the manifest the app
-	 *  validated and normalized
-	 */
-	libraryAcceptCandidate: (packagePath: string, runId: string, itemId: string, manifestJson: string) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_accept_candidate", { packagePath, runId, itemId, manifestJson })),
 	/**  Copies a project item into the global library for use in other projects */
 	libraryPromote: (packagePath: string, itemId: string) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_promote", { packagePath, itemId })),
 	/**  Copies a global item, or an item of an imported Pack, into the project so the package stays portable */
@@ -115,73 +97,17 @@ export const commands = {
 
 /** Events */
 export const events = {
-	agentRunEvent: makeEvent<AgentRunEvent>("agent-run-event"),
 	mcpClientsEvent: makeEvent<McpClientsEvent>("mcp-clients-event"),
 	mcpRequestEvent: makeEvent<McpRequestEvent>("mcp-request-event"),
 	menuCommandEvent: makeEvent<MenuCommandEvent>("menu-command-event"),
 };
 
 /* Types */
-/**  Supported agent CLIs */
-export type AgentCli = "claude" | "codex";
-
-export type AgentCliDto = {
-	cli: AgentCli,
-	path: string,
-	version: string | null,
-};
-
-export type AgentEventKind = "text" | "tool" | "result" | "error" | 
-/**  The process ended; the payload is the final run record */
-"exit";
-
 export type AgentReferencesDto = {
 	/**  Absolute paths of the images */
 	images: string[],
 	text: string,
 };
-
-export type AgentReview = "accepted" | "declined";
-
-export type AgentRunDto = {
-	/**  Where the run's record and transcript are */
-	runPath: string,
-	/**  Where its Result is once it has one */
-	candidatePath: string,
-	hasAsset: boolean,
-	/**  Contents of the candidate's `manifest.json`, validated by the app before accepting */
-	manifestJson: string | null,
-	/**  Absolute path of `preview.png` once it exists */
-	previewPath: string | null,
-} & AgentRunRecord;
-
-/**  One stdout line of an agent CLI, emitted as the `agent-run-event` Tauri event */
-export type AgentRunEvent = {
-	runId: string,
-	kind: AgentEventKind,
-	/**  The CLI's JSON line, or `{"type":"raw","text":...}` for plain text */
-	payload: string,
-};
-
-/**  Stored as `run.json` in `agent/runs/<runId>/`, or in `candidates/<runId>/` for runs from before the chat */
-export type AgentRunRecord = {
-	runId: string,
-	cli: AgentCli,
-	/**  What the CLI was told: the message, the selection in resolved form and the Result note */
-	prompt: string,
-	/**  The message as written, with mentions as `@[Name]`. Absent on runs from before the chat. */
-	request?: string | null,
-	/**  The CLI's session this run continues or started */
-	sessionId?: string | null,
-	status: AgentRunStatus,
-	review: AgentReview | null,
-	startedAt: number | null,
-	finishedAt: number | null,
-	exitCode: number | null,
-	error: string | null,
-};
-
-export type AgentRunStatus = "running" | "succeeded" | "failed" | "cancelled";
 
 export type AppDistribution = "appStore" | "direct";
 

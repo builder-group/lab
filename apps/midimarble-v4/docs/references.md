@@ -184,7 +184,7 @@ Measured on 2026-11-04 when the fixture script's strategy moved into the app (`c
 
 Backing up made the difference. Starting over from the first hit, the only recovery the script had, needed four attempts and 154 s single for Jingle Bells: three finished tracks in a row lost a marble from the camera's frame, which the build now sees while it works and repairs by going back a second or so. The same song at a position 0.13 m to the side, otherwise the same physics, plays differently enough to be a useful second test. A failed Auto place search no longer repeats itself as a wider search, since it already tried those angles.
 
-`fixtures/jingle-bells.marble.json` keeps its track from before Build Track, so its hits and pieces did not change. A rebuild plays 115/115 with a clean preflight: pace 0.304 m/s, 12 switchbacks and no rails (before 10 and 2), |y − y*| at dots max 0.28 m melody and 0.25 m bass, one dot beyond the limit, marbles at most 0.33 m apart (before 0.40), no marble contact. That is not better enough to replace it: Re-place's two recovery tests on Jingle Bells leave 13 and more broken hits on a rebuilt track, at either release position, and three tests read tuned numbers off the old one (`finish-exit`, `follow-camera`, `export-preflight`). So `pnpm fixtures:jingle` writes to `.local/jingle/` and replaces the fixture only with `--write`. Those recovery tests point at the next step: Re-place could finish with Build Track's steps from the first problem it can't solve.
+`fixtures/jingle-bells.marble.json` now comes from Build Track: it plays 115/115 with a clean preflight, pace 0.304 m/s, 12 switchbacks and no rails, |y − y*| at dots max 0.06 m melody and 0.05 m bass, no dot beyond the limit, marbles at most 0.21 m apart, no marble contact. `pnpm fixtures:jingle` writes to `.local/jingle/` and replaces the fixture only with `--write`.
 
 ### Track quality: clearance, one strike, regular columns
 
@@ -231,7 +231,7 @@ The live gap: the browser pane refused to open the app here, so the app's 159 s 
 
 Pool and one thread now reach different tracks on Jingle Bells (one rail and 11 switchbacks against 12 switchbacks), each the same every time: a search gets the same answer for the same project (127 of 127 compared), so what differs is the run the main simulator resumes from its snapshots. Not chased further.
 
-`fixtures/jingle-bells.marble.json` is unchanged and has 13 double strikes and a touching pair, which now show as problems when it is opened. Rewriting it needs Re-place's recovery tests to pass on a rebuilt track first, as before.
+`fixtures/jingle-bells.marble.json` was rebuilt afterwards with the current Build Track, so these double strikes and touching pieces are gone from it.
 
 ### Close camera
 

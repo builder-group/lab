@@ -306,6 +306,13 @@ describe('MCP tools', () => {
 			expect(marbleOf(cx).components.skin?.assetId).toBe('green-glass');
 		});
 
+		it("should give the marble a built-in skin's fixed colour", async () => {
+			const { cx } = studio();
+			const marble = marbleOf(cx);
+			expect((await execute(cx, { type: 'applySkin', assetId: 'marble:glass-green', entityIds: [marble.id] })).isError).toBe(false);
+			expect(marbleOf(cx).components.marble?.color).toBe('#0c8a3a');
+		});
+
 		it('should list every built-in skin and the library in list_commands', async () => {
 			const { cx } = studio();
 			cx.library.$projectItems.set([skinItem('green-glass', 'marble')]);

@@ -32,37 +32,6 @@ export const library = {
 		return Ok(result.data.map(toLibraryItem));
 	},
 
-	/**
-	 * Validates a candidate's manifest and copies the candidate into the project library under a free ID.
-	 * The stored manifest carries that ID and `origin: 'agent'`.
-	 */
-	async acceptCandidate(
-		packagePath: string,
-		runId: string,
-		manifestJson: string | null
-	): Promise<TResult<TLibraryItem, Error>> {
-		if (!isTauri()) return Err(unavailable());
-		if (manifestJson == null) return Err(new Error('The candidate has no manifest.json'));
-		const [isManifestOk, manifestErr, manifest] = parseCandidateManifest(manifestJson);
-		if (!isManifestOk)
-			return Err(new Error(`The candidate's manifest is invalid: ${manifestErr.message}`));
-		const [isListOk, listErr, items] = await library.list('project', packagePath);
-		if (!isListOk) return Err(listErr);
-		const itemId = uniqueItemId(
-			manifest.id,
-			items.map((item) => item.id)
-		);
-		const stored: TAssetManifest = { ...manifest, id: itemId, origin: 'agent' };
-		const result = await specta.commands.libraryAcceptCandidate(
-			packagePath,
-			runId,
-			itemId,
-			serializeAssetManifest(stored)
-		);
-		if (result.status === 'error') return Err(new Error(result.error));
-		return Ok(toLibraryItem(result.data));
-	},
-
 	/** Save to my library: copies a project item into the global library */
 	async promote(packagePath: string, itemId: string): Promise<TResult<TLibraryItem, Error>> {
 		if (!isTauri()) return Err(unavailable());
@@ -91,7 +60,7 @@ export const library = {
 	},
 
 	/**
-	 * Adds an asset from outside the project with the same checks as accepting a candidate. `path` is a folder with
+	 * Adds an asset from outside the project, checking its manifest. `path` is a folder with
 	 * `asset.blend` or a `.blend` file; `manifestJson` is the manifest as an agent wrote it.
 	 */
 	async addAsset(packagePath: string, path: string, manifestJson: string, pack?: TPackOrigin): Promise<TResult<TLibraryItem, Error>> {

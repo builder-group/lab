@@ -6,7 +6,7 @@ import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulatio
 import { filmCamera, imageToWall } from './film-camera';
 import { resolveElementLook, resolveTheme } from './project-themes';
 import { resetKeyLightCommands, wallCommands } from './scene-layers';
-import { catalogSkins, entitySkinElement, type TCatalogSkin, type TSkinElement } from './skin-catalog';
+import { catalogSkin, catalogSkins, entitySkinElement, type TCatalogSkin, type TSkinElement } from './skin-catalog';
 
 export { defaultTitleColor, themeCommands, themeTitleColor } from './project-themes';
 export { builtInSkinLabel } from './skin-catalog';
@@ -33,9 +33,6 @@ function themePreset(id: string, label: string, description: string): TThemePres
 	return { id, label, description, previewUrl: publicUrl(`themes/${id}-plain.jpg`), notePreviewUrl: publicUrl(`themes/${id}-note.jpg`) };
 }
 
-/** Every placeable element has its own skins, usable in any theme; `public/skins/` holds a rendered preview of each */
-export const THEME_SKIN_PIECE_TYPES = ['platform', 'rail', 'tunnel', 'windmill', 'switchback', 'finish'] as const;
-
 /** The skins of an element in the Library's order: the theme's first, then the rest as the catalog lists them */
 export function skinsForElement(design: Pick<TDesign, 'theme' | 'themes'>, element: TSkinElement): TCatalogSkin[] {
 	const skins = catalogSkins(element);
@@ -56,8 +53,9 @@ export function showsSkin(design: Pick<TDesign, 'theme' | 'themes'>, entity: TEn
  */
 export function builtInSkinCommands(project: TProject, target: TSkinTarget, skinId: string): TProjectCommand[] {
 	const element = skinId.split(':')[0] as TSkinElement;
-	if (resolveTheme(project.design).parts[element]?.skin !== skinId) return skinCommands(project, target, skinId);
-	return followThemeSkinCommands(project, skinTargetIds(project, target));
+	const entityIds = skinTargetIds(project, target);
+	const commands = resolveTheme(project.design).parts[element]?.skin !== skinId ? skinCommands(project, target, skinId) : followThemeSkinCommands(project, entityIds);
+	return [...commands, ...fixedColorCommands(project, entityIds, catalogSkin(skinId)?.color ?? undefined)];
 }
 
 /** The entities show the theme's skin again and keep their property overrides */
@@ -165,6 +163,15 @@ export function fixedColorCommands(project: TProject, entityIds: readonly string
 		const marble = entity.components.marble;
 		return entityIds.includes(entity.id) && marble != null && marble.color !== color ? [{ type: 'setComponent', entityId: entity.id, component: { name: 'marble', value: { ...marble, color } } }] : [];
 	});
+}
+
+/** The name of the skin whose fixed colour a marble wears, its own or the theme's; a built-in one set to Colour: Marble leaves the colour to the marble */
+export function fixedColorSkinLabel(design: Pick<TDesign, 'theme' | 'themes'>, skin: TSkinComponent | undefined, items: readonly TLibraryItem[]): string | null {
+	const item = items.find((candidate) => candidate.id === skin?.assetId && candidate.manifest?.color != null);
+	if (item != null) return item.manifest?.label ?? item.id;
+	const look = resolveElementLook(design, 'marble', skin);
+	const builtIn = catalogSkin(look.skin);
+	return builtIn?.color != null && look.colour !== 'marble' ? builtIn.label : null;
 }
 
 /** Removes the pieces' own skin so the theme's default skin applies again */

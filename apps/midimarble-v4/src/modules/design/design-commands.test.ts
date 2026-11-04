@@ -8,6 +8,7 @@ import {
 	cameraCommands,
 	clearSkinCommands,
 	fixedColorCommands,
+	fixedColorSkinLabel,
 	handChangeCount,
 	resetHandChangesCommands,
 	builtInSkinCommands,
@@ -27,7 +28,7 @@ import {
 	titleStyleTiming,
 	withTitleStyle
 } from './design-commands';
-import { isNewThemeRequest, libraryEntries } from './DesignLibraryCx';
+import { libraryEntries } from './DesignLibraryCx';
 import { draftPieceColors } from './draft-look';
 
 function apply(project: TProject, commands: Parameters<typeof applyProjectCommands>[1]): TProject {
@@ -123,11 +124,6 @@ describe('design commands', () => {
 			['b', 'project', true],
 			['c', 'global', true]
 		]);
-	});
-
-	it('should recognise a New Theme request after its mentions', () => {
-		expect(isNewThemeRequest('@[Platform 1] @[Rail 1] New theme: neon arcade')).toBe(true);
-		expect(isNewThemeRequest('Make the platform neon')).toBe(false);
 	});
 
 	it('should set the theme once and skip an unchanged theme', () => {
@@ -296,5 +292,34 @@ describe('fixedColorCommands function', () => {
 		expect(next.entities.find((entity) => entity.id === marble?.id)?.components.marble?.color).toBe('#22ff66');
 		expect(next.music.lanes.find((lane) => lane.id === marble?.components.marble?.laneId)?.color).toBe('#22ff66');
 		expect(fixedColorCommands(project, [marble?.id as string], undefined)).toEqual([]);
+	});
+
+	it("should give a built-in skin's fixed colour to the marble, and leave a skin without one alone", () => {
+		const project = createStaircaseProject();
+		const marble = project.entities.find((entity) => entity.components.marble != null);
+		const target = { kind: 'entities' as const, entityIds: [marble?.id as string] };
+		const green = apply(project, builtInSkinCommands(project, target, 'marble:glass-green')).entities.find((entity) => entity.id === marble?.id);
+		expect(green?.components.skin?.assetId).toBe('marble:glass-green');
+		expect(green?.components.marble?.color).toBe('#0c8a3a');
+		expect(apply(project, builtInSkinCommands(project, target, 'marble:glass')).entities.find((entity) => entity.id === marble?.id)?.components.marble?.color).toBe(marble?.components.marble?.color);
+	});
+
+	it('should say which skin sets a marble\'s colour', () => {
+		const item = { id: 'lime', manifest: { color: '#22ff66', label: 'Lime' } } as never;
+		const design = { theme: 'brass' };
+		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass-green', link: 'linked' }, [])).toBe('Green Glass');
+		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass-green', link: 'linked', colour: 'marble' }, [])).toBeNull();
+		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass', link: 'linked' }, [])).toBeNull();
+		expect(fixedColorSkinLabel(design, { assetId: 'lime', link: 'linked' }, [item])).toBe('Lime');
+		expect(fixedColorSkinLabel(design, undefined, [item])).toBeNull();
+	});
+
+	it("should leave every marble's colour alone when a theme with a fixed-colour marble skin is picked", () => {
+		const project = createStaircaseProject();
+		const theme = { id: 'theme-green', name: 'Green', base: 'brass', overrides: {}, parts: { marble: { skin: 'marble:glass-green' } } };
+		const withTheme = apply(project, [{ type: 'setDesign', design: { themes: [theme] } }]);
+		const next = apply(withTheme, themeCommands(withTheme, theme.id));
+		const color = (current: typeof project) => current.entities.find((entity) => entity.components.marble != null)?.components.marble?.color;
+		expect(color(next)).toBe(color(withTheme));
 	});
 });

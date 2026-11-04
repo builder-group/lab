@@ -7,7 +7,7 @@ import './inspector.css';
 const STORAGE_KEY = 'midimarble-v4:panel-state';
 
 /** Panels the user opened or closed, by id, remembered across sessions like Blender's panel layout */
-export const $panelState = createState<Record<string, boolean>>(readPanelState());
+const $panelState = createState<Record<string, boolean>>(readPanelState());
 $panelState.listen(({ value }) => {
 	try {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(value));

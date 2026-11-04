@@ -224,11 +224,3 @@ export function isMusicalPiece(type: string): boolean {
 export function soundsHit(type: string, hitLink: { anchored?: boolean } | undefined): boolean {
 	return hitLink != null && hitLink.anchored !== true && isMusicalPiece(type);
 }
-
-/**
- * Linked pieces entered `entryDelay` seconds after their hit. Scenery never sounds a hit whatever its delay,
- * so `isMusicalPiece` decides which pieces own hits.
- */
-export function isFollowerPiece(params: Record<string, number>): boolean {
-	return (params['entryDelay'] ?? 0) > 0;
-}

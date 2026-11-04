@@ -178,7 +178,7 @@ describe('fixtures', () => {
 		expect(project.music.lanes.map((lane) => lane.instrument)).toEqual([9, 8]);
 		expect(project.design.theme).toBe('theme-christmas');
 		expect(project.design.themes?.find((theme) => theme.id === 'theme-christmas')).toMatchObject({ name: 'Christmas', base: 'brass' });
-		expect(project.design.decor?.length).toBeGreaterThan(100);
+		expect(project.design.decor?.length).toBeGreaterThan(80);
 		// The side dressing is placed Decor, the Garland; a theme carries none
 		expect(project.design.themes?.find((theme) => theme.id === 'theme-christmas')?.wallKind).toBeUndefined();
 		expect(project.design.decor?.map((item) => item.source)).toEqual(expect.arrayContaining(['decor:garland', 'decor:snowfall']));

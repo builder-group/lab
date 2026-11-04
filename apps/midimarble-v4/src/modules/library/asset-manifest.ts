@@ -72,8 +72,6 @@ export const assetManifestDefinition = defineSchema({
 });
 
 export type TAssetManifest = TSchemaValue<typeof assetManifestDefinition>;
-export type TAssetRole = TAssetManifest['role'];
-export type TAssetTheme = z.infer<typeof SAssetTheme>;
 export type TAssetProperty = z.infer<typeof SAssetProperty>;
 
 export function parseAssetManifest(json: string): TResult<TAssetManifest, Error> {

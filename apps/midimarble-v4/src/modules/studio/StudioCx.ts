@@ -26,7 +26,7 @@ import {
 	type TVec2
 } from '@/modules/project';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
-import { shownCycle, toggledCycle, type TCycle, type TCycleRange } from './cycle';
+import { shownRepeatRange, toggledRepeatRange, type TRepeatRange, type TRepeatSpan } from './repeat-range';
 import { fittedSongEnd } from '@/modules/camera/finish-exit';
 import { FINISH_TYPE } from '@/modules/simulation/finish';
 import { HintsCx } from './HintsCx';
@@ -39,7 +39,6 @@ import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import type { TView } from '@/modules/compose/view';
-import { AgentCx } from '@/modules/agents';
 import { McpCx } from '@/modules/mcp/McpCx';
 import { addWallTextCommands, defaultTitleColor, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/design';
 import { songDisplayName } from '@/modules/design/titles';
@@ -75,8 +74,8 @@ export class StudioCx {
 	readonly $selection = createState<TSelection>([]);
 	readonly $playhead = createState(0);
 	readonly $playing = createState(false);
-	/** Cycle: the range on the ruler that playback loops. A preview for this session, never saved, unrelated to Seamless Loop. */
-	readonly $cycle = createState<TCycle | null>(null);
+	/** Repeat Range: the range on the ruler that playback loops. A preview for this session, never saved, unrelated to Seamless Loop. */
+	readonly $repeatRange = createState<TRepeatRange | null>(null);
 	/** Fit the Wall view to the first open hits, once playback stopped and the run for the latest edit arrived */
 	readonly $fitFirstHits = createState(false);
 	/** The Wall view Compose showed before Film replaced it, so coming back keeps it, like a page's view in Figma */
@@ -128,12 +127,6 @@ export class StudioCx {
 		getPlayhead: () => this.$playhead.get(),
 		isPlaying: () => this.$playing.get()
 	});
-	// The chat's, unmounted with it: not mounted, so no CLI is looked for and no run is listed
-	readonly agents = new AgentCx({
-		getPackagePath: () => this.$path.get(),
-		getProject: () => this.project,
-		getResult: () => this.simulation.$result.get()
-	});
 	readonly library = new DesignLibraryCx({
 		getPackagePath: () => this.$path.get(),
 		getProject: () => this.project,
@@ -177,8 +170,8 @@ export class StudioCx {
 		const unmountMcp = this.mcp.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
-		// The tap count-in belongs to the playback T started; stopping ends it
-		const stopCountIn = this.$playing.listen(({ value }) => {
+		// Tapping along belongs to the playback T started, so stopping playback finishes the tap session
+		const stopTapSessionListener = this.$playing.listen(({ value }) => {
 			if (value) return;
 			this.finishTapSession();
 		});
@@ -189,7 +182,7 @@ export class StudioCx {
 			unmountMcp();
 			stopHeight();
 			stopNotices();
-			stopCountIn();
+			stopTapSessionListener();
 			void this.design.close();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
@@ -485,7 +478,6 @@ export class StudioCx {
 		const isTemporary = this.$isTemporary.get();
 		writeText(OPEN_PROJECT_KEY, null);
 		await this.flush();
-		this.stopAgentForProjectChange();
 		await this.design.close();
 		if (isTemporary && path != null) host.discardTemporaryProject(path);
 		this.$isTemporary.set(false);
@@ -635,7 +627,6 @@ export class StudioCx {
 
 	private load(project: TProject, path: string, isTemporary = false): void {
 		const previous = this.$path.get();
-		if (previous !== path) this.stopAgentForProjectChange();
 		// An unsaved document that another project replaces was closed with Don't Save or had no changes
 		if (this.$isTemporary.get() && previous != null && previous !== path) host.discardTemporaryProject(previous);
 		this.$isTemporary.set(isTemporary);
@@ -743,17 +734,6 @@ export class StudioCx {
 			return;
 		}
 		this.$references.set(result.data);
-	}
-
-	/** Stop in the Agent panel: ends the run and any Build Track it started; what they did stays */
-	async stopAgent(): Promise<void> {
-		if (this.isInAgentStep) this.$compose.get()?.assist.stopBuild();
-		await this.agents.stopWorking();
-	}
-
-	/** An agent edits whatever is open, so it stops when the person leaves the project; an agent may open one itself */
-	private stopAgentForProjectChange(): void {
-		if (!this.isInAgentStep) void this.agents.stopWorking();
 	}
 
 	/** Names of the agent's Undo steps, latest first */
@@ -919,23 +899,23 @@ export class StudioCx {
 		return this.tapSession?.isAutoEnd === true ? Math.max(end, DEFAULT_PROJECT_END) : end;
 	}
 
-	/** The range playback loops: Cycle's while it is on, never while tapping along, which runs on to the end */
-	get cycleRange(): TCycleRange | null {
+	/** The range playback loops: the Repeat Range while it is on, never while tapping along, which runs on to the end */
+	get repeatSpan(): TRepeatSpan | null {
 		const project = this.project;
-		const cycle = project != null && this.tapSession == null ? shownCycle(this.$cycle.get(), project.id, project.end) : null;
-		return cycle?.isOn === true ? { start: cycle.start, end: cycle.end } : null;
+		const shown = project != null && this.tapSession == null ? shownRepeatRange(this.$repeatRange.get(), project.id, project.end) : null;
+		return shown?.isOn === true ? { start: shown.start, end: shown.end } : null;
 	}
 
-	/** C: Cycle on or off, with a first range from the playhead when there is none yet */
-	toggleCycle(): void {
+	/** C: Repeat Range on or off, with a first range from the playhead when there is none yet */
+	toggleRepeatRange(): void {
 		const project = this.project;
-		if (project != null) this.$cycle.set(toggledCycle(this.$cycle.get(), project.id, project.end, this.$playhead.get()));
+		if (project != null) this.$repeatRange.set(toggledRepeatRange(this.$repeatRange.get(), project.id, project.end, this.$playhead.get()));
 	}
 
-	/** A drag on the ruler's cycle strip sets the range and turns Cycle on */
-	setCycleRange(range: TCycleRange): void {
+	/** A drag on the ruler's repeat strip sets the range and turns it on */
+	setRepeatSpan(range: TRepeatSpan): void {
 		const project = this.project;
-		if (project != null) this.$cycle.set({ projectId: project.id, isOn: true, ...range });
+		if (project != null) this.$repeatRange.set({ projectId: project.id, isOn: true, ...range });
 	}
 
 	/** After tapping stops, a length that follows the song ends with the last hit, folded into the last tap's undo step */

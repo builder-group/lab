@@ -4,7 +4,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 
 /** The open context menu. One menu is open at a time, like on macOS. */
-export const $contextMenu = createState<TContextMenu | null>(null);
+const $contextMenu = createState<TContextMenu | null>(null);
 
 /** Opens a context menu at the pointer of a `contextmenu` event */
 export function openContextMenu(event: { clientX: number; clientY: number; preventDefault: () => void }, entries: TMenuEntry[]): void {

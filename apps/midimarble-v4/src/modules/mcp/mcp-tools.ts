@@ -210,7 +210,6 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		await settled(cx);
 		const [isFrameOk, frameErr, frame] = await cx.design.renderStill(time, quality === 'blender' ? BLENDER_WIDTH : DRAFT_WIDTH);
 		if (!isFrameOk) return fail(cx, frameErr.message);
-		cx.agents.noteFrame(frame.path, time);
 		const framing = framingProblemAt(preflightExport(cx.project, cx.simulation.$result.get()), time);
 		const words = `${frame.width} × ${frame.height} at ${time} s, ${Math.round(frame.renderMs)} ms${framing != null ? `. ${framing.title} here: this frame may not show it` : ''}`;
 		return { content: [{ type: 'imagePath', path: frame.path }, { type: 'text', text: words }], isError: false, packagePath: cx.$path.get() };

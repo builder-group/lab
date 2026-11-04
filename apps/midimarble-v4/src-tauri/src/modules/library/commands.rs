@@ -6,7 +6,6 @@ use tauri::{AppHandle, Manager};
 
 const GLOBAL_FOLDER: &str = "Library";
 const PROJECT_FOLDER: &str = "assets";
-const CANDIDATES_FOLDER: &str = "candidates";
 
 /// Items of the project library (`<package>/assets/`) or the global library in the app's support folder
 #[tauri::command(async)]
@@ -18,31 +17,6 @@ pub fn library_list(
 ) -> Result<Vec<LibraryItemDto>, String> {
     let root = scope_root(&app, scope, package_path.as_deref())?;
     return Ok(store::list(&root, scope));
-}
-
-/// Copies a candidate's `asset.blend` and `preview.png` into `assets/<itemId>/` with the manifest the app
-/// validated and normalized
-#[tauri::command(async)]
-#[specta::specta]
-pub fn library_accept_candidate(
-    package_path: String,
-    run_id: String,
-    item_id: String,
-    manifest_json: String,
-) -> Result<LibraryItemDto, String> {
-    let package = package(&package_path)?;
-    if !store::is_valid_id(&run_id) {
-        return Err(format!("Invalid run ID {}", run_id));
-    }
-    let source = package.join(CANDIDATES_FOLDER).join(&run_id);
-    let target = store::copy_item(
-        &source,
-        &package.join(PROJECT_FOLDER),
-        &item_id,
-        Some(&manifest_json),
-    )
-    .map_err(|error| error.to_string())?;
-    return Ok(store::item(&target, &item_id, LibraryScope::Project));
 }
 
 /// Copies a project item into the global library for use in other projects

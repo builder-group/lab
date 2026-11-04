@@ -519,6 +519,7 @@
 				{
 					"id": "marble:glass-green",
 					"label": "Green Glass",
+					"color": "#0c8a3a",
 					"hidden": true,
 					"origin": "Christmas Pack",
 					"colour": "skin",

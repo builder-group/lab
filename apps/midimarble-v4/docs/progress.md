@@ -645,4 +645,25 @@ From `.local/v3/gaps-round2.md`, the benchmark agent that made a film through MC
 - Starter Pack always present (`packs/Starter.marblepack`, read in the app and in `pack.rs`). One colour per marble in the reducer and on load; manifest `color`. References out of the Scene; an image dropped into the chat adds one.
 - Notices bottom left of the canvas, hints yield. MIDI marbles named from tracks (Melody, Bass). `fitsSong`. Gravity; length in the transport and ruler; Fit to Song on the ruler and ⌘K.
 - UX audit 3: Film's Layers closed by default, ⌘K layers and settings, Format in the Scene, Tilt, Advanced camera, preview switch, Decor's Item cut, Insert reordered, Insert menu.
-- Open: the Christmas theme's Green Glass marble is a built-in skin with its own colour, so Jingle Bells shows green marbles and blue and orange in the timeline. The manifest `color` rule covers library skins only.
+- Noted then and fixed in the cleanup pass below: the Christmas theme's Green Glass marble disagreed with its blue and orange timeline rows.
+
+## Cleanup pass
+
+- Removed the hidden in-app chat: `AgentChat`, `AgentDetails`, `AgentCx` and `src/modules/agents/`, `agent-thread`, `theme-preview`, `acceptCandidate`, `agentThemeCommands`, `NEW_THEME_PROMPT`, the Rust `agents_detect/start/cancel/list/review`, `runner.rs`, `cli.rs`, `library_accept_candidate`, `AgentRunEvent` and about 500 lines of chat CSS. `agents/brief.rs` and `mm_preview.py` stay, with no caller, behind `#[allow(dead_code)]`. A manifest's `theme` still parses. An older project's `candidates/` stays, unread, and the folder is still created.
+- Removed unreferenced exports. `$contextMenu` and `$panelState` are no longer exported; `$songExpanded`, `$noteLength`, `$rollHasFocus` and `$scatterPanel` are in use and stay.
+- Code's `cycle` is now Repeat Range (`repeat-range.ts`, `$repeatRange`, `repeatSpan`, `mm-repeat-range`, `play.repeat`); it was never saved. ⌘K still finds it by "cycle". Guides: Track Piece, and the rule that the film changes only through the tools.
+- `fixtures/jingle-bells.marble.json` rebuilt with Build Track: 115/115, clean preflight, no double hits or touching pieces. Its preflight test no longer filters. zigzag keeps the filter; long-gap, reference-20, two-marbles and windmill still have those problems. `fix-it`'s look test moved to zigzag, and `finish-exit`, `follow-camera` and `fixtures` bounds follow the new track.
+- A built-in skin with a fixed colour (`color` in `skin_catalog.json`, Green Glass) now drives the colour of a marble given that skin, from the picker and from `applySkin`. Picking a theme never changes a marble's colour. Jingle Bells: Melody red, Bass green, its theme's Green Glass set to Colour: Marble.
+- Removed `brief.rs` and `mm_preview.py`, unused once the chat went; the project's agent folder is `agents/folder.rs`.
+- Next: Connect in the Agent menu replacing the AI Workspace, a real Claude Code test, no rolling on platforms, then the plan below.
+
+## Decided, not built
+
+The owner's decisions from the same session, in build order after Connect and no rolling on platforms. Details in `design-language.md`, Track direction.
+
+1. Curved Rails experiment on Jingle Bells' 12 gaps: C, S and U shapes. Measure hits on time, staying in the column, repeatable exits; render a Draft.
+2. One Rail holding several paths, with shape presets. Switchback and Finish leave Insert; saved files still load them. Bowl is a piece in Insert.
+3. Start on a Rail in Build Track.
+4. Start and End points on the marble's path, with mirroring for Seamless Loop. First test: reaching the mirrored stretch at the right speed.
+5. Keys: a run that plays many hits, maybe a Rail with sections.
+6. V4 film through MCP against the reference.

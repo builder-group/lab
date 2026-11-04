@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { projectToFrame, type TCameraTrack } from '@/modules/camera';
-import { buildAgentBrief } from '@/modules/agents/agent-brief';
 import { applyProjectCommands, parseProject, serializeProject, type TDecor, type TProject, type TProjectCommand } from '@/modules/project';
 import { buildSceneDescription } from '@/modules/blender/scene-builder';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
@@ -312,13 +311,7 @@ describe('Decor', () => {
 	});
 
 	describe('agent', () => {
-		it('should keep the point-on-the-wall brief', () => {
-			const brief = buildAgentBrief({ project, result, target: { kind: 'wall', point: { x: 1, y: 2 } }, request: 'A wreath' });
-			expect(brief.target).toEqual({ kind: 'wall', role: 'decoration' });
-			expect(brief.wallPoint).toEqual({ x: 1, y: 2 });
-		});
-
-		it('should scatter accepted items by their asset path with their manifest size', () => {
+		it('should scatter library items by their asset path with their manifest size', () => {
 			const source = assetDecorSource('holly', 'Holly', { width: 0.04, height: 0.03 });
 			expect(source.footprint).toEqual({ x: 0.02, y: 0.015 });
 			const { commands, count } = scatterDecorCommands(project, result, track, { items: [source], density: 0.5, seed: seedOf('set-1') });

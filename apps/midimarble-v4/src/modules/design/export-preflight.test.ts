@@ -81,7 +81,7 @@ function piece(entityId: string, type = 'platform'): TResolvedPiece {
 	return { entityId, type, position: { x: pieceCount, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'placed' };
 }
 
-/** The issues of a committed fixture, whose tracks are older than the checks of how a track looks */
+/** The issues of zigzag, whose track is older than the checks of how a track looks, as are long-gap, reference-20, two-marbles and windmill */
 function besidesLook(preflight: TExportPreflight): TPreflightIssue[] {
 	return preflight.issues.filter((issue) => issue.kind !== 'strike' && issue.kind !== 'touching');
 }
@@ -140,7 +140,7 @@ describe('preflightExport function', () => {
 
 	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera leaves out once the bass moves sideways', () => {
 		const project = loadFixture('jingle-bells');
-		expect(besidesLook(preflightExport(project, simulator.simulate(project)))).toEqual([]);
+		expect(preflightExport(project, simulator.simulate(project)).issues).toEqual([]);
 
 		// The bass pieces follow their marble, so moving its release 20 cm moves its whole run away from the melody
 		const bass = project.entities.find((entity) => entity.name === 'Bass' && entity.components.release != null);

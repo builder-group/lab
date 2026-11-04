@@ -143,7 +143,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'play.previousHit', showsKey: true },
 			{ command: 'play.nextHit', showsKey: true },
 			'separator',
-			{ command: 'play.cycle', showsKey: true }
+			{ command: 'play.repeat', showsKey: true }
 		]
 	},
 	{

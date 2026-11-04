@@ -1,18 +1,13 @@
 import { createState } from 'feature-state';
-import type { AgentCx } from '@/modules/agents';
-import { isNewThemeRequest } from '@/modules/agents/agent-brief';
 import { host } from '@/environment';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { addedPacks, isPackAdded, library, packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack } from '@/modules/library';
 import { applyProjectCommands, type TPackOrigin, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
-import { $blenderObjects, addDecorCommands, assetDecorSource, type TDecorSource } from './decor';
-import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, seedOf } from './decor-scatter';
 import { fixedColorCommands, skinCommands, skinTargetIds, themeCommands, type TSkinTarget } from './design-commands';
-import { filmCamera } from './film-camera';
 import { packAddedNotice } from './concept-words';
 import { packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions } from './packs';
-import { agentThemeCommands, packOrigin, packOriginLine, resolveTheme } from './project-themes';
+import { packOrigin, packOriginLine, resolveTheme } from './project-themes';
 
 /**
  * The library behind Film's Library tab and the inspector's skin pickers. Items live in the project's library and, when kept (the star), in the user's global
@@ -231,46 +226,6 @@ export class DesignLibraryCx {
 		await this.refresh();
 	}
 
-	/**
-	 * Accepts an agent Result: the item moves into the project library and, for a piece run, becomes the piece's
-	 * skin in the same step. A "New theme:" request skins every piece of that type, since each of its runs makes
-	 * the theme's skin for one type. A decoration lands on the wall where it was asked for.
-	 */
-	async acceptCandidate(agents: AgentCx, runId: string): Promise<boolean> {
-		const run = agents.getRun(runId);
-		const [isAcceptedOk, acceptedErr, item] = await agents.accept(runId);
-		if (!isAcceptedOk) {
-			this.source.notify(acceptedErr.message, 'error');
-			return false;
-		}
-		await this.refresh();
-		const project = this.source.getProject();
-		if (project == null) return true;
-		const isNewTheme = run != null && isNewThemeRequest(run.request);
-		// A New Theme Result may bring the theme's colours: the project gets that theme and shows it, with the skin, as one edit
-		const proposal = isNewTheme ? item.manifest?.theme : undefined;
-		const themed = proposal != null ? agentThemeCommands(project, proposal) : null;
-		const themeCommands = themed?.commands ?? [];
-		const themedProject = themeCommands.length > 0 ? applyEdit(project, themeCommands) : project;
-		if (run?.target?.kind === 'piece' && item.manifest?.role === 'skin') {
-			const entityId = run.target.entityId;
-			const pieceType = project.entities.find((entity) => entity.id === entityId)?.components.piece?.type;
-			const target: TSkinTarget = pieceType != null && isNewTheme ? { kind: 'pieceType', pieceType } : { kind: 'entities', entityIds: [entityId] };
-			return this.source.execute([...themeCommands, ...skinCommands(themedProject, target, item.id)]);
-		}
-		if (themeCommands.length > 0 && this.source.execute(themeCommands)) {
-			this.source.notify(`${proposal?.name ?? 'The theme'} applied, with “${label(item)}” in the project library`);
-			return true;
-		}
-		// A decoration lands where the agent was asked for it
-		if (item.manifest?.role === 'decoration' && run?.target?.kind === 'wall') {
-			const source = assetDecorSource(item.id, label(item), item.manifest.fittedParams);
-			this.source.execute(addDecorCommands(project, source, run.target.point).commands);
-			return true;
-		}
-		this.source.notify(`“${label(item)}” was added to the project library`);
-		return true;
-	}
 }
 
 export interface TDesignLibrarySource {
@@ -319,13 +274,6 @@ export function libraryItemOrigin(item: TLibraryItem): string {
 	return item.manifest?.origin === 'agent' ? 'Made by Agent' : 'Imported';
 }
 
-export { isNewThemeRequest, NEW_THEME_PROMPT } from '@/modules/agents/agent-brief';
-
-/** The project after `commands`, for building the commands that follow them in the same edit */
-function applyEdit(project: TProject, commands: TProjectCommand[]): TProject {
-	const [isAppliedOk, , applied] = applyProjectCommands(project, commands);
-	return isAppliedOk ? applied : project;
-}
 
 /** What a Pack holds, in words: "1 theme, 4 skins, 8 decor items" */
 export function packContents(pack: Pick<TPack, 'themes' | 'items' | 'builtInDecor' | 'builtIn'>): string {

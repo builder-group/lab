@@ -5,7 +5,6 @@ export const TRACK_HELP = 'Track: what the marbles run on, made of track pieces;
 export const SKIN_HELP = 'Skin: how one thing looks.';
 export const THEME_HELP = 'Theme: a preset of skins and lights for the whole film; you can still change any part.';
 export const DECOR_HELP = 'Decor: extras you add to the scene; marbles pass through them.';
-export const PACK_HELP = 'Pack: a file that brings more themes, skins and decor.';
 
 /** Add Pack…'s notice: "Christmas Pack added: 1 theme, 4 skins, 8 decor items. Nothing in your project changed." */
 export function packAddedNotice(name: string, counts: { themes: number; skins: number; decor: number }): string {

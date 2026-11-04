@@ -130,11 +130,6 @@ export function themeDefaultColor(base: string, name: TThemeOverrideName): strin
 	return linearToHex(linear);
 }
 
-/** Whether an override does something on a base: only Neon has glowing edges */
-export function themeOverrideApplies(base: string, name: TThemeOverrideName): boolean {
-	return name !== 'glowColor' || base === 'neon';
-}
-
 // Linear colours of `THEMES` in themes.py: the wall (Pegboard's hardboard tint), the sun and the world
 const BASE_COLORS: Record<string, { wall: readonly number[]; light: readonly number[]; background: readonly number[] }> = {
 	pegboard: { wall: [0.58, 0.42, 0.26], light: [1.0, 0.96, 0.9], background: [0.72, 0.74, 0.78] },
@@ -172,7 +167,10 @@ export function defaultTitleColor(design: Pick<TDesign, 'theme' | 'themes' | 'wa
 	return titleColorOnWall(design.wall?.color ?? theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff');
 }
 
-/** Switches the theme; titles still in the old base's title colour take the new one's */
+/**
+ * Switches the theme; titles still in the old base's title colour take the new one's. A marble's colour stays: it tells
+ * marbles apart, and a theme applies to all of them
+ */
 export function themeCommands(project: TProject, themeId: string): TProjectCommand[] {
 	if (project.design.theme === themeId) return [];
 	const oldColor = defaultTitleColor(project.design);
@@ -355,22 +353,6 @@ export function themeOverrideCommands(project: TProject, themeId: string, patch:
 	const overrides = Object.fromEntries(Object.entries(merged).flatMap(([name, value]) => (value != null ? [[name, value.toLowerCase()]] : []))) as TThemeOverrides;
 	if (JSON.stringify(overrides) === JSON.stringify(theme.overrides)) return [];
 	return [{ type: 'setDesign', design: { themes: themes.map((item) => (item.id === themeId ? { ...item, overrides } : item)) } }];
-}
-
-/** A theme the agent proposed with an accepted Result: added, or updated when the project has one of that name from the agent, and applied */
-export function agentThemeCommands(project: TProject, proposal: { name: string; base: string; overrides: TThemeOverrides }): { commands: TProjectCommand[]; themeId: string } {
-	const name = proposal.name.trim() || 'Agent Theme';
-	const base = isBuiltInTheme(proposal.base) ? proposal.base : baseThemeOf(project.design);
-	const overrides = Object.fromEntries(Object.entries(proposal.overrides).map(([key, value]) => [key, value.toLowerCase()])) as TThemeOverrides;
-	const themes = projectThemes(project.design);
-	const existing = themes.find((item) => item.origin === 'agent' && item.name === name);
-	if (existing != null) {
-		const updated = { ...existing, base, overrides: { ...existing.overrides, ...overrides } };
-		const withTheme: TProject = { ...project, design: { ...project.design, themes: themes.map((item) => (item.id === existing.id ? updated : item)) } };
-		return { commands: [{ type: 'setDesign', design: { themes: withTheme.design.themes } }, ...themeCommands(withTheme, existing.id)], themeId: existing.id };
-	}
-	const theme: TProjectTheme = { id: createId('theme'), name, base, overrides, origin: 'agent' };
-	return { commands: addThemeCommands(project, theme), themeId: theme.id };
 }
 
 function addThemeCommands(project: TProject, theme: TProjectTheme): TProjectCommand[] {

@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import { createId, type TDecor, type TDesign, type TMadeInBlender, type TProject, type TProjectCommand, type TGarland, type TSnowfall, type TVec2 } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
-import { parseDecorKey, parseMadeInBlenderKey, toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
+import { parseDecorKey, toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { decorExtent, decorItem, decorText, isFrameEffect } from './decor-catalog';
 import { effectDefaults } from './decor-effects';
 import { cachedObstacleField, distanceToBox, isBoxClear, pathOverlaps, type TWallBox } from './decor-clearance';
@@ -49,10 +49,6 @@ export function findDecor(design: Pick<TDesign, 'decor'>, id: string): TDecor | 
 
 export function selectedDecorIds(selection: readonly string[]): string[] {
 	return selection.flatMap((key) => parseDecorKey(key) ?? []);
-}
-
-export function selectedBlenderNames(selection: readonly string[]): string[] {
-	return selection.flatMap((key) => parseMadeInBlenderKey(key) ?? []);
 }
 
 export function setDecorList(decor: TDecor[]): TProjectCommand[] {
