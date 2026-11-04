@@ -48,6 +48,13 @@ Score each 0 to 2 and name the screen and element for every point lost. Adapted 
 
 Measure in the browser with the Performance API and in the bundled app; report the median and the 90th percentile.
 
+## Visual checklist
+
+Check by hand in light and dark, and note every miss like a heuristic point.
+
+- **Hover states:** hover every row and control. Nothing moves or disappears, only appears in a space kept for it. Include every Layers row kind in both workspaces (Scene, Song, marble, pieces, Pieces, Wall, Lights, light, Camera, shot, Titles, title, Decor, decor item) and long names
+- **Comparison with established apps:** put screenshots of the title bar and panels beside Xcode, Figma and Final Cut Pro at the same scale. Compare control height, weight, contrast, spacing and how much colour is on screen; a difference needs a reason
+
 ## Familiarity map
 
 Every interaction needs a reference app that does it the same way. An interaction without one is either justified as new or changed.
@@ -62,3 +69,7 @@ Every interaction needs a reference app that does it the same way. An interactio
 | Command palette | Linear, Raycast, Blender F3 |
 | Contextual action bar | Figma selection toolbar |
 | Export sheet | Final Cut Pro share, macOS sheets |
+
+## From-scratch test after every wave
+
+A wave isn't done until a tester has used the bundled desktop app the way a user does, with no developer hooks and no examples: New Project, Import Song… with `fixtures/jingle-bells.mid` through the real panel, build the run with clicks and keys, then Film: pick a look, add decor, a shot and a title, export a Draft and watch it. Record every stall, wrong turn and time per step, including hover states and playback. Needs the wave finished, no Blender renders running, and the window at least partly visible. The same film made through MCP is the benchmark for the agent path.
