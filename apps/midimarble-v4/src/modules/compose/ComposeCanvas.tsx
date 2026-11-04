@@ -391,7 +391,7 @@ const HitDots = React.memo(function HitDots(props: { compose: ComposeCx; project
 							x={x}
 							y={y}
 							color={badgeStyles[hit.status].color}
-							size={hit.status === 'onTime' ? 4 : 5}
+							size={hit.status === 'onTime' || hit.status === 'waiting' ? 4 : 5}
 							isPulsing={hit.status !== 'onTime' && hit.status !== 'waiting' && !isDragging}
 							isHovered={hoveredDot === hit}
 							isFocused={isFocused}

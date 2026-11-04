@@ -44,7 +44,7 @@ describe('settling an edit', () => {
 			expect(laneEdits(project, turned(project, 'piece-1-5', 0.01))).toEqual([{ laneId: 'lane-1', afterIndex: 4 }]);
 		});
 
-		it('should ignore a slide along the bar and a turn of the last platform', () => {
+		it('should only keep the rides for a slide along the bar, and ask nothing of a turn of the last platform', () => {
 			const slid = {
 				...project,
 				entities: project.entities.map((entity) => {
@@ -52,7 +52,7 @@ describe('settling an edit', () => {
 					return entity.id === 'piece-1-5' && link != null ? { ...entity, components: { ...entity.components, hitLink: { ...link, contactAt: 0.3 } } } : entity;
 				})
 			};
-			expect(laneEdits(project, slid)).toEqual([]);
+			expect(laneEdits(project, slid)).toEqual([{ laneId: 'lane-1', afterIndex: project.music.lanes[0]?.hits.length }]);
 			expect(laneEdits(project, turned(project, 'piece-1-16', 0.01))).toEqual([]);
 		});
 

@@ -32,7 +32,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	if (memo?.project === project && memo.blenderObjects === blenderObjects) return memo.preflight;
 
 	const names = createNames(project);
-	const issues: TPreflightIssue[] = [
+	const issues: TPreflightIssue[] = withoutBehindBreak(project, result, [
 		...hitIssues(project, result, names),
 		...sceneryIssues(project, result, names),
 		...finishIssues(project, result, names),
@@ -43,7 +43,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		...framingIssues(project, result, names),
 		...decorIssues(project, result, names, blenderObjects),
 		...songIssues(project)
-	];
+	]);
 	issues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity] || (a.time ?? Infinity) - (b.time ?? Infinity));
 
 	const warnings = issues.filter((issue) => issue.severity === 'warning').length;
@@ -178,6 +178,22 @@ export interface TExportPreflight {
 }
 
 export type TPreflightSeverity = 'warning' | 'info';
+
+/**
+ * While pieces wait behind a break, the break is the one thing to fix: what the marble does after it, flying off, is no
+ * problem of the track's, so nothing later of that marble is listed, and with no marble named nothing after the first break.
+ */
+function withoutBehindBreak(project: TProject, result: TSimulationResult, issues: TPreflightIssue[]): TPreflightIssue[] {
+	const breaks = new Map<string, number>();
+	for (const hit of result.hits) {
+		if (hit.status !== 'missed' && hit.status !== 'blocked') continue;
+		const waits = project.entities.find((entity) => entity.id === hit.pieceEntityId)?.components.hitLink?.held != null;
+		if (waits && hit.targetTime < (breaks.get(hit.laneId) ?? Infinity)) breaks.set(hit.laneId, hit.targetTime);
+	}
+	if (breaks.size === 0) return issues;
+	const first = Math.min(...breaks.values());
+	return issues.filter((issue) => issue.time == null || issue.time <= (issue.laneId != null ? (breaks.get(issue.laneId) ?? Infinity) : first));
+}
 
 export interface TPreflightIssue {
 	/** Stable within one result, for React keys */

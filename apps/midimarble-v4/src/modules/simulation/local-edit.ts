@@ -375,6 +375,10 @@ function strayContacts(base: TSimulationResult, result: TSimulationResult): numb
 
 /** How far later pieces may stay moved before a break holds them where they were */
 const HOLD_SHIFT = 0.03;
+/** Runs after which no further way is tried; a count, not a clock, so the answer stays the same on any machine */
+const MAX_RUNS = 150;
+/** Seconds a drag's settle looks past the platforms that take up the change */
+const QUICK_LOOK = 2.5;
 /** A way this good ends the search: nothing broken or struck, later pieces under 2 mm from where they were */
 const GOOD_ENOUGH = 2;
 const GOOD_ENOUGH_SHIFT = 0.01;
@@ -428,11 +432,18 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 				absorbedBy.push(step.entityId);
 			}
 		}
-		return { project, absorbedBy, broken: [], strays: 0, result: base, runs, heldFrom: [] };
+		// A look just past the change, so a drag too shows a break as one hit and no heap
+		const lastStep = Math.max(...edits.map((edit) => after.music.lanes.find((lane) => lane.id === edit.laneId)?.hits[Math.min(edit.afterIndex + 3, (after.music.lanes.find((lane) => lane.id === edit.laneId)?.hits.length ?? 1) - 1)]?.time ?? 0));
+		const end = Math.min(after.end, lastStep + QUICK_LOOK);
+		const near = simulator.simulate({ ...project, end });
+		const broken = brokenSince(base, near).filter((hit) => hit.targetTime < end - 0.05);
+		const held = broken.length > 0 ? holdBreaks(project, after, base, near, broken) : null;
+		return { project: held?.project ?? project, absorbedBy, broken, strays: 0, result: base, runs, heldFrom: held?.from ?? [] };
 	}
 	const unsettled = { project: after, absorbedBy: [] as string[], ...judge(after, []) };
 	let best: typeof unsettled | null = null;
 	for (const [index, variant] of VARIANTS.entries()) {
+		if (runs > MAX_RUNS) break;
 		let project = after;
 		const absorbedBy: string[] = [];
 		for (const edit of edits) {
@@ -448,10 +459,16 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 	// A drag asked for the move, so standing still is no better way of doing it, unless the move breaks hits
 	const isMove = edits.some((edit) => edit.movedDot != null);
 	const chosen = best != null && (isMove ? !best.broken.length : score(best) <= score(unsettled)) ? best : unsettled;
-	const held = chosen.broken.length > 0 ? holdBreaks(chosen.project, after, base, chosen.result, chosen.broken) : null;
-	if (held == null) return { ...chosen, runs, heldFrom: [] };
-	const judged = judge(held.project, chosen.absorbedBy);
-	return { ...chosen, ...judged, project: held.project, runs, heldFrom: held.from };
+	let settled: typeof chosen & { heldFrom: THitResult[] } = { ...chosen, heldFrom: [] };
+	// A marble freed of one lane may now strike the pieces that wait, so each lane that breaks waits in turn
+	for (let lanes = 0; lanes < after.music.lanes.length; lanes++) {
+		const waiting = new Set(settled.heldFrom.map((hit) => hit.laneId));
+		const fresh = settled.broken.filter((hit) => !waiting.has(hit.laneId));
+		const held = fresh.length > 0 ? holdBreaks(settled.project, after, base, settled.result, fresh) : null;
+		if (held == null) break;
+		settled = { ...settled, ...judge(held.project, settled.absorbedBy), project: held.project, heldFrom: [...settled.heldFrom, ...held.from] };
+	}
+	return { ...settled, runs };
 }
 
 /** Holds each lane whose break carried later pieces away, from its first broken hit on */
@@ -496,8 +513,8 @@ function physicsOf(entity: TEntity | undefined): string {
 
 /**
  * Which lanes `after` changed against `before`, and after which hit the old run must go on. Later platforms must exist
- * for there to be anything to keep; a piece added at the end of a lane, a free piece or anything else outside the lanes
- * asks nothing.
+ * for there to be anything to keep, so a piece added at the end of a lane asks nothing. A change that leaves how the
+ * marble leaves alone gets `afterIndex` past the lane's end: no platform takes up anything, but the rides hold.
  */
 export function laneEdits(before: TProject, after: TProject): TLaneEdit[] {
 	const edits: TLaneEdit[] = [];
@@ -532,11 +549,34 @@ export function laneEdits(before: TProject, after: TProject): TLaneEdit[] {
 			last = Math.max(last, at - 1);
 			if (last === -2) last = -1;
 		}
-		const releaseMoved = JSON.stringify(after.entities.find((entity) => entity.components.marble?.laneId === lane.id)?.components.release) !== JSON.stringify(before.entities.find((entity) => entity.components.marble?.laneId === lane.id)?.components.release);
-		if (releaseMoved) edits.push({ laneId: lane.id, afterIndex: lane.hits.length });
-		else if (last > -2 && lane.hits.slice(last + 1).some((hit) => linkedPlatform(after, lane.id, hit.id) != null)) edits.push({ laneId: lane.id, afterIndex: last });
+		if (last > -2 && lane.hits.slice(last + 1).some((hit) => linkedPlatform(after, lane.id, hit.id) != null)) edits.push({ laneId: lane.id, afterIndex: last });
+		else if (hasOtherChange(before, after, lane.id)) edits.push({ laneId: lane.id, afterIndex: lane.hits.length });
 	}
 	return edits;
+}
+
+/**
+ * Whether anything else of the lane's run changed: a slide along a bar, a longer bar, a moved release. It leaves how the
+ * marble leaves alone, so nothing has to take it up, but the rides must hold: the last bits of a number change.
+ */
+function hasOtherChange(before: TProject, after: TProject, laneId: string): boolean {
+	const onLane = (project: TProject): TEntity[] =>
+		project.entities.filter((entity) => {
+			const { hitLink, marble } = entity.components;
+			return hitLink?.laneId === laneId || marble?.laneId === laneId;
+		});
+	const was = new Map(onLane(before).map((entity) => [entity.id, entity]));
+	const lastHit = before.music.lanes.find((lane) => lane.id === laneId)?.hits.at(-1)?.id;
+	return onLane(after).some((entity) => {
+		const old = was.get(entity.id);
+		if (old === entity) return false;
+		if (old == null) return false;
+		const { held: _a, leaves: _b, ...link } = entity.components.hitLink ?? { held: null, leaves: null };
+		const { held: _c, leaves: _d, ...oldLink } = old.components.hitLink ?? { held: null, leaves: null };
+		// Past the lane's last hit nothing follows, so nothing needs to hold
+		if (entity.components.hitLink?.hitId === lastHit && entity.components.hitLink != null) return false;
+		return JSON.stringify([link, entity.components.piece, entity.components.path, entity.components.release]) !== JSON.stringify([oldLink, old.components.piece, old.components.path, old.components.release]);
+	});
 }
 
 /** `project` as commands on `from`: each component that differs */
