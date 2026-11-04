@@ -92,24 +92,29 @@ export function replaceTargets(project: TProject, results: THitResult[], only?: 
 	return targets.sort((a, b) => a.targetTime - b.targetTime);
 }
 
-/** "Re-place 24 Platforms", or "Re-place Platform 3" for one */
-export function replaceLabel(count: number, pieceName?: string): string {
-	if (count === 1) return pieceName == null ? 'Re-place Platform' : `Re-place ${pieceName}`;
-	return `Re-place ${count} Platforms`;
+/**
+ * "Fix 24 Broken Hits", or "Fix Hit 3 of Melody" for one. The label counts the problems, which are known before
+ * Re-place runs; how many platforms it tilts again is known only after, and the result names it.
+ */
+export function replaceLabel(count: number, hitName?: string): string {
+	if (count === 1) return hitName == null ? 'Fix the Broken Hit' : `Fix ${hitName}`;
+	return `Fix ${count} Broken Hits`;
 }
 
 /** What Re-place Broken Platforms will do, so its button names every kind of change before it runs */
 export interface TReplacePlan {
-	/** Broken platforms it tilts again */
+	/** Broken hits it fixes by tilting platforms again */
 	platforms: number;
-	/** Names of Blocked scenery pieces it moves clear */
+	/** Names of Blocked scenery pieces it moves clear, places again or deletes */
 	scenery: string[];
+	/** Their entities, for the what-if that names each fix */
+	sceneryIds: string[];
 	/** Names of the marbles whose release moves to just before their first note */
 	releases: string[];
 	/**
-	 * The one label of the command, in the edit's notice, the hit summary's menu and ⌘K: "Re-place 45 Platforms",
-	 * "Re-place Platform 7", "Move Release and Re-place 45 Platforms", "Move Windmill 1 Clear",
-	 * "Re-place 4 Platforms and Move Windmill 1 Clear"
+	 * The one label of the command, in the edit's notice and the hit summary's menu: "Fix 45 Broken Hits",
+	 * "Fix Hit 7 of Melody", "Move Release and Fix 45 Broken Hits", "Move Windmill 1 Clear",
+	 * "Fix 4 Broken Hits and Delete Rail 1"
 	 */
 	label: string;
 	/** The tooltip, a sentence naming each change */
@@ -118,29 +123,37 @@ export interface TReplacePlan {
 }
 
 /**
- * The plan of Re-place Broken Platforms for the run as it is: the broken platforms, the Blocked scenery and the
- * releases `releaseFix` moves given `before`, the hits from before the edit that broke the run
+ * The plan of Re-place Broken Platforms for the run as it is: the broken hits, the Blocked scenery and the
+ * releases `releaseFix` moves given `before`, the hits from before the edit that broke the run. `sceneryFixes`
+ * holds the fix a what-if found for a Blocked piece (`sceneryFix`), so the label names what will happen to it;
+ * a piece not checked yet reads Move Clear.
  */
-export function replacePlan(project: TProject, result: TSimulationResult, before?: THitResult[]): TReplacePlan {
+export function replacePlan(project: TProject, result: TSimulationResult, before?: THitResult[], sceneryFixes?: ReadonlyMap<string, TSceneryFixKind | null>): TReplacePlan {
 	const broken = brokenHits(result.hits);
 	const platforms = broken.length;
 	const names = (laneIds: Iterable<string>): string[] => [...laneIds].map((id) => project.music.lanes.find((lane) => lane.id === id)?.name ?? 'the marble');
 	const releases = names([...new Set(broken.map((hit) => hit.laneId))].filter((laneId) => releaseFix(project, result.hits, laneId, before).length > 0));
-	const scenery = blockedScenery(project, result).map((piece) => pieceName(project, piece.entityId));
-	const only = broken.length === 1 ? broken[0]?.pieceEntityId : null;
-	const replace = platforms > 0 ? replaceLabel(platforms, only == null ? undefined : pieceName(project, only)) : '';
-	const move = scenery.length === 0 ? '' : scenery.length <= 2 ? `Move ${joinWords(scenery)} Clear` : `Move ${scenery.length} Pieces Clear`;
+	const blocked = blockedScenery(project, result).map((piece) => piece.entityId);
+	const scenery = blocked.map((id) => pieceName(project, id));
+	const only = broken.length === 1 ? broken[0] : undefined;
+	const replace = platforms > 0 ? replaceLabel(platforms, only == null ? undefined : hitName(project, only)) : '';
+	const kinds = new Set(blocked.map((id) => sceneryFixes?.get(id) ?? 'moveClear'));
+	const kind = kinds.size === 1 ? [...kinds][0] : 'moveClear';
+	const move = scenery.length === 0 ? '' : sceneryFixLabel(kind ?? 'moveClear', scenery.length <= 2 ? joinWords(scenery) : `${scenery.length} Pieces`);
 	const core = [replace, move].filter(Boolean).join(' and ');
 	const label = releases.length > 0 ? `Move Release and ${core}` : core;
 	const steps = [
 		releases.length > 0 ? `moves the release of ${releases.join(' and ')} to just before its first note` : '',
 		platforms > 0 ? `tilts ${platforms === 1 ? 'the broken platform' : `the ${platforms} broken platforms`} again so each lands on time, with the platforms before them when needed` : '',
-		scenery.length > 0 ? `moves ${joinWords(scenery)} clear of the run` : ''
+		scenery.length > 0 ? `places ${joinWords(scenery)} again or moves ${scenery.length === 1 ? 'it' : 'them'} clear of the run, or deletes ${scenery.length === 1 ? 'it' : 'them'} when the run passes through and never uses ${scenery.length === 1 ? 'it' : 'them'}` : ''
 	].filter(Boolean);
-	const title = steps.length ? `${capitalize(joinWords(steps))}, as one undo step. It keeps no change that adds a problem.` : 'Nothing to re-place';
+	const title = steps.length
+		? `${capitalize(joinWords(steps))}, as one undo step. It keeps no change that adds a problem, and deletes a switchback, rail or tunnel the new run passes through and no longer uses.`
+		: 'Nothing to re-place';
 	return {
 		platforms,
 		scenery,
+		sceneryIds: blocked,
 		releases,
 		label: core === '' ? 'Re-place Broken Platforms' : label,
 		title,
@@ -167,7 +180,7 @@ export interface TFixStanding {
 export function replaceResultMessage(
 	project: TProject,
 	before: THitResult[],
-	outcome: Pick<TReplaceOutcome, 'project' | 'result' | 'replaced' | 'moved' | 'cleared' | 'releases'>,
+	outcome: Pick<TReplaceOutcome, 'project' | 'result' | 'replaced' | 'moved' | 'cleared' | 'releases'> & Partial<Pick<TReplaceOutcome, 'removed'>>,
 	standing: TFixStanding
 ): string {
 	const releases = outcome.releases.map((laneId) => outcome.project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the marble');
@@ -177,7 +190,8 @@ export function replaceResultMessage(
 	const changes = [
 		outcome.replaced > 0 ? `re-placed ${outcome.replaced} ${outcome.replaced === 1 ? 'platform' : 'platforms'}` : '',
 		outcome.moved.length > 0 ? `placed ${joinWords(outcome.moved.map((id) => pieceName(outcome.project, id)))} again` : '',
-		outcome.cleared.length > 0 ? `moved ${joinWords(outcome.cleared.map((id) => pieceName(project, id)))} clear` : ''
+		outcome.cleared.length > 0 ? `moved ${joinWords(outcome.cleared.map((id) => pieceName(project, id)))} clear` : '',
+		(outcome.removed ?? []).length > 0 ? `deleted ${joinWords((outcome.removed ?? []).map((id) => pieceName(project, id)))}, which the new run passes through and no longer uses` : ''
 	].filter(Boolean);
 	const wasBroken = brokenHits(before).map(hitKeyOf);
 	const still = new Set(brokenHits(outcome.result.hits).map(hitKeyOf));
@@ -328,6 +342,10 @@ export interface TPieceFix {
 	message: string;
 	/** The run with the fix applied */
 	run?: TSimulationResult;
+	/** The Fix-it's label for what passed: "Move Rail 1 Clear", "Place Rail 1 Again", "Delete Rail 1", "Re-place" */
+	label?: string;
+	/** What passed for scenery */
+	kind?: TSceneryFixKind;
 }
 
 /**
@@ -336,7 +354,12 @@ export interface TPieceFix {
  * marble's platform before the hit tilted again by Auto place, which keeps clear of the other lanes. A change is
  * kept only when the what-if run clears the piece, breaks no hit that is on time and adds no problem.
  */
-export async function fixPiece(project: TProject, result: TSimulationResult, entityId: string, deps: Pick<TReplaceDeps, 'simulate' | 'autoPlace'>): Promise<TPieceFix> {
+export async function fixPiece(
+	project: TProject,
+	result: TSimulationResult,
+	entityId: string,
+	deps: Pick<TReplaceDeps, 'simulate' | 'autoPlace'> & Partial<Pick<TReplaceDeps, 'gapPiece'>>
+): Promise<TPieceFix> {
 	const entity = project.entities.find((item) => item.id === entityId);
 	const link = entity?.components.hitLink;
 	const type = entity?.components.piece?.type;
@@ -344,7 +367,6 @@ export async function fixPiece(project: TProject, result: TSimulationResult, ent
 	if (entity == null || link == null || type == null) return { commands: null, message: `${name} follows no marble` };
 	const laneName = (laneId: string): string => project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the marble';
 	const hitters = strayHitters(project, result, entityId);
-	const isBlocked = result.pieces.find((piece) => piece.entityId === entityId)?.status === 'blocked';
 	const check = async (commands: TProjectCommand[]): Promise<{ run: TSimulationResult; broken: number; added: TPreflightIssue[]; isClear: boolean }> => {
 		const next = withCommands(project, commands);
 		const run = await deps.simulate(next);
@@ -358,15 +380,8 @@ export async function fixPiece(project: TProject, result: TSimulationResult, ent
 			: `${what} would add a problem (${added[0]?.title ?? 'another marble'}), so nothing moved`;
 
 	if (!soundsHit(type, link)) {
-		if (!isBlocked && !hitters.length) return { commands: null, message: `${name} is clear of every run` };
-		const move = moveClear(project, result, entityId);
-		const runs = joinWords([...new Set([link.laneId, ...hitters.map((hitter) => hitter.laneId)])].map(laneName));
-		if (move == null) return { commands: null, message: `No spot within 40 cm clears ${name} of ${runs}'s run. Drag it by hand or Detach it.` };
-		const what = await check(move.commands);
-		if (!what.isClear || what.broken > 0 || what.added.length > 0) {
-			return { commands: null, message: !what.isClear ? `Moving ${name} clear changes the run so it is in the way again. Drag it by hand or Detach it.` : `${refusal(`Moving ${name} clear`, what.broken, what.added)}. Drag it by hand or Detach it.` };
-		}
-		return { commands: move.commands, run: what.run, message: `${name} moved ${Math.max(1, Math.round(move.distance * 100))} cm, clear of ${runs}'s run` };
+		const fix = await sceneryFix(project, result, entityId, deps);
+		return { commands: fix.commands, run: fix.run, message: fix.message, label: fix.kind == null ? undefined : sceneryFixLabel(fix.kind, name), kind: fix.kind ?? undefined };
 	}
 
 	// A platform another marble hits: that marble's platform before the hit tilts so it passes clear
@@ -390,7 +405,7 @@ export async function fixPiece(project: TProject, result: TSimulationResult, ent
 		if (!commands.length) continue;
 		const what = await check(commands);
 		if (what.isClear && what.broken === 0 && what.added.length === 0) {
-			return { commands, run: what.run, message: `Re-placed ${pieceName(project, platform.id)}: ${laneName(hitter.laneId)} now passes clear of ${name}` };
+			return { commands, run: what.run, label: 'Re-place', message: `Re-placed ${pieceName(project, platform.id)}: ${laneName(hitter.laneId)} now passes clear of ${name}` };
 		}
 		refused ||= what.isClear ? refusal(`Re-placing ${pieceName(project, platform.id)}`, what.broken, what.added) : '';
 	}
@@ -414,6 +429,94 @@ export function strayHitters(project: TProject, result: TSimulationResult, entit
 	return [...hitters.values()].sort((a, b) => a.time - b.time);
 }
 
+/** What fixes a Blocked or struck piece that plays no note */
+export type TSceneryFixKind = 'moveClear' | 'placeAgain' | 'delete';
+
+/** A scenery fix a what-if run passed, or why none did */
+export interface TSceneryFix {
+	kind: TSceneryFixKind | null;
+	commands: TProjectCommand[] | null;
+	/** The edit's notice, or why nothing passes */
+	message: string;
+	run?: TSimulationResult;
+}
+
+/**
+ * The first fix of a windmill, switchback, rail or tunnel that is Blocked or that another marble hits, which a
+ * what-if run passes: it clears the piece, breaks no hit that is on time and adds no problem. In order: a bridge
+ * of a long gap is suggested again for its gap (switchback or rail, as Next does), the piece moves clear (Move
+ * Clear), and a Blocked piece is deleted. A Blocked piece is left out of the run, so deleting it changes no hit;
+ * it is the fix when the run passes through the spot and no longer uses the piece. Without `gapPiece`, bridges
+ * are not suggested again.
+ */
+export async function sceneryFix(
+	project: TProject,
+	result: TSimulationResult,
+	entityId: string,
+	deps: Pick<TReplaceDeps, 'simulate'> & Partial<Pick<TReplaceDeps, 'gapPiece'>> & { isCancelled?: () => boolean }
+): Promise<TSceneryFix> {
+	const entity = project.entities.find((item) => item.id === entityId);
+	const link = entity?.components.hitLink;
+	const name = pieceName(project, entityId);
+	if (entity == null || link == null) return { kind: null, commands: null, message: `${name} follows no marble` };
+	const laneName = (laneId: string): string => project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the marble';
+	const hitters = strayHitters(project, result, entityId);
+	const isBlocked = result.pieces.find((piece) => piece.entityId === entityId)?.status === 'blocked';
+	if (!isBlocked && !hitters.length) return { kind: null, commands: null, message: `${name} is clear of every run` };
+	const runs = joinWords([...new Set([link.laneId, ...hitters.map((hitter) => hitter.laneId)])].map(laneName));
+	let refusal = '';
+	const check = async (commands: TProjectCommand[], what: string): Promise<TSimulationResult | null> => {
+		const next = withCommands(project, commands);
+		const run = await deps.simulate(next);
+		const piece = run.pieces.find((item) => item.entityId === entityId);
+		const isClear = piece?.status !== 'blocked' && !strayHitters(next, run, entityId).length;
+		const broken = newlyBroken(result.hits, run.hits).length;
+		const added = addedProblems(project, result, next, run);
+		if (isClear && broken === 0 && added.length === 0) return { ...run, revision: project.revision };
+		refusal ||= !isClear
+			? `${what} leaves it in the way`
+			: broken > 0
+				? `${what} would break ${broken === 1 ? 'a hit' : `${broken} hits`}`
+				: `${what} would add a problem (${added[0]?.title ?? 'another marble'})`;
+		return null;
+	};
+
+	// A bridge suggested again for its gap, for the run without it
+	const gap = findLongGaps(project, link.laneId).find((item) => item.bridgedBy === entityId);
+	const type = entity.components.piece?.type;
+	if (gap != null && deps.gapPiece != null && isGapPieceType(type)) {
+		const types: TGapPieceType[] = type === 'switchback' ? ['switchback', 'rail'] : type === 'rail' ? ['rail', 'switchback'] : [type];
+		const without = { ...project, entities: project.entities.filter((item) => item.id !== entityId) };
+		for (const kind of types) {
+			let suggested: TEntity | null;
+			try {
+				suggested = await deps.gapPiece(without, gap, kind, entityId);
+			} catch {
+				suggested = null;
+			}
+			if (deps.isCancelled?.() === true) return { kind: null, commands: null, message: '' };
+			if (suggested == null) continue;
+			const commands: TProjectCommand[] = [{ type: 'upsertEntity', entity: { ...suggested, id: entityId, name: kind === type ? entity.name : (suggested.name ?? entity.name) } }];
+			const run = await check(commands, `Placing ${name} again`);
+			if (run != null) return { kind: 'placeAgain', commands, run, message: `${name} placed again for its gap, clear of ${runs}'s run` };
+			break;
+		}
+	}
+
+	const move = moveClear(project, result, entityId);
+	if (move != null) {
+		const run = await check(move.commands, `Moving ${name} clear`);
+		if (run != null) return { kind: 'moveClear', commands: move.commands, run, message: `${name} moved ${Math.max(1, Math.round(move.distance * 100))} cm, clear of ${runs}'s run` };
+	} else refusal ||= `No spot within 40 cm clears ${name} of ${runs}'s run`;
+
+	if (isBlocked) {
+		const commands: TProjectCommand[] = [{ type: 'removeEntities', entityIds: [entityId] }];
+		const run = await check(commands, `Deleting ${name}`);
+		if (run != null) return { kind: 'delete', commands, run, message: `${name} deleted: ${laneName(link.laneId)} already passes through its spot, so the run never used it` };
+	}
+	return { kind: null, commands: null, message: `${refusal || `Nothing clears ${name}`}, so nothing changed. Drag it by hand or Detach it.` };
+}
+
 /** A piece tied to a marble that plays no note, such as a windmill, switchback, rail or tunnel */
 function isStrayScenery(project: TProject, entityId: string): boolean {
 	const entity = project.entities.find((item) => item.id === entityId);
@@ -425,6 +528,25 @@ function isStrayScenery(project: TProject, entityId: string): boolean {
 function pieceName(project: TProject, entityId: string): string {
 	const entity = project.entities.find((item) => item.id === entityId);
 	return entity?.name ?? getPieceDefinition(entity?.components.piece?.type ?? '')?.label ?? 'Piece';
+}
+
+/** "Hit 7 of Melody", as the problem list names a hit */
+function hitName(project: TProject, hit: Pick<THitResult, 'laneId' | 'hitId'>): string {
+	const lane = project.music.lanes.find((item) => item.id === hit.laneId);
+	const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
+	return `Hit ${index + 1} of ${lane?.name ?? 'the marble'}`;
+}
+
+/** The Fix-it label of a Blocked or struck piece by what its what-if found: "Move Rail 1 Clear", "Place Rail 1 Again", "Delete Rail 1" */
+export function sceneryFixLabel(kind: TSceneryFixKind, name: string): string {
+	switch (kind) {
+		case 'moveClear':
+			return `Move ${name} Clear`;
+		case 'placeAgain':
+			return `Place ${name} Again`;
+		case 'delete':
+			return `Delete ${name}`;
+	}
 }
 
 function joinWords(items: string[]): string {
@@ -470,8 +592,11 @@ export interface TReplaceDeps {
 	gapPiece: (project: TProject, gap: TLongGap, type: TGapPieceType, entityId: string) => Promise<TEntity>;
 	/** Applies one step's commands; the first step starts the undo step, later ones join it. Null stops. */
 	commit: (project: TProject, commands: TProjectCommand[], isFirst: boolean) => TProject | null;
-	/** `at` is the time of the hit being worked on, for progress through the song */
-	onProgress?: (done: number, total: number, at: number) => void;
+	/**
+	 * `done` of `total` broken hits are fixed, `at` is the time of the hit being worked on and `fraction` (0 to 1)
+	 * how far the work is, moving on with every try so a hard problem does not stall the bar
+	 */
+	onProgress?: (done: number, total: number, at: number, fraction: number) => void;
 	isCancelled?: () => boolean;
 }
 
@@ -493,8 +618,10 @@ export interface TReplaceOutcome {
 	failed: number;
 	/** Lanes whose marble release moved to just before its first note */
 	releases: string[];
-	/** Blocked scenery moved clear of the run */
+	/** Blocked scenery moved clear of the run or placed again for its gap */
 	cleared: string[];
+	/** Blocked scenery deleted, since the new run passes through it and no longer uses it */
+	removed: string[];
 	/** Stopped by the user or by another edit */
 	isStopped: boolean;
 }
@@ -526,15 +653,17 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 	const moved = new Set<string>();
 	const releases: string[] = [];
 	const cleared: string[] = [];
+	const removed: string[] = [];
 	const isCancelled = (): boolean => deps.isCancelled?.() === true;
 	const outcome = (isStopped: boolean): TReplaceOutcome => ({
 		project: current,
 		result: latest,
 		replaced: changed.size,
-		moved: [...moved].filter((id) => !cleared.includes(id)),
+		moved: [...moved].filter((id) => !cleared.includes(id) && !removed.includes(id)),
 		failed: failed + brokenHits(latest.hits, only).length,
 		releases,
 		cleared,
+		removed,
 		isStopped
 	});
 	/** Applies `commands`; `run` is the trial run of the same edit, which saves simulating it again */
@@ -563,7 +692,8 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 		}
 	};
 
-	deps.onProgress?.(0, brokenHits(result.hits, only).length, firstBrokenTime(result, only));
+	const startTime = firstBrokenTime(result, only);
+	deps.onProgress?.(0, brokenHits(result.hits, only).length, startTime, 0);
 	if (only != null) {
 		const keys = brokenHits(result.hits, only).map(hitKeyOf);
 		for (const [index, key] of keys.entries()) {
@@ -573,7 +703,7 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 			if (isCancelled()) return outcome(true);
 			const commands = placed == null ? [] : replaceCommands(current, placed);
 			if (commands.length && !(await commit(commands))) return outcome(true);
-			deps.onProgress?.(index + 1, keys.length, target.targetTime);
+			deps.onProgress?.(index + 1, keys.length, target.targetTime, (index + 1) / keys.length);
 		}
 		return outcome(isCancelled());
 	}
@@ -584,7 +714,23 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 		if (!(await commit(commands, false))) return outcome(true);
 		releases.push(laneId);
 	}
-	const total = Math.max(1, brokenHits(latest.hits).length);
+	// Counted from before a moved release, so progress names the broken hits the label named
+	const total = Math.max(1, brokenHits(result.hits).length, brokenHits(latest.hits).length);
+	// Progress runs through the song from the first problem to the last linked hit, and within a problem from its
+	// hit toward the next one with every try, so the bar keeps moving while a hard problem is worked on
+	const lastTime = Math.max(startTime, ...latest.hits.filter((hit) => hit.pieceEntityId != null).map((hit) => hit.targetTime));
+	let done = 0;
+	let fraction = 0;
+	let tries = 0;
+	const report = (problem: THitResult): void => {
+		done = Math.min(total, Math.max(done, total - brokenHits(latest.hits).length));
+		const next = latest.hits.find((hit) => hit.laneId === problem.laneId && hit.pieceEntityId != null && hit.targetTime > problem.targetTime + 1e-6)?.targetTime ?? lastTime;
+		const at = problem.targetTime + (Math.max(problem.targetTime, next) - problem.targetTime) * Math.min(1, tries / TRIES_PER_PROBLEM);
+		const span = lastTime - startTime;
+		// The scenery pass after the platforms takes the last few percent
+		fraction = Math.max(fraction, span > 0 ? Math.min(SCENERY_SHARE_START, (SCENERY_SHARE_START * (at - startTime)) / span) : 0);
+		deps.onProgress?.(done, total, problem.targetTime, fraction);
+	};
 
 	/** A new switchback, rail or tunnel for `gap` in place of `bridge`, for the run in `base` without it */
 	const bridgeCommands = async (base: TProject, gap: TLongGap, bridge: TEntity): Promise<TProjectCommand[] | null> => {
@@ -721,6 +867,8 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 	 * does. With `turn`, the first of them is turned by hand by that much instead.
 	 */
 	const rebuild = async (run: THitResult[], index: number, depth: number, problem: THitResult, turn?: number): Promise<TFix | null> => {
+		tries++;
+		report(problem);
 		let base = clipped(problem);
 		let trial = latest;
 		// Whether `trial` is behind `base`; it is simulated only when a step is not remembered
@@ -795,7 +943,8 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 		while (!isCancelled()) {
 			const problem = firstProblem(current, latest);
 			if (problem == null) break;
-			deps.onProgress?.(Math.max(0, total - brokenHits(latest.hits).length), total, problem.targetTime);
+			tries = 0;
+			report(problem);
 			const fixed = await fix(problem);
 			if (isCancelled()) return outcome(true);
 			if (fixed != null) {
@@ -814,42 +963,22 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 			.flatMap((issue) => issue.target?.ids ?? [])
 			.filter((id) => isStrayScenery(current, id));
 		const pieces = [...new Set([...blockedScenery(current, latest).map((piece) => piece.entityId), ...strays])];
-		for (const entityId of pieces) {
-			// A bridge the new run passes through is suggested again for its gap, when the new one keeps every hit
-			const entity = current.entities.find((item) => item.id === entityId);
-			const laneId = entity?.components.hitLink?.laneId;
-			const gap = laneId == null ? undefined : findLongGaps(current, laneId).find((item) => item.bridgedBy === entityId);
-			const fresh = entity == null || gap == null ? null : await bridgeCommands(current, gap, entity);
+		for (const [index, entityId] of pieces.entries()) {
+			deps.onProgress?.(done, total, lastTime, SCENERY_SHARE_START + ((1 - SCENERY_SHARE_START) * index) / pieces.length);
+			// Re-place keeps its promise to fix the run: a bridge suggested again, Move Clear or, for a piece the new
+			// run passes through and no longer uses, deleting it, each only when its what-if breaks no hit now on
+			// time and adds no problem (`sceneryFix`)
+			const fixed = await sceneryFix(current, latest, entityId, { simulate: deps.simulate, gapPiece: deps.gapPiece, isCancelled });
 			if (isCancelled()) return outcome(true);
-			// Re-place keeps its promise to fix the run: a change that breaks hits now on time or adds a problem is left
-			// to the user, who has Move Clear in the piece's inspector
-			const isClear = (base: TProject, trial: TSimulationResult): boolean =>
-				trial.pieces.find((item) => item.entityId === entityId)?.status !== 'blocked' &&
-				!strayHitters(base, trial, entityId).length &&
-				!newlyBroken(latest.hits, trial.hits).length &&
-				!addedProblems(current, latest, base, trial).length;
-			if (fresh != null) {
-				const base = withCommands(current, fresh);
-				const trial = await deps.simulate(base);
-				if (isCancelled()) return outcome(true);
-				if (isClear(base, trial)) {
-					if (!(await commit(fresh, false, trial))) return outcome(true);
-					cleared.push(entityId);
-					continue;
-				}
-			}
-			const move = moveClear(current, latest, entityId);
-			const base = move == null ? null : withCommands(current, move.commands);
-			const trial = base == null ? null : await deps.simulate(base);
-			if (isCancelled()) return outcome(true);
-			if (move == null || base == null || trial == null || !isClear(base, trial)) {
+			if (fixed.commands == null || fixed.run == null) {
 				failed++;
 				continue;
 			}
-			if (!(await commit(move.commands, false, trial))) return outcome(true);
-			cleared.push(entityId);
+			if (!(await commit(fixed.commands, false, fixed.run))) return outcome(true);
+			if (fixed.kind === 'delete') removed.push(entityId);
+			else cleared.push(entityId);
 		}
-		if (!cleared.length) break;
+		if (!cleared.length && !removed.length) break;
 	}
 	return outcome(isCancelled());
 }
@@ -859,6 +988,11 @@ interface TFix {
 	commands: TProjectCommand[];
 	run: TSimulationResult;
 }
+
+// Tries a problem takes at most: its bridge, the backtracks and the turns by hand, for progress within it
+const TRIES_PER_PROBLEM = 21;
+// Share of the progress bar for the platforms; the Blocked scenery after them takes the rest
+const SCENERY_SHARE_START = 0.96;
 
 // Platforms Re-place goes back before the one before a problem that it cannot fix
 const MAX_BACKTRACK = 3;
@@ -939,10 +1073,11 @@ export function addedProblems(
 	});
 }
 
-/** `project` with `setComponent` and `upsertEntity` commands applied, for a trial run before a commit */
+/** `project` with `setComponent`, `upsertEntity` and `removeEntities` commands applied, for a trial run before a commit */
 function withCommands(project: TProject, commands: TProjectCommand[]): TProject {
 	let entities = project.entities;
 	for (const command of commands) {
+		if (command.type === 'removeEntities') entities = entities.filter((entity) => !command.entityIds.includes(entity.id));
 		if (command.type === 'upsertEntity') {
 			const isNew = !entities.some((entity) => entity.id === command.entity.id);
 			entities = isNew ? [...entities, command.entity] : entities.map((entity) => (entity.id === command.entity.id ? command.entity : entity));

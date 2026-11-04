@@ -5,6 +5,7 @@ import {
 	PHYSICS_HZ,
 	projectOnPath,
 	smoothPath,
+	type THitResult,
 	type TMarbleTrack,
 	type TResolvedPiece,
 	type TSimulationResult
@@ -198,9 +199,29 @@ export function contentBounds(project: TProject, result: TSimulationResult | nul
 }
 
 /**
- * What Zoom to Fit frames. `all` holds the releases, the pieces, every hit dot and each marble's trajectory up
- * to its lane's last hit, but not the fall after it, which can run for metres. `pieces` holds the releases and
- * the pieces, which a fit never cuts off.
+ * Per lane, the last moment Zoom to Fit frames: its last hit with a piece, or the first open hit after it, which
+ * is the next step. Open dots after that lie on a free fall that runs for metres (8 tapped hits fall 19 m), so
+ * framing them would shrink every dot to a speck.
+ */
+function workEnds(hits: readonly THitResult[]): Map<string, number> {
+	const placed = new Map<string, number>();
+	for (const hit of hits) if (hit.pieceEntityId != null) placed.set(hit.laneId, Math.max(placed.get(hit.laneId) ?? -Infinity, hit.targetTime));
+	const ends = new Map(placed);
+	for (const hit of hits) {
+		if (hit.pieceEntityId != null || hit.dot == null) continue;
+		const after = placed.get(hit.laneId) ?? -Infinity;
+		if (hit.targetTime <= after) continue;
+		const end = ends.get(hit.laneId);
+		// The earliest open dot past the last placed hit
+		if (end == null || end === after || hit.targetTime < end) ends.set(hit.laneId, hit.targetTime);
+	}
+	return ends;
+}
+
+/**
+ * What Zoom to Fit frames. `all` holds the releases, the pieces, the hit dots and each marble's trajectory up
+ * to its lane's last hit with a piece and the next open hit after it, but not the fall past that, which can run
+ * for metres. `pieces` holds the releases and the pieces, which a fit never cuts off.
  */
 export function fitTargets(project: TProject, result: TSimulationResult | null): { all: TBounds; pieces: TBounds | null } {
 	const anchors: TVec2[] = [];
@@ -210,9 +231,10 @@ export function fitTargets(project: TProject, result: TSimulationResult | null):
 	}
 	for (const piece of result?.pieces ?? []) anchors.push(...pieceOutline(piece));
 	const points = [...anchors];
-	for (const hit of result?.hits ?? []) if (hit.dot != null) points.push(hit.dot);
+	const ends = workEnds(result?.hits ?? []);
+	for (const hit of result?.hits ?? []) if (hit.dot != null && hit.targetTime <= (ends.get(hit.laneId) ?? -Infinity)) points.push(hit.dot);
 	for (const track of result?.marbles ?? []) {
-		const last = Math.max(...(result?.hits ?? []).filter((hit) => hit.laneId === track.laneId).map((hit) => hit.targetTime));
+		const last = ends.get(track.laneId) ?? -Infinity;
 		if (!Number.isFinite(last)) continue;
 		for (let i = 0; i < track.samples.length; i += 4) {
 			const sample = track.samples[i];

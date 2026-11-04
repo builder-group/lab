@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { createProject } from '@/modules/project';
+import type { THitResult, TSimulationResult } from '@/modules/simulation';
 import { pickTrack, type TScreenTrack } from './picking';
-import { nearestMoment } from './scene';
+import { fitTargets, nearestMoment } from './scene';
 import { fitBounds, fitContent, placeBar, worldToScreen } from './view';
 
 const viewport = { width: 800, height: 600 };
@@ -30,6 +32,28 @@ describe('fitContent', () => {
 		expect(view.scale).toBeCloseTo(500 / 5.6);
 		expect(worldToScreen(view, viewport, { x: 0, y: 0.6 }).y).toBeGreaterThanOrEqual(50 - 1e-6);
 		expect(worldToScreen(view, viewport, { x: 0, y: -5 }).y).toBeLessThanOrEqual(550 + 1e-6);
+	});
+});
+
+describe('fitTargets', () => {
+	function openHit(laneId: string, time: number, y: number, pieceEntityId: string | null = null): THitResult {
+		return { laneId, hitId: `h${time}`, targetTime: time, pieceEntityId, dot: { x: 0, y }, velocity: null, actualTime: null, error: null, status: pieceEntityId == null ? 'open' : 'onTime' };
+	}
+
+	it('frames tapped hits only down to the first open dot, not the free fall after it', () => {
+		const project = createProject();
+		const laneId = project.music.lanes[0]?.id ?? '';
+		const result = { hits: [openHit(laneId, 0.6, -0.3), openHit(laneId, 1.1, -2.2), openHit(laneId, 2.5, -14)], pieces: [], marbles: [] } as unknown as TSimulationResult;
+		const { all } = fitTargets(project, result);
+		expect(all.minY).toBeCloseTo(-0.3);
+	});
+
+	it('frames every placed hit and the next open dot after the last one', () => {
+		const project = createProject();
+		const laneId = project.music.lanes[0]?.id ?? '';
+		const hits = [openHit(laneId, 0.5, -0.2, 'p1'), openHit(laneId, 1, -0.5), openHit(laneId, 1.5, -0.8, 'p3'), openHit(laneId, 2, -1.1), openHit(laneId, 3, -6)];
+		const { all } = fitTargets(project, { hits, pieces: [], marbles: [] } as unknown as TSimulationResult);
+		expect(all.minY).toBeCloseTo(-1.1);
 	});
 });
 

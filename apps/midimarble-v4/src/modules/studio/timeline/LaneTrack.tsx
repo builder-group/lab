@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpTip, openContextMenu } from '@/components';
+import { openContextMenu } from '@/components';
 import { unreachableStatus } from '@/modules/compose/reachability';
 import { findLaneConflicts, MIN_HIT_GAP } from '@/modules/music';
 import { createId, type THit, type TLane } from '@/modules/project';
@@ -36,9 +36,12 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 			}}
 		>
 			{!lane.hits.length ? (
-				<span className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1.5 text-[11px] text-[var(--text-tertiary)]">
-					No hits yet
-					<HelpTip side="right" text="Double-click the track to add a hit, or press T while playing to tap along" />
+				// The instruction itself, like GarageBand's empty track, not behind a ?
+				<span
+					className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 truncate text-[11px] text-[var(--text-tertiary)]"
+					data-hint-anchor="tap"
+				>
+					No hits yet · press T to tap along, or double-click to add a hit
 				</span>
 			) : null}
 			{lane.hits.map((hit, index) => {

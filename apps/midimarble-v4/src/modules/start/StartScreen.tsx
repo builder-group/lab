@@ -72,7 +72,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 					/>
 				</div>
 			</section>
-			<aside className="flex w-[300px] flex-col overflow-y-auto bg-[var(--chrome)] pt-12 pb-4" aria-label="Recent projects and examples">
+			<aside className="flex w-[360px] flex-col overflow-y-auto bg-[var(--chrome)] pt-12 pb-4" aria-label="Recent projects and examples">
 				<div className="mm-section-title">Recent</div>
 				{!recent.length ? (
 					<div className="mm-placeholder !h-auto pt-10">
@@ -110,20 +110,21 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 				{exampleGroups.map((group) => (
 					<React.Fragment key={group.title}>
 						<div className="mm-section-title mt-4">{group.title}</div>
-						{group.examples.map((example) => (
-							<button
-								key={example.id}
-								className="mm-row !h-11 w-[calc(100%-16px)] shrink-0 text-left"
-								onClick={() => void openExample(example)}
-								type="button"
-							>
-								<ExampleThumbnail id={example.id} icon={group.hasSong ? <Music size={16} strokeWidth={1.4} /> : <LayoutTemplate size={16} strokeWidth={1.4} />} />
-								<span className="flex min-w-0 flex-col leading-tight">
-									<span className="truncate font-medium">{example.title}</span>
-									<span className="truncate text-[11px] text-[var(--text-secondary)]">{example.detail}</span>
-								</span>
-							</button>
-						))}
+						{/* A gallery of stills like GarageBand's project templates, so a run is recognised before it opens */}
+						<div className="grid shrink-0 grid-cols-3 gap-x-2 gap-y-3 px-3 pt-1">
+							{group.examples.map((example) => (
+								<button
+									key={example.id}
+									className="group flex min-w-0 flex-col gap-1 rounded-lg p-1 text-left hover:bg-[var(--hover)] focus-visible:bg-[var(--hover)]"
+									onClick={() => void openExample(example)}
+									title={example.detail}
+									type="button"
+								>
+									<ExampleThumbnail id={example.id} icon={group.hasSong ? <Music size={22} strokeWidth={1.4} /> : <LayoutTemplate size={22} strokeWidth={1.4} />} />
+									<span className="truncate px-0.5 text-[12px] font-medium leading-tight">{example.title}</span>
+								</button>
+							))}
+						</div>
 					</React.Fragment>
 				))}
 			</aside>
@@ -140,15 +141,22 @@ interface TStartScreenProps {
 }
 
 /**
- * A still of the example's run rendered in Blender, like the template previews in Xcode and GarageBand; the
- * group icon stands in until it loads or when it is missing
+ * A still of the example's run rendered in Blender at the film's 9:16, like the template previews in Xcode and
+ * GarageBand; the group icon stands in until it loads or when it is missing
  */
 const ExampleThumbnail: React.FC<{ id: string; icon: React.ReactNode }> = (props) => {
 	const { id, icon } = props;
 	const [hasImage, setHasImage] = React.useState(true);
 	return (
-		<span className="mm-example-thumb" aria-hidden>
-			{hasImage ? <img alt="" src={`/examples/${id}.jpg`} loading="lazy" draggable={false} onError={() => setHasImage(false)} /> : icon}
+		<span
+			className="flex aspect-[9/16] w-full items-center justify-center overflow-hidden rounded-md bg-[var(--hover)] text-[var(--text-secondary)] shadow-[inset_0_0_0_0.5px_var(--separator)]"
+			aria-hidden
+		>
+			{hasImage ? (
+				<img alt="" src={`/examples/${id}.jpg`} loading="lazy" draggable={false} onError={() => setHasImage(false)} className="h-full w-full object-cover" />
+			) : (
+				icon
+			)}
 		</span>
 	);
 };

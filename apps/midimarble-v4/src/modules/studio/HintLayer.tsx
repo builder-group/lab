@@ -7,7 +7,7 @@ import { useAnchorRects, type TAnchorRect } from './use-anchor-rects';
 
 /**
  * Draws the open first-run hint beside the element that marks where its step is (`data-hint-anchor`): the Song
- * track, the next open dot, the Film tab. It waits while its anchor is out of view and while Quick Help is on.
+ * track, an empty marble track, the next open dot, the Film tab. It waits while its anchor is out of view and while Quick Help is on.
  */
 export const HintLayer: React.FC<THintLayerProps> = (props) => {
 	const { cx } = props;
@@ -63,4 +63,4 @@ const HintPopover: React.FC<{ id: THintId; anchor: TAnchorRect; onDismiss: () =>
 	);
 };
 
-const hintSides: Record<THintId, 'right' | 'above' | 'below'> = { song: 'right', dot: 'right', film: 'right' };
+const hintSides: Record<THintId, 'right' | 'above' | 'below'> = { song: 'right', tap: 'right', dot: 'right', film: 'right' };

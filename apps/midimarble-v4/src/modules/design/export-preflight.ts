@@ -367,11 +367,15 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 
 // MARK: - Pace
 
-/** With several marbles the camera follows the shared descent; a marble far off it leaves the frame */
+/**
+ * With several marbles the camera follows the shared descent; a marble far above or below it drifts out of the
+ * shot. Titled like the other framing problems, with the time it starts and the hits it spans, so the problem
+ * menu keeps its time order: "Melody drifts below the other marbles at 0:09.00 (4 hits)".
+ */
 function paceIssues(result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	const pace = result.pace;
 	if (pace == null || result.descent == null || result.marbles.length < 2) return [];
-	const worst = new Map<string, { hit: THitResult; offset: number; from: number; to: number }>();
+	const worst = new Map<string, { hit: THitResult; offset: number; from: number; to: number; count: number }>();
 	for (const hit of result.hits) {
 		if (hit.dot == null) continue;
 		const offset = hit.dot.y - paceAt(pace, hit.targetTime);
@@ -379,20 +383,27 @@ function paceIssues(result: TSimulationResult, names: TNames): TPreflightIssue[]
 		const current = worst.get(hit.laneId);
 		const from = Math.min(current?.from ?? hit.targetTime, hit.targetTime);
 		const to = Math.max(current?.to ?? hit.targetTime, hit.targetTime);
-		if (current == null || Math.abs(offset) > Math.abs(current.offset)) worst.set(hit.laneId, { hit, offset, from, to });
-		else worst.set(hit.laneId, { ...current, from, to });
+		const count = (current?.count ?? 0) + 1;
+		if (current == null || Math.abs(offset) > Math.abs(current.offset)) worst.set(hit.laneId, { hit, offset, from, to, count });
+		else worst.set(hit.laneId, { ...current, from, to, count });
 	}
-	return [...worst.values()].map(({ hit, offset, from, to }) => ({
-		id: `pace:${hit.laneId}`,
-		kind: 'framing' as const,
-		laneId: hit.laneId,
-		severity: 'warning' as const,
-		title: `${names.lane(hit.laneId)} falls out of step with the other marbles`,
-		detail: `${Math.round(Math.abs(offset) * 100)} cm ${offset > 0 ? 'above' : 'below'} the other marbles at ${formatTime(hit.targetTime)}, so the camera may lose it.`,
-		time: from,
-		span: { from, to },
-		target: cameraTarget(from)
-	}));
+	return [...worst.values()].map(({ hit, offset, from, to, count }) => {
+		const lane = names.lane(hit.laneId);
+		const side = offset > 0 ? 'above' : 'below';
+		const hits = `${count} ${count === 1 ? 'hit' : 'hits'}`;
+		const distance = `${Math.round(Math.abs(offset) * 100)} cm ${side} them at ${formatTime(hit.targetTime)}`;
+		return {
+			id: `pace:${hit.laneId}`,
+			kind: 'framing' as const,
+			laneId: hit.laneId,
+			severity: 'warning' as const,
+			title: `${lane} drifts ${side} the other marbles at ${formatTime(from)} (${hits})`,
+			detail: `${count === 1 ? '' : 'Up to '}${distance}, so the camera may lose ${lane}.`,
+			time: from,
+			span: { from, to },
+			target: cameraTarget(from)
+		};
+	});
 }
 
 // MARK: - Loop

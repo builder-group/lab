@@ -14,6 +14,7 @@ import { attachState, isPathPieceType, pathPieceTypes, withPathType, type TPathP
 import { PieceIcon } from './piece-icons';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
 import { pieceAngle } from './step-loop';
+import type { TPieceFixCheck } from './AssistCx';
 import { timingStatus, type TTimingStatus } from './timing-status';
 
 /**
@@ -80,7 +81,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					status == null || link == null ? null : status.tone === 'bad' && soundsHit(type, link) ? (
 						<ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} />
 					) : (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null ? (
-						<FixPieceButton cx={cx} entityId={first.id} isPlatform={soundsHit(type, link)} hitBy={hitBy?.[0]} />
+						<FixPieceButton cx={cx} entityId={first.id} isPlatform={soundsHit(type, link)} />
 					) : null
 				}
 			/>
@@ -201,31 +202,38 @@ export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: stri
 };
 
 /**
- * The Fix-it beside a piece that follows a marble and is Blocked or hit by another marble: Move Clear nudges
- * scenery off the runs, keeping its tie; for a platform another marble hits, Re-place tilts that marble's
- * platform before the hit. Either runs a what-if first and changes nothing when it would break a hit or add a
- * problem, as one undo step. Re-place Broken Platforms does the same for every Blocked piece.
+ * The Fix-it beside a piece that follows a marble and is Blocked or hit by another marble. Its what-if runs as
+ * soon as the piece shows, like Xcode's Fix-its, so the button offers only what will work: Place Again (a bridge
+ * suggested again for its gap), Move Clear or Delete (a Blocked piece the run passes through and never uses) for
+ * scenery, Re-place for a platform another marble hits (that marble's platform before the hit tilts again).
+ * When nothing passes it stays dimmed with the reason as its tooltip. One undo step either way.
  */
-export const FixPieceButton: React.FC<{ cx: StudioCx; entityId: string; isPlatform: boolean; hitBy?: TPreflightIssue }> = (props) => {
-	const { cx, entityId, isPlatform, hitBy } = props;
+export const FixPieceButton: React.FC<{ cx: StudioCx; entityId: string; isPlatform: boolean }> = (props) => {
+	const { cx, entityId, isPlatform } = props;
 	const compose = useFeatureState(cx.$compose);
 	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
-	const [isChecking, setIsChecking] = React.useState(false);
+	const checks = useFeatureState(compose?.assist.$pieceFixes ?? NO_CHECKS);
+	const result = useFeatureState(cx.simulation.$result);
+	const revision = useFeatureState(cx.$history)?.present.revision;
+	const [isApplying, setIsApplying] = React.useState(false);
+	React.useEffect(() => {
+		if (replacing == null && result?.revision === revision) compose?.assist.checkPieceFix(entityId);
+	}, [compose, entityId, replacing, result, revision]);
+	const check = checks[entityId];
+	const fix = check != null && check.revision === revision ? check.fix : null;
+	const works = fix?.commands != null;
 	function run(): void {
-		if (compose == null) return;
-		setIsChecking(true);
-		void compose.assist.fixPiece(entityId).finally(() => setIsChecking(false));
+		if (compose == null || !works) return;
+		setIsApplying(true);
+		void compose.assist.fixPiece(entityId).finally(() => setIsApplying(false));
 	}
-	const marble = hitBy?.by ?? 'the other marble';
-	const title = isPlatform
-		? `Tilt ${marble}'s platform before it so ${marble} passes clear, unless that breaks a hit`
-		: hitBy != null
-			? `Move this piece off ${marble}'s run, keeping what it follows, unless that breaks a hit`
-			: "Move this piece off the marble's earlier run, keeping what it follows, unless that breaks a hit";
+	const fallback = isPlatform ? 'Re-place' : 'Move Clear';
+	const label = fix == null ? 'Checking…' : (fix.label ?? fallback);
+	const title = fix == null ? 'Trying the fix on a copy of the run first' : works ? 'Tried on a copy of the run first: it breaks no hit and adds no problem' : fix.message;
 	return (
-		<button className="mm-fix-it mm-fix-it-label" disabled={compose == null || replacing != null || isChecking} onClick={run} title={title} type="button">
+		<button className="mm-fix-it mm-fix-it-label" disabled={compose == null || replacing != null || isApplying || !works} onClick={run} title={title} type="button">
 			{isPlatform ? <WandSparkles size={12} strokeWidth={1.9} /> : null}
-			{isPlatform ? 'Re-place' : 'Move Clear'}
+			{label}
 		</button>
 	);
 };
@@ -242,6 +250,7 @@ function struckStatus(status: TTimingStatus | null, hitBy: TPreflightIssue[] | u
 }
 
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
+const NO_CHECKS = createState<Record<string, TPieceFixCheck>>({});
 
 /** The header subtitle, the piece's tie as words.md names it: `Plays C4 · 0:03.2`, `Follows Marble 1 at 0:03.2` or `Free` */
 function tieLabel(project: TProject, entity: TEntity): string {

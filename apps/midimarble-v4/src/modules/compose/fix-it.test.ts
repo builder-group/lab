@@ -5,7 +5,7 @@ import { applyProjectCommands, BACKING_ID, createProject, parseProject, type TPr
 import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
-import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceTargets, type TReplaceDeps } from './fix-it';
+import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceTargets, sceneryFix, type TReplaceDeps } from './fix-it';
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
@@ -87,9 +87,10 @@ describe('newlyBroken function', () => {
 });
 
 describe('replaceLabel function', () => {
-	it('should count platforms in Title Case', () => {
-		expect(replaceLabel(24)).toBe('Re-place 24 Platforms');
-		expect(replaceLabel(1, 'Platform 3')).toBe('Re-place Platform 3');
+	it('should count the broken hits, which are known before Re-place runs, in Title Case', () => {
+		expect(replaceLabel(24)).toBe('Fix 24 Broken Hits');
+		expect(replaceLabel(1, 'Hit 3 of Melody')).toBe('Fix Hit 3 of Melody');
+		expect(replaceLabel(1)).toBe('Fix the Broken Hit');
 	});
 });
 
@@ -205,10 +206,12 @@ describe('replaceBroken function', () => {
 		// Act
 		const outcome = await replaceBroken(edited, broken, deps(), { before: before.hits });
 
-		// Assert: every hit back on time, and no marble hits another marble's pieces
+		// Assert: every hit back on time, and no new problem: the rail the new run passes through and no longer uses
+		// is deleted instead of being left Blocked with a Move Clear that refuses
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
-		expect(addedProblems(edited, broken, outcome.project, outcome.result).filter((issue) => issue.kind === 'contact')).toEqual([]);
+		expect(addedProblems(edited, broken, outcome.project, outcome.result)).toEqual([]);
 		expect(resultMessage(edited, broken, outcome)).toMatch(/fixed all \d+ broken hits: \d+ of \d+ hits on time/);
+		expect(resultMessage(edited, broken, outcome)).not.toMatch(/new problem/);
 		expect(performance.now() - startedAt).toBeLessThan(60_000);
 	}, 120_000);
 
@@ -298,7 +301,9 @@ describe('moveClear function', () => {
 
 		const plan = replacePlan(project, result);
 
-		expect(plan).toEqual(expect.objectContaining({ label: 'Move Windmill 1 Clear', platforms: 0, scenery: ['Windmill 1'], isEmpty: false }));
+		expect(plan).toEqual(expect.objectContaining({ label: 'Move Windmill 1 Clear', platforms: 0, scenery: ['Windmill 1'], sceneryIds: ['windmill'], isEmpty: false }));
+		// Once a what-if found that deleting it is what works, the label says so
+		expect(replacePlan(project, result, undefined, new Map([['windmill', 'delete' as const]])).label).toBe('Delete Windmill 1');
 	});
 
 	it('should leave pieces that are not Blocked alone', () => {
@@ -318,7 +323,7 @@ describe('moveClear function', () => {
 		const plan = replacePlan({ ...project, entities: [...project.entities, { id: 'p1', name: 'Platform 1', components: {} }] }, broken);
 
 		// Assert
-		expect(plan.label).toBe('Re-place Platform 1 and Move Windmill 1 Clear');
+		expect(plan.label).toBe('Fix Hit 1 of Marble 1 and Move Windmill 1 Clear');
 	});
 
 	it('should move the piece only when its what-if run breaks no hit', async () => {
@@ -335,9 +340,26 @@ describe('moveClear function', () => {
 		const moved = await fixPiece(project, onTime, 'windmill', { simulate: async () => keeps, autoPlace: unused });
 
 		// Assert
-		expect(refused).toEqual(expect.objectContaining({ commands: null, message: 'Moving Windmill 1 clear would break a hit, so nothing moved. Drag it by hand or Detach it.' }));
+		expect(refused).toEqual(expect.objectContaining({ commands: null, message: 'Moving Windmill 1 clear would break a hit, so nothing changed. Drag it by hand or Detach it.' }));
 		expect(moved.commands).toHaveLength(1);
+		expect(moved).toEqual(expect.objectContaining({ label: 'Move Windmill 1 Clear', kind: 'moveClear' }));
 		expect(moved.message).toMatch(/^Windmill 1 moved \d+ cm, clear of .+'s run$/);
+	});
+
+	it('should delete a Blocked piece the run never uses when moving it clear would break a hit', async () => {
+		// Prepare: moved clear, the windmill joins the run and the hit misses; deleted, the run stays as it is
+		const { project, result } = createBlocked();
+		const laneId = project.music.lanes[0]?.id ?? '';
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const simulate = async (next: TProject): Promise<TSimulationResult> => (next.entities.some((entity) => entity.id === 'windmill') ? breaks : { ...onTime, pieces: [] });
+
+		// Act
+		const fix = await sceneryFix(project, onTime, 'windmill', { simulate });
+
+		// Assert
+		expect(fix).toEqual(expect.objectContaining({ kind: 'delete', commands: [{ type: 'removeEntities', entityIds: ['windmill'] }] }));
+		expect(fix.message).toBe('Windmill 1 deleted: Marble 1 already passes through its spot, so the run never used it');
 	});
 });
 

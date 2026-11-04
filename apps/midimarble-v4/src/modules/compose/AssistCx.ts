@@ -18,7 +18,8 @@ import { formatTime } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
-import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replacePlan, replaceResultMessage, type TReplaceOutcome, type TReplacePlan } from './fix-it';
+import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replacePlan, replaceResultMessage, type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
+import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
 import { unreachableActions } from './unreachable-fixes';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState } from './ghosts';
@@ -327,6 +328,11 @@ export class AssistCx {
 
 	// MARK: - Fix-its
 
+	/**
+	 * Fix-its of pieces checked by a what-if before they are offered, per piece, for the revision they were checked
+	 * on: the inspector's Fix-it and the hit summary's menu show only a fix that passed
+	 */
+	readonly $pieceFixes = createState<Record<string, TPieceFixCheck>>({});
 	/** The run Re-place is working on, if any; Stop sets `isCancelled` */
 	readonly $replacing = createState<{ done: number; total: number } | null>(null);
 	private replaceRun: { isCancelled: boolean } | null = null;
@@ -339,7 +345,7 @@ export class AssistCx {
 
 	/**
 	 * After an edit, compares the new run with the one before it. When later hits became Blocked or Missed, the
-	 * edit's notice gets "Re-place N Platforms", or a notice says so; undo, redo and Re-place itself do not ask.
+	 * edit's notice gets "Fix N Broken Hits", or a notice says so; undo, redo and Re-place itself do not ask.
 	 */
 	private offerFixIt(): void {
 		const project = this.studio.project;
@@ -381,7 +387,56 @@ export class AssistCx {
 
 	/** What Re-place Broken Platforms will change for the run as it is, for its label in the notice and the hit summary */
 	replacePlan(project: TProject, result: TSimulationResult): TReplacePlan {
-		return replacePlan(project, result, [...this.lastGood.values()].flat());
+		const kinds = new Map<string, TSceneryFixKind | null>();
+		for (const [id, check] of Object.entries(this.$pieceFixes.get())) {
+			if (check.revision === project.revision && check.fix != null) kinds.set(id, check.fix.kind ?? null);
+		}
+		return replacePlan(project, result, [...this.lastGood.values()].flat(), kinds);
+	}
+
+	/** The worker calls a what-if needs: runs, Auto place and a new bridge for a long gap */
+	private fixDeps(): Pick<TReplaceDeps, 'simulate' | 'autoPlace' | 'gapPiece'> | null {
+		const client = this.studio.simulation.assists;
+		if (client == null) return null;
+		return {
+			simulate: async (next) => client.simulateAssist(next),
+			autoPlace: async (next, hit, entity) => {
+				const answer = await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id });
+				return answer.entity;
+			},
+			gapPiece: async (next, gap, type, entityId) => {
+				const answer = await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId });
+				return answer.entity;
+			}
+		};
+	}
+
+	/**
+	 * Runs the what-if of a piece's Fix-it for the run as it is, once per revision, so the Fix-it is offered only
+	 * when it will work, like Xcode's Fix-its: Move Clear, Place Again or Delete for scenery, Re-place for a
+	 * platform another marble hits. The answer lands in `$pieceFixes`.
+	 */
+	checkPieceFix(entityId: string): void {
+		const project = this.studio.project;
+		const result = this.currentResult();
+		const deps = this.fixDeps();
+		if (project == null || result == null || deps == null || this.replaceRun != null) return;
+		const known = this.$pieceFixes.get()[entityId];
+		if (known?.revision === project.revision) return;
+		this.setPieceFix(entityId, { revision: project.revision, fix: null });
+		fixPiece(project, result, entityId, deps).then(
+			(fix) => {
+				if (this.$pieceFixes.get()[entityId]?.revision === project.revision) this.setPieceFix(entityId, { revision: project.revision, fix });
+			},
+			(error: unknown) => {
+				const message = error instanceof Error ? error.message : String(error);
+				if (this.$pieceFixes.get()[entityId]?.revision === project.revision) this.setPieceFix(entityId, { revision: project.revision, fix: { commands: null, message } });
+			}
+		);
+	}
+
+	private setPieceFix(entityId: string, check: TPieceFixCheck): void {
+		this.$pieceFixes.set({ ...this.$pieceFixes.get(), [entityId]: check });
 	}
 
 	/**
@@ -405,12 +460,16 @@ export class AssistCx {
 		const startRevision = project.revision;
 		let expected = startRevision;
 		const stop = { label: 'Stop', title: 'Keep the platforms re-placed so far', run: () => (run.isCancelled = true) };
-		// Progress runs through the song from the first broken hit to the last hit, since each new tilt can change
-		// how many platforms after it still need one
 		const from = Math.min(targets[0]?.targetTime ?? Infinity, ...scenery.map((piece) => piece.entryTime ?? piece.hitTime ?? Infinity));
-		const to = Math.max(from, ...(only != null ? targets : result.hits.filter((hit) => hit.pieceEntityId != null)).map((hit) => hit.targetTime));
-		const progressText = (at: number): string => (only != null ? `Re-placing the platform at ${formatTime(at)}` : `Re-placing platforms · ${formatTime(at)} of ${formatTime(to)}`);
-		const progressId = this.studio.notify(progressText(from), 'info', { progress: 0, actions: [stop] });
+		// Like Finder's copy progress: how far, in broken hits fixed, and how long is left once the rate is known
+		const startedAt = performance.now();
+		const estimate = createEstimate();
+		const progressText = (at: number, done: number, total: number, fraction: number): string => {
+			if (only != null) return `Re-placing the platform at ${formatTime(at)}`;
+			const left = estimate.update(performance.now() - startedAt, fraction);
+			return [`Re-placing platforms · ${done} of ${total} broken ${total === 1 ? 'hit' : 'hits'} fixed`, left].filter(Boolean).join(' · ');
+		};
+		const progressId = this.studio.notify(progressText(from, 0, targets.length, 0), 'info', { progress: 0, actions: [stop] });
 		const before = only == null ? [...this.lastGood.values()].flat() : undefined;
 		let outcome: TReplaceOutcome | null = null;
 		try {
@@ -435,9 +494,9 @@ export class AssistCx {
 						expected = this.studio.project?.revision ?? expected;
 						return this.studio.project;
 					},
-					onProgress: (done, total, at) => {
+					onProgress: (done, total, at, fraction) => {
 						this.$replacing.set({ done, total });
-						this.studio.updateNotice(progressId, { message: progressText(at), progress: to > from ? Math.min(1, Math.max(0, (at - from) / (to - from))) : 0 });
+						this.studio.updateNotice(progressId, { message: progressText(at, done, total, fraction), progress: Math.min(1, Math.max(0, fraction)) });
 					},
 					isCancelled: () => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected
 				},
@@ -475,15 +534,11 @@ export class AssistCx {
 	async fixPiece(entityId: string): Promise<void> {
 		const project = this.studio.project;
 		const result = this.currentResult();
-		const client = this.studio.simulation.assists;
-		if (project == null || result == null || client == null || this.replaceRun != null) return;
-		const fix = await fixPiece(project, result, entityId, {
-			simulate: async (next) => client.simulateAssist(next),
-			autoPlace: async (next, hit, entity) => {
-				const answer = await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id });
-				return answer.entity;
-			}
-		});
+		const deps = this.fixDeps();
+		if (project == null || result == null || deps == null || this.replaceRun != null) return;
+		// The what-if that made the Fix-it's label, when it belongs to this revision
+		const checked = this.$pieceFixes.get()[entityId];
+		const fix = checked?.revision === project.revision && checked.fix != null ? checked.fix : await fixPiece(project, result, entityId, deps);
 		// Another edit while the what-if ran makes it stale
 		if (this.studio.project?.revision !== project.revision) return;
 		if (fix.commands == null) {
@@ -597,4 +652,10 @@ function focusedLaneId(project: TProject, selection: string[]): string | null {
 		if (lane != null) return lane.id;
 	}
 	return null;
+}
+
+/** A piece's Fix-it as its what-if found it for `revision`; `fix` is null while the what-if runs */
+export interface TPieceFixCheck {
+	revision: number;
+	fix: TPieceFix | null;
 }

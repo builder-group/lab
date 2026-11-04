@@ -243,7 +243,12 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, result);
 
 		expect(preflight.issues.filter((issue) => issue.id.startsWith('pace'))).toEqual([
-			expect.objectContaining({ title: 'Bass falls out of step with the other marbles', detail: '95 cm below the other marbles at 0:01.50, so the camera may lose it.' })
+			expect.objectContaining({
+				title: 'Bass drifts below the other marbles at 0:01.50 (1 hit)',
+				detail: '95 cm below them at 0:01.50, so the camera may lose Bass.',
+				time: 1.5,
+				target: { ids: ['camera'], time: 1.5, workspace: 'design' }
+			})
 		]);
 	});
 

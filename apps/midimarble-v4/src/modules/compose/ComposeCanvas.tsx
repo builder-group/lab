@@ -8,7 +8,7 @@ import { frameBand, type THitResult, type TResolvedPiece, type TSimulationResult
 import { formatTime, noteName } from '@/modules/studio/format';
 import { laneMenu } from '@/modules/studio/menus';
 import { parseHitKey } from '@/modules/studio/selection';
-import type { StudioCx } from '@/modules/studio/StudioCx';
+import { focusedLane, type StudioCx } from '@/modules/studio/StudioCx';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
 import type { TPose, TSnap } from './attach-edit';
 import { mapNodes, nodesPathData } from './bezier';
@@ -79,6 +79,7 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 			<GhostHint compose={compose} />
 			<AssistBar compose={compose} />
 			<CornerControls compose={compose} />
+			<EmptyWall cx={cx} />
 			<SimulatingIndicator cx={cx} />
 		</div>
 	);
@@ -117,6 +118,58 @@ function openCanvasMenu(compose: ComposeCx, event: React.MouseEvent<HTMLElement>
 		default:
 			openContextMenu(event, canvasMenu(compose));
 	}
+}
+
+// MARK: - Empty wall
+
+/**
+ * The next step of a project with no song and no hits, at the bottom of the wall like GarageBand's empty project:
+ * Import Song…, Tap Along (T starts playback and each press adds a hit) and Add Marble when no marble is left.
+ * It goes once the project has a song or a hit.
+ */
+const EmptyWall: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	const history = useFeatureState(cx.$history);
+	const playing = useFeatureState(cx.$playing);
+	const selection = useFeatureState(cx.$selection);
+	const project = history?.present;
+	if (project == null || !isEmptyProject(project)) return null;
+	const hasMarble = project.music.lanes.length > 0;
+	return (
+		<div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center px-4">
+			<div className="mm-floating pointer-events-auto flex max-w-[460px] flex-col items-center gap-2 px-5 py-4 text-center" role="group" aria-label="Start the Project">
+				<span className="text-[13px] font-semibold">{hasMarble ? 'No Hits Yet' : 'No Marbles Yet'}</span>
+				<span className="text-[12px] leading-snug text-[var(--text-secondary)]">
+					{!hasMarble
+						? 'Add a marble, then import a song or tap the hits it plays.'
+						: playing
+							? `Press T on each beat to add a hit to ${focusedLane(project, selection)?.name ?? 'the marble'}.`
+							: 'Import a song to play its notes, or tap a rhythm: T starts playback and each press adds a hit.'}
+				</span>
+				<div className="flex flex-wrap justify-center gap-2 pt-1">
+					{!hasMarble ? (
+						<button className="mm-button" data-variant="primary" onClick={() => cx.addMarble()} type="button">
+							Add Marble
+						</button>
+					) : null}
+					<button className="mm-button" data-variant={hasMarble ? 'primary' : undefined} onClick={() => void cx.importSong()} title="Import a MIDI file or a recording (⌘I)" type="button">
+						Import Song…
+					</button>
+					{hasMarble && !playing ? (
+						<button className="mm-button" onClick={() => cx.tapHit()} title="Start playback and press T on each beat to add hits (T)" type="button">
+							Tap Along
+							<kbd className="text-[11px] text-[var(--text-secondary)]">T</kbd>
+						</button>
+					) : null}
+				</div>
+			</div>
+		</div>
+	);
+};
+
+/** No song and no hit on any marble: the state of a new project */
+export function isEmptyProject(project: TProject): boolean {
+	return project.music.sources.length === 0 && project.music.lanes.every((lane) => lane.hits.length === 0);
 }
 
 // MARK: - Overlay

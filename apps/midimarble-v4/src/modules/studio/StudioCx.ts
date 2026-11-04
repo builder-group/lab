@@ -28,7 +28,7 @@ import { hasUnsavedChanges, saveChangesQuestion } from './document';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { parseHitKey } from './selection';
-import { tapTime } from './tap';
+import { TAP_COUNT_IN_SECONDS, tapTime } from './tap';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
@@ -55,6 +55,8 @@ export class StudioCx {
 	readonly $selection = createState<TSelection>([]);
 	readonly $playhead = createState(0);
 	readonly $playing = createState(false);
+	/** Song time before which taps record nothing, set when T starts playback (see `tapHit`) */
+	private tapCountInEnd = -Infinity;
 	readonly $notice = createState<TNotice | null>(null);
 	/**
 	 * Selection keys and an optional wall point the Compose canvas should bring into view, set by lists
@@ -127,6 +129,10 @@ export class StudioCx {
 		const unmountHints = this.hints.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
+		// The tap count-in belongs to the playback T started; stopping ends it
+		const stopCountIn = this.$playing.listen(({ value }) => {
+			if (!value) this.tapCountInEnd = -Infinity;
+		});
 		return () => {
 			unmountSimulation();
 			unmountDesign();
@@ -134,6 +140,7 @@ export class StudioCx {
 			unmountHints();
 			stopHeight();
 			stopNotices();
+			stopCountIn();
 			void this.design.close();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
@@ -565,7 +572,9 @@ export class StudioCx {
 	/**
 	 * Records a hit at the playhead on the lane in focus, for tapping along to the music. Taps record only while
 	 * the song plays, as Logic records only with the transport running: with playback stopped, T starts it and
-	 * the next taps add hits. A tap within 50 ms of a hit merges into it.
+	 * the next taps add hits. Taps while the audio is still starting, and in the 0.3 s count-in after that press,
+	 * record nothing, so a quick second press never lands a Too Soon hit at 0:00. A tap within 50 ms of a hit
+	 * merges into it.
 	 */
 	tapHit(): void {
 		const project = this.project;
@@ -573,11 +582,14 @@ export class StudioCx {
 		const lane = focusedLane(project, this.$selection.get());
 		if (lane == null) return;
 		if (!this.$playing.get()) {
+			const from = this.$playhead.get() >= project.end ? 0 : this.$playhead.get();
+			this.tapCountInEnd = from + TAP_COUNT_IN_SECONDS;
 			this.$playing.set(true);
 			this.notify(`Playing: press T on each beat to add hits to ${lane.name}`);
 			return;
 		}
-		const time = tapTime(lane.hits, this.audio.getTime());
+		if (!this.audio.isPlaying()) return;
+		const time = tapTime(lane.hits, this.audio.getTime(), this.tapCountInEnd);
 		if (time == null) return;
 		const hit = { id: createId('hit'), time };
 		this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }]);
@@ -689,7 +701,7 @@ export class StudioCx {
 	private noticeShownAt: number | null = null;
 
 	/**
-	 * A notice that carries a fix (an action besides Undo, such as Re-place 45 Platforms) stays until it is acted
+	 * A notice that carries a fix (an action besides Undo, such as Fix 45 Broken Hits) stays until it is acted
 	 * on or another edit is made, like Mail's undo-send; this retires it on that edit
 	 */
 	private retireFixNotice(): void {

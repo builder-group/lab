@@ -2,6 +2,9 @@ import { useListener } from 'feature-react/state';
 import React from 'react';
 import { audibleProject, type StudioCx } from './StudioCx';
 
+// After the project's first run and draw, so the warm-up never delays opening
+const WARM_UP_DELAY_MS = 600;
+
 /**
  * Drives the playhead from the audio clock while playing. Seeking during playback restarts audio at
  * the new time, and playback stops at the project end.
@@ -68,6 +71,26 @@ export function usePlayback(cx: StudioCx): void {
 		if (!cx.$playing.get() || value == null) return;
 		void cx.audio.prepare(audibleProject(value.present, cx.$mix.get()), cx.resolveSourceUrl);
 	});
+
+	// Warms the soundtrack once a project opens, while the window is idle, so the first Space starts at once
+	// instead of loading the instrument bank and rendering the song in its first frame
+	React.useEffect(() => {
+		let handle: number | undefined;
+		const schedule = (): void => {
+			window.clearTimeout(handle);
+			handle = window.setTimeout(() => {
+				const project = cx.project;
+				if (project == null || cx.$playing.get()) return;
+				void cx.audio.prepare(audibleProject(project, cx.$mix.get()), cx.resolveSourceUrl).catch(() => undefined);
+			}, WARM_UP_DELAY_MS);
+		};
+		if (cx.project != null) schedule();
+		const stop = cx.$path.listen(schedule);
+		return () => {
+			stop();
+			window.clearTimeout(handle);
+		};
+	}, [cx]);
 
 	// Muting or soloing a lane while playing takes effect immediately, like a mixer
 	useListener(cx.$mix, ({ value }) => {

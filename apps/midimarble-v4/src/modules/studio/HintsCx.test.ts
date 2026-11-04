@@ -4,7 +4,7 @@ import { stepHints, type THintFacts, type THintState } from './HintsCx';
 const empty: THintState = { open: null, seen: [], mark: { editCount: 0, openCount: 0 } };
 
 function facts(overrides: Partial<THintFacts> = {}): THintFacts {
-	return { hasSong: true, workspace: 'compose', isPlaying: false, editCount: 0, openCount: 3, isAllOnTime: false, ...overrides };
+	return { hasSong: true, hasHits: true, workspace: 'compose', isPlaying: false, editCount: 0, openCount: 3, isAllOnTime: false, ...overrides };
 }
 
 describe('stepHints function', () => {
@@ -42,6 +42,17 @@ describe('stepHints function', () => {
 
 	it('should skip the song hint for a project without a song', () => {
 		expect(stepHints(empty, facts({ hasSong: false })).open).toBe('dot');
+	});
+
+	it('should open the tap hint in an empty project and close it once a marble has a hit', () => {
+		// Act
+		const opened = stepHints(empty, facts({ hasSong: false, hasHits: false, openCount: 0 }));
+		const tapped = stepHints(opened, facts({ hasSong: false, hasHits: true, openCount: 1, editCount: 1 }));
+
+		// Assert
+		expect(opened.open).toBe('tap');
+		expect(tapped.seen).toContain('tap');
+		expect(tapped.open).toBe('dot');
 	});
 
 	it('should wait for a current run before offering the dot', () => {

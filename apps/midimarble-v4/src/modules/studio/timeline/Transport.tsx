@@ -3,6 +3,8 @@ import { createState } from 'feature-state';
 import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, SkipBack } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu, type TMenuEntry } from '@/components';
+import type { TPieceFixCheck } from '@/modules/compose/AssistCx';
+import { blockedScenery } from '@/modules/compose/fix-it';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
@@ -68,7 +70,14 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const result = useFeatureState(cx.simulation.$result);
 	const compose = useFeatureState(cx.$compose);
 	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
+	const checks = useFeatureState(compose?.assist.$pieceFixes ?? NO_CHECKS);
 	const summary = React.useMemo(() => problemSummary(preflightExport(project, result)), [project, result]);
+	const isCurrent = result != null && result.revision === project.revision;
+	// Blocked scenery's Fix-its are tried on a copy of the run before the menu offers them
+	const blocked = React.useMemo(() => (isCurrent ? blockedScenery(project, result).map((piece) => piece.entityId) : []), [isCurrent, project, result]);
+	React.useEffect(() => {
+		if (replacing == null) for (const id of blocked) compose?.assist.checkPieceFix(id);
+	}, [blocked, compose, replacing]);
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
 
 	if (replacing != null || summary.state === 'pending') {
@@ -89,7 +98,11 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</span>
 		);
 	}
-	const plan = compose != null && result != null && result.revision === project.revision ? compose.assist.replacePlan(project, result) : null;
+	const plan = compose != null && isCurrent ? compose.assist.replacePlan(project, result) : null;
+	// A plan of Blocked scenery alone is offered only once a what-if found a fix for one of its pieces
+	const sceneryChecks = blocked.map((id) => checks[id]).map((check) => (check?.revision === project.revision ? check.fix : null));
+	const isSceneryOnly = plan != null && plan.platforms === 0 && plan.releases.length === 0;
+	const sceneryWorks = !isSceneryOnly || sceneryChecks.some((fix) => fix?.commands != null);
 	const menu = (): TMenuEntry[] => [
 		{ section: problems.length === 1 ? '1 Problem' : `${problems.length} Problems` },
 		// Every problem in time order; a long list scrolls inside the menu, like Xcode's issue navigator
@@ -101,9 +114,9 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		'separator' as const,
 		{ label: 'Show First Problem', onSelect: () => cx.showFirstProblem() },
 		{
-			// One label with the edit's notice: "Re-place 33 Platforms", "Move Release and Re-place 33 Platforms"
+			// One label with the edit's notice: "Fix 33 Broken Hits", "Move Release and Fix 33 Broken Hits"
 			label: plan == null || plan.isEmpty ? 'Re-place Broken Platforms' : plan.label,
-			disabled: plan == null || plan.isEmpty || compose == null || compose.assist.isReplacing,
+			disabled: plan == null || plan.isEmpty || !sceneryWorks || compose == null || compose.assist.isReplacing,
 			onSelect: () => void compose?.assist.replace()
 		}
 	];
@@ -127,6 +140,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 };
 
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
+const NO_CHECKS = createState<Record<string, TPieceFixCheck>>({});
 
 /** A glyph button that runs a playback command and names it with its shortcut in the tooltip */
 const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React.ReactNode; title?: string; isActive?: boolean }> = (props) => {
