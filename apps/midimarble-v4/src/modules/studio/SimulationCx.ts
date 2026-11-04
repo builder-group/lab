@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
-import type { TEntity, TProject, TVec2 } from '@/modules/project';
-import { createSimulationClient, isSuperseded, laneEdits, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
+import type { TEntity, TProject, TProjectHistory, TVec2 } from '@/modules/project';
+import { createSimulationClient, isSuperseded, laneEdits, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
 import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';
 
@@ -25,8 +25,6 @@ export class SimulationCx {
 	private client: TSimulationClient | null = null;
 	private preview: TProject | null = null;
 	private previewMove: { laneId: string; hitId: string; dot: TVec2 } | null = null;
-	/** True while an edit's run waits for the assists to settle it, so its first moment never shows */
-	private isHeld = false;
 	private isMoving = false;
 	private pauseTimer: ReturnType<typeof setTimeout> | null = null;
 	private cancelFrame: (() => void) | null = null;
@@ -43,6 +41,7 @@ export class SimulationCx {
 				projectId = null;
 				this.clearPreview();
 				this.$result.set(null);
+				this.settled = null;
 				return;
 			}
 			// Another project's result must not show while the new one simulates
@@ -51,6 +50,7 @@ export class SimulationCx {
 				this.clearPreview();
 				this.$result.set(null);
 			}
+			this.settleLatestEdit(value);
 			this.schedule();
 		});
 		return () => {
@@ -120,15 +120,107 @@ export class SimulationCx {
 		return this.preview;
 	}
 
-	/** Holds the run of the edit just made until `releaseHold`, which the settled edit follows */
-	hold(): void {
-		this.isHeld = true;
+	// MARK: - Local edits
+
+	/** The history whose present has settled: what the next edit is compared with */
+	private settled: TProjectHistory | null = null;
+	private seenHistory: TProjectHistory | null = null;
+	private settleRun = 0;
+	private isLanding = false;
+	/** True from an edit until the platforms taking up its change have landed; its own run waits until then */
+	isSettling = false;
+
+	/**
+	 * After an edit, the next platforms take up the change so the rest of the run stays as it was, folded into the edit's
+	 * undo step. Until the answer lands the edit's own run stays back, so a marble's first wild moment never shows. Undo,
+	 * redo and what Build Track and Fix Hits commit themselves are left alone. This is the one way edits reach the run, a
+	 * person's or an agent's.
+	 */
+	private settleLatestEdit(history: TProjectHistory): void {
+		if (this.isLanding) return;
+		const known = this.settled;
+		const seen = this.seenHistory;
+		this.seenHistory = history;
+		const assist = this.studio.$compose.get()?.assist;
+		const isStep = seen != null && (seen.past.at(-1)?.entities === history.present.entities || seen.future[0]?.entities === history.present.entities);
+		if (known == null || this.client == null || known.present.id !== history.present.id || isStep || assist?.isBuilding === true || assist?.isReplacing === true) {
+			this.settleRun++;
+			this.settled = history;
+			this.stopSettling();
+			return;
+		}
+		const before = known.present;
+		const after = history.present;
+		if (!laneEdits(before, after).length) {
+			if (!this.isSettling) this.settled = history;
+			return;
+		}
+		const run = ++this.settleRun;
+		this.isSettling = true;
+		this.client.settle({ before, after }).then(
+			(answer) => {
+				if (run !== this.settleRun || this.studio.project?.revision !== after.revision) return;
+				this.landSettled(answer.entities, true);
+				this.sayBreak(answer, after);
+			},
+			(error: unknown) => {
+				if (run !== this.settleRun || isSuperseded(error)) return;
+				this.landSettled([], true);
+				this.studio.notify(`The rest of the run couldn't be kept: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			}
+		);
 	}
 
-	releaseHold(): void {
-		if (!this.isHeld) return;
-		this.isHeld = false;
+	/** Lands what a settle found, in the edit's undo step or as its own */
+	landSettled(entities: TEntity[], isAmend: boolean): void {
+		this.isLanding = true;
+		try {
+			if (entities.length > 0) this.studio.execute(entities.map((entity) => ({ type: 'upsertEntity', entity })), { amend: isAmend });
+		} finally {
+			this.isLanding = false;
+		}
+		const history = this.studio.$history.get();
+		this.settled = history;
+		this.seenHistory = history;
+		this.stopSettling();
+	}
+
+	private stopSettling(): void {
+		if (!this.isSettling) return;
+		this.isSettling = false;
 		this.schedule();
+	}
+
+	/**
+	 * A platform dragged off its dot: the platform before it sends the marble to the new spot and the next ones bring it
+	 * back on the old run, as one undo step. A platform right after a ride can't move this way and stays where it was.
+	 */
+	async moveDot(move: { laneId: string; hitId: string; dot: TVec2 }): Promise<void> {
+		const project = this.studio.project;
+		if (project == null || this.client == null) return;
+		const run = ++this.settleRun;
+		this.isSettling = true;
+		try {
+			const answer = await this.client.settle({ before: project, after: project, movedDot: move });
+			if (run !== this.settleRun || this.studio.project?.revision !== project.revision) return;
+			this.landSettled(answer.entities, false);
+			this.sayBreak(answer, project);
+		} catch (error) {
+			if (run !== this.settleRun || isSuperseded(error)) return;
+			this.landSettled([], false);
+			this.studio.notify(`The platform couldn't be moved: ${error instanceof Error ? error.message : String(error)}`, 'error');
+		}
+	}
+
+	/** Names what happened only when it matters: a break the next platforms couldn't take up */
+	private sayBreak(answer: TSettleAnswer, project: TProject): void {
+		const [first] = answer.heldFrom;
+		if (first == null) return;
+		const lane = project.music.lanes.find((item) => item.id === first.laneId);
+		const number = (lane?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
+		const waiting = project.entities.filter((entity) => entity.components.hitLink?.laneId === first.laneId && (lane?.hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -1) > first.time).length;
+		const later = waiting === 1 ? 'The piece after it waits' : `The ${waiting} pieces after it wait`;
+		this.studio.notifyEdit(`This edit keeps ${lane?.name ?? 'the marble'} from Hit ${number}. ${later} where ${waiting === 1 ? 'it was' : 'they were'}.`, [], { isUndoFirst: true });
 	}
 
 	private schedule(): void {
@@ -142,7 +234,7 @@ export class SimulationCx {
 	private run(): void {
 		const project = this.preview ?? this.studio.project;
 		const client = this.client;
-		if (project == null || client == null || (this.isHeld && this.preview == null)) return;
+		if (project == null || client == null || (this.isSettling && this.preview == null)) return;
 		const present = this.studio.project;
 		const preview = this.preview;
 		if (preview == null || present == null || (this.previewMove == null && !laneEdits(present, preview).length)) {

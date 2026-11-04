@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TProjectHistory, type TVec2 } from '@/modules/project';
+import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
 import {
 	defaultPlatformAngle,
 	findLongGaps,
@@ -8,16 +8,15 @@ import {
 	hitOwners,
 	isMusicalPiece,
 	isSuperseded,
-	laneEdits,
 	layoutOf,
 	openLongGaps,
 	release,
+	changedEntities,
 	type TAutoPlaceAnswer,
 	type TContinueAnswer,
 	type TGapPieceType,
 	type THitResult,
 	type TResolvedPiece,
-	type TSettleAnswer,
 	type TSimulationResult
 } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
@@ -34,6 +33,9 @@ import { displayPiece } from './attach-edit';
 import { newlyBroken } from './finish-assist';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
 import { commitAtHit, findStepTarget, pieceForHit, previousPiece, selectedPieceIds } from './step-loop';
+
+/** How long Fix tries to bring a marble back to pieces waiting behind a break, before it says it can't */
+const FIX_HELD_BUDGET_MS = 15000;
 
 /** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterwards */
 export const AUTO_PLACE_WAIT_MS = 150;
@@ -78,16 +80,11 @@ export class AssistCx {
 				this.refresh();
 			}),
 			this.studio.$history.listen(({ value }) => {
-				if (value != null) {
-					this.dispatch({ type: 'revision', revision: value.present.revision });
-					this.settleLatestEdit(value);
-				}
+				if (value != null) this.dispatch({ type: 'revision', revision: value.present.revision });
 				if (!this.hasGhosts) this.previewKey = null;
 			})
 		];
 		if (this.studio.project != null) this.dispatch({ type: 'revision', revision: this.studio.project.revision });
-		this.settled = this.studio.$history.get();
-		this.seenHistory = this.settled;
 		// The run shown at mount is what the first edit is compared with
 		this.offerFixIt();
 		this.refresh();
@@ -561,9 +558,12 @@ export class AssistCx {
 		const startedAt = performance.now();
 		const estimate = createEstimate();
 		const stop = { label: 'Stop', title: 'Keep the pieces built so far', run: () => (run.isCancelled = true) };
+		// A back-up undoes steps; what the bar and the count show never goes back with it
+		let furthest = { done: 0, fraction: 0 };
 		const progressText = (progress: TBuildProgress): string => {
-			const left = estimate.update(performance.now() - startedAt, progress.fraction, progress.done, progress.total);
-			return ['Building track', `${progress.done} of ${progress.total} ${progress.total === 1 ? 'hit' : 'hits'}`, progress.restarts > 0 ? 'trying another start' : '', left].filter(Boolean).join(' · ');
+			furthest = { done: Math.max(furthest.done, progress.done), fraction: Math.max(furthest.fraction, progress.fraction) };
+			const left = estimate.update(performance.now() - startedAt, furthest.fraction, furthest.done, progress.total);
+			return ['Building track', `${furthest.done} of ${progress.total} ${progress.total === 1 ? 'hit' : 'hits'}`, progress.restarts > 0 ? 'trying another start' : '', left].filter(Boolean).join(' · ');
 		};
 		const total = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
 		const firstProgress: TBuildProgress = { done: 0, total, at: 0, fraction: 0, restarts: 0 };
@@ -627,106 +627,6 @@ export class AssistCx {
 		return link != null ? { laneId: link.laneId, hitId: link.hitId } : null;
 	}
 
-	// MARK: - Local edits
-
-	/** The history whose present has settled: what the next edit is compared with */
-	private settled: TProjectHistory | null = null;
-	private seenHistory: TProjectHistory | null = null;
-	private settleRun = 0;
-	private isSettling = false;
-	private isApplyingSettled = false;
-
-	/**
-	 * After an edit, the next platforms take up the change so the rest of the run stays as it was, folded into the edit's
-	 * undo step. Until the answer lands the edit's own run stays back, so a marble's first wild moment never shows. Undo,
-	 * redo and what Build Track and Fix Hits commit themselves are left alone.
-	 */
-	private settleLatestEdit(history: TProjectHistory): void {
-		if (this.isApplyingSettled) return;
-		const known = this.settled;
-		const seen = this.seenHistory;
-		this.seenHistory = history;
-		const client = this.studio.simulation.assists;
-		const isStep = seen != null && (seen.past.at(-1)?.entities === history.present.entities || seen.future[0]?.entities === history.present.entities);
-		if (known == null || client == null || known.present.id !== history.present.id || isStep || this.buildRun != null || this.replaceRun != null) {
-			this.settleRun++;
-			this.isSettling = false;
-			this.settled = history;
-			this.studio.simulation.releaseHold();
-			return;
-		}
-		const before = known.present;
-		const after = history.present;
-		if (!laneEdits(before, after).length) {
-			if (!this.isSettling) this.settled = history;
-			return;
-		}
-		const run = ++this.settleRun;
-		this.isSettling = true;
-		this.studio.simulation.hold();
-		client.settle({ before, after }).then(
-			(answer) => {
-				if (run !== this.settleRun || this.studio.project?.revision !== after.revision) return;
-				this.applySettled(answer.entities, true);
-				this.sayBreak(answer, after);
-			},
-			(error: unknown) => {
-				if (run !== this.settleRun || isSuperseded(error)) return;
-				this.applySettled([], true);
-				this.studio.notify(`The rest of the run couldn't be kept: ${error instanceof Error ? error.message : String(error)}`, 'error');
-			}
-		);
-	}
-
-	/** Lands what a settle found, in the edit's undo step or as its own */
-	private applySettled(entities: TEntity[], isAmend: boolean): void {
-		this.isApplyingSettled = true;
-		try {
-			if (entities.length > 0) this.studio.execute(entities.map((entity) => ({ type: 'upsertEntity', entity })), { amend: isAmend });
-		} finally {
-			this.isApplyingSettled = false;
-		}
-		this.isSettling = false;
-		const history = this.studio.$history.get();
-		this.settled = history;
-		this.seenHistory = history;
-		this.studio.simulation.releaseHold();
-	}
-
-	/**
-	 * A platform dragged off its dot: the platform before it sends the marble to the new spot and the next ones bring it
-	 * back on the old run, as one undo step. A platform right after a ride can't move this way and stays where it was.
-	 */
-	async moveDot(move: { laneId: string; hitId: string; dot: TVec2 }): Promise<void> {
-		const project = this.studio.project;
-		const client = this.studio.simulation.assists;
-		if (project == null || client == null) return;
-		const run = ++this.settleRun;
-		this.isSettling = true;
-		this.studio.simulation.hold();
-		try {
-			const answer = await client.settle({ before: project, after: project, movedDot: move });
-			if (run !== this.settleRun || this.studio.project?.revision !== project.revision) return;
-			this.applySettled(answer.entities, false);
-			this.sayBreak(answer, project);
-		} catch (error) {
-			if (run !== this.settleRun || isSuperseded(error)) return;
-			this.applySettled([], false);
-			this.studio.notify(`The platform couldn't be moved: ${error instanceof Error ? error.message : String(error)}`, 'error');
-		}
-	}
-
-	/** Names what happened only when it matters: a break the next platforms couldn't take up */
-	private sayBreak(answer: TSettleAnswer, project: TProject): void {
-		const [first] = answer.heldFrom;
-		if (first == null) return;
-		const lane = project.music.lanes.find((item) => item.id === first.laneId);
-		const number = (lane?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
-		const waiting = project.entities.filter((entity) => entity.components.hitLink?.laneId === first.laneId && (lane?.hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -1) > first.time).length;
-		const later = waiting === 1 ? 'The piece after it waits' : `The ${waiting} pieces after it wait`;
-		this.studio.notifyEdit(`This edit keeps ${lane?.name ?? 'the marble'} from Hit ${number}. ${later} where ${waiting === 1 ? 'it was' : 'they were'}.`, [], { isUndoFirst: true });
-	}
-
 	// MARK: - Fix-its
 
 	/**
@@ -756,7 +656,7 @@ export class AssistCx {
 	private offerFixIt(): void {
 		const project = this.studio.project;
 		const result = this.currentResult();
-		if (project == null || result == null || this.isSettling) return;
+		if (project == null || result == null || this.studio.simulation.isSettling) return;
 		const previous = this.baseline;
 		if (previous?.projectId === project.id && previous.revision === result.revision) return;
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
@@ -793,7 +693,7 @@ export class AssistCx {
 
 	/** An assist is still working on the latest edit: what it answers next can change the project or what Next does */
 	get isAnswering(): boolean {
-		return this.isSettling || this.isPlacing || this.replaceRun != null || this.buildRun != null || this.pendingContinue != null || this.$ghosts.get().pendingGap != null;
+		return this.studio.simulation.isSettling || this.isPlacing || this.replaceRun != null || this.buildRun != null || this.pendingContinue != null || this.$ghosts.get().pendingGap != null;
 	}
 
 	/** Shows the latest Fix Hits result of this project again, with its Details */
@@ -866,25 +766,12 @@ export class AssistCx {
 		const shown = this.currentResult();
 		const client = this.studio.simulation.assists;
 		if (present == null || shown == null || client == null || this.replaceRun != null || this.buildRun != null) return null;
-		let project = present;
-		let result = shown;
-		let isReleased = false;
 		if (present.entities.some((entity) => entity.components.hitLink?.held != null)) {
-			// The pieces wait for the marble: first try to bring it back to them, which moves nothing else
-			const back = await client.reconnect(present);
-			if (this.studio.project?.revision !== present.revision) return null;
-			if (back != null) {
-				this.applySettled(back.entities, false);
-				this.studio.notifyEdit('The marble is back on its run');
-				return null;
-			}
-			// They can't be reached: from here the pieces follow the marble and the rest is rebuilt
-			project = release(present);
-			if (!this.studio.execute(project.entities.filter((entity, index) => entity !== present.entities[index]).map((entity) => ({ type: 'upsertEntity', entity })))) return null;
-			project = this.studio.project ?? project;
-			result = await client.simulateAssist(project);
-			isReleased = true;
+			await this.fixHeld(present);
+			return null;
 		}
+		const project = present;
+		const result = shown;
 		const targets = brokenHits(result.hits, only);
 		const scenery = only == null ? blockedScenery(project, result) : [];
 		if (!targets.length && !scenery.length && (only != null || lookPieces(project, result).length === 0)) {
@@ -906,6 +793,7 @@ export class AssistCx {
 			const left = estimate.update(performance.now() - startedAt, fraction, done, total);
 			return [`Fixing hits · ${done} of ${total} fixed`, left].filter(Boolean).join(' · ');
 		};
+		let furthest = 0;
 		const progressId = this.studio.notify(progressText(from, 0, targets.length, 0), 'info', { progress: 0, actions: [stop] });
 		const before = only == null ? [...this.lastGood.values()].flat() : undefined;
 		const isCancelled = (): boolean => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected;
@@ -930,13 +818,15 @@ export class AssistCx {
 					commit: (_next, commands, isFirst) => {
 						// Another edit since the last step stops the run rather than folding into it
 						if (this.studio.project?.revision !== expected) return null;
-						if (!this.studio.execute(commands, { amend: !isFirst || isReleased })) return null;
+						if (!this.studio.execute(commands, { amend: !isFirst })) return null;
 						expected = this.studio.project?.revision ?? expected;
 						return this.studio.project;
 					},
 					onProgress: (done, total, at, fraction) => {
 						this.$replacing.set({ done, total });
-						this.studio.updateNotice(progressId, { message: progressText(at, done, total, fraction), progress: Math.min(1, Math.max(0, fraction)) });
+						// A try that backs up never moves the bar back
+						furthest = Math.max(furthest, Math.min(1, Math.max(0, fraction)));
+						this.studio.updateNotice(progressId, { message: progressText(at, done, total, furthest), progress: furthest });
 					},
 					isCancelled
 				},
@@ -972,6 +862,61 @@ export class AssistCx {
 			this.studio.notifyEdit(lastFix.message, [], { details: lastFix.details });
 		} else this.studio.notify(message);
 		return outcome;
+	}
+
+	/**
+	 * Fix for pieces waiting behind a break. First the marble is brought back to them, which moves nothing else. When no
+	 * tilt reaches them, Fix Hits tries on a copy from where they wait, a limited time, and lands only if every hit plays:
+	 * a try that leaves tens of hits broken is no fix, so the pieces go on waiting and the notice says so.
+	 */
+	private async fixHeld(project: TProject): Promise<void> {
+		const client = this.studio.simulation.assists;
+		if (client == null) return;
+		const run = { isCancelled: false };
+		this.replaceRun = run;
+		const startedAt = performance.now();
+		const stop = { label: 'Stop', title: 'Stop trying; the pieces go on waiting', run: () => (run.isCancelled = true) };
+		const progressId = this.studio.notify('Fixing the break', 'info', { progress: 0, actions: [stop] });
+		const isCancelled = (): boolean => run.isCancelled || this.studio.project?.revision !== project.revision || performance.now() - startedAt > FIX_HELD_BUDGET_MS;
+		let fixed: TProject | null = null;
+		try {
+			const back = await client.reconnect(project);
+			if (back != null) fixed = withSettled(project, back.entities);
+			else {
+				const released = release(project);
+				const outcome = await replaceBroken(
+					released,
+					await client.simulateAssist(released),
+					{
+						simulate: async (next) => client.simulateAssist(next),
+						autoPlace: async (next, hit, entity) => (await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id }, { isCancelled })).entity,
+						gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, { isCancelled })).entity,
+						commit: (next, commands) => {
+							const [isOk, , applied] = applyProjectCommands(next, commands);
+							return isOk ? applied : null;
+						},
+						onProgress: (_done, _total, _at, fraction) => {
+							this.studio.updateNotice(progressId, { progress: Math.min(1, Math.max(0, fraction)) });
+						},
+						isCancelled
+					},
+					{}
+				);
+				if (!outcome.isStopped && !brokenHits(outcome.result.hits).length) fixed = outcome.project;
+			}
+		} catch (error) {
+			if (!isSuperseded(error)) this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
+		} finally {
+			this.replaceRun = null;
+		}
+		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
+		if (this.studio.project?.revision !== project.revision) return;
+		if (fixed == null) {
+			this.studio.notify(run.isCancelled ? 'The pieces go on waiting where they were.' : "No tilt brings the marble back to the pieces waiting for it. Turn the platforms before the break by hand, undo the edit, or choose Rebuild From Here.");
+			return;
+		}
+		this.studio.simulation.landSettled(changedEntities(project, fixed), false);
+		this.studio.notifyEdit('The marble is back on its run');
 	}
 
 	/** The marble Add Finish is searching a Finish for, while it runs */
@@ -1095,6 +1040,12 @@ export function launchAngles(project: TProject, hit: THitResult): number[] | und
 	const previous = previousPiece(project, hit.laneId, hit.targetTime)?.angle;
 	const lean = previous != null && Math.abs(previous) > DEGREE ? -Math.sign(previous) : Math.sign(defaultPlatformAngle(hit.dot ?? { x: 0, y: 0 }, hit.velocity, frameBand(project).centerX));
 	return [17, 12, 22, 28].flatMap((degrees) => [lean * degrees * DEGREE, -lean * degrees * DEGREE]);
+}
+
+/** `project` with these entities in place of the ones of the same id */
+function withSettled(project: TProject, entities: TEntity[]): TProject {
+	const changed = new Map(entities.map((entity) => [entity.id, entity]));
+	return { ...project, entities: project.entities.map((entity) => changed.get(entity.id) ?? entity) };
 }
 
 function wait(ms: number): Promise<void> {

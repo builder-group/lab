@@ -104,7 +104,7 @@ describe('a dot click before it places', () => {
 		let project: TProject = without;
 		let edits = 0;
 		let settle: { resolve: (value: TAutoPlaceAnswer) => void; reject: (error: Error) => void; entityId: string } | null = null;
-		const $history = createState<{ present: TProject; past: TProject[]; future: TProject[] } | null>({ present: project, past: [], future: [] });
+		const $history = createState<{ present: TProject } | null>({ present: project });
 		const cx = {
 			get project() {
 				return project;
@@ -118,18 +118,16 @@ describe('a dot click before it places', () => {
 			simulation: {
 				isPreviewing: false,
 				$result: createState<TSimulationResult | null>(null),
-				hold: () => undefined,
-				releaseHold: () => undefined,
+				isSettling: false,
 				assists: {
 					autoPlace: (request: { entityId: string }) => new Promise((resolve, reject) => (settle = { resolve, reject, entityId: request.entityId })),
-					continueRun: () => Promise.resolve(null),
-					settle: () => Promise.resolve({ entities: [], absorbedBy: [], broken: [], heldFrom: [], runs: 0 })
+					continueRun: () => Promise.resolve(null)
 				}
 			},
 			execute: (commands: Parameters<typeof withCommands>[1]) => {
 				project = { ...withCommands(project, commands), revision: project.revision + 1 };
 				edits++;
-				$history.set({ present: project, past: [], future: [] });
+				$history.set({ present: project });
 				return true;
 			},
 			audition: vi.fn(),

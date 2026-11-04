@@ -1092,7 +1092,7 @@ export class ComposeCx {
 				const move = drag.playsDrop === 'keeps' ? movedNote(drag, drag.current) : null;
 				if (move != null) {
 					// The preview stays up until the moved run lands, so the platform doesn't jump back in between
-					void this.assist.moveDot(move).finally(() => {
+					void this.studio.simulation.moveDot(move).finally(() => {
 						this.$override.set(null);
 						this.studio.simulation.endPreview();
 					});

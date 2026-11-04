@@ -360,7 +360,8 @@ function strayContacts(base: TSimulationResult, result: TSimulationResult): numb
 	const counts = (run: TSimulationResult): Map<string, number> => {
 		const map = new Map<string, number>();
 		for (const contact of run.contacts) {
-			if (contact.kind !== 'piece') continue;
+			// A touch with no speed is Rapier's early report of a contact that never comes
+			if (contact.kind !== 'piece' || (contact.speed ?? 1) < 0.02) continue;
 			const key = `${contact.marbleEntityId}|${contact.otherEntityId}`;
 			map.set(key, (map.get(key) ?? 0) + 1);
 		}
@@ -374,6 +375,26 @@ function strayContacts(base: TSimulationResult, result: TSimulationResult): numb
 
 /** How far later pieces may stay moved before a break holds them where they were */
 const HOLD_SHIFT = 0.03;
+/** A way this good ends the search: nothing broken or struck, later pieces under 2 mm from where they were */
+const GOOD_ENOUGH = 2;
+const GOOD_ENOUGH_SHIFT = 0.01;
+
+type TJudged = Pick<TSettled, 'broken' | 'strays' | 'result'> & { shift: number };
+
+/** How far the hits after the platforms that took up the change stay from where they were */
+function laterShift(base: TSimulationResult, result: TSimulationResult, edits: TLaneEdit[], absorbedBy: string[]): number {
+	const taken = new Set(absorbedBy);
+	let shift = 0;
+	for (const edit of edits) {
+		const hits = result.hits.filter((hit) => hit.laneId === edit.laneId).sort((a, b) => a.targetTime - b.targetTime);
+		const last = hits.reduce((latest, hit, index) => (hit.pieceEntityId != null && taken.has(hit.pieceEntityId) ? index : latest), edit.afterIndex + 1);
+		for (const hit of hits.slice(last + 1)) {
+			const was = base.hits.find((item) => item.laneId === hit.laneId && item.hitId === hit.hitId);
+			if (hit.dot != null && was?.dot != null) shift = Math.max(shift, Math.hypot(hit.dot.x - was.dot.x, hit.dot.y - was.dot.y));
+		}
+	}
+	return shift;
+}
 
 export interface TSettleOptions {
 	/** Only the first way, not checked: for a drag, which asks again at the next move */
@@ -391,11 +412,12 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 	const count = (): void => {
 		runs++;
 	};
-	const score = (settled: Pick<TSettled, 'broken' | 'strays'>): number => settled.broken.length * 100 + settled.strays;
-	const judge = (project: TProject): Pick<TSettled, 'broken' | 'strays' | 'result'> => {
+	// A broken hit counts most, then a new strike, and how far the rest of the run stays moved: 10 cm weighs a broken hit
+	const score = (settled: Pick<TJudged, 'broken' | 'strays' | 'shift'>): number => settled.broken.length * 100 + settled.strays * 10 + settled.shift * 1000;
+	const judge = (project: TProject, absorbedBy: string[]): TJudged => {
 		count();
 		const result = simulator.simulate(project);
-		return { result, broken: brokenSince(base, result), strays: strayContacts(base, result) };
+		return { result, broken: brokenSince(base, result), strays: strayContacts(base, result), shift: laterShift(base, result, edits, absorbedBy) };
 	};
 	if (options.isQuick === true) {
 		let project = after;
@@ -408,7 +430,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 		}
 		return { project, absorbedBy, broken: [], strays: 0, result: base, runs, heldFrom: [] };
 	}
-	const unsettled = { project: after, absorbedBy: [] as string[], ...judge(after) };
+	const unsettled = { project: after, absorbedBy: [] as string[], ...judge(after, []) };
 	let best: typeof unsettled | null = null;
 	for (const [index, variant] of VARIANTS.entries()) {
 		let project = after;
@@ -419,14 +441,16 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 				absorbedBy.push(step.entityId);
 			}
 		}
-		const judged = judge(project);
+		const judged = judge(project, absorbedBy);
 		if (best == null || score(judged) < score(best)) best = { ...judged, project, absorbedBy };
-		if (score(judged) === 0 || (index >= 2 && best.broken.length === 0)) break;
+		if (score(best) < GOOD_ENOUGH || (index >= 2 && best.broken.length === 0 && best.strays === 0 && best.shift < GOOD_ENOUGH_SHIFT)) break;
 	}
-	const chosen = best != null && score(best) <= score(unsettled) ? best : unsettled;
+	// A drag asked for the move, so standing still is no better way of doing it, unless the move breaks hits
+	const isMove = edits.some((edit) => edit.movedDot != null);
+	const chosen = best != null && (isMove ? !best.broken.length : score(best) <= score(unsettled)) ? best : unsettled;
 	const held = chosen.broken.length > 0 ? holdBreaks(chosen.project, after, base, chosen.result, chosen.broken) : null;
 	if (held == null) return { ...chosen, runs, heldFrom: [] };
-	const judged = judge(held.project);
+	const judged = judge(held.project, chosen.absorbedBy);
 	return { ...chosen, ...judged, project: held.project, runs, heldFrom: held.from };
 }
 
