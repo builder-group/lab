@@ -28,16 +28,11 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 		pack.themes.filter((item) => !own.some((theirs) => theirs.id === item.id)).map((item) => ({ pack, theme: item, resolved: resolveTheme({ theme: project.design.theme, themes: [{ ...item, pack: packOriginOf(pack) }] }, item.id) }))
 	);
 
+	/** A project theme's own: a click on the tile applies any theme */
 	function menu(item: TResolvedTheme): TMenuEntry[] {
 		return [
-			{ label: 'Apply Theme', disabled: project.design.theme === item.id, onSelect: () => cx.execute(themeCommands(project, item.id)) },
-			...(item.projectTheme != null
-				? [
-						'separator' as const,
-						{ label: 'Rename', onSelect: () => setRenamingId(item.id) },
-						{ label: 'Delete Theme', onSelect: () => deleteTheme(cx, item.id) }
-					]
-				: [])
+			{ label: 'Rename', onSelect: () => setRenamingId(item.id) },
+			{ label: 'Delete Theme', onSelect: () => deleteTheme(cx, item.id) }
 		];
 	}
 
@@ -52,7 +47,7 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 			onApply: () => {
 				cx.execute(themeCommands(project, item.id));
 			},
-			onMenu: () => menu(item),
+			...(item.projectTheme != null ? { onMenu: () => menu(item) } : {}),
 			...(renamingId === item.id
 				? {
 						nameField: (
@@ -73,7 +68,7 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 			key: `${pack.id}:${item.id}`,
 			isCurrent: false,
 			onApply: () => void cx.library.applyPackTheme(pack, item),
-			onMenu: (): TMenuEntry[] => [{ label: 'Apply Theme', onSelect: () => void cx.library.applyPackTheme(pack, item) }, 'separator', { label: 'Remove Pack', onSelect: () => void cx.library.removePack(pack) }]
+			onMenu: (): TMenuEntry[] => [{ label: 'Remove Pack', onSelect: () => void cx.library.removePack(pack) }]
 		}))
 	];
 

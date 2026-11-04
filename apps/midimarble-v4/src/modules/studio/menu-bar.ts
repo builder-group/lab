@@ -11,7 +11,7 @@ import type { StudioCx, TStudioPanel } from './StudioCx';
 export type TMenuLine =
 	| {
 			command: TCommandId;
-			/** Tells two items of one command apart, such as Quick Help in View and MidiMarble Help in Help */
+			/** Tells two items of one command apart, such as Add Finish in Insert and in Track */
 			variant?: string;
 			/** A title for the menu bar where the palette's would read wrong there */
 			title?: string;
@@ -97,13 +97,11 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'build.addFinish', variant: 'insert' },
 			'separator',
 			{ command: 'design.addText', showsKey: true },
-			{ command: 'decor.particles' },
 			{ command: 'decor.scatter' },
-			{ command: 'design.addPack', variant: 'insert' },
 			'separator',
 			{ command: 'light.add' },
 			{ command: 'camera.addShot', showsKey: true },
-			{ command: 'marble.add' },
+			{ command: 'marble.add', showsKey: true },
 			{ command: 'file.importMidi', variant: 'insert', hasNoKey: true }
 		]
 	},
@@ -129,7 +127,6 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'view.showHitboxes' },
 			{ command: 'view.follow' },
 			{ command: 'view.audioScrubbing' },
-			{ command: 'help.quickHelp', hasNoKey: true },
 			'separator',
 			{ standard: 'fullScreen' }
 		]
@@ -157,8 +154,6 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'build.repeat', showsKey: true },
 			{ command: 'build.addFinish' },
 			'separator',
-			// Edit's Duplicate holds the ⌘D menu key
-			{ command: 'edit.duplicate', variant: 'piece', hasNoKey: true, showsKey: true },
 			{ command: 'piece.detach' }
 		]
 	},
@@ -170,7 +165,7 @@ export const menuLayout: readonly TMenuSection[] = [
 	{
 		title: 'Help',
 		role: 'help',
-		items: [{ command: 'help.quickHelp', variant: 'help', title: 'MidiMarble Help' }, { command: 'help.resetHints' }, 'separator', { command: 'help.connectClaude' }, { command: 'help.connectCodex' }, { command: 'help.copyMcpCommand' }, { command: 'help.enableMcp' }]
+		items: [{ command: 'help.quickHelp', title: 'MidiMarble Help' }, { command: 'help.resetHints' }, 'separator', { command: 'help.connectClaude' }, { command: 'help.connectCodex' }, { command: 'help.copyMcpCommand' }, { command: 'help.enableMcp' }]
 	}
 ];
 

@@ -4,7 +4,7 @@ import { BACKING_ID, type THit, type TProject } from '@/modules/project';
 import { formatTime, noteName } from '../format';
 import { toHitKey } from '../selection';
 import { focusedLane, type StudioCx } from '../StudioCx';
-import { auditionNote, BACKING_COLOR, isNoteSelection, playWithMenu } from './hand-notes';
+import { auditionNote, BACKING_COLOR, isNoteSelection, playedByMenu } from './hand-notes';
 import { isPitched } from './hit-status';
 import type { TDrag, TDragStart } from './LaneTrack';
 import { addNoteCommands, clampPitch, isBlackKey, pitchToRow, resizedNoteLength, rowCount, snapNoteTime, type TPitchRange } from './piano-roll';
@@ -86,7 +86,7 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 			{ section: `${noteName(note.hit.pitch)} · ${formatTime(note.hit.time)}` },
 			{ label: 'Go to Note', onSelect: () => cx.$playhead.set(note.hit.time) },
 			'separator',
-			...playWithMenu(cx, keys)
+			...playedByMenu(cx, keys)
 		]);
 	}
 
@@ -137,7 +137,7 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 			onDoubleClick={addNote}
 			onContextMenu={(event) => {
 				if (!isNoteSelection(selection)) return;
-				openContextMenu(event, playWithMenu(cx, selection));
+				openContextMenu(event, playedByMenu(cx, selection));
 			}}
 		>
 			{pitches.map((pitch) => (

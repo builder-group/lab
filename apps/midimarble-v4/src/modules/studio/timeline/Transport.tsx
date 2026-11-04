@@ -141,7 +141,6 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			onSelect: () => issue.target != null && cx.revealIssue(issue.target)
 		})),
 		'separator' as const,
-		{ label: 'Show First Problem', onSelect: () => cx.showFirstProblem() },
 		{
 			// One label with the edit's notice: "Fix 33 Hits", "Move Windmill 1 Clear"
 			label: plan == null || plan.isEmpty ? 'Re-place Broken Platforms' : plan.label,

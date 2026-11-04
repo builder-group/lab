@@ -10,14 +10,12 @@ import { followKey, toolKeys, tunnelPathKey, type TComposeTool } from '@/modules
 import { canMakeBacking } from '@/modules/compose/reachability';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import { armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu } from '@/modules/compose/tie-commands';
-import type { TRenderPreset } from '@/modules/blender';
 import { BACKING_ID, type TProject } from '@/modules/project';
 import { isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
-import { cameraCommands, themeCommands } from '@/modules/design/design-commands';
 import { deleteThemeCommands, resolveTheme } from '@/modules/design/project-themes';
 import { framingFix, framingProblemAt, preflightExport, type TPreflightFix } from '@/modules/design/export-preflight';
-import { builtInSource, deleteDecorCommands, duplicateDecorCommands, selectedDecorIds } from '@/modules/design/decor';
-import { openScatterPanel, placeDecor } from '@/modules/design/decor-actions';
+import { deleteDecorCommands, duplicateDecorCommands, selectedDecorIds } from '@/modules/design/decor';
+import { openScatterPanel } from '@/modules/design/decor-actions';
 import { addLightCommands, deleteLightsCommands } from '@/modules/design/scene-layers';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { connectTitle } from '@/modules/mcp/agent-connect';
@@ -41,8 +39,6 @@ export interface TCommand {
 	shortcut?: string;
 	/** Extra words the palette matches, such as Blender's names for an action */
 	keywords?: string;
-	/** Kept for menus that still name it, left out of the palette because another command does the same */
-	isHidden?: boolean;
 	/**
 	 * The workspace the command acts in when its section does not say it, such as the Compose canvas's zoom.
 	 * Tools and Pieces belong to Compose and Film to Film; the rest work in both.
@@ -107,35 +103,6 @@ function canRunBlender(cx: StudioCx): boolean {
 function unlinkedSelection(cx: StudioCx): string[] {
 	const links = cx.design.$links.get();
 	return cx.$selection.get().filter((id) => links[id]?.link === 'unlinked');
-}
-
-function presetCommand(id: TPresetCommandId, preset: TRenderPreset, title: string): TCommand {
-	return {
-		id,
-		title,
-		section: 'Film',
-		keywords: preset === 'draft' ? 'render preset export workbench quick preview motion timing' : 'render preset export eevee cycles',
-		isEnabled: hasProject,
-		isChecked: (cx) => cx.project?.design.renderPreset === preset,
-		run: (cx) => cx.execute([{ type: 'setDesign', design: { renderPreset: preset } }])
-	};
-}
-
-type TPresetCommandId = 'design.presetDraft' | 'design.presetFast' | 'design.presetBalanced' | 'design.presetBest';
-
-function themeCommand(id: 'design.themePegboard' | 'design.themeBrass' | 'design.themeNeon', theme: string, title: string): TCommand {
-	return {
-		id,
-		title,
-		section: 'Film',
-		keywords: 'look style preset art direction design',
-		isEnabled: hasProject,
-		isChecked: (cx) => cx.project?.design.theme === theme,
-		run: (cx) => {
-			const project = cx.project;
-			if (project != null) cx.execute(themeCommands(project, theme));
-		}
-	};
 }
 
 /** Delete Theme for a project theme; the film falls back to its base when it uses it */
@@ -263,7 +230,7 @@ function isTool(cx: StudioCx, tool: TComposeTool): boolean {
 	return compose(cx)?.$tool.get() === tool;
 }
 
-function toolCommand(tool: TComposeTool, title: string, keywords: string): TCommand {
+function toolCommand(tool: Exclude<TComposeTool, 'marble'>, title: string, keywords: string): TCommand {
 	return {
 		id: `tool.${tool}`,
 		title,
@@ -285,7 +252,6 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', keywords: 'keep unsaved example', isEnabled: canSave, run: (cx) => void cx.save() },
 	{ id: 'file.saveAs', title: 'Save As…', section: 'File', shortcut: '⇧⌘S', keywords: 'copy duplicate keep elsewhere', isEnabled: hasProject, run: (cx) => void cx.saveAs() },
 	{ id: 'file.importMidi', title: 'Import Song…', section: 'File', shortcut: '⌘I', keywords: 'midi recording audio wav mp3 music', isEnabled: hasProject, run: (cx) => void cx.importSong() },
-	{ id: 'file.importAudio', title: 'Import Song…', section: 'File', isHidden: true, isEnabled: hasProject, run: (cx) => void cx.importSong() },
 	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: hasSong, run: (cx) => void cx.sources.replaceSong() },
 	{ id: 'file.removeSong', title: 'Delete Song', section: 'File', keywords: 'music midi audio soundtrack remove backing', isEnabled: hasSong, run: (cx) => void cx.sources.deleteSong() },
 	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.film.openSheet() },
@@ -347,9 +313,11 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.fitSelection', workspace: 'compose', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => compose(cx)?.fitSelection() },
 	{
 		id: 'view.snap',
+		workspace: 'compose',
 		title: 'Snap',
 		section: 'View',
 		keywords: 'magnet snapping dots trajectories plays follows attach',
+		isEnabled: (cx) => compose(cx) != null,
 		isChecked: (cx) => cx.$snapping.get(),
 		run: (cx) => cx.$snapping.set(!cx.$snapping.get())
 	},
@@ -394,15 +362,14 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Tools
 	toolCommand('select', 'Move Tool', 'select pointer arrow'),
 	toolCommand('hand', 'Hand Tool', 'pan'),
-	toolCommand('marble', 'Marble Tool', 'add marble release track ball'),
 	toolCommand('platform', 'Platform Tool', 'piece add place bar'),
-	toolCommand('path', 'Path Tool', 'rail pen bezier spline curve draw'),
+	toolCommand('path', 'Rail Tool', 'path pen bezier spline curve draw'),
 	{
 		id: 'tool.tunnel',
-		title: 'Path Tool: Tunnel',
+		title: 'Tunnel Tool',
 		section: 'Tools',
 		shortcut: tunnelPathKey.key,
-		keywords: 'tunnel tube pen bezier curve draw',
+		keywords: 'tube path pen bezier curve draw',
 		isEnabled: (cx) => compose(cx) != null,
 		isChecked: (cx) => isTool(cx, 'path') && compose(cx)?.$pathType.get() === 'tunnel',
 		run: (cx) => compose(cx)?.armTool('path', 'tunnel')
@@ -421,16 +388,6 @@ export const commands: readonly TCommand[] = [
 			if (inDesign(cx)) cx.library.$insertOpen.set(true);
 			else compose(cx)?.$libraryOpen.set(true);
 		}
-	},
-	{
-		id: 'tool.text',
-		title: 'Title Tool',
-		section: 'Film',
-		shortcut: 'T',
-		keywords: 'wall text label credit type',
-		isEnabled: inDesign,
-		isChecked: (cx) => cx.design.$placing.get() === 'text',
-		run: (cx) => getCommand('design.addText').run(cx)
 	},
 
 	// MARK: - Pieces
@@ -505,8 +462,6 @@ export const commands: readonly TCommand[] = [
 	{ id: 'piece.follow', title: 'Follow a Marble…', section: 'Track', keywords: 'anchor attach tie follows nearest marble', isEnabled: (cx) => hasPieces(cx) && canFollow(cx), run: (cx) => openFollowMenu(cx) },
 	{ id: 'piece.detach', title: 'Detach', section: 'Track', keywords: 'unlink unanchor untie free none', isEnabled: (cx) => hasPieces(cx) && hasTiedSelection(cx), run: (cx) => detachSelection(cx) },
 	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Track', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.dismiss() },
-	{ id: 'build.rotateLeft', title: 'Rotate 5° Counterclockwise', section: 'Track', shortcut: '⇧←', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(5) },
-	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Track', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
 
 	// MARK: - Film
 	{ id: 'design.editInBlender', title: 'Open in Blender', section: 'Film', keywords: 'edit blender window scene', isEnabled: canRunBlender, run: (cx) => void cx.design.openInBlender() },
@@ -516,6 +471,7 @@ export const commands: readonly TCommand[] = [
 		id: 'design.addText',
 		title: 'Add Title',
 		section: 'Film',
+		shortcut: 'T',
 		keywords: 'wall text label credit type decal',
 		isEnabled: inDesign,
 		isChecked: (cx) => cx.design.$placing.get() === 'text',
@@ -590,24 +546,6 @@ export const commands: readonly TCommand[] = [
 			if (cx.execute(fix.commands) && fix.shotId != null) cx.$selection.set([toShotKey(fix.shotId)]);
 		}
 	},
-	themeCommand('design.themePegboard', 'pegboard', 'Pegboard Theme'),
-	themeCommand('design.themeBrass', 'brass', 'Brass Theme'),
-	themeCommand('design.themeNeon', 'neon', 'Neon Theme'),
-	presetCommand('design.presetDraft', 'draft', 'Draft Quality'),
-	presetCommand('design.presetFast', 'fast', 'Standard Quality'),
-	presetCommand('design.presetBalanced', 'balanced', 'High Quality'),
-	presetCommand('design.presetBest', 'best', 'Best Quality'),
-	{
-		id: 'design.takeOverCamera',
-		title: 'Take Over Camera',
-		section: 'Film',
-		keywords: 'manual camera animate blender',
-		isEnabled: (cx) => inDesign(cx) && cx.project?.design.camera.mode !== 'manual',
-		run: (cx) => {
-			const project = cx.project;
-			if (project != null) cx.execute(cameraCommands(project, { mode: 'manual' }));
-		}
-	},
 	{
 		id: 'design.deleteTheme',
 		title: 'Delete Theme',
@@ -660,16 +598,20 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => cx.design.live.setEnabled(!cx.design.live.$enabled.get())
 	},
 	{
-		id: 'decor.particles',
-		title: 'Add Particles',
-		section: 'Film',
-		keywords: 'snow dust sparks confetti falling decor',
+		id: 'marble.add',
+		title: 'Add Marble',
+		section: 'Marble',
+		shortcut: toolKeys.find((item) => item.tool === 'marble')?.key,
+		keywords: 'track new ball release tool',
 		isEnabled: hasProject,
+		isChecked: (cx) => isTool(cx, 'marble'),
 		run: (cx) => {
-			placeDecor(cx, builtInSource('decor:snowfall'));
+			// In Compose the next click on the wall releases it; Film and an agent add it at once
+			const canvas = compose(cx);
+			if (canvas != null && !cx.isInAgentStep) canvas.armTool('marble');
+			else cx.addMarble();
 		}
 	},
-	{ id: 'marble.add', title: 'Add Marble', section: 'Marble', keywords: 'track new ball', isEnabled: hasProject, run: (cx) => void cx.addMarble() },
 	{
 		id: 'film.fitToSong',
 		title: 'Fit to Song',
@@ -725,7 +667,6 @@ export type TCommandId =
 	| 'file.save'
 	| 'file.saveAs'
 	| 'file.importMidi'
-	| 'file.importAudio'
 	| 'file.replaceSong'
 	| 'file.removeSong'
 	| 'file.export'
@@ -739,11 +680,6 @@ export type TCommandId =
 	| 'light.add'
 	| 'decor.scatter'
 	| 'camera.addWideShot'
-	| 'design.themePegboard'
-	| 'design.themeBrass'
-	| 'design.themeNeon'
-	| TPresetCommandId
-	| 'design.takeOverCamera'
 	| 'design.deleteTheme'
 	| 'design.cancelExport'
 	| 'edit.undo'
@@ -776,9 +712,7 @@ export type TCommandId =
 	| 'play.tap'
 	| 'tool.select'
 	| 'tool.hand'
-	| 'tool.marble'
 	| 'tool.path'
-	| 'tool.text'
 	| 'view.snap'
 	| 'build.next'
 	| 'build.track'
@@ -795,14 +729,11 @@ export type TCommandId =
 	| 'edit.duplicate'
 	| 'edit.makeBacking'
 	| 'piece.detach'
-	| 'build.rotateLeft'
-	| 'build.rotateRight'
 	| 'marble.add'
 	| 'film.fitToSong'
 	| 'film.format'
 	| 'film.theme'
 	| 'film.blenderPreview'
-	| 'decor.particles'
 	| 'layer.wall'
 	| 'layer.keyLight'
 	| 'layer.camera'

@@ -17,7 +17,7 @@ export function inspectorTarget(project: TProject, selection: readonly string[],
 	return workspace === 'compose' && FILM_ONLY_TARGETS.includes(target.kind) ? { kind: 'scene' } : target;
 }
 
-const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['wall', 'light', 'lights', 'decor', 'decors', 'madeInBlender'];
+const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['wall', 'light', 'decor', 'madeInBlender'];
 
 /**
  * What stays selected when Film opens. The piece or hit Compose's work last left selected would hide the theme, so
@@ -40,7 +40,6 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 
 	const titleIds = entities.filter((entity) => entity.components.wallText != null).map((entity) => entity.id);
 	if (titleIds.length === 1) return { kind: 'title', id: titleIds[0] as string };
-	if (titleIds.length > 1) return { kind: 'titles', ids: titleIds };
 
 	const shot = project.design.camera.shots.find((item) => selection.some((key) => parseShotKey(key) === item.id));
 	if (shot != null) return { kind: 'shot', id: shot.id };
@@ -54,12 +53,10 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 		const added = addedLights(project.design);
 		const known = lightIds.filter((id) => id === KEY_LIGHT_ID || added.some((light) => light.id === id));
 		if (known.length === 1) return { kind: 'light', id: known[0] as string };
-		if (known.length > 1) return { kind: 'lights' };
 	}
 
 	const decorIds = selection.flatMap((key) => parseDecorKey(key) ?? []).filter((id) => project.design.decor.some((item) => item.id === id) === true);
 	if (decorIds.length === 1) return { kind: 'decor', id: decorIds[0] as string };
-	if (decorIds.length > 1) return { kind: 'decors', ids: decorIds };
 
 	const blenderName = selection.flatMap((key) => parseMadeInBlenderKey(key) ?? [])[0];
 	if (blenderName != null) return { kind: 'madeInBlender', name: blenderName };
@@ -74,13 +71,10 @@ export type TInspectorTarget =
 	| { kind: 'pieces'; ids: string[] }
 	| { kind: 'hits'; keys: string[] }
 	| { kind: 'title'; id: string }
-	| { kind: 'titles'; ids: string[] }
 	| { kind: 'shot'; id: string }
 	| { kind: 'marble'; entityId: string; laneId: string }
 	| { kind: 'light'; id: string }
-	| { kind: 'lights' }
 	| { kind: 'decor'; id: string }
-	| { kind: 'decors'; ids: string[] }
 	| { kind: 'madeInBlender'; name: string }
 	| { kind: 'wall' }
 	| { kind: 'song' }

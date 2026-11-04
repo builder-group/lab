@@ -94,13 +94,13 @@ export function platformsOfHits(project: TProject, keys: string[]): TEntity[] {
 }
 
 /** Context menu entries that hand the selected notes over: each marble with its number key, New Marble, Backing */
-export function playWithMenu(cx: StudioCx, keys: string[]): TMenuEntry[] {
+export function playedByMenu(cx: StudioCx, keys: string[]): TMenuEntry[] {
 	const project = cx.project;
 	if (project == null) return [];
 	const owners = new Set(selectedNotes(project, keys).map((item) => item.ownerId));
 	const only = owners.size === 1 ? [...owners][0] : undefined;
 	return [
-		{ section: 'Play With' },
+		{ section: 'Played By' },
 		...project.music.lanes.map((lane, index) => ({
 			label: lane.name,
 			shortcut: index < 9 ? String(index + 1) : undefined,

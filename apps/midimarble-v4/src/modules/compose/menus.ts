@@ -2,11 +2,10 @@ import { tidyMenu, type TMenuEntry } from '@/components';
 import { commandItem } from '@/modules/studio/commands';
 import { formatTime, noteName } from '@/modules/studio/format';
 import type { ComposeCx } from './ComposeCx';
-import { placeAtHit } from './step-loop';
 
 /**
  * Menu of an open note's dot, opened by a right-click (a click shows the platform first): a platform tilted to land on
- * time, one at the default tilt, and the pieces that bridge a long gap
+ * time and the pieces that bridge a long gap
  */
 export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMenuEntry[] {
 	const cx = compose.studio;
@@ -24,7 +23,6 @@ export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMen
 	return tidyMenu([
 		{ section: `Hit ${index + 1}${pitch != null ? ` · ${noteName(pitch)}` : ''} · ${formatTime(hit.targetTime)}` },
 		{ label: 'Add Platform', shortcut: 'A', onSelect: () => compose.placePlatform(hit) },
-		{ label: 'Add Platform at Default Tilt', onSelect: () => void placeAtHit(cx, hit, 'platform') },
 		gap != null ? 'separator' : null,
 		gap != null ? { section: `Long Gap · ${gap.duration.toFixed(1)} s` } : null,
 		gap != null ? { label: 'Add Switchback', onSelect: () => bridge('switchback') } : null,
@@ -47,10 +45,8 @@ export function canvasMenu(compose: ComposeCx): TMenuEntry[] {
 		compose.assist.hasGhosts ? commandItem(cx, 'build.continue') : null,
 		'separator',
 		commandItem(cx, 'view.fitAll'),
-		commandItem(cx, 'view.follow'),
 		'separator',
 		commandItem(cx, 'edit.selectAll'),
-		commandItem(cx, 'marble.add'),
-		commandItem(cx, 'view.snap')
+		commandItem(cx, 'marble.add')
 	]);
 }

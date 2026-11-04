@@ -1,15 +1,13 @@
 import { BrickWall, Lightbulb, RotateCcw, Sun, TriangleAlert } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InspectorHeader, LinkRow, Panel, SliderField } from '@/components';
+import { HelpTip, InspectorHeader, Panel, SliderField } from '@/components';
 import type { TLight, TProject, TProjectCommand } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
-import { KEY_LIGHT_KEY, toLightKey } from '@/modules/studio/selection';
 import { SKIN_HELP } from './concept-words';
 import { marbleContrastWarning } from './draft-look';
 import { WallPicker } from './SkinPickers';
 import { appliedOverrides, baseThemeOf, resolveTheme } from './project-themes';
 import {
-	addedLights,
 	keyLightCommands,
 	keyLightLayer,
 	MAX_LIGHT_STRENGTH,
@@ -130,27 +128,6 @@ export const LightInspector: React.FC<{ cx: StudioCx; project: TProject; light: 
 			<Panel id="design.light" title="Light" accessory={<HelpTip text={LIGHT_HELP} />}>
 				<ColorWell cx={cx} id="light-color" label="Colour" name={`${light.name} colour`} own={light.color} shown={light.color} commandsFor={(color) => (color != null ? updateLightCommands(requireProject(cx), light.id, { color }) : [])} />
 				<LightSliders idPrefix="light" strength={light.strength} side={light.side} height={light.height} onChange={(patch) => cx.execute(updateLightCommands(requireProject(cx), light.id, patch))} />
-			</Panel>
-		</>
-	);
-};
-
-/** The Lights group selected together: each light as a link */
-export const LightsInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
-	const lights = addedLights(project.design);
-	return (
-		<>
-			<InspectorHeader icon={<Sun size={16} strokeWidth={1.7} />} title="Lights" subtitle={lights.length === 0 ? 'Key Light' : `Key Light · ${lights.length} ${lights.length === 1 ? 'light' : 'lights'}`} />
-			<Panel id="design.lights" title="Lights" accessory={<HelpTip text={LIGHT_HELP} />}>
-				<LinkRow icon={<Sun size={13} strokeWidth={1.8} className="shrink-0 text-[var(--text-secondary)]" />} title="Select Key Light" onOpen={() => cx.$selection.set([KEY_LIGHT_KEY])}>
-					Key Light
-				</LinkRow>
-				{lights.map((light) => (
-					<LinkRow key={light.id} icon={<Lightbulb size={13} strokeWidth={1.8} className="shrink-0 text-[var(--text-secondary)]" />} title={`Select ${light.name}`} onOpen={() => cx.$selection.set([toLightKey(light.id)])}>
-						{light.name}
-					</LinkRow>
-				))}
 			</Panel>
 		</>
 	);

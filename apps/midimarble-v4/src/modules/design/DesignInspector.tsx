@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Bookmark, RotateCcw, Type, Video } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, StateRow, TextField } from '@/components';
+import { HelpTip, InspectorHeader, Panel, ScrubField, SelectField, StateRow, TextField } from '@/components';
 import { shotLength } from '@/modules/camera/shots';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import type { TDesign, TEntity, TProject, TShot } from '@/modules/project';
@@ -32,7 +32,7 @@ import { framingFix, framingProblemAt, preflightExport } from './export-prefligh
 import { shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
 import { songDisplayName, titleSpan, withTitleTime } from './titles';
 
-// Inspectors of the Film layers on the inspector grid: a piece's skin, a title or the titles, a shot and the
+// Inspectors of the Film layers on the inspector grid: a piece's skin, a title, a shot and the
 // Camera. The studio's Inspector picks one for the selection.
 
 /**
@@ -140,7 +140,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 				</>
 			) : (
 				<button className="mm-button" data-span="2" disabled={status === 'unavailable' || status === 'missing'} onClick={() => void cx.design.openInBlender()} type="button">
-					Edit in Blender
+					Open in Blender
 				</button>
 			)}
 		</Panel>
@@ -176,30 +176,6 @@ const FramingProblem: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 					{fix.label}
 				</button>
 			)}
-		</>
-	);
-};
-
-/** The Titles layer's inspector, for several titles selected together: each title as a link */
-export const TitlesInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
-	const texts = project.entities.filter((entity) => entity.components.wallText != null);
-
-	return (
-		<>
-			<InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title="Titles" subtitle={texts.length === 1 ? '1 title' : `${texts.length} titles`} />
-			<Panel
-				id="design.text"
-				title="Titles"
-				isEmpty={!texts.length}
-				accessory={<HelpTip text="Text on the wall or in the frame, such as a title or a credit. Insert adds one." />}
-			>
-				{texts.map((entity) => (
-					<LinkRow key={entity.id} icon={<Type size={13} strokeWidth={1.8} className="shrink-0 text-[var(--text-secondary)]" />} title="Select Title" onOpen={() => cx.$selection.set([entity.id])}>
-						{entity.components.wallText?.text}
-					</LinkRow>
-				))}
-			</Panel>
 		</>
 	);
 };
@@ -366,18 +342,12 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 				<TextField key={`in-${timingKey}`} id="text-in" label="In" name="Time the title appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="text-out" label="Out" name="Time the title disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
-			<Panel id="design.wallText.position" title="Position">
-				{isScreen ? (
-					<ReadoutField label="Place" name="Place in the frame" span={2}>
-						{style === 'caption' ? 'Top of the Frame' : style === 'songName' ? 'Upper Third of the Frame' : 'Centre of the Frame'}
-					</ReadoutField>
-				) : (
-					<>
-						<ScrubField id="text-x" label="X" name="X" value={(transform?.position.x ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />
-						<ScrubField id="text-y" label="Y" name="Y" value={(transform?.position.y ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
-					</>
-				)}
-			</Panel>
+			{!isScreen ? (
+				<Panel id="design.wallText.position" title="Position">
+					<ScrubField id="text-x" label="X" name="X" value={(transform?.position.x ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />
+					<ScrubField id="text-y" label="Y" name="Y" value={(transform?.position.y ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
+				</Panel>
+			) : null}
 		</>
 	);
 };

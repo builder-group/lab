@@ -44,12 +44,11 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.open': 'args.path, the .marble package to open',
 	'file.saveAs': 'args.path, where to save',
 	'file.importMidi': 'the add_song tool',
-	'file.importAudio': 'the add_song tool',
 	'file.replaceSong': 'the add_song tool',
 	'file.export': 'the export_film tool',
 	'design.exportPack': 'args.path, plus name and either theme or items',
 	'design.addText': 'args.text, and style, at, color, in and out if wanted',
-	'camera.addShot': 'args.time, kind, roll, distance and length if wanted',
+	'camera.addShot': 'args.time, kind, distance and length if wanted',
 	'camera.addWideShot': 'args.time if wanted',
 	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
@@ -101,7 +100,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const { filter } = z.object({ filter: z.string().optional() }).parse(args);
 		const words = (filter ?? '').toLowerCase().split(/\s+/).filter(Boolean);
 		const listed = registry
-			.filter((command) => command.isHidden !== true && !PERSON_COMMANDS.has(command.id))
+			.filter((command) => !PERSON_COMMANDS.has(command.id))
 			.filter((command) => words.every((word) => `${command.id} ${command.title} ${command.keywords ?? ''}`.toLowerCase().includes(word)))
 			.map((command) => ({
 				id: command.id,

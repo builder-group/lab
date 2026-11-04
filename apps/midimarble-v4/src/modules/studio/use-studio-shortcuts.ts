@@ -55,11 +55,6 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				}
 				return;
 			}
-			if (command && !event.ctrlKey && key === 'i') {
-				event.preventDefault();
-				void (event.shiftKey ? cx.sources.pickAudio() : cx.sources.pickMidi());
-				return;
-			}
 			if (command && !event.ctrlKey && (key === '1' || key === '2')) {
 				event.preventDefault();
 				cx.$workspace.set(key === '1' ? 'compose' : 'design');
@@ -130,10 +125,11 @@ export function useStudioShortcuts(cx: StudioCx): void {
 const panelKeys: Record<string, TStudioPanel> = { s: 'sidebar', i: 'inspector', t: 'timeline' };
 
 // ⌘ shortcuts that run a command directly; the ⌃⌘ panel toggles and ⌘1 and ⌘2 are handled above
-const commandKeys: Record<string, 'file.new' | 'file.open' | 'file.save' | 'file.export' | 'edit.selectAll' | 'edit.duplicate' | undefined> = {
+const commandKeys: Record<string, 'file.new' | 'file.open' | 'file.save' | 'file.importMidi' | 'file.export' | 'edit.selectAll' | 'edit.duplicate' | undefined> = {
 	// ⌘D is Don't Save only while that alert is open; it takes the key first
 	d: 'edit.duplicate',
 	e: 'file.export',
+	i: 'file.importMidi',
 	n: 'file.new',
 	o: 'file.open',
 	s: 'file.save',

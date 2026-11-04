@@ -11,12 +11,12 @@ import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { ZOOM_100_SCALE } from '@/modules/compose/view';
 import { fixedColorSkinLabel } from '@/modules/design/design-commands';
-import { CameraInspector, FormatField, PieceSkin, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
+import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector } from '@/modules/design/DesignInspector';
 import { MarbleSkin } from '@/modules/design/SkinProperties';
 import { THEME_HELP } from '@/modules/design/concept-words';
 import { ThemeRow } from '@/modules/design/ThemePanel';
-import { DecorInspector, DecorsInspector, MadeInBlenderInspector } from '@/modules/design/DecorInspector';
-import { ColorWell, KeyLightInspector, LightInspector, LightsInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
+import { DecorInspector, MadeInBlenderInspector } from '@/modules/design/DecorInspector';
+import { ColorWell, KeyLightInspector, LightInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
 import { addedLights } from '@/modules/design/scene-layers';
 import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts, suggestedHitTimes } from '@/modules/music';
 import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
@@ -73,8 +73,6 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			const entity = project.entities.find((item) => item.id === target.id);
 			return entity == null ? null : <WallTextInspector cx={cx} project={project} entity={entity} />;
 		}
-		case 'titles':
-			return <TitlesInspector cx={cx} project={project} />;
 		case 'shot': {
 			const shot = project.design.camera.shots.find((item) => item.id === target.id);
 			return shot == null ? null : <ShotInspector cx={cx} project={project} shot={shot} />;
@@ -85,7 +83,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			if (lane == null || marble == null) return null;
 			return (
 				<>
-					<LaneInspector cx={cx} project={project} lane={lane} marble={marble} />
+					<LaneInspector cx={cx} project={project} lane={lane} marble={marble} isFilm={isFilm} />
 					{isFilm ? <MarbleSkin cx={cx} project={project} marble={marble} /> : null}
 				</>
 			);
@@ -94,11 +92,9 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return <SongInspector cx={cx} project={project} />;
 		case 'camera':
 			return <CameraInspector cx={cx} project={project} />;
-		// Wall, Lights and Decor belong to Film; inspectorTarget shows the Scene for them in Compose
+		// Wall, lights and Decor belong to Film; inspectorTarget shows the Scene for them in Compose
 		case 'wall':
 			return <WallInspector cx={cx} project={project} />;
-		case 'lights':
-			return <LightsInspector cx={cx} project={project} />;
 		case 'light': {
 			if (target.id === KEY_LIGHT_ID) return <KeyLightInspector cx={cx} project={project} />;
 			const light = addedLights(project.design).find((item) => item.id === target.id);
@@ -108,8 +104,6 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			const decor = project.design.decor.find((item) => item.id === target.id);
 			return decor == null ? null : <DecorInspector key={decor.id} cx={cx} project={project} decor={decor} />;
 		}
-		case 'decors':
-			return <DecorsInspector cx={cx} project={project} ids={target.ids} />;
 		case 'madeInBlender':
 			return <MadeInBlenderInspector key={target.name} cx={cx} project={project} name={target.name} />;
 		case 'scene':
@@ -158,10 +152,7 @@ const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 				commandItem(cx, 'view.fitAll'),
 				commandItem(cx, 'view.fitWhole'),
 				commandItem(cx, 'view.fitSelection'),
-				commandItem(cx, 'view.fitFrame'),
-				'separator',
-				commandItem(cx, 'view.snap'),
-				commandItem(cx, 'view.follow')
+				commandItem(cx, 'view.fitFrame')
 			]}
 		/>
 	);
@@ -169,8 +160,8 @@ const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 
 // MARK: - Marble
 
-const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; marble: TEntity }> = (props) => {
-	const { cx, project, lane, marble } = props;
+const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; marble: TEntity; isFilm: boolean }> = (props) => {
+	const { cx, project, lane, marble, isFilm } = props;
 	const analysis = useFeatureState(cx.sources.$analysis);
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
@@ -256,7 +247,7 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 					</>
 				)}
 			</Panel>
-			{release != null ? (
+			{release != null && !isFilm ? (
 				<Panel id="marble.release" title="Release" accessory={<HelpTip text="Where the marble starts. Drag its ring on the wall to move it." />}>
 					<ScrubField id="release-x" label="X" name="Release X" value={round1(release.position.x * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ x: value / 100 })} onCommit={(value) => commitRelease({ x: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
 					<ScrubField id="release-y" label="Y" name="Release Y" value={round1(release.position.y * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ y: value / 100 })} onCommit={(value) => commitRelease({ y: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
@@ -319,7 +310,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					subtitle={[...ownerIds].map((id) => owners.find((owner) => owner.id === id)?.name).join(', ')}
 					status={<HelpTip text="Drag hits in the timeline to move them together. Press 1 to 9 to hand the notes to that marble, 0 to make them Backing. Press Delete to remove them." />}
 				/>
-				<Panel id="hit.playedBy" title="Play With" accessory={<HelpTip text="Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
+				<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 					{playedBy}
 				</Panel>
 			</>
@@ -333,7 +324,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 		(entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id && entity.components.hitLink.hitId === hit.id
 	);
 	const hitResult = result?.hits.find((item) => item.laneId === lane.id && item.hitId === hit.id);
-	// An open hit no platform can play yet says why (Too Soon, Out of Reach) and offers the fixes in Play With
+	// An open hit no platform can play yet says why (Too Soon, Out of Reach) and offers the fixes in Played By
 	const reach = !isBacking && piece == null && hitResult?.status === 'open' ? hitReach(project, result, hitResult) : null;
 	const unreachable = reach != null && hitResult != null && isUnreachable(reach) ? unreachableStatus(project, result, hitResult) : null;
 	const fixes = unreachable != null && reach != null && hitResult != null ? unreachableActions(cx, hitResult, releaseFixFor(project, hitResult, reach)) : [];
@@ -411,7 +402,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					<PlatformFields cx={cx} project={project} entity={piece} />
 				</Panel>
 			) : null}
-			<Panel id="hit.playedBy" title="Play With" accessory={<HelpTip text="Backing is heard in the film, no platform needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
+			<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Backing is heard in the film, no platform needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 				{playedBy}
 				{isBacking ? null : piece != null ? (
 					<LinkRow icon={<PieceIcon type={piece.components.piece?.type ?? 'platform'} size={14} />} title={`Select ${pieceLabel}`} onOpen={() => cx.reveal([piece.id])}>

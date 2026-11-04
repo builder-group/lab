@@ -6,21 +6,20 @@ import { commandItem, getCommand, runInWorkspace } from './commands';
 import { formatTime } from './format';
 import { toHitKey } from './selection';
 import type { StudioCx } from './StudioCx';
-import { deleteHits, playWithMenu } from './timeline/hand-notes';
+import { deleteHits, playedByMenu } from './timeline/hand-notes';
 
 // Context menus list the same commands as the palette and the shortcuts, so each shows its key
 
 /** Right-click on a piece, on the canvas or in the sidebar */
 export function pieceMenu(cx: StudioCx): TMenuEntry[] {
+	// Film shows what works there: Compose's edits ask for the wall
+	if (cx.$workspace.get() !== 'compose') return tidyMenu([commandItem(cx, 'edit.rename'), 'separator', ...pieceLinkItems(cx)]);
 	// Add Platform re-tilts the selected platform; for scenery such as a switchback it would have no clear target
 	const selected = cx.project?.entities.filter((entity) => cx.$selection.get().includes(entity.id)) ?? [];
 	const isPlatforms = selected.length > 0 && selected.every((entity) => isMusicalPiece(entity.components.piece?.type ?? ''));
 	return tidyMenu([
 		isPlatforms ? commandItem(cx, 'build.autoPlace') : null,
 		selected.some((entity) => entity.components.hitLink != null) ? commandItem(cx, 'build.rebuildFrom') : null,
-		'separator',
-		commandItem(cx, 'build.rotateLeft'),
-		commandItem(cx, 'build.rotateRight'),
 		'separator',
 		commandItem(cx, 'view.fitSelection'),
 		'separator',
@@ -68,7 +67,7 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 		piece != null ? { label: `Select ${piece.name ?? 'Piece'}`, onSelect: () => cx.reveal([piece.id]) } : null,
 		{ label: 'Rebuild From Here', disabled: cx.$compose.get() == null || cx.$compose.get()?.assist.isBuilding === true, onSelect: () => void cx.$compose.get()?.assist.buildTrack({ laneId: lane.id, hitId }) },
 		'separator',
-		...playWithMenu(cx, moving),
+		...playedByMenu(cx, moving),
 		'separator',
 		{ label: 'Delete Hit', onSelect: () => void deleteHits(cx, moving) }
 	]);

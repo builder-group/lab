@@ -50,7 +50,7 @@ const ComposeTools: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => 
 			<div className="mm-tool-rail-divider" />
 			{item('marble', 'Marble', 'Click to release a new marble', <PieceIcon type="marble" size={18} />)}
 			{item('platform', 'Platform', 'Click or drag to place, click a dot to play its note', <PieceIcon type="platform" size={18} />)}
-			{item('path', 'Path', 'Draw a rail or tunnel: click points, drag for curves', <PenTool size={17} strokeWidth={1.6} />)}
+			{item('path', 'Rail', 'Draw a rail: click points, drag for curves', <PenTool size={17} strokeWidth={1.6} />)}
 			<div className="mm-tool-rail-divider" />
 			<RailButton
 				ref={insertButtonRef}
@@ -92,7 +92,7 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 			}
 			const key = event.key.toLowerCase();
 			if (key === 'v') cx.design.$placing.set(null);
-			else if (key === 't') getCommand('tool.text').run(cx);
+			else if (key === 't') getCommand('design.addText').run(cx);
 			else return;
 			event.preventDefault();
 			event.stopPropagation();

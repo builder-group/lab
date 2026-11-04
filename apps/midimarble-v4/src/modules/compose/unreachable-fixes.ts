@@ -7,7 +7,7 @@ import { handNotes } from '@/modules/studio/timeline/hand-notes';
 import { canMakeBacking, hitReach, moveHitLaterFix, type TReleaseFix } from './reachability';
 
 /**
- * Fixes for an unreachable hit, in the notice N shows and the Play With section of the hit inspector: the
+ * Fixes for an unreachable hit, in the notice N shows and the Played By section of the hit inspector: the
  * release change that fixes it when one does, Move Hit Later for a tapped hit that is too soon, then Make
  * Backing, or Delete Hit in a project without a song, where a Backing note could not be seen again
  */

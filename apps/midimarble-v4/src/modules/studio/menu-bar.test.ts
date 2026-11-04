@@ -59,7 +59,7 @@ describe('menu item ids', () => {
 
 	it('should find the text command of Undo', () => {
 		expect(findCommandLine('edit.undo')?.text).toBe('undo');
-		expect(findCommandLine('help.quickHelp#help')?.title).toBe('MidiMarble Help');
+		expect(findCommandLine('help.quickHelp')?.title).toBe('MidiMarble Help');
 	});
 });
 
@@ -104,7 +104,7 @@ describe('Playback and Piece menus', () => {
 
 	it('should list the transport and the piece assists', () => {
 		expect(section('Playback')).toEqual(['play.toggle', 'play.start', 'play.previousHit', 'play.nextHit', 'play.repeat']);
-		expect(section('Track')).toEqual(['build.next', 'build.track', 'build.rebuildFrom', 'build.continue', 'build.mirror', 'build.repeat', 'build.addFinish', 'edit.duplicate', 'piece.detach']);
+		expect(section('Track')).toEqual(['build.next', 'build.track', 'build.rebuildFrom', 'build.continue', 'build.mirror', 'build.repeat', 'build.addFinish', 'piece.detach']);
 	});
 
 	it('should show single keys in the title and never as menu keys, and name Pause while playing', () => {

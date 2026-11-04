@@ -6,7 +6,7 @@ import type { TDecor, TProject, TProjectCommand, TSnowfall } from '@/modules/pro
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/studio/format';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
-import { $blenderObjects, findDecor, madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands } from './decor';
+import { $blenderObjects, madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands } from './decor';
 import { moveDecorClearAction, revealMadeInBlender } from './decor-actions';
 import { decorItem, decorText } from './decor-catalog';
 import { SNOWFALL_DEFAULTS, snowfallOf } from './decor-effects';
@@ -94,17 +94,6 @@ const SnowfallPanel: React.FC<{ cx: StudioCx; decor: TDecor }> = (props) => {
 			<SliderField id="snowfall-speed" label="Speed" value={snow.speed * 100} min={0} max={300} step={5} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ speed: value / 100 }))} />
 			<ColorWell cx={cx} id="snowfall-color" label="Colour" name="Particles colour" own={snow.color} shown={snow.color} commandsFor={(color) => commands({ color: color ?? SNOWFALL_DEFAULTS.color })} />
 		</Panel>
-	);
-};
-
-/** Several decorations selected together */
-export const DecorsInspector: React.FC<{ cx: StudioCx; project: TProject; ids: string[] }> = (props) => {
-	const { project, ids } = props;
-	const list = ids.flatMap((id) => findDecor(project.design, id) ?? []);
-	return (
-		<>
-			<InspectorHeader icon={<Sparkles size={16} strokeWidth={1.7} />} title="Decor" subtitle={`${list.length} items`} />
-		</>
 	);
 };
 

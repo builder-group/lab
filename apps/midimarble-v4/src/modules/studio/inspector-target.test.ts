@@ -30,7 +30,7 @@ describe('inspectorTarget function', () => {
 		expect(inspectorTarget(project, [WALL_KEY])).toEqual({ kind: 'wall' });
 		expect(inspectorTarget(project, [KEY_LIGHT_KEY])).toEqual({ kind: 'light', id: 'key' });
 		expect(inspectorTarget(project, [toLightKey('light-1')])).toEqual({ kind: 'light', id: 'light-1' });
-		expect(inspectorTarget(project, [KEY_LIGHT_KEY, toLightKey('light-1')])).toEqual({ kind: 'lights' });
+		expect(inspectorTarget(project, [KEY_LIGHT_KEY, toLightKey('light-1')])).toEqual({ kind: 'scene' });
 		expect(inspectorTarget(project, [toLightKey('light-gone')])).toEqual({ kind: 'scene' });
 	});
 
@@ -54,7 +54,7 @@ describe('inspectorTarget function', () => {
 			[KEY_LIGHT_KEY, 'light'],
 			[CAMERA_KEY, 'camera'],
 			[toShotKey('shot-1'), 'shot'],
-			[TITLES_KEY, 'titles'],
+			[TITLES_KEY, 'scene'],
 			['title-2', 'title'],
 			['title-1', 'title'],
 			[DECOR_KEY, 'scene']
