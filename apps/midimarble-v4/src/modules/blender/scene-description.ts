@@ -177,7 +177,7 @@ export interface TSceneWallText {
 	id: string;
 	text: string;
 	font: string;
-	/** Letter height in metres; for a screen title (`caption`, `endCard`) a fraction of the frame height */
+	/** Letter height in metres; for a screen title (`caption`, `songName`, `endCard`) a fraction of the frame height */
 	size: number;
 	/** Extrusion in metres */
 	depth: number;
@@ -191,8 +191,8 @@ export interface TSceneWallText {
 	in?: number;
 	out?: number;
 	/**
-	 * `wall` (absent) and `songName` sit on the wall at `position`; `caption` (top of the frame) and `endCard`
-	 * (centre) hang from the film camera. Optional and additive.
+	 * `wall` (absent) sits on the wall at `position`; `caption` (top of the frame), `songName` (upper third) and
+	 * `endCard` (centre) hang from the film camera, and the film encoder draws them onto the film. Optional and additive.
 	 */
 	style?: 'wall' | 'caption' | 'songName' | 'endCard';
 }

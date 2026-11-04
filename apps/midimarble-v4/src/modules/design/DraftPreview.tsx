@@ -2,12 +2,12 @@ import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle } from 'lucide-react';
 import React from 'react';
 import { HelpTip } from '@/components';
-import { MARBLE_Z } from '@/modules/compose/ComposeRenderer';
 import { RailShape, SwitchbackShape, toPoints, TunnelShape } from '@/modules/compose/PieceLayer';
-import { pieceKind, pieceOutline } from '@/modules/compose/scene';
+import { pieceKind } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
+import { SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TScreenTitleLayout } from './draft-look';
 import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
 
 /**
@@ -126,47 +126,99 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
 				return null;
 			})}
-			{titles.map((title) => (
-				<text
-					key={title.entityId}
-					x={title.center.x}
-					y={title.center.y}
-					fill={title.color}
-					opacity={title.opacity}
-					fontSize={title.fontSize}
-					fontWeight={600}
-					textAnchor="middle"
-					dominantBaseline="central"
-					transform={`rotate(${title.angle} ${title.center.x} ${title.center.y})`}
-					style={{ fontFamily: '-apple-system, "Helvetica Neue", sans-serif', textShadow: '0 1px 1.5px rgb(0 0 0 / 0.25)' }}
-				>
-					{title.text}
-				</text>
-			))}
+			{titles.map((title) => (title.screen != null ? <ScreenTitle key={title.entityId} title={title} screen={title.screen} /> : <WallTitle key={title.entityId} title={title} />))}
 			{pieces
 				.filter((piece) => selection.includes(piece.entityId))
 				.map((piece) => {
-					const kind = pieceKind(piece);
-					const depth = kind === 'path' || kind === 'tube' ? MARBLE_Z : (piece.params['depth'] ?? 0.03);
-					const outline = pieceOutline(piece).map((point) => draft.toScreen(point, depth));
-					return <polygon key={piece.entityId} points={toPoints(outline)} fill="none" stroke="var(--accent)" strokeWidth={1.5} strokeLinejoin="round" />;
+					const points = toPoints(draft.selectionOutline(piece));
+					// A white halo and a light fill under the accent stroke keep the outline readable on Brass's gold bars
+					return (
+						<g key={piece.entityId}>
+							<polygon points={points} fill="none" stroke="white" strokeOpacity={0.9} strokeWidth={3.75} strokeLinejoin="round" />
+							<polygon points={points} fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="var(--accent-strong)" strokeWidth={1.75} strokeLinejoin="round" />
+						</g>
+					);
 				})}
 			{titles
 				.filter((title) => selection.includes(title.entityId))
 				.map((title) => {
 					const box = boxes.get(title.entityId);
-					return box == null ? null : <polygon key={title.entityId} points={toPoints(box)} fill="none" stroke="var(--accent)" strokeWidth={1.5} strokeDasharray={title.opacity > 0 ? undefined : '4 3'} />;
+					return box == null ? null : <polygon key={title.entityId} points={toPoints(box)} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} strokeDasharray={title.opacity > 0 ? undefined : '4 3'} />;
 				})}
 		</svg>
 	);
 };
 
+/** A Wall Title in the frame, turned with the wall */
+const WallTitle: React.FC<{ title: TDraftTitle }> = (props) => {
+	const { title } = props;
+	return (
+		<text
+			x={title.center.x}
+			y={title.center.y}
+			fill={title.color}
+			opacity={title.opacity}
+			fontSize={title.fontSize}
+			fontWeight={600}
+			textAnchor="middle"
+			dominantBaseline="central"
+			transform={`rotate(${title.angle} ${title.center.x} ${title.center.y})`}
+			style={{ fontFamily: '-apple-system, "Helvetica Neue", sans-serif', textShadow: '0 1px 1.5px rgb(0 0 0 / 0.25)' }}
+		>
+			{title.text}
+		</text>
+	);
+};
+
+/** A Caption, Song Name or End Card as the encoded film draws it: bold, centred, on a soft dark backing with a shadow */
+const ScreenTitle: React.FC<{ title: TDraftTitle; screen: TScreenTitleLayout }> = (props) => {
+	const { title, screen } = props;
+	const width = textWidth(title.text, screen.fontSize);
+	// FFmpeg's text height is about the font's ascent and descent
+	const height = screen.fontSize * 1.1;
+	return (
+		<g opacity={title.opacity}>
+			<rect
+				x={screen.center.x - width / 2 - screen.padding}
+				y={screen.center.y - height / 2 - screen.padding}
+				width={width + screen.padding * 2}
+				height={height + screen.padding * 2}
+				fill={SCREEN_TITLE_BACKING}
+			/>
+			<text
+				x={screen.center.x}
+				y={screen.center.y}
+				fill={title.color}
+				fontSize={screen.fontSize}
+				fontWeight={700}
+				textAnchor="middle"
+				dominantBaseline="central"
+				style={{ fontFamily: SCREEN_TITLE_FONT, textShadow: `0 ${screen.shadow}px 0 ${SCREEN_TITLE_SHADOW}` }}
+			>
+				{title.text}
+			</text>
+		</g>
+	);
+};
+
+let measureContext: CanvasRenderingContext2D | null | undefined;
+
+/** Width of a screen title's text in CSS pixels, measured in the encoder's font, estimated without a canvas */
+function textWidth(text: string, fontSize: number): number {
+	if (measureContext === undefined) measureContext = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+	if (measureContext == null) return text.length * fontSize * 0.6;
+	measureContext.font = `700 ${fontSize}px ${SCREEN_TITLE_FONT}`;
+	return measureContext.measureText(text).width;
+}
+
 /** Picking boxes of titles: the text's approximate extent around its centre, turned with it, plus a small margin */
 function titleBoxes(titles: TDraftTitle[]): Map<string, TVec2[]> {
 	const boxes = new Map<string, TVec2[]>();
 	for (const title of titles) {
-		const halfWidth = (Math.max(1, title.text.length) * title.fontSize * 0.58) / 2 + 4;
-		const halfHeight = (title.fontSize * 0.8) / 2 + 4;
+		// Screen titles pick on their backing
+		const screen = title.screen;
+		const halfWidth = screen != null ? textWidth(title.text, screen.fontSize) / 2 + screen.padding : (Math.max(1, title.text.length) * title.fontSize * 0.58) / 2 + 4;
+		const halfHeight = screen != null ? (screen.fontSize * 1.1) / 2 + screen.padding : (title.fontSize * 0.8) / 2 + 4;
 		const radians = (title.angle * Math.PI) / 180;
 		const cos = Math.cos(radians);
 		const sin = Math.sin(radians);

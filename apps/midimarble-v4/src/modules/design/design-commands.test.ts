@@ -8,6 +8,7 @@ import {
 	cameraCommands,
 	clearSkinCommands,
 	colorByNoteCommands,
+	isScreenTitle,
 	itemFitsPieceType,
 	previewPointToWall,
 	reactionCommands,
@@ -19,6 +20,7 @@ import {
 	themeSkinCommands,
 	themeSkins,
 	themeTitleColor,
+	titleStyleTiming,
 	withTitleStyle
 } from './design-commands';
 import { isNewThemeRequest, libraryEntries } from './DesignLibraryCx';
@@ -174,12 +176,42 @@ describe('itemFitsPieceType function', () => {
 
 	it('should give a title style its size and default timing, keeping times set by hand', () => {
 		const text = { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#ffffff' };
-		const context = { frameHeight: 0.5, playhead: 6, end: 35, songName: 'Jingle Bells' };
-		expect(withTitleStyle(text, 'caption', context)).toEqual({ ...text, style: 'caption', size: 0.06 });
-		expect(withTitleStyle(text, 'songName', context)).toEqual({ ...text, text: 'Jingle Bells', style: 'songName', size: 0.04, in: 6, out: 10 });
+		const context = { frameHeight: 0.5, playhead: 6, end: 35, songName: 'Jingle Bells', aspect: 9 / 16 };
+		expect(withTitleStyle(text, 'caption', context)).toEqual({ ...text, style: 'caption', size: 0.06, in: 6, out: 9 });
+		// Song Name opens the film in the frame, shrunk to fit the frame width
+		const songName = withTitleStyle(text, 'songName', context);
+		expect(songName).toEqual({ ...text, text: 'Jingle Bells', style: 'songName', size: 0.047, out: 3 });
+		expect(isScreenTitle('songName')).toBe(true);
 		expect(withTitleStyle(text, 'endCard', context)).toEqual({ ...text, style: 'endCard', size: 0.08, in: 32 });
 		expect(withTitleStyle({ ...text, in: 2 }, 'endCard', context).in).toBe(2);
 		expect(withTitleStyle({ ...text, style: 'caption', size: 0.06 }, 'wall', context)).toEqual({ ...text, size: 0.03 });
+	});
+
+	it('should re-time a title only while it still has its style\'s own times', () => {
+		const text = { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#ffffff' };
+		const context = { frameHeight: 0.5, playhead: 31, end: 35, songName: null };
+		const songName = withTitleStyle(text, 'songName', context);
+		expect(songName).toMatchObject({ out: 3 });
+		expect(songName.in).toBeUndefined();
+		// Song Name's own times become End Card's, then Caption's at the playhead, then the whole film again
+		const endCard = withTitleStyle(songName, 'endCard', context);
+		expect(endCard).toMatchObject({ in: 32 });
+		expect(endCard.out).toBeUndefined();
+		const caption = withTitleStyle(endCard, 'caption', context);
+		expect(caption).toMatchObject({ in: 31, out: 34 });
+		// A caption made earlier at another playhead still has its own 3 s
+		expect(withTitleStyle(caption, 'songName', { ...context, playhead: 10 })).toMatchObject({ out: 3 });
+		const wall = withTitleStyle(caption, 'wall', context);
+		expect(wall.in).toBeUndefined();
+		expect(wall.out).toBeUndefined();
+		// Times typed by hand stay
+		const typed = { ...songName, out: 5 };
+		expect(withTitleStyle(typed, 'endCard', context)).toMatchObject({ out: 5 });
+		expect(withTitleStyle(typed, 'endCard', context).in).toBeUndefined();
+		// A caption near the end of the film still gets 3 s
+		expect(withTitleStyle(text, 'caption', { ...context, playhead: 34 })).toMatchObject({ in: 32 });
+		expect(titleStyleTiming('caption', { playhead: 0, end: 35 })).toEqual({ out: 3 });
+		expect(titleStyleTiming('songName', { playhead: 0, end: 2 })).toEqual({});
 	});
 
 	it('should recolour titles that still have the old theme\'s title colour when the theme changes', () => {

@@ -239,8 +239,8 @@ type TWallText = NonNullable<TEntity['components']['wallText']>;
 export type TTitleStyle = NonNullable<TWallText['style']>;
 
 /**
- * Title styles of the Title inspector. Wall Title and Song Name sit on the wall where they were placed; Caption and
- * End Card sit in the frame, and Blender hangs them from the film camera, so they stay put while the camera moves.
+ * Title styles of the Title inspector. A Wall Title sits on the wall where it was placed; Caption, Song Name and End
+ * Card sit in the frame, and Blender hangs them from the film camera, so they stay put while the camera moves.
  */
 export const titleStyles: readonly { style: TTitleStyle; label: string }[] = [
 	{ style: 'wall', label: 'Wall Title' },
@@ -250,15 +250,19 @@ export const titleStyles: readonly { style: TTitleStyle; label: string }[] = [
 ];
 
 // Letter heights as a fraction of the frame height, so titles read at phone size: about 115 px of a 1920 px film
-// for a wall title, more for the song name and the end card
-const TITLE_HEIGHT: Record<TTitleStyle, number> = { wall: 0.06, caption: 0.06, songName: 0.08, endCard: 0.08 };
-// Seconds a song name stays after its In time, and an end card shows before the end of the film
-const SONG_NAME_SECONDS = 4;
-const END_CARD_SECONDS = 3;
+// for a wall title and a caption, more for the song name and the end card
+const TITLE_HEIGHT: Record<TTitleStyle, number> = { wall: 0.06, caption: 0.06, songName: 0.07, endCard: 0.08 };
+// Seconds each style shows by default, like a title preset in Final Cut or CapCut: a song name opens the film, a
+// caption shows from the playhead and an end card closes the film
+const STYLE_SECONDS = 3;
+// Share of the frame width a screen title may fill, and the width of a letter over its letter height in the bold
+// rounded font the encoder draws with (`SCREEN_TITLE_FONT_SCALE` 1.4 times about 0.6 of the font size)
+const SCREEN_TITLE_WIDTH = 0.86;
+const LETTER_WIDTH = 0.84;
 
-/** Caption and End Card sit in the frame, and their size is a fraction of the frame height */
+/** Caption, Song Name and End Card sit in the frame, and their size is a fraction of the frame height */
 export function isScreenTitle(style: TWallText['style']): boolean {
-	return style === 'caption' || style === 'endCard';
+	return style === 'caption' || style === 'songName' || style === 'endCard';
 }
 
 /** The colour titles start with in a theme: white on Brass's lavender plaster, navy on Pegboard's birch */
@@ -289,26 +293,65 @@ export function addWallTextCommands(point: TVec2, options: { theme: string; fram
 }
 
 /**
- * The title in another style with that style's size and default timing: a Song Name shows for a few seconds from
- * the playhead and reads the song's name while the text is still the default, an End Card shows over the last
- * seconds. Times the user set stay.
+ * Default In and Out of a style, absent for the start and the end of the film: Song Name the first 3 s, Caption 3 s
+ * from the playhead and End Card the last 3 s. A Wall Title shows for the whole film.
  */
-export function withTitleStyle(text: TWallText, style: TTitleStyle, context: { frameHeight: number; playhead: number; end: number; songName: string | null }): TWallText {
-	const { style: _old, ...rest } = text;
-	const next: TWallText = { ...rest, size: isScreenTitle(style) ? TITLE_HEIGHT[style] : wallTitleSize(style, context.frameHeight) };
+export function titleStyleTiming(style: TTitleStyle, context: { playhead: number; end: number }): { in?: number; out?: number } {
+	const { end } = context;
+	if (style === 'wall' || end <= STYLE_SECONDS) return {};
+	if (style === 'songName') return { out: STYLE_SECONDS };
+	if (style === 'endCard') return { in: roundTime(end - STYLE_SECONDS) };
+	const start = roundTime(Math.min(Math.max(0, context.playhead), end - STYLE_SECONDS));
+	const out = roundTime(start + STYLE_SECONDS);
+	return { ...(start > 0 ? { in: start } : {}), ...(out < end ? { out } : {}) };
+}
+
+/**
+ * The title in another style with that style's size and default timing. The timing follows the new style while it
+ * is still the old style's default or the whole film; times set by hand stay. A Song Name reads the song's name
+ * while the text is still the default, and a screen title shrinks to fit the frame width.
+ */
+export function withTitleStyle(
+	text: TWallText,
+	style: TTitleStyle,
+	context: { frameHeight: number; playhead: number; end: number; songName: string | null; aspect?: number }
+): TWallText {
+	const { style: previous = 'wall', in: start, out, ...rest } = text;
+	const next: TWallText = { ...rest };
+	if (style === 'songName' && text.text === DEFAULT_WALL_TEXT.text && context.songName != null) next.text = context.songName;
+	next.size = isScreenTitle(style) ? screenTitleSize(style, next.text, context.aspect ?? 9 / 16) : wallTitleSize(style, context.frameHeight);
 	if (style !== 'wall') next.style = style;
-	if (style === 'songName') {
-		if (text.text === DEFAULT_WALL_TEXT.text && context.songName != null) next.text = context.songName;
-		if (text.in == null && text.out == null) {
-			const start = Math.round(Math.max(0, context.playhead) * 100) / 100;
-			if (start > 0) next.in = start;
-			if (start + SONG_NAME_SECONDS < context.end) next.out = Math.round((start + SONG_NAME_SECONDS) * 100) / 100;
-		}
-	}
-	if (style === 'endCard' && text.in == null && text.out == null && context.end > END_CARD_SECONDS) {
-		next.in = Math.round((context.end - END_CARD_SECONDS) * 100) / 100;
-	}
+	const timing = hasStyleTiming(text, previous, context) ? titleStyleTiming(style, context) : { in: start, out };
+	if (timing.in != null) next.in = timing.in;
+	if (timing.out != null) next.out = timing.out;
 	return next;
+}
+
+/** Whether a title's In and Out are still what its style gave it, or the whole film */
+function hasStyleTiming(text: TWallText, style: TTitleStyle, context: { playhead: number; end: number }): boolean {
+	if (text.in == null && text.out == null) return true;
+	if (style === 'caption') {
+		// A caption's default starts at the playhead it was made at, so any 3 s span counts
+		const length = Math.min(context.end, text.out ?? context.end) - Math.max(0, text.in ?? 0);
+		return Math.abs(length - STYLE_SECONDS) < 0.005;
+	}
+	const timing = titleStyleTiming(style, context);
+	return sameTime(text.in, timing.in) && sameTime(text.out, timing.out);
+}
+
+function sameTime(a: number | undefined, b: number | undefined): boolean {
+	return a == null || b == null ? a === b : Math.abs(a - b) < 0.005;
+}
+
+/** Letter height of a screen title as a share of the frame height: the style's, smaller when the text would not fit */
+function screenTitleSize(style: TTitleStyle, text: string, aspect: number): number {
+	const fit = (SCREEN_TITLE_WIDTH * aspect) / (Math.max(1, text.length) * LETTER_WIDTH);
+	// Rounded down to a tenth of a percent, at least 2 % of the frame height
+	return Math.max(0.02, Math.floor(Math.min(TITLE_HEIGHT[style], fit) * 1000) / 1000);
+}
+
+function roundTime(time: number): number {
+	return Math.round(time * 100) / 100;
 }
 
 function wallTitleSize(style: TTitleStyle, frameHeight: number): number {

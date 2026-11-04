@@ -403,11 +403,12 @@ def main():
     # Screen titles: a caption near the top and an end card in the centre hang from the camera at a fixed frame size
     caption = dict(title, id='text-caption', text='CAPTION', style='caption', size=0.06, color='#ffffff')
     end_card = dict(title, id='text-end', text='END', style='endCard', size=0.08, color='#ffffff')
-    write_package(root, records, hit, asset=True, texts=[caption, end_card])
+    song_name = dict(title, id='text-song', text='SONG', style='songName', size=0.07, color='#ffffff')
+    write_package(root, records, hit, asset=True, texts=[caption, end_card, song_name])
     report = apply(worker)
     camera_obj = scene.camera
-    check(report['texts']['screen'] == 2, 'apply attaches both screen titles to the camera')
-    caption_obj, end_obj = text_object('text-caption'), text_object('text-end')
+    check(report['texts']['screen'] == 3, 'apply attaches the caption, song name and end card to the camera')
+    caption_obj, end_obj, song_obj = text_object('text-caption'), text_object('text-end'), text_object('text-song')
     check(caption_obj.parent == camera_obj and end_obj.parent == camera_obj and not caption_obj.visible_shadow,
           'screen titles are parented to the film camera and cast no shadow')
     for frame in (0, round(DURATION * FPS)):
@@ -422,6 +423,9 @@ def main():
                   tuple(round(v, 3) for v in caption_obj.matrix_world.translation), camera_obj.data.lens))
         check(abs((top.y - centre.y) * 2 - 0.06) < 0.003, 'the caption keeps its size in the frame at frame %d' % frame)
         check(abs(end_centre.y - 0.5) < 0.01, 'the end card sits in the centre at frame %d' % frame)
+        song_centre = world_to_camera_view(scene, camera_obj, song_obj.matrix_world.translation)
+        check(abs(song_centre.y - 0.65) < 0.01 and abs(song_centre.x - 0.5) < 0.01 and song_obj.parent == camera_obj,
+              'the song name sits upright in the upper third of the frame at frame %d (%.3f)' % (frame, song_centre.y))
     # The film's rig camera is perspective and moves; the drivers follow its distance to the wall and its focus
     camera_obj.data.type = 'PERSP'
     camera_obj.data.dof.focus_distance = 0.5
@@ -434,7 +438,12 @@ def main():
         check(abs(centre.y - 0.85) < 0.01 and abs((top.y - centre.y) * 2 - 0.06) < 0.003 and 0 < centre.z < abs(location[1]),
               'a perspective camera %.2f m from the wall keeps the caption at the top in front of the wall' % abs(location[1]))
     states = {item['mmId']: item['link'] for item in worker.handle('inspect', {})['texts']}
-    check(states == {'text-caption': 'linked', 'text-end': 'linked'}, 'camera drivers do not detach a screen title')
+    check(states == {'text-caption': 'linked', 'text-end': 'linked', 'text-song': 'linked'}, 'camera drivers do not detach a screen title')
+    # The film encoder burns a song name in like a caption, in the upper third on the same backing
+    filters = render.screen_title_filters({'height': 1920, 'duration': 10.0, 'screenTitles': [
+        {'text': 'SONG', 'style': 'songName', 'size': 0.07, 'color': '#ffffff', 'in': None, 'out': 3.0}]}, Path(root))
+    check(not filters or (':y=672.0-text_h/2' in filters[0] and 'boxcolor=black@0.28' in filters[0]),
+          'the encoder draws a song name in the upper third on its backing')
     write_package(root, records, hit, asset=True, texts=[dict(caption, style='wall')])
     apply(worker)
     unparented = text_object('text-caption')

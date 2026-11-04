@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { verticalFov } from '@/modules/camera';
-import { draftPieceColors, draftWall, noteColor, titleOpacity, TITLE_FADE } from './draft-look';
+import { draftPieceColors, draftWall, noteColor, screenTitleLayout, titleOpacity, TITLE_FADE } from './draft-look';
 import { imageToWall } from './film-camera';
 
 describe('draft look', () => {
@@ -12,7 +12,8 @@ describe('draft look', () => {
 
 	it('should dress pieces per theme, skin and Colour by Note', () => {
 		const platform = { type: 'platform', color: '#3478f6', skin: null, notePitch: 60 };
-		expect(draftPieceColors('pegboard', platform, false).bar).toBe('#3478f6');
+		// A lighter tint of the marble's colour, so the marble reads over its own platforms
+		expect(draftPieceColors('pegboard', platform, false).bar).toBe('#85aefa');
 		expect(draftPieceColors('pegboard', platform, true).bar).toBe(noteColor(60));
 		expect(draftPieceColors('brass', platform, false).bar).toBe(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:gold', link: 'linked' } }, false).bar);
 		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:copper', link: 'linked' } }, false).bar).not.toBe(draftPieceColors('brass', platform, false).bar);
@@ -58,5 +59,21 @@ describe('imageToWall function', () => {
 		expect(center?.x).toBeCloseTo(0.2);
 		expect(center?.y).toBeCloseTo(0.5);
 		expect((top?.y ?? 0) - 0.5).toBeCloseTo(Math.tan((verticalFov(50, aspect) * Math.PI) / 360));
+	});
+});
+
+describe('screenTitleLayout function', () => {
+	it('should place and size screen titles like the film encoder, scaled to the preview', () => {
+		const film = screenTitleLayout('caption', 0.06, { width: 1080, height: 1920 }, 1920);
+		expect(film.center.x).toBe(540);
+		expect(film.center.y).toBeCloseTo(288);
+		expect(film.fontSize).toBeCloseTo(161.28);
+		expect(film.padding).toBeCloseTo(53.76);
+		expect(film.shadow).toBeCloseTo(6.72);
+		const preview = screenTitleLayout('caption', 0.06, { width: 270, height: 480 }, 1920);
+		expect(preview.fontSize).toBeCloseTo(film.fontSize / 4);
+		expect(preview.padding).toBeCloseTo(film.padding / 4);
+		expect(screenTitleLayout('endCard', 0.08, { width: 270, height: 480 }, 1920).center.y).toBe(240);
+		expect(screenTitleLayout('songName', 0.07, { width: 270, height: 480 }, 1920).center.y).toBeCloseTo(168);
 	});
 });

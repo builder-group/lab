@@ -49,15 +49,18 @@ JOB_FOLDER = 'renders/.jobs'
 CANCEL_GRACE_SECONDS = 5.0
 FFMPEG_CANDIDATES = ('/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg')
 RENDER_JOB_SCRIPT = Path(__file__).resolve().parents[1] / 'render_job.py'
-# Screen titles (caption, end card) are drawn onto the encoded film, where depth of field cannot blur them, like the
+# Screen titles (caption, song name, end card) are drawn onto the encoded film, where depth of field cannot blur them, like the
 # overlay titles of the reference films. The 3D copies stay for previews and for Blender's own encoder.
 SCREEN_TITLE_FONTS = ('/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf',
                       '/System/Library/Fonts/Supplemental/Arial Bold.ttf', '/System/Library/Fonts/SFNS.ttf')
 SCREEN_TITLE_FADE = 0.25
 # Font size over letter height: the description's `size` is the letter height as a fraction of the frame height
 SCREEN_TITLE_FONT_SCALE = 1.4
-# Height of a caption's centre above the frame centre, as a fraction of the half frame height (`walltext.CAPTION_HEIGHT`)
-CAPTION_HEIGHT = 0.7
+# Screen title styles the encoder burns in (`walltext.SCREEN_STYLES`)
+SCREEN_TITLE_STYLES = ('caption', 'songName', 'endCard')
+# Height of a screen title's centre above the frame centre, as a fraction of the half frame height
+# (`walltext.SCREEN_HEIGHTS`)
+SCREEN_TITLE_HEIGHTS = {'caption': 0.7, 'songName': 0.3, 'endCard': 0.0}
 
 
 # Live worker side
@@ -475,7 +478,7 @@ def find_ffmpeg():
 
 
 def burned_screen_titles(project_dir, start_time):
-    """Caption and end card titles from the scene description, with times relative to the film's first frame"""
+    """Caption, song name and end card titles from the scene description, with times relative to the film's first frame"""
     path = Path(project_dir) / '.cache' / 'scene.json'
     try:
         description = json.loads(path.read_text())
@@ -485,7 +488,7 @@ def burned_screen_titles(project_dir, start_time):
     for entry in description.get('wallTexts') or []:
         style = entry.get('style')
         text = str(entry.get('text') or '').strip()
-        if style not in ('caption', 'endCard') or not text:
+        if style not in SCREEN_TITLE_STYLES or not text:
             continue
         start = entry.get('in')
         end = entry.get('out')
@@ -500,7 +503,7 @@ def burned_screen_titles(project_dir, start_time):
 def remove_screen_titles(scene):
     """Removes the 3D screen titles from the film job's copy of the scene; the encoder draws them instead. Their
     timing keys drive `hide_render`, so hiding them would not hold."""
-    for obj in [obj for obj in scene.objects if obj.get('mm_screen') in ('caption', 'endCard')]:
+    for obj in [obj for obj in scene.objects if obj.get('mm_screen') in SCREEN_TITLE_STYLES]:
         bpy.data.objects.remove(obj, do_unlink=True)
 
 
@@ -520,7 +523,7 @@ def screen_title_filters(job, job_dir):
         fade = SCREEN_TITLE_FADE
         alpha = ('if(lt(t,{s}),0,if(lt(t,{s}+{f}),(t-{s})/{f},if(lt(t,{e}-{f}),1,if(lt(t,{e}),({e}-t)/{f},0))))'
                  .format(s='%.4f' % start, e='%.4f' % end, f='%.4f' % fade))
-        centre_y = job['height'] / 2 * (1 - CAPTION_HEIGHT) if title['style'] == 'caption' else job['height'] / 2
+        centre_y = job['height'] / 2 * (1 - SCREEN_TITLE_HEIGHTS.get(title['style'], 0.0))
         color = '0x' + str(title['color']).lstrip('#')[:6]
         padding = max(4, size // 3)
         filters.append(

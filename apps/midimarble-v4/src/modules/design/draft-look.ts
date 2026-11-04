@@ -61,7 +61,8 @@ const HOUSING = '#26282d';
 export function draftPieceColors(theme: string, piece: Pick<TScenePiece, 'type' | 'color' | 'skin' | 'notePitch'>, colorByNote: boolean): TDraftColors {
 	const note = colorByNote && piece.type === 'platform' && piece.notePitch != null ? noteColor(piece.notePitch) : null;
 	if (theme !== 'brass') {
-		const body = note ?? piece.color;
+		// Pieces take their marble's colour; a lighter tint keeps the marble readable as it rolls over them
+		const body = note ?? tint(piece.color, PEGBOARD_TINT);
 		return piece.type === 'tunnel' ? { bar: body, nub: shade(body, 0.75) } : { bar: body, nub: WOOD };
 	}
 	switch (piece.type) {
@@ -94,8 +95,46 @@ const BRASS_SKINS = ['gold', 'silver', 'copper', 'dark', 'device', 'key', 'knob'
 /** Seconds a timed title takes to fade, the same as `FADE` in walltext.py */
 export const TITLE_FADE = 0.25;
 
-/** Height of a caption's centre above the frame centre, as a fraction of the half frame height, like walltext.py */
-export const CAPTION_HEIGHT = 0.7;
+/**
+ * Height of a screen title's centre above the frame centre, as a fraction of the half frame height: the same as
+ * `SCREEN_HEIGHTS` in walltext.py and `SCREEN_TITLE_HEIGHTS` in render.py
+ */
+export const SCREEN_TITLE_HEIGHT: Record<'caption' | 'songName' | 'endCard', number> = { caption: 0.7, songName: 0.3, endCard: 0 };
+/** Font size over letter height of a screen title, `SCREEN_TITLE_FONT_SCALE` in render.py */
+export const SCREEN_TITLE_FONT_SCALE = 1.4;
+/** The encoder's font for screen titles, `SCREEN_TITLE_FONTS` in render.py */
+export const SCREEN_TITLE_FONT = '"Arial Rounded MT Bold", "Arial", sans-serif';
+
+/** A screen title as the encoder draws it, in pixels of a frame of `height`: font size, backing padding and shadow */
+export interface TScreenTitleLayout {
+	center: { x: number; y: number };
+	fontSize: number;
+	/** The backing box extends this far around the text */
+	padding: number;
+	/** Downward offset of the text's shadow */
+	shadow: number;
+}
+
+/**
+ * Where and how big a Caption, Song Name or End Card sits in a frame of `width` by `height` CSS pixels, scaled from
+ * `screen_title_filters` in render.py at the film's `filmHeight`: a soft dark box `padding` around the text and a
+ * shadow `shadow` below it
+ */
+export function screenTitleLayout(style: keyof typeof SCREEN_TITLE_HEIGHT, size: number, frame: { width: number; height: number }, filmHeight: number): TScreenTitleLayout {
+	const scale = frame.height / Math.max(1, filmHeight);
+	// The encoder rounds to whole film pixels; the preview keeps the fractions
+	const filmFont = Math.max(8, size * filmHeight * SCREEN_TITLE_FONT_SCALE);
+	return {
+		center: { x: frame.width / 2, y: (frame.height / 2) * (1 - SCREEN_TITLE_HEIGHT[style]) },
+		fontSize: filmFont * scale,
+		padding: Math.max(4, filmFont / 3) * scale,
+		shadow: Math.max(1, filmFont / 24) * scale
+	};
+}
+
+/** Backing of the encoder: black at 28 %, shadow black at 35 % */
+export const SCREEN_TITLE_BACKING = 'rgb(0 0 0 / 0.28)';
+export const SCREEN_TITLE_SHADOW = 'rgb(0 0 0 / 0.35)';
 
 /**
  * Opacity of a title at `time` for its optional In and Out times, fading like the Blender worker: up over
@@ -110,6 +149,16 @@ export function titleOpacity(time: number, range: { in?: number; out?: number })
 	if (start > 0) opacity = Math.min(opacity, (time - start) / fade);
 	if (Number.isFinite(end)) opacity = Math.min(opacity, (end - time) / fade);
 	return Math.max(0, Math.min(1, opacity));
+}
+
+/** Share of white mixed into Pegboard pieces in the marble's colour */
+const PEGBOARD_TINT = 0.4;
+
+function tint(color: string, amount: number): string {
+	const value = Number.parseInt(color.replace('#', '').slice(0, 6), 16);
+	if (!Number.isFinite(value)) return color;
+	const mix = (channel: number): number => (channel / 255) * (1 - amount) + amount;
+	return toHex(mix((value >> 16) & 255), mix((value >> 8) & 255), mix(value & 255));
 }
 
 function shade(color: string, factor: number): string {

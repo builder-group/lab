@@ -13,8 +13,8 @@ Timing: optional `in` and `out` seconds show a title only inside its range. The 
 from 0 to 1 over `FADE` seconds after `in` and back to 0 over the `FADE` seconds before `out`; the title material
 mixes to transparent by it, and `hide_render` keeps the title out of renders and the ID pass while it is hidden.
 
-Styles: `style` `wall` (the default) and `songName` sit on the wall as above. `caption` (near the top of the frame)
-and `endCard` (centred) are screen titles: `attach_screen_texts` parents them to the film camera, after the camera
+Styles: `style` `wall` (the default) sits on the wall as above. `caption` (near the top of the frame), `songName`
+(above the centre) and `endCard` (centred) are screen titles: `attach_screen_texts` parents them to the film camera, after the camera
 exists, and drivers on its lens and distance keep them the same size and place in the frame while it moves. Their
 `size` is the letter height as a fraction of the frame height; they cast no shadow and have no extrusion.
 """
@@ -39,15 +39,16 @@ VISIBLE_PROPERTY = 'mm_visible'
 TIMING_PATHS = ('["%s"]' % VISIBLE_PROPERTY, 'hide_render')
 # `KeyframePoint.interpolation` enum value for CONSTANT
 INTERPOLATION_CONSTANT = 0
-SCREEN_STYLES = ('caption', 'endCard')
+SCREEN_STYLES = ('caption', 'songName', 'endCard')
 SCREEN_PROPERTY = 'mm_screen'
 # Screen titles sit this far along the way from the camera to the closer of its focus and the wall, just in front of
 # the pieces and close enough to the focus that depth of field keeps them sharp (0.85 blurred small captions)
 SCREEN_DEPTH = 0.96
 # Glow of a screen title: the themes darken the film (Brass exposure -1.25), so plain strength 1 reads grey
 SCREEN_GLOW = 3.0
-# Height of a caption's centre above the frame centre, as a fraction of the half frame height
-CAPTION_HEIGHT = 0.7
+# Height of a screen title's centre above the frame centre, as a fraction of the half frame height; matches
+# `render.SCREEN_TITLE_HEIGHTS` and the Draft Preview's `SCREEN_TITLE_HEIGHT`
+SCREEN_HEIGHTS = {'caption': 0.7, 'songName': 0.3, 'endCard': 0.0}
 SCREEN_PATHS = (('location', 1), ('location', 2), ('scale', 0), ('scale', 1), ('scale', 2))
 
 
@@ -135,7 +136,7 @@ def write_text(project_dir, obj, entry):
 
 def attach_screen_texts(managed, camera, scene):
     """
-    Parents caption and end card titles to the film camera. Drivers place them at `SCREEN_DEPTH` of the way to the
+    Parents caption, song name and end card titles to the film camera. Drivers place them at `SCREEN_DEPTH` of the way to the
     closer of the focus distance and the wall, and scale them by the frame height there, so a caption stays at the
     top of the frame at its size whatever the camera does. Returns how many were attached.
     """
@@ -159,7 +160,7 @@ def attach_screen_texts(managed, camera, scene):
         distance = '%g*abs(wall)' % SCREEN_DEPTH if ortho else '%g*min(focus, abs(wall))' % SCREEN_DEPTH
         frame_half = 'ortho*%g' % (fit / 2) if ortho else '(%s)*%g/lens' % (distance, camera.data.sensor_width / 2 * fit)
         expressions = {
-            ('location', 1): '%s*%g' % (frame_half, CAPTION_HEIGHT if style == 'caption' else 0.0),
+            ('location', 1): '%s*%g' % (frame_half, SCREEN_HEIGHTS.get(style, 0.0)),
             ('location', 2): '-(%s)' % distance,
         }
         for index in range(3):

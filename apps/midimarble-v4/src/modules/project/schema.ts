@@ -116,7 +116,7 @@ const SWallTextComponent = z.strictObject({
 	// Film time in seconds when the title appears and disappears; absent means the start and the end of the film
 	in: z.number().nonnegative().optional(),
 	out: z.number().nonnegative().optional(),
-	// `wall` (absent) and `songName` sit on the wall; `caption` and `endCard` sit in the frame, where `size` is the
+	// `wall` (absent) sits on the wall; `caption`, `songName` and `endCard` sit in the frame, where `size` is the
 	// letter height as a fraction of the frame height
 	style: z.enum(['wall', 'caption', 'songName', 'endCard']).optional()
 });

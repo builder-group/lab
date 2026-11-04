@@ -333,7 +333,7 @@ const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEn
 		const playhead = cx.$playhead.get();
 		const songName = project.music.sources[0]?.name.replace(/\.[^.]+$/, '') ?? null;
 		const frameHeight = frameHeightOnWall(project, cx.simulation.$result.get(), playhead);
-		const value = withTitleStyle(text, next, { frameHeight, playhead, end: filmEnd, songName });
+		const value = withTitleStyle(text, next, { frameHeight, playhead, end: filmEnd, songName, aspect: project.frame.width / project.frame.height });
 		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
 	}
 
@@ -360,7 +360,7 @@ const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEn
 				id="design.wallText"
 				title="Text"
 				accessory={
-					<HelpTip text="Wall Title sits on the wall where you placed it. Song Name is a bigger wall title that shows for a few seconds from the playhead. Caption stays at the top of the frame and End Card in its centre while the camera moves; their size is a share of the frame height." />
+					<HelpTip text="Wall Title sits on the wall where you placed it. Caption, Song Name and End Card stay in the frame while the camera moves, and their size is a share of the frame height. Song Name opens the film, Caption shows for 3 s from the playhead and End Card covers the last 3 s." />
 				}
 			>
 				<TextField id="text-content" label="Text" name="Text" value={text.text} span={2} allowEmpty={false} onCommit={(value) => setText({ text: value })} />
@@ -392,14 +392,14 @@ const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEn
 					<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span>
 				</span>
 			</Panel>
-			<Panel id="design.wallText.timing" title="Timing" accessory={<HelpTip text="When the title shows: it fades in at In and out at Out. The defaults are the start and the end of the film." />}>
+			<Panel id="design.wallText.timing" title="Timing" accessory={<HelpTip text="When the title shows: it fades in at In and out at Out. A Wall Title shows for the whole film; the other styles bring their own times, and times you type stay." />}>
 				<TextField key={`in-${timingKey}`} id="text-in" label="In" name="Time the title appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="text-out" label="Out" name="Time the title disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
 			<Panel id="design.wallText.position" title="Position">
 				{isScreen ? (
 					<ReadoutField label="Place" name="Place in the frame" span={2}>
-						{style === 'caption' ? 'Top of the Frame' : 'Centre of the Frame'}
+						{style === 'caption' ? 'Top of the Frame' : style === 'songName' ? 'Upper Third of the Frame' : 'Centre of the Frame'}
 					</ReadoutField>
 				) : (
 					<>

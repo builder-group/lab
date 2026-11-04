@@ -7,7 +7,8 @@ import { marblePositionAt, pieceAngleAt, pieceKind, pieceOutline } from '@/modul
 import type { TVec2 } from '@/modules/project';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { CAPTION_HEIGHT, draftPieceColors, draftWall, titleOpacity, type TDraftColors } from './draft-look';
+import { draftPieceColors, draftWall, screenTitleLayout, titleOpacity, type TDraftColors, type TScreenTitleLayout } from './draft-look';
+import { selectionHull } from './draft-outline';
 import { filmCamera, imageToWall, type TFilmCamera } from './film-camera';
 
 /**
@@ -104,11 +105,10 @@ export class DraftPreviewCx {
 			const text = entity.components.wallText;
 			const transform = entity.components.transform;
 			if (text == null) return [];
-			if (text.style === 'caption' || text.style === 'endCard') {
-				// Screen titles hang from the camera in Blender: a fixed place and size in the frame, like there
-				const { width, height } = this.size;
-				const center = { x: width / 2, y: text.style === 'caption' ? height * (0.5 - CAPTION_HEIGHT / 2) : height / 2 };
-				return [{ entityId: entity.id, text: text.text, color: text.color, center, fontSize: text.size * height, angle: 0, opacity: titleOpacity(time, text) }];
+			if (text.style === 'caption' || text.style === 'songName' || text.style === 'endCard') {
+				// Screen titles are drawn onto the encoded film: a fixed place and size in the frame on a soft backing
+				const screen = screenTitleLayout(text.style, text.size, this.size, project.frame.height);
+				return [{ entityId: entity.id, text: text.text, color: text.color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen }];
 			}
 			if (transform == null) return [];
 			const z = text.depth;
@@ -129,6 +129,18 @@ export class DraftPreviewCx {
 				}
 			];
 		});
+	}
+
+	/**
+	 * Selection outline of a piece in CSS pixels: rails and tunnels by their outline, solid pieces by everything the
+	 * camera sees of them from the wall to their front, a few pixels out like the Compose canvas
+	 */
+	selectionOutline(piece: TResolvedPiece): TVec2[] {
+		const kind = pieceKind(piece);
+		const wall = pieceOutline(piece);
+		if (kind === 'path' || kind === 'tube') return wall.map((corner) => this.toScreen(corner, MARBLE_Z));
+		const depth = piece.params['depth'] ?? 0.03;
+		return selectionHull([...wall.map((corner) => this.toScreen(corner, 0)), ...wall.map((corner) => this.toScreen(corner, depth))], 3);
 	}
 
 	/** Title or piece under a CSS pixel point of the frame, titles first like the Blender ID pass shows them on top */
@@ -224,6 +236,8 @@ export interface TDraftTitle {
 	/** Screen angle in degrees, clockwise */
 	angle: number;
 	opacity: number;
+	/** Caption, Song Name and End Card: the encoder's backing and shadow */
+	screen?: TScreenTitleLayout;
 }
 
 function distanceToOutline(point: TVec2, outline: TVec2[]): number {
