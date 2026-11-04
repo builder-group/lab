@@ -13,6 +13,14 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### 2026-11-04: MCP in the real app; two freezes found
+
+- A native run found two real freezes. (1) The simulation waited for `requestAnimationFrame`, which stops for a covered or hidden window, so "Checking…" and MCP calls hung; `onNextFrame` (`studio/next-frame.ts`) falls back to a timer, also for commands waiting on the canvas. (2) A read under a protected folder waits for a macOS permission prompt: a debug-only path into the source tree froze the window through a sync command. Bundled Packs now read from the app's resources, and library and package commands run off the main thread (`#[tauri::command(async)]`)
+- Still open: a tool reading a song under Documents or Downloads waits for that prompt with the MCP queue behind it, and the prompt only shows to a person at the Mac. Tell the agent instead of waiting, or surface it in the window
+- New Project opens straight away, unsaved; the first Save asks where to keep it
+- Native check: `file.new` and `add_song` through `.local/mcp/call.py` show live in the window with a named Undo step ("Agent: Add Song"), and the view fits the first hit. The file panel can't select a row in the background, so importing through the panel stays verified by the owner's own use
+- Next: Jingle Bells V3 made only through MCP, gaps recorded in `/tmp/claude-501/mm-v3/gaps.md`; the from-scratch UI test
+
 ### 2026-11-04: One way to make a film: MCP, agent folder, Packs
 
 - `midimarble mcp`: the app binary as a stdio MCP server, bridging over a per-user Unix socket to the running app, with ten tools and five guides built in. Enable MCP (on by default) and Show AI Workspace in the Help menu. Each call is one named Undo step, "Agent: …". See architecture.md, MCP.
