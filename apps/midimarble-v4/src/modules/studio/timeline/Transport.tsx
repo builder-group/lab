@@ -3,9 +3,10 @@ import { createState } from 'feature-state';
 import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, SkipBack } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu, type TMenuEntry } from '@/components';
-import type { TPieceFixCheck } from '@/modules/compose/AssistCx';
+import type { TLastFix, TPieceFixCheck } from '@/modules/compose/AssistCx';
 import { blockedScenery } from '@/modules/compose/fix-it';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
+import { fitToSongOffer } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';
@@ -71,6 +72,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const compose = useFeatureState(cx.$compose);
 	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
 	const checks = useFeatureState(compose?.assist.$pieceFixes ?? NO_CHECKS);
+	const lastFix = useFeatureState(compose?.assist.$lastFix ?? NO_LAST_FIX);
 	const summary = React.useMemo(() => problemSummary(preflightExport(project, result)), [project, result]);
 	const isCurrent = result != null && result.revision === project.revision;
 	// Blocked scenery's Fix-its are tried on a copy of the run before the menu offers them
@@ -88,13 +90,24 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</span>
 		);
 	}
+	// The latest fix result and Fit to Song where the user set a length the song no longer matches
+	const hasLastFix = lastFix != null && lastFix.projectId === project.id;
+	const fitEnd = fitToSongOffer(project);
+	const extras: TMenuEntry[] = [
+		...(hasLastFix ? [{ label: 'Show Last Fix', onSelect: () => compose?.assist.showLastFix() }] : []),
+		// Ends the film SONG_TAIL after the last hit, like the Project inspector's Fit to Song
+		...(fitEnd != null ? [{ label: 'Fit to Song', onSelect: () => void cx.execute([{ type: 'setEnd', end: fitEnd }]) }] : [])
+	];
 	// Already in time order, as the summary keeps them
 	const problems = summary.problems;
 	const first = problems[0];
 	if (first == null) {
 		return (
-			<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary">
-				{summary.label}
+			<span className="inline-flex items-center">
+				<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary">
+					{summary.label}
+				</span>
+				{extras.length ? <MenuButton className="mm-icon-button !h-5 !w-5" label={<ChevronDown size={12} strokeWidth={2} />} title="Fixes and length" items={extras} /> : null}
 			</span>
 		);
 	}
@@ -114,11 +127,12 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		'separator' as const,
 		{ label: 'Show First Problem', onSelect: () => cx.showFirstProblem() },
 		{
-			// One label with the edit's notice: "Fix 33 Broken Hits", "Move Release and Fix 33 Broken Hits"
+			// One label with the edit's notice: "Fix 33 Hits", "Move Windmill 1 Clear"
 			label: plan == null || plan.isEmpty ? 'Re-place Broken Platforms' : plan.label,
 			disabled: plan == null || plan.isEmpty || !sceneryWorks || compose == null || compose.assist.isReplacing,
 			onSelect: () => void compose?.assist.replace()
-		}
+		},
+		...extras
 	];
 	return (
 		<span className="inline-flex items-center">
@@ -141,6 +155,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
 const NO_CHECKS = createState<Record<string, TPieceFixCheck>>({});
+const NO_LAST_FIX = createState<TLastFix | null>(null);
 
 /** A glyph button that runs a playback command and names it with its shortcut in the tooltip */
 const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React.ReactNode; title?: string; isActive?: boolean }> = (props) => {
@@ -186,7 +201,7 @@ const TimeReadout: React.FC<{ cx: StudioCx }> = (props) => {
 			setIsInvalid(true);
 			return;
 		}
-		cx.$playhead.set(Math.min(end, time));
+		cx.seek(Math.min(end, time));
 		setDraft(null);
 	}
 

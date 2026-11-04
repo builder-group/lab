@@ -93,12 +93,13 @@ export function replaceTargets(project: TProject, results: THitResult[], only?: 
 }
 
 /**
- * "Fix 24 Broken Hits", or "Fix Hit 3 of Melody" for one. The label counts the problems, which are known before
- * Re-place runs; how many platforms it tilts again is known only after, and the result names it.
+ * "Fix 24 Hits", or "Fix Hit 3 of Melody" for one: a verb and the count, like Figma's quick actions. The label
+ * counts the broken hits, which are known before Re-place runs; how many platforms it tilts again is known only
+ * after, and the result names it.
  */
 export function replaceLabel(count: number, hitName?: string): string {
-	if (count === 1) return hitName == null ? 'Fix the Broken Hit' : `Fix ${hitName}`;
-	return `Fix ${count} Broken Hits`;
+	if (count === 1) return hitName == null ? 'Fix 1 Hit' : `Fix ${hitName}`;
+	return `Fix ${count} Hits`;
 }
 
 /** What Re-place Broken Platforms will do, so its button names every kind of change before it runs */
@@ -112,12 +113,15 @@ export interface TReplacePlan {
 	/** Names of the marbles whose release moves to just before their first note */
 	releases: string[];
 	/**
-	 * The one label of the command, in the edit's notice and the hit summary's menu: "Fix 45 Broken Hits",
-	 * "Fix Hit 7 of Melody", "Move Release and Fix 45 Broken Hits", "Move Windmill 1 Clear",
-	 * "Fix 4 Broken Hits and Delete Rail 1"
+	 * The one label of the command, in the edit's notice and the hit summary's menu, a verb and a count: "Fix 45
+	 * Hits", "Fix Hit 7 of Melody", or for Blocked scenery alone "Move Windmill 1 Clear". A moved release or
+	 * scenery fixed along with the hits is named in the tooltip, not in the label.
 	 */
 	label: string;
-	/** The tooltip, a sentence naming each change */
+	/**
+	 * The tooltip, one sentence of about 15 words saying what it does: "Re-places platforms so each hit lands on
+	 * time, moves Melody's release and deletes Rail 1"
+	 */
 	title: string;
 	isEmpty: boolean;
 }
@@ -140,22 +144,25 @@ export function replacePlan(project: TProject, result: TSimulationResult, before
 	const kinds = new Set(blocked.map((id) => sceneryFixes?.get(id) ?? 'moveClear'));
 	const kind = kinds.size === 1 ? [...kinds][0] : 'moveClear';
 	const move = scenery.length === 0 ? '' : sceneryFixLabel(kind ?? 'moveClear', scenery.length <= 2 ? joinWords(scenery) : `${scenery.length} Pieces`);
-	const core = [replace, move].filter(Boolean).join(' and ');
-	const label = releases.length > 0 ? `Move Release and ${core}` : core;
+	// The outcome is the label; the release and the scenery fixed along with the hits go in the tooltip
+	const label = replace !== '' ? replace : move;
+	const sceneryVerb = (id: string): string => {
+		const name = pieceName(project, id);
+		const fix = sceneryFixes?.get(id) ?? 'moveClear';
+		return fix === 'delete' ? `deletes ${name}` : fix === 'placeAgain' ? `places ${name} again` : `moves ${name} clear`;
+	};
 	const steps = [
-		releases.length > 0 ? `moves the release of ${releases.join(' and ')} to just before its first note` : '',
-		platforms > 0 ? `tilts ${platforms === 1 ? 'the broken platform' : `the ${platforms} broken platforms`} again so each lands on time, with the platforms before them when needed` : '',
-		scenery.length > 0 ? `places ${joinWords(scenery)} again or moves ${scenery.length === 1 ? 'it' : 'them'} clear of the run, or deletes ${scenery.length === 1 ? 'it' : 'them'} when the run passes through and never uses ${scenery.length === 1 ? 'it' : 'them'}` : ''
+		platforms > 0 ? (platforms === 1 ? 'Re-places the platform so the hit lands on time' : 'Re-places platforms so each hit lands on time') : '',
+		releases.length > 0 ? `moves the release of ${joinWords(releases)}` : '',
+		...(blocked.length > 2 ? [`fixes ${blocked.length} blocked pieces`] : blocked.map(sceneryVerb))
 	].filter(Boolean);
-	const title = steps.length
-		? `${capitalize(joinWords(steps))}, as one undo step. It keeps no change that adds a problem, and deletes a switchback, rail or tunnel the new run passes through and no longer uses.`
-		: 'Nothing to re-place';
+	const title = steps.length ? capitalize(joinWords(steps)) : 'Nothing to re-place';
 	return {
 		platforms,
 		scenery,
 		sceneryIds: blocked,
 		releases,
-		label: core === '' ? 'Re-place Broken Platforms' : label,
+		label: label === '' ? 'Re-place Broken Platforms' : label,
 		title,
 		isEmpty: platforms === 0 && scenery.length === 0
 	};
@@ -202,6 +209,40 @@ export function replaceResultMessage(
 	const added = standing.added.length ? ` · ${standing.added.length} new ${standing.added.length === 1 ? 'problem' : 'problems'}: ${standing.added.map((issue) => issue.title).join('; ')}` : '';
 	const advice = standing.hitProblems > 0 ? `. Turn ${standing.hitProblems === 1 ? 'it' : 'them'} by hand or undo the edit.` : '';
 	return `${started}${did}: ${standing.label}${added}${advice}`;
+}
+
+/**
+ * The two-line result notice after Re-place, with the full `replaceResultMessage` behind its Details: how many
+ * hits it fixed, what it changed in a few words, then the hit summary's label and the problems it added, like
+ * "Fixed 37 hits · re-placed 13 platforms · deleted Rail 1 · 108 of 108 hits on time"
+ */
+export function replaceResultSummary(
+	project: TProject,
+	before: THitResult[],
+	outcome: Pick<TReplaceOutcome, 'project' | 'result' | 'replaced' | 'moved' | 'cleared' | 'releases'> & Partial<Pick<TReplaceOutcome, 'removed'>>,
+	standing: TFixStanding
+): string {
+	const counted = brokenHits(before).map(hitKeyOf);
+	const fixed = fixedCount(counted, outcome.result.hits);
+	const total = counted.length;
+	const removed = outcome.removed ?? [];
+	const others = outcome.moved.length + outcome.cleared.length;
+	const parts = [
+		total === 0 ? '' : fixed < total ? `Fixed ${fixed} of ${total} hits` : total === 1 ? 'Fixed the hit' : `Fixed ${total} hits`,
+		outcome.replaced > 0 ? `re-placed ${outcome.replaced} ${outcome.replaced === 1 ? 'platform' : 'platforms'}` : '',
+		outcome.releases.length > 0 ? `moved ${outcome.releases.length === 1 ? 'the release' : `${outcome.releases.length} releases`}` : '',
+		others > 0 ? `moved ${others} ${others === 1 ? 'piece' : 'pieces'}` : '',
+		removed.length === 1 ? `deleted ${pieceName(project, removed[0] ?? '')}` : removed.length > 1 ? `deleted ${removed.length} pieces` : '',
+		standing.label,
+		standing.added.length > 0 ? `${standing.added.length} new ${standing.added.length === 1 ? 'problem' : 'problems'}` : ''
+	].filter(Boolean);
+	return capitalize(parts.join(' · '));
+}
+
+/** How many of the `counted` hits (`laneId/hitId` keys) are no longer broken in `hits` */
+export function fixedCount(counted: string[], hits: THitResult[]): number {
+	const still = new Set(brokenHits(hits).map(hitKeyOf));
+	return counted.filter((key) => !still.has(key)).length;
 }
 
 /** "fixed the broken hit", "fixed both broken hits", "fixed all 38 broken hits" or "fixed 37 of 38 broken hits" */
@@ -714,8 +755,10 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 		if (!(await commit(commands, false))) return outcome(true);
 		releases.push(laneId);
 	}
-	// Counted from before a moved release, so progress names the broken hits the label named
-	const total = Math.max(1, brokenHits(result.hits).length, brokenHits(latest.hits).length);
+	// One count for the whole run, the one the label named: the hits broken when Re-place started. A moved release
+	// may break a few more for a moment, but they are not counted, so "0 of 37" never turns into "0 of 38".
+	const counted = brokenHits(result.hits).map(hitKeyOf);
+	const total = Math.max(1, counted.length);
 	// Progress runs through the song from the first problem to the last linked hit, and within a problem from its
 	// hit toward the next one with every try, so the bar keeps moving while a hard problem is worked on
 	const lastTime = Math.max(startTime, ...latest.hits.filter((hit) => hit.pieceEntityId != null).map((hit) => hit.targetTime));
@@ -723,7 +766,7 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 	let fraction = 0;
 	let tries = 0;
 	const report = (problem: THitResult): void => {
-		done = Math.min(total, Math.max(done, total - brokenHits(latest.hits).length));
+		done = Math.min(total, Math.max(done, fixedCount(counted, latest.hits)));
 		const next = latest.hits.find((hit) => hit.laneId === problem.laneId && hit.pieceEntityId != null && hit.targetTime > problem.targetTime + 1e-6)?.targetTime ?? lastTime;
 		const at = problem.targetTime + (Math.max(problem.targetTime, next) - problem.targetTime) * Math.min(1, tries / TRIES_PER_PROBLEM);
 		const span = lastTime - startTime;

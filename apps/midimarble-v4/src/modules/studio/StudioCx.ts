@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { host, notSongFileMessage, songFileKind, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { createAudioEngine, type TAudioEngine } from '@/modules/music';
+import { autoEnd, changesHitsOnly, createAudioEngine, DEFAULT_PROJECT_END, isAutoEnd, lastHitTime, songEnd, type TAudioEngine } from '@/modules/music';
 import {
 	amendHistory,
 	applyProjectCommands,
@@ -57,12 +57,16 @@ export class StudioCx {
 	readonly $playing = createState(false);
 	/** Song time before which taps record nothing, set when T starts playback (see `tapHit`) */
 	private tapCountInEnd = -Infinity;
+	/** The playback T started: whether the length followed the song then, and whether a tap added a hit */
+	private tapSession: { isAutoEnd: boolean; hasTapped: boolean } | null = null;
 	readonly $notice = createState<TNotice | null>(null);
 	/**
 	 * Selection keys and an optional wall point the Compose canvas should bring into view, set by lists
 	 * outside the canvas. The canvas clears it once handled, so a reveal sent from Design waits for Compose.
 	 */
 	readonly $reveal = createState<TReveal | null>(null);
+	/** Counts `seek` calls; the canvas brings the marble at the playhead into view on each */
+	readonly $playheadReveal = createState(0);
 	/** Entities the last undo or redo changed; the canvas pans to them once the run for that revision arrives */
 	readonly $historyReveal = createState<{ ids: string[]; revision: number } | null>(null);
 	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true, agent: false });
@@ -131,7 +135,9 @@ export class StudioCx {
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
 		// The tap count-in belongs to the playback T started; stopping ends it
 		const stopCountIn = this.$playing.listen(({ value }) => {
-			if (!value) this.tapCountInEnd = -Infinity;
+			if (value) return;
+			this.tapCountInEnd = -Infinity;
+			this.finishTapSession();
 		});
 		return () => {
 			unmountSimulation();
@@ -499,7 +505,12 @@ export class StudioCx {
 			return false;
 		}
 		// Default piece names follow time order, so a new piece for an earlier hit takes the lower number
-		const named = renumberDefaultNames(history.present, edited);
+		let named = renumberDefaultNames(history.present, edited);
+		// While the length follows the song, it ends with the last hit; taps fit it once tapping stops
+		if (this.tapSession == null && changesHitsOnly(commands)) {
+			const end = autoEnd(history.present, named);
+			if (end != null) named = { ...named, end };
+		}
 		this.$history.set(options.amend === true ? amendHistory(history, named) : pushHistory(history, named, options.group));
 		this.scheduleSave();
 		return true;
@@ -565,8 +576,17 @@ export class StudioCx {
 		const now = this.$playhead.get();
 		const next = direction === 1 ? times.find((time) => time > now + 1e-4) : [...times].reverse().find((time) => time < now - 1e-4);
 		if (next == null) return false;
-		this.$playhead.set(next);
+		this.seek(next);
 		return true;
+	}
+
+	/**
+	 * Moves the playhead to a typed or stepped time and asks the canvas to bring the marble there into view, like
+	 * Logic's catch playhead. Dragging the playhead does not ask, so the user can scrub without the wall moving.
+	 */
+	seek(time: number): void {
+		this.$playhead.set(time);
+		this.$playheadReveal.set(this.$playheadReveal.get() + 1);
 	}
 
 	/**
@@ -584,6 +604,9 @@ export class StudioCx {
 		if (!this.$playing.get()) {
 			const from = this.$playhead.get() >= project.end ? 0 : this.$playhead.get();
 			this.tapCountInEnd = from + TAP_COUNT_IN_SECONDS;
+			this.tapSession = { isAutoEnd: isAutoEnd(project), hasTapped: false };
+			// From the start at the end, as Play does; `playbackEnd` may lie past the end now
+			if (from !== this.$playhead.get()) this.$playhead.set(from);
 			this.$playing.set(true);
 			this.notify(`Playing: press T on each beat to add hits to ${lane.name}`);
 			return;
@@ -592,7 +615,28 @@ export class StudioCx {
 		const time = tapTime(lane.hits, this.audio.getTime(), this.tapCountInEnd);
 		if (time == null) return;
 		const hit = { id: createId('hit'), time };
-		this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }]);
+		if (this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }]) && this.tapSession != null) this.tapSession.hasTapped = true;
+	}
+
+	/**
+	 * Where playback stops: the project end, or while T taps along to a length that follows the song, at least
+	 * the default length, so taps can run past the last hit, like Logic's recording past the project end
+	 */
+	get playbackEnd(): number {
+		const end = this.project?.end ?? 0;
+		return this.tapSession?.isAutoEnd === true ? Math.max(end, DEFAULT_PROJECT_END) : end;
+	}
+
+	/** After tapping stops, a length that follows the song ends with the last hit, folded into the last tap's undo step */
+	private finishTapSession(): void {
+		const session = this.tapSession;
+		this.tapSession = null;
+		const project = this.project;
+		if (session == null || !session.hasTapped || !session.isAutoEnd || project == null) return;
+		const last = lastHitTime(project);
+		if (last == null) return;
+		const end = songEnd(last);
+		if (Math.abs(end - project.end) > 1e-6) this.execute([{ type: 'setEnd', end }], { amend: true });
 	}
 
 	undo(): void {
@@ -658,7 +702,7 @@ export class StudioCx {
 	}
 
 	/** Reports an edit that just happened with an Undo action for it, such as "6 platforms removed" */
-	notifyEdit(message: string, actions: TNoticeAction[] = []): number {
+	notifyEdit(message: string, actions: TNoticeAction[] = [], options: Pick<TNoticeOptions, 'details'> = {}): number {
 		const revision = this.project?.revision;
 		// Bound to the undo group of the edit, so refinements folded into it since still undo with it
 		const group = this.editGroup;
@@ -672,7 +716,7 @@ export class StudioCx {
 				else this.notify('A later edit came after this one. Press ⌘Z to undo edits in order.');
 			}
 		};
-		return this.notify(message, 'info', { actions: [...actions, undo], revision });
+		return this.notify(message, 'info', { ...options, actions: [...actions, undo], revision });
 	}
 
 	/** Changes the notice `id` while it is still shown, for progress and actions that arrive later */
@@ -701,7 +745,7 @@ export class StudioCx {
 	private noticeShownAt: number | null = null;
 
 	/**
-	 * A notice that carries a fix (an action besides Undo, such as Fix 45 Broken Hits) stays until it is acted
+	 * A notice that carries a fix (an action besides Undo, such as Fix 45 Hits) stays until it is acted
 	 * on or another edit is made, like Mail's undo-send; this retires it on that edit
 	 */
 	private retireFixNotice(): void {
@@ -722,8 +766,9 @@ export class StudioCx {
 	}
 }
 
+/** A notice that offers a fix, or details to read, stays until it is used or closed, or the next edit */
 function hasFix(notice: TNotice): boolean {
-	return notice.actions?.some((action) => action.isUndo !== true) === true;
+	return notice.details != null || notice.actions?.some((action) => action.isUndo !== true) === true;
 }
 
 export type TWorkspace = 'compose' | 'design';
@@ -823,6 +868,11 @@ export interface TNoticeOptions {
 	progress?: number;
 	/** Revision right after the edit the notice reports */
 	revision?: number;
+	/**
+	 * The full text behind a Details disclosure, like Figma's notifications: the message stays two lines. A notice
+	 * with details stays until it is closed or the next edit.
+	 */
+	details?: string;
 }
 
 export interface TNoticeAction {

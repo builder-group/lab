@@ -57,6 +57,7 @@ import {
 	pieceAngleAt,
 	pieceKind,
 	pieceOutline,
+	struckAt,
 	rotationGrip,
 	trackBuffers,
 	withPathBend,
@@ -247,6 +248,8 @@ export class ComposeCx {
 			this.studio.$reveal.listen(({ value }) => {
 				if (value != null) this.revealPending();
 			}),
+			// After the playhead moved, so the marble is read at its new time
+			this.studio.$playheadReveal.listen(() => this.revealPlayhead()),
 			// Switching tools finishes a rail in progress, like Figma's pen
 			this.$tool.listen(({ value }) => {
 				this.clearHoverPreview();
@@ -737,6 +740,20 @@ export class ComposeCx {
 		if (pending == null || result == null || result.revision < pending.revision) return;
 		this.studio.$historyReveal.set(null);
 		if (pending.ids.length > 0 && this.$drag.get() == null) this.reveal(pending.ids);
+	}
+
+	/**
+	 * A typed time or a step to the previous or next hit brings the marble there into view, like Logic's catch
+	 * playhead: the hit dots struck at that moment, or the focused marble between hits. Nothing moves when they
+	 * are already in view, while playing (`followPlayback` keeps up then) or in the Camera view.
+	 */
+	private revealPlayhead(): void {
+		const result = this.result;
+		if (result == null || this.studio.$playing.get() || this.$camera.get().mode !== '2d' || this.$drag.get() != null) return;
+		const time = this.studio.$playhead.get();
+		const struck = struckAt(result.hits, time);
+		const focus = struck.length ? undefined : (this.marbleFocus() ?? undefined);
+		if (struck.length || focus != null) this.reveal(struck, focus);
 	}
 
 	/** Handles the studio's pending reveal once the canvas can frame it */

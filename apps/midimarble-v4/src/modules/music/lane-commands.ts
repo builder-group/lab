@@ -74,6 +74,62 @@ export function songEnd(lastNote: number): number {
 	return Math.round((lastNote + SONG_TAIL) * 100) / 100;
 }
 
+/** The length of a new project (`createProject`) before it has hits */
+export const DEFAULT_PROJECT_END = 12;
+
+/** Time of the last hit the marbles play, or of Backing without them; null without notes */
+export function lastHitTime(project: TProject): number | null {
+	const played = project.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time));
+	const times = played.length ? played : project.music.backing.map((hit) => hit.time);
+	return times.length ? Math.max(...times) : null;
+}
+
+/**
+ * Whether the length still follows the song: the untouched default of a new project, or the last hit plus
+ * `SONG_TAIL`, as an import, Fit to Song or the automatic fit left it. A length the user set to anything else is
+ * theirs and never changes silently.
+ */
+export function isAutoEnd(project: TProject): boolean {
+	if (Math.abs(project.end - DEFAULT_PROJECT_END) < 1e-6) return true;
+	const last = lastHitTime(project);
+	return last != null && Math.abs(project.end - songEnd(last)) < 0.005;
+}
+
+/**
+ * The length after an edit of the hits, while it follows the song: the last hit plus `SONG_TAIL`, so a tapped
+ * project ends with its last hit instead of filming 8 s of empty wall. `before` is the project the edit started
+ * from; a length the user set, an edit without notes and an edit that keeps the length give null.
+ */
+export function autoEnd(before: TProject, after: TProject): number | null {
+	if (!isAutoEnd(before)) return null;
+	const last = lastHitTime(after);
+	if (last == null) return null;
+	const end = songEnd(last);
+	return Math.abs(end - after.end) < 1e-6 ? null : end;
+}
+
+/** Whether an edit changes notes without setting the length itself, so the length may follow the song (`autoEnd`) */
+export function changesHitsOnly(commands: readonly TProjectCommand[]): boolean {
+	if (commands.some((command) => command.type === 'setEnd')) return false;
+	return commands.some((command) => HIT_COMMANDS.has(command.type));
+}
+
+const HIT_COMMANDS = new Set<TProjectCommand['type']>(['upsertLane', 'removeLane', 'upsertHits', 'removeHits', 'assignHits']);
+
+/**
+ * Fit to Song to offer where the user set the length: the fitted length when the song ends more than
+ * `FIT_OFFER_GAP` before it, or after it, so its last hits are cut off. Null while the length follows the song.
+ */
+export function fitToSongOffer(project: TProject): number | null {
+	const last = lastHitTime(project);
+	if (last == null || isAutoEnd(project)) return null;
+	const end = songEnd(last);
+	return end < project.end - FIT_OFFER_GAP || end > project.end + 1e-6 ? end : null;
+}
+
+// Seconds of film past the song's end before Fit to Song is offered
+const FIT_OFFER_GAP = 1;
+
 /**
  * Seconds between an imported marble's release and its first note: a 0.6 m drop at half gravity. Shorter leads
  * built Jingle Bells worse (0.35 s crossed the lanes), as the first arrival speed shapes the whole run.

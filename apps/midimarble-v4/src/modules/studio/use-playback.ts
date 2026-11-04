@@ -22,7 +22,8 @@ export function usePlayback(cx: StudioCx): void {
 
 	const startLoop = React.useCallback(() => {
 		const step = (): void => {
-			const end = cx.project?.end ?? 0;
+			// Tapping along runs past a length that follows the song (`playbackEnd`)
+			const end = cx.playbackEnd;
 			const time = cx.audio.getTime();
 			if (time >= end) {
 				clockRef.current = end;
@@ -45,7 +46,7 @@ export function usePlayback(cx: StudioCx): void {
 		}
 		const project = cx.project;
 		if (project == null) return;
-		if (cx.$playhead.get() >= project.end) cx.$playhead.set(0);
+		if (cx.$playhead.get() >= cx.playbackEnd) cx.$playhead.set(0);
 		const from = cx.$playhead.get();
 		void (async () => {
 			try {

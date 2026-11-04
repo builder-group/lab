@@ -18,7 +18,7 @@ import { formatTime } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
-import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replacePlan, replaceResultMessage, type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
+import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
 import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
 import { unreachableActions } from './unreachable-fixes';
@@ -335,6 +335,11 @@ export class AssistCx {
 	readonly $pieceFixes = createState<Record<string, TPieceFixCheck>>({});
 	/** The run Re-place is working on, if any; Stop sets `isCancelled` */
 	readonly $replacing = createState<{ done: number; total: number } | null>(null);
+	/**
+	 * The result of the latest Re-place in this project, its two-line notice and the full text, so the hit
+	 * summary's Show Last Fix brings it back after the notice is gone, like Xcode's report navigator
+	 */
+	readonly $lastFix = createState<TLastFix | null>(null);
 	private replaceRun: { isCancelled: boolean } | null = null;
 	/** Hits of the latest current result, to tell which hits an edit broke */
 	private baseline: { projectId: string; revision: number; hits: THitResult[] } | null = null;
@@ -345,7 +350,7 @@ export class AssistCx {
 
 	/**
 	 * After an edit, compares the new run with the one before it. When later hits became Blocked or Missed, the
-	 * edit's notice gets "Fix N Broken Hits", or a notice says so; undo, redo and Re-place itself do not ask.
+	 * edit's notice gets "Fix N Hits", or a notice says so; undo, redo and Re-place itself do not ask.
 	 */
 	private offerFixIt(): void {
 		const project = this.studio.project;
@@ -383,6 +388,13 @@ export class AssistCx {
 
 	get isReplacing(): boolean {
 		return this.replaceRun != null;
+	}
+
+	/** Shows the latest Re-place result of this project again, with its Details */
+	showLastFix(): void {
+		const last = this.$lastFix.get();
+		if (last == null || last.projectId !== this.studio.project?.id) return;
+		this.studio.notify(last.message, 'info', { details: last.details });
 	}
 
 	/** What Re-place Broken Platforms will change for the run as it is, for its label in the notice and the hit summary */
@@ -466,7 +478,7 @@ export class AssistCx {
 		const estimate = createEstimate();
 		const progressText = (at: number, done: number, total: number, fraction: number): string => {
 			if (only != null) return `Re-placing the platform at ${formatTime(at)}`;
-			const left = estimate.update(performance.now() - startedAt, fraction);
+			const left = estimate.update(performance.now() - startedAt, fraction, done, total);
 			return [`Re-placing platforms · ${done} of ${total} broken ${total === 1 ? 'hit' : 'hits'} fixed`, left].filter(Boolean).join(' · ');
 		};
 		const progressId = this.studio.notify(progressText(from, 0, targets.length, 0), 'info', { progress: 0, actions: [stop] });
@@ -524,8 +536,16 @@ export class AssistCx {
 				? "No tilt lands this platform on time. Choose Re-place Broken Platforms in the hit summary's menu, or turn it by hand."
 				: 'No new tilt helps these platforms without adding a problem. Turn them by hand, or undo the edit that broke them.'
 			: replaceResultMessage(project, result.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
-		if (changed) this.studio.notifyEdit(outcome.isStopped && !run.isCancelled ? `${message} Stopped by another edit.` : message);
-		else this.studio.notify(message);
+		if (changed) {
+			// Two lines, with everything it changed behind Details and in the hit summary's Show Last Fix
+			const standing = { label: summary.label, hitProblems: summary.hitProblems, added };
+			const short = only != null ? message : replaceResultSummary(project, result.hits, outcome, standing);
+			const stopped = outcome.isStopped && !run.isCancelled ? ' · stopped by another edit' : '';
+			const details = outcome.isStopped && !run.isCancelled ? `${message} Stopped by another edit.` : message;
+			const lastFix: TLastFix = { projectId: project.id, message: `${short}${stopped}`, details, revision: this.studio.project?.revision ?? outcome.project.revision };
+			this.$lastFix.set(lastFix);
+			this.studio.notifyEdit(lastFix.message, [], { details: lastFix.details });
+		} else this.studio.notify(message);
 		return outcome;
 	}
 
@@ -661,4 +681,15 @@ function focusedLaneId(project: TProject, selection: string[]): string | null {
 export interface TPieceFixCheck {
 	revision: number;
 	fix: TPieceFix | null;
+}
+
+/** A Re-place result as its notice showed it */
+export interface TLastFix {
+	projectId: string;
+	/** The two-line notice */
+	message: string;
+	/** Everything it changed, behind Details */
+	details: string;
+	/** Revision right after the fix */
+	revision: number;
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createProject } from '@/modules/project';
 import type { THitResult, TSimulationResult } from '@/modules/simulation';
 import { pickTrack, type TScreenTrack } from './picking';
-import { fitTargets, nearestMoment } from './scene';
+import { fitTargets, nearestMoment, struckAt } from './scene';
 import { fitBounds, fitContent, placeBar, worldToScreen } from './view';
 
 const viewport = { width: 800, height: 600 };
@@ -55,6 +55,18 @@ describe('fitTargets', () => {
 		const { all } = fitTargets(project, { hits, pieces: [], marbles: [] } as unknown as TSimulationResult);
 		expect(all.minY).toBeCloseTo(-1.1);
 	});
+
+	it('never shrinks the pieces and dots to fit a release high above them, nor the fall to the film end', () => {
+		// The review's tapped project: 6 placed hits ending at 0:03.6 of a 0:12 film, released 0.9 m above the first
+		const project = createProject();
+		const laneId = project.music.lanes[0]?.id ?? '';
+		const hits = [0.6, 1.2, 1.8, 2.4, 3, 3.6].map((time, index) => openHit(laneId, time, -0.28 - index * 0.19, `p${index}`));
+		const { all, pieces } = fitTargets(project, { hits, pieces: [], marbles: [] } as unknown as TSimulationResult);
+
+		expect(all.maxY).toBeCloseTo(0.6);
+		expect(all.minY).toBeCloseTo(-1.23);
+		expect(pieces?.maxY).toBeCloseTo(-0.28);
+	});
 });
 
 describe('pickTrack', () => {
@@ -94,5 +106,16 @@ describe('placeBar', () => {
 		const placed = placeBar({ x: 400, y: 300 }, size, ghosts, viewport);
 		expect(placed.left - size.width / 2).toBeGreaterThanOrEqual(440);
 		expect(placed.top).toBe(300);
+	});
+});
+
+describe('struckAt', () => {
+	it('names the dots struck at a time and their pieces, for every marble of a chord', () => {
+		const hit = (laneId: string, time: number, pieceEntityId: string | null): THitResult =>
+			({ laneId, hitId: `h${time}`, targetTime: time, pieceEntityId, dot: { x: 0, y: -time }, velocity: null, actualTime: null, error: null, status: 'onTime' }) as THitResult;
+		const hits = [hit('a', 1, 'p1'), hit('b', 1, null), hit('a', 1.5, 'p2')];
+
+		expect(struckAt(hits, 1)).toEqual(['hit:a:h1', 'p1', 'hit:b:h1']);
+		expect(struckAt(hits, 1.2)).toEqual([]);
 	});
 });

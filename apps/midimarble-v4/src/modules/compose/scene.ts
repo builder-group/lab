@@ -10,6 +10,7 @@ import {
 	type TResolvedPiece,
 	type TSimulationResult
 } from '@/modules/simulation';
+import { toHitKey } from '@/modules/studio/selection';
 import type { TBounds } from './view';
 
 // Pure derivations from a project and its simulation result that the canvas draws and picks against
@@ -219,20 +220,24 @@ function workEnds(hits: readonly THitResult[]): Map<string, number> {
 }
 
 /**
- * What Zoom to Fit frames. `all` holds the releases, the pieces, the hit dots and each marble's trajectory up
- * to its lane's last hit with a piece and the next open hit after it, but not the fall past that, which can run
- * for metres. `pieces` holds the releases and the pieces, which a fit never cuts off.
+ * What Zoom to Fit frames, like Figma's, which fits the layers and not the page. `all` holds the releases, the
+ * pieces, the hit dots and each marble's trajectory up to its lane's last hit with a piece and the next open hit
+ * after it, but not the fall past that, which can run for metres, nor the rest of the film's length. `pieces`
+ * holds the work a fit never cuts off: the pieces and those hit dots, or the releases while there are none. A
+ * release high above the first hit is framed when it fits, but never shrinks the pieces and dots to specks.
  */
 export function fitTargets(project: TProject, result: TSimulationResult | null): { all: TBounds; pieces: TBounds | null } {
-	const anchors: TVec2[] = [];
+	const releases: TVec2[] = [];
 	for (const entity of project.entities) {
 		const release = entity.components.release;
-		if (release != null) anchors.push(release.position);
+		if (release != null) releases.push(release.position);
 	}
-	for (const piece of result?.pieces ?? []) anchors.push(...pieceOutline(piece));
-	const points = [...anchors];
+	const work: TVec2[] = [];
+	for (const piece of result?.pieces ?? []) work.push(...pieceOutline(piece));
 	const ends = workEnds(result?.hits ?? []);
-	for (const hit of result?.hits ?? []) if (hit.dot != null && hit.targetTime <= (ends.get(hit.laneId) ?? -Infinity)) points.push(hit.dot);
+	for (const hit of result?.hits ?? []) if (hit.dot != null && hit.targetTime <= (ends.get(hit.laneId) ?? -Infinity)) work.push(hit.dot);
+	const anchors = work.length ? work : releases;
+	const points = [...releases, ...work];
 	for (const track of result?.marbles ?? []) {
 		const last = ends.get(track.laneId) ?? -Infinity;
 		if (!Number.isFinite(last)) continue;
@@ -252,6 +257,16 @@ export function fitTargets(project: TProject, result: TSimulationResult | null):
 		all: { minX: Math.min(band.centerX - band.halfWidth, bounds?.minX ?? 0), maxX: Math.max(band.centerX + band.halfWidth, bounds?.maxX ?? 0), minY, maxY },
 		pieces: boundsOfPoints(anchors)
 	};
+}
+
+/**
+ * What a step to the hit at `time` brings into view: the hit dots struck then and their pieces, as hit keys and
+ * entity ids, so a chord of several marbles shows every marble that strikes it
+ */
+export function struckAt(hits: readonly THitResult[], time: number): string[] {
+	return hits
+		.filter((hit) => hit.dot != null && Math.abs(hit.targetTime - time) < 1e-3)
+		.flatMap((hit) => [toHitKey(hit.laneId, hit.hitId), ...(hit.pieceEntityId != null ? [hit.pieceEntityId] : [])]);
 }
 
 /** Time of the trajectory sample closest to `point`, or null for an empty trajectory */

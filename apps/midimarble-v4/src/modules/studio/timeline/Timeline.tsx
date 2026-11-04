@@ -9,6 +9,7 @@ import { addHit } from '../menus';
 import { parseHitKey, toHitKey } from '../selection';
 import { songSource } from '../SourcesCx';
 import { isLaneAudible, type StudioCx } from '../StudioCx';
+import { songFitEnd } from '../world';
 import { CameraRow } from './CameraRow';
 import { handNotes, isNoteSelection, ownerForKey } from './hand-notes';
 import { LaneTrack, PianoRollTrack, type TDrag, type TDragStart } from './LaneTrack';
@@ -183,7 +184,9 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	function zoomToFit(): void {
 		const element = scrollRef.current;
 		if (element == null || project == null) return;
-		setZoom(clampZoom((element.clientWidth - HEADER_WIDTH - 24) / project.end));
+		// The song, not a longer length the user set past it, like Figma's fit to the layers
+		const span = Math.min(project.end, songFitEnd(project) ?? project.end);
+		setZoom(clampZoom((element.clientWidth - HEADER_WIDTH - 24) / span));
 		requestAnimationFrame(() => {
 			element.scrollLeft = 0;
 		});

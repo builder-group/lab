@@ -1,24 +1,54 @@
 /**
- * "about 10 s left" for a long task such as Re-place, like Finder's copy progress: the time left at the rate so
- * far, smoothed so it does not jump with every step. Nothing is said until the rate is known, and the figure
- * never grows by more than its rounding between two updates.
+ * "about 10 s left" for a long task such as Re-place, like Finder's copy progress. Finder waits before it names a
+ * time and then counts down steadily; this does the same:
+ *
+ * - Nothing is said until `MIN_STEPS` steps are done, `MIN_ELAPSED_MS` have passed and `MIN_FRACTION` of the work,
+ *   and two raw figures in a row agree within `MAX_FIRST_CHANGE`, so the first figure is not a guess
+ * - The raw figure is the smaller of the rate by work (`fraction`) and the rate by steps (`done` of `total`), so
+ *   one slow first step cannot promise five times the real time
+ * - The shown figure counts down with the clock and moves toward the raw figure by `SMOOTHING` per update. It
+ *   never rises, and falls no faster than `MAX_FALL_RATE` seconds per second, so it never jumps from 45 s to a few
+ *   seconds
  */
-export function createEstimate(): { update: (elapsedMs: number, fraction: number) => string } {
-	let smoothed: number | null = null;
+export function createEstimate(): TEstimate {
+	let lastRaw: number | null = null;
+	let shown: { seconds: number; at: number } | null = null;
 	return {
-		update(elapsedMs, fraction) {
-			const left = estimateLeft(elapsedMs, fraction);
-			if (left == null) return '';
-			smoothed = smoothed == null ? left : smoothed + SMOOTHING * (left - smoothed);
-			return leftWords(smoothed);
+		update(elapsedMs, fraction, done = 0, total = 0) {
+			const raw = estimateLeft(elapsedMs, fraction, done, total);
+			if (raw == null) return '';
+			if (shown == null) {
+				const previous = lastRaw;
+				lastRaw = raw;
+				if (done < Math.min(MIN_STEPS, total) || previous == null || Math.abs(raw - previous) > MAX_FIRST_CHANGE * Math.max(previous, 1)) return '';
+				shown = { seconds: raw, at: elapsedMs };
+				return leftWords(raw);
+			}
+			const passed = Math.max(0, (elapsedMs - shown.at) / 1000);
+			const counted = Math.max(0, shown.seconds - passed);
+			const target = counted + SMOOTHING * (raw - counted);
+			const seconds = Math.max(shown.seconds - passed * MAX_FALL_RATE, Math.min(counted, target));
+			shown = { seconds: Math.max(0, seconds), at: elapsedMs };
+			return leftWords(shown.seconds);
 		}
 	};
 }
 
-/** Seconds left at the rate so far, or null before `MIN_ELAPSED_MS` and `MIN_FRACTION` of the work */
-export function estimateLeft(elapsedMs: number, fraction: number): number | null {
+export interface TEstimate {
+	/** The words for the time left after `elapsedMs`, with `fraction` (0 to 1) of the work and `done` of `total` steps done */
+	update: (elapsedMs: number, fraction: number, done?: number, total?: number) => string;
+}
+
+/**
+ * Seconds left at the rate so far, or null before `MIN_ELAPSED_MS` and `MIN_FRACTION` of the work. With steps, never
+ * more than the time per step so far for each step left.
+ */
+export function estimateLeft(elapsedMs: number, fraction: number, done = 0, total = 0): number | null {
 	if (elapsedMs < MIN_ELAPSED_MS || fraction < MIN_FRACTION || fraction >= 1) return null;
-	return ((elapsedMs / 1000) * (1 - fraction)) / fraction;
+	const seconds = elapsedMs / 1000;
+	const byWork = (seconds * (1 - fraction)) / fraction;
+	const bySteps = done > 0 && total > done ? (seconds / done) * (total - done) : Infinity;
+	return Math.min(byWork, bySteps);
 }
 
 /** "a few seconds left", "about 8 s left", "about 25 s left", "about 2 min left" */
@@ -32,4 +62,7 @@ export function leftWords(seconds: number): string {
 // The first steps say little about the rate
 const MIN_ELAPSED_MS = 1500;
 const MIN_FRACTION = 0.05;
+const MIN_STEPS = 3;
+const MAX_FIRST_CHANGE = 0.3;
 const SMOOTHING = 0.3;
+const MAX_FALL_RATE = 3;
