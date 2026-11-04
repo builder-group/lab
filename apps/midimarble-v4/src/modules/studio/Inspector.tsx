@@ -3,6 +3,7 @@ import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus } from 'luci
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
+import { InsertPopover } from '@/modules/compose/InsertLibrary';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { unreachableActions } from '@/modules/compose/unreachable-fixes';
 import { PieceInspector, PlatformFields, ReplaceButton } from '@/modules/compose/PieceInspector';
@@ -18,8 +19,8 @@ import { ThemeRow } from '@/modules/design/ThemePanel';
 import { DecorInspector, MadeInBlenderInspector } from '@/modules/design/DecorInspector';
 import { ColorWell, KeyLightInspector, LightInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
 import { addedLights } from '@/modules/design/scene-layers';
-import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts, suggestedHitTimes } from '@/modules/music';
-import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts } from '@/modules/music';
+import { BACKING_ID, laneColors, type THit, type TEntity, type TLane, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { getPieceDefinition, layoutOf, soundsHit } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
@@ -162,23 +163,9 @@ const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 
 const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; marble: TEntity; isFilm: boolean }> = (props) => {
 	const { cx, project, lane, marble, isFilm } = props;
-	const analysis = useFeatureState(cx.sources.$analysis);
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
-	const audio = project.music.sources.find((source) => source.kind === 'audio');
-	const suggestions = audio == null ? undefined : analysis[audio.id]?.onsets;
 	const conflicts = findLaneConflicts(lane).size;
-
-	function addSuggestedHits(): void {
-		if (audio == null || suggestions == null) return;
-		const times = suggestedHitTimes(
-			suggestions,
-			audio.offset,
-			lane.hits.map((hit) => hit.time)
-		);
-		const hits = times.map((time) => ({ id: createId('hit'), time }));
-		cx.execute([{ type: 'upsertHits', laneId: lane.id, hits }]);
-	}
 
 	const release = marble.components.release;
 	const releaseProject = (patch: Partial<TVec2>): TProject | null =>
@@ -216,7 +203,7 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 					) : null
 				}
 			/>
-			<Panel id="marble.marble" title="Marble" accessory={<HelpTip text="The marble's one colour, in the timeline, in Compose and on skins whose Colour is Marble." />}>
+			<Panel id="marble.marble" title="Marble">
 				{fixedBy != null ? (
 					<ReadoutField label="Colour" name="Marble colour" span={2}>
 						<span className="flex items-center gap-1.5">
@@ -225,40 +212,68 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 						</span>
 					</ReadoutField>
 				) : (
-					<>
-						<div className="mm-insp-swatches" data-span="2" role="radiogroup" aria-label="Colour">
-							{laneColors.map((color) => (
-								<button
-									key={color}
-									role="radio"
-									aria-checked={color === lane.color}
-									aria-label={`Colour ${color}`}
-									className="h-4 w-4 rounded-full"
-									style={{
-										background: color,
-										boxShadow: color === lane.color ? '0 0 0 2px var(--content), 0 0 0 3.5px var(--text-secondary)' : 'inset 0 0 0 0.5px rgb(0 0 0 / 0.2)'
-									}}
-									onClick={() => cx.execute(colorCommands(color))}
-									type="button"
-								/>
-							))}
-						</div>
-						<ColorWell cx={cx} id="marble-color" label="Colour" name="Marble colour" own={lane.color} shown={lane.color} commandsFor={(color) => (color != null ? colorCommands(color) : [])} />
-					</>
+					<MarbleColor cx={cx} color={lane.color} commandsFor={colorCommands} />
 				)}
 			</Panel>
 			{release != null && !isFilm ? (
-				<Panel id="marble.release" title="Release" accessory={<HelpTip text="Where the marble starts. Drag its ring on the wall to move it." />}>
+				<Panel id="marble.release" title="Release" defaultCollapsed>
 					<ScrubField id="release-x" label="X" name="Release X" value={round1(release.position.x * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ x: value / 100 })} onCommit={(value) => commitRelease({ x: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
 					<ScrubField id="release-y" label="Y" name="Release Y" value={round1(release.position.y * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ y: value / 100 })} onCommit={(value) => commitRelease({ y: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
 				</Panel>
 			) : null}
-			{suggestions != null ? (
-				<Panel id="marble.hits" title="Hits" accessory={<HelpTip text="Press T to add a hit at the playhead, or play and tap along with T. Double-clicking the marble's row works too." />}>
-					<button className="mm-button" data-span="2" onClick={addSuggestedHits} title={`Add a hit for each of the ${suggestions.length} beats found in the recording`} type="button">
-						Add {suggestions.length} {suggestions.length === 1 ? 'Beat' : 'Beats'}
-					</button>
-				</Panel>
+		</>
+	);
+};
+
+/** One colour well that opens the marble colours and a hex field in a popover, like Figma's fill */
+const MarbleColor: React.FC<{ cx: StudioCx; color: string; commandsFor: (color: string) => TProjectCommand[] }> = (props) => {
+	const { cx, color, commandsFor } = props;
+	const [isOpen, setIsOpen] = React.useState(false);
+	const wellRef = React.useRef<HTMLButtonElement>(null);
+	const close = React.useCallback(() => setIsOpen(false), []);
+
+	React.useEffect(() => {
+		if (!isOpen) return undefined;
+		function onKeyDown(event: KeyboardEvent): void {
+			if (event.key !== 'Escape') return;
+			event.preventDefault();
+			event.stopPropagation();
+			setIsOpen(false);
+		}
+		window.addEventListener('keydown', onKeyDown, true);
+		return () => window.removeEventListener('keydown', onKeyDown, true);
+	}, [isOpen]);
+
+	return (
+		<>
+			<span className="mm-ifield" data-span="2">
+				<label htmlFor="marble-color-well" className="mm-ifield-label">
+					Colour
+				</label>
+				<button ref={wellRef} id="marble-color-well" className="mm-color-well" style={{ background: color }} aria-label="Marble colour" aria-haspopup="dialog" aria-expanded={isOpen} onClick={() => setIsOpen(!isOpen)} type="button" />
+				<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{color}</span>
+			</span>
+			{isOpen ? (
+				<InsertPopover anchor={wellRef} onClose={close} title="Colour" side="end">
+					<div className="mm-insp-swatches" role="radiogroup" aria-label="Colour">
+						{laneColors.map((option) => (
+							<button
+								key={option}
+								role="radio"
+								aria-checked={option === color}
+								aria-label={`Colour ${option}`}
+								className="h-4 w-4 rounded-full"
+								style={{
+									background: option,
+									boxShadow: option === color ? '0 0 0 2px var(--content), 0 0 0 3.5px var(--text-secondary)' : 'inset 0 0 0 0.5px rgb(0 0 0 / 0.2)'
+								}}
+								onClick={() => cx.execute(commandsFor(option))}
+								type="button"
+							/>
+						))}
+					</div>
+					<ColorWell cx={cx} id="marble-color" label="Hex" name="Marble colour" own={color} shown={color} commandsFor={(value) => (value != null ? commandsFor(value) : [])} />
+				</InsertPopover>
 			) : null}
 		</>
 	);
@@ -308,7 +323,6 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					icon={<HitGlyph />}
 					title={`${hits.length} ${ownerIds.has(BACKING_ID) ? 'Notes' : 'Hits'}`}
 					subtitle={[...ownerIds].map((id) => owners.find((owner) => owner.id === id)?.name).join(', ')}
-					status={<HelpTip text="Drag hits in the timeline to move them together. Press 1 to 9 to hand the notes to that marble, 0 to make them Backing. Press Delete to remove them." />}
 				/>
 				<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 					{playedBy}
@@ -364,7 +378,6 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			<Panel
 				id="hit.note"
 				title={hit.pitch != null ? 'Note' : 'Hit'}
-				accessory={<HelpTip text={hit.pitch != null ? 'Type a note name such as A4 or F#3. Up and Down step a semitone, Shift an octave. Changing the pitch plays it.' : 'A tapped hit has no pitch and makes no sound: its timing shows on its dot as the marble lands.'} />}
 			>
 				{hit.pitch != null ? (
 					<>
@@ -398,7 +411,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				/>
 			</Panel>
 			{piece != null && !isBacking && soundsHit(piece.components.piece?.type ?? '', piece.components.hitLink) && layoutOf(piece.components.piece?.type ?? '') === 'box' ? (
-				<Panel id="hit.platform" title={pieceLabel} accessory={<HelpTip text="The platform that plays this hit. ↑ and ↓ tilt it, ← and → step to the next hit. Tilting it changes where the marble goes next, not this hit's timing." />}>
+				<Panel id="hit.platform" title={pieceLabel}>
 					<PlatformFields cx={cx} project={project} entity={piece} />
 				</Panel>
 			) : null}
@@ -482,7 +495,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 				title={SONG_LAYER_LABEL}
 				subtitle={song != null ? `${song.name} · ${kind}` : kind}
 			/>
-			<Panel id="song.file" title="Song" accessory={<HelpTip text="The song the marbles play, heard in the film. Replace it with another file, or drop a file on the window." />}>
+			<Panel id="song.file" title="Song">
 				{project.music.sources.map((source) => (
 					<ReadoutField key={source.id} label={source.kind === 'audio' ? 'Recording' : 'MIDI'} name={source.name} span={2}>
 						<span className="flex items-center gap-2">
@@ -506,7 +519,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 				</button>
 			</Panel>
 			{song?.kind === 'audio' ? (
-				<Panel id="song.sound" title="Sound" accessory={<HelpTip text="The recording is the only sound. Muting it also leaves it out of the film; solo is for listening." />}>
+				<Panel id="song.sound" title="Sound">
 					<div className="flex items-center justify-between" data-span="2">
 						<span className="truncate">{song.name}</span>
 						<PartToggles cx={cx} id={SONG_MIX_ID} name="Song" />

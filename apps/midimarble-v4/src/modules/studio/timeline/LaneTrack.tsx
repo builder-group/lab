@@ -1,3 +1,4 @@
+import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { unreachableStatus } from '@/modules/compose/reachability';
@@ -8,9 +9,34 @@ import { formatTime, noteName } from '../format';
 import { hitMenu, laneMenu } from '../menus';
 import { toHitKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
+import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from '../suggested-hits';
 import { offsetLabel } from './hit-flash';
 import { hitTiming, type THitTiming } from './hit-status';
 import { ROW_HEIGHT } from './timeline-layout';
+
+/**
+ * The instruction itself, like GarageBand's empty track, not behind a ?, with the recording's suggested hits as a link
+ * while the marble has none
+ */
+const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane; hasSong: boolean }> = (props) => {
+	const { cx, lane, hasSong } = props;
+	useFeatureState(cx.sources.$analysis);
+	const suggested = suggestedHits(cx, lane).length;
+	return (
+		<span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 truncate text-[11px] text-[var(--text-tertiary)]" data-hint-anchor="tap">
+			No hits yet
+			{suggested > 0 ? (
+				<>
+					{' · '}
+					<button className="mm-link pointer-events-auto" onClick={() => addSuggestedHits(cx, lane)} onPointerDown={(event) => event.stopPropagation()} title="Add a hit for each beat found in the recording" type="button">
+						{suggestedHitsLabel(suggested)}
+					</button>
+				</>
+			) : null}
+			{hasSong ? ' · press T to tap along, or double-click to add a hit' : ' · import a song to tap along to it'}
+		</span>
+	);
+};
 
 /**
  * A marble's track: its hits in one flat row, each drawn by its timing status: green On Time, amber Early or
@@ -36,13 +62,7 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 			}}
 		>
 			{!lane.hits.length ? (
-				// The instruction itself, like GarageBand's empty track, not behind a ?
-				<span
-					className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 truncate text-[11px] text-[var(--text-tertiary)]"
-					data-hint-anchor="tap"
-				>
-					{hasSong ? 'No hits yet · press T to tap along, or double-click to add a hit' : 'No hits yet · import a song to tap along to it'}
-				</span>
+				<EmptyLaneHint cx={cx} lane={lane} hasSong={hasSong} />
 			) : null}
 			{lane.hits.map((hit, index) => {
 				const key = toHitKey(lane.id, hit.id);

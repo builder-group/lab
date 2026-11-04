@@ -1303,7 +1303,6 @@ export class ComposeCx {
 		}
 		const world = this.toWorld(point);
 		drag.at = world;
-		if (drag.item === 'marble') return false;
 		const pose = { position: world, angle: 0 };
 		// Rails and tunnels get their default run as an explicit path, so switching the type keeps the shape
 		const path = isPathPieceType(drag.item) ? { points: resolvePiecePath(drag.item, undefined).map((item) => ({ ...item })) } : undefined;
@@ -1328,10 +1327,6 @@ export class ComposeCx {
 		this.$inserting.set(null);
 		this.$insertSnap.set(null);
 		if (drag == null) return;
-		if (drag.item === 'marble') {
-			if (isDrop && drag.at != null && this.studio.addMarble(drag.at) != null) this.$tool.set('select');
-			return;
-		}
 		const candidate = drag.candidate;
 		this.studio.simulation.endPreview();
 		if (!isDrop || candidate == null) {
@@ -1846,7 +1841,7 @@ export class ComposeCx {
 		const entity = this.penEntity(pen, true);
 		if (entity == null) return;
 		if (pen.id == null) {
-			pen = { ...pen, id: { id: entity.id, name: entity.name ?? 'Path' } };
+			pen = { ...pen, id: { id: entity.id, name: entity.name ?? 'Rail' } };
 			this.$pen.set(pen);
 		}
 		const transform = entity.components.transform;

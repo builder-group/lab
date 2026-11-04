@@ -145,7 +145,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			)}
 		</Panel>
 		{camera.mode === 'rig' ? (
-			<Panel id="design.camera.advanced" title="Advanced" defaultCollapsed accessory={<HelpTip text="Look Ahead: how far ahead of the marbles the camera looks. Smooth: how gently it follows them." />}>
+			<Panel id="design.camera.advanced" title="Advanced" defaultCollapsed>
 				<ScrubField id="camera-lead" label="Look Ahead" name="How far ahead of the marbles the camera looks" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
 				<ScrubField id="camera-smoothing" label="Smooth" name="Smoothing" value={Math.round(camera.smoothing * 100)} unit="%" step={0.5} min={0} max={100} onCommit={(value) => set({ smoothing: value / 100 })} />
 			</Panel>
@@ -203,12 +203,11 @@ export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TS
 				id="design.shot"
 				title="Shot"
 				accessory={
-					<HelpTip text="When the shot starts, the camera eases to its distance and roll over 0.8 s. After its hold it eases back to the automatic camera; a hold of 0 keeps the shot until the next one. Drag the shot on the timeline to move it." />
+					<HelpTip text="When the shot starts, the camera eases to its distance over 0.8 s. After its hold it eases back to the automatic camera; a hold of 0 keeps the shot until the next one. Drag the shot on the timeline to move it." />
 				}
 			>
 				<SelectField id="shot-kind" label="Kind" value={shot.kind} options={shotKinds.map((item) => ({ value: item.kind, label: item.label }))} onChange={(value) => set({ kind: value as TShotKind })} />
 				<ScrubField id="shot-time" label="Time" name="Time" value={shot.time} unit="" step={0.01} precision={2} min={0} max={project.end} format={formatTime} parse={parseTime} onCommit={(value) => set({ time: value })} />
-				<ScrubField id="shot-roll" label="Roll" name="Roll" value={(shot.roll * 180) / Math.PI} unit="°" step={0.5} precision={1} min={-90} max={90} onCommit={(value) => set({ roll: (value * Math.PI) / 180 })} />
 				<ScrubField id="shot-distance" label="Distance" name="Distance" value={shot.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
 				<ScrubField
 					id="shot-hold"
@@ -320,10 +319,7 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 						onCommit={(value) => setText({ size: value / 100 })}
 					/>
 				) : (
-					<>
-						<ScrubField id="text-size" label="Size" name="Letter height" value={text.size * 100} unit="cm" step={0.05} precision={1} min={0.2} max={50} onCommit={(value) => setText({ size: value / 100 })} />
-						<ScrubField id="text-depth" label="Depth" name="Depth" value={text.depth * 1000} unit="mm" step={0.1} precision={1} min={0} max={50} onCommit={(value) => setText({ depth: value / 1000 })} />
-					</>
+					<ScrubField id="text-size" label="Size" name="Letter height" value={text.size * 100} unit="cm" step={0.05} precision={1} min={0.2} max={50} onCommit={(value) => setText({ size: value / 100 })} />
 				)}
 				<span className="mm-ifield" data-span="2">
 					<label htmlFor="text-color" className="mm-ifield-label">
@@ -338,7 +334,7 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 					) : null}
 				</span>
 			</Panel>
-			<Panel id="design.wallText.timing" title="Timing" accessory={<HelpTip text="When the title shows: it fades in at In and out at Out. A Wall Title shows for the whole film; the other styles bring their own times, and times you type stay." />}>
+			<Panel id="design.wallText.timing" title="Timing">
 				<TextField key={`in-${timingKey}`} id="text-in" label="In" name="Time the title appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="text-out" label="Out" name="Time the title disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>

@@ -93,7 +93,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 			/>
 			{entities.every((entity) => isPathPieceType(entity.components.piece?.type)) ? <PathTypeSection cx={cx} project={project} entities={entities} /> : null}
 			{isFinish && isSameType ? <FinishSection cx={cx} project={project} entities={entities} /> : null}
-			<Panel id="piece.position" title="Position" accessory={!isFree && isSingle ? <HelpTip text="A piece that plays a note or follows a marble moves with the run, so its position comes from there. Detach it to move it freely." /> : null}>
+			<Panel id="piece.position" title="Position">
 				{isSingle && position != null ? (
 					<>
 						<ScrubField
@@ -505,7 +505,7 @@ const FinishSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEnti
 		cx.execute(applyPieceEdit(project, entities, { params }).commands);
 	};
 	return (
-		<Panel id="piece.finish" title="Finish" accessory={<HelpTip text="The Finish catches the marble after its last note, so the film ends on the catch. A Chute rolls it away out of the frame; a Cup holds it. Mirror puts the backstop on the other side." />}>
+		<Panel id="piece.finish" title="Finish">
 			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Style">
 				{FINISH_STYLES.map((option) => (
 					<button key={option.value} role="radio" aria-checked={style === option.value} data-active={style === option.value} onClick={() => set({ style: option.value })} title={option.title} type="button">
@@ -539,7 +539,7 @@ const PathTypeSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEn
 	}
 
 	return (
-		<Panel id="piece.pathType" title="Path" accessory={<HelpTip text="A rail carries the marble on top; a tunnel closes over it so it rolls through hidden. Switching keeps the drawn path." />}>
+		<Panel id="piece.pathType" title="Rail">
 			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Rail or tunnel">
 				{pathPieceTypes.map((type) => (
 					<button

@@ -119,25 +119,6 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 						{section.title === 'Track' ? <HelpTip text={TRACK_HELP} side="right" /> : null}
 					</div>
 					<div className="mm-library-grid">
-						{section.title === 'Marble' && onAddSong != null ? (
-							<button
-								className="mm-library-tile"
-								aria-label="Song…: add a MIDI file or a recording"
-								onClick={() => {
-									close();
-									onAddSong();
-								}}
-								type="button"
-							>
-								<span className="mm-library-preview">
-									<Music size={22} strokeWidth={1.4} />
-								</span>
-								<span className="mm-library-label">
-									<span>Song…</span>
-								</span>
-								<span className="mm-tooltip">Add a MIDI file or a recording: the only sound of the film</span>
-							</button>
-						) : null}
 						{section.entries.map((entry) => (
 							<button
 								key={entry.item}
@@ -165,6 +146,30 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 					</div>
 				</section>
 			))}
+			{onAddSong != null ? (
+				<section className="mm-library-section" aria-label="Song">
+					<div className="mm-library-section-title">Song</div>
+					<div className="mm-library-grid">
+						<button
+							className="mm-library-tile"
+							aria-label="Song…: add a MIDI file or a recording"
+							onClick={() => {
+								close();
+								onAddSong();
+							}}
+							type="button"
+						>
+							<span className="mm-library-preview">
+								<Music size={22} strokeWidth={1.4} />
+							</span>
+							<span className="mm-library-label">
+								<span>Song…</span>
+							</span>
+							<span className="mm-tooltip">Add a MIDI file or a recording: the only sound of the film</span>
+						</button>
+					</div>
+				</section>
+			) : null}
 		</InsertPopover>
 	);
 };

@@ -291,10 +291,10 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		addTitle(cx, args);
 	},
 	'camera.addShot': async (cx, args) => {
-		const { time, kind, roll, distance, length } = SShotArgs.parse(args);
+		const { time, kind, distance, length } = SShotArgs.parse(args);
 		const project = cx.project;
 		if (project == null) return;
-		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(roll != null ? { roll } : {}), ...(distance != null ? { distance } : {}), ...(length != null ? { length } : {}) });
+		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(length != null ? { length } : {}) });
 		cx.$workspace.set('design');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
 	},
@@ -354,7 +354,6 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 const SShotArgs = z.object({
 	time: z.number().min(0).optional(),
 	kind: z.enum(shotKinds.map((item) => item.kind) as [string, ...string[]]).optional() as z.ZodOptional<z.ZodType<(typeof shotKinds)[number]['kind']>>,
-	roll: z.number().optional(),
 	distance: z.number().positive().optional(),
 	length: z.number().nonnegative().optional()
 });

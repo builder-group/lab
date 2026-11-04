@@ -4,6 +4,7 @@ import { createId, type TLane } from '@/modules/project';
 import { commandItem, getCommand, isCommandEnabled, runInWorkspace } from './commands';
 import { formatTime } from './format';
 import { toHitKey } from './selection';
+import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
 import type { StudioCx } from './StudioCx';
 import { deleteHits, playedByMenu } from './timeline/hand-notes';
 
@@ -75,11 +76,13 @@ export function laneMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[]
 	const project = cx.project;
 	if (project == null) return [];
 	const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
+	const suggested = suggestedHits(cx, lane).length;
 
 	return tidyMenu([
 		{ section: lane.name },
 		time != null ? { label: `Add Hit at ${formatTime(time)}`, onSelect: () => addHit(cx, lane, time) } : null,
 		{ label: 'Select All Hits', disabled: !lane.hits.length, onSelect: () => cx.$selection.set(lane.hits.map((hit) => toHitKey(lane.id, hit.id))) },
+		suggested > 0 ? { label: suggestedHitsLabel(suggested), onSelect: () => addSuggestedHits(cx, lane) } : null,
 		'separator',
 		marble != null
 			? {

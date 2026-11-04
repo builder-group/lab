@@ -32,17 +32,18 @@ const ComposeTools: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => 
 	const { cx, compose } = props;
 	const history = useFeatureState(cx.$history);
 	const tool = useFeatureState(compose.$tool);
+	const pathType = useFeatureState(compose.$pathType);
 	const isLibraryOpen = useFeatureState(compose.$libraryOpen);
 	const inserting = useFeatureState(compose.$inserting);
 	const insertButtonRef = React.useRef<HTMLButtonElement>(null);
 	const ghost = useInsertDrag(compose);
 	const item = (id: TComposeTool, label: string, detail: string, icon: React.ReactNode): React.ReactNode => (
-		<RailButton key={id} label={label} detail={detail} shortcut={toolKeys.find((key) => key.tool === id)?.key} isActive={tool === id} onClick={() => compose.armTool(id)}>
+		<RailButton key={id} label={label} detail={detail} shortcut={toolKeys.find((key) => key.tool === id)?.key} isActive={tool === id && (id !== 'path' || pathType === 'rail')} onClick={() => compose.armTool(id)}>
 			{icon}
 		</RailButton>
 	);
 	// Pieces only the library arms light up its button, like Figma's shape tools behind one slot
-	const isLibraryTool = tool === 'windmill' || tool === 'switchback' || tool === 'finish';
+	const isLibraryTool = tool === 'windmill' || tool === 'switchback' || tool === 'finish' || (tool === 'path' && pathType === 'tunnel');
 	return (
 		<>
 			{item('select', 'Move', 'Select, drag and turn', <MousePointer2 size={17} strokeWidth={1.6} />)}
@@ -55,7 +56,7 @@ const ComposeTools: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => 
 			<RailButton
 				ref={insertButtonRef}
 				label="Insert"
-				detail="The track, a marble and the song"
+				detail="More of the track, and the song"
 				shortcut="⇧I"
 				isActive={isLibraryTool}
 				isOpen={isLibraryOpen}

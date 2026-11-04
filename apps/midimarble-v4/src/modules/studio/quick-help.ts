@@ -9,7 +9,7 @@ import type { TWorkspace } from './StudioCx';
 export const quickHelpRegions: TQuickHelpRegion[] = [
 	{ id: 'workspace', title: 'Compose and Film', line: 'Compose: the track, hitboxes and timing. Film: skins, camera and titles', gutter: 'left' },
 	{ id: 'layers', title: 'Layers', line: 'The Scene and everything in it: the song, marbles and track pieces, in Film also the wall, lights, camera and titles', gutter: 'left' },
-	{ id: 'tools', title: 'Tools', line: 'Move and the tools, then Insert, the one place to add something: the track in Compose, titles and Decor in Film', gutter: 'left' },
+	{ id: 'tools', title: 'Tools', line: 'Move and the tools for what you place often, then Insert for the rest: more of the track in Compose, titles and Decor in Film', gutter: 'left' },
 	{ id: 'wall', title: 'Wall', line: 'Marbles fall here and play their notes on the track', gutter: 'center', workspace: 'compose' },
 	{ id: 'wall', title: 'Preview', line: 'The film as Blender renders it at the playhead', gutter: 'center', workspace: 'design' },
 	{ id: 'export', title: 'Export Film…', line: 'Makes the movie file once the track plays well', gutter: 'right' },

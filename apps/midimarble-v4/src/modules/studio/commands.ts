@@ -10,7 +10,7 @@ import { followKey, toolKeys, tunnelPathKey, type TComposeTool } from '@/modules
 import { canMakeBacking } from '@/modules/compose/reachability';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import { armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu } from '@/modules/compose/tie-commands';
-import { BACKING_ID, type TProject } from '@/modules/project';
+import { BACKING_ID, type TLane, type TProject } from '@/modules/project';
 import { isMusicalPiece, isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
 import { deleteThemeCommands, resolveTheme } from '@/modules/design/project-themes';
 import { framingFix, framingProblemAt, preflightExport, type TPreflightFix } from '@/modules/design/export-preflight';
@@ -20,6 +20,7 @@ import { addLightCommands, deleteLightsCommands } from '@/modules/design/scene-l
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { connectTitle } from '@/modules/mcp/agent-connect';
 import { shownRepeatRange } from './repeat-range';
+import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
 import { duplicateClear, type TClearDuplicate } from './duplicate';
 import { CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey } from './selection';
 import { hasSongLayer } from './song-layer';
@@ -224,6 +225,15 @@ function finishLane(cx: StudioCx): string | null {
 	const lane = selected[0];
 	if (lane != null && project.music.lanes.some((item) => item.id === lane && item.hits.length > 0)) return lane;
 	return lanesWithoutFinish(project)[0] ?? null;
+}
+
+/** The marble Add Suggested Hits works on: the selected one, else the first without hits, else the first */
+function suggestionLane(cx: StudioCx): TLane | null {
+	const project = cx.project;
+	if (project == null) return null;
+	const selected = project.entities.find((entity) => entity.id === cx.$selection.get()[0])?.components.marble?.laneId;
+	const lanes = project.music.lanes;
+	return lanes.find((lane) => lane.id === selected) ?? lanes.find((lane) => !lane.hits.length) ?? lanes[0] ?? null;
 }
 
 /** One selected platform that plays a note, which Place Again solves again */
@@ -517,7 +527,7 @@ export const commands: readonly TCommand[] = [
 		title: 'Add Shot',
 		section: 'Film',
 		shortcut: '⇧M',
-		keywords: 'camera marker keyframe push in wide follow close up roll',
+		keywords: 'camera marker keyframe push in wide follow close up',
 		isEnabled: inDesign,
 		run: (cx) => {
 			const project = cx.project;
@@ -626,6 +636,26 @@ export const commands: readonly TCommand[] = [
 			const canvas = compose(cx);
 			if (canvas != null && !cx.isInAgentStep) canvas.armTool('marble');
 			else cx.addMarble();
+		}
+	},
+	{
+		id: 'marble.addSuggestedHits',
+		title: 'Add Suggested Hits',
+		currentTitle: (cx) => {
+			const lane = suggestionLane(cx);
+			const count = lane != null ? suggestedHits(cx, lane).length : 0;
+			return count > 0 ? suggestedHitsLabel(count) : 'Add Suggested Hits';
+		},
+		section: 'Marble',
+		keywords: 'beats onsets recording audio tap detect found',
+		isEnabled: (cx) => {
+			const lane = suggestionLane(cx);
+			return lane != null && suggestedHits(cx, lane).length > 0;
+		},
+		whyDisabled: 'It needs a recording with beats the marble does not play yet',
+		run: (cx) => {
+			const lane = suggestionLane(cx);
+			if (lane != null) addSuggestedHits(cx, lane);
 		}
 	},
 	{
@@ -746,6 +776,7 @@ export type TCommandId =
 	| 'edit.makeBacking'
 	| 'piece.detach'
 	| 'marble.add'
+	| 'marble.addSuggestedHits'
 	| 'film.fitToSong'
 	| 'film.format'
 	| 'film.theme'

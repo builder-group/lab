@@ -14,7 +14,7 @@ import { ColorWell } from './SceneLayerInspector';
 import { decorTips, preflightExport } from './export-preflight';
 import { titleSpan, withTitleTime } from './titles';
 
-// Inspectors of the Decor group: Position, Scale, Rotation, Depth and In and Out
+// Inspectors of the Decor group: Position, Scale, Rotation and In and Out
 // with the title pattern. Decor has no hitbox. Made in Blender objects keep their place in Blender, so they show only In, Out and their tip.
 
 /** The amber tip on a layer a marble's path crosses, from the one problem model */
@@ -65,15 +65,14 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 				</Panel>
 			) : null}
 			{item?.effect == null ? (
-			<Panel id="design.decor.place" title="Position" accessory={<HelpTip text="Where it sits on the wall. Drag it in the Draft Preview, or set it here. Decor has no hitbox, so it never changes a hit." />}>
+			<Panel id="design.decor.place" title="Position">
 				<ScrubField id="decor-x" label="X" name="X" value={decor.position.x * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => update({ position: { ...decor.position, x: value / 100 } })} />
 				<ScrubField id="decor-y" label="Y" name="Y" value={decor.position.y * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => update({ position: { ...decor.position, y: value / 100 } })} />
 				<ScrubField id="decor-scale" label="Scale" name="Scale" value={decor.scale * 100} unit="%" step={1} min={10} max={1000} onCommit={(value) => update({ scale: value / 100 })} />
 				<ScrubField id="decor-rotation" label="Rotation" name="Rotation" value={(decor.rotation * 180) / Math.PI} unit="°" step={1} onCommit={(value) => update({ rotation: (value * Math.PI) / 180 })} />
-				<ScrubField id="decor-depth" label="Depth" name="Distance in front of the wall" value={decor.depth * 1000} unit="mm" step={0.5} precision={1} min={0} max={200} onCommit={(value) => update({ depth: value / 1000 })} />
 			</Panel>
 			) : null}
-			<Panel id="design.decor.timing" title="Timing" accessory={<HelpTip text="When it shows: it fades in at In and out at Out, like a title." />}>
+			<Panel id="design.decor.timing" title="Timing">
 				<TextField key={`in-${timingKey}`} id="decor-in" label="In" name="Time it appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="decor-out" label="Out" name="Time it disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
@@ -88,7 +87,7 @@ const SnowfallPanel: React.FC<{ cx: StudioCx; decor: TDecor }> = (props) => {
 	const commands = (patch: Partial<TSnowfall>): TProjectCommand[] => updateDecorCommands(requireProject(cx), [decor.id], { snowfall: { ...snow, ...patch } });
 	const asPercent = (value: number): string => String(Math.round(value));
 	return (
-		<Panel id="design.decor.snowfall" title="Particles" accessory={<HelpTip text="Specks falling in front of everything, always filling the frame. They have no hitbox, and they fall the same way in every render." />}>
+		<Panel id="design.decor.snowfall" title="Particles">
 			<SliderField id="snowfall-density" label="Density" value={snow.density * 100} min={0} max={100} step={1} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ density: value / 100 }))} />
 			<SliderField id="snowfall-size" label="Size" value={snow.size * 100} min={25} max={300} step={5} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ size: value / 100 }))} />
 			<SliderField id="snowfall-speed" label="Speed" value={snow.speed * 100} min={0} max={300} step={5} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ speed: value / 100 }))} />
@@ -131,7 +130,7 @@ export const MadeInBlenderInspector: React.FC<{ cx: StudioCx; project: TProject;
 					Open in Blender
 				</button>
 			</Panel>
-			<Panel id="design.madeInBlender.timing" title="Timing" accessory={<HelpTip text="When it shows: keyframes on the object in Blender hide it before In and from Out on." />}>
+			<Panel id="design.madeInBlender.timing" title="Timing">
 				<TextField key={`in-${timingKey}`} id="blender-in" label="In" name="Time it appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="blender-out" label="Out" name="Time it disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
