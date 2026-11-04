@@ -619,7 +619,8 @@ export async function sceneryFix(
 		if (run != null) return { kind: 'moveClear', commands: move.commands, run, message: `${name} moved ${Math.max(1, Math.round(move.distance * 100))} cm, clear of ${runs}'s run` };
 	} else refusal ||= `No spot within 40 cm clears ${name} of ${runs}'s run`;
 
-	if (isBlocked) {
+	// A Finish is how the marble ends, wherever the run now goes, so it stays for the person even when Blocked
+	if (isBlocked && type !== FINISH_TYPE) {
 		const commands: TProjectCommand[] = [{ type: 'removeEntities', entityIds: [entityId] }];
 		const run = await check(commands, `Deleting ${name}`);
 		if (run != null) return { kind: 'delete', commands, run, message: `${name} deleted: ${laneName(link.laneId)} already passes through its spot, so the run never used it` };

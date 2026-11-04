@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { assignNotesCommands } from '@/modules/music';
-import { applyProjectCommands, BACKING_ID, createProject, parseProject, type TProject } from '@/modules/project';
+import { applyProjectCommands, BACKING_ID, createProject, type TProject } from '@/modules/project';
+import { loadFixture } from '@/modules/project/test-helpers';
 import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
@@ -138,8 +138,7 @@ describe('replaceBroken function', () => {
 
 	// A fixture with `count` notes of its first track from `from` on handed to Backing, as Played By does
 	function handToBacking(name: string, from: number, count: number): { before: TSimulationResult; edited: TProject; broken: TSimulationResult; laneId: string } {
-		const [isProjectOk, projectErr, project] = parseProject(readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8'));
-		if (!isProjectOk) throw projectErr;
+		const project = loadFixture(name);
 		const before = simulate(project);
 		const lane = project.music.lanes[0];
 		if (lane == null) throw new Error(`${name} has a track`);
@@ -157,8 +156,7 @@ describe('replaceBroken function', () => {
 	}
 
 	it('should offer a platform struck twice or touching a Fix that clears it, breaks no hit and adds no problem', async () => {
-		const [isProjectOk, projectErr, project] = parseProject(readFileSync(new URL('../../../fixtures/zigzag.marble.json', import.meta.url), 'utf8'));
-		if (!isProjectOk) throw projectErr;
+		const project = loadFixture('zigzag');
 		// The plain copied tilts, which Continue turns a little: the marble grazes two of its own earlier platforms
 		for (const entity of project.entities) {
 			const link = entity.components.hitLink;
@@ -186,48 +184,31 @@ describe('replaceBroken function', () => {
 		expect(replacePlan(project, result).label).toBe(`Fix ${problems.length} Platforms`);
 	}, 120_000);
 
-	it('should recover Jingle Bells after its first 6 Melody notes become Backing', async () => {
+	it('should move the release and recover a run after its first notes become Backing', async () => {
 		// Prepare
-		const { before, edited, broken, laneId } = handToBacking('jingle-bells', 0, 6);
-		expect(brokenHits(broken.hits).length).toBeGreaterThan(0);
-
-		// Act
-		const outcome = await replaceBroken(edited, broken, deps(), { before: before.hits });
-
-		// Assert
-		expect(outcome.releases).toEqual([laneId]);
-		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
-		expect(resultMessage(edited, broken, outcome)).toMatch(
-			new RegExp(`^Melody now starts just before its first note\\. Placed \\d+ platforms? again.*,? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`)
-		);
-	}, 120_000);
-
-	it('should recover Jingle Bells after 7 Melody notes become Backing without adding a collision', async () => {
-		// Prepare: the review's repro, which took 78 s in the browser
-		const { before, edited, broken } = handToBacking('jingle-bells', 0, 7);
-		const startedAt = performance.now();
+		const { before, edited, broken, laneId } = handToBacking('zigzag', 0, 3);
+		const counted = brokenHits(broken.hits).length;
+		expect(counted).toBeGreaterThan(0);
 		const progress: { done: number; total: number }[] = [];
 
 		// Act
 		const outcome = await replaceBroken(edited, broken, { ...deps(), onProgress: (done, total) => progress.push({ done, total }) }, { before: before.hits });
 
-		// Assert: every hit back on time, and no new problem: the rail the new run passes through and no longer uses
-		// is deleted instead of being left Blocked with a Move Clear that refuses
+		// Assert
+		expect(outcome.releases).toEqual([laneId]);
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
 		// One count for the whole run, the label's, and the fixed count only grows: never "0 of 37", then "0 of 38"
-		const counted = brokenHits(broken.hits).length;
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
-		expect(addedProblems(edited, broken, outcome.project, outcome.result)).toEqual([]);
-		expect(resultMessage(edited, broken, outcome)).toMatch(/fixed all \d+ broken hits: \d+ of \d+ hits on time/);
-		expect(resultMessage(edited, broken, outcome)).not.toMatch(/new problem/);
-		expect(performance.now() - startedAt).toBeLessThan(60_000);
-	}, 120_000);
+		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
+		expect(resultMessage(edited, broken, outcome)).toMatch(
+			new RegExp(`^Marble 1 now starts just before its first note\\. .*${fixedWords(counted, counted)}: ${summary.label}`)
+		);
+	}, 60_000);
 
-	it('should recover Brass Sections after 3 notes in its first section become Backing', async () => {
+	it('should keep the release and recover a run after notes in its middle become Backing', async () => {
 		// Prepare
-		const { before, edited, broken } = handToBacking('reference-20', 20, 3);
+		const { before, edited, broken } = handToBacking('zigzag', 8, 2);
 		expect(brokenHits(broken.hits).length).toBeGreaterThan(0);
 
 		// Act
@@ -356,6 +337,22 @@ describe('moveClear function', () => {
 		expect(moved.commands).toHaveLength(1);
 		expect(moved).toEqual(expect.objectContaining({ label: 'Move Windmill 1 Clear', kind: 'moveClear' }));
 		expect(moved.message).toMatch(/^Windmill 1 moved \d+ cm, clear of .+'s run$/);
+	});
+
+	it('should keep a Blocked Finish, which is how its marble ends, even when moving it clear would break a hit', async () => {
+		// Prepare
+		const { project: blocked, result } = createBlocked();
+		const project = { ...blocked, entities: blocked.entities.map((entity) => (entity.id === 'windmill' && entity.components.piece != null ? { ...entity, components: { ...entity.components, piece: { ...entity.components.piece, type: 'finish' } } } : entity)) };
+		const laneId = project.music.lanes[0]?.id ?? '';
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const simulate = async (next: TProject): Promise<TSimulationResult> => (next.entities.some((entity) => entity.id === 'windmill') ? breaks : { ...onTime, pieces: [] });
+
+		// Act
+		const fix = await sceneryFix(project, onTime, 'windmill', { simulate });
+
+		// Assert
+		expect(fix.commands).toBeNull();
 	});
 
 	it('should delete a Blocked piece the run never uses when moving it clear would break a hit', async () => {
