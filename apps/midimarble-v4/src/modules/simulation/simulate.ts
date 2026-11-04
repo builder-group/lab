@@ -1913,19 +1913,23 @@ export function trajectoryAt(
 
 // Signatures
 
+/** Two cyrb53 string hashes, with seeds 0 and 1, computed in one pass over the text */
 function signature(text: string): string {
-	return `${hash53(text, 0)}${hash53(text, 1)}`;
-}
-
-/** cyrb53 string hash */
-function hash53(text: string, seed: number): string {
-	let h1 = 0xdeadbeef ^ seed;
-	let h2 = 0x41c6ce57 ^ seed;
+	let a1 = 0xdeadbeef;
+	let a2 = 0x41c6ce57;
+	let b1 = 0xdeadbeef ^ 1;
+	let b2 = 0x41c6ce57 ^ 1;
 	for (let i = 0; i < text.length; i++) {
 		const code = text.charCodeAt(i);
-		h1 = Math.imul(h1 ^ code, 2654435761);
-		h2 = Math.imul(h2 ^ code, 1597334677);
+		a1 = Math.imul(a1 ^ code, 2654435761);
+		a2 = Math.imul(a2 ^ code, 1597334677);
+		b1 = Math.imul(b1 ^ code, 2654435761);
+		b2 = Math.imul(b2 ^ code, 1597334677);
 	}
+	return `${finishHash53(a1, a2)}${finishHash53(b1, b2)}`;
+}
+
+function finishHash53(h1: number, h2: number): string {
 	h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
 	h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
 	return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36).padStart(11, '0');

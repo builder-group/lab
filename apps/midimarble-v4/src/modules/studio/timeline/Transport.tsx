@@ -10,7 +10,6 @@ import { getCommand, type TCommandId } from '../commands';
 import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';
 import { parseTime } from './parse-time';
-import { problemsInTimeOrder } from './hit-status';
 import { sliderToZoom, zoomToSlider } from './timeline-layout';
 
 /**
@@ -80,7 +79,8 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</span>
 		);
 	}
-	const problems = problemsInTimeOrder(summary.problems);
+	// Already in time order, as the summary keeps them
+	const problems = summary.problems;
 	const first = problems[0];
 	if (first == null) {
 		return (
@@ -101,7 +101,8 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		'separator' as const,
 		{ label: 'Show First Problem', onSelect: () => cx.showFirstProblem() },
 		{
-			label: plan == null || plan.isEmpty ? 'Re-place Broken Platforms' : `Re-place Broken Platforms (${plan.platforms + plan.scenery.length})`,
+			// One label with the edit's notice: "Re-place 33 Platforms", "Move Release and Re-place 33 Platforms"
+			label: plan == null || plan.isEmpty ? 'Re-place Broken Platforms' : plan.label,
 			disabled: plan == null || plan.isEmpty || compose == null || compose.assist.isReplacing,
 			onSelect: () => void compose?.assist.replace()
 		}

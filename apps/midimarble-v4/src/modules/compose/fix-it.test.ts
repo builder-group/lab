@@ -3,8 +3,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { assignNotesCommands } from '@/modules/music';
 import { applyProjectCommands, BACKING_ID, createProject, parseProject, type TProject } from '@/modules/project';
 import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
-import { brokenHits, moveClear, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceTargets, type TReplaceDeps } from './fix-it';
+import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceTargets, type TReplaceDeps } from './fix-it';
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
@@ -172,6 +173,13 @@ describe('replaceBroken function', () => {
 		return { before, edited, broken: simulate(edited), laneId: lane.id };
 	}
 
+	/** The result notice as Compose shows it, with how the run stands from the problem model */
+	function resultMessage(edited: TProject, broken: TSimulationResult, outcome: Awaited<ReturnType<typeof replaceBroken>>): string {
+		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
+		const added = addedProblems(edited, broken, outcome.project, outcome.result);
+		return replaceResultMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
+	}
+
 	it('should recover Jingle Bells after its first 6 Melody notes become Backing', async () => {
 		// Prepare
 		const { before, edited, broken, laneId } = handToBacking('jingle-bells', 0, 6);
@@ -183,10 +191,25 @@ describe('replaceBroken function', () => {
 		// Assert
 		expect(outcome.releases).toEqual([laneId]);
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
-		const summary = hitSummary(outcome.result.hits);
-		expect(replaceResultMessage(outcome.project, broken.hits, outcome, summary.label, 0)).toMatch(
-			new RegExp(`^Melody now starts just before its first note\\. Re-placed \\d+ platforms? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`)
+		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
+		expect(resultMessage(edited, broken, outcome)).toMatch(
+			new RegExp(`^Melody now starts just before its first note\\. Re-placed \\d+ platforms?.*,? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`)
 		);
+	}, 120_000);
+
+	it('should recover Jingle Bells after 7 Melody notes become Backing without adding a collision', async () => {
+		// Prepare: the review's repro, which took 78 s in the browser
+		const { before, edited, broken } = handToBacking('jingle-bells', 0, 7);
+		const startedAt = performance.now();
+
+		// Act
+		const outcome = await replaceBroken(edited, broken, deps(), { before: before.hits });
+
+		// Assert: every hit back on time, and no marble hits another marble's pieces
+		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
+		expect(addedProblems(edited, broken, outcome.project, outcome.result).filter((issue) => issue.kind === 'contact')).toEqual([]);
+		expect(resultMessage(edited, broken, outcome)).toMatch(/fixed all \d+ broken hits: \d+ of \d+ hits on time/);
+		expect(performance.now() - startedAt).toBeLessThan(60_000);
 	}, 120_000);
 
 	it('should recover Brass Sections after 3 notes in its first section become Backing', async () => {
@@ -199,11 +222,9 @@ describe('replaceBroken function', () => {
 
 		// Assert: the release stays, since the marble's first notes still play
 		expect(outcome.releases).toEqual([]);
-		const summary = hitSummary(outcome.result.hits);
-		expect(summary.problems).toEqual([]);
-		expect(replaceResultMessage(outcome.project, broken.hits, outcome, summary.label, 0)).toMatch(
-			new RegExp(`^Re-placed \\d+ platforms? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`)
-		);
+		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
+		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
+		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Re-placed \\d+ platforms?.*,? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`));
 	}, 60_000);
 });
 
@@ -285,5 +306,102 @@ describe('moveClear function', () => {
 		const placed = { ...result, pieces: result.pieces.map((piece) => ({ ...piece, status: 'placed' as const })) };
 
 		expect(moveClear(project, placed, 'windmill')).toBeNull();
+	});
+
+	it('should name the platforms and the scenery in one label', () => {
+		// Prepare: Windmill 1 Blocked and a broken platform on the same marble
+		const { project, result } = createBlocked();
+		const laneId = project.music.lanes[0]?.id ?? '';
+		const broken = { ...result, hits: [hit(1.5, 'blocked', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+
+		// Act
+		const plan = replacePlan({ ...project, entities: [...project.entities, { id: 'p1', name: 'Platform 1', components: {} }] }, broken);
+
+		// Assert
+		expect(plan.label).toBe('Re-place Platform 1 and Move Windmill 1 Clear');
+	});
+
+	it('should move the piece only when its what-if run breaks no hit', async () => {
+		// Prepare: the move clears the windmill, but the run with it moved loses a hit that was on time
+		const { project, result } = createBlocked();
+		const laneId = project.music.lanes[0]?.id ?? '';
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const unused = (): Promise<never> => Promise.reject(new Error('Move Clear places no platform'));
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const keeps = { ...breaks, hits: onTime.hits };
+
+		// Act
+		const refused = await fixPiece(project, onTime, 'windmill', { simulate: async () => breaks, autoPlace: unused });
+		const moved = await fixPiece(project, onTime, 'windmill', { simulate: async () => keeps, autoPlace: unused });
+
+		// Assert
+		expect(refused).toEqual(expect.objectContaining({ commands: null, message: 'Moving Windmill 1 clear would break a hit, so nothing moved. Drag it by hand or Detach it.' }));
+		expect(moved.commands).toHaveLength(1);
+		expect(moved.message).toMatch(/^Windmill 1 moved \d+ cm, clear of .+'s run$/);
+	});
+});
+
+describe('fixedWords function', () => {
+	it('should count broken hits in plain words', () => {
+		expect(fixedWords(1, 1)).toBe('fixed the broken hit');
+		expect(fixedWords(2, 2)).toBe('fixed both broken hits');
+		expect(fixedWords(38, 38)).toBe('fixed all 38 broken hits');
+		expect(fixedWords(37, 38)).toBe('fixed 37 of 38 broken hits');
+		expect(fixedWords(0, 1)).toBe('fixed 0 of 1 broken hit');
+		expect(fixedWords(0, 0)).toBe('');
+	});
+});
+
+describe('replaceResultMessage function', () => {
+	it('should name every moved piece and end with the summary and the new problems', () => {
+		// Prepare
+		const project = oneMarble();
+		const withPieces: TProject = {
+			...project,
+			entities: [...project.entities, { id: 'rail', name: 'Rail 2', components: {} }, { id: 'windmill', name: 'Windmill 1', components: {} }]
+		};
+		const before = [hit(1, 'blocked')];
+		const outcome = { project: withPieces, result: { hits: [hit(1, 'onTime')] } as TSimulationResult, replaced: 4, moved: ['rail'], cleared: ['windmill'], releases: [] };
+		const added = [{ id: 'contact:m:s', kind: 'contact' as const, severity: 'warning' as const, title: 'Bass hits Switchback 6 of Melody', target: null }];
+
+		// Act
+		const message = replaceResultMessage(withPieces, before, outcome, { label: '1 of 1 hit on time · 1 other problem', hitProblems: 0, added });
+
+		// Assert
+		expect(message).toBe(
+			'Re-placed 4 platforms, placed Rail 2 again, moved Windmill 1 clear, and fixed the broken hit: 1 of 1 hit on time · 1 other problem · 1 new problem: Bass hits Switchback 6 of Melody'
+		);
+	});
+});
+
+describe('addedProblems function', () => {
+	function contactResult(project: TProject, contacts: TSimulationResult['contacts']): TSimulationResult {
+		return { revision: project.revision, duration: 10, marbles: [], pieces: [], contacts, hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } };
+	}
+
+	it('should count another marble hitting a piece, except ahead of the marble being re-placed', () => {
+		// Prepare: Bass's marble hits a switchback of Melody at 0:05.00
+		const base = createProject();
+		const [melody] = base.music.lanes;
+		if (melody == null) throw new Error('A new project has a marble');
+		const project: TProject = {
+			...base,
+			music: { ...base.music, lanes: [{ ...melody, name: 'Melody' }, { ...melody, id: 'bass', name: 'Bass', hits: [] }] },
+			entities: [
+				...base.entities,
+				{ id: 'bass-marble', name: 'Bass', components: { marble: { laneId: 'bass', radius: 0.008 } } },
+				{ id: 'switchback', name: 'Switchback 6', components: { piece: { type: 'switchback', params: {} }, hitLink: { laneId: melody.id, hitId: 'h1', angle: 0, contactAt: 0.5, pinned: false, anchored: true } } }
+			]
+		} as TProject;
+		const clear = contactResult(project, []);
+		const hitBy = contactResult(project, [{ kind: 'piece', marbleEntityId: 'bass-marble', otherEntityId: 'switchback', time: 5, position: { x: 0, y: 0 } }] as TSimulationResult['contacts']);
+
+		// Act
+		const added = addedProblems(project, clear, project, hitBy);
+		const ahead = addedProblems(project, clear, project, hitBy, { laneId: melody.id, from: 4 });
+
+		// Assert
+		expect(added.map((issue) => issue.title)).toEqual(['Bass hits Switchback 6 of Melody']);
+		expect(ahead).toEqual([]);
 	});
 });

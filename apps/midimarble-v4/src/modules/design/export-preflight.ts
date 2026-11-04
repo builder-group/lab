@@ -3,6 +3,7 @@ import type { TProject, TVec2 } from '@/modules/project';
 import { frameBand, getPieceDefinition, paceAt, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
+import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
 import { describeLoop } from './loop-status';
 
 /**
@@ -53,7 +54,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 export function problemSummary(preflight: TExportPreflight): TProblemSummary {
 	const { hitCount: total, onTimeCount: onTime } = preflight;
 	if (preflight.state === 'pending') return { state: 'pending', tone: 'neutral', label: 'Checking…', problems: [], hitProblems: 0, otherProblems: 0, onTime, total };
-	const problems = preflight.issues.filter((issue) => issue.severity === 'warning').sort((a, b) => (a.time ?? Infinity) - (b.time ?? Infinity));
+	const problems = problemsInTimeOrder(preflight.issues.filter((issue) => issue.severity === 'warning'));
 	const hitProblems = problems.filter((issue) => issue.kind === 'hit').length;
 	const otherProblems = problems.length - hitProblems;
 	const hits =
@@ -68,11 +69,28 @@ export function problemSummary(preflight: TExportPreflight): TProblemSummary {
 	return { state: 'checked', tone, label, problems, hitProblems, otherProblems, onTime, total };
 }
 
+/**
+ * The pieces another marble hits outside a note, by entity ID, with those problems: "Bass hits Switchback 6 of
+ * Melody". Layers badges them and the inspector shows a pill and a fix, from the same list as the summary.
+ */
+export function struckPieces(preflight: TExportPreflight): Map<string, TPreflightIssue[]> {
+	const struck = new Map<string, TPreflightIssue[]>();
+	for (const issue of preflight.issues) {
+		// Contacts between two marbles carry no lane; they are about the marbles, not a piece
+		const id = issue.kind === 'contact' && issue.laneId != null ? issue.target?.ids[0] : undefined;
+		if (id != null) struck.set(id, [...(struck.get(id) ?? []), issue]);
+	}
+	return struck;
+}
+
 export interface TProblemSummary {
 	state: TExportPreflight['state'];
 	tone: 'good' | 'warn' | 'neutral';
 	label: string;
-	/** Warnings in time order; issues without a time come last */
+	/**
+	 * Warnings in time order, as the problem menu lists them and Show First Problem picks the first: by their time,
+	 * a framing span's start or their target's time; issues without one come last
+	 */
 	problems: TPreflightIssue[];
 	hitProblems: number;
 	otherProblems: number;
@@ -104,6 +122,10 @@ export interface TPreflightIssue {
 	 */
 	kind: TPreflightKind;
 	severity: TPreflightSeverity;
+	/** For a marble hitting another lane's piece, that marble's name: "Bass" in "Bass hits Switchback 6 of Melody" */
+	by?: string;
+	/** The marble the issue is about: for hit, framing, pace and Blocked scenery issues, and for a marble hitting another lane's piece, the lane the piece belongs to */
+	laneId?: string;
 	title: string;
 	detail?: string;
 	/** Run time the issue happens at, if it has one */
@@ -141,10 +163,12 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 	const open: THitResult[] = [];
 	const outside: { hit: THitResult; overshoot: number; target: TPreflightTarget }[] = [];
 
+	const numbers = new Map(project.music.lanes.flatMap((lane) => lane.hits.map((hit, index) => [toHitKey(lane.id, hit.id), index + 1] as const)));
 	for (const hit of result.hits) {
 		const lane = names.lane(hit.laneId);
 		const key = toHitKey(hit.laneId, hit.hitId);
-		const at = `${lane} at ${formatTime(hit.targetTime)}`;
+		// "Hit 12 of Melody is Blocked", as words.md names a hit by its number on its marble
+		const is = (label: string): string => `Hit ${numbers.get(key) ?? '?'} of ${lane} is ${label}`;
 		const piece = hit.pieceEntityId != null ? pieces.get(hit.pieceEntityId) : undefined;
 		const target: TPreflightTarget = { ids: hit.pieceEntityId != null ? [hit.pieceEntityId] : [key], point: hit.dot ?? undefined, time: hit.targetTime };
 		const id = `hit:${hit.laneId}:${hit.hitId}`;
@@ -154,21 +178,23 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 				id,
 				kind: 'hit',
 				severity: 'warning',
-				title: `Blocked hit, ${at}`,
+				laneId: hit.laneId,
+				title: is('Blocked'),
 				detail: `${lane} already passes through this spot earlier in its run, so the platform is left out.`,
 				time: hit.targetTime,
 				target
 			});
 		} else if (hit.status === 'missed') {
 			const label = hit.reason === 'resting' && piece?.status !== 'unreached' ? 'Stopped' : 'Missed';
-			issues.push({ id, kind: 'hit', severity: 'warning', title: `${label} hit, ${at}`, detail: missDetail(hit, piece?.status), time: hit.targetTime, target });
+			issues.push({ id, kind: 'hit', severity: 'warning', laneId: hit.laneId, title: is(label), detail: missDetail(hit, piece?.status), time: hit.targetTime, target });
 		} else if (hit.status === 'drifting') {
 			const ms = Math.round((hit.error ?? 0) * 1000);
 			issues.push({
 				id,
 				kind: 'hit',
 				severity: 'warning',
-				title: `${ms > 0 ? 'Late' : 'Early'} hit, ${at}`,
+				laneId: hit.laneId,
+				title: is(ms > 0 ? 'Late' : 'Early'),
 				detail: `Lands ${Math.abs(ms)} ms ${ms > 0 ? 'after' : 'before'} the note.`,
 				time: hit.targetTime,
 				target
@@ -176,7 +202,7 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		} else if (hit.status === 'open') {
 			const reach = hitReach(project, result, hit);
 			const status = isUnreachable(reach) ? reachStatus(reach, { marble: lane, time: formatTime(hit.targetTime) }) : null;
-			if (status != null) issues.push({ id, kind: 'hit', severity: 'warning', title: `${status.label}, ${at}`, detail: `${status.detail}.`, time: hit.targetTime, target });
+			if (status != null) issues.push({ id, kind: 'hit', severity: 'warning', laneId: hit.laneId, title: is(status.label), detail: `${status.detail}.`, time: hit.targetTime, target });
 			else open.push(hit);
 		}
 
@@ -210,16 +236,17 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		const first = dots[0];
 		if (first == null) continue;
 		const count = dots.length;
-		const furthest = Math.max(...dots.map((item) => item.overshoot));
-		const where = isShared ? "marble's part of the frame" : 'frame';
+		const furthest = Math.round(Math.max(...dots.map((item) => item.overshoot)) * 100);
 		const last = dots[dots.length - 1] ?? first;
+		const hits = `${count} ${count === 1 ? 'hit' : 'hits'}`;
 		issues.push({
 			id: `frame:${laneId}`,
 			kind: 'framing',
+			laneId,
 			// With one marble the camera follows it; with several they share one frame
 			severity: isShared ? 'warning' : 'info',
-			title: count === 1 ? `Hit outside the ${where}, ${names.lane(laneId)} at ${formatTime(first.hit.targetTime)}` : `${count} hits outside the ${where} on ${names.lane(laneId)}`,
-			detail: `${count === 1 ? '' : `From ${formatTime(first.hit.targetTime)}, up to `}${furthest.toFixed(2)} m past the edge. ${isShared ? 'The shared camera may lose this marble.' : 'The camera pans to follow it.'}`,
+			title: `${names.lane(laneId)} leaves the frame at ${formatTime(first.hit.targetTime)} (${hits})`,
+			detail: `${count === 1 ? '' : 'Up to '}${furthest} cm past the edge of ${isShared ? 'its part of the frame' : 'the frame'}${count === 1 ? '' : ` until ${formatTime(last.hit.targetTime)}`}. ${isShared ? 'The shared camera may lose this marble.' : 'The camera pans to follow it.'}`,
 			time: first.hit.targetTime,
 			span: { from: first.hit.targetTime, to: last.hit.targetTime },
 			target: cameraTarget(first.hit.targetTime)
@@ -260,7 +287,8 @@ function sceneryIssues(project: TProject, result: TSimulationResult, names: TNam
 				id: `scenery:${piece.entityId}`,
 				kind: 'scenery' as const,
 				severity: 'warning' as const,
-				title: `Blocked ${names.entity(piece.entityId)}, ${lane}${time != null ? ` at ${formatTime(time)}` : ''}`,
+				laneId: link.laneId,
+				title: `${names.entity(piece.entityId)} of ${lane} is Blocked`,
 				detail: `${lane} already passes through this spot earlier in its run, so the ${type} is left out.`,
 				time,
 				target: { ids: [piece.entityId], point: piece.position, time }
@@ -327,6 +355,8 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 			id,
 			kind: 'contact' as const,
 			severity: 'warning' as const,
+			laneId: laneOfPiece.get(group.otherId),
+			by: marble,
 			title: `${marble} hits ${other} of ${names.lane(laneOfPiece.get(group.otherId) ?? '')}`,
 			detail: `Hits it ${times}, without a note.`,
 			time: group.time,
@@ -355,9 +385,10 @@ function paceIssues(result: TSimulationResult, names: TNames): TPreflightIssue[]
 	return [...worst.values()].map(({ hit, offset, from, to }) => ({
 		id: `pace:${hit.laneId}`,
 		kind: 'framing' as const,
+		laneId: hit.laneId,
 		severity: 'warning' as const,
 		title: `${names.lane(hit.laneId)} falls out of step with the other marbles`,
-		detail: `${Math.abs(offset).toFixed(2)} m ${offset > 0 ? 'above' : 'below'} the other marbles at ${formatTime(hit.targetTime)}, so the camera may lose it.`,
+		detail: `${Math.round(Math.abs(offset) * 100)} cm ${offset > 0 ? 'above' : 'below'} the other marbles at ${formatTime(hit.targetTime)}, so the camera may lose it.`,
 		time: from,
 		span: { from, to },
 		target: cameraTarget(from)

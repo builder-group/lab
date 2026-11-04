@@ -3,13 +3,16 @@ import type { THitResult, TPieceStatus } from '@/modules/simulation';
 
 // Hit status colours always come with a glyph, so they stay readable without colour
 
-export type TBadgeStatus = Exclude<THitResult['status'], 'open'>;
+/** A hit's status, or `struck` for a piece another marble hits outside a note */
+export type TBadgeStatus = Exclude<THitResult['status'], 'open'> | 'struck';
 
 export const badgeStyles: Record<TBadgeStatus, { color: string; glyph: string; label: string }> = {
 	onTime: { color: 'var(--good)', glyph: 'M -2.6 0.2 L -0.8 2 L 2.6 -1.8', label: 'On Time' },
 	drifting: { color: 'var(--warn)', glyph: 'M -2.8 0.8 C -1.6 -1.4 -0.4 -1.2 0 0 C 0.4 1.2 1.6 1.4 2.8 -0.8', label: 'Early or Late' },
 	missed: { color: 'var(--bad)', glyph: 'M -2.2 -2.2 L 2.2 2.2 M 2.2 -2.2 L -2.2 2.2', label: 'Missed' },
-	blocked: { color: 'var(--bad)', glyph: 'M 0 -2.8 L 0 0.8 M 0 2.6 L 0 2.7', label: 'Blocked' }
+	blocked: { color: 'var(--bad)', glyph: 'M 0 -2.8 L 0 0.8 M 0 2.6 L 0 2.7', label: 'Blocked' },
+	// Two strokes meeting, an impact
+	struck: { color: 'var(--warn)', glyph: 'M -2.6 -2.2 L 0 0.6 L 2.6 -2.2 M 0 0.6 L 0 2.8', label: 'Hit by Another Marble' }
 };
 
 /** The badge status of a piece, from its own status and the result of its hit */

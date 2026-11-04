@@ -11,6 +11,11 @@ export interface TSimulationClient {
 	 */
 	simulate: (project: TProject) => Promise<TSimulationResult>;
 	/**
+	 * Simulates in the assists worker, for assists that alternate their own runs with Auto place, such as
+	 * Re-place: both resume from the snapshots of that worker's latest run instead of rebuilding it
+	 */
+	simulateAssist: (project: TProject) => Promise<TSimulationResult>;
+	/**
 	 * Assists run in a second worker so a slow search never holds up the live trajectory. Each kind keeps
 	 * only its newest waiting request; replaced requests reject with a `SupersededError`.
 	 */
@@ -20,8 +25,8 @@ export interface TSimulationClient {
 	dispose: () => void;
 }
 
-// Placing at a clicked dot is waited on, a long-gap piece was asked for, Continue is background work
-const assistPriority: Record<string, number> = { autoPlace: 0, gapPiece: 1, continue: 2 };
+// Placing at a clicked dot and Re-place's runs are waited on, a long-gap piece was asked for, Continue is background work
+const assistPriority: Record<string, number> = { autoPlace: 0, simulate: 0, gapPiece: 1, continue: 2 };
 
 export function createSimulationClient(): TSimulationClient {
 	const simulation = connect();
@@ -30,6 +35,9 @@ export function createSimulationClient(): TSimulationClient {
 	return {
 		simulate(project) {
 			return simulation.queue.enqueue<TSimulationResult>('simulate', { kind: 'simulate', project }, { merge: true });
+		},
+		simulateAssist(project) {
+			return assists.queue.enqueue<TSimulationResult>('simulate', { kind: 'simulate', project });
 		},
 		autoPlace(request) {
 			return assists.queue.enqueue<TAutoPlaceAnswer>('autoPlace', { kind: 'autoPlace', ...request });

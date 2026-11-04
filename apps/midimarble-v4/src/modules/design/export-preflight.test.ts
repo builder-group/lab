@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { parseProject, type TEntity, type TProject } from '@/modules/project';
 import type { THitResult, TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
-import { preflightExport, problemSummary } from './export-preflight';
+import { preflightExport, problemSummary, struckPieces } from './export-preflight';
 
 function loadFixture(name: string): TProject {
 	const json = readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8');
@@ -123,7 +123,7 @@ describe('preflightExport function', () => {
 		bass.components.release.position.x += 0.2;
 		const preflight = preflightExport(project, simulator.simulate(project));
 
-		expect(preflight.issues.map((issue) => issue.title)).toContainEqual(expect.stringMatching(/hits? outside the marble's part of the frame on Bass$/));
+		expect(preflight.issues.map((issue) => issue.title)).toContainEqual(expect.stringMatching(/^Bass leaves the frame at \d:\d\d\.\d\d \(\d+ hits?\)$/));
 	});
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
@@ -135,8 +135,8 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, simulator.simulate(project));
 
 		expect(preflight.summary).toMatch(/^\d+ hits? needs? attention( · \d+ other problems?)? · 1 tip$/);
-		expect(preflight.issues[0]).toEqual(expect.objectContaining({ severity: 'warning', title: expect.stringMatching(/^Blocked hit/) }));
-		expect(preflight.issues.at(-1)).toEqual(expect.objectContaining({ severity: 'info', title: expect.stringMatching(/hits outside the frame on Marble 1$/) }));
+		expect(preflight.issues[0]).toEqual(expect.objectContaining({ severity: 'warning', title: expect.stringMatching(/^Hit \d+ of Marble 1 is Blocked$/) }));
+		expect(preflight.issues.at(-1)).toEqual(expect.objectContaining({ severity: 'info', title: expect.stringMatching(/^Marble 1 leaves the frame at \d:\d\d\.\d\d \(\d+ hits\)$/) }));
 	});
 
 	it('should keep a single-marble dot just outside the frame a note', () => {
@@ -169,10 +169,10 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, result);
 
 		expect(preflight.issues.map((issue) => [issue.title, issue.detail])).toEqual([
-			['Missed hit, Melody at 0:01.00', 'Lands 50 ms after the note.'],
-			['Blocked hit, Bass at 0:01.50', 'Bass already passes through this spot earlier in its run, so the platform is left out.'],
-			['Stopped hit, Melody at 0:02.00', 'The marble stops on the platform instead of striking it.'],
-			['Early hit, Melody at 0:03.00', 'Lands 12 ms before the note.']
+			['Hit 1 of Melody is Missed', 'Lands 50 ms after the note.'],
+			['Hit 1 of Bass is Blocked', 'Bass already passes through this spot earlier in its run, so the platform is left out.'],
+			['Hit 2 of Melody is Stopped', 'The marble stops on the platform instead of striking it.'],
+			['Hit 3 of Melody is Early', 'Lands 12 ms before the note.']
 		]);
 		expect(preflight.summary).toBe('4 hits need attention');
 		expect(preflight.issues[0]?.target).toEqual({ ids: ['pa1'], point: { x: -0.1, y: 0.2 }, time: 1 });
@@ -194,7 +194,7 @@ describe('preflightExport function', () => {
 
 		const preflight = preflightExport(project, result);
 
-		expect(preflight.issues).toEqual([expect.objectContaining({ severity: 'warning', title: "Hit outside the marble's part of the frame, Melody at 0:01.00" })]);
+		expect(preflight.issues).toEqual([expect.objectContaining({ severity: 'warning', title: 'Melody leaves the frame at 0:01.00 (1 hit)' })]);
 	});
 
 	it('should flag stray contacts but not contacts with the marble own pieces, scenery or free pieces', () => {
@@ -243,7 +243,7 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, result);
 
 		expect(preflight.issues.filter((issue) => issue.id.startsWith('pace'))).toEqual([
-			expect.objectContaining({ title: 'Bass falls out of step with the other marbles', detail: '0.95 m below the other marbles at 0:01.50, so the camera may lose it.' })
+			expect.objectContaining({ title: 'Bass falls out of step with the other marbles', detail: '95 cm below the other marbles at 0:01.50, so the camera may lose it.' })
 		]);
 	});
 
@@ -291,7 +291,43 @@ describe('problemSummary function', () => {
 
 		// Assert
 		expect(summary.label).toBe('3 of 4 hits on time · 2 other problems');
-		expect(summary.problems.map((issue) => issue.title)).toEqual(['Melody hits pb1 of Bass', 'Blocked Windmill 1, Melody at 0:02.50']);
+		expect(summary.problems.map((issue) => issue.title)).toEqual(['Melody hits pb1 of Bass', 'Windmill 1 of Melody is Blocked']);
+	});
+
+	it('should list the pieces another marble hits, for the Layers badge and the inspector pill', () => {
+		// Prepare: Melody's marble hits Bass's platform twice, and the two marbles touch once
+		const project = createTwoLaneProject();
+		const result = createResult({
+			contacts: [
+				{ time: 2.2, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } },
+				{ time: 2.4, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } },
+				{ time: 2.6, marbleEntityId: 'marble-a', otherEntityId: 'marble-b', kind: 'marble', position: { x: 0, y: 0 } }
+			]
+		});
+
+		// Act
+		const struck = struckPieces(preflightExport(project, result));
+
+		// Assert: only the piece, named by the marble that hits it
+		expect([...struck.keys()]).toEqual(['pb1']);
+		expect(struck.get('pb1')).toEqual([expect.objectContaining({ title: 'Melody hits pb1 of Bass', by: 'Melody', laneId: 'lane-b', detail: 'Hits it 2 times from 0:02.20, without a note.' })]);
+	});
+
+	it('should order problems by their time, a framing span or their target, with timeless ones last', () => {
+		// Prepare: the loop problem has no time
+		const project = { ...withWindmill(createTwoLaneProject()), design: { ...createTwoLaneProject().design, loop: true } };
+		const result = createResult({
+			pieces: [...createResult().pieces, { ...piece('windmill', 'windmill'), status: 'blocked', entryTime: 2.5 }],
+			contacts: [{ time: 2.2, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } }]
+		});
+
+		// Act
+		const summary = problemSummary(preflightExport(project, result));
+
+		// Assert
+		const times = summary.problems.map((issue) => issue.time ?? issue.span?.from ?? issue.target?.time ?? Infinity);
+		expect(times).toEqual([...times].sort((a, b) => a - b));
+		expect(summary.problems.at(-1)?.kind).toBe('loop');
 	});
 
 	it('should put hit problems first in the label and every problem in time order', () => {
@@ -321,7 +357,7 @@ describe('problemSummary function', () => {
 		const preflight = preflightExport(project, result);
 
 		// Assert
-		expect(preflight.issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.title)).toEqual(['Out of Reach, Melody at 0:02.00']);
+		expect(preflight.issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.title)).toEqual(['Hit 2 of Melody is Out of Reach']);
 		expect(problemSummary(preflight).label).toBe('1 hit needs attention');
 	});
 

@@ -29,7 +29,6 @@ import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { parseHitKey } from './selection';
 import { tapTime } from './tap';
-import { problemsInTimeOrder } from './timeline/hit-status';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
@@ -240,7 +239,7 @@ export class StudioCx {
 			this.notify('Checking the run…');
 			return;
 		}
-		const first = problemsInTimeOrder(summary.problems)[0];
+		const first = summary.problems[0];
 		if (first?.target == null) {
 			this.notify(summary.problems.length > 0 ? (first?.title ?? summary.label) : `No problems: ${summary.label}`);
 			return;

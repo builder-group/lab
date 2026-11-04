@@ -7,12 +7,12 @@ import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/m
 import { getPieceDefinition, isMusicalPiece, layoutOf, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
+import { preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { attachState, isPathPieceType, pathPieceTypes, withPathType, type TPathPieceType } from './attach-edit';
 import { PieceIcon } from './piece-icons';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
-import { moveClear } from './fix-it';
 import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
 
@@ -23,6 +23,8 @@ import { timingStatus, type TTimingStatus } from './timing-status';
 export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
 	const result = useFeatureState(cx.simulation.$result);
+	// Pieces another marble hits, from the problem model the hit summary and Layers read
+	const struck = React.useMemo(() => (result != null && result.revision === project.revision ? struckPieces(preflightExport(project, result)) : new Map<string, TPreflightIssue[]>()), [project, result]);
 	const entities = project.entities.filter((entity) => ids.includes(entity.id) && entity.components.piece != null);
 	const first = entities[0];
 	if (first == null) return null;
@@ -62,7 +64,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const title = isSingle ? (first.name ?? label) : isSameType ? `${entities.length} ${label}s` : `${entities.length} Pieces`;
 	const subtitle = isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
 	const position = transform?.position ?? resolved?.position ?? null;
-	const status = isSingle ? pieceStatus(project, first, resolved, result) : null;
+	const hitBy = isSingle ? struck.get(first.id) : undefined;
+	const status = isSingle ? struckStatus(pieceStatus(project, first, resolved, result), hitBy) : null;
 
 	return (
 		<>
@@ -76,8 +79,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					// The Fix-it sits under the problem
 					status == null || link == null ? null : status.tone === 'bad' && soundsHit(type, link) ? (
 						<ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} />
-					) : resolved?.status === 'blocked' && !soundsHit(type, link) ? (
-						<MoveClearButton cx={cx} entityId={first.id} />
+					) : (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null ? (
+						<FixPieceButton cx={cx} entityId={first.id} isPlatform={soundsHit(type, link)} hitBy={hitBy?.[0]} />
 					) : null
 				}
 			/>
@@ -198,34 +201,45 @@ export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: stri
 };
 
 /**
- * Move Clear beside a Blocked piece that follows a marble: nudges it off the marble's earlier run, keeping its
- * tie, as one undo step. Re-place Broken Platforms does the same for every Blocked piece.
+ * The Fix-it beside a piece that follows a marble and is Blocked or hit by another marble: Move Clear nudges
+ * scenery off the runs, keeping its tie; for a platform another marble hits, Re-place tilts that marble's
+ * platform before the hit. Either runs a what-if first and changes nothing when it would break a hit or add a
+ * problem, as one undo step. Re-place Broken Platforms does the same for every Blocked piece.
  */
-export const MoveClearButton: React.FC<{ cx: StudioCx; entityId: string }> = (props) => {
-	const { cx, entityId } = props;
+export const FixPieceButton: React.FC<{ cx: StudioCx; entityId: string; isPlatform: boolean; hitBy?: TPreflightIssue }> = (props) => {
+	const { cx, entityId, isPlatform, hitBy } = props;
 	const compose = useFeatureState(cx.$compose);
 	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
+	const [isChecking, setIsChecking] = React.useState(false);
 	function run(): void {
-		const project = cx.project;
-		const result = cx.simulation.$result.get();
-		if (project == null || result == null || result.revision !== project.revision) return;
-		const entity = project.entities.find((item) => item.id === entityId);
-		const name = entity?.name ?? getPieceDefinition(entity?.components.piece?.type ?? '')?.label ?? 'The piece';
-		const move = moveClear(project, result, entityId);
-		if (move == null) {
-			cx.notify(`No spot within 40 cm clears the run for ${name}. Drag it by hand or Detach it.`);
-			return;
-		}
-		if (!cx.execute(move.commands)) return;
-		const marble = project.music.lanes.find((lane) => lane.id === entity?.components.hitLink?.laneId)?.name ?? 'the marble';
-		cx.notifyEdit(`${name} moved ${Math.max(1, Math.round(move.distance * 100))} cm, clear of ${marble}'s run`);
+		if (compose == null) return;
+		setIsChecking(true);
+		void compose.assist.fixPiece(entityId).finally(() => setIsChecking(false));
 	}
+	const marble = hitBy?.by ?? 'the other marble';
+	const title = isPlatform
+		? `Tilt ${marble}'s platform before it so ${marble} passes clear, unless that breaks a hit`
+		: hitBy != null
+			? `Move this piece off ${marble}'s run, keeping what it follows, unless that breaks a hit`
+			: "Move this piece off the marble's earlier run, keeping what it follows, unless that breaks a hit";
 	return (
-		<button className="mm-fix-it mm-fix-it-label" disabled={replacing != null} onClick={run} title="Move this piece off the marble's earlier run, keeping what it follows" type="button">
-			Move Clear
+		<button className="mm-fix-it mm-fix-it-label" disabled={compose == null || replacing != null || isChecking} onClick={run} title={title} type="button">
+			{isPlatform ? <WandSparkles size={12} strokeWidth={1.9} /> : null}
+			{isPlatform ? 'Re-place' : 'Move Clear'}
 		</button>
 	);
 };
+
+/**
+ * "Hit by Bass" when another marble hits the piece and its own status is fine, so the problem the summary lists
+ * shows on the piece too; a Blocked, Missed or Stopped status says more and stays
+ */
+function struckStatus(status: TTimingStatus | null, hitBy: TPreflightIssue[] | undefined): TTimingStatus | null {
+	const first = hitBy?.[0];
+	if (first == null || status?.tone === 'bad') return status;
+	const marble = first.by ?? 'Another Marble';
+	return { tone: 'warn', label: `Hit by ${marble}`, detail: hitBy?.map((issue) => `${issue.title}. ${issue.detail ?? ''}`.trim()).join('\n') ?? '' };
+}
 
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
 

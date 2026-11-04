@@ -6,6 +6,7 @@ import { attachState } from '@/modules/compose/attach-edit';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
 import { DesignLibrary } from '@/modules/design/DesignLibrary';
+import { preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import { shotKindLabel } from '@/modules/design/shots';
 import type { TEntity, TProject } from '@/modules/project';
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
@@ -143,6 +144,8 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	const wasRenamingRef = React.useRef(false);
 
 	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.entityId, piece])), [result]);
+	// Pieces another marble hits, from the problem model the hit summary and the inspector read
+	const struck = React.useMemo(() => (result != null && result.revision === project.revision ? struckPieces(preflightExport(project, result)) : null), [project, result]);
 	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceEntityId == null ? [] : [[hit.pieceEntityId, hit] as const]))), [result]);
 	const rows = React.useMemo(() => buildOutline(project, { collapsed }), [project, collapsed]);
 	const isFilm = workspace === 'design';
@@ -276,6 +279,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 								isLocked={locked.includes(row.id)}
 								resolved={pieceResults.get(row.id)}
 								hit={hitResults.get(row.id)}
+								hitBy={struck?.get(row.id)?.[0]}
 							/>
 						);
 					}
@@ -387,9 +391,11 @@ const PieceRow: React.FC<
 		isLocked: boolean;
 		resolved: TResolvedPiece | undefined;
 		hit: THitResult | undefined;
+		/** The first problem of another marble hitting this piece */
+		hitBy: TPreflightIssue | undefined;
 	}
 > = (props) => {
-	const { cx, row, piece, isSelected, isInSelection, joins, isRenaming, isHidden, isLocked, resolved, hit, onClick, onContextMenu } = props;
+	const { cx, row, piece, isSelected, isInSelection, joins, isRenaming, isHidden, isLocked, resolved, hit, hitBy, onClick, onContextMenu } = props;
 	const type = piece.components.piece?.type ?? 'platform';
 	const name = piece.name ?? type;
 	const link = piece.components.hitLink;
@@ -400,7 +406,9 @@ const PieceRow: React.FC<
 	const followLabel =
 		attach?.kind === 'anchored' ? `Follows ${project?.music.lanes.find((lane) => lane.id === attach.laneId)?.name ?? 'a marble'} at ${formatTime(attach.time)}` : null;
 	// Like Xcode's navigator, only problems get a badge; on-time pieces stay quiet
-	const status = isLinked ? badgeStatus(resolved?.status, hit) : resolved?.status === 'blocked' ? 'blocked' : null;
+	const own = isLinked ? badgeStatus(resolved?.status, hit) : resolved?.status === 'blocked' ? 'blocked' : null;
+	// Another marble hitting it shows when the piece's own status is fine
+	const status = hitBy != null && (own == null || own === 'onTime') ? 'struck' : own;
 	const isProblem = status != null && status !== 'onTime';
 
 	return (

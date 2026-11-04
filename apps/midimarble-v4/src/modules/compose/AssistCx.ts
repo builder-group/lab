@@ -17,8 +17,8 @@ import {
 import { formatTime } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { hitSummary } from '@/modules/studio/timeline/hit-status';
-import { blockedScenery, brokenHits, newlyBroken, replaceBroken, replacePlan, replaceResultMessage, type TReplaceOutcome, type TReplacePlan } from './fix-it';
+import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
+import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replacePlan, replaceResultMessage, type TReplaceOutcome, type TReplacePlan } from './fix-it';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
 import { unreachableActions } from './unreachable-fixes';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState } from './ghosts';
@@ -361,8 +361,9 @@ export class AssistCx {
 			this.studio.updateNotice(notice.id, { actions: [action, ...(notice.actions ?? [])] });
 			return;
 		}
-		const words = broken.length === 1 ? '1 later hit is' : `${broken.length} later hits are`;
-		this.studio.notifyEdit(`${words} now Blocked or Missed`, [action]);
+		// Counts every hit the edit broke, the edited one included, so "later" would miscount
+		const words = broken.length === 1 ? '1 hit is' : `${broken.length} hits are`;
+		this.studio.notifyEdit(`${words} now Blocked, Missed or Stopped`, [action]);
 	}
 
 	private rememberGood(project: TProject, result: TSimulationResult): void {
@@ -417,7 +418,8 @@ export class AssistCx {
 				project,
 				result,
 				{
-					simulate: async (next) => client.simulate(next),
+					// The assists worker, so Auto place resumes from the run Re-place just simulated
+					simulate: async (next) => client.simulateAssist(next),
 					autoPlace: async (next, hit, entity) => {
 						const answer = await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id });
 						return answer.entity;
@@ -452,15 +454,43 @@ export class AssistCx {
 		this.replacedRevision = outcome.result.revision;
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 		const changed = this.studio.project?.revision !== startRevision;
-		const summary = hitSummary(outcome.result.hits);
+		// How the run stands comes from the one problem model, the same as the hit summary and the export sheet
+		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
+		const added = addedProblems(project, result, outcome.project, outcome.result);
 		const message = !changed
 			? only != null
 				? "No tilt lands this platform on time. Choose Re-place Broken Platforms in the hit summary's menu, or turn it by hand."
-				: 'No new tilt helps these platforms. Turn them by hand, or undo the edit that broke them.'
-			: replaceResultMessage(outcome.project, result.hits, outcome, summary.label, summary.problems.length);
+				: 'No new tilt helps these platforms without adding a problem. Turn them by hand, or undo the edit that broke them.'
+			: replaceResultMessage(project, result.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
 		if (changed) this.studio.notifyEdit(outcome.isStopped && !run.isCancelled ? `${message} Stopped by another edit.` : message);
 		else this.studio.notify(message);
 		return outcome;
+	}
+
+	/**
+	 * The Fix-it of a piece that follows a marble and is Blocked or hit by another marble (Move Clear, or Re-place
+	 * of the other marble's platform before the hit), applied only when its what-if run breaks no hit and adds no
+	 * problem, as one undo step
+	 */
+	async fixPiece(entityId: string): Promise<void> {
+		const project = this.studio.project;
+		const result = this.currentResult();
+		const client = this.studio.simulation.assists;
+		if (project == null || result == null || client == null || this.replaceRun != null) return;
+		const fix = await fixPiece(project, result, entityId, {
+			simulate: async (next) => client.simulateAssist(next),
+			autoPlace: async (next, hit, entity) => {
+				const answer = await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id });
+				return answer.entity;
+			}
+		});
+		// Another edit while the what-if ran makes it stale
+		if (this.studio.project?.revision !== project.revision) return;
+		if (fix.commands == null) {
+			this.studio.notify(fix.message);
+			return;
+		}
+		if (this.studio.execute(fix.commands)) this.studio.notifyEdit(fix.message);
 	}
 
 	/** Asks for Continue ghosts for the focused marble when the shown result is current */
