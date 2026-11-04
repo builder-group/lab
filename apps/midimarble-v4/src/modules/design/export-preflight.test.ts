@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { parseProject, type TEntity, type TProject } from '@/modules/project';
 import type { THitResult, TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
-import { preflightExport, problemSummary, struckPieces } from './export-preflight';
+import { framingFix, framingProblemAt, preflightExport, problemSummary, struckPieces } from './export-preflight';
 
 function loadFixture(name: string): TProject {
 	const json = readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8');
@@ -113,17 +113,43 @@ describe('preflightExport function', () => {
 		expect(preflight.summary).toBe('16 of 16 hits on time');
 	});
 
-	it('should pass Jingle Bells and report hits past the lane band once the bass moves sideways', () => {
+	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera leaves out once the bass moves sideways', () => {
 		const project = loadFixture('jingle-bells');
 		expect(preflightExport(project, simulator.simulate(project)).issues).toEqual([]);
 
-		// The bass pieces follow their marble, so moving its release moves every bass dot out of its band
+		// The bass pieces follow their marble, so moving its release 20 cm moves its whole run away from the melody
 		const bass = project.entities.find((entity) => entity.name === 'Bass' && entity.components.release != null);
 		if (bass?.components.release == null) throw new Error('No bass release');
 		bass.components.release.position.x += 0.2;
-		const preflight = preflightExport(project, simulator.simulate(project));
+		const result = simulator.simulate(project);
+		const preflight = preflightExport(project, result);
+		const framing = preflight.issues.filter((issue) => issue.kind === 'framing');
+		const first = framing.find((issue) => issue.laneId === 'lane-2');
 
-		expect(preflight.issues.map((issue) => issue.title)).toContainEqual(expect.stringMatching(/^Bass leaves the frame at \d:\d\d\.\d\d \(\d+ hits?\)$/));
+		expect(first).toEqual(
+			expect.objectContaining({
+				id: 'frame:lane-2:1',
+				severity: 'warning',
+				title: expect.stringMatching(/^Bass leaves the frame at 0:09\.\d\d \(\d+ hits\)$/),
+				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:1\d\.\d\d\. The camera follows Melody there\.$/),
+				// Framing problems open Film at their time with the Camera selected, with a span for the Camera track
+				target: { ids: ['camera'], time: first?.span?.from, workspace: 'design' }
+			})
+		);
+		// The jump lands inside the span, where the Camera panel shows the problem
+		if (first?.span == null) throw new Error('No framing span');
+		expect(framingProblemAt(preflight, first.span.from)?.id).toBe(first.id);
+
+		// Add Wide Shot Here is offered only after a what-if of the camera with it keeps Bass in frame there
+		const fix = framingFix(project, result, first);
+		expect(fix).toEqual(expect.objectContaining({ label: 'Add Wide Shot Here', detail: expect.stringMatching(/^Adds a Wide shot at 0:0\d\.\d\d that holds \d\.\d s, so Bass stays in frame\.$/) }));
+		const command = fix?.commands[0];
+		if (command?.type !== 'setDesign' || command.design.camera == null) throw new Error('No camera edit');
+		const fixed = { ...project, design: { ...project.design, camera: command.design.camera } };
+		const after = preflightExport(fixed, result).issues.filter((issue) => issue.kind === 'framing');
+		expect(after.length).toBeLessThan(framing.length);
+		const { from, to } = first.span;
+		expect(after.some((issue) => issue.laneId === first.laneId && (issue.span?.from ?? 0) < to && (issue.span?.to ?? 0) > from)).toBe(false);
 	});
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
@@ -134,18 +160,19 @@ describe('preflightExport function', () => {
 
 		const preflight = preflightExport(project, simulator.simulate(project));
 
-		expect(preflight.summary).toMatch(/^\d+ hits? needs? attention( · \d+ other problems?)? · 1 tip$/);
+		expect(preflight.summary).toMatch(/^\d+ hits? needs? attention( · \d+ other problems?)?$/);
 		expect(preflight.issues[0]).toEqual(expect.objectContaining({ severity: 'warning', title: expect.stringMatching(/^Hit \d+ of Marble 1 is Blocked$/) }));
-		expect(preflight.issues.at(-1)).toEqual(expect.objectContaining({ severity: 'info', title: expect.stringMatching(/^Marble 1 leaves the frame at \d:\d\d\.\d\d \(\d+ hits\)$/) }));
+		// The camera follows a single marble, so it never leaves the frame
+		expect(preflight.issues.filter((issue) => issue.kind === 'framing')).toEqual([]);
 	});
 
-	it('should keep a single-marble dot just outside the frame a note', () => {
+	it('should not report a single marble the camera follows, even with dots past the old lane band', () => {
 		const project = loadFixture('loop');
 
 		const preflight = preflightExport(project, simulator.simulate(project));
 
 		expect(preflight.warnings).toBe(0);
-		expect(preflight.summary).toBe('21 of 21 hits on time · 1 tip');
+		expect(preflight.summary).toBe('21 of 21 hits on time');
 	});
 
 	it('should be pending without a result for the current revision', () => {
@@ -188,13 +215,11 @@ describe('preflightExport function', () => {
 		expect(preflight.summary).toBe('3 of 4 hits on time · 1 tip');
 	});
 
-	it('should flag dots outside the lane band when marbles share the frame', () => {
+	it('should not report framing from dots alone: the run without marble motion has no camera', () => {
 		const project = createTwoLaneProject();
 		const result = createResult({ hits: [hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1', dot: { x: 1.2, y: 0 } })] });
 
-		const preflight = preflightExport(project, result);
-
-		expect(preflight.issues).toEqual([expect.objectContaining({ severity: 'warning', title: 'Melody leaves the frame at 0:01.00 (1 hit)' })]);
+		expect(preflightExport(project, result).issues).toEqual([]);
 	});
 
 	it('should flag stray contacts but not contacts with the marble own pieces, scenery or free pieces', () => {
@@ -229,27 +254,6 @@ describe('preflightExport function', () => {
 		expect(preflight.issues.map((issue) => issue.title)).toEqual(['Bass hits pa2 of Melody', 'Melody collides with Bass']);
 		expect(preflight.issues[0]?.detail).toBe('Hits it 2 times from 0:02.10, without a note.');
 		expect(preflight.issues[1]?.target?.ids).toEqual(['marble-a', 'marble-b']);
-	});
-
-	it('should flag a lane far off the shared descent pace', () => {
-		const project = createTwoLaneProject();
-		const base = createResult();
-		const result = createResult({
-			pace: { rate: 0.3, anchorTime: 1, anchorY: 0.2, limit: 0.25 },
-			descent: [{ time: 0, y: 0.5 }],
-			hits: [...base.hits.slice(0, 3), hit('lane-b', 'b1', 1.5, { pieceEntityId: 'pb1', dot: { x: 0.1, y: -0.9 } })]
-		});
-
-		const preflight = preflightExport(project, result);
-
-		expect(preflight.issues.filter((issue) => issue.id.startsWith('pace'))).toEqual([
-			expect.objectContaining({
-				title: 'Bass drifts below the other marbles at 0:01.50 (1 hit)',
-				detail: '95 cm below them at 0:01.50, so the camera may lose Bass.',
-				time: 1.5,
-				target: { ids: ['camera'], time: 1.5, workspace: 'design' }
-			})
-		]);
 	});
 
 	it('should report loop mismatches when loop mode is on', () => {
@@ -364,16 +368,5 @@ describe('problemSummary function', () => {
 		// Assert
 		expect(preflight.issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.title)).toEqual(['Hit 2 of Melody is Out of Reach']);
 		expect(problemSummary(preflight).label).toBe('1 hit needs attention');
-	});
-
-	it('should send framing problems to Film with the Camera selected and give them a span for the Camera track', () => {
-		const project = createTwoLaneProject();
-		const result = createResult({
-			hits: [hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1', dot: { x: 1.2, y: 0 } }), hit('lane-a', 'a2', 2, { pieceEntityId: 'pa2', dot: { x: 1.3, y: -0.3 } })]
-		});
-
-		const framing = preflightExport(project, result).issues.find((issue) => issue.kind === 'framing');
-
-		expect(framing).toEqual(expect.objectContaining({ span: { from: 1, to: 2 }, target: { ids: ['camera'], time: 1, workspace: 'design' } }));
 	});
 });

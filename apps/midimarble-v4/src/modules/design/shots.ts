@@ -34,6 +34,23 @@ export function addShotCommands(project: TProject, time: number, id = createId('
 	return { commands: shotsCommands(project, [...camera.shots, shot]), shotId: id };
 }
 
+/**
+ * Adds a Wide shot at `time` that holds `length` seconds, at the kind's preset distance unless `distance` is given,
+ * and returns the project with it for a what-if run of the camera
+ */
+export function addWideShotCommands(
+	project: TProject,
+	time: number,
+	length: number,
+	distance?: number,
+	id = createId('shot')
+): { commands: TProjectCommand[]; shotId: string; project: TProject } {
+	const camera = project.design.camera;
+	const shot: TShot = { id, time: round(Math.max(0, time)), kind: 'wide', roll: 0, distance: round(distance ?? shotPresetDistance('wide', camera.distance)), length: round(length) };
+	const next = { ...camera, shots: sortShots([...camera.shots, shot]) };
+	return { commands: shotsCommands(project, next.shots), shotId: id, project: { ...project, design: { ...project.design, camera: next } } };
+}
+
 /** Changes one marker; a new kind applies its preset distance and resets the roll unless the patch sets them */
 export function updateShotCommands(project: TProject, shotId: string, patch: Partial<Omit<TShot, 'id'>>): TProjectCommand[] {
 	const camera = project.design.camera;

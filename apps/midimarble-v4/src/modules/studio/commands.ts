@@ -11,9 +11,11 @@ import { soundsHit } from '@/modules/simulation';
 import { cameraCommands, colorByNoteCommands, themeCommands } from '@/modules/design/design-commands';
 import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
 import { deleteThemeCommands, duplicateThemeCommands, resolveTheme } from '@/modules/design/project-themes';
+import { framingFix, framingProblemAt, preflightExport, type TPreflightFix } from '@/modules/design/export-preflight';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { duplicatePieces } from './duplicate';
-import { parseHitKey, parseShotKey, toHitKey, toShotKey } from './selection';
+import { parseHitKey, parseShotKey, SONG_KEY, toHitKey, toShotKey } from './selection';
+import { hasSongLayer } from './song-layer';
 import { handNotes } from './timeline/hand-notes';
 import { setSidebarTab } from './sidebar-state';
 import { focusedLane, type StudioCx, type TWorkspace } from './StudioCx';
@@ -52,7 +54,12 @@ function hasProject(cx: StudioCx): boolean {
 }
 
 function hasSong(cx: StudioCx): boolean {
-	return (cx.project?.music.sources.length ?? 0) > 0;
+	return cx.project != null && hasSongLayer(cx.project);
+}
+
+/** Whether the Song layer is selected, in Layers or in the timeline */
+function isSongSelected(cx: StudioCx): boolean {
+	return hasSong(cx) && cx.$selection.get().includes(SONG_KEY);
 }
 
 function inDesign(cx: StudioCx): boolean {
@@ -170,6 +177,15 @@ function hasHits(cx: StudioCx): boolean {
 	return cx.$selection.get().some((key) => parseHitKey(key) != null);
 }
 
+/** Add Wide Shot Here of the framing problem at the playhead, once the problem model's what-if found it works */
+function wideShotFix(cx: StudioCx): TPreflightFix | null {
+	const project = cx.project;
+	if (project == null) return null;
+	const result = cx.simulation.$result.get();
+	const issue = framingProblemAt(preflightExport(project, result), cx.$playhead.get());
+	return issue != null ? framingFix(project, result, issue) : null;
+}
+
 function selectedShotIds(cx: StudioCx): string[] {
 	return cx.$selection.get().flatMap((key) => parseShotKey(key) ?? []);
 }
@@ -200,7 +216,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.importMidi', title: 'Import Song…', section: 'File', shortcut: '⌘I', keywords: 'midi recording audio wav mp3 music', isEnabled: hasProject, run: (cx) => void cx.importSong() },
 	{ id: 'file.importAudio', title: 'Import Song…', section: 'File', isHidden: true, isEnabled: hasProject, run: (cx) => void cx.importSong() },
 	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: hasSong, run: (cx) => void cx.sources.replaceSong() },
-	{ id: 'file.removeSong', title: 'Remove Song', section: 'File', keywords: 'music midi audio soundtrack delete', isEnabled: hasSong, run: (cx) => cx.sources.removeSong() },
+	{ id: 'file.removeSong', title: 'Delete Song', section: 'File', keywords: 'music midi audio soundtrack remove backing', isEnabled: hasSong, run: (cx) => void cx.sources.deleteSong() },
 	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.film.openSheet() },
 
 	// MARK: - Edit
@@ -213,8 +229,13 @@ export const commands: readonly TCommand[] = [
 		section: 'Edit',
 		shortcut: '⌫',
 		keywords: 'remove',
-		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && selectedShotIds(cx).length > 0),
+		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && selectedShotIds(cx).length > 0) || isSongSelected(cx),
 		run: (cx) => {
+			// The Song layer alone deletes the song file and Backing; the marbles keep their hits
+			if (isSongSelected(cx) && cx.$selection.get().length === 1) {
+				void cx.sources.deleteSong();
+				return;
+			}
 			if (compose(cx)?.deleteSelection() === true) return;
 			deleteSelectedHits(cx);
 		}
@@ -409,6 +430,19 @@ export const commands: readonly TCommand[] = [
 			if (cx.execute(shotCommands)) cx.$selection.set([toShotKey(shotId)]);
 		}
 	},
+	{
+		// The Fix-it of a framing problem at the playhead, found by a what-if of the camera with the shot
+		id: 'camera.addWideShot',
+		title: 'Add Wide Shot Here',
+		section: 'Film',
+		keywords: 'camera framing frame marble out leaves fix wide shot',
+		isEnabled: (cx) => wideShotFix(cx) != null,
+		run: (cx) => {
+			const fix = wideShotFix(cx);
+			if (fix == null) return;
+			if (cx.execute(fix.commands) && fix.shotId != null) cx.$selection.set([toShotKey(fix.shotId)]);
+		}
+	},
 	themeCommand('design.themePegboard', 'pegboard', 'Pegboard Theme'),
 	themeCommand('design.themeBrass', 'brass', 'Brass Theme'),
 	themeCommand('design.themeNeon', 'neon', 'Neon Theme'),
@@ -552,6 +586,7 @@ export type TCommandId =
 	| 'design.resetToCompose'
 	| 'design.regenerateCamera'
 	| 'camera.addShot'
+	| 'camera.addWideShot'
 	| 'design.themePegboard'
 	| 'design.themeBrass'
 	| 'design.themeNeon'

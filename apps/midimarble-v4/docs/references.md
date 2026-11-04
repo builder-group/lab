@@ -291,6 +291,37 @@ What changed (both `camera.py` and `follow-camera.ts`; `pnpm camera:check` withi
 
 Draft film and its 1 fps contact sheet: `.local/camera-r8/films/jingle-bells-draft.mp4` and `jingle-bells-draft-contact.jpg`; frames 0, 15, 30 and 630 in `opening-21s.jpg`.
 
+### Duets in one frame, a lead on falls, framing problems from the camera
+
+Measured on 2026-11-04 after review findings R7-10 (at 0:12 the camera drops Bass completely), R7-4 (a falling marble sits low with the next pieces cut by the bottom edge) and R7-1 (framing problems computed from a fixed band contradict the Draft Preview). TypeScript follow camera at 30 fps with `.local/camera-r9/measure.ts` (the round 8 script plus where a marble sits in the frame while it falls faster than 0.5 m/s) over the first to the last hit; before and after in `.local/camera-r9/before.jsonl` and `after.jsonl`, side by side in `compare.txt`. Frame positions are 0 to 1, y up.
+
+| | Jingle Bells before | Jingle Bells after | reference-20 before | reference-20 after |
+| --- | --- | --- | --- | --- |
+| Both marbles in frame | 80.8 % | 95.5 % | | |
+| Melody / bass in frame while it plays | 94.7 / 88.3 % | 99.0 / 98.8 % | 100 % | 100 % |
+| At 0:12 | Melody only, 5.7 %, 12 pieces, 0.96 m | both, 4.6 and 5.9 %, 25 pieces, 1.09 m | 9.1 % | 10.1 % |
+| Marble in frame width, median (10th percentile) | 6.1 % (5.4) | 5.6 % (5.0) | 8.7 % (8.0) | 9.6 % (8.7) |
+| Camera distance, median and max | 0.93, 0.97 m | 1.00, 1.09 m | 0.7, 0.7 m | 0.7, 0.7 m |
+| Largest distance change within 1 s | 0.045 m | 0.051 m | 0 | 0 |
+| Frames with a marble centre within 4 % of a frame edge (playing only) | 4.4 % (3.7) | 2.6 % (2.0) | 0 | 0 |
+| Frames with a marble cut by the edge | 7.1 % | 3.4 % | 0 | 0 |
+| Falling marble's height in frame, median (10th percentile) | 0.51 (0.35) | 0.53 (0.36) | 0.52 (0.39) | 0.63 (0.48) |
+| Opening: marbles at height | 0.87, 0.64 | 0.82, 0.62 | 0.82 | 0.83 |
+| Last marble in the held frame after the last hit | 0.43 s | 0.43 s | 0.43 s | 0.43 s |
+| Last five pieces at the last hit; in the last frame | 3; 3 | 3; 3 | 4; 3 | 3; 3 (the fourth sat on the edge, its centre at 1.00, now 1.02) |
+| Framing problems in the problem model | none (the band) | none (the camera) | none | none |
+
+Falls on the other fixtures (median and 10th percentile of the falling marble's height): Tap Along 0.51 (0.41) → 0.65 (0.53), Zigzag 0.52 (0.43) → 0.63 (0.52), Loop 0.54 (0.37) → 0.65 (0.50), Staircase 0.52 (0.35) → 0.58 (0.36); a 1.5 s drop at 2.5 m/s (`follow-camera.test.ts`) puts the marble at 0.68 mid-drop and never below 0.29. Two Marbles is unchanged in every row.
+
+What changed (both `camera.py` and `follow-camera.ts`; `pnpm camera:check` within 0.001 mm and 0.017° on seven fixtures, one of them Jingle Bells with the bass moved 20 cm, a Wide shot and a rolled Push In):
+
+- Duets. `MIN_MARBLE_FRACTION` 6 % → 5 % of the frame width at the rig distance, which the steep view's perspective turns into 4.6 % or more for every marble (10th percentile 5.0 %). The camera keeps framing the group up to that readable maximum and follows the busier marble only beyond it, as before. 5.5 % kept both in frame on 83.4 % of the frames and made the edge band worse (7.1 %); 4.5 and 4.7 % gave the same result as 5 % with a wider camera (1.12 m), as the piece size limits the zoom there. `DISTANCE_TAU` 1.5 → 1.8 s keeps the zoom from pumping (0.061 m within a second at 1.5 s; 2 s gave 0.045 m but put Two Marbles' second marble at the edge on 7.7 % of its frames)
+- Falls. While the follow point falls faster than `FALL_START` (0.3 m/s), the frame looks `FALL_AHEAD` (0.25 s) of the extra speed below it, at most `FALL_LIMIT` (15 %) of the camera distance, held `FALL_HOLD` (0.5 s) past the fall, as the smoothed target slows before the marble lands, and eased over `FALL_EASE` (0.6 s). The look-ahead before this was capped at `LEAD_LIMIT`, 4 % of the distance. A framed group and the opening lead no fall, and the lead fades out over the second before the hold, so the held ending is unchanged. Leading into the hold too kept the falling marble 0.1 frame higher in the tail but dropped one of the last five pieces in Reference 20 and two in Tap Along; 0.15 s ahead and 12 % left falls at 0.54
+- Opening. The opening box must fit 85 % of the readable maximum (`OPENING_ROOM`): with the wider maximum Two Marbles' box, at 0.96 of it, became an opening and lost both marbles at the top of the first frame; it keeps no opening, as before. Jingle Bells needs 0.76, Reference 20 0.52
+- Wide shots frame the group. A Wide shot widens the readable maximum by its scale, sizes the group around its own centre as well as around the first pass's target, and stands at least its distance away; before, it only multiplied the automatic distance, so a Wide shot while the camera followed one marble kept that marble centred and the other out
+- Framing problems. `framingStretches` (`camera/framing.ts`) projects every marble through the same track the Draft Preview draws: a marble is out while its centre is outside the frame from 0.3 s before its first note to 0.3 s after its last, stays back in shorter than 0.25 s join, and a stretch longer than 0.5 s that holds at least one of its notes is a problem: "Bass leaves the frame at 0:09.03 (9 hits)" with "Out of frame for 4.6 s while it plays, until 0:13.67. The camera follows Melody there." The band and pace checks are gone. Cost: about 17 to 20 ms per new run for Jingle Bells (the camera bake; 0.3 ms before), 0.1 to 0.2 ms for every further read of the same run, as the track and the framing are kept per run
+- Add Wide Shot Here. The Camera panel shows the problem at the playhead, where a jump to it lands, with the fix once a what-if of the camera with the shot (from 1.5 s before the problem to 0.5 s after, at 1.6, 2.0 or 2.5 times the rig distance) keeps the marble in frame and leaves fewer framing problems; about 17 ms once per problem. With the bass moved 20 cm every one of the five problems has a working Wide shot; with 40 cm only the first does, and the others offer none
+
 ## Scale
 
 Blender's default unit is the metre, and the purchased Marble Race Kit uses real scale: marbles are 16 mm and track modules about 0.2 m. MidiMarble works in the same units; its default kit is 1.5 times that size (24 mm marbles, 9 cm bars), which reads at the reference film's scale, as `reference-20` showed first. Rapier and Blender then share units, and lighting, depth of field and physics behave like real objects.

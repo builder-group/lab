@@ -21,6 +21,17 @@ const SIDE_ANGLE = radians(150);
 const SIDE_FOLLOW = 0.3;
 const HEADING_TAU = 1.5;
 const LEAD_LIMIT = 0.04;
+/**
+ * While the follow point falls faster than FALL_START metres per second, the frame looks FALL_AHEAD seconds of the
+ * extra speed below it, at most FALL_LIMIT of the camera distance, eased over FALL_EASE seconds; the speed is taken
+ * over FALL_WINDOW seconds either side, and the lead lasts FALL_HOLD seconds past the fall
+ */
+const FALL_START = 0.3;
+const FALL_AHEAD = 0.25;
+const FALL_LIMIT = 0.15;
+const FALL_EASE = 0.6;
+const FALL_WINDOW = 0.1;
+const FALL_HOLD = 0.5;
 const FRAME_KEEP = 0.55;
 const ASPECT_GUESS = 0.56;
 const SHOT_EASE = 0.8;
@@ -29,15 +40,18 @@ const MIN_PIECE_FRACTION = 0.06;
 const ZOOM_LIMIT = 3.0;
 const GROUP_KEEP_X = 0.85;
 const GROUP_KEEP_Y = 0.85;
-/** A marble spans at least this fraction of the frame width at the readable maximum */
-const MIN_MARBLE_FRACTION = 0.06;
+/**
+ * A marble spans at least this fraction of the frame width at the readable maximum: 5 % keeps both marbles of Jingle
+ * Bells in frame on 95.5 % of the frames with every marble at 4.6 % or more (6 % kept both on 80.8 %)
+ */
+const MIN_MARBLE_FRACTION = 0.05;
 /** Margin on the distance a framed group needs */
 const GROUP_MARGIN = 1.1;
 /** Seconds over which the camera settles once it holds on the last hit, and the stretch of run before that hit */
 const HOLD_EASE = 1.0;
 const HOLD_SPAN = 1.0;
-/** Time constant in seconds of the group distance, so the zoom changes slowly */
-const DISTANCE_TAU = 1.5;
+/** Time constant in seconds of the group distance, so the zoom changes slowly (at most 0.05 m within a second) */
+const DISTANCE_TAU = 1.8;
 /** Seconds ahead over which a marble's upcoming hits count toward leading the frame */
 const LEAD_AHEAD = 2.0;
 /** Extra score of the focus marble, so the melody leads on a tie */
@@ -56,6 +70,11 @@ const OPENING_PIECES = 3;
 const OPENING_EASE = 1.5;
 /** Steps that centre the opening box in the image */
 const OPENING_STEPS = 3;
+/**
+ * The opening box fits within this share of the readable maximum, as its marbles fall while it holds: Two Marbles'
+ * box needs 0.96 of it and lost both marbles at the top of its first frame
+ */
+const OPENING_ROOM = 0.85;
 /**
  * A marble the camera does not lead stays inside EDGE_IN of the half frame (10 % of the frame from its edge) or
  * beyond EDGE_OUT (fully out); in between it would sit cut at the edge, so the frame shifts it in or out
@@ -366,6 +385,8 @@ interface TFraming {
 	sample: Float64Array;
 	/** Per marble with motion, its share of the follow point where the group does not fit; null for one marble */
 	shares: Float64Array[] | null;
+	/** How much of the fall lead applies per frame: none while a group is framed */
+	fallScale: Float64Array;
 }
 
 function settingsFrom(
@@ -811,8 +832,17 @@ function groupFraming(
 		}
 	}
 	const need = held(held(zoomNeed, fps, GROUP_SPIKE / 2, 'median'), fps, 1.0, 'max');
+	// A Wide shot widens the readable maximum by its scale, so the group it frames fits for longer; within it the
+	// group is also sized around its own centre, as the first pass's target may still be on the leading marble
+	const wide = scale.map((value) => Math.max(value, 1.0));
+	const isWide = wide.some((value) => value > 1.0);
+	const around =
+		isWide && aim != null ? spreadNeed(marbles, sample, centre, settings.lens, turn, settings.pitch) : raw;
 	const over = withoutShortRuns(
-		Array.from(raw, (value) => value > limit),
+		Array.from(raw, (value, index) => {
+			const fit = (wide[index] ?? 1) > 1.0 ? Math.min(value, around[index] ?? value) : value;
+			return fit > limit * (wide[index] ?? 1);
+		}),
 		pyRound(GROUP_SPIKE * fps)
 	);
 	const heldOver = held(
@@ -823,12 +853,24 @@ function groupFraming(
 	);
 	const fits = heldOver.map((value) => 1.0 - value);
 	const weight = criticallyDamped(fits, fps, GROUP_EASE / 3).map((value) => clamp(value, 0.0, 1.0));
+	// A framed group has no room to lead one marble's fall; a close shot frames the leading marble alone
+	const isGroup = marbles.filter(hasMotion).length > 1;
+	const fallScale = new Float64Array(count);
+	for (let index = 0; index < count; index++) {
+		const push = clamp((1 - (scale[index] ?? 1)) / (1 - PUSH_FOCUS), 0.0, 1.0);
+		fallScale[index] = isGroup ? 1.0 - (weight[index] ?? 0) * (1 - push) : 1.0;
+	}
 	// The zoom follows what the group needs up to the readable maximum and stays there where the group no longer
 	// fits, slowly, so the frame neither pulls back to a survey nor jumps back in when it switches to one marble
-	const groupDistance = need.map((value) => clamp(value, base, upper));
+	const groupDistance = need.map((value, index) => clamp(value, base, upper * (wide[index] ?? 1)));
 	const distance = criticallyDamped(groupDistance, fps, DISTANCE_TAU);
-	for (let index = 0; index < count; index++)
-		distance[index] = clamp(distance[index] ?? 0, base, upper) * (scale[index] ?? 1);
+	// A closer shot scales the automatic distance; a Wide shot stands at least its scale of the rig distance away and
+	// as far as the group needs within its wider maximum
+	for (let index = 0; index < count; index++) {
+		const shot = scale[index] ?? 1;
+		const framed = clamp(distance[index] ?? 0, base, upper * (wide[index] ?? 1));
+		distance[index] = Math.max(framed * Math.min(shot, 1.0), base * shot);
+	}
 	if (marbles.length > 1) {
 		const shares = leadShares(marbles, sample, settings.focus, fps);
 		const lead = mixPoints(marbles, sample, shares);
@@ -845,6 +887,9 @@ function groupFraming(
 		}
 	}
 	if (opening != null) {
+		// The opening frames its box; it leads no fall
+		for (let index = 0; index < count; index++)
+			fallScale[index] = (fallScale[index] ?? 0) * (1 - (opening.weight[index] ?? 0));
 		for (const axis of [0, 1] as const) {
 			for (let index = 0; index < count; index++) {
 				const w = opening.weight[index] ?? 0;
@@ -860,7 +905,7 @@ function groupFraming(
 		settle(centre, times, hold);
 		settle(ahead, times, hold);
 	}
-	return { current: centre, ahead, depth, distance, roll, sample, shares };
+	return { current: centre, ahead, depth, distance, roll, sample, shares, fallScale };
 }
 
 /**
@@ -949,7 +994,7 @@ function openingFrame(
 		pointY[index] = y;
 		const widest = widestAround();
 		need[index] = widest;
-		fits[index] = widest <= limit ? 1.0 : 0.0;
+		fits[index] = widest <= limit * OPENING_ROOM ? 1.0 : 0.0;
 	}
 	const eased = criticallyDamped(fits, fps, GROUP_EASE / 3);
 	const weight = new Float64Array(count);
@@ -1155,6 +1200,50 @@ function settle(points: [Float64Array, Float64Array], times: Float64Array, hold:
 	}
 }
 
+/**
+ * `fall_lead`: how far below the follow point the camera looks while it falls. Above FALL_START metres per second
+ * the frame leads by FALL_AHEAD seconds of the extra speed, at most FALL_LIMIT of the camera distance, eased over
+ * FALL_EASE seconds, so a falling marble sits above the centre with the pieces it falls toward in frame. Over the
+ * HOLD_SPAN seconds before the hold the lead fades out, so the held frame still shows the last pieces.
+ */
+function fallLead(
+	pointY: Float64Array,
+	distance: Float64Array,
+	fps: number,
+	times: Float64Array,
+	hold: number | null
+): Float64Array {
+	const count = pointY.length;
+	const window = Math.max(1, pyRound(FALL_WINDOW * fps));
+	const lead = new Float64Array(count);
+	for (let index = 0; index < count; index++) {
+		const ahead = Math.min(count - 1, index + window);
+		const behind = Math.max(0, index - window);
+		const speed = ((pointY[behind] ?? 0) - (pointY[ahead] ?? 0)) / (Math.max(ahead - behind, 1) / fps);
+		lead[index] = Math.min(
+			Math.max(speed - FALL_START, 0.0) * FALL_AHEAD,
+			FALL_LIMIT * (distance[index] ?? 0)
+		);
+	}
+	// The lead lasts FALL_HOLD seconds past the fall, as the smoothed target slows before the marble lands
+	const span = pyRound(FALL_HOLD * fps);
+	const kept = new Float64Array(count);
+	for (let index = 0; index < count; index++) {
+		let deepest = 0.0;
+		for (let back = Math.max(0, index - span); back <= index; back++)
+			deepest = Math.max(deepest, lead[back] ?? 0);
+		kept[index] = deepest;
+	}
+	const eased = criticallyDamped(kept, fps, FALL_EASE / 3);
+	if (hold != null) {
+		for (let index = 0; index < count; index++)
+			eased[index] =
+				(eased[index] ?? 0) *
+				(1.0 - smoothstep(((times[index] ?? 0) - (hold - HOLD_SPAN)) / HOLD_SPAN));
+	}
+	return eased;
+}
+
 /** `follow_target`: look target on the wall per frame and the run direction (heading) the camera turns with */
 function followTarget(
 	framing: TFraming,
@@ -1178,6 +1267,9 @@ function followTarget(
 		followX[index] = (currentX[index] ?? 0) + dx * scale;
 		followY[index] = (currentY[index] ?? 0) + dy * scale;
 	}
+	const fall = fallLead(currentY, distance, fps, times, settings.hold);
+	for (let index = 0; index < count; index++)
+		followY[index] = (followY[index] ?? 0) - (fall[index] ?? 0) * (framing.fallScale[index] ?? 0);
 	const tau = 0.04 + 0.5 * settings.smoothing;
 	const targetX = criticallyDamped(followX, fps, tau);
 	const targetY = criticallyDamped(followY, fps, tau);

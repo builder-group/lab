@@ -56,6 +56,15 @@ SIDE_FOLLOW = 0.3
 HEADING_TAU = 1.5
 # The lead may move the target at most this fraction of the camera distance ahead of the marble
 LEAD_LIMIT = 0.04
+# While the follow point falls faster than FALL_START metres per second, the frame looks FALL_AHEAD seconds of the
+# extra speed below it, at most FALL_LIMIT of the camera distance; the speed is taken over FALL_WINDOW seconds either
+# side, the lead lasts FALL_HOLD seconds past the fall and eases over FALL_EASE seconds
+FALL_START = 0.3
+FALL_AHEAD = 0.25
+FALL_LIMIT = 0.15
+FALL_EASE = 0.6
+FALL_WINDOW = 0.1
+FALL_HOLD = 0.5
 # Fraction of the half frame the marble may move away from the target before the camera is pulled along
 FRAME_KEEP = 0.55
 # Width over height of the framing box; portrait films are 9:16
@@ -63,11 +72,11 @@ ASPECT_GUESS = 0.56
 SHOT_EASE = 0.8
 LENS = 50.0
 # Readable maximum distance: a typical piece spans at least MIN_PIECE_FRACTION of the frame width, a marble at least
-# MIN_MARBLE_FRACTION, and the camera never pulls back further than ZOOM_LIMIT times its set distance. 6 % at the rig
-# distance keeps a 24 mm marble at about 5 % or more of a 9:16 frame as the steep view sees it (3.5 % let Jingle
-# Bells pull back to a survey of 20 and more bars)
+# MIN_MARBLE_FRACTION, and the camera never pulls back further than ZOOM_LIMIT times its set distance. 5 % at the rig
+# distance keeps a 24 mm marble at about 4.6 % or more of a 9:16 frame as the steep view sees it and both marbles of
+# Jingle Bells in frame on 95.5 % of the frames (6 %: 80.8 %; 3.5 % let it pull back to a survey of 20 and more bars)
 MIN_PIECE_FRACTION = 0.06
-MIN_MARBLE_FRACTION = 0.06
+MIN_MARBLE_FRACTION = 0.05
 ZOOM_LIMIT = 3.0
 # Fractions of the half frame width and height a framed group may use; side-by-side lanes may come closer to the
 # sides than a followed marble, which the camera keeps nearer the centre (FRAME_KEEP). The group's offsets are seen
@@ -89,8 +98,8 @@ HOLD_SPAN = 1.0
 GROUP_EASE = 1.2
 # A group that needs more than the readable distance for less than this many seconds stays framed
 GROUP_SPIKE = 0.3
-# Time constant in seconds of the group distance, so the zoom changes slowly
-DISTANCE_TAU = 1.5
+# Time constant in seconds of the group distance, so the zoom changes slowly (at most 0.05 m within a second)
+DISTANCE_TAU = 1.8
 # Where the group does not fit, the marble in flight with the most notes within LEAD_AHEAD seconds leads the frame; the
 # focus marble gets FOCUS_BIAS extra so the melody leads on a tie, a lead lasts at least LEAD_HOLD seconds and the frame
 # pans from one leading marble to the next over LEAD_EASE seconds
@@ -106,6 +115,9 @@ PUSH_FOCUS = 0.7
 OPENING_PIECES = 3
 OPENING_EASE = 1.5
 OPENING_STEPS = 3
+# The opening box fits within this share of the readable maximum, as its marbles fall while it holds: Two Marbles' box
+# needs 0.96 of it and lost both marbles at the top of its first frame
+OPENING_ROOM = 0.85
 # A marble in flight stays inside EDGE_IN of the half frame (10 % of the frame from its edge) or beyond EDGE_OUT
 # (fully out); in between it would sit cut at the edge, so the frame shifts it in or out. A marble that cannot be kept
 # in is pushed out only once within EDGE_NEAR (6 % of the frame from the edge). The leading marble stays within
@@ -479,15 +491,28 @@ def group_framing(marbles, motions, times, settings, fps, aspect, heading, aim=N
     # The group stops fitting where it would need more than the readable distance for longer than GROUP_SPIKE (the
     # frame margins absorb a shorter excursion); the camera then leaves it a second early, so it is on the focus
     # marble when the zoom would top out, and returns only when the group fits again for two seconds
-    over = without_short_runs(raw > limit, int(round(GROUP_SPIKE * fps)))
+    # A Wide shot widens the readable maximum by its scale, so the group it frames fits for longer; within it the
+    # group is also sized around its own centre, as the first pass's target may still be on the leading marble
+    wide = np.maximum(scale, 1.0)
+    fit = raw
+    if np.any(wide > 1.0) and aim is not None:
+        around = spread_need(marbles, motions, sample, centre, settings['lens'], axes)
+        fit = np.where(wide > 1.0, np.minimum(raw, around), raw)
+    over = without_short_runs(fit > limit * wide, int(round(GROUP_SPIKE * fps)))
     fits = 1.0 - held(over.astype(np.float64), fps, 1.0)
     weight = critically_damped(fits[:, None], fps, GROUP_EASE / 3)[:, 0]
     weight = np.clip(weight, 0.0, 1.0)
+    # A framed group has no room to lead one marble's fall; a close shot frames the leading marble alone
+    moving = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']])]
+    push = np.clip((1 - scale) / (1 - PUSH_FOCUS), 0.0, 1.0)
+    fall_scale = 1.0 - weight * (1 - push) if len(moving) > 1 else np.ones(len(times))
     # The zoom follows what the group needs up to the readable maximum and stays there where the group no longer fits,
     # slowly, so the frame neither pulls back to a survey nor jumps back in when it switches to one marble
-    group_distance = np.clip(need, base, upper)
+    group_distance = np.clip(need, base, upper * wide)
     distance = critically_damped(group_distance[:, None], fps, DISTANCE_TAU)[:, 0]
-    distance = np.clip(distance, base, upper) * scale
+    # A closer shot scales the automatic distance; a Wide shot stands at least its scale of the rig distance away and
+    # as far as the group needs within its wider maximum
+    distance = np.maximum(np.clip(distance, base, upper * wide) * np.minimum(scale, 1.0), base * scale)
     if len(marbles) > 1:
         shares = lead_shares(marbles, motions, sample, settings.get('focus'), fps)
         lead = mix_points(marbles, motions, sample, shares)
@@ -498,15 +523,16 @@ def group_framing(marbles, motions, times, settings, fps, aspect, heading, aim=N
         centre = keep * centre + (1 - keep) * lead
         ahead = keep * ahead + (1 - keep) * lead_ahead
     if opening is not None:
+        # The opening frames its box; it leads no fall
+        fall_scale = fall_scale * (1 - opening['weight'])
         weight = opening['weight'][:, None]
         centre = weight * opening['point'] + (1 - weight) * centre
         ahead = weight * opening['point'] + (1 - weight) * ahead
-    moving = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']])]
     shares = lead_shares(marbles, motions, sample, settings.get('focus'), fps) if len(moving) > 1 else None
     if hold is not None:
         centre, ahead = settled(centre, times, hold), settled(ahead, times, hold)
     return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'roll': shot_roll,
-            'sample': sample, 'shares': shares}
+            'sample': sample, 'shares': shares, 'fall_scale': fall_scale}
 
 
 def opening_frame(marbles, motions, times, sample, settings, fps, axes, limit):
@@ -573,7 +599,7 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes, limit):
             y += (want_y * rx - want_x * ux) / determinant
         point[index] = (x, y)
         need[index] = widest_around(x, y)
-        fits[index] = 1.0 if need[index] <= limit else 0.0
+        fits[index] = 1.0 if need[index] <= limit * OPENING_ROOM else 0.0
     eased = np.clip(critically_damped(fits[:, None], fps, GROUP_EASE / 3)[:, 0], 0.0, 1.0)
     return {'point': point, 'need': need, 'weight': eased * ramp}
 
@@ -781,6 +807,27 @@ def look_rotation(position, target, up):
     return basis.to_quaternion()
 
 
+def fall_lead(point_y, distance, fps, times, hold):
+    """How far below the follow point the camera looks while it falls, per frame. Above FALL_START metres per second
+    the frame leads by FALL_AHEAD seconds of the extra speed, at most FALL_LIMIT of the camera distance, held FALL_HOLD
+    seconds past the fall (the smoothed target slows before the marble lands) and eased over FALL_EASE seconds, so a
+    falling marble sits above the centre with the pieces it falls toward in frame. Over the HOLD_SPAN seconds before
+    the hold the lead fades out, so the held frame still shows the last pieces."""
+    count = len(point_y)
+    window = max(1, int(round(FALL_WINDOW * fps)))
+    index = np.arange(count)
+    ahead = np.minimum(count - 1, index + window)
+    behind = np.maximum(0, index - window)
+    speed = (point_y[behind] - point_y[ahead]) / (np.maximum(ahead - behind, 1) / fps)
+    lead = np.minimum(np.maximum(speed - FALL_START, 0.0) * FALL_AHEAD, FALL_LIMIT * distance)
+    span = int(round(FALL_HOLD * fps))
+    kept = np.array([lead[max(0, frame - span):frame + 1].max() for frame in range(count)]) if count else lead
+    eased = critically_damped(kept[:, None], fps, FALL_EASE / 3)[:, 0]
+    if hold is not None:
+        eased = eased * (1.0 - smoothstep((times - (hold - HOLD_SPAN)) / HOLD_SPAN))
+    return eased
+
+
 def follow_target(framing, settings, fps, times):
     """Look target on the wall per frame, (n, 2), and the run direction (heading) the camera turns with"""
     current, ahead_points, distance = framing['current'], framing['ahead'], framing['distance']
@@ -790,6 +837,7 @@ def follow_target(framing, settings, fps, times):
     limit = LEAD_LIMIT * distance
     scale = np.where(lead_length > limit, limit / np.maximum(lead_length, 1e-9), 1.0)
     follow = current + lead_offset * scale[:, None]
+    follow[:, 1] -= fall_lead(current[:, 1], distance, fps, times, settings.get('hold')) * framing['fall_scale']
     tau = 0.04 + 0.5 * settings['smoothing']
     target = critically_damped(follow, fps, tau)
     # Smoothing averages accelerating motion such as a free fall, so the target can fall behind; pull it back

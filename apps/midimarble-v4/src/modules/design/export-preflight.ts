@@ -1,14 +1,16 @@
+import { cachedFollowCameraTrack, followCameraTrack, framingStretches, isInFrame, type TCameraTrack, type TFramingStretch } from '@/modules/camera';
 import { hitReach, isUnreachable, reachStatus } from '@/modules/compose/reachability';
-import type { TProject, TVec2 } from '@/modules/project';
-import { frameBand, getPieceDefinition, paceAt, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
+import { getPieceDefinition, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
 import { describeLoop } from './loop-status';
+import { addWideShotCommands } from './shots';
 
 /**
  * The project's problems, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
- * Blocked scenery, dots outside the frame, stray contacts, marbles far off the shared pace, the loop and a stale
+ * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, the loop and a stale
  * result. It is the one source for the hit summary in the timeline header, its menu, the export sheet and the
  * Camera track. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
  */
@@ -30,7 +32,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		...hitIssues(project, result, names),
 		...sceneryIssues(project, result, names),
 		...contactIssues(project, result, names),
-		...paceIssues(result, names),
+		...framingIssues(project, result, names),
 		...loopIssues(project, result)
 	];
 	issues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity] || (a.time ?? Infinity) - (b.time ?? Infinity));
@@ -81,6 +83,15 @@ export function struckPieces(preflight: TExportPreflight): Map<string, TPrefligh
 		if (id != null) struck.set(id, [...(struck.get(id) ?? []), issue]);
 	}
 	return struck;
+}
+
+/**
+ * The framing problem at `time`, as the Camera panel shows it after a jump to it: the one whose span holds the time,
+ * or that starts within the lead of its Wide shot fix after it. Null when there is none.
+ */
+export function framingProblemAt(preflight: TExportPreflight, time: number): TPreflightIssue | null {
+	const spans = preflight.issues.filter((issue) => issue.kind === 'framing' && issue.span != null);
+	return spans.find((issue) => issue.span != null && time >= issue.span.from - 1e-6 && time <= issue.span.to + 1e-6) ?? spans.find((issue) => issue.span != null && time >= issue.span.from - WIDE_LEAD && time <= issue.span.to) ?? null;
 }
 
 export interface TProblemSummary {
@@ -136,6 +147,15 @@ export interface TPreflightIssue {
 	target: TPreflightTarget | null;
 }
 
+export interface TPreflightFix {
+	label: string;
+	/** One sentence for the tooltip: what the fix does */
+	detail: string;
+	commands: TProjectCommand[];
+	/** The shot the fix adds, to select after it */
+	shotId?: string;
+}
+
 export interface TPreflightTarget {
 	/** Selection keys: entity IDs or hit keys */
 	ids: string[];
@@ -151,17 +171,19 @@ export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'framing' 
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
-/** Distance off the shared descent pace, in multiples of the pace limit, at which the camera loses a marble */
-const PACE_FACTOR = 2;
+/** Seconds before a framing problem a Wide shot starts, so the zoom has widened by then */
+const WIDE_LEAD = 1.5;
+/** Seconds the Wide shot holds past the end of the problem */
+const WIDE_AFTER = 0.5;
+/** Distances over the rig's a Wide shot fix tries in turn, the kind's preset first */
+const WIDE_SCALES = [1.6, 2.0, 2.5] as const;
 
 // MARK: - Hits
 
 function hitIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	const issues: TPreflightIssue[] = [];
 	const pieces = new Map(result.pieces.map((piece) => [piece.entityId, piece]));
-	const isShared = result.marbles.length > 1;
 	const open: THitResult[] = [];
-	const outside: { hit: THitResult; overshoot: number; target: TPreflightTarget }[] = [];
 
 	const numbers = new Map(project.music.lanes.flatMap((lane) => lane.hits.map((hit, index) => [toHitKey(lane.id, hit.id), index + 1] as const)));
 	for (const hit of result.hits) {
@@ -205,16 +227,9 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 			if (status != null) issues.push({ id, kind: 'hit', severity: 'warning', laneId: hit.laneId, title: is(status.label), detail: `${status.detail}.`, time: hit.targetTime, target });
 			else open.push(hit);
 		}
-
-		if (hit.dot != null && hit.status !== 'blocked' && hit.status !== 'missed') {
-			const band = frameBand(project, isShared ? hit.laneId : undefined);
-			const overshoot = Math.abs(hit.dot.x - band.centerX) - band.halfWidth;
-			if (overshoot > 0 || hit.outOfFrame === true) outside.push({ hit, overshoot: Math.max(0, overshoot), target });
-		}
 	}
 
-	// Open hits and dots outside the frame are grouped per lane: a sketch or a run that drifts sideways has
-	// many, and each row would say the same
+	// Open hits are grouped per lane: a sketch has many, and each row would say the same
 	for (const [laneId, hits] of groupByLane(open, (hit) => hit.laneId)) {
 		const first = hits[0];
 		if (first == null) continue;
@@ -230,26 +245,6 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 					: `No platforms play these notes yet, from ${formatTime(first.targetTime)}. They still sound in the film, without hits.`,
 			time: first.targetTime,
 			target: { ids: [toHitKey(laneId, first.hitId)], time: first.targetTime }
-		});
-	}
-	for (const [laneId, dots] of groupByLane(outside, (item) => item.hit.laneId)) {
-		const first = dots[0];
-		if (first == null) continue;
-		const count = dots.length;
-		const furthest = Math.round(Math.max(...dots.map((item) => item.overshoot)) * 100);
-		const last = dots[dots.length - 1] ?? first;
-		const hits = `${count} ${count === 1 ? 'hit' : 'hits'}`;
-		issues.push({
-			id: `frame:${laneId}`,
-			kind: 'framing',
-			laneId,
-			// With one marble the camera follows it; with several they share one frame
-			severity: isShared ? 'warning' : 'info',
-			title: `${names.lane(laneId)} leaves the frame at ${formatTime(first.hit.targetTime)} (${hits})`,
-			detail: `${count === 1 ? '' : 'Up to '}${furthest} cm past the edge of ${isShared ? 'its part of the frame' : 'the frame'}${count === 1 ? '' : ` until ${formatTime(last.hit.targetTime)}`}. ${isShared ? 'The shared camera may lose this marble.' : 'The camera pans to follow it.'}`,
-			time: first.hit.targetTime,
-			span: { from: first.hit.targetTime, to: last.hit.targetTime },
-			target: cameraTarget(first.hit.targetTime)
 		});
 	}
 	return issues;
@@ -365,45 +360,130 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 	});
 }
 
-// MARK: - Pace
+// MARK: - Framing
 
 /**
- * With several marbles the camera follows the shared descent; a marble far above or below it drifts out of the
- * shot. Titled like the other framing problems, with the time it starts and the hits it spans, so the problem
- * menu keeps its time order: "Melody drifts below the other marbles at 0:09.00 (4 hits)".
+ * Marbles the automatic camera leaves out of frame while they play, from the same camera track the Draft Preview
+ * draws and the film bakes: "Bass leaves the frame at 0:12.00 (6 hits)". Each stretch offers Add Wide Shot Here once a
+ * what-if of the camera with that shot keeps the marble in frame and adds no other framing problem. A manual camera
+ * lives in Blender, which the app cannot see, so it has none.
  */
-function paceIssues(result: TSimulationResult, names: TNames): TPreflightIssue[] {
-	const pace = result.pace;
-	if (pace == null || result.descent == null || result.marbles.length < 2) return [];
-	const worst = new Map<string, { hit: THitResult; offset: number; from: number; to: number; count: number }>();
-	for (const hit of result.hits) {
-		if (hit.dot == null) continue;
-		const offset = hit.dot.y - paceAt(pace, hit.targetTime);
-		if (Math.abs(offset) <= pace.limit * PACE_FACTOR) continue;
-		const current = worst.get(hit.laneId);
-		const from = Math.min(current?.from ?? hit.targetTime, hit.targetTime);
-		const to = Math.max(current?.to ?? hit.targetTime, hit.targetTime);
-		const count = (current?.count ?? 0) + 1;
-		if (current == null || Math.abs(offset) > Math.abs(current.offset)) worst.set(hit.laneId, { hit, offset, from, to, count });
-		else worst.set(hit.laneId, { ...current, from, to, count });
-	}
-	return [...worst.values()].map(({ hit, offset, from, to, count }) => {
-		const lane = names.lane(hit.laneId);
-		const side = offset > 0 ? 'above' : 'below';
-		const hits = `${count} ${count === 1 ? 'hit' : 'hits'}`;
-		const distance = `${Math.round(Math.abs(offset) * 100)} cm ${side} them at ${formatTime(hit.targetTime)}`;
+function framingIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
+	const framing = checkFraming(project, result);
+	if (framing == null) return [];
+	const counts = new Map<string, number>();
+	return framing.stretches.map((stretch, index) => {
+		const lane = names.lane(stretch.laneId);
+		const number = (counts.get(stretch.laneId) ?? 0) + 1;
+		counts.set(stretch.laneId, number);
+		const hits = `${stretch.notes.length} ${stretch.notes.length === 1 ? 'hit' : 'hits'}`;
+		const seconds = (stretch.to - stretch.from).toFixed(1);
+		const followed = framing.followed[index] ?? [];
+		const others = followed.length ? ` The camera follows ${followed.map((laneId) => names.lane(laneId)).join(' and ')} there.` : '';
 		return {
-			id: `pace:${hit.laneId}`,
+			id: `frame:${stretch.laneId}:${number}`,
 			kind: 'framing' as const,
-			laneId: hit.laneId,
 			severity: 'warning' as const,
-			title: `${lane} drifts ${side} the other marbles at ${formatTime(from)} (${hits})`,
-			detail: `${count === 1 ? '' : 'Up to '}${distance}, so the camera may lose ${lane}.`,
-			time: from,
-			span: { from, to },
-			target: cameraTarget(from)
+			laneId: stretch.laneId,
+			title: `${lane} leaves the frame at ${formatTime(stretch.from)} (${hits})`,
+			detail: `Out of frame for ${seconds} s while it plays, until ${formatTime(stretch.to)}.${others}`,
+			time: stretch.from,
+			span: { from: stretch.from, to: stretch.to },
+			target: cameraTarget(stretch.from)
 		};
 	});
+}
+
+/**
+ * Add Wide Shot Here for a framing problem of the current run: a Wide shot from WIDE_LEAD before the problem to
+ * WIDE_AFTER past it, at the kind's preset distance or wider, offered only once a what-if of the camera with it keeps
+ * the marble in frame and leaves fewer framing problems. Null when none works. Each what-if bakes the camera (about
+ * 20 ms for Jingle Bells), so it runs only for the problem shown and is kept per run.
+ */
+export function framingFix(project: TProject, result: TSimulationResult | null, issue: TPreflightIssue): TPreflightFix | null {
+	if (result == null || result.revision !== project.revision || issue.kind !== 'framing') return null;
+	const framing = checkFraming(project, result);
+	if (framing == null) return null;
+	const counts = new Map<string, number>();
+	const index = framing.stretches.findIndex((stretch) => {
+		const number = (counts.get(stretch.laneId) ?? 0) + 1;
+		counts.set(stretch.laneId, number);
+		return `frame:${stretch.laneId}:${number}` === issue.id;
+	});
+	const stretch = framing.stretches[index];
+	if (stretch == null) return null;
+	if (!framing.fixes.has(index)) framing.fixes.set(index, findWideShot(project, result, framing, stretch));
+	const wide = framing.fixes.get(index);
+	if (wide == null) return null;
+	const lane = project.music.lanes.find((item) => item.id === stretch.laneId)?.name ?? 'the marble';
+	return {
+		label: 'Add Wide Shot Here',
+		detail: `Adds a Wide shot at ${formatTime(wide.time)} that holds ${wide.length.toFixed(1)} s, so ${lane} stays in frame.`,
+		commands: wide.commands,
+		shotId: wide.shotId
+	};
+}
+
+interface TFraming {
+	stretches: TFramingStretch[];
+	/** Per stretch, the lanes of the marbles in frame at its middle */
+	followed: string[][];
+	/** Per stretch, the Wide shot a what-if found to keep its marble in frame, once asked */
+	fixes: Map<number, TWideShot | null>;
+	fps: number;
+}
+
+interface TWideShot {
+	time: number;
+	length: number;
+	commands: TProjectCommand[];
+	shotId: string;
+}
+
+/** Framing per run and camera settings; the what-ifs bake up to three tracks per problem, so it is kept */
+const framings = new WeakMap<TSimulationResult['marbles'], Map<string, TFraming | null>>();
+
+function checkFraming(project: TProject, result: TSimulationResult): TFraming | null {
+	if (project.design.camera.mode === 'manual') return null;
+	// `renderFps`: the film's frame rate, which the Draft Preview's camera uses too
+	const fps = project.design.renderPreset === 'best' ? 60 : 30;
+	const key = `${fps}:${JSON.stringify(project.design.camera)}:${project.frame.width}x${project.frame.height}:${project.design.loop}:${result.duration}`;
+	let byKey = framings.get(result.marbles);
+	if (byKey == null) {
+		byKey = new Map();
+		framings.set(result.marbles, byKey);
+	}
+	const cached = byKey.get(key);
+	if (cached !== undefined) return cached;
+	const track = cachedFollowCameraTrack(project, result, fps);
+	const framing = track != null ? measureFraming(project, result, track, fps) : null;
+	if (byKey.size >= 8) byKey.delete(byKey.keys().next().value as string);
+	byKey.set(key, framing);
+	return framing;
+}
+
+function measureFraming(project: TProject, result: TSimulationResult, track: TCameraTrack, fps: number): TFraming {
+	const stretches = framingStretches(result, track);
+	const followed = stretches.map((stretch) => {
+		const time = (stretch.from + stretch.to) / 2;
+		const frame = Math.min(track.frameCount - 1, Math.round(time * fps));
+		return result.marbles.filter((marble) => marble.laneId !== stretch.laneId && marble.samples.length && isInFrame(track, frame, marble, time)).map((marble) => marble.laneId);
+	});
+	return { stretches, followed, fixes: new Map(), fps };
+}
+
+function findWideShot(project: TProject, result: TSimulationResult, framing: TFraming, stretch: TFramingStretch): TWideShot | null {
+	const time = Math.max(0, Math.round((stretch.from - WIDE_LEAD) * 100) / 100);
+	const length = Math.round((stretch.to + WIDE_AFTER - time) * 100) / 100;
+	for (const scale of WIDE_SCALES) {
+		const wide = addWideShotCommands(project, time, length, project.design.camera.distance * scale);
+		const trial = followCameraTrack(wide.project, result, framing.fps);
+		if (trial == null) continue;
+		const after = framingStretches(result, trial);
+		const isKept = !after.some((other) => other.laneId === stretch.laneId && other.from < stretch.to && other.to > stretch.from);
+		if (isKept && after.length < framing.stretches.length) return { time, length, commands: wide.commands, shotId: wide.shotId };
+	}
+	return null;
 }
 
 // MARK: - Loop
