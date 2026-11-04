@@ -14,11 +14,15 @@ export const host = {
 		return isTauri();
 	},
 
-	async chooseNewProjectPath(name: string): Promise<string | null> {
+	/**
+	 * The save panel for a new package. `panelTitle` is New Project for File > New and "Save Jingle Bells" when an
+	 * unsaved project is saved, like a macOS document's save panel.
+	 */
+	async chooseNewProjectPath(name: string, panelTitle = 'New Project'): Promise<string | null> {
 		// The browser names a new project as it will be stored (Untitled 7), so the title bar and Recent agree
 		if (!isTauri()) return browserPackages.uniquePath(`/browser/${name}.marble`);
 		const { save } = await import('@tauri-apps/plugin-dialog');
-		return save({ title: 'New Project', defaultPath: `${name}.marble` });
+		return save({ title: panelTitle, defaultPath: `${name}.marble` });
 	},
 
 	async chooseProjectToOpen(): Promise<string | null> {
@@ -58,6 +62,18 @@ export const host = {
 		if (!isTauri()) return Ok(browserPackages.move(path, destinationPath));
 		const result = await specta.commands.moveProject(path, destinationPath);
 		return result.status === 'ok' ? Ok(result.data) : Err(new Error(result.error));
+	},
+
+	/** Save As… of a saved project: copies the package with its files and adds the copy to Recent; returns its path */
+	async copyProject(path: string, destinationPath: string): Promise<TResult<string, Error>> {
+		if (!isTauri()) return Ok(browserPackages.copy(path, destinationPath));
+		const result = await specta.commands.copyProject(path, destinationPath);
+		return result.status === 'ok' ? Ok(result.data) : Err(new Error(result.error));
+	},
+
+	/** Clear Menu in File > Open Recent. The browser lists its stored projects as Recent, so it keeps them. */
+	async clearRecentProjects(): Promise<void> {
+		if (isTauri()) await specta.commands.clearRecentProjects();
 	},
 
 	/**
@@ -234,6 +250,21 @@ const browserFiles = {
 			return {};
 		}
 	},
+	/** Copies every file under the `from` prefix to the `to` prefix, for a package saved as a copy */
+	copy(from: string, to: string): void {
+		for (const [path, url] of [...this.session]) {
+			if (path.startsWith(from)) this.session.set(`${to}${path.slice(from.length)}`, url);
+		}
+		const stored = this.read();
+		for (const [path, url] of Object.entries(stored)) {
+			if (path.startsWith(from)) stored[`${to}${path.slice(from.length)}`] = url;
+		}
+		try {
+			localStorage.setItem(this.key, JSON.stringify(stored));
+		} catch {
+			// Without storage the files last for the session
+		}
+	},
 	/** Moves every file under the `from` prefix to the `to` prefix, for a package that moved */
 	move(from: string, to: string): void {
 		this.rewrite((path) => (path.startsWith(from) ? `${to}${path.slice(from.length)}` : path));
@@ -359,6 +390,15 @@ const browserPackages = {
 		const { [path]: item, ...others } = packages;
 		if (item != null) this.write({ ...others, [unique]: { ...item, openedAt: Date.now() } });
 		browserFiles.move(`${path}/`, `${unique}/`);
+		return unique;
+	},
+	/** Copies the package and its files to a free path next to `destination`; returns the path it got */
+	copy(path: string, destination: string): string {
+		const packages = this.read();
+		const unique = this.uniquePath(destination);
+		const item = packages[path];
+		if (item != null) this.write({ ...packages, [unique]: { json: item.json, openedAt: Date.now() } });
+		browserFiles.copy(`${path}/`, `${unique}/`);
 		return unique;
 	},
 	remove(path: string): void {

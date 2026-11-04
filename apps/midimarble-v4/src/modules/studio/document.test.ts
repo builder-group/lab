@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createHistory, createProject, pushHistory, redoHistory, undoHistory } from '@/modules/project';
-import { hasUnsavedChanges, saveChangesQuestion } from './document';
+import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
 
 describe('hasUnsavedChanges function', () => {
 	const opened = createProject({ title: 'Jingle Bells' });
@@ -30,5 +30,11 @@ describe('hasUnsavedChanges function', () => {
 describe('saveChangesQuestion function', () => {
 	it('should name the document like the macOS close alert', () => {
 		expect(saveChangesQuestion('Jingle Bells')).toBe('Save changes to Jingle Bells?');
+	});
+});
+
+describe('savePanelTitle function', () => {
+	it('should name the document like a macOS save panel', () => {
+		expect(savePanelTitle('Jingle Bells')).toBe('Save Jingle Bells');
 	});
 });

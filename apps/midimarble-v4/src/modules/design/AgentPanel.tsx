@@ -155,7 +155,7 @@ const ThreadItem: React.FC<{ cx: StudioCx; item: TAgentThreadItem; targetLabel: 
 
 			{item.candidate != null ? (
 				<figure className="mm-candidate">
-					<img alt={`Candidate ${item.candidate.label}`} src={item.candidate.previewUrl} draggable={false} />
+					{item.candidate.previewUrl != null ? <img alt={`Candidate ${item.candidate.label}`} src={item.candidate.previewUrl} draggable={false} /> : null}
 					<figcaption className="flex items-center gap-1.5 px-2 py-1.5">
 						<span className="min-w-0 flex-1 truncate font-medium">{item.candidate.label}</span>
 						{item.phase === 'accepted' ? <span className="text-[11px] text-[var(--good)]">Applied to {targetLabel}</span> : null}

@@ -1,4 +1,5 @@
 import type { TMenuItem } from '@/components';
+import { lanesWithoutFinish } from '@/modules/compose/finish-assist';
 import { newProjectTitle } from '@/environment';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { followKey, toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
@@ -51,6 +52,11 @@ function compose(cx: StudioCx): ComposeCx | null {
 
 function hasProject(cx: StudioCx): boolean {
 	return cx.project != null;
+}
+
+function canSave(cx: StudioCx): boolean {
+	const state = cx.$save.get();
+	return cx.project != null && (cx.$isTemporary.get() || state === 'dirty' || state === 'failed');
 }
 
 function hasSong(cx: StudioCx): boolean {
@@ -190,6 +196,23 @@ function selectedShotIds(cx: StudioCx): string[] {
 	return cx.$selection.get().flatMap((key) => parseShotKey(key) ?? []);
 }
 
+/**
+ * The marble Add Finish works on: the selected marble's (or the selected piece's), else the first marble that plays
+ * last and has no Finish yet; null when there is none
+ */
+function finishLane(cx: StudioCx): string | null {
+	const project = cx.project;
+	if (project == null) return null;
+	const selected = cx.$selection.get().flatMap((id) => {
+		const entity = project.entities.find((item) => item.id === id);
+		const laneId = entity?.components.marble?.laneId ?? entity?.components.hitLink?.laneId;
+		return laneId != null ? [laneId] : [];
+	});
+	const lane = selected[0];
+	if (lane != null && project.music.lanes.some((item) => item.id === lane && item.hits.length > 0)) return lane;
+	return lanesWithoutFinish(project)[0] ?? null;
+}
+
 function isTool(cx: StudioCx, tool: TComposeTool): boolean {
 	return compose(cx)?.$tool.get() === tool;
 }
@@ -211,8 +234,10 @@ export const commands: readonly TCommand[] = [
 	// MARK: - File
 	{ id: 'file.new', title: newProjectTitle(), section: 'File', shortcut: '⌘N', run: (cx) => void cx.newProject() },
 	{ id: 'file.open', title: 'Open Project…', section: 'File', shortcut: '⌘O', run: (cx) => void cx.openProject() },
-	{ id: 'file.close', title: 'Close Project', section: 'File', isEnabled: hasProject, run: (cx) => void cx.closeProject() },
-	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', keywords: 'keep unsaved example', isEnabled: hasProject, run: (cx) => void cx.save() },
+	{ id: 'file.close', title: 'Close Project', section: 'File', shortcut: '⌘W', isEnabled: hasProject, run: (cx) => void cx.closeProject() },
+	// A saved project autosaves, so Save is there only while an edit waits, a save failed or the project is unsaved
+	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', keywords: 'keep unsaved example', isEnabled: canSave, run: (cx) => void cx.save() },
+	{ id: 'file.saveAs', title: 'Save As…', section: 'File', shortcut: '⇧⌘S', keywords: 'copy duplicate keep elsewhere', isEnabled: hasProject, run: (cx) => void cx.saveAs() },
 	{ id: 'file.importMidi', title: 'Import Song…', section: 'File', shortcut: '⌘I', keywords: 'midi recording audio wav mp3 music', isEnabled: hasProject, run: (cx) => void cx.importSong() },
 	{ id: 'file.importAudio', title: 'Import Song…', section: 'File', isHidden: true, isEnabled: hasProject, run: (cx) => void cx.importSong() },
 	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: hasSong, run: (cx) => void cx.sources.replaceSong() },
@@ -318,6 +343,7 @@ export const commands: readonly TCommand[] = [
 	},
 	toolCommand('windmill', 'Windmill Tool', 'piece add rotor blades'),
 	toolCommand('switchback', 'Switchback Tool', 'piece add holder zigzag long gap'),
+	toolCommand('finish', 'Finish Tool', 'piece add end catch chute cup last note'),
 	{
 		id: 'tool.insert',
 		title: 'Insert…',
@@ -374,6 +400,17 @@ export const commands: readonly TCommand[] = [
 		keywords: 're-place replace fix repair blocked missed stopped broken move clear release',
 		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isReplacing !== true,
 		run: (cx) => void compose(cx)?.assist.replace()
+	},
+	{
+		id: 'build.addFinish',
+		title: 'Add Finish',
+		section: 'Pieces',
+		keywords: 'finish end catch chute cup last note ending tail',
+		isEnabled: (cx) => compose(cx) != null && finishLane(cx) != null,
+		run: (cx) => {
+			const laneId = finishLane(cx);
+			if (laneId != null) void compose(cx)?.assist.addFinish(laneId);
+		}
 	},
 	{ id: 'piece.follow', title: 'Follow Marble', section: 'Pieces', keywords: 'anchor attach tie follows nearest marble', isEnabled: hasPieces, run: (cx) => followSelection(cx) },
 	{ id: 'piece.detach', title: 'Detach', section: 'Pieces', keywords: 'unlink unanchor untie free', isEnabled: (cx) => hasPieces(cx) && hasTiedSelection(cx), run: (cx) => detachSelection(cx) },
@@ -581,6 +618,7 @@ export type TCommandId =
 	| 'file.open'
 	| 'file.close'
 	| 'file.save'
+	| 'file.saveAs'
 	| 'file.importMidi'
 	| 'file.importAudio'
 	| 'file.replaceSong'
@@ -658,6 +696,8 @@ export type TCommandId =
 	| 'tool.tunnel'
 	| 'tool.windmill'
 	| 'tool.switchback'
+	| 'tool.finish'
+	| 'build.addFinish'
 	| 'tool.insert'
 	| 'help.quickHelp'
 	| 'help.resetHints';

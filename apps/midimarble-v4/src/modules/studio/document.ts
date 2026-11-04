@@ -15,3 +15,8 @@ export function hasUnsavedChanges(history: TProjectHistory, openedRevision = 0):
 export function saveChangesQuestion(title: string): string {
 	return `Save changes to ${title}?`;
 }
+
+/** The save panel's title when an unsaved document is saved, "Save Jingle Bells"; File > New keeps New Project */
+export function savePanelTitle(title: string): string {
+	return `Save ${title}`;
+}

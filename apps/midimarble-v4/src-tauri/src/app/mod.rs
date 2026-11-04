@@ -1,13 +1,14 @@
 mod commands;
+pub mod menu;
 pub mod window;
 
 use crate::modules::{agents, blender, library, package};
 use specta_typescript::Typescript;
 use tauri_specta::{collect_commands, collect_events, Builder as SpectaBuilder};
 
-pub fn run() {
-    let specta_builder = SpectaBuilder::<tauri::Wry>::new()
-        .events(collect_events![agents::AgentRunEvent])
+fn specta_builder() -> SpectaBuilder<tauri::Wry> {
+    return SpectaBuilder::<tauri::Wry>::new()
+        .events(collect_events![agents::AgentRunEvent, menu::MenuCommandEvent])
         .commands(collect_commands![
             commands::get_app_info,
             package::commands::create_project,
@@ -18,6 +19,10 @@ pub fn run() {
             package::commands::create_temporary_project,
             package::commands::move_project,
             package::commands::is_temporary_project,
+            package::commands::copy_project,
+            package::commands::clear_recent_projects,
+            menu::menu_set_bar,
+            menu::menu_update_items,
             blender::commands::blender_detect,
             blender::commands::blender_start,
             blender::commands::blender_request,
@@ -38,6 +43,10 @@ pub fn run() {
             library::commands::library_import,
             library::commands::library_remove,
         ]);
+}
+
+pub fn run() {
+    let specta_builder = specta_builder();
 
     #[cfg(debug_assertions)]
     if let Err(error) = specta_builder.export(
@@ -53,6 +62,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(blender::BlenderState::default())
         .manage(agents::AgentState::default())
+        .manage(menu::MenuState::default())
+        .menu(menu::initial_menu)
+        .on_menu_event(|app, event| menu::on_menu_event(app, event.id().as_ref()))
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             // https://docs.rs/tauri-specta/2.0.0-rc.21/tauri_specta/index.html
@@ -65,4 +77,22 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("Error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    /// Writes the TypeScript bindings, as a debug launch does, to `MM_BINDINGS_OUT` or the temp folder, so a
+    /// changed command or DTO can be checked without starting the app
+    #[test]
+    fn exports_typescript_bindings() {
+        let out = std::env::var("MM_BINDINGS_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| {
+            std::env::temp_dir().join("midimarble-v4-bindings.gen.ts")
+        });
+        super::specta_builder()
+            .export(super::Typescript::default(), &out)
+            .unwrap();
+        let bindings = std::fs::read_to_string(out).unwrap();
+        assert!(bindings.contains("menuSetBar"));
+        assert!(bindings.contains("menu-command-event"));
+    }
 }

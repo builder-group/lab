@@ -87,4 +87,19 @@ describe('unsaved projects on the browser host', () => {
 		const [isOpenOk] = await host.openProject(created?.path ?? '');
 		expect(isOpenOk).toBe(false);
 	});
+
+	it('should keep the original when a project is saved as a copy', async () => {
+		// Prepare
+		const [, , created] = await host.createProject('/browser/Song.marble', '{"a":1}');
+
+		// Act
+		const [, , copy] = await host.copyProject(created?.path ?? '', '/browser/Song.marble');
+
+		// Assert
+		expect(copy).toBe('/browser/Song 2.marble');
+		const [isOriginalOk] = await host.openProject(created?.path ?? '');
+		const [, , opened] = await host.openProject(copy ?? '');
+		expect(isOriginalOk).toBe(true);
+		expect(opened?.projectJson).toBe('{"a":1}');
+	});
 });

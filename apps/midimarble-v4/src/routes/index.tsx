@@ -4,7 +4,7 @@ import React from 'react';
 import { ComposeCanvas } from '@/modules/compose';
 import { DesignView } from '@/modules/design';
 import { StartScreen } from '@/modules/start';
-import { Studio, StudioCx } from '@/modules/studio';
+import { mountNativeMenu, Studio, StudioCx } from '@/modules/studio';
 
 export const Route = createFileRoute('/')({ component: RouteComponent });
 
@@ -14,6 +14,8 @@ function RouteComponent() {
 	const workspace = useFeatureState(cx.$workspace);
 
 	React.useEffect(() => cx.mount(), [cx]);
+	// The macOS menu bar, on the start window too
+	React.useEffect(() => mountNativeMenu(cx), [cx]);
 
 	if (history == null) return <StartScreen cx={cx} />;
 	return (

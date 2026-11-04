@@ -4,7 +4,11 @@ import { deleteSelectedHits, getCommand, isCommandEnabled } from './commands';
 import { CAMERA_KEY, SONG_KEY } from './selection';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 
-/** Standard macOS and Logic-style shortcuts that apply anywhere in the studio */
+/**
+ * Standard macOS and Logic-style shortcuts that apply anywhere in the studio. In the desktop app WebKit gives the
+ * page a ⌘ key before the menu bar: a key this handler runs a command for is prevented, so the menu bar does not
+ * run it again, and a key it leaves alone (in a text field, or a disabled command) reaches the menu bar instead.
+ */
 export function useStudioShortcuts(cx: StudioCx): void {
 	React.useEffect(() => {
 		function onKeyDown(event: KeyboardEvent): void {
@@ -35,12 +39,19 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				return;
 			}
 
+			if (command && event.shiftKey && !event.ctrlKey && !event.altKey && key === 's') {
+				event.preventDefault();
+				const target = getCommand('file.saveAs');
+				if (isCommandEnabled(cx, target)) target.run(cx);
+				return;
+			}
 			const shortcut = command && !event.ctrlKey && !event.shiftKey ? commandKeys[key] : undefined;
 			if (shortcut != null) {
 				const target = getCommand(shortcut);
-				if (isCommandEnabled(cx, target)) {
+				// ⌘S of a project that is already saved does nothing, rather than the browser's Save Page
+				if (isCommandEnabled(cx, target) || shortcut === 'file.save') {
 					event.preventDefault();
-					target.run(cx);
+					if (isCommandEnabled(cx, target)) target.run(cx);
 				}
 				return;
 			}

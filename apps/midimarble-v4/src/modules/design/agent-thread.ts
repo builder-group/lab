@@ -2,6 +2,8 @@ import {
 	agentRunPhaseLabel,
 	canAcceptRun,
 	formatAgentUsage,
+	isNewThemeRequest,
+	requestFromPrompt,
 	type TAgentAvailability,
 	type TAgentCli,
 	type TAgentCliInfo,
@@ -10,6 +12,7 @@ import {
 	type TAgentRunPhase,
 	type TAgentTarget
 } from '@/modules/agents';
+import type { TThemeOverrides } from '@/modules/project';
 
 // View model of the agent conversation in the Design inspector, shaped like a comment thread
 
@@ -23,13 +26,29 @@ export interface TAgentThreadItem {
 	lines: TAgentThreadLine[];
 	/** Tool steps folded away before `lines` */
 	hiddenSteps: number;
-	candidate: { previewUrl: string; label: string } | null;
+	candidate: TAgentCandidate | null;
 	canAccept: boolean;
 	canCancel: boolean;
 	error: string | null;
 	usage: string | null;
 	/** How to fix a CLI that is not logged in, from the run's error */
 	setup: TAgentSetupHint | null;
+}
+
+/**
+ * A finished Result. A New Theme Result shows the theme it proposes, with the skin it made as its second part; any
+ * other Result shows its preview still.
+ */
+export interface TAgentCandidate {
+	previewUrl: string | null;
+	label: string;
+	theme: TAgentThemeProposal | null;
+}
+
+export interface TAgentThemeProposal {
+	name: string;
+	base: string;
+	overrides: TThemeOverrides;
 }
 
 export type TAgentThreadLine =
@@ -69,6 +88,8 @@ export function toThreadItem(run: TAgentRun): TAgentThreadItem {
 	const messageError = run.messages.find((message) => message.kind === 'error');
 	const error = run.error ?? (messageError?.kind === 'error' ? messageError.text : null) ?? run.manifestError;
 	const canAccept = canAcceptRun(run.phase);
+	const proposal = run.manifest?.theme;
+	const theme = proposal != null && isNewThemeRequest(requestFromPrompt(run.prompt)) ? { name: proposal.name, base: proposal.base, overrides: proposal.overrides } : null;
 	return {
 		id: run.id,
 		prompt: run.prompt.split('\n\n')[0] ?? run.prompt,
@@ -77,10 +98,7 @@ export function toThreadItem(run: TAgentRun): TAgentThreadItem {
 		phaseLabel: agentRunPhaseLabel(run.phase),
 		lines,
 		hiddenSteps,
-		candidate:
-			run.previewUrl != null && run.phase !== 'declined'
-				? { previewUrl: run.previewUrl, label: run.manifest?.label ?? 'Candidate' }
-				: null,
+		candidate: run.phase !== 'declined' && (run.previewUrl != null || theme != null) ? { previewUrl: run.previewUrl, label: run.manifest?.label ?? 'Candidate', theme } : null,
 		canAccept,
 		canCancel: run.phase === 'working',
 		error: run.phase === 'failed' || run.phase === 'incomplete' ? error : null,

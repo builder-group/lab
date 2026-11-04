@@ -20,7 +20,8 @@ import {
 	type TAgentRunPhase
 } from '@/modules/agents';
 import { PieceIcon } from '@/modules/compose/piece-icons';
-import { agentSetupHint, cliLabel, toThreadItem } from '@/modules/design/agent-thread';
+import { agentSetupHint, cliLabel, toThreadItem, type TAgentCandidate, type TAgentThemeProposal } from '@/modules/design/agent-thread';
+import { themePreview, themeSwatches } from '@/modules/design/theme-preview';
 import { SetupCard } from '@/modules/design/AgentPanel';
 import type { TProject } from '@/modules/project';
 import type { StudioCx, TAgentDraft } from './StudioCx';
@@ -114,15 +115,15 @@ const ChatTurn: React.FC<{ cx: StudioCx; turn: TAgentChatTurn; project: TProject
 				)}
 			</div>
 			{turn.runs.map((run) => (
-				<RunReply key={run.id} cx={cx} run={run} label={runLabel(run, project)} />
+				<RunReply key={run.id} cx={cx} run={run} label={runLabel(run, project)} marbleColors={project?.music.lanes.map((lane) => lane.color) ?? []} />
 			))}
 		</div>
 	);
 };
 
 /** An agent reply: one status line that expands to the steps, then the candidate card */
-const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string }> = (props) => {
-	const { cx, run, label } = props;
+const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string; marbleColors: readonly string[] }> = (props) => {
+	const { cx, run, label, marbleColors } = props;
 	const [isOpen, setIsOpen] = React.useState(false);
 	const [isBusy, setIsBusy] = React.useState(false);
 	const item = toThreadItem(run);
@@ -195,9 +196,23 @@ const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string }> = (pro
 			{item.setup != null ? <SetupCard hint={item.setup} /> : null}
 			{item.candidate != null ? (
 				<figure className="mm-candidate mm-agent-candidate" data-phase={run.phase}>
-					<img alt={item.candidate.label} src={item.candidate.previewUrl} draggable={false} />
+					{item.candidate.theme != null ? (
+						<ThemeResultPreview theme={item.candidate.theme} skin={item.candidate} marbleColors={marbleColors} />
+					) : item.candidate.previewUrl != null ? (
+						<img alt={item.candidate.label} src={item.candidate.previewUrl} draggable={false} />
+					) : null}
 					<figcaption>
-						<span className="min-w-0 flex-1 truncate font-medium">{item.candidate.label}</span>
+						{item.candidate.theme != null ? (
+							<span className="flex min-w-0 flex-1 flex-col">
+								<span className="flex min-w-0 items-center gap-1.5">
+									<span className="truncate font-medium">{item.candidate.theme.name}</span>
+									<ThemeSwatches theme={item.candidate.theme} />
+								</span>
+								<span className="truncate text-[11px] text-[var(--text-secondary)]">Theme · with {item.candidate.label}</span>
+							</span>
+						) : (
+							<span className="min-w-0 flex-1 truncate font-medium">{item.candidate.label}</span>
+						)}
 						{item.canAccept ? (
 							<>
 								<button className="mm-button" disabled={isBusy} onClick={() => void discard()} type="button">
@@ -217,6 +232,65 @@ const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string }> = (pro
 				</figure>
 			) : null}
 		</div>
+	);
+};
+
+/**
+ * A New Theme Result drawn in the theme's own colours, like the Draft Preview: its wall, three platforms and a
+ * marble, with the skin the run made as a small still in the corner
+ */
+const ThemeResultPreview: React.FC<{ theme: TAgentThemeProposal; skin: TAgentCandidate; marbleColors: readonly string[] }> = (props) => {
+	const { theme, skin, marbleColors } = props;
+	const look = themePreview(theme.base, theme.overrides, marbleColors);
+	const patternId = React.useId();
+	const platforms = [
+		{ x: 40, y: 34, angle: 14 },
+		{ x: 92, y: 58, angle: -14 },
+		{ x: 40, y: 82, angle: 14 }
+	];
+	return (
+		<div className="mm-agent-theme-preview">
+			<svg viewBox="0 0 160 100" role="img" aria-label={`${theme.name} theme`}>
+				<defs>
+					{look.holes != null ? (
+						<pattern id={`${patternId}-holes`} width="8" height="8" patternUnits="userSpaceOnUse">
+							<circle cx="4" cy="4" r="0.9" fill={look.holes} />
+						</pattern>
+					) : null}
+					{look.light != null ? (
+						<linearGradient id={`${patternId}-light`} x1="0" y1="0" x2="0" y2="1">
+							<stop offset="0" stopColor={look.light} stopOpacity="0.45" />
+							<stop offset="0.7" stopColor={look.light} stopOpacity="0" />
+						</linearGradient>
+					) : null}
+				</defs>
+				<rect width="160" height="100" fill={look.wall} />
+				{look.holes != null ? <rect width="160" height="100" fill={`url(#${patternId}-holes)`} /> : null}
+				{look.light != null ? <rect width="160" height="100" fill={`url(#${patternId}-light)`} /> : null}
+				{platforms.map((platform, index) => {
+					const colors = look.platforms[index] ?? look.platforms[0];
+					return (
+						<g key={`${platform.x}-${platform.y}`} transform={`translate(${platform.x} ${platform.y}) rotate(${platform.angle})`}>
+							<rect x="-17" y="-2.5" width="34" height="5" rx="1.5" fill={colors?.bar} stroke={look.glow ?? 'none'} strokeWidth={look.glow != null ? 0.8 : 0} />
+							<circle r="1.6" fill={colors?.nub} />
+						</g>
+					);
+				})}
+				<circle cx="66" cy="22" r="5" fill={look.marble.body} stroke={look.marble.rim ?? 'none'} strokeWidth={look.marble.rim != null ? 1.2 : 0} />
+			</svg>
+			{skin.previewUrl != null ? <img className="mm-agent-theme-skin" alt={skin.label} title={skin.label} src={skin.previewUrl} draggable={false} /> : null}
+		</div>
+	);
+};
+
+const ThemeSwatches: React.FC<{ theme: TAgentThemeProposal }> = (props) => {
+	const swatches = themeSwatches(props.theme.base, props.theme.overrides);
+	return (
+		<span className="flex shrink-0 gap-0.5" aria-label={swatches.map((swatch) => `${swatch.label} ${swatch.color}`).join(', ')}>
+			{swatches.map((swatch) => (
+				<span key={swatch.label} title={`${swatch.label} ${swatch.color}`} className="h-2.5 w-2.5 rounded-full shadow-[0_0_0_0.5px_var(--control-border)]" style={{ background: swatch.color }} />
+			))}
+		</span>
 	);
 };
 
@@ -354,7 +428,8 @@ const Composer: React.FC<{ cx: StudioCx; options: TAgentMention[]; canSend: bool
 				return;
 			}
 		}
-		if (event.key === 'Enter' && !event.shiftKey) {
+		// Return sends, Shift-Return adds a line; Return that ends a Japanese or Chinese composition only commits it
+		if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
 			event.preventDefault();
 			void send();
 			return;

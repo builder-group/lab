@@ -61,6 +61,37 @@ describe('toThreadItem function', () => {
 		expect(item).toMatchObject({ canAccept: true, canCancel: false, candidate: { previewUrl: 'asset://preview.png', label: 'Piano Key' }, usage: '1 min 4 s · $0.42' });
 	});
 
+	it('should show the theme of a New Theme Result, with its skin as the second part', () => {
+		const item = toThreadItem(
+			run({
+				prompt: '@[Platform 1] New theme: sunset orange\n\nRead BRIEF.md in this folder first and follow its output contract.',
+				status: 'succeeded',
+				phase: 'review',
+				previewUrl: 'asset://preview.png',
+				manifest: {
+					$schema: 'marble-asset@1',
+					id: 'sunset-arch',
+					label: 'Sunset Arch',
+					role: 'skin',
+					theme: { name: 'Sunset', base: 'pegboard', overrides: { wallColor: '#e8742c' } }
+				}
+			})
+		);
+		expect(item.candidate).toEqual({ previewUrl: 'asset://preview.png', label: 'Sunset Arch', theme: { name: 'Sunset', base: 'pegboard', overrides: { wallColor: '#e8742c' } } });
+	});
+
+	it('should leave out a theme the request did not ask for', () => {
+		const item = toThreadItem(
+			run({
+				status: 'succeeded',
+				phase: 'review',
+				previewUrl: 'asset://preview.png',
+				manifest: { $schema: 'marble-asset@1', id: 'key', label: 'Key', role: 'skin', theme: { name: 'Stray', base: 'brass', overrides: {} } }
+			})
+		);
+		expect(item.candidate?.theme).toBeNull();
+	});
+
 	it('should fold early tool steps and keep the latest ones', () => {
 		const messages = Array.from({ length: 7 }, (_, index) => ({ kind: 'tool' as const, id: `t${index}`, tool: 'Bash', summary: `Step ${index}`, status: 'done' as const }));
 		const item = toThreadItem(run({ messages: [{ kind: 'text', text: 'Planning' }, ...messages, { kind: 'text', text: 'Rendering the preview' }] }));

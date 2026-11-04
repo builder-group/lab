@@ -469,6 +469,13 @@ textarea {
 	border-left: 1px solid var(--separator);
 }
 
+/* The ruler past the project end: the lanes' shade over its ticks and times, so the film visibly stops at the end bracket */
+.mm-ruler-past-end {
+	background:
+		linear-gradient(color-mix(in srgb, var(--text) 5%, transparent), color-mix(in srgb, var(--text) 5%, transparent)),
+		color-mix(in srgb, var(--content) 55%, transparent);
+}
+
 /* GarageBand-style track toggles: a speaker for Mute that turns grey and crossed out, headphones for Solo that light up in the accent */
 .mm-track-toggle {
 	display: inline-flex;
@@ -2828,6 +2835,31 @@ button.mm-layer-disclosure:hover {
 
 .mm-agent-candidate img {
 	aspect-ratio: 16 / 10;
+}
+
+/* A New Theme Result: the theme in its colours, the skin it made as a small still in the corner */
+.mm-agent-theme-preview {
+	position: relative;
+	aspect-ratio: 16 / 10;
+	background: var(--canvas);
+}
+
+.mm-agent-theme-preview svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.mm-agent-candidate img.mm-agent-theme-skin {
+	position: absolute;
+	right: 6px;
+	bottom: 6px;
+	width: 44px;
+	aspect-ratio: 1;
+	border-radius: 5px;
+	box-shadow:
+		0 0 0 1.5px rgb(255 255 255 / 0.9),
+		0 1px 3px rgb(0 0 0 / 0.2);
 }
 
 .mm-agent-candidate figcaption {

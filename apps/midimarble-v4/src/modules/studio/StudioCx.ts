@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { host, notSongFileMessage, songFileKind, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { autoEnd, changesHitsOnly, createAudioEngine, DEFAULT_PROJECT_END, isAutoEnd, lastHitTime, songEnd, type TAudioEngine } from '@/modules/music';
+import { autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, isAutoEnd, projectSongEnd, type TAudioEngine } from '@/modules/music';
 import {
 	amendHistory,
 	applyProjectCommands,
@@ -24,7 +24,7 @@ import {
 	type TSource,
 	type TVec2
 } from '@/modules/project';
-import { hasUnsavedChanges, saveChangesQuestion } from './document';
+import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { parseHitKey } from './selection';
@@ -411,7 +411,7 @@ export class StudioCx {
 		const project = this.project;
 		const from = this.$path.get();
 		if (project == null || from == null) return false;
-		const destination = await host.chooseNewProjectPath(project.title);
+		const destination = await host.chooseNewProjectPath(project.title, savePanelTitle(project.title));
 		if (destination == null) return false;
 		await this.flush();
 		if (this.$save.get() === 'failed') return false;
@@ -431,6 +431,42 @@ export class StudioCx {
 		if (wasInFilm) void this.design.activate();
 		void this.refreshRecent();
 		return true;
+	}
+
+	/**
+	 * Save As… (⇧⌘S). An unsaved document saves as with Save. A saved project is copied with its files to the chosen
+	 * place and the copy stays open, as in macOS; the original keeps its last autosave. Returns false when cancelled
+	 * or failed.
+	 */
+	async saveAs(): Promise<boolean> {
+		if (this.$isTemporary.get()) return this.save();
+		const project = this.project;
+		const from = this.$path.get();
+		if (project == null || from == null) return false;
+		const destination = await host.chooseNewProjectPath(project.title, 'Save As');
+		if (destination == null) return false;
+		await this.flush();
+		if (this.$save.get() === 'failed') return false;
+		const [isCopiedOk, copiedErr, path] = await host.copyProject(from, destination);
+		if (!isCopiedOk) {
+			this.notify(`${project.title} couldn't be saved as a copy: ${copiedErr.message}`, 'error');
+			return false;
+		}
+		// Blender's worker holds the package path; it starts again with the copy
+		const wasInFilm = this.$workspace.get() === 'design';
+		await this.design.close();
+		this.$path.set(path);
+		writeText(OPEN_PROJECT_KEY, path);
+		this.retitle(projectName(path));
+		if (wasInFilm) void this.design.activate();
+		void this.refreshRecent();
+		return true;
+	}
+
+	/** Clear Menu in Open Recent */
+	async clearRecent(): Promise<void> {
+		await host.clearRecentProjects();
+		await this.refreshRecent();
 	}
 
 	/** The title follows the saved file's name, like a macOS document, in every undo step so undo keeps it */
@@ -529,8 +565,9 @@ export class StudioCx {
 		}
 		// Default piece names follow time order, so a new piece for an earlier hit takes the lower number
 		let named = renumberDefaultNames(history.present, edited);
-		// While the length follows the song, it ends with the last hit; taps fit it once tapping stops
-		if (this.tapSession == null && changesHitsOnly(commands)) {
+		// While the length follows the song, it ends with the last hit, or with the catch once the last marble has a
+		// Finish; taps fit it once tapping stops
+		if (this.tapSession == null && (changesHitsOnly(commands) || changesTail(commands, history.present, named))) {
 			const end = autoEnd(history.present, named);
 			if (end != null) named = { ...named, end };
 		}
@@ -656,9 +693,8 @@ export class StudioCx {
 		this.tapSession = null;
 		const project = this.project;
 		if (session == null || !session.hasTapped || !session.isAutoEnd || project == null) return;
-		const last = lastHitTime(project);
-		if (last == null) return;
-		const end = songEnd(last);
+		const end = projectSongEnd(project);
+		if (end == null) return;
 		if (Math.abs(end - project.end) > 1e-6) this.execute([{ type: 'setEnd', end }], { amend: true });
 	}
 

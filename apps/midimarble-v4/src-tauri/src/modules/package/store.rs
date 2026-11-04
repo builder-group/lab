@@ -121,6 +121,23 @@ pub fn move_package(from: &Path, to: &Path) -> Result<PathBuf, PackageError> {
     return Ok(target);
 }
 
+/// Copies a package to a new path for Save As…, leaving out the runtime mailbox of Blender's worker
+pub fn copy_package(from: &Path, to: &Path) -> Result<PathBuf, PackageError> {
+    if !from.join(PROJECT_FILE).is_file() {
+        return Err(PackageError::NotAPackage(display(from)));
+    }
+    let target = package_path(to);
+    if target.exists() {
+        return Err(PackageError::AlreadyExists(display(&target)));
+    }
+    if let Err(error) = copy_dir(from, &target) {
+        let _ = fs::remove_dir_all(&target);
+        return Err(error);
+    }
+    let _ = fs::remove_dir_all(target.join(".bridge"));
+    return Ok(target);
+}
+
 fn copy_dir(from: &Path, to: &Path) -> Result<(), PackageError> {
     fs::create_dir_all(to).map_err(|source| io("create", to, source))?;
     for entry in fs::read_dir(from).map_err(|source| io("read", from, source))? {
@@ -249,6 +266,24 @@ mod tests {
             Err(PackageError::AlreadyExists(_))
         ));
         assert!(package.join(PROJECT_FILE).is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn copies_a_package_for_save_as() {
+        let root = temporary_root("save-as");
+        let package = create_package(&root.join("Jingle Bells"), "{}").unwrap();
+        fs::write(package.join("audio/song.mid"), b"MThd").unwrap();
+        fs::create_dir_all(package.join(".bridge/outbox")).unwrap();
+        let copy = copy_package(&package, &root.join("Copy")).unwrap();
+        assert_eq!(copy, root.join("Copy.marble"));
+        assert!(package.join(PROJECT_FILE).is_file());
+        assert_eq!(fs::read(copy.join("audio/song.mid")).unwrap(), b"MThd");
+        assert!(!copy.join(".bridge").exists());
+        assert!(matches!(
+            copy_package(&package, &copy),
+            Err(PackageError::AlreadyExists(_))
+        ));
         fs::remove_dir_all(root).unwrap();
     }
 

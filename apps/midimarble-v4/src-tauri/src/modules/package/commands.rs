@@ -94,6 +94,28 @@ pub fn move_project(
     return Ok(package.display().to_string());
 }
 
+/// Save As… of a saved project: copies the package with its files to a chosen path and adds the copy to Recent.
+/// Returns the copy's package path.
+#[tauri::command]
+#[specta::specta]
+pub fn copy_project(
+    app: AppHandle,
+    path: String,
+    destination_path: String,
+) -> Result<String, String> {
+    let package = store::copy_package(&PathBuf::from(path), &PathBuf::from(destination_path))
+        .map_err(|error| error.to_string())?;
+    let _ = recent::remember(&app, &package);
+    return Ok(package.display().to_string());
+}
+
+/// Clear Menu in File > Open Recent
+#[tauri::command]
+#[specta::specta]
+pub fn clear_recent_projects(app: AppHandle) {
+    let _ = recent::clear(&app);
+}
+
 /// Whether a package is an unsaved project in the app's cache folder
 #[tauri::command]
 #[specta::specta]

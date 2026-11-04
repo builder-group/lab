@@ -20,6 +20,17 @@ export const commands = {
 	moveProject: (path: string, destinationPath: string) => typedError<string, string>(__TAURI_INVOKE("move_project", { path, destinationPath })),
 	/**  Whether a package is an unsaved project in the app's cache folder */
 	isTemporaryProject: (path: string) => __TAURI_INVOKE<boolean>("is_temporary_project", { path }),
+	/**
+	 *  Save As… of a saved project: copies the package with its files to a chosen path and adds the copy to Recent.
+	 *  Returns the copy's package path.
+	 */
+	copyProject: (path: string, destinationPath: string) => typedError<string, string>(__TAURI_INVOKE("copy_project", { path, destinationPath })),
+	/**  Clear Menu in File > Open Recent */
+	clearRecentProjects: () => __TAURI_INVOKE<void>("clear_recent_projects"),
+	/**  Replaces the menu bar after the app menu with the front end's menus */
+	menuSetBar: (menus: MenuDto[]) => typedError<null, string>(__TAURI_INVOKE("menu_set_bar", { menus })),
+	/**  Updates titles, enabled and checked states of command items in place */
+	menuUpdateItems: (items: MenuItemStateDto[]) => typedError<null, string>(__TAURI_INVOKE("menu_update_items", { items })),
 	blenderDetect: () => typedError<BlenderInstallDto, string>(__TAURI_INVOKE("blender_detect")),
 	blenderStart: (packagePath: string, visible: boolean) => typedError<BlenderSessionDto, string>(__TAURI_INVOKE("blender_start", { packagePath, visible })),
 	/**  Sends one operation to the package's worker. Returns the response envelope `{id, ok, result | error}` as JSON. */
@@ -64,6 +75,7 @@ export const commands = {
 /** Events */
 export const events = {
 	agentRunEvent: makeEvent<AgentRunEvent>("agent-run-event"),
+	menuCommandEvent: makeEvent<MenuCommandEvent>("menu-command-event"),
 };
 
 /* Types */
@@ -169,6 +181,37 @@ export type LibraryScope =
 /**  The app's support folder, shared by every project */
 "global";
 
+/**  A command item was chosen in the menu bar, or its key was pressed and the web view left the key alone */
+export type MenuCommandEvent = {
+	id: string,
+};
+
+/**  One menu of the menu bar after the app menu, such as File or View */
+export type MenuDto = {
+	title: string,
+	/**  `window` makes it the menu AppKit lists the windows in; `help` adds the Help search field */
+	role: MenuRole | null,
+	items: MenuEntryDto[],
+};
+
+export type MenuEntryDto = 
+/**  An item that runs a front-end command. `checked` makes it a check item. */
+{ kind: "command"; id: string; title: string; 
+/**  Tauri accelerator such as `CmdOrCtrl+Shift+S` */
+accelerator: string | null; enabled: boolean; checked: boolean | null } | { kind: "separator" } | { kind: "submenu"; title: string; enabled: boolean; items: MenuEntryDto[] } | 
+/**  An item AppKit handles itself, for the text in focus or the window */
+{ kind: "standard"; item: StandardMenuItem };
+
+/**  A state change of a command item; a missing field stays as it is */
+export type MenuItemStateDto = {
+	id: string,
+	title: string | null,
+	enabled: boolean | null,
+	checked: boolean | null,
+};
+
+export type MenuRole = "window" | "help";
+
 export type OpenedProjectDto = {
 	path: string,
 	projectJson: string,
@@ -181,6 +224,8 @@ export type RecentProjectDto = {
 };
 
 export type Stage = "dev" | "prod";
+
+export type StandardMenuItem = "cut" | "copy" | "paste" | "minimize" | "zoom" | "fullScreen" | "bringAllToFront";
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

@@ -54,6 +54,15 @@ pub fn remember(app: &AppHandle, package: &Path) -> Option<()> {
     return store::write_atomic(&file, json.as_bytes()).ok();
 }
 
+/// Clear Menu in Open Recent: forgets every recent project
+pub fn clear(app: &AppHandle) -> Option<()> {
+    let file = recent_file(app)?;
+    if !file.exists() {
+        return Some(());
+    }
+    return store::write_atomic(&file, b"[]").ok();
+}
+
 fn read(app: &AppHandle) -> Vec<RecentProjectDto> {
     let Some(file) = recent_file(app) else {
         return Vec::new();

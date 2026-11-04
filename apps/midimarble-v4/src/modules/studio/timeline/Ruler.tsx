@@ -5,7 +5,11 @@ import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';
 import { formatRulerTime, HEADER_WIDTH, RULER_HEIGHT, rulerSteps } from './timeline-layout';
 
-/** Time ruler with minor and major ticks, the playhead head and the draggable project end */
+/**
+ * Time ruler with minor and major ticks, the playhead head and the draggable project end. Like Logic's ruler it runs
+ * on past the end, so the end can be dragged out, but the time past the end is shaded and its ticks dimmed, so the
+ * film visibly stops at the end bracket.
+ */
 export const Ruler: React.FC<TRulerProps> = (props) => {
 	const { cx, end, zoom, width, timeAt } = props;
 	const [endDrag, setEndDrag] = React.useState<number | null>(null);
@@ -39,6 +43,7 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 					</span>
 				</span>
 			))}
+			<span className="mm-ruler-past-end pointer-events-none absolute top-0 bottom-0" style={{ left: shownEnd * zoom, right: 0 }} />
 			<span
 				className="absolute top-0 bottom-0 z-10 flex w-3 -translate-x-full cursor-ew-resize items-stretch justify-end"
 				style={{ left: shownEnd * zoom }}
