@@ -70,6 +70,6 @@ Every interaction needs a reference app that does it the same way. An interactio
 | Contextual action bar | Figma selection toolbar |
 | Export sheet | Final Cut Pro share, macOS sheets |
 
-## From-scratch test after every wave
+## From-scratch test
 
-A wave isn't done until a tester has used the bundled desktop app the way a user does, with no developer hooks and no examples: New Project, Import Song… with `fixtures/jingle-bells.mid` through the real panel, build the run with clicks and keys, then Film: pick a look, add decor, a shot and a title, export a Draft and watch it. Record every stall, wrong turn and time per step, including hover states and playback. Needs the wave finished, no Blender renders running, and the window at least partly visible. The same film made through MCP is the benchmark for the agent path.
+Match the test to the change and don't overdo it: a small fix gets a quick look at that spot. When a batch of work changes how someone builds or films something, a tester uses the bundled desktop app the way a user does, with no developer hooks and no examples: New Project, Import Song… with `fixtures/jingle-bells.mid` through the real panel, build the run with clicks and keys, then Film: pick a look, add decor, a shot and a title, export a Draft and watch it. Record every stall, wrong turn and time per step, including hover states and playback. Needs the wave finished, no Blender renders running, and the window at least partly visible. The same film made through MCP is the benchmark for the agent path.
