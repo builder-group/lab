@@ -300,6 +300,7 @@ def main():
     shutil.rmtree(root.parent, ignore_errors=True)
     check_device_skins()
     check_color_by_note()
+    check_marble_contrast()
     check_switchback_skins()
     check_readable_camera_and_wall()
     print('\n'.join(summary))
@@ -525,10 +526,58 @@ def check_color_by_note():
         check(skins.skin_key('piece', piece, on) == skins.skin_key('piece', octave, on)
               and skins.skin_key('piece', piece, on) != skins.skin_key('piece', other, on),
               '%s: the skin key follows the pitch class' % theme)
-    key = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 60,
-           'skin': {'assetId': 'brass:key', 'link': 'linked'}}
-    names = [material.name for material in skins.build_spec('piece', key, skins.skin_context('brass', RADIUS, options={'colorByNote': True}))['parts'][0]['mesh'].materials]
-    check('MM · note C' in names, 'brass:key takes the note colour for its key (%s)' % names)
+    # A chosen skin keeps its own colour under Colour by Note; Brass's Gold spelled out is still its default
+    def platform_materials(theme, skin):
+        piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 60,
+                 'skin': {'assetId': skin, 'link': 'linked'}}
+        context = skins.skin_context(theme, RADIUS, options={'colorByNote': True})
+        return [material.name for material in skins.build_spec('piece', piece, context)['parts'][0]['mesh'].materials]
+
+    names = platform_materials('brass', 'brass:key')
+    check('MM · key' in names and not any(name.startswith('MM · note') for name in names), 'brass:key keeps its white key under Colour by Note (%s)' % names)
+    names = platform_materials('pegboard', 'brass:copper')
+    check(names[0] == 'MM · bar copper', 'a Copper skin from More Skins keeps its copper under Colour by Note (%s)' % names)
+    names = platform_materials('pegboard', 'brass:gold')
+    check(names[0] == 'MM · brass', 'a Gold skin chosen in Pegboard keeps its gold under Colour by Note (%s)' % names)
+    names = platform_materials('brass', 'brass:gold')
+    check(names[0] == 'MM · note C', "Brass's Gold, its default spelled out, takes the note colour (%s)" % names)
+
+
+def check_marble_contrast():
+    """Every lane's marble stays 3:1 apart from its wall and from every surface of its own platform in every theme,
+    by the luminance of the materials Blender renders; a dark project wall turns Pegboard's marbles pearl"""
+    from mm_worker import themes, skins
+    lanes = ('#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375f', '#64d2ff', '#808080')
+
+    def luminance(color):
+        return 0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2]
+
+    def ratio(a, b):
+        high, low = sorted((luminance(a), luminance(b)), reverse=True)
+        return (high + 0.05) / (low + 0.05)
+
+    for theme in ('pegboard', 'brass', 'neon'):
+        context = skins.skin_context(theme, RADIUS)
+        wall = themes.wall_material(theme, 0.025).diffuse_color
+        lowest = []
+        for color in lanes:
+            marble = skins.build_spec('marble', {'radius': RADIUS, 'color': color}, context)['root'].materials[0]
+            piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'color': color}
+            surfaces = [material.diffuse_color for material in skins.build_spec('piece', piece, context)['parts'][0]['mesh'].materials]
+            lowest.append(min(ratio(marble.diffuse_color, other) for other in [wall, *surfaces]))
+        check(min(lowest) >= themes.MARBLE_CONTRAST,
+              '%s: every lane marble is at least 3:1 apart from its wall and its platform (lowest %.1f:1)' % (theme, min(lowest)))
+    check(themes.marble_look('pegboard', '#3478f6')['tone'] == 'deep' and themes.marble_look('neon', '#3478f6')['tone'] == 'pearl',
+          'light walls get deep marbles, the dark Neon wall pearl ones')
+    check(themes.marble_look('pegboard', '#3478f6', {'wallColor': '#1a1a1a'})['tone'] == 'pearl', 'a dark project wall turns a Pegboard marble pearl')
+    context = skins.skin_context('pegboard', RADIUS)
+    plain = skins.skin_key('marble', {'radius': RADIUS, 'color': '#3478f6'}, context)
+    themes.set_overrides({'wallColor': '#1a1a1a'})
+    try:
+        dark = skins.skin_key('marble', {'radius': RADIUS, 'color': '#3478f6'}, context)
+    finally:
+        themes.set_overrides(None)
+    check(plain != dark, 'a Wall colour that changes the marble tone rebuilds the marble skin')
 
 
 def bent_wire(wall_u, top, high_y, along, slope, low_u, low_y, bend, points=12):

@@ -697,6 +697,89 @@ NEON_MARBLE_GLOW = 0.35
 NEON_MARBLE_RIM = 3.5
 
 
+# Marble contrast: the marble is the film's subject, so it stays 3:1 apart from its wall and its own pieces in every
+# theme. Pearl white with its lane's hue on the rim on a dark wall (Neon), its lane's hue made deep on a light one
+# (Pegboard's birch, Brass's lavender), whichever contrasts more with both. The rule works on the Draft Preview's
+# display colours so both previews choose alike: the same values and steps as `draftMarble` in draft-look.ts.
+
+MARBLE_CONTRAST = 3.0
+PEARL_WHITE = 0.8
+DEEP_LUMINANCE = 0.03
+NEON_BODY_VALUE = 0.62
+PEGBOARD_TINT = 0.4
+# `draftWall` and the gold `FINISHES` entry in draft-look.ts
+DRAFT_WALLS = {'pegboard': '#b3a38f', 'brass': '#a098ac', 'neon': '#141a2a'}
+DRAFT_GOLD = '#b8863f'
+
+
+def _hex_channels(color):
+    value = int(color.lstrip('#')[:6], 16)
+    return ((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255
+
+
+def _to_hex(r, g, b):
+    return '#' + ''.join('%02x' % int(math.floor(max(0.0, min(1.0, channel)) * 255 + 0.5)) for channel in (r, g, b))
+
+
+def display_luminance(color):
+    """WCAG relative luminance of a `#rrggbb` display colour"""
+    r, g, b = (_srgb_to_linear(channel) for channel in _hex_channels(color))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast_ratio(a, b):
+    high, low = sorted((display_luminance(a), display_luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def display_saturate(color, value):
+    """`saturate` in draft-look.ts: `color` at full saturation and brightness `value`; a grey turns cool blue-white"""
+    r, g, b = _hex_channels(color)
+    top, bottom = max(r, g, b), min(r, g, b)
+    if top == 0 or (top - bottom) / top < 0.08:
+        return _to_hex(value * 0.82, value * 0.9, value)
+    saturation = max((top - bottom) / top, 0.88)
+    return _to_hex(*(value * (1 - ((top - channel) / (top - bottom)) * saturation) for channel in (r, g, b)))
+
+
+def display_tint(color, amount):
+    return _to_hex(*(channel * (1 - amount) + amount for channel in _hex_channels(color)))
+
+
+def deep_color(color):
+    """`color` at full saturation, dark enough to reach `DEEP_LUMINANCE`, found by halving like `deepColor`"""
+    low, high = 0.0, 1.0
+    for _ in range(24):
+        middle = (low + high) / 2
+        if display_luminance(display_saturate(color, middle)) > DEEP_LUMINANCE:
+            high = middle
+        else:
+            low = middle
+    return display_saturate(color, low)
+
+
+def marble_surfaces(theme, color):
+    """Display colours a marble rolls over without Colour by Note, `marbleSurfaces` in draft-look.ts"""
+    if theme == 'brass':
+        return [DRAFT_GOLD]
+    if theme == 'neon':
+        return [display_saturate(color, NEON_BODY_VALUE)]
+    return [display_tint(color, PEGBOARD_TINT)]
+
+
+def marble_look(name, color, overrides=None):
+    """A marble's tone (`pearl` or `deep`), display body colour and lowest contrast against its wall and pieces in
+    theme `name`, with the project theme's Wall colour from `overrides` or this apply's"""
+    theme = theme_name(name)
+    overrides = clean_overrides(_overrides if overrides is None else overrides)
+    color = color if isinstance(color, str) and len(color) == 7 and color.startswith('#') else '#d0d4dc'
+    around = [overrides.get('wallColor') or DRAFT_WALLS[theme], *marble_surfaces(theme, color)]
+    hue = display_saturate(color, 1.0)
+    candidates = (('pearl', display_tint(hue, PEARL_WHITE)), ('deep', deep_color(color)))
+    looks = [{'tone': tone, 'body': body, 'contrast': min(contrast_ratio(body, other) for other in around)} for tone, body in candidates]
+    return looks[0] if looks[0]['contrast'] >= looks[1]['contrast'] else looks[1]
+
+
 # Render look
 
 

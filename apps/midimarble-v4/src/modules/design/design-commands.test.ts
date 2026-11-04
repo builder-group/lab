@@ -190,9 +190,10 @@ describe('itemFitsPieceType function', () => {
 		const platforms = [1, 2, 3, 4, 5].map((index) => piece(`p${index}`, 'platform', `Platform ${index}`));
 		const rail = piece('r1', 'rail', 'Rail 1');
 		expect(pieceCountLabel([...platforms, rail])).toBe('5 Platforms, 1 Rail');
-		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: [...platforms, rail], colorByNote: false })).toBe('Copper applied to 5 platforms; Rail 1 kept its skin');
-		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms, colorByNote: false })).toBeNull();
-		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms.slice(0, 1), colorByNote: true })).toBe("Copper applied to 1 platform. Colour by Note sets the platform's colour");
+		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: [...platforms, rail], keepsSkinColor: false })).toBe('Copper applied to 5 platforms; Rail 1 kept its skin');
+		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms, keepsSkinColor: false })).toBeNull();
+		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms.slice(0, 1), keepsSkinColor: true })).toBe("Copper applied to 1 platform. It keeps Copper's colour with Colour by Note");
+		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms, keepsSkinColor: true })).toBe("Copper applied to 5 platforms. They keep Copper's colour with Colour by Note");
 	});
 
 	it('should give a title style its size and default timing, keeping times set by hand', () => {

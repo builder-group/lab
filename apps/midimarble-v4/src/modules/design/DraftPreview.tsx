@@ -137,9 +137,13 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
 				return null;
 			})}
+			{/* A skin's shape cue on its platform: chrome caps, a key, a lens or a grille, so a skin shows before Blender renders it */}
+			{pieces.map((piece) =>
+				draft.skinMarks(piece).map((mark) => <polygon key={`${piece.entityId}:${mark.id}`} points={toPoints(mark.points)} fill={mark.color} stroke={mark.color} strokeWidth={0.5} strokeLinejoin="round" />)
+			)}
 			{draft.marbles().map((marble) => {
 				if (marble.rim == null) return null;
-				// Neon marbles are pearl white; a ring in their hue says which lane each one is
+				// Pearl marbles are near white; a ring in their hue says which lane each one is
 				const center = draft.toScreen(marble.position);
 				const radius = marble.radius * scale;
 				if (!Number.isFinite(center.x) || !Number.isFinite(radius)) return null;

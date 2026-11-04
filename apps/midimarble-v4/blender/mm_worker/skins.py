@@ -252,7 +252,9 @@ def fingerprint(skin):
 
 def skin_key(kind, entity, context):
     if kind == 'marble':
-        values = ['marble', context['theme'], round(float(entity['radius']), 6), entity.get('color')]
+        # The body follows the Wall colour of a project theme, so a wall edit rebuilds the marble
+        values = ['marble', context['theme'], round(float(entity['radius']), 6), entity.get('color'),
+                  themes.marble_look(context['theme'], entity.get('color') or '#d0d4dc')['body']]
     else:
         frame = PieceFrame(entity, context)
         values = [
@@ -355,6 +357,13 @@ def brass_skin(piece):
     return name if name in BRASS_SKINS else 'gold'
 
 
+def takes_note_color(theme, piece):
+    """Whether Colour by Note colours a piece: only one that shows its theme's default skin; `brass:gold` is Brass's
+    default spelled out. The same rule as `takesNoteColor` in draft-look.ts."""
+    asset = (piece.get('skin') or {}).get('assetId')
+    return not asset or (theme == 'brass' and asset == 'brass:gold')
+
+
 def device_parts(skin):
     """(device, trim finish) of a brass skin; a plain bar has no device"""
     device, _, trim = skin.partition('-')
@@ -385,9 +394,11 @@ class PieceFrame:
         self.finish = brass_skin(piece)
         # A `brass:` skin chosen under More Skins dresses the platform as Brass in any theme
         self.is_brass_skin = ((piece.get('skin') or {}).get('assetId') or '').startswith('brass:')
-        # Colour by Note: a platform that plays a note takes its pitch class colour
+        # Colour by Note: a platform that plays a note takes its pitch class colour while it shows the theme's default
+        # skin; a skin chosen for it keeps its own colour
         pitch = piece.get('notePitch')
-        self.note_pitch = float(pitch) if context.get('colorByNote') and isinstance(pitch, (int, float)) else None
+        self.note_pitch = (float(pitch) if context.get('colorByNote') and isinstance(pitch, (int, float))
+                           and takes_note_color(context['theme'], piece) else None)
         self.device, self.trim = device_parts(self.finish)
 
     def to_local(self, point):
@@ -799,14 +810,17 @@ def rotated_blade(builder, reach, length, thickness, depth, center_y, angle):
 
 
 def marble_mesh(marble, theme):
+    """A marble in its theme's material, in a body colour that stays apart from its wall and pieces
+    (`themes.marble_look`): Neon's pearl marble with a glowing rim, Brass's glass, Pegboard's gloss"""
     radius = float(marble['radius'])
     color = marble.get('color') or '#d0d4dc'
-    if theme == 'brass':
-        material = themes.glass_marble_material(color)
-    elif theme == 'neon':
+    look = themes.marble_look(theme, color)
+    if theme == 'neon' and look['tone'] == 'pearl':
         material = themes.neon_marble_material(color)
+    elif theme == 'brass':
+        material = themes.glass_marble_material(look['body'])
     else:
-        material = themes.glossy_marble_material(color)
+        material = themes.glossy_marble_material(look['body'])
     builder = MeshBuilder()
     builder.sphere(radius, segments=48, rings=24)
     return builder.to_mesh('MM marble', [material])

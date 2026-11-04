@@ -21,6 +21,7 @@ import {
 	type TThemeSkin
 } from './design-commands';
 import { baseThemeOf, projectThemes, renameThemeCommands, resolveTheme, THEME_OVERRIDE_FIELDS, themeOrigin, type TResolvedTheme } from './project-themes';
+import { takesNoteColor } from './draft-look';
 import { libraryEntries, libraryItemLabel, libraryItemOrigin, NEW_THEME_PROMPT, type TLibraryEntry } from './DesignLibraryCx';
 
 /** MIME type of a library item dragged onto the preview or the inspector */
@@ -286,7 +287,7 @@ const SkinSection: React.FC<{
 
 	function applyThemeSkin(skin: TThemeSkin, toAll: boolean): void {
 		if (!cx.execute(themeSkinCommands(project, toAll ? { kind: 'pieceType', pieceType } : selectionTarget, skin)) || toAll) return;
-		notifySkinApplied(cx, project, skin.label, pieceType, selectedPieces);
+		notifySkinApplied(cx, project, skin.label, pieceType, selectedPieces, skin.assetId);
 	}
 
 	return (
@@ -369,7 +370,7 @@ const ItemGrid: React.FC<{ cx: StudioCx; project: TProject; entries: TLibraryEnt
 			return;
 		}
 		if ((await cx.library.applySkin(item, { kind: 'entities', entityIds: selectedIds })) && pieceType != null) {
-			notifySkinApplied(cx, project, libraryItemLabel(item), pieceType, selectedPieces);
+			notifySkinApplied(cx, project, libraryItemLabel(item), pieceType, selectedPieces, item.id);
 		}
 	}
 
@@ -475,9 +476,14 @@ const SkinTile: React.FC<{
 
 // MARK: - Helpers
 
-/** Says what a skin did when the film alone doesn't show it: other piece types kept, or Colour by Note on */
-export function notifySkinApplied(cx: StudioCx, project: TProject, skinLabel: string, pieceType: string, selected: TEntity[]): void {
-	const message = skinAppliedMessage({ skinLabel, pieceType, selected, colorByNote: project.design.themeOptions?.colorByNote === true });
+/**
+ * Says what a skin did when the film alone doesn't show it: other piece types kept, or platforms keeping the skin's
+ * colour with Colour by Note on. `assetId` is the applied skin, null for the theme's default.
+ */
+export function notifySkinApplied(cx: StudioCx, project: TProject, skinLabel: string, pieceType: string, selected: TEntity[], assetId: string | null): void {
+	const isColorByNote = project.design.themeOptions?.colorByNote === true;
+	const keepsSkinColor = isColorByNote && !takesNoteColor(baseThemeOf(project.design), assetId != null ? { assetId, link: 'linked' } : null);
+	const message = skinAppliedMessage({ skinLabel, pieceType, selected, keepsSkinColor });
 	if (message != null) cx.notifyEdit(message);
 }
 

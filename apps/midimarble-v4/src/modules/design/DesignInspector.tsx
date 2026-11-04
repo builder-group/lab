@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Bookmark, Clapperboard, Plus, RotateCcw, Trash2, Type } from 'lucide-react';
+import { Bookmark, Clapperboard, Plus, RotateCcw, Trash2, TriangleAlert, Type } from 'lucide-react';
 import React from 'react';
 import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, StateRow, TextField } from '@/components';
 import { shotLength } from '@/modules/camera/shots';
@@ -35,7 +35,9 @@ import {
 import type { TDesignLink, TDesignStatus } from './DesignCx';
 import { libraryItemLabel } from './DesignLibraryCx';
 import { LIBRARY_DRAG_TYPE, notifySkinApplied } from './DesignLibrary';
+import { marbleContrastWarning } from './draft-look';
 import { renderPresetLabel, renderPresetOption, renderPresets } from './export-estimate';
+import { framingFix, framingProblemAt, preflightExport } from './export-preflight';
 import { describeLoop } from './loop-status';
 import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
 import {
@@ -97,6 +99,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 				<CheckField
 					id="design-color-by-note"
 					label="Colour by Note"
+					title="Colours each platform by its note, like boomwhackers; a platform with a chosen skin keeps the skin's colour"
 					checked={design.themeOptions?.colorByNote === true}
 					onChange={(colorByNote) => cx.execute(colorByNoteCommands(project, colorByNote))}
 				/>
@@ -167,6 +170,10 @@ const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (t
 	const value = theme.overrides[field.name];
 	const fallback = themeDefaultColor(theme.base, field.name);
 	const id = `theme-${field.name}`;
+	// A Wall colour can leave a marble too close to the wall or its pieces: say so under the well, never block
+	const project = cx.project;
+	const marbles = (project?.entities ?? []).flatMap((entity) => (entity.components.marble != null ? [{ name: entity.name ?? 'Marble', color: entity.components.marble.color }] : []));
+	const warning = field.name === 'wallColor' ? marbleContrastWarning(theme.base, theme.overrides, marbles) : null;
 
 	function set(color: string | null): void {
 		const project = cx.project;
@@ -181,7 +188,8 @@ const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (t
 	}
 
 	return (
-		<span className="mm-ifield" data-span="2" title={field.help}>
+		<>
+			<span className="mm-ifield" data-span="2" title={field.help}>
 			<label htmlFor={id} className="mm-ifield-label">
 				{field.label}
 			</label>
@@ -209,7 +217,14 @@ const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (t
 					<RotateCcw size={12} strokeWidth={1.9} />
 				</button>
 			) : null}
-		</span>
+			</span>
+			{warning != null ? (
+				<span className="flex items-start gap-1 text-[11px] text-[var(--text-secondary)]" data-span="2" role="status">
+					<TriangleAlert size={12} strokeWidth={1.8} className="mt-px shrink-0 text-[var(--warn)]" aria-hidden />
+					{warning}
+				</span>
+			) : null}
+		</>
 	);
 };
 
@@ -263,6 +278,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</div>
 			{camera.mode === 'rig' ? (
 				<>
+					<FramingProblem cx={cx} project={project} />
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
 					<ScrubField id="camera-pitch" label="Pitch" name="Downward angle" value={(camera.pitch * 180) / Math.PI} unit="°" step={0.5} min={-80} max={80} onCommit={(value) => set({ pitch: (value * Math.PI) / 180 })} />
 					<ScrubField id="camera-lead" label="Lead" name="How far ahead of the marbles the camera looks" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
@@ -312,6 +328,32 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 				</button>
 			)}
 		</Panel>
+	);
+};
+
+/**
+ * The framing problem at the playhead, which a jump from the hit summary, the export sheet or the Camera track lands
+ * on, with its Fix-it once the problem model's what-if found one: "Bass leaves the frame at 0:12.00 (6 hits)" ·
+ * Add Wide Shot Here
+ */
+const FramingProblem: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
+	const { cx, project } = props;
+	const result = useFeatureState(cx.simulation.$result);
+	const playhead = useFeatureState(cx.$playhead);
+	const preflight = React.useMemo(() => preflightExport(project, result), [project, result]);
+	const issue = framingProblemAt(preflight, playhead);
+	// The what-if runs once the problem shows; a fix that would not help is not offered
+	const fix = React.useMemo(() => (issue != null ? framingFix(project, result, issue) : null), [issue, project, result]);
+	if (issue == null) return null;
+	return (
+		<>
+			<StateRow tone="warn" label={issue.title} detail={issue.detail} />
+			{fix != null && (
+				<button className="mm-button" data-span="2" onClick={() => getCommand('camera.addWideShot').run(cx)} title={fix.detail} type="button">
+					{fix.label}
+				</button>
+			)}
+		</>
 	);
 };
 
@@ -565,12 +607,12 @@ const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }
 	const name = isSingle ? (first.name ?? typeLabel) : pieceCountLabel(pieces);
 
 	async function applyItem(item: TLibraryItem): Promise<void> {
-		if (await cx.library.applySkin(item, { kind: 'entities', entityIds: skinnedIds })) notifySkinApplied(cx, project, libraryItemLabel(item), type, pieces);
+		if (await cx.library.applySkin(item, { kind: 'entities', entityIds: skinnedIds })) notifySkinApplied(cx, project, libraryItemLabel(item), type, pieces, item.id);
 	}
 
 	function setSkin(value: string): void {
 		if (value === '') {
-			if (cx.execute(clearSkinCommands(project, skinnedIds))) notifySkinApplied(cx, project, 'Theme Default', type, pieces);
+			if (cx.execute(clearSkinCommands(project, skinnedIds))) notifySkinApplied(cx, project, 'Theme Default', type, pieces, null);
 			return;
 		}
 		const item = fitting.find((candidate) => itemValue(candidate) === value);

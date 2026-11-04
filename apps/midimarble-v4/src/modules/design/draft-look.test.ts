@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { verticalFov } from '@/modules/camera';
-import { draftGlows, draftMarble, draftPieceColors, draftWall, noteColor, previewScreenTitleLayout, screenTitleLayout, titleOpacity, TITLE_FADE } from './draft-look';
+import {
+	contrastRatio,
+	draftGlows,
+	draftMarble,
+	draftPieceColors,
+	draftSkinMarks,
+	draftWall,
+	MARBLE_CONTRAST,
+	marbleContrast,
+	marbleContrastWarning,
+	noteColor,
+	previewScreenTitleLayout,
+	screenTitleLayout,
+	takesNoteColor,
+	titleOpacity,
+	TITLE_FADE
+} from './draft-look';
+import { laneColors } from '@/modules/project/create-project';
 import { imageToWall } from './film-camera';
 
 describe('draft look', () => {
@@ -17,7 +34,10 @@ describe('draft look', () => {
 		expect(draftPieceColors('pegboard', platform, true).bar).toBe(noteColor(60));
 		expect(draftPieceColors('brass', platform, false).bar).toBe(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:gold', link: 'linked' } }, false).bar);
 		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:copper', link: 'linked' } }, false).bar).not.toBe(draftPieceColors('brass', platform, false).bar);
-		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:knob', link: 'linked' } }, true).nub).toBe(noteColor(60));
+		// A chosen skin keeps its colour under Colour by Note; Brass's Gold spelled out is still its default
+		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:copper', link: 'linked' } }, true).bar).toBe(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:copper', link: 'linked' } }, false).bar);
+		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:gold', link: 'linked' } }, true).bar).toBe(noteColor(60));
+		expect(draftPieceColors('pegboard', { ...platform, skin: { assetId: 'brass:gold', link: 'linked' } }, true).bar).toBe(draftPieceColors('brass', platform, false).bar);
 		expect(draftPieceColors('brass', { type: 'rail', color: '#3478f6', skin: null }, true).bar).not.toBe('#3478f6');
 	});
 
@@ -45,9 +65,65 @@ describe('draft look', () => {
 			expect(contrast(marble.body, windmill.bar)).toBeGreaterThanOrEqual(3);
 			expect(contrast(marble.body, draftWall('neon').color)).toBeGreaterThanOrEqual(3);
 		}
-		expect(draftMarble('brass', '#3478f6')).toEqual({ body: '#3478f6', rim: null });
 		expect(draftGlows('neon')).toBe(true);
 		expect(draftGlows('pegboard')).toBe(false);
+	});
+
+	it('should keep every lane marble 3:1 apart from its wall and its own pieces in every theme', () => {
+		for (const theme of ['pegboard', 'brass', 'neon']) {
+			for (const color of [...laneColors, '#808080']) {
+				const marble = draftMarble(theme, color);
+				const platform = draftPieceColors(theme, { type: 'platform', color, skin: null }, false);
+				expect(contrastRatio(marble.body, draftWall(theme).color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
+				// Pegboard and Brass marbles sit on the bar; Neon's on its deep body inside the glowing edge
+				if (theme !== 'neon') expect(contrastRatio(marble.body, platform.bar)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
+				expect(marbleContrast(theme, color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
+			}
+		}
+		// Light walls get deep marbles in the lane's hue, the dark Neon wall pearl ones with a rim
+		expect(draftMarble('pegboard', '#3478f6').tone).toBe('deep');
+		expect(draftMarble('brass', '#ff9f0a').tone).toBe('deep');
+		expect(draftMarble('neon', '#ff9f0a').tone).toBe('pearl');
+		expect(draftMarble('brass', '#3478f6').rim).toBeNull();
+	});
+
+	it("should turn a marble pearl on a dark project wall and warn when a Wall colour hides it", () => {
+		// The review's copy of Pegboard with a blue wall: the blue marble went pearl-or-deep, whichever reads more
+		expect(draftMarble('pegboard', '#3478f6', { wallColor: '#1a1a1a' }).tone).toBe('pearl');
+		expect(marbleContrastWarning('pegboard', {}, [{ name: 'Melody', color: '#3478f6' }])).toBeNull();
+		expect(marbleContrastWarning('pegboard', { wallColor: '#3a6e8f' }, [{ name: 'Melody', color: '#3478f6' }])).toBe("Melody's marble is hard to see on this wall");
+		const two = [{ name: 'Melody', color: '#3478f6' }, { name: 'Bass', color: '#ff9f0a' }];
+		expect(marbleContrastWarning('pegboard', { wallColor: '#3a6e8f' }, two)).toBe("Melody's and Bass's marbles are hard to see on this wall");
+		expect(marbleContrastWarning('pegboard', { wallColor: '#3a6e8f' }, [...two, { name: 'Lead', color: '#30d158' }])).toBe('3 marbles are hard to see on this wall');
+		expect(marbleContrastWarning('pegboard', { wallColor: '#f0f0f0' }, two)).toBeNull();
+	});
+
+	it('should colour by note only pieces with the theme default skin', () => {
+		expect(takesNoteColor('pegboard', null)).toBe(true);
+		expect(takesNoteColor('brass', { assetId: 'brass:gold', link: 'linked' })).toBe(true);
+		expect(takesNoteColor('pegboard', { assetId: 'brass:gold', link: 'linked' })).toBe(false);
+		expect(takesNoteColor('brass', { assetId: 'brass:key', link: 'linked' })).toBe(false);
+	});
+
+	it('should draw each Brass skin with its own shape cue in the Draft Preview', () => {
+		const skin = (id: string) => ({ type: 'platform', skin: { assetId: `brass:${id}`, link: 'linked' as const } });
+		const colours = (id: string) => draftSkinMarks('pegboard', skin(id)).map((mark) => mark.color);
+		// Plain bars get chrome end caps, Device its trim-coloured ends and a grille, Key its white key, Knob its red lens
+		expect(draftSkinMarks('brass', { type: 'platform', skin: null })).toHaveLength(2);
+		expect(colours('copper')).toEqual(colours('gold'));
+		expect(draftPieceColors('pegboard', { ...skin('copper'), color: '#3478f6' }, false).bar).not.toBe(draftPieceColors('pegboard', { ...skin('gold'), color: '#3478f6' }, false).bar);
+		expect(colours('device-copper')[0]).not.toBe(colours('device')[0]);
+		expect(draftSkinMarks('neon', skin('device'))).toHaveLength(9);
+		expect(colours('key')).toEqual(['#dcdee0']);
+		expect(colours('knob')).toEqual(['#e0261c']);
+		// The lens sits at the low end of the bar
+		const left = draftSkinMarks('brass', { ...skin('knob'), angle: 0.3 })[0];
+		const right = draftSkinMarks('brass', { ...skin('knob'), angle: -0.3 })[0];
+		expect(left?.x1).toBeLessThan(0);
+		expect(right?.x0).toBeGreaterThan(0);
+		// Pegboard and Neon pieces without a Brass skin draw no marks, and only platforms carry them
+		expect(draftSkinMarks('pegboard', { type: 'platform', skin: null })).toEqual([]);
+		expect(draftSkinMarks('brass', { type: 'rail', skin: null })).toEqual([]);
 	});
 
 	it('should give Pegboard peg holes, Brass a plain wall and Neon a dark navy one', () => {

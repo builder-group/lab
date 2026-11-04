@@ -202,23 +202,23 @@ export function pieceCountLabel(pieces: TEntity[]): string {
 }
 
 /**
- * Notice for a skin applied to a selection with other piece types or with Colour by Note on, where the film
- * alone would not show what happened: `Copper applied to 5 platforms; Rail 1 kept its skin`. Null when the
- * change speaks for itself.
+ * Notice for a skin applied to a selection with other piece types, or to platforms that keep the skin's colour with
+ * Colour by Note on, where the film alone would not show what happened: `Copper applied to 5 platforms; Rail 1 kept
+ * its skin`. Null when the change speaks for itself.
  */
-export function skinAppliedMessage(options: { skinLabel: string; pieceType: string; selected: TEntity[]; colorByNote: boolean }): string | null {
-	const { skinLabel, pieceType, selected, colorByNote } = options;
+export function skinAppliedMessage(options: { skinLabel: string; pieceType: string; selected: TEntity[]; keepsSkinColor: boolean }): string | null {
+	const { skinLabel, pieceType, selected, keepsSkinColor } = options;
 	const applied = selected.filter((entity) => entity.components.piece?.type === pieceType);
 	const kept = selected.filter((entity) => entity.components.piece != null && entity.components.piece.type !== pieceType);
-	const isColourHidden = colorByNote && pieceType === 'platform';
-	if (!applied.length || (!kept.length && !isColourHidden)) return null;
+	const isColorKept = keepsSkinColor && pieceType === 'platform';
+	if (!applied.length || (!kept.length && !isColorKept)) return null;
 	const typeLabel = getPieceDefinition(pieceType)?.label ?? pieceType;
 	let message = `${skinLabel} applied to ${countOf(applied.length, typeLabel).toLowerCase()}`;
 	if (kept.length > 0) {
 		const names = kept.map((entity) => entity.name ?? getPieceDefinition(entity.components.piece?.type ?? '')?.label ?? 'Piece');
 		message += kept.length === 1 ? `; ${names[0]} kept its skin` : kept.length === 2 ? `; ${names[0]} and ${names[1]} kept their skins` : `; ${kept.length} other pieces kept their skins`;
 	}
-	if (isColourHidden) message += `. Colour by Note sets the ${applied.length === 1 ? "platform's" : "platforms'"} colour`;
+	if (isColorKept) message += `. ${applied.length === 1 ? 'It keeps' : 'They keep'} ${skinLabel}'s colour with Colour by Note`;
 	return message;
 }
 

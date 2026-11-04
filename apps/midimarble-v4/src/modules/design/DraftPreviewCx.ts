@@ -8,7 +8,7 @@ import type { TVec2 } from '@/modules/project';
 import { DEFAULT_THEME, resolveTheme } from './project-themes';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { draftGlows, draftMarble, draftPieceColors, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
+import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { selectionHull } from './draft-outline';
 import { filmCamera, imageToWall, type TFilmCamera } from './film-camera';
 
@@ -96,6 +96,24 @@ export class DraftPreviewCx {
 		);
 	}
 
+	/**
+	 * A platform's skin marks on its front face in CSS pixels, each a quad with its colour: the chrome caps, key, lens
+	 * or grille that tell a Brass skin apart
+	 */
+	skinMarks(piece: TResolvedPiece): { id: string; points: TVec2[]; color: string }[] {
+		const project = this.studio.project;
+		if (piece.type !== 'platform' || project == null) return [];
+		const marks = draftSkinMarks(resolveTheme(project.design).base, { type: piece.type, skin: this.scenePiece(piece.entityId)?.skin ?? null, angle: piece.angle });
+		if (!marks.length) return [];
+		const angle = pieceAngleAt(piece, this.studio.$playhead.get());
+		const [length, thickness, depth] = [piece.params['length'] ?? 0.06, piece.params['thickness'] ?? 0.008, piece.params['depth'] ?? 0.03];
+		const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
+		// A point on the front face, in shares of the bar's length and thickness from its centre
+		const at = (x: number, y: number): TVec2 =>
+			this.toScreen({ x: piece.position.x + cos * x * length - sin * y * thickness, y: piece.position.y + sin * x * length + cos * y * thickness }, depth);
+		return marks.map((mark) => ({ id: `${mark.x0}:${mark.y0}`, color: mark.color, points: [at(mark.x0, mark.y0), at(mark.x1, mark.y0), at(mark.x1, mark.y1), at(mark.x0, mark.y1)] }));
+	}
+
 	/** Pieces in the draft: the run's pieces without the hidden ones */
 	pieces(): TResolvedPiece[] {
 		const hidden = this.studio.$hidden.get();
@@ -137,11 +155,11 @@ export class DraftPreviewCx {
 		});
 	}
 
-	/** Marbles at the playhead in the theme's look: their wall position, radius and body and rim colours */
+	/** Marbles at the playhead in the theme's look: their wall position, radius, body and rim colours, apart from the wall */
 	marbles(): (TDraftMarble & { entityId: string; radius: number; position: TVec2 })[] {
 		const project = this.studio.project;
 		if (project == null) return [];
-		const theme = resolveTheme(project.design).base;
+		const theme = resolveTheme(project.design);
 		const result = this.studio.simulation.$result.get();
 		const hidden = this.studio.$hidden.get();
 		const playhead = this.studio.$playhead.get();
@@ -154,7 +172,7 @@ export class DraftPreviewCx {
 					entityId: entity.id,
 					radius: marble.radius,
 					position: marblePositionAt(motion, playhead, release.position),
-					...draftMarble(theme, marble.color)
+					...draftMarble(theme.base, marble.color, theme.overrides)
 				}
 			];
 		});

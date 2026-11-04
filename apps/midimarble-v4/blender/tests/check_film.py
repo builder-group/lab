@@ -204,12 +204,13 @@ def check_draft_film(worker, root, scene, fast_started):
           'draft film is Workbench at 720x1280')
     check(streams['audio']['codec_name'] == 'aac', 'draft film carries the AAC soundtrack')
     check(started['frames'] == fast_started['frames'] and started['fps'] == 30, 'draft film covers the same frames as fast')
-    # A frame at the fourth hit: the blue marble and the brass bars must read as their colours on the wall
+    # A frame at the fourth hit: the blue marble, deep navy against Brass's light wall and gold bars, and the brass
+    # bars must read as their colours on the wall
     pixels = film_frame(film, started['width'], started['height'], math.ceil(FIRST_HIT * 30 + 3 * HIT_GAP * 30) / 30)
     red, green, blue = (pixels[..., channel].astype(float) for channel in range(3))
-    marble = int(((blue > red + 60) & (blue > green + 30)).sum())
+    marble = int(((blue > red + 30) & (blue > green + 15) & (blue < 140)).sum())
     brass = int(((red > blue + 50) & (green > blue + 20)).sum())
-    check(marble > 40 and brass > 400, 'draft frame shows the blue marble (%d px) and brass bars (%d px)' % (marble, brass))
+    check(marble > 40 and brass > 400, 'draft frame shows the deep blue marble (%d px) and brass bars (%d px)' % (marble, brass))
     summary.append('draft film: %d frames in %.1f s (%.0f ms/frame render), total %.1f s' % (
         result['frames'], result['renderSeconds'], result['msPerFrame'], time.perf_counter() - began))
 
