@@ -139,7 +139,7 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	// The camera stands below and to the side of the target, looking up along the run; the side follows the run
 	// direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
 	const { side, roll } = viewTurn(times, smoothHeading, framing.roll, settings.hold, settings.sway);
-	// Seen through this view, a marble the camera does not lead goes fully in or fully out, never cut at the edge
+	// Seen through this view, the marble the camera leads stays in and another goes fully in or fully out, never cut at the edge
 	if (framing.shares != null) {
 		const axes = Array.from(times, (_, index) =>
 			viewAxes(side[index] ?? 0, roll[index] ?? 0, settings.pitch)
@@ -887,8 +887,7 @@ function groupFraming(
 			}
 		}
 	}
-	const shares =
-		marbles.filter(hasMotion).length > 1 ? leadShares(marbles, sample, settings.focus, fps) : null;
+	const shares = marbles.some(hasMotion) ? leadShares(marbles, sample, settings.focus, fps) : null;
 	if (hold != null) {
 		settle(centre, times, hold, settings.finish);
 		settle(ahead, times, hold, settings.finish);
@@ -992,7 +991,7 @@ function openingFrame(
 }
 
 /**
- * `keep_clear_of_edges`: a marble in flight stays inside EDGE_IN of the half frame or beyond EDGE_OUT, never cut at
+ * `keep_clear_of_edges`: a marble in flight or waiting at its release point stays inside EDGE_IN of the half frame or beyond EDGE_OUT, never cut at
  * the edge. The leading marble is kept in. Another marble keeps the side it came from while it swings through the
  * band between, a side lasts at least twice EDGE_HOLD, and it goes out wherever keeping it in would take the leading
  * marble past LEADER_KEEP; kept out, it is pushed only once within EDGE_NEAR of the edge. While the frame pans
@@ -1047,8 +1046,10 @@ function keepClearOfEdges(
 	const shiftY = new Float64Array(count);
 	// Where each marble sits in the frame, and whether it is arriving: it was beyond EDGE_OUT and has not yet come
 	// inside EDGE_IN, as while the frame pans to it from afar
+	// A marble waiting at its release point is in the film too
 	const isFollowing = (marble: TFollowMarble, index: number): boolean =>
-		inside(marble, sample[index] ?? 0) && (times[index] ?? 0) <= (sample[index] ?? 0) + 1e-9;
+		inside(marble, Math.max(sample[index] ?? 0, marble.motion.time[0] ?? 0)) &&
+		(times[index] ?? 0) <= (sample[index] ?? 0) + 1e-9;
 	const placesOf = moving.map(() => new Float64Array(count));
 	const arrivingOf = moving.map(() => new Uint8Array(count));
 	moving.forEach((marble, which) => {
@@ -1057,7 +1058,7 @@ function keepClearOfEdges(
 			if (!isFollowing(marble, index)) continue;
 			const now = place(index, ...offset(which, index));
 			(placesOf[which] as Float64Array)[index] = now;
-			if (now > EDGE_OUT) isArriving = true;
+			if (now > EDGE_OUT && moving.length > 1) isArriving = true;
 			else if (now <= EDGE_IN) isArriving = false;
 			(arrivingOf[which] as Uint8Array)[index] = isArriving ? 1 : 0;
 		}

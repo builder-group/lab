@@ -114,6 +114,8 @@ describe('draft look', () => {
 				expect(contrastRatio(marble.body, draftWall(theme).color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
 				// Pegboard and Brass marbles sit on the bar; Neon's on its deep body inside the glowing edge
 				if (theme !== 'neon') expect(contrastRatio(marble.body, platform.bar)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
+				// The film paints Pegboard's platform in the lane colour itself, not the Draft Preview's tint of it
+				if (theme === 'pegboard') expect(contrastRatio(marble.body, color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
 				expect(marbleContrast(theme, color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
 			}
 		}

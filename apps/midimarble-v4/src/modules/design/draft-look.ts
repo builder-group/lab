@@ -257,20 +257,20 @@ function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverride
 }
 
 /**
- * Surfaces a marble rolls over in a theme without Colour by Note: Pegboard's tint of its colour, Brass's gold bars,
- * Neon's deep body in its hue. `MARBLE_SURFACES` in themes.py.
+ * Surfaces a marble rolls over in a theme without Colour by Note: Pegboard's tint of its colour here and the colour
+ * itself on the film's platform, Brass's gold bars, Neon's deep body in its hue. `marble_surfaces` in themes.py.
  */
 function marbleSurfaces(theme: string, color: string): string[] {
 	if (theme === 'brass') return [FINISHES['gold'] ?? CHROME];
 	if (theme === 'neon') return [saturate(color, NEON_BODY_VALUE)];
-	return [tint(color, PEGBOARD_TINT)];
+	return [tint(color, PEGBOARD_TINT), color];
 }
 
 /** `color` at full saturation, dark enough to reach `DEEP_LUMINANCE`, found by halving like `deep_color` in themes.py */
 /** How light a deep body may be and still keep `MARBLE_CONTRAST` against the darkest of `around`, `deep_luminance` in themes.py */
 function deepLuminance(around: readonly string[]): number {
 	const darkest = Math.min(...around.map(luminance));
-	return Math.min(DEEP_LUMINANCE_LIGHTEST, Math.max(DEEP_LUMINANCE, (darkest + 0.05) / MARBLE_CONTRAST - 0.05));
+	return Math.min(DEEP_LUMINANCE_LIGHTEST, Math.max(DEEP_LUMINANCE_DARKEST, (darkest + 0.05) / MARBLE_CONTRAST - 0.05));
 }
 
 function deepColor(color: string, target = DEEP_LUMINANCE): string {
@@ -289,6 +289,8 @@ const PEARL_WHITE = 0.8;
 const DEEP_LUMINANCE = 0.05;
 /** A deep body on a lighter wall can be lighter too, so a warm wall shows its hue rather than a near-black ball */
 const DEEP_LUMINANCE_LIGHTEST = 0.09;
+/** Darker still where its own Pegboard platform is a dark lane colour, `DEEP_LUMINANCE_DARKEST` in themes.py */
+const DEEP_LUMINANCE_DARKEST = 0.03;
 /** Brightness of a Neon body in its hue */
 const NEON_BODY_VALUE = 0.62;
 

@@ -138,6 +138,31 @@ describe('follow camera', () => {
 		for (let seconds = 2; seconds <= 3.8; seconds += 0.1) expect(height(seconds)).toBeGreaterThan(0.25);
 	});
 
+	it('keeps a single marble in frame when the opening frames pieces far from it and a long fall pulls the frame ahead', () => {
+		// `check_apply_scene.py`'s film: the opening's box puts the waiting marble at its corner, smoothing looks ahead to the fall
+		const time = Float64Array.from({ length: 217 }, (_, index) => 0.1 + index / 240);
+		const x = time.map((value) => 0.1 * (value - 0.1));
+		const y = time.map((value) => 0.6 - 4.905 * (value - 0.1) ** 2);
+		const track = required(
+			bakeFollowCamera({
+				fps: 60,
+				duration: 1,
+				frame: { width: 1080, height: 1920 },
+				camera: { mode: 'rig', distance: 0.5, pitch: 0.45, lead: 0.15, smoothing: 0.6, shots: [] },
+				pieceLength: 0.06,
+				opening: [{ time: 0.3, x: 0.25, y: 0.4 }, { time: 0.38, x: 0.08, y: 0.22 }],
+				marbles: [{ id: 'marble', radius: 0.01, motion: { time, x, y } }]
+			})
+		);
+		let worst = 0;
+		for (let frame = 0; frame < track.frameCount; frame++) {
+			const index = Math.max(0, Math.min(time.length - 1, pyRound((frame / 60 - 0.1) * 240)));
+			const [u, v] = project(track, frame, at(x, index), at(y, index));
+			worst = Math.max(worst, Math.abs(u - 0.5), Math.abs(v - 0.5));
+		}
+		expect(worst).toBeLessThan(0.45);
+	});
+
 	it('frames both marbles in a Wide shot where the automatic camera follows one', () => {
 		const fall = (x: number): TFollowMarble['motion'] => {
 			const time = Float64Array.from({ length: 101 }, (_, index) => index / 10);

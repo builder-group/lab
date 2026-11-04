@@ -554,7 +554,7 @@ def group_framing(marbles, motions, times, settings, fps, aspect, heading, aim=N
         weight = opening['weight'][:, None]
         centre = weight * opening['point'] + (1 - weight) * centre
         ahead = weight * opening['point'] + (1 - weight) * ahead
-    shares = lead_shares(marbles, motions, sample, settings.get('focus'), fps) if len(moving) > 1 else None
+    shares = lead_shares(marbles, motions, sample, settings.get('focus'), fps) if moving else None
     if hold is not None:
         finish = settings.get('finish')
         centre, ahead = settled(centre, times, hold, finish), settled(ahead, times, hold, finish)
@@ -632,7 +632,8 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes, limit):
 
 
 def keep_clear_of_edges(marbles, motions, times, sample, target, distance, axes, shares, lens, aspect, fps):
-    """A marble in flight stays inside EDGE_IN of the half frame or beyond EDGE_OUT, never cut at the edge.
+    """A marble in flight or waiting at its release point stays inside EDGE_IN of the half frame or beyond EDGE_OUT, never
+    cut at the edge.
 
     The leading marble is kept in. Another marble keeps the side it came from while it swings through the band
     between, a side lasts at least twice EDGE_HOLD, and it goes out wherever keeping it in would take the leading
@@ -662,7 +663,9 @@ def keep_clear_of_edges(marbles, motions, times, sample, target, distance, axes,
     def offset(which, index):
         return points[which][index, 0] - target[index, 0], points[which][index, 1] - target[index, 1]
 
-    following = [in_flight(marble, motions[marble['id']], sample) & (times <= sample + 1e-9) for marble in moving]
+    # A marble waiting at its release point is in the film too
+    following = [in_flight(marble, motions[marble['id']], np.maximum(sample, motions[marble['id']][0, 0])) & (times <= sample + 1e-9)
+                 for marble in moving]
     shortest = int(round(2 * EDGE_HOLD * fps))
     shift = np.zeros((count, 2))
     # Where each marble sits in the frame, and whether it is arriving: it was beyond EDGE_OUT and has not yet come
@@ -676,7 +679,7 @@ def keep_clear_of_edges(marbles, motions, times, sample, target, distance, axes,
                 continue
             now = place(index, *offset(which, index))
             places_of[which][index] = now
-            if now > EDGE_OUT:
+            if now > EDGE_OUT and len(moving) > 1:
                 arriving = True
             elif now <= EDGE_IN:
                 arriving = False
@@ -915,7 +918,7 @@ def bake(scene, camera, settings, marbles, motions, fps):
     # The camera stands below and to the side of the target, looking up along the run; the side follows the run
     # direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
     side, roll = view_turn(times, heading, framing['roll'], settings.get('hold'), settings['sway'])
-    # Seen through this view, a marble the camera does not lead goes fully in or fully out, never cut at the edge
+    # Seen through this view, the marble the camera leads stays in and another goes fully in or fully out, never cut at the edge
     if framing['shares'] is not None:
         keep_clear_of_edges(marbles, motions, times, framing['sample'], target, distance,
                             view_axes(side, roll, settings['pitch']), framing['shares'], settings['lens'], aspect, fps)

@@ -812,7 +812,8 @@ DEEP_LUMINANCE = 0.05
 # A deep body on a lighter wall can be lighter too, as long as it keeps MARBLE_CONTRAST against all it rolls over, so a
 # warm wall shows the marble's hue rather than a near-black ball. `deepBody` in draft-look.ts
 DEEP_LUMINANCE_LIGHTEST = 0.09
-MARBLE_CONTRAST = 3.0
+# Darker still where its own Pegboard platform is a dark lane colour; `DEEP_LUMINANCE_DARKEST` in draft-look.ts
+DEEP_LUMINANCE_DARKEST = 0.03
 NEON_BODY_VALUE = 0.62
 PEGBOARD_TINT = 0.4
 # `draftWall` and the gold `FINISHES` entry in draft-look.ts
@@ -869,7 +870,7 @@ def deep_color(color, luminance=DEEP_LUMINANCE):
 def deep_luminance(around):
     """How light a deep body may be and still keep MARBLE_CONTRAST against the darkest of `around`, `deepLuminance` in draft-look.ts"""
     darkest = min(display_luminance(other) for other in around)
-    return min(DEEP_LUMINANCE_LIGHTEST, max(DEEP_LUMINANCE, (darkest + 0.05) / MARBLE_CONTRAST - 0.05))
+    return min(DEEP_LUMINANCE_LIGHTEST, max(DEEP_LUMINANCE_DARKEST, (darkest + 0.05) / MARBLE_CONTRAST - 0.05))
 
 
 def marble_surfaces(theme, color):
@@ -878,7 +879,8 @@ def marble_surfaces(theme, color):
         return [DRAFT_GOLD]
     if theme == 'neon':
         return [display_saturate(color, NEON_BODY_VALUE)]
-    return [display_tint(color, PEGBOARD_TINT)]
+    # The Draft Preview's lighter tint and the lane colour itself, which is what the film's Pegboard platform is painted
+    return [display_tint(color, PEGBOARD_TINT), color]
 
 
 def marble_look(name, color, overrides=None):
