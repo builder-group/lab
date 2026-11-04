@@ -17,7 +17,7 @@ export function inspectorTarget(project: TProject, selection: readonly string[],
 	return workspace === 'compose' && FILM_ONLY_TARGETS.includes(target.kind) ? { kind: 'scene' } : target;
 }
 
-const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['wall', 'light', 'decor', 'madeInBlender'];
+const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['wall', 'light', 'decor', 'decorItems', 'madeInBlender'];
 
 /**
  * What stays selected when Film opens. The piece or hit Compose's work last left selected would hide the theme, so
@@ -58,6 +58,7 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 
 	const decorIds = selection.flatMap((key) => parseDecorKey(key) ?? []).filter((id) => project.design.decor.some((item) => item.id === id) === true);
 	if (decorIds.length === 1) return { kind: 'decor', id: decorIds[0] as string };
+	if (decorIds.length > 1) return { kind: 'decorItems', ids: decorIds };
 
 	const blenderName = selection.flatMap((key) => parseMadeInBlenderKey(key) ?? [])[0];
 	if (blenderName != null) return { kind: 'madeInBlender', name: blenderName };
@@ -77,6 +78,7 @@ export type TInspectorTarget =
 	| { kind: 'marble'; entityId: string; laneId: string }
 	| { kind: 'light'; id: string }
 	| { kind: 'decor'; id: string }
+	| { kind: 'decorItems'; ids: string[] }
 	| { kind: 'madeInBlender'; name: string }
 	| { kind: 'wall' }
 	| { kind: 'song' }

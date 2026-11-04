@@ -5,7 +5,7 @@ import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { $blenderObjects, addDecorCommands, assetDecorSource, builtInSource, moveDecorClear, type TDecorSource } from './decor';
-import { decorItem } from './decor-catalog';
+import { decorItem, listedDecorItems, usedDecorSources } from './decor-catalog';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from './decor-scatter';
 import { previewPointToWall } from './design-commands';
 import { filmCamera, imageToWall } from './film-camera';
@@ -101,9 +101,16 @@ function rememberScatterChoice(sources: readonly string[]): void {
 export function openScatterPanel(cx: StudioCx, sources?: string[]): void {
 	if (cx.project == null) return;
 	cx.$workspace.set('design');
-	const panel: TScatterPanel = { sources: sources ?? readScatterChoice().filter((source) => resolveDecorSource(cx, source) != null), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, group: null };
+	const offered = new Set(scatterItems(cx).map((item) => item.id));
+	const panel: TScatterPanel = { sources: sources ?? readScatterChoice().filter((source) => offered.has(source)), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, group: null };
 	$scatterPanel.set(panel);
 	if (sources != null && sources.length > 0) runScatter(cx, panel);
+}
+
+/** What the panel offers: the listed items that scatter, then Decor from the Library that is in this project */
+export function scatterItems(cx: StudioCx): { id: string; label: string }[] {
+	const assets = cx.library.$projectItems.get().flatMap((item) => (item.manifest?.role === 'decoration' ? [{ id: assetDecorSource(item.id, item.manifest.label, item.manifest.fittedParams).source, label: item.manifest.label }] : []));
+	return [...listedDecorItems(usedDecorSources(cx.project?.design)).filter((item) => item.scatter), ...assets];
 }
 
 /** Scatters with the panel's settings; everything the panel does until it closes is one undo step */

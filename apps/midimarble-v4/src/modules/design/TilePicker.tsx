@@ -61,7 +61,7 @@ export const TilePicker: React.FC<{
 	/** The row's tooltip */
 	title: string;
 	tiles: readonly TPickerTile[];
-	/** Below Add Pack… at the panel's bottom */
+	/** At the panel's bottom */
 	footer?: React.ReactNode;
 	/** Beside the row, such as Reset */
 	accessory?: React.ReactNode;
@@ -120,23 +120,7 @@ const PickerPanel: React.FC<{ cx: StudioCx; heading: string; label: string; anch
 					</label>
 				) : null
 			}
-			footer={
-				<div className="flex flex-col gap-1.5">
-					<button
-						className="mm-button w-full"
-						onClick={() => {
-							onClose();
-							cx.library.$isAddPackOpen.set(true);
-						}}
-						title="A Pack brings more themes, skins and decor; nothing in your project changes"
-						type="button"
-					>
-						<PackagePlus size={12} strokeWidth={1.8} />
-						Add Pack…
-					</button>
-					{footer}
-				</div>
-			}
+			footer={footer}
 		>
 			<div className="mm-library-grid" role="listbox" aria-label={label}>
 				{shown.map((tile) => (

@@ -191,6 +191,26 @@ def _star(mesh):
     _prism(mesh, 0, outline, 0.003)
 
 
+def _plain_sphere(mesh):
+    _sphere(mesh, 0, (0.0, 0.0, 0.013), 0.013, 1.0, (20, 12))
+
+
+def _plain_cube(mesh):
+    _box(mesh, 0, (0.0, 0.0, 0.012), (0.024, 0.024, 0.024))
+
+
+def _ring(mesh):
+    segments = 24
+    outer, inner, depth = 0.015, 0.009, 0.006
+    circle = lambda radius, z: [mesh.verts.new((radius * math.cos(index * math.tau / segments), radius * math.sin(index * math.tau / segments), z)) for index in range(segments)]
+    loops = [circle(outer, 0.0), circle(outer, depth), circle(inner, depth), circle(inner, 0.0)]
+    for side, loop in enumerate(loops):
+        following = loops[(side + 1) % len(loops)]
+        for index in range(segments):
+            mesh.faces.new((loop[index], loop[(index + 1) % segments], following[(index + 1) % segments], following[index]))
+    _assign([vert for loop in loops for vert in loop], 0)
+
+
 def _looks(item_id):
     """Materials of an item's slots"""
     item = ITEMS[item_id]
@@ -216,6 +236,9 @@ BUILDERS = {
     'fairy-light': _fairy_light,
     'gift-box': _gift_box,
     'star': _star,
+    'sphere': _plain_sphere,
+    'ring': _ring,
+    'cube': _plain_cube,
 }
 
 
@@ -232,7 +255,7 @@ def shared_mesh(item_id, look_id=None):
     work.to_mesh(mesh)
     work.free()
     for polygon in mesh.polygons:
-        polygon.use_smooth = item_id.startswith('bauble')
+        polygon.use_smooth = item_id.startswith('bauble') or item_id in ('sphere', 'ring')
     for material in _looks(look_id or item_id):
         mesh.materials.append(material)
     mesh[OWNER] = True

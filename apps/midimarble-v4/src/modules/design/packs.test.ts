@@ -103,7 +103,7 @@ describe('Packs', () => {
 		expect((STARTER_PACK.builtIn ?? []).filter((entry) => entry.kind === 'theme').map((entry) => entry.label)).toEqual(['Pegboard', 'Brass', 'Neon']);
 		expect(STARTER_PACK.builtInDecor).toContain('decor:snowfall');
 		expect(STARTER_PACK.builtInDecor.every((source) => decorItem(source) != null)).toBe(true);
-		expect(packContents(STARTER_PACK)).toBe(`3 themes, ${skins.length} skins, 1 decor item`);
+		expect(packContents(STARTER_PACK)).toBe(`3 themes, ${skins.length} skins, 4 decor items`);
 		expect(withStarterPack([{ ...pack([]), id: 'starter' }, pack([])]).map((item) => item.id)).toEqual(['starter', pack([]).id]);
 		expect(isPackAdded('starter')).toBe(true);
 	});

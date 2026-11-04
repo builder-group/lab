@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createProject, type TEntity, type TProject } from '@/modules/project';
+import { createProject, type TDecor, type TEntity, type TProject } from '@/modules/project';
 import { inspectorTarget, selectionEnteringFilm } from './inspector-target';
 import { buildOutline, DECOR_KEY, isSelectableRow, TITLES_KEY, type TOutlineRow } from './outline';
-import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toHitKey, toLightKey, toShotKey, WALL_KEY } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toDecorKey, toHitKey, toLightKey, toShotKey, WALL_KEY } from './selection';
 
 function fullProject(): TProject {
 	const project = createProject({ id: 'project', title: 'Jingle Bells' });
@@ -132,5 +132,16 @@ describe('buildOutline function in Compose', () => {
 		expect(buildOutline(project, { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'song', 'marble', 'piece', 'group', 'piece']);
 		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('camera');
 		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('title');
+	});
+});
+
+describe('several Decor items', () => {
+	it('should have an inspector of their own in Film, and show the Scene in Compose', () => {
+		const base = createProject({ title: 'Decor' });
+		const decor = (id: string): TDecor => ({ id, source: 'decor:sphere', position: { x: 0, y: 0 }, scale: 1, rotation: 0 }) as unknown as TDecor;
+		const project = { ...base, design: { ...base.design, decor: [decor('a'), decor('b')] } };
+
+		expect(inspectorTarget(project, [toDecorKey('a'), toDecorKey('b')])).toEqual({ kind: 'decorItems', ids: ['a', 'b'] });
+		expect(inspectorTarget(project, [toDecorKey('a'), toDecorKey('b')], 'compose').kind).toBe('scene');
 	});
 });

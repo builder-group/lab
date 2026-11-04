@@ -3,9 +3,7 @@ import { Wand2, X } from 'lucide-react';
 import React from 'react';
 import { addedPacks } from '@/modules/library';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { assetDecorSource } from './decor';
-import { $scatterPanel, runScatter, type TScatterPanel } from './decor-actions';
-import { listedDecorItems, usedDecorSources } from './decor-catalog';
+import { $scatterPanel, runScatter, scatterItems, type TScatterPanel } from './decor-actions';
 
 /**
  * Scatter Decor's small panel over the viewer: it asks what to scatter and how dense, starting from the last choice. Once
@@ -16,7 +14,7 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const panel = useFeatureState($scatterPanel);
 	useFeatureState(addedPacks);
-	const projectItems = useFeatureState(cx.library.$projectItems);
+	useFeatureState(cx.library.$projectItems);
 	const [density, setDensity] = React.useState<number | null>(null);
 
 	// Escape closes it before it reaches the studio shortcuts
@@ -39,9 +37,7 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 		if (hasScattered) runScatter(cx, { ...panel, ...patch });
 		else $scatterPanel.set({ ...panel, ...patch });
 	};
-	// Decor from the Library that is in this project, beside the listed items
-	const assets = projectItems.flatMap((item) => (item.manifest?.role === 'decoration' ? [{ id: assetDecorSource(item.id, item.manifest.label, item.manifest.fittedParams).source, label: item.manifest.label }] : []));
-	const items = [...listedDecorItems(usedDecorSources(cx.project?.design)).filter((item) => item.scatter), ...assets];
+	const items = scatterItems(cx);
 
 	function toggle(source: string): void {
 		if (panel == null) return;

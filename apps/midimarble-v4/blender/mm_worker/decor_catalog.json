@@ -6,6 +6,9 @@
 		{ "id": "decor:fairy-light", "label": "Fairy Light", "origin": "Christmas Pack", "preview": "fairy-light.png", "halfWidth": 0.034, "halfHeight": 0.009, "color": "#ffbe5c", "scatter": true },
 		{ "id": "decor:gift-box", "label": "Gift Box", "origin": "Christmas Pack", "preview": "gift-box.png", "halfWidth": 0.014, "halfHeight": 0.017, "color": "#2f7d52", "second": "#e3c04f", "scatter": true },
 		{ "id": "decor:star", "label": "Star", "origin": "Christmas Pack", "preview": "star.png", "halfWidth": 0.016, "halfHeight": 0.016, "color": "#f0c64a", "scatter": true },
+		{"id": "decor:sphere", "label": "Sphere", "origin": "Starter", "preview": "sphere.png", "halfWidth": 0.013, "halfHeight": 0.013, "color": "#c9c5bd", "scatter": true},
+		{"id": "decor:ring", "label": "Ring", "origin": "Starter", "preview": "ring.png", "halfWidth": 0.015, "halfHeight": 0.015, "color": "#c9c5bd", "scatter": true},
+		{"id": "decor:cube", "label": "Cube", "origin": "Starter", "preview": "cube.png", "halfWidth": 0.012, "halfHeight": 0.012, "color": "#c9c5bd", "scatter": true},
 		{ "id": "decor:snowfall", "label": "Particles", "origin": "Starter", "preview": "snowfall.png", "halfWidth": 0.05, "halfHeight": 0.05, "color": "#fff1d6", "scatter": false, "effect": "snowfall" }
 	]
 }

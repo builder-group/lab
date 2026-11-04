@@ -6,7 +6,7 @@ import { attachState } from '@/modules/compose/attach-edit';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon, type TBadgeStatus } from '@/modules/compose/status';
 import { $blenderObjects, deleteDecorCommands, duplicateDecorCommands, madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
-import { moveDecorClearAction, revealMadeInBlender } from '@/modules/design/decor-actions';
+import { $scatterPanel, moveDecorClearAction, revealMadeInBlender } from '@/modules/design/decor-actions';
 import { decorTips, lookProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import { updateLightCommands } from '@/modules/design/scene-layers';
@@ -17,7 +17,7 @@ import { commandItem } from './commands';
 import { formatTime } from './format';
 import { inspectorTarget } from './inspector-target';
 import { laneMenu, pieceMenu, songMenu } from './menus';
-import { buildOutline, collapsedGroups, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
+import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import { SCENE_KEY, toDecorKey } from './selection';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
@@ -64,6 +64,12 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	const [toggled, setToggled] = React.useState<Record<TWorkspace, string[]>>({ compose: [], design: [] });
 	const collapsed = React.useMemo(() => collapsedGroups(project, workspace, toggled[workspace]), [project, workspace, toggled]);
 	const treeRef = React.useRef<HTMLDivElement>(null);
+	const hasScattered = useFeatureState($scatterPanel)?.group != null;
+
+	// What Scatter Decor places stays folded away, even in a Decor group that was open
+	React.useEffect(() => {
+		if (hasScattered) setToggled((current) => ({ ...current, design: current.design.filter((key) => key !== DECOR_KEY) }));
+	}, [hasScattered]);
 	const wasRenamingRef = React.useRef(false);
 
 	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.entityId, piece])), [result]);

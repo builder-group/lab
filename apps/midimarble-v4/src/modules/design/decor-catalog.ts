@@ -26,10 +26,11 @@ export interface TDecorItem {
 
 export const DECOR_ITEMS: readonly TDecorItem[] = catalog.items.map(({ preview, ...item }) => ({ ...item, previewUrl: `/decor/${preview}` }) as TDecorItem);
 
-/** The items Insert and the pickers offer: the Starter Pack's, an added Pack's, and those the project already has */
+/** The items Insert and the pickers offer: the Starter Pack's, an added Pack's, and the whole Pack of any item the project has */
 export function listedDecorItems(inUse: ReadonlySet<string> = new Set()): TDecorItem[] {
 	const added = addedBuiltInDecor();
-	return DECOR_ITEMS.filter((item) => STARTER_PACK.builtInDecor.includes(item.id) || added.includes(item.id) || inUse.has(item.id));
+	const packsInUse = new Set(DECOR_ITEMS.filter((item) => inUse.has(item.id)).map((item) => item.origin));
+	return DECOR_ITEMS.filter((item) => STARTER_PACK.builtInDecor.includes(item.id) || added.includes(item.id) || packsInUse.has(item.origin));
 }
 
 /** The items a project has placed, which it keeps offering without their Pack */

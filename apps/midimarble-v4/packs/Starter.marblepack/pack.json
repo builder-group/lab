@@ -3,7 +3,7 @@
 	"id": "starter",
 	"name": "Starter",
 	"version": "1.0",
-	"description": "The themes, skins and particles that come with the app.",
+	"description": "The themes, skins, plain decor and particles that come with the app.",
 	"author": "MidiMarble",
 	"items": [
 		{
@@ -185,6 +185,24 @@
 			"id": "wall-grid",
 			"label": "Grid Wall",
 			"source": "wall:grid"
+		},
+		{
+			"kind": "decor",
+			"id": "sphere",
+			"label": "Sphere",
+			"source": "decor:sphere"
+		},
+		{
+			"kind": "decor",
+			"id": "ring",
+			"label": "Ring",
+			"source": "decor:ring"
+		},
+		{
+			"kind": "decor",
+			"id": "cube",
+			"label": "Cube",
+			"source": "decor:cube"
 		},
 		{
 			"kind": "decor",

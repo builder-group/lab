@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus, Type } from 'lucide-react';
+import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus, Sparkles, Type } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
@@ -107,6 +107,8 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			const decor = project.design.decor.find((item) => item.id === target.id);
 			return decor == null ? null : <DecorInspector key={decor.id} cx={cx} project={project} decor={decor} />;
 		}
+		case 'decorItems':
+			return <InspectorHeader icon={<Sparkles size={16} strokeWidth={1.7} />} title={`${target.ids.length} Decor Items`} subtitle="Multiple selection" />;
 		case 'madeInBlender':
 			return <MadeInBlenderInspector key={target.name} cx={cx} project={project} name={target.name} />;
 		case 'scene':

@@ -67,6 +67,17 @@ const Shape: React.FC<{ decor: TDraftDecor }> = (props) => {
 					<path d="M 0 -0.011 C -0.008 -0.019 -0.011 -0.011 0 -0.011 C 0.011 -0.011 0.008 -0.019 0 -0.011 Z" fill={second} />
 				</>
 			);
+		case 'decor:sphere':
+			return (
+				<>
+					<circle cx={0} cy={0} r={0.013} fill={color} />
+					<circle cx={-0.004} cy={-0.004} r={0.003} fill="#ffffff" fillOpacity={0.65} />
+				</>
+			);
+		case 'decor:ring':
+			return <circle cx={0} cy={0} r={0.012} fill="none" stroke={color} strokeWidth={0.006} />;
+		case 'decor:cube':
+			return <rect x={-0.012} y={-0.012} width={0.024} height={0.024} rx={0.001} fill={color} />;
 		case 'decor:star':
 			return <polygon points={starPoints(0.016, 0.0068)} fill={color} stroke="#a67c1e" strokeWidth={0.0005} strokeLinejoin="round" />;
 		default:
