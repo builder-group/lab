@@ -8,6 +8,7 @@ import { PieceIcon } from '@/modules/compose/piece-icons';
 import { FilmInsert } from '@/modules/design/FilmInsert';
 import { isEditingTarget } from '@/lib';
 import { getCommand } from './commands';
+import { hasSongLayer } from './song-layer';
 import type { StudioCx } from './StudioCx';
 import { useInsertDrag } from './use-insert-drag';
 
@@ -18,7 +19,7 @@ export const ToolRail: React.FC<TToolRailProps> = (props) => {
 	const compose = useFeatureState(cx.$compose);
 	return (
 		<nav className="mm-tool-rail" aria-label="Tools" data-quick-help="tools">
-			{workspace === 'compose' ? compose != null ? <ComposeTools compose={compose} /> : null : <DesignTools cx={cx} />}
+			{workspace === 'compose' ? compose != null ? <ComposeTools cx={cx} compose={compose} /> : null : <DesignTools cx={cx} />}
 		</nav>
 	);
 };
@@ -27,8 +28,9 @@ interface TToolRailProps {
 	cx: StudioCx;
 }
 
-const ComposeTools: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
+const ComposeTools: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
+	const { cx, compose } = props;
+	const history = useFeatureState(cx.$history);
 	const tool = useFeatureState(compose.$tool);
 	const isLibraryOpen = useFeatureState(compose.$libraryOpen);
 	const inserting = useFeatureState(compose.$inserting);
@@ -53,7 +55,7 @@ const ComposeTools: React.FC<{ compose: ComposeCx }> = (props) => {
 			<RailButton
 				ref={insertButtonRef}
 				label="Insert"
-				detail="Windmill, switchback and every piece"
+				detail="The track, a marble and the song"
 				shortcut="⇧I"
 				isActive={isLibraryTool}
 				isOpen={isLibraryOpen}
@@ -61,7 +63,7 @@ const ComposeTools: React.FC<{ compose: ComposeCx }> = (props) => {
 			>
 				<Plus size={18} strokeWidth={1.6} />
 			</RailButton>
-			{isLibraryOpen && inserting == null ? <InsertLibrary compose={compose} anchor={insertButtonRef} onStartDrag={ghost.start} /> : null}
+			{isLibraryOpen && inserting == null ? <InsertLibrary compose={compose} anchor={insertButtonRef} onStartDrag={ghost.start} onAddSong={history?.present != null && hasSongLayer(history.present) ? undefined : () => getCommand('file.importMidi').run(cx)} /> : null}
 			{ghost.state != null && !ghost.state.isOnCanvas ? <InsertDragGhost item={ghost.state.item} position={ghost.state.position} /> : null}
 		</>
 	);
@@ -70,6 +72,7 @@ const ComposeTools: React.FC<{ compose: ComposeCx }> = (props) => {
 const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const placing = useFeatureState(cx.design.$placing);
+	const history = useFeatureState(cx.$history);
 	const isInsertOpen = useFeatureState(cx.library.$insertOpen);
 	const insertButtonRef = React.useRef<HTMLButtonElement>(null);
 
@@ -100,14 +103,23 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 
 	return (
 		<>
-			<RailButton label="Move" detail="Select pieces and titles in the preview" shortcut="V" isActive={placing == null} onClick={() => cx.design.$placing.set(null)}>
+			<RailButton label="Move" detail="Select track pieces and titles in the preview" shortcut="V" isActive={placing == null} onClick={() => cx.design.$placing.set(null)}>
 				<MousePointer2 size={17} strokeWidth={1.6} />
 			</RailButton>
 			<div className="mm-tool-rail-divider" />
-			<RailButton ref={insertButtonRef} label="Insert" detail="Titles, Decor, a light or a shot" shortcut="⇧I" isActive={false} isOpen={isInsertOpen} onClick={() => cx.library.$insertOpen.set(!isInsertOpen)}>
+			<RailButton ref={insertButtonRef} label="Insert" detail="A marble, titles, Decor, a light or a shot" shortcut="⇧I" isActive={false} isOpen={isInsertOpen} onClick={() => cx.library.$insertOpen.set(!isInsertOpen)}>
 				<Plus size={18} strokeWidth={1.6} />
 			</RailButton>
-			{isInsertOpen ? <FilmInsert cx={cx} anchor={insertButtonRef} onAddLight={() => getCommand('light.add').run(cx)} onAddShot={() => getCommand('camera.addShot').run(cx)} /> : null}
+			{isInsertOpen ? <FilmInsert
+					cx={cx}
+					anchor={insertButtonRef}
+					hasSong={history?.present != null && hasSongLayer(history.present)}
+					onAddSong={() => getCommand('file.importMidi').run(cx)}
+					onAddMarble={() => getCommand('marble.add').run(cx)}
+					onAddTitle={() => getCommand('design.addText').run(cx)}
+					onAddLight={() => getCommand('light.add').run(cx)}
+					onAddShot={() => getCommand('camera.addShot').run(cx)}
+				/> : null}
 		</>
 	);
 };

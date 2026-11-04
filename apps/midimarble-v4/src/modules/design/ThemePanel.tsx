@@ -1,17 +1,20 @@
-import { ChevronDown, RotateCcw, Sparkles } from 'lucide-react';
+import { useFeatureState } from 'feature-react/state';
+import { ChevronDown, Sparkles } from 'lucide-react';
 import React from 'react';
-import { HelpTip, openContextMenu, Panel, TextField, type TMenuEntry } from '@/components';
+import { addedPacks, isPackAdded, packOriginOf } from '@/modules/library';
+import { HelpTip, openContextMenu, Panel, type TMenuEntry } from '@/components';
 import type { TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
-import { deleteTheme, duplicateTheme } from '@/modules/studio/commands';
+import { deleteTheme } from '@/modules/studio/commands';
+import { THEME_HELP } from './concept-words';
 import { themeCommands, themePresets } from './design-commands';
 import { NEW_THEME_PROMPT } from './DesignLibraryCx';
-import { builtInThemeLabel, projectThemes, renameThemeCommands, resolveTheme, THEME_OVERRIDE_FIELDS, themeDefaultColor, themeOrigin, themeOverrideApplies, themeOverrideCommands, type TResolvedTheme } from './project-themes';
-import { canSaveAsTheme, saveAsTheme, ThemeParts } from './SkinProperties';
+import { projectThemes, renameThemeCommands, resolveTheme, THEME_OVERRIDE_FIELDS, themeOrigin, type TResolvedTheme } from './project-themes';
+import { saveAsTheme, ThemeParts } from './SkinProperties';
 
 /**
  * The Scene inspector's Theme section in Film: the current theme's picture and name, which opens the themes as pictures
- * in place, then Duplicate to Edit or Save as Theme and the theme's parts. A click on a card applies it and the grid stays
+ * in place, then Save as Theme, the one way to change a theme, and the theme's parts. A click on a card applies it and the grid stays
  * open, so themes can be compared. Escape closes it.
  */
 export const ThemePanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
@@ -22,7 +25,7 @@ export const ThemePanel: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 		<Panel
 			id="design.theme"
 			title="Theme"
-			accessory={<HelpTip text="A theme dresses the whole film: wall, light, marbles and a skin for every piece type. Duplicate a theme to change its colours; Save as Theme keeps the skins you chose." />}
+			accessory={<HelpTip text={`${THEME_HELP} Change a skin, the Wall or the Lights, then Save as Theme keeps it as a theme of your own.`} />}
 		>
 			<div
 				className="flex flex-col gap-2"
@@ -39,15 +42,38 @@ export const ThemePanel: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 					</span>
 					<span className="flex min-w-0 flex-1 flex-col text-left">
 						<span className="truncate font-medium">{theme.name}</span>
-						<span className="mm-tile-secondary !p-0">{themeOrigin(theme)}</span>
+						{themeOrigin(theme).length > 0 ? <ThemeOriginLine cx={cx} theme={theme} className="!p-0" /> : null}
 					</span>
 					<ChevronDown size={12} strokeWidth={2} className="shrink-0 text-[var(--text-tertiary)]" style={{ transform: isOpen ? 'rotate(180deg)' : undefined }} />
 				</button>
 				{isOpen ? <ThemeGrid cx={cx} project={project} /> : null}
 			</div>
-			<ThemeColors cx={cx} theme={theme} />
+			<button className="mm-button" data-span="2" onClick={() => saveAsTheme(cx)} title={`Make a theme from ${theme.name} with this project's skins, Wall and Lights`} type="button">
+				Save as Theme
+			</button>
 			<ThemeParts cx={cx} project={project} />
 		</Panel>
+	);
+};
+
+/** A theme's origin line; one that reads "Not Added" opens that Pack's card */
+const ThemeOriginLine: React.FC<{ cx: StudioCx; theme: TResolvedTheme; className?: string }> = ({ cx, theme, className = '' }) => {
+	const origin = theme.projectTheme?.pack;
+	const opensCard = origin != null && !isPackAdded(origin.packId);
+	return (
+		<span
+			className={`mm-tile-secondary ${className} ${opensCard ? 'underline' : ''}`}
+			onClick={
+				opensCard
+					? (event) => {
+							event.stopPropagation();
+							cx.library.openPackCard(origin);
+						}
+					: undefined
+			}
+		>
+			{themeOrigin(theme)}
+		</span>
 	);
 };
 
@@ -62,12 +88,18 @@ const ThemePicture: React.FC<{ theme: TResolvedTheme }> = ({ theme }) => {
 const ThemeGrid: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const [renamingId, setRenamingId] = React.useState<string | null>(null);
+	const packs = useFeatureState(addedPacks);
 	const themes = [...themePresets.map((theme) => theme.id), ...projectThemes(project.design).map((theme) => theme.id)].map((id) => resolveTheme(project.design, id));
+	// A Pack's themes join the project when applied; one already in it shows as the project's
+	const packThemes = packs.flatMap((pack) =>
+		pack.themes
+			.filter((theme) => !projectThemes(project.design).some((own) => own.id === theme.id))
+			.map((theme) => ({ pack, theme, resolved: resolveTheme({ theme: project.design.theme, themes: [{ ...theme, pack: packOriginOf(pack) }] }, theme.id) }))
+	);
 
 	function menu(theme: TResolvedTheme): TMenuEntry[] {
 		return [
 			{ label: 'Apply Theme', disabled: project.design.theme === theme.id, onSelect: () => cx.execute(themeCommands(project, theme.id)) },
-			{ label: 'Duplicate Theme', onSelect: () => duplicateTheme(cx, theme.id) },
 			...(theme.projectTheme != null
 				? [
 						'separator' as const,
@@ -95,6 +127,7 @@ const ThemeGrid: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			<div className="mm-tile-grid mm-theme-tiles" role="list" aria-label="Themes">
 				{themes.map((theme) => (
 					<ThemeCard
+						cx={cx}
 						key={theme.id}
 						theme={theme}
 						isInUse={project.design.theme === theme.id}
@@ -108,20 +141,46 @@ const ThemeGrid: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 						onRenameCancel={() => setRenamingId(null)}
 					/>
 				))}
+				{packThemes.map(({ pack, theme, resolved }) => (
+					<ThemeCard
+						cx={cx}
+						key={`${pack.id}:${theme.id}`}
+						theme={resolved}
+						isInUse={false}
+						isRenaming={false}
+						onApply={() => void cx.library.applyPackTheme(pack, theme)}
+						onMenu={() => [
+							{ label: 'Apply Theme', onSelect: () => void cx.library.applyPackTheme(pack, theme) },
+							'separator',
+							{ label: 'Remove Pack', onSelect: () => void cx.library.removePack(pack) }
+						]}
+						onRename={() => undefined}
+						onRenameCancel={() => undefined}
+					/>
+				))}
 			</div>
-			<button className="mm-button w-full" onClick={newThemeWithAgent} title="Describe a look and the agent makes a theme with a skin for every piece type" type="button">
+			<button className="mm-button w-full" onClick={newThemeWithAgent} title="Describe a theme and the agent makes it, with a skin for every piece type" type="button">
 				<Sparkles size={12} strokeWidth={1.8} />
 				New Theme with Agent…
 			</button>
+			<div className="flex gap-1.5">
+				<button className="mm-button flex-1" onClick={() => cx.library.$isAddPackOpen.set(true)} title="Browse Packs of themes, skins and decor. Adding one changes nothing in your project." type="button">
+					Add Pack…
+				</button>
+				<button className="mm-button flex-1" onClick={() => cx.library.$exportPack.set({ name: resolveTheme(project.design).name, includesTheme: true, assetIds: [] })} title="Export this theme, or chosen skins and decor, as a Pack" type="button">
+					Export Pack…
+				</button>
+			</div>
 		</>
 	);
 };
 
 /**
  * A theme card: the rendered still of its base, the colours a project theme changes as dots in the corner, its name
- * and where it comes from. The context menu has Duplicate Theme, and Rename and Delete Theme for a project theme.
+ * and where it comes from. The context menu has Rename and Delete Theme for a project theme.
  */
 const ThemeCard: React.FC<{
+	cx: StudioCx;
 	theme: TResolvedTheme;
 	isInUse: boolean;
 	isRenaming: boolean;
@@ -130,7 +189,7 @@ const ThemeCard: React.FC<{
 	onRename: (name: string) => void;
 	onRenameCancel: () => void;
 }> = (props) => {
-	const { theme, isInUse, isRenaming, onApply, onMenu, onRename, onRenameCancel } = props;
+	const { cx, theme, isInUse, isRenaming, onApply, onMenu, onRename, onRenameCancel } = props;
 	const description = themePresets.find((item) => item.id === theme.id)?.description ?? themeOrigin(theme);
 	const swatches = THEME_OVERRIDE_FIELDS.flatMap((field) => {
 		const color = theme.overrides[field.name];
@@ -150,7 +209,7 @@ const ThemeCard: React.FC<{
 					) : null}
 				</span>
 				{isRenaming ? null : <span className="mm-tile-label">{theme.name}</span>}
-				<span className="mm-tile-secondary">{themeOrigin(theme)}</span>
+				{themeOrigin(theme).length > 0 ? <ThemeOriginLine cx={cx} theme={theme} /> : null}
 			</button>
 			{isRenaming ? <ThemeNameField name={theme.name} onCommit={onRename} onCancel={onRenameCancel} /> : null}
 		</div>
@@ -176,107 +235,5 @@ const ThemeNameField: React.FC<{ name: string; onCommit: (name: string) => void;
 				event.stopPropagation();
 			}}
 		/>
-	);
-};
-
-/**
- * What the Theme section shows of the applied theme: a project theme's name and, on a Neon base, its Glow; a built-in theme
- * is read-only and offers Duplicate to Edit, like Figma's library styles and Keynote's themes. Once the Wall or Lights
- * layers changed something, Save as Theme makes a theme of that mix. The Wall, Light and Background wells sit on their
- * layers.
- */
-const ThemeColors: React.FC<{ cx: StudioCx; theme: TResolvedTheme }> = (props) => {
-	const { cx, theme } = props;
-	const hasChanges = cx.project != null && canSaveAsTheme(cx.project);
-	const save = hasChanges ? (
-		<button className="mm-button" data-span="2" onClick={() => saveAsTheme(cx)} title={`Make a theme from ${theme.name} with this project's skins, Wall and Lights`} type="button">
-			Save as Theme
-		</button>
-	) : null;
-	if (theme.projectTheme == null) {
-		return (
-			save ?? (
-				<button className="mm-button" data-span="2" onClick={() => duplicateTheme(cx, theme.id)} title={`Make a copy of ${theme.name} in this project to change it`} type="button">
-					Duplicate to Edit
-				</button>
-			)
-		);
-	}
-	return (
-		<>
-			<TextField
-				key={theme.id}
-				id="theme-name"
-				label="Name"
-				span={2}
-				name="Name of this project's theme"
-				value={theme.name}
-				allowEmpty={false}
-				onCommit={(name) => {
-					const project = cx.project;
-					if (project != null) cx.execute(renameThemeCommands(project, theme.id, name));
-				}}
-			/>
-			{THEME_OVERRIDE_FIELDS.filter((field) => field.name === 'glowColor' && themeOverrideApplies(theme.base, field.name)).map((field) => (
-				<ThemeColorField key={field.name} cx={cx} theme={theme} field={field} />
-			))}
-			{save}
-		</>
-	);
-};
-
-/**
- * One theme colour well. Dragging in the colour picker is one undo step: changes fold into the first while it is
- * still the latest edit, until the well loses focus.
- */
-const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (typeof THEME_OVERRIDE_FIELDS)[number] }> = (props) => {
-	const { cx, theme, field } = props;
-	const groupRef = React.useRef<number | null>(null);
-	const value = theme.overrides[field.name];
-	const fallback = themeDefaultColor(theme.base, field.name);
-	const id = `theme-${field.name}`;
-
-	function set(color: string | null): void {
-		const project = cx.project;
-		if (project == null) return;
-		const commands = themeOverrideCommands(project, theme.id, { [field.name]: color });
-		if (!commands.length) return;
-		if (color != null && groupRef.current != null && cx.editGroup === groupRef.current) {
-			cx.execute(commands, { group: groupRef.current });
-			return;
-		}
-		if (cx.execute(commands)) groupRef.current = color != null ? cx.editGroup : null;
-	}
-
-	return (
-		<span className="mm-ifield" data-span="2" title={field.help}>
-			<label htmlFor={id} className="mm-ifield-label">
-				{field.label}
-			</label>
-			<input
-				id={id}
-				type="color"
-				className="mm-color"
-				aria-label={`${field.label} colour`}
-				// An outline keeps a light colour such as Neon's pale Light visible on the white panel
-				style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }}
-				value={value ?? fallback ?? '#ffffff'}
-				onChange={(event) => set(event.target.value)}
-				onBlur={() => {
-					groupRef.current = null;
-				}}
-			/>
-			{/* A set colour reads as its hex; an inherited one names where it comes from in normal case, like Figma's style names */}
-			{value != null ? (
-				<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{value}</span>
-			) : (
-				<span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{fallback != null ? `From ${builtInThemeLabel(theme.base) ?? 'the base theme'}` : 'Marble Colour'}</span>
-			)}
-			{value != null ? (
-				<button className="mm-icon-button" onClick={() => set(null)} title={`Use ${builtInThemeLabel(theme.base) ?? 'the base theme'}'s ${field.label.toLowerCase()} again`} aria-label={`Reset ${field.label}`} type="button">
-					<RotateCcw size={12} strokeWidth={1.9} />
-				</button>
-			) : null}
-		</span>
 	);
 };

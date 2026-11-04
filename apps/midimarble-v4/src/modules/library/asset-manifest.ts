@@ -1,6 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { defineSchema, prepareSchemaValue, type TSchemaValue } from 'versjon';
 import { z } from 'zod';
+import { SPackOrigin } from '@/modules/project/schema';
 
 // Library item IDs double as folder names, so they stay short and filesystem-safe
 const SItemId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
@@ -56,6 +57,8 @@ export const SAssetManifest = z.strictObject({
 	notes: z.string().optional(),
 	// Where the item comes from: `agent` is set when a Result is accepted; absent means it was brought in another way
 	origin: z.enum(['agent', 'imported']).optional(),
+	// The Pack it came from: its origin line reads "Christmas Pack", and still names it where the Pack isn't added
+	pack: SPackOrigin.optional(),
 	// A New Theme Result's theme; absent for other items
 	theme: SAssetTheme.optional()
 });

@@ -1,6 +1,7 @@
 import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
-import { host, notSongFileMessage, songFileKind, type THostPickedFile, type THostRecentProject } from '@/environment';
+import { isTauri } from '@tauri-apps/api/core';
+import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
 import { autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnFinish, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
 import {
 	amendHistory,
@@ -39,9 +40,19 @@ import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import type { TView } from '@/modules/compose/view';
 import { AgentCx } from '@/modules/agents';
+import { McpCx } from '@/modules/mcp/McpCx';
 import { addWallTextCommands, defaultTitleColor, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/design';
 import { songDisplayName } from '@/modules/design/titles';
 import { preflightExport, problemSummary, type TPreflightTarget } from '@/modules/design/export-preflight';
+
+export interface TAgentStepNotice {
+	message: string;
+	tone: TNotice['tone'];
+}
+
+type THostReferences = specta.AgentReferencesDto;
+
+const NO_REFERENCES: THostReferences = { images: [], text: '' };
 
 /** Owns the open project, its history, persistence and the shared editing state of the studio */
 export class StudioCx {
@@ -135,7 +146,14 @@ export class StudioCx {
 		resolveSourceUrl: (source) => this.resolveSourceUrl(source),
 		design: this.design
 	});
+	readonly mcp = new McpCx(this);
+	/** The project's References: images and words in `agent/references/` */
+	readonly $references = createState<THostReferences>(NO_REFERENCES);
 	private audioEngine: TAudioEngine | null = null;
+	private agentStep: { group: number; notices: TAgentStepNotice[]; didEdit: boolean } | null = null;
+	private agentSteps = 0;
+	/** Names of the agent's Undo steps by their history group */
+	private readonly stepLabels = new Map<number, string>();
 
 	private isRestoring = false;
 	private saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -155,6 +173,7 @@ export class StudioCx {
 		const unmountDesign = this.mountDesign();
 		const unmountAgents = this.agents.mount();
 		const unmountHints = this.hints.mount();
+		const unmountMcp = this.mcp.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
 		// The tap count-in belongs to the playback T started; stopping ends it
@@ -168,6 +187,7 @@ export class StudioCx {
 			unmountDesign();
 			unmountAgents();
 			unmountHints();
+			unmountMcp();
 			stopHeight();
 			stopNotices();
 			stopCountIn();
@@ -198,6 +218,7 @@ export class StudioCx {
 				void this.design.detect();
 				void this.agents.reload();
 				void this.library.refresh();
+				void this.refreshReferences();
 			}),
 			this.$playhead.listen(({ value }) => {
 				if (inDesign()) this.design.live.follow(value);
@@ -311,7 +332,7 @@ export class StudioCx {
 		if (project == null) return;
 		const summary = problemSummary(preflightExport(project, this.simulation.$result.get()));
 		if (summary.state === 'pending') {
-			this.notify('Checking the run…');
+			this.notify('Checking the track…');
 			return;
 		}
 		const first = summary.problems[0];
@@ -330,11 +351,11 @@ export class StudioCx {
 
 	/** `prepare` fills the new package before the project opens, such as an example's song files */
 	async newProject(
-		options: { title?: string; project?: TProject; prepare?: (packagePath: string) => Promise<TResult<void, Error>> } = {}
+		options: { title?: string; project?: TProject; prepare?: (packagePath: string) => Promise<TResult<void, Error>>; path?: string } = {}
 	): Promise<boolean> {
 		if (!(await this.confirmClose())) return false;
 		const project = options.project ?? createProject({ title: options.title ?? 'Untitled' });
-		const path = await host.chooseNewProjectPath(project.title);
+		const path = options.path ?? (await host.chooseNewProjectPath(project.title));
 		if (path == null) return false;
 		const title = path.split('/').pop()?.replace(/\.marble$/, '') ?? project.title;
 		const named = { ...project, title };
@@ -462,7 +483,7 @@ export class StudioCx {
 	 * moves its package there with every file, so it continues as a project in Recent. Returns false when cancelled
 	 * or failed.
 	 */
-	async save(): Promise<boolean> {
+	async save(chosenPath?: string): Promise<boolean> {
 		if (!this.$isTemporary.get()) {
 			await this.flush();
 			return this.$save.get() !== 'failed';
@@ -470,7 +491,7 @@ export class StudioCx {
 		const project = this.project;
 		const from = this.$path.get();
 		if (project == null || from == null) return false;
-		const destination = await host.chooseNewProjectPath(project.title, savePanelTitle(project.title));
+		const destination = chosenPath ?? (await host.chooseNewProjectPath(project.title, savePanelTitle(project.title)));
 		if (destination == null) return false;
 		await this.flush();
 		if (this.$save.get() === 'failed') return false;
@@ -497,12 +518,12 @@ export class StudioCx {
 	 * place and the copy stays open, as in macOS; the original keeps its last autosave. Returns false when cancelled
 	 * or failed.
 	 */
-	async saveAs(): Promise<boolean> {
-		if (this.$isTemporary.get()) return this.save();
+	async saveAs(chosenPath?: string): Promise<boolean> {
+		if (this.$isTemporary.get()) return this.save(chosenPath);
 		const project = this.project;
 		const from = this.$path.get();
 		if (project == null || from == null) return false;
-		const destination = await host.chooseNewProjectPath(project.title, 'Save As');
+		const destination = chosenPath ?? (await host.chooseNewProjectPath(project.title, 'Save As'));
 		if (destination == null) return false;
 		await this.flush();
 		if (this.$save.get() === 'failed') return false;
@@ -631,10 +652,66 @@ export class StudioCx {
 			const end = autoEnd(history.present, named);
 			if (end != null) named = { ...named, end };
 		}
-		this.$history.set(options.amend === true ? amendHistory(history, named) : pushHistory(history, named, options.group));
+		if (this.agentStep != null) this.agentStep.didEdit = true;
+		this.$history.set(options.amend === true ? amendHistory(history, named) : pushHistory(history, named, options.group ?? this.agentStep?.group));
 		this.scheduleSave();
 		if (this.tapSession == null && changesFinishEnding(commands)) this.measureFinishTail();
 		return true;
+	}
+
+	/**
+	 * Runs an MCP tool's work as one named Undo step: every edit in it folds into one step that Edit > Undo and a notice
+	 * name, like "Agent: Place Platform". Notices shown meanwhile are the tool's reply, in plain words.
+	 */
+	async runAgentStep(label: string, work: () => Promise<void>): Promise<{ stepName: string | null; notices: TAgentStepNotice[] }> {
+		const step = { group: -++this.agentSteps, notices: [] as TAgentStepNotice[], didEdit: false };
+		this.agentStep = step;
+		try {
+			await work();
+		} catch (error) {
+			step.notices.push({ message: (error as Error).message, tone: 'error' });
+		} finally {
+			this.agentStep = null;
+		}
+		const present = this.$history.get()?.groups.present;
+		if (!step.didEdit || present == null) return { stepName: null, notices: step.notices };
+		// A refinement of the last placement folds into that step, which keeps its name
+		const stepName = this.stepLabels.get(present) ?? label;
+		this.stepLabels.set(present, stepName);
+		const said = step.notices.filter((notice) => notice.tone !== 'error').pop()?.message;
+		this.notifyEdit(said != null ? `${stepName}: ${said}` : stepName);
+		return { stepName, notices: step.notices };
+	}
+
+	/** The agent's name for the step Undo would take back, null for a person's */
+	get undoLabel(): string | null {
+		const present = this.$history.get()?.groups.present;
+		return present != null ? (this.stepLabels.get(present) ?? null) : null;
+	}
+
+	/** The agent's name for the step Redo would bring back, null for a person's */
+	get redoLabel(): string | null {
+		const next = this.$history.get()?.groups.future[0];
+		return next != null ? (this.stepLabels.get(next) ?? null) : null;
+	}
+
+	async refreshReferences(): Promise<void> {
+		const path = this.$path.get();
+		this.$references.set(path != null && isTauri() ? await specta.commands.agentReferencesRead(path) : NO_REFERENCES);
+	}
+
+	/** Show Agent Folder: the package's `agent/` in Finder, created on first use */
+	async showAgentFolder(): Promise<void> {
+		const path = this.$path.get();
+		const project = this.project;
+		if (path == null || project == null) return;
+		const result = await specta.commands.agentFolderEnsure(path, project.title);
+		if (result.status === 'error') {
+			this.notify(`The agent folder couldn't be made: ${result.error}`, 'error');
+			return;
+		}
+		const [isShownOk, shownErr] = await host.revealInFinder(result.data);
+		if (!isShownOk) this.notify(shownErr.message, 'error');
 	}
 
 	/**
@@ -873,6 +950,7 @@ export class StudioCx {
 	 * with actions stays longer, one with `progress` until it is replaced. Returns the notice's id.
 	 */
 	notify(message: string, tone: TNotice['tone'] = 'info', options: TNoticeOptions = {}): number {
+		this.agentStep?.notices.push({ message, tone });
 		const id = ++this.noticeId;
 		this.noticeShownAt = this.project?.revision ?? null;
 		this.$notice.set({ id, message, tone, ...options });

@@ -62,6 +62,9 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'file.replaceSong' },
 			{ command: 'file.removeSong' },
 			'separator',
+			{ command: 'design.addPack' },
+			{ command: 'design.exportPack' },
+			'separator',
 			{ command: 'file.export' }
 		]
 	},
@@ -125,7 +128,7 @@ export const menuLayout: readonly TMenuSection[] = [
 		]
 	},
 	{
-		title: 'Piece',
+		title: 'Track',
 		items: [
 			{ command: 'build.next', showsKey: true },
 			{ command: 'build.continue', showsKey: true },
@@ -146,7 +149,7 @@ export const menuLayout: readonly TMenuSection[] = [
 	{
 		title: 'Help',
 		role: 'help',
-		items: [{ command: 'help.quickHelp', variant: 'help', title: 'MidiMarble Help' }, { command: 'help.resetHints' }]
+		items: [{ command: 'help.quickHelp', variant: 'help', title: 'MidiMarble Help' }, { command: 'help.resetHints' }, 'separator', { command: 'help.enableMcp' }, { command: 'help.showAiWorkspace' }]
 	}
 ];
 
@@ -218,12 +221,19 @@ export function readMenuItem(cx: StudioCx, line: TCommandLine, isTextFocused: bo
 		const isShown = cx.$panels.get()[line.panel];
 		return { title: `${isShown ? 'Hide' : 'Show'} ${command.title}`, enabled: isCommandEnabled(cx, command), checked: null };
 	}
-	const title = line.title ?? (line.command === 'play.toggle' && cx.$playing.get() ? 'Pause' : command.title);
+	const title = line.title ?? agentStepTitle(cx, line.command) ?? (line.command === 'play.toggle' && cx.$playing.get() ? 'Pause' : command.title);
 	return {
 		title: line.showsKey === true && command.shortcut != null ? `${title}\t${command.shortcut}` : title,
 		enabled: (line.text != null && isTextFocused) || isCommandEnabled(cx, command),
 		checked: command.isChecked != null ? command.isChecked(cx) === true : null
 	};
+}
+
+/** Undo and Redo name an agent's step: "Undo Agent: Place Platform" */
+function agentStepTitle(cx: StudioCx, command: TCommandId): string | null {
+	if (command === 'edit.undo' && cx.undoLabel != null) return `Undo ${cx.undoLabel}`;
+	if (command === 'edit.redo' && cx.redoLabel != null) return `Redo ${cx.redoLabel}`;
+	return null;
 }
 
 /** The menus after the app menu, for the host to build */

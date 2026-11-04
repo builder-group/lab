@@ -2,7 +2,10 @@
 	"canonical": {
 		"prefix": "brass:",
 		"element": "platform",
-		"fallback": "platform:gold"
+		"fallback": "platform:gold",
+		"removed": {
+			"platform:books": "platform:gift"
+		}
 	},
 	"elements": {
 		"platform": {
@@ -54,6 +57,8 @@
 				{
 					"id": "platform:device",
 					"label": "Device",
+					"hidden": true,
+					"origin": "Brass Sections",
 					"colour": "skin",
 					"colours": [
 						"skin",
@@ -85,6 +90,8 @@
 				{
 					"id": "platform:device-copper",
 					"label": "Copper Device",
+					"hidden": true,
+					"origin": "Brass Sections",
 					"colour": "skin",
 					"colours": [
 						"skin",
@@ -116,6 +123,8 @@
 				{
 					"id": "platform:key",
 					"label": "Key",
+					"hidden": true,
+					"origin": "Brass Sections",
 					"colour": "skin",
 					"colours": [
 						"skin",
@@ -128,6 +137,8 @@
 				{
 					"id": "platform:knob",
 					"label": "Knob",
+					"hidden": true,
+					"origin": "Brass Sections",
 					"colour": "skin",
 					"colours": [
 						"skin",
@@ -166,6 +177,8 @@
 				{
 					"id": "platform:gift",
 					"label": "Gift",
+					"hidden": true,
+					"origin": "Christmas Pack",
 					"colour": "skin",
 					"colours": [
 						"skin",
@@ -174,25 +187,6 @@
 					],
 					"reacts": "press",
 					"preview": "platform-gift.png",
-					"properties": [
-						{
-							"name": "Ribbon Colour",
-							"type": "colour",
-							"default": "#d9a520"
-						}
-					]
-				},
-				{
-					"id": "platform:books",
-					"label": "Books",
-					"colour": "skin",
-					"colours": [
-						"skin",
-						"marble",
-						"note"
-					],
-					"reacts": "press",
-					"preview": "platform-books.png",
 					"properties": [
 						{
 							"name": "Ribbon Colour",
@@ -272,6 +266,8 @@
 				{
 					"id": "rail:candy",
 					"label": "Candy Rail",
+					"hidden": true,
+					"origin": "Christmas Pack",
 					"colour": "skin",
 					"colours": [
 						"skin",
@@ -360,6 +356,8 @@
 				{
 					"id": "switchback:candy",
 					"label": "Candy Switchback",
+					"hidden": true,
+					"origin": "Christmas Pack",
 					"colour": "skin",
 					"colours": [
 						"skin",
@@ -521,6 +519,8 @@
 				{
 					"id": "marble:glass-green",
 					"label": "Green Glass",
+					"hidden": true,
+					"origin": "Christmas Pack",
 					"colour": "skin",
 					"colours": [
 						"skin",
@@ -566,6 +566,7 @@
 				{
 					"id": "marble:pearl",
 					"label": "Pearl",
+					"hidden": true,
 					"colour": "marble",
 					"colours": [
 						"marble",
@@ -577,6 +578,7 @@
 				{
 					"id": "marble:deep",
 					"label": "Deep",
+					"hidden": true,
 					"colour": "marble",
 					"colours": [
 						"marble"

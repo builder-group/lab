@@ -1,11 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
-import { Plus } from 'lucide-react';
 import React from 'react';
-import { MenuButton } from '@/components';
+
 import { isEditingTarget } from '@/lib';
 import { currentMix, EMPTY_MIX, isAudioSong, isPartAudible, songParts } from '@/modules/music';
 import type { THitResult } from '@/modules/simulation';
-import { addMenu } from '../add-menu';
 import { addHit } from '../menus';
 import { parseHitKey, toHitKey } from '../selection';
 import { hasSongLayer, SONG_LAYER_LABEL } from '../song-layer';
@@ -256,7 +254,6 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							data-quick-help="timelineLayers"
 						>
 							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Layers</span>
-							<MenuButton className="mm-icon-button !h-5 !w-5" label={<Plus size={13} strokeWidth={2} />} title="Add" items={addMenu(cx)} />
 						</div>
 						<TimeGutter isRuler />
 						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />

@@ -199,10 +199,8 @@ const SThemeOverrides = z.strictObject({
 	backgroundColor: SHexColor.optional()
 });
 
-/** The wall's look in Film: `grid` is the Neon wall's lit grid, `tinsel` knitted tree-green tinsel */
-const SWallKind = z.enum(['plaster', 'pegboard', 'grid', 'tinsel']);
-/** Where a Tinsel wall shows its tinsel: all over, or as a band along one side of the frame */
-const SWallBand = z.enum(['full', 'left', 'right']);
+/** The wall's skin in Film: `grid` is the Neon wall's lit grid. An old project's Tinsel reads as Plaster (`withoutRemovedFields`) */
+const SWallKind = z.enum(['plaster', 'pegboard', 'grid']);
 
 /**
  * How a light stands and how strong it is. `side` runs from the far left (-1) to the far right (1) of the wall and
@@ -230,25 +228,36 @@ const SKeyLightPose = z.strictObject({
 /** A light added with Add Light, a layer in Film; a sun like the Key Light */
 const SLight = z.strictObject({ id: SId, name: z.string(), color: SHexColor, ...lightPoseShape });
 
-/** A project theme's Wall skin, Key Light and added lights: what Save as Theme and Duplicate Theme store */
+/** A project theme's Wall skin, Key Light and added lights: what Save as Theme stores */
 const projectThemeSceneShape = {
 	wallKind: SWallKind.optional(),
-	wallBand: SWallBand.optional(),
 	keyLight: SKeyLightPose.optional(),
 	lights: z.array(SLight).optional()
 };
 
-/** A theme the project made from a built-in one: Duplicate Theme, or New Theme with Agent */
-const SProjectTheme = z.strictObject({
+/**
+ * Where something copied from a Pack came from, so a project moved to another Mac still names the Pack. `version` changes
+ * nothing yet.
+ */
+export const SPackOrigin = z.strictObject({
+	packId: z.string().min(1),
+	packName: z.string().min(1),
+	version: z.string(),
+	author: z.string().optional(),
+	link: z.string().optional()
+});
+
+/** A theme the project made from a built-in one: Save as Theme, or New Theme with Agent */
+export const SProjectTheme = z.strictObject({
 	id: SId,
 	name: z.string(),
 	// Built-in theme id the look starts from: `pegboard`, `brass` or `neon`
 	base: z.string(),
 	overrides: SThemeOverrides,
-	// `agent` when a New Theme with Agent Result made it; absent for a duplicate
+	// `agent` when a New Theme with Agent Result made it; absent for Save as Theme
 	origin: z.enum(['agent']).optional(),
-	// Decor sources Scatter Decor starts with; absent takes the base theme's. Added later; files without it stay valid
-	decorSet: z.array(z.string()).optional(),
+	// The Pack it came from. Added later; files without it stay valid
+	pack: SPackOrigin.optional(),
 	...projectThemeSceneShape,
 	parts: SThemeParts.optional()
 });
@@ -303,8 +312,7 @@ const SDesign = z.strictObject({
 		.strictObject({
 			color: SHexColor.optional(),
 			backgroundColor: SHexColor.optional(),
-			kind: SWallKind.optional(),
-			band: SWallBand.optional()
+			kind: SWallKind.optional()
 		})
 		.optional(),
 	// This project's changes to the Key Light on top of the theme, and its added lights. Added later; files without it stay valid
@@ -486,12 +494,12 @@ export type TComponents = z.infer<typeof SComponents>;
 export type TComponentName = keyof TComponents;
 export type TDesign = z.infer<typeof SDesign>;
 export type TProjectTheme = z.infer<typeof SProjectTheme>;
+export type TPackOrigin = z.infer<typeof SPackOrigin>;
 export type TSkinComponent = z.infer<typeof SSkinComponent>;
 export type TThemePart = z.infer<typeof SThemePart>;
 export type TThemeParts = z.infer<typeof SThemeParts>;
 export type TThemeOverrides = z.infer<typeof SThemeOverrides>;
 export type TWallKind = z.infer<typeof SWallKind>;
-export type TWallBand = z.infer<typeof SWallBand>;
 export type TLight = z.infer<typeof SLight>;
 export type TDecor = z.infer<typeof SDecor>;
 export type TSnowfall = NonNullable<TDecor['snowfall']>;

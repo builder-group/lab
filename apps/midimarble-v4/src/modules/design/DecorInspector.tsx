@@ -1,21 +1,22 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, Copy, ExternalLink, Sparkles, Trash2 } from 'lucide-react';
+import { Box, ExternalLink, Sparkles } from 'lucide-react';
 import React from 'react';
-import { CheckField, HelpTip, InspectorHeader, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
+import { HelpTip, InspectorHeader, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import type { TDecor, TGarland, TProject, TProjectCommand, TSnowfall } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/studio/format';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
-import { $blenderObjects, deleteDecorCommands, duplicateDecorCommands, findDecor, madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands } from './decor';
+import { $blenderObjects, findDecor, madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands } from './decor';
 import { moveDecorClearAction, revealMadeInBlender } from './decor-actions';
 import { decorItem, decorText } from './decor-catalog';
 import { garlandOf, SNOWFALL_DEFAULTS, snowfallOf } from './decor-effects';
+import { DECOR_HELP } from './concept-words';
 import { ColorWell } from './SceneLayerInspector';
 import { decorTips, preflightExport } from './export-preflight';
 import { DecorTiles } from './LookTiles';
 import { titleSpan, withTitleTime } from './titles';
 
-// Inspectors of the Decor group: which item it is as tiles in Look, then Position, Scale, Rotation, Depth and In and Out
+// Inspectors of the Decor group: which item it is as tiles, then Position, Scale, Rotation, Depth and In and Out
 // with the title pattern. Decor has no hitbox. Made in Blender objects keep their place in Blender, so they show only In, Out and their tip.
 
 /** The amber tip on a layer a marble's path crosses, from the one problem model */
@@ -61,7 +62,7 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 					</button>
 				</DecorTip>
 			) : null}
-			<Panel id="design.decor.look" title="Look" accessory={<HelpTip text="Which item it is. It keeps its place and times. Decor has no hitbox, so it never changes a hit." />}>
+			<Panel id="design.decor.look" title="Item" accessory={<HelpTip text={`${DECOR_HELP} Choosing another keeps its place and times.`} />}>
 				<DecorTiles cx={cx} project={project} ids={[decor.id]} />
 			</Panel>
 			{text != null ? (
@@ -82,17 +83,6 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 				<TextField key={`in-${timingKey}`} id="decor-in" label="In" name="Time it appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="decor-out" label="Out" name="Time it disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
-			<Panel id="design.decor.actions" title="Layer">
-				<CheckField id="decor-hidden" label="Hidden" checked={decor.hidden === true} onChange={(hidden) => update({ hidden })} />
-				<button className="mm-button" data-span="2" onClick={() => duplicate(cx, [decor.id])} title="A copy beside it (⌘D)" type="button">
-					<Copy size={12} strokeWidth={1.8} />
-					Duplicate
-				</button>
-				<button className="mm-button" data-span="2" onClick={() => remove(cx, [decor.id])} title="Delete it (⌫)" type="button">
-					<Trash2 size={12} strokeWidth={1.8} />
-					Delete Decor
-				</button>
-			</Panel>
 		</>
 	);
 };
@@ -104,11 +94,11 @@ const SnowfallPanel: React.FC<{ cx: StudioCx; decor: TDecor }> = (props) => {
 	const commands = (patch: Partial<TSnowfall>): TProjectCommand[] => updateDecorCommands(requireProject(cx), [decor.id], { snowfall: { ...snow, ...patch } });
 	const asPercent = (value: number): string => String(Math.round(value));
 	return (
-		<Panel id="design.decor.snowfall" title="Snowfall" accessory={<HelpTip text="Snow falling in front of everything, always filling the frame. It has no hitbox, and it falls the same way in every render." />}>
+		<Panel id="design.decor.snowfall" title="Particles" accessory={<HelpTip text="Specks falling in front of everything, always filling the frame. They have no hitbox, and they fall the same way in every render." />}>
 			<SliderField id="snowfall-density" label="Density" value={snow.density * 100} min={0} max={100} step={1} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ density: value / 100 }))} />
 			<SliderField id="snowfall-size" label="Size" value={snow.size * 100} min={25} max={300} step={5} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ size: value / 100 }))} />
 			<SliderField id="snowfall-speed" label="Speed" value={snow.speed * 100} min={0} max={300} step={5} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ speed: value / 100 }))} />
-			<ColorWell cx={cx} id="snowfall-color" label="Colour" name="Snowfall colour" own={snow.color} shown={snow.color} commandsFor={(color) => commands({ color: color ?? SNOWFALL_DEFAULTS.color })} />
+			<ColorWell cx={cx} id="snowfall-color" label="Colour" name="Particles colour" own={snow.color} shown={snow.color} commandsFor={(color) => commands({ color: color ?? SNOWFALL_DEFAULTS.color })} />
 		</Panel>
 	);
 };
@@ -135,23 +125,11 @@ const GARLAND_SIDES: { value: string; label: string }[] = [
 export const DecorsInspector: React.FC<{ cx: StudioCx; project: TProject; ids: string[] }> = (props) => {
 	const { cx, project, ids } = props;
 	const list = ids.flatMap((id) => findDecor(project.design, id) ?? []);
-	const isAllHidden = list.every((item) => item.hidden === true);
 	return (
 		<>
 			<InspectorHeader icon={<Sparkles size={16} strokeWidth={1.7} />} title="Decor" subtitle={`${list.length} items`} />
-			<Panel id="design.decor.look" title="Look" accessory={<HelpTip text="Which item they are. They keep their places and times." />}>
+			<Panel id="design.decor.look" title="Item" accessory={<HelpTip text={`${DECOR_HELP} Choosing another keeps their places and times.`} />}>
 				<DecorTiles cx={cx} project={project} ids={ids} />
-			</Panel>
-			<Panel id="design.decors" title="Layers">
-				<CheckField id="decors-hidden" label="Hidden" checked={isAllHidden} onChange={(hidden) => void cx.execute(updateDecorCommands(requireProject(cx), ids, { hidden }))} />
-				<button className="mm-button" data-span="2" onClick={() => duplicate(cx, ids)} type="button">
-					<Copy size={12} strokeWidth={1.8} />
-					Duplicate
-				</button>
-				<button className="mm-button" data-span="2" onClick={() => remove(cx, ids)} type="button">
-					<Trash2 size={12} strokeWidth={1.8} />
-					Delete Decor
-				</button>
 			</Panel>
 		</>
 	);
@@ -183,10 +161,9 @@ export const MadeInBlenderInspector: React.FC<{ cx: StudioCx; project: TProject;
 			/>
 			{tip != null ? <DecorTip tip={tip} detail="A marble passes over it while it shows. Move it in Blender if that isn't what you want." /> : null}
 			<Panel id="design.madeInBlender" title="Blender" accessory={<HelpTip text="You added this in the Blender file. MidiMarble never moves or deletes it, and it has no hitbox." />}>
-				<ReadoutField label="Look" name="Where it shows" span={2}>
+				<ReadoutField label="Preview" name="Where it shows" span={2}>
 					Shows in the Blender preview
 				</ReadoutField>
-				<CheckField id="blender-hidden" label="Hidden" checked={layer.hidden === true} onChange={(hidden) => void cx.execute(madeInBlenderCommands(requireProject(cx), name, { hidden: hidden ? true : null }))} />
 				<button className="mm-button" data-span="2" onClick={() => revealMadeInBlender(cx, name)} title="Opens Blender with this object selected" type="button">
 					<ExternalLink size={12} strokeWidth={1.8} />
 					Open in Blender
@@ -210,15 +187,6 @@ const DecorTip: React.FC<{ tip: string; detail: string; children?: React.ReactNo
 		</div>
 	);
 };
-
-function duplicate(cx: StudioCx, ids: string[]): void {
-	const { commands, decorIds } = duplicateDecorCommands(requireProject(cx), ids);
-	if (cx.execute(commands)) cx.$selection.set(decorIds.map(toDecorKey));
-}
-
-function remove(cx: StudioCx, ids: string[]): void {
-	if (cx.execute(deleteDecorCommands(requireProject(cx), ids))) cx.$selection.set([]);
-}
 
 function requireProject(cx: StudioCx): TProject {
 	return cx.project as TProject;

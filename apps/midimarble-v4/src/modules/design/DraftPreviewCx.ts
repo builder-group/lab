@@ -11,7 +11,7 @@ import { decorExtent, decorItem, decorText, isFrameEffect, type TDecorItem } fro
 import { garlandOf, garlandScrollAt, garlandSprigs, snowfallOf, snowFlakes, type TFlake, type TSprig } from './decor-effects';
 import { distanceToBox, type TWallBox } from './decor-clearance';
 import { appliedOverrides, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme } from './project-themes';
-import { wallBandOverride, wallKindOverride } from './scene-layers';
+import { wallKindOverride } from './scene-layers';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
@@ -390,10 +390,9 @@ export class DraftPreviewCx {
 		const theme = resolveTheme(project.design);
 		const overrides = appliedOverrides(project.design);
 		const wallKind = wallKindOverride(project.design);
-		const wallBand = wallBandOverride(project.design);
-		const wallKey = `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''} ${wallBand ?? ''}`;
+		const wallKey = `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''}`;
 		if (this.wallTheme !== wallKey) {
-			renderer.setWallLook(draftWall(theme.base, overrides, wallKind, wallBand));
+			renderer.setWallLook(draftWall(theme.base, overrides, wallKind));
 			this.wallTheme = wallKey;
 		}
 		const playhead = this.studio.$playhead.get();

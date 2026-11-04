@@ -1,16 +1,15 @@
-import { BrickWall, Lightbulb, Plus, RotateCcw, Sun, Trash2, TriangleAlert } from 'lucide-react';
+import { BrickWall, Lightbulb, RotateCcw, Sun, TriangleAlert } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InspectorHeader, LinkRow, Panel, SelectField, SliderField } from '@/components';
-import type { TLight, TProject, TProjectCommand, TWallBand } from '@/modules/project';
+import { HelpTip, InspectorHeader, LinkRow, Panel, SliderField } from '@/components';
+import type { TLight, TProject, TProjectCommand } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
-import { getCommand } from '@/modules/studio/commands';
 import { KEY_LIGHT_KEY, toLightKey } from '@/modules/studio/selection';
+import { SKIN_HELP } from './concept-words';
 import { marbleContrastWarning } from './draft-look';
 import { WallTiles } from './LookTiles';
 import { appliedOverrides, baseThemeOf, resolveTheme } from './project-themes';
 import {
 	addedLights,
-	deleteLightsCommands,
 	keyLightCommands,
 	keyLightLayer,
 	MAX_LIGHT_STRENGTH,
@@ -18,8 +17,7 @@ import {
 	themeOriginLabel,
 	updateLightCommands,
 	wallCommands,
-	wallLayer,
-	WALL_BANDS
+	wallLayer
 } from './scene-layers';
 
 // Inspectors of the Wall and Lights layers of Film. Values the theme sets read "From Brass"; a value the project sets
@@ -37,22 +35,12 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 	const isOwn = Object.keys(wall.own).length > 0;
 	const marbles = project.entities.flatMap((entity) => (entity.components.marble != null ? [{ name: entity.name ?? 'Marble', color: entity.components.marble.color }] : []));
 	const warning = marbleContrastWarning(baseThemeOf(design), appliedOverrides(design), marbles);
-	const bandLabel = (band: TWallBand): string => WALL_BANDS.find((item) => item.band === band)?.label ?? band;
 
 	return (
 		<>
 			<InspectorHeader icon={<BrickWall size={16} strokeWidth={1.7} />} title="Wall" subtitle={isOwn ? `Changed from ${themeName}` : origin} />
-			<Panel id="design.wall" title="Look" accessory={<HelpTip text="What the marbles fall in front of. The Background surrounds the wall and lights and reflects in the pieces." />}>
+			<Panel id="design.wall" title="Look" accessory={<HelpTip text={`${SKIN_HELP} The wall is what the marbles fall in front of. The Background surrounds it, lights it and reflects in the pieces.`} />}>
 				<WallTiles cx={cx} project={project} />
-				{wall.kind === 'tinsel' ? (
-					<SelectField
-						id="wall-band"
-						label="Layout"
-						value={wall.own.band ?? ''}
-						options={[{ value: '', label: `${origin} · ${bandLabel(wall.theme.band)}` }, ...WALL_BANDS.map((item) => ({ value: item.band, label: item.label }))]}
-						onChange={(value) => cx.execute(wallCommands(project, { band: value === '' ? null : (value as TWallBand) }))}
-					/>
-				) : null}
 				<ColorWell
 					cx={cx}
 					id="wall-color"
@@ -82,7 +70,7 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 					commandsFor={(backgroundColor) => wallCommands(requireProject(cx), { backgroundColor })}
 				/>
 				{isOwn ? (
-					<button className="mm-button" data-span="2" onClick={() => cx.execute(wallCommands(project, { kind: null, band: null, color: null, backgroundColor: null }))} title={`Show ${themeName}'s wall and colours again`} type="button">
+					<button className="mm-button" data-span="2" onClick={() => cx.execute(wallCommands(project, { kind: null, color: null, backgroundColor: null }))} title={`Show ${themeName}'s wall and colours again`} type="button">
 						<RotateCcw size={12} strokeWidth={1.9} />
 						Reset to Theme
 					</button>
@@ -117,23 +105,20 @@ export const KeyLightInspector: React.FC<{ cx: StudioCx; project: TProject }> = 
 					commandsFor={(color) => keyLightCommands(requireProject(cx), { color })}
 				/>
 				<LightSliders idPrefix="key-light" strength={key.strength} side={key.side} height={key.height} onChange={(patch) => cx.execute(keyLightCommands(requireProject(cx), patch))} />
-				<SliderField id="key-light-softness" label="Softness" value={key.softness * 100} min={0} max={100} step={1} format={(value) => String(Math.round(value))} unit="%" onCommit={(value) => cx.execute(keyLightCommands(requireProject(cx), { softness: value / 100 }))} />
-				<button className="mm-button" data-span="2" disabled={!isOwn} onClick={() => cx.execute(resetKeyLightCommands(requireProject(cx)))} title={`Use ${themeName}'s Key Light again`} type="button">
-					<RotateCcw size={12} strokeWidth={1.8} />
-					Reset to {themeName}
-				</button>
-			</Panel>
-			<Panel id="design.keyLight.film" title="Whole Film" accessory={<HelpTip text="Exposure brightens or darkens the whole film. Bloom lets what glows spill soft light: fairy lights, baubles, snow. Flat Light shows neither." />}>
-				<SliderField id="key-light-exposure" label="Exposure" value={key.exposure} min={-2} max={2} step={0.05} format={(value) => (value > 0 ? `+${value.toFixed(2)}` : value.toFixed(2))} unit="" onCommit={(value) => cx.execute(keyLightCommands(requireProject(cx), { exposure: value }))} />
-				<SliderField id="key-light-bloom" label="Bloom" value={key.bloom * 100} min={0} max={100} step={1} format={(value) => String(Math.round(value))} unit="%" onCommit={(value) => cx.execute(keyLightCommands(requireProject(cx), { bloom: value / 100 }))} />
+				{isOwn ? (
+					<button className="mm-button" data-span="2" onClick={() => cx.execute(resetKeyLightCommands(requireProject(cx)))} title={`Use ${themeName}'s Key Light again`} type="button">
+						<RotateCcw size={12} strokeWidth={1.9} />
+						Reset to Theme
+					</button>
+				) : null}
 			</Panel>
 		</>
 	);
 };
 
-/** A light added with Add Light */
+/** A light added through Insert */
 export const LightInspector: React.FC<{ cx: StudioCx; project: TProject; light: TLight }> = (props) => {
-	const { cx, project, light } = props;
+	const { cx, light } = props;
 	return (
 		<>
 			<InspectorHeader
@@ -145,42 +130,19 @@ export const LightInspector: React.FC<{ cx: StudioCx; project: TProject; light: 
 			<Panel id="design.light" title="Light" accessory={<HelpTip text={LIGHT_HELP} />}>
 				<ColorWell cx={cx} id="light-color" label="Colour" name={`${light.name} colour`} own={light.color} shown={light.color} commandsFor={(color) => (color != null ? updateLightCommands(requireProject(cx), light.id, { color }) : [])} />
 				<LightSliders idPrefix="light" strength={light.strength} side={light.side} height={light.height} onChange={(patch) => cx.execute(updateLightCommands(requireProject(cx), light.id, patch))} />
-				<button
-					className="mm-button"
-					data-span="2"
-					onClick={() => {
-						if (cx.execute(deleteLightsCommands(project, [light.id]))) cx.$selection.set([]);
-					}}
-					title="Delete the light (⌫)"
-					type="button"
-				>
-					<Trash2 size={12} strokeWidth={1.8} />
-					Delete Light
-				</button>
 			</Panel>
 		</>
 	);
 };
 
-/** The Lights group selected together: each light as a link and Add Light */
+/** The Lights group selected together: each light as a link */
 export const LightsInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const lights = addedLights(project.design);
 	return (
 		<>
 			<InspectorHeader icon={<Sun size={16} strokeWidth={1.7} />} title="Lights" subtitle={lights.length === 0 ? 'Key Light' : `Key Light · ${lights.length} ${lights.length === 1 ? 'light' : 'lights'}`} />
-			<Panel
-				id="design.lights"
-				title="Lights"
-				accessory={
-					<>
-						<HelpTip text={LIGHT_HELP} />
-						<button className="mm-icon-button" onClick={() => getCommand('light.add').run(cx)} title="Add a light" aria-label="Add Light" type="button">
-							<Plus size={13} strokeWidth={2} />
-						</button>
-					</>
-				}
-			>
+			<Panel id="design.lights" title="Lights" accessory={<HelpTip text={LIGHT_HELP} />}>
 				<LinkRow icon={<Sun size={13} strokeWidth={1.8} className="shrink-0 text-[var(--text-secondary)]" />} title="Select Key Light" onOpen={() => cx.$selection.set([KEY_LIGHT_KEY])}>
 					Key Light
 				</LinkRow>

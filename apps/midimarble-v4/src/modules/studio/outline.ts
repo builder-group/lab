@@ -89,11 +89,11 @@ export interface TOutlineOptions {
 /** Group row of the pieces tied to nothing; its ID is never a selection key */
 export const FREE_PIECES_KEY = 'group:free';
 
-/** Name of the group of pieces no marble plays or follows (words.md: Pieces) */
-export const PIECES_GROUP_LABEL = 'Pieces';
+/** Name of the group of pieces no marble plays or follows (words.md: Track Pieces) */
+export const PIECES_GROUP_LABEL = 'Track Pieces';
 
-/** The ? beside the Pieces group: unlinked pieces still collide */
-export const PIECES_GROUP_HELP = 'Pieces no marble plays or follows; marbles can still hit them';
+/** The ? beside the Track Pieces group: unlinked pieces still collide */
+export const PIECES_GROUP_HELP = 'Parts of the track no marble plays or follows; marbles can still hit them';
 
 /** Group row of the titles on the wall; its ID is never a selection key */
 export const TITLES_KEY = 'group:titles';

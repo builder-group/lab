@@ -141,7 +141,7 @@ def tinted_metal_material(color):
 
 
 def paper_material(color, roughness=0.46, coat=0.2):
-    """Satin wrapping paper or a book's cloth in a `#rrggbb` colour, with the flash a reaction drives"""
+    """Satin wrapping paper in a `#rrggbb` colour, with the flash a reaction drives"""
     def build(material):
         linear = parse_color(color)
         material.diffuse_color = linear

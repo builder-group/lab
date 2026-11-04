@@ -1,20 +1,20 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import type { TMenuEntry } from '@/components';
-import type { TLibraryItem } from '@/modules/library';
+import { addedPacks, type TLibraryItem } from '@/modules/library';
 import type { TEntity, TProject, TWallKind } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { assetDecorSource, builtInSource, decorSourceCommands, findDecor, type TDecorSource } from './decor';
 import { builtInSkinCommands, followThemeSkinCommands, itemFitsPieceType, skinAppliedMessage, skinTargetIds, type TSkinTarget } from './design-commands';
-import { DRAFT_TINSEL } from './draft-look';
+import { usedDecorSources } from './decor-catalog';
 import { LIBRARY_DRAG_TYPE, removeLibraryEntry } from './FilmInsert';
-import { libraryEntries, libraryItemLabel, libraryItemOrigin, type TLibraryEntry } from './DesignLibraryCx';
+import { libraryEntries, libraryItemKey, notAddedPackAction, libraryItemLabel, libraryItemOrigin, type TLibraryEntry } from './DesignLibraryCx';
 import { LookTile } from './LookTile';
 import { isThemeColorByNote, resolveElementLook } from './project-themes';
 import { wallCommands, wallLayer } from './scene-layers';
 import { elementLabel, elementPlural, type TSkinElement } from './skin-catalog';
-import { decorTiles, skinTiles, THEME_DEFAULT_TILE, wallTiles } from './skin-tiles';
+import { decorTiles, skinTiles, THEME_DEFAULT_TILE, usedSkinIds, wallTiles } from './skin-tiles';
 
 // The tiles of the inspector's Look section. Each click is one undo step.
 
@@ -32,10 +32,11 @@ export const SkinTiles: React.FC<{ cx: StudioCx; project: TProject; element: TSk
 	const { cx, project, element, pieceType, entities, selected = entities } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
+	const packs = useFeatureState(addedPacks);
 	const typeLabel = pieceType === 'marble' ? elementLabel('marble') : (getPieceDefinition(pieceType)?.label ?? pieceType);
 	const plural = elementPlural(element);
 	const ids = entities.map((entity) => entity.id);
-	const entries = element === 'marble' ? [] : libraryEntries(projectItems, globalItems).filter((entry) => itemFitsPieceType(entry.item, pieceType));
+	const entries = element === 'marble' ? [] : libraryEntries(projectItems, globalItems, packs).filter((entry) => itemFitsPieceType(entry.item, pieceType));
 	const targetOf = (toAll: boolean): TSkinTarget => (toAll ? { kind: 'pieceType', pieceType } : { kind: 'entities', entityIds: ids });
 	const tileTitle = (label: string): string => `${label}: click applies to the selection, ⌥-click to all ${plural.toLowerCase()}`;
 
@@ -63,7 +64,7 @@ export const SkinTiles: React.FC<{ cx: StudioCx; project: TProject; element: TSk
 
 	return (
 		<TileGrid label={`${typeLabel} skins`}>
-			{skinTiles(project.design, element, entities).map((tile) => (
+			{skinTiles(project.design, element, entities, usedSkinIds(project)).map((tile) => (
 				<LookTile
 					key={tile.id}
 					label={tile.label}
@@ -76,7 +77,7 @@ export const SkinTiles: React.FC<{ cx: StudioCx; project: TProject; element: TSk
 				/>
 			))}
 			{entries.map((entry) => (
-				<LibrarySkinTile key={`${entry.item.scope}:${entry.item.id}`} cx={cx} project={project} entry={entry} entities={entities} title={tileTitle(libraryItemLabel(entry.item))} onApply={(toAll) => void applyItem(entry.item, toAll)} menu={() => menu((toAll) => void applyItem(entry.item, toAll))} />
+				<LibrarySkinTile key={libraryItemKey(entry.item)} cx={cx} project={project} entry={entry} entities={entities} title={tileTitle(libraryItemLabel(entry.item))} onApply={(toAll) => void applyItem(entry.item, toAll)} menu={() => menu((toAll) => void applyItem(entry.item, toAll))} />
 			))}
 		</TileGrid>
 	);
@@ -86,26 +87,31 @@ export const SkinTiles: React.FC<{ cx: StudioCx; project: TProject; element: TSk
 const LibrarySkinTile: React.FC<{ cx: StudioCx; project: TProject; entry: TLibraryEntry; entities: TEntity[]; title: string; onApply: (toAll: boolean) => void; menu: () => TMenuEntry[] }> = (props) => {
 	const { cx, project, entry, entities, title, onApply, menu } = props;
 	const { item } = entry;
+	const pack = addedPacks.get().find((candidate) => candidate.id === item.packId);
 	// Removing an item the film still shows would leave its pieces without a skin
 	const isInUse = project.entities.some((entity) => entity.components.skin?.assetId === item.id);
 	return (
 		<LookTile
 			label={libraryItemLabel(item)}
 			detail={item.manifestError != null ? "Can't be read" : libraryItemOrigin(item)}
+			onDetail={notAddedPackAction(cx, item)}
 			previewUrl={item.previewUrl}
 			isCurrent={entities.length > 0 && entities.every((entity) => entity.components.skin?.assetId === item.id)}
 			title={title}
-			isKept={entry.isKept}
-			onKeep={() => void cx.library.setKept(entry, !entry.isKept)}
+			{...(pack != null ? {} : { isKept: entry.isKept, onKeep: () => void cx.library.setKept(entry, !entry.isKept) })}
 			onApply={onApply}
 			onMenu={() => [
 				...menu(),
 				'separator',
-				{ label: 'Keep in Library', checked: entry.isKept, onSelect: () => void cx.library.setKept(entry, !entry.isKept) },
-				{ label: 'Remove', disabled: isInUse, onSelect: () => void removeLibraryEntry(cx, entry) }
+				...(pack != null
+					? [{ label: 'Remove Pack', onSelect: () => void cx.library.removePack(pack) }]
+					: [
+							{ label: 'Keep in Library', checked: entry.isKept, onSelect: () => void cx.library.setKept(entry, !entry.isKept) },
+							{ label: 'Remove', disabled: isInUse, onSelect: () => void removeLibraryEntry(cx, entry) }
+						])
 			]}
 			onDragStart={(event) => {
-				event.dataTransfer.setData(LIBRARY_DRAG_TYPE, JSON.stringify({ id: item.id, scope: item.scope }));
+				event.dataTransfer.setData(LIBRARY_DRAG_TYPE, JSON.stringify({ id: item.id, scope: item.scope, packId: item.packId }));
 				event.dataTransfer.effectAllowed = 'copy';
 			}}
 		/>
@@ -140,22 +146,21 @@ export const WallTiles: React.FC<{ cx: StudioCx; project: TProject }> = (props) 
 /** A wall's kind in small: the walls have no rendered previews */
 const WallThumb: React.FC<{ kind: TWallKind; color: string }> = ({ kind, color }) => {
 	const dark = 'rgb(0 0 0 / 0.28)';
-	const light = 'rgb(255 255 255 / 0.2)';
 	const looks: Partial<Record<TWallKind, React.CSSProperties>> = {
 		pegboard: { backgroundImage: `radial-gradient(circle, ${dark} 1.5px, transparent 2px)`, backgroundSize: '9px 9px' },
-		grid: { backgroundImage: `linear-gradient(${dark} 1px, transparent 1px), linear-gradient(90deg, ${dark} 1px, transparent 1px)`, backgroundSize: '12px 12px' },
-		tinsel: { backgroundColor: DRAFT_TINSEL, backgroundImage: `radial-gradient(circle, ${light} 1px, transparent 1.5px)`, backgroundSize: '5px 7px' }
+		grid: { backgroundImage: `linear-gradient(${dark} 1px, transparent 1px), linear-gradient(90deg, ${dark} 1px, transparent 1px)`, backgroundSize: '12px 12px' }
 	};
 	return <span className="absolute inset-0" style={{ backgroundColor: color, ...looks[kind] }} />;
 };
 
-/** What the selected Decor items are: the built-in items, then Decor made with the agent or imported */
+/** What the selected Decor items are: the items Insert lists, then Decor made with the agent or imported */
 export const DecorTiles: React.FC<{ cx: StudioCx; project: TProject; ids: string[] }> = (props) => {
 	const { cx, project, ids } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
+	const packs = useFeatureState(addedPacks);
 	const decors = ids.flatMap((id) => findDecor(project.design, id) ?? []);
-	const entries = libraryEntries(projectItems, globalItems).filter((entry) => entry.item.manifest?.role === 'decoration');
+	const entries = libraryEntries(projectItems, globalItems, packs).filter((entry) => entry.item.manifest?.role === 'decoration');
 
 	function apply(source: TDecorSource): void {
 		const commands = decorSourceCommands(project, ids, source);
@@ -164,12 +169,12 @@ export const DecorTiles: React.FC<{ cx: StudioCx; project: TProject; ids: string
 
 	return (
 		<TileGrid label="Decor items">
-			{decorTiles(decors).map((tile) => (
-				<LookTile key={tile.id} label={tile.label} previewUrl={tile.previewUrl} isCurrent={tile.isCurrent} title={`Make it a ${tile.label}`} onApply={() => apply(builtInSource(tile.id))} />
+			{decorTiles(decors, usedDecorSources(project.design)).map((tile) => (
+				<LookTile key={tile.id} label={tile.label} detail={tile.detail} previewUrl={tile.previewUrl} isCurrent={tile.isCurrent} title={`Make it a ${tile.label}`} onApply={() => apply(builtInSource(tile.id))} />
 			))}
 			{entries.map(({ item }) => {
 				const source = assetDecorSource(item.id, libraryItemLabel(item), item.manifest?.fittedParams);
-				return <LookTile key={`${item.scope}:${item.id}`} label={source.label} detail={libraryItemOrigin(item)} previewUrl={item.previewUrl} isCurrent={decors.length > 0 && decors.every((decor) => decor.source === source.source)} title={`Make it ${source.label}`} onApply={() => apply(source)} />;
+				return <LookTile key={libraryItemKey(item)} label={source.label} detail={libraryItemOrigin(item)} onDetail={notAddedPackAction(cx, item)} previewUrl={item.previewUrl} isCurrent={decors.length > 0 && decors.every((decor) => decor.source === source.source)} title={`Make it ${source.label}`} onApply={() => apply(source)} />;
 			})}
 		</TileGrid>
 	);

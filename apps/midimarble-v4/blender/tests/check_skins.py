@@ -225,10 +225,10 @@ def check_apply():
     shutil.rmtree(root.parent, ignore_errors=True)
 
 
-def check_gift_tinsel_candy():
+def check_gift_candy():
     brass = skins.skin_context('brass', RADIUS)
     thickness = 0.008
-    for skin_id in ('platform:gift', 'platform:books'):
+    for skin_id in ('platform:gift',):
         built = piece(linked_skin(skin_id))
         spec = skins.build_spec('piece', built, brass)
         bars = [part for part in spec['parts'] if part['role'] == 'bar']
@@ -265,38 +265,16 @@ def check_gift_tinsel_candy():
     check(materials(marble)[0].startswith('MM · glass swirl ' + skin_materials.GLASS_GREEN_SKIN), 'Green Glass has a green swirl (%s)' % materials(marble))
     check(abs(max(abs(vertex.co.length) for vertex in marble['root'].vertices) - RADIUS) < 1e-5, 'Green Glass keeps the marble radius')
 
-    # The wall: Tinsel on any theme, and its Layout
-    def nodes_of(material):
-        return {node.bl_idname for node in material.node_tree.nodes}
-
-    def window_used(material):
-        return any(link.from_socket.name == 'Window' for link in material.node_tree.links)
-
-    themes.set_overrides({'wallColor': '#f9f9f8'})
-    themes.set_scene_look('tinsel', None, 'right')
-    settings = themes.theme_settings('brass')
-    check(settings['wall']['kind'] == 'tinsel' and settings['wall']['band'] == 'right', "a project theme's Tinsel band on the right reaches the wall")
-    band = themes.wall_material('brass', 0.025)
-    check(band.name.startswith('MM · wall tinsel right') and window_used(band), 'the band follows the side of the frame (%s)' % band.name)
-    check(min(band.diffuse_color[:3]) > 0.6, 'the wall around the band keeps its colour')
-    themes.set_overrides(None)
-    themes.set_scene_look('tinsel', None, 'full')
-    full = themes.wall_material('brass', 0.025)
-    check(full.name.startswith('MM · wall tinsel full') and not window_used(full), 'Full Wall has tinsel everywhere (%s)' % full.name)
-    check(full.diffuse_color[1] > full.diffuse_color[0] * 2, 'Full Wall reads green in Flat Light')
-    themes.set_scene_look('tinsel', None, 'left')
-    left = themes.wall_material('brass', 0.025)
-    check('tinsel left' in left.name and window_used(left), 'Tinsel takes its Layout on any theme (%s)' % left.name)
-    check('ShaderNodeTexVoronoi' in nodes_of(left) and 'ShaderNodeBump' in nodes_of(left), 'tinsel is a procedural colour and bump')
-    check(min(themes.TINSEL_STRAND) >= 0.004, 'a strand stays many pixels wide at film distance, so it never moirés')
-    themes.set_scene_look('bogus', None, 'sideways')
-    check(themes.theme_settings('brass')['wall']['kind'] == 'plaster' and 'band' not in themes.theme_settings('brass')['wall'], 'an unknown wall kind or Layout keeps the theme')
+    # A wall kind that left the app (an old project's Tinsel, moved to Plaster on load) keeps the theme's here too
+    themes.set_scene_look('tinsel', None)
+    check(themes.theme_settings('brass')['wall']['kind'] == 'plaster', 'an unknown wall kind keeps the theme')
+    check(skin_catalog.canonical_skin('platform:books') == 'platform:gift', 'a Books skin of an old project wears Gift')
     themes.set_scene_look(None, None)
 
 
 bpy.ops.wm.read_homefile(use_empty=True)
 check_parity()
-check_gift_tinsel_candy()
+check_gift_candy()
 check_every_skin_in_every_theme()
 check_marbles()
 check_properties()

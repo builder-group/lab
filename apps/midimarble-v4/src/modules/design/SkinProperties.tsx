@@ -7,7 +7,9 @@ import type { TEntity, TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { resetToThemeCommands, skinPropertyCommands, type TSkinPropertyPatch } from './design-commands';
 import { marbleContrastWarning } from './draft-look';
-import { appliedOverrides, hasSkinChoices, hasLayerChanges, resolveElementLook, resolveTheme, saveAsThemeCommands } from './project-themes';
+import { appliedOverrides, resolveElementLook, resolveTheme, saveAsThemeCommands } from './project-themes';
+import { SKIN_HELP } from './concept-words';
+import { themeOriginLabel } from './scene-layers';
 import { SkinTiles } from './LookTiles';
 import { catalogSkin, COLOUR_LABELS, elementPlural, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties } from './skin-catalog';
 import { themePartRows } from './skin-tiles';
@@ -50,6 +52,8 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 	];
 	const first = looks[0];
 	const firstSkin = first != null ? catalogSkin(first.look.skin) : null;
+	// Showing the theme's skin, a value not set here comes from the theme: "From Brass"; on a skin of its own, it is that skin's
+	const origin = first?.look.isThemeSkin === false ? 'Default' : themeOriginLabel(project.design);
 
 	return (
 		<>
@@ -58,7 +62,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 					id="skin-colour"
 					label="Colour"
 					value={valueOf('colour')}
-					options={options(valueOf('colour'), first != null ? `${COLOUR_LABELS[first.look.colour]} · Default` : 'Default', shared.colours.map((colour) => ({ value: colour, label: COLOUR_LABELS[colour] })))}
+					options={options(valueOf('colour'), first != null ? `${COLOUR_LABELS[first.look.colour]} · ${origin}` : origin, shared.colours.map((colour) => ({ value: colour, label: COLOUR_LABELS[colour] })))}
 					onChange={(value) => {
 						if (value !== MIXED) set({ colour: value === FROM_THEME ? null : (value as NonNullable<TSkinPropertyPatch['colour']>) });
 					}}
@@ -69,19 +73,19 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 					id="skin-on-hit"
 					label="On Hit"
 					value={valueOf('onHit')}
-					options={options(valueOf('onHit'), first != null ? `${ON_HIT_LABELS[first.look.onHit ?? firstSkin?.reacts ?? 'none']} · Default` : 'Default', shared.onHit.map((onHit) => ({ value: onHit, label: ON_HIT_LABELS[onHit] })))}
+					options={options(valueOf('onHit'), first != null ? `${ON_HIT_LABELS[first.look.onHit ?? firstSkin?.reacts ?? 'none']} · ${origin}` : origin, shared.onHit.map((onHit) => ({ value: onHit, label: ON_HIT_LABELS[onHit] })))}
 					onChange={(value) => {
 						if (value !== MIXED) set({ onHit: value === FROM_THEME ? null : (value as NonNullable<TSkinPropertyPatch['onHit']>) });
 					}}
 				/>
 			) : null}
-			{shared.glowColor ? <ColourRow cx={cx} id="skin-glow" label="Glow Colour" value={sameOf(entities.map((entity) => entity.components.skin?.glowColor))} fallback={first?.look.glowColor ?? '#ffffff'} patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { glowColor: color })} /> : null}
+			{shared.glowColor ? <ColourRow cx={cx} id="skin-glow" label="Glow Colour" value={sameOf(entities.map((entity) => entity.components.skin?.glowColor))} fallback={first?.look.glowColor ?? '#ffffff'} origin={origin} patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { glowColor: color })} /> : null}
 			{shared.variants.length > 0 ? (
 				<SelectField
 					id="skin-variant"
 					label="Variant"
 					value={valueOf('variant')}
-					options={options(valueOf('variant'), `${shared.variants.find((item) => item.id === firstSkin?.variant)?.label ?? ''} · Default`, shared.variants.map((item) => ({ value: item.id, label: item.label })))}
+					options={options(valueOf('variant'), `${shared.variants.find((item) => item.id === firstSkin?.variant)?.label ?? ''} · ${origin}`, shared.variants.map((item) => ({ value: item.id, label: item.label })))}
 					onChange={(value) => {
 						if (value !== MIXED) set({ variant: value === FROM_THEME ? null : value });
 					}}
@@ -96,6 +100,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 						label={extra.name}
 						value={sameOf(entities.map((entity) => entity.components.skin?.properties?.[extra.name])) as string | null}
 						fallback={typeof extra.default === 'string' ? extra.default : '#ffffff'}
+							origin={origin}
 						patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { property: { name: extra.name, value: color } })}
 					/>
 				) : (
@@ -135,8 +140,8 @@ function sharedExtras(project: TProject, entities: TEntity[], items: readonly { 
 }
 
 /** A colour well with a reset; dragging in the colour picker is one undo step */
-const ColourRow: React.FC<{ cx: StudioCx; id: string; label: string; value: string | null; fallback: string; patch: (color: string | null) => ReturnType<typeof skinPropertyCommands> }> = (props) => {
-	const { cx, id, label, value, fallback, patch } = props;
+const ColourRow: React.FC<{ cx: StudioCx; id: string; label: string; value: string | null; fallback: string; origin: string; patch: (color: string | null) => ReturnType<typeof skinPropertyCommands> }> = (props) => {
+	const { cx, id, label, value, fallback, origin, patch } = props;
 	const groupRef = React.useRef<number | null>(null);
 
 	function set(color: string | null): void {
@@ -165,9 +170,9 @@ const ColourRow: React.FC<{ cx: StudioCx; id: string; label: string; value: stri
 					groupRef.current = null;
 				}}
 			/>
-			{value != null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{value}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">Default</span>}
+			{value != null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{value}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{origin}</span>}
 			{value != null ? (
-				<button className="mm-icon-button" onClick={() => set(null)} title={`Use the default ${label.toLowerCase()} again`} aria-label={`Reset ${label}`} type="button">
+				<button className="mm-icon-button" onClick={() => set(null)} title={`Use ${origin === 'Default' ? 'the default' : "the theme's"} ${label.toLowerCase()} again`} aria-label={`Reset ${label}`} type="button">
 					<RotateCcw size={12} strokeWidth={1.9} />
 				</button>
 			) : null}
@@ -188,7 +193,7 @@ export const ResetToTheme: React.FC<{ cx: StudioCx; project: TProject; entities:
 	);
 };
 
-/** A marble's look in Film: its skin and properties. Its physics never change with its skin. */
+/** A marble's Look section in Film: its skin and properties. Its physics never change with its skin. */
 export const MarbleLook: React.FC<{ cx: StudioCx; project: TProject; marble: TEntity }> = (props) => {
 	const { cx, project, marble } = props;
 	const look = resolveElementLook(project.design, 'marble', marble.components.skin);
@@ -196,7 +201,7 @@ export const MarbleLook: React.FC<{ cx: StudioCx; project: TProject; marble: TEn
 	const warning = marbleContrastWarning(theme.base, appliedOverrides(project.design), [{ name: marble.name ?? 'This', color: marble.components.marble?.color ?? '#d0d4dc', skin: look }]);
 
 	return (
-		<Panel id="marble.look" title="Look" accessory={<HelpTip text="How this marble looks in the film. A click applies to it, ⌥-click to all marbles. The skin never changes how it falls or bounces." />}>
+		<Panel id="marble.look" title="Look" accessory={<HelpTip text={`${SKIN_HELP} A click applies to this marble, ⌥-click to all marbles. A skin never changes how it falls or bounces.`} />}>
 			<SkinTiles cx={cx} project={project} element="marble" pieceType="marble" entities={[marble]} />
 			<SkinPropertyRows cx={cx} project={project} entities={[marble]} />
 			<ResetToTheme cx={cx} project={project} entities={[marble]} />
@@ -231,11 +236,6 @@ export const ThemeParts: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 		</>
 	);
 };
-
-/** Whether Save as Theme has something to store: the Wall and Lights layers' changes or skin choices */
-export function canSaveAsTheme(project: TProject): boolean {
-	return hasLayerChanges(project.design) || hasSkinChoices(project);
-}
 
 /** Save as Theme for a button or ⌘K, with the notice */
 export function saveAsTheme(cx: StudioCx): void {

@@ -1,14 +1,18 @@
 import { createState } from 'feature-state';
 import { requestFromPrompt, type AgentCx } from '@/modules/agents';
 import { isNewThemeRequest } from '@/modules/agents/agent-brief';
-import { library, type TLibraryItem } from '@/modules/library';
-import { applyProjectCommands, type TProject, type TProjectCommand } from '@/modules/project';
+import { host } from '@/environment';
+import { Err, Ok, type TResult } from 'tuple-result';
+import { addedPacks, isPackAdded, library, packOriginOf, type TLibraryItem, type TPack } from '@/modules/library';
+import { applyProjectCommands, type TPackOrigin, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { $blenderObjects, addDecorCommands, assetDecorSource, type TDecorSource } from './decor';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, seedOf } from './decor-scatter';
-import { skinCommands, type TSkinTarget } from './design-commands';
+import { skinCommands, themeCommands, type TSkinTarget } from './design-commands';
 import { filmCamera } from './film-camera';
-import { agentThemeCommands } from './project-themes';
+import { packAddedNotice } from './concept-words';
+import { packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions } from './packs';
+import { agentThemeCommands, packOrigin, packOriginLine } from './project-themes';
 
 /**
  * The library behind Film's Library tab and the inspector's Look tiles. Items live in the project's library and, when kept (the star), in the user's global
@@ -18,6 +22,14 @@ import { agentThemeCommands } from './project-themes';
 export class DesignLibraryCx {
 	readonly $projectItems = createState<TLibraryItem[]>([]);
 	readonly $globalItems = createState<TLibraryItem[]>([]);
+	/** The Packs that ship inside the app */
+	readonly $bundledPacks = createState<TPack[]>([]);
+	/** Add Pack…'s sheet is open */
+	readonly $isAddPackOpen = createState(false);
+	/** The Pack whose card the sheet shows; a Pack that is on no list here has only its origin to show */
+	readonly $packCard = createState<TPackOrigin | null>(null);
+	/** Export Pack…'s sheet while it is open */
+	readonly $exportPack = createState<TPackExportOptions | null>(null);
 	readonly $status = createState<'idle' | 'loading' | 'ready' | 'unavailable' | 'error'>('idle');
 	readonly $error = createState<string | null>(null);
 	/** Film's Insert popover is open */
@@ -40,6 +52,10 @@ export class DesignLibraryCx {
 		this.$status.set('loading');
 		const [isGlobalOk, globalErr, globalItems] = await library.list('global', null);
 		const [isProjectOk, projectErr, projectItems] = packagePath == null ? [true, null, []] as const : await library.list('project', packagePath);
+		const [isPacksOk, , packs] = await library.listPacks();
+		if (isPacksOk) addedPacks.set(packs);
+		const [isBundledOk, , bundled] = await library.listBundledPacks();
+		if (isBundledOk) this.$bundledPacks.set(bundled);
 		if (!isGlobalOk || !isProjectOk) {
 			const message = (isGlobalOk ? projectErr : globalErr)?.message ?? "The library couldn't be read";
 			if (import.meta.env.DEV) console.warn('[library]', message);
@@ -59,16 +75,8 @@ export class DesignLibraryCx {
 		const project = this.source.getProject();
 		const packagePath = this.source.getPackagePath();
 		if (project == null || packagePath == null) return false;
-		let assetId = item.id;
-		if (item.scope === 'global') {
-			const [isImportedOk, importedErr, imported] = await library.import(packagePath, item.id);
-			if (!isImportedOk) {
-				this.source.notify(`“${label(item)}” couldn't be copied into the project: ${importedErr.message}`, 'error');
-				return false;
-			}
-			assetId = imported.id;
-			void this.refresh();
-		}
+		const assetId = await this.inProject(item);
+		if (assetId == null) return false;
 		const commands = skinCommands(project, target, assetId);
 		if (!commands.length) {
 			this.source.notify('No piece is selected. Select a piece, then apply the skin.');
@@ -77,9 +85,109 @@ export class DesignLibraryCx {
 		return this.source.execute(commands);
 	}
 
+	/**
+	 * The item's ID in the project, copying a kept or Pack item in first so the package stays portable. Null with a
+	 * notice when it can't be copied.
+	 */
+	async inProject(item: TLibraryItem): Promise<string | null> {
+		const packagePath = this.source.getPackagePath();
+		if (packagePath == null) return null;
+		if (item.scope === 'project') return item.id;
+		const [isImportedOk, importedErr, imported] = await library.import(packagePath, item.id, item.packId);
+		if (!isImportedOk) {
+			this.source.notify(`“${label(item)}” couldn't be copied into the project: ${importedErr.message}`, 'error');
+			return null;
+		}
+		void this.refresh();
+		return imported.id;
+	}
+
+	// MARK: - Packs
+
+	/** Clicking an origin line that reads "Not Added": that Pack's card in the sheet */
+	openPackCard(origin: TPackOrigin): void {
+		this.$packCard.set(origin);
+		this.$isAddPackOpen.set(true);
+	}
+
+	/**
+	 * Add for a Pack in the sheet, or Import from File… without a path. It stays on this Mac for every project: its items
+	 * show in Insert and the tiles and its themes in the picker, and the look stays as it is. Ok(null) when cancelled.
+	 */
+	async addPack(path?: string): Promise<TResult<TPack | null, Error>> {
+		const chosen = path ?? (await host.choosePackToImport());
+		if (chosen == null) return Ok(null);
+		const [isAddedOk, addedErr, pack] = await library.importPack(chosen);
+		if (!isAddedOk) {
+			this.source.notify(`That Pack couldn't be added: ${addedErr.message}`, 'error');
+			return Err(addedErr);
+		}
+		await this.refresh();
+		const skins = pack.items.filter((item) => item.manifest?.role === 'skin').length;
+		this.source.notify(packAddedNotice(pack.name, { themes: pack.themes.length, skins, decor: pack.items.length - skins + pack.builtInDecor.length }));
+		return Ok(pack);
+	}
+
+	/** Export Pack…: writes the Pack; `destination` skips the save panel. Ok(null) when cancelled. */
+	async exportPack(options: TPackExportOptions, destination?: string): Promise<TResult<string | null, Error>> {
+		const project = this.source.getProject();
+		const packagePath = this.source.getPackagePath();
+		if (project == null || packagePath == null) return Err(new Error('Open a project, then export a Pack.'));
+		let plan: ReturnType<typeof packExport>;
+		try {
+			plan = packExport(project, this.$projectItems.get(), options);
+		} catch (error) {
+			return Err(error as Error);
+		}
+		const [isPlanOk, planErr, exported] = plan;
+		if (!isPlanOk) {
+			this.source.notify(planErr.message, 'error');
+			return Err(planErr);
+		}
+		const path = destination ?? (await host.choosePackPath(exported.manifest.name));
+		if (path == null) return Ok(null);
+		const [isWrittenOk, writtenErr, written] = await library.exportPack(packagePath, path, JSON.stringify(exported.manifest, null, '\t'), exported.themes, exported.assetIds);
+		if (!isWrittenOk) {
+			this.source.notify(`The Pack couldn't be exported: ${writtenErr.message}`, 'error');
+			return Err(writtenErr);
+		}
+		this.source.notify(`${packOrigin(exported.manifest.name)} exported`);
+		return Ok(written);
+	}
+
+	async removePack(pack: TPack): Promise<void> {
+		const [isRemovedOk, removedErr] = await library.removePack(pack.id);
+		if (!isRemovedOk) {
+			this.source.notify(removedErr.message, 'error');
+			return;
+		}
+		await this.refresh();
+		this.source.notify(`${packOrigin(pack.name)} removed. Projects keep what they use from it.`);
+	}
+
+	/** Applies a Pack's theme: the items it needs are copied in, then the project gets the theme and shows it, as one edit */
+	async applyPackTheme(pack: TPack, theme: TProjectTheme): Promise<boolean> {
+		const existing = this.source.getProject();
+		if (existing == null) return false;
+		if (!existing.design.themes?.some((item) => item.id === theme.id)) {
+			const ids = new Map<string, string>();
+			for (const id of themeAssetIds(theme)) {
+				const item = pack.items.find((candidate) => candidate.id === id);
+				const copied = item != null ? await this.inProject(item) : null;
+				if (copied == null) return false;
+				ids.set(id, copied);
+			}
+			const project = this.source.getProject();
+			if (project == null) return false;
+			return this.source.execute(packThemeCommands(project, { ...withThemeAssets(theme, ids), pack: packOriginOf(pack) }));
+		}
+		return this.source.execute(themeCommands(existing, theme.id));
+	}
+
 	/** Keep in Library (the star): a project item is copied into the global library; unstarring removes that copy */
 	async setKept(entry: TLibraryEntry, isKept: boolean): Promise<void> {
-		if (isKept === entry.isKept) return;
+		// A Pack's item stays in the library with its Pack; Remove Pack takes it out
+		if (isKept === entry.isKept || entry.item.packId != null) return;
 		const packagePath = this.source.getPackagePath();
 		if (isKept) {
 			if (packagePath == null) return;
@@ -158,7 +266,7 @@ export class DesignLibraryCx {
 		const result = this.source.getResult();
 		const track = result != null ? filmCamera(project, result).track : null;
 		if (result == null || track == null) {
-			this.source.notify(`“${source.label}” was added to the project library. Use Scatter Decor once the run has updated`);
+			this.source.notify(`“${source.label}” was added to the project library. Use Scatter Decor once the track has updated`);
 			return true;
 		}
 		const { commands, count } = scatterDecorCommands(project, result, track, { items, density: DEFAULT_SCATTER_DENSITY, seed: seedOf(setId), blenderObjects: $blenderObjects.get() });
@@ -182,18 +290,35 @@ export interface TLibraryEntry {
 	isKept: boolean;
 }
 
-/** Project and kept items as one list, the project's copy first when an item is in both */
-export function libraryEntries(projectItems: TLibraryItem[], globalItems: TLibraryItem[]): TLibraryEntry[] {
+/**
+ * Project, kept and Pack items as one list, the project's copy first when an item is in both. A Pack's item the project
+ * copied under another ID, or holds under the same ID from elsewhere, still shows until it is the same Pack's.
+ */
+export function libraryEntries(projectItems: TLibraryItem[], globalItems: TLibraryItem[], packs: readonly TPack[] = []): TLibraryEntry[] {
 	const keptIds = new Set(globalItems.map((item) => item.id));
 	const projectIds = new Set(projectItems.map((item) => item.id));
+	const copiedFromPacks = new Set(projectItems.flatMap((item) => (item.manifest?.pack != null ? [`${item.manifest.pack.packId}:${item.manifest.label}`] : [])));
 	return [
 		...projectItems.map((item) => ({ item, isKept: keptIds.has(item.id) })),
-		...globalItems.filter((item) => !projectIds.has(item.id)).map((item) => ({ item, isKept: true }))
+		...globalItems.filter((item) => !projectIds.has(item.id)).map((item) => ({ item, isKept: true })),
+		...packs.flatMap((pack) => pack.items.filter((item) => !copiedFromPacks.has(`${pack.id}:${item.manifest?.label ?? item.id}`)).map((item) => ({ item, isKept: false })))
 	];
+}
+
+/** The key of a library tile: the same ID may be in the project, in the library and in several Packs */
+export function libraryItemKey(item: TLibraryItem): string {
+	return `${item.scope}:${item.packId ?? ''}:${item.id}`;
+}
+
+/** What clicking an item's origin line does: opens its Pack's card when this Mac doesn't have the Pack */
+export function notAddedPackAction(cx: { library: DesignLibraryCx }, item: TLibraryItem): (() => void) | undefined {
+	const origin = item.manifest?.pack;
+	return origin != null && !isPackAdded(origin.packId) ? () => cx.library.openPackCard(origin) : undefined;
 }
 
 /** Where an item comes from, as its quiet second line */
 export function libraryItemOrigin(item: TLibraryItem): string {
+	if (item.manifest?.pack != null) return packOriginLine(item.manifest.pack);
 	return item.manifest?.origin === 'agent' ? 'Made with Agent' : 'Imported';
 }
 
@@ -203,6 +328,15 @@ export { isNewThemeRequest, NEW_THEME_PROMPT } from '@/modules/agents/agent-brie
 function applyEdit(project: TProject, commands: TProjectCommand[]): TProject {
 	const [isAppliedOk, , applied] = applyProjectCommands(project, commands);
 	return isAppliedOk ? applied : project;
+}
+
+/** What a Pack holds, in words: "1 theme, 4 skins, 8 decor items" */
+export function packContents(pack: Pick<TPack, 'themes' | 'items' | 'builtInDecor'>): string {
+	const skins = pack.items.filter((item) => item.manifest?.role === 'skin').length;
+	const decor = pack.items.length - skins + pack.builtInDecor.length;
+	const counted = (count: number, one: string, many: string): string => (count > 0 ? `${count} ${count === 1 ? one : many}` : '');
+	const parts = [counted(pack.themes.length, 'theme', 'themes'), counted(skins, 'skin', 'skins'), counted(decor, 'decor item', 'decor items')];
+	return parts.filter(Boolean).join(', ') || 'Nothing yet';
 }
 
 export function libraryItemLabel(item: TLibraryItem): string {

@@ -1,11 +1,22 @@
 import type { TSceneThemeOverrides } from '@/modules/blender/scene-description';
-import { createId, type TDesign, type TEntity, type TKeyLightPose, type TProject, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
+import { createId, type TDesign, type TEntity, type TKeyLightPose, type TProject, type TPackOrigin, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
+import { isPackAdded } from '@/modules/library';
 import { canonicalSkin } from '@/modules/project/skin-ids';
 import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, type TSkinElement, type TSkinLook } from './skin-catalog';
 
 // Themes a project makes from a built-in one. A project theme keeps its base's skins, reactions and render look and
 // changes a few colours on top (`TThemeOverrides`). `design.theme` names a built-in id or a project theme's id; the
 // Blender worker and the Draft Preview both read the base plus the overrides (`themes.py` `resolve_theme`).
+
+/** The origin line of what came from a Pack: "Christmas Pack" */
+export function packOrigin(name: string): string {
+	return /\bpack$/i.test(name) ? name : `${name} Pack`;
+}
+
+/** The origin line of a copy from a Pack: "Christmas Pack", with "· Not Added" where this Mac doesn't have the Pack */
+export function packOriginLine(origin: TPackOrigin): string {
+	return isPackAdded(origin.packId) ? packOrigin(origin.packName) : `${packOrigin(origin.packName)} · Not Added`;
+}
 
 /** Built-in themes the Blender worker ships, in Library order */
 export const BUILT_IN_THEMES: readonly { id: string; label: string }[] = [
@@ -21,10 +32,10 @@ export type TThemeOverrideName = keyof TThemeOverrides;
 
 /** The overrides the inspector shows, in order, with the help behind each label */
 export const THEME_OVERRIDE_FIELDS: readonly { name: TThemeOverrideName; label: string; help: string }[] = [
-	{ name: 'wallColor', label: 'Wall', help: 'Colour of the wall behind the run' },
+	{ name: 'wallColor', label: 'Wall', help: 'Colour of the wall behind the track' },
 	{ name: 'lightColor', label: 'Light', help: 'Colour of the key light: warm, neutral or cool' },
 	{ name: 'glowColor', label: 'Glow', help: "Colour of the glowing edges; without one they take their marble's colour" },
-	{ name: 'backgroundColor', label: 'Background', help: 'Colour of the surroundings that light and reflect in the pieces' }
+	{ name: 'backgroundColor', label: 'Background', help: 'Colour of the surroundings that light and reflect in the track' }
 ];
 
 /** A theme as applied: a built-in one, a project theme with its base and overrides, or an unknown id */
@@ -178,8 +189,8 @@ export function themeCommands(project: TProject, themeId: string): TProjectComma
 }
 
 /**
- * Duplicate Theme: a project theme with the source's base and overrides, named like Finder's copies ("Neon Copy",
- * "Neon Copy 2"), and applied, as one edit
+ * What Save as Theme builds on: a project theme with the source's base and overrides, named like Finder's copies
+ * ("Neon Copy", "Neon Copy 2"), and applied, as one edit
  */
 export function duplicateThemeCommands(project: TProject, sourceId: string): { commands: TProjectCommand[]; themeId: string } {
 	const source = resolveTheme(project.design, sourceId);
@@ -199,7 +210,6 @@ export function duplicateThemeCommands(project: TProject, sourceId: string): { c
 		overrides: appliedOverrides(project.design),
 		...sceneOf({
 			wallKind: wall?.kind ?? theme.wallKind,
-			wallBand: wall?.band ?? theme.wallBand,
 			keyLight: { ...theme.keyLight, ...withoutColor(lights?.key) },
 			lights: [...(theme.lights ?? []), ...(lights?.added ?? [])]
 		})
@@ -213,10 +223,9 @@ export function hasLayerChanges(design: Pick<TDesign, 'wall' | 'lights'>): boole
 }
 
 /** A project theme's Wall skin, Key Light and lights, leaving out what it does not set */
-function sceneOf(theme: Pick<TProjectTheme, 'wallKind' | 'wallBand' | 'keyLight' | 'lights'> | null): Pick<TProjectTheme, 'wallKind' | 'wallBand' | 'keyLight' | 'lights'> {
+function sceneOf(theme: Pick<TProjectTheme, 'wallKind' | 'keyLight' | 'lights'> | null): Pick<TProjectTheme, 'wallKind' | 'keyLight' | 'lights'> {
 	return {
 		...(theme?.wallKind != null ? { wallKind: theme.wallKind } : {}),
-		...(theme?.wallBand != null ? { wallBand: theme.wallBand } : {}),
 		...(theme?.keyLight != null && Object.keys(theme.keyLight).length > 0 ? { keyLight: { ...theme.keyLight } } : {}),
 		...(theme?.lights != null && theme.lights.length > 0 ? { lights: theme.lights.map((light) => ({ ...light })) } : {})
 	};
@@ -245,7 +254,7 @@ export function themePartCommands(project: TProject, themeId: string, element: T
 }
 
 /**
- * Save as Theme: a project theme like Duplicate Theme's, whose parts are this project's choices per element type: the
+ * Save as Theme, the one way to make or change a theme: a project theme whose parts are this project's choices per element type: the
  * look most of each type wear, built-in skins only. Pieces in that look then just follow the theme; pieces in another
  * keep it. One edit, and the theme is applied.
  */
@@ -380,9 +389,10 @@ export function copyName(name: string, taken: readonly string[]): string {
 	}
 }
 
-/** Where a theme comes from, as its card's quiet line: Theme, Made with Agent or Based on Neon */
+/** Where a theme comes from, as its card's quiet line: Made with Agent or Based on Neon; a built-in theme has none */
 export function themeOrigin(theme: TResolvedTheme): string {
-	if (theme.isBuiltIn) return 'Theme';
+	if (theme.isBuiltIn) return '';
+	if (theme.projectTheme?.pack != null) return packOriginLine(theme.projectTheme.pack);
 	if (theme.projectTheme?.origin === 'agent') return 'Made with Agent';
 	return `Based on ${builtInThemeLabel(theme.base) ?? theme.base}`;
 }

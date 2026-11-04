@@ -64,6 +64,19 @@ export const commands = {
 	agentsList: (packagePath: string) => __TAURI_INVOKE<AgentRunDto[]>("agents_list", { packagePath }),
 	/**  Records the user's decision on a candidate. The candidate folder stays for reference. */
 	agentsReview: (packagePath: string, runId: string, review: AgentReview) => typedError<AgentRunDto, string>(__TAURI_INVOKE("agents_review", { packagePath, runId, review })),
+	/**  Creates the package's agent folder on first use and returns its path */
+	agentFolderEnsure: (packagePath: string, title: string) => typedError<string, string>(__TAURI_INVOKE("agent_folder_ensure", { packagePath, title })),
+	agentReferencesRead: (packagePath: string) => __TAURI_INVOKE<AgentReferencesDto>("agent_references_read", { packagePath }),
+	/**  Replaces the project's References with copies of the images and these words */
+	agentReferencesSet: (packagePath: string, title: string, paths: string[], text: string) => typedError<AgentReferencesDto, string>(__TAURI_INVOKE("agent_references_set", { packagePath, title, paths, text })),
+	mcpStatus: () => __TAURI_INVOKE<McpStatusDto>("mcp_status"),
+	/**  The front end listens now, so tool calls can reach it */
+	mcpFrontEndReady: () => __TAURI_INVOKE<void>("mcp_front_end_ready"),
+	mcpSetEnabled: (isEnabled: boolean) => typedError<McpStatusDto, string>(__TAURI_INVOKE("mcp_set_enabled", { isEnabled })),
+	/**  Answers a `McpRequestEvent` with `{ content, isError, packagePath }` */
+	mcpRespond: (requestId: number, replyJson: string) => typedError<null, string>(__TAURI_INVOKE("mcp_respond", { requestId, replyJson })),
+	/**  Show AI Workspace: writes the folder for the running binary and returns its path */
+	mcpWriteWorkspace: () => typedError<string, string>(__TAURI_INVOKE("mcp_write_workspace")),
 	/**  Items of the project library (`<package>/assets/`) or the global library in the app's support folder */
 	libraryList: (scope: LibraryScope, packagePath: string | null) => typedError<LibraryItemDto[], string>(__TAURI_INVOKE("library_list", { scope, packagePath })),
 	/**
@@ -73,14 +86,29 @@ export const commands = {
 	libraryAcceptCandidate: (packagePath: string, runId: string, itemId: string, manifestJson: string) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_accept_candidate", { packagePath, runId, itemId, manifestJson })),
 	/**  Copies a project item into the global library for use in other projects */
 	libraryPromote: (packagePath: string, itemId: string) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_promote", { packagePath, itemId })),
-	/**  Copies a global item into the project so the package stays portable */
-	libraryImport: (packagePath: string, itemId: string) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_import", { packagePath, itemId })),
+	/**  Copies a global item, or an item of an imported Pack, into the project so the package stays portable */
+	libraryImport: (packagePath: string, itemId: string, packId: string | null) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_import", { packagePath, itemId, packId })),
 	libraryRemove: (scope: LibraryScope, packagePath: string | null, itemId: string) => typedError<null, string>(__TAURI_INVOKE("library_remove", { scope, packagePath, itemId })),
+	/**
+	 *  Adds an asset from outside the project: a folder with `asset.blend`, or a `.blend` file with its `preview.png`
+	 *  beside it, with the manifest the app validated
+	 */
+	libraryAddAsset: (packagePath: string, path: string, itemId: string, manifestJson: string) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_add_asset", { packagePath, path, itemId, manifestJson })),
+	/**  The added Packs, kept in the app's support folder */
+	libraryListPacks: () => typedError<PackDto[], string>(__TAURI_INVOKE("library_list_packs")),
+	/**  The Packs that ship in the app bundle, for the Add Pack sheet */
+	libraryListBundledPacks: () => typedError<PackDto[], string>(__TAURI_INVOKE("library_list_bundled_packs")),
+	/**  Adds a bundled Pack or a Pack from a file: it stays on this Mac for every project. Nothing changes in the open project. */
+	libraryImportPack: (path: string) => typedError<PackDto, string>(__TAURI_INVOKE("library_import_pack", { path })),
+	/**  Export Pack…: writes the Pack folder and returns its path */
+	libraryExportPack: (packagePath: string, destinationPath: string, manifestJson: string, themes: PackThemeDto[], assetIds: string[]) => typedError<string, string>(__TAURI_INVOKE("library_export_pack", { packagePath, destinationPath, manifestJson, themes, assetIds })),
+	libraryRemovePack: (packId: string) => typedError<null, string>(__TAURI_INVOKE("library_remove_pack", { packId })),
 };
 
 /** Events */
 export const events = {
 	agentRunEvent: makeEvent<AgentRunEvent>("agent-run-event"),
+	mcpRequestEvent: makeEvent<McpRequestEvent>("mcp-request-event"),
 	menuCommandEvent: makeEvent<MenuCommandEvent>("menu-command-event"),
 };
 
@@ -97,6 +125,12 @@ export type AgentCliDto = {
 export type AgentEventKind = "text" | "tool" | "result" | "error" | 
 /**  The process ended; the payload is the final run record */
 "exit";
+
+export type AgentReferencesDto = {
+	/**  Absolute paths of the images */
+	images: string[],
+	text: string,
+};
 
 export type AgentReview = "accepted" | "declined";
 
@@ -190,6 +224,8 @@ export type LibraryItemDto = {
 	manifestJson: string | null,
 	hasAsset: boolean,
 	previewPath: string | null,
+	/**  The imported Pack it lives in, for an item not yet copied into a project */
+	packId: string | null,
 };
 
 export type LibraryScope = 
@@ -197,6 +233,19 @@ export type LibraryScope =
 "project" | 
 /**  The app's support folder, shared by every project */
 "global";
+
+/**  A tool call for the front end to run. Answered with `mcp_respond`. */
+export type McpRequestEvent = {
+	requestId: number,
+	tool: string,
+	/**  JSON of the tool's arguments */
+	argumentsJson: string,
+};
+
+export type McpStatusDto = {
+	isEnabled: boolean,
+	isServing: boolean,
+};
 
 /**  A command item was chosen in the menu bar, or its key was pressed and the web view left the key alone */
 export type MenuCommandEvent = {
@@ -232,6 +281,29 @@ export type MenuRole = "window" | "help";
 export type OpenedProjectDto = {
 	path: string,
 	projectJson: string,
+};
+
+export type PackDto = {
+	id: string,
+	/**  Absolute folder, which Add copies a bundled Pack from */
+	path: string,
+	name: string,
+	version: string,
+	description: string | null,
+	author: string | null,
+	link: string | null,
+	picturePath: string | null,
+	/**  Raw `themes/<id>.json` files, validated by the app */
+	themesJson: string[],
+	items: LibraryItemDto[],
+	/**  Decor the app draws itself, by source */
+	builtInDecor: string[],
+};
+
+/**  A theme to write into a Pack, as JSON the app validated */
+export type PackThemeDto = {
+	id: string,
+	json: string,
 };
 
 export type RecentProjectDto = {

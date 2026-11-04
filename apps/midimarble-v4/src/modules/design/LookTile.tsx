@@ -2,10 +2,29 @@ import { Box, Star } from 'lucide-react';
 import React from 'react';
 import { openContextMenu, type TMenuEntry } from '@/components';
 
+/** A tile's quiet second line; with `onClick` a link inside the tile, as a tile is one big button */
+export const TileDetail: React.FC<{ text: string; onClick?: (() => void) | undefined }> = ({ text, onClick }) => (
+	<span
+		className={onClick != null ? 'mm-tile-secondary underline' : 'mm-tile-secondary'}
+		onClick={
+			onClick != null
+				? (event) => {
+						event.stopPropagation();
+						onClick();
+					}
+				: undefined
+		}
+	>
+		{text}
+	</span>
+);
+
 /** One choice shown as a picture, in the Look section and the Library; a ring marks the current one */
 export const LookTile: React.FC<{
 	label: string;
 	detail?: string;
+	/** Clicking the detail line, for an origin that opens its Pack's card */
+	onDetail?: (() => void) | undefined;
 	previewUrl: string | null;
 	/** Drawn in place of a rendered preview */
 	thumb?: React.ReactNode;
@@ -18,7 +37,7 @@ export const LookTile: React.FC<{
 	isKept?: boolean;
 	onKeep?: () => void;
 }> = (props) => {
-	const { label, detail, previewUrl, thumb, isCurrent, title, onApply, onMenu, onDoubleClick, onDragStart, isKept, onKeep } = props;
+	const { label, detail, onDetail, previewUrl, thumb, isCurrent, title, onApply, onMenu, onDoubleClick, onDragStart, isKept, onKeep } = props;
 	return (
 		<div className="mm-tile-wrap" role="option" aria-selected={isCurrent}>
 			<button
@@ -34,7 +53,7 @@ export const LookTile: React.FC<{
 			>
 				<span className="mm-tile-thumb mm-tile-thumb-square">{thumb ?? (previewUrl != null ? <img alt="" src={previewUrl} draggable={false} /> : <Box size={20} strokeWidth={1.4} className="text-[var(--text-tertiary)]" />)}</span>
 				<span className="mm-tile-label">{label}</span>
-				{detail != null && detail.length > 0 ? <span className="mm-tile-secondary">{detail}</span> : null}
+				{detail != null && detail.length > 0 ? <TileDetail text={detail} onClick={onDetail} /> : null}
 			</button>
 			{onKeep != null ? (
 				<button

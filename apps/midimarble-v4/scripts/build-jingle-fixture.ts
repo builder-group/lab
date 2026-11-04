@@ -72,6 +72,7 @@ const RELEASES = [
 const DEGREE = Math.PI / 180;
 // The film's look lives in the project: a preset of ordinary parts on Brass's render look. A warm cream wall in a warm
 // room under a golden, soft Key Light from close to the wall's normal, a bit of Bloom for what glows.
+// This project's own placed Decor; a theme never carries any
 const CHRISTMAS_DECOR = ['decor:bauble-red', 'decor:bauble-gold', 'decor:snowflake-gold', 'decor:gift-box', 'decor:star', 'decor:fairy-light'];
 const CHRISTMAS_THEME: TProjectTheme = {
 	id: 'theme-christmas',
@@ -79,7 +80,6 @@ const CHRISTMAS_THEME: TProjectTheme = {
 	base: 'brass',
 	overrides: { wallColor: '#fcf3df', lightColor: '#ffe6b3', backgroundColor: '#fff2d2' },
 	keyLight: { strength: 5, side: -0.26, height: 0.35, softness: 0.55, exposure: 0.4, bloom: 0.5 },
-	decorSet: CHRISTMAS_DECOR,
 	parts: { platform: { skin: 'platform:gift' }, rail: { skin: 'rail:candy' }, switchback: { skin: 'switchback:candy' }, marble: { skin: 'marble:glass-green' } }
 };
 const DECOR_DENSITY = 0.18;

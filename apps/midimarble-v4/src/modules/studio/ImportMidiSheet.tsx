@@ -58,7 +58,7 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 			>
 				<div className="flex items-center gap-1.5">
 					<div className="flex-1 font-semibold">Import “{pending.file.name}”</div>
-					<HelpTip text="Marbles play the notes of the checked tracks, one note at a time and at least 180 ms apart. Every other note plays as Backing: heard in the film, no piece needed. Drum tracks are left out." />
+					<HelpTip text="Marbles play the notes of the checked parts, one note at a time and at least 180 ms apart. Every other note plays as Backing: heard in the film, no platform needed. Drum parts are left out." />
 				</div>
 
 				<div className="flex max-h-[180px] flex-col overflow-y-auto rounded-[8px] border border-[var(--separator)] bg-[var(--content)]">

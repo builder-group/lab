@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, AudioLines, Bookmark, Box, BrickWall, ChevronRight, Eye, EyeOff, Folder, Globe, Lightbulb, Lock, LockOpen, Music, Plus, Sparkles, Sun, TriangleAlert, Type, Video } from 'lucide-react';
+import { Anchor, AudioLines, Bookmark, Box, BrickWall, ChevronRight, Eye, EyeOff, Folder, Globe, Lightbulb, Lock, LockOpen, Music, Sparkles, Sun, TriangleAlert, Type, Video } from 'lucide-react';
 import React from 'react';
-import { HelpTip, MenuButton, openContextMenu, RenameField, type TMenuEntry } from '@/components';
+import { HelpTip, openContextMenu, RenameField, type TMenuEntry } from '@/components';
 import { attachState } from '@/modules/compose/attach-edit';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
@@ -12,7 +12,6 @@ import { updateLightCommands } from '@/modules/design/scene-layers';
 import { shotKindLabel } from '@/modules/design/shots';
 import type { TEntity, TProject } from '@/modules/project';
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
-import { addMenu, groupAddEntries } from './add-menu';
 import { commandItem } from './commands';
 import { formatTime } from './format';
 import { inspectorTarget } from './inspector-target';
@@ -33,7 +32,6 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 		<aside className="mm-sidebar flex w-[264px] shrink-0 flex-col" aria-label="Sidebar">
 			<div className="mm-sidebar-head">
 				<span>Layers</span>
-				<MenuButton className="mm-icon-button !h-6 !w-6" label={<Plus size={14} strokeWidth={1.8} />} title="Add" items={addMenu(cx)} />
 			</div>
 			<Layers cx={cx} project={project} workspace={workspace} />
 		</aside>
@@ -179,6 +177,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		else if (row.kind === 'piece') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
+		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.rename'), commandItem(cx, 'edit.delete')]);
 		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
 		else if (row.kind === 'madeInBlender') openContextMenu(event, [{ label: 'Open in Blender', onSelect: () => revealMadeInBlender(cx, row.name) }, commandItem(cx, 'decor.scatter')]);
 		else if (row.kind === 'camera' || row.kind === 'shot') openContextMenu(event, [commandItem(cx, 'camera.addShot'), ...(row.kind === 'shot' ? [commandItem(cx, 'edit.delete')] : [])]);
@@ -279,7 +278,6 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 							</span>
 						) : null}
 						{view.time != null ? <span>{formatShortTime(view.time)}</span> : null}
-						{row.kind === 'group' ? <GroupAdd cx={cx} groupId={row.id} /> : null}
 					</>
 				) : undefined
 			}
@@ -289,34 +287,6 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 			}}
 			onContextMenu={onContextMenu}
 		/>
-	);
-};
-
-/** The inline + of a group that can be empty or grow: Titles, Lights and Decor */
-const GroupAdd: React.FC<{ cx: StudioCx; groupId: string }> = ({ cx, groupId }) => {
-	const add = groupAddEntries(cx, groupId);
-	if (add == null) return null;
-	const stop = (event: React.SyntheticEvent): void => event.stopPropagation();
-	if ('run' in add) {
-		return (
-			<button
-				className="mm-icon-button !h-5 !w-5"
-				title={add.title}
-				aria-label={add.title}
-				type="button"
-				onClick={(event) => {
-					stop(event);
-					add.run();
-				}}
-			>
-				<Plus size={12} strokeWidth={2} />
-			</button>
-		);
-	}
-	return (
-		<span className="inline-flex" onClick={stop}>
-			<MenuButton className="mm-icon-button !h-5 !w-5" label={<Plus size={12} strokeWidth={2} />} title={add.title} items={add.items} />
-		</span>
 	);
 };
 

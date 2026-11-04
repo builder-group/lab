@@ -33,8 +33,6 @@ export interface TSceneDescription {
 	themeOverrides?: TSceneThemeOverrides;
 	/** The Wall layer's skin when it is not the theme's own. Optional and additive. */
 	wallKind?: TSceneWallKind;
-	/** Where a Tinsel wall shows its tinsel when it is not the theme's own. Optional and additive. */
-	wallBand?: TSceneWallBand;
 	/** What the Key Light layer changes on the theme's sun besides its colour (`themeOverrides.lightColor`). Optional and additive. */
 	keyLight?: TSceneKeyLight;
 	/** Lights added in Film, created as app-owned suns. Optional and additive; absent has none. */
@@ -251,8 +249,7 @@ export interface TSceneThemeOverrides {
 	backgroundColor?: string;
 }
 
-export type TSceneWallKind = 'plaster' | 'pegboard' | 'grid' | 'tinsel';
-export type TSceneWallBand = 'full' | 'left' | 'right';
+export type TSceneWallKind = 'plaster' | 'pegboard' | 'grid';
 
 /**
  * Direction of a light: `side` from the far left (-1) to the far right (1) and `height` from below (-1) to above (1),

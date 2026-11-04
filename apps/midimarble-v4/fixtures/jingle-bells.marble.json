@@ -3934,14 +3934,6 @@
 					"exposure": 0.4,
 					"bloom": 0.5
 				},
-				"decorSet": [
-					"decor:bauble-red",
-					"decor:bauble-gold",
-					"decor:snowflake-gold",
-					"decor:gift-box",
-					"decor:star",
-					"decor:fairy-light"
-				],
 				"parts": {
 					"platform": {
 						"skin": "platform:gift"

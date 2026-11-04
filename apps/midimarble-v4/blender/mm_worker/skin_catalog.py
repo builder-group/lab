@@ -3,7 +3,8 @@
 `skin_catalog.json` is the one source; the app reads the same file (`skin-catalog.ts`). `resolve_look` mirrors
 `resolveSkinLook` in skin-catalog.ts: `blender/tests/skin_look_cases.json` holds cases both sides are tested against.
 
-Old ids such as `brass:copper` keep loading: `canonical_skin` turns them into `platform:copper`.
+Old ids such as `brass:copper` keep loading: `canonical_skin` turns them into `platform:copper`, and a skin that left the
+catalog into the one that took its place. `hidden` skins stay built and off the app's tiles unless a project uses them.
 """
 import json
 from pathlib import Path
@@ -21,7 +22,7 @@ def canonical_skin(asset_id):
     if isinstance(asset_id, str) and asset_id.startswith(old['prefix']):
         candidate = old['element'] + ':' + asset_id[len(old['prefix']):]
         return candidate if candidate in _SKINS else old['fallback']
-    return asset_id
+    return old['removed'].get(asset_id, asset_id) if isinstance(asset_id, str) else asset_id
 
 
 def skin_entry(skin_id):

@@ -263,7 +263,7 @@ export class AssistCx {
 		const fallback = pieceForHit(present, hit, type, 'default', id);
 		if (!commitAtHit(this.studio, hit, fallback)) return;
 		this.record(kind, startedAt);
-		if (quick === 'failed') this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the run needs it.');
+		if (quick === 'failed') this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
 		if (quick !== 'slow') return;
 		const placedRevision = this.studio.project?.revision;
 		const placedGroup = this.studio.editGroup ?? undefined;
@@ -388,7 +388,7 @@ export class AssistCx {
 		if (!commitAtHit(this.studio, answer.hit, answer.entity)) return false;
 		this.dispatch({ type: 'accepted' });
 		this.record('accept', startedAt);
-		if (!answer.isOk) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the run needs it.');
+		if (!answer.isOk) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
 		return true;
 	}
 

@@ -34,13 +34,24 @@
 					"identifier": "group.builder.midimarble.project",
 					"conformsTo": ["com.apple.package"]
 				}
+			},
+			{
+				"ext": ["marblepack"],
+				"name": "MidiMarble Pack",
+				"description": "Themes, skins and decor for MidiMarble",
+				"role": "Viewer",
+				"exportedType": {
+					"identifier": "group.builder.midimarble.pack",
+					"conformsTo": ["com.apple.package"]
+				}
 			}
 		],
 		"resources": {
 			"../blender/worker.py": "blender/worker.py",
 			"../blender/render_job.py": "blender/render_job.py",
 			"../blender/mm_worker/*.py": "blender/mm_worker/",
-			"../blender/mm_worker/*.json": "blender/mm_worker/"
+			"../blender/mm_worker/*.json": "blender/mm_worker/",
+			"../packs/Starter.marblepack/pack.json": "packs/Starter.marblepack/pack.json"
 		},
 		"macOS": {
 			"minimumSystemVersion": "12.0"

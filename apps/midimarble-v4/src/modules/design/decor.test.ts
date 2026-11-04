@@ -26,7 +26,7 @@ import {
 	overlapLabel,
 	updateDecorCommands
 } from './decor';
-import { DECOR_ITEMS, decorExtent, isFrameEffect, themeDecorSet } from './decor-catalog';
+import { DECOR_ITEMS, decorExtent, isFrameEffect } from './decor-catalog';
 import { effectDefaults, flakeAt, garlandScrollAt, garlandSprigs, GARLAND_PERIOD, snowFlakes } from './decor-effects';
 import { buildObstacleField, distanceToBox, type TWallBox } from './decor-clearance';
 import { SCATTER_MARGIN, scatterDecorCommands, scatterPlacements, seedOf } from './decor-scatter';
@@ -254,7 +254,7 @@ describe('Decor', () => {
 	});
 
 	describe('Scatter Decor', () => {
-		const items = themeDecorSet('brass').map(builtInSource);
+		const items = ['decor:bauble-gold', 'decor:snowflake-gold', 'decor:star'].map(builtInSource);
 		const options = { items, density: 0.5, seed: 7 };
 
 		it('should be deterministic for a seed and move with another', () => {
@@ -307,7 +307,7 @@ describe('Decor', () => {
 			for (const placement of dense) counts.set(placement.source.source, (counts.get(placement.source.source) ?? 0) + 1);
 			expect(counts.size).toBe(items.length);
 			expect(Math.max(...counts.values()) - Math.min(...counts.values())).toBeLessThanOrEqual(1);
-			expect(DECOR_ITEMS.filter((item) => !item.scatter).map((item) => item.label)).toEqual(['Handle', 'Subscribe', 'Garland', 'Snowfall']);
+			expect(DECOR_ITEMS.filter((item) => !item.scatter).map((item) => item.label)).toEqual(['Handle', 'Subscribe', 'Garland', 'Particles']);
 		}, 60_000);
 
 		it('should replace only what it placed, in one edit, and keep clear of the user\'s decor', () => {
@@ -368,7 +368,7 @@ describe('Decor', () => {
 		}
 
 		it('come as Library items with their settings', () => {
-			expect(DECOR_ITEMS.filter((item) => item.effect != null).map((item) => item.label)).toEqual(['Garland', 'Snowfall']);
+			expect(DECOR_ITEMS.filter((item) => item.effect != null).map((item) => item.label)).toEqual(['Garland', 'Particles']);
 			expect(effectDefaults('decor:snowfall')).toEqual({ snowfall: { density: 0.5, size: 1, speed: 1, color: '#fff1d6' } });
 			expect(effectDefaults('decor:garland')).toEqual({ garland: { side: 'both', spacing: 0.14 } });
 			expect(effectDefaults('decor:star')).toEqual({});

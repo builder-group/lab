@@ -6,6 +6,8 @@ import { AgentChat } from './AgentChat';
 import { CommandPalette } from './CommandPalette';
 import { ConfirmAlert } from './ConfirmAlert';
 import { HintLayer } from './HintLayer';
+import { AddPackSheet } from '@/modules/design/AddPackSheet';
+import { ExportPackSheet } from '@/modules/design/ExportPackSheet';
 import { ImportMidiSheet } from './ImportMidiSheet';
 import { Inspector } from './Inspector';
 import { Notice } from './Notice';
@@ -50,6 +52,8 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 			</div>
 			<ImportMidiSheet cx={cx} />
 			<ExportSheet cx={cx} />
+			<AddPackSheet cx={cx} />
+			<ExportPackSheet cx={cx} />
 			<CommandPalette cx={cx} />
 			<SaveChangesAlert cx={cx} />
 			<ConfirmAlert cx={cx} />

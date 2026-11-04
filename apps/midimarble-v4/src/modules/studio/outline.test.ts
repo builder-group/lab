@@ -76,8 +76,8 @@ describe('buildOutline function', () => {
 		const rows = buildOutline(project({ entities: [piece('free-1')] }), { workspace: 'compose' });
 		const group = rows.find((row) => row.id === FREE_PIECES_KEY);
 
-		expect(group?.kind === 'group' ? group.label : null).toBe('Pieces');
-		expect(group?.kind === 'group' ? group.help : null).toBe('Pieces no marble plays or follows; marbles can still hit them');
+		expect(group?.kind === 'group' ? group.label : null).toBe('Track Pieces');
+		expect(group?.kind === 'group' ? group.help : null).toBe('Parts of the track no marble plays or follows; marbles can still hit them');
 	});
 
 	it('should leave out the Song without one and an empty Pieces group, and keep Titles and Decor in Film when empty', () => {

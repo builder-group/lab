@@ -297,7 +297,7 @@ export const FixPieceButton: React.FC<{ cx: StudioCx; entityId: string; isPlatfo
 	}
 	const fallback = isPlatform ? 'Re-place' : 'Move Clear';
 	const label = fix == null ? 'Checking…' : (fix.label ?? fallback);
-	const title = fix == null ? 'Trying the fix on a copy of the run first' : works ? 'Tried on a copy of the run first: it breaks no hit and adds no problem' : fix.message;
+	const title = fix == null ? 'Trying the fix on a copy of the track first' : works ? 'Tried on a copy of the track first: it breaks no hit and adds no problem' : fix.message;
 	return (
 		<button className="mm-fix-it mm-fix-it-label" disabled={compose == null || replacing != null || isApplying || !works} onClick={run} title={title} type="button">
 			{isPlatform ? <WandSparkles size={12} strokeWidth={1.9} /> : null}

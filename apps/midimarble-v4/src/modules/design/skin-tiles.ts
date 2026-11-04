@@ -1,6 +1,6 @@
 import type { TDecor, TEntity, TProject, TWallKind } from '@/modules/project';
 import { canonicalSkinId } from '@/modules/project/skin-ids';
-import { decorItem, DECOR_ITEMS } from './decor-catalog';
+import { decorItem, listedDecorItems } from './decor-catalog';
 import { draftMarble } from './draft-look';
 import { resolveElementLook, resolveTheme, type TResolvedTheme } from './project-themes';
 import { wallLayer, WALL_KINDS } from './scene-layers';
@@ -15,17 +15,18 @@ export const THEME_DEFAULT_TILE = 'theme-default';
 export interface TLookTile {
 	id: string;
 	label: string;
-	/** Quiet second line: the skin Theme Default stands for */
+	/** Quiet second line: the skin Theme Default stands for, or where the item comes from */
 	detail: string;
 	previewUrl: string | null;
 	isCurrent: boolean;
 }
 
 /**
- * Theme Default, then every other built-in skin of the element. Choosing the theme's own skin follows the theme
- * (`builtInSkinCommands`), so Theme Default stands for that skin and it has no second tile.
+ * Theme Default, then every other built-in skin of the element, a hidden one only while `usedSkins` names it. Choosing
+ * the theme's own skin follows the theme (`builtInSkinCommands`), so Theme Default stands for that skin and it has no
+ * second tile.
  */
-export function skinTiles(design: Parameters<typeof resolveTheme>[0], element: TSkinElement, entities: readonly TEntity[]): TLookTile[] {
+export function skinTiles(design: Parameters<typeof resolveTheme>[0], element: TSkinElement, entities: readonly TEntity[], usedSkins?: ReadonlySet<string>): TLookTile[] {
 	const theme = resolveTheme(design);
 	const part = theme.parts[element].skin;
 	const owns = entities.map((entity) => {
@@ -36,10 +37,17 @@ export function skinTiles(design: Parameters<typeof resolveTheme>[0], element: T
 	const hasEntities = entities.length > 0;
 	return [
 		{ id: THEME_DEFAULT_TILE, label: 'Theme Default', detail: shown?.label ?? '', previewUrl: shown?.previewUrl ?? null, isCurrent: hasEntities && owns.every((own) => own == null || own === part) },
-		...catalogSkins(element)
+		...catalogSkins(element, usedSkins)
 			.filter((skin) => skin.id !== part)
-			.map((skin) => ({ id: skin.id, label: skin.label, detail: '', previewUrl: skin.previewUrl, isCurrent: hasEntities && owns.every((own) => own === skin.id) }))
+			.map((skin) => ({ id: skin.id, label: skin.label, detail: skin.origin, previewUrl: skin.previewUrl, isCurrent: hasEntities && owns.every((own) => own === skin.id) }))
 	];
+}
+
+/** Every skin the project wears or one of its themes names, which keeps a hidden skin on the tiles */
+export function usedSkinIds(project: Pick<TProject, 'entities' | 'design'>): ReadonlySet<string> {
+	const worn = project.entities.flatMap((entity) => entity.components.skin?.assetId ?? []);
+	const named = (project.design.themes ?? []).flatMap((theme) => Object.values(theme.parts ?? {}).flatMap((part) => part.skin ?? []));
+	return new Set([...worn, ...named].map(canonicalSkinId));
 }
 
 /** The skin the theme dresses an entity with; a theme's contrast marble is Pearl or Deep by what stands apart from the wall */
@@ -68,9 +76,9 @@ function wallKindLabel(kind: TWallKind): string {
 	return WALL_KINDS.find((item) => item.kind === kind)?.label ?? kind.charAt(0).toUpperCase() + kind.slice(1);
 }
 
-/** The built-in Decor items, the selection's ringed; a Decor item has no theme default */
-export function decorTiles(decors: readonly Pick<TDecor, 'source'>[]): TLookTile[] {
-	return DECOR_ITEMS.map((item) => ({ id: item.id, label: item.label, detail: '', previewUrl: item.previewUrl, isCurrent: decors.length > 0 && decors.every((decor) => decor.source === item.id) }));
+/** The Decor items with their origin line, the selection's ringed; a Decor item has no theme default */
+export function decorTiles(decors: readonly Pick<TDecor, 'source'>[], inUse?: ReadonlySet<string>): TLookTile[] {
+	return listedDecorItems(inUse).map((item) => ({ id: item.id, label: item.label, detail: item.origin ?? '', previewUrl: item.previewUrl, isCurrent: decors.length > 0 && decors.every((decor) => decor.source === item.id) }));
 }
 
 /** The label a decoration's name starts with, which follows it to another item */

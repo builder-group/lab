@@ -23,7 +23,7 @@ const REST_WINDOW = 0.2;
 /**
  * Whether the marble can reach an open hit, and why not. A marble needs to fall at least its diameter and reach
  * the strike speed before a platform under it plays a note; before that, and before the release, the note is
- * Too Soon. An open hit without a dot after the release means the marble has fallen out of the run, unless an
+ * Too Soon. An open hit without a dot after the release means the marble has fallen off the track, unless an
  * earlier note of the same marble is still Open: that note is the next step, and the ones after it wait for it.
  */
 export function hitReach(project: TProject, result: TSimulationResult | null, hit: THitResult): THitReach {
@@ -75,7 +75,7 @@ export function reachStatus(reach: THitReach, names: { marble: string; time: str
 		case 'tooSoon':
 			return { label: 'Too Soon', detail: `${names.marble} can't reach a platform by ${names.time}` };
 		case 'outOfReach':
-			return { label: 'Out of Reach', detail: `${names.marble} has fallen out of the run by ${names.time}` };
+			return { label: 'Out of Reach', detail: `${names.marble} has fallen off the track by ${names.time}` };
 		case 'resting':
 			return { label: 'Out of Reach', detail: `${names.marble} lies still on a piece at ${names.time}` };
 		case 'noMarble':
@@ -99,8 +99,8 @@ export function reachMessage(reach: THitReach, names: { hit: string; marble: str
 				: `${names.hit} is too soon for ${names.marble}. Move the hit later or delete it.`;
 		case 'outOfReach':
 			return fix != null
-				? `${names.marble} has fallen out of the run before ${names.hit}. Move the release later or ${away}.`
-				: `${names.marble} has fallen out of the run before ${names.hit}. Add platforms for the notes before it or ${away}.`;
+				? `${names.marble} has fallen off the track before ${names.hit}. Move the release later or ${away}.`
+				: `${names.marble} has fallen off the track before ${names.hit}. Add platforms for the notes before it or ${away}.`;
 		case 'resting':
 			return `${names.marble} lies still before ${names.hit}. Fix the platform it stops on or ${away}.`;
 		case 'noMarble':

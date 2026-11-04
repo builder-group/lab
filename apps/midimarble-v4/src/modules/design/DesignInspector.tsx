@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Bookmark, Plus, RotateCcw, Trash2, Type, Video } from 'lucide-react';
+import { Bookmark, RotateCcw, Type, Video } from 'lucide-react';
 import React from 'react';
 import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, StateRow, TextField } from '@/components';
 import { shotLength } from '@/modules/camera/shots';
@@ -22,25 +22,27 @@ import {
 	withTitleStyle,
 	type TTitleStyle
 } from './design-commands';
-import type { TDesignLink, TDesignStatus } from './DesignCx';
+import type { TDesignLink } from './DesignCx';
 import { canonicalSkinId } from '@/modules/project/skin-ids';
+import { SKIN_HELP } from './concept-words';
+import { themeOriginLabel } from './scene-layers';
 import { skinElement } from './skin-catalog';
 import { SkinTiles } from './LookTiles';
 import { ResetToTheme, SkinPropertyRows } from './SkinProperties';
 import { framingFix, framingProblemAt, preflightExport } from './export-preflight';
 import { describeLoop } from './loop-status';
-import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
+import { shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
 import { songDisplayName, titleSpan, withTitleTime } from './titles';
 
-// Inspectors of the Film layers on the inspector grid: a piece's look, a title or the titles, a shot and the
-// Camera, plus Seamless Loop for the Scene. The studio's Inspector picks one for the selection.
+// Inspectors of the Film layers on the inspector grid: a piece's skin, a title or the titles, a shot and the
+// Camera, plus Seamless Loop for the Scene in Compose. The studio's Inspector picks one for the selection.
 
-/** The film's Seamless Loop in the Scene inspector of Film; quality is in the Export sheet, colours on their layers */
-export const FilmLoopPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
+/** Seamless Loop in the Scene inspector of Compose, where the run has to loop; export honours it */
+export const SeamlessLoopPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const design = project.design;
 	return (
-		<Panel id="design.scene" title="Film">
+		<Panel id="design.scene" title="Loop" accessory={<HelpTip text="Makes the end of the film run into its start: every marble has to come back to where it was released." />}>
 			<CheckField id="design-loop" label="Seamless Loop" checked={design.loop} onChange={(loop) => cx.execute([{ type: 'setDesign', design: { loop } }])} />
 			{design.loop ? <LoopStatus cx={cx} project={project} /> : null}
 		</Panel>
@@ -142,13 +144,6 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 					<ScrubField id="camera-pitch" label="Pitch" name="Downward angle" value={(camera.pitch * 180) / Math.PI} unit="°" step={0.5} min={-80} max={80} onCommit={(value) => set({ pitch: (value * Math.PI) / 180 })} />
 					<ScrubField id="camera-lead" label="Lead" name="How far ahead of the marbles the camera looks" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
 					<ScrubField id="camera-smoothing" label="Smooth" name="Smoothing" value={Math.round(camera.smoothing * 100)} unit="%" step={0.5} min={0} max={100} onCommit={(value) => set({ smoothing: value / 100 })} />
-					<ReadoutField label="Shots" name="Shots">
-						{camera.shots.length}
-					</ReadoutField>
-					<button className="mm-button" onClick={() => getCommand('camera.addShot').run(cx)} title="Add a shot at the playhead (⇧M)" type="button">
-						<Plus size={12} strokeWidth={2} />
-						Add Shot
-					</button>
 					{cameraState === 'takenOver' ? (
 						<>
 							<StateRow tone="warn" label="Edited in Blender" detail="The app no longer updates the camera, so your Blender changes stay. Reset Camera discards them and follows the marbles again." />
@@ -216,15 +211,10 @@ const FramingProblem: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 	);
 };
 
-/** The Titles layer's inspector, for several titles selected together: each title as a link and Add Title */
+/** The Titles layer's inspector, for several titles selected together: each title as a link */
 export const TitlesInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const placing = useFeatureState(cx.design.$placing);
 	const texts = project.entities.filter((entity) => entity.components.wallText != null);
-
-	function add(): void {
-		cx.design.$placing.set(placing === 'text' ? null : 'text');
-	}
 
 	return (
 		<>
@@ -233,14 +223,7 @@ export const TitlesInspector: React.FC<{ cx: StudioCx; project: TProject }> = (p
 				id="design.text"
 				title="Titles"
 				isEmpty={!texts.length}
-				accessory={
-					<>
-						<HelpTip text="Text on the wall, such as a title or a credit. Click +, then click the preview where it goes." />
-						<button className="mm-icon-button" data-active={placing === 'text'} onClick={add} title="Add a title (T)" aria-label="Add Title" type="button">
-							<Plus size={13} strokeWidth={2} />
-						</button>
-					</>
-				}
+				accessory={<HelpTip text="Text on the wall or in the frame, such as a title or a credit. Insert adds one." />}
 			>
 				{texts.map((entity) => (
 					<LinkRow key={entity.id} icon={<Type size={13} strokeWidth={1.8} className="shrink-0 text-[var(--text-secondary)]" />} title="Select Title" onOpen={() => cx.$selection.set([entity.id])}>
@@ -296,18 +279,6 @@ export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TS
 					parse={parseHold}
 					onCommit={(value) => set({ length: value })}
 				/>
-				<button
-					className="mm-button"
-					data-span="2"
-					onClick={() => {
-						if (cx.execute(removeShotsCommands(project, [shot.id]))) cx.$selection.set([]);
-					}}
-					title="Delete the shot (⌫)"
-					type="button"
-				>
-					<Trash2 size={12} strokeWidth={1.8} />
-					Delete Shot
-				</button>
 			</Panel>
 		</>
 	);
@@ -414,7 +385,7 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 						Colour
 					</label>
 					<input id="text-color" type="color" className="mm-color" aria-label="Title colour" style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }} value={text.color ?? defaultTitleColor(project.design)} onChange={(event) => setText({ color: event.target.value })} />
-					{text.color != null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">Default</span>}
+					{text.color != null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{themeOriginLabel(project.design)}</span>}
 					{text.color != null && text.color.toLowerCase() !== defaultTitleColor(project.design) ? (
 						<button className="mm-icon-button" onClick={clearColor} title="Use the colour that reads on the wall" aria-label="Reset Colour" type="button">
 							<RotateCcw size={12} strokeWidth={1.9} />
@@ -437,17 +408,6 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 						<ScrubField id="text-y" label="Y" name="Y" value={(transform?.position.y ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
 					</>
 				)}
-				<button
-					className="mm-button"
-					data-span="2"
-					onClick={() => {
-						if (cx.execute([{ type: 'removeEntities', entityIds: [entity.id] }])) cx.$selection.set([]);
-					}}
-					type="button"
-				>
-					<Trash2 size={12} strokeWidth={1.8} />
-					Delete Title
-				</button>
 			</Panel>
 		</>
 	);
@@ -460,7 +420,6 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
 	const links = useFeatureState(cx.design.$links);
-	const status = useFeatureState(cx.design.$status);
 
 	const first = pieces[0] as TEntity;
 	// Skins fit one piece type: with several types selected they go on the most common one
@@ -487,7 +446,7 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 			<InspectorHeader
 				icon={<PieceIcon type={type} size={16} />}
 				title={name}
-				subtitle={isSingle ? typeLabel : isMixedTypes ? 'Pieces' : `${typeLabel}s`}
+				subtitle={isSingle ? typeLabel : isMixedTypes ? 'Track Pieces' : `${typeLabel}s`}
 				onRename={isSingle ? (value) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name: value } }]) : undefined}
 			/>
 			<Panel
@@ -495,7 +454,7 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 				title="Look"
 				accessory={
 					<HelpTip
-						text={`How it looks in the film. A click applies to the selection, ⌥-click to all ${typeLabel.toLowerCase()}s; ask the agent (⌘J) for a skin of your own and it shows here. On Hit moves or lights the skin on every hit; a skin never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}
+						text={`${SKIN_HELP} A click applies to the selection, ⌥-click to all ${typeLabel.toLowerCase()}s; ask the agent (⌘J) for a skin of your own and it shows here. On Hit moves or lights the skin on every hit; a skin never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}
 					/>
 				}
 			>
@@ -507,18 +466,16 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 					</button>
 				) : null}
 				<ResetToTheme cx={cx} project={project} entities={pieces} />
-				<LinkState cx={cx} status={status} link={link} unlinked={unlinked} />
+				<LinkState cx={cx} link={link} unlinked={unlinked} />
 			</Panel>
 		</>
 	);
 };
 
-/** Whether the app still drives the piece in Blender, as one row with a dot and a reset button when detached */
-const LinkState: React.FC<{ cx: StudioCx; status: TDesignStatus; link: TDesignLink | 'mixed' | null; unlinked: string[] }> = (props) => {
-	const { cx, status, link, unlinked } = props;
-	if (status === 'unavailable') return <StateRow tone="neutral" label="Linked in the desktop app" detail="Blender reports whether a piece was changed there. Open the project in the desktop app to see it." />;
-	if (link == null) return <StateRow tone="neutral" label="Link unknown" detail="Blender reports the link once it has updated the preview." />;
-	if (!unlinked.length) return <StateRow tone="good" label="Linked to Blender" detail="The app drives this piece. Changes in Compose appear in Blender." />;
+/** A piece changed in Blender, as one row with a reset button; the normal state needs no row */
+const LinkState: React.FC<{ cx: StudioCx; link: TDesignLink | 'mixed' | null; unlinked: string[] }> = (props) => {
+	const { cx, link, unlinked } = props;
+	if (link == null || !unlinked.length) return null;
 	const reason = link !== 'mixed' && link.reason != null ? reasonLabel(link.reason) : null;
 	return (
 		<StateRow

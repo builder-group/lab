@@ -22,18 +22,16 @@ describe('skin catalog', () => {
 				expect(skin.id.startsWith(`${element}:`)).toBe(true);
 			}
 		}
-		expect(catalogSkins('platform').map((skin) => skin.label)).toEqual(['Gold', 'Copper', 'Silver', 'Device', 'Copper Device', 'Key', 'Knob', 'Pegboard', 'Neon', 'Gift', 'Books']);
-		expect(catalogSkins('marble').map((skin) => skin.label)).toEqual(['Glass', 'Green Glass', 'Metal', 'Magic', 'Pearl', 'Deep']);
+		expect(catalogSkins('platform').map((skin) => skin.label)).toEqual(['Gold', 'Copper', 'Silver', 'Pegboard', 'Neon']);
+		expect(catalogSkins('marble').map((skin) => skin.label)).toEqual(['Glass', 'Metal', 'Magic']);
 		expect(themeDefaultSkin('brass', 'rail')).toBe('rail:chrome');
 		expect(skinElement('unknown')).toBe('platform');
 	});
 
-	it('should give Gift and Books their Ribbon Colour as an extra property with the standard Colour choices', () => {
-		for (const id of ['platform:gift', 'platform:books']) {
-			const skin = catalogSkin(id);
-			expect(skin?.properties.map((property) => [property.name, property.type])).toEqual([['Ribbon Colour', 'colour']]);
-			expect(skin?.colours).toEqual(['skin', 'marble', 'note']);
-		}
+	it('should give Gift its Ribbon Colour as an extra property with the standard Colour choices', () => {
+		const skin = catalogSkin('platform:gift');
+		expect(skin?.properties.map((property) => [property.name, property.type])).toEqual([['Ribbon Colour', 'colour']]);
+		expect(skin?.colours).toEqual(['skin', 'marble', 'note']);
 		expect(catalogSkin('platform:gold')?.properties).toEqual([]);
 	});
 
@@ -48,6 +46,7 @@ describe('skin catalog', () => {
 		expect(canonicalSkinId('brass:nope')).toBe('platform:gold');
 		expect(canonicalSkinId('my-agent-skin')).toBe('my-agent-skin');
 		expect(canonicalSkinId('marble:glass')).toBe('marble:glass');
+		expect(canonicalSkinId('platform:books')).toBe('platform:gift');
 	});
 
 	it.each(cases)('should resolve like skin_catalog.py: $name', ({ base, element, parts, component, expected }) => {

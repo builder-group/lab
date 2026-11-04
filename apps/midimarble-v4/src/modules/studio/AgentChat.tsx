@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
-import { ArrowUp, Check, ChevronRight, CircleAlert, Frame, LoaderCircle, Monitor, Sparkles, Square, X } from 'lucide-react';
+import { ArrowUp, Check, ChevronRight, CircleAlert, Ellipsis, Frame, LoaderCircle, Monitor, Sparkles, Square, X } from 'lucide-react';
 import React from 'react';
-import { HelpTip, Select } from '@/components';
+import { HelpTip, MenuButton, Select } from '@/components';
 import {
 	agentChatTurns,
 	agentRunSteps,
@@ -63,6 +63,7 @@ export const AgentChat: React.FC<TAgentChatProps> = (props) => {
 						<Select id="agent-cli" value={chosenCli ?? ''} options={clis.map((item) => ({ value: item.cli, label: cliLabel(item.cli) }))} onChange={(value) => setCli(value as TAgentCli)} />
 					</div>
 				) : null}
+				<MenuButton className="mm-icon-button !h-6 !w-6" title="Agent menu" label={<Ellipsis size={14} strokeWidth={1.8} />} items={[{ label: 'Show Agent Folder', disabled: project == null, onSelect: () => void cx.showAgentFolder() }]} align="right" />
 				<button className="mm-icon-button !h-6 !w-6" onClick={() => cx.togglePanel('agent')} title="Hide Agent (⌘J)" aria-label="Hide Agent" type="button">
 					<X size={14} strokeWidth={1.8} />
 				</button>
@@ -73,7 +74,7 @@ export const AgentChat: React.FC<TAgentChatProps> = (props) => {
 				) : (
 					<div className="mm-agent-empty">
 						<Sparkles size={18} strokeWidth={1.5} />
-						<span>Ask for a look, a skin or a piece</span>
+						<span>Ask for a theme, a skin or a track piece</span>
 					</div>
 				)}
 			</div>

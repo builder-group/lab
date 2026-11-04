@@ -1,27 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import type { TProject } from '@/modules/project';
-import { defaultScatterSources } from './decor-actions';
-import { DECOR_CATEGORIES, DECOR_ITEMS, themeDecorSet } from './decor-catalog';
+import { packAddedNotice } from './concept-words';
+import { addedPacks } from '@/modules/library';
+import { DECOR_ITEMS, listedDecorItems, usedDecorSources } from './decor-catalog';
 
 describe('Decor catalog', () => {
-	it('should sort every item into a category and leave none empty', () => {
-		expect(DECOR_ITEMS.every((item) => DECOR_CATEGORIES.includes(item.category))).toBe(true);
-		expect(DECOR_CATEGORIES.every((category) => DECOR_ITEMS.some((item) => item.category === category))).toBe(true);
+	it('should offer only Particles while no Pack is added', () => {
+		addedPacks.set([]);
+		expect(listedDecorItems().map((item) => item.label)).toEqual(['Particles']);
+	});
+
+	it('should keep offering the items a project has, with their origin', () => {
+		const inUse = usedDecorSources({ decor: [{ source: 'decor:star' }, { source: 'decor:garland' }] as never });
+		const listed = listedDecorItems(inUse);
+		expect(listed.map((item) => item.label)).toEqual(['Star', 'Particles']);
+		expect(listed[0]?.origin).toBe('Starter');
+	});
+
+	it('should offer what an added Pack brings', () => {
+		addedPacks.set([{ builtInDecor: ['decor:star'] }] as never);
+		expect(listedDecorItems().map((item) => item.label)).toEqual(['Star', 'Particles']);
+		addedPacks.set([]);
+	});
+
+	it('should mark the starter items and hide Garland without dropping it', () => {
+		expect(DECOR_ITEMS.filter((item) => item.origin === 'Starter').map((item) => item.label)).toEqual(['Red Bauble', 'Gold Bauble', 'Gold Snowflake', 'Fairy Light', 'Gift Box', 'Star', 'Handle', 'Subscribe']);
+		expect(DECOR_ITEMS.find((item) => item.id === 'decor:garland')?.hidden).toBe(true);
 	});
 });
 
-describe('defaultScatterSources function', () => {
-	const project = (decorSet?: string[]): TProject => ({ design: { theme: 'theme-1', themes: [{ id: 'theme-1', base: 'brass', ...(decorSet != null ? { decorSet } : {}) }] } }) as unknown as TProject;
-
-	it('should start from a project theme\'s own Decor set', () => {
-		expect(defaultScatterSources(project(['decor:star']))).toEqual(['decor:star']);
-	});
-
-	it('should fall back to the base theme\'s set', () => {
-		expect(defaultScatterSources(project())).toEqual([...themeDecorSet('brass')]);
-	});
-
-	it('should start empty for a theme with an empty set, so the panel asks for items', () => {
-		expect(defaultScatterSources(project([]))).toEqual([]);
+describe('packAddedNotice function', () => {
+	it('should say what came and that nothing changed', () => {
+		expect(packAddedNotice('Christmas', { themes: 1, skins: 4, decor: 8 })).toBe('Christmas Pack added: 1 theme, 4 skins, 8 decor items. Nothing in your project changed.');
+		expect(packAddedNotice('Starter Pack', { themes: 0, skins: 0, decor: 1 })).toBe('Starter Pack added: 1 decor item. Nothing in your project changed.');
 	});
 });

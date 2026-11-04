@@ -1,18 +1,21 @@
 import { useFeatureState } from 'feature-react/state';
 import { Wand2, X } from 'lucide-react';
 import React from 'react';
+import { addedPacks } from '@/modules/library';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { assetDecorSource } from './decor';
 import { $scatterPanel, runScatter, type TScatterPanel } from './decor-actions';
-import { DECOR_ITEMS } from './decor-catalog';
+import { listedDecorItems, usedDecorSources } from './decor-catalog';
 
 /**
- * Scatter Decor's small panel over the viewer: which items and how dense, each change re-scattering in place. Everything
- * done while it is open is one undo step, and it replaces only the items it placed.
+ * Scatter Decor's small panel over the viewer: it asks what to scatter and how dense, starting from the last choice. Once
+ * scattered, each change re-scatters in place. Everything done while it is open is one undo step, and it replaces only the
+ * items it placed.
  */
 export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const panel = useFeatureState($scatterPanel);
+	useFeatureState(addedPacks);
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const [density, setDensity] = React.useState<number | null>(null);
 
@@ -30,15 +33,20 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 	}, [panel]);
 
 	if (panel == null) return null;
-	const again = (patch: Partial<TScatterPanel>): void => runScatter(cx, { ...panel, ...patch });
-	// Decor from the Library that is in this project, beside the built-in items
+	const hasScattered = panel.group != null;
+	// Nothing is placed until Scatter; after that every change shows at once
+	const again = (patch: Partial<TScatterPanel>): void => {
+		if (hasScattered) runScatter(cx, { ...panel, ...patch });
+		else $scatterPanel.set({ ...panel, ...patch });
+	};
+	// Decor from the Library that is in this project, beside the listed items
 	const assets = projectItems.flatMap((item) => (item.manifest?.role === 'decoration' ? [{ id: assetDecorSource(item.id, item.manifest.label, item.manifest.fittedParams).source, label: item.manifest.label }] : []));
-	const items = [...DECOR_ITEMS.filter((item) => item.scatter), ...assets];
+	const items = [...listedDecorItems(usedDecorSources(cx.project?.design ?? {})).filter((item) => item.scatter), ...assets];
 
 	function toggle(source: string): void {
 		if (panel == null) return;
 		const sources = panel.sources.includes(source) ? panel.sources.filter((item) => item !== source) : [...panel.sources, source];
-		if (sources.length > 0) again({ sources });
+		if (sources.length > 0 || !hasScattered) again({ sources });
 	}
 
 	return (
@@ -46,11 +54,16 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 			<div className="flex items-center gap-1.5">
 				<Wand2 size={13} strokeWidth={1.8} />
 				<span className="flex-1 font-medium">Scatter Decor</span>
-				<span className="text-[11px] text-[var(--text-secondary)]">{panel.sources.length === 0 ? 'Pick items' : panel.count === 1 ? '1 item' : `${panel.count} items`}</span>
+				<span className="text-[11px] text-[var(--text-secondary)]">{panel.sources.length === 0 ? 'Pick items' : !hasScattered ? '' : panel.count === 1 ? '1 item' : `${panel.count} items`}</span>
 				<button className="mm-icon-button !h-5 !w-5" onClick={() => $scatterPanel.set(null)} title="Done (esc)" aria-label="Done" type="button">
 					<X size={11} strokeWidth={2} />
 				</button>
 			</div>
+			{items.length === 0 ? (
+				<button className="mm-button" onClick={() => cx.library.$isAddPackOpen.set(true)} title="A Pack brings more themes, skins and decor" type="button">
+					Add Pack…
+				</button>
+			) : null}
 			<div className="flex flex-wrap gap-1" role="group" aria-label="Items">
 				{items.map((item) => (
 					<button key={item.id} className="mm-button" data-applied={panel.sources.includes(item.id)} aria-pressed={panel.sources.includes(item.id)} onClick={() => toggle(item.id)} type="button">
@@ -80,9 +93,15 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 					}}
 				/>
 			</label>
-			<button className="mm-button" onClick={() => again({ seed: panel.seed + 1 })} title="The same set and density in new places" type="button">
-				Scatter Again
-			</button>
+			{hasScattered ? (
+				<button className="mm-button" onClick={() => again({ seed: panel.seed + 1 })} title="The same items and density in new places" type="button">
+					Scatter Again
+				</button>
+			) : (
+				<button className="mm-button" data-variant="primary" disabled={panel.sources.length === 0} onClick={() => runScatter(cx, panel)} title="Fill the free wall the camera shows with these items" type="button">
+					Scatter
+				</button>
+			)}
 		</div>
 	);
 };

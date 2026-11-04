@@ -171,6 +171,33 @@ export const host = {
 		return save({ title: 'Export Film', defaultPath, filters: [{ name: 'MPEG-4 Movie', extensions: ['mp4'] }] });
 	},
 
+	/** Import from File…: open panel for a Pack, a folder until the bundled app registers the `.marblepack` type; null when cancelled */
+	async choosePackToImport(): Promise<string | null> {
+		if (!isTauri()) return null;
+		const { open } = await import('@tauri-apps/plugin-dialog');
+		const path = await open({ title: 'Import from File', directory: true, multiple: false });
+		return typeof path === 'string' ? path : null;
+	},
+
+	/** Save panel for a Pack; null when cancelled */
+	async choosePackPath(name: string): Promise<string | null> {
+		if (!isTauri()) return null;
+		const { save } = await import('@tauri-apps/plugin-dialog');
+		return save({ title: 'Export Pack', defaultPath: `${name}.marblepack` });
+	},
+
+	/** Opens a web link in the browser; anything but http and https is refused */
+	async openLink(url: string): Promise<TResult<void, Error>> {
+		if (!/^https?:\/\//i.test(url)) return Err(new Error(`${url} isn't a web link`));
+		try {
+			const { openUrl } = await import('@tauri-apps/plugin-opener');
+			await openUrl(url);
+			return Ok(undefined);
+		} catch (error) {
+			return Err(new Error(String(error)));
+		}
+	},
+
 	/** Selects a file in a Finder window */
 	async revealInFinder(path: string): Promise<TResult<void, Error>> {
 		if (!isTauri()) return Err(new Error('Show in Finder works in the desktop app. Open MidiMarble on your Mac.'));

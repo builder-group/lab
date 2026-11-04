@@ -13,6 +13,22 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### 2026-11-04: One way to make a film: MCP, agent folder, Packs
+
+- `midimarble mcp`: the app binary as a stdio MCP server, bridging over a per-user Unix socket to the running app, with ten tools and five guides built in. Enable MCP (on by default) and Show AI Workspace in the Help menu. Each call is one named Undo step, "Agent: …". See architecture.md, MCP.
+- Package `agent/` folder: AGENTS.md on first agent use, references, notes, scratch (out of Save As), runs (one log per MCP session). References section in the Scene inspector; Show Agent Folder in the chat's menu and ⌘K.
+- Packs: `.marblepack`, Add Pack… sheet with cards and a detail view, Import from File…, Export Pack… sheet, bundled Starter (built-in decor ids for now), `addedPacks`, origins in copies, "· Not Added" line opening the Pack's card.
+- Checks: typecheck, lint, test and cargo test, including `src-tauri/tests/mcp_stdio.rs` against a stub socket. End to end against `tauri dev` on port 1437: new project, add_song, build.next, project.execute, add_asset with a headless-Blender .blend, placeDecor, set_references, play_range, preview_frame (draft, Blender image returned), design.addPack, design.exportPack, Draft export to `.local/mcp/e2e.mp4` with sound, run log written. Scripts: `.local/mcp/e2e.py`, `e2e2.py`.
+- Not checked: the Add Pack, Export Pack and References UI by eye (screen capture isn't permitted in this session); a real Claude Code or Codex connecting through the generated workspace; Show AI Workspace and Enable MCP from the menu; audio of `play_range` before any click in the window, since WebKit needs a gesture.
+- Next: the in-app chat moves onto these tools (architecture.md). Built-in decor hides behind `addedBuiltInDecor()` where the simplicity pass reads it.
+
+### 2026-11-04: Simplicity pass and clear words (Round 7)
+
+- Went away: Tinsel, Layout, Books; Decor categories and theme scatter sets, `decorSet`; Add menus on Layers, timeline and group rows (`add-menu.ts`); inspector Delete, Duplicate, Hidden, Add Shot, Shots readout, Linked to Blender rows; Softness, Exposure, Bloom panels; Duplicate to Edit, Duplicate Theme, Colour by Note command, theme Name and Glow fields
+- Hidden off the tiles unless used, with an origin line: Gift, Candy Rail, Candy Switchback, Green Glass (Christmas Pack), Device, Copper Device, Key, Knob (Brass Sections); Pearl and Deep behind Theme Default. Garland hidden. Starter Decor (`origin`) shows after its Pack is added (`addedBuiltInDecor`) or where the project has it
+- Old files load within `marble-project@4`: `withoutRemovedFields` in `project-file.ts` (Tinsel to Plaster, Layout and `decorSet` dropped), `canonical.removed` in the skin catalog (Books to Gift), theme parts canonicalised in `migrateSkins`
+- New: Insert has Song…, Marble, Wall Title, Particles, Add Pack…; Scatter asks first and remembers (`readScatterChoice`); ⌫ and a row menu delete a Title, which only had the inspector button; `concept-words.ts` holds the one-liners and `packAddedNotice`; Seamless Loop moved to Compose's Scene; Track wording throughout
+
 ### 2026-11-04: Dot previews, hit dots, arrows and ⌫, piano roll notes and keys
 
 - A click on an open dot previews its platform as an outline; click again, Return or N adds it. Every hit keeps a dot in its status colour and the timing badge is gone; a placed dot selects the hit

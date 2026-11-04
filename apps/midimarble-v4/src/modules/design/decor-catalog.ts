@@ -1,14 +1,18 @@
-import type { TDecor } from '@/modules/project';
+import { addedBuiltInDecor } from '@/modules/library';
+import type { TDecor, TDesign } from '@/modules/project';
 import catalog from '../../../blender/mm_worker/decor_catalog.json';
 
-// The built-in Decor items with their categories, and each theme's Decor set. The Blender worker builds the
-// same items from the same file (`decor.py`), and `check_design.py` holds its meshes to these sizes.
+// The Decor items. They leave the app as a starter Pack later; until then `origin` names it and `hidden` keeps an item
+// rendering in the projects that have it, off Insert and the tiles. The Blender worker builds the same items from the same file (`decor.py`), and `check_design.py` holds its meshes to these sizes.
 
 export interface TDecorItem {
 	/** `decor:bauble-red`: a project's `source` for this item */
 	id: string;
 	label: string;
-	category: TDecorCategory;
+	/** Quiet origin line: the Pack it comes from */
+	origin?: string;
+	/** Renders where a project has it, and is no longer offered */
+	hidden?: boolean;
 	previewUrl: string;
 	/** Half width and half height on the wall in metres at scale 1, a text item's for its default text */
 	halfWidth: number;
@@ -27,13 +31,16 @@ export interface TDecorItem {
 
 export const DECOR_ITEMS: readonly TDecorItem[] = catalog.items.map(({ preview, ...item }) => ({ ...item, previewUrl: `/decor/${preview}` }) as TDecorItem);
 
-const DEFAULT_THEME_SET = catalog.themes.brass;
+/** The items Insert and the tiles offer: those without a Pack, an added Pack's, and those the project already has */
+export function listedDecorItems(inUse: ReadonlySet<string> = new Set()): TDecorItem[] {
+	const added = addedBuiltInDecor();
+	return DECOR_ITEMS.filter((item) => item.hidden !== true && (item.origin == null || added.includes(item.id) || inUse.has(item.id)));
+}
 
-/** What an item is, the sections Insert lists Decor by; never a season or an occasion, which a theme's Decor set carries */
-export const DECOR_CATEGORIES = ['Ornaments', 'Lights', 'Particles', 'Text'] as const;
-
-export type TDecorCategory = (typeof DECOR_CATEGORIES)[number];
-
+/** The items a project has placed, which it keeps offering without their Pack */
+export function usedDecorSources(design: Pick<TDesign, 'decor'>): ReadonlySet<string> {
+	return new Set((design.decor ?? []).map((decor) => decor.source));
+}
 
 export function decorItem(source: string): TDecorItem | null {
 	return DECOR_ITEMS.find((item) => item.id === source) ?? null;
@@ -42,11 +49,6 @@ export function decorItem(source: string): TDecorItem | null {
 /** Whether a decoration belongs to the frame rather than the wall */
 export function isFrameEffect(decor: Pick<TDecor, 'source'>): boolean {
 	return decorItem(decor.source)?.effect != null;
-}
-
-/** The items a built-in theme's Scatter Decor starts with */
-export function themeDecorSet(base: string): readonly string[] {
-	return (catalog.themes as Record<string, string[] | undefined>)[base] ?? DEFAULT_THEME_SET;
 }
 
 /** Half extents of an asset whose manifest gives none */

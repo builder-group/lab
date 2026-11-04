@@ -883,7 +883,7 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 		<div ref={barRef} className="mm-assist-bar mm-ghost-in" style={{ left, top }} role="toolbar" aria-label="Assists">
 			<AssistButton
 				label="Place Next Platform"
-				detail={queued > 0 ? `${queued} more ${queued === 1 ? 'press' : 'presses'} waiting for the run · esc cancels` : 'Add the platform for the next open note'}
+				detail={queued > 0 ? `${queued} more ${queued === 1 ? 'press' : 'presses'} waiting for the track · esc cancels` : 'Add the platform for the next open note'}
 				shortcut="N"
 				onClick={() => compose.next()}
 				isText

@@ -21,8 +21,9 @@ pub const PREVIEW_FILE: &str = "preview.png";
 
 /// Top-level package entries the app or the Blender worker rewrite during normal work, so changes there
 /// do not indicate an agent writing outside its folder
-const VOLATILE_ENTRIES: [&str; 5] = [
+const VOLATILE_ENTRIES: [&str; 6] = [
     CANDIDATES_FOLDER,
+    "agent",
     ".bridge",
     ".cache",
     "renders",

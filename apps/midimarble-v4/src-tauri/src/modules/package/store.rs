@@ -121,7 +121,8 @@ pub fn move_package(from: &Path, to: &Path) -> Result<PathBuf, PackageError> {
     return Ok(target);
 }
 
-/// Copies a package to a new path for Save As…, leaving out the runtime mailbox of Blender's worker
+/// Copies a package to a new path for Save As…, leaving out the runtime mailbox of Blender's worker and the agents'
+/// scratch space
 pub fn copy_package(from: &Path, to: &Path) -> Result<PathBuf, PackageError> {
     if !from.join(PROJECT_FILE).is_file() {
         return Err(PackageError::NotAPackage(display(from)));
@@ -135,6 +136,7 @@ pub fn copy_package(from: &Path, to: &Path) -> Result<PathBuf, PackageError> {
         return Err(error);
     }
     let _ = fs::remove_dir_all(target.join(".bridge"));
+    let _ = fs::remove_dir_all(target.join("agent/scratch"));
     return Ok(target);
 }
 
@@ -275,11 +277,17 @@ mod tests {
         let package = create_package(&root.join("Jingle Bells"), "{}").unwrap();
         fs::write(package.join("audio/song.mid"), b"MThd").unwrap();
         fs::create_dir_all(package.join(".bridge/outbox")).unwrap();
+        fs::create_dir_all(package.join("agent/scratch")).unwrap();
+        fs::write(package.join("agent/scratch/try.py"), "x").unwrap();
+        fs::create_dir_all(package.join("agent/notes")).unwrap();
+        fs::write(package.join("agent/notes/look.md"), "warm").unwrap();
         let copy = copy_package(&package, &root.join("Copy")).unwrap();
         assert_eq!(copy, root.join("Copy.marble"));
         assert!(package.join(PROJECT_FILE).is_file());
         assert_eq!(fs::read(copy.join("audio/song.mid")).unwrap(), b"MThd");
         assert!(!copy.join(".bridge").exists());
+        assert!(!copy.join("agent/scratch").exists());
+        assert!(copy.join("agent/notes/look.md").is_file());
         assert!(matches!(
             copy_package(&package, &copy),
             Err(PackageError::AlreadyExists(_))

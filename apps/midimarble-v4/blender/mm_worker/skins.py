@@ -438,7 +438,7 @@ class PieceFrame:
         return themes.wood_material() if self.colour == 'skin' else themes.flat_material(self.color, roughness, coat)
 
     def wrap(self, own):
-        """Material of a Gift's paper or a book's cover: `own` with Colour: Skin, its note's or its marble's colour otherwise"""
+        """Material of a Gift's paper: `own` with Colour: Skin, its note's or its marble's colour otherwise"""
         if self.note_pitch is not None:
             return themes.note_material(self.note_pitch)
         return skin_materials.paper_material(own if self.colour == 'skin' else self.color)
@@ -481,13 +481,10 @@ class PieceFrame:
 
 
 RIBBON_COLOR = '#d9a520'
-# Gift and Books: a colour of its own per piece, so a run of them reads as a pile of presents
+# Gift: a colour of its own per piece, so a run of them reads as a pile of presents
 # (paper, ribbon)
 GIFT_PAPERS = (('#a01522', RIBBON_COLOR), ('#14603a', RIBBON_COLOR), ('#ece4d2', '#a81a26'), ('#a01522', RIBBON_COLOR), ('#14603a', '#ece4d2'))
-BOOK_COVERS = ('#8e2430', '#1f5a44', '#27406e', '#8a6a32', '#5c3a5e')
-BOOK_PAGES = '#e9e1cc'
-BOOK_GOLD = '#d2a84a'
-# Height of a Gift or a stack of Books at the 16 mm marble of the Marble Race Kit: their top face is the contact surface
+# Height of a Gift at the 16 mm marble of the Marble Race Kit: its top face is the contact surface
 PRESENT_HEIGHT = 0.017
 
 
@@ -545,41 +542,6 @@ def gift_spec(frame, length, thickness):
     }
 
 
-def books_spec(frame, length, thickness):
-    """Three books stacked on the wall, spines to the front with gilt bands, tied with a ribbon and a bow. The top book's
-    cover is the contact surface and reaches the piece's full length."""
-    k = frame.marble_radius / 0.008
-    depth, y, top, bottom = present_box(frame, length, thickness)
-    shares = (0.3, 0.38, 0.32)
-    covers = [frame.wrap(frame.pick(BOOK_COVERS, str(level))) if level == 0 else skin_materials.paper_material(frame.pick(BOOK_COVERS, str(level))) for level in range(3)]
-    stack = MeshBuilder()
-    board = 0.0008 * k
-    z_top = top
-    for level, share in enumerate(shares):
-        tall = (top - bottom) * share
-        # Lower books are a little shorter and set off to one side, the way a stack lies
-        offset = 0.0 if level == 0 else (0.04 if frame.pick((0, 1), str(level)) else -0.04) * length
-        long = length if level == 0 else length * (0.9 + 0.04 * level)
-        middle = z_top - tall / 2
-        stack.box((long, depth, board), (offset, y, z_top - board / 2), bevel=0.0002 * k, segments=1, material=level)
-        stack.box((long, depth, board), (offset, y, z_top - tall + board / 2), bevel=0.0002 * k, segments=1, material=level)
-        spine = y - depth / 2 + 0.0006 * k
-        stack.box((long, 0.0012 * k, tall), (offset, spine, middle), bevel=0.0004 * k, segments=2, material=level)
-        stack.box((long - 0.002 * k, depth - 0.0014 * k, tall - board * 2 + 0.0001), (offset, y + 0.0004 * k, middle), material=3)
-        for side in (-1, 1):
-            stack.box((0.002 * k, 0.0003 * k, tall * 0.92), (offset + side * long * 0.36, spine - 0.0006 * k, middle), material=4)
-        z_top -= tall
-    band = min(max(length * 0.075, 0.003 * k), 0.0055 * k)
-    proud = 0.0003 * k
-    stack.box((band, depth + proud * 2, top - bottom - 0.0001), (0.0, y, (top + bottom) / 2 - 0.00005), material=5)
-    add_bow(stack, (0.0, y - depth / 2 - proud - 0.0002 * k, top - 0.0056 * k), k, 5)
-    materials = [*covers, skin_materials.paper_material(BOOK_PAGES, 0.8, 0.0), skin_materials.paper_material(BOOK_GOLD, 0.3, 0.3), frame.ribbon()]
-    return {
-        'root': wall_cleat(frame, length, bottom, k),
-        'parts': [{'role': 'bar', 'mesh': stack.to_mesh('MM books', materials), 'reactive': True}],
-    }
-
-
 def platform_spec(frame, piece):
     params = frame.params
     length = params.get('length', 0.06)
@@ -588,8 +550,6 @@ def platform_spec(frame, piece):
         return device_spec(frame, length, thickness)
     if frame.style == 'gift':
         return gift_spec(frame, length, thickness)
-    if frame.style == 'books':
-        return books_spec(frame, length, thickness)
     if frame.style in BAR_FINISHES:
         chrome = themes.chrome_material()
         metal = frame.metal(themes.bar_material(frame.style))

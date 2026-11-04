@@ -168,6 +168,19 @@ export class DesignCx {
 		return this.enqueue(() => this.sync());
 	}
 
+	/** One frame of the film from Blender, with the scene as it is now, for an agent to look at */
+	renderStill(time: number, width: number): Promise<TResult<TPreviewFrameResult, Error>> {
+		return this.enqueue(async () => {
+			const isSynced = await this.sync();
+			const packagePath = this.source.getPackagePath();
+			if (!isSynced || packagePath == null) return Err(new Error(this.$error.get() ?? "Blender couldn't prepare the frame. Wait for the track to update, then try again."));
+			this.$status.set('rendering');
+			const [isFrameOk, frameErr, frame] = await blender.previewFrame(packagePath, { time, width });
+			this.$status.set(isFrameOk ? 'ready' : 'error');
+			return isFrameOk ? Ok(frame) : Err(new Error(frameErr.message));
+		});
+	}
+
 	/** Reads link states of app-owned objects from Blender */
 	async refreshLinks(): Promise<void> {
 		const packagePath = this.startedFor;

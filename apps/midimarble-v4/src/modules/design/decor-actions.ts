@@ -1,14 +1,14 @@
 import { createState } from 'feature-state';
+import { addedPacks, type TLibraryItem } from '@/modules/library';
 import { sampleCameraTrack } from '@/modules/camera';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { $blenderObjects, addDecorCommands, assetDecorSource, builtInSource, moveDecorClear, type TDecorSource } from './decor';
-import { decorItem, themeDecorSet } from './decor-catalog';
+import { decorItem } from './decor-catalog';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from './decor-scatter';
 import { previewPointToWall } from './design-commands';
 import { filmCamera, imageToWall } from './film-camera';
-import { baseThemeOf } from './project-themes';
 
 // Decor's edits that need the studio: what the Add menu, Insert, ⌘K and the viewer's drops share.
 
@@ -25,10 +25,19 @@ export function placeDecor(cx: StudioCx, source: TDecorSource, u = 0.5, v = 0.5)
 }
 
 /** A library item as a decoration: a built-in one by its id, a project's item by its asset path; null for anything else */
-export function libraryDecorSource(cx: StudioCx, asset: { id: string; scope: string }): TDecorSource | null {
-	const item = [...cx.library.$projectItems.get(), ...cx.library.$globalItems.get()].find((candidate) => candidate.id === asset.id && candidate.scope === asset.scope);
+export function libraryDecorSource(cx: StudioCx, asset: { id: string; scope: string; packId?: string | null }): TDecorSource | null {
+	const items = [...cx.library.$projectItems.get(), ...cx.library.$globalItems.get(), ...addedPacks.get().flatMap((pack) => pack.items)];
+	const item = items.find((candidate) => candidate.id === asset.id && candidate.scope === asset.scope && candidate.packId === (asset.packId ?? null));
 	if (item?.manifest?.role !== 'decoration') return null;
+	// A drop places at once, so a Pack's or kept item's file arrives in the project right after
+	if (item.scope !== 'project') void cx.library.inProject(item);
 	return assetDecorSource(item.id, item.manifest.label, item.manifest.fittedParams);
+}
+
+/** Places a library item at the playhead, copying a Pack's or kept item into the project first */
+export async function placeLibraryDecor(cx: StudioCx, item: TLibraryItem, label: string): Promise<boolean> {
+	const id = await cx.library.inProject(item);
+	return id != null && placeDecor(cx, assetDecorSource(id, label, item.manifest?.fittedParams));
 }
 
 /** Move Clear for a decoration, or a notice when no spot near it is free */
@@ -59,27 +68,42 @@ export interface TScatterPanel {
 	seed: number;
 	/** How many items the latest scatter placed */
 	count: number;
-	/** The undo step the panel's scatters fold into */
+	/** The undo step the panel's scatters fold into; null until the first scatter */
 	group: number | null;
 }
 
 export const $scatterPanel = createState<TScatterPanel | null>(null);
 
-/** What Scatter Decor starts with: the theme's Decor set, its own or its base's. With an empty one you pick the items in the panel */
-export function defaultScatterSources(project: TProject): string[] {
-	const { design } = project;
-	const own = design.themes?.find((theme) => theme.id === design.theme)?.decorSet;
-	return [...(own ?? themeDecorSet(baseThemeOf(design)))];
+const SCATTER_CHOICE_KEY = 'midimarble.scatterChoice';
+
+/** The items last scattered, which the panel starts with; a theme brings none, so it asks */
+export function readScatterChoice(): string[] {
+	try {
+		const value: unknown = JSON.parse(localStorage.getItem(SCATTER_CHOICE_KEY) ?? '[]');
+		return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+	} catch {
+		return [];
+	}
 }
 
-/** Opens the panel and scatters with its first settings */
+function rememberScatterChoice(sources: readonly string[]): void {
+	try {
+		localStorage.setItem(SCATTER_CHOICE_KEY, JSON.stringify(sources));
+	} catch {
+		// Only a convenience: the panel asks again next time
+	}
+}
+
+/**
+ * Opens the panel. It asks what to scatter, starting from the last choice, and changes nothing until Scatter is pressed;
+ * `sources`, such as what an agent just made, scatter at once.
+ */
 export function openScatterPanel(cx: StudioCx, sources?: string[]): void {
-	const project = cx.project;
-	if (project == null) return;
+	if (cx.project == null) return;
 	cx.$workspace.set('design');
-	const panel: TScatterPanel = { sources: sources ?? defaultScatterSources(project), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, group: null };
+	const panel: TScatterPanel = { sources: sources ?? readScatterChoice().filter((source) => resolveDecorSource(cx, source) != null), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, group: null };
 	$scatterPanel.set(panel);
-	if (panel.sources.length > 0) runScatter(cx, panel);
+	if (sources != null && sources.length > 0) runScatter(cx, panel);
 }
 
 /** Scatters with the panel's settings; everything the panel does until it closes is one undo step */
@@ -90,6 +114,7 @@ export function runScatter(cx: StudioCx, panel: TScatterPanel): void {
 	});
 	const count = scatter(cx, items, panel.density, panel.seed, panel.group);
 	if (count == null) return;
+	rememberScatterChoice(panel.sources);
 	$scatterPanel.set({ ...panel, count, group: panel.group ?? cx.editGroup });
 }
 
@@ -99,7 +124,7 @@ export function scatter(cx: StudioCx, items: readonly TDecorSource[], density: n
 	const result = cx.simulation.$result.get();
 	const track = project != null && result != null ? filmCamera(project, result).track : null;
 	if (project == null || result == null || track == null) {
-		cx.notify('The run is still updating. Try Scatter Decor again in a moment');
+		cx.notify('The track is still updating. Try Scatter Decor again in a moment');
 		return null;
 	}
 	const { commands, count } = scatterDecorCommands(project, result, track, { items, density, seed, blenderObjects: $blenderObjects.get() });

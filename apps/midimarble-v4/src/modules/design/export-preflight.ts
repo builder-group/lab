@@ -20,8 +20,8 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	if (result == null || result.revision !== project.revision) {
 		return {
 			state: 'pending',
-			issues: [{ id: 'simulation', kind: 'simulation', severity: 'info', title: 'Checking the run…', detail: 'The run is still updating after the latest edit.', target: null }],
-			summary: 'Checking the run…',
+			issues: [{ id: 'simulation', kind: 'simulation', severity: 'info', title: 'Checking the track…', detail: 'The run is still updating after the latest edit.', target: null }],
+			summary: 'Checking the track…',
 			warnings: 0,
 			notes: 1,
 			hitCount: countHits(project),

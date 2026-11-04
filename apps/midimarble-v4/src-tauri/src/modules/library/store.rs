@@ -28,6 +28,8 @@ pub struct LibraryItemDto {
     pub manifest_json: Option<String>,
     pub has_asset: bool,
     pub preview_path: Option<String>,
+    /// The imported Pack it lives in, for an item not yet copied into a project
+    pub pack_id: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -86,6 +88,7 @@ pub fn item(dir: &Path, id: &str, scope: LibraryScope) -> LibraryItemDto {
         manifest_json: fs::read_to_string(dir.join(MANIFEST_FILE)).ok(),
         has_asset: dir.join(ASSET_FILE).is_file(),
         preview_path: preview.is_file().then(|| preview.display().to_string()),
+        pack_id: None,
     };
 }
 

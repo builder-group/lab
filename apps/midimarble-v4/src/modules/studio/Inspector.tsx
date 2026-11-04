@@ -1,5 +1,6 @@
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useFeatureState } from 'feature-react/state';
-import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus, Trash2 } from 'lucide-react';
+import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
@@ -10,7 +11,7 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStat
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { ZOOM_100_SCALE } from '@/modules/compose/view';
-import { CameraInspector, FilmLoopPanel, PieceLook, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
+import { CameraInspector, PieceLook, SeamlessLoopPanel, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
 import { MarbleLook } from '@/modules/design/SkinProperties';
 import { ThemePanel } from '@/modules/design/ThemePanel';
 import { DecorInspector, DecorsInspector, MadeInBlenderInspector } from '@/modules/design/DecorInspector';
@@ -23,7 +24,7 @@ import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
 import { KEY_LIGHT_ID, parseHitKey } from './selection';
-import { deleteSongQuestion, SONG_LAYER_LABEL } from './song-layer';
+import { SONG_LAYER_LABEL } from './song-layer';
 import { songSource } from './SourcesCx';
 import type { StudioCx, TWorkspace } from './StudioCx';
 import { auditionNote, BACKING_COLOR, handNotes } from './timeline/hand-notes';
@@ -400,7 +401,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					<PlatformFields cx={cx} project={project} entity={piece} />
 				</Panel>
 			) : null}
-			<Panel id="hit.playedBy" title="Play With" accessory={<HelpTip text="Backing is heard in the film, no piece needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
+			<Panel id="hit.playedBy" title="Play With" accessory={<HelpTip text="Backing is heard in the film, no platform needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 				{playedBy}
 				{isBacking ? null : piece != null ? (
 					<LinkRow icon={<PieceIcon type={piece.components.piece?.type ?? 'platform'} size={14} />} title={`Select ${pieceLabel}`} onOpen={() => cx.reveal([piece.id])}>
@@ -463,7 +464,7 @@ const HitGlyph: React.FC<{ color?: string }> = (props) => {
 // MARK: - Song
 
 /**
- * The Song layer's inspector: the file and its kind, tempo and meter, and Replace Song… and Delete Song, then the
+ * The Song layer's inspector: the file and its kind, tempo and meter, and Replace Song…, then the
  * same Parts as the expanded Song row, each with Sound, Mute and Solo, or a recording's one Mute and Solo. The layer exists only while the project has a song file or Backing notes.
  */
 const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
@@ -472,7 +473,6 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 	const tempo = project.music.tempo;
 	const parts = songParts(project);
 	const kind = song == null ? 'Backing' : song.kind === 'audio' ? 'Recording' : 'MIDI';
-	const deleteQuestion = deleteSongQuestion(project);
 
 	return (
 		<>
@@ -500,17 +500,8 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 						</ReadoutField>
 					</>
 				) : null}
-				<button className="mm-button" onClick={() => void (song == null ? cx.importSong() : cx.sources.replaceSong())} title="Choose another MIDI file or recording; the marbles keep their hits" type="button">
+				<button className="mm-button" data-span="2" onClick={() => void (song == null ? cx.importSong() : cx.sources.replaceSong())} title="Choose another MIDI file or recording; the marbles keep their hits" type="button">
 					{song == null ? 'Import Song…' : 'Replace Song…'}
-				</button>
-				<button
-					className="mm-button"
-					onClick={() => void cx.sources.deleteSong()}
-					title={deleteQuestion == null ? 'Delete the song; the marbles keep their hits (⌫)' : 'Delete the song and its Backing notes; the marbles keep their hits (⌫)'}
-					type="button"
-				>
-					<Trash2 size={12} strokeWidth={1.8} />
-					Delete Song
 				</button>
 			</Panel>
 			{song?.kind === 'audio' ? (
@@ -521,7 +512,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 					</div>
 				</Panel>
 			) : parts.length > 0 ? (
-				<Panel id="song.parts" title="Parts" accessory={<HelpTip text="Each marble plays a slice of the song; Backing is the notes no marble plays, heard with no piece needed. Solo a Part to hear just that slice. Muted Parts are also left out of the film's sound." />}>
+				<Panel id="song.parts" title="Parts" accessory={<HelpTip text="Each marble plays a slice of the song; Backing is the notes no marble plays, heard with no platform needed. Solo a Part to hear just that slice. Muted Parts are also left out of the film's sound." />}>
 					{parts.map((part) => (
 						<React.Fragment key={part.id}>
 							<div className="flex min-w-0 items-center gap-1.5" data-span="2">
@@ -551,8 +542,8 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 
 /**
  * The Scene, selected by its row in Layers or by clearing the selection, like Blender's Scene properties: only what the
- * whole film shares. In Film the theme comes first, then the length and the Marble Speed every marble shares, then
- * Seamless Loop. Each layer keeps its own settings.
+ * whole film shares. In Film the theme comes first, then the length and the Marble Speed every marble shares; Compose
+ * ends with Seamless Loop, where the run has to loop. Each layer keeps its own settings.
  */
 const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolean }> = (props) => {
 	const { cx, project, isFilm } = props;
@@ -564,6 +555,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 	return (
 		<>
 			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Scene" subtitle={formatTime(project.end)} />
+			<ReferencesPanel cx={cx} />
 			{isFilm ? <ThemePanel cx={cx} project={project} /> : null}
 			<Panel id="world.film" title="Length" accessory={<HelpTip text="How long the film runs. Fit to Song ends it shortly after the last note." />}>
 				<ScrubField id="project-end" label="Length" name="Film length" value={project.end} unit="" step={0.05} precision={2} min={0.5} format={formatTime} parse={parseTime} onCommit={(end) => cx.execute([{ type: 'setEnd', end }])} />
@@ -598,8 +590,28 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 					}}
 				/>
 			</Panel>
-			{isFilm ? <FilmLoopPanel cx={cx} project={project} /> : null}
+			{isFilm ? null : <SeamlessLoopPanel cx={cx} project={project} />}
 		</>
+	);
+};
+
+/** The images and words that set this film's look, only when the project has them */
+const ReferencesPanel: React.FC<{ cx: StudioCx }> = ({ cx }) => {
+	const references = useFeatureState(cx.$references);
+	if (references.images.length === 0 && references.text.trim() === '') return null;
+	return (
+		<Panel id="scene.references" title="References" accessory={<HelpTip text="The images and words this film follows. Agents read them; they live in the project's agent folder." />}>
+			<div className="flex flex-col gap-1.5" data-span="2">
+				{references.images.length > 0 ? (
+					<div className="flex flex-wrap gap-1">
+						{references.images.map((path) => (
+							<img key={path} alt="" src={convertFileSrc(path)} className="h-11 w-11 rounded-[4px] object-cover" draggable={false} />
+						))}
+					</div>
+				) : null}
+				{references.text.trim() !== '' ? <p className="mm-caption line-clamp-4 whitespace-pre-wrap">{references.text.trim()}</p> : null}
+			</div>
+		</Panel>
 	);
 };
 

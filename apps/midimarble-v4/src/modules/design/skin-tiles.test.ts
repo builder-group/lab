@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, type TEntity, type TProject } from '@/modules/project';
 import { catalogSkins } from './skin-catalog';
-import { decorTiles, skinTiles, THEME_DEFAULT_TILE, themePartRows, wallTiles } from './skin-tiles';
+import { decorTiles, skinTiles, THEME_DEFAULT_TILE, themePartRows, usedSkinIds, wallTiles } from './skin-tiles';
 
 function platform(id: string, assetId?: string): TEntity {
 	return { id, components: { piece: { type: 'platform' }, ...(assetId != null ? { skin: { assetId, link: 'linked' } } : {}) } } as unknown as TEntity;
@@ -51,14 +51,34 @@ describe('wallTiles function', () => {
 		const tiles = wallTiles(project.design);
 		expect(tiles[0]).toMatchObject({ id: THEME_DEFAULT_TILE, kind: null, isCurrent: true });
 		expect(tiles.filter((tile) => tile.kind === tiles[0]?.shownKind)).toEqual([]);
-		const chosen = wallTiles({ ...project.design, wall: { kind: 'tinsel' } });
-		expect(chosen.filter((tile) => tile.isCurrent).map((tile) => tile.id)).toEqual(['tinsel']);
+		const chosen = wallTiles({ ...project.design, wall: { kind: 'grid' } });
+		expect(chosen.filter((tile) => tile.isCurrent).map((tile) => tile.id)).toEqual(['grid']);
+	});
+});
+
+describe('hidden skins', () => {
+	it('should stay off the tiles until the project uses them, and show their origin then', () => {
+		const labels = (skins?: ReadonlySet<string>): string[] => skinTiles(brassProject().design, 'platform', [], skins).map((tile) => tile.label);
+		expect(labels()).toEqual(['Theme Default', 'Copper', 'Silver', 'Pegboard', 'Neon']);
+		const used = usedSkinIds(brassProject([platform('a', 'platform:knob')]));
+		expect(labels(used)).toContain('Knob');
+		expect(skinTiles(brassProject().design, 'platform', [], used).find((tile) => tile.label === 'Knob')?.detail).toBe('Brass Sections');
+	});
+
+	it('should count what a project theme names as used', () => {
+		const project = brassProject();
+		const used = usedSkinIds({ ...project, design: { ...project.design, themes: [{ id: 't', name: 'T', base: 'brass', overrides: {}, parts: { rail: { skin: 'rail:candy' } } }] } });
+		expect(used.has('rail:candy')).toBe(true);
+	});
+
+	it('should offer Glass, Metal and Magic for marbles, with Pearl or Deep behind Theme Default', () => {
+		expect(skinTiles(brassProject().design, 'marble', []).map((tile) => tile.label)).toEqual(['Theme Default', 'Glass', 'Metal', 'Magic']);
 	});
 });
 
 describe('decorTiles function', () => {
 	it('should ring the item every selected decoration is', () => {
-		const current = (sources: string[]): string[] => decorTiles(sources.map((source) => ({ source }))).filter((tile) => tile.isCurrent).map((tile) => tile.id);
+		const current = (sources: string[]): string[] => decorTiles(sources.map((source) => ({ source })), new Set(sources)).filter((tile) => tile.isCurrent).map((tile) => tile.id);
 		expect(current(['decor:star'])).toEqual(['decor:star']);
 		expect(current(['decor:star', 'decor:bauble-red'])).toEqual([]);
 	});

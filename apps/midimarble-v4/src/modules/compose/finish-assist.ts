@@ -165,7 +165,7 @@ export async function findFinish(
 		}
 	}
 	return {
-		error: `No Finish catches ${marble} after its last note: ${reason || `${marble} leaves the run too soon`}. Drop one on its fall by hand.`
+		error: `No Finish catches ${marble} after its last note: ${reason || `${marble} leaves the track too soon`}. Drop one on its fall by hand.`
 	};
 }
 

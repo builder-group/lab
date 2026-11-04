@@ -26,15 +26,19 @@ export interface TCatalogSkin {
 	variant: string | null;
 	/** Extra properties the skin has beyond the standard ones, such as Gift's Ribbon Colour */
 	properties: readonly TAssetProperty[];
-	/** Under `public/`; null for a skin the Library doesn't list */
+	/** Under `public/`; null for a skin with no tile */
 	previewUrl: string | null;
+	/** Off the tiles unless the project already uses it: a project's content for now, a Pack later; the Theme Default marble */
+	isHidden: boolean;
+	/** Quiet origin line, the Pack or example project it belongs to; a built-in skin has none */
+	origin: string;
 }
 
 export const SKIN_ELEMENTS = Object.keys(catalog.elements) as TSkinElement[];
 
 const ALL_SKINS: readonly TCatalogSkin[] = SKIN_ELEMENTS.flatMap((element) =>
 	catalog.elements[element].skins.map((skin): TCatalogSkin => {
-		const raw = skin as typeof skin & { glows?: boolean; preview?: string; variants?: { id: string; label: string }[]; variant?: string; properties?: TAssetProperty[] };
+		const raw = skin as typeof skin & { hidden?: boolean; origin?: string; glows?: boolean; preview?: string; variants?: { id: string; label: string }[]; variant?: string; properties?: TAssetProperty[] };
 		return {
 			id: raw.id,
 			label: raw.label,
@@ -46,7 +50,9 @@ const ALL_SKINS: readonly TCatalogSkin[] = SKIN_ELEMENTS.flatMap((element) =>
 			variants: raw.variants ?? [],
 			variant: raw.variant ?? null,
 			properties: raw.properties ?? [],
-			previewUrl: raw.preview != null ? `/skins/${raw.preview}` : null
+			previewUrl: raw.preview != null ? `/skins/${raw.preview}` : null,
+			isHidden: raw.hidden === true,
+			origin: raw.origin ?? ''
 		};
 	})
 );
@@ -77,9 +83,12 @@ export function elementOnHit(element: TSkinElement): readonly TSkinOnHit[] {
 	return catalog.elements[element].onHit as TSkinOnHit[];
 }
 
-/** The skins the Library lists for an element */
-export function catalogSkins(element: TSkinElement): TCatalogSkin[] {
-	return ALL_SKINS.filter((skin) => skin.element === element && skin.previewUrl != null);
+/**
+ * The skin tiles of an element: the built-in ones, then hidden ones `usedSkins` names, which keep a tile so a project that
+ * uses one can go back to it
+ */
+export function catalogSkins(element: TSkinElement, usedSkins: ReadonlySet<string> = new Set()): TCatalogSkin[] {
+	return ALL_SKINS.filter((skin) => skin.element === element && skin.previewUrl != null && (!skin.isHidden || usedSkins.has(skin.id)));
 }
 
 /** A built-in skin by its id, old ids included */

@@ -195,7 +195,7 @@ describe('preflightExport function', () => {
 		const project = createTwoLaneProject();
 
 		expect(preflightExport(project, null).state).toBe('pending');
-		expect(preflightExport(project, createResult({ revision: 2 })).summary).toBe('Checking the run…');
+		expect(preflightExport(project, createResult({ revision: 2 })).summary).toBe('Checking the track…');
 	});
 
 	it('should explain missed, resting, blocked and drifting hits', () => {

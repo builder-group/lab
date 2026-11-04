@@ -1,7 +1,7 @@
 import type { TWallLook } from '@/modules/compose/ComposeRenderer';
 import type { TRenderPreset } from '@/modules/blender';
 import type { TScenePiece } from '@/modules/blender/scene-description';
-import type { TThemeOverrides, TThemeParts, TWallBand, TWallKind } from '@/modules/project';
+import type { TThemeOverrides, TThemeParts, TWallKind } from '@/modules/project';
 import { filmSize } from './export-estimate';
 import { resolveSkinLook, skinElement, type TSkinLook } from './skin-catalog';
 
@@ -38,25 +38,14 @@ export function noteColor(pitch: number): string {
 	return NOTE_COLORS[index] ?? '#888888';
 }
 
-/** Where the Draft Preview shows tinsel: null for a wall that has none */
-export function draftTinselBand(kind?: TWallKind, band?: TWallBand): TWallBand | null {
-	return kind === 'tinsel' ? (band ?? 'full') : null;
-}
-
 const DRAFT_WALL_COLORS: Record<string, string> = { brass: '#a098ac', neon: '#141a2a' };
-/** A Tinsel wall in the Draft Preview, the tree green of `TINSEL_LIGHT` in themes.py as it renders */
-export const DRAFT_TINSEL = '#1f5a36';
-/** Share of the frame's width a band takes, `TINSEL_BAND` in themes.py */
-export const DRAFT_TINSEL_WIDTH = 0.17;
 
 /**
  * Birch hardboard with dark peg holes for Pegboard, matte lavender plaster for Brass, deep navy for Neon. A project
  * theme's Wall colour replaces the base's, and Pegboard keeps its holes.
  */
-export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, kind?: TWallKind, band?: TWallBand): TWallLook {
+export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, kind?: TWallKind): TWallLook {
 	const color = overrides.wallColor ?? DRAFT_WALL_COLORS[theme] ?? '#b3a38f';
-	// A Tinsel wall all over draws in its green; as a band, `draftTinselBand` draws it along the frame's side
-	if (draftTinselBand(kind, band) === 'full') return { color: DRAFT_TINSEL, holes: null };
 	// The Wall layer's Skin puts peg holes on any theme or takes them away; Grid draws flat here, its lines are Blender's
 	const hasHoles = kind != null ? kind === 'pegboard' : theme !== 'brass' && theme !== 'neon';
 	return hasHoles ? { color, holes: 'rgba(72, 56, 40, 0.75)', holeRadius: 0.1 } : { color, holes: null };
@@ -75,11 +64,9 @@ const FINISHES: Record<string, string> = {
 };
 /** Dark coated device housing of the Brass Key and Knob skins */
 const HOUSING = '#26282d';
-/** Gift's red paper and gold ribbon, Books' red cover and gold bands, `GIFT_PAPERS` and `BOOK_COVERS` in skins.py */
+/** Gift's red paper and gold ribbon, `GIFT_PAPERS` in skins.py */
 const GIFT_PAPER = '#a01522';
-const BOOK_COVER = '#8e2430';
 const RIBBON = '#d9a520';
-const BOOK_PAGES = '#e9e1cc';
 /** Colour: Skin of a Candy Rail, `CANDY_COLOR` in skins.py */
 const CANDY = '#c8202c';
 
@@ -125,7 +112,6 @@ export function draftPieceColors(
 	switch (piece.type) {
 		case 'platform': {
 			if (style === 'gift') return { bar: accent ?? GIFT_PAPER, nub: RIBBON };
-			if (style === 'books') return { bar: accent ?? BOOK_COVER, nub: RIBBON };
 			// Devices draw their key, lens or grille as marks on top (`draftSkinMarks`); the bar is their housing
 			const [device] = style.split('-');
 			if (device === 'key' || device === 'knob') return { bar: HOUSING, nub: CHROME };
@@ -164,7 +150,6 @@ export function draftSkinMarks(theme: string, piece: Pick<TScenePiece, 'type' | 
 	const style = look.skin.split(':')[1] ?? '';
 	if (style === 'pegboard' || style === 'neon') return [];
 	if (style === 'gift') return [{ x0: -0.06, x1: 0.06, y0: -0.5, y1: 0.5, color: RIBBON }, { x0: -0.5, x1: 0.5, y0: -0.07, y1: 0.07, color: RIBBON }];
-	if (style === 'books') return [{ x0: -0.05, x1: 0.05, y0: -0.5, y1: 0.5, color: RIBBON }, { x0: -0.5, x1: 0.5, y0: -0.34, y1: -0.28, color: BOOK_PAGES }, { x0: -0.5, x1: 0.5, y0: 0.14, y1: 0.2, color: BOOK_PAGES }];
 	const [device, trim = 'gold'] = style.split('-');
 	if (device === 'key') return [{ x0: -0.27, x1: 0.39, y0: 0.08, y1: 0.5, color: KEY_WHITE }];
 	if (device === 'knob') {

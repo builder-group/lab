@@ -1,10 +1,10 @@
 import type { TLibraryItem } from '@/modules/library';
-import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TVec2 } from '@/modules/project';
+import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TSkinComponent, type TVec2 } from '@/modules/project';
 import { canonicalSkinId } from '@/modules/project/skin-ids';
 import { sampleCameraTrack } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { filmCamera, imageToWall } from './film-camera';
-import { copyName, isThemeColorByNote, projectThemes, resolveElementLook, resolveTheme, themePartCommands } from './project-themes';
+import { resolveElementLook, resolveTheme } from './project-themes';
 import { catalogSkins, entitySkinElement, type TCatalogSkin, type TSkinElement } from './skin-catalog';
 
 export { defaultTitleColor, themeCommands, themeTitleColor } from './project-themes';
@@ -107,26 +107,6 @@ export function resetToThemeCommands(project: TProject, entityIds: readonly stri
 			...(entity.components.skin != null ? [{ type: 'removeComponent' as const, entityId: entity.id, name: 'skin' as const }] : []),
 			...(entity.components.reaction != null ? [{ type: 'removeComponent' as const, entityId: entity.id, name: 'reaction' as const }] : [])
 		]);
-}
-
-/**
- * Colour by Note as the whole project's default: a project theme stores it for its platforms; a built-in theme is
- * read-only, so turning it on makes the project a theme of its own, "Neon by Note". Colour: By Note on a selection is
- * `skinPropertyCommands`.
- */
-export function colorByNoteCommands(project: TProject, colorByNote: boolean): TProjectCommand[] {
-	if (isThemeColorByNote(project.design) === colorByNote) return [];
-	const theme = resolveTheme(project.design);
-	if (theme.projectTheme != null) return themePartCommands(project, theme.id, 'platform', { colour: colorByNote ? 'note' : null });
-	const themes = projectThemes(project.design);
-	const created: TProjectTheme = {
-		id: createId('theme'),
-		name: themes.some((item) => item.name === `${theme.name} by Note`) ? copyName(`${theme.name} by Note`, themes.map((item) => item.name)) : `${theme.name} by Note`,
-		base: theme.base,
-		overrides: {},
-		parts: { platform: { colour: 'note' } }
-	};
-	return [{ type: 'setDesign', design: { themes: [...themes, created], theme: created.id } }];
 }
 
 function publicUrl(path: string): string {

@@ -8,7 +8,6 @@ import {
 	cameraCommands,
 	clearSkinCommands,
 	builtInSkinCommands,
-	colorByNoteCommands,
 	isScreenTitle,
 	itemFitsPieceType,
 	previewPointToWall,
@@ -27,7 +26,6 @@ import {
 } from './design-commands';
 import { isNewThemeRequest, libraryEntries } from './DesignLibraryCx';
 import { draftPieceColors } from './draft-look';
-import { isThemeColorByNote } from './project-themes';
 
 function apply(project: TProject, commands: Parameters<typeof applyProjectCommands>[1]): TProject {
 	const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, commands);
@@ -44,7 +42,8 @@ describe('design commands', () => {
 		const design = { theme: 'brass' };
 		const platforms = skinsForElement(design, 'platform');
 		expect(platforms[0]).toMatchObject({ id: 'platform:gold', label: 'Gold', previewUrl: '/skins/platform-gold.png' });
-		expect(platforms.map((skin) => skin.id)).toContain('platform:device-copper');
+		expect(platforms.map((skin) => skin.id)).toContain('platform:copper');
+		expect(platforms.map((skin) => skin.id)).not.toContain('platform:device-copper');
 		expect(skinsForElement({ theme: 'neon' }, 'platform').map((skin) => skin.id).sort()).toEqual(platforms.map((skin) => skin.id).sort());
 		expect(skinsForElement({ theme: 'neon' }, 'platform')[0]?.id).toBe('platform:neon');
 		expect(skinsForElement({ theme: 'pegboard' }, 'rail')[0]?.label).toBe('Wood Rail');
@@ -113,20 +112,8 @@ describe('design commands', () => {
 		expect(skinTargetIds(next, { kind: 'entities', entityIds: [marble.id] })).toEqual([marble.id]);
 	});
 
-	it('should make Colour by Note the theme\'s default: on a project theme, or in a theme of its own', () => {
-		const project = createStaircaseProject();
-		expect(colorByNoteCommands(project, false)).toEqual([]);
-		const on = apply(project, colorByNoteCommands(project, true));
-		expect(isThemeColorByNote(on.design)).toBe(true);
-		expect(on.design.themeOptions).toBeUndefined();
-		expect(on.design.themes?.[0]?.name).toMatch(/by Note$/);
-		const off = apply(on, colorByNoteCommands(on, false));
-		expect(isThemeColorByNote(off.design)).toBe(false);
-		expect(off.design.themes?.[0]?.parts).toBeUndefined();
-	});
-
 	it('should show a kept project item once and kept items from other projects', () => {
-		const item = (id: string, scope: 'project' | 'global'): TLibraryItem => ({ id, scope, path: id, manifest: null, manifestError: null, hasAsset: true, previewUrl: null });
+		const item = (id: string, scope: 'project' | 'global'): TLibraryItem => ({ id, scope, path: id, manifest: null, manifestError: null, hasAsset: true, packId: null, previewUrl: null });
 		const entries = libraryEntries([item('a', 'project'), item('b', 'project')], [item('b', 'global'), item('c', 'global')]);
 		expect(entries.map((entry) => [entry.item.id, entry.item.scope, entry.isKept])).toEqual([
 			['a', 'project', false],
@@ -204,7 +191,7 @@ describe('itemFitsPieceType function', () => {
 		path: '/item',
 		manifest: { $schema: 'marble-asset@1', id: 'item', label: 'Item', role, pieceType },
 		manifestError: null,
-		hasAsset: true,
+		hasAsset: true, packId: null,
 		previewUrl: null
 	});
 

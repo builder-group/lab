@@ -11,10 +11,10 @@ import { armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection,
 import type { TRenderPreset } from '@/modules/blender';
 import { BACKING_ID, type TProject } from '@/modules/project';
 import { isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
-import { cameraCommands, colorByNoteCommands, themeCommands } from '@/modules/design/design-commands';
+import { cameraCommands, themeCommands } from '@/modules/design/design-commands';
 import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
-import { deleteThemeCommands, duplicateThemeCommands, hasLayerChanges, isThemeColorByNote, resolveTheme } from '@/modules/design/project-themes';
-import { canSaveAsTheme, saveAsTheme } from '@/modules/design/SkinProperties';
+import { deleteThemeCommands, resolveTheme } from '@/modules/design/project-themes';
+import { saveAsTheme } from '@/modules/design/SkinProperties';
 import { framingFix, framingProblemAt, preflightExport, type TPreflightFix } from '@/modules/design/export-preflight';
 import { deleteDecorCommands, duplicateDecorCommands, selectedDecorIds } from '@/modules/design/decor';
 import { openScatterPanel } from '@/modules/design/decor-actions';
@@ -50,7 +50,7 @@ export interface TCommand {
 	run: (cx: StudioCx) => void;
 }
 
-export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Pieces' | 'Marble' | 'Film' | 'Help';
+export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Track' | 'Marble' | 'Film' | 'Help';
 
 function compose(cx: StudioCx): ComposeCx | null {
 	return cx.$workspace.get() === 'compose' ? cx.$compose.get() : null;
@@ -123,7 +123,7 @@ function themeCommand(id: 'design.themePegboard' | 'design.themeBrass' | 'design
 		id,
 		title,
 		section: 'Film',
-		keywords: 'look style art direction design',
+		keywords: 'look style preset art direction design',
 		isEnabled: hasProject,
 		isChecked: (cx) => cx.project?.design.theme === theme,
 		run: (cx) => {
@@ -131,17 +131,6 @@ function themeCommand(id: 'design.themePegboard' | 'design.themeBrass' | 'design
 			if (project != null) cx.execute(themeCommands(project, theme));
 		}
 	};
-}
-
-/** Duplicate Theme: the theme as a project theme, applied, so its colours can change; one undo step */
-export function duplicateTheme(cx: StudioCx, themeId: string): void {
-	const project = cx.project;
-	if (project == null) return;
-	const { commands, themeId: copyId } = duplicateThemeCommands(project, themeId);
-	if (!cx.execute(commands)) return;
-	const copy = cx.project != null ? resolveTheme(cx.project.design, copyId) : null;
-	const isSave = themeId === project.design.theme && hasLayerChanges(project.design);
-	cx.notifyEdit(`${resolveTheme(project.design, themeId).name} ${isSave ? 'saved' : 'duplicated'} as ${copy?.name ?? 'a copy'}`);
 }
 
 /** Delete Theme for a project theme; the film falls back to its base when it uses it */
@@ -203,7 +192,7 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 		return;
 	}
 	if (!placed.copies.length) {
-		cx.notify('These pieces have no place in the run yet, so there is nothing to copy');
+		cx.notify('These track pieces have no place on the track yet, so there is nothing to copy');
 		return;
 	}
 	if (!cx.execute(placed.commands)) return;
@@ -306,7 +295,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Edit',
 		shortcut: '⌫',
 		keywords: 'remove',
-		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && (selectedShotIds(cx).length > 0 || selectedLightIds(cx).length > 0 || selectedDecorIds(cx.$selection.get()).length > 0)) || isSongSelected(cx),
+		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && (selectedShotIds(cx).length > 0 || selectedLightIds(cx).length > 0 || selectedDecorIds(cx.$selection.get()).length > 0 || selectedTitleIds(cx).length > 0)) || isSongSelected(cx),
 		run: (cx) => {
 			// The Song layer alone deletes the song file and Backing; the marbles keep their hits
 			if (isSongSelected(cx) && cx.$selection.get().length === 1) {
@@ -320,7 +309,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'edit.duplicate', title: 'Duplicate', section: 'Edit', shortcut: '⌘D', keywords: 'copy clone', isEnabled: (cx) => hasPieces(cx) || (inDesign(cx) && selectedDecorIds(cx.$selection.get()).length > 0), run: (cx) => void duplicateSelection(cx) },
 	{
 		id: 'edit.selectAll', workspace: 'compose',
-		title: 'Select All Pieces',
+		title: 'Select All Track Pieces',
 		section: 'Edit',
 		shortcut: '⌘A',
 		isEnabled: (cx) => compose(cx) != null,
@@ -433,13 +422,13 @@ export const commands: readonly TCommand[] = [
 	},
 
 	// MARK: - Pieces
-	{ id: 'build.next', title: 'Place Next Platform', section: 'Pieces', shortcut: 'N', keywords: 'add step assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.next() },
-	{ id: 'build.repeat', title: 'Repeat Last Platform', section: 'Pieces', shortcut: 'R', keywords: 'copy same tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('repeat') },
-	{ id: 'build.mirror', title: 'Mirror Last Platform', section: 'Pieces', shortcut: 'M', keywords: 'zigzag flip tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('mirror') },
+	{ id: 'build.next', title: 'Place Next Platform', section: 'Track', shortcut: 'N', keywords: 'add step assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.next() },
+	{ id: 'build.repeat', title: 'Repeat Last Platform', section: 'Track', shortcut: 'R', keywords: 'copy same tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('repeat') },
+	{ id: 'build.mirror', title: 'Mirror Last Platform', section: 'Track', shortcut: 'M', keywords: 'zigzag flip tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('mirror') },
 	{
 		id: 'build.autoPlace',
 		title: 'Add Platform',
-		section: 'Pieces',
+		section: 'Track',
 		shortcut: 'A',
 		keywords: 'auto place solve angle tilt on time assist',
 		isEnabled: (cx) => compose(cx) != null,
@@ -448,11 +437,11 @@ export const commands: readonly TCommand[] = [
 			canvas?.assist.autoPlace(canvas.placementType());
 		}
 	},
-	{ id: 'build.continue', title: 'Continue Pattern', section: 'Pieces', shortcut: '⇥', keywords: 'accept ghosts suggestions repeat tab assist', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.acceptGhosts() },
+	{ id: 'build.continue', title: 'Continue Pattern', section: 'Track', shortcut: '⇥', keywords: 'accept ghosts suggestions repeat tab assist', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.acceptGhosts() },
 	{
 		id: 'build.replace',
 		title: 'Re-place Broken Platforms',
-		section: 'Pieces',
+		section: 'Track',
 		keywords: 're-place replace fix repair blocked missed stopped broken move clear release',
 		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isReplacing !== true,
 		run: (cx) => void compose(cx)?.assist.replace()
@@ -460,7 +449,7 @@ export const commands: readonly TCommand[] = [
 	{
 		id: 'build.addFinish',
 		title: 'Add Finish',
-		section: 'Pieces',
+		section: 'Track',
 		keywords: 'finish end catch chute cup last note ending tail',
 		isEnabled: (cx) => compose(cx) != null && finishLane(cx) != null,
 		run: (cx) => {
@@ -471,7 +460,7 @@ export const commands: readonly TCommand[] = [
 	{
 		id: 'piece.playNote',
 		title: 'Play a Note…',
-		section: 'Pieces',
+		section: 'Track',
 		keywords: 'link attach tie plays dot hit',
 		isEnabled: (cx) => hasPieces(cx) && canPlayNote(cx),
 		run: (cx) => {
@@ -479,11 +468,11 @@ export const commands: readonly TCommand[] = [
 			if (current != null) armPlayNote(cx, current);
 		}
 	},
-	{ id: 'piece.follow', title: 'Follow a Marble…', section: 'Pieces', keywords: 'anchor attach tie follows nearest marble', isEnabled: (cx) => hasPieces(cx) && canFollow(cx), run: (cx) => openFollowMenu(cx) },
-	{ id: 'piece.detach', title: 'Detach', section: 'Pieces', keywords: 'unlink unanchor untie free none', isEnabled: (cx) => hasPieces(cx) && hasTiedSelection(cx), run: (cx) => detachSelection(cx) },
-	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Pieces', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.dismiss() },
-	{ id: 'build.rotateLeft', title: 'Rotate 5° Counterclockwise', section: 'Pieces', shortcut: '⇧←', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(5) },
-	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Pieces', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
+	{ id: 'piece.follow', title: 'Follow a Marble…', section: 'Track', keywords: 'anchor attach tie follows nearest marble', isEnabled: (cx) => hasPieces(cx) && canFollow(cx), run: (cx) => openFollowMenu(cx) },
+	{ id: 'piece.detach', title: 'Detach', section: 'Track', keywords: 'unlink unanchor untie free none', isEnabled: (cx) => hasPieces(cx) && hasTiedSelection(cx), run: (cx) => detachSelection(cx) },
+	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Track', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.dismiss() },
+	{ id: 'build.rotateLeft', title: 'Rotate 5° Counterclockwise', section: 'Track', shortcut: '⇧←', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(5) },
+	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Track', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
 
 	// MARK: - Film
 	{ id: 'design.editInBlender', title: 'Open in Blender', section: 'Film', keywords: 'edit blender window scene', isEnabled: canRunBlender, run: (cx) => void cx.design.openInBlender() },
@@ -546,7 +535,7 @@ export const commands: readonly TCommand[] = [
 		id: 'decor.scatter',
 		title: 'Scatter Decor…',
 		section: 'Film',
-		keywords: 'decoration bauble snowflake fill wall ornaments set',
+		keywords: 'decoration bauble snowflake fill wall ornaments',
 		isEnabled: hasProject,
 		run: (cx) => openScatterPanel(cx)
 	},
@@ -594,23 +583,11 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => cx.execute([{ type: 'setDesign', design: { loop: cx.project?.design.loop !== true } }])
 	},
 	{
-		id: 'design.colorByNote',
-		title: 'Colour by Note',
-		section: 'Film',
-		keywords: 'theme option color colour pitch rainbow boomwhacker',
-		isEnabled: hasProject,
-		isChecked: (cx) => cx.project != null && isThemeColorByNote(cx.project.design),
-		run: (cx) => {
-			const project = cx.project;
-			if (project != null) cx.execute(colorByNoteCommands(project, !isThemeColorByNote(project.design)));
-		}
-	},
-	{
 		id: 'design.saveAsTheme',
 		title: 'Save as Theme',
 		section: 'Film',
-		keywords: 'theme skins parts preset mix wall lights',
-		isEnabled: (cx) => cx.project != null && canSaveAsTheme(cx.project),
+		keywords: 'theme skins parts preset mix wall lights duplicate copy edit colours colors',
+		isEnabled: hasProject,
 		run: saveAsTheme
 	},
 	{
@@ -645,17 +622,6 @@ export const commands: readonly TCommand[] = [
 		}
 	},
 	{
-		id: 'design.duplicateTheme',
-		title: 'Duplicate Theme',
-		section: 'Film',
-		keywords: 'copy theme edit colours colors wall light glow background new look',
-		isEnabled: hasProject,
-		run: (cx) => {
-			const project = cx.project;
-			if (project != null) duplicateTheme(cx, project.design.theme);
-		}
-	},
-	{
 		id: 'design.deleteTheme',
 		title: 'Delete Theme',
 		section: 'Film',
@@ -683,7 +649,12 @@ export const commands: readonly TCommand[] = [
 		isChecked: (cx) => cx.$quickHelp.get(),
 		run: (cx) => cx.$quickHelp.set(!cx.$quickHelp.get())
 	},
-	{ id: 'help.resetHints', title: 'Reset Hints', section: 'Help', keywords: 'tips onboarding beginner show again first run', run: (cx) => cx.hints.reset() }
+	{ id: 'help.resetHints', title: 'Reset Hints', section: 'Help', keywords: 'tips onboarding beginner show again first run', run: (cx) => cx.hints.reset() },
+	{ id: 'help.enableMcp', title: 'Enable MCP', section: 'Help', keywords: 'ai agent claude code codex chatgpt connect server tools', isChecked: (cx) => cx.mcp.$isEnabled.get(), run: (cx) => void cx.mcp.setEnabled(!cx.mcp.$isEnabled.get()) },
+	{ id: 'help.showAiWorkspace', title: 'Show AI Workspace', section: 'Help', keywords: 'ai agent claude code codex chatgpt connect mcp folder', run: (cx) => void cx.mcp.showWorkspace() },
+	{ id: 'agent.showFolder', title: 'Show Agent Folder', section: 'File', keywords: 'ai references notes runs scratch finder', isEnabled: hasProject, run: (cx) => void cx.showAgentFolder() },
+	{ id: 'design.addPack', title: 'Add Pack…', section: 'File', keywords: 'themes skins decor library browse import starter community', run: (cx) => cx.library.$isAddPackOpen.set(true) },
+	{ id: 'design.exportPack', title: 'Export Pack…', section: 'File', keywords: 'themes skins decor share file', isEnabled: hasProject, run: (cx) => cx.library.$exportPack.set({ name: cx.project != null ? resolveTheme(cx.project.design).name : '', includesTheme: true, assetIds: [] }) }
 ];
 
 export type TCommandId =
@@ -713,11 +684,9 @@ export type TCommandId =
 	| 'design.themeNeon'
 	| TPresetCommandId
 	| 'design.loop'
-	| 'design.colorByNote'
 	| 'design.saveAsTheme'
 	| 'design.takeOverCamera'
 	| 'design.newTheme'
-	| 'design.duplicateTheme'
 	| 'design.deleteTheme'
 	| 'design.cancelExport'
 	| 'edit.undo'
@@ -778,7 +747,12 @@ export type TCommandId =
 	| 'build.addFinish'
 	| 'tool.insert'
 	| 'help.quickHelp'
-	| 'help.resetHints';
+	| 'help.resetHints'
+	| 'help.enableMcp'
+	| 'help.showAiWorkspace'
+	| 'agent.showFolder'
+	| 'design.addPack'
+	| 'design.exportPack';
 
 export function getCommand(id: TCommandId): TCommand {
 	const command = commands.find((item) => item.id === id);
@@ -789,7 +763,7 @@ export function getCommand(id: TCommandId): TCommand {
 /** The workspace a command acts in, or null when it works in both */
 export function commandWorkspace(command: TCommand): TWorkspace | null {
 	if (command.workspace != null) return command.workspace;
-	if (command.section === 'Tools' || command.section === 'Pieces') return 'compose';
+	if (command.section === 'Tools' || command.section === 'Track') return 'compose';
 	if (command.section === 'Film') return 'design';
 	return null;
 }
@@ -844,6 +818,11 @@ export function commandItem(cx: StudioCx, id: TCommandId, title?: string): TMenu
 }
 
 /** Deletes the selected hits, or in Film the selected shots */
+function selectedTitleIds(cx: StudioCx): string[] {
+	const selection = cx.$selection.get();
+	return cx.project?.entities.filter((entity) => entity.components.wallText != null && selection.includes(entity.id)).map((entity) => entity.id) ?? [];
+}
+
 export function deleteSelectedHits(cx: StudioCx): boolean {
 	const project = cx.project;
 	if (project == null) return false;
@@ -862,6 +841,12 @@ export function deleteSelectedHits(cx: StudioCx): boolean {
 	const shotIds = selectedShotIds(cx);
 	if (inDesign(cx) && shotIds.length > 0) {
 		const applied = cx.execute(removeShotsCommands(project, shotIds));
+		if (applied) cx.$selection.set([]);
+		return applied;
+	}
+	const titleIds = selectedTitleIds(cx);
+	if (inDesign(cx) && titleIds.length > 0) {
+		const applied = cx.execute([{ type: 'removeEntities', entityIds: titleIds }]);
 		if (applied) cx.$selection.set([]);
 		return applied;
 	}
