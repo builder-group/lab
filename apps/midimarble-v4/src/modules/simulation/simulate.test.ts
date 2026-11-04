@@ -1,19 +1,12 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { createLane, parseProject, type TEntity, type TProject } from '@/modules/project';
+import { createLane, type TEntity, type TProject } from '@/modules/project';
 import { createStaircaseProject } from './fixture-projects';
 import { resolvePieceParams } from './pieces';
 import { createLinkedPiece } from './placement';
 import { projectOnPath } from './shapes';
 import { createSimulator, type TSimulator } from './simulate';
 import { HIT_DRIFT, type TSimulationResult } from './types';
-
-function loadFixture(name: string): TProject {
-	const json = readFileSync(new URL(`../../../fixtures/${name}`, import.meta.url), 'utf8');
-	const [isProjectOk, projectErr, project] = parseProject(json);
-	if (!isProjectOk) throw projectErr;
-	return project;
-}
+import { loadFixture } from '@/modules/project/test-helpers';
 
 function createBareProject(end: number): TProject {
 	const project = createStaircaseProject();
@@ -92,7 +85,7 @@ describe('simulate', () => {
 	});
 
 	it('puts every staircase hit on time', () => {
-		const project = loadFixture('staircase.marble.json');
+		const project = loadFixture('staircase');
 		const result = simulator.simulate(project);
 		expect(result.hits).toHaveLength(8);
 		for (const hit of result.hits) {
@@ -105,7 +98,7 @@ describe('simulate', () => {
 	});
 
 	it('reflows later platforms after a rotation and keeps pinned pieces in place', () => {
-		const project = loadFixture('staircase.marble.json');
+		const project = loadFixture('staircase');
 		const before = simulator.simulate(project);
 
 		const rotated = structuredClone(project);
@@ -148,7 +141,7 @@ describe('simulate', () => {
 	});
 
 	it('returns the same result incrementally as a full run', async () => {
-		const project = loadFixture('staircase.marble.json');
+		const project = loadFixture('staircase');
 		simulator.simulate(project);
 		for (const [entityId, angle] of [
 			['piece-1-7', 0.2],
@@ -167,7 +160,7 @@ describe('simulate', () => {
 		}
 
 		// Rails, tunnels and windmills resume from snapshots too, including the windmill's motion
-		for (const name of ['windmill.marble.json', 'long-gap.marble.json']) {
+		for (const name of ['windmill', 'long-gap']) {
 			const fixture = loadFixture(name);
 			simulator.simulate(fixture);
 			for (const [entityId, angle] of [
@@ -186,7 +179,7 @@ describe('simulate', () => {
 	}, 20_000);
 
 	it('resumes past a dragged free piece until a marble could reach it', async () => {
-		const project = loadFixture('zigzag.marble.json');
+		const project = loadFixture('zigzag');
 		const free = (x: number, y: number): TEntity => ({
 			id: 'dragged',
 			components: { piece: { type: 'platform', params: {} }, transform: { position: { x, y }, angle: 0.3 } }

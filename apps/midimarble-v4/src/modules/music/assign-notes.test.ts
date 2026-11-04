@@ -1,21 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { applyProjectCommands, BACKING_ID, parseProject, type TProject, type TProjectCommand } from '@/modules/project';
+import { BACKING_ID } from '@/modules/project';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
 import { assignNotesCommands, newMarbleCommands } from './assign-notes';
-
-function loadFixture(name: string): TProject {
-	const json = readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8');
-	const [isProjectOk, projectErr, project] = parseProject(json);
-	if (!isProjectOk) throw projectErr;
-	return project;
-}
-
-function apply(project: TProject, commands: TProjectCommand[]): TProject {
-	const [isApplied, applyErr, next] = applyProjectCommands(project, commands);
-	if (!isApplied) throw applyErr;
-	return next;
-}
+import { apply, loadFixture } from '@/modules/project/test-helpers';
 
 describe('assignNotesCommands function', () => {
 	let simulator: TSimulator;

@@ -14,7 +14,6 @@ import {
 	noteColor,
 	previewScreenTitleLayout,
 	screenTitleLayout,
-	takesNoteColor,
 	titleOpacity,
 	TITLE_FADE
 } from './draft-look';
@@ -134,13 +133,6 @@ describe('draft look', () => {
 		expect(marbleContrastWarning('pegboard', { wallColor: '#3a6e8f' }, two)).toBe("Melody's and Bass's marbles are hard to see on this wall");
 		expect(marbleContrastWarning('pegboard', { wallColor: '#3a6e8f' }, [...two, { name: 'Lead', color: '#30d158' }])).toBe('3 marbles are hard to see on this wall');
 		expect(marbleContrastWarning('pegboard', { wallColor: '#f0f0f0' }, two)).toBeNull();
-	});
-
-	it('should colour by note only pieces with the theme default skin', () => {
-		expect(takesNoteColor('pegboard', null)).toBe(true);
-		expect(takesNoteColor('brass', { assetId: 'platform:gold' })).toBe(true);
-		expect(takesNoteColor('pegboard', { assetId: 'platform:gold' })).toBe(false);
-		expect(takesNoteColor('brass', { assetId: 'platform:key' })).toBe(false);
 	});
 
 	it('should draw each Brass skin with its own shape cue in the Draft Preview', () => {

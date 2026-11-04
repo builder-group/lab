@@ -15,21 +15,6 @@ const SAssetReaction = z.strictObject({
 const SHexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /**
- * A theme an agent proposes with a New Theme Result: a name, the built-in base and a few colours, the same fields
- * as a project theme's `overrides` in the project schema. Accepting the Result adds it to the project and applies it.
- */
-const SAssetTheme = z.strictObject({
-	name: z.string().regex(/\S/).max(80),
-	base: z.string().min(1),
-	overrides: z.strictObject({
-		wallColor: SHexColor.optional(),
-		lightColor: SHexColor.optional(),
-		glowColor: SHexColor.optional(),
-		backgroundColor: SHexColor.optional()
-	})
-});
-
-/**
  * An extra property of an agent-made skin, shown as a row in the Skin panel. Blender writes its value to the material
  * inputs and to the Value or RGB nodes of this `name` (`apply_properties` in assets.py); a material without one ignores it.
  */
@@ -41,7 +26,6 @@ const SAssetProperty = z.strictObject({
 	max: z.number().optional()
 });
 
-const THEME_OVERRIDE_KEYS = ['wallColor', 'lightColor', 'glowColor', 'backgroundColor'];
 
 export const SAssetManifest = z.strictObject({
 	$schema: z.literal('marble-asset@1'),
@@ -61,8 +45,6 @@ export const SAssetManifest = z.strictObject({
 	origin: z.enum(['agent', 'imported']).optional(),
 	// The Pack it came from: its origin line reads "Christmas Pack", and still names it where the Pack isn't added
 	pack: SPackOrigin.optional(),
-	// A New Theme Result's theme; absent for other items
-	theme: SAssetTheme.optional()
 });
 
 export const assetManifestDefinition = defineSchema({
@@ -81,26 +63,8 @@ export function parseAssetManifest(json: string): TResult<TAssetManifest, Error>
 /** Parses an agent's manifest, turning its `id` into a valid item ID such as `BrassBar` into `brassbar` */
 export function parseCandidateManifest(json: string): TResult<TAssetManifest, Error> {
 	return parseManifest(json, (value) => {
-		const prepared = typeof value['id'] === 'string' ? { ...value, id: toItemId(value['id']) } : value;
-		return 'theme' in prepared ? withCandidateTheme(prepared) : prepared;
+		return typeof value['id'] === 'string' ? { ...value, id: toItemId(value['id']) } : value;
 	});
-}
-
-/**
- * Keeps an agent's theme when it has a name and a base, with only the colours the app knows as `#rrggbb`; a theme
- * that cannot be read is dropped so the skin it came with still counts
- */
-function withCandidateTheme(value: Record<string, unknown>): Record<string, unknown> {
-	const { theme, ...rest } = value;
-	if (!isRecord(theme) || typeof theme['name'] !== 'string' || !/\S/.test(theme['name']) || typeof theme['base'] !== 'string') return rest;
-	const overrides = isRecord(theme['overrides']) ? theme['overrides'] : {};
-	const colors = Object.fromEntries(
-		THEME_OVERRIDE_KEYS.flatMap((key) => {
-			const color = overrides[key];
-			return typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color) ? [[key, color.toLowerCase()]] : [];
-		})
-	);
-	return { ...rest, theme: { name: theme['name'].trim().slice(0, 80), base: theme['base'].trim().toLowerCase(), overrides: colors } };
 }
 
 function parseManifest(

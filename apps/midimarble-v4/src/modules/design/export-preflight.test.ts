@@ -1,14 +1,12 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { parseProject, type TEntity, type TProject } from '@/modules/project';
+import { type TEntity, type TProject } from '@/modules/project';
 import type { THitResult, TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
 import { framingFix, framingProblemAt, lookProblems, preflightExport, problemSummary, struckPieces, workspaceProblems, type TExportPreflight, type TPreflightIssue } from './export-preflight';
+import { loadFixture } from '@/modules/project/test-helpers';
 
-function loadFixture(name: string): TProject {
-	const json = readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8');
-	const [isProjectOk, projectErr, project] = parseProject(json);
-	if (!isProjectOk) throw projectErr;
+function withSongFixture(name: string): TProject {
+	const project = loadFixture(name);
 	// A Song, so the checks here are about the run and not about the missing Song
 	return { ...project, music: { ...project.music, sources: [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }] } };
 }
@@ -130,7 +128,7 @@ describe('preflightExport function', () => {
 	});
 
 	it('should pass clean fixtures with every hit on time', () => {
-		const project = loadFixture('zigzag');
+		const project = withSongFixture('zigzag');
 
 		const preflight = preflightExport(project, simulator.simulate(project));
 
@@ -139,7 +137,7 @@ describe('preflightExport function', () => {
 	}, 20_000);
 
 	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera leaves out once the bass moves sideways', () => {
-		const project = loadFixture('jingle-bells');
+		const project = withSongFixture('jingle-bells');
 		expect(preflightExport(project, simulator.simulate(project)).issues).toEqual([]);
 
 		// The bass pieces follow their marble, so moving its release 20 cm moves its whole run away from the melody
@@ -178,7 +176,7 @@ describe('preflightExport function', () => {
 	}, 20_000);
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
-		const project = loadFixture('zigzag');
+		const project = withSongFixture('zigzag');
 		const turned = project.entities.find((entity) => entity.components.hitLink?.hitId === project.music.lanes[0]?.hits[4]?.id);
 		if (turned?.components.hitLink == null) throw new Error('No linked platform');
 		turned.components.hitLink.angle += 0.9;
@@ -192,7 +190,7 @@ describe('preflightExport function', () => {
 	});
 
 	it('should not report a single marble the camera follows, even with dots past the old lane band', () => {
-		const project = loadFixture('tap-along');
+		const project = withSongFixture('tap-along');
 
 		const preflight = preflightExport(project, simulator.simulate(project));
 

@@ -138,7 +138,7 @@ export function buildSceneDescription(
 			camera: {
 				...buildSceneCamera(project.design.camera),
 				descent: descentCurve(result),
-				holdAfter: lastHitTime(result),
+				holdAfter: lastStruckTime(result),
 				holdFinish: heldFinishes(project, result)
 			},
 			wallTexts: project.entities.flatMap((entity) => {
@@ -156,7 +156,7 @@ export function buildSceneDescription(
  * Time of the run's last struck hit: the camera holds on it to the end of the film rather than following the marble
  * down the empty wall. Null when no hit is struck.
  */
-export function lastHitTime(result: TSimulationResult): number | null {
+export function lastStruckTime(result: TSimulationResult): number | null {
 	let last = -Infinity;
 	for (const hit of result.hits) if (hit.actualTime != null) last = Math.max(last, hit.actualTime);
 	return Number.isFinite(last) ? Math.round(last * 1e4) / 1e4 : null;
@@ -169,7 +169,7 @@ export function lastHitTime(result: TSimulationResult): number | null {
  */
 export function heldFinishes(project: TProject, result: TSimulationResult): { x: number; y: number }[] | null {
 	const lanes = new Set(lastPlayingLanes(project));
-	const hold = lastHitTime(result);
+	const hold = lastStruckTime(result);
 	if (hold == null) return null;
 	const points = project.entities.flatMap((entity) => {
 		const laneId = entity.components.hitLink?.laneId;

@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { applyProjectCommands, createProject, type TProject, type TProjectCommand } from '@/modules/project';
+import { createProject, type TProject } from '@/modules/project';
 import { addShotCommands, removeShotsCommands, shotPresetDistance, sortShots, updateShotCommands } from './shots';
-
-function apply(project: TProject, commands: TProjectCommand[]): TProject {
-	const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, commands);
-	if (!isAppliedOk) throw appliedErr;
-	return applied;
-}
+import { apply } from '@/modules/project/test-helpers';
 
 function addShot(project: TProject, time: number, id: string): TProject {
 	return apply(project, addShotCommands(project, time, id).commands);

@@ -165,12 +165,19 @@ export async function findFinish(
 	};
 }
 
-/** Hits that played (a platform struck them) before and are Blocked or Missed now, like Re-place's `newlyBroken` */
-function newlyBroken(before: THitResult[], after: THitResult[]): THitResult[] {
-	const key = (hit: THitResult): string => `${hit.laneId}/${hit.hitId}`;
-	const isBroken = (hit: THitResult): boolean => hit.pieceEntityId != null && (hit.status === 'blocked' || hit.status === 'missed');
-	const was = new Set(before.filter(isBroken).map(key));
-	return after.filter((hit) => isBroken(hit) && !was.has(key(hit)));
+/** Hits that played (a platform struck them) before an edit and are Blocked or Missed after it, in time order */
+export function newlyBroken(before: THitResult[], after: THitResult[]): THitResult[] {
+	const was = new Set(before.filter(isBroken).map(hitKeyOf));
+	return after.filter((hit) => isBroken(hit) && !was.has(hitKeyOf(hit))).sort((a, b) => a.targetTime - b.targetTime);
+}
+
+/** A platform that should play its hit and doesn't */
+export function isBroken(hit: THitResult): boolean {
+	return hit.pieceEntityId != null && (hit.status === 'blocked' || hit.status === 'missed');
+}
+
+export function hitKeyOf(hit: Pick<THitResult, 'laneId' | 'hitId'>): string {
+	return `${hit.laneId}/${hit.hitId}`;
 }
 
 /** Whether a marble other than the Finish's own touches it */

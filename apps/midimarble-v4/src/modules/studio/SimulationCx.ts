@@ -13,7 +13,6 @@ export class SimulationCx {
 	readonly $result = createState<TSimulationResult | null>(null);
 	readonly $computing = createState(false);
 	/** Wall time from the newest request to its result, in milliseconds */
-	readonly $latency = createState<number | null>(null);
 
 	private client: TSimulationClient | null = null;
 	private preview: TProject | null = null;
@@ -96,14 +95,12 @@ export class SimulationCx {
 		const client = this.client;
 		if (project == null || client == null) return;
 		const id = ++this.sent;
-		const startedAt = performance.now();
 		this.$computing.set(true);
 		client.simulate(project).then(
 			(result) => {
 				// Requests replaced while waiting resolve with the same newer result, oldest first
 				if (id < this.accepted || this.studio.project?.id !== project.id) return;
 				this.accepted = id;
-				this.$latency.set(performance.now() - startedAt);
 				if (result !== this.$result.get()) this.$result.set(result);
 				if (id === this.sent) this.$computing.set(false);
 			},

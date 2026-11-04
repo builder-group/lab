@@ -1,5 +1,6 @@
 import { displayPiece } from '@/modules/compose/attach-edit';
-import { addedProblems, newlyBroken, withCommands } from '@/modules/compose/fix-it';
+import { newlyBroken } from '@/modules/compose/finish-assist';
+import { addedProblems, withCommands } from '@/modules/compose/fix-it';
 import { createId, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { layoutOf, nextPieceName, shapesBounds, shapesDistance, soundsHit, transformShape, unanchorPiece, unlinkPiece, type TPieceShape, type TSimulationResult } from '@/modules/simulation';
 import { resolvedPieceShapes, shapesGap } from '@/modules/simulation/clearance';

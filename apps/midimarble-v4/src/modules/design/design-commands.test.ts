@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildSceneDescription, skinAssetPath } from '@/modules/blender';
 import type { TLibraryItem } from '@/modules/library';
-import { applyProjectCommands, type TProject } from '@/modules/project';
+import { type TProject } from '@/modules/project';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
 import {
 	addWallTextCommands,
 	cameraCommands,
-	clearSkinCommands,
 	fixedColorCommands,
 	fixedColorSkinLabel,
 	handChangeCount,
@@ -16,9 +15,7 @@ import {
 	itemFitsPieceType,
 	previewPointToWall,
 	resetToThemeCommands,
-	showsSkin,
 	skinPropertyCommands,
-	skinsForElement,
 	skinTargetIds,
 	skinCommands,
 	themeCommands,
@@ -30,27 +27,14 @@ import {
 } from './design-commands';
 import { libraryEntries } from './DesignLibraryCx';
 import { draftPieceColors } from './draft-look';
-
-function apply(project: TProject, commands: Parameters<typeof applyProjectCommands>[1]): TProject {
-	const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, commands);
-	if (!isAppliedOk) throw appliedErr;
-	return applied;
-}
+import { apply } from '@/modules/project/test-helpers';
 
 function pieceIds(project: TProject): string[] {
 	return project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id);
 }
 
 describe('design commands', () => {
-	it('should list the skins of an element, the theme\'s first, in any theme', () => {
-		const design = { theme: 'brass', themes: [] };
-		const platforms = skinsForElement(design, 'platform');
-		expect(platforms[0]).toMatchObject({ id: 'platform:gold', label: 'Gold', previewUrl: '/skins/platform-gold.png' });
-		expect(platforms.map((skin) => skin.id)).toContain('platform:copper');
-		expect(platforms.map((skin) => skin.id)).not.toContain('platform:device-copper');
-		expect(skinsForElement({ theme: 'neon', themes: [] }, 'platform').map((skin) => skin.id).sort()).toEqual(platforms.map((skin) => skin.id).sort());
-		expect(skinsForElement({ theme: 'neon', themes: [] }, 'platform')[0]?.id).toBe('platform:neon');
-		expect(skinsForElement({ theme: 'pegboard', themes: [] }, 'rail')[0]?.label).toBe('Wood Rail');
+	it('should dress a skin the same in every theme', () => {
 		// The Draft Preview dresses a skin the same in every theme, like the Blender worker
 		const copper = { type: 'platform', color: '#3478f6', skin: { assetId: 'platform:copper' } };
 		expect(draftPieceColors('neon', copper, false)).toEqual(draftPieceColors('brass', copper, false));
@@ -63,11 +47,9 @@ describe('design commands', () => {
 		const linked = apply(project, builtInSkinCommands(project, { kind: 'pieceType', pieceType: 'platform' }, 'platform:copper'));
 		const piece = linked.entities.find((entity) => entity.id === first);
 		expect(piece?.components.skin?.assetId).toBe('platform:copper');
-		expect(piece != null && showsSkin(linked.design, piece, 'platform:copper')).toBe(true);
 		const cleared = apply(linked, builtInSkinCommands(linked, { kind: 'entities', entityIds: [first] }, 'platform:gold'));
 		const clearedPiece = cleared.entities.find((entity) => entity.id === first);
 		expect(clearedPiece?.components.skin).toBeUndefined();
-		expect(clearedPiece != null && showsSkin(cleared.design, clearedPiece, 'platform:gold')).toBe(true);
 	});
 
 	it('should write property overrides as one edit, keep them through a skin change and reset to the theme', () => {
@@ -99,7 +81,6 @@ describe('design commands', () => {
 		const skinned = next.entities.find((entity) => entity.id === marble.id);
 		expect(skinned?.components.skin?.assetId).toBe('marble:glass');
 		expect(skinned?.components.marble).toEqual(marble.components.marble);
-		expect(skinned != null && showsSkin(next.design, skinned, 'marble:glass')).toBe(true);
 		expect(skinTargetIds(next, { kind: 'entities', entityIds: [marble.id] })).toEqual([marble.id]);
 	});
 
@@ -133,12 +114,10 @@ describe('design commands', () => {
 		expect(next.entities.find((entity) => entity.id === second)?.components.skin).toBeUndefined();
 	});
 
-	it('should skin every piece of a type and clear it back to the theme default', () => {
+	it('should skin every piece of a type', () => {
 		const project = createStaircaseProject();
 		const skinned = apply(project, skinCommands(project, { kind: 'pieceType', pieceType: 'platform' }, 'piano-key'));
 		expect(skinned.entities.filter((entity) => entity.components.skin?.assetId === 'piano-key')).toHaveLength(pieceIds(project).length);
-		const cleared = apply(skinned, clearSkinCommands(skinned, pieceIds(skinned)));
-		expect(cleared.entities.some((entity) => entity.components.skin != null)).toBe(false);
 	});
 
 	it('should add wall text as an entity with a transform that reaches the scene description', () => {

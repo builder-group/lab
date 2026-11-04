@@ -1,18 +1,12 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { preflightExport } from '@/modules/design/export-preflight';
 import { FINISH_TAIL, projectSongEnd } from '@/modules/music';
-import { parseProject, type TProject } from '@/modules/project';
+import { type TProject } from '@/modules/project';
 import { finishCatch, finishOfLane } from '@/modules/simulation/finish';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
 import { addFinishLabel, findFinish, finishFix, lanesWithoutFinish } from './finish-assist';
 import { asLaneFinish } from './step-loop';
-
-function loadFixture(name: string): TProject {
-	const [isOk, error, project] = parseProject(readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8'));
-	if (!isOk) throw error;
-	return project;
-}
+import { loadFixture } from '@/modules/project/test-helpers';
 
 function withoutFinishes(project: TProject): TProject {
 	return { ...project, revision: project.revision + 1, entities: project.entities.filter((entity) => entity.components.piece?.type !== 'finish') };

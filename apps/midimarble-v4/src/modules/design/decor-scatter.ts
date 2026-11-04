@@ -107,13 +107,6 @@ export function scatterDecorCommands(project: TProject, result: TSimulationResul
 	return { commands: setDecorList([...kept, ...placed]), count: placed.length };
 }
 
-/** The seed of a decor set from the agent: its items land in the same places however many of them are accepted */
-export function seedOf(text: string): number {
-	let hash = 0x811c9dc5;
-	for (let index = 0; index < text.length; index++) hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193);
-	return hash >>> 0;
-}
-
 /** Everything a scatter keeps its distance from besides runs and pieces: the user's decor, titles on the wall and Blender's objects */
 function keptBoxes(project: TProject, blenderObjects: readonly TBlenderObject[]): TWallBox[] {
 	const titles = project.entities.flatMap((entity): TWallBox[] => {

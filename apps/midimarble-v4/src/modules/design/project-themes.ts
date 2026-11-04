@@ -234,23 +234,6 @@ function withoutColor(key: TDesign['lights']['key']): TKeyLightPose {
 }
 
 /**
- * Sets fields of one element's part in a project theme, null clears one; a part with nothing set goes away. A built-in
- * theme is read-only, so it changes nothing there.
- */
-export function themePartCommands(project: TProject, themeId: string, element: TSkinElement, patch: { [K in keyof TThemePart]?: TThemePart[K] | null }): TProjectCommand[] {
-	const themes = projectThemes(project.design);
-	const theme = themes.find((item) => item.id === themeId);
-	if (theme == null) return [];
-	const merged = { ...theme.parts?.[element], ...patch };
-	const part = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null)) as TThemePart;
-	const { [element]: _old, ...others } = theme.parts ?? {};
-	const parts: TThemeParts = Object.keys(part).length > 0 ? { ...others, [element]: part } : others;
-	const { parts: _parts, ...rest } = theme;
-	const next: TProjectTheme = Object.keys(parts).length > 0 ? { ...rest, parts } : rest;
-	return [{ type: 'setDesign', design: { themes: themes.map((item) => (item.id === themeId ? next : item)) } }];
-}
-
-/**
  * The current look as a theme, what Export Pack… keeps: a project theme whose parts are this project's choices per element type: the
  * look most of each type wear, built-in skins only. Pieces in that look then just follow the theme; pieces in another
  * keep it. One edit, and the theme is applied.
@@ -272,11 +255,6 @@ export function currentLookThemeCommands(project: TProject, name?: string): { co
 		return [{ ...command, design: { ...command.design, themes: command.design.themes.map((theme) => (theme.id === themeId ? { ...theme, ...(name != null ? { name } : {}), parts: { ...theme.parts, ...parts } } : theme)) } }];
 	});
 	return { commands: [...withCopy, ...clear], themeId };
-}
-
-/** Whether pieces or marbles wear choices of their own, which Export Pack… can turn into a theme */
-export function hasSkinChoices(project: TProject): boolean {
-	return Object.keys(currentThemeParts(project)).length > 0;
 }
 
 function currentThemeParts(project: TProject): TThemeParts {

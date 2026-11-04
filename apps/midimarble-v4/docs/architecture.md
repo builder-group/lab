@@ -129,15 +129,11 @@ Operations:
 | ---------------- | --------------------------------------------------------------------------- |
 | `apply_scene`    | Create or update holders, skins and keyframes from a scene description      |
 | `preview_frame`  | Render an Eevee frame and an object ID pass at a time                       |
-| `preview_clip`   | Render a short low-resolution clip                                          |
 | `render_film`    | Start a film render with a preset in a separate Blender process             |
 | `cancel`         | Cancel a film render job                                                    |
 | `preview_render` | Start (or retarget) the background preview frames job in a separate process |
 | `preview_render_cancel` | Stop the background preview frames job                               |
 | `inspect`        | Report link states, detached objects and Blender-owned changes              |
-| `preview_asset`  | Render a candidate asset in isolation                                       |
-| `accept_asset`   | Copy an accepted candidate into the project library                         |
-| `export_silhouette` | Write a simplified untextured mesh of a skin for the Compose view        |
 | `save`, `shutdown` | Save `scene.blend` and close cleanly                                      |
 
 Motion moves as a binary file rather than JSON. The app writes sampled positions and rotations as Float32 arrays into `.cache/motion/`, and the worker reads them with NumPy and writes F-curves with `foreach_set`. Keyframes are written at the render frame rate. Hit values become an animated custom property per piece.

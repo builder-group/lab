@@ -22,12 +22,13 @@ import { parseHitKey, toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps } from './build-track';
-import { addedProblems, blockedScenery, brokenHits, fixPiece, lookPieces, newlyBroken, replaceBroken, replaceCommands, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
+import { addedProblems, blockedScenery, brokenHits, fixPiece, lookPieces, replaceBroken, replaceCommands, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
 import { findFinish } from './finish-assist';
 import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
 import { unreachableActions } from './unreachable-fixes';
 import { displayPiece } from './attach-edit';
+import { newlyBroken } from './finish-assist';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
 import { commitAtHit, findStepTarget, pieceForHit, previousPiece, selectedPieceIds } from './step-loop';
 
@@ -42,7 +43,6 @@ export const AUTO_PLACE_WAIT_MS = 150;
 export class AssistCx {
 	readonly $ghosts = createState<TGhostState>(initialGhostState);
 	/** Wall time of the latest answer per assist, in milliseconds, for the status readout and checks */
-	readonly $latency = createState<Partial<Record<TAssistKind, number>>>({});
 
 	/** Next presses made while a placement or its run was still on the way, shown on the build bar as "Next ×5" */
 	readonly $queuedNext = createState(0);
@@ -148,7 +148,7 @@ export class AssistCx {
 			this.studio.notify(everyNotePlacedMessage(project, this.studio.$selection.get()));
 			return;
 		}
-		void this.place(target, type, 'next');
+		void this.place(target, type);
 	}
 
 	/**
@@ -208,7 +208,7 @@ export class AssistCx {
 	private placeAfterStuckGap(result: TSimulationResult, laneId: string, hitId: string, type: string): void {
 		const hit = result.hits.find((item) => item.laneId === laneId && item.hitId === hitId);
 		if (hit?.dot != null) {
-			void this.place(hit, type, 'next');
+			void this.place(hit, type);
 			return;
 		}
 		this.studio.notify("The marble falls too far to reach the note after this gap. Turn the platform before the gap, or choose Build Track.", 'info', { actions: [this.buildAction()] });
@@ -244,7 +244,7 @@ export class AssistCx {
 		const pieceType = entity?.components.piece?.type;
 		if (entity == null || link == null || pieceType == null) {
 			const target = findStepTarget(project, result, this.studio.$selection.get());
-			if (target != null) void this.place(target, type, 'autoPlace');
+			if (target != null) void this.place(target, type);
 			else this.studio.notify('No note is open for a platform. Select a platform to tilt it again, or add a note in the timeline.');
 			return;
 		}
@@ -253,10 +253,8 @@ export class AssistCx {
 			this.studio.notify(kind === 'path' || kind === 'tube' ? "Add Platform tilts platforms only. Drag the path's handles to shape it." : 'Add Platform tilts platforms only. Turn this piece by hand.');
 			return;
 		}
-		const startedAt = performance.now();
 		client.autoPlace({ project, laneId: link.laneId, hitId: link.hitId, type: pieceType, entityId: entity.id }).then(
 			(answer) => {
-				this.record('autoPlace', startedAt);
 				const present = this.studio.project;
 				if (present == null || present.revision !== project.revision) return;
 				// The tilt and bounce together, and a platform a drag left where it lay goes back on its note
@@ -277,10 +275,10 @@ export class AssistCx {
 	 * Places a piece at an open hit. Platforms and windmills ask Auto place for the angle and wait up to
 	 * 150 ms; a slower answer refines the default angle afterwards within the same undo step.
 	 */
-	async place(hit: THitResult, type: string, kind: TAssistKind = 'autoPlace'): Promise<void> {
+	async place(hit: THitResult, type: string): Promise<void> {
 		this.isPlacing = true;
 		try {
-			await this.placeNow(hit, type, kind);
+			await this.placeNow(hit, type);
 		} finally {
 			this.isPlacing = false;
 			this.runQueuedNext();
@@ -289,16 +287,14 @@ export class AssistCx {
 
 	private isPlacing = false;
 
-	private async placeNow(hit: THitResult, type: string, kind: TAssistKind): Promise<void> {
+	private async placeNow(hit: THitResult, type: string): Promise<void> {
 		const project = this.studio.project;
 		const client = this.studio.simulation.assists;
 		if (project == null || hit.dot == null) return;
-		const startedAt = performance.now();
 		const layout = layoutOf(type);
 		const id = createId('piece');
 		if (client == null || layout === 'path' || layout === 'tube') {
 			commitAtHit(this.studio, hit, pieceForHit(project, hit, type, 'default', id));
-			this.record(kind, startedAt);
 			return;
 		}
 		const ask = (): Promise<TAutoPlaceAnswer | 'failed' | 'superseded'> =>
@@ -312,21 +308,18 @@ export class AssistCx {
 		if (present == null) return;
 		if (typeof quick === 'object' && present.revision === project.revision) {
 			commitAtHit(this.studio, hit, quick.entity);
-			this.record(kind, startedAt);
 			return;
 		}
 		// Only the wait for the picture depends on timing: the piece shows at the default tilt until the answer comes, and
 		// the answer then gives it the same tilt and bounce a quick answer would have, so the track is the same either way
 		const fallback = pieceForHit(present, hit, type, 'default', id);
 		if (!commitAtHit(this.studio, hit, fallback)) return;
-		this.record(kind, startedAt);
 		const placedRevision = this.studio.project?.revision;
 		const placedGroup = this.studio.editGroup ?? undefined;
 		let answer: TAutoPlaceAnswer | 'failed' | 'superseded' | 'slow' = quick;
 		if (answer === 'slow') answer = await request;
 		// A newer request replaced this one in the queue, not an answer about this hit
 		if (answer === 'superseded') answer = await ask();
-		this.record('autoPlace', startedAt);
 		if (answer === 'failed' || answer === 'superseded') {
 			if (this.studio.project?.revision === placedRevision) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
 			return;
@@ -415,10 +408,9 @@ export class AssistCx {
 		const { ghost } = this.$ghosts.get();
 		const project = this.studio.project;
 		if (ghost == null || project == null || ghost.answer.revision !== project.revision) return false;
-		const startedAt = performance.now();
 		// Committing selects the new piece, which is no cancel
 		this.previewKey = null;
-		if (ghost.kind === 'place') return this.acceptPreview(ghost.answer, startedAt);
+		if (ghost.kind === 'place') return this.acceptPreview(ghost.answer);
 		const commands = ghost.answer.commands;
 		if (!commands.length || !this.studio.execute(commands)) return false;
 		this.dispatch({ type: 'accepted' });
@@ -432,11 +424,10 @@ export class AssistCx {
 			this.studio.$selection.set([ghost.answer.entity.id]);
 			if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.piece?.entryTime ?? this.studio.$playhead.get());
 		}
-		this.record('accept', startedAt);
 		return true;
 	}
 
-	private acceptPreview(answer: TPlaceAnswer, startedAt: number): boolean {
+	private acceptPreview(answer: TPlaceAnswer): boolean {
 		this.previewRun++;
 		if (!answer.isSolved) {
 			// Auto place hasn't answered: placing waits for it the way a direct placement does, the ghost up meanwhile
@@ -445,7 +436,6 @@ export class AssistCx {
 		}
 		if (!commitAtHit(this.studio, answer.hit, answer.entity)) return false;
 		this.dispatch({ type: 'accepted' });
-		this.record('accept', startedAt);
 		if (!answer.isOk) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
 		return true;
 	}
@@ -469,11 +459,9 @@ export class AssistCx {
 		const project = this.studio.project;
 		const client = this.studio.simulation.assists;
 		if (project == null || client == null) return;
-		const startedAt = performance.now();
 		this.dispatch({ type: 'requestGap', revision: project.revision, laneId, toHitId });
 		client.gapPiece({ type, project, laneId, fromHitId, toHitId }).then(
 			(answer) => {
-				this.record('gap', startedAt);
 				// A rail the pace or the frame can't follow leaves the gap to the switchback, like Build Track
 				if (options.fallback != null && options.fallback !== type && answer.check != null && !gapPieceReads(answer.check, this.currentResult()?.pace?.limit ?? Infinity)) {
 					this.suggestGapPiece(options.fallback, laneId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
@@ -936,7 +924,6 @@ export class AssistCx {
 			this.dispatch({ type: 'continueAnswer', revision: project.revision, answer: null });
 			return;
 		}
-		const startedAt = performance.now();
 		this.pendingContinue = key;
 		const done = (): void => {
 			if (this.pendingContinue === key) this.pendingContinue = null;
@@ -944,7 +931,6 @@ export class AssistCx {
 		client.continueRun({ project, laneId }).then(
 			(answer: TContinueAnswer | null) => {
 				done();
-				this.record('continue', startedAt);
 				this.dispatch({ type: 'continueAnswer', revision: project.revision, answer });
 			},
 			() => {
@@ -969,12 +955,8 @@ export class AssistCx {
 		if (next !== this.$ghosts.get()) this.$ghosts.set(next);
 	}
 
-	private record(kind: TAssistKind, startedAt: number): void {
-		this.$latency.set({ ...this.$latency.get(), [kind]: Math.round(performance.now() - startedAt) });
-	}
 }
 
-export type TAssistKind = 'next' | 'autoPlace' | 'continue' | 'gap' | 'accept';
 
 const DEGREE = Math.PI / 180;
 

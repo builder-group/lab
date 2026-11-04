@@ -14,6 +14,16 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### 2026-11-04: Deep cleanup, part 1: determinism, Seamless Loop, `marble-project@5`, dead code
+
+- **Build Track is deterministic:** equal event times go by lane, then hit, not by random IDs (`simulate.ts`). Jingle Bells in the test: about 66 to 72 s on one thread, from 234 to 265 s. Suite without performance tests: 137 s, from 292 s.
+- **Seamless Loop removed** in TS, Python, scripts, tests and docs; `camera:check` numbers didn't move. Rail-based looping is parked (`design-language.md`, Track direction).
+- **`marble-project@5`, no migrations:** an older file fails in plain words. Gone: older schemas, `withoutRemovedFields`, `skin-ids`, `canonical_skin`, `reaction`, `skin.link`, `hitLink.pinned`, `themeOptions`. Required: `themes`, `decor`, `madeInBlender`, `wall`, `lights.added`, `camera.sway`. Garland is gone; Particles stays.
+- **Fixtures:** rebuilt by script: Jingle Bells (115/115, clean preflight, colours now set by the script), staircase, windmill. Converted in place, as their scripts no longer reproduce them: zigzag (Continue stops after 4 pieces), long-gap (more double strikes), tap-along (a new double strike), reference-20 (drops a hit, 47 of 48), two-marbles (the builder throws at hit-2-2). The preflight test's filter stays for zigzag, long-gap, reference-20, two-marbles and windmill, which have double strikes.
+- **Dead code** from the audit gone; `loadFixture` and `apply` shared in `project/test-helpers.ts`. `FRAME_CHECK_EVERY` kept: it is in use.
+- Checks: `typecheck`; `lint` 0 errors, 4 warnings; `test` 828 + 3; `camera:check`; `cargo test` 63 + 3, 2 ignored; `blender:design`, `blender:film`, `blender:preview` pass. **`blender:check` fails at "marble stays inside the frame" (0.59), the same on the commit before this cleanup;** past it, with the limit raised by hand, a marble contrast check fails too (1.8:1, not compared with before).
+- Next: cleanup part 2.
+
 ### 2026-11-04: MCP is the main path; an agent is a collaborator, not a chat
 
 The owner's decision (`design-language.md`, Round 9): the person's own Claude Code, Codex or Claude app is the chat.
@@ -669,10 +679,9 @@ From `.local/v3/gaps-round2.md`, the benchmark agent that made a film through MC
 
 The owner's decisions from the same session, in build order after Connect and no rolling on platforms. Details in `design-language.md`, Track direction.
 
-1. Curved Rails experiment on Jingle Bells' 12 gaps: C, S and U shapes. Measure hits on time, staying in the column, repeatable exits; render a Draft.
-2. One Rail holding several paths, with shape presets. Switchback and Finish leave Insert; saved files still load them. Bowl is a piece in Insert.
-3. Start on a Rail in Build Track.
-4. Keys: a run that plays many hits, maybe a Rail with sections.
-5. V4 film through MCP against the reference.
+1. Rail work, as one step. Curved Rails measured on Jingle Bells' 12 gaps: C, S and U shapes, for hits on time, staying in the column and repeatable exits, plus a Draft render. If they pass: one Rail holding several paths, with shape presets; Switchback and Finish removed, as the app hasn't shipped; Bowl is a piece in Insert; Build Track starts on a Rail. If they fail: Switchback stays and the owner hears why.
+2. Keys: a run that plays many hits, maybe a Rail with sections.
 
-Parked by the owner until the above is done: Start and End handles with mirroring for Seamless Loop, whose first test is reaching the mirrored stretch at the right speed. Seamless Loop keeps working as it does today.
+Playground projects and Jingle Bells are the test ground throughout. **Last step and final validation: recreate the reference short through the app.** If the app can't do it, iterate on the app until it can, fixing the app rather than the one film.
+
+Parked by the owner until the above is done: Start and End handles. Rail-based looping is parked with them; Seamless Loop is out of the app.

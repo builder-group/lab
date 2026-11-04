@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, type TProject } from '@/modules/project';
 import type { THitResult, TSimulationResult } from '@/modules/simulation/types';
-import { buildSceneDescription, encodeRecords, lastHitTime, MOTION_FOLDER } from './scene-builder';
+import { buildSceneDescription, encodeRecords, lastStruckTime, MOTION_FOLDER } from './scene-builder';
 
 function fixture(): { project: TProject; result: TSimulationResult; marbleId: string; laneId: string } {
 	const project = createProject({ title: 'Song', id: 'project-1' });
@@ -316,7 +316,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			shots: [{ time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4, length: 2 }],
 			focusMarbleId: null,
 			descent: null,
-			holdAfter: lastHitTime(result),
+			holdAfter: lastStruckTime(result),
 			holdFinish: null
 		});
 	});

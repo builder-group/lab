@@ -5,7 +5,8 @@ import { applyProjectCommands, BACKING_ID, createProject, parseProject, type TPr
 import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
-import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, lookPieces, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceResultSummary, sceneryFix, withCommands, type TReplaceDeps } from './fix-it';
+import { newlyBroken } from './finish-assist';
+import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, lookPieces, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceResultSummary, sceneryFix, withCommands, type TReplaceDeps } from './fix-it';
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {

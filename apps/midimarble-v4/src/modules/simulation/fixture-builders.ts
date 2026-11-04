@@ -1,6 +1,6 @@
 import { applyProjectCommands, LANE_SPACING, type TProject, type TProjectCommand } from '@/modules/project';
 import { autoPlace, continueSuggestions, mirrorPiece, type TSimulateFn } from './assists';
-import { createBareRunProject } from './fixture-projects';
+import { createBareRunProject, evenTimes } from './fixture-projects';
 import { createRailForGap, createTunnelForGap } from './gap-pieces';
 import { createLinkedPiece } from './placement';
 
@@ -184,6 +184,3 @@ function apply(project: TProject, commands: TProjectCommand[], revision?: number
 	return applied;
 }
 
-function evenTimes(start: number, gap: number, count: number): number[] {
-	return Array.from({ length: count }, (_, i) => Math.round((start + gap * i) * 1000) / 1000);
-}

@@ -5,7 +5,7 @@ import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulatio
 import { filmCamera, imageToWall } from './film-camera';
 import { resolveElementLook, resolveTheme } from './project-themes';
 import { resetKeyLightCommands, wallCommands } from './scene-layers';
-import { catalogSkin, catalogSkins, entitySkinElement, type TCatalogSkin, type TSkinElement } from './skin-catalog';
+import { catalogSkin, entitySkinElement, type TSkinElement } from './skin-catalog';
 
 export { defaultTitleColor, themeCommands, themeTitleColor } from './project-themes';
 export { builtInSkinLabel } from './skin-catalog';
@@ -30,20 +30,6 @@ export const themePresets: readonly TThemePreset[] = [
 
 function themePreset(id: string, label: string, description: string): TThemePreset {
 	return { id, label, description, previewUrl: publicUrl(`themes/${id}-plain.jpg`), notePreviewUrl: publicUrl(`themes/${id}-note.jpg`) };
-}
-
-/** The skins of an element in the Library's order: the theme's first, then the rest as the catalog lists them */
-export function skinsForElement(design: Pick<TDesign, 'theme' | 'themes'>, element: TSkinElement): TCatalogSkin[] {
-	const skins = catalogSkins(element);
-	const part = resolveTheme(design).parts[element].skin;
-	return [...skins.filter((skin) => skin.id === part), ...skins.filter((skin) => skin.id !== part)];
-}
-
-/** Whether a piece or marble wears a skin: its own, or the theme's when it has none of its own */
-export function showsSkin(design: Pick<TDesign, 'theme' | 'themes'>, entity: TEntity, skinId: string): boolean {
-	const element = entitySkinElement(entity);
-	if (element == null) return false;
-	return resolveElementLook(design, element, entity.components.skin).skin === skinId;
 }
 
 /**
@@ -166,13 +152,6 @@ export function fixedColorSkinLabel(design: Pick<TDesign, 'theme' | 'themes'>, s
 	const look = resolveElementLook(design, 'marble', skin);
 	const builtIn = catalogSkin(look.skin);
 	return builtIn?.color != null && look.colour !== 'marble' ? builtIn.label : null;
-}
-
-/** Removes the pieces' own skin so the theme's default skin applies again */
-export function clearSkinCommands(project: TProject, entityIds: string[]): TProjectCommand[] {
-	return project.entities
-		.filter((entity) => entityIds.includes(entity.id) && entity.components.skin != null)
-		.map((entity) => ({ type: 'removeComponent' as const, entityId: entity.id, name: 'skin' as const }));
 }
 
 /** The piece type most of the pieces have, so a section selected as a range in Layers shows its platforms' skins */

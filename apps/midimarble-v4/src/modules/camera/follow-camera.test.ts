@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { FINISH_TAIL_MAX, finishTail, songEnd } from '@/modules/music';
 import { finishCatch } from '@/modules/simulation/finish';
-import { parseProject, type TProject } from '@/modules/project';
+import { type TProject } from '@/modules/project';
 import { createSimulator } from '@/modules/simulation/simulate';
 import type { TSimulationResult } from '@/modules/simulation/types';
 import { compareCameraTrack, quaternionToMatrix, type TBlenderCameraDump } from './compare-track';
@@ -17,18 +17,9 @@ import {
 } from './follow-camera';
 import { finishExit } from './finish-exit';
 import { followCameraTrack } from './project-track';
+import { loadFixture } from '@/modules/project/test-helpers';
 
 const FIXTURES = ['zigzag', 'reference-20', 'jingle-bells'] as const;
-
-function loadFixture(name: string): TProject {
-	const json = readFileSync(
-		new URL(`../../../fixtures/${name}.marble.json`, import.meta.url),
-		'utf8'
-	);
-	const [isProjectOk, projectErr, project] = parseProject(json);
-	if (!isProjectOk) throw projectErr;
-	return project;
-}
 
 /** Blender dump written by `pnpm camera:check`, or null when the check has not run on this machine */
 function loadDump(name: string, fps: number): TBlenderCameraDump | null {

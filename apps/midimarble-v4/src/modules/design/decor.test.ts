@@ -1,7 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { projectToFrame, type TCameraTrack } from '@/modules/camera';
-import { applyProjectCommands, parseProject, serializeProject, type TDecor, type TProject, type TProjectCommand } from '@/modules/project';
+import { parseProject, serializeProject, type TDecor, type TProject } from '@/modules/project';
 import { buildSceneDescription } from '@/modules/blender/scene-builder';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
 import type { TSimulationResult } from '@/modules/simulation/types';
@@ -27,22 +26,16 @@ import {
 import { DECOR_ITEMS, decorExtent, isFrameEffect } from './decor-catalog';
 import { effectDefaults, flakeAt, snowFlakes } from './decor-effects';
 import { buildObstacleField, distanceToBox, type TWallBox } from './decor-clearance';
-import { SCATTER_MARGIN, scatterDecorCommands, scatterPlacements, seedOf } from './decor-scatter';
+import { SCATTER_MARGIN, scatterDecorCommands, scatterPlacements } from './decor-scatter';
 import { decorTips, preflightExport } from './export-preflight';
 import { filmCamera } from './film-camera';
 import { pieceOutline } from '@/modules/compose/scene';
+import { apply, loadFixture } from '@/modules/project/test-helpers';
 
-function loadFixture(name: string): TProject {
-	const [isOk, err, project] = parseProject(readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8'));
-	if (!isOk) throw err;
+function loadBare(name: string): TProject {
+	const project = loadFixture(name);
 	// These tests place their own decor; Jingle Bells ships dressed
 	return { ...project, design: { ...project.design, decor: [] } };
-}
-
-function apply(project: TProject, commands: TProjectCommand[]): TProject {
-	const [isOk, err, next] = applyProjectCommands(project, commands);
-	if (!isOk) throw err;
-	return next;
 }
 
 /** Distance from a box to a marble's path as a polyline, its radius taken off: the exact check, not the grid the code uses */
@@ -73,7 +66,7 @@ describe('Decor', () => {
 
 	beforeAll(async () => {
 		simulator = await createSimulator();
-		project = loadFixture('jingle-bells');
+		project = loadBare('jingle-bells');
 		result = simulator.simulate(project);
 		const camera = filmCamera(project, result).track;
 		if (camera == null) throw new Error('Jingle Bells has no film camera');
@@ -313,16 +306,15 @@ describe('Decor', () => {
 		it('should scatter library items by their asset path with their manifest size', () => {
 			const source = assetDecorSource('holly', 'Holly', { width: 0.04, height: 0.03 });
 			expect(source.footprint).toEqual({ x: 0.02, y: 0.015 });
-			const { commands, count } = scatterDecorCommands(project, result, track, { items: [source], density: 0.5, seed: seedOf('set-1') });
+			const { commands, count } = scatterDecorCommands(project, result, track, { items: [source], density: 0.5, seed: 1 });
 			expect(count).toBeGreaterThan(0);
 			expect(new Set(apply(project, commands).design.decor.map((item) => item.source))).toEqual(new Set(['assets/holly/asset.blend']));
-			expect(seedOf('set-1')).toBe(seedOf('set-1'));
 		}, 60_000);
 	});
 
 	describe('Particles', () => {
 		function withEffects(): { project: TProject; result: TSimulationResult; track: TCameraTrack } {
-			let project = loadFixture('jingle-bells');
+			let project = loadBare('jingle-bells');
 			for (const source of ['decor:snowfall']) project = apply(project, addDecorCommands(project, builtInSource(source), { x: 0, y: 0 }).commands);
 			const result = simulator.simulate(project);
 			const track = filmCamera(project, result).track;
@@ -352,7 +344,7 @@ describe('Decor', () => {
 		it('Scatter Decor ignores them, as items and as obstacles', () => {
 			const { project, result, track } = withEffects();
 			const items = [builtInSource('decor:star')];
-			const bare = loadFixture('jingle-bells');
+			const bare = loadBare('jingle-bells');
 			const barePlacements = scatterPlacements(bare, simulator.simulate(bare), track, { items, density: 0.3, seed: 1 });
 			expect(scatterPlacements(project, result, track, { items, density: 0.3, seed: 1 })).toEqual(barePlacements);
 			expect(scatterPlacements(project, result, track, { items: [builtInSource('decor:snowfall')], density: 0.3, seed: 1 })).toEqual([]);

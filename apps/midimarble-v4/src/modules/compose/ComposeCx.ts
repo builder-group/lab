@@ -67,7 +67,7 @@ import {
 	withPathBend,
 	withPathEnd
 } from './scene';
-import { newlyBroken } from './fix-it';
+import { newlyBroken } from './finish-assist';
 import { asLaneFinish, commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
 import {
 	boundsOf,

@@ -1,21 +1,11 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { parseProject, type TProject, type TVec2 } from '@/modules/project';
+import { type TProject, type TVec2 } from '@/modules/project';
 import { findLongGaps } from './assists';
 import { paceAt } from './pace';
 import { frameBand } from './placement';
 import { createSimulator, type TSimulator } from './simulate';
 import { HIT_DRIFT, type TMarbleSample, type TSimulationResult } from './types';
-
-function loadFixture(name: string): TProject {
-	const json = readFileSync(
-		new URL(`../../../fixtures/${name}.marble.json`, import.meta.url),
-		'utf8'
-	);
-	const [isProjectOk, projectErr, project] = parseProject(json);
-	if (!isProjectOk) throw projectErr;
-	return project;
-}
+import { loadFixture } from '@/modules/project/test-helpers';
 
 function expectAllOnTime(result: TSimulationResult, count: number): void {
 	expect(result.hits).toHaveLength(count);

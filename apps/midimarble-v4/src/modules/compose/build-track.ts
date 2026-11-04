@@ -26,6 +26,7 @@ import {
 import { checkFraming } from '@/modules/design/export-preflight';
 import { FINISH_TYPE, finishOfLane } from '@/modules/simulation';
 import { withFinishes } from './finish-assist';
+import { openHits } from './step-loop';
 import { hitReach } from './reachability';
 
 // Build Track: the app's own way of building a whole track from a song, one implementation for the command, Next's
@@ -173,8 +174,6 @@ export interface TBuildTrackDeps {
 export type TBuildGapPreference = 'rail' | 'switchback';
 
 export interface TBuildOptions {
-	/** Adds a Finish after each marble's last note, on by default */
-	shouldFinish?: boolean;
 	/**
 	 * Rebuild From Here: everything up to this hit stays exactly as it is, on every marble and with the pieces this hit
 	 * already has, and what plays after it is built again. Nothing kept is ever turned and no release moves.
@@ -274,13 +273,13 @@ function isShared(current: TProject): boolean {
 	return current.entities.filter((entity) => entity.components.marble != null).length > 1;
 }
 
-function openHits(state: TBuildState, result: TSimulationResult): THitResult[] {
-	return result.hits.filter((hit) => hit.status === 'open' && hit.dot != null && !state.skipped.has(hitKey(hit.laneId, hit.hitId))).sort((a, b) => a.targetTime - b.targetTime);
+function remainingHits(state: TBuildState, result: TSimulationResult): THitResult[] {
+	return openHits(result).filter((hit) => !state.skipped.has(hitKey(hit.laneId, hit.hitId)));
 }
 
 function nextOpenPerLane(state: TBuildState, result: TSimulationResult): Map<string, THitResult> {
 	const next = new Map<string, THitResult>();
-	for (const hit of openHits(state, result)) if (!next.has(hit.laneId)) next.set(hit.laneId, hit);
+	for (const hit of remainingHits(state, result)) if (!next.has(hit.laneId)) next.set(hit.laneId, hit);
 	return next;
 }
 
@@ -770,7 +769,7 @@ async function tolerate(state: TBuildState, project: TProject): Promise<void> {
  */
 function nextTarget(state: TBuildState, current: TProject, result: TSimulationResult): THitResult | null {
 	for (;;) {
-		const open = openHits(state, result)[0];
+		const open = remainingHits(state, result)[0];
 		const gap = current.music.lanes
 			.flatMap((lane) => openLongGaps(current, lane.id))
 			.filter((item) => !state.skipped.has(hitKey(item.laneId, item.toHitId)))
@@ -805,7 +804,7 @@ function framingTrouble(project: TProject, result: TSimulationResult, until = In
 
 /** Time up to which every marble's run is built, with a hit that has no piece yet as its end */
 function builtUntil(state: TBuildState, result: TSimulationResult): number {
-	return (openHits(state, result)[0]?.targetTime ?? Infinity) - CAMERA_SETTLE;
+	return (remainingHits(state, result)[0]?.targetTime ?? Infinity) - CAMERA_SETTLE;
 }
 
 /** The first dot further from the shared pace than `keepsPace` allows, when the run does not keep it */
@@ -821,8 +820,7 @@ function lanesWithHits(project: TProject): string[] {
 }
 
 /** A marble no Finish could catch: its last platforms go another way, so its fall ends somewhere a Finish fits */
-function finishTrouble(project: TProject, shouldFinish: boolean): { laneId: string; from: number } | null {
-	if (!shouldFinish) return null;
+function finishTrouble(project: TProject): { laneId: string; from: number } | null {
 	const lane = project.music.lanes.find((item) => item.hits.length > 0 && finishOfLane(project, item.id) == null);
 	return lane != null ? { laneId: lane.id, from: lane.hits.at(-1)?.time ?? 0 } : null;
 }
@@ -934,7 +932,7 @@ export async function buildOneStep(project: TProject, deps: TBuildTrackDeps): Pr
  * without pieces. Each accepted step goes to `deps.commit`, so the pieces appear as they are found.
  */
 export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options: TBuildOptions = {}): Promise<TBuildOutcome> {
-	const { shouldFinish = true, from, gapPiece = null } = options;
+	const { from, gapPiece = null } = options;
 	// What Rebuild From Here keeps; the first commit takes the rest away, so it all stays one undo step
 	const project = from != null ? withoutPiecesAfter(whole, from) : whole;
 	const canTurnOwn = from == null;
@@ -1030,12 +1028,12 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 			const target = nextTarget(state, current, result);
 			if (target == null) {
 				// The whole run is built, so the camera's answer, the pace and the Finishes are final
-				const finished = shouldFinish ? await withFinishes(current, { simulate: (next) => deps.simulate(next), isCancelled: deps.isCancelled }, { lanes: lanesWithHits(current) }) : null;
+				const finished = await withFinishes(current, { simulate: (next) => deps.simulate(next), isCancelled: deps.isCancelled }, { lanes: lanesWithHits(current) });
 				if (isCancelled(state)) {
 					isStopped = true;
 					return { project: current, reached: -Infinity };
 				}
-				const trouble = canForce ? null : (framingTrouble(finished?.project ?? current, finished != null ? await deps.simulate(finished.project) : result) ?? paceTrouble(current, result) ?? finishTrouble(finished?.project ?? current, shouldFinish));
+				const trouble = canForce ? null : (framingTrouble(finished?.project ?? current, finished != null ? await deps.simulate(finished.project) : result) ?? paceTrouble(current, result) ?? finishTrouble(finished?.project ?? current));
 				if (trouble != null && (await backUp(trouble))) {
 					if (!publish(current, null)) isStopped = true;
 					continue;
@@ -1101,7 +1099,7 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 		let { reached } = attempted;
 		if (reached === Infinity) {
 			const finished = await run(state, attempted.project);
-			if (!keepsPace(attempted.project, finished) || finishTrouble(attempted.finished?.project ?? attempted.project, shouldFinish) != null) {
+			if (!keepsPace(attempted.project, finished) || finishTrouble(attempted.finished?.project ?? attempted.project) != null) {
 				deps.onLog?.('  the dots leave the shared pace or a marble misses its Finish, so the build counts as stopped at the end');
 				reached = attempted.project.end;
 			} else if (framingTrouble(attempted.project, finished) != null) {
@@ -1132,7 +1130,7 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 
 	// Each marble ends in a Finish after its last note, and the film length follows
 	const finishes: string[] = [];
-	if (shouldFinish && !isStopped && !isCancelled(state)) {
+	if (!isStopped && !isCancelled(state)) {
 		const finished = best.finished ?? (await withFinishes(current, { simulate: (next) => deps.simulate(next), isCancelled: deps.isCancelled }, { lanes: lanesWithHits(current) }));
 		finishes.push(...finished.messages);
 		if (isCancelled(state)) isStopped = true;

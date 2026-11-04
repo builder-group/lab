@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { parseProject, type TProject } from '@/modules/project';
+import { type TProject } from '@/modules/project';
 import { createAssistPool, type TPoolWorker } from './assist-pool';
 import { autoPlace, findLongGaps, hitOwners } from './assists';
 import { createRailForGap, createSwitchbackForGap, createTunnelForGap } from './gap-pieces';
@@ -8,6 +7,7 @@ import { isSuperseded } from './request-queue';
 import { packResult, unpackResult } from './result-transfer';
 import { createSimulator, type TSimulator } from './simulate';
 import { answerWorkerRequest, createWorkerMemory, type TGapPieceType, type TWorkerMessage } from './worker-protocol';
+import { loadFixture } from '@/modules/project/test-helpers';
 
 /**
  * Workers in this thread, each with its own simulator, that answer in order after a pseudo-random delay, so
@@ -51,12 +51,6 @@ function createFakeWorkers(seed: number): { createWorker: () => TPoolWorker; pos
 		};
 	};
 	return { createWorker, posted };
-}
-
-function loadFixture(name: string): TProject {
-	const [isOk, error, project] = parseProject(readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8'));
-	if (!isOk) throw error;
-	return project;
 }
 
 describe('createAssistPool function', () => {

@@ -1,17 +1,11 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SONG_TAIL } from '@/modules/music';
-import { parseProject, type TProject } from '@/modules/project';
+import { type TProject } from '@/modules/project';
 import { createSimulator } from '@/modules/simulation/simulate';
 import { exitRunProject, finishExit, fittedSongEnd } from './finish-exit';
+import { loadFixture } from '@/modules/project/test-helpers';
 
 const SIMULATION_TIMEOUT = 20_000;
-
-function loadFixture(name: string): TProject {
-	const [isOk, err, project] = parseProject(readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8'));
-	if (!isOk) throw err;
-	return project;
-}
 
 describe('finishExit', () => {
 	it(

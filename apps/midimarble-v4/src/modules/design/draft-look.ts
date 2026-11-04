@@ -70,15 +70,6 @@ const RIBBON = '#d9a520';
 /** Colour: Skin of a Candy Rail, `CANDY_COLOR` in skins.py */
 const CANDY = '#c8202c';
 
-/**
- * Whether the theme's Colour applies to a piece with this skin: only a piece that shows its theme's skin; a skin chosen
- * for it keeps its own colour until its own Colour says otherwise. Spelling out the theme's skin (`platform:gold` on
- * Brass) changes nothing. The rule of `resolve_look` in skin_catalog.py.
- */
-export function takesNoteColor(theme: string, skin: TScenePiece['skin'] | undefined): boolean {
-	return resolveSkinLook(theme, null, 'platform', skin).isThemeSkin;
-}
-
 /** What a skin colours itself with, by its Colour: null for its own colour */
 function accentOf(look: TSkinLook, piece: Pick<TScenePiece, 'color' | 'notePitch'>): string | null {
 	if (look.colour === 'skin') return null;

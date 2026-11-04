@@ -1,6 +1,6 @@
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { FINISH_TYPE } from '@/modules/simulation/finish';
-import { finishFix } from './finish-assist';
+import { finishFix, hitKeyOf, isBroken, newlyBroken } from './finish-assist';
 import {
 	extraStrikes,
 	findLongGaps,
@@ -31,20 +31,6 @@ import { preflightExport, type TPreflightIssue } from '@/modules/design/export-p
 // Blocked scenery (a windmill, switchback, rail or tunnel that follows a marble) gets Move Clear instead.
 
 /** A hit whose platform no longer plays it: Blocked, Missed or Stopped */
-export function isBroken(hit: THitResult): boolean {
-	return hit.pieceEntityId != null && (hit.status === 'blocked' || hit.status === 'missed');
-}
-
-export function hitKeyOf(hit: Pick<THitResult, 'laneId' | 'hitId'>): string {
-	return `${hit.laneId}/${hit.hitId}`;
-}
-
-/** Hits that are broken after an edit but were not before it, in time order */
-export function newlyBroken(before: THitResult[], after: THitResult[]): THitResult[] {
-	const wasBroken = new Set(before.filter(isBroken).map(hitKeyOf));
-	return after.filter((hit) => isBroken(hit) && !wasBroken.has(hitKeyOf(hit))).sort((a, b) => a.targetTime - b.targetTime);
-}
-
 /** A hit that needs attention while its marble's run is being mended: broken, early or late, or on time but outside its lane */
 function needsFix(project: TProject, hit: THitResult): boolean {
 	if (isBroken(hit) || hit.status === 'drifting') return true;

@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { buildSceneDescription } from '@/modules/blender';
-import { parseCandidateManifest } from '@/modules/library';
 import { applyProjectCommands, createHistory, createProject, pushHistory, undoHistory, type TProject, type TProjectCommand } from '@/modules/project';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
 import { draftPieceColors, draftWall } from './draft-look';
 import {
 	baseThemeOf,
-	hasSkinChoices,
 	currentLookThemeCommands,
 	sceneThemeParts,
-	themePartCommands,
 	copyName,
 	deleteThemeCommands,
 	duplicateThemeCommands,
@@ -21,12 +18,7 @@ import {
 	themeOrigin,
 	themeOverrideCommands
 } from './project-themes';
-
-function apply(project: TProject, commands: TProjectCommand[]): TProject {
-	const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, commands);
-	if (!isAppliedOk) throw appliedErr;
-	return applied;
-}
+import { apply } from '@/modules/project/test-helpers';
 
 function withTheme(theme: string): TProject {
 	const project = createStaircaseProject();
@@ -153,21 +145,6 @@ describe('project themes in Blender and the Draft Preview', () => {
 });
 
 describe('Theme manifests and parts', () => {
-	it("should keep an agent's theme in its manifest with only the known colours", () => {
-		const manifest = {
-			$schema: 'marble-asset@1',
-			id: 'SunsetBar',
-			label: 'Sunset bar',
-			role: 'skin',
-			theme: { name: ' Sunset ', base: 'Brass', overrides: { wallColor: '#3B2A4A', fog: '#ffffff', lightColor: 'orange' } }
-		};
-		const [isOk, , parsed] = parseCandidateManifest(JSON.stringify(manifest));
-		expect(isOk).toBe(true);
-		expect(parsed?.theme).toEqual({ name: 'Sunset', base: 'brass', overrides: { wallColor: '#3b2a4a' } });
-		const [isBrokenOk, , broken] = parseCandidateManifest(JSON.stringify({ ...manifest, theme: { overrides: {} } }));
-		expect(isBrokenOk).toBe(true);
-		expect(broken?.theme).toBeUndefined();
-	});
 
 	it('should resolve a theme of parts, the same for a built-in and a project theme', () => {
 		const project = createProject();
@@ -187,16 +164,6 @@ describe('Theme manifests and parts', () => {
 		expect(isOk && resolveTheme(next.design, themeId).parts.marble.skin).toBe('marble:glass');
 	});
 
-	it('should set and clear a part of a project theme, never of a built-in one', () => {
-		const project = { ...createProject(), design: { ...createProject().design, themes: [{ id: 'mine', name: 'Mine', base: 'neon', overrides: {} }], theme: 'mine' } };
-		expect(themePartCommands(project, 'neon', 'platform', { skin: 'platform:gold' })).toEqual([]);
-		const [isSetOk, , set] = applyProjectCommands(project, themePartCommands(project, 'mine', 'platform', { skin: 'platform:gold' }));
-		expect(isSetOk && set.design.themes[0]?.parts).toEqual({ platform: { skin: 'platform:gold' } });
-		if (!isSetOk) return;
-		const [isClearOk, , cleared] = applyProjectCommands(set, themePartCommands(set, 'mine', 'platform', { skin: null }));
-		expect(isClearOk && cleared.design.themes[0]?.parts).toBeUndefined();
-	});
-
 	it('should keep the current look as a theme: the look most of a type wear becomes its part, exceptions stay', () => {
 		const base = createProject();
 		const platform = (id: string, assetId?: string) => ({
@@ -204,8 +171,6 @@ describe('Theme manifests and parts', () => {
 			components: { piece: { type: 'platform', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 }, ...(assetId != null ? { skin: { assetId } } : {}) }
 		});
 		const project = { ...base, design: { ...base.design, theme: 'brass' }, entities: [...base.entities, platform('a', 'platform:copper'), platform('b', 'platform:copper'), platform('c', 'platform:key'), platform('d', 'library-skin')] };
-		expect(hasSkinChoices(project)).toBe(true);
-		expect(hasSkinChoices(base)).toBe(false);
 		const { commands, themeId } = currentLookThemeCommands(project);
 		const [isOk, error, next] = applyProjectCommands(project, commands);
 		if (!isOk) throw error;

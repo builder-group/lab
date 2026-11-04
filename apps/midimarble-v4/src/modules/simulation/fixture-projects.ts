@@ -164,7 +164,7 @@ export function createBareRunProject(options: {
 	};
 }
 
-function evenTimes(start: number, gap: number, count: number): number[] {
+export function evenTimes(start: number, gap: number, count: number): number[] {
 	// Rounded to the millisecond so the stored JSON stays readable
 	return Array.from({ length: count }, (_, i) => Math.round((start + gap * i) * 1000) / 1000);
 }

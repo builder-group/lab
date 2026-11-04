@@ -17,12 +17,7 @@ import {
 	wallKindOverride,
 	wallLayer
 } from './scene-layers';
-
-function apply(project: TProject, commands: TProjectCommand[]): TProject {
-	const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, commands);
-	if (!isAppliedOk) throw appliedErr;
-	return applied;
-}
+import { apply } from '@/modules/project/test-helpers';
 
 function withTheme(theme: string): TProject {
 	const project = createStaircaseProject();

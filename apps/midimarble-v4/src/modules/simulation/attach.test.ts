@@ -1,23 +1,10 @@
-import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { applyProjectCommands, parseProject, type TEntity, type TProject } from '@/modules/project';
+import { type TEntity } from '@/modules/project';
 import { ANCHOR_DELAY } from './pieces';
 import { anchorHit, anchorPiece, linkPieceToHit, unanchorPiece, unlinkPiece } from './attach';
 import { createSimulator, type TSimulator } from './simulate';
 import type { TResolvedPiece, TSimulationResult } from './types';
-
-function loadFixture(name: string): TProject {
-	const json = readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8');
-	const [isProjectOk, projectErr, project] = parseProject(json);
-	if (!isProjectOk) throw projectErr;
-	return project;
-}
-
-function apply(project: TProject, commands: Parameters<typeof applyProjectCommands>[1]): TProject {
-	const [isApplied, applyErr, next] = applyProjectCommands(project, commands);
-	if (!isApplied) throw applyErr;
-	return next;
-}
+import { apply, loadFixture } from '@/modules/project/test-helpers';
 
 function pieceOf(result: TSimulationResult, entityId: string): TResolvedPiece {
 	const piece = result.pieces.find((item) => item.entityId === entityId);
