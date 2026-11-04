@@ -5,7 +5,9 @@ The autonomous build updates this log after every slice. Newest entries go first
 ## Current state
 
 - Milestones: M0–M5 done in the browser and headless Blender; M6 done by the owner's revised check (Camera view, Draft Preview and quick renders; the `reference-20` Best film exists as well). Still unverified in the native window: the round 2–3 UI, export through the sheet, a real agent run from the chat and the unsaved-example save panel
-- Next steps: the native checks above (computer use cannot drive the web view in the background; full-screen control needs the owner); review round 5; Draft Preview look closer to Blender (shadows, metal); two-marble scale by interleaved lanes (a narrower lane spacing alone frames no closer, `references.md`)
+- UX reviews: round 5 13/20, round 6 14/20 (`.local/ux-review-round*.md`); round 7 fixes for both are in. Three built-in themes (Pegboard, Brass, Neon) plus project themes
+- Next steps: the native checks above (computer use cannot drive the web view in the background; full-screen control needs the owner); review round 7; Draft Preview look closer to Blender (shadows, metal); two-marble scale by interleaved lanes (a narrower lane spacing alone frames no closer, `references.md`); a finish piece that catches the last marble so films can ring out longer than 0.4 s
+- Checks on `fb7e543`: `typecheck`, `lint` clean, `test` 470 + 3, `cargo test` 29
 - Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
