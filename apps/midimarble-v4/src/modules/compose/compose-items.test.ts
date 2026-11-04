@@ -8,7 +8,7 @@ import { deleteHitCommands, platformsOfHits } from '@/modules/studio/timeline/ha
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { AssistCx } from './AssistCx';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
-import { asPinned, displayPiece, KEEP_PLAYS_REACH, playsDrop, type TSnap } from './attach-edit';
+import { displayPiece, KEEP_PLAYS_REACH, playsDrop, type TSnap } from './attach-edit';
 import { replaceCommands, withCommands } from './fix-it';
 import { ghostReducer, initialGhostState, type TPlaceAnswer } from './ghosts';
 import { composeKeyAction } from './keys';
@@ -104,7 +104,7 @@ describe('a dot click before it places', () => {
 		let project: TProject = without;
 		let edits = 0;
 		let settle: { resolve: (value: TAutoPlaceAnswer) => void; reject: (error: Error) => void; entityId: string } | null = null;
-		const $history = createState<{ present: TProject } | null>({ present: project });
+		const $history = createState<{ present: TProject; past: TProject[]; future: TProject[] } | null>({ present: project, past: [], future: [] });
 		const cx = {
 			get project() {
 				return project;
@@ -118,15 +118,18 @@ describe('a dot click before it places', () => {
 			simulation: {
 				isPreviewing: false,
 				$result: createState<TSimulationResult | null>(null),
+				hold: () => undefined,
+				releaseHold: () => undefined,
 				assists: {
 					autoPlace: (request: { entityId: string }) => new Promise((resolve, reject) => (settle = { resolve, reject, entityId: request.entityId })),
-					continueRun: () => Promise.resolve(null)
+					continueRun: () => Promise.resolve(null),
+					settle: () => Promise.resolve({ entities: [], absorbedBy: [], broken: [], heldFrom: [], runs: 0 })
 				}
 			},
 			execute: (commands: Parameters<typeof withCommands>[1]) => {
 				project = { ...withCommands(project, commands), revision: project.revision + 1 };
 				edits++;
-				$history.set({ present: project });
+				$history.set({ present: project, past: [], future: [] });
 				return true;
 			},
 			audition: vi.fn(),
@@ -370,33 +373,18 @@ describe('dragging a platform that plays a note', () => {
 		const entity = project.entities.find((item) => item.id === 'piece-1-5');
 		const resolved = before.pieces.find((piece) => piece.entityId === 'piece-1-5');
 		if (entity == null || resolved == null) throw new Error('missing piece');
-		const radius = before.marbles[0]?.radius;
 
-		// In place, the run keeps it exactly there and still on time
-		const inPlace = asPinned(entity, { position: resolved.position, angle: resolved.angle }, radius);
-		const pinnedRun = simulate(withCommands(project, [{ type: 'upsertEntity', entity: inPlace }]));
-		const pinned = pinnedRun.pieces.find((piece) => piece.entityId === 'piece-1-5');
-		expect(pinned?.status).toBe('pinned');
-		expect(pinned?.position.x).toBeCloseTo(resolved.position.x, 6);
-		expect(pinned?.position.y).toBeCloseTo(resolved.position.y, 6);
-		expect(pinnedRun.hits.find((hit) => hit.pieceEntityId === 'piece-1-5')?.status).toBe('onTime');
-
-		// A little lower the marble lands later on the same note; the tie stays
-		const lower = asPinned(entity, { position: { x: resolved.position.x, y: resolved.position.y - 0.1 }, angle: resolved.angle }, radius);
-		expect(lower.components.hitLink?.hitId).toBe(entity.components.hitLink?.hitId);
-		const lowerProject = withCommands(project, [{ type: 'upsertEntity', entity: lower }]);
-		const lowerRun = simulate(lowerProject);
-		const hit = lowerRun.hits.find((item) => item.hitId === entity.components.hitLink?.hitId);
-		expect(hit?.pieceEntityId).toBe('piece-1-5');
-		expect(hit?.status).not.toBe('onTime');
-		expect(hit?.error ?? 0).toBeGreaterThan(0);
+		// Waiting where it was, the run keeps it exactly there and the marble passes
+		const link = entity.components.hitLink;
+		if (link == null) throw new Error('missing link');
+		const waiting = { ...entity, components: { ...entity.components, hitLink: { ...link, held: { dot: { x: resolved.position.x, y: resolved.position.y - 0.1 }, velocity: { x: 0, y: -1 }, leaves: null } } } };
+		const lowerProject = withCommands(project, [{ type: 'upsertEntity', entity: waiting }]);
 
 		// Placed again, it follows its note once more
 		const commands = replaceCommands(lowerProject, entity);
 		expect(commands.length).toBeGreaterThan(0);
 		const back = withCommands(lowerProject, commands);
-		expect(back.entities.find((item) => item.id === 'piece-1-5')?.components.hitLink?.pinnedPosition).toBeUndefined();
-		expect(back.entities.find((item) => item.id === 'piece-1-5')?.components.hitLink?.pinnedPosition).toBeUndefined();
+		expect(back.entities.find((item) => item.id === 'piece-1-5')?.components.hitLink?.held).toBeUndefined();
 		expect(simulate(back).hits.every((item) => item.status === 'onTime')).toBe(true);
 	});
 
@@ -404,7 +392,7 @@ describe('dragging a platform that plays a note', () => {
 		const project = createStaircaseProject();
 		const entity = project.entities.find((item) => item.id === 'piece-1-5');
 		if (entity == null) throw new Error('missing piece');
-		const shown = displayPiece(asPinned(entity, { position: { x: 0.3, y: 0.2 }, angle: 0.1 }), { pose: { position: { x: 0.3, y: 0.2 }, angle: 0.1 } });
+		const shown = displayPiece(entity, { pose: { position: { x: 0.3, y: 0.2 }, angle: 0.1 } });
 		expect(shown.position.x).toBeCloseTo(0.3);
 		expect(shown.position.y).toBeCloseTo(0.2);
 		expect(isBoundsVisible({ center: { x: 0.3, y: 0.2 }, scale: 900 }, viewport, { minX: 0.29, maxX: 0.31, minY: 0.19, maxY: 0.21 })).toBe(true);

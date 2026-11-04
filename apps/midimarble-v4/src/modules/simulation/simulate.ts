@@ -1,8 +1,7 @@
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
-import { DEFAULT_MARBLE_RADIUS, type TProject, type TVec2 } from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TProject, type TTransit, type TVec2 } from '@/modules/project';
 import { ballistic, gravityOf } from './geometry';
 import {
-	layoutAtContact,
 	layoutAtMarble,
 	layoutFree,
 	type TLayoutInput,
@@ -18,6 +17,7 @@ import {
 } from './pieces';
 import { descentPace, descentPoints } from './pace';
 import { frameBand } from './placement';
+import { hasRide, LEAVE_STEPS, rideFrame, rideHash, rideKey, rideLength, rideTolerance, rideVelocity } from './transit';
 import {
 	shapeClosestPoint,
 	shapeDistance,
@@ -330,6 +330,12 @@ interface TPlanEvent {
 	isAnchor: boolean;
 	/** Pose origin relative to the marble at the event, for anchors that keep their pose */
 	offset: TVec2 | null;
+	/** The ride this piece gives while the marble enters at about the same speed */
+	transit: TTransit | null;
+	/** How the marble leaves this platform while it comes out near that */
+	leaves: { velocity: TVec2; spin: number } | null;
+	/** Where the piece waits instead of following the marble */
+	held: { dot: TVec2; velocity: TVec2 | null } | null;
 }
 
 function createPlan(project: TProject): TPlan {
@@ -374,27 +380,6 @@ function createPlan(project: TProject): TPlan {
 			const time = hitTimes.get(`${hitLink.laneId}/${hitLink.hitId}`) ?? null;
 			linkedHitTimes.set(entity.id, time);
 			const marbleIndex = marbles.findIndex((marble) => marble.laneId === hitLink.laneId);
-			const input: TLayoutInput = {
-				type: piece.type,
-				params,
-				path,
-				angle: hitLink.angle,
-				contactAt: hitLink.contactAt,
-				marbleRadius: marbles[marbleIndex]?.radius ?? defaultRadius
-			};
-			if (hitLink.pinnedPosition != null) {
-				// Pinned pieces keep the unflipped normal since the incoming direction is unknown at time 0
-				const layout = layoutAtContact(input, hitLink.pinnedPosition);
-				staticPieces.push({
-					entityId: entity.id,
-					definition,
-					params,
-					layout,
-					resolved: resolvedFromLayout(entity.id, piece.type, params, layout, time, 'pinned'),
-					key: ''
-				});
-				continue;
-			}
 			if (time == null) continue;
 			// Anchored pieces and scenery follow the trajectory at their hit time plus their entry delay
 			const isAnchor = !soundsHit(piece.type, hitLink);
@@ -412,7 +397,10 @@ function createPlan(project: TProject): TPlan {
 				step: Math.floor(eventTime * PHYSICS_HZ + STEP_EPSILON),
 				marbleIndex,
 				isAnchor,
-				offset: hitLink.offset ?? null
+				offset: hitLink.offset ?? null,
+				transit: entity.components.transit != null && hasRide(piece.type) && entity.components.transit.key === rideKey(entity) ? entity.components.transit : null,
+				held: hitLink.held ?? null,
+				leaves: hitLink.leaves != null && hitLink.leaves.angle === hitLink.angle && hitLink.leaves.bounce === params['bounce'] ? { velocity: hitLink.leaves.velocity, spin: hitLink.leaves.spin } : null
 			});
 			continue;
 		}
@@ -482,7 +470,10 @@ function createPlan(project: TProject): TPlan {
 				event.time,
 				event.marbleIndex,
 				event.isAnchor,
-				event.offset
+				event.offset,
+				event.transit != null ? rideHash(event.transit) : null,
+				event.leaves,
+				event.held
 			])}`
 		);
 	}
@@ -544,6 +535,26 @@ interface TRunState {
 	meeting: Map<string, [number, number]>;
 	/** Per marble bounds of complete sample chunks, derived from samples and never snapshotted */
 	chunkBounds: number[][];
+	/** Per marble the ride it is taking, null while physics moves it */
+	rides: (TRide | null)[];
+	/** Per marble the platform that says how it leaves, until `LEAVE_STEPS` after its hit */
+	leaving: (TLeaving | null)[];
+}
+
+interface TLeaving {
+	entityId: string;
+	step: number;
+	velocity: TVec2;
+	spin: number;
+}
+
+/** A marble following a stored ride */
+interface TRide {
+	entityId: string;
+	transit: TTransit;
+	startStep: number;
+	origin: TVec2;
+	angle: number;
 }
 
 interface TPieceRecord {
@@ -600,6 +611,8 @@ interface TSnapshot {
 	touching: Map<string, number>;
 	meeting: Map<string, [number, number]>;
 	staticLowY: number;
+	rides: (TRide | null)[];
+	leaving: (TLeaving | null)[];
 }
 
 function createInitialState(plan: TPlan): TRunState {
@@ -617,7 +630,9 @@ function createInitialState(plan: TPlan): TRunState {
 		proxies: plan.marbles.map(() => plan.marbles.map(() => -1)),
 		touching: new Map(),
 		meeting: new Map(),
-		chunkBounds: plan.marbles.map(() => [])
+		chunkBounds: plan.marbles.map(() => []),
+		rides: plan.marbles.map(() => null),
+		leaving: plan.marbles.map(() => null)
 	};
 	// Every static piece starts parked; the first parking check brings in those a marble can reach
 	for (const piece of plan.staticPieces) {
@@ -674,7 +689,9 @@ function takeSnapshot(worlds: RAPIER.World[], plan: TPlan, state: TRunState): TS
 		proxies: state.proxies.map((proxies) => proxies.slice()),
 		touching: new Map(state.touching),
 		meeting: new Map(state.meeting),
-		staticLowY: plan.staticLowY
+		staticLowY: plan.staticLowY,
+		rides: state.rides.slice(),
+		leaving: state.leaving.slice()
 	};
 }
 
@@ -701,7 +718,9 @@ function restoreState(snapshot: TSnapshot): TRunState {
 		proxies: snapshot.proxies.map((proxies) => proxies.slice()),
 		touching: new Map(snapshot.touching),
 		meeting: new Map(snapshot.meeting),
-		chunkBounds: snapshot.marbles.map(() => [])
+		chunkBounds: snapshot.marbles.map(() => []),
+		rides: snapshot.rides.slice(),
+		leaving: snapshot.leaving.slice()
 	};
 }
 
@@ -748,6 +767,7 @@ function advance(
 		for (let k = 0; k < worlds.length; k++) worlds[k]?.step(queues[k]);
 		state.step++;
 		steps++;
+		followRides(worlds, plan, state);
 		sampleMarbles(worlds, plan, state);
 		sampleRotors(worlds, state);
 		for (let k = 0; k < worlds.length; k++) {
@@ -813,6 +833,46 @@ function marbleColliderDesc(radius: number): RAPIER.ColliderDesc {
 		.setDensity(GLASS_DENSITY)
 		.setRestitution(MARBLE_RESTITUTION)
 		.setFriction(MARBLE_FRICTION);
+}
+
+/** Puts every marble on a ride where its ride says, after the step moved it; the last frame hands it back to physics */
+function followRides(worlds: RAPIER.World[], plan: TPlan, state: TRunState): void {
+	for (let i = 0; i < state.rides.length; i++) {
+		const leaving = state.leaving[i];
+		if (leaving != null && state.step >= leaving.step) {
+			state.leaving[i] = null;
+			const body = state.marbles[i]?.status === 'live' ? worlds[i]?.getRigidBody(state.marbles[i]?.bodyHandle ?? -1) : null;
+			const velocity = body?.linvel();
+			const isClose = velocity != null && Math.hypot(velocity.x - leaving.velocity.x, velocity.y - leaving.velocity.y) <= rideTolerance(plan.gravity / gravityOf({}));
+			if (body != null && isClose) {
+				body.setLinvel({ x: leaving.velocity.x, y: leaving.velocity.y, z: 0 }, false);
+				body.setAngvel({ x: 0, y: 0, z: leaving.spin }, false);
+			}
+		}
+		const ride = state.rides[i];
+		const run = state.marbles[i];
+		if (ride == null || run == null || run.status !== 'live') continue;
+		const body = worlds[i]?.getRigidBody(run.bodyHandle);
+		if (body == null) continue;
+		const index = state.step - ride.startStep - 1;
+		const last = rideLength(ride.transit) - 1;
+		if (index >= last) {
+			const { exit } = ride.transit;
+			body.setTranslation({ x: ride.origin.x + exit.position.x, y: ride.origin.y + exit.position.y, z: MARBLE_Z }, false);
+			body.setRotation(zRotation(ride.angle + exit.angle), false);
+			body.setLinvel({ x: exit.velocity.x, y: exit.velocity.y, z: 0 }, false);
+			body.setAngvel({ x: 0, y: 0, z: exit.spin }, false);
+			state.rides[i] = null;
+			continue;
+		}
+		const frame = rideFrame(ride.transit, index);
+		const velocity = rideVelocity(ride.transit, index);
+		body.setTranslation({ x: ride.origin.x + frame.x, y: ride.origin.y + frame.y, z: MARBLE_Z }, false);
+		body.setRotation(zRotation(ride.angle + frame.angle), false);
+		body.setLinvel({ x: velocity.x, y: velocity.y, z: 0 }, false);
+		const after = rideFrame(ride.transit, index + 1);
+		body.setAngvel({ x: 0, y: 0, z: (after.angle - frame.angle) * PHYSICS_HZ }, false);
+	}
 }
 
 function sampleMarbles(worlds: RAPIER.World[], plan: TPlan, state: TRunState): void {
@@ -1389,6 +1449,17 @@ function processEvent(
 		velocity: null
 	};
 	if (event.isAnchor) unreached.piece.entryTime = event.time;
+	if (event.held != null && marble != null) {
+		const input = { type: event.definition.type, params: event.params, path: event.path, angle: event.angle, contactAt: event.contactAt, marbleRadius: marble.radius };
+		const { dot, velocity } = event.held;
+		const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
+		const resolved = resolvedFromLayout(event.entityId, event.definition.type, event.params, layout, event.hitTime, 'held');
+		if (unreached.piece.entryTime != null) resolved.entryTime = unreached.piece.entryTime;
+		state.placements.set(event.entityId, { piece: resolved, dot, velocity });
+		const held = insertPiece(state, event.entityId, event.definition, event.params, layout);
+		parkPieces(worlds, plan, state, held);
+		return;
+	}
 	if (
 		marble == null ||
 		run == null ||
@@ -1434,6 +1505,10 @@ function processEvent(
 	const index = insertPiece(state, event.entityId, event.definition, event.params, layout);
 	// It touches its marble, so it enters that marble's world at once
 	parkPieces(worlds, plan, state, index);
+	if (event.leaves != null) state.leaving[event.marbleIndex] = { entityId: event.entityId, step: state.step + LEAVE_STEPS, velocity: event.leaves.velocity, spin: event.leaves.spin };
+	if (event.transit != null && Math.hypot(last.velocity.x - event.transit.entry.x, last.velocity.y - event.transit.entry.y) <= rideTolerance(plan.gravity / gravityOf({}))) {
+		state.rides[event.marbleIndex] = { entityId: event.entityId, transit: event.transit, startStep: state.step, origin: last.position, angle: last.angle };
+	}
 }
 
 function resolvedFromLayout(
@@ -1566,7 +1641,11 @@ function recordContact(
 		const low = Math.min(a.marbleIndex, b.marbleIndex);
 		if (low !== worldIndex) return;
 		const key = `${low}|${Math.max(a.marbleIndex, b.marbleIndex)}`;
-		if (started) state.meeting.set(key, [low, Math.max(a.marbleIndex, b.marbleIndex)]);
+		if (started) {
+			state.meeting.set(key, [low, Math.max(a.marbleIndex, b.marbleIndex)]);
+			state.rides[low] = null;
+			state.rides[Math.max(a.marbleIndex, b.marbleIndex)] = null;
+		}
 		else state.meeting.delete(key);
 		return;
 	}
@@ -1587,6 +1666,9 @@ function recordContact(
 	}
 	state.touching.set(key, count + 1);
 	if (count > 0) return;
+	// Something else in the way ends a ride: from here physics decides what happens
+	const ride = state.rides[pair.marbleIndex];
+	if (ride != null && ride.entityId !== pair.piece.entityId && !ride.transit.touches.includes(pair.piece.entityId)) state.rides[pair.marbleIndex] = null;
 	recordPieceContact(
 		plan,
 		state,
@@ -1818,6 +1900,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 		const marbleIndex = plan.marbles.findIndex((marble) => marble.laneId === lane.id);
 		const marble = plan.marbles[marbleIndex];
 		const samples = state.marbles[marbleIndex]?.samples ?? [];
+		let isBehindBreak = false;
 		for (const hit of lane.hits) {
 			const pieceEntityId = linkByHit.get(`${lane.id}/${hit.id}`) ?? null;
 			const piece = pieceEntityId != null ? pieceById.get(pieceEntityId) : undefined;
@@ -1871,6 +1954,11 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 				}
 			} else {
 				result.status = 'missed';
+			}
+			// Behind the hit an edit broke, a waiting platform is no problem of its own
+			if (piece.status === 'held' && result.status === 'missed') {
+				if (isBehindBreak) result.status = 'waiting';
+				isBehindBreak = true;
 			}
 			hits.push(result);
 		}

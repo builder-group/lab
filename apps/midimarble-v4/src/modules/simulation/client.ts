@@ -1,5 +1,6 @@
-import type { TProject } from '@/modules/project';
+import type { TEntity, TProject } from '@/modules/project';
 import { assistPoolSize, createAssistPool, type TAssistPool, type TSearchRunOptions, type TPoolWorker } from './assist-pool';
+import type { TSettleAnswer, TSettleRequest } from './local-edit';
 import { createRequestQueue, type TRequestQueue } from './request-queue';
 import { isPackedResult, unpackResult } from './result-transfer';
 import type { TSimulationWorkerRequest, TSimulationWorkerResponse } from './simulation.worker';
@@ -18,6 +19,10 @@ export interface TSimulationClient {
 	 * Fix Hits: both resume from the snapshots of that worker's latest run instead of rebuilding it.
 	 */
 	simulateAssist: (project: TProject) => Promise<TSimulationResult>;
+	/** Keeps the run after an edit (`settleEdit`); a newer request replaces a waiting one */
+	settle: (request: TSettleRequest) => Promise<TSettleAnswer>;
+	/** Brings the marble back to pieces waiting for it, null when no way plays every hit */
+	reconnect: (project: TProject) => Promise<{ entities: TEntity[] } | null>;
 	/**
 	 * Assists run in a second worker so a slow search never holds up the live trajectory. Each kind keeps
 	 * only its newest waiting request; replaced requests reject with a `SupersededError`. Auto place spreads its
@@ -32,7 +37,7 @@ export interface TSimulationClient {
 }
 
 // Placing at a clicked dot and Fix Hits's runs are waited on, a long-gap piece was asked for, Continue is background work
-const assistPriority: Record<string, number> = { autoPlace: 0, simulate: 0, gapPiece: 1, continue: 2 };
+const assistPriority: Record<string, number> = { settle: 0, reconnect: 0, autoPlace: 0, simulate: 0, gapPiece: 1, continue: 2 };
 
 export function createSimulationClient(): TSimulationClient {
 	const simulation = connect();
@@ -52,6 +57,12 @@ export function createSimulationClient(): TSimulationClient {
 			if (request.launchAngles != null || poolSize < 2)
 				return assists.queue.enqueue<TAutoPlaceAnswer>('autoPlace', { kind: 'autoPlace', ...request });
 			return startPool().autoPlace(request, options);
+		},
+		settle(request) {
+			return assists.queue.enqueue<TSettleAnswer>('settle', { kind: 'settle', ...request });
+		},
+		reconnect(project) {
+			return assists.queue.enqueue<{ entities: TEntity[] } | null>('reconnect', { kind: 'reconnect', project });
 		},
 		continueRun(request) {
 			return assists.queue.enqueue<TContinueAnswer | null>('continue', { kind: 'continue', ...request });

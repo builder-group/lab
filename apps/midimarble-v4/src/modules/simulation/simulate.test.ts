@@ -124,7 +124,7 @@ describe('simulate', () => {
 		expect(result.contacts.filter((contact) => contact.kind === 'piece')).toHaveLength(8);
 	});
 
-	it('reflows later platforms after a rotation and keeps pinned pieces in place', () => {
+	it('reflows later platforms after a rotation and keeps waiting pieces in place', () => {
 		const project = loadFixture('staircase');
 		const before = simulator.simulate(project);
 
@@ -140,31 +140,26 @@ describe('simulate', () => {
 		}
 		expect(after.hits.every((hit) => hit.status === 'onTime')).toBe(true);
 
-		// Pin the fifth platform at its current contact point
-		const pinned = structuredClone(project);
+		// The fifth platform waits at its current dot
+		const waiting = structuredClone(project);
 		const fifth = before.pieces.find((piece) => piece.entityId === 'piece-1-5');
-		const link = pinned.entities.find((entity) => entity.id === 'piece-1-5')?.components.hitLink;
-		if (fifth?.contactPoint == null || link == null) throw new Error('Missing fifth platform');
-		link.pinnedPosition = fifth.contactPoint;
-		const pinnedResult = simulator.simulate(pinned);
-		const pinnedPiece = pinnedResult.pieces.find((piece) => piece.entityId === 'piece-1-5');
-		expect(pinnedPiece?.status).toBe('pinned');
-		expect(pinnedPiece?.position.x).toBeCloseTo(fifth.position.x, 9);
-		expect(pinnedPiece?.position.y).toBeCloseTo(fifth.position.y, 9);
-		expect(pinnedResult.hits.every((hit) => hit.status === 'onTime')).toBe(true);
+		const fifthHit = before.hits.find((hit) => hit.pieceEntityId === 'piece-1-5');
+		const link = waiting.entities.find((entity) => entity.id === 'piece-1-5')?.components.hitLink;
+		if (fifth == null || fifthHit?.dot == null || link == null) throw new Error('Missing fifth platform');
+		link.held = { dot: fifthHit.dot, velocity: fifthHit.velocity, leaves: null };
+		const waitingResult = simulator.simulate(waiting);
+		const waitingPiece = waitingResult.pieces.find((piece) => piece.entityId === 'piece-1-5');
+		expect(waitingPiece?.status).toBe('held');
+		expect(waitingPiece?.position.x).toBeCloseTo(fifth.position.x, 9);
+		expect(waitingPiece?.position.y).toBeCloseTo(fifth.position.y, 9);
+		expect(waitingResult.hits.every((hit) => hit.status === 'onTime')).toBe(true);
 
-		setAngle(pinned, 'piece-1-2', 0.1);
-		const pinnedAfter = simulator.simulate(pinned);
-		expect(pinnedAfter.pieces.find((piece) => piece.entityId === 'piece-1-5')?.position).toEqual(
-			pinnedPiece?.position
-		);
-		const pinnedHit = pinnedAfter.hits.find((hit) => hit.pieceEntityId === 'piece-1-5');
-		expect(pinnedHit?.status).not.toBe('onTime');
-		if (pinnedHit?.actualTime != null)
-			expect(pinnedHit.error).toBeCloseTo(pinnedHit.actualTime - pinnedHit.targetTime, 12);
-		else expect(pinnedHit?.status).toBe('missed');
+		setAngle(waiting, 'piece-1-2', 0.1);
+		const waitingAfter = simulator.simulate(waiting);
+		expect(waitingAfter.pieces.find((piece) => piece.entityId === 'piece-1-5')?.position).toEqual(waitingPiece?.position);
+		expect(waitingAfter.hits.find((hit) => hit.pieceEntityId === 'piece-1-5')?.status).not.toBe('onTime');
 		// Hits before the rotated platform are unaffected
-		expect(pinnedAfter.hits[0]?.status).toBe('onTime');
+		expect(waitingAfter.hits[0]?.status).toBe('onTime');
 	});
 
 	it('returns the same result incrementally as a full run', async () => {

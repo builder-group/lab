@@ -29,7 +29,6 @@ import {
 	canLink,
 	clearRotorPosition,
 	createFreePiece,
-	asPinned,
 	displayPiece,
 	isPathPieceType,
 	KEEP_PLAYS_REACH,
@@ -1090,6 +1089,15 @@ export class ComposeCx {
 					this.$override.set(null);
 					return;
 				}
+				const move = drag.playsDrop === 'keeps' ? movedNote(drag, drag.current) : null;
+				if (move != null) {
+					// The preview stays up until the moved run lands, so the platform doesn't jump back in between
+					void this.assist.moveDot(move).finally(() => {
+						this.$override.set(null);
+						this.studio.simulation.endPreview();
+					});
+					return;
+				}
 				if (drag.candidate != null && this.commit([{ type: 'upsertEntity', entity: drag.candidate }]) && project != null) this.noticeOfDrop(project, drag);
 				this.studio.simulation.endPreview();
 				return;
@@ -1422,10 +1430,10 @@ export class ComposeCx {
 	readonly $hoverPreview = createState<{ position: TVec2; label: string | null } | null>(null);
 
 	/** Simulates `project` as a what-if in place of the run, remembering the run it is compared with */
-	private previewWhatIf(project: TProject): void {
+	private previewWhatIf(project: TProject, move: { laneId: string; hitId: string; dot: TVec2 } | null = null): void {
 		const simulation = this.studio.simulation;
 		if (!simulation.isPreviewing) this.whatIfBase = simulation.isCurrent ? this.result : null;
-		simulation.startPreview(project);
+		simulation.startPreview(project, move);
 	}
 
 	/**
@@ -1619,11 +1627,12 @@ export class ComposeCx {
 		// A platform near its note keeps playing it, wherever a trajectory runs past
 		const snap = drop === 'keeps' ? null : found;
 		const radius = this.marbleRadius(snap?.laneId ?? drag.plays?.laneId);
-		const candidate = drop === 'keeps' ? asPinned(entity, pose, radius) : withSnap(project, entity, pose, snap);
+		// Near its note the platform stays linked and the platform before it sends the marble to the new spot
+		const candidate = drop === 'keeps' ? entity : withSnap(project, entity, pose, snap);
 		const display = snap?.kind === 'link' ? displayPiece(candidate, { pose, dot: snap.dot, velocity: snap.velocity }, radius) : displayPiece(candidate, { pose }, radius);
 		this.$override.set(display);
 		this.$drag.set({ ...drag, current: pose, snap, candidate, moved: true, playsDrop: drop });
-		this.previewWhatIf(withEntity(project, candidate));
+		this.previewWhatIf(withEntity(project, candidate), drop === 'keeps' ? movedNote(drag, pose) : null);
 	}
 
 	/** A drop that changed which note a platform plays says so, with Undo */
@@ -2371,4 +2380,11 @@ function writeFollow(projectId: string, isOn: boolean): void {
 	} catch {
 		// Storage can be unavailable; Follow then starts off next time
 	}
+}
+
+/** Where a platform dragged near its note wants the marble: its dot moved as far as the platform */
+function movedNote(drag: Pick<TMoveDrag, 'plays' | 'pose'>, pose: TPose): { laneId: string; hitId: string; dot: TVec2 } | null {
+	const { plays } = drag;
+	if (plays?.dot == null) return null;
+	return { laneId: plays.laneId, hitId: plays.hitId, dot: { x: plays.dot.x + pose.position.x - drag.pose.position.x, y: plays.dot.y + pose.position.y - drag.pose.position.y } };
 }

@@ -16,13 +16,15 @@ export function hitTiming(result: THitResult | undefined, names: THitNames, unre
 			const error = result.error ?? 0;
 			const ms = Math.max(1, Math.round(Math.abs(error) * 1000));
 			const isLate = error > 0;
-			return { state: 'drifting', label: `${ms} ms ${isLate ? 'Late' : 'Early'}`, tooltip: `Lands ${ms} ms ${isLate ? 'after' : 'before'} the note${names.isOffDot === true ? `. ${names.piece ?? 'Its platform'} sits off its dot` : ''}` };
+			return { state: 'drifting', label: `${ms} ms ${isLate ? 'Late' : 'Early'}`, tooltip: `Lands ${ms} ms ${isLate ? 'after' : 'before'} the note` };
 		}
 		case 'missed':
 			if (result.reason === 'resting') return { state: 'missed', label: 'Stopped', tooltip: `${names.marble} stops on this platform` };
 			return { state: 'missed', label: 'Missed', tooltip: `${names.marble} passes the platform without touching it` };
 		case 'blocked':
 			return { state: 'missed', label: 'Blocked', tooltip: `${names.piece ?? 'The platform'} is in the way of the run before this note` };
+		case 'waiting':
+			return { state: 'open', label: 'Waiting', tooltip: `${names.piece ?? 'Its platform'} waits where it was until the first hit that needs attention is fixed` };
 		default:
 			return { state: 'open', label: 'Open', tooltip: 'No platform plays this note yet' };
 	}
@@ -32,7 +34,6 @@ export interface THitNames {
 	marble: string;
 	pitch?: number;
 	piece?: string;
-	isOffDot?: boolean;
 }
 
 export interface THitTiming {

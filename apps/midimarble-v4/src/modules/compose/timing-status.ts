@@ -13,7 +13,6 @@ export interface TTimingNames {
 	note?: string;
 	piece?: string;
 	/** Whether a drag left the platform off its dot; says what is behind a late hit when known */
-	isOffDot?: boolean;
 }
 
 /**
@@ -46,6 +45,8 @@ export function timingStatus(
 			if (hit.reason === 'resting') return { tone: 'bad', label: 'Stopped', detail: `${marble} stops on ${target} instead of striking it` };
 			if (hit.error == null) return { tone: 'bad', label: 'Missed', detail: `${marble} passes ${target} without touching it` };
 			return { tone: 'bad', label: 'Missed', detail: landsDetail(hit.error) };
+		case 'waiting':
+			return { tone: 'neutral', label: 'Waiting', detail: `${target === 'this piece' ? 'This platform' : target} waits where it was until the first hit that needs attention is fixed` };
 		case 'open':
 			if (unreachable != null) return { tone: 'warn', label: unreachable.label, detail: unreachable.detail };
 			return { tone: 'neutral', label: 'Open', detail: 'No platform plays this note yet' };
@@ -54,8 +55,7 @@ export function timingStatus(
 
 /** Why a hit is off time, since neither its tilt nor its Time is the fix: the tilt moves the notes after it, the Time moves the note */
 function offTimeCause(names: TTimingNames): string {
-	if (names.isOffDot == null) return '';
-	return names.isOffDot ? `. ${names.piece ?? 'This platform'} sits off its dot: Place Again, or drag it back` : '. The marble arrives off time from the piece before: Place Again';
+	return names.piece == null ? '' : '. The marble arrives off time from the piece before: Place Again';
 }
 
 /** The status pill for an early or late hit, such as `12 ms Late` */

@@ -755,7 +755,7 @@ function evaluatePlacement(
 
 	// Clearance of the new piece, the next piece and the marble path from every other piece
 	const placed = trial.pieces.filter(
-		(piece) => piece.status === 'placed' || piece.status === 'pinned' || piece.status === 'free'
+		(piece) => piece.status === 'placed' || piece.status === 'held' || piece.status === 'free'
 	);
 	const own = placed.find((piece) => piece.entityId === entity.id);
 	const nextId = probe?.id ?? (nextHit != null ? owners.get(nextHit.id)?.id : undefined);

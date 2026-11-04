@@ -328,6 +328,7 @@ function groupByLane<T>(items: T[], laneOf: (item: T) => string): Map<string, T[
 
 function missDetail(hit: THitResult, pieceStatus: string | undefined): string {
 	if (pieceStatus === 'unreached') return 'The marble never reaches this platform.';
+	if (pieceStatus === 'held') return 'An edit before it keeps the marble from this platform. The pieces after it wait where they were until this is fixed.';
 	if (hit.reason === 'resting') return 'The marble stops on the platform instead of striking it.';
 	if (hit.actualTime == null || hit.error == null) return 'The marble passes the platform without touching it.';
 	const ms = Math.round(hit.error * 1000);

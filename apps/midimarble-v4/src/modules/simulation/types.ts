@@ -104,7 +104,7 @@ export interface TPieceMotionSample {
 export type TPieceStatus =
 	| 'free' // not linked to a hit
 	| 'placed' // linked and placed on the trajectory
-	| 'pinned' // linked, kept at its pinned position
+	| 'held' // linked, waiting where it was while an edit keeps the marble from it
 	| 'blocked' // the earlier trajectory passes through it, so it was not inserted
 	| 'unreached'; // the marble never reached a hit position (no samples at the hit time)
 
@@ -148,7 +148,8 @@ export type THitStatus =
 	| 'onTime' // |error| <= HIT_DRIFT
 	| 'drifting' // HIT_DRIFT < |error| <= HIT_TOLERANCE
 	| 'missed' // no contact, |error| > HIT_TOLERANCE, or a resting first contact
-	| 'blocked'; // the linked piece could not be inserted
+	| 'blocked' // the linked piece could not be inserted
+	| 'waiting'; // its platform waits where it was, behind a hit an edit broke
 
 export type TPieceLayoutKind = 'box' | 'path' | 'tube' | 'rotor' | 'holder' | 'catcher';
 

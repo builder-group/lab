@@ -343,15 +343,13 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 /**
  * Every hit's dot, where the marble is at the hit's time: a solid dot with its small outline ring. Open dots take the
  * marble's colour, on-time dots are green at the same size, and a hit that needs attention is a little larger, amber or
- * red. The next open dot and every dot that needs attention pulse, in CSS alone. Selecting the hit adds the accent ring, and a
- * platform a drag left off its dot with a timing problem gets a thin stem to it.
+ * red. The next open dot and every dot that needs attention pulse, in CSS alone. Selecting the hit adds the accent ring.
  */
-const HitDot = React.memo(function HitDot(props: { x: number; y: number; color: string; size: number; isPulsing: boolean; isHovered: boolean; isFocused: boolean; isLongGap?: boolean; stemTo?: TVec2 | null }) {
-	const { x, y, color, size, isPulsing, isHovered, isFocused, isLongGap = false, stemTo = null } = props;
+const HitDot = React.memo(function HitDot(props: { x: number; y: number; color: string; size: number; isPulsing: boolean; isHovered: boolean; isFocused: boolean; isLongGap?: boolean }) {
+	const { x, y, color, size, isPulsing, isHovered, isFocused, isLongGap = false } = props;
 	const radius = size + (isHovered ? 1.5 : 0);
 	return (
 		<g>
-			{stemTo != null ? <line x1={x} y1={y} x2={stemTo.x} y2={stemTo.y} stroke={color} strokeWidth={1} strokeOpacity={0.8} /> : null}
 			{isPulsing ? <circle className="mm-dot-pulse" cx={x} cy={y} r={size} fill="none" stroke={color} strokeWidth={1.5} style={{ transformOrigin: `${x}px ${y}px` }} /> : null}
 			{isFocused ? <circle cx={x} cy={y} r={radius + 4} fill="none" stroke="var(--accent-strong)" strokeWidth={2} /> : null}
 			{isLongGap ? (
@@ -394,8 +392,7 @@ const HitDots = React.memo(function HitDots(props: { compose: ComposeCx; project
 							y={y}
 							color={badgeStyles[hit.status].color}
 							size={hit.status === 'onTime' ? 4 : 5}
-							stemTo={offDotStem(projection, project, result, hit)}
-							isPulsing={hit.status !== 'onTime' && !isDragging}
+							isPulsing={hit.status !== 'onTime' && hit.status !== 'waiting' && !isDragging}
 							isHovered={hoveredDot === hit}
 							isFocused={isFocused}
 						/>
@@ -422,14 +419,6 @@ const HitDots = React.memo(function HitDots(props: { compose: ComposeCx; project
 		</>
 	);
 });
-
-/** Where the stem of an off-time hit ends: on the platform a drag left away from its dot. A platform on its dot needs none. */
-function offDotStem(compose: TScreenProjection, project: TProject, result: TSimulationResult, hit: THitResult): TVec2 | null {
-	if (hit.status === 'onTime' || hit.pieceEntityId == null) return null;
-	if (project.entities.find((entity) => entity.id === hit.pieceEntityId)?.components.hitLink?.pinnedPosition == null) return null;
-	const piece = result.pieces.find((item) => item.entityId === hit.pieceEntityId);
-	return piece == null ? null : compose.toScreen(piece.contactPoint ?? piece.position);
-}
 
 /** The dot a dragged platform will link to, ringed in the accent like a Figma snap target */
 const SnapRing: React.FC<{ position: TVec2 }> = (props) => {

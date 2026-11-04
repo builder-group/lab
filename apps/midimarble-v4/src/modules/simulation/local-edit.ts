@@ -1,0 +1,643 @@
+import type { TEntity, TProject, TVec2 } from '@/modules/project';
+import { gravityOf } from './geometry';
+import { getPieceDefinition, soundsHit } from './pieces';
+import { trajectoryAt, type TSimulator } from './simulate';
+import { bakeRide, hasRide, LEAVE_STEPS, rideKey } from './transit';
+import { PHYSICS_HZ, type THitResult, type TSimulationResult } from './types';
+
+// An edit to a platform changes how the marble leaves it, and only that: with gap pieces keeping their rides, the rest
+// of the run depends only on where the marble is and how fast it goes. So the next platforms take up the change. One gets
+// the tilt and bounce that send the marble to the next one's old spot, the next the tilt and bounce that send it on as
+// before, and everything after them stays where it was, on time. Tilt and bounce are two numbers for the two numbers of
+// a velocity, so the solve is exact until the bounce runs out of range or a piece stands in the way. Then a later pair
+// is tried, since the error stays what it was as long as nothing takes it up.
+
+const STEP_TIME = 1 / PHYSICS_HZ;
+const NEWTON_STEPS = 5;
+/** Residual of a solve, with distances counted ten times: 0.2 mm or 2 mm/s */
+const SOLVED = 2e-3;
+const DISTANCE_WEIGHT = 10;
+const TILT_LIMIT = 40 * (Math.PI / 180);
+/** Later platforms left alone, and platforms that only restore the speed, before the pair that takes up the rest */
+const VARIANTS: readonly { skip: number; restore: number }[] = [
+	{ skip: 0, restore: 0 },
+	{ skip: 0, restore: 1 },
+	{ skip: 1, restore: 0 },
+	{ skip: 0, restore: 2 },
+	{ skip: 1, restore: 1 },
+	{ skip: 2, restore: 0 }
+];
+
+/** What changed in a lane: everything after this hit stays on the old run */
+export interface TLaneEdit {
+	laneId: string;
+	/** Index in the edited project's lane of the hit after which the run must be what it was */
+	afterIndex: number;
+	/** The dragged platform's new dot: the platform before it aims there */
+	movedDot?: { hitId: string; dot: TVec2 } | null;
+}
+
+export interface TSettled {
+	/** The edited project with rides kept and the platforms that took up the change */
+	project: TProject;
+	/** Ids of platforms given a new tilt or bounce */
+	absorbedBy: string[];
+	/** Hits broken that weren't before; none when the edit stayed local */
+	broken: THitResult[];
+	/** Marble contacts with pieces it didn't touch before, or strikes more than before */
+	strays: number;
+	/** The run of `project` */
+	result: TSimulationResult;
+	/** Hits from which later pieces wait where they were */
+	heldFrom: THitResult[];
+	/** Runs it took */
+	runs: number;
+}
+
+/**
+ * The pieces of a lane from `time` on wait where they were in `base`, so a break stays one problem at one hit: the run
+ * after it doesn't fold them into a heap, and a fix can bring the marble back to them.
+ */
+export function holdFrom(project: TProject, base: TSimulationResult, laneId: string, time: number): TProject {
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const samples = base.marbles.find((marble) => marble.laneId === laneId)?.samples;
+	const first = samples?.[0]?.time;
+	if (lane == null || samples == null || first == null) return project;
+	const g = gravityOf(project);
+	return {
+		...project,
+		entities: project.entities.map((entity) => {
+			const link = entity.components.hitLink;
+			if (link == null || link.laneId !== laneId || link.held != null) return entity;
+			const hit = lane.hits.find((item) => item.id === link.hitId);
+			if (hit == null) return entity;
+			const type = entity.components.piece?.type ?? '';
+			const at = hit.time + (soundsHit(type, link) ? 0 : (entity.components.piece?.params['entryDelay'] ?? 0));
+			if (at < time - 1e-6) return entity;
+			const played = soundsHit(type, link) ? base.hits.find((item) => item.laneId === laneId && item.hitId === link.hitId) : undefined;
+			const moment = played?.dot != null ? { position: played.dot, velocity: played.velocity } : trajectoryAt(samples, at, g);
+			if (moment == null) return entity;
+			const leaves = soundsHit(type, link) ? leavingAt(base, laneId, hit.time) : null;
+			return { ...entity, components: { ...entity.components, hitLink: { ...link, held: { dot: moment.position, velocity: moment.velocity, leaves } } } };
+		})
+	};
+}
+
+/** Keeps every ride the run has, for a track an edit is about to change */
+export function withRides(project: TProject, result: TSimulationResult): TProject {
+	let isChanged = false;
+	const entities = project.entities.map((entity) => {
+		const type = entity.components.piece?.type ?? '';
+		if (entity.components.hitLink == null || !hasRide(type) || soundsHit(type, entity.components.hitLink)) return entity;
+		if (entity.components.transit?.key === rideKey(entity)) return entity;
+		const transit = bakeRide(project, result, entity);
+		if (transit == null) return entity;
+		isChanged = true;
+		return { ...entity, components: { ...entity.components, transit } };
+	});
+	return isChanged ? { ...project, entities } : project;
+}
+
+/** A platform's aim: where the marble must be at its next hit, or how it must leave */
+type TAim = { kind: 'dot'; dot: TVec2; nextHitId: string; nextTime: number } | { kind: 'exit'; velocity: TVec2; spin: number };
+
+interface TStep {
+	entityId: string;
+	hitId: string;
+	time: number;
+	aim: TAim;
+	/** Tilt, bounce, arrival and leaving before the edit, which hold what friction adds to a reflection */
+	before: { angle: number; bounce: number; arrival: TVec2 | null; leaving: TVec2 | null };
+}
+
+function setValues(project: TProject, id: string, angle: number, bounce: number): TProject {
+	return {
+		...project,
+		entities: project.entities.map((entity) => {
+			if (entity.id !== id) return entity;
+			const { hitLink, piece } = entity.components;
+			if (hitLink == null || piece == null) return entity;
+			return { ...entity, components: { ...entity.components, hitLink: { ...hitLink, angle }, piece: { ...piece, params: { ...piece.params, bounce } } } };
+		})
+	};
+}
+
+function withLeaves(project: TProject, id: string, leaves: NonNullable<NonNullable<TEntity['components']['hitLink']>['leaves']>): TProject {
+	return {
+		...project,
+		entities: project.entities.map((entity) => {
+			const { hitLink } = entity.components;
+			return entity.id === id && hitLink != null ? { ...entity, components: { ...entity.components, hitLink: { ...hitLink, leaves } } } : entity;
+		})
+	};
+}
+
+function linkedPlatform(project: TProject, laneId: string, hitId: string): TEntity | undefined {
+	return project.entities.find((entity) => {
+		const link = entity.components.hitLink;
+		const type = entity.components.piece?.type ?? '';
+		return link?.laneId === laneId && link.hitId === hitId && soundsHit(type, link) && getPieceDefinition(type)?.params['bounce'] != null;
+	});
+}
+
+/** Whether a piece the marble rides follows this hit */
+function launchesRide(project: TProject, laneId: string, hitId: string): boolean {
+	return project.entities.some((entity) => {
+		const link = entity.components.hitLink;
+		return link?.laneId === laneId && link.hitId === hitId && hasRide(entity.components.piece?.type ?? '');
+	});
+}
+
+/** The marble as it has just left the platform of a hit at `time`, with its spin */
+function leavingAt(result: TSimulationResult, laneId: string, time: number): { velocity: TVec2; spin: number } | null {
+	const samples = result.marbles.find((marble) => marble.laneId === laneId)?.samples;
+	const first = samples?.[0]?.time;
+	if (samples == null || first == null) return null;
+	const index = Math.floor(time * PHYSICS_HZ + 1e-6) + LEAVE_STEPS - Math.round(first * PHYSICS_HZ);
+	const sample = samples[index];
+	const next = samples[index + 1];
+	if (sample == null || next == null) return null;
+	const turn = next.angle - sample.angle;
+	return { velocity: sample.velocity, spin: Math.atan2(Math.sin(turn), Math.cos(turn)) * PHYSICS_HZ };
+}
+
+/** A velocity read `LEAVE_STEPS` after the hit, as it was when the marble left the surface */
+function atContact(velocity: TVec2, g: number): TVec2 {
+	return { x: velocity.x, y: velocity.y + g * LEAVE_STEPS * STEP_TIME };
+}
+
+/** Tilt and bounce that turn `arrival` into `leaving` by reflection, without friction: the normal lies along the change */
+function reflectionFor(arrival: TVec2, leaving: TVec2): { angle: number; bounce: number } | null {
+	const dx = leaving.x - arrival.x;
+	const dy = leaving.y - arrival.y;
+	const length = Math.hypot(dx, dy);
+	if (length < 1e-9) return null;
+	const nx = dx / length;
+	const ny = dy / length;
+	const into = arrival.x * nx + arrival.y * ny;
+	if (into >= 0) return null;
+	return { angle: Math.atan2(-nx, ny), bounce: -(leaving.x * nx + leaving.y * ny) / into };
+}
+
+/** What the old run did at a platform */
+interface TWas {
+	dot: TVec2;
+	arrival: TVec2 | null;
+	leaving: { velocity: TVec2; spin: number } | null;
+}
+
+/** How the marble met a platform in the old run: as the run before the edit played it, or as it waits for it */
+function oldRun(entity: TEntity, base: TSimulationResult, laneId: string, hit: { id: string; time: number }): TWas | null {
+	const held = entity.components.hitLink?.held;
+	if (held != null) return { dot: held.dot, arrival: held.velocity, leaving: held.leaves };
+	const played = base.hits.find((item) => item.laneId === laneId && item.hitId === hit.id);
+	if (played?.dot == null || played.status !== 'onTime') return null;
+	return { dot: played.dot, arrival: played.velocity, leaving: leavingAt(base, laneId, hit.time) };
+}
+
+/**
+ * The steps that bring a lane back on `base` after `afterIndex`. `skip` later platforms stay as they are and the next
+ * `restore` take only their old speed; then a pair takes up the rest. A platform launching into a ride can only restore
+ * its speed, since the ride comes before the next platform: the first pair after the ride takes up the offset.
+ */
+function planSteps(project: TProject, base: TSimulationResult, edit: TLaneEdit, variant: { skip: number; restore: number }): TStep[] | null {
+	const { laneId } = edit;
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	if (lane == null) return null;
+	const stepFor = (entity: TEntity, hitId: string, time: number, aim: TAim, was: TWas): TStep => ({
+		entityId: entity.id,
+		hitId,
+		time,
+		aim,
+		before: {
+			angle: entity.components.hitLink?.angle ?? 0,
+			bounce: entity.components.piece?.params['bounce'] ?? 0.65,
+			arrival: was.arrival,
+			leaving: was.leaving?.velocity ?? null
+		}
+	});
+	// The platforms after the edit that the old run played, in order
+	const platforms = lane.hits.slice(edit.afterIndex + 1).flatMap((hit) => {
+		const entity = linkedPlatform(project, laneId, hit.id);
+		const was = entity != null ? oldRun(entity, base, laneId, hit) : null;
+		return entity != null && was != null ? [{ entity, hit, was }] : [];
+	});
+	const steps: TStep[] = [];
+	const moved = edit.movedDot;
+	if (moved != null) {
+		// The platform before the dragged one sends the marble to the new spot, when nothing rides in between
+		const index = lane.hits.findIndex((hit) => hit.id === moved.hitId);
+		const previous = lane.hits[index - 1];
+		const entity = previous != null ? linkedPlatform(project, laneId, previous.id) : undefined;
+		const was = entity != null && previous != null ? oldRun(entity, base, laneId, previous) : null;
+		const target = lane.hits[index];
+		if (entity != null && previous != null && was != null && target != null && !launchesRide(project, laneId, previous.id)) {
+			steps.push(stepFor(entity, previous.id, previous.time, { kind: 'dot', dot: moved.dot, nextHitId: moved.hitId, nextTime: target.time }, was));
+		}
+	}
+	let skip = variant.skip;
+	let restore = variant.restore;
+	for (let i = 0; i < platforms.length; i++) {
+		const a = platforms[i];
+		if (a == null) break;
+		const leaving = a.was.leaving;
+		const isLaunch = launchesRide(project, laneId, a.hit.id);
+		if (!isLaunch && skip > 0) {
+			skip--;
+			continue;
+		}
+		if (isLaunch || restore > 0) {
+			if (leaving != null) steps.push(stepFor(a.entity, a.hit.id, a.hit.time, { kind: 'exit', ...leaving }, a.was));
+			if (!isLaunch) restore--;
+			continue;
+		}
+		const b = platforms[i + 1];
+		if (b == null || b.was.leaving == null) break;
+		steps.push(stepFor(a.entity, a.hit.id, a.hit.time, { kind: 'dot', dot: b.was.dot, nextHitId: b.hit.id, nextTime: b.hit.time }, a.was));
+		steps.push(stepFor(b.entity, b.hit.id, b.hit.time, { kind: 'exit', ...b.was.leaving }, b.was));
+		return steps;
+	}
+	// Nothing left to take it up with: the end of the lane
+	return steps;
+}
+
+/** Solves one platform's aim by Newton's method on its tilt and bounce, each try simulated only as far as the aim */
+function solveStep(simulator: TSimulator, project: TProject, laneId: string, step: TStep, count: () => void): TProject {
+	const entity = project.entities.find((item) => item.id === step.entityId);
+	const link = entity?.components.hitLink;
+	const piece = entity?.components.piece;
+	if (link == null || piece == null) return project;
+	const g = gravityOf(project);
+	const spec = getPieceDefinition(piece.type)?.params['bounce'];
+	const until = (step.aim.kind === 'dot' ? step.aim.nextTime : step.time) + (LEAVE_STEPS + 3) * STEP_TIME;
+	const end = Math.min(project.end, until);
+	const run = (candidate: TProject): TSimulationResult => {
+		count();
+		return simulator.simulate({ ...candidate, end });
+	};
+	const clampAngle = (angle: number): number => Math.max(step.before.angle - TILT_LIMIT, Math.min(step.before.angle + TILT_LIMIT, angle));
+	const clampBounce = (bounce: number): number => Math.max(spec?.min ?? 0.1, Math.min(spec?.max ?? 0.95, bounce));
+	const errorOf = (angle: number, bounce: number): [number, number] => {
+		const result = run(setValues(project, step.entityId, angle, bounce));
+		const { aim } = step;
+		if (aim.kind === 'dot') {
+			const dot = result.hits.find((hit) => hit.laneId === laneId && hit.hitId === aim.nextHitId)?.dot;
+			return dot != null ? [(dot.x - aim.dot.x) * DISTANCE_WEIGHT, (dot.y - aim.dot.y) * DISTANCE_WEIGHT] : [99, 99];
+		}
+		const left = leavingAt(result, laneId, step.time);
+		return left != null ? [left.velocity.x - aim.velocity.x, left.velocity.y - aim.velocity.y] : [99, 99];
+	};
+	const size = (error: [number, number]): number => Math.hypot(error[0], error[1]);
+	let angle = link.angle;
+	let bounce = piece.params['bounce'] ?? spec?.default ?? 0.65;
+	let current = errorOf(angle, bounce);
+	if (size(current) > SOLVED) {
+		// A start from reflection for a large change, keeping what friction added before the edit
+		const arrived = run(project).hits.find((hit) => hit.laneId === laneId && hit.hitId === step.hitId);
+		if (arrived?.dot != null && arrived.velocity != null) {
+			const { aim } = step;
+			const flight = aim.kind === 'dot' ? aim.nextTime - step.time : 0;
+			const leaving = aim.kind === 'exit' ? atContact(aim.velocity, g) : { x: (aim.dot.x - arrived.dot.x) / flight, y: (aim.dot.y - arrived.dot.y) / flight + (g * flight) / 2 };
+			const guess = reflectionFor(arrived.velocity, leaving);
+			const was = step.before.arrival != null && step.before.leaving != null ? reflectionFor(step.before.arrival, atContact(step.before.leaving, g)) : null;
+			if (guess != null) {
+				const nextAngle = clampAngle(guess.angle + (was != null ? step.before.angle - was.angle : 0));
+				const nextBounce = clampBounce(guess.bounce + (was != null ? step.before.bounce - was.bounce : 0));
+				const trial = errorOf(nextAngle, nextBounce);
+				if (size(trial) < size(current)) {
+					angle = nextAngle;
+					bounce = nextBounce;
+					current = trial;
+				}
+			}
+		}
+	}
+	for (let n = 0; n < NEWTON_STEPS && size(current) > SOLVED; n++) {
+		const byAngle = errorOf(angle + 2e-3, bounce);
+		const byBounce = errorOf(angle, bounce > 0.5 ? bounce - 5e-3 : bounce + 5e-3);
+		const bounceStep = bounce > 0.5 ? -5e-3 : 5e-3;
+		const a = (byAngle[0] - current[0]) / 2e-3;
+		const b = (byBounce[0] - current[0]) / bounceStep;
+		const c = (byAngle[1] - current[1]) / 2e-3;
+		const d = (byBounce[1] - current[1]) / bounceStep;
+		const det = a * d - b * c;
+		if (Math.abs(det) < 1e-9) break;
+		const stepAngle = (-current[0] * d + current[1] * b) / det;
+		const stepBounce = (-current[1] * a + current[0] * c) / det;
+		let scale = 1;
+		let isBetter = false;
+		for (let tries = 0; tries < 3 && !isBetter; tries++) {
+			const nextAngle = clampAngle(angle + scale * stepAngle);
+			const nextBounce = clampBounce(bounce + scale * stepBounce);
+			const trial = errorOf(nextAngle, nextBounce);
+			if (size(trial) < size(current)) {
+				angle = nextAngle;
+				bounce = nextBounce;
+				current = trial;
+				isBetter = true;
+			}
+			scale /= 2;
+		}
+		if (!isBetter) break;
+	}
+	const solved = setValues(project, step.entityId, angle, bounce);
+	// How it leaves is kept, so the last of the error and the spin stop here
+	return step.aim.kind === 'exit' ? withLeaves(solved, step.entityId, { velocity: step.aim.velocity, spin: step.aim.spin, angle, bounce }) : solved;
+}
+
+function isBroken(hit: THitResult): boolean {
+	return hit.pieceEntityId != null && (hit.status === 'blocked' || hit.status === 'missed');
+}
+
+/** Hits the run broke that were fine in `base` */
+function brokenSince(base: TSimulationResult, result: TSimulationResult): THitResult[] {
+	const was = new Set(base.hits.filter(isBroken).map((hit) => `${hit.laneId}/${hit.hitId}`));
+	return result.hits.filter((hit) => isBroken(hit) && !was.has(`${hit.laneId}/${hit.hitId}`));
+}
+
+/** Contacts of a marble with a piece beyond what it had in `base`: a new piece struck, or one struck more often */
+function strayContacts(base: TSimulationResult, result: TSimulationResult): number {
+	const counts = (run: TSimulationResult): Map<string, number> => {
+		const map = new Map<string, number>();
+		for (const contact of run.contacts) {
+			if (contact.kind !== 'piece') continue;
+			const key = `${contact.marbleEntityId}|${contact.otherEntityId}`;
+			map.set(key, (map.get(key) ?? 0) + 1);
+		}
+		return map;
+	};
+	const before = counts(base);
+	let strays = 0;
+	for (const [key, count] of counts(result)) strays += Math.max(0, count - (before.get(key) ?? 0));
+	return strays;
+}
+
+/** How far later pieces may stay moved before a break holds them where they were */
+const HOLD_SHIFT = 0.03;
+
+export interface TSettleOptions {
+	/** Only the first way, not checked: for a drag, which asks again at the next move */
+	isQuick?: boolean;
+}
+
+/**
+ * Keeps the run after an edit. `before` holds its rides and `base` is its run; `after` is `before` with the edit, and
+ * every lane in `edits` must come back on its old run after the given hit. The first way that breaks nothing wins, else
+ * the one that breaks least. A break that remains holds the lane's later pieces where they were, so it stays one problem
+ * at one hit. Pure and deterministic; every try runs on `simulator`, which resumes from its snapshots.
+ */
+export function settleEdit(simulator: TSimulator, base: TSimulationResult, after: TProject, edits: TLaneEdit[], options: TSettleOptions = {}): TSettled {
+	let runs = 0;
+	const count = (): void => {
+		runs++;
+	};
+	const score = (settled: Pick<TSettled, 'broken' | 'strays'>): number => settled.broken.length * 100 + settled.strays;
+	const judge = (project: TProject): Pick<TSettled, 'broken' | 'strays' | 'result'> => {
+		count();
+		const result = simulator.simulate(project);
+		return { result, broken: brokenSince(base, result), strays: strayContacts(base, result) };
+	};
+	if (options.isQuick === true) {
+		let project = after;
+		const absorbedBy: string[] = [];
+		for (const edit of edits) {
+			for (const step of planSteps(after, base, edit, VARIANTS[0] ?? { skip: 0, restore: 0 }) ?? []) {
+				project = solveStep(simulator, project, edit.laneId, step, count);
+				absorbedBy.push(step.entityId);
+			}
+		}
+		return { project, absorbedBy, broken: [], strays: 0, result: base, runs, heldFrom: [] };
+	}
+	const unsettled = { project: after, absorbedBy: [] as string[], ...judge(after) };
+	let best: typeof unsettled | null = null;
+	for (const [index, variant] of VARIANTS.entries()) {
+		let project = after;
+		const absorbedBy: string[] = [];
+		for (const edit of edits) {
+			for (const step of planSteps(after, base, edit, variant) ?? []) {
+				project = solveStep(simulator, project, edit.laneId, step, count);
+				absorbedBy.push(step.entityId);
+			}
+		}
+		const judged = judge(project);
+		if (best == null || score(judged) < score(best)) best = { ...judged, project, absorbedBy };
+		if (score(judged) === 0 || (index >= 2 && best.broken.length === 0)) break;
+	}
+	const chosen = best != null && score(best) <= score(unsettled) ? best : unsettled;
+	const held = chosen.broken.length > 0 ? holdBreaks(chosen.project, after, base, chosen.result, chosen.broken) : null;
+	if (held == null) return { ...chosen, runs, heldFrom: [] };
+	const judged = judge(held.project);
+	return { ...chosen, ...judged, project: held.project, runs, heldFrom: held.from };
+}
+
+/** Holds each lane whose break carried later pieces away, from its first broken hit on */
+function holdBreaks(project: TProject, unsolved: TProject, base: TSimulationResult, result: TSimulationResult, broken: THitResult[]): { project: TProject; from: THitResult[] } | null {
+	let next = project;
+	const from: THitResult[] = [];
+	for (const lane of project.music.lanes) {
+		const first = broken.filter((hit) => hit.laneId === lane.id).sort((a, b) => a.targetTime - b.targetTime)[0];
+		if (first == null) continue;
+		const count = broken.filter((hit) => hit.laneId === lane.id).length;
+		const isCarried = result.hits.some((hit) => {
+			const was = base.hits.find((item) => item.laneId === hit.laneId && item.hitId === hit.hitId);
+			return hit.laneId === lane.id && hit.targetTime > first.targetTime && hit.dot != null && was?.dot != null && Math.hypot(hit.dot.x - was.dot.x, hit.dot.y - was.dot.y) > HOLD_SHIFT;
+		});
+		if (count <= 1 && !isCarried) continue;
+		// What came after the break keeps its values: it waits, it takes up nothing
+		const later = new Set(lane.hits.filter((hit) => hit.time >= first.targetTime - 1e-6).map((hit) => hit.id));
+		next = {
+			...next,
+			entities: next.entities.map((entity) => {
+				const link = entity.components.hitLink;
+				return link?.laneId === lane.id && later.has(link.hitId) ? (unsolved.entities.find((item) => item.id === entity.id) ?? entity) : entity;
+			})
+		};
+		next = holdFrom(next, base, lane.id, first.targetTime);
+		from.push(first);
+	}
+	return from.length > 0 ? { project: next, from } : null;
+}
+
+// MARK: - What an edit changed
+
+/** The parts of a piece that decide how the marble leaves it or what it rides */
+function physicsOf(entity: TEntity | undefined): string {
+	if (entity == null) return '';
+	const { piece, hitLink, path } = entity.components;
+	const { contactAt: _contactAt, held: _held, leaves: _leaves, ...link } = hitLink ?? { contactAt: 0 };
+	const type = piece?.type ?? '';
+	const params = getPieceDefinition(type)?.musical === true ? { bounce: piece?.params['bounce'] } : piece?.params;
+	return JSON.stringify([type, params, path?.points, link]);
+}
+
+/**
+ * Which lanes `after` changed against `before`, and after which hit the old run must go on. Later platforms must exist
+ * for there to be anything to keep; a piece added at the end of a lane, a free piece or anything else outside the lanes
+ * asks nothing.
+ */
+export function laneEdits(before: TProject, after: TProject): TLaneEdit[] {
+	const edits: TLaneEdit[] = [];
+	const onLane = (project: TProject, laneId: string, hitId: string): TEntity[] =>
+		project.entities.filter((entity) => {
+			const link = entity.components.hitLink;
+			return link?.laneId === laneId && link.hitId === hitId && entity.components.piece != null;
+		});
+	for (const lane of after.music.lanes) {
+		const old = before.music.lanes.find((item) => item.id === lane.id);
+		if (old == null) continue;
+		let last = -2;
+		for (const [index, hit] of lane.hits.entries()) {
+			const was = old.hits.find((item) => item.id === hit.id);
+			const now = onLane(after, lane.id, hit.id);
+			const then = onLane(before, lane.id, hit.id);
+			const isNewAtEnd = was == null || (!then.length && !lane.hits.slice(index + 1).some((later) => onLane(after, lane.id, later.id).length > 0));
+			if (isNewAtEnd) continue;
+			const isPlatformGone = (entity: TEntity): boolean => getPieceDefinition(entity.components.piece?.type ?? '')?.musical === true;
+			const isChanged = was.time !== hit.time || now.some((entity) => physicsOf(entity) !== physicsOf(then.find((item) => item.id === entity.id))) || then.some((entity) => !isPlatformGone(entity) && !now.some((item) => item.id === entity.id));
+			if (isChanged) last = index;
+		}
+		// A platform taken away: the platform before it sends the marble on, so it counts among those that take up the change
+		for (const [index, hit] of old.hits.entries()) {
+			const wasPlatform = linkedPlatform(before, lane.id, hit.id) != null;
+			if (!wasPlatform || linkedPlatform(after, lane.id, hit.id) != null) continue;
+			const previous = old.hits
+				.slice(0, index)
+				.reverse()
+				.find((item) => linkedPlatform(after, lane.id, item.id) != null);
+			const at = previous != null ? lane.hits.findIndex((item) => item.id === previous.id) : -1;
+			last = Math.max(last, at - 1);
+			if (last === -2) last = -1;
+		}
+		const releaseMoved = JSON.stringify(after.entities.find((entity) => entity.components.marble?.laneId === lane.id)?.components.release) !== JSON.stringify(before.entities.find((entity) => entity.components.marble?.laneId === lane.id)?.components.release);
+		if (releaseMoved) edits.push({ laneId: lane.id, afterIndex: lane.hits.length });
+		else if (last > -2 && lane.hits.slice(last + 1).some((hit) => linkedPlatform(after, lane.id, hit.id) != null)) edits.push({ laneId: lane.id, afterIndex: last });
+	}
+	return edits;
+}
+
+/** `project` as commands on `from`: each component that differs */
+export function changedEntities(from: TProject, project: TProject): TEntity[] {
+	const was = new Map(from.entities.map((entity) => [entity.id, entity]));
+	return project.entities.filter((entity) => was.get(entity.id) !== entity && JSON.stringify(was.get(entity.id)) !== JSON.stringify(entity));
+}
+
+/** The pieces of `project` as the rides of `ridden` left them, for the edit made on the project before the rides were kept */
+function withSameRides(project: TProject, ridden: TProject): TProject {
+	const rides = new Map(ridden.entities.flatMap((entity) => (entity.components.transit != null ? [[entity.id, entity.components.transit] as const] : [])));
+	return {
+		...project,
+		entities: project.entities.map((entity) => {
+			const transit = rides.get(entity.id);
+			return transit != null && entity.components.transit == null ? { ...entity, components: { ...entity.components, transit } } : entity;
+		})
+	};
+}
+
+export interface TSettleRequest {
+	before: TProject;
+	after: TProject;
+	isQuick?: boolean;
+	movedDot?: { laneId: string; hitId: string; dot: TVec2 } | null;
+}
+
+export interface TSettleAnswer {
+	/** Entities the settled project has beyond `after`; none when there is nothing to keep */
+	entities: TEntity[];
+	absorbedBy: string[];
+	/** Hits that broke anyway, in time order, and the hits from which later pieces are held */
+	broken: { laneId: string; hitId: string; time: number; status: string }[];
+	heldFrom: { laneId: string; hitId: string; time: number }[];
+	runs: number;
+}
+
+/** What `settleEdit` needs from the run before an edit, kept while one project is edited: a drag asks at every move */
+export interface TSettleBase {
+	before: TProject;
+	ridden: TProject;
+	base: TSimulationResult;
+}
+
+export function settleBase(simulator: TSimulator, before: TProject, known: TSettleBase | null): TSettleBase {
+	if (known?.before === before || (known != null && known.before.id === before.id && known.before.revision === before.revision)) return known;
+	const first = simulator.simulate(before);
+	const ridden = withRides(before, first);
+	return { before, ridden, base: ridden === before ? first : simulator.simulate(ridden) };
+}
+
+export function answerSettle(simulator: TSimulator, request: TSettleRequest, known: TSettleBase | null): { answer: TSettleAnswer; memo: TSettleBase } {
+	const memo = settleBase(simulator, request.before, known);
+	const after = withSameRides(request.after, memo.ridden);
+	const edits = laneEdits(request.before, request.after);
+	const moved = request.movedDot;
+	if (moved != null) {
+		const lane = after.music.lanes.find((item) => item.id === moved.laneId);
+		const index = lane?.hits.findIndex((hit) => hit.id === moved.hitId) ?? -1;
+		const others = edits.filter((edit) => edit.laneId !== moved.laneId);
+		edits.length = 0;
+		edits.push(...others, { laneId: moved.laneId, afterIndex: index - 1, movedDot: { hitId: moved.hitId, dot: moved.dot } });
+	}
+	const settled = settleEdit(simulator, memo.base, after, edits, { isQuick: request.isQuick === true });
+	return {
+		memo,
+		answer: {
+			entities: changedEntities(request.after, settled.project),
+			absorbedBy: settled.absorbedBy,
+			broken: settled.broken.map((hit) => ({ laneId: hit.laneId, hitId: hit.hitId, time: hit.targetTime, status: hit.status })).sort((a, b) => a.time - b.time),
+			heldFrom: settled.heldFrom.map((hit) => ({ laneId: hit.laneId, hitId: hit.hitId, time: hit.targetTime })),
+			runs: settled.runs
+		}
+	};
+}
+
+// MARK: - Back from a break
+
+/**
+ * The marble brought back to the pieces waiting for it: the platform before the first broken hit, or the one before
+ * that, aims at its spot and the broken hit's platform sends the marble on as it did. Null when no way plays every hit.
+ */
+export function reconnect(simulator: TSimulator, project: TProject): { entities: TEntity[] } | null {
+	const run = simulator.simulate(project);
+	let next = project;
+	for (const lane of project.music.lanes) {
+		const waiting = project.entities.some((entity) => entity.components.hitLink?.laneId === lane.id && entity.components.hitLink.held != null);
+		if (!waiting) continue;
+		const first = run.hits.filter((hit) => hit.laneId === lane.id && isBroken(hit)).sort((a, b) => a.targetTime - b.targetTime)[0];
+		if (first == null) {
+			// The marble is back already, by a later edit
+			next = release(next, lane.id);
+			continue;
+		}
+		const index = lane.hits.findIndex((hit) => hit.id === first.hitId);
+		let solved: TProject | null = null;
+		// The platforms before the break take aim from their own run, whose targets the hold doesn't change
+		for (const back of [1, 2, 3]) {
+			if (index - back < 0) break;
+			const steps = planSteps(next, run, { laneId: lane.id, afterIndex: index - back - 1 }, { skip: 0, restore: back - 1 });
+			if (steps == null || !steps.length) continue;
+			let trial = next;
+			for (const step of steps) trial = solveStep(simulator, trial, lane.id, step, () => undefined);
+			const released = release(trial, lane.id);
+			const judged = simulator.simulate(released);
+			if (!judged.hits.some((hit) => hit.laneId === lane.id && (isBroken(hit) || hit.status === 'waiting'))) {
+				solved = released;
+				break;
+			}
+		}
+		if (solved == null) return null;
+		next = solved;
+	}
+	return next === project ? null : { entities: changedEntities(project, next) };
+}
+
+/** A lane's pieces follow the marble again */
+export function release(project: TProject, laneId?: string): TProject {
+	return {
+		...project,
+		entities: project.entities.map((entity) => {
+			const link = entity.components.hitLink;
+			if (link?.held == null || (laneId != null && link.laneId !== laneId)) return entity;
+			const { held: _, ...kept } = link;
+			return { ...entity, components: { ...entity.components, hitLink: kept } };
+		})
+	};
+}

@@ -192,7 +192,7 @@ function outlineGap(a: TFilmOutline, b: TFilmOutline, limit: number): number {
 
 /** Pieces of a run that stand anywhere on the wall: what a Blocked piece leaves out is not in the film */
 function standingPieces(result: TSimulationResult): TResolvedPiece[] {
-	return result.pieces.filter((piece) => piece.status === 'placed' || piece.status === 'pinned' || piece.status === 'free');
+	return result.pieces.filter((piece) => piece.status === 'placed' || piece.status === 'held' || piece.status === 'free');
 }
 
 function marbleRadiusOf(project: TProject): number {

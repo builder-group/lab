@@ -110,10 +110,10 @@ function currentPose(project: TProject, result: TSimulationResult | null, entity
 	return freePose(entity, resolved, radius);
 }
 
-// Without a pose from the run: where it was pinned, otherwise beside its marble's release
+// Without a pose from the run: where it waits, otherwise beside its marble's release
 function fallbackPosition(project: TProject, entity: TEntity): TVec2 {
 	const link = entity.components.hitLink;
-	if (link?.pinnedPosition != null) return { ...link.pinnedPosition };
+	if (link?.held != null) return { ...link.held.dot };
 	const release = project.entities.find((item) => item.components.marble?.laneId === link?.laneId)?.components.release?.position;
 	return release != null ? { x: release.x, y: release.y - 0.2 } : { x: 0, y: 0 };
 }

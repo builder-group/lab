@@ -1004,7 +1004,7 @@ export class StudioCx {
 	}
 
 	/** Reports an edit that just happened with an Undo action for it, such as "6 platforms removed" */
-	notifyEdit(message: string, actions: TNoticeAction[] = [], options: Pick<TNoticeOptions, 'details'> = {}): number {
+	notifyEdit(message: string, actions: TNoticeAction[] = [], options: Pick<TNoticeOptions, 'details'> & { isUndoFirst?: boolean } = {}): number {
 		const revision = this.project?.revision;
 		// Bound to the undo group of the edit, so refinements folded into it since still undo with it
 		const group = this.editGroup;
@@ -1015,7 +1015,8 @@ export class StudioCx {
 			undoGroup: group,
 			run: () => this.undo()
 		};
-		return this.notify(message, 'info', { ...options, actions: [...actions, undo], revision });
+		const { isUndoFirst = false, ...notice } = options;
+		return this.notify(message, 'info', { ...notice, actions: isUndoFirst ? [undo, ...actions] : [...actions, undo], revision });
 	}
 
 	/** Changes the notice `id` while it is still shown, for progress and actions that arrive later */

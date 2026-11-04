@@ -129,7 +129,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 	const piece = pieceEntity?.name;
 	const project = cx.project;
 	const unreachable = status?.status === 'open' && project != null ? unreachableStatus(project, cx.simulation.$result.get(), status) : null;
-	const timing = hitTiming(status, { marble: lane.name, pitch: hit.pitch, piece, isOffDot: pieceEntity?.components.hitLink?.pinnedPosition != null }, unreachable);
+	const timing = hitTiming(status, { marble: lane.name, pitch: hit.pitch, piece }, unreachable);
 	return (
 		<button
 			aria-label={`Hit ${index + 1}${hit.pitch == null ? '' : ` ${noteName(hit.pitch)}`} at ${formatTime(hit.time)}`}

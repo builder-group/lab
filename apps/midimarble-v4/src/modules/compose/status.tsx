@@ -11,6 +11,8 @@ export const badgeStyles: Record<TBadgeStatus, { color: string; glyph: string; l
 	drifting: { color: 'var(--warn)', glyph: 'M -2.8 0.8 C -1.6 -1.4 -0.4 -1.2 0 0 C 0.4 1.2 1.6 1.4 2.8 -0.8', label: 'Early or Late' },
 	missed: { color: 'var(--bad)', glyph: 'M -2.2 -2.2 L 2.2 2.2 M 2.2 -2.2 L -2.2 2.2', label: 'Missed' },
 	blocked: { color: 'var(--bad)', glyph: 'M 0 -2.8 L 0 0.8 M 0 2.6 L 0 2.7', label: 'Blocked' },
+	// Three dots, like a pause in the run
+	waiting: { color: 'var(--text-3)', glyph: 'M -2.4 0 L -2.3 0 M 0 0 L 0.1 0 M 2.4 0 L 2.5 0', label: 'Waiting' },
 	// Two strokes meeting, an impact
 	struck: { color: 'var(--warn)', glyph: 'M -2.6 -2.2 L 0 0.6 L 2.6 -2.2 M 0 0.6 L 0 2.8', label: 'Hit by Another Marble' }
 };

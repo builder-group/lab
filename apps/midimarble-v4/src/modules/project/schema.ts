@@ -69,13 +69,23 @@ const SHitLinkComponent = z.strictObject({
 	angle: z.number(),
 	// Where along the contact surface the marble lands, from 0 to 1
 	contactAt: z.number().min(0).max(1),
-	// Set, the piece stays here instead of following the trajectory
-	pinnedPosition: SVec2.optional(),
+	// Where the piece waits while an edit it could not take up keeps the marble from it: it stays where the marble was at
+	// its moment before that edit, and how the marble left it then is kept, so a fix can bring the marble back
+	held: z
+		.strictObject({
+			dot: SVec2,
+			velocity: SVec2.nullable(),
+			leaves: z.strictObject({ velocity: SVec2, spin: z.number() }).nullable()
+		})
+		.optional(),
 	// An anchored piece follows the trajectory at the hit time plus its `entryDelay` and never sounds the hit.
 	// Scenery pieces are always anchored.
 	anchored: z.boolean().optional(),
 	// Pose origin relative to the marble at the anchor moment; without it the piece is placed touching the marble
-	offset: SVec2.optional()
+	offset: SVec2.optional(),
+	// How the marble leaves this platform, kept so everything after it stays as it was: the velocity and spin a few physics
+	// steps after the hit. It counts only for this angle and bounce, while the bounce comes out near it.
+	leaves: z.strictObject({ velocity: SVec2, spin: z.number(), angle: z.number(), bounce: z.number() }).optional()
 });
 
 // Bézier anchor of a rail drawn with the path tool; handles are offsets from the point
@@ -144,6 +154,19 @@ const SWallTextComponent = z.strictObject({
 	style: z.enum(['wall', 'caption', 'songName', 'endCard']).optional()
 });
 
+/**
+ * The ride a marble took through a switchback or rail, relative to where it entered: the frames are x, y (micrometres)
+ * and rolled angle (1e-4 rad) per physics step after the entry. `key` says which shape of the piece it was made on.
+ */
+const STransitComponent = z.strictObject({
+	key: z.string(),
+	entry: SVec2,
+	exit: z.strictObject({ position: SVec2, velocity: SVec2, angle: z.number(), spin: z.number() }),
+	// Pieces the marble touched on this ride besides this one; anything else in the way ends the ride
+	touches: z.array(z.string()),
+	frames: z.array(z.number())
+});
+
 export const SComponents = z.strictObject({
 	marble: SMarbleComponent.optional(),
 	release: SReleaseComponent.optional(),
@@ -152,7 +175,8 @@ export const SComponents = z.strictObject({
 	hitLink: SHitLinkComponent.optional(),
 	path: SPathComponent.optional(),
 	skin: SSkinComponent.optional(),
-	wallText: SWallTextComponent.optional()
+	wallText: SWallTextComponent.optional(),
+	transit: STransitComponent.optional()
 });
 
 export const SEntity = z.strictObject({
@@ -362,6 +386,7 @@ export type TLane = z.infer<typeof SLane>;
 export type TSource = z.infer<typeof SSource>;
 export type TEntity = z.infer<typeof SEntity>;
 export type TComponents = z.infer<typeof SComponents>;
+export type TTransit = z.infer<typeof STransitComponent>;
 export type TComponentName = keyof TComponents;
 export type TDesign = z.infer<typeof SDesign>;
 export type TProjectTheme = z.infer<typeof SProjectTheme>;
