@@ -36,6 +36,25 @@ describe('project document', () => {
 		expect(parseProject(JSON.stringify({ ...project, design: { ...project.design, themeOptions: { glow: 1 } } }))[0]).toBe(false);
 	});
 
+	it('should round-trip project themes and reject malformed ones', () => {
+		const project = createProject();
+		const themes = [
+			{ id: 'theme-1', name: 'Neon Copy', base: 'neon', overrides: { wallColor: '#336699', glowColor: '#00ff88' } },
+			{ id: 'theme-2', name: 'Sunset', base: 'brass', overrides: {}, origin: 'agent' as const }
+		];
+		const withThemes = { ...project, design: { ...project.design, theme: 'theme-1', themes } };
+		const [isParsedOk, parsedErr, parsed] = parseProject(serializeProject(withThemes));
+		expect(isParsedOk, parsedErr?.message).toBe(true);
+		expect(parsed?.design.themes).toEqual(themes);
+		expect(parsed?.design.theme).toBe('theme-1');
+		// Files from before project themes stay valid
+		expect(parseProject(serializeProject(project))[2]?.design.themes).toBeUndefined();
+		const badColor = { ...project, design: { ...project.design, themes: [{ ...themes[0], overrides: { wallColor: 'blue' } }] } };
+		expect(parseProject(JSON.stringify(badColor))[0]).toBe(false);
+		const unknownField = { ...project, design: { ...project.design, themes: [{ ...themes[0], overrides: { fog: '#ffffff' } }] } };
+		expect(parseProject(JSON.stringify(unknownField))[0]).toBe(false);
+	});
+
 	it('rejects unknown versions and malformed files', () => {
 		const project = createProject();
 		expect(parseProject(JSON.stringify({ ...project, $schema: 'marble-project@99' }))[0]).toBe(false);

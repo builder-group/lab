@@ -1,8 +1,10 @@
 import { createState } from 'feature-state';
 import { requestFromPrompt, type AgentCx } from '@/modules/agents';
+import { isNewThemeRequest } from '@/modules/agents/agent-brief';
 import { library, type TLibraryItem } from '@/modules/library';
-import type { TProject, TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, type TProject, type TProjectCommand } from '@/modules/project';
 import { skinCommands, type TSkinTarget } from './design-commands';
+import { agentThemeCommands } from './project-themes';
 
 /**
  * Library of the Film sidebar. Items live in the project's library and, when kept (the star), in the user's global
@@ -111,12 +113,22 @@ export class DesignLibraryCx {
 		}
 		await this.refresh();
 		const project = this.source.getProject();
-		if (run?.target?.kind === 'piece' && project != null && item.manifest?.role === 'skin') {
+		if (project == null) return true;
+		const isNewTheme = run != null && isNewThemeRequest(requestFromPrompt(run.prompt));
+		// A New Theme Result may bring the theme's colours: the project gets that theme and shows it, with the skin, as one edit
+		const proposal = isNewTheme ? item.manifest?.theme : undefined;
+		const themed = proposal != null ? agentThemeCommands(project, proposal) : null;
+		const themeCommands = themed?.commands ?? [];
+		const themedProject = themeCommands.length > 0 ? applyEdit(project, themeCommands) : project;
+		if (run?.target?.kind === 'piece' && item.manifest?.role === 'skin') {
 			const entityId = run.target.entityId;
 			const pieceType = project.entities.find((entity) => entity.id === entityId)?.components.piece?.type;
-			const target: TSkinTarget =
-				pieceType != null && isNewThemeRequest(requestFromPrompt(run.prompt)) ? { kind: 'pieceType', pieceType } : { kind: 'entities', entityIds: [entityId] };
-			return this.source.execute(skinCommands(project, target, item.id));
+			const target: TSkinTarget = pieceType != null && isNewTheme ? { kind: 'pieceType', pieceType } : { kind: 'entities', entityIds: [entityId] };
+			return this.source.execute([...themeCommands, ...skinCommands(themedProject, target, item.id)]);
+		}
+		if (themeCommands.length > 0 && this.source.execute(themeCommands)) {
+			this.source.notify(`${proposal?.name ?? 'The theme'} applied, with “${label(item)}” in the project library`);
+			return true;
 		}
 		this.source.notify(`“${label(item)}” was added to the project library`);
 		return true;
@@ -151,12 +163,12 @@ export function libraryItemOrigin(item: TLibraryItem): string {
 	return item.manifest?.origin === 'agent' ? 'Made with Agent' : 'Imported';
 }
 
-/** Prompt the library's New Theme with Agent… action starts the composer with */
-export const NEW_THEME_PROMPT = 'New theme: ';
+export { isNewThemeRequest, NEW_THEME_PROMPT } from '@/modules/agents/agent-brief';
 
-export function isNewThemeRequest(request: string): boolean {
-	// The request starts with the mentions, such as `@[Platform 1] @[Rail 1] New theme: …`
-	return /^(@\[[^\]]*\]\s*)*new theme:/i.test(request.trim());
+/** The project after `commands`, for building the commands that follow them in the same edit */
+function applyEdit(project: TProject, commands: TProjectCommand[]): TProject {
+	const [isAppliedOk, , applied] = applyProjectCommands(project, commands);
+	return isAppliedOk ? applied : project;
 }
 
 export function libraryItemLabel(item: TLibraryItem): string {

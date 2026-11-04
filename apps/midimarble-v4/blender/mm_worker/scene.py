@@ -67,6 +67,8 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     set_frame_rate(scene, fps, duration)
     studio.set_resolution(scene, description.get('frame') or {'width': 9, 'height': 16})
     theme = themes.theme_name(description.get('theme'))
+    # A project theme: its base in `theme`, its colours here. Every theme lookup of this apply reads them.
+    themes.set_overrides(description.get('themeOverrides'))
     marble_radius = max([float(marble['radius']) for marble in marbles] or [DEFAULT_MARBLE_RADIUS])
     context = skins.skin_context(theme, marble_radius, description.get('reactions'), description.get('themeOptions'))
     context['projectDir'] = project_dir

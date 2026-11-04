@@ -151,8 +151,35 @@ const SShot = z.strictObject({
 	length: z.number().nonnegative().optional()
 });
 
+const SHexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+/**
+ * The few colours a project theme changes on top of its built-in base, in display sRGB. Absent fields keep the
+ * base's look. `glowColor` replaces the marble-coloured glowing edges of a theme that has them (Neon).
+ */
+const SThemeOverrides = z.strictObject({
+	wallColor: SHexColor.optional(),
+	lightColor: SHexColor.optional(),
+	glowColor: SHexColor.optional(),
+	backgroundColor: SHexColor.optional()
+});
+
+/** A theme the project made from a built-in one: Duplicate Theme, or New Theme with Agent */
+const SProjectTheme = z.strictObject({
+	id: SId,
+	name: z.string(),
+	// Built-in theme id the look starts from: `pegboard`, `brass` or `neon`
+	base: z.string(),
+	overrides: SThemeOverrides,
+	// `agent` when a New Theme with Agent Result made it; absent for a duplicate
+	origin: z.enum(['agent']).optional()
+});
+
 const SDesign = z.strictObject({
+	// A built-in theme id or the id of one of `themes`
 	theme: z.string(),
+	// Themes made in this project. Added later; files without it stay valid
+	themes: z.array(SProjectTheme).optional(),
 	// `draft` was added later; files without it stay valid
 	renderPreset: z.enum(['draft', 'fast', 'balanced', 'best']),
 	loop: z.boolean(),
@@ -321,6 +348,8 @@ export type TEntity = z.infer<typeof SEntity>;
 export type TComponents = z.infer<typeof SComponents>;
 export type TComponentName = keyof TComponents;
 export type TDesign = z.infer<typeof SDesign>;
+export type TProjectTheme = z.infer<typeof SProjectTheme>;
+export type TThemeOverrides = z.infer<typeof SThemeOverrides>;
 export type TShot = z.infer<typeof SShot>;
 export type TTempo = z.infer<typeof STempo>;
 export type TPhysics = z.infer<typeof SPhysics>;

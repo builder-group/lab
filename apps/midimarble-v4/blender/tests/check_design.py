@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from mm_worker import render, walltext  # noqa: E402
 from mm_worker.ops import Worker  # noqa: E402
-from mm_worker.util import DETACHED_COLLECTION, MANAGED_COLLECTION  # noqa: E402
+from mm_worker.util import DETACHED_COLLECTION, MANAGED_COLLECTION, STUDIO_COLLECTION, parse_color  # noqa: E402
 
 APP_DIR = Path(__file__).resolve().parents[2]
 FPS = 30.0
@@ -75,7 +75,7 @@ def ballistic():
     return np.stack([times, x, y, angle], axis=1).astype('<f4'), hit
 
 
-def write_package(root, records, hit, theme='brass', asset=False, reaction=None, texts=None, duration=DURATION):
+def write_package(root, records, hit, theme='brass', asset=False, reaction=None, texts=None, duration=DURATION, overrides=None):
     motion = root / '.cache' / 'motion'
     motion.mkdir(parents=True, exist_ok=True)
     records.tofile(motion / 'marble-1.bin')
@@ -97,6 +97,8 @@ def write_package(root, records, hit, theme='brass', asset=False, reaction=None,
         'pieces': [piece],
         'wallTexts': texts or [],
     }
+    if overrides:
+        description['themeOverrides'] = overrides
     (root / '.cache' / 'scene.json').write_text(json.dumps(description))
 
 
@@ -450,6 +452,28 @@ def main():
     check(unparented.parent is None and (unparented.animation_data is None or unparented.animation_data.drivers.find('location', index=2) is None),
           'a caption switched back to a wall title leaves the camera')
     scene.frame_set(0)
+
+    # Project themes: a base theme with a few colours on top. The wall, the key light and Neon's glowing edges follow
+    def studio(role):
+        return next(obj for obj in bpy.data.collections[STUDIO_COLLECTION].objects if obj.get('mm_role') == role)
+
+    def near(color, hex_color):
+        return all(abs(a - b) < 1e-3 for a, b in zip(color[:3], parse_color(hex_color)[:3]))
+
+    write_package(root, records, hit, asset=True, overrides={'wallColor': '#336699', 'lightColor': '#ff8800'})
+    report = apply(worker)
+    wall_material = studio('studio.wall').data.materials[0]
+    check(report['themed'] and wall_material.name.startswith('MM · wall plaster ') and near(wall_material.diffuse_color, '#336699'),
+          "a project theme's Wall colour paints the wall (%s)" % wall_material.name)
+    check(near(studio('studio.sun').data.color, '#ff8800'), "a project theme's Light colour tints the key light")
+    write_package(root, records, hit, theme='neon', overrides={'glowColor': '#00ff00'})
+    apply(worker)
+    trims = [slot.material.name for obj in holder('platform-1').children_recursive if obj.type == 'MESH' for slot in obj.material_slots
+             if slot.material is not None and slot.material.name.startswith('MM · neon trim')]
+    check(trims and all(name.startswith('MM · neon trim 0.000 1.000 0.000') for name in trims), "a Neon project theme's Glow colours every edge (%s)" % trims)
+    write_package(root, records, hit, asset=True)
+    report = apply(worker)
+    check(report['themed'] and studio('studio.wall').data.materials[0].name == 'MM · wall plaster', 'the built-in theme brings its own wall back')
 
     title_text = dict(title, text='MIDI MARBLE', size=0.026, depth=0.003, color='#b8892b', position={'x': 0.0, 'y': 0.215}, angle=0.0)
     write_package(root, records, hit, asset=True, texts=[title_text, caption])

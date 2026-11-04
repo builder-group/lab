@@ -24,6 +24,30 @@ pub struct AgentBrief {
     pub reaction_slots: Vec<BriefReactionSlot>,
     pub scale: BriefScale,
     pub wall_point: Option<BriefVec2>,
+    /// Set for a New Theme request: the agent also proposes the theme's colours in `manifest.json`
+    pub theme: Option<BriefTheme>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BriefTheme {
+    /// Built-in theme the project shows now
+    pub base: String,
+    #[serde(default)]
+    pub bases: Vec<String>,
+    #[serde(default)]
+    pub fields: Vec<BriefThemeField>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BriefThemeField {
+    /// `wallColor`, `lightColor`, `glowColor` or `backgroundColor`
+    pub name: String,
+    pub label: String,
+    pub description: String,
+    /// The colour the project shows now, as `#rrggbb`
+    pub value: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -280,6 +304,10 @@ pub fn render_brief(brief: &AgentBrief, blender: Option<&Path>) -> String {
         out.push('\n');
     }
 
+    if let Some(theme) = &brief.theme {
+        render_theme(&mut out, theme);
+    }
+
     let _ = writeln!(out, "## Scale\n");
     let _ = writeln!(
         out,
@@ -350,6 +378,57 @@ The script should start from an empty file (`bpy.ops.wm.read_factory_settings(us
         blender = blender,
     );
     return out;
+}
+
+/// The New Theme section: besides the skin, the agent names the theme and picks its colours in `manifest.json`
+fn render_theme(out: &mut String, theme: &BriefTheme) {
+    let _ = writeln!(out, "## Theme\n");
+    let _ = writeln!(
+        out,
+        "This request makes a new theme. Besides the skin, add a `theme` object to `manifest.json` that names the theme, picks a built-in base and sets the colours that match the request. Accepting the result adds the theme to the project and shows the film in it.\n"
+    );
+    let bases = if theme.bases.is_empty() {
+        format!("`{}`", theme.base)
+    } else {
+        theme
+            .bases
+            .iter()
+            .map(|base| format!("`{}`", base))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let _ = writeln!(
+        out,
+        "- `base`: one of {}; the project uses `{}` now. The base brings the materials, skins and lighting style; the colours below change on top of it.",
+        bases, theme.base
+    );
+    let _ = writeln!(
+        out,
+        "- `overrides`: any of these colours as `#rrggbb` display values; leave one out to keep the base's\n"
+    );
+    if !theme.fields.is_empty() {
+        let _ = writeln!(out, "| Colour | Key | Now | Meaning |\n| --- | --- | --- | --- |");
+        for field in &theme.fields {
+            let _ = writeln!(
+                out,
+                "| {} | `{}` | {} | {} |",
+                field.label,
+                field.name,
+                field.value.as_deref().unwrap_or("-"),
+                field.description
+            );
+        }
+        out.push('\n');
+    }
+    let _ = writeln!(
+        out,
+        "```json\n\"theme\": {{ \"name\": \"Sunset\", \"base\": \"{}\", \"overrides\": {{ \"wallColor\": \"#3b2a4a\", \"lightColor\": \"#ffb070\" }} }}\n```\n",
+        theme.base
+    );
+    let _ = writeln!(
+        out,
+        "Use the same `theme` in every result of this request, so the skins of each piece type share one theme.\n"
+    );
 }
 
 fn format_number(value: f64) -> String {
@@ -430,6 +509,28 @@ pub mod tests {
             .unwrap()
             .contains("MM_CHECK"));
         fs::remove_dir_all(package.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn renders_the_theme_section_of_a_new_theme_brief() {
+        let json = r##"{
+            "request": "New theme: warm sunset",
+            "target": { "kind": "piece", "entityId": "piece-3", "role": "skin", "pieceType": "platform" },
+            "scale": { "marbleRadius": 0.008 },
+            "theme": {
+                "base": "neon",
+                "bases": ["pegboard", "brass", "neon"],
+                "fields": [{ "name": "wallColor", "label": "Wall", "description": "Colour of the wall", "value": "#0f1427" }]
+            }
+        }"##;
+        let brief: AgentBrief = serde_json::from_str(json).unwrap();
+        let markdown = render_brief(&brief, None);
+        assert!(markdown.contains("## Theme"));
+        assert!(markdown.contains("`pegboard`, `brass`, `neon`"));
+        assert!(markdown.contains("| Wall | `wallColor` | #0f1427 | Colour of the wall |"));
+        assert!(markdown.contains("\"base\": \"neon\""));
+        let plain: AgentBrief = serde_json::from_str(BRIEF_JSON).unwrap();
+        assert!(!render_brief(&plain, None).contains("## Theme"));
     }
 
     #[test]

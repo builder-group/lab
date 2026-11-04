@@ -50,12 +50,68 @@ THEMES = {
 }
 
 
+# Colours a project theme changes on top of its base, as `#rrggbb` display values; the same fields as
+# `TSceneThemeOverrides` in scene-description.ts. Set for one apply by `set_overrides`.
+OVERRIDE_FIELDS = ('wallColor', 'lightColor', 'glowColor', 'backgroundColor')
+_overrides = {}
+
+
+def clean_overrides(overrides):
+    """The valid `#rrggbb` fields of a scene description's `themeOverrides`, lowercased"""
+    cleaned = {}
+    for field in OVERRIDE_FIELDS:
+        value = (overrides or {}).get(field) if isinstance(overrides, dict) else None
+        if isinstance(value, str) and len(value) == 7 and value.startswith('#'):
+            try:
+                int(value[1:], 16)
+            except ValueError:
+                continue
+            cleaned[field] = value.lower()
+    return cleaned
+
+
+def set_overrides(overrides):
+    """Project theme colours for the apply that follows; None or {} draws the built-in theme as it is"""
+    global _overrides
+    _overrides = clean_overrides(overrides)
+
+
+def resolve_theme(name, overrides=None):
+    """Settings of a built-in theme with a project theme's colours on top. Mirrors `resolveTheme` and
+    `sceneThemeOverrides` in project-themes.ts: the base keeps its skins, reactions and render look."""
+    base = THEMES.get(name) or THEMES[DEFAULT_THEME]
+    overrides = clean_overrides(overrides)
+    if not overrides:
+        return base
+    settings = {key: dict(value) if isinstance(value, dict) else value for key, value in base.items()}
+    if 'wallColor' in overrides:
+        settings['wall']['color'] = parse_color(overrides['wallColor'])[:3]
+        if 'grid' in settings['wall']:
+            # The grid lines stay a faint lighter shade of the new wall
+            settings['wall']['grid'] = tuple(min(1.0, channel * 2.4 + 0.004) for channel in settings['wall']['color'])
+    if 'lightColor' in overrides:
+        settings['sun']['color'] = parse_color(overrides['lightColor'])[:3]
+    if 'backgroundColor' in overrides:
+        settings['world']['color'] = parse_color(overrides['backgroundColor'])[:3]
+    if 'glowColor' in overrides:
+        settings['glow'] = parse_color(overrides['glowColor'])[:3]
+    return settings
+
+
 def theme_settings(name):
-    return THEMES.get(name) or THEMES[DEFAULT_THEME]
+    return resolve_theme(name, _overrides)
 
 
 def theme_name(name):
     return name if name in THEMES else DEFAULT_THEME
+
+
+def theme_key(name):
+    """What the studio was last themed with: the base name, plus the project theme's colours when it has any"""
+    name = theme_name(name)
+    if not _overrides:
+        return name
+    return name + ' ' + ' '.join('%s=%s' % (field, _overrides[field]) for field in sorted(_overrides))
 
 
 # Materials
@@ -367,6 +423,13 @@ def glossy_marble_material(color):
     return _shared('MM · marble ' + color, build)
 
 
+def _wall_name(name, color, default):
+    """A wall material per colour; the base theme's own colour keeps the original name"""
+    if default is not None and all(abs(a - b) < 1e-4 for a, b in zip(color, default)):
+        return name
+    return name + ' %.4f %.4f %.4f' % tuple(color[:3])
+
+
 def plaster_wall_material(color):
     """Matte painted wall with low-frequency mottling and a fine bump"""
     def build(material):
@@ -396,16 +459,21 @@ def plaster_wall_material(color):
         links.new(grain.outputs['Fac'], bump.inputs['Height'])
         links.new(bump.outputs['Normal'], principled.inputs['Normal'])
         _set(principled, 'Roughness', 0.88)
-    return _shared('MM · wall plaster', build)
+    return _shared(_wall_name('MM · wall plaster', color, THEMES['brass']['wall']['color']), build)
 
 
-def pegboard_wall_material(pitch):
-    """Hardboard with recessed peg holes on a regular grid"""
+PEGBOARD_COLOR = (0.58, 0.42, 0.26)
+
+
+def pegboard_wall_material(pitch, color=PEGBOARD_COLOR):
+    """Hardboard in `color` with recessed peg holes on a regular grid"""
+    color = tuple(color[:3])
+
     def build(material):
         tree = material.node_tree
         nodes, links = tree.nodes, tree.links
         principled = _principled(material)
-        material.diffuse_color = (0.55, 0.42, 0.28, 1.0)
+        material.diffuse_color = (*(channel * 0.95 for channel in color), 1.0)
         coordinates = nodes.new('ShaderNodeTexCoord')
         mapping = nodes.new('ShaderNodeMapping')
         mapping.inputs['Scale'].default_value = (1 / pitch, 1 / pitch, 1.0)
@@ -421,7 +489,7 @@ def pegboard_wall_material(pitch):
         ramp.color_ramp.elements[0].position = 0.13
         ramp.color_ramp.elements[0].color = (0.03, 0.02, 0.015, 1.0)
         ramp.color_ramp.elements[1].position = 0.16
-        ramp.color_ramp.elements[1].color = (0.58, 0.42, 0.26, 1.0)
+        ramp.color_ramp.elements[1].color = (*color, 1.0)
         links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
         links.new(mapping.outputs['Vector'], fraction.inputs[0])
         links.new(fraction.outputs['Vector'], center.inputs[0])
@@ -443,7 +511,7 @@ def pegboard_wall_material(pitch):
         links.new(ramp.outputs['Alpha'], bump.inputs['Height'])
         links.new(bump.outputs['Normal'], principled.inputs['Normal'])
         _set(principled, 'Roughness', 0.8)
-    return _shared('MM · pegboard', build)
+    return _shared(_wall_name('MM · pegboard', color, PEGBOARD_COLOR), build)
 
 
 def neon_wall_material(color, grid, spacing=0.05):
@@ -495,7 +563,7 @@ def neon_wall_material(color, grid, spacing=0.05):
         links.new(base.outputs['Result'], tint.inputs['A'])
         links.new(tint.outputs['Result'], principled.inputs['Base Color'])
         _set(principled, 'Roughness', 0.55)
-    return _shared('MM · wall neon', build)
+    return _shared(_wall_name('MM · wall neon', color, THEMES['neon']['wall']['color']), build)
 
 
 def wall_material(theme, pitch):
@@ -504,7 +572,7 @@ def wall_material(theme, pitch):
         return plaster_wall_material(wall['color'])
     if wall['kind'] == 'neon':
         return neon_wall_material(wall['color'], wall['grid'])
-    return pegboard_wall_material(pitch)
+    return pegboard_wall_material(pitch, wall.get('color', PEGBOARD_COLOR))
 
 
 # Neon: saturated glossy bodies with glowing trim on a dark wall

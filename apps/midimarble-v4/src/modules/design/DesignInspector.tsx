@@ -8,7 +8,7 @@ import type { TLibraryItem } from '@/modules/library';
 import type { TDesign, TEntity, TProject, TShot } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { getCommand } from '@/modules/studio/commands';
+import { duplicateTheme, getCommand } from '@/modules/studio/commands';
 import { formatTime } from '@/modules/studio/format';
 import { parseTime } from '@/modules/studio/timeline/parse-time';
 import { toShotKey } from '@/modules/studio/selection';
@@ -38,6 +38,17 @@ import { LIBRARY_DRAG_TYPE, notifySkinApplied } from './DesignLibrary';
 import { renderPresetLabel, renderPresetOption, renderPresets } from './export-estimate';
 import { describeLoop } from './loop-status';
 import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
+import {
+	builtInThemeLabel,
+	projectThemes,
+	renameThemeCommands,
+	resolveTheme,
+	THEME_OVERRIDE_FIELDS,
+	themeDefaultColor,
+	themeOverrideApplies,
+	themeOverrideCommands,
+	type TResolvedTheme
+} from './project-themes';
 import { titleSpan, withTitleTime } from './titles';
 
 /** Properties of the Film workspace on the inspector grid: the project, a piece's look, a title or a shot */
@@ -65,19 +76,24 @@ interface TDesignInspectorProps {
 const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const design = project.design;
-	const theme = themePresets.find((item) => item.id === design.theme);
+	const theme = resolveTheme(design);
+	const themeOptions = [
+		...themePresets.map((item) => ({ value: item.id, label: item.label })),
+		...projectThemes(design).map((item) => ({ value: item.id, label: item.name }))
+	];
 
 	return (
 		<>
-			<InspectorHeader icon={<Clapperboard size={16} strokeWidth={1.7} />} title="Project" subtitle={`${theme?.label ?? design.theme} · ${renderPresetLabel(design.renderPreset)}`} />
+			<InspectorHeader icon={<Clapperboard size={16} strokeWidth={1.7} />} title="Project" subtitle={`${theme.name} · ${renderPresetLabel(design.renderPreset)}`} />
 			<Panel id="design.scene" title="Look">
 				<SelectField
 					id="design-theme"
 					label="Theme"
 					value={design.theme}
-					options={[...themePresets.map((item) => ({ value: item.id, label: item.label })), ...(theme == null ? [{ value: design.theme, label: design.theme }] : [])]}
+					options={[...themeOptions, ...(themeOptions.some((item) => item.value === design.theme) ? [] : [{ value: design.theme, label: design.theme }])]}
 					onChange={(value) => cx.execute(themeCommands(project, value))}
 				/>
+				<ThemeColors cx={cx} theme={theme} />
 				<CheckField
 					id="design-color-by-note"
 					label="Colour by Note"
@@ -97,6 +113,95 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 			<CameraPanel cx={cx} project={project} />
 			<WallTextPanel cx={cx} project={project} />
 		</>
+	);
+};
+
+/**
+ * The applied theme's few colours. A project theme shows them as colour wells, each with a reset to its base's
+ * colour; a built-in theme is read-only and offers Duplicate to Edit, like Figma's library styles and Keynote's themes.
+ */
+const ThemeColors: React.FC<{ cx: StudioCx; theme: TResolvedTheme }> = (props) => {
+	const { cx, theme } = props;
+	if (theme.projectTheme == null) {
+		return (
+			<button
+				className="mm-button"
+				data-span="2"
+				onClick={() => duplicateTheme(cx, theme.id)}
+				title={`Make a copy of ${theme.name} in this project and change its wall, light and glow`}
+				type="button"
+			>
+				Duplicate to Edit
+			</button>
+		);
+	}
+	return (
+		<>
+			<TextField
+				key={theme.id}
+				id="theme-name"
+				label="Name"
+				span={2}
+				name="Name of this project's theme"
+				value={theme.name}
+				allowEmpty={false}
+				onCommit={(name) => {
+					const project = cx.project;
+					if (project != null) cx.execute(renameThemeCommands(project, theme.id, name));
+				}}
+			/>
+			{THEME_OVERRIDE_FIELDS.filter((field) => themeOverrideApplies(theme.base, field.name)).map((field) => (
+				<ThemeColorField key={field.name} cx={cx} theme={theme} field={field} />
+			))}
+		</>
+	);
+};
+
+/**
+ * One theme colour well. Dragging in the colour picker is one undo step: changes fold into the first while it is
+ * still the latest edit, until the well loses focus.
+ */
+const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (typeof THEME_OVERRIDE_FIELDS)[number] }> = (props) => {
+	const { cx, theme, field } = props;
+	const groupRef = React.useRef<number | null>(null);
+	const value = theme.overrides[field.name];
+	const fallback = themeDefaultColor(theme.base, field.name);
+	const id = `theme-${field.name}`;
+
+	function set(color: string | null): void {
+		const project = cx.project;
+		if (project == null) return;
+		const commands = themeOverrideCommands(project, theme.id, { [field.name]: color });
+		if (!commands.length) return;
+		if (color != null && groupRef.current != null && cx.editGroup === groupRef.current) {
+			cx.execute(commands, { group: groupRef.current });
+			return;
+		}
+		if (cx.execute(commands)) groupRef.current = color != null ? cx.editGroup : null;
+	}
+
+	return (
+		<span className="mm-ifield" data-span="2" title={field.help}>
+			<label htmlFor={id} className="mm-ifield-label">
+				{field.label}
+			</label>
+			<input
+				id={id}
+				type="color"
+				className="mm-color"
+				value={value ?? fallback ?? '#ffffff'}
+				onChange={(event) => set(event.target.value)}
+				onBlur={() => {
+					groupRef.current = null;
+				}}
+			/>
+			<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{value ?? (fallback != null ? builtInThemeLabel(theme.base) : 'Marble Colour')}</span>
+			{value != null ? (
+				<button className="mm-icon-button" onClick={() => set(null)} title={`Use ${builtInThemeLabel(theme.base) ?? 'the base theme'}'s ${field.label.toLowerCase()} again`} aria-label={`Reset ${field.label}`} type="button">
+					<RotateCcw size={12} strokeWidth={1.9} />
+				</button>
+			) : null}
+		</span>
 	);
 };
 

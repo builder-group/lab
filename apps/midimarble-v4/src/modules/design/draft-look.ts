@@ -1,5 +1,6 @@
 import type { TWallLook } from '@/modules/compose/ComposeRenderer';
 import type { TScenePiece } from '@/modules/blender/scene-description';
+import type { TThemeOverrides } from '@/modules/project';
 
 // Flat colours that approximate the Blender themes for the Film Draft Preview. The values follow
 // `blender/mm_worker/themes.py` and `skins.py`, converted from Blender's linear colours to display sRGB and
@@ -34,11 +35,15 @@ export function noteColor(pitch: number): string {
 	return NOTE_COLORS[index] ?? '#888888';
 }
 
-/** Birch hardboard with dark peg holes for Pegboard, matte lavender plaster for Brass, deep navy for Neon */
-export function draftWall(theme: string): TWallLook {
-	if (theme === 'brass') return { color: '#a098ac', holes: null };
-	if (theme === 'neon') return { color: '#141a2a', holes: null };
-	return { color: '#b3a38f', holes: 'rgba(72, 56, 40, 0.75)', holeRadius: 0.1 };
+/**
+ * Birch hardboard with dark peg holes for Pegboard, matte lavender plaster for Brass, deep navy for Neon. A project
+ * theme's Wall colour replaces the base's, and Pegboard keeps its holes.
+ */
+export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}): TWallLook {
+	const wall = overrides.wallColor;
+	if (theme === 'brass') return { color: wall ?? '#a098ac', holes: null };
+	if (theme === 'neon') return { color: wall ?? '#141a2a', holes: null };
+	return { color: wall ?? '#b3a38f', holes: 'rgba(72, 56, 40, 0.75)', holeRadius: 0.1 };
 }
 
 /** Wood of pegs, hubs and rail posts in Pegboard */
@@ -59,9 +64,14 @@ const HOUSING = '#26282d';
  * Body and accent colour of a piece in a theme, from its scene description entry: its skin, its marble's colour
  * and, with Colour by Note, its note.
  */
-export function draftPieceColors(theme: string, piece: Pick<TScenePiece, 'type' | 'color' | 'skin' | 'notePitch'>, colorByNote: boolean): TDraftColors {
+export function draftPieceColors(
+	theme: string,
+	piece: Pick<TScenePiece, 'type' | 'color' | 'skin' | 'notePitch'>,
+	colorByNote: boolean,
+	overrides: Pick<TThemeOverrides, 'glowColor'> = {}
+): TDraftColors {
 	const note = colorByNote && piece.type === 'platform' && piece.notePitch != null ? noteColor(piece.notePitch) : null;
-	if (theme === 'neon') return neonColors(piece.type, note ?? piece.color);
+	if (theme === 'neon') return neonColors(piece.type, note ?? piece.color, overrides.glowColor ?? null);
 	if (theme !== 'brass') {
 		// Pieces take their marble's colour; a lighter tint keeps the marble readable as it rolls over them
 		const body = note ?? tint(piece.color, PEGBOARD_TINT);
@@ -93,8 +103,9 @@ const NEON_MOUNT = '#1c2030';
  * is the glow, so platforms, tunnels and windmills show their lit colour with a deeper body, and rails and
  * switchbacks are tube lights on dark posts
  */
-function neonColors(type: string, color: string): TDraftColors {
-	const glow = saturate(color, 1);
+function neonColors(type: string, color: string, glowColor: string | null): TDraftColors {
+	// A project theme's Glow lights every edge in one colour, like `neon_colors` with `glow`
+	const glow = glowColor ?? saturate(color, 1);
 	const body = saturate(color, 0.62);
 	switch (type) {
 		case 'platform':

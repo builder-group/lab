@@ -1,3 +1,4 @@
+import { BUILT_IN_THEMES, resolveTheme, THEME_OVERRIDE_FIELDS, themeDefaultColor } from '@/modules/design/project-themes';
 import type { TAssetRole } from '@/modules/library';
 import { DEFAULT_MARBLE_RADIUS, type TProject, type TVec2 } from '@/modules/project';
 import {
@@ -26,6 +27,17 @@ export interface TAgentBrief {
 	reactionSlots: { name: TReactionSlot; description: string }[];
 	scale: { marbleRadius: number; notes?: string };
 	wallPoint?: TVec2;
+	/** Set for a New Theme request: the agent also proposes the theme's colours in its manifest */
+	theme?: TAgentBriefTheme;
+}
+
+/** What a New Theme run may propose: a name, a built-in base and the colours a project theme changes */
+export interface TAgentBriefTheme {
+	/** Built-in theme the project shows now, the default base */
+	base: string;
+	/** Built-in themes a proposal may start from */
+	bases: string[];
+	fields: { name: string; label: string; description: string; value?: string }[];
 }
 
 export type TAgentTargetKind = 'piece' | 'scene' | 'wall';
@@ -45,6 +57,32 @@ export function buildAgentBrief(options: {
 	target: TAgentTarget;
 	request: string;
 }): TAgentBrief {
+	const brief = buildTargetBrief(options);
+	return isNewThemeRequest(brief.request) ? { ...brief, theme: themeBrief(options.project) } : brief;
+}
+
+/** Prompt the library's New Theme with Agent… action starts the composer with */
+export const NEW_THEME_PROMPT = 'New theme: ';
+
+export function isNewThemeRequest(request: string): boolean {
+	// The request starts with the mentions, such as `@[Platform 1] @[Rail 1] New theme: …`
+	return /^(@\[[^\]]*\]\s*)*new theme:/i.test(request.trim());
+}
+
+/** The theme section of a New Theme brief: the current theme's base and its colours as the starting point */
+function themeBrief(project: TProject): TAgentBriefTheme {
+	const theme = resolveTheme(project.design);
+	return {
+		base: theme.base,
+		bases: BUILT_IN_THEMES.map((item) => item.id),
+		fields: THEME_OVERRIDE_FIELDS.map((field) => {
+			const value = theme.overrides[field.name] ?? themeDefaultColor(theme.base, field.name);
+			return { name: field.name, label: field.label, description: field.help, ...(value != null ? { value } : {}) };
+		})
+	};
+}
+
+function buildTargetBrief(options: { project: TProject; result: TSimulationResult | null; target: TAgentTarget; request: string }): TAgentBrief {
 	const { project, result, target } = options;
 	const request = options.request.trim();
 	const marbleRadius =

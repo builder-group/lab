@@ -28,7 +28,9 @@ def ensure_studio(scene, theme):
     theme = themes.theme_name(theme)
     created = not scene.get('mm_studio_version')
     collection = ensure_collection(STUDIO_COLLECTION)
-    switched = scene.get('mm_theme') != theme
+    # A project theme's colours count as a switch too, so changing one re-themes the untouched studio
+    key = themes.theme_key(theme)
+    switched = scene.get('mm_theme') != key
     if studio_object('studio.wall') is None and created:
         create_wall(collection)
     sun = studio_object('studio.sun')
@@ -54,7 +56,7 @@ def ensure_studio(scene, theme):
         scene.camera = camera
     if switched or created:
         themes.apply_render_look(scene, theme)
-        scene['mm_theme'] = theme
+        scene['mm_theme'] = key
     scene['mm_studio_version'] = STUDIO_VERSION
     return {'created': created, 'themed': switched or created}
 

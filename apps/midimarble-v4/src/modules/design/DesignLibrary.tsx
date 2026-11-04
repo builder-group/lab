@@ -6,6 +6,7 @@ import type { TLibraryItem } from '@/modules/library';
 import type { TEntity, TProject } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
+import { deleteTheme, duplicateTheme } from '@/modules/studio/commands';
 import {
 	commonPieceType,
 	itemFitsPieceType,
@@ -16,9 +17,9 @@ import {
 	themeSkinCommands,
 	themeSkins,
 	type TSkinTarget,
-	type TThemePreset,
 	type TThemeSkin
 } from './design-commands';
+import { baseThemeOf, projectThemes, renameThemeCommands, resolveTheme, THEME_OVERRIDE_FIELDS, themeOrigin, type TResolvedTheme } from './project-themes';
 import { libraryEntries, libraryItemLabel, libraryItemOrigin, NEW_THEME_PROMPT, type TLibraryEntry } from './DesignLibraryCx';
 
 /** MIME type of a library item dragged onto the preview or the inspector */
@@ -129,22 +130,54 @@ const ThemeSection: React.FC<{
 }> = (props) => {
 	const { cx, project, entries, matches, isUnavailable, onNewTheme } = props;
 	const isColorByNote = project.design.themeOptions?.colorByNote === true;
-	const themes = themePresets.filter((theme) => matches(`${theme.label} ${theme.description}`));
+	const [renamingId, setRenamingId] = React.useState<string | null>(null);
+	// One list, like the skins: built-in themes first, then the project's own with where they come from
+	const themes = [...themePresets.map((theme) => theme.id), ...projectThemes(project.design).map((theme) => theme.id)]
+		.map((id) => resolveTheme(project.design, id))
+		.filter((theme) => matches(`${theme.name} ${themeOrigin(theme)} ${themePresets.find((item) => item.id === theme.id)?.description ?? ''}`));
 	const items = entries.filter((entry) => matches(`${libraryItemLabel(entry.item)} ${entry.item.manifest?.pieceType ?? ''} ${libraryItemOrigin(entry.item)}`));
+
+	function menu(theme: TResolvedTheme): TMenuEntry[] {
+		const isProjectTheme = theme.projectTheme != null;
+		return [
+			{ label: 'Apply Theme', disabled: project.design.theme === theme.id, onSelect: () => cx.execute(themeCommands(project, theme.id)) },
+			{ label: 'Duplicate Theme', onSelect: () => duplicateTheme(cx, theme.id) },
+			...(isProjectTheme
+				? [
+						'separator' as const,
+						{ label: 'Rename', onSelect: () => setRenamingId(theme.id) },
+						{ label: 'Delete Theme', onSelect: () => deleteTheme(cx, theme.id) }
+					]
+				: [])
+		];
+	}
 
 	return (
 		<>
 			<SectionTitle
 				title="Themes"
-				help="A theme dresses the whole film: wall, light, marbles and a skin for every piece type. Select a piece to see its skins; select several, such as a section with Shift-click in Layers, to skin them all at once"
+				help="A theme dresses the whole film: wall, light, marbles and a skin for every piece type. Duplicate a theme to change its colours. Select a piece to see its skins; select several, such as a section with Shift-click in Layers, to skin them all at once"
 			/>
 			<div className="mm-tile-grid" role="list" aria-label="Themes">
 				{themes.map((theme) => (
-					<ThemeCard key={theme.id} theme={theme} isInUse={project.design.theme === theme.id} isColorByNote={isColorByNote} onApply={() => cx.execute(themeCommands(project, theme.id))} />
+					<ThemeCard
+						key={theme.id}
+						theme={theme}
+						isInUse={project.design.theme === theme.id}
+						isColorByNote={isColorByNote}
+						isRenaming={renamingId === theme.id}
+						onApply={() => cx.execute(themeCommands(project, theme.id))}
+						onMenu={() => menu(theme)}
+						onRename={(name) => {
+							setRenamingId(null);
+							cx.execute(renameThemeCommands(project, theme.id, name));
+						}}
+						onRenameCancel={() => setRenamingId(null)}
+					/>
 				))}
 			</div>
 			<div className="px-3 pt-1 pb-2">
-				<button className="mm-button w-full" onClick={onNewTheme} title="Describe a look and the agent makes a skin for every piece type" type="button">
+				<button className="mm-button w-full" onClick={onNewTheme} title="Describe a look and the agent makes a theme with a skin for every piece type" type="button">
 					<Sparkles size={12} strokeWidth={1.8} />
 					New Theme with Agent…
 				</button>
@@ -161,17 +194,68 @@ const ThemeSection: React.FC<{
 	);
 };
 
-const ThemeCard: React.FC<{ theme: TThemePreset; isInUse: boolean; isColorByNote: boolean; onApply: () => void }> = (props) => {
-	const { theme, isInUse, isColorByNote, onApply } = props;
+/**
+ * A theme card: the rendered still of its base, the colours a project theme changes as dots in the corner, its name
+ * and where it comes from. The context menu has Duplicate Theme, and Rename and Delete Theme for a project theme.
+ */
+const ThemeCard: React.FC<{
+	theme: TResolvedTheme;
+	isInUse: boolean;
+	isColorByNote: boolean;
+	isRenaming: boolean;
+	onApply: () => void;
+	onMenu: () => TMenuEntry[];
+	onRename: (name: string) => void;
+	onRenameCancel: () => void;
+}> = (props) => {
+	const { theme, isInUse, isColorByNote, isRenaming, onApply, onMenu, onRename, onRenameCancel } = props;
+	const preset = themePresets.find((item) => item.id === theme.base);
+	const description = themePresets.find((item) => item.id === theme.id)?.description ?? themeOrigin(theme);
+	const swatches = THEME_OVERRIDE_FIELDS.flatMap((field) => {
+		const color = theme.overrides[field.name];
+		return color != null ? [{ name: field.label, color }] : [];
+	});
 	return (
-		<button className="mm-tile" data-applied={isInUse} aria-pressed={isInUse} title={theme.description} onClick={onApply} type="button" role="listitem">
-			<span className="mm-tile-thumb mm-tile-thumb-square">
-				<img alt="" src={isColorByNote ? theme.notePreviewUrl : theme.previewUrl} draggable={false} />
-				{isInUse ? <span className="mm-tile-badge">In Use</span> : null}
-			</span>
-			<span className="mm-tile-label">{theme.label}</span>
-			<span className="mm-tile-secondary">Theme</span>
-		</button>
+		<div className="mm-tile-wrap" role="listitem">
+			<button className="mm-tile" data-applied={isInUse} aria-pressed={isInUse} title={description} onClick={onApply} onContextMenu={(event) => openContextMenu(event, onMenu())} type="button">
+				<span className="mm-tile-thumb mm-tile-thumb-square">
+					{preset != null ? <img alt="" src={isColorByNote ? preset.notePreviewUrl : preset.previewUrl} draggable={false} /> : null}
+					{swatches.length > 0 ? (
+						<span className="absolute top-1 left-1 flex gap-0.5" aria-label={swatches.map((swatch) => `${swatch.name} ${swatch.color}`).join(', ')}>
+							{swatches.map((swatch) => (
+								<span key={swatch.name} className="h-2.5 w-2.5 rounded-full shadow-[0_0_0_1px_rgb(255_255_255/0.8)]" style={{ background: swatch.color }} />
+							))}
+						</span>
+					) : null}
+					{isInUse ? <span className="mm-tile-badge">In Use</span> : null}
+				</span>
+				{isRenaming ? null : <span className="mm-tile-label">{theme.name}</span>}
+				<span className="mm-tile-secondary">{themeOrigin(theme)}</span>
+			</button>
+			{isRenaming ? <ThemeNameField name={theme.name} onCommit={onRename} onCancel={onRenameCancel} /> : null}
+		</div>
+	);
+};
+
+/** Inline rename of a project theme's card, like Finder: Return keeps the name, Escape cancels */
+const ThemeNameField: React.FC<{ name: string; onCommit: (name: string) => void; onCancel: () => void }> = (props) => {
+	const { name, onCommit, onCancel } = props;
+	const [value, setValue] = React.useState(name);
+	return (
+		<input
+			className="mm-input mt-0.5 w-full"
+			aria-label="Theme name"
+			autoFocus
+			value={value}
+			onFocus={(event) => event.currentTarget.select()}
+			onChange={(event) => setValue(event.target.value)}
+			onBlur={() => onCommit(value)}
+			onKeyDown={(event) => {
+				if (event.key === 'Enter') onCommit(value);
+				if (event.key === 'Escape') onCancel();
+				event.stopPropagation();
+			}}
+		/>
 	);
 };
 
@@ -188,9 +272,10 @@ const SkinSection: React.FC<{
 	isUnavailable: boolean;
 }> = (props) => {
 	const { cx, project, entries, selectedPieces, pieceType, typeLabel, matches, isUnavailable } = props;
-	const theme = themePresets.find((item) => item.id === project.design.theme);
-	const origin = `${theme?.label ?? project.design.theme} Theme`;
-	const builtIn = themeSkins(project.design.theme, pieceType).filter((skin) => matches(`${skin.label} ${origin}`));
+	// A project theme dresses pieces with its base theme's skins
+	const base = baseThemeOf(project.design);
+	const origin = `${themePresets.find((item) => item.id === base)?.label ?? base} Theme`;
+	const builtIn = themeSkins(base, pieceType).filter((skin) => matches(`${skin.label} ${origin}`));
 	const items = entries.filter((entry) => itemFitsPieceType(entry.item, pieceType) && matches(`${libraryItemLabel(entry.item)} ${libraryItemOrigin(entry.item)}`));
 	const piecesOfType = project.entities.filter((entity) => entity.components.piece?.type === pieceType);
 	const isMixed = selectedPieces.some((entity) => entity.components.piece?.type !== pieceType);

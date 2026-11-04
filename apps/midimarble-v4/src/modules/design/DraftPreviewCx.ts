@@ -5,6 +5,7 @@ import { ComposeRenderer, MARBLE_Z, type TRenderPiece } from '@/modules/compose/
 import { distanceToSegment, isPointInPolygon } from '@/modules/compose/picking';
 import { marblePositionAt, pieceAngleAt, pieceKind, pieceOutline } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
+import { DEFAULT_THEME, resolveTheme } from './project-themes';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftPieceColors, draftWall, screenTitleLayout, titleOpacity, type TDraftColors, type TScreenTitleLayout } from './draft-look';
@@ -86,8 +87,13 @@ export class DraftPreviewCx {
 	colorsOf(piece: TResolvedPiece): TDraftColors {
 		const project = this.studio.project;
 		const scene = this.scenePiece(piece.entityId);
-		const theme = project?.design.theme ?? 'pegboard';
-		return draftPieceColors(theme, scene ?? { type: piece.type, color: '#c8b89a', skin: null }, project?.design.themeOptions?.colorByNote === true);
+		const theme = project != null ? resolveTheme(project.design) : null;
+		return draftPieceColors(
+			theme?.base ?? DEFAULT_THEME,
+			scene ?? { type: piece.type, color: '#c8b89a', skin: null },
+			project?.design.themeOptions?.colorByNote === true,
+			theme?.overrides
+		);
 	}
 
 	/** Pieces in the draft: the run's pieces without the hidden ones */
@@ -199,10 +205,11 @@ export class DraftPreviewCx {
 		const renderer = this.renderer;
 		const project = this.studio.project;
 		if (renderer == null || project == null) return;
-		const theme = project.design.theme;
-		if (this.wallTheme !== theme) {
-			renderer.setWallLook(draftWall(theme));
-			this.wallTheme = theme;
+		const theme = resolveTheme(project.design);
+		const wallKey = `${theme.base} ${theme.overrides.wallColor ?? ''}`;
+		if (this.wallTheme !== wallKey) {
+			renderer.setWallLook(draftWall(theme.base, theme.overrides));
+			this.wallTheme = wallKey;
 		}
 		const playhead = this.studio.$playhead.get();
 		const track = this.filmCamera()?.track ?? null;

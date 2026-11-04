@@ -1,4 +1,5 @@
 import type { TDesign, TEntity, TProject } from '@/modules/project';
+import { baseThemeOf, sceneThemeOverrides } from '@/modules/design/project-themes';
 import { createLoop } from '@/modules/simulation/loop';
 import { shotLength } from '@/modules/camera/shots';
 import { getPieceDefinition } from '@/modules/simulation/pieces';
@@ -11,7 +12,8 @@ import {
 	type TSceneDescription,
 	type TSceneMarble,
 	type TScenePiece,
-	type TSceneThemeOptions
+	type TSceneThemeOptions,
+	type TSceneThemeOverrides
 } from './scene-description';
 
 export const MOTION_FOLDER = '.cache/motion';
@@ -123,7 +125,8 @@ export function buildSceneDescription(
 			fps: options.fps,
 			duration: loop?.end ?? result.duration,
 			frame: { width: project.frame.width, height: project.frame.height },
-			theme: project.design.theme,
+			theme: baseThemeOf(project.design),
+			...themeOverridesOf(project),
 			...themeOptionsOf(project),
 			marbles,
 			pieces,
@@ -252,6 +255,11 @@ function notePitchOf(project: TProject, entity: TEntity | undefined): { notePitc
 	if (link == null || link.anchored === true || getPieceDefinition(entity?.components.piece?.type ?? '')?.musical !== true) return {};
 	const pitch = project.music.lanes.find((lane) => lane.id === link.laneId)?.hits.find((hit) => hit.id === link.hitId)?.pitch;
 	return pitch == null ? {} : { notePitch: pitch };
+}
+
+function themeOverridesOf(project: TProject): { themeOverrides?: TSceneThemeOverrides } {
+	const overrides = sceneThemeOverrides(project.design);
+	return overrides != null ? { themeOverrides: overrides } : {};
 }
 
 function themeOptionsOf(project: TProject): { themeOptions?: TSceneThemeOptions } {

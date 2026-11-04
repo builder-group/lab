@@ -11,6 +11,14 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### 2026-11-04: project themes
+
+- `design.themes` (optional in `marble-project@4`): a project theme is a built-in base plus Wall, Light, Glow and Background colours; `design.theme` names a built-in or a project theme. `design/project-themes.ts` resolves and edits them; the scene description sends the base and `themeOverrides`, and `themes.resolve_theme` lays them over the base in Blender; the Draft Preview draws Wall and Glow
+- Library: Duplicate Theme (context menu, ⌘K), Rename inline, Delete Theme (falls back to the base); project themes among the cards with Based on Neon or Made with Agent. Inspector: Name and colour wells for a project theme, Duplicate to Edit for a built-in one; a colour drag is one undo step
+- New Theme with Agent: the brief gets a Theme section (`brief.rs`), the manifest an optional `theme`; accepting adds or updates that theme and applies it with the skin as one edit
+- Checks: `typecheck`, `lint` clean, `test` 439 + 3, `cargo test agents::brief` 5, `blender:design` 69, `blender:check` 135
+- Next: a rendered still per project theme instead of the base's; default skin per piece type in a project theme
+
 ### 2026-11-04: round 6, one world per marble, burned-in titles
 
 - Round 6 (review round 4 findings, 12/20): one problem model (`export-preflight.ts`) feeds the timeline hit summary, the export sheet, Layers badges and the Camera track spans; Checking state while a run simulates; fix notices stay until the problem is gone; Move Clear for blocked scenery and Move Hit Later; undo groups bound to their notice; the what-if count before placing; Next queues while a run checks. Camera defaults closer (distance 0.7, pitch 1.15), shot holds (`length`), a held ending after the last note, `activeUntil` per marble. Titles that read on a phone (Caption, Song Name, End Card styles), plain words for settings and the export sheet, keycaps in menus

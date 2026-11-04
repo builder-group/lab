@@ -10,6 +10,7 @@ import { BACKING_ID } from '@/modules/project';
 import { soundsHit } from '@/modules/simulation';
 import { cameraCommands, colorByNoteCommands, themeCommands } from '@/modules/design/design-commands';
 import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
+import { deleteThemeCommands, duplicateThemeCommands, resolveTheme } from '@/modules/design/project-themes';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { duplicatePieces } from './duplicate';
 import { parseHitKey, parseShotKey, toHitKey, toShotKey } from './selection';
@@ -103,6 +104,26 @@ function themeCommand(id: 'design.themePegboard' | 'design.themeBrass' | 'design
 			if (project != null) cx.execute(themeCommands(project, theme));
 		}
 	};
+}
+
+/** Duplicate Theme: the theme as a project theme, applied, so its colours can change; one undo step */
+export function duplicateTheme(cx: StudioCx, themeId: string): void {
+	const project = cx.project;
+	if (project == null) return;
+	const { commands, themeId: copyId } = duplicateThemeCommands(project, themeId);
+	if (!cx.execute(commands)) return;
+	const copy = cx.project != null ? resolveTheme(cx.project.design, copyId) : null;
+	cx.notifyEdit(`${resolveTheme(project.design, themeId).name} duplicated as ${copy?.name ?? 'a copy'}`);
+}
+
+/** Delete Theme for a project theme; the film falls back to its base when it uses it */
+export function deleteTheme(cx: StudioCx, themeId: string): void {
+	const project = cx.project;
+	if (project == null) return;
+	const theme = resolveTheme(project.design, themeId);
+	if (theme.projectTheme == null || !cx.execute(deleteThemeCommands(project, themeId))) return;
+	const base = resolveTheme(project.design, theme.base).name;
+	cx.notifyEdit(project.design.theme === themeId ? `${theme.name} deleted; the film uses ${base} again` : `${theme.name} deleted`);
 }
 
 function hasPieces(cx: StudioCx): boolean {
@@ -447,6 +468,28 @@ export const commands: readonly TCommand[] = [
 			cx.openAgent({ text: NEW_THEME_PROMPT, mentionIds: mentionIds.length > 0 ? mentionIds : ['scene'] });
 		}
 	},
+	{
+		id: 'design.duplicateTheme',
+		title: 'Duplicate Theme',
+		section: 'Film',
+		keywords: 'copy theme edit colours colors wall light glow background new look',
+		isEnabled: hasProject,
+		run: (cx) => {
+			const project = cx.project;
+			if (project != null) duplicateTheme(cx, project.design.theme);
+		}
+	},
+	{
+		id: 'design.deleteTheme',
+		title: 'Delete Theme',
+		section: 'Film',
+		keywords: 'remove theme',
+		isEnabled: (cx) => cx.project != null && resolveTheme(cx.project.design).projectTheme != null,
+		run: (cx) => {
+			const project = cx.project;
+			if (project != null) deleteTheme(cx, project.design.theme);
+		}
+	},
 	{ id: 'design.cancelExport', title: 'Cancel Export', section: 'Film', keywords: 'stop render film', isEnabled: (cx) => cx.film.isRunning, run: (cx) => cx.film.cancel() },
 
 	// MARK: - Marble
@@ -517,6 +560,8 @@ export type TCommandId =
 	| 'design.colorByNote'
 	| 'design.takeOverCamera'
 	| 'design.newTheme'
+	| 'design.duplicateTheme'
+	| 'design.deleteTheme'
 	| 'design.cancelExport'
 	| 'edit.undo'
 	| 'edit.redo'

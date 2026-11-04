@@ -16,8 +16,13 @@ export interface TSceneDescription {
 	fps: number;
 	duration: number;
 	frame: { width: number; height: number };
-	/** `pegboard`, `brass` or `neon`; unknown themes fall back to `pegboard` */
+	/**
+	 * Built-in theme the look starts from: `pegboard`, `brass` or `neon`; unknown themes fall back to `pegboard`. A
+	 * project theme sends its base here and its colours in `themeOverrides`.
+	 */
 	theme: string;
+	/** Colours a project theme changes on top of `theme`; absent keeps the built-in look. Additive like `wallTexts`. */
+	themeOverrides?: TSceneThemeOverrides;
 	marbles: TSceneMarble[];
 	pieces: TScenePiece[];
 	/**
@@ -195,6 +200,17 @@ export interface TSceneWallText {
 	 * `endCard` (centre) hang from the film camera, and the film encoder draws them onto the film. Optional and additive.
 	 */
 	style?: 'wall' | 'caption' | 'songName' | 'endCard';
+}
+
+/**
+ * A project theme's colours as display sRGB `#rrggbb`, resolved by `resolve_theme` in themes.py: the wall, the key
+ * light, the glowing edges of a theme that has them (Neon) and the world surroundings
+ */
+export interface TSceneThemeOverrides {
+	wallColor?: string;
+	lightColor?: string;
+	glowColor?: string;
+	backgroundColor?: string;
 }
 
 export interface TSceneThemeOptions {

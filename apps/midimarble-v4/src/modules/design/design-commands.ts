@@ -3,6 +3,9 @@ import { createId, type TDesign, type TEntity, type TProject, type TProjectComma
 import { sampleCameraTrack } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { filmCamera, imageToWall } from './film-camera';
+import { themeTitleColor } from './project-themes';
+
+export { themeCommands, themeTitleColor } from './project-themes';
 
 // Project edits made from the Design workspace. Each function returns the commands of one undoable edit.
 
@@ -112,18 +115,6 @@ export const reactionChoices: readonly { value: TReactionChoice; label: string }
 ];
 
 export type TSkinTarget = { kind: 'entities'; entityIds: string[] } | { kind: 'pieceType'; pieceType: string };
-
-/** Switches the theme; titles still in the old theme's title colour take the new one's */
-export function themeCommands(project: TProject, themeId: string): TProjectCommand[] {
-	if (project.design.theme === themeId) return [];
-	const oldColor = themeTitleColor(project.design.theme);
-	const titles = project.entities.flatMap((entity) => {
-		const text = entity.components.wallText;
-		if (text == null || text.color.toLowerCase() !== oldColor) return [];
-		return [{ type: 'setComponent' as const, entityId: entity.id, component: { name: 'wallText' as const, value: { ...text, color: themeTitleColor(themeId) } } }];
-	});
-	return [{ type: 'setDesign', design: { theme: themeId } }, ...titles];
-}
 
 export function cameraCommands(project: TProject, patch: Partial<TDesign['camera']>): TProjectCommand[] {
 	return [{ type: 'setDesign', design: { camera: { ...project.design.camera, ...patch } } }];
@@ -264,11 +255,6 @@ const LETTER_WIDTH = 0.84;
 /** Caption, Song Name and End Card sit in the frame, and their size is a fraction of the frame height */
 export function isScreenTitle(style: TWallText['style']): boolean {
 	return style === 'caption' || style === 'songName' || style === 'endCard';
-}
-
-/** The colour titles start with in a theme: white on Brass's lavender plaster and Neon's navy, navy on Pegboard's birch */
-export function themeTitleColor(theme: string): string {
-	return theme === 'brass' || theme === 'neon' ? '#ffffff' : '#1f3a5f';
 }
 
 /** Height of the film frame on the wall at `time`, through the film camera; the letter size of wall titles follows it */

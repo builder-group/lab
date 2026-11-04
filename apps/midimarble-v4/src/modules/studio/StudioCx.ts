@@ -34,7 +34,7 @@ import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { AgentCx } from '@/modules/agents';
-import { addWallTextCommands, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall } from '@/modules/design';
+import { addWallTextCommands, baseThemeOf, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall } from '@/modules/design';
 import { preflightExport, problemSummary, type TPreflightTarget } from '@/modules/design/export-preflight';
 
 /** Owns the open project, its history, persistence and the shared editing state of the studio */
@@ -204,7 +204,7 @@ export class StudioCx {
 		const result = this.simulation.$result.get();
 		const time = this.$playhead.get();
 		const point = previewPointToWall(project, result, time, u, v);
-		const { commands, entityId } = addWallTextCommands(point, { theme: project.design.theme, frameHeight: frameHeightOnWall(project, result, time) });
+		const { commands, entityId } = addWallTextCommands(point, { theme: baseThemeOf(project.design), frameHeight: frameHeightOnWall(project, result, time) });
 		if (!this.execute(commands)) return;
 		this.$selection.set([entityId]);
 		// Typing starts at once, like Figma's text tool: the inspector focuses the Text field with its contents selected

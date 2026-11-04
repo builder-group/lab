@@ -12,3 +12,15 @@ export * from './ExportPreflight';
 export * from './ExportSheet';
 export * from './FilmExportCx';
 export * from './shots';
+export {
+	agentThemeCommands,
+	baseThemeOf,
+	BUILT_IN_THEMES,
+	deleteThemeCommands,
+	duplicateThemeCommands,
+	renameThemeCommands,
+	resolveTheme,
+	sceneThemeOverrides,
+	themeOverrideCommands,
+	type TResolvedTheme
+} from './project-themes';

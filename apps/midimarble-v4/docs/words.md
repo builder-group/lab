@@ -46,10 +46,14 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | What an agent run produces | **Result**, shown as a card with Accept and Discard | candidate, output, artifact | |
 | A look preset | **Theme** (Pegboard, Brass, Neon): wall, light, marble and a default skin per piece type | style, material, preset | |
 | A theme setting that changes the whole look | **Theme option** (Colour by Note) | parameter | |
+| A theme the project made from another | **Theme** like any other, named "Neon Copy" by **Duplicate Theme**; its origin line reads **Based on Neon** (or **Made with Agent**). Internally a project theme | custom theme, my theme, In This Project, fork | Finder's copy names; the one-library rule keeps storage words out |
+| Editing a built-in theme | **Duplicate to Edit**: built-in themes are read-only | Edit Theme, Unlock | Figma library styles, Keynote themes |
+| A project theme's colours | **Wall**, **Light**, **Glow**, **Background** as colour wells; an unset well shows the base's colour and reads the base's name (Glow: **Marble Colour**) | override, tint, world, emission | |
+| Removing a project theme | **Delete Theme**; the notice says "Neon Copy deleted; the film uses Neon again" when it was in use | Remove Theme | |
 | The browser of themes, skins and pieces | **Library** | assets, My Library, In This Project | Figma's Assets panel; one place, no storage scopes |
 | Making an item available in every project | **Keep in Library** (star) | save to My Library, publish | |
 | An item the project uses | **In Use** badge | applied, local | |
-| Where an item comes from | **Brass Theme**, **Made with Agent**, **Imported** | scope, source | |
+| Where an item comes from | **Brass Theme**, **Made with Agent**, **Imported**; a theme card reads **Theme** or **Based on Neon** | scope, source | |
 | A piece's appearance | **Skin** | asset, mesh, model | |
 | Motion on a hit | **Reaction** (Press, Wobble, Glow) | animation, driver | |
 | Text on the wall | **Title** | wall text, label | the reference films call them titles |

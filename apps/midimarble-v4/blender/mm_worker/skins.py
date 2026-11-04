@@ -51,8 +51,12 @@ def skin_context(theme, marble_radius=DEFAULT_MARBLE_RADIUS, reactions=None, opt
         if name in merged and isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
             merged[name] = float(value)
     color_by_note = bool((options or {}).get('colorByNote'))
-    return {'theme': themes.theme_name(theme), 'marbleRadius': float(marble_radius), 'reactions': merged,
-            'colorByNote': color_by_note}
+    context = {'theme': themes.theme_name(theme), 'marbleRadius': float(marble_radius), 'reactions': merged,
+               'colorByNote': color_by_note}
+    # A project theme's Glow: one colour for every glowing edge instead of each marble's
+    if settings.get('glow') is not None:
+        context['glow'] = tuple(settings['glow'])
+    return context
 
 
 # Public entry points
@@ -260,6 +264,9 @@ def skin_key(kind, entity, context):
             math.copysign(1.0, frame.angle), sorted(piece_reaction(entity, context).items()), frame.finish,
             None if frame.note_pitch is None else int(round(frame.note_pitch)) % 12,
         ]
+        # Only a set Glow joins the key, so skins built before project themes stay current
+        if context.get('glow') is not None and context['theme'] == 'neon':
+            values.append(['glow', [round(value, 5) for value in context['glow']]])
     return hashlib.sha1(json.dumps(values).encode()).hexdigest()[:16]
 
 
@@ -496,7 +503,8 @@ def neon_colors(frame):
     """(body, trim) linear colours of a Neon piece: its note's colour with Colour by Note, else its marble's colour,
     both pushed to full saturation; the trim is the brighter one"""
     source = themes.note_color(frame.note_pitch) if frame.note_pitch is not None else frame.color
-    return themes.neon_color(source, 0.16), themes.neon_color(source, 1.0)
+    glow = frame.context.get('glow')
+    return themes.neon_color(source, 0.16), tuple(glow) if glow is not None else themes.neon_color(source, 1.0)
 
 
 def pegboard_bar_material(frame):
