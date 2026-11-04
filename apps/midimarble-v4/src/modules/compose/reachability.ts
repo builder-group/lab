@@ -1,4 +1,4 @@
-import type { TProject, TProjectCommand } from '@/modules/project';
+import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { gravityOf, IMPACT_SPEED, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 
@@ -31,14 +31,8 @@ export function hitReach(project: TProject, result: TSimulationResult | null, hi
 	const marble = project.entities.find((entity) => entity.components.marble?.laneId === hit.laneId);
 	const release = marble?.components.release;
 	if (marble == null || release == null) return { kind: 'noMarble' };
-	const g = -gravityOf(project);
 	const radius = marble.components.marble?.radius ?? 0.012;
-	// Strike speed scales with gravity in the simulation, so it does here too
-	const strike = IMPACT_SPEED * (g / -gravityOf({}));
-	const down = Math.max(0, -(release.velocity?.y ?? 0));
-	const toSpeed = Math.max(0, (strike - down) / g);
-	const toFall = (-down + Math.sqrt(down * down + 4 * g * radius)) / g;
-	const earliest = release.time + Math.max(toSpeed, toFall);
+	const earliest = release.time + strikeDelay(project, release, radius);
 	if (hit.targetTime < earliest) return { kind: 'tooSoon', releaseTime: release.time, earliest };
 	// A run is only judged up to the first note still waiting for its platform: past it the marble falls
 	// freely, so later notes stay Open until that note is placed
@@ -52,6 +46,58 @@ export function hitReach(project: TProject, result: TSimulationResult | null, hi
 		return { kind: 'resting' };
 	return { kind: 'reachable' };
 }
+
+/** Seconds from a release until the marble has fallen its diameter and reached the strike speed */
+function strikeDelay(project: TProject, release: { velocity?: TVec2 | undefined }, radius: number): number {
+	const g = -gravityOf(project);
+	// Strike speed scales with gravity in the simulation, so it does here too
+	const strike = IMPACT_SPEED * (g / -gravityOf({}));
+	const down = Math.max(0, -(release.velocity?.y ?? 0));
+	const toSpeed = Math.max(0, (strike - down) / g);
+	const toFall = (-down + Math.sqrt(down * down + 4 * g * radius)) / g;
+	return Math.max(toSpeed, toFall);
+}
+
+/**
+ * The first time a tap on this lane can be played, to the next hundredth so it clearly can. A marble with no track
+ * yet counts from 0:00, as its release follows its first hit (`releaseFollowsFirstHit`). Null without a marble.
+ */
+export function earliestHitTime(project: TProject, laneId: string): number | null {
+	const marble = project.entities.find((entity) => entity.components.marble?.laneId === laneId);
+	const release = marble?.components.release;
+	if (marble == null || release == null) return null;
+	const from = hasNoTrack(project) ? 0 : release.time;
+	return Math.ceil((from + strikeDelay(project, release, marble.components.marble?.radius ?? 0.012) + 0.005) * 100) / 100;
+}
+
+function hasNoTrack(project: TProject): boolean {
+	return !project.entities.some((entity) => entity.components.piece != null);
+}
+
+/**
+ * With no track yet a marble has nothing to fall onto, so a first hit at 0:03 would be out of reach: each marble whose
+ * first hit an edit of the hits changed is released `RELEASE_LEAD` before it, never before the song starts. Gives the
+ * project with those releases; once there are pieces, or when the edit does more than hits, it stays as it was.
+ */
+export function releaseFollowsFirstHit(before: TProject, after: TProject, commands: readonly TProjectCommand[]): TProject {
+	if (!hasNoTrack(after) || !commands.every((command) => HIT_EDITS.has(command.type))) return after;
+	const firstTime = (project: TProject, laneId: string): number | null => {
+		const times = project.music.lanes.find((lane) => lane.id === laneId)?.hits.map((hit) => hit.time) ?? [];
+		return times.length ? Math.min(...times) : null;
+	};
+	const entities = after.entities.map((entity) => {
+		const laneId = entity.components.marble?.laneId;
+		const release = entity.components.release;
+		if (laneId == null || release == null) return entity;
+		const first = firstTime(after, laneId);
+		if (first == null || first === firstTime(before, laneId)) return entity;
+		const time = Math.round(Math.max(0, first - RELEASE_LEAD) * 10000) / 10000;
+		return time === release.time ? entity : { ...entity, components: { ...entity.components, release: { ...release, time } } };
+	});
+	return entities.some((entity, index) => entity !== after.entities[index]) ? { ...after, entities } : after;
+}
+
+const HIT_EDITS = new Set<TProjectCommand['type']>(['upsertHits', 'removeHits', 'assignHits']);
 
 /**
  * What a click on an open note's dot does: says why no platform can play it, or shows what bridges its long gap or the

@@ -603,6 +603,8 @@ export class AssistCx {
 			const broken = brokenHits(result.hits).length;
 			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [{ label: this.replacePlan(present, result).label, title: 'Fix the broken hits', run: () => void this.replace() }] : [], { details: report.details });
 		} else this.studio.notify(report.message);
+		// A person's whole build ends with its result in view; an agent's leaves their view alone
+		if (from == null && !this.studio.isInAgentStep) this.studio.$compose.get()?.fitOnceSimulated();
 		return outcome;
 	}
 

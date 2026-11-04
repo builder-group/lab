@@ -60,7 +60,6 @@ import {
 	pieceAngleAt,
 	pieceKind,
 	pieceOutline,
-	playheadSection,
 	struckAt,
 	rotationGrip,
 	trackBuffers,
@@ -72,7 +71,6 @@ import { asLaneFinish, commitAtHit, findStepTarget, followerAt, linkedPieces, pi
 import {
 	boundsOf,
 	fitBounds,
-	fitContent,
 	gridLayers,
 	isBoundsVisible,
 	panBy,
@@ -143,6 +141,7 @@ export class ComposeCx {
 	private motion: { state: TViewMotion; view: TView } | null = null;
 	/** Navigation such as a step to a hit is gliding to its goal, at the faster navigation rate */
 	private isNavigating = false;
+	private isFitPending = false;
 	private motionFrame = 0;
 	private motionTime = 0;
 	/** Project whose remembered Follow choice `$follow` holds */
@@ -227,6 +226,7 @@ export class ComposeCx {
 				this.revealPlaced();
 				this.revealHistory(value);
 				this.fitFirstHits();
+				this.runPendingFit();
 			}),
 			this.studio.$fitFirstHits.listen(() => this.fitFirstHits()),
 			this.studio.$playing.listen(() => this.fitFirstHits()),
@@ -492,29 +492,26 @@ export class ComposeCx {
 		this.$camera.set((camera) => ({ ...camera, view: zoomAt(camera.view, viewport, point, factor) }));
 	}
 
-	/**
-	 * ⇧1: fits the pieces, the releases and the run up to the last hit, zoomed no further out than a default
-	 * platform at `MIN_FIT_PLATFORM_PX`. A run too long for that shows the playhead's section instead of specks;
-	 * Zoom to Whole Run shows it all.
-	 */
+	/** ⇧1: shows everything: the pieces, the releases and the run up to the last hit, however small that makes it */
 	fitAll(): void {
 		const project = this.project;
 		const viewport = this.$viewport.get();
 		if (project == null || viewport.width <= 1) return;
-		const { all, pieces } = fitTargets(project, this.result);
-		const minScale = this.minFitScale();
-		const whole = fitContent(all, pieces, viewport, canvasPadding, minScale);
-		const result = this.result;
-		const section = whole.scale < minScale && result != null ? playheadSection(project, result, this.studio.$playhead.get(), viewport, canvasPadding, minScale) : null;
-		this.$camera.set((camera) => ({ ...camera, view: section != null ? fitBounds(section, viewport, canvasPadding) : whole }));
+		this.$camera.set((camera) => ({ ...camera, view: fitBounds(fitTargets(project, this.result), viewport, canvasPadding) }));
 	}
 
-	/** Zoom to Whole Run: everything Zoom to Fit would frame, however small that makes it */
-	fitWholeRun(): void {
+	/** Build Track ended: Zoom to Fit once the run of its last edit has been simulated, unless the song has started */
+	fitOnceSimulated(): void {
+		this.isFitPending = true;
+		this.runPendingFit();
+	}
+
+	private runPendingFit(): void {
 		const project = this.project;
-		const viewport = this.$viewport.get();
-		if (project == null || viewport.width <= 1) return;
-		this.$camera.set((camera) => ({ ...camera, view: fitBounds(fitTargets(project, this.result).all, viewport, canvasPadding) }));
+		const result = this.result;
+		if (!this.isFitPending || project == null || result == null || result.revision !== project.revision) return;
+		this.isFitPending = false;
+		if (!this.studio.$playing.get()) this.fitAll();
 	}
 
 	/** ⌘0: the wall at physical size around the centre of the view, like Figma's Zoom to 100% */

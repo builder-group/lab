@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { audibleProject, autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnFinish, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
+import { audibleProject, autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnFinish, isAutoEnd, projectSongEnd, soundsNotes, startingLength, type TAudioEngine, type TSongMix } from '@/modules/music';
 import {
 	amendHistory,
 	applyProjectCommands,
@@ -38,6 +38,7 @@ import type { THitFlash } from './timeline/hit-flash';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
+import { earliestHitTime, releaseFollowsFirstHit } from '@/modules/compose/reachability';
 import type { TView } from '@/modules/compose/view';
 import { McpCx } from '@/modules/mcp/McpCx';
 import { addWallTextCommands, defaultTitleColor, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/design';
@@ -663,7 +664,7 @@ export class StudioCx {
 			return false;
 		}
 		// Default piece names follow time order, so a new piece for an earlier hit takes the lower number
-		let named = renumberDefaultNames(history.present, edited);
+		let named = releaseFollowsFirstHit(history.present, renumberDefaultNames(history.present, edited), commands);
 		// While the length follows the song, it ends with the last hit, or with the catch once the last marble has a
 		// Finish; taps fit it once tapping stops
 		if (this.tapSession == null && (changesHitsOnly(commands) || changesTail(commands, history.present, named))) {
@@ -866,8 +867,10 @@ export class StudioCx {
 	}
 
 	/**
-	 * T: a hit on the lane in focus. Stopped, it lands at the playhead and is selected, so a spot found by scrubbing gets
-	 * its hit; playing, it lands at the music's time, for tapping along. A press within 50 ms of a hit merges into it.
+	 * T: a hit on the lane in focus, never before the marble can play one. Stopped, it lands at the playhead and is
+	 * selected, so a spot found by scrubbing gets its hit, and the playhead goes where it landed: before the earliest
+	 * time it lands there, and on a hit it lands a step later, so further presses keep adding. Playing, it lands at the
+	 * music's time, for tapping along, and a press within 50 ms of a hit merges into it.
 	 */
 	tapHit(): void {
 		const project = this.project;
@@ -875,10 +878,12 @@ export class StudioCx {
 		const lane = focusedLane(project, this.$selection.get());
 		if (lane == null) return;
 		if (!this.$playing.get()) {
-			const atPlayhead = tapTime(lane.hits, this.$playhead.get());
-			if (atPlayhead == null) return;
-			const placed = { id: createId('hit'), time: atPlayhead };
-			if (this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [placed] }])) this.$selection.set([toHitKey(lane.id, placed.id)]);
+			let target = Math.max(this.$playhead.get(), earliestHitTime(project, lane.id) ?? 0);
+			while (tapTime(lane.hits, target) == null) target += TAP_STEP;
+			const placed = { id: createId('hit'), time: tapTime(lane.hits, target) ?? target };
+			if (!this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [placed] }])) return;
+			this.$selection.set([toHitKey(lane.id, placed.id)]);
+			if (placed.time !== this.$playhead.get()) this.$playhead.set(placed.time);
 			return;
 		}
 		if (!this.audio.isPlaying()) return;
@@ -925,8 +930,9 @@ export class StudioCx {
 		const project = this.project;
 		if (session?.hasTapped === true) this.$fitFirstHits.set(true);
 		if (session == null || !session.hasTapped || !session.isAutoEnd || project == null) return;
-		const end = projectSongEnd(project);
-		if (end == null) return;
+		const fitted = projectSongEnd(project);
+		if (fitted == null) return;
+		const end = Math.max(fitted, startingLength(project, project.end));
 		if (Math.abs(end - project.end) > 1e-6) this.execute([{ type: 'setEnd', end }], { amend: true });
 		this.measureFinishTail();
 	}
@@ -1061,6 +1067,8 @@ export class StudioCx {
 
 /** Seconds after an edit before its Finish tail is measured, so a burst of edits measures once */
 const TAIL_MEASURE_DELAY = 0.4 * 1000;
+// Seconds a T on an existing hit lands after it, while stopped
+const TAP_STEP = 0.5;
 
 /** Whether an edit can move when the last marble leaves the frame: it changes the notes or a Finish, and not the length */
 function changesFinishEnding(commands: readonly TProjectCommand[]): boolean {

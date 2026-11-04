@@ -226,7 +226,7 @@ function workEnds(hits: readonly THitResult[]): Map<string, number> {
  * holds the work a fit never cuts off: the pieces and those hit dots, or the releases while there are none. A
  * release high above the first hit is framed when it fits, but never shrinks the pieces and dots to specks.
  */
-export function fitTargets(project: TProject, result: TSimulationResult | null): { all: TBounds; pieces: TBounds | null } {
+export function fitTargets(project: TProject, result: TSimulationResult | null): TBounds {
 	const releases: TVec2[] = [];
 	for (const entity of project.entities) {
 		const release = entity.components.release;
@@ -236,7 +236,6 @@ export function fitTargets(project: TProject, result: TSimulationResult | null):
 	for (const piece of result?.pieces ?? []) work.push(...pieceOutline(piece));
 	const ends = workEnds(result?.hits ?? []);
 	for (const hit of result?.hits ?? []) if (hit.dot != null && hit.targetTime <= (ends.get(hit.laneId) ?? -Infinity)) work.push(hit.dot);
-	const anchors = work.length ? work : releases;
 	const points = [...releases, ...work];
 	for (const track of result?.marbles ?? []) {
 		const last = ends.get(track.laneId) ?? -Infinity;
@@ -253,53 +252,7 @@ export function fitTargets(project: TProject, result: TSimulationResult | null):
 	const maxY = bounds?.maxY ?? 0.2;
 	// A run with only a release still shows a frame-shaped area below it
 	if (maxY - minY < 0.3) minY = maxY - 0.3;
-	return {
-		all: { minX: Math.min(band.centerX - band.halfWidth, bounds?.minX ?? 0), maxX: Math.max(band.centerX + band.halfWidth, bounds?.maxX ?? 0), minY, maxY },
-		pieces: boundsOfPoints(anchors)
-	};
-}
-
-/**
- * The stretch of a long run around `time` that fits at `minScale`: the hits and pieces nearest in time, later ones
- * first, as far as they fit, as wide as the film frame when that fits too. For Zoom to Fit on a run too long to read
- * whole. Null without hits or pieces.
- */
-export function playheadSection(project: TProject, result: TSimulationResult, time: number, viewport: TViewport, padding: TPadding, minScale: number): TBounds | null {
-	const ends = workEnds(result.hits);
-	const moments: { time: number; points: TVec2[] }[] = [];
-	for (const hit of result.hits) if (hit.dot != null && hit.targetTime <= (ends.get(hit.laneId) ?? -Infinity)) moments.push({ time: hit.targetTime, points: [hit.dot] });
-	for (const piece of result.pieces) {
-		const at = piece.entryTime ?? piece.hitTime;
-		if (at != null) moments.push({ time: at, points: pieceOutline(piece) });
-	}
-	moments.sort((a, b) => a.time - b.time);
-	if (!moments.length) return null;
-	const roomX = Math.max(1, viewport.width - padding.left - padding.right) / minScale;
-	const roomY = Math.max(1, viewport.height - padding.top - padding.bottom) / minScale;
-	const fits = (bounds: TBounds): boolean => bounds.maxX - bounds.minX <= roomX && bounds.maxY - bounds.minY <= roomY;
-	const startIndex = moments.findIndex((moment) => moment.time >= time);
-	let low = startIndex < 0 ? moments.length - 1 : startIndex;
-	let high = low;
-	let points = [...(moments[low]?.points ?? [])];
-	for (let canGrow = true; canGrow; ) {
-		canGrow = false;
-		for (const index of [high + 1, low - 1]) {
-			const moment = moments[index];
-			if (moment == null) continue;
-			const grown = [...points, ...moment.points];
-			const bounds = boundsOfPoints(grown);
-			if (bounds == null || !fits(bounds)) continue;
-			points = grown;
-			if (index > high) high = index;
-			else low = index;
-			canGrow = true;
-		}
-	}
-	const section = boundsOfPoints(points);
-	if (section == null) return null;
-	const band = frameBand(project);
-	const wide = { ...section, minX: Math.min(section.minX, band.centerX - band.halfWidth), maxX: Math.max(section.maxX, band.centerX + band.halfWidth) };
-	return fits(wide) ? wide : section;
+	return { minX: Math.min(band.centerX - band.halfWidth, bounds?.minX ?? 0), maxX: Math.max(band.centerX + band.halfWidth, bounds?.maxX ?? 0), minY, maxY };
 }
 
 // Room kept around an open dot so its hint and the build bar under it show too

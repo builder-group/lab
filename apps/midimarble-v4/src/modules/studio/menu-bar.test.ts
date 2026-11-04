@@ -124,6 +124,6 @@ describe('Playback and Piece menus', () => {
 		const commandItems = menus.flatMap((menu) => menu.items).flatMap((item) => (item.kind === 'command' ? [item] : []));
 		expect(commandItems.filter((item) => item.accelerator === 'CmdOrCtrl+D').map((item) => item.id)).toEqual(['edit.duplicate']);
 		expect(commandItems.find((item) => item.id === 'view.zoom100')?.accelerator).toBe('CmdOrCtrl+0');
-		expect(commandItems.some((item) => item.id === 'view.fitWhole')).toBe(true);
+		expect(commandItems.some((item) => item.id === 'view.fitAll')).toBe(true);
 	});
 });

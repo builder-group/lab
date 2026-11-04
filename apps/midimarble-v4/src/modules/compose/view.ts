@@ -77,24 +77,6 @@ export function fitBounds(bounds: TBounds, viewport: TViewport, padding: TPaddin
 	};
 }
 
-/**
- * Zoom to Fit: shows `all` like `fitBounds`, but never zooms out past `minScale`, where pieces would turn into
- * specks, unless `pieces` needs it, since a fit never cuts pieces off. When `all` does not fit, the view
- * starts at its top, where the marbles are released, and moves down only as far as the pieces need.
- */
-export function fitContent(all: TBounds, pieces: TBounds | null, viewport: TViewport, padding: TPadding, minScale: number): TView {
-	const fitted = fitBounds(all, viewport, padding);
-	const piecesScale = pieces != null ? fitBounds(pieces, viewport, padding).scale : Number.POSITIVE_INFINITY;
-	const scale = clampScale(Math.max(fitted.scale, Math.min(minScale, piecesScale)));
-	if (scale <= fitted.scale + 1e-9) return fitted;
-	const offsetX = (padding.left - padding.right) / 2 / scale;
-	const centerX = (all.minX + all.maxX) / 2 - offsetX;
-	// The top of the content sits at the top padding, unless the lowest piece would fall below the bottom padding
-	let centerY = all.maxY - (viewport.height / 2 - padding.top) / scale;
-	if (pieces != null) centerY = Math.min(centerY, pieces.minY + (viewport.height / 2 - padding.bottom) / scale);
-	return { scale, center: { x: centerX, y: centerY } };
-}
-
 export interface TPadding {
 	top: number;
 	right: number;

@@ -53,6 +53,15 @@ describe('autoEnd', () => {
 		expect(autoEnd(before, after)).toBe(4);
 	});
 
+	it('keeps the default length for the first few hits of a film without a song', () => {
+		expect(autoEnd(tapped([]), tapped([0.2]))).toBeNull();
+		expect(autoEnd(tapped([0.2]), tapped([0.2, 0.7, 1.2]))).toBeNull();
+		expect(autoEnd(tapped([0.2, 0.7, 1.2]), tapped([0.2, 0.7, 1.2, 1.7]))).toBe(2.1);
+		// Fit to Song chose a shorter film, so the next hit does not jump back to the default
+		expect(autoEnd(tapped([0.2], 0.6), tapped([0.2, 0.5], 0.6))).toBe(0.9);
+		expect(isAutoEnd(tapped([0.2]))).toBe(true);
+	});
+
 	it('keeps following the song after the fit, and lengthens for hits past the end', () => {
 		const fitted = tapped([1, 3.6], 4);
 		expect(isAutoEnd(fitted)).toBe(true);

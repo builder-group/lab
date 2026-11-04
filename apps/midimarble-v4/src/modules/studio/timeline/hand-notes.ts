@@ -41,9 +41,9 @@ export function handNotes(cx: StudioCx, keys: string[], target: string | 'new'):
 }
 
 /**
- * ⌫ on selected hits never takes music first: hits with a platform lose the platform and stay; open hits with a pitch
- * become Backing, so the note keeps sounding; open tapped hits and Backing notes go. In the piano roll, the song's own
- * editor, the note itself goes.
+ * ⌫ on selected hits removes them with their platforms, but never takes music first: a hit with a pitch becomes Backing
+ * while the project has a song, so the note keeps sounding. Tapped hits and Backing notes go. In the piano roll, the
+ * song's own editor, the note itself goes.
  */
 export function removeSelectedHits(cx: StudioCx, keys: string[], isInRoll: boolean): boolean {
 	const project = cx.project;
@@ -51,35 +51,28 @@ export function removeSelectedHits(cx: StudioCx, keys: string[], isInRoll: boole
 	const notes = selectedNotes(project, keys);
 	if (!notes.length) return false;
 	if (isInRoll) return deleteHits(cx, keys);
-	const platforms = platformsOfHits(project, keys);
-	if (platforms.length > 0) {
-		if (!cx.execute([{ type: 'removeEntities', entityIds: platforms.map((entity) => entity.id) }])) return false;
-		const first = platforms[0]?.name ?? 'Platform';
-		cx.notifyEdit(platforms.length === 1 ? `${first} deleted. Its hit is open` : `${platforms.length} platforms deleted. Their hits are open`);
-		return true;
-	}
-	const toBacking = canMakeBacking(project) ? notes.filter((item) => item.ownerId !== BACKING_ID && item.hit.pitch != null).map((item) => toHitKey(item.ownerId, item.hit.id)) : [];
-	if (toBacking.length > 0) return handNotes(cx, toBacking, BACKING_ID);
-	return deleteHits(cx, keys);
+	const sounding = canMakeBacking(project) ? notes.filter((item) => item.ownerId !== BACKING_ID && item.hit.pitch != null) : [];
+	if (sounding.length === notes.length) return handNotes(cx, keys, BACKING_ID);
+	return deleteHits(cx, keys, new Set(sounding.map((item) => item.hit.id)));
 }
 
-/** Delete Hit: the hit and its note go together with the platform that plays it, as one undo step */
-export function deleteHits(cx: StudioCx, keys: string[]): boolean {
+/** Delete Hit: the hit and its note go together with the platform that plays it, as one undo step; `keep` stays as Backing */
+export function deleteHits(cx: StudioCx, keys: string[], keep?: ReadonlySet<string>): boolean {
 	const project = cx.project;
 	if (project == null) return false;
-	const applied = cx.execute(deleteHitCommands(project, cx.simulation.$result.get(), keys));
+	const applied = cx.execute(deleteHitCommands(project, cx.simulation.$result.get(), keys, keep));
 	if (applied) cx.$selection.set([]);
 	return applied;
 }
 
 /**
  * Removes hits by way of Backing: the hand-over already takes the platform away and ties pieces following the marble
- * to the nearest hit left, so nothing stays behind tied to a hit that is gone.
+ * to the nearest hit left, so nothing stays behind tied to a hit that is gone. Notes in `keep` stop at Backing.
  */
-export function deleteHitCommands(project: TProject, result: TSimulationResult | null, keys: string[]): TProjectCommand[] {
+export function deleteHitCommands(project: TProject, result: TSimulationResult | null, keys: string[], keep?: ReadonlySet<string>): TProjectCommand[] {
 	const notes = selectedNotes(project, keys);
-	const hitIds = notes.map((item) => item.hit.id);
-	if (!hitIds.length) return [];
+	const hitIds = notes.map((item) => item.hit.id).filter((id) => keep?.has(id) !== true);
+	if (!notes.length) return [];
 	const onMarbles = notes.filter((item) => item.ownerId !== BACKING_ID).map((item) => item.hit.id);
 	return [...(onMarbles.length ? assignNotesCommands(project, result, onMarbles, BACKING_ID) : []), { type: 'removeHits', laneId: BACKING_ID, hitIds }];
 }

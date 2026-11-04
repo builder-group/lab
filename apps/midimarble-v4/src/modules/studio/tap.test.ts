@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { createState } from 'feature-state';
 import { describe, expect, it, vi } from 'vitest';
-import { createProject, parseProject, type TProject } from '@/modules/project';
+import { earliestHitTime, releaseFollowsFirstHit } from '@/modules/compose/reachability';
+import { createProject, parseProject, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
 import { addHit } from './menus';
 import { StudioCx } from './StudioCx';
 import { tapTime } from './tap';
@@ -49,6 +50,43 @@ describe('hits work without a Song', () => {
 		expect(cx.$playing.get()).toBe(false);
 		const commands = cx.execute.mock.calls[0] as unknown as [{ hits: { time: number }[] }[]];
 		expect(commands[0][0]?.hits[0]?.time).toBe(1.25);
+	});
+
+	it('should place T at 0:00 at the earliest reachable time, move the playhead there and keep adding', () => {
+		const lane = noSong.music.lanes[0];
+		if (lane == null) throw new Error('A new project has a marble');
+		const cx = studio(noSong);
+		const earliest = earliestHitTime(noSong, lane.id) ?? 0;
+		expect(earliest).toBeGreaterThan(0);
+
+		cx.tapHit();
+
+		const placed = cx.execute.mock.calls[0] as unknown as [{ hits: { time: number }[] }[]];
+		expect(placed[0][0]?.hits[0]?.time).toBe(earliest);
+		expect(cx.$playhead.get()).toBe(earliest);
+
+		const next = studio({ ...noSong, music: { ...noSong.music, lanes: [{ ...lane, hits: [{ id: 'a', time: earliest }] }] } });
+		next.$playhead.set(earliest);
+
+		next.tapHit();
+
+		const added = next.execute.mock.calls[0] as unknown as [{ hits: { time: number }[] }[]];
+		expect(added[0][0]?.hits[0]?.time).toBeCloseTo(earliest + 0.5);
+		expect(next.$playhead.get()).toBeCloseTo(earliest + 0.5);
+	});
+
+	it('should release a marble with no track before its first hit, and leave it once it has pieces', () => {
+		const lane = noSong.music.lanes[0];
+		if (lane == null) throw new Error('A new project has a marble');
+		const commands: TProjectCommand[] = [{ type: 'upsertHits', laneId: lane.id, hits: [{ id: 'a', time: 3 }] }];
+		const hit = { ...noSong, music: { ...noSong.music, lanes: [{ ...lane, hits: [{ id: 'a', time: 3 }] }] } };
+
+		expect(releaseFollowsFirstHit(noSong, hit, commands).entities[0]?.components.release?.time).toBe(2.5);
+		const later = { ...hit, music: { ...hit.music, lanes: [{ ...lane, hits: [{ id: 'a', time: 3 }, { id: 'b', time: 4 }] }] } };
+		expect(releaseFollowsFirstHit(hit, later, commands)).toBe(later);
+		const piece = { id: 'p', components: { piece: { type: 'platform', params: {} } } } as unknown as TEntity;
+		const tracked = { ...hit, entities: [...hit.entities, piece] };
+		expect(releaseFollowsFirstHit(noSong, tracked, commands)).toBe(tracked);
 	});
 
 	it('should place a hit by hand without a Song and without a pitch', () => {

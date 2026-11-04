@@ -190,7 +190,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const insertSnap = useFeatureState(compose.$insertSnap);
 	const hoverPreview = useFeatureState(compose.$hoverPreview);
 	const project = history?.present;
-	const { projection, transform } = usePannedProjection(compose);
+	const { projection, scale, transform } = usePannedProjection(compose);
 	const nextDots = React.useMemo(() => (result != null ? nextOpenHitPerLane(result) : null), [result]);
 	if (project == null || result == null || nextDots == null || viewport.width <= 1) return null;
 
@@ -237,7 +237,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 				<AgentTouched compose={compose} pieces={pieces} />
 				<g transform={transform}>
 					{drag == null ? <PieceBadges projection={projection} result={result} /> : null}
-					<HitDots compose={compose} projection={projection} project={project} result={result} nextDots={nextDots} selection={selection} hoveredDot={hoveredDot} isDragging={drag != null} />
+					<HitDots compose={compose} projection={projection} scale={scale} project={project} result={result} nextDots={nextDots} selection={selection} hoveredDot={hoveredDot} isDragging={drag != null} />
 				</g>
 				<HitFlashLayer compose={compose} />
 				{snap?.kind === 'link' ? <SnapRing position={compose.toScreen(snap.dot)} /> : null}
@@ -369,9 +369,12 @@ const HitDot = React.memo(function HitDot(props: { x: number; y: number; color: 
 	);
 });
 
+// Pixels per metre below which a default platform is under about 16 px, not much wider than an on-time dot
+const ON_TIME_DOT_MIN_SCALE = 180;
+
 /** Every hit's dot, redrawn when the run, the selection, the hovered dot or the zoom changes and not when the view pans */
-const HitDots = React.memo(function HitDots(props: { compose: ComposeCx; projection: TScreenProjection; project: TProject; result: TSimulationResult; nextDots: Map<string, THitResult>; selection: string[]; hoveredDot: THitResult | undefined; isDragging: boolean }) {
-	const { compose, projection, project, result, nextDots, selection, hoveredDot, isDragging } = props;
+const HitDots = React.memo(function HitDots(props: { compose: ComposeCx; projection: TScreenProjection; scale: number; project: TProject; result: TSimulationResult; nextDots: Map<string, THitResult>; selection: string[]; hoveredDot: THitResult | undefined; isDragging: boolean }) {
+	const { compose, projection, scale, project, result, nextDots, selection, hoveredDot, isDragging } = props;
 	const band = frameBand(project);
 	const longGaps = compose.longGapKeys(project);
 	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
@@ -381,6 +384,9 @@ const HitDots = React.memo(function HitDots(props: { compose: ComposeCx; project
 				if (hit.dot == null) return null;
 				const { x, y } = projection.toScreen(hit.dot);
 				if (hit.status !== 'open') {
+					// Zoomed far out a dot is wider than its platform, so on-time ones step aside for the track
+					const isFocused = focusedKeys.has(toHitKey(hit.laneId, hit.hitId));
+					if (hit.status === 'onTime' && scale < ON_TIME_DOT_MIN_SCALE && !isFocused && hoveredDot !== hit) return null;
 					return (
 						<HitDot
 							key={`dot-${hit.laneId}-${hit.hitId}`}
@@ -391,7 +397,7 @@ const HitDots = React.memo(function HitDots(props: { compose: ComposeCx; project
 							stemTo={offDotStem(projection, project, result, hit)}
 							isPulsing={hit.status !== 'onTime' && !isDragging}
 							isHovered={hoveredDot === hit}
-							isFocused={focusedKeys.has(toHitKey(hit.laneId, hit.hitId))}
+							isFocused={isFocused}
 						/>
 					);
 				}

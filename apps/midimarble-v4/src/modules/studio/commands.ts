@@ -334,8 +334,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.zoomIn', workspace: 'compose', title: 'Zoom In', section: 'View', shortcut: '⌘+', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(2) },
 	{ id: 'view.zoomOut', workspace: 'compose', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(0.5) },
 	{ id: 'view.zoom100', workspace: 'compose', title: 'Zoom to 100%', section: 'View', shortcut: '⌘0', keywords: 'actual size reset real', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomTo100() },
-	{ id: 'view.fitAll', workspace: 'compose', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all playhead section', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
-	{ id: 'view.fitWhole', workspace: 'compose', title: 'Zoom to Whole Run', section: 'View', keywords: 'frame all overview everything long', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitWholeRun() },
+	{ id: 'view.fitAll', workspace: 'compose', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all whole run overview everything', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
 	{ id: 'view.fitFrame', workspace: 'compose', title: 'Zoom to Film Frame', section: 'View', shortcut: '⇧3', keywords: 'frame film width follow marble', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitFrame() },
 	{ id: 'view.fitSelection', workspace: 'compose', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => compose(cx)?.fitSelection() },
 	{
@@ -744,7 +743,6 @@ export type TCommandId =
 	| 'view.zoomOut'
 	| 'view.zoom100'
 	| 'view.fitAll'
-	| 'view.fitWhole'
 	| 'view.fitSelection'
 	| 'view.fitFrame'
 	| 'view.showHitboxes'

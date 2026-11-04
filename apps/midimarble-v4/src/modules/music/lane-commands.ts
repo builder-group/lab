@@ -193,9 +193,22 @@ export function autoEnd(before: TProject, after: TProject): number | null {
 	if (last == null) return null;
 	const lastBefore = lastHitTime(before);
 	const measured = endsOnFinish(before) && endsOnFinish(after) && lastBefore != null ? before.end - lastBefore : null;
-	const end = measured != null && measured > FINISH_TAIL_MIN - 0.005 && measured < FINISH_TAIL_MAX + 0.005 ? songEnd(last, measured) : songEnd(last, filmTail(after));
+	const fitted = measured != null && measured > FINISH_TAIL_MIN - 0.005 && measured < FINISH_TAIL_MAX + 0.005 ? songEnd(last, measured) : songEnd(last, filmTail(after));
+	const end = Math.max(fitted, startingLength(after, before.end));
 	return Math.abs(end - after.end) < 1e-6 ? null : end;
 }
+
+/**
+ * The length a film just being started keeps, so its first hits do not collapse it around them: without a song, a
+ * Finish or `FEW_HITS` hits it stays at the default, or at the shorter `current` once Fit to Song chose that. Else 0.
+ */
+export function startingLength(project: TProject, current: number): number {
+	if (project.music.sources.length > 0 || endsOnFinish(project)) return 0;
+	const hits = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
+	return hits < FEW_HITS ? Math.min(current, DEFAULT_PROJECT_END) : 0;
+}
+
+const FEW_HITS = 4;
 
 /** Whether an edit changes notes without setting the length itself, so the length may follow the song (`autoEnd`) */
 export function changesHitsOnly(commands: readonly TProjectCommand[]): boolean {

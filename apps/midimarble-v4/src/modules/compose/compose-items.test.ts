@@ -14,7 +14,7 @@ import { ghostReducer, initialGhostState, type TPlaceAnswer } from './ghosts';
 import { composeKeyAction } from './keys';
 import { isOnGhost, pick, PLACED_DOT_PICK_RADIUS } from './picking';
 import { dotClickAction } from './reachability';
-import { firstHitsView, playheadSection } from './scene';
+import { firstHitsView } from './scene';
 import { badgeStatus } from './status';
 import { isBoundsVisible, worldToScreen } from './view';
 
@@ -52,30 +52,6 @@ describe('firstHitsView', () => {
 		const { project, result } = tapped(0.3);
 		expect(firstHitsView(project, result, { center: { x: 0, y: 0.3 }, scale: 900 }, viewport, padding, 267)).toBeNull();
 		expect(firstHitsView(project, { hits: [], pieces: [], marbles: [] } as unknown as TSimulationResult, { center: { x: 0, y: 0 }, scale: 900 }, viewport, padding, 267)).toBeNull();
-	});
-});
-
-describe('playheadSection', () => {
-	const laneId = 'lane';
-	const long = {
-		hits: Array.from({ length: 200 }, (_, index) => ({ ...openHit(laneId, index * 0.5, -index), pieceEntityId: `p${index}`, status: 'onTime' as const })),
-		pieces: [],
-		marbles: []
-	} as unknown as TSimulationResult;
-	const project = createProject();
-
-	it('should show the stretch around the playhead at a readable size, not the whole run', () => {
-		const section = playheadSection(project, long, 50, viewport, padding, 267);
-		if (section == null) throw new Error('expected a section');
-		expect(section.maxY).toBeGreaterThanOrEqual(-100);
-		expect(section.minY).toBeLessThanOrEqual(-100);
-		expect(section.maxY - section.minY).toBeLessThanOrEqual((viewport.height - padding.top - padding.bottom) / 267 + 1e-9);
-	});
-
-	it('should fall back to the end of the run past the last hit, and to nothing without hits', () => {
-		const section = playheadSection(project, long, 500, viewport, padding, 267);
-		expect(section?.minY).toBeCloseTo(-199);
-		expect(playheadSection(project, { hits: [], pieces: [], marbles: [] } as unknown as TSimulationResult, 0, viewport, padding, 267)).toBeNull();
 	});
 });
 

@@ -153,7 +153,6 @@ const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 				commandItem(cx, 'view.zoom100'),
 				'separator',
 				commandItem(cx, 'view.fitAll'),
-				commandItem(cx, 'view.fitWhole'),
 				commandItem(cx, 'view.fitSelection'),
 				commandItem(cx, 'view.fitFrame')
 			]}
