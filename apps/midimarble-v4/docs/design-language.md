@@ -37,6 +37,15 @@ Reference apps:
 
 Names, labels and every other string follow [words.md](words.md), which takes precedence over wording elsewhere in this document.
 
+## Round 5 decisions: Scene, skins in the inspector, sound in the Song, themes as files
+
+From the owner's hands-on check on 2026-11-04. These take precedence over Round 4 and older sections where they differ.
+
+- **The Scene is selectable.** Layers starts with a **Scene** row, like Blender's Scene Collection; its inspector replaces the Project inspector (Length, Marble Speed, Seamless Loop, Theme), named Scene as Blender names frame range and gravity. Clicking empty space in Layers, on the wall or preview, or pressing Esc selects the Scene. Nothing can be left "stuck" on a selection
+- **The Library holds what you add; the inspector holds how the selection looks.** Compose's Library is pieces to place, Film's Library is Decor to place: both drag or double-click into the scene. Skins are not added things, so they leave the Library: selecting a marble, piece or the Wall shows its skins right in the inspector's Look section as visual tiles with their properties below, and Reset to Theme. Themes leave the Library too: the Scene inspector's Theme section shows the current theme and its parts, with a picker
+- **Sound comes only from the Song.** A marble plays nothing; it is synced to notes of the Song, and each hit is a moment in time. The marble inspector loses Instrument, and marble rows lose mute and solo. The Song layer holds all sound: its Parts (each MIDI part or marble's notes) with Sound, mute and solo, Backing as one more part, or the audio file for MP3 and recordings. Tapping without a song creates the Song layer ("Tapped Notes"), so the rule holds everywhere; Round 4's "a tapped project shows no Song row" no longer applies
+- **Compose's pieces belong to the app; Film's look belongs to the project; themes are files.** Hitbox pieces are fixed to the app. A theme is a preset of parts (wall, lights, a skin per element, marble look, Decor set) that travels as a file: **Export Theme…** and **Import Theme…** in the Scene inspector, assets included. A few starter themes ship as ordinary theme files, treated like imported ones, not as a special built-in kind. Seasonal looks such as Christmas are not built in: Christmas lives in the Jingle Bells example project and can be exported from it. Skins and Decor items used by a project are copied into it, so a project is always self-contained
+
 ## Round 4 decisions: Layers, each layer owns its settings
 
 From the owner's review on 2026-11-04. These take precedence over Round 2 and Round 3 and the older sections below where they differ.
