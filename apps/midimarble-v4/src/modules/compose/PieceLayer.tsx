@@ -3,7 +3,7 @@ import React from 'react';
 import type { TVec2 } from '@/modules/project';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
-import { paletteOf, upcomingColor } from './ComposeRenderer';
+import { paletteOf } from './ComposeRenderer';
 import { offsetPolyline, pieceKind, tubeCeiling } from './scene';
 
 /**
@@ -15,12 +15,11 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	const { compose } = props;
 	const cx = compose.studio;
 	const result = useFeatureState(cx.simulation.$result);
-	const camera = useFeatureState(compose.$camera);
+	useFeatureState(compose.$camera);
 	const viewport = useFeatureState(compose.$viewport);
 	// The Camera view moves with the playhead and shows every piece solid, like the film
 	useFeatureState(compose.$film);
-	const isFilm = camera.mode === 'camera';
-	const playhead = useFeatureState(cx.$playhead);
+	useFeatureState(cx.$playhead);
 	useFeatureState(cx.$selection);
 	useFeatureState(cx.$playing);
 	useFeatureState(compose.$override);
@@ -33,13 +32,11 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	return (
 		<g>
 			{compose.displayPieces(result).map((piece) => {
-				// Pieces still to come keep full opacity in a quieter colour, as the wall renderer draws them
-				const palette = !isFilm && compose.isUpcoming(piece, playhead) ? upcomingPalette(paletteOf(piece.type)) : undefined;
 				const kind = pieceKind(piece);
-				if (kind === 'path') return <RailShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				return <MinimumShape key={piece.entityId} compose={compose} piece={piece} palette={palette} />;
+				if (kind === 'path') return <RailShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
+				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
+				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
+				return <MinimumShape key={piece.entityId} compose={compose} piece={piece} />;
 			})}
 		</g>
 	);
@@ -197,9 +194,6 @@ const MinimumShape: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; palett
 	return <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={palette.bar} strokeWidth={2.5} strokeLinecap="round" />;
 };
 
-function upcomingPalette(palette: { bar: string; nub: string }): { bar: string; nub: string } {
-	return { bar: upcomingColor(palette.bar), nub: upcomingColor(palette.nub) };
-}
 
 /** SVG `points` of screen points, leaving out any that did not project to a number */
 export function toPoints(points: TVec2[]): string {

@@ -8,7 +8,7 @@ import { formatTime } from '../format';
 import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
 import { auditionNote, BACKING_COLOR } from './hand-notes';
-import { rowCount, type TPitchRange } from './piano-roll';
+import { openingRollOffset, rowCount, type TPitchRange } from './piano-roll';
 import { SongRoll } from './SongRoll';
 import { HEADER_WIDTH, NOTE_ROW_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
 import { Keyboard } from './TrackHeader';
@@ -37,8 +37,18 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	const rollHeight = range == null ? 0 : rowCount(range) * NOTE_ROW_HEIGHT;
 	const maxOffset = isExpanded ? Math.max(0, rollHeight - height) : 0;
 	const [offset, setOffset] = React.useState<number | null>(null);
-	// Opens centred on the notes, whose margin rows sit at both ends
-	const shown = Math.min(maxOffset, Math.max(0, offset ?? maxOffset / 2));
+	// Opens on the song's first notes, their top row just below the ruler
+	const opening = React.useMemo(
+		() => (range == null || !isExpanded ? 0 : openingRollOffset([...project.music.lanes.flatMap((lane) => lane.hits), ...project.music.backing], range, NOTE_ROW_HEIGHT, height)),
+		[project.music, range, isExpanded, height]
+	);
+	const shown = Math.min(maxOffset, Math.max(0, offset ?? opening));
+	// Opening again starts on the first notes, like a freshly opened editor
+	const [wasExpanded, setWasExpanded] = React.useState(isExpanded);
+	if (wasExpanded !== isExpanded) {
+		setWasExpanded(isExpanded);
+		if (!isExpanded) setOffset(null);
+	}
 
 	React.useEffect(() => {
 		const element = rowRef.current;

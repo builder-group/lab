@@ -2,36 +2,102 @@ import type { TWorkspace } from './StudioCx';
 
 /**
  * Regions Quick Help labels in place, like GarageBand's Quick Help. An element marks its region with
- * `data-quick-help`; the label sits beside it as `placement` says, moved by `dx` and `dy` where neighbours would
- * overlap. Controls explain themselves with their own tooltips; these lines only name the regions.
+ * `data-quick-help`; the label sits in the wall's gutter on the side of the region (`gutter`), so it points at the
+ * region without covering any of its controls. The wall's own label sits at its centre. Controls explain themselves
+ * with their own tooltips; these lines only name the regions.
  */
 export const quickHelpRegions: TQuickHelpRegion[] = [
-	{ id: 'workspace', title: 'Compose and Film', line: 'Build the run in Compose, then choose the look and export in Film', placement: 'right' },
-	{ id: 'layers', title: 'Layers', line: 'Everything in the project: the song, marbles, pieces and camera', placement: 'below', align: 'start' },
-	{ id: 'library', title: 'Library', line: 'Pieces to place, and themes and skins for the film', placement: 'below', align: 'start', dy: 72 },
-	{ id: 'tools', title: 'Tools', line: 'Move and Hand, then the pieces you can place', placement: 'right', dy: 120 },
-	{ id: 'wall', title: 'Wall', line: 'Marbles fall here and play their notes on the pieces', placement: 'center', workspace: 'compose' },
-	{ id: 'wall', title: 'Preview', line: 'The film as Blender renders it at the playhead', placement: 'center', workspace: 'design' },
-	{ id: 'inspector', title: 'Inspector', line: 'Settings of the selection, or the Project when nothing is selected', placement: 'center' },
-	{ id: 'hitSummary', title: 'Hit Summary', line: 'Says when every hit is on time; click it to find a problem', placement: 'above', align: 'start' },
-	{ id: 'transport', title: 'Transport', line: 'Play, step from hit to hit and see the time', placement: 'above' },
-	{ id: 'tracks', title: 'Tracks', line: 'The song and one track per marble, along the time', placement: 'right' },
-	{ id: 'song', title: 'Song', line: 'The music; each marble plays some of its notes', placement: 'right', dx: 236 },
-	{ id: 'blender', title: 'Blender', line: 'Renders the film; its menu opens the scene in Blender', placement: 'below', align: 'end', dy: 116 },
-	{ id: 'agent', title: 'Agent', line: 'Ask for a theme, a skin or a change in plain words', placement: 'below', align: 'end', dy: 58 },
-	{ id: 'export', title: 'Export Film…', line: 'Makes the movie file once the run plays well', placement: 'below', align: 'end' }
+	{ id: 'workspace', title: 'Compose and Film', line: 'Build the run in Compose, then choose the look and export in Film', gutter: 'left' },
+	{ id: 'layers', title: 'Layers', line: 'Everything in the project: the song, marbles, pieces and camera', gutter: 'left' },
+	{ id: 'library', title: 'Library', line: 'Pieces to place, and themes and skins for the film', gutter: 'left' },
+	{ id: 'tools', title: 'Tools', line: 'Move and Hand, then the pieces you can place', gutter: 'left' },
+	{ id: 'wall', title: 'Wall', line: 'Marbles fall here and play their notes on the pieces', gutter: 'center', workspace: 'compose' },
+	{ id: 'wall', title: 'Preview', line: 'The film as Blender renders it at the playhead', gutter: 'center', workspace: 'design' },
+	{ id: 'export', title: 'Export Film…', line: 'Makes the movie file once the run plays well', gutter: 'right' },
+	{ id: 'agent', title: 'Agent', line: 'Ask for a theme, a skin or a change in plain words', gutter: 'right' },
+	{ id: 'blender', title: 'Blender', line: 'Renders the film; its menu opens the scene in Blender', gutter: 'right' },
+	{ id: 'inspector', title: 'Inspector', line: 'Settings of the selection, or the Project when nothing is selected', gutter: 'right' },
+	{ id: 'tracks', title: 'Tracks', line: 'The song and one track per marble, along the time', gutter: 'bottom' },
+	{ id: 'song', title: 'Song', line: 'The music; each marble plays some of its notes', gutter: 'bottom' },
+	{ id: 'hitSummary', title: 'Hit Summary', line: 'Says when every hit is on time; click it to find a problem', gutter: 'bottom' },
+	{ id: 'transport', title: 'Transport', line: 'Play, step from hit to hit and see the time', gutter: 'bottom' }
 ];
 
 export interface TQuickHelpRegion {
 	id: string;
 	title: string;
 	line: string;
-	placement: 'below' | 'above' | 'right' | 'center';
-	align?: 'start' | 'end';
-	dx?: number;
-	dy?: number;
+	/** The wall's edge the label sits against: beside the sidebar, the inspector and title bar, or above the timeline */
+	gutter: 'left' | 'right' | 'bottom' | 'center';
 	// Regions whose meaning changes with the workspace
 	workspace?: TWorkspace;
+}
+
+export interface TRect {
+	left: number;
+	top: number;
+	right: number;
+	bottom: number;
+}
+
+/** Where a label's top left corner goes, in window coordinates */
+export interface TLabelPlace {
+	left: number;
+	top: number;
+}
+
+/** Room the wall's floating view controls take at its top */
+const WALL_TOP_INSET = 48;
+
+/** Room a label takes in the layout; labels are at most this wide and two lines of text high */
+export const QUICK_HELP_LABEL = { width: 220, height: 52, gap: 8 };
+
+/**
+ * Lays out the region labels in the wall's gutters, so none covers a control of its region, another label or
+ * `reserved` (the Quick Help panel): the wall's own label at its centre, the sidebar's and tool rail's down its left
+ * edge, the title bar's and inspector's down its right edge from their region's height, and the timeline's along its
+ * bottom edge from their region's left edge. A label whose spot is taken moves down (up for the bottom edge) to the
+ * next free one, so a narrow wall stacks them in one column. Without a wall the window takes its place.
+ */
+export function placeQuickHelpLabels(
+	items: { region: TQuickHelpRegion; rect: TRect }[],
+	wall: TRect | null,
+	viewport: { width: number; height: number },
+	reserved?: TRect
+): Map<string, TLabelPlace> {
+	const { width, height, gap } = QUICK_HELP_LABEL;
+	const area = wall ?? { left: 0, top: 0, right: viewport.width, bottom: viewport.height };
+	const minLeft = area.left + gap;
+	const maxLeft = Math.max(minLeft, area.right - gap - width);
+	// The wall's floating view controls sit along its top edge
+	const minTop = area.top + (wall == null ? gap : WALL_TOP_INSET);
+	const maxTop = Math.max(minTop, area.bottom - gap - height);
+	const taken: TRect[] = reserved == null ? [] : [reserved];
+	const places = new Map<string, TLabelPlace>();
+	const isFree = (left: number, top: number): boolean => taken.every((box) => left + width + gap <= box.left || box.right + gap <= left || top + height + gap <= box.top || box.bottom + gap <= top);
+
+	function place(id: string, left: number, top: number, direction: 1 | -1): void {
+		const x = Math.min(Math.max(left, minLeft), maxLeft);
+		let y = Math.min(Math.max(top, minTop), maxTop);
+		// Searches along the edge first, then back the other way, and keeps the wanted spot if the wall is full
+		const start = y;
+		while (!isFree(x, y) && y >= minTop && y <= maxTop) y += direction * 4;
+		if (y < minTop || y > maxTop) {
+			y = start;
+			while (!isFree(x, y) && y >= minTop && y <= maxTop) y -= direction * 4;
+			if (y < minTop || y > maxTop) y = start;
+		}
+		taken.push({ left: x, top: y, right: x + width, bottom: y + height });
+		places.set(id, { left: x, top: y });
+	}
+
+	const centre = (rect: TRect): number => (rect.top + rect.bottom) / 2 - height / 2;
+	const byGutter = (gutter: TQuickHelpRegion['gutter']): { region: TQuickHelpRegion; rect: TRect }[] => items.filter((item) => item.region.gutter === gutter);
+	for (const { region } of byGutter('center')) place(region.id, (area.left + area.right) / 2 - width / 2, (area.top + area.bottom) / 2 - height / 2, 1);
+	for (const { region, rect } of byGutter('left').sort((a, b) => centre(a.rect) - centre(b.rect))) place(region.id, minLeft, centre(rect), 1);
+	for (const { region, rect } of byGutter('right').sort((a, b) => centre(a.rect) - centre(b.rect))) place(region.id, maxLeft, centre(rect), 1);
+	for (const { region, rect } of byGutter('bottom').sort((a, b) => a.rect.left - b.rect.left)) place(region.id, rect.left, maxTop, -1);
+	return places;
 }
 
 export function regionsFor(workspace: TWorkspace): TQuickHelpRegion[] {

@@ -2,13 +2,18 @@ import type { TMenuItem } from '@/components';
 import { newProjectTitle } from '@/environment';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
+import { canMakeBacking } from '@/modules/compose/reachability';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import { detachSelection, followSelection, hasTiedSelection } from '@/modules/compose/tie-commands';
 import type { TRenderPreset } from '@/modules/blender';
+import { BACKING_ID } from '@/modules/project';
+import { soundsHit } from '@/modules/simulation';
 import { cameraCommands, colorByNoteCommands, themeCommands } from '@/modules/design/design-commands';
 import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
-import { parseHitKey, parseShotKey, toShotKey } from './selection';
+import { duplicatePieces } from './duplicate';
+import { parseHitKey, parseShotKey, toHitKey, toShotKey } from './selection';
+import { handNotes } from './timeline/hand-notes';
 import { setSidebarTab } from './sidebar-state';
 import { focusedLane, type StudioCx, type TWorkspace } from './StudioCx';
 
@@ -105,6 +110,41 @@ function hasPieces(cx: StudioCx): boolean {
 	return project != null && compose(cx) != null && selectedPieceIds(project, cx.$selection.get()).length > 0;
 }
 
+/** Duplicate for the selected pieces: free copies beside them, selected afterwards, as one undo step */
+function duplicateSelection(cx: StudioCx): void {
+	const project = cx.project;
+	if (project == null) return;
+	const ids = selectedPieceIds(project, cx.$selection.get());
+	const { commands, copies } = duplicatePieces(project, cx.simulation.$result.get(), ids);
+	if (!copies.length) {
+		cx.notify('These pieces have no place in the run yet, so there is nothing to copy');
+		return;
+	}
+	if (!cx.execute(commands)) return;
+	const named = cx.project?.entities.filter((entity) => copies.some((copy) => copy.id === entity.id)) ?? copies;
+	cx.$selection.set(named.map((entity) => entity.id));
+	const original = project.entities.find((entity) => entity.id === ids[0]);
+	const tied = ids.some((id) => project.entities.find((entity) => entity.id === id)?.components.hitLink != null);
+	const what = named.length === 1 ? `${original?.name ?? 'The piece'} duplicated as ${named[0]?.name ?? 'a copy'}` : `${named.length} pieces duplicated`;
+	cx.notifyEdit(tied ? `${what}, free on the wall` : what);
+}
+
+/** The notes Make Backing hands over: selected notes and hits, and the notes the selected platforms play */
+function backingKeys(cx: StudioCx): string[] {
+	const project = cx.project;
+	if (project == null) return [];
+	const selection = cx.$selection.get();
+	const hits = selection.filter((key) => {
+		const parsed = parseHitKey(key);
+		return parsed != null && parsed.laneId !== BACKING_ID;
+	});
+	const played = project.entities.flatMap((entity) => {
+		const link = entity.components.hitLink;
+		return selection.includes(entity.id) && link != null && soundsHit(entity.components.piece?.type ?? '', link) ? [toHitKey(link.laneId, link.hitId)] : [];
+	});
+	return [...new Set([...hits, ...played])];
+}
+
 function hasHits(cx: StudioCx): boolean {
 	return cx.$selection.get().some((key) => parseHitKey(key) != null);
 }
@@ -158,6 +198,7 @@ export const commands: readonly TCommand[] = [
 			deleteSelectedHits(cx);
 		}
 	},
+	{ id: 'edit.duplicate', title: 'Duplicate', section: 'Edit', shortcut: '⌘D', keywords: 'copy clone', workspace: 'compose', isEnabled: hasPieces, run: (cx) => duplicateSelection(cx) },
 	{
 		id: 'edit.selectAll', workspace: 'compose',
 		title: 'Select All Pieces',
@@ -167,6 +208,15 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => cx.$selection.set(cx.project?.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id) ?? [])
 	},
 	{ id: 'edit.deselect', title: 'Deselect All', section: 'Edit', isEnabled: (cx) => cx.$selection.get().length > 0, run: (cx) => cx.$selection.set([]) },
+	{
+		id: 'edit.makeBacking',
+		title: 'Make Backing',
+		section: 'Edit',
+		shortcut: '0',
+		keywords: 'backing track no platform hand notes unassign',
+		isEnabled: (cx) => cx.project != null && canMakeBacking(cx.project) && backingKeys(cx).length > 0,
+		run: (cx) => void handNotes(cx, backingKeys(cx), BACKING_ID)
+	},
 	{ id: 'edit.firstProblem', title: 'Show First Problem', section: 'Edit', keywords: 'issue error attention broken next jump hit summary', isEnabled: hasProject, run: (cx) => cx.showFirstProblem() },
 
 	// MARK: - View
@@ -507,6 +557,8 @@ export type TCommandId =
 	| 'build.dismiss'
 	| 'build.replace'
 	| 'piece.follow'
+	| 'edit.duplicate'
+	| 'edit.makeBacking'
 	| 'piece.detach'
 	| 'build.rotateLeft'
 	| 'build.rotateRight'

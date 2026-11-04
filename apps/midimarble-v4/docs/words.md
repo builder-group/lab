@@ -30,6 +30,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | A piece tied to a moment of a marble's fall | **Follows** Marble 1 at 0:03.2 | anchored, parented | says what it does |
 | A piece tied to nothing | **Free** | unlinked, static | |
 | Undoing those ties | **Detach** | unlink, unanchor | one verb for both |
+| A copy of pieces | **Duplicate** (⌘D): free copies beside the originals | clone, copy | Figma and Finder |
 | The two workspaces | **Compose** (song, marbles, pieces, timing) and **Film** (look, camera, titles, export) | Design, Build, Look | "Film" names what you make; camera and export belong there |
 | Inspector with nothing selected | **Project** | World, Settings, Document | Figma shows the page when nothing is selected |
 | How fast marbles fall | **Marble Speed** | gravity, physics scale | "Gravity" only in its tooltip |
@@ -52,8 +53,8 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | A piece's appearance | **Skin** | asset, mesh, model | |
 | Motion on a hit | **Reaction** (Press, Wobble, Glow) | animation, driver | |
 | Text on the wall | **Title** | wall text, label | the reference films call them titles |
-| How a title sits in the film | **Style**: **Wall Title** (on the wall where it was placed), **Song Name** (a bigger wall title for a few seconds from the playhead, reading the song's name), **Caption** (top of the frame) and **End Card** (centre of the frame, over the last 3 s) | overlay, HUD, lower third | Caption and End Card stay in the frame while the camera moves; their Size is a share of the frame height in % |
-| When a title shows | **In** and **Out** in a Timing section, times as m:ss.cc; a Titles track of clips in Film | start/end, keyframes, duration | Final Cut's In and Out points; defaults are the start and the end of the film |
+| How a title sits in the film | **Style**: **Wall Title** (on the wall where it was placed), **Caption** (top of the frame, 3 s from the playhead), **Song Name** (upper third of the frame over the first 3 s, reading the song's name) and **End Card** (centre of the frame, over the last 3 s) | overlay, HUD, lower third | Caption, Song Name and End Card stay in the frame while the camera moves, on a soft dark backing; their Size is a share of the frame height in %. Choosing a style sets its times while they are still the last style's own, like a title preset in Final Cut |
+| When a title shows | **In** and **Out** in a Timing section, times as m:ss.cc; a Titles track of clips in Film | start/end, keyframes, duration | Final Cut's In and Out points; a Wall Title's defaults are the start and the end of the film |
 | The in-app stand-in for Blender's render | **Draft Preview** with the help "Blender draws the real look. This preview follows the same camera." | proxy, fallback, mock | Final Cut's proxy playback, named for what it is |
 | A camera change at a time | **Shot** (Wide, Follow, Push In, Close-Up) | marker, keyframe | film language |
 | How long a shot frames before the camera eases back | **Hold**, in seconds; **To Next Shot** at 0 | length, duration | a held shot in film language; Push In and Close-Up hold 2 s by default |
@@ -76,7 +77,7 @@ One status per hit, shown as a pill on pieces, in the inspector header and on th
 
 Too Soon and Out of Reach are drawn hollow with an amber dashed outline and count as needing attention. Their fixes are **Move Release Earlier** (Too Soon: the release moves 0.5 s before the note, never before the song starts) or **Move Release Later** (Out of Reach on the marble's first note), **Move Hit Later** (a Too Soon tapped hit whose release cannot move earlier: the hit moves to the first moment the marble can strike), and **Make Backing**; a fix that does not help is not offered. Make Backing needs a song: Backing notes show only in the Song track, so in a project without a song (tapped hits) it is not offered, and **Delete Hit** takes its place.
 
-A summary sits in the timeline header for the whole project, read from the same problem list as the export sheet, Layers and the Camera track, like Xcode's issue count: "12 of 12 hits on time", "2 hits need attention", or "107 of 109 hits on time · 4 other problems" when extra strikes, collisions, Blocked scenery, framing or the loop need a look. Open notes count toward the total only. It reads **Checking…** (dimmed, with a spinner) until the run for the latest edit arrives, never a stale count, and **Re-placing…** while Re-place runs. A click goes to the first problem in time order (**Show First Problem**, also in ⌘K). Its menu (the chevron or a right-click) lists the problems, then Show First Problem and **Re-place Broken Platforms (24)**. Framing problems also show as amber spans on the Camera track; they open Film at their time with the Camera selected.
+A summary sits in the timeline header for the whole project, read from the same problem list as the export sheet, Layers and the Camera track, like Xcode's issue count: "12 of 12 hits on time", "2 hits need attention", or "107 of 109 hits on time · 4 other problems" when extra strikes, collisions, Blocked scenery, framing or the loop need a look. Open notes count toward the total only. It reads **Checking…** (dimmed, with a spinner) until the run for the latest edit arrives, never a stale count, and **Re-placing…** while Re-place runs. A click goes to the first problem in time order (**Show First Problem**, also in ⌘K). Its menu (the chevron or a right-click) lists every problem in time order, scrolling when the list is long, then Show First Problem and **Re-place Broken Platforms (24)**. Framing problems also show as amber spans on the Camera track; they open Film at their time with the Camera selected.
 
 ## Fix-its
 
@@ -106,6 +107,8 @@ Advanced sections name what a piece looks like or does, not how it is built. A h
 
 | Piece | Field | Means | Not |
 | --- | --- | --- | --- |
+| Platform | **Lands At** | where along the platform the marble lands, in % | Hit Point, contact, strike |
+| Hit | **Velocity** | how hard the note plays, in % | Vel |
 | Windmill | **Arms**, **Arm Length**, **Arm Width** | how many arms and how long and wide they are | Blades, Blade, Thick |
 | Windmill | **Centre Size** | the round centre the arms turn on | Hub |
 | Windmill | **Brake** | how quickly the spin slows down | Friction, damping |

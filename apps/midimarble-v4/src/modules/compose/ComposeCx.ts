@@ -57,7 +57,6 @@ import {
 	pieceAngleAt,
 	pieceKind,
 	pieceOutline,
-	pieceTime,
 	rotationGrip,
 	trackBuffers,
 	withPathBend,
@@ -1962,26 +1961,15 @@ export class ComposeCx {
 	private syncPieces(): void {
 		if (this.renderer == null) return;
 		const playhead = this.studio.$playhead.get();
-		const isFilm = this.$camera.get().mode === 'camera';
 		this.renderer.setPieces(
 			this.displayPieces().map((piece) => ({
 				piece,
-				// The film shows every piece solid; the wall views fade pieces the marble has not reached yet
-				ghost: !isFilm && this.isUpcoming(piece, playhead),
+				// Pieces still to come read as solid as the rest (round 3 and 5 reviews); the trajectory's quieter
+				// part after the playhead shows what is ahead
+				ghost: false,
 				angle: pieceAngleAt(piece, playhead)
 			}))
 		);
-	}
-
-	/**
-	 * True for a piece the marble reaches after the playhead, which the wall views draw lighter. Selected
-	 * pieces stay solid so the piece being edited is never washed out, and nothing is dimmed while stopped at
-	 * the start, where every piece is still ahead.
-	 */
-	isUpcoming(piece: TResolvedPiece, playhead = this.studio.$playhead.get()): boolean {
-		if (playhead <= 1e-3 && !this.studio.$playing.get()) return false;
-		const time = pieceTime(piece);
-		return time != null && time > playhead + 1e-4 && !this.studio.$selection.get().includes(piece.entityId);
 	}
 
 	syncMarbles(): void {

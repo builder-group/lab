@@ -10,6 +10,7 @@ import { getCommand, type TCommandId } from '../commands';
 import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';
 import { parseTime } from './parse-time';
+import { problemsInTimeOrder } from './hit-status';
 import { sliderToZoom, zoomToSlider } from './timeline-layout';
 
 /**
@@ -59,7 +60,7 @@ interface TTransportProps {
 /**
  * The hit summary, like Xcode's issue count, read from the same problem model as the export sheet, Layers and
  * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. A click goes
- * to the first problem in time order. Its menu (the chevron or a right-click) lists every problem, then Show First
+ * to the first problem in time order. Its menu (the chevron or a right-click) lists every problem in time order, scrolling when long, then Show First
  * Problem and Re-place Broken Platforms. Until the run for the current edit arrives it reads "Checking…", and
  * while Re-place runs only its progress line shows, in the notice.
  */
@@ -79,7 +80,8 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</span>
 		);
 	}
-	const first = summary.problems[0];
+	const problems = problemsInTimeOrder(summary.problems);
+	const first = problems[0];
 	if (first == null) {
 		return (
 			<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary">
@@ -89,13 +91,13 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	}
 	const plan = compose != null && result != null && result.revision === project.revision ? compose.assist.replacePlan(project, result) : null;
 	const menu = (): TMenuEntry[] => [
-		{ section: summary.problems.length === 1 ? '1 Problem' : `${summary.problems.length} Problems` },
-		...summary.problems.slice(0, MENU_PROBLEMS).map((issue) => ({
+		{ section: problems.length === 1 ? '1 Problem' : `${problems.length} Problems` },
+		// Every problem in time order; a long list scrolls inside the menu, like Xcode's issue navigator
+		...problems.map((issue) => ({
 			label: issue.title,
 			disabled: issue.target == null,
 			onSelect: () => issue.target != null && cx.revealIssue(issue.target)
 		})),
-		...(summary.problems.length > MENU_PROBLEMS ? [{ label: `${summary.problems.length - MENU_PROBLEMS} more in Export Film…`, onSelect: () => cx.film.openSheet() }] : []),
 		'separator' as const,
 		{ label: 'Show First Problem', onSelect: () => cx.showFirstProblem() },
 		{
@@ -123,8 +125,6 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	);
 };
 
-// The menu lists this many problems; the export sheet lists them all
-const MENU_PROBLEMS = 12;
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
 
 /** A glyph button that runs a playback command and names it with its shortcut in the tooltip */

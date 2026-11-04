@@ -64,10 +64,11 @@ interface TPanelProps {
 
 /**
  * Header row of the inspector like Figma UI3's: an icon tile, the name that renames in place, the type
- * below and a status pill on the right
+ * below and a status pill on the right. A Fix-it sits under the pill, as Xcode's sits under the message, and
+ * the name and subtitle wrap to a second line rather than cut off in the 260 px panel.
  */
 export const InspectorHeader: React.FC<TInspectorHeaderProps> = (props) => {
-	const { icon, title, subtitle, status, onRename } = props;
+	const { icon, title, subtitle, status, fix, onRename } = props;
 	const [isRenaming, setIsRenaming] = React.useState(false);
 
 	return (
@@ -83,15 +84,26 @@ export const InspectorHeader: React.FC<TInspectorHeaderProps> = (props) => {
 						}}
 					/>
 				) : onRename != null ? (
-					<button className="mm-insp-name" onClick={() => setIsRenaming(true)} title="Rename" type="button">
+					<button className="mm-insp-name" onClick={() => setIsRenaming(true)} title={`Rename ${title}`} type="button">
 						{title}
 					</button>
 				) : (
-					<span className="mm-insp-name">{title}</span>
+					<span className="mm-insp-name" title={title}>
+						{title}
+					</span>
 				)}
-				{subtitle != null ? <span className="mm-insp-subtitle">{subtitle}</span> : null}
+				{subtitle != null ? (
+					<span className="mm-insp-subtitle" title={typeof subtitle === 'string' ? subtitle : undefined}>
+						{subtitle}
+					</span>
+				) : null}
 			</span>
-			{status}
+			{status != null || fix != null ? (
+				<span className="mm-insp-status">
+					{status}
+					{fix}
+				</span>
+			) : null}
 		</div>
 	);
 };
@@ -102,6 +114,8 @@ interface TInspectorHeaderProps {
 	subtitle?: React.ReactNode;
 	/** A status pill on the right, such as the timing of a platform */
 	status?: React.ReactNode;
+	/** A Fix-it under the status pill, such as Re-place or Move Clear */
+	fix?: React.ReactNode;
 	/** Makes the name editable in place */
 	onRename?: (name: string) => void;
 }

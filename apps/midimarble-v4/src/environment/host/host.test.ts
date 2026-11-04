@@ -65,6 +65,17 @@ describe('unsaved projects on the browser host', () => {
 		expect(path).toBe('/browser/Jingle Bells 2.marble');
 	});
 
+	it('should name a new browser project as it will be stored, so the title matches Recent', async () => {
+		// Prepare
+		await host.createProject('/browser/Untitled.marble', '{}');
+
+		// Act
+		const path = await host.chooseNewProjectPath('Untitled');
+
+		// Assert
+		expect(path).toBe('/browser/Untitled 2.marble');
+	});
+
 	it('should forget a discarded example', async () => {
 		// Prepare
 		const [, , created] = await host.createTemporaryProject('Zigzag', '{}');

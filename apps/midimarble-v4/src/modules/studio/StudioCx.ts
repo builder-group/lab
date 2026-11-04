@@ -26,7 +26,10 @@ import {
 } from '@/modules/project';
 import { hasUnsavedChanges, saveChangesQuestion } from './document';
 import { HintsCx } from './HintsCx';
+import { renumberDefaultNames } from './piece-order-names';
 import { parseHitKey } from './selection';
+import { tapTime } from './tap';
+import { problemsInTimeOrder } from './timeline/hit-status';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
@@ -237,7 +240,7 @@ export class StudioCx {
 			this.notify('Checking the run…');
 			return;
 		}
-		const first = summary.problems[0];
+		const first = problemsInTimeOrder(summary.problems)[0];
 		if (first?.target == null) {
 			this.notify(summary.problems.length > 0 ? (first?.title ?? summary.label) : `No problems: ${summary.label}`);
 			return;
@@ -489,7 +492,9 @@ export class StudioCx {
 			this.notify(editErr.message, 'error');
 			return false;
 		}
-		this.$history.set(options.amend === true ? amendHistory(history, edited) : pushHistory(history, edited, options.group));
+		// Default piece names follow time order, so a new piece for an earlier hit takes the lower number
+		const named = renumberDefaultNames(history.present, edited);
+		this.$history.set(options.amend === true ? amendHistory(history, named) : pushHistory(history, named, options.group));
 		this.scheduleSave();
 		return true;
 	}
@@ -558,14 +563,23 @@ export class StudioCx {
 		return true;
 	}
 
-	/** Records a hit at the playhead on the lane in focus, for tapping along to the music */
+	/**
+	 * Records a hit at the playhead on the lane in focus, for tapping along to the music. Taps record only while
+	 * the song plays, as Logic records only with the transport running: with playback stopped, T starts it and
+	 * the next taps add hits. A tap within 50 ms of a hit merges into it.
+	 */
 	tapHit(): void {
 		const project = this.project;
 		if (project == null) return;
 		const lane = focusedLane(project, this.$selection.get());
 		if (lane == null) return;
-		const now = this.$playing.get() ? this.audio.getTime() : this.$playhead.get();
-		const time = Math.round(now * 10000) / 10000;
+		if (!this.$playing.get()) {
+			this.$playing.set(true);
+			this.notify(`Playing: press T on each beat to add hits to ${lane.name}`);
+			return;
+		}
+		const time = tapTime(lane.hits, this.audio.getTime());
+		if (time == null) return;
 		const hit = { id: createId('hit'), time };
 		this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }]);
 	}

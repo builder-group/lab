@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { THitResult } from '@/modules/simulation';
-import { hitSummary, hitTiming } from './hit-status';
+import { hitSummary, hitTiming, problemsInTimeOrder } from './hit-status';
 
 function result(hitId: string, status: THitResult['status'], targetTime: number, extra: Partial<THitResult> = {}): THitResult {
 	return { laneId: 'lane-1', hitId, targetTime, pieceEntityId: null, dot: null, velocity: null, actualTime: null, error: null, status, ...extra };
@@ -41,5 +41,18 @@ describe('hitSummary function', () => {
 
 		expect(summary.label).toBe('1 hit needs attention');
 		expect(summary.problems).toEqual([tooSoon]);
+	});
+});
+
+describe('problemsInTimeOrder', () => {
+	it('should order problems by time, a framing span by its start, and keep untimed ones last', () => {
+		const problems = [
+			{ id: 'framing', span: { from: 4, to: 6 }, target: null },
+			{ id: 'step', target: null },
+			{ id: 'blocked', time: 2, target: { time: 2 } },
+			{ id: 'collision', target: { time: 3 } },
+			{ id: 'loop', target: null }
+		];
+		expect(problemsInTimeOrder(problems).map((problem) => problem.id)).toEqual(['blocked', 'collision', 'framing', 'step', 'loop']);
 	});
 });

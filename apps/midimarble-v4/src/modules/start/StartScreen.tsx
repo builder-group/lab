@@ -84,7 +84,8 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 							key={item.path}
 							className="mm-row !h-11 w-[calc(100%-16px)] shrink-0 text-left"
 							onClick={() => void cx.openProject(item.path)}
-							title={item.path}
+							// The browser's stored path (/browser/…) means nothing to a user; the name does
+							title={host.isDesktop() ? item.path : item.name}
 							type="button"
 						>
 							<FileMusic size={20} strokeWidth={1.4} className="shrink-0 text-[var(--text-secondary)]" />

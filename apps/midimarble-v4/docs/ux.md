@@ -151,7 +151,7 @@ An edit that breaks the run offers its fix where the user is looking, like Xcode
 
 The track behaves like a parametric history. Pieces are bound to their hit. Their position comes from the trajectory and authored tweaks are stored relative to it. Changing an earlier piece re-simulates from that piece onward. Later pieces follow the new trajectory and keep their tweaks. A free piece keeps its position when the trajectory moves.
 
-The playhead works like a rollback marker. Pieces after it are shown in a quieter colour, so the user builds up to the playhead and continues from there.
+The playhead works like a rollback marker. The trajectory after it is drawn in a quieter colour, so the user builds up to the playhead and continues from there; pieces keep their full colour.
 
 ### Several marbles
 
@@ -234,11 +234,11 @@ A title shows for the whole film unless it has In and Out times. The title inspe
 Placing a title selects it and focuses its Text field with the text selected, like Figma's text tool, so typing replaces "Title" at once. A new title takes the theme's title colour (white on Brass, navy on Pegboard; switching the theme recolours titles still in the old theme's colour) and a letter height of 6 % of the film frame at the wall, so it reads on a phone. The Title inspector's Style picks one of four:
 
 - **Wall Title**, the default: text on the wall where it was placed, lit like the pieces
-- **Song Name**: a bigger wall title (8 % of the frame) that reads the song's name while the text is still "Title", shown for 4 s from the playhead
-- **Caption**: big text near the top of the frame (its centre 15 % below the top edge), 6 % of the frame height
+- **Caption**: big text near the top of the frame (its centre 15 % below the top edge), 6 % of the frame height, for 3 s from the playhead
+- **Song Name**: upright text in the upper third of the frame (its centre 35 % below the top edge) over the first 3 s of the film, 7 % of the frame height, reading the song's name while the text is still "Title"
 - **End Card**: centred text over the last 3 s of the film, 8 % of the frame height
 
-Caption and End Card are screen titles, like the overlay titles of the reference films. The exported film draws them onto the frames when it is encoded, centred, with a 0.25 s fade, a soft dark backing and a bold system font, so depth of field can never blur them (3D captions in front of the pieces came out blurred and grey). Blender's previews and its own encoder, used only without FFmpeg, show 3D copies parented to the film camera at 96 % of the way to the closer of the focus distance and the wall, glowing in their colour; drivers on the camera's lens, focus and distance keep their place and size in the frame while the camera moves. Their Size is a share of the frame height in %, and they have no Depth or Position. The Draft Preview draws them at the same place and size. A style keeps times set by hand; its defaults apply only to a title without In and Out.
+Caption, Song Name and End Card are screen titles, like the overlay titles of the reference films. The exported film draws them onto the frames when it is encoded, centred, with a 0.25 s fade, a soft dark backing and a bold system font, so depth of field can never blur them (3D captions in front of the pieces came out blurred and grey). Blender's previews and its own encoder, used only without FFmpeg, show 3D copies parented to the film camera at 96 % of the way to the closer of the focus distance and the wall, glowing in their colour; drivers on the camera's lens, focus and distance keep their place and size in the frame while the camera moves. Their Size is a share of the frame height in %, shrunk when the text would not fit the frame width, and they have no Depth or Position. The Draft Preview draws them at the same place and size, in the same font, with the same backing and shadow. Like a title preset in Final Cut or CapCut, choosing a style sets its times while the title still has the previous style's own times or shows for the whole film; times set by hand stay. A caption's own times are any 3 s span.
 
 Scene decorations follow the same review as skins. The user clicks a point on the wall and describes the element. The agent creates it there, a preview renders, and the user accepts or declines it. Accepted decorations stay in the project; they enter the library only when the user saves them there.
 

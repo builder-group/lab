@@ -15,7 +15,8 @@ export const host = {
 	},
 
 	async chooseNewProjectPath(name: string): Promise<string | null> {
-		if (!isTauri()) return `/browser/${name}.marble`;
+		// The browser names a new project as it will be stored (Untitled 7), so the title bar and Recent agree
+		if (!isTauri()) return browserPackages.uniquePath(`/browser/${name}.marble`);
 		const { save } = await import('@tauri-apps/plugin-dialog');
 		return save({ title: 'New Project', defaultPath: `${name}.marble` });
 	},
@@ -311,12 +312,18 @@ const browserPackages = {
 	write(value: Record<string, { json: string; openedAt: number }>): void {
 		localStorage.setItem(this.key, JSON.stringify(value));
 	},
-	create(path: string, json: string): TResult<THostProject, Error> {
+	/** `path`, or the first of `Name 2.marble`, `Name 3.marble`… that no stored project uses */
+	uniquePath(path: string): string {
 		const packages = this.read();
 		let unique = path;
 		for (let index = 2; packages[unique] != null; index++) {
 			unique = path.replace(/\.marble$/, ` ${index}.marble`);
 		}
+		return unique;
+	},
+	create(path: string, json: string): TResult<THostProject, Error> {
+		const packages = this.read();
+		const unique = this.uniquePath(path);
 		packages[unique] = { json, openedAt: Date.now() };
 		this.write(packages);
 		return Ok({ path: unique, projectJson: json });

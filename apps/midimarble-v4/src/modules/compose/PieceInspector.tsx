@@ -71,15 +71,14 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				title={title}
 				subtitle={subtitle}
 				onRename={isSingle ? (name) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name } }]) : undefined}
-				status={
-					status == null ? null : (
-						<>
-							{/* The Fix-it sits next to the problem */}
-							{status.tone === 'bad' && link != null && soundsHit(type, link) ? <ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} /> : null}
-							{resolved?.status === 'blocked' && link != null && !soundsHit(type, link) ? <MoveClearButton cx={cx} entityId={first.id} /> : null}
-							<StatusPill tone={status.tone} label={status.label} detail={status.detail} />
-						</>
-					)
+				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
+				fix={
+					// The Fix-it sits under the problem
+					status == null || link == null ? null : status.tone === 'bad' && soundsHit(type, link) ? (
+						<ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} />
+					) : resolved?.status === 'blocked' && !soundsHit(type, link) ? (
+						<MoveClearButton cx={cx} entityId={first.id} />
+					) : null
 				}
 			/>
 			{entities.every((entity) => isPathPieceType(entity.components.piece?.type)) ? <PathTypeSection cx={cx} project={project} entities={entities} /> : null}
@@ -150,8 +149,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				{link != null && attach.kind === 'linked' && kind === 'box' ? (
 					<ScrubField
 						id="piece-contact"
-						label="Hit Point"
-						name="Where the marble hits along the platform"
+						label="Lands At"
+						name="Where along the platform the marble lands"
 						value={Math.round(link.contactAt * 100)}
 						unit="%"
 						step={0.5}
@@ -176,8 +175,8 @@ interface TPieceInspectorProps {
 }
 
 /**
- * Re-place beside a Blocked, Missed or Stopped platform's status pill, like an Xcode Fix-it: Auto place again for
- * this platform alone, as one undo step
+ * Re-place under a Blocked, Missed or Stopped platform's status pill, like an Xcode Fix-it: places this platform
+ * again on its own, as one undo step
  */
 export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: string }> = (props) => {
 	const { cx, laneId, hitId } = props;
@@ -185,15 +184,15 @@ export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: stri
 	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
 	return (
 		<button
-			className="mm-fix-it"
+			className="mm-fix-it mm-fix-it-label"
 			disabled={compose == null || replacing != null}
 			onClick={() => void compose?.assist.replace([`${laneId}/${hitId}`])}
-			title="Re-place: tilt this platform again with Auto place"
-			aria-label="Re-place"
+			title="Tilt this platform again so the marble lands on time"
 			type="button"
 		>
-			{/* Auto place's wand, as in the step bar; the header has no room for a word beside the title and pill */}
+			{/* The placing wand, as in the step bar */}
 			<WandSparkles size={12} strokeWidth={1.9} />
+			Re-place
 		</button>
 	);
 };

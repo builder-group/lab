@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TLane } from '@/modules/project';
-import { clampPitch, hasPitches, isBlackKey, pitchDeltaFor, pitchRange, pitchToRow, rowCount, rowToPitch } from './piano-roll';
+import { clampPitch, hasPitches, isBlackKey, OPENING_GAP, openingRollOffset, pitchDeltaFor, pitchRange, pitchToRow, rowCount, rowToPitch } from './piano-roll';
 
 function lane(pitches: (number | undefined)[]): TLane {
 	return {
@@ -61,5 +61,28 @@ describe('piano roll', () => {
 		it('should mark sharps as black keys', () => {
 			expect([60, 61, 62, 63, 64, 65, 66].map(isBlackKey)).toEqual([false, true, false, true, false, false, true]);
 		});
+	});
+});
+
+describe('openingRollOffset', () => {
+	// 40 rows of 10 px in a 120 px track: C2 (36) to D♯5 (75)
+	const range = { low: 36, high: 75 };
+
+	it('should open with the first notes\' top row just below the ruler', () => {
+		const notes = [
+			{ time: 5, pitch: 74 },
+			{ time: 0, pitch: 67 },
+			{ time: 0.5, pitch: 64 },
+			{ time: 0.2, pitch: 40 }
+		];
+		// Without the D5 the opening tops out at G4 (67), row 8; with it, D5 is row 1
+		expect(openingRollOffset(notes.slice(1), range, 10, 120)).toBe(8 * 10 - OPENING_GAP);
+		expect(openingRollOffset(notes, range, 10, 120)).toBe(1 * 10 - OPENING_GAP);
+	});
+
+	it('should stay within the roll and open at the top without pitches', () => {
+		expect(openingRollOffset([{ time: 0, pitch: 36 }], range, 10, 120)).toBe(400 - 120);
+		expect(openingRollOffset([{ time: 0, pitch: 75 }], range, 10, 120)).toBe(0);
+		expect(openingRollOffset([{ time: 0 }], range, 10, 120)).toBe(0);
 	});
 });

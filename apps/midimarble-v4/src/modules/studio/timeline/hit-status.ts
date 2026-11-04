@@ -67,3 +67,15 @@ export interface THitSummary {
 export function isPitched(hit: THit): hit is THit & { pitch: number } {
 	return hit.pitch != null;
 }
+
+/**
+ * Problems in the order they happen in the run, like Xcode's issue navigator: by their time, the start of a
+ * framing span, or the time their target shows; problems without any time come last, in their given order
+ */
+export function problemsInTimeOrder<T extends { time?: number; span?: { from: number }; target: { time?: number } | null }>(problems: readonly T[]): T[] {
+	const when = (problem: T): number => problem.time ?? problem.span?.from ?? problem.target?.time ?? Infinity;
+	return problems
+		.map((problem, order) => ({ problem, order, time: when(problem) }))
+		.sort((a, b) => (a.time === b.time ? a.order - b.order : a.time - b.time))
+		.map((entry) => entry.problem);
+}

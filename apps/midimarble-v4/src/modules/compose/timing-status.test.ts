@@ -49,7 +49,7 @@ describe('timingStatus function', () => {
 	});
 
 	it('should stay neutral while the run is simulating', () => {
-		expect(timingStatus(undefined, undefined)).toEqual({ tone: 'neutral', label: 'Simulating…' });
+		expect(timingStatus(undefined, undefined)).toEqual({ tone: 'neutral', label: 'Checking…' });
 	});
 });
 

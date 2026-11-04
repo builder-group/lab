@@ -145,7 +145,7 @@ export const NoteRow: React.FC<{ children: React.ReactNode }> = (props) => {
 export const StateRow: React.FC<TStateRowProps> = (props) => {
 	const { tone, label, detail, action } = props;
 	return (
-		<div className="mm-insp-row" data-span="2">
+		<div className="mm-insp-row" data-span="2" data-state>
 			<span className="mm-dot" data-tone={tone === 'neutral' ? undefined : tone} />
 			<span className="mm-insp-link-text">{label}</span>
 			{detail != null ? <HelpTip text={detail} /> : null}

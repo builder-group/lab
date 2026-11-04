@@ -86,9 +86,9 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				<div className="mm-setup-card">
 					<div className="flex items-start gap-2.5">
 						<Monitor size={16} strokeWidth={1.6} className="mt-0.5 shrink-0 text-[var(--text-secondary)]" />
-						<div className="flex flex-col gap-0.5">
-							<div className="font-semibold">Export Runs in the Desktop App</div>
-							<div className="mm-caption">Blender makes the film, and the browser preview can't start it. Open MidiMarble on your Mac to export.</div>
+						<div className="flex items-center gap-1.5 font-semibold">
+							Export Runs in the Desktop App
+							<HelpTip side="right" text="Blender makes the film and can't start from the browser. Open MidiMarble on your Mac to export." />
 						</div>
 					</div>
 				</div>
@@ -123,8 +123,8 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 						side="right"
 						text={
 							isFlat
-								? 'Draft uses flat light: solid colours without lighting or materials, to check motion quickly. Choose Standard or higher for Fast or Realistic lighting.'
-								: 'Fast renders materials and light quickly. Realistic lights the wall as a camera sees it and takes much longer.'
+								? 'Draft uses flat colours to check motion. Standard and up can use Fast or Realistic'
+								: 'Fast: quick light. Realistic: light as a camera sees it, much slower'
 						}
 					/>
 				</div>
@@ -144,7 +144,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				<span className="mm-form-label">Where</span>
 				<span className="flex items-center gap-1.5 self-center">
 					<span className="mm-caption">{settings.chosenPath != null ? folderOf(settings.chosenPath) : 'In the Project'}</span>
-					{settings.chosenPath == null ? <HelpTip side="right" text="Films stay with the project, and Show in Finder finds them. Choose… saves the film somewhere else." /> : null}
+					{settings.chosenPath == null ? <HelpTip side="right" text="Kept in the project; Show in Finder finds it. Choose… saves it elsewhere" /> : null}
 				</span>
 			</div>
 
@@ -155,7 +155,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				<div className="flex items-baseline justify-between gap-3">
 					<span className="font-medium">{estimate.seconds != null ? formatEstimate(estimate.seconds) : 'Time unknown'}</span>
 					{estimate.basis === 'none' ? (
-						<HelpTip side="left" text="The export time shows once Blender has drawn a preview of this project" />
+						<HelpTip side="left" text="Shows once Blender has drawn a preview" />
 					) : (
 						<span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, filmEngine(settings.preset, settings.engine))}</span>
 					)}
@@ -190,12 +190,11 @@ const ExportProgress: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 				<span>Elapsed {formatClock(elapsed)}</span>
 				<span>{remaining != null ? `About ${formatClock(remaining)} remaining` : job.phase === 'encoding' ? 'Finishing…' : 'Estimating…'}</span>
 			</div>
-			<p className="mm-caption">You can hide this and keep working; the title bar shows the progress.</p>
 			<div className="flex justify-end gap-2">
 				<button className="mm-button" data-size="dialog" onClick={() => cx.film.cancel()} type="button">
 					Cancel Export
 				</button>
-				<button className="mm-button" data-size="dialog" data-variant="primary" onClick={() => cx.film.$isSheetOpen.set(false)} title="Hide (Esc)" type="button">
+				<button className="mm-button" data-size="dialog" data-variant="primary" onClick={() => cx.film.$isSheetOpen.set(false)} title="Hide and keep working; the title bar shows the progress (Esc)" type="button">
 					Hide
 				</button>
 			</div>

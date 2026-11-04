@@ -1,9 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
 import { X } from 'lucide-react';
 import React from 'react';
-import { controlHelp, regionsFor, type TControlHelp, type TQuickHelpRegion } from './quick-help';
+import { controlHelp, placeQuickHelpLabels, regionsFor, type TControlHelp } from './quick-help';
 import type { StudioCx } from './StudioCx';
-import { useAnchorRects, type TAnchorRect } from './use-anchor-rects';
+import { useAnchorRects } from './use-anchor-rects';
 
 /**
  * Quick Help like GarageBand's: labels the window's regions in place with one line each, and a panel like Logic's
@@ -50,17 +50,23 @@ const QuickHelpOverlay: React.FC<{ cx: StudioCx }> = (props) => {
 		};
 	}, [cx, workspace]);
 
-	const wall = rects.find((rect) => rect.key === 'wall');
+	const wall = rects.find((rect) => rect.key === 'wall') ?? null;
+	const viewport = { width: window.innerWidth, height: window.innerHeight };
+	const panel = wall == null ? undefined : { left: wall.right - 12 - PANEL_WIDTH, top: wall.bottom - 12 - PANEL_HEIGHT, right: wall.right - 12, bottom: wall.bottom - 12 };
+	const items = rects.flatMap((rect) => {
+		const region = regions.find((item) => item.id === rect.key);
+		return region == null ? [] : [{ region, rect }];
+	});
+	const places = placeQuickHelpLabels(items, wall, viewport, panel);
 
 	return (
 		<div className="pointer-events-none fixed inset-0 z-[45]" aria-live="polite">
-			{rects.map((rect) => {
-				const region = regions.find((item) => item.id === rect.key);
-				if (region == null) return null;
+			{items.map(({ region, rect }) => {
+				const place = places.get(region.id);
 				return (
 					<React.Fragment key={rect.key}>
 						<div className="mm-qh-region" style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }} />
-						<div className="mm-qh-label" style={labelStyle(region, rect)}>
+						<div className="mm-qh-label" style={place}>
 							<span className="mm-qh-label-title">{region.title}</span>
 							<span>{region.line}</span>
 						</div>
@@ -96,32 +102,6 @@ const QuickHelpOverlay: React.FC<{ cx: StudioCx }> = (props) => {
 	);
 };
 
-const LABEL_WIDTH = 220;
-const GAP = 8;
-
-/** Places a region's label beside it so it points at the region without covering its controls */
-function labelStyle(region: TQuickHelpRegion, rect: TAnchorRect): React.CSSProperties {
-	const dx = region.dx ?? 0;
-	const dy = region.dy ?? 0;
-	const centerX = clamp(rect.left + rect.width / 2 + dx, GAP + LABEL_WIDTH / 2, window.innerWidth - GAP - LABEL_WIDTH / 2);
-	const horizontal: React.CSSProperties =
-		region.align === 'start'
-			? { left: clamp(rect.left + dx, GAP, window.innerWidth - GAP - LABEL_WIDTH) }
-			: region.align === 'end'
-				? { right: Math.max(GAP, window.innerWidth - rect.right - dx) }
-				: { left: centerX, transform: 'translateX(-50%)' };
-	switch (region.placement) {
-		case 'below':
-			return { ...horizontal, top: rect.bottom + GAP + dy };
-		case 'above':
-			return { ...horizontal, top: rect.top - GAP + dy, transform: `${horizontal.transform ?? ''} translateY(-100%)` };
-		case 'right':
-			return { left: rect.right + GAP + dx, top: rect.top + (region.dy ?? rect.height / 2), transform: 'translateY(-50%)' };
-		case 'center':
-			return { left: centerX, top: rect.top + rect.height / 2 + dy, transform: 'translate(-50%, -50%)' };
-	}
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(Math.max(value, min), Math.max(min, max));
-}
+// The panel's size, kept clear of the labels
+const PANEL_WIDTH = 260;
+const PANEL_HEIGHT = 96;

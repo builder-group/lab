@@ -1,4 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
+import { createState } from 'feature-state';
 import { Anchor, Box, ChevronsRight, FlipHorizontal2, Link2, Magnet, Repeat2, Square, Video, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
@@ -904,14 +905,21 @@ const FilmSelection: React.FC<{ compose: ComposeCx }> = (props) => {
 	);
 };
 
-/** Shows that the run is being re-simulated, fading in only when it takes long enough to notice */
+const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
+
+/**
+ * Says the run is being checked after an edit, or re-placed while Re-place runs, fading in only when it
+ * takes long enough to notice
+ */
 const SimulatingIndicator: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const computing = useFeatureState(cx.simulation.$computing);
-	if (!computing) return null;
+	const compose = useFeatureState(cx.$compose);
+	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
+	if (!computing && replacing == null) return null;
 	return (
 		<div className="mm-floating mm-delayed-fade absolute top-3 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">
-			Simulating…
+			{replacing == null ? 'Checking…' : 'Re-placing…'}
 		</div>
 	);
 };

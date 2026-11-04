@@ -888,6 +888,9 @@ button.mm-hit-summary:hover {
 
 /* A Fix-it with a word, such as Move Clear */
 .mm-fix-it.mm-fix-it-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 	width: auto;
 	padding: 0 8px;
 	font-size: 11px;
@@ -903,6 +906,10 @@ button.mm-hit-summary:hover {
 	z-index: 100;
 	min-width: 200px;
 	max-width: 320px;
+	/* A long menu, such as every problem of the run, scrolls inside the window */
+	max-height: calc(100vh - 12px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	padding: 5px;
 	border-radius: 8px;
 	background: var(--menu);

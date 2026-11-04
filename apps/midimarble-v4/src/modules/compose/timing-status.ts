@@ -31,7 +31,7 @@ export function timingStatus(
 		return { tone: 'bad', label: 'Blocked', detail: `${marble} already passes through this spot earlier in its run` };
 	}
 	if (piece?.status === 'unreached') return { tone: 'bad', label: 'Missed', detail: `${marble} never reaches ${target}` };
-	if (hit == null) return { tone: 'neutral', label: 'Simulating…' };
+	if (hit == null) return { tone: 'neutral', label: 'Checking…' };
 	switch (hit.status) {
 		case 'onTime': {
 			const what = names.note == null ? 'its note' : names.note;

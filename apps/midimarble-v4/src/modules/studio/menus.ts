@@ -22,6 +22,7 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 		'separator',
 		commandItem(cx, 'view.fitSelection'),
 		'separator',
+		commandItem(cx, 'edit.duplicate'),
 		commandItem(cx, 'edit.rename'),
 		commandItem(cx, 'edit.delete')
 	]);

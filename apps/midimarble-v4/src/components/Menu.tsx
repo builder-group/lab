@@ -47,6 +47,11 @@ export const MenuList: React.FC<TMenuListProps> = (props) => {
 		setPosition({ left, top });
 	}, [anchor.x, anchor.y, anchor.alignRight, anchor.flipY]);
 
+	// The highlighted item stays in view when the arrow keys move through a long, scrolling menu
+	React.useEffect(() => {
+		if (highlighted != null) ref.current?.querySelector(`[data-index="${highlighted}"]`)?.scrollIntoView?.({ block: 'nearest' });
+	}, [highlighted]);
+
 	// Focus once visible; a hidden element cannot take focus
 	const isPlaced = position != null;
 	React.useEffect(() => {

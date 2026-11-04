@@ -82,9 +82,9 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	height: 56px;
+	min-height: 56px;
 	flex-shrink: 0;
-	padding: 0 var(--insp-pad);
+	padding: 8px var(--insp-pad);
 	border-bottom: 1px solid var(--separator);
 }
 
@@ -107,6 +107,15 @@
 	min-width: 0;
 }
 
+/* The status pill with its Fix-it below, right-aligned */
+.mm-insp-status {
+	display: flex;
+	flex-shrink: 0;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 4px;
+}
+
 /* The name renames in place like Figma's layer name; the hover fill shows that it can be edited */
 .mm-insp-name {
 	height: 20px;
@@ -126,6 +135,17 @@
 	outline: none;
 }
 
+/* A long name wraps to a second line instead of cutting off */
+button.mm-insp-name,
+span.mm-insp-name {
+	display: -webkit-box;
+	height: auto;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
 button.mm-insp-name {
 	align-self: flex-start;
 }
@@ -141,12 +161,13 @@ input.mm-insp-name {
 }
 
 .mm-insp-subtitle {
+	display: -webkit-box;
 	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
 	font-size: var(--text-small);
 	line-height: 16px;
 	color: var(--text-secondary);
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 /* MARK: - Status pill */
@@ -444,6 +465,18 @@ input.mm-insp-name {
 	padding: 0 2px 0 8px;
 	border-radius: 5px;
 	background: var(--field-fill);
+}
+
+/* A state line wraps to a second line instead of cutting off, such as Blender's link in the browser */
+.mm-insp-row[data-state] {
+	height: auto;
+	min-height: 24px;
+	padding-block: 4px;
+}
+
+.mm-insp-row[data-state] .mm-insp-link-text {
+	line-height: 16px;
+	white-space: normal;
 }
 
 .mm-insp-row[data-muted='true'] {

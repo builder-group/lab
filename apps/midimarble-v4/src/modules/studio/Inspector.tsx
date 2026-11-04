@@ -315,14 +315,8 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				icon={<HitGlyph color={lane.color} />}
 				title={isBacking ? `Note ${index + 1}` : `Hit ${index + 1}`}
 				subtitle={`${lane.name} · ${formatTime(hit.time)}`}
-				status={
-					timing == null ? null : (
-						<>
-							{timing.tone === 'bad' && piece != null && !isBacking ? <ReplaceButton cx={cx} laneId={lane.id} hitId={hit.id} /> : null}
-							<StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />
-						</>
-					)
-				}
+				status={timing == null ? null : <StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />}
+				fix={timing?.tone === 'bad' && piece != null && !isBacking ? <ReplaceButton cx={cx} laneId={lane.id} hitId={hit.id} /> : null}
 			/>
 			<Panel id="hit.note" title="Note" accessory={<HelpTip text="Type a note name such as A4 or F#3. Up and Down step a semitone, Shift an octave. Changing the pitch plays it." />}>
 				{hit.pitch == null ? (
@@ -340,8 +334,8 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				)}
 				<ScrubField
 					id="hit-velocity"
-					label="Vel"
-					name="Velocity"
+					label="Velocity"
+					name="Velocity: how hard the note plays"
 					value={Math.round((hit.velocity ?? DEFAULT_HIT_VELOCITY) * 100)}
 					unit="%"
 					step={0.5}
