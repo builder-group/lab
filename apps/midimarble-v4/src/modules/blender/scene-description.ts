@@ -124,6 +124,11 @@ export interface TSceneMarble {
 	 * the marble that plays last, for marbles without notes and in loops, which the camera frames to the end.
 	 */
 	activeUntil?: number;
+	/**
+	 * Times of the marble's notes in seconds, sorted. Where several marbles do not fit one readable frame, the follow
+	 * camera keeps the marble with more notes ahead. Absent on loop ghosts. Optional and additive.
+	 */
+	hitTimes?: number[];
 }
 
 export interface TScenePiece {

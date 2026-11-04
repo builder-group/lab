@@ -4,7 +4,15 @@ import { parseProject, type TProject } from '@/modules/project';
 import { createSimulator } from '@/modules/simulation/simulate';
 import type { TSimulationResult } from '@/modules/simulation/types';
 import { compareCameraTrack, quaternionToMatrix, type TBlenderCameraDump } from './compare-track';
-import { pyRound, sampleCameraTrack, verticalFov, type TCameraTrack } from './follow-camera';
+import {
+	bakeFollowCamera,
+	pyRound,
+	sampleCameraTrack,
+	verticalFov,
+	type TCameraTrack,
+	type TFollowCameraInput,
+	type TFollowMarble
+} from './follow-camera';
 import { followCameraTrack } from './project-track';
 
 const FIXTURES = ['zigzag', 'reference-20', 'jingle-bells'] as const;
@@ -103,20 +111,90 @@ describe('follow camera', () => {
 		}
 	});
 
-	it('keeps both marbles in frame and readable while both play', () => {
+	it('stays close and steady on two marbles and keeps one of them in frame', () => {
 		const { project: jingle, result } = fixture('jingle-bells');
 		const track = required(followCameraTrack(jingle, result, 30));
 		const halfWidth = Math.tan((verticalFov(track.lens, track.aspect) * Math.PI) / 360) * track.aspect;
+		let frames = 0;
+		let both = 0;
 		for (let frame = 30; frame <= 31 * 30; frame += 4) {
-			for (const marble of result.marbles) {
+			const shown = result.marbles.filter((marble) => {
 				const sample = required(marble.samples.find((item) => item.time >= frame / 30));
 				const [u, v] = project(track, frame, sample.position.x, sample.position.y);
-				expect(Math.min(u, v)).toBeGreaterThan(0);
-				expect(Math.max(u, v)).toBeLessThan(1);
-			}
-			// A 24 mm marble at the camera distance spans at least 3.5 % of the frame width
-			expect(0.024 / at(track.distance, frame) / halfWidth / 2).toBeGreaterThan(0.035);
+				return Math.min(u, v) > 0 && Math.max(u, v) < 1;
+			}).length;
+			frames++;
+			if (shown === result.marbles.length) both++;
+			expect(shown).toBeGreaterThan(0);
+			// A 24 mm marble at the camera distance spans at least 5.5 % of the frame width: no survey of 20 bars
+			expect(0.024 / at(track.distance, frame) / halfWidth / 2).toBeGreaterThan(0.055);
 		}
+		// The second marble leaves the frame only for a while
+		expect(both / frames).toBeGreaterThan(0.8);
+		// The zoom changes slowly: at most 8 cm per second
+		for (let frame = 0; frame + 30 < track.frameCount; frame++)
+			expect(Math.abs(at(track.distance, frame + 30) - at(track.distance, frame))).toBeLessThan(0.08);
+	});
+
+	it('follows the marble that plays the next notes when the marbles do not fit one frame', () => {
+		const fall = (x: number): TFollowMarble['motion'] => {
+			const time = Float64Array.from({ length: 101 }, (_, index) => index / 10);
+			return { time, x: time.map(() => x), y: time.map((value) => -0.3 * value) };
+		};
+		const input = (isNoted: boolean): TFollowCameraInput => ({
+			fps: 30,
+			duration: 10,
+			frame: { width: 1080, height: 1920 },
+			camera: { mode: 'rig', distance: 0.7, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: [] },
+			loop: null,
+			pieceLength: 0.09,
+			marbles: [
+				{ id: 'melody', radius: 0.012, motion: fall(-0.75), ...(isNoted ? { hitTimes: [0.5, 1, 1.5, 2, 2.5] } : {}) },
+				{ id: 'bass', radius: 0.012, motion: fall(0.75), ...(isNoted ? { hitTimes: [7, 7.5, 8, 8.5, 9, 9.5] } : {}) }
+			]
+		});
+		const targetX = (track: TCameraTrack, time: number): number => at(track.target, pyRound(time * 30) * 2);
+		const noted = required(bakeFollowCamera(input(true)));
+		// The melody plays first, then the bass has the notes ahead from 5 s on
+		expect(targetX(noted, 0.5)).toBeLessThan(-0.7);
+		expect(Math.abs(targetX(noted, 5))).toBeLessThan(0.1);
+		expect(targetX(noted, 9.5)).toBeGreaterThan(0.7);
+		// The pan from one marble to the other takes seconds, not a cut
+		for (let frame = 0; frame + 1 < noted.frameCount; frame++)
+			expect(Math.abs(at(noted.target, frame * 2 + 2) - at(noted.target, frame * 2))).toBeLessThan(0.015);
+		// Without notes the focus marble, the first, leads throughout
+		const unnoted = required(bakeFollowCamera(input(false)));
+		expect(targetX(unnoted, 9.5)).toBeLessThan(-0.7);
+	});
+
+	it('pushes in relative to the current framing', () => {
+		const { project: jingle, result } = fixture('jingle-bells');
+		const rig = jingle.design.camera.distance;
+		const automatic = required(followCameraTrack(jingle, result, 30));
+		const pushed = required(
+			followCameraTrack(
+				{
+					...jingle,
+					design: {
+						...jingle.design,
+						camera: { ...jingle.design.camera, shots: [{ id: 'shot', time: 10, kind: 'pushIn', roll: 0, distance: rig * 0.7, length: 2 }] }
+					}
+				},
+				result,
+				30
+			)
+		);
+		// Two marbles widen the frame past the rig distance; the Push In still comes to 0.7 of it
+		expect(at(automatic.distance, 11 * 30)).toBeGreaterThan(rig * 1.2);
+		expect(at(pushed.distance, 11 * 30) / at(automatic.distance, 11 * 30)).toBeCloseTo(0.7, 2);
+		expect(at(pushed.distance, 14 * 30)).toBeCloseTo(at(automatic.distance, 14 * 30), 3);
+		// It frames the leading marble
+		const shown = result.marbles.some((marble) => {
+			const sample = required(marble.samples.find((item) => item.time >= 11));
+			const [u, v] = project(pushed, 11 * 30, sample.position.x, sample.position.y);
+			return Math.min(u, v) > 0.1 && Math.max(u, v) < 0.9;
+		});
+		expect(shown).toBe(true);
 	});
 
 	it('holds on the last hit and shows the final pieces', () => {
@@ -135,6 +213,15 @@ describe('follow camera', () => {
 			.slice(0, 3);
 		for (const piece of finals) {
 			const [u, v] = project(track, end, piece.position.x, piece.position.y);
+			expect(Math.min(u, v)).toBeGreaterThan(0);
+			expect(Math.max(u, v)).toBeLessThan(1);
+		}
+		// The marble that struck last stays in the held frame as it falls away, for about a second
+		const lastLane = required(result.hits.find((hit) => hit.actualTime === last)).laneId;
+		const marble = required(result.marbles.find((item) => item.laneId === lastLane));
+		for (let frame = pyRound(last * 30); frame <= pyRound((last + 0.8) * 30); frame += 3) {
+			const sample = required(marble.samples.find((item) => item.time >= frame / 30));
+			const [u, v] = project(track, frame, sample.position.x, sample.position.y);
 			expect(Math.min(u, v)).toBeGreaterThan(0);
 			expect(Math.max(u, v)).toBeLessThan(1);
 		}

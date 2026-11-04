@@ -46,6 +46,12 @@ function markActiveUntil(project: TProject, result: TSimulationResult, marbles: 
 	});
 }
 
+/** Sorted note times of a lane, rounded like `activeUntil`, which the follow camera reads to find the leading marble */
+function noteTimes(project: TProject, laneId: string): number[] {
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	return (lane?.hits ?? []).map((hit) => Math.round(hit.time * 1e4) / 1e4).sort((a, b) => a - b);
+}
+
 export function buildSceneDescription(
 	project: TProject,
 	result: TSimulationResult,
@@ -71,7 +77,10 @@ export function buildSceneDescription(
 			sampleCount: samples.length
 		};
 	};
-	const marbles: TSceneMarble[] = result.marbles.map((track) => marbleFor(track, track.entityId, track.samples));
+	const marbles: TSceneMarble[] = result.marbles.map((track) => ({
+		...marbleFor(track, track.entityId, track.samples),
+		hitTimes: noteTimes(project, track.laneId)
+	}));
 	const loop = project.design.loop ? createLoop(project, result) : null;
 	if (loop == null) markActiveUntil(project, result, marbles);
 	for (const ghost of loop?.ghosts ?? []) {

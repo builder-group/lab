@@ -30,12 +30,24 @@ const ZOOM_LIMIT = 3.0;
 const GROUP_KEEP_X = 0.85;
 const GROUP_KEEP_Y = 0.85;
 /** A marble spans at least this fraction of the frame width at the readable maximum */
-const MIN_MARBLE_FRACTION = 0.035;
+const MIN_MARBLE_FRACTION = 0.06;
 /** Margin on the distance a framed group needs */
 const GROUP_MARGIN = 1.1;
 /** Seconds over which the camera settles once it holds on the last hit, and the stretch of run before that hit */
 const HOLD_EASE = 1.0;
 const HOLD_SPAN = 1.0;
+/** Time constant in seconds of the group distance, so the zoom changes slowly */
+const DISTANCE_TAU = 1.5;
+/** Seconds ahead over which a marble's upcoming hits count toward leading the frame */
+const LEAD_AHEAD = 2.0;
+/** Extra score of the focus marble, so the melody leads on a tie */
+const FOCUS_BIAS = 0.5;
+/** A marble leads at least this many seconds before another takes over */
+const LEAD_HOLD = 1.5;
+/** Seconds over which the frame pans from one leading marble to the next */
+const LEAD_EASE = 2.5;
+/** A shot at this fraction of the rig distance or closer frames only the leading marble */
+const PUSH_FOCUS = 0.7;
 /** Weight in the group centre of a marble past its `activeUntil`, `FINISHED_WEIGHT` in `camera.py` */
 const FINISHED_WEIGHT = 0.001;
 export const CAMERA_SENSOR = 36.0;
@@ -196,6 +208,7 @@ export function followCameraInput(
 			radius: marble.radius,
 			ghostOf: marble.ghostOf,
 			activeUntil: marble.activeUntil,
+			hitTimes: marble.hitTimes,
 			motion: decodeMotion(files.get(marble.motionPath))
 		}))
 	};
@@ -219,6 +232,8 @@ export interface TFollowMarble {
 	ghostOf?: string;
 	/** `activeUntil` of the scene marble: the camera stops framing it then */
 	activeUntil?: number;
+	/** Times of the marble's notes, sorted; the marble with more notes ahead leads the frame */
+	hitTimes?: number[];
 	motion: TMotion;
 }
 
@@ -426,6 +441,84 @@ function focusMarble(marbles: TFollowMarble[], focus: string | null): TFollowMar
 	return moving.find((marble) => marble.id === focus) ?? moving[0] ?? null;
 }
 
+/**
+ * `lead_shares`: per marble with motion, its share of the point the camera follows where the group does not fit. The
+ * marble in flight with the most notes within LEAD_AHEAD seconds leads (the focus marble wins a tie, and a marble
+ * without notes counts only while in flight), a lead lasts at least LEAD_HOLD seconds, and the frame eases from one
+ * leading marble to the next over LEAD_EASE seconds.
+ */
+function leadShares(
+	marbles: TFollowMarble[],
+	times: Float64Array,
+	focus: string | null,
+	fps: number
+): Float64Array[] {
+	const moving = marbles.filter(hasMotion);
+	const chosen = focusMarble(marbles, focus);
+	const count = times.length;
+	const leader = new Int32Array(count);
+	let previous = Math.max(0, moving.indexOf(chosen as TFollowMarble));
+	for (let index = 0; index < count; index++) {
+		const time = times[index] ?? 0;
+		let best = -1;
+		let bestScore = 0.0;
+		moving.forEach((marble, which) => {
+			if (!inside(marble, time)) return;
+			let score = 1.0 + (marble === chosen ? FOCUS_BIAS : 0.0);
+			for (const hit of marble.hitTimes ?? []) if (hit > time && hit <= time + LEAD_AHEAD) score += 1.0;
+			if (score > bestScore) {
+				best = which;
+				bestScore = score;
+			}
+		});
+		if (best >= 0) previous = best;
+		leader[index] = previous;
+	}
+	// A lead shorter than LEAD_HOLD keeps the marble that led before it
+	const shortest = pyRound(LEAD_HOLD * fps);
+	let start = 0;
+	for (let index = 1; index <= count; index++) {
+		if (index < count && leader[index] === leader[start]) continue;
+		if (start > 0 && index - start < shortest) leader.fill(leader[start - 1] ?? 0, start, index);
+		start = index;
+	}
+	return moving.map((_, which) => {
+		const share = criticallyDamped(
+			Float64Array.from(leader, (value) => (value === which ? 1.0 : 0.0)),
+			fps,
+			LEAD_EASE / 3
+		);
+		return share.map((value) => clamp(value, 0.0, 1.0));
+	});
+}
+
+/** `mix_points`: the marbles with motion at `times`, weighted by `shares` */
+function mixPoints(
+	marbles: TFollowMarble[],
+	times: Float64Array,
+	shares: Float64Array[]
+): [Float64Array, Float64Array] {
+	const totalX = new Float64Array(times.length);
+	const totalY = new Float64Array(times.length);
+	const weights = new Float64Array(times.length);
+	marbles.filter(hasMotion).forEach((marble, which) => {
+		const [x, y] = marblePoint(marble, times);
+		const share = shares[which] as Float64Array;
+		for (let index = 0; index < times.length; index++) {
+			const weight = share[index] ?? 0;
+			totalX[index] = (totalX[index] ?? 0) + (x[index] ?? 0) * weight;
+			totalY[index] = (totalY[index] ?? 0) + (y[index] ?? 0) * weight;
+			weights[index] = (weights[index] ?? 0) + weight;
+		}
+	});
+	for (let index = 0; index < times.length; index++) {
+		const total = Math.max(weights[index] ?? 0, 1e-9);
+		totalX[index] = (totalX[index] ?? 0) / total;
+		totalY[index] = (totalY[index] ?? 0) / total;
+	}
+	return [totalX, totalY];
+}
+
 /** `drift_times`: the film time, easing to a stop over HOLD_EASE seconds once the camera holds */
 function driftTime(time: number, hold: number | null): number {
 	if (hold == null) return time;
@@ -596,9 +689,14 @@ function groupFraming(
 		centre[1] = pacedHeight(marbles, sample, centre[1], settings.descent);
 		ahead[1] = pacedHeight(marbles, leadTimes, ahead[1], settings.descent);
 	}
-	const { distance: base, roll } = shotValues(times, settings.distance, settings.shots);
+	// Shots scale the automatic framing: a Push In to 0.7 of the rig distance comes to 0.7 of whatever the camera
+	// frames then, so it reads also where a group has widened the frame
+	const { distance: shotDistance, roll } = shotValues(times, settings.distance, settings.shots);
+	const scale = shotDistance.map((value) => value / settings.distance);
+	const base = settings.distance;
 	const radii = marbles.filter(hasMotion).map((marble) => marble.radius);
 	const limit = readableDistance(settings, aspect, radii.length ? Math.min(...radii) : null);
+	const upper = Math.max(base, limit);
 	const turn = viewTurn(times, heading, roll, hold);
 	// Sized around the smoothed target when the first pass gave one, else around the group's centre
 	const raw = spreadNeed(marbles, sample, aim ?? centre, settings.lens, turn, settings.pitch);
@@ -615,38 +713,23 @@ function groupFraming(
 	);
 	const fits = heldOver.map((value) => 1.0 - value);
 	const weight = criticallyDamped(fits, fps, GROUP_EASE / 3).map((value) => clamp(value, 0.0, 1.0));
-	const blended = new Float64Array(count);
-	for (let index = 0; index < count; index++) {
-		const upper = Math.max(base[index] ?? 0, limit);
-		const groupDistance = Math.min(Math.max(need[index] ?? 0, base[index] ?? 0), upper);
-		blended[index] =
-			(base[index] ?? 0) + (weight[index] ?? 0) * (groupDistance - (base[index] ?? 0));
-	}
-	const distance = criticallyDamped(blended, fps, 0.5);
+	// The zoom follows what the group needs up to the readable maximum and stays there where the group no longer
+	// fits, slowly, so the frame neither pulls back to a survey nor jumps back in when it switches to one marble
+	const groupDistance = need.map((value) => clamp(value, base, upper));
+	const distance = criticallyDamped(groupDistance, fps, DISTANCE_TAU);
 	for (let index = 0; index < count; index++)
-		distance[index] = Math.min(distance[index] ?? 0, Math.max(base[index] ?? 0, limit));
-	const focus = focusMarble(marbles, settings.focus);
-	if (focus != null && marbles.length > 1) {
-		const focusNow = marblePoint(focus, sample);
-		const focusAhead = marblePoint(focus, leadTimes);
-		// Once the focus marble has played its last note, the camera eases back to the marbles that still play
-		let keep = weight;
-		if (focus.activeUntil != null) {
-			const until = focus.activeUntil;
-			const playing = criticallyDamped(
-				sample.map((time) => (time <= until + 1e-9 ? 1 : 0)),
-				fps,
-				GROUP_EASE / 3
-			);
-			keep = weight.map((value, index) => Math.max(value, 1 - clamp(playing[index] ?? 0, 0.0, 1.0)));
-		}
+		distance[index] = clamp(distance[index] ?? 0, base, upper) * (scale[index] ?? 1);
+	if (marbles.length > 1) {
+		const shares = leadShares(marbles, sample, settings.focus, fps);
+		const lead = mixPoints(marbles, sample, shares);
+		const leadAhead = mixPoints(marbles, leadTimes, shares);
 		for (const axis of [0, 1] as const) {
 			for (let index = 0; index < count; index++) {
-				const w = keep[index] ?? 0;
-				centre[axis][index] =
-					w * (centre[axis][index] ?? 0) + (1 - w) * (focusNow[axis][index] ?? 0);
-				ahead[axis][index] =
-					w * (ahead[axis][index] ?? 0) + (1 - w) * (focusAhead[axis][index] ?? 0);
+				// A close shot frames the leading marble alone
+				const push = clamp((1 - (scale[index] ?? 1)) / (1 - PUSH_FOCUS), 0.0, 1.0);
+				const w = (weight[index] ?? 0) * (1 - push);
+				centre[axis][index] = w * (centre[axis][index] ?? 0) + (1 - w) * (lead[axis][index] ?? 0);
+				ahead[axis][index] = w * (ahead[axis][index] ?? 0) + (1 - w) * (leadAhead[axis][index] ?? 0);
 			}
 		}
 	}

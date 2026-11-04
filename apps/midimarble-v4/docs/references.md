@@ -219,6 +219,34 @@ Decision: `LANE_SPACING` stays 0.26 m. No narrower spacing gives a clean build t
 
 The assists now keep clear of other lanes whatever the spacing. Auto place rejects an angle whose run breaks a hit of another marble that was on time up to that marble's next open hit (`crossesOtherLanes`), as the Jingle build accepted only after its own check. Switchbacks, rails and tunnels for a long gap are never suggested when the marble touches another lane's piece or the other marble, or the other marble touches the piece; before, a rail had no such check and a switchback only lost score. The Jingle build also rejects a step that leaves a switchback, rail or tunnel Blocked (two builds had finished 115/115 with a rail left out after a hand rotation of the launch platform) or a placed dot outside its band. Earlier 0.18 to 0.22 m attempts on 2026-11-04 resolved `@/` imports to the app's own constant and are not in the table.
 
+### Steady close camera with a leading marble
+
+Measured on 2026-11-04 after review finding R5-5 (Jingle Bells, Camera Automatic, Distance 70: close at 6 to 10 % for most of the film, then a survey of 20 and more bars at 0:10 to 0:14; a Push In at 0:10 changed nothing; the held end at 0:34.5 shows no marble). TypeScript follow camera at 30 fps with `.local/camera-r7/measure.ts` (the method above plus each marble's share in frame, the largest change of distance within one second and the time the last marble stays in the held frame) over the first to the last hit; before and after in `.local/camera-r7/before.jsonl` and `after.jsonl`.
+
+| | Jingle Bells before | Jingle Bells after | reference-20 before | reference-20 after |
+| --- | --- | --- | --- | --- |
+| Marble in frame width, median (10th percentile) | 5.7 % (4.8) | 6.2 % (5.4) | 8.7 % (8.0) | 8.7 % (8.0) |
+| Camera distance, median and max | 0.96, 1.22 m | 0.91, 0.97 m | 0.7, 0.7 m | 0.7, 0.7 m |
+| Largest distance change within 1 s | 0.169 m | 0.045 m | 0 | 0 |
+| Melody / bass in frame while it plays | 100 / 100 % | 97.9 / 92.5 % | 100 % | 100 % |
+| Both marbles in frame | 97.5 % | 87.9 % | | |
+| At least one playing marble in frame | 100 % | 100 % | 100 % | 100 % |
+| Pieces in frame, median; next four, median (10th pct) | 18; 4 (3) | 17; 4 (3) | 9; 4 (2) | 9; 4 (2) |
+| At 0:12 | 27 pieces, marbles 4.5 and 5.6 %, 1.14 m | 17 pieces, 5.4 and 7.1 %, 0.96 m | 11 pieces, 9.1 % | unchanged |
+| Push In at 0:10 (49 cm, Hold 2 s), distance at 0:11 | 1.16 m, as without it | 0.68 m, 0.70 of the automatic 0.97 m | 0.56 m (shot at 6 s: 0.49 m set) | 0.49 m |
+| Last frame | 4 of the last 5 pieces, no marble | unchanged | 4 of the last 5, no marble | unchanged |
+| Last marble in the held frame after the last hit | 1.03 s | 1.03 s | 0.47 s | 0.47 s |
+
+What changed (both `camera.py` and `follow-camera.ts`; `pnpm camera:check` within 0.001 mm and 0.016°):
+
+- Readable maximum. `MIN_MARBLE_FRACTION` 3.5 % → 6 % of the frame width at the rig distance (0.99 m for the 24 mm marble), which the steep view's perspective turns into about 5 % at the 10th percentile. 5 % left the camera at 1.13 m and the marbles at 4.5 % at 0:12; 6.5 and 7 % kept the camera within 0.91 and 0.85 m but both marbles in frame on only 76 and 68 % of the frames
+- The zoom stays at the readable maximum where the group no longer fits, instead of easing back to the rig distance, and follows the group's need with a 1.5 s time constant (0.5 s before). Easing back to the rig distance framed closer (7.0 % median) but breathed between 0.73 and 0.89 m every few seconds and kept both marbles in frame on 73 % of the frames
+- Leading marble. Where the group does not fit, the camera pans to the marble in flight with the most notes in the next 2 s (the scene marbles now carry their lane's note times, `hitTimes`); the focus marble gets half a note extra, a lead lasts at least 1.5 s, and the pan eases over 2.5 s (1.5 s: both in frame 83 %; 3 s ahead: 91.5 % but the 10th percentile marble 5.2 %). The finished-focus-marble rule is now part of it: a marble past `activeUntil` never leads
+- Shots scale the automatic distance by their distance over the rig's, after the zoom smoothing; a Push In or Close-Up also frames the leading marble alone. Before, a shot set the base the group need overrode, so a Push In during a wide group frame did nothing, and the 0.5 s zoom smoothing softened a single marble's Push In to 0.56 of 0.7 m
+- Ending: unchanged. In Jingle Bells the last marble leaves the held frame 1.0 s after the last hit (at 32.5 s) and is 5 m below it by 34.2 s, so the last 1.5 s of the 35 s song can only show the pieces. Holding on the last hit itself instead of the middle of the last second kept the marble 0.14 s longer but dropped one of the last five pieces in both fixtures; following the fall would show the empty wall the hold avoids. A film that should end on the marble needs its song end, or an End Card, within about a second of the last hit
+
+Draft film and its 1 fps contact sheet: `.local/camera-r7/films/jingle-bells-draft.mp4` and `jingle-bells-draft-contact.jpg`.
+
 ## Scale
 
 Blender's default unit is the metre, and the purchased Marble Race Kit uses real scale: marbles are 16 mm and track modules about 0.2 m. MidiMarble works in the same units; its default kit is 1.5 times that size (24 mm marbles, 9 cm bars), which reads at the reference film's scale, as `reference-20` showed first. Rapier and Blender then share units, and lighting, depth of field and physics behave like real objects.
