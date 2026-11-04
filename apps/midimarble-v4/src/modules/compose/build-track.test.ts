@@ -40,6 +40,23 @@ function importedJingle(): TProject {
 	return applied;
 }
 
+/** The same project with other hit IDs, as another import would give it */
+function withHitIds(project: TProject, order: 'lane 0 sorts first' | 'last lane sorts first'): TProject {
+	const count = project.music.lanes.length;
+	const lanes = project.music.lanes.map((lane, laneIndex) => ({
+		...lane,
+		hits: lane.hits.map((hit, hitIndex) => ({ ...hit, id: `hit-${order === 'lane 0 sorts first' ? laneIndex : count - laneIndex}-${String(hitIndex).padStart(3, '0')}` }))
+	}));
+	return { ...project, music: { ...project.music, lanes } };
+}
+
+function piecesByOrder(project: TProject): string[] {
+	const order = new Map(project.music.lanes.flatMap((lane) => lane.hits).map((hit, index) => [hit.id, index]));
+	return project.entities
+		.filter((entity) => entity.components.piece != null)
+		.map(({ components: { hitLink, ...rest } }) => JSON.stringify({ ...rest, hitLink: hitLink == null ? null : { ...hitLink, hitId: order.get(hitLink.hitId) } }));
+}
+
 function problemsBesidesSong(project: TProject, outcome: TBuildOutcome): string[] {
 	return preflightExport(project, { ...outcome.result, revision: project.revision }).issues.filter((issue) => issue.kind !== 'song').map((issue) => issue.title);
 }
@@ -96,6 +113,14 @@ describe('buildTrack function', () => {
 		expect(piecesOf(again.project)).toEqual(piecesOf(first.project));
 		expect(piecesOf(third.project)).toEqual(piecesOf(first.project));
 	}, MINUTES);
+
+	it('gives the same track whatever the random IDs, when hits of two marbles coincide', async () => {
+		const opening = importedJingle();
+		const project = { ...opening, music: { ...opening.music, lanes: opening.music.lanes.map((lane) => ({ ...lane, hits: lane.hits.filter((hit) => hit.time < 16) })) } };
+		const first = await buildTrack(withHitIds(project, 'lane 0 sorts first'), localBuildDeps(simulator));
+		const second = await buildTrack(withHitIds(project, 'last lane sorts first'), localBuildDeps(simulator));
+		expect(piecesByOrder(second.project)).toEqual(piecesByOrder(first.project));
+	}, 5 * MINUTES);
 
 	it('keeps the pieces already placed and builds the rest', async () => {
 		const project = fromHitTimes([Array.from({ length: 10 }, (_, index) => 1 + index * 0.5)]);

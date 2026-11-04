@@ -312,6 +312,8 @@ interface TPlanEvent {
 	/** When the piece is placed: the hit time, plus the entry delay for follower rails and tunnels */
 	time: number;
 	hitTime: number;
+	/** Position among all hits, lane by lane: settles equal times */
+	hitOrder: number;
 	step: number;
 	/** Index into `TPlan.marbles`, -1 when the lane has no marble */
 	marbleIndex: number;
@@ -323,8 +325,13 @@ interface TPlanEvent {
 
 function createPlan(project: TProject): TPlan {
 	const hitTimes = new Map<string, number>();
+	const hitOrder = new Map<string, number>();
+	let nextHitOrder = 0;
 	for (const lane of project.music.lanes) {
-		for (const hit of lane.hits) hitTimes.set(`${lane.id}/${hit.id}`, hit.time);
+		for (const hit of lane.hits) {
+			hitTimes.set(`${lane.id}/${hit.id}`, hit.time);
+			hitOrder.set(`${lane.id}/${hit.id}`, nextHitOrder++);
+		}
 	}
 
 	const marbles: TPlanMarble[] = [];
@@ -392,6 +399,7 @@ function createPlan(project: TProject): TPlan {
 				contactAt: hitLink.contactAt,
 				time: eventTime,
 				hitTime: time,
+				hitOrder: hitOrder.get(`${hitLink.laneId}/${hitLink.hitId}`) ?? 0,
 				step: Math.floor(eventTime * PHYSICS_HZ + STEP_EPSILON),
 				marbleIndex,
 				isAnchor,
@@ -416,9 +424,8 @@ function createPlan(project: TProject): TPlan {
 		resolved.position = transform.position;
 		staticPieces.push({ entityId: entity.id, definition, params, layout, resolved, key: '' });
 	}
-	events.sort(
-		(a, b) => a.time - b.time || (a.entityId < b.entityId ? -1 : a.entityId > b.entityId ? 1 : 0)
-	);
+	// Equal times go by lane, then hit: IDs are random, so ordering by them gives one song different tracks
+	events.sort((a, b) => a.time - b.time || a.hitOrder - b.hitOrder);
 
 	const startStep = Math.min(0, ...marbles.map((marble) => marble.releaseStep));
 	const gravity = gravityOf(project);
