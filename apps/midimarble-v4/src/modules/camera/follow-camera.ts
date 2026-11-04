@@ -50,6 +50,28 @@ const LEAD_EASE = 2.5;
 const PUSH_FOCUS = 0.7;
 /** Weight in the group centre of a marble past its `activeUntil`, `FINISHED_WEIGHT` in `camera.py` */
 const FINISHED_WEIGHT = 0.001;
+/** The opening frames the release points and up to this many of the first struck pieces */
+const OPENING_PIECES = 3;
+/** Seconds after the first hit over which the opening frame eases into the follow */
+const OPENING_EASE = 1.5;
+/** Steps that centre the opening box in the image */
+const OPENING_STEPS = 3;
+/**
+ * A marble the camera does not lead stays inside EDGE_IN of the half frame (10 % of the frame from its edge) or
+ * beyond EDGE_OUT (fully out); in between it would sit cut at the edge, so the frame shifts it in or out
+ */
+const EDGE_IN = 0.8;
+const EDGE_OUT = 1.15;
+/** A marble that cannot be kept in is pushed out only once it comes this close to the edge (6 % of the frame) */
+const EDGE_NEAR = 0.88;
+/** The leading marble stays within this fraction of the half frame when the frame shifts for another */
+const LEADER_KEEP = 0.8;
+/** Below this share of the leading marble the frame is panning between marbles, which sets the pace alone */
+const LEAD_SETTLED = 0.75;
+/** Seconds over which the frame shifts a marble in or out at the edge */
+const EDGE_EASE = 0.45;
+/** Seconds around each frame over which the largest shift a marble needs at the edge holds */
+const EDGE_HOLD = 0.5;
 export const CAMERA_SENSOR = 36.0;
 const GROUP_EASE = 1.2;
 const GROUP_SPIKE = 0.3;
@@ -65,7 +87,7 @@ export const CAMERA_CLIP_END = 100.0;
 export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null {
 	if (input.camera == null || input.camera.mode === 'manual') return null;
 	const fps = input.fps;
-	const settings = settingsFrom(input.camera, input.pieceLength);
+	const settings = settingsFrom(input.camera, input.pieceLength, input.opening ?? null);
 	const marbles = input.marbles.filter((marble) => marble.ghostOf == null);
 	const loop = input.loop;
 	const frameEnd = Math.max(1, Math.ceil(input.duration * fps - 1e-6));
@@ -76,10 +98,21 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	const times = new Float64Array(count);
 	for (let index = 0; index < count; index++) times[index] = (firstFrame + index) / fps;
 	const aspect = renderAspect(input.frame);
-	if (loop != null) settings.hold = null;
+	if (loop != null) {
+		settings.hold = null;
+		settings.opening = null;
+	}
 	// The group's size in frame depends on where the camera looks from and at: a first pass with the camera straight
 	// and sized around the group's centre gives the run direction and the smoothed target that size the second
-	const straight = groupFraming(marbles, times, settings, fps, aspect, new Float64Array(count), null);
+	const straight = groupFraming(
+		marbles,
+		times,
+		settings,
+		fps,
+		aspect,
+		new Float64Array(count),
+		null
+	);
 	if (straight == null) return null;
 	const firstPass = followTarget(straight, settings, fps, times);
 	const framing = groupFraming(marbles, times, settings, fps, aspect, firstPass.heading, [
@@ -93,6 +126,24 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	// The camera stands below and to the side of the target, looking up along the run; the side follows the run
 	// direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
 	const { side, roll } = viewTurn(times, smoothHeading, framing.roll, settings.hold);
+	// Seen through this view, a marble the camera does not lead goes fully in or fully out, never cut at the edge
+	if (framing.shares != null) {
+		const axes = Array.from(times, (_, index) =>
+			viewAxes(side[index] ?? 0, roll[index] ?? 0, settings.pitch)
+		);
+		keepClearOfEdges(
+			marbles,
+			times,
+			framing.sample,
+			[targetX, targetY],
+			distance,
+			axes,
+			framing.shares,
+			settings.lens,
+			aspect,
+			fps
+		);
+	}
 
 	const pitch = settings.pitch;
 	const position = new Float64Array(count * 3);
@@ -203,6 +254,7 @@ export function followCameraInput(
 		camera: description.camera ?? null,
 		loop: description.loop ?? null,
 		pieceLength: typicalPieceLength(description.pieces),
+		opening: openingPieces(description.pieces),
 		marbles: description.marbles.map((marble) => ({
 			id: marble.id,
 			radius: marble.radius,
@@ -223,7 +275,16 @@ export interface TFollowCameraInput {
 	loop: TSceneLoop | null;
 	/** Median bar or blade length, `typical_piece_length` in `scene.py` */
 	pieceLength: number | null;
+	/** First struck pieces, `openingPieces`; the opening frames them with the release points */
+	opening?: TOpeningPiece[] | null;
 	marbles: TFollowMarble[];
+}
+
+/** A piece's first hit time and its position on the wall */
+export interface TOpeningPiece {
+	time: number;
+	x: number;
+	y: number;
 }
 
 export interface TFollowMarble {
@@ -291,6 +352,7 @@ interface TSettings {
 	hold: number | null;
 	descent: { time: Float64Array; y: Float64Array } | null;
 	pieceLength: number | null;
+	opening: TOpeningPiece[] | null;
 }
 
 interface TFraming {
@@ -300,9 +362,17 @@ interface TFraming {
 	distance: Float64Array;
 	/** Shot roll per frame */
 	roll: Float64Array;
+	/** Times the marbles are read at, the film time up to the hold */
+	sample: Float64Array;
+	/** Per marble with motion, its share of the follow point where the group does not fit; null for one marble */
+	shares: Float64Array[] | null;
 }
 
-function settingsFrom(camera: TSceneCamera, pieceLength: number | null): TSettings {
+function settingsFrom(
+	camera: TSceneCamera,
+	pieceLength: number | null,
+	opening: TOpeningPiece[] | null
+): TSettings {
 	const number = (value: unknown, fallback: number, low: number, high: number): number =>
 		typeof value !== 'number' || !Number.isFinite(value)
 			? fallback
@@ -341,8 +411,25 @@ function settingsFrom(camera: TSceneCamera, pieceLength: number | null): TSettin
 						y: Float64Array.from(descent, (point) => point[1])
 					}
 				: null,
-		pieceLength
+		pieceLength,
+		opening: opening != null && opening.length > 0 ? opening : null
 	};
+}
+
+/**
+ * `opening_pieces` in `camera.py`: the first OPENING_PIECES pieces by their first hit that strike within LEAD_AHEAD
+ * seconds of the first hit, sorted by that time
+ */
+export function openingPieces(pieces: TSceneDescription['pieces']): TOpeningPiece[] {
+	const struck: TOpeningPiece[] = [];
+	for (const piece of pieces) {
+		const times = (piece.hitTimes ?? []).filter((time) => Number.isFinite(time));
+		if (!times.length) continue;
+		struck.push({ time: Math.min(...times), x: piece.position.x, y: piece.position.y });
+	}
+	struck.sort((a, b) => a.time - b.time);
+	const first = struck[0]?.time ?? 0;
+	return struck.filter((piece) => piece.time <= first + LEAD_AHEAD + 1e-9).slice(0, OPENING_PIECES);
 }
 
 /** `typical_piece_length` in `scene.py`: median length of the bars and blades on the wall */
@@ -465,7 +552,8 @@ function leadShares(
 		moving.forEach((marble, which) => {
 			if (!inside(marble, time)) return;
 			let score = 1.0 + (marble === chosen ? FOCUS_BIAS : 0.0);
-			for (const hit of marble.hitTimes ?? []) if (hit > time && hit <= time + LEAD_AHEAD) score += 1.0;
+			for (const hit of marble.hitTimes ?? [])
+				if (hit > time && hit <= time + LEAD_AHEAD) score += 1.0;
 			if (score > bestScore) {
 				best = which;
 				bestScore = score;
@@ -547,8 +635,18 @@ function viewTurn(
 }
 
 /** `view_axes`: image right and up and the unit direction from the target toward the camera for one frame */
-function viewAxes(side: number, roll: number, pitch: number): { right: TVec3; up: TVec3; toward: TVec3 } {
-	const toward: TVec3 = [Math.sin(side) * Math.sin(pitch), -Math.cos(pitch), -Math.cos(side) * Math.sin(pitch)];
+interface TAxes {
+	right: TVec3;
+	up: TVec3;
+	toward: TVec3;
+}
+
+function viewAxes(side: number, roll: number, pitch: number): TAxes {
+	const toward: TVec3 = [
+		Math.sin(side) * Math.sin(pitch),
+		-Math.cos(pitch),
+		-Math.cos(side) * Math.sin(pitch)
+	];
 	const forward: TVec3 = [-toward[0], -toward[1], -toward[2]];
 	let right = cross(forward, [-Math.sin(roll), 0.0, Math.cos(roll)]);
 	if (Math.hypot(...right) < 1e-8) right = cross(forward, [0.0, -1.0, 0.0]);
@@ -699,8 +797,20 @@ function groupFraming(
 	const upper = Math.max(base, limit);
 	const turn = viewTurn(times, heading, roll, hold);
 	// Sized around the smoothed target when the first pass gave one, else around the group's centre
+	const axes = Array.from(times, (_, index) =>
+		viewAxes(turn.side[index] ?? 0, turn.roll[index] ?? 0, settings.pitch)
+	);
 	const raw = spreadNeed(marbles, sample, aim ?? centre, settings.lens, turn, settings.pitch);
-	const need = held(held(raw, fps, GROUP_SPIKE / 2, 'median'), fps, 1.0, 'max');
+	// The opening frame widens the zoom to its pieces; whether the group fits still counts the marbles alone
+	const opening = openingFrame(marbles, times, sample, settings, fps, axes, limit);
+	const zoomNeed = raw.slice();
+	if (opening != null) {
+		for (let index = 0; index < count; index++) {
+			const wanted = (opening.need[index] ?? 0) * (opening.weight[index] ?? 0);
+			zoomNeed[index] = Math.max(zoomNeed[index] ?? 0, wanted);
+		}
+	}
+	const need = held(held(zoomNeed, fps, GROUP_SPIKE / 2, 'median'), fps, 1.0, 'max');
 	const over = withoutShortRuns(
 		Array.from(raw, (value) => value > limit),
 		pyRound(GROUP_SPIKE * fps)
@@ -729,15 +839,296 @@ function groupFraming(
 				const push = clamp((1 - (scale[index] ?? 1)) / (1 - PUSH_FOCUS), 0.0, 1.0);
 				const w = (weight[index] ?? 0) * (1 - push);
 				centre[axis][index] = w * (centre[axis][index] ?? 0) + (1 - w) * (lead[axis][index] ?? 0);
-				ahead[axis][index] = w * (ahead[axis][index] ?? 0) + (1 - w) * (leadAhead[axis][index] ?? 0);
+				ahead[axis][index] =
+					w * (ahead[axis][index] ?? 0) + (1 - w) * (leadAhead[axis][index] ?? 0);
 			}
 		}
 	}
+	if (opening != null) {
+		for (const axis of [0, 1] as const) {
+			for (let index = 0; index < count; index++) {
+				const w = opening.weight[index] ?? 0;
+				const point = opening.point[axis][index] ?? 0;
+				centre[axis][index] = w * point + (1 - w) * (centre[axis][index] ?? 0);
+				ahead[axis][index] = w * point + (1 - w) * (ahead[axis][index] ?? 0);
+			}
+		}
+	}
+	const shares =
+		marbles.filter(hasMotion).length > 1 ? leadShares(marbles, sample, settings.focus, fps) : null;
 	if (hold != null) {
 		settle(centre, times, hold);
 		settle(ahead, times, hold);
 	}
-	return { current: centre, ahead, depth, distance, roll };
+	return { current: centre, ahead, depth, distance, roll, sample, shares };
+}
+
+/**
+ * `opening_frame`: until the first hit the camera frames the box around the marbles in flight and the first struck
+ * pieces, so the film opens on the track rather than on marbles over an empty wall, and eases into the follow over
+ * OPENING_EASE seconds after it. Returns the box centre, the distance the box needs and the weight of the opening per
+ * frame; the weight eases to 0 where the box needs more than the readable maximum.
+ */
+function openingFrame(
+	marbles: TFollowMarble[],
+	times: Float64Array,
+	sample: Float64Array,
+	settings: TSettings,
+	fps: number,
+	axes: TAxes[],
+	limit: number
+): { point: [Float64Array, Float64Array]; need: Float64Array; weight: Float64Array } | null {
+	const pieces = settings.opening;
+	if (pieces == null || !pieces.length) return null;
+	const first = Math.min(...pieces.map((piece) => piece.time));
+	const count = times.length;
+	const reach = (CAMERA_SENSOR / 2 / settings.lens) * GROUP_KEEP_Y;
+	const reachX = (CAMERA_SENSOR / 2 / settings.lens) * GROUP_KEEP_X * ASPECT_GUESS;
+	const moving = marbles.filter(hasMotion);
+	const points = moving.map((marble) => marblePoint(marble, sample));
+	const pointX = new Float64Array(count);
+	const pointY = new Float64Array(count);
+	const need = new Float64Array(count);
+	const ramp = new Float64Array(count);
+	const fits = new Float64Array(count).fill(1.0);
+	for (let index = 0; index < count; index++) {
+		ramp[index] = 1.0 - smoothstep(((times[index] ?? 0) - first) / OPENING_EASE);
+		if ((ramp[index] ?? 0) <= 0) continue;
+		const xs = pieces.map((piece) => piece.x);
+		const ys = pieces.map((piece) => piece.y);
+		// Marbles waiting at their release point count too, as the film shows them there
+		moving.forEach((marble, which) => {
+			if (!inside(marble, Math.max(sample[index] ?? 0, marble.motion.time[0] ?? 0))) return;
+			xs.push(points[which]?.[0][index] ?? 0);
+			ys.push(points[which]?.[1][index] ?? 0);
+		});
+		let x = (Math.min(...xs) + Math.max(...xs)) / 2;
+		let y = (Math.min(...ys) + Math.max(...ys)) / 2;
+		const { right, up, toward } = axes[index] as TAxes;
+		const widestAround = (): number => {
+			let widest = 0.0;
+			xs.forEach((value, which) => {
+				const dx = value - x;
+				const dy = (ys[which] ?? 0) - y;
+				const across = Math.abs(dx * right[0] + dy * right[2]);
+				const high = Math.abs(dx * up[0] + dy * up[2]);
+				const along = dx * toward[0] + dy * toward[2];
+				widest = Math.max(widest, along + Math.max(across / reachX, high / reach) * GROUP_MARGIN);
+			});
+			return widest;
+		};
+		// Centre the box in the image rather than on the wall: the steep view enlarges what lies near the camera
+		const determinant = right[0] * up[2] - right[2] * up[0];
+		for (
+			let iteration = 0;
+			iteration < OPENING_STEPS && Math.abs(determinant) > 1e-9;
+			iteration++
+		) {
+			const reachOut = clamp(widestAround(), settings.distance, limit);
+			let lowX = Number.POSITIVE_INFINITY;
+			let highX = Number.NEGATIVE_INFINITY;
+			let lowY = Number.POSITIVE_INFINITY;
+			let highY = Number.NEGATIVE_INFINITY;
+			xs.forEach((value, which) => {
+				const dx = value - x;
+				const dy = (ys[which] ?? 0) - y;
+				const depth = Math.max(reachOut - (dx * toward[0] + dy * toward[2]), 1e-6);
+				const imageX = (dx * right[0] + dy * right[2]) / depth;
+				const imageY = (dx * up[0] + dy * up[2]) / depth;
+				lowX = Math.min(lowX, imageX);
+				highX = Math.max(highX, imageX);
+				lowY = Math.min(lowY, imageY);
+				highY = Math.max(highY, imageY);
+			});
+			const wantX = ((lowX + highX) / 2) * reachOut;
+			const wantY = ((lowY + highY) / 2) * reachOut;
+			x += (wantX * up[2] - wantY * right[2]) / determinant;
+			y += (wantY * right[0] - wantX * up[0]) / determinant;
+		}
+		pointX[index] = x;
+		pointY[index] = y;
+		const widest = widestAround();
+		need[index] = widest;
+		fits[index] = widest <= limit ? 1.0 : 0.0;
+	}
+	const eased = criticallyDamped(fits, fps, GROUP_EASE / 3);
+	const weight = new Float64Array(count);
+	for (let index = 0; index < count; index++)
+		weight[index] = clamp(eased[index] ?? 0, 0.0, 1.0) * (ramp[index] ?? 0);
+	return { point: [pointX, pointY], need, weight };
+}
+
+/**
+ * `keep_clear_of_edges`: a marble in flight stays inside EDGE_IN of the half frame or beyond EDGE_OUT, never cut at
+ * the edge. The leading marble is kept in. Another marble keeps the side it came from while it swings through the
+ * band between, a side lasts at least twice EDGE_HOLD, and it goes out wherever keeping it in would take the leading
+ * marble past LEADER_KEEP; kept out, it is pushed only once within EDGE_NEAR of the edge. While the frame pans
+ * between marbles (the leader arriving from beyond EDGE_OUT, or its share below LEAD_SETTLED while a marble arrives
+ * from there) the pan sets
+ * the pace alone, and from the hold on nothing shifts. Offsets are seen through the baked view from the look target.
+ * The shift each marble needs is held at its largest over EDGE_HOLD seconds around each frame, so the frame stays put
+ * while a marble swings near the edge, and eased over EDGE_EASE seconds. Adds the shift to the target in place.
+ */
+function keepClearOfEdges(
+	marbles: TFollowMarble[],
+	times: Float64Array,
+	sample: Float64Array,
+	target: [Float64Array, Float64Array],
+	distance: Float64Array,
+	axes: TAxes[],
+	shares: Float64Array[],
+	lens: number,
+	aspect: number,
+	fps: number
+): void {
+	const moving = marbles.filter(hasMotion);
+	const count = sample.length;
+	const points = moving.map((marble) => marblePoint(marble, sample));
+	const halfLong = CAMERA_SENSOR / 2 / lens;
+	const halfWidth = aspect < 1 ? halfLong * aspect : halfLong;
+	const halfHeight = aspect < 1 ? halfLong : halfLong / aspect;
+	/** Where an offset from the look target sits in the frame, in half frames (1 at the edge) */
+	const place = (index: number, dx: number, dy: number): number => {
+		const { right, up, toward } = axes[index] as TAxes;
+		const spread = Math.max(
+			Math.abs(dx * right[0] + dy * right[2]) / halfWidth,
+			Math.abs(dx * up[0] + dy * up[2]) / halfHeight
+		);
+		const depth = (distance[index] ?? 0) - (dx * toward[0] + dy * toward[2]);
+		return depth > 1e-6 ? spread / depth : Number.POSITIVE_INFINITY;
+	};
+	const leaders = new Int32Array(count);
+	for (let index = 0; index < count; index++) {
+		let leader = 0;
+		shares.forEach((share, which) => {
+			if ((share[index] ?? 0) > (shares[leader]?.[index] ?? 0)) leader = which;
+		});
+		leaders[index] = leader;
+	}
+	const offset = (which: number, index: number): [number, number] => [
+		(points[which]?.[0][index] ?? 0) - (target[0][index] ?? 0),
+		(points[which]?.[1][index] ?? 0) - (target[1][index] ?? 0)
+	];
+	const shortest = pyRound(2 * EDGE_HOLD * fps);
+	const shiftX = new Float64Array(count);
+	const shiftY = new Float64Array(count);
+	// Where each marble sits in the frame, and whether it is arriving: it was beyond EDGE_OUT and has not yet come
+	// inside EDGE_IN, as while the frame pans to it from afar
+	const isFollowing = (marble: TFollowMarble, index: number): boolean =>
+		inside(marble, sample[index] ?? 0) && (times[index] ?? 0) <= (sample[index] ?? 0) + 1e-9;
+	const placesOf = moving.map(() => new Float64Array(count));
+	const arrivingOf = moving.map(() => new Uint8Array(count));
+	moving.forEach((marble, which) => {
+		let isArriving = false;
+		for (let index = 0; index < count; index++) {
+			if (!isFollowing(marble, index)) continue;
+			const now = place(index, ...offset(which, index));
+			(placesOf[which] as Float64Array)[index] = now;
+			if (now > EDGE_OUT) isArriving = true;
+			else if (now <= EDGE_IN) isArriving = false;
+			(arrivingOf[which] as Uint8Array)[index] = isArriving ? 1 : 0;
+		}
+	});
+	moving.forEach((marble, which) => {
+		// Per frame +1 kept in, -1 kept out, 0 free, and how far in half frames it moves to get there
+		const side = new Int8Array(count);
+		const amount = new Float64Array(count);
+		const places = placesOf[which] as Float64Array;
+		let isInside = true;
+		for (let index = 0; index < count; index++) {
+			if (!isFollowing(marble, index)) continue;
+			const now = places[index] ?? 0;
+			// While the frame pans between marbles every marble moves at the pan's pace
+			const leader = leaders[index] ?? 0;
+			const isFar = arrivingOf.some((arriving) => arriving[index] === 1);
+			if (
+				arrivingOf[leader]?.[index] === 1 ||
+				(isFar && (shares[leader]?.[index] ?? 0) < LEAD_SETTLED)
+			) {
+				isInside = now <= EDGE_IN || (isInside && now < EDGE_OUT);
+				continue;
+			}
+			if (which === leader || now <= EDGE_IN) isInside = true;
+			else if (now >= EDGE_OUT) isInside = false;
+			side[index] = isInside ? 1 : -1;
+		}
+		const isLed = (index: number): boolean => leaders[index] === which;
+		// A side held for less than twice EDGE_HOLD keeps the side before it
+		let start = 0;
+		for (let index = 1; index <= count; index++) {
+			if (index < count && side[index] === side[start]) continue;
+			const before = start > 0 ? (side[start - 1] ?? 0) : 0;
+			if (before !== 0 && side[start] !== 0 && index - start < shortest) {
+				for (let frame = start; frame < index; frame++) if (!isLed(frame)) side[frame] = before;
+			}
+			start = index;
+		}
+		const measure = (): void => {
+			for (let index = 0; index < count; index++) {
+				const now = Number.isFinite(places[index] ?? 0) ? (places[index] ?? 0) : 0.0;
+				// A marble kept out is pushed only where it comes within EDGE_NEAR of the edge; further inside, as when the
+				// frame meets it head on or it has room short of the safe area, it is left free
+				amount[index] =
+					side[index] === 1
+						? Math.max(now - EDGE_IN, 0.0)
+						: side[index] === -1 && now >= EDGE_NEAR
+							? Math.max(EDGE_OUT - now, 0.0)
+							: 0.0;
+			}
+		};
+		measure();
+		// Kept in only while the leading marble stays within LEADER_KEEP with the shift held as it will be; around a
+		// frame where it would not, the marble goes out
+		const heldIn = held(
+			amount.map((value, index) => (side[index] === 1 ? value : 0.0)),
+			fps,
+			EDGE_HOLD,
+			'max'
+		);
+		const isTooFar = new Float64Array(count);
+		for (let index = 0; index < count; index++) {
+			const leader = leaders[index] ?? 0;
+			const now = places[index] ?? 0;
+			if (side[index] !== 1 || isLed(index) || now <= 1e-9 || !Number.isFinite(now)) continue;
+			if (!isFollowing(moving[leader] as TFollowMarble, index)) continue;
+			const [dx, dy] = offset(which, index);
+			const shift = (heldIn[index] ?? 0) / now;
+			const [leaderX, leaderY] = offset(leader, index);
+			if (place(index, leaderX - shift * dx, leaderY - shift * dy) > LEADER_KEEP)
+				isTooFar[index] = 1.0;
+		}
+		const isOut = held(isTooFar, fps, EDGE_HOLD, 'max');
+		for (let index = 0; index < count; index++)
+			if ((isOut[index] ?? 0) > 0 && side[index] === 1 && !isLed(index)) side[index] = -1;
+		measure();
+		const keepIn = held(
+			amount.map((value, index) => (side[index] === 1 ? value : 0.0)),
+			fps,
+			EDGE_HOLD,
+			'max'
+		);
+		const keepOut = held(
+			amount.map((value, index) => (side[index] === -1 ? value : 0.0)),
+			fps,
+			EDGE_HOLD,
+			'max'
+		);
+		for (let index = 0; index < count; index++) {
+			const now = places[index] ?? 0;
+			if (side[index] === 0 || now <= 1e-9 || !Number.isFinite(now)) continue;
+			const [dx, dy] = offset(which, index);
+			// Moving the target by `shift` of the offset moves the marble that many of its half frames
+			const shift = side[index] === 1 ? (keepIn[index] ?? 0) / now : -(keepOut[index] ?? 0) / now;
+			shiftX[index] = (shiftX[index] ?? 0) + shift * dx;
+			shiftY[index] = (shiftY[index] ?? 0) + shift * dy;
+		}
+	});
+	const smoothX = criticallyDamped(shiftX, fps, EDGE_EASE / 3);
+	const smoothY = criticallyDamped(shiftY, fps, EDGE_EASE / 3);
+	for (let index = 0; index < count; index++) {
+		target[0][index] = (target[0][index] ?? 0) + (smoothX[index] ?? 0);
+		target[1][index] = (target[1][index] ?? 0) + (smoothY[index] ?? 0);
+	}
 }
 
 /**

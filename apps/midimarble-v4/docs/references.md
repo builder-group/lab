@@ -263,6 +263,34 @@ Measured on 2026-11-04 with the TypeScript follow camera (`.local/song-tail/meas
 - The import now ends at the last note's start plus the tail, not at its end: a long final note would push the film past the marble
 - Audio: `FILM_AUDIO_FADE` 0.4 s, a linear fade over the end of the soundtrack (`renderProjectAudio`, 25 ms before), and an `afade` of the same length in the FFmpeg encode (a volume ramp in Blender's own encoder). Loop films keep their fold and are not faded
 
+### Clean frame edges and an opening on the track
+
+Measured on 2026-11-04 after review finding R6-11 (at 0:21 the Melody marble sits cut by the left edge while the camera follows the Bass; the opening frame shows two marbles over an empty wall with the first pieces at its bottom edge). TypeScript follow camera at 30 fps with `.local/camera-r8/measure.ts` (the round 7 script plus the edge band, the opening and the target's speed) over the first to the last hit; before and after in `.local/camera-r8/before.jsonl` and `after.jsonl`. Frame positions are 0 to 1, y up.
+
+| | Jingle Bells before | Jingle Bells after | reference-20 before | reference-20 after |
+| --- | --- | --- | --- | --- |
+| Frames with a marble centre within 4 % of a frame edge | 9.6 % | 4.4 % | 0 | 0 |
+| Same, only marbles that are playing | 9.0 % | 3.7 % | 0 | 0 |
+| Frames with a marble cut by the edge (disc across it) | 14.9 % | 7.1 % | 0 | 0 |
+| Edge stretches of 0.2 s or more | 13.3, 15.6, 20.9, 23.1 to 24.0 s | 9.8 s, 31.7 s (the finished melody falling away) | | |
+| Marble in frame width, median (10th percentile) | 6.2 % (5.4) | 6.1 % (5.4) | 8.7 % (8.0) | 8.7 % (8.0) |
+| Camera distance, median and max | 0.91, 0.97 m | 0.93, 0.97 m | 0.7, 0.7 m | 0.7, 0.7 m |
+| Both marbles in frame | 87.9 % | 80.8 % | | |
+| Melody / bass in frame while it plays | 97.9 / 92.5 % | 94.7 / 88.3 % | 100 % | 100 % |
+| Target speed, 99th percentile and max | 0.63, 0.71 m/s | 0.47, 0.49 m/s | unchanged | unchanged |
+| Opening: first three struck pieces at height | 0.22, 0.00, 0.07 | 0.35, 0.16, 0.21 | 0.49, 0.08, 0.31 | 0.71, 0.27, 0.37 |
+| Opening: marbles at height | 0.72, 0.43 | 0.87, 0.64 | 0.54 | 0.82 |
+| Last marble in the held frame after the last hit | 0.43 s | 0.43 s | 0.43 s | 0.43 s |
+
+What changed (both `camera.py` and `follow-camera.ts`; `pnpm camera:check` within 0.001 mm and 0.016°):
+
+- Edges. After the target is baked, every marble in flight is seen through the baked view. One that does not lead stays inside `EDGE_IN` (0.8 of the half frame, 10 % of the frame from its edge) or beyond `EDGE_OUT` (1.15, fully out): it keeps the side it came from while it swings through the band, a side lasts at least 1 s, and it goes out wherever keeping it in would take the leading marble past `LEADER_KEEP` (0.8). Kept out, it is pushed only once within `EDGE_NEAR` (0.88): without that, Two Marbles, which is clean, lost its second marble on 23 % of the frames. The leading marble is kept in too. The shift a marble needs holds at its largest over `EDGE_HOLD` (±0.5 s) and eases over `EDGE_EASE` (0.45 s) on its own, outside the target's 0.34 s smoothing. Earlier versions that shifted the follow point before the target smoothing, or decided the side frame by frame, reached 4.9 to 7.4 %: the bass's zigzag swings it in and out of the band about once a second
+- The bass in Jingle Bells zigzags across the left edge of the melody's frame between 9 and 14 s and 20 and 27 s; every remaining stay in the edge band is shorter than 0.2 s except at 9.8 s and 31.7 s. Holding it in would push the leading melody past its keep, so it goes out cleanly and both-in-frame drops from 87.9 to 80.8 %. Keeping the leading marble in on every frame reached 3.4 % but made the long pan of the far-apart test marbles jump (0.020 m in a frame against 0.013), so while the frame pans to a marble arriving from beyond `EDGE_OUT` (or the leader's share is below `LEAD_SETTLED`, 0.75, while one does) the pan sets the pace alone. A hold of ±0.75 s or ±1 s, or `LEADER_KEEP` 0.7 to 0.9, gave 4.2 to 4.5 %
+- Opening. Until the first hit the follow point is the centre, in the image, of the box around the marbles (in flight or waiting at their release point) and the first three struck pieces within 2 s of the first hit (`opening_pieces`, set by `apply_scene`); the zoom widens to fit the box within the readable maximum and the opening eases into the follow over 1.5 s after the first hit. Centred on the wall instead, the steep view put the box low (pieces at 0.09 to 0.27, marbles at 0.73); counting only marbles in flight left them out of frame until their release at 0.5 s. Where the box does not fit the readable maximum the opening is skipped: Two Marbles' first pieces span the wall's width and its opening is unchanged. Loops have no opening
+- Ending: unchanged; the song-tail test still holds (last marble at the final frame inside a 5 % margin)
+
+Draft film and its 1 fps contact sheet: `.local/camera-r8/films/jingle-bells-draft.mp4` and `jingle-bells-draft-contact.jpg`; frames 0, 15, 30 and 630 in `opening-21s.jpg`.
+
 ## Scale
 
 Blender's default unit is the metre, and the purchased Marble Race Kit uses real scale: marbles are 16 mm and track modules about 0.2 m. MidiMarble works in the same units; its default kit is 1.5 times that size (24 mm marbles, 9 cm bars), which reads at the reference film's scale, as `reference-20` showed first. Rapier and Blender then share units, and lighting, depth of field and physics behave like real objects.

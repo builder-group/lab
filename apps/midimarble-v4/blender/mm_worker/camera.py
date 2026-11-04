@@ -100,6 +100,26 @@ LEAD_HOLD = 1.5
 LEAD_EASE = 2.5
 # A shot at this fraction of the rig distance or closer frames only the leading marble
 PUSH_FOCUS = 0.7
+# The opening frames the release points and up to OPENING_PIECES of the first struck pieces (those within LEAD_AHEAD
+# seconds of the first hit), centred in the image in OPENING_STEPS steps, and eases into the follow over OPENING_EASE
+# seconds after the first hit, so the film opens on the track rather than on marbles over an empty wall
+OPENING_PIECES = 3
+OPENING_EASE = 1.5
+OPENING_STEPS = 3
+# A marble in flight stays inside EDGE_IN of the half frame (10 % of the frame from its edge) or beyond EDGE_OUT
+# (fully out); in between it would sit cut at the edge, so the frame shifts it in or out. A marble that cannot be kept
+# in is pushed out only once within EDGE_NEAR (6 % of the frame from the edge). The leading marble stays within
+# LEADER_KEEP when the frame shifts for another; below LEAD_SETTLED of the leader's share the frame is panning between
+# marbles, which sets the pace alone. The shift a marble needs holds at its largest over EDGE_HOLD seconds around each
+# frame and eases over EDGE_EASE seconds. On Jingle Bells a marble centre sits within 4 % of the frame edge on 4.4 % of
+# the frames against 9.6 % without (docs/references.md)
+EDGE_IN = 0.8
+EDGE_OUT = 1.15
+EDGE_NEAR = 0.88
+LEADER_KEEP = 0.8
+LEAD_SETTLED = 0.75
+EDGE_EASE = 0.45
+EDGE_HOLD = 0.5
 # A view ray that misses the wall, or meets it further than this, counts this many camera heights away when sizing
 # the wall. The steep default pitch (1.15 rad) meets the wall up to about 40 heights away at the far frame corner
 FAR_REACH = 60.0
@@ -142,8 +162,9 @@ def settings_from(description_camera, theme_settings):
         'focus': camera.get('focusMarbleId') if isinstance(camera.get('focusMarbleId'), str) else None,
         'descent': descent_curve(camera.get('descent')),
         'hold': hold_time(camera.get('holdAfter')),
-        # Typical piece length on the wall; `apply_scene` sets it from the pieces
+        # Typical piece length on the wall and the first struck pieces; `apply_scene` sets them from the pieces
         'pieceLength': None,
+        'opening': None,
     }
 
 
@@ -177,6 +198,22 @@ def descent_curve(value):
         return None
     points.sort()
     return np.array(points)
+
+
+def opening_pieces(pieces):
+    """The first OPENING_PIECES pieces by their first hit that strike within LEAD_AHEAD seconds of the first hit, as
+    (time, x, y) tuples sorted by that time, or None"""
+    struck = []
+    for piece in pieces:
+        times = [float(time) for time in (piece.get('hitTimes') or []) if math.isfinite(float(time))]
+        if not times:
+            continue
+        struck.append((min(times), float(piece['position']['x']), float(piece['position']['y'])))
+    struck.sort(key=lambda item: item[0])
+    if not struck:
+        return None
+    first = struck[0][0]
+    return [item for item in struck if item[0] <= first + LEAD_AHEAD + 1e-9][:OPENING_PIECES]
 
 
 def width_per_metre(lens, aspect):
@@ -431,11 +468,14 @@ def group_framing(marbles, motions, times, settings, fps, aspect, heading, aim=N
     limit = readable_distance(settings, aspect, radius)
     upper = max(base, limit)
     side, roll = view_turn(times, heading, shot_roll, hold)
-    raw = spread_need(marbles, motions, sample, centre if aim is None else aim, settings['lens'],
-                      view_axes(side, roll, settings['pitch']))
+    axes = view_axes(side, roll, settings['pitch'])
+    raw = spread_need(marbles, motions, sample, centre if aim is None else aim, settings['lens'], axes)
+    # The opening frame widens the zoom to its pieces; whether the group fits still counts the marbles alone
+    opening = opening_frame(marbles, motions, times, sample, settings, fps, axes, limit)
+    zoom_need = raw if opening is None else np.maximum(raw, opening['need'] * opening['weight'])
     # Hold the widest need for a second so the zoom does not breathe with every bounce; a running median first drops
     # momentary spikes, such as one marble's bounce peak, that the frame margins absorb
-    need = held(held(raw, fps, GROUP_SPIKE / 2, np.median), fps, 1.0)
+    need = held(held(zoom_need, fps, GROUP_SPIKE / 2, np.median), fps, 1.0)
     # The group stops fitting where it would need more than the readable distance for longer than GROUP_SPIKE (the
     # frame margins absorb a shorter excursion); the camera then leaves it a second early, so it is on the focus
     # marble when the zoom would top out, and returns only when the group fits again for two seconds
@@ -457,9 +497,209 @@ def group_framing(marbles, motions, times, settings, fps, aspect, heading, aim=N
         keep = (weight * (1 - push))[:, None]
         centre = keep * centre + (1 - keep) * lead
         ahead = keep * ahead + (1 - keep) * lead_ahead
+    if opening is not None:
+        weight = opening['weight'][:, None]
+        centre = weight * opening['point'] + (1 - weight) * centre
+        ahead = weight * opening['point'] + (1 - weight) * ahead
+    moving = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']])]
+    shares = lead_shares(marbles, motions, sample, settings.get('focus'), fps) if len(moving) > 1 else None
     if hold is not None:
         centre, ahead = settled(centre, times, hold), settled(ahead, times, hold)
-    return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'roll': shot_roll}
+    return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'roll': shot_roll,
+            'sample': sample, 'shares': shares}
+
+
+def opening_frame(marbles, motions, times, sample, settings, fps, axes, limit):
+    """Until the first hit the camera frames the box around the marbles in flight (or waiting at their release
+    point) and the first struck pieces, centred in the image, and eases into the follow over OPENING_EASE seconds after
+    it. Returns the box centre (n, 2), the distance the box needs and the opening's weight per frame, which eases to 0
+    where the box needs more than the readable maximum; or None without opening pieces"""
+    pieces = settings.get('opening')
+    if not pieces:
+        return None
+    first = min(piece[0] for piece in pieces)
+    count = len(times)
+    reach = SENSOR / 2 / settings['lens'] * GROUP_KEEP_Y
+    reach_x = SENSOR / 2 / settings['lens'] * GROUP_KEEP_X * ASPECT_GUESS
+    moving = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']])]
+    points = [marble_point(marble, motions, sample) for marble in moving]
+    right, image_up, toward = axes
+    point = np.zeros((count, 2))
+    need = np.zeros(count)
+    ramp = 1.0 - smoothstep((times - first) / OPENING_EASE)
+    fits = np.ones(count)
+    for index in range(count):
+        if ramp[index] <= 0:
+            continue
+        xs = [piece[1] for piece in pieces]
+        ys = [piece[2] for piece in pieces]
+        for marble, path in zip(moving, points):
+            motion = motions[marble['id']]
+            moment = max(float(sample[index]), float(motion[0, 0]))
+            if in_flight(marble, motion, np.array([moment]))[0]:
+                xs.append(float(path[index, 0]))
+                ys.append(float(path[index, 1]))
+        x = (min(xs) + max(xs)) / 2
+        y = (min(ys) + max(ys)) / 2
+        rx, rz = right[index, 0], right[index, 2]
+        ux, uz = image_up[index, 0], image_up[index, 2]
+        tx, tz = toward[index, 0], toward[index, 2]
+
+        def widest_around(x, y):
+            widest = 0.0
+            for value_x, value_y in zip(xs, ys):
+                dx, dy = value_x - x, value_y - y
+                across = abs(dx * rx + dy * rz)
+                high = abs(dx * ux + dy * uz)
+                along = dx * tx + dy * tz
+                widest = max(widest, along + max(across / reach_x, high / reach) * GROUP_MARGIN)
+            return widest
+
+        # Centre the box in the image rather than on the wall: the steep view enlarges what lies near the camera
+        determinant = rx * uz - rz * ux
+        for _ in range(OPENING_STEPS):
+            if abs(determinant) <= 1e-9:
+                break
+            reach_out = min(limit, max(settings['distance'], widest_around(x, y)))
+            image_x, image_y = [], []
+            for value_x, value_y in zip(xs, ys):
+                dx, dy = value_x - x, value_y - y
+                depth = max(reach_out - (dx * tx + dy * tz), 1e-6)
+                image_x.append((dx * rx + dy * rz) / depth)
+                image_y.append((dx * ux + dy * uz) / depth)
+            want_x = (min(image_x) + max(image_x)) / 2 * reach_out
+            want_y = (min(image_y) + max(image_y)) / 2 * reach_out
+            x += (want_x * uz - want_y * rz) / determinant
+            y += (want_y * rx - want_x * ux) / determinant
+        point[index] = (x, y)
+        need[index] = widest_around(x, y)
+        fits[index] = 1.0 if need[index] <= limit else 0.0
+    eased = np.clip(critically_damped(fits[:, None], fps, GROUP_EASE / 3)[:, 0], 0.0, 1.0)
+    return {'point': point, 'need': need, 'weight': eased * ramp}
+
+
+def keep_clear_of_edges(marbles, motions, times, sample, target, distance, axes, shares, lens, aspect, fps):
+    """A marble in flight stays inside EDGE_IN of the half frame or beyond EDGE_OUT, never cut at the edge.
+
+    The leading marble is kept in. Another marble keeps the side it came from while it swings through the band
+    between, a side lasts at least twice EDGE_HOLD, and it goes out wherever keeping it in would take the leading
+    marble past LEADER_KEEP; kept out, it is pushed only once within EDGE_NEAR of the edge. While the frame pans
+    between marbles (the leader arriving from beyond EDGE_OUT, or its share below LEAD_SETTLED while a marble arrives
+    from there) the pan sets
+    the pace alone, and from the hold on nothing shifts. Offsets are seen through the baked view from the look target.
+    The shift each marble needs is held at its largest over EDGE_HOLD seconds around each frame, so the frame stays put
+    while a marble swings near the edge, and eased over EDGE_EASE seconds. Adds the shift to `target` (n, 2) in
+    place."""
+    moving = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']])]
+    count = len(sample)
+    points = [marble_point(marble, motions, sample) for marble in moving]
+    half_long = SENSOR / 2 / lens
+    half_width = half_long * aspect if aspect < 1 else half_long
+    half_height = half_long if aspect < 1 else half_long / aspect
+    right, image_up, toward = axes
+
+    def place(index, dx, dy):
+        spread = max(abs(dx * right[index, 0] + dy * right[index, 2]) / half_width,
+                     abs(dx * image_up[index, 0] + dy * image_up[index, 2]) / half_height)
+        depth = distance[index] - (dx * toward[index, 0] + dy * toward[index, 2])
+        return spread / depth if depth > 1e-6 else math.inf
+
+    leaders = np.argmax(np.stack(shares), axis=0)
+
+    def offset(which, index):
+        return points[which][index, 0] - target[index, 0], points[which][index, 1] - target[index, 1]
+
+    following = [in_flight(marble, motions[marble['id']], sample) & (times <= sample + 1e-9) for marble in moving]
+    shortest = int(round(2 * EDGE_HOLD * fps))
+    shift = np.zeros((count, 2))
+    # Where each marble sits in the frame, and whether it is arriving: it was beyond EDGE_OUT and has not yet come
+    # inside EDGE_IN, as while the frame pans to it from afar
+    places_of = [np.zeros(count) for _ in moving]
+    arriving_of = [np.zeros(count, dtype=bool) for _ in moving]
+    for which in range(len(moving)):
+        arriving = False
+        for index in range(count):
+            if not following[which][index]:
+                continue
+            now = place(index, *offset(which, index))
+            places_of[which][index] = now
+            if now > EDGE_OUT:
+                arriving = True
+            elif now <= EDGE_IN:
+                arriving = False
+            arriving_of[which][index] = arriving
+    for which in range(len(moving)):
+        # Per frame +1 kept in, -1 kept out, 0 free, and how far in half frames it moves to get there
+        side = np.zeros(count, dtype=np.int8)
+        amount = np.zeros(count)
+        places = places_of[which]
+        inside = True
+        for index in range(count):
+            if not following[which][index]:
+                continue
+            now = places[index]
+            # While the frame pans between marbles every marble moves at the pan's pace
+            leader = leaders[index]
+            far = any(arriving[index] for arriving in arriving_of)
+            if arriving_of[leader][index] or (far and shares[leader][index] < LEAD_SETTLED):
+                inside = now <= EDGE_IN or (inside and now < EDGE_OUT)
+                continue
+            if which == leader or now <= EDGE_IN:
+                inside = True
+            elif now >= EDGE_OUT:
+                inside = False
+            side[index] = 1 if inside else -1
+        led = leaders == which
+        # A side held for less than twice EDGE_HOLD keeps the side before it
+        start = 0
+        for index in range(1, count + 1):
+            if index < count and side[index] == side[start]:
+                continue
+            before = side[start - 1] if start > 0 else 0
+            if before != 0 and side[start] != 0 and index - start < shortest:
+                for frame in range(start, index):
+                    if not led[frame]:
+                        side[frame] = before
+            start = index
+
+        def measure():
+            # A marble kept out is pushed only where it comes within EDGE_NEAR of the edge; further inside it is free
+            now = np.where(np.isfinite(places), places, 0.0)
+            amount[:] = np.where(side == 1, np.maximum(now - EDGE_IN, 0.0),
+                                 np.where((side == -1) & (now >= EDGE_NEAR), np.maximum(EDGE_OUT - now, 0.0), 0.0))
+
+        measure()
+        # Kept in only while the leading marble stays within LEADER_KEEP with the shift held as it will be; around a
+        # frame where it would not, the marble goes out
+        held_in = held(np.where(side == 1, amount, 0.0), fps, EDGE_HOLD)
+        too_far = np.zeros(count)
+        for index in range(count):
+            leader = leaders[index]
+            now = places[index]
+            if side[index] != 1 or led[index] or now <= 1e-9 or not math.isfinite(now):
+                continue
+            if not following[leader][index]:
+                continue
+            dx, dy = offset(which, index)
+            part = held_in[index] / now
+            leader_x, leader_y = offset(leader, index)
+            if place(index, leader_x - part * dx, leader_y - part * dy) > LEADER_KEEP:
+                too_far[index] = 1.0
+        out = held(too_far, fps, EDGE_HOLD)
+        side[(out > 0) & (side == 1) & ~led] = -1
+        measure()
+        keep_in = held(np.where(side == 1, amount, 0.0), fps, EDGE_HOLD)
+        keep_out = held(np.where(side == -1, amount, 0.0), fps, EDGE_HOLD)
+        for index in range(count):
+            now = places[index]
+            if side[index] == 0 or now <= 1e-9 or not math.isfinite(now):
+                continue
+            dx, dy = offset(which, index)
+            # Moving the target by `part` of the offset moves the marble that many of its half frames
+            part = keep_in[index] / now if side[index] == 1 else -keep_out[index] / now
+            shift[index, 0] += part * dx
+            shift[index, 1] += part * dy
+    target += critically_damped(shift, fps, EDGE_EASE / 3)
 
 
 def critically_damped(values, fps, tau):
@@ -596,7 +836,7 @@ def bake(scene, camera, settings, marbles, motions, fps):
     times = frames / fps
     aspect = scene.render.resolution_x / max(1, scene.render.resolution_y)
     if loop:
-        settings = dict(settings, hold=None)
+        settings = dict(settings, hold=None, opening=None)
     # The group's size in frame depends on where the camera looks from and at: a first pass with the camera straight
     # and sized around the group's centre gives the run direction and the smoothed target that size the second
     framing = group_framing(marbles, motions, times, settings, fps, aspect, np.zeros(len(times)))
@@ -609,6 +849,10 @@ def bake(scene, camera, settings, marbles, motions, fps):
     # The camera stands below and to the side of the target, looking up along the run; the side follows the run
     # direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
     side, roll = view_turn(times, heading, framing['roll'], settings.get('hold'))
+    # Seen through this view, a marble the camera does not lead goes fully in or fully out, never cut at the edge
+    if framing['shares'] is not None:
+        keep_clear_of_edges(marbles, motions, times, framing['sample'], target, distance,
+                            view_axes(side, roll, settings['pitch']), framing['shares'], settings['lens'], aspect, fps)
 
     pitch = settings['pitch']
     locations = np.empty((len(frames), 3))
