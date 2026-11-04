@@ -2,7 +2,7 @@ import { AudioLines, ChevronRight, Music } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { BACKING_ID, type TProject, type TSource } from '@/modules/project';
-import { commandItem } from '../commands';
+import { songMenu } from '../menus';
 import { SONG_KEY } from '../selection';
 import { formatTime } from '../format';
 import type { TSourceAnalysis } from '../SourcesCx';
@@ -15,20 +15,25 @@ import { Keyboard } from './TrackHeader';
 import { toggleSongExpanded } from './timeline-state';
 
 /**
- * The project's song as the top track, like the audio clip under a Final Cut storyline: the file name in
- * the header, the waveform of a recording or a small overview of every note for MIDI. A MIDI song expands into
- * a piano roll of every note, where notes are handed to marbles or to Backing.
+ * The Song layer's row at the top of the timeline, like the audio clip under a Final Cut storyline: the file
+ * name in the header, the waveform of a recording or a small overview of every note for MIDI. A MIDI song expands
+ * into a piano roll of every note, where notes are handed to marbles or to Backing. The row exists only while the
+ * project has a song file or Backing notes; without a file it reads Song and shows the Backing notes.
  */
 export const SongTrack: React.FC<TSongTrackProps> = (props) => {
-	const { cx, project, song, analysis, zoom, width, range, isExpanded, height, selection } = props;
-	const isAudio = song.kind === 'audio';
+	const { cx, project, song, name, analysis, zoom, width, range, isExpanded, height, selection } = props;
+	const isAudio = song?.kind === 'audio';
 	const tempo = project.music.tempo;
-	const details = isAudio
-		? ['Recording', analysis == null ? null : formatTime(analysis.duration)]
-		: ['MIDI', tempo == null ? null : `${Math.round(tempo.bpm)} BPM`];
+	const backingCount = project.music.backing.length;
+	const details =
+		song == null
+			? ['Backing', backingCount === 1 ? '1 note' : `${backingCount} notes`]
+			: isAudio
+				? ['Recording', analysis == null ? null : formatTime(analysis.duration)]
+				: ['MIDI', tempo == null ? null : `${Math.round(tempo.bpm)} BPM`];
 
 	function openMenu(event: React.MouseEvent): void {
-		openContextMenu(event, [{ section: 'Song' }, commandItem(cx, 'file.replaceSong'), commandItem(cx, 'file.removeSong')]);
+		openContextMenu(event, songMenu(cx));
 	}
 
 	// An expanded roll taller than its track scrolls inside it, keyboard and notes together, like GarageBand's
@@ -76,7 +81,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 				data-expanded={isExpanded}
 				onClick={() => cx.$selection.set([SONG_KEY])}
 				onContextMenu={openMenu}
-				title={song.name}
+				title={name}
 			>
 				<div className="flex min-w-0 flex-1 items-center gap-1.5 pr-1.5" style={{ height: SONG_ROW_HEIGHT }}>
 					{range != null ? (
@@ -96,7 +101,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 					)}
 					<span className="mm-song-icon">{isAudio ? <AudioLines size={12} strokeWidth={1.75} /> : <Music size={12} strokeWidth={1.75} />}</span>
 					<span className="flex min-w-0 flex-1 flex-col leading-tight">
-						<span className="truncate font-medium">{song.name}</span>
+						<span className="truncate font-medium">{name}</span>
 						<span className="truncate text-[11px] text-[var(--text-secondary)]">{details.filter(Boolean).join(' · ')}</span>
 					</span>
 				</div>
@@ -113,8 +118,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 					</div>
 				</div>
 			) : (
-			<div className="mm-song-lane relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }} onContextMenu={openMenu} aria-label={`Song ${song.name}`}>
-				{isAudio && analysis != null ? (
+			<div className="mm-song-lane relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }} onContextMenu={openMenu} aria-label={`Song ${name}`}>
+				{song != null && isAudio && analysis != null ? (
 					<>
 						<Waveform analysis={analysis} offset={song.offset} zoom={zoom} height={SONG_ROW_HEIGHT - 1} />
 						{analysis.onsets.map((onset) => (
@@ -129,38 +134,12 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	);
 };
 
-/**
- * The Song track before a song exists: where a file goes, like GarageBand's empty track that asks for a loop.
- * Files dropped anywhere on the window import too.
- */
-export const EmptySongTrack: React.FC<{ cx: StudioCx; width: number }> = (props) => {
-	const { cx, width } = props;
-	return (
-		<div className="flex shrink-0" style={{ height: SONG_ROW_HEIGHT }}>
-			<div
-				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-b border-[var(--separator)] pr-2 pl-5 text-[var(--text-secondary)]"
-				style={{ width: HEADER_WIDTH }}
-				data-quick-help="song"
-			>
-				<span className="mm-song-icon">
-					<Music size={12} strokeWidth={1.75} />
-				</span>
-				<span className="truncate font-medium">Song</span>
-			</div>
-			<div className="mm-song-lane mm-song-empty relative flex flex-1 items-center gap-2 border-b border-[var(--separator)] px-3" style={{ minWidth: width }}>
-				<span className="text-[11px] text-[var(--text-tertiary)]">No song yet</span>
-				<button className="mm-link-button" onClick={() => void cx.importSong()} title="Import a MIDI file or a recording, or drop one on the window (⌘I)" type="button">
-					Import Song…
-				</button>
-			</div>
-		</div>
-	);
-};
-
 interface TSongTrackProps {
 	cx: StudioCx;
 	project: TProject;
-	song: TSource;
+	/** Undefined while the Song layer holds only Backing notes */
+	song: TSource | undefined;
+	name: string;
 	analysis: TSourceAnalysis | undefined;
 	zoom: number;
 	width: number;

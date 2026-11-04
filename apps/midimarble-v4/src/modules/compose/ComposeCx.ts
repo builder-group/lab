@@ -3,8 +3,6 @@ import type React from 'react';
 import * as THREE from 'three';
 import { openContextMenu } from '@/components';
 import { isEditingTarget } from '@/lib';
-import { createCameraPose, followCameraTrack, sampleCameraTrack, verticalFov, type TCameraTrack } from '@/modules/camera';
-import { renderFps } from '@/modules/design/DesignCx';
 import type { TEntity, TPathNode, TProject, TVec2 } from '@/modules/project';
 import {
 	findLongGaps,
@@ -41,7 +39,7 @@ import {
 	type TSnap
 } from './attach-edit';
 import { rebaseNodes, withNodeHandle, withNodePoint } from './bezier';
-import { ComposeRenderer, MARBLE_Z, type TComposeCamera, type TFilmView } from './ComposeRenderer';
+import { ComposeRenderer, MARBLE_Z, type TComposeCamera } from './ComposeRenderer';
 import { composeKeyAction, toolPieceType, type TComposeKeyAction, type TComposeTool, type TPathType } from './keys';
 import { insertTool, type TInsertItem } from './library';
 import { dotMenu } from './menus';
@@ -67,7 +65,6 @@ import { newlyBroken } from './fix-it';
 import { commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
 import {
 	boundsOf,
-	filmFrameRect,
 	fitBounds,
 	fitContent,
 	gridLayers,
@@ -78,8 +75,10 @@ import {
 	zoomAt,
 	type TBounds,
 	type TPadding,
+	type TView,
 	type TViewport
 } from './view';
+import { createViewMotion, FOLLOW_RATE, followMarble, isSettled, keepInView, NAVIGATE_RATE, stepViewMotion, type TViewMotion } from './view-follow';
 
 export type { TComposeTool } from './keys';
 
@@ -119,10 +118,10 @@ export class ComposeCx {
 	readonly $insertSnap = createState<{ position: TVec2; snap: TSnap | null } | null>(null);
 	readonly assist: AssistCx;
 	/**
-	 * What the Camera view shows: the film frame on the canvas and the follow camera's pose at the playhead. Null
-	 * outside the Camera view; `pose` is null when the film has no follow camera (manual mode or no motion).
+	 * Follow, like Logic's Catch Playhead: the Wall view glides with the focused marble as the playhead moves. Off by
+	 * default and remembered per project on this device; panning or zooming by hand turns it off.
 	 */
-	readonly $film = createState<TFilmState | null>(null);
+	readonly $follow = createState(false);
 
 	private renderer: ComposeRenderer | null = null;
 	private container: HTMLElement | null = null;
@@ -131,11 +130,14 @@ export class ComposeCx {
 	private trackCache = new WeakMap<object, { points: Float32Array; times: Float32Array }>();
 	/** Keeps the override until the result for the committed edit arrives, so a drop never flickers */
 	private settleRevision: number | null = null;
-	/** Follow camera baked once per result and camera settings, sampled every frame in the Camera view */
-	private filmTrack: { result: TSimulationResult; key: string; track: TCameraTrack | null } | null = null;
-	private filmPose = createCameraPose();
-	/** View to return to when the Camera view toggles off */
-	private editMode: '2d' | 'orbit' = '2d';
+	/** Spring that moves the view for Follow and navigation, with the view it last showed */
+	private motion: { state: TViewMotion; view: TView } | null = null;
+	/** Navigation such as a step to a hit is gliding to its goal, at the faster navigation rate */
+	private isNavigating = false;
+	private motionFrame = 0;
+	private motionTime = 0;
+	/** Project whose remembered Follow choice `$follow` holds */
+	private followProjectId: string | null = null;
 
 	constructor(readonly studio: StudioCx) {
 		this.assist = new AssistCx(studio);
@@ -197,11 +199,9 @@ export class ComposeCx {
 				renderer.setCamera(value);
 				updateGrid();
 				this.screenTracks = null;
-				this.syncFilm();
 			}),
 			this.$viewport.listen(() => {
 				this.screenTracks = null;
-				this.syncFilm();
 			}),
 			this.$viewport.listen(updateGrid),
 			this.studio.simulation.$result.subscribe(({ value }) => {
@@ -214,7 +214,6 @@ export class ComposeCx {
 				this.syncPieces();
 				this.syncMarbles();
 				this.syncGuides();
-				this.syncFilm();
 				this.frameIfNeeded();
 				this.followPhysics(value);
 				this.revealPlaced();
@@ -224,20 +223,27 @@ export class ComposeCx {
 			this.$placing.listen(() => this.syncPieces()),
 			this.studio.$hidden.listen(() => this.syncPieces()),
 			// Stopping at the start shows every piece solid, playing from there dims the ones ahead
-			this.studio.$playing.listen(() => this.syncPieces()),
+			this.studio.$playing.listen(() => {
+				this.syncPieces();
+				this.wakeMotion();
+			}),
 			this.studio.$playhead.subscribe(({ value }) => {
-				// The film camera moves first, so the overlays drawn for this playhead project through its new pose
-				this.syncFilm();
 				renderer.setPlayhead(value);
 				this.syncPieces();
 				this.syncMarbles();
-				this.followPlayback();
+				this.wakeMotion();
+			}),
+			this.$follow.listen(({ value }) => {
+				const projectId = this.project?.id;
+				if (projectId != null) writeFollow(projectId, value);
+				if (value) this.wakeMotion();
 			}),
 			this.studio.$history.listen(() => {
 				// Release positions and newly placed platforms show immediately, before the new result arrives
 				this.syncMarbles();
 				this.syncGuides();
 				this.syncPieces();
+				this.loadFollow();
 				// A newly opened project is framed at once, before its first run arrives
 				this.frameIfNeeded();
 			}),
@@ -271,6 +277,7 @@ export class ComposeCx {
 			window.removeEventListener('keyup', onKeyUp, true);
 		});
 
+		this.loadFollow();
 		this.studio.$compose.set(this);
 		cleanups.push(() => {
 			if (this.studio.$compose.get() === this) this.studio.$compose.set(null);
@@ -280,6 +287,7 @@ export class ComposeCx {
 			for (const cleanup of cleanups) cleanup();
 			this.studio.simulation.endPreview();
 			window.clearTimeout(this.openingTimer);
+			this.stopMotion();
 			renderer.dispose();
 			this.renderer = null;
 			this.container = null;
@@ -428,7 +436,6 @@ export class ComposeCx {
 		for (const piece of pieces) {
 			if (!locked.includes(piece.entityId)) scene.pieces.push({ entityId: piece.entityId, corners: this.screenOutline(piece) });
 		}
-		if (this.$camera.get().mode === 'camera') return scene;
 		for (const hit of result.hits) {
 			if (hit.status === 'open' && hit.dot != null) {
 				scene.dots.push({ laneId: hit.laneId, hitId: hit.hitId, position: this.toScreen(hit.dot) });
@@ -469,7 +476,9 @@ export class ComposeCx {
 
 	// MARK: - Navigation
 
+	/** Zooms by hand, which turns Follow off like scrolling turns off Logic's Catch Playhead */
 	zoomBy(factor: number, anchor?: TVec2): void {
+		this.takeView();
 		const viewport = this.$viewport.get();
 		const point = anchor ?? { x: viewport.width / 2, y: viewport.height / 2 };
 		this.$camera.set((camera) => ({ ...camera, view: zoomAt(camera.view, viewport, point, factor) }));
@@ -509,6 +518,11 @@ export class ComposeCx {
 
 	/** Position of the selected or first marble at the playhead, or its release before it starts */
 	private marbleFocus(): TVec2 | null {
+		return this.marbleMotion()?.position ?? null;
+	}
+
+	/** Position and velocity of the selected or first marble at the playhead; still at its release before it starts */
+	private marbleMotion(): { position: TVec2; velocity: TVec2 } | null {
 		const project = this.project;
 		if (project == null) return null;
 		const selected = this.studio.$selection.get();
@@ -517,21 +531,106 @@ export class ComposeCx {
 		if (marble == null) return null;
 		const track = this.result?.marbles.find((item) => item.entityId === marble.id);
 		const at = track == null ? null : trajectoryAt(track.samples, this.studio.$playhead.get(), gravityOf(project));
-		return at?.position ?? marble.components.release?.position ?? null;
+		if (at != null) return at;
+		const release = marble.components.release?.position;
+		return release != null ? { position: release, velocity: { x: 0, y: 0 } } : null;
 	}
 
-	/** While playing, keeps the marble inside the middle of the canvas by panning vertically */
-	private followPlayback(): void {
-		const camera = this.$camera.get();
-		const viewport = this.$viewport.get();
-		if (!this.studio.$playing.get() || camera.mode !== '2d' || viewport.height <= 1) return;
-		const focus = this.marbleFocus();
-		if (focus == null) return;
-		const screen = worldToScreen(camera.view, viewport, focus);
-		if (screen.y > viewport.height * 0.2 && screen.y < viewport.height * 0.6) return;
-		const centerY = focus.y - (viewport.height * 0.18) / camera.view.scale;
-		this.$camera.set({ ...camera, view: { ...camera.view, center: { x: camera.view.center.x, y: centerY } } });
+	// MARK: - Follow and gliding
+
+	setFollow(isOn: boolean): void {
+		this.$follow.set(isOn);
 	}
+
+	toggleFollow(): void {
+		this.$follow.set(!this.$follow.get());
+	}
+
+	/** Reads the remembered Follow choice when another project opens */
+	private loadFollow(): void {
+		const projectId = this.project?.id ?? null;
+		if (projectId === this.followProjectId) return;
+		this.followProjectId = projectId;
+		this.$follow.set(projectId != null && readFollow(projectId));
+	}
+
+	/** The user moves the view by hand: Follow turns off and a glide in progress stops where it is */
+	private takeView(): void {
+		if (this.$follow.get()) this.$follow.set(false);
+		this.isNavigating = false;
+		this.stopMotion();
+	}
+
+	/**
+	 * Navigation glides to `view` with a critically damped spring, like the film camera, instead of jumping. Without
+	 * a frame loop or with Reduce Motion it is set at once.
+	 */
+	private navigateTo(view: TView): void {
+		const camera = this.$camera.get();
+		if (typeof requestAnimationFrame === 'undefined' || prefersReducedMotion() || this.$viewport.get().width <= 1) {
+			this.stopMotion();
+			this.$camera.set({ ...camera, view });
+			return;
+		}
+		const motion = this.syncMotion();
+		motion.goal = { center: { ...view.center }, scale: view.scale };
+		this.isNavigating = true;
+		this.wakeMotion(true);
+	}
+
+	/** The spring's state, restarted at rest on the current view when anything else moved the view since */
+	private syncMotion(): TViewMotion {
+		const view = this.$camera.get().view;
+		if (this.motion == null || this.motion.view !== view) this.motion = { state: createViewMotion(view), view };
+		return this.motion.state;
+	}
+
+	/** Starts the frame loop when Follow or a glide has work to do */
+	private wakeMotion(force = false): void {
+		if (this.motionFrame !== 0 || this.renderer == null || typeof requestAnimationFrame === 'undefined') return;
+		if (!force && !this.isNavigating && !this.$follow.get()) return;
+		this.motionTime = performance.now();
+		this.motionFrame = requestAnimationFrame(this.stepMotion);
+	}
+
+	private stopMotion(): void {
+		if (this.motionFrame !== 0) cancelAnimationFrame(this.motionFrame);
+		this.motionFrame = 0;
+	}
+
+	private readonly stepMotion = (now: number): void => {
+		this.motionFrame = 0;
+		const viewport = this.$viewport.get();
+		if (this.renderer == null || viewport.width <= 1 || this.$drag.get()?.kind === 'pan') return;
+		// A long frame, such as after the window was hidden, glides on instead of jumping to the end
+		const dt = Math.min(Math.max(0, (now - this.motionTime) / 1000), 1 / 20);
+		this.motionTime = now;
+		const motion = this.syncMotion();
+		const at = this.$follow.get() ? this.marbleMotion() : null;
+		if (at != null) followMarble(motion, at.position, at.velocity, viewport, dt);
+		let view = stepViewMotion(motion, dt, this.isNavigating ? NAVIGATE_RATE : FOLLOW_RATE);
+		// The spring trails a fast fall; the marble itself never leaves the view
+		if (at != null) {
+			view = { ...view, center: keepInView(view.center, view.scale, viewport, at.position) };
+			motion.center = { ...view.center };
+		}
+		const settled = isSettled(motion);
+		if (settled) {
+			view = { center: { ...motion.goal.center }, scale: motion.goal.scale };
+			motion.center = { ...view.center };
+			motion.velocity = { x: 0, y: 0 };
+			motion.logScale = Math.log(view.scale);
+			motion.scaleVelocity = 0;
+			this.isNavigating = false;
+		}
+		const current = this.$camera.get();
+		if (view.scale !== current.view.scale || view.center.x !== current.view.center.x || view.center.y !== current.view.center.y) {
+			this.$camera.set({ ...current, view });
+		}
+		if (this.motion != null) this.motion.view = this.$camera.get().view;
+		// While Follow is on and the song plays, every frame may move the marble
+		if (!settled || (at != null && this.studio.$playing.get())) this.wakeMotion(true);
+	};
 
 	fitSelection(): void {
 		const project = this.project;
@@ -562,65 +661,9 @@ export class ComposeCx {
 		this.fit({ minX: bounds.minX - margin, minY: bounds.minY - margin, maxX: bounds.maxX + margin, maxY: bounds.maxY + margin });
 	}
 
-	setMode(mode: TComposeCamera['mode']): void {
-		if (mode !== 'camera') this.editMode = mode;
-		else if (this.$pen.get() != null) this.finishPen();
-		this.$drag.set(null);
-		this.$camera.set((camera) => ({ ...camera, mode }));
-		this.$hover.set(null);
-		this.syncPieces();
-	}
-
-	/** 0 and Numpad 0 like Blender: into the Camera view, and back to the view it came from */
-	toggleCameraView(): void {
-		this.setMode(this.$camera.get().mode === 'camera' ? this.editMode : 'camera');
-	}
-
-	/** CSS pixels per wall metre around the followed point, for strokes drawn at wall size */
+	/** CSS pixels per wall metre, for strokes drawn at wall size */
 	screenScale(): number {
-		const camera = this.$camera.get();
-		const film = this.$film.get();
-		if (camera.mode !== 'camera' || film?.pose == null) return camera.view.scale;
-		const halfFrame = Math.tan((verticalFov(film.pose.lens, film.aspect) * Math.PI) / 360);
-		return film.frame.height / 2 / (halfFrame * Math.max(film.pose.focus, 1e-3));
-	}
-
-	/** Follow camera of the current run at the film's frame rate, baked once per result and camera settings */
-	cameraTrack(): TCameraTrack | null {
-		const project = this.project;
-		const result = this.result;
-		if (project == null || result == null) return null;
-		const fps = renderFps(project);
-		const key = `${fps}:${JSON.stringify(project.design.camera)}:${project.frame.width}x${project.frame.height}:${project.design.loop}`;
-		if (this.filmTrack?.result !== result || this.filmTrack.key !== key) {
-			this.filmTrack = { result, key, track: followCameraTrack(project, result, fps) };
-		}
-		return this.filmTrack.track;
-	}
-
-	/** Moves the film camera to the playhead while the Camera view shows */
-	private syncFilm(): void {
-		const renderer = this.renderer;
-		const project = this.project;
-		if (renderer == null) return;
-		if (this.$camera.get().mode !== 'camera' || project == null) {
-			if (this.$film.get() != null) {
-				this.$film.set(null);
-				renderer.setFilm(null);
-			}
-			return;
-		}
-		const aspect = project.frame.width / project.frame.height;
-		const frame = filmFrameRect(this.$viewport.get(), aspect);
-		const track = this.cameraTrack();
-		if (track == null) {
-			this.$film.set({ pose: null, aspect, frame });
-			renderer.setFilm(null);
-			return;
-		}
-		const film: TFilmView = { pose: sampleCameraTrack(track, this.studio.$playhead.get(), this.filmPose), aspect, frame };
-		renderer.setFilm(film);
-		this.$film.set(film);
+		return this.$camera.get().view.scale;
 	}
 
 	private fit(bounds: TBounds): void {
@@ -690,10 +733,7 @@ export class ComposeCx {
 		if (isBoundsVisible(camera.view, viewport, { minX: focus.x - margin, maxX: focus.x + margin, minY: focus.y - margin, maxY: focus.y + margin }, 48)) return;
 		const screen = worldToScreen(camera.view, viewport, focus);
 		const isOutsideX = screen.x < 48 || screen.x > viewport.width - 48;
-		this.$camera.set({
-			...camera,
-			view: { ...camera.view, center: { x: isOutsideX ? focus.x : camera.view.center.x, y: focus.y - (viewport.height * 0.18) / camera.view.scale } }
-		});
+		this.navigateTo({ ...camera.view, center: { x: isOutsideX ? focus.x : camera.view.center.x, y: focus.y - (viewport.height * 0.18) / camera.view.scale } });
 	}
 
 	/**
@@ -743,9 +783,9 @@ export class ComposeCx {
 	}
 
 	/**
-	 * A typed time or a step to the previous or next hit brings the marble there into view, like Logic's catch
-	 * playhead: the hit dots struck at that moment, or the focused marble between hits. Nothing moves when they
-	 * are already in view, while playing (`followPlayback` keeps up then) or in the Camera view.
+	 * A typed time or a step to the previous or next hit glides the marble there into view, with Follow on or off:
+	 * the hit dots struck at that moment, or the focused marble between hits. Nothing moves when they are already in
+	 * view or while playing, when only Follow moves the view.
 	 */
 	private revealPlayhead(): void {
 		const result = this.result;
@@ -797,16 +837,11 @@ export class ComposeCx {
 		const camera = this.$camera.get();
 		if (camera.mode === '2d' && isBoundsVisible(camera.view, viewport, bounds, 40)) return;
 		const fitted = fitBounds(bounds, viewport, canvasPadding);
-		this.$camera.set({
-			...camera,
-			view: fitted.scale < camera.view.scale ? fitted : { scale: camera.view.scale, center: fitted.center }
-		});
+		this.navigateTo(fitted.scale < camera.view.scale ? fitted : { scale: camera.view.scale, center: fitted.center });
 	}
 
 	private onWheel(event: WheelEvent, container: HTMLElement): void {
 		event.preventDefault();
-		// The Camera view looks through the film camera, which only the playhead moves
-		if (this.$camera.get().mode === 'camera') return;
 		const rect = container.getBoundingClientRect();
 		const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
 		// Line-based wheels report rows instead of pixels
@@ -819,6 +854,7 @@ export class ComposeCx {
 		}
 		const dx = event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX;
 		const dy = event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY;
+		this.takeView();
 		this.$camera.set((camera) => ({ ...camera, view: panBy(camera.view, -dx * unit, -dy * unit) }));
 	}
 
@@ -831,11 +867,6 @@ export class ComposeCx {
 		const camera = this.$camera.get();
 		const tool = this.$tool.get();
 		const is2d = camera.mode === '2d';
-		if (camera.mode === 'camera') {
-			// The Camera view previews: a click selects a piece, nothing moves
-			if (event.button === 0) this.selectInFilm(this.pickAt(point), event.shiftKey);
-			return;
-		}
 		const isPan = event.button === 1 || tool === 'hand' || this.$spaceHeld.get() || (!is2d && event.button === 0 && this.pickAt(point) == null);
 		if (event.button !== 0 && event.button !== 1) return;
 		event.currentTarget.setPointerCapture(event.pointerId);
@@ -844,6 +875,7 @@ export class ComposeCx {
 		if (isPan) {
 			// In orbit, dragging turns the camera unless Shift or the hand tool asks for a pan
 			const orbit = !is2d && !event.shiftKey && tool !== 'hand' && !this.$spaceHeld.get();
+			if (!orbit) this.takeView();
 			this.$drag.set({ kind: 'pan', last: point, orbit });
 			this.spacePanned = true;
 			return;
@@ -1057,17 +1089,6 @@ export class ComposeCx {
 				return;
 			}
 		}
-	}
-
-	private selectInFilm(target: TPick | null, shiftKey: boolean): void {
-		const selection = this.studio.$selection.get();
-		if (target?.kind !== 'piece') {
-			if (!shiftKey) this.studio.$selection.set([]);
-			return;
-		}
-		const has = selection.includes(target.entityId);
-		if (!shiftKey) this.studio.$selection.set([target.entityId]);
-		else this.studio.$selection.set(has ? selection.filter((id) => id !== target.entityId) : [...selection, target.entityId]);
 	}
 
 	onPointerLeave(): void {
@@ -1826,7 +1847,7 @@ export class ComposeCx {
 		const viewport = this.$viewport.get();
 		const bounds = { minX: point.x - margin, minY: point.y - margin, maxX: point.x + margin, maxY: point.y + margin };
 		if (camera.mode !== '2d' || isBoundsVisible(camera.view, viewport, bounds, inset)) return;
-		this.$camera.set({ ...camera, view: { ...camera.view, center: { x: point.x, y: point.y } } });
+		this.navigateTo({ ...camera.view, center: { x: point.x, y: point.y } });
 	}
 
 	// MARK: - Keyboard
@@ -1858,11 +1879,9 @@ export class ComposeCx {
 
 	/** Runs a keyboard action; returns false when it did nothing, so the key falls through */
 	runKeyAction(action: TComposeKeyAction): boolean {
-		// The Camera view previews; keys that edit or navigate the wall wait for the Wall view
-		if (this.$camera.get().mode === 'camera' && action.type !== 'cameraView' && action.type !== 'escape') return false;
 		switch (action.type) {
-			case 'cameraView':
-				this.toggleCameraView();
+			case 'follow':
+				this.toggleFollow();
 				return true;
 			case 'zoom':
 				this.zoomBy(action.factor);
@@ -2163,5 +2182,28 @@ function isSamePick(a: TPick | null, b: TPick | null): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** The Camera view without a follow camera keeps its frame but has no pose */
-export type TFilmState = TFilmView | { pose: null; aspect: number; frame: TFilmView['frame'] };
+const FOLLOW_KEY = 'midimarble-v4:follow';
+
+function prefersReducedMotion(): boolean {
+	return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** Follow is view state: remembered per project on this device, never saved in the project file */
+function readFollow(projectId: string): boolean {
+	try {
+		const stored = JSON.parse(localStorage.getItem(FOLLOW_KEY) ?? '{}') as unknown;
+		return typeof stored === 'object' && stored != null && (stored as Record<string, unknown>)[projectId] === true;
+	} catch {
+		return false;
+	}
+}
+
+function writeFollow(projectId: string, isOn: boolean): void {
+	try {
+		const stored = JSON.parse(localStorage.getItem(FOLLOW_KEY) ?? '{}') as Record<string, boolean>;
+		const kept = Object.fromEntries(Object.entries(stored).filter(([id]) => id !== projectId));
+		localStorage.setItem(FOLLOW_KEY, JSON.stringify(isOn ? { ...kept, [projectId]: true } : kept));
+	} catch {
+		// Storage can be unavailable; Follow then starts off next time
+	}
+}

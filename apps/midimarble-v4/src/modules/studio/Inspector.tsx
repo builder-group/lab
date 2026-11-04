@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
-import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus } from 'lucide-react';
+import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus, Trash2 } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InspectorHeader, LinkRow, MenuButton, NoteRow, Panel, ReadoutField, ScrubField, SelectField, StatusPill, TextField } from '@/components';
+import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, ScrubField, SelectField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { unreachableActions } from '@/modules/compose/unreachable-fixes';
@@ -9,21 +9,25 @@ import { PieceInspector, ReplaceButton } from '@/modules/compose/PieceInspector'
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/compose/reachability';
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
-import { DesignInspector } from '@/modules/design/DesignInspector';
+import { CameraInspector, FilmLookPanel, PieceLook, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
 import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_TAIL, suggestedHitTimes } from '@/modules/music';
 import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
+import { inspectorTarget, type TInspectorTarget } from './inspector-target';
 import { parseHitKey } from './selection';
-import type { StudioCx } from './StudioCx';
+import { deleteSongQuestion, songLayerName } from './song-layer';
+import { songSource } from './SourcesCx';
+import type { StudioCx, TWorkspace } from './StudioCx';
 import { auditionNote, BACKING_COLOR, handNotes } from './timeline/hand-notes';
 import { parseTime } from './timeline/parse-time';
 import { songFitEnd } from './world';
 
 /**
  * Properties of the selection, like Figma UI3's properties panel: the zoom at the top in Compose, then a
- * header row and sections for the selection, or the Project without one
+ * header row and sections for the selected layer, or the Project without one. Each layer owns its settings: the
+ * Song its file and Backing, the Camera its frame and rig, a marble, a piece, a hit, a shot or a title their own.
  */
 export const Inspector: React.FC<TInspectorProps> = (props) => {
 	const { cx } = props;
@@ -32,37 +36,52 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	const workspace = useFeatureState(cx.$workspace);
 	const project = history?.present;
 	if (project == null) return null;
-	if (workspace === 'design') {
-		return (
-			<aside className="mm-inspector" aria-label="Inspector" data-quick-help="inspector">
-				<InspectorTopBar cx={cx} />
-				<div className="mm-insp-scroll">
-					<DesignInspector cx={cx} project={project} selection={selection} />
-				</div>
-			</aside>
-		);
-	}
-	const entity = project.entities.find((item) => item.id === selection[0]);
-	const hitKeys = selection.filter((key) => parseHitKey(key) != null);
-	const pieceIds = selection.filter((id) => project.entities.some((item) => item.id === id && item.components.piece != null));
-	const marbleLane = project.music.lanes.find((lane) => lane.id === entity?.components.marble?.laneId);
+	const target = inspectorTarget(project, selection);
 
 	return (
 		<aside className="mm-inspector" aria-label="Inspector" data-quick-help="inspector">
 			<InspectorTopBar cx={cx} />
 			<div className="mm-insp-scroll">
-				{pieceIds.length > 0 ? (
-					<PieceInspector cx={cx} project={project} ids={pieceIds} />
-				) : hitKeys.length > 0 ? (
-					<HitInspector cx={cx} project={project} hitKeys={hitKeys} />
-				) : marbleLane != null && entity != null ? (
-					<LaneInspector cx={cx} project={project} lane={marbleLane} marble={entity} />
-				) : (
-					<ProjectInspector cx={cx} project={project} />
-				)}
+				<TargetInspector cx={cx} project={project} target={target} workspace={workspace} />
 			</div>
 		</aside>
 	);
+};
+
+/** The inspector of the selected layer; Compose and Film differ only in what a piece shows (shape or look) */
+const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInspectorTarget; workspace: TWorkspace }> = (props) => {
+	const { cx, project, target, workspace } = props;
+	const isFilm = workspace === 'design';
+	switch (target.kind) {
+		case 'pieces': {
+			if (!isFilm) return <PieceInspector cx={cx} project={project} ids={target.ids} />;
+			const pieces = project.entities.filter((entity) => target.ids.includes(entity.id));
+			return <PieceLook cx={cx} project={project} pieces={pieces} />;
+		}
+		case 'hits':
+			return <HitInspector cx={cx} project={project} hitKeys={target.keys} />;
+		case 'title': {
+			const entity = project.entities.find((item) => item.id === target.id);
+			return entity == null ? null : <WallTextInspector cx={cx} project={project} entity={entity} />;
+		}
+		case 'titles':
+			return <TitlesInspector cx={cx} project={project} />;
+		case 'shot': {
+			const shot = project.design.camera.shots.find((item) => item.id === target.id);
+			return shot == null ? null : <ShotInspector cx={cx} project={project} shot={shot} />;
+		}
+		case 'marble': {
+			const lane = project.music.lanes.find((item) => item.id === target.laneId);
+			const marble = project.entities.find((item) => item.id === target.entityId);
+			return lane == null || marble == null ? null : <LaneInspector cx={cx} project={project} lane={lane} marble={marble} />;
+		}
+		case 'song':
+			return <SongInspector cx={cx} project={project} />;
+		case 'camera':
+			return <CameraInspector cx={cx} project={project} />;
+		case 'project':
+			return <ProjectInspector cx={cx} project={project} look={isFilm ? <FilmLookPanel cx={cx} project={project} /> : null} />;
+	}
 };
 
 interface TInspectorProps {
@@ -108,9 +127,7 @@ const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 				commandItem(cx, 'view.fitFrame'),
 				'separator',
 				commandItem(cx, 'view.snap'),
-				commandItem(cx, 'view.wall'),
-				commandItem(cx, 'view.orbit'),
-				commandItem(cx, 'view.camera')
+				commandItem(cx, 'view.follow')
 			]}
 		/>
 	);
@@ -211,7 +228,7 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 				</Panel>
 			) : null}
 			{suggestions != null ? (
-				<Panel id="marble.hits" title="Hits" accessory={<HelpTip text="Double-click the track in the timeline to add a hit, or press T while playing to tap along." />}>
+				<Panel id="marble.hits" title="Hits" accessory={<HelpTip text="Double-click the marble's row in the timeline to add a hit, or press T while playing to tap along." />}>
 					<button className="mm-button" data-span="2" onClick={addSuggestedHits} title={`Add a hit for each of the ${suggestions.length} beats found in the recording`} type="button">
 						Add {suggestions.length} {suggestions.length === 1 ? 'Beat' : 'Beats'}
 					</button>
@@ -425,32 +442,29 @@ const HitGlyph: React.FC<{ color?: string }> = (props) => {
 	return <span className="h-2.5 w-2.5 rotate-45 rounded-[1.5px]" style={{ background: color ?? 'currentColor' }} />;
 };
 
-// MARK: - Project
+// MARK: - Song
 
-/** Shown without a selection, like page properties in Figma: the song, the film and the marble speed */
-const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
+/**
+ * The Song layer's inspector: the file and its kind, tempo and meter, the instrument Backing plays with, and
+ * Replace Song… and Delete Song. The layer exists only while the project has a song file or Backing notes.
+ */
+const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const aspect = aspects.find((item) => item.width === project.frame.width && item.height === project.frame.height);
-	const sources = project.music.sources;
+	const song = songSource(project);
 	const tempo = project.music.tempo;
-	const speed = project.physics.gravityScale;
-	const fitEnd = songFitEnd(project);
-
-	const withSpeed = (gravityScale: number): TProject => ({ ...project, physics: { ...project.physics, gravityScale } });
+	const backing = project.music.backing.length;
+	const kind = song == null ? 'Backing' : song.kind === 'audio' ? 'Recording' : 'MIDI';
+	const deleteQuestion = deleteSongQuestion(project);
 
 	return (
 		<>
-			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Project" subtitle={aspect?.label ?? 'Custom frame'} />
-			<Panel id="world.song" title="Song" accessory={<HelpTip text="The song the marbles play, heard in the film. Replace or remove it from the Song track, or drop a file on the timeline." />}>
-				{!sources.length ? (
-					<>
-						<NoteRow>No song yet</NoteRow>
-						<button className="mm-button" data-span="2" onClick={() => void cx.importSong()} title="Import a MIDI file or a recording (⌘I)" type="button">
-							Import Song…
-						</button>
-					</>
-				) : null}
-				{sources.map((source) => (
+			<InspectorHeader
+				icon={song?.kind === 'audio' ? <AudioLines size={16} strokeWidth={1.7} /> : <FileMusic size={16} strokeWidth={1.7} />}
+				title={songLayerName(project)}
+				subtitle={`Song · ${kind}`}
+			/>
+			<Panel id="song.file" title="Song" accessory={<HelpTip text="The song the marbles play, heard in the film. Replace it with another file, or drop a file on the window." />}>
+				{project.music.sources.map((source) => (
 					<ReadoutField key={source.id} label={source.kind === 'audio' ? 'Recording' : 'MIDI'} name={source.name} span={2}>
 						<span className="flex items-center gap-2">
 							{source.kind === 'audio' ? <AudioLines size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" /> : <FileMusic size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" />}
@@ -468,18 +482,54 @@ const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
 						</ReadoutField>
 					</>
 				) : null}
+				<button className="mm-button" onClick={() => void (song == null ? cx.importSong() : cx.sources.replaceSong())} title="Choose another MIDI file or recording; the marbles keep their hits" type="button">
+					{song == null ? 'Import Song…' : 'Replace Song…'}
+				</button>
+				<button
+					className="mm-button"
+					onClick={() => void cx.sources.deleteSong()}
+					title={deleteQuestion == null ? 'Delete the song; the marbles keep their hits (⌫)' : 'Delete the song and its Backing notes; the marbles keep their hits (⌫)'}
+					type="button"
+				>
+					<Trash2 size={12} strokeWidth={1.8} />
+					Delete Song
+				</button>
 			</Panel>
-			<Panel id="world.film" title="Film">
-				<SelectField
-					id="project-frame"
-					label="Frame"
-					value={aspect?.label ?? 'custom'}
-					options={[...aspects.map((item) => ({ value: item.label, label: item.label })), ...(aspect == null ? [{ value: 'custom', label: 'Custom' }] : [])]}
-					onChange={(value) => {
-						const next = aspects.find((item) => item.label === value);
-						if (next != null) cx.execute([{ type: 'setFrame', width: next.width, height: next.height }]);
-					}}
-				/>
+			{backing > 0 || song?.kind === 'midi' ? (
+				<Panel id="song.backing" title="Backing" accessory={<HelpTip text="Notes no marble plays, heard in the film with no piece needed. Select notes in the expanded Song row and press 0 to make them Backing." />}>
+					<ReadoutField label="Notes" name="Backing notes">
+						{backing}
+					</ReadoutField>
+					<SelectField
+						id="song-backing-instrument"
+						label="Sound"
+						value={String(project.music.backingInstrument ?? 0)}
+						options={instruments.map((item) => ({ value: String(item.program), label: item.name }))}
+						onChange={(value) => cx.execute([{ type: 'setBackingInstrument', instrument: Number(value) }])}
+					/>
+				</Panel>
+			) : null}
+		</>
+	);
+};
+
+// MARK: - Project
+
+/**
+ * Shown without a selection, like page properties in Figma: only what is project-wide, the length and the
+ * Marble Speed every marble shares, plus the film's Look in Film. Each layer keeps its own settings.
+ */
+const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
+	const { cx, project, look } = props;
+	const speed = project.physics.gravityScale;
+	const fitEnd = songFitEnd(project);
+
+	const withSpeed = (gravityScale: number): TProject => ({ ...project, physics: { ...project.physics, gravityScale } });
+
+	return (
+		<>
+			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Project" subtitle={formatTime(project.end)} />
+			<Panel id="world.film" title="Length" accessory={<HelpTip text="How long the film runs. Fit to Song ends it shortly after the last note." />}>
 				<ScrubField id="project-end" label="Length" name="Film length" value={project.end} unit="" step={0.05} precision={2} min={0.5} format={formatTime} parse={parseTime} onCommit={(end) => cx.execute([{ type: 'setEnd', end }])} />
 				<button
 					className="mm-button"
@@ -496,7 +546,7 @@ const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
 			<Panel
 				id="world.physics"
 				title="Marble Speed"
-				accessory={<HelpTip text="How fast marbles fall, as a share of Earth's gravity. Slower gives smaller hops and denser columns; platforms that play a note stay on time." />}
+				accessory={<HelpTip text="How fast every marble falls, as a share of Earth's gravity. It changes every marble at once. Slower gives smaller hops and denser columns; platforms that play a note stay on time." />}
 			>
 				<SliderField
 					id="world-speed"
@@ -514,6 +564,7 @@ const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
 					}}
 				/>
 			</Panel>
+			{look}
 		</>
 	);
 };
@@ -521,6 +572,8 @@ const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
 interface TProjectInspectorProps {
 	cx: StudioCx;
 	project: TProject;
+	/** The film's Look, shown in Film */
+	look: React.ReactNode;
 }
 
 /** A slider with a typeable value field beside it, previewing while dragged and committing on release */
@@ -590,10 +643,3 @@ interface TSliderFieldProps {
 function round1(value: number): number {
 	return Math.round(value * 10) / 10;
 }
-
-const aspects = [
-	{ label: '9:16 Portrait', width: 9, height: 16 },
-	{ label: '1:1 Square', width: 1, height: 1 },
-	{ label: '4:5 Portrait', width: 4, height: 5 },
-	{ label: '16:9 Landscape', width: 16, height: 9 }
-];

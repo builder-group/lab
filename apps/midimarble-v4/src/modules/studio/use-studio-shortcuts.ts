@@ -76,13 +76,20 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				cx.$playing.set(!cx.$playing.get());
 				return;
 			}
-			// A selected Song or Camera track keeps Return's meaning, like an empty selection
-			const isTracksOnly = cx.$selection.get().every((key) => key === SONG_KEY || key === CAMERA_KEY);
-			if ((event.key === 'Enter' || event.key === 'Home') && !cx.$playing.get() && isTracksOnly) {
+			// A selected Song or Camera layer keeps Return's meaning, like an empty selection
+			const selection = cx.$selection.get();
+			const isLayersOnly = selection.every((key) => key === SONG_KEY || key === CAMERA_KEY);
+			if ((event.key === 'Enter' || event.key === 'Home') && !cx.$playing.get() && isLayersOnly) {
 				cx.$playhead.set(0);
 				return;
 			}
 			if (event.key === 'Backspace' || event.key === 'Delete') {
+				// The Song layer alone deletes the song file and Backing, asking first when Backing notes would go
+				if (selection.length === 1 && selection[0] === SONG_KEY) {
+					event.preventDefault();
+					void cx.sources.deleteSong();
+					return;
+				}
 				if (deleteSelectedHits(cx)) event.preventDefault();
 				return;
 			}

@@ -13,19 +13,21 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | Concept | Word | Not | Why |
 | --- | --- | --- | --- |
 | The document | **Project** | scene, session | GarageBand, Logic, Final Cut |
-| The music | **Song**: a MIDI file or a recording | source, music, audio file, track | GarageBand calls the whole thing a song; "track" is taken by timeline rows |
+| The music | **Song**: a MIDI file or a recording | source, music, audio file, track | GarageBand calls the whole thing a song; "track" stays the name of a MIDI file's parts in the import sheet only |
 | One musical event | **Note**, shown by name: "C4" | event, MIDI note, hit object | Logic's piano roll; keeps notes (music) apart from pieces (things on the wall) |
 | An event found in a recording | **Beat**: a note without a pitch | onset, transient, marker | plain music word; "onset" is engine language |
 | A hit without a pitch (tapped or a beat) | **No Pitch** as a quiet value, with **Add Pitch** | None, empty field | Add Pitch starts from the marble's nearest pitched hit, else C4 |
 | Notes no marble plays | **Backing**: heard in the film, no piece needed | dropped, unassigned, left out | musicians know a backing track; a beginner reads it as "plays in the back" |
 | The ball | **Marble** | ball, lane | |
-| A row in the timeline | **Track**: the Song track, one track per marble, later Camera | lane, row, channel | Logic and GarageBand |
+| A thing in the project with its own row in Layers and in the timeline | **Layer**: the Song (only while the project has a song file or Backing notes), one layer per marble with its pieces, Free Pieces, Camera with its shots, Titles. Each layer owns its settings in the inspector | track, lane, channel | After Effects: each layer has a row in the timeline, so the sidebar outline and the timeline rows are the same objects under one word |
 | The moment a marble strikes its note | **Hit** | contact, strike, collision | rhythm games; the hit has a timing status |
 | Everything placed on the wall | **Piece** | object, element, prop, asset | marble-run kits |
 | The piece that plays a note | **Platform** | bar, pad, peg | |
 | Other pieces | **Rail**, **Tunnel**, **Windmill**, **Switchback** | scenery | concrete marble-run words; "scenery" is internal |
 | A drawn route for a rail or tunnel | **Path** | spline, curve, Bézier | Figma's pen draws paths |
 | Where pieces sit | **Wall** | canvas, board, pegboard (except as a theme name) | the 2.5D premise |
+| Compose's flat, free view of the wall | **Wall** (the only view in Compose; the film camera shows only in Film's Draft Preview) | Wall View, Orbit, Camera view, viewport | Figma's canvas: it stays where the user put it |
+| The Wall view keeping the marble at the playhead in sight | **Follow** (toggle in the canvas corner, F; in ⌘K **Follow Marble in View**), off by default | Catch Playhead, autoscroll, track, lock | Logic's Catch Playhead; the noun is a toggle like Snap, and the palette title says *in View* so it never reads as the piece tie **Follows** |
 | A platform tied to its note | **Plays** Note 3 · C4 | linked, attached, bound | says what it does; Final Cut's connected clip is the model |
 | A piece tied to a moment of a marble's fall | **Follows** Marble 1 at 0:03.2 | anchored, parented | says what it does |
 | A piece tied to nothing | **Free** | unlinked, static | |
@@ -40,7 +42,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | Where an exported film goes | **In the Project**, or the folder chosen with Choose… | Renders folder, renders/ | the package folder is an implementation detail; Show in Finder finds it |
 | Blender | **Blender**: a status chip in the title bar (Ready, Starting, Rendering Preview, Not Installed, Error; a hollow dot and Blender in the browser) with Open in Blender, Restart Blender, Show Blender Log, or Install Blender… | worker, bridge, mailbox, Edit in Blender | |
 | Changed in Blender | **Detached** with **Discard Blender Changes**; a camera edited there reads **Edited in Blender** with **Reset Camera** | unlinked, taken over, edited, Reset to Compose, Regenerate Camera | says what the button throws away |
-| The project's outline | **Layers**: Song, Marbles, Free Pieces, Camera, Titles | tree, scene graph | Figma |
+| The project's outline | **Layers**: Song, Marbles, Free Pieces, Camera, Titles; Compose shows the Song and the marbles with their pieces, Film every layer | tree, scene graph, Tracks | Figma; the timeline's column carries the same name |
 | Settings most people never need | **Advanced**, a disclosure at the end of a section | expert, more, details | Final Cut, Logic |
 | How a film is lit and rendered | **Lighting**: Fast or Realistic (Eevee and Cycles in the tooltip); Draft always uses **Flat Light** (Workbench in the tooltip), so the Lighting choice is dimmed with it | renderer, engine | |
 | What an agent run produces | **Result**, shown as a card with Accept and Discard | candidate, output, artifact | |
@@ -58,7 +60,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | Motion on a hit | **Reaction** (Press, Wobble, Glow) | animation, driver | |
 | Text on the wall | **Title** | wall text, label | the reference films call them titles |
 | How a title sits in the film | **Style**: **Wall Title** (on the wall where it was placed), **Caption** (top of the frame, 3 s from the playhead), **Song Name** (upper third of the frame over the first 3 s, reading the song's name) and **End Card** (centre of the frame, over the last 3 s) | overlay, HUD, lower third | Caption, Song Name and End Card stay in the frame while the camera moves, on a soft dark backing; their Size is a share of the frame height in %. Choosing a style sets its times while they are still the last style's own, like a title preset in Final Cut |
-| When a title shows | **In** and **Out** in a Timing section, times as m:ss.cc; a Titles track of clips in Film | start/end, keyframes, duration | Final Cut's In and Out points; a Wall Title's defaults are the start and the end of the film |
+| When a title shows | **In** and **Out** in a Timing section, times as m:ss.cc; clips on the Titles layer's row in the timeline in Film | start/end, keyframes, duration | Final Cut's In and Out points; a Wall Title's defaults are the start and the end of the film |
 | The in-app stand-in for Blender's render | **Draft Preview** with the help "Blender draws the real look. This preview follows the same camera." | proxy, fallback, mock | Final Cut's proxy playback, named for what it is |
 | A camera change at a time | **Shot** (Wide, Follow, Push In, Close-Up) | marker, keyframe | film language |
 | How long a shot frames before the camera eases back | **Hold**, in seconds; **To Next Shot** at 0 | length, duration | a held shot in film language; Push In and Close-Up hold 2 s by default |
@@ -66,7 +68,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 
 ## Timing statuses
 
-One status per hit, shown as a pill on pieces, in the inspector header and on the marble's track. Colour is never the only signal; each status has an icon.
+One status per hit, shown as a pill on pieces, in the inspector header and on the marble's row in the timeline. Colour is never the only signal; each status has an icon.
 
 | Status | When | Tooltip |
 | --- | --- | --- |
@@ -79,9 +81,9 @@ One status per hit, shown as a pill on pieces, in the inspector header and on th
 | **Too Soon** | an open note before the marble's release, or so soon after it that the marble cannot fall its diameter and reach strike speed | "Marble 1 can't reach a platform by 0:01.00" |
 | **Out of Reach** | an open note after the marble fell out of the run, or while it lies still on a piece; never while an earlier note of the same marble is still Open, since that note is the next step and the ones after it stay Open | "Marble 1 has fallen out of the run by 0:06.00", "Marble 1 lies still on a piece at 0:03.00" |
 
-Too Soon and Out of Reach are drawn hollow with an amber dashed outline and count as needing attention. Their fixes are **Move Release Earlier** (Too Soon: the release moves 0.5 s before the note, never before the song starts) or **Move Release Later** (Out of Reach on the marble's first note), **Move Hit Later** (a Too Soon tapped hit whose release cannot move earlier: the hit moves to the first moment the marble can strike), and **Make Backing**; a fix that does not help is not offered. Make Backing needs a song: Backing notes show only in the Song track, so in a project without a song (tapped hits) it is not offered, and **Delete Hit** takes its place.
+Too Soon and Out of Reach are drawn hollow with an amber dashed outline and count as needing attention. Their fixes are **Move Release Earlier** (Too Soon: the release moves 0.5 s before the note, never before the song starts) or **Move Release Later** (Out of Reach on the marble's first note), **Move Hit Later** (a Too Soon tapped hit whose release cannot move earlier: the hit moves to the first moment the marble can strike), and **Make Backing**; a fix that does not help is not offered. Make Backing needs a song: Backing notes show only on the Song layer, so in a project without a song (tapped hits) it is not offered, and **Delete Hit** takes its place.
 
-A summary sits in the timeline header for the whole project, read from the same problem list as the export sheet, Layers and the Camera track, like Xcode's issue count: "12 of 12 hits on time", "2 hits need attention", or "107 of 109 hits on time · 4 other problems" when extra strikes, collisions, Blocked scenery, framing or the loop need a look. Open notes count toward the total only. It reads **Checking…** (dimmed, with a spinner) until the run for the latest edit arrives, never a stale count, and **Re-placing…** while Re-place runs. A click goes to the first problem in time order (**Show First Problem**, also in ⌘K). Its menu (the chevron or a right-click) lists every problem in time order, scrolling when the list is long, then Show First Problem and the Re-place fix under its one label (**Fix 24 Hits**), then **Show Last Fix** after a Re-place and **Fit to Song** where the user set a length the song no longer matches. Framing problems also show as amber spans on the Camera track; they open Film at their time with the Camera selected.
+A summary sits in the timeline header for the whole project, read from the same problem list as the export sheet, Layers and the Camera layer, like Xcode's issue count: "12 of 12 hits on time", "2 hits need attention", or "107 of 109 hits on time · 4 other problems" when extra strikes, collisions, Blocked scenery, framing or the loop need a look. Open notes count toward the total only. It reads **Checking…** (dimmed, with a spinner) until the run for the latest edit arrives, never a stale count, and **Re-placing…** while Re-place runs. A click goes to the first problem in time order (**Show First Problem**, also in ⌘K). Its menu (the chevron or a right-click) lists every problem in time order, scrolling when the list is long, then Show First Problem and the Re-place fix under its one label (**Fix 24 Hits**), then **Show Last Fix** after a Re-place and **Fit to Song** where the user set a length the song no longer matches. Framing problems also show as amber spans on the Camera layer's row; they open Film at their time with the Camera selected.
 
 ## Fix-its
 
@@ -126,7 +128,7 @@ Advanced sections name what a piece looks like or does, not how it is built. A h
 
 ## Capitalization and punctuation
 
-- **Title Case** for buttons, menu titles and items, tabs, segmented controls, window and sheet titles, inspector section titles, track headers and status pills: "Export Film…", "Place Next Platform", "On Time"
+- **Title Case** for buttons, menu titles and items, tabs, segmented controls, window and sheet titles, inspector section titles, layer names in the timeline and status pills: "Export Film…", "Place Next Platform", "On Time"
 - **Sentence case** for tooltips, hints, empty-state lines, alert messages, progress and errors: "Play the song (Space)"
 - No period on labels, tooltips or one-line hints; periods only in multi-sentence text
 - An ellipsis (…, one character) only when the action asks for more before it runs: "Import Song…", "Export Film…". No ellipsis when it runs at once: "Add Marble", "Detach". A label that asks in one host and not in another follows the host: New Project… in the desktop app, New Project in the browser
@@ -148,7 +150,7 @@ Advanced sections name what a piece looks like or does, not how it is built. A h
 | Kind | Pattern | Examples |
 | --- | --- | --- |
 | Button | Verb + object | Add Marble, Import Song…, Export Film…, Detach, Add Platform |
-| Toggle | State noun | Snap, Mute, Solo, Loop Playback |
+| Toggle | State noun | Snap, Follow, Mute, Solo, Loop Playback |
 | Tooltip | What it does + shortcut | "Add a platform for the next note (Return)" |
 | Empty state | What is missing, one line, plus the action | "No song yet" · Import Song… |
 | Error | What happened. What to do. | "Blender isn't installed. Install Blender 4.2 or later to preview and export films." |
@@ -161,12 +163,12 @@ Advanced sections name what a piece looks like or does, not how it is built. A h
 
 ## Structure
 
-### Timeline tracks
+### Layers in the timeline
 
-The timeline's left column is **Tracks**:
+The timeline's left column is **Layers**, the same layers as the sidebar's Layers tab in the same order, each with its row along the time:
 
-1. **Song** at the top: the song's file name and kind ("MIDI · 120 BPM" or "Recording · 0:35"). It expands into a piano roll of every note, coloured by the marble that plays it, Backing in grey. Selecting notes and pressing 1 to 9 hands them to that marble, 0 makes them Backing; the context menu says "Play With ▸ Marble 1 … · New Marble · Backing". A recording shows its waveform and its beats
-2. **One track per marble**: the marble's name and instrument, Mute and Solo, its hits in a flat row with their timing status; it expands into a piano roll of just its notes
+1. **Song** at the top, only while the project has a song file or Backing notes: the song's file name and kind ("MIDI · 120 BPM" or "Recording · 0:35"; "Song" and "Backing · 12 notes" without a file). A new or tapped project has no Song layer; **Add Song…** in the Add menu (+) imports one. Deleting the Song layer removes the song file and Backing, never the marbles' hits. It expands into a piano roll of every note, coloured by the marble that plays it, Backing in grey. Selecting notes and pressing 1 to 9 hands them to that marble, 0 makes them Backing; the context menu says "Play With ▸ Marble 1 … · New Marble · Backing". A recording shows its waveform and its beats
+2. **One layer per marble**: the marble's name and instrument, Mute and Solo, its hits in a flat row with their timing status; it expands into a piano roll of just its notes
 3. **Camera** in Film: shots
 4. **Titles** in Film, when the project has titles: one clip per title from its In to its Out time
 
@@ -184,7 +186,7 @@ Actions: **New Project…** (it asks where to save; in the browser it opens at o
 
 1. The start screen shows examples first-class; an example plays on Space at once
 2. Quick Help (the ? button in the title bar, ⇧⌘/) labels the regions of the window in place, like GarageBand's Quick Help; it is optional and never modal
-3. At most three one-line hints appear once, where the next step is, and disappear when done: "This is your song: each marble plays some of its notes" (Song track) → "Click a note's dot to add a platform" (first open dot) → "Switch to Film to choose the look and export" (after the first full run)
+3. At most three one-line hints appear once, where the next step is, and disappear when done: "This is your song: each marble plays some of its notes" (Song layer) → "Click a note's dot to add a platform" (first open dot) → "Switch to Film to choose the look and export" (after the first full run)
 4. The hit summary in the timeline header says when the run works: "12 of 12 hits on time"
 
 ## Progressive disclosure

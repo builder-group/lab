@@ -4,6 +4,7 @@ import { ContextMenuHost } from '@/components';
 import { ExportSheet } from '@/modules/design/ExportSheet';
 import { AgentChat } from './AgentChat';
 import { CommandPalette } from './CommandPalette';
+import { ConfirmAlert } from './ConfirmAlert';
 import { HintLayer } from './HintLayer';
 import { ImportMidiSheet } from './ImportMidiSheet';
 import { Inspector } from './Inspector';
@@ -51,6 +52,7 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 			<ExportSheet cx={cx} />
 			<CommandPalette cx={cx} />
 			<SaveChangesAlert cx={cx} />
+			<ConfirmAlert cx={cx} />
 			<HintLayer cx={cx} />
 			<QuickHelp cx={cx} />
 			<ContextMenuHost />
@@ -102,7 +104,7 @@ const DropOverlay: React.FC = () => (
 		>
 			<div className="mm-floating px-4 py-2.5 text-center">
 				<div className="font-semibold">Drop to Import Song</div>
-				<div className="mm-caption">A MIDI file becomes marbles. A recording plays behind the tracks.</div>
+				<div className="mm-caption">A MIDI file becomes marbles. A recording plays behind the marbles.</div>
 			</div>
 		</div>
 	</div>

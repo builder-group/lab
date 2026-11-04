@@ -49,6 +49,8 @@ export class StudioCx {
 	readonly $isTemporary = createState(false);
 	/** The Save Changes alert of an unsaved document with changes that is being closed */
 	readonly $closePrompt = createState<TClosePrompt | null>(null);
+	/** A confirmation alert such as "Delete Jingle Bells and its 40 Backing notes?" · Delete · Cancel */
+	readonly $confirmPrompt = createState<TConfirmPrompt | null>(null);
 	/** Quick Help labels the window's regions and explains the control under the pointer. Always off at launch. */
 	readonly $quickHelp = createState(false);
 	readonly $workspace = createState<TWorkspace>('compose');
@@ -119,6 +121,7 @@ export class StudioCx {
 	private savedRevision = 0;
 	private noticeTimer: ReturnType<typeof setTimeout> | undefined;
 	private answerClosePrompt: ((choice: TClosePromptChoice) => void) | null = null;
+	private answerConfirmPrompt: ((isConfirmed: boolean) => void) | null = null;
 
 	get project(): TProject | null {
 		return this.$history.get()?.present ?? null;
@@ -466,6 +469,26 @@ export class StudioCx {
 	/** The Save Changes alert's buttons */
 	answerClose(choice: TClosePromptChoice): void {
 		this.answerClosePrompt?.(choice);
+	}
+
+	/**
+	 * Asks a question naming the thing with the action as its button, like a macOS alert. Resolves true when the
+	 * action is chosen; a newer question cancels an open one.
+	 */
+	async confirm(prompt: TConfirmPrompt): Promise<boolean> {
+		this.answerConfirmPrompt?.(false);
+		const isConfirmed = await new Promise<boolean>((resolve) => {
+			this.answerConfirmPrompt = resolve;
+			this.$confirmPrompt.set(prompt);
+		});
+		this.answerConfirmPrompt = null;
+		this.$confirmPrompt.set(null);
+		return isConfirmed;
+	}
+
+	/** The confirmation alert's buttons */
+	answerConfirm(isConfirmed: boolean): void {
+		this.answerConfirmPrompt?.(isConfirmed);
 	}
 
 	private load(project: TProject, path: string, isTemporary = false): void {
@@ -848,6 +871,14 @@ export interface TClosePrompt {
 }
 
 export type TClosePromptChoice = 'save' | 'discard' | 'cancel';
+
+export interface TConfirmPrompt {
+	question: string;
+	/** One secondary line under the question */
+	detail?: string;
+	/** The button that confirms, repeating the action: "Delete" */
+	action: string;
+}
 export type TSelection = string[];
 
 export interface TReveal {

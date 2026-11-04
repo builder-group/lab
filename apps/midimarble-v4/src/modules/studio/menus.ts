@@ -116,3 +116,8 @@ function removeHits(cx: StudioCx, keys: string[]): void {
 	});
 	if (cx.execute(commands)) cx.$selection.set([]);
 }
+
+/** The Song layer's menu, in Layers and on its timeline row */
+export function songMenu(cx: StudioCx): TMenuEntry[] {
+	return [{ section: 'Song' }, commandItem(cx, 'file.replaceSong'), commandItem(cx, 'file.removeSong')];
+}

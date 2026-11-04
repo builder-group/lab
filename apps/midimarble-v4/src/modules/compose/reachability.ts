@@ -68,7 +68,7 @@ export function reachStatus(reach: THitReach, names: { marble: string; time: str
 		case 'resting':
 			return { label: 'Out of Reach', detail: `${names.marble} lies still on a piece at ${names.time}` };
 		case 'noMarble':
-			return { label: 'Out of Reach', detail: 'No marble plays this track' };
+			return { label: 'Out of Reach', detail: 'No marble plays these notes' };
 		case 'reachable':
 			return null;
 	}

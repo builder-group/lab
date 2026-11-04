@@ -37,7 +37,7 @@ describe('placeQuickHelpLabels function', () => {
 		blender: { left: 1000, top: 8, right: 1080, bottom: 32 },
 		agent: { left: 1090, top: 8, right: 1120, bottom: 32 },
 		export: { left: 1300, top: 8, right: 1420, bottom: 32 },
-		tracks: { left: 0, top: 680, right: 200, bottom: 900 },
+		timelineLayers: { left: 0, top: 680, right: 200, bottom: 900 },
 		song: { left: 0, top: 680, right: 1440, bottom: 720 },
 		hitSummary: { left: 210, top: 644, right: 400, bottom: 672 },
 		transport: { left: 640, top: 644, right: 800, bottom: 672 }

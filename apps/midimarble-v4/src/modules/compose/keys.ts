@@ -1,6 +1,6 @@
 // Compose keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B, W), U draws a tunnel with
 // the path tool, ⇧I opens the Insert library like Figma's assets, the build assists
-// keep theirs (N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma, 0 toggles the Camera view like Blender's Numpad 0 and
+// keep theirs (N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma, F turns Follow on and off like Logic's Catch Playhead and
 // T stays free for tapping hits.
 
 export interface TKeyInput {
@@ -46,7 +46,7 @@ export type TComposeKeyAction =
 	| { type: 'autoPlace' }
 	| { type: 'finishPath' }
 	| { type: 'undoPathPoint' }
-	| { type: 'cameraView' };
+	| { type: 'follow' };
 
 /** Tool rail keys, shared by the rail tooltips and the command palette */
 export const toolKeys: { tool: TComposeTool; code: string; key: string }[] = [
@@ -57,6 +57,9 @@ export const toolKeys: { tool: TComposeTool; code: string; key: string }[] = [
 	{ tool: 'path', code: 'KeyB', key: 'B' },
 	{ tool: 'windmill', code: 'KeyW', key: 'W' }
 ];
+
+/** F turns Follow on and off, shared by the canvas toggle's tooltip and the command palette */
+export const followKey = { code: 'KeyF', key: 'F' };
 
 /** U arms the path tool with the tunnel type, like Figma's shape tools that share one rail slot */
 export const tunnelPathKey = { code: 'KeyU', key: 'U' };
@@ -100,8 +103,7 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 			return { type: 'nudge', degrees: (input.key === 'ArrowRight' ? -1 : 1) * (input.shiftKey ? 5 : 1) };
 	}
 	if (input.shiftKey) return input.code === 'KeyI' ? { type: 'library' } : null;
-	// One key, one meaning: with notes selected 0 makes them Backing in the piano roll, so it leaves the camera alone
-	if ((input.code === 'Digit0' || input.code === 'Numpad0') && context.hasNotes !== true) return { type: 'cameraView' };
+	if (input.code === followKey.code) return { type: 'follow' };
 
 	const tool = toolKeys.find((item) => item.code === input.code);
 	if (tool != null) return tool.tool === 'path' ? { type: 'tool', tool: 'path', pathType: 'rail' } : { type: 'tool', tool: tool.tool };

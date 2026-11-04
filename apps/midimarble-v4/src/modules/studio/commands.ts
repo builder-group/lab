@@ -1,7 +1,7 @@
 import type { TMenuItem } from '@/components';
 import { newProjectTitle } from '@/environment';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
-import { toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
+import { followKey, toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
 import { canMakeBacking } from '@/modules/compose/reachability';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import { detachSelection, followSelection, hasTiedSelection } from '@/modules/compose/tie-commands';
@@ -281,9 +281,17 @@ export const commands: readonly TCommand[] = [
 		isChecked: (cx) => cx.$snapping.get(),
 		run: (cx) => cx.$snapping.set(!cx.$snapping.get())
 	},
-	{ id: 'view.wall', workspace: 'compose', title: 'Wall View', section: 'View', keywords: '2d front', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === '2d', run: (cx) => compose(cx)?.setMode('2d') },
-	{ id: 'view.orbit', workspace: 'compose', title: 'Orbit View', section: 'View', keywords: '3d perspective', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'orbit', run: (cx) => compose(cx)?.setMode('orbit') },
-	{ id: 'view.camera', workspace: 'compose', title: 'Preview Film Camera', section: 'View', shortcut: '0', keywords: 'camera view follow viewfinder numpad', isEnabled: (cx) => compose(cx) != null, isChecked: (cx) => compose(cx)?.$camera.get().mode === 'camera', run: (cx) => compose(cx)?.toggleCameraView() },
+	{
+		id: 'view.follow',
+		workspace: 'compose',
+		title: 'Follow Marble in View',
+		section: 'View',
+		shortcut: followKey.key,
+		keywords: 'catch playhead autoscroll track scroll keep in view playback',
+		isEnabled: (cx) => compose(cx) != null,
+		isChecked: (cx) => compose(cx)?.$follow.get() === true,
+		run: (cx) => compose(cx)?.toggleFollow()
+	},
 
 	// MARK: - Playback
 	{ id: 'play.toggle', title: 'Play', section: 'Playback', shortcut: 'Space', keywords: 'pause stop', isEnabled: hasProject, run: (cx) => cx.$playing.set(!cx.$playing.get()) },
@@ -616,9 +624,7 @@ export type TCommandId =
 	| 'view.fitAll'
 	| 'view.fitSelection'
 	| 'view.fitFrame'
-	| 'view.wall'
-	| 'view.orbit'
-	| 'view.camera'
+	| 'view.follow'
 	| 'play.toggle'
 	| 'play.start'
 	| 'play.previousHit'

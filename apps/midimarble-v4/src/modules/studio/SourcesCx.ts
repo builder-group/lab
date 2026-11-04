@@ -14,6 +14,8 @@ import {
 	type TProposeLanesOptions
 } from '@/modules/music';
 import { createId, type TProject, type TSource } from '@/modules/project';
+import { SONG_KEY } from './selection';
+import { deleteSongCommands, deleteSongNotice, deleteSongQuestion, hasSongLayer } from './song-layer';
 import type { StudioCx } from './StudioCx';
 
 // Imported music starts after this lead-in so the first marble has time to fall
@@ -148,13 +150,23 @@ export class SourcesCx {
 		else await this.pickMidi();
 	}
 
-	/** Removes the song files from the project; the marbles keep their hits */
-	removeSong(): void {
+	/**
+	 * Deletes the Song layer: the song files and Backing go as one undo step, the marbles keep their hits. Asks
+	 * first only when Backing notes would be lost; the notice offers Undo.
+	 */
+	async deleteSong(): Promise<boolean> {
 		const project = this.studio.project;
-		if (project == null || !project.music.sources.length) return;
-		const name = songSource(project)?.name ?? 'The song';
-		const removed = this.studio.execute(project.music.sources.map((source) => ({ type: 'removeSource' as const, sourceId: source.id })));
-		if (removed) this.studio.notify(`Removed ${name}. The marbles keep their hits.`);
+		if (project == null || !hasSongLayer(project)) return false;
+		const question = deleteSongQuestion(project);
+		if (question != null && !(await this.studio.confirm({ question, detail: 'The marbles keep their hits.', action: 'Delete' }))) return false;
+		// The project may have changed while the alert was open
+		const current = this.studio.project;
+		if (current == null || !hasSongLayer(current)) return false;
+		const message = deleteSongNotice(current);
+		if (!this.studio.execute(deleteSongCommands(current))) return false;
+		this.studio.$selection.set(this.studio.$selection.get().filter((key) => key !== SONG_KEY));
+		this.studio.notifyEdit(message);
+		return true;
 	}
 
 	/** Loads waveform and onsets for audio sources of a reopened project */

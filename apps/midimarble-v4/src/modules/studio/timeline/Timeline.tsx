@@ -7,6 +7,7 @@ import type { THitResult } from '@/modules/simulation';
 import { addMenu } from '../add-menu';
 import { addHit } from '../menus';
 import { parseHitKey, toHitKey } from '../selection';
+import { hasSongLayer, songLayerName } from '../song-layer';
 import { songSource } from '../SourcesCx';
 import { isLaneAudible, type StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
@@ -16,7 +17,7 @@ import { LaneTrack, PianoRollTrack, type TDrag, type TDragStart } from './LaneTr
 import { pitchDeltaFor, pitchRange, rowCount } from './piano-roll';
 import { PlayheadLine, Ruler } from './Ruler';
 import { songRange } from './SongRoll';
-import { EmptySongTrack, SongTrack } from './SongTrack';
+import { SongTrack } from './SongTrack';
 import {
 	CAMERA_ROW_HEIGHT,
 	clampZoom,
@@ -36,9 +37,10 @@ import { TrackHeader } from './TrackHeader';
 import { Transport } from './Transport';
 
 /**
- * The Tracks as a Blender-style dope sheet in a Logic-style track area: the transport and hit summary in the
- * header, the Song on top, expandable into every note, then one track per marble with mute and solo, its hits
- * in a flat row by timing status and expandable into a piano roll of its notes
+ * The layers along the time, like After Effects' timeline, as a Blender-style dope sheet in a Logic-style track
+ * area: the transport and hit summary in the header, the Song on top while the project has one, expandable into
+ * every note, then one row per marble with mute and solo, its hits in a flat row by timing status and expandable
+ * into a piano roll of its notes, then in Film the Camera and Titles
  */
 export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const { cx } = props;
@@ -57,6 +59,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const project = history?.present;
 
 	const song = project == null ? undefined : songSource(project);
+	const hasSong = project != null && hasSongLayer(project);
 	const audio = project?.music.sources.find((source) => source.kind === 'audio');
 	const audioAnalysis = audio == null ? undefined : analysis[audio.id];
 	const trackWidth = Math.max((project?.end ?? 1) * zoom + 120, 0);
@@ -74,7 +77,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	// Pitch rows of every track that can expand; a dragged note keeps its rows until it is dropped
 	const ranges = React.useMemo(() => new Map((project?.music.lanes ?? []).map((lane) => [lane.id, pitchRange(lane)])), [project?.music.lanes]);
-	const songRows = React.useMemo(() => (project == null || song?.kind !== 'midi' ? null : songRange(project)), [project, song?.kind]);
+	// A recording has no notes to expand; MIDI or Backing notes without a file expand into every note
+	const songRows = React.useMemo(() => (project == null || !hasSong || song?.kind === 'audio' ? null : songRange(project)), [project, hasSong, song?.kind]);
 
 	// With notes selected, 1 to 9 hand them to that marble in track order and 0 makes them Backing. Captured
 	// before the canvas, whose 0 previews the film camera.
@@ -95,7 +99,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		return () => window.removeEventListener('keydown', onKeyDown, true);
 	}, [cx]);
 
-	// A track selected in Layers scrolls into view below the sticky ruler, like Final Cut's timeline index
+	// A layer selected in Layers scrolls its row into view below the sticky ruler, like Final Cut's timeline index
 	const first = selection[0];
 	React.useEffect(() => {
 		const element = scrollRef.current;
@@ -223,7 +227,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		return expanded.includes(lane.id) && range != null ? rowCount(range) * NOTE_ROW_HEIGHT : ROW_HEIGHT;
 	});
 	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
-	const rowsHeight = laneHeights.reduce((sum, value) => sum + value, 0) + (song != null ? songHeight : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
+	const rowsHeight = laneHeights.reduce((sum, value) => sum + value, 0) + (hasSong ? songHeight : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
 
 	// MARK: - UI
 
@@ -242,19 +246,20 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<div
 							className="mm-track-header sticky left-0 z-10 flex shrink-0 items-center gap-0.5 border-r border-b border-[var(--separator)] pr-1.5 pl-3"
 							style={{ width: HEADER_WIDTH }}
-							data-quick-help="tracks"
+							data-quick-help="timelineLayers"
 						>
-							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Tracks</span>
+							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Layers</span>
 							<MenuButton className="mm-icon-button !h-5 !w-5" label={<Plus size={13} strokeWidth={2} />} title="Add" items={addMenu(cx)} />
 						</div>
 						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
-					{song != null ? (
+					{hasSong ? (
 						<SongTrack
 							cx={cx}
 							project={project}
 							song={song}
-							analysis={analysis[song.id]}
+							name={songLayerName(project)}
+							analysis={song == null ? undefined : analysis[song.id]}
 							zoom={zoom}
 							width={trackWidth}
 							range={songRows}
@@ -262,9 +267,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							height={songHeight}
 							selection={selection}
 						/>
-					) : (
-						<EmptySongTrack cx={cx} width={trackWidth} />
-					)}
+					) : null}
 					{project.music.lanes.map((lane, index) => {
 						const range = ranges.get(lane.id) ?? null;
 						const isExpanded = expanded.includes(lane.id) && range != null;
@@ -297,7 +300,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							<span className="mm-placeholder-body">Import a MIDI file with ⌘I, drop one on the window or add a marble with +.</span>
 						</div>
 					) : null}
-					{/* The track column is the timed part of the Layers outline, in the same order: Song, marbles, Camera */}
+					{/* The same layers as Layers, in the same order: Song, marbles, then in Film Camera and Titles */}
 					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{showsCamera ? <TitlesRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{/* The header column continues below the last lane, like Logic's track list */}

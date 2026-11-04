@@ -13,7 +13,7 @@ import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simul
 import { addMenu } from './add-menu';
 import { commandItem } from './commands';
 import { formatTime } from './format';
-import { laneMenu, pieceMenu } from './menus';
+import { laneMenu, pieceMenu, songMenu } from './menus';
 import { buildOutline, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import { PieceLibrary } from './PieceLibrary';
 import { $sidebarTabs, setSidebarTab, type TSidebarTab } from './sidebar-state';
@@ -128,9 +128,10 @@ const ProjectHeader: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 // MARK: - Layers
 
 /**
- * The project's outline like Figma UI3's layer list, the same in both workspaces. Rows that also have a
- * timeline track carry the track glyph and share its selection. Camera, shots and titles belong to Film, so a
- * click on one in Compose opens Film. Up and Down move the selection, Left and Right fold a group.
+ * The project's layers like Figma UI3's layer list. Each layer with a row in the timeline carries the timeline
+ * glyph and shares its selection, like After Effects. Compose lists the Song and the marbles with their pieces;
+ * Film lists every layer, the Camera with its shots and the titles too. Up and Down move the selection, Left and
+ * Right fold a group.
  */
 const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace }> = (props) => {
 	const { cx, project, workspace } = props;
@@ -147,7 +148,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	// Pieces another marble hits, from the problem model the hit summary and the inspector read
 	const struck = React.useMemo(() => (result != null && result.revision === project.revision ? struckPieces(preflightExport(project, result)) : null), [project, result]);
 	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceEntityId == null ? [] : [[hit.pieceEntityId, hit] as const]))), [result]);
-	const rows = React.useMemo(() => buildOutline(project, { collapsed }), [project, collapsed]);
+	const rows = React.useMemo(() => buildOutline(project, { collapsed, workspace }), [project, collapsed, workspace]);
 	const isFilm = workspace === 'design';
 	// Rows that Shift ranges and the arrow keys visit; Compose's arrows stay out of the Film rows
 	const order = rows.filter((row) => isSelectableRow(row) && (isFilm || !isFilmRow(row))).map((row) => row.id);
@@ -247,7 +248,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		if (!isTinted(row) || row.kind === 'group') select(row);
 		if (row.kind === 'marble') openContextMenu(event, laneMenu(cx, row.lane));
 		else if (row.kind === 'piece') openContextMenu(event, pieceMenu(cx));
-		else if (row.kind === 'song') openContextMenu(event, [{ section: 'Song' }, commandItem(cx, 'file.replaceSong'), commandItem(cx, 'file.removeSong')]);
+		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'camera' || row.kind === 'shot') openContextMenu(event, [commandItem(cx, 'camera.addShot'), ...(row.kind === 'shot' ? [commandItem(cx, 'edit.delete')] : [])]);
 		else event.preventDefault();
 	}
@@ -351,11 +352,11 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; isOpen?: boolean; time?: number } {
 	switch (row.kind) {
 		case 'song': {
-			const isRecording = row.source.kind === 'audio';
+			const isRecording = row.source?.kind === 'audio';
 			return {
 				icon: isRecording ? <AudioLines size={14} strokeWidth={1.75} /> : <Music size={14} strokeWidth={1.75} />,
-				label: row.source.name,
-				title: isRecording ? 'Song · Recording' : 'Song · MIDI'
+				label: row.label,
+				title: row.source == null ? 'Song · Backing' : isRecording ? 'Song · Recording' : 'Song · MIDI'
 			};
 		}
 		case 'marble':
@@ -373,7 +374,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 	}
 }
 
-/** A track with a keyframe: the row also has a track in the timeline, like Final Cut's timeline index */
+/** A line with a keyframe: the layer also has a row in the timeline, like After Effects' layers */
 const TrackGlyph: React.FC = () => (
 	<svg className="mm-layer-track" width={12} height={12} viewBox="0 0 12 12" role="img" aria-label="In the timeline">
 		<title>In the timeline</title>

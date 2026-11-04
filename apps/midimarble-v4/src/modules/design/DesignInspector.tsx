@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Bookmark, Clapperboard, Plus, RotateCcw, Trash2, TriangleAlert, Type } from 'lucide-react';
+import { Bookmark, Plus, RotateCcw, Trash2, TriangleAlert, Type, Video } from 'lucide-react';
 import React from 'react';
 import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, StateRow, TextField } from '@/components';
 import { shotLength } from '@/modules/camera/shots';
@@ -11,7 +11,6 @@ import type { StudioCx } from '@/modules/studio';
 import { duplicateTheme, getCommand } from '@/modules/studio/commands';
 import { formatTime } from '@/modules/studio/format';
 import { parseTime } from '@/modules/studio/timeline/parse-time';
-import { toShotKey } from '@/modules/studio/selection';
 import {
 	builtInSkinLabel,
 	cameraCommands,
@@ -36,7 +35,7 @@ import type { TDesignLink, TDesignStatus } from './DesignCx';
 import { libraryItemLabel } from './DesignLibraryCx';
 import { LIBRARY_DRAG_TYPE, notifySkinApplied } from './DesignLibrary';
 import { marbleContrastWarning } from './draft-look';
-import { renderPresetLabel, renderPresetOption, renderPresets } from './export-estimate';
+import { renderPresetOption, renderPresets } from './export-estimate';
 import { framingFix, framingProblemAt, preflightExport } from './export-preflight';
 import { describeLoop } from './loop-status';
 import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
@@ -53,29 +52,11 @@ import {
 } from './project-themes';
 import { songDisplayName, titleSpan, withTitleTime } from './titles';
 
-/** Properties of the Film workspace on the inspector grid: the project, a piece's look, a title or a shot */
-export const DesignInspector: React.FC<TDesignInspectorProps> = (props) => {
-	const { cx, project, selection } = props;
-	const entities = project.entities.filter((entity) => selection.includes(entity.id));
-	const pieces = entities.filter((entity) => entity.components.piece != null);
-	const text = entities.find((entity) => entity.components.wallText != null);
-	const shot = project.design.camera.shots.find((item) => selection.includes(toShotKey(item.id)));
+// Inspectors of the Film layers on the inspector grid: a piece's look, a title or the titles, a shot and the
+// Camera, plus the film's Look for the Project. The studio's Inspector picks one for the selection.
 
-	if (pieces.length > 0) return <PieceLook cx={cx} project={project} pieces={pieces} />;
-	if (text != null) return <WallTextInspector cx={cx} project={project} entity={text} />;
-	if (shot != null) return <ShotInspector cx={cx} project={project} shot={shot} />;
-	return <SceneInspector cx={cx} project={project} />;
-};
-
-interface TDesignInspectorProps {
-	cx: StudioCx;
-	project: TProject;
-	selection: string[];
-}
-
-// MARK: - Scene
-
-const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
+/** The film's look in the Project inspector of Film: theme, its colours, quality and the loop */
+export const FilmLookPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const design = project.design;
 	const theme = resolveTheme(design);
@@ -85,37 +66,32 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 	];
 
 	return (
-		<>
-			<InspectorHeader icon={<Clapperboard size={16} strokeWidth={1.7} />} title="Project" subtitle={`${theme.name} · ${renderPresetLabel(design.renderPreset)}`} />
-			<Panel id="design.scene" title="Look">
-				<SelectField
-					id="design-theme"
-					label="Theme"
-					value={design.theme}
-					options={[...themeOptions, ...(themeOptions.some((item) => item.value === design.theme) ? [] : [{ value: design.theme, label: design.theme }])]}
-					onChange={(value) => cx.execute(themeCommands(project, value))}
-				/>
-				<ThemeColors cx={cx} theme={theme} />
-				<CheckField
-					id="design-color-by-note"
-					label="Colour by Note"
-					title="Colours each platform by its note, like boomwhackers; a platform with a chosen skin keeps the skin's colour"
-					checked={design.themeOptions?.colorByNote === true}
-					onChange={(colorByNote) => cx.execute(colorByNoteCommands(project, colorByNote))}
-				/>
-				<SelectField
-					id="design-preset"
-					label="Quality"
-					value={design.renderPreset}
-					options={renderPresets.map((preset) => ({ value: preset.id, label: renderPresetOption(preset) }))}
-					onChange={(value) => cx.execute([{ type: 'setDesign', design: { renderPreset: value as TDesign['renderPreset'] } }])}
-				/>
-				<CheckField id="design-loop" label="Seamless Loop" checked={design.loop} onChange={(loop) => cx.execute([{ type: 'setDesign', design: { loop } }])} />
-				{design.loop ? <LoopStatus cx={cx} project={project} /> : null}
-			</Panel>
-			<CameraPanel cx={cx} project={project} />
-			<WallTextPanel cx={cx} project={project} />
-		</>
+		<Panel id="design.scene" title="Look">
+			<SelectField
+				id="design-theme"
+				label="Theme"
+				value={design.theme}
+				options={[...themeOptions, ...(themeOptions.some((item) => item.value === design.theme) ? [] : [{ value: design.theme, label: design.theme }])]}
+				onChange={(value) => cx.execute(themeCommands(project, value))}
+			/>
+			<ThemeColors cx={cx} theme={theme} />
+			<CheckField
+				id="design-color-by-note"
+				label="Colour by Note"
+				title="Colours each platform by its note, like boomwhackers; a platform with a chosen skin keeps the skin's colour"
+				checked={design.themeOptions?.colorByNote === true}
+				onChange={(colorByNote) => cx.execute(colorByNoteCommands(project, colorByNote))}
+			/>
+			<SelectField
+				id="design-preset"
+				label="Quality"
+				value={design.renderPreset}
+				options={renderPresets.map((preset) => ({ value: preset.id, label: renderPresetOption(preset) }))}
+				onChange={(value) => cx.execute([{ type: 'setDesign', design: { renderPreset: value as TDesign['renderPreset'] } }])}
+			/>
+			<CheckField id="design-loop" label="Seamless Loop" checked={design.loop} onChange={(loop) => cx.execute([{ type: 'setDesign', design: { loop } }])} />
+			{design.loop ? <LoopStatus cx={cx} project={project} /> : null}
+		</Panel>
 	);
 };
 
@@ -252,6 +228,46 @@ const LoopStatus: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	);
 };
 
+/**
+ * The Camera layer's inspector, in Compose and in Film: the frame of the film, then Automatic or Manual with the
+ * rig's distance, pitch, lead and smoothing, the framing problem at the playhead and the shots
+ */
+export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
+	const { cx, project } = props;
+	const camera = project.design.camera;
+	const aspect = frameAspects.find((item) => item.width === project.frame.width && item.height === project.frame.height);
+	const shots = camera.shots.length;
+	return (
+		<>
+			<InspectorHeader
+				icon={<Video size={16} strokeWidth={1.7} />}
+				title="Camera"
+				subtitle={`${camera.mode === 'rig' ? 'Automatic' : 'Manual'} · ${shots === 1 ? '1 shot' : `${shots} shots`}`}
+			/>
+			<Panel id="camera.frame" title="Frame" accessory={<HelpTip text="The shape of the film. Portrait suits phones and Shorts; the camera frames the marbles for it." />}>
+				<SelectField
+					id="project-frame"
+					label="Frame"
+					value={aspect?.label ?? 'custom'}
+					options={[...frameAspects.map((item) => ({ value: item.label, label: item.label })), ...(aspect == null ? [{ value: 'custom', label: 'Custom' }] : [])]}
+					onChange={(value) => {
+						const next = frameAspects.find((item) => item.label === value);
+						if (next != null) cx.execute([{ type: 'setFrame', width: next.width, height: next.height }]);
+					}}
+				/>
+			</Panel>
+			<CameraPanel cx={cx} project={project} />
+		</>
+	);
+};
+
+const frameAspects = [
+	{ label: '9:16 Portrait', width: 9, height: 16 },
+	{ label: '1:1 Square', width: 1, height: 1 },
+	{ label: '4:5 Portrait', width: 4, height: 5 },
+	{ label: '16:9 Landscape', width: 16, height: 9 }
+];
+
 const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const camera = project.design.camera;
@@ -357,7 +373,8 @@ const FramingProblem: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 	);
 };
 
-const WallTextPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
+/** The Titles layer's inspector, for several titles selected together: each title as a link and Add Title */
+export const TitlesInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const placing = useFeatureState(cx.design.$placing);
 	const texts = project.entities.filter((entity) => entity.components.wallText != null);
@@ -367,25 +384,28 @@ const WallTextPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 	}
 
 	return (
-		<Panel
-			id="design.text"
-			title="Titles"
-			isEmpty={!texts.length}
-			accessory={
-				<>
-					<HelpTip text="Text on the wall, such as a title or a credit. Click +, then click the preview where it goes." />
-					<button className="mm-icon-button" data-active={placing === 'text'} onClick={add} title="Add a title (T)" aria-label="Add Title" type="button">
-						<Plus size={13} strokeWidth={2} />
-					</button>
-				</>
-			}
-		>
-			{texts.map((entity) => (
-				<LinkRow key={entity.id} icon={<Type size={13} strokeWidth={1.8} className="shrink-0 text-[var(--text-secondary)]" />} title="Select Title" onOpen={() => cx.$selection.set([entity.id])}>
-					{entity.components.wallText?.text}
-				</LinkRow>
-			))}
-		</Panel>
+		<>
+			<InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title="Titles" subtitle={texts.length === 1 ? '1 title' : `${texts.length} titles`} />
+			<Panel
+				id="design.text"
+				title="Titles"
+				isEmpty={!texts.length}
+				accessory={
+					<>
+						<HelpTip text="Text on the wall, such as a title or a credit. Click +, then click the preview where it goes." />
+						<button className="mm-icon-button" data-active={placing === 'text'} onClick={add} title="Add a title (T)" aria-label="Add Title" type="button">
+							<Plus size={13} strokeWidth={2} />
+						</button>
+					</>
+				}
+			>
+				{texts.map((entity) => (
+					<LinkRow key={entity.id} icon={<Type size={13} strokeWidth={1.8} className="shrink-0 text-[var(--text-secondary)]" />} title="Select Title" onOpen={() => cx.$selection.set([entity.id])}>
+						{entity.components.wallText?.text}
+					</LinkRow>
+				))}
+			</Panel>
+		</>
 	);
 };
 
@@ -398,7 +418,7 @@ function parseHold(text: string): number | null {
 	return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> = (props) => {
+export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> = (props) => {
 	const { cx, project, shot } = props;
 
 	function set(patch: Partial<Omit<TShot, 'id'>>): void {
@@ -452,7 +472,7 @@ const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> 
 
 // MARK: - Title
 
-const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
+export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
 	const { cx, project, entity } = props;
 	const text = entity.components.wallText;
 	const transform = entity.components.transform;
@@ -580,7 +600,7 @@ const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEn
 
 // MARK: - Piece look
 
-const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }> = (props) => {
+export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }> = (props) => {
 	const { cx, project, pieces } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);

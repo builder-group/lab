@@ -32,7 +32,7 @@ export const insertSections: TInsertSection[] = [
 			{ item: 'platform', label: 'Platform', description: 'The marble bounces off it and plays a note', shortcut: 'P' },
 			{ item: 'windmill', label: 'Windmill', description: 'The marble strikes a blade and sets it turning', shortcut: 'W' },
 			{ item: 'switchback', label: 'Switchback', description: 'The marble zigzags down its legs to fill a long gap' },
-			{ item: 'marble', label: 'Marble', description: 'A new marble with its own track', shortcut: 'O' }
+			{ item: 'marble', label: 'Marble', description: 'A new marble with its own layer', shortcut: 'O' }
 		]
 	}
 ];

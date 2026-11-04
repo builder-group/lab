@@ -172,18 +172,6 @@ function mod(value: number, size: number): number {
 	return ((value % size) + size) % size;
 }
 
-/**
- * Film frame of `aspect` (width / height) centred on the canvas for the Camera view, as large as fits with room for
- * the floating controls above and around it. CSS pixels.
- */
-export function filmFrameRect(viewport: TViewport, aspect: number): { x: number; y: number; width: number; height: number } {
-	const marginX = 24;
-	const marginY = 56;
-	const height = Math.max(1, Math.min(viewport.height - 2 * marginY, (viewport.width - 2 * marginX) / aspect));
-	const width = height * aspect;
-	return { x: (viewport.width - width) / 2, y: (viewport.height - height) / 2, width, height };
-}
-
 // MARK: - Floating bars
 
 /** A screen rectangle in CSS pixels */

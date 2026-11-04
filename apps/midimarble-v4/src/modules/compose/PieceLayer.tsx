@@ -17,8 +17,6 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	const result = useFeatureState(cx.simulation.$result);
 	useFeatureState(compose.$camera);
 	const viewport = useFeatureState(compose.$viewport);
-	// The Camera view moves with the playhead and shows every piece solid, like the film
-	useFeatureState(compose.$film);
 	useFeatureState(cx.$playhead);
 	useFeatureState(cx.$selection);
 	useFeatureState(cx.$playing);

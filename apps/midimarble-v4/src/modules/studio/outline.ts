@@ -1,19 +1,21 @@
 import type { TEntity, TLane, TProject, TShot, TSource } from '@/modules/project';
 import { CAMERA_KEY, SONG_KEY, toShotKey } from './selection';
+import { hasSongLayer, songLayerName } from './song-layer';
 import { songSource } from './SourcesCx';
+import type { TWorkspace } from './StudioCx';
 
 /**
- * The project's outline in display order, which the Layers list draws and Shift ranges and arrow keys follow:
- * the Song, each marble with the pieces it plays or that follow it in hit order, Free Pieces, the Camera with
- * its shots and Titles. Rows of a collapsed group leave out their children. The timeline's track column is
- * the timed part of the same outline: the rows with a `track`.
+ * The project's layers in display order, which the Layers list draws and Shift ranges and arrow keys follow:
+ * the Song while the project has one, each marble with the pieces it plays or that follow it in hit order, Free
+ * Pieces, the Camera with its shots and Titles. Compose is the performance and shows only the Song and the
+ * marbles with their pieces; Film is the presentation and shows every layer. Rows of a collapsed group leave out
+ * their children. The timeline shows the same layers as rows, like After Effects: the rows with a `track`.
  */
 export function buildOutline(project: TProject, options: TOutlineOptions = {}): TOutlineRow[] {
-	const { collapsed = [] } = options;
+	const { collapsed = [], workspace = 'design' } = options;
 	const rows: TOutlineRow[] = [];
 
-	const song = songSource(project);
-	if (song != null) rows.push({ kind: 'song', id: SONG_KEY, depth: 0, parentId: null, track: 'song', source: song });
+	if (hasSongLayer(project)) rows.push({ kind: 'song', id: SONG_KEY, depth: 0, parentId: null, track: 'song', source: songSource(project), label: songLayerName(project) });
 
 	for (const lane of project.music.lanes) {
 		const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
@@ -31,6 +33,8 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 		rows.push({ kind: 'group', id: FREE_PIECES_KEY, depth: 0, parentId: null, track: null, label: 'Free Pieces', groupKey: FREE_PIECES_KEY, childIds: free.map((piece) => piece.id), isOpen });
 		if (isOpen) for (const piece of free) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: FREE_PIECES_KEY, track: null, piece, laneId: null });
 	}
+
+	if (workspace === 'compose') return rows;
 
 	const shots = [...project.design.camera.shots].sort((a, b) => a.time - b.time);
 	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
@@ -50,6 +54,8 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 export interface TOutlineOptions {
 	/** Group keys of folded groups: a lane ID, the Camera key or a group row's ID */
 	collapsed?: string[];
+	/** Compose leaves out the Camera, its shots and the titles; Film, the default, shows every layer */
+	workspace?: TWorkspace;
 }
 
 /** Group row of the pieces tied to nothing; its ID is never a selection key */
@@ -70,7 +76,8 @@ interface TOutlineRowBase {
 }
 
 export type TOutlineRow =
-	| (TOutlineRowBase & { kind: 'song'; track: 'song'; source: TSource })
+	// Without a file the Song layer holds only Backing notes
+	| (TOutlineRowBase & { kind: 'song'; track: 'song'; source: TSource | undefined; label: string })
 	| (TOutlineRowBase & { kind: 'marble'; track: 'lane'; lane: TLane; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TEntity; laneId: string | null })
 	| (TOutlineRowBase & { kind: 'group'; label: string; groupKey: string; childIds: string[]; isOpen: boolean })
@@ -78,7 +85,7 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'shot'; shot: TShot })
 	| (TOutlineRowBase & { kind: 'title'; entity: TEntity });
 
-/** Whether a row belongs to the Film workspace: the camera, its shots and the titles */
+/** Whether a row belongs to the Film workspace only: the Camera with its shots and the titles */
 export function isFilmRow(row: TOutlineRow): boolean {
 	return row.kind === 'camera' || row.kind === 'shot' || row.kind === 'title' || (row.kind === 'group' && row.id === TITLES_KEY);
 }

@@ -13,6 +13,14 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### 2026-11-04: Layers, each layer owns its settings, Song optional (Round 4)
+
+- One word, Layers: the timeline column header reads Layers, Quick Help's region is Timeline, Tracks/track left the UI strings; words.md has a Layer row and no Track row; design-language.md records Round 4
+- Compose shows only the Song and the marbles with their pieces (`buildOutline` `workspace` option); Film shows every layer
+- Inspector picks by `inspectorTarget` (`studio/inspector-target.ts`), the same in both workspaces: Song inspector (file, tempo, meter, Replace Song…, Delete Song, Backing with its Sound), Camera inspector (Frame plus every camera setting, moved from Film's Project inspector), Titles inspector for several titles, marble and hit inspectors in Film too. Project keeps Length with Fit to Song and Marble Speed, plus Look in Film
+- Song layer optional (`studio/song-layer.ts`): only with a song file or Backing notes; Add menu offers Add Song… without one; Delete Song (⌫, menus, inspector) removes file and Backing in one undo step with a notice and Undo, and a ConfirmAlert only when Backing notes would go
+- Checks: typecheck, lint, test pass (66 files, 514 tests); browser check of a tapped project, Jingle Bells (Song inspector, Delete Song and Undo, selection sync) and a new project (no Song row, Add Song…)
+
 ### 2026-11-04: duets in one frame, a lead on falls, framing problems from the camera (R7-1, R7-10, R7-4 camera)
 
 - Duets (R7-10): the readable maximum is 5 % of the frame width (6 % before) and the zoom's time constant 1.8 s; Jingle Bells keeps both marbles in frame on 95.5 % of the frames (80.8 %), both at 0:12 (Bass was fully out), every marble at 4.6 % or more (10th percentile 5.0 %), largest distance change within a second 0.051 m, edge band 2.6 % (4.4 %). Reference 20 and Two Marbles unchanged or better; numbers in `references.md` › Duets in one frame
