@@ -274,6 +274,9 @@ def skin_key(kind, entity, context):
             None if frame.note_pitch is None else int(round(frame.note_pitch)) % 12,
             frame.look['colour'], frame.look['glowColor'], frame.look['variant'],
         ]
+        # Only set properties join the key, so skins built before they existed stay current
+        if frame.look['properties']:
+            values.append(sorted(frame.look['properties'].items()))
         # Only a set Glow joins the key, so skins built before project themes stay current
         if context.get('glow') is not None and frame.glows_as_neon:
             values.append(['glow', [round(value, 5) for value in context['glow']]])
@@ -410,6 +413,7 @@ class PieceFrame:
         self.wires = [[(float(point['x']), float(point['y'])) for point in wire] for wire in (piece.get('paths') or [])]
         self.color = piece.get('color') or '#c8b89a'
         self.look = piece_look(piece, context)
+        self.piece_id = str(piece.get('id') or '')
         self.skin = self.look['skin']
         self.style = self.skin.split(':', 1)[1]
         self.glows_as_neon = self.style in ('neon', 'glow')
@@ -432,6 +436,23 @@ class PieceFrame:
         if self.note_pitch is not None:
             return themes.note_material(self.note_pitch)
         return themes.wood_material() if self.colour == 'skin' else themes.flat_material(self.color, roughness, coat)
+
+    def wrap(self, own):
+        """Material of a Gift's paper or a book's cover: `own` with Colour: Skin, its note's or its marble's colour otherwise"""
+        if self.note_pitch is not None:
+            return themes.note_material(self.note_pitch)
+        return skin_materials.paper_material(own if self.colour == 'skin' else self.color)
+
+    def pick(self, choices, salt=''):
+        """One of `choices` for this piece, the same on every apply"""
+        digest = hashlib.sha1((self.piece_id + salt).encode()).digest()
+        return choices[digest[0] % len(choices)]
+
+    def ribbon(self, own=None):
+        """Ribbon Colour: the piece's own, or the skin's, which `own` gives when it goes with the paper"""
+        color = self.look['properties'].get('Ribbon Colour')
+        valid = isinstance(color, str) and len(color) == 7 and color.startswith('#')
+        return skin_materials.paper_material(color if valid else own or RIBBON_COLOR, 0.24, 0.7)
 
     def to_local(self, point):
         dx, dy = point[0] - self.origin[0], point[1] - self.origin[1]
@@ -459,12 +480,116 @@ class PieceFrame:
         return result
 
 
+RIBBON_COLOR = '#d9a520'
+# Gift and Books: a colour of its own per piece, so a run of them reads as a pile of presents
+# (paper, ribbon)
+GIFT_PAPERS = (('#a01522', RIBBON_COLOR), ('#14603a', RIBBON_COLOR), ('#ece4d2', '#a81a26'), ('#a01522', RIBBON_COLOR), ('#14603a', '#ece4d2'))
+BOOK_COVERS = ('#8e2430', '#1f5a44', '#27406e', '#8a6a32', '#5c3a5e')
+BOOK_PAGES = '#e9e1cc'
+BOOK_GOLD = '#d2a84a'
+# Height of a Gift or a stack of Books at the 16 mm marble of the Marble Race Kit: their top face is the contact surface
+PRESENT_HEIGHT = 0.017
+
+
+def present_box(frame, length, thickness):
+    """(depth, y of the middle, top, bottom) of a box that stands on the wall and whose top face is the collider's"""
+    k = frame.marble_radius / 0.008
+    depth = min(max(frame.depth, 2.2 * frame.marble_radius + 0.004 * k), 3.0 * frame.marble_radius)
+    top = thickness / 2
+    return depth, frame.wall_y - 0.0004 - depth / 2, top, top - max(thickness * 1.15, PRESENT_HEIGHT * k)
+
+
+def add_bow(builder, center, k, material):
+    """A ribbon bow on a box's front face, below the top so the marble's surface stays clear: two loops, a knot, two tails"""
+    x, y, z = center
+    for side in (-1, 1):
+        loop = []
+        for step in range(11):
+            angle = 2 * math.pi * step / 10
+            reach = 0.5 - 0.5 * math.cos(angle)
+            loop.append((x + side * 0.0088 * k * reach, y - 0.0024 * k * reach, z + 0.0034 * k * math.sin(angle) + 0.0008 * k * reach))
+        builder.tube(loop, 0.0011 * k, material=material, sides=6)
+        builder.tube([(x, y, z), (x + side * 0.0028 * k, y - 0.0006 * k, z - 0.0034 * k), (x + side * 0.0052 * k, y - 0.0004 * k, z - 0.0058 * k)],
+                     0.0009 * k, material=material, sides=6)
+    builder.sphere(0.002 * k, (x, y - 0.0004 * k, z), material=material, segments=10, rings=6)
+
+
+def wall_cleat(frame, length, bottom, k):
+    """What holds a box to the wall: hidden behind it, so the box's parts alone press on a hit"""
+    cleat = MeshBuilder()
+    cleat.box((length * 0.3, 0.002 * k, 0.003 * k), (0.0, frame.wall_y - 0.001 * k, bottom + 0.004 * k))
+    return cleat.to_mesh('MM cleat', [themes.plastic_material('cleat', (0.2, 0.2, 0.2), 0.6)])
+
+
+def gift_spec(frame, length, thickness):
+    """A wrapped box with a ribbon round it both ways and a bow on its front face. The ribbon's top is the contact
+    surface and nothing reaches above it."""
+    k = frame.marble_radius / 0.008
+    depth, y, top, bottom = present_box(frame, length, thickness)
+    height = top - bottom
+    middle = (top + bottom) / 2
+    proud = 0.00025 * k
+    band = min(max(length * 0.075, 0.003 * k), 0.0055 * k)
+    box = MeshBuilder()
+    # The paper's top lies a hair under the ribbon's, which is the contact surface
+    box.box((length, depth, height - proud), (0.0, y, middle - proud / 2), bevel=0.0009 * k, segments=2)
+    box.box((band, depth + proud * 2, height), (0.0, y, middle), bevel=0.0003 * k, segments=1, material=1)
+    box.box((length + proud * 2, band, height), (0.0, y, middle), bevel=0.0003 * k, segments=1, material=1)
+    front = y - depth / 2 - proud
+    add_bow(box, (0.0, front - 0.0002 * k, top - 0.0056 * k), k, 1)
+    paper, ribbon = frame.pick(GIFT_PAPERS)
+    paper = frame.wrap(paper)
+    return {
+        'root': wall_cleat(frame, length, bottom, k),
+        'parts': [{'role': 'bar', 'mesh': box.to_mesh('MM gift', [paper, frame.ribbon(ribbon)]), 'reactive': True}],
+    }
+
+
+def books_spec(frame, length, thickness):
+    """Three books stacked on the wall, spines to the front with gilt bands, tied with a ribbon and a bow. The top book's
+    cover is the contact surface and reaches the piece's full length."""
+    k = frame.marble_radius / 0.008
+    depth, y, top, bottom = present_box(frame, length, thickness)
+    shares = (0.3, 0.38, 0.32)
+    covers = [frame.wrap(frame.pick(BOOK_COVERS, str(level))) if level == 0 else skin_materials.paper_material(frame.pick(BOOK_COVERS, str(level))) for level in range(3)]
+    stack = MeshBuilder()
+    board = 0.0008 * k
+    z_top = top
+    for level, share in enumerate(shares):
+        tall = (top - bottom) * share
+        # Lower books are a little shorter and set off to one side, the way a stack lies
+        offset = 0.0 if level == 0 else (0.04 if frame.pick((0, 1), str(level)) else -0.04) * length
+        long = length if level == 0 else length * (0.9 + 0.04 * level)
+        middle = z_top - tall / 2
+        stack.box((long, depth, board), (offset, y, z_top - board / 2), bevel=0.0002 * k, segments=1, material=level)
+        stack.box((long, depth, board), (offset, y, z_top - tall + board / 2), bevel=0.0002 * k, segments=1, material=level)
+        spine = y - depth / 2 + 0.0006 * k
+        stack.box((long, 0.0012 * k, tall), (offset, spine, middle), bevel=0.0004 * k, segments=2, material=level)
+        stack.box((long - 0.002 * k, depth - 0.0014 * k, tall - board * 2 + 0.0001), (offset, y + 0.0004 * k, middle), material=3)
+        for side in (-1, 1):
+            stack.box((0.002 * k, 0.0003 * k, tall * 0.92), (offset + side * long * 0.36, spine - 0.0006 * k, middle), material=4)
+        z_top -= tall
+    band = min(max(length * 0.075, 0.003 * k), 0.0055 * k)
+    proud = 0.0003 * k
+    stack.box((band, depth + proud * 2, top - bottom - 0.0001), (0.0, y, (top + bottom) / 2 - 0.00005), material=5)
+    add_bow(stack, (0.0, y - depth / 2 - proud - 0.0002 * k, top - 0.0056 * k), k, 5)
+    materials = [*covers, skin_materials.paper_material(BOOK_PAGES, 0.8, 0.0), skin_materials.paper_material(BOOK_GOLD, 0.3, 0.3), frame.ribbon()]
+    return {
+        'root': wall_cleat(frame, length, bottom, k),
+        'parts': [{'role': 'bar', 'mesh': stack.to_mesh('MM books', materials), 'reactive': True}],
+    }
+
+
 def platform_spec(frame, piece):
     params = frame.params
     length = params.get('length', 0.06)
     thickness = params.get('thickness', 0.008)
     if frame.device is not None:
         return device_spec(frame, length, thickness)
+    if frame.style == 'gift':
+        return gift_spec(frame, length, thickness)
+    if frame.style == 'books':
+        return books_spec(frame, length, thickness)
     if frame.style in BAR_FINISHES:
         chrome = themes.chrome_material()
         metal = frame.metal(themes.bar_material(frame.style))
@@ -611,6 +736,10 @@ def device_spec(frame, length, thickness):
     return {'root': root, 'parts': [{'role': 'bar', 'mesh': body.to_mesh('MM ' + frame.device, materials), 'reactive': True}]}
 
 
+# Colour: Skin of a Candy Rail
+CANDY_COLOR = '#c8202c'
+
+
 def rail_spec(frame, piece):
     params = frame.params
     physics_radius = params.get('radius', 0.0025)
@@ -618,6 +747,9 @@ def rail_spec(frame, piece):
     radius = min(physics_radius, 0.0016) if frame.style == 'chrome' else physics_radius * 0.8
     if frame.style == 'chrome':
         wire_material, post_material = frame.metal(themes.chrome_material()), themes.chrome_material()
+    elif frame.style == 'candy':
+        wire_material = skin_materials.candy_material(CANDY_COLOR if frame.colour == 'skin' else frame.color)
+        post_material = themes.chrome_material()
     elif frame.style == 'glow':
         # Glow rails are tube lights; dimmer than a platform's trim since they run long
         wire_material, post_material = themes.neon_trim_material(neon_colors(frame)[1], 1.6), themes.neon_mount_material()
@@ -674,6 +806,8 @@ def switchback_spec(frame, piece):
                                  material=1)
         if frame.style == 'glow':
             materials = [themes.neon_trim_material(neon_colors(frame)[1], 1.6), themes.neon_mount_material()]
+        elif frame.style == 'candy':
+            materials = [skin_materials.candy_material(CANDY_COLOR if frame.colour == 'skin' else frame.color), themes.chrome_material()]
         else:
             materials = [frame.toy(), themes.wood_material()]
         return {'root': builder.to_mesh('MM switchback', materials), 'parts': []}
@@ -918,6 +1052,8 @@ def marble_mesh(marble, context):
     skin = look['skin']
     if skin == 'marble:glass':
         material = skin_materials.glass_marble_material(skin_materials.GLASS_SKIN if look['colour'] == 'skin' else color, look['variant'])
+    elif skin == 'marble:glass-green':
+        material = skin_materials.glass_marble_material(skin_materials.GLASS_GREEN_SKIN if look['colour'] == 'skin' else color, look['variant'], skin_materials.GLASS_GREEN_VANES)
     elif skin == 'marble:metal':
         material = skin_materials.metal_marble_material(color if look['colour'] == 'marble' else None)
     elif skin == 'marble:magic':

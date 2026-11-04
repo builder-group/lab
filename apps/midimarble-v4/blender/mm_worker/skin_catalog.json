@@ -164,6 +164,44 @@
 					"glows": true
 				},
 				{
+					"id": "platform:gift",
+					"label": "Gift",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-gift.png",
+					"properties": [
+						{
+							"name": "Ribbon Colour",
+							"type": "colour",
+							"default": "#d9a520"
+						}
+					]
+				},
+				{
+					"id": "platform:books",
+					"label": "Books",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-books.png",
+					"properties": [
+						{
+							"name": "Ribbon Colour",
+							"type": "colour",
+							"default": "#d9a520"
+						}
+					]
+				},
+				{
 					"id": "platform:dark",
 					"label": "Dark",
 					"colour": "skin",
@@ -230,6 +268,17 @@
 					],
 					"reacts": "none",
 					"preview": "rail-wood.png"
+				},
+				{
+					"id": "rail:candy",
+					"label": "Candy Rail",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "rail-candy.png"
 				},
 				{
 					"id": "rail:glow",
@@ -307,6 +356,17 @@
 					],
 					"reacts": "none",
 					"preview": "switchback-chrome.png"
+				},
+				{
+					"id": "switchback:candy",
+					"label": "Candy Switchback",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "switchback-candy.png"
 				},
 				{
 					"id": "switchback:wood",
@@ -446,6 +506,28 @@
 					],
 					"reacts": "none",
 					"preview": "marble-glass.png",
+					"variants": [
+						{
+							"id": "swirl",
+							"label": "Swirl"
+						},
+						{
+							"id": "cats-eye",
+							"label": "Cat's-Eye"
+						}
+					],
+					"variant": "swirl"
+				},
+				{
+					"id": "marble:glass-green",
+					"label": "Green Glass",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "marble-glass-green.png",
 					"variants": [
 						{
 							"id": "swirl",

@@ -1,7 +1,7 @@
 import { BrickWall, Lightbulb, Plus, RotateCcw, Sun, Trash2, TriangleAlert } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, SelectField, SliderField } from '@/components';
-import type { TLight, TProject, TProjectCommand, TWallKind } from '@/modules/project';
+import type { TLight, TProject, TProjectCommand, TWallBand, TWallKind } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { getCommand } from '@/modules/studio/commands';
 import { KEY_LIGHT_KEY, toLightKey } from '@/modules/studio/selection';
@@ -18,6 +18,7 @@ import {
 	updateLightCommands,
 	wallCommands,
 	wallLayer,
+	WALL_BANDS,
 	WALL_KINDS
 } from './scene-layers';
 
@@ -37,6 +38,7 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 	const marbles = project.entities.flatMap((entity) => (entity.components.marble != null ? [{ name: entity.name ?? 'Marble', color: entity.components.marble.color }] : []));
 	const warning = marbleContrastWarning(baseThemeOf(design), appliedOverrides(design), marbles);
 	const kindLabel = (kind: TWallKind): string => WALL_KINDS.find((item) => item.kind === kind)?.label ?? kind;
+	const bandLabel = (band: TWallBand): string => WALL_BANDS.find((item) => item.band === band)?.label ?? band;
 
 	return (
 		<>
@@ -49,6 +51,15 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 					options={[{ value: '', label: `${origin} · ${kindLabel(wall.theme.kind)}` }, ...WALL_KINDS.map((item) => ({ value: item.kind, label: item.label }))]}
 					onChange={(value) => cx.execute(wallCommands(project, { kind: value === '' ? null : (value as TWallKind) }))}
 				/>
+				{wall.kind === 'tinsel' ? (
+					<SelectField
+						id="wall-band"
+						label="Layout"
+						value={wall.own.band ?? ''}
+						options={[{ value: '', label: `${origin} · ${bandLabel(wall.theme.band)}` }, ...WALL_BANDS.map((item) => ({ value: item.band, label: item.label }))]}
+						onChange={(value) => cx.execute(wallCommands(project, { band: value === '' ? null : (value as TWallBand) }))}
+					/>
+				) : null}
 				<ColorWell
 					cx={cx}
 					id="wall-color"

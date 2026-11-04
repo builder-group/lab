@@ -9,6 +9,8 @@ import shutil
 import sys
 from pathlib import Path
 
+import bpy
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from mm_worker.ops import Worker  # noqa: E402
@@ -16,6 +18,8 @@ from mm_worker.ops import Worker  # noqa: E402
 arguments = sys.argv[sys.argv.index('--') + 1:]
 package, out, times = Path(arguments[0]).resolve(), Path(arguments[1]).resolve(), [float(value) for value in arguments[2:]]
 out.mkdir(parents=True, exist_ok=True)
+# The worker starts from an empty scene; the factory scene's own World would stay and take the theme's fill light away
+bpy.ops.wm.read_homefile(use_empty=True)
 worker = Worker(package)
 report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
 print(json.dumps({'decor': len(report['decor']['created']), 'problems': report['decor']['problems'], 'ms': report['ms']}))

@@ -198,8 +198,10 @@ const SThemeOverrides = z.strictObject({
 	backgroundColor: SHexColor.optional()
 });
 
-/** The wall's look in Film: `grid` is the Neon wall's lit grid */
-const SWallKind = z.enum(['plaster', 'pegboard', 'grid']);
+/** The wall's look in Film: `grid` is the Neon wall's lit grid, `tinsel` knitted tree-green tinsel */
+const SWallKind = z.enum(['plaster', 'pegboard', 'grid', 'tinsel']);
+/** Where a Tinsel wall shows its tinsel: all over, or as a band along one side of the frame */
+const SWallBand = z.enum(['full', 'left', 'right']);
 
 /**
  * How a light stands and how strong it is. `side` runs from the far left (-1) to the far right (1) of the wall and
@@ -224,6 +226,7 @@ const SLight = z.strictObject({ id: SId, name: z.string(), color: SHexColor, ...
 /** A project theme's Wall skin, Key Light and added lights: what Save as Theme and Duplicate Theme store */
 const projectThemeSceneShape = {
 	wallKind: SWallKind.optional(),
+	wallBand: SWallBand.optional(),
 	keyLight: SKeyLightPose.optional(),
 	lights: z.array(SLight).optional()
 };
@@ -287,7 +290,8 @@ const SDesign = z.strictObject({
 		.strictObject({
 			color: SHexColor.optional(),
 			backgroundColor: SHexColor.optional(),
-			kind: SWallKind.optional()
+			kind: SWallKind.optional(),
+			band: SWallBand.optional()
 		})
 		.optional(),
 	// This project's changes to the Key Light on top of the theme, and its added lights. Added later; files without it stay valid
@@ -474,6 +478,7 @@ export type TThemePart = z.infer<typeof SThemePart>;
 export type TThemeParts = z.infer<typeof SThemeParts>;
 export type TThemeOverrides = z.infer<typeof SThemeOverrides>;
 export type TWallKind = z.infer<typeof SWallKind>;
+export type TWallBand = z.infer<typeof SWallBand>;
 export type TLight = z.infer<typeof SLight>;
 export type TDecor = z.infer<typeof SDecor>;
 export type TMadeInBlender = z.infer<typeof SMadeInBlender>;

@@ -9,9 +9,12 @@ export function hasSongLayer(project: TProject): boolean {
 	return project.music.sources.length > 0 || project.music.backing.length > 0;
 }
 
-/** The Song layer's name: the song's file name, or "Song" for Backing notes left without a file */
+/** The Song layer's name in Layers and the timeline; its file is the subtitle */
+export const SONG_LAYER_LABEL = 'Song';
+
+/** What notices call the song: its file's name, or "Song" for Backing notes left without a file */
 export function songLayerName(project: TProject): string {
-	return songSource(project)?.name ?? 'Song';
+	return songSource(project)?.name ?? SONG_LAYER_LABEL;
 }
 
 /**

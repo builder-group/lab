@@ -13,7 +13,7 @@ import { updateLightCommands } from '@/modules/design/scene-layers';
 import { shotKindLabel } from '@/modules/design/shots';
 import type { TEntity, TProject } from '@/modules/project';
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
-import { addMenu } from './add-menu';
+import { addMenu, groupAddEntries } from './add-menu';
 import { commandItem } from './commands';
 import { formatTime } from './format';
 import { laneMenu, pieceMenu, songMenu } from './menus';
@@ -346,8 +346,9 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 			isRenaming={isRenaming}
 			onRename={rename}
 			meta={
-				view.time != null || hasTrack || view.help != null ? (
+				view.time != null || hasTrack || view.help != null || view.subtitle != null || row.kind === 'group' ? (
 					<>
+						{view.subtitle != null ? <span className="max-w-[112px] truncate">{view.subtitle}</span> : null}
 						{view.help != null ? (
 							// The ? explains the group without selecting it
 							<span className="inline-flex" onClick={(event) => event.stopPropagation()}>
@@ -356,6 +357,7 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 						) : null}
 						{view.time != null ? <span>{formatShortTime(view.time)}</span> : null}
 						{hasTrack ? <TrackGlyph /> : null}
+						{row.kind === 'group' ? <GroupAdd cx={cx} groupId={row.id} /> : null}
 					</>
 				) : undefined
 			}
@@ -368,21 +370,50 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 	);
 };
 
+/** The inline + of a group that can be empty or grow: Titles, Lights and Decor */
+const GroupAdd: React.FC<{ cx: StudioCx; groupId: string }> = ({ cx, groupId }) => {
+	const add = groupAddEntries(cx, groupId);
+	if (add == null) return null;
+	const stop = (event: React.SyntheticEvent): void => event.stopPropagation();
+	if ('run' in add) {
+		return (
+			<button
+				className="mm-icon-button !h-5 !w-5"
+				title={add.title}
+				aria-label={add.title}
+				type="button"
+				onClick={(event) => {
+					stop(event);
+					add.run();
+				}}
+			>
+				<Plus size={12} strokeWidth={2} />
+			</button>
+		);
+	}
+	return (
+		<span className="inline-flex" onClick={stop}>
+			<MenuButton className="mm-icon-button !h-5 !w-5" label={<Plus size={12} strokeWidth={2} />} title={add.title} items={add.items} />
+		</span>
+	);
+};
+
 /** Icon, name, fold state and quiet time of a row */
-function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; help?: string; isOpen?: boolean; time?: number } {
+function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; subtitle?: string | undefined; help?: string; isOpen?: boolean; time?: number } {
 	switch (row.kind) {
 		case 'song': {
 			const isRecording = row.source?.kind === 'audio';
 			return {
 				icon: isRecording ? <AudioLines size={14} strokeWidth={1.75} /> : <Music size={14} strokeWidth={1.75} />,
 				label: row.label,
-				title: row.source == null ? 'Song · Backing' : isRecording ? 'Song · Recording' : 'Song · MIDI'
+				title: row.source == null ? 'Song · Backing' : isRecording ? `Song · Recording · ${row.source.name}` : `Song · MIDI · ${row.source.name}`,
+				subtitle: row.source?.name
 			};
 		}
 		case 'marble':
 			return { icon: <span className="mm-layer-chip" style={{ background: row.lane.color }} />, label: row.lane.name, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'group':
-			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isOpen };
+			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isEmpty === true ? undefined : row.isOpen };
 		case 'wall':
 			return { icon: <BrickWall size={14} strokeWidth={1.75} />, label: 'Wall' };
 		case 'light':

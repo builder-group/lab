@@ -2,7 +2,7 @@ import { decorList, type TBlenderObject } from '@/modules/design/decor';
 import { addedLights } from '@/modules/design/scene-layers';
 import type { TDecor, TEntity, TLane, TLight, TProject, TShot, TSource } from '@/modules/project';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SONG_KEY, toDecorKey, toLightKey, toMadeInBlenderKey, toShotKey, WALL_KEY } from './selection';
-import { hasSongLayer, songLayerName } from './song-layer';
+import { hasSongLayer, SONG_LAYER_LABEL } from './song-layer';
 import { songSource } from './SourcesCx';
 import type { TWorkspace } from './StudioCx';
 
@@ -18,7 +18,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	const { collapsed = [], workspace = 'design', blenderObjects = [] } = options;
 	const rows: TOutlineRow[] = [];
 
-	if (hasSongLayer(project)) rows.push({ kind: 'song', id: SONG_KEY, depth: 0, parentId: null, track: 'song', source: songSource(project), label: songLayerName(project) });
+	if (hasSongLayer(project)) rows.push({ kind: 'song', id: SONG_KEY, depth: 0, parentId: null, track: 'song', source: songSource(project), label: SONG_LAYER_LABEL });
 
 	for (const lane of project.music.lanes) {
 		const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
@@ -54,19 +54,20 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	rows.push({ kind: 'camera', id: CAMERA_KEY, depth: 0, parentId: null, track: 'camera', groupKey: CAMERA_KEY, hasChildren: shots.length > 0, isOpen: isCameraOpen });
 	if (isCameraOpen) for (const shot of shots) rows.push({ kind: 'shot', id: toShotKey(shot.id), depth: 1, parentId: CAMERA_KEY, track: null, shot });
 
+	// Titles and Decor always show in Film, empty too, each with its inline +
 	const titles = project.entities.filter((entity) => entity.components.wallText != null).reverse();
-	if (titles.length > 0) {
+	{
 		const isOpen = !collapsed.includes(TITLES_KEY);
-		rows.push({ kind: 'group', id: TITLES_KEY, depth: 0, parentId: null, track: null, label: 'Titles', groupKey: TITLES_KEY, childIds: titles.map((title) => title.id), isOpen });
+		rows.push({ kind: 'group', id: TITLES_KEY, depth: 0, parentId: null, track: null, label: 'Titles', groupKey: TITLES_KEY, childIds: titles.map((title) => title.id), isOpen, ...(titles.length === 0 ? { isEmpty: true } : {}) });
 		if (isOpen) for (const title of titles) rows.push({ kind: 'title', id: title.id, depth: 1, parentId: TITLES_KEY, track: null, entity: title });
 	}
 
 	// Newest first, like the titles; what Blender holds comes after, since the app didn't place it
 	const decor = [...decorList(project.design)].reverse();
-	if (decor.length > 0 || blenderObjects.length > 0) {
+	{
 		const isOpen = !collapsed.includes(DECOR_KEY);
 		const childIds = [...decor.map((item) => toDecorKey(item.id)), ...blenderObjects.map((object) => toMadeInBlenderKey(object.name))];
-		rows.push({ kind: 'group', id: DECOR_KEY, depth: 0, parentId: null, track: null, label: DECOR_GROUP_LABEL, help: DECOR_GROUP_HELP, groupKey: DECOR_KEY, childIds, isOpen });
+		rows.push({ kind: 'group', id: DECOR_KEY, depth: 0, parentId: null, track: null, label: DECOR_GROUP_LABEL, help: DECOR_GROUP_HELP, groupKey: DECOR_KEY, childIds, isOpen, ...(childIds.length === 0 ? { isEmpty: true } : {}) });
 		if (isOpen) {
 			for (const item of decor) rows.push({ kind: 'decor', id: toDecorKey(item.id), depth: 1, parentId: DECOR_KEY, track: null, decor: item });
 			for (const object of blenderObjects) rows.push({ kind: 'madeInBlender', id: toMadeInBlenderKey(object.name), depth: 1, parentId: DECOR_KEY, track: null, name: object.name });
@@ -128,7 +129,7 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'song'; track: 'song'; source: TSource | undefined; label: string })
 	| (TOutlineRowBase & { kind: 'marble'; track: 'lane'; lane: TLane; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TEntity; laneId: string | null })
-	| (TOutlineRowBase & { kind: 'group'; label: string; help?: string; groupKey: string; childIds: string[]; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'group'; label: string; help?: string; groupKey: string; childIds: string[]; isOpen: boolean; isEmpty?: boolean })
 	| (TOutlineRowBase & { kind: 'wall' })
 	// `light` is null for the Key Light, which comes from the theme
 	| (TOutlineRowBase & { kind: 'light'; label: string; light: TLight | null })

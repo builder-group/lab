@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TEntity, TProject } from '@/modules/project';
-import { buildOutline, FREE_PIECES_KEY, isFilmRow, LIGHTS_KEY, TITLES_KEY } from './outline';
+import { buildOutline, DECOR_KEY, FREE_PIECES_KEY, isFilmRow, LIGHTS_KEY, TITLES_KEY } from './outline';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from './selection';
 
 function piece(id: string, hitLink?: { laneId: string; hitId: string }): TEntity {
@@ -52,7 +52,8 @@ describe('buildOutline function', () => {
 			toShotKey('early'),
 			toShotKey('late'),
 			TITLES_KEY,
-			'title-1'
+			'title-1',
+			DECOR_KEY
 		]);
 	});
 
@@ -85,10 +86,16 @@ describe('buildOutline function', () => {
 		expect(rows.filter((row) => row.track != null).map((row) => row.track)).toEqual(['song', 'lane', 'lane', 'camera']);
 	});
 
-	it('should leave out the Song without one and empty Pieces and Titles groups', () => {
+	it('should leave out the Song without one and an empty Pieces group, and keep Titles and Decor in Film when empty', () => {
 		const rows = buildOutline(project({ hasSong: false }));
 
-		expect(rows.map((row) => row.kind)).toEqual(['marble', 'marble', 'wall', 'group', 'light', 'camera']);
+		expect(rows.map((row) => row.kind)).toEqual(['marble', 'marble', 'wall', 'group', 'light', 'camera', 'group', 'group']);
+		expect(rows.filter((row) => row.id === TITLES_KEY || row.id === DECOR_KEY)).toMatchObject([{ isEmpty: true, childIds: [] }, { isEmpty: true, childIds: [] }]);
+		expect(buildOutline(project({ hasSong: false }), { workspace: 'compose' }).map((row) => row.kind)).toEqual(['marble', 'marble']);
+	});
+
+	it('should name the Song row Song, whatever its file is called', () => {
+		expect(buildOutline(project({}))[0]).toMatchObject({ kind: 'song', label: 'Song' });
 	});
 
 	it('should leave out the children of collapsed groups', () => {
@@ -96,7 +103,7 @@ describe('buildOutline function', () => {
 			collapsed: ['lane-1', FREE_PIECES_KEY, CAMERA_KEY]
 		});
 
-		expect(rows.map((row) => row.id)).toEqual([SONG_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, CAMERA_KEY]);
+		expect(rows.map((row) => row.id)).toEqual([SONG_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, CAMERA_KEY, TITLES_KEY, DECOR_KEY]);
 		expect(rows.find((row) => row.id === 'marble-1')).toMatchObject({ hasChildren: true, isOpen: false });
 	});
 
@@ -104,6 +111,6 @@ describe('buildOutline function', () => {
 		const title = { id: 'title-1', components: { wallText: { text: 'End' } } } as unknown as TEntity;
 		const rows = buildOutline(project({ entities: [title], shots: [{ id: 'shot', time: 1 }] }));
 
-		expect(rows.filter(isFilmRow).map((row) => row.id)).toEqual([WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, CAMERA_KEY, toShotKey('shot'), TITLES_KEY, 'title-1']);
+		expect(rows.filter(isFilmRow).map((row) => row.id)).toEqual([WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, CAMERA_KEY, toShotKey('shot'), TITLES_KEY, 'title-1', DECOR_KEY]);
 	});
 });

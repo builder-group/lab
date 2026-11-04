@@ -225,8 +225,78 @@ def check_apply():
     shutil.rmtree(root.parent, ignore_errors=True)
 
 
+def check_gift_tinsel_candy():
+    brass = skins.skin_context('brass', RADIUS)
+    thickness = 0.008
+    for skin_id in ('platform:gift', 'platform:books'):
+        built = piece(linked_skin(skin_id))
+        spec = skins.build_spec('piece', built, brass)
+        bars = [part for part in spec['parts'] if part['role'] == 'bar']
+        check(len(bars) == 1 and bars[0]['reactive'], '%s moves as one part on a hit' % skin_id)
+        vertices = [vertex.co for vertex in bars[0]['mesh'].vertices]
+        top = max(vertex.z for vertex in vertices)
+        check(abs(top - thickness / 2) < 1e-4, '%s tops out at the contact surface, bow included (%.5f)' % (skin_id, top))
+        flat = [vertex for vertex in vertices if abs(vertex.z - top) < 1e-3]
+        check(max(vertex.x for vertex in flat) - min(vertex.x for vertex in flat) > 0.055, '%s has a flat top the whole length of the piece' % skin_id)
+        frame = skins.PieceFrame(built, brass)
+        check(max(vertex.y for vertex in vertices) <= frame.wall_y + 1e-4, '%s stops at the wall' % skin_id)
+        check(min(vertex.y for vertex in vertices) < frame.marble_y - RADIUS * 0.8, '%s is deep enough for the marble to roll on' % skin_id)
+        check(len(vertices) < 3000, '%s stays cheap (%d vertices)' % (skin_id, len(vertices)))
+        ribbon = materials(skins.build_spec('piece', piece(linked_skin(skin_id, properties={'Ribbon Colour': '#00ff88'})), brass))
+        check(any('#00ff88' in name for name in ribbon), '%s takes its Ribbon Colour (%s)' % (skin_id, ribbon))
+        check(any('#3478f6' in name for name in materials(skins.build_spec('piece', piece(linked_skin(skin_id, colour='marble')), brass))), '%s takes Colour: Marble' % skin_id)
+        check(any('note' in name for name in materials(skins.build_spec('piece', dict(piece(linked_skin(skin_id, colour='note')), notePitch=69), brass))), '%s takes Colour: By Note' % skin_id)
+        check(skins.skin_key('piece', piece(linked_skin(skin_id)), brass) != skins.skin_key('piece', piece(linked_skin(skin_id, properties={'Ribbon Colour': '#00ff88'})), brass),
+              'a changed Ribbon Colour rebuilds %s' % skin_id)
+        glow = skins.build_spec('piece', piece(linked_skin(skin_id, onHit='glow')), brass)
+        check(skins.piece_reaction(piece(linked_skin(skin_id, onHit='glow')), brass)['flash'] > 0 and glow['parts'], '%s can glow on a hit' % skin_id)
+    # Each piece keeps its own wrapping on every apply, and the papers vary along a run
+    papers = {tuple(materials(skins.build_spec('piece', dict(piece(linked_skin('platform:gift')), id='gift-%d' % index), brass))) for index in range(12)}
+    check(len(papers) >= 3, 'a run of Gifts wears different papers (%d)' % len(papers))
+    first = materials(skins.build_spec('piece', dict(piece(linked_skin('platform:gift')), id='gift-1'), brass))
+    check(first == materials(skins.build_spec('piece', dict(piece(linked_skin('platform:gift')), id='gift-1'), brass)), 'a piece keeps its paper on every apply')
+
+    for element in ('rail', 'switchback'):
+        names = materials(skins.build_spec('piece', piece(linked_skin(element + ':candy'), element), brass))
+        check(any(name.startswith('MM · candy #c8202c') for name in names), 'Candy %s is striped red and white (%s)' % (element, names))
+        names = materials(skins.build_spec('piece', piece(linked_skin(element + ':candy', colour='marble'), element), brass))
+        check(any(name.startswith('MM · candy #3478f6') for name in names), 'Candy %s takes Colour: Marble' % element)
+    marble = skins.build_spec('marble', {'radius': RADIUS, 'color': '#3478f6', 'skin': linked_skin('marble:glass-green')}, brass)
+    check(materials(marble)[0].startswith('MM · glass swirl ' + skin_materials.GLASS_GREEN_SKIN), 'Green Glass has a green swirl (%s)' % materials(marble))
+    check(abs(max(abs(vertex.co.length) for vertex in marble['root'].vertices) - RADIUS) < 1e-5, 'Green Glass keeps the marble radius')
+
+    # The wall: Tinsel on any theme, and its Layout
+    def nodes_of(material):
+        return {node.bl_idname for node in material.node_tree.nodes}
+
+    def window_used(material):
+        return any(link.from_socket.name == 'Window' for link in material.node_tree.links)
+
+    themes.set_overrides({'wallColor': '#f9f9f8'})
+    themes.set_scene_look('tinsel', None, 'right')
+    settings = themes.theme_settings('brass')
+    check(settings['wall']['kind'] == 'tinsel' and settings['wall']['band'] == 'right', "a project theme's Tinsel band on the right reaches the wall")
+    band = themes.wall_material('brass', 0.025)
+    check(band.name.startswith('MM · wall tinsel right') and window_used(band), 'the band follows the side of the frame (%s)' % band.name)
+    check(min(band.diffuse_color[:3]) > 0.6, 'the wall around the band keeps its colour')
+    themes.set_overrides(None)
+    themes.set_scene_look('tinsel', None, 'full')
+    full = themes.wall_material('brass', 0.025)
+    check(full.name.startswith('MM · wall tinsel full') and not window_used(full), 'Full Wall has tinsel everywhere (%s)' % full.name)
+    check(full.diffuse_color[1] > full.diffuse_color[0] * 2, 'Full Wall reads green in Flat Light')
+    themes.set_scene_look('tinsel', None, 'left')
+    left = themes.wall_material('brass', 0.025)
+    check('tinsel left' in left.name and window_used(left), 'Tinsel takes its Layout on any theme (%s)' % left.name)
+    check('ShaderNodeTexVoronoi' in nodes_of(left) and 'ShaderNodeBump' in nodes_of(left), 'tinsel is a procedural colour and bump')
+    check(min(themes.TINSEL_STRAND) >= 0.004, 'a strand stays many pixels wide at film distance, so it never moirés')
+    themes.set_scene_look('bogus', None, 'sideways')
+    check(themes.theme_settings('brass')['wall']['kind'] == 'plaster' and 'band' not in themes.theme_settings('brass')['wall'], 'an unknown wall kind or Layout keeps the theme')
+    themes.set_scene_look(None, None)
+
+
 bpy.ops.wm.read_homefile(use_empty=True)
 check_parity()
+check_gift_tinsel_candy()
 check_every_skin_in_every_theme()
 check_marbles()
 check_properties()

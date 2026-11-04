@@ -9,6 +9,7 @@ import { CAMERA_KEY, parseShotKey, toShotKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
 import { CameraIssues } from './CameraIssues';
 import { CameraShotSpans } from './CameraShotSpans';
+import { TimeGutter } from './Ruler';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
 
 /**
@@ -38,6 +39,7 @@ export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 				<span className="min-w-0 flex-1 truncate font-medium">Camera</span>
 				<span className="shrink-0 text-[11px] text-[var(--text-secondary)] tabular-nums">{shots.length === 1 ? '1 shot' : `${shots.length} shots`}</span>
 			</div>
+			<TimeGutter />
 			<div
 				className="relative flex-1 border-b border-[var(--separator)]"
 				style={{ minWidth: width }}

@@ -11,6 +11,7 @@ import { auditionNote, BACKING_COLOR } from './hand-notes';
 import { openingRollOffset, rowCount, type TPitchRange } from './piano-roll';
 import { Keyboard, SongRoll } from './SongRoll';
 import type { TDrag, TDragStart } from './LaneTrack';
+import { TimeGutter } from './Ruler';
 import { HEADER_WIDTH, NOTE_ROW_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
 import { toggleSongExpanded } from './timeline-state';
 
@@ -30,8 +31,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 		song == null
 			? ['Backing', backingCount === 1 ? '1 note' : `${backingCount} notes`]
 			: isAudio
-				? ['Recording', analysis == null ? null : formatTime(analysis.duration)]
-				: ['MIDI', tempo == null ? null : `${Math.round(tempo.bpm)} BPM`];
+				? [song.name, analysis == null ? null : formatTime(analysis.duration)]
+				: [song.name, tempo == null ? null : `${Math.round(tempo.bpm)} BPM`];
 
 	function openMenu(event: React.MouseEvent): void {
 		openContextMenu(event, songMenu(cx));
@@ -113,6 +114,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 					</div>
 				) : null}
 			</div>
+			<TimeGutter />
 			{isExpanded && range != null ? (
 				<div className="relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }}>
 					<div style={{ transform: shown === 0 ? undefined : `translateY(${-shown}px)` }}>

@@ -3915,7 +3915,1706 @@
 		}
 	],
 	"design": {
-		"theme": "brass",
+		"theme": "theme-christmas",
+		"themes": [
+			{
+				"id": "theme-christmas",
+				"name": "Christmas",
+				"base": "brass",
+				"overrides": {
+					"wallColor": "#f9f9f8",
+					"lightColor": "#fffcf9",
+					"backgroundColor": "#ffffff"
+				},
+				"wallKind": "tinsel",
+				"wallBand": "right",
+				"keyLight": {
+					"strength": 5,
+					"side": -0.26,
+					"height": 0.35
+				},
+				"parts": {
+					"platform": {
+						"skin": "platform:gift"
+					},
+					"rail": {
+						"skin": "rail:candy"
+					},
+					"switchback": {
+						"skin": "switchback:candy"
+					},
+					"marble": {
+						"skin": "marble:glass-green"
+					}
+				}
+			}
+		],
+		"decor": [
+			{
+				"id": "decor-mw1v2w3x1y7k8v7c",
+				"name": "Gift Box",
+				"source": "decor:gift-box",
+				"position": {
+					"x": 0.0601,
+					"y": 0.781
+				},
+				"scale": 1.0735,
+				"rotation": 0.168,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ximi3irtl",
+				"name": "Star",
+				"source": "decor:star",
+				"position": {
+					"x": -0.139,
+					"y": 0.6878
+				},
+				"scale": 0.939,
+				"rotation": 0.2079,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xo148x5hu",
+				"name": "Fairy Light",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": 0.0053,
+					"y": 0.6876
+				},
+				"scale": 1.142,
+				"rotation": -0.2874,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xiige8pae",
+				"name": "Gold Snowflake",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": 0.1754,
+					"y": 0.6885
+				},
+				"scale": 0.9725,
+				"rotation": 0.047,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xbd58kd9m",
+				"name": "Red Bauble",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.2613,
+					"y": 0.5465
+				},
+				"scale": 1.07,
+				"rotation": 0.0825,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xbhdbk0pk",
+				"name": "Gold Bauble",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": 0.0833,
+					"y": 0.5243
+				},
+				"scale": 0.9129,
+				"rotation": 0.2325,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3x86el3vmc",
+				"name": "Gift Box 2",
+				"source": "decor:gift-box",
+				"position": {
+					"x": 0.2231,
+					"y": 0.4967
+				},
+				"scale": 1.1052,
+				"rotation": -0.1774,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xqr7we7ky",
+				"name": "Star 2",
+				"source": "decor:star",
+				"position": {
+					"x": -0.3101,
+					"y": 0.4005
+				},
+				"scale": 0.9409,
+				"rotation": -0.2286,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xuyi0fes6",
+				"name": "Fairy Light 2",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.0297,
+					"y": 0.3758
+				},
+				"scale": 1.0891,
+				"rotation": -0.0157,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xsl5r7kmb",
+				"name": "Gold Snowflake 2",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.2366,
+					"y": 0.2323
+				},
+				"scale": 1.113,
+				"rotation": -0.2496,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xqf42xggm",
+				"name": "Red Bauble 2",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": 0.0903,
+					"y": 0.2613
+				},
+				"scale": 0.9429,
+				"rotation": -0.2788,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xal5oh83r",
+				"name": "Gold Bauble 2",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": 0.2054,
+					"y": 0.2235
+				},
+				"scale": 0.9604,
+				"rotation": 0.2825,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xzxbgd8ha",
+				"name": "Gift Box 3",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3017,
+					"y": 0.0753
+				},
+				"scale": 1.0686,
+				"rotation": -0.0741,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3x0xtul0lr",
+				"name": "Star 3",
+				"source": "decor:star",
+				"position": {
+					"x": -0.1933,
+					"y": 0.0818
+				},
+				"scale": 0.9523,
+				"rotation": 0.1796,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xle68vetu",
+				"name": "Fairy Light 3",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": 0.3327,
+					"y": 0.0876
+				},
+				"scale": 1.0031,
+				"rotation": 0.1201,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xudhx5jjh",
+				"name": "Gold Snowflake 3",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.2765,
+					"y": -0.0667
+				},
+				"scale": 1.1304,
+				"rotation": 0.1442,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3x013a57ji",
+				"name": "Red Bauble 3",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.305,
+					"y": -0.1579
+				},
+				"scale": 1.0007,
+				"rotation": 0.2424,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3x9mddofrb",
+				"name": "Gold Bauble 3",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.2788,
+					"y": -0.297
+				},
+				"scale": 1.1166,
+				"rotation": 0.035,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xg5l3l0at",
+				"name": "Gift Box 4",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3471,
+					"y": -0.4665
+				},
+				"scale": 1.1466,
+				"rotation": 0.1034,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xuaoqqe3r",
+				"name": "Star 4",
+				"source": "decor:star",
+				"position": {
+					"x": -0.0242,
+					"y": -0.4836
+				},
+				"scale": 1.0437,
+				"rotation": 0.2048,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3x88byznp2",
+				"name": "Fairy Light 4",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.3504,
+					"y": -0.7156
+				},
+				"scale": 1.1265,
+				"rotation": -0.0517,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xdqww87kl",
+				"name": "Gold Snowflake 4",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.1656,
+					"y": -0.7527
+				},
+				"scale": 0.9021,
+				"rotation": -0.2962,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xpk3fgxjv",
+				"name": "Red Bauble 4",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.0081,
+					"y": -0.7656
+				},
+				"scale": 1.1276,
+				"rotation": -0.1537,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xiwwia6xk",
+				"name": "Gold Bauble 4",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.2254,
+					"y": -0.8799
+				},
+				"scale": 1.0069,
+				"rotation": -0.2717,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xif5km6fb",
+				"name": "Gift Box 5",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3423,
+					"y": -1.024
+				},
+				"scale": 1.1245,
+				"rotation": -0.194,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3xvcbjivtv",
+				"name": "Star 5",
+				"source": "decor:star",
+				"position": {
+					"x": -0.278,
+					"y": -1.142
+				},
+				"scale": 1.1288,
+				"rotation": 0.1344,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y9eld7l15",
+				"name": "Fairy Light 5",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.3201,
+					"y": -1.2863
+				},
+				"scale": 1.0678,
+				"rotation": -0.0108,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ybt1jicjv",
+				"name": "Gold Snowflake 5",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.2702,
+					"y": -1.4568
+				},
+				"scale": 1.0988,
+				"rotation": -0.2683,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y2yeycq7p",
+				"name": "Red Bauble 5",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.3308,
+					"y": -1.5546
+				},
+				"scale": 0.957,
+				"rotation": -0.1617,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y0splxeqs",
+				"name": "Gold Bauble 5",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.0356,
+					"y": -1.5738
+				},
+				"scale": 1.0236,
+				"rotation": 0.1176,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y1lvb62pp",
+				"name": "Gift Box 6",
+				"source": "decor:gift-box",
+				"position": {
+					"x": 0.3376,
+					"y": -1.5571
+				},
+				"scale": 0.9986,
+				"rotation": 0.063,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yhtpyi53q",
+				"name": "Star 6",
+				"source": "decor:star",
+				"position": {
+					"x": -0.3892,
+					"y": -1.711
+				},
+				"scale": 0.9435,
+				"rotation": -0.0332,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y9y1f6oe0",
+				"name": "Fairy Light 6",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.1913,
+					"y": -1.8542
+				},
+				"scale": 1.0065,
+				"rotation": 0.1866,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y7ej5089w",
+				"name": "Gold Snowflake 6",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.2785,
+					"y": -1.9946
+				},
+				"scale": 1.147,
+				"rotation": 0.2963,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yx5c34n6l",
+				"name": "Red Bauble 6",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": 0.0519,
+					"y": -2.0016
+				},
+				"scale": 1.122,
+				"rotation": 0.2441,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yd8uwjzt7",
+				"name": "Gold Bauble 6",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.1627,
+					"y": -2.1123
+				},
+				"scale": 0.9052,
+				"rotation": -0.2287,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ysarosk2t",
+				"name": "Gift Box 7",
+				"source": "decor:gift-box",
+				"position": {
+					"x": 0.3315,
+					"y": -2.1446
+				},
+				"scale": 0.975,
+				"rotation": -0.1306,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y1yvi93fz",
+				"name": "Star 7",
+				"source": "decor:star",
+				"position": {
+					"x": 0.0472,
+					"y": -2.2587
+				},
+				"scale": 1.0764,
+				"rotation": 0.0502,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yi3ew48zx",
+				"name": "Fairy Light 7",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.3095,
+					"y": -2.4218
+				},
+				"scale": 1.0829,
+				"rotation": 0.1968,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ybatuhz6a",
+				"name": "Gold Snowflake 7",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.1784,
+					"y": -2.4193
+				},
+				"scale": 0.9626,
+				"rotation": -0.0959,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yb5tbfz31",
+				"name": "Red Bauble 7",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": 0.0614,
+					"y": -2.5577
+				},
+				"scale": 1.066,
+				"rotation": 0.0456,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ylkilv0su",
+				"name": "Gold Bauble 7",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.3241,
+					"y": -2.7167
+				},
+				"scale": 0.9384,
+				"rotation": 0.0959,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yewug5bdc",
+				"name": "Gift Box 8",
+				"source": "decor:gift-box",
+				"position": {
+					"x": 0.0154,
+					"y": -2.68
+				},
+				"scale": 0.9757,
+				"rotation": -0.171,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yud26rj6e",
+				"name": "Star 8",
+				"source": "decor:star",
+				"position": {
+					"x": 0.2947,
+					"y": -2.6753
+				},
+				"scale": 0.9988,
+				"rotation": -0.0099,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y7agzmc5n",
+				"name": "Fairy Light 8",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": 0.0617,
+					"y": -2.799
+				},
+				"scale": 1.0416,
+				"rotation": -0.0722,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y4elch192",
+				"name": "Gold Snowflake 8",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.3598,
+					"y": -2.9866
+				},
+				"scale": 1.1456,
+				"rotation": 0.2088,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y4sff927k",
+				"name": "Red Bauble 8",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.0028,
+					"y": -2.9429
+				},
+				"scale": 0.9941,
+				"rotation": 0.0853,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ytezeky05",
+				"name": "Gold Bauble 8",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.2578,
+					"y": -3.1083
+				},
+				"scale": 0.904,
+				"rotation": 0.2547,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yqvt91hxy",
+				"name": "Gift Box 9",
+				"source": "decor:gift-box",
+				"position": {
+					"x": 0.0944,
+					"y": -3.0882
+				},
+				"scale": 1.0999,
+				"rotation": 0.1415,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y3jt5ztlm",
+				"name": "Star 9",
+				"source": "decor:star",
+				"position": {
+					"x": -0.3182,
+					"y": -3.2714
+				},
+				"scale": 1.0661,
+				"rotation": -0.0684,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yt809n7yn",
+				"name": "Fairy Light 9",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.2323,
+					"y": -3.3954
+				},
+				"scale": 1.0009,
+				"rotation": 0.1843,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yqpyvoe1b",
+				"name": "Gold Snowflake 9",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": 0.0621,
+					"y": -3.3789
+				},
+				"scale": 1.0232,
+				"rotation": -0.1173,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y5gqyckwo",
+				"name": "Red Bauble 9",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.3108,
+					"y": -3.5002
+				},
+				"scale": 1.037,
+				"rotation": -0.1845,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y3go5f76b",
+				"name": "Gold Bauble 9",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.3909,
+					"y": -3.6331
+				},
+				"scale": 0.9285,
+				"rotation": -0.2837,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yw42fguou",
+				"name": "Gift Box 10",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.2553,
+					"y": -3.6443
+				},
+				"scale": 1.0178,
+				"rotation": -0.2812,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y4zkvdnrh",
+				"name": "Star 10",
+				"source": "decor:star",
+				"position": {
+					"x": 0.0782,
+					"y": -3.6346
+				},
+				"scale": 1.0536,
+				"rotation": -0.2228,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y217hjpdr",
+				"name": "Fairy Light 10",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.3125,
+					"y": -3.8088
+				},
+				"scale": 1.017,
+				"rotation": 0.0435,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y9x7j1kuq",
+				"name": "Gold Snowflake 10",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.0201,
+					"y": -3.7961
+				},
+				"scale": 1.0266,
+				"rotation": -0.2737,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yvayhv11f",
+				"name": "Red Bauble 10",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": 0.0895,
+					"y": -3.9215
+				},
+				"scale": 0.9262,
+				"rotation": -0.026,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ychhb2cbn",
+				"name": "Gold Bauble 10",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.3171,
+					"y": -4.0971
+				},
+				"scale": 1.1121,
+				"rotation": -0.0804,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y9qqabgjl",
+				"name": "Gift Box 11",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.0317,
+					"y": -4.0738
+				},
+				"scale": 1.1058,
+				"rotation": 0.0911,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y1ykh0ely",
+				"name": "Star 11",
+				"source": "decor:star",
+				"position": {
+					"x": 0.1368,
+					"y": -4.1042
+				},
+				"scale": 1.102,
+				"rotation": -0.0014,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ylyowdwhs",
+				"name": "Fairy Light 11",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.3303,
+					"y": -4.3335
+				},
+				"scale": 1.0675,
+				"rotation": -0.0979,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ytd5uxsw9",
+				"name": "Gold Snowflake 11",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": 0.3391,
+					"y": -4.3621
+				},
+				"scale": 1.1354,
+				"rotation": 0.0713,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yjsbahnjn",
+				"name": "Red Bauble 11",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.2757,
+					"y": -4.4693
+				},
+				"scale": 1.0964,
+				"rotation": -0.092,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yrmr32bde",
+				"name": "Gold Bauble 11",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": 0.2266,
+					"y": -4.4984
+				},
+				"scale": 1.1025,
+				"rotation": 0.0072,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yf77hj95c",
+				"name": "Gift Box 12",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3184,
+					"y": -4.6399
+				},
+				"scale": 0.9248,
+				"rotation": 0.0767,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y79nw0js9",
+				"name": "Star 12",
+				"source": "decor:star",
+				"position": {
+					"x": 0.3094,
+					"y": -4.6184
+				},
+				"scale": 0.9173,
+				"rotation": -0.1775,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yxt1oreqr",
+				"name": "Fairy Light 12",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.2352,
+					"y": -4.7565
+				},
+				"scale": 1.1495,
+				"rotation": -0.2514,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y38e0u1bv",
+				"name": "Gold Snowflake 12",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": 0.3216,
+					"y": -4.9081
+				},
+				"scale": 0.943,
+				"rotation": 0.1269,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y9oz00x4a",
+				"name": "Red Bauble 12",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.2414,
+					"y": -5.0369
+				},
+				"scale": 1.0793,
+				"rotation": -0.0924,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y189zgq8g",
+				"name": "Gold Bauble 12",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": 0.2509,
+					"y": -5.0865
+				},
+				"scale": 1.0799,
+				"rotation": 0.0964,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yt01kiidd",
+				"name": "Gift Box 13",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.321,
+					"y": -5.2162
+				},
+				"scale": 1.0453,
+				"rotation": -0.2827,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ykbk12j4t",
+				"name": "Star 13",
+				"source": "decor:star",
+				"position": {
+					"x": 0.294,
+					"y": -5.2065
+				},
+				"scale": 0.9115,
+				"rotation": -0.1964,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yitixlsii",
+				"name": "Fairy Light 13",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.2393,
+					"y": -5.3198
+				},
+				"scale": 0.975,
+				"rotation": 0.2454,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yskb1rkwr",
+				"name": "Gold Snowflake 13",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": 0.2552,
+					"y": -5.357
+				},
+				"scale": 1.0252,
+				"rotation": -0.1316,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y9t4jdior",
+				"name": "Red Bauble 13",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.3283,
+					"y": -5.4505
+				},
+				"scale": 1.0504,
+				"rotation": -0.1394,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yc7ojxhp8",
+				"name": "Gold Bauble 13",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.0331,
+					"y": -5.4715
+				},
+				"scale": 1.0226,
+				"rotation": -0.2414,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yo1s89vlq",
+				"name": "Gift Box 14",
+				"source": "decor:gift-box",
+				"position": {
+					"x": 0.3042,
+					"y": -5.4951
+				},
+				"scale": 1.0925,
+				"rotation": 0.2652,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ys2b42xwo",
+				"name": "Star 14",
+				"source": "decor:star",
+				"position": {
+					"x": -0.407,
+					"y": -5.6446
+				},
+				"scale": 0.9822,
+				"rotation": -0.0818,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yt4fl26h7",
+				"name": "Fairy Light 14",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.3449,
+					"y": -5.7535
+				},
+				"scale": 0.9398,
+				"rotation": -0.1519,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ylq3vjgvc",
+				"name": "Gold Snowflake 14",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.0378,
+					"y": -5.7265
+				},
+				"scale": 1.0613,
+				"rotation": 0.1794,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y19fxdep0",
+				"name": "Red Bauble 14",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": 0.0752,
+					"y": -5.8711
+				},
+				"scale": 1.1252,
+				"rotation": -0.0972,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yurqgbmdh",
+				"name": "Gold Bauble 14",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": 0.2144,
+					"y": -5.8895
+				},
+				"scale": 1.0851,
+				"rotation": -0.2267,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yq96dgmgi",
+				"name": "Gift Box 15",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3482,
+					"y": -6.036
+				},
+				"scale": 1.1267,
+				"rotation": 0.2125,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ycb285565",
+				"name": "Star 15",
+				"source": "decor:star",
+				"position": {
+					"x": -0.0318,
+					"y": -6.0367
+				},
+				"scale": 1.0495,
+				"rotation": 0.1458,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yrtvuihtz",
+				"name": "Fairy Light 15",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.2365,
+					"y": -6.1698
+				},
+				"scale": 0.9045,
+				"rotation": -0.1368,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yh22361ol",
+				"name": "Gold Snowflake 15",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": 0.2372,
+					"y": -6.1492
+				},
+				"scale": 0.9338,
+				"rotation": 0.2179,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yyjzcifqy",
+				"name": "Red Bauble 15",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.3007,
+					"y": -6.3422
+				},
+				"scale": 1.0616,
+				"rotation": -0.2364,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yl4r8dwiu",
+				"name": "Gold Bauble 15",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": 0.2441,
+					"y": -6.4629
+				},
+				"scale": 1.1209,
+				"rotation": 0.0338,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y39uc596m",
+				"name": "Gift Box 16",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3111,
+					"y": -6.6185
+				},
+				"scale": 0.9898,
+				"rotation": -0.1778,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yyx3gtvbl",
+				"name": "Star 16",
+				"source": "decor:star",
+				"position": {
+					"x": 0.1582,
+					"y": -6.5883
+				},
+				"scale": 0.9217,
+				"rotation": 0.2232,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yya76u62p",
+				"name": "Fairy Light 16",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.2673,
+					"y": -6.7595
+				},
+				"scale": 1.0053,
+				"rotation": -0.2671,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yqt7sc6cn",
+				"name": "Gold Snowflake 16",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": 0.0747,
+					"y": -6.748
+				},
+				"scale": 1.1093,
+				"rotation": 0.1507,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yqzj1pzj4",
+				"name": "Red Bauble 16",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": 0.2369,
+					"y": -6.7248
+				},
+				"scale": 1.0072,
+				"rotation": 0.1437,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ylpejoij3",
+				"name": "Gold Bauble 16",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.3174,
+					"y": -6.8747
+				},
+				"scale": 1.0566,
+				"rotation": 0.1264,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y4lrqnlug",
+				"name": "Gift Box 17",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.2496,
+					"y": -7.0081
+				},
+				"scale": 1.0639,
+				"rotation": -0.189,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yber3aijn",
+				"name": "Star 17",
+				"source": "decor:star",
+				"position": {
+					"x": 0.2478,
+					"y": -7.0291
+				},
+				"scale": 1.0911,
+				"rotation": -0.2324,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yyblcutid",
+				"name": "Fairy Light 17",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.3143,
+					"y": -7.161
+				},
+				"scale": 0.9974,
+				"rotation": -0.088,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y5jq3upb2",
+				"name": "Gold Snowflake 17",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.0285,
+					"y": -7.1483
+				},
+				"scale": 1.0387,
+				"rotation": 0.0337,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yh2rco3vy",
+				"name": "Red Bauble 17",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.2744,
+					"y": -7.3052
+				},
+				"scale": 1.1118,
+				"rotation": -0.1586,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yjln9enw3",
+				"name": "Gold Bauble 17",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": 0.2152,
+					"y": -7.2926
+				},
+				"scale": 0.9287,
+				"rotation": -0.0513,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yhp0ka0gx",
+				"name": "Gift Box 18",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.1433,
+					"y": -7.4054
+				},
+				"scale": 1.0653,
+				"rotation": 0.0348,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yzih8sojh",
+				"name": "Star 18",
+				"source": "decor:star",
+				"position": {
+					"x": -0.2483,
+					"y": -7.5842
+				},
+				"scale": 0.9711,
+				"rotation": -0.1877,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yfznsg6qb",
+				"name": "Fairy Light 18",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.342,
+					"y": -7.7154
+				},
+				"scale": 1.0267,
+				"rotation": -0.008,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ytx6ua90q",
+				"name": "Gold Snowflake 18",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.035,
+					"y": -7.6973
+				},
+				"scale": 1.04,
+				"rotation": 0.0362,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y1ptbhk9u",
+				"name": "Red Bauble 18",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.3897,
+					"y": -7.8713
+				},
+				"scale": 1.1189,
+				"rotation": -0.1199,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ylpcp95qv",
+				"name": "Gold Bauble 18",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.3048,
+					"y": -8.0031
+				},
+				"scale": 0.9483,
+				"rotation": 0.2599,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yz7v2ep40",
+				"name": "Gift Box 19",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.1641,
+					"y": -7.9734
+				},
+				"scale": 0.9099,
+				"rotation": 0.0943,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y4jyzqd7x",
+				"name": "Star 19",
+				"source": "decor:star",
+				"position": {
+					"x": -0.2569,
+					"y": -8.1521
+				},
+				"scale": 1.0947,
+				"rotation": 0.0542,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yr4d8o1tq",
+				"name": "Fairy Light 19",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.1711,
+					"y": -8.2651
+				},
+				"scale": 0.9942,
+				"rotation": 0.0946,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y07kxlvrw",
+				"name": "Gold Snowflake 19",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": 0.2495,
+					"y": -8.4218
+				},
+				"scale": 1.1335,
+				"rotation": 0.0866,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ywabg257w",
+				"name": "Red Bauble 19",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.3173,
+					"y": -8.5484
+				},
+				"scale": 0.9016,
+				"rotation": -0.2256,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yinb7jt6c",
+				"name": "Gold Bauble 19",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.025,
+					"y": -8.5156
+				},
+				"scale": 0.9381,
+				"rotation": -0.1926,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yjpimwtxz",
+				"name": "Gift Box 20",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.2577,
+					"y": -8.7063
+				},
+				"scale": 0.9972,
+				"rotation": 0.1411,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y299645he",
+				"name": "Star 20",
+				"source": "decor:star",
+				"position": {
+					"x": -0.3534,
+					"y": -8.7899
+				},
+				"scale": 1.0571,
+				"rotation": 0.2657,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yqm27qtpw",
+				"name": "Fairy Light 20",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.311,
+					"y": -9.0695
+				},
+				"scale": 1.098,
+				"rotation": -0.0807,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ycfo2jhg7",
+				"name": "Gold Snowflake 20",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.1496,
+					"y": -9.4066
+				},
+				"scale": 1.0607,
+				"rotation": 0.2538,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y2zpdc8d2",
+				"name": "Red Bauble 20",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.0331,
+					"y": -9.4034
+				},
+				"scale": 0.9229,
+				"rotation": 0.2236,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y368dy794",
+				"name": "Gold Bauble 20",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.4259,
+					"y": -9.4958
+				},
+				"scale": 1.1293,
+				"rotation": 0.0501,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yuu4os1u5",
+				"name": "Gift Box 21",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.277,
+					"y": -9.4928
+				},
+				"scale": 1.1109,
+				"rotation": 0.1798,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ymc6ufi6o",
+				"name": "Star 21",
+				"source": "decor:star",
+				"position": {
+					"x": -0.0725,
+					"y": -9.5311
+				},
+				"scale": 1.0387,
+				"rotation": 0.1146,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3y86h8i6lx",
+				"name": "Fairy Light 21",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": 0.2318,
+					"y": -9.5096
+				},
+				"scale": 0.9374,
+				"rotation": 0.1405,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ytm2h9cfw",
+				"name": "Gold Snowflake 21",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.0113,
+					"y": -9.6335
+				},
+				"scale": 1.1309,
+				"rotation": 0.1613,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yscclppxo",
+				"name": "Red Bauble 21",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": 0.3381,
+					"y": -9.6476
+				},
+				"scale": 0.9202,
+				"rotation": 0.2503,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yyfsjn054",
+				"name": "Gold Bauble 21",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.0675,
+					"y": -9.7862
+				},
+				"scale": 1.1155,
+				"rotation": -0.1646,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3yi6djv2je",
+				"name": "Gift Box 22",
+				"source": "decor:gift-box",
+				"position": {
+					"x": 0.1612,
+					"y": -9.9545
+				},
+				"scale": 0.977,
+				"rotation": 0.1483,
+				"depth": 0,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw1v2w3ywiu9knpy",
+				"name": "Star 22",
+				"source": "decor:star",
+				"position": {
+					"x": 0.2548,
+					"y": -10.0572
+				},
+				"scale": 1.0671,
+				"rotation": 0.1885,
+				"depth": 0,
+				"scattered": true
+			}
+		],
 		"renderPreset": "balanced",
 		"loop": false,
 		"camera": {

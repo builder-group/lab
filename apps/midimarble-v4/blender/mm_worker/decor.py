@@ -132,10 +132,15 @@ def _assign(verts, slot):
             face.material_index = slot
 
 
+BAUBLE_MIDDLE = 0.006
+BAUBLE_SQUASH = 0.8
+
+
 def _bauble(mesh):
-    _sphere(mesh, 0, (0.0, -0.003, 0.012), 0.013)
-    _cylinder(mesh, 1, (0.0, 0.012, 0.012), 0.003, 0.004)
-    _ball(mesh, 1, (0.0, 0.015, 0.012), 0.001)
+    # Sunk into the wall and flattened a little, so it reads as hanging on the wall with a short shadow
+    _sphere(mesh, 0, (0.0, -0.003, BAUBLE_MIDDLE), 0.013, BAUBLE_SQUASH, (20, 12))
+    _cylinder(mesh, 1, (0.0, 0.012, BAUBLE_MIDDLE), 0.003, 0.004)
+    _ball(mesh, 1, (0.0, 0.015, BAUBLE_MIDDLE), 0.001)
 
 
 def _snowflake(mesh):
@@ -170,11 +175,11 @@ def _fairy_light(mesh):
 
 
 def _gift_box(mesh):
-    _box(mesh, 0, (0.0, -0.003, 0.007), (0.026, 0.024, 0.014))
-    _box(mesh, 0, (0.0, 0.0105, 0.0075), (0.028, 0.005, 0.015))
-    _box(mesh, 1, (0.0, -0.001, 0.0072), (0.005, 0.0286, 0.0152))
-    _sphere(mesh, 1, (-0.0045, 0.0145, 0.008), 0.0042, 0.5, (8, 6))
-    _sphere(mesh, 1, (0.0045, 0.0145, 0.008), 0.0042, 0.5, (8, 6))
+    _box(mesh, 0, (0.0, -0.003, 0.0045), (0.026, 0.024, 0.009))
+    _box(mesh, 0, (0.0, 0.0105, 0.005), (0.028, 0.005, 0.01))
+    _box(mesh, 1, (0.0, -0.001, 0.0047), (0.005, 0.0286, 0.0102))
+    _sphere(mesh, 1, (-0.0045, 0.0145, 0.0058), 0.0042, 0.5, (8, 6))
+    _sphere(mesh, 1, (0.0045, 0.0145, 0.0058), 0.0042, 0.5, (8, 6))
 
 
 def _star(mesh):

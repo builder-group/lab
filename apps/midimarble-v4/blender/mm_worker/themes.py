@@ -79,17 +79,21 @@ def grid_color(wall):
 
 
 # The Wall layer's Skin and the Key Light layer's pose on top of the theme: `wallKind` and `keyLight` of the scene
-# description, set for one apply by `set_scene_look`. Grid is the Neon wall's lit grid.
-WALL_KINDS = {'plaster': 'plaster', 'pegboard': 'pegboard', 'grid': 'neon'}
+# description, set for one apply by `set_scene_look`. Grid is the Neon wall's lit grid. `wallBand` is where a Tinsel wall
+# shows its tinsel: all over, or as a band along one side of the frame.
+WALL_KINDS = {'plaster': 'plaster', 'pegboard': 'pegboard', 'grid': 'neon', 'tinsel': 'tinsel'}
+WALL_BANDS = ('full', 'left', 'right')
 _scene_look = {}
 
 
-def set_scene_look(wall_kind, key_light):
-    """The valid `wallKind` and `keyLight` fields of a scene description for the apply that follows"""
+def set_scene_look(wall_kind, key_light, wall_band=None):
+    """The valid `wallKind`, `keyLight` and `wallBand` fields of a scene description for the apply that follows"""
     global _scene_look
     look = {}
     if wall_kind in WALL_KINDS:
         look['wallKind'] = wall_kind
+    if wall_band in WALL_BANDS:
+        look['wallBand'] = wall_band
     for field in ('strength', 'side', 'height'):
         value = key_light.get(field) if isinstance(key_light, dict) else None
         if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
@@ -116,6 +120,8 @@ def _with_scene_look(settings):
     settings = {key: dict(value) if isinstance(value, dict) else value for key, value in settings.items()}
     if 'wallKind' in _scene_look:
         settings['wall']['kind'] = WALL_KINDS[_scene_look['wallKind']]
+    if 'wallBand' in _scene_look:
+        settings['wall']['band'] = _scene_look['wallBand']
     if 'strength' in _scene_look:
         settings['sun']['energy'] = _scene_look['strength']
     if 'side' in _scene_look or 'height' in _scene_look:
@@ -647,6 +653,132 @@ def neon_wall_material(color, grid, spacing=0.05):
     return _shared(_wall_name('MM · wall neon', color, THEMES['neon']['wall']['color']), build)
 
 
+# Tree green of a Tinsel wall, dark between the strands and light on them
+TINSEL_DARK = (0.012, 0.05, 0.022)
+TINSEL_LIGHT = (0.04, 0.2, 0.07)
+# Size of a strand on the wall in metres: big enough to stay many pixels wide at film distance, so it never moirés
+TINSEL_STRAND = (0.006, 0.014)
+# Share of the frame's width a band takes
+TINSEL_BAND = 0.17
+
+
+def _map_range(tree, value, low, high, to_low=0.0, to_high=1.0):
+    node = tree.nodes.new('ShaderNodeMapRange')
+    node.interpolation_type = 'SMOOTHSTEP'
+    node.inputs['From Min'].default_value = low
+    node.inputs['From Max'].default_value = high
+    node.inputs['To Min'].default_value = to_low
+    node.inputs['To Max'].default_value = to_high
+    tree.links.new(value, node.inputs['Value'])
+    return node.outputs['Result']
+
+
+def _tinsel_band(tree, band, fuzz):
+    """How much of a point lies in the band, from its place in the camera image, so the band runs along the side of the
+    frame wherever the camera goes; `fuzz` frays its edge, and a slightly wider mask shades the wall beside it"""
+    nodes, links = tree.nodes, tree.links
+    coordinates = nodes.new('ShaderNodeTexCoord')
+    separate = nodes.new('ShaderNodeSeparateXYZ')
+    links.new(coordinates.outputs['Window'], separate.inputs['Vector'])
+    distance = separate.outputs['X']
+    if band == 'right':
+        flip = nodes.new('ShaderNodeMath')
+        flip.operation = 'SUBTRACT'
+        flip.inputs[0].default_value = 1.0
+        links.new(distance, flip.inputs[1])
+        distance = flip.outputs[0]
+    frayed = nodes.new('ShaderNodeMath')
+    frayed.operation = 'MULTIPLY_ADD'
+    # Noise centred on zero: its middle value leaves the edge where it is
+    frayed.inputs[1].default_value = 0.09
+    links.new(fuzz, frayed.inputs[0])
+    centred = nodes.new('ShaderNodeMath')
+    centred.operation = 'SUBTRACT'
+    centred.inputs[1].default_value = 0.045
+    links.new(distance, centred.inputs[0])
+    links.new(centred.outputs[0], frayed.inputs[2])
+    inside = _map_range(tree, frayed.outputs[0], TINSEL_BAND - 0.002, TINSEL_BAND + 0.002, 1.0, 0.0)
+    shade = _map_range(tree, frayed.outputs[0], TINSEL_BAND, TINSEL_BAND + 0.025, 0.72, 1.0)
+    return inside, shade
+
+
+def tinsel_wall_material(color, band='full'):
+    """Knitted tree-green tinsel in soft cells, stretched up the wall, with a bump that catches the light. `band` is `full`
+    for tinsel all over; `left` or `right` keep the wall in `color` and run the tinsel along that side of the frame."""
+    band = band if band in WALL_BANDS else 'full'
+
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = _principled(material)
+        base = (*color, 1.0)
+        material.diffuse_color = base if band != 'full' else (*TINSEL_LIGHT, 1.0)
+        coordinates = nodes.new('ShaderNodeTexCoord')
+        mapping = nodes.new('ShaderNodeMapping')
+        mapping.inputs['Scale'].default_value = (1 / TINSEL_STRAND[0], 1 / TINSEL_STRAND[1], 1.0)
+        links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
+        cells = nodes.new('ShaderNodeTexVoronoi')
+        cells.feature = 'F1'
+        cells.inputs['Scale'].default_value = 1.0
+        links.new(mapping.outputs['Vector'], cells.inputs['Vector'])
+        strand = _map_range(tree, cells.outputs['Distance'], 0.1, 0.62, 1.0, 0.0)
+        ramp = nodes.new('ShaderNodeValToRGB')
+        ramp.color_ramp.elements[0].color = (*TINSEL_DARK, 1.0)
+        ramp.color_ramp.elements[1].color = (*TINSEL_LIGHT, 1.0)
+        # Each strand has its own shade: the cell's random colour scaled by how near its middle the point lies
+        lift = nodes.new('ShaderNodeMath')
+        lift.operation = 'MULTIPLY_ADD'
+        lift.inputs[1].default_value = 0.5
+        separate = nodes.new('ShaderNodeSeparateColor')
+        links.new(cells.outputs['Color'], separate.inputs[0])
+        links.new(strand, lift.inputs[0])
+        links.new(separate.outputs[0], lift.inputs[2])
+        scale = nodes.new('ShaderNodeMath')
+        scale.operation = 'MULTIPLY'
+        scale.inputs[1].default_value = 0.66
+        links.new(lift.outputs[0], scale.inputs[0])
+        links.new(scale.outputs[0], ramp.inputs['Fac'])
+        bump = nodes.new('ShaderNodeBump')
+        bump.inputs['Strength'].default_value = 0.85
+        bump.inputs['Distance'].default_value = 0.004
+        links.new(bump.outputs['Normal'], principled.inputs['Normal'])
+        _set(principled, 'Roughness', 0.62)
+        if band == 'full':
+            links.new(ramp.outputs['Color'], principled.inputs['Base Color'])
+            links.new(strand, bump.inputs['Height'])
+            return
+        fuzz = nodes.new('ShaderNodeTexNoise')
+        fuzz.inputs['Scale'].default_value = 70.0
+        fuzz.inputs['Detail'].default_value = 4.0
+        links.new(coordinates.outputs['Object'], fuzz.inputs['Vector'])
+        inside, shade = _tinsel_band(tree, band, fuzz.outputs['Fac'])
+        mottle = nodes.new('ShaderNodeTexNoise')
+        mottle.inputs['Scale'].default_value = 6.0
+        mottle.inputs['Detail'].default_value = 3.0
+        links.new(coordinates.outputs['Object'], mottle.inputs['Vector'])
+        tint = nodes.new('ShaderNodeMix')
+        tint.data_type = 'RGBA'
+        tint.inputs['A'].default_value = tuple(channel * 0.97 for channel in color) + (1.0,)
+        tint.inputs['B'].default_value = tuple(min(1.0, channel * 1.02) for channel in color) + (1.0,)
+        links.new(mottle.outputs['Fac'], tint.inputs['Factor'])
+        shaded = nodes.new('ShaderNodeVectorMath')
+        shaded.operation = 'SCALE'
+        links.new(tint.outputs['Result'], shaded.inputs[0])
+        links.new(shade, shaded.inputs['Scale'])
+        mix = nodes.new('ShaderNodeMix')
+        mix.data_type = 'RGBA'
+        links.new(inside, mix.inputs['Factor'])
+        links.new(shaded.outputs[0], mix.inputs['A'])
+        links.new(ramp.outputs['Color'], mix.inputs['B'])
+        links.new(mix.outputs['Result'], principled.inputs['Base Color'])
+        height = nodes.new('ShaderNodeMath')
+        height.operation = 'MULTIPLY'
+        links.new(inside, height.inputs[0])
+        links.new(strand, height.inputs[1])
+        links.new(height.outputs[0], bump.inputs['Height'])
+    return _shared(_wall_name('MM · wall tinsel ' + band, color, None), build)
+
+
 def wall_material(theme, pitch):
     wall = theme_settings(theme)['wall']
     # The Wall layer's Skin can put any theme's colour on any kind; a Pegboard theme's own wall has no colour field
@@ -655,6 +787,8 @@ def wall_material(theme, pitch):
         return plaster_wall_material(color)
     if wall['kind'] == 'neon':
         return neon_wall_material(color, wall.get('grid') or grid_color(color))
+    if wall['kind'] == 'tinsel':
+        return tinsel_wall_material(color, wall.get('band', 'full'))
     return pegboard_wall_material(pitch, color)
 
 

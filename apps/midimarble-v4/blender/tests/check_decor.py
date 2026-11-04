@@ -110,6 +110,10 @@ def main():
         if obj.type == 'MESH':
             total_vertices += len(obj.data.vertices)
     check(total_vertices < 3000, 'built-in geometry stays cheap (%d vertices in all)' % total_vertices)
+    # Decor sits on the wall: nothing stands far enough out to throw a long shadow
+    for item in ('bauble-red', 'bauble-gold', 'snowflake-gold', 'fairy-light', 'gift-box', 'star'):
+        reach = max(vertex.co.z for vertex in objects['decor:' + item].data.vertices)
+        check(reach < 0.02, '%s stays close to the wall (%.0f mm out)' % (item, reach * 1000))
     check(objects['decor:bauble-red'].data is not objects['decor:bauble-gold'].data, 'baubles have their own colours')
     check(objects['decor:handle'].type == 'FONT' and objects['decor:handle'].data.body == '@yourchannel', 'a Handle is text reading what it was given')
     check(any(child.type == 'MESH' for child in objects['decor:subscribe'].children), 'Subscribe carries an arrow')

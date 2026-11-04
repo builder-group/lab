@@ -1,3 +1,4 @@
+import type { TAssetProperty } from '@/modules/library/asset-manifest';
 import type { TEntity, TSkinComponent, TThemeParts } from '@/modules/project';
 import { canonicalSkinId } from '@/modules/project/skin-ids';
 import catalog from '../../../blender/mm_worker/skin_catalog.json';
@@ -23,6 +24,8 @@ export interface TCatalogSkin {
 	glows: boolean;
 	variants: readonly { id: string; label: string }[];
 	variant: string | null;
+	/** Extra properties the skin has beyond the standard ones, such as Gift's Ribbon Colour */
+	properties: readonly TAssetProperty[];
 	/** Under `public/`; null for a skin the Library doesn't list */
 	previewUrl: string | null;
 }
@@ -31,7 +34,7 @@ export const SKIN_ELEMENTS = Object.keys(catalog.elements) as TSkinElement[];
 
 const ALL_SKINS: readonly TCatalogSkin[] = SKIN_ELEMENTS.flatMap((element) =>
 	catalog.elements[element].skins.map((skin): TCatalogSkin => {
-		const raw = skin as typeof skin & { glows?: boolean; preview?: string; variants?: { id: string; label: string }[]; variant?: string };
+		const raw = skin as typeof skin & { glows?: boolean; preview?: string; variants?: { id: string; label: string }[]; variant?: string; properties?: TAssetProperty[] };
 		return {
 			id: raw.id,
 			label: raw.label,
@@ -42,6 +45,7 @@ const ALL_SKINS: readonly TCatalogSkin[] = SKIN_ELEMENTS.flatMap((element) =>
 			glows: raw.glows === true,
 			variants: raw.variants ?? [],
 			variant: raw.variant ?? null,
+			properties: raw.properties ?? [],
 			previewUrl: raw.preview != null ? `/skins/${raw.preview}` : null
 		};
 	})

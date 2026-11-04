@@ -21,7 +21,7 @@ import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
 import { KEY_LIGHT_ID, parseHitKey } from './selection';
-import { deleteSongQuestion, songLayerName } from './song-layer';
+import { deleteSongQuestion, SONG_LAYER_LABEL } from './song-layer';
 import { songSource } from './SourcesCx';
 import type { StudioCx, TWorkspace } from './StudioCx';
 import { auditionNote, BACKING_COLOR, handNotes } from './timeline/hand-notes';
@@ -490,8 +490,8 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 		<>
 			<InspectorHeader
 				icon={song?.kind === 'audio' ? <AudioLines size={16} strokeWidth={1.7} /> : <FileMusic size={16} strokeWidth={1.7} />}
-				title={songLayerName(project)}
-				subtitle={`Song · ${kind}`}
+				title={SONG_LAYER_LABEL}
+				subtitle={song != null ? `${song.name} · ${kind}` : kind}
 			/>
 			<Panel id="song.file" title="Song" accessory={<HelpTip text="The song the marbles play, heard in the film. Replace it with another file, or drop a file on the window." />}>
 				{project.music.sources.map((source) => (

@@ -4,14 +4,15 @@ import React from 'react';
 import { HelpTip } from '@/components';
 import { FinishShape, RailShape, SwitchbackShape, toPoints, TunnelShape } from '@/modules/compose/PieceLayer';
 import { pieceKind } from '@/modules/compose/scene';
-import type { TVec2 } from '@/modules/project';
+import type { TDesign, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { placeDecor, startDecorDrag } from './decor-actions';
 import { DraftDecorShape } from './DraftDecorShape';
 import { DECOR_DRAG_TYPE, LIBRARY_DRAG_TYPE, readDecorDrop } from './DesignLibrary';
-import { SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
+import { DRAFT_TINSEL, DRAFT_TINSEL_WIDTH, draftTinselBand, SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
 import { appliedOverrides } from './project-themes';
+import { wallBandOverride, wallKindOverride } from './scene-layers';
 import { HitboxOverlay } from './HitboxOverlay';
 
 /**
@@ -101,6 +102,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 					onDrop={onDrop}
 				>
 					<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+					{design != null ? <DraftTinselBand design={design} /> : null}
 					<DraftOverlay draft={draft} />
 					{cover}
 					<SelectionOverlay draft={draft} />
@@ -147,6 +149,14 @@ interface TDraftPreviewProps {
 }
 
 /** Rails, tunnels, switchbacks and Finishes as lines in the theme's colours and titles as text */
+/** A Tinsel wall's band along the side of the frame; multiplied over the canvas, so pieces in it still show */
+const DraftTinselBand: React.FC<{ design: TDesign }> = (props) => {
+	const { design } = props;
+	const band = draftTinselBand(wallKindOverride(design), wallBandOverride(design));
+	if (band !== 'left' && band !== 'right') return null;
+	return <div className="pointer-events-none absolute top-0 bottom-0" style={{ [band]: 0, width: `${DRAFT_TINSEL_WIDTH * 100}%`, background: DRAFT_TINSEL, mixBlendMode: 'multiply' }} aria-hidden />;
+};
+
 const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	const { draft } = props;
 	useFeatureState(draft.$frame);

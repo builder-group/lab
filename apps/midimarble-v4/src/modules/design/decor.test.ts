@@ -35,7 +35,9 @@ import { pieceOutline } from '@/modules/compose/scene';
 function loadFixture(name: string): TProject {
 	const [isOk, err, project] = parseProject(readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8'));
 	if (!isOk) throw err;
-	return project;
+	// These tests place their own decor; Jingle Bells ships dressed
+	const { decor: _decor, ...design } = project.design;
+	return { ...project, design };
 }
 
 function apply(project: TProject, commands: TProjectCommand[]): TProject {

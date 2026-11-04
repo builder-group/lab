@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, type TEntity, type TProject } from '@/modules/project';
 import { inspectorTarget } from './inspector-target';
-import { buildOutline, isSelectableRow, TITLES_KEY, type TOutlineRow } from './outline';
+import { buildOutline, DECOR_KEY, isSelectableRow, TITLES_KEY, type TOutlineRow } from './outline';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SONG_KEY, toHitKey, toLightKey, toShotKey, WALL_KEY } from './selection';
 
 function fullProject(): TProject {
@@ -55,7 +55,8 @@ describe('inspectorTarget function', () => {
 			[toShotKey('shot-1'), 'shot'],
 			[TITLES_KEY, 'titles'],
 			['title-2', 'title'],
-			['title-1', 'title']
+			['title-1', 'title'],
+			[DECOR_KEY, 'project']
 		]);
 	});
 

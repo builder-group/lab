@@ -13,6 +13,18 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### 2026-11-04: Gift, Tinsel and a Christmas project theme (Round 4)
+
+- Owner decision: Film's look is unique to each project and themes are presets to import and export, so **Christmas is no built-in theme**. It is `design.themes[theme-christmas]` in `fixtures/jingle-bells` with its parts on Brass's render look. The notice offering Scatter on picking a theme was dropped; theme import, export and the picker are the next agent's work
+- New catalog parts, usable in any theme: **Gift** (`platform:gift`: paper per piece, ribbon both ways, bow on the front, top face the contact surface; Colour Skin, Marble, By Note; extra property Ribbon Colour), **Books** (`platform:books`), **Candy Rail**, **Candy Switchback**, **Green Glass** (`marble:glass-green`, Variant Swirl), with Library tiles. Catalog skins can declare extra properties like a library manifest
+- **Tinsel** wall kind with **Layout** (Full Wall, Left Side, Right Side; `design.wall.band`, `wallBand` on a project theme and in the scene description). Procedural Voronoi colour and bump with 6 × 14 mm strands; a side band is masked in camera image space, so it stays at the frame's side. The Draft Preview draws it flat; Flat Light shows the plain wall
+- Jingle Bells: `build-jingle-fixture.ts --dress` sets the project theme and a seeded scatter (Density 0.3, seed 1, 128 items); 115/115 hits
+- Exposure: the dim Decor still was real but local to `render_decor_still.py`, which started from the factory scene: its own World stayed, so the theme's fill never applied (same frame, wall `#615868` against `#a098ac` from an empty scene). The script now starts empty like the worker; no theme path changed. Decor's long shadows: baubles and gift boxes sit closer to the wall (under 20 mm out, asserted)
+- Leftovers: the Song row reads **Song** with the file as subtitle; Titles and Decor always show in Film with an inline + (Lights too); time 0 is inset 8 px (`TIME_ORIGIN`) so the playhead's head shows whole at 0:00
+- Checks: `typecheck`, `lint` clean; `test` 657 + 3; `camera:check` ok; `blender:design` 86 + 63 + 238; `blender:film` 23; `blender:preview` ok. Fast film and contact sheet: `.local/christmas/`. Browser look at Song row, Titles and Decor groups, the head at 0:00 and the Draft band was made before Christmas moved into the project and not repeated. Skipped: dragging in the timeline after the inset, the native window, a Christmas theme card (no built-in card any more)
+- Look: pale wall, band, gifts, decor and short shadows read like the reference. Weak spots: marbles are small beside the gifts in a wide frame, and the chrome Finish is faint on the pale wall in the last seconds
+- Open: `themeTitleColor` follows the base, so a title on this pale wall starts white; a project theme can't soften its sun (Brass's 16° stays) or set its exposure, which is why its Wall and Background are near white and its Key Light strong
+
 ### 2026-11-04: Decor (Round 4)
 
 - Film's Layers end with a **Decor** group, one layer per item (select, rename, hide, delete, duplicate, ⌘Z); inspector with Position, Scale, Rotation, Depth, In and Out. Compose never shows it. Stored additively in `marble-project@4`: `design.decor`, `design.madeInBlender`; the simulation doesn't read them (test: same hits with decor over the run)

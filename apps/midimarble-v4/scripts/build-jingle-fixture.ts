@@ -8,13 +8,20 @@
 // and a build log with the pace measurements to `.local/jingle/`. The fixture ships the MIDI file next to it as
 // `fixtures/jingle-bells.mid`, its song, which the example copies into the new package.
 // Each marble then gets a Finish after its last note (Add Finish), and the film ends with their catch.
-// Usage: tsx scripts/build-jingle-fixture.ts [--finalize]
+// Last it is dressed for the film: a Christmas project theme stored in the fixture and a seeded scatter of the Christmas
+// Decor set, which never changes a hit.
+// Usage: tsx scripts/build-jingle-fixture.ts [--finalize] [--dress]
 //   --finalize re-applies the song, the Finishes, piece names and the film end to the existing fixture without
 //   rebuilding its pieces
+//   --dress only re-applies the theme and the Decor to the existing fixture
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as toneMidi from '@tonejs/midi';
 import { withFinishes } from '../src/modules/compose/finish-assist';
+import { builtInSource } from '../src/modules/design/decor';
+import { DECOR_SETS } from '../src/modules/design/decor-catalog';
+import { scatterDecorCommands } from '../src/modules/design/decor-scatter';
 import { preflightExport } from '../src/modules/design/export-preflight';
+import { filmCamera } from '../src/modules/design/film-camera';
 import { fittedSongEnd } from '../src/modules/camera/finish-exit';
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
 import {
@@ -27,6 +34,7 @@ import {
 	serializeProject,
 	type TProject,
 	type TProjectCommand,
+	type TProjectTheme,
 	type TSource
 } from '../src/modules/project';
 import {
@@ -62,6 +70,20 @@ const RELEASES = [
 	{ x: LANE_SPACING / 2, y: 0.6 }
 ];
 const DEGREE = Math.PI / 180;
+// The film's look lives in the project: a preset of ordinary parts on Brass's render look. Bright Wall and Background make
+// up for Brass's exposure; the Key Light comes from close to the wall's normal, so shadows stay short.
+const CHRISTMAS_THEME: TProjectTheme = {
+	id: 'theme-christmas',
+	name: 'Christmas',
+	base: 'brass',
+	overrides: { wallColor: '#f9f9f8', lightColor: '#fffcf9', backgroundColor: '#ffffff' },
+	wallKind: 'tinsel',
+	wallBand: 'right',
+	keyLight: { strength: 5, side: -0.26, height: 0.35 },
+	parts: { platform: { skin: 'platform:gift' }, rail: { skin: 'rail:candy' }, switchback: { skin: 'switchback:candy' }, marble: { skin: 'marble:glass-green' } }
+};
+const DECOR_DENSITY = 0.3;
+const DECOR_SEED = 1;
 // Release shifts the build tries in turn, in metres
 const RELEASE_SHIFTS = [0, 0.01, -0.01, 0.005, -0.005, 0.015, -0.015, 0.02, -0.02, 0.025, -0.025, 0.03, -0.03, 0.04, -0.04];
 
@@ -78,11 +100,22 @@ const midiBytes = createJingleMidi();
 writeFileSync(new URL(SONG_NAME, OUT), midiBytes);
 writeFileSync(new URL(`../fixtures/${SONG_NAME}`, import.meta.url), midiBytes);
 
+if (process.argv.includes('--dress')) {
+	const [isFixtureOk, fixtureErr, fixture] = parseProject(readFileSync(FIXTURE_URL, 'utf8'));
+	if (!isFixtureOk) throw fixtureErr;
+	const dressing = await createSimulator();
+	writeFileSync(FIXTURE_URL, serializeProject(dressed(fixture, (current) => dressing.simulate(current))));
+	dressing.dispose();
+	console.log('dressed');
+	process.exit(0);
+}
+
 if (process.argv.includes('--finalize')) {
 	const [isFixtureOk, fixtureErr, fixture] = parseProject(readFileSync(FIXTURE_URL, 'utf8'));
 	if (!isFixtureOk) throw fixtureErr;
 	const finishing = await createSimulator();
-	writeFileSync(FIXTURE_URL, serializeProject(await finalized(fixture, (current) => finishing.simulate(current))));
+	const finalizedFixture = await finalized(fixture, (current) => finishing.simulate(current));
+	writeFileSync(FIXTURE_URL, serializeProject(dressed(finalizedFixture, (current) => finishing.simulate(current))));
 	finishing.dispose();
 	console.log('finalized');
 	process.exit(0);
@@ -104,9 +137,7 @@ project = apply(
 	})
 );
 project = withStableIds(project);
-// What a user sets after the import: lane names, Celesta for the bass, the brass theme and where each
-// marble starts
-project.design.theme = 'brass';
+// What a user sets after the import: lane names, Celesta for the bass and where each marble starts
 project.music.lanes.forEach((lane, index) => {
 	lane.name = index === 0 ? 'Melody' : 'Bass';
 	lane.instrument = index === 0 ? GLOCKENSPIEL : CELESTA;
@@ -204,7 +235,7 @@ say(`heights every 4 s (melody | bass | y*, m): ${describeHeights(finalResult)}`
 for (const failure of failures) say(`failed: ${failure}`);
 say(`export preflight: ${preflightExport(project, finalResult).issues.map((issue) => `${issue.title} (${issue.detail})`).join('; ') || 'clean'}`);
 
-const json = serializeProject(await finalized(apply(project, [], 0), simulate));
+const json = serializeProject(dressed(await finalized(apply(project, [], 0), simulate), simulate));
 simulator.dispose();
 const [isProjectOk, projectErr] = parseProject(json);
 if (!isProjectOk) throw projectErr;
@@ -234,6 +265,19 @@ async function finalized(fixture: TProject, simulateFinish: TSimulateFn): Promis
 		current.revision
 	);
 	return namePiecesInOrder(song);
+}
+
+/** The film's look: the project's Christmas theme with the Christmas Decor set scattered. No hit can change. */
+function dressed(fixture: TProject, simulateFinal: (current: TProject) => TSimulationResult): TProject {
+	const themes = [...(fixture.design.themes ?? []).filter((theme) => theme.id !== CHRISTMAS_THEME.id), CHRISTMAS_THEME];
+	const themed: TProject = { ...fixture, design: { ...fixture.design, theme: CHRISTMAS_THEME.id, themes } };
+	const result = simulateFinal(themed);
+	const track = filmCamera(themed, result).track;
+	const set = DECOR_SETS.find((item) => item.id === 'christmas');
+	if (track == null || set == null) throw new Error('The dress step needs the film camera and the Christmas Decor set');
+	const { commands, count } = scatterDecorCommands(themed, result, track, { items: set.items.map(builtInSource), density: DECOR_DENSITY, seed: DECOR_SEED });
+	console.log(`dress: ${CHRISTMAS_THEME.name} with ${count} Decor items`);
+	return apply(themed, commands, themed.revision);
 }
 
 /** At most two dots beyond the pace limit, and none by more than 0.15 m beyond it */

@@ -4,7 +4,7 @@ import { renderedSpans } from '@/modules/design/live-preview';
 import { createLoop } from '@/modules/simulation';
 import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';
-import { formatRulerTime, HEADER_WIDTH, RULER_HEIGHT, rulerSteps } from './timeline-layout';
+import { formatRulerTime, RULER_HEIGHT, rulerSteps, TIME_INSET, TIME_ORIGIN } from './timeline-layout';
 
 /**
  * Time ruler with minor and major ticks, the playhead head and the draggable project end. Like Logic's ruler it runs
@@ -156,10 +156,13 @@ export const PlayheadLine: React.FC<{ cx: StudioCx; zoom: number; scrollRef: Rea
 	React.useEffect(() => {
 		const element = scrollRef.current;
 		if (element == null || !cx.$playing.get()) return;
-		const visible = element.clientWidth - HEADER_WIDTH;
+		const visible = element.clientWidth - TIME_ORIGIN;
 		if (x > element.scrollLeft + visible - 40) element.scrollLeft = x - 80;
 		if (x < element.scrollLeft) element.scrollLeft = Math.max(0, x - 80);
 	}, [cx, scrollRef, x]);
 
-	return <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-[var(--playhead)]" style={{ left: HEADER_WIDTH + x }} />;
+	return <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-[var(--playhead)]" style={{ left: TIME_ORIGIN + x }} />;
 };
+
+/** The room between a row's header and its time 0, so the playhead's head shows whole at 0:00; it carries the row's line */
+export const TimeGutter: React.FC<{ isRuler?: boolean }> = ({ isRuler = false }) => <div className={`${isRuler ? 'mm-ruler ' : ''}shrink-0 border-b border-[var(--separator)]`} style={{ width: TIME_INSET }} aria-hidden />;

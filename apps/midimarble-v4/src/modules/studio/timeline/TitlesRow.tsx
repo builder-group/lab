@@ -4,6 +4,7 @@ import { titleClips } from '@/modules/design/titles';
 import type { TComponents, TProject } from '@/modules/project';
 import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';
+import { TimeGutter } from './Ruler';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
 
 type TWallText = NonNullable<TComponents['wallText']>;
@@ -60,6 +61,7 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 				<span className="min-w-0 flex-1 truncate font-medium">Titles</span>
 				<span className="shrink-0 text-[11px] text-[var(--text-secondary)] tabular-nums">{clips.length === 1 ? '1 title' : `${clips.length} titles`}</span>
 			</div>
+			<TimeGutter />
 			<div
 				className="relative flex-1 border-b border-[var(--separator)]"
 				style={{ minWidth: width }}

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { canonicalSkinId, createProject, parseProject, serializeProject, type TProject, type TSkinComponent, type TThemeParts } from '@/modules/project';
-import { catalogSkins, entitySkinElement, resolveSkinLook, sharedSkinProperties, SKIN_ELEMENTS, skinElement, themeDefaultSkin, type TSkinElement } from './skin-catalog';
+import { catalogSkin, catalogSkins, entitySkinElement, resolveSkinLook, sharedSkinProperties, SKIN_ELEMENTS, skinElement, themeDefaultSkin, type TSkinElement } from './skin-catalog';
 
 const cases = JSON.parse(readFileSync(new URL('../../../blender/tests/skin_look_cases.json', import.meta.url), 'utf8')) as {
 	name: string;
@@ -22,10 +22,25 @@ describe('skin catalog', () => {
 				expect(skin.id.startsWith(`${element}:`)).toBe(true);
 			}
 		}
-		expect(catalogSkins('platform').map((skin) => skin.label)).toEqual(['Gold', 'Copper', 'Silver', 'Device', 'Copper Device', 'Key', 'Knob', 'Pegboard', 'Neon']);
-		expect(catalogSkins('marble').map((skin) => skin.label)).toEqual(['Glass', 'Metal', 'Magic', 'Pearl', 'Deep']);
+		expect(catalogSkins('platform').map((skin) => skin.label)).toEqual(['Gold', 'Copper', 'Silver', 'Device', 'Copper Device', 'Key', 'Knob', 'Pegboard', 'Neon', 'Gift', 'Books']);
+		expect(catalogSkins('marble').map((skin) => skin.label)).toEqual(['Glass', 'Green Glass', 'Metal', 'Magic', 'Pearl', 'Deep']);
 		expect(themeDefaultSkin('brass', 'rail')).toBe('rail:chrome');
 		expect(skinElement('unknown')).toBe('platform');
+	});
+
+	it('should give Gift and Books their Ribbon Colour as an extra property with the standard Colour choices', () => {
+		for (const id of ['platform:gift', 'platform:books']) {
+			const skin = catalogSkin(id);
+			expect(skin?.properties.map((property) => [property.name, property.type])).toEqual([['Ribbon Colour', 'colour']]);
+			expect(skin?.colours).toEqual(['skin', 'marble', 'note']);
+		}
+		expect(catalogSkin('platform:gold')?.properties).toEqual([]);
+	});
+
+	it('should let any theme wear Gift, Candy and Green Glass, and register no Christmas theme', () => {
+		expect(resolveSkinLook('brass', { platform: { skin: 'platform:gift' } }, 'platform').skin).toBe('platform:gift');
+		expect(resolveSkinLook('neon', null, 'marble', { assetId: 'marble:glass-green', link: 'linked' }).variant).toBe('swirl');
+		expect(themeDefaultSkin('christmas', 'platform')).toBe(themeDefaultSkin('pegboard', 'platform'));
 	});
 
 	it('should keep old skin ids loading in their theme-free form', () => {

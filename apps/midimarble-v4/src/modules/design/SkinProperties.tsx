@@ -30,7 +30,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 	});
 	const shared = sharedSkinProperties(looks);
 	const ids = entities.map((entity) => entity.id);
-	const extras = sharedExtras(entities, [...projectItems, ...globalItems]);
+	const extras = sharedExtras(project, entities, [...projectItems, ...globalItems]);
 
 	function set(patch: TSkinPropertyPatch): void {
 		cx.execute(skinPropertyCommands(project, ids, patch));
@@ -122,9 +122,14 @@ function sameOf<T>(values: readonly (T | undefined)[]): T | null {
 	return set.size === 1 ? (values[0] ?? null) : null;
 }
 
-/** Extra properties every selected entity's library skin declares */
-function sharedExtras(entities: TEntity[], items: readonly { id: string; manifest?: { properties?: TAssetProperty[] | undefined } | null }[]): TAssetProperty[] {
-	const lists = entities.map((entity) => items.find((item) => item.id === entity.components.skin?.assetId)?.manifest?.properties ?? []);
+/** Extra properties every selected entity's skin has: a library skin's manifest declares them, the catalog a built-in skin's */
+function sharedExtras(project: TProject, entities: TEntity[], items: readonly { id: string; manifest?: { properties?: TAssetProperty[] | undefined } | null }[]): TAssetProperty[] {
+	const lists = entities.map((entity) => {
+		const library = items.find((item) => item.id === entity.components.skin?.assetId)?.manifest?.properties;
+		if (library != null) return library;
+		const element = entitySkinElement(entity);
+		return element != null ? (catalogSkin(resolveElementLook(project.design, element, entity.components.skin).skin)?.properties ?? []) : [];
+	});
 	return (lists[0] ?? []).filter((property) => lists.every((list) => list.some((item) => item.name === property.name && item.type === property.type)));
 }
 

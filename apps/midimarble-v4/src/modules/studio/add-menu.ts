@@ -4,6 +4,7 @@ import { builtInSource } from '@/modules/design/decor';
 import { placeDecor } from '@/modules/design/decor-actions';
 import { DECOR_ITEMS } from '@/modules/design/decor-catalog';
 import { commandItem, getCommand, type TCommandId } from './commands';
+import { DECOR_KEY, LIGHTS_KEY, TITLES_KEY } from './outline';
 import { hasSongLayer } from './song-layer';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
@@ -38,6 +39,14 @@ export function addMenu(cx: StudioCx): TMenuEntry[] {
 		// Add Song… is Import Song…: a MIDI file or a recording
 		hasSong ? null : commandItem(cx, 'file.importMidi', 'Add Song…')
 	]);
+}
+
+/** What a group's inline + in Layers adds: one command, or a menu for Decor's items */
+export function groupAddEntries(cx: StudioCx, groupId: string): { title: string; run: () => void } | { title: string; items: TMenuEntry[] } | null {
+	if (groupId === TITLES_KEY) return { title: 'Add Title', run: () => runIn(cx, 'design', 'design.addText') };
+	if (groupId === LIGHTS_KEY) return { title: 'Add Light', run: () => runIn(cx, 'design', 'light.add') };
+	if (groupId !== DECOR_KEY) return null;
+	return { title: 'Add Decor', items: [...DECOR_ITEMS.map((item) => ({ label: item.label, onSelect: () => void placeDecor(cx, builtInSource(item.id)) })), 'separator' as const, commandItem(cx, 'decor.scatter')] };
 }
 
 // Pieces of the Insert library; marbles have their own item

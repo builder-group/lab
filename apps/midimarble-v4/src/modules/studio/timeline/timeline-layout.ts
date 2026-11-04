@@ -1,4 +1,8 @@
 export const HEADER_WIDTH = 232;
+// Room between the Layers column and time 0, so the playhead's head shows whole at 0:00
+export const TIME_INSET = 8;
+// Where time 0 lies in the timeline's scrolling content; every row's track starts here
+export const TIME_ORIGIN = HEADER_WIDTH + TIME_INSET;
 export const RULER_HEIGHT = 24;
 export const ROW_HEIGHT = 44;
 export const SONG_ROW_HEIGHT = 40;

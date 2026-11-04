@@ -7,7 +7,7 @@ import type { THitResult } from '@/modules/simulation';
 import { addMenu } from '../add-menu';
 import { addHit } from '../menus';
 import { parseHitKey, toHitKey } from '../selection';
-import { hasSongLayer, songLayerName } from '../song-layer';
+import { hasSongLayer, SONG_LAYER_LABEL } from '../song-layer';
 import { songSource } from '../SourcesCx';
 import { isLaneAudible, type StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
@@ -15,13 +15,14 @@ import { CameraRow } from './CameraRow';
 import { auditionNote, handNotes, isNoteSelection, ownerForKey, selectedNotes } from './hand-notes';
 import { LaneTrack, type TDrag, type TDragStart } from './LaneTrack';
 import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange } from './piano-roll';
-import { PlayheadLine, Ruler } from './Ruler';
+import { PlayheadLine, Ruler, TimeGutter } from './Ruler';
 import { SongTrack } from './SongTrack';
 import {
 	CAMERA_ROW_HEIGHT,
 	clampZoom,
 	fittedHeight,
 	HEADER_WIDTH,
+	TIME_ORIGIN,
 	MIN_HEIGHT,
 	NOTE_ROW_HEIGHT,
 	ROW_HEIGHT,
@@ -114,7 +115,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			const element = scrollRef.current;
 			if (element == null) return 0;
 			const rect = element.getBoundingClientRect();
-			return Math.max(0, (clientX - rect.left + element.scrollLeft - HEADER_WIDTH) / zoom);
+			return Math.max(0, (clientX - rect.left + element.scrollLeft - TIME_ORIGIN) / zoom);
 		},
 		[zoom]
 	);
@@ -166,11 +167,11 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			if (element == null) return;
 			const clamped = clampZoom(next);
 			const rect = element.getBoundingClientRect();
-			const x = clientX == null ? HEADER_WIDTH + (rect.width - HEADER_WIDTH) / 2 : clientX - rect.left;
-			const anchor = (x + element.scrollLeft - HEADER_WIDTH) / zoom;
+			const x = clientX == null ? TIME_ORIGIN + (rect.width - TIME_ORIGIN) / 2 : clientX - rect.left;
+			const anchor = (x + element.scrollLeft - TIME_ORIGIN) / zoom;
 			setZoom(clamped);
 			requestAnimationFrame(() => {
-				element.scrollLeft = anchor * clamped + HEADER_WIDTH - x;
+				element.scrollLeft = anchor * clamped + TIME_ORIGIN - x;
 			});
 		},
 		[zoom]
@@ -181,7 +182,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		if (element == null || project == null) return;
 		// The song, not a longer length the user set past it, like Figma's fit to the layers
 		const span = Math.min(project.end, songFitEnd(project) ?? project.end);
-		setZoom(clampZoom((element.clientWidth - HEADER_WIDTH - 24) / span));
+		setZoom(clampZoom((element.clientWidth - TIME_ORIGIN - 24) / span));
 		requestAnimationFrame(() => {
 			element.scrollLeft = 0;
 		});
@@ -193,7 +194,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		const element = scrollRef.current;
 		const end = cx.project?.end;
 		if (element == null || end == null || projectId == null) return;
-		setZoom(clampZoom((element.clientWidth - HEADER_WIDTH - 24) / end));
+		setZoom(clampZoom((element.clientWidth - TIME_ORIGIN - 24) / end));
 		element.scrollLeft = 0;
 	}, [cx, projectId]);
 
@@ -228,7 +229,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			<ResizeHandle cx={cx} />
 			<Transport cx={cx} results={result?.hits ?? null} zoom={zoom} onZoom={(next) => zoomTo(next)} onZoomToFit={zoomToFit} />
 			<div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
-				<div className="relative flex min-h-full min-w-full flex-col" style={{ width: HEADER_WIDTH + trackWidth }}>
+				<div className="relative flex min-h-full min-w-full flex-col" style={{ width: TIME_ORIGIN + trackWidth }}>
 					<div className="sticky top-0 z-30 flex shrink-0" style={{ height: RULER_HEIGHT }}>
 						<div
 							className="mm-track-header sticky left-0 z-30 flex shrink-0 items-center gap-0.5 border-r border-b border-[var(--separator)] pr-1.5 pl-3"
@@ -238,6 +239,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Layers</span>
 							<MenuButton className="mm-icon-button !h-5 !w-5" label={<Plus size={13} strokeWidth={2} />} title="Add" items={addMenu(cx)} />
 						</div>
+						<TimeGutter isRuler />
 						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
 					{hasSong ? (
@@ -245,7 +247,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							cx={cx}
 							project={project}
 							song={song}
-							name={songLayerName(project)}
+							name={SONG_LAYER_LABEL}
 							analysis={song == null ? undefined : analysis[song.id]}
 							zoom={zoom}
 							width={trackWidth}
@@ -260,6 +262,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 					{project.music.lanes.map((lane) => (
 						<div key={lane.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
 							<TrackHeader cx={cx} lane={lane} project={project} selection={selection} hasRecording={hasRecording} />
+							<TimeGutter />
 							<LaneTrack
 								cx={cx}
 								lane={lane}
@@ -276,7 +279,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						</div>
 					))}
 					{!project.music.lanes.length ? (
-						<div className="mm-placeholder !h-auto !items-start py-6" style={{ paddingLeft: HEADER_WIDTH + 24 }}>
+						<div className="mm-placeholder !h-auto !items-start py-6" style={{ paddingLeft: TIME_ORIGIN + 24 }}>
 							<span className="mm-placeholder-title">No Marbles</span>
 							<span className="mm-placeholder-body">Import a MIDI file with ⌘I, drop one on the window or add a marble with +.</span>
 						</div>
@@ -289,7 +292,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<div className="mm-track-header sticky left-0 z-20 shrink-0 border-r border-[var(--separator)]" style={{ width: HEADER_WIDTH }} />
 					</div>
 					{/* Outside the project range is shaded, like the area past Blender's end frame */}
-					<div className="mm-out-of-range pointer-events-none absolute top-0 bottom-0" style={{ left: HEADER_WIDTH + project.end * zoom, right: 0 }} />
+					<div className="mm-out-of-range pointer-events-none absolute top-0 bottom-0" style={{ left: TIME_ORIGIN + project.end * zoom, right: 0 }} />
 					<PlayheadLine cx={cx} zoom={zoom} scrollRef={scrollRef} />
 				</div>
 			</div>

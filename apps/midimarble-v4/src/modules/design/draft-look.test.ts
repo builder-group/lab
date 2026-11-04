@@ -245,6 +245,28 @@ function luminance(color: string): number {
 	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+describe('Gift and Green Glass in the Draft Preview', () => {
+	const piece = { type: 'platform', color: '#3478f6', skin: { assetId: 'platform:gift', link: 'linked' as const } };
+
+	it('should draw Gift in its paper with a ribbon cross, in any theme', () => {
+		expect(draftPieceColors('neon', piece, false).bar).toBe('#a01522');
+		expect(draftSkinMarks('neon', piece)).toHaveLength(2);
+		expect(draftPieceColors('brass', { type: 'platform', color: '#3478f6', skin: null }, false, {}, { platform: { skin: 'platform:gift' } }).bar).toBe('#a01522');
+	});
+
+	it('should take Colour: Marble and By Note like every skin', () => {
+		const look = { ...piece, skin: { ...piece.skin, colour: 'marble' as const } };
+		expect(draftPieceColors('brass', look, false).bar).toBe('#3478f6');
+		expect(draftPieceColors('brass', { ...piece, skin: { ...piece.skin, colour: 'note' as const }, notePitch: 60 }, false).bar).toBe(noteColor(60));
+	});
+
+	it('should draw a Green Glass marble with green vanes', () => {
+		const marble = draftMarble('brass', '#3478f6', {}, resolveSkinLook('brass', { marble: { skin: 'marble:glass-green' } }, 'marble'));
+		expect(marble.finish?.kind).toBe('glass');
+		expect(saturation(marble.finish?.color ?? '#000000')).toBeGreaterThan(0.8);
+	});
+});
+
 function saturation(color: string): number {
 	const value = Number.parseInt(color.slice(1, 7), 16);
 	const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255];

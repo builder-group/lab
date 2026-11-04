@@ -1,5 +1,5 @@
-import type { TSceneKeyLight, TSceneLight, TSceneWallKind } from '@/modules/blender/scene-description';
-import { createId, type TDesign, type TKeyLightPose, type TLight, type TProject, type TProjectCommand, type TWallKind } from '@/modules/project';
+import type { TSceneKeyLight, TSceneLight, TSceneWallBand, TSceneWallKind } from '@/modules/blender/scene-description';
+import { createId, type TDesign, type TKeyLightPose, type TLight, type TProject, type TProjectCommand, type TWallBand, type TWallKind } from '@/modules/project';
 import { DEFAULT_THEME, resolveTheme, themeDefaultColor, type TResolvedTheme } from './project-themes';
 
 // The Wall and Lights layers of Film. Each sets its values on top of the applied theme, like a piece's skin: unset
@@ -12,7 +12,15 @@ type TSceneDesign = Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>;
 export const WALL_KINDS: readonly { kind: TWallKind; label: string }[] = [
 	{ kind: 'plaster', label: 'Plaster' },
 	{ kind: 'pegboard', label: 'Pegboard' },
-	{ kind: 'grid', label: 'Grid' }
+	{ kind: 'grid', label: 'Grid' },
+	{ kind: 'tinsel', label: 'Tinsel' }
+];
+
+/** The Wall layer's Layout choices on a Tinsel wall */
+export const WALL_BANDS: readonly { band: TWallBand; label: string }[] = [
+	{ band: 'full', label: 'Full Wall' },
+	{ band: 'left', label: 'Left Side' },
+	{ band: 'right', label: 'Right Side' }
 ];
 
 export const MAX_LIGHT_STRENGTH = 20;
@@ -51,10 +59,11 @@ export interface TWallLayer {
 	color: string;
 	backgroundColor: string;
 	kind: TWallKind;
+	band: TWallBand;
 	/** What the project set itself; absent fields read "From Brass" */
 	own: NonNullable<TDesign['wall']>;
 	/** What the theme shows without the project's values */
-	theme: { color: string; backgroundColor: string; kind: TWallKind };
+	theme: { color: string; backgroundColor: string; kind: TWallKind; band: TWallBand };
 }
 
 export function wallLayer(design: TSceneDesign): TWallLayer {
@@ -62,13 +71,15 @@ export function wallLayer(design: TSceneDesign): TWallLayer {
 	const themeLook = {
 		color: theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff',
 		backgroundColor: theme.overrides.backgroundColor ?? themeDefaultColor(theme.base, 'backgroundColor') ?? '#ffffff',
-		kind: theme.projectTheme?.wallKind ?? baseScene(theme.base).wallKind
+		kind: theme.projectTheme?.wallKind ?? baseScene(theme.base).wallKind,
+		band: theme.projectTheme?.wallBand ?? 'full'
 	};
 	const own = design.wall ?? {};
 	return {
 		color: own.color ?? themeLook.color,
 		backgroundColor: own.backgroundColor ?? themeLook.backgroundColor,
 		kind: own.kind ?? themeLook.kind,
+		band: own.band ?? themeLook.band,
 		own,
 		theme: themeLook
 	};
@@ -77,6 +88,11 @@ export function wallLayer(design: TSceneDesign): TWallLayer {
 /** The Wall's Skin when it is not its base theme's own: what the scene description and the Draft Preview need */
 export function wallKindOverride(design: TSceneDesign): TWallKind | undefined {
 	return design.wall?.kind ?? resolveTheme(design).projectTheme?.wallKind;
+}
+
+/** The Wall's Layout when it is not its base theme's own */
+export function wallBandOverride(design: TSceneDesign): TWallBand | undefined {
+	return design.wall?.band ?? resolveTheme(design).projectTheme?.wallBand;
 }
 
 /** Sets or, with null, clears the Wall layer's own values; clearing brings the theme's back */
@@ -196,14 +212,16 @@ function withoutEmpty(lights: NonNullable<TDesign['lights']>): TDesign['lights']
 // MARK: - Scene description
 
 /** The Wall's Skin, the Key Light's pose and the added lights for the scene description; absent when they are the theme's */
-export function sceneLayers(design: TSceneDesign): { wallKind?: TSceneWallKind; keyLight?: TSceneKeyLight; lights?: TSceneLight[] } {
+export function sceneLayers(design: TSceneDesign): { wallKind?: TSceneWallKind; wallBand?: TSceneWallBand; keyLight?: TSceneKeyLight; lights?: TSceneLight[] } {
 	const theme = resolveTheme(design);
 	const kind = wallKindOverride(design);
+	const band = wallBandOverride(design);
 	const { color: _color, ...ownPose } = design.lights?.key ?? {};
 	const pose: TKeyLightPose = { ...theme.projectTheme?.keyLight, ...ownPose };
 	const lights = addedLights(design);
 	return {
 		...(kind != null ? { wallKind: kind } : {}),
+		...(band != null ? { wallBand: band } : {}),
 		...(Object.keys(pose).length > 0 ? { keyLight: pose } : {}),
 		...(lights.length > 0 ? { lights: lights.map((light) => ({ ...light, color: light.color.toLowerCase() })) } : {})
 	};

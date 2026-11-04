@@ -181,6 +181,7 @@ export function duplicateThemeCommands(project: TProject, sourceId: string): { c
 		overrides: appliedOverrides(project.design),
 		...sceneOf({
 			wallKind: wall?.kind ?? theme.wallKind,
+			wallBand: wall?.band ?? theme.wallBand,
 			keyLight: { ...theme.keyLight, ...withoutColor(lights?.key) },
 			lights: [...(theme.lights ?? []), ...(lights?.added ?? [])]
 		})
@@ -194,9 +195,10 @@ export function hasLayerChanges(design: Pick<TDesign, 'wall' | 'lights'>): boole
 }
 
 /** A project theme's Wall skin, Key Light and lights, leaving out what it does not set */
-function sceneOf(theme: Pick<TProjectTheme, 'wallKind' | 'keyLight' | 'lights'> | null): Pick<TProjectTheme, 'wallKind' | 'keyLight' | 'lights'> {
+function sceneOf(theme: Pick<TProjectTheme, 'wallKind' | 'wallBand' | 'keyLight' | 'lights'> | null): Pick<TProjectTheme, 'wallKind' | 'wallBand' | 'keyLight' | 'lights'> {
 	return {
 		...(theme?.wallKind != null ? { wallKind: theme.wallKind } : {}),
+		...(theme?.wallBand != null ? { wallBand: theme.wallBand } : {}),
 		...(theme?.keyLight != null && Object.keys(theme.keyLight).length > 0 ? { keyLight: { ...theme.keyLight } } : {}),
 		...(theme?.lights != null && theme.lights.length > 0 ? { lights: theme.lights.map((light) => ({ ...light })) } : {})
 	};

@@ -176,7 +176,9 @@ describe('fixtures', () => {
 		expect(counts).toEqual([51, 64]);
 		expectAllOnTime(result, 115);
 		expect(project.music.lanes.map((lane) => lane.instrument)).toEqual([9, 8]);
-		expect(project.design.theme).toBe('brass');
+		expect(project.design.theme).toBe('theme-christmas');
+		expect(project.design.themes?.find((theme) => theme.id === 'theme-christmas')).toMatchObject({ name: 'Christmas', base: 'brass', wallKind: 'tinsel', wallBand: 'right' });
+		expect(project.design.decor?.length).toBeGreaterThan(100);
 		// Built at new projects' default half gravity, which the assists keep on the shared pace
 		expect(project.physics.gravityScale).toBe(0.5);
 		// Switchbacks hold the melody across its long notes

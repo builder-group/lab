@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands, createHistory, parseProject, pushHistory, serializeProject, undoHistory, type TProject, type TProjectCommand } from '@/modules/project';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
-import { draftWall } from './draft-look';
+import { DRAFT_TINSEL, draftTinselBand, draftWall } from './draft-look';
 import { appliedOverrides, duplicateThemeCommands, hasLayerChanges, resolveTheme, sceneThemeOverrides, themeCommands } from './project-themes';
 import {
 	addedLights,
@@ -13,6 +13,9 @@ import {
 	resetKeyLightCommands,
 	sceneLayers,
 	updateLightCommands,
+	WALL_BANDS,
+	WALL_KINDS,
+	wallBandOverride,
 	wallCommands,
 	wallKindOverride,
 	wallLayer
@@ -184,5 +187,52 @@ describe('project file', () => {
 		// A reset leaves no empty fields in the file
 		const reset = apply(current, [...wallCommands(current, { color: null, kind: null })]);
 		expect(JSON.parse(serializeProject(reset)).design).not.toHaveProperty('wall');
+	});
+});
+
+describe('Tinsel wall', () => {
+	const christmas = { id: 'theme-christmas', name: 'Christmas', base: 'brass', overrides: { wallColor: '#f9f9f8' }, wallKind: 'tinsel' as const, wallBand: 'right' as const };
+
+	function project(design: Partial<TProject['design']> = {}): TProject {
+		const staircase = createStaircaseProject();
+		return { ...staircase, design: { ...staircase.design, theme: 'brass', ...design } };
+	}
+
+	it('should offer Tinsel as a Skin and Layout as its own choice', () => {
+		expect(WALL_KINDS.map((item) => item.label)).toContain('Tinsel');
+		expect(WALL_BANDS.map((item) => item.label)).toEqual(['Full Wall', 'Left Side', 'Right Side']);
+	});
+
+	it("should read a project theme's Tinsel band and send it to Blender", () => {
+		const design = project({ theme: christmas.id, themes: [christmas] }).design;
+		expect(wallLayer(design)).toMatchObject({ kind: 'tinsel', band: 'right', color: '#f9f9f8', own: {} });
+		expect(sceneLayers(design)).toMatchObject({ wallKind: 'tinsel', wallBand: 'right' });
+	});
+
+	it('should draw Full Wall in the green and a side band on the wall colour', () => {
+		expect(draftWall('brass', {}, 'tinsel').color).toBe(DRAFT_TINSEL);
+		expect(draftWall('brass', {}, 'tinsel', 'left').color).toBe('#a098ac');
+		expect(draftTinselBand('tinsel', 'left')).toBe('left');
+		expect(draftTinselBand('plaster', 'left')).toBeNull();
+		expect(draftTinselBand()).toBeNull();
+	});
+
+	it('should default a Tinsel wall on any theme to Full Wall and take a changed Layout', () => {
+		const changed = project({ wall: { kind: 'tinsel' } });
+		expect(wallLayer(changed.design).band).toBe('full');
+		const left = project({ wall: { kind: 'tinsel', band: 'left' } });
+		expect(wallBandOverride(left.design)).toBe('left');
+		expect(sceneLayers(left.design)).toMatchObject({ wallKind: 'tinsel', wallBand: 'left' });
+	});
+
+	it('should keep the Layout in Save as Theme and round-trip through the file', () => {
+		const source = project({ wall: { kind: 'tinsel', band: 'left' } });
+		const { commands, themeId } = duplicateThemeCommands(source, 'brass');
+		const [isOk, err, saved] = applyProjectCommands(source, commands);
+		if (!isOk) throw err;
+		expect(resolveTheme(saved.design, themeId).projectTheme).toMatchObject({ wallKind: 'tinsel', wallBand: 'left' });
+		const [isParsed, parseErr, parsed] = parseProject(serializeProject(saved));
+		if (!isParsed) throw parseErr;
+		expect(wallLayer(parsed.design)).toMatchObject({ kind: 'tinsel', band: 'left' });
 	});
 });

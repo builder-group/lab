@@ -10,7 +10,7 @@ import { $blenderObjects, blenderObjectBox, decorBox, decorList, madeInBlenderLa
 import { decorExtent, decorItem, decorText, type TDecorItem } from './decor-catalog';
 import { distanceToBox, type TWallBox } from './decor-clearance';
 import { appliedOverrides, DEFAULT_THEME, resolveElementLook, resolveTheme } from './project-themes';
-import { wallKindOverride } from './scene-layers';
+import { wallBandOverride, wallKindOverride } from './scene-layers';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
@@ -364,9 +364,10 @@ export class DraftPreviewCx {
 		const theme = resolveTheme(project.design);
 		const overrides = appliedOverrides(project.design);
 		const wallKind = wallKindOverride(project.design);
-		const wallKey = `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''}`;
+		const wallBand = wallBandOverride(project.design);
+		const wallKey = `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''} ${wallBand ?? ''}`;
 		if (this.wallTheme !== wallKey) {
-			renderer.setWallLook(draftWall(theme.base, overrides, wallKind));
+			renderer.setWallLook(draftWall(theme.base, overrides, wallKind, wallBand));
 			this.wallTheme = wallKey;
 		}
 		const playhead = this.studio.$playhead.get();

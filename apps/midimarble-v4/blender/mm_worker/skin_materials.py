@@ -18,9 +18,13 @@ from .util import parse_color
 
 # `Skin` colours of the marble skins that have one, as `#rrggbb`
 GLASS_SKIN = '#1f6fe0'
+GLASS_GREEN_SKIN = '#0c8a3a'
+GLASS_GREEN_VANES = 0.28
 MAGIC_SKIN = '#7a3cff'
 # The drift of Magic's smoke in noise units per second; slow enough to read as smoke, not as boiling
 SMOKE_DRIFT = 0.16
+# Radians per metre along a Candy Rail: a stripe about 16 mm long
+CANDY_STRIPES = 200.0
 SMOKE_TIME_NODE = 'MM smoke time'
 
 
@@ -136,6 +140,47 @@ def tinted_metal_material(color):
     return _new('MM · metal ' + color, build)
 
 
+def paper_material(color, roughness=0.46, coat=0.2):
+    """Satin wrapping paper or a book's cloth in a `#rrggbb` colour, with the flash a reaction drives"""
+    def build(material):
+        linear = parse_color(color)
+        material.diffuse_color = linear
+        principled = themes._principled(material)
+        themes._set(principled, 'Base Color', linear)
+        themes._set(principled, 'Roughness', roughness)
+        themes._set(principled, 'Coat Weight', coat)
+        themes._set(principled, 'Coat Roughness', 0.2)
+        themes._flash_emission(material, linear)
+    return _new('MM · paper %s r%.2f c%.2f' % (color, roughness, coat), build)
+
+
+def candy_material(color):
+    """Soft glossy stripes of `color` and white, set by the point's place along both wall axes so a wire of any slope
+    shows them"""
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = themes._principled(material)
+        linear = parse_color(color)
+        material.diffuse_color = linear
+        coordinates = nodes.new('ShaderNodeTexCoord')
+        separate = nodes.new('ShaderNodeSeparateXYZ')
+        links.new(coordinates.outputs['Object'], separate.inputs['Vector'])
+        across = _math(tree, 'SINE', _math(tree, 'MULTIPLY', separate.outputs['X'], CANDY_STRIPES))
+        along = _math(tree, 'SINE', _math(tree, 'MULTIPLY', separate.outputs['Z'], CANDY_STRIPES))
+        stripe = _range(tree, _math(tree, 'MULTIPLY', across, along), -0.12, 0.12)
+        mix = nodes.new('ShaderNodeMix')
+        mix.data_type = 'RGBA'
+        links.new(stripe, mix.inputs['Factor'])
+        mix.inputs['A'].default_value = (0.88, 0.87, 0.85, 1.0)
+        mix.inputs['B'].default_value = linear
+        links.new(mix.outputs['Result'], principled.inputs['Base Color'])
+        themes._set(principled, 'Roughness', 0.32)
+        themes._set(principled, 'Coat Weight', 0.5)
+        themes._set(principled, 'Coat Roughness', 0.1)
+    return _new('MM · candy ' + color, build)
+
+
 def flash_ready(material):
     """The shared material, or a copy that reads the object's `mm_flash`, for a skin's root flash"""
     if material is None or material.node_tree is None:
@@ -240,10 +285,11 @@ GLASS_SHEETS = {
 }
 
 
-def glass_marble_material(color, variant='swirl'):
+def glass_marble_material(color, variant='swirl', vane_value=0.85):
     """A play marble: tinted clear glass with a dark coloured edge where its glass bends the wall away, light gathered low
     in the ball, the painted studio on top, and in the middle the vanes: Swirl two bands winding with a pale ribbon between
-    them, Cat's-Eye three blades that meet along the axis"""
+    them, Cat's-Eye three blades that meet along the axis. `vane_value` is the vanes' brightness: lower keeps them coloured
+    in a bright theme's light"""
     sheets = GLASS_SHEETS.get(variant, GLASS_SHEETS['swirl'])
 
     def build(material):
@@ -251,7 +297,7 @@ def glass_marble_material(color, variant='swirl'):
         nodes, links = tree.nodes, tree.links
         output = nodes.get('Material Output')
         nodes.remove(themes._principled(material))
-        vivid = _hue(color, 0.85, 1.0)
+        vivid = _hue(color, vane_value, 1.0)
         pale = _hue(color, 1.0, 0.07)
         material.diffuse_color = (*_hue(color, 0.75, 0.6), 1.0)
         position, into = _inside_ray(tree)
@@ -324,7 +370,7 @@ def glass_marble_material(color, variant='swirl'):
         links.new(add.outputs[0], total.inputs[1])
         links.new(total.outputs[0], output.inputs['Surface'])
         _blended(material)
-    return _new('MM · glass %s %s' % (variant, color), build)
+    return _new('MM · glass %s %s' % (variant, color) + ('' if vane_value == 0.85 else ' v%.2f' % vane_value), build)
 
 
 def metal_marble_material(color=None):
