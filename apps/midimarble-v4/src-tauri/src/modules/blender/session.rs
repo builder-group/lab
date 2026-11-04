@@ -117,7 +117,7 @@ impl BlenderState {
             if began.elapsed() > STARTUP_TIMEOUT {
                 self.kill(package)?;
                 return Err(format!(
-                    "Blender did not become ready within {} seconds. See {}",
+                    "Blender did not become ready within {} seconds. macOS may be asking for permission; check for a dialog. See {}",
                     STARTUP_TIMEOUT.as_secs(),
                     log_path.display()
                 ));

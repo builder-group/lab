@@ -156,6 +156,7 @@ A fix sits next to the problem, like Xcode's Fix-its.
 | --- | --- | --- |
 | **Add Platform** | click an open note's dot to see it, then click again or ↩; A or N at once | places a platform tilted so the marble lands on time. Until then it is only an outline, dashed, with its hint "↩ Add platform". A long-gap dot shows its Switchback or Rail the same way and a dot no platform can reach says why, as N does; a right-click on a dot has every choice: Add Platform at Default Tilt, Add Switchback, Add Rail, Add Tunnel, Go to Note |
 | **Place Next Platform** | N | adds the platform for the next open note |
+| **Build Track** | ⇧N, on the build bar and in the hit summary's menu | builds every open note of every marble in time order and ends each in a Finish. Its notice reads "Building track · 42 of 115 hits · about 40 s left" with Stop, then "Built the track: 115 of 115 hits on time, 129 pieces." or "Built what fits: …" naming the hits that need attention |
 | **Continue Pattern** | Tab | repeats the pattern of the last platforms for as many notes as fit; the button shows the count: "Continue Pattern (4)" |
 | **Mirror Last Platform** | M | the last platform's tilt mirrored, for zigzags |
 | **Repeat Last Platform** | R | the same tilt again |
@@ -241,7 +242,7 @@ Actions: **New Project** (it opens at once, unsaved; the first Save asks where t
 
 1. The start screen shows examples first-class; an example plays on Space at once
 2. Quick Help (Help › MidiMarble Help, ⇧⌘/, ⌘K) labels the regions of the window in place, like GarageBand's Quick Help; it is optional and never modal
-3. At most three one-line hints appear once, where the next step is, and disappear when done: "This is your song: each marble plays some of its notes" (Song layer) → "Click a note's dot to see its platform" (first open dot) → "Switch to Film to choose the look and export" (after the first full run)
+3. At most three one-line hints appear once, where the next step is, and disappear when done: "This is your song: each marble plays some of its notes" (Song layer) → "Press ⇧N to build the whole track, or click a note's dot to see its platform" (first open dot) → "Switch to Film to choose the look and export" (after the first full run)
 4. The hit summary in the timeline header says when the run works: "12 of 12 hits on time"
 
 ## Progressive disclosure

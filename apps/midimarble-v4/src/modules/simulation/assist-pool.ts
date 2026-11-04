@@ -198,7 +198,7 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 					const answer = await evaluate(search, prepare, tries);
 					return { plan: answer.plan as TAutoPlacePlan, evaluations: answer.evaluations as TAngleEvaluation[] };
 				},
-				{ isCancelled }
+				{ isCancelled, ...(item.request.range != null ? { range: item.request.range } : {}) }
 			);
 			if (!isOk) throw error;
 			return {

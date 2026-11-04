@@ -40,6 +40,7 @@ export function canvasMenu(compose: ComposeCx): TMenuEntry[] {
 	const cx = compose.studio;
 	return tidyMenu([
 		commandItem(cx, 'build.next'),
+		commandItem(cx, 'build.track'),
 		commandItem(cx, 'build.repeat'),
 		commandItem(cx, 'build.mirror'),
 		commandItem(cx, 'build.autoPlace'),

@@ -840,6 +840,7 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 	const tool = useFeatureState(compose.$tool);
 	const ghosts = useFeatureState(compose.assist.$ghosts);
 	const queued = useFeatureState(compose.assist.$queuedNext);
+	const building = useFeatureState(compose.assist.$building);
 	// The bar sits at screen positions, so it moves with the view
 	useFeatureState(compose.$camera);
 	const viewport = useFeatureState(compose.$viewport);
@@ -854,7 +855,7 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 		observer.observe(bar);
 		return () => observer.disconnect();
 	}, []);
-	if (project == null || result == null || playing || drag != null || pen != null || tool === 'path') return null;
+	if (project == null || result == null || playing || drag != null || pen != null || tool === 'path' || building != null) return null;
 
 	const target = findStepTarget(project, result, selection);
 	if (target?.dot == null) return null;
@@ -890,6 +891,9 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 			>
 				{/* Presses made while the run catches up queue up, like key repeat in a text field */}
 				{queued > 0 ? <span className="tabular-nums">Next ×{queued}</span> : 'Next'}
+			</AssistButton>
+			<AssistButton label="Build Track" detail="Build every open hit, in time order, and end in a Finish" shortcut="⇧N" onClick={() => void compose.assist.buildTrack()} isText>
+				Build Track
 			</AssistButton>
 			<div className="mm-assist-divider" />
 			<AssistButton label="Repeat Last Platform" detail="The same tilt again" shortcut="R" onClick={() => compose.step('repeat')}>

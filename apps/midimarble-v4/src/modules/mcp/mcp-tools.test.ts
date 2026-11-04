@@ -146,7 +146,66 @@ describe('MCP tools', () => {
 		const panel = await runTool(cx, 'run_command', { id: 'file.export' });
 		expect(textOf(panel)).toContain('export_film');
 		const selected = await runTool(cx, 'run_command', { id: 'edit.deselect', args: { select: ['a'] } });
-		expect(selected.isError).toBe(false);
+		expect(selected.isError).toBe(true);
+		expect(textOf(selected)).toContain('Nothing can be selected as a');
+	});
+
+	it('should select by key with edit.select, and show the Wall and physics in get_state', async () => {
+		const { cx, laneId } = studio();
+		const reply = await runTool(cx, 'run_command', { id: 'edit.select', args: { select: ['wall'] } });
+		expect(JSON.parse(textOf(reply))).toMatchObject({ selection: ['wall'], changed: false });
+		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
+		expect(state.selection).toEqual(['wall']);
+		expect(state.physics).toEqual({ gravityScale: 0.5, default: 0.5, range: [0.05, 2] });
+		expect(state.wall).toEqual({});
+		expect(state.marbles[0]).toMatchObject({ laneId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y'], hitList: [['hit1', 1, 'C4', 'open', 0, -1]] });
+	});
+
+	it("should refuse a command's wrong fields, naming them, with no Undo step", async () => {
+		const { cx } = studio();
+		const before = cx.$history.get();
+		for (const command of [{ type: 'setPhysics', gravityScale: 0.4 }, { type: 'setPhysics', foo: 1 }, { type: 'setPhysics', physics: { gravity: 1 } }, { type: 'setComponent', entityId: 'x', component: { name: 'marble', release: {} } }]) {
+			const reply = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [command] } });
+			expect(reply.isError).toBe(true);
+			expect(textOf(reply)).toContain("doesn't fit");
+		}
+		expect(cx.$history.get()).toBe(before);
+		const moved = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setPhysics', physics: { gravityScale: 0.4 } }] } });
+		expect(JSON.parse(textOf(moved)).changed).toBe(true);
+		expect(cx.project?.physics.gravityScale).toBe(0.4);
+	});
+
+	it('should say when commands change nothing, and make no Undo step', async () => {
+		const { cx } = studio();
+		const before = cx.$history.get();
+		const gravity = cx.project?.physics.gravityScale;
+		const reply = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setPhysics', physics: { gravityScale: gravity } }] } });
+		expect(JSON.parse(textOf(reply)).changed).toBe(false);
+		expect(cx.$history.get()).toBe(before);
+	});
+
+	it('should tell a marble to start at its release, not a transform', async () => {
+		const { cx } = studio();
+		const marble = cx.project?.entities.find((entity) => entity.components.marble != null);
+		const reply = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setComponent', entityId: marble?.id, component: { name: 'transform', value: { position: { x: 1, y: 1 }, angle: 0 } } }] } });
+		expect(reply.isError).toBe(true);
+		expect(textOf(reply)).toContain('release');
+	});
+
+	it('should set Marble Speed from args.value and refuse it without one', async () => {
+		const { cx } = studio();
+		const reply = await runTool(cx, 'run_command', { id: 'marble.speed', args: { value: 0.7 } });
+		expect(JSON.parse(textOf(reply)).changed).toBe(true);
+		expect(cx.project?.physics.gravityScale).toBe(0.7);
+		expect((await runTool(cx, 'run_command', { id: 'marble.speed', args: {} })).isError).toBe(true);
+	});
+
+	it('should name what Undo takes back', async () => {
+		const { cx } = studio();
+		await runTool(cx, 'run_command', { id: 'marble.speed', args: { value: 0.7 } });
+		const reply = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'edit.undo' })));
+		expect(reply.undid).toBe('Agent: Marble Speed');
+		expect(reply.changed).toBe(false);
 	});
 
 	it('should wait for a person mid-gesture, then say busy', async () => {

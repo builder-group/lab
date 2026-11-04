@@ -184,7 +184,7 @@ pub fn tool_definitions() -> Vec<Value> {
         ),
         tool(
             "get_state",
-            "The open project in short: layers, marbles, hit summary, problems, selection, playhead, theme, parts, decor counts, song and the agent folder's path.",
+            "The open project in short: layers with each piece's angle and params, marbles with every hit and its dot, physics, wall, lights, hit summary, problems, selection, playhead, theme, parts, decor counts, song, Build Track's progress and result, and the agent folder's path.",
             json!({}),
             &[],
         ),
@@ -199,7 +199,7 @@ pub fn tool_definitions() -> Vec<Value> {
             "Runs a studio command by id, or `project.execute` with `args.commands`. Each call is one named Undo step. Answers with the new hit summary and errors in plain words.",
             json!({
                 "id": { "type": "string" },
-                "args": { "type": "object", "description": "`select` (layer keys) for any command; `path` for commands that open a panel for a person; `commands` and `label` for project.execute" }
+                "args": { "type": "object", "description": "`select` (layer keys) for any command; `path` for commands that open a panel for a person; `commands` and `label` for project.execute; `value` for marble.speed; `wait: false` for build.track" }
             }),
             &["id"],
         ),

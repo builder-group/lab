@@ -1,4 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
+import type { TBuildProgress } from '@/modules/compose/build-track';
 import { addFinishLabel, lanesWithoutFinish } from '@/modules/compose/finish-assist';
 import { createState } from 'feature-state';
 import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
@@ -73,6 +74,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const result = useFeatureState(cx.simulation.$result);
 	const compose = useFeatureState(cx.$compose);
 	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
+	const building = useFeatureState(compose?.assist.$building ?? NO_BUILDING);
 	const checks = useFeatureState(compose?.assist.$pieceFixes ?? NO_CHECKS);
 	const lastFix = useFeatureState(compose?.assist.$lastFix ?? NO_LAST_FIX);
 	const addingFinish = useFeatureState(compose?.assist.$addingFinish ?? NO_ADDING);
@@ -86,11 +88,11 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	}, [blocked, compose, replacing]);
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
 
-	if (replacing != null || summary.state === 'pending') {
+	if (replacing != null || building != null || summary.state === 'pending') {
 		return (
 			<span className="mm-hit-summary" data-tone="pending" role="status" aria-live="polite" data-quick-help="hitSummary">
 				<LoaderCircle size={12} strokeWidth={2} className="animate-spin" aria-hidden />
-				{replacing != null ? 'Re-placing…' : 'Checking…'}
+				{building != null ? 'Building…' : replacing != null ? 'Re-placing…' : 'Checking…'}
 			</span>
 		);
 	}
@@ -100,6 +102,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	// Add Finish for each marble that plays last and has none, so the film ends on the catch
 	const unfinished = lanesWithoutFinish(project);
 	const extras: TMenuEntry[] = [
+		...(compose?.assist.hasOpenHits === true ? [{ label: 'Build Track', shortcut: '⇧N', onSelect: () => void compose.assist.buildTrack() }] : []),
 		...unfinished.map((laneId) => ({
 			label: addFinishLabel(project, laneId, unfinished.length),
 			disabled: compose == null || addingFinish != null,
@@ -166,6 +169,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 
 /** Beside the summary of a project with hits and no Song: it plays silently, so the summary asks for one */
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
+const NO_BUILDING = createState<TBuildProgress | null>(null);
 const NO_CHECKS = createState<Record<string, TPieceFixCheck>>({});
 const NO_LAST_FIX = createState<TLastFix | null>(null);
 const NO_ADDING = createState<string | null>(null);

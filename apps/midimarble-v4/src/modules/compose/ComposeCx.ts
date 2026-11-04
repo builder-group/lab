@@ -2032,6 +2032,9 @@ export class ComposeCx {
 			case 'next':
 				this.next();
 				return true;
+			case 'buildTrack':
+				void this.assist.buildTrack();
+				return true;
 			case 'acceptGhosts':
 				return this.assist.acceptGhosts();
 			case 'escape':

@@ -104,7 +104,7 @@ describe('Playback and Piece menus', () => {
 
 	it('should list the transport and the piece assists', () => {
 		expect(section('Playback')).toEqual(['play.toggle', 'play.start', 'play.previousHit', 'play.nextHit', 'play.cycle']);
-		expect(section('Track')).toEqual(['build.next', 'build.continue', 'build.mirror', 'build.repeat', 'build.addFinish', 'edit.duplicate', 'piece.detach']);
+		expect(section('Track')).toEqual(['build.next', 'build.track', 'build.continue', 'build.mirror', 'build.repeat', 'build.addFinish', 'edit.duplicate', 'piece.detach']);
 	});
 
 	it('should show single keys in the title and never as menu keys, and name Pause while playing', () => {

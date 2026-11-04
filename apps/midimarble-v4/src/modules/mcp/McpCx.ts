@@ -70,11 +70,14 @@ export class McpCx {
 	}
 
 	private enqueue(request: specta.McpRequestEvent): void {
-		this.queue = this.queue.then(async () => {
+		const respond = async (): Promise<void> => {
 			const reply = await this.answer(request);
 			const sent = await specta.commands.mcpRespond(request.requestId, JSON.stringify(reply));
 			if (sent.status === 'error' && import.meta.env.DEV) console.warn('[mcp]', sent.error);
-		});
+		};
+		// Reading the state and stopping a build answer while a long call, such as Build Track, is still running
+		if (answersAtOnce(request)) void respond();
+		else this.queue = this.queue.then(respond);
 	}
 
 	private async answer(request: specta.McpRequestEvent): Promise<TToolReply> {
@@ -86,4 +89,9 @@ export class McpCx {
 		}
 		return runTool(this.studio, request.tool, args);
 	}
+}
+
+function answersAtOnce(request: specta.McpRequestEvent): boolean {
+	if (request.tool === 'get_state') return true;
+	return request.tool === 'run_command' && /"id"\s*:\s*"build\.stop"/.test(request.argumentsJson);
 }

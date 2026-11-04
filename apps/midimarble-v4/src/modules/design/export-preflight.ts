@@ -528,7 +528,7 @@ interface TWideShot {
 /** Framing per run and camera settings; the what-ifs bake up to three tracks per problem, so it is kept */
 const framings = new WeakMap<TSimulationResult['marbles'], Map<string, TFraming | null>>();
 
-function checkFraming(project: TProject, result: TSimulationResult): TFraming | null {
+export function checkFraming(project: TProject, result: TSimulationResult): TFraming | null {
 	if (project.design.camera.mode === 'manual') return null;
 	// `renderFps`: the film's frame rate, which the Draft Preview's camera uses too
 	const fps = project.design.renderPreset === 'best' ? 60 : 30;

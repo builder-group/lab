@@ -48,6 +48,8 @@ export type TWorkerRequest =
 			 * itself launches into a switchback before a long gap, so Compose no longer sends these.
 			 */
 			launchAngles?: number[];
+			/** Angle range searched first, in radians; see `TAutoPlaceOptions` */
+			range?: [number, number];
 	  }
 	| {
 			/**
@@ -81,7 +83,7 @@ export type TWorkerMessage = TWorkerRequest & { id: number };
 
 /** What a search spread over the assists pool looks for */
 export type TSearchRequest =
-	| { assist: 'autoPlace'; project: TProject; laneId: string; hitId: string; type: string; entityId: string }
+	| { assist: 'autoPlace'; project: TProject; laneId: string; hitId: string; type: string; entityId: string; range?: [number, number] }
 	| {
 			assist: 'gapPiece';
 			type: TGapPieceType;
@@ -176,13 +178,13 @@ export function answerWorkerRequest(
 		case 'simulate':
 			return result;
 		case 'autoPlace': {
-			const { project, laneId, hitId, type, entityId, launchAngles } = request;
+			const { project, laneId, hitId, type, entityId, launchAngles, range } = request;
 			if (launchAngles != null) {
 				const entity = launchPlace(project, simulate, laneId, hitId, type, launchAngles, entityId);
 				if (entity == null) throw new Error('No angle sends the marble off this piece on time');
 				return { entity, angle: entity.components.hitLink?.angle ?? 0, nextDot: null, computeMs: performance.now() - startedAt };
 			}
-			const [isOk, error, placement] = autoPlace(project, result, laneId, hitId, { simulate, type, id: entityId });
+			const [isOk, error, placement] = autoPlace(project, result, laneId, hitId, { simulate, type, id: entityId, ...(range != null ? { range } : {}) });
 			if (!isOk) throw error;
 			return {
 				entity: placement.entity,

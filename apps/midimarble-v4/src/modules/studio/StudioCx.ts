@@ -684,6 +684,11 @@ export class StudioCx {
 		return { stepName, notices: step.notices };
 	}
 
+	/** An agent's tool call is running, whose edits fold into one named Undo step */
+	get isInAgentStep(): boolean {
+		return this.agentStep != null;
+	}
+
 	/** The agent's name for the step Undo would take back, null for a person's */
 	get undoLabel(): string | null {
 		const present = this.$history.get()?.groups.present;

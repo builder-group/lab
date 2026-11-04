@@ -8,7 +8,8 @@ import { readScatterChoice } from '@/modules/design/decor-actions';
 import { skinCommands } from '@/modules/design/design-commands';
 import { filmCamera } from '@/modules/design/film-camera';
 import type { TLibraryItem } from '@/modules/library';
-import { applyProjectCommands, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { z } from 'zod';
+import { applyProjectCommands, SComponents, SDesign, SEntity, SHit, SLane, SPhysics, SSource, STempo, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { getPieceDefinition, type TSimulationResult } from '@/modules/simulation';
 
 // `project.execute` takes the project's own commands plus a few that say what an agent means, so it needs not know a
@@ -43,15 +44,80 @@ export interface TExpandedCommands {
 	createdIds: string[];
 	/** What the edit did when it can be said in a word, for its Undo step: "Place Platform" */
 	summary: string | null;
+	/** False when the commands leave the project as it was, which makes no Undo step */
+	isChange: boolean;
 }
 
-const PROJECT_COMMAND_TYPES = new Set<string>(['setTitle', 'setEnd', 'setFrame', 'upsertSource', 'removeSource', 'upsertLane', 'removeLane', 'upsertHits', 'removeHits', 'assignHits', 'setBackingInstrument', 'upsertEntity', 'removeEntities', 'setComponent', 'removeComponent', 'setDesign', 'setPhysics', 'setTempo']);
+const SVec = z.strictObject({ x: z.number(), y: z.number() });
+const SComponentName = z.enum(Object.keys(SComponents.shape) as [keyof typeof SComponents.shape, ...(keyof typeof SComponents.shape)[]]);
+
+/** Each command's fields, strictly: a wrong shape is an error that names the field, never an empty Undo step */
+const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
+	setTitle: { schema: z.strictObject({ type: z.string(), title: z.string() }), example: "{ type: 'setTitle', title: 'Name' }" },
+	setEnd: { schema: z.strictObject({ type: z.string(), end: z.number().positive() }), example: "{ type: 'setEnd', end: 32 }" },
+	setFrame: { schema: z.strictObject({ type: z.string(), width: z.number().positive(), height: z.number().positive() }), example: "{ type: 'setFrame', width: 9, height: 16 }" },
+	upsertSource: { schema: z.strictObject({ type: z.string(), source: SSource }), example: "{ type: 'upsertSource', source }" },
+	removeSource: { schema: z.strictObject({ type: z.string(), sourceId: z.string() }), example: "{ type: 'removeSource', sourceId }" },
+	upsertLane: { schema: z.strictObject({ type: z.string(), lane: SLane.partial({ hits: true }) }), example: "{ type: 'upsertLane', lane }" },
+	removeLane: { schema: z.strictObject({ type: z.string(), laneId: z.string() }), example: "{ type: 'removeLane', laneId }" },
+	upsertHits: { schema: z.strictObject({ type: z.string(), laneId: z.string(), hits: z.array(SHit) }), example: "{ type: 'upsertHits', laneId, hits: [{ id, time }] }" },
+	removeHits: { schema: z.strictObject({ type: z.string(), laneId: z.string(), hitIds: z.array(z.string()) }), example: "{ type: 'removeHits', laneId, hitIds: [] }" },
+	assignHits: { schema: z.strictObject({ type: z.string(), hitIds: z.array(z.string()), laneId: z.string() }), example: "{ type: 'assignHits', hitIds: [], laneId }" },
+	setBackingInstrument: { schema: z.strictObject({ type: z.string(), instrument: z.number().int().nullable() }), example: "{ type: 'setBackingInstrument', instrument: 0 }" },
+	upsertEntity: { schema: z.strictObject({ type: z.string(), entity: SEntity }), example: "{ type: 'upsertEntity', entity: { id, name, components } }" },
+	removeEntities: { schema: z.strictObject({ type: z.string(), entityIds: z.array(z.string()) }), example: "{ type: 'removeEntities', entityIds: [] }" },
+	setComponent: {
+		schema: z
+			.strictObject({ type: z.string(), entityId: z.string(), component: z.strictObject({ name: SComponentName, value: z.unknown() }) })
+			.superRefine((command, context) => {
+				const checked = (SComponents.shape[command.component.name] as z.ZodType).safeParse(command.component.value);
+				if (checked.success && command.component.value != null) return;
+				for (const issue of checked.success ? [{ path: [], message: 'is required' }] : checked.error.issues) context.addIssue({ code: 'custom', path: ['component', 'value', ...issue.path], message: issue.message });
+			}),
+		example: "{ type: 'setComponent', entityId, component: { name: 'release', value: { position: { x, y }, time } } }"
+	},
+	removeComponent: { schema: z.strictObject({ type: z.string(), entityId: z.string(), name: SComponentName }), example: "{ type: 'removeComponent', entityId, name }" },
+	setDesign: { schema: z.strictObject({ type: z.string(), design: SDesign.partial() }), example: "{ type: 'setDesign', design: { theme: 'id' } }" },
+	setPhysics: { schema: z.strictObject({ type: z.string(), physics: SPhysics }), example: "{ type: 'setPhysics', physics: { gravityScale: 0.5 } }" },
+	setTempo: { schema: z.strictObject({ type: z.string(), tempo: STempo.nullable() }), example: "{ type: 'setTempo', tempo: { bpm: 120, beatsPerBar: 4 } }" },
+	placePiece: {
+		schema: z.strictObject({ type: z.string(), pieceType: z.string(), hit: z.strictObject({ laneId: z.string(), hitId: z.string() }).optional(), position: SVec.optional(), angle: z.number().optional(), params: z.record(z.string(), z.number()).optional(), name: z.string().optional(), path: z.array(SVec).optional() }),
+		example: "{ type: 'placePiece', pieceType: 'platform', hit: { laneId, hitId }, angle }"
+	},
+	applySkin: { schema: z.strictObject({ type: z.string(), assetId: z.string(), pieceType: z.string().optional(), entityIds: z.array(z.string()).optional() }), example: "{ type: 'applySkin', assetId, pieceType }" },
+	placeDecor: { schema: z.strictObject({ type: z.string(), source: z.string(), at: SVec }), example: "{ type: 'placeDecor', source: 'decor:snowfall', at: { x, y } }" },
+	scatterDecor: { schema: z.strictObject({ type: z.string(), sources: z.array(z.string()).optional(), density: z.number().optional(), seed: z.number().optional() }), example: "{ type: 'scatterDecor', sources: [], density: 0.2 }" }
+};
+
+/** Why a command's fields don't fit, in words that show the shape it takes; null when they fit */
+export function commandProblem(command: { type: string }): string | null {
+	const shape = COMMAND_SHAPES[command.type];
+	if (shape == null) return `There is no project command called ${command.type}. They are: ${Object.keys(COMMAND_SHAPES).join(', ')}.`;
+	const checked = shape.schema.safeParse(command);
+	if (checked.success) return null;
+	const issues = checked.error.issues.map((issue) => {
+		const where = issue.path.join('.');
+		if (issue.code === 'unrecognized_keys') return `${where !== '' ? `${where} has ` : ''}unknown ${issue.keys.length === 1 ? 'field' : 'fields'} ${issue.keys.join(', ')}`;
+		return `${where !== '' ? `${where}: ` : ''}${issue.message.toLowerCase()}`;
+	});
+	return `${command.type} doesn't fit: ${issues.join('; ')}. It looks like ${shape.example}.`;
+}
+
+/** A marble's start is its release, and its transform is never read, so moving one that way would look done and do nothing */
+function misleadingComponent(project: TProject, command: TAgentCommand): string | null {
+	if (command.type !== 'setComponent' || command.component.name !== 'transform') return null;
+	const entity = project.entities.find((item) => item.id === command.entityId);
+	if (entity?.components.marble == null) return null;
+	return "A marble starts at its release, not a transform. Use { type: 'setComponent', entityId, component: { name: 'release', value: { position: { x, y }, time } } }.";
+}
 
 export function expandCommands(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], input: readonly TAgentCommand[]): TResult<TExpandedCommands, Error> {
 	const commands: TProjectCommand[] = [];
 	const createdIds: string[] = [];
 	let running = project;
 	for (const command of input) {
+		const problem = commandProblem(command) ?? misleadingComponent(running, command);
+		if (problem != null) return Err(new Error(problem));
 		const [isExpandedOk, expandedErr, expanded] = expandOne(running, result, items, command);
 		if (!isExpandedOk) return Err(expandedErr);
 		const [isAppliedOk, appliedErr, applied] = applyProjectCommands(running, expanded.commands);
@@ -60,7 +126,7 @@ export function expandCommands(project: TProject, result: TSimulationResult | nu
 		commands.push(...expanded.commands);
 		if (expanded.entity != null) createdIds.push(expanded.entity.id);
 	}
-	return Ok({ commands, createdIds, summary: summaryOf(input) });
+	return Ok({ commands, createdIds, summary: summaryOf(input), isChange: JSON.stringify({ ...running, revision: 0 }) !== JSON.stringify({ ...project, revision: 0 }) });
 }
 
 function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; entity?: TEntity }, Error> {
@@ -93,7 +159,6 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 			return Ok({ commands });
 		}
 		default:
-			if (!PROJECT_COMMAND_TYPES.has(command.type)) return Err(new Error(`Unknown project command: ${String((command as { type: unknown }).type)}`));
 			return Ok({ commands: [command] });
 	}
 }

@@ -4,6 +4,7 @@ import {
 	defaultPlatformAngle,
 	findLongGaps,
 	frameBand,
+	hitOwners,
 	isMusicalPiece,
 	isSuperseded,
 	layoutOf,
@@ -19,6 +20,7 @@ import { formatTime } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
+import { buildOneStep, buildTrack, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps } from './build-track';
 import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replaceCommands, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
 import { findFinish } from './finish-assist';
 import { createEstimate } from './progress-estimate';
@@ -26,7 +28,7 @@ import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } 
 import { unreachableActions } from './unreachable-fixes';
 import { displayPiece } from './attach-edit';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
-import { commitAtHit, findStepTarget, pieceAngleCommands, pieceForHit, previousPiece, selectedPieceIds } from './step-loop';
+import { commitAtHit, findStepTarget, pieceForHit, previousPiece, selectedPieceIds } from './step-loop';
 
 /** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterwards */
 export const AUTO_PLACE_WAIT_MS = 150;
@@ -45,6 +47,10 @@ export class AssistCx {
 	readonly $queuedNext = createState(0);
 
 	private continueKey: string | null = null;
+	/** The Continue question on its way, so an agent's next call sees its answer and Next acts the same at any speed */
+	private pendingContinue: string | null = null;
+	/** The gap Next found no way past, for the revision it asked at; the next press places at the note after it */
+	private stuckGap: string | null = null;
 	/** Type and time of the latest queued Next press; the presses run one by one as each run arrives */
 	private queuedNext: { type: string; at: number } | null = null;
 	private isMounted = false;
@@ -117,7 +123,17 @@ export class AssistCx {
 		if (gap != null && (target == null || gap.to <= target.targetTime + 1e-9)) {
 			// A suggestion waits for the user to accept it, so presses queued behind it end here
 			this.clearQueuedNext();
-			this.suggestGapPiece('switchback', gap.laneId, gap.fromHitId, gap.toHitId, { fallback: 'rail' });
+			const key = `${project.revision}:${gap.laneId}/${gap.toHitId}`;
+			if (this.stuckGap === key) {
+				this.placeAfterStuckGap(result, gap.laneId, gap.toHitId, type);
+				return;
+			}
+			this.suggestGapPiece('switchback', gap.laneId, gap.fromHitId, gap.toHitId, {
+				fallback: 'rail',
+				// An agent's Next places the bridge in the same call, so its reply says what happened
+				accept: this.studio.isInAgentStep,
+				onFailed: (message) => void this.stepPastGap(key, message)
+			});
 			return;
 		}
 		const unreachable = this.firstUnreachable(project, result, target);
@@ -155,6 +171,46 @@ export class AssistCx {
 		this.studio.$selection.set([toHitKey(hit.laneId, hit.hitId)]);
 		if (!this.studio.$playing.get()) this.studio.$playhead.set(hit.targetTime);
 		this.studio.notify(message, 'info', { actions: unreachableActions(this.studio, hit, fix) });
+	}
+
+	/**
+	 * No switchback or rail fits the gap, so Next takes the step Build Track would: another tilt before the gap, a turn
+	 * of what's in the way, or a platform for the note after it. When none works it says so and the next press puts a
+	 * platform at that note regardless, so N never repeats itself.
+	 */
+	private async stepPastGap(key: string, message: string): Promise<void> {
+		const project = this.studio.project;
+		const deps = this.buildDeps(() => this.studio.project?.revision !== project?.revision);
+		if (project == null || deps == null || this.isPlacing) return;
+		this.isPlacing = true;
+		try {
+			const step = await buildOneStep(project, deps);
+			if (this.studio.project?.revision !== project.revision) return;
+			if (step != null && step.commands.length > 0 && this.studio.execute(step.commands)) {
+				const placed = step.project.entities.find((entity) => entity.components.hitLink?.hitId === step.target.hitId);
+				if (placed != null) this.studio.$selection.set([placed.id]);
+				if (!this.studio.$playing.get()) this.studio.$playhead.set(step.target.targetTime);
+				this.studio.notifyEdit(`${message} Next found another way past it.`);
+				return;
+			}
+			this.stuckGap = key;
+			this.studio.notify(`${message} Press N for a platform at the next note, or choose Build Track.`, 'info', { actions: [this.buildAction()] });
+		} catch (error) {
+			this.studio.notify(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			this.isPlacing = false;
+			this.runQueuedNext();
+		}
+	}
+
+	/** The press after `stepPastGap` found nothing: a platform at the note after the gap, or what to do when it has no dot */
+	private placeAfterStuckGap(result: TSimulationResult, laneId: string, hitId: string, type: string): void {
+		const hit = result.hits.find((item) => item.laneId === laneId && item.hitId === hitId);
+		if (hit?.dot != null) {
+			void this.place(hit, type, 'next');
+			return;
+		}
+		this.studio.notify("The marble falls too far to reach the note after this gap. Turn the platform before the gap, or choose Build Track.", 'info', { actions: [this.buildAction()] });
 	}
 
 	private runQueuedNext(): void {
@@ -202,9 +258,8 @@ export class AssistCx {
 				this.record('autoPlace', startedAt);
 				const present = this.studio.project;
 				if (present == null || present.revision !== project.revision) return;
-				// A platform a drag left where it lay goes back on its note
-				const current = present.entities.find((item) => item.id === entity.id);
-				const commands = current?.components.hitLink?.pinned === true ? replaceCommands(present, answer.entity) : pieceAngleCommands(present, new Map([[entity.id, answer.angle]]));
+				// The tilt and bounce together, and a platform a drag left where it lay goes back on its note
+				const commands = replaceCommands(present, answer.entity);
 				if (!commands.length) {
 					this.studio.notify('This platform already lands on time');
 					return;
@@ -245,14 +300,13 @@ export class AssistCx {
 			this.record(kind, startedAt);
 			return;
 		}
-		const request = client.autoPlace({ project, laneId: hit.laneId, hitId: hit.hitId, type, entityId: id });
-		const quick = await Promise.race([
-			request.then(
-				(answer): TAutoPlaceAnswer | 'failed' => answer,
-				(error: unknown): 'failed' | 'superseded' => (isSuperseded(error) ? 'superseded' : 'failed')
-			),
-			wait(AUTO_PLACE_WAIT_MS).then(() => 'slow' as const)
-		]);
+		const ask = (): Promise<TAutoPlaceAnswer | 'failed' | 'superseded'> =>
+			client.autoPlace({ project, laneId: hit.laneId, hitId: hit.hitId, type, entityId: id }).then(
+				(answer) => answer,
+				(error: unknown) => (isSuperseded(error) ? 'superseded' : 'failed')
+			);
+		const request = ask();
+		const quick = await Promise.race([request, wait(AUTO_PLACE_WAIT_MS).then(() => 'slow' as const)]);
 		const present = this.studio.project;
 		if (present == null) return;
 		if (typeof quick === 'object' && present.revision === project.revision) {
@@ -260,24 +314,27 @@ export class AssistCx {
 			this.record(kind, startedAt);
 			return;
 		}
+		// Only the wait for the picture depends on timing: the piece shows at the default tilt until the answer comes, and
+		// the answer then gives it the same tilt and bounce a quick answer would have, so the track is the same either way
 		const fallback = pieceForHit(present, hit, type, 'default', id);
 		if (!commitAtHit(this.studio, hit, fallback)) return;
 		this.record(kind, startedAt);
-		if (quick === 'failed') this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
-		if (quick !== 'slow') return;
 		const placedRevision = this.studio.project?.revision;
 		const placedGroup = this.studio.editGroup ?? undefined;
-		request.then(
-			(answer) => {
-				this.record('autoPlace', startedAt);
-				const latest = this.studio.project;
-				const link = latest?.entities.find((entity) => entity.id === id)?.components.hitLink;
-				// Only refine while nothing else happened since the default placement; the tilt undoes with it
-				if (latest == null || link == null || latest.revision !== placedRevision) return;
-				this.studio.execute(pieceAngleCommands(latest, new Map([[id, answer.angle]])), { group: placedGroup });
-			},
-			() => undefined
-		);
+		let answer: TAutoPlaceAnswer | 'failed' | 'superseded' | 'slow' = quick;
+		if (answer === 'slow') answer = await request;
+		// A newer request replaced this one in the queue, not an answer about this hit
+		if (answer === 'superseded') answer = await ask();
+		this.record('autoPlace', startedAt);
+		if (answer === 'failed' || answer === 'superseded') {
+			if (this.studio.project?.revision === placedRevision) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
+			return;
+		}
+		const latest = this.studio.project;
+		// Only refine while nothing else happened since the default placement; the tilt undoes with it
+		if (latest == null || latest.revision !== placedRevision) return;
+		const commands = replaceCommands(latest, answer.entity);
+		if (commands.length > 0) this.studio.execute(commands, { group: placedGroup });
 	}
 
 	// MARK: - Dot previews
@@ -407,7 +464,7 @@ export class AssistCx {
 	 * Asks for a switchback, rail or tunnel across a long gap and shows it as a ghost to accept. With
 	 * `fallback`, a failed search asks for that type instead before telling the user.
 	 */
-	suggestGapPiece(type: TGapPieceType, laneId: string, fromHitId: string, toHitId: string, options: { accept?: boolean; fallback?: TGapPieceType } = {}): void {
+	suggestGapPiece(type: TGapPieceType, laneId: string, fromHitId: string, toHitId: string, options: { accept?: boolean; fallback?: TGapPieceType; onFailed?: (message: string) => void } = {}): void {
 		const project = this.studio.project;
 		const client = this.studio.simulation.assists;
 		if (project == null || client == null) return;
@@ -423,12 +480,140 @@ export class AssistCx {
 				this.dispatch({ type: 'gapFailed', revision: project.revision });
 				if (isSuperseded(error)) return;
 				if (options.fallback != null && options.fallback !== type) {
-					this.suggestGapPiece(options.fallback, laneId, fromHitId, toHitId, { accept: options.accept });
+					this.suggestGapPiece(options.fallback, laneId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
 					return;
 				}
-				this.studio.notify(gapFailure(type, error instanceof Error ? error.message : String(error)));
+				const message = gapFailure(type, error instanceof Error ? error.message : String(error));
+				if (options.onFailed != null) options.onFailed(message);
+				else this.studio.notify(message);
 			}
 		);
+	}
+
+	// MARK: - Build Track
+
+	/** How far the running Build Track is, null when none runs */
+	readonly $building = createState<TBuildProgress | null>(null);
+	/** What the latest Build Track of this session left, for `get_state` */
+	readonly $lastBuild = createState<TBuildReport | null>(null);
+	private buildRun: { isCancelled: boolean } | null = null;
+
+	get isBuilding(): boolean {
+		return this.buildRun != null;
+	}
+
+	/** Some hit has no platform yet, so Build Track has work to do */
+	get hasOpenHits(): boolean {
+		const project = this.studio.project;
+		if (project == null) return false;
+		return project.music.lanes.some((lane) => {
+			const owners = hitOwners(project, lane.id);
+			return lane.hits.some((hit) => !owners.has(hit.id));
+		});
+	}
+
+	/** Stop on Build Track's notice, and `build.stop` */
+	stopBuild(): void {
+		if (this.buildRun != null) this.buildRun.isCancelled = true;
+	}
+
+	private buildAction(): { label: string; title: string; run: () => void } {
+		return { label: 'Build Track', title: 'Build every open hit, in time order', run: () => void this.buildTrack() };
+	}
+
+	/** The worker calls a build needs. Searches stop between their stages once `isCancelled` says so. */
+	private buildDeps(isCancelled: () => boolean): TBuildTrackDeps | null {
+		const client = this.studio.simulation.assists;
+		if (client == null) return null;
+		return {
+			// The assists worker, so its runs resume from the snapshots of the run before
+			simulate: (project) => client.simulateAssist(project),
+			autoPlace: (request) => client.autoPlace(request, { isCancelled }),
+			gapPiece: (request) => client.gapPiece(request, { isCancelled }),
+			continueRun: (request) => client.continueRun(request),
+			isCancelled
+		};
+	}
+
+	/**
+	 * Build Track: builds every open hit of every marble in time order and ends each marble in a Finish, as one undo
+	 * step. Each piece shows on the wall as it is found, with progress and Stop in the notice. Another edit stops it,
+	 * like Re-place, and what it built so far stays.
+	 */
+	async buildTrack(): Promise<TBuildOutcome | null> {
+		const project = this.studio.project;
+		if (project == null || this.buildRun != null || this.replaceRun != null) return null;
+		if (!project.music.lanes.some((lane) => lane.hits.length > 0)) {
+			this.studio.notify('Build Track needs notes. Import a song, or press T and tap along.');
+			return null;
+		}
+		if (!this.hasOpenHits) {
+			this.studio.notify('Every hit already has a platform');
+			return null;
+		}
+		const run = { isCancelled: false };
+		let expected = project.revision;
+		const isCancelled = (): boolean => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected;
+		const deps = this.buildDeps(isCancelled);
+		if (deps == null) return null;
+		this.buildRun = run;
+		this.clearQueuedNext();
+		this.dispatch({ type: 'dismiss' });
+		this.studio.$selection.set([]);
+		const startedAt = performance.now();
+		const estimate = createEstimate();
+		const stop = { label: 'Stop', title: 'Keep the pieces built so far', run: () => (run.isCancelled = true) };
+		const progressText = (progress: TBuildProgress): string => {
+			const left = estimate.update(performance.now() - startedAt, progress.fraction, progress.done, progress.total);
+			return ['Building track', `${progress.done} of ${progress.total} ${progress.total === 1 ? 'hit' : 'hits'}`, progress.restarts > 0 ? 'trying another start' : '', left].filter(Boolean).join(' · ');
+		};
+		const total = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
+		const firstProgress: TBuildProgress = { done: 0, total, at: 0, fraction: 0, restarts: 0 };
+		this.$building.set(firstProgress);
+		const progressId = this.studio.notify(progressText(firstProgress), 'info', { progress: 0, actions: [stop] });
+		let outcome: TBuildOutcome | null = null;
+		try {
+			outcome = await buildTrack(project, {
+				...deps,
+				commit: (commands, isFirst, hit) => {
+					// Another edit since the last step stops the build rather than folding into it
+					if (this.studio.project?.revision !== expected) return false;
+					if (!this.studio.execute(commands, { amend: !isFirst })) return false;
+					expected = this.studio.project?.revision ?? expected;
+					if (hit != null && !this.studio.$playing.get()) {
+						this.studio.$playhead.set(hit.targetTime);
+						this.studio.$reveal.set({ ids: [toHitKey(hit.laneId, hit.hitId)] });
+					}
+					return true;
+				},
+				onProgress: (progress) => {
+					this.$building.set(progress);
+					this.studio.updateNotice(progressId, { message: progressText(progress), progress: progress.fraction });
+				}
+			});
+		} catch (error: unknown) {
+			this.studio.notify(`Build Track stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
+		} finally {
+			this.buildRun = null;
+			this.$building.set(null);
+		}
+		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
+		if (outcome == null) return null;
+		const present = this.studio.project;
+		const result: TSimulationResult = { ...outcome.result, revision: present?.revision ?? outcome.project.revision };
+		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
+		this.replacedRevision = result.revision;
+		const summary = problemSummary(preflightExport(present ?? outcome.project, result));
+		const report = buildReport(project, outcome, summary.label, summary.problems.length, Math.round(performance.now() - startedAt));
+		this.$lastBuild.set(report);
+		const changed = present?.revision !== project.revision;
+		if (changed) {
+			const lastFix: TLastFix = { projectId: project.id, message: report.message, details: report.details, revision: present?.revision ?? outcome.project.revision };
+			this.$lastFix.set(lastFix);
+			const broken = brokenHits(result.hits).length;
+			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [{ label: this.replacePlan(present, result).label, title: 'Re-place the broken platforms', run: () => void this.replace() }] : [], { details: report.details });
+		} else this.studio.notify(report.message);
+		return outcome;
 	}
 
 	// MARK: - Fix-its
@@ -465,8 +650,8 @@ export class AssistCx {
 		if (previous?.projectId === project.id && previous.revision === result.revision) return;
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
 		// A run Re-place made is not a reference for the next one: its release came from the reference itself
-		if (this.replaceRun == null && result.revision !== this.replacedRevision) this.rememberGood(project, result);
-		if (previous == null || previous.projectId !== project.id || previous.revision > result.revision || this.replaceRun != null) return;
+		if (this.replaceRun == null && this.buildRun == null && result.revision !== this.replacedRevision) this.rememberGood(project, result);
+		if (previous == null || previous.projectId !== project.id || previous.revision > result.revision || this.replaceRun != null || this.buildRun != null) return;
 		if (this.studio.$historyReveal.get()?.revision === result.revision) return;
 		const broken = newlyBroken(previous.hits, result.hits);
 		if (!broken.length) return;
@@ -493,6 +678,11 @@ export class AssistCx {
 
 	get isReplacing(): boolean {
 		return this.replaceRun != null;
+	}
+
+	/** An assist is still working on the latest edit: what it answers next can change the project or what Next does */
+	get isAnswering(): boolean {
+		return this.isPlacing || this.replaceRun != null || this.buildRun != null || this.pendingContinue != null || this.$ghosts.get().pendingGap != null;
 	}
 
 	/** Shows the latest Re-place result of this project again, with its Details */
@@ -537,7 +727,7 @@ export class AssistCx {
 		const project = this.studio.project;
 		const result = this.currentResult();
 		const deps = this.fixDeps();
-		if (project == null || result == null || deps == null || this.replaceRun != null) return;
+		if (project == null || result == null || deps == null || this.replaceRun != null || this.buildRun != null) return;
 		const known = this.$pieceFixes.get()[entityId];
 		if (known?.revision === project.revision) return;
 		this.setPieceFix(entityId, { revision: project.revision, fix: null });
@@ -564,7 +754,7 @@ export class AssistCx {
 		const project = this.studio.project;
 		const result = this.currentResult();
 		const client = this.studio.simulation.assists;
-		if (project == null || result == null || client == null || this.replaceRun != null) return null;
+		if (project == null || result == null || client == null || this.replaceRun != null || this.buildRun != null) return null;
 		const targets = brokenHits(result.hits, only);
 		const scenery = only == null ? blockedScenery(project, result) : [];
 		if (!targets.length && !scenery.length) {
@@ -712,7 +902,7 @@ export class AssistCx {
 		const project = this.studio.project;
 		const result = this.currentResult();
 		const client = this.studio.simulation.assists;
-		if (project == null || result == null || client == null) return;
+		if (project == null || result == null || client == null || this.buildRun != null) return;
 		const state = this.$ghosts.get();
 		if (state.dismissedRevision === project.revision || state.pendingGap != null || state.ghost?.kind === 'gap' || state.ghost?.kind === 'place') return;
 		const target = findStepTarget(project, result, this.studio.$selection.get());
@@ -725,12 +915,18 @@ export class AssistCx {
 			return;
 		}
 		const startedAt = performance.now();
+		this.pendingContinue = key;
+		const done = (): void => {
+			if (this.pendingContinue === key) this.pendingContinue = null;
+		};
 		client.continueRun({ project, laneId }).then(
 			(answer: TContinueAnswer | null) => {
+				done();
 				this.record('continue', startedAt);
 				this.dispatch({ type: 'continueAnswer', revision: project.revision, answer });
 			},
 			() => {
+				done();
 				// A failed or replaced search simply offers nothing; a newer request is on its way
 				if (this.continueKey === key) this.continueKey = null;
 			}
@@ -810,6 +1006,36 @@ function focusedLaneId(project: TProject, selection: string[]): string | null {
 		if (lane != null) return lane.id;
 	}
 	return null;
+}
+
+/** What a Build Track left, in the words of its notice and for `get_state` */
+export interface TBuildReport {
+	/** The two-line notice */
+	message: string;
+	/** Everything it did, behind Details */
+	details: string;
+	isStopped: boolean;
+	seconds: number;
+	added: number;
+	turned: string[];
+	releaseShift: number;
+	finishes: string[];
+	/** Hits that are not on time, as `marble`, 1-based `hit`, `time` and `status` */
+	attention: { marble: string; laneId: string; hitId: string; hit: number; time: number; status: string }[];
+}
+
+function buildReport(project: TProject, outcome: TBuildOutcome, label: string, problems: number, ms: number): TBuildReport {
+	const nameOf = (laneId: string): string => project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'The marble';
+	const attention = outcome.attention.map((hit) => ({ marble: nameOf(hit.laneId), laneId: hit.laneId, hitId: hit.hitId, hit: hit.index + 1, time: hit.time, status: hit.status }));
+	const pieces = `${outcome.added} ${outcome.added === 1 ? 'piece' : 'pieces'}`;
+	const named = attention.slice(0, 3).map((hit) => `${hit.marble} hit ${hit.hit}`);
+	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 hit needs' : `${attention.length} hits need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
+	const turned = outcome.turned.length > 0 ? `Turned ${outcome.turned.length} of your ${outcome.turned.length === 1 ? 'platform' : 'platforms'}.` : '';
+	const moved = outcome.releaseShift !== 0 ? `Moved the releases ${Math.abs(outcome.releaseShift * 100).toFixed(1)} cm.` : '';
+	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `Built the track: ${label}, ${pieces}.` : `Built what fits: ${label}, ${pieces}.`;
+	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');
+	const details = [message, ...outcome.finishes, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join(' ');
+	return { message, details, isStopped: outcome.isStopped, seconds: Math.round(ms / 100) / 10, added: outcome.added, turned: outcome.turned, releaseShift: outcome.releaseShift, finishes: outcome.finishes, attention };
 }
 
 /** A piece's Fix-it as its what-if found it for `revision`; `fix` is null while the what-if runs */

@@ -424,6 +424,16 @@ export const commands: readonly TCommand[] = [
 
 	// MARK: - Pieces
 	{ id: 'build.next', title: 'Place Next Platform', section: 'Track', shortcut: 'N', keywords: 'add step assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.next() },
+	{
+		id: 'build.track',
+		title: 'Build Track',
+		section: 'Track',
+		shortcut: '⇧N',
+		keywords: 'whole song all hits auto build everything finish solve assist',
+		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isBuilding !== true && compose(cx)?.assist.hasOpenHits === true,
+		run: (cx) => void compose(cx)?.assist.buildTrack()
+	},
+	{ id: 'build.stop', title: 'Stop Building Track', section: 'Track', keywords: 'cancel build track', isEnabled: (cx) => compose(cx)?.assist.isBuilding === true, run: (cx) => compose(cx)?.assist.stopBuild() },
 	{ id: 'build.repeat', title: 'Repeat Last Platform', section: 'Track', shortcut: 'R', keywords: 'copy same tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('repeat') },
 	{ id: 'build.mirror', title: 'Mirror Last Platform', section: 'Track', shortcut: 'M', keywords: 'zigzag flip tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('mirror') },
 	{
@@ -725,6 +735,8 @@ export type TCommandId =
 	| 'tool.text'
 	| 'view.snap'
 	| 'build.next'
+	| 'build.track'
+	| 'build.stop'
 	| 'build.repeat'
 	| 'build.mirror'
 	| 'build.autoPlace'

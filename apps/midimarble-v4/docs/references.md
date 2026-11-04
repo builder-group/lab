@@ -168,6 +168,24 @@ Decision: the fixture is rebuilt at half gravity. It is what a beginner importin
 
 Other release leads at half gravity, which stopped at 23 s (0.35 s) and 29 s (1 s) before: 0.35 s completes on the third release position (shifted −1 cm) with 7 rotations of the previous piece and a clean preflight; 1 s completes on the first with 17 manual steps (4 by hand) and 4 dots outside their lane, which the preflight reports.
 
+### Build Track
+
+Measured on 2026-11-04 when the fixture script's strategy moved into the app (`compose/build-track.ts`). A test agent using only the app stopped at hit 10 of 51 after 1200 edits, so the strategy had to live there. All runs at default settings: half gravity, 0.26 m lanes. Single means one thread in Node; pool means six worker threads as the app runs it (Auto place and gap pieces only, one further thread for runs).
+
+| Song | Hits | Result | Time | How |
+| --- | --- | --- | --- | --- |
+| Jingle Bells, `fixtures/jingle-bells.mid` through the import sheet's defaults | 115 | 115/115, clean preflight, both Finishes | 18 s pool, 43 s single | first attempt; 15 switchbacks, 134 steps, 7 turns of the previous platform, 2 back-ups for the camera |
+| Jingle Bells, releases at ±0.13 m (the fixture) | 115 | 115/115, clean preflight, both Finishes | 78 s single | first attempt; 12 switchbacks, 188 steps, 5 back-ups |
+| One marble, 16 quarter notes | 16 | 16/16, clean | 0.3 s single | |
+| One marble, 20 mixed notes with gaps up to 2 s | 20 | 20/20, clean | 56 s single | 10 back-ups: its long gaps keep leaving the frame |
+| Tapped, 20 irregular hits | 20 | 20/20, clean | 3.6 s single | |
+| Tapped, two marbles, 12 hits each | 24 | 24/24, clean | 14 s single | |
+| Zigzag, staircase, tap-along, long-gap, reference-20, with their pieces removed | 16, 8, 16, 8, 48 | all on time, clean | under 5 s each, single | |
+
+Backing up made the difference. Starting over from the first hit, the only recovery the script had, needed four attempts and 154 s single for Jingle Bells: three finished tracks in a row lost a marble from the camera's frame, which the build now sees while it works and repairs by going back a second or so. The same song at a position 0.13 m to the side, otherwise the same physics, plays differently enough to be a useful second test. A failed Auto place search no longer repeats itself as a wider search, since it already tried those angles.
+
+`fixtures/jingle-bells.marble.json` keeps its track from before Build Track, so its hits and pieces did not change. A rebuild plays 115/115 with a clean preflight: pace 0.304 m/s, 12 switchbacks and no rails (before 10 and 2), |y − y*| at dots max 0.28 m melody and 0.25 m bass, one dot beyond the limit, marbles at most 0.33 m apart (before 0.40), no marble contact. That is not better enough to replace it: Re-place's two recovery tests on Jingle Bells leave 13 and more broken hits on a rebuilt track, at either release position, and three tests read tuned numbers off the old one (`finish-exit`, `follow-camera`, `export-preflight`). So `pnpm fixtures:jingle` writes to `.local/jingle/` and replaces the fixture only with `--write`. Those recovery tests point at the next step: Re-place could finish with Build Track's steps from the first problem it can't solve.
+
 ### Close camera
 
 Measured on 2026-11-04 after the Round 4 review (N5: Jingle Bells framed about 40 bars with marbles at 3 % of the frame width, a Push In held to the end, the film ended on empty wall). Numbers come from the TypeScript port at 30 fps projected into the 9:16 frame over the time from the first to the last hit (`.local/camera-framing/measure.ts`; before in `before.txt`, after in `after.jsonl`); Draft films and before/after stills are in `.local/camera-framing/films/`.

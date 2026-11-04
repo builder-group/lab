@@ -1,6 +1,8 @@
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { resolveTheme } from '@/modules/design/project-themes';
 import type { TProject } from '@/modules/project';
+import { DEFAULT_GRAVITY_SCALE } from '@/modules/project';
+import { noteName } from '@/modules/studio/format';
 import type { TSimulationResult } from '@/modules/simulation';
 import { hasSongLayer } from '@/modules/studio/song-layer';
 
@@ -8,7 +10,9 @@ import { hasSongLayer } from '@/modules/studio/song-layer';
 // summary in the window.
 
 const MAX_PROBLEMS = 20;
-const MAX_PIECES = 80;
+/** What each row of a marble's `hitList` holds; x and y are the hit's dot, null while the marble has not got there */
+const HIT_COLUMNS = ['hitId', 'time', 'note', 'status', 'x', 'y'];
+const MAX_PIECES = 200;
 
 export interface THitReport {
 	/** The hit summary as the window words it: "12 of 40 hits on time" */
@@ -33,7 +37,7 @@ export function hitReport(project: TProject, result: TSimulationResult | null): 
 }
 
 /** The project in short. Hit keys in `openHits` work for `select` and `placePiece`. */
-export function projectState(project: TProject, result: TSimulationResult | null, view: { path: string | null; workspace: string; selection: readonly string[]; playhead: number; isPlaying: boolean; agentFolder: string | null; references: { images: number; text: string } }): Record<string, unknown> {
+export function projectState(project: TProject, result: TSimulationResult | null, view: { path: string | null; workspace: string; selection: readonly string[]; playhead: number; isPlaying: boolean; agentFolder: string | null; references: { images: number; text: string }; building?: unknown; lastBuild?: unknown }): Record<string, unknown> {
 	const design = project.design;
 	const theme = resolveTheme(design);
 	const resolved = new Map(result?.pieces.map((piece) => [piece.entityId, piece]) ?? []);
@@ -46,13 +50,17 @@ export function projectState(project: TProject, result: TSimulationResult | null
 	const hits = result?.hits ?? [];
 	return {
 		project: { title: project.title, path: view.path, revision: project.revision, length: round(project.end), frame: project.frame },
+		// Marble Speed: a share of Earth's gravity for every marble
+		physics: { gravityScale: project.physics.gravityScale, default: DEFAULT_GRAVITY_SCALE, range: [0.05, 2] },
+		...(view.building != null ? { building: view.building } : {}),
+		...(view.lastBuild != null ? { lastBuild: view.lastBuild } : {}),
 		agentFolder: view.agentFolder,
 		references: view.references,
 		workspace: view.workspace,
 		playhead: round(view.playhead),
 		isPlaying: view.isPlaying,
 		selection: view.selection,
-		song: hasSongLayer(project) ? { sources: project.music.sources.map((source) => ({ name: source.name, kind: source.kind })), backingNotes: project.music.backing.length, tempo: project.music.tempo ?? null } : null,
+		song: hasSongLayer(project) ? { sources: project.music.sources.map((source) => ({ name: source.name, kind: source.kind, offset: source.offset })), backingNotes: project.music.backing.length, tempo: project.music.tempo ?? null } : null,
 		marbles: project.music.lanes.map((lane) => {
 			const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
 			const own = hits.filter((hit) => hit.laneId === lane.id);
@@ -63,7 +71,12 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				release: marble?.components.release?.position ?? null,
 				hits: lane.hits.length,
 				onTime: own.filter((hit) => hit.status === 'onTime').length,
-				nextOpen: own.filter((hit) => hit.status === 'open').slice(0, 3).map((hit) => ({ hitId: hit.hitId, time: round(hit.targetTime), hasDot: hit.dot != null }))
+				nextOpen: own.filter((hit) => hit.status === 'open').slice(0, 3).map((hit) => ({ hitId: hit.hitId, time: round(hit.targetTime), hasDot: hit.dot != null })),
+				hitColumns: HIT_COLUMNS,
+				hitList: lane.hits.map((hit) => {
+					const run = own.find((item) => item.hitId === hit.id);
+					return [hit.id, round(hit.time), hit.pitch != null ? noteName(hit.pitch) : null, run?.status ?? 'open', run?.dot != null ? round(run.dot.x) : null, run?.dot != null ? round(run.dot.y) : null];
+				})
 			};
 		}),
 		...hitReport(project, result),
@@ -76,7 +89,8 @@ export function projectState(project: TProject, result: TSimulationResult | null
 					name: entity.name,
 					type: entity.components.piece?.type,
 					...(pose != null ? { x: round(pose.position.x), y: round(pose.position.y) } : {}),
-					...(entity.components.hitLink != null ? { hitId: entity.components.hitLink.hitId } : {})
+					...(entity.components.hitLink != null ? { hitId: entity.components.hitLink.hitId, angle: round(entity.components.hitLink.angle) } : entity.components.transform != null ? { angle: round(entity.components.transform.angle) } : {}),
+					params: entity.components.piece?.params ?? {}
 				};
 			}),
 			...(pieces.length > MAX_PIECES ? { piecesLeftOut: pieces.length - MAX_PIECES } : {}),
@@ -84,6 +98,8 @@ export function projectState(project: TProject, result: TSimulationResult | null
 			lights: design.lights?.added?.length ?? 0,
 			titles: project.entities.filter((entity) => entity.components.wallText != null).length
 		},
+		wall: design.wall ?? {},
+		lights: design.lights ?? {},
 		theme: { id: theme.id, name: theme.name, base: theme.base, overrides: theme.overrides, parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
 		projectThemes: (design.themes ?? []).map((item) => ({ id: item.id, name: item.name })),
 		decor: { count: design.decor?.length ?? 0, sources: countBy((design.decor ?? []).map((item) => item.source)) },

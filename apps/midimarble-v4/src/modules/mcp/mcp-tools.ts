@@ -7,6 +7,7 @@ import { createProject } from '@/modules/project';
 
 import { commands as registry, commandWorkspace, isCommandEnabled, type TCommand, type TCommandId } from '@/modules/studio/commands';
 import type { StudioCx, TAgentStepNotice } from '@/modules/studio/StudioCx';
+import { CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY } from '@/modules/studio/selection';
 import { hitReport, projectState } from './mcp-state';
 import { expandCommands, type TAgentCommand } from './project-commands';
 
@@ -20,12 +21,14 @@ export interface TToolReply {
 }
 
 const WAIT_FOR_PERSON_MS = 2000;
+const PERMISSION_WAIT_MS = 5000;
 const SETTLE_MS = 300;
 const SETTLE_LIMIT_MS = 8000;
 const EXPORT_WAIT_MS = 15_000;
 const DRAFT_WIDTH = 540;
 const BLENDER_WIDTH = 1280;
 const PROJECT_EXECUTE = 'project.execute';
+const EDIT_SELECT = 'edit.select';
 
 /** Commands that ask a person through a panel, with what they need instead */
 const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
@@ -35,8 +38,12 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.importAudio': 'the add_song tool',
 	'file.replaceSong': 'the add_song tool',
 	'file.export': 'the export_film tool',
-	'design.exportPack': 'args.path, plus name and either theme or items'
+	'design.exportPack': 'args.path, plus name and either theme or items',
+	'marble.speed': 'args.value, Marble Speed from 0.05 to 2'
 };
+
+/** Commands an agent can start while nothing else may run */
+const WHILE_BUSY = new Set<string>(['build.stop']);
 
 const SPath = z.string().regex(/^\//, 'Use an absolute path');
 
@@ -85,23 +92,50 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				...(command.isChecked != null ? { isOn: command.isChecked(cx) === true } : {}),
 				...(PANEL_COMMANDS[command.id] != null ? { needs: PANEL_COMMANDS[command.id] } : {})
 			}));
-		return text(cx, { commands: [{ id: PROJECT_EXECUTE, title: 'Project commands with parameters: see the building-a-track guide' }, ...listed] });
+		return text(cx, { commands: [{ id: PROJECT_EXECUTE, title: 'Project commands with parameters: see the building-a-track guide' }, { id: EDIT_SELECT, title: 'Select by keys: args.select, such as hit keys, entity IDs, wall or light:key' }, ...listed] });
 	},
 
 	run_command: async (cx, args) => {
 		const { id, args: commandArgs = {} } = SRunCommand.parse(args);
-		const busy = await waitUntilFree(cx);
+		const busy = WHILE_BUSY.has(id) ? null : await waitUntilFree(cx);
 		if (busy != null) return fail(cx, busy);
 		if (id === PROJECT_EXECUTE) return runProjectCommands(cx, commandArgs);
+		const badKeys = unknownSelection(cx, commandArgs);
+		if (badKeys != null) return fail(cx, badKeys);
+		if (id === EDIT_SELECT) {
+			if (!Array.isArray(commandArgs['select'])) return fail(cx, `${EDIT_SELECT} needs args.select, a list of keys`);
+			applySelection(cx, commandArgs);
+			return text(cx, { selection: cx.$selection.get(), changed: false });
+		}
 		const command = registry.find((item) => item.id === id);
 		if (command == null) return fail(cx, `There is no command called ${id}. Use list_commands to find one.`);
 		const special = ARGUMENT_COMMANDS[command.id];
 		if (special == null && PANEL_COMMANDS[command.id] != null) return fail(cx, `${command.title} asks a person through a panel. Use ${PANEL_COMMANDS[command.id] ?? ''}.`);
-		return editStep(cx, command.title, async () => {
-			applySelection(cx, commandArgs);
-			if (special != null) return special(cx, commandArgs);
-			return invoke(cx, command);
-		});
+		// Build Track with wait: false answers at once; get_state shows how far it is
+		if (command.id === 'build.track' && commandArgs['wait'] === false) {
+			if (!canRun(cx, command)) return fail(cx, buildRefusal(cx));
+			void editStep(cx, command.title, () => startBuild(cx, command));
+			await waitFor(() => cx.$compose.get()?.assist.isBuilding === true, 1500);
+			return text(cx, { started: true, note: 'Building. get_state shows building and, when done, lastBuild; build.stop stops it.' });
+		}
+		// What Undo and Redo take back, named beforehand since the step is gone afterwards
+		const undoName = command.id === 'edit.undo' ? (cx.undoLabel ?? 'a step of your own') : command.id === 'edit.redo' ? (cx.redoLabel ?? 'a step of your own') : null;
+		const history = cx.$history.get();
+		const canStep = command.id === 'edit.undo' ? (history?.past.length ?? 0) > 0 : command.id === 'edit.redo' ? (history?.future.length ?? 0) > 0 : false;
+		return editStep(
+			cx,
+			command.title,
+			async () => {
+				applySelection(cx, commandArgs);
+				if (special != null) return special(cx, commandArgs);
+				if (command.id === 'build.track') {
+					if (!canRun(cx, command)) throw new Error(buildRefusal(cx));
+					return startBuild(cx, command);
+				}
+				return invoke(cx, command);
+			},
+			undoName != null ? (canStep ? { [command.id === 'edit.undo' ? 'undid' : 'redid']: undoName } : { notices: [`Nothing to ${command.id === 'edit.undo' ? 'undo' : 'redo'}.`] }) : {}
+		);
 	},
 
 	add_song: async (cx, args) => {
@@ -111,8 +145,14 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const busy = await waitUntilFree(cx);
 		if (busy != null) return fail(cx, busy);
 		if (cx.project == null && !(await cx.openTemporary(createProject({ title: name.replace(/\.[^.]+$/, '') })))) return fail(cx, "A new project couldn't be made for the song.");
+		// A file in a protected folder can wait on a macOS dialog, and nothing else says so
+		const stalled = setTimeout(() => cx.notify(`Still reading ${name}. macOS may be asking for permission; check for a dialog.`), PERMISSION_WAIT_MS);
 		return editStep(cx, 'Add Song', async () => {
-			await cx.importSongFile({ name, path });
+			try {
+				await cx.importSongFile({ name, path });
+			} finally {
+				clearTimeout(stalled);
+			}
 			// The import sheet's choices stay at what it opens with: every melodic track, split across marbles
 			if (cx.sources.$midiImport.get() != null) await cx.sources.confirmMidiImport();
 		});
@@ -213,6 +253,16 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		if (from == null) cx.library.$isAddPackOpen.set(true);
 		else await cx.library.addPack(from);
 	},
+	'design.restartBlender': async (cx) => {
+		await cx.design.restart();
+		const error = cx.design.$error.get();
+		if (error != null) throw new Error(`Blender did not come back: ${error}`);
+		cx.notify(cx.design.$status.get() === 'idle' ? 'Blender stopped; it starts again with the next preview' : 'Blender restarted');
+	},
+	'marble.speed': async (cx, args) => {
+		const { value } = z.object({ value: z.number().min(0.05).max(2) }).parse(args);
+		cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
+	},
 	'design.exportPack': async (cx, args) => {
 		const { path, name, description, author, theme, items } = z.object({ path: SPath, name: z.string(), description: z.string().optional(), author: z.string().optional(), theme: z.boolean().optional(), items: z.array(z.string()).optional() }).parse(args);
 		const [isExportedOk, exportedErr] = await cx.library.exportPack({ name, ...(description != null ? { description } : {}), ...(author != null ? { author } : {}), includesTheme: theme === true, assetIds: items ?? [] }, path);
@@ -228,6 +278,10 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 	const items = cx.library.$projectItems.get();
 	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[]);
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
+	if (!expanded.isChange) {
+		applySelection(cx, args);
+		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
+	}
 	return editStep(cx, label ?? expanded.summary ?? 'Edit', () => {
 		if (!cx.execute(expanded.commands)) return;
 		if (expanded.createdIds.length > 0) cx.$selection.set(expanded.createdIds);
@@ -236,7 +290,7 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 }
 
 /** Runs `work` as one Undo step named "Agent: …", waits for the run to catch up and answers with the hit summary */
-async function editStep(cx: StudioCx, title: string, work: () => Promise<void> | void): Promise<TToolReply> {
+async function editStep(cx: StudioCx, title: string, work: () => Promise<void> | void, extra: { notices?: string[]; undid?: string; redid?: string } = {}): Promise<TToolReply> {
 	const label = `Agent: ${title.replace(/…$/, '')}`;
 	const outcome = await cx.runAgentStep(label, async () => {
 		await work();
@@ -244,15 +298,38 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 	});
 	const project = cx.project;
 	const errors = outcome.notices.filter((notice: TAgentStepNotice) => notice.tone === 'error').map((notice: TAgentStepNotice) => notice.message);
-	const notices = outcome.notices.filter((notice: TAgentStepNotice) => notice.tone !== 'error').map((notice: TAgentStepNotice) => notice.message);
+	const notices = [...outcome.notices.filter((notice: TAgentStepNotice) => notice.tone !== 'error').map((notice: TAgentStepNotice) => notice.message), ...(extra.notices ?? [])];
 	const reply = {
+		// Whether this call made an Undo step; a reply with only a notice changed nothing
+		changed: outcome.stepName != null,
 		...(outcome.stepName != null ? { undoStep: outcome.stepName } : {}),
+		...(extra.undid != null ? { undid: extra.undid } : {}),
+		...(extra.redid != null ? { redid: extra.redid } : {}),
 		selection: cx.$selection.get(),
 		...(project != null ? hitReport(project, cx.simulation.$result.get()) : {}),
 		...(notices.length > 0 ? { notices } : {}),
 		...(errors.length > 0 ? { errors } : {})
 	};
 	return { ...text(cx, reply), isError: errors.length > 0 };
+}
+
+/** Build Track, which answers when it is done: opens Compose first, as `invoke` does */
+async function startBuild(cx: StudioCx, command: TCommand): Promise<void> {
+	if (cx.$workspace.get() !== 'compose') {
+		cx.$workspace.set('compose');
+		await waitFor(() => cx.$compose.get() != null, 1500);
+	}
+	await sleep(50);
+	const compose = cx.$compose.get();
+	if (compose == null) throw new Error(`${command.title} needs Compose, which didn't open.`);
+	await compose.assist.buildTrack();
+}
+
+function buildRefusal(cx: StudioCx): string {
+	const assist = cx.$compose.get()?.assist;
+	if (assist?.isBuilding === true) return 'Build Track is already running. get_state shows how far it is; build.stop stops it.';
+	if (cx.project?.music.lanes.some((lane) => lane.hits.length > 0) !== true) return 'Build Track needs notes. Call add_song first.';
+	return 'Every hit already has a platform.';
 }
 
 /** Runs a registered command in its workspace, opening that first as the palette does */
@@ -271,6 +348,22 @@ function canRun(cx: StudioCx, command: TCommand): boolean {
 	const target = commandWorkspace(command);
 	// A command of the other workspace opens it first; only then can it say whether it applies
 	return target != null && target !== cx.$workspace.get() ? cx.project != null : isCommandEnabled(cx, command);
+}
+
+/** `args.select`'s keys the project doesn't know, in words, so a bad key is never a silent success */
+function unknownSelection(cx: StudioCx, args: Record<string, unknown>): string | null {
+	const select = args['select'];
+	const project = cx.project;
+	if (!Array.isArray(select) || project == null) return null;
+	const isKnown = (key: unknown): boolean => {
+		if (typeof key !== 'string') return false;
+		if (project.entities.some((entity) => entity.id === key)) return true;
+		const hit = parseHitKey(key);
+		if (hit != null) return project.music.lanes.some((lane) => lane.id === hit.laneId && lane.hits.some((item) => item.id === hit.hitId));
+		return key === WALL_KEY || key === CAMERA_KEY || key === SONG_KEY || parseLightKey(key) != null || parseDecorKey(key) != null || key.includes(':');
+	};
+	const bad = select.filter((key) => !isKnown(key));
+	return bad.length > 0 ? `Nothing can be selected as ${bad.join(', ')}. Use a piece or marble ID from get_state, a hit key such as hit:laneId:hitId, wall, light:key, camera or song.` : null;
 }
 
 function applySelection(cx: StudioCx, args: Record<string, unknown>): void {
@@ -301,6 +394,7 @@ async function waitUntilFree(cx: StudioCx): Promise<string | null> {
 }
 
 export function busyReason(cx: StudioCx): string | null {
+	if (cx.$compose.get()?.assist.isBuilding === true) return 'Build Track is running. get_state shows how far it is; build.stop stops it.';
 	if (cx.mcp.isPointerDown) return 'The person is in the middle of a drag in MidiMarble. Try again in a moment.';
 	if (cx.$confirmPrompt.get() != null || cx.$closePrompt.get() != null) return 'MidiMarble is waiting for the person to answer a question. Try again in a moment.';
 	if (cx.sources.$midiImport.get() != null) return 'The person has the Import Song sheet open. Try again in a moment.';
@@ -320,7 +414,7 @@ export async function settled(cx: StudioCx): Promise<void> {
 			since = Date.now();
 		}
 		const isRunCurrent = cx.project == null || cx.simulation.$result.get()?.revision === current;
-		const isAssistFree = cx.$compose.get()?.assist.isReplacing !== true;
+		const isAssistFree = cx.$compose.get()?.assist.isAnswering !== true;
 		if (isRunCurrent && isAssistFree && Date.now() - since >= SETTLE_MS) return;
 		if (cx.$confirmPrompt.get() != null || cx.$closePrompt.get() != null) return;
 	}

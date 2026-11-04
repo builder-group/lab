@@ -14,7 +14,7 @@ const SHitV3 = z.strictObject({
 });
 
 // A note of the song. Version 4 keeps the length of imported MIDI notes; Backing plays it, a marble strikes it.
-const SHit = SHitV3.extend({ duration: z.number().nonnegative().optional() });
+export const SHit = SHitV3.extend({ duration: z.number().nonnegative().optional() });
 
 const laneShape = {
 	id: SId,
@@ -26,9 +26,9 @@ const laneShape = {
 
 const SLaneV3 = z.strictObject({ ...laneShape, hits: z.array(SHitV3) });
 
-const SLane = z.strictObject({ ...laneShape, hits: z.array(SHit) });
+export const SLane = z.strictObject({ ...laneShape, hits: z.array(SHit) });
 
-const SSource = z.strictObject({
+export const SSource = z.strictObject({
 	id: SId,
 	kind: z.enum(['midi', 'audio']),
 	// Package-relative path, such as `audio/song.wav`
@@ -39,7 +39,7 @@ const SSource = z.strictObject({
 });
 
 // Musical meter of the project, known from an imported MIDI file; loops snap their length to whole bars with it
-const STempo = z.strictObject({
+export const STempo = z.strictObject({
 	bpm: z.number().positive(),
 	beatsPerBar: z.number().int().positive()
 });
@@ -168,7 +168,7 @@ export const SComponents = z.strictObject({
 	wallText: SWallTextComponent.optional()
 });
 
-const SEntity = z.strictObject({
+export const SEntity = z.strictObject({
 	id: SId,
 	name: z.string().optional(),
 	components: SComponents
@@ -302,7 +302,7 @@ const SMadeInBlender = z.strictObject({
 	hidden: z.boolean().optional()
 });
 
-const SDesign = z.strictObject({
+export const SDesign = z.strictObject({
 	// A built-in theme id or the id of one of `themes`
 	theme: z.string(),
 	// Themes made in this project. Added later; files without it stay valid
@@ -351,7 +351,7 @@ const SDesign = z.strictObject({
  * Project physics. `gravityScale` multiplies Earth's 9.81 m/s² for every marble, so a run plays slower and
  * hops lower at the same rhythm; hits stay on time because pieces are placed where the marble is.
  */
-const SPhysics = z.strictObject({ gravityScale: z.number().min(0.05).max(2) });
+export const SPhysics = z.strictObject({ gravityScale: z.number().min(0.05).max(2) });
 
 const projectShape = {
 	id: SId,

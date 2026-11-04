@@ -110,6 +110,7 @@ describe('compose keys', () => {
 
 	it('maps the step loop keys', () => {
 		expect(press('n')).toEqual({ type: 'next' });
+		expect(press('N', { code: 'KeyN', shiftKey: true })).toEqual({ type: 'buildTrack' });
 		expect(press('a')).toEqual({ type: 'autoPlace' });
 		expect(press('r')).toEqual({ type: 'repeat' });
 		expect(press('m')).toEqual({ type: 'mirror' });
