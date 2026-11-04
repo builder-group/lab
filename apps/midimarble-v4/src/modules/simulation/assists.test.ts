@@ -4,6 +4,7 @@ import {
 	autoPlace,
 	continueSuggestions,
 	copyLinkedPiece,
+	crossesOtherLanes,
 	findLongGaps,
 	mirrorPiece,
 	nextOpenHit,
@@ -17,6 +18,7 @@ import { createRailForGap, createSwitchbackForGap } from './gap-pieces';
 import { paceAt } from './pace';
 import { createLinkedPiece, frameBand } from './placement';
 import { createSimulator } from './simulate';
+import type { TContact, THitResult, TSimulationResult } from './types';
 
 let simulate: TSimulateFn;
 
@@ -476,5 +478,68 @@ describe('assists', () => {
 		}
 		expect(result.hits.filter((hit) => hit.pieceEntityId != null).every((hit) => hit.status === 'onTime')).toBe(true);
 		expect(result.contacts.filter((contact) => contact.kind === 'marble' && contact.time < 1.5)).toHaveLength(0);
+	});
+});
+
+describe('crossesOtherLanes', () => {
+	// Two lanes with a piece each; the new piece `piece-1-2` belongs to lane 1, the other marble's frontier is 2 s
+	const project = createBareRunProject({
+		id: 'cross',
+		title: 'Cross',
+		end: 4,
+		marbles: [
+			{ x: -0.1, y: 0.6, releaseTime: 0, hitTimes: [0.5, 1] },
+			{ x: 0.1, y: 0.6, releaseTime: 0, hitTimes: [0.5, 1, 3] }
+		]
+	});
+	project.entities.push(
+		createLinkedPiece('platform', 'lane-1', 'hit-1-1', 0, { id: 'piece-1-1' }),
+		createLinkedPiece('switchback', 'lane-2', 'hit-2-1', 0, { id: 'switchback-2-1' }),
+		createLinkedPiece('platform', 'lane-2', 'hit-2-2', 0, { id: 'piece-2-2' })
+	);
+	const frontiers = new Map([['marble-2', 2]]);
+	const hit = (laneId: string, hitId: string, targetTime: number, status: THitResult['status']): THitResult => ({
+		laneId,
+		hitId,
+		targetTime,
+		pieceEntityId: null,
+		dot: null,
+		velocity: null,
+		actualTime: null,
+		error: null,
+		status
+	});
+	const onTime = [hit('lane-2', 'hit-2-2', 1, 'onTime'), hit('lane-2', 'hit-2-3', 3, 'onTime')];
+	const run = (contacts: Partial<TContact>[], hits = onTime): TSimulationResult => ({
+		revision: 0,
+		duration: 4,
+		marbles: [],
+		pieces: [],
+		contacts: contacts.map((contact) => ({ time: 0.8, marbleEntityId: 'marble-1', otherEntityId: '', kind: 'piece', position: { x: 0, y: 0 }, ...contact })),
+		hits,
+		stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
+	});
+	const crosses = (trial: TSimulationResult): boolean =>
+		crossesOtherLanes(run([]), trial, project, 'lane-1', 'piece-1-2', 0.5, 3.5, frontiers);
+
+	it('should let the marble strike its own lane and free pieces', () => {
+		expect(crosses(run([{ otherEntityId: 'piece-1-1' }, { otherEntityId: 'free-piece' }]))).toBe(false);
+	});
+
+	it("should refuse another lane's platforms and gap pieces and the other marble", () => {
+		expect(crosses(run([{ otherEntityId: 'piece-2-2' }]))).toBe(true);
+		expect(crosses(run([{ otherEntityId: 'switchback-2-1' }]))).toBe(true);
+		expect(crosses(run([{ otherEntityId: 'marble-2', kind: 'marble' }]))).toBe(true);
+	});
+
+	it('should refuse the other marble striking the new piece before its frontier only', () => {
+		expect(crosses(run([{ marbleEntityId: 'marble-2', otherEntityId: 'piece-1-2', time: 1.5 }]))).toBe(true);
+		expect(crosses(run([{ marbleEntityId: 'marble-2', otherEntityId: 'piece-1-2', time: 2.5 }]))).toBe(false);
+		expect(crosses(run([{ otherEntityId: 'marble-2', kind: 'marble', time: 2.5 }]))).toBe(false);
+	});
+
+	it("should refuse a piece that breaks another lane's built hits, not its unbuilt ones", () => {
+		expect(crosses(run([], [hit('lane-2', 'hit-2-2', 1, 'missed'), onTime[1] as THitResult]))).toBe(true);
+		expect(crosses(run([], [onTime[0] as THitResult, hit('lane-2', 'hit-2-3', 3, 'missed')]))).toBe(false);
 	});
 });

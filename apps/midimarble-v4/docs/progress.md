@@ -5,11 +5,18 @@ The autonomous build updates this log after every slice. Newest entries go first
 ## Current state
 
 - Milestones: M0–M5 done in the browser and headless Blender; M6 done by the owner's revised check (Camera view, Draft Preview and quick renders; the `reference-20` Best film exists as well). Still unverified in the native window: the round 2–3 UI, export through the sheet, a real agent run from the chat and the unsaved-example save panel
-- Next steps: the native checks above (computer use cannot drive the web view in the background; full-screen control needs the owner); review round 5; Draft Preview look closer to Blender (shadows, metal); two-marble scale
+- Next steps: the native checks above (computer use cannot drive the web view in the background; full-screen control needs the owner); review round 5; Draft Preview look closer to Blender (shadows, metal); two-marble scale by interleaved lanes (a narrower lane spacing alone frames no closer, `references.md`)
 - Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### 2026-11-04: narrower lanes measured, assists keep clear of other lanes
+
+- Jingle Bells rebuilt at lane spacings from 0.26 to 0.16 m and with narrower bands (`references.md`, Narrower lanes with one world per marble). Only 0.20 m completed clean, and it frames no closer: marble 5.7 % of the frame width (10th percentile 4.8), bars 16 %, camera about 1 m, as at 0.26 m. The marbles stay about 0.26 m apart sideways whatever the spacing, because the other lane's pieces fill the overlap. `LANE_SPACING` stays 0.26 m; fixtures unchanged
+- Assists: Auto place rejects angles that break another marble's built hits; switchbacks, rails and tunnels are never suggested when they touch another lane (`crossesOtherLanes` in `assists.ts`, tests in `assists.test.ts`). The Jingle build also rejects steps that leave a gap piece Blocked or a placed dot outside its band
+- Checks: `typecheck`, `lint` clean, `test` 439 + 3, `camera:check` 3 fixtures within 0.001 mm
+- Next: closer two-marble films need interleaved lanes by design (a shared column pattern offset by half a period), not a narrower constant
 
 ### 2026-11-04: project themes
 

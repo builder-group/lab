@@ -4,7 +4,7 @@
 // none fits) for a long gap, accepted Continue ghosts, Mirror when the interval repeats and Auto place otherwise.
 // Every lane keeps to its own frame band and to the shared descent pace y*(t). Where the assists find nothing,
 // the build does what a user would: rotates the piece or the one before it by hand. Every step must keep all hits
-// on time and each marble on its own pieces; the build stops at the first step that cannot. Writes the MIDI file
+// on time, every gap piece in the run and each marble on its own pieces; the build stops at the first step that cannot. Writes the MIDI file
 // and a build log with the pace measurements to `.local/jingle/`. The fixture ships the MIDI file next to it as
 // `fixtures/jingle-bells.mid`, its song, which the example copies into the new package.
 // Usage: tsx scripts/build-jingle-fixture.ts [--finalize]
@@ -353,8 +353,9 @@ function ask(current: TProject, request: Parameters<typeof answerWorkerRequest>[
 
 /**
  * Applies the commands when every hit with a piece stays on time afterwards (a resting first contact counts
- * as missed), in the lane being built and in the other lanes up to the other marbles' next open hits, each
- * marble touches only its own pieces, and the lane's next open dot lies in its band and within the pace
+ * as missed), in the lane being built and in the other lanes up to the other marbles' next open hits, no
+ * switchback, rail or tunnel is blocked, each marble touches only its own pieces, every placed dot of the lane
+ * lies in its band, and the lane's next open dot lies in its band and within the pace
  * limit of y* (or no further than the target dot already was). Before a long gap the dot cannot do either until a gap piece exists.
  */
 function accept(current: TProject, commands: TProjectCommand[], laneId: string, checkFrame = true): TProject | null {
@@ -390,6 +391,13 @@ function accept(current: TProject, commands: TProjectCommand[], laneId: string, 
 			(hit.laneId === laneId || hit.targetTime < othersFrontier(hit.laneId))
 	);
 	if (late.length > 0) return reject(`late ${late.map((hit) => `${hit.hitId}:${hit.reason ?? hit.status}`).join(' ')}`);
+	// A switchback, rail or tunnel the marble's run now passes through earlier is left out, like a blocked hit
+	const blocked = result.pieces.filter((piece) => {
+		const lane = laneOfEntity(applied, piece.entityId);
+		const time = piece.entryTime ?? piece.hitTime ?? 0;
+		return piece.status === 'blocked' && lane != null && (lane === laneId || time < othersFrontier(lane));
+	});
+	if (blocked.length > 0) return reject(`blocked ${blocked.map((piece) => piece.entityId).join(' ')}`);
 	// Each marble may only touch its own lane's pieces and never the other marble
 	const crossed = result.contacts.filter(
 		(contact) =>
@@ -398,8 +406,13 @@ function accept(current: TProject, commands: TProjectCommand[], laneId: string, 
 				(contact.kind === 'piece' && laneOfEntity(applied, contact.otherEntityId) !== laneOfEntity(applied, contact.marbleEntityId)))
 	);
 	if (crossed.length > 0) return reject(`crossing ${crossed.map((contact) => `${contact.marbleEntityId}/${contact.otherEntityId}`).join(' ')}`);
-	if (!checkFrame) return applied;
+	// Every hit of the lane with a piece keeps its dot inside the lane's band, as the export preflight checks
 	const band = frameBand(applied, laneId);
+	const outside = result.hits.filter(
+		(hit) => hit.laneId === laneId && hit.pieceEntityId != null && hit.dot != null && !isInBand(hit.dot, band, 1)
+	);
+	if (outside.length > 0) return reject(`outside the band ${outside.map((hit) => hit.hitId).join(' ')}`);
+	if (!checkFrame) return applied;
 	const next = nextOpenPerLane(result).get(laneId);
 	if (next?.dot == null || isBeforeLongGap(applied, next)) return applied;
 	if (!isInBand(next.dot, band, 0.9)) return reject(`out of band ${next.hitId}@${next.dot.x.toFixed(2)}`);

@@ -389,6 +389,7 @@ export function autoPlace(
 		blocked: 0,
 		missed: 0,
 		strayContact: 0,
+		otherLane: 0,
 		outOfFrame: 0,
 		nextBlocked: 0,
 		offPace: 0,
@@ -418,6 +419,10 @@ export function autoPlace(
 		}
 		if (hasStrayContact(trial, project, laneId, entity.id, hit.time, until, frontiers)) {
 			rejected.strayContact++;
+			return { candidate: null, nextDot: null };
+		}
+		if (crossesOtherLanes(result, trial, project, laneId, entity.id, hit.time, until, frontiers)) {
+			rejected.otherLane++;
 			return { candidate: null, nextDot: null };
 		}
 		const samples = trial.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
@@ -628,7 +633,7 @@ export function autoPlace(
 	if (coarse == null) {
 		return Err(
 			new Error(
-				`No angle keeps the next dot on time and in frame (${rejected.blocked} blocked, ${rejected.missed} missed, ${rejected.strayContact} touch something else, ${rejected.outOfFrame} out of frame, ${rejected.nextBlocked} leave no room at the next dot, ${rejected.offPace} off the descent pace, ${rejected.rising} still rising at the next hit)`
+				`No angle keeps the next dot on time and in frame (${rejected.blocked} blocked, ${rejected.missed} missed, ${rejected.strayContact} touch something else, ${rejected.otherLane} change another marble's run, ${rejected.outOfFrame} out of frame, ${rejected.nextBlocked} leave no room at the next dot, ${rejected.offPace} off the descent pace, ${rejected.rising} still rising at the next hit)`
 			)
 		);
 	}
@@ -1152,10 +1157,58 @@ function hasStrayContact(
 }
 
 /**
+ * True when a trial with a new piece of `laneId` crosses another lane between `from` and `until`: the lane's
+ * marble touches another lane's piece or another marble, another marble touches the new piece, or a hit of
+ * another lane that was on time in `base` no longer is. Narrow lanes put the other lane's pieces within
+ * reach, and a piece another marble only passes near still enters its world. Each other marble counts up to
+ * its frontier (`openFrontiers`), beyond which its path is unbuilt free fall.
+ */
+export function crossesOtherLanes(
+	base: TSimulationResult,
+	trial: TSimulationResult,
+	project: TProject,
+	laneId: string,
+	entityId: string,
+	from: number,
+	until: number,
+	frontiers: Map<string, number>
+): boolean {
+	const marbleOf = new Map(
+		project.entities.flatMap((entity) =>
+			entity.components.marble != null ? [[entity.components.marble.laneId, entity.id] as const] : []
+		)
+	);
+	const marbleId = marbleOf.get(laneId);
+	const laneOfPiece = new Map(
+		project.entities.flatMap((entity) =>
+			entity.components.hitLink != null ? [[entity.id, entity.components.hitLink.laneId] as const] : []
+		)
+	);
+	const isCrossing = trial.contacts.some((contact) => {
+		if (contact.time <= from + 0.005 || contact.time >= until - 0.01) return false;
+		if (contact.marbleEntityId !== marbleId)
+			return contact.otherEntityId === entityId && contact.time <= (frontiers.get(contact.marbleEntityId) ?? Infinity);
+		if (contact.kind === 'marble') return contact.time <= (frontiers.get(contact.otherEntityId) ?? Infinity);
+		const pieceLane = laneOfPiece.get(contact.otherEntityId);
+		return pieceLane != null && pieceLane !== laneId;
+	});
+	if (isCrossing) return true;
+	const before = new Map(base.hits.map((hit) => [`${hit.laneId}/${hit.hitId}`, hit.status]));
+	return trial.hits.some(
+		(hit) =>
+			hit.laneId !== laneId &&
+			hit.targetTime < until - 0.02 &&
+			hit.targetTime < (frontiers.get(marbleOf.get(hit.laneId) ?? '') ?? Infinity) &&
+			isOnTime(before.get(`${hit.laneId}/${hit.hitId}`)) &&
+			!isOnTime(hit.status)
+	);
+}
+
+/**
  * Time after which each marble's path is not built yet: its first open hit, or shortly after the launch
  * into a long gap that no switchback, rail or tunnel bridges yet, across which it falls freely
  */
-function openFrontiers(project: TProject, result: TSimulationResult): Map<string, number> {
+export function openFrontiers(project: TProject, result: TSimulationResult): Map<string, number> {
 	const frontiers = new Map<string, number>();
 	const marbleOf = (laneId: string): string | undefined =>
 		project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.id;

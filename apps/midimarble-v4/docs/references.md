@@ -192,7 +192,32 @@ What changed:
 - Shots release. Push In and Close-Up hold 2 s and ease back over 0.8 s, Wide and Follow hold until the next shot; a reference-20 Push In at 6 s is back at the rig distance by 9.5 s
 - Ending. After the last struck hit the camera reads the marbles at that time and eases over a second to the middle of the last second of run, with heading and roll drift coming to rest; the camera slows from about 50 cm/s to under 1 cm/s by the end
 
-Still different from the references: two lanes side by side keep the Jingle Bells camera at about 1 m, so its pieces stay at 16 % of the frame width against the reference's 25 to 30 %; closer needs narrower lane bands (see Larger kit and closer lanes). Zigzag and the other early fixtures keep their 0.9 m, 0.7 rad camera. The closer frame drops reference-20's "Night Keys" title at 0:10 out of shot; its offsets were set for the 0.85 m frame. Before/after Draft stills: `.local/camera-framing/films/*-before-after.jpg` (top row the Round 5 Draft films, bottom row these).
+Still different from the references: two lanes side by side keep the Jingle Bells camera at about 1 m, so its pieces stay at 16 % of the frame width against the reference's 25 to 30 %; closer does not come from narrower lane spacing alone (see Narrower lanes with one world per marble). Zigzag and the other early fixtures keep their 0.9 m, 0.7 rad camera. The closer frame drops reference-20's "Night Keys" title at 0:10 out of shot; its offsets were set for the 0.85 m frame. Before/after Draft stills: `.local/camera-framing/films/*-before-after.jpg` (top row the Round 5 Draft films, bottom row these).
+
+### Narrower lanes with one world per marble
+
+Measured on 2026-11-04 after one Rapier world per marble. Jingle Bells was rebuilt with `LANE_SPACING` at 0.26, 0.22, 0.20, 0.19, 0.18, 0.17 and 0.16 m (half gravity, builds in `.local/lanes/`), and with narrower lane bands (`LANE_HALF_WIDTH` 0.11, 0.10, 0.09 m). Camera numbers come from the TypeScript follow camera with `.local/camera-framing/measure.ts` over the first to the last hit; "clean" means 115/115 on time, keeping the pace (the fixture test's rule) and an empty export preflight.
+
+| Build | Result | Marble in frame width, median (10th pct) | Bar in frame width | Camera distance, median and max | Both marbles in frame |
+| --- | --- | --- | --- | --- | --- |
+| Fixture, 0.26 m (before) | clean | 5.7 % (4.8) | 16.9 % | 0.96, 1.22 m | 100 % |
+| 0.26 m, new assists | clean, third release shift | 5.7 % (4.7) | 16.2 % | 0.99, 1.28 m | 100 % |
+| 0.22 m | 115/115, a bass dot 9 cm outside its band | 5.7 % (4.9) | 16.6 % | 1.00, 1.34 m | 100 % |
+| 0.20 m | clean, fourth shift | 5.7 % (4.8) | 16.2 % | 1.01, 1.35 m | 100 % |
+| 0.19 m | 115/115, clean preflight, a dot 0.33 m off the pace | 6.0 % (4.9) | 17.5 % | 0.95, 1.31 m | 100 % |
+| 0.18 m | 115/115, a melody dot 0.20 m outside its band, marbles change sides twice | 7.3 % (6.1) | 21.1 % | 0.74, 0.96 m | 100 % |
+| 0.18 m, every placed dot in its band | stops at the latest after 29 release shifts | | | | |
+| 0.17 m | 115/115, clean preflight, off the pace | 6.0 % (5.3) | 17.7 % | 0.90, 1.13 m | 100 % |
+| 0.16 m | stops at 12 to 29.5 s on 15 shifts | | | | |
+| Bands 0.11 / 0.10 / 0.09 m at 0.22 / 0.20 / 0.18 m | stops at 3 to 21 s | | | | |
+
+Decision: `LANE_SPACING` stays 0.26 m. No narrower spacing gives a clean build that frames closer.
+
+- The camera needs the marbles' sideways offset, not the lane spacing. Shifting the bass's recorded motion 4, 8 and 12 cm toward the melody brings the camera from 0.96 to 0.87, 0.79 and 0.73 m; removing the vertical offset changes nothing (0.94 m). Built lanes do not come closer, though: the median sideways offset between the marbles is 0.26 to 0.29 m at every spacing from 0.26 to 0.20 m (0.21 m in the 0.18 m build that left its band). Where the bands overlap, the other lane's pieces stand in the zigzag's path, so Auto place keeps each marble's dots on the outer side of its band, and the vertical offset grows instead (90th percentile 0.36 m at 0.20 m against 0.26 m).
+- Narrower bands leave no room for a zigzag of 9 cm bars and stop within the first seconds.
+- Results scatter from one release shift to the next more than between spacings: 0.18 m framed at 6.8 and 7.3 % in two builds, 0.19 and 0.17 m at 6.0 %. Reaching the reference's 7 to 9 % reliably needs lanes that interleave by design, for example both marbles sharing one zigzag column pattern offset by half a period, rather than a narrower constant.
+
+The assists now keep clear of other lanes whatever the spacing. Auto place rejects an angle whose run breaks a hit of another marble that was on time up to that marble's next open hit (`crossesOtherLanes`), as the Jingle build accepted only after its own check. Switchbacks, rails and tunnels for a long gap are never suggested when the marble touches another lane's piece or the other marble, or the other marble touches the piece; before, a rail had no such check and a switchback only lost score. The Jingle build also rejects a step that leaves a switchback, rail or tunnel Blocked (two builds had finished 115/115 with a rail left out after a hand rotation of the launch platform) or a placed dot outside its band. Earlier 0.18 to 0.22 m attempts on 2026-11-04 resolved `@/` imports to the app's own constant and are not in the table.
 
 ## Scale
 
