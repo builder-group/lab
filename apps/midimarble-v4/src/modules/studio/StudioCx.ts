@@ -353,10 +353,11 @@ export class StudioCx {
 	async newProject(
 		options: { title?: string; project?: TProject; prepare?: (packagePath: string) => Promise<TResult<void, Error>>; path?: string } = {}
 	): Promise<boolean> {
-		if (!(await this.confirmClose())) return false;
 		const project = options.project ?? createProject({ title: options.title ?? 'Untitled' });
-		const path = options.path ?? (await host.chooseNewProjectPath(project.title));
-		if (path == null) return false;
+		// A new project opens straight away, unsaved like an example; the first Save asks where to keep it
+		if (options.path == null) return this.openTemporary(project, options.prepare);
+		if (!(await this.confirmClose())) return false;
+		const path = options.path;
 		const title = path.split('/').pop()?.replace(/\.marble$/, '') ?? project.title;
 		const named = { ...project, title };
 		const [isCreatedOk, createdErr, created] = await host.createProject(path, serializeProject(named));

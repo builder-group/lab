@@ -220,12 +220,9 @@ export const host = {
 	}
 };
 
-/**
- * Name of New Project: the desktop app asks where to save first, so it has an ellipsis; the browser surface names
- * the package itself and opens it at once
- */
+/** Name of New Project: it opens at once, unsaved, and the first Save asks where to keep it, so no ellipsis */
 export function newProjectTitle(): string {
-	return isTauri() ? 'New Project…' : 'New Project';
+	return 'New Project';
 }
 
 /** Whether a picked or dropped song file is MIDI or a recording, by its extension; null for anything else */
