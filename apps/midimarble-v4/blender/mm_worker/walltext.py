@@ -33,6 +33,8 @@ TEXT_ROLE = 'text'
 BUILTIN_FONT = 'Bfont Regular'
 # Gap between the back of the letters and the wall plane so they never z-fight with it
 WALL_GAP = 0.0002
+# How far a wall title stands out of the wall, in metres; a bevel on it catches the light
+TITLE_RELIEF = 0.002
 # Seconds a timed title takes to fade in after its `in` time and out before its `out` time
 FADE = 0.25
 VISIBLE_PROPERTY = 'mm_visible'
@@ -95,7 +97,6 @@ def apply_texts(project_dir, texts, managed, detached_collection, fps=30.0, dura
 def write_text(project_dir, obj, entry):
     data = obj.data
     size = finite(entry.get('size', 0.03), 'size')
-    depth = max(0.0, finite(entry.get('depth', 0.0), 'depth'))
     screen = entry.get('style') if entry.get('style') in SCREEN_STYLES else None
     data.body = str(entry.get('text') or '')
     if screen is not None:
@@ -107,9 +108,9 @@ def write_text(project_dir, obj, entry):
         obj['mm_screen_size'] = max(size, 1e-3)
     else:
         data.size = max(size, 1e-4)
-        # Extrusion grows both ways from the text plane, so half the depth each way
-        data.extrude = depth / 2
-        data.bevel_depth = min(depth * 0.12, size * 0.01)
+        # Extrusion grows both ways from the text plane, so half the relief each way
+        data.extrude = TITLE_RELIEF / 2
+        data.bevel_depth = min(TITLE_RELIEF * 0.12, size * 0.01)
         detach_from_camera(obj)
     data.bevel_resolution = 2
     data.align_x = 'CENTER'
@@ -127,7 +128,7 @@ def write_text(project_dir, obj, entry):
     if screen is None:
         # Text local +Z points at the camera (-Y), local +Y up the wall; the wall angle turns it in the wall plane
         obj.matrix_basis = (
-            Matrix.Translation((finite(position['x'], 'x'), -(depth / 2 + WALL_GAP), finite(position['y'], 'y')))
+            Matrix.Translation((finite(position['x'], 'x'), -(TITLE_RELIEF / 2 + WALL_GAP), finite(position['y'], 'y')))
             @ Matrix.Rotation(-angle, 4, 'Y')
             @ Matrix.Rotation(math.pi / 2, 4, 'X')
         )

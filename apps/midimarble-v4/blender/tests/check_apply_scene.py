@@ -309,7 +309,7 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     from mm_worker import render
     scene = bpy.context.scene
     rig = {'mode': 'rig', 'distance': 0.5, 'pitch': 0.45, 'lead': 0.15, 'smoothing': 0.6,
-           'shots': [{'id': 's1', 'time': 0.6, 'kind': 'pushIn', 'roll': 0.1, 'distance': 0.4}]}
+           'shots': [{'id': 's1', 'time': 0.6, 'kind': 'pushIn', 'distance': 0.4}]}
 
     # A user-edited default skin and a custom skin survive a theme switch; untouched default skins are rebuilt
     platform = holder('platform-1')

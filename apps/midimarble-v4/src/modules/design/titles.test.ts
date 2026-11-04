@@ -5,7 +5,7 @@ import { addWallTextCommands, defaultTitleColor, themeCommands, themeTitleColor 
 import { titleColorOnWall } from './project-themes';
 import { songDisplayName, titleClips, titleSpan, withTitleTime } from './titles';
 
-const TEXT = { text: 'Fin', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#1d1d1f' };
+const TEXT = { text: 'Fin', font: 'Bfont Regular', size: 0.03, color: '#1d1d1f' };
 
 describe('title timing', () => {
 	it('should default to the whole film', () => {

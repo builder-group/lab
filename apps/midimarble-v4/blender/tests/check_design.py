@@ -328,21 +328,21 @@ def main():
     hidden.rename(asset_file)
 
     # Wall text: created, updated, left alone after a user edit, removed
-    title = {'id': 'text-1', 'text': 'MIDI', 'font': 'Bfont Regular', 'size': 0.04, 'depth': 0.004, 'color': '#2a2522',
+    title = {'id': 'text-1', 'text': 'MIDI', 'font': 'Bfont Regular', 'size': 0.04, 'color': '#2a2522',
              'position': {'x': 0.0, 'y': 0.23}, 'angle': 0.1}
     second = dict(title, id='text-2', text='Second', position={'x': 0.05, 'y': 0.05}, angle=0.0)
     write_package(root, records, hit, asset=True, texts=[title, second])
     report = apply(worker)
     text = text_object('text-1')
     check(sorted(report['texts']['created']) == ['text-1', 'text-2'] and text is not None, 'wall texts are created')
-    check(text.data.body == 'MIDI' and abs(text.data.size - 0.04) < 1e-9 and abs(text.data.extrude - 0.002) < 1e-9, 'text body, size and depth')
+    check(text.data.body == 'MIDI' and abs(text.data.size - 0.04) < 1e-9 and abs(text.data.extrude - 0.001) < 1e-9, 'text body, size and relief')
     check(text.name in bpy.data.collections[MANAGED_COLLECTION].objects, 'wall text lives in the managed collection')
     towards_camera = (text.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
     reading = (text.matrix_world.to_3x3() @ Vector((1, 0, 0))).normalized()
     check((towards_camera - Vector((0, -1, 0))).length < 1e-6, 'wall text faces the camera side')
     check((reading - Vector((math.cos(0.1), 0, math.sin(0.1)))).length < 1e-6, 'wall angle turns the text counter-clockwise')
-    check(abs(text.location.x) < 1e-6 and abs(text.location.z - 0.23) < 1e-6 and -0.003 < text.location.y < -0.002,
-          'wall text sits on the wall at its position, raised by its depth')
+    check(abs(text.location.x) < 1e-6 and abs(text.location.z - 0.23) < 1e-6 and -0.002 < text.location.y < -0.001,
+          'wall text sits on the wall at its position, raised by its relief')
     check(text.data.materials[0].diffuse_color[0] < 0.1, 'wall text gets its colour material')
     write_package(root, records, hit, asset=True, texts=[dict(title, text='MARBLE', color='#c9a227'), second])
     report = apply(worker)
@@ -573,7 +573,7 @@ def main():
     report = apply(worker)
     check(report['themed'] and studio('studio.wall').data.materials[0].name == 'MM · wall plaster', 'the built-in theme brings its own wall back')
 
-    title_text = dict(title, text='MIDI MARBLE', size=0.026, depth=0.003, color='#b8892b', position={'x': 0.0, 'y': 0.215}, angle=0.0)
+    title_text = dict(title, text='MIDI MARBLE', size=0.026, color='#b8892b', position={'x': 0.0, 'y': 0.215}, angle=0.0)
     write_package(root, records, hit, asset=True, texts=[title_text, caption])
     apply(worker)
     out = Path(os.environ.get('MM_CHECK_OUT') or APP_DIR / '.local' / 'design')

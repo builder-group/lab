@@ -104,8 +104,6 @@ export interface TSceneDescentPoint {
 export interface TSceneShot {
 	time: number;
 	kind: string;
-	/** Extra roll around the followed point in radians */
-	roll: number;
 	distance: number;
 	/**
 	 * Seconds the shot holds before the camera eases back to the rig's distance without extra roll; absent or null
@@ -205,8 +203,6 @@ export interface TSceneWallText {
 	font: string;
 	/** Letter height in metres; for a screen title (`caption`, `songName`, `endCard`) a fraction of the frame height */
 	size: number;
-	/** Extrusion in metres */
-	depth: number;
 	color: string;
 	position: { x: number; y: number };
 	angle: number;

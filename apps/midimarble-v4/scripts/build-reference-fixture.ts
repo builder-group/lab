@@ -57,7 +57,7 @@ const SECTIONS = [
 // Letter height as a share of the frame height, and how long a section's caption stays
 const CAPTION_SIZE = 0.045;
 const CAPTION_SECONDS = 3;
-const TITLE = { size: 0.04, depth: 0.003, color: '#ffffff', font: 'Bfont Regular', rise: 0.1 };
+const TITLE = { size: 0.04, color: '#ffffff', font: 'Bfont Regular', rise: 0.1 };
 const CAMERA = { distance: DEFAULT_CAMERA_DISTANCE, pitch: DEFAULT_CAMERA_PITCH };
 const FIXTURE_URL = new URL('../fixtures/reference-20.marble.json', import.meta.url);
 
@@ -241,7 +241,6 @@ function dress(current: TProject): TProject {
 						text: section.title.text,
 						font: TITLE.font,
 						size: CAPTION_SIZE,
-						depth: TITLE.depth,
 						color: TITLE.color,
 						style: 'caption' as const,
 						in: Math.max(0, Math.round((section.start - 0.15) * 100) / 100),

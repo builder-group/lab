@@ -147,10 +147,9 @@ export class DraftPreviewCx {
 				return [{ entityId: entity.id, text: text.text, color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen }];
 			}
 			if (transform == null) return [];
-			const z = text.depth;
-			const center = this.toScreen(transform.position, z);
+			const center = this.toScreen(transform.position, 0);
 			const step = 0.01;
-			const along = this.toScreen({ x: transform.position.x + Math.cos(transform.angle) * step, y: transform.position.y + Math.sin(transform.angle) * step }, z);
+			const along = this.toScreen({ x: transform.position.x + Math.cos(transform.angle) * step, y: transform.position.y + Math.sin(transform.angle) * step }, 0);
 			const pixelsPerMetre = Math.hypot(along.x - center.x, along.y - center.y) / step;
 			if (!Number.isFinite(pixelsPerMetre) || !Number.isFinite(center.x)) return [];
 			return [
@@ -179,7 +178,7 @@ export class DraftPreviewCx {
 			const opacity = decor.hidden === true ? 0 : titleOpacity(time, decor);
 			if (opacity <= 0 || isFrameEffect(decor)) return [];
 			const extent = decorExtent(decor);
-			const matrix = this.wallMatrix(decor.position, decor.rotation, decor.depth, decor.scale);
+			const matrix = this.wallMatrix(decor.position, decor.rotation, decor.scale);
 			if (matrix == null) return [];
 			const asset = decorItem(decor.source) == null ? this.studio.library.$projectItems.get().find((item) => decor.source === `assets/${item.id}/asset.blend`) : undefined;
 			return [{ key: toDecorKey(decor.id), item: decorItem(decor.source), matrix, opacity, extent: { x: extent.x / decor.scale, y: extent.y / decor.scale }, previewUrl: asset?.previewUrl ?? null }];
@@ -259,12 +258,12 @@ export class DraftPreviewCx {
 	}
 
 	/** SVG matrix from a decoration's own metres (x right, y down) to CSS pixels, through the film camera at its spot */
-	private wallMatrix(center: TVec2, angle: number, depth: number, scale: number): string | null {
+	private wallMatrix(center: TVec2, angle: number, scale: number): string | null {
 		const step = 0.01;
 		const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
-		const origin = this.toScreen(center, depth);
-		const along = this.toScreen({ x: center.x + cos * step, y: center.y + sin * step }, depth);
-		const up = this.toScreen({ x: center.x - sin * step, y: center.y + cos * step }, depth);
+		const origin = this.toScreen(center, 0);
+		const along = this.toScreen({ x: center.x + cos * step, y: center.y + sin * step }, 0);
+		const up = this.toScreen({ x: center.x - sin * step, y: center.y + cos * step }, 0);
 		if (![origin.x, origin.y, along.x, along.y, up.x, up.y].every(Number.isFinite)) return null;
 		const a = ((along.x - origin.x) / step) * scale;
 		const b = ((along.y - origin.y) / step) * scale;

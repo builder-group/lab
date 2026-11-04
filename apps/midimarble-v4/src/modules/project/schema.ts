@@ -134,7 +134,6 @@ const SWallTextComponent = z.strictObject({
 	text: z.string(),
 	font: z.string(),
 	size: z.number().positive(),
-	depth: z.number().nonnegative(),
 	// Absent reads in the colour that stands apart from the wall (`defaultTitleColor`)
 	color: z.string().optional(),
 	// Film time in seconds when the title appears and disappears; absent means the start and the end of the film
@@ -166,7 +165,6 @@ const SShot = z.strictObject({
 	id: SId,
 	time: z.number(),
 	kind: z.enum(['wide', 'follow', 'pushIn', 'closeUp']),
-	roll: z.number(),
 	distance: z.number().positive(),
 	// Seconds the shot holds before the camera eases back to the rig, 0 until the next shot; absent uses the kind's
 	// default (2 s for Push In and Close-Up, until the next shot for Wide and Follow)
@@ -263,8 +261,6 @@ const SDecor = z.strictObject({
 	scale: z.number().positive(),
 	// Radians, counter-clockwise as seen from the front
 	rotation: z.number(),
-	// Metres in front of the wall
-	depth: z.number().nonnegative(),
 	// A Snowfall's settings: how many flakes (0..1), their size and fall speed as shares of the usual, and their colour
 	snowfall: z.strictObject({ density: z.number().min(0).max(1), size: z.number().positive(), speed: z.number().nonnegative(), color: SHexColor }).optional(),
 	// Half width and half height of an asset at scale 1, from its manifest; built-in items know their own

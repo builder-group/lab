@@ -152,7 +152,7 @@ describe('follow camera on whole songs', () => {
 						camera: {
 							...jingle.design.camera,
 							shots: [
-								{ id: 'shot', time: 10, kind: 'pushIn', roll: 0, distance: rig * 0.7, length: 2 }
+								{ id: 'shot', time: 10, kind: 'pushIn', distance: rig * 0.7, length: 2 }
 							]
 						}
 					}
@@ -297,7 +297,6 @@ describe('follow camera on whole songs', () => {
 							id: 'shot',
 							time: 6,
 							kind: 'pushIn',
-							roll: 0,
 							distance: rig * 0.7,
 							...(length != null ? { length } : {})
 						}

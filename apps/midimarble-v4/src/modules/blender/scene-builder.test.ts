@@ -303,7 +303,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 
 	it('passes the design camera rig settings', () => {
 		const { project, result } = fixture();
-		project.design.camera.shots.push({ id: 'shot-1', time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4 });
+		project.design.camera.shots.push({ id: 'shot-1', time: 1, kind: 'pushIn', distance: 0.4 });
 		const { description } = buildSceneDescription(project, result, { fps: 60 });
 		expect(description.camera).toEqual({
 			mode: project.design.camera.mode,
@@ -313,7 +313,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			sway: 1,
 			smoothing: project.design.camera.smoothing,
 			// A Push In without a length of its own holds 2 s before the camera eases back
-			shots: [{ time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4, length: 2 }],
+			shots: [{ time: 1, kind: 'pushIn', distance: 0.4, length: 2 }],
 			focusMarbleId: null,
 			descent: null,
 			holdAfter: lastStruckTime(result),

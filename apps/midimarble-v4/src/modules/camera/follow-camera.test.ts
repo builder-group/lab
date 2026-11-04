@@ -186,7 +186,7 @@ describe('follow camera', () => {
 				return Math.min(u, v) > 0 && Math.max(u, v) < 1;
 			}).length;
 		const automatic = required(bakeFollowCamera(input([])));
-		const wide = required(bakeFollowCamera(input([{ time: 2, kind: 'wide', roll: 0, distance: 0.7 * 1.6, length: 6 }])));
+		const wide = required(bakeFollowCamera(input([{ time: 2, kind: 'wide', distance: 0.7 * 1.6, length: 6 }])));
 		for (const seconds of [4, 5, 6, 7]) {
 			expect(shown(automatic, seconds)).toBe(1);
 			expect(shown(wide, seconds)).toBe(2);
@@ -267,7 +267,7 @@ describe('follow camera', () => {
 		const rig = zigzag.design.camera.distance;
 		const withShot = (length?: number): TProject => ({
 			...zigzag,
-			design: { ...zigzag.design, camera: { ...zigzag.design.camera, shots: [{ id: 'shot', time: 1, kind: 'pushIn', roll: 0, distance: rig * 0.7, ...(length != null ? { length } : {}) }] } }
+			design: { ...zigzag.design, camera: { ...zigzag.design.camera, shots: [{ id: 'shot', time: 1, kind: 'pushIn', distance: rig * 0.7, ...(length != null ? { length } : {}) }] } }
 		});
 		const automatic = required(followCameraTrack(zigzag, result, 30));
 		const held = required(followCameraTrack(withShot(1), result, 30));

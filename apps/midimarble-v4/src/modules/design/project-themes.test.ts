@@ -109,7 +109,7 @@ describe('project theme commands', () => {
 
 	it("should recolour titles by the base theme's title colour", () => {
 		const project = withTheme('pegboard');
-		const title = { id: 'text-1', components: { wallText: { text: 'Hi', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#1f3a5f' } } };
+		const title = { id: 'text-1', components: { wallText: { text: 'Hi', font: 'Bfont Regular', size: 0.03, color: '#1f3a5f' } } };
 		const withTitle = { ...project, entities: [...project.entities, title] };
 		const neonCopy = apply({ ...withTitle, design: { ...withTitle.design, theme: 'neon' } }, duplicateThemeCommands({ ...withTitle, design: { ...withTitle.design, theme: 'neon' } }, 'neon').commands);
 		const back = apply(neonCopy, themeCommands(neonCopy, 'pegboard'));

@@ -326,13 +326,12 @@ def write_decor(obj, entry, fps, duration):
     position = entry.get('position') or {'x': 0.0, 'y': 0.0}
     scale = finite(entry.get('scale', 1.0), 'scale')
     rotation = finite(entry.get('rotation', 0.0), 'rotation')
-    depth = max(0.0, finite(entry.get('depth', 0.0), 'depth'))
     is_effect = decor_effects.is_effect(obj)
     # Local +Z points at the camera (-Y), local +Y up the wall, as a title's; the wall angle turns it in the wall plane
     # An effect hangs from the camera (`decor_effects.attach`); it has no place on the wall
     if not is_effect:
         obj.matrix_basis = (
-            Matrix.Translation((finite(position['x'], 'x'), -(depth + WALL_GAP), finite(position['y'], 'y')))
+            Matrix.Translation((finite(position['x'], 'x'), -WALL_GAP, finite(position['y'], 'y')))
             @ Matrix.Rotation(-rotation, 4, 'Y')
             @ Matrix.Rotation(math.pi / 2, 4, 'X')
             @ Matrix.Diagonal((scale, scale, scale, 1.0))

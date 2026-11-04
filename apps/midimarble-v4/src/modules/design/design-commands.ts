@@ -215,7 +215,7 @@ export function itemFitsPieceType(item: TLibraryItem, pieceType: string | null):
 
 // MARK: - Titles
 
-export const DEFAULT_WALL_TEXT = { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#1d1d1f' };
+export const DEFAULT_WALL_TEXT = { text: 'Title', font: 'Bfont Regular', size: 0.03, color: '#1d1d1f' };
 
 type TWallText = NonNullable<TEntity['components']['wallText']>;
 export type TTitleStyle = NonNullable<TWallText['style']>;

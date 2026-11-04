@@ -1,7 +1,7 @@
 import { createId, type TProject, type TProjectCommand, type TShot } from '@/modules/project';
 
-// Shot markers ease the follow camera to their distance and roll after their time. `kind` names a
-// distance preset relative to the rig's base distance; the user may fine-tune distance and roll after.
+// Shot markers ease the follow camera to their distance after their time. `kind` names a distance preset relative
+// to the rig's base distance; the user may fine-tune the distance after.
 
 export type TShotKind = TShot['kind'];
 
@@ -31,7 +31,7 @@ export function sortShots(shots: TShot[]): TShot[] {
 export function addShotCommands(project: TProject, time: number, id = createId('shot'), options: Partial<Pick<TShot, 'kind' | 'distance' | 'length'>> = {}): { commands: TProjectCommand[]; shotId: string } {
 	const camera = project.design.camera;
 	const kind = options.kind ?? 'pushIn';
-	const shot: TShot = { id, time: round(Math.max(0, time)), kind, roll: 0, distance: round(options.distance ?? shotPresetDistance(kind, camera.distance)), ...(options.length != null ? { length: options.length } : {}) };
+	const shot: TShot = { id, time: round(Math.max(0, time)), kind, distance: round(options.distance ?? shotPresetDistance(kind, camera.distance)), ...(options.length != null ? { length: options.length } : {}) };
 	return { commands: shotsCommands(project, [...camera.shots, shot]), shotId: id };
 }
 
@@ -47,17 +47,17 @@ export function addWideShotCommands(
 	id = createId('shot')
 ): { commands: TProjectCommand[]; shotId: string; project: TProject } {
 	const camera = project.design.camera;
-	const shot: TShot = { id, time: round(Math.max(0, time)), kind: 'wide', roll: 0, distance: round(distance ?? shotPresetDistance('wide', camera.distance)), length: round(length) };
+	const shot: TShot = { id, time: round(Math.max(0, time)), kind: 'wide', distance: round(distance ?? shotPresetDistance('wide', camera.distance)), length: round(length) };
 	const next = { ...camera, shots: sortShots([...camera.shots, shot]) };
 	return { commands: shotsCommands(project, next.shots), shotId: id, project: { ...project, design: { ...project.design, camera: next } } };
 }
 
-/** Changes one marker; a new kind applies its preset distance and resets the roll unless the patch sets them */
+/** Changes one marker; a new kind applies its preset distance unless the patch sets one */
 export function updateShotCommands(project: TProject, shotId: string, patch: Partial<Omit<TShot, 'id'>>): TProjectCommand[] {
 	const camera = project.design.camera;
 	const shot = camera.shots.find((item) => item.id === shotId);
 	if (shot == null) return [];
-	const preset = patch.kind != null && patch.kind !== shot.kind ? { distance: shotPresetDistance(patch.kind, camera.distance), roll: 0 } : {};
+	const preset = patch.kind != null && patch.kind !== shot.kind ? { distance: shotPresetDistance(patch.kind, camera.distance) } : {};
 	const next: TShot = { ...shot, ...preset, ...patch, ...(patch.time != null ? { time: round(Math.max(0, patch.time)) } : {}) };
 	return shotsCommands(
 		project,

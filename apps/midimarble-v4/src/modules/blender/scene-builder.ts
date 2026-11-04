@@ -193,7 +193,6 @@ export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
 		shots: camera.shots.map((shot) => ({
 			time: shot.time,
 			kind: shot.kind,
-			roll: shot.roll,
 			distance: shot.distance,
 			length: shotLength(shot)
 		})),

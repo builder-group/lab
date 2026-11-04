@@ -138,7 +138,7 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	const { targetX, targetY, heading: smoothHeading } = followTarget(framing, settings, fps, times);
 	// The camera stands below and to the side of the target, looking up along the run; the side follows the run
 	// direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
-	const { side, roll } = viewTurn(times, smoothHeading, framing.roll, settings.hold, settings.sway);
+	const { side, roll } = viewTurn(times, smoothHeading, settings.hold, settings.sway);
 	// Seen through this view, the marble the camera leads stays in and another goes fully in or fully out, never cut at the edge
 	if (framing.shares != null) {
 		const axes = Array.from(times, (_, index) =>
@@ -349,7 +349,7 @@ interface TSettings {
 	smoothing: number;
 	sway: number;
 	lens: number;
-	shots: { time: number; roll: number; distance: number; length: number | null }[];
+	shots: { time: number; distance: number; length: number | null }[];
 	focus: string | null;
 	/** Time of the run's last hit, after which the camera holds on it; null follows to the end */
 	hold: number | null;
@@ -365,8 +365,6 @@ interface TFraming {
 	ahead: [Float64Array, Float64Array];
 	depth: number;
 	distance: Float64Array;
-	/** Shot roll per frame */
-	roll: Float64Array;
 	/** Times the marbles are read at, the film time up to the hold */
 	sample: Float64Array;
 	/** Per marble with motion, its share of the follow point where the group does not fit; null for one marble */
@@ -387,7 +385,6 @@ function settingsFrom(
 	const shots = camera.shots
 		.map((shot) => ({
 			time: shot.time,
-			roll: shot.roll ?? 0,
 			distance: Math.max(0.05, shot.distance ?? camera.distance ?? 0.6),
 			length:
 				typeof shot.length === 'number' && Number.isFinite(shot.length) && shot.length > 0
@@ -623,11 +620,10 @@ function driftTime(time: number, hold: number | null): number {
 	return Math.min(time, hold) + HOLD_EASE * (1.0 - Math.exp(-past / HOLD_EASE));
 }
 
-/** `view_turn`: side angle around the target and image roll per frame; sway scales all but the shots */
+/** `view_turn`: side angle around the target and image roll per frame, scaled by sway */
 function viewTurn(
 	times: Float64Array,
 	heading: Float64Array,
-	shotRoll: Float64Array,
 	hold: number | null,
 	sway: number
 ): { side: Float64Array; roll: Float64Array } {
@@ -636,9 +632,7 @@ function viewTurn(
 	for (let index = 0; index < times.length; index++) {
 		const turn = heading[index] ?? 0;
 		side[index] = Math.PI + sway * (SIDE_ANGLE - Math.PI + SIDE_FOLLOW * turn);
-		roll[index] =
-			sway * (clamp(ROLL_FOLLOW * turn, -ROLL_LIMIT, ROLL_LIMIT) + ROLL_DRIFT * Math.sin((2 * Math.PI * driftTime(times[index] ?? 0, hold)) / ROLL_PERIOD)) +
-			(shotRoll[index] ?? 0);
+		roll[index] = sway * (clamp(ROLL_FOLLOW * turn, -ROLL_LIMIT, ROLL_LIMIT) + ROLL_DRIFT * Math.sin((2 * Math.PI * driftTime(times[index] ?? 0, hold)) / ROLL_PERIOD));
 	}
 	return { side, roll };
 }
@@ -798,13 +792,13 @@ function groupFraming(
 	}
 	// Shots scale the automatic framing: a Push In to 0.7 of the rig distance comes to 0.7 of whatever the camera
 	// frames then, so it reads also where a group has widened the frame
-	const { distance: shotDistance, roll } = shotValues(times, settings.distance, settings.shots);
+	const shotDistance = shotValues(times, settings.distance, settings.shots);
 	const scale = shotDistance.map((value) => value / settings.distance);
 	const base = settings.distance;
 	const radii = marbles.filter(hasMotion).map((marble) => marble.radius);
 	const limit = readableDistance(settings, aspect, radii.length ? Math.min(...radii) : null);
 	const upper = Math.max(base, limit);
-	const turn = viewTurn(times, heading, roll, hold, settings.sway);
+	const turn = viewTurn(times, heading, hold, settings.sway);
 	// Sized around the smoothed target when the first pass gave one, else around the group's centre
 	const axes = Array.from(times, (_, index) =>
 		viewAxes(turn.side[index] ?? 0, turn.roll[index] ?? 0, settings.pitch)
@@ -892,7 +886,7 @@ function groupFraming(
 		settle(centre, times, hold, settings.finish);
 		settle(ahead, times, hold, settings.finish);
 	}
-	return { current: centre, ahead, depth, distance, roll, sample, shares, fallScale };
+	return { current: centre, ahead, depth, distance, sample, shares, fallScale };
 }
 
 /**
@@ -1384,20 +1378,20 @@ function smoothstep(progress: number): number {
 }
 
 /**
- * `shot_events`: the distance and roll the camera eases to from each time on. Every shot's values, and the rig's
- * distance without extra roll once a shot with a length has held that long before the next shot starts.
+ * `shot_events`: the distance the camera eases to from each time on. Every shot's, and the rig's once a shot with a
+ * length has held that long before the next shot starts.
  */
 export function shotEvents(
-	shots: readonly { time: number; roll: number; distance: number; length?: number | null }[],
+	shots: readonly { time: number; distance: number; length?: number | null }[],
 	baseDistance: number
-): { time: number; distance: number; roll: number; isRelease: boolean }[] {
-	const events: { time: number; distance: number; roll: number; isRelease: boolean }[] = [];
+): { time: number; distance: number; isRelease: boolean }[] {
+	const events: { time: number; distance: number; isRelease: boolean }[] = [];
 	shots.forEach((shot, index) => {
-		events.push({ time: shot.time, distance: shot.distance, roll: shot.roll, isRelease: false });
+		events.push({ time: shot.time, distance: shot.distance, isRelease: false });
 		const following = shots[index + 1]?.time ?? Infinity;
 		const length = shot.length;
 		if (length != null && shot.time + length < following - 1e-9)
-			events.push({ time: shot.time + length, distance: baseDistance, roll: 0.0, isRelease: true });
+			events.push({ time: shot.time + length, distance: baseDistance, isRelease: true });
 	});
 	return events;
 }
@@ -1407,26 +1401,24 @@ function shotValues(
 	times: Float64Array,
 	baseDistance: number,
 	shots: TSettings['shots']
-): { distance: Float64Array; roll: Float64Array } {
+): Float64Array {
 	const distance = new Float64Array(times.length).fill(baseDistance);
-	const roll = new Float64Array(times.length);
-	let start: [number, number] = [baseDistance, 0.0];
-	let goal: [number, number] = [baseDistance, 0.0];
+	let start = baseDistance;
+	let goal = baseDistance;
 	let startTime = -Infinity;
 	for (const event of shotEvents(shots, baseDistance)) {
 		const reached = smoothstep((event.time - startTime) / SHOT_EASE);
-		start = [start[0] + (goal[0] - start[0]) * reached, start[1] + (goal[1] - start[1]) * reached];
-		goal = [event.distance, event.roll];
+		start = start + (goal - start) * reached;
+		goal = event.distance;
 		startTime = event.time;
 		for (let index = 0; index < times.length; index++) {
 			const time = times[index] ?? 0;
 			if (time < event.time) continue;
 			const eased = smoothstep((time - event.time) / SHOT_EASE);
-			distance[index] = start[0] + (goal[0] - start[0]) * eased;
-			roll[index] = start[1] + (goal[1] - start[1]) * eased;
+			distance[index] = start + (goal - start) * eased;
 		}
 	}
-	return { distance, roll };
+	return distance;
 }
 
 /** Rotation quaternion (wxyz) whose local -z looks from `position` at `target` with local y toward `up` */

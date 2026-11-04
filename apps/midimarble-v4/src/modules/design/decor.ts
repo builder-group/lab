@@ -90,7 +90,6 @@ export function newDecor(source: TDecorSource, point: TVec2, taken: readonly str
 		position: { x: round(point.x), y: round(point.y) },
 		scale: 1,
 		rotation: 0,
-		depth: 0,
 		...(source.footprint != null ? { footprint: source.footprint } : {}),
 		...effectDefaults(source.source)
 	};
@@ -256,7 +255,6 @@ export interface TSceneDecorItem {
 	position: TVec2;
 	scale: number;
 	rotation: number;
-	depth: number;
 	text?: string;
 	snowfall?: TSnowfall;
 	in?: number;

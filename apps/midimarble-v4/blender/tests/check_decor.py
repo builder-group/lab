@@ -95,7 +95,7 @@ def evaluated_points(obj, frame):
 def check_effects(worker, root, samples):
     """Snowfall: it hangs from the camera, depends on the frame alone and never catches a pick or collides"""
     scene = bpy.context.scene
-    snow_layer = {'id': 'decor:the-snow', 'name': 'Snowfall', 'item': 'snowfall', 'position': {'x': 0, 'y': 0}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0,
+    snow_layer = {'id': 'decor:the-snow', 'name': 'Snowfall', 'item': 'snowfall', 'position': {'x': 0, 'y': 0}, 'scale': 1.0, 'rotation': 0.0,
                   'snowfall': {'density': 0.5, 'size': 1.0, 'speed': 1.0, 'color': '#fff1d6'}}
     report = apply(worker, root, description(samples, [snow_layer]))
     check(report['decor']['effects'] == ['decor:the-snow'], 'the effect is built')
@@ -144,7 +144,7 @@ def main():
     worker = Worker(root)
 
     layers = [
-        {'id': 'decor:' + item, 'name': decor.ITEMS[item]['label'], 'item': item, 'position': {'x': 0.2 + index * 0.1, 'y': 0.1}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0}
+        {'id': 'decor:' + item, 'name': decor.ITEMS[item]['label'], 'item': item, 'position': {'x': 0.2 + index * 0.1, 'y': 0.1}, 'scale': 1.0, 'rotation': 0.0}
         for index, item in enumerate(decor.ITEMS)
     ]
     report = apply(worker, root, description(samples, layers))
@@ -178,7 +178,7 @@ def main():
     # Same layers, one timed, one hidden, one moved
     layers[0] = {**layers[0], 'in': 1.0, 'out': 2.0}
     layers[1] = {**layers[1], 'hidden': True}
-    layers[2] = {**layers[2], 'position': {'x': 0.5, 'y': -0.3}, 'rotation': 0.5, 'scale': 2.0, 'depth': 0.02}
+    layers[2] = {**layers[2], 'position': {'x': 0.5, 'y': -0.3}, 'rotation': 0.5, 'scale': 2.0}
     report = apply(worker, root, description(samples, layers))
     check(len(report['decor']['updated']) == len(layers), 're-applying updates the layers in place')
     timed = objects['decor:bauble-red']
@@ -187,7 +187,7 @@ def main():
     check(len(visibility_keys(timed, '["mm_visible"]')) >= 2, 'In and Out fade by mm_visible, like a title')
     check(objects['decor:bauble-gold'].hide_render and objects['decor:bauble-gold'].hide_viewport, 'a hidden layer is hidden and stays in the file')
     moved = objects['decor:snowflake-gold']
-    check(abs(moved.location.x - 0.5) < 1e-5 and abs(moved.location.z + 0.3) < 1e-5 and moved.location.y < -0.019, 'position and depth land on the wall, in front of it')
+    check(abs(moved.location.x - 0.5) < 1e-5 and abs(moved.location.z + 0.3) < 1e-5, 'position lands on the wall, in front of it')
     check(abs(moved.scale.x - 2.0) < 1e-4, 'scale lands')
 
     # A layer edited in Blender is the user's
@@ -207,7 +207,7 @@ def main():
     asset_dir.mkdir(parents=True)
     (asset_dir / 'manifest.json').write_text(json.dumps({'$schema': 'marble-asset@1', 'id': 'holly', 'label': 'Holly', 'role': 'decoration', 'fittedParams': {'width': 0.04, 'height': 0.02}}))
     write_asset(asset_dir / 'asset.blend')
-    with_asset = [*layers, {'id': 'decor:holly', 'name': 'Holly', 'assetPath': 'assets/holly/asset.blend', 'position': {'x': -0.3, 'y': 0.0}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0, 'in': 1.0}]
+    with_asset = [*layers, {'id': 'decor:holly', 'name': 'Holly', 'assetPath': 'assets/holly/asset.blend', 'position': {'x': -0.3, 'y': 0.0}, 'scale': 1.0, 'rotation': 0.0, 'in': 1.0}]
     report = apply(worker, root, description(samples, with_asset))
     check('decor:holly' in report['decor']['created'] and not report['decor']['problems'], 'a library decoration is placed from its asset')
     holly = next(obj for obj in managed.objects if obj.get('mm_id') == 'decor:holly')

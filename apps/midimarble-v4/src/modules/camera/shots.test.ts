@@ -7,7 +7,6 @@ const shot = (id: string, time: number, kind: TShot['kind'], length?: number): T
 	id,
 	time,
 	kind,
-	roll: 0,
 	distance: 0.5,
 	...(length != null ? { length } : {})
 });
@@ -31,11 +30,11 @@ describe('shots', () => {
 	});
 
 	it('eases back to the rig only when the hold ends before the next shot', () => {
-		const events = shotEvents([{ time: 1, roll: 0.1, distance: 0.4, length: 2 }, { time: 2.5, roll: 0, distance: 0.3, length: 2 }], 0.7);
+		const events = shotEvents([{ time: 1, distance: 0.4, length: 2 }, { time: 2.5, distance: 0.3, length: 2 }], 0.7);
 		expect(events).toEqual([
-			{ time: 1, distance: 0.4, roll: 0.1, isRelease: false },
-			{ time: 2.5, distance: 0.3, roll: 0, isRelease: false },
-			{ time: 4.5, distance: 0.7, roll: 0, isRelease: true }
+			{ time: 1, distance: 0.4, isRelease: false },
+			{ time: 2.5, distance: 0.3, isRelease: false },
+			{ time: 4.5, distance: 0.7, isRelease: true }
 		]);
 	});
 });

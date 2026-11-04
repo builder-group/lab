@@ -185,7 +185,7 @@ describe('itemFitsPieceType function', () => {
 	});
 
 	it('should give a title style its size and default timing, keeping times set by hand', () => {
-		const text = { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#ffffff' };
+		const text = { text: 'Title', font: 'Bfont Regular', size: 0.03, color: '#ffffff' };
 		const context = { frameHeight: 0.5, playhead: 6, end: 35, songName: 'Jingle Bells', aspect: 9 / 16 };
 		expect(withTitleStyle(text, 'caption', context)).toEqual({ ...text, style: 'caption', size: 0.06, in: 6, out: 9 });
 		// Song Name opens the film in the frame, shrunk to fit the frame width
@@ -198,7 +198,7 @@ describe('itemFitsPieceType function', () => {
 	});
 
 	it('should re-time a title only while it still has its style\'s own times', () => {
-		const text = { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#ffffff' };
+		const text = { text: 'Title', font: 'Bfont Regular', size: 0.03, color: '#ffffff' };
 		const context = { frameHeight: 0.5, playhead: 31, end: 35, songName: null };
 		const songName = withTitleStyle(text, 'songName', context);
 		expect(songName).toMatchObject({ out: 3 });
@@ -226,7 +226,7 @@ describe('itemFitsPieceType function', () => {
 
 	it('should recolour titles that still have the old theme\'s title colour when the theme changes', () => {
 		const project = createStaircaseProject();
-		const title = { id: 'text-1', name: 'Title', components: { wallText: { text: 'Title', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: themeTitleColor(project.design.theme) }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
+		const title = { id: 'text-1', name: 'Title', components: { wallText: { text: 'Title', font: 'Bfont Regular', size: 0.03, color: themeTitleColor(project.design.theme) }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
 		const custom = { ...title, id: 'text-2', components: { ...title.components, wallText: { ...title.components.wallText, color: '#ff0000' } } };
 		const withTitles = apply(project, [{ type: 'upsertEntity', entity: title }, { type: 'upsertEntity', entity: custom }]);
 		const other = withTitles.design.theme === 'brass' ? 'pegboard' : 'brass';
