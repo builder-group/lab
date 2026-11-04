@@ -2,7 +2,7 @@
 	"$schema": "marble-project@5",
 	"id": "staircase",
 	"title": "Staircase",
-	"revision": 0,
+	"revision": 1,
 	"frame": {
 		"width": 9,
 		"height": 16
@@ -112,7 +112,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-2",
-					"angle": -0.05,
+					"angle": -0.1198,
 					"contactAt": 0.5
 				}
 			}

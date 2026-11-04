@@ -1,6 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject, type TVec2 } from '@/modules/project';
+import { preflightExport } from '@/modules/design/export-preflight';
 import { findLongGaps } from './assists';
+import { finishCatch, finishOfLane } from './finish';
 import { paceAt } from './pace';
 import { frameBand } from './placement';
 import { createSimulator, type TSimulator } from './simulate';
@@ -50,6 +52,21 @@ beforeAll(async () => {
 });
 
 describe('fixtures', () => {
+	it('every fixture: a clean preflight, but for what its filter names', () => {
+		// long-gap: the tunnel's run strikes two platforms twice, and Fix only clears that by sending hit 7 80 cm out of the lane; windmill: the Windmill is anchored to the path as a case study for motion, so it touches two platforms and the marble rolls on one; two-marbles: the collision is its point
+		const allowed: Record<string, string[]> = {
+			'long-gap': ['Marble 1 hits Platform 6 twice', 'Marble 1 hits Platform 5 twice'],
+			windmill: ['Marble 1 rolls on Platform 4', 'Platform 2 touches Windmill 1', 'Windmill 1 touches Platform 4'],
+			'two-marbles': ['Marble 1 collides with Marble 2']
+		};
+		for (const name of ['zigzag', 'staircase', 'long-gap', 'windmill', 'two-marbles', 'tap-along', 'reference-20', 'jingle-bells']) {
+			const project = loadFixture(name);
+			const song = { id: 'song', kind: 'midi' as const, path: 'song.mid', name: 'Song', offset: 0 };
+			const withSong = { ...project, music: { ...project.music, sources: project.music.sources.length > 0 ? project.music.sources : [song] } };
+			expect(preflightExport(withSong, simulator.simulate(project)).issues.map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
+		}
+	}, 20_000);
+
 	it('zigzag: sixteen mirrored platforms on time and in frame', () => {
 		const project = loadFixture('zigzag');
 		const result = simulator.simulate(project);
@@ -249,6 +266,20 @@ describe('fixtures', () => {
 		expect(result.hits.filter((hit) => hit.targetTime < strikeTime)).toEqual(
 			base.hits.filter((hit) => hit.targetTime < strikeTime)
 		);
+	}, 20_000);
+
+	it('jingle-bells, reference-20: their Finishes catch every marble and no Finish problem shows', () => {
+		for (const [name, count] of [['jingle-bells', 115], ['reference-20', 48]] as const) {
+			const project = loadFixture(name);
+			const result = simulator.simulate(project);
+			expect(result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(count);
+			for (const lane of project.music.lanes) {
+				const finish = finishOfLane(project, lane.id);
+				expect(finish, `${name} ${lane.name}`).toBeDefined();
+				expect(finishCatch(result, finish?.id ?? '').status).toBe('caught');
+			}
+			expect(preflightExport(project, result).issues.filter((issue) => issue.id.startsWith('finish:'))).toEqual([]);
+		}
 	}, 20_000);
 
 	it('tap-along: hits suggested from the recording, every one on time and in frame', () => {

@@ -2,7 +2,7 @@
 	"$schema": "marble-project@5",
 	"id": "reference-20",
 	"title": "Reference 20",
-	"revision": 0,
+	"revision": 1,
 	"frame": {
 		"width": 9,
 		"height": 16
@@ -845,6 +845,12 @@
 						"entryDelay": 0.242
 					}
 				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-24",
+					"angle": -0.03490658503988659,
+					"contactAt": 0.5
+				},
 				"path": {
 					"points": [
 						{
@@ -860,12 +866,6 @@
 							"y": 0
 						}
 					]
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-24",
-					"angle": -0.03490658503988659,
-					"contactAt": 0.5
 				}
 			}
 		},
@@ -1176,7 +1176,7 @@
 				"piece": {
 					"type": "platform",
 					"params": {
-						"length": 0.09,
+						"length": 0.075,
 						"thickness": 0.012,
 						"depth": 0.045,
 						"bounce": 0.66,
@@ -1486,9 +1486,9 @@
 					"size": 0.045,
 					"depth": 0.003,
 					"color": "#ffffff",
-					"style": "caption",
 					"in": 0,
-					"out": 3.15
+					"out": 3.15,
+					"style": "caption"
 				}
 			}
 		},
@@ -1509,9 +1509,9 @@
 					"size": 0.045,
 					"depth": 0.003,
 					"color": "#ffffff",
-					"style": "caption",
 					"in": 9.9,
-					"out": 13.05
+					"out": 13.05,
+					"style": "caption"
 				}
 			}
 		},
