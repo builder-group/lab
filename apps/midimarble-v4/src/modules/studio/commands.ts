@@ -1,3 +1,4 @@
+import { onNextFrame } from './next-frame';
 import { removeSelectedHits } from './timeline/hand-notes';
 import { $rollHasFocus } from './timeline/timeline-state';
 import type { TMenuItem } from '@/components';
@@ -783,7 +784,7 @@ export function runInWorkspace(cx: StudioCx, command: TCommand): void {
 		if (isCommandEnabled(cx, command)) command.run(cx);
 	};
 	if (target === 'design' || cx.$compose.get() != null) {
-		requestAnimationFrame(runWhenReady);
+		onNextFrame(runWhenReady);
 		return;
 	}
 	// The canvas registers itself once mounted; give up after a second rather than run late
@@ -792,7 +793,7 @@ export function runInWorkspace(cx: StudioCx, command: TCommand): void {
 		if (value == null || isDone) return;
 		isDone = true;
 		stop();
-		requestAnimationFrame(runWhenReady);
+		onNextFrame(runWhenReady);
 	});
 	window.setTimeout(() => {
 		if (isDone) return;

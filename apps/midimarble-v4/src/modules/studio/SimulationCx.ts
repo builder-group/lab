@@ -1,11 +1,12 @@
 import { createState } from 'feature-state';
 import type { TProject } from '@/modules/project';
 import { createSimulationClient, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
+import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';
 
 /**
  * Keeps a simulation result for the open project. Every history change re-simulates once per animation
- * frame in the worker. Live drags send a temporary project through `preview` without touching history,
+ * frame in the worker, on a timer when frames have stopped because the window is covered. Live drags send a temporary project through `preview` without touching history,
  * so the trajectory follows the pointer and the drag commits one history entry on release.
  */
 export class SimulationCx {
@@ -16,7 +17,7 @@ export class SimulationCx {
 
 	private client: TSimulationClient | null = null;
 	private preview: TProject | null = null;
-	private frame: number | null = null;
+	private cancelFrame: (() => void) | null = null;
 	private sent = 0;
 	private accepted = 0;
 
@@ -42,8 +43,8 @@ export class SimulationCx {
 		});
 		return () => {
 			unlisten();
-			if (this.frame != null) cancelAnimationFrame(this.frame);
-			this.frame = null;
+			this.cancelFrame?.();
+			this.cancelFrame = null;
 			this.client?.dispose();
 			this.client = null;
 		};
@@ -83,9 +84,9 @@ export class SimulationCx {
 	}
 
 	private schedule(): void {
-		if (this.frame != null) return;
-		this.frame = requestAnimationFrame(() => {
-			this.frame = null;
+		if (this.cancelFrame != null) return;
+		this.cancelFrame = onNextFrame(() => {
+			this.cancelFrame = null;
 			this.run();
 		});
 	}
