@@ -8,7 +8,7 @@ import { formatTime } from '@/modules/studio/format';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { $blenderObjects, madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands } from './decor';
 import { moveDecorClearAction, revealMadeInBlender } from './decor-actions';
-import { decorItem, decorText } from './decor-catalog';
+import { decorItem } from './decor-catalog';
 import { SNOWFALL_DEFAULTS, snowfallOf } from './decor-effects';
 import { ColorWell } from './SceneLayerInspector';
 import { decorTips, preflightExport } from './export-preflight';
@@ -29,7 +29,6 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 	const [timingKey, setTimingKey] = React.useState(0);
 	const tip = useDecorTip(cx, project, toDecorKey(decor.id));
 	const item = decorItem(decor.source);
-	const text = decorText(decor);
 	const span = titleSpan(decor, project.end);
 	const update = (patch: Parameters<typeof updateDecorCommands>[2]): void => void cx.execute(updateDecorCommands(requireProject(cx), [decor.id], patch));
 
@@ -58,11 +57,6 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 						Move Clear
 					</button>
 				</DecorTip>
-			) : null}
-			{text != null ? (
-				<Panel id="design.decor.text" title="Text">
-					<TextField key={decor.id} id="decor-text" label="Text" name="What it reads" value={text} span={2} allowEmpty={false} onCommit={(value) => update({ text: value })} />
-				</Panel>
 			) : null}
 			{item?.effect == null ? (
 			<Panel id="design.decor.place" title="Position">

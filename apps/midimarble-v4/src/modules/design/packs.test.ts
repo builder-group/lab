@@ -95,7 +95,7 @@ describe('Packs', () => {
 		expect(libraryEntries([copy], [], [pack([inPack])]).map((entry) => entry.item.id)).toEqual(['a-2']);
 	});
 
-	it('should hold every offered skin, wall, theme and decor item in the Starter Pack, and never lose it', () => {
+	it('should hold every offered skin, wall and theme and Particles in the Starter Pack, and never lose it', () => {
 		const offered = SKIN_ELEMENTS.flatMap((element) => catalogSkins(element).map((skin) => skin.id));
 		const skins = (STARTER_PACK.builtIn ?? []).filter((entry) => entry.kind === 'skin').map((entry) => entry.source);
 		expect(skins.filter((source) => !source.startsWith('wall:'))).toEqual(offered);
@@ -103,7 +103,7 @@ describe('Packs', () => {
 		expect((STARTER_PACK.builtIn ?? []).filter((entry) => entry.kind === 'theme').map((entry) => entry.label)).toEqual(['Pegboard', 'Brass', 'Neon']);
 		expect(STARTER_PACK.builtInDecor).toContain('decor:snowfall');
 		expect(STARTER_PACK.builtInDecor.every((source) => decorItem(source) != null)).toBe(true);
-		expect(packContents(STARTER_PACK)).toBe(`3 themes, ${skins.length} skins, 9 decor items`);
+		expect(packContents(STARTER_PACK)).toBe(`3 themes, ${skins.length} skins, 1 decor item`);
 		expect(withStarterPack([{ ...pack([]), id: 'starter' }, pack([])]).map((item) => item.id)).toEqual(['starter', pack([]).id]);
 		expect(isPackAdded('starter')).toBe(true);
 	});

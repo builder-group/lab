@@ -144,8 +144,7 @@ def main():
     worker = Worker(root)
 
     layers = [
-        {'id': 'decor:' + item, 'name': decor.ITEMS[item]['label'], 'item': item, 'position': {'x': 0.2 + index * 0.1, 'y': 0.1}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0,
-         **({'text': decor.ITEMS[item]['text']} if 'text' in decor.ITEMS[item] else {})}
+        {'id': 'decor:' + item, 'name': decor.ITEMS[item]['label'], 'item': item, 'position': {'x': 0.2 + index * 0.1, 'y': 0.1}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0}
         for index, item in enumerate(decor.ITEMS)
     ]
     report = apply(worker, root, description(samples, layers))
@@ -173,8 +172,6 @@ def main():
         reach = max(vertex.co.z for vertex in objects['decor:' + item].data.vertices)
         check(reach < 0.02, '%s stays close to the wall (%.0f mm out)' % (item, reach * 1000))
     check(objects['decor:bauble-red'].data is not objects['decor:bauble-gold'].data, 'baubles have their own colours')
-    check(objects['decor:handle'].type == 'FONT' and objects['decor:handle'].data.body == '@yourchannel', 'a Handle is text reading what it was given')
-    check(any(child.type == 'MESH' for child in objects['decor:subscribe'].children), 'Subscribe carries an arrow')
     holders = [obj for obj in managed.objects if obj.get('mm_role') == 'piece']
     check(not holders, 'decor adds no pieces')
 

@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import { createId, type TDecor, type TDesign, type TMadeInBlender, type TProject, type TProjectCommand, type TSnowfall, type TVec2 } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { parseDecorKey, toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
-import { decorExtent, decorItem, decorText, isFrameEffect } from './decor-catalog';
+import { decorExtent, decorItem, isFrameEffect } from './decor-catalog';
 import { effectDefaults } from './decor-effects';
 import { cachedObstacleField, distanceToBox, isBoxClear, pathOverlaps, type TWallBox } from './decor-clearance';
 import { titleSpan } from './titles';
@@ -83,7 +83,6 @@ export function assetDecorSource(id: string, label: string, fitted: Record<strin
 
 /** Makes a decoration at a wall point, at scale 1, flat on the wall and shown for the whole film */
 export function newDecor(source: TDecorSource, point: TVec2, taken: readonly string[]): TDecor {
-	const text = decorItem(source.source)?.text;
 	return {
 		id: createId('decor'),
 		name: nextDecorName(source.label, taken),
@@ -92,7 +91,6 @@ export function newDecor(source: TDecorSource, point: TVec2, taken: readonly str
 		scale: 1,
 		rotation: 0,
 		depth: 0,
-		...(text != null ? { text } : {}),
 		...(source.footprint != null ? { footprint: source.footprint } : {}),
 		...effectDefaults(source.source)
 	};
@@ -146,7 +144,7 @@ export function duplicateDecorCommands(project: TProject, ids: readonly string[]
 
 // MARK: - Overlaps
 
-export function decorBox(decor: Pick<TDecor, 'source' | 'scale' | 'text' | 'footprint' | 'position' | 'rotation'>): TWallBox {
+export function decorBox(decor: Pick<TDecor, 'source' | 'scale' | 'footprint' | 'position' | 'rotation'>): TWallBox {
 	const extent = decorExtent(decor);
 	return { x: decor.position.x, y: decor.position.y, halfX: extent.x, halfY: extent.y, angle: decor.rotation };
 }
@@ -236,13 +234,11 @@ export function moveDecorClear(project: TProject, result: TSimulationResult, dec
 /** What the Blender worker builds: every decoration, hidden ones marked so they keep any edit made in Blender */
 export function sceneDecor(design: Pick<TDesign, 'decor' | 'madeInBlender'>): { decor?: TSceneDecorItem[]; madeInBlender?: TMadeInBlender[] } {
 	const decor = decorList(design).map((item): TSceneDecorItem => {
-		const { source, scattered: _scattered, footprint: _footprint, id, text, ...rest } = item;
-		const shown = decorText(item);
+		const { source, scattered: _scattered, footprint: _footprint, id, ...rest } = item;
 		return {
 			...rest,
 			id: toDecorKey(id),
-			...(source.startsWith('decor:') ? { item: source.slice('decor:'.length) } : { assetPath: source }),
-			...(text != null || shown != null ? { text: shown ?? text } : {})
+			...(source.startsWith('decor:') ? { item: source.slice('decor:'.length) } : { assetPath: source })
 		};
 	});
 	return {

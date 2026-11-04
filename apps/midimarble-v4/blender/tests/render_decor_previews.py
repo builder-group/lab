@@ -57,8 +57,6 @@ scene.camera = camera
 
 for item_id, item in decor.ITEMS.items():
     entry = {'id': 'decor:' + item_id, 'name': item['label'], 'item': item_id, 'position': {'x': 0.0, 'y': 0.0}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0}
-    if 'text' in item:
-        entry['text'] = item['text']
     obj, problem = decor.create_decor(tempfile.gettempdir(), entry, collection, {})
     if obj is None:
         raise RuntimeError(problem)

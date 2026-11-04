@@ -1,13 +1,11 @@
 {
 	"items": [
-		{ "id": "decor:bauble-red", "label": "Red Bauble", "origin": "Starter", "preview": "bauble-red.png", "halfWidth": 0.013, "halfHeight": 0.016, "color": "#c0202a", "scatter": true },
-		{ "id": "decor:bauble-gold", "label": "Gold Bauble", "origin": "Starter", "preview": "bauble-gold.png", "halfWidth": 0.013, "halfHeight": 0.016, "color": "#d9a93e", "scatter": true },
-		{ "id": "decor:snowflake-gold", "label": "Gold Snowflake", "origin": "Starter", "preview": "snowflake-gold.png", "halfWidth": 0.017, "halfHeight": 0.017, "color": "#e0b64d", "scatter": true },
-		{ "id": "decor:fairy-light", "label": "Fairy Light", "origin": "Starter", "preview": "fairy-light.png", "halfWidth": 0.034, "halfHeight": 0.009, "color": "#ffbe5c", "scatter": true },
-		{ "id": "decor:gift-box", "label": "Gift Box", "origin": "Starter", "preview": "gift-box.png", "halfWidth": 0.014, "halfHeight": 0.017, "color": "#2f7d52", "second": "#e3c04f", "scatter": true },
-		{ "id": "decor:star", "label": "Star", "origin": "Starter", "preview": "star.png", "halfWidth": 0.016, "halfHeight": 0.016, "color": "#f0c64a", "scatter": true },
-		{ "id": "decor:handle", "label": "Handle", "origin": "Starter", "preview": "handle.png", "halfWidth": 0.05, "halfHeight": 0.009, "color": "#1d1d1f", "text": "@yourchannel", "letterHeight": 0.014, "opacity": 0.32, "scatter": false },
-		{ "id": "decor:subscribe", "label": "Subscribe", "origin": "Starter", "preview": "subscribe.png", "halfWidth": 0.045, "halfHeight": 0.01, "color": "#c0202a", "text": "Subscribe", "letterHeight": 0.013, "opacity": 1, "scatter": false },
+		{ "id": "decor:bauble-red", "label": "Red Bauble", "origin": "Christmas Pack", "preview": "bauble-red.png", "halfWidth": 0.013, "halfHeight": 0.016, "color": "#c0202a", "scatter": true },
+		{ "id": "decor:bauble-gold", "label": "Gold Bauble", "origin": "Christmas Pack", "preview": "bauble-gold.png", "halfWidth": 0.013, "halfHeight": 0.016, "color": "#d9a93e", "scatter": true },
+		{ "id": "decor:snowflake-gold", "label": "Gold Snowflake", "origin": "Christmas Pack", "preview": "snowflake-gold.png", "halfWidth": 0.017, "halfHeight": 0.017, "color": "#e0b64d", "scatter": true },
+		{ "id": "decor:fairy-light", "label": "Fairy Light", "origin": "Christmas Pack", "preview": "fairy-light.png", "halfWidth": 0.034, "halfHeight": 0.009, "color": "#ffbe5c", "scatter": true },
+		{ "id": "decor:gift-box", "label": "Gift Box", "origin": "Christmas Pack", "preview": "gift-box.png", "halfWidth": 0.014, "halfHeight": 0.017, "color": "#2f7d52", "second": "#e3c04f", "scatter": true },
+		{ "id": "decor:star", "label": "Star", "origin": "Christmas Pack", "preview": "star.png", "halfWidth": 0.016, "halfHeight": 0.016, "color": "#f0c64a", "scatter": true },
 		{ "id": "decor:snowfall", "label": "Particles", "origin": "Starter", "preview": "snowfall.png", "halfWidth": 0.05, "halfHeight": 0.05, "color": "#fff1d6", "scatter": false, "effect": "snowfall" }
 	]
 }

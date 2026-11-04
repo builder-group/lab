@@ -191,10 +191,6 @@ def _star(mesh):
     _prism(mesh, 0, outline, 0.003)
 
 
-def _arrow(mesh):
-    _prism(mesh, 0, [(-0.0014, 0.005), (0.0014, 0.005), (0.0014, -0.0005), (0.0042, -0.0005), (0.0, -0.0055), (-0.0042, -0.0005), (-0.0014, -0.0005)], 0.0008)
-
-
 def _looks(item_id):
     """Materials of an item's slots"""
     item = ITEMS[item_id]
@@ -220,7 +216,6 @@ BUILDERS = {
     'fairy-light': _fairy_light,
     'gift-box': _gift_box,
     'star': _star,
-    'subscribe-arrow': _arrow,
 }
 
 
@@ -301,8 +296,6 @@ def create_decor(project_dir, entry, managed, asset_cache):
             obj = decor_effects.create(name, item['effect'], managed)
             tag(obj, entry['id'], DECOR_ROLE)
             return obj, None
-        if item.get('text') is not None:
-            return create_text_decor(entry, item, item_id, name, managed), None
         obj = bpy.data.objects.new(name, shared_mesh(item_id, item_id))
         managed.objects.link(obj)
         tag(obj, entry['id'], DECOR_ROLE)
@@ -329,36 +322,12 @@ def create_decor(project_dir, entry, managed, asset_cache):
     return root, None
 
 
-def create_text_decor(entry, item, item_id, name, managed):
-    data = bpy.data.curves.new(name, 'FONT')
-    obj = bpy.data.objects.new(name, data)
-    managed.objects.link(obj)
-    tag(obj, entry['id'], DECOR_ROLE)
-    data.size = float(item['letterHeight']) * 1.4
-    data.align_x = 'CENTER'
-    data.align_y = 'CENTER'
-    data.font = walltext.resolve_font(None, walltext.BUILTIN_FONT)
-    data.materials.append(item_material(item_id, item['color'], roughness=0.6, opacity=float(item.get('opacity', 1.0))))
-    if item_id == 'subscribe':
-        arrow = bpy.data.objects.new(name + ' arrow', shared_mesh('subscribe-arrow', 'subscribe'))
-        managed.objects.link(arrow)
-        tag(arrow, entry['id'] + '/arrow', PART_ROLE)
-        arrow.parent = obj
-    return obj
-
-
 def write_decor(obj, entry, fps, duration):
     position = entry.get('position') or {'x': 0.0, 'y': 0.0}
     scale = finite(entry.get('scale', 1.0), 'scale')
     rotation = finite(entry.get('rotation', 0.0), 'rotation')
     depth = max(0.0, finite(entry.get('depth', 0.0), 'depth'))
     is_effect = decor_effects.is_effect(obj)
-    if obj.type == 'FONT':
-        obj.data.body = str(entry.get('text') or '')
-        for child in obj.children:
-            if child.get('mm_role') == PART_ROLE and child.type == 'MESH':
-                half = len(obj.data.body) * obj.data.size * 0.27
-                child.matrix_basis = Matrix.Translation((half + 0.006, 0.0, 0.0))
     # Local +Z points at the camera (-Y), local +Y up the wall, as a title's; the wall angle turns it in the wall plane
     # An effect hangs from the camera (`decor_effects.attach`); it has no place on the wall
     if not is_effect:

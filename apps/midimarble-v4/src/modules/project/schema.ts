@@ -265,8 +265,6 @@ const SDecor = z.strictObject({
 	rotation: z.number(),
 	// Metres in front of the wall
 	depth: z.number().nonnegative(),
-	// What a text item reads: the Handle's "@yourchannel"
-	text: z.string().optional(),
 	// A Snowfall's settings: how many flakes (0..1), their size and fall speed as shares of the usual, and their colour
 	snowfall: z.strictObject({ density: z.number().min(0).max(1), size: z.number().positive(), speed: z.number().nonnegative(), color: SHexColor }).optional(),
 	// Half width and half height of an asset at scale 1, from its manifest; built-in items know their own

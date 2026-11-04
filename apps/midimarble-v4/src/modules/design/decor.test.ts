@@ -102,16 +102,10 @@ describe('Decor', () => {
 			expect(after.hits.map((hit) => hit.actualTime)).toEqual(result.hits.map((hit) => hit.actualTime));
 		});
 
-		it('should number names, and a text item should keep its text', () => {
-			const first = apply(project, addDecorCommands(project, builtInSource('decor:handle'), { x: 0, y: 0 }).commands);
-			const second = apply(first, addDecorCommands(first, builtInSource('decor:handle'), { x: 0, y: 0 }).commands);
-			expect(second.design.decor.map((item) => item.name)).toEqual(['Handle', 'Handle 2']);
-			expect(second.design.decor[0]?.text).toBe('@yourchannel');
-		});
-
-		it('should grow a Handle with its text', () => {
-			const decor = { source: 'decor:handle', scale: 1 };
-			expect(decorExtent({ ...decor, text: '@a-much-longer-channel-name' }).x).toBeGreaterThan(decorExtent({ ...decor, text: '@yourchannel' }).x);
+		it('should number names', () => {
+			const first = apply(project, addDecorCommands(project, builtInSource('decor:star'), { x: 0, y: 0 }).commands);
+			const second = apply(first, addDecorCommands(first, builtInSource('decor:star'), { x: 0, y: 0 }).commands);
+			expect(second.design.decor.map((item) => item.name)).toEqual(['Star', 'Star 2']);
 		});
 	});
 
@@ -286,7 +280,7 @@ describe('Decor', () => {
 			for (const placement of dense) counts.set(placement.source.source, (counts.get(placement.source.source) ?? 0) + 1);
 			expect(counts.size).toBe(items.length);
 			expect(Math.max(...counts.values()) - Math.min(...counts.values())).toBeLessThanOrEqual(1);
-			expect(DECOR_ITEMS.filter((item) => !item.scatter).map((item) => item.label)).toEqual(['Handle', 'Subscribe', 'Particles']);
+			expect(DECOR_ITEMS.filter((item) => !item.scatter).map((item) => item.label)).toEqual(['Particles']);
 		}, 60_000);
 
 		it('should replace only what it placed, in one edit, and keep clear of the user\'s decor', () => {

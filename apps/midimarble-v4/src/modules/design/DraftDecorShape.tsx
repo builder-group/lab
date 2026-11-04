@@ -4,9 +4,6 @@ import type { TDraftDecor } from './DraftPreviewCx';
 // A decoration in the Draft Preview: a cheap stand-in for what Blender builds, drawn in the item's own metres (x right,
 // y down, centred) through a matrix that keeps it flat on the wall. Blender's preview shows the real look.
 
-/** SVG draws text at a whole-pixel size, so letters are drawn big and scaled back */
-const TEXT_SCALE = 0.001;
-
 export const DraftDecorShape: React.FC<{ decor: TDraftDecor }> = (props) => {
 	const { decor } = props;
 	return (
@@ -18,7 +15,7 @@ export const DraftDecorShape: React.FC<{ decor: TDraftDecor }> = (props) => {
 
 const Shape: React.FC<{ decor: TDraftDecor }> = (props) => {
 	const { decor } = props;
-	const { item, extent, previewUrl, text } = decor;
+	const { item, extent, previewUrl } = decor;
 	if (item == null) {
 		return previewUrl != null ? (
 			<image href={previewUrl} x={-extent.x} y={-extent.y} width={extent.x * 2} height={extent.y * 2} preserveAspectRatio="xMidYMid meet" />
@@ -73,13 +70,7 @@ const Shape: React.FC<{ decor: TDraftDecor }> = (props) => {
 		case 'decor:star':
 			return <polygon points={starPoints(0.016, 0.0068)} fill={color} stroke="#a67c1e" strokeWidth={0.0005} strokeLinejoin="round" />;
 		default:
-			return (
-				<g transform={`scale(${TEXT_SCALE})`}>
-					<text x={0} y={0} fill={color} fontSize={(item.letterHeight ?? 0.012) * 1.4 * (1 / TEXT_SCALE)} fontWeight={600} textAnchor="middle" dominantBaseline="central" style={{ fontFamily: '-apple-system, "Helvetica Neue", sans-serif' }}>
-						{item.id === 'decor:subscribe' ? `${text ?? ''} ↓` : text}
-					</text>
-				</g>
-			);
+			return null;
 	}
 };
 

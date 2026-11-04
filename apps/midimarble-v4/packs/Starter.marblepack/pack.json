@@ -3,7 +3,7 @@
 	"id": "starter",
 	"name": "Starter",
 	"version": "1.0",
-	"description": "The themes, skins, particles and decor every film starts with.",
+	"description": "The themes, skins and particles that come with the app.",
 	"author": "MidiMarble",
 	"items": [
 		{
@@ -191,54 +191,6 @@
 			"id": "snowfall",
 			"label": "Particles",
 			"source": "decor:snowfall"
-		},
-		{
-			"kind": "decor",
-			"id": "bauble-red",
-			"label": "Red Bauble",
-			"source": "decor:bauble-red"
-		},
-		{
-			"kind": "decor",
-			"id": "bauble-gold",
-			"label": "Gold Bauble",
-			"source": "decor:bauble-gold"
-		},
-		{
-			"kind": "decor",
-			"id": "snowflake-gold",
-			"label": "Gold Snowflake",
-			"source": "decor:snowflake-gold"
-		},
-		{
-			"kind": "decor",
-			"id": "fairy-light",
-			"label": "Fairy Light",
-			"source": "decor:fairy-light"
-		},
-		{
-			"kind": "decor",
-			"id": "gift-box",
-			"label": "Gift Box",
-			"source": "decor:gift-box"
-		},
-		{
-			"kind": "decor",
-			"id": "star",
-			"label": "Star",
-			"source": "decor:star"
-		},
-		{
-			"kind": "decor",
-			"id": "handle",
-			"label": "Handle",
-			"source": "decor:handle"
-		},
-		{
-			"kind": "decor",
-			"id": "subscribe",
-			"label": "Subscribe",
-			"source": "decor:subscribe"
 		}
 	]
 }

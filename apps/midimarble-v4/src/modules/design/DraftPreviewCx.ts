@@ -7,7 +7,7 @@ import { marblePositionAt, pieceAngleAt, pieceKind, pieceOutline } from '@/modul
 import type { TVec2 } from '@/modules/project';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { $blenderObjects, blenderObjectBox, decorBox, decorList, madeInBlenderLayer } from './decor';
-import { decorExtent, decorItem, decorText, isFrameEffect, type TDecorItem } from './decor-catalog';
+import { decorExtent, decorItem, isFrameEffect, type TDecorItem } from './decor-catalog';
 import { snowfallOf, snowFlakes, type TFlake } from './decor-effects';
 import { distanceToBox, type TWallBox } from './decor-clearance';
 import { appliedOverrides, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme } from './project-themes';
@@ -182,7 +182,7 @@ export class DraftPreviewCx {
 			const matrix = this.wallMatrix(decor.position, decor.rotation, decor.depth, decor.scale);
 			if (matrix == null) return [];
 			const asset = decorItem(decor.source) == null ? this.studio.library.$projectItems.get().find((item) => decor.source === `assets/${item.id}/asset.blend`) : undefined;
-			return [{ key: toDecorKey(decor.id), item: decorItem(decor.source), text: decorText(decor), matrix, opacity, extent: { x: extent.x / decor.scale, y: extent.y / decor.scale }, previewUrl: asset?.previewUrl ?? null }];
+			return [{ key: toDecorKey(decor.id), item: decorItem(decor.source), matrix, opacity, extent: { x: extent.x / decor.scale, y: extent.y / decor.scale }, previewUrl: asset?.previewUrl ?? null }];
 		});
 	}
 
@@ -409,7 +409,6 @@ export interface TDraftDecor {
 	key: string;
 	/** Null for an asset */
 	item: TDecorItem | null;
-	text: string | null;
 	/** SVG transform from the item's own metres to CSS pixels */
 	matrix: string;
 	opacity: number;
