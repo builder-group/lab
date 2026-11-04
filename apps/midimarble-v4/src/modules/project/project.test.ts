@@ -29,10 +29,10 @@ describe('project document', () => {
 		}
 	});
 
-	it('should keep optional theme options and reject unknown ones', () => {
+	it('should move old theme options into the theme on load and reject unknown ones', () => {
 		const project = createProject();
 		const withOptions = { ...project, design: { ...project.design, themeOptions: { colorByNote: true } } };
-		expect(parseProject(serializeProject(withOptions))[2]?.design.themeOptions).toEqual({ colorByNote: true });
+		expect(parseProject(serializeProject(withOptions))[2]?.design.themeOptions).toBeUndefined();
 		expect(parseProject(JSON.stringify({ ...project, design: { ...project.design, themeOptions: { glow: 1 } } }))[0]).toBe(false);
 	});
 

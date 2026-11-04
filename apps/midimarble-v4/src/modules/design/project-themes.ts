@@ -1,5 +1,7 @@
 import type { TSceneThemeOverrides } from '@/modules/blender/scene-description';
-import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TThemeOverrides } from '@/modules/project';
+import { createId, type TDesign, type TEntity, type TKeyLightPose, type TProject, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
+import { canonicalSkin } from '@/modules/project/skin-ids';
+import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, type TSkinElement, type TSkinLook } from './skin-catalog';
 
 // Themes a project makes from a built-in one. A project theme keeps its base's skins, reactions and render look and
 // changes a few colours on top (`TThemeOverrides`). `design.theme` names a built-in id or a project theme's id; the
@@ -32,6 +34,8 @@ export interface TResolvedTheme {
 	/** Built-in theme the look starts from */
 	base: string;
 	overrides: TThemeOverrides;
+	/** What it dresses each element type with: its base's, with a project theme's parts on top */
+	parts: Record<TSkinElement, TSkinLook>;
 	isBuiltIn: boolean;
 	/** The project theme behind it, null for a built-in or unknown id */
 	projectTheme: TProjectTheme | null;
@@ -52,11 +56,32 @@ export function projectThemes(design: Pick<TDesign, 'themes'>): TProjectTheme[] 
 /** Resolves a theme id, the applied theme by default. An unknown id draws as the default theme, like in Blender. */
 export function resolveTheme(design: Pick<TDesign, 'theme' | 'themes'>, id: string = design.theme): TResolvedTheme {
 	const builtIn = builtInThemeLabel(id);
-	if (builtIn != null) return { id, name: builtIn, base: id, overrides: {}, isBuiltIn: true, projectTheme: null };
+	if (builtIn != null) return { id, name: builtIn, base: id, overrides: {}, parts: resolveParts(id, null), isBuiltIn: true, projectTheme: null };
 	const theme = projectThemes(design).find((item) => item.id === id);
-	if (theme == null) return { id, name: id, base: DEFAULT_THEME, overrides: {}, isBuiltIn: false, projectTheme: null };
+	if (theme == null) return { id, name: id, base: DEFAULT_THEME, overrides: {}, parts: resolveParts(DEFAULT_THEME, null), isBuiltIn: false, projectTheme: null };
 	const base = isBuiltInTheme(theme.base) ? theme.base : DEFAULT_THEME;
-	return { id, name: theme.name, base, overrides: theme.overrides, isBuiltIn: false, projectTheme: theme };
+	return { id, name: theme.name, base, overrides: theme.overrides, parts: resolveParts(base, theme.parts), isBuiltIn: false, projectTheme: theme };
+}
+
+function resolveParts(base: string, parts: TThemeParts | null | undefined): Record<TSkinElement, TSkinLook> {
+	return Object.fromEntries(SKIN_ELEMENTS.map((element) => [element, resolveSkinLook(base, parts, element)])) as Record<TSkinElement, TSkinLook>;
+}
+
+/** What an element wears under the applied theme, with its own skin component's overrides */
+export function resolveElementLook(design: Pick<TDesign, 'theme' | 'themes'>, element: TSkinElement, component?: TSkinComponent | null): TSkinLook {
+	const theme = resolveTheme(design);
+	return resolveSkinLook(theme.base, theme.projectTheme?.parts, element, component);
+}
+
+/** A project theme's parts for the scene description; absent for a built-in theme or a project theme without any */
+export function sceneThemeParts(design: Pick<TDesign, 'theme' | 'themes'>): TThemeParts | undefined {
+	const parts = resolveTheme(design).projectTheme?.parts;
+	return parts != null && Object.keys(parts).length > 0 ? parts : undefined;
+}
+
+/** Whether the theme's platforms take their note's colour: Colour by Note as a theme's default */
+export function isThemeColorByNote(design: Pick<TDesign, 'theme' | 'themes'>): boolean {
+	return resolveTheme(design).parts.platform.colour === 'note';
 }
 
 /** Built-in theme the applied theme starts from: skins, reactions, title colour and render look follow it */
@@ -64,9 +89,21 @@ export function baseThemeOf(design: Pick<TDesign, 'theme' | 'themes'>): string {
 	return resolveTheme(design).base;
 }
 
-/** Overrides of the applied theme for the scene description; absent for a built-in or a project theme without any */
-export function sceneThemeOverrides(design: Pick<TDesign, 'theme' | 'themes'>): TSceneThemeOverrides | undefined {
-	const overrides = resolveTheme(design).overrides;
+/**
+ * The colours the film uses: the applied theme's overrides with the Wall and Key Light layers' own colours on top,
+ * for the scene description and the Draft Preview
+ */
+export function appliedOverrides(design: Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>): TThemeOverrides {
+	const overrides: TThemeOverrides = { ...resolveTheme(design).overrides };
+	if (design.wall?.color != null) overrides.wallColor = design.wall.color;
+	if (design.wall?.backgroundColor != null) overrides.backgroundColor = design.wall.backgroundColor;
+	if (design.lights?.key?.color != null) overrides.lightColor = design.lights.key.color;
+	return overrides;
+}
+
+/** Overrides of the film's look for the scene description; absent for a built-in or a project theme without any */
+export function sceneThemeOverrides(design: Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>): TSceneThemeOverrides | undefined {
+	const overrides = appliedOverrides(design);
 	const entries = Object.entries(overrides).filter(([, value]) => typeof value === 'string' && value.length > 0);
 	return entries.length > 0 ? (Object.fromEntries(entries.map(([name, value]) => [name, value.toLowerCase()])) as TSceneThemeOverrides) : undefined;
 }
@@ -132,9 +169,133 @@ export function duplicateThemeCommands(project: TProject, sourceId: string): { c
 		id: createId('theme'),
 		name: copyName(source.name, projectThemes(project.design).map((item) => item.name)),
 		base: source.base,
-		overrides: { ...source.overrides }
+		overrides: { ...source.overrides },
+		...sceneOf(source.projectTheme),
+		...(source.projectTheme?.parts != null ? { parts: source.projectTheme.parts } : {})
 	};
-	return { commands: addThemeCommands(project, theme), themeId: theme.id };
+	// The applied theme's copy keeps what the project changed on the Wall and Lights layers, which the copy now holds
+	if (sourceId !== project.design.theme || !hasLayerChanges(project.design)) return { commands: addThemeCommands(project, theme), themeId: theme.id };
+	const { wall, lights } = project.design;
+	const saved: TProjectTheme = {
+		...theme,
+		overrides: appliedOverrides(project.design),
+		...sceneOf({
+			wallKind: wall?.kind ?? theme.wallKind,
+			keyLight: { ...theme.keyLight, ...withoutColor(lights?.key) },
+			lights: [...(theme.lights ?? []), ...(lights?.added ?? [])]
+		})
+	};
+	return { commands: [...addThemeCommands(project, saved), { type: 'setDesign', design: { wall: undefined, lights: undefined } }], themeId: saved.id };
+}
+
+/** Whether the project changed the Wall or Lights layers on top of its theme, which Save as Theme stores */
+export function hasLayerChanges(design: Pick<TDesign, 'wall' | 'lights'>): boolean {
+	return Object.keys(design.wall ?? {}).length > 0 || Object.keys(design.lights?.key ?? {}).length > 0 || (design.lights?.added?.length ?? 0) > 0;
+}
+
+/** A project theme's Wall skin, Key Light and lights, leaving out what it does not set */
+function sceneOf(theme: Pick<TProjectTheme, 'wallKind' | 'keyLight' | 'lights'> | null): Pick<TProjectTheme, 'wallKind' | 'keyLight' | 'lights'> {
+	return {
+		...(theme?.wallKind != null ? { wallKind: theme.wallKind } : {}),
+		...(theme?.keyLight != null && Object.keys(theme.keyLight).length > 0 ? { keyLight: { ...theme.keyLight } } : {}),
+		...(theme?.lights != null && theme.lights.length > 0 ? { lights: theme.lights.map((light) => ({ ...light })) } : {})
+	};
+}
+
+function withoutColor(key: NonNullable<TDesign['lights']>['key']): TKeyLightPose {
+	const { color: _color, ...pose } = key ?? {};
+	return pose;
+}
+
+/**
+ * Sets fields of one element's part in a project theme, null clears one; a part with nothing set goes away. A built-in
+ * theme is read-only, so it changes nothing there.
+ */
+export function themePartCommands(project: TProject, themeId: string, element: TSkinElement, patch: { [K in keyof TThemePart]?: TThemePart[K] | null }): TProjectCommand[] {
+	const themes = projectThemes(project.design);
+	const theme = themes.find((item) => item.id === themeId);
+	if (theme == null) return [];
+	const merged = { ...theme.parts?.[element], ...patch };
+	const part = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null)) as TThemePart;
+	const { [element]: _old, ...others } = theme.parts ?? {};
+	const parts: TThemeParts = Object.keys(part).length > 0 ? { ...others, [element]: part } : others;
+	const { parts: _parts, ...rest } = theme;
+	const next: TProjectTheme = Object.keys(parts).length > 0 ? { ...rest, parts } : rest;
+	return [{ type: 'setDesign', design: { themes: themes.map((item) => (item.id === themeId ? next : item)) } }];
+}
+
+/**
+ * Save as Theme: a project theme like Duplicate Theme's, whose parts are this project's choices per element type: the
+ * look most of each type wear, built-in skins only. Pieces in that look then just follow the theme; pieces in another
+ * keep it. One edit, and the theme is applied.
+ */
+export function saveAsThemeCommands(project: TProject): { commands: TProjectCommand[]; themeId: string } {
+	const { commands, themeId } = duplicateThemeCommands(project, project.design.theme);
+	const parts = currentThemeParts(project);
+	const clear = project.entities.flatMap((entity): TProjectCommand[] => {
+		const element = entitySkinElement(entity);
+		const skin = entity.components.skin;
+		const part = element != null ? parts[element] : undefined;
+		if (skin == null || part == null) return [];
+		const rest = withoutPart(canonicalSkin(skin), part);
+		if (rest === skin) return [];
+		return [rest != null ? { type: 'setComponent', entityId: entity.id, component: { name: 'skin', value: rest } } : { type: 'removeComponent', entityId: entity.id, name: 'skin' }];
+	});
+	const withCopy = commands.flatMap((command) => {
+		if (command.type !== 'setDesign' || command.design.themes == null) return [command];
+		return [{ ...command, design: { ...command.design, themes: command.design.themes.map((theme) => (theme.id === themeId ? { ...theme, parts: { ...theme.parts, ...parts } } : theme)) } }];
+	});
+	return { commands: [...withCopy, ...clear], themeId };
+}
+
+/** Whether pieces or marbles wear choices of their own, which Save as Theme can turn into a theme */
+export function hasSkinChoices(project: TProject): boolean {
+	return Object.keys(currentThemeParts(project)).length > 0;
+}
+
+function currentThemeParts(project: TProject): TThemeParts {
+	const counts = new Map<TSkinElement, Map<string, { part: TThemePart; count: number }>>();
+	for (const entity of project.entities) {
+		const element = entitySkinElement(entity);
+		if (element == null) continue;
+		const part = partOf(entity.components.skin);
+		if (part == null) continue;
+		const looks = counts.get(element) ?? new Map<string, { part: TThemePart; count: number }>();
+		const key = JSON.stringify(part);
+		looks.set(key, { part, count: (looks.get(key)?.count ?? 0) + 1 });
+		counts.set(element, looks);
+	}
+	const parts: TThemeParts = {};
+	for (const element of SKIN_ELEMENTS) {
+		const looks = [...(counts.get(element)?.values() ?? [])];
+		const total = project.entities.filter((entity) => entitySkinElement(entity) === element).length;
+		const best = looks.sort((a, b) => b.count - a.count)[0];
+		// Only what most of the type wear becomes its default; a few skinned pieces stay exceptions
+		if (best != null && best.count * 2 >= total) parts[element] = best.part;
+	}
+	return parts;
+}
+
+/** The part a skin component's choices make; null for a library skin or no choices */
+function partOf(skin: TSkinComponent | undefined): TThemePart | null {
+	if (skin == null) return null;
+	const { assetId, colour, onHit, glowColor, variant } = canonicalSkin(skin);
+	if (assetId != null && catalogSkin(assetId) == null) return null;
+	const part: TThemePart = {
+		...(assetId != null ? { skin: assetId } : {}),
+		...(colour != null ? { colour } : {}),
+		...(onHit != null ? { onHit } : {}),
+		...(glowColor != null ? { glowColor } : {}),
+		...(variant != null ? { variant } : {})
+	};
+	return Object.keys(part).length > 0 ? part : null;
+}
+
+/** The skin component without what the part now says; null when nothing is left, the same object when nothing changed */
+function withoutPart(skin: TSkinComponent, part: TThemePart): TSkinComponent | null {
+	const own = partOf(skin);
+	if (own == null || JSON.stringify(own) !== JSON.stringify(part) || skin.properties != null) return skin;
+	return null;
 }
 
 /** Renames a project theme; an empty name changes nothing */

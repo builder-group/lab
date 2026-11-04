@@ -1,8 +1,9 @@
 import type { TWallLook } from '@/modules/compose/ComposeRenderer';
 import type { TRenderPreset } from '@/modules/blender';
 import type { TScenePiece } from '@/modules/blender/scene-description';
-import type { TThemeOverrides } from '@/modules/project';
+import type { TThemeOverrides, TThemeParts, TWallKind } from '@/modules/project';
 import { filmSize } from './export-estimate';
+import { resolveSkinLook, skinElement, type TSkinLook } from './skin-catalog';
 
 // Flat colours that approximate the Blender themes for the Film Draft Preview. The values follow
 // `blender/mm_worker/themes.py` and `skins.py`, converted from Blender's linear colours to display sRGB and
@@ -41,11 +42,11 @@ export function noteColor(pitch: number): string {
  * Birch hardboard with dark peg holes for Pegboard, matte lavender plaster for Brass, deep navy for Neon. A project
  * theme's Wall colour replaces the base's, and Pegboard keeps its holes.
  */
-export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}): TWallLook {
-	const wall = overrides.wallColor;
-	if (theme === 'brass') return { color: wall ?? '#a098ac', holes: null };
-	if (theme === 'neon') return { color: wall ?? '#141a2a', holes: null };
-	return { color: wall ?? '#b3a38f', holes: 'rgba(72, 56, 40, 0.75)', holeRadius: 0.1 };
+export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, kind?: TWallKind): TWallLook {
+	const color = overrides.wallColor ?? (theme === 'brass' ? '#a098ac' : theme === 'neon' ? '#141a2a' : '#b3a38f');
+	// The Wall layer's Skin puts peg holes on any theme or takes them away; Grid draws flat here, its lines are Blender's
+	const hasHoles = kind != null ? kind === 'pegboard' : theme !== 'brass' && theme !== 'neon';
+	return hasHoles ? { color, holes: 'rgba(72, 56, 40, 0.75)', holeRadius: 0.1 } : { color, holes: null };
 }
 
 /** Wood of pegs, hubs and rail posts in Pegboard */
@@ -63,51 +64,58 @@ const FINISHES: Record<string, string> = {
 const HOUSING = '#26282d';
 
 /**
- * Whether Colour by Note colours a piece with this skin: only a piece that shows its theme's default skin takes its
- * note's colour; a skin chosen for it keeps its own colour. `brass:gold` is Brass's default spelled out. The same
- * rule as `takes_note_color` in skins.py.
+ * Whether the theme's Colour applies to a piece with this skin: only a piece that shows its theme's skin; a skin chosen
+ * for it keeps its own colour until its own Colour says otherwise. Spelling out the theme's skin (`platform:gold` on
+ * Brass) changes nothing. The rule of `resolve_look` in skin_catalog.py.
  */
 export function takesNoteColor(theme: string, skin: TScenePiece['skin'] | undefined): boolean {
-	const assetId = skin?.assetId ?? null;
-	return assetId == null || (theme === 'brass' && assetId === 'brass:gold');
+	return resolveSkinLook(theme, null, 'platform', skin).isThemeSkin;
+}
+
+/** What a skin colours itself with, by its Colour: null for its own colour */
+function accentOf(look: TSkinLook, piece: Pick<TScenePiece, 'color' | 'notePitch'>): string | null {
+	if (look.colour === 'skin') return null;
+	return look.colour === 'note' && piece.notePitch != null ? noteColor(piece.notePitch) : piece.color;
 }
 
 /**
- * Body and accent colour of a piece in a theme, from its scene description entry: its skin, its marble's colour
- * and, with Colour by Note, its note when it shows the theme's default skin.
+ * Body and accent colour of a piece from its scene description entry: its skin, wherever the theme stands, and that skin's
+ * Colour. `colorByNote` is the theme's default for platforms; `parts` a project theme's parts.
  */
 export function draftPieceColors(
 	theme: string,
 	piece: Pick<TScenePiece, 'type' | 'color' | 'skin' | 'notePitch'>,
 	colorByNote: boolean,
-	overrides: Pick<TThemeOverrides, 'glowColor'> = {}
+	overrides: Pick<TThemeOverrides, 'glowColor'> = {},
+	parts?: TThemeParts
 ): TDraftColors {
-	const note =
-		colorByNote && piece.type === 'platform' && piece.notePitch != null && takesNoteColor(theme, piece.skin) ? noteColor(piece.notePitch) : null;
-	// A Brass skin from More Skins dresses a platform as Brass in any theme, like `PieceFrame.is_brass_skin` in skins.py
-	const isBrassSkin = piece.type === 'platform' && piece.skin?.assetId.startsWith('brass:') === true;
-	if (theme === 'neon' && !isBrassSkin) return neonColors(piece.type, note ?? piece.color, overrides.glowColor ?? null);
-	// A Finish is a clear chrome chute in Pegboard and Brass, like `finish_spec` in skins.py, and plays no note
-	if (piece.type === 'finish' && theme !== 'neon') return { bar: CHROME, nub: theme === 'brass' ? '#9da1a8' : WOOD };
-	if (theme !== 'brass' && !isBrassSkin) {
+	const withNote = colorByNote ? { ...parts, platform: { ...parts?.platform, colour: 'note' as const } } : parts;
+	const look = resolveSkinLook(theme, withNote, skinElement(piece.type), piece.skin);
+	const style = look.skin.split(':')[1] ?? '';
+	const accent = accentOf(look, piece);
+	// Glowing skins: what reads is the glow, in their marble's or note's hue
+	if (style === 'neon' || style === 'glow') return neonColors(piece.type, accent ?? GLOW_SKIN, look.glowColor ?? overrides.glowColor ?? null);
+	if (style === 'pegboard' || style === 'wood') {
+		// A Wood Finish is chrome wires on wooden pegs and plays no note
+		if (piece.type === 'finish') return { bar: accent ?? CHROME, nub: WOOD };
 		// Pieces take their marble's colour; a lighter tint keeps the marble readable as it rolls over them
-		const body = note ?? tint(piece.color, PEGBOARD_TINT);
+		const body = accent == null ? WOOD : accent === piece.color ? tint(piece.color, PEGBOARD_TINT) : accent;
 		return piece.type === 'tunnel' ? { bar: body, nub: shade(body, 0.75) } : { bar: body, nub: WOOD };
 	}
 	switch (piece.type) {
 		case 'platform': {
 			// Devices draw their key, lens or grille as marks on top (`draftSkinMarks`); the bar is their housing
-			const [device] = brassSkin(piece.skin?.assetId).split('-');
+			const [device] = style.split('-');
 			if (device === 'key' || device === 'knob') return { bar: HOUSING, nub: CHROME };
 			if (device === 'device') return { bar: FINISHES['silver'] ?? CHROME, nub: CHROME };
-			return { bar: note ?? FINISHES[brassSkin(piece.skin?.assetId)] ?? FINISHES['gold'] ?? CHROME, nub: CHROME };
+			return { bar: accent ?? FINISHES[style] ?? FINISHES['gold'] ?? CHROME, nub: CHROME };
 		}
 		case 'windmill':
-			return { bar: FINISHES['gold'] ?? CHROME, nub: CHROME };
+			return { bar: accent ?? FINISHES['gold'] ?? CHROME, nub: CHROME };
 		case 'tunnel':
-			return { bar: '#e9ecf2', nub: CHROME };
+			return { bar: accent ?? '#e9ecf2', nub: CHROME };
 		default:
-			return { bar: CHROME, nub: '#9da1a8' };
+			return { bar: accent ?? CHROME, nub: '#9da1a8' };
 	}
 }
 
@@ -124,16 +132,16 @@ export interface TDraftMark {
 }
 
 /**
- * Marks that tell a Brass skin apart in the Draft Preview, after `platform_spec` and `device_spec` in skins.py:
- * chrome end caps on a plain bar, end blocks in the trim finish and a dark grille on a Device, the white key of a
- * Key and the red lens at the outer end of a Knob. Empty for pieces not dressed as Brass.
+ * Marks that tell a platform skin apart in the Draft Preview, after `platform_spec` and `device_spec` in skins.py: chrome
+ * end caps on a plain bar, end blocks in the trim finish and a dark grille on a Device, the white key of a Key and the
+ * red lens at the outer end of a Knob. Empty for Pegboard and Neon platforms and other pieces.
  */
-export function draftSkinMarks(theme: string, piece: Pick<TScenePiece, 'type' | 'skin'> & { angle?: number }): TDraftMark[] {
+export function draftSkinMarks(theme: string, piece: Pick<TScenePiece, 'type' | 'skin'> & { angle?: number }, parts?: TThemeParts): TDraftMark[] {
 	if (piece.type !== 'platform') return [];
-	const isBrassSkin = piece.skin?.assetId.startsWith('brass:') === true;
-	if (theme !== 'brass' && !isBrassSkin) return [];
-	const skin = brassSkin(piece.skin?.assetId);
-	const [device, trim = 'gold'] = skin.split('-');
+	const look = resolveSkinLook(theme, parts, 'platform', piece.skin);
+	const style = look.skin.split(':')[1] ?? '';
+	if (style === 'pegboard' || style === 'neon') return [];
+	const [device, trim = 'gold'] = style.split('-');
 	if (device === 'key') return [{ x0: -0.27, x1: 0.39, y0: 0.08, y1: 0.5, color: KEY_WHITE }];
 	if (device === 'knob') {
 		// The lens sits at the end the bar slopes down to, like `device_spec`
@@ -142,7 +150,7 @@ export function draftSkinMarks(theme: string, piece: Pick<TScenePiece, 'type' | 
 		return [{ x0: Math.min(inner, outer), x1: Math.max(inner, outer), y0: -0.28, y1: 0.28, color: KNOB_RED }];
 	}
 	if (device === 'device') {
-		const ends = FINISHES[trim] ?? FINISHES['gold'] ?? CHROME;
+		const ends = FINISHES[look.variant ?? trim] ?? FINISHES['gold'] ?? CHROME;
 		const slots = Array.from({ length: 7 }, (_, index) => {
 			const x = -0.25 + (0.5 * index) / 6;
 			return { x0: x - 0.022, x1: x + 0.022, y0: -0.25, y1: 0.18, color: SLOT };
@@ -171,7 +179,15 @@ export interface TDraftMarble {
 	rim: string | null;
 	/** Pearl: near white with its lane's hue on the rim. Deep: its lane's hue made dark. */
 	tone: 'pearl' | 'deep';
+	/** A marble skin drawn over the body: the vanes of Glass, the mirror of Metal, the smoke of Magic */
+	finish?: { kind: 'glass' | 'metal' | 'magic'; color: string; second: string };
 }
+
+/** `Skin` colours of the marble skins that have one, `GLASS_SKIN` and `MAGIC_SKIN` in skin_materials.py */
+const GLASS_SKIN = '#1f6fe0';
+const MAGIC_SKIN = '#7a3cff';
+/** `GLOW_SKIN_COLOR` in skins.py: Colour: Skin on a glowing skin */
+const GLOW_SKIN = '#39c8ff';
 
 /** The contrast a marble keeps against its wall and its own pieces, as WCAG's 3:1 for graphics */
 export const MARBLE_CONTRAST = 3;
@@ -182,24 +198,24 @@ export const MARBLE_CONTRAST = 3;
  * deep on a light one (Pegboard's birch, Brass's lavender), whichever contrasts more with both. A project theme's
  * Wall colour can change the choice. The same rule as `marble_look` in themes.py.
  */
-export function draftMarble(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}): TDraftMarble {
-	return marbleLook(theme, color, overrides).marble;
+export function draftMarble(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, skin?: TSkinLook): TDraftMarble {
+	return marbleLook(theme, color, overrides, skin).marble;
 }
 
 /**
  * The lower of a marble's contrasts against its wall and its own pieces, for the theme colour wells' warning
  * below `MARBLE_CONTRAST`
  */
-export function marbleContrast(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}): number {
-	return marbleLook(theme, color, overrides).contrast;
+export function marbleContrast(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, skin?: TSkinLook): number {
+	return marbleLook(theme, color, overrides, skin).contrast;
 }
 
 /**
  * The Wall well's warning when its colour leaves marbles below `MARBLE_CONTRAST` against the wall or their own
  * pieces: "Melody's marble is hard to see on this wall". Null when every marble reads.
  */
-export function marbleContrastWarning(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'>, marbles: readonly { name: string; color: string }[]): string | null {
-	const faint = marbles.filter((marble) => marbleContrast(theme, marble.color, overrides) < MARBLE_CONTRAST);
+export function marbleContrastWarning(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'>, marbles: readonly { name: string; color: string; skin?: TSkinLook }[]): string | null {
+	const faint = marbles.filter((marble) => marbleContrast(theme, marble.color, overrides, marble.skin) < MARBLE_CONTRAST);
 	const [first, second] = faint;
 	if (first == null) return null;
 	if (second == null) return `${first.name}'s marble is hard to see on this wall`;
@@ -207,12 +223,33 @@ export function marbleContrastWarning(theme: string, overrides: Pick<TThemeOverr
 	return `${faint.length} marbles are hard to see on this wall`;
 }
 
-function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'>): { marble: TDraftMarble; contrast: number } {
+function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'>, skin?: TSkinLook): { marble: TDraftMarble; contrast: number } {
 	const around = [draftWall(theme, overrides).color, ...marbleSurfaces(theme, color)];
 	const lowest = (body: string): number => Math.min(...around.map((other) => contrastRatio(body, other)));
 	const hue = saturate(color, 1);
 	const pearl: TDraftMarble = { body: tint(hue, PEARL_WHITE), rim: hue, tone: 'pearl' };
 	const deep: TDraftMarble = { body: deepColor(color), rim: null, tone: 'deep' };
+	const chosen = (marble: TDraftMarble): { marble: TDraftMarble; contrast: number } => ({ marble, contrast: lowest(marble.body) });
+	switch (skin?.skin) {
+		case 'marble:pearl':
+			return chosen(skin.colour === 'skin' ? { ...pearl, body: tint('#d0d4dc', PEARL_WHITE), rim: null } : pearl);
+		case 'marble:deep':
+			return chosen(deep);
+		case 'marble:glass': {
+			const glass = saturate(skin.colour === 'skin' ? GLASS_SKIN : color, 1);
+			return chosen({ body: tint(glass, 0.55), rim: null, tone: 'pearl', finish: { kind: 'glass', color: glass, second: '#ffffff' } });
+		}
+		case 'marble:metal': {
+			const tone = skin.colour === 'marble' ? tint(saturate(color, 1), 0.35) : '#b8bcc4';
+			return chosen({ body: tone, rim: null, tone: 'pearl', finish: { kind: 'metal', color: tone, second: '#1c1e22' } });
+		}
+		case 'marble:magic': {
+			const smoke = saturate(skin.colour === 'skin' ? MAGIC_SKIN : color, 1);
+			return chosen({ body: deepColor(smoke), rim: smoke, tone: 'deep', finish: { kind: 'magic', color: smoke, second: skin.glowColor ?? tint(smoke, 0.4) } });
+		}
+		default:
+			break;
+	}
 	const [pearlContrast, deepContrast] = [lowest(pearl.body), lowest(deep.body)];
 	return pearlContrast >= deepContrast ? { marble: pearl, contrast: pearlContrast } : { marble: deep, contrast: deepContrast };
 }
@@ -302,15 +339,6 @@ function saturate(color: string, value: number): string {
 	const channel = (c: number): number => value * (1 - ((max - c) / (max - min)) * saturation);
 	return toHex(channel(r), channel(g), channel(b));
 }
-
-/** Name of a built-in Brass platform skin, `gold` for none or an unknown one, like `brass_skin` in skins.py */
-function brassSkin(assetId: string | undefined): string {
-	if (assetId?.startsWith('brass:') !== true) return 'gold';
-	const name = assetId.slice('brass:'.length);
-	return BRASS_SKINS.includes(name) ? name : 'gold';
-}
-
-const BRASS_SKINS = ['gold', 'silver', 'copper', 'dark', 'device', 'key', 'knob', 'device-silver', 'device-copper', 'device-dark'];
 
 /** Seconds a timed title takes to fade, the same as `FADE` in walltext.py */
 export const TITLE_FADE = 0.25;

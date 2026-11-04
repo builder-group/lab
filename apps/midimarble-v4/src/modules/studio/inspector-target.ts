@@ -1,10 +1,12 @@
+import { addedLights } from '@/modules/design/scene-layers';
 import type { TProject } from '@/modules/project';
-import { CAMERA_KEY, parseHitKey, parseShotKey, SONG_KEY } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_ID, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY } from './selection';
 import { hasSongLayer } from './song-layer';
 
 /**
  * What the inspector shows for a selection. Each layer owns its settings, like a layer in After Effects: the
- * Song its file and Backing, the Camera its framing, a shot or a title its own, a marble its colour and release.
+ * Song its file and Backing, the Camera its framing, a shot or a title its own, a marble its colour and release,
+ * the Wall its skin and colours, a light its colour, strength and direction.
  * Nothing selected shows the Project. The same selection shows the same inspector whether it was made in Layers
  * or in the timeline, and in either workspace.
  */
@@ -29,6 +31,15 @@ export function inspectorTarget(project: TProject, selection: readonly string[])
 	const laneId = marble?.components.marble?.laneId;
 	if (marble != null && laneId != null && project.music.lanes.some((lane) => lane.id === laneId)) return { kind: 'marble', entityId: marble.id, laneId };
 
+	const lightIds = selection.flatMap((key) => parseLightKey(key) ?? []);
+	if (lightIds.length > 0) {
+		const added = addedLights(project.design);
+		const known = lightIds.filter((id) => id === KEY_LIGHT_ID || added.some((light) => light.id === id));
+		if (known.length === 1) return { kind: 'light', id: known[0] as string };
+		if (known.length > 1) return { kind: 'lights' };
+	}
+
+	if (selected.has(WALL_KEY)) return { kind: 'wall' };
 	if (selected.has(SONG_KEY) && hasSongLayer(project)) return { kind: 'song' };
 	if (selected.has(CAMERA_KEY)) return { kind: 'camera' };
 	return { kind: 'project' };
@@ -41,6 +52,9 @@ export type TInspectorTarget =
 	| { kind: 'titles'; ids: string[] }
 	| { kind: 'shot'; id: string }
 	| { kind: 'marble'; entityId: string; laneId: string }
+	| { kind: 'light'; id: string }
+	| { kind: 'lights' }
+	| { kind: 'wall' }
 	| { kind: 'song' }
 	| { kind: 'camera' }
 	| { kind: 'project' };

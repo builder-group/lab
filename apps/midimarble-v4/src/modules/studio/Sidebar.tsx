@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, AudioLines, Bookmark, ChevronRight, Eye, EyeOff, Folder, Lock, LockOpen, Music, Plus, Type, Video } from 'lucide-react';
+import { Anchor, AudioLines, Bookmark, BrickWall, ChevronRight, Eye, EyeOff, Folder, Lightbulb, Lock, LockOpen, Music, Plus, Sun, Type, Video } from 'lucide-react';
 import React from 'react';
 import { HelpTip, MenuButton, openContextMenu, RenameField } from '@/components';
 import { attachState } from '@/modules/compose/attach-edit';
@@ -7,6 +7,7 @@ import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
 import { DesignLibrary } from '@/modules/design/DesignLibrary';
 import { preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { updateLightCommands } from '@/modules/design/scene-layers';
 import { shotKindLabel } from '@/modules/design/shots';
 import type { TEntity, TProject } from '@/modules/project';
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
@@ -130,7 +131,7 @@ const ProjectHeader: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 /**
  * The project's layers like Figma UI3's layer list. Each layer with a row in the timeline carries the timeline
  * glyph and shares its selection, like After Effects. Compose lists the Song and the marbles with their pieces;
- * Film lists every layer, the Camera with its shots and the titles too. Up and Down move the selection, Left and
+ * Film lists every layer, the Wall, the Lights, the Camera with its shots and the titles too. Up and Down move the selection, Left and
  * Right fold a group.
  */
 const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace }> = (props) => {
@@ -249,6 +250,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		if (row.kind === 'marble') openContextMenu(event, laneMenu(cx, row.lane));
 		else if (row.kind === 'piece') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
+		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
 		else if (row.kind === 'camera' || row.kind === 'shot') openContextMenu(event, [commandItem(cx, 'camera.addShot'), ...(row.kind === 'shot' ? [commandItem(cx, 'edit.delete')] : [])]);
 		else event.preventDefault();
 	}
@@ -302,10 +304,10 @@ interface TRowProps {
 }
 
 function canRename(row: TOutlineRow): boolean {
-	return row.kind === 'marble' || row.kind === 'piece' || row.kind === 'title';
+	return row.kind === 'marble' || row.kind === 'piece' || row.kind === 'title' || (row.kind === 'light' && row.light != null);
 }
 
-/** Every row except pieces: the song, marbles, groups, the camera, shots and titles */
+/** Every row except pieces: the song, marbles, groups, the wall, lights, the camera, shots and titles */
 const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onToggle?: () => void }> = (props) => {
 	const { cx, row, isSelected, isInSelection, joins, hasTrack, isRenaming, onToggle, onClick, onContextMenu } = props;
 	const view = outlineRowView(row);
@@ -315,6 +317,7 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 		if (value == null || value === view.label) return;
 		if (row.kind === 'marble') cx.execute([{ type: 'upsertLane', lane: { ...row.lane, name: value } }]);
 		else if (row.kind === 'title') cx.execute([{ type: 'upsertEntity', entity: { ...row.entity, name: value } }]);
+		else if (row.kind === 'light' && row.light != null && cx.project != null) cx.execute(updateLightCommands(cx.project, row.light.id, { name: value }));
 	}
 
 	return (
@@ -369,6 +372,10 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 			return { icon: <span className="mm-layer-chip" style={{ background: row.lane.color }} />, label: row.lane.name, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'group':
 			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isOpen };
+		case 'wall':
+			return { icon: <BrickWall size={14} strokeWidth={1.75} />, label: 'Wall' };
+		case 'light':
+			return { icon: row.light == null ? <Sun size={14} strokeWidth={1.75} /> : <Lightbulb size={14} strokeWidth={1.75} />, label: row.label };
 		case 'camera':
 			return { icon: <Video size={14} strokeWidth={1.75} />, label: 'Camera', isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'shot':

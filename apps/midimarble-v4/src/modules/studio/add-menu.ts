@@ -6,7 +6,7 @@ import type { StudioCx, TWorkspace } from './StudioCx';
 
 /**
  * The one Add menu (+) of the Layers tab and the timeline's Layers column, like Figma's insert menu: a marble,
- * a piece, a title, a shot and, while the project has none, the song. An item of the other workspace opens that
+ * a piece, a title, a light, a shot and, while the project has none, the song. An item of the other workspace opens that
  * workspace first. Replace Song… and Delete Song live on the Song layer.
  */
 export function addMenu(cx: StudioCx): TMenuEntry[] {
@@ -22,6 +22,7 @@ export function addMenu(cx: StudioCx): TMenuEntry[] {
 		},
 		'separator',
 		{ label: 'Add Title', shortcut: getCommand('tool.text').shortcut, disabled: project == null, onSelect: () => runIn(cx, 'design', 'design.addText') },
+		{ label: 'Add Light', disabled: project == null, onSelect: () => runIn(cx, 'design', 'light.add') },
 		{ label: 'Add Shot', shortcut: getCommand('camera.addShot').shortcut, disabled: project == null, onSelect: () => runIn(cx, 'design', 'camera.addShot') },
 		'separator',
 		// Add Song… is Import Song…: a MIDI file or a recording

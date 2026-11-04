@@ -7,8 +7,9 @@ import { pieceKind } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
-import { SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TScreenTitleLayout } from './draft-look';
+import { SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
+import { appliedOverrides } from './project-themes';
 import { HitboxOverlay } from './HitboxOverlay';
 
 /**
@@ -22,6 +23,9 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 	const canvasRef = React.useRef<HTMLCanvasElement>(null);
 	const [dropTarget, setDropTarget] = React.useState(false);
 	const hasResult = useFeatureState(studio.simulation.$result) != null;
+	const design = useFeatureState(studio.$history)?.present.design;
+	// A Background colour the theme or the Wall layer set shows around the frame, where the film has no wall
+	const background = design != null ? appliedOverrides(design).backgroundColor : undefined;
 
 	React.useEffect(() => {
 		const container = containerRef.current;
@@ -56,7 +60,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 
 	// Letterboxed: the frame keeps the film's aspect at the largest size the pane fits, however narrow it is
 	return (
-		<div className="flex h-full min-h-0 w-full min-w-0 items-center justify-center" style={{ containerType: 'size' }}>
+		<div className="flex h-full min-h-0 w-full min-w-0 items-center justify-center" style={{ containerType: 'size', background }}>
 			<div className="relative" style={{ aspectRatio: `${frame.width} / ${frame.height}`, width: `min(100cqw, 100cqh * ${frame.width / frame.height})` }}>
 				<div
 					ref={containerRef}
@@ -130,6 +134,7 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	const titles = draft.titles();
 	const pieces = draft.pieces();
 	const glows = draft.glows();
+	const playhead = draft.studio.$playhead.get();
 
 	return (
 		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
@@ -157,11 +162,16 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				draft.skinMarks(piece).map((mark) => <polygon key={`${piece.entityId}:${mark.id}`} points={toPoints(mark.points)} fill={mark.color} stroke={mark.color} strokeWidth={0.5} strokeLinejoin="round" />)
 			)}
 			{draft.marbles().map((marble) => {
-				if (marble.rim == null) return null;
-				// Pearl marbles are near white; a ring in their hue says which lane each one is
 				const center = draft.toScreen(marble.position);
 				const radius = marble.radius * scale;
 				if (!Number.isFinite(center.x) || !Number.isFinite(radius)) return null;
+				if (marble.finish != null) {
+					// A rolling marble's turn stands in for its angle, close enough for a preview
+					const turn = (marble.position.x / marble.radius) * (180 / Math.PI);
+					return <MarbleFinish key={marble.entityId} finish={marble.finish} center={center} radius={radius} turn={turn} time={playhead} />;
+				}
+				if (marble.rim == null) return null;
+				// Pearl marbles are near white; a ring in their hue says which lane each one is
 				return (
 					<g key={marble.entityId}>
 						<circle cx={center.x} cy={center.y} r={radius * 1.35} fill="none" stroke={marble.rim} strokeOpacity={0.45} strokeWidth={Math.max(2, radius * 0.5)} style={{ filter: 'blur(2px)' }} />
@@ -173,6 +183,47 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 		</svg>
 	);
 };
+
+/**
+ * A marble skin over its body circle, in the spirit of `skin_materials.py`: Glass's winding vanes and pale ribbon, Metal's
+ * dark band under a bright sky, Magic's two clouds drifting slowly in a dark orb. All with a highlight.
+ */
+const MarbleFinish: React.FC<{ finish: NonNullable<TDraftMarble['finish']>; center: TVec2; radius: number; turn: number; time: number }> = (props) => {
+	const { finish, center, radius, turn, time } = props;
+	const clipId = React.useId();
+	const r = radius;
+	const highlight = <circle cx={center.x - r * 0.34} cy={center.y - r * 0.4} r={r * 0.15} fill="#ffffff" fillOpacity={0.9} />;
+	return (
+		<g>
+			<clipPath id={clipId}>
+				<circle cx={center.x} cy={center.y} r={r} />
+			</clipPath>
+			<g clipPath={`url(#${clipId})`}>
+				{finish.kind === 'glass' ? (
+					<g transform={`rotate(${turn} ${center.x} ${center.y})`} fill="none" strokeLinecap="round">
+						<path d={swirl(center, r, 1)} stroke={finish.color} strokeWidth={r * 0.42} />
+						<path d={swirl(center, r, -1)} stroke={finish.second} strokeWidth={r * 0.18} />
+					</g>
+				) : null}
+				{finish.kind === 'metal' ? <path d={`M ${center.x - r} ${center.y + r * 0.08} Q ${center.x} ${center.y + r * 0.26} ${center.x + r} ${center.y + r * 0.08} V ${center.y + r} H ${center.x - r} Z`} fill={finish.second} fillOpacity={0.72} /> : null}
+				{finish.kind === 'magic' ? (
+					<g style={{ filter: `blur(${Math.max(1, r * 0.2)}px)` }}>
+						<circle cx={center.x + Math.sin(time * 0.5) * r * 0.4} cy={center.y + Math.cos(time * 0.37) * r * 0.35} r={r * 0.55} fill={finish.color} />
+						<circle cx={center.x - Math.cos(time * 0.43) * r * 0.42} cy={center.y - Math.sin(time * 0.31) * r * 0.38} r={r * 0.42} fill={finish.second} />
+					</g>
+				) : null}
+			</g>
+			<circle cx={center.x} cy={center.y} r={r} fill="none" stroke={finish.kind === 'magic' ? finish.color : 'rgb(0 0 0 / 0.35)'} strokeWidth={Math.max(0.75, r * 0.07)} />
+			{highlight}
+		</g>
+	);
+};
+
+/** One S-shaped vane through the marble's centre */
+function swirl(center: TVec2, r: number, side: 1 | -1): string {
+	const [x, y] = [center.x, center.y];
+	return `M ${x - side * r * 0.72} ${y - r * 0.4} C ${x - side * r * 0.2} ${y - r * 0.85} ${x + side * r * 0.2} ${y + r * 0.85} ${x + side * r * 0.72} ${y + r * 0.4}`;
+}
 
 /**
  * The selection's outlines, through the film camera. They lie above the cover too, so a selected piece stays marked

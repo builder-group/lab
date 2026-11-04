@@ -73,6 +73,57 @@ def clean_overrides(overrides):
     return cleaned
 
 
+def grid_color(wall):
+    """The grid lines of a Grid wall: a faint lighter shade of the wall"""
+    return tuple(min(1.0, channel * 2.4 + 0.004) for channel in wall[:3])
+
+
+# The Wall layer's Skin and the Key Light layer's pose on top of the theme: `wallKind` and `keyLight` of the scene
+# description, set for one apply by `set_scene_look`. Grid is the Neon wall's lit grid.
+WALL_KINDS = {'plaster': 'plaster', 'pegboard': 'pegboard', 'grid': 'neon'}
+_scene_look = {}
+
+
+def set_scene_look(wall_kind, key_light):
+    """The valid `wallKind` and `keyLight` fields of a scene description for the apply that follows"""
+    global _scene_look
+    look = {}
+    if wall_kind in WALL_KINDS:
+        look['wallKind'] = wall_kind
+    for field in ('strength', 'side', 'height'):
+        value = key_light.get(field) if isinstance(key_light, dict) else None
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
+            look[field] = float(value)
+    _scene_look = look
+
+
+def sun_direction(side, height):
+    """Travel direction (right, into the wall, up) of a sun at Side and Height: shares of a quarter turn from
+    straight in front of the wall, left and below negative. `lightPlacement` in scene-layers.ts is the inverse."""
+    across, up = side * math.pi / 2, height * math.pi / 2
+    return (-math.sin(across) * math.cos(up), math.cos(across) * math.cos(up), -math.sin(up))
+
+
+def sun_placement(direction):
+    """Side and Height of a sun whose light travels along `direction`"""
+    length = math.sqrt(sum(value * value for value in direction)) or 1.0
+    return math.atan2(-direction[0], direction[1]) / (math.pi / 2), math.asin(-direction[2] / length) / (math.pi / 2)
+
+
+def _with_scene_look(settings):
+    if not _scene_look:
+        return settings
+    settings = {key: dict(value) if isinstance(value, dict) else value for key, value in settings.items()}
+    if 'wallKind' in _scene_look:
+        settings['wall']['kind'] = WALL_KINDS[_scene_look['wallKind']]
+    if 'strength' in _scene_look:
+        settings['sun']['energy'] = _scene_look['strength']
+    if 'side' in _scene_look or 'height' in _scene_look:
+        side, height = sun_placement(settings['sun']['direction'])
+        settings['sun']['direction'] = sun_direction(_scene_look.get('side', side), _scene_look.get('height', height))
+    return settings
+
+
 def set_overrides(overrides):
     """Project theme colours for the apply that follows; None or {} draws the built-in theme as it is"""
     global _overrides
@@ -90,8 +141,7 @@ def resolve_theme(name, overrides=None):
     if 'wallColor' in overrides:
         settings['wall']['color'] = parse_color(overrides['wallColor'])[:3]
         if 'grid' in settings['wall']:
-            # The grid lines stay a faint lighter shade of the new wall
-            settings['wall']['grid'] = tuple(min(1.0, channel * 2.4 + 0.004) for channel in settings['wall']['color'])
+            settings['wall']['grid'] = grid_color(settings['wall']['color'])
     if 'lightColor' in overrides:
         settings['sun']['color'] = parse_color(overrides['lightColor'])[:3]
     if 'backgroundColor' in overrides:
@@ -102,7 +152,7 @@ def resolve_theme(name, overrides=None):
 
 
 def theme_settings(name):
-    return resolve_theme(name, _overrides)
+    return _with_scene_look(resolve_theme(name, _overrides))
 
 
 def theme_name(name):
@@ -112,9 +162,10 @@ def theme_name(name):
 def theme_key(name):
     """What the studio was last themed with: the base name, plus the project theme's colours when it has any"""
     name = theme_name(name)
-    if not _overrides:
+    parts = {**_overrides, **_scene_look}
+    if not parts:
         return name
-    return name + ' ' + ' '.join('%s=%s' % (field, _overrides[field]) for field in sorted(_overrides))
+    return name + ' ' + ' '.join('%s=%s' % (field, parts[field]) for field in sorted(parts))
 
 
 def flat_look(key):
@@ -598,11 +649,13 @@ def neon_wall_material(color, grid, spacing=0.05):
 
 def wall_material(theme, pitch):
     wall = theme_settings(theme)['wall']
+    # The Wall layer's Skin can put any theme's colour on any kind; a Pegboard theme's own wall has no colour field
+    color = wall.get('color', PEGBOARD_COLOR)
     if wall['kind'] == 'plaster':
-        return plaster_wall_material(wall['color'])
+        return plaster_wall_material(color)
     if wall['kind'] == 'neon':
-        return neon_wall_material(wall['color'], wall['grid'])
-    return pegboard_wall_material(pitch, wall.get('color', PEGBOARD_COLOR))
+        return neon_wall_material(color, wall.get('grid') or grid_color(color))
+    return pegboard_wall_material(pitch, color)
 
 
 # Neon: saturated glossy bodies with glowing trim on a dark wall

@@ -1,5 +1,6 @@
-import type { TEntity, TLane, TProject, TShot, TSource } from '@/modules/project';
-import { CAMERA_KEY, SONG_KEY, toShotKey } from './selection';
+import { addedLights } from '@/modules/design/scene-layers';
+import type { TEntity, TLane, TLight, TProject, TShot, TSource } from '@/modules/project';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from './selection';
 import { hasSongLayer, songLayerName } from './song-layer';
 import { songSource } from './SourcesCx';
 import type { TWorkspace } from './StudioCx';
@@ -7,8 +8,9 @@ import type { TWorkspace } from './StudioCx';
 /**
  * The project's layers in display order, which the Layers list draws and Shift ranges and arrow keys follow:
  * the Song while the project has one, each marble with the pieces it plays or that follow it in hit order, Pieces
- * (those no marble plays or follows), the Camera with its shots and Titles. Compose is the performance and shows only the Song and the
- * marbles with their pieces; Film is the presentation and shows every layer. Rows of a collapsed group leave out
+ * (those no marble plays or follows), the Wall, the Lights, the Camera with its shots and Titles, a fixed order by
+ * kind. Compose is the performance and shows only the Song and the marbles with their pieces; Film is the
+ * presentation and shows every layer. Rows of a collapsed group leave out
  * their children. The timeline shows the same layers as rows, like After Effects: the rows with a `track`.
  */
 export function buildOutline(project: TProject, options: TOutlineOptions = {}): TOutlineRow[] {
@@ -36,6 +38,16 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 
 	if (workspace === 'compose') return rows;
 
+	rows.push({ kind: 'wall', id: WALL_KEY, depth: 0, parentId: null, track: null });
+
+	const lights = addedLights(project.design);
+	const isLightsOpen = !collapsed.includes(LIGHTS_KEY);
+	rows.push({ kind: 'group', id: LIGHTS_KEY, depth: 0, parentId: null, track: null, label: 'Lights', groupKey: LIGHTS_KEY, childIds: [KEY_LIGHT_KEY, ...lights.map((light) => toLightKey(light.id))], isOpen: isLightsOpen });
+	if (isLightsOpen) {
+		rows.push({ kind: 'light', id: KEY_LIGHT_KEY, depth: 1, parentId: LIGHTS_KEY, track: null, label: KEY_LIGHT_LABEL, light: null });
+		for (const light of lights) rows.push({ kind: 'light', id: toLightKey(light.id), depth: 1, parentId: LIGHTS_KEY, track: null, label: light.name, light });
+	}
+
 	const shots = [...project.design.camera.shots].sort((a, b) => a.time - b.time);
 	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
 	rows.push({ kind: 'camera', id: CAMERA_KEY, depth: 0, parentId: null, track: 'camera', groupKey: CAMERA_KEY, hasChildren: shots.length > 0, isOpen: isCameraOpen });
@@ -54,7 +66,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 export interface TOutlineOptions {
 	/** Group keys of folded groups: a lane ID, the Camera key or a group row's ID */
 	collapsed?: string[];
-	/** Compose leaves out the Camera, its shots and the titles; Film, the default, shows every layer */
+	/** Compose leaves out the Wall, the Lights, the Camera, its shots and the titles; Film, the default, shows every layer */
 	workspace?: TWorkspace;
 }
 
@@ -69,6 +81,12 @@ export const PIECES_GROUP_HELP = 'Pieces no marble plays or follows; marbles can
 
 /** Group row of the titles on the wall; its ID is never a selection key */
 export const TITLES_KEY = 'group:titles';
+
+/** Group row of the Key Light and the added lights; its ID is never a selection key */
+export const LIGHTS_KEY = 'group:lights';
+
+/** Name of the theme's light (words.md: Key Light) */
+export const KEY_LIGHT_LABEL = 'Key Light';
 
 /** The timeline track a row also has */
 export type TOutlineTrack = 'song' | 'lane' | 'camera';
@@ -87,13 +105,16 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'marble'; track: 'lane'; lane: TLane; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TEntity; laneId: string | null })
 	| (TOutlineRowBase & { kind: 'group'; label: string; help?: string; groupKey: string; childIds: string[]; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'wall' })
+	// `light` is null for the Key Light, which comes from the theme
+	| (TOutlineRowBase & { kind: 'light'; label: string; light: TLight | null })
 	| (TOutlineRowBase & { kind: 'camera'; track: 'camera'; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'shot'; shot: TShot })
 	| (TOutlineRowBase & { kind: 'title'; entity: TEntity });
 
-/** Whether a row belongs to the Film workspace only: the Camera with its shots and the titles */
+/** Whether a row belongs to the Film workspace only: the Wall, the Lights, the Camera with its shots and the titles */
 export function isFilmRow(row: TOutlineRow): boolean {
-	return row.kind === 'camera' || row.kind === 'shot' || row.kind === 'title' || (row.kind === 'group' && row.id === TITLES_KEY);
+	return row.kind === 'wall' || row.kind === 'light' || row.kind === 'camera' || row.kind === 'shot' || row.kind === 'title' || (row.kind === 'group' && (row.id === TITLES_KEY || row.id === LIGHTS_KEY));
 }
 
 /** Whether a click on the row selects the row itself; group rows select their children instead */

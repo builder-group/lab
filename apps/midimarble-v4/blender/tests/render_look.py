@@ -1,7 +1,7 @@
 """Applies an exported package and renders stills for look review.
 
 Run: Blender --background --factory-startup --python blender/tests/render_look.py -- <package> <out-dir> [--times 1.0,2.5]
-     [--engine eevee|cycles] [--width 540] [--samples N] [--film fast]
+     [--engine eevee|cycles] [--width 540] [--samples N] [--film fast] [--marble-skin marble:glass] [--marble-variant cats-eye]
 """
 import argparse
 import json
@@ -26,6 +26,9 @@ parser.add_argument('--width', type=int, default=540)
 parser.add_argument('--samples', type=int, default=0)
 parser.add_argument('--film', default='')
 parser.add_argument('--hits', type=int, default=0, help='Also render stills at the first N hit times')
+parser.add_argument('--marble-skin', default='', help='Dress every marble in this skin, such as marble:glass')
+parser.add_argument('--marble-variant', default='')
+parser.add_argument('--suffix', default='')
 arguments = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
 
 package = Path(arguments.package).resolve()
@@ -33,7 +36,14 @@ out = Path(arguments.out).resolve()
 out.mkdir(parents=True, exist_ok=True)
 bpy.ops.wm.read_homefile(use_empty=True)
 worker = Worker(package)
-report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+description_path = '.cache/scene.json'
+if arguments.marble_skin:
+    look = json.loads((package / description_path).read_text())
+    for marble in look['marbles']:
+        marble['skin'] = {'assetId': arguments.marble_skin, 'link': 'linked', **({'variant': arguments.marble_variant} if arguments.marble_variant else {})}
+    description_path = '.cache/scene-look.json'
+    (package / description_path).write_text(json.dumps(look))
+report = worker.handle('apply_scene', {'descriptionPath': description_path})
 print('APPLY', json.dumps({key: report[key] for key in ('camera', 'theme', 'keyframes', 'ms')}))
 scene = bpy.context.scene
 
@@ -65,7 +75,7 @@ if arguments.hits:
     times += hit_times[:arguments.hits]
 for seconds in times:
     began = time.perf_counter()
-    path = render.render_still(scene, out / ('%s-%s-%05.2f.png' % (package.stem, arguments.engine, seconds)), seconds,
+    path = render.render_still(scene, out / ('%s%s-%s-%05.2f.png' % (package.stem, arguments.suffix, arguments.engine, seconds)), seconds,
                                arguments.width, arguments.engine, arguments.samples or None)
     print('STILL %s %.2fs %.0f ms' % (path, seconds, (time.perf_counter() - began) * 1000))
 

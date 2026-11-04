@@ -7,3 +7,4 @@ export * from './Panel';
 export * from './RenameField';
 export * from './ScrubField';
 export * from './Select';
+export * from './SliderField';

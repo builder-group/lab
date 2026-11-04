@@ -5,7 +5,7 @@ import { applyProjectCommands, BACKING_ID, createProject, parseProject, type TPr
 import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
-import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceResultSummary, replaceTargets, sceneryFix, type TReplaceDeps } from './fix-it';
+import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceResultSummary, sceneryFix, type TReplaceDeps } from './fix-it';
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
@@ -47,33 +47,6 @@ describe('brokenHits function', () => {
 		const hits = [hit(1, 'onTime'), hit(2, 'blocked'), hit(3, 'missed')];
 
 		expect(brokenHits(hits, ['lane-1/h1', 'lane-1/h2']).map((item) => item.targetTime)).toEqual([2]);
-	});
-});
-
-describe('replaceTargets function', () => {
-	it('should start at the platform before the first broken hit and take every platform before a problem', () => {
-		// Prepare
-		const project = oneMarble();
-		const hits = [hit(1, 'onTime'), hit(2, 'onTime'), hit(3, 'onTime'), hit(4, 'blocked'), hit(5, 'onTime'), hit(6, 'onTime'), hit(7, 'missed')];
-
-		// Act
-		const targets = replaceTargets(project, hits);
-
-		// Assert
-		expect(targets.map((item) => item.targetTime)).toEqual([3, 4, 6, 7]);
-	});
-
-	it('should start where an on-time run left the frame before it broke', () => {
-		const project = oneMarble();
-		const hits = [hit(1, 'onTime'), hit(2, 'onTime', { dot: { x: 2, y: -2 } }), hit(3, 'blocked')];
-
-		expect(replaceTargets(project, hits).map((item) => item.targetTime)).toEqual([1, 2, 3]);
-	});
-
-	it('should leave a marble without broken hits alone', () => {
-		const project = oneMarble();
-
-		expect(replaceTargets(project, [hit(1, 'drifting'), hit(2, 'onTime')])).toEqual([]);
 	});
 });
 

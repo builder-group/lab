@@ -153,12 +153,6 @@ export function releaseFixFor(project: TProject, hit: THitResult, reach: THitRea
 	return null;
 }
 
-/** Open hits that cannot get a platform, for the hit summary */
-export function unreachableHits(project: TProject, result: TSimulationResult | null): THitResult[] {
-	if (result == null) return [];
-	return result.hits.filter((hit) => hit.status === 'open' && isUnreachable(hitReach(project, result, hit)));
-}
-
 /** The Too Soon or Out of Reach status of an open hit with its tooltip, or null when it can get a platform */
 export function unreachableStatus(project: TProject, result: TSimulationResult | null, hit: THitResult): { label: string; detail: string } | null {
 	if (hit.status !== 'open') return null;

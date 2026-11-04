@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, RefreshCw, Search, Sparkles, Star } from 'lucide-react';
+import { Box, ChevronLeft, RefreshCw, Search, Sparkles, Star } from 'lucide-react';
 import React from 'react';
 import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
 import type { TLibraryItem } from '@/modules/library';
@@ -7,21 +7,10 @@ import type { TEntity, TProject } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { deleteTheme, duplicateTheme } from '@/modules/studio/commands';
-import {
-	commonPieceType,
-	itemFitsPieceType,
-	moreThemeSkins,
-	showsThemeSkin,
-	skinAppliedMessage,
-	themeCommands,
-	themePresets,
-	themeSkinCommands,
-	themeSkins,
-	type TSkinTarget,
-	type TThemeSkin
-} from './design-commands';
-import { baseThemeOf, projectThemes, renameThemeCommands, resolveTheme, THEME_OVERRIDE_FIELDS, themeOrigin, type TResolvedTheme } from './project-themes';
-import { takesNoteColor } from './draft-look';
+import { builtInSkinCommands, commonPieceType, itemFitsPieceType, skinAppliedMessage, skinsForElement, themeCommands, themePresets, type TSkinTarget } from './design-commands';
+import { appliedOverrides, baseThemeOf, isThemeColorByNote, projectThemes, renameThemeCommands, resolveElementLook, resolveTheme, THEME_OVERRIDE_FIELDS, themeOrigin, themePartCommands, type TResolvedTheme } from './project-themes';
+import { draftMarble, marbleContrastWarning } from './draft-look';
+import { elementLabel, elementPlural, entitySkinElement, skinElement, themeDefaultSkin, type TCatalogSkin, type TSkinElement } from './skin-catalog';
 import { libraryEntries, libraryItemLabel, libraryItemOrigin, NEW_THEME_PROMPT, type TLibraryEntry } from './DesignLibraryCx';
 
 /** MIME type of a library item dragged onto the preview or the inspector */
@@ -29,8 +18,8 @@ export const LIBRARY_DRAG_TYPE = 'application/x-midimarble-asset';
 
 /**
  * Library of the Film sidebar, like Figma's Assets panel: one place without storage scopes. With nothing selected it
- * shows the themes; with pieces selected, the skins for that piece type, the current theme's first. Click applies to
- * the selection, ⌥-click to every piece of that type.
+ * shows the themes; with pieces or marbles selected, or a theme's part opened from the Project, the skins for that type,
+ * the current theme's first and marked. Click applies to the selection, ⌥-click to every one of that type.
  */
 export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 	const { cx, project } = props;
@@ -42,9 +31,12 @@ export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 	const [query, setQuery] = React.useState('');
 
 	const entries = React.useMemo(() => libraryEntries(projectItems, globalItems), [projectItems, globalItems]);
+	const filterElement = useFeatureState(cx.library.$filterElement);
 	const selectedPieces = project.entities.filter((entity) => selection.includes(entity.id) && entity.components.piece != null);
-	const pieceType = commonPieceType(selectedPieces);
-	const typeLabel = pieceType != null ? (getPieceDefinition(pieceType)?.label ?? pieceType) : null;
+	const selectedMarbles = selectedPieces.length > 0 ? [] : project.entities.filter((entity) => selection.includes(entity.id) && entity.components.marble != null);
+	const selectedEntities = selectedPieces.length > 0 ? selectedPieces : selectedMarbles;
+	const pieceType = selectedMarbles.length > 0 ? 'marble' : (commonPieceType(selectedPieces) ?? filterElement);
+	const typeLabel = pieceType != null ? (pieceType === 'marble' ? elementLabel('marble') : (getPieceDefinition(pieceType)?.label ?? pieceType)) : null;
 	const isUnavailable = status === 'unavailable';
 	const words = query.trim().toLowerCase();
 	const matches = (text: string): boolean => !words.length || text.toLowerCase().includes(words);
@@ -98,11 +90,12 @@ export const DesignLibrary: React.FC<TDesignLibraryProps> = (props) => {
 						cx={cx}
 						project={project}
 						entries={entries}
-						selectedPieces={selectedPieces}
+						selected={selectedEntities}
 						pieceType={pieceType}
 						typeLabel={typeLabel}
 						matches={matches}
 						isUnavailable={isUnavailable}
+						onShowThemes={selectedEntities.length > 0 ? null : () => cx.library.$filterElement.set(null)}
 					/>
 				)}
 				{status === 'error' && error != null ? (
@@ -131,7 +124,6 @@ const ThemeSection: React.FC<{
 	onNewTheme: () => void;
 }> = (props) => {
 	const { cx, project, entries, matches, isUnavailable, onNewTheme } = props;
-	const isColorByNote = project.design.themeOptions?.colorByNote === true;
 	const [renamingId, setRenamingId] = React.useState<string | null>(null);
 	// One list, like the skins: built-in themes first, then the project's own with where they come from
 	const themes = [...themePresets.map((theme) => theme.id), ...projectThemes(project.design).map((theme) => theme.id)]
@@ -158,7 +150,7 @@ const ThemeSection: React.FC<{
 		<>
 			<SectionTitle
 				title="Themes"
-				help="A theme dresses the whole film: wall, light, marbles and a skin for every piece type. Duplicate a theme to change its colours. Select a piece to see its skins; select several, such as a section with Shift-click in Layers, to skin them all at once"
+				help="A theme dresses the whole film: wall, light, marbles and a skin for every piece type. Duplicate a theme to change its colours; Save as Theme keeps the skins you chose. Select a piece to see its skins; select several, such as a section with Shift-click in Layers, to skin them all at once"
 			/>
 			<div className="mm-tile-grid" role="list" aria-label="Themes">
 				{themes.map((theme) => (
@@ -166,7 +158,7 @@ const ThemeSection: React.FC<{
 						key={theme.id}
 						theme={theme}
 						isInUse={project.design.theme === theme.id}
-						isColorByNote={isColorByNote}
+						isColorByNote={theme.parts.platform.colour === 'note'}
 						isRenaming={renamingId === theme.id}
 						onApply={() => cx.execute(themeCommands(project, theme.id))}
 						onMenu={() => menu(theme)}
@@ -267,89 +259,62 @@ const SkinSection: React.FC<{
 	cx: StudioCx;
 	project: TProject;
 	entries: TLibraryEntry[];
-	selectedPieces: TEntity[];
+	selected: TEntity[];
 	pieceType: string;
 	typeLabel: string;
 	matches: (text: string) => boolean;
 	isUnavailable: boolean;
+	onShowThemes: (() => void) | null;
 }> = (props) => {
-	const { cx, project, entries, selectedPieces, pieceType, typeLabel, matches, isUnavailable } = props;
-	// A project theme dresses pieces with its base theme's skins
-	const base = baseThemeOf(project.design);
-	const origin = `${themePresets.find((item) => item.id === base)?.label ?? base} Theme`;
-	const builtIn = themeSkins(base, pieceType).filter((skin) => matches(`${skin.label} ${origin}`));
-	// Other themes' skins this theme's pieces can wear, so a Neon or Pegboard project has the same choice as Brass
-	const more = moreThemeSkins(base, pieceType).filter((skin) => matches(`${skin.label} ${themeLabel(skin.themeId)} Theme More Skins`));
-	const items = entries.filter((entry) => itemFitsPieceType(entry.item, pieceType) && matches(`${libraryItemLabel(entry.item)} ${libraryItemOrigin(entry.item)}`));
-	const piecesOfType = project.entities.filter((entity) => entity.components.piece?.type === pieceType);
-	const isMixed = selectedPieces.some((entity) => entity.components.piece?.type !== pieceType);
-	const selectionTarget: TSkinTarget = { kind: 'entities', entityIds: selectedPieces.filter((entity) => entity.components.piece?.type === pieceType).map((entity) => entity.id) };
+	const { cx, project, entries, selected, pieceType, typeLabel, matches, isUnavailable, onShowThemes } = props;
+	const element = skinElement(pieceType);
+	const theme = resolveTheme(project.design);
+	const skins = skinsForElement(project.design, element).filter((skin) => matches(`${skin.label} ${skin.id === theme.parts[element].skin ? 'Theme Default' : ''}`));
+	const items = element !== 'marble' ? entries.filter((entry) => itemFitsPieceType(entry.item, pieceType) && matches(`${libraryItemLabel(entry.item)} ${libraryItemOrigin(entry.item)}`)) : [];
+	const ofType = project.entities.filter((entity) => entitySkinElement(entity) === element);
+	const selectedOfType = selected.filter((entity) => entitySkinElement(entity) === element);
+	const isMixed = selected.length > selectedOfType.length;
+	const selectionTarget: TSkinTarget = { kind: 'entities', entityIds: selectedOfType.map((entity) => entity.id) };
+	const plural = elementPlural(element).toLowerCase();
+	const contrast = marbleSkinTileHint(project, element);
 
-	function applyThemeSkin(skin: TThemeSkin, toAll: boolean): void {
-		if (!cx.execute(themeSkinCommands(project, toAll ? { kind: 'pieceType', pieceType } : selectionTarget, skin)) || toAll) return;
-		notifySkinApplied(cx, project, skin.label, pieceType, selectedPieces, skin.assetId);
+	function applySkin(skin: TCatalogSkin, toAll: boolean): void {
+		// With nothing selected the tile dresses the theme, when the theme can change, else every piece of the type
+		if (!selectedOfType.length && !toAll && theme.projectTheme != null) {
+			cx.execute(themePartCommands(project, theme.id, element, { skin: skin.id === themeDefaultSkin(theme.base, element) ? null : skin.id }));
+			return;
+		}
+		const isAll = toAll || !selectedOfType.length;
+		if (!cx.execute(builtInSkinCommands(project, isAll ? { kind: 'pieceType', pieceType: element === 'marble' ? 'marble' : pieceType } : selectionTarget, skin.id)) || isAll) return;
+		notifySkinApplied(cx, project, skin.label, pieceType, selected, skin.id);
 	}
 
 	return (
 		<>
 			<SectionTitle
 				title={`${typeLabel} Skins`}
-				help={`Click applies to every selected ${typeLabel.toLowerCase()}, ⌥-click to every ${typeLabel.toLowerCase()} in the project. To give a section its own look, Shift-click its first and last ${typeLabel.toLowerCase()} in Layers, then pick a skin${isMixed ? `. Other selected pieces keep their skin` : ''}`}
+				help={`Click applies to every selected ${typeLabel.toLowerCase()}, ⌥-click to all ${plural}. Every skin works in every theme; a marble's skin never changes how it falls. To give a section its own look, Shift-click its first and last ${typeLabel.toLowerCase()} in Layers, then pick a skin${isMixed ? `. Other selected pieces keep their skin` : ''}`}
+				onBack={onShowThemes}
 			/>
 			<div className="mm-tile-grid" role="listbox" aria-label={`${typeLabel} skins`}>
-				{builtIn.map((skin) => (
+				{skins.map((skin) => (
 					<SkinTile
-						key={skin.assetId ?? 'default'}
+						key={skin.id}
 						label={skin.label}
-						origin={origin}
+						origin={marksDefault(theme, element, skin, selectedOfType[0]) ? 'Theme Default' : ''}
 						previewUrl={skin.previewUrl}
-						isApplied={selectionTarget.entityIds.length > 0 && selectedPieces.filter((entity) => entity.components.piece?.type === pieceType).every((entity) => showsThemeSkin(entity, skin))}
-						isInUse={piecesOfType.some((entity) => showsThemeSkin(entity, skin))}
+						isApplied={selectedOfType.length > 0 ? selectedOfType.every((entity) => showsSkinTile(project, entity, skin)) : skin.id === theme.parts[element].skin}
+						isInUse={ofType.some((entity) => showsSkinTile(project, entity, skin))}
 						typeLabel={typeLabel}
-						onApply={(toAll) => applyThemeSkin(skin, toAll)}
-						onMenu={() => applyMenu(typeLabel, selectionTarget.entityIds.length, (toAll) => applyThemeSkin(skin, toAll))}
+						onApply={(toAll) => applySkin(skin, toAll)}
+						onMenu={() => applyMenu(typeLabel, selectedOfType.length, (toAll) => applySkin(skin, toAll), elementPlural(element))}
 					/>
 				))}
 			</div>
-			{more.length > 0 ? (
-				<>
-					<SectionTitle
-						title="More Skins"
-						help={`Skins from other themes. They keep their own look in the ${themeLabel(base)} theme`}
-					/>
-					<div
-						className="mm-tile-grid"
-						role="listbox"
-						aria-label={`More ${typeLabel.toLowerCase()} skins`}
-					>
-						{more.map((skin) => (
-							<SkinTile
-								key={skin.assetId ?? 'default'}
-								label={skin.label}
-								origin={`${themeLabel(skin.themeId)} Theme`}
-								previewUrl={skin.previewUrl}
-								isApplied={
-									selectionTarget.entityIds.length > 0 &&
-									selectedPieces
-										.filter((entity) => entity.components.piece?.type === pieceType)
-										.every((entity) => showsThemeSkin(entity, skin))
-								}
-								isInUse={piecesOfType.some((entity) => showsThemeSkin(entity, skin))}
-								typeLabel={typeLabel}
-								onApply={(toAll) => applyThemeSkin(skin, toAll)}
-								onMenu={() =>
-									applyMenu(typeLabel, selectionTarget.entityIds.length, (toAll) =>
-										applyThemeSkin(skin, toAll)
-									)
-								}
-							/>
-						))}
-					</div>
-				</>
-			) : null}
+			{contrast != null ? <p className="mm-caption px-3">{contrast}</p> : null}
 			{items.length > 0 ? (
-				<ItemGrid cx={cx} project={project} entries={items} selectedPieces={selectedPieces} pieceType={pieceType} />
-			) : !isUnavailable ? (
+				<ItemGrid cx={cx} project={project} entries={items} selectedPieces={selectedOfType} pieceType={pieceType} />
+			) : !isUnavailable && element !== 'marble' ? (
 				<div className="px-3 pt-1">
 					<EmptyRow text={`Ask the agent for a ${typeLabel.toLowerCase()} skin (⌘J)`} help="Accepted Results show here with Made with Agent; star one to keep it for every project" />
 				</div>
@@ -357,6 +322,31 @@ const SkinSection: React.FC<{
 		</>
 	);
 };
+
+/**
+ * Whether the tile is the theme's default. A built-in theme's default marble picks Pearl or Deep by what stands apart from
+ * the wall, so the tile marked follows the selected marble (or the first one).
+ */
+function marksDefault(theme: TResolvedTheme, element: TSkinElement, skin: TCatalogSkin, marble: TEntity | undefined): boolean {
+	if (theme.parts[element].skin !== 'marble:contrast') return theme.parts[element].skin === skin.id;
+	const tone = draftMarble(theme.base, marble?.components.marble?.color ?? '#d0d4dc', theme.overrides).tone;
+	return skin.id === `marble:${tone}`;
+}
+
+function showsSkinTile(project: TProject, entity: TEntity, skin: TCatalogSkin): boolean {
+	const look = resolveElementLook(project.design, skin.element, entity.components.skin);
+	if (look.skin !== 'marble:contrast') return look.skin === skin.id;
+	return marksDefault(resolveTheme(project.design), 'marble', skin, entity);
+}
+
+/** The Wall well's warning, here too, when a marble's skin is what makes it hard to see */
+function marbleSkinTileHint(project: TProject, element: TSkinElement): string | null {
+	if (element !== 'marble') return null;
+	const marbles = project.entities.flatMap((entity) =>
+		entity.components.marble != null ? [{ name: entity.name ?? 'Marble', color: entity.components.marble.color, skin: resolveElementLook(project.design, 'marble', entity.components.skin) }] : []
+	);
+	return marbleContrastWarning(baseThemeOf(project.design), appliedOverrides(project.design), marbles);
+}
 
 /** Skins made with the agent or imported, and decorations, each with its origin, In Use badge and star */
 const ItemGrid: React.FC<{ cx: StudioCx; project: TProject; entries: TLibraryEntry[]; selectedPieces: TEntity[]; pieceType: string | null }> = (props) => {
@@ -455,7 +445,7 @@ const SkinTile: React.FC<{
 					{isInUse ? <span className="mm-tile-badge">In Use</span> : null}
 				</span>
 				<span className="mm-tile-label">{label}</span>
-				<span className="mm-tile-secondary">{origin}</span>
+				{origin.length > 0 ? <span className="mm-tile-secondary">{origin}</span> : null}
 			</button>
 			{onKeep != null ? (
 				<button
@@ -481,16 +471,15 @@ const SkinTile: React.FC<{
  * colour with Colour by Note on. `assetId` is the applied skin, null for the theme's default.
  */
 export function notifySkinApplied(cx: StudioCx, project: TProject, skinLabel: string, pieceType: string, selected: TEntity[], assetId: string | null): void {
-	const isColorByNote = project.design.themeOptions?.colorByNote === true;
-	const keepsSkinColor = isColorByNote && !takesNoteColor(baseThemeOf(project.design), assetId != null ? { assetId, link: 'linked' } : null);
+	const keepsSkinColor = isThemeColorByNote(project.design) && !resolveElementLook(project.design, 'platform', assetId != null ? { assetId, link: 'linked' } : null).isThemeSkin;
 	const message = skinAppliedMessage({ skinLabel, pieceType, selected, keepsSkinColor });
 	if (message != null) cx.notifyEdit(message);
 }
 
-function applyMenu(typeLabel: string, selectedCount: number, apply: (toAll: boolean) => void): TMenuEntry[] {
+function applyMenu(typeLabel: string, selectedCount: number, apply: (toAll: boolean) => void, plural = `${typeLabel}s`): TMenuEntry[] {
 	return [
-		{ label: selectedCount > 1 ? `Apply to ${selectedCount} ${typeLabel}s` : 'Apply to Selection', disabled: selectedCount === 0, onSelect: () => apply(false) },
-		{ label: `Apply to All ${typeLabel}s`, shortcut: '⌥ Click', onSelect: () => apply(true) }
+		{ label: selectedCount > 1 ? `Apply to ${selectedCount} ${plural}` : 'Apply to Selection', disabled: selectedCount === 0, onSelect: () => apply(false) },
+		{ label: `Apply to All ${plural}`, shortcut: '⌥ Click', onSelect: () => apply(true) }
 	];
 }
 
@@ -499,14 +488,15 @@ async function removeEntry(cx: StudioCx, entry: TLibraryEntry): Promise<void> {
 	if (entry.item.scope === 'project') await cx.library.remove(entry.item);
 }
 
-function themeLabel(themeId: string): string {
-	return themePresets.find((item) => item.id === themeId)?.label ?? themeId;
-}
-
-const SectionTitle: React.FC<{ title: string; help: string }> = (props) => {
-	const { title, help } = props;
+const SectionTitle: React.FC<{ title: string; help: string; onBack?: (() => void) | null }> = (props) => {
+	const { title, help, onBack } = props;
 	return (
 		<div className="mm-library-header">
+			{onBack != null ? (
+				<button className="mm-icon-button" onClick={onBack} title="Back to the themes" aria-label="Show Themes" type="button">
+					<ChevronLeft size={12} strokeWidth={2} />
+				</button>
+			) : null}
 			<span className="flex-1 text-left">{title}</span>
 			<HelpTip text={help} />
 		</div>

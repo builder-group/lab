@@ -6,16 +6,18 @@ import { toHitKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
 import { auditionNote, BACKING_COLOR, isNoteSelection, playWithMenu } from './hand-notes';
 import { isPitched } from './hit-status';
-import { isBlackKey, PITCH_MARGIN, pitchToRow, rowCount, type TPitchRange } from './piano-roll';
-import { NOTE_ROW_HEIGHT } from './timeline-layout';
+import type { TDrag, TDragStart } from './LaneTrack';
+import { clampPitch, isBlackKey, pitchToRow, rowCount, type TPitchRange } from './piano-roll';
+import { KEYBOARD_WIDTH, NOTE_ROW_HEIGHT } from './timeline-layout';
 
 /**
  * The expanded Song track: every note of the song in one piano roll, coloured by the marble that plays it and
- * grey for Backing. Click selects a note, Shift-click adds it, dragging on empty space selects a box of notes;
- * number keys or the context menu hand the selection to a marble or to Backing.
+ * grey for Backing, the one place notes show by pitch. Click selects a note, Shift-click adds it, dragging a note
+ * moves it in time and in pitch and dragging on empty space selects a box of notes; number keys or the context menu
+ * hand the selection to a marble or to Backing.
  */
 export const SongRoll: React.FC<TSongRollProps> = (props) => {
-	const { cx, project, range, zoom, width, selection } = props;
+	const { cx, project, range, zoom, width, selection, drag, onDragStart } = props;
 	const ref = React.useRef<HTMLDivElement>(null);
 	const [box, setBox] = React.useState<TBox | null>(null);
 	const notes = React.useMemo(() => songNotes(project), [project]);
@@ -34,8 +36,8 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 			cx.$selection.set(selected.has(note.key) ? selection.filter((key) => key !== note.key) : [...selection, note.key]);
 			return;
 		}
-		cx.$selection.set([note.key]);
 		auditionNote(cx, note.ownerId, note.hit.pitch);
+		onDragStart(note.key, event, true);
 	}
 
 	function openNoteMenu(note: TSongNote, event: React.MouseEvent): void {
@@ -82,7 +84,7 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 	return (
 		<div
 			ref={ref}
-			className="mm-piano-roll mm-song-roll relative flex-1 border-b border-[var(--separator)]"
+			className="mm-song-roll relative flex-1 border-b border-[var(--separator)]"
 			style={{ minWidth: width, height: rowCount(range) * NOTE_ROW_HEIGHT }}
 			aria-label="Song notes"
 			{...handlers}
@@ -102,6 +104,9 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 			))}
 			{notes.map((note) => {
 				const isSelected = selected.has(note.key);
+				const isDragged = drag?.keys.includes(note.key) === true;
+				const time = Math.max(0, note.hit.time + (isDragged ? drag.delta : 0));
+				const pitch = isDragged && drag.isPitched ? clampPitch(note.hit.pitch + drag.pitchDelta, range) : note.hit.pitch;
 				return (
 					<button
 						key={note.key}
@@ -112,9 +117,9 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 						aria-pressed={isSelected}
 						title={`${noteName(note.hit.pitch)} · ${formatTime(note.hit.time)} · ${note.ownerName}`}
 						style={{
-							left: note.hit.time * zoom,
+							left: time * zoom,
 							width: Math.max(4, Math.min(note.hit.duration ?? 0.15, 4) * zoom),
-							top: pitchToRow(note.hit.pitch, range) * NOTE_ROW_HEIGHT + 1,
+							top: pitchToRow(pitch, range) * NOTE_ROW_HEIGHT + 1,
 							height: NOTE_ROW_HEIGHT - 2,
 							['--lane' as string]: note.color
 						}}
@@ -138,6 +143,8 @@ interface TSongRollProps {
 	zoom: number;
 	width: number;
 	selection: string[];
+	drag: TDrag | null;
+	onDragStart: TDragStart;
 }
 
 interface TBox {
@@ -173,9 +180,46 @@ export interface TSongNote {
 	hit: THit & { pitch: number };
 }
 
-/** Pitch rows of the Song track's piano roll; null when the song has no pitched notes */
-export function songRange(project: TProject): TPitchRange | null {
-	const pitches = songNotes(project).map((note) => note.hit.pitch);
-	if (!pitches.length) return null;
-	return { low: Math.max(0, Math.min(...pitches) - PITCH_MARGIN), high: Math.min(127, Math.max(...pitches) + PITCH_MARGIN) };
+/**
+ * Vertical keyboard of the Song's piano roll, one key per semitone row, C keys labelled; a click plays the key.
+ * `offset` scrolls it with a roll that is taller than its track.
+ */
+export const Keyboard: React.FC<TKeyboardProps> = (props) => {
+	const { name, range, offset = 0, onPlay } = props;
+	const pitches = Array.from({ length: rowCount(range) }, (_, index) => range.high - index);
+	return (
+		<div className="mm-keyboard relative shrink-0 overflow-hidden" style={{ width: KEYBOARD_WIDTH }} role="group" aria-label={`${name} keyboard`}>
+			<div className="absolute inset-x-0 top-0" style={{ transform: offset === 0 ? undefined : `translateY(${-offset}px)` }}>
+				{pitches.map((pitch) => {
+					const isBlack = isBlackKey(pitch);
+					const isC = pitch % 12 === 0;
+					return (
+						<button
+							key={pitch}
+							className="mm-key"
+							data-black={isBlack}
+							data-c={isC}
+							style={{ top: pitchToRow(pitch, range) * NOTE_ROW_HEIGHT, height: NOTE_ROW_HEIGHT }}
+							onPointerDown={(event) => {
+								if (event.button !== 0) return;
+								onPlay(pitch);
+							}}
+							title={noteName(pitch)}
+							aria-label={`Play ${noteName(pitch)}`}
+							type="button"
+						>
+							{isC ? <span className="mm-key-label">{noteName(pitch)}</span> : null}
+						</button>
+					);
+				})}
+			</div>
+		</div>
+	);
+};
+
+interface TKeyboardProps {
+	name: string;
+	range: TPitchRange;
+	offset?: number;
+	onPlay: (pitch: number) => void;
 }

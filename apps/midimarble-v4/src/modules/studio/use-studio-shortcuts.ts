@@ -1,7 +1,7 @@
 import React from 'react';
 import { isEditingTarget, isTextEntryTarget } from '@/lib';
 import { deleteSelectedHits, getCommand, isCommandEnabled } from './commands';
-import { CAMERA_KEY, SONG_KEY } from './selection';
+import { CAMERA_KEY, parseLightKey, SONG_KEY, WALL_KEY } from './selection';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 
 /**
@@ -87,9 +87,9 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				cx.$playing.set(!cx.$playing.get());
 				return;
 			}
-			// A selected Song or Camera layer keeps Return's meaning, like an empty selection
+			// A selected Song, Camera, Wall or light layer keeps Return's meaning, like an empty selection
 			const selection = cx.$selection.get();
-			const isLayersOnly = selection.every((key) => key === SONG_KEY || key === CAMERA_KEY);
+			const isLayersOnly = selection.every((key) => key === SONG_KEY || key === CAMERA_KEY || key === WALL_KEY || parseLightKey(key) != null);
 			if ((event.key === 'Enter' || event.key === 'Home') && !cx.$playing.get() && isLayersOnly) {
 				cx.$playhead.set(0);
 				return;

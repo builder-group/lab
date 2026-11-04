@@ -1,3 +1,5 @@
+import type { TSkinComponent, TThemeParts } from '@/modules/project';
+
 // Contract between the app and the bundled Blender worker. The app sends a scene description with
 // `apply_scene`; the worker creates or updates app-owned objects and keyframes from it.
 // Units: metres, seconds, radians. Wall-plane x right, y up; Blender uses x right, z up, y into the wall,
@@ -21,8 +23,16 @@ export interface TSceneDescription {
 	 * project theme sends its base here and its colours in `themeOverrides`.
 	 */
 	theme: string;
+	/** What a project theme dresses each element type with, on top of its base's (`resolve_look` in skin_catalog.py). Optional and additive. */
+	themeParts?: TThemeParts;
 	/** Colours a project theme changes on top of `theme`; absent keeps the built-in look. Additive like `wallTexts`. */
 	themeOverrides?: TSceneThemeOverrides;
+	/** The Wall layer's skin when it is not the theme's own. Optional and additive. */
+	wallKind?: TSceneWallKind;
+	/** What the Key Light layer changes on the theme's sun besides its colour (`themeOverrides.lightColor`). Optional and additive. */
+	keyLight?: TSceneKeyLight;
+	/** Lights added in Film, created as app-owned suns. Optional and additive; absent has none. */
+	lights?: TSceneLight[];
 	marbles: TSceneMarble[];
 	pieces: TScenePiece[];
 	/**
@@ -124,6 +134,8 @@ export interface TSceneMarble {
 	/** Package-relative path of a little-endian Float32 file with records [time, x, y, angle] */
 	motionPath: string;
 	sampleCount: number;
+	/** The marble's own skin and property overrides; absent wears the theme's. Physics never reads it. Optional and additive. */
+	skin?: TSkinComponent | null;
 	/**
 	 * Set on the loop ghost of a marble: a second instance that replays the marble's entry so the loop end shows
 	 * the first frame again. The camera does not follow ghosts.
@@ -179,10 +191,11 @@ export interface TScenePiece {
 	 * capsule of the piece's `radius` param around its polyline. Optional and additive.
 	 */
 	paths?: { x: number; y: number }[][] | null;
-	skin: { assetId: string; link: 'linked' | 'unlinked' } | null;
+	/** The piece's own skin and property overrides; null wears the theme's */
+	skin: TSkinComponent | null;
 	/**
 	 * Package-relative `.blend` of a library skin, such as `assets/piano-key/asset.blend`. Set when `skin.assetId`
-	 * names a project library item; built-in skins such as `brass:<finish>` have none. Optional and additive.
+	 * names a project library item; built-in skins such as `platform:copper` have none. Optional and additive.
 	 */
 	assetPath?: string | null;
 	/** Hit reaction chosen in Design (`none`, `press`, `wobble` or `glow`); absent keeps the theme default */
@@ -228,7 +241,30 @@ export interface TSceneThemeOverrides {
 	backgroundColor?: string;
 }
 
+export type TSceneWallKind = 'plaster' | 'pegboard' | 'grid';
+
+/**
+ * Direction of a light: `side` from the far left (-1) to the far right (1) and `height` from below (-1) to above (1),
+ * as shares of a quarter turn from straight in front of the wall. `sun_direction` in themes.py and `lightDirection`
+ * in scene-layers.ts turn them into a travel direction. `strength` is the sun's strength in Blender.
+ */
+export interface TSceneKeyLight {
+	strength?: number;
+	side?: number;
+	height?: number;
+}
+
+export interface TSceneLight {
+	/** Stable ID; becomes the light object's `mm_light_id` */
+	id: string;
+	name: string;
+	color: string;
+	strength: number;
+	side: number;
+	height: number;
+}
+
+/** Descriptions from before Colour became a skin property; the worker reads it as the theme's default for platforms */
 export interface TSceneThemeOptions {
-	/** Platforms take their note's colour, boomwhacker style */
 	colorByNote?: boolean;
 }

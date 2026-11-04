@@ -221,14 +221,6 @@ export function addFinishLabel(project: TProject, laneId: string, count: number)
 	return `Add Finish for ${project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'Marble'}`;
 }
 
-/** The hit result of a lane's last note, if any */
-export function lastHitOf(result: TSimulationResult, laneId: string): THitResult | null {
-	let last: THitResult | null = null;
-	for (const hit of result.hits)
-		if (hit.laneId === laneId && (last == null || hit.targetTime > last.targetTime)) last = hit;
-	return last;
-}
-
 /**
  * The project with a Finish for every marble that plays last and has none, each found by `findFinish`, and its
  * length fitted to the song with the Finish's tail, as Add Finish and then Fit to Song would leave it. Fixture

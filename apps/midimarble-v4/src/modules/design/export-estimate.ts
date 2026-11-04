@@ -41,11 +41,6 @@ export function filmEngine(preset: TRenderPreset, engine: TRenderEngine): TFilmE
 	return getRenderPreset(preset).engine ?? engine;
 }
 
-/** `High · 1080p` */
-export function renderPresetLabel(id: TRenderPreset): string {
-	return renderPresetOption(getRenderPreset(id));
-}
-
 /** Film size in pixels for a frame aspect, with even sides as video encoders expect */
 export function filmSize(frame: { width: number; height: number }, preset: TRenderPreset): { width: number; height: number } {
 	const { shortSide } = getRenderPreset(preset);

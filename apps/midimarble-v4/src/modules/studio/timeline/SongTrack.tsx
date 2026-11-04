@@ -9,19 +9,20 @@ import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
 import { auditionNote, BACKING_COLOR } from './hand-notes';
 import { openingRollOffset, rowCount, type TPitchRange } from './piano-roll';
-import { SongRoll } from './SongRoll';
+import { Keyboard, SongRoll } from './SongRoll';
+import type { TDrag, TDragStart } from './LaneTrack';
 import { HEADER_WIDTH, NOTE_ROW_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
-import { Keyboard } from './TrackHeader';
 import { toggleSongExpanded } from './timeline-state';
 
 /**
  * The Song layer's row at the top of the timeline, like the audio clip under a Final Cut storyline: the file
- * name in the header, the waveform of a recording or a small overview of every note for MIDI. A MIDI song expands
- * into a piano roll of every note, where notes are handed to marbles or to Backing. The row exists only while the
- * project has a song file or Backing notes; without a file it reads Song and shows the Backing notes.
+ * name in the header, the waveform of a recording or a small overview of every note for MIDI. A song with notes
+ * expands into a piano roll of every note, where notes change pitch and are handed to marbles or to Backing; a
+ * recording stays a flat waveform row. The row exists only while the project has a song file or Backing notes;
+ * without a file it reads Song and shows the Backing notes.
  */
 export const SongTrack: React.FC<TSongTrackProps> = (props) => {
-	const { cx, project, song, name, analysis, zoom, width, range, isExpanded, height, selection } = props;
+	const { cx, project, song, name, analysis, zoom, width, range, isExpanded, height, selection, drag, onDragStart } = props;
 	const isAudio = song?.kind === 'audio';
 	const tempo = project.music.tempo;
 	const backingCount = project.music.backing.length;
@@ -97,7 +98,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 							<ChevronRight size={12} strokeWidth={2.25} />
 						</button>
 					) : (
-						<span className="w-4 shrink-0" />
+						// Without a disclosure the icon lines up with the rows below
+						<span className="w-[10px] shrink-0" />
 					)}
 					<span className="mm-song-icon">{isAudio ? <AudioLines size={12} strokeWidth={1.75} /> : <Music size={12} strokeWidth={1.75} />}</span>
 					<span className="flex min-w-0 flex-1 flex-col leading-tight">
@@ -114,7 +116,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 			{isExpanded && range != null ? (
 				<div className="relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }}>
 					<div style={{ transform: shown === 0 ? undefined : `translateY(${-shown}px)` }}>
-						<SongRoll cx={cx} project={project} range={range} zoom={zoom} width={width} selection={selection} />
+						<SongRoll cx={cx} project={project} range={range} zoom={zoom} width={width} selection={selection} drag={drag} onDragStart={onDragStart} />
 					</div>
 				</div>
 			) : (
@@ -148,6 +150,8 @@ interface TSongTrackProps {
 	isExpanded: boolean;
 	height: number;
 	selection: string[];
+	drag: TDrag | null;
+	onDragStart: TDragStart;
 }
 
 /** Every note in one strip, higher notes higher, in the marble colours and Backing in grey */

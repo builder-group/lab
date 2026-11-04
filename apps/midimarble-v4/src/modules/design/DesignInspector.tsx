@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Bookmark, Plus, RotateCcw, Trash2, TriangleAlert, Type, Video } from 'lucide-react';
+import { Bookmark, Plus, RotateCcw, Trash2, Type, Video } from 'lucide-react';
 import React from 'react';
 import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, StateRow, TextField } from '@/components';
 import { shotLength } from '@/modules/camera/shots';
@@ -14,28 +14,24 @@ import { parseTime } from '@/modules/studio/timeline/parse-time';
 import {
 	builtInSkinLabel,
 	cameraCommands,
-	clearSkinCommands,
-	colorByNoteCommands,
+	builtInSkinCommands,
 	commonPieceType,
 	frameHeightOnWall,
 	isScreenTitle,
 	itemFitsPieceType,
 	pieceCountLabel,
-	reactionChoiceOf,
-	reactionChoices,
-	reactionCommands,
 	themeCommands,
 	themePresets,
 	titleStyles,
 	withTitleStyle,
-	type TReactionChoice,
 	type TTitleStyle
 } from './design-commands';
 import type { TDesignLink, TDesignStatus } from './DesignCx';
 import { libraryItemLabel } from './DesignLibraryCx';
+import { canonicalSkinId } from '@/modules/project/skin-ids';
+import { catalogSkin, catalogSkins, skinElement } from './skin-catalog';
+import { canSaveAsTheme, ResetToTheme, saveAsTheme, SkinPropertyRows, ThemeParts } from './SkinProperties';
 import { LIBRARY_DRAG_TYPE, notifySkinApplied } from './DesignLibrary';
-import { marbleContrastWarning } from './draft-look';
-import { renderPresetOption, renderPresets } from './export-estimate';
 import { framingFix, framingProblemAt, preflightExport } from './export-preflight';
 import { describeLoop } from './loop-status';
 import { removeShotsCommands, shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
@@ -55,7 +51,7 @@ import { songDisplayName, titleSpan, withTitleTime } from './titles';
 // Inspectors of the Film layers on the inspector grid: a piece's look, a title or the titles, a shot and the
 // Camera, plus the film's Look for the Project. The studio's Inspector picks one for the selection.
 
-/** The film's look in the Project inspector of Film: theme, its colours, quality and the loop */
+/** The film's Theme and Seamless Loop in the Project inspector of Film; quality is in the Export sheet, colours on their layers */
 export const FilmLookPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const design = project.design;
@@ -66,7 +62,7 @@ export const FilmLookPanel: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 	];
 
 	return (
-		<Panel id="design.scene" title="Look">
+		<Panel id="design.scene" title="Film">
 			<SelectField
 				id="design-theme"
 				label="Theme"
@@ -75,20 +71,7 @@ export const FilmLookPanel: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 				onChange={(value) => cx.execute(themeCommands(project, value))}
 			/>
 			<ThemeColors cx={cx} theme={theme} />
-			<CheckField
-				id="design-color-by-note"
-				label="Colour by Note"
-				title="Colours each platform by its note, like boomwhackers; a platform with a chosen skin keeps the skin's colour"
-				checked={design.themeOptions?.colorByNote === true}
-				onChange={(colorByNote) => cx.execute(colorByNoteCommands(project, colorByNote))}
-			/>
-			<SelectField
-				id="design-preset"
-				label="Quality"
-				value={design.renderPreset}
-				options={renderPresets.map((preset) => ({ value: preset.id, label: renderPresetOption(preset) }))}
-				onChange={(value) => cx.execute([{ type: 'setDesign', design: { renderPreset: value as TDesign['renderPreset'] } }])}
-			/>
+			<ThemeParts cx={cx} project={project} />
 			<CheckField id="design-loop" label="Seamless Loop" checked={design.loop} onChange={(loop) => cx.execute([{ type: 'setDesign', design: { loop } }])} />
 			{design.loop ? <LoopStatus cx={cx} project={project} /> : null}
 		</Panel>
@@ -96,22 +79,26 @@ export const FilmLookPanel: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 };
 
 /**
- * The applied theme's few colours. A project theme shows them as colour wells, each with a reset to its base's
- * colour; a built-in theme is read-only and offers Duplicate to Edit, like Figma's library styles and Keynote's themes.
+ * What the Project shows of the applied theme: a project theme's name and, on a Neon base, its Glow; a built-in theme
+ * is read-only and offers Duplicate to Edit, like Figma's library styles and Keynote's themes. Once the Wall or Lights
+ * layers changed something, Save as Theme makes a theme of that mix. The Wall, Light and Background wells sit on their
+ * layers.
  */
 const ThemeColors: React.FC<{ cx: StudioCx; theme: TResolvedTheme }> = (props) => {
 	const { cx, theme } = props;
+	const hasChanges = cx.project != null && canSaveAsTheme(cx.project);
+	const save = hasChanges ? (
+		<button className="mm-button" data-span="2" onClick={() => saveAsTheme(cx)} title={`Make a theme from ${theme.name} with this project's skins, Wall and Lights`} type="button">
+			Save as Theme
+		</button>
+	) : null;
 	if (theme.projectTheme == null) {
 		return (
-			<button
-				className="mm-button"
-				data-span="2"
-				onClick={() => duplicateTheme(cx, theme.id)}
-				title={`Make a copy of ${theme.name} in this project and change its wall, light and glow`}
-				type="button"
-			>
-				Duplicate to Edit
-			</button>
+			save ?? (
+				<button className="mm-button" data-span="2" onClick={() => duplicateTheme(cx, theme.id)} title={`Make a copy of ${theme.name} in this project to change it`} type="button">
+					Duplicate to Edit
+				</button>
+			)
 		);
 	}
 	return (
@@ -129,9 +116,10 @@ const ThemeColors: React.FC<{ cx: StudioCx; theme: TResolvedTheme }> = (props) =
 					if (project != null) cx.execute(renameThemeCommands(project, theme.id, name));
 				}}
 			/>
-			{THEME_OVERRIDE_FIELDS.filter((field) => themeOverrideApplies(theme.base, field.name)).map((field) => (
+			{THEME_OVERRIDE_FIELDS.filter((field) => field.name === 'glowColor' && themeOverrideApplies(theme.base, field.name)).map((field) => (
 				<ThemeColorField key={field.name} cx={cx} theme={theme} field={field} />
 			))}
+			{save}
 		</>
 	);
 };
@@ -146,10 +134,6 @@ const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (t
 	const value = theme.overrides[field.name];
 	const fallback = themeDefaultColor(theme.base, field.name);
 	const id = `theme-${field.name}`;
-	// A Wall colour can leave a marble too close to the wall or its pieces: say so under the well, never block
-	const project = cx.project;
-	const marbles = (project?.entities ?? []).flatMap((entity) => (entity.components.marble != null ? [{ name: entity.name ?? 'Marble', color: entity.components.marble.color }] : []));
-	const warning = field.name === 'wallColor' ? marbleContrastWarning(theme.base, theme.overrides, marbles) : null;
 
 	function set(color: string | null): void {
 		const project = cx.project;
@@ -164,8 +148,7 @@ const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (t
 	}
 
 	return (
-		<>
-			<span className="mm-ifield" data-span="2" title={field.help}>
+		<span className="mm-ifield" data-span="2" title={field.help}>
 			<label htmlFor={id} className="mm-ifield-label">
 				{field.label}
 			</label>
@@ -193,14 +176,7 @@ const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (t
 					<RotateCcw size={12} strokeWidth={1.9} />
 				</button>
 			) : null}
-			</span>
-			{warning != null ? (
-				<span className="flex items-start gap-1 text-[11px] text-[var(--text-secondary)]" data-span="2" role="status">
-					<TriangleAlert size={12} strokeWidth={1.8} className="mt-px shrink-0 text-[var(--warn)]" aria-hidden />
-					{warning}
-				</span>
-			) : null}
-		</>
+		</span>
 	);
 };
 
@@ -617,9 +593,10 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 	const skinnedIds = skinned.map((entity) => entity.id);
 	const isMixedTypes = skinned.length < pieces.length;
 	const isSingle = pieces.length === 1;
-	const skinIds = [...new Set(skinned.map((entity) => entity.components.skin?.assetId ?? ''))];
+	const skinIds = [...new Set(skinned.map((entity) => (entity.components.skin?.assetId != null ? canonicalSkinId(entity.components.skin.assetId) : '')))];
+	const builtIns = catalogSkins(skinElement(type));
+	const themeSkinLabel = builtInSkinLabel(resolveTheme(project.design).parts[skinElement(type)].skin) ?? 'Theme';
 	const skinValue = skinIds.length === 1 ? (skinIds[0] ?? '') : MIXED;
-	const reactions = [...new Set(pieces.map(reactionChoiceOf))];
 	const link = mergedLink(ids.map((id) => links[id]));
 	const unlinked = ids.filter((id) => links[id]?.link === 'unlinked');
 	const fitting = [...projectItems, ...globalItems.filter((item) => !projectItems.some((own) => own.id === item.id))].filter((item) => itemFitsPieceType(item, type));
@@ -632,7 +609,13 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 
 	function setSkin(value: string): void {
 		if (value === '') {
-			if (cx.execute(clearSkinCommands(project, skinnedIds))) notifySkinApplied(cx, project, 'Theme Default', type, pieces, null);
+			const commands = skinnedIds.flatMap((id) => builtInSkinCommands(project, { kind: 'entities', entityIds: [id] }, resolveTheme(project.design).parts[skinElement(type)].skin));
+			if (cx.execute(commands)) notifySkinApplied(cx, project, 'Theme Default', type, pieces, null);
+			return;
+		}
+		const builtIn = builtIns.find((skin) => skin.id === value);
+		if (builtIn != null) {
+			if (cx.execute(builtInSkinCommands(project, { kind: 'entities', entityIds: skinnedIds }, builtIn.id))) notifySkinApplied(cx, project, builtIn.label, type, pieces, builtIn.id);
 			return;
 		}
 		const item = fitting.find((candidate) => itemValue(candidate) === value);
@@ -649,7 +632,8 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 		if (item != null) void applyItem(item);
 	}
 
-	const skinName = skinValue === MIXED ? 'Mixed skins' : current != null ? libraryItemLabel(current) : skinValue === '' ? 'Theme Default' : skinLabel(skinValue);
+	const skinName = skinValue === MIXED ? 'Mixed skins' : current != null ? libraryItemLabel(current) : skinValue === '' ? `${themeSkinLabel} · Default` : skinLabel(skinValue);
+	const thumb = current?.previewUrl ?? catalogSkin(skinValue === '' ? resolveTheme(project.design).parts[skinElement(type)].skin : skinValue)?.previewUrl ?? null;
 
 	return (
 		<>
@@ -664,7 +648,7 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 				title="Look"
 				accessory={
 					<HelpTip
-						text={`Drag a skin from the library onto the tile or the piece. A reaction moves the skin on every hit; it never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}
+						text={`Drag a skin from the library onto the tile or the piece. On Hit moves or lights the skin on every hit; a skin never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}
 					/>
 				}
 			>
@@ -681,7 +665,7 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 					onDragLeave={() => setIsDropping(false)}
 					onDrop={onDrop}
 				>
-					<span className="mm-skin-thumb">{current?.previewUrl != null ? <img alt="" src={current.previewUrl} /> : <PieceIcon type={type} size={18} />}</span>
+					<span className="mm-skin-thumb">{thumb != null ? <img alt="" src={thumb} /> : <PieceIcon type={type} size={18} />}</span>
 					<span className="min-w-0 flex-1 truncate">{isDropping ? 'Drop to Apply' : skinName}</span>
 				</div>
 				<SelectField
@@ -690,21 +674,14 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 					value={skinValue === MIXED ? MIXED : current != null ? itemValue(current) : skinValue}
 					options={[
 						...(skinValue === MIXED ? [{ value: MIXED, label: 'Mixed' }] : []),
-						{ value: '', label: 'Theme Default' },
-						...(skinValue !== '' && skinValue !== MIXED && current == null ? [{ value: skinValue, label: skinLabel(skinValue) }] : []),
+						{ value: '', label: `${themeSkinLabel} · Default` },
+						...builtIns.map((skin) => ({ value: skin.id, label: skin.label })),
+						...(skinValue !== '' && skinValue !== MIXED && current == null && !builtIns.some((skin) => skin.id === skinValue) ? [{ value: skinValue, label: skinLabel(skinValue) }] : []),
 						...fitting.map((item) => ({ value: itemValue(item), label: libraryItemLabel(item) }))
 					]}
 					onChange={setSkin}
 				/>
-				<SelectField
-					id="piece-reaction"
-					label="Reaction"
-					value={reactions.length === 1 ? (reactions[0] ?? 'theme') : MIXED}
-					options={[...(reactions.length > 1 ? [{ value: MIXED, label: 'Mixed' }] : []), ...reactionChoices.map((choice) => ({ value: choice.value, label: choice.label }))]}
-					onChange={(value) => {
-						if (value !== MIXED) cx.execute(reactionCommands(project, ids, value as TReactionChoice));
-					}}
-				/>
+				<SkinPropertyRows cx={cx} project={project} entities={pieces} />
 				{skinValue !== '' && skinValue !== MIXED ? (
 					<button
 						className="mm-button"
@@ -712,12 +689,14 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 						onClick={() => {
 							const item = current ?? fitting.find((candidate) => candidate.id === skinValue);
 							if (item != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
+							else if (catalogSkin(skinValue) != null) cx.execute(builtInSkinCommands(project, { kind: 'pieceType', pieceType: type }, skinValue));
 						}}
 						type="button"
 					>
 						Apply to All {typeLabel}s
 					</button>
 				) : null}
+				<ResetToTheme cx={cx} project={project} entities={pieces} />
 				<LinkState cx={cx} status={status} link={link} unlinked={unlinked} />
 			</Panel>
 		</>
@@ -751,7 +730,7 @@ function itemValue(item: TLibraryItem): string {
 	return item.scope === 'project' ? item.id : `global:${item.id}`;
 }
 
-/** Built-in skins such as `brass:gold` read as `Brass Gold` */
+/** A skin id the catalog doesn't know reads as its words */
 function skinLabel(assetId: string): string {
 	const builtIn = builtInSkinLabel(assetId);
 	if (builtIn != null) return builtIn;

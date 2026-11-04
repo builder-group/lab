@@ -11,7 +11,7 @@ import {
 	type THitResult,
 	type TSimulationResult
 } from '@/modules/simulation';
-import { parseHitKey, toHitKey } from '@/modules/studio/selection';
+import { parseHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 
 // The step loop builds a run one hit at a time: place a piece at a dot, rotate it, accept and move on.
@@ -191,12 +191,6 @@ export function placeAtHit(cx: StudioCx, hit: THitResult, type: string, mode: TS
 	if (project == null || hit.dot == null) return null;
 	const entity = pieceForHit(project, hit, type, mode);
 	return commitAtHit(cx, hit, entity) ? entity.id : null;
-}
-
-/** Moves the focus to an open dot without placing anything */
-export function focusHit(cx: StudioCx, hit: THitResult): void {
-	cx.$selection.set([toHitKey(hit.laneId, hit.hitId)]);
-	cx.$playhead.set(hit.targetTime);
 }
 
 // MARK: - Piece edits

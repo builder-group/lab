@@ -50,12 +50,6 @@ export function timingStatus(
 	}
 }
 
-/** Whole milliseconds with the direction, such as `12 ms late`, for sentences */
-export function lateness(error: number): string {
-	const ms = Math.round(Math.abs(error) * 1000);
-	return `${ms} ms ${error > 0 ? 'late' : 'early'}`;
-}
-
 /** The status pill for an early or late hit, such as `12 ms Late` */
 export function latenessLabel(error: number): string {
 	const ms = Math.round(Math.abs(error) * 1000);

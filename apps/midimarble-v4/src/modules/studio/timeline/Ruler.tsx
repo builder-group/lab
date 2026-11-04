@@ -98,8 +98,9 @@ const LoopRegion: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
 };
 
 /**
- * Film's render bar along the top of the ruler, like Final Cut's: a thin line over each span Blender's background
- * preview has rendered, brighter where the frames have Fast lighting, over a faint track while it renders
+ * Film's render bar, like Final Cut's: the separator line between the ruler and the rows fills green over each span
+ * Blender's background preview has rendered, brighter where the frames have Fast lighting. Where nothing is rendered
+ * the ruler's own separator shows.
  */
 const RenderBar: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
 	const { cx, zoom } = props;
@@ -112,12 +113,12 @@ const RenderBar: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
 	if (workspace !== 'design' || !isEnabled || frames == null || (!isRendering && flat.length === 0)) return null;
 	const songEnd = frames.startTime + frames.total / frames.fps;
 	return (
-		<span className="absolute top-[4px] h-[3px]" style={{ left: frames.startTime * zoom, width: (songEnd - frames.startTime) * zoom }}>
-			{isRendering ? <span className="absolute inset-0 rounded-[1px] bg-[var(--text-tertiary)] opacity-25" title="Rendering preview…" /> : null}
+		<span className="mm-render-bar" style={{ left: frames.startTime * zoom, width: (songEnd - frames.startTime) * zoom }} title={isRendering ? 'Rendering preview…' : undefined}>
 			{flat.map((span) => (
 				<span
 					key={`flat:${span.start}`}
-					className="absolute top-0 h-full rounded-[1px] bg-[var(--good)] opacity-55"
+					className="mm-render-span"
+					data-level="flat"
 					style={{ left: (span.start - frames.startTime) * zoom, width: (span.end - span.start) * zoom }}
 					title={isRendering ? 'Blender preview rendered at Flat Light. Rendering preview…' : 'Blender preview rendered at Flat Light'}
 				/>
@@ -125,7 +126,8 @@ const RenderBar: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
 			{fast.map((span) => (
 				<span
 					key={`fast:${span.start}`}
-					className="absolute top-0 h-full rounded-[1px] bg-[var(--good)]"
+					className="mm-render-span"
+					data-level="fast"
 					style={{ left: (span.start - frames.startTime) * zoom, width: (span.end - span.start) * zoom }}
 					title="Blender preview rendered with Fast lighting"
 				/>

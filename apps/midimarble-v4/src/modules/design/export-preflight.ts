@@ -330,11 +330,6 @@ function finishIssues(project: TProject, result: TSimulationResult, names: TName
 	});
 }
 
-/** The Finishes that miss their marble, by entity ID, as the problem model reports them */
-export function missedFinishes(preflight: TExportPreflight): Set<string> {
-	return new Set(preflight.issues.flatMap((issue) => (issue.id.startsWith('finish:') ? [issue.id.slice('finish:'.length)] : [])));
-}
-
 // MARK: - Contacts
 
 /**

@@ -1,11 +1,14 @@
 import type { TLibraryItem } from '@/modules/library';
-import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TVec2 } from '@/modules/project';
+import { canonicalSkinId } from '@/modules/project/skin-ids';
 import { sampleCameraTrack } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { filmCamera, imageToWall } from './film-camera';
-import { themeTitleColor } from './project-themes';
+import { copyName, isThemeColorByNote, projectThemes, resolveElementLook, resolveTheme, themePartCommands, themeTitleColor } from './project-themes';
+import { catalogSkins, entitySkinElement, type TCatalogSkin, type TSkinElement } from './skin-catalog';
 
 export { themeCommands, themeTitleColor } from './project-themes';
+export { builtInSkinLabel } from './skin-catalog';
 
 // Project edits made from the Design workspace. Each function returns the commands of one undoable edit.
 
@@ -29,100 +32,106 @@ function themePreset(id: string, label: string, description: string): TThemePres
 	return { id, label, description, previewUrl: publicUrl(`themes/${id}-plain.jpg`), notePreviewUrl: publicUrl(`themes/${id}-note.jpg`) };
 }
 
-/**
- * A skin a theme ships for a piece type. `assetId` null is the theme's default skin, which a piece shows when it
- * has no skin of its own; variants use the Blender worker's built-in IDs such as `brass:copper`.
- */
-export interface TThemeSkin {
-	assetId: string | null;
-	label: string;
-	themeId: string;
-	pieceType: string;
-	previewUrl: string;
-}
-
-/** Piece types every theme dresses; `public/skins/` holds a rendered preview of each */
+/** Every placeable element has its own skins, usable in any theme; `public/skins/` holds a rendered preview of each */
 export const THEME_SKIN_PIECE_TYPES = ['platform', 'rail', 'tunnel', 'windmill', 'switchback', 'finish'] as const;
 
-// Brass platform variants after the default Gold bar, rendered by `blender/tests/render_skin_previews.py`
-const BRASS_PLATFORM_VARIANTS: readonly { id: string; label: string }[] = [
-	{ id: 'copper', label: 'Copper' },
-	{ id: 'silver', label: 'Silver' },
-	{ id: 'device', label: 'Device' },
-	{ id: 'device-copper', label: 'Copper Device' },
-	{ id: 'key', label: 'Key' },
-	{ id: 'knob', label: 'Knob' }
-];
-
-/** The name a built-in skin shows everywhere, as on its Library tile: `brass:copper` reads "Copper" */
-export function builtInSkinLabel(assetId: string): string | null {
-	if (!assetId.startsWith('brass:')) return null;
-	const id = assetId.slice('brass:'.length);
-	if (id === 'gold') return 'Gold';
-	return BRASS_PLATFORM_VARIANTS.find((variant) => variant.id === id)?.label ?? null;
+/** The skins of an element in the Library's order: the theme's first, then the rest as the catalog lists them */
+export function skinsForElement(design: Pick<TDesign, 'theme' | 'themes'>, element: TSkinElement): TCatalogSkin[] {
+	const skins = catalogSkins(element);
+	const part = resolveTheme(design).parts[element].skin;
+	return [...skins.filter((skin) => skin.id === part), ...skins.filter((skin) => skin.id !== part)];
 }
 
-/** The theme's skins for a piece type, its default first; empty for a type or theme without previews */
-export function themeSkins(themeId: string, pieceType: string): TThemeSkin[] {
-	const theme = themePresets.find((item) => item.id === themeId);
-	if (theme == null || !(THEME_SKIN_PIECE_TYPES as readonly string[]).includes(pieceType)) return [];
-	const isBrassPlatform = themeId === 'brass' && pieceType === 'platform';
-	const skins: TThemeSkin[] = [
-		{ assetId: null, label: isBrassPlatform ? 'Gold' : theme.label, themeId, pieceType, previewUrl: publicUrl(`skins/${themeId}-${pieceType}.png`) }
-	];
-	if (isBrassPlatform) {
-		for (const variant of BRASS_PLATFORM_VARIANTS) {
-			skins.push({ assetId: `brass:${variant.id}`, label: variant.label, themeId, pieceType, previewUrl: publicUrl(`skins/brass-platform-${variant.id}.png`) });
-		}
-	}
-	return skins;
+/** Whether a piece or marble wears a skin: its own, or the theme's when it has none of its own */
+export function showsSkin(design: Pick<TDesign, 'theme' | 'themes'>, entity: TEntity, skinId: string): boolean {
+	const element = entitySkinElement(entity);
+	if (element == null) return false;
+	return resolveElementLook(design, element, entity.components.skin).skin === canonicalSkinId(skinId);
 }
 
 /**
- * Skins of other themes a theme's pieces can wear, for the Library's More Skins: Brass's platform bars and devices
- * dress a platform as Brass in any theme, so Pegboard, Neon and their copies get the same choice of seven
+ * Sets a built-in skin on the target pieces in one edit, keeping their property overrides: the theme's own skin clears
+ * their skin instead, so they follow the theme again
  */
-export function moreThemeSkins(themeId: string, pieceType: string): TThemeSkin[] {
-	if (themeId === 'brass' || pieceType !== 'platform') return [];
-	const brass = themeSkins('brass', 'platform');
-	return brass.map((skin) => (skin.assetId == null ? { ...skin, assetId: 'brass:gold' } : skin));
+export function builtInSkinCommands(project: TProject, target: TSkinTarget, skinId: string): TProjectCommand[] {
+	const element = skinId.split(':')[0] as TSkinElement;
+	if (resolveTheme(project.design).parts[element]?.skin !== skinId) return skinCommands(project, target, skinId);
+	return followThemeSkinCommands(project, skinTargetIds(project, target));
 }
 
-/** Whether a piece shows this theme skin: its own skin, or no skin of its own for the default */
-export function showsThemeSkin(entity: TEntity, skin: TThemeSkin): boolean {
-	const assetId = entity.components.skin?.assetId ?? null;
-	if (skin.assetId != null) return assetId === skin.assetId;
-	// `brass:gold` is the Brass default spelled out
-	return assetId == null || (skin.themeId === 'brass' && assetId === 'brass:gold');
+/** The entities show the theme's skin again and keep their property overrides */
+export function followThemeSkinCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
+	return project.entities.flatMap((entity) => {
+		const skin = entity.components.skin;
+		if (skin == null || !entityIds.includes(entity.id)) return [];
+		const { assetId: _assetId, ...rest } = skin;
+		return [skinValueCommand(entity.id, rest)];
+	});
 }
 
-/** Sets a theme skin on the target pieces: a variant links its built-in ID, the default removes their own skin */
-export function themeSkinCommands(project: TProject, target: TSkinTarget, skin: TThemeSkin): TProjectCommand[] {
-	if (skin.assetId != null) return skinCommands(project, target, skin.assetId);
-	return clearSkinCommands(project, skinTargetIds(project, target));
+/** Sets or removes a skin component: one that says nothing but its link goes away */
+function skinValueCommand(entityId: string, skin: TSkinComponent): TProjectCommand {
+	const isEmpty = Object.entries(skin).every(([name, value]) => name === 'link' || value == null);
+	return isEmpty ? { type: 'removeComponent', entityId, name: 'skin' } : { type: 'setComponent', entityId, component: { name: 'skin', value: skin } };
 }
 
-/** Turns Colour by Note on or off; other theme options stay as they are */
+/** The skin properties the inspector edits, with null removing an override so the theme's value shows again */
+export type TSkinPropertyPatch = { [K in 'colour' | 'onHit' | 'glowColor' | 'variant']?: TSkinComponent[K] | null } & { property?: { name: string; value: number | string | null } };
+
+/**
+ * Changes skin properties on the target entities, as one edit. On Hit also replaces the `reaction` component older
+ * projects chose it with.
+ */
+export function skinPropertyCommands(project: TProject, entityIds: readonly string[], patch: TSkinPropertyPatch): TProjectCommand[] {
+	return project.entities
+		.filter((entity) => entityIds.includes(entity.id) && entitySkinElement(entity) != null)
+		.flatMap((entity): TProjectCommand[] => {
+			const { property, ...fields } = patch;
+			const merged: Record<string, unknown> = { link: 'linked', ...entity.components.skin, ...fields };
+			if (property != null) {
+				const others = Object.entries(entity.components.skin?.properties ?? {}).filter(([name]) => name !== property.name);
+				const entries = property.value != null ? [...others, [property.name, property.value] as const] : others;
+				merged['properties'] = entries.length > 0 ? Object.fromEntries(entries) : null;
+			}
+			const skin = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null)) as TSkinComponent;
+			const reaction: TProjectCommand[] = 'onHit' in patch && entity.components.reaction != null ? [{ type: 'removeComponent', entityId: entity.id, name: 'reaction' }] : [];
+			return [skinValueCommand(entity.id, skin), ...reaction];
+		});
+}
+
+/** Reset to Theme: the entities lose their own skin, properties and old reaction, as one edit */
+export function resetToThemeCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
+	return project.entities
+		.filter((entity) => entityIds.includes(entity.id))
+		.flatMap((entity): TProjectCommand[] => [
+			...(entity.components.skin != null ? [{ type: 'removeComponent' as const, entityId: entity.id, name: 'skin' as const }] : []),
+			...(entity.components.reaction != null ? [{ type: 'removeComponent' as const, entityId: entity.id, name: 'reaction' as const }] : [])
+		]);
+}
+
+/**
+ * Colour by Note as the whole project's default: a project theme stores it for its platforms; a built-in theme is
+ * read-only, so turning it on makes the project a theme of its own, "Neon by Note". Colour: By Note on a selection is
+ * `skinPropertyCommands`.
+ */
 export function colorByNoteCommands(project: TProject, colorByNote: boolean): TProjectCommand[] {
-	if ((project.design.themeOptions?.colorByNote ?? false) === colorByNote) return [];
-	return [{ type: 'setDesign', design: { themeOptions: { ...project.design.themeOptions, colorByNote } } }];
+	if (isThemeColorByNote(project.design) === colorByNote) return [];
+	const theme = resolveTheme(project.design);
+	if (theme.projectTheme != null) return themePartCommands(project, theme.id, 'platform', { colour: colorByNote ? 'note' : null });
+	const themes = projectThemes(project.design);
+	const created: TProjectTheme = {
+		id: createId('theme'),
+		name: themes.some((item) => item.name === `${theme.name} by Note`) ? copyName(`${theme.name} by Note`, themes.map((item) => item.name)) : `${theme.name} by Note`,
+		base: theme.base,
+		overrides: {},
+		parts: { platform: { colour: 'note' } }
+	};
+	return [{ type: 'setDesign', design: { themes: [...themes, created], theme: created.id } }];
 }
 
 function publicUrl(path: string): string {
 	return `/${path}`;
 }
-
-export type TReactionPreset = 'none' | 'press' | 'wobble' | 'glow';
-/** `theme` removes the piece's own reaction so the theme's default applies */
-export type TReactionChoice = TReactionPreset | 'theme';
-
-export const reactionChoices: readonly { value: TReactionChoice; label: string }[] = [
-	{ value: 'theme', label: 'Theme Default' },
-	{ value: 'none', label: 'None' },
-	{ value: 'press', label: 'Press' },
-	{ value: 'wobble', label: 'Wobble' },
-	{ value: 'glow', label: 'Glow' }
-];
 
 export type TSkinTarget = { kind: 'entities'; entityIds: string[] } | { kind: 'pieceType'; pieceType: string };
 
@@ -130,24 +139,23 @@ export function cameraCommands(project: TProject, patch: Partial<TDesign['camera
 	return [{ type: 'setDesign', design: { camera: { ...project.design.camera, ...patch } } }];
 }
 
-/** Pieces a skin target covers: the given piece entities, or every piece of a type */
+/** Pieces and marbles a skin target covers: the given entities, or every one of a type (`marble` for the marbles) */
 export function skinTargetIds(project: TProject, target: TSkinTarget): string[] {
 	return project.entities
 		.filter((entity) => {
-			const piece = entity.components.piece;
-			if (piece == null) return false;
-			return target.kind === 'entities' ? target.entityIds.includes(entity.id) : piece.type === target.pieceType;
+			const { piece, marble } = entity.components;
+			if (piece == null && marble == null) return false;
+			return target.kind === 'entities' ? target.entityIds.includes(entity.id) : (piece?.type ?? 'marble') === target.pieceType;
 		})
 		.map((entity) => entity.id);
 }
 
-/** Sets a linked skin on every targeted piece */
+/** Sets a linked skin on everything targeted, keeping what each has chosen for its properties */
 export function skinCommands(project: TProject, target: TSkinTarget, assetId: string): TProjectCommand[] {
-	return skinTargetIds(project, target).map((entityId) => ({
-		type: 'setComponent' as const,
-		entityId,
-		component: { name: 'skin' as const, value: { assetId, link: 'linked' as const } }
-	}));
+	return skinTargetIds(project, target).map((entityId) => {
+		const own = project.entities.find((entity) => entity.id === entityId)?.components.skin;
+		return { type: 'setComponent' as const, entityId, component: { name: 'skin' as const, value: { ...own, assetId, link: 'linked' as const } } };
+	});
 }
 
 /** Removes the pieces' own skin so the theme's default skin applies again */
@@ -155,25 +163,6 @@ export function clearSkinCommands(project: TProject, entityIds: string[]): TProj
 	return project.entities
 		.filter((entity) => entityIds.includes(entity.id) && entity.components.skin != null)
 		.map((entity) => ({ type: 'removeComponent' as const, entityId: entity.id, name: 'skin' as const }));
-}
-
-export function reactionCommands(project: TProject, entityIds: string[], choice: TReactionChoice): TProjectCommand[] {
-	const pieces = project.entities.filter((entity) => entityIds.includes(entity.id) && entity.components.piece != null);
-	if (choice === 'theme') {
-		return pieces
-			.filter((entity) => entity.components.reaction != null)
-			.map((entity) => ({ type: 'removeComponent' as const, entityId: entity.id, name: 'reaction' as const }));
-	}
-	return pieces.map((entity) => ({
-		type: 'setComponent' as const,
-		entityId: entity.id,
-		component: { name: 'reaction' as const, value: { preset: choice, params: entity.components.reaction?.params ?? {} } }
-	}));
-}
-
-export function reactionChoiceOf(entity: TEntity): TReactionChoice {
-	const preset = entity.components.reaction?.preset;
-	return preset === 'none' || preset === 'press' || preset === 'wobble' || preset === 'glow' ? preset : 'theme';
 }
 
 /** The piece type most of the pieces have, so a section selected as a range in Layers shows its platforms' skins */

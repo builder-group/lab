@@ -8,9 +8,9 @@ export const SONG_ROLL_MAX_HEIGHT = 240;
 export const TRANSPORT_HEIGHT = 40;
 // Camera track of the Film workspace, the last track
 export const CAMERA_ROW_HEIGHT = 32;
-// One semitone of an expanded track
+// One semitone of the Song's piano roll
 export const NOTE_ROW_HEIGHT = 12;
-// Keyboard strip at the right of an expanded track header
+// Keyboard strip at the right of the expanded Song header
 export const KEYBOARD_WIDTH = 40;
 export const MIN_ZOOM = 20;
 export const MAX_ZOOM = 800;

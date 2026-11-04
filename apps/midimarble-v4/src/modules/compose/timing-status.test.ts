@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { THitResult } from '@/modules/simulation';
-import { lateness, timingStatus } from './timing-status';
+import { timingStatus } from './timing-status';
 
 function hitResult(patch: Partial<THitResult>): THitResult {
 	return {
@@ -50,12 +50,5 @@ describe('timingStatus function', () => {
 
 	it('should stay neutral while the run is simulating', () => {
 		expect(timingStatus(undefined, undefined)).toEqual({ tone: 'neutral', label: 'Checking…' });
-	});
-});
-
-describe('lateness function', () => {
-	it('should round to whole milliseconds with the direction', () => {
-		expect(lateness(0.0004)).toBe('0 ms late');
-		expect(lateness(-0.0216)).toBe('22 ms early');
 	});
 });

@@ -5,7 +5,8 @@ import { ComposeRenderer, MARBLE_Z, type TRenderPiece } from '@/modules/compose/
 import { distanceToSegment, isPointInPolygon } from '@/modules/compose/picking';
 import { marblePositionAt, pieceAngleAt, pieceKind, pieceOutline } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
-import { DEFAULT_THEME, resolveTheme } from './project-themes';
+import { appliedOverrides, DEFAULT_THEME, resolveElementLook, resolveTheme } from './project-themes';
+import { wallKindOverride } from './scene-layers';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
@@ -37,7 +38,7 @@ export class DraftPreviewCx {
 		const renderer = new ComposeRenderer(canvas);
 		this.renderer = renderer;
 		this.wallTheme = null;
-		renderer.setCamera({ mode: 'camera', view: { center: { x: 0, y: 0 }, scale: 1000 }, yaw: 0, pitch: 0 });
+		renderer.setCamera({ mode: 'camera', view: { center: { x: 0, y: 0 }, scale: 1000 } });
 		const observer = new ResizeObserver(() => {
 			const rect = container.getBoundingClientRect();
 			this.size = { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
@@ -92,8 +93,9 @@ export class DraftPreviewCx {
 		return draftPieceColors(
 			theme?.base ?? DEFAULT_THEME,
 			scene ?? { type: piece.type, color: '#c8b89a', skin: null },
-			project?.design.themeOptions?.colorByNote === true,
-			theme?.overrides
+			false,
+			theme?.overrides,
+			theme?.projectTheme?.parts
 		);
 	}
 
@@ -104,7 +106,8 @@ export class DraftPreviewCx {
 	skinMarks(piece: TResolvedPiece): { id: string; points: TVec2[]; color: string }[] {
 		const project = this.studio.project;
 		if (piece.type !== 'platform' || project == null) return [];
-		const marks = draftSkinMarks(resolveTheme(project.design).base, { type: piece.type, skin: this.scenePiece(piece.entityId)?.skin ?? null, angle: piece.angle });
+		const theme = resolveTheme(project.design);
+		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: this.scenePiece(piece.entityId)?.skin ?? null, angle: piece.angle }, theme.projectTheme?.parts);
 		if (!marks.length) return [];
 		const angle = pieceAngleAt(piece, this.studio.$playhead.get());
 		const [length, thickness, depth] = [piece.params['length'] ?? 0.06, piece.params['thickness'] ?? 0.008, piece.params['depth'] ?? 0.03];
@@ -173,7 +176,7 @@ export class DraftPreviewCx {
 					entityId: entity.id,
 					radius: marble.radius,
 					position: marblePositionAt(motion, playhead, release.position),
-					...draftMarble(theme.base, marble.color, theme.overrides)
+					...draftMarble(theme.base, marble.color, appliedOverrides(project.design), resolveElementLook(project.design, 'marble', entity.components.skin))
 				}
 			];
 		});
@@ -182,7 +185,9 @@ export class DraftPreviewCx {
 	/** Whether the theme's pieces glow, for the overlay's soft halo */
 	glows(): boolean {
 		const project = this.studio.project;
-		return project != null && draftGlows(resolveTheme(project.design).base);
+		if (project == null) return false;
+		const theme = resolveTheme(project.design);
+		return draftGlows(theme.parts.platform.skin === 'platform:neon' ? 'neon' : theme.base);
 	}
 
 	/**
@@ -260,9 +265,11 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (renderer == null || project == null) return;
 		const theme = resolveTheme(project.design);
-		const wallKey = `${theme.base} ${theme.overrides.wallColor ?? ''}`;
+		const overrides = appliedOverrides(project.design);
+		const wallKind = wallKindOverride(project.design);
+		const wallKey = `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''}`;
 		if (this.wallTheme !== wallKey) {
-			renderer.setWallLook(draftWall(theme.base, theme.overrides));
+			renderer.setWallLook(draftWall(theme.base, overrides, wallKind));
 			this.wallTheme = wallKey;
 		}
 		const playhead = this.studio.$playhead.get();
@@ -270,7 +277,7 @@ export class DraftPreviewCx {
 		this.pose = track != null ? sampleCameraTrack(track, playhead, this.scratchPose) : null;
 		renderer.setFilm(this.pose != null ? { pose: this.pose, aspect: this.aspect(), frame: { x: 0, y: 0, ...this.size } } : null);
 
-		const items: TRenderPiece[] = this.pieces().map((piece) => ({ piece, ghost: false, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece) }));
+		const items: TRenderPiece[] = this.pieces().map((piece) => ({ piece, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece) }));
 		renderer.setPieces(items);
 		renderer.setMarbles(
 			this.marbles().map(({ entityId, body, radius, position }) => ({ entityId, color: body, radius, position }))

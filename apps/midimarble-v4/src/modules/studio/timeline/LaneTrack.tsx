@@ -2,18 +2,17 @@ import React from 'react';
 import { openContextMenu } from '@/components';
 import { unreachableStatus } from '@/modules/compose/reachability';
 import { findLaneConflicts, MIN_HIT_GAP } from '@/modules/music';
-import { createId, type THit, type TLane } from '@/modules/project';
+import type { THit, TLane } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { formatTime, noteName } from '../format';
 import { hitMenu, laneMenu } from '../menus';
 import { toHitKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
 import { hitTiming, type THitTiming } from './hit-status';
-import { clampPitch, isBlackKey, pitchToRow, rowCount, rowToPitch, type TPitchRange } from './piano-roll';
-import { NOTE_ROW_HEIGHT, ROW_HEIGHT, round } from './timeline-layout';
+import { ROW_HEIGHT } from './timeline-layout';
 
 /**
- * A collapsed track: its hits in one flat row, each drawn by its timing status: green On Time, amber Early or
+ * A marble's track: its hits in one flat row, each drawn by its timing status: green On Time, amber Early or
  * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so colour is never the only signal.
  */
 export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
@@ -54,7 +53,6 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 						lane={lane}
 						hit={hit}
 						index={index}
-						className="mm-hit"
 						selection={selection}
 						status={statuses?.get(hit.id)}
 						isConflict={conflicts.has(hit.id)}
@@ -84,97 +82,23 @@ interface TLaneTrackProps {
 	timeAt: (clientX: number) => number;
 }
 
-/**
- * An expanded track like Logic's piano roll: one row per semitone, black-key rows shaded, hits drawn as
- * note blocks whose left edge is the hit time. Dragging a note moves it in time and in pitch.
- */
-export const PianoRollTrack: React.FC<TPianoRollTrackProps> = (props) => {
-	const { cx, lane, range, zoom, width, selection, drag, statuses, isAudible, onDragStart, timeAt } = props;
-	const conflicts = React.useMemo(() => findLaneConflicts(lane), [lane]);
-	const marquee = useMarquee(cx, lane, zoom, selection, timeAt);
-	const pitches = Array.from({ length: rowCount(range) }, (_, index) => range.high - index);
-
-	/** Adds a note at the time and pitch under the pointer, like double-clicking in Logic's piano roll */
-	function addNote(event: React.MouseEvent<HTMLDivElement>): void {
-		const y = event.clientY - event.currentTarget.getBoundingClientRect().top;
-		const hit: THit = { id: createId('hit'), time: round(timeAt(event.clientX)), pitch: rowToPitch(y, range, NOTE_ROW_HEIGHT) };
-		if (!cx.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }])) return;
-		cx.$selection.set([toHitKey(lane.id, hit.id)]);
-		cx.audition(lane.id, hit.pitch);
-	}
-
-	return (
-		<div
-			className="mm-piano-roll relative flex-1 border-b border-[var(--separator)]"
-			style={{ minWidth: width, height: rowCount(range) * NOTE_ROW_HEIGHT }}
-			{...marquee.handlers}
-			onDoubleClick={(event) => {
-				if (!isRollBackground(event)) return;
-				addNote(event);
-			}}
-			onContextMenu={(event) => {
-				if (!isRollBackground(event)) return;
-				openContextMenu(event, laneMenu(cx, lane, timeAt(event.clientX)));
-			}}
-		>
-			{pitches.map((pitch) => (
-				<div
-					key={pitch}
-					data-row={pitch}
-					className="mm-piano-row"
-					data-black={isBlackKey(pitch)}
-					data-c={pitch % 12 === 0}
-					style={{ top: pitchToRow(pitch, range) * NOTE_ROW_HEIGHT, height: NOTE_ROW_HEIGHT }}
-				/>
-			))}
-			{lane.hits.map((hit, index) => {
-				if (hit.pitch == null) return null;
-				const key = toHitKey(lane.id, hit.id);
-				const isDragged = drag?.keys.includes(key) === true;
-				const time = Math.max(0, hit.time + (isDragged ? drag.delta : 0));
-				const pitch = isDragged && drag.isPitched ? clampPitch(hit.pitch + drag.pitchDelta, range) : hit.pitch;
-				return (
-					<HitButton
-						key={hit.id}
-						cx={cx}
-						lane={lane}
-						hit={hit}
-						index={index}
-						className="mm-note"
-						selection={selection}
-						status={statuses?.get(hit.id)}
-						isConflict={conflicts.has(hit.id)}
-						style={{ left: time * zoom, top: pitchToRow(pitch, range) * NOTE_ROW_HEIGHT + 1, height: NOTE_ROW_HEIGHT - 2, opacity: isAudible ? 1 : 0.4 }}
-						onDragStart={(event) => onDragStart(key, event, true)}
-					/>
-				);
-			})}
-			{marquee.element}
-		</div>
-	);
-};
-
-interface TPianoRollTrackProps extends Omit<TLaneTrackProps, 'onAdd'> {
-	range: TPitchRange;
-}
-
 export interface TDrag {
 	originX: number;
 	originY: number;
 	delta: number;
-	// Semitones, only for drags that started in a piano roll
+	// Semitones, only for drags that started in the Song's piano roll
 	pitchDelta: number;
 	isPitched: boolean;
 	keys: string[];
-	// The grabbed hit, auditioned at its new pitch on drop
+	// The grabbed note, auditioned at its new pitch on drop; `laneId` is `BACKING_ID` for a Backing note
 	grabbed: { laneId: string; hitId: string };
 }
 
 export type TDragStart = (hitKey: string, event: { clientX: number; clientY: number }, isPitched: boolean) => void;
 
-/** A hit diamond or note block: click selects and auditions, Shift-click toggles, drag moves */
+/** A hit diamond: click selects and auditions, Shift-click toggles, drag moves */
 const HitButton: React.FC<THitButtonProps> = (props) => {
-	const { cx, lane, hit, index, className, selection, status, isConflict, style, onDragStart, children } = props;
+	const { cx, lane, hit, index, selection, status, isConflict, style, onDragStart, children } = props;
 	const key = toHitKey(lane.id, hit.id);
 	const isSelected = selection.includes(key);
 	// Hits of selected pieces are outlined, like keyframes of the selected object in Blender
@@ -187,7 +111,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 		<button
 			aria-label={`Hit ${index + 1}${hit.pitch == null ? '' : ` ${noteName(hit.pitch)}`} at ${formatTime(hit.time)}`}
 			aria-pressed={isSelected}
-			className={className}
+			className="mm-hit"
 			data-selected={isSelected}
 			data-state={timing.state}
 			data-conflict={isConflict}
@@ -221,7 +145,6 @@ interface THitButtonProps {
 	lane: TLane;
 	hit: THit;
 	index: number;
-	className: string;
 	selection: string[];
 	status: THitResult | undefined;
 	isConflict: boolean;
@@ -278,11 +201,6 @@ interface TMarquee {
 	};
 	element: React.ReactNode;
 	isLaneSelected: boolean;
-}
-
-/** Whether an event landed on the piano roll itself or one of its semitone rows, not on a note */
-function isRollBackground(event: React.MouseEvent<HTMLElement>): boolean {
-	return event.target === event.currentTarget || (event.target as HTMLElement).classList.contains('mm-piano-row');
 }
 
 function hitTitle(index: number, hit: THit, timing: THitTiming, isConflict: boolean): string {

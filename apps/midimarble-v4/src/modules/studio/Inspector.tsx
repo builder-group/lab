@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus, Trash2 } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, ScrubField, SelectField, StatusPill, TextField } from '@/components';
+import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { unreachableActions } from '@/modules/compose/unreachable-fixes';
@@ -10,13 +10,16 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStat
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { CameraInspector, FilmLookPanel, PieceLook, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
+import { MarbleLook } from '@/modules/design/SkinProperties';
+import { KeyLightInspector, LightInspector, LightsInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
+import { addedLights } from '@/modules/design/scene-layers';
 import { DEFAULT_HIT_VELOCITY, endsOnFinish, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_TAIL, suggestedHitTimes } from '@/modules/music';
 import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
-import { parseHitKey } from './selection';
+import { KEY_LIGHT_ID, parseHitKey } from './selection';
 import { deleteSongQuestion, songLayerName } from './song-layer';
 import { songSource } from './SourcesCx';
 import type { StudioCx, TWorkspace } from './StudioCx';
@@ -73,12 +76,29 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 		case 'marble': {
 			const lane = project.music.lanes.find((item) => item.id === target.laneId);
 			const marble = project.entities.find((item) => item.id === target.entityId);
-			return lane == null || marble == null ? null : <LaneInspector cx={cx} project={project} lane={lane} marble={marble} />;
+			if (lane == null || marble == null) return null;
+			return (
+				<>
+					<LaneInspector cx={cx} project={project} lane={lane} marble={marble} />
+					{isFilm ? <MarbleLook cx={cx} project={project} marble={marble} /> : null}
+				</>
+			);
 		}
 		case 'song':
 			return <SongInspector cx={cx} project={project} />;
 		case 'camera':
 			return <CameraInspector cx={cx} project={project} />;
+		// Wall and Lights belong to Film; a selection left over in Compose shows the Project
+		case 'wall':
+			return isFilm ? <WallInspector cx={cx} project={project} /> : <ProjectInspector cx={cx} project={project} look={null} />;
+		case 'lights':
+			return isFilm ? <LightsInspector cx={cx} project={project} /> : <ProjectInspector cx={cx} project={project} look={null} />;
+		case 'light': {
+			if (!isFilm) return <ProjectInspector cx={cx} project={project} look={null} />;
+			if (target.id === KEY_LIGHT_ID) return <KeyLightInspector cx={cx} project={project} />;
+			const light = addedLights(project.design).find((item) => item.id === target.id);
+			return light == null ? null : <LightInspector cx={cx} project={project} light={light} />;
+		}
 		case 'project':
 			return <ProjectInspector cx={cx} project={project} look={isFilm ? <FilmLookPanel cx={cx} project={project} /> : null} />;
 	}
@@ -572,70 +592,6 @@ interface TProjectInspectorProps {
 	project: TProject;
 	/** The film's Look, shown in Film */
 	look: React.ReactNode;
-}
-
-/** A slider with a typeable value field beside it, previewing while dragged and committing on release */
-const SliderField: React.FC<TSliderFieldProps> = (props) => {
-	const { id, label, value, min, max, step, unit, format, onPreview, onCommit } = props;
-	const [draft, setDraft] = React.useState<number | null>(null);
-	const shown = draft ?? value;
-	function commit(): void {
-		if (draft != null && draft !== value) onCommit(draft);
-		setDraft(null);
-	}
-	return (
-		<>
-			<div className="mm-insp-slider">
-				<input
-					id={id}
-					aria-label={label}
-					className="mm-slider"
-					type="range"
-					min={min}
-					max={max}
-					step={step}
-					value={shown}
-					style={{ '--fill': `${((shown - min) / (max - min)) * 100}%` } as React.CSSProperties}
-					onChange={(event) => {
-						const next = Number(event.target.value);
-						setDraft(next);
-						onPreview(next);
-					}}
-					onPointerUp={commit}
-					onKeyUp={commit}
-					onBlur={commit}
-				/>
-			</div>
-			{/* The value also takes typing, for exact values the short slider cannot reach */}
-			<TextField
-				id={`${id}-value`}
-				label={label}
-				name={label}
-				value={format(shown)}
-				unit={unit}
-				allowEmpty={false}
-				onCommit={(text) => {
-					const typed = Number.parseFloat(text.replace(',', '.'));
-					if (!Number.isFinite(typed)) return;
-					const next = Math.min(max, Math.max(min, Math.round(typed / step) * step));
-					if (next !== value) onCommit(Number(next.toFixed(6)));
-				}}
-			/>
-		</>
-	);
-};
-
-interface TSliderFieldProps {
-	id: string;
-	label: string;
-	value: number;
-	min: number;
-	max: number;
-	step: number;
-	unit: string;
-	format: (value: number) => string;
-	onPreview: (value: number) => void;
-	onCommit: (value: number) => void;
 }
 
 function round1(value: number): number {

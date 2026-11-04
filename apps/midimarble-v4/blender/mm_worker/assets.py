@@ -10,6 +10,10 @@ template that share its meshes and materials. The scene file then carries everyt
 move and film jobs, which render a saved copy of the scene, need no library paths. The template is reloaded when
 the file's size or modification time changes, which rebuilds the skins that use it.
 
+A manifest may declare extra skin properties (`properties`: number or colour, such as Ribbon Colour). A piece's value
+goes to every node input and every Value or RGB node of that name in the skin's materials; a material without one
+ignores it. The skin then wears its own copy of the material, so other pieces keep theirs.
+
 Skin layout under a piece holder:
 
     <holder>
@@ -28,7 +32,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 from . import skins
-from .util import OWNER, WorkerError, descendants, resolve_package_path
+from .util import OWNER, WorkerError, descendants, parse_color, resolve_package_path
 
 ASSET_COLLECTION = 'MM_ASSET'
 ASSET_SKIN = 'asset'
@@ -172,6 +176,7 @@ def skin_key(piece, template, manifest, context):
         [round(float(piece['position']['x']), 6), round(float(piece['position']['y']), 6), round(float(piece.get('angle', 0.0)), 6)]
         if layout(piece.get('type')) in ('path', 'tube') else None,
         sorted(skins.piece_reaction(piece, context).items()),
+        sorted(property_values(piece, manifest).items()),
     ]
     return hashlib.sha1(json.dumps(values).encode()).hexdigest()[:16]
 
@@ -239,6 +244,7 @@ def _populate(root, holder, piece, template, manifest, collection, context):
         reaction_kind = original.get('mm_reaction')
         if original.name.startswith(REACT_PREFIX) and reaction_kind in REACTION_KINDS:
             add_part_reaction(copy, original, holder, reaction_kind, reaction, kind)
+    apply_properties(copies.values(), property_values(piece, manifest))
     root['mm_asset'] = template.get('mm_asset_path')
     root['mm_skin_key'] = skin_key(piece, template, manifest, context)
     root['mm_skin_print'] = fingerprint(root)
@@ -327,6 +333,58 @@ def bend_along(obj, curve):
     bend = obj.modifiers.new('MM bend', 'CURVE')
     bend.object = curve
     bend.deform_axis = 'POS_X'
+
+
+# Extra properties
+
+
+def property_values(piece, manifest):
+    """The piece's values of the properties its manifest declares, with the manifest's defaults under them"""
+    declared = manifest.get('properties') if isinstance(manifest.get('properties'), list) else []
+    chosen = ((piece.get('skin') or {}).get('properties') or {})
+    values = {}
+    for item in declared:
+        if not isinstance(item, dict) or not isinstance(item.get('name'), str):
+            continue
+        value = chosen.get(item['name'], item.get('default'))
+        if value is not None:
+            values[item['name']] = value
+    return values
+
+
+def apply_properties(objects, values):
+    """Writes the values into named material inputs, on copies of the materials that have one"""
+    if not values:
+        return
+    for obj in objects:
+        for slot in obj.material_slots:
+            material = slot.material
+            if material is None or material.node_tree is None or not any(_named_sockets(material, name) for name in values):
+                continue
+            copy = material.copy()
+            for name, value in values.items():
+                for socket in _named_sockets(copy, name):
+                    _set_socket(socket, value)
+            slot.link = 'OBJECT'
+            slot.material = copy
+
+
+def _named_sockets(material, name):
+    sockets = []
+    for node in material.node_tree.nodes:
+        if node.type in ('VALUE', 'RGB') and name in (node.label, node.name):
+            sockets.append(node.outputs[0])
+        sockets += [socket for socket in node.inputs if socket.name == name and not socket.is_linked and hasattr(socket, 'default_value')]
+    return sockets
+
+
+def _set_socket(socket, value):
+    current = socket.default_value
+    if isinstance(value, str):
+        if hasattr(current, '__len__') and len(current) == 4:
+            socket.default_value = parse_color(value)
+    elif isinstance(value, (int, float)) and not isinstance(value, bool) and not hasattr(current, '__len__'):
+        socket.default_value = float(value)
 
 
 # Reactions

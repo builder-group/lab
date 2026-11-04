@@ -339,28 +339,6 @@ textarea {
 	background: var(--hover);
 }
 
-/* A start screen example's still in the film's portrait frame, like a template preview */
-.mm-example-thumb {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 28px;
-	height: 48px;
-	flex-shrink: 0;
-	margin: 0 6px 0 2px;
-	overflow: hidden;
-	border-radius: 4px;
-	background: var(--hover);
-	box-shadow: inset 0 0 0 0.5px var(--separator);
-	color: var(--text-secondary);
-}
-
-.mm-example-thumb img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-}
-
 .mm-row[data-selected='true'] {
 	background: var(--selection);
 }
@@ -464,6 +442,33 @@ textarea {
 	background-color: var(--band-selected);
 }
 
+/* Film's render bar: the separator under the ruler fills green where Blender's preview is rendered. Taller than its line, so its tooltip can be reached. */
+.mm-render-bar {
+	position: absolute;
+	bottom: -1px;
+	height: 6px;
+}
+
+.mm-render-span {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+}
+
+.mm-render-span::after {
+	content: '';
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+	background: color-mix(in srgb, var(--good) 65%, var(--separator));
+}
+
+.mm-render-span[data-level='fast']::after {
+	background: var(--good);
+}
+
 .mm-out-of-range {
 	background: color-mix(in srgb, var(--text) 5%, transparent);
 	border-left: 1px solid var(--separator);
@@ -564,35 +569,7 @@ textarea {
 	background: color-mix(in srgb, var(--text) 2.5%, transparent);
 }
 
-/* An empty Song track reads as a drop target */
-.mm-song-empty {
-	background-image: repeating-linear-gradient(90deg, var(--separator) 0 6px, transparent 6px 12px);
-	background-size: 100% 1px;
-	background-repeat: no-repeat;
-	background-position: 0 50%;
-	background-color: color-mix(in srgb, var(--text) 1.5%, transparent);
-}
-
-.mm-song-empty > * {
-	position: relative;
-	z-index: 1;
-	padding: 0 4px;
-	background: var(--content);
-}
-
-/* Text-only action inside a row, like a link in a Finder empty state */
-.mm-link-button {
-	border-radius: 4px;
-	color: var(--text);
-	font-size: 11px;
-	font-weight: 500;
-}
-
-.mm-link-button:hover {
-	background: var(--hover);
-}
-
-/* Piano roll keyboard, like Logic's: black keys reach in from the left, C keys carry their octave */
+/* The Song roll's keyboard, like Logic's: black keys reach in from the left, C keys carry their octave */
 .mm-keyboard {
 	border-left: 1px solid var(--separator);
 	background: var(--key-white);
@@ -648,46 +625,6 @@ textarea {
 /* Octave lines below each C, like the stronger grid lines of Logic's piano roll */
 .mm-piano-row[data-c='true'] {
 	border-bottom: 1px solid var(--separator);
-}
-
-/* Notes of an expanded track: blocks whose left edge is the hit time, in the same states as the diamonds */
-.mm-note {
-	position: absolute;
-	z-index: 1;
-	width: 12px;
-	border-radius: 2.5px;
-	background: var(--lane);
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lane) 65%, black);
-	cursor: move;
-}
-
-.mm-note[data-state='open'] {
-	background: color-mix(in srgb, var(--lane) 22%, var(--content));
-	box-shadow: inset 0 0 0 1.5px var(--lane);
-}
-
-.mm-note[data-state='drifting'] {
-	box-shadow: inset 0 0 0 1.5px var(--warn);
-}
-
-.mm-note[data-state='missed'] {
-	background: var(--bad);
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 70%, black);
-}
-
-.mm-note[data-conflict='true'] {
-	outline: 1.5px solid var(--bad);
-	outline-offset: 1px;
-}
-
-.mm-note[data-linked='true'] {
-	outline: 1.5px solid var(--accent-strong);
-	outline-offset: 1px;
-}
-
-.mm-note[data-selected='true'] {
-	background: var(--accent);
-	box-shadow: inset 0 0 0 1px var(--accent-strong);
 }
 
 /* Hit diamonds use Blender's keyframe vocabulary: selected keys turn the accent colour */
@@ -774,6 +711,7 @@ textarea {
 	border-radius: 2.5px;
 	background: var(--lane);
 	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lane) 65%, black);
+	cursor: move;
 }
 
 .mm-song-note[data-backing='true'] {
@@ -845,11 +783,6 @@ button.mm-hit-summary:hover {
 .mm-hit[data-state='unreachable'] > span {
 	background: var(--content);
 	border: 1.5px dashed var(--warn);
-}
-
-.mm-note[data-state='unreachable'] {
-	background: color-mix(in srgb, var(--warn) 18%, var(--content));
-	box-shadow: inset 0 0 0 1.5px var(--warn);
 }
 
 /* Notice actions such as Undo and Re-place, plain text buttons like Mail's undo toast */
@@ -997,12 +930,6 @@ button.mm-hit-summary:hover {
 		var(--grid-fine-x, 0) var(--grid-fine-y, 0);
 }
 
-/* The orbit and camera views draw their own wall in perspective */
-.mm-pegboard[data-mode='orbit'],
-.mm-pegboard[data-mode='camera'] {
-	background-image: none;
-}
-
 /* A newly opened project shows its wall once the first run has framed it, so the zoom never jumps */
 .mm-pegboard[data-opening='true'] {
 	background-image: none;
@@ -1054,22 +981,6 @@ button.mm-hit-summary:hover {
 .mm-tool-button[data-active='true'] {
 	background: var(--accent);
 	color: var(--on-accent);
-}
-
-.mm-tool-count {
-	position: absolute;
-	top: 1px;
-	right: 1px;
-	min-width: 13px;
-	height: 13px;
-	padding: 0 3px;
-	border-radius: 7px;
-	background: var(--accent);
-	color: var(--on-accent);
-	font-size: 9px;
-	font-weight: 600;
-	line-height: 13px;
-	text-align: center;
 }
 
 /* Figma-style tooltip with the shortcut, shown above the button after a short delay */
@@ -2012,12 +1923,6 @@ button.mm-hit-summary:hover {
 
 .mm-layers {
 	outline: none;
-}
-
-.mm-layers-empty {
-	padding: 4px 16px;
-	font-size: var(--text-small);
-	color: var(--text-tertiary);
 }
 
 .mm-layer {

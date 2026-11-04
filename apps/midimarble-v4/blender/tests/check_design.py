@@ -75,7 +75,7 @@ def ballistic():
     return np.stack([times, x, y, angle], axis=1).astype('<f4'), hit
 
 
-def write_package(root, records, hit, theme='brass', asset=False, reaction=None, texts=None, duration=DURATION, overrides=None, skin=None):
+def write_package(root, records, hit, theme='brass', asset=False, reaction=None, texts=None, duration=DURATION, overrides=None, skin=None, layers=None):
     motion = root / '.cache' / 'motion'
     motion.mkdir(parents=True, exist_ok=True)
     records.tofile(motion / 'marble-1.bin')
@@ -99,6 +99,8 @@ def write_package(root, records, hit, theme='brass', asset=False, reaction=None,
     }
     if overrides:
         description['themeOverrides'] = overrides
+    if layers:
+        description.update(layers)
     (root / '.cache' / 'scene.json').write_text(json.dumps(description))
 
 
@@ -471,6 +473,66 @@ def main():
     trims = [slot.material.name for obj in holder('platform-1').children_recursive if obj.type == 'MESH' for slot in obj.material_slots
              if slot.material is not None and slot.material.name.startswith('MM · neon trim')]
     check(trims and all(name.startswith('MM · neon trim 0.000 1.000 0.000') for name in trims), "a Neon project theme's Glow colours every edge (%s)" % trims)
+    # The Wall and Lights layers: an override on a built-in theme applies, and the theme's default returns on reset.
+    # The worker starts from an empty scene, so its world is its own; this check started from the factory scene's
+    own_world = bpy.data.worlds.new('MM studio')
+    own_world['mm_owner'] = 'midimarble'
+    bpy.context.scene.world = own_world
+    write_package(root, records, hit, asset=True, overrides={'backgroundColor': '#000001'})
+    apply(worker)
+    write_package(root, records, hit, asset=True)
+    apply(worker)
+    default_world = tuple(own_world.color)
+    sun = studio('studio.sun')
+    default_sun = (sun.data.energy, tuple(sun.data.color), tuple(sun.rotation_euler))
+    default_wall = studio('studio.wall').data.materials[0].name
+    fill = {'id': 'light-1', 'name': 'Fill', 'color': '#00ff88', 'strength': 4.0, 'side': 0.5, 'height': 0.0}
+    write_package(root, records, hit, asset=True, overrides={'wallColor': '#336699', 'backgroundColor': '#102030', 'lightColor': '#ff8800'},
+                  layers={'wallKind': 'grid', 'keyLight': {'strength': 9.0, 'side': 0.5, 'height': 0.0}, 'lights': [fill]})
+    report = apply(worker)
+    wall_material = studio('studio.wall').data.materials[0]
+    check(wall_material.name.startswith('MM · wall neon ') and near(wall_material.diffuse_color, '#336699'),
+          "the Wall layer's Skin and colour apply on a built-in theme (%s)" % wall_material.name)
+    check(near(sun.data.color, '#ff8800') and abs(sun.data.energy - 9.0) < 1e-4, "the Key Light's colour and strength apply")
+    # Side 50 %, Height 0: the light stands to the right in front of the wall, so it travels left and into the wall
+    travel = sun.rotation_euler.to_matrix() @ Vector((0.0, 0.0, -1.0))
+    check(close(travel, (-math.sqrt(0.5), math.sqrt(0.5), 0.0), 1e-3), "the Key Light's Side and Height set its direction (%s)" % str(tuple(travel)))
+    check(near(bpy.context.scene.world.color, '#102030'), 'the Background colour reaches the world')
+
+    def added_light(light_id):
+        return next((obj for obj in bpy.data.collections[STUDIO_COLLECTION].objects if obj.get('mm_light_id') == light_id), None)
+
+    light = added_light('light-1')
+    check(light is not None and light.type == 'LIGHT' and light.data.type == 'SUN' and light.get('mm_owner') == 'midimarble' and report['lights']['created'] == ['light-1'],
+          'an added light becomes an app-owned sun')
+    check(near(light.data.color, '#00ff88') and abs(light.data.energy - 4.0) < 1e-4 and light.name == 'Fill', 'an added light takes its colour, strength and name')
+    fill['strength'] = 6.0
+    write_package(root, records, hit, asset=True, layers={'lights': [fill]})
+    report = apply(worker)
+    check(abs(added_light('light-1').data.energy - 6.0) < 1e-4 and report['lights']['updated'] == ['light-1'], 'an edit reaches an untouched added light')
+    check(studio('studio.wall').data.materials[0].name == default_wall and abs(sun.data.energy - default_sun[0]) < 1e-4 and close(sun.data.color, default_sun[1], 1e-3) and close(sun.rotation_euler, default_sun[2], 1e-3),
+          "the theme's wall and Key Light return on reset")
+    check(close(own_world.color, default_world, 1e-3), "the theme's background returns on reset")
+    # A light edited in Blender belongs to Blender: it keeps its values, and deleting it only hides it
+    added_light('light-1').data.energy = 11.0
+    fill['strength'] = 1.0
+    write_package(root, records, hit, asset=True, layers={'lights': [fill]})
+    report = apply(worker)
+    check(abs(added_light('light-1').data.energy - 11.0) < 1e-4 and report['lights']['skipped'] == ['light-1'], 'a light edited in Blender keeps its values')
+    write_package(root, records, hit, asset=True)
+    report = apply(worker)
+    check(added_light('light-1').hide_render and report['lights']['hidden'] == ['light-1'], 'deleting a light edited in Blender hides it')
+    write_package(root, records, hit, asset=True, layers={'lights': [fill]})
+    apply(worker)
+    check(not added_light('light-1').hide_render and abs(added_light('light-1').data.energy - 11.0) < 1e-4, 'undoing the delete shows it again with its edits')
+    # An untouched added light is removed with its layer
+    bpy.data.objects.remove(added_light('light-1'))
+    write_package(root, records, hit, asset=True, layers={'lights': [fill]})
+    apply(worker)
+    write_package(root, records, hit, asset=True)
+    report = apply(worker)
+    check(added_light('light-1') is None and report['lights']['removed'] == ['light-1'], 'deleting an untouched light removes it')
+
     # Neon marbles contrast with their own lane: a pearl-white body with the lane's hue only on the rim, never the
     # saturated hue its platforms glow in
     write_package(root, records, hit, theme='neon')

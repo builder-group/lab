@@ -8,7 +8,7 @@ import type { TWorkspace } from './StudioCx';
  */
 export const quickHelpRegions: TQuickHelpRegion[] = [
 	{ id: 'workspace', title: 'Compose and Film', line: 'Compose: hitboxes and timing. Film: skins, camera and titles', gutter: 'left' },
-	{ id: 'layers', title: 'Layers', line: 'Everything in the project: the song, marbles and pieces, in Film also camera and titles', gutter: 'left' },
+	{ id: 'layers', title: 'Layers', line: 'Everything in the project: the song, marbles and pieces, in Film also the wall, lights, camera and titles', gutter: 'left' },
 	{ id: 'library', title: 'Library', line: 'Pieces to place, and themes and skins for the film', gutter: 'left' },
 	{ id: 'tools', title: 'Tools', line: 'Move and Hand, then the pieces you can place', gutter: 'left' },
 	{ id: 'wall', title: 'Wall', line: 'Marbles fall here and play their notes on the pieces', gutter: 'center', workspace: 'compose' },

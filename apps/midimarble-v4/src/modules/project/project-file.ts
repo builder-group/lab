@@ -1,4 +1,5 @@
 import { prepareSchemaValue } from 'versjon';
+import { migrateSkins } from './skin-ids';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { projectDefinition, type TProject } from './schema';
 
@@ -16,5 +17,5 @@ export function parseProject(json: string): TResult<TProject, Error> {
 	}
 	const [isProjectOk, projectErr, project] = prepareSchemaValue(projectDefinition, value);
 	if (!isProjectOk) return Err(projectErr);
-	return Ok(project as TProject);
+	return Ok(migrateSkins(project as TProject));
 }

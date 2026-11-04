@@ -1,30 +1,77 @@
 import { describe, expect, it } from 'vitest';
-import type { TLane } from '@/modules/project';
-import { clampPitch, hasPitches, isBlackKey, OPENING_GAP, openingRollOffset, pitchDeltaFor, pitchRange, pitchToRow, rowCount, rowToPitch } from './piano-roll';
+import { BACKING_ID, type THit, type TProject, type TSource } from '@/modules/project';
+import { clampPitch, isBlackKey, noteDragCommands, OPENING_GAP, openingRollOffset, pitchDeltaFor, pitchToRow, rowCount, songRollRange } from './piano-roll';
 
-function lane(pitches: (number | undefined)[]): TLane {
+function project(lanes: (number | undefined)[][], backing: (number | undefined)[] = []): TProject {
+	const hits = (id: string, pitches: (number | undefined)[]): THit[] => pitches.map((pitch, index) => ({ id: `${id}-${index}`, time: index, pitch }));
 	return {
-		id: 'lane',
-		name: 'Melody',
-		color: '#f00',
-		instrument: 9,
-		hits: pitches.map((pitch, index) => ({ id: `hit-${index}`, time: index, pitch }))
-	};
+		music: {
+			sources: [],
+			lanes: lanes.map((pitches, index) => ({ id: `lane-${index}`, name: 'Melody', color: '#f00', instrument: 9, hits: hits(`hit-${index}`, pitches) })),
+			backing: hits('backing', backing)
+		}
+	} as unknown as TProject;
 }
 
+const midi = { kind: 'midi' } as TSource;
+const audio = { kind: 'audio' } as TSource;
+
 describe('piano roll', () => {
-	describe('pitchRange function', () => {
-		it('should span the notes plus two semitones on each side', () => {
-			expect(pitchRange(lane([64, 60, 67]))).toEqual({ low: 58, high: 69 });
+	describe('songRollRange function', () => {
+		it('should span every note of the marbles and Backing plus two semitones on each side', () => {
+			expect(songRollRange(project([[64, 60]], [67]), midi)).toEqual({ low: 58, high: 69 });
+			expect(songRollRange(project([], [64]), undefined)).toEqual({ low: 62, high: 66 });
 		});
 
-		it('should return null for a track without pitches', () => {
-			expect(pitchRange(lane([undefined, undefined]))).toBeNull();
-			expect(hasPitches(lane([undefined]))).toBe(false);
+		it('should give a recording no roll, so its layer stays a flat waveform', () => {
+			expect(songRollRange(project([[64, 60]]), audio)).toBeNull();
+		});
+
+		it('should give a song without pitched notes no empty roll', () => {
+			expect(songRollRange(project([[undefined]]), midi)).toBeNull();
+			expect(songRollRange(project([]), midi)).toBeNull();
 		});
 
 		it('should stay inside the MIDI range', () => {
-			expect(pitchRange(lane([0, 127]))).toEqual({ low: 0, high: 127 });
+			expect(songRollRange(project([[0, 127]]), midi)).toEqual({ low: 0, high: 127 });
+		});
+	});
+
+	describe('noteDragCommands function', () => {
+		const range = { low: 58, high: 69 };
+
+		it('should move a marble\'s note and a Backing note in time and pitch, one edit per owner', () => {
+			const commands = noteDragCommands(project([[60, 62]], [64]), { keys: ['hit:lane-0:hit-0-1', `hit:${BACKING_ID}:backing-0`], delta: 0.5, pitchDelta: 2 }, range);
+
+			expect(commands).toEqual([
+				{ type: 'upsertHits', laneId: 'lane-0', hits: [{ id: 'hit-0-1', time: 1.5, pitch: 64 }] },
+				{ type: 'upsertHits', laneId: BACKING_ID, hits: [{ id: 'backing-0', time: 0.5, pitch: 66 }] }
+			]);
+		});
+
+		it('should keep pitches inside the roll and times from going negative', () => {
+			const commands = noteDragCommands(project([[68]]), { keys: ['hit:lane-0:hit-0-0'], delta: -3, pitchDelta: 5 }, range);
+
+			expect(commands).toEqual([{ type: 'upsertHits', laneId: 'lane-0', hits: [{ id: 'hit-0-0', time: 0, pitch: 69 }] }]);
+		});
+
+		it('should leave pitches alone when a diamond moves in a flat row', () => {
+			const commands = noteDragCommands(project([[60, undefined]]), { keys: ['hit:lane-0:hit-0-0', 'hit:lane-0:hit-0-1'], delta: 1, pitchDelta: 0 }, null);
+
+			expect(commands).toEqual([
+				{
+					type: 'upsertHits',
+					laneId: 'lane-0',
+					hits: [
+						{ id: 'hit-0-0', time: 1, pitch: 60 },
+						{ id: 'hit-0-1', time: 2, pitch: undefined }
+					]
+				}
+			]);
+		});
+
+		it('should make no edit for keys it does not hold', () => {
+			expect(noteDragCommands(project([[60]]), { keys: ['platform-1'], delta: 1, pitchDelta: 0 }, null)).toEqual([]);
 		});
 	});
 
@@ -37,15 +84,9 @@ describe('piano roll', () => {
 			expect(pitchToRow(58, range)).toBe(11);
 		});
 
-		it('should map a y offset back to the pitch of its row', () => {
-			expect(rowToPitch(0, range, 12)).toBe(69);
-			expect(rowToPitch(12 * 3 + 5, range, 12)).toBe(66);
-		});
-
-		it('should clamp offsets outside the rows', () => {
-			expect(rowToPitch(-30, range, 12)).toBe(69);
-			expect(rowToPitch(1000, range, 12)).toBe(58);
+		it('should clamp pitches outside the rows', () => {
 			expect(clampPitch(80, range)).toBe(69);
+			expect(clampPitch(40, range)).toBe(58);
 		});
 	});
 

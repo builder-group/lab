@@ -69,8 +69,9 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     theme = themes.theme_name(description.get('theme'))
     # A project theme: its base in `theme`, its colours here. Every theme lookup of this apply reads them.
     themes.set_overrides(description.get('themeOverrides'))
+    themes.set_scene_look(description.get('wallKind'), description.get('keyLight'))
     marble_radius = max([float(marble['radius']) for marble in marbles] or [DEFAULT_MARBLE_RADIUS])
-    context = skins.skin_context(theme, marble_radius, description.get('reactions'), description.get('themeOptions'))
+    context = skins.skin_context(theme, marble_radius, description.get('reactions'), description.get('themeOptions'), description.get('themeParts'))
     context['projectDir'] = project_dir
     context['assets'] = {}
     managed = ensure_collection(MANAGED_COLLECTION)
@@ -112,6 +113,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     report['studioCreated'] = studio_report['created']
     report['themed'] = studio_report['themed']
     report['theme'] = theme
+    report['lights'] = studio.apply_lights(description.get('lights') or [])
     camera_settings = None
     if description.get('camera') is not None:
         camera_settings = camera.settings_from(description['camera'], themes.theme_settings(theme))

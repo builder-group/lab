@@ -1,5 +1,7 @@
-import type { TDesign, TEntity, TProject } from '@/modules/project';
-import { baseThemeOf, sceneThemeOverrides } from '@/modules/design/project-themes';
+import type { TDesign, TEntity, TProject, TThemeParts } from '@/modules/project';
+import { baseThemeOf, sceneThemeOverrides, sceneThemeParts } from '@/modules/design/project-themes';
+import { canonicalSkin } from '@/modules/project/skin-ids';
+import { sceneLayers } from '@/modules/design/scene-layers';
 import { createLoop } from '@/modules/simulation/loop';
 import { shotLength } from '@/modules/camera/shots';
 import { getPieceDefinition } from '@/modules/simulation/pieces';
@@ -75,6 +77,7 @@ export function buildSceneDescription(
 			name: entity?.name ?? track.entityId,
 			radius: track.radius,
 			color: entity?.components.marble?.color ?? DEFAULT_MARBLE_COLOR,
+			...(entity?.components.skin != null ? { skin: canonicalSkin(entity.components.skin) } : {}),
 			motionPath,
 			sampleCount: samples.length
 		};
@@ -118,7 +121,7 @@ export function buildSceneDescription(
 			musical: getPieceDefinition(piece.type)?.musical === true,
 			motionPath,
 			sampleCount,
-			skin: entity?.components.skin ?? null,
+			skin: entity?.components.skin != null ? canonicalSkin(entity.components.skin) : null,
 			assetPath: skinAssetPath(entity?.components.skin?.assetId),
 			reaction: entity?.components.reaction ?? null,
 			color: (laneId != null ? laneColors.get(laneId) : undefined) ?? DEFAULT_PIECE_COLOR,
@@ -138,6 +141,8 @@ export function buildSceneDescription(
 			frame: { width: project.frame.width, height: project.frame.height },
 			theme: baseThemeOf(project.design),
 			...themeOverridesOf(project),
+			...themePartsOf(project),
+			...sceneLayers(project.design),
 			...themeOptionsOf(project),
 			marbles,
 			pieces,
@@ -224,7 +229,7 @@ export function descentCurve(result: TSimulationResult): TSceneDescentPoint[] | 
 	return points.length >= 2 ? points : null;
 }
 
-/** Package-relative `.blend` of a project library skin; built-in IDs with a colon such as `brass:gold` have none */
+/** Package-relative `.blend` of a project library skin; built-in IDs with a colon such as `platform:gold` have none */
 export function skinAssetPath(assetId: string | undefined): string | null {
 	if (assetId == null || !assetId.length || assetId.includes(':')) return null;
 	return `${PROJECT_ASSETS_FOLDER}/${assetId}/asset.blend`;
@@ -292,6 +297,11 @@ function notePitchOf(project: TProject, entity: TEntity | undefined): { notePitc
 function themeOverridesOf(project: TProject): { themeOverrides?: TSceneThemeOverrides } {
 	const overrides = sceneThemeOverrides(project.design);
 	return overrides != null ? { themeOverrides: overrides } : {};
+}
+
+function themePartsOf(project: TProject): { themeParts?: TThemeParts } {
+	const parts = sceneThemeParts(project.design);
+	return parts != null ? { themeParts: parts } : {};
 }
 
 function themeOptionsOf(project: TProject): { themeOptions?: TSceneThemeOptions } {

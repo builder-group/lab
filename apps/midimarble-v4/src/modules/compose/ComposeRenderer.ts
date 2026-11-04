@@ -10,11 +10,8 @@ import { worldToScreen, type TView, type TViewport } from './view';
 
 export interface TComposeCamera {
 	/** `camera` looks through the film's follow camera, see `setFilm` */
-	mode: '2d' | 'orbit' | 'camera';
+	mode: '2d' | 'camera';
 	view: TView;
-	/** Orbit angles in radians around the view centre; ignored in 2D */
-	yaw: number;
-	pitch: number;
 }
 
 /** Film camera pose and where the film frame sits on the canvas, in CSS pixels */
@@ -27,14 +24,13 @@ export interface TFilmView {
 
 export interface TRenderPiece {
 	piece: TResolvedPiece;
-	ghost: boolean;
 	/** Current rotation, which differs from the resolved angle for moving pieces such as windmills */
 	angle: number;
 	/** Overrides the piece type's flat colours, for the Film Draft Preview's theme look */
 	colors?: { bar: string; nub: string };
 }
 
-/** Wall surface in the orbit and camera views: its colour and the peg hole colour, or no holes for a plain wall */
+/** Wall surface in the Camera view: its colour and the peg hole colour, or no holes for a plain wall */
 export interface TWallLook {
 	color: string;
 	holes: string | null;
@@ -66,13 +62,11 @@ export interface TComposeTheme {
 export const MARBLE_Z = 0.01;
 /** Marbles never shrink below this radius on screen, so a zoomed-out run still shows where they are */
 export const MIN_MARBLE_PX = 3.5;
-const ORBIT_FOV = 35;
 
 export class ComposeRenderer {
 	private readonly renderer: THREE.WebGLRenderer;
 	private readonly scene = new THREE.Scene();
 	private readonly orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
-	private readonly perspective = new THREE.PerspectiveCamera(ORBIT_FOV, 1, 0.005, 200);
 	private readonly film = new THREE.PerspectiveCamera(30, 1, CAMERA_CLIP_START, CAMERA_CLIP_END);
 	private filmView: TFilmView | null = null;
 	private readonly wall: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>;
@@ -86,7 +80,7 @@ export class ComposeRenderer {
 	private readonly materials = new Map<string, THREE.Material>();
 	private viewport: TViewport = { width: 1, height: 1 };
 	private pixelRatio = 1;
-	private camera: TComposeCamera = { mode: '2d', view: { center: { x: 0, y: 0 }, scale: 500 }, yaw: 0, pitch: 0 };
+	private camera: TComposeCamera = { mode: '2d', view: { center: { x: 0, y: 0 }, scale: 500 } };
 	private theme: TComposeTheme = { canvas: '#f2f1ee', guide: '#000000' };
 	private playhead = 0;
 	private frame: number | null = null;
@@ -105,7 +99,7 @@ export class ComposeRenderer {
 		this.orthographic.position.set(0, 0, 10);
 		this.orthographic.lookAt(0, 0, 0);
 
-		// The wall only shows in orbit, where the CSS grid cannot follow the perspective
+		// The wall only shows in the Camera view, where the CSS grid cannot follow the perspective
 		this.wall = new THREE.Mesh(
 			new THREE.PlaneGeometry(1, 1),
 			new THREE.MeshLambertMaterial({ map: createPegTexture(), transparent: true })
@@ -197,7 +191,7 @@ export class ComposeRenderer {
 			const definition = getPieceDefinition(piece.type);
 			object.group.position.set(piece.position.x, piece.position.y, definition?.wallOffset ?? 0);
 			object.group.rotation.z = item.angle;
-			for (const part of object.parts) part.mesh.material = this.pieceMaterial(piece.type, part.role, item.ghost, item.colors);
+			for (const part of object.parts) part.mesh.material = this.pieceMaterial(piece.type, part.role, item.colors);
 			object.group.renderOrder = 1;
 			for (const part of object.parts) part.mesh.renderOrder = 1;
 		});
@@ -304,8 +298,7 @@ export class ComposeRenderer {
 	}
 
 	private activeCamera(): THREE.Camera {
-		if (this.camera.mode === 'camera') return this.film;
-		return this.camera.mode === '2d' ? this.orthographic : this.perspective;
+		return this.camera.mode === 'camera' ? this.film : this.orthographic;
 	}
 
 	dispose(): void {
@@ -334,34 +327,12 @@ export class ComposeRenderer {
 		this.orthographic.bottom = view.center.y - halfHeight;
 		this.orthographic.updateProjectionMatrix();
 
-		const isOrbit = mode === 'orbit';
 		const isFilm = mode === 'camera';
-		this.wall.visible = isOrbit || isFilm;
+		this.wall.visible = isFilm;
 		// The film shows no trajectories or frame guides
 		for (const track of this.tracks.values()) track.mesh.visible = !isFilm;
 		this.guides.mesh.visible = !isFilm;
-		if (isFilm) {
-			this.updateFilmCamera();
-			return;
-		}
-		if (!isOrbit) return;
-		// The orbit camera sees the same wall area as the 2D view when it faces the wall
-		const distance = halfHeight / Math.tan(THREE.MathUtils.degToRad(ORBIT_FOV / 2));
-		const target = new THREE.Vector3(view.center.x, view.center.y, MARBLE_Z);
-		const { yaw, pitch } = this.camera;
-		this.perspective.aspect = width / height;
-		this.perspective.near = distance / 100;
-		this.perspective.far = distance * 100;
-		this.perspective.position.set(
-			target.x + distance * Math.sin(yaw) * Math.cos(pitch),
-			target.y + distance * Math.sin(pitch),
-			target.z + distance * Math.cos(yaw) * Math.cos(pitch)
-		);
-		this.perspective.lookAt(target);
-		this.perspective.updateProjectionMatrix();
-		// Projection for overlays happens between renders, so the matrices must be current now
-		this.perspective.updateMatrixWorld();
-		this.placeWall(view.center, Math.max(halfWidth, halfHeight) * 8);
+		if (isFilm) this.updateFilmCamera();
 	}
 
 	/**
@@ -461,14 +432,13 @@ export class ComposeRenderer {
 		return parts;
 	}
 
-	private pieceMaterial(type: string, part: 'bar' | 'nub', ghost: boolean, colors?: { bar: string; nub: string }): THREE.Material {
-		const key = colors != null ? `piece:${colors.bar}:${colors.nub}:${part}:${ghost}` : `piece:${type}:${part}:${ghost}`;
+	private pieceMaterial(type: string, part: 'bar' | 'nub', colors?: { bar: string; nub: string }): THREE.Material {
+		const key = colors != null ? `piece:${colors.bar}:${colors.nub}:${part}` : `piece:${type}:${part}`;
 		let material = this.materials.get(key);
 		if (material == null) {
 			const palette = colors ?? piecePalette[type] ?? piecePalette['platform'];
 			const color = (part === 'bar' ? palette?.bar : palette?.nub) ?? '#888888';
-			// Upcoming pieces stay opaque: blending with the wall washed them out on light walls and muddied them on dark ones
-			material = new THREE.MeshLambertMaterial({ color: ghost ? upcomingColor(color) : color });
+			material = new THREE.MeshLambertMaterial({ color });
 			this.materials.set(key, material);
 		}
 		return material;
@@ -484,26 +454,6 @@ export class ComposeRenderer {
 		return material;
 	}
 }
-
-/**
- * Colour of a piece the marble has not reached yet at the playhead: the same hue and lightness with less
- * saturation, so it reads as a real, solid piece still to come and never as a see-through suggestion ghost
- */
-export function upcomingColor(color: string): string {
-	const cached = upcomingColors.get(color);
-	if (cached != null) return cached;
-	const hsl = { h: 0, s: 0, l: 0 };
-	const value = new THREE.Color(color);
-	value.getHSL(hsl);
-	value.setHSL(hsl.h, hsl.s * UPCOMING_SATURATION, hsl.l);
-	const result = `#${value.getHexString()}`;
-	upcomingColors.set(color, result);
-	return result;
-}
-
-/** Share of a piece colour's saturation that upcoming pieces keep */
-const UPCOMING_SATURATION = 0.45;
-const upcomingColors = new Map<string, string>();
 
 /** Flat toy colours per piece type: the body and a darker shade for brackets, hubs and outlines */
 export const piecePalette: Record<string, { bar: string; nub: string }> = {
@@ -535,7 +485,7 @@ interface TPieceObject {
 	geometryKey: string;
 }
 
-/** Pegboard holes for the orbit wall, one hole per texture repeat */
+/** Pegboard holes for the Camera view's wall, one hole per texture repeat */
 function createPegTexture(look: TWallLook = { color: '#f2f1ee', holes: 'rgba(0, 0, 0, 0.16)' }): THREE.Texture {
 	const size = 64;
 	const canvas = document.createElement('canvas');

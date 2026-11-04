@@ -7,25 +7,27 @@ import {
 	addWallTextCommands,
 	cameraCommands,
 	clearSkinCommands,
+	builtInSkinCommands,
 	colorByNoteCommands,
 	isScreenTitle,
 	itemFitsPieceType,
-	moreThemeSkins,
 	previewPointToWall,
-	reactionCommands,
-	showsThemeSkin,
+	resetToThemeCommands,
+	showsSkin,
+	skinPropertyCommands,
+	skinsForElement,
+	skinTargetIds,
 	skinCommands,
 	themeCommands,
 	pieceCountLabel,
 	skinAppliedMessage,
-	themeSkinCommands,
-	themeSkins,
 	themeTitleColor,
 	titleStyleTiming,
 	withTitleStyle
 } from './design-commands';
 import { isNewThemeRequest, libraryEntries } from './DesignLibraryCx';
 import { draftPieceColors } from './draft-look';
+import { isThemeColorByNote } from './project-themes';
 
 function apply(project: TProject, commands: Parameters<typeof applyProjectCommands>[1]): TProject {
 	const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, commands);
@@ -38,52 +40,89 @@ function pieceIds(project: TProject): string[] {
 }
 
 describe('design commands', () => {
-	it('should list the theme default first and the Brass platform variants', () => {
-		expect(themeSkins('pegboard', 'rail').map((skin) => skin.assetId)).toEqual([null]);
-		const brass = themeSkins('brass', 'platform');
-		expect(brass[0]).toMatchObject({ assetId: null, label: 'Gold', previewUrl: '/skins/brass-platform.png' });
-		expect(brass.map((skin) => skin.assetId)).toContain('brass:device-copper');
-		expect(themeSkins('brass', 'unknown')).toEqual([]);
+	it('should list the skins of an element, the theme\'s first, in any theme', () => {
+		const design = { theme: 'brass' };
+		const platforms = skinsForElement(design, 'platform');
+		expect(platforms[0]).toMatchObject({ id: 'platform:gold', label: 'Gold', previewUrl: '/skins/platform-gold.png' });
+		expect(platforms.map((skin) => skin.id)).toContain('platform:device-copper');
+		expect(skinsForElement({ theme: 'neon' }, 'platform').map((skin) => skin.id).sort()).toEqual(platforms.map((skin) => skin.id).sort());
+		expect(skinsForElement({ theme: 'neon' }, 'platform')[0]?.id).toBe('platform:neon');
+		expect(skinsForElement({ theme: 'pegboard' }, 'rail')[0]?.label).toBe('Wood Rail');
+		// The Draft Preview dresses a skin the same in every theme, like the Blender worker
+		const copper = { type: 'platform', color: '#3478f6', skin: { assetId: 'brass:copper', link: 'linked' as const } };
+		expect(draftPieceColors('neon', copper, false)).toEqual(draftPieceColors('brass', copper, false));
 	});
 
-	it('should offer Brass platform skins under More Skins in the other themes and their copies', () => {
-		const more = moreThemeSkins('neon', 'platform');
-		expect(more).toHaveLength(themeSkins('brass', 'platform').length);
-		expect(more[0]).toMatchObject({ assetId: 'brass:gold', label: 'Gold', themeId: 'brass' });
-		expect(more.every((skin) => skin.assetId?.startsWith('brass:') === true)).toBe(true);
-		expect(moreThemeSkins('pegboard', 'platform')).toEqual(more);
-		expect(moreThemeSkins('brass', 'platform')).toEqual([]);
-		expect(moreThemeSkins('neon', 'rail')).toEqual([]);
-		// The Draft Preview dresses a Brass skin as Brass in Neon, like the Blender worker
-		const copper = {
-			type: 'platform',
-			color: '#3478f6',
-			skin: { assetId: 'brass:copper', link: 'linked' as const }
-		};
-		expect(draftPieceColors('neon', copper, false)).toEqual(
-			draftPieceColors('brass', copper, false)
-		);
-	});
-
-	it('should link a theme variant and clear the skin for the theme default', () => {
-		const project = createStaircaseProject();
+	it('should link a built-in skin, and follow the theme again with the theme\'s own skin', () => {
+		const project = { ...createStaircaseProject(), design: { ...createStaircaseProject().design, theme: 'brass' } };
 		const [first] = pieceIds(project);
-		const [gold, copper] = themeSkins('brass', 'platform');
-		if (first == null || gold == null || copper == null) throw new Error('fixture');
-		const linked = apply(project, themeSkinCommands(project, { kind: 'pieceType', pieceType: 'platform' }, copper));
+		if (first == null) throw new Error('fixture');
+		const linked = apply(project, builtInSkinCommands(project, { kind: 'pieceType', pieceType: 'platform' }, 'platform:copper'));
 		const piece = linked.entities.find((entity) => entity.id === first);
-		expect(piece?.components.skin?.assetId).toBe('brass:copper');
-		expect(piece != null && showsThemeSkin(piece, copper)).toBe(true);
-		const cleared = apply(linked, themeSkinCommands(linked, { kind: 'entities', entityIds: [first] }, gold));
+		expect(piece?.components.skin?.assetId).toBe('platform:copper');
+		expect(piece != null && showsSkin(linked.design, piece, 'platform:copper')).toBe(true);
+		const cleared = apply(linked, builtInSkinCommands(linked, { kind: 'entities', entityIds: [first] }, 'platform:gold'));
 		const clearedPiece = cleared.entities.find((entity) => entity.id === first);
 		expect(clearedPiece?.components.skin).toBeUndefined();
-		expect(clearedPiece != null && showsThemeSkin(clearedPiece, gold)).toBe(true);
+		expect(clearedPiece != null && showsSkin(cleared.design, clearedPiece, 'platform:gold')).toBe(true);
 	});
 
-	it('should toggle Colour by Note and skip an unchanged value', () => {
+	it('should write property overrides as one edit, keep them through a skin change and reset to the theme', () => {
+		const project = createStaircaseProject();
+		const ids = pieceIds(project).slice(0, 2);
+		const commands = skinPropertyCommands(project, ids, { colour: 'note', onHit: 'glow', glowColor: '#00ff88' });
+		expect(commands).toHaveLength(2);
+		const set = apply(project, commands);
+		const skinOf = (next: TProject) => next.entities.find((entity) => entity.id === ids[0])?.components.skin;
+		expect(skinOf(set)).toEqual({ link: 'linked', colour: 'note', onHit: 'glow', glowColor: '#00ff88' });
+		const skinned = apply(set, skinCommands(set, { kind: 'entities', entityIds: ids }, 'platform:key'));
+		expect(skinOf(skinned)).toMatchObject({ assetId: 'platform:key', colour: 'note' });
+		const cleared = apply(skinned, skinPropertyCommands(skinned, ids, { glowColor: null }));
+		expect(skinOf(cleared)).not.toHaveProperty('glowColor');
+		const extra = apply(set, skinPropertyCommands(set, ids, { property: { name: 'Ribbon Colour', value: '#ff0000' } }));
+		expect(skinOf(extra)?.properties).toEqual({ 'Ribbon Colour': '#ff0000' });
+		const reset = apply(skinned, resetToThemeCommands(skinned, ids));
+		expect(reset.entities.some((entity) => entity.components.skin != null)).toBe(false);
+		// Only overrides that leave nothing remove the component
+		const back = apply(set, skinPropertyCommands(set, ids, { colour: null, onHit: null, glowColor: null }));
+		expect(skinOf(back)).toBeUndefined();
+	});
+
+	it('should give On Hit the place of an older project\'s reaction', () => {
+		const project = createStaircaseProject();
+		const [id] = pieceIds(project);
+		if (id == null) throw new Error('fixture');
+		const old = apply(project, [{ type: 'setComponent', entityId: id, component: { name: 'reaction', value: { preset: 'wobble', params: {} } } }]);
+		const next = apply(old, skinPropertyCommands(old, [id], { onHit: 'glow' }));
+		const entity = next.entities.find((item) => item.id === id);
+		expect(entity?.components.reaction).toBeUndefined();
+		expect(entity?.components.skin?.onHit).toBe('glow');
+		const reset = apply(old, resetToThemeCommands(old, [id]));
+		expect(reset.entities.find((item) => item.id === id)?.components.reaction).toBeUndefined();
+	});
+
+	it('should skin marbles too and never touch their physics', () => {
+		const project = createStaircaseProject();
+		const marble = project.entities.find((entity) => entity.components.marble != null);
+		if (marble == null) throw new Error('fixture');
+		const next = apply(project, builtInSkinCommands(project, { kind: 'pieceType', pieceType: 'marble' }, 'marble:glass'));
+		const skinned = next.entities.find((entity) => entity.id === marble.id);
+		expect(skinned?.components.skin?.assetId).toBe('marble:glass');
+		expect(skinned?.components.marble).toEqual(marble.components.marble);
+		expect(skinned != null && showsSkin(next.design, skinned, 'marble:glass')).toBe(true);
+		expect(skinTargetIds(next, { kind: 'entities', entityIds: [marble.id] })).toEqual([marble.id]);
+	});
+
+	it('should make Colour by Note the theme\'s default: on a project theme, or in a theme of its own', () => {
 		const project = createStaircaseProject();
 		expect(colorByNoteCommands(project, false)).toEqual([]);
-		expect(apply(project, colorByNoteCommands(project, true)).design.themeOptions?.colorByNote).toBe(true);
+		const on = apply(project, colorByNoteCommands(project, true));
+		expect(isThemeColorByNote(on.design)).toBe(true);
+		expect(on.design.themeOptions).toBeUndefined();
+		expect(on.design.themes?.[0]?.name).toMatch(/by Note$/);
+		const off = apply(on, colorByNoteCommands(on, false));
+		expect(isThemeColorByNote(off.design)).toBe(false);
+		expect(off.design.themes?.[0]?.parts).toBeUndefined();
 	});
 
 	it('should show a kept project item once and kept items from other projects', () => {
@@ -127,15 +166,6 @@ describe('design commands', () => {
 		expect(skinned.entities.filter((entity) => entity.components.skin?.assetId === 'piano-key')).toHaveLength(pieceIds(project).length);
 		const cleared = apply(skinned, clearSkinCommands(skinned, pieceIds(skinned)));
 		expect(cleared.entities.some((entity) => entity.components.skin != null)).toBe(false);
-	});
-
-	it('should write a reaction preset and remove it for the theme default', () => {
-		const project = createStaircaseProject();
-		const ids = pieceIds(project).slice(0, 2);
-		const pressed = apply(project, reactionCommands(project, ids, 'press'));
-		expect(pressed.entities.filter((entity) => entity.components.reaction?.preset === 'press')).toHaveLength(2);
-		const theme = apply(pressed, reactionCommands(pressed, ids, 'theme'));
-		expect(theme.entities.some((entity) => entity.components.reaction != null)).toBe(false);
 	});
 
 	it('should add wall text as an entity with a transform that reaches the scene description', () => {

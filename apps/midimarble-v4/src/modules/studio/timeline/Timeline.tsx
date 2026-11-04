@@ -12,11 +12,10 @@ import { songSource } from '../SourcesCx';
 import { isLaneAudible, type StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
 import { CameraRow } from './CameraRow';
-import { handNotes, isNoteSelection, ownerForKey } from './hand-notes';
-import { LaneTrack, PianoRollTrack, type TDrag, type TDragStart } from './LaneTrack';
-import { pitchDeltaFor, pitchRange, rowCount } from './piano-roll';
+import { auditionNote, handNotes, isNoteSelection, ownerForKey, selectedNotes } from './hand-notes';
+import { LaneTrack, type TDrag, type TDragStart } from './LaneTrack';
+import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange } from './piano-roll';
 import { PlayheadLine, Ruler } from './Ruler';
-import { songRange } from './SongRoll';
 import { SongTrack } from './SongTrack';
 import {
 	CAMERA_ROW_HEIGHT,
@@ -26,12 +25,11 @@ import {
 	MIN_HEIGHT,
 	NOTE_ROW_HEIGHT,
 	ROW_HEIGHT,
-	round,
 	RULER_HEIGHT,
 	SONG_ROLL_MAX_HEIGHT,
 	SONG_ROW_HEIGHT
 } from './timeline-layout';
-import { $expandedLanes, $songExpanded } from './timeline-state';
+import { $songExpanded } from './timeline-state';
 import { TitlesRow } from './TitlesRow';
 import { TrackHeader } from './TrackHeader';
 import { Transport } from './Transport';
@@ -39,8 +37,8 @@ import { Transport } from './Transport';
 /**
  * The layers along the time, like After Effects' timeline, as a Blender-style dope sheet in a Logic-style track
  * area: the transport and hit summary in the header, the Song on top while the project has one, expandable into
- * every note, then one row per marble with mute and solo, its hits in a flat row by timing status and expandable
- * into a piano roll of its notes, then in Film the Camera and Titles
+ * every note when it has notes, then one flat row per marble with mute and solo and its hits by timing status, then
+ * in Film the Camera and Titles
  */
 export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const { cx } = props;
@@ -51,7 +49,6 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const mix = useFeatureState(cx.$mix);
 	const height = useFeatureState(cx.$timelineHeight);
 	const workspace = useFeatureState(cx.$workspace);
-	const expanded = useFeatureState($expandedLanes);
 	const isSongExpanded = useFeatureState($songExpanded);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const [zoom, setZoom] = React.useState(80);
@@ -75,10 +72,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		return byLane;
 	}, [result]);
 
-	// Pitch rows of every track that can expand; a dragged note keeps its rows until it is dropped
-	const ranges = React.useMemo(() => new Map((project?.music.lanes ?? []).map((lane) => [lane.id, pitchRange(lane)])), [project?.music.lanes]);
 	// A recording has no notes to expand; MIDI or Backing notes without a file expand into every note
-	const songRows = React.useMemo(() => (project == null || !hasSong || song?.kind === 'audio' ? null : songRange(project)), [project, hasSong, song?.kind]);
+	const songRows = React.useMemo(() => (project == null || !hasSong ? null : songRollRange(project, song)), [project, hasSong, song]);
 
 	// With notes selected, 1 to 9 hand them to that marble in track order and 0 makes them Backing. Captured
 	// before the canvas, whose 0 previews the film camera.
@@ -149,23 +144,19 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		setDrag({ originX: event.clientX, originY: event.clientY, delta: 0, pitchDelta: 0, isPitched, keys, grabbed });
 	};
 
-	/** Moves the dragged hits in time, and in pitch for a piano roll drag, as one undo step */
+	/** Moves the dragged hits in time, and in pitch for a drag in the Song's piano roll, as one undo step */
 	function commitDrag(finished: TDrag): void {
-		if (project == null || (finished.delta === 0 && finished.pitchDelta === 0)) return;
-		const commands = project.music.lanes.flatMap((lane) => {
-			const range = ranges.get(lane.id);
-			const moved = lane.hits
-				.filter((hit) => finished.keys.includes(toHitKey(lane.id, hit.id)))
-				.map((hit) => {
-					const pitch = finished.isPitched && hit.pitch != null && range != null ? Math.min(range.high, Math.max(range.low, hit.pitch + finished.pitchDelta)) : hit.pitch;
-					return { ...hit, time: round(Math.max(0, hit.time + finished.delta)), pitch };
-				});
-			return moved.length ? [{ type: 'upsertHits' as const, laneId: lane.id, hits: moved }] : [];
-		});
-		if (!cx.execute(commands) || finished.pitchDelta === 0) return;
+		if (project == null) return;
 		const { laneId, hitId } = finished.grabbed;
-		const pitch = cx.project?.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === hitId)?.pitch;
-		cx.audition(laneId, pitch);
+		const key = toHitKey(laneId, hitId);
+		if (finished.delta === 0 && finished.pitchDelta === 0) {
+			// A plain click on one note of several selected in the roll selects just that note
+			if (finished.isPitched && finished.keys.length > 1) cx.$selection.set([key]);
+			return;
+		}
+		if (!cx.execute(noteDragCommands(project, finished, songRows)) || finished.pitchDelta === 0) return;
+		const current = cx.project;
+		if (current != null) auditionNote(cx, laneId, selectedNotes(current, [key])[0]?.hit.pitch);
 	}
 
 	/** Zooms around a point in the track area, keeping the time under it in place */
@@ -222,12 +213,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	if (project == null) return null;
 	const hasRecording = audio != null;
 	const showsCamera = workspace === 'design';
-	const laneHeights = project.music.lanes.map((lane) => {
-		const range = ranges.get(lane.id);
-		return expanded.includes(lane.id) && range != null ? rowCount(range) * NOTE_ROW_HEIGHT : ROW_HEIGHT;
-	});
 	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
-	const rowsHeight = laneHeights.reduce((sum, value) => sum + value, 0) + (hasSong ? songHeight : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
+	const rowsHeight = project.music.lanes.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
 
 	// MARK: - UI
 
@@ -244,7 +231,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 				<div className="relative flex min-h-full min-w-full flex-col" style={{ width: HEADER_WIDTH + trackWidth }}>
 					<div className="sticky top-0 z-30 flex shrink-0" style={{ height: RULER_HEIGHT }}>
 						<div
-							className="mm-track-header sticky left-0 z-10 flex shrink-0 items-center gap-0.5 border-r border-b border-[var(--separator)] pr-1.5 pl-3"
+							className="mm-track-header sticky left-0 z-30 flex shrink-0 items-center gap-0.5 border-r border-b border-[var(--separator)] pr-1.5 pl-3"
 							style={{ width: HEADER_WIDTH }}
 							data-quick-help="timelineLayers"
 						>
@@ -266,34 +253,28 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							isExpanded={isSongExpanded && songRows != null}
 							height={songHeight}
 							selection={selection}
+							drag={drag}
+							onDragStart={startDrag}
 						/>
 					) : null}
-					{project.music.lanes.map((lane, index) => {
-						const range = ranges.get(lane.id) ?? null;
-						const isExpanded = expanded.includes(lane.id) && range != null;
-						const trackProps = {
-							cx,
-							lane,
-							zoom,
-							width: trackWidth,
-							selection,
-							drag,
-							statuses: hitStatus.get(lane.id),
-							isAudible: isLaneAudible(mix, lane.id),
-							onDragStart: startDrag,
-							timeAt
-						};
-						return (
-							<div key={lane.id} className="flex shrink-0" style={{ height: laneHeights[index] }}>
-								<TrackHeader cx={cx} lane={lane} project={project} selection={selection} hasRecording={hasRecording} range={range} isExpanded={isExpanded} height={laneHeights[index] ?? ROW_HEIGHT} />
-								{isExpanded && range != null ? (
-									<PianoRollTrack {...trackProps} range={range} />
-								) : (
-									<LaneTrack {...trackProps} onAdd={(time, event) => addHit(cx, lane, snap(time, event.altKey))} />
-								)}
-							</div>
-						);
-					})}
+					{project.music.lanes.map((lane) => (
+						<div key={lane.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
+							<TrackHeader cx={cx} lane={lane} project={project} selection={selection} hasRecording={hasRecording} />
+							<LaneTrack
+								cx={cx}
+								lane={lane}
+								zoom={zoom}
+								width={trackWidth}
+								selection={selection}
+								drag={drag}
+								statuses={hitStatus.get(lane.id)}
+								isAudible={isLaneAudible(mix, lane.id)}
+								onDragStart={startDrag}
+								timeAt={timeAt}
+								onAdd={(time, event) => addHit(cx, lane, snap(time, event.altKey))}
+							/>
+						</div>
+					))}
 					{!project.music.lanes.length ? (
 						<div className="mm-placeholder !h-auto !items-start py-6" style={{ paddingLeft: HEADER_WIDTH + 24 }}>
 							<span className="mm-placeholder-title">No Marbles</span>
@@ -375,14 +356,21 @@ const ResizeHandle: React.FC<{ cx: StudioCx }> = (props) => {
 	);
 };
 
-/** Captures pointer movement for a hit drag across the whole window; piano roll drags also move in pitch */
+// Pixels a note in the Song roll must move sideways before its time changes
+const ROLL_TIME_DEAD_ZONE = 3;
+
+/**
+ * Captures pointer movement for a hit drag across the whole window. Song roll drags also move in pitch, and hold the
+ * time until the pointer has really moved, so a click or a straight pitch drag leaves the note's time alone.
+ */
 const DragLayer: React.FC<{ drag: TDrag; zoom: number; onMove: (drag: TDrag) => void; onEnd: (drag: TDrag) => void }> = (props) => {
 	const { drag, zoom, onMove, onEnd } = props;
 
 	function moved(event: React.PointerEvent): TDrag {
+		const deltaX = event.clientX - drag.originX;
 		return {
 			...drag,
-			delta: (event.clientX - drag.originX) / zoom,
+			delta: drag.isPitched && Math.abs(deltaX) < ROLL_TIME_DEAD_ZONE ? 0 : deltaX / zoom,
 			pitchDelta: drag.isPitched ? pitchDeltaFor(event.clientY - drag.originY, NOTE_ROW_HEIGHT) : 0
 		};
 	}

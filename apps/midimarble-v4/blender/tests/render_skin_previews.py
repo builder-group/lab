@@ -6,10 +6,11 @@ per package:
 Run: Blender --background --factory-startup --python blender/tests/render_skin_previews.py -- <package> <out-dir>
      <prefix> --types platform,switchback [--variants brass:gold,brass:copper] [--size 160]
 
-Writes `<prefix>-<type>.png` for the theme default of each type, and `<prefix>-<type>-<variant>.png` for each
-variant (applied to the first piece of the first type), such as `brass-platform-copper.png`. The committed previews in
-`public/skins/` were rendered from Jingle Bells (platform, switchback, finish), Long Gap (rail, tunnel) and Windmill, then
-quantized to 192 colours with Pillow to keep them small.
+Writes `<prefix>-<type>.png` for the theme default of each type, and `<element>-<name>.png` for each `--variants` skin
+(applied to the first piece of the first type), such as `platform-copper.png`, the name `skin_catalog.json` gives it.
+`--marbles marble:glass,marble:metal` renders marble skins on their own the same way, close up. The committed previews in
+`public/skins/` were rendered from Jingle Bells (platform, switchback, finish, marbles), Long Gap (rail, tunnel) and
+Windmill, then quantized to 192 colours with Pillow to keep them small.
 """
 import argparse
 import json
@@ -35,6 +36,7 @@ parser.add_argument('out')
 parser.add_argument('prefix')
 parser.add_argument('--types', default='platform')
 parser.add_argument('--variants', default='')
+parser.add_argument('--marbles', default='')
 parser.add_argument('--size', type=int, default=160)
 parser.add_argument('--samples', type=int, default=32)
 arguments = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
@@ -124,4 +126,15 @@ for piece_type in types:
 for variant in [value for value in arguments.variants.split(',') if value]:
     piece = next(piece for piece in description['pieces'] if piece['type'] == types[0])
     apply(piece['id'], variant)
-    render_piece(piece['id'], out / ('%s-%s-%s.png' % (arguments.prefix, types[0], variant.split(':', 1)[1])))
+    render_piece(piece['id'], out / (variant.replace(':', '-') + '.png'))
+
+
+def apply_marble(skin):
+    marbles = [{**marble, 'skin': {'assetId': skin, 'link': 'linked'}} for marble in description['marbles']]
+    (package / PREVIEW_DESCRIPTION).write_text(json.dumps({**description, 'marbles': marbles}))
+    worker.handle('apply_scene', {'descriptionPath': PREVIEW_DESCRIPTION})
+
+
+for skin in [value for value in arguments.marbles.split(',') if value]:
+    apply_marble(skin)
+    render_piece(description['marbles'][0]['id'], out / (skin.replace(':', '-') + '.png'))

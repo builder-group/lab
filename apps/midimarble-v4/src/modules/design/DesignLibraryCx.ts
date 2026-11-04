@@ -5,6 +5,7 @@ import { library, type TLibraryItem } from '@/modules/library';
 import { applyProjectCommands, type TProject, type TProjectCommand } from '@/modules/project';
 import { skinCommands, type TSkinTarget } from './design-commands';
 import { agentThemeCommands } from './project-themes';
+import type { TSkinElement } from './skin-catalog';
 
 /**
  * Library of the Film sidebar. Items live in the project's library and, when kept (the star), in the user's global
@@ -16,6 +17,8 @@ export class DesignLibraryCx {
 	readonly $globalItems = createState<TLibraryItem[]>([]);
 	readonly $status = createState<'idle' | 'loading' | 'ready' | 'unavailable' | 'error'>('idle');
 	readonly $error = createState<string | null>(null);
+	/** The element type a theme's part opened the Library on, while nothing selected says what to show */
+	readonly $filterElement = createState<TSkinElement | null>(null);
 
 	private loadedFor: string | null = null;
 

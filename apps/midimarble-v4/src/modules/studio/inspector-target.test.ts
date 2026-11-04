@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createProject, type TEntity, type TProject } from '@/modules/project';
 import { inspectorTarget } from './inspector-target';
 import { buildOutline, isSelectableRow, TITLES_KEY, type TOutlineRow } from './outline';
-import { CAMERA_KEY, SONG_KEY, toHitKey, toShotKey } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SONG_KEY, toHitKey, toLightKey, toShotKey, WALL_KEY } from './selection';
 
 function fullProject(): TProject {
 	const project = createProject({ id: 'project', title: 'Jingle Bells' });
@@ -23,6 +23,17 @@ function rowSelection(row: TOutlineRow): string[] {
 }
 
 describe('inspectorTarget function', () => {
+	it('should show the Wall and the lights for their layers and the Project for a light that is gone', () => {
+		const project = fullProject();
+		project.design.lights = { added: [{ id: 'light-1', name: 'Fill', color: '#ffffff', strength: 2, side: 0.5, height: 0.3 }] };
+
+		expect(inspectorTarget(project, [WALL_KEY])).toEqual({ kind: 'wall' });
+		expect(inspectorTarget(project, [KEY_LIGHT_KEY])).toEqual({ kind: 'light', id: 'key' });
+		expect(inspectorTarget(project, [toLightKey('light-1')])).toEqual({ kind: 'light', id: 'light-1' });
+		expect(inspectorTarget(project, [KEY_LIGHT_KEY, toLightKey('light-1')])).toEqual({ kind: 'lights' });
+		expect(inspectorTarget(project, [toLightKey('light-gone')])).toEqual({ kind: 'project' });
+	});
+
 	it('should show the Project without a selection', () => {
 		expect(inspectorTarget(fullProject(), [])).toEqual({ kind: 'project' });
 	});
@@ -37,6 +48,9 @@ describe('inspectorTarget function', () => {
 			['platform-1', 'pieces'],
 			['group:free', 'pieces'],
 			['rail-1', 'pieces'],
+			[WALL_KEY, 'wall'],
+			['group:lights', 'light'],
+			[KEY_LIGHT_KEY, 'light'],
 			[CAMERA_KEY, 'camera'],
 			[toShotKey('shot-1'), 'shot'],
 			[TITLES_KEY, 'titles'],

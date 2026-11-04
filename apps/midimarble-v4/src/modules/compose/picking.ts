@@ -1,7 +1,6 @@
 import type { TVec2 } from '@/modules/project';
 
-// Pointer targets are picked in screen space, so hit areas keep a constant size at every zoom level and
-// work the same in 2D and orbit views.
+// Pointer targets are picked in screen space, so hit areas keep a constant size at every zoom level.
 
 export interface TPickScene {
 	/** Draggable handles, checked first */

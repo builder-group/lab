@@ -97,9 +97,43 @@ const SPathComponent = z.strictObject({
 	nodes: z.array(SPathNode).min(2).optional()
 });
 
+/**
+ * A skin's properties, the same names on every skin. Absent fields come from the theme (while the piece shows the
+ * theme's skin), else from the skin. `colour`: `skin` its own, `marble` its marble's, `note` the note it plays. `onHit`
+ * is the reaction, `glowColor` what a glow shines in, `variant` an id from the skin's variants.
+ */
+const skinPropertyShape = {
+	colour: z.enum(['skin', 'marble', 'note']).optional(),
+	onHit: z.enum(['none', 'press', 'wobble', 'glow']).optional(),
+	glowColor: z
+		.string()
+		.regex(/^#[0-9a-fA-F]{6}$/)
+		.optional(),
+	variant: z.string().optional()
+};
+
 const SSkinComponent = z.strictObject({
-	assetId: z.string(),
-	link: z.enum(['linked', 'unlinked'])
+	// A built-in skin such as `platform:copper`, or a library item's ID. Absent shows the theme's skin with the overrides
+	// below; old IDs such as `brass:copper` still read (`canonicalSkinId`)
+	assetId: z.string().optional(),
+	link: z.enum(['linked', 'unlinked']),
+	...skinPropertyShape,
+	// Values of the extra properties a library skin's manifest declares, by their names
+	properties: z.record(z.string(), z.union([z.number(), z.string()])).optional()
+});
+
+/** What a theme dresses one element type with: a skin and property defaults; absent fields keep the base's */
+const SThemePart = z.strictObject({ skin: z.string().optional(), ...skinPropertyShape });
+
+/** A project theme's parts per element type, on top of its base's */
+const SThemeParts = z.strictObject({
+	platform: SThemePart.optional(),
+	rail: SThemePart.optional(),
+	tunnel: SThemePart.optional(),
+	switchback: SThemePart.optional(),
+	windmill: SThemePart.optional(),
+	finish: SThemePart.optional(),
+	marble: SThemePart.optional()
 });
 
 const SReactionComponent = z.strictObject({
@@ -164,6 +198,36 @@ const SThemeOverrides = z.strictObject({
 	backgroundColor: SHexColor.optional()
 });
 
+/** The wall's look in Film: `grid` is the Neon wall's lit grid */
+const SWallKind = z.enum(['plaster', 'pegboard', 'grid']);
+
+/**
+ * How a light stands and how strong it is. `side` runs from the far left (-1) to the far right (1) of the wall and
+ * `height` from below (-1) to above (1); both are shares of a quarter turn from straight in front of the wall.
+ */
+const lightPoseShape = {
+	strength: z.number().nonnegative(),
+	side: z.number().min(-1).max(1),
+	height: z.number().min(-1).max(1)
+};
+
+/** What a project theme changes on the Key Light besides its colour; absent fields keep the base's */
+const SKeyLightPose = z.strictObject({
+	strength: lightPoseShape.strength.optional(),
+	side: lightPoseShape.side.optional(),
+	height: lightPoseShape.height.optional()
+});
+
+/** A light added with Add Light, a layer in Film; a sun like the Key Light */
+const SLight = z.strictObject({ id: SId, name: z.string(), color: SHexColor, ...lightPoseShape });
+
+/** A project theme's Wall skin, Key Light and added lights: what Save as Theme and Duplicate Theme store */
+const projectThemeSceneShape = {
+	wallKind: SWallKind.optional(),
+	keyLight: SKeyLightPose.optional(),
+	lights: z.array(SLight).optional()
+};
+
 /** A theme the project made from a built-in one: Duplicate Theme, or New Theme with Agent */
 const SProjectTheme = z.strictObject({
 	id: SId,
@@ -172,7 +236,9 @@ const SProjectTheme = z.strictObject({
 	base: z.string(),
 	overrides: SThemeOverrides,
 	// `agent` when a New Theme with Agent Result made it; absent for a duplicate
-	origin: z.enum(['agent']).optional()
+	origin: z.enum(['agent']).optional(),
+	...projectThemeSceneShape,
+	parts: SThemeParts.optional()
 });
 
 const SDesign = z.strictObject({
@@ -180,10 +246,25 @@ const SDesign = z.strictObject({
 	theme: z.string(),
 	// Themes made in this project. Added later; files without it stay valid
 	themes: z.array(SProjectTheme).optional(),
+	// This project's changes to the Wall layer on top of the theme, like a piece's skin. Added later; files without it stay valid
+	wall: z
+		.strictObject({
+			color: SHexColor.optional(),
+			backgroundColor: SHexColor.optional(),
+			kind: SWallKind.optional()
+		})
+		.optional(),
+	// This project's changes to the Key Light on top of the theme, and its added lights. Added later; files without it stay valid
+	lights: z
+		.strictObject({
+			key: SKeyLightPose.extend({ color: SHexColor.optional() }).optional(),
+			added: z.array(SLight).optional()
+		})
+		.optional(),
 	// `draft` was added later; files without it stay valid
 	renderPreset: z.enum(['draft', 'fast', 'balanced', 'best']),
 	loop: z.boolean(),
-	// Choices on top of the theme; absent fields keep the theme's defaults, so files without them stay valid
+	// Older projects only: `parseProject` moves Colour by Note into the theme (`migrateSkins`)
 	themeOptions: z
 		.strictObject({
 			// Platforms take a colour from the pitch they play
@@ -349,7 +430,13 @@ export type TComponents = z.infer<typeof SComponents>;
 export type TComponentName = keyof TComponents;
 export type TDesign = z.infer<typeof SDesign>;
 export type TProjectTheme = z.infer<typeof SProjectTheme>;
+export type TSkinComponent = z.infer<typeof SSkinComponent>;
+export type TThemePart = z.infer<typeof SThemePart>;
+export type TThemeParts = z.infer<typeof SThemeParts>;
 export type TThemeOverrides = z.infer<typeof SThemeOverrides>;
+export type TWallKind = z.infer<typeof SWallKind>;
+export type TLight = z.infer<typeof SLight>;
+export type TKeyLightPose = z.infer<typeof SKeyLightPose>;
 export type TShot = z.infer<typeof SShot>;
 export type TTempo = z.infer<typeof STempo>;
 export type TPhysics = z.infer<typeof SPhysics>;

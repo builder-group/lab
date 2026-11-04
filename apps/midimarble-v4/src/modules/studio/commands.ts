@@ -11,11 +11,13 @@ import { BACKING_ID } from '@/modules/project';
 import { soundsHit } from '@/modules/simulation';
 import { cameraCommands, colorByNoteCommands, themeCommands } from '@/modules/design/design-commands';
 import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
-import { deleteThemeCommands, duplicateThemeCommands, resolveTheme } from '@/modules/design/project-themes';
+import { deleteThemeCommands, duplicateThemeCommands, hasLayerChanges, isThemeColorByNote, resolveTheme } from '@/modules/design/project-themes';
+import { canSaveAsTheme, saveAsTheme } from '@/modules/design/SkinProperties';
 import { framingFix, framingProblemAt, preflightExport, type TPreflightFix } from '@/modules/design/export-preflight';
+import { addLightCommands, deleteLightsCommands } from '@/modules/design/scene-layers';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { duplicatePieces } from './duplicate';
-import { parseHitKey, parseShotKey, SONG_KEY, toHitKey, toShotKey } from './selection';
+import { KEY_LIGHT_ID, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, toHitKey, toLightKey, toShotKey } from './selection';
 import { hasSongLayer } from './song-layer';
 import { handNotes } from './timeline/hand-notes';
 import { setSidebarTab } from './sidebar-state';
@@ -66,6 +68,14 @@ function hasSong(cx: StudioCx): boolean {
 /** Whether the Song layer is selected, in Layers or in the timeline */
 function isSongSelected(cx: StudioCx): boolean {
 	return hasSong(cx) && cx.$selection.get().includes(SONG_KEY);
+}
+
+/** Added lights in the selection; the Key Light can't be deleted */
+function selectedLightIds(cx: StudioCx): string[] {
+	return cx.$selection.get().flatMap((key) => {
+		const id = parseLightKey(key);
+		return id != null && id !== KEY_LIGHT_ID ? [id] : [];
+	});
 }
 
 function inDesign(cx: StudioCx): boolean {
@@ -126,7 +136,8 @@ export function duplicateTheme(cx: StudioCx, themeId: string): void {
 	const { commands, themeId: copyId } = duplicateThemeCommands(project, themeId);
 	if (!cx.execute(commands)) return;
 	const copy = cx.project != null ? resolveTheme(cx.project.design, copyId) : null;
-	cx.notifyEdit(`${resolveTheme(project.design, themeId).name} duplicated as ${copy?.name ?? 'a copy'}`);
+	const isSave = themeId === project.design.theme && hasLayerChanges(project.design);
+	cx.notifyEdit(`${resolveTheme(project.design, themeId).name} ${isSave ? 'saved' : 'duplicated'} as ${copy?.name ?? 'a copy'}`);
 }
 
 /** Delete Theme for a project theme; the film falls back to its base when it uses it */
@@ -254,7 +265,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Edit',
 		shortcut: '⌫',
 		keywords: 'remove',
-		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && selectedShotIds(cx).length > 0) || isSongSelected(cx),
+		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && (selectedShotIds(cx).length > 0 || selectedLightIds(cx).length > 0)) || isSongSelected(cx),
 		run: (cx) => {
 			// The Song layer alone deletes the song file and Backing; the marbles keep their hits
 			if (isSongSelected(cx) && cx.$selection.get().length === 1) {
@@ -497,6 +508,20 @@ export const commands: readonly TCommand[] = [
 		}
 	},
 	{
+		id: 'light.add',
+		title: 'Add Light',
+		section: 'Film',
+		keywords: 'lamp sun fill lighting key',
+		isEnabled: hasProject,
+		run: (cx) => {
+			const project = cx.project;
+			if (project == null) return;
+			cx.$workspace.set('design');
+			const { commands, lightId } = addLightCommands(project);
+			if (cx.execute(commands)) cx.$selection.set([toLightKey(lightId)]);
+		}
+	},
+	{
 		// The Fix-it of a framing problem at the playhead, found by a what-if of the camera with the shot
 		id: 'camera.addWideShot',
 		title: 'Add Wide Shot Here',
@@ -531,11 +556,19 @@ export const commands: readonly TCommand[] = [
 		section: 'Film',
 		keywords: 'theme option color colour pitch rainbow boomwhacker',
 		isEnabled: hasProject,
-		isChecked: (cx) => cx.project?.design.themeOptions?.colorByNote === true,
+		isChecked: (cx) => cx.project != null && isThemeColorByNote(cx.project.design),
 		run: (cx) => {
 			const project = cx.project;
-			if (project != null) cx.execute(colorByNoteCommands(project, project.design.themeOptions?.colorByNote !== true));
+			if (project != null) cx.execute(colorByNoteCommands(project, !isThemeColorByNote(project.design)));
 		}
+	},
+	{
+		id: 'design.saveAsTheme',
+		title: 'Save as Theme',
+		section: 'Film',
+		keywords: 'theme skins parts preset mix wall lights',
+		isEnabled: (cx) => cx.project != null && canSaveAsTheme(cx.project),
+		run: saveAsTheme
 	},
 	{
 		id: 'design.takeOverCamera',
@@ -653,6 +686,7 @@ export type TCommandId =
 	| 'design.resetToCompose'
 	| 'design.regenerateCamera'
 	| 'camera.addShot'
+	| 'light.add'
 	| 'camera.addWideShot'
 	| 'design.themePegboard'
 	| 'design.themeBrass'
@@ -660,6 +694,7 @@ export type TCommandId =
 	| TPresetCommandId
 	| 'design.loop'
 	| 'design.colorByNote'
+	| 'design.saveAsTheme'
 	| 'design.takeOverCamera'
 	| 'design.newTheme'
 	| 'design.duplicateTheme'
@@ -792,6 +827,12 @@ export function commandItem(cx: StudioCx, id: TCommandId, title?: string): TMenu
 export function deleteSelectedHits(cx: StudioCx): boolean {
 	const project = cx.project;
 	if (project == null) return false;
+	const lightIds = selectedLightIds(cx);
+	if (inDesign(cx) && lightIds.length > 0) {
+		const applied = cx.execute(deleteLightsCommands(project, lightIds));
+		if (applied) cx.$selection.set([]);
+		return applied;
+	}
 	const shotIds = selectedShotIds(cx);
 	if (inDesign(cx) && shotIds.length > 0) {
 		const applied = cx.execute(removeShotsCommands(project, shotIds));

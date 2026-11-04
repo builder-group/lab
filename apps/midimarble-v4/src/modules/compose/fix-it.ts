@@ -71,30 +71,6 @@ export function brokenHits(results: THitResult[], only?: string[]): THitResult[]
 }
 
 /**
- * The platforms Re-place runs Auto place for, in time order: on each marble with a broken hit, from the hit
- * before the first one that needs attention onward, every platform that needs attention itself or whose next platform does.
- * Auto place picks a platform's tilt by where it sends the marble next, so a Blocked spot is fixed by the
- * platform before it, and a run that drifted out of the frame by the platform where it left.
- */
-export function replaceTargets(project: TProject, results: THitResult[], only?: string[]): THitResult[] {
-	if (only != null) return brokenHits(results, only);
-	const linked = results.filter((hit) => hit.pieceEntityId != null).sort((a, b) => a.targetTime - b.targetTime);
-	const targets: THitResult[] = [];
-	for (const laneId of new Set(linked.map((hit) => hit.laneId))) {
-		const run = linked.filter((hit) => hit.laneId === laneId);
-		if (!run.some(isBroken)) continue;
-		// A run that left the frame before its first broken hit is fixed from where it left
-		const first = run.findIndex((hit) => needsFix(project, hit));
-		for (let index = Math.max(0, first - 1); index < run.length; index++) {
-			const hit = run[index];
-			const next = run[index + 1];
-			if (hit != null && (needsFix(project, hit) || (next != null && needsFix(project, next)))) targets.push(hit);
-		}
-	}
-	return targets.sort((a, b) => a.targetTime - b.targetTime);
-}
-
-/**
  * "Fix 24 Hits", or "Fix Hit 3 of Melody" for one: a verb and the count, like Figma's quick actions. The label
  * counts the broken hits, which are known before Re-place runs; how many platforms it tilts again is known only
  * after, and the result names it.

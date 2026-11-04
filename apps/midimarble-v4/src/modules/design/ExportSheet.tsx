@@ -99,7 +99,11 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 					id="export-preset"
 					value={settings.preset}
 					options={renderPresets.map((item) => ({ value: item.id, label: renderPresetOption(item) }))}
-					onChange={(value) => cx.film.updateSettings({ preset: value as TRenderPreset })}
+					onChange={(value) => {
+						cx.film.updateSettings({ preset: value as TRenderPreset });
+						// The project remembers the last choice, so the sheet opens on it next time
+						cx.execute([{ type: 'setDesign', design: { renderPreset: value as TRenderPreset } }]);
+					}}
 				/>
 				<span className="mm-form-label">Lighting</span>
 				<div className="flex items-center gap-1.5">

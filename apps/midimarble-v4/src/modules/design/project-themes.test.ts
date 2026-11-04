@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { buildAgentBrief } from '@/modules/agents/agent-brief';
 import { buildSceneDescription } from '@/modules/blender';
 import { parseCandidateManifest } from '@/modules/library';
-import { applyProjectCommands, createHistory, pushHistory, undoHistory, type TProject, type TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, createHistory, createProject, pushHistory, undoHistory, type TProject, type TProjectCommand } from '@/modules/project';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
 import { draftPieceColors, draftWall } from './draft-look';
 import {
 	agentThemeCommands,
 	baseThemeOf,
+	hasSkinChoices,
+	saveAsThemeCommands,
+	sceneThemeParts,
+	themePartCommands,
 	copyName,
 	deleteThemeCommands,
 	duplicateThemeCommands,
@@ -189,5 +193,55 @@ describe('New Theme with Agent', () => {
 		const [isBrokenOk, , broken] = parseCandidateManifest(JSON.stringify({ ...manifest, theme: { overrides: {} } }));
 		expect(isBrokenOk).toBe(true);
 		expect(broken?.theme).toBeUndefined();
+	});
+
+	it('should resolve a theme of parts, the same for a built-in and a project theme', () => {
+		const project = createProject();
+		expect(resolveTheme({ theme: 'brass' }).parts.platform.skin).toBe('platform:gold');
+		expect(resolveTheme({ theme: 'neon' }).parts.marble.skin).toBe('marble:contrast');
+		const themes = [{ id: 'mine', name: 'Mine', base: 'neon', overrides: {}, parts: { platform: { skin: 'platform:copper' }, marble: { skin: 'marble:glass' } } }];
+		const resolved = resolveTheme({ theme: 'mine', themes });
+		expect(resolved.parts.platform.skin).toBe('platform:copper');
+		expect(resolved.parts.rail.skin).toBe('rail:glow');
+		expect(resolved.parts.marble.skin).toBe('marble:glass');
+		expect(sceneThemeParts({ theme: 'mine', themes })).toEqual(themes[0]?.parts);
+		expect(sceneThemeParts({ theme: 'neon', themes })).toBeUndefined();
+		// Duplicate Theme keeps the parts
+		const withTheme = { ...project, design: { ...project.design, theme: 'mine', themes } };
+		const { commands, themeId } = duplicateThemeCommands(withTheme, 'mine');
+		const [isOk, , next] = applyProjectCommands(withTheme, commands);
+		expect(isOk && resolveTheme(next.design, themeId).parts.marble.skin).toBe('marble:glass');
+	});
+
+	it('should set and clear a part of a project theme, never of a built-in one', () => {
+		const project = { ...createProject(), design: { ...createProject().design, themes: [{ id: 'mine', name: 'Mine', base: 'neon', overrides: {} }], theme: 'mine' } };
+		expect(themePartCommands(project, 'neon', 'platform', { skin: 'platform:gold' })).toEqual([]);
+		const [isSetOk, , set] = applyProjectCommands(project, themePartCommands(project, 'mine', 'platform', { skin: 'platform:gold' }));
+		expect(isSetOk && set.design.themes?.[0]?.parts).toEqual({ platform: { skin: 'platform:gold' } });
+		if (!isSetOk) return;
+		const [isClearOk, , cleared] = applyProjectCommands(set, themePartCommands(set, 'mine', 'platform', { skin: null }));
+		expect(isClearOk && cleared.design.themes?.[0]?.parts).toBeUndefined();
+	});
+
+	it('should Save as Theme: the look most of a type wear becomes its part, exceptions stay', () => {
+		const base = createProject();
+		const platform = (id: string, assetId?: string) => ({
+			id,
+			components: { piece: { type: 'platform', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 }, ...(assetId != null ? { skin: { assetId, link: 'linked' as const } } : {}) }
+		});
+		const project = { ...base, design: { ...base.design, theme: 'brass' }, entities: [...base.entities, platform('a', 'platform:copper'), platform('b', 'platform:copper'), platform('c', 'platform:key'), platform('d', 'library-skin')] };
+		expect(hasSkinChoices(project)).toBe(true);
+		expect(hasSkinChoices(base)).toBe(false);
+		const { commands, themeId } = saveAsThemeCommands(project);
+		const [isOk, error, next] = applyProjectCommands(project, commands);
+		if (!isOk) throw error;
+		const theme = resolveTheme(next.design, themeId);
+		expect(next.design.theme).toBe(themeId);
+		expect(theme.name).toBe('Brass Copy');
+		expect(theme.parts.platform.skin).toBe('platform:copper');
+		const skinOf = (id: string) => next.entities.find((entity) => entity.id === id)?.components.skin;
+		expect(skinOf('a')).toBeUndefined();
+		expect(skinOf('c')?.assetId).toBe('platform:key');
+		expect(skinOf('d')?.assetId).toBe('library-skin');
 	});
 });

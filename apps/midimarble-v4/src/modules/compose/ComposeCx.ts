@@ -89,7 +89,7 @@ export type { TComposeTool } from './keys';
  * whether it stays free, links to a hit dot or anchors to a trajectory.
  */
 export class ComposeCx {
-	readonly $camera = createState<TComposeCamera>({ mode: '2d', view: { center: { x: 0, y: 0.4 }, scale: 900 }, yaw: -0.55, pitch: 0.28 });
+	readonly $camera = createState<TComposeCamera>({ mode: '2d', view: { center: { x: 0, y: 0.4 }, scale: 900 } });
 	readonly $viewport = createState<TViewport>({ width: 0, height: 0 });
 	readonly $tool = createState<TComposeTool>('select');
 	/** Piece the path tool draws, set by B (rail), U (tunnel) or the Insert library */
@@ -195,7 +195,6 @@ export class ComposeCx {
 			container.style.setProperty('--grid-fine-x', `${grid.fineOffset.x}px`);
 			container.style.setProperty('--grid-fine-y', `${grid.fineOffset.y}px`);
 			container.style.setProperty('--grid-fine-alpha', `${grid.fineAlpha}`);
-			container.dataset['mode'] = camera.mode;
 		};
 		cleanups.push(
 			this.$camera.subscribe(({ value }) => {
@@ -225,11 +224,7 @@ export class ComposeCx {
 			this.$override.listen(() => this.syncPieces()),
 			this.$placing.listen(() => this.syncPieces()),
 			this.studio.$hidden.listen(() => this.syncPieces()),
-			// Stopping at the start shows every piece solid, playing from there dims the ones ahead
-			this.studio.$playing.listen(() => {
-				this.syncPieces();
-				this.wakeMotion();
-			}),
+			this.studio.$playing.listen(() => this.wakeMotion()),
 			this.studio.$playhead.subscribe(({ value }) => {
 				renderer.setPlayhead(value);
 				this.syncPieces();
@@ -429,7 +424,6 @@ export class ComposeCx {
 		const result = this.result;
 		const scene: TPickScene = { handles: [], dots: [], pieces: [] };
 		if (project == null || result == null) return scene;
-		const is2d = this.$camera.get().mode === '2d';
 		const hidden = this.studio.$hidden.get();
 		const locked = this.studio.$locked.get();
 		const selected = selectedPieceIds(project, this.studio.$selection.get()).filter((id) => !locked.includes(id));
@@ -444,7 +438,6 @@ export class ComposeCx {
 				scene.dots.push({ laneId: hit.laneId, hitId: hit.hitId, position: this.toScreen(hit.dot) });
 			}
 		}
-		if (!is2d) return scene;
 		for (const entity of project.entities) {
 			const release = entity.components.release;
 			if (release == null || entity.components.marble == null || hidden.includes(entity.id) || locked.includes(entity.id)) continue;
@@ -731,7 +724,7 @@ export class ComposeCx {
 		const camera = this.$camera.get();
 		const viewport = this.$viewport.get();
 		const focus = this.marbleFocus();
-		if (focus == null || camera.mode !== '2d' || this.$drag.get() != null || viewport.width <= 1) return;
+		if (focus == null || this.$drag.get() != null || viewport.width <= 1) return;
 		const margin = 0.02;
 		if (isBoundsVisible(camera.view, viewport, { minX: focus.x - margin, maxX: focus.x + margin, minY: focus.y - margin, maxY: focus.y + margin }, 48)) return;
 		const screen = worldToScreen(camera.view, viewport, focus);
@@ -746,7 +739,7 @@ export class ComposeCx {
 	private revealFirstHits(project: TProject): void {
 		const result = this.result;
 		const camera = this.$camera.get();
-		if (result == null || camera.mode !== '2d') return;
+		if (result == null) return;
 		const playhead = this.studio.$playhead.get();
 		const points: TVec2[] = [];
 		for (const entity of project.entities) {
@@ -792,7 +785,7 @@ export class ComposeCx {
 	 */
 	private revealPlayhead(): void {
 		const result = this.result;
-		if (result == null || this.studio.$playing.get() || this.$camera.get().mode !== '2d' || this.$drag.get() != null) return;
+		if (result == null || this.studio.$playing.get() || this.$drag.get() != null) return;
 		const time = this.studio.$playhead.get();
 		const struck = struckAt(result.hits, time);
 		const focus = struck.length ? undefined : (this.marbleFocus() ?? undefined);
@@ -838,7 +831,7 @@ export class ComposeCx {
 		if (bounds == null) return;
 		const viewport = this.$viewport.get();
 		const camera = this.$camera.get();
-		if (camera.mode === '2d' && isBoundsVisible(camera.view, viewport, bounds, 40)) return;
+		if (isBoundsVisible(camera.view, viewport, bounds, 40)) return;
 		const fitted = fitBounds(bounds, viewport, canvasPadding);
 		this.navigateTo(fitted.scale < camera.view.scale ? fitted : { scale: camera.view.scale, center: fitted.center });
 	}
@@ -867,25 +860,21 @@ export class ComposeCx {
 		const point = localPoint(event);
 		// A click places the piece itself; the hover what-if makes way for it
 		this.clearHoverPreview();
-		const camera = this.$camera.get();
 		const tool = this.$tool.get();
-		const is2d = camera.mode === '2d';
-		const isPan = event.button === 1 || tool === 'hand' || this.$spaceHeld.get() || (!is2d && event.button === 0 && this.pickAt(point) == null);
+		const isPan = event.button === 1 || tool === 'hand' || this.$spaceHeld.get();
 		if (event.button !== 0 && event.button !== 1) return;
 		event.currentTarget.setPointerCapture(event.pointerId);
 		this.$editingAngle.set(null);
 
 		if (isPan) {
-			// In orbit, dragging turns the camera unless Shift or the hand tool asks for a pan
-			const orbit = !is2d && !event.shiftKey && tool !== 'hand' && !this.$spaceHeld.get();
-			if (!orbit) this.takeView();
-			this.$drag.set({ kind: 'pan', last: point, orbit });
+			this.takeView();
+			this.$drag.set({ kind: 'pan', last: point });
 			this.spacePanned = true;
 			return;
 		}
 		const project = this.project;
 		if (project == null) return;
-		if (tool === 'path' && is2d) {
+		if (tool === 'path') {
 			this.penDown(point);
 			return;
 		}
@@ -928,8 +917,7 @@ export class ComposeCx {
 					return;
 				}
 				if (!selection.includes(target.entityId)) this.studio.$selection.set([target.entityId]);
-				if (is2d) this.startMove(target.entityId, point);
-				else this.$drag.set({ kind: 'click', target, start: point });
+				this.startMove(target.entityId, point);
 				return;
 			}
 			case 'dot':
@@ -938,11 +926,11 @@ export class ComposeCx {
 				return;
 		}
 		const type = toolPieceType[tool];
-		if (type != null && is2d) {
+		if (type != null) {
 			this.startPlace(type, point);
 			return;
 		}
-		if (tool === 'select' && is2d) {
+		if (tool === 'select') {
 			const base = event.shiftKey ? this.studio.$selection.get() : [];
 			this.$drag.set({ kind: 'marquee', from: point, to: point, base });
 			return;
@@ -970,15 +958,7 @@ export class ComposeCx {
 			case 'pan': {
 				const dx = point.x - drag.last.x;
 				const dy = point.y - drag.last.y;
-				if (drag.orbit) {
-					this.$camera.set((camera) => ({
-						...camera,
-						yaw: camera.yaw - dx * 0.006,
-						pitch: Math.max(-1.2, Math.min(1.2, camera.pitch + dy * 0.006))
-					}));
-				} else {
-					this.$camera.set((camera) => ({ ...camera, view: panBy(camera.view, dx, dy) }));
-				}
+				this.$camera.set((camera) => ({ ...camera, view: panBy(camera.view, dx, dy) }));
 				this.$drag.set({ ...drag, last: point });
 				return;
 			}
@@ -1212,7 +1192,7 @@ export class ComposeCx {
 		const rect = this.container?.getBoundingClientRect();
 		if (drag == null || project == null || rect == null) return false;
 		const point = { x: client.x - rect.left, y: client.y - rect.top };
-		const isOver = this.$camera.get().mode === '2d' && point.x >= 0 && point.y >= 0 && point.x <= rect.width && point.y <= rect.height;
+		const isOver = point.x >= 0 && point.y >= 0 && point.x <= rect.width && point.y <= rect.height;
 		if (!isOver) {
 			if (drag.candidate != null) {
 				this.$override.set(null);
@@ -1376,7 +1356,7 @@ export class ComposeCx {
 		const project = this.project;
 		const result = this.result;
 		const tool = this.$tool.get();
-		if (project == null || result == null || this.$camera.get().mode !== '2d' || this.$pen.get() != null) {
+		if (project == null || result == null || this.$pen.get() != null) {
 			this.clearHoverPreview();
 			return;
 		}
@@ -1456,7 +1436,7 @@ export class ComposeCx {
 		this.revealPoint(piece.contactPoint ?? piece.position);
 	}
 
-	/** Selecting one piece moves the playhead to its hit, so it is not shown ghosted, unless playing */
+	/** Selecting one piece moves the playhead to its hit, unless playing */
 	private followSelection(selection: string[]): void {
 		const only = selection.length === 1 ? selection[0] : undefined;
 		this.placedId = only != null && this.result?.pieces.some((piece) => piece.entityId === only) !== true ? only : null;
@@ -1862,7 +1842,7 @@ export class ComposeCx {
 		const camera = this.$camera.get();
 		const viewport = this.$viewport.get();
 		const bounds = { minX: point.x - margin, minY: point.y - margin, maxX: point.x + margin, maxY: point.y + margin };
-		if (camera.mode !== '2d' || isBoundsVisible(camera.view, viewport, bounds, inset)) return;
+		if (isBoundsVisible(camera.view, viewport, bounds, inset)) return;
 		this.navigateTo({ ...camera.view, center: { x: point.x, y: point.y } });
 	}
 
@@ -2039,9 +2019,6 @@ export class ComposeCx {
 		this.renderer.setPieces(
 			this.displayPieces().map((piece) => ({
 				piece,
-				// Pieces still to come read as solid as the rest (round 3 and 5 reviews); the trajectory's quieter
-				// part after the playhead shows what is ahead
-				ghost: false,
 				angle: pieceAngleAt(piece, playhead)
 			}))
 		);
@@ -2156,7 +2133,7 @@ interface TNodeDrag {
 }
 
 export type TComposeDrag =
-	| { kind: 'pan'; last: TVec2; orbit: boolean }
+	| { kind: 'pan'; last: TVec2 }
 	| TRotateDrag
 	| TMoveDrag
 	| TPlaceDrag

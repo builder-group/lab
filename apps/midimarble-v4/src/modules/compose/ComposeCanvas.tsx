@@ -194,16 +194,15 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const project = history?.present;
 	if (project == null || result == null || viewport.width <= 1) return null;
 
-	const is2d = camera.mode === '2d';
 	const pieces = compose.displayPieces(result);
 	const selectedPieces = selectedPieceIds(project, selection);
 	const single = selectedPieces.length === 1 ? pieces.find((piece) => piece.entityId === selectedPieces[0]) : undefined;
 	const singleKind = single != null ? pieceKind(single) : null;
-	const frame = single != null && is2d ? compose.railFrame(single.entityId) : null;
+	const frame = single != null ? compose.railFrame(single.entityId) : null;
 	const isPathPiece = singleKind === 'path' || singleKind === 'tube' || singleKind === 'holder';
 	const isMoveDrag = drag?.kind === 'move' && drag.moved;
-	const grip = single != null && is2d && !isPathPiece && !isMoveDrag ? compose.screenGrip(single) : null;
-	const pathHandles = single != null && is2d && isPathPiece && frame == null && singleKind !== 'holder' ? compose.screenPathHandles(single) : null;
+	const grip = single != null && !isPathPiece && !isMoveDrag ? compose.screenGrip(single) : null;
+	const pathHandles = single != null && isPathPiece && frame == null && singleKind !== 'holder' ? compose.screenPathHandles(single) : null;
 	const isRotating = drag?.kind === 'rotate';
 	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.entityId));
 	const nextDots = nextOpenHitPerLane(result);
@@ -265,39 +264,37 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					);
 				})}
 				{snap?.kind === 'link' ? <SnapRing position={compose.toScreen(snap.dot)} /> : null}
-				{is2d
-					? project.entities.map((entity) => {
-							const { release, marble } = entity.components;
-							if (release == null || marble == null || hidden.includes(entity.id)) return null;
-							const position = drag?.kind === 'release' && drag.entityId === entity.id ? drag.position : release.position;
-							const center = compose.toScreen(position);
-							const isSelected = selection.includes(entity.id);
-							const isActive = isSelected || (hover?.kind === 'release' && hover.entityId === entity.id) || (drag?.kind === 'release' && drag.entityId === entity.id);
-							const radius = Math.max(9, marble.radius * camera.view.scale + 5);
-							return (
-								<g key={`release-${entity.id}`}>
-									{isSelected ? <circle cx={center.x} cy={center.y} r={radius + 3} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} /> : null}
-									<circle
-										cx={center.x}
-										cy={center.y}
-										r={radius}
-										fill="none"
-										stroke={marble.color}
-										strokeWidth={isActive ? 2 : 1.5}
-										strokeDasharray={isActive ? undefined : '3 2.5'}
-									/>
-									<path
-										d={`M ${center.x} ${center.y - radius - 7} L ${center.x} ${center.y - radius - 1.5} M ${center.x - 3} ${center.y - radius - 4.5} L ${center.x} ${center.y - radius - 1.5} L ${center.x + 3} ${center.y - radius - 4.5}`}
-										fill="none"
-										stroke={marble.color}
-										strokeWidth={1.5}
-										strokeLinecap="round"
-										strokeLinejoin="round"
-									/>
-								</g>
-							);
-						})
-					: null}
+				{project.entities.map((entity) => {
+					const { release, marble } = entity.components;
+					if (release == null || marble == null || hidden.includes(entity.id)) return null;
+					const position = drag?.kind === 'release' && drag.entityId === entity.id ? drag.position : release.position;
+					const center = compose.toScreen(position);
+					const isSelected = selection.includes(entity.id);
+					const isActive = isSelected || (hover?.kind === 'release' && hover.entityId === entity.id) || (drag?.kind === 'release' && drag.entityId === entity.id);
+					const radius = Math.max(9, marble.radius * camera.view.scale + 5);
+					return (
+						<g key={`release-${entity.id}`}>
+							{isSelected ? <circle cx={center.x} cy={center.y} r={radius + 3} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} /> : null}
+							<circle
+								cx={center.x}
+								cy={center.y}
+								r={radius}
+								fill="none"
+								stroke={marble.color}
+								strokeWidth={isActive ? 2 : 1.5}
+								strokeDasharray={isActive ? undefined : '3 2.5'}
+							/>
+							<path
+								d={`M ${center.x} ${center.y - radius - 7} L ${center.x} ${center.y - radius - 1.5} M ${center.x - 3} ${center.y - radius - 4.5} L ${center.x} ${center.y - radius - 1.5} L ${center.x + 3} ${center.y - radius - 4.5}`}
+								fill="none"
+								stroke={marble.color}
+								strokeWidth={1.5}
+								strokeLinecap="round"
+								strokeLinejoin="round"
+							/>
+						</g>
+					);
+				})}
 				{grip != null ? (
 					<g>
 						{showArc ? (
@@ -327,7 +324,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 				{drag?.kind === 'marquee' ? <Marquee from={drag.from} to={drag.to} /> : null}
 			</svg>
 			{hoveredDot != null && drag == null && hoverPreview == null ? <DotTooltip compose={compose} project={project} hit={hoveredDot} /> : null}
-			{hintDot != null && drag == null && is2d ? (
+			{hintDot != null && drag == null ? (
 				<span data-hint-anchor="dot" className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2" style={{ left: hintDot.x, top: hintDot.y }} />
 			) : null}
 			{hover?.kind === 'track' && drag == null ? (
@@ -763,7 +760,8 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 	const tool = useFeatureState(compose.$tool);
 	const ghosts = useFeatureState(compose.assist.$ghosts);
 	const queued = useFeatureState(compose.assist.$queuedNext);
-	const camera = useFeatureState(compose.$camera);
+	// The bar sits at screen positions, so it moves with the view
+	useFeatureState(compose.$camera);
 	const viewport = useFeatureState(compose.$viewport);
 	// The bar's measured size, so it can move off ghosts it would cover
 	const [size, setSize] = React.useState({ width: 240, height: 38 });
@@ -776,7 +774,7 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 		observer.observe(bar);
 		return () => observer.disconnect();
 	}, []);
-	if (project == null || result == null || playing || drag != null || pen != null || tool === 'path' || camera.mode !== '2d') return null;
+	if (project == null || result == null || playing || drag != null || pen != null || tool === 'path') return null;
 
 	const target = findStepTarget(project, result, selection);
 	if (target?.dot == null) return null;

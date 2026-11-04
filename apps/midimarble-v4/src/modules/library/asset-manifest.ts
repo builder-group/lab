@@ -28,6 +28,18 @@ const SAssetTheme = z.strictObject({
 	})
 });
 
+/**
+ * An extra property of an agent-made skin, shown as a row in the Look panel. Blender writes its value to the material
+ * inputs and to the Value or RGB nodes of this `name` (`apply_properties` in assets.py); a material without one ignores it.
+ */
+const SAssetProperty = z.strictObject({
+	name: z.string().regex(/\S/).max(40),
+	type: z.enum(['number', 'colour']),
+	default: z.union([z.number(), SHexColor]).optional(),
+	min: z.number().optional(),
+	max: z.number().optional()
+});
+
 const THEME_OVERRIDE_KEYS = ['wallColor', 'lightColor', 'glowColor', 'backgroundColor'];
 
 export const SAssetManifest = z.strictObject({
@@ -39,6 +51,8 @@ export const SAssetManifest = z.strictObject({
 	// Physical parameters the model was built for, in metres or radians
 	fittedParams: z.record(z.string(), z.number()).optional(),
 	reactions: z.array(SAssetReaction).optional(),
+	// Extra skin properties beside Colour, On Hit, Glow Colour and Variant
+	properties: z.array(SAssetProperty).optional(),
 	notes: z.string().optional(),
 	// Where the item comes from: `agent` is set when a Result is accepted; absent means it was brought in another way
 	origin: z.enum(['agent', 'imported']).optional(),
@@ -55,6 +69,7 @@ export const assetManifestDefinition = defineSchema({
 export type TAssetManifest = TSchemaValue<typeof assetManifestDefinition>;
 export type TAssetRole = TAssetManifest['role'];
 export type TAssetTheme = z.infer<typeof SAssetTheme>;
+export type TAssetProperty = z.infer<typeof SAssetProperty>;
 
 export function parseAssetManifest(json: string): TResult<TAssetManifest, Error> {
 	return parseManifest(json, (value) => value);

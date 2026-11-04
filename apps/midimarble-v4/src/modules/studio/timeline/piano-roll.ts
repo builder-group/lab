@@ -1,24 +1,34 @@
-import type { TLane } from '@/modules/project';
+import { BACKING_ID, type TProject, type TProjectCommand, type TSource } from '@/modules/project';
+import { toHitKey } from '../selection';
+import { round } from './timeline-layout';
 
-// Semitones shown above the highest and below the lowest note of an expanded track
-export const PITCH_MARGIN = 2;
+// Semitones shown above the highest and below the lowest note of the Song's piano roll
+const PITCH_MARGIN = 2;
 
-/** Pitch rows of an expanded track, highest first like Logic's piano roll; null for tracks without pitches */
-export function pitchRange(lane: TLane): TPitchRange | null {
-	let low = Number.POSITIVE_INFINITY;
-	let high = Number.NEGATIVE_INFINITY;
-	for (const hit of lane.hits) {
-		if (hit.pitch == null) continue;
-		low = Math.min(low, hit.pitch);
-		high = Math.max(high, hit.pitch);
-	}
-	if (!Number.isFinite(low)) return null;
-	return { low: Math.max(0, low - PITCH_MARGIN), high: Math.min(127, high + PITCH_MARGIN) };
+/**
+ * Pitch rows of the Song's piano roll, highest first like Logic's. Null when the song cannot expand: a recording
+ * is a flat waveform, whatever pitches its marbles' hits have, and a song without pitched notes has nothing to show.
+ */
+export function songRollRange(project: TProject, song: TSource | undefined): TPitchRange | null {
+	if (song?.kind === 'audio') return null;
+	const pitches = [...project.music.lanes.flatMap((lane) => lane.hits), ...project.music.backing].flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch]));
+	if (!pitches.length) return null;
+	return { low: Math.max(0, Math.min(...pitches) - PITCH_MARGIN), high: Math.min(127, Math.max(...pitches) + PITCH_MARGIN) };
 }
 
-/** Whether a track can expand into a piano roll: tap-along tracks on a recording have no pitches */
-export function hasPitches(lane: TLane): boolean {
-	return lane.hits.some((hit) => hit.pitch != null);
+/** The edit a note drag makes: every dragged hit or Backing note moves in time and, in the Song's piano roll, in pitch */
+export function noteDragCommands(project: TProject, drag: { keys: string[]; delta: number; pitchDelta: number }, range: TPitchRange | null): TProjectCommand[] {
+	const owners = [...project.music.lanes, { id: BACKING_ID, hits: project.music.backing }];
+	return owners.flatMap((owner) => {
+		const moved = owner.hits
+			.filter((hit) => drag.keys.includes(toHitKey(owner.id, hit.id)))
+			.map((hit) => ({
+				...hit,
+				time: round(Math.max(0, hit.time + drag.delta)),
+				pitch: hit.pitch != null && range != null && drag.pitchDelta !== 0 ? clampPitch(hit.pitch + drag.pitchDelta, range) : hit.pitch
+			}));
+		return moved.length ? [{ type: 'upsertHits' as const, laneId: owner.id, hits: moved }] : [];
+	});
 }
 
 export function rowCount(range: TPitchRange): number {
@@ -28,12 +38,6 @@ export function rowCount(range: TPitchRange): number {
 /** Row index of a pitch, counted from the top row */
 export function pitchToRow(pitch: number, range: TPitchRange): number {
 	return range.high - pitch;
-}
-
-/** Pitch under a y offset within the piano roll, clamped to its rows */
-export function rowToPitch(y: number, range: TPitchRange, rowHeight: number): number {
-	const row = Math.floor(y / rowHeight);
-	return clampPitch(range.high - row, range);
 }
 
 export function clampPitch(pitch: number, range: TPitchRange): number {
@@ -56,7 +60,7 @@ export const OPENING_NOTES = 8;
 export const OPENING_GAP = 6;
 
 /**
- * Scroll offset an expanded piano roll opens at, taller than its track: the first notes in time with their
+ * Scroll offset the Song's piano roll opens at, taller than its track: the first notes in time with their
  * highest row just below the top edge, so the melody's opening reads at once instead of sitting under the ruler.
  * Notes are `{ time, pitch }` in any order; without pitches the roll opens at its top.
  */

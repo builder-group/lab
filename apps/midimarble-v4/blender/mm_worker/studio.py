@@ -1,4 +1,4 @@
-"""Studio: wall, sun, world light, camera and render look.
+"""Studio: wall, sun, added lights, world light, camera and render look.
 
 The studio objects are created once. Afterwards the app changes a studio object only while it still holds what the
 app last wrote (`mm_written` fingerprints); a wall, sun or world the user edited belongs to Blender. A theme
@@ -13,7 +13,7 @@ from mathutils import Euler
 
 from . import camera as camera_rig
 from . import themes
-from .util import STUDIO_COLLECTION, ensure_collection, tag
+from .util import STUDIO_COLLECTION, ensure_collection, finite, parse_color, tag
 
 STUDIO_VERSION = 1
 PEG_PITCH = 0.025
@@ -214,6 +214,77 @@ def update_rim(rim, theme):
     else:
         rim.data.energy = 0.0
     written(rim, rim_signature(rim))
+    return True
+
+
+# Added lights: suns the project owns, one layer each in Film
+
+
+LIGHT_ROLE = 'studio.light'
+LIGHT_ANGLE = 12.0
+
+
+def apply_lights(lights):
+    """Makes the studio's added lights match the description's `lights`. A light the user edited in Blender belongs to
+    Blender: it keeps its values and, when the project deletes it, is hidden rather than removed, so undo can show it
+    again. Returns the IDs of `{created, updated, skipped, removed, hidden}`."""
+    collection = ensure_collection(STUDIO_COLLECTION)
+    report = {'created': [], 'updated': [], 'skipped': [], 'removed': [], 'hidden': []}
+    existing = {obj['mm_light_id']: obj for obj in collection.objects if obj.get('mm_role') == LIGHT_ROLE and obj.get('mm_owner') == 'midimarble'}
+    for light in lights:
+        light_id = str(light['id'])
+        obj = existing.pop(light_id, None)
+        created = obj is None
+        if created:
+            obj = create_light(collection, light_id, str(light.get('name', 'Light')))
+        was_hidden = bool(obj.get('mm_deleted'))
+        if was_hidden:
+            del obj['mm_deleted']
+            obj.hide_render = obj.hide_viewport = False
+        if update_light(obj, light, created):
+            report['created' if created else 'updated'].append(light_id)
+        else:
+            report['skipped'].append(light_id)
+    for light_id, obj in existing.items():
+        if obj.get('mm_deleted'):
+            continue
+        if obj.type == 'LIGHT' and untouched(obj, sun_signature(obj)):
+            data = obj.data
+            bpy.data.objects.remove(obj)
+            bpy.data.lights.remove(data)
+            report['removed'].append(light_id)
+        else:
+            obj['mm_deleted'] = True
+            obj.hide_render = obj.hide_viewport = True
+            report['hidden'].append(light_id)
+    return report
+
+
+def create_light(collection, light_id, name):
+    light = bpy.data.lights.new('MM light', 'SUN')
+    obj = bpy.data.objects.new(name, light)
+    obj.location = (0.0, -1.5, 2.0)
+    collection.objects.link(obj)
+    tag(obj, LIGHT_ROLE + '.' + light_id, LIGHT_ROLE)
+    obj['mm_light_id'] = light_id
+    return obj
+
+
+def update_light(obj, light, created):
+    if obj.type != 'LIGHT' or obj.data.type != 'SUN' or (not created and not untouched(obj, sun_signature(obj))):
+        return False
+    obj.name = str(light.get('name', obj.name))
+    obj.data.energy = max(0.0, finite(light['strength'], 'light strength'))
+    obj.data.angle = math.radians(LIGHT_ANGLE)
+    obj.data.color = parse_color(light['color'])[:3]
+    obj.data.use_shadow = True
+    obj.data.shadow_maximum_resolution = 0.0002
+    obj.data.use_shadow_jitter = True
+    obj.data.shadow_jitter_overblur = 10.0
+    obj.data.shadow_filter_radius = 1.5
+    direction = themes.sun_direction(finite(light['side'], 'light side'), finite(light['height'], 'light height'))
+    obj.rotation_euler = Euler(themes.sun_rotation(direction))
+    written(obj, sun_signature(obj))
     return True
 
 
