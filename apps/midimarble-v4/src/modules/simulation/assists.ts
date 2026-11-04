@@ -149,7 +149,7 @@ export function copyLinkedPiece(
 		name: `${definition?.label ?? piece.type} ${count + 1}`,
 		components: {
 			piece: { type: piece.type, params: { ...piece.params } },
-			hitLink: { laneId: hitLink.laneId, hitId, angle, contactAt, pinned: false }
+			hitLink: { laneId: hitLink.laneId, hitId, angle, contactAt }
 		}
 	};
 	if (points != null) entity.components.path = { points };

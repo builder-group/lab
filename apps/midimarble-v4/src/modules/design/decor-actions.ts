@@ -163,7 +163,7 @@ export function startDecorDrag(cx: StudioCx, event: React.PointerEvent<HTMLEleme
 	const key = decorAt(start);
 	if (key == null || !cx.$selection.get().includes(key)) return false;
 	const decorId = key.slice('decor:'.length);
-	const origin = project.design.decor?.find((item) => item.id === decorId)?.position;
+	const origin = project.design.decor.find((item) => item.id === decorId)?.position;
 	if (origin == null) return false;
 	const [startX, startY] = [event.clientX, event.clientY];
 	const pointerId = event.pointerId;
@@ -197,7 +197,7 @@ export function startDecorDrag(cx: StudioCx, event: React.PointerEvent<HTMLEleme
 }
 
 function updateDecorPosition(project: TProject, decorId: string, position: TVec2): TProjectCommand[] {
-	const list = project.design.decor ?? [];
+	const list = project.design.decor;
 	return [
 		{
 			type: 'setDesign',

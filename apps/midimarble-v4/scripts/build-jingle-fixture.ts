@@ -19,7 +19,6 @@ import { builtInSource, newDecor, setDecorList } from '../src/modules/design/dec
 import { scatterDecorCommands } from '../src/modules/design/decor-scatter';
 import { preflightExport } from '../src/modules/design/export-preflight';
 import { filmCamera } from '../src/modules/design/film-camera';
-import { catalogSkin } from '../src/modules/design/skin-catalog';
 import { fittedSongEnd } from '../src/modules/camera/finish-exit';
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
 import {
@@ -201,7 +200,7 @@ async function finalized(fixture: TProject, simulateFinish: TSimulateFn): Promis
 
 /** The film's look: the project's Christmas theme with the Christmas Decor set scattered. No hit can change. */
 function dressed(fixture: TProject, simulateFinal: (current: TProject) => TSimulationResult): TProject {
-	const themes = [...(fixture.design.themes ?? []).filter((theme) => theme.id !== CHRISTMAS_THEME.id), CHRISTMAS_THEME];
+	const themes = [...fixture.design.themes.filter((theme) => theme.id !== CHRISTMAS_THEME.id), CHRISTMAS_THEME];
 	const inTheme: TProject = { ...fixture, design: { ...fixture.design, theme: CHRISTMAS_THEME.id, themes } };
 	const themed = inTheme;
 	const result = simulateFinal(themed);
@@ -212,10 +211,9 @@ function dressed(fixture: TProject, simulateFinal: (current: TProject) => TSimul
 	const scattered = apply(themed, commands, themed.revision);
 	// The frame's dressing keeps its own IDs, which seed it, so a new dress step shows the same snow
 	const frameItems: TDecor[] = [
-		{ ...newDecor(builtInSource('decor:garland'), { x: 0, y: 0 }, []), id: 'decor-garland' },
 		{ ...newDecor(builtInSource('decor:snowfall'), { x: 0, y: 0 }, []), id: 'decor-snowfall' }
 	];
-	const placed = (scattered.design.decor ?? []).filter((item) => !frameItems.some((frameItem) => frameItem.id === item.id));
+	const placed = scattered.design.decor.filter((item) => !frameItems.some((frameItem) => frameItem.id === item.id));
 	return apply(scattered, setDecorList([...placed, ...frameItems]), scattered.revision);
 }
 

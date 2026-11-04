@@ -12,7 +12,7 @@ function project(hitIds: string[]): TProject {
 		music: { lanes: [{ id: 'lane', name: 'Melody', hits: hitIds.map((id, index) => ({ id, time: index + 1 })) }] },
 		entities: [
 			{ id: 'marble', components: { marble: { laneId: 'lane', radius: 0.012 } } },
-			...hitIds.map((id) => ({ id: `piece-${id}`, components: { piece: { type: 'platform', params: {} }, hitLink: { laneId: 'lane', hitId: id, angle: 0, contactAt: 0.5, pinned: false } } }))
+			...hitIds.map((id) => ({ id: `piece-${id}`, components: { piece: { type: 'platform', params: {} }, hitLink: { laneId: 'lane', hitId: id, angle: 0, contactAt: 0.5 } } }))
 		]
 	} as unknown as TProject;
 }

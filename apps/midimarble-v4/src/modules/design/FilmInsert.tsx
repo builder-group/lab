@@ -101,7 +101,7 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 				))}
 			</InsertSection>
 			<InsertSection title="Decor" help={DECOR_HELP}>
-				{listedDecorItems(usedDecorSources(history?.present.design ?? {})).map((item) => (
+				{listedDecorItems(usedDecorSources(history?.present.design)).map((item) => (
 					<InsertTile
 						key={item.id}
 						label={item.label}

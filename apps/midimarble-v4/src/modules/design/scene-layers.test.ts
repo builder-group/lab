@@ -13,7 +13,6 @@ import {
 	resetKeyLightCommands,
 	sceneLayers,
 	updateLightCommands,
-	WALL_KINDS,
 	wallCommands,
 	wallKindOverride,
 	wallLayer
@@ -42,7 +41,7 @@ describe('wall layer', () => {
 		expect(draftWall('brass', appliedOverrides(colored.design), wallKindOverride(colored.design))).toEqual({ color: '#336699', holes: null });
 
 		const reset = apply(colored, wallCommands(colored, { color: null, backgroundColor: null, kind: null }));
-		expect(reset.design.wall).toBeUndefined();
+		expect(reset.design.wall).toEqual({});
 		expect(sceneThemeOverrides(reset.design)).toBeUndefined();
 		expect(sceneLayers(reset.design)).toEqual({});
 	});
@@ -85,7 +84,7 @@ describe('key light layer', () => {
 		expect(sceneLayers(soft.design).keyLight).toEqual({ strength: 9, side: 0.25, softness: 0.5, exposure: 0.4, bloom: 0.3 });
 
 		const reset = apply(lit, resetKeyLightCommands(lit));
-		expect(reset.design.lights).toBeUndefined();
+		expect(reset.design.lights).toEqual({ added: [] });
 		expect(keyLightLayer(reset.design)).toMatchObject({ color: themed.color, strength: 5.2 });
 	});
 
@@ -118,14 +117,14 @@ describe('added lights', () => {
 
 		const deleted = edit(changed, deleteLightsCommands(changed, [lightId]));
 		expect(addedLights(deleted.design)).toEqual([]);
-		expect(deleted.design.lights).toBeUndefined();
+		expect(deleted.design.lights).toEqual({ added: [] });
 
 		history = undoHistory(history);
 		expect(addedLights(history.present.design)[0]?.color).toBe('#00ff88');
 		history = undoHistory(history);
 		expect(addedLights(history.present.design)[0]?.color).toBe('#ffffff');
 		history = undoHistory(history);
-		expect(history.present.design.lights).toBeUndefined();
+		expect(history.present.design.lights).toEqual({ added: [] });
 	});
 
 	it('should name the next light after the taken ones and ignore unknown IDs', () => {
@@ -151,8 +150,8 @@ describe('save as theme', () => {
 		const { commands, themeId } = duplicateThemeCommands(current, 'brass');
 		const saved = apply(current, commands);
 		expect(saved.design.theme).toBe(themeId);
-		expect(saved.design.wall).toBeUndefined();
-		expect(saved.design.lights).toBeUndefined();
+		expect(saved.design.wall).toEqual({});
+		expect(saved.design.lights).toEqual({ added: [] });
 		expect(hasLayerChanges(saved.design)).toBe(false);
 		expect(resolveTheme(saved.design).projectTheme).toMatchObject({ overrides: { wallColor: '#336699', lightColor: '#ff8800' }, wallKind: 'pegboard', keyLight: { strength: 7, softness: 0.6, exposure: 0.25, bloom: 0.5 } });
 		expect({ overrides: sceneThemeOverrides(saved.design), layers: sceneLayers(saved.design) }).toEqual(before);
@@ -169,15 +168,15 @@ describe('save as theme', () => {
 		const colored = apply(project, wallCommands(project, { color: '#336699' }));
 		const copied = apply(colored, duplicateThemeCommands(colored, 'neon').commands);
 		expect(resolveTheme(copied.design).projectTheme?.overrides).toEqual({});
-		expect(copied.design.wall?.color).toBe('#336699');
+		expect(copied.design.wall.color).toBe('#336699');
 	});
 });
 
 describe('project file', () => {
-	it('should round-trip the layers and load older projects without them', () => {
+	it('should round-trip the layers', () => {
 		const project = withTheme('brass');
 		const plain = serializeProject(project);
-		expect(JSON.parse(plain).design).not.toHaveProperty('wall');
+		expect(JSON.parse(plain).design.wall).toEqual({});
 		expect(parseProject(plain)[2]).toEqual(project);
 
 		let current = apply(project, wallCommands(project, { color: '#336699', kind: 'grid' }));
@@ -188,23 +187,12 @@ describe('project file', () => {
 		expect(parsed?.design.wall).toEqual({ color: '#336699', kind: 'grid' });
 		expect(parsed?.design.lights).toEqual(current.design.lights);
 
-		// A reset leaves no empty fields in the file
 		const reset = apply(current, [...wallCommands(current, { color: null, kind: null })]);
-		expect(JSON.parse(serializeProject(reset)).design).not.toHaveProperty('wall');
+		expect(JSON.parse(serializeProject(reset)).design.wall).toEqual({});
 	});
 });
 
-describe('A Tinsel wall of an old project', () => {
-	it('should read as Plaster with no Layout and load a theme with a Decor set', () => {
-		const staircase = createStaircaseProject();
-		const old = { ...staircase, design: { ...staircase.design, theme: 'brass', wall: { kind: 'tinsel', band: 'left' }, themes: [{ id: 'theme-old', name: 'Old', base: 'brass', overrides: {}, wallKind: 'tinsel', wallBand: 'right', decorSet: ['decor:star'] }] } };
-		const [isParsed, parseErr, parsed] = parseProject(JSON.stringify(old));
-		if (!isParsed) throw parseErr;
-		expect(parsed.design.wall).toEqual({ kind: 'plaster' });
-		expect(parsed.design.themes?.[0]).toEqual({ id: 'theme-old', name: 'Old', base: 'brass', overrides: {}, wallKind: 'plaster' });
-		expect(WALL_KINDS.map((item) => item.label)).toEqual(['Plain', 'Plaster', 'Pegboard', 'Grid']);
-	});
-
+describe('Wall skins', () => {
 	it('should keep a wall skin in Save as Theme and round-trip through the file', () => {
 		const staircase = createStaircaseProject();
 		const source: TProject = { ...staircase, design: { ...staircase.design, theme: 'brass', wall: { kind: 'grid' } } };

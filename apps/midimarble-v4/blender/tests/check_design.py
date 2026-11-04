@@ -2,7 +2,7 @@
 
 Builds a test `assets/test-key/asset.blend` with bpy (a piano key with an `MM_REACT_Key` press part), applies it to
 a platform and checks orientation, fitted scale, reaction drivers, swapping back to the default skin and the
-user's skin offset; then per-piece reaction presets, wall text ownership and a short `render_film`. Renders a
+user's skin offset; then On Hit per piece, wall text ownership and a short `render_film`. Renders a
 brass still with the asset skin and a wall title to `.local/design/` (or `MM_CHECK_OUT`).
 
 Run: Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_design.py
@@ -75,7 +75,7 @@ def ballistic():
     return np.stack([times, x, y, angle], axis=1).astype('<f4'), hit
 
 
-def write_package(root, records, hit, theme='brass', asset=False, reaction=None, texts=None, duration=DURATION, overrides=None, skin=None, layers=None):
+def write_package(root, records, hit, theme='brass', asset=False, on_hit=None, texts=None, duration=DURATION, overrides=None, skin=None, layers=None):
     motion = root / '.cache' / 'motion'
     motion.mkdir(parents=True, exist_ok=True)
     records.tofile(motion / 'marble-1.bin')
@@ -83,9 +83,8 @@ def write_package(root, records, hit, theme='brass', asset=False, reaction=None,
         'id': 'platform-1', 'name': 'Key 1', 'type': 'platform', 'params': PLATFORM,
         'position': PLATFORM_POSITION, 'angle': PLATFORM_ANGLE, 'wallOffset': 0.0,
         'hitTimes': [hit], 'motionPath': None, 'sampleCount': 0, 'color': '#e2a33b',
-        'skin': {'assetId': 'test-key', 'link': 'linked'} if asset else ({'assetId': skin, 'link': 'linked'} if skin else None),
+        'skin': {**({'assetId': 'test-key'} if asset else ({'assetId': skin} if skin else {})), **({'onHit': on_hit} if on_hit else {})} or None,
         'assetPath': ASSET_PATH if asset else None,
-        'reaction': reaction,
     }
     description = {
         'version': 1, 'projectId': 'design-check', 'revision': 1, 'fps': FPS, 'duration': duration,
@@ -260,22 +259,22 @@ def main():
     apply(worker)
     check(holder('platform-1').children[0].name == skin_name, 're-apply keeps the asset skin')
 
-    # Per-piece reaction overrides: none stops the key, press sets its travel
-    write_package(root, records, hit, asset=True, reaction={'preset': 'none', 'params': {}})
+    # On Hit per piece: none stops the key, press moves it
+    write_package(root, records, hit, asset=True, on_hit='none')
     apply(worker)
     key = asset_part(holder('platform-1').children[0], 'MM_REACT_Key')
     scene.frame_set(hit_frame)
     moved = (key.matrix_world.translation - rest).length
     scene.frame_set(0)
-    check(moved < 1e-9, 'reaction preset none keeps the key still')
-    write_package(root, records, hit, asset=True, reaction={'preset': 'press', 'params': {'press': 0.004}})
+    check(moved < 1e-9, 'On Hit None keeps the key still')
+    write_package(root, records, hit, asset=True, on_hit='press')
     apply(worker)
     key = asset_part(holder('platform-1').children[0], 'MM_REACT_Key')
     scene.frame_set(hit_frame)
     hit_value = holder('platform-1')['mm_hit']
     travel = (key.matrix_world.translation - rest).dot(contact_normal())
     scene.frame_set(0)
-    check(abs(travel + 0.004 * hit_value) < 1e-5, 'press params set the key travel (%.2f mm)' % (travel * 1000))
+    check(hit_value > 0 and travel < -1e-4, 'On Hit Press moves the key (%.2f mm)' % (travel * 1000))
 
     # Switching back to the theme default restores the default skin with the user's offset
     holder('platform-1').children[0].location = (0.001, 0.0, 0.002)
@@ -286,8 +285,8 @@ def main():
     check(close(platform.children[0].location, (0.001, 0.0, 0.002)), 'the default skin takes over the asset skin offset')
     check(not any(obj.get('mm_asset_part') for obj in bpy.data.collections[MANAGED_COLLECTION].objects), 'the asset copies are removed')
 
-    # Default bar reactions per preset
-    write_package(root, records, hit, reaction={'preset': 'wobble', 'params': {'angle': 10.0}})
+    # Bar reactions per On Hit
+    write_package(root, records, hit, on_hit='wobble')
     apply(worker)
     bar = next(child for child in holder('platform-1').children[0].children if child.get('mm_part') == 'bar')
     angles = []
@@ -297,7 +296,7 @@ def main():
     scene.frame_set(0)
     check(min(angles) < -math.radians(1) and max(angles) > math.radians(1), 'wobble swings the bar both ways after the hit')
     check(abs(bar.location.z) < 1e-9, 'wobble does not press the bar')
-    write_package(root, records, hit, reaction={'preset': 'glow', 'params': {'strength': 5.0}})
+    write_package(root, records, hit, on_hit='glow')
     apply(worker)
     bar = next(child for child in holder('platform-1').children[0].children if child.get('mm_part') == 'bar')
     scene.frame_set(hit_frame)
@@ -565,7 +564,7 @@ def main():
     contrast = min((luminance(marble_body) + 0.05) / (luminance(body) + 0.05) for body in lane_bodies) if lane_bodies else 0.0
     check(contrast >= 3.0, 'a Neon marble is at least 3:1 lighter than every surface of its lane platform (%.1f:1)' % contrast)
     # More Skins: a Brass skin dresses a platform as Brass in Neon too
-    write_package(root, records, hit, theme='neon', skin='brass:copper')
+    write_package(root, records, hit, theme='neon', skin='platform:copper')
     apply(worker)
     names = [slot.material.name for obj in holder('platform-1').children_recursive if obj.type == 'MESH' for slot in obj.material_slots if slot.material is not None]
     check(any('copper' in name.lower() for name in names) and not any(name.startswith('MM · neon trim') for name in names),

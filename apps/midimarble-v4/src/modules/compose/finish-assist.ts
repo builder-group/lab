@@ -117,16 +117,12 @@ export async function findFinish(
 				name: existing?.name ?? nextPieceName(FINISH_TYPE, without.entities),
 				components: {
 					...(existing?.components.skin != null ? { skin: existing.components.skin } : {}),
-					...(existing?.components.reaction != null
-						? { reaction: existing.components.reaction }
-						: {}),
 					piece: { type: FINISH_TYPE, params: { ...params, mirror, entryDelay } },
 					hitLink: {
 						laneId,
 						hitId: last.id,
 						angle: 0,
 						contactAt: 0.5,
-						pinned: false,
 						anchored: true
 					}
 				}

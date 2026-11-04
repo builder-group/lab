@@ -22,7 +22,7 @@ export function withThemeAssets(theme: TProjectTheme, ids: ReadonlyMap<string, s
 
 /** Adds a Pack's theme to the project and shows it, as one edit. A project keeps one theme in use. */
 export function packThemeCommands(project: TProject, theme: TProjectTheme): TProjectCommand[] {
-	const add: TProjectCommand = { type: 'setDesign', design: { themes: [...(project.design.themes ?? []), theme] } };
+	const add: TProjectCommand = { type: 'setDesign', design: { themes: [...project.design.themes, theme] } };
 	const [isAddedOk, , added] = applyProjectCommands(project, [add]);
 	return isAddedOk ? [add, ...themeCommands(added, theme.id)] : [];
 }
@@ -79,7 +79,7 @@ function currentLookSnapshot(project: TProject, name: string): TProjectTheme {
 	const { commands, themeId } = currentLookThemeCommands(project, name);
 	const [isCopiedOk, copiedErr, copied] = applyProjectCommands(project, commands);
 	if (!isCopiedOk) throw copiedErr;
-	const theme = copied.design.themes?.find((item) => item.id === themeId);
+	const theme = copied.design.themes.find((item) => item.id === themeId);
 	if (theme == null) throw new Error(`${name} couldn't be copied`);
 	const { pack: _pack, ...rest } = theme;
 	return rest;

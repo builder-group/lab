@@ -98,7 +98,7 @@ describe('filmTail', () => {
 		const lanes = times.map((hits, index) => ({ ...(project.music.lanes[0] as TProject['music']['lanes'][number]), id: `lane-${index}`, hits: hits.map((time, hit) => ({ id: `h${index}-${hit}`, time })) }));
 		const entities = finishes.map((laneId) => ({
 			id: `finish-${laneId}`,
-			components: { piece: { type: 'finish', params: {} }, hitLink: { laneId, hitId: 'h0-0', angle: 0, contactAt: 0.5, pinned: false, anchored: true } }
+			components: { piece: { type: 'finish', params: {} }, hitLink: { laneId, hitId: 'h0-0', angle: 0, contactAt: 0.5, anchored: true } }
 		}));
 		return { ...project, end, music: { ...project.music, lanes }, entities: [...project.entities, ...entities] };
 	}
@@ -134,7 +134,7 @@ describe('fitsSong', () => {
 		const [, , next] = applyProjectCommands(project, [
 			{ type: 'upsertHits', laneId, hits: [{ id: 'h', time: 33 }] },
 			{ type: 'setEnd', end },
-			...(finish ? [{ type: 'upsertEntity' as const, entity: { id: 'f', components: { piece: { type: 'finish', params: {} }, hitLink: { laneId, hitId: 'h', angle: 0, contactAt: 0.5, pinned: false, anchored: true } } } as never }] : [])
+			...(finish ? [{ type: 'upsertEntity' as const, entity: { id: 'f', components: { piece: { type: 'finish', params: {} }, hitLink: { laneId, hitId: 'h', angle: 0, contactAt: 0.5, anchored: true } } } as never }] : [])
 		]);
 		return next as TProject;
 	}

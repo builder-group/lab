@@ -383,7 +383,7 @@ def write_decor(obj, entry, fps, duration):
 
 
 def attach_effects(entries, managed, camera, scene, fps, duration, theme):
-    """Snowfall and Garland: see `decor_effects`"""
+    """Snowfall: see `decor_effects`"""
     return decor_effects.attach(entries, managed, camera, scene, fps, duration, theme)
 
 
@@ -394,7 +394,7 @@ def remove_tree(obj):
         # Shared meshes stay for the next copy; a text decoration's curve and an effect's mesh are its own
         if isinstance(data, bpy.types.Curve) and data.users == 0:
             bpy.data.curves.remove(data)
-        elif isinstance(data, bpy.types.Mesh) and data.users == 0 and data.name.startswith(('MM snowfall', 'MM garland')):
+        elif isinstance(data, bpy.types.Mesh) and data.users == 0 and data.name.startswith('MM snowfall'):
             bpy.data.meshes.remove(data)
 
 

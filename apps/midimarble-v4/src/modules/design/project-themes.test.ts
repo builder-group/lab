@@ -61,7 +61,7 @@ describe('project theme commands', () => {
 		expect(resolveTheme(copied.design)).toMatchObject({ name: 'Neon Copy', base: 'neon', overrides: {} });
 		expect(themeOrigin(resolveTheme(copied.design))).toBe('Based on Neon');
 		const second = apply(copied, duplicateThemeCommands(copied, first.themeId).commands);
-		expect(second.design.themes?.map((theme) => theme.name)).toEqual(['Neon Copy', 'Neon Copy 2']);
+		expect(second.design.themes.map((theme) => theme.name)).toEqual(['Neon Copy', 'Neon Copy 2']);
 		expect(copyName('Neon Copy 2', ['Neon Copy', 'Neon Copy 2'])).toBe('Neon Copy 3');
 	});
 
@@ -91,7 +91,7 @@ describe('project theme commands', () => {
 		history = undoHistory(history);
 		history = undoHistory(history);
 		expect(history.present.design.theme).toBe('brass');
-		expect(history.present.design.themes).toBeUndefined();
+		expect(history.present.design.themes).toEqual([]);
 	});
 
 	it('should ignore an empty name and an override that changes nothing', () => {
@@ -171,8 +171,8 @@ describe('Theme manifests and parts', () => {
 
 	it('should resolve a theme of parts, the same for a built-in and a project theme', () => {
 		const project = createProject();
-		expect(resolveTheme({ theme: 'brass' }).parts.platform.skin).toBe('platform:gold');
-		expect(resolveTheme({ theme: 'neon' }).parts.marble.skin).toBe('marble:contrast');
+		expect(resolveTheme({ theme: 'brass', themes: [] }).parts.platform.skin).toBe('platform:gold');
+		expect(resolveTheme({ theme: 'neon', themes: [] }).parts.marble.skin).toBe('marble:contrast');
 		const themes = [{ id: 'mine', name: 'Mine', base: 'neon', overrides: {}, parts: { platform: { skin: 'platform:copper' }, marble: { skin: 'marble:glass' } } }];
 		const resolved = resolveTheme({ theme: 'mine', themes });
 		expect(resolved.parts.platform.skin).toBe('platform:copper');
@@ -191,17 +191,17 @@ describe('Theme manifests and parts', () => {
 		const project = { ...createProject(), design: { ...createProject().design, themes: [{ id: 'mine', name: 'Mine', base: 'neon', overrides: {} }], theme: 'mine' } };
 		expect(themePartCommands(project, 'neon', 'platform', { skin: 'platform:gold' })).toEqual([]);
 		const [isSetOk, , set] = applyProjectCommands(project, themePartCommands(project, 'mine', 'platform', { skin: 'platform:gold' }));
-		expect(isSetOk && set.design.themes?.[0]?.parts).toEqual({ platform: { skin: 'platform:gold' } });
+		expect(isSetOk && set.design.themes[0]?.parts).toEqual({ platform: { skin: 'platform:gold' } });
 		if (!isSetOk) return;
 		const [isClearOk, , cleared] = applyProjectCommands(set, themePartCommands(set, 'mine', 'platform', { skin: null }));
-		expect(isClearOk && cleared.design.themes?.[0]?.parts).toBeUndefined();
+		expect(isClearOk && cleared.design.themes[0]?.parts).toBeUndefined();
 	});
 
 	it('should keep the current look as a theme: the look most of a type wear becomes its part, exceptions stay', () => {
 		const base = createProject();
 		const platform = (id: string, assetId?: string) => ({
 			id,
-			components: { piece: { type: 'platform', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 }, ...(assetId != null ? { skin: { assetId, link: 'linked' as const } } : {}) }
+			components: { piece: { type: 'platform', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 }, ...(assetId != null ? { skin: { assetId } } : {}) }
 		});
 		const project = { ...base, design: { ...base.design, theme: 'brass' }, entities: [...base.entities, platform('a', 'platform:copper'), platform('b', 'platform:copper'), platform('c', 'platform:key'), platform('d', 'library-skin')] };
 		expect(hasSkinChoices(project)).toBe(true);

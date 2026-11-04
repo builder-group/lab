@@ -1,6 +1,5 @@
 import type { TAssetProperty } from '@/modules/library/asset-manifest';
 import type { TEntity, TSkinComponent, TThemeParts } from '@/modules/project';
-import { canonicalSkinId } from '@/modules/project/skin-ids';
 import { STARTER_ORIGIN } from '@/modules/library';
 import catalog from '../../../blender/mm_worker/skin_catalog.json';
 
@@ -97,7 +96,7 @@ export function catalogSkins(element: TSkinElement, usedSkins: ReadonlySet<strin
 
 /** A built-in skin by its id, old ids included */
 export function catalogSkin(id: string): TCatalogSkin | null {
-	return SKINS_BY_ID.get(canonicalSkinId(id)) ?? null;
+	return SKINS_BY_ID.get(id) ?? null;
 }
 
 export function builtInSkinLabel(id: string): string | null {
@@ -131,7 +130,7 @@ export interface TSkinLook {
 export function resolveSkinLook(base: string, parts: TThemeParts | null | undefined, element: TSkinElement, component?: TSkinComponent | null): TSkinLook {
 	const part = parts?.[element] ?? {};
 	const partSkin = part.skin != null && fits(part.skin, element) ? part.skin : themeDefaultSkin(base, element);
-	const own = component?.assetId != null && fits(component.assetId, element) ? canonicalSkinId(component.assetId) : null;
+	const own = component?.assetId != null && fits(component.assetId, element) ? component.assetId : null;
 	const skin = own ?? partSkin;
 	const isThemeSkin = own == null || own === partSkin;
 	const entry = SKINS_BY_ID.get(skin) as TCatalogSkin;

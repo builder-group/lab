@@ -13,7 +13,6 @@ import { filmCamera } from '@/modules/design/film-camera';
 import type { TLibraryItem } from '@/modules/library';
 import { z } from 'zod';
 import { applyProjectCommands, SComponents, SDesign, SEntity, SHit, SLane, SPhysics, SSource, STempo, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TVec2 } from '@/modules/project';
-import { canonicalSkinId } from '@/modules/project/skin-ids';
 import { getPieceDefinition, type TSimulationResult } from '@/modules/simulation';
 
 // `project.execute` takes the project's own commands plus a few that say what an agent means, so it needs not know a
@@ -82,7 +81,7 @@ const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
 				if (checked.success && command.component.value != null) return;
 				for (const issue of checked.success ? [{ path: [], message: 'is required' }] : checked.error.issues) context.addIssue({ code: 'custom', path: ['component', 'value', ...issue.path], message: issue.message });
 			}),
-		example: "{ type: 'setComponent', entityId, component: { name: 'release', value: { position: { x, y }, time } } }, with name one of marble, release, piece, transform, hitLink, path, skin, reaction or wallText"
+		example: "{ type: 'setComponent', entityId, component: { name: 'release', value: { position: { x, y }, time } } }, with name one of marble, release, piece, transform, hitLink, path, skin or wallText"
 	},
 	removeComponent: { schema: z.strictObject({ type: z.string(), entityId: z.string(), name: SComponentName }), example: "{ type: 'removeComponent', entityId, name }" },
 	setDesign: { schema: z.strictObject({ type: z.string(), design: SDesign.partial() }), example: DESIGN_EXAMPLE_LINE },
@@ -146,7 +145,7 @@ function withCurrentValues(project: TProject, command: TAgentCommand): TAgentCom
 		if (isObject(patch['wall'])) merged['wall'] = { ...design.wall, ...patch['wall'] };
 		if (isObject(patch['lights'])) {
 			const key = patch['lights']['key'];
-			merged['lights'] = { ...design.lights, ...patch['lights'], ...(isObject(key) ? { key: { ...design.lights?.key, ...key } } : {}) };
+			merged['lights'] = { ...design.lights, ...patch['lights'], ...(isObject(key) ? { key: { ...design.lights.key, ...key } } : {}) };
 		}
 		return { ...command, design: merged } as TAgentCommand;
 	}
@@ -155,7 +154,7 @@ function withCurrentValues(project: TProject, command: TAgentCommand): TAgentCom
 	if (!isObject(value) || (name !== 'marble' && name !== 'wallText' && name !== 'skin')) return command;
 	const entity = project.entities.find((item) => item.id === command.entityId);
 	const current = entity?.components[name];
-	return { ...command, component: { name, value: { ...(name === 'skin' ? { link: 'linked' } : {}), ...current, ...value } } } as TAgentCommand;
+	return { ...command, component: { name, value: { ...(name === 'skin' ? {} : {}), ...current, ...value } } } as TAgentCommand;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -171,7 +170,7 @@ export function builtInSkinIds(): Record<TSkinElement, string[]> {
 function skinProblem(assetId: string, element: TSkinElement, items: readonly TLibraryItem[]): string | null {
 	const label = elementLabel(element);
 	if (assetId.includes(':')) {
-		const id = canonicalSkinId(assetId);
+		const id = assetId;
 		const skin = catalogSkin(id);
 		if (skin == null) return `There is no skin called ${assetId}. ${label} skins are ${catalogSkins(element).map((item) => item.id).join(', ')}; list_commands lists them all.`;
 		if (skin.element !== element) return `${assetId} is a ${elementLabel(skin.element)} skin, so it can't dress a ${label}. ${label} skins are ${catalogSkins(element).map((item) => item.id).join(', ')}.`;
@@ -272,7 +271,7 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 }
 
 function designProblem(project: TProject, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], design: Partial<TProject['design']>): string | null {
-	const themes = design.themes ?? project.design.themes ?? [];
+	const themes = design.themes ?? project.design.themes;
 	if (design.theme != null && !isBuiltInTheme(design.theme) && !themes.some((theme) => theme.id === design.theme) && !packThemes.some((theme) => theme.id === design.theme)) {
 		const known = ['pegboard', 'brass', 'neon', ...themes.map((theme) => theme.id), ...packThemes.map((theme) => theme.id)];
 		return `There is no theme ${design.theme}. Themes are ${known.join(', ')}.`;
@@ -334,7 +333,7 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 			const target = command.entityIds != null ? { kind: 'entities' as const, entityIds: command.entityIds } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
 			if (target == null) return Err(new Error('applySkin needs a pieceType or entityIds'));
 			const fixedColor = items.find((item) => item.id === command.assetId)?.manifest?.color ?? catalogSkin(command.assetId)?.color ?? undefined;
-			const commands = [...skinCommands(project, target, command.assetId.includes(':') ? canonicalSkinId(command.assetId) : command.assetId), ...fixedColorCommands(project, skinTargetIds(project, target), fixedColor)];
+			const commands = [...skinCommands(project, target, command.assetId.includes(':') ? command.assetId : command.assetId), ...fixedColorCommands(project, skinTargetIds(project, target), fixedColor)];
 			return commands.length > 0 ? Ok({ commands }) : Err(new Error(`Nothing is a ${command.pieceType ?? 'target'} in this project yet, so ${command.assetId} has nothing to dress.`));
 		}
 		case 'setDesign': {

@@ -56,7 +56,7 @@ export interface TWallLayer {
 	backgroundColor: string;
 	kind: TWallKind;
 	/** What the project set itself; absent fields read "From Brass" */
-	own: NonNullable<TDesign['wall']>;
+	own: TDesign['wall'];
 	/** What the theme shows without the project's values */
 	theme: { color: string; backgroundColor: string; kind: TWallKind };
 }
@@ -68,7 +68,7 @@ export function wallLayer(design: TSceneDesign): TWallLayer {
 		backgroundColor: theme.overrides.backgroundColor ?? themeDefaultColor(theme.base, 'backgroundColor') ?? '#ffffff',
 		kind: theme.projectTheme?.wallKind ?? baseScene(theme.base).wallKind
 	};
-	const own = design.wall ?? {};
+	const own = design.wall;
 	return {
 		color: own.color ?? themeLook.color,
 		backgroundColor: own.backgroundColor ?? themeLook.backgroundColor,
@@ -80,15 +80,15 @@ export function wallLayer(design: TSceneDesign): TWallLayer {
 
 /** The Wall's Skin when it is not its base theme's own: what the scene description and the Draft Preview need */
 export function wallKindOverride(design: TSceneDesign): TWallKind | undefined {
-	return design.wall?.kind ?? resolveTheme(design).projectTheme?.wallKind;
+	return design.wall.kind ?? resolveTheme(design).projectTheme?.wallKind;
 }
 
 /** Sets or, with null, clears the Wall layer's own values; clearing brings the theme's back */
-export function wallCommands(project: TProject, patch: { [GKey in keyof NonNullable<TDesign['wall']>]?: NonNullable<TDesign['wall']>[GKey] | null }): TProjectCommand[] {
+export function wallCommands(project: TProject, patch: { [GKey in keyof TDesign['wall']]?: TDesign['wall'][GKey] | null }): TProjectCommand[] {
 	const merged: Record<string, unknown> = { ...project.design.wall, ...patch };
-	const wall = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null).map(([key, value]) => [key, typeof value === 'string' && value.startsWith('#') ? value.toLowerCase() : value])) as NonNullable<TDesign['wall']>;
-	if (JSON.stringify(wall) === JSON.stringify(project.design.wall ?? {})) return [];
-	return [{ type: 'setDesign', design: { wall: Object.keys(wall).length > 0 ? wall : undefined } }];
+	const wall = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null).map(([key, value]) => [key, typeof value === 'string' && value.startsWith('#') ? value.toLowerCase() : value])) as TDesign['wall'];
+	if (JSON.stringify(wall) === JSON.stringify(project.design.wall)) return [];
+	return [{ type: 'setDesign', design: { wall } }];
 }
 
 // MARK: - Key Light
@@ -102,12 +102,12 @@ export interface TKeyLightLayer {
 	exposure: number;
 	bloom: number;
 	/** What the project set itself */
-	own: NonNullable<NonNullable<TDesign['lights']>['key']>;
+	own: NonNullable<TDesign['lights']['key']>;
 }
 
 export function keyLightLayer(design: TSceneDesign): TKeyLightLayer {
 	const theme = resolveTheme(design);
-	const own = design.lights?.key ?? {};
+	const own = design.lights.key ?? {};
 	const themed = themedKeyLight(theme);
 	return {
 		color: own.color ?? themed.color,
@@ -139,24 +139,24 @@ function themedKeyLight(theme: TResolvedTheme): Required<TKeyLightPose> & { colo
 /** Sets or, with null, clears the Key Light's own values; clearing brings the theme's back */
 export function keyLightCommands(project: TProject, patch: { [GKey in keyof TKeyLightLayer['own']]?: TKeyLightLayer['own'][GKey] | null }): TProjectCommand[] {
 	const lights = project.design.lights;
-	const merged: Record<string, unknown> = { ...lights?.key, ...patch };
+	const merged: Record<string, unknown> = { ...lights.key, ...patch };
 	const key = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null).map(([name, value]) => [name, typeof value === 'string' ? value.toLowerCase() : value])) as TKeyLightLayer['own'];
-	if (JSON.stringify(key) === JSON.stringify(lights?.key ?? {})) return [];
-	return setLights({ ...lights, key: Object.keys(key).length > 0 ? key : undefined });
+	if (JSON.stringify(key) === JSON.stringify(lights.key ?? {})) return [];
+	return setLights(Object.keys(key).length > 0 ? { ...lights, key } : { added: lights.added });
 }
 
 /** Reset to theme: the Key Light can't be deleted, only given back to the theme */
 export function resetKeyLightCommands(project: TProject): TProjectCommand[] {
-	if (project.design.lights?.key == null) return [];
-	return setLights({ ...project.design.lights, key: undefined });
+	if (project.design.lights.key == null) return [];
+	return setLights({ added: project.design.lights.added });
 }
 
 // MARK: - Added lights
 
 /** Every added light of the film, the applied project theme's first; order as in Layers */
 export function addedLights(design: TSceneDesign): TLight[] {
-	const themed = (design.themes ?? []).find((theme) => theme.id === design.theme)?.lights ?? [];
-	return [...themed, ...(design.lights?.added ?? [])];
+	const themed = design.themes.find((theme) => theme.id === design.theme)?.lights ?? [];
+	return [...themed, ...design.lights.added];
 }
 
 /** A new light, on the other side of the wall from the Key Light so it fills the shadows, and named Light 1, Light 2… */
@@ -166,7 +166,7 @@ export function addLightCommands(project: TProject): { commands: TProjectCommand
 	let index = 1;
 	while (taken.includes(`Light ${index}`)) index++;
 	const light: TLight = { id: createId('light'), name: `Light ${index}`, color: '#ffffff', strength: 2, side: key.side <= 0 ? 0.5 : -0.5, height: 0.3 };
-	return { commands: setLights({ ...project.design.lights, added: [...(project.design.lights?.added ?? []), light] }), lightId: light.id };
+	return { commands: setLights({ ...project.design.lights, added: [...project.design.lights.added, light] }), lightId: light.id };
 }
 
 export function updateLightCommands(project: TProject, lightId: string, patch: Partial<Omit<TLight, 'id'>>): TProjectCommand[] {
@@ -178,8 +178,8 @@ export function deleteLightsCommands(project: TProject, lightIds: readonly strin
 	const keep = (light: TLight): boolean => !lightIds.includes(light.id);
 	const { design } = project;
 	const patch: Partial<TDesign> = {};
-	if (design.lights?.added?.some((light) => !keep(light)) === true) patch.lights = withoutEmpty({ ...design.lights, added: design.lights.added.filter(keep) });
-	if (design.themes?.find((theme) => theme.id === design.theme)?.lights?.some((light) => !keep(light)) === true) {
+	if (design.lights.added.some((light) => !keep(light))) patch.lights = { ...design.lights, added: design.lights.added.filter(keep) };
+	if (design.themes.find((theme) => theme.id === design.theme)?.lights?.some((light) => !keep(light)) === true) {
 		patch.themes = design.themes.map((theme) => (theme.id === design.theme ? { ...theme, lights: theme.lights?.filter(keep) } : theme));
 	}
 	return Object.keys(patch).length > 0 ? [{ type: 'setDesign', design: patch }] : [];
@@ -188,22 +188,15 @@ export function deleteLightsCommands(project: TProject, lightIds: readonly strin
 /** Applies a light edit to the list holding the light: the project's, or the applied project theme's */
 function editLightLists(project: TProject, lightId: string, edit: (lights: TLight[]) => TLight[]): TProjectCommand[] {
 	const { design } = project;
-	const added = design.lights?.added;
-	if (added?.some((light) => light.id === lightId) === true) return setLights({ ...design.lights, added: edit(added) });
-	const applied = design.themes?.find((theme) => theme.id === design.theme);
+	const added = design.lights.added;
+	if (added.some((light) => light.id === lightId)) return setLights({ ...design.lights, added: edit(added) });
+	const applied = design.themes.find((theme) => theme.id === design.theme);
 	if (applied?.lights?.some((light) => light.id === lightId) !== true) return [];
-	return [{ type: 'setDesign', design: { themes: design.themes?.map((theme) => (theme.id === applied.id ? { ...theme, lights: edit(theme.lights ?? []) } : theme)) } }];
+	return [{ type: 'setDesign', design: { themes: design.themes.map((theme) => (theme.id === applied.id ? { ...theme, lights: edit(theme.lights ?? []) } : theme)) } }];
 }
 
-function setLights(lights: NonNullable<TDesign['lights']>): TProjectCommand[] {
-	return [{ type: 'setDesign', design: { lights: withoutEmpty(lights) } }];
-}
-
-function withoutEmpty(lights: NonNullable<TDesign['lights']>): TDesign['lights'] {
-	const next: NonNullable<TDesign['lights']> = {};
-	if (lights.key != null) next.key = lights.key;
-	if (lights.added != null && lights.added.length > 0) next.added = lights.added;
-	return Object.keys(next).length > 0 ? next : undefined;
+function setLights(lights: TDesign['lights']): TProjectCommand[] {
+	return [{ type: 'setDesign', design: { lights } }];
 }
 
 // MARK: - Scene description
@@ -212,7 +205,7 @@ function withoutEmpty(lights: NonNullable<TDesign['lights']>): TDesign['lights']
 export function sceneLayers(design: TSceneDesign): { wallKind?: TSceneWallKind; keyLight?: TSceneKeyLight; lights?: TSceneLight[] } {
 	const theme = resolveTheme(design);
 	const kind = wallKindOverride(design);
-	const { color: _color, ...ownPose } = design.lights?.key ?? {};
+	const { color: _color, ...ownPose } = design.lights.key ?? {};
 	const pose: TKeyLightPose = { ...theme.projectTheme?.keyLight, ...ownPose };
 	const lights = addedLights(design);
 	return {

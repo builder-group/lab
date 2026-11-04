@@ -1,4 +1,4 @@
-import { defineMigration, defineSchema, type TSchemaValue } from 'versjon';
+import { defineSchema, type TSchemaValue } from 'versjon';
 import { z } from 'zod';
 
 // Wall-plane coordinates in metres: x points right, y points up, the wall surface is z = 0
@@ -6,27 +6,23 @@ const SVec2 = z.strictObject({ x: z.number(), y: z.number() });
 
 const SId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 
-const SHitV3 = z.strictObject({
+// A note of the song. `duration` is the length of an imported MIDI note; Backing plays it, a marble strikes it.
+export const SHit = z.strictObject({
 	id: SId,
 	time: z.number().nonnegative(),
 	pitch: z.number().int().min(0).max(127).optional(),
-	velocity: z.number().min(0).max(1).optional()
+	velocity: z.number().min(0).max(1).optional(),
+	duration: z.number().nonnegative().optional()
 });
 
-// A note of the song. Version 4 keeps the length of imported MIDI notes; Backing plays it, a marble strikes it.
-export const SHit = SHitV3.extend({ duration: z.number().nonnegative().optional() });
-
-const laneShape = {
+export const SLane = z.strictObject({
 	id: SId,
 	name: z.string(),
 	color: z.string(),
 	// General MIDI program used for MIDI playback and the rendered soundtrack
-	instrument: z.number().int().min(0).max(127)
-};
-
-const SLaneV3 = z.strictObject({ ...laneShape, hits: z.array(SHitV3) });
-
-export const SLane = z.strictObject({ ...laneShape, hits: z.array(SHit) });
+	instrument: z.number().int().min(0).max(127),
+	hits: z.array(SHit)
+});
 
 export const SSource = z.strictObject({
 	id: SId,
@@ -73,8 +69,7 @@ const SHitLinkComponent = z.strictObject({
 	angle: z.number(),
 	// Where along the contact surface the marble lands, from 0 to 1
 	contactAt: z.number().min(0).max(1),
-	pinned: z.boolean(),
-	// Position kept while pinned
+	// Set, the piece stays here instead of following the trajectory
 	pinnedPosition: SVec2.optional(),
 	// An anchored piece follows the trajectory at the hit time plus its `entryDelay` and never sounds the hit.
 	// Scenery pieces are always anchored.
@@ -114,9 +109,8 @@ const skinPropertyShape = {
 
 const SSkinComponent = z.strictObject({
 	// A built-in skin such as `platform:copper`, or a library item's ID. Absent shows the theme's skin with the overrides
-	// below; old IDs such as `brass:copper` still read (`canonicalSkinId`)
+	// below
 	assetId: z.string().optional(),
-	link: z.enum(['linked', 'unlinked']),
 	...skinPropertyShape,
 	// Values of the extra properties a library skin's manifest declares, by their names
 	properties: z.record(z.string(), z.union([z.number(), z.string()])).optional()
@@ -134,11 +128,6 @@ const SThemeParts = z.strictObject({
 	windmill: SThemePart.optional(),
 	finish: SThemePart.optional(),
 	marble: SThemePart.optional()
-});
-
-const SReactionComponent = z.strictObject({
-	preset: z.string(),
-	params: z.record(z.string(), z.number())
 });
 
 const SWallTextComponent = z.strictObject({
@@ -164,7 +153,6 @@ export const SComponents = z.strictObject({
 	hitLink: SHitLinkComponent.optional(),
 	path: SPathComponent.optional(),
 	skin: SSkinComponent.optional(),
-	reaction: SReactionComponent.optional(),
 	wallText: SWallTextComponent.optional()
 });
 
@@ -181,8 +169,7 @@ const SShot = z.strictObject({
 	roll: z.number(),
 	distance: z.number().positive(),
 	// Seconds the shot holds before the camera eases back to the rig, 0 until the next shot; absent uses the kind's
-	// default (2 s for Push In and Close-Up, until the next shot for Wide and Follow). Added later; files without it
-	// stay valid
+	// default (2 s for Push In and Close-Up, until the next shot for Wide and Follow)
 	length: z.number().nonnegative().optional()
 });
 
@@ -199,10 +186,7 @@ const SThemeOverrides = z.strictObject({
 	backgroundColor: SHexColor.optional()
 });
 
-/**
- * The wall's skin in Film: `plain` is one smooth colour with no pattern at all, `grid` the Neon wall's lit grid. An old
- * project's Tinsel reads as Plaster (`withoutRemovedFields`)
- */
+/** The wall's skin in Film: `plain` is one smooth colour with no pattern at all, `grid` the Neon wall's lit grid */
 const SWallKind = z.enum(['plain', 'plaster', 'pegboard', 'grid']);
 
 /**
@@ -223,7 +207,7 @@ const SKeyLightPose = z.strictObject({
 	// How soft its shadows are: a share of the widest sun, 0 hard and 1 very soft
 	softness: z.number().min(0).max(1).optional(),
 	// The whole film's brightness in stops on top of the base theme, and how much what glows spills light. Here because a
-	// film has one Key Light, and it travels with the theme the same way. Added later; files without them stay valid
+	// film has one Key Light, and it travels with the theme the same way
 	exposure: z.number().min(-3).max(3).optional(),
 	bloom: z.number().min(0).max(1).optional()
 });
@@ -259,7 +243,7 @@ export const SProjectTheme = z.strictObject({
 	overrides: SThemeOverrides,
 	// `agent` when a New Theme with Agent Result made it; absent otherwise
 	origin: z.enum(['agent']).optional(),
-	// The Pack it came from. Added later; files without it stay valid
+	// The Pack it came from
 	pack: SPackOrigin.optional(),
 	...projectThemeSceneShape,
 	parts: SThemeParts.optional()
@@ -285,8 +269,6 @@ const SDecor = z.strictObject({
 	text: z.string().optional(),
 	// A Snowfall's settings: how many flakes (0..1), their size and fall speed as shares of the usual, and their colour
 	snowfall: z.strictObject({ density: z.number().min(0).max(1), size: z.number().positive(), speed: z.number().nonnegative(), color: SHexColor }).optional(),
-	// A Garland's settings: the frame edges it runs along and the distance between sprigs, as a share of the frame's height
-	garland: z.strictObject({ side: z.enum(['left', 'right', 'both']), spacing: z.number().positive() }).optional(),
 	// Half width and half height of an asset at scale 1, from its manifest; built-in items know their own
 	footprint: z.strictObject({ x: z.number().positive(), y: z.number().positive() }).optional(),
 	// Film time in seconds it shows, like a title; absent means the start and the end of the film
@@ -308,43 +290,31 @@ const SMadeInBlender = z.strictObject({
 export const SDesign = z.strictObject({
 	// A built-in theme id or the id of one of `themes`
 	theme: z.string(),
-	// Themes made in this project. Added later; files without it stay valid
-	themes: z.array(SProjectTheme).optional(),
-	// This project's changes to the Wall layer on top of the theme, like a piece's skin. Added later; files without it stay valid
-	wall: z
-		.strictObject({
-			color: SHexColor.optional(),
-			backgroundColor: SHexColor.optional(),
-			kind: SWallKind.optional()
-		})
-		.optional(),
-	// This project's changes to the Key Light on top of the theme, and its added lights. Added later; files without it stay valid
-	lights: z
-		.strictObject({
-			key: SKeyLightPose.extend({ color: SHexColor.optional() }).optional(),
-			added: z.array(SLight).optional()
-		})
-		.optional(),
-	// The Decor layers. Added later; files without them stay valid
-	decor: z.array(SDecor).optional(),
-	madeInBlender: z.array(SMadeInBlender).optional(),
-	// `draft` was added later; files without it stay valid
+	// Themes made in this project
+	themes: z.array(SProjectTheme),
+	// This project's changes to the Wall layer on top of the theme, like a piece's skin
+	wall: z.strictObject({
+		color: SHexColor.optional(),
+		backgroundColor: SHexColor.optional(),
+		kind: SWallKind.optional()
+	}),
+	// This project's changes to the Key Light on top of the theme, and its added lights
+	lights: z.strictObject({
+		key: SKeyLightPose.extend({ color: SHexColor.optional() }).optional(),
+		added: z.array(SLight)
+	}),
+	// The Decor layers
+	decor: z.array(SDecor),
+	madeInBlender: z.array(SMadeInBlender),
 	renderPreset: z.enum(['draft', 'fast', 'balanced', 'best']),
-	// Older projects only: `parseProject` moves Colour by Note into the theme (`migrateSkins`)
-	themeOptions: z
-		.strictObject({
-			// Platforms take a colour from the pitch they play
-			colorByNote: z.boolean().optional()
-		})
-		.optional(),
 	camera: z.strictObject({
 		mode: z.enum(['rig', 'manual']),
 		distance: z.number().positive(),
 		pitch: z.number(),
 		lead: z.number().nonnegative(),
 		smoothing: z.number().min(0).max(1),
-		// How much the view turns and rolls on its own, 0 to 1; absent is all of it. Added later; files without it stay valid
-		sway: z.number().min(0).max(1).optional(),
+		// How much the view turns and rolls on its own, 0 to 1
+		sway: z.number().min(0).max(1),
 		shots: z.array(SShot),
 		// Marble the camera keeps when several marbles do not fit a readable frame; absent means the first marble
 		focusMarbleId: SId.optional()
@@ -357,7 +327,14 @@ export const SDesign = z.strictObject({
  */
 export const SPhysics = z.strictObject({ gravityScale: z.number().min(0.05).max(2) });
 
-const projectShape = {
+/**
+ * Lane ID that addresses Backing in hit commands and hit selection keys. Lane IDs are created with a prefix
+ * and a random part, so no lane has this ID.
+ */
+export const BACKING_ID = 'backing';
+
+export const SProject = z.strictObject({
+	$schema: z.literal('marble-project@5'),
 	id: SId,
 	title: z.string(),
 	revision: z.number().int().nonnegative(),
@@ -366,126 +343,22 @@ const projectShape = {
 	end: z.number().positive(),
 	music: z.strictObject({
 		sources: z.array(SSource),
-		lanes: z.array(SLaneV3),
-		tempo: STempo.optional()
-	}),
-	entities: z.array(SEntity),
-	design: SDesign
-};
-
-/**
- * Lane ID that addresses Backing in hit commands and hit selection keys. Lane IDs are created with a prefix
- * and a random part, so no lane has this ID.
- */
-export const BACKING_ID = 'backing';
-
-const SProjectV1 = z.strictObject({ $schema: z.literal('marble-project@1'), ...projectShape });
-
-// Version 2 makes physical piece parameters explicit, so a later change of a default cannot alter saved runs
-const SProjectV2 = z.strictObject({ $schema: z.literal('marble-project@2'), ...projectShape });
-
-// Version 3 makes windmills, rails, tunnels and switchbacks scenery: they never sound a hit, and their hit
-// link only anchors them to the trajectory at the hit time plus their `entryDelay`. It adds project physics.
-const SProjectV3 = z.strictObject({
-	$schema: z.literal('marble-project@3'),
-	...projectShape,
-	physics: SPhysics
-});
-
-// Version 4 keeps every note of the song: `backing` holds the notes no marble plays, heard in the film without a
-// piece. Notes keep their MIDI length in `duration`.
-export const SProject = z.strictObject({
-	$schema: z.literal('marble-project@4'),
-	...projectShape,
-	music: z.strictObject({
-		sources: z.array(SSource),
 		lanes: z.array(SLane),
+		// Every note no marble plays, heard in the film without a piece
 		backing: z.array(SHit),
 		// General MIDI program of Backing: the song's first MIDI program when the bank has it; absent means piano
 		backingInstrument: z.number().int().min(0).max(127).optional(),
 		tempo: STempo.optional()
 	}),
-	physics: SPhysics
+	entities: z.array(SEntity),
+	physics: SPhysics,
+	design: SDesign
 });
-
-/** Bounce values of version 1, before bounce became a piece parameter */
-const legacyBounce: Record<string, number> = { platform: 0.55, windmill: 0.5 };
-
-/** Piece types that became scenery in version 3 */
-const sceneryTypes = new Set(['windmill', 'rail', 'tunnel', 'switchback']);
-/** Longest entry delay a scenery piece allows */
-const MAX_ENTRY_DELAY = 2;
-
-/**
- * A scenery piece that sounded its hit in version 2 (no entry delay) is anchored to the lane's previous hit
- * with the delay that keeps it at the same moment, so the run plays as before and the hit is left open for a
- * platform. Without an earlier hit within the longest delay it stays anchored at its own hit's time.
- */
-function asScenery(entity: TEntity, lanes: TLane[]): TEntity {
-	const { piece, hitLink } = entity.components;
-	if (piece == null || !sceneryTypes.has(piece.type)) return entity;
-	const delay = piece.params['entryDelay'] ?? 0;
-	let params = { ...piece.params, entryDelay: delay };
-	let link = hitLink;
-	if (hitLink != null && delay <= 0) {
-		const hits = lanes.find((lane) => lane.id === hitLink.laneId)?.hits ?? [];
-		const index = hits.findIndex((hit) => hit.id === hitLink.hitId);
-		const hit = hits[index];
-		const previous = hits[index - 1];
-		const gap = hit != null && previous != null ? hit.time - previous.time : Infinity;
-		if (previous != null && gap <= MAX_ENTRY_DELAY) {
-			link = { ...hitLink, hitId: previous.id };
-			params = { ...params, entryDelay: Math.round(gap * 1e6) / 1e6 };
-		}
-	}
-	const components = { ...entity.components, piece: { ...piece, params } };
-	if (link != null) components.hitLink = link;
-	return { ...entity, components };
-}
 
 export const projectDefinition = defineSchema({
 	family: 'marble-project',
-	version: 4,
-	schema: SProject,
-	migrations: {
-		// Older projects dropped the notes no marble played, so their Backing starts empty
-		3: defineMigration({
-			schema: SProjectV3,
-			migrate(value) {
-				return { ...value, $schema: 'marble-project@4' as const, music: { ...value.music, backing: [] } };
-			}
-		}),
-		2: defineMigration({
-			schema: SProjectV2,
-			migrate(value) {
-				return {
-					...value,
-					$schema: 'marble-project@3' as const,
-					entities: value.entities.map((entity) => asScenery(entity, value.music.lanes)),
-					// Earth gravity, so saved runs play exactly as before
-					physics: { gravityScale: 1 }
-				};
-			}
-		}),
-		1: defineMigration({
-			schema: SProjectV1,
-			migrate(value) {
-				return {
-					...value,
-					$schema: 'marble-project@2' as const,
-					entities: value.entities.map((entity) => {
-						const piece = entity.components.piece;
-						const bounce = piece == null ? undefined : legacyBounce[piece.type];
-						if (piece == null || bounce == null || piece.params['bounce'] != null) return entity;
-						return {
-							...entity,
-							components: { ...entity.components, piece: { ...piece, params: { ...piece.params, bounce } } }
-						};
-					})
-				};
-			}
-		})
-	}
+	version: 5,
+	schema: SProject
 });
 
 export type TProject = TSchemaValue<typeof projectDefinition>;
@@ -507,7 +380,6 @@ export type TWallKind = z.infer<typeof SWallKind>;
 export type TLight = z.infer<typeof SLight>;
 export type TDecor = z.infer<typeof SDecor>;
 export type TSnowfall = NonNullable<TDecor['snowfall']>;
-export type TGarland = NonNullable<TDecor['garland']>;
 export type TMadeInBlender = z.infer<typeof SMadeInBlender>;
 export type TKeyLightPose = z.infer<typeof SKeyLightPose>;
 export type TShot = z.infer<typeof SShot>;

@@ -1,10 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { flakeAt, GARLAND_PERIOD, type TFlake } from './decor-effects';
+import { flakeAt, type TFlake } from './decor-effects';
 import type { DraftPreviewCx, TDraftEffect } from './DraftPreviewCx';
 
-// Snowfall and Garland in the Draft Preview: a cheap stand-in for what Blender builds, over the frame. One canvas, a soft
-// sprite per flake and a few strokes per sprig, redrawn when the playhead moves. Reduce Motion stops the snow where it is.
+// Particles in the Draft Preview: a cheap stand-in for what Blender builds, over the frame. One canvas, a soft
+// sprite per flake, redrawn when the playhead moves. Reduce Motion stops the snow where it is.
 
 function reducesMotion(): boolean {
 	return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -34,8 +34,7 @@ function draw(canvas: HTMLCanvasElement, effects: readonly TDraftEffect[], time:
 	context.clearRect(0, 0, width, height);
 	for (const effect of effects) {
 		context.globalAlpha = effect.opacity;
-		if (effect.kind === 'garland') drawGarland(context, effect, width, height);
-		else drawSnow(context, effect.flakes, effect.color, effect.size, effect.speed, reducesMotion() ? 0 : time, width, height);
+		drawSnow(context, effect.flakes, effect.color, effect.size, effect.speed, reducesMotion() ? 0 : time, width, height);
 	}
 	context.globalAlpha = 1;
 }
@@ -74,56 +73,4 @@ function drawSnow(context: CanvasRenderingContext2D, flakes: readonly TFlake[], 
 		context.drawImage(sprite, u * width - diameter / 2, v * height - diameter / 2, diameter, diameter);
 	}
 	context.globalAlpha = base;
-}
-
-const NEEDLE = '#30463a';
-const WIRE = '#201c18';
-const BULB = '#ffe9bd';
-const BAUBLES = { red: '#c31f28', gold: '#d9b45a' };
-
-function drawGarland(context: CanvasRenderingContext2D, effect: Extract<TDraftEffect, { kind: 'garland' }>, width: number, height: number): void {
-	const unit = Math.min(width, height);
-	const step = Math.max(0.04, effect.spacing) * height;
-	const period = step * GARLAND_PERIOD;
-	for (const side of effect.sides) {
-		const edge = side < 0 ? 0 : width;
-		const inward = side < 0 ? 1 : -1;
-		const wireX = (y: number): number => edge + inward * unit * 0.05 + inward * unit * 0.016 * Math.sin(((y - effect.scroll * height) / period) * Math.PI * 6);
-		context.strokeStyle = WIRE;
-		context.lineWidth = Math.max(1, unit * 0.0024);
-		context.beginPath();
-		for (let y = -step; y <= height + step; y += step / 6) context.lineTo(wireX(y), y);
-		context.stroke();
-		for (const sprig of effect.sprigs) {
-			const y = sprig.v * height;
-			const length = unit * 0.17;
-			context.strokeStyle = NEEDLE;
-			context.lineWidth = Math.max(1, unit * 0.0035);
-			context.beginPath();
-			context.moveTo(edge, y);
-			context.lineTo(edge + inward * length, y);
-			for (let needle = 0; needle < 9; needle++) {
-				const at = edge + inward * length * ((needle + 0.5) / 9);
-				const reach = length * (0.24 - needle * 0.012);
-				context.moveTo(at, y);
-				context.lineTo(at + inward * reach * 0.55, y - reach * 0.8);
-				context.moveTo(at, y);
-				context.lineTo(at + inward * reach * 0.55, y + reach * 0.8);
-			}
-			context.stroke();
-			for (const share of [0.2, 0.7]) {
-				const at = y - share * step;
-				context.fillStyle = BULB;
-				context.beginPath();
-				context.arc(wireX(at), at, Math.max(1.2, unit * 0.005), 0, Math.PI * 2);
-				context.fill();
-			}
-			if (sprig.bauble != null) {
-				context.fillStyle = BAUBLES[sprig.bauble];
-				context.beginPath();
-				context.arc(wireX(y + step * 0.32) + inward * unit * 0.018, y + step * 0.32, unit * 0.024, 0, Math.PI * 2);
-				context.fill();
-			}
-		}
-	}
 }

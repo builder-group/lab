@@ -57,7 +57,7 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 		if (known.length > 1) return { kind: 'lights' };
 	}
 
-	const decorIds = selection.flatMap((key) => parseDecorKey(key) ?? []).filter((id) => project.design.decor?.some((item) => item.id === id) === true);
+	const decorIds = selection.flatMap((key) => parseDecorKey(key) ?? []).filter((id) => project.design.decor.some((item) => item.id === id) === true);
 	if (decorIds.length === 1) return { kind: 'decor', id: decorIds[0] as string };
 	if (decorIds.length > 1) return { kind: 'decors', ids: decorIds };
 

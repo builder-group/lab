@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { packAddedNotice } from './concept-words';
 import { addedPacks } from '@/modules/library';
-import { DECOR_ITEMS, listedDecorItems, usedDecorSources } from './decor-catalog';
+import { DECOR_ITEMS, listedDecorItems } from './decor-catalog';
 
 describe('Decor catalog', () => {
 	it('should offer the Starter Pack from the start, whatever else is added', () => {
@@ -10,16 +10,8 @@ describe('Decor catalog', () => {
 		expect(listedDecorItems().every((item) => item.origin === 'Starter')).toBe(true);
 	});
 
-	it('should keep offering a hidden item a project has', () => {
-		const inUse = usedDecorSources({ decor: [{ source: 'decor:garland' }] as never });
-		expect(listedDecorItems(inUse).some((item) => item.id === 'decor:garland')).toBe(false);
-		expect(DECOR_ITEMS.find((item) => item.id === 'decor:garland')?.hidden).toBe(true);
-	});
-
-
-	it('should mark the starter items and hide Garland without dropping it', () => {
+	it('should mark the starter items', () => {
 		expect(DECOR_ITEMS.filter((item) => item.origin === 'Starter').map((item) => item.label)).toEqual(['Red Bauble', 'Gold Bauble', 'Gold Snowflake', 'Fairy Light', 'Gift Box', 'Star', 'Handle', 'Subscribe', 'Particles']);
-		expect(DECOR_ITEMS.find((item) => item.id === 'decor:garland')?.hidden).toBe(true);
 	});
 });
 

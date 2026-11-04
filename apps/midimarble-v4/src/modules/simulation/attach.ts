@@ -76,7 +76,6 @@ export function anchorPiece(
 			hitId: hit.id,
 			angle: pose.angle,
 			contactAt: entity.components.hitLink?.contactAt ?? 0.5,
-			pinned: false,
 			anchored: true,
 			offset: { x: pose.position.x - sample.position.x, y: pose.position.y - sample.position.y }
 		}
@@ -135,7 +134,7 @@ export function linkPieceToHit(
 	const contactAt = Math.min(1, Math.max(0, 0.5 + along / length));
 	const next = withPiece(entity, {
 		params: { ...entity.components.piece?.params, entryDelay: 0 },
-		hitLink: { laneId, hitId, angle: pose.angle, contactAt, pinned: false }
+		hitLink: { laneId, hitId, angle: pose.angle, contactAt }
 	});
 	return Ok({ entity: next, commands: [{ type: 'upsertEntity', entity: next }] });
 }

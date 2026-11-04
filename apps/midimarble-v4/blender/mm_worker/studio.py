@@ -38,7 +38,7 @@ def ensure_studio(scene, theme):
         sun = create_sun(collection)
     if sun is not None and (switched or created):
         update_sun(sun, theme)
-    # The back light came after the first studios, so it is made once for older scenes too; deleted, it stays gone
+    # The back light is made once; deleted, it stays gone
     rim = studio_object('studio.rim')
     made_rim = rim is None and not scene.get('mm_rim_made')
     if made_rim:
@@ -350,23 +350,14 @@ def set_resolution(scene, frame):
     scene.render.resolution_percentage = 100
 
 
-def legacy_signature(camera):
-    return [round(value, 6) for value in (*camera.location, *camera.rotation_euler, camera.data.ortho_scale)]
-
-
 def camera_owned(camera):
     """True while the camera holds what the app last wrote"""
     if camera.get('mm_written_json') is not None:
         return json.loads(camera['mm_written_json']) == camera_rig.signature(camera)
-    legacy = camera.get('mm_written')
-    if legacy is not None:
-        return list(legacy) == legacy_signature(camera)
     return True
 
 
 def remember_camera(camera):
-    if 'mm_written' in camera:
-        del camera['mm_written']
     camera['mm_written_json'] = json.dumps(camera_rig.signature(camera))
 
 

@@ -47,7 +47,6 @@ export interface TSceneDescription {
 	/** Overrides of the theme's hit reactions */
 	reactions?: TSceneReactions;
 	/** Theme options from Design; absent keeps the theme as it is. Additive like `wallTexts`. */
-	themeOptions?: TSceneThemeOptions;
 	/** Wall text placed in Design. Optional and additive; workers that do not know it ignore it. */
 	wallTexts?: TSceneWallText[];
 	/** The film's Decor layers, without physics. Additive like `wallTexts`. */
@@ -194,8 +193,6 @@ export interface TScenePiece {
 	 * names a project library item; built-in skins such as `platform:copper` have none. Optional and additive.
 	 */
 	assetPath?: string | null;
-	/** Hit reaction chosen in Design (`none`, `press`, `wobble` or `glow`); absent keeps the theme default */
-	reaction?: { preset: string; params: Record<string, number> } | null;
 	color: string;
 	/** MIDI pitch of the note a platform plays, for themes that colour pieces by note; absent for other pieces */
 	notePitch?: number;
@@ -266,7 +263,3 @@ export interface TSceneLight {
 	height: number;
 }
 
-/** Descriptions from before Colour became a skin property; the worker reads it as the theme's default for platforms */
-export interface TSceneThemeOptions {
-	colorByNote?: boolean;
-}

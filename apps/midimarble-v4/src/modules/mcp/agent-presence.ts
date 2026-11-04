@@ -130,13 +130,13 @@ export function touchedKeys(before: TProject, after: TProject): string[] {
 	const was = before.design;
 	const is = after.design;
 	if (!isSame(was.wall, is.wall)) keys.push(WALL_KEY);
-	if (!isSame(was.lights?.key, is.lights?.key)) keys.push(KEY_LIGHT_KEY);
-	const lights = new Map((was.lights?.added ?? []).map((light) => [light.id, light]));
-	for (const light of is.lights?.added ?? []) {
+	if (!isSame(was.lights.key, is.lights.key)) keys.push(KEY_LIGHT_KEY);
+	const lights = new Map((was.lights.added).map((light) => [light.id, light]));
+	for (const light of is.lights.added) {
 		if (!isSame(lights.get(light.id), light)) keys.push(toLightKey(light.id));
 	}
-	const decor = new Map((was.decor ?? []).map((item) => [item.id, item]));
-	for (const item of is.decor ?? []) {
+	const decor = new Map((was.decor).map((item) => [item.id, item]));
+	for (const item of is.decor) {
 		if (!isSame(decor.get(item.id), item)) keys.push(toDecorKey(item.id));
 	}
 	const wasCamera = was.camera;

@@ -40,7 +40,7 @@ description_path = '.cache/scene.json'
 if arguments.marble_skin:
     look = json.loads((package / description_path).read_text())
     for marble in look['marbles']:
-        marble['skin'] = {'assetId': arguments.marble_skin, 'link': 'linked', **({'variant': arguments.marble_variant} if arguments.marble_variant else {})}
+        marble['skin'] = {'assetId': arguments.marble_skin, **({'variant': arguments.marble_variant} if arguments.marble_variant else {})}
     description_path = '.cache/scene-look.json'
     (package / description_path).write_text(json.dumps(look))
 report = worker.handle('apply_scene', {'descriptionPath': description_path})

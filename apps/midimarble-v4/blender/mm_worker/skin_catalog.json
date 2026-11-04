@@ -1,12 +1,4 @@
 {
-	"canonical": {
-		"prefix": "brass:",
-		"element": "platform",
-		"fallback": "platform:gold",
-		"removed": {
-			"platform:books": "platform:gift"
-		}
-	},
 	"elements": {
 		"platform": {
 			"label": "Platform",

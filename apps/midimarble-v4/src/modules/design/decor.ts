@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createId, type TDecor, type TDesign, type TMadeInBlender, type TProject, type TProjectCommand, type TGarland, type TSnowfall, type TVec2 } from '@/modules/project';
+import { createId, type TDecor, type TDesign, type TMadeInBlender, type TProject, type TProjectCommand, type TSnowfall, type TVec2 } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { parseDecorKey, toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { decorExtent, decorItem, decorText, isFrameEffect } from './decor-catalog';
@@ -24,27 +24,27 @@ export interface TBlenderObject {
 export const $blenderObjects = createState<TBlenderObject[]>([]);
 
 export function madeInBlenderLayer(design: Pick<TDesign, 'madeInBlender'>, name: string): TMadeInBlender {
-	return design.madeInBlender?.find((item) => item.name === name) ?? { name };
+	return design.madeInBlender.find((item) => item.name === name) ?? { name };
 }
 
 /** Sets In, Out or Hidden on a Blender object; a value of null clears it. An entry that sets nothing goes away. */
 export function madeInBlenderCommands(project: TProject, name: string, patch: { in?: number | null; out?: number | null; hidden?: boolean | null }): TProjectCommand[] {
 	const merged: Record<string, unknown> = { ...madeInBlenderLayer(project.design, name), ...patch };
 	const entry = Object.fromEntries(Object.entries(merged).filter(([key, value]) => value != null && (key !== 'hidden' || value === true))) as TMadeInBlender;
-	const others = (project.design.madeInBlender ?? []).filter((item) => item.name !== name);
+	const others = project.design.madeInBlender.filter((item) => item.name !== name);
 	const list = Object.keys(entry).length > 1 ? [...others, entry] : others;
-	if (JSON.stringify(list) === JSON.stringify(project.design.madeInBlender ?? [])) return [];
-	return [{ type: 'setDesign', design: { madeInBlender: list.length > 0 ? list : undefined } }];
+	if (JSON.stringify(list) === JSON.stringify(project.design.madeInBlender)) return [];
+	return [{ type: 'setDesign', design: { madeInBlender: list } }];
 }
 
 // MARK: - Layers
 
 export function decorList(design: Pick<TDesign, 'decor'>): TDecor[] {
-	return design.decor ?? [];
+	return design.decor;
 }
 
 export function findDecor(design: Pick<TDesign, 'decor'>, id: string): TDecor | undefined {
-	return design.decor?.find((item) => item.id === id);
+	return design.decor.find((item) => item.id === id);
 }
 
 export function selectedDecorIds(selection: readonly string[]): string[] {
@@ -52,7 +52,7 @@ export function selectedDecorIds(selection: readonly string[]): string[] {
 }
 
 export function setDecorList(decor: TDecor[]): TProjectCommand[] {
-	return [{ type: 'setDesign', design: { decor: decor.length > 0 ? decor : undefined } }];
+	return [{ type: 'setDesign', design: { decor } }];
 }
 
 /** The next free name: "Star", "Star 2", "Star 3" */
@@ -179,7 +179,7 @@ export interface TDecorOverlap {
 /** Layers a marble's path crosses while they show. Hidden layers and layers outside the film overlap nothing. */
 export function decorOverlaps(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[]): TDecorOverlap[] {
 	if (!result.marbles.length) return [];
-	// Snowfall and Garland hang from the camera: nothing they pass over is on their path
+	// Particles hang from the camera: nothing they pass over is on their path
 	const decor = decorList(project.design).filter((item) => item.hidden !== true && !isFrameEffect(item));
 	if (!decor.length && !blenderObjects.length) return [];
 	const field = cachedObstacleField(result);
@@ -247,7 +247,7 @@ export function sceneDecor(design: Pick<TDesign, 'decor' | 'madeInBlender'>): { 
 	});
 	return {
 		...(decor.length > 0 ? { decor } : {}),
-		...((design.madeInBlender?.length ?? 0) > 0 ? { madeInBlender: design.madeInBlender } : {})
+		...(design.madeInBlender.length > 0 ? { madeInBlender: design.madeInBlender } : {})
 	};
 }
 
@@ -263,7 +263,6 @@ export interface TSceneDecorItem {
 	depth: number;
 	text?: string;
 	snowfall?: TSnowfall;
-	garland?: TGarland;
 	in?: number;
 	out?: number;
 	hidden?: boolean;

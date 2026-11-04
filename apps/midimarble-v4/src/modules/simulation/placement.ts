@@ -49,7 +49,7 @@ export function createLinkedPiece(
 		name: nextPieceName(type, entities),
 		components: {
 			piece: { type, params },
-			hitLink: { laneId, hitId, angle, contactAt: options.contactAt ?? 0.5, pinned: false }
+			hitLink: { laneId, hitId, angle, contactAt: options.contactAt ?? 0.5 }
 		}
 	};
 }

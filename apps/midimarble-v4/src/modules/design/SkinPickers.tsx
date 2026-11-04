@@ -150,7 +150,7 @@ const WallThumb: React.FC<{ kind: TWallKind; color: string }> = ({ kind, color }
  * colour with Colour by Note on. `assetId` is the applied skin, null for the theme's default.
  */
 function notifySkinApplied(cx: StudioCx, project: TProject, skinLabel: string, pieceType: string, selected: TEntity[], assetId: string | null): void {
-	const keepsSkinColor = isThemeColorByNote(project.design) && !resolveElementLook(project.design, 'platform', assetId != null ? { assetId, link: 'linked' } : null).isThemeSkin;
+	const keepsSkinColor = isThemeColorByNote(project.design) && !resolveElementLook(project.design, 'platform', assetId != null ? { assetId } : null).isThemeSkin;
 	const message = skinAppliedMessage({ skinLabel, pieceType, selected, keepsSkinColor });
 	if (message != null) cx.notifyEdit(message);
 }

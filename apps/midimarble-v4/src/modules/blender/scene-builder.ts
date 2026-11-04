@@ -1,6 +1,5 @@
 import type { TDesign, TEntity, TProject, TThemeParts } from '@/modules/project';
 import { baseThemeOf, defaultTitleColor, sceneThemeOverrides, sceneThemeParts } from '@/modules/design/project-themes';
-import { canonicalSkin } from '@/modules/project/skin-ids';
 import { sceneDecor } from '@/modules/design/decor';
 import { sceneLayers } from '@/modules/design/scene-layers';
 import { shotLength } from '@/modules/camera/shots';
@@ -16,7 +15,6 @@ import {
 	type TSceneDescription,
 	type TSceneMarble,
 	type TScenePiece,
-	type TSceneThemeOptions,
 	type TSceneThemeOverrides
 } from './scene-description';
 
@@ -75,7 +73,7 @@ export function buildSceneDescription(
 			name: entity?.name ?? track.entityId,
 			radius: track.radius,
 			color: entity?.components.marble?.color ?? DEFAULT_MARBLE_COLOR,
-			...(entity?.components.skin != null ? { skin: canonicalSkin(entity.components.skin) } : {}),
+			...(entity?.components.skin != null ? { skin: entity.components.skin } : {}),
 			...(skinAssetPath(entity?.components.skin?.assetId) != null ? { assetPath: skinAssetPath(entity?.components.skin?.assetId) } : {}),
 			motionPath,
 			sampleCount: samples.length
@@ -113,9 +111,8 @@ export function buildSceneDescription(
 			musical: getPieceDefinition(piece.type)?.musical === true,
 			motionPath,
 			sampleCount,
-			skin: entity?.components.skin != null ? canonicalSkin(entity.components.skin) : null,
+			skin: entity?.components.skin != null ? entity.components.skin : null,
 			assetPath: skinAssetPath(entity?.components.skin?.assetId),
-			reaction: entity?.components.reaction ?? null,
 			color: (laneId != null ? laneColors.get(laneId) : undefined) ?? DEFAULT_PIECE_COLOR,
 			...notePitchOf(project, entity),
 			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
@@ -136,7 +133,6 @@ export function buildSceneDescription(
 			...themePartsOf(project),
 			...sceneLayers(project.design),
 			...sceneDecor(project.design),
-			...themeOptionsOf(project),
 			marbles,
 			pieces,
 			camera: {
@@ -193,7 +189,7 @@ export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
 		pitch: camera.pitch,
 		lead: camera.lead,
 		smoothing: camera.smoothing,
-		...(camera.sway != null ? { sway: camera.sway } : {}),
+		sway: camera.sway,
 		shots: camera.shots.map((shot) => ({
 			time: shot.time,
 			kind: shot.kind,
@@ -295,10 +291,4 @@ function themeOverridesOf(project: TProject): { themeOverrides?: TSceneThemeOver
 function themePartsOf(project: TProject): { themeParts?: TThemeParts } {
 	const parts = sceneThemeParts(project.design);
 	return parts != null ? { themeParts: parts } : {};
-}
-
-function themeOptionsOf(project: TProject): { themeOptions?: TSceneThemeOptions } {
-	// Optional in the schema; absent keeps the theme as it is
-	const options = (project.design as { themeOptions?: TSceneThemeOptions }).themeOptions;
-	return options?.colorByNote === true ? { themeOptions: { colorByNote: true } } : {};
 }

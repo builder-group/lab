@@ -91,7 +91,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
-				packThemes: addedPacks.get().flatMap((pack) => pack.themes.filter((theme) => !project.design.themes?.some((item) => item.id === theme.id)).map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
+				packThemes: addedPacks.get().flatMap((pack) => pack.themes.filter((theme) => !project.design.themes.some((item) => item.id === theme.id)).map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
 				references: { images: references.images.length, text: references.text }
 			})
 		);
@@ -405,7 +405,7 @@ async function packThemesToApply(cx: StudioCx, commands: readonly { type: string
 	const themes: TProjectTheme[] = [];
 	for (const pack of addedPacks.get()) {
 		for (const theme of pack.themes) {
-			if (!wanted.includes(theme.id) || cx.project?.design.themes?.some((item) => item.id === theme.id) === true) continue;
+			if (!wanted.includes(theme.id) || cx.project?.design.themes.some((item) => item.id === theme.id) === true) continue;
 			const ready = await cx.library.packThemeInProject(pack, theme);
 			if (ready != null) themes.push(ready);
 		}

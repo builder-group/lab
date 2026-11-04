@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Bookmark, RotateCcw, Type, Video } from 'lucide-react';
 import React from 'react';
-import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, StateRow, TextField } from '@/components';
+import { HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, StateRow, TextField } from '@/components';
 import { shotLength } from '@/modules/camera/shots';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import type { TDesign, TEntity, TProject, TShot } from '@/modules/project';
@@ -23,7 +23,6 @@ import {
 	type TTitleStyle
 } from './design-commands';
 import type { TDesignLink } from './DesignCx';
-import { canonicalSkinId } from '@/modules/project/skin-ids';
 import { SKIN_HELP } from './concept-words';
 import { themeOriginLabel } from './scene-layers';
 import { skinElement } from './skin-catalog';
@@ -110,7 +109,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 					<FramingProblem cx={cx} project={project} />
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
 					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle" value={(camera.pitch * 180) / Math.PI} unit="°" step={0.5} min={-80} max={80} onCommit={(value) => set({ pitch: (value * Math.PI) / 180 })} />
-					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 keeps the wall upright" value={Math.round((camera.sway ?? 1) * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
+					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 keeps the wall upright" value={Math.round(camera.sway * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
 					{cameraState === 'takenOver' ? (
 						<>
 							<StateRow tone="warn" label="Edited in Blender" detail="The app no longer updates the camera, so your Blender changes stay. Reset Camera discards them and follows the marbles again." />
@@ -408,7 +407,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 	function applyToAll(assetId: string): void {
 		const item = [...projectItems, ...globalItems].find((candidate) => candidate.id === assetId);
 		if (item != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
-		else cx.execute(builtInSkinCommands(project, { kind: 'pieceType', pieceType: type }, canonicalSkinId(assetId)));
+		else cx.execute(builtInSkinCommands(project, { kind: 'pieceType', pieceType: type }, assetId));
 	}
 
 	return (

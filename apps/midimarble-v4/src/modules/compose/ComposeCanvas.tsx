@@ -411,7 +411,7 @@ const HitDot: React.FC<{ position: TVec2; color: string; size: number; isPulsing
 /** Where the stem of an off-time hit ends: on the platform a drag left away from its dot. A platform on its dot needs none. */
 function offDotStem(compose: ComposeCx, project: TProject, result: TSimulationResult, hit: THitResult): TVec2 | null {
 	if (hit.status === 'onTime' || hit.pieceEntityId == null) return null;
-	if (project.entities.find((entity) => entity.id === hit.pieceEntityId)?.components.hitLink?.pinned !== true) return null;
+	if (project.entities.find((entity) => entity.id === hit.pieceEntityId)?.components.hitLink?.pinnedPosition == null) return null;
 	const piece = result.pieces.find((item) => item.entityId === hit.pieceEntityId);
 	return piece == null ? null : compose.toScreen(piece.contactPoint ?? piece.position);
 }

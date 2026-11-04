@@ -93,21 +93,18 @@ def evaluated_points(obj, frame):
 
 
 def check_effects(worker, root, samples):
-    """Snowfall and Garland: they hang from the camera, depend on the frame alone and never catch a pick or collide"""
+    """Snowfall: it hangs from the camera, depends on the frame alone and never catches a pick or collides"""
     scene = bpy.context.scene
     snow_layer = {'id': 'decor:the-snow', 'name': 'Snowfall', 'item': 'snowfall', 'position': {'x': 0, 'y': 0}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0,
                   'snowfall': {'density': 0.5, 'size': 1.0, 'speed': 1.0, 'color': '#fff1d6'}}
-    garland_layer = {'id': 'decor:the-garland', 'name': 'Garland', 'item': 'garland', 'position': {'x': 0, 'y': 0}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0,
-                     'garland': {'side': 'both', 'spacing': 0.14}, 'in': 1.0, 'out': 3.0}
-    report = apply(worker, root, description(samples, [snow_layer, garland_layer]))
-    check(sorted(report['decor']['effects']) == ['decor:the-garland', 'decor:the-snow'], 'both effects are built')
+    report = apply(worker, root, description(samples, [snow_layer]))
+    check(report['decor']['effects'] == ['decor:the-snow'], 'the effect is built')
     managed = bpy.data.collections[MANAGED_COLLECTION]
     objects = {obj['mm_id']: obj for obj in managed.objects if decor.is_decor(obj)}
-    snow, garland = objects['decor:the-snow'], objects['decor:the-garland']
+    snow = objects['decor:the-snow']
     camera = scene.camera
-    check(snow.parent is camera and garland.parent is camera, 'they hang from the film camera')
-    for obj in (snow, garland):
-        check(obj.rigid_body is None and obj.get('mm_collider') is None and not obj.visible_shadow, obj.name + ' has no collision role and casts no shadow')
+    check(snow.parent is camera, 'it hangs from the film camera')
+    check(snow.rigid_body is None and snow.get('mm_collider') is None and not snow.visible_shadow, snow.name + ' has no collision role and casts no shadow')
 
     first = evaluated_points(snow, 20)
     later = evaluated_points(snow, 40)
@@ -118,39 +115,26 @@ def check_effects(worker, root, samples):
     check(np.max(np.abs(first[:, 0])) <= half * decor_effects.SNOW_OVERSCAN * 1.1 and np.ptp(first[:, 0]) > half, 'snow fills the frame and stays around it')
     # Same layer, same mesh, in a re-apply and in a new scene: a resumed render draws the same frame
     params = snow.get(decor_effects.PARAMS_PROPERTY)
-    report = apply(worker, root, description(samples, [snow_layer, garland_layer]))
+    report = apply(worker, root, description(samples, [snow_layer]))
     check(not report['decor']['effects'] and snow.get(decor_effects.PARAMS_PROPERTY) == params, 're-applying builds nothing new')
     check(np.array_equal(first, evaluated_points(snow, 20)), 're-applying keeps the snow where it was')
     more = dict(snow_layer, snowfall={**snow_layer['snowfall'], 'density': 1.0})
-    apply(worker, root, description(samples, [more, garland_layer]))
+    apply(worker, root, description(samples, [more]))
     check(len(snow.data.vertices) > len(first), 'Density adds flakes')
-    apply(worker, root, description(samples, [snow_layer, garland_layer]))
-
-    keys = visibility_keys(garland, 'hide_render')
-    check(keys and keys[0][1] == 1, 'In and Out work like on other Decor: %s' % keys)
-    glow = next(child for child in garland.children if child.get(decor_effects.EFFECT_PROPERTY) == decor_effects.GLOW_PART)
-    check(visibility_keys(glow, 'hide_render') == keys, "a Garland's glow keeps its timing")
-    left, both = None, len(garland.data.vertices)
-    apply(worker, root, description(samples, [snow_layer, dict(garland_layer, garland={'side': 'left', 'spacing': 0.14})]))
-    left = garland.data.vertices
-    check(len(left) < both * 0.6, 'Side leaves out the other edge')
-    check(max(vertex.co.x for vertex in left) < 0.0, 'a left Garland stays on the left of the frame')
-    wide = dict(garland_layer, garland={'side': 'both', 'spacing': 0.28})
-    apply(worker, root, description(samples, [snow_layer, wide]))
-    check(len(garland.data.vertices) < both * 0.7, 'Spacing thins it out')
+    apply(worker, root, description(samples, [snow_layer]))
 
     # The preview's ID pass and Flat Light
     with preview.temporary(decor_effects.id_pass_settings(managed)):
-        check(snow.hide_render and garland.hide_render and glow.hide_render, 'the ID pass leaves effects out')
+        check(snow.hide_render, 'the ID pass leaves effects out')
     check(not snow.hide_render, 'and gives them back')
     scene.frame_set(45)
     with preview.temporary(decor_effects.flat_settings(managed)):
-        check(snow.hide_render and glow.hide_render and not garland.hide_render, 'Flat Light keeps the Garland without its glow and leaves out the snow')
+        check(snow.hide_render, 'Flat Light leaves out the snow')
     flat = render.workbench_settings(scene, 5)
     check(any(name == 'use_compositing' and value is False for _target, name, value in flat), 'Flat Light skips Bloom')
 
     apply(worker, root, description(samples, []))
-    check(bpy.data.objects.get('Snowfall') is None and not [obj for obj in managed.objects if decor_effects.is_effect(obj)], 'deleted effects leave the file, the Garland with its glow')
+    check(bpy.data.objects.get('Snowfall') is None and not [obj for obj in managed.objects if decor_effects.is_effect(obj)], 'deleted effects leave the file')
 
 
 def main():

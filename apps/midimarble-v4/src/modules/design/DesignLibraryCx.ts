@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import { host } from '@/environment';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { addedPacks, isPackAdded, library, packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack } from '@/modules/library';
-import { applyProjectCommands, type TPackOrigin, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
+import { type TPackOrigin, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { fixedColorCommands, skinCommands, skinTargetIds, themeCommands, type TSkinTarget } from './design-commands';
 import { packAddedNotice } from './concept-words';
@@ -174,7 +174,7 @@ export class DesignLibraryCx {
 	async applyPackTheme(pack: TPack, theme: TProjectTheme): Promise<boolean> {
 		const existing = this.source.getProject();
 		if (existing == null) return false;
-		if (!existing.design.themes?.some((item) => item.id === theme.id)) {
+		if (!existing.design.themes.some((item) => item.id === theme.id)) {
 			const ready = await this.packThemeInProject(pack, theme);
 			const project = this.source.getProject();
 			if (ready == null || project == null) return false;

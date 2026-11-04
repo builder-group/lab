@@ -26,11 +26,11 @@ function createTwoLaneProject(): TProject {
 		components: {
 			piece: { type: 'platform', params: {} },
 			transform: { position: { x: 0, y: 0 }, angle: 0 },
-			...(laneId != null ? { hitLink: { laneId, hitId, angle: 0, contactAt: 0.5, pinned: false } } : {})
+			...(laneId != null ? { hitLink: { laneId, hitId, angle: 0, contactAt: 0.5 } } : {})
 		}
 	});
 	return {
-		$schema: 'marble-project@4',
+		$schema: 'marble-project@5',
 		physics: { gravityScale: 1 },
 		id: 'preflight',
 		title: 'Preflight',
@@ -64,7 +64,7 @@ function createTwoLaneProject(): TProject {
 			platform('loose', null, ''),
 			{ id: 'rail', name: 'rail', components: { piece: { type: 'rail', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 } } }
 		],
-		design: { theme: 'pegboard', renderPreset: 'balanced', camera: { mode: 'rig', distance: 0.85, pitch: 1, lead: 0.15, smoothing: 0.6, shots: [] } }
+		design: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], renderPreset: 'balanced', camera: { mode: 'rig', distance: 0.85, pitch: 1, lead: 0.15, smoothing: 0.6, sway: 1, shots: [] } }
 	};
 }
 
@@ -338,7 +338,7 @@ describe('problemSummary function', () => {
 			components: {
 				piece: { type: 'windmill', params: { entryDelay: 0.5 } },
 				transform: { position: { x: 0, y: 0 }, angle: 0 },
-				hitLink: { laneId: 'lane-a', hitId: 'a2', angle: 0, contactAt: 0.5, pinned: false, anchored: true, offset: { x: 0, y: 0 } }
+				hitLink: { laneId: 'lane-a', hitId: 'a2', angle: 0, contactAt: 0.5, anchored: true, offset: { x: 0, y: 0 } }
 			}
 		};
 		return { ...project, entities: [...project.entities, windmill] };

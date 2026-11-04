@@ -101,7 +101,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				};
 			}),
 			...(pieces.length > MAX_PIECES ? { piecesLeftOut: pieces.length - MAX_PIECES } : {}),
-			lights: design.lights?.added?.length ?? 0,
+			lights: design.lights.added.length,
 			titles: project.entities.flatMap((entity) => {
 				const text = entity.components.wallText;
 				return text != null ? [{ id: entity.id, text: text.text, style: text.style ?? 'wall', ...(text.in != null ? { in: text.in } : {}), ...(text.out != null ? { out: text.out } : {}) }] : [];
@@ -112,9 +112,9 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		wall: { color: wall.color, backgroundColor: wall.backgroundColor, kind: wall.kind, own: wall.own },
 		lights: { key: { color: light.color, strength: light.strength, side: light.side, height: light.height, softness: light.softness, exposure: light.exposure, bloom: light.bloom }, own: design.lights ?? {} },
 		theme: { id: theme.id, name: theme.name, base: theme.base, overrides: theme.overrides, parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
-		projectThemes: (design.themes ?? []).map((item) => ({ id: item.id, name: item.name })),
+		projectThemes: design.themes.map((item) => ({ id: item.id, name: item.name })),
 		...(view.packThemes != null && view.packThemes.length > 0 ? { packThemes: view.packThemes } : {}),
-		decor: { count: design.decor?.length ?? 0, sources: countBy((design.decor ?? []).map((item) => item.source)) },
+		decor: { count: design.decor.length, sources: countBy(design.decor.map((item) => item.source)) },
 		renderPreset: design.renderPreset
 	};
 }
@@ -144,7 +144,7 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 		if (lightId != null) return { kind: 'light', key, id: lightId };
 		const decorId = parseDecorKey(key);
 		if (decorId != null) {
-			const decor = project.design.decor?.find((item) => item.id === decorId);
+			const decor = project.design.decor.find((item) => item.id === decorId);
 			return { kind: 'decor', key, id: decorId, ...(decor != null ? { source: decor.source, x: round(decor.position.x), y: round(decor.position.y) } : {}) };
 		}
 		const shotId = parseShotKey(key);

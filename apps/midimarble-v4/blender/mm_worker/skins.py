@@ -45,16 +45,13 @@ HIT_DECAY = 0.25
 HIT_TAU = HIT_DECAY / 5
 
 
-def skin_context(theme, marble_radius=DEFAULT_MARBLE_RADIUS, reactions=None, options=None, parts=None):
+def skin_context(theme, marble_radius=DEFAULT_MARBLE_RADIUS, reactions=None, parts=None):
     settings = themes.theme_settings(theme)
     merged = dict(settings['reactions'])
     for name, value in (reactions or {}).items():
         if name in merged and isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
             merged[name] = float(value)
     parts = skin_catalog.clean_parts(parts)
-    # A description from before Colour became a skin property: By Note is the theme's default for platforms
-    if (options or {}).get('colorByNote'):
-        parts['platform'] = {**parts.get('platform', {}), 'colour': 'note'}
     context = {'theme': themes.theme_name(theme), 'marbleRadius': float(marble_radius), 'reactions': merged, 'parts': parts}
     # A project theme's Glow: one colour for every glowing edge instead of each marble's
     if settings.get('glow') is not None:
@@ -161,20 +158,14 @@ def release_root_flash(obj):
 
 
 def piece_reaction(piece, context):
-    """Reaction amounts of a piece: the theme's, or the Design preset with its params.
+    """Reaction amounts of a piece: the theme's, or the preset its skin's On Hit names.
 
     `press` (metres along the contact normal) and `dip` (degrees of tilt) for presses, `wobble` (degrees) and
     `frequency` (Hz) for a decaying wobble, `flash` for the emission strength of a glow.
     """
     theme = context['reactions']
     look = piece_look(piece, context)
-    choice = piece.get('reaction') if isinstance(piece.get('reaction'), dict) else {}
-    # The skin's On Hit wins; a `reaction` component is how older projects chose it
-    preset = look['onHit'] or choice.get('preset')
-    params = {
-        name: float(value) for name, value in (choice.get('params') or {}).items()
-        if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
-    }
+    preset = look['onHit']
     reaction = {'preset': 'theme', 'press': 0.0, 'dip': 0.0, 'flash': 0.0, 'wobble': 0.0, 'frequency': DEFAULT_WOBBLE_HZ}
     if preset not in REACTION_PRESETS:
         if piece.get('type') == 'windmill':
@@ -187,11 +178,11 @@ def piece_reaction(piece, context):
         return reaction
     reaction['preset'] = preset
     if preset == 'press':
-        reaction.update(press=params.get('press', theme.get('press') or DEFAULT_PRESS), dip=params.get('dip', theme.get('dip', 0.0)))
+        reaction.update(press=theme.get('press') or DEFAULT_PRESS, dip=theme.get('dip', 0.0))
     elif preset == 'wobble':
-        reaction.update(wobble=params.get('angle', DEFAULT_WOBBLE_DEGREES), frequency=params.get('frequency', DEFAULT_WOBBLE_HZ))
+        reaction.update(wobble=DEFAULT_WOBBLE_DEGREES, frequency=DEFAULT_WOBBLE_HZ)
     elif preset == 'glow':
-        reaction.update(flash=params.get('strength', DEFAULT_GLOW))
+        reaction.update(flash=DEFAULT_GLOW)
     return reaction
 
 

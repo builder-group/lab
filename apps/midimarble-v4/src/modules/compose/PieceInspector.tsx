@@ -352,7 +352,7 @@ function pieceStatus(project: TProject, entity: TEntity, resolved: TResolvedPiec
 		const hit = result?.hits.find((item) => item.pieceEntityId === entity.id || (item.laneId === link.laneId && item.hitId === link.hitId));
 		const lane = project.music.lanes.find((item) => item.id === link.laneId);
 		const pitch = lane?.hits.find((item) => item.id === link.hitId)?.pitch;
-		return timingStatus(resolved, hit, { marble: lane?.name, note: pitch == null ? undefined : noteName(pitch), piece: entity.name ?? undefined, isOffDot: link.pinned === true });
+		return timingStatus(resolved, hit, { marble: lane?.name, note: pitch == null ? undefined : noteName(pitch), piece: entity.name ?? undefined, isOffDot: link.pinnedPosition != null });
 	}
 	const kind = pieceKind({ type });
 	if ((kind === 'path' || kind === 'tube') && resolved != null && result != null) return rideStatus(project, resolved, result, link.laneId);
@@ -700,8 +700,8 @@ interface TPieceEdit {
 }
 
 /**
- * The same edit for every piece, as a preview project and as the commands that commit it. An edited link
- * drops a pin left by older projects, since a linked piece now always follows its hit.
+ * The same edit for every piece, as a preview project and as the commands that commit it. An edited link drops a pin,
+ * so the piece follows its hit.
  */
 function applyPieceEdit(project: TProject, entities: TEntity[], edit: TPieceEdit): { project: TProject; commands: TProjectCommand[] } {
 	const commands: TProjectCommand[] = [];
@@ -710,7 +710,8 @@ function applyPieceEdit(project: TProject, entities: TEntity[], edit: TPieceEdit
 		const components = { ...entity.components };
 		const linkPatch = edit.hitLink != null || edit.angle != null ? { ...edit.hitLink, ...(edit.angle != null ? { angle: edit.angle } : {}) } : null;
 		if (linkPatch != null && components.hitLink != null) {
-			components.hitLink = { ...components.hitLink, ...linkPatch, pinned: false, pinnedPosition: undefined };
+			const { pinnedPosition: _, ...link } = components.hitLink;
+			components.hitLink = { ...link, ...linkPatch };
 			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'hitLink', value: components.hitLink } });
 		} else if ((edit.angle != null || edit.position != null) && components.hitLink == null && components.transform != null) {
 			components.transform = { position: { ...components.transform.position, ...edit.position }, angle: edit.angle ?? components.transform.angle };

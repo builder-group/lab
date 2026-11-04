@@ -3,8 +3,7 @@
 `skin_catalog.json` is the one source; the app reads the same file (`skin-catalog.ts`). `resolve_look` mirrors
 `resolveSkinLook` in skin-catalog.ts: `blender/tests/skin_look_cases.json` holds cases both sides are tested against.
 
-Old ids such as `brass:copper` keep loading: `canonical_skin` turns them into `platform:copper`, and a skin that left the
-catalog into the one that took its place. `hidden` skins stay built and off the app's tiles unless a project uses them.
+`hidden` skins stay built and off the app's tiles unless a project uses them.
 """
 import json
 from pathlib import Path
@@ -14,15 +13,6 @@ ELEMENTS = CATALOG['elements']
 THEME_PARTS = CATALOG['themes']
 _SKINS = {skin['id']: skin for element in ELEMENTS.values() for skin in element['skins']}
 PART_FIELDS = ('colour', 'onHit', 'glowColor', 'variant')
-
-
-def canonical_skin(asset_id):
-    """The theme-free id of a built-in skin id; library item ids and anything else pass through"""
-    old = CATALOG['canonical']
-    if isinstance(asset_id, str) and asset_id.startswith(old['prefix']):
-        candidate = old['element'] + ':' + asset_id[len(old['prefix']):]
-        return candidate if candidate in _SKINS else old['fallback']
-    return old['removed'].get(asset_id, asset_id) if isinstance(asset_id, str) else asset_id
 
 
 def skin_entry(skin_id):
@@ -48,7 +38,7 @@ def resolve_look(base, parts, element, component=None):
     part = (parts or {}).get(element) or {}
     part_skin = part.get('skin') if _fits(part.get('skin'), element) else theme[element]
     component = component if isinstance(component, dict) else {}
-    own = canonical_skin(component.get('assetId'))
+    own = component.get('assetId')
     own = own if _fits(own, element) else None
     skin = own or part_skin
     is_theme = own is None or own == part_skin

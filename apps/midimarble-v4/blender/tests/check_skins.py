@@ -46,7 +46,7 @@ def materials(spec):
 
 
 def linked_skin(skin_id, **fields):
-    return {'assetId': skin_id, 'link': 'linked', **fields}
+    return {'assetId': skin_id, **fields}
 
 
 def check_parity():
@@ -77,8 +77,6 @@ def check_every_skin_in_every_theme():
         context = skins.skin_context(theme, RADIUS)
         check(materials(skins.build_spec('piece', piece(None, element), context)) == materials(skins.build_spec('piece', piece(linked_skin(skin), element), context)),
               "%s's default %s is %s" % (theme, element, skin))
-    old = materials(skins.build_spec('piece', piece(linked_skin('brass:copper')), skins.skin_context('neon', RADIUS)))
-    check('MM · bar copper' in old, 'an old id brass:copper still dresses a platform in Copper (%s)' % old)
 
 
 def node_types(material):
@@ -124,27 +122,25 @@ def check_properties():
     brass = skins.skin_context('brass', RADIUS)
     names = materials(skins.build_spec('piece', dict(piece(None), notePitch=69), brass))
     check('MM · bar' not in ' '.join(names) and 'MM · brass' in names, 'Brass dresses a platform in Gold (%s)' % names)
-    names = materials(skins.build_spec('piece', dict(piece({'link': 'linked', 'colour': 'note'}), notePitch=69), brass))
+    names = materials(skins.build_spec('piece', dict(piece({'colour': 'note'}), notePitch=69), brass))
     check('MM · note A' in names, 'Colour: By Note on a selection without a skin of its own (%s)' % names)
     names = materials(skins.build_spec('piece', dict(piece(linked_skin('platform:copper', colour='note')), notePitch=69), brass))
     check('MM · note A' in names, 'Colour: By Note on a chosen skin (%s)' % names)
-    names = materials(skins.build_spec('piece', piece({'link': 'linked', 'colour': 'marble'}), brass))
+    names = materials(skins.build_spec('piece', piece({'colour': 'marble'}), brass))
     check('MM · metal #3478f6' in names, 'Colour: Marble tints a metal skin (%s)' % names)
     pegboard = skins.skin_context('pegboard', RADIUS)
-    names = materials(skins.build_spec('piece', piece({'link': 'linked', 'colour': 'skin'}), pegboard))
+    names = materials(skins.build_spec('piece', piece({'colour': 'skin'}), pegboard))
     check('MM · wood' in names and not any(name.startswith('MM · flat') for name in names), 'Colour: Skin shows Pegboard bare (%s)' % names)
     names = materials(skins.build_spec('piece', piece(linked_skin('platform:device', variant='copper')), brass))
     check('MM · bar copper' in names, 'Variant picks a Device trim (%s)' % names)
     # On Hit
-    check(skins.piece_reaction(piece({'link': 'linked', 'onHit': 'wobble'}), brass)['wobble'] > 0, 'On Hit: Wobble wobbles')
-    check(skins.piece_reaction(piece({'link': 'linked', 'onHit': 'none'}), brass)['preset'] == 'none', 'On Hit: None stops the reaction')
-    check(skins.piece_reaction(dict(piece({'link': 'linked', 'onHit': 'glow'}), reaction={'preset': 'press', 'params': {}}), brass)['preset'] == 'glow', "On Hit wins over an older project's reaction")
-    check(skins.piece_reaction(dict(piece(None), reaction={'preset': 'wobble', 'params': {}}), brass)['preset'] == 'wobble', "an older project's reaction still applies")
-    spec = skins.build_spec('piece', piece({'link': 'linked', 'onHit': 'glow'}, 'rail'), brass)
+    check(skins.piece_reaction(piece({'onHit': 'wobble'}), brass)['wobble'] > 0, 'On Hit: Wobble wobbles')
+    check(skins.piece_reaction(piece({'onHit': 'none'}), brass)['preset'] == 'none', 'On Hit: None stops the reaction')
+    spec = skins.build_spec('piece', piece({'onHit': 'glow'}, 'rail'), brass)
     check(spec.get('flash', 0) > 0 and all(themes._principled(material).inputs['Emission Strength'].is_linked for material in spec['root'].materials),
           'On Hit: Glow flashes a piece with no moving part')
     # Glow Colour
-    spec = skins.build_spec('piece', piece({'link': 'linked', 'onHit': 'glow', 'glowColor': '#00ff88'}), brass)
+    spec = skins.build_spec('piece', piece({'onHit': 'glow', 'glowColor': '#00ff88'}), brass)
     bar = spec['parts'][0]['mesh'].materials[0]
     emission = themes._principled(bar).inputs['Emission Color'].default_value
     check(all(abs(a - b) < 1e-4 for a, b in zip(emission[:3], parse_color('#00ff88')[:3])) and '#00ff88' in bar.name, 'Glow Colour sets the emission on a copy (%s)' % bar.name)
@@ -154,9 +150,8 @@ def check_properties():
     names = materials(skins.build_spec('piece', piece(None), context))
     check('MM · bar copper' in names, 'a project theme says platforms: Copper (%s)' % names)
     check(skins.piece_reaction(piece(None), context)['preset'] == 'wobble', 'a project theme says platforms: On Hit Wobble')
-    check(skins.skin_context('neon', RADIUS, options={'colorByNote': True})['parts']['platform']['colour'] == 'note', 'an old description reads Colour by Note as the theme default')
     # The key rebuilds a skin when a property changes
-    keys = {skins.skin_key('piece', piece(fields or None), brass) for fields in ({}, {'link': 'linked', 'colour': 'marble'}, {'link': 'linked', 'glowColor': '#00ff88'}, {'link': 'linked', 'onHit': 'glow'})}
+    keys = {skins.skin_key('piece', piece(fields or None), brass) for fields in ({}, {'colour': 'marble'}, {'glowColor': '#00ff88'}, {'onHit': 'glow'})}
     check(len(keys) == 4, 'each property change rebuilds the skin')
 
 
@@ -172,7 +167,7 @@ def check_extra_properties():
     mesh.materials.append(material)
     obj = bpy.data.objects.new('Ribbon', mesh)
     manifest = {'properties': [{'name': 'Ribbon Colour', 'type': 'colour'}, {'name': 'Shine', 'type': 'number', 'default': 0.5}, {'name': 'Missing', 'type': 'number', 'default': 1.0}]}
-    values = assets.property_values(piece({'link': 'linked', 'properties': {'Ribbon Colour': '#ff0000'}}), manifest)
+    values = assets.property_values(piece({'properties': {'Ribbon Colour': '#ff0000'}}), manifest)
     check(values == {'Ribbon Colour': '#ff0000', 'Shine': 0.5, 'Missing': 1.0}, 'manifest defaults sit under a piece value (%s)' % values)
     assets.apply_properties([obj], values)
     own = obj.material_slots[0].material
@@ -208,7 +203,7 @@ def check_apply():
     check(skin_of('marble-1').data.materials[0].name.startswith('MM · glass swirl'), 'theme parts dress the marble as Glass')
     bar = next(child for child in skin_of('platform').children if child.get('mm_part') == 'bar')
     check('MM · bar copper' in [material.name for material in bar.data.materials], 'theme parts dress the platform as Copper')
-    write(parts={'marble': {'skin': 'marble:glass'}}, marble_skin=linked_skin('marble:magic'), piece_skin={'link': 'linked', 'colour': 'skin'})
+    write(parts={'marble': {'skin': 'marble:glass'}}, marble_skin=linked_skin('marble:magic'), piece_skin={'colour': 'skin'})
     check(skin_of('marble-1').data.materials[0].name.startswith('MM · magic'), "a marble's own skin beats the theme's")
     # Magic drifts: its noise time moves with the frame
     material = skin_of('marble-1').data.materials[0]
@@ -268,7 +263,6 @@ def check_gift_candy():
     # A wall kind that left the app (an old project's Tinsel, moved to Plaster on load) keeps the theme's here too
     themes.set_scene_look('tinsel', None)
     check(themes.theme_settings('brass')['wall']['kind'] == 'plaster', 'an unknown wall kind keeps the theme')
-    check(skin_catalog.canonical_skin('platform:books') == 'platform:gift', 'a Books skin of an old project wears Gift')
     themes.set_scene_look(None, None)
 
 

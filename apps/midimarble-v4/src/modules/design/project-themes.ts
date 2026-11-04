@@ -1,7 +1,6 @@
 import type { TSceneThemeOverrides } from '@/modules/blender/scene-description';
 import { createId, type TDesign, type TEntity, type TKeyLightPose, type TProject, type TPackOrigin, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
 import { isPackAdded, STARTER_ORIGIN } from '@/modules/library';
-import { canonicalSkin } from '@/modules/project/skin-ids';
 import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, type TSkinElement, type TSkinLook } from './skin-catalog';
 
 // Themes a project makes from a built-in one. A project theme keeps its base's skins, reactions and render look and
@@ -61,7 +60,7 @@ export function builtInThemeLabel(id: string): string | null {
 }
 
 export function projectThemes(design: Pick<TDesign, 'themes'>): TProjectTheme[] {
-	return design.themes ?? [];
+	return design.themes;
 }
 
 /** Resolves a theme id, the applied theme by default. An unknown id draws as the default theme, like in Blender. */
@@ -106,9 +105,9 @@ export function baseThemeOf(design: Pick<TDesign, 'theme' | 'themes'>): string {
  */
 export function appliedOverrides(design: Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>): TThemeOverrides {
 	const overrides: TThemeOverrides = { ...resolveTheme(design).overrides };
-	if (design.wall?.color != null) overrides.wallColor = design.wall.color;
-	if (design.wall?.backgroundColor != null) overrides.backgroundColor = design.wall.backgroundColor;
-	if (design.lights?.key?.color != null) overrides.lightColor = design.lights.key.color;
+	if (design.wall.color != null) overrides.wallColor = design.wall.color;
+	if (design.wall.backgroundColor != null) overrides.backgroundColor = design.wall.backgroundColor;
+	if (design.lights.key?.color != null) overrides.lightColor = design.lights.key.color;
 	return overrides;
 }
 
@@ -164,7 +163,7 @@ export function themeTitleColor(base: string): string {
 /** What a title reads in when its own colour is unset, and the colour a new one starts with: it stands apart from the wall the project shows */
 export function defaultTitleColor(design: Pick<TDesign, 'theme' | 'themes' | 'wall'>): string {
 	const theme = resolveTheme(design);
-	return titleColorOnWall(design.wall?.color ?? theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff');
+	return titleColorOnWall(design.wall.color ?? theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff');
 }
 
 /**
@@ -207,17 +206,17 @@ export function duplicateThemeCommands(project: TProject, sourceId: string): { c
 		...theme,
 		overrides: appliedOverrides(project.design),
 		...sceneOf({
-			wallKind: wall?.kind ?? theme.wallKind,
-			keyLight: { ...theme.keyLight, ...withoutColor(lights?.key) },
-			lights: [...(theme.lights ?? []), ...(lights?.added ?? [])]
+			wallKind: wall.kind ?? theme.wallKind,
+			keyLight: { ...theme.keyLight, ...withoutColor(lights.key) },
+			lights: [...(theme.lights ?? []), ...lights.added]
 		})
 	};
-	return { commands: [...addThemeCommands(project, saved), { type: 'setDesign', design: { wall: undefined, lights: undefined } }], themeId: saved.id };
+	return { commands: [...addThemeCommands(project, saved), { type: 'setDesign', design: { wall: {}, lights: { added: [] } } }], themeId: saved.id };
 }
 
 /** Whether the project changed the Wall or Lights layers on top of its theme, which a kept look stores */
 export function hasLayerChanges(design: Pick<TDesign, 'wall' | 'lights'>): boolean {
-	return Object.keys(design.wall ?? {}).length > 0 || Object.keys(design.lights?.key ?? {}).length > 0 || (design.lights?.added?.length ?? 0) > 0;
+	return Object.keys(design.wall).length > 0 || Object.keys(design.lights.key ?? {}).length > 0 || design.lights.added.length > 0;
 }
 
 /** A project theme's Wall skin, Key Light and lights, leaving out what it does not set */
@@ -229,7 +228,7 @@ function sceneOf(theme: Pick<TProjectTheme, 'wallKind' | 'keyLight' | 'lights'> 
 	};
 }
 
-function withoutColor(key: NonNullable<TDesign['lights']>['key']): TKeyLightPose {
+function withoutColor(key: TDesign['lights']['key']): TKeyLightPose {
 	const { color: _color, ...pose } = key ?? {};
 	return pose;
 }
@@ -264,7 +263,7 @@ export function currentLookThemeCommands(project: TProject, name?: string): { co
 		const skin = entity.components.skin;
 		const part = element != null ? parts[element] : undefined;
 		if (skin == null || part == null) return [];
-		const rest = withoutPart(canonicalSkin(skin), part);
+		const rest = withoutPart(skin, part);
 		if (rest === skin) return [];
 		return [rest != null ? { type: 'setComponent', entityId: entity.id, component: { name: 'skin', value: rest } } : { type: 'removeComponent', entityId: entity.id, name: 'skin' }];
 	});
@@ -306,7 +305,7 @@ function currentThemeParts(project: TProject): TThemeParts {
 /** The part a skin component's choices make; null for a library skin or no choices */
 function partOf(skin: TSkinComponent | undefined): TThemePart | null {
 	if (skin == null) return null;
-	const { assetId, colour, onHit, glowColor, variant } = canonicalSkin(skin);
+	const { assetId, colour, onHit, glowColor, variant } = skin;
 	if (assetId != null && catalogSkin(assetId) == null) return null;
 	const part: TThemePart = {
 		...(assetId != null ? { skin: assetId } : {}),

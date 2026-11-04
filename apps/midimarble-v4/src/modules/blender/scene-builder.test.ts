@@ -14,7 +14,7 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleId: st
 		components: {
 			piece: { type: 'platform', params: { length: 0.08 } },
 			transform: { position: { x: 0.1, y: 0.2 }, angle: 0.3 },
-			hitLink: { laneId: lane.id, hitId: 'hit-1', angle: 0.3, contactAt: 0.5, pinned: false }
+			hitLink: { laneId: lane.id, hitId: 'hit-1', angle: 0.3, contactAt: 0.5 }
 		}
 	});
 	const hit = (overrides: Partial<THitResult>): THitResult => ({
@@ -85,7 +85,7 @@ describe('buildSceneDescription', () => {
 	it.each(['marble:glass', 'marble:metal', 'marble:magic'])("carries a marble's built-in skin %s, without an asset", (assetId) => {
 		const { project, result, marbleId } = fixture();
 		const marble = project.entities.find((entity) => entity.id === marbleId);
-		if (marble != null) marble.components.skin = { assetId, link: 'linked' };
+		if (marble != null) marble.components.skin = { assetId };
 		const [described] = buildSceneDescription(project, result, { fps: 30 }).description.marbles;
 		expect(described?.skin?.assetId).toBe(assetId);
 		expect(described?.assetPath).toBeUndefined();
@@ -94,13 +94,13 @@ describe('buildSceneDescription', () => {
 	it("carries the asset of a marble's library skin", () => {
 		const { project, result, marbleId } = fixture();
 		const marble = project.entities.find((entity) => entity.id === marbleId);
-		if (marble != null) marble.components.skin = { assetId: 'green-glass', link: 'linked' };
+		if (marble != null) marble.components.skin = { assetId: 'green-glass' };
 		expect(buildSceneDescription(project, result, { fps: 30 }).description.marbles[0]?.assetPath).toBe('assets/green-glass/asset.blend');
 	});
 
-	it('carries the camera sway only when it is set', () => {
+	it('carries the camera sway', () => {
 		const { project, result } = fixture();
-		expect(buildSceneDescription(project, result, { fps: 30 }).description.camera).not.toHaveProperty('sway');
+		expect(buildSceneDescription(project, result, { fps: 30 }).description.camera?.sway).toBe(1);
 		project.design.camera.sway = 0;
 		expect(buildSceneDescription(project, result, { fps: 30 }).description.camera?.sway).toBe(0);
 	});
@@ -310,6 +310,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			distance: project.design.camera.distance,
 			pitch: project.design.camera.pitch,
 			lead: project.design.camera.lead,
+			sway: 1,
 			smoothing: project.design.camera.smoothing,
 			// A Push In without a length of its own holds 2 s before the camera eases back
 			shots: [{ time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4, length: 2 }],

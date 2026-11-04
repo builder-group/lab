@@ -1,15 +1,15 @@
 import { useFeatureState } from 'feature-react/state';
 import { Box, ExternalLink, Sparkles } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InspectorHeader, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
-import type { TDecor, TGarland, TProject, TProjectCommand, TSnowfall } from '@/modules/project';
+import { HelpTip, InspectorHeader, Panel, ReadoutField, ScrubField, SliderField, StatusPill, TextField } from '@/components';
+import type { TDecor, TProject, TProjectCommand, TSnowfall } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/studio/format';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { $blenderObjects, findDecor, madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands } from './decor';
 import { moveDecorClearAction, revealMadeInBlender } from './decor-actions';
 import { decorItem, decorText } from './decor-catalog';
-import { garlandOf, SNOWFALL_DEFAULTS, snowfallOf } from './decor-effects';
+import { SNOWFALL_DEFAULTS, snowfallOf } from './decor-effects';
 import { ColorWell } from './SceneLayerInspector';
 import { decorTips, preflightExport } from './export-preflight';
 import { titleSpan, withTitleTime } from './titles';
@@ -52,7 +52,6 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 				onRename={(name) => update({ name })}
 			/>
 			{item?.effect === 'snowfall' ? <SnowfallPanel cx={cx} decor={decor} /> : null}
-			{item?.effect === 'garland' ? <GarlandPanel decor={decor} onChange={(garland) => update({ garland })} /> : null}
 			{tip != null ? (
 				<DecorTip tip={tip} detail="A marble passes over it while it shows. Decor has no hitbox, so the hit stays the same.">
 					<button className="mm-fix-it mm-fix-it-label" onClick={() => moveDecorClearAction(cx, decor.id)} title="Moves it the shortest way to a spot clear of every marble's path" type="button">
@@ -97,24 +96,6 @@ const SnowfallPanel: React.FC<{ cx: StudioCx; decor: TDecor }> = (props) => {
 		</Panel>
 	);
 };
-
-/** Garland's settings. It runs down the frame's edges and passes with the wall. */
-const GarlandPanel: React.FC<{ decor: TDecor; onChange: (garland: TGarland) => void }> = (props) => {
-	const { decor, onChange } = props;
-	const garland = garlandOf(decor);
-	return (
-		<Panel id="design.decor.garland" title="Garland" accessory={<HelpTip text="Fir sprigs, fairy lights and baubles down the frame's edges for the whole run. It passes with the wall and stays at the edges as the camera turns." />}>
-			<SelectField id="garland-side" label="Side" value={garland.side} options={GARLAND_SIDES} onChange={(side) => onChange({ ...garland, side: side as TGarland['side'] })} />
-			<SliderField id="garland-spacing" label="Spacing" value={garland.spacing * 100} min={8} max={40} step={1} format={(value) => String(Math.round(value))} unit="%" onCommit={(value) => onChange({ ...garland, spacing: value / 100 })} />
-		</Panel>
-	);
-};
-
-const GARLAND_SIDES: { value: string; label: string }[] = [
-	{ value: 'left', label: 'Left' },
-	{ value: 'right', label: 'Right' },
-	{ value: 'both', label: 'Both' }
-];
 
 /** Several decorations selected together */
 export const DecorsInspector: React.FC<{ cx: StudioCx; project: TProject; ids: string[] }> = (props) => {

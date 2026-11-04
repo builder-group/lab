@@ -2,8 +2,7 @@ import { addedBuiltInDecor, STARTER_PACK } from '@/modules/library';
 import type { TDecor, TDesign } from '@/modules/project';
 import catalog from '../../../blender/mm_worker/decor_catalog.json';
 
-// The Decor items. The Starter Pack lists the ones every project is offered; `origin` names a Pack and `hidden` keeps an item
-// rendering in the projects that have it, off Insert and the pickers. The Blender worker builds the same items from the same file (`decor.py`), and `check_design.py` holds its meshes to these sizes.
+// The Decor items. The Starter Pack lists the ones every project is offered; `origin` names a Pack. The Blender worker builds the same items from the same file (`decor.py`), and `check_design.py` holds its meshes to these sizes.
 
 export interface TDecorItem {
 	/** `decor:bauble-red`: a project's `source` for this item */
@@ -12,7 +11,6 @@ export interface TDecorItem {
 	/** Quiet origin line: the Pack it comes from */
 	origin?: string;
 	/** Renders where a project has it, and is no longer offered */
-	hidden?: boolean;
 	previewUrl: string;
 	/** Half width and half height on the wall in metres at scale 1, a text item's for its default text */
 	halfWidth: number;
@@ -26,7 +24,7 @@ export interface TDecorItem {
 	/** Scatter Decor uses the item; a Handle or Subscribe is placed once, by hand */
 	scatter: boolean;
 	/** Belongs to the frame, not the wall: hangs from the film camera, so it has no place, size or path to overlap */
-	effect?: 'snowfall' | 'garland';
+	effect?: 'snowfall';
 }
 
 export const DECOR_ITEMS: readonly TDecorItem[] = catalog.items.map(({ preview, ...item }) => ({ ...item, previewUrl: `/decor/${preview}` }) as TDecorItem);
@@ -34,12 +32,12 @@ export const DECOR_ITEMS: readonly TDecorItem[] = catalog.items.map(({ preview, 
 /** The items Insert and the pickers offer: the Starter Pack's, an added Pack's, and those the project already has */
 export function listedDecorItems(inUse: ReadonlySet<string> = new Set()): TDecorItem[] {
 	const added = addedBuiltInDecor();
-	return DECOR_ITEMS.filter((item) => item.hidden !== true && (STARTER_PACK.builtInDecor.includes(item.id) || added.includes(item.id) || inUse.has(item.id)));
+	return DECOR_ITEMS.filter((item) => STARTER_PACK.builtInDecor.includes(item.id) || added.includes(item.id) || inUse.has(item.id));
 }
 
 /** The items a project has placed, which it keeps offering without their Pack */
-export function usedDecorSources(design: Pick<TDesign, 'decor'>): ReadonlySet<string> {
-	return new Set((design.decor ?? []).map((decor) => decor.source));
+export function usedDecorSources(design: Pick<TDesign, 'decor'> | undefined): ReadonlySet<string> {
+	return new Set(design?.decor.map((decor) => decor.source));
 }
 
 export function decorItem(source: string): TDecorItem | null {

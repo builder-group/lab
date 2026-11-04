@@ -105,7 +105,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return light == null ? null : <LightInspector cx={cx} project={project} light={light} />;
 		}
 		case 'decor': {
-			const decor = project.design.decor?.find((item) => item.id === target.id);
+			const decor = project.design.decor.find((item) => item.id === target.id);
 			return decor == null ? null : <DecorInspector key={decor.id} cx={cx} project={project} decor={decor} />;
 		}
 		case 'decors':
@@ -343,7 +343,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			? unreachable == null
 				? null
 				: { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
-			: timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult, { marble: lane.name, piece: pieceLabel, isOffDot: piece.components.hitLink?.pinned === true });
+			: timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult, { marble: lane.name, piece: pieceLabel, isOffDot: piece.components.hitLink?.pinnedPosition != null });
 	const openHit = hitResult?.status === 'open' && hitResult.dot != null ? hitResult : null;
 
 	function setHit(patch: Partial<THit>): void {

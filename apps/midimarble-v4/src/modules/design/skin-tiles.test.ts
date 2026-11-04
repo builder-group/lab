@@ -4,7 +4,7 @@ import { catalogSkins } from './skin-catalog';
 import { filterTiles, showsTileSearch, skinTiles, THEME_DEFAULT_TILE, usedSkinIds, wallTiles } from './skin-tiles';
 
 function platform(id: string, assetId?: string): TEntity {
-	return { id, components: { piece: { type: 'platform' }, ...(assetId != null ? { skin: { assetId, link: 'linked' } } : {}) } } as unknown as TEntity;
+	return { id, components: { piece: { type: 'platform' }, ...(assetId != null ? { skin: { assetId } } : {}) } } as unknown as TEntity;
 }
 
 function brassProject(entities: TEntity[] = []): TProject {

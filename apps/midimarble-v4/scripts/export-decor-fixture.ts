@@ -44,7 +44,7 @@ write(SCENE_DESCRIPTION_PATH, JSON.stringify(build.description));
 const inFrame: number[] = [];
 for (let frame = 0; frame < track.frameCount; frame += 15) {
 	inFrame.push(
-		(project.design.decor ?? []).filter((item) => {
+		project.design.decor.filter((item) => {
 			const [u, v] = projectToFrame(track, frame, item.position.x, item.position.y, 0);
 			return u >= 0 && u <= 1 && v >= 0 && v <= 1;
 		}).length
@@ -60,6 +60,6 @@ console.log(
 		duration: result.duration,
 		marbles: result.marbles.length,
 		perFrame: { min: inFrame[0], median: inFrame[Math.floor(inFrame.length / 2)], max: inFrame[inFrame.length - 1] },
-		bySource: Object.fromEntries(items.map((item) => [item.label, project.design.decor?.filter((decor) => decor.source === item.source).length]))
+		bySource: Object.fromEntries(items.map((item) => [item.label, project.design.decor.filter((decor) => decor.source === item.source).length]))
 	})
 );

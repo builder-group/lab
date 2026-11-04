@@ -41,7 +41,7 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 	};
 	// Decor from the Library that is in this project, beside the listed items
 	const assets = projectItems.flatMap((item) => (item.manifest?.role === 'decoration' ? [{ id: assetDecorSource(item.id, item.manifest.label, item.manifest.fittedParams).source, label: item.manifest.label }] : []));
-	const items = [...listedDecorItems(usedDecorSources(cx.project?.design ?? {})).filter((item) => item.scatter), ...assets];
+	const items = [...listedDecorItems(usedDecorSources(cx.project?.design)).filter((item) => item.scatter), ...assets];
 
 	function toggle(source: string): void {
 		if (panel == null) return;

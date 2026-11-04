@@ -452,24 +452,24 @@ def check_neon_theme(worker, root, marble_records, hit, moved, rig):
 
 
 def check_device_skins():
-    """Brass device skins keep the collider's top face as their contact surface; the knob glows on hits"""
+    """Device skins keep the collider's top face as their contact surface; the knob glows on hits"""
     from mm_worker import skins
     context = skins.skin_context('brass', RADIUS)
     for skin in ('device', 'device-copper', 'key', 'knob', 'silver', 'unknown'):
         piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0},
-                 'skin': {'assetId': 'brass:' + skin, 'link': 'linked'}}
+                 'skin': {'assetId': 'platform:' + skin}}
         spec = skins.build_spec('piece', piece, context)
         bar = spec['parts'][0]['mesh']
         top = max(vertex.co.z for vertex in bar.vertices)
-        check(abs(top - PLATFORM['thickness'] / 2) < 1e-4, 'brass:%s top face is the contact surface (%.5f m)' % (skin, top))
+        check(abs(top - PLATFORM['thickness'] / 2) < 1e-4, 'platform:%s top face is the contact surface (%.5f m)' % (skin, top))
         materials = [material.name for material in bar.materials]
         reaction = skins.piece_reaction(piece, context)
         if skin == 'knob':
-            check(any(name.startswith('MM · glow') for name in materials) and reaction['flash'] > 0, 'brass:knob has a lens that glows on hits')
+            check(any(name.startswith('MM · glow') for name in materials) and reaction['flash'] > 0, 'platform:knob has a lens that glows on hits')
         if skin == 'key':
-            check('MM · key' in materials, 'brass:key has a white key')
+            check('MM · key' in materials, 'platform:key has a white key')
         if skin == 'device-copper':
-            check('MM · bar copper' in materials and 'MM · slot' in materials, 'brass:device-copper has copper ends and a grille')
+            check('MM · bar copper' in materials and 'MM · slot' in materials, 'platform:device-copper has copper ends and a grille')
         if skin == 'unknown':
             check(materials[0] == 'MM · brass', 'an unknown brass skin falls back to the gold bar')
 
@@ -480,13 +480,13 @@ def check_color_by_note():
     option or without a note the theme's own material stays, and the skin key changes with the pitch class"""
     from mm_worker import skins, themes
     neon_piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 69, 'color': '#3478f6'}
-    neon_on = [material.name for material in skins.build_spec('piece', neon_piece, skins.skin_context('neon', RADIUS, options={'colorByNote': True}))['parts'][0]['mesh'].materials]
+    neon_on = [material.name for material in skins.build_spec('piece', neon_piece, skins.skin_context('neon', RADIUS, parts={'platform': {'colour': 'note'}}))['parts'][0]['mesh'].materials]
     neon_off = [material.name for material in skins.build_spec('piece', neon_piece, skins.skin_context('neon', RADIUS))['parts'][0]['mesh'].materials]
-    expected = themes.neon_body_material(skins.neon_colors(skins.PieceFrame(neon_piece, skins.skin_context('neon', RADIUS, options={'colorByNote': True})))[0]).name
+    expected = themes.neon_body_material(skins.neon_colors(skins.PieceFrame(neon_piece, skins.skin_context('neon', RADIUS, parts={'platform': {'colour': 'note'}})))[0]).name
     check(neon_on[0] == expected and neon_off[0] != expected and themes.note_color(69) is not None,
           'neon: Colour by Note gives an A platform its note colour (%s, %s)' % (neon_on[0], neon_off[0]))
     for theme, plain in (('pegboard', 'MM · flat'), ('brass', 'MM · brass')):
-        on = skins.skin_context(theme, RADIUS, options={'colorByNote': True})
+        on = skins.skin_context(theme, RADIUS, parts={'platform': {'colour': 'note'}})
         off = skins.skin_context(theme, RADIUS)
         piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 69}
         coloured = [material.name for material in skins.build_spec('piece', piece, on)['parts'][0]['mesh'].materials]
@@ -502,17 +502,17 @@ def check_color_by_note():
     # A chosen skin keeps its own colour under Colour by Note; Brass's Gold spelled out is still its default
     def platform_materials(theme, skin):
         piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 60,
-                 'skin': {'assetId': skin, 'link': 'linked'}}
-        context = skins.skin_context(theme, RADIUS, options={'colorByNote': True})
+                 'skin': {'assetId': skin}}
+        context = skins.skin_context(theme, RADIUS, parts={'platform': {'colour': 'note'}})
         return [material.name for material in skins.build_spec('piece', piece, context)['parts'][0]['mesh'].materials]
 
-    names = platform_materials('brass', 'brass:key')
-    check('MM · key' in names and not any(name.startswith('MM · note') for name in names), 'brass:key keeps its white key under Colour by Note (%s)' % names)
-    names = platform_materials('pegboard', 'brass:copper')
+    names = platform_materials('brass', 'platform:key')
+    check('MM · key' in names and not any(name.startswith('MM · note') for name in names), 'platform:key keeps its white key under Colour by Note (%s)' % names)
+    names = platform_materials('pegboard', 'platform:copper')
     check(names[0] == 'MM · bar copper', 'a Copper skin from More Skins keeps its copper under Colour by Note (%s)' % names)
-    names = platform_materials('pegboard', 'brass:gold')
+    names = platform_materials('pegboard', 'platform:gold')
     check(names[0] == 'MM · brass', 'a Gold skin chosen in Pegboard keeps its gold under Colour by Note (%s)' % names)
-    names = platform_materials('brass', 'brass:gold')
+    names = platform_materials('brass', 'platform:gold')
     check(names[0] == 'MM · note C', "Brass's Gold, its default spelled out, takes the note colour (%s)" % names)
 
 

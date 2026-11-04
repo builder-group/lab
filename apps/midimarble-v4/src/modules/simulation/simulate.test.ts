@@ -125,7 +125,6 @@ describe('simulate', () => {
 		const fifth = before.pieces.find((piece) => piece.entityId === 'piece-1-5');
 		const link = pinned.entities.find((entity) => entity.id === 'piece-1-5')?.components.hitLink;
 		if (fifth?.contactPoint == null || link == null) throw new Error('Missing fifth platform');
-		link.pinned = true;
 		link.pinnedPosition = fifth.contactPoint;
 		const pinnedResult = simulator.simulate(pinned);
 		const pinnedPiece = pinnedResult.pieces.find((piece) => piece.entityId === 'piece-1-5');

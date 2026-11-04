@@ -46,7 +46,7 @@ export interface TScatterPlacement {
 
 /** Items placed for the run, film camera and options, in top to bottom order. Same inputs, same placements. */
 export function scatterPlacements(project: TProject, result: TSimulationResult, track: TCameraTrack, options: TScatterOptions): TScatterPlacement[] {
-	// Snowfall and Garland belong to the frame: there is nothing of theirs to place on the wall
+	// Particles belong to the frame: there is nothing of theirs to place on the wall
 	const items = options.items.filter((item) => !isFrameEffect({ source: item.source }));
 	if (!items.length || !result.marbles.length) return [];
 	const field = cachedObstacleField(result);

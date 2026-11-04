@@ -346,7 +346,7 @@ describe('MCP tools', () => {
 			expect(cx.project?.design.camera.sway).toBe(0);
 			expect(cx.project?.design.camera.distance).toBe(before);
 			expect(cx.project?.design.wall).toEqual({ color: '#f6e3b8', kind: 'plain' });
-			expect(cx.project?.design.lights?.key).toEqual({ color: '#ffd08a', strength: 3 });
+			expect(cx.project?.design.lights.key).toEqual({ color: '#ffd08a', strength: 3 });
 		});
 
 		it('should say what is wrong with the field that is wrong', async () => {
@@ -367,7 +367,7 @@ describe('MCP tools', () => {
 			expect(state.packThemes).toEqual([{ id: 'theme-pack', name: 'Golden', pack: 'Christmas' }]);
 			expect((await execute(cx, { type: 'setDesign', design: { theme: 'theme-pack' } })).isError).toBe(false);
 			expect(cx.project?.design.theme).toBe('theme-pack');
-			expect(cx.project?.design.themes?.[0]?.pack?.packName).toBe('Christmas');
+			expect(cx.project?.design.themes[0]?.pack?.packName).toBe('Christmas');
 			addedPacks.set([]);
 		});
 	});

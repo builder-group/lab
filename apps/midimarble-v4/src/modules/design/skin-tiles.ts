@@ -1,5 +1,4 @@
 import type { TEntity, TProject, TWallKind } from '@/modules/project';
-import { canonicalSkinId } from '@/modules/project/skin-ids';
 import { draftMarble } from './draft-look';
 import { resolveTheme, type TResolvedTheme } from './project-themes';
 import { wallLayer, WALL_KINDS } from './scene-layers';
@@ -31,7 +30,7 @@ export function skinTiles(design: Parameters<typeof resolveTheme>[0], element: T
 	const part = theme.parts[element].skin;
 	const owns = entities.map((entity) => {
 		const assetId = entity.components.skin?.assetId;
-		return assetId != null ? canonicalSkinId(assetId) : null;
+		return assetId != null ? assetId : null;
 	});
 	const shown = themeSkinShown(theme, element, entities[0]);
 	const hasEntities = entities.length > 0;
@@ -46,8 +45,8 @@ export function skinTiles(design: Parameters<typeof resolveTheme>[0], element: T
 /** Every skin the project wears or one of its themes names, which keeps a hidden skin on the tiles */
 export function usedSkinIds(project: Pick<TProject, 'entities' | 'design'>): ReadonlySet<string> {
 	const worn = project.entities.flatMap((entity) => entity.components.skin?.assetId ?? []);
-	const named = (project.design.themes ?? []).flatMap((theme) => Object.values(theme.parts ?? {}).flatMap((part) => part.skin ?? []));
-	return new Set([...worn, ...named].map(canonicalSkinId));
+	const named = project.design.themes.flatMap((theme) => Object.values(theme.parts ?? {}).flatMap((part) => part.skin ?? []));
+	return new Set([...worn, ...named]);
 }
 
 /** The skin the theme dresses an entity with; a theme's contrast marble is Pearl or Deep by what stands apart from the wall */

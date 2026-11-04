@@ -89,7 +89,7 @@ export function asLinked(entity: TEntity, pose: TPose, laneId: string, hitId: st
 		components: {
 			...components,
 			piece: { ...piece, params: { ...piece.params, entryDelay: 0 } },
-			hitLink: { laneId, hitId, angle: pose.angle, contactAt, pinned: false }
+			hitLink: { laneId, hitId, angle: pose.angle, contactAt }
 		}
 	};
 }
@@ -115,7 +115,6 @@ export function asAnchored(project: TProject, entity: TEntity, pose: TPose, lane
 				hitId: hit.id,
 				angle: pose.angle,
 				contactAt: entity.components.hitLink?.contactAt ?? 0.5,
-				pinned: false,
 				anchored: true,
 				offset: { x: pose.position.x - marble.x, y: pose.position.y - marble.y }
 			}
@@ -143,7 +142,7 @@ export function asPinned(entity: TEntity, pose: TPose, marbleRadius = DEFAULT_MA
 	// The run lays a pinned piece out from its contact point, so that point is taken from what the run would place
 	const placed = layoutAtContact(input, contact).position;
 	const pinnedPosition = { x: contact.x + pose.position.x - placed.x, y: contact.y + pose.position.y - placed.y };
-	return { ...entity, components: { ...entity.components, hitLink: { ...link, angle: pose.angle, pinned: true, pinnedPosition } } };
+	return { ...entity, components: { ...entity.components, hitLink: { ...link, angle: pose.angle, pinnedPosition } } };
 }
 
 /** How far from its note, in metres, a dragged platform still plays it; a drop further away frees it */

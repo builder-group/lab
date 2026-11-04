@@ -26,7 +26,7 @@ Scaffold from the `desktop-tauri` template, project schema with `versjon`, comma
 Done when:
 
 - The app starts, creates a project and reopens it from a moved package
-- Schema, migration and command tests pass
+- Schema and command tests pass
 - `pnpm --filter @lab/midimarble-v4 typecheck`, `lint` and `test` pass
 
 ## M1 Music lanes

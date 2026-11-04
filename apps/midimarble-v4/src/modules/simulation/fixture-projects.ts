@@ -141,7 +141,7 @@ export function createBareRunProject(options: {
 		});
 	});
 	return {
-		$schema: 'marble-project@4',
+		$schema: 'marble-project@5',
 		id: options.id,
 		title: options.title,
 		revision: 0,
@@ -152,9 +152,14 @@ export function createBareRunProject(options: {
 		physics: { gravityScale: options.gravityScale ?? DEFAULT_GRAVITY_SCALE },
 		design: {
 			theme: 'pegboard',
+			themes: [],
+			wall: {},
+			lights: { added: [] },
+			decor: [],
+			madeInBlender: [],
 			renderPreset: 'balanced',
 			// 0.6 m frames the Marble Race Kit; the default kit is KIT_SCALE times larger
-			camera: { mode: 'rig', distance: 0.6 * KIT_SCALE, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots: [] }
+			camera: { mode: 'rig', distance: 0.6 * KIT_SCALE, pitch: 0.7, lead: 0.15, smoothing: 0.6, sway: 1, shots: [] }
 		}
 	};
 }

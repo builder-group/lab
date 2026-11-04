@@ -8,7 +8,7 @@ import type { TVec2 } from '@/modules/project';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { $blenderObjects, blenderObjectBox, decorBox, decorList, madeInBlenderLayer } from './decor';
 import { decorExtent, decorItem, decorText, isFrameEffect, type TDecorItem } from './decor-catalog';
-import { garlandOf, garlandScrollAt, garlandSprigs, snowfallOf, snowFlakes, type TFlake, type TSprig } from './decor-effects';
+import { snowfallOf, snowFlakes, type TFlake } from './decor-effects';
 import { distanceToBox, type TWallBox } from './decor-clearance';
 import { appliedOverrides, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme } from './project-themes';
 import { wallKindOverride } from './scene-layers';
@@ -186,26 +186,19 @@ export class DraftPreviewCx {
 		});
 	}
 
-	/** Snowfall and Garland at the playhead: what `DraftEffects` draws over the frame */
+	/** Particles at the playhead: what `DraftEffects` draws over the frame */
 	frameEffects(): TDraftEffect[] {
 		const project = this.studio.project;
 		if (project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
-		const track = this.filmCamera()?.track ?? null;
 		return decorList(project.design).flatMap((decor): TDraftEffect[] => {
 			const effect = decorItem(decor.source)?.effect;
 			const opacity = decor.hidden === true ? 0 : titleOpacity(time, decor);
 			if (effect == null || opacity <= 0) return [];
-			if (effect === 'snowfall') {
-				const snow = snowfallOf(decor);
-				const key = `${decor.id} ${snow.density}`;
-				if (this.flakes?.key !== key) this.flakes = { key, flakes: snowFlakes(decor.id, snow.density) };
-				return [{ kind: 'snowfall', key: toDecorKey(decor.id), opacity, flakes: this.flakes.flakes, color: snow.color, size: snow.size, speed: snow.speed }];
-			}
-			const garland = garlandOf(decor);
-			const scroll = track != null ? garlandScrollAt(track, this.aspect(), time) : 0;
-			const sides = garland.side === 'both' ? ([-1, 1] as const) : garland.side === 'left' ? ([-1] as const) : ([1] as const);
-			return [{ kind: 'garland', key: toDecorKey(decor.id), opacity, sides, spacing: garland.spacing, scroll, sprigs: garlandSprigs(garland.spacing, scroll) }];
+			const snow = snowfallOf(decor);
+			const key = `${decor.id} ${snow.density}`;
+			if (this.flakes?.key !== key) this.flakes = { key, flakes: snowFlakes(decor.id, snow.density) };
+			return [{ kind: 'snowfall', key: toDecorKey(decor.id), opacity, flakes: this.flakes.flakes, color: snow.color, size: snow.size, speed: snow.speed }];
 		});
 	}
 
@@ -410,9 +403,7 @@ export class DraftPreviewCx {
 	}
 }
 
-export type TDraftEffect =
-	| { kind: 'snowfall'; key: string; opacity: number; flakes: readonly TFlake[]; color: string; size: number; speed: number }
-	| { kind: 'garland'; key: string; opacity: number; sides: readonly (-1 | 1)[]; spacing: number; scroll: number; sprigs: readonly TSprig[] };
+export type TDraftEffect = { kind: 'snowfall'; key: string; opacity: number; flakes: readonly TFlake[]; color: string; size: number; speed: number };
 
 export interface TDraftDecor {
 	key: string;

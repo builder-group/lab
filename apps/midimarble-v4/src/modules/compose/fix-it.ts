@@ -687,13 +687,13 @@ export function replaceCommands(project: TProject, placed: TEntity): TProjectCom
 	if (current == null || link == null || piece == null) return [];
 	const commands: TProjectCommand[] = [];
 	const currentLink = current.components.hitLink;
-	if (currentLink == null || currentLink.pinned || JSON.stringify(currentLink) !== JSON.stringify({ ...currentLink, angle: link.angle })) {
+	if (currentLink == null || currentLink.pinnedPosition != null || JSON.stringify(currentLink) !== JSON.stringify({ ...currentLink, angle: link.angle })) {
 		// Placed again, a platform a drag left where it lay follows its note once more
 		const { pinnedPosition: _, ...kept } = currentLink ?? link;
 		commands.push({
 			type: 'setComponent',
 			entityId: current.id,
-			component: { name: 'hitLink', value: { ...kept, angle: link.angle, pinned: false } }
+			component: { name: 'hitLink', value: { ...kept, angle: link.angle } }
 		});
 	}
 	const currentPiece = current.components.piece;

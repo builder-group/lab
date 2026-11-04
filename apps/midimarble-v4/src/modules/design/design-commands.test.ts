@@ -43,16 +43,16 @@ function pieceIds(project: TProject): string[] {
 
 describe('design commands', () => {
 	it('should list the skins of an element, the theme\'s first, in any theme', () => {
-		const design = { theme: 'brass' };
+		const design = { theme: 'brass', themes: [] };
 		const platforms = skinsForElement(design, 'platform');
 		expect(platforms[0]).toMatchObject({ id: 'platform:gold', label: 'Gold', previewUrl: '/skins/platform-gold.png' });
 		expect(platforms.map((skin) => skin.id)).toContain('platform:copper');
 		expect(platforms.map((skin) => skin.id)).not.toContain('platform:device-copper');
-		expect(skinsForElement({ theme: 'neon' }, 'platform').map((skin) => skin.id).sort()).toEqual(platforms.map((skin) => skin.id).sort());
-		expect(skinsForElement({ theme: 'neon' }, 'platform')[0]?.id).toBe('platform:neon');
-		expect(skinsForElement({ theme: 'pegboard' }, 'rail')[0]?.label).toBe('Wood Rail');
+		expect(skinsForElement({ theme: 'neon', themes: [] }, 'platform').map((skin) => skin.id).sort()).toEqual(platforms.map((skin) => skin.id).sort());
+		expect(skinsForElement({ theme: 'neon', themes: [] }, 'platform')[0]?.id).toBe('platform:neon');
+		expect(skinsForElement({ theme: 'pegboard', themes: [] }, 'rail')[0]?.label).toBe('Wood Rail');
 		// The Draft Preview dresses a skin the same in every theme, like the Blender worker
-		const copper = { type: 'platform', color: '#3478f6', skin: { assetId: 'brass:copper', link: 'linked' as const } };
+		const copper = { type: 'platform', color: '#3478f6', skin: { assetId: 'platform:copper' } };
 		expect(draftPieceColors('neon', copper, false)).toEqual(draftPieceColors('brass', copper, false));
 	});
 
@@ -77,7 +77,7 @@ describe('design commands', () => {
 		expect(commands).toHaveLength(2);
 		const set = apply(project, commands);
 		const skinOf = (next: TProject) => next.entities.find((entity) => entity.id === ids[0])?.components.skin;
-		expect(skinOf(set)).toEqual({ link: 'linked', colour: 'note', onHit: 'glow', glowColor: '#00ff88' });
+		expect(skinOf(set)).toEqual({ colour: 'note', onHit: 'glow', glowColor: '#00ff88' });
 		const skinned = apply(set, skinCommands(set, { kind: 'entities', entityIds: ids }, 'platform:key'));
 		expect(skinOf(skinned)).toMatchObject({ assetId: 'platform:key', colour: 'note' });
 		const cleared = apply(skinned, skinPropertyCommands(skinned, ids, { glowColor: null }));
@@ -89,19 +89,6 @@ describe('design commands', () => {
 		// Only overrides that leave nothing remove the component
 		const back = apply(set, skinPropertyCommands(set, ids, { colour: null, onHit: null, glowColor: null }));
 		expect(skinOf(back)).toBeUndefined();
-	});
-
-	it('should give On Hit the place of an older project\'s reaction', () => {
-		const project = createStaircaseProject();
-		const [id] = pieceIds(project);
-		if (id == null) throw new Error('fixture');
-		const old = apply(project, [{ type: 'setComponent', entityId: id, component: { name: 'reaction', value: { preset: 'wobble', params: {} } } }]);
-		const next = apply(old, skinPropertyCommands(old, [id], { onHit: 'glow' }));
-		const entity = next.entities.find((item) => item.id === id);
-		expect(entity?.components.reaction).toBeUndefined();
-		expect(entity?.components.skin?.onHit).toBe('glow');
-		const reset = apply(old, resetToThemeCommands(old, [id]));
-		expect(reset.entities.find((item) => item.id === id)?.components.reaction).toBeUndefined();
 	});
 
 	it('should skin marbles too and never touch their physics', () => {
@@ -142,7 +129,7 @@ describe('design commands', () => {
 		const project = createStaircaseProject();
 		const [first, second] = pieceIds(project);
 		const next = apply(project, skinCommands(project, { kind: 'entities', entityIds: [first ?? ''] }, 'piano-key'));
-		expect(next.entities.find((entity) => entity.id === first)?.components.skin).toEqual({ assetId: 'piano-key', link: 'linked' });
+		expect(next.entities.find((entity) => entity.id === first)?.components.skin).toEqual({ assetId: 'piano-key' });
 		expect(next.entities.find((entity) => entity.id === second)?.components.skin).toBeUndefined();
 	});
 
@@ -277,7 +264,7 @@ describe('hand changes', () => {
 		const piece = project.entities.find((entity) => entity.components.piece != null);
 		const changed = apply(project, [
 			...skinCommands(project, { kind: 'entities', entityIds: [piece?.id as string] }, 'platform:copper'),
-			{ type: 'setDesign', design: { wall: { color: '#112233', kind: 'grid' }, lights: { key: { strength: 2 } } } }
+			{ type: 'setDesign', design: { wall: { color: '#112233', kind: 'grid' }, lights: { key: { strength: 2 }, added: [] } } }
 		]);
 		expect(handChangeCount(changed)).toBe(4);
 		expect(handChangeCount(apply(changed, resetHandChangesCommands(changed)))).toBe(0);
@@ -306,11 +293,11 @@ describe('fixedColorCommands function', () => {
 
 	it('should say which skin sets a marble\'s colour', () => {
 		const item = { id: 'lime', manifest: { color: '#22ff66', label: 'Lime' } } as never;
-		const design = { theme: 'brass' };
-		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass-green', link: 'linked' }, [])).toBe('Green Glass');
-		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass-green', link: 'linked', colour: 'marble' }, [])).toBeNull();
-		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass', link: 'linked' }, [])).toBeNull();
-		expect(fixedColorSkinLabel(design, { assetId: 'lime', link: 'linked' }, [item])).toBe('Lime');
+		const design = { theme: 'brass', themes: [] };
+		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass-green' }, [])).toBe('Green Glass');
+		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass-green', colour: 'marble' }, [])).toBeNull();
+		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass' }, [])).toBeNull();
+		expect(fixedColorSkinLabel(design, { assetId: 'lime' }, [item])).toBe('Lime');
 		expect(fixedColorSkinLabel(design, undefined, [item])).toBeNull();
 	});
 

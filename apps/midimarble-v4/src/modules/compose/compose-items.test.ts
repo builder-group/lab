@@ -419,7 +419,7 @@ describe('dragging a platform that plays a note', () => {
 		const commands = replaceCommands(lowerProject, entity);
 		expect(commands.length).toBeGreaterThan(0);
 		const back = withCommands(lowerProject, commands);
-		expect(back.entities.find((item) => item.id === 'piece-1-5')?.components.hitLink?.pinned).toBe(false);
+		expect(back.entities.find((item) => item.id === 'piece-1-5')?.components.hitLink?.pinnedPosition).toBeUndefined();
 		expect(back.entities.find((item) => item.id === 'piece-1-5')?.components.hitLink?.pinnedPosition).toBeUndefined();
 		expect(simulate(back).hits.every((item) => item.status === 'onTime')).toBe(true);
 	});

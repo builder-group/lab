@@ -55,7 +55,6 @@ camera.rotation_euler = (math.radians(90), 0.0, 0.0)
 collection.objects.link(camera)
 scene.camera = camera
 
-GARLAND_ZOOM = 3.2
 for item_id, item in decor.ITEMS.items():
     entry = {'id': 'decor:' + item_id, 'name': item['label'], 'item': item_id, 'position': {'x': 0.0, 'y': 0.0}, 'scale': 1.0, 'rotation': 0.0, 'depth': 0.0}
     if 'text' in item:
@@ -69,13 +68,7 @@ for item_id, item in decor.ITEMS.items():
     if 'effect' in item:
         # An effect fills the frame it hangs from; a tile is a small frame, so it shows the thing close up
         entry['snowfall'] = {'density': 0.08, 'size': 2.2, 'speed': 1.0, 'color': item['color']}
-        entry['garland'] = {'side': 'left', 'spacing': 0.42}
         decor.attach_effects([entry], collection, camera, scene, 30.0, 1.0, 'pegboard')
-        if item['effect'] == 'garland':
-            # Close on one sprig: scaled about the frame's left edge, with the depth it hangs at
-            half = camera_data.ortho_scale / 2
-            obj.scale = (GARLAND_ZOOM, GARLAND_ZOOM, 1.0)
-            obj.location.x = half * (GARLAND_ZOOM - 1)
     scene.render.filepath = str(out / item['preview'])
     bpy.ops.render.render(write_still=True)
     decor.remove_tree(obj)

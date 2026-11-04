@@ -423,7 +423,7 @@ function gapEntity(
 					{ x: round(downhill * length * scale), y: 0 }
 				]
 			},
-			hitLink: { laneId, hitId, angle: -downhill * slope, contactAt: 0.5, pinned: false }
+			hitLink: { laneId, hitId, angle: -downhill * slope, contactAt: 0.5 }
 		}
 	};
 }
@@ -766,8 +766,7 @@ function switchbackEntity(
 				laneId,
 				hitId,
 				angle: round(-candidate.downhill * candidate.slope),
-				contactAt: candidate.contactAt,
-				pinned: false
+				contactAt: candidate.contactAt
 			}
 		}
 	};

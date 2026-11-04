@@ -1,6 +1,5 @@
 import type { TLibraryItem } from '@/modules/library';
 import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TSkinComponent, type TVec2 } from '@/modules/project';
-import { canonicalSkinId } from '@/modules/project/skin-ids';
 import { sampleCameraTrack } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { filmCamera, imageToWall } from './film-camera';
@@ -44,7 +43,7 @@ export function skinsForElement(design: Pick<TDesign, 'theme' | 'themes'>, eleme
 export function showsSkin(design: Pick<TDesign, 'theme' | 'themes'>, entity: TEntity, skinId: string): boolean {
 	const element = entitySkinElement(entity);
 	if (element == null) return false;
-	return resolveElementLook(design, element, entity.components.skin).skin === canonicalSkinId(skinId);
+	return resolveElementLook(design, element, entity.components.skin).skin === skinId;
 }
 
 /**
@@ -78,45 +77,40 @@ function skinValueCommand(entityId: string, skin: TSkinComponent): TProjectComma
 export type TSkinPropertyPatch = { [K in 'colour' | 'onHit' | 'glowColor' | 'variant']?: TSkinComponent[K] | null } & { property?: { name: string; value: number | string | null } };
 
 /**
- * Changes skin properties on the target entities, as one edit. On Hit also replaces the `reaction` component older
- * projects chose it with.
+ * Changes skin properties on the target entities, as one edit.
  */
 export function skinPropertyCommands(project: TProject, entityIds: readonly string[], patch: TSkinPropertyPatch): TProjectCommand[] {
 	return project.entities
 		.filter((entity) => entityIds.includes(entity.id) && entitySkinElement(entity) != null)
 		.flatMap((entity): TProjectCommand[] => {
 			const { property, ...fields } = patch;
-			const merged: Record<string, unknown> = { link: 'linked', ...entity.components.skin, ...fields };
+			const merged: Record<string, unknown> = { ...entity.components.skin, ...fields };
 			if (property != null) {
 				const others = Object.entries(entity.components.skin?.properties ?? {}).filter(([name]) => name !== property.name);
 				const entries = property.value != null ? [...others, [property.name, property.value] as const] : others;
 				merged['properties'] = entries.length > 0 ? Object.fromEntries(entries) : null;
 			}
 			const skin = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null)) as TSkinComponent;
-			const reaction: TProjectCommand[] = 'onHit' in patch && entity.components.reaction != null ? [{ type: 'removeComponent', entityId: entity.id, name: 'reaction' }] : [];
-			return [skinValueCommand(entity.id, skin), ...reaction];
+			return [skinValueCommand(entity.id, skin)];
 		});
 }
 
-/** Reset to Theme: the entities lose their own skin, properties and old reaction, as one edit */
+/** Reset to Theme: the entities lose their own skin and properties, as one edit */
 export function resetToThemeCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
 	return project.entities
 		.filter((entity) => entityIds.includes(entity.id))
-		.flatMap((entity): TProjectCommand[] => [
-			...(entity.components.skin != null ? [{ type: 'removeComponent' as const, entityId: entity.id, name: 'skin' as const }] : []),
-			...(entity.components.reaction != null ? [{ type: 'removeComponent' as const, entityId: entity.id, name: 'reaction' as const }] : [])
-		]);
+		.flatMap((entity): TProjectCommand[] => (entity.components.skin != null ? [{ type: 'removeComponent', entityId: entity.id, name: 'skin' }] : []));
 }
 
 /** The entities wearing something of their own over the theme */
 function handSkinnedIds(project: TProject): string[] {
-	return project.entities.filter((entity) => entity.components.skin != null || entity.components.reaction != null).map((entity) => entity.id);
+	return project.entities.filter((entity) => entity.components.skin != null).map((entity) => entity.id);
 }
 
 /** How many changes the project makes over its theme: pieces and marbles with a skin of their own, and each Wall and Key Light value set on the layer */
 export function handChangeCount(project: TProject): number {
 	const { wall, lights } = project.design;
-	return handSkinnedIds(project).length + Object.keys(wall ?? {}).length + Object.keys(lights?.key ?? {}).length;
+	return handSkinnedIds(project).length + Object.keys(wall).length + Object.keys(lights.key ?? {}).length;
 }
 
 /** Clears those changes so the theme shows as it is, as one edit. Added lights and Decor are things added, so they stay. */
@@ -149,7 +143,7 @@ export function skinTargetIds(project: TProject, target: TSkinTarget): string[] 
 export function skinCommands(project: TProject, target: TSkinTarget, assetId: string): TProjectCommand[] {
 	return skinTargetIds(project, target).map((entityId) => {
 		const own = project.entities.find((entity) => entity.id === entityId)?.components.skin;
-		return { type: 'setComponent' as const, entityId, component: { name: 'skin' as const, value: { ...own, assetId, link: 'linked' as const } } };
+		return { type: 'setComponent' as const, entityId, component: { name: 'skin' as const, value: { ...own, assetId } } };
 	});
 }
 

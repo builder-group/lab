@@ -30,7 +30,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 	const { title = 'Untitled', id = createId('project') } = options;
 	const lane = createLane(0);
 	return {
-		$schema: 'marble-project@4',
+		$schema: 'marble-project@5',
 		id,
 		title,
 		revision: 0,
@@ -41,6 +41,11 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 		physics: { gravityScale: DEFAULT_GRAVITY_SCALE },
 		design: {
 			theme: 'pegboard',
+			themes: [],
+			wall: {},
+			lights: { added: [] },
+			decor: [],
+			madeInBlender: [],
 			renderPreset: 'balanced',
 			camera: {
 				mode: 'rig',
@@ -48,6 +53,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 				pitch: DEFAULT_CAMERA_PITCH,
 				lead: 0.15,
 				smoothing: 0.6,
+				sway: 1,
 				shots: []
 			}
 		}

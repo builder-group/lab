@@ -29,10 +29,8 @@ describe('project document', () => {
 		}
 	});
 
-	it('should move old theme options into the theme on load and reject unknown ones', () => {
+	it('should reject a removed design field', () => {
 		const project = createProject();
-		const withOptions = { ...project, design: { ...project.design, themeOptions: { colorByNote: true } } };
-		expect(parseProject(serializeProject(withOptions))[2]?.design.themeOptions).toBeUndefined();
 		expect(parseProject(JSON.stringify({ ...project, design: { ...project.design, themeOptions: { glow: 1 } } }))[0]).toBe(false);
 	});
 
@@ -47,8 +45,6 @@ describe('project document', () => {
 		expect(isParsedOk, parsedErr?.message).toBe(true);
 		expect(parsed?.design.themes).toEqual(themes);
 		expect(parsed?.design.theme).toBe('theme-1');
-		// Files from before project themes stay valid
-		expect(parseProject(serializeProject(project))[2]?.design.themes).toBeUndefined();
 		const badColor = { ...project, design: { ...project.design, themes: [{ ...themes[0], overrides: { wallColor: 'blue' } }] } };
 		expect(parseProject(JSON.stringify(badColor))[0]).toBe(false);
 		const unknownField = { ...project, design: { ...project.design, themes: [{ ...themes[0], overrides: { fog: '#ffffff' } }] } };
@@ -173,97 +169,18 @@ describe('history', () => {
 	});
 });
 
-/** The project as version 3 stored it, before Backing */
-function asVersion3(project: TProject): Record<string, unknown> {
-	const { backing: _backing, backingInstrument: _instrument, ...music } = project.music;
-	return { ...project, $schema: 'marble-project@3', music };
-}
-
-describe('migrations', () => {
-	it('should give version 3 projects an empty Backing and keep everything else', () => {
+describe('older files', () => {
+	it('should refuse them in plain words', () => {
 		const project = createProject();
-		const [isParsedOk, parsedErr, parsed] = parseProject(JSON.stringify(asVersion3(project)));
-		expect(parsedErr).toBeUndefined();
-		expect(isParsedOk).toBe(true);
-		expect(parsed).toEqual(project);
+		const [isParsedOk, parsedErr] = parseProject(JSON.stringify({ ...project, $schema: 'marble-project@4' }));
+		expect(isParsedOk).toBe(false);
+		expect(parsedErr?.message).toBe("This project can't be opened. It was saved as marble-project@4; this app reads marble-project@5 files only, and older projects are not converted.");
 	});
 
-	it('should reject note lengths in version 3 files', () => {
-		const project = createProject();
-		const lane = project.music.lanes[0];
-		if (lane == null) throw new Error('No lane');
-		lane.hits = [{ id: 'hit-1', time: 1, duration: 0.5 }];
-		expect(parseProject(JSON.stringify(asVersion3(project)))[0]).toBe(false);
-	});
-
-	it('gives version 1 pieces their original bounce', () => {
-		const project = createProject();
-		const piece = {
-			id: 'piece-1',
-			components: {
-				piece: { type: 'platform', params: { length: 0.06 } },
-				hitLink: { laneId: firstLaneId(project), hitId: 'hit-1', angle: 0, contactAt: 0.5, pinned: false }
-			}
-		};
-		const { physics: _physics, ...older } = asVersion3(project);
-		const legacy = { ...older, $schema: 'marble-project@1', entities: [...project.entities, piece] };
-		const [isParsedOk, parsedErr, parsed] = parseProject(JSON.stringify(legacy));
-		expect(parsedErr).toBeUndefined();
-		expect(isParsedOk).toBe(true);
-		expect(parsed?.$schema).toBe('marble-project@4');
-		expect(parsed?.entities.find((entity) => entity.id === 'piece-1')?.components.piece?.params['bounce']).toBe(0.55);
-	});
-
-	it('turns version 2 windmills and rails on hits into scenery anchored at the same moment', () => {
-		const project = createProject();
-		const laneId = firstLaneId(project);
-		const lane = project.music.lanes[0];
-		if (lane == null) throw new Error('No lane');
-		lane.hits = [
-			{ id: 'hit-1', time: 0.5 },
-			{ id: 'hit-2', time: 0.8 },
-			{ id: 'hit-3', time: 3.5 }
-		];
-		const linked = (id: string, type: string, hitId: string, params: Record<string, number>) => ({
-			id,
-			components: {
-				piece: { type, params },
-				hitLink: { laneId, hitId, angle: 0.2, contactAt: 0.5, pinned: false }
-			}
-		});
-		const { physics: _physics, ...older } = asVersion3(project);
-		const legacy = {
-			...older,
-			$schema: 'marble-project@2',
-			entities: [
-				...project.entities,
-				linked('windmill-1', 'windmill', 'hit-2', { bladeCount: 4 }),
-				linked('first', 'windmill', 'hit-1', {}),
-				linked('far', 'rail', 'hit-3', { radius: 0.003 }),
-				linked('follower', 'rail', 'hit-1', { entryDelay: 0.2 }),
-				linked('platform', 'platform', 'hit-2', { length: 0.09 })
-			]
-		};
-		const [isParsedOk, parsedErr, parsed] = parseProject(JSON.stringify(legacy));
-		expect(parsedErr).toBeUndefined();
-		expect(isParsedOk).toBe(true);
-		expect(parsed?.$schema).toBe('marble-project@4');
-		// Older runs keep Earth gravity
-		expect(parsed?.physics).toEqual({ gravityScale: 1 });
-		const find = (id: string) => parsed?.entities.find((entity) => entity.id === id)?.components;
-		// Anchored to the previous hit with the gap as its delay: the same moment, and hit 2 is left open
-		expect(find('windmill-1')?.hitLink?.hitId).toBe('hit-1');
-		expect(find('windmill-1')?.piece?.params['entryDelay']).toBeCloseTo(0.3, 9);
-		expect(find('windmill-1')?.piece?.params['bladeCount']).toBe(4);
-		// Without an earlier hit, or one within 2 s, the anchor stays at its own hit's time
-		expect(find('first')?.hitLink?.hitId).toBe('hit-1');
-		expect(find('first')?.piece?.params['entryDelay']).toBe(0);
-		expect(find('far')?.hitLink?.hitId).toBe('hit-3');
-		// Followers and platforms are unchanged
-		expect(find('follower')?.hitLink?.hitId).toBe('hit-1');
-		expect(find('follower')?.piece?.params['entryDelay']).toBe(0.2);
-		expect(find('platform')?.hitLink?.hitId).toBe('hit-2');
-		expect(find('platform')?.piece?.params['entryDelay']).toBeUndefined();
+	it('should say the same of a file with no version', () => {
+		const [isParsedOk, parsedErr] = parseProject('{ "title": "Mine" }');
+		expect(isParsedOk).toBe(false);
+		expect(parsedErr?.message).toContain("This project can't be opened.");
 	});
 });
 
@@ -276,15 +193,5 @@ describe('one colour per marble', () => {
 		expect(byLane?.entities.find((entity) => entity.id === marble?.id)?.components.marble?.color).toBe('#112233');
 		const [, , byMarble] = applyProjectCommands(project, [{ type: 'setComponent', entityId: marble?.id as string, component: { name: 'marble', value: { ...(marble?.components.marble as NonNullable<typeof marble>['components']['marble'] & object), color: '#445566' } } }]);
 		expect(byMarble?.music.lanes[0]?.color).toBe('#445566');
-	});
-
-	it('should read an older file with two colours as the one the film shows', () => {
-		const project = createProject({ id: 'p', title: 'T' });
-		const json = JSON.parse(serializeProject(project)) as { music: { lanes: { color: string }[] }; entities: { components: { marble?: { color: string } } }[] };
-		const shown = json.entities.find((entity) => entity.components.marble != null)?.components.marble?.color;
-		(json.music.lanes[0] as { color: string }).color = '#000001';
-		const [isParsedOk, , parsed] = parseProject(JSON.stringify(json));
-		expect(isParsedOk).toBe(true);
-		expect(parsed?.music.lanes[0]?.color).toBe(shown);
 	});
 });

@@ -41,7 +41,7 @@ describe('draft look', () => {
 	});
 
 	it('should approximate marble skins and keep the contrast warning working', () => {
-		const look = (assetId: string, fields = {}) => resolveSkinLook('pegboard', null, 'marble', { assetId, link: 'linked', ...fields });
+		const look = (assetId: string, fields = {}) => resolveSkinLook('pegboard', null, 'marble', { assetId, ...fields });
 		expect(draftMarble('pegboard', '#3478f6', {}, look('marble:glass')).finish?.kind).toBe('glass');
 		expect(draftMarble('pegboard', '#3478f6', {}, look('marble:metal')).finish?.kind).toBe('metal');
 		const magic = draftMarble('pegboard', '#3478f6', {}, look('marble:magic', { glowColor: '#00ff88' }));
@@ -51,18 +51,18 @@ describe('draft look', () => {
 		// The theme's default still chooses by contrast
 		expect(draftMarble('pegboard', '#3478f6', {}, resolveSkinLook('pegboard', null, 'marble')).tone).toBe(draftMarble('pegboard', '#3478f6').tone);
 		// A dark Deep marble on a dark wall is hard to see, and says so; on a light wall it reads
-		expect(marbleContrastWarning('neon', {}, [{ name: 'Melody', color: '#3478f6', skin: resolveSkinLook('neon', null, 'marble', { assetId: 'marble:deep', link: 'linked' }) }])).toBe("Melody's marble is hard to see on this wall");
+		expect(marbleContrastWarning('neon', {}, [{ name: 'Melody', color: '#3478f6', skin: resolveSkinLook('neon', null, 'marble', { assetId: 'marble:deep' }) }])).toBe("Melody's marble is hard to see on this wall");
 		expect(marbleContrastWarning('pegboard', {}, [{ name: 'Melody', color: '#3478f6', skin: look('marble:deep') }])).toBeNull();
 	});
 
 	it('should dress a piece by its skin and Colour, whatever the theme', () => {
 		const platform = { type: 'platform', color: '#3478f6', notePitch: 60 };
-		expect(draftPieceColors('brass', { ...platform, skin: { link: 'linked', colour: 'note' } }, false).bar).toBe(noteColor(60));
-		expect(draftPieceColors('brass', { ...platform, skin: { link: 'linked', colour: 'marble' } }, false).bar).toBe('#3478f6');
-		expect(draftPieceColors('neon', { ...platform, skin: { link: 'linked', glowColor: '#00ff88' } }, false).bar).toBe('#00ff88');
-		expect(draftPieceColors('brass', { type: 'rail', color: '#3478f6', skin: { assetId: 'rail:glow', link: 'linked' } }, false)).toEqual(draftPieceColors('neon', { type: 'rail', color: '#3478f6', skin: null }, false));
-		expect(draftPieceColors('neon', { ...platform, skin: null }, false, {}, { platform: { skin: 'platform:copper' } }).bar).toBe(draftPieceColors('brass', { ...platform, skin: { assetId: 'platform:copper', link: 'linked' } }, false).bar);
-		expect(draftSkinMarks('neon', { type: 'platform', skin: { assetId: 'platform:device', link: 'linked', variant: 'copper' } })[0]?.color).toBe(draftSkinMarks('neon', { type: 'platform', skin: { assetId: 'platform:device-copper', link: 'linked' } })[0]?.color);
+		expect(draftPieceColors('brass', { ...platform, skin: { colour: 'note' } }, false).bar).toBe(noteColor(60));
+		expect(draftPieceColors('brass', { ...platform, skin: { colour: 'marble' } }, false).bar).toBe('#3478f6');
+		expect(draftPieceColors('neon', { ...platform, skin: { glowColor: '#00ff88' } }, false).bar).toBe('#00ff88');
+		expect(draftPieceColors('brass', { type: 'rail', color: '#3478f6', skin: { assetId: 'rail:glow' } }, false)).toEqual(draftPieceColors('neon', { type: 'rail', color: '#3478f6', skin: null }, false));
+		expect(draftPieceColors('neon', { ...platform, skin: null }, false, {}, { platform: { skin: 'platform:copper' } }).bar).toBe(draftPieceColors('brass', { ...platform, skin: { assetId: 'platform:copper' } }, false).bar);
+		expect(draftSkinMarks('neon', { type: 'platform', skin: { assetId: 'platform:device', variant: 'copper' } })[0]?.color).toBe(draftSkinMarks('neon', { type: 'platform', skin: { assetId: 'platform:device-copper' } })[0]?.color);
 	});
 
 	it('should dress pieces per theme, skin and Colour by Note', () => {
@@ -70,12 +70,12 @@ describe('draft look', () => {
 		// A lighter tint of the marble's colour, so the marble reads over its own platforms
 		expect(draftPieceColors('pegboard', platform, false).bar).toBe('#85aefa');
 		expect(draftPieceColors('pegboard', platform, true).bar).toBe(noteColor(60));
-		expect(draftPieceColors('brass', platform, false).bar).toBe(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:gold', link: 'linked' } }, false).bar);
-		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:copper', link: 'linked' } }, false).bar).not.toBe(draftPieceColors('brass', platform, false).bar);
+		expect(draftPieceColors('brass', platform, false).bar).toBe(draftPieceColors('brass', { ...platform, skin: { assetId: 'platform:gold' } }, false).bar);
+		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'platform:copper' } }, false).bar).not.toBe(draftPieceColors('brass', platform, false).bar);
 		// A chosen skin keeps its colour under Colour by Note; Brass's Gold spelled out is still its default
-		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:copper', link: 'linked' } }, true).bar).toBe(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:copper', link: 'linked' } }, false).bar);
-		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'brass:gold', link: 'linked' } }, true).bar).toBe(noteColor(60));
-		expect(draftPieceColors('pegboard', { ...platform, skin: { assetId: 'brass:gold', link: 'linked' } }, true).bar).toBe(draftPieceColors('brass', platform, false).bar);
+		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'platform:copper' } }, true).bar).toBe(draftPieceColors('brass', { ...platform, skin: { assetId: 'platform:copper' } }, false).bar);
+		expect(draftPieceColors('brass', { ...platform, skin: { assetId: 'platform:gold' } }, true).bar).toBe(noteColor(60));
+		expect(draftPieceColors('pegboard', { ...platform, skin: { assetId: 'platform:gold' } }, true).bar).toBe(draftPieceColors('brass', platform, false).bar);
 		expect(draftPieceColors('brass', { type: 'rail', color: '#3478f6', skin: null }, true).bar).not.toBe('#3478f6');
 	});
 
@@ -138,13 +138,13 @@ describe('draft look', () => {
 
 	it('should colour by note only pieces with the theme default skin', () => {
 		expect(takesNoteColor('pegboard', null)).toBe(true);
-		expect(takesNoteColor('brass', { assetId: 'brass:gold', link: 'linked' })).toBe(true);
-		expect(takesNoteColor('pegboard', { assetId: 'brass:gold', link: 'linked' })).toBe(false);
-		expect(takesNoteColor('brass', { assetId: 'brass:key', link: 'linked' })).toBe(false);
+		expect(takesNoteColor('brass', { assetId: 'platform:gold' })).toBe(true);
+		expect(takesNoteColor('pegboard', { assetId: 'platform:gold' })).toBe(false);
+		expect(takesNoteColor('brass', { assetId: 'platform:key' })).toBe(false);
 	});
 
 	it('should draw each Brass skin with its own shape cue in the Draft Preview', () => {
-		const skin = (id: string) => ({ type: 'platform', skin: { assetId: `brass:${id}`, link: 'linked' as const } });
+		const skin = (id: string) => ({ type: 'platform', skin: { assetId: `platform:${id}` } });
 		const colours = (id: string) => draftSkinMarks('pegboard', skin(id)).map((mark) => mark.color);
 		// Plain bars get chrome end caps, Device its trim-coloured ends and a grille, Key its white key, Knob its red lens
 		expect(draftSkinMarks('brass', { type: 'platform', skin: null })).toHaveLength(2);
@@ -258,7 +258,7 @@ function luminance(color: string): number {
 }
 
 describe('Gift and Green Glass in the Draft Preview', () => {
-	const piece = { type: 'platform', color: '#3478f6', skin: { assetId: 'platform:gift', link: 'linked' as const } };
+	const piece = { type: 'platform', color: '#3478f6', skin: { assetId: 'platform:gift' } };
 
 	it('should draw Gift in its paper with a ribbon cross, in any theme', () => {
 		expect(draftPieceColors('neon', piece, false).bar).toBe('#a01522');

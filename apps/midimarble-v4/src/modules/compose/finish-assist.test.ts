@@ -100,7 +100,7 @@ describe('Add Finish', () => {
 		const own = finishOfLane(reference, 'lane-1');
 		const dropped = asLaneFinish(
 			reference,
-			{ id: 'piece-new', name: 'Finish 2', components: { piece: { type: 'finish', params: { entryDelay: 0.5 } }, hitLink: { laneId: 'lane-1', hitId: 'hit-1-47', angle: 0, contactAt: 0.5, pinned: false } } },
+			{ id: 'piece-new', name: 'Finish 2', components: { piece: { type: 'finish', params: { entryDelay: 0.5 } }, hitLink: { laneId: 'lane-1', hitId: 'hit-1-47', angle: 0, contactAt: 0.5 } } },
 			{ x: -0.4, y: -1 }
 		);
 		expect(dropped.id).toBe(own?.id);

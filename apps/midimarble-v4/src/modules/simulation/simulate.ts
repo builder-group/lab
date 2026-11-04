@@ -373,7 +373,7 @@ function createPlan(project: TProject): TPlan {
 				contactAt: hitLink.contactAt,
 				marbleRadius: marbles[marbleIndex]?.radius ?? defaultRadius
 			};
-			if (hitLink.pinned && hitLink.pinnedPosition != null) {
+			if (hitLink.pinnedPosition != null) {
 				// Pinned pieces keep the unflipped normal since the incoming direction is unknown at time 0
 				const layout = layoutAtContact(input, hitLink.pinnedPosition);
 				staticPieces.push({

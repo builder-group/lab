@@ -1,7 +1,7 @@
 // Writes `fixtures/reference-20.marble.json`: a 20 s run shaped like the reference short. Two sections of
 // zigzag hits between two columns, built the way a user would with the assists (one tilted platform, Mirror,
 // then Continue, with Auto place where Continue stops), joined by a rail. Each section gives its two columns
-// their own brass skin (`brass:<skin>` skin asset IDs) and a wall title at its start, like the reference's skin
+// their own brass skin (`platform:<skin>` skin asset IDs) and a wall title at its start, like the reference's skin
 // sets and song titles per song.
 // Usage: tsx scripts/build-reference-fixture.ts [--dress]
 //   --dress re-applies skins, titles, the Finish, piece names and the film end to the existing fixture without
@@ -210,7 +210,7 @@ function dress(current: TProject): TProject {
 		const section = SECTIONS[sectionOf(time)];
 		if (section == null) continue;
 		// The zigzag alternates columns hit by hit
-		const skin = { assetId: `brass:${section.skins[hitIndex(hitId) % 2]}`, link: 'linked' as const };
+		const skin = { assetId: `platform:${section.skins[hitIndex(hitId) % 2]}` };
 		commands.push({ type: 'upsertEntity', entity: { ...entity, components: { ...entity.components, skin } } });
 	}
 	const placed = simulate(current).pieces;

@@ -4,7 +4,7 @@ Export a package per theme first (`tsx scripts/export-blender-fixture.ts <fixtur
 per package:
 
 Run: Blender --background --factory-startup --python blender/tests/render_skin_previews.py -- <package> <out-dir>
-     <prefix> --types platform,switchback [--variants brass:gold,brass:copper] [--size 160]
+     <prefix> --types platform,switchback [--variants platform:gold,platform:copper] [--size 160]
 
 Writes `<prefix>-<type>.png` for the theme default of each type, and `<element>-<name>.png` for each `--variants` skin
 (applied to the first piece of the first type), such as `platform-copper.png`, the name `skin_catalog.json` gives it.
@@ -45,7 +45,6 @@ package = Path(arguments.package).resolve()
 out = Path(arguments.out).resolve()
 out.mkdir(parents=True, exist_ok=True)
 description = json.loads((package / '.cache' / 'scene.json').read_text())
-description.pop('themeOptions', None)
 bpy.ops.wm.read_homefile(use_empty=True)
 worker = Worker(package)
 scene = bpy.context.scene
@@ -68,7 +67,7 @@ def apply(piece_id, skin):
     for piece in description['pieces']:
         piece = dict(piece)
         if piece['id'] == piece_id and skin is not None:
-            piece['skin'] = {'assetId': skin, 'link': 'linked'}
+            piece['skin'] = {'assetId': skin}
         pieces.append(piece)
     (package / PREVIEW_DESCRIPTION).write_text(json.dumps({**description, 'pieces': pieces}))
     worker.handle('apply_scene', {'descriptionPath': PREVIEW_DESCRIPTION})
@@ -130,7 +129,7 @@ for variant in [value for value in arguments.variants.split(',') if value]:
 
 
 def apply_marble(skin):
-    marbles = [{**marble, 'skin': {'assetId': skin, 'link': 'linked'}} for marble in description['marbles']]
+    marbles = [{**marble, 'skin': {'assetId': skin}} for marble in description['marbles']]
     (package / PREVIEW_DESCRIPTION).write_text(json.dumps({**description, 'marbles': marbles}))
     worker.handle('apply_scene', {'descriptionPath': PREVIEW_DESCRIPTION})
 

@@ -19,7 +19,7 @@ function project(options: { hasSong?: boolean; entities?: TEntity[]; shots?: { i
 			backing: []
 		},
 		entities: [{ id: 'marble-1', components: { marble: { laneId: 'lane-1' } } }, { id: 'marble-2', components: { marble: { laneId: 'lane-2' } } }, ...entities],
-		design: { camera: { shots } }
+		design: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], camera: { shots } }
 	} as unknown as TProject;
 }
 

@@ -252,7 +252,7 @@ describe('moveClear function', () => {
 					components: {
 						piece: { type: 'windmill', params: { entryDelay: 0.5 } },
 						transform: { position: { x: 0, y: 0 }, angle: 0 },
-						hitLink: { laneId: lane.id, hitId: 'h1', angle: 0, contactAt: 0.5, pinned: false, anchored: true, offset: { x: 0.1, y: 0.2 } }
+						hitLink: { laneId: lane.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true, offset: { x: 0.1, y: 0.2 } }
 					}
 				}
 			]
@@ -435,7 +435,7 @@ describe('addedProblems function', () => {
 			entities: [
 				...base.entities,
 				{ id: 'bass-marble', name: 'Bass', components: { marble: { laneId: 'bass', radius: 0.008 } } },
-				{ id: 'switchback', name: 'Switchback 6', components: { piece: { type: 'switchback', params: {} }, hitLink: { laneId: melody.id, hitId: 'h1', angle: 0, contactAt: 0.5, pinned: false, anchored: true } } }
+				{ id: 'switchback', name: 'Switchback 6', components: { piece: { type: 'switchback', params: {} }, hitLink: { laneId: melody.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true } } }
 			]
 		} as TProject;
 		const clear = contactResult(project, []);

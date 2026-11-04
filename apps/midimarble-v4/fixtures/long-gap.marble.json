@@ -1,5 +1,5 @@
 {
-	"$schema": "marble-project@3",
+	"$schema": "marble-project@5",
 	"id": "long-gap",
 	"title": "Long gap",
 	"revision": 0,
@@ -51,7 +51,8 @@
 					}
 				]
 			}
-		]
+		],
+		"backing": []
 	},
 	"entities": [
 		{
@@ -90,8 +91,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-1",
 					"angle": -0.4,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		},
@@ -113,8 +113,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-2",
 					"angle": 0.4886921905584123,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		},
@@ -136,8 +135,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-3",
 					"angle": 0.03490658503988659,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		},
@@ -173,8 +171,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-3",
 					"angle": -0.20943951023931956,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		},
@@ -196,8 +193,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-4",
 					"angle": 0.6981317007977318,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		},
@@ -219,8 +215,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-5",
 					"angle": -0.5759586531581288,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		},
@@ -242,8 +237,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
 					"angle": 0.4,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		},
@@ -280,8 +274,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
 					"angle": -0.13962634015954636,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		},
@@ -303,8 +296,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-7",
 					"angle": 0.6981317007977318,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		},
@@ -326,8 +318,7 @@
 					"laneId": "lane-1",
 					"hitId": "hit-1-8",
 					"angle": -0.05235987755982989,
-					"contactAt": 0.5,
-					"pinned": false
+					"contactAt": 0.5
 				}
 			}
 		}
@@ -344,7 +335,15 @@
 			"pitch": 0.7,
 			"lead": 0.15,
 			"smoothing": 0.6,
-			"shots": []
+			"shots": [],
+			"sway": 1
+		},
+		"themes": [],
+		"wall": {},
+		"decor": [],
+		"madeInBlender": [],
+		"lights": {
+			"added": []
 		}
 	}
 }

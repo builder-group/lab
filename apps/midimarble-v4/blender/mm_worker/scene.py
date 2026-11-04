@@ -71,7 +71,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     themes.set_overrides(description.get('themeOverrides'))
     themes.set_scene_look(description.get('wallKind'), description.get('keyLight'))
     marble_radius = max([float(marble['radius']) for marble in marbles] or [DEFAULT_MARBLE_RADIUS])
-    context = skins.skin_context(theme, marble_radius, description.get('reactions'), description.get('themeOptions'), description.get('themeParts'))
+    context = skins.skin_context(theme, marble_radius, description.get('reactions'), description.get('themeParts'))
     context['projectDir'] = project_dir
     context['assets'] = {}
     managed = ensure_collection(MANAGED_COLLECTION)
@@ -128,7 +128,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     report['cameraFramed'] = report['camera'] in ('framed', 'baked')
     # Captions and end cards hang from the film camera, which exists only once the studio is set up
     report['texts']['screen'] = walltext.attach_screen_texts(managed, studio.studio_object('studio.camera'), scene)
-    # Snowfall and Garland also hang from it, and fit its lens and its path
+    # Snowfall also hangs from it, and fits its lens
     report['decor']['effects'] = decor.attach_effects(description.get('decor') or [], managed, studio.studio_object('studio.camera'), scene, fps, duration, theme)
     # What the user added in Blender stays theirs; only its visibility follows the project's In, Out and Hidden
     report['madeInBlender'] = decor.apply_user_decor(description.get('madeInBlender') or [], scene, fps, duration)

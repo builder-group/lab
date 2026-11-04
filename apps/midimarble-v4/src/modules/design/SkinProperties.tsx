@@ -179,7 +179,7 @@ const ColourRow: React.FC<{ cx: StudioCx; id: string; label: string; value: stri
 	);
 };
 
-/** Reset to Theme: for a selection with a skin, a property or an old reaction of its own */
+/** Reset to Theme: for a selection with a skin or a property of its own */
 export const ResetToTheme: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[] }> = (props) => {
 	const { cx, project, entities } = props;
 	const commands = resetToThemeCommands(project, entities.map((entity) => entity.id));
