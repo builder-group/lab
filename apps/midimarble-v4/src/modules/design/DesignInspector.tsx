@@ -49,7 +49,7 @@ import {
 	themeOverrideCommands,
 	type TResolvedTheme
 } from './project-themes';
-import { titleSpan, withTitleTime } from './titles';
+import { songDisplayName, titleSpan, withTitleTime } from './titles';
 
 /** Properties of the Film workspace on the inspector grid: the project, a piece's look, a title or a shot */
 export const DesignInspector: React.FC<TDesignInspectorProps> = (props) => {
@@ -189,13 +189,21 @@ const ThemeColorField: React.FC<{ cx: StudioCx; theme: TResolvedTheme; field: (t
 				id={id}
 				type="color"
 				className="mm-color"
+				aria-label={`${field.label} colour`}
+				// An outline keeps a light colour such as Neon's pale Light visible on the white panel
+				style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }}
 				value={value ?? fallback ?? '#ffffff'}
 				onChange={(event) => set(event.target.value)}
 				onBlur={() => {
 					groupRef.current = null;
 				}}
 			/>
-			<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{value ?? (fallback != null ? builtInThemeLabel(theme.base) : 'Marble Colour')}</span>
+			{/* A set colour reads as its hex; an inherited one names where it comes from in normal case, like Figma's style names */}
+			{value != null ? (
+				<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{value}</span>
+			) : (
+				<span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{fallback != null ? `From ${builtInThemeLabel(theme.base) ?? 'the base theme'}` : 'Marble Colour'}</span>
+			)}
 			{value != null ? (
 				<button className="mm-icon-button" onClick={() => set(null)} title={`Use ${builtInThemeLabel(theme.base) ?? 'the base theme'}'s ${field.label.toLowerCase()} again`} aria-label={`Reset ${field.label}`} type="button">
 					<RotateCcw size={12} strokeWidth={1.9} />
@@ -436,7 +444,7 @@ const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEn
 	function setStyle(next: TTitleStyle): void {
 		if (text == null || next === style) return;
 		const playhead = cx.$playhead.get();
-		const songName = project.music.sources[0]?.name.replace(/\.[^.]+$/, '') ?? null;
+		const songName = songDisplayName(project);
 		const frameHeight = frameHeightOnWall(project, cx.simulation.$result.get(), playhead);
 		const value = withTitleStyle(text, next, { frameHeight, playhead, end: filmEnd, songName, aspect: project.frame.width / project.frame.height });
 		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
@@ -493,7 +501,7 @@ const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEn
 					<label htmlFor="text-color" className="mm-ifield-label">
 						Colour
 					</label>
-					<input id="text-color" type="color" className="mm-color" value={text.color} onChange={(event) => setText({ color: event.target.value })} />
+					<input id="text-color" type="color" className="mm-color" aria-label="Title colour" style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }} value={text.color} onChange={(event) => setText({ color: event.target.value })} />
 					<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span>
 				</span>
 			</Panel>

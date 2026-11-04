@@ -49,6 +49,9 @@ SCREEN_GLOW = 3.0
 # Height of a screen title's centre above the frame centre, as a fraction of the half frame height; matches
 # `render.SCREEN_TITLE_HEIGHTS` and the Draft Preview's `SCREEN_TITLE_HEIGHT`
 SCREEN_HEIGHTS = {'caption': 0.7, 'songName': 0.3, 'endCard': 0.0}
+# Font size over letter height, the same as `render.SCREEN_TITLE_FONT_SCALE` and the Draft Preview's: the encoder
+# draws a title's font at 1.4 times its `size`, so the Blender preview scales its unit letters the same way
+SCREEN_FONT_SCALE = 1.4
 SCREEN_PATHS = (('location', 1), ('location', 2), ('scale', 0), ('scale', 1), ('scale', 2))
 
 
@@ -164,8 +167,8 @@ def attach_screen_texts(managed, camera, scene):
             ('location', 2): '-(%s)' % distance,
         }
         for index in range(3):
-            # Letter height is `size` of the full frame height
-            expressions[('scale', index)] = '%s*%g' % (frame_half, 2 * size)
+            # Letter height is `size` of the full frame height: the font is `SCREEN_FONT_SCALE` times that, as encoded
+            expressions[('scale', index)] = '%s*%g' % (frame_half, 2 * size * SCREEN_FONT_SCALE)
         for path, index in SCREEN_PATHS:
             obj.driver_remove(path, index)
             driver = obj.driver_add(path, index).driver

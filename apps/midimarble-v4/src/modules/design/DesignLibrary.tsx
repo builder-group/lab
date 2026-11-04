@@ -10,6 +10,7 @@ import { deleteTheme, duplicateTheme } from '@/modules/studio/commands';
 import {
 	commonPieceType,
 	itemFitsPieceType,
+	moreThemeSkins,
 	showsThemeSkin,
 	skinAppliedMessage,
 	themeCommands,
@@ -276,6 +277,8 @@ const SkinSection: React.FC<{
 	const base = baseThemeOf(project.design);
 	const origin = `${themePresets.find((item) => item.id === base)?.label ?? base} Theme`;
 	const builtIn = themeSkins(base, pieceType).filter((skin) => matches(`${skin.label} ${origin}`));
+	// Other themes' skins this theme's pieces can wear, so a Neon or Pegboard project has the same choice as Brass
+	const more = moreThemeSkins(base, pieceType).filter((skin) => matches(`${skin.label} ${themeLabel(skin.themeId)} Theme More Skins`));
 	const items = entries.filter((entry) => itemFitsPieceType(entry.item, pieceType) && matches(`${libraryItemLabel(entry.item)} ${libraryItemOrigin(entry.item)}`));
 	const piecesOfType = project.entities.filter((entity) => entity.components.piece?.type === pieceType);
 	const isMixed = selectedPieces.some((entity) => entity.components.piece?.type !== pieceType);
@@ -307,6 +310,42 @@ const SkinSection: React.FC<{
 					/>
 				))}
 			</div>
+			{more.length > 0 ? (
+				<>
+					<SectionTitle
+						title="More Skins"
+						help={`Skins from other themes. They keep their own look in the ${themeLabel(base)} theme`}
+					/>
+					<div
+						className="mm-tile-grid"
+						role="listbox"
+						aria-label={`More ${typeLabel.toLowerCase()} skins`}
+					>
+						{more.map((skin) => (
+							<SkinTile
+								key={skin.assetId ?? 'default'}
+								label={skin.label}
+								origin={`${themeLabel(skin.themeId)} Theme`}
+								previewUrl={skin.previewUrl}
+								isApplied={
+									selectionTarget.entityIds.length > 0 &&
+									selectedPieces
+										.filter((entity) => entity.components.piece?.type === pieceType)
+										.every((entity) => showsThemeSkin(entity, skin))
+								}
+								isInUse={piecesOfType.some((entity) => showsThemeSkin(entity, skin))}
+								typeLabel={typeLabel}
+								onApply={(toAll) => applyThemeSkin(skin, toAll)}
+								onMenu={() =>
+									applyMenu(typeLabel, selectionTarget.entityIds.length, (toAll) =>
+										applyThemeSkin(skin, toAll)
+									)
+								}
+							/>
+						))}
+					</div>
+				</>
+			) : null}
 			{items.length > 0 ? (
 				<ItemGrid cx={cx} project={project} entries={items} selectedPieces={selectedPieces} pieceType={pieceType} />
 			) : !isUnavailable ? (
@@ -452,6 +491,10 @@ function applyMenu(typeLabel: string, selectedCount: number, apply: (toAll: bool
 async function removeEntry(cx: StudioCx, entry: TLibraryEntry): Promise<void> {
 	if (entry.isKept) await cx.library.setKept(entry, false);
 	if (entry.item.scope === 'project') await cx.library.remove(entry.item);
+}
+
+function themeLabel(themeId: string): string {
+	return themePresets.find((item) => item.id === themeId)?.label ?? themeId;
 }
 
 const SectionTitle: React.FC<{ title: string; help: string }> = (props) => {

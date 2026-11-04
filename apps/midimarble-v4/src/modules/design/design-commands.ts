@@ -78,6 +78,16 @@ export function themeSkins(themeId: string, pieceType: string): TThemeSkin[] {
 	return skins;
 }
 
+/**
+ * Skins of other themes a theme's pieces can wear, for the Library's More Skins: Brass's platform bars and devices
+ * dress a platform as Brass in any theme, so Pegboard, Neon and their copies get the same choice of seven
+ */
+export function moreThemeSkins(themeId: string, pieceType: string): TThemeSkin[] {
+	if (themeId === 'brass' || pieceType !== 'platform') return [];
+	const brass = themeSkins('brass', 'platform');
+	return brass.map((skin) => (skin.assetId == null ? { ...skin, assetId: 'brass:gold' } : skin));
+}
+
 /** Whether a piece shows this theme skin: its own skin, or no skin of its own for the default */
 export function showsThemeSkin(entity: TEntity, skin: TThemeSkin): boolean {
 	const assetId = entity.components.skin?.assetId ?? null;

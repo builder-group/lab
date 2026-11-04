@@ -38,7 +38,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 	function onClick(event: React.MouseEvent<HTMLDivElement>): void {
 		const { point, u, v } = pointOf(event);
 		if (isPlacing) {
-			onPlace(u, v);
+			onPlace(u, v, event.shiftKey);
 			return;
 		}
 		onPick(draft.pick(point, titleBoxes(draft.titles())), event.shiftKey);
@@ -53,41 +53,41 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 		if (id != null) onDropAsset(id, JSON.parse(data) as { id: string; scope: string });
 	}
 
+	// Letterboxed: the frame keeps the film's aspect at the largest size the pane fits, however narrow it is
 	return (
-		<div
-			className="relative max-h-full max-w-full"
-			style={{ aspectRatio: `${frame.width} / ${frame.height}`, height: '100%' }}
-		>
-			<div
-				ref={containerRef}
-				role="img"
-				aria-label="Draft Preview at the playhead"
-				data-placing={isPlacing}
-				data-drop-target={dropTarget}
-				className="mm-preview absolute inset-0 overflow-hidden rounded-[6px]"
-				style={{ boxShadow: '0 0 0 0.5px rgb(0 0 0 / 0.15), 0 12px 40px rgb(0 0 0 / 0.18)' }}
-				onClick={onClick}
-				onDragOver={(event) => {
-					if (!event.dataTransfer.types.includes(LIBRARY_DRAG_TYPE)) return;
-					event.preventDefault();
-					event.dataTransfer.dropEffect = 'copy';
-					setDropTarget(true);
-				}}
-				onDragLeave={() => setDropTarget(false)}
-				onDrop={onDrop}
-			>
-				<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
-				<DraftOverlay draft={draft} />
-				{!hasResult ? (
-					<div className="absolute inset-0 flex items-center justify-center text-[var(--text-tertiary)]">
-						<LoaderCircle className="animate-spin" size={22} />
-					</div>
-				) : null}
-			</div>
-			<div className="mm-floating absolute top-2 left-2 flex items-center gap-1.5 py-1 pr-1.5 pl-2.5 text-[11px] text-[var(--text-secondary)]">
-				{isBusy ? <LoaderCircle className="animate-spin" size={11} /> : null}
-				<span className="font-medium text-[var(--text)]">Draft Preview</span>
-				<HelpTip side="right" text="Blender draws the real look. This preview follows the same camera." />
+		<div className="flex h-full min-h-0 w-full min-w-0 items-center justify-center" style={{ containerType: 'size' }}>
+			<div className="relative" style={{ aspectRatio: `${frame.width} / ${frame.height}`, width: `min(100cqw, 100cqh * ${frame.width / frame.height})` }}>
+				<div
+					ref={containerRef}
+					role="img"
+					aria-label="Draft Preview at the playhead"
+					data-placing={isPlacing}
+					data-drop-target={dropTarget}
+					className="mm-preview absolute inset-0 overflow-hidden rounded-[6px]"
+					style={{ boxShadow: '0 0 0 0.5px rgb(0 0 0 / 0.15), 0 12px 40px rgb(0 0 0 / 0.18)' }}
+					onClick={onClick}
+					onDragOver={(event) => {
+						if (!event.dataTransfer.types.includes(LIBRARY_DRAG_TYPE)) return;
+						event.preventDefault();
+						event.dataTransfer.dropEffect = 'copy';
+						setDropTarget(true);
+					}}
+					onDragLeave={() => setDropTarget(false)}
+					onDrop={onDrop}
+				>
+					<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+					<DraftOverlay draft={draft} />
+					{!hasResult ? (
+						<div className="absolute inset-0 flex items-center justify-center text-[var(--text-tertiary)]">
+							<LoaderCircle className="animate-spin" size={22} />
+						</div>
+					) : null}
+				</div>
+				<div className="mm-floating absolute top-2 left-2 flex items-center gap-1.5 py-1 pr-1.5 pl-2.5 text-[11px] text-[var(--text-secondary)]">
+					{isBusy ? <LoaderCircle className="animate-spin" size={11} /> : null}
+					<span className="font-medium text-[var(--text)]">Draft Preview</span>
+					<HelpTip side="right" text="Blender draws the real look. This preview follows the same camera." />
+				</div>
 			</div>
 		</div>
 	);
@@ -100,8 +100,8 @@ interface TDraftPreviewProps {
 	/** Blender is starting or rendering its preview, which replaces this one when ready */
 	isBusy: boolean;
 	onPick: (entityId: string | null, shiftKey: boolean) => void;
-	/** Click while placing, in 0..1 image coordinates */
-	onPlace: (u: number, v: number) => void;
+	/** Click while placing, in 0..1 image coordinates; ⇧-click keeps the tool for another placement */
+	onPlace: (u: number, v: number, keepTool: boolean) => void;
 	onDropAsset: (entityId: string, asset: { id: string; scope: string }) => void;
 }
 
@@ -115,9 +115,20 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	const titles = draft.titles();
 	const boxes = titleBoxes(titles);
 	const pieces = draft.pieces();
+	const glows = draft.glows();
 
 	return (
 		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+			{glows ? (
+				// Neon's bloom, cheaply: every piece's outline in its glow colour, blurred once as a group and added onto the frame
+				<g style={{ filter: `blur(${Math.max(2, Math.min(8, scale * 0.012))}px)`, mixBlendMode: 'screen' }} opacity={0.85}>
+					{pieces.map((piece) => {
+						const palette = draft.colorsOf(piece);
+						const glow = pieceKind(piece) === 'tube' || piece.type === 'windmill' ? palette.nub : palette.bar;
+						return <polygon key={piece.entityId} points={toPoints(draft.selectionOutline(piece))} fill={glow} fillOpacity={0.35} stroke={glow} strokeWidth={Math.max(2, scale * 0.006)} strokeLinejoin="round" />;
+					})}
+				</g>
+			) : null}
 			{pieces.map((piece) => {
 				const kind = pieceKind(piece);
 				const palette = draft.colorsOf(piece);
@@ -125,6 +136,19 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
 				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
 				return null;
+			})}
+			{draft.marbles().map((marble) => {
+				if (marble.rim == null) return null;
+				// Neon marbles are pearl white; a ring in their hue says which lane each one is
+				const center = draft.toScreen(marble.position);
+				const radius = marble.radius * scale;
+				if (!Number.isFinite(center.x) || !Number.isFinite(radius)) return null;
+				return (
+					<g key={marble.entityId}>
+						<circle cx={center.x} cy={center.y} r={radius * 1.35} fill="none" stroke={marble.rim} strokeOpacity={0.45} strokeWidth={Math.max(2, radius * 0.5)} style={{ filter: 'blur(2px)' }} />
+						<circle cx={center.x} cy={center.y} r={radius * 1.04} fill="none" stroke={marble.rim} strokeWidth={Math.max(1.25, radius * 0.18)} />
+					</g>
+				);
 			})}
 			{titles.map((title) => (title.screen != null ? <ScreenTitle key={title.entityId} title={title} screen={title.screen} /> : <WallTitle key={title.entityId} title={title} />))}
 			{pieces
@@ -140,10 +164,11 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 					);
 				})}
 			{titles
-				.filter((title) => selection.includes(title.entityId))
+				// A title outside its In and Out shows no outline, so no stray box crosses the frame
+				.filter((title) => selection.includes(title.entityId) && title.opacity > 0)
 				.map((title) => {
 					const box = boxes.get(title.entityId);
-					return box == null ? null : <polygon key={title.entityId} points={toPoints(box)} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} strokeDasharray={title.opacity > 0 ? undefined : '4 3'} />;
+					return box == null ? null : <polygon key={title.entityId} points={toPoints(box)} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} />;
 				})}
 		</svg>
 	);

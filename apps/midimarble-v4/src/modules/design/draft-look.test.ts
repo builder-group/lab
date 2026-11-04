@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { verticalFov } from '@/modules/camera';
-import { draftPieceColors, draftWall, noteColor, screenTitleLayout, titleOpacity, TITLE_FADE } from './draft-look';
+import { draftGlows, draftMarble, draftPieceColors, draftWall, noteColor, previewScreenTitleLayout, screenTitleLayout, titleOpacity, TITLE_FADE } from './draft-look';
 import { imageToWall } from './film-camera';
 
 describe('draft look', () => {
@@ -28,6 +28,26 @@ describe('draft look', () => {
 		// A grey marble's pieces turn a cool blue-white instead of a random hue
 		expect(draftPieceColors('neon', { ...platform, color: '#808080' }, false).bar).toBe('#d1e6ff');
 		expect(draftPieceColors('neon', { type: 'rail', color: '#3478f6', skin: null }, false).bar).toBe('#1f6dff');
+	});
+
+	it('should draw Neon marbles pearl white with a rim in their hue, apart from their own glowing platforms', () => {
+		for (const color of ['#3478f6', '#f08a24', '#d94f4f', '#808080']) {
+			const marble = draftMarble('neon', color);
+			const platform = draftPieceColors('neon', { type: 'platform', color, skin: null }, false);
+			const windmill = draftPieceColors('neon', { type: 'windmill', color, skin: null }, false);
+			expect(marble.rim).toBe(platform.bar);
+			// A bright glow can be as light as white, so the marble stands apart from it by colour: near-white against a strong hue
+			expect(saturation(marble.body)).toBeLessThan(0.25);
+			expect(saturation(platform.bar)).toBeGreaterThan(color === '#808080' ? 0.15 : 0.8);
+			expect(luminance(marble.body)).toBeGreaterThan(luminance(platform.bar));
+			// And it is at least 3:1 lighter than the dark mounts, bodies and wall around it
+			expect(contrast(marble.body, platform.nub)).toBeGreaterThanOrEqual(3);
+			expect(contrast(marble.body, windmill.bar)).toBeGreaterThanOrEqual(3);
+			expect(contrast(marble.body, draftWall('neon').color)).toBeGreaterThanOrEqual(3);
+		}
+		expect(draftMarble('brass', '#3478f6')).toEqual({ body: '#3478f6', rim: null });
+		expect(draftGlows('neon')).toBe(true);
+		expect(draftGlows('pegboard')).toBe(false);
 	});
 
 	it('should give Pegboard peg holes, Brass a plain wall and Neon a dark navy one', () => {
@@ -87,3 +107,45 @@ describe('screenTitleLayout function', () => {
 		expect(screenTitleLayout('songName', 0.07, { width: 270, height: 480 }, 1920).center.y).toBeCloseTo(168);
 	});
 });
+
+describe('previewScreenTitleLayout function', () => {
+	it('should draw a 4.7 % Song Name under 6 % of the preview frame for a 9 by 16 project', () => {
+		// The project frame is an aspect, not pixels: a 4.7 % title must not grow to the encoder's 8 px minimum of a 16 px film
+		const frame = { width: 318, height: 566 };
+		for (const preset of ['draft', 'fast', 'balanced', 'best'] as const) {
+			const layout = previewScreenTitleLayout(
+				'songName',
+				0.047,
+				frame,
+				{ width: 9, height: 16 },
+				preset
+			);
+			const capHeight = layout.fontSize / 1.4;
+			expect(capHeight / frame.height).toBeCloseTo(0.047, 3);
+			expect(capHeight / frame.height).toBeLessThan(0.06);
+			expect(layout.padding).toBeLessThan(frame.height * 0.05);
+		}
+	});
+});
+
+/** WCAG contrast ratio of two display colours */
+function contrast(a: string, b: string): number {
+	const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+	return (high + 0.05) / (low + 0.05);
+}
+
+function luminance(color: string): number {
+	const value = Number.parseInt(color.slice(1, 7), 16);
+	const [r, g, b] = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((channel) => {
+		const c = channel / 255;
+		return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+	}) as [number, number, number];
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function saturation(color: string): number {
+	const value = Number.parseInt(color.slice(1, 7), 16);
+	const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+	const max = Math.max(...channels);
+	return max === 0 ? 0 : (max - Math.min(...channels)) / max;
+}

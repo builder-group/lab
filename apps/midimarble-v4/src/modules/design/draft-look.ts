@@ -1,6 +1,8 @@
 import type { TWallLook } from '@/modules/compose/ComposeRenderer';
+import type { TRenderPreset } from '@/modules/blender';
 import type { TScenePiece } from '@/modules/blender/scene-description';
 import type { TThemeOverrides } from '@/modules/project';
+import { filmSize } from './export-estimate';
 
 // Flat colours that approximate the Blender themes for the Film Draft Preview. The values follow
 // `blender/mm_worker/themes.py` and `skins.py`, converted from Blender's linear colours to display sRGB and
@@ -71,8 +73,10 @@ export function draftPieceColors(
 	overrides: Pick<TThemeOverrides, 'glowColor'> = {}
 ): TDraftColors {
 	const note = colorByNote && piece.type === 'platform' && piece.notePitch != null ? noteColor(piece.notePitch) : null;
-	if (theme === 'neon') return neonColors(piece.type, note ?? piece.color, overrides.glowColor ?? null);
-	if (theme !== 'brass') {
+	// A Brass skin from More Skins dresses a platform as Brass in any theme, like `PieceFrame.is_brass_skin` in skins.py
+	const isBrassSkin = piece.type === 'platform' && piece.skin?.assetId.startsWith('brass:') === true;
+	if (theme === 'neon' && !isBrassSkin) return neonColors(piece.type, note ?? piece.color, overrides.glowColor ?? null);
+	if (theme !== 'brass' && !isBrassSkin) {
 		// Pieces take their marble's colour; a lighter tint keeps the marble readable as it rolls over them
 		const body = note ?? tint(piece.color, PEGBOARD_TINT);
 		return piece.type === 'tunnel' ? { bar: body, nub: shade(body, 0.75) } : { bar: body, nub: WOOD };
@@ -97,6 +101,31 @@ export function draftPieceColors(
 
 /** Dark gloss mounts and posts of Neon, `neon_mount_material` in themes.py */
 const NEON_MOUNT = '#1c2030';
+
+/** A marble in the Draft Preview: its body colour and, in Neon, the coloured rim around it */
+export interface TDraftMarble {
+	body: string;
+	rim: string | null;
+}
+
+/**
+ * A marble's look in a theme. Neon lights its pieces in the marble's hue, so a marble in that hue vanished against
+ * its own platforms: like `neon_marble_material` in themes.py it is pearl white with its hue only on the rim. The
+ * other themes keep the marble's colour.
+ */
+export function draftMarble(theme: string, color: string): TDraftMarble {
+	if (theme !== 'neon') return { body: color, rim: null };
+	const hue = saturate(color, 1);
+	return { body: tint(hue, NEON_MARBLE_WHITE), rim: hue };
+}
+
+/** Share of white in a Neon marble's body in display colours, `NEON_MARBLE_WHITE` in themes.py (linear there) */
+const NEON_MARBLE_WHITE = 0.8;
+
+/** Whether the theme's pieces glow, so the Draft Preview draws a soft halo around them like Blender's bloom */
+export function draftGlows(theme: string): boolean {
+	return theme === 'neon';
+}
 
 /**
  * Neon pieces in the hue of their marble or note at full saturation, after `neon_colors` in skins.py: what reads
@@ -181,6 +210,20 @@ export function screenTitleLayout(style: keyof typeof SCREEN_TITLE_HEIGHT, size:
 		padding: Math.max(4, filmFont / 3) * scale,
 		shadow: Math.max(1, filmFont / 24) * scale
 	};
+}
+
+/**
+ * A screen title in the Draft Preview frame of `frame` CSS pixels. The project frame is only an aspect (9 by 16), so
+ * the encoder's whole-pixel rounding and minimum sizes use the pixel height of the film the preset exports
+ */
+export function previewScreenTitleLayout(
+	style: keyof typeof SCREEN_TITLE_HEIGHT,
+	size: number,
+	frame: { width: number; height: number },
+	projectFrame: { width: number; height: number },
+	preset: TRenderPreset
+): TScreenTitleLayout {
+	return screenTitleLayout(style, size, frame, filmSize(projectFrame, preset).height);
 }
 
 /** Backing of the encoder: black at 28 %, shadow black at 35 % */

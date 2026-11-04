@@ -75,7 +75,7 @@ def ballistic():
     return np.stack([times, x, y, angle], axis=1).astype('<f4'), hit
 
 
-def write_package(root, records, hit, theme='brass', asset=False, reaction=None, texts=None, duration=DURATION, overrides=None):
+def write_package(root, records, hit, theme='brass', asset=False, reaction=None, texts=None, duration=DURATION, overrides=None, skin=None):
     motion = root / '.cache' / 'motion'
     motion.mkdir(parents=True, exist_ok=True)
     records.tofile(motion / 'marble-1.bin')
@@ -83,7 +83,7 @@ def write_package(root, records, hit, theme='brass', asset=False, reaction=None,
         'id': 'platform-1', 'name': 'Key 1', 'type': 'platform', 'params': PLATFORM,
         'position': PLATFORM_POSITION, 'angle': PLATFORM_ANGLE, 'wallOffset': 0.0,
         'hitTimes': [hit], 'motionPath': None, 'sampleCount': 0, 'color': '#e2a33b',
-        'skin': {'assetId': 'test-key', 'link': 'linked'} if asset else None,
+        'skin': {'assetId': 'test-key', 'link': 'linked'} if asset else ({'assetId': skin, 'link': 'linked'} if skin else None),
         'assetPath': ASSET_PATH if asset else None,
         'reaction': reaction,
     }
@@ -423,7 +423,7 @@ def main():
               'the caption sits at the top centre of the frame at frame %d (%.3f, %.3f; focus %.3f, camera %s, caption %s, lens %.1f)' % (
                   frame, centre.x, centre.y, camera_obj.data.dof.focus_distance, tuple(round(v, 3) for v in camera_obj.matrix_world.translation),
                   tuple(round(v, 3) for v in caption_obj.matrix_world.translation), camera_obj.data.lens))
-        check(abs((top.y - centre.y) * 2 - 0.06) < 0.003, 'the caption keeps its size in the frame at frame %d' % frame)
+        check(abs((top.y - centre.y) * 2 - 0.06 * walltext.SCREEN_FONT_SCALE) < 0.004, 'the caption keeps its size in the frame at frame %d, its font 1.4 times its letter height like the encoder' % frame)
         check(abs(end_centre.y - 0.5) < 0.01, 'the end card sits in the centre at frame %d' % frame)
         song_centre = world_to_camera_view(scene, camera_obj, song_obj.matrix_world.translation)
         check(abs(song_centre.y - 0.65) < 0.01 and abs(song_centre.x - 0.5) < 0.01 and song_obj.parent == camera_obj,
@@ -437,7 +437,7 @@ def main():
         bpy.context.view_layer.update()
         centre = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world.translation)
         top = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world @ Vector((0.0, 0.5, 0.0)))
-        check(abs(centre.y - 0.85) < 0.01 and abs((top.y - centre.y) * 2 - 0.06) < 0.003 and 0 < centre.z < abs(location[1]),
+        check(abs(centre.y - 0.85) < 0.01 and abs((top.y - centre.y) * 2 - 0.06 * walltext.SCREEN_FONT_SCALE) < 0.004 and 0 < centre.z < abs(location[1]),
               'a perspective camera %.2f m from the wall keeps the caption at the top in front of the wall' % abs(location[1]))
     states = {item['mmId']: item['link'] for item in worker.handle('inspect', {})['texts']}
     check(states == {'text-caption': 'linked', 'text-end': 'linked', 'text-song': 'linked'}, 'camera drivers do not detach a screen title')
@@ -471,6 +471,37 @@ def main():
     trims = [slot.material.name for obj in holder('platform-1').children_recursive if obj.type == 'MESH' for slot in obj.material_slots
              if slot.material is not None and slot.material.name.startswith('MM · neon trim')]
     check(trims and all(name.startswith('MM · neon trim 0.000 1.000 0.000') for name in trims), "a Neon project theme's Glow colours every edge (%s)" % trims)
+    # Neon marbles contrast with their own lane: a pearl-white body with the lane's hue only on the rim, never the
+    # saturated hue its platforms glow in
+    write_package(root, records, hit, theme='neon')
+    apply(worker)
+    marble_materials = [slot.material for obj in [holder('marble-1'), *holder('marble-1').children_recursive] if obj.type == 'MESH'
+                        for slot in obj.material_slots if slot.material is not None]
+    platform_materials = [slot.material for obj in holder('platform-1').children_recursive if obj.type == 'MESH'
+                          for slot in obj.material_slots if slot.material is not None]
+
+    def luminance(color):
+        return 0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2]
+
+    def saturation(color):
+        top = max(color[:3])
+        return 0.0 if top <= 0 else (top - min(color[:3])) / top
+
+    marble_body = marble_materials[0].diffuse_color if marble_materials else (0.0, 0.0, 0.0, 1.0)
+    check(marble_materials and marble_materials[0].name.startswith('MM · neon pearl marble') and saturation(marble_body) < 0.2,
+          'a Neon marble is pearl white, not its lane colour (%s, saturation %.2f)' % (marble_materials[0].name if marble_materials else None, saturation(marble_body)))
+    lane_glows = [tuple(material.node_tree.nodes['Principled BSDF'].inputs['Emission Color'].default_value) for material in platform_materials
+                  if material.name.startswith('MM · neon trim')]
+    lane_bodies = [tuple(material.diffuse_color) for material in platform_materials]
+    check(lane_glows and all(saturation(glow) > 0.8 for glow in lane_glows), 'Neon platforms glow in their lane hue (%d trims)' % len(lane_glows))
+    contrast = min((luminance(marble_body) + 0.05) / (luminance(body) + 0.05) for body in lane_bodies) if lane_bodies else 0.0
+    check(contrast >= 3.0, 'a Neon marble is at least 3:1 lighter than every surface of its lane platform (%.1f:1)' % contrast)
+    # More Skins: a Brass skin dresses a platform as Brass in Neon too
+    write_package(root, records, hit, theme='neon', skin='brass:copper')
+    apply(worker)
+    names = [slot.material.name for obj in holder('platform-1').children_recursive if obj.type == 'MESH' for slot in obj.material_slots if slot.material is not None]
+    check(any('copper' in name.lower() for name in names) and not any(name.startswith('MM · neon trim') for name in names),
+          'a Brass skin from More Skins dresses a Neon platform as copper Brass (%s)' % sorted(set(names)))
     write_package(root, records, hit, asset=True)
     report = apply(worker)
     check(report['themed'] and studio('studio.wall').data.materials[0].name == 'MM · wall plaster', 'the built-in theme brings its own wall back')

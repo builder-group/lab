@@ -10,6 +10,7 @@ import {
 	colorByNoteCommands,
 	isScreenTitle,
 	itemFitsPieceType,
+	moreThemeSkins,
 	previewPointToWall,
 	reactionCommands,
 	showsThemeSkin,
@@ -24,6 +25,7 @@ import {
 	withTitleStyle
 } from './design-commands';
 import { isNewThemeRequest, libraryEntries } from './DesignLibraryCx';
+import { draftPieceColors } from './draft-look';
 
 function apply(project: TProject, commands: Parameters<typeof applyProjectCommands>[1]): TProject {
 	const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, commands);
@@ -42,6 +44,25 @@ describe('design commands', () => {
 		expect(brass[0]).toMatchObject({ assetId: null, label: 'Gold', previewUrl: '/skins/brass-platform.png' });
 		expect(brass.map((skin) => skin.assetId)).toContain('brass:device-copper');
 		expect(themeSkins('brass', 'unknown')).toEqual([]);
+	});
+
+	it('should offer Brass platform skins under More Skins in the other themes and their copies', () => {
+		const more = moreThemeSkins('neon', 'platform');
+		expect(more).toHaveLength(themeSkins('brass', 'platform').length);
+		expect(more[0]).toMatchObject({ assetId: 'brass:gold', label: 'Gold', themeId: 'brass' });
+		expect(more.every((skin) => skin.assetId?.startsWith('brass:') === true)).toBe(true);
+		expect(moreThemeSkins('pegboard', 'platform')).toEqual(more);
+		expect(moreThemeSkins('brass', 'platform')).toEqual([]);
+		expect(moreThemeSkins('neon', 'rail')).toEqual([]);
+		// The Draft Preview dresses a Brass skin as Brass in Neon, like the Blender worker
+		const copper = {
+			type: 'platform',
+			color: '#3478f6',
+			skin: { assetId: 'brass:copper', link: 'linked' as const }
+		};
+		expect(draftPieceColors('neon', copper, false)).toEqual(
+			draftPieceColors('brass', copper, false)
+		);
 	});
 
 	it('should link a theme variant and clear the skin for the theme default', () => {

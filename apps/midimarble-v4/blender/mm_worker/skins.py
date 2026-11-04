@@ -175,8 +175,8 @@ def piece_reaction(piece, context):
         if piece.get('type') == 'windmill':
             reaction.update(flash=WINDMILL_FLASH)
             return reaction
-        # A brass knob's lens lights up on every hit, like the reference's glowing red tops
-        knob = context['theme'] == 'brass' and device_parts(brass_skin(piece))[0] == 'knob'
+        # A brass knob's lens lights up on every hit, like the reference's glowing red tops, in any theme
+        knob = device_parts(brass_skin(piece))[0] == 'knob'
         reaction.update(press=theme.get('press', 0.0), dip=theme.get('dip', 0.0),
                         flash=DEFAULT_GLOW if knob else theme.get('flash', 0.0))
         return reaction
@@ -383,6 +383,8 @@ class PieceFrame:
         self.color = piece.get('color') or '#c8b89a'
         # Built-in brass skins are chosen with skin asset IDs `brass:<skin>`; other skins keep the theme default
         self.finish = brass_skin(piece)
+        # A `brass:` skin chosen under More Skins dresses the platform as Brass in any theme
+        self.is_brass_skin = ((piece.get('skin') or {}).get('assetId') or '').startswith('brass:')
         # Colour by Note: a platform that plays a note takes its pitch class colour
         pitch = piece.get('notePitch')
         self.note_pitch = float(pitch) if context.get('colorByNote') and isinstance(pitch, (int, float)) else None
@@ -418,9 +420,10 @@ def platform_spec(frame, piece, theme):
     params = frame.params
     length = params.get('length', 0.06)
     thickness = params.get('thickness', 0.008)
-    if theme == 'brass' and frame.device is not None:
+    is_brass = theme == 'brass' or frame.is_brass_skin
+    if is_brass and frame.device is not None:
         return device_spec(frame, length, thickness)
-    if theme == 'brass':
+    if is_brass:
         chrome = themes.chrome_material()
         metal = themes.note_material(frame.note_pitch) if frame.note_pitch is not None else themes.bar_material(frame.finish)
         # Bracket parts scale with the kit, measured against the 16 mm marble of the Marble Race Kit

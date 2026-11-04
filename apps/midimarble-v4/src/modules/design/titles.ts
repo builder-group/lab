@@ -37,3 +37,31 @@ export function titleClips(project: TProject): { entityId: string; text: string;
 		})
 		.sort((a, b) => a.start - b.start);
 }
+
+/**
+ * The song's name as a Song Name title reads it: the song file's name as words in Title Case ("jingle-bells.mid"
+ * reads "Jingle Bells"), else the project's title unless it is still "Untitled", else null
+ */
+export function songDisplayName(project: {
+	title: string;
+	music: { sources: readonly { name: string }[] };
+}): string | null {
+	const file = project.music.sources[0]?.name;
+	const fromFile = file != null ? prettifyName(file.replace(/\.[^./]+$/, '')) : '';
+	if (fromFile !== '') return fromFile;
+	const title = project.title.trim();
+	return title !== '' && !/^untitled(\s+\d+)?$/i.test(title) ? title : null;
+}
+
+/** File name words in Title Case: dashes and underscores become spaces, lower-case words get a capital, "ABBA" stays */
+function prettifyName(name: string): string {
+	return name
+		.replace(/[-_]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.split(' ')
+		.map((word) =>
+			word === word.toLowerCase() ? word.charAt(0).toUpperCase() + word.slice(1) : word
+		)
+		.join(' ');
+}

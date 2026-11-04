@@ -647,37 +647,53 @@ def neon_mount_material():
     return plastic_material('neon mount', (0.012, 0.014, 0.024), 0.25, coat=0.8)
 
 
+def neon_marble_core(color):
+    """Linear colour of a Neon marble's body: near-white with a hint of its lane's hue. The pieces glow in the lane's
+    saturated hue, so a marble in that hue vanished against its own platforms; the reference channels light their
+    marbles white or pearl and keep the colour for the rim"""
+    hue = neon_color(color, 1.0)
+    return tuple(NEON_MARBLE_WHITE + (1.0 - NEON_MARBLE_WHITE) * channel for channel in hue)
+
+
 def neon_marble_material(color):
-    """Glossy marble in a saturated `color` with a bright rim, so it reads against the dark wall from any side"""
+    """Glossy pearl-white marble with a faint glow of its own and a rim in its lane's saturated hue, so it reads
+    against the dark wall and against its own lane's glowing pieces"""
     def build(material):
         tree = material.node_tree
         nodes, links = tree.nodes, tree.links
         principled = _principled(material)
-        linear = neon_color(color, 1.0)
-        base = (*linear, 1.0)
-        material.diffuse_color = base
-        _set(principled, 'Base Color', base)
-        _set(principled, 'Roughness', 0.15)
+        core = (*neon_marble_core(color), 1.0)
+        hue = (*neon_color(color, 1.0), 1.0)
+        material.diffuse_color = core
+        _set(principled, 'Base Color', core)
+        _set(principled, 'Roughness', 0.12)
         _set(principled, 'Coat Weight', 1.0)
         _set(principled, 'Coat Roughness', 0.02)
-        rim_color = tuple(0.45 + 0.55 * channel for channel in linear) + (1.0,)
-        _set(principled, 'Emission Color', rim_color)
-        # Facing rises toward the silhouette; the power keeps the glow to a thin rim
+        # Facing rises toward the silhouette; the power keeps the coloured glow to a thin rim around a white core
         weight = nodes.new('ShaderNodeLayerWeight')
         weight.inputs['Blend'].default_value = 0.5
         rim = nodes.new('ShaderNodeMath')
         rim.operation = 'POWER'
         rim.inputs[1].default_value = 3.0
+        links.new(weight.outputs['Facing'], rim.inputs[0])
+        mix = nodes.new('ShaderNodeMix')
+        mix.data_type = 'RGBA'
+        mix.inputs['A'].default_value = core
+        mix.inputs['B'].default_value = hue
+        links.new(rim.outputs['Value'], mix.inputs['Factor'])
+        links.new(mix.outputs['Result'], principled.inputs['Emission Color'])
         strength = nodes.new('ShaderNodeMath')
         strength.operation = 'MULTIPLY_ADD'
         strength.inputs[1].default_value = NEON_MARBLE_RIM
-        strength.inputs[2].default_value = 0.0
-        links.new(weight.outputs['Facing'], rim.inputs[0])
+        strength.inputs[2].default_value = NEON_MARBLE_GLOW
         links.new(rim.outputs['Value'], strength.inputs[0])
         links.new(strength.outputs['Value'], principled.inputs['Emission Strength'])
-    return _shared('MM · neon marble ' + color, build)
+    return _shared('MM · neon pearl marble ' + color, build)
 
 
+# Share of white in a Neon marble's body, its steady self-glow and the strength of its coloured rim
+NEON_MARBLE_WHITE = 0.86
+NEON_MARBLE_GLOW = 0.35
 NEON_MARBLE_RIM = 3.5
 
 

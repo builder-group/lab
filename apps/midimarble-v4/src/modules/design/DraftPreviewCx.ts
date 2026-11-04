@@ -8,7 +8,7 @@ import type { TVec2 } from '@/modules/project';
 import { DEFAULT_THEME, resolveTheme } from './project-themes';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { draftPieceColors, draftWall, screenTitleLayout, titleOpacity, type TDraftColors, type TScreenTitleLayout } from './draft-look';
+import { draftGlows, draftMarble, draftPieceColors, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { selectionHull } from './draft-outline';
 import { filmCamera, imageToWall, type TFilmCamera } from './film-camera';
 
@@ -113,7 +113,7 @@ export class DraftPreviewCx {
 			if (text == null) return [];
 			if (text.style === 'caption' || text.style === 'songName' || text.style === 'endCard') {
 				// Screen titles are drawn onto the encoded film: a fixed place and size in the frame on a soft backing
-				const screen = screenTitleLayout(text.style, text.size, this.size, project.frame.height);
+				const screen = previewScreenTitleLayout(text.style, text.size, this.size, project.frame, project.design.renderPreset);
 				return [{ entityId: entity.id, text: text.text, color: text.color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen }];
 			}
 			if (transform == null) return [];
@@ -135,6 +135,35 @@ export class DraftPreviewCx {
 				}
 			];
 		});
+	}
+
+	/** Marbles at the playhead in the theme's look: their wall position, radius and body and rim colours */
+	marbles(): (TDraftMarble & { entityId: string; radius: number; position: TVec2 })[] {
+		const project = this.studio.project;
+		if (project == null) return [];
+		const theme = resolveTheme(project.design).base;
+		const result = this.studio.simulation.$result.get();
+		const hidden = this.studio.$hidden.get();
+		const playhead = this.studio.$playhead.get();
+		return project.entities.flatMap((entity) => {
+			const { marble, release } = entity.components;
+			if (marble == null || release == null || hidden.includes(entity.id)) return [];
+			const motion = result?.marbles.find((item) => item.entityId === entity.id);
+			return [
+				{
+					entityId: entity.id,
+					radius: marble.radius,
+					position: marblePositionAt(motion, playhead, release.position),
+					...draftMarble(theme, marble.color)
+				}
+			];
+		});
+	}
+
+	/** Whether the theme's pieces glow, for the overlay's soft halo */
+	glows(): boolean {
+		const project = this.studio.project;
+		return project != null && draftGlows(resolveTheme(project.design).base);
 	}
 
 	/**
@@ -218,15 +247,8 @@ export class DraftPreviewCx {
 
 		const items: TRenderPiece[] = this.pieces().map((piece) => ({ piece, ghost: false, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece) }));
 		renderer.setPieces(items);
-		const result = this.studio.simulation.$result.get();
-		const hidden = this.studio.$hidden.get();
 		renderer.setMarbles(
-			project.entities.flatMap((entity) => {
-				const { marble, release } = entity.components;
-				if (marble == null || release == null || hidden.includes(entity.id)) return [];
-				const motion = result?.marbles.find((item) => item.entityId === entity.id);
-				return [{ entityId: entity.id, color: marble.color, radius: marble.radius, position: marblePositionAt(motion, playhead, release.position) }];
-			})
+			this.marbles().map(({ entityId, body, radius, position }) => ({ entityId, color: body, radius, position }))
 		);
 		renderer.render();
 		this.$frame.set((value) => value + 1);

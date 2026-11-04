@@ -54,10 +54,19 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 		return { u: (event.clientX - rect.left) / rect.width, v: (event.clientY - rect.top) / rect.height };
 	}
 
+	/**
+	 * Places a title and returns to Move like Figma's Text tool, so the next click selects instead of stacking a
+	 * second title; ⇧-click keeps the Title tool for another one
+	 */
+	function placeTitle(u: number, v: number, keepTool: boolean): void {
+		onPlace(u, v);
+		if (!keepTool) cx.$placing.set(null);
+	}
+
 	async function onClick(event: React.MouseEvent<HTMLImageElement>): Promise<void> {
 		const { u, v } = toImage(event);
 		if (placing === 'text') {
-			onPlace(u, v);
+			placeTitle(u, v, event.shiftKey);
 			return;
 		}
 		onPick(await cx.pick(u, v), event.shiftKey);
@@ -82,7 +91,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					isPlacing={placing != null}
 					isBusy={busy}
 					onPick={onPick}
-					onPlace={onPlace}
+					onPlace={placeTitle}
 					onDropAsset={onDropAsset}
 				/>
 			) : preview != null ? (
@@ -120,7 +129,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 			{placing === 'text' ? (
 				<div className="mm-floating absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-2 px-3 py-1.5 text-[12px]">
 					<Type size={13} strokeWidth={1.8} />
-					<span>Click the wall to place a title</span>
+					<span>Click the wall to place a title · ⇧-click to place more</span>
 					<kbd className="mm-keycap">esc</kbd>
 				</div>
 			) : !isDraft && busy ? (

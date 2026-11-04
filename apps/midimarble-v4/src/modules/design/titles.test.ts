@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildSceneDescription } from '@/modules/blender/scene-builder';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
 import { addWallTextCommands } from './design-commands';
-import { titleClips, titleSpan, withTitleTime } from './titles';
+import { songDisplayName, titleClips, titleSpan, withTitleTime } from './titles';
 
 const TEXT = { text: 'Fin', font: 'Bfont Regular', size: 0.03, depth: 0.002, color: '#1d1d1f' };
 
@@ -47,5 +47,30 @@ describe('title timing', () => {
 		// Assert
 		expect(clips).toEqual([{ entityId, text: 'Fin', start: 1, end: 3 }]);
 		expect(description.wallTexts).toEqual([expect.objectContaining({ id: entityId, in: 1, out: 3 })]);
+	});
+});
+
+describe('songDisplayName function', () => {
+	const song = (name: string | null, title = 'Untitled 8') => ({
+		title,
+		music: {
+			sources:
+				name == null
+					? []
+					: [{ id: 's', kind: 'midi' as const, path: `midi/${name}`, name, offset: 0 }],
+			lanes: []
+		}
+	});
+
+	it('should read the song file as words in Title Case', () => {
+		expect(songDisplayName(song('jingle-bells.mid'))).toBe('Jingle Bells');
+		expect(songDisplayName(song('ode_to__joy.mid'))).toBe('Ode To Joy');
+		expect(songDisplayName(song('ABBA-mamma mia.wav'))).toBe('ABBA Mamma Mia');
+	});
+
+	it('should fall back to the project title, never to Untitled', () => {
+		expect(songDisplayName(song(null, 'Morning Run'))).toBe('Morning Run');
+		expect(songDisplayName(song(null, 'Untitled 8'))).toBeNull();
+		expect(songDisplayName(song(null, 'Untitled'))).toBeNull();
 	});
 });
