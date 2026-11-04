@@ -42,7 +42,6 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 		design: {
 			theme: 'pegboard',
 			renderPreset: 'balanced',
-			loop: false,
 			camera: {
 				mode: 'rig',
 				distance: DEFAULT_CAMERA_DISTANCE,

@@ -11,7 +11,7 @@ import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { ZOOM_100_SCALE } from '@/modules/compose/view';
 import { fixedColorSkinLabel } from '@/modules/design/design-commands';
-import { CameraInspector, FormatField, PieceSkin, SeamlessLoopRows, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
+import { CameraInspector, FormatField, PieceSkin, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
 import { MarbleSkin } from '@/modules/design/SkinProperties';
 import { THEME_HELP } from '@/modules/design/concept-words';
 import { ThemeRow } from '@/modules/design/ThemePanel';
@@ -552,7 +552,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 
 /**
  * The Scene, selected by its row in Layers or by clearing the selection, like Blender's Scene properties: only what the
- * whole film shares. Film shows the Theme row and Format. Compose shows Gravity and Seamless Loop. The length is the transport's and
+ * whole film shares. Film shows the Theme row and Format. Compose shows Gravity. The length is the transport's and
  * the ruler's; each layer keeps its own settings.
  */
 const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolean }> = (props) => {
@@ -570,7 +570,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 					<FormatField cx={cx} project={project} />
 				</Panel>
 			) : (
-				<Panel id="scene.compose" title="Film" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time. Seamless Loop: the end of the film runs into its start, so every marble has to come back to where it was released." />}>
+				<Panel id="scene.compose" title="Film" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>
 					<SliderField
 						id="world-speed"
 						label="Gravity"
@@ -586,7 +586,6 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 							cx.simulation.endPreview();
 						}}
 					/>
-					<SeamlessLoopRows cx={cx} project={project} />
 				</Panel>
 			)}
 		</>

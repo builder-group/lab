@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, type TProject } from '@/modules/project';
 import type { THitResult, TSimulationResult } from '@/modules/simulation/types';
-import { buildSceneDescription, encodeRecords, lastHitTime, LOOP_GHOST_SUFFIX, MOTION_FOLDER } from './scene-builder';
+import { buildSceneDescription, encodeRecords, lastHitTime, MOTION_FOLDER } from './scene-builder';
 
 function fixture(): { project: TProject; result: TSimulationResult; marbleId: string; laneId: string } {
 	const project = createProject({ title: 'Song', id: 'project-1' });
@@ -376,35 +376,5 @@ describe('buildSceneDescription for scenery', () => {
 		const platforms = description.pieces.filter((piece) => piece.type === 'platform');
 		expect(platforms.every((piece) => piece.musical === true)).toBe(true);
 		expect(platforms.some((piece) => piece.hitTimes.length > 0)).toBe(true);
-	});
-});
-
-describe('buildSceneDescription for a loop', () => {
-	it('adds a ghost marble, the loop range and a duration that ends with the loop', async () => {
-		const { readFileSync } = await import('node:fs');
-		const { parseProject } = await import('@/modules/project');
-		const { createSimulator } = await import('@/modules/simulation/simulate');
-		const { createLoop } = await import('@/modules/simulation/loop');
-		const json = readFileSync(new URL('../../../fixtures/loop.marble.json', import.meta.url), 'utf8');
-		const [isProjectOk, projectErr, project] = parseProject(json);
-		if (!isProjectOk) throw projectErr;
-		const simulator = await createSimulator();
-		const result = simulator.simulate(project);
-		simulator.dispose();
-		const loop = createLoop(project, result);
-
-		const { description, motionFiles } = buildSceneDescription(project, result, { fps: 30 });
-
-		const marble = result.marbles[0];
-		const ghost = description.marbles.find((item) => item.ghostOf === marble?.entityId);
-		expect(ghost?.id).toBe(`${marble?.entityId}${LOOP_GHOST_SUFFIX}`);
-		expect(ghost?.sampleCount).toBe(loop?.ghosts[0]?.samples.length);
-		expect(motionFiles.some((file) => file.path === ghost?.motionPath)).toBe(true);
-		expect(description.loop).toEqual({ start: loop?.start, end: loop?.end, blend: loop?.blend });
-		expect(description.duration).toBe(loop?.end);
-
-		const plain = buildSceneDescription({ ...project, design: { ...project.design, loop: false } }, result, { fps: 30 });
-		expect(plain.description.loop).toBeNull();
-		expect(plain.description.marbles.some((item) => item.ghostOf != null)).toBe(false);
 	});
 });

@@ -149,14 +149,6 @@ def check_effects(worker, root, samples):
     flat = render.workbench_settings(scene, 5)
     check(any(name == 'use_compositing' and value is False for _target, name, value in flat), 'Flat Light skips Bloom')
 
-    # A loop film closes on itself: the Garland's scroll is a whole number of pattern periods, flakes whole cycles
-    scene['mm_loop'] = [0.0, 2.0, 0.5]
-    loop = decor_effects.loop_frames(scene, FPS)
-    frames, heights = decor_effects.garland_scroll(decor_effects.camera_path(camera, scene), camera, scene, 0.02, wide['garland'] and decor_effects.params_of(wide, 'garland'), loop)
-    period = wide['garland']['spacing'] * decor_effects.frame_half(camera, scene, 0.02)[1] * 2 * decor_effects.GARLAND_PERIOD
-    check(frames and abs((heights[loop] - heights[0]) / period - round((heights[loop] - heights[0]) / period)) < 1e-3, 'a loop film closes the Garland on its pattern')
-    del scene['mm_loop']
-
     apply(worker, root, description(samples, []))
     check(bpy.data.objects.get('Snowfall') is None and not [obj for obj in managed.objects if decor_effects.is_effect(obj)], 'deleted effects leave the file, the Garland with its glow')
 

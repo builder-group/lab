@@ -30,48 +30,11 @@ import { skinElement } from './skin-catalog';
 import { SkinPicker } from './SkinPickers';
 import { ResetToTheme, SkinPropertyRows } from './SkinProperties';
 import { framingFix, framingProblemAt, preflightExport } from './export-preflight';
-import { describeLoop } from './loop-status';
 import { shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
 import { songDisplayName, titleSpan, withTitleTime } from './titles';
 
 // Inspectors of the Film layers on the inspector grid: a piece's skin, a title or the titles, a shot and the
-// Camera, plus Seamless Loop for the Scene in Compose. The studio's Inspector picks one for the selection.
-
-/** Seamless Loop in the Scene inspector of Compose, where the run has to loop; export honours it */
-export const SeamlessLoopRows: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
-	const design = project.design;
-	return (
-		<>
-			<CheckField id="design-loop" label="Seamless Loop" checked={design.loop} onChange={(loop) => cx.execute([{ type: 'setDesign', design: { loop } }])} />
-			{design.loop ? <LoopStatus cx={cx} project={project} /> : null}
-		</>
-	);
-};
-
-/** The loop check of the current simulation as one state row, with a fix for a length off the bar grid */
-const LoopStatus: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
-	const result = useFeatureState(cx.simulation.$result);
-	const status = React.useMemo(() => (result != null && result.revision === project.revision ? describeLoop(project, result) : null), [project, result]);
-	if (status == null) return <StateRow tone="neutral" label="Checking the loop…" />;
-	const { snappedEnd } = status;
-	const mismatches = status.details.length;
-	return (
-		<>
-			<StateRow
-				tone={status.isOk ? 'good' : 'warn'}
-				label={status.isOk ? 'Start and end match' : mismatches > 0 ? `${mismatches} ${mismatches === 1 ? 'mismatch' : 'mismatches'}` : status.summary}
-				detail={[status.summary, ...status.details].join(' ')}
-			/>
-			{snappedEnd != null ? (
-				<button className="mm-button" data-span="2" onClick={() => cx.execute([{ type: 'setEnd', end: snappedEnd }])} type="button">
-					Snap End to Bar
-				</button>
-			) : null}
-		</>
-	);
-};
+// Camera. The studio's Inspector picks one for the selection.
 
 /**
  * The Camera layer's inspector, in Compose and in Film: the frame of the film, then Automatic or Manual with the

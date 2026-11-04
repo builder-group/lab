@@ -4,7 +4,6 @@ export * from './lane-proposal';
 export * from './midi';
 export * from './audio-engine';
 export * from './instruments';
-export * from './loop-audio';
 export * from './onsets';
 export * from './parts';
 export * from './synthesize';

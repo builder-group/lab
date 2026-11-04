@@ -29,7 +29,6 @@ export const exampleGroups: TExampleGroup[] = [
 			{ id: 'long-gap', title: 'Long Gap', detail: 'A rail and a tunnel fill a long pause' },
 			{ id: 'windmill', title: 'Windmill', detail: 'A spinning piece' },
 			{ id: 'two-marbles', title: 'Two Marbles', detail: 'Two marbles, one song' },
-			{ id: 'loop', title: 'Seamless Loop', detail: 'Ends where it starts' },
 			{ id: 'reference-20', title: 'Brass Sections', detail: 'Skins and titles per section' }
 		]
 	}

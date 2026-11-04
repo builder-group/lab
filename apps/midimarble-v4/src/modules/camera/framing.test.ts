@@ -45,7 +45,6 @@ function scene(melody: number[], bass: number[]): { result: TSimulationResult; t
 		duration: 10,
 		frame: { width: 1080, height: 1920 },
 		camera: { mode: 'rig', distance: 0.7, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: [] },
-		loop: null,
 		pieceLength: 0.09,
 		marbles: marbles.map((marble, index) => ({
 			id: marble.entityId,

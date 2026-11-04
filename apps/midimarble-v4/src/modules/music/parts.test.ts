@@ -195,11 +195,4 @@ describe('renderProjectAudio function', () => {
 		expect(peak(audio.left, 0, 2)).toBe(0);
 		expect(fetch).not.toHaveBeenCalled();
 	});
-
-	it('should render a silent loop of the loop length without a Song', async () => {
-		const audio = await renderProjectAudio(project([], [note('a', 0.2)], []), () => null, { sampleRate: SAMPLE_RATE, loop: { start: 0, length: 1 } });
-
-		expect(audio.left).toHaveLength(SAMPLE_RATE);
-		expect(peak(audio.left, 0, 1)).toBe(0);
-	});
 });

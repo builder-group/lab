@@ -598,15 +598,6 @@ export const commands: readonly TCommand[] = [
 	presetCommand('design.presetBalanced', 'balanced', 'High Quality'),
 	presetCommand('design.presetBest', 'best', 'Best Quality'),
 	{
-		id: 'design.loop',
-		title: 'Seamless Loop',
-		section: 'Film',
-		keywords: 'repeat loop',
-		isEnabled: hasProject,
-		isChecked: (cx) => cx.project?.design.loop === true,
-		run: (cx) => cx.execute([{ type: 'setDesign', design: { loop: cx.project?.design.loop !== true } }])
-	},
-	{
 		id: 'design.takeOverCamera',
 		title: 'Take Over Camera',
 		section: 'Film',
@@ -752,7 +743,6 @@ export type TCommandId =
 	| 'design.themeBrass'
 	| 'design.themeNeon'
 	| TPresetCommandId
-	| 'design.loop'
 	| 'design.takeOverCamera'
 	| 'design.deleteTheme'
 	| 'design.cancelExport'

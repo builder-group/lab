@@ -7,7 +7,6 @@ import {
 	type TDecodedAudio,
 	type TStereoAudio
 } from './synthesize';
-import { cutLoopAudio, foldLoopAudio, LOOP_AUDIO_TAIL, loopHits, loopLanes, type TLoopRange } from './loop-audio';
 import { hasSong } from './parts';
 import { createScrubber } from './scrub';
 import { decodeAudioFile } from './waveform';
@@ -17,7 +16,6 @@ const BANK_URL = '/audio/marble-instruments.sf2';
 
 /**
  * Seconds the soundtrack fades out over at the film end, so a note still ringing after `SONG_TAIL` is not cut off.
- * Loop films are folded instead and render their fade outside the loop.
  */
 export const FILM_AUDIO_FADE = 0.4;
 
@@ -170,24 +168,11 @@ export type TResolveSourceUrl = (source: TSource) => string | null;
 export async function renderProjectAudio(
 	project: TProject,
 	resolveSourceUrl: TResolveSourceUrl,
-	options: { sampleRate?: number; loop?: TLoopRange | null } = {}
+	options: { sampleRate?: number } = {}
 ): Promise<TStereoAudio> {
-	const { sampleRate = SAMPLE_RATE, loop } = options;
-	if (!hasSong(project)) return silentAudio(loop?.length ?? project.end, sampleRate);
+	const { sampleRate = SAMPLE_RATE } = options;
+	if (!hasSong(project)) return silentAudio(project.end, sampleRate);
 	const audioSources = project.music.sources.filter((source) => source.kind === 'audio');
-	if (loop != null && !audioSources.length) {
-		const bank = await loadInstrumentBank();
-		const lanes = loopLanes(project.music.lanes, loop);
-		const backing = backingVoice(project);
-		const loopedBacking = backing == null ? undefined : { ...backing, hits: loopHits(backing.hits, loop) };
-		return foldLoopAudio(renderLanes(lanes, { sampleRate, duration: loop.length + LOOP_AUDIO_TAIL, bank, backing: loopedBacking }), loop.length);
-	}
-	if (loop != null) {
-		const end = loop.start + loop.length;
-		// Rendered past the loop end so the closing fade of a project render stays outside the loop
-		const full = await renderProjectAudio({ ...project, end: Math.max(project.end, end) + 0.5 }, resolveSourceUrl, { sampleRate });
-		return cutLoopAudio(full, loop);
-	}
 	if (!audioSources.length) {
 		const bank = await loadInstrumentBank();
 		const audio = renderLanes(project.music.lanes, { sampleRate, duration: project.end, bank, backing: backingVoice(project) });

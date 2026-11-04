@@ -64,7 +64,7 @@ function createTwoLaneProject(): TProject {
 			platform('loose', null, ''),
 			{ id: 'rail', name: 'rail', components: { piece: { type: 'rail', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 } } }
 		],
-		design: { theme: 'pegboard', renderPreset: 'balanced', loop: false, camera: { mode: 'rig', distance: 0.85, pitch: 1, lead: 0.15, smoothing: 0.6, shots: [] } }
+		design: { theme: 'pegboard', renderPreset: 'balanced', camera: { mode: 'rig', distance: 0.85, pitch: 1, lead: 0.15, smoothing: 0.6, shots: [] } }
 	};
 }
 
@@ -192,12 +192,12 @@ describe('preflightExport function', () => {
 	});
 
 	it('should not report a single marble the camera follows, even with dots past the old lane band', () => {
-		const project = loadFixture('loop');
+		const project = loadFixture('tap-along');
 
 		const preflight = preflightExport(project, simulator.simulate(project));
 
 		expect(preflight.warnings).toBe(0);
-		expect(preflight.summary).toBe('21 of 21 hits on time');
+		expect(preflight.summary).toBe('16 of 16 hits on time');
 	});
 
 	it('should be pending without a result for the current revision', () => {
@@ -297,15 +297,6 @@ describe('preflightExport function', () => {
 		expect(preflight.issues.find((issue) => issue.kind === 'touching')).toMatchObject({ title: 'pa1 touches pa2', severity: 'info', label: 'Touching' });
 		expect(lookProblems(preflight).get('pa1')?.map((issue) => issue.kind)).toEqual(['strike', 'touching']);
 	});
-
-	it('should report loop mismatches when loop mode is on', () => {
-		const project = loadFixture('loop');
-		project.end -= 0.5;
-
-		const preflight = preflightExport(project, simulator.simulate(project));
-
-		expect(preflight.issues.find((issue) => issue.id === 'loop')?.detail).toContain('than whole bars');
-	});
 });
 
 describe('a project with hits and no Song', () => {
@@ -395,8 +386,8 @@ describe('problemSummary function', () => {
 	});
 
 	it('should order problems by their time, a framing span or their target, with timeless ones last', () => {
-		// Prepare: the loop problem has no time
-		const project = { ...withWindmill(createTwoLaneProject()), design: { ...createTwoLaneProject().design, loop: true } };
+		// Prepare
+		const project = withWindmill(createTwoLaneProject());
 		const result = createResult({
 			pieces: [...createResult().pieces, { ...piece('windmill', 'windmill'), status: 'blocked', entryTime: 2.5 }],
 			contacts: [{ time: 2.2, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } }]
@@ -408,7 +399,6 @@ describe('problemSummary function', () => {
 		// Assert
 		const times = summary.problems.map((issue) => issue.time ?? issue.span?.from ?? issue.target?.time ?? Infinity);
 		expect(times).toEqual([...times].sort((a, b) => a - b));
-		expect(summary.problems.at(-1)?.kind).toBe('loop');
 	});
 
 	it('should put hit problems first in the label and every problem in time order', () => {

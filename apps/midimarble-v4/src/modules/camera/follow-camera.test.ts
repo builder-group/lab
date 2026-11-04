@@ -236,7 +236,6 @@ describe('follow camera', () => {
 			duration: 10,
 			frame: { width: 1080, height: 1920 },
 			camera: { mode: 'rig', distance: 0.7, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: [] },
-			loop: null,
 			pieceLength: 0.09,
 			marbles: [
 				{
@@ -281,7 +280,6 @@ describe('follow camera', () => {
 				duration: 6,
 				frame: { width: 1080, height: 1920 },
 				camera: { mode: 'rig', distance: 0.9, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots: [] },
-				loop: null,
 				pieceLength: 0.09,
 				marbles: [{ id: 'marble', radius: 0.012, hitTimes: [0.5, 1, 1.5, 4, 4.5, 5], motion: { time, x, y } }]
 			})
@@ -309,7 +307,6 @@ describe('follow camera', () => {
 			duration: 10,
 			frame: { width: 1080, height: 1920 },
 			camera: { mode: 'rig', distance: 0.7, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots },
-			loop: null,
 			pieceLength: 0.09,
 			marbles: [
 				{ id: 'melody', radius: 0.012, motion: fall(-0.22), hitTimes: [1, 2, 3, 4, 5, 6, 7, 8, 9] },

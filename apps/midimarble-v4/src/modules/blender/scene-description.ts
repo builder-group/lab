@@ -54,17 +54,6 @@ export interface TSceneDescription {
 	decor?: TSceneDecorItem[];
 	/** In, Out and Hidden the project sets on objects added directly in Blender, by name. Additive like `wallTexts`. */
 	madeInBlender?: TMadeInBlender[];
-	/**
-	 * Seamless loop: films render [start, end), the camera blends its last `blend` seconds into its poses from before
-	 * `start`, and ghost marbles (`ghostOf`) enter for the next round. `duration` equals `end`.
-	 */
-	loop?: TSceneLoop | null;
-}
-
-export interface TSceneLoop {
-	start: number;
-	end: number;
-	blend: number;
 }
 
 export interface TSceneCamera {
@@ -93,7 +82,7 @@ export interface TSceneCamera {
 	descent?: TSceneDescentPoint[] | null;
 	/**
 	 * Time of the run's last hit in seconds. From then on the camera holds on that hit instead of following the
-	 * marble down the empty wall. Absent or null follows to the end; loop scenes ignore it. Optional and additive.
+	 * marble down the empty wall. Absent or null follows to the end. Optional and additive.
 	 */
 	holdAfter?: number | null;
 	/**
@@ -149,18 +138,13 @@ export interface TSceneMarble {
 	/** Package-relative `.blend` of a library skin the marble wears; absent for a built-in skin. Optional and additive. */
 	assetPath?: string | null;
 	/**
-	 * Set on the loop ghost of a marble: a second instance that replays the marble's entry so the loop end shows
-	 * the first frame again. The camera does not follow ghosts.
-	 */
-	ghostOf?: string;
-	/**
 	 * Seconds after which the follow camera stops framing this marble: a moment after its last note. Absent for
-	 * the marble that plays last, for marbles without notes and in loops, which the camera frames to the end.
+	 * the marble that plays last and for marbles without notes, which the camera frames to the end.
 	 */
 	activeUntil?: number;
 	/**
 	 * Times of the marble's notes in seconds, sorted. Where several marbles do not fit one readable frame, the follow
-	 * camera keeps the marble with more notes ahead. Absent on loop ghosts. Optional and additive.
+	 * camera keeps the marble with more notes ahead. Optional and additive.
 	 */
 	hitTimes?: number[];
 }

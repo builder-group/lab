@@ -1,4 +1,4 @@
-import type { TMotionFile, TSceneCamera, TSceneDescription, TSceneLoop } from '@/modules/blender';
+import type { TMotionFile, TSceneCamera, TSceneDescription } from '@/modules/blender';
 
 /**
  * TypeScript port of the follow camera in `blender/mm_worker/camera.py`, which stays the source of the film. Given
@@ -109,20 +109,12 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	if (input.camera == null || input.camera.mode === 'manual') return null;
 	const fps = input.fps;
 	const settings = settingsFrom(input.camera, input.pieceLength, input.opening ?? null);
-	const marbles = input.marbles.filter((marble) => marble.ghostOf == null);
-	const loop = input.loop;
+	const marbles = input.marbles;
 	const frameEnd = Math.max(1, Math.ceil(input.duration * fps - 1e-6));
-	let firstFrame = 0;
-	if (loop != null)
-		firstFrame = Math.min(firstFrame, Math.floor((loop.start - loop.blend) * fps) - 1);
-	const count = frameEnd - firstFrame + 1;
+	const count = frameEnd + 1;
 	const times = new Float64Array(count);
-	for (let index = 0; index < count; index++) times[index] = (firstFrame + index) / fps;
+	for (let index = 0; index < count; index++) times[index] = index / fps;
 	const aspect = renderAspect(input.frame);
-	if (loop != null) {
-		settings.hold = null;
-		settings.opening = null;
-	}
 	// The group's size in frame depends on where the camera looks from and at: a first pass with the camera straight
 	// and sized around the group's centre gives the run direction and the smoothed target that size the second
 	const straight = groupFraming(
@@ -190,24 +182,18 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 			(currentY[index] ?? 0) - location[2]
 		);
 	}
-	if (loop != null) closeLoop(firstFrame, fps, position, rotation, focus, loop);
-
-	// Keep frames from 0 on, like the keyframes Blender keeps from `frame_start`
-	const skip = -firstFrame;
-	const kept = count - skip;
 	const track: TCameraTrack = {
 		fps,
-		frameCount: kept,
-		position: position.slice(skip * 3),
-		rotation: rotation.slice(skip * 4),
-		focus: focus.slice(skip),
-		target: interleave(targetX.subarray(skip), targetY.subarray(skip)),
-		roll: roll.slice(skip),
-		distance: distance.slice(skip),
+		frameCount: count,
+		position,
+		rotation,
+		focus,
+		target: interleave(targetX, targetY),
+		roll,
+		distance,
 		depth,
 		lens: settings.lens,
-		aspect,
-		loop: loop ?? null
+		aspect
 	};
 	return track;
 }
@@ -273,13 +259,11 @@ export function followCameraInput(
 		duration: description.duration,
 		frame: description.frame,
 		camera: description.camera ?? null,
-		loop: description.loop ?? null,
 		pieceLength: typicalPieceLength(description.pieces),
 		opening: openingPieces(description.pieces),
 		marbles: description.marbles.map((marble) => ({
 			id: marble.id,
 			radius: marble.radius,
-			ghostOf: marble.ghostOf,
 			activeUntil: marble.activeUntil,
 			hitTimes: marble.hitTimes,
 			motion: decodeMotion(files.get(marble.motionPath))
@@ -293,7 +277,6 @@ export interface TFollowCameraInput {
 	duration: number;
 	frame: { width: number; height: number };
 	camera: TSceneCamera | null;
-	loop: TSceneLoop | null;
 	/** Median bar or blade length, `typical_piece_length` in `scene.py` */
 	pieceLength: number | null;
 	/** First struck pieces, `openingPieces`; the opening frames them with the release points */
@@ -311,7 +294,6 @@ export interface TOpeningPiece {
 export interface TFollowMarble {
 	id: string;
 	radius: number;
-	ghostOf?: string;
 	/** `activeUntil` of the scene marble: the camera stops framing it then */
 	activeUntil?: number;
 	/** Times of the marble's notes, sorted; the marble with more notes ahead leads the frame */
@@ -348,7 +330,6 @@ export interface TCameraTrack {
 	lens: number;
 	/** Film frame width over height */
 	aspect: number;
-	loop: TSceneLoop | null;
 }
 
 export interface TCameraPose {
@@ -1507,66 +1488,6 @@ export function matrixToQuaternion(
 	}
 	const length = Math.hypot(w, x, y, z);
 	return [w / length, x / length, y / length, z / length];
-}
-
-/**
- * `close_loop`: blends the poses of the last `blend` seconds into the poses one loop length earlier with a smoothstep
- * weight, rotations by quaternion slerp. Changes the arrays in place.
- */
-function closeLoop(
-	firstFrame: number,
-	fps: number,
-	position: Float64Array,
-	rotation: Float64Array,
-	focus: Float64Array,
-	loop: TSceneLoop
-): void {
-	const shift = pyRound((loop.end - loop.start) * fps);
-	const blendStart = loop.end - loop.blend;
-	for (let index = 0; index < focus.length; index++) {
-		const source = index - shift;
-		const time = (firstFrame + index) / fps;
-		if (time < blendStart - 1e-9 || source < 0) continue;
-		const progress = loop.blend <= 0 ? 1.0 : Math.min(1.0, (time - blendStart) / loop.blend);
-		const weight = progress * progress * (3 - 2 * progress);
-		for (let axis = 0; axis < 3; axis++) {
-			position[index * 3 + axis] =
-				(position[index * 3 + axis] ?? 0) * (1 - weight) +
-				(position[source * 3 + axis] ?? 0) * weight;
-		}
-		focus[index] = (focus[index] ?? 0) * (1 - weight) + (focus[source] ?? 0) * weight;
-		rotation.set(
-			slerp(
-				rotation.subarray(index * 4, index * 4 + 4),
-				rotation.subarray(source * 4, source * 4 + 4),
-				weight
-			),
-			index * 4
-		);
-	}
-}
-
-/** Shortest-path slerp like Blender's `interp_qt_qtqt` */
-function slerp(a: Float64Array, b: Float64Array, t: number): number[] {
-	let cosom =
-		(a[0] ?? 0) * (b[0] ?? 0) +
-		(a[1] ?? 0) * (b[1] ?? 0) +
-		(a[2] ?? 0) * (b[2] ?? 0) +
-		(a[3] ?? 0) * (b[3] ?? 0);
-	const sign = cosom < 0 ? -1 : 1;
-	cosom *= sign;
-	let w0: number;
-	let w1: number;
-	if (1 - cosom > 0.0001) {
-		const omega = Math.acos(cosom);
-		const sinom = Math.sin(omega);
-		w0 = Math.sin((1 - t) * omega) / sinom;
-		w1 = Math.sin(t * omega) / sinom;
-	} else {
-		w0 = 1 - t;
-		w1 = t;
-	}
-	return [0, 1, 2, 3].map((axis) => w0 * (a[axis] ?? 0) + w1 * sign * (b[axis] ?? 0));
 }
 
 /** `np.interp` for sample times sorted ascending */

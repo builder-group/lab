@@ -3,7 +3,6 @@ import { baseThemeOf, defaultTitleColor, sceneThemeOverrides, sceneThemeParts } 
 import { canonicalSkin } from '@/modules/project/skin-ids';
 import { sceneDecor } from '@/modules/design/decor';
 import { sceneLayers } from '@/modules/design/scene-layers';
-import { createLoop } from '@/modules/simulation/loop';
 import { shotLength } from '@/modules/camera/shots';
 import { getPieceDefinition } from '@/modules/simulation/pieces';
 import { finishCatch, FINISH_TYPE } from '@/modules/simulation/finish';
@@ -23,8 +22,6 @@ import {
 
 export const MOTION_FOLDER = '.cache/motion';
 export const SCENE_DESCRIPTION_PATH = '.cache/scene.json';
-/** The loop ghost of a marble is the holder `<marble ID>~loop` */
-export const LOOP_GHOST_SUFFIX = '~loop';
 const DEFAULT_PIECE_COLOR = '#c8b89a';
 const DEFAULT_MARBLE_COLOR = '#d0d4dc';
 
@@ -88,14 +85,7 @@ export function buildSceneDescription(
 		...marbleFor(track, track.entityId, track.samples),
 		hitTimes: noteTimes(project, track.laneId)
 	}));
-	const loop = project.design.loop ? createLoop(project, result) : null;
-	if (loop == null) markActiveUntil(project, result, marbles);
-	for (const ghost of loop?.ghosts ?? []) {
-		const track = result.marbles.find((item) => item.entityId === ghost.marbleEntityId);
-		if (track == null || !ghost.samples.length) continue;
-		const marble = marbleFor(track, `${track.entityId}${LOOP_GHOST_SUFFIX}`, ghost.samples);
-		marbles.push({ ...marble, name: `${marble.name} (loop)`, ghostOf: track.entityId });
-	}
+	markActiveUntil(project, result, marbles);
 
 	const pieces: TScenePiece[] = result.pieces.map((piece) => {
 		const entity = entities.get(piece.entityId);
@@ -139,7 +129,7 @@ export function buildSceneDescription(
 			projectId: project.id,
 			revision: project.revision,
 			fps: options.fps,
-			duration: loop?.end ?? result.duration,
+			duration: result.duration,
 			frame: { width: project.frame.width, height: project.frame.height },
 			theme: baseThemeOf(project.design),
 			...themeOverridesOf(project),
@@ -152,16 +142,15 @@ export function buildSceneDescription(
 			camera: {
 				...buildSceneCamera(project.design.camera),
 				descent: descentCurve(result),
-				holdAfter: loop != null ? null : lastHitTime(result),
-				holdFinish: loop != null ? null : heldFinishes(project, result)
+				holdAfter: lastHitTime(result),
+				holdFinish: heldFinishes(project, result)
 			},
 			wallTexts: project.entities.flatMap((entity) => {
 				const text = entity.components.wallText;
 				const transform = entity.components.transform;
 				if (text == null || transform == null) return [];
 				return [{ id: entity.id, ...text, color: text.color ?? defaultTitleColor(project.design), position: { ...transform.position }, angle: transform.angle }];
-			}),
-			loop: loop != null ? { start: loop.start, end: loop.end, blend: loop.blend } : null
+			})
 		},
 		motionFiles
 	};

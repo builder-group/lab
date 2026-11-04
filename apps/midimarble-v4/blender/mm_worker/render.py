@@ -12,9 +12,7 @@ sequencer instead.
 The live worker notices jobs that exit without an answer and reports them as failed.
 
 Frames are rendered by time, not by frame number: output frame i shows time i / preset fps, so 30 and 60 fps
-presets work regardless of the frame rate the keyframes were written at. A loop scene (`mm_loop` from
-`apply_scene`) renders its loop range instead: frame i shows loop start + i / fps, up to the frame before the loop
-end.
+presets work regardless of the frame rate the keyframes were written at.
 
 The draft preset renders the same scene with Workbench instead of the requested engine: solid colours from each
 material's viewport colour under flat lighting, through the scene's view transform and look so it matches what Fast
@@ -57,7 +55,7 @@ SCREEN_TITLE_FONTS = ('/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf
                       '/System/Library/Fonts/Supplemental/Arial Bold.ttf', '/System/Library/Fonts/SFNS.ttf')
 SCREEN_TITLE_FADE = 0.25
 # Seconds the soundtrack fades out over at the film end, so a note still ringing is not cut off (the app's
-# FILM_AUDIO_FADE). Loop films keep their sound unfaded so the repeat is seamless.
+# FILM_AUDIO_FADE).
 FILM_AUDIO_FADE = 0.4
 # Font size over letter height: the description's `size` is the letter height as a fraction of the frame height
 SCREEN_TITLE_FONT_SCALE = 1.4
@@ -106,10 +104,6 @@ def start_render_film(worker, args):
     scene_fps = scene.render.fps / scene.render.fps_base
     start_time = scene.frame_start / scene_fps
     duration = (scene.frame_end - scene.frame_start) / scene_fps
-    loop = scene.get('mm_loop')
-    if loop is not None and len(loop) >= 2:
-        # A loop film shows [start, end): the frame at `end` repeats the first, so repeating the MP4 is seamless
-        start_time, duration = float(loop[0]), float(loop[1]) - float(loop[0])
     frame_count = max(1, int(round(duration * preset['fps'])))
     samples = args.get('samples')
     screen_titles = burned_screen_titles(worker.project_dir, start_time) if find_ffmpeg() is not None else []
@@ -124,7 +118,6 @@ def start_render_film(worker, args):
         'frames': frame_count,
         'duration': frame_count / preset['fps'],
         'startTime': start_time,
-        'loop': loop is not None,
         'samples': int(samples) if isinstance(samples, (int, float)) and samples > 0 else preset[engine],
         'frameFormat': preset.get('frames', 'png'),
         'x264Preset': preset['x264'],
@@ -571,8 +564,8 @@ def screen_title_filters(job, job_dir):
 
 
 def audio_fade(job):
-    """(start, length) in seconds of the soundtrack's closing fade, or None for a loop film or a silent one"""
-    if not job.get('audio') or job.get('loop'):
+    """(start, length) in seconds of the soundtrack's closing fade, or None for a silent film"""
+    if not job.get('audio'):
         return None
     length = min(FILM_AUDIO_FADE, job['duration'])
     return job['duration'] - length, length

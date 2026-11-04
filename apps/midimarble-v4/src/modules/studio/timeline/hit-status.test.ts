@@ -51,8 +51,8 @@ describe('problemsInTimeOrder', () => {
 			{ id: 'step', target: null },
 			{ id: 'blocked', time: 2, target: { time: 2 } },
 			{ id: 'collision', target: { time: 3 } },
-			{ id: 'loop', target: null }
+			{ id: 'song', target: null }
 		];
-		expect(problemsInTimeOrder(problems).map((problem) => problem.id)).toEqual(['blocked', 'collision', 'framing', 'step', 'loop']);
+		expect(problemsInTimeOrder(problems).map((problem) => problem.id)).toEqual(['blocked', 'collision', 'framing', 'step', 'song']);
 	});
 });

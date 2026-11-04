@@ -491,7 +491,6 @@
 	"design": {
 		"theme": "pegboard",
 		"renderPreset": "balanced",
-		"loop": false,
 		"camera": {
 			"mode": "rig",
 			"distance": 0.8999999999999999,

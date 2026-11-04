@@ -1641,7 +1641,6 @@
 	"design": {
 		"theme": "brass",
 		"renderPreset": "balanced",
-		"loop": false,
 		"camera": {
 			"mode": "rig",
 			"distance": 0.7,

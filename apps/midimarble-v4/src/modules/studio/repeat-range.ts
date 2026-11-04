@@ -1,5 +1,5 @@
 // Repeat Range, like Logic's cycle: a range on the ruler that playback loops, to rehearse one spot. It is a preview only: view
-// state for this session, never saved in the project and unrelated to Seamless Loop, which shapes the film.
+// state for this session, never saved in the project.
 
 export interface TRepeatRange {
 	projectId: string;

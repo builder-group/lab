@@ -153,7 +153,6 @@ export function createBareRunProject(options: {
 		design: {
 			theme: 'pegboard',
 			renderPreset: 'balanced',
-			loop: false,
 			// 0.6 m frames the Marble Race Kit; the default kit is KIT_SCALE times larger
 			camera: { mode: 'rig', distance: 0.6 * KIT_SCALE, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots: [] }
 		}

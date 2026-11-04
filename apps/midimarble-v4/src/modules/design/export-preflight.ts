@@ -7,7 +7,6 @@ import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
 import { $blenderObjects, decorOverlaps, overlapLabel, type TBlenderObject } from './decor';
-import { describeLoop } from './loop-status';
 import { addWideShotCommands } from './shots';
 
 /**
@@ -38,7 +37,6 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		...strikeIssues(project, result, names),
 		...touchingIssues(project, result, names),
 		...framingIssues(project, result, names),
-		...loopIssues(project, result),
 		...decorIssues(project, result, names, blenderObjects),
 		...songIssues(project)
 	];
@@ -230,7 +228,7 @@ export interface TPreflightTarget {
 	workspace?: 'compose' | 'design';
 }
 
-export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'touching' | 'framing' | 'loop' | 'decor' | 'simulation' | 'song';
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'touching' | 'framing' | 'decor' | 'simulation' | 'song';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
@@ -585,7 +583,7 @@ export function checkFraming(project: TProject, result: TSimulationResult): TFra
 	if (project.design.camera.mode === 'manual') return null;
 	// `renderFps`: the film's frame rate, which the Draft Preview's camera uses too
 	const fps = project.design.renderPreset === 'best' ? 60 : 30;
-	const key = `${fps}:${JSON.stringify(project.design.camera)}:${project.frame.width}x${project.frame.height}:${project.design.loop}:${result.duration}`;
+	const key = `${fps}:${JSON.stringify(project.design.camera)}:${project.frame.width}x${project.frame.height}:${result.duration}`;
 	let byKey = framings.get(result.marbles);
 	if (byKey == null) {
 		byKey = new Map();
@@ -622,15 +620,6 @@ function findWideShot(project: TProject, result: TSimulationResult, framing: TFr
 		if (isKept && after.length < framing.stretches.length) return { time, length, commands: wide.commands, shotId: wide.shotId };
 	}
 	return null;
-}
-
-// MARK: - Loop
-
-function loopIssues(project: TProject, result: TSimulationResult): TPreflightIssue[] {
-	if (!project.design.loop) return [];
-	const status = describeLoop(project, result);
-	if (status.isOk) return [];
-	return [{ id: 'loop', kind: 'loop', severity: 'warning', title: status.summary, detail: status.details.join(' '), target: null }];
 }
 
 // MARK: - Decor

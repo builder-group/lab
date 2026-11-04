@@ -88,7 +88,6 @@ export class FilmExportCx {
 		const [isRenderedOk, renderedErr, result] = await renderFilm(packagePath, project, {
 			resolveSourceUrl: this.source.resolveSourceUrl,
 			soundtrack: soundtrackProject(project, this.source.getMix()),
-			loop: this.source.design.currentLoop(),
 			preset: settings.preset,
 			engine: settings.engine,
 			outputPath: output.relativePath,

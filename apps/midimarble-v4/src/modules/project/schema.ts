@@ -38,7 +38,7 @@ export const SSource = z.strictObject({
 	offset: z.number()
 });
 
-// Musical meter of the project, known from an imported MIDI file; loops snap their length to whole bars with it
+// Musical meter of the project, known from an imported MIDI file
 export const STempo = z.strictObject({
 	bpm: z.number().positive(),
 	beatsPerBar: z.number().int().positive()
@@ -330,7 +330,6 @@ export const SDesign = z.strictObject({
 	madeInBlender: z.array(SMadeInBlender).optional(),
 	// `draft` was added later; files without it stay valid
 	renderPreset: z.enum(['draft', 'fast', 'balanced', 'best']),
-	loop: z.boolean(),
 	// Older projects only: `parseProject` moves Colour by Note into the theme (`migrateSkins`)
 	themeOptions: z
 		.strictObject({

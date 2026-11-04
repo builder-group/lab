@@ -7,8 +7,7 @@ Each mesh paints by material slot and then by face order, and has no collider an
 
 Snowfall moves in Geometry Nodes from the scene's frame alone: same frame, same picture, whatever rendered before it, so
 a resumed render matches. Garland is a static strip whose one key curve is baked from the camera, so it scrolls past at
-the speed the wall moves through the frame and reads as hanging on the wall. Both are seeded by the layer's ID. In a loop
-film their speeds snap to whole cycles of the loop, so the seam doesn't show.
+the speed the wall moves through the frame and reads as hanging on the wall. Both are seeded by the layer's ID.
 
 `mm_rgba` carries colour and alpha per vertex. Workbench can't read it, so each slot's `diffuse_color` stands in for
 Flat Light. Workbench also outlines every silhouette, which turns soft things into rings, so Flat Light leaves out the snow
@@ -54,7 +53,7 @@ SNOW_RINGS = 8
 # A flake is a light of its own: over the wall's brightness, so it reads as white on cream
 SNOW_GAIN = 2.4
 SNOW_RIM = (0.30, 0.18, 0.08, 0.07)
-# Garland's pattern repeats every this many sprigs, so a loop film can close on it
+# Garland's pattern repeats every this many sprigs
 GARLAND_PERIOD = 8
 GLOW_PART = 'garland-glow'
 
@@ -126,18 +125,17 @@ def attach(entries, managed, camera, scene, fps, duration, theme):
         params = params_of(entry, effect)
         depth = max(GARLAND_DEPTH if effect == 'garland' else SNOW_DEPTH, camera.data.clip_start * NEAR_CLIP_MARGIN)
         half = frame_half(camera, scene, depth)
-        loop = loop_frames(scene, fps)
         if effect == 'garland':
             # A blended object sorts by its origin, so the origin holds the depth
             obj.location = (0.0, 0.0, -depth)
-        fingerprint = json.dumps([params, depth, round(half[0], 6), round(half[1], 6), fps, loop, exposure])
+        fingerprint = json.dumps([params, depth, round(half[0], 6), round(half[1], 6), fps, exposure])
         path = camera_path(camera, scene) if effect == 'garland' else None
-        scroll = garland_scroll(path, camera, scene, depth, params, loop) if path else None
+        scroll = garland_scroll(path, camera, scene, depth) if path else None
         if scroll is not None:
             fingerprint = json.dumps([fingerprint, round(float(np.ptp(scroll[1])), 5), round(float(scroll[1][-1]), 5)])
         if obj.get(PARAMS_PROPERTY) != fingerprint:
             if effect == 'snowfall':
-                build_snowfall(obj, params, half, depth, fps, loop, seed_of(obj['mm_id']), exposure)
+                build_snowfall(obj, params, half, depth, fps, seed_of(obj['mm_id']), exposure)
             else:
                 build_garland(obj, params, half, scroll[1] if scroll else None, seed_of(obj['mm_id']), exposure, managed)
             obj[PARAMS_PROPERTY] = fingerprint
@@ -165,21 +163,6 @@ def frame_half(camera, scene, depth):
         return max(xs), max(ys)
     plane = abs(corners[0].z) or 1.0
     return max(xs) * depth / plane, max(ys) * depth / plane
-
-
-def loop_frames(scene, fps):
-    """Frames in one pass of a loop film, or None for a film that isn't a loop"""
-    loop = scene.get('mm_loop')
-    if loop is None:
-        return None
-    return max(1, int(round((float(loop[1]) - float(loop[0])) * fps)))
-
-
-def snapped(cycles_per_frame, loop):
-    """A rate of whole, non-zero cycles per loop pass, so the last frame leads into the first"""
-    if loop is None:
-        return cycles_per_frame
-    return float(np.round(cycles_per_frame * loop) or np.sign(cycles_per_frame) or 1.0) / loop
 
 
 # Materials
@@ -243,7 +226,7 @@ def _write_mesh(obj, verts, faces, rgba, slots, materials):
 # Snowfall
 
 
-def build_snowfall(obj, params, half, depth, fps, loop, seed, exposure):
+def build_snowfall(obj, params, half, depth, fps, seed, exposure):
     random = np.random.default_rng(seed)
     count = int(round(SNOW_COUNT[0] + (SNOW_COUNT[1] - SNOW_COUNT[0]) * params['density']))
     base = min(half[0], half[1]) * 2
@@ -281,10 +264,6 @@ def build_snowfall(obj, params, half, depth, fps, loop, seed, exposure):
         wobble = (random.uniform(0.15, 0.4) / fps) * 2 * math.pi
         cycle = (fall * speed * random.uniform(0.85, 1.15)) / fps / SNOW_OVERSCAN
         drift = random.uniform(0.002, 0.009) * speed / fps
-        if loop is not None:
-            cycle = snapped(cycle, loop) if speed > 0 else 0.0
-            drift = snapped(drift, loop) if speed > 0 else 0.0
-            wobble = snapped(wobble / (2 * math.pi), loop) * 2 * math.pi
         home[first:first + per_flake] = (random.random(), random.random(), random.uniform(0, 2 * math.pi))
         amplitude = random.uniform(0.006, 0.02) * (0.5 + layer * 0.4)
         rate[first:first + per_flake] = (cycle, drift, amplitude)
@@ -381,7 +360,7 @@ def camera_path(camera, scene):
     return frames, locations, rotations
 
 
-def garland_scroll(path, camera, scene, depth, params, loop):
+def garland_scroll(path, camera, scene, depth):
     """(frames, heights): how far up the camera's near plane the strip stands on each frame, so it passes the frame at the
     speed the wall does. The wall moves through the frame as the camera moves along its own up axis, and the share of
     a frame height that is depends on how far the wall is."""
@@ -399,14 +378,6 @@ def garland_scroll(path, camera, scene, depth, params, loop):
         distance = abs(locations[index].y) / max(abs(forward.y), 0.2)
         heights.append(heights[-1] - step * depth / max(distance, 1e-3))
     values = np.asarray(heights, dtype=np.float64)
-    half = frame_half(camera, scene, depth)
-    if loop is not None:
-        period = params['spacing'] * half[1] * 2 * GARLAND_PERIOD
-        end = min(len(values) - 1, loop)
-        travelled = values[end] - values[0]
-        whole = round(travelled / period) or (1 if travelled >= 0 else -1)
-        if abs(travelled) > 1e-6:
-            values = values * (whole * period / travelled)
     return frames, values
 
 

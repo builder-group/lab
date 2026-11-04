@@ -104,7 +104,6 @@ const DESIGN_EXAMPLES: Record<string, string> = {
 	lights: "{ type: 'setDesign', design: { lights: { key: { color: '#ffd08a', strength: 4, side: 0.4, height: 0.3, softness: 0.2, exposure: 0, bloom: 0.2 } } } }; lights has key and added, a film has one Key Light",
 	camera: "{ type: 'setDesign', design: { camera: { distance: 0.7, pitch: 1.15, lead: 0.15, smoothing: 0.6, sway: 0, mode: 'rig' } } }; name only what changes. A shot looks like { id, time, kind: 'wide', roll: 0, distance: 1.1 }, with kind wide, follow, pushIn or closeUp",
 	renderPreset: "{ type: 'setDesign', design: { renderPreset: 'balanced' } }, with draft, fast (Standard), balanced (High) or best",
-	loop: "{ type: 'setDesign', design: { loop: true } }",
 	decor: 'Decor is easier with placeDecor and scatterDecor',
 	themes: "A stored theme looks like { id, name, base: 'brass', overrides: { wallColor } }"
 };

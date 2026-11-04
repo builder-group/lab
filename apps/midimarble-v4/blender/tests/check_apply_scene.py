@@ -66,8 +66,7 @@ WINDMILL_CONTACT = 0.6
 WINDMILL_STALE_HIT = 0.3
 
 
-def write_package(root, marble_records, hit, platform_position, platform_angle, with_windmill, theme='pegboard', camera=None,
-                  loop=None):
+def write_package(root, marble_records, hit, platform_position, platform_angle, with_windmill, theme='pegboard', camera=None):
     motion = root / '.cache' / 'motion'
     motion.mkdir(parents=True, exist_ok=True)
     marble_records.tofile(motion / 'marble-1.bin')
@@ -99,8 +98,6 @@ def write_package(root, marble_records, hit, platform_position, platform_angle, 
     }
     if camera is not None:
         description['camera'] = camera
-    if loop is not None:
-        description['loop'] = loop
     (root / '.cache' / 'scene.json').write_text(json.dumps(description))
     return windmill
 
@@ -420,30 +417,6 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     envelope = render.wait_for_job(root, 'job-cancel', timeout=30)
     check(not envelope['ok'] and envelope['error']['code'] == 'CANCELLED', 'cancel stops the render job')
     check(not (root / 'renders' / 'cancel.mp4').exists(), 'a cancelled job writes no film')
-
-    # A loop closes the camera: the pose at the loop end is the pose at the loop start, and films cover the loop
-    loop = {'start': 0.2, 'end': 0.9, 'blend': 0.2}
-    write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig, loop=loop)
-    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
-    check(report['camera'] == 'baked' and list(scene['mm_loop']) == [0.2, 0.9, 0.2], 'a loop scene stores its range')
-    camera = scene.camera
-    poses = {}
-    for name, seconds in (('start', loop['start']), ('end', loop['end']), ('before', loop['end'] - 1 / FPS)):
-        scene.frame_set(round(seconds * FPS))
-        poses[name] = (camera.matrix_world.copy(), camera.data.dof.focus_distance)
-    location_error = (poses['end'][0].translation - poses['start'][0].translation).length
-    rotation_error = poses['end'][0].to_quaternion().rotation_difference(poses['start'][0].to_quaternion()).angle
-    check(location_error < 1e-5 and rotation_error < 1e-5 and abs(poses['end'][1] - poses['start'][1]) < 1e-5,
-          'camera at the loop end equals the loop start (%.1e m, %.1e rad)' % (location_error, rotation_error))
-    step = (poses['end'][0].translation - poses['before'][0].translation).length
-    check(step < 0.02, 'camera moves smoothly into the loop end (%.4f m in the last frame)' % step)
-    started = worker.handle('render_film', {'preset': 'fast', 'outputPath': 'renders/loop.mp4', 'jobId': 'job-loop'})
-    check(started['frames'] == 21, 'a loop film renders the loop range (%d frames)' % started['frames'])
-    worker.handle('cancel', {'jobId': 'job-loop'})
-    render.wait_for_job(root, 'job-loop', timeout=30)
-    write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig)
-    worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
-    check('mm_loop' not in scene, 'turning the loop off clears the range')
 
 
 def studio_role(role):

@@ -17,7 +17,6 @@ Example projects live in `fixtures/` and grow with the milestones. Each one stat
 | `two-marbles` | Two lanes in one world with one intended marble collision    | M3   |
 | `jingle-bells`| The refrain from `jingle-bells.mid` (115 hits, two marbles), compared with the earlier attempts | M4   |
 | `reference-20`| The first 20 seconds of the reference short structure       | M6   |
-| `loop`        | A short run whose last frame flows into its first            | M6   |
 | `tap-along`   | An original 9.7 s recording (`tap-along.wav`, 125 BPM marimba) with 16 suggested hits, all on time | M6   |
 
 ## M0 Foundation
@@ -84,13 +83,12 @@ Done when:
 - Moving a holder in Blender is detected as unlinked, and relink and push to Compose both work
 - A reference theme with brass bars, chrome brackets, a glass marble, a grey wall and a soft sun exists as a library theme
 
-## M6 Camera, render and loops
+## M6 Camera and render
 
-Camera rig with rail, target and shot markers, take over, export presets, loop mode and the loop check.
+Camera rig with rail, target and shot markers, take over, and export presets.
 
 Done when:
 
 - `reference-20` matches the reference's structure in the film camera: column density, piece and marble scale, section change, titles, travelling camera and slow roll, judged side by side in Compose's Camera view and in Draft or Fast stills and films. Lighting and materials are Blender's and are judged on stills; a Best render is optional (owner decision, 2026-11-03)
 - `jingle-bells` renders as a full film and is compared with the earlier attempts
-- `loop` passes the loop check and plays seamlessly when repeated
 - A take-over camera survives a Compose edit, and the app asks before regenerating it

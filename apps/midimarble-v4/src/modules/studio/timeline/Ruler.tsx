@@ -2,7 +2,6 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { renderedSpans } from '@/modules/design/live-preview';
-import { createLoop } from '@/modules/simulation';
 import { commandItem } from '../commands';
 import { draggedRepeatSpan, shownRepeatRange, type TRepeatRangeDrag } from '../repeat-range';
 import { formatTime } from '../format';
@@ -75,7 +74,6 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 				{/* End bracket, like the end marker of a Logic project */}
 				<span className="w-[3px] rounded-l-[1px] bg-[var(--text-secondary)]" />
 			</span>
-			<LoopRegion cx={cx} zoom={zoom} />
 			<RepeatStrip cx={cx} end={end} zoom={zoom} timeAt={timeAt} />
 			<RenderBar cx={cx} zoom={zoom} />
 			<PlayheadHead cx={cx} zoom={zoom} />
@@ -130,22 +128,6 @@ const RepeatStrip: React.FC<{ cx: StudioCx; end: number; zoom: number; timeAt: (
 			onPointerMove={onPointerMove}
 			onPointerUp={() => (dragRef.current = null)}
 			onPointerCancel={() => (dragRef.current = null)}
-		/>
-	);
-};
-
-/** The film range of a seamless loop as a bar along the top of the ruler, like Logic's cycle area */
-const LoopRegion: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
-	const { cx, zoom } = props;
-	const result = useFeatureState(cx.simulation.$result);
-	const project = cx.project;
-	const loop = React.useMemo(() => (project?.design.loop === true && result != null ? createLoop(project, result) : null), [project, result]);
-	if (loop == null) return null;
-	return (
-		<span
-			className="pointer-events-none absolute top-0 h-[3px] rounded-[1px] bg-[var(--accent)] opacity-70"
-			style={{ left: loop.start * zoom, width: loop.length * zoom }}
-			title={`Loop ${formatTime(loop.start)} to ${formatTime(loop.end)}`}
 		/>
 	);
 };
