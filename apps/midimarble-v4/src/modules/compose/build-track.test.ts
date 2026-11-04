@@ -146,6 +146,25 @@ describe('buildTrack function', () => {
 		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(5);
 	}, MINUTES);
 
+	it('stops searching at its limit and still ends, with every hit it could not place named', async () => {
+		// Prepare: no search ever finds anything, the worst a song can do
+		const project = fromHitTimes([Array.from({ length: 12 }, (_, index) => 1 + index * 0.5)]);
+		let searches = 0;
+		const refuse = (): never => {
+			searches++;
+			throw new Error('Nothing fits');
+		};
+
+		// Act
+		const outcome = await buildTrack(project, { ...localBuildDeps(simulator), autoPlace: refuse, gapPiece: refuse });
+
+		// Assert: 6 per hit to look for a clean run, 2 to go on past it, then one Auto place for each hit left
+		expect(searches).toBeLessThanOrEqual(9 * 12);
+		expect(outcome.isStopped).toBe(false);
+		expect(outcome.result.hits).toHaveLength(12);
+		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime').length + outcome.attention.length).toBe(12);
+	}, MINUTES);
+
 	it('sends its steps to commit, the first starting the undo step, so they replay to the same project', async () => {
 		const project = fromHitTimes([Array.from({ length: 8 }, (_, index) => 1 + index * 0.5)]);
 		let shown = project;

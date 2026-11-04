@@ -40,15 +40,20 @@ import { hitReach } from './reachability';
 // it does what a person tries next: turn the lane's previous platform, turn the other marble's platform in the way,
 // lean this platform by hand, then back up a few hits, turn the platform there and build forward again. A song that
 // still gets stuck, or whose finished run leaves the pace or the camera's frame, is started again with the releases a
-// few millimetres over, as a person would, up to `MAX_WORK_PER_HIT` steps per hit in all; the attempt that got furthest
-// then finishes past the hits nothing solves and names them, for Fix. Every choice follows from the project, so the
-// same project always gets the same track.
+// few millimetres over, as a person would, until `SEARCHES_PER_HIT` searches per hit are spent; the attempt that got
+// furthest then finishes past the hits nothing solves and names them, for Fix. The limit counts searches, not seconds,
+// so every choice follows from the project and the same project always gets the same track.
 
 const DEGREE = Math.PI / 180;
 /** Release shifts tried in turn, in metres */
 const RELEASE_SHIFTS = [0, 0.01, -0.01, 0.005, -0.005, 0.015, -0.015, 0.02, -0.02, 0.025, -0.025, 0.03, -0.03, 0.04, -0.04];
-/** Steps over every attempt, per hit of the song, before no attempt is started any more */
-const MAX_WORK_PER_HIT = 6;
+/**
+ * Auto place and gap piece searches per hit of the song, over every attempt, before the build stops looking for a clean
+ * run. A search is nearly all of a build's time, about half a second each: Jingle Bells takes 2.2 per hit.
+ */
+const SEARCHES_PER_HIT = 6;
+/** What the attempt that goes on past a stuck hit may search on top, per hit; once spent, each hit gets one plain step */
+const FORCED_SEARCHES_PER_HIT = 2;
 const PREVIOUS_TURNS = [3, -3, 6, -6, 9, -9, 12, -12, 18, -18];
 const OTHER_TURNS = [3, -3, 6, -6, 9, -9];
 /** Turns tried on the last platform before a stretch the camera loses a marble in, one per try */
@@ -222,15 +227,22 @@ interface TBuildState {
 	gapPiece: TBuildGapPreference | null;
 	/** Trying a choice ahead, which doesn't try choices of its own */
 	isLooking: boolean;
+	/** Searches made and allowed, over every attempt */
+	searches: TSearchBudget;
 	runs: WeakMap<TProject, Promise<TSimulationResult>>;
+}
+
+interface TSearchBudget {
+	used: number;
+	limit: number;
 }
 
 function emptyCounts(): TBuildCounts {
 	return { next: 0, switchback: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, unblock: 0, rewind: 0, frame: 0, failed: 0 };
 }
 
-function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null): TBuildState {
-	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, runs: new WeakMap() };
+function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null, searches: TSearchBudget = { used: 0, limit: Infinity }): TBuildState {
+	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, searches, runs: new WeakMap() };
 }
 
 const hitKey = (laneId: string, hitId: string): string => `${laneId}/${hitId}`;
@@ -249,6 +261,15 @@ function run(state: TBuildState, project: TProject): Promise<TSimulationResult> 
 
 function isCancelled(state: TBuildState): boolean {
 	return state.deps.isCancelled?.() === true;
+}
+
+/** Whether the search budget is gone, which ends the searching but not the build */
+function isSpent(state: TBuildState): boolean {
+	return state.searches.used >= state.searches.limit;
+}
+
+function shouldStopLooking(state: TBuildState): boolean {
+	return isCancelled(state) || isSpent(state);
 }
 
 function reject(state: TBuildState, reason: string): null {
@@ -449,7 +470,7 @@ async function lookAhead(state: TBuildState, start: TProject, laneId: string): P
 	state.isLooking = true;
 	let current = start;
 	let cost = 0;
-	for (let done = 0; done < LOOK_AHEAD_HITS && !isCancelled(state); done++) {
+	for (let done = 0; done < LOOK_AHEAD_HITS && !shouldStopLooking(state); done++) {
 		const result = await run(state, current);
 		const target = nextTarget(state, current, result);
 		if (target == null) break;
@@ -472,7 +493,7 @@ async function chooseAhead<T extends { project: TProject; cost?: number; label: 
 	let best: T | null = null;
 	let bestCost = Infinity;
 	for (const option of options) {
-		if (isCancelled(state)) return best;
+		if (shouldStopLooking(state)) return best ?? options[0] ?? null;
 		const cost = (option.cost ?? 0) + (await lookAhead(state, option.project, laneId));
 		state.deps.onLog?.(`  ahead: ${option.label} costs ${cost.toFixed(2)}`);
 		if (cost < bestCost - 1e-9) {
@@ -484,6 +505,7 @@ async function chooseAhead<T extends { project: TProject; cost?: number; label: 
 }
 
 async function ask<T>(state: TBuildState, kind: string, question: () => Promise<T> | T): Promise<T | null> {
+	if (kind !== 'continue') state.searches.used++;
 	try {
 		return await question();
 	} catch (error) {
@@ -618,7 +640,7 @@ async function backtrack(state: TBuildState, current: TProject, target: THitResu
 	const angle = previous?.components.hitLink?.angle;
 	if (previous == null || angle == null || (state.own.has(previous.id) && !canTurnOwn)) return null;
 	for (const delta of PREVIOUS_TURNS) {
-		if (isCancelled(state)) return null;
+		if (shouldStopLooking(state)) return null;
 		const rotated = structuredClone(previous);
 		if (rotated.components.hitLink != null) rotated.components.hitLink.angle = angle + delta * DEGREE;
 		const turned = await accept(state, current, [{ type: 'upsertEntity', entity: rotated }], target.laneId, false);
@@ -649,7 +671,7 @@ async function unblock(state: TBuildState, current: TProject, target: THitResult
 		const angle = piece?.components.hitLink?.angle;
 		if (piece == null || angle == null || (state.own.has(piece.id) && !canTurnOwn)) continue;
 		for (const delta of OTHER_TURNS) {
-			if (isCancelled(state)) return null;
+			if (shouldStopLooking(state)) return null;
 			const rotated = structuredClone(piece);
 			if (rotated.components.hitLink != null) rotated.components.hitLink.angle = angle + delta * DEGREE;
 			const turned = apply(current, [{ type: 'upsertEntity', entity: rotated }]);
@@ -690,7 +712,7 @@ async function rewind(state: TBuildState, current: TProject, target: THitResult)
 		});
 		if (dropped.some((entity) => state.own.has(entity.id))) continue;
 		for (const delta of REWIND_TURNS) {
-			if (isCancelled(state)) return null;
+			if (shouldStopLooking(state)) return null;
 			const rotated = structuredClone(pivot);
 			if (rotated.components.hitLink != null) rotated.components.hitLink.angle = angle + delta * DEGREE;
 			let next = await accept(state, current, [...(dropped.length > 0 ? [{ type: 'removeEntities' as const, entityIds: dropped.map((entity) => entity.id) }] : []), { type: 'upsertEntity', entity: rotated }], target.laneId, false);
@@ -716,13 +738,13 @@ async function solveHit(state: TBuildState, current: TProject, target: THitResul
 	state.inTheWay.length = 0;
 	return (
 		(await buildStep(state, current, target, false)) ??
-		(target.dot != null && !isCancelled(state) ? await backtrack(state, current, target) : null) ??
-		(!isCancelled(state) ? await unblock(state, current, target) : null) ??
-		(!isCancelled(state) ? await buildStep(state, current, target, true) : null) ??
-		(!isCancelled(state) ? await rewind(state, current, target) : null) ??
+		(target.dot != null && !shouldStopLooking(state) ? await backtrack(state, current, target) : null) ??
+		(!shouldStopLooking(state) ? await unblock(state, current, target) : null) ??
+		(!shouldStopLooking(state) ? await buildStep(state, current, target, true) : null) ??
+		(!shouldStopLooking(state) ? await rewind(state, current, target) : null) ??
 		// A piece that was there before the build turns only when nothing else solves the hit
-		(target.dot != null && state.canTurnOwn && !isCancelled(state) ? await backtrack(state, current, target, true) : null) ??
-		(state.canTurnOwn && !isCancelled(state) ? await unblock(state, current, target, true) : null)
+		(target.dot != null && state.canTurnOwn && !shouldStopLooking(state) ? await backtrack(state, current, target, true) : null) ??
+		(state.canTurnOwn && !shouldStopLooking(state) ? await unblock(state, current, target, true) : null)
 	);
 }
 
@@ -980,7 +1002,6 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 	const addCounts = (from: TBuildCounts): void => {
 		for (const key of Object.keys(counts) as (keyof TBuildCounts)[]) counts[key] += from[key];
 	};
-	let work = 0;
 	/**
 	 * Steps through the song from `start`. Without `canForce` it ends at the first hit nothing solves; with it, that
 	 * hit is left for Fix and the rest gets built.
@@ -996,7 +1017,7 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 		 * is built another way. False when every turn was tried or does not hold. Each time reaches further back.
 		 */
 		const backUp = async (trouble: { laneId: string; from: number }): Promise<boolean> => {
-			if (backUps >= MAX_BACK_UPS) return false;
+			if (backUps >= MAX_BACK_UPS || isSpent(state)) return false;
 			backUps++;
 			let before = history.length - 1;
 			while (before > 0 && (history[before]?.time ?? -Infinity) >= trouble.from - FRAME_BACKUP) before--;
@@ -1053,8 +1074,9 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 					continue;
 				}
 			}
+			// The search budget is gone: this attempt ends here, and the one that got furthest goes on past it
+			if (!canForce && isSpent(state)) return { project: current, reached: target.targetTime };
 			state.counts.next++;
-			work++;
 			reportProgress(result, target.targetTime);
 			const next = await solveHit(state, current, target);
 			if (isCancelled(state)) {
@@ -1080,14 +1102,14 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 	};
 
 	const shifts = hasBareLane ? RELEASE_SHIFTS : [0];
-	const maxWork = MAX_WORK_PER_HIT * total;
+	const searches: TSearchBudget = { used: 0, limit: SEARCHES_PER_HIT * total };
 	let best: (TAttempt & { shift: number; state: TBuildState }) | null = null;
 	let attempts = 0;
 	for (const shift of shifts) {
-		if (attempts > 0 && work >= maxWork) break;
+		if (attempts > 0 && searches.used >= searches.limit) break;
 		attempts++;
 		const start = withReleaseShift(project, shift, bareLanes);
-		const state = createState(deps, start, canTurnOwn, gapPiece);
+		const state = createState(deps, start, canTurnOwn, gapPiece, searches);
 		await tolerate(state, start);
 		deps.onLog?.(`releases shifted by ${shift.toFixed(3)} m`);
 		if (attempts > 1) restarts++;
@@ -1125,6 +1147,7 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 			deps.onLog?.(`no attempt got through, so the one that reached ${best.reached.toFixed(2)} s goes on past it`);
 			const before = { ...state.counts };
 			state.counts = emptyCounts();
+			searches.limit = searches.used + FORCED_SEARCHES_PER_HIT * total;
 			const rest = await attempt(state, current, true);
 			addCounts(state.counts);
 			state.counts = before;
