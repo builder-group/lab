@@ -79,7 +79,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 	const only = worn.size === 1 ? [...worn][0] : undefined;
 	const fallback = only != null ? (catalogSkin(only)?.label ?? only) : 'Mixed';
 
-	return <TilePicker cx={cx} heading="Skin" label={`${typeLabel} skins`} current={currentOf(tiles, fallback)} title={`Choose the ${typeLabel.toLowerCase()}'s skin`} tiles={tiles} />;
+	return <TilePicker heading="Skin" label={`${typeLabel} skins`} current={currentOf(tiles, fallback)} title={`Choose the ${typeLabel.toLowerCase()}'s skin`} tiles={tiles} />;
 };
 
 /** A skin from a Pack, made by an agent or imported, with where it comes from and its star */
@@ -132,7 +132,7 @@ export const WallPicker: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 			if (commands.length > 0) cx.execute(commands);
 		}
 	}));
-	return <TilePicker cx={cx} heading="Skin" label="Wall skins" current={currentOf(tiles, 'Mixed')} title="Choose the wall's skin" tiles={tiles} />;
+	return <TilePicker heading="Skin" label="Wall skins" current={currentOf(tiles, 'Mixed')} title="Choose the wall's skin" tiles={tiles} />;
 };
 
 /** A wall's kind in small: the walls have no rendered previews */

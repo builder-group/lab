@@ -6,7 +6,6 @@ import { fitTargets, nearestMoment, struckAt } from './scene';
 import { placeBar } from './view';
 
 const viewport = { width: 800, height: 600 };
-const padding = { top: 50, right: 50, bottom: 50, left: 50 };
 
 describe('fitTargets', () => {
 	function openHit(laneId: string, time: number, y: number, pieceEntityId: string | null = null): THitResult {

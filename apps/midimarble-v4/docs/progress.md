@@ -2,6 +2,12 @@
 
 The autonomous build updates this log after every slice. Newest entries go first.
 
+## UX review round 8 fixes
+
+B3 to B7, F1 to F10 and the polish list of `.local/ux-review-round8.md`, seen in the browser (F5's click selected correctly as it stood; only Layers selection off-frame was missing). T stays a hit at the playhead while stopped. Starter gained Sphere, Ring and Cube. The Bass warning came from measuring a glass marble's pale tint by lightness; the 3:1 threshold is unchanged and glass is judged by its swirl's colour. Example stills re-rendered in each fixture's own theme (they were all exported in Brass) and `loop.jpg` removed. Project themes still show their base theme's picture in the Theme picker.
+
+Checks: typecheck, lint, test, `check_decor.py`. Skipped: `test:e2e`, as nothing here touches a whole song's build. B1 and B2 are handled separately.
+
 ## Current state
 
 - Milestones: M0–M5 done in the browser and headless Blender; M6 done by the owner's revised check (Camera view, Draft Preview and quick renders; the `reference-20` Best film exists as well). Still unverified in the native window: the round 2–3 UI, export through the sheet, a real agent run from the chat and the unsaved-example save panel

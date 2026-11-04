@@ -1,9 +1,8 @@
-import { Box, ChevronDown, PackagePlus, Search, Star } from 'lucide-react';
+import { Box, ChevronDown, Search, Star } from 'lucide-react';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { openContextMenu, type TMenuEntry } from '@/components';
 import { InsertPopover } from '@/modules/compose/InsertLibrary';
-import type { StudioCx } from '@/modules/studio';
 import { filterTiles, showsTileSearch } from './skin-tiles';
 
 /** A tile's quiet second line; with `onClick` a link inside the tile, as a tile is one big button */
@@ -50,7 +49,6 @@ export interface TPickerTile {
  * with the choices as pictures. A pick applies and closes it, ⌥ applies to all of a type, Esc or a click outside cancels.
  */
 export const TilePicker: React.FC<{
-	cx: StudioCx;
 	/** The row's element id, for ⌘K to focus it */
 	id?: string;
 	/** The panel's heading, such as "Skin" */
@@ -66,7 +64,7 @@ export const TilePicker: React.FC<{
 	/** Beside the row, such as Reset */
 	accessory?: React.ReactNode;
 }> = (props) => {
-	const { cx, id, heading, label, current, title, tiles, footer, accessory } = props;
+	const { id, heading, label, current, title, tiles, footer, accessory } = props;
 	const [isOpen, setIsOpen] = React.useState(false);
 	const rowRef = React.useRef<HTMLButtonElement>(null);
 	const close = React.useCallback(() => setIsOpen(false), []);
@@ -81,13 +79,13 @@ export const TilePicker: React.FC<{
 				<ChevronDown size={12} strokeWidth={2} className="shrink-0 text-[var(--text-tertiary)]" />
 			</button>
 			{accessory}
-			{isOpen ? createPortal(<PickerPanel cx={cx} heading={heading} label={label} anchor={rowRef} tiles={tiles} footer={footer} onClose={close} />, document.body) : null}
+			{isOpen ? createPortal(<PickerPanel heading={heading} label={label} anchor={rowRef} tiles={tiles} footer={footer} onClose={close} />, document.body) : null}
 		</div>
 	);
 };
 
-const PickerPanel: React.FC<{ cx: StudioCx; heading: string; label: string; anchor: React.RefObject<HTMLButtonElement | null>; tiles: readonly TPickerTile[]; footer?: React.ReactNode; onClose: () => void }> = (props) => {
-	const { cx, heading, label, anchor, tiles, footer, onClose } = props;
+const PickerPanel: React.FC<{ heading: string; label: string; anchor: React.RefObject<HTMLButtonElement | null>; tiles: readonly TPickerTile[]; footer?: React.ReactNode; onClose: () => void }> = (props) => {
+	const { heading, label, anchor, tiles, footer, onClose } = props;
 	const [query, setQuery] = React.useState('');
 	const [isDragging, setIsDragging] = React.useState(false);
 	const shown = filterTiles(tiles, query);

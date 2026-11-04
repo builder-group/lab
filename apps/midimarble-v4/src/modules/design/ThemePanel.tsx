@@ -74,7 +74,6 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 
 	return (
 			<TilePicker
-				cx={cx}
 				id="scene-theme"
 				heading="Theme"
 				label="Themes"
