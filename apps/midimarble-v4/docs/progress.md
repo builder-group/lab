@@ -5,11 +5,20 @@ The autonomous build updates this log after every slice. Newest entries go first
 ## Current state
 
 - Milestones: M0–M5 done in the browser and headless Blender; M6 done by the owner's revised check (Camera view, Draft Preview and quick renders; the `reference-20` Best film exists as well). Still unverified in the native window: the round 2–3 UI, export through the sheet, a real agent run from the chat and the unsaved-example save panel
-- Next steps: the native checks above (computer use cannot drive the web view in the background; full-screen control needs the owner); round 4 review findings; Draft Preview look closer to Blender (shadows, metal)
+- Next steps: the native checks above (computer use cannot drive the web view in the background; full-screen control needs the owner); review round 5; Draft Preview look closer to Blender (shadows, metal); two-marble scale
 - Blockers: none
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### 2026-11-04: round 6, one world per marble, burned-in titles
+
+- Round 6 (review round 4 findings, 12/20): one problem model (`export-preflight.ts`) feeds the timeline hit summary, the export sheet, Layers badges and the Camera track spans; Checking state while a run simulates; fix notices stay until the problem is gone; Move Clear for blocked scenery and Move Hit Later; undo groups bound to their notice; the what-if count before placing; Next queues while a run checks. Camera defaults closer (distance 0.7, pitch 1.15), shot holds (`length`), a held ending after the last note, `activeUntil` per marble. Titles that read on a phone (Caption, Song Name, End Card styles), plain words for settings and the export sheet, keycaps in menus
+- Engine: one Rapier world per marble. Before, a far collider changed broad-phase order and broke 83 Jingle Bells hits; now pieces enter a marble's world only near that marble, windmills park too, and other marbles are proxies
+- Re-place Broken Platforms rebuilds problem by problem (bridge re-suggestion, backs up to 3 platforms, manual tilt tries, skips after failures): Jingle Bells after six notes go to Backing recovers to 109/109 in about 49 s in Node; rails left Blocked are named in the result
+- Captions and End Cards are drawn onto the encoded film with ffmpeg drawtext (sharp, fades, soft backing); the 3D copies are removed from the job scene; 3D screen titles stay for previews and the Blender encoder fallback. `reference-20` section titles are captions
+- Checks: `typecheck`, `lint` clean, `test` 400 + 3, `camera:check` 3 fixtures within 0.003 mm, `blender:film` 20, `blender:design` 62
+- Next: review round 5; two-marble scale (about half the reference, lane spacing); Draft Preview materials; a third theme and Duplicate Theme
 
 ### Night of 2026-11-03: rounds 3 to 5 (owner asleep, autonomous)
 
