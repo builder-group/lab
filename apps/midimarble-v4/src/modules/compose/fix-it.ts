@@ -1,4 +1,6 @@
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
+import { FINISH_TYPE } from '@/modules/simulation/finish';
+import { finishFix } from './finish-assist';
 import {
 	findLongGaps,
 	frameBand,
@@ -420,6 +422,11 @@ export async function fixPiece(
 			? `${what} would break ${broken === 1 ? 'a hit' : `${broken} hits`}, so nothing moved`
 			: `${what} would add a problem (${added[0]?.title ?? 'another marble'}), so nothing moved`;
 
+	// A Finish is placed again on its marble's fall, wherever it went wrong
+	if (type === FINISH_TYPE) {
+		const fix = await finishFix(project, result, entityId, deps);
+		return { commands: fix.commands, message: fix.message, label: fix.label, kind: fix.commands != null ? 'placeAgain' : undefined };
+	}
 	if (!soundsHit(type, link)) {
 		const fix = await sceneryFix(project, result, entityId, deps);
 		return { commands: fix.commands, run: fix.run, message: fix.message, label: fix.kind == null ? undefined : sceneryFixLabel(fix.kind, name), kind: fix.kind ?? undefined };

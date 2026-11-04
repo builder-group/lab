@@ -42,7 +42,7 @@ export interface TThemeSkin {
 }
 
 /** Piece types every theme dresses; `public/skins/` holds a rendered preview of each */
-export const THEME_SKIN_PIECE_TYPES = ['platform', 'rail', 'tunnel', 'windmill', 'switchback'] as const;
+export const THEME_SKIN_PIECE_TYPES = ['platform', 'rail', 'tunnel', 'windmill', 'switchback', 'finish'] as const;
 
 // Brass platform variants after the default Gold bar, rendered by `blender/tests/render_skin_previews.py`
 const BRASS_PLATFORM_VARIANTS: readonly { id: string; label: string }[] = [

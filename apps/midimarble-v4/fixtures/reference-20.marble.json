@@ -7,7 +7,7 @@
 		"width": 9,
 		"height": 16
 	},
-	"end": 19.65,
+	"end": 20.45,
 	"music": {
 		"sources": [],
 		"lanes": [
@@ -1609,6 +1609,31 @@
 					"style": "caption",
 					"in": 9.9,
 					"out": 13.05
+				}
+			}
+		},
+		{
+			"id": "finish-lane-1",
+			"name": "Finish 1",
+			"components": {
+				"piece": {
+					"type": "finish",
+					"params": {
+						"style": 0,
+						"mirror": 0,
+						"size": 0.06,
+						"length": 0.195,
+						"radius": 0.00375,
+						"entryDelay": 0.3625
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-48",
+					"angle": 0,
+					"contactAt": 0.5,
+					"pinned": false,
+					"anchored": true
 				}
 			}
 		}

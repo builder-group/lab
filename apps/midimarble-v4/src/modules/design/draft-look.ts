@@ -87,6 +87,8 @@ export function draftPieceColors(
 	// A Brass skin from More Skins dresses a platform as Brass in any theme, like `PieceFrame.is_brass_skin` in skins.py
 	const isBrassSkin = piece.type === 'platform' && piece.skin?.assetId.startsWith('brass:') === true;
 	if (theme === 'neon' && !isBrassSkin) return neonColors(piece.type, note ?? piece.color, overrides.glowColor ?? null);
+	// A Finish is a clear chrome chute in Pegboard and Brass, like `finish_spec` in skins.py, and plays no note
+	if (piece.type === 'finish' && theme !== 'neon') return { bar: CHROME, nub: theme === 'brass' ? '#9da1a8' : WOOD };
 	if (theme !== 'brass' && !isBrassSkin) {
 		// Pieces take their marble's colour; a lighter tint keeps the marble readable as it rolls over them
 		const body = note ?? tint(piece.color, PEGBOARD_TINT);
@@ -268,7 +270,7 @@ export function draftGlows(theme: string): boolean {
 /**
  * Neon pieces in the hue of their marble or note at full saturation, after `neon_colors` in skins.py: what reads
  * is the glow, so platforms, tunnels and windmills show their lit colour with a deeper body, and rails and
- * switchbacks are tube lights on dark posts
+ * switchbacks and Finishes are tube lights on dark posts
  */
 function neonColors(type: string, color: string, glowColor: string | null): TDraftColors {
 	// A project theme's Glow lights every edge in one colour, like `neon_colors` with `glow`

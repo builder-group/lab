@@ -3,6 +3,8 @@ import { baseThemeOf, sceneThemeOverrides } from '@/modules/design/project-theme
 import { createLoop } from '@/modules/simulation/loop';
 import { shotLength } from '@/modules/camera/shots';
 import { getPieceDefinition } from '@/modules/simulation/pieces';
+import { finishCatch, FINISH_TYPE } from '@/modules/simulation/finish';
+import { lastPlayingLanes } from '@/modules/music/lane-commands';
 import type { TMarbleSample, TMarbleTrack, TSimulationResult } from '@/modules/simulation/types';
 import {
 	CONTACT_MERGE,
@@ -142,7 +144,8 @@ export function buildSceneDescription(
 			camera: {
 				...buildSceneCamera(project.design.camera),
 				descent: descentCurve(result),
-				holdAfter: loop != null ? null : lastHitTime(result)
+				holdAfter: loop != null ? null : lastHitTime(result),
+				holdFinish: loop != null ? null : heldFinishes(project, result)
 			},
 			wallTexts: project.entities.flatMap((entity) => {
 				const text = entity.components.wallText;
@@ -164,6 +167,26 @@ export function lastHitTime(result: TSimulationResult): number | null {
 	let last = -Infinity;
 	for (const hit of result.hits) if (hit.actualTime != null) last = Math.max(last, hit.actualTime);
 	return Number.isFinite(last) ? Math.round(last * 1e4) / 1e4 : null;
+}
+
+/**
+ * Mouths of the Finishes that catch a marble playing last after the run's last hit, which the camera's held ending
+ * frames with that hit; null without any. A Finish that misses its marble is left out, so the frame stays on the
+ * last pieces, and so is one whose catch comes before the hold, which the camera saw while it still followed.
+ */
+export function heldFinishes(project: TProject, result: TSimulationResult): { x: number; y: number }[] | null {
+	const lanes = new Set(lastPlayingLanes(project));
+	const hold = lastHitTime(result);
+	if (hold == null) return null;
+	const points = project.entities.flatMap((entity) => {
+		const laneId = entity.components.hitLink?.laneId;
+		if (entity.components.piece?.type !== FINISH_TYPE || laneId == null || !lanes.has(laneId)) return [];
+		const piece = result.pieces.find((item) => item.entityId === entity.id);
+		const caught = finishCatch(result, entity.id);
+		if (piece == null || caught.status !== 'caught' || (caught.enterTime ?? -Infinity) < hold) return [];
+		return [{ x: Math.round(piece.position.x * 1e5) / 1e5, y: Math.round(piece.position.y * 1e5) / 1e5 }];
+	});
+	return points.length ? points : null;
 }
 
 export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {

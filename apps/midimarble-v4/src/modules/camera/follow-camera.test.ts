@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { songEnd } from '@/modules/music';
+import { FINISH_TAIL, filmTail, songEnd } from '@/modules/music';
+import { finishCatch } from '@/modules/simulation/finish';
 import { parseProject, type TProject } from '@/modules/project';
 import { createSimulator } from '@/modules/simulation/simulate';
 import type { TSimulationResult } from '@/modules/simulation/types';
@@ -391,22 +392,54 @@ describe('follow camera', () => {
 		expect(Math.min(u, v) < 0 || Math.max(u, v) > 1).toBe(true);
 	});
 
-	it('ends Jingle Bells SONG_TAIL after the last note with the last marble in the final frame', () => {
+	it('ends Jingle Bells FINISH_TAIL after the last note with both marbles landing in their Finishes in frame', () => {
 		const { project: jingle, result } = fixture('jingle-bells');
 		const track = required(followCameraTrack(jingle, result, 30));
 		const lastNote = Math.max(
 			...jingle.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time))
 		);
-		expect(jingle.end).toBe(songEnd(lastNote));
-		const last = Math.max(...result.hits.map((hit) => hit.actualTime ?? -Infinity));
-		const lastLane = required(result.hits.find((hit) => hit.actualTime === last)).laneId;
-		const marble = required(result.marbles.find((item) => item.laneId === lastLane));
+		expect(filmTail(jingle)).toBe(FINISH_TAIL);
+		expect(jingle.end).toBe(songEnd(lastNote, FINISH_TAIL));
 		const end = track.frameCount - 1;
-		const sample = required(marble.samples.find((item) => item.time >= end / 30 - 1e-6));
-		const [u, v] = project(track, end, sample.position.x, sample.position.y);
-		// Inside the frame with a margin of 5 % of it
-		expect(Math.min(u, v)).toBeGreaterThan(0.05);
-		expect(Math.max(u, v)).toBeLessThan(0.95);
+		const finishes = jingle.entities.filter((entity) => entity.components.piece?.type === 'finish');
+		expect(finishes).toHaveLength(2);
+		for (const finish of finishes) {
+			const caught = finishCatch(result, finish.id);
+			expect(caught.status).toBe('caught');
+			const marble = required(result.marbles.find((item) => item.laneId === finish.components.hitLink?.laneId));
+			// The marble enters its Finish in frame, with a margin of 5 % of it
+			const enter = pyRound(required(caught.enterTime) * 30);
+			const sample = required(marble.samples.find((item) => item.time >= enter / 30 - 1e-6));
+			const [u, v] = project(track, enter, sample.position.x, sample.position.y);
+			expect(Math.min(u, v)).toBeGreaterThan(0.05);
+			expect(Math.max(u, v)).toBeLessThan(0.95);
+			// A catch after the last hit stays in the held frame to the end
+			if (required(caught.enterTime) < Math.max(...result.hits.map((hit) => hit.actualTime ?? -Infinity))) continue;
+			const mouth = required(result.pieces.find((piece) => piece.entityId === finish.id)).position;
+			const [mu, mv] = project(track, end, mouth.x, mouth.y);
+			expect(Math.min(mu, mv)).toBeGreaterThan(0.05);
+			expect(Math.max(mu, mv)).toBeLessThan(0.95);
+		}
+	});
+
+	it('frames the last hit and the Finish together in the held ending', () => {
+		const { project: reference, result } = fixture('reference-20');
+		const held = required(followCameraTrack(reference, result, 30));
+		const without = required(
+			followCameraTrack(
+				{ ...reference, entities: reference.entities.filter((entity) => entity.components.piece?.type !== 'finish') },
+				{ ...result, pieces: result.pieces.filter((piece) => piece.type !== 'finish') },
+				30
+			)
+		);
+		const end = held.frameCount - 1;
+		const mouth = required(result.pieces.find((piece) => piece.type === 'finish')).position;
+		const [, before] = project(without, end, mouth.x, mouth.y);
+		const [u, v] = project(held, end, mouth.x, mouth.y);
+		// Held on the last pieces alone, the Finish sits lower in the frame than when the frame holds both
+		expect(v).toBeGreaterThan(before);
+		expect(Math.min(u, v)).toBeGreaterThan(0.1);
+		expect(Math.max(u, v)).toBeLessThan(0.9);
 	});
 
 	it('eases a Push In back to the rig after its hold', () => {

@@ -1,4 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
+import { addFinishLabel, lanesWithoutFinish } from '@/modules/compose/finish-assist';
 import { createState } from 'feature-state';
 import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, SkipBack } from 'lucide-react';
 import React from 'react';
@@ -73,6 +74,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
 	const checks = useFeatureState(compose?.assist.$pieceFixes ?? NO_CHECKS);
 	const lastFix = useFeatureState(compose?.assist.$lastFix ?? NO_LAST_FIX);
+	const addingFinish = useFeatureState(compose?.assist.$addingFinish ?? NO_ADDING);
 	const summary = React.useMemo(() => problemSummary(preflightExport(project, result)), [project, result]);
 	const isCurrent = result != null && result.revision === project.revision;
 	// Blocked scenery's Fix-its are tried on a copy of the run before the menu offers them
@@ -93,9 +95,16 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	// The latest fix result and Fit to Song where the user set a length the song no longer matches
 	const hasLastFix = lastFix != null && lastFix.projectId === project.id;
 	const fitEnd = fitToSongOffer(project);
+	// Add Finish for each marble that plays last and has none, so the film ends on the catch
+	const unfinished = lanesWithoutFinish(project);
 	const extras: TMenuEntry[] = [
+		...unfinished.map((laneId) => ({
+			label: addFinishLabel(project, laneId, unfinished.length),
+			disabled: compose == null || addingFinish != null,
+			onSelect: () => void compose?.assist.addFinish(laneId)
+		})),
 		...(hasLastFix ? [{ label: 'Show Last Fix', onSelect: () => compose?.assist.showLastFix() }] : []),
-		// Ends the film SONG_TAIL after the last hit, like the Project inspector's Fit to Song
+		// Ends the film `filmTail` after the last hit, like the Project inspector's Fit to Song
 		...(fitEnd != null ? [{ label: 'Fit to Song', onSelect: () => void cx.execute([{ type: 'setEnd', end: fitEnd }]) }] : [])
 	];
 	// Already in time order, as the summary keeps them
@@ -156,6 +165,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
 const NO_CHECKS = createState<Record<string, TPieceFixCheck>>({});
 const NO_LAST_FIX = createState<TLastFix | null>(null);
+const NO_ADDING = createState<string | null>(null);
 
 /** A glyph button that runs a playback command and names it with its shortcut in the tooltip */
 const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React.ReactNode; title?: string; isActive?: boolean }> = (props) => {

@@ -206,6 +206,8 @@ function describeContact(
 			return `The marble is struck by the blades of a windmill turning around its hub. Blades are ${value('bladeLength')} long. Put the origin at the hub centre with +Z toward the camera; the worker spins the model.`;
 		case 'holder':
 			return `The marble zigzags down a switchback of sloped wire legs between two walls, ${value('width')} wide, with wires of radius ${value('radius')}. Model a straight 0.1 m wire section along X with its top line at z = 0; the worker places one per leg and wall.`;
+		case 'catcher':
+			return `The marble drops into a Finish, a curved wire chute of radius ${value('size')} with wires of radius ${value('radius')}, and rolls out along it. Model a straight 0.1 m wire section along X with its top line at z = 0; the worker bends it along the chute.`;
 	}
 }
 
@@ -227,6 +229,7 @@ function reactionSlots(layout: TPieceLayoutKind | undefined): TAgentBrief['react
 		case 'path':
 		case 'tube':
 		case 'holder':
+		case 'catcher':
 			return [{ name: 'glow', description: 'An emissive part flashes while the marble passes' }];
 	}
 }

@@ -3,7 +3,7 @@ import type { TComposeTool, TPathType } from './keys';
 // Items of the Insert library, the tool rail's + popover. A click arms the tool that places the item and a
 // drag drops it on the canvas.
 
-export type TInsertItem = 'platform' | 'rail' | 'tunnel' | 'windmill' | 'switchback' | 'marble';
+export type TInsertItem = 'platform' | 'rail' | 'tunnel' | 'windmill' | 'switchback' | 'finish' | 'marble';
 
 export interface TInsertEntry {
 	item: TInsertItem;
@@ -32,6 +32,7 @@ export const insertSections: TInsertSection[] = [
 			{ item: 'platform', label: 'Platform', description: 'The marble bounces off it and plays a note', shortcut: 'P' },
 			{ item: 'windmill', label: 'Windmill', description: 'The marble strikes a blade and sets it turning', shortcut: 'W' },
 			{ item: 'switchback', label: 'Switchback', description: 'The marble zigzags down its legs to fill a long gap' },
+			{ item: 'finish', label: 'Finish', description: 'Catches the marble after its last note, so the film ends on the catch' },
 			{ item: 'marble', label: 'Marble', description: 'A new marble with its own layer', shortcut: 'O' }
 		]
 	}

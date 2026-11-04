@@ -87,6 +87,23 @@ const PieceDrawing: React.FC<TPieceDrawingProps> = (props) => {
 			</g>
 		);
 	}
+	if (piece.type === 'finish') {
+		// A clear chute: two wires with a pale band between, like the canvas draws it
+		const spread = Math.max((piece.params['radius'] ?? 0.0025) * 1.3 * scale, 1.6);
+		const wire = Math.max((piece.params['radius'] ?? 0.0025) * 0.9 * scale, 1.1);
+		return (
+			<g>
+				{(piece.paths ?? []).map((line) => (
+					<g key={toPoints(line)}>
+						<polyline points={points(line)} fill="none" stroke={palette.bar} strokeOpacity={0.2} strokeWidth={spread * 2} strokeLinejoin="round" strokeLinecap="round" />
+						{[spread, -spread].map((offset) => (
+							<polyline key={offset} points={toPoints(offsetPolyline(line.map(map), offset))} fill="none" stroke={palette.bar} strokeWidth={wire} strokeLinecap="round" strokeLinejoin="round" />
+						))}
+					</g>
+				))}
+			</g>
+		);
+	}
 	if (piece.type === 'switchback') {
 		const wire = Math.max((piece.params['radius'] ?? 0.0025) * 2 * scale, 1.4);
 		return (
@@ -183,6 +200,13 @@ function previewScene(item: TInsertItem): TPreviewScene {
 			const hitAt = { x: reach * 0.72, y: (params['bladeThickness'] ?? 0.009) / 2 + r };
 			const trail = [...arc({ x: hitAt.x - 0.035, y: hitAt.y + 0.07 }, hitAt, { x: hitAt.x - 0.03, y: hitAt.y + 0.04 }), ...arc(hitAt, { x: reach * 1.25, y: -reach * 0.5 }, { x: reach * 1.05, y: hitAt.y + 0.01 })];
 			return withBounds({ piece, marble: hitAt, trail });
+		}
+		case 'finish': {
+			// The marble drops into the curve and rolls out along the run-out
+			const wire = piece.paths?.[0] ?? [];
+			const mouth = piece.position;
+			const trail = [{ x: mouth.x, y: mouth.y + 0.06 }, mouth, ...wire.slice(Math.floor(wire.length * 0.6)).map((point) => ({ x: point.x, y: point.y + r }))];
+			return withBounds({ piece, marble: { x: mouth.x, y: mouth.y + 0.03 }, trail });
 		}
 		case 'switchback': {
 			const wires = piece.paths ?? [];

@@ -62,7 +62,7 @@ import {
 	withPathEnd
 } from './scene';
 import { newlyBroken } from './fix-it';
-import { commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
+import { asLaneFinish, commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
 import {
 	boundsOf,
 	fitBounds,
@@ -1153,10 +1153,10 @@ export class ComposeCx {
 		return 'platform';
 	}
 
-	/** True for a scenery tool (windmill, switchback), which anchors its piece where the trajectory is clicked */
+	/** True for a scenery tool (windmill, switchback, finish), which anchors its piece where the trajectory is clicked */
 	isSceneryTool(): boolean {
 		const tool = this.$tool.get();
-		return tool === 'windmill' || tool === 'switchback';
+		return tool === 'windmill' || tool === 'switchback' || tool === 'finish';
 	}
 
 	/** Arms a tool; the path tool takes the piece it draws, a rail unless asked for a tunnel */
@@ -1225,7 +1225,9 @@ export class ComposeCx {
 		const entity = drag.entity ?? createFreePiece(drag.item, pose, project.entities, path);
 		drag.entity = entity;
 		const snap = !isFree && this.studio.$snapping.get() ? this.findSnap(entity, pose, drag) : null;
-		const candidate = withSnap(project, entity, pose, snap);
+		// A marble has one Finish: dropped on its fall, the marble's own Finish moves there
+		const snapped = withSnap(project, entity, pose, snap);
+		const candidate = layoutOf(snapped.components.piece?.type ?? '') === 'catcher' && snapped.components.hitLink != null ? asLaneFinish(project, snapped, snap?.kind === 'anchor' ? this.velocityAt(snap.laneId, snap.time) : null) : snapped;
 		const radius = this.marbleRadius(snap?.laneId);
 		this.$override.set(snap?.kind === 'link' ? displayPiece(candidate, { pose, dot: snap.dot, velocity: snap.velocity }, radius) : displayPiece(candidate, { pose }, radius));
 		this.$insertSnap.set({ position: world, snap });
@@ -1276,6 +1278,13 @@ export class ComposeCx {
 			return { laneId, points, times };
 		});
 		return this.screenTracks;
+	}
+
+	/** The marble's velocity at `time` on the shown run, or null */
+	private velocityAt(laneId: string, time: number): TVec2 | null {
+		const project = this.project;
+		const samples = this.result?.marbles.find((track) => track.laneId === laneId)?.samples ?? [];
+		return project != null ? (trajectoryAt(samples, time, gravityOf(project))?.velocity ?? null) : null;
 	}
 
 	/** Adds a scenery piece the marble meets at `time`, chosen by clicking its trajectory or a dot */

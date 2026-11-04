@@ -1,7 +1,7 @@
 import { cachedFollowCameraTrack, followCameraTrack, framingStretches, isInFrame, type TCameraTrack, type TFramingStretch } from '@/modules/camera';
 import { hitReach, isUnreachable, reachStatus } from '@/modules/compose/reachability';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { getPieceDefinition, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { FINISH_TYPE, finishCatch, getPieceDefinition, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
@@ -31,6 +31,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	const issues: TPreflightIssue[] = [
 		...hitIssues(project, result, names),
 		...sceneryIssues(project, result, names),
+		...finishIssues(project, result, names),
 		...contactIssues(project, result, names),
 		...framingIssues(project, result, names),
 		...loopIssues(project, result)
@@ -290,6 +291,48 @@ function sceneryIssues(project: TProject, result: TSimulationResult, names: TNam
 			}
 		];
 	});
+}
+
+// MARK: - Finishes
+
+/**
+ * Finishes that do not catch their marble: "Melody misses the Finish" when the marble falls past it, bounces out of it,
+ * or the film ends before the marble gets there. A Blocked Finish is reported as Blocked scenery. The inspector's
+ * Fix-it places it again (Place Finish Again).
+ */
+function finishIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
+	return project.entities.flatMap((entity) => {
+		const link = entity.components.hitLink;
+		if (entity.components.piece?.type !== FINISH_TYPE || link == null) return [];
+		const piece = result.pieces.find((item) => item.entityId === entity.id);
+		const caught = finishCatch(result, entity.id);
+		if (piece == null || caught.status === 'caught' || caught.status === 'blocked') return [];
+		const lane = names.lane(link.laneId);
+		const time = piece.entryTime ?? piece.hitTime ?? undefined;
+		const isLate = caught.status === 'missed' && time != null && time > result.duration - 0.05;
+		const detail = isLate
+			? `The film ends before ${lane} reaches the Finish. Fit to Song lengthens it.`
+			: caught.status === 'escaped'
+				? `${lane} lands in the Finish and bounces out of it.`
+				: `${lane} falls past the Finish without landing in it.`;
+		return [
+			{
+				id: `finish:${entity.id}`,
+				kind: 'scenery' as const,
+				severity: 'warning' as const,
+				laneId: link.laneId,
+				title: `${lane} misses the Finish`,
+				detail,
+				time,
+				target: { ids: [entity.id], point: piece.position, time }
+			}
+		];
+	});
+}
+
+/** The Finishes that miss their marble, by entity ID, as the problem model reports them */
+export function missedFinishes(preflight: TExportPreflight): Set<string> {
+	return new Set(preflight.issues.flatMap((issue) => (issue.id.startsWith('finish:') ? [issue.id.slice('finish:'.length)] : [])));
 }
 
 // MARK: - Contacts

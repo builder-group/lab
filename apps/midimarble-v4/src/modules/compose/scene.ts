@@ -57,7 +57,7 @@ export function pieceCorners(piece: TResolvedPiece): TVec2[] {
 	].map(([x = 0, y = 0]) => ({ x: piece.position.x + x * cos - y * sin, y: piece.position.y + x * sin + y * cos }));
 }
 
-export type TPieceKind = 'box' | 'path' | 'tube' | 'rotor' | 'holder';
+export type TPieceKind = 'box' | 'path' | 'tube' | 'rotor' | 'holder' | 'catcher';
 
 export function pieceKind(piece: { type: string }): TPieceKind {
 	return layoutOf(piece.type);
@@ -70,8 +70,8 @@ export function pieceKind(piece: { type: string }): TPieceKind {
 export function pieceOutline(piece: TResolvedPiece): TVec2[] {
 	const kind = pieceKind(piece);
 	if (kind === 'box') return pieceCorners(piece);
-	if (kind === 'holder') {
-		// The rectangle around the walls and legs
+	if (kind === 'holder' || kind === 'catcher') {
+		// The rectangle around the walls and legs, or the Finish's wires
 		const points = (piece.paths ?? []).flat();
 		if (!points.length) return [piece.position];
 		const xs = points.map((point) => point.x);

@@ -39,7 +39,7 @@ const ComposeTools: React.FC<{ compose: ComposeCx }> = (props) => {
 		</RailButton>
 	);
 	// Pieces only the library arms light up its button, like Figma's shape tools behind one slot
-	const isLibraryTool = tool === 'windmill' || tool === 'switchback';
+	const isLibraryTool = tool === 'windmill' || tool === 'switchback' || tool === 'finish';
 	return (
 		<>
 			{item('select', 'Move', 'Select, drag and turn', <MousePointer2 size={17} strokeWidth={1.6} />)}

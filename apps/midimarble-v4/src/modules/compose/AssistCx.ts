@@ -19,6 +19,7 @@ import { toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
+import { findFinish } from './finish-assist';
 import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
 import { unreachableActions } from './unreachable-fixes';
@@ -547,6 +548,36 @@ export class AssistCx {
 			this.studio.notifyEdit(lastFix.message, [], { details: lastFix.details });
 		} else this.studio.notify(message);
 		return outcome;
+	}
+
+	/** The marble Add Finish is searching a Finish for, while it runs */
+	readonly $addingFinish = createState<string | null>(null);
+
+	/**
+	 * Add Finish: a Finish on the marble's fall after its last note, which what-if runs found to catch it, break no
+	 * hit and touch no other marble or its pieces, as one undo step. The film length follows when it follows the song.
+	 */
+	async addFinish(laneId: string): Promise<void> {
+		const project = this.studio.project;
+		const deps = this.fixDeps();
+		if (project == null || deps == null || this.$addingFinish.get() != null) return;
+		this.$addingFinish.set(laneId);
+		try {
+			const placed = await findFinish(project, laneId, { simulate: deps.simulate });
+			// Another edit while the what-ifs ran makes them stale
+			if (this.studio.project?.revision !== project.revision) return;
+			if ('error' in placed) {
+				this.studio.notify(placed.error);
+				return;
+			}
+			if (!this.studio.execute(placed.commands)) return;
+			this.studio.$selection.set([placed.entity.id]);
+			this.studio.notifyEdit(placed.message);
+		} catch (error) {
+			this.studio.notify(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			this.$addingFinish.set(null);
+		}
 	}
 
 	/**

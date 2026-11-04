@@ -7,12 +7,15 @@
 // on time, every gap piece in the run and each marble on its own pieces; the build stops at the first step that cannot. Writes the MIDI file
 // and a build log with the pace measurements to `.local/jingle/`. The fixture ships the MIDI file next to it as
 // `fixtures/jingle-bells.mid`, its song, which the example copies into the new package.
+// Each marble then gets a Finish after its last note (Add Finish), and the film ends with their catch.
 // Usage: tsx scripts/build-jingle-fixture.ts [--finalize]
-//   --finalize re-applies the song, piece names and the film end to the existing fixture without rebuilding its pieces
+//   --finalize re-applies the song, the Finishes, piece names and the film end to the existing fixture without
+//   rebuilding its pieces
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as toneMidi from '@tonejs/midi';
+import { withFinishes } from '../src/modules/compose/finish-assist';
 import { preflightExport } from '../src/modules/design/export-preflight';
-import { alignNotes, createImportCommands, parseMidiFile, proposeLanes, songEnd } from '../src/modules/music';
+import { alignNotes, createImportCommands, filmTail, parseMidiFile, proposeLanes, songEnd } from '../src/modules/music';
 import {
 	applyProjectCommands,
 	createProject,
@@ -77,7 +80,9 @@ writeFileSync(new URL(`../fixtures/${SONG_NAME}`, import.meta.url), midiBytes);
 if (process.argv.includes('--finalize')) {
 	const [isFixtureOk, fixtureErr, fixture] = parseProject(readFileSync(FIXTURE_URL, 'utf8'));
 	if (!isFixtureOk) throw fixtureErr;
-	writeFileSync(FIXTURE_URL, serializeProject(finalized(fixture)));
+	const finishing = await createSimulator();
+	writeFileSync(FIXTURE_URL, serializeProject(await finalized(fixture, (current) => finishing.simulate(current))));
+	finishing.dispose();
 	console.log('finalized');
 	process.exit(0);
 }
@@ -183,7 +188,6 @@ for (const shift of RELEASE_SHIFTS) {
 if (best != null) ({ project, counts, failures } = best);
 
 const finalResult = simulate(project);
-simulator.dispose();
 const byLane = project.music.lanes.map((lane) => {
 	const hits = finalResult.hits.filter((hit) => hit.laneId === lane.id);
 	return `${lane.name}: ${hits.filter((hit) => hit.status === 'onTime').length}/${hits.length} on time`;
@@ -199,7 +203,8 @@ say(`heights every 4 s (melody | bass | y*, m): ${describeHeights(finalResult)}`
 for (const failure of failures) say(`failed: ${failure}`);
 say(`export preflight: ${preflightExport(project, finalResult).issues.map((issue) => `${issue.title} (${issue.detail})`).join('; ') || 'clean'}`);
 
-const json = serializeProject(finalized(apply(project, [], 0)));
+const json = serializeProject(await finalized(apply(project, [], 0), simulate));
+simulator.dispose();
 const [isProjectOk, projectErr] = parseProject(json);
 if (!isProjectOk) throw projectErr;
 writeFileSync(FIXTURE_URL, json);
@@ -207,18 +212,22 @@ writeFileSync(new URL('build-log.txt', OUT), `${log.join('\n')}\n`);
 
 /**
  * What the import sheet records besides the marbles: the MIDI file as the project's song, starting where its
- * first note plays, its tempo, the default camera of a new project and Fit to Song's film end. Pieces are named in
- * time order last. None of it changes the run before its end.
+ * first note plays, its tempo, the default camera of a new project, a Finish for each marble after its last note
+ * and Fit to Song's film end. Pieces are named in time order last. None of it changes the run before its end.
  */
-function finalized(current: TProject): TProject {
+async function finalized(fixture: TProject, simulateFinish: TSimulateFn): Promise<TProject> {
+	// Both marbles end in a Finish, the melody's 1.5 s before the bass's, which plays last
+	const finished = await withFinishes(fixture, { simulate: simulateFinish }, { lanes: fixture.music.lanes.map((lane) => lane.id) });
+	for (const message of finished.messages) console.log(`finish: ${message}`);
+	const current = finished.project;
 	const source: TSource = { id: 'source-1', kind: 'midi', path: `audio/${SONG_NAME}`, name: SONG_NAME, offset: IMPORT_START };
 	const removed = current.music.sources.map((item) => ({ type: 'removeSource' as const, sourceId: item.id }));
 	const camera = { ...current.design.camera, distance: DEFAULT_CAMERA_DISTANCE, pitch: DEFAULT_CAMERA_PITCH };
 	const song = apply(
 		current,
 		[...removed, { type: 'upsertSource', source }, { type: 'setTempo', tempo: { bpm: TEMPO, beatsPerBar: 4 } }, { type: 'setDesign', design: { camera } },
-			// The film ends while the marble that struck the last note is still in the held frame
-			{ type: 'setEnd', end: songEnd(Math.max(...current.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)))) }
+			// The film ends once the marbles that play last have landed in their Finishes
+			{ type: 'setEnd', end: songEnd(Math.max(...current.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time))), filmTail(current)) }
 		],
 		current.revision
 	);

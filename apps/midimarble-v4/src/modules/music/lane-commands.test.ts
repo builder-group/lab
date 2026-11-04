@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
-import { autoEnd, changesHitsOnly, createImportCommands, DEFAULT_PROJECT_END, fitToSongOffer, IMPORT_RELEASE_LEAD, isAutoEnd } from './lane-commands';
+import { autoEnd, changesHitsOnly, changesTail, createImportCommands, DEFAULT_PROJECT_END, filmTail, FINISH_TAIL, fitToSongOffer, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
 import type { TMidiNote } from './midi';
 
 function note(time: number, pitch: number): TMidiNote {
@@ -79,5 +79,36 @@ describe('autoEnd', () => {
 		expect(changesHitsOnly([{ type: 'upsertHits', laneId: 'l', hits: [] }])).toBe(true);
 		expect(changesHitsOnly([{ type: 'upsertHits', laneId: 'l', hits: [] }, { type: 'setEnd', end: 3 }])).toBe(false);
 		expect(changesHitsOnly([{ type: 'setTitle', title: 'Song' }])).toBe(false);
+	});
+});
+
+describe('filmTail', () => {
+	function withLanes(times: number[][], finishes: string[] = [], end = 4): TProject {
+		const project = createProject({ id: 'finish', title: 'Finish' });
+		const lanes = times.map((hits, index) => ({ ...(project.music.lanes[0] as TProject['music']['lanes'][number]), id: `lane-${index}`, hits: hits.map((time, hit) => ({ id: `h${index}-${hit}`, time })) }));
+		const entities = finishes.map((laneId) => ({
+			id: `finish-${laneId}`,
+			components: { piece: { type: 'finish', params: {} }, hitLink: { laneId, hitId: 'h0-0', angle: 0, contactAt: 0.5, pinned: false, anchored: true } }
+		}));
+		return { ...project, end, music: { ...project.music, lanes }, entities: [...project.entities, ...entities] };
+	}
+
+	it('runs the Finish tail only when every marble that plays last has a Finish', () => {
+		expect(lastPlayingLanes(withLanes([[1, 3], [2.5]]))).toEqual(['lane-0', 'lane-1']);
+		expect(lastPlayingLanes(withLanes([[1, 6], [2.5]]))).toEqual(['lane-0']);
+		expect(filmTail(withLanes([[1, 3], [2.5]], ['lane-0']))).toBe(SONG_TAIL);
+		expect(filmTail(withLanes([[1, 3], [2.5]], ['lane-0', 'lane-1']))).toBe(FINISH_TAIL);
+		expect(filmTail(withLanes([[1, 6], [2.5]], ['lane-0']))).toBe(FINISH_TAIL);
+	});
+
+	it('lengthens a film that follows the song when the last marble gets its Finish, and only then', () => {
+		const before = withLanes([[1, 3.6]], [], 4);
+		const after = withLanes([[1, 3.6]], ['lane-0'], 4);
+		expect(changesTail([{ type: 'upsertEntity', entity: after.entities[after.entities.length - 1] as TProject['entities'][number] }], before, after)).toBe(true);
+		expect(autoEnd(before, after)).toBe(3.6 + FINISH_TAIL);
+		// A length the user set stays theirs, and Fit to Song offers the longer one
+		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.8))).toBe(true);
+		expect(fitToSongOffer(withLanes([[1, 3.6]], ['lane-0'], 9))).toBe(4.8);
+		expect(autoEnd(withLanes([[1, 3.6]], [], 9), withLanes([[1, 3.6]], ['lane-0'], 9))).toBeNull();
 	});
 });

@@ -69,9 +69,53 @@ export function createImportCommands(
  */
 export const SONG_TAIL = 0.4;
 
+/**
+ * Seconds a film runs on after the last note when every marble that plays last has a Finish (`filmTail`): the
+ * camera's held ending frames the Finish; the marble lands in it 0.38 to 0.49 s after its last note, rolls off the
+ * Chute's end 0.83 to 0.87 s after it and leaves the held frame 1 s after it in Jingle Bells, while Reference 20's
+ * stays in frame past 1.5 s. 1.2 s shows the catch and the roll-out and ends as the marble falls away, with at most
+ * 0.2 s of empty chute (1.5 s left Jingle Bells 0.5 s on it)
+ */
+export const FINISH_TAIL = 1.2;
+
+/** The piece type that catches a marble after its last note */
+const FINISH_TYPE = 'finish';
+
 /** Film length for a song whose last note starts at `lastNote`, rounded to 0.01 s */
-export function songEnd(lastNote: number): number {
-	return Math.round((lastNote + SONG_TAIL) * 100) / 100;
+export function songEnd(lastNote: number, tail = SONG_TAIL): number {
+	return Math.round((lastNote + tail) * 100) / 100;
+}
+
+/**
+ * The marbles that play last: those whose last hit falls within `FINISH_TAIL` of the song's last hit, so they
+ * would still fall through the frame during a Finish's tail. Lane IDs, empty without hits.
+ */
+export function lastPlayingLanes(project: TProject): string[] {
+	const lasts = project.music.lanes.flatMap((lane) => (lane.hits.length ? [{ id: lane.id, time: Math.max(...lane.hits.map((hit) => hit.time)) }] : []));
+	if (!lasts.length) return [];
+	const last = Math.max(...lasts.map((item) => item.time));
+	return lasts.filter((item) => item.time >= last - FINISH_TAIL - 1e-9).map((item) => item.id);
+}
+
+/** Whether a marble's lane has a Finish, the piece that catches it after its last note */
+export function hasFinish(project: TProject, laneId: string): boolean {
+	return project.entities.some((entity) => entity.components.piece?.type === FINISH_TYPE && entity.components.hitLink?.laneId === laneId);
+}
+
+/**
+ * The one rule for how long a film runs on after its last note: `FINISH_TAIL` when every marble that plays last
+ * has a Finish, so the film ends on the catch, else `SONG_TAIL`. Whether the Finish catches its marble is the
+ * problem model's to say ("Melody misses the Finish"); the length follows the pieces, so it never changes with a run.
+ */
+export function filmTail(project: TProject): number {
+	const lanes = lastPlayingLanes(project);
+	return lanes.length > 0 && lanes.every((laneId) => hasFinish(project, laneId)) ? FINISH_TAIL : SONG_TAIL;
+}
+
+/** The length that fits the project's song: its last hit plus `filmTail`; null without notes */
+export function projectSongEnd(project: TProject): number | null {
+	const last = lastHitTime(project);
+	return last == null ? null : songEnd(last, filmTail(project));
 }
 
 /** The length of a new project (`createProject`) before it has hits */
@@ -86,25 +130,25 @@ export function lastHitTime(project: TProject): number | null {
 
 /**
  * Whether the length still follows the song: the untouched default of a new project, or the last hit plus
- * `SONG_TAIL`, as an import, Fit to Song or the automatic fit left it. A length the user set to anything else is
- * theirs and never changes silently.
+ * `SONG_TAIL` or `FINISH_TAIL`, as an import, Fit to Song or the automatic fit left it. A length the user set to
+ * anything else is theirs and never changes silently.
  */
 export function isAutoEnd(project: TProject): boolean {
 	if (Math.abs(project.end - DEFAULT_PROJECT_END) < 1e-6) return true;
 	const last = lastHitTime(project);
-	return last != null && Math.abs(project.end - songEnd(last)) < 0.005;
+	return last != null && [SONG_TAIL, FINISH_TAIL].some((tail) => Math.abs(project.end - songEnd(last, tail)) < 0.005);
 }
 
 /**
- * The length after an edit of the hits, while it follows the song: the last hit plus `SONG_TAIL`, so a tapped
- * project ends with its last hit instead of filming 8 s of empty wall. `before` is the project the edit started
- * from; a length the user set, an edit without notes and an edit that keeps the length give null.
+ * The length after an edit of the hits or the Finishes, while it follows the song: the last hit plus `filmTail`, so
+ * a tapped project ends with its last hit instead of filming 8 s of empty wall, and a Finish added for the last
+ * marble lengthens the film to show the catch. `before` is the project the edit started from; a length the user
+ * set, an edit without notes and an edit that keeps the length give null.
  */
 export function autoEnd(before: TProject, after: TProject): number | null {
 	if (!isAutoEnd(before)) return null;
-	const last = lastHitTime(after);
-	if (last == null) return null;
-	const end = songEnd(last);
+	const end = projectSongEnd(after);
+	if (end == null) return null;
 	return Math.abs(end - after.end) < 1e-6 ? null : end;
 }
 
@@ -114,6 +158,15 @@ export function changesHitsOnly(commands: readonly TProjectCommand[]): boolean {
 	return commands.some((command) => HIT_COMMANDS.has(command.type));
 }
 
+/**
+ * Whether an edit that does not set the length changes the film's tail, by adding or removing the Finish of a marble
+ * that plays last, so the length may follow the song (`autoEnd`)
+ */
+export function changesTail(commands: readonly TProjectCommand[], before: TProject, after: TProject): boolean {
+	if (commands.some((command) => command.type === 'setEnd')) return false;
+	return filmTail(before) !== filmTail(after);
+}
+
 const HIT_COMMANDS = new Set<TProjectCommand['type']>(['upsertLane', 'removeLane', 'upsertHits', 'removeHits', 'assignHits']);
 
 /**
@@ -121,9 +174,8 @@ const HIT_COMMANDS = new Set<TProjectCommand['type']>(['upsertLane', 'removeLane
  * `FIT_OFFER_GAP` before it, or after it, so its last hits are cut off. Null while the length follows the song.
  */
 export function fitToSongOffer(project: TProject): number | null {
-	const last = lastHitTime(project);
-	if (last == null || isAutoEnd(project)) return null;
-	const end = songEnd(last);
+	const end = projectSongEnd(project);
+	if (end == null || isAutoEnd(project)) return null;
 	return end < project.end - FIT_OFFER_GAP || end > project.end + 1e-6 ? end : null;
 }
 

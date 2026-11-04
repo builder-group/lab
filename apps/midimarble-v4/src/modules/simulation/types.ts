@@ -150,7 +150,7 @@ export type THitStatus =
 	| 'missed' // no contact, |error| > HIT_TOLERANCE, or a resting first contact
 	| 'blocked'; // the linked piece could not be inserted
 
-export type TPieceLayoutKind = 'box' | 'path' | 'tube' | 'rotor' | 'holder';
+export type TPieceLayoutKind = 'box' | 'path' | 'tube' | 'rotor' | 'holder' | 'catcher';
 
 /**
  * Piece definitions. Each type builds its colliders from parameters and places its contact surface on a
@@ -189,7 +189,7 @@ export interface TPieceDefinition {
 	/**
 	 * How the piece is built: `box` (default) is a platform bar, `path` a rail along `path` points,
 	 * `tube` a tunnel along `path` points, `rotor` a windmill turning around its hub and `holder` a
-	 * switchback built from its parameters
+	 * switchback built from its parameters, `catcher` a Finish built from its parameters
 	 */
 	layout?: TPieceLayoutKind;
 	/** Local control points used when a path piece has no `path` component */

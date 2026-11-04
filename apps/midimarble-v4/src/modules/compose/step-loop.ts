@@ -1,6 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import type { TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import {
+	finishOfLane,
 	createLinkedPiece,
 	defaultPlatformAngle,
 	frameBand,
@@ -127,7 +128,34 @@ export function followerAt(
 	const piece = entity.components.piece;
 	if (piece != null) piece.params = { ...piece.params, entryDelay: delay };
 	const kind = layoutOf(type);
+	if (kind === 'catcher') return Ok(asLaneFinish(project, entity, velocity));
 	return Ok(kind === 'path' || kind === 'tube' ? withRunDirection(project, entity, position, velocity) : entity);
+}
+
+/**
+ * A Finish for the marble of its anchor: its backstop on the side the marble moves toward, and the marble's own Finish
+ * kept, moved to the new spot, since a marble has at most one
+ */
+export function asLaneFinish(project: TProject, entity: TEntity, velocity: TVec2 | null): TEntity {
+	const laneId = entity.components.hitLink?.laneId;
+	const existing = laneId != null ? finishOfLane(project, laneId) : undefined;
+	const piece = entity.components.piece;
+	const params: Record<string, number> = { ...(existing?.components.piece?.params ?? {}), ...piece?.params, mirror: (velocity?.x ?? 0) < 0 ? 1 : 0 };
+	const style = existing?.components.piece?.params['style'];
+	if (style != null) params['style'] = style;
+	const link = entity.components.hitLink;
+	const { transform: _, ...kept } = existing?.components ?? {};
+	return {
+		...entity,
+		id: existing?.id ?? entity.id,
+		...(existing?.name != null ? { name: existing.name } : {}),
+		components: {
+			...kept,
+			...entity.components,
+			piece: { type: piece?.type ?? 'finish', params },
+			...(link != null ? { hitLink: { ...link, anchored: true } } : {})
+		}
+	};
 }
 
 /** Points the run of a new rail or tunnel along the horizontal travel, or back when it would leave the frame */

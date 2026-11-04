@@ -4,7 +4,8 @@
 // their own brass skin (`brass:<skin>` skin asset IDs) and a wall title at its start, like the reference's skin
 // sets and song titles per song.
 // Usage: tsx scripts/build-reference-fixture.ts [--dress]
-//   --dress re-applies skins, titles, piece names and the film end to the existing fixture without rebuilding its pieces
+//   --dress re-applies skins, titles, the Finish, piece names and the film end to the existing fixture without
+//   rebuilding its pieces
 import { readFileSync, writeFileSync } from 'node:fs';
 import {
 	applyProjectCommands,
@@ -16,6 +17,7 @@ import {
 	type TProject,
 	type TProjectCommand
 } from '../src/modules/project';
+import { withFinishes } from '../src/modules/compose/finish-assist';
 import { songEnd } from '../src/modules/music';
 import { autoPlace, continueSuggestions, mirrorPiece } from '../src/modules/simulation/assists';
 import { createBareRunProject } from '../src/modules/simulation/fixture-projects';
@@ -64,7 +66,7 @@ const simulate = (project: TProject) => simulator.simulate(project);
 if (process.argv.includes('--dress')) {
 	const [isFixtureOk, fixtureErr, fixture] = parseProject(readFileSync(FIXTURE_URL, 'utf8'));
 	if (!isFixtureOk) throw fixtureErr;
-	writeFileSync(FIXTURE_URL, serializeProject(namePiecesInOrder(apply(dress(fixture), [], fixture.revision))));
+	writeFileSync(FIXTURE_URL, serializeProject(namePiecesInOrder(apply(await finished(dress(fixture)), [], fixture.revision))));
 	simulator.dispose();
 	console.log('dressed');
 	process.exit(0);
@@ -120,7 +122,7 @@ for (const [sectionIndex, section] of SECTIONS.entries()) {
 	}
 	offset = last;
 }
-project = dress(withoutOpenHits(project));
+project = await finished(dress(withoutOpenHits(project)));
 const finalResult = createSimulatorResult(project);
 simulator.dispose();
 // Assists accept a marble that comes to rest on stacked pieces; a section must keep travelling down the wall
@@ -185,6 +187,13 @@ function withoutOpenHits(current: TProject): TProject {
 	const next = structuredClone(current);
 	for (const lane of next.music.lanes) lane.hits = lane.hits.filter((hit) => served.has(hit.id));
 	return next;
+}
+
+/** The marble's Finish after its last note (Add Finish), with the film ending on its catch */
+async function finished(current: TProject): Promise<TProject> {
+	const result = await withFinishes(current, { simulate });
+	for (const message of result.messages) console.log(`finish: ${message}`);
+	return result.project;
 }
 
 /** Section skins on alternating columns, a wall title above each section's first piece and the camera framing */

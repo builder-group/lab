@@ -338,7 +338,7 @@ def build_spec(kind, entity, context):
     piece_type = entity.get('type', 'platform')
     frame = PieceFrame(entity, context)
     builder = {'rail': rail_spec, 'tunnel': tunnel_spec, 'windmill': windmill_spec,
-               'switchback': switchback_spec}.get(piece_type, platform_spec)
+               'switchback': switchback_spec, 'finish': finish_spec}.get(piece_type, platform_spec)
     return builder(frame, entity, theme)
 
 
@@ -670,6 +670,79 @@ def switchback_spec(frame, piece, theme):
             builder.tube([(x, frame.marble_y + half, z), (x, frame.wall_y, z)], radius * 0.75, material=0, sides=8)
             builder.cylinder(0.0035 * k, 0.0015 * k, (x, frame.wall_y - 0.00075 * k, z), axis='Y', material=0, bevel=0.0004 * k)
     return {'root': builder.to_mesh('MM switchback', [themes.chrome_material()]), 'parts': []}
+
+
+def finish_spec(frame, piece, theme):
+    """Finish: the curved wire the marble lands in and rolls along (`paths[0]`), and a Chute's cover over its run-out
+    (`paths[1]`). Like the reference short's catcher it is a cage of wires: two under the marble's path, one on each
+    side of the marble's plane and set back like a switchback's so the marble rests on both where it touches the
+    capsule, and two guides at the marble's centre height either side of it, held by ties and by posts to the wall.
+    Brass and Pegboard draw clear chrome wires; Pegboard's posts are wooden pegs. Neon draws the wires as glowing tube
+    edges on dark posts. Colour by Note never applies: a Finish plays no note."""
+    wires = [wire for wire in frame.local_wires() if len(wire) >= 2]
+    physics_radius = frame.params.get('radius', 0.0025)
+    k = frame.marble_radius / 0.008
+    builder = MeshBuilder()
+    if not wires:
+        builder.box((0.02, 0.01, 0.004), (0.0, frame.marble_y, 0.0))
+        return {'root': builder.to_mesh('MM finish', [themes.chrome_material()]), 'parts': []}
+    if theme == 'neon':
+        # Brighter than a rail's trim: the Finish is the film's last image
+        materials = [themes.neon_trim_material(neon_colors(frame)[1], 2.4), themes.neon_mount_material()]
+    else:
+        materials = [themes.chrome_material(), themes.chrome_material() if theme == 'brass' else themes.wood_material()]
+    # A Chute's covered run-out is a clear tube around the marble's path; Neon lights only its edges
+    materials.append(themes.clear_material())
+    radius = min(physics_radius, 0.0018 * k)
+    gap = 1.25 * frame.marble_radius
+    reach = frame.marble_radius + radius
+    half = min(gap / 2, reach * 0.95)
+    setback = frame.marble_radius + physics_radius - math.sqrt(reach * reach - half * half)
+    # The guides run along the marble's centre line, just clear of it on both sides of its plane
+    guide = frame.marble_radius + radius * 1.5
+    floor = wires[0]
+    floor_side = marble_side(floor, floor[0])
+    for index, wire in enumerate(wires):
+        # The floor turns toward the marble; the cover's marble side faces the floor
+        side = floor_side if index == 0 else side_toward(wire, floor)
+        under = offset_wire(wire, -setback * side)
+        centre_line = offset_wire(wire, (frame.marble_radius + physics_radius) * side)
+        if index > 0:
+            # The cover: one thin chrome wire along the top of a clear tube that closes the run-out over the marble
+            if theme != 'neon':
+                path = offset_wire(wire, (frame.marble_radius + physics_radius + 0.003) * side)
+                builder.tube([(x, frame.marble_y, z) for x, z in path], frame.marble_radius * 1.45, material=2, sides=20, cap=False)
+            builder.tube([(x, frame.marble_y, z) for x, z in wire], radius * 0.8, material=0, sides=10)
+            continue
+        for offset in (-half, half):
+            builder.tube([(x, frame.marble_y + offset, z) for x, z in under], radius, material=0, sides=10)
+        if index == 0:
+            for offset in (-guide, guide):
+                builder.tube([(x, frame.marble_y + offset, z) for x, z in centre_line], radius * 0.85, material=0, sides=10)
+        # Ties across the wires every 2.5 cm, the guides tied down to the wires beneath them
+        for tie in post_indices(under, 0.025 * k):
+            x, z = under[tie]
+            builder.tube([(x, frame.marble_y - half, z), (x, frame.marble_y + half, z)], radius * 0.7, material=0, sides=8)
+            if index == 0:
+                gx, gz = centre_line[tie]
+                for sign in (-1, 1):
+                    builder.tube([(x, frame.marble_y + sign * half, z), (gx, frame.marble_y + sign * guide, gz)], radius * 0.6,
+                                 material=0, sides=6)
+        # Posts from the wall side of the cage to round bases on the wall at the ends and every 8 cm
+        for post in post_indices(under, 0.08 * k):
+            x, z = under[post]
+            builder.tube([(x, frame.marble_y + half, z), (x, frame.wall_y, z)], radius * 0.75, material=1, sides=8)
+            builder.cylinder(0.0035 * k, 0.0015 * k, (x, frame.wall_y - 0.00075 * k, z), axis='Y', material=1, bevel=0.0004 * k)
+    return {'root': builder.to_mesh('MM finish', materials), 'parts': []}
+
+
+def side_toward(wire, other):
+    """+1 when `other`'s points lie on the left of the wire's overall direction, -1 on the right"""
+    (ax, az), (bx, bz) = wire[0], wire[-1]
+    left = (-(bz - az), bx - ax)
+    mx = sum(x for x, _ in other) / len(other) - (ax + bx) / 2
+    mz = sum(z for _, z in other) / len(other) - (az + bz) / 2
+    return 1.0 if mx * left[0] + mz * left[1] >= 0 else -1.0
 
 
 def marble_side(wire, centre):

@@ -34,6 +34,7 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 				if (kind === 'path') return <RailShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
 				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
 				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
+				if (kind === 'catcher') return <FinishShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
 				return <MinimumShape key={piece.entityId} compose={compose} piece={piece} />;
 			})}
 		</g>
@@ -108,6 +109,21 @@ export const SwitchbackShape: React.FC<TShapeProps> = (props) => {
 					strokeLinecap="round"
 					strokeDasharray={dashed ? '5 4' : undefined}
 				/>
+			))}
+		</g>
+	);
+};
+
+/**
+ * A Finish as a clear chute: each of its wires (the catch curve with its run-out, then a Chute's cover) drawn like a
+ * rail, two thin lines with a pale band between them, like the clear wire chute of the reference short
+ */
+export const FinishShape: React.FC<TShapeProps> = (props) => {
+	const { piece } = props;
+	return (
+		<g>
+			{(piece.paths ?? []).map((line) => (
+				<RailShape key={line.map((point) => `${point.x.toFixed(5)},${point.y.toFixed(5)}`).join(' ')} {...props} piece={{ ...piece, path: line }} />
 			))}
 		</g>
 	);

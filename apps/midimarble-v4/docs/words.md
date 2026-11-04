@@ -24,6 +24,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | Everything placed on the wall | **Piece** | object, element, prop, asset | marble-run kits |
 | The piece that plays a note | **Platform** | bar, pad, peg | |
 | Other pieces | **Rail**, **Tunnel**, **Windmill**, **Switchback** | scenery | concrete marble-run words; "scenery" is internal |
+| The piece that catches a marble after its last note, so the film ends on the catch | **Finish**, one per marble, in two styles: **Chute** (a curved chute that rolls the marble out of the frame, the default) and **Cup** (a bowl that holds it); it plays no note. Its pill reads **Catches**, **Missed**, **Bounces Out** or **Blocked**; the problem reads "Melody misses the Finish" | catcher, end piece, goal, basket | a race's finish; the reference short ends on its chute |
 | A drawn route for a rail or tunnel | **Path** | spline, curve, Bézier | Figma's pen draws paths |
 | Where pieces sit | **Wall** | canvas, board, pegboard (except as a theme name) | the 2.5D premise |
 | Compose's flat, free view of the wall | **Wall** (the only view in Compose; the film camera shows only in Film's Draft Preview) | Wall View, Orbit, Camera view, viewport | Figma's canvas: it stays where the user put it |
@@ -40,7 +41,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | Render quality | **Draft**, **Standard**, **High**, **Best** with what sets each apart as detail: "Draft · 720p · Flat Light", "Standard · 720p", "High · 1080p", "Best · 1080p · 60 fps" | fast, balanced, Eevee, Workbench, samples | Blender names only in tooltips |
 | How long a film is | minutes and seconds ("0:35"), never a frame count; frames appear only in render progress | frames, 1051 frames | |
 | Where an exported film goes | **In the Project**, or the folder chosen with Choose… | Renders folder, renders/ | the package folder is an implementation detail; Show in Finder finds it |
-| Blender | **Blender**: a status chip in the title bar (Ready, Starting, Rendering Preview, Not Installed, Error; a hollow dot and Blender in the browser) with Open in Blender, Restart Blender, Show Blender Log, or Install Blender… | worker, bridge, mailbox, Edit in Blender | |
+| Blender | **Blender**: a status chip in the title bar (Ready, Starting, Rendering Preview, Not Installed, Error; a hollow dot and Blender in the browser) with Open in Blender, Restart Blender, Live Preview, Show Blender Log, or Install Blender… | worker, bridge, mailbox, Edit in Blender | |
 | Changed in Blender | **Detached** with **Discard Blender Changes**; a camera edited there reads **Edited in Blender** with **Reset Camera** | unlinked, taken over, edited, Reset to Compose, Regenerate Camera | says what the button throws away |
 | The project's outline | **Layers**: Song, Marbles, Free Pieces, Camera, Titles; Compose shows the Song and the marbles with their pieces, Film every layer | tree, scene graph, Tracks | Figma; the timeline's column carries the same name |
 | Settings most people never need | **Advanced**, a disclosure at the end of a section | expert, more, details | Final Cut, Logic |
@@ -61,6 +62,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | Text on the wall | **Title** | wall text, label | the reference films call them titles |
 | How a title sits in the film | **Style**: **Wall Title** (on the wall where it was placed), **Caption** (top of the frame, 3 s from the playhead), **Song Name** (upper third of the frame over the first 3 s, reading the song's name) and **End Card** (centre of the frame, over the last 3 s) | overlay, HUD, lower third | Caption, Song Name and End Card stay in the frame while the camera moves, on a soft dark backing; their Size is a share of the frame height in %. Choosing a style sets its times while they are still the last style's own, like a title preset in Final Cut |
 | When a title shows | **In** and **Out** in a Timing section, times as m:ss.cc; clips on the Titles layer's row in the timeline in Film | start/end, keyframes, duration | Final Cut's In and Out points; a Wall Title's defaults are the start and the end of the film |
+| Blender frames rendered in the background for playback | **Live Preview** (a checked item in the Blender chip's menu); frames show as **Blender Preview · Flat Light** or **· Fast**; the ruler's **render bar** says "Blender preview rendered" and "Rendering preview…" | background render, cache, proxy frames | Final Cut's background render and render bar |
 | The in-app stand-in for Blender's render | **Draft Preview** with the help "Blender draws the real look. This preview follows the same camera." | proxy, fallback, mock | Final Cut's proxy playback, named for what it is |
 | A camera change at a time | **Shot** (Wide, Follow, Push In, Close-Up) | marker, keyframe | film language |
 | How long a shot frames before the camera eases back | **Hold**, in seconds; **To Next Shot** at 0 | length, duration | a held shot in film language; Push In and Close-Up hold 2 s by default |
@@ -96,6 +98,7 @@ A fix sits next to the problem, like Xcode's Fix-its.
 | **Re-place** | the wand beside a Blocked, Missed or Stopped platform's status pill in the inspector header; beside a **Hit by Bass** pill on a platform | Auto place again for that platform alone; for Hit by Bass, for Bass's platform before the hit, so Bass passes clear |
 | **Add Wide Shot Here** | in the Camera panel under the framing problem at the playhead, where a jump to the problem lands, and in ⌘K | adds a Wide shot from 1.5 s before the problem to 0.5 s after it, which frames the marbles together. Its what-if bakes the camera with the shot first; it is offered only when the marble stays in frame and fewer framing problems remain. Tooltip: "Adds a Wide shot at 0:07.53 that holds 6.6 s, so Bass stays in frame." |
 | **Move Clear**, **Place Rail 1 Again**, **Delete Rail 1** | the one Fix-it beside the Blocked or **Hit by Bass** pill of a piece that follows a marble (windmill, switchback, rail, tunnel), and inside Re-place | its what-if runs as soon as the piece shows (the button reads **Checking…**) and the button names the first fix that breaks no hit and adds no problem: a bridge of a long gap suggested again for its gap, a nudge the shortest way off the marble's earlier run and the other marbles' runs keeping what it follows, or deleting a Blocked piece, which the run leaves out and so never uses. When nothing passes, the button is dimmed with the reason as its tooltip: "Moving Windmill 1 clear would break a hit, so nothing changed. Drag it by hand or Detach it." A fix that would refuse is never offered |
+| **Place Finish Again** | the Fix-it beside a Finish's Missed, Bounces Out or Blocked pill | Add Finish's search again for that marble, keeping the Finish's name, style and skin; its what-if runs first and the button names why when nothing catches the marble |
 | **Stop** | in the Re-place progress notice | keeps what is re-placed so far |
 
 ## Assists
@@ -107,6 +110,7 @@ A fix sits next to the problem, like Xcode's Fix-its.
 | **Continue Pattern** | Tab | repeats the pattern of the last platforms for as many notes as fit; the button shows the count: "Continue Pattern (4)" |
 | **Mirror Last Platform** | M | the last platform's tilt mirrored, for zigzags |
 | **Repeat Last Platform** | R | the same tilt again |
+| **Add Finish** | in the hit summary's menu while a marble that plays last has no Finish (**Add Finish for Bass** when several do), and in ⌘K | places a Finish on the marble's fall after its last note that what-if runs found to catch it, break no hit and touch no other marble or its pieces |
 
 ## Piece settings
 
@@ -125,6 +129,8 @@ Advanced sections name what a piece looks like or does, not how it is built. A h
 | Switchback | **Guard** | the raised side that catches the marble | Lip |
 | Rail, Switchback | **Thickness**, **Width** (rail) | how thick the rails are and how far apart | Wire, Spacing |
 | Tunnel | **Wall**, **Room**, **Mouth** | wall thickness, room around the marble, mouth width | bore |
+| Finish | **Style** (Chute, Cup), **Mirror** | which finish it is, and which side the backstop stands on | Type, Flip |
+| Finish | **Size**, **Run-Out**, **Thickness** | the curve that catches the marble, the length of the Chute's run-out, how thick the rails are | radius, exit, length |
 
 ## Capitalization and punctuation
 
@@ -158,7 +164,7 @@ Advanced sections name what a piece looks like or does, not how it is built. A h
 | Notice | What happened, one line (two at most), then its actions; the default action first. Longer text goes behind **Details**, like Figma's notifications. A notice with a fix or Details stays until it is used or closed, or the next edit; one with only Undo times out | "6 platforms removed: Backing needs no platform" · Re-place 45 Platforms · Undo; "Copper applied to 5 platforms; Rail 1 kept its skin" · Undo when a skin skips pieces of another type, or "Copper applied to 1 platform. It keeps Copper's colour with Colour by Note" when Colour by Note is on |
 | Unreachable note | What happened. What to do, naming the fixes. | "Hit 1 is too soon for Marble 1. Move the release earlier or make it Backing." |
 | Fix result | In the notice, what it fixed and changed in a few words, then how the run stands, as the hit summary says it: "Fixed 37 hits · re-placed 13 platforms · deleted Rail 1 · 108 of 108 hits on time". Behind Details, every change by name, then what the fix added | "Melody now starts just before its first note. Re-placed 15 platforms and fixed all 45 broken hits: 109 of 109 hits on time", "…: 108 of 108 hits on time · 1 new problem: Rail 1 of Melody is Blocked" |
-| Problem | The thing, then its state; a hit by its number on its marble; distances in cm | "Hit 12 of Melody is Blocked", "Rail 1 of Melody is Blocked", "Bass leaves the frame at 0:09.03 (9 hits)" with "Out of frame for 4.6 s while it plays, until 0:13.67. The camera follows Melody there.", "Bass hits Switchback 6 of Melody" |
+| Problem | The thing, then its state; a hit by its number on its marble; distances in cm | "Hit 12 of Melody is Blocked", "Melody misses the Finish", "Rail 1 of Melody is Blocked", "Bass leaves the frame at 0:09.03 (9 hits)" with "Out of frame for 4.6 s while it plays, until 0:13.67. The camera follows Melody there.", "Bass hits Switchback 6 of Melody" |
 | Confirmation | Question naming the thing + the action as the button | "Delete Marble 2 and its 12 hits?" · Delete · Cancel |
 
 ## Structure
@@ -180,7 +186,7 @@ A note belongs to exactly one place: a marble, or Backing. A platform exists to 
 
 ### Start screen
 
-Actions: **New Project…** (it asks where to save; in the browser it opens at once as **New Project**), **Import Song…** (MIDI or recording, one picker), **Open Project…**. Examples below them: Songs and Techniques. Opening an example opens it unsaved under its own name, like an untitled document, so Recent does not fill with copies. A saved project autosaves within a second of every edit, so its title shows no edited dot; a failed save shows a red **Not Saved**. An unsaved example's title says **Not Saved** once it has changes; Save asks where to keep it, and closing it with changes asks "Save changes to Jingle Bells?" · Save… · Don't Save · Cancel.
+Actions: **New Project…** (it asks where to save; in the browser it opens at once as **New Project**), **Import Song…** (MIDI or recording, one picker), **Open Project…**. Examples below them: Songs and Techniques. Opening an example opens it unsaved under its own name, like an untitled document, so Recent does not fill with copies. A saved project autosaves within a second of every edit, so its title shows no edited dot; a failed save shows a red **Not Saved**. **Save As…** (⇧⌘S) saves a copy of a saved project and keeps working on the copy; the menu bar's File menu also has **Open Recent** with **Clear Menu**, and Help has **MidiMarble Help** for Quick Help, as in every Mac app. An unsaved example's title says **Not Saved** once it has changes; Save asks where to keep it in a save panel titled "Save Jingle Bells" (File > New's panel is titled New Project), and closing it with changes asks "Save changes to Jingle Bells?" · Save… · Don't Save · Cancel.
 
 ## Beginner path
 

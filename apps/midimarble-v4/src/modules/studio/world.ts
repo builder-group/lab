@@ -1,9 +1,9 @@
-import { songEnd } from '@/modules/music';
+import { filmTail, songEnd } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 
-/** Film length that fits the song: the last note plus `SONG_TAIL`, or null without notes */
+/** Film length that fits the song: the last note plus `filmTail` (`SONG_TAIL`, or `FINISH_TAIL` with Finishes), or null without notes */
 export function songFitEnd(project: TProject): number | null {
 	const times = project.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time));
 	if (!times.length) return null;
-	return songEnd(Math.max(...times));
+	return songEnd(Math.max(...times), filmTail(project));
 }

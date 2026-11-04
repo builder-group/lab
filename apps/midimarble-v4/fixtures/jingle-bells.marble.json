@@ -7,7 +7,7 @@
 		"width": 9,
 		"height": 16
 	},
-	"end": 32.9,
+	"end": 33.7,
 	"music": {
 		"sources": [
 			{
@@ -1592,6 +1592,13 @@
 						"entryDelay": 0.321
 					}
 				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-9",
+					"angle": 0.15707963267948966,
+					"contactAt": 0.5,
+					"pinned": false
+				},
 				"path": {
 					"points": [
 						{
@@ -1607,13 +1614,6 @@
 							"y": 0
 						}
 					]
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-9",
-					"angle": 0.15707963267948966,
-					"contactAt": 0.5,
-					"pinned": false
 				}
 			}
 		},
@@ -2958,6 +2958,13 @@
 						"entryDelay": 0.325
 					}
 				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-35",
+					"angle": -0.15707963267948966,
+					"contactAt": 0.5,
+					"pinned": false
+				},
 				"path": {
 					"points": [
 						{
@@ -2973,13 +2980,6 @@
 							"y": 0
 						}
 					]
-				},
-				"hitLink": {
-					"laneId": "lane-1",
-					"hitId": "hit-1-35",
-					"angle": -0.15707963267948966,
-					"contactAt": 0.5,
-					"pinned": false
 				}
 			}
 		},
@@ -3862,11 +3862,58 @@
 					"pinned": false
 				}
 			}
+		},
+		{
+			"id": "finish-lane-1",
+			"name": "Finish 1",
+			"components": {
+				"piece": {
+					"type": "finish",
+					"params": {
+						"style": 0,
+						"mirror": 0,
+						"size": 0.06,
+						"length": 0.195,
+						"radius": 0.00375,
+						"entryDelay": 0.45
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-1",
+					"hitId": "hit-1-51",
+					"angle": 0,
+					"contactAt": 0.5,
+					"pinned": false,
+					"anchored": true
+				}
+			}
+		},
+		{
+			"id": "finish-lane-2",
+			"name": "Finish 2",
+			"components": {
+				"piece": {
+					"type": "finish",
+					"params": {
+						"style": 0,
+						"mirror": 1,
+						"size": 0.06,
+						"length": 0.195,
+						"radius": 0.00375,
+						"entryDelay": 0.4667
+					}
+				},
+				"hitLink": {
+					"laneId": "lane-2",
+					"hitId": "hit-2-64",
+					"angle": 0,
+					"contactAt": 0.5,
+					"pinned": false,
+					"anchored": true
+				}
+			}
 		}
 	],
-	"physics": {
-		"gravityScale": 0.5
-	},
 	"design": {
 		"theme": "brass",
 		"renderPreset": "balanced",
@@ -3879,5 +3926,8 @@
 			"smoothing": 0.6,
 			"shots": []
 		}
+	},
+	"physics": {
+		"gravityScale": 0.5
 	}
 }

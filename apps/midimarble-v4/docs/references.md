@@ -263,6 +263,21 @@ Measured on 2026-11-04 with the TypeScript follow camera (`.local/song-tail/meas
 - The import now ends at the last note's start plus the tail, not at its end: a long final note would push the film past the marble
 - Audio: `FILM_AUDIO_FADE` 0.4 s, a linear fade over the end of the soundtrack (`renderProjectAudio`, 25 ms before), and an `afade` of the same length in the FFmpeg encode (a volume ramp in Blender's own encoder). Loop films keep their fold and are not faded
 
+### Finish: the film ends on the catch
+
+The reference short's last 2 s (frames in `.local/finish/ref/`): after its final note the marble drops into a curved cage of four chrome wires, posted to the wall with ball ends, rolls down it to the lower left and falls on below it; the film ends with the marble still in frame under the chute. MidiMarble's Finish (Chute) is built after it. Measured on 2026-11-04 with the TypeScript follow camera at 30 fps (`.local/finish/frame-check.test.ts`), the fixtures' Finishes placed by Add Finish (frame 0 to 1, y up):
+
+| Fixture | Last note | Lands in the Finish | Rolls off the Chute | At the catch | Marble leaves the held frame | End |
+| --- | --- | --- | --- | --- | --- | --- |
+| jingle-bells, Bass (plays last) | 32.5 s | +0.49 s | +0.87 s | (0.34, 0.46) | +1.0 s | 33.7 s (32.9 s before) |
+| jingle-bells, Melody | 31.0 s | +0.48 s | +0.76 s | (0.17, 0.72), while the camera still follows both | | |
+| reference-20 | 19.25 s | +0.38 s | +0.83 s | (0.70, 0.22) | after +1.5 s | 20.45 s (19.65 s before) |
+
+- `FINISH_TAIL` is 1.2 s: it shows the catch and the roll-out in every song fixture and ends as the marble falls away, with at most 0.2 s of empty chute; 1.5 s held Jingle Bells 0.5 s on the empty chute. `SONG_TAIL` stays 0.4 s without Finishes, and the audio fade stays 0.4 s
+- Held ending: half way (`FINISH_FRAME`) from the last hit's follow point to the mouths of the Finishes that catch a marble after the last hit; at the end the mouth sits at (0.39, 0.53) in Jingle Bells and (0.68, 0.34) in Reference 20, and the last pieces stay in frame. `pnpm camera:check` within 0.001 mm and 0.017°
+- Catching: dropped onto a free Chute at half gravity, every arrival from 1 to 5 m/s, straight down or moving up to 1 m/s toward the backstop, lands and rolls out (`finish.test.ts`); without the cover over the run-out, arrivals of 3 m/s and more flew over it, and with a 35° hook a marble clipping it bounced out. A Cup holds arrivals up to 4 m/s and 0.6 m/s sideways. Add Finish finds a spot in 0.15 s (Reference 20) and 0.35 s for both marbles of Jingle Bells in Node, on the first or second drop tried
+- Hits unchanged: Jingle Bells 115 of 115 and Reference 20 48 of 48 on time with their Finishes
+
 ### Clean frame edges and an opening on the track
 
 Measured on 2026-11-04 after review finding R6-11 (at 0:21 the Melody marble sits cut by the left edge while the camera follows the Bass; the opening frame shows two marbles over an empty wall with the first pieces at its bottom edge). TypeScript follow camera at 30 fps with `.local/camera-r8/measure.ts` (the round 7 script plus the edge band, the opening and the target's speed) over the first to the last hit; before and after in `.local/camera-r8/before.jsonl` and `after.jsonl`. Frame positions are 0 to 1, y up.

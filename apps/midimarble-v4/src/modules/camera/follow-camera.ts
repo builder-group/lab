@@ -50,6 +50,8 @@ const GROUP_MARGIN = 1.1;
 /** Seconds over which the camera settles once it holds on the last hit, and the stretch of run before that hit */
 const HOLD_EASE = 1.0;
 const HOLD_SPAN = 1.0;
+/** With Finishes, the held follow point sits this share of the way from the last hit to the Finishes' mouths */
+const FINISH_FRAME = 0.5;
 /** Time constant in seconds of the group distance, so the zoom changes slowly (at most 0.05 m within a second) */
 const DISTANCE_TAU = 1.8;
 /** Seconds ahead over which a marble's upcoming hits count toward leading the frame */
@@ -369,6 +371,8 @@ interface TSettings {
 	focus: string | null;
 	/** Time of the run's last hit, after which the camera holds on it; null follows to the end */
 	hold: number | null;
+	/** Mean mouth of the Finishes the held ending frames, or null */
+	finish: [number, number] | null;
 	descent: { time: Float64Array; y: Float64Array } | null;
 	pieceLength: number | null;
 	opening: TOpeningPiece[] | null;
@@ -425,6 +429,7 @@ function settingsFrom(
 			typeof camera.holdAfter === 'number' && Number.isFinite(camera.holdAfter)
 				? camera.holdAfter
 				: null,
+		finish: finishPoint(camera.holdFinish),
 		descent:
 			descent.length >= 2
 				? {
@@ -902,8 +907,8 @@ function groupFraming(
 	const shares =
 		marbles.filter(hasMotion).length > 1 ? leadShares(marbles, sample, settings.focus, fps) : null;
 	if (hold != null) {
-		settle(centre, times, hold);
-		settle(ahead, times, hold);
+		settle(centre, times, hold, settings.finish);
+		settle(ahead, times, hold, settings.finish);
 	}
 	return { current: centre, ahead, depth, distance, roll, sample, shares, fallScale };
 }
@@ -1176,23 +1181,42 @@ function keepClearOfEdges(
 	}
 }
 
+/** `finish_point`: the mean wall point of the Finishes the held ending frames, or null */
+function finishPoint(points: TSceneCamera['holdFinish']): [number, number] | null {
+	const finite = (points ?? []).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+	if (!finite.length) return null;
+	let x = 0;
+	let y = 0;
+	for (const point of finite) {
+		x += point.x;
+		y += point.y;
+	}
+	return [x / finite.length, y / finite.length];
+}
+
 /**
  * `settled`: after the hold time the points ease over HOLD_EASE seconds from the last hit to the middle of the path
- * over the HOLD_SPAN seconds before it, so the last frames show the final pieces. Changes the arrays in place.
+ * over the HOLD_SPAN seconds before it, so the last frames show the final pieces; with `finish`, the Finishes' mean
+ * mouth, to FINISH_FRAME of the way from the last hit's point to it, so the frame shows the catch. Changes the arrays
+ * in place.
  */
-function settle(points: [Float64Array, Float64Array], times: Float64Array, hold: number): void {
+function settle(points: [Float64Array, Float64Array], times: Float64Array, hold: number, finish: [number, number] | null): void {
 	let count = 0;
 	const middle = [0, 0];
+	const last = [0, 0];
 	for (let index = 0; index < times.length; index++) {
 		const time = times[index] ?? 0;
 		if (time < hold - HOLD_SPAN - 1e-9 || time > hold + 1e-9) continue;
 		count++;
 		middle[0] = (middle[0] ?? 0) + (points[0][index] ?? 0);
 		middle[1] = (middle[1] ?? 0) + (points[1][index] ?? 0);
+		last[0] = points[0][index] ?? 0;
+		last[1] = points[1][index] ?? 0;
 	}
 	if (count === 0 || !times.some((time) => time > hold)) return;
 	for (const axis of [0, 1] as const) {
-		const mean = (middle[axis] ?? 0) / count;
+		const from = last[axis] ?? 0;
+		const mean = finish != null ? from + (finish[axis] - from) * FINISH_FRAME : (middle[axis] ?? 0) / count;
 		for (let index = 0; index < times.length; index++) {
 			const weight = smoothstep(((times[index] ?? 0) - hold) / HOLD_EASE);
 			points[axis][index] = (points[axis][index] ?? 0) * (1 - weight) + mean * weight;

@@ -26,7 +26,7 @@ export interface TKeyContext {
 }
 
 /** Tools of the Compose tool rail, in rail order, then the pieces only the Insert library arms */
-export type TComposeTool = 'select' | 'hand' | 'marble' | 'platform' | 'path' | 'windmill' | 'switchback';
+export type TComposeTool = 'select' | 'hand' | 'marble' | 'platform' | 'path' | 'windmill' | 'switchback' | 'finish';
 
 /** Piece the path tool draws; the inspector switches a drawn path between both */
 export type TPathType = 'rail' | 'tunnel';
@@ -65,7 +65,7 @@ export const followKey = { code: 'KeyF', key: 'F' };
 export const tunnelPathKey = { code: 'KeyU', key: 'U' };
 
 /** Piece type each placing tool puts down with a click or drag; the path tool draws instead */
-export const toolPieceType: Partial<Record<TComposeTool, string>> = { platform: 'platform', windmill: 'windmill', switchback: 'switchback' };
+export const toolPieceType: Partial<Record<TComposeTool, string>> = { platform: 'platform', windmill: 'windmill', switchback: 'switchback', finish: 'finish' };
 
 /** The action a key press asks for, or null when Compose leaves it to the studio or the browser */
 export function composeKeyAction(input: TKeyInput, context: TKeyContext): TComposeKeyAction | null {

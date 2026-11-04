@@ -8,7 +8,7 @@ Run: Blender --background --factory-startup --python blender/tests/render_skin_p
 
 Writes `<prefix>-<type>.png` for the theme default of each type, and `<prefix>-<type>-<variant>.png` for each
 variant (applied to the first piece of the first type), such as `brass-platform-copper.png`. The committed previews in
-`public/skins/` were rendered from Jingle Bells (platform, switchback), Long Gap (rail, tunnel) and Windmill, then
+`public/skins/` were rendered from Jingle Bells (platform, switchback, finish), Long Gap (rail, tunnel) and Windmill, then
 quantized to 192 colours with Pillow to keep them small.
 """
 import argparse

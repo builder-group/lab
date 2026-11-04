@@ -292,7 +292,8 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			shots: [{ time: 1, kind: 'pushIn', roll: 0.2, distance: 0.4, length: 2 }],
 			focusMarbleId: null,
 			descent: null,
-			holdAfter: lastHitTime(result)
+			holdAfter: lastHitTime(result),
+			holdFinish: null
 		});
 	});
 
