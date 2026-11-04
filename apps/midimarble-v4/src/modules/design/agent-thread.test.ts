@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { TAgentRun } from '@/modules/agents';
-import { agentSetupHint, agentThread, loginHint, toThreadItem } from './agent-thread';
+import { agentSetupNote, loginHint, toThreadItem } from './agent-thread';
 
 function run(patch: Partial<TAgentRun>): TAgentRun {
 	return {
 		id: 'run-1',
 		cli: 'claude',
-		prompt: 'make this a piano key\n\nRead BRIEF.md in this folder first and follow its output contract.',
+		prompt: 'make this a piano key\n\nSelected in the app:\n- Platform 1',
+		request: 'make this a piano key',
+		isChat: true,
 		target: { kind: 'piece', entityId: 'piece-1' },
 		status: 'running',
 		review: null,
@@ -14,34 +16,21 @@ function run(patch: Partial<TAgentRun>): TAgentRun {
 		startedAt: 1,
 		finishedAt: null,
 		error: null,
-		candidatePath: '/c/run-1',
+		runPath: '/p/agent/runs/run-1',
+		candidatePath: '/p/candidates/run-1',
 		hasAsset: false,
 		manifestJson: null,
 		manifest: null,
 		manifestError: null,
 		previewUrl: null,
-		outsideChanges: [],
 		messages: [],
 		acceptedItemId: null,
 		...patch
 	};
 }
 
-describe('agentThread function', () => {
-	it('should list a target runs oldest first and put runs without a known target in the scene thread', () => {
-		const runs = [
-			run({ id: 'b', startedAt: 2 }),
-			run({ id: 'a', startedAt: 1 }),
-			run({ id: 'other', target: { kind: 'piece', entityId: 'piece-2' } }),
-			run({ id: 'old', target: null })
-		];
-		expect(agentThread(runs, { kind: 'piece', entityId: 'piece-1' }).map((item) => item.id)).toEqual(['a', 'b']);
-		expect(agentThread(runs, { kind: 'scene' }).map((item) => item.id)).toEqual(['old']);
-	});
-});
-
 describe('toThreadItem function', () => {
-	it('should show the request without the brief instruction and offer cancel while working', () => {
+	it('should show the message as written and offer stopping while working', () => {
 		const item = toThreadItem(run({}));
 		expect(item.prompt).toBe('make this a piano key');
 		expect(item).toMatchObject({ canCancel: true, canAccept: false, candidate: null, phaseLabel: 'Working…' });
@@ -58,13 +47,14 @@ describe('toThreadItem function', () => {
 				messages: [{ kind: 'result', text: 'Done', durationMs: 64000, costUsd: 0.42, turns: 3 }]
 			})
 		);
-		expect(item).toMatchObject({ canAccept: true, canCancel: false, candidate: { previewUrl: 'asset://preview.png', label: 'Piano Key' }, usage: '1 min 4 s · $0.42' });
+		expect(item).toMatchObject({ canAccept: true, canCancel: false, candidate: { previewUrl: 'asset://preview.png', label: 'Piano Key' }, usage: '1 min 4 s' });
+		expect(toThreadItem(run({ isChat: false, messages: [{ kind: 'result', text: '', durationMs: 64000, costUsd: 0.42, turns: 3 }] })).usage).toBe('1 min 4 s · $0.42');
 	});
 
 	it('should show the theme of a New Theme Result, with its skin as the second part', () => {
 		const item = toThreadItem(
 			run({
-				prompt: '@[Platform 1] New theme: sunset orange\n\nRead BRIEF.md in this folder first and follow its output contract.',
+				request: '@[Platform 1] New theme: sunset orange',
 				status: 'succeeded',
 				phase: 'review',
 				previewUrl: 'asset://preview.png',
@@ -77,7 +67,7 @@ describe('toThreadItem function', () => {
 				}
 			})
 		);
-		expect(item.candidate).toEqual({ decorSet: null, previewUrl: 'asset://preview.png', label: 'Sunset Arch', theme: { name: 'Sunset', base: 'pegboard', overrides: { wallColor: '#e8742c' } } });
+		expect(item.candidate).toEqual({ previewUrl: 'asset://preview.png', label: 'Sunset Arch', theme: { name: 'Sunset', base: 'pegboard', overrides: { wallColor: '#e8742c' } } });
 	});
 
 	it('should leave out a theme the request did not ask for', () => {
@@ -99,6 +89,13 @@ describe('toThreadItem function', () => {
 		expect(item.lines.map((line) => line.text)).toEqual(['Step 3', 'Step 4', 'Step 5', 'Step 6', 'Rendering the preview']);
 	});
 
+	it('should show what the agent says last, as it streams and when it is done', () => {
+		expect(toThreadItem(run({})).reply).toBeNull();
+		expect(toThreadItem(run({ messages: [{ kind: 'text', text: 'Moving', isPartial: true }] })).reply).toBe('Moving');
+		const steps = [{ kind: 'tool' as const, id: 't', tool: 'x', summary: 'x', status: 'done' as const }];
+		expect(toThreadItem(run({ messages: [{ kind: 'text', text: 'First' }, ...steps, { kind: 'text', text: 'Moved it' }] })).reply).toBe('Moved it');
+	});
+
 	it('should turn a login failure into the command that fixes it', () => {
 		const item = toThreadItem(run({ status: 'failed', phase: 'failed', error: 'Invalid API key · Please run /login' }));
 		expect(item.setup?.command).toBe('claude /login');
@@ -106,10 +103,12 @@ describe('toThreadItem function', () => {
 });
 
 describe('agent setup hints', () => {
-	it('should name the fix for a missing CLI and say nothing when one is ready', () => {
-		expect(agentSetupHint('missing', [])?.command).toContain('claude /login');
-		expect(agentSetupHint('unavailable', [])?.command).toBeNull();
-		expect(agentSetupHint('ready', [{ cli: 'codex', path: '/bin/codex', version: null }])).toBeNull();
+	it('should say in one line what to install and that the app works by hand, and nothing when one is ready', () => {
+		expect(agentSetupNote('missing', [])).toContain('Install Claude Code or Codex');
+		expect(agentSetupNote('missing', [])).toContain('by hand');
+		expect(agentSetupNote('unavailable', [])).toContain('desktop app');
+		expect(agentSetupNote('unknown', [])).toBeNull();
+		expect(agentSetupNote('ready', [{ cli: 'codex', path: '/bin/codex', version: null }])).toBeNull();
 	});
 
 	it('should only treat authentication errors as login problems', () => {

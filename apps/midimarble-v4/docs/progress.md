@@ -9,9 +9,64 @@ The autonomous build updates this log after every slice. Newest entries go first
 - Next steps: the native checks above (computer use cannot drive the web view in the background; full-screen control needs the owner); review round 7; Draft Preview look closer to Blender (shadows, metal); two-marble scale by interleaved lanes (a narrower lane spacing alone frames no closer, `references.md`); a finish piece that catches the last marble so films can ring out longer than 0.4 s
 - Checks on `fb7e543`: `typecheck`, `lint` clean, `test` 470 + 3, `cargo test` 29
 - Blockers: none
+- **Open release question (owner, 2026-11-04):** MCP is the main path because Anthropic's documentation doesn't allow third parties to offer claude.ai login in their products, so the in-app chat stays hidden. The owner decides whether it ever returns (for example with API keys only) or is deleted; until then its modules are unmounted (`architecture.md`, Agents). Before release, check the current terms and record the decision here and in `design-language.md`, Round 9
 - Native checks run in a bundled debug build (`pnpm exec tauri build --debug --bundles app`) driven with computer use; save panels cannot be typed into while the user's screen is on a full-screen Space, so test packages are opened from Recent
 
 ## Log
+
+### 2026-11-04: MCP is the main path; an agent is a collaborator, not a chat
+
+The owner's decision (`design-language.md`, Round 9): the person's own Claude Code, Codex or Claude app is the chat.
+
+- **Hidden, not deleted:** `AgentChat`, `AgentDetails` and `AgentCx` stay unmounted, with `AgentCx` not even mounted, so no CLI is looked for. A flag wasn't clean: every entry point would have had to stay too. `candidates/` and Accept and Discard stay with them; `add_asset` doesn't need them.
+- **Removed:** `view.agent` and ⌘J, `design.askAgent`, `design.newTheme` and its button in the Theme picker, `openAgent`, the inspector auto-hide, an image dropped on the chat becoming a Reference.
+- **Agent button:** a menu like Blender's with the status line, Show AI Workspace, Enable MCP and Show Agent Folder; Working while an agent works. A client's name comes from a presence connection each `midimarble mcp` process holds open once initialized, so connecting and leaving show without a tool call (`McpClientsEvent`).
+- **On the canvas:** the pill with Stop, and an accent outline on what an edit changed, on the wall and in Layers. CSS animations only; state changes per call and per edit.
+- **`get_state.selection` is resolved;** the guides and the connect instructions say "this" means it. **Made by Agent** replaces Made with Agent. The guides explain `set_references`, and its tool description no longer promises an inspector.
+- **`build.rebuildFrom` answers when its build is done.** Region-local in `mcp-tools.ts`, using `AssistCx.buildTrack` as it is. Outside the brief, in `AssistCx.stopBuild`, one line so Stop and `build.stop` also end a Re-place.
+- **Found and fixed:** `get_state` had stopped passing `building` and `lastBuild`, though the docs and `build.track { wait: false }`'s reply rely on them. Stop during a call's wait for the run still let its edit through; now it doesn't.
+- Checks: `typecheck` clean; `lint` 0 errors, 13 warnings, none in the new files; `cargo test` 70 + 3, 2 ignored; `test` 902 of 903. The failure is `simulation/pace.test.ts` (`frameBand`, "should give each lane its own band, LANE_SPACING apart"), in the placement area another agent has open; this work edited nothing in `simulation/`, and the cause wasn't looked into. **Not run in a window:** the menu, pill, Stop and outlines have logic tests only, and `bindings.gen.ts` was edited by hand to match the Rust types, so the next debug run regenerates it. No real client has connected through the presence line; `tests/mcp_stdio.rs` covers it against a stub socket, and the host's event isn't exercised.
+
+### 2026-11-04: The chat runs on the app's own tools, in Compose and Film
+
+The owner's question: can I select a note and say how the path should look there, and does the agent work in Compose?
+
+- **One chat, same tools.** A message runs the local CLI in `agent/` with `midimarble mcp` as its only MCP server (`build_chat_command`), so it edits live as named Undo steps. Selection goes along as chips and in the prompt in resolved form with ids (`describeMention`), including hits, which had no mention before.
+- **Stop, streaming, sessions.** The send button is Stop while it works, and it ends any Build Track the run started; text streams; the latest steps show. `agent/runs/<id>/` keeps the thread, `session.json` the session to resume.
+- **Results stay.** Built in `agent/scratch/result-<id>/` with a `BRIEF.md`, moved to `candidates/` at the end, reviewed with Accept and Discard. New Theme with Agent is a prefilled message.
+- **Agent Details** behind the panel's icon: References (the only place they show; add, drop, remove, words), Made, Steps with Stop, Context, Show Agent Folder.
+- **Removed as dead:** `AgentPanel`, `planAgentRuns` and decor sets as parallel runs, `outside_changes`, `agentThread`, `smoke.rs` with `scripts/agent-smoke.ts` (replaced by the ignored `chat_smoke`).
+- **Real runs** (`chat_smoke` against a debug app, throwaway Jingle Bells, Claude Code). "swing wider to the left here" with Hit 12 of Melody selected: it tilted Platform 12, rebuilt, and reported 115 of 115 hits on time with two double hits; Hit 13's dot moved from x -0.065 to -0.124. It cost $1.67 on the owner's default model, partly because of what the next lines fixed. A resumed message answered from the conversation and used 14 % of the context.
+- **Found by that run, fixed:** it waited with background `sleep`, which keeps the CLI alive past its `result` (rules now say tools answer when done); progress beats flooded the transcript (dropped); the reported cost is the whole session's (not shown for chat messages). **Open:** `build.rebuildFrom` answers MCP before its build ends, unlike `build.track`, so an agent picking it from `list_commands` sees a half-built track.
+- Checks: `typecheck` clean; `lint` 0 errors; `cargo test` passes (67 + 3, 2 ignored); the chat's test files pass (129). The full `test` run: 847 of 860 pass. The 13 failures are in `compose/build-track`, `compose/fix-it`, `design/export-preflight`, `simulation/assists` and `simulation/pace`, none of which this work edited; other work had those areas open, and the causes weren't looked into. Not run in a window: the panel itself (computer use can't reach an unbundled debug app in the background); Codex (not installed here), so its flags and `exec resume` follow its documentation.
+
+### 2026-11-04: MCP gaps round 2 (Jingle Bells V3)
+
+From `.local/v3/gaps-round2.md`, the benchmark agent that made a film through MCP only.
+
+- **Marble skins** (gaps 13, 19): the built-in path worked all along, from command and inspector tile to Blender; the V3 frames show it. What failed was the agent's own marble skin: a library item on a marble was stored, then dropped, since only pieces read `assetPath`, so it wore the theme's marble with no error. Now marbles take library skins (`sphere` layout, even scale from `fittedParams.radius`, hides in tunnels) and the inspector offers them. New end to end check in `blender:design`: `scripts/export-marble-skin-scenes.ts` plus `blender/tests/check_marble_look.py`, for `applySkin` and a tile's edit, reading materials and rendered pixels.
+- **`marble:contrast`** (gap 21): it picks pearl or deep by contrast, and deep was fixed at luminance 0.03, near-black everywhere. Now it is as light as 3:1 allows, between 0.05 and 0.09, the same in the Draft Preview and Blender.
+- **Validation** (4, 22, 26, 28, 10, 20, 15): every project command checks ids and values; unknown or unfitting skins and themes fail in words; errors show the wrong field's shape and keep names like `wallText`. `list_commands` has `skins`.
+- **Partial values**: `setDesign` merges `camera`, `wall`, `lights`; `setComponent` merges `marble`, `skin`, `wallText`, so a colour needs no radius. A radius change says it moves the run and is range-checked.
+- **Camera** (7, 8, 9, 14, 18, 25, 30): **Sway** in the Camera inspector and `camera.sway`, scaling the view's own turn and roll; schema in the `film-look` guide; `get_state.camera`; `camera.addShot` takes `time`, `kind`, `roll`, `distance`, `length`; `camera.addWideShot` says why it can't run, in the reply and in `list_commands`.
+- **Titles** (28, 29): `design.addText` takes `text`, `style`, `at`, `color`, `in`, `out`; `get_state.layers.titles`; a font a title can't use is refused.
+- **Wall skin Plain** (27); guides on `wall.color` against `backgroundColor`, light fields and `renderPreset` (3, 6, 10, 20); `get_state.wall`, `lights` hold what the film shows plus `own`; marbles show `color`, `radius`, `skin` (5, 12, 15).
+- **Packs** (23, 33): `get_state.packThemes`, a Pack theme's id works in `setDesign`, the add reply names them, `design.removePack`.
+- **Smaller**: `file.saveAs` answers `saved` and `title` and the brief's heading follows (1, 2); `add_asset` reads name, role and piece type from the manifest and takes `decoration` (11); `design.saveAsTheme` takes `name` and says the Wall and Lights moved into it (16, 24, 31); `edit.undo` answers `changed: true` (17); `export_film` takes `standard` and `high` (32); `preview_frame` warns when a marble is out of frame there (round 1 gap 18).
+- Left: round 1's 19 (frame problems from the first piece), 22 (a read-only try) and 23 (Undo warning before it reaches the Song), each bigger than this round; `get_state.theme` has no key light strength field of its own, since `lights.key` holds what the film uses (24, 31); no font list beyond the rule (29); the running V3 app needs a restart to see any of this.
+- Checks: `typecheck`, `lint`, `test` 840 + 3, `camera:check` (three fixtures ok), `blender:design` with `check_marble_look.py` 39 checks, `blender:film`, `cargo test` 60 + 3. Not run: the native window, since the V3 app must stay untouched; the agent's real `marble-green-glass` was applied headless instead.
+
+### 2026-11-04: Track quality
+
+- **Clearance**: `simulation/track-look.ts`. `visualShapes` grows a platform to the deepest built-in skin (a Gift hangs 1.4 cm below its hitbox), `touchingPairs` names pieces closer than `MIN_PIECE_GAP` (1.2 cm). Auto place refuses them, trying a shorter platform (5/6, then 2/3) first; Continue, Build Track's `accept` and the gap searches check too. Tip in the problem model, "Platform 12 touches Platform 13", with a Fix
+- **One strike**: `extraStrikes`; "Hits it {times}" was only ever about another lane's pieces. Auto place, Continue and `accept` refuse a second strike; existing ones are a warning, "Melody hits Platform 12 twice". Rests after a marble's last note and Finishes, switchbacks and rails don't count. Fix: shorter, a strike further along it, small turns, Auto place, and when each of those moves the hits after it, Rebuild From Here. **Fix 3 Platforms** in the hit summary's menu when nothing else is wrong
+- **Look score** in Auto place, documented with its weights: the lane's two columns, tilt toward the next one, the tilt last used for the same interval, gentle tilts; pace and comfort as before. Mirror and Continue count only while the next dot stays on its column. Mending a run (later hits have pieces) keeps the old score, since Re-place's recovery tests depend on it
+- **Rebuild From Here** (`build.rebuildFrom`, `build.track {from}`): Track menu, hit and piece menus, ⌘K. Keeps everything up to the hit on every marble, turns nothing kept, moves no release, keeps skins, one undo step
+- **Owner's additions**: a rail tried first, a switchback for what nothing else bridges (`gapPieceOrder`, `gapPieceReads`), both tried three hits ahead when both fit, `build.track {gapPiece}`. `placePiece` with a `hit` and `entryDelay` bridges a gap, tested through Build Track. Bands: the lane first, the frame when nothing fits, in Auto place, Continue, gap searches and `accept`, `outOfFrame` included. Guide: `building-a-track`
+- **Live gap, cheap wins**: steps show every 250 ms, the `setDesign` on every step is gone, no preflight in the hit summary and Layers while building
+- Numbers, what conflicts with the physics, the beam that didn't help, rails: references.md, Track quality. Contact sheet with V3: `.local/track-quality/compare-v3-new.jpg`
+- The fixture is unchanged, so it shows 13 double strikes and a touching pair when opened; `export-preflight.test.ts` looks past them on the committed tracks
+- Not checked: the app's own build time, since the browser pane refused to open it; the commands in the native window
 
 ### 2026-11-04: Build Track
 
@@ -583,3 +638,11 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 - Wrote ux.md, design-language.md, architecture.md, milestones.md and references.md
 - No code yet
+
+## 2026-11-04: pickers, Starter Pack, one colour per marble, Scene consolidated (UX audit 3)
+
+- Blender logo orange when ready and working, red on error, grey when not installed. Skin section with one row and a floating picker (`TilePicker`, built on `InsertPopover`); Theme is one row with "Brass · 3 changes" and Reset, no parts, no Save as Theme; Export Pack… keeps a look. Pickers and Insert stay inside the canvas (`popoverFrame`).
+- Starter Pack always present (`packs/Starter.marblepack`, read in the app and in `pack.rs`). One colour per marble in the reducer and on load; manifest `color`. References out of the Scene; an image dropped into the chat adds one.
+- Notices bottom left of the canvas, hints yield. MIDI marbles named from tracks (Melody, Bass). `fitsSong`. Gravity; length in the transport and ruler; Fit to Song on the ruler and ⌘K.
+- UX audit 3: Film's Layers closed by default, ⌘K layers and settings, Format in the Scene, Tilt, Advanced camera, preview switch, Decor's Item cut, Insert reordered, Insert menu.
+- Open: the Christmas theme's Green Glass marble is a built-in skin with its own colour, so Jingle Bells shows green marbles and blue and orange in the timeline. The manifest `color` rule covers library skins only.

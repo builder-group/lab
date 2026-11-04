@@ -5,15 +5,16 @@ import { addWallTextCommands, defaultTitleColor, frameHeightOnWall, previewPoint
 import { filmFileName, getRenderPreset } from '@/modules/design/export-estimate';
 import { framingProblemAt, preflightExport } from '@/modules/design/export-preflight';
 import { addShotCommands, shotKinds } from '@/modules/design/shots';
-import { saveAsTheme } from '@/modules/design/SkinProperties';
-import { addedPacks, library, toItemId } from '@/modules/library';
+import type { ComposeCx } from '@/modules/compose/ComposeCx';
+import { addedPacks, library, STARTER_PACK, STARTER_PACK_ID, toItemId } from '@/modules/library';
 import { createProject, type TProjectTheme } from '@/modules/project';
 import { songDisplayName } from '@/modules/design/titles';
 import { commands as registry, commandWorkspace, getCommand, isCommandEnabled, type TCommand, type TCommandId } from '@/modules/studio/commands';
 import type { StudioCx, TAgentStepNotice } from '@/modules/studio/StudioCx';
 import { CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY } from '@/modules/studio/selection';
 import { toShotKey } from '@/modules/studio/selection';
-import { hitReport, projectState } from './mcp-state';
+import { editPresenceLabel } from './agent-presence';
+import { hitReport, projectState, resolveSelection } from './mcp-state';
 import { builtInSkinIds, expandCommands, type TAgentCommand } from './project-commands';
 
 // What each MCP tool does in the app. Edits go through the same `execute` a person's do, inside one named Undo step.
@@ -48,10 +49,9 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.export': 'the export_film tool',
 	'design.exportPack': 'args.path, plus name and either theme or items',
 	'design.addText': 'args.text, and style, at, color, in and out if wanted',
-	'design.saveAsTheme': 'args.name if wanted',
 	'camera.addShot': 'args.time, kind, roll, distance and length if wanted',
 	'camera.addWideShot': 'args.time if wanted',
-	'marble.speed': 'args.value, Marble Speed from 0.05 to 2'
+	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
 
 /** Commands an agent can start while nothing else may run */
@@ -76,12 +76,15 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const project = cx.project;
 		if (project == null) return text(cx, { project: null, note: 'No project is open. Call add_song, or run_command with file.new or file.open.' });
 		const references = cx.$references.get();
+		const assist = cx.$compose.get()?.assist;
 		return text(
 			cx,
 			projectState(project, cx.simulation.$result.get(), {
 				path: cx.$path.get(),
 				workspace: cx.$workspace.get() === 'design' ? 'film' : 'compose',
-				selection: cx.$selection.get(),
+				selection: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get()),
+				building: assist?.$building.get(),
+				lastBuild: assist?.$lastBuild.get(),
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
@@ -137,9 +140,14 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const special = ARGUMENT_COMMANDS[command.id];
 		if (special == null && PANEL_COMMANDS[command.id] != null) return fail(cx, `${command.title} asks a person through a panel. Use ${PANEL_COMMANDS[command.id] ?? ''}.`);
 		// Build Track with wait: false answers at once; get_state shows how far it is
+		const from = command.id === 'build.track' ? buildFrom(cx, commandArgs) : null;
+		if (typeof from === 'string') return fail(cx, from);
+		if (command.id === 'build.track' && commandArgs['gapPiece'] != null && gapPreference(commandArgs) == null) return fail(cx, `gapPiece is rail or switchback, not ${String(commandArgs['gapPiece'])}.`);
 		if (command.id === 'build.track' && commandArgs['wait'] === false) {
-			if (!canRun(cx, command)) return fail(cx, buildRefusal(cx));
-			void editStep(cx, command.title, () => startBuild(cx, command));
+			if (from == null && !canRun(cx, command)) return fail(cx, buildRefusal(cx));
+			// The call answers at once, but the agent is still at work until the build ends
+			const end = cx.mcp.presence.begin('Building Track');
+			void editStep(cx, command.title, () => startBuild(cx, command, from ?? undefined, gapPreference(commandArgs))).finally(end);
 			await waitFor(() => cx.$compose.get()?.assist.isBuilding === true, 1500);
 			return text(cx, { started: true, note: 'Building. get_state shows building and, when done, lastBuild; build.stop stops it.' });
 		}
@@ -154,8 +162,8 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				applySelection(cx, commandArgs);
 				if (special != null) return special(cx, commandArgs);
 				if (command.id === 'build.track') {
-					if (!canRun(cx, command)) throw new Error(buildRefusal(cx));
-					return startBuild(cx, command);
+					if (from == null && !canRun(cx, command)) throw new Error(buildRefusal(cx));
+					return startBuild(cx, command, from ?? undefined, gapPreference(commandArgs));
 				}
 				return invoke(cx, command);
 			},
@@ -202,6 +210,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		await settled(cx);
 		const [isFrameOk, frameErr, frame] = await cx.design.renderStill(time, quality === 'blender' ? BLENDER_WIDTH : DRAFT_WIDTH);
 		if (!isFrameOk) return fail(cx, frameErr.message);
+		cx.agents.noteFrame(frame.path, time);
 		const framing = framingProblemAt(preflightExport(cx.project, cx.simulation.$result.get()), time);
 		const words = `${frame.width} × ${frame.height} at ${time} s, ${Math.round(frame.renderMs)} ms${framing != null ? `. ${framing.title} here: this frame may not show it` : ''}`;
 		return { content: [{ type: 'imagePath', path: frame.path }, { type: 'text', text: words }], isError: false, packagePath: cx.$path.get() };
@@ -266,16 +275,18 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 	}
 };
 
-/** Commands that take their panel's answers as arguments */
+/** Commands that take their panel's answers as arguments, or that answer only when their work is done */
 const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<string, unknown>) => Promise<void>>> = {
+	// Like build.track, this answers when the build is done, so the reply reports the finished track
+	'build.rebuildFrom': async (cx) => {
+		const stopEpoch = cx.mcp.presence.stopEpoch;
+		const compose = await openCompose(cx, 'Rebuild From Here');
+		const from = compose.assist.rebuildTarget;
+		if (from == null) throw new Error('Rebuild From Here needs a hit, or a piece that plays one: select it with args.select.');
+		if (cx.mcp.presence.stopEpoch === stopEpoch) await compose.assist.buildTrack(from);
+	},
 	'design.addText': async (cx, args) => {
 		addTitle(cx, args);
-	},
-	'design.saveAsTheme': async (cx, args) => {
-		const { name } = z.object({ name: z.string().regex(/\S/).optional() }).parse(args);
-		const hadChanges = Object.keys(cx.project?.design.wall ?? {}).length > 0 || cx.project?.design.lights != null;
-		saveAsTheme(cx, name);
-		if (hadChanges) cx.notify('The Wall and Lights values moved into the new theme, so get_state.wall.own and lights.own are empty now and its values stay the same.');
 	},
 	'camera.addShot': async (cx, args) => {
 		const { time, kind, roll, distance, length } = SShotArgs.parse(args);
@@ -306,6 +317,10 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	},
 	'design.addPack': async (cx, args) => {
 		const { path, name } = z.object({ path: SPath.optional(), name: z.string().optional() }).parse(args);
+		if (name?.toLowerCase() === STARTER_PACK.name.toLowerCase()) {
+			cx.notify('The Starter Pack is always there; nothing to add.');
+			return;
+		}
 		const named = name != null ? cx.library.$bundledPacks.get().find((pack) => pack.name.toLowerCase() === name.toLowerCase()) : null;
 		if (name != null && named == null) throw new Error(`There is no Pack called ${name} in the app`);
 		const from = named?.path ?? path;
@@ -375,6 +390,7 @@ function addTitle(cx: StudioCx, args: Record<string, unknown>): void {
 async function removePack(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
 	const { name } = z.object({ name: z.string() }).parse(args);
 	const pack = addedPacks.get().find((item) => item.name.toLowerCase() === name.toLowerCase());
+	if (pack?.id === STARTER_PACK_ID) return fail(cx, "The Starter Pack can't be removed.");
 	if (pack == null) return fail(cx, `No Pack called ${name} is added. Added: ${addedPacks.get().map((item) => item.name).join(', ') || 'none'}.`);
 	await cx.library.removePack(pack);
 	return text(cx, { removed: pack.name, changed: false });
@@ -398,15 +414,20 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 	const { commands, label } = z.object({ commands: z.array(z.looseObject({ type: z.string() })).min(1), label: z.string().optional() }).parse(args);
 	const project = cx.project;
 	if (project == null) return noProject(cx);
+	const stopEpoch = cx.mcp.presence.stopEpoch;
 	await settled(cx);
 	const items = cx.library.$projectItems.get();
 	const packThemes = await packThemesToApply(cx, commands);
+	// Stop came while waiting for the run: this edit never starts, and McpCx's reply says why
+	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get()) });
 	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes);
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
 	if (!expanded.isChange) {
 		applySelection(cx, args);
 		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
 	}
+	const created = expanded.createdIds.length === 1 ? expanded.commands.find((command) => command.type === 'upsertEntity' && command.entity.id === expanded.createdIds[0]) : undefined;
+	cx.mcp.presence.relabel(editPresenceLabel(label, expanded.summary, created?.type === 'upsertEntity' ? (created.entity.name ?? null) : null));
 	return editStep(cx, label ?? expanded.summary ?? 'Edit', () => {
 		if (!cx.execute(expanded.commands)) return;
 		if (expanded.createdIds.length > 0) cx.$selection.set(expanded.createdIds);
@@ -440,15 +461,37 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 }
 
 /** Build Track, which answers when it is done: opens Compose first, as `invoke` does */
-async function startBuild(cx: StudioCx, command: TCommand): Promise<void> {
+async function startBuild(cx: StudioCx, command: TCommand, from?: { laneId: string; hitId: string }, gapPiece?: 'rail' | 'switchback'): Promise<void> {
+	const stopEpoch = cx.mcp.presence.stopEpoch;
+	const compose = await openCompose(cx, command.title);
+	if (cx.mcp.presence.stopEpoch === stopEpoch) await compose.assist.buildTrack(from, gapPiece);
+}
+
+async function openCompose(cx: StudioCx, title: string): Promise<ComposeCx> {
 	if (cx.$workspace.get() !== 'compose') {
 		cx.$workspace.set('compose');
 		await waitFor(() => cx.$compose.get() != null, 1500);
 	}
 	await sleep(50);
 	const compose = cx.$compose.get();
-	if (compose == null) throw new Error(`${command.title} needs Compose, which didn't open.`);
-	await compose.assist.buildTrack();
+	if (compose == null) throw new Error(`${title} needs Compose, which didn't open.`);
+	return compose;
+}
+
+/** `gapPiece` of `build.track`: the piece tried first across a long gap */
+function gapPreference(args: Record<string, unknown>): 'rail' | 'switchback' | undefined {
+	const piece = args['gapPiece'];
+	return piece === 'rail' || piece === 'switchback' ? piece : undefined;
+}
+
+/** `from` of `build.track`: the hit Rebuild From Here starts at, null without one, or why it can't */
+function buildFrom(cx: StudioCx, args: Record<string, unknown>): { laneId: string; hitId: string } | string | null {
+	const hitId = args['from'];
+	if (hitId == null) return null;
+	const lane = cx.project?.music.lanes.find((item) => item.hits.some((hit) => hit.id === hitId));
+	if (lane == null || typeof hitId !== 'string') return `There is no hit called ${String(hitId)}. get_state lists every marble's hits.`;
+	if (cx.$compose.get()?.assist.isBuilding === true) return buildRefusal(cx);
+	return { laneId: lane.id, hitId };
 }
 
 function buildRefusal(cx: StudioCx): string {

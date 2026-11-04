@@ -11,7 +11,7 @@ import {
 import type { TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { buildAgentBrief, type TAgentTarget } from './agent-brief';
-import { agentRunPrompt } from './agent-chat';
+import { requestFromPrompt } from './agent-chat';
 import {
 	appendAgentLine,
 	condenseAgentLines,
@@ -21,21 +21,26 @@ import {
 import { agentRunPhase, canAcceptRun, type TAgentRunPhase } from './agent-status';
 
 const REFRESH_DELAY_MS = 600;
+const MAX_FRAMES = 12;
 
 /**
- * Agent runs of the open package. A run writes a brief into `candidates/<runId>/`, runs a local agent CLI
- * there and streams its output. Accepting copies the candidate into the project library; the caller applies
+ * The project's chat. Each message runs the local agent CLI once in the package's `agent/` folder with the app's MCP
+ * tools, continuing the project's session, and streams its output. Direct edits arrive through MCP like any external
+ * agent's. A run may also finish with a Result, which accepting copies into the project library; the caller applies
  * the returned item. In the browser development surface agents are unavailable.
  */
 export class AgentCx {
 	readonly $availability = createState<TAgentAvailability>('unknown');
 	readonly $clis = createState<TAgentCliInfo[]>([]);
 	readonly $runs = createState<TAgentRun[]>([]);
+	/** Frames an agent previewed this session, newest first, for the panel's Made */
+	readonly $frames = createState<TAgentFrame[]>([]);
 
 	private disposed = false;
 	// Lines that arrive before `agents_start` resolves with the run
 	private pending = new Map<string, specta.AgentRunEvent[]>();
 	private refreshTimer: ReturnType<typeof setTimeout> | undefined;
+	private loadedPackage: string | null = null;
 	private targets = new Map<string, TAgentTarget>();
 
 	constructor(private readonly source: TAgentSource) {}
@@ -79,21 +84,20 @@ export class AgentCx {
 		return clis;
 	}
 
-	/** Starts an agent for a target with the user's request; `focus` names the target in the prompt */
-	async start(options: {
-		target: TAgentTarget;
-		request: string;
-		cli?: TAgentCli;
-		focus?: string;
-	}): Promise<TResult<TAgentRun, Error>> {
+	/**
+	 * Sends one message. `request` is what the chat shows, `prompt` what the CLI gets, with the selection in resolved form;
+	 * `target` is what a Result would be for.
+	 */
+	async start(options: { request: string; prompt: string; target: TAgentTarget; cli?: TAgentCli }): Promise<TResult<TAgentRun, Error>> {
 		if (!isTauri()) return Err(new Error('Agents run in the desktop app. Open MidiMarble on your Mac to ask one.'));
 		const packagePath = this.source.getPackagePath();
 		const project = this.source.getProject();
 		if (packagePath == null || project == null) return Err(new Error('No project is open. Open a project, then ask again.'));
 		const request = options.request.trim();
-		if (!request.length) return Err(new Error('The message is empty. Describe what the agent should make.'));
+		if (!request.length) return Err(new Error('The message is empty. Describe what the agent should do.'));
 		const cli = options.cli ?? this.$clis.get()[0]?.cli;
 		if (cli == null) return Err(new Error('No agent is installed. Install Claude Code or Codex, then ask again.'));
+		if (this.workingRun != null) return Err(new Error("The agent is still working. Stop it, or send this when it's done."));
 
 		const brief = buildAgentBrief({
 			project,
@@ -102,15 +106,8 @@ export class AgentCx {
 			request
 		});
 		const runId = createRunId();
-		const prompt = agentRunPrompt(request, options.focus ?? null);
 		this.targets.set(runId, options.target);
-		const result = await specta.commands.agentsStart(
-			packagePath,
-			cli,
-			runId,
-			prompt,
-			JSON.stringify(brief)
-		);
+		const result = await specta.commands.agentsStart(packagePath, project.title, cli, runId, request, options.prompt, JSON.stringify(brief));
 		if (result.status === 'error') {
 			this.targets.delete(runId);
 			return Err(new Error(result.error));
@@ -122,9 +119,25 @@ export class AgentCx {
 		return Ok(this.getRun(runId) ?? run);
 	}
 
+	/** The message being worked on; one at a time */
+	get workingRun(): TAgentRun | undefined {
+		return this.$runs.get().find((run) => run.status === 'running');
+	}
+
 	async cancel(runId: string): Promise<void> {
 		if (!isTauri()) return;
 		await specta.commands.agentsCancel(runId);
+	}
+
+	/** Stops the message being worked on; what it did stays */
+	async stopWorking(): Promise<void> {
+		const run = this.workingRun;
+		if (run != null) await this.cancel(run.id);
+	}
+
+	/** A frame an agent looked at, shown in the panel's Made */
+	noteFrame(path: string, time: number): void {
+		this.$frames.set([{ path, url: convertFileSrc(path), time }, ...this.$frames.get()].slice(0, MAX_FRAMES));
 	}
 
 	/** Copies the candidate into the project library and marks the run accepted. Returns the new item. */
@@ -160,6 +173,8 @@ export class AgentCx {
 	async reload(): Promise<void> {
 		const packagePath = this.source.getPackagePath();
 		if (!isTauri() || packagePath == null) return;
+		if (packagePath !== this.loadedPackage) this.$frames.set([]);
+		this.loadedPackage = packagePath;
 		const dtos = await specta.commands.agentsList(packagePath);
 		if (this.disposed) return;
 		const current = new Map(this.$runs.get().map((run) => [run.id, run]));
@@ -200,8 +215,7 @@ export class AgentCx {
 					...current,
 					status: record?.status ?? 'failed',
 					error: record?.error ?? current.error,
-					finishedAt: record?.finishedAt ?? Date.now(),
-					outsideChanges: record?.outsideChanges ?? []
+					finishedAt: record?.finishedAt ?? Date.now()
 				})
 			);
 			this.scheduleRefresh(0);
@@ -223,7 +237,7 @@ export class AgentCx {
 
 	private async loadTranscript(run: TAgentRun): Promise<void> {
 		try {
-			const response = await fetch(convertFileSrc(`${run.candidatePath}/transcript.jsonl`));
+			const response = await fetch(convertFileSrc(`${run.runPath}/transcript.jsonl`));
 			if (!response.ok) return;
 			const lines = (await response.text()).split('\n').filter((line) => line.trim().length > 0);
 			if (this.disposed) return;
@@ -254,6 +268,8 @@ export class AgentCx {
 			id: dto.runId,
 			cli: dto.cli,
 			prompt: dto.prompt,
+			request: dto.request ?? requestFromPrompt(dto.prompt),
+			isChat: dto.request != null,
 			target: previous?.target ?? this.targets.get(dto.runId) ?? null,
 			status: dto.status,
 			review: dto.review,
@@ -261,13 +277,13 @@ export class AgentCx {
 			startedAt: dto.startedAt ?? 0,
 			finishedAt: dto.finishedAt,
 			error: dto.error,
+			runPath: dto.runPath,
 			candidatePath: dto.candidatePath,
 			hasAsset: dto.hasAsset,
 			manifestJson: dto.manifestJson,
 			manifest,
 			manifestError,
 			previewUrl,
-			outsideChanges: dto.outsideChanges ?? [],
 			messages: previous?.messages ?? [],
 			acceptedItemId: previous?.acceptedItemId ?? null
 		});
@@ -283,10 +299,20 @@ export interface TAgentSource {
 export type TAgentAvailability = 'unknown' | 'unavailable' | 'missing' | 'ready';
 export type TAgentCliInfo = specta.AgentCliDto;
 
+export interface TAgentFrame {
+	path: string;
+	url: string;
+	time: number;
+}
+
 export interface TAgentRun {
 	id: string;
 	cli: TAgentCli;
 	prompt: string;
+	/** The message as written, with mentions as `@[Name]` */
+	request: string;
+	/** Sent in the chat; earlier runs each made one Result */
+	isChat: boolean;
 	/** Known for runs started in this session */
 	target: TAgentTarget | null;
 	status: specta.AgentRunStatus;
@@ -295,14 +321,13 @@ export interface TAgentRun {
 	startedAt: number;
 	finishedAt: number | null;
 	error: string | null;
+	runPath: string;
 	candidatePath: string;
 	hasAsset: boolean;
 	manifestJson: string | null;
 	manifest: TAssetManifest | null;
 	manifestError: string | null;
 	previewUrl: string | null;
-	/** Package files outside `candidates/` that changed during the run; advisory */
-	outsideChanges: string[];
 	messages: TAgentMessage[];
 	acceptedItemId: string | null;
 }

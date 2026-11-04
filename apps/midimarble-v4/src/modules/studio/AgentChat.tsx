@@ -1,17 +1,21 @@
 import { useFeatureState } from 'feature-react/state';
-import { ArrowUp, Check, ChevronRight, CircleAlert, Ellipsis, Frame, LoaderCircle, Monitor, Sparkles, Square, X } from 'lucide-react';
+import { ArrowUp, Check, ChevronRight, CircleAlert, Copy, Diamond, Frame, Info, LoaderCircle, Monitor, Sparkles, Square, X } from 'lucide-react';
 import React from 'react';
-import { HelpTip, MenuButton, Select } from '@/components';
+import { Select } from '@/components';
 import {
+	agentChatPrompt,
 	agentChatTurns,
 	agentRunSteps,
 	composeAgentRequest,
+	describeMention,
 	filterMentions,
 	findMentionQuery,
 	focusFromPrompt,
-	planAgentRuns,
+	mentionOptions,
+	mentionTarget,
 	removeMentionQuery,
 	SCENE_MENTION,
+	selectionMentions,
 	splitMentions,
 	type TAgentChatTurn,
 	type TAgentCli,
@@ -20,15 +24,15 @@ import {
 	type TAgentRunPhase
 } from '@/modules/agents';
 import { PieceIcon } from '@/modules/compose/piece-icons';
-import { agentSetupHint, cliLabel, toThreadItem, type TAgentCandidate, type TAgentThemeProposal } from '@/modules/design/agent-thread';
+import { agentSetupNote, cliLabel, toThreadItem, type TAgentCandidate, type TAgentSetupHint, type TAgentThemeProposal } from '@/modules/design/agent-thread';
 import { themePreview, themeSwatches } from '@/modules/design/theme-preview';
-import { SetupCard } from '@/modules/design/AgentPanel';
-import { createId, type TProject } from '@/modules/project';
+import type { TProject } from '@/modules/project';
+import { AgentDetails, StepLine } from './AgentDetails';
 import type { StudioCx, TAgentDraft } from './StudioCx';
 
 /**
- * One shared agent conversation per project, like the chat panels of Figma and Cursor. The selection is
- * mentioned in the composer, @ mentions any layer, and each message starts one run per mentioned piece.
+ * One agent conversation per project, like the chat panels of Figma and Cursor, in Compose and in Film. The selection is
+ * mentioned in the composer, @ mentions any layer, and each message runs the local CLI with the app's own tools.
  */
 export const AgentChat: React.FC<TAgentChatProps> = (props) => {
 	const { cx } = props;
@@ -37,14 +41,21 @@ export const AgentChat: React.FC<TAgentChatProps> = (props) => {
 	const clis = useFeatureState(cx.agents.$clis);
 	const runs = useFeatureState(cx.agents.$runs);
 	const [cli, setCli] = React.useState<TAgentCli | null>(null);
+	const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const project = history?.present ?? null;
 
 	const turns = React.useMemo(() => agentChatTurns(runs), [runs]);
 	const options = React.useMemo(() => (project != null ? mentionOptions(project) : [SCENE_MENTION]), [project]);
-	const setup = agentSetupHint(availability, clis);
+	const setup = agentSetupNote(availability, clis);
 	const chosenCli = cli ?? clis[0]?.cli ?? null;
-	const lastActivity = runs.reduce((total, run) => total + run.messages.length, turns.length);
+	// Text grows while it streams, so its length counts as well as new messages
+	const lastActivity = runs.reduce((total, run) => total + run.messages.reduce((sum, message) => sum + 1 + (message.kind === 'text' ? message.text.length : 0), 0), turns.length);
+
+	// Someone may have installed a CLI since the app started
+	React.useEffect(() => {
+		void cx.agents.detect();
+	}, [cx]);
 
 	// Follow the conversation like a chat while it grows
 	React.useEffect(() => {
@@ -63,33 +74,36 @@ export const AgentChat: React.FC<TAgentChatProps> = (props) => {
 						<Select id="agent-cli" value={chosenCli ?? ''} options={clis.map((item) => ({ value: item.cli, label: cliLabel(item.cli) }))} onChange={(value) => setCli(value as TAgentCli)} />
 					</div>
 				) : null}
-				<MenuButton className="mm-icon-button !h-6 !w-6" title="Agent menu" label={<Ellipsis size={14} strokeWidth={1.8} />} items={[{ label: 'Show Agent Folder', disabled: project == null, onSelect: () => void cx.showAgentFolder() }]} align="right" />
+				<button className="mm-icon-button !h-6 !w-6" data-active={isDetailsOpen} aria-pressed={isDetailsOpen} onClick={() => setIsDetailsOpen(!isDetailsOpen)} title={isDetailsOpen ? 'Back to Chat' : 'Agent Details'} aria-label="Agent Details" type="button">
+					<Info size={14} strokeWidth={1.8} />
+				</button>
 				<button className="mm-icon-button !h-6 !w-6" onClick={() => cx.togglePanel('agent')} title="Hide Agent (⌘J)" aria-label="Hide Agent" type="button">
 					<X size={14} strokeWidth={1.8} />
 				</button>
 			</header>
-			<div ref={scrollRef} className="mm-agent-scroll">
-				{turns.length > 0 ? (
-					turns.map((turn) => <ChatTurn key={turn.id} cx={cx} turn={turn} project={project} />)
-				) : (
-					<div className="mm-agent-empty">
-						<Sparkles size={18} strokeWidth={1.5} />
-						<span>Ask for a theme, a skin or a track piece</span>
+			{isDetailsOpen ? (
+				<AgentDetails cx={cx} />
+			) : (
+				<>
+					<div ref={scrollRef} className="mm-agent-scroll">
+						{turns.length > 0 ? (
+							turns.map((turn) => <ChatTurn key={turn.id} cx={cx} turn={turn} project={project} />)
+						) : (
+							<div className="mm-agent-empty">
+								<Sparkles size={18} strokeWidth={1.5} />
+								<span>Select something and say what you want</span>
+							</div>
+						)}
 					</div>
-				)}
-			</div>
-			{availability === 'unavailable' ? (
-				<div className="mm-agent-note" role="note">
-					<Monitor size={13} strokeWidth={1.7} className="shrink-0" />
-					<span className="flex-1">Agents run in the desktop app</span>
-					<HelpTip text="The browser preview cannot start Claude Code or Codex. Open MidiMarble on your Mac to send this." />
-				</div>
-			) : setup != null ? (
-				<div className="px-3 pb-2">
-					<SetupCard hint={setup} />
-				</div>
-			) : null}
-			<Composer cx={cx} options={options} canSend={availability === 'ready'} cli={chosenCli} />
+					{setup != null ? (
+						<div className="mm-agent-note" role="note">
+							<Monitor size={13} strokeWidth={1.7} className="shrink-0" />
+							<span className="flex-1">{setup}</span>
+						</div>
+					) : null}
+					<Composer cx={cx} options={options} canSend={availability === 'ready'} cli={chosenCli} />
+				</>
+			)}
 		</aside>
 	);
 };
@@ -99,6 +113,8 @@ interface TAgentChatProps {
 }
 
 // MARK: - Conversation
+
+const RECENT_STEPS = 3;
 
 const ChatTurn: React.FC<{ cx: StudioCx; turn: TAgentChatTurn; project: TProject | null }> = (props) => {
 	const { cx, turn, project } = props;
@@ -122,8 +138,8 @@ const ChatTurn: React.FC<{ cx: StudioCx; turn: TAgentChatTurn; project: TProject
 	);
 };
 
-/** An agent reply: one status line that expands to the steps, then the candidate card */
-const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string; marbleColors: readonly string[] }> = (props) => {
+/** An agent reply: one status line that expands to the steps, what the agent says, then a Result's card */
+const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string | null; marbleColors: readonly string[] }> = (props) => {
 	const { cx, run, label, marbleColors } = props;
 	const [isOpen, setIsOpen] = React.useState(false);
 	const [isBusy, setIsBusy] = React.useState(false);
@@ -131,6 +147,8 @@ const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string; marbleCo
 	const steps = agentRunSteps(run);
 	// Messages only grow at the end, so their position is a stable key
 	const entries = React.useMemo(() => run.messages.map((message, index) => ({ key: message.kind === 'tool' && message.id ? message.id : `m${index}`, message })), [run.messages]);
+	// While it works the latest steps show on their own, as a compact list
+	const latestSteps = item.canCancel && !isOpen ? entries.filter((entry) => entry.message.kind === 'tool').slice(-RECENT_STEPS) : [];
 
 	async function accept(): Promise<void> {
 		setIsBusy(true);
@@ -150,34 +168,25 @@ const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string; marbleCo
 			<div className="flex items-center">
 				<button className="mm-agent-status" data-open={isOpen} aria-expanded={isOpen} onClick={() => setIsOpen(!isOpen)} type="button">
 					<PhaseIcon phase={run.phase} />
-					<span className="truncate font-medium text-[var(--text)]">{label}</span>
+					{label != null ? <span className="truncate font-medium text-[var(--text)]">{label}</span> : null}
 					<span className="truncate">
-						{' · '}
+						{label != null ? ' · ' : ''}
 						{phaseLabel(run.phase)}
-						{steps.total > 0 && (run.phase === 'working' || run.phase === 'review') ? ` · ${steps.total} ${steps.total === 1 ? 'step' : 'steps'}` : ''}
+						{steps.total > 0 ? ` · ${steps.total} ${steps.total === 1 ? 'step' : 'steps'}` : ''}
 					</span>
 					<ChevronRight size={11} strokeWidth={2} className="mm-agent-chevron shrink-0" />
 				</button>
-				{item.canCancel ? (
-					<button className="mm-icon-button !h-5 !w-5 shrink-0" onClick={() => void cx.agents.cancel(run.id)} title="Stop" aria-label="Stop" type="button">
-						<Square size={9} strokeWidth={0} fill="currentColor" />
-					</button>
-				) : null}
 			</div>
+			{latestSteps.length > 0 ? (
+				<ol className="mm-agent-steps">
+					{latestSteps.map(({ key, message }) => (message.kind === 'tool' ? <StepLine key={key} summary={message.summary} status={message.status} /> : null))}
+				</ol>
+			) : null}
 			{isOpen ? (
 				<ol className="mm-agent-steps">
 					{entries.map(({ key, message }) =>
 						message.kind === 'tool' ? (
-							<li key={key} data-status={message.status}>
-								{message.status === 'running' ? (
-									<LoaderCircle size={10} className="shrink-0 animate-spin" />
-								) : message.status === 'failed' ? (
-									<X size={10} strokeWidth={2.4} className="shrink-0" />
-								) : (
-									<Check size={10} strokeWidth={2.4} className="shrink-0" />
-								)}
-								<span className="truncate">{message.summary}</span>
-							</li>
+							<StepLine key={key} summary={message.summary} status={message.status} />
 						) : message.kind === 'text' ? (
 							<li key={key} data-kind="text">
 								{message.text}
@@ -188,6 +197,7 @@ const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string; marbleCo
 					{!run.messages.length && item.usage == null ? <li data-kind="text">No steps yet</li> : null}
 				</ol>
 			) : null}
+			{item.reply != null && !isOpen ? <p className="mm-agent-text">{item.reply}</p> : null}
 			{item.error != null && item.setup == null ? (
 				<p className="mm-agent-error">
 					<CircleAlert size={11} strokeWidth={2} className="mt-px shrink-0" />
@@ -211,13 +221,6 @@ const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string; marbleCo
 								</span>
 								<span className="truncate text-[11px] text-[var(--text-secondary)]">Theme · with {item.candidate.label}</span>
 							</span>
-						) : item.candidate.decorSet != null ? (
-							<span className="flex min-w-0 flex-1 flex-col">
-								<span className="truncate font-medium">{item.candidate.label}</span>
-								<span className="truncate text-[11px] text-[var(--text-secondary)]">
-									Decor {item.candidate.decorSet.index} of {item.candidate.decorSet.total} · Accept scatters it
-								</span>
-							</span>
 						) : (
 							<span className="min-w-0 flex-1 truncate font-medium">{item.candidate.label}</span>
 						)}
@@ -238,6 +241,37 @@ const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string; marbleCo
 						) : null}
 					</figcaption>
 				</figure>
+			) : null}
+		</div>
+	);
+};
+
+/** What keeps an agent from running and the Terminal command that fixes it */
+const SetupCard: React.FC<{ hint: TAgentSetupHint }> = (props) => {
+	const { hint } = props;
+	const [isCopied, setIsCopied] = React.useState(false);
+
+	async function copy(command: string): Promise<void> {
+		try {
+			await navigator.clipboard.writeText(command);
+			setIsCopied(true);
+			setTimeout(() => setIsCopied(false), 1500);
+		} catch {
+			// The command stays selectable when the clipboard is unavailable
+		}
+	}
+
+	return (
+		<div className="mm-setup-card" role="note">
+			<div className="font-semibold">{hint.title}</div>
+			<div className="mm-caption">{hint.body}</div>
+			{hint.command != null ? (
+				<div className="mm-command">
+					<code className="min-w-0 flex-1 select-text break-all">{hint.command}</code>
+					<button className="mm-icon-button !h-5 !w-5 shrink-0" onClick={() => void copy(hint.command ?? '')} title="Copy Command" aria-label="Copy Command" type="button">
+						{isCopied ? <Check size={11} strokeWidth={2.4} /> : <Copy size={11} strokeWidth={2} />}
+					</button>
+				</div>
 			) : null}
 		</div>
 	);
@@ -309,6 +343,7 @@ const PhaseIcon: React.FC<{ phase: TAgentRunPhase }> = (props) => {
 			return <LoaderCircle size={12} strokeWidth={2} className="shrink-0 animate-spin" />;
 		case 'review':
 			return <span className="mm-agent-dot" data-tone="review" />;
+		case 'done':
 		case 'accepted':
 			return <Check size={12} strokeWidth={2.2} className="shrink-0 text-[var(--good)]" />;
 		case 'failed':
@@ -325,6 +360,8 @@ const PhaseIcon: React.FC<{ phase: TAgentRunPhase }> = (props) => {
 const Composer: React.FC<{ cx: StudioCx; options: TAgentMention[]; canSend: boolean; cli: TAgentCli | null }> = (props) => {
 	const { cx, options, canSend, cli } = props;
 	const selection = useFeatureState(cx.$selection);
+	const runs = useFeatureState(cx.agents.$runs);
+	const isWorking = runs.some((run) => run.phase === 'working');
 	const [text, setText] = React.useState('');
 	const [explicit, setExplicit] = React.useState<TAgentMention[]>([]);
 	// Selected layers the user removed from this message; a new selection is mentioned again
@@ -356,11 +393,12 @@ const Composer: React.FC<{ cx: StudioCx; options: TAgentMention[]; canSend: bool
 		});
 	}, [cx, draft]);
 
-	const selected =options.filter((option) => option.kind !== 'scene' && selection.includes(option.id) && !dismissed.includes(option.id));
+	const project = cx.project;
+	const selected = project != null ? selectionMentions(project, selection).filter((mention) => !dismissed.includes(mention.id)) : [];
 	const mentions = [...selected, ...explicit.filter((mention) => !selected.some((item) => item.id === mention.id))];
 	const matches = query != null ? filterMentions(options, query.query, mentions.map((mention) => mention.id)).slice(0, 8) : [];
 	const isPickerOpen = query != null && matches.length > 0;
-	const isSendable = canSend && !isSending && text.trim().length > 0;
+	const isSendable = canSend && !isSending && !isWorking && text.trim().length > 0;
 
 	// Grow with the text up to a few lines, like Messages
 	React.useLayoutEffect(() => {
@@ -393,17 +431,16 @@ const Composer: React.FC<{ cx: StudioCx; options: TAgentMention[]; canSend: bool
 
 	async function send(): Promise<void> {
 		if (!isSendable) return;
+		if (project == null) return;
 		const request = composeAgentRequest(text, mentions);
+		const result = cx.simulation.$result.get();
+		const prompt = agentChatPrompt(text, mentions.map((mention) => describeMention(project, result, mention)));
 		setIsSending(true);
 		setError(null);
-		const failures: string[] = [];
-		for (const plan of planAgentRuns(mentions, text, createId('set'))) {
-			const [isStartedOk, startedErr] = await cx.agents.start({ target: plan.target, request, cli: cli ?? undefined, focus: plan.label });
-			if (!isStartedOk) failures.push(startedErr.message);
-		}
+		const [isStartedOk, startedErr] = await cx.agents.start({ request, prompt, target: mentionTarget(project, mentions), cli: cli ?? undefined });
 		setIsSending(false);
-		if (failures.length > 0) {
-			setError(failures[0] ?? null);
+		if (!isStartedOk) {
+			setError(startedErr.message);
 			return;
 		}
 		setText('');
@@ -512,9 +549,15 @@ const Composer: React.FC<{ cx: StudioCx; options: TAgentMention[]; canSend: bool
 				/>
 				<div className="flex items-center gap-2">
 					<span className="min-w-0 flex-1 truncate text-[11px] text-[var(--text-tertiary)]">{cli != null ? cliLabel(cli) : ''}</span>
-					<button className="mm-agent-send" disabled={!isSendable} onClick={() => void send()} title="Send (↩)" aria-label="Send" type="button">
-						{isSending ? <LoaderCircle size={13} strokeWidth={2.2} className="animate-spin" /> : <ArrowUp size={14} strokeWidth={2.2} />}
-					</button>
+					{isWorking ? (
+						<button className="mm-agent-send" onClick={() => void cx.stopAgent()} title="Stop. What it did stays." aria-label="Stop" type="button">
+							<Square size={10} strokeWidth={0} fill="currentColor" />
+						</button>
+					) : (
+						<button className="mm-agent-send" disabled={!isSendable} onClick={() => void send()} title="Send (↩)" aria-label="Send" type="button">
+							{isSending ? <LoaderCircle size={13} strokeWidth={2.2} className="animate-spin" /> : <ArrowUp size={14} strokeWidth={2.2} />}
+						</button>
+					)}
 				</div>
 			</div>
 			{error != null ? (
@@ -529,7 +572,8 @@ const Composer: React.FC<{ cx: StudioCx; options: TAgentMention[]; canSend: bool
 
 const MentionIcon: React.FC<{ cx: StudioCx; mention: TAgentMention }> = (props) => {
 	const { cx, mention } = props;
-	if (mention.kind === 'scene') return <Frame size={12} strokeWidth={1.8} className="shrink-0 opacity-70" />;
+	if (mention.kind === 'scene' || mention.kind === 'layer') return <Frame size={12} strokeWidth={1.8} className="shrink-0 opacity-70" />;
+	if (mention.kind === 'hit') return <Diamond size={11} strokeWidth={1.8} className="shrink-0 opacity-70" />;
 	if (mention.kind === 'marble') {
 		const laneId = cx.project?.entities.find((entity) => entity.id === mention.id)?.components.marble?.laneId;
 		const color = cx.project?.music.lanes.find((lane) => lane.id === laneId)?.color;
@@ -543,17 +587,9 @@ const MentionIcon: React.FC<{ cx: StudioCx; mention: TAgentMention }> = (props) 
 	);
 };
 
-/** The scene, then each marble, then the pieces in project order */
-function mentionOptions(project: TProject): TAgentMention[] {
-	const marbles = project.music.lanes.flatMap((lane): TAgentMention[] => {
-		const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
-		return marble != null ? [{ id: marble.id, kind: 'marble', label: lane.name }] : [];
-	});
-	const pieces = project.entities.flatMap((entity): TAgentMention[] => (entity.components.piece != null ? [{ id: entity.id, kind: 'piece', label: entity.name ?? entity.components.piece.type }] : []));
-	return [SCENE_MENTION, ...marbles, ...pieces];
-}
-
-function runLabel(run: TAgentRun, project: TProject | null): string {
+/** A chat run needs no name; a run from before the chat made a Result for one target */
+function runLabel(run: TAgentRun, project: TProject | null): string | null {
+	if (run.isChat) return null;
 	const focus = focusFromPrompt(run.prompt);
 	if (focus != null) return focus;
 	const target = run.target;
@@ -566,6 +602,8 @@ function phaseLabel(phase: TAgentRunPhase): string {
 	switch (phase) {
 		case 'working':
 			return 'Working';
+		case 'done':
+			return 'Done';
 		case 'review':
 			return 'Ready';
 		case 'incomplete':

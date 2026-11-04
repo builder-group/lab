@@ -1,13 +1,15 @@
 import { useFeatureState } from 'feature-react/state';
+import { createState } from 'feature-state';
 import { Anchor, AudioLines, Bookmark, Box, BrickWall, ChevronRight, Eye, EyeOff, Folder, Globe, Lightbulb, Lock, LockOpen, Music, Sparkles, Sun, TriangleAlert, Type, Video } from 'lucide-react';
 import React from 'react';
 import { HelpTip, openContextMenu, RenameField, type TMenuEntry } from '@/components';
 import { attachState } from '@/modules/compose/attach-edit';
+import type { TBuildProgress } from '@/modules/compose/build-track';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
 import { $blenderObjects, deleteDecorCommands, duplicateDecorCommands, madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
 import { moveDecorClearAction, revealMadeInBlender } from '@/modules/design/decor-actions';
-import { decorTips, preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { decorTips, lookProblems, preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import { updateLightCommands } from '@/modules/design/scene-layers';
 import { shotKindLabel } from '@/modules/design/shots';
 import type { TEntity, TProject } from '@/modules/project';
@@ -16,11 +18,13 @@ import { commandItem } from './commands';
 import { formatTime } from './format';
 import { inspectorTarget } from './inspector-target';
 import { laneMenu, pieceMenu, songMenu } from './menus';
-import { buildOutline, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
+import { buildOutline, collapsedGroups, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import { SCENE_KEY, toDecorKey } from './selection';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
 /** Full-height sidebar after Paper and Figma, and only Layers; what you add is in the tool rail's Insert */
+const NOT_BUILDING = createState<TBuildProgress | null>(null);
+
 export const Sidebar: React.FC<TSidebarProps> = (props) => {
 	const { cx } = props;
 	const history = useFeatureState(cx.$history);
@@ -58,15 +62,20 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	const result = useFeatureState(cx.simulation.$result);
 	const hidden = useFeatureState(cx.$hidden);
 	const locked = useFeatureState(cx.$locked);
-	const [collapsed, setCollapsed] = React.useState<string[]>([]);
+	// What the user folded the other way, per workspace, while this stays open
+	const [toggled, setToggled] = React.useState<Record<TWorkspace, string[]>>({ compose: [], design: [] });
+	const collapsed = React.useMemo(() => collapsedGroups(project, workspace, toggled[workspace]), [project, workspace, toggled]);
 	const treeRef = React.useRef<HTMLDivElement>(null);
 	const wasRenamingRef = React.useRef(false);
 
 	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.entityId, piece])), [result]);
 	// Pieces another marble hits, from the problem model the hit summary and the inspector read
 	const blenderObjects = useFeatureState($blenderObjects);
-	const preflight = React.useMemo(() => (result != null && result.revision === project.revision ? preflightExport(project, result, blenderObjects) : null), [project, result, blenderObjects]);
+	// Badges wait while Build Track works: each step would check the whole run again, and the hit summary says Building…
+	const isBuilding = useFeatureState(useFeatureState(cx.$compose)?.assist.$building ?? NOT_BUILDING) != null;
+	const preflight = React.useMemo(() => (!isBuilding && result != null && result.revision === project.revision ? preflightExport(project, result, blenderObjects) : null), [isBuilding, project, result, blenderObjects]);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
+	const looks = React.useMemo(() => (preflight != null ? lookProblems(preflight) : null), [preflight]);
 	const tips = React.useMemo(() => (preflight != null ? decorTips(preflight) : null), [preflight]);
 	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceEntityId == null ? [] : [[hit.pieceEntityId, hit] as const]))), [result]);
 	const rows = React.useMemo(() => buildOutline(project, { collapsed, workspace, blenderObjects }), [project, collapsed, workspace, blenderObjects]);
@@ -98,17 +107,24 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		wasRenamingRef.current = renaming != null && rows.some((row) => row.id === renaming);
 	}, [renaming, rows]);
 
-	// A selection made elsewhere, such as a track in the timeline, scrolls its row into view like Figma
+	// A selection made elsewhere, such as on the wall, opens its group and scrolls its row into view like Figma
 	const first = selection[0];
 	React.useEffect(() => {
 		if (first == null) return;
+		const closed = groupsOfSelection(project, [first]).filter((key) => collapsed.includes(key));
+		if (closed.length > 0) {
+			setToggled((current) => ({ ...current, [workspace]: [...current[workspace].filter((key) => !closed.includes(key)), ...closed.filter((key) => !current[workspace].includes(key))] }));
+			return;
+		}
 		treeRef.current?.querySelector(`[data-id="${CSS.escape(first)}"]`)?.scrollIntoView({ block: 'nearest' });
-	}, [first]);
+	}, [first, collapsed.length]); // eslint-disable-line react-hooks/exhaustive-deps -- only a new selection opens a group, and the row scrolls in once its group opened
 
 	function toggleGroup(groupKey: string, isOpen?: boolean): void {
-		setCollapsed((current) => {
-			const open = isOpen ?? current.includes(groupKey);
-			return open ? current.filter((item) => item !== groupKey) : [...current, groupKey];
+		const isClosed = collapsed.includes(groupKey);
+		if ((isOpen ?? isClosed) !== isClosed) return;
+		setToggled((current) => {
+			const list = current[workspace];
+			return { ...current, [workspace]: list.includes(groupKey) ? list.filter((item) => item !== groupKey) : [...list, groupKey] };
 		});
 	}
 
@@ -184,6 +200,8 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		else event.preventDefault();
 	}
 
+	useAgentTouchedRows(cx, treeRef);
+
 	return (
 		<section aria-label="Layers" data-quick-help="layers" className="flex min-h-0 flex-1 flex-col">
 			<div ref={treeRef} role="tree" aria-label="Layers" aria-multiselectable tabIndex={0} className="mm-layers min-h-0 flex-1 overflow-y-auto pb-3" onKeyDown={onKeyDown} onClick={(event) => {
@@ -213,7 +231,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 								isLocked={locked.includes(row.id)}
 								resolved={pieceResults.get(row.id)}
 								hit={hitResults.get(row.id)}
-								hitBy={struck?.get(row.id)?.[0]}
+								hitBy={struck?.get(row.id)?.[0] ?? looks?.get(row.id)?.[0]}
 							/>
 						);
 					}
@@ -294,7 +312,7 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; subtitle?: string | undefined; help?: string; isOpen?: boolean; time?: number } {
 	switch (row.kind) {
 		case 'scene':
-			return { icon: <Globe size={14} strokeWidth={1.75} />, label: 'Scene', title: 'The film as a whole: length, Marble Speed and, in Film, its theme' };
+			return { icon: <Globe size={14} strokeWidth={1.75} />, label: 'Scene', title: 'The film as a whole: Gravity in Compose, the theme in Film' };
 		case 'song': {
 			const isRecording = row.source?.kind === 'audio';
 			return {
@@ -498,6 +516,30 @@ const RowToggle: React.FC<{ label: string; isOn: boolean; onClick: () => void; c
 		</button>
 	);
 };
+
+const TOUCHED_ROW_DELAY_MS = 30;
+
+/** Marks the rows of what an agent's edit just changed, on the elements directly, so the list doesn't render for it */
+function useAgentTouchedRows(cx: StudioCx, treeRef: React.RefObject<HTMLDivElement | null>): void {
+	React.useEffect(() => {
+		let timer: number | undefined;
+		const stop = cx.mcp.presence.$touched.listen(() => {
+			// A new layer's row comes with the render that follows its edit
+			window.clearTimeout(timer);
+			timer = window.setTimeout(() => {
+				const keys = new Set(cx.mcp.presence.$touched.get().map((item) => item.key));
+				treeRef.current?.querySelectorAll<HTMLElement>('.mm-layer').forEach((row) => {
+					const id = row.dataset['id'];
+					row.toggleAttribute('data-agent-touched', id != null && keys.has(id));
+				});
+			}, TOUCHED_ROW_DELAY_MS);
+		});
+		return () => {
+			window.clearTimeout(timer);
+			stop();
+		};
+	}, [cx, treeRef]);
+}
 
 const LayerRow: React.FC<TLayerRowProps> = (props) => {
 	const { id, depth, isSelected, isInSelection = false, joins, isDimmed = false, isOpen, onToggle, icon, label, title, isRenaming, onRename, meta, actions, onClick, onDoubleClick, onContextMenu } = props;

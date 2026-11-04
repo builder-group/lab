@@ -77,6 +77,29 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	return rows;
 }
 
+/**
+ * The groups that start closed: in Film the marbles' pieces and Decor, so the Wall, the Lights and the Camera are in view
+ * without scrolling; none in Compose, where the pieces are the work
+ */
+export function defaultCollapsed(project: TProject, workspace: 'compose' | 'design'): string[] {
+	return workspace === 'design' ? [...project.music.lanes.map((lane) => lane.id), DECOR_KEY] : [];
+}
+
+/** The closed groups: the defaults, with the ones the user toggled the other way */
+export function collapsedGroups(project: TProject, workspace: 'compose' | 'design', toggled: readonly string[]): string[] {
+	const defaults = defaultCollapsed(project, workspace);
+	return [...defaults.filter((key) => !toggled.includes(key)), ...toggled.filter((key) => !defaults.includes(key))];
+}
+
+/** The groups that hold the selected layers, which a selection made outside Layers opens */
+export function groupsOfSelection(project: TProject, selection: readonly string[]): string[] {
+	return selection.flatMap((key) => {
+		if (key.startsWith('decor:') || key.startsWith('blender:')) return [DECOR_KEY];
+		const laneId = project.entities.find((entity) => entity.id === key)?.components.hitLink?.laneId;
+		return laneId != null ? [laneId] : [];
+	});
+}
+
 export interface TOutlineOptions {
 	/** Group keys of folded groups: a lane ID, the Camera key or a group row's ID */
 	collapsed?: string[];

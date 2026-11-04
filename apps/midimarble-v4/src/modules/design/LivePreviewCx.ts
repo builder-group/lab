@@ -27,7 +27,7 @@ const SILENT_MS = 30_000;
  * then refines the frames ahead of the playhead with Fast lighting. Film shows them while playing or scrubbing.
  */
 export class LivePreviewCx {
-	/** Live Preview in the Blender chip's menu; on by default, off saves CPU and battery */
+	/** The preview's Draft or Blender switch; Blender by default, Draft saves CPU and battery */
 	readonly $enabled = createState(readEnabled());
 	/** Frames of the current scene on disk */
 	readonly $frames = createState<TLivePreviewFrames | null>(null);

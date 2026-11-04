@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { ContextMenuHost } from '@/components';
 import { ExportSheet } from '@/modules/design/ExportSheet';
-import { AgentChat } from './AgentChat';
+import { AgentPresencePill } from './AgentPresencePill';
 import { CommandPalette } from './CommandPalette';
 import { ConfirmAlert } from './ConfirmAlert';
 import { HintLayer } from './HintLayer';
@@ -29,7 +29,6 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 
 	useStudioShortcuts(cx);
 	usePlayback(cx);
-	useInspectorAutoHide(cx);
 	const isDropping = useFileDrop(cx);
 
 	return (
@@ -40,15 +39,15 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 				<div className="flex min-w-0 flex-1 flex-col">
 					<div className="flex min-h-0 flex-1">
 						<ToolRail cx={cx} />
-						<main className="relative min-w-0 flex-1" data-quick-help="wall" aria-label={workspace === 'compose' ? 'Compose wall' : 'Film preview'}>
+						<main className="relative min-w-0 flex-1" data-canvas-bounds data-quick-help="wall" aria-label={workspace === 'compose' ? 'Compose wall' : 'Film preview'}>
 							{canvas}
+							<AgentPresencePill cx={cx} />
 							<Notice cx={cx} />
 						</main>
 						{panels.inspector ? <Inspector cx={cx} /> : null}
 					</div>
 					{panels.timeline ? <Timeline cx={cx} /> : null}
 				</div>
-				{panels.agent ? <AgentChat cx={cx} /> : null}
 			</div>
 			<ImportMidiSheet cx={cx} />
 			<ExportSheet cx={cx} />
@@ -68,35 +67,6 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 interface TStudioProps {
 	cx: StudioCx;
 	canvas: React.ReactNode;
-}
-
-// Below this window width the agent chat and the inspector together leave too little canvas
-const AGENT_SIDE_BY_SIDE_WIDTH = 1600;
-
-/**
- * Hides the inspector while the agent chat is open in a window narrower than 1600 px and brings it back
- * when the chat closes, like Xcode's inspector auto-hide. Showing the inspector again while the chat is open
- * keeps it, and it then stays when the chat closes.
- */
-function useInspectorAutoHide(cx: StudioCx): void {
-	React.useEffect(() => {
-		let isAutoHidden = false;
-		let wasAgent = cx.$panels.get().agent;
-		return cx.$panels.listen(({ value }) => {
-			const isOpening = value.agent && !wasAgent;
-			const isClosing = !value.agent && wasAgent;
-			wasAgent = value.agent;
-			if (isOpening && value.inspector && window.innerWidth < AGENT_SIDE_BY_SIDE_WIDTH) {
-				isAutoHidden = true;
-				cx.$panels.set({ ...value, inspector: false });
-			} else if (isClosing && isAutoHidden) {
-				isAutoHidden = false;
-				if (!value.inspector) cx.$panels.set({ ...value, inspector: true });
-			} else if (value.agent && value.inspector) {
-				isAutoHidden = false;
-			}
-		});
-	}, [cx]);
 }
 
 /** Drop target highlight while a file is dragged over the window, like Finder and Logic */

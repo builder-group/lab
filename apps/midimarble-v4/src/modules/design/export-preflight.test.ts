@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { parseProject, type TEntity, type TProject } from '@/modules/project';
 import type { THitResult, TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
-import { framingFix, framingProblemAt, preflightExport, problemSummary, struckPieces, workspaceProblems, type TExportPreflight, type TPreflightIssue } from './export-preflight';
+import { framingFix, framingProblemAt, lookProblems, preflightExport, problemSummary, struckPieces, workspaceProblems, type TExportPreflight, type TPreflightIssue } from './export-preflight';
 
 function loadFixture(name: string): TProject {
 	const json = readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8');
@@ -73,8 +73,17 @@ function hit(laneId: string, hitId: string, targetTime: number, patch: Partial<T
 	return { laneId, hitId, targetTime, pieceEntityId: null, dot: { x, y: 0.5 - targetTime * 0.3 }, velocity: null, actualTime: targetTime, error: 0, status: 'onTime', ...patch };
 }
 
+let pieceCount = 0;
+
+/** A piece well away from the others */
 function piece(entityId: string, type = 'platform'): TResolvedPiece {
-	return { entityId, type, position: { x: 0, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'placed' };
+	pieceCount++;
+	return { entityId, type, position: { x: pieceCount, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'placed' };
+}
+
+/** The issues of a committed fixture, whose tracks are older than the checks of how a track looks */
+function besidesLook(preflight: TExportPreflight): TPreflightIssue[] {
+	return preflight.issues.filter((issue) => issue.kind !== 'strike' && issue.kind !== 'touching');
 }
 
 function createResult(patch: Partial<TSimulationResult> = {}): TSimulationResult {
@@ -125,13 +134,13 @@ describe('preflightExport function', () => {
 
 		const preflight = preflightExport(project, simulator.simulate(project));
 
-		expect(preflight.issues).toEqual([]);
-		expect(preflight.summary).toBe('16 of 16 hits on time');
+		expect(besidesLook(preflight)).toEqual([]);
+		expect(preflight.onTimeCount).toBe(16);
 	}, 20_000);
 
 	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera leaves out once the bass moves sideways', () => {
 		const project = loadFixture('jingle-bells');
-		expect(preflightExport(project, simulator.simulate(project)).issues).toEqual([]);
+		expect(besidesLook(preflightExport(project, simulator.simulate(project)))).toEqual([]);
 
 		// The bass pieces follow their marble, so moving its release 20 cm moves its whole run away from the melody
 		const bass = project.entities.find((entity) => entity.name === 'Bass' && entity.components.release != null);
@@ -250,8 +259,8 @@ describe('preflightExport function', () => {
 		});
 		const result = createResult({
 			contacts: [
-				// Hit contact, second bounce on its own platform, a ride on a free rail and a strike on a free
-				// platform, which is environment: expected
+				// Hit contact, a ride on a free rail and a strike on a free platform, which is environment: expected.
+				// The second bounce on its own platform is its own problem
 				contact(1, 'marble-a', 'pa1'),
 				contact(1.2, 'marble-a', 'pa1'),
 				contact(1.4, 'marble-a', 'rail'),
@@ -267,9 +276,26 @@ describe('preflightExport function', () => {
 
 		const preflight = preflightExport(project, result);
 
-		expect(preflight.issues.map((issue) => issue.title)).toEqual(['Bass hits pa2 of Melody', 'Melody collides with Bass']);
-		expect(preflight.issues[0]?.detail).toBe('Hits it 2 times from 0:02.10, without a note.');
-		expect(preflight.issues[1]?.target?.ids).toEqual(['marble-a', 'marble-b']);
+		expect(preflight.issues.map((issue) => issue.title)).toEqual(['Melody hits pa1 twice', 'Bass hits pa2 of Melody', 'Melody collides with Bass']);
+		expect(preflight.issues[1]?.detail).toBe('Hits it 2 times from 0:02.10, without a note.');
+		expect(preflight.issues[2]?.target?.ids).toEqual(['marble-a', 'marble-b']);
+	});
+
+	it('should count a platform its own marble strikes twice as a problem, with a tip for pieces that touch', () => {
+		const project = createTwoLaneProject();
+		const at = (entityId: string, y: number): TResolvedPiece => ({ ...piece(entityId), position: { x: 0, y }, params: { length: 0.09, thickness: 0.012 } });
+		const strike = (time: number) => ({ time, marbleEntityId: 'marble-a', otherEntityId: 'pa1', kind: 'piece' as const, position: { x: 0, y: 0.03 }, speed: 1.5 });
+		const result = createResult({
+			pieces: [at('pa1', 0.03), at('pa2', 0)],
+			contacts: [strike(1), strike(1.2)],
+			hits: createResult().hits.filter((item) => item.hitId === 'a1')
+		});
+
+		const preflight = preflightExport(project, result);
+
+		expect(preflight.issues.find((issue) => issue.kind === 'strike')).toMatchObject({ title: 'Melody hits pa1 twice', severity: 'warning', label: 'Hit Twice', detail: 'Hits it 2 times from 0:01.20, with one note.' });
+		expect(preflight.issues.find((issue) => issue.kind === 'touching')).toMatchObject({ title: 'pa1 touches pa2', severity: 'info', label: 'Touching' });
+		expect(lookProblems(preflight).get('pa1')?.map((issue) => issue.kind)).toEqual(['strike', 'touching']);
 	});
 
 	it('should report loop mismatches when loop mode is on', () => {

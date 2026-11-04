@@ -8,6 +8,7 @@ import { blenderState, type TBlenderState } from '@/modules/design/blender-state
 import { $blenderObjects } from '@/modules/design/decor';
 import { preflightExport, workspaceProblems } from '@/modules/design/export-preflight';
 import { exportStatusLabel } from '@/modules/design/ExportSheet';
+import { agentStatusLine } from '@/modules/mcp/agent-presence';
 import { commandItem } from './commands';
 import { hasUnsavedChanges } from './document';
 import type { StudioCx, TStudioPanel, TWorkspace } from './StudioCx';
@@ -23,8 +24,6 @@ const BLENDER_DOWNLOAD_URL = 'https://www.blender.org/download/';
 export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 	const { cx } = props;
 	const panels = useFeatureState(cx.$panels);
-	const runs = useFeatureState(cx.agents.$runs);
-	const isAgentWorking = runs.some((run) => run.phase === 'working');
 
 	return (
 		<header data-tauri-drag-region className="mm-titlebar h-[38px] shrink-0 pr-2 pl-3 select-none">
@@ -41,19 +40,9 @@ export const TitleBar: React.FC<TTitleBarProps> = (props) => {
 				<span className="inline-flex" data-quick-help="blender">
 					<BlenderChip cx={cx} />
 				</span>
-				<button
-					className="mm-titlebar-agent"
-					data-quick-help="agent"
-					data-active={panels.agent}
-					aria-pressed={panels.agent}
-					onClick={() => cx.togglePanel('agent')}
-					title={`${panels.agent ? 'Hide' : 'Show'} Agent (⌘J)`}
-					type="button"
-				>
-					<Sparkles size={14} strokeWidth={1.7} />
-					<span>Agent</span>
-					{isAgentWorking && !panels.agent ? <span className="mm-titlebar-badge" aria-label="Agent working" /> : null}
-				</button>
+				<span className="inline-flex" data-quick-help="agent">
+					<AgentChip cx={cx} />
+				</span>
 				<ExportButton cx={cx} />
 				<span className="mx-1 h-4 w-px bg-[var(--separator)]" />
 				<PanelToggle cx={cx} panel="timeline" isOn={panels.timeline} label="Timeline" shortcut="⌃⌘T" icon={<PanelBottom size={16} strokeWidth={1.6} />} />
@@ -163,7 +152,6 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 	const version = useFeatureState(cx.design.$blenderVersion);
 	const error = useFeatureState(cx.design.$error);
 	const isRenderingPreview = useFeatureState(cx.design.live.$isRendering);
-	const isLiveEnabled = useFeatureState(cx.design.live.$enabled);
 	const state = blenderState(status, version, error, isRenderingPreview);
 	const working = useWorkingWord(state.tone === 'busy' ? state.label : null);
 
@@ -176,12 +164,6 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 			{ section: state.detail },
 			commandItem(cx, 'design.editInBlender'),
 			commandItem(cx, 'design.restartBlender'),
-			'separator',
-			{
-				label: 'Live Preview',
-				checked: isLiveEnabled,
-				onSelect: () => cx.design.live.setEnabled(!isLiveEnabled)
-			},
 			{
 				label: 'Show Blender Log',
 				disabled: logPath == null,
@@ -214,7 +196,38 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 	);
 };
 
-/** Blender's logo in one colour, the state's: green connected, amber pulsing while working, red on error, grey otherwise */
+/**
+ * The person's own AI app as a collaborator: who is connected, and what connects one. Like Blender's button, its
+ * glyph pulses and a state word opens only while an agent is at work.
+ */
+const AgentChip: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	const isEnabled = useFeatureState(cx.mcp.$isEnabled);
+	const clients = useFeatureState(cx.mcp.$clients);
+	const isWorking = useFeatureState(cx.mcp.presence.$current) != null;
+	const working = useWorkingWord(isWorking ? 'Working' : null);
+	const status = agentStatusLine(isEnabled, clients);
+
+	return (
+		<MenuButton
+			className="mm-titlebar-chip"
+			title={status}
+			align="right"
+			label={
+				<>
+					<Sparkles className="mm-titlebar-agent-glyph" data-working={isWorking} size={14} strokeWidth={1.7} aria-hidden />
+					<span>Agent</span>
+					<span className="mm-titlebar-chip-state" data-shown={working.isShown}>
+						{working.word}
+					</span>
+				</>
+			}
+			items={[{ section: status }, commandItem(cx, 'help.showAiWorkspace'), commandItem(cx, 'help.enableMcp'), commandItem(cx, 'agent.showFolder')]}
+		/>
+	);
+};
+
+/** Blender's logo in one colour, the state's: its orange when ready, the same pulsing while working, red on error, grey when not installed */
 const BlenderGlyph: React.FC<{ tone: TBlenderState['tone'] }> = (props) => (
 	<svg className="mm-titlebar-chip-glyph" data-tone={props.tone} width={14} height={14} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
 		<path d="M12.51 13.214c.046-.8.438-1.506 1.03-2.006a3.424 3.424 0 0 1 2.212-.79c.85 0 1.631.3 2.211.79.592.5.983 1.206 1.028 2.005.045.823-.285 1.586-.865 2.153a3.389 3.389 0 0 1-2.374.938 3.393 3.393 0 0 1-2.376-.938c-.58-.567-.91-1.33-.865-2.152M7.35 14.831c.006.314.106.922.256 1.398a7.372 7.372 0 0 0 1.593 2.757 8.227 8.227 0 0 0 2.787 2.001 8.947 8.947 0 0 0 3.66.76 8.964 8.964 0 0 0 3.657-.772 8.285 8.285 0 0 0 2.785-2.01 7.428 7.428 0 0 0 1.592-2.762 6.964 6.964 0 0 0 .25-3.074 7.123 7.123 0 0 0-1.016-2.779 7.764 7.764 0 0 0-1.852-2.043h.002L13.566 2.55c-.003-.002-.006-.005-.01-.006-.52-.4-1.396-.398-1.968.002-.58.405-.647 1.074-.132 1.498l-.002.002 3.08 2.503-9.35.01h-.013c-.755.001-1.48.491-1.623 1.112-.148.623.365 1.139 1.15 1.142V8.6l4.739-.01-8.466 6.497-.032.025c-.799.611-1.057 1.628-.554 2.271.511.652 1.597.654 2.403.003L7 12.89s-.067.507-.062.809zm11.886 1.683c-.976.994-2.344 1.557-3.822 1.56-1.48.003-2.85-.555-3.826-1.547a4.548 4.548 0 0 1-1.037-1.623 4.22 4.22 0 0 1-.236-1.799 4.36 4.36 0 0 1 .518-1.705 4.795 4.795 0 0 1 1.177-1.4 5.384 5.384 0 0 1 3.4-1.19 5.363 5.363 0 0 1 3.4 1.18c.52.421.915.897 1.176 1.4.26.518.417 1.085.516 1.705.05.603-.03 1.212-.236 1.799a4.55 4.55 0 0 1-1.034 1.62" />

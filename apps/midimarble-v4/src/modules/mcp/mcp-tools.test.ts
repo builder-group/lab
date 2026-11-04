@@ -94,6 +94,16 @@ describe('MCP tools', () => {
 		expect(filtered.commands.map((command) => command.id)).toContain('decor.scatter');
 	});
 
+	it('should say what is wrong with build.track arguments', async () => {
+		const { cx } = studio();
+		const unknownHit = await runTool(cx, 'run_command', { id: 'build.track', args: { from: 'no-such-hit' } });
+		expect(unknownHit.isError).toBe(true);
+		expect(textOf(unknownHit)).toContain('no hit called no-such-hit');
+		const unknownPiece = await runTool(cx, 'run_command', { id: 'build.track', args: { gapPiece: 'tunnel' } });
+		expect(unknownPiece.isError).toBe(true);
+		expect(textOf(unknownPiece)).toContain('gapPiece is rail or switchback');
+	});
+
 	it('should make one project.execute one named Undo step, shown in Edit > Undo', async () => {
 		const { cx, laneId, hitId } = studio();
 		const before = cx.$history.get()?.past.length;
@@ -156,12 +166,47 @@ describe('MCP tools', () => {
 		expect(textOf(selected)).toContain('Nothing can be selected as a');
 	});
 
+	it('should answer build.rebuildFrom only when its build is done, and say what it needs without a target', async () => {
+		const { cx, laneId, hitId } = studio();
+		let finishBuild: () => void = () => undefined;
+		const buildTrack = vi.fn(() => new Promise<null>((resolve) => (finishBuild = () => resolve(null))));
+		const key = `hit:${laneId}:${hitId}`;
+		const assist = { get rebuildTarget() { return cx.$selection.get().includes(key) ? { laneId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
+		cx.$compose.set({ assist } as never);
+		cx.$workspace.set('compose');
+
+		const missing = await runTool(cx, 'run_command', { id: 'build.rebuildFrom' });
+		expect(missing.isError).toBe(true);
+		expect(textOf(missing)).toContain('Rebuild From Here needs a hit');
+		expect(buildTrack).not.toHaveBeenCalled();
+
+		let isAnswered = false;
+		const answer = runTool(cx, 'run_command', { id: 'build.rebuildFrom', args: { select: [key] } }).then((reply) => {
+			isAnswered = true;
+			return reply;
+		});
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(buildTrack).toHaveBeenCalledWith({ laneId, hitId });
+		expect(isAnswered).toBe(false);
+		finishBuild();
+		expect((await answer).isError).toBe(false);
+	});
+
+	it('should show the running build and its result in get_state', async () => {
+		const { cx } = studio();
+		const lastBuild = { message: 'Built' };
+		cx.$compose.set({ assist: { $building: { get: () => ({ done: 2, total: 5 }) }, $lastBuild: { get: () => lastBuild } } } as never);
+		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
+		expect(state.building).toEqual({ done: 2, total: 5 });
+		expect(state.lastBuild).toEqual(lastBuild);
+	});
+
 	it('should select by key with edit.select, and show the Wall and physics in get_state', async () => {
 		const { cx, laneId } = studio();
 		const reply = await runTool(cx, 'run_command', { id: 'edit.select', args: { select: ['wall'] } });
 		expect(JSON.parse(textOf(reply))).toMatchObject({ selection: ['wall'], changed: false });
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
-		expect(state.selection).toEqual(['wall']);
+		expect(state.selection).toEqual([{ kind: 'layer', key: 'wall' }]);
 		expect(state.physics).toEqual({ gravityScale: 0.5, default: 0.5, range: [0.05, 2] });
 		expect(state.wall).toMatchObject({ own: {} });
 		expect((state.wall as { kind: string }).kind).toBeTypeOf('string');
@@ -199,7 +244,7 @@ describe('MCP tools', () => {
 		expect(textOf(reply)).toContain('release');
 	});
 
-	it('should set Marble Speed from args.value and refuse it without one', async () => {
+	it('should set Gravity from args.value and refuse it without one', async () => {
 		const { cx } = studio();
 		const reply = await runTool(cx, 'run_command', { id: 'marble.speed', args: { value: 0.7 } });
 		expect(JSON.parse(textOf(reply)).changed).toBe(true);
@@ -211,7 +256,7 @@ describe('MCP tools', () => {
 		const { cx } = studio();
 		await runTool(cx, 'run_command', { id: 'marble.speed', args: { value: 0.7 } });
 		const reply = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'edit.undo' })));
-		expect(reply.undid).toBe('Agent: Marble Speed');
+		expect(reply.undid).toBe('Agent: Gravity');
 		expect(reply.changed).toBe(true);
 	});
 
@@ -393,21 +438,19 @@ describe('MCP tools', () => {
 			vi.restoreAllMocks();
 		});
 
-		it('should name a saved theme, and take the export words for quality', async () => {
+		it('should refuse a quality that is not an export word', async () => {
 			const { cx } = studio();
-			await execute(cx, { type: 'setDesign', design: { wall: { color: '#f6e3b8' } } });
-			const reply = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'design.saveAsTheme', args: { name: 'Golden' } }))) as { notices: string[] };
-			expect(cx.project?.design.themes?.[0]?.name).toBe('Golden');
-			expect(reply.notices.join(' ')).toContain('moved into the new theme');
 			expect((await runTool(cx, 'export_film', { quality: 'ultra' })).isError).toBe(true);
 		});
 
 		it('should remove an added Pack by name, and say so when it is not added', async () => {
 			const { cx } = studio();
 			const removed = vi.spyOn(cx.library, 'removePack').mockResolvedValue();
-			addedPacks.set([{ id: 'starter', name: 'Starter', version: '1.0', themes: [], items: [], builtInDecor: [] } as unknown as TPack]);
-			expect((await runTool(cx, 'run_command', { id: 'design.removePack', args: { name: 'starter' } })).isError).toBe(false);
-			expect(removed).toHaveBeenCalled();
+			addedPacks.set([{ id: 'christmas', name: 'Christmas', version: '1.0', themes: [], items: [], builtInDecor: [] } as unknown as TPack, { id: 'starter', name: 'Starter', version: '1.0', themes: [], items: [], builtInDecor: [] } as unknown as TPack]);
+			expect((await runTool(cx, 'run_command', { id: 'design.removePack', args: { name: 'christmas' } })).isError).toBe(false);
+			expect(removed).toHaveBeenCalledTimes(1);
+			expect(textOf(await runTool(cx, 'run_command', { id: 'design.removePack', args: { name: 'starter' } }))).toContain("can't be removed");
+			expect(removed).toHaveBeenCalledTimes(1);
 			expect(textOf(await runTool(cx, 'run_command', { id: 'design.removePack', args: { name: 'Nope' } }))).toContain('No Pack called Nope');
 			addedPacks.set([]);
 			vi.restoreAllMocks();

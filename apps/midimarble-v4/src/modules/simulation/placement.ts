@@ -28,6 +28,8 @@ export interface TCreateLinkedPieceOptions {
 	/** Existing entities, used to number the name */
 	entities?: TEntity[];
 	id?: string;
+	/** Where along it the marble strikes, the middle by default */
+	contactAt?: number;
 }
 
 /** A piece bound to a hit, with default parameters and its contact in the middle of the surface */
@@ -47,7 +49,7 @@ export function createLinkedPiece(
 		name: nextPieceName(type, entities),
 		components: {
 			piece: { type, params },
-			hitLink: { laneId, hitId, angle, contactAt: 0.5, pinned: false }
+			hitLink: { laneId, hitId, angle, contactAt: options.contactAt ?? 0.5, pinned: false }
 		}
 	};
 }
@@ -62,9 +64,10 @@ export interface TFrameBand {
  * the camera's original 0.65 m distance, scaled with the project's aspect and camera distance (0.59 m at the
  * 0.85 m default of new projects), centred on the marble's release. With several marbles each lane gets a
  * band `2 · LANE_HALF_WIDTH` wide, room for a zigzag of the default kit, and the lanes sit `LANE_SPACING`
- * apart in the order of their releases from left to right, centred on the mean release. Neighbouring bands
- * overlap a little; the assists keep the marbles off each other and off the other lanes' pieces by
- * simulation. `laneId` picks a lane's band; without it the band covering every lane is returned.
+ * apart in the order of their releases from left to right, centred on the mean release. `laneId` picks a lane's
+ * band, which is only where the marble prefers to stay: a marble may cross another's path as long as it touches
+ * neither that marble nor its pieces, which the assists check by simulation. Without it the band covering every lane
+ * is returned, the limit every placement stays inside so the run stays in frame.
  */
 export function frameBand(project: TProject, laneId?: string): TFrameBand {
 	const aspect = project.frame.width / project.frame.height;
@@ -85,6 +88,7 @@ export function frameBand(project: TProject, laneId?: string): TFrameBand {
 		.sort((a, b) => releaseX(a.entity) - releaseX(b.entity) || a.index - b.index);
 	const slot = ordered.findIndex((item) => item.entity.components.marble?.laneId === laneId);
 	const span = (marbles.length - 1) * LANE_SPACING;
-	if (laneId == null || slot < 0) return { centerX, halfWidth: span / 2 + LANE_HALF_WIDTH };
+	// With several marbles the camera moves back for the group, so the whole band is at least the film frame
+	if (laneId == null || slot < 0) return { centerX, halfWidth: Math.max(span / 2 + LANE_HALF_WIDTH, width / 2) };
 	return { centerX: centerX - span / 2 + slot * LANE_SPACING, halfWidth: LANE_HALF_WIDTH };
 }

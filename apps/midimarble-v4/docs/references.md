@@ -186,6 +186,53 @@ Backing up made the difference. Starting over from the first hit, the only recov
 
 `fixtures/jingle-bells.marble.json` keeps its track from before Build Track, so its hits and pieces did not change. A rebuild plays 115/115 with a clean preflight: pace 0.304 m/s, 12 switchbacks and no rails (before 10 and 2), |y − y*| at dots max 0.28 m melody and 0.25 m bass, one dot beyond the limit, marbles at most 0.33 m apart (before 0.40), no marble contact. That is not better enough to replace it: Re-place's two recovery tests on Jingle Bells leave 13 and more broken hits on a rebuilt track, at either release position, and three tests read tuned numbers off the old one (`finish-exit`, `follow-camera`, `export-preflight`). So `pnpm fixtures:jingle` writes to `.local/jingle/` and replaces the fixture only with `--write`. Those recovery tests point at the next step: Re-place could finish with Build Track's steps from the first problem it can't solve.
 
+### Track quality: clearance, one strike, regular columns
+
+Measured on 2026-11-04 on Jingle Bells through the import sheet's defaults. L is the 9 cm bar, measured on the wall; "image" multiplies by 0.42, how a pitch of 1.15 folds y (see What good tracks do). V3 values are the study's, measured from the film, since its project no longer reproduces it. Scripts in `.local/track-quality/`.
+
+| Measure | Target (study) | V3 film | Before | New |
+| --- | --- | --- | --- | --- |
+| On time, preflight | | | 115/115, clean | 115/115, clean |
+| Least gap between pieces as the film shows them | clear | "touching" | -1.3 cm (hitbox -0.5) | 1.2 cm (hitbox 1.7) |
+| Median nearest gap | | | 9.3 cm | 9.7 cm |
+| Pairs under 1.2 cm | 0 | | 10 | 0 |
+| Platforms struck twice, extra strikes | 0 | not measurable | 21, 25 | 0, 0 |
+| Stray contacts | 0 | | 0 | 0 |
+| Dot x spread within a column | | | 3.9 cm | 1.7 cm (bass 0.8) |
+| Direction alternates each hit | 0.82 | 0.6, 0.9 | 0.61 | 0.96 |
+| Tilt alternation | follows columns | 0.82, 0.94 | 88 % | 96 % |
+| Same-column sideways shift, median (p90) | ≤0.2 L (≤0.7 L) | 0.86 L (2.1 L) | 0.19 L (0.97 L) | 0.00 L (0.55 L) |
+| Same-column step | 0.8 to 1.0 L, image | 3.1 L | 3.21 L, 1.35 image | 3.37 L, 1.42 image |
+| Drop per hit | 0.4 to 0.6 L, image | 1.46 L | 1.60 L, 0.67 image | 1.68 L, 0.71 image |
+| Column centres | 1.0 to 1.2 L | 1 to 2 L | 1.29 L | 1.54, 1.67 L |
+| Inner ends apart | 0 to 0.25 L | about 1 L | 0.29 L | 0.54, 0.67 L |
+| Strikes on the inner third | inner third | varies | 0 % | 0 % |
+| Tilt size, median | about 10° | 11.5 to 12° | 11.5° | 14.5° |
+| Same-column tilts within 3° | ≥80 % | 8 %, 61 % | 18 %, 61 % | 16 % melody, 98 % bass |
+| Tilt correlation at the phrase lag | ≥0.8 | -0.24 to 0 | 0.43, 0.58 | 0.88 melody (lag 26), 0.98 bass (lag 4) |
+| Longest parallel run in a column | blocks of 3 to 5 | | 4, 16 | 6, 32 |
+| Pieces across long gaps | one thin curve | 12 switchbacks | 12 switchbacks | 12 switchbacks, 0 rails |
+| Shorter platforms | | | 0 | 1 |
+| Build time, one thread in Node | | | 48 s | 72 s, no dead ends, 2 turns, 2 back-ups |
+| Build time, pool of six | | | 18 s | 87 to 102 s on a busy machine, load 5 to 9 |
+
+What conflicts with the physics, tried rather than assumed:
+
+- **The tight columns and inner-third strikes.** The study's marble hops 0.65 L. A hop under about 1.4 L at half gravity and half-second notes got stuck: strike columns at ±0.4, ±0.5 and ±0.6 L, with the platform standing further out or centred, never finished within 170 s where ±0.72 L takes 72 s, against restrikes and launches that come back onto their own bar. Moving finished platforms along their surfaces onto straight columns looks neutral but isn't: the slightest change at one strike grows over the following bounces, so 85 of 103 moved bars came out Blocked. So columns stay 1.5 to 1.7 L apart and the strike at the bar's middle. The reference's 0.25 s rhythm is half our 0.5 s, and hop height goes with its square: this probably closes with faster notes or less gravity, not with placement
+- **The drop.** 0.71 L against 0.4 to 0.6 L in the image, from the pace's floor. It reads denser than V3 by the camera alone, as Column density found
+- **A rail is rarely the better piece here.** Build Track and Next now try a rail first, but on Jingle Bells a rail lands 14 to 27 cm from the lane's centre at 11 of 12 gaps, moving outward, and the next hit then has no tilt that stays in frame. A rail that fits is tried three hits ahead against the switchback, and at each of these gaps it dead-ends at once. The irregular and two-marble test songs do get one rail each. A rail that reads well needs a shape that brings the marble back to the lane, such as an uphill catch, which the search doesn't try yet
+- **Crossing paths.** Leaving a marble free to leave its lane in every search made things worse, not better: its pieces then stand in the other marble's way later. E.g. the same build with the whole frame as the first limit reached 5.75 s in the time the lane-first search reached 25 s. So a search stays in the lane and tries the whole frame only when nothing fits, which is what removes getting stuck there: Next, Continue, Build Track and `build.track` share that. Re-place stays in the lane while it mends
+
+Keeping several candidates a few hits ahead at every step (Continue, Mirror and Auto place, each built on for three hits) didn't help, so only gap pieces do it. The seven smaller test songs came out with the same counts, up to 2.5 times slower on the largest (reference-20, 1.7 to 4.2 s). Jingle Bells hadn't finished after 590 s, at 22.5 s of the song, with 7 dead ends and 29 turns against none and 2 without it: a lookahead reads its first-choice future, which is often not what the backing-up would have done.
+
+Build times of the other songs, all clean, no strikes, nothing touching: 16 quarter notes 0.7 s; 20 irregular 5.5 s, 4 switchbacks and 1 rail; two marbles 18.4 s, 7 and 1; zigzag 0.1 s; staircase 0.2 s; reference-20 1.7 s.
+
+The live gap: the browser pane refused to open the app here, so the app's 159 s against Node's 18 s wasn't measured again. Costs measured on the finished track: a full run 277 ms, a reflow 14 ms, a preflight 29 ms first and 6 ms cached, `touchingPairs` 1.9 ms. None of those explains 140 s across 134 steps alone, but they run per step in several places at once. Cheap wins taken: steps show at most every 250 ms instead of per step, each step sent a `setDesign` with an unchanged design, which is gone, and the hit summary and Layers skip the preflight while building. To measure it: Build Track in the native window, then `get_state.lastBuild.seconds`.
+
+Pool and one thread now reach different tracks on Jingle Bells (one rail and 11 switchbacks against 12 switchbacks), each the same every time: a search gets the same answer for the same project (127 of 127 compared), so what differs is the run the main simulator resumes from its snapshots. Not chased further.
+
+`fixtures/jingle-bells.marble.json` is unchanged and has 13 double strikes and a touching pair, which now show as problems when it is opened. Rewriting it needs Re-place's recovery tests to pass on a rebuilt track first, as before.
+
 ### Close camera
 
 Measured on 2026-11-04 after the Round 4 review (N5: Jingle Bells framed about 40 bars with marbles at 3 % of the frame width, a Push In held to the end, the film ended on empty wall). Numbers come from the TypeScript port at 30 fps projected into the 9:16 frame over the time from the first to the last hit (`.local/camera-framing/measure.ts`; before in `before.txt`, after in `after.jsonl`); Draft films and before/after stills are in `.local/camera-framing/films/`.
@@ -386,3 +433,20 @@ A frame from another channel (@marvinblend, "Internet Classics", Boomwhackers se
 - Pieces are boomwhacker tubes coloured by note, so pitch is visible. A theme can derive colour and tube length from each hit's pitch
 - Tubes point into depth at varied angles on wire brackets, which adds depth without changing the contact surface
 - Titles are a screen overlay with a translucent box (section number and song), not wall text
+
+## What good tracks do
+
+Measured on 2026-11-04 from the reference short and the V3 Jingle Bells film, with both channels' shorts viewed by eye. Full table and method: `.local/track-study.md`. L is the bar length in the image, W the frame width, d the marble diameter. Targets are image-space, starting ranges rather than limits, and not yet tried in a build. The study also corrects Reference short above: the short has six songs, and its titles are fixed to the screen.
+
+1. Steep camera: pitch 1.0 to 1.2 rad. V3 used 0, where its same-column step reads 3.1 L; at 1.15 it would read about 1.3 L
+2. Bar 20 to 27 % W, marble 6 to 8 % W, marble about 0.33 of a bar (V3: 11.3 %, 2.8 %)
+3. Same-column step 0.8 to 1.0 L, drop per hit 0.4 to 0.6 L
+4. Straight columns within a phrase: same-column sideways shift at most 0.2 L median, 0.7 L at p90; drift over 8 hits at most 1 L
+5. Column centres 1.0 to 1.2 L apart, inner ends 0 to 0.25 L apart, strikes on the inner third
+6. A repeated phrase repeats its shape: tilt-size correlation at the phrase lag at least 0.8 (V3 bass: rhythm repeats 1.00, tilts about 0). Blocks of 3 to 5 parallel pieces, with a jog of 0.5 to 1 L only at phrase boundaries
+7. About ±10° of tilt, opposite between columns, same-column tilt within ±3° on at least 80 % of neighbours
+8. Roll at most 1°/s median and 2.5°/s at p95 (V3: 4.9 and 7.4), heading changes between sections, marble at x 0.3 to 0.65 and y 0.35 to 0.53 from the top
+9. A new skin set every 6 to 14 s, one skin per column; a screen-fixed title for about 2 s, starting 1 to 2 s before the rail
+10. Gaps of 0.55 s or more (about 8 % of hits) bridged by one thin curve of 1.4 to 1.9 L, at section changes first
+11. One strike per piece: 0 double bounces in 161 hops. In flight the marble may pass within 0.1 to 0.5 d of a neighbour in the image, without touching
+12. Played pieces change state and stay changed; decor stays large, sparse and beside the columns

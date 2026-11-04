@@ -96,6 +96,7 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		cx.$quickHelp.listen(schedule),
 		cx.$snapping.listen(schedule),
 		cx.$showHitboxes.listen(schedule),
+		cx.$audioScrubbing.listen(schedule),
 		cx.$save.listen(schedule),
 		cx.$isTemporary.listen(schedule),
 		cx.design.$status.listen(schedule),

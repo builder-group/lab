@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { projectToFrame, type TCameraTrack } from '@/modules/camera';
 import { buildAgentBrief } from '@/modules/agents/agent-brief';
-import { planAgentRuns } from '@/modules/agents/agent-chat';
 import { applyProjectCommands, parseProject, serializeProject, type TDecor, type TProject, type TProjectCommand } from '@/modules/project';
 import { buildSceneDescription } from '@/modules/blender/scene-builder';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
 import type { TSimulationResult } from '@/modules/simulation/types';
-import { buildOutline, DECOR_KEY } from '@/modules/studio/outline';
+import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
+import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection } from '@/modules/studio/outline';
 import { inspectorTarget } from '@/modules/studio/inspector-target';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import {
@@ -17,7 +17,6 @@ import {
 	builtInSource,
 	decorBox,
 	decorOverlaps,
-	decorSourceCommands,
 	deleteDecorCommands,
 	duplicateDecorCommands,
 	madeInBlenderCommands,
@@ -67,17 +66,6 @@ function clearanceToRuns(result: TSimulationResult, box: TWallBox): number {
 	}
 	return best;
 }
-
-describe('decorSourceCommands function', () => {
-	it('should change the item, keep its place and take over a name that followed the item', () => {
-		const project = loadFixture('zigzag');
-		const applied = apply(project, addDecorCommands(project, builtInSource('decor:star'), { x: 0.1, y: 0.2 }).commands);
-		const [decor] = applied.design.decor ?? [];
-		const next = apply(applied, decorSourceCommands(applied, [decor?.id ?? ''], builtInSource('decor:bauble-red')));
-		expect(next.design.decor?.[0]).toMatchObject({ source: 'decor:bauble-red', position: { x: 0.1, y: 0.2 }, name: DECOR_ITEMS.find((item) => item.id === 'decor:bauble-red')?.label });
-		expect(decorSourceCommands(next, [decor?.id ?? ''], builtInSource('decor:bauble-red'))).toEqual([]);
-	});
-});
 
 describe('Decor', () => {
 	let simulator: TSimulator;
@@ -324,27 +312,10 @@ describe('Decor', () => {
 	});
 
 	describe('agent', () => {
-		it('should plan a decor request as a set of runs, and keep other requests as they were', () => {
-			const plans = planAgentRuns([], 'Christmas decor along the sides', 'set-1');
-			expect(plans).toHaveLength(3);
-			expect(plans[1]?.target).toEqual({ kind: 'scene', decorSet: { id: 'set-1', index: 2, total: 3 } });
-			expect(plans[1]?.label).toBe('Decor 2 of 3');
-			expect(planAgentRuns([], 'A warm wall')).toEqual([{ target: { kind: 'scene' }, label: 'Scene' }]);
-			expect(planAgentRuns([{ id: 'piece-1', kind: 'piece', label: 'Platform 1' }], 'decor on this piece')[0]?.target).toEqual({ kind: 'piece', entityId: 'piece-1' });
-		});
-
-		it('should brief one item of the set as a decoration', () => {
-			const brief = buildAgentBrief({ project, result, target: { kind: 'scene', decorSet: { id: 's', index: 1, total: 3 } }, request: 'Christmas decor along the sides' });
-			expect(brief.target.role).toBe('decoration');
-			expect(brief.decorSet).toEqual({ index: 1, total: 3, suggestion: 'a round or hanging ornament' });
-			expect(brief.contact?.description).toContain('flat on the wall');
-		});
-
 		it('should keep the point-on-the-wall brief', () => {
 			const brief = buildAgentBrief({ project, result, target: { kind: 'wall', point: { x: 1, y: 2 } }, request: 'A wreath' });
 			expect(brief.target).toEqual({ kind: 'wall', role: 'decoration' });
 			expect(brief.wallPoint).toEqual({ x: 1, y: 2 });
-			expect(brief.decorSet).toBeUndefined();
 		});
 
 		it('should scatter accepted items by their asset path with their manifest size', () => {
@@ -438,3 +409,25 @@ function isInFrameAt(camera: TCameraTrack, frame: number, point: { x: number; y:
 	const [u, v] = projectToFrame(camera, frame, point.x, point.y, 0);
 	return u >= 0 && u <= 1 && v >= 0 && v <= 1;
 }
+
+describe('Film Layers', () => {
+	it('should open with the marbles and Decor closed, and Compose open, each toggled the other way by hand', () => {
+		const project = createStaircaseProject();
+		const laneId = project.music.lanes[0]?.id as string;
+		expect(collapsedGroups(project, 'design', [])).toEqual(expect.arrayContaining([laneId, DECOR_KEY]));
+		expect(collapsedGroups(project, 'compose', [])).toEqual([]);
+		expect(collapsedGroups(project, 'design', [laneId])).not.toContain(laneId);
+		expect(collapsedGroups(project, 'compose', [laneId])).toEqual([laneId]);
+		const rows = buildOutline(project, { workspace: 'design', collapsed: collapsedGroups(project, 'design', []) });
+		expect(rows.some((row) => row.kind === 'piece')).toBe(false);
+		expect(rows.some((row) => row.kind === 'wall')).toBe(true);
+	});
+
+	it('should name the group a selection made elsewhere opens', () => {
+		const project = createStaircaseProject();
+		const piece = project.entities.find((entity) => entity.components.hitLink != null);
+		expect(groupsOfSelection(project, [piece?.id as string])).toEqual([piece?.components.hitLink?.laneId]);
+		expect(groupsOfSelection(project, ['decor:1'])).toEqual([DECOR_KEY]);
+		expect(groupsOfSelection(project, ['wall'])).toEqual([]);
+	});
+});

@@ -23,7 +23,22 @@ import { getPieceDefinition, KIT_SCALE, resolvePieceParams } from './pieces';
 import { createLinkedPiece, frameBand } from './placement';
 import { projectOnPath, shapesBounds } from './shapes';
 import { trajectoryAt } from './simulate';
+import { columnOffset, MIN_PIECE_GAP, nearestPieceGap } from './track-look';
 import { PHYSICS_HZ, type THitStatus, type TSimulationResult } from './types';
+import type { TGapPieceType } from './worker-protocol';
+
+/** The piece a long gap gets first: a rail, since a switchback is only for what nothing else bridges, or the one asked for */
+export function gapPieceOrder(preferred?: 'rail' | 'switchback' | null): TGapPieceType[] {
+	return preferred === 'switchback' ? ['switchback', 'rail'] : ['rail', 'switchback'];
+}
+
+/**
+ * A gap piece worth keeping: the marble rides and lands in its own lane and leaves near the pace, so the zigzag can pick up
+ * again. A marble that lands near the frame's edge has nowhere left to go.
+ */
+export function gapPieceReads(check: TGapPieceCheck, paceLimit: number): boolean {
+	return check.isDotInFrame && check.isRunInFrame && check.leaveTime != null && Math.abs(check.paceError ?? 0) <= paceLimit;
+}
 
 // Rails and tunnels for long gaps. The piece is anchored to the trajectory like a platform: it is linked
 // to the hit before the gap with an entry delay, and at that time its start lies tangent under the
@@ -250,7 +265,8 @@ function prepareGapPiece(
 		return Err(new Error('Both hits must exist in the lane'));
 	if (to.time <= from.time) return Err(new Error('The gap must end after it starts'));
 	const samples = result.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
-	const band = frameBand(project, laneId);
+	// A new piece may reach over another lane, as long as nothing touches, with the frame as the limit
+	const band = frameBand(project, hitOwners(project, laneId).has(toHitId) ? laneId : undefined);
 
 	// Replaces an earlier gap piece on the same hit
 	const replaced = findGapPiece(project, laneId, fromHitId);
@@ -317,6 +333,8 @@ function prepareGapPiece(
 	if (simulate == null) return Ok({ plan, evaluate: unsimulated });
 	const hasPiece = hitOwners(project, laneId).has(to.id);
 	const frontiers = openFrontiers(project, result);
+	const pace = result.pace ?? descentPace(project, result.hits);
+	const laneBand = frameBand(project, laneId);
 	const evaluate = (item: TGapTry): TGapEvaluation => {
 		const candidate = item as TGapCandidate;
 		const entity = build(candidate);
@@ -341,7 +359,11 @@ function prepareGapPiece(
 		if (played.pieceStatus !== 'placed') return null;
 		// The rail must keep clear of the other lanes, as Auto place does
 		if (crossesOtherLanes(result, trial, project, laneId, entity.id, from.time + 0.02, to.time, frontiers)) return null;
+		const isTouching = nearestPieceGap(withEntities(project, [entity]), trial, entity.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
+		const outsideLane = laneOverhang(trial, entity.id, laneBand);
+		const pacePart = played.paceError != null && pace != null ? Math.abs(played.paceError) / pace.limit : 0;
 		const score =
+			(hasPiece ? 0 : (isTouching ? 8 : 0) + pacePart + 3 * COLUMN_WEIGHT * columnMiss(played.dot, laneBand) + LANE_WEIGHT * outsideLane) +
 			(played.isDotInFrame ? 0 : 10) +
 			(played.isRunInFrame ? 0 : 5) +
 			(played.leaveTime == null ? 20 : Math.abs(to.time - played.leaveTime - PREFERRED_DROP)) +
@@ -419,6 +441,7 @@ function checkGapPiece(
 	toHitId: string,
 	toTime: number
 ): TGapPieceCheck {
+	// Leaving the lane counts against a piece in the search, so a piece stays in it wherever one fits
 	const band = frameBand(project, laneId);
 	const pace = trial.pace ?? descentPace(project, trial.hits);
 	const piece = trial.pieces.find((item) => item.entityId === entityId);
@@ -464,9 +487,11 @@ function findGapPiece(project: TProject, laneId: string, hitId: string): TEntity
 // Switchbacks
 
 const SWITCHBACK_MARGIN = 0.01;
-// How far below the launching hit the marble enters, so the switchback stays clear of the piece above it
-// In marble diameters
-const ENTRY_DROPS = [1.25, 2.5];
+// How far below the launching hit the marble enters, so the switchback stays clear of the piece above it as the
+// film shows it: skins hang up to a marble diameter below their hitbox. In marble diameters.
+const ENTRY_DROPS = [1.75, 2.5];
+// Mending a run, the piece is placed again where it can keep what follows as it was
+const MENDING_ENTRY_DROPS = [1.25, 2.5];
 const SWITCHBACK_SLOPES = [2, 3, 5, 8, 12, 17].map((degrees) => degrees * DEGREE);
 const SWITCHBACK_LEGS = [1, 2, 3, 4, 5, 6];
 const SWITCHBACK_ENTRIES = [0.25, 0.5, 0.75];
@@ -475,6 +500,10 @@ const SWITCHBACK_WIDTHS = [1, 0.8, 0.65];
 // The marble must fall this far below the switchback before the next hit, on top of how high the bounce
 // at that hit rises, so neither the next piece nor that bounce touches the switchback
 const EXIT_CLEARANCE = 0.06;
+// Per piece length a gap piece reaches over the next lane
+const LANE_WEIGHT = 6;
+// Per piece length the next dot lies from the nearest of the lane's two columns, so the zigzag picks up where it left off
+const COLUMN_WEIGHT = 1;
 // Estimates ignore the speed the marble enters with, so they only rank: this many per entry and width are
 // simulated, and estimates up to `ESTIMATE_SLACK` too long still count
 const SHORTLIST = 10;
@@ -530,7 +559,9 @@ function prepareSwitchback(
 	const marbleRadius =
 		project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components
 			.marble?.radius ?? 0.008;
-	const band = frameBand(project, laneId);
+	// A new switchback may reach over another lane, as long as nothing touches, with the frame as the limit
+	const band = frameBand(project, hitOwners(project, laneId).has(toHitId) ? laneId : undefined);
+	const laneBand = frameBand(project, laneId);
 	const pace = result.pace ?? descentPace(project, result.hits);
 	const GRAVITY = -gravityOf(project);
 	const launch =
@@ -549,6 +580,7 @@ function prepareSwitchback(
 	);
 
 	const replaced = findGapPiece(project, laneId, fromHitId);
+	const isMending = hitOwners(project, laneId).has(to.id);
 	const id = replaced?.id ?? options.id ?? createId('piece');
 	const count = project.entities.filter(
 		(entity) => entity.components.piece?.type === 'switchback' && entity.id !== replaced?.id
@@ -560,7 +592,7 @@ function prepareSwitchback(
 	const entryTimes =
 		options.entryTime != null
 			? [options.entryTime]
-			: ENTRY_DROPS.map((drop) =>
+			: (isMending ? MENDING_ENTRY_DROPS : ENTRY_DROPS).map((drop) =>
 					findDropTime(samples, from.time, to.time, launch.y - drop * 2 * marbleRadius)
 				).filter(
 					(time): time is number => time != null
@@ -654,8 +686,10 @@ function prepareSwitchback(
 		const probeStatus = trial.pieces.find((piece) => piece.entityId === probe?.id)?.status;
 		const paceError = Math.abs(played.check.paceError ?? 0);
 		const limit = pace?.limit ?? Infinity;
+		const isTouching = nearestPieceGap(withEntities(project, [entity]), trial, entity.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
 		const score =
 			(played.isStray ? 20 : 0) +
+			(isMending ? 0 : (isTouching ? 8 : 0) + COLUMN_WEIGHT * columnMiss(played.check.dot, laneBand) + LANE_WEIGHT * laneOverhang(trial, entity.id, laneBand)) +
 			(played.check.leaveTime == null ? 20 : 0) +
 			(probeStatus === 'blocked' ||
 			played.check.nextStatus === 'missed' ||
@@ -679,6 +713,21 @@ function prepareSwitchback(
  * First time after the hit when the marble falls and is at or below `level`, leaving at least 0.25 s
  * before the gap ends
  */
+/** How far a piece reaches past its own lane, in piece lengths: it may, but it then stands in the next marble's way */
+function laneOverhang(trial: TSimulationResult, entityId: string, band: { centerX: number; halfWidth: number }): number {
+	const shapes = trial.pieces.find((piece) => piece.entityId === entityId)?.shapes;
+	if (shapes == null || !shapes.length) return 0;
+	const bounds = shapesBounds(shapes);
+	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
+	return Math.max(0, Math.max(bounds.maxX - band.centerX, band.centerX - bounds.minX) - band.halfWidth) / length;
+}
+
+function columnMiss(dot: TVec2 | null, band: { centerX: number; halfWidth: number }): number {
+	if (dot == null) return 0;
+	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
+	return Math.abs(Math.abs(dot.x - band.centerX) - columnOffset(length)) / length;
+}
+
 function findDropTime(
 	samples: { time: number; position: TVec2; velocity: TVec2 }[],
 	from: number,

@@ -2,7 +2,7 @@ import { Err, Ok, type TResult } from 'tuple-result';
 import { toItemId, type TLibraryItem } from '@/modules/library';
 import { applyProjectCommands, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
 import { themeCommands } from './design-commands';
-import { duplicateThemeCommands, resolveTheme } from './project-themes';
+import { currentLookThemeCommands } from './project-themes';
 
 // Packs: a `.marblepack` folder with themes, skins and decor. These are the parts that need no host: what a theme needs
 // from the library, and what an export writes.
@@ -48,7 +48,7 @@ export interface TPackExport {
 export function packExport(project: TProject, items: readonly TLibraryItem[], options: TPackExportOptions): TResult<TPackExport, Error> {
 	const name = options.name.trim();
 	if (name === '') return Err(new Error('A Pack needs a name'));
-	const themes = options.includesTheme ? [currentThemeSnapshot(project)] : [];
+	const themes = options.includesTheme ? [currentLookSnapshot(project, name)] : [];
 	const ids = [...new Set([...options.assetIds, ...themes.flatMap(themeAssetIds)])];
 	const assets: TPackExport['manifest']['items'] = [];
 	for (const id of ids) {
@@ -74,14 +74,13 @@ export function packExport(project: TProject, items: readonly TLibraryItem[], op
 	});
 }
 
-/** The shown theme as a stored theme under a new ID, as Duplicate Theme makes it, so a built-in theme and layer changes travel too */
-function currentThemeSnapshot(project: TProject): TProjectTheme {
-	const shown = resolveTheme(project.design);
-	const { commands, themeId } = duplicateThemeCommands(project, shown.id);
+/** The current look as a stored theme named for its Pack, with its skins, Wall and Lights, under a new ID */
+function currentLookSnapshot(project: TProject, name: string): TProjectTheme {
+	const { commands, themeId } = currentLookThemeCommands(project, name);
 	const [isCopiedOk, copiedErr, copied] = applyProjectCommands(project, commands);
 	if (!isCopiedOk) throw copiedErr;
 	const theme = copied.design.themes?.find((item) => item.id === themeId);
-	if (theme == null) throw new Error(`${shown.name} couldn't be copied`);
+	if (theme == null) throw new Error(`${name} couldn't be copied`);
 	const { pack: _pack, ...rest } = theme;
-	return { ...rest, name: shown.name };
+	return rest;
 }

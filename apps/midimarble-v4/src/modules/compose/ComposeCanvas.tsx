@@ -236,6 +236,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 						/>
 					);
 				})}
+				<AgentTouched compose={compose} pieces={pieces} />
 				{drag == null
 					? result.pieces.map((piece) => <PieceBadge key={`badge-${piece.entityId}`} compose={compose} piece={piece} result={result} />)
 					: null}
@@ -675,6 +676,23 @@ const PathReadout: React.FC<{ piece: TResolvedPiece; points: TVec2[]; position: 
 				{(run.length * 100).toFixed(1)} cm · {slope >= 0 ? '↘' : '↗'} {Math.abs(slope).toFixed(1)}°
 			</span>
 		</div>
+	);
+};
+
+/** What an agent's edit just changed: the selection's outline in the accent, fading in about a second */
+const AgentTouched: React.FC<{ compose: ComposeCx; pieces: readonly TResolvedPiece[] }> = (props) => {
+	const { compose, pieces } = props;
+	const touched = useFeatureState(compose.studio.mcp.presence.$touched);
+	if (!touched.length) return null;
+	return (
+		<>
+			{touched.map((item) => {
+				const piece = pieces.find((candidate) => candidate.entityId === item.key);
+				if (piece == null) return null;
+				const outline = pieceKind(piece) === 'box' ? inflate(compose.screenOutline(piece), 2.5) : compose.screenOutline(piece);
+				return <polygon key={`${item.key}-${item.stamp}`} className="mm-agent-touched" points={toPoints(outline)} fill="none" stroke="var(--accent-strong)" strokeWidth={2} strokeLinejoin="round" />;
+			})}
+		</>
 	);
 };
 

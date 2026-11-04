@@ -9,6 +9,6 @@
 		{ "id": "decor:handle", "label": "Handle", "origin": "Starter", "preview": "handle.png", "halfWidth": 0.05, "halfHeight": 0.009, "color": "#1d1d1f", "text": "@yourchannel", "letterHeight": 0.014, "opacity": 0.32, "scatter": false },
 		{ "id": "decor:subscribe", "label": "Subscribe", "origin": "Starter", "preview": "subscribe.png", "halfWidth": 0.045, "halfHeight": 0.01, "color": "#c0202a", "text": "Subscribe", "letterHeight": 0.013, "opacity": 1, "scatter": false },
 		{ "id": "decor:garland", "label": "Garland", "hidden": true, "preview": "garland.png", "halfWidth": 0.05, "halfHeight": 0.05, "color": "#2e4a38", "scatter": false, "effect": "garland" },
-		{ "id": "decor:snowfall", "label": "Particles", "preview": "snowfall.png", "halfWidth": 0.05, "halfHeight": 0.05, "color": "#fff1d6", "scatter": false, "effect": "snowfall" }
+		{ "id": "decor:snowfall", "label": "Particles", "origin": "Starter", "preview": "snowfall.png", "halfWidth": 0.05, "halfHeight": 0.05, "color": "#fff1d6", "scatter": false, "effect": "snowfall" }
 	]
 }

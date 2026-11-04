@@ -9,6 +9,9 @@ use std::path::{Path, PathBuf};
 /// Overrides the socket for the smoke script and tests
 const SOCKET_ENV: &str = "MM_MCP_SOCKET";
 const CACHES_FOLDER: &str = "Library/Caches/MidiMarble";
+/// The line a stdio process sends once a client has initialized, on a connection it keeps open while it runs, so the
+/// app knows who is connected. It isn't an MCP tool: `tools/call` only forwards the tools it lists.
+pub const PRESENCE_TOOL: &str = "__presence";
 
 /// A tool call on the socket, one JSON line
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,6 +112,15 @@ pub fn send(path: &Path, request: &WireRequest) -> io::Result<WireResponse> {
     return Ok(serde_json::from_str(&line)?);
 }
 
+/// Says `request`'s client is connected and stays until the app hangs up: it quit, or Enable MCP went off
+pub fn hold_presence(path: &Path, request: &WireRequest) -> io::Result<()> {
+    let mut stream = UnixStream::connect(path)?;
+    writeln!(stream, "{}", serde_json::to_string(request)?)?;
+    stream.flush()?;
+    io::copy(&mut stream, &mut io::sink())?;
+    return Ok(());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -176,6 +188,34 @@ mod tests {
         // The file stays behind, as after a crash
         assert!(path.exists());
         assert!(bind(&path).is_ok());
+        fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn a_presence_connection_stays_until_the_app_hangs_up() {
+        let path = temporary_socket("presence");
+        let listener = bind(&path).unwrap();
+        let (told, heard) = std::sync::mpsc::channel();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let peer = stream.try_clone().unwrap();
+            told.send(peer).unwrap();
+            let _ = serve_connection(stream, |request| WireResponse {
+                id: request.id,
+                content: vec![],
+                is_error: false,
+            });
+        });
+        let holder = {
+            let path = path.clone();
+            thread::spawn(move || hold_presence(&path, &request(PRESENCE_TOOL)))
+        };
+        let peer = heard.recv().unwrap();
+        thread::sleep(std::time::Duration::from_millis(50));
+        assert!(!holder.is_finished());
+        peer.shutdown(std::net::Shutdown::Both).unwrap();
+        assert!(holder.join().unwrap().is_ok());
+        server.join().unwrap();
         fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 

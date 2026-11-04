@@ -7,6 +7,9 @@ import {
 	addWallTextCommands,
 	cameraCommands,
 	clearSkinCommands,
+	fixedColorCommands,
+	handChangeCount,
+	resetHandChangesCommands,
 	builtInSkinCommands,
 	isScreenTitle,
 	itemFitsPieceType,
@@ -268,5 +271,30 @@ describe('itemFitsPieceType function', () => {
 		const next = apply(withTitles, themeCommands(withTitles, other));
 		expect(next.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe(themeTitleColor(other));
 		expect(next.entities.find((entity) => entity.id === 'text-2')?.components.wallText?.color).toBe('#ff0000');
+	});
+});
+
+describe('hand changes', () => {
+	it('should count skins of their own and values set on a layer, and clear them as one edit', () => {
+		const project = createStaircaseProject();
+		expect(handChangeCount(project)).toBe(0);
+		const piece = project.entities.find((entity) => entity.components.piece != null);
+		const changed = apply(project, [
+			...skinCommands(project, { kind: 'entities', entityIds: [piece?.id as string] }, 'platform:copper'),
+			{ type: 'setDesign', design: { wall: { color: '#112233', kind: 'grid' }, lights: { key: { strength: 2 } } } }
+		]);
+		expect(handChangeCount(changed)).toBe(4);
+		expect(handChangeCount(apply(changed, resetHandChangesCommands(changed)))).toBe(0);
+	});
+});
+
+describe('fixedColorCommands function', () => {
+	it('should give a skin\'s fixed colour to the marbles it dresses, and the lane follows', () => {
+		const project = createStaircaseProject();
+		const marble = project.entities.find((entity) => entity.components.marble != null);
+		const next = apply(project, fixedColorCommands(project, [marble?.id as string], '#22ff66'));
+		expect(next.entities.find((entity) => entity.id === marble?.id)?.components.marble?.color).toBe('#22ff66');
+		expect(next.music.lanes.find((lane) => lane.id === marble?.components.marble?.laneId)?.color).toBe('#22ff66');
+		expect(fixedColorCommands(project, [marble?.id as string], undefined)).toEqual([]);
 	});
 });

@@ -21,7 +21,7 @@ export function createImportCommands(
 	project: TProject,
 	options: TImportCommandsOptions
 ): TProjectCommand[] {
-	const { lanes, backing = [], backingInstrument, source, instrument } = options;
+	const { lanes, names = [], backing = [], backingInstrument, source, instrument } = options;
 	const hasHits = project.music.lanes.some((lane) => lane.hits.length > 0);
 	const commands: TProjectCommand[] = [];
 	let index = project.music.lanes.length;
@@ -35,9 +35,12 @@ export function createImportCommands(
 	}
 	if (source != null) commands.push({ type: 'upsertSource', source });
 
-	for (const notes of lanes) {
+	const takenNames = new Set(hasHits ? project.music.lanes.map((lane) => lane.name) : []);
+	for (const [laneIndex, notes] of lanes.entries()) {
+		const named = names[laneIndex];
 		const lane: TLane = {
 			...createLane(index),
+			...(named != null && !takenNames.has(named) ? { name: named } : {}),
 			instrument: instrument ?? createLane(index).instrument,
 			hits: notes.map((note) => noteToHit(note))
 		};
@@ -166,6 +169,18 @@ export function isAutoEnd(project: TProject): boolean {
 }
 
 /**
+ * Whether the length already is what the tail rule gives, so Fit to Song has nothing to do: the last hit plus
+ * `SONG_TAIL`, or plus a measured tail between the bounds when the film ends on a Finish
+ */
+export function fitsSong(project: TProject): boolean {
+	const last = lastHitTime(project);
+	if (last == null) return false;
+	if (!endsOnFinish(project)) return Math.abs(project.end - songEnd(last, SONG_TAIL)) < 0.005;
+	const tail = project.end - last;
+	return tail > FINISH_TAIL_MIN - 0.005 && tail < FINISH_TAIL_MAX + 0.005;
+}
+
+/**
  * The length after an edit of the hits or the Finishes, while it follows the song: the last hit plus `filmTail`, so
  * a tapped project ends with its last hit instead of filming 8 s of empty wall, and a Finish added for the last
  * marble lengthens the film to show the catch. A measured Finish tail carries over until the next measurement.
@@ -220,6 +235,8 @@ export const IMPORT_RELEASE_LEAD = 0.5;
 
 export interface TImportCommandsOptions {
 	lanes: TMidiNote[][];
+	// What to call each marble; null or missing keeps "Marble 1"
+	names?: readonly (string | null)[];
 	// Notes no marble plays
 	backing?: TMidiNote[];
 	// General MIDI program Backing plays with

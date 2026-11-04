@@ -13,10 +13,9 @@ import { garlandOf, SNOWFALL_DEFAULTS, snowfallOf } from './decor-effects';
 import { DECOR_HELP } from './concept-words';
 import { ColorWell } from './SceneLayerInspector';
 import { decorTips, preflightExport } from './export-preflight';
-import { DecorTiles } from './LookTiles';
 import { titleSpan, withTitleTime } from './titles';
 
-// Inspectors of the Decor group: which item it is as tiles, then Position, Scale, Rotation, Depth and In and Out
+// Inspectors of the Decor group: Position, Scale, Rotation, Depth and In and Out
 // with the title pattern. Decor has no hitbox. Made in Blender objects keep their place in Blender, so they show only In, Out and their tip.
 
 /** The amber tip on a layer a marble's path crosses, from the one problem model */
@@ -62,9 +61,6 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 					</button>
 				</DecorTip>
 			) : null}
-			<Panel id="design.decor.look" title="Item" accessory={<HelpTip text={`${DECOR_HELP} Choosing another keeps its place and times.`} />}>
-				<DecorTiles cx={cx} project={project} ids={[decor.id]} />
-			</Panel>
 			{text != null ? (
 				<Panel id="design.decor.text" title="Text">
 					<TextField key={decor.id} id="decor-text" label="Text" name="What it reads" value={text} span={2} allowEmpty={false} onCommit={(value) => update({ text: value })} />
@@ -128,9 +124,6 @@ export const DecorsInspector: React.FC<{ cx: StudioCx; project: TProject; ids: s
 	return (
 		<>
 			<InspectorHeader icon={<Sparkles size={16} strokeWidth={1.7} />} title="Decor" subtitle={`${list.length} items`} />
-			<Panel id="design.decor.look" title="Item" accessory={<HelpTip text={`${DECOR_HELP} Choosing another keeps their places and times.`} />}>
-				<DecorTiles cx={cx} project={project} ids={ids} />
-			</Panel>
 		</>
 	);
 };

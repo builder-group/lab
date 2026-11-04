@@ -231,7 +231,7 @@ const SKeyLightPose = z.strictObject({
 /** A light added with Add Light, a layer in Film; a sun like the Key Light */
 const SLight = z.strictObject({ id: SId, name: z.string(), color: SHexColor, ...lightPoseShape });
 
-/** A project theme's Wall skin, Key Light and added lights: what Save as Theme stores */
+/** A project theme's Wall skin, Key Light and added lights: what a kept look stores */
 const projectThemeSceneShape = {
 	wallKind: SWallKind.optional(),
 	keyLight: SKeyLightPose.optional(),
@@ -250,14 +250,14 @@ export const SPackOrigin = z.strictObject({
 	link: z.string().optional()
 });
 
-/** A theme the project made from a built-in one: Save as Theme, or New Theme with Agent */
+/** A theme the project made from a built-in one: from a Pack, or New Theme with Agent */
 export const SProjectTheme = z.strictObject({
 	id: SId,
 	name: z.string(),
 	// Built-in theme id the look starts from: `pegboard`, `brass` or `neon`
 	base: z.string(),
 	overrides: SThemeOverrides,
-	// `agent` when a New Theme with Agent Result made it; absent for Save as Theme
+	// `agent` when a New Theme with Agent Result made it; absent otherwise
 	origin: z.enum(['agent']).optional(),
 	// The Pack it came from. Added later; files without it stay valid
 	pack: SPackOrigin.optional(),

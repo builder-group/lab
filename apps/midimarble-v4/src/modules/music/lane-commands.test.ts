@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
-import { autoEnd, changesHitsOnly, changesTail, createImportCommands, DEFAULT_PROJECT_END, filmTail, FINISH_TAIL, FINISH_TAIL_MAX, FINISH_TAIL_MIN, finishTail, fitToSongOffer, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
+import { autoEnd, changesHitsOnly, changesTail, createImportCommands, DEFAULT_PROJECT_END, filmTail, FINISH_TAIL, FINISH_TAIL_MAX, FINISH_TAIL_MIN, finishTail, fitsSong, fitToSongOffer, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
 import type { TMidiNote } from './midi';
 
 function note(time: number, pitch: number): TMidiNote {
@@ -124,5 +124,38 @@ describe('filmTail', () => {
 		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.7))).toBe(true);
 		expect(autoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.7), withLanes([[1, 3.6, 4]], ['lane-0'], 4.7))).toBe(5.1);
 		expect(isAutoEnd(withLanes([[1, 3.6]], [], 4.7))).toBe(false);
+	});
+});
+
+describe('fitsSong', () => {
+	function withLast(end: number, finish: boolean): TProject {
+		const project = createProject({ id: 'p', title: 'T' });
+		const laneId = project.music.lanes[0]?.id as string;
+		const [, , next] = applyProjectCommands(project, [
+			{ type: 'upsertHits', laneId, hits: [{ id: 'h', time: 33 }] },
+			{ type: 'setEnd', end },
+			...(finish ? [{ type: 'upsertEntity' as const, entity: { id: 'f', components: { piece: { type: 'finish', params: {} }, hitLink: { laneId, hitId: 'h', angle: 0, contactAt: 0.5, pinned: false, anchored: true } } } as never }] : [])
+		]);
+		return next as TProject;
+	}
+
+	it('should say a length fits at the song tail without a Finish', () => {
+		expect(fitsSong(withLast(33.4, false))).toBe(true);
+		expect(fitsSong(withLast(33.7, false))).toBe(false);
+	});
+
+	it('should say any measured tail fits with a Finish, the reported 0:33.70 included', () => {
+		expect(fitsSong(withLast(33.7, true))).toBe(true);
+		expect(fitsSong(withLast(33.4, true))).toBe(false);
+		expect(fitsSong(withLast(36, true))).toBe(false);
+	});
+});
+
+describe('createImportCommands names', () => {
+	it('should name marbles as asked and keep a name another marble has', () => {
+		const project = createProject({ id: 'p', title: 'T' });
+		const [, , next] = applyProjectCommands(project, createImportCommands(project, { lanes: [[note(1, 60)], [note(1, 50)]], names: ['Melody', null] }));
+		expect(next?.music.lanes.map((lane) => lane.name)).toEqual(['Melody', 'Marble 2']);
+		expect(next?.entities.filter((entity) => entity.components.marble != null).map((entity) => entity.name)).toEqual(['Melody', 'Marble 2']);
 	});
 });

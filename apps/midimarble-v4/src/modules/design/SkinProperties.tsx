@@ -1,20 +1,19 @@
 import { useFeatureState } from 'feature-react/state';
 import { RotateCcw, TriangleAlert } from 'lucide-react';
 import React from 'react';
-import { HelpTip, LinkRow, NoteRow, Panel, ScrubField, SelectField } from '@/components';
+import { HelpTip, Panel, ScrubField, SelectField } from '@/components';
 import type { TAssetProperty } from '@/modules/library/asset-manifest';
 import type { TEntity, TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { resetToThemeCommands, skinPropertyCommands, type TSkinPropertyPatch } from './design-commands';
 import { marbleContrastWarning } from './draft-look';
-import { appliedOverrides, resolveElementLook, resolveTheme, saveAsThemeCommands } from './project-themes';
+import { appliedOverrides, resolveElementLook, resolveTheme } from './project-themes';
 import { SKIN_HELP } from './concept-words';
 import { themeOriginLabel } from './scene-layers';
-import { SkinTiles } from './LookTiles';
-import { catalogSkin, COLOUR_LABELS, elementPlural, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties } from './skin-catalog';
-import { themePartRows } from './skin-tiles';
+import { SkinPicker } from './SkinPickers';
+import { catalogSkin, COLOUR_LABELS, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties } from './skin-catalog';
 
-// The standard skin properties in the Look panel, the same rows for pieces and marbles, and a theme's parts as a list.
+// The standard skin properties in the Skin panel, the same rows for pieces and marbles.
 
 const MIXED = '__mixed__';
 const FROM_THEME = '__theme__';
@@ -193,16 +192,16 @@ export const ResetToTheme: React.FC<{ cx: StudioCx; project: TProject; entities:
 	);
 };
 
-/** A marble's Look section in Film: its skin and properties. Its physics never change with its skin. */
-export const MarbleLook: React.FC<{ cx: StudioCx; project: TProject; marble: TEntity }> = (props) => {
+/** A marble's Skin section in Film: its skin and properties. Its physics never change with its skin. */
+export const MarbleSkin: React.FC<{ cx: StudioCx; project: TProject; marble: TEntity }> = (props) => {
 	const { cx, project, marble } = props;
 	const look = resolveElementLook(project.design, 'marble', marble.components.skin);
 	const theme = resolveTheme(project.design);
 	const warning = marbleContrastWarning(theme.base, appliedOverrides(project.design), [{ name: marble.name ?? 'This', color: marble.components.marble?.color ?? '#d0d4dc', skin: look }]);
 
 	return (
-		<Panel id="marble.look" title="Look" accessory={<HelpTip text={`${SKIN_HELP} A click applies to this marble, ⌥-click to all marbles. A skin never changes how it falls or bounces.`} />}>
-			<SkinTiles cx={cx} project={project} element="marble" pieceType="marble" entities={[marble]} />
+		<Panel id="marble.skin" title="Skin" accessory={<HelpTip text={`${SKIN_HELP} A click applies to this marble, ⌥-click to all marbles. A skin never changes how it falls or bounces.`} />}>
+			<SkinPicker cx={cx} project={project} element="marble" pieceType="marble" entities={[marble]} />
 			<SkinPropertyRows cx={cx} project={project} entities={[marble]} />
 			<ResetToTheme cx={cx} project={project} entities={[marble]} />
 			{warning != null ? (
@@ -214,35 +213,3 @@ export const MarbleLook: React.FC<{ cx: StudioCx; project: TProject; marble: TEn
 		</Panel>
 	);
 };
-
-/** The theme's parts as the film shows them; each row selects that element's first piece, whose Look holds its skins */
-export const ThemeParts: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
-	const projectItems = useFeatureState(cx.library.$projectItems);
-	const globalItems = useFeatureState(cx.library.$globalItems);
-	const libraryLabel = (id: string): string | null => [...projectItems, ...globalItems].find((item) => item.id === id)?.manifest?.label ?? null;
-
-	return (
-		<>
-			{themePartRows(project, libraryLabel).map((row) =>
-				row.entityId != null ? (
-					<LinkRow key={row.element} icon={null} title={`Select the first of the ${elementPlural(row.element).toLowerCase()} to change its skin`} onOpen={() => cx.reveal([row.entityId as string])}>
-						{row.label}
-					</LinkRow>
-				) : (
-					<NoteRow key={row.element}>{row.label}</NoteRow>
-				)
-			)}
-		</>
-	);
-};
-
-/** Save as Theme for a button or ⌘K, with the notice */
-export function saveAsTheme(cx: StudioCx, chosenName?: string): void {
-	const project = cx.project;
-	if (project == null) return;
-	const { commands, themeId } = saveAsThemeCommands(project, chosenName);
-	if (!cx.execute(commands)) return;
-	const name = cx.project != null ? resolveTheme(cx.project.design, themeId).name : 'a theme';
-	cx.notifyEdit(`Saved as ${name}`);
-}

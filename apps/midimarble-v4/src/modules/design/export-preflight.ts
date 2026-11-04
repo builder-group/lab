@@ -2,7 +2,7 @@ import { cachedFollowCameraTrack, followCameraTrack, framingStretches, isInFrame
 import { hitReach, isUnreachable, reachStatus } from '@/modules/compose/reachability';
 import { hasSong } from '@/modules/music';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { FINISH_TYPE, finishCatch, getPieceDefinition, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { extraStrikes, FINISH_TYPE, finishCatch, getPieceDefinition, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
@@ -12,8 +12,8 @@ import { addWideShotCommands } from './shots';
 
 /**
  * The project's problems, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
- * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, the loop and a stale
- * result. It is the one source for the hit summary in the timeline header, its menu, the export sheet and the
+ * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, platforms struck twice,
+ * pieces that touch, the loop and a stale result. It is the one source for the hit summary in the timeline header, its menu, the export sheet and the
  * Camera track. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
  */
 export function preflightExport(project: TProject, result: TSimulationResult | null, blenderObjects: readonly TBlenderObject[] = $blenderObjects.get()): TExportPreflight {
@@ -35,6 +35,8 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		...sceneryIssues(project, result, names),
 		...finishIssues(project, result, names),
 		...contactIssues(project, result, names),
+		...strikeIssues(project, result, names),
+		...touchingIssues(project, result, names),
 		...framingIssues(project, result, names),
 		...loopIssues(project, result),
 		...decorIssues(project, result, names, blenderObjects),
@@ -125,6 +127,19 @@ export function framingProblemAt(preflight: TExportPreflight, time: number): TPr
 	return spans.find((issue) => issue.span != null && time >= issue.span.from - 1e-6 && time <= issue.span.to + 1e-6) ?? spans.find((issue) => issue.span != null && time >= issue.span.from - WIDE_LEAD && time <= issue.span.to) ?? null;
 }
 
+/**
+ * Platforms a marble strikes twice and pieces that touch, by entity ID, with those problems: Layers badges them and the
+ * inspector shows a pill and Re-place, from the same list as the summary.
+ */
+export function lookProblems(preflight: TExportPreflight): Map<string, TPreflightIssue[]> {
+	const problems = new Map<string, TPreflightIssue[]>();
+	for (const issue of preflight.issues) {
+		if (issue.kind !== 'strike' && issue.kind !== 'touching') continue;
+		for (const id of issue.target?.ids ?? []) problems.set(id, [...(problems.get(id) ?? []), issue]);
+	}
+	return problems;
+}
+
 export interface TProblemSummary {
 	state: TExportPreflight['state'];
 	tone: 'good' | 'warn' | 'neutral';
@@ -174,7 +189,7 @@ export interface TPreflightIssue {
 	detail?: string;
 	/** Run time the issue happens at, if it has one */
 	time?: number;
-	/** A Decor tip's words on its own layer, without its name: "Overlaps Melody's path" */
+	/** A tip's or problem's words on its own layer, without its name: "Overlaps Melody's path", "Hit Twice", "Touching" */
 	label?: string;
 	/** The stretch of the run a framing issue lasts, for the Camera track */
 	span?: { from: number; to: number };
@@ -215,7 +230,7 @@ export interface TPreflightTarget {
 	workspace?: 'compose' | 'design';
 }
 
-export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'framing' | 'loop' | 'decor' | 'simulation' | 'song';
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'touching' | 'framing' | 'loop' | 'decor' | 'simulation' | 'song';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
@@ -380,9 +395,9 @@ function finishIssues(project: TProject, result: TSimulationResult, names: TName
 // MARK: - Contacts
 
 /**
- * Stray contacts: marbles touching each other or another lane's pieces. Contacts with the marble's own pieces
- * are expected even after their hit, such as a second bounce or the ride through a rail, tunnel, switchback or
- * windmill. Free pieces, platforms included, are environment the marbles may strike.
+ * Stray contacts: marbles touching each other or another lane's pieces. Contacts with the marble's own pieces are
+ * expected during the ride through a rail, tunnel, switchback or windmill, and a second strike of its own platform is
+ * `strikeIssues`. Free pieces, platforms included, are environment the marbles may strike.
  */
 function contactIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	const laneOfMarble = new Map(result.marbles.map((marble) => [marble.entityId, marble.laneId]));
@@ -443,6 +458,44 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 			target: { ids: [group.otherId], point: group.first, time: group.time }
 		};
 	});
+}
+
+// MARK: - How the track looks
+
+/**
+ * A marble striking its own platform outside the note: "Melody hits Platform 12 twice". It sounds like nothing in the
+ * film but reads as a mistake, so it counts as a problem. Rests and rolls after the last note and rides on a switchback,
+ * rail or Finish don't count (`extraStrikes`).
+ */
+function strikeIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
+	return extraStrikes(project, result).map((strike) => {
+		const count = strike.times === 2 ? 'twice' : `${strike.times} times`;
+		return {
+			id: `strike:${strike.entityId}`,
+			kind: 'strike' as const,
+			severity: 'warning' as const,
+			laneId: strike.laneId,
+			title: `${names.lane(strike.laneId)} hits ${names.entity(strike.entityId)} ${count}`,
+			label: strike.times === 2 ? 'Hit Twice' : `Hit ${strike.times} Times`,
+			detail: `Hits it ${strike.times} times from ${formatTime(strike.time)}, with one note.`,
+			time: strike.time,
+			target: { ids: [strike.entityId], point: strike.position, time: strike.time }
+		};
+	});
+}
+
+/** Two pieces closer than the least gap as the film shows them, where skins hang below their hitboxes: a tip, since every hit still plays */
+function touchingIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
+	return touchingPairs(project, result).map((pair) => ({
+		id: `touching:${pair.a}:${pair.b}`,
+		kind: 'touching' as const,
+		severity: 'info' as const,
+		title: `${names.entity(pair.a)} touches ${names.entity(pair.b)}`,
+		label: 'Touching',
+		detail: pair.gap <= 0 ? 'They overlap in the film.' : `${(pair.gap * 100).toFixed(1)} cm apart in the film, where skins reach below the hitbox.`,
+		time: pair.time,
+		target: { ids: [pair.b, pair.a], point: pair.point, time: pair.time }
+	}));
 }
 
 // MARK: - Framing

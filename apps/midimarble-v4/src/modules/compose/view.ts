@@ -210,3 +210,14 @@ export function placeBar(anchor: TVec2, size: { width: number; height: number },
 	];
 	return candidates.find((item) => fits(item.left, item.top) && !covers(item.left, item.top)) ?? first;
 }
+
+const POPOVER_INSET = 8;
+
+/** Where a floating panel sits: beside its control, level with it, inside the canvas with an inset; it scrolls when taller */
+export function popoverFrame(anchor: Pick<DOMRect, 'top'>, bounds: Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom'>, size: { width: number; height: number }, side: 'start' | 'end'): { left: number; top: number; maxHeight: number } {
+	const maxHeight = Math.max(0, bounds.bottom - bounds.top - POPOVER_INSET * 2);
+	const height = Math.min(size.height, maxHeight);
+	const top = Math.max(bounds.top + POPOVER_INSET, Math.min(anchor.top - 12, bounds.bottom - height - POPOVER_INSET));
+	const left = side === 'start' ? bounds.left + POPOVER_INSET : Math.max(bounds.left + POPOVER_INSET, bounds.right - size.width - POPOVER_INSET);
+	return { left, top, maxHeight };
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, type TEntity, type TProject } from '@/modules/project';
 import { catalogSkins } from './skin-catalog';
-import { decorTiles, skinTiles, THEME_DEFAULT_TILE, themePartRows, usedSkinIds, wallTiles } from './skin-tiles';
+import { filterTiles, showsTileSearch, skinTiles, THEME_DEFAULT_TILE, usedSkinIds, wallTiles } from './skin-tiles';
 
 function platform(id: string, assetId?: string): TEntity {
 	return { id, components: { piece: { type: 'platform' }, ...(assetId != null ? { skin: { assetId, link: 'linked' } } : {}) } } as unknown as TEntity;
@@ -76,29 +76,18 @@ describe('hidden skins', () => {
 	});
 });
 
-describe('decorTiles function', () => {
-	it('should ring the item every selected decoration is', () => {
-		const current = (sources: string[]): string[] => decorTiles(sources.map((source) => ({ source })), new Set(sources)).filter((tile) => tile.isCurrent).map((tile) => tile.id);
-		expect(current(['decor:star'])).toEqual(['decor:star']);
-		expect(current(['decor:star', 'decor:bauble-red'])).toEqual([]);
-	});
-});
+describe('filterTiles function', () => {
+	const tiles = [{ label: 'Theme Default', detail: 'Gold' }, { label: 'Copper', detail: 'Starter' }, { label: 'Gift', detail: 'Christmas Pack' }];
 
-describe('themePartRows function', () => {
-	it('should read what the film shows and select the first of each element', () => {
-		const rows = themePartRows(brassProject([platform('a', 'platform:knob'), platform('b', 'platform:knob')]), () => null);
-		expect(rows.find((row) => row.element === 'platform')).toMatchObject({ label: 'Platforms: Knob', entityId: 'a' });
-		expect(rows.find((row) => row.element === 'rail')).toMatchObject({ entityId: null });
+	it('should keep every tile without a query and match the name or the origin by each word', () => {
+		expect(filterTiles(tiles, ' ')).toHaveLength(3);
+		expect(filterTiles(tiles, 'cop').map((tile) => tile.label)).toEqual(['Copper']);
+		expect(filterTiles(tiles, 'christmas gi').map((tile) => tile.label)).toEqual(['Gift']);
+		expect(filterTiles(tiles, 'nope')).toEqual([]);
 	});
 
-	it('should say Mixed, and fall back to the theme without pieces', () => {
-		const rows = themePartRows(brassProject([platform('a', 'platform:knob'), platform('b')]), () => null);
-		expect(rows.find((row) => row.element === 'platform')?.label).toBe('Platforms: Mixed');
-		expect(themePartRows(brassProject(), () => null).find((row) => row.element === 'platform')?.label).toBe('Platforms: Gold');
-	});
-
-	it('should name a library skin', () => {
-		const rows = themePartRows(brassProject([platform('a', 'asset-1')]), (id) => (id === 'asset-1' ? 'Piano Key' : null));
-		expect(rows.find((row) => row.element === 'platform')?.label).toBe('Platforms: Piano Key');
+	it('should offer search only past about 12 items', () => {
+		expect(showsTileSearch(Array.from({ length: 12 }))).toBe(false);
+		expect(showsTileSearch(Array.from({ length: 13 }))).toBe(true);
 	});
 });

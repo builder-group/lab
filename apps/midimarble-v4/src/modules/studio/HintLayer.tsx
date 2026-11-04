@@ -7,13 +7,14 @@ import { useAnchorRects, type TAnchorRect } from './use-anchor-rects';
 
 /**
  * Draws the open first-run hint beside the element that marks where its step is (`data-hint-anchor`): the Song
- * track, an empty marble track, the next open dot, the Film switch. It waits while its anchor is out of view and while Quick Help is on.
+ * track, an empty marble track, the next open dot, the Film switch. It waits while its anchor is out of view, while Quick Help is on and while a notice is up.
  */
 export const HintLayer: React.FC<THintLayerProps> = (props) => {
 	const { cx } = props;
 	const open = useFeatureState(cx.hints.$open);
 	const isQuickHelpOn = useFeatureState(cx.$quickHelp);
-	const isActive = open != null && !isQuickHelpOn;
+	const notice = useFeatureState(cx.$notice);
+	const isActive = open != null && !isQuickHelpOn && notice == null;
 	const anchor = useAnchorRects(isActive ? 'data-hint-anchor' : null, open ?? undefined)[0];
 
 	React.useEffect(() => {

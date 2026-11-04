@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { addedPacks, type TLibraryItem, type TPack } from '@/modules/library';
+import { addedPacks, isPackAdded, STARTER_PACK, withStarterPack, type TLibraryItem, type TPack } from '@/modules/library';
+import { decorItem } from './decor-catalog';
+import { WALL_KINDS } from './scene-layers';
+import { catalogSkins, SKIN_ELEMENTS } from './skin-catalog';
 import { createProject, type TProjectTheme } from '@/modules/project';
 import { libraryEntries, libraryItemOrigin, packContents } from './DesignLibraryCx';
 import { packExport, packThemeCommands, themeAssetIds, withThemeAssets } from './packs';
@@ -47,7 +50,7 @@ describe('Packs', () => {
 		expect(exported?.assetIds.sort()).toEqual(['bauble', 'brass-bar']);
 		expect(exported?.manifest.items.map((entry) => entry.kind).sort()).toEqual(['decor', 'skin', 'theme']);
 		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TProjectTheme;
-		expect(stored.name).toBe('Cosy');
+		expect(stored.name).toBe('Christmas');
 		expect(stored.id).not.toBe('cosy');
 	});
 
@@ -63,6 +66,13 @@ describe('Packs', () => {
 		expect(packExport(project, [], { name: ' ', includesTheme: true, assetIds: [] })[0]).toBe(false);
 		expect(packExport(project, [], { name: 'A', includesTheme: false, assetIds: [] })[0]).toBe(false);
 		expect(packExport(project, [], { name: 'A', includesTheme: false, assetIds: ['gone'] })[0]).toBe(false);
+	});
+
+	it('should read Made by Agent for what add_asset adds, Imported for the rest', () => {
+		const made = item('a', 'skin');
+		const withOrigin = (origin: 'agent' | 'imported' | undefined): TLibraryItem => ({ ...made, manifest: { ...made.manifest, origin } as TLibraryItem['manifest'] });
+		expect(libraryItemOrigin(withOrigin('agent'))).toBe('Made by Agent');
+		expect(libraryItemOrigin(withOrigin(undefined))).toBe('Imported');
 	});
 
 	it('should say where an item comes from and what a Pack holds', () => {
@@ -83,5 +93,18 @@ describe('Packs', () => {
 		const copy = item('a-2', 'decoration', {}, 'Christmas');
 		copy.manifest = { ...(copy.manifest as NonNullable<TLibraryItem['manifest']>), label: 'a' };
 		expect(libraryEntries([copy], [], [pack([inPack])]).map((entry) => entry.item.id)).toEqual(['a-2']);
+	});
+
+	it('should hold every offered skin, wall, theme and decor item in the Starter Pack, and never lose it', () => {
+		const offered = SKIN_ELEMENTS.flatMap((element) => catalogSkins(element).map((skin) => skin.id));
+		const skins = (STARTER_PACK.builtIn ?? []).filter((entry) => entry.kind === 'skin').map((entry) => entry.source);
+		expect(skins.filter((source) => !source.startsWith('wall:'))).toEqual(offered);
+		expect(skins.filter((source) => source.startsWith('wall:')).map((source) => source.slice(5)).sort()).toEqual(WALL_KINDS.map((item) => item.kind).sort());
+		expect((STARTER_PACK.builtIn ?? []).filter((entry) => entry.kind === 'theme').map((entry) => entry.label)).toEqual(['Pegboard', 'Brass', 'Neon']);
+		expect(STARTER_PACK.builtInDecor).toContain('decor:snowfall');
+		expect(STARTER_PACK.builtInDecor.every((source) => decorItem(source) != null)).toBe(true);
+		expect(packContents(STARTER_PACK)).toBe(`3 themes, ${skins.length} skins, 9 decor items`);
+		expect(withStarterPack([{ ...pack([]), id: 'starter' }, pack([])]).map((item) => item.id)).toEqual(['starter', pack([]).id]);
+		expect(isPackAdded('starter')).toBe(true);
 	});
 });

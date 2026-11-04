@@ -18,6 +18,7 @@ export function parseMidiFile(bytes: ArrayBuffer | Uint8Array): TResult<TMidiFil
 		tracks.push({
 			id: `track-${index}`,
 			name: track.name.trim() || track.instrument.name || `Track ${index + 1}`,
+			hasName: track.name.trim() !== '',
 			channel: track.channel,
 			program: track.instrument.number,
 			isDrums: track.instrument.percussion || track.channel === 9,
@@ -45,6 +46,8 @@ export interface TMidiFile {
 export interface TMidiTrack {
 	id: string;
 	name: string;
+	/** The file itself names it, as opposed to falling back on its instrument */
+	hasName: boolean;
 	channel: number;
 	program: number;
 	isDrums: boolean;

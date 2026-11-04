@@ -23,7 +23,8 @@ export function useFileDrop(cx: StudioCx): boolean {
 					setIsOver(event.payload.type === 'enter' || event.payload.type === 'over');
 					if (event.payload.type !== 'drop') return;
 					const path = event.payload.paths[0];
-					if (path != null) importFile({ name: path.split('/').pop() ?? path, path });
+					if (path == null) return;
+					importFile({ name: path.split('/').pop() ?? path, path });
 				});
 				if (disposed) stop();
 				else unlisten = stop;

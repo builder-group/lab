@@ -9,6 +9,7 @@ import {
 } from './synthesize';
 import { cutLoopAudio, foldLoopAudio, LOOP_AUDIO_TAIL, loopHits, loopLanes, type TLoopRange } from './loop-audio';
 import { hasSong } from './parts';
+import { createScrubber } from './scrub';
 import { decodeAudioFile } from './waveform';
 
 const SAMPLE_RATE = 48000;
@@ -30,6 +31,9 @@ export function createAudioEngine(): TAudioEngine {
 	let source: AudioBufferSourceNode | null = null;
 	let startedAt = 0;
 	let startOffset = 0;
+	const scrubber = createScrubber(context, master);
+	// A drag that ended while its soundtrack was rendering must not start playing when the render lands
+	let scrubSession = 0;
 
 	function getTime(): number {
 		if (source == null) return startOffset;
@@ -47,7 +51,29 @@ export function createAudioEngine(): TAudioEngine {
 		current.disconnect();
 	}
 
+	function endScrub(): void {
+		scrubSession++;
+		scrubber.end();
+	}
+
+	async function prepare(project: TProject, resolveSourceUrl: TResolveSourceUrl): Promise<void> {
+		const nextSignature = createAudioSignature(project, resolveSourceUrl);
+		if (nextSignature === signature && timeline != null) return;
+		const audio = await renderProjectAudio(project, resolveSourceUrl, {
+			sampleRate: SAMPLE_RATE
+		});
+		const buffer = context.createBuffer(2, audio.left.length, audio.sampleRate);
+		buffer.copyToChannel(audio.left as Float32Array<ArrayBuffer>, 0);
+		buffer.copyToChannel(audio.right as Float32Array<ArrayBuffer>, 1);
+		const wasPlaying = source != null;
+		const time = getTime();
+		timeline = buffer;
+		signature = nextSignature;
+		if (wasPlaying) await play(time);
+	}
+
 	async function play(from: number): Promise<void> {
+		endScrub();
 		stop();
 		startOffset = Math.max(0, from);
 		if (context.state !== 'running') await context.resume();
@@ -66,25 +92,22 @@ export function createAudioEngine(): TAudioEngine {
 	}
 
 	return {
-		async prepare(project, resolveSourceUrl) {
-			const nextSignature = createAudioSignature(project, resolveSourceUrl);
-			if (nextSignature === signature && timeline != null) return;
-			const audio = await renderProjectAudio(project, resolveSourceUrl, {
-				sampleRate: SAMPLE_RATE
-			});
-			const buffer = context.createBuffer(2, audio.left.length, audio.sampleRate);
-			buffer.copyToChannel(audio.left as Float32Array<ArrayBuffer>, 0);
-			buffer.copyToChannel(audio.right as Float32Array<ArrayBuffer>, 1);
-			const wasPlaying = source != null;
-			const time = getTime();
-			timeline = buffer;
-			signature = nextSignature;
-			if (wasPlaying) await play(time);
-		},
+		prepare,
 		play,
 		stop,
 		getTime,
 		isPlaying: () => source != null,
+		async beginScrub(project, resolveSourceUrl) {
+			endScrub();
+			const session = scrubSession;
+			scrubber.begin();
+			// Resumed before anything awaits, while this is still the press's gesture
+			const resumed = context.state === 'running' ? undefined : context.resume();
+			await Promise.all([resumed, prepare(project, resolveSourceUrl)]);
+			if (session === scrubSession) scrubber.setBuffer(timeline);
+		},
+		scrubTo: (time) => scrubber.move(time),
+		endScrub,
 		async audition(lane, pitch) {
 			const key = `${lane.instrument}:${pitch}`;
 			let buffer = auditionCache.get(key);
@@ -111,6 +134,7 @@ export function createAudioEngine(): TAudioEngine {
 			master.gain.setTargetAtTime(Math.max(0, volume), context.currentTime, 0.01);
 		},
 		dispose() {
+			endScrub();
 			stop();
 			auditionCache.clear();
 			timeline = null;
@@ -127,6 +151,10 @@ export interface TAudioEngine {
 	// Timeline seconds; while stopped, the time playback stopped at
 	getTime: () => number;
 	isPlaying: () => boolean;
+	// Starts a playhead drag: renders `project` if it changed, then plays snippets at the positions given to `scrubTo`
+	beginScrub: (project: TProject, resolveSourceUrl: TResolveSourceUrl) => Promise<void>;
+	scrubTo: (time: number) => void;
+	endScrub: () => void;
 	// Plays one note of the Song; a hit without a pitch has nothing to play
 	audition: (lane: TLane, pitch: number) => Promise<void>;
 	setVolume: (volume: number) => void;

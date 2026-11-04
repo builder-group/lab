@@ -1,4 +1,5 @@
 import { onNextFrame } from './next-frame';
+import { fitsSong, lastHitTime } from '@/modules/music/lane-commands';
 import { removeSelectedHits } from './timeline/hand-notes';
 import { $rollHasFocus } from './timeline/timeline-state';
 import type { TMenuItem } from '@/components';
@@ -13,17 +14,15 @@ import type { TRenderPreset } from '@/modules/blender';
 import { BACKING_ID, type TProject } from '@/modules/project';
 import { isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
 import { cameraCommands, themeCommands } from '@/modules/design/design-commands';
-import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
 import { deleteThemeCommands, resolveTheme } from '@/modules/design/project-themes';
-import { saveAsTheme } from '@/modules/design/SkinProperties';
 import { framingFix, framingProblemAt, preflightExport, type TPreflightFix } from '@/modules/design/export-preflight';
-import { deleteDecorCommands, duplicateDecorCommands, selectedDecorIds } from '@/modules/design/decor';
-import { openScatterPanel } from '@/modules/design/decor-actions';
+import { builtInSource, deleteDecorCommands, duplicateDecorCommands, selectedDecorIds } from '@/modules/design/decor';
+import { openScatterPanel, placeDecor } from '@/modules/design/decor-actions';
 import { addLightCommands, deleteLightsCommands } from '@/modules/design/scene-layers';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { shownCycle } from './cycle';
 import { duplicateClear, type TClearDuplicate } from './duplicate';
-import { KEY_LIGHT_ID, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, toDecorKey, toHitKey, toLightKey, toShotKey } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey } from './selection';
 import { hasSongLayer } from './song-layer';
 import { handNotes } from './timeline/hand-notes';
 import type { StudioCx, TWorkspace } from './StudioCx';
@@ -336,7 +335,6 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.sidebar', title: 'Sidebar', section: 'View', shortcut: '⌃⌘S', keywords: 'outliner panel', isChecked: (cx) => cx.$panels.get().sidebar, run: (cx) => cx.togglePanel('sidebar') },
 	{ id: 'view.inspector', title: 'Inspector', section: 'View', shortcut: '⌃⌘I', keywords: 'properties panel', isChecked: (cx) => cx.$panels.get().inspector, run: (cx) => cx.togglePanel('inspector') },
 	{ id: 'view.timeline', title: 'Timeline', section: 'View', shortcut: '⌃⌘T', keywords: 'tracks dope sheet panel', isChecked: (cx) => cx.$panels.get().timeline, run: (cx) => cx.togglePanel('timeline') },
-	{ id: 'view.agent', title: 'Agent', section: 'View', shortcut: '⌘J', keywords: 'chat ai assistant claude codex ask', isEnabled: hasProject, isChecked: (cx) => cx.$panels.get().agent, run: (cx) => cx.togglePanel('agent') },
 	{ id: 'view.zoomIn', workspace: 'compose', title: 'Zoom In', section: 'View', shortcut: '⌘+', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(2) },
 	{ id: 'view.zoomOut', workspace: 'compose', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(0.5) },
 	{ id: 'view.zoom100', workspace: 'compose', title: 'Zoom to 100%', section: 'View', shortcut: '⌘0', keywords: 'actual size reset real', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomTo100() },
@@ -372,6 +370,14 @@ export const commands: readonly TCommand[] = [
 		isEnabled: (cx) => compose(cx) != null,
 		isChecked: (cx) => compose(cx)?.$follow.get() === true,
 		run: (cx) => compose(cx)?.toggleFollow()
+	},
+	{
+		id: 'view.audioScrubbing',
+		title: 'Audio Scrubbing',
+		section: 'View',
+		keywords: 'scrub skim skimming hear sound song playhead drag ruler',
+		isChecked: (cx) => cx.$audioScrubbing.get(),
+		run: (cx) => cx.toggleAudioScrubbing()
 	},
 
 	// MARK: - Playback
@@ -434,6 +440,18 @@ export const commands: readonly TCommand[] = [
 		keywords: 'whole song all hits auto build everything finish solve assist',
 		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isBuilding !== true && compose(cx)?.assist.hasOpenHits === true,
 		run: (cx) => void compose(cx)?.assist.buildTrack()
+	},
+	{
+		id: 'build.rebuildFrom',
+		title: 'Rebuild From Here',
+		section: 'Track',
+		keywords: 'build track again rest later after this hit platform steer keep before',
+		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isBuilding !== true && compose(cx)?.assist.rebuildTarget != null,
+		run: (cx) => {
+			const assist = compose(cx)?.assist;
+			const from = assist?.rebuildTarget;
+			if (from != null) void assist?.buildTrack(from);
+		}
 	},
 	{ id: 'build.stop', title: 'Stop Building Track', section: 'Track', keywords: 'cancel build track', isEnabled: (cx) => compose(cx)?.assist.isBuilding === true, run: (cx) => compose(cx)?.assist.stopBuild() },
 	{ id: 'build.repeat', title: 'Repeat Last Platform', section: 'Track', shortcut: 'R', keywords: 'copy same tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('repeat') },
@@ -504,17 +522,6 @@ export const commands: readonly TCommand[] = [
 		}
 	},
 	{
-		id: 'design.askAgent',
-		title: 'Ask Agent…',
-		section: 'Film',
-		keywords: 'ai claude codex generate skin describe',
-		isEnabled: inDesign,
-		run: (cx) => {
-			cx.$panels.set((panels) => ({ ...panels, inspector: true }));
-			requestAnimationFrame(() => document.getElementById('agent-prompt')?.focus());
-		}
-	},
-	{
 		id: 'design.resetToCompose',
 		title: 'Discard Blender Changes',
 		section: 'Film',
@@ -548,7 +555,7 @@ export const commands: readonly TCommand[] = [
 		id: 'decor.scatter',
 		title: 'Scatter Decor…',
 		section: 'Film',
-		keywords: 'decoration bauble snowflake fill wall ornaments',
+		keywords: 'decoration bauble fill wall ornaments',
 		isEnabled: hasProject,
 		run: (cx) => openScatterPanel(cx)
 	},
@@ -597,14 +604,6 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => cx.execute([{ type: 'setDesign', design: { loop: cx.project?.design.loop !== true } }])
 	},
 	{
-		id: 'design.saveAsTheme',
-		title: 'Save as Theme',
-		section: 'Film',
-		keywords: 'theme skins parts preset mix wall lights duplicate copy edit colours colors',
-		isEnabled: hasProject,
-		run: saveAsTheme
-	},
-	{
 		id: 'design.takeOverCamera',
 		title: 'Take Over Camera',
 		section: 'Film',
@@ -613,26 +612,6 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => {
 			const project = cx.project;
 			if (project != null) cx.execute(cameraCommands(project, { mode: 'manual' }));
-		}
-	},
-	{
-		id: 'design.newTheme',
-		title: 'New Theme with Agent…',
-		section: 'Film',
-		keywords: 'ai claude codex generate look skins style',
-		isEnabled: inDesign,
-		run: (cx) => {
-			const project = cx.project;
-			if (project == null) return;
-			// One mention per piece type, as the Theme section's button starts it: each run makes that type's skin
-			const seen = new Set<string>();
-			const mentionIds = project.entities.flatMap((entity) => {
-				const type = entity.components.piece?.type;
-				if (type == null || seen.has(type)) return [];
-				seen.add(type);
-				return [entity.id];
-			});
-			cx.openAgent({ text: NEW_THEME_PROMPT, mentionIds: mentionIds.length > 0 ? mentionIds : ['scene'] });
 		}
 	},
 	{
@@ -649,8 +628,64 @@ export const commands: readonly TCommand[] = [
 	{ id: 'design.cancelExport', title: 'Cancel Export', section: 'Film', keywords: 'stop render film', isEnabled: (cx) => cx.film.isRunning, run: (cx) => cx.film.cancel() },
 
 	// MARK: - Marble
+	// MARK: - Layers and settings, found by name in ⌘K
+	selectLayerCommand('layer.wall', 'Wall', WALL_KEY, 'warm cold colour color background plaster pegboard grid skin'),
+	selectLayerCommand('layer.keyLight', 'Key Light', KEY_LIGHT_KEY, 'warm cold bright dark sun main lighting'),
+	selectLayerCommand('layer.camera', 'Camera', CAMERA_KEY, 'closer zoom distance sway shake tilt angle look ahead'),
+	{
+		id: 'layer.song',
+		title: 'Song',
+		section: 'Marble',
+		keywords: 'solo mute listen hear isolate parts sound instrument tempo backing',
+		isEnabled: hasSong,
+		run: (cx) => cx.$selection.set([SONG_KEY])
+	},
+	{
+		id: 'film.format',
+		title: 'Format',
+		section: 'Film',
+		keywords: 'aspect portrait square vertical landscape shorts frame shape ratio',
+		isEnabled: hasProject,
+		run: (cx) => focusSceneField(cx, 'project-format')
+	},
+	{
+		id: 'film.theme',
+		title: 'Theme',
+		section: 'Film',
+		keywords: 'look style dress brass neon pegboard',
+		isEnabled: hasProject,
+		run: (cx) => focusSceneField(cx, 'scene-theme')
+	},
+	{
+		id: 'film.blenderPreview',
+		title: 'Blender Preview',
+		section: 'Film',
+		keywords: 'live preview render real look draft',
+		isEnabled: canRunBlender,
+		isChecked: (cx) => cx.design.live.$enabled.get(),
+		run: (cx) => cx.design.live.setEnabled(!cx.design.live.$enabled.get())
+	},
+	{
+		id: 'decor.particles',
+		title: 'Add Particles',
+		section: 'Film',
+		keywords: 'snow dust sparks confetti falling decor',
+		isEnabled: hasProject,
+		run: (cx) => {
+			placeDecor(cx, builtInSource('decor:snowfall'));
+		}
+	},
 	{ id: 'marble.add', title: 'Add Marble', section: 'Marble', keywords: 'track new ball', isEnabled: hasProject, run: (cx) => void cx.addMarble() },
-	{ id: 'marble.speed', workspace: 'compose', title: 'Marble Speed', section: 'Marble', keywords: 'speed gravity fall fast slow physics', isEnabled: hasProject, run: (cx) => focusMarbleSpeed(cx) },
+	{
+		id: 'film.fitToSong',
+		title: 'Fit to Song',
+		section: 'Film',
+		keywords: 'length end duration film trim',
+		isEnabled: (cx) => cx.project != null && lastHitTime(cx.project) != null && !fitsSong(cx.project),
+		whyDisabled: 'The length already fits the song',
+		run: (cx) => void cx.fitToSong()
+	},
+	{ id: 'marble.speed', workspace: 'compose', title: 'Gravity', section: 'Marble', keywords: 'marble speed fall fast slow physics', isEnabled: hasProject, run: (cx) => focusMarbleSpeed(cx) },
 
 	// MARK: - Help
 	{
@@ -668,7 +703,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'help.showAiWorkspace', title: 'Show AI Workspace', section: 'Help', keywords: 'ai agent claude code codex chatgpt connect mcp folder', run: (cx) => void cx.mcp.showWorkspace() },
 	{ id: 'agent.showFolder', title: 'Show Agent Folder', section: 'File', keywords: 'ai references notes runs scratch finder', isEnabled: hasProject, run: (cx) => void cx.showAgentFolder() },
 	{ id: 'design.addPack', title: 'Add Pack…', section: 'File', keywords: 'themes skins decor library browse import starter community', run: (cx) => cx.library.$isAddPackOpen.set(true) },
-	{ id: 'design.exportPack', title: 'Export Pack…', section: 'File', keywords: 'themes skins decor share file', isEnabled: hasProject, run: (cx) => cx.library.$exportPack.set({ name: cx.project != null ? resolveTheme(cx.project.design).name : '', includesTheme: true, assetIds: [] }) }
+	{ id: 'design.exportPack', title: 'Export Pack…', section: 'File', keywords: 'themes skins decor share file', isEnabled: hasProject, run: (cx) => cx.library.openExportPack() }
 ];
 
 export type TCommandId =
@@ -686,7 +721,6 @@ export type TCommandId =
 	| 'design.restartBlender'
 	| 'design.renderPreview'
 	| 'design.addText'
-	| 'design.askAgent'
 	| 'design.resetToCompose'
 	| 'design.regenerateCamera'
 	| 'camera.addShot'
@@ -698,9 +732,7 @@ export type TCommandId =
 	| 'design.themeNeon'
 	| TPresetCommandId
 	| 'design.loop'
-	| 'design.saveAsTheme'
 	| 'design.takeOverCamera'
-	| 'design.newTheme'
 	| 'design.deleteTheme'
 	| 'design.cancelExport'
 	| 'edit.undo'
@@ -715,7 +747,6 @@ export type TCommandId =
 	| 'view.sidebar'
 	| 'view.inspector'
 	| 'view.timeline'
-	| 'view.agent'
 	| 'view.zoomIn'
 	| 'view.zoomOut'
 	| 'view.zoom100'
@@ -725,6 +756,7 @@ export type TCommandId =
 	| 'view.fitFrame'
 	| 'view.showHitboxes'
 	| 'view.follow'
+	| 'view.audioScrubbing'
 	| 'play.toggle'
 	| 'play.start'
 	| 'play.previousHit'
@@ -739,6 +771,7 @@ export type TCommandId =
 	| 'view.snap'
 	| 'build.next'
 	| 'build.track'
+	| 'build.rebuildFrom'
 	| 'build.stop'
 	| 'build.repeat'
 	| 'build.mirror'
@@ -754,6 +787,15 @@ export type TCommandId =
 	| 'build.rotateLeft'
 	| 'build.rotateRight'
 	| 'marble.add'
+	| 'film.fitToSong'
+	| 'film.format'
+	| 'film.theme'
+	| 'film.blenderPreview'
+	| 'decor.particles'
+	| 'layer.wall'
+	| 'layer.keyLight'
+	| 'layer.camera'
+	| 'layer.song'
 	| 'marble.speed'
 	| 'tool.platform'
 	| 'tool.tunnel'
@@ -869,7 +911,19 @@ export function deleteSelectedHits(cx: StudioCx): boolean {
 	return removeSelectedHits(cx, cx.$selection.get(), $rollHasFocus.get());
 }
 
-/** Marble Speed sits in the Project inspector: clear the selection, show the inspector and focus the value */
+/** Selects a layer of Film by name */
+function selectLayerCommand(id: TCommandId, title: string, key: string, keywords: string): TCommand {
+	return { id, title, section: 'Film', keywords, isEnabled: hasProject, run: (cx) => cx.$selection.set([key]) };
+}
+
+/** A setting of Film's Scene inspector: selects the Scene, shows the inspector and focuses the field */
+function focusSceneField(cx: StudioCx, id: string): void {
+	cx.$selection.set([]);
+	cx.$panels.set({ ...cx.$panels.get(), inspector: true });
+	onNextFrame(() => onNextFrame(() => document.getElementById(id)?.focus()));
+}
+
+/** Gravity sits in Compose's Scene inspector: clear the selection, show the inspector and focus the value */
 function focusMarbleSpeed(cx: StudioCx): void {
 	cx.$selection.set([]);
 	if (!cx.$panels.get().inspector) cx.togglePanel('inspector');

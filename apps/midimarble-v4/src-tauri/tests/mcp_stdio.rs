@@ -84,7 +84,8 @@ fn bridges_tool_calls_to_the_socket() {
     let listener = UnixListener::bind(&socket).unwrap();
     let stub = thread::spawn(move || {
         let mut seen = Vec::new();
-        for _ in 0..2 {
+        // The two calls, and the connection that says the client is there
+        for _ in 0..3 {
             let (stream, _) = listener.accept().unwrap();
             let mut reader = BufReader::new(stream.try_clone().unwrap());
             let mut line = String::new();
@@ -110,7 +111,11 @@ fn bridges_tool_calls_to_the_socket() {
     assert_eq!(frame["content"][1]["text"], "3 of 4 hits on time");
     assert_eq!(server.call("export_film", json!({}))["isError"], true);
 
-    let seen = stub.join().unwrap();
+    let all = stub.join().unwrap();
+    let presence: Vec<&Value> = all.iter().filter(|request| request["tool"] == "__presence").collect();
+    assert_eq!(presence.len(), 1);
+    assert_eq!(presence[0]["client"], "claude-code");
+    let seen: Vec<&Value> = all.iter().filter(|request| request["tool"] != "__presence").collect();
     assert_eq!(seen[0]["tool"], "preview_frame");
     assert_eq!(seen[0]["client"], "claude-code");
     assert_eq!(seen[0]["arguments"]["time"], 1.5);

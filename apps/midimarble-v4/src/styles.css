@@ -27,6 +27,8 @@
 	--control-border: rgb(0 0 0 / 0.12);
 	--shadow-popover: 0 0 0 0.5px rgb(0 0 0 / 0.15), 0 10px 30px rgb(0 0 0 / 0.18);
 	--good: #28a745;
+	/* Blender's logo orange */
+	--blender: #e87d0d;
 	--warn: #e8a100;
 	--bad: #e5484d;
 	--playhead: #ff3b30;
@@ -1368,38 +1370,6 @@ button.mm-hit-summary:hover {
 	text-overflow: ellipsis;
 }
 
-/* The grids of the inspector's Look and Theme sections use the panel's own gutters: three skins or two themes a row */
-.mm-look-tiles,
-.mm-theme-tiles {
-	padding: 2px 0 4px;
-}
-
-.mm-look-tiles {
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-/* Names such as Theme Default and Copper Device run onto a second line rather than cut off */
-.mm-look-tiles .mm-tile-label {
-	line-height: 1.15;
-	white-space: normal;
-}
-
-.mm-theme-current {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	width: 100%;
-	padding: 4px;
-	border-radius: 8px;
-	background: var(--hover);
-}
-
-.mm-theme-current-thumb {
-	width: 44px;
-	height: 44px;
-	flex-shrink: 0;
-}
-
 /* Rendered previews of themes and skins are square */
 .mm-tile-thumb-square {
 	aspect-ratio: 1;
@@ -1862,8 +1832,7 @@ button.mm-hit-summary:hover {
 }
 
 /* Blender and Agent: one secondary style, like Figma's secondary buttons and Xcode's neutral status display. Colour is left to the Blender logo and to Export Film…, the one accent button */
-.mm-titlebar-chip,
-.mm-titlebar-agent {
+.mm-titlebar-chip {
 	position: relative;
 	display: inline-flex;
 	align-items: center;
@@ -1877,32 +1846,13 @@ button.mm-hit-summary:hover {
 	white-space: nowrap;
 }
 
-.mm-titlebar-chip:hover,
-.mm-titlebar-agent:hover {
+.mm-titlebar-chip:hover {
 	background: var(--hover);
 }
 
 .mm-titlebar-chip:active,
-.mm-titlebar-chip[data-active='true'],
-.mm-titlebar-agent:active,
-.mm-titlebar-agent[data-active='true'] {
+.mm-titlebar-chip[data-active='true'] {
 	background: var(--pressed);
-}
-
-.mm-titlebar-agent {
-	gap: 5px;
-	margin-left: 4px;
-}
-
-.mm-titlebar-badge {
-	position: absolute;
-	top: 4px;
-	left: 18px;
-	width: 6px;
-	height: 6px;
-	border-radius: 3px;
-	background: var(--accent-strong);
-	box-shadow: 0 0 0 1.5px var(--window);
 }
 
 .mm-titlebar-export {
@@ -1990,8 +1940,8 @@ button.mm-hit-summary:hover {
 	color: var(--text-secondary);
 }
 
-.mm-titlebar-chip-glyph[data-tone='good'] {
-	color: var(--good);
+.mm-titlebar-chip-glyph[data-tone='ready'] {
+	color: var(--blender);
 }
 
 .mm-titlebar-chip-glyph[data-tone='bad'] {
@@ -1999,12 +1949,44 @@ button.mm-hit-summary:hover {
 }
 
 .mm-titlebar-chip-glyph[data-tone='busy'] {
-	color: var(--warn);
+	color: var(--blender);
 	animation: mm-chip-pulse 1.6s ease-in-out infinite;
 }
 
 .mm-titlebar-chip-glyph[data-tone='off'] {
 	color: var(--text-tertiary);
+}
+
+.mm-titlebar-agent-glyph {
+	flex-shrink: 0;
+	color: var(--text-secondary);
+}
+
+.mm-titlebar-agent-glyph[data-working='true'] {
+	color: var(--accent-strong);
+	animation: mm-chip-pulse 1.6s ease-in-out infinite;
+}
+
+/* What an agent's edit just changed: the selection's outline, then gone, on the wall and in Layers */
+.mm-agent-touched {
+	animation: mm-agent-touched 1s ease-out forwards;
+}
+
+@keyframes mm-agent-touched {
+	to {
+		opacity: 0;
+	}
+}
+
+.mm-layer[data-agent-touched] {
+	box-shadow: inset 0 0 0 1.5px var(--accent-strong);
+	animation: mm-agent-touched-row 1s ease-out forwards;
+}
+
+@keyframes mm-agent-touched-row {
+	to {
+		box-shadow: inset 0 0 0 1.5px transparent;
+	}
 }
 
 @keyframes mm-chip-pulse {
@@ -2015,6 +1997,9 @@ button.mm-hit-summary:hover {
 
 @media (prefers-reduced-motion: reduce) {
 	.mm-titlebar-chip-glyph[data-tone='busy'],
+	.mm-titlebar-agent-glyph[data-working='true'],
+	.mm-agent-touched,
+	.mm-layer[data-agent-touched],
 	.mm-progress-ring[data-indeterminate='true'] {
 		animation: none;
 	}
@@ -2243,6 +2228,8 @@ button.mm-layer-disclosure:hover {
 .mm-library {
 	position: fixed;
 	z-index: 90;
+	display: flex;
+	flex-direction: column;
 	width: 268px;
 	padding: 4px 8px 10px;
 	border-radius: 12px;
@@ -2254,8 +2241,77 @@ button.mm-layer-disclosure:hover {
 
 .mm-library[data-dense='true'] {
 	width: 304px;
-	max-height: calc(100vh - 16px);
+}
+
+/* The panel's list scrolls inside its frame; its head and foot stay */
+.mm-library-body {
+	flex: 1;
+	min-height: 0;
+	margin: 0 -8px;
+	padding: 0 8px;
 	overflow-y: auto;
+}
+
+.mm-library-foot {
+	flex-shrink: 0;
+	padding-top: 8px;
+}
+
+.mm-picker-search {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 6px;
+	height: 24px;
+	margin-bottom: 6px;
+	padding: 0 7px;
+	border-radius: 6px;
+	background: var(--field-fill);
+	font-size: var(--text-small);
+}
+
+/* A selection's skin or the theme as one row, opening its picker */
+.mm-picker-row-wrap {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
+.mm-picker-row {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	height: 32px;
+	padding: 0 8px 0 4px;
+	border-radius: 7px;
+	background: var(--field-fill);
+}
+
+.mm-picker-row:hover {
+	background: var(--hover);
+}
+
+.mm-picker-row-thumb {
+	position: relative;
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	overflow: hidden;
+	border-radius: 5px;
+	background: var(--preview-well);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-picker-row-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .mm-library[data-dense='true'] .mm-library-grid {
@@ -2377,7 +2433,9 @@ button.mm-layer-disclosure:hover {
 }
 
 .mm-library-preview {
+	position: relative;
 	display: flex;
+	overflow: hidden;
 	align-items: center;
 	justify-content: center;
 	height: 64px;
@@ -2632,8 +2690,22 @@ button.mm-layer-disclosure:hover {
 }
 
 .mm-lcd-length {
+	padding: 0 3px;
+	border-radius: 4px;
 	font-size: var(--text-small);
 	color: var(--text-secondary);
+	cursor: text;
+}
+
+button.mm-lcd-length:hover {
+	background: var(--hover);
+}
+
+.mm-lcd-length-input {
+	width: 58px;
+	border: 0;
+	outline: none;
+	background: var(--content);
 }
 
 .mm-zoom-slider {
@@ -3004,6 +3076,132 @@ button.mm-layer-disclosure:hover {
 	background: var(--hover);
 	color: var(--text-secondary);
 	font-size: var(--text-small);
+}
+
+.mm-agent-text {
+	font-size: 12px;
+	line-height: 1.45;
+	white-space: pre-wrap;
+	user-select: text;
+}
+
+.mm-agent-details {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 16px;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 12px 14px 16px;
+}
+
+.mm-agent-section {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.mm-agent-section > header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 20px;
+}
+
+.mm-agent-section h3 {
+	font-size: var(--text-small);
+	font-weight: 600;
+}
+
+.mm-agent-references {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	border-radius: 8px;
+}
+
+.mm-agent-references[data-dropping='true'] {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.mm-agent-thumbs {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+	gap: 6px;
+}
+
+.mm-agent-thumb {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 1;
+	overflow: hidden;
+	padding: 4px;
+	border-radius: 6px;
+	background: var(--hover);
+	box-shadow: 0 0 0 0.5px var(--control-border);
+	font-size: 11px;
+	color: var(--text-secondary);
+}
+
+.mm-agent-thumb > img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+div.mm-agent-thumb > button {
+	position: absolute;
+	top: 3px;
+	right: 3px;
+	display: none;
+	padding: 2px;
+	border-radius: 50%;
+	background: var(--content);
+	color: var(--text);
+}
+
+div.mm-agent-thumb:hover > button,
+div.mm-agent-thumb > button:focus-visible {
+	display: flex;
+}
+
+button.mm-agent-thumb:hover {
+	box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.mm-agent-undo {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+}
+
+.mm-agent-context {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+}
+
+.mm-agent-context > [role='meter'] {
+	flex: 1;
+	height: 4px;
+	overflow: hidden;
+	border-radius: 2px;
+	background: var(--hover);
+}
+
+.mm-agent-context > [role='meter'] > span {
+	display: block;
+	height: 100%;
+	background: var(--text-secondary);
 }
 
 .mm-agent-composer-wrap {

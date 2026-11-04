@@ -13,7 +13,7 @@ export const quickHelpRegions: TQuickHelpRegion[] = [
 	{ id: 'wall', title: 'Wall', line: 'Marbles fall here and play their notes on the track', gutter: 'center', workspace: 'compose' },
 	{ id: 'wall', title: 'Preview', line: 'The film as Blender renders it at the playhead', gutter: 'center', workspace: 'design' },
 	{ id: 'export', title: 'Export Film…', line: 'Makes the movie file once the track plays well', gutter: 'right' },
-	{ id: 'agent', title: 'Agent', line: 'Ask for a theme, a skin or a change in plain words', gutter: 'right' },
+	{ id: 'agent', title: 'Agent', line: 'Who is connected: your own Claude Code, Codex or Claude app works in this window through MCP', gutter: 'right' },
 	{ id: 'blender', title: 'Blender', line: 'Renders the film; its logo shows the state and its menu opens the scene in Blender', gutter: 'right' },
 	{ id: 'inspector', title: 'Inspector', line: 'Settings of the selection: its skin, or the Scene with its theme', gutter: 'right' },
 	{ id: 'timelineLayers', title: 'Timeline', line: 'The same layers along the time: the song and each marble, in Film also camera and titles', gutter: 'bottom' },

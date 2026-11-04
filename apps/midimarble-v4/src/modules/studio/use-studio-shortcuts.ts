@@ -130,11 +130,10 @@ export function useStudioShortcuts(cx: StudioCx): void {
 const panelKeys: Record<string, TStudioPanel> = { s: 'sidebar', i: 'inspector', t: 'timeline' };
 
 // ⌘ shortcuts that run a command directly; the ⌃⌘ panel toggles and ⌘1 and ⌘2 are handled above
-const commandKeys: Record<string, 'file.new' | 'file.open' | 'file.save' | 'file.export' | 'edit.selectAll' | 'edit.duplicate' | 'view.agent' | undefined> = {
+const commandKeys: Record<string, 'file.new' | 'file.open' | 'file.save' | 'file.export' | 'edit.selectAll' | 'edit.duplicate' | undefined> = {
 	// ⌘D is Don't Save only while that alert is open; it takes the key first
 	d: 'edit.duplicate',
 	e: 'file.export',
-	j: 'view.agent',
 	n: 'file.new',
 	o: 'file.open',
 	s: 'file.save',

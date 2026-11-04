@@ -48,7 +48,7 @@ pub struct PackItem {
     pub label: String,
     /// Where it comes from, such as `agent`
     pub origin: Option<String>,
-    /// A bundled Pack's Decor that the app draws itself until real assets exist: `decor:bauble-red`. It has no folder.
+    /// A bundled Pack's item that the app draws itself until real assets exist: `decor:bauble-red`, `platform:gold`. It has no folder.
     pub source: Option<String>,
 }
 
@@ -258,7 +258,10 @@ fn read_pack(dir: &Path, id: &str) -> Result<PackDto, String> {
     let mut built_in_decor = Vec::new();
     for item in &manifest.items {
         if let Some(source) = &item.source {
-            built_in_decor.push(source.clone());
+            // A theme or skin the app draws itself needs nothing from here; the Starter Pack's are read in the app
+            if item.kind == PackItemKind::Decor {
+                built_in_decor.push(source.clone());
+            }
         } else if item.kind == PackItemKind::Theme {
             let path = dir.join(THEMES_FOLDER).join(format!("{}.json", item.id));
             themes_json.push(fs::read_to_string(path).map_err(|error| error.to_string())?);
@@ -455,7 +458,7 @@ mod tests {
         let bundled = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packs");
         let packs = list_bundled(&bundled);
         let starter = packs.iter().find(|pack| pack.name == "Starter").unwrap();
-        assert_eq!(starter.built_in_decor.len(), 8);
+        assert_eq!(starter.built_in_decor.len(), 9);
         assert!(starter.built_in_decor.contains(&"decor:bauble-red".to_string()));
         assert!(starter.items.is_empty());
         assert!(starter.description.is_some());
@@ -464,7 +467,7 @@ mod tests {
         let library = root.join(PACKS_FOLDER);
         let added = import_pack(Path::new(&starter.path), &library).unwrap();
         assert_eq!(added.id, "starter");
-        assert_eq!(added.built_in_decor.len(), 8);
+        assert_eq!(added.built_in_decor.len(), 9);
         fs::remove_dir_all(root).unwrap();
     }
 

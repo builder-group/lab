@@ -1798,7 +1798,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 	// Speeds scale with gravity, so the strike threshold does too
 	const impactSpeed = IMPACT_SPEED * (plan.gravity / gravityOf({}));
 	for (const lane of project.music.lanes) {
-		const band = frameBand(project, lane.id);
+		const band = frameBand(project);
 		const marbleIndex = plan.marbles.findIndex((marble) => marble.laneId === lane.id);
 		const marble = plan.marbles[marbleIndex];
 		const samples = state.marbles[marbleIndex]?.samples ?? [];

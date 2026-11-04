@@ -1,10 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle } from 'lucide-react';
 import React from 'react';
-import { HelpTip } from '@/components';
 import { FinishShape, RailShape, SwitchbackShape, toPoints, TunnelShape } from '@/modules/compose/PieceLayer';
 import { pieceKind } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
+import type { TTouched } from '@/modules/mcp/AgentPresenceCx';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { placeDecor, startDecorDrag } from './decor-actions';
 import { DraftDecorShape } from './DraftDecorShape';
@@ -20,7 +20,7 @@ import { HitboxOverlay } from './HitboxOverlay';
  * there. Clicks pick pieces and titles or place a title, library drops skin the piece under the pointer.
  */
 export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
-	const { studio, frame, isPlacing, isBusy, cover, coverLabel, onPick, onPlace, onDropAsset } = props;
+	const { studio, frame, isPlacing, cover, onPick, onPlace, onDropAsset } = props;
 	const [draft] = React.useState(() => new DraftPreviewCx(studio));
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const canvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -113,26 +113,13 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 					<DraftEffects draft={draft} />
 					{cover}
 					<SelectionOverlay draft={draft} />
+					<AgentTouchedOverlay draft={draft} />
 					<HitboxOverlay draft={draft} />
 					{!hasResult ? (
 						<div className="absolute inset-0 flex items-center justify-center text-[var(--text-tertiary)]">
 							<LoaderCircle className="animate-spin" size={22} />
 						</div>
 					) : null}
-				</div>
-				<div className="mm-floating absolute top-2 left-2 flex items-center gap-1.5 py-1 pr-1.5 pl-2.5 text-[11px] text-[var(--text-secondary)]">
-					{isBusy ? <LoaderCircle className="animate-spin" size={11} /> : null}
-					{coverLabel != null ? (
-						<>
-							<span className="font-medium text-[var(--text)]">{coverLabel}</span>
-							<HelpTip side="right" text="Blender renders the film in the background while you work: Flat Light first, then Fast lighting ahead of the playhead. Turn it off with Live Preview in the Blender menu." />
-						</>
-					) : (
-						<>
-							<span className="font-medium text-[var(--text)]">Draft Preview</span>
-							<HelpTip side="right" text="Blender draws the real film. This preview follows the same camera." />
-						</>
-					)}
 				</div>
 			</div>
 		</div>
@@ -143,12 +130,8 @@ interface TDraftPreviewProps {
 	studio: StudioCx;
 	frame: { width: number; height: number };
 	isPlacing: boolean;
-	/** Blender is starting or rendering its preview, which replaces this one when ready */
-	isBusy: boolean;
 	/** Drawn over the frame, such as Blender's background preview frame; clicks still pick through the draft */
 	cover?: React.ReactNode;
-	/** Replaces the Draft Preview label while the cover shows a frame */
-	coverLabel?: string | null;
 	onPick: (entityId: string | null, shiftKey: boolean) => void;
 	/** Click while placing, in 0..1 image coordinates; ⇧-click keeps the tool for another placement */
 	onPlace: (u: number, v: number, keepTool: boolean) => void;
@@ -298,6 +281,29 @@ const SelectionOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 			{selection.flatMap((key) => {
 				const outline = key.startsWith('decor:') || key.startsWith('blender:') ? draft.decorOutline(key) : null;
 				return outline != null ? [<polygon key={key} points={toPoints(outline)} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} strokeLinejoin="round" />] : [];
+			})}
+		</svg>
+	);
+};
+
+/** What an agent's edit just changed, drawn like the selection and fading in about a second */
+const AgentTouchedOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
+	const { draft } = props;
+	const touched = useFeatureState(draft.studio.mcp.presence.$touched);
+	// Only a mark that shows follows the frames
+	return touched.length > 0 ? <AgentTouchedOutlines draft={draft} touched={touched} /> : null;
+};
+
+const AgentTouchedOutlines: React.FC<{ draft: DraftPreviewCx; touched: readonly TTouched[] }> = (props) => {
+	const { draft, touched } = props;
+	useFeatureState(draft.$frame);
+	const pieces = draft.pieces();
+	return (
+		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+			{touched.map((item) => {
+				const piece = pieces.find((candidate) => candidate.entityId === item.key);
+				const outline = piece != null ? draft.selectionOutline(piece) : item.key.startsWith('decor:') ? draft.decorOutline(item.key) : null;
+				return outline != null ? <polygon key={`${item.key}-${item.stamp}`} className="mm-agent-touched" points={toPoints(outline)} fill="none" stroke="var(--accent-strong)" strokeWidth={2} strokeLinejoin="round" /> : null;
 			})}
 		</svg>
 	);

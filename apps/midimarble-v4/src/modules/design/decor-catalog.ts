@@ -1,9 +1,9 @@
-import { addedBuiltInDecor } from '@/modules/library';
+import { addedBuiltInDecor, STARTER_PACK } from '@/modules/library';
 import type { TDecor, TDesign } from '@/modules/project';
 import catalog from '../../../blender/mm_worker/decor_catalog.json';
 
-// The Decor items. They leave the app as a starter Pack later; until then `origin` names it and `hidden` keeps an item
-// rendering in the projects that have it, off Insert and the tiles. The Blender worker builds the same items from the same file (`decor.py`), and `check_design.py` holds its meshes to these sizes.
+// The Decor items. The Starter Pack lists the ones every project is offered; `origin` names a Pack and `hidden` keeps an item
+// rendering in the projects that have it, off Insert and the pickers. The Blender worker builds the same items from the same file (`decor.py`), and `check_design.py` holds its meshes to these sizes.
 
 export interface TDecorItem {
 	/** `decor:bauble-red`: a project's `source` for this item */
@@ -31,10 +31,10 @@ export interface TDecorItem {
 
 export const DECOR_ITEMS: readonly TDecorItem[] = catalog.items.map(({ preview, ...item }) => ({ ...item, previewUrl: `/decor/${preview}` }) as TDecorItem);
 
-/** The items Insert and the tiles offer: those without a Pack, an added Pack's, and those the project already has */
+/** The items Insert and the pickers offer: the Starter Pack's, an added Pack's, and those the project already has */
 export function listedDecorItems(inUse: ReadonlySet<string> = new Set()): TDecorItem[] {
 	const added = addedBuiltInDecor();
-	return DECOR_ITEMS.filter((item) => item.hidden !== true && (item.origin == null || added.includes(item.id) || inUse.has(item.id)));
+	return DECOR_ITEMS.filter((item) => item.hidden !== true && (STARTER_PACK.builtInDecor.includes(item.id) || added.includes(item.id) || inUse.has(item.id)));
 }
 
 /** The items a project has placed, which it keeps offering without their Pack */

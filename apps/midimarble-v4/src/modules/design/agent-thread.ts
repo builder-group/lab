@@ -3,14 +3,12 @@ import {
 	canAcceptRun,
 	formatAgentUsage,
 	isNewThemeRequest,
-	requestFromPrompt,
 	type TAgentAvailability,
 	type TAgentCli,
 	type TAgentCliInfo,
 	type TAgentMessage,
 	type TAgentRun,
-	type TAgentRunPhase,
-	type TAgentTarget
+	type TAgentRunPhase
 } from '@/modules/agents';
 import type { TThemeOverrides } from '@/modules/project';
 
@@ -26,6 +24,8 @@ export interface TAgentThreadItem {
 	lines: TAgentThreadLine[];
 	/** Tool steps folded away before `lines` */
 	hiddenSteps: number;
+	/** What the agent said last, as it streams and once it's done */
+	reply: string | null;
 	candidate: TAgentCandidate | null;
 	canAccept: boolean;
 	canCancel: boolean;
@@ -43,8 +43,6 @@ export interface TAgentCandidate {
 	previewUrl: string | null;
 	label: string;
 	theme: TAgentThemeProposal | null;
-	/** One item of a decor set, which Accept scatters on the wall */
-	decorSet: { index: number; total: number } | null;
 }
 
 export interface TAgentThemeProposal {
@@ -66,24 +64,6 @@ export interface TAgentSetupHint {
 
 const MAX_STEPS = 4;
 
-/** Runs that belong to a target, oldest first like a comment thread */
-export function agentThread(runs: TAgentRun[], target: TAgentTarget): TAgentThreadItem[] {
-	return runs
-		.filter((run) => isRunForTarget(run, target))
-		.sort((a, b) => a.startedAt - b.startedAt)
-		.map(toThreadItem);
-}
-
-/**
- * Whether a run belongs to a target. Runs from earlier sessions have no recorded target; they show in the
- * Scene thread, or in the thread of a piece of the type their manifest names.
- */
-export function isRunForTarget(run: TAgentRun, target: TAgentTarget): boolean {
-	if (run.target == null) return target.kind === 'scene';
-	if (target.kind === 'piece') return run.target.kind === 'piece' && run.target.entityId === target.entityId;
-	return run.target.kind === target.kind;
-}
-
 export function toThreadItem(run: TAgentRun): TAgentThreadItem {
 	const { lines, hiddenSteps } = threadLines(run.messages);
 	const result = [...run.messages].reverse().find((message) => message.kind === 'result');
@@ -91,22 +71,32 @@ export function toThreadItem(run: TAgentRun): TAgentThreadItem {
 	const error = run.error ?? (messageError?.kind === 'error' ? messageError.text : null) ?? run.manifestError;
 	const canAccept = canAcceptRun(run.phase);
 	const proposal = run.manifest?.theme;
-	const theme = proposal != null && isNewThemeRequest(requestFromPrompt(run.prompt)) ? { name: proposal.name, base: proposal.base, overrides: proposal.overrides } : null;
+	const theme = proposal != null && isNewThemeRequest(run.request) ? { name: proposal.name, base: proposal.base, overrides: proposal.overrides } : null;
 	return {
 		id: run.id,
-		prompt: run.prompt.split('\n\n')[0] ?? run.prompt,
+		prompt: run.request,
 		cliLabel: cliLabel(run.cli),
 		phase: run.phase,
 		phaseLabel: agentRunPhaseLabel(run.phase),
 		lines,
 		hiddenSteps,
-		candidate: run.phase !== 'declined' && (run.previewUrl != null || theme != null) ? { previewUrl: run.previewUrl, label: run.manifest?.label ?? 'Candidate', theme, decorSet: run.target?.kind === 'scene' && run.target.decorSet != null ? { index: run.target.decorSet.index, total: run.target.decorSet.total } : null } : null,
+		reply: lastReply(run.messages),
+		candidate: run.phase !== 'declined' && (run.previewUrl != null || theme != null) ? { previewUrl: run.previewUrl, label: run.manifest?.label ?? 'Candidate', theme } : null,
 		canAccept,
 		canCancel: run.phase === 'working',
 		error: run.phase === 'failed' || run.phase === 'incomplete' ? error : null,
-		usage: result?.kind === 'result' ? formatAgentUsage(result.durationMs, result.costUsd) : null,
+		// A resumed session reports what the whole session cost, which says nothing about this message
+		usage: result?.kind === 'result' ? formatAgentUsage(result.durationMs, run.isChat ? null : result.costUsd) : null,
 		setup: error != null ? loginHint(run.cli, error) : null
 	};
+}
+
+function lastReply(messages: TAgentMessage[]): string | null {
+	for (const message of [...messages].reverse()) {
+		if (message.kind === 'text' && message.text.trim().length > 0) return message.text.trim();
+		if (message.kind === 'result' && message.text.trim().length > 0) return message.text.trim();
+	}
+	return null;
 }
 
 function threadLines(messages: TAgentMessage[]): { lines: TAgentThreadLine[]; hiddenSteps: number } {
@@ -141,24 +131,16 @@ export function loginHint(cli: TAgentCli, error: string): TAgentSetupHint | null
 	};
 }
 
-/** What keeps agents from running, or null when one can run */
-export function agentSetupHint(availability: TAgentAvailability, clis: TAgentCliInfo[]): TAgentSetupHint | null {
+/** The one line that says what keeps the agent from running here, or null when one can run */
+export function agentSetupNote(availability: TAgentAvailability, clis: TAgentCliInfo[]): string | null {
 	switch (availability) {
 		case 'unknown':
 			return null;
 		case 'unavailable':
-			return {
-				title: 'Agents Run in the Desktop App',
-				body: 'The browser preview cannot start Claude Code or Codex. Open MidiMarble on your Mac to ask an agent.',
-				command: null
-			};
+			return 'The agent runs in the desktop app.';
 		case 'missing':
-			return {
-				title: 'No Agent Is Installed',
-				body: 'Install Claude Code, log in once in Terminal, then come back.',
-				command: 'npm install -g @anthropic-ai/claude-code && claude /login'
-			};
+			return 'Install Claude Code or Codex to ask here. The app works fully by hand without one.';
 		case 'ready':
-			return clis.length > 0 ? null : agentSetupHint('missing', clis);
+			return clis.length > 0 ? null : agentSetupNote('missing', clis);
 	}
 }

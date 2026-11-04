@@ -4,26 +4,21 @@ import { addedPacks } from '@/modules/library';
 import { DECOR_ITEMS, listedDecorItems, usedDecorSources } from './decor-catalog';
 
 describe('Decor catalog', () => {
-	it('should offer only Particles while no Pack is added', () => {
+	it('should offer the Starter Pack from the start, whatever else is added', () => {
 		addedPacks.set([]);
-		expect(listedDecorItems().map((item) => item.label)).toEqual(['Particles']);
+		expect(listedDecorItems().map((item) => item.label)).toEqual(['Red Bauble', 'Gold Bauble', 'Gold Snowflake', 'Fairy Light', 'Gift Box', 'Star', 'Handle', 'Subscribe', 'Particles']);
+		expect(listedDecorItems().every((item) => item.origin === 'Starter')).toBe(true);
 	});
 
-	it('should keep offering the items a project has, with their origin', () => {
-		const inUse = usedDecorSources({ decor: [{ source: 'decor:star' }, { source: 'decor:garland' }] as never });
-		const listed = listedDecorItems(inUse);
-		expect(listed.map((item) => item.label)).toEqual(['Star', 'Particles']);
-		expect(listed[0]?.origin).toBe('Starter');
+	it('should keep offering a hidden item a project has', () => {
+		const inUse = usedDecorSources({ decor: [{ source: 'decor:garland' }] as never });
+		expect(listedDecorItems(inUse).some((item) => item.id === 'decor:garland')).toBe(false);
+		expect(DECOR_ITEMS.find((item) => item.id === 'decor:garland')?.hidden).toBe(true);
 	});
 
-	it('should offer what an added Pack brings', () => {
-		addedPacks.set([{ builtInDecor: ['decor:star'] }] as never);
-		expect(listedDecorItems().map((item) => item.label)).toEqual(['Star', 'Particles']);
-		addedPacks.set([]);
-	});
 
 	it('should mark the starter items and hide Garland without dropping it', () => {
-		expect(DECOR_ITEMS.filter((item) => item.origin === 'Starter').map((item) => item.label)).toEqual(['Red Bauble', 'Gold Bauble', 'Gold Snowflake', 'Fairy Light', 'Gift Box', 'Star', 'Handle', 'Subscribe']);
+		expect(DECOR_ITEMS.filter((item) => item.origin === 'Starter').map((item) => item.label)).toEqual(['Red Bauble', 'Gold Bauble', 'Gold Snowflake', 'Fairy Light', 'Gift Box', 'Star', 'Handle', 'Subscribe', 'Particles']);
 		expect(DECOR_ITEMS.find((item) => item.id === 'decor:garland')?.hidden).toBe(true);
 	});
 });

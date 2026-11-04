@@ -107,6 +107,14 @@ export const host = {
 		return { name: path.split('/').pop() ?? path, path };
 	},
 
+	/** Open panel for References; empty when cancelled or in the browser */
+	async chooseImages(): Promise<string[]> {
+		if (!isTauri()) return [];
+		const { open } = await import('@tauri-apps/plugin-dialog');
+		const paths = await open({ title: 'Add Images', multiple: true, filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'heic', 'tiff'] }] });
+		return paths ?? [];
+	},
+
 	/** Copies a picked or dropped file into the package and returns its package-relative path */
 	async importSource(packagePath: string, file: THostPickedFile): Promise<TResult<string, Error>> {
 		if (!isTauri()) {

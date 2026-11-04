@@ -266,3 +266,25 @@ describe('migrations', () => {
 		expect(find('platform')?.piece?.params['entryDelay']).toBeUndefined();
 	});
 });
+
+describe('one colour per marble', () => {
+	it('should keep the lane and the marble on one colour however an edit sets it', () => {
+		const project = createProject({ id: 'p', title: 'T' });
+		const lane = project.music.lanes[0] as TProject['music']['lanes'][number];
+		const marble = project.entities.find((entity) => entity.components.marble != null);
+		const [, , byLane] = applyProjectCommands(project, [{ type: 'upsertLane', lane: { ...lane, color: '#112233' } }]);
+		expect(byLane?.entities.find((entity) => entity.id === marble?.id)?.components.marble?.color).toBe('#112233');
+		const [, , byMarble] = applyProjectCommands(project, [{ type: 'setComponent', entityId: marble?.id as string, component: { name: 'marble', value: { ...(marble?.components.marble as NonNullable<typeof marble>['components']['marble'] & object), color: '#445566' } } }]);
+		expect(byMarble?.music.lanes[0]?.color).toBe('#445566');
+	});
+
+	it('should read an older file with two colours as the one the film shows', () => {
+		const project = createProject({ id: 'p', title: 'T' });
+		const json = JSON.parse(serializeProject(project)) as { music: { lanes: { color: string }[] }; entities: { components: { marble?: { color: string } } }[] };
+		const shown = json.entities.find((entity) => entity.components.marble != null)?.components.marble?.color;
+		(json.music.lanes[0] as { color: string }).color = '#000001';
+		const [isParsedOk, , parsed] = parseProject(JSON.stringify(json));
+		expect(isParsedOk).toBe(true);
+		expect(parsed?.music.lanes[0]?.color).toBe(shown);
+	});
+});

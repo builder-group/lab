@@ -5,7 +5,7 @@ import { addDecorCommands, assetDecorSource, builtInSource, $blenderObjects } fr
 import { decorItem } from '@/modules/design/decor-catalog';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from '@/modules/design/decor-scatter';
 import { readScatterChoice } from '@/modules/design/decor-actions';
-import { skinCommands } from '@/modules/design/design-commands';
+import { fixedColorCommands, skinCommands, skinTargetIds } from '@/modules/design/design-commands';
 import { packThemeCommands } from '@/modules/design/packs';
 import { isBuiltInTheme, projectThemes } from '@/modules/design/project-themes';
 import { catalogSkin, catalogSkins, elementLabel, entitySkinElement, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/design/skin-catalog';
@@ -106,7 +106,7 @@ const DESIGN_EXAMPLES: Record<string, string> = {
 	renderPreset: "{ type: 'setDesign', design: { renderPreset: 'balanced' } }, with draft, fast (Standard), balanced (High) or best",
 	loop: "{ type: 'setDesign', design: { loop: true } }",
 	decor: 'Decor is easier with placeDecor and scatterDecor',
-	themes: "Save as Theme is design.saveAsTheme; a stored theme looks like { id, name, base: 'brass', overrides: { wallColor } }"
+	themes: "A stored theme looks like { id, name, base: 'brass', overrides: { wallColor } }"
 };
 
 function designExample(issues: readonly { path: PropertyKey[] }[]): string {
@@ -334,7 +334,8 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 		case 'applySkin': {
 			const target = command.entityIds != null ? { kind: 'entities' as const, entityIds: command.entityIds } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
 			if (target == null) return Err(new Error('applySkin needs a pieceType or entityIds'));
-			const commands = skinCommands(project, target, command.assetId.includes(':') ? canonicalSkinId(command.assetId) : command.assetId);
+			const fixedColor = items.find((item) => item.id === command.assetId)?.manifest?.color;
+			const commands = [...skinCommands(project, target, command.assetId.includes(':') ? canonicalSkinId(command.assetId) : command.assetId), ...fixedColorCommands(project, skinTargetIds(project, target), fixedColor)];
 			return commands.length > 0 ? Ok({ commands }) : Err(new Error(`Nothing is a ${command.pieceType ?? 'target'} in this project yet, so ${command.assetId} has nothing to dress.`));
 		}
 		case 'setDesign': {

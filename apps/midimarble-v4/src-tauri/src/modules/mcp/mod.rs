@@ -10,4 +10,5 @@ pub mod socket;
 pub mod stdio;
 mod workspace;
 
-pub use host::{McpRequestEvent, McpState};
+pub use host::{McpClientsEvent, McpRequestEvent, McpState};
+pub use workspace::toml_string;

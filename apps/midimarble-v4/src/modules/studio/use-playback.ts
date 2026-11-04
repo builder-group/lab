@@ -98,9 +98,12 @@ export function usePlayback(cx: StudioCx): void {
 			}, WARM_UP_DELAY_MS);
 		};
 		if (cx.project != null) schedule();
-		const stop = cx.$path.listen(schedule);
+		const stopPath = cx.$path.listen(schedule);
+		// A Part muted or soloed while stopped is rendered now too, so the next Play or playhead drag has it at once
+		const stopMix = cx.$mix.listen(schedule);
 		return () => {
-			stop();
+			stopPath();
+			stopMix();
 			window.clearTimeout(handle);
 		};
 	}, [cx]);

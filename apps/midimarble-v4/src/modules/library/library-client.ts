@@ -2,6 +2,7 @@ import { convertFileSrc, isTauri } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { specta } from '@/environment/specta';
+import starterManifest from '../../../packs/Starter.marblepack/pack.json';
 import { SProjectTheme, type TPackOrigin, type TProjectTheme } from '@/modules/project/schema';
 import {
 	parseAssetManifest,
@@ -178,17 +179,49 @@ export interface TPack {
 	items: TLibraryItem[];
 	/** Decor the app draws itself, by source such as `decor:bauble-red`, for a bundled Pack without assets yet */
 	builtInDecor: string[];
+	/** Themes and skins the app draws itself, for the Starter Pack */
+	builtIn?: readonly TPackBuiltIn[];
+}
+
+export interface TPackBuiltIn {
+	kind: 'theme' | 'skin';
+	label: string;
+	source: string;
+}
+
+export const STARTER_PACK_ID = 'starter';
+/** The origin line of everything in the Starter Pack */
+export const STARTER_ORIGIN = 'Starter';
+
+/** Always present and can't be removed: manifest entries for the items the app draws itself */
+export const STARTER_PACK: TPack = {
+	id: STARTER_PACK_ID,
+	path: '',
+	name: starterManifest.name,
+	version: starterManifest.version,
+	description: starterManifest.description,
+	author: starterManifest.author,
+	link: null,
+	pictureUrl: null,
+	themes: [],
+	items: [],
+	builtInDecor: starterManifest.items.filter((item) => item.kind === 'decor').map((item) => item.source),
+	builtIn: starterManifest.items.flatMap((item) => (item.kind === 'decor' ? [] : [{ kind: item.kind as TPackBuiltIn['kind'], label: item.label, source: item.source }]))
+};
+
+/** The Packs on this Mac with the Starter Pack first, whatever an older version left on disk */
+export function withStarterPack(packs: readonly TPack[]): TPack[] {
+	return [STARTER_PACK, ...packs.filter((pack) => pack.id !== STARTER_PACK_ID)];
 }
 
 /**
- * The Packs added on this Mac, for every project. By default none is. Insert, the skin tiles and the Theme picker read
- * this list.
+ * The Packs added on this Mac, for every project; the Starter Pack is always one. Insert and the pickers read this list.
  */
-export const addedPacks = createState<TPack[]>([]);
+export const addedPacks = createState<TPack[]>([STARTER_PACK]);
 
 /** Whether a Pack is added on this Mac */
 export function isPackAdded(packId: string): boolean {
-	return addedPacks.get().some((pack) => pack.id === packId);
+	return packId === STARTER_PACK_ID || addedPacks.get().some((pack) => pack.id === packId);
 }
 
 /** What a copy of this Pack's items records */

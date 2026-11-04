@@ -4,7 +4,8 @@ import React from 'react';
 import type { StudioCx } from './StudioCx';
 
 /**
- * The notice above the canvas: one line, two at most, its actions at the right like the Undo of Mail's and
+ * The notice at the bottom left of the canvas, in both workspaces, above the transport and away from the wall's centre,
+ * where the run, the hints and the build bar are: one line, two at most, its actions at the right like the Undo of Mail's and
  * Finder's toasts, and a thin progress bar while a long task such as Re-place runs. Hovering keeps it open. A
  * notice with details, like Figma's notifications, has a Details disclosure with the full text and a close
  * button, and stays until it is closed or the next edit.
@@ -12,7 +13,6 @@ import type { StudioCx } from './StudioCx';
 export const Notice: React.FC<TNoticeProps> = (props) => {
 	const { cx } = props;
 	const notice = useFeatureState(cx.$notice);
-	const workspace = useFeatureState(cx.$workspace);
 	const [openDetails, setOpenDetails] = React.useState<number | null>(null);
 	if (notice == null) return null;
 	const actions = notice.actions ?? [];
@@ -21,12 +21,8 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 	return (
 		<div
 			role="status"
-			className="mm-notice absolute left-1/2 z-30 w-max max-w-[min(640px,calc(100%-32px))] -translate-x-1/2 overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]"
-			style={{
-				// Compose notices sit above the floating tool bar
-				bottom: workspace === 'compose' ? 64 : 16,
-				boxShadow: 'var(--shadow-popover)'
-			}}
+			className="mm-notice absolute bottom-3 left-3 z-30 w-max max-w-[min(560px,calc(100%-24px))] overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]"
+			style={{ boxShadow: 'var(--shadow-popover)' }}
 			onPointerEnter={() => cx.holdNotice(true)}
 			onPointerLeave={() => cx.holdNotice(false)}
 		>

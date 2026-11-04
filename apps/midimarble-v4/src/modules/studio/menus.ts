@@ -17,6 +17,7 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 	const isPlatforms = selected.length > 0 && selected.every((entity) => isMusicalPiece(entity.components.piece?.type ?? ''));
 	return tidyMenu([
 		isPlatforms ? commandItem(cx, 'build.autoPlace') : null,
+		selected.some((entity) => entity.components.hitLink != null) ? commandItem(cx, 'build.rebuildFrom') : null,
 		'separator',
 		commandItem(cx, 'build.rotateLeft'),
 		commandItem(cx, 'build.rotateRight'),
@@ -65,6 +66,7 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 			}
 		},
 		piece != null ? { label: `Select ${piece.name ?? 'Piece'}`, onSelect: () => cx.reveal([piece.id]) } : null,
+		{ label: 'Rebuild From Here', disabled: cx.$compose.get() == null || cx.$compose.get()?.assist.isBuilding === true, onSelect: () => void cx.$compose.get()?.assist.buildTrack({ laneId: lane.id, hitId }) },
 		'separator',
 		...playWithMenu(cx, moving),
 		'separator',

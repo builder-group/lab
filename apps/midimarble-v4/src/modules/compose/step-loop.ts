@@ -164,7 +164,7 @@ function withRunDirection(project: TProject, entity: TEntity, position: TVec2 | 
 	if (piece == null) return entity;
 	const points = resolvePiecePath(piece.type, undefined);
 	const reach = Math.max(...points.map((point) => point.x));
-	const band = frameBand(project, entity.components.hitLink?.laneId);
+	const band = frameBand(project);
 	const x = position?.x ?? band.centerX;
 	let direction = Math.abs(velocity?.x ?? 0) > 0.05 ? Math.sign(velocity?.x ?? 1) : x <= band.centerX ? 1 : -1;
 	if (Math.abs(x + direction * reach - band.centerX) > band.halfWidth) direction = -direction;

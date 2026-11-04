@@ -35,7 +35,7 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 	const maxLanes = pending.options.maxLanes ?? 4;
 	const end = Math.max(1, ...[...preview.lanes.flat(), ...preview.backing].map((note) => note.time + note.duration));
 	const rows = [
-		...preview.lanes.map((notes, index) => ({ key: `marble-${index}`, name: `Marble ${index + 1}`, color: laneColors[index % laneColors.length] ?? 'var(--accent)', notes })),
+		...preview.lanes.map((notes, index) => ({ key: `marble-${index}`, name: preview.names[index] ?? `Marble ${index + 1}`, color: laneColors[index % laneColors.length] ?? 'var(--accent)', notes })),
 		...(preview.backing.length > 0 ? [{ key: 'backing', name: 'Backing', color: BACKING_COLOR, notes: preview.backing }] : [])
 	];
 

@@ -3,9 +3,195 @@
 	"id": "starter",
 	"name": "Starter",
 	"version": "1.0",
-	"description": "Baubles, lights and gifts for a first film, and a subscribe card for its end.",
+	"description": "The themes, skins, particles and decor every film starts with.",
 	"author": "MidiMarble",
 	"items": [
+		{
+			"kind": "theme",
+			"id": "theme-pegboard",
+			"label": "Pegboard",
+			"source": "theme:pegboard"
+		},
+		{
+			"kind": "theme",
+			"id": "theme-brass",
+			"label": "Brass",
+			"source": "theme:brass"
+		},
+		{
+			"kind": "theme",
+			"id": "theme-neon",
+			"label": "Neon",
+			"source": "theme:neon"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-gold",
+			"label": "Gold",
+			"source": "platform:gold"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-copper",
+			"label": "Copper",
+			"source": "platform:copper"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-silver",
+			"label": "Silver",
+			"source": "platform:silver"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-pegboard",
+			"label": "Pegboard",
+			"source": "platform:pegboard"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-neon",
+			"label": "Neon",
+			"source": "platform:neon"
+		},
+		{
+			"kind": "skin",
+			"id": "rail-chrome",
+			"label": "Chrome Rail",
+			"source": "rail:chrome"
+		},
+		{
+			"kind": "skin",
+			"id": "rail-wood",
+			"label": "Wood Rail",
+			"source": "rail:wood"
+		},
+		{
+			"kind": "skin",
+			"id": "rail-glow",
+			"label": "Glow Rail",
+			"source": "rail:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "tunnel-frosted",
+			"label": "Frosted Tunnel",
+			"source": "tunnel:frosted"
+		},
+		{
+			"kind": "skin",
+			"id": "tunnel-wood",
+			"label": "Wood Tunnel",
+			"source": "tunnel:wood"
+		},
+		{
+			"kind": "skin",
+			"id": "tunnel-glow",
+			"label": "Glow Tunnel",
+			"source": "tunnel:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "switchback-chrome",
+			"label": "Chrome Switchback",
+			"source": "switchback:chrome"
+		},
+		{
+			"kind": "skin",
+			"id": "switchback-wood",
+			"label": "Wood Switchback",
+			"source": "switchback:wood"
+		},
+		{
+			"kind": "skin",
+			"id": "switchback-glow",
+			"label": "Glow Switchback",
+			"source": "switchback:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "windmill-gold",
+			"label": "Gold Windmill",
+			"source": "windmill:gold"
+		},
+		{
+			"kind": "skin",
+			"id": "windmill-wood",
+			"label": "Wood Windmill",
+			"source": "windmill:wood"
+		},
+		{
+			"kind": "skin",
+			"id": "windmill-glow",
+			"label": "Glow Windmill",
+			"source": "windmill:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "finish-chrome",
+			"label": "Chrome Finish",
+			"source": "finish:chrome"
+		},
+		{
+			"kind": "skin",
+			"id": "finish-wood",
+			"label": "Wood Finish",
+			"source": "finish:wood"
+		},
+		{
+			"kind": "skin",
+			"id": "finish-glow",
+			"label": "Glow Finish",
+			"source": "finish:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "marble-glass",
+			"label": "Glass",
+			"source": "marble:glass"
+		},
+		{
+			"kind": "skin",
+			"id": "marble-metal",
+			"label": "Metal",
+			"source": "marble:metal"
+		},
+		{
+			"kind": "skin",
+			"id": "marble-magic",
+			"label": "Magic",
+			"source": "marble:magic"
+		},
+		{
+			"kind": "skin",
+			"id": "wall-plain",
+			"label": "Plain Wall",
+			"source": "wall:plain"
+		},
+		{
+			"kind": "skin",
+			"id": "wall-plaster",
+			"label": "Plaster Wall",
+			"source": "wall:plaster"
+		},
+		{
+			"kind": "skin",
+			"id": "wall-pegboard",
+			"label": "Pegboard Wall",
+			"source": "wall:pegboard"
+		},
+		{
+			"kind": "skin",
+			"id": "wall-grid",
+			"label": "Grid Wall",
+			"source": "wall:grid"
+		},
+		{
+			"kind": "decor",
+			"id": "snowfall",
+			"label": "Particles",
+			"source": "decor:snowfall"
+		},
 		{
 			"kind": "decor",
 			"id": "bauble-red",

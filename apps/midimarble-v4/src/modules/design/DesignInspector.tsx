@@ -27,7 +27,7 @@ import { canonicalSkinId } from '@/modules/project/skin-ids';
 import { SKIN_HELP } from './concept-words';
 import { themeOriginLabel } from './scene-layers';
 import { skinElement } from './skin-catalog';
-import { SkinTiles } from './LookTiles';
+import { SkinPicker } from './SkinPickers';
 import { ResetToTheme, SkinPropertyRows } from './SkinProperties';
 import { framingFix, framingProblemAt, preflightExport } from './export-preflight';
 import { describeLoop } from './loop-status';
@@ -38,14 +38,14 @@ import { songDisplayName, titleSpan, withTitleTime } from './titles';
 // Camera, plus Seamless Loop for the Scene in Compose. The studio's Inspector picks one for the selection.
 
 /** Seamless Loop in the Scene inspector of Compose, where the run has to loop; export honours it */
-export const SeamlessLoopPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
+export const SeamlessLoopRows: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const design = project.design;
 	return (
-		<Panel id="design.scene" title="Loop" accessory={<HelpTip text="Makes the end of the film run into its start: every marble has to come back to where it was released." />}>
+		<>
 			<CheckField id="design-loop" label="Seamless Loop" checked={design.loop} onChange={(loop) => cx.execute([{ type: 'setDesign', design: { loop } }])} />
 			{design.loop ? <LoopStatus cx={cx} project={project} /> : null}
-		</Panel>
+		</>
 	);
 };
 
@@ -80,7 +80,6 @@ const LoopStatus: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const camera = project.design.camera;
-	const aspect = frameAspects.find((item) => item.width === project.frame.width && item.height === project.frame.height);
 	const shots = camera.shots.length;
 	return (
 		<>
@@ -89,20 +88,25 @@ export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (p
 				title="Camera"
 				subtitle={`${camera.mode === 'rig' ? 'Automatic' : 'Manual'} · ${shots === 1 ? '1 shot' : `${shots} shots`}`}
 			/>
-			<Panel id="camera.frame" title="Frame" accessory={<HelpTip text="The shape of the film. Portrait suits phones and Shorts; the camera frames the marbles for it." />}>
-				<SelectField
-					id="project-frame"
-					label="Frame"
-					value={aspect?.label ?? 'custom'}
-					options={[...frameAspects.map((item) => ({ value: item.label, label: item.label })), ...(aspect == null ? [{ value: 'custom', label: 'Custom' }] : [])]}
-					onChange={(value) => {
-						const next = frameAspects.find((item) => item.label === value);
-						if (next != null) cx.execute([{ type: 'setFrame', width: next.width, height: next.height }]);
-					}}
-				/>
-			</Panel>
 			<CameraPanel cx={cx} project={project} />
 		</>
+	);
+};
+
+/** The shape of the film, in Film's Scene */
+export const FormatField: React.FC<{ cx: StudioCx; project: TProject }> = ({ cx, project }) => {
+	const aspect = frameAspects.find((item) => item.width === project.frame.width && item.height === project.frame.height);
+	return (
+		<SelectField
+			id="project-format"
+			label="Format"
+			value={aspect?.label ?? 'custom'}
+			options={[...frameAspects.map((item) => ({ value: item.label, label: item.label })), ...(aspect == null ? [{ value: 'custom', label: 'Custom' }] : [])]}
+			onChange={(value) => {
+				const next = frameAspects.find((item) => item.label === value);
+				if (next != null) cx.execute([{ type: 'setFrame', width: next.width, height: next.height }]);
+			}}
+		/>
 	);
 };
 
@@ -125,6 +129,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	}
 
 	return (
+		<>
 		<Panel
 			id="design.camera"
 			title="Camera"
@@ -141,9 +146,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 				<>
 					<FramingProblem cx={cx} project={project} />
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
-					<ScrubField id="camera-pitch" label="Pitch" name="Downward angle" value={(camera.pitch * 180) / Math.PI} unit="°" step={0.5} min={-80} max={80} onCommit={(value) => set({ pitch: (value * Math.PI) / 180 })} />
-					<ScrubField id="camera-lead" label="Lead" name="How far ahead of the marbles the camera looks" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
-					<ScrubField id="camera-smoothing" label="Smooth" name="Smoothing" value={Math.round(camera.smoothing * 100)} unit="%" step={0.5} min={0} max={100} onCommit={(value) => set({ smoothing: value / 100 })} />
+					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle" value={(camera.pitch * 180) / Math.PI} unit="°" step={0.5} min={-80} max={80} onCommit={(value) => set({ pitch: (value * Math.PI) / 180 })} />
 					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 keeps the wall upright" value={Math.round((camera.sway ?? 1) * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
 					{cameraState === 'takenOver' ? (
 						<>
@@ -171,11 +174,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 								</button>
 							)}
 						</>
-					) : (
-						<button className="mm-button" data-span="2" onClick={() => set({ mode: 'manual' })} title="Animate the camera yourself in Blender" type="button">
-							Take Over Camera
-						</button>
-					)}
+					) : null}
 				</>
 			) : (
 				<button className="mm-button" data-span="2" disabled={status === 'unavailable' || status === 'missing'} onClick={() => void cx.design.openInBlender()} type="button">
@@ -183,6 +182,13 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 				</button>
 			)}
 		</Panel>
+		{camera.mode === 'rig' ? (
+			<Panel id="design.camera.advanced" title="Advanced" defaultCollapsed accessory={<HelpTip text="Look Ahead: how far ahead of the marbles the camera looks. Smooth: how gently it follows them." />}>
+				<ScrubField id="camera-lead" label="Look Ahead" name="How far ahead of the marbles the camera looks" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
+				<ScrubField id="camera-smoothing" label="Smooth" name="Smoothing" value={Math.round(camera.smoothing * 100)} unit="%" step={0.5} min={0} max={100} onCommit={(value) => set({ smoothing: value / 100 })} />
+			</Panel>
+		) : null}
+		</>
 	);
 };
 
@@ -414,9 +420,9 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 	);
 };
 
-// MARK: - Piece look
+// MARK: - Piece skin
 
-export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }> = (props) => {
+export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }> = (props) => {
 	const { cx, project, pieces } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
@@ -451,15 +457,15 @@ export const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 				onRename={isSingle ? (value) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name: value } }]) : undefined}
 			/>
 			<Panel
-				id="design.look"
-				title="Look"
+				id="design.skin"
+				title="Skin"
 				accessory={
 					<HelpTip
-						text={`${SKIN_HELP} A click applies to the selection, ⌥-click to all ${typeLabel.toLowerCase()}s; ask the agent (⌘J) for a skin of your own and it shows here. On Hit moves or lights the skin on every hit; a skin never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}
+						text={`${SKIN_HELP} A click applies to the selection, ⌥-click to all ${typeLabel.toLowerCase()}s; a skin your agent makes shows here. On Hit moves or lights the skin on every hit; a skin never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}
 					/>
 				}
 			>
-				<SkinTiles cx={cx} project={project} element={skinElement(type)} pieceType={type} entities={skinned} selected={pieces} />
+				<SkinPicker cx={cx} project={project} element={skinElement(type)} pieceType={type} entities={skinned} selected={pieces} />
 				<SkinPropertyRows cx={cx} project={project} entities={pieces} />
 				{ownSkin != null ? (
 					<button className="mm-button" data-span="2" onClick={() => applyToAll(ownSkin)} type="button">

@@ -28,7 +28,7 @@ fn codex_config(command: &str, folder: &Path) -> String {
     );
 }
 
-fn toml_string(value: &str) -> String {
+pub fn toml_string(value: &str) -> String {
     return format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""));
 }
 
@@ -36,11 +36,11 @@ fn readme(command: &str) -> String {
     return format!(
         "# MidiMarble AI Workspace\n\n\
 This folder connects local AI apps to MidiMarble through MCP.\n\n\
-MidiMarble must be open with **Help > Enable MCP** on while an AI app uses its tools. Every edit shows live in the window as one named Undo step, so you can step in at any time.\n\n\
+MidiMarble must be open with **Enable MCP** on in its Agent menu while an AI app uses its tools. Every edit shows live in the window as one named Undo step, so you can step in at any time.\n\n\
 ## ChatGPT\n\nOpen this folder as a local workspace and trust it when asked. ChatGPT loads the server from `.codex/config.toml`.\n\n\
 ## Claude\n\nOpen Claude Code in this folder, trust it and approve its project MCP server when asked.\n\n\
 ## Other AI apps\n\nAdd a local stdio MCP server with this command and the argument `mcp`:\n\n`{}`\n\n\
-## Generated files\n\nMidiMarble writes these files. **Show AI Workspace** in the Help menu replaces changes and updates the path if the app moved. For your own setup, copy the folder somewhere else.\n",
+## Generated files\n\nMidiMarble writes these files. **Show AI Workspace** in the Agent menu replaces changes and updates the path if the app moved. For your own setup, copy the folder somewhere else.\n",
         command
     );
 }

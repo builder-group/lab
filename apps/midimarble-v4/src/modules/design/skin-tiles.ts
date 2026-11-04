@@ -1,13 +1,13 @@
-import type { TDecor, TEntity, TProject, TWallKind } from '@/modules/project';
+import type { TEntity, TProject, TWallKind } from '@/modules/project';
 import { canonicalSkinId } from '@/modules/project/skin-ids';
-import { decorItem, listedDecorItems } from './decor-catalog';
 import { draftMarble } from './draft-look';
-import { resolveElementLook, resolveTheme, type TResolvedTheme } from './project-themes';
+import { resolveTheme, type TResolvedTheme } from './project-themes';
 import { wallLayer, WALL_KINDS } from './scene-layers';
-import { builtInSkinLabel, catalogSkin, catalogSkins, elementPlural, entitySkinElement, SKIN_ELEMENTS, type TSkinElement } from './skin-catalog';
+import { catalogSkin, catalogSkins, type TSkinElement } from './skin-catalog';
+import { STARTER_ORIGIN } from '@/modules/library';
 
-// What the inspector's Look section offers for a selection, as tiles: the theme's choice first, the rest as the
-// catalog lists them, and which one the selection wears. A mixed selection rings none.
+// What a selection's picker offers, as tiles: the theme's choice first, the rest as the catalog lists them, and which
+// one the selection wears. A mixed selection rings none.
 
 /** The tile that gives a selection back to its theme */
 export const THEME_DEFAULT_TILE = 'theme-default';
@@ -68,7 +68,7 @@ export function wallTiles(design: Parameters<typeof wallLayer>[0]): TWallTile[] 
 	const themeKind = wall.theme.kind;
 	return [
 		{ id: THEME_DEFAULT_TILE, kind: null, shownKind: themeKind, label: 'Theme Default', detail: wallKindLabel(themeKind), previewUrl: null, isCurrent: wall.own.kind == null || wall.own.kind === themeKind },
-		...WALL_KINDS.filter((item) => item.kind !== themeKind).map((item) => ({ id: item.kind, kind: item.kind, shownKind: item.kind, label: item.label, detail: '', previewUrl: null, isCurrent: wall.own.kind === item.kind }))
+		...WALL_KINDS.filter((item) => item.kind !== themeKind).map((item) => ({ id: item.kind, kind: item.kind, shownKind: item.kind, label: item.label, detail: STARTER_ORIGIN, previewUrl: null, isCurrent: wall.own.kind === item.kind }))
 	];
 }
 
@@ -76,37 +76,19 @@ function wallKindLabel(kind: TWallKind): string {
 	return WALL_KINDS.find((item) => item.kind === kind)?.label ?? kind.charAt(0).toUpperCase() + kind.slice(1);
 }
 
-/** The Decor items with their origin line, the selection's ringed; a Decor item has no theme default */
-export function decorTiles(decors: readonly Pick<TDecor, 'source'>[], inUse?: ReadonlySet<string>): TLookTile[] {
-	return listedDecorItems(inUse).map((item) => ({ id: item.id, label: item.label, detail: item.origin ?? '', previewUrl: item.previewUrl, isCurrent: decors.length > 0 && decors.every((decor) => decor.source === item.id) }));
+/** A picker's choices are searched from this many on */
+const TILE_SEARCH_FROM = 13;
+
+export function showsTileSearch(tiles: readonly unknown[]): boolean {
+	return tiles.length >= TILE_SEARCH_FROM;
 }
 
-/** The label a decoration's name starts with, which follows it to another item */
-export function decorSourceLabel(source: string, assetLabel: string | null): string {
-	return decorItem(source)?.label ?? assetLabel ?? source;
-}
-
-export interface TThemePartRow {
-	element: TSkinElement;
-	/** `Platforms: Gift`, what the film shows: the pieces' own skin when they all wear one, or `Mixed` */
-	label: string;
-	/** What the row selects; null when the project has none of that element yet */
-	entityId: string | null;
-}
-
-/** The Theme section's parts, as the film shows them; `libraryLabel` names a skin from the library */
-export function themePartRows(project: TProject, libraryLabel: (id: string) => string | null): TThemePartRow[] {
-	const theme = resolveTheme(project.design);
-	return SKIN_ELEMENTS.map((element) => {
-		const entities = project.entities.filter((entity) => entitySkinElement(entity) === element);
-		const worn = new Set(
-			entities.map((entity) => {
-				const assetId = entity.components.skin?.assetId;
-				return assetId != null && catalogSkin(assetId) == null ? assetId : resolveElementLook(project.design, element, entity.components.skin).skin;
-			})
-		);
-		const only = worn.size === 1 ? ([...worn][0] as string) : theme.parts[element].skin;
-		const name = worn.size > 1 ? 'Mixed' : (builtInSkinLabel(only) ?? libraryLabel(only) ?? only);
-		return { element, label: `${elementPlural(element)}: ${name}`, entityId: entities[0]?.id ?? null };
+/** The tiles whose name or origin holds every typed word */
+export function filterTiles<GTile extends { label: string; detail?: string }>(tiles: readonly GTile[], query: string): readonly GTile[] {
+	const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+	if (!words.length) return tiles;
+	return tiles.filter((tile) => {
+		const text = `${tile.label} ${tile.detail ?? ''}`.toLowerCase();
+		return words.every((word) => text.includes(word));
 	});
 }

@@ -2,8 +2,8 @@ import type { TDesignStatus } from './DesignCx';
 
 /** Blender's connection as the logo's tint, the state word and the detail for the tooltip, for the title bar's Blender button */
 export interface TBlenderState {
-	/** The logo's tint: green, red, amber, grey; `off` is a fainter grey, since Blender can't run here, which is expected rather than a problem */
-	tone: 'good' | 'bad' | 'busy' | 'idle' | 'off';
+	/** The logo's tint: Blender's orange when it can run (`busy` pulses), red on error, grey when not installed; `off` is a fainter grey, since Blender can't run here, which is expected rather than a problem */
+	tone: 'ready' | 'busy' | 'bad' | 'idle' | 'off';
 	/** The button shows it only while Blender works */
 	label: string;
 	detail: string;
@@ -27,10 +27,10 @@ export function blenderState(status: TDesignStatus, version: string | null, erro
 		case 'rendering':
 			return { tone: 'busy', label: 'Rendering Preview', detail: `${name}: rendering the preview…` };
 		case 'ready':
-			return { tone: 'good', label: 'Ready', detail: `${name} is connected` };
+			return { tone: 'ready', label: 'Ready', detail: `${name} is connected` };
 		case 'error':
 			return { tone: 'bad', label: 'Error', detail: error != null ? `${name} reported a problem: ${error}` : `${name} reported a problem` };
 		case 'idle':
-			return { tone: 'idle', label: 'Ready', detail: `${name} starts when you open Film or the scene` };
+			return { tone: 'ready', label: 'Ready', detail: `${name} starts when you open Film or the scene` };
 	}
 }

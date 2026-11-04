@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createProject, parseProject, type TProject } from '@/modules/project';
 import { addHit } from './menus';
 import { StudioCx } from './StudioCx';
-import { TAP_COUNT_IN_SECONDS, tapTime } from './tap';
+import { tapTime } from './tap';
 
 describe('tapTime', () => {
 	it('should round the tap to 0.1 ms', () => {
@@ -19,14 +19,6 @@ describe('tapTime', () => {
 	it('should add a tap 50 ms or more from every hit', () => {
 		expect(tapTime([{ time: 1 }], 1.06)).toBe(1.06);
 		expect(tapTime([{ time: 1 }, { time: 2 }], 1.5)).toBe(1.5);
-	});
-
-	it('should record nothing in the count-in after the press that started playback', () => {
-		// Playback started at 0:00
-		const countInEnd = TAP_COUNT_IN_SECONDS;
-		expect(tapTime([], 0, countInEnd)).toBeNull();
-		expect(tapTime([], 0.06, countInEnd)).toBeNull();
-		expect(tapTime([], 0.31, countInEnd)).toBe(0.31);
 	});
 });
 
@@ -48,13 +40,15 @@ function studio(project: TProject) {
 describe('hits work without a Song', () => {
 	const noSong = createProject({ title: 'Empty' });
 
-	it('should start playback for T without a Song, with no notice asking for one', () => {
+	it('should add a hit at the playhead for T while stopped, without starting playback', () => {
 		const cx = studio(noSong);
+		cx.$playhead.set(1.25);
 
 		cx.tapHit();
 
-		expect(cx.$playing.get()).toBe(true);
-		expect(cx.notify.mock.calls[0]?.[0]).toMatch(/^Playing: press T on each beat/);
+		expect(cx.$playing.get()).toBe(false);
+		const commands = cx.execute.mock.calls[0] as unknown as [{ hits: { time: number }[] }[]];
+		expect(commands[0][0]?.hits[0]?.time).toBe(1.25);
 	});
 
 	it('should place a hit by hand without a Song and without a pitch', () => {
@@ -72,11 +66,12 @@ describe('hits work without a Song', () => {
 		const [isOk, error, fixture] = parseProject(readFileSync(new URL('../../../fixtures/tap-along.marble.json', import.meta.url), 'utf8'));
 		if (!isOk) throw error;
 		const cx = studio(fixture);
+		cx.$playing.set(true);
 
 		cx.tapHit();
 
-		expect(cx.$playing.get()).toBe(true);
-		expect(cx.notify.mock.calls[0]?.[0]).toMatch(/^Playing: press T on each beat/);
+		const commands = cx.execute.mock.calls[0] as unknown as [{ hits: { time: number }[] }[]];
+		expect(commands[0][0]?.hits[0]?.time).toBe(1);
 	});
 });
 

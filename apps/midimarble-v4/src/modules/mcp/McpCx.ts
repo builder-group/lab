@@ -1,8 +1,13 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
 import { host, specta } from '@/environment';
+import { commands as registry } from '@/modules/studio/commands';
 import type { StudioCx } from '@/modules/studio/StudioCx';
+import { presenceLabel, touchedKeys } from './agent-presence';
+import { AgentPresenceCx } from './AgentPresenceCx';
 import { runTool, type TToolReply } from './mcp-tools';
+
+const STOPPED_WORDS = 'The person pressed Stop. What was done stays in the project. Tell them where things stand and wait for them before going on.';
 
 /**
  * The app's end of `midimarble mcp`. The host forwards tool calls from its socket as events; they run one at a time
@@ -11,10 +16,15 @@ import { runTool, type TToolReply } from './mcp-tools';
 export class McpCx {
 	/** Enable MCP in the Help menu */
 	readonly $isEnabled = createState(false);
+	/** What each connected agent calls itself, from MCP's `initialize` */
+	readonly $clients = createState<readonly string[]>([]);
+	/** The agent at work, for the canvas's pill and the Agent button */
+	readonly presence = new AgentPresenceCx();
 	/** A pointer is down in the window: the person is mid-gesture, so an edit waits */
 	isPointerDown = false;
 
 	private queue: Promise<void> = Promise.resolve();
+	private runningTools: string[] = [];
 
 	constructor(private readonly studio: StudioCx) {}
 
@@ -22,7 +32,20 @@ export class McpCx {
 		if (!isTauri()) return () => undefined;
 		let isMounted = true;
 		let stopEvent: (() => void) | null = null;
-		void specta.commands.mcpStatus().then((status) => this.$isEnabled.set(status.isEnabled));
+		let stopClients: (() => void) | null = null;
+		const stopWatching = this.watchEdits();
+		void specta.events.mcpClientsEvent
+			.listen((event) => this.$clients.set(event.payload.clients))
+			.then((stop) => {
+				if (isMounted) stopClients = stop;
+				else stop();
+				// Asked once listening, so no client joining meanwhile is missed
+				return specta.commands.mcpStatus();
+			})
+			.then((status) => {
+				this.$isEnabled.set(status.isEnabled);
+				this.$clients.set(status.clients);
+			});
 		void specta.events.mcpRequestEvent
 			.listen((event) => this.enqueue(event.payload))
 			.then((stop) => {
@@ -42,6 +65,9 @@ export class McpCx {
 		return () => {
 			isMounted = false;
 			stopEvent?.();
+			stopClients?.();
+			stopWatching();
+			this.presence.dispose();
 			window.removeEventListener('pointerdown', press, true);
 			window.removeEventListener('pointerup', release, true);
 			window.removeEventListener('pointercancel', release, true);
@@ -55,6 +81,7 @@ export class McpCx {
 			return;
 		}
 		this.$isEnabled.set(result.data.isEnabled);
+		this.$clients.set(result.data.clients);
 		this.studio.notify(isEnabled ? 'MCP is on: AI apps on this Mac can use MidiMarble while it is open' : 'MCP is off');
 	}
 
@@ -69,9 +96,31 @@ export class McpCx {
 		if (!isShownOk) this.studio.notify(shownErr.message, 'error');
 	}
 
+	/**
+	 * Stop on the pill: ends what the agent's running call can end and keeps what's done. A Build Track or Re-place stops
+	 * between its steps and an export is cancelled; a frame already rendering finishes. The call's reply says the person
+	 * stopped it, and calls waiting behind it are turned away. A person's own Build Track is theirs to stop.
+	 */
+	stop(): void {
+		this.presence.requestStop();
+		if (this.studio.isInAgentStep) this.studio.$compose.get()?.assist.stopBuild();
+		if (this.runningTools.includes('export_film')) this.studio.film.cancel();
+	}
+
+	/** Marks what an agent's call changes, edit by edit, so a Build Track's pieces light up as they land */
+	watchEdits(): () => void {
+		let before = this.studio.project;
+		return this.studio.$history.listen(({ value }) => {
+			const present = value?.present ?? null;
+			if (present != null && before != null && present !== before && present.id === before.id && this.studio.isInAgentStep) this.presence.touch(touchedKeys(before, present));
+			before = present;
+		});
+	}
+
 	private enqueue(request: specta.McpRequestEvent): void {
+		const arrival = { epoch: this.presence.stopEpoch, isStopHeld: this.presence.isStopHeld };
 		const respond = async (): Promise<void> => {
-			const reply = await this.answer(request);
+			const reply = await this.answer(request, arrival);
 			const sent = await specta.commands.mcpRespond(request.requestId, JSON.stringify(reply));
 			if (sent.status === 'error' && import.meta.env.DEV) console.warn('[mcp]', sent.error);
 		};
@@ -80,14 +129,29 @@ export class McpCx {
 		else this.queue = this.queue.then(respond);
 	}
 
-	private async answer(request: specta.McpRequestEvent): Promise<TToolReply> {
+	/** Runs one call with the pill up, unless Stop came after it arrived. `arrival` is how things stood when it came in. */
+	async answer(request: Pick<specta.McpRequestEvent, 'tool' | 'argumentsJson'>, arrival: { epoch: number; isStopHeld: boolean }): Promise<TToolReply> {
 		let args: unknown;
 		try {
 			args = JSON.parse(request.argumentsJson);
 		} catch {
 			args = {};
 		}
-		return runTool(this.studio, request.tool, args);
+		const label = presenceLabel(request.tool, args, (id) => registry.find((command) => command.id === id)?.title ?? null);
+		if (label == null) return runTool(this.studio, request.tool, args);
+		const packagePath = this.studio.$path.get();
+		if (arrival.isStopHeld || arrival.epoch !== this.presence.stopEpoch) return { content: [{ type: 'text', text: STOPPED_WORDS }], isError: true, packagePath };
+
+		const epoch = this.presence.stopEpoch;
+		const end = this.presence.begin(label);
+		this.runningTools.push(request.tool);
+		try {
+			const reply = await runTool(this.studio, request.tool, args);
+			return this.presence.stopEpoch === epoch ? reply : { ...reply, content: [...reply.content, { type: 'text', text: STOPPED_WORDS }] };
+		} finally {
+			this.runningTools.splice(this.runningTools.indexOf(request.tool), 1);
+			end();
+		}
 	}
 }
 

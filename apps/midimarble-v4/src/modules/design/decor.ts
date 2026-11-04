@@ -124,30 +124,6 @@ export function updateDecorCommands(project: TProject, ids: readonly string[], p
 	);
 }
 
-/**
- * Makes the decorations another item, keeping where they sit and when they show. A name still starting with the old
- * item's label takes the new one's. Like any hand edit it makes them the user's: Scatter Decor leaves them.
- */
-export function decorSourceCommands(project: TProject, ids: readonly string[], source: TDecorSource): TProjectCommand[] {
-	const list = decorList(project.design);
-	if (!list.some((item) => ids.includes(item.id) && item.source !== source.source)) return [];
-	const text = decorItem(source.source)?.text;
-	return setDecorList(
-		list.map((item) => {
-			if (!ids.includes(item.id) || item.source === source.source) return item;
-			const { scattered: _scattered, footprint: _footprint, text: _text, ...own } = item;
-			const oldLabel = decorItem(item.source)?.label;
-			return {
-				...own,
-				name: oldLabel != null && item.name.startsWith(oldLabel) ? `${source.label}${item.name.slice(oldLabel.length)}` : item.name,
-				source: source.source,
-				...(text != null ? { text } : {}),
-				...(source.footprint != null ? { footprint: source.footprint } : {})
-			};
-		})
-	);
-}
-
 export function deleteDecorCommands(project: TProject, ids: readonly string[]): TProjectCommand[] {
 	const list = decorList(project.design);
 	const kept = list.filter((item) => !ids.includes(item.id));

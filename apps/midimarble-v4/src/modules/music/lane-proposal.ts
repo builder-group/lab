@@ -41,6 +41,24 @@ export function proposeLanes(notes: TMidiNote[], options: TProposeLanesOptions =
 	return { lanes, backing };
 }
 
+/**
+ * Names the proposed marbles after the MIDI tracks most of their notes come from: "Melody", "Bass". Null where a track
+ * has no name in the file or two marbles would share it, which keeps "Marble 1".
+ */
+export function laneNamesFromTracks(lanes: readonly (readonly TMidiNote[])[], tracks: readonly { name: string; hasName: boolean; notes: readonly TMidiNote[] }[]): (string | null)[] {
+	const trackOf = new Map(tracks.flatMap((track) => track.notes.map((note) => [note, track] as const)));
+	const names = lanes.map((notes) => {
+		const counts = new Map<(typeof tracks)[number], number>();
+		for (const note of notes) {
+			const track = trackOf.get(note);
+			if (track != null) counts.set(track, (counts.get(track) ?? 0) + 1);
+		}
+		const [top] = [...counts].sort((a, b) => b[1] - a[1]);
+		return top?.[0].hasName === true ? top[0].name : null;
+	});
+	return names.map((name) => (name != null && names.filter((item) => item === name).length === 1 ? name : null));
+}
+
 export interface TProposeLanesOptions {
 	strategy?: 'split' | 'melody';
 	maxLanes?: number;

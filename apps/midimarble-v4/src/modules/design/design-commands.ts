@@ -5,6 +5,7 @@ import { sampleCameraTrack } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { filmCamera, imageToWall } from './film-camera';
 import { resolveElementLook, resolveTheme } from './project-themes';
+import { resetKeyLightCommands, wallCommands } from './scene-layers';
 import { catalogSkins, entitySkinElement, type TCatalogSkin, type TSkinElement } from './skin-catalog';
 
 export { defaultTitleColor, themeCommands, themeTitleColor } from './project-themes';
@@ -109,6 +110,22 @@ export function resetToThemeCommands(project: TProject, entityIds: readonly stri
 		]);
 }
 
+/** The entities wearing something of their own over the theme */
+function handSkinnedIds(project: TProject): string[] {
+	return project.entities.filter((entity) => entity.components.skin != null || entity.components.reaction != null).map((entity) => entity.id);
+}
+
+/** How many changes the project makes over its theme: pieces and marbles with a skin of their own, and each Wall and Key Light value set on the layer */
+export function handChangeCount(project: TProject): number {
+	const { wall, lights } = project.design;
+	return handSkinnedIds(project).length + Object.keys(wall ?? {}).length + Object.keys(lights?.key ?? {}).length;
+}
+
+/** Clears those changes so the theme shows as it is, as one edit. Added lights and Decor are things added, so they stay. */
+export function resetHandChangesCommands(project: TProject): TProjectCommand[] {
+	return [...resetToThemeCommands(project, handSkinnedIds(project)), ...wallCommands(project, { kind: null, color: null, backgroundColor: null }), ...resetKeyLightCommands(project)];
+}
+
 function publicUrl(path: string): string {
 	return `/${path}`;
 }
@@ -135,6 +152,18 @@ export function skinCommands(project: TProject, target: TSkinTarget, assetId: st
 	return skinTargetIds(project, target).map((entityId) => {
 		const own = project.entities.find((entity) => entity.id === entityId)?.components.skin;
 		return { type: 'setComponent' as const, entityId, component: { name: 'skin' as const, value: { ...own, assetId, link: 'linked' as const } } };
+	});
+}
+
+/**
+ * The marbles among `entityIds` take on a skin's fixed colour, so the timeline and Compose say the same as the film. The
+ * reducer keeps the lane on it (`applyProjectCommands`).
+ */
+export function fixedColorCommands(project: TProject, entityIds: readonly string[], color: string | undefined): TProjectCommand[] {
+	if (color == null) return [];
+	return project.entities.flatMap((entity): TProjectCommand[] => {
+		const marble = entity.components.marble;
+		return entityIds.includes(entity.id) && marble != null && marble.color !== color ? [{ type: 'setComponent', entityId: entity.id, component: { name: 'marble', value: { ...marble, color } } }] : [];
 	});
 }
 

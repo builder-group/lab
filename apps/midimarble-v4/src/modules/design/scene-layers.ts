@@ -4,7 +4,7 @@ import { DEFAULT_THEME, resolveTheme, themeDefaultColor, type TResolvedTheme } f
 
 // The Wall and Lights layers of Film. Each sets its values on top of the applied theme, like a piece's skin: unset
 // fields show the theme's and read "From Brass". A project's own values live in `design.wall` and `design.lights`;
-// Save as Theme moves them into a project theme (`duplicateThemeCommands`).
+// Export Pack… moves them into the theme it keeps (`duplicateThemeCommands`).
 
 type TSceneDesign = Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>;
 

@@ -82,7 +82,7 @@ describe('buildMenuBar function', () => {
 		const menus = buildMenuBar(read, []);
 		const save = menus[0]?.items.find((item) => item.kind === 'command' && item.id === 'file.save');
 		expect(save?.kind === 'command' ? save.accelerator : null).toBe('CmdOrCtrl+S');
-		expect(menus.map((menu) => menu.role)).toEqual([null, null, null, null, null, 'window', 'help']);
+		expect(menus.map((menu) => menu.role)).toEqual([null, null, null, null, null, null, 'window', 'help']);
 	});
 });
 
@@ -99,12 +99,12 @@ describe('Playback and Piece menus', () => {
 	const section = (title: string): string[] => menuLayout.find((item) => item.title === title)?.items.filter(isCommandLine).map((line) => line.command) ?? [];
 
 	it('should sit between View and Window', () => {
-		expect(menuLayout.map((item) => item.title)).toEqual(['File', 'Edit', 'View', 'Playback', 'Track', 'Window', 'Help']);
+		expect(menuLayout.map((item) => item.title)).toEqual(['File', 'Edit', 'Insert', 'View', 'Playback', 'Track', 'Window', 'Help']);
 	});
 
 	it('should list the transport and the piece assists', () => {
 		expect(section('Playback')).toEqual(['play.toggle', 'play.start', 'play.previousHit', 'play.nextHit', 'play.cycle']);
-		expect(section('Track')).toEqual(['build.next', 'build.track', 'build.continue', 'build.mirror', 'build.repeat', 'build.addFinish', 'edit.duplicate', 'piece.detach']);
+		expect(section('Track')).toEqual(['build.next', 'build.track', 'build.rebuildFrom', 'build.continue', 'build.mirror', 'build.repeat', 'build.addFinish', 'edit.duplicate', 'piece.detach']);
 	});
 
 	it('should show single keys in the title and never as menu keys, and name Pause while playing', () => {

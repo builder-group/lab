@@ -8,6 +8,7 @@ import {
 	instruments,
 	mixToMono,
 	parseMidiFile,
+	laneNamesFromTracks,
 	proposeLanes,
 	type TMidiFile,
 	type TMidiNote,
@@ -92,6 +93,7 @@ export class SourcesCx {
 			...replaced.map((item) => ({ type: 'removeSource' as const, sourceId: item.id })),
 			...createImportCommands(project, {
 				lanes: preview.lanes,
+				names: preview.names,
 				backing: preview.backing,
 				backingInstrument: backingInstrument(pending.midi),
 				source,
@@ -243,13 +245,16 @@ export function previewMidiImport(pending: TMidiImport): TMidiImportPreview {
 	const shift = (notes: TMidiNote[]): TMidiNote[] => notes.map((note) => ({ ...note, time: note.time + offset }));
 	const chosen = melodic.filter((track) => pending.trackIds.includes(track.id));
 	const others = melodic.filter((track) => !pending.trackIds.includes(track.id));
-	const proposal = proposeLanes(shift(chosen.flatMap((track) => track.notes)), pending.options);
+	const shifted = chosen.map((track) => ({ ...track, notes: shift(track.notes) }));
+	const proposal = proposeLanes(shifted.flatMap((track) => track.notes), pending.options);
 	const backing = [...proposal.backing.map((item) => item.note), ...shift(others.flatMap((track) => track.notes))].sort((a, b) => a.time - b.time || b.pitch - a.pitch);
-	return { lanes: proposal.lanes, backing, offset };
+	return { lanes: proposal.lanes, names: laneNamesFromTracks(proposal.lanes, shifted), backing, offset };
 }
 
 export interface TMidiImportPreview {
 	lanes: TMidiNote[][];
+	// What the file calls each marble; null keeps "Marble 1"
+	names: (string | null)[];
 	backing: TMidiNote[];
 	// Seconds added to every note time of the file
 	offset: number;

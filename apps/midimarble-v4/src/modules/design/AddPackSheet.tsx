@@ -2,15 +2,16 @@ import { useFeatureState } from 'feature-react/state';
 import { ChevronLeft, Package } from 'lucide-react';
 import React from 'react';
 import { host } from '@/environment';
-import { addedPacks, packOriginOf, type TPack } from '@/modules/library';
+import { addedPacks, packOriginOf, STARTER_PACK_ID, type TPack } from '@/modules/library';
 import type { TPackOrigin } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { decorItem } from './decor-catalog';
 import { libraryItemLabel, packContents } from './DesignLibraryCx';
 
 /**
- * Add Pack…: the Packs that ship inside the app and the added ones as cards, each with a detail view before adding. By
- * default none is added; an added Pack stays on this Mac for every project. Import from File… takes any `.marblepack`.
+ * Add Pack…: the Packs that ship inside the app and the added ones as cards, each with a detail view before adding. The
+ * Starter Pack is always added and can't be removed; an added Pack stays on this Mac for every project. Import from File…
+ * takes any `.marblepack`.
  */
 export const AddPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 	const isOpen = useFeatureState(cx.library.$isAddPackOpen);
@@ -42,7 +43,12 @@ export const AddPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 	if (!isOpen) return null;
 	const isAdded = (pack: TPack): boolean => added.some((item) => item.id === pack.id);
 
-	const action = (pack: TPack): React.ReactElement => (
+	const action = (pack: TPack): React.ReactElement =>
+		pack.id === STARTER_PACK_ID ? (
+			<span className="shrink-0 text-[11px] text-[var(--text-tertiary)]" title="Every project has the Starter Pack">
+				Added
+			</span>
+		) : (
 		<button
 			className="mm-button"
 			data-variant={isAdded(pack) ? undefined : 'primary'}
@@ -54,7 +60,7 @@ export const AddPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 		>
 			{isAdded(pack) ? 'Remove' : 'Add'}
 		</button>
-	);
+		);
 
 	return (
 		<div className="absolute inset-0 z-50 flex justify-center bg-black/10" onPointerDown={(event) => event.stopPropagation()}>
@@ -140,14 +146,15 @@ const MissingPackCard: React.FC<{ origin: TPackOrigin; onBack: () => void }> = (
 	</>
 );
 
-/** The app's Packs and the added ones, each once; an added copy has the items as they stand in the library */
+/** The app's Packs and the added ones, each once, Starter first; an added copy has the items as they stand in the library */
 export function shownPacks(bundled: readonly TPack[], added: readonly TPack[]): TPack[] {
-	return [...added, ...bundled.filter((pack) => !added.some((item) => item.id === pack.id))].sort((a, b) => a.name.localeCompare(b.name));
+	return [...added, ...bundled.filter((pack) => !added.some((item) => item.id === pack.id))].sort((a, b) => Number(b.id === STARTER_PACK_ID) - Number(a.id === STARTER_PACK_ID) || a.name.localeCompare(b.name));
 }
 
 /** A Pack's items in words, themes first */
 export function packItemLabels(pack: TPack): string[] {
-	return [...pack.themes.map((theme) => `${theme.name} (theme)`), ...pack.items.map(libraryItemLabel), ...pack.builtInDecor.map((source) => decorItem(source)?.label ?? source)];
+	const builtIn = pack.builtIn ?? [];
+	return [...pack.themes.map((theme) => `${theme.name} (theme)`), ...builtIn.filter((item) => item.kind === 'theme').map((item) => `${item.label} (theme)`), ...builtIn.filter((item) => item.kind === 'skin').map((item) => item.label), ...pack.items.map(libraryItemLabel), ...pack.builtInDecor.map((source) => decorItem(source)?.label ?? source)];
 }
 
 /** The Pack's own picture, else its items' pictures side by side */

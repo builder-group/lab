@@ -1,4 +1,3 @@
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { useFeatureState } from 'feature-react/state';
 import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus } from 'lucide-react';
 import React from 'react';
@@ -11,14 +10,15 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStat
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { ZOOM_100_SCALE } from '@/modules/compose/view';
-import { CameraInspector, PieceLook, SeamlessLoopPanel, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
-import { MarbleLook } from '@/modules/design/SkinProperties';
-import { ThemePanel } from '@/modules/design/ThemePanel';
+import { CameraInspector, FormatField, PieceSkin, SeamlessLoopRows, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
+import { MarbleSkin } from '@/modules/design/SkinProperties';
+import { THEME_HELP } from '@/modules/design/concept-words';
+import { ThemeRow } from '@/modules/design/ThemePanel';
 import { DecorInspector, DecorsInspector, MadeInBlenderInspector } from '@/modules/design/DecorInspector';
-import { KeyLightInspector, LightInspector, LightsInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
+import { ColorWell, KeyLightInspector, LightInspector, LightsInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
 import { addedLights } from '@/modules/design/scene-layers';
-import { DEFAULT_HIT_VELOCITY, endsOnFinish, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, SONG_TAIL, songParts, suggestedHitTimes } from '@/modules/music';
-import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
+import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts, suggestedHitTimes } from '@/modules/music';
+import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { getPieceDefinition, layoutOf, soundsHit } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
@@ -31,7 +31,6 @@ import { auditionNote, BACKING_COLOR, handNotes } from './timeline/hand-notes';
 import { parseTime } from './timeline/parse-time';
 import { setPartSound } from './timeline/PartRows';
 import { PartToggles } from './timeline/PartToggles';
-import { songFitEnd } from './world';
 
 /**
  * Properties of the selection, like Figma UI3's properties panel: the zoom at the top in Compose, then a
@@ -57,7 +56,7 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	);
 };
 
-/** The inspector of the selected layer; Compose and Film differ only in what a piece shows (shape or look) */
+/** The inspector of the selected layer; Compose and Film differ only in what a piece shows (shape or skin) */
 const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInspectorTarget; workspace: TWorkspace }> = (props) => {
 	const { cx, project, target, workspace } = props;
 	const isFilm = workspace === 'design';
@@ -65,7 +64,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 		case 'pieces': {
 			if (!isFilm) return <PieceInspector cx={cx} project={project} ids={target.ids} />;
 			const pieces = project.entities.filter((entity) => target.ids.includes(entity.id));
-			return <PieceLook cx={cx} project={project} pieces={pieces} />;
+			return <PieceSkin cx={cx} project={project} pieces={pieces} />;
 		}
 		case 'hits':
 			return <HitInspector cx={cx} project={project} hitKeys={target.keys} />;
@@ -86,7 +85,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return (
 				<>
 					<LaneInspector cx={cx} project={project} lane={lane} marble={marble} />
-					{isFilm ? <MarbleLook cx={cx} project={project} marble={marble} /> : null}
+					{isFilm ? <MarbleSkin cx={cx} project={project} marble={marble} /> : null}
 				</>
 			);
 		}
@@ -172,6 +171,8 @@ const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; marble: TEntity }> = (props) => {
 	const { cx, project, lane, marble } = props;
 	const analysis = useFeatureState(cx.sources.$analysis);
+	const projectItems = useFeatureState(cx.library.$projectItems);
+	const globalItems = useFeatureState(cx.library.$globalItems);
 	const audio = project.music.sources.find((source) => source.kind === 'audio');
 	const suggestions = audio == null ? undefined : analysis[audio.id]?.onsets;
 	const conflicts = findLaneConflicts(lane).size;
@@ -206,13 +207,9 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 		cx.simulation.endPreview();
 	}
 
-	function setColor(color: string): void {
-		const marbleComponent = marble.components.marble;
-		cx.execute([
-			{ type: 'upsertLane', lane: { ...lane, color } },
-			...(marbleComponent == null ? [] : [{ type: 'setComponent' as const, entityId: marble.id, component: { name: 'marble' as const, value: { ...marbleComponent, color } } }])
-		]);
-	}
+	// One colour per marble: the commands keep the lane and the marble on it
+	const colorCommands = (color: string): TProjectCommand[] => [{ type: 'upsertLane', lane: { ...lane, color } }];
+	const fixedBy = [...projectItems, ...globalItems].find((item) => item.id === marble.components.skin?.assetId && item.manifest?.color != null);
 
 	return (
 		<>
@@ -227,24 +224,36 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 					) : null
 				}
 			/>
-			<Panel id="marble.marble" title="Marble">
-				<div className="mm-insp-swatches" data-span="2" role="radiogroup" aria-label="Color">
-					{laneColors.map((color) => (
-						<button
-							key={color}
-							role="radio"
-							aria-checked={color === lane.color}
-							aria-label={`Color ${color}`}
-							className="h-4 w-4 rounded-full"
-							style={{
-								background: color,
-								boxShadow: color === lane.color ? '0 0 0 2px var(--content), 0 0 0 3.5px var(--text-secondary)' : 'inset 0 0 0 0.5px rgb(0 0 0 / 0.2)'
-							}}
-							onClick={() => setColor(color)}
-							type="button"
-						/>
-					))}
-				</div>
+			<Panel id="marble.marble" title="Marble" accessory={<HelpTip text="The marble's one colour, in the timeline, in Compose and on skins whose Colour is Marble." />}>
+				{fixedBy != null ? (
+					<ReadoutField label="Colour" name="Marble colour" span={2}>
+						<span className="flex items-center gap-1.5">
+							<span className="h-3 w-3 shrink-0 rounded-full" style={{ background: lane.color }} aria-hidden />
+							<span className="truncate">Set by {fixedBy.manifest?.label}</span>
+						</span>
+					</ReadoutField>
+				) : (
+					<>
+						<div className="mm-insp-swatches" data-span="2" role="radiogroup" aria-label="Colour">
+							{laneColors.map((color) => (
+								<button
+									key={color}
+									role="radio"
+									aria-checked={color === lane.color}
+									aria-label={`Colour ${color}`}
+									className="h-4 w-4 rounded-full"
+									style={{
+										background: color,
+										boxShadow: color === lane.color ? '0 0 0 2px var(--content), 0 0 0 3.5px var(--text-secondary)' : 'inset 0 0 0 0.5px rgb(0 0 0 / 0.2)'
+									}}
+									onClick={() => cx.execute(colorCommands(color))}
+									type="button"
+								/>
+							))}
+						</div>
+						<ColorWell cx={cx} id="marble-color" label="Colour" name="Marble colour" own={lane.color} shown={lane.color} commandsFor={(color) => (color != null ? colorCommands(color) : [])} />
+					</>
+				)}
 			</Panel>
 			{release != null ? (
 				<Panel id="marble.release" title="Release" accessory={<HelpTip text="Where the marble starts. Drag its ring on the wall to move it." />}>
@@ -253,7 +262,7 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 				</Panel>
 			) : null}
 			{suggestions != null ? (
-				<Panel id="marble.hits" title="Hits" accessory={<HelpTip text="Double-click the marble's row in the timeline to add a hit, or press T while playing to tap along." />}>
+				<Panel id="marble.hits" title="Hits" accessory={<HelpTip text="Press T to add a hit at the playhead, or play and tap along with T. Double-clicking the marble's row works too." />}>
 					<button className="mm-button" data-span="2" onClick={addSuggestedHits} title={`Add a hit for each of the ${suggestions.length} beats found in the recording`} type="button">
 						Add {suggestions.length} {suggestions.length === 1 ? 'Beat' : 'Beats'}
 					</button>
@@ -542,76 +551,44 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 
 /**
  * The Scene, selected by its row in Layers or by clearing the selection, like Blender's Scene properties: only what the
- * whole film shares. In Film the theme comes first, then the length and the Marble Speed every marble shares; Compose
- * ends with Seamless Loop, where the run has to loop. Each layer keeps its own settings.
+ * whole film shares. Film shows the Theme row and Format. Compose shows Gravity and Seamless Loop. The length is the transport's and
+ * the ruler's; each layer keeps its own settings.
  */
 const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolean }> = (props) => {
 	const { cx, project, isFilm } = props;
 	const speed = project.physics.gravityScale;
-	const fitEnd = songFitEnd(project);
 
 	const withSpeed = (gravityScale: number): TProject => ({ ...project, physics: { ...project.physics, gravityScale } });
 
 	return (
 		<>
 			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Scene" subtitle={formatTime(project.end)} />
-			<ReferencesPanel cx={cx} />
-			{isFilm ? <ThemePanel cx={cx} project={project} /> : null}
-			<Panel id="world.film" title="Length" accessory={<HelpTip text="How long the film runs. Fit to Song ends it shortly after the last note." />}>
-				<ScrubField id="project-end" label="Length" name="Film length" value={project.end} unit="" step={0.05} precision={2} min={0.5} format={formatTime} parse={parseTime} onCommit={(end) => cx.execute([{ type: 'setEnd', end }])} />
-				<button
-					className="mm-button"
-					disabled={fitEnd == null || (!endsOnFinish(project) && Math.abs(fitEnd - project.end) < 0.005)}
-					onClick={() => void cx.fitToSong()}
-					title={fitEnd == null ? 'The song has no notes yet' : endsOnFinish(project) ? 'End the film just after the last marble rolls out of its Finish and leaves the frame' : `End the film ${SONG_TAIL} s after the last note, while the last marble is still in view (${formatTime(fitEnd)})`}
-					type="button"
-				>
-					Fit to Song
-				</button>
-			</Panel>
-			<Panel
-				id="world.physics"
-				title="Marble Speed"
-				accessory={<HelpTip text="How fast every marble falls, as a share of Earth's gravity. It changes every marble at once. Slower gives smaller hops and denser columns; platforms that play a note stay on time." />}
-			>
-				<SliderField
-					id="world-speed"
-					label="Speed"
-					value={speed}
-					min={0.05}
-					max={2}
-					step={0.05}
-					format={(value) => value.toFixed(2)}
-					unit="×"
-					onPreview={(value) => cx.simulation.startPreview(withSpeed(value))}
-					onCommit={(value) => {
-						cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
-						cx.simulation.endPreview();
-					}}
-				/>
-			</Panel>
-			{isFilm ? null : <SeamlessLoopPanel cx={cx} project={project} />}
+			{isFilm ? (
+				<Panel id="scene.film" title="Film" accessory={<HelpTip text={`${THEME_HELP} Picking a theme keeps your changes on the layers. Export Pack… keeps a look as a theme. Format is the shape of the film: Portrait suits phones and Shorts; the camera frames the marbles for it.`} />}>
+					<ThemeRow cx={cx} project={project} />
+					<FormatField cx={cx} project={project} />
+				</Panel>
+			) : (
+				<Panel id="scene.compose" title="Film" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time. Seamless Loop: the end of the film runs into its start, so every marble has to come back to where it was released." />}>
+					<SliderField
+						id="world-speed"
+						label="Gravity"
+						value={speed}
+						min={0.05}
+						max={2}
+						step={0.05}
+						format={(value) => value.toFixed(2)}
+						unit="×"
+						onPreview={(value) => cx.simulation.startPreview(withSpeed(value))}
+						onCommit={(value) => {
+							cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
+							cx.simulation.endPreview();
+						}}
+					/>
+					<SeamlessLoopRows cx={cx} project={project} />
+				</Panel>
+			)}
 		</>
-	);
-};
-
-/** The images and words that set this film's look, only when the project has them */
-const ReferencesPanel: React.FC<{ cx: StudioCx }> = ({ cx }) => {
-	const references = useFeatureState(cx.$references);
-	if (references.images.length === 0 && references.text.trim() === '') return null;
-	return (
-		<Panel id="scene.references" title="References" accessory={<HelpTip text="The images and words this film follows. Agents read them; they live in the project's agent folder." />}>
-			<div className="flex flex-col gap-1.5" data-span="2">
-				{references.images.length > 0 ? (
-					<div className="flex flex-wrap gap-1">
-						{references.images.map((path) => (
-							<img key={path} alt="" src={convertFileSrc(path)} className="h-11 w-11 rounded-[4px] object-cover" draggable={false} />
-						))}
-					</div>
-				) : null}
-				{references.text.trim() !== '' ? <p className="mm-caption line-clamp-4 whitespace-pre-wrap">{references.text.trim()}</p> : null}
-			</div>
-		</Panel>
 	);
 };
 

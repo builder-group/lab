@@ -40,6 +40,8 @@ pub fn start_if_enabled(app: &AppHandle) {
 pub struct McpStatusDto {
     pub is_enabled: bool,
     pub is_serving: bool,
+    /// What each connected agent calls itself, from MCP's `initialize`
+    pub clients: Vec<String>,
 }
 
 #[tauri::command]
@@ -48,6 +50,7 @@ pub fn mcp_status(app: AppHandle, state: State<'_, McpState>) -> McpStatusDto {
     return McpStatusDto {
         is_enabled: is_enabled(&app),
         is_serving: state.is_serving(),
+        clients: state.client_names(),
     };
 }
 
@@ -82,6 +85,7 @@ pub fn mcp_set_enabled(
     return Ok(McpStatusDto {
         is_enabled,
         is_serving: state.is_serving(),
+        clients: state.client_names(),
     });
 }
 

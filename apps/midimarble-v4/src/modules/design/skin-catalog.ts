@@ -1,6 +1,7 @@
 import type { TAssetProperty } from '@/modules/library/asset-manifest';
 import type { TEntity, TSkinComponent, TThemeParts } from '@/modules/project';
 import { canonicalSkinId } from '@/modules/project/skin-ids';
+import { STARTER_ORIGIN } from '@/modules/library';
 import catalog from '../../../blender/mm_worker/skin_catalog.json';
 
 // Every built-in skin per element, free of themes, and what each theme dresses an element with. The Blender worker reads
@@ -28,9 +29,9 @@ export interface TCatalogSkin {
 	properties: readonly TAssetProperty[];
 	/** Under `public/`; null for a skin with no tile */
 	previewUrl: string | null;
-	/** Off the tiles unless the project already uses it: a project's content for now, a Pack later; the Theme Default marble */
+	/** Off the pickers unless the project already uses it: a project's content for now, a Pack later; the Theme Default marble */
 	isHidden: boolean;
-	/** Quiet origin line, the Pack or example project it belongs to; a built-in skin has none */
+	/** Quiet origin line, the Pack or example project it belongs to */
 	origin: string;
 }
 
@@ -52,7 +53,7 @@ const ALL_SKINS: readonly TCatalogSkin[] = SKIN_ELEMENTS.flatMap((element) =>
 			properties: raw.properties ?? [],
 			previewUrl: raw.preview != null ? `/skins/${raw.preview}` : null,
 			isHidden: raw.hidden === true,
-			origin: raw.origin ?? ''
+			origin: raw.origin ?? STARTER_ORIGIN
 		};
 	})
 );

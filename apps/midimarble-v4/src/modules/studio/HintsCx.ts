@@ -76,7 +76,7 @@ export type THintId = 'song' | 'tap' | 'dot' | 'film';
 /** One line each, in the words of `docs/words.md` (sentence case, no period) */
 export const hintTexts: Record<THintId, string> = {
 	song: 'This is your song: each marble plays some of its notes',
-	tap: 'Press T and tap along: each press adds a hit to this marble',
+	tap: 'Press T to add a hit at the playhead, or play and tap along with T',
 	dot: "Press ⇧N to build the whole track, or click a note's dot to see its platform",
 	film: 'Switch to Film to choose a theme and export'
 };

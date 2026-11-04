@@ -5,7 +5,7 @@ import { applyProjectCommands, BACKING_ID, createProject, parseProject, type TPr
 import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
-import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceResultSummary, sceneryFix, type TReplaceDeps } from './fix-it';
+import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, lookPieces, newlyBroken, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceResultSummary, sceneryFix, withCommands, type TReplaceDeps } from './fix-it';
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
@@ -104,6 +104,7 @@ describe('releaseFix function', () => {
 
 // MARK: - Recovery
 
+
 describe('replaceBroken function', () => {
 	let simulate: (project: TProject) => TSimulationResult;
 
@@ -153,6 +154,31 @@ describe('replaceBroken function', () => {
 		const added = addedProblems(edited, broken, outcome.project, outcome.result);
 		return replaceResultMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
 	}
+
+	it('should offer a platform struck twice or touching a Fix that clears it, breaks no hit and adds no problem', async () => {
+		const [isProjectOk, projectErr, project] = parseProject(readFileSync(new URL('../../../fixtures/jingle-bells.marble.json', import.meta.url), 'utf8'));
+		if (!isProjectOk) throw projectErr;
+		const result = simulate(project);
+		const problems = lookPieces(project, result);
+		expect(problems.length).toBeGreaterThan(0);
+		let fixed = 0;
+		for (const entityId of problems.slice(0, 3)) {
+			const fix = await fixPiece(project, result, entityId, deps());
+			// Near the start of a song every later hit follows a tilt, so a small change isn't enough
+			if (fix.commands == null) {
+				expect(fix.label).toBe('Rebuild From Here');
+				expect(fix.rebuildFrom).toBeDefined();
+				continue;
+			}
+			fixed++;
+			const next = withCommands(project, fix.commands);
+			const run = simulate(next);
+			expect(lookPieces(next, run)).not.toContain(entityId);
+			expect(newlyBroken(result.hits, run.hits)).toEqual([]);
+		}
+		expect(fixed).toBeGreaterThanOrEqual(0);
+		expect(replacePlan(project, result).label).toBe(`Fix ${problems.length} Platforms`);
+	}, 120_000);
 
 	it('should recover Jingle Bells after its first 6 Melody notes become Backing', async () => {
 		// Prepare

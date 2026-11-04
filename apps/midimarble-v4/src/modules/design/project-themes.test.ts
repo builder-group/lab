@@ -9,7 +9,7 @@ import {
 	agentThemeCommands,
 	baseThemeOf,
 	hasSkinChoices,
-	saveAsThemeCommands,
+	currentLookThemeCommands,
 	sceneThemeParts,
 	themePartCommands,
 	copyName,
@@ -133,7 +133,7 @@ describe('project theme commands', () => {
 		const first = agentThemeCommands(project, { name: 'Sunset', base: 'brass', overrides: { wallColor: '#3B2A4A' } });
 		const added = apply(project, first.commands);
 		expect(resolveTheme(added.design)).toMatchObject({ name: 'Sunset', base: 'brass', overrides: { wallColor: '#3b2a4a' } });
-		expect(themeOrigin(resolveTheme(added.design))).toBe('Made with Agent');
+		expect(themeOrigin(resolveTheme(added.design))).toBe('Made by Agent');
 		const again = agentThemeCommands(added, { name: 'Sunset', base: 'chalk', overrides: { lightColor: '#ffb070' } });
 		const updated = apply(added, again.commands);
 		expect(again.themeId).toBe(first.themeId);
@@ -223,7 +223,7 @@ describe('New Theme with Agent', () => {
 		expect(isClearOk && cleared.design.themes?.[0]?.parts).toBeUndefined();
 	});
 
-	it('should Save as Theme: the look most of a type wear becomes its part, exceptions stay', () => {
+	it('should keep the current look as a theme: the look most of a type wear becomes its part, exceptions stay', () => {
 		const base = createProject();
 		const platform = (id: string, assetId?: string) => ({
 			id,
@@ -232,7 +232,7 @@ describe('New Theme with Agent', () => {
 		const project = { ...base, design: { ...base.design, theme: 'brass' }, entities: [...base.entities, platform('a', 'platform:copper'), platform('b', 'platform:copper'), platform('c', 'platform:key'), platform('d', 'library-skin')] };
 		expect(hasSkinChoices(project)).toBe(true);
 		expect(hasSkinChoices(base)).toBe(false);
-		const { commands, themeId } = saveAsThemeCommands(project);
+		const { commands, themeId } = currentLookThemeCommands(project);
 		const [isOk, error, next] = applyProjectCommands(project, commands);
 		if (!isOk) throw error;
 		const theme = resolveTheme(next.design, themeId);

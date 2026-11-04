@@ -264,8 +264,9 @@ describe('assists', () => {
 	it('continues a mirrored pattern while the rhythm repeats', () => {
 		// The eighth interval is 0.1 s longer, so Continue stops before it
 		const times = evenTimes(10).map((time, i) => (i >= 7 ? time + 0.1 : time));
-		// Continue copies the default bounce, which mirrors cleanly from a steeper start
-		const project = zigzagStart(times, CONTINUE_TILT);
+		// Continue copies the default bounce, which mirrors cleanly from a steeper start, and a gentler one touches at 0.3 s
+		const tilt = 0.5;
+		const project = zigzagStart(times, tilt);
 		const continued = continueSuggestions(project, simulate(project), 'lane-1', {
 			simulate,
 			idFor: (hitId) => `ghost-${hitId}`
@@ -283,7 +284,7 @@ describe('assists', () => {
 			suggestions.every((s) => s.isOk && s.status === 'onTime' && s.piece?.status === 'placed')
 		).toBe(true);
 		expect(suggestions.map((s) => s.entity.components.hitLink?.angle)).toEqual([
-			-CONTINUE_TILT, CONTINUE_TILT, -CONTINUE_TILT, CONTINUE_TILT, -CONTINUE_TILT
+			-tilt, tilt, -tilt, tilt, -tilt
 		]);
 		expect(continued?.commands).toHaveLength(5);
 	});

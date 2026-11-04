@@ -20,6 +20,9 @@ Use these with the person. One word per thing.
 | On Time, Early, Late, Missed, Stopped, Blocked, Open | | A hit's status |
 | Compose, Film | Design | The two workspaces |
 | Theme | style, preset | Dresses the whole film; one per project |
+| Gravity | Marble Speed | How fast all marbles fall; the command stays `marble.speed` |
+| Format | Frame, aspect | The shape of the film |
+| Tilt | Pitch | The camera's angle; the field stays `pitch` |
 | Skin | material, asset | How one piece looks |
 | Decor | prop | Things on the wall; no hitbox |
 | Pack | bundle, plugin | A file of themes, skins and decor. Add Pack…, Export Pack… |

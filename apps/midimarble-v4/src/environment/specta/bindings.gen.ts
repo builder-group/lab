@@ -56,8 +56,11 @@ export const commands = {
 	blenderPreviewCancel: (packagePath: string, signature: string) => typedError<null, string>(__TAURI_INVOKE("blender_preview_cancel", { packagePath, signature })),
 	/**  Agent CLIs found on `PATH`, `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin` */
 	agentsDetect: () => typedError<AgentCliDto[], string>(__TAURI_INVOKE("agents_detect")),
-	/**  Writes the brief into `candidates/<runId>/` and starts the CLI there. Output streams as `agent-run-event`. */
-	agentsStart: (packagePath: string, cli: AgentCli, runId: string, prompt: string, briefJson: string) => typedError<AgentRunDto, string>(__TAURI_INVOKE("agents_start", { packagePath, cli, runId, prompt, briefJson })),
+	/**
+	 *  Sends a chat message: runs the CLI in the project's `agent/` folder with the app's MCP tools, continuing the project's
+	 *  session when there is one. Output streams as `agent-run-event`.
+	 */
+	agentsStart: (packagePath: string, title: string, cli: AgentCli, runId: string, request: string, prompt: string, briefJson: string) => typedError<AgentRunDto, string>(__TAURI_INVOKE("agents_start", { packagePath, title, cli, runId, request, prompt, briefJson })),
 	/**  Ends a running agent. Returns false when the run is not running. */
 	agentsCancel: (runId: string) => typedError<boolean, string>(__TAURI_INVOKE("agents_cancel", { runId })),
 	/**  Candidate runs of the package, newest first */
@@ -96,7 +99,12 @@ export const commands = {
 	libraryAddAsset: (packagePath: string, path: string, itemId: string, manifestJson: string) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_add_asset", { packagePath, path, itemId, manifestJson })),
 	/**  The added Packs, kept in the app's support folder */
 	libraryListPacks: () => typedError<PackDto[], string>(__TAURI_INVOKE("library_list_packs")),
-	/**  The Packs that ship in the app bundle, for the Add Pack sheet */
+	/**
+	 *  The Packs that ship in the app bundle, for the Add Pack sheet
+	 * 
+	 *  Off the main thread, and always from the app's own resources: a read under a protected folder such as Documents
+	 *  waits for a macOS permission prompt, which would freeze the window behind it.
+	 */
 	libraryListBundledPacks: () => typedError<PackDto[], string>(__TAURI_INVOKE("library_list_bundled_packs")),
 	/**  Adds a bundled Pack or a Pack from a file: it stays on this Mac for every project. Nothing changes in the open project. */
 	libraryImportPack: (path: string) => typedError<PackDto, string>(__TAURI_INVOKE("library_import_pack", { path })),
@@ -108,6 +116,7 @@ export const commands = {
 /** Events */
 export const events = {
 	agentRunEvent: makeEvent<AgentRunEvent>("agent-run-event"),
+	mcpClientsEvent: makeEvent<McpClientsEvent>("mcp-clients-event"),
 	mcpRequestEvent: makeEvent<McpRequestEvent>("mcp-request-event"),
 	menuCommandEvent: makeEvent<MenuCommandEvent>("menu-command-event"),
 };
@@ -135,6 +144,9 @@ export type AgentReferencesDto = {
 export type AgentReview = "accepted" | "declined";
 
 export type AgentRunDto = {
+	/**  Where the run's record and transcript are */
+	runPath: string,
+	/**  Where its Result is once it has one */
 	candidatePath: string,
 	hasAsset: boolean,
 	/**  Contents of the candidate's `manifest.json`, validated by the app before accepting */
@@ -151,22 +163,22 @@ export type AgentRunEvent = {
 	payload: string,
 };
 
-/**  Stored as `run.json` in the candidate folder */
+/**  Stored as `run.json` in `agent/runs/<runId>/`, or in `candidates/<runId>/` for runs from before the chat */
 export type AgentRunRecord = {
 	runId: string,
 	cli: AgentCli,
+	/**  What the CLI was told: the message, the selection in resolved form and the Result note */
 	prompt: string,
+	/**  The message as written, with mentions as `@[Name]`. Absent on runs from before the chat. */
+	request?: string | null,
+	/**  The CLI's session this run continues or started */
+	sessionId?: string | null,
 	status: AgentRunStatus,
 	review: AgentReview | null,
 	startedAt: number | null,
 	finishedAt: number | null,
 	exitCode: number | null,
 	error: string | null,
-	/**
-	 *  Package files outside `candidates/` that changed during the run. Advisory: the user or Blender may
-	 *  also have changed them.
-	 */
-	outsideChanges?: string[],
 };
 
 export type AgentRunStatus = "running" | "succeeded" | "failed" | "cancelled";
@@ -234,6 +246,11 @@ export type LibraryScope =
 /**  The app's support folder, shared by every project */
 "global";
 
+/**  Which agents are connected changed. `clients` holds what each calls itself in `initialize`, one per connection. */
+export type McpClientsEvent = {
+	clients: string[],
+};
+
 /**  A tool call for the front end to run. Answered with `mcp_respond`. */
 export type McpRequestEvent = {
 	requestId: number,
@@ -245,6 +262,8 @@ export type McpRequestEvent = {
 export type McpStatusDto = {
 	isEnabled: boolean,
 	isServing: boolean,
+	/**  What each connected agent calls itself, from MCP's `initialize` */
+	clients: string[],
 };
 
 /**  A command item was chosen in the menu bar, or its key was pressed and the web view left the key alone */

@@ -10,7 +10,7 @@ import { builtInSource, type TDecorSource } from './decor';
 import { libraryDecorSource, openScatterPanel, placeDecor, placeLibraryDecor } from './decor-actions';
 import { DECOR_HELP } from './concept-words';
 import { listedDecorItems, usedDecorSources } from './decor-catalog';
-import { TileDetail } from './LookTile';
+import { TileDetail } from './TilePicker';
 import { libraryEntries, libraryItemKey, notAddedPackAction, libraryItemLabel, libraryItemOrigin, type TLibraryEntry } from './DesignLibraryCx';
 import type { TTitleStyle } from './design-commands';
 
@@ -45,9 +45,9 @@ export function dropTitle(event: React.DragEvent, cx: StudioCx): boolean {
 }
 
 /**
- * Film's Insert popover, the one place to add something, the same as Compose's with its tiles: the song while there is
- * none and a marble, titles, Decor with its origin line and the Keep in Library star on what the agent made or you
- * imported, a light and a shot. A click adds the item, a drag onto the viewer places it. How the selection looks, its
+ * Film's Insert popover, the one place to add something, the same as Compose's with its tiles: titles, Decor with its
+ * origin line and the Keep in Library star on what an agent made or you imported, a light and a shot, then the song
+ * while there is none and a marble. A click adds the item, a drag onto the viewer places it. How the selection looks, its
  * skins and the theme, is in the inspector.
  */
 export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
@@ -93,11 +93,7 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 	}
 
 	return (
-		<InsertPopover anchor={anchor} onClose={close} isHidden={isDragging} isDense>
-			<InsertSection title={hasSong ? 'Marble' : 'Song and Marble'}>
-				{hasSong ? null : <InsertTile label="Song…" title="Add a MIDI file or a recording: the only sound of the film" preview={<Music size={22} strokeWidth={1.4} />} onAdd={() => add(onAddSong)} />}
-				<InsertTile label="Marble" title="A new marble with its own layer" preview={<PiecePreview item="marble" width={72} height={48} />} onAdd={() => add(onAddMarble)} />
-			</InsertSection>
+		<InsertPopover anchor={anchor} onClose={close} shortcut="⇧I" isHidden={isDragging} isDense>
 			<InsertSection title="Titles">
 				<InsertTile label="Wall Title" title="Click the preview where it goes (T)" preview={<Type size={22} strokeWidth={1.4} />} onAdd={() => add(onAddTitle)} />
 				{TITLE_TILES.map((title) => (
@@ -110,7 +106,7 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 						key={item.id}
 						label={item.label}
 						{...(item.origin != null ? { detail: item.origin } : {})}
-						title={`Add ${item.label} at the playhead, or drag it onto the wall`}
+						title={item.effect === 'snowfall' ? 'Snow, dust or sparks in front of everything, over the whole film' : `Add ${item.label} at the playhead, or drag it onto the wall`}
 						preview={<img alt="" src={item.previewUrl} draggable={false} />}
 						onAdd={() => add(() => placeDecor(cx, builtInSource(item.id)))}
 						{...drag(DECOR_DRAG_TYPE, item.id)}
@@ -120,7 +116,11 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 					<LibraryTile key={libraryItemKey(entry.item)} cx={cx} entry={entry} onAdd={add} drag={drag} />
 				))}
 			</InsertSection>
-			<button className="mm-button my-2 w-full" onClick={() => add(() => cx.library.$isAddPackOpen.set(true))} title="A Pack brings more themes, skins and decor; nothing in your project changes" type="button">
+			<button className="mm-button mt-2 w-full" onClick={() => add(() => openScatterPanel(cx))} title="Asks what to scatter, then fills the free wall the camera shows" type="button">
+				<Wand2 size={12} strokeWidth={1.8} />
+				Scatter Decor…
+			</button>
+			<button className="mm-button mt-1.5 mb-2 w-full" onClick={() => add(() => cx.library.$isAddPackOpen.set(true))} title="A Pack brings more themes, skins and decor; nothing in your project changes" type="button">
 				<PackagePlus size={12} strokeWidth={1.8} />
 				Add Pack…
 			</button>
@@ -128,15 +128,15 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 				<InsertTile label="Light" title="Add a light to the scene" preview={<Lightbulb size={22} strokeWidth={1.4} />} onAdd={() => add(onAddLight)} />
 				<InsertTile label="Shot" title="Add a shot at the playhead" preview={<Video size={22} strokeWidth={1.4} />} onAdd={() => add(onAddShot)} />
 			</InsertSection>
+			<InsertSection title={hasSong ? 'Marble' : 'Song and Marble'}>
+				{hasSong ? null : <InsertTile label="Song…" title="Add a MIDI file or a recording: the only sound of the film" preview={<Music size={22} strokeWidth={1.4} />} onAdd={() => add(onAddSong)} />}
+				<InsertTile label="Marble" title="A new marble with its own layer" preview={<PiecePreview item="marble" width={72} height={48} />} onAdd={() => add(onAddMarble)} />
+			</InsertSection>
 			{status === 'error' && error != null ? (
 				<p role="alert" className="mm-caption px-1 pt-2 !text-[var(--bad)]">
 					{error}
 				</p>
 			) : null}
-			<button className="mm-button mt-2 w-full" onClick={() => add(() => openScatterPanel(cx))} title="Asks what to scatter, then fills the free wall the camera shows" type="button">
-				<Wand2 size={12} strokeWidth={1.8} />
-				Scatter Decor…
-			</button>
 		</InsertPopover>
 	);
 };
@@ -187,7 +187,7 @@ const InsertTile: React.FC<TInsertTileProps> = (props) => {
 
 interface TInsertTileProps {
 	label: string;
-	/** Quiet origin line: Starter, a Pack's name, Made with Agent or Imported */
+	/** Quiet origin line: Starter, a Pack's name, Made by Agent or Imported */
 	detail?: string;
 	/** Clicking the detail line, for an origin that opens its Pack's card */
 	onDetail?: (() => void) | undefined;

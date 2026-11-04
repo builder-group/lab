@@ -3,7 +3,7 @@ import { placeQuickHelpLabels, QUICK_HELP_LABEL, quickHelpRegions, regionsFor, s
 
 describe('splitShortcut function', () => {
 	it('should take the shortcut out of a tooltip like a menu key equivalent', () => {
-		expect(splitShortcut('Show Agent (⌘J)')).toEqual({ title: 'Show Agent', shortcut: '⌘J' });
+		expect(splitShortcut('Export the film (⌘E)')).toEqual({ title: 'Export the film', shortcut: '⌘E' });
 		expect(splitShortcut('Play the song (Space)')).toEqual({ title: 'Play the song', shortcut: 'Space' });
 	});
 

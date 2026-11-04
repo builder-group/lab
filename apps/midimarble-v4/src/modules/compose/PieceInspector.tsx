@@ -7,7 +7,7 @@ import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/m
 import { FINISH_CHUTE, FINISH_CUP, finishCatch, getPieceDefinition, isMusicalPiece, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
-import { preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { lookProblems, preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { attachState, isPathPieceType, pathPieceTypes, withPathType, type TPathPieceType } from './attach-edit';
@@ -26,7 +26,9 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	// Pieces another marble hits, from the problem model the hit summary and Layers read
-	const struck = React.useMemo(() => (result != null && result.revision === project.revision ? struckPieces(preflightExport(project, result)) : new Map<string, TPreflightIssue[]>()), [project, result]);
+	const preflight = React.useMemo(() => (result != null && result.revision === project.revision ? preflightExport(project, result) : null), [project, result]);
+	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
+	const looks = React.useMemo(() => (preflight != null ? lookProblems(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
 	const entities = project.entities.filter((entity) => ids.includes(entity.id) && entity.components.piece != null);
 	const first = entities[0];
 	if (first == null) return null;
@@ -67,7 +69,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const subtitle = isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
 	const position = transform?.position ?? resolved?.position ?? null;
 	const hitBy = isSingle ? struck.get(first.id) : undefined;
-	const status = isSingle ? struckStatus(pieceStatus(project, first, resolved, result), hitBy) : null;
+	const look = isSingle ? looks.get(first.id) : undefined;
+	const status = isSingle ? lookStatus(struckStatus(pieceStatus(project, first, resolved, result), hitBy), look) : null;
 	const isFinish = kind === 'catcher';
 	const isFinishMissed = isFinish && status?.tone === 'bad';
 
@@ -81,9 +84,9 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
 				fix={
 					// The Fix-it sits under the problem
-					status == null || link == null ? null : (status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link) ? (
+					status == null || link == null ? null : (status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link) && look == null ? (
 						<ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} />
-					) : (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isFinishMissed ? (
+					) : (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isFinishMissed || look != null ? (
 						<FixPieceButton cx={cx} entityId={first.id} isPlatform={soundsHit(type, link)} />
 					) : null
 				}
@@ -178,7 +181,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 
 /**
  * The platform's ∠, L and Lands At beside its hit, so stepping through hits leaves the tilt in reach. The same fields and
- * edits as the piece's own Position panel; Hitbox, Physics and Look stay on the platform.
+ * edits as the piece's own Position panel; Hitbox, Physics and Skin stay on the platform.
  */
 export const PlatformFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
 	const { cx, project, entity } = props;
@@ -289,7 +292,7 @@ export const FixPieceButton: React.FC<{ cx: StudioCx; entityId: string; isPlatfo
 	}, [compose, entityId, replacing, result, revision]);
 	const check = checks[entityId];
 	const fix = check != null && check.revision === revision ? check.fix : null;
-	const works = fix?.commands != null;
+	const works = fix?.commands != null || fix?.rebuildFrom != null;
 	function run(): void {
 		if (compose == null || !works) return;
 		setIsApplying(true);
@@ -297,7 +300,7 @@ export const FixPieceButton: React.FC<{ cx: StudioCx; entityId: string; isPlatfo
 	}
 	const fallback = isPlatform ? 'Re-place' : 'Move Clear';
 	const label = fix == null ? 'Checking…' : (fix.label ?? fallback);
-	const title = fix == null ? 'Trying the fix on a copy of the track first' : works ? 'Tried on a copy of the track first: it breaks no hit and adds no problem' : fix.message;
+	const title = fix == null ? 'Trying the fix on a copy of the track first' : fix.rebuildFrom != null ? fix.message : works ? 'Tried on a copy of the track first: it breaks no hit and adds no problem' : fix.message;
 	return (
 		<button className="mm-fix-it mm-fix-it-label" disabled={compose == null || replacing != null || isApplying || !works} onClick={run} title={title} type="button">
 			{isPlatform ? <WandSparkles size={12} strokeWidth={1.9} /> : null}
@@ -315,6 +318,13 @@ function struckStatus(status: TTimingStatus | null, hitBy: TPreflightIssue[] | u
 	if (first == null || status?.tone === 'bad') return status;
 	const marble = first.by ?? 'Another Marble';
 	return { tone: 'warn', label: `Hit by ${marble}`, detail: hitBy?.map((issue) => `${issue.title}. ${issue.detail ?? ''}`.trim()).join('\n') ?? '' };
+}
+
+/** "Hit Twice" or "Touching" when nothing more serious shows, so the problem the list names shows on the piece too */
+function lookStatus(status: TTimingStatus | null, look: TPreflightIssue[] | undefined): TTimingStatus | null {
+	const first = look?.[0];
+	if (first == null || status?.tone === 'bad' || status?.tone === 'warn') return status;
+	return { tone: 'warn', label: first.label ?? first.title, detail: look?.map((issue) => `${issue.title}. ${issue.detail ?? ''}`.trim()).join('\n') ?? '' };
 }
 
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);

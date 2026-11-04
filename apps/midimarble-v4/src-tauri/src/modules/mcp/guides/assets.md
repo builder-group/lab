@@ -1,6 +1,6 @@
 # Making assets
 
-A skin or decor item is a `.blend` plus `manifest.json`, built with headless Blender and brought in with `add_asset`. Work in the project's `agent/scratch/`. Blender is usually at `/Applications/Blender.app/Contents/MacOS/Blender`.
+A skin or decor item is a `.blend` plus `manifest.json`, built with headless Blender and brought in with `add_asset`. It shows in Insert or the skin picker with the origin line **Made by Agent**, so the person can use it by hand too. Work in the project's `agent/scratch/`. Blender is usually at `/Applications/Blender.app/Contents/MacOS/Blender`.
 
 ## asset.blend
 
@@ -42,6 +42,8 @@ bpy.ops.wm.save_as_mainfile(filepath='asset.blend')
   "notes": "What it is and how its parts move"
 }
 ```
+
+A marble skin with one fixed colour adds `"color": "#22ff66"`: the marble takes it on when the skin is applied, so its Compose dot and timeline colour say the same as the film. Leave it out when the skin uses the marble's colour.
 
 `role` is `skin` or `decoration`; `add_asset` also takes `decor`. `id` uses lowercase letters, digits and `-`; a taken id gets a free suffix. For decor, `fittedParams` takes `width` and `height` in metres, which keep it clear of the run. `properties` are optional rows in the inspector, written to the material inputs and nodes of that name. Also put a `preview.png` beside it, a small square render, so the tile shows a picture.
 

@@ -1,6 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Music } from 'lucide-react';
 import React from 'react';
+import { popoverFrame } from './view';
 import { HelpTip } from '@/components';
 import { TRACK_HELP } from '@/modules/design/concept-words';
 import type { ComposeCx } from './ComposeCx';
@@ -12,24 +13,29 @@ import { PiecePreview } from './PiecePreview';
  * button, stays inside the window and closes on a press outside.
  */
 export const InsertPopover: React.FC<TInsertPopoverProps> = (props) => {
-	const { anchor, onClose, isHidden = false, isDense = false, children } = props;
+	const { anchor, onClose, title = 'Insert', shortcut, head, footer, side = 'start', isHidden = false, isDense = false, children } = props;
 	const ref = React.useRef<HTMLDivElement>(null);
-	const [position, setPosition] = React.useState<{ left: number; top: number } | null>(null);
+	const bodyRef = React.useRef<HTMLDivElement>(null);
+	const bounds = useCanvasBounds();
+	const [frame, setFrame] = React.useState<{ left: number; top: number; maxHeight: number } | null>(null);
 
-	// Opens beside the button, kept inside the window
+	// Kept inside the canvas whatever the panels and the window do, which scrolls a panel taller than it. Runs after every
+	// render, as a search or a Pack changes how tall the panel wants to be.
 	React.useLayoutEffect(() => {
 		const button = anchor.current?.getBoundingClientRect();
-		const height = ref.current?.offsetHeight ?? 0;
-		if (button == null) return;
-		const top = Math.max(8, Math.min(button.top - 12, window.innerHeight - height - 8));
-		setPosition({ left: button.right + 10, top });
-	}, [anchor]);
+		const panel = ref.current;
+		const body = bodyRef.current;
+		if (button == null || panel == null || body == null || bounds == null) return;
+		const next = popoverFrame(button, bounds, { width: panel.offsetWidth, height: panel.offsetHeight - body.clientHeight + body.scrollHeight }, side);
+		setFrame((current) => (current?.left === next.left && current.top === next.top && current.maxHeight === next.maxHeight ? current : next));
+	});
 
-	// A press outside the popover and its button closes it, like a Figma popover
+	// A press outside the popover and its button closes it, like a Figma popover; its own tiles' context menu stays part of it
 	React.useEffect(() => {
 		function onPointerDown(event: PointerEvent): void {
 			const target = event.target as Node | null;
 			if (ref.current?.contains(target) === true || anchor.current?.contains(target) === true) return;
+			if (target instanceof Element && target.closest('[role="menu"]') != null) return;
 			onClose();
 		}
 		window.addEventListener('pointerdown', onPointerDown, true);
@@ -41,28 +47,59 @@ export const InsertPopover: React.FC<TInsertPopoverProps> = (props) => {
 			ref={ref}
 			className="mm-library"
 			role="dialog"
-			aria-label="Insert"
+			aria-label={title}
 			data-dense={isDense}
-			style={{ left: position?.left ?? -9999, top: position?.top ?? 0, visibility: position == null || isHidden ? 'hidden' : undefined }}
+			style={{ left: frame?.left ?? -9999, top: frame?.top ?? 0, maxHeight: frame?.maxHeight, visibility: frame == null || isHidden ? 'hidden' : undefined }}
 		>
 			<div className="mm-library-head">
-				<span className="font-semibold">Insert</span>
-				<kbd>⇧I</kbd>
+				<span className="font-semibold">{title}</span>
+				{shortcut != null ? <kbd>{shortcut}</kbd> : null}
 			</div>
-			{children}
+			{head}
+			<div ref={bodyRef} className="mm-library-body">
+				{children}
+			</div>
+			{footer != null ? <div className="mm-library-foot">{footer}</div> : null}
 		</div>
 	);
 };
 
 interface TInsertPopoverProps {
-	/** The rail's Insert button, which the popover opens beside */
+	/** The control the popover opens beside */
 	anchor: React.RefObject<HTMLButtonElement | null>;
 	onClose: () => void;
+	title?: string;
+	shortcut?: string;
+	/** Stays above the scrolling list, such as a search field */
+	head?: React.ReactNode;
+	/** Stays below the scrolling list */
+	footer?: React.ReactNode;
+	/** The canvas edge it sits against: Insert's rail on the left, the inspector's rows on the right */
+	side?: 'start' | 'end';
 	/** Out of the way while a tile is dragged out of it */
 	isHidden?: boolean;
-	/** Three columns for a long list, which scrolls when it is taller than the window */
+	/** Three columns for a long list */
 	isDense?: boolean;
 	children: React.ReactNode;
+}
+
+/** The canvas area on screen, which floating panels stay inside; follows the panels and the window */
+function useCanvasBounds(): DOMRect | null {
+	const [bounds, setBounds] = React.useState<DOMRect | null>(null);
+	React.useLayoutEffect(() => {
+		const canvas = document.querySelector('[data-canvas-bounds]');
+		if (canvas == null) return;
+		const measure = (): void => setBounds(canvas.getBoundingClientRect());
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(canvas);
+		window.addEventListener('resize', measure);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('resize', measure);
+		};
+	}, []);
+	return bounds;
 }
 
 /** Compose's Insert: a tile per item with a preview of its real geometry. A click arms the item's tool; a drag drops it on the canvas. */
@@ -74,7 +111,7 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 	const close = React.useCallback(() => compose.$libraryOpen.set(false), [compose]);
 
 	return (
-		<InsertPopover anchor={anchor} onClose={close}>
+		<InsertPopover anchor={anchor} onClose={close} shortcut="⇧I">
 			{insertSections.map((section) => (
 				<section key={section.title} className="mm-library-section" aria-label={section.title}>
 					<div className="mm-library-section-title">

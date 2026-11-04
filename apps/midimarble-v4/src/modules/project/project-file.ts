@@ -17,7 +17,24 @@ export function parseProject(json: string): TResult<TProject, Error> {
 	}
 	const [isProjectOk, projectErr, project] = prepareSchemaValue(projectDefinition, withoutRemovedFields(value));
 	if (!isProjectOk) return Err(projectErr);
-	return Ok(migrateSkins(project as TProject));
+	return Ok(particlesName(oneMarbleColor(migrateSkins(project as TProject))));
+}
+
+/** An older file's Snowfall layer reads Particles, the item's one name */
+function particlesName(project: TProject): TProject {
+	if (project.design.decor == null) return project;
+	const decor = project.design.decor.map((item) => (item.source === 'decor:snowfall' ? { ...item, name: item.name.replace(/^Snowfall/, 'Particles') } : item));
+	return { ...project, design: { ...project.design, decor } };
+}
+
+/** An older file may name two colours for a marble: its lane takes the one the film shows */
+function oneMarbleColor(project: TProject): TProject {
+	const colors = new Map(project.entities.flatMap((entity) => (entity.components.marble != null ? [[entity.components.marble.laneId, entity.components.marble.color] as const] : [])));
+	const lanes = project.music.lanes.map((lane) => {
+		const color = colors.get(lane.id);
+		return color != null && color !== lane.color ? { ...lane, color } : lane;
+	});
+	return { ...project, music: { ...project.music, lanes } };
 }
 
 /**

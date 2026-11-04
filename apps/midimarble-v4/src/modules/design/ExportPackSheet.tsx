@@ -2,9 +2,8 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import type { StudioCx } from '@/modules/studio';
 import { libraryItemLabel } from './DesignLibraryCx';
-import { resolveTheme } from './project-themes';
 
-/** Export Pack…: a name, the current theme and the project's skins and decor to take along, then the save panel */
+/** Export Pack…: a name, then the current look always goes in as a theme under that name, with any skins and decor ticked */
 export const ExportPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 	const options = useFeatureState(cx.library.$exportPack);
 	const items = useFeatureState(cx.library.$projectItems);
@@ -25,7 +24,6 @@ export const ExportPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 
 	if (options == null || project == null) return null;
 	const assets = items.filter((item) => item.manifest?.role === 'skin' || item.manifest?.role === 'decoration');
-	const isEmpty = !options.includesTheme && options.assetIds.length === 0;
 
 	function toggle(id: string): void {
 		if (options == null) return;
@@ -34,7 +32,7 @@ export const ExportPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 
 	async function exportPack(): Promise<void> {
 		if (options == null) return;
-		const [isExportedOk, , path] = await cx.library.exportPack(options);
+		const [isExportedOk, , path] = await cx.library.exportPack({ ...options, includesTheme: true });
 		if (isExportedOk && path != null) cx.library.$exportPack.set(null);
 	}
 
@@ -56,8 +54,8 @@ export const ExportPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 				</label>
 				<div className="flex max-h-[220px] flex-col overflow-y-auto rounded-[8px] border border-[var(--separator)] bg-[var(--content)]">
 					<label className="flex h-7 items-center gap-2 border-b border-[var(--separator)] px-3 last:border-b-0">
-						<input type="checkbox" className="mm-checkbox" checked={options.includesTheme} onChange={() => cx.library.$exportPack.set({ ...options, includesTheme: !options.includesTheme })} />
-						<span className="flex-1 truncate">{resolveTheme(project.design).name}</span>
+						<input type="checkbox" className="mm-checkbox" checked disabled aria-label="The current look always goes in" />
+						<span className="flex-1 truncate">{options.name.trim() || 'This film'}</span>
 						<span className="text-[11px] text-[var(--text-tertiary)]">Theme</span>
 					</label>
 					{assets.map((item) => (
@@ -72,7 +70,7 @@ export const ExportPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 					<button className="mm-button" data-size="dialog" onClick={() => cx.library.$exportPack.set(null)} title="Cancel (Esc)" type="button">
 						Cancel
 					</button>
-					<button className="mm-button" data-size="dialog" data-variant="primary" disabled={isEmpty || options.name.trim() === ''} onClick={() => void exportPack()} type="button">
+					<button className="mm-button" data-size="dialog" data-variant="primary" disabled={options.name.trim() === ''} onClick={() => void exportPack()} type="button">
 						Export…
 					</button>
 				</div>

@@ -1,25 +1,23 @@
-import { DECOR_SET_SLOTS, isDecorSetRequest, type TAgentTarget } from './agent-brief';
+import type { TEntity, TLane, TProject } from '@/modules/project';
+import type { THitResult, TSimulationResult } from '@/modules/simulation';
+import { formatTime, noteName } from '@/modules/studio/format';
+import { CAMERA_KEY, KEY_LIGHT_KEY, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY } from '@/modules/studio/selection';
+import type { TAgentTarget } from './agent-brief';
 import type { TAgentRun } from './AgentCx';
 
-// Pure helpers of the shared agent chat: @-mentions in the composer, mapping a message onto runs and
+// Pure helpers of the shared agent chat: @-mentions in the composer, the selection in resolved form for the prompt and
 // grouping the project's runs back into chat turns
 
 export interface TAgentMention {
-	/** Entity id of a piece or marble, or `scene` */
+	/** A selection key: an entity id, a hit key or a layer key, or `scene` */
 	id: string;
-	kind: 'piece' | 'marble' | 'scene';
+	kind: 'piece' | 'marble' | 'scene' | 'hit' | 'layer';
 	label: string;
 }
 
 export const SCENE_MENTION: TAgentMention = { id: 'scene', kind: 'scene', label: 'Scene' };
 
-/** A run the composer starts for a message, with the name its status line shows */
-export interface TAgentRunPlan {
-	target: TAgentTarget;
-	label: string;
-}
-
-/** One message of the conversation and the runs it started, oldest first */
+/** One message of the conversation and the runs it started, oldest first; a chat message starts one */
 export interface TAgentChatTurn {
 	id: string;
 	/** The message as written, with mentions as `@[Name]` */
@@ -69,33 +67,6 @@ export function removeMentionQuery(text: string, mention: { start: number; query
 	return { text: head + rest, caret: head.length };
 }
 
-/**
- * Runs for a message. Every mentioned piece gets its own run; marbles and the scene have no asset of their
- * own, so they share one scene run. Without mentions the message goes to the scene. A request for decor without a
- * mentioned piece makes a set: one run per item, sharing `decorSetId`.
- */
-export function planAgentRuns(mentions: TAgentMention[], text = '', decorSetId = 'set'): TAgentRunPlan[] {
-	// "Christmas decor along the sides": a set of several results, each one item, which Accept scatters
-	if (!mentions.some((mention) => mention.kind === 'piece') && isDecorSetRequest(text)) {
-		const total = DECOR_SET_SLOTS.length;
-		return DECOR_SET_SLOTS.map((_, index) => ({ target: { kind: 'scene', decorSet: { id: decorSetId, index: index + 1, total } }, label: `Decor ${index + 1} of ${total}` }));
-	}
-	const plans: TAgentRunPlan[] = [];
-	const seen = new Set<string>();
-	let hasScene = !mentions.length;
-	for (const mention of mentions) {
-		if (mention.kind !== 'piece') {
-			hasScene = true;
-			continue;
-		}
-		if (seen.has(mention.id)) continue;
-		seen.add(mention.id);
-		plans.push({ target: { kind: 'piece', entityId: mention.id }, label: mention.label });
-	}
-	if (hasScene) plans.push({ target: { kind: 'scene' }, label: SCENE_MENTION.label });
-	return plans;
-}
-
 /** The request as stored with the runs: mentions first as `@[Name]`, then the text */
 export function composeAgentRequest(text: string, mentions: TAgentMention[]): string {
 	const prefix = mentions.map((mention) => `@[${mention.label}]`).join(' ');
@@ -103,18 +74,13 @@ export function composeAgentRequest(text: string, mentions: TAgentMention[]): st
 	return [prefix, body].filter((part) => part.length > 0).join(' ');
 }
 
-/** The CLI prompt of one run: the request, the brief note and which target this run works on */
-export function agentRunPrompt(request: string, focus: string | null): string {
-	return `${request}\n\n${BRIEF_NOTE}${focus != null ? ` ${FOCUS_PREFIX}${focus}.` : ''}`;
-}
-
-/** The request part of a stored prompt */
+/** The request part of a stored prompt, for runs from before the chat */
 export function requestFromPrompt(prompt: string): string {
 	const index = prompt.indexOf(`\n\n${BRIEF_NOTE}`);
 	return (index >= 0 ? prompt.slice(0, index) : prompt).trim();
 }
 
-/** The target name a run's prompt records, so status lines survive a reload */
+/** The target name the prompt of a run from before the chat records */
 export function focusFromPrompt(prompt: string): string | null {
 	const index = prompt.lastIndexOf(FOCUS_PREFIX);
 	if (index < 0) return null;
@@ -144,7 +110,7 @@ export function splitMentions(text: string): TMentionSegment[] {
 export function agentChatTurns(runs: TAgentRun[]): TAgentChatTurn[] {
 	const turns: TAgentChatTurn[] = [];
 	for (const run of [...runs].sort((a, b) => a.startedAt - b.startedAt)) {
-		const request = requestFromPrompt(run.prompt);
+		const request = run.request;
 		const last = turns[turns.length - 1];
 		if (last != null && last.request === request && run.startedAt - last.startedAt <= TURN_WINDOW_MS) {
 			last.runs.push(run);
@@ -159,4 +125,147 @@ export function agentChatTurns(runs: TAgentRun[]): TAgentChatTurn[] {
 export function agentRunSteps(run: Pick<TAgentRun, 'messages'>): { total: number; done: number } {
 	const steps = run.messages.filter((message) => message.kind === 'tool');
 	return { total: steps.length, done: steps.filter((step) => step.kind === 'tool' && step.status !== 'running').length };
+}
+
+// MARK: - The selection
+
+/** What is selected as mentions, in selection order. Whatever has no name of its own takes its kind's. */
+export function selectionMentions(project: TProject, selection: readonly string[]): TAgentMention[] {
+	return selection.flatMap((key): TAgentMention[] => {
+		const hit = parseHitKey(key);
+		if (hit != null) {
+			const lane = project.music.lanes.find((item) => item.id === hit.laneId);
+			const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
+			return lane != null && index >= 0 ? [{ id: key, kind: 'hit', label: hitName(lane, index) }] : [];
+		}
+		const entity = project.entities.find((item) => item.id === key);
+		if (entity != null) return [entityMention(project, entity)];
+		const label = layerLabel(key);
+		return label != null ? [{ id: key, kind: 'layer', label }] : [];
+	});
+}
+
+/** The scene, then each marble, then the pieces in project order: what @ offers */
+export function mentionOptions(project: TProject): TAgentMention[] {
+	const marbles = project.entities.filter((entity) => entity.components.marble != null).map((entity) => entityMention(project, entity));
+	const pieces = project.entities.filter((entity) => entity.components.piece != null).map((entity) => entityMention(project, entity));
+	return [SCENE_MENTION, ...marbles, ...pieces];
+}
+
+/**
+ * One line for the prompt that says what a mention is right now, in the window's words and with the ids tools take:
+ * "Hit 12 of Melody at 0:06.50, C5, On Time, hitId h12, key hit:lane:h12; played by Platform 12 at (1.2, -0.4), angle 14°, id p12"
+ */
+export function describeMention(project: TProject, result: TSimulationResult | null, mention: TAgentMention): string {
+	const hit = parseHitKey(mention.id);
+	if (hit != null) return describeHit(project, result, mention, hit.laneId, hit.hitId);
+	const entity = project.entities.find((item) => item.id === mention.id);
+	if (entity?.components.piece != null) return describePiece(project, result, entity, mention.label);
+	if (entity?.components.marble != null) {
+		const laneId = entity.components.marble.laneId;
+		const hits = result?.hits.filter((item) => item.laneId === laneId) ?? [];
+		return `${mention.label}, a marble: ${hits.filter((item) => item.status === 'onTime').length} of ${hits.length} hits On Time, id ${entity.id}, laneId ${laneId}`;
+	}
+	if (mention.kind === 'scene') return 'The whole project';
+	return `${mention.label}, key ${mention.id}`;
+}
+
+/** The prompt of a chat message: what was written, then what is selected in resolved form */
+export function agentChatPrompt(text: string, resolved: readonly string[]): string {
+	const body = text.trim();
+	if (!resolved.length) return body;
+	return `${body}\n\nSelected in the app:\n${resolved.map((line) => `- ${line}`).join('\n')}`;
+}
+
+/** What a Result of this message would be for: the first mentioned piece, or the piece playing a mentioned hit */
+export function mentionTarget(project: TProject, mentions: readonly TAgentMention[]): TAgentTarget {
+	for (const mention of mentions) {
+		if (mention.kind === 'piece') return { kind: 'piece', entityId: mention.id };
+		const hit = parseHitKey(mention.id);
+		if (hit == null) continue;
+		const piece = project.entities.find((entity) => entity.components.hitLink?.hitId === hit.hitId && entity.components.hitLink.laneId === hit.laneId);
+		if (piece != null) return { kind: 'piece', entityId: piece.id };
+	}
+	return { kind: 'scene' };
+}
+
+function entityMention(project: TProject, entity: TEntity): TAgentMention {
+	const { marble, piece } = entity.components;
+	if (marble != null) return { id: entity.id, kind: 'marble', label: project.music.lanes.find((lane) => lane.id === marble.laneId)?.name ?? entity.name ?? 'Marble' };
+	if (piece != null) return { id: entity.id, kind: 'piece', label: entity.name ?? piece.type };
+	return { id: entity.id, kind: 'layer', label: entity.name ?? 'Layer' };
+}
+
+function layerLabel(key: string): string | null {
+	if (key === WALL_KEY) return 'Wall';
+	if (key === SONG_KEY) return 'Song';
+	if (key === CAMERA_KEY) return 'Camera';
+	if (key === KEY_LIGHT_KEY) return 'Key Light';
+	if (parseLightKey(key) != null) return 'Light';
+	if (parseDecorKey(key) != null) return 'Decor';
+	if (parseShotKey(key) != null) return 'Shot';
+	return null;
+}
+
+function hitName(lane: TLane, index: number): string {
+	return `Hit ${index + 1} of ${lane.name}`;
+}
+
+function describeHit(project: TProject, result: TSimulationResult | null, mention: TAgentMention, laneId: string, hitId: string): string {
+	const hit = project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((item) => item.id === hitId);
+	const run = result?.hits.find((item) => item.laneId === laneId && item.hitId === hitId);
+	const parts = [`${mention.label} at ${formatTime(hit?.time ?? run?.targetTime ?? 0)}`];
+	if (hit?.pitch != null) parts.push(noteName(hit.pitch));
+	parts.push(hitStatusWords(run), `hitId ${hitId}`, `key ${mention.id}`);
+	const piece = project.entities.find((entity) => entity.id === run?.pieceEntityId || (entity.components.hitLink?.hitId === hitId && entity.components.hitLink.laneId === laneId));
+	if (piece == null) return `${parts.join(', ')}${run?.dot != null ? `; its dot is at ${point(run.dot)}, no platform yet` : ''}`;
+	return `${parts.join(', ')}; played by ${pose(result, piece)}`;
+}
+
+function describePiece(project: TProject, result: TSimulationResult | null, entity: TEntity, label: string): string {
+	const link = entity.components.hitLink;
+	if (link == null) return pose(result, entity, label);
+	const lane = project.music.lanes.find((item) => item.id === link.laneId);
+	const index = lane?.hits.findIndex((item) => item.id === link.hitId) ?? -1;
+	const hit = lane?.hits[index];
+	const run = result?.hits.find((item) => item.laneId === link.laneId && item.hitId === link.hitId);
+	const name = lane != null && hit != null ? `${hitName(lane, index)} at ${formatTime(hit.time)}` : 'its hit';
+	return `${pose(result, entity, label)}; plays ${name}, ${hitStatusWords(run)}, hitId ${link.hitId}`;
+}
+
+/** A piece's name, place, angle and id */
+function pose(result: TSimulationResult | null, entity: TEntity, label?: string): string {
+	const parts = [label ?? entity.name ?? entity.components.piece?.type ?? 'Piece'];
+	const position = result?.pieces.find((piece) => piece.entityId === entity.id)?.position;
+	if (position != null) parts[0] += ` at ${point(position)}`;
+	const angle = entity.components.hitLink?.angle ?? entity.components.transform?.angle;
+	if (angle != null) parts.push(`angle ${Math.round((angle * 180) / Math.PI)}° (${round(angle)} rad)`);
+	parts.push(`id ${entity.id}`);
+	return parts.join(', ');
+}
+
+function hitStatusWords(run: THitResult | undefined): string {
+	switch (run?.status) {
+		case 'onTime':
+			return 'On Time';
+		case 'drifting': {
+			const error = run.error ?? 0;
+			return `${Math.round(Math.abs(error) * 1000)} ms ${error < 0 ? 'Early' : 'Late'}`;
+		}
+		case 'missed':
+			return 'Missed';
+		case 'blocked':
+			return 'Blocked';
+		case 'open':
+		case undefined:
+			return 'Open';
+	}
+}
+
+function point(value: { x: number; y: number }): string {
+	return `(${round(value.x)}, ${round(value.y)})`;
+}
+
+function round(value: number): number {
+	return Math.round(value * 1000) / 1000;
 }

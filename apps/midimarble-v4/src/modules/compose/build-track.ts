@@ -1,6 +1,10 @@
 import { applyProjectCommands, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
 import {
 	answerWorkerRequest,
+	columnOffset,
+	gapPieceOrder,
+	gapPieceReads,
+	extraStrikes,
 	findLongGaps,
 	isInBand,
 	mirrorPiece,
@@ -8,6 +12,9 @@ import {
 	paceAt,
 	createLinkedPiece,
 	frameBand,
+	isMusicalPiece,
+	resolvePieceParams,
+	touchingPairs,
 	type TAutoPlaceAnswer,
 	type TContinueAnswer,
 	type TGapAnswer,
@@ -17,15 +24,17 @@ import {
 	type TSimulator
 } from '@/modules/simulation';
 import { checkFraming } from '@/modules/design/export-preflight';
-import { finishOfLane } from '@/modules/simulation';
+import { FINISH_TYPE, finishOfLane } from '@/modules/simulation';
 import { withFinishes } from './finish-assist';
 import { hitReach } from './reachability';
 
 // Build Track: the app's own way of building a whole track from a song, one implementation for the command, Next's
 // fallback and the fixture script. Marbles are built together in time order, so each keeps clear of what the others
 // have built so far. Each step takes the first of these that keeps every placed hit on time, every marble on its own
-// pieces, the next dot in its band and near the shared pace: a switchback or rail across a long gap, Continue,
-// Mirror when the rhythm repeats, Auto place (which launches into a coming gap), a wider Auto place. When none does,
+// pieces and striking each platform once, every piece clear of the others as the film shows them, the next dot in
+// frame and near the shared pace: a rail across a long gap, or a switchback where no rail fits, Continue and Mirror when the rhythm repeats and
+// the next dot stays on its column, Auto place (which launches into a coming gap and ranks its angles by how regular the
+// track looks), a wider Auto place. When none does,
 // it does what a person tries next: turn the lane's previous platform, turn the other marble's platform in the way,
 // lean this platform by hand, then back up a few hits, turn the platform there and build forward again. A song that
 // still gets stuck, or whose finished run leaves the pace or the camera's frame, is started again with the releases a
@@ -57,6 +66,18 @@ const LEANS = [0, 3, -3, 6, -6, 9, -9, 12, -12, 15, -15, 18, -18, 21, -21, 24, -
 /** At most this many dots may sit beyond the pace limit, and none more than `PACE_OVERSHOOT` beyond it */
 const OFF_PACE_DOTS = 2;
 const PACE_OVERSHOOT = 0.15;
+/** A copied tilt counts only while the next dot lands this close to its column, in piece lengths; Auto place corrects the rest */
+const COLUMN_TOLERANCE = 0.25;
+/** Steps show at most this often, in milliseconds: each one simulates and draws the whole window again */
+const SHOW_EVERY = 250;
+/** How many hits ahead a choice between pieces is tried, and what each hit it can't reach counts for against its look */
+const LOOK_AHEAD_HITS = 3;
+const DEAD_END_COST = 100;
+/** What a switchback costs against a rail that also works, and more when the marble just rode one, in units of `lookCost` */
+const SWITCHBACK_COST = 0.3;
+const SWITCHBACK_IN_A_ROW_COST = 0.3;
+/** Look of a tilt away from about 10°, in the same units per 10° */
+const LOOK_TILT = 10 * DEGREE;
 
 export interface TBuildCounts {
 	next: number;
@@ -149,9 +170,18 @@ export interface TBuildTrackDeps {
 	isCancelled?: () => boolean;
 }
 
+export type TBuildGapPreference = 'rail' | 'switchback';
+
 export interface TBuildOptions {
 	/** Adds a Finish after each marble's last note, on by default */
 	shouldFinish?: boolean;
+	/**
+	 * Rebuild From Here: everything up to this hit stays exactly as it is, on every marble and with the pieces this hit
+	 * already has, and what plays after it is built again. Nothing kept is ever turned and no release moves.
+	 */
+	from?: { laneId: string; hitId: string };
+	/** The piece tried first across a long gap, the other when it doesn't fit: a rail unless asked otherwise */
+	gapPiece?: TBuildGapPreference;
 }
 
 /** Deps that answer in this thread with the same requests the assist workers answer, for scripts and tests */
@@ -186,7 +216,12 @@ interface TBuildState {
 	/** Hits left without a piece, which every check looks past */
 	skipped: Set<string>;
 	/** Problems the run already had, which no step is judged by: the person's, and what a forced step left */
-	tolerated: { hits: Set<string>; pieces: Set<string>; contacts: Set<string> };
+	tolerated: { hits: Set<string>; pieces: Set<string>; contacts: Set<string>; strikes: Set<string>; touching: Set<string> };
+	/** Whether a piece that was there before the build may be turned when nothing else solves a hit */
+	canTurnOwn: boolean;
+	gapPiece: TBuildGapPreference | null;
+	/** Trying a choice ahead, which doesn't try choices of its own */
+	isLooking: boolean;
 	runs: WeakMap<TProject, Promise<TSimulationResult>>;
 }
 
@@ -194,12 +229,13 @@ function emptyCounts(): TBuildCounts {
 	return { next: 0, switchback: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, unblock: 0, rewind: 0, frame: 0, failed: 0 };
 }
 
-function createState(deps: TBuildTrackDeps, project: TProject): TBuildState {
-	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set() }, runs: new WeakMap() };
+function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null): TBuildState {
+	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, runs: new WeakMap() };
 }
 
 const hitKey = (laneId: string, hitId: string): string => `${laneId}/${hitId}`;
 const contactKey = (marble: string, other: string): string => `${marble}/${other}`;
+const pairKey = (a: string, b: string): string => (a < b ? `${a}/${b}` : `${b}/${a}`);
 
 /** A project is never changed once made, so one run answers for it */
 function run(state: TBuildState, project: TProject): Promise<TSimulationResult> {
@@ -334,14 +370,21 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 		return contact.kind === 'piece' && lane != null && lane !== laneOfEntity(applied, contact.marbleEntityId);
 	});
 	if (crossed.length > 0) return reject(state, `crossing ${crossed.map((contact) => `${contact.marbleEntityId}/${contact.otherEntityId}`).join(' ')}`);
-	// Every hit of the lane with a piece keeps its dot inside the lane's band, as the export preflight checks
-	const band = frameBand(applied, laneId);
+	// Every hit of the lane with a piece keeps its dot in frame; its own lane's centre is only Auto place's preference
+	const band = frameBand(applied);
 	const outside = result.hits.filter((hit) => hit.laneId === laneId && hit.pieceEntityId != null && hit.dot != null && !tolerated.hits.has(hitKey(hit.laneId, hit.hitId)) && !isInBand(hit.dot, band, 1));
 	if (outside.length > 0) return reject(state, `outside the band ${outside.map((hit) => hit.hitId).join(' ')}`);
+	// Each marble strikes each platform once, for its note, up to where its path is final
+	const struck = extraStrikes(applied, result).filter((strike) => !tolerated.strikes.has(strike.entityId) && strike.time < (frontier.get(marbleOfLane(applied, strike.laneId)) ?? Infinity));
+	if (struck.length > 0) return reject(state, `struck twice ${struck.map((strike) => strike.hitId).join(' ')}`);
+	// No two pieces touch as the film shows them
+	const touching = touchingPairs(applied, result).filter((pair) => !tolerated.touching.has(pairKey(pair.a, pair.b)));
+	if (touching.length > 0) return reject(state, `touching ${touching.map((pair) => `${pair.a}/${pair.b}`).join(' ')}`);
 	if (!checkFrame) return applied;
 	const next = nextOpenPerLane(state, result).get(laneId);
 	if (next?.dot == null || isBeforeLongGap(applied, next)) return applied;
-	if (!isInBand(next.dot, band, 0.9)) return reject(state, `out of band ${next.hitId}@${next.dot.x.toFixed(2)}`);
+	// A tenth of a lane inside the frame's edge, as Auto place asks
+	if (!isInBand(next.dot, band, 1 - (0.1 * frameBand(applied, laneId).halfWidth) / band.halfWidth)) return reject(state, `out of band ${next.hitId}@${next.dot.x.toFixed(2)}`);
 	// A flat platform must still fit at the next dot, as Auto place checks for its own pieces
 	const probe = createLinkedPiece('platform', laneId, next.hitId, 0, { id: 'accept-probe' });
 	const probed = await state.deps.simulate({ ...applied, entities: [...applied.entities, probe], end: Math.min(applied.end, next.targetTime + 0.05) });
@@ -359,6 +402,84 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	return applied;
 }
 
+/**
+ * Whether the lane's next open dot still lands on the column opposite this one: a copied tilt keeps its shape only while
+ * it does, and otherwise the small errors of each copy add up and the run wanders. Before a long gap any spot will do,
+ * since a gap piece picks the marble up.
+ */
+function staysOnColumn(state: TBuildState, project: TProject, result: TSimulationResult, laneId: string): boolean {
+	const next = nextOpenPerLane(state, result).get(laneId);
+	if (next?.dot == null || isBeforeLongGap(project, next)) return true;
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const previous = lane?.hits[(lane.hits.findIndex((hit) => hit.id === next.hitId) ?? 0) - 1];
+	const from = result.hits.find((hit) => hit.laneId === laneId && hit.hitId === previous?.id)?.dot;
+	if (from == null) return true;
+	const band = frameBand(project, laneId);
+	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
+	const column = band.centerX - Math.sign(from.x - band.centerX) * columnOffset(length);
+	return Math.abs(next.dot.x - column) <= COLUMN_TOLERANCE * length;
+}
+
+/**
+ * How regular the lane's last hits look, lower is better, per hit: how far its dot lies from a column, in piece lengths,
+ * how far its drop lies from the pace's for its interval, and how far its tilt lies from about 10°
+ */
+function lookCost(project: TProject, result: TSimulationResult, laneId: string): number {
+	const band = frameBand(project, laneId);
+	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
+	const played = result.hits.filter((hit) => hit.laneId === laneId && hit.pieceEntityId != null && hit.dot != null).sort((a, b) => a.targetTime - b.targetTime).slice(-1 - LOOK_AHEAD_HITS);
+	let cost = 0;
+	played.forEach((hit, index) => {
+		const before = played[index - 1];
+		const angle = project.entities.find((entity) => entity.id === hit.pieceEntityId)?.components.hitLink?.angle ?? 0;
+		cost += Math.abs(Math.abs((hit.dot?.x ?? 0) - band.centerX) - columnOffset(length)) / length + Math.abs(Math.abs(angle) - LOOK_TILT) / LOOK_TILT;
+		if (before?.dot != null && hit.dot != null && result.pace != null) cost += Math.abs(before.dot.y - hit.dot.y - result.pace.rate * (hit.targetTime - before.targetTime)) / length;
+	});
+	return cost / Math.max(1, played.length);
+}
+
+/** Builds on from a candidate for a few hits, first choice each time, and says how that went; the build's counts stay as they were */
+async function lookAhead(state: TBuildState, start: TProject, laneId: string): Promise<number> {
+	const counts = { ...state.counts };
+	const reasons = [...state.reasons];
+	const inTheWay = [...state.inTheWay];
+	state.isLooking = true;
+	let current = start;
+	let cost = 0;
+	for (let done = 0; done < LOOK_AHEAD_HITS && !isCancelled(state); done++) {
+		const result = await run(state, current);
+		const target = nextTarget(state, current, result);
+		if (target == null) break;
+		const next = await buildStep(state, current, target, false);
+		if (next == null) {
+			cost += DEAD_END_COST * (LOOK_AHEAD_HITS - done);
+			break;
+		}
+		current = next;
+	}
+	state.isLooking = false;
+	Object.assign(state.counts, counts);
+	state.reasons.splice(0, state.reasons.length, ...reasons);
+	state.inTheWay.splice(0, state.inTheWay.length, ...inTheWay);
+	return cost + lookCost(current, await run(state, current), laneId);
+}
+
+/** The option that looks and goes on best over the next few hits, the first of equals */
+async function chooseAhead<T extends { project: TProject; cost?: number; label: string }>(state: TBuildState, options: T[], laneId: string): Promise<T | null> {
+	let best: T | null = null;
+	let bestCost = Infinity;
+	for (const option of options) {
+		if (isCancelled(state)) return best;
+		const cost = (option.cost ?? 0) + (await lookAhead(state, option.project, laneId));
+		state.deps.onLog?.(`  ahead: ${option.label} costs ${cost.toFixed(2)}`);
+		if (cost < bestCost - 1e-9) {
+			best = option;
+			bestCost = cost;
+		}
+	}
+	return best;
+}
+
 async function ask<T>(state: TBuildState, kind: string, question: () => Promise<T> | T): Promise<T | null> {
 	try {
 		return await question();
@@ -368,10 +489,12 @@ async function ask<T>(state: TBuildState, kind: string, question: () => Promise<
 }
 
 /**
- * One option after another for the hit: a switchback, or a rail, when a long gap ends at it, otherwise Continue, then
- * Mirror when the rhythm repeats, then Auto place (which launches the marble into the coming switchback before a long
- * gap), then Auto place over a wider range. Each must pass `accept`; the first that does wins. With `canLean`, last the
- * platform is leaned by hand until the next dot comes back as close to the marble's band as it gets.
+ * One option after another for the hit: a rail, or a switchback, when a long gap ends at it, otherwise Continue, then
+ * Mirror when the rhythm repeats, then Auto place (which launches the marble into the coming gap piece before a long
+ * gap), then Auto place over a wider range. Each must pass `accept`; the first that does wins, except that a rail and a
+ * switchback that both pass are each built on for a few hits (`chooseAhead`), since a rail that reads well can leave the
+ * marble nowhere to go. With `canLean`, last the platform is leaned by hand until the next dot comes back as close to the
+ * marble's band as it gets.
  */
 async function buildStep(state: TBuildState, current: TProject, target: THitResult, canLean: boolean): Promise<TProject | null> {
 	const { deps, counts } = state;
@@ -379,18 +502,33 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	const result = await run(state, current);
 	const gap = findLongGaps(current, laneId).find((item) => item.toHitId === hitId && item.bridgedBy == null);
 	if (gap != null) {
-		for (const type of ['switchback', 'rail'] as TGapPieceType[]) {
+		const options: { project: TProject; type: TGapPieceType; cost: number; log: string; label: string }[] = [];
+		const rodeSwitchback = current.entities.filter((entity) => entity.components.hitLink?.laneId === laneId && entity.components.piece != null && entity.components.piece.type !== 'platform' && !state.own.has(entity.id)).at(-1)?.components.piece?.type === 'switchback';
+		for (const type of gapPieceOrder(state.gapPiece)) {
 			if (isCancelled(state)) return null;
 			const entityId = gapPieceId(state, current, type, laneId);
 			const answer = await ask(state, 'gapPiece', () => deps.gapPiece({ type, project: current, laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }));
+			// A piece that ends far from the pace or the lane leaves the gap to the other, which has to do
+			if (type !== gapPieceOrder(state.gapPiece).at(-1) && answer?.check != null && !gapPieceReads(answer.check, result.pace?.limit ?? Infinity)) {
+				reject(state, `the ${type} ends ${Math.abs(answer.check.paceError ?? 0).toFixed(2)} m from the pace`);
+				continue;
+			}
 			// The hit after the gap piece is placed by construction wherever the marble arrives
 			const accepted = answer != null ? await accept(state, current, answer.commands, laneId, false) : null;
 			if (accepted == null) continue;
-			counts[type === 'switchback' ? 'switchback' : 'rail']++;
 			const params = answer?.entity.components.piece?.params ?? {};
 			const pace = answer?.check?.paceError;
-			deps.onLog?.(`  ${gap.fromHitId} -> ${gap.toHitId}: ${type} over ${gap.duration.toFixed(2)} s${type === 'switchback' ? ` (${params['legs']} legs at ${(Math.abs(answer?.entity.components.hitLink?.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`);
-			return accepted;
+			const log = `  ${gap.fromHitId} -> ${gap.toHitId}: ${type} over ${gap.duration.toFixed(2)} s${type === 'switchback' ? ` (${params['legs']} legs at ${(Math.abs(answer?.entity.components.hitLink?.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`;
+			const isAsked = state.gapPiece === type;
+			options.push({ project: accepted, type, log, label: type, cost: isAsked || type !== 'switchback' ? 0 : SWITCHBACK_COST + (rodeSwitchback ? SWITCHBACK_IN_A_ROW_COST : 0) });
+			// Asked for by name, or trying ahead already: the first that fits
+			if (isAsked || state.isLooking) break;
+		}
+		const chosen = options.length > 1 ? await chooseAhead(state, options, laneId) : options[0];
+		if (chosen != null) {
+			counts[chosen.type === 'switchback' ? 'switchback' : 'rail']++;
+			deps.onLog?.(chosen.log);
+			return chosen.project;
 		}
 		deps.onLog?.(`  ${gap.fromHitId} -> ${gap.toHitId}: no gap piece fits the ${gap.duration.toFixed(2)} s gap (${state.reasons.at(-1) ?? ''})`);
 	}
@@ -409,7 +547,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	});
 	if (ghosts.length > 0) {
 		const accepted = await accept(state, current, ghosts, laneId);
-		if (accepted != null) {
+		if (accepted != null && staysOnColumn(state, accepted, await run(state, accepted), laneId)) {
 			counts.continue++;
 			counts.continued += ghosts.length;
 			return accepted;
@@ -426,7 +564,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	if (!isLaunch && !isLast && !isBeforeLaunch && repeatsInterval(current, laneId, hitId)) {
 		const [isMirrorOk, , mirrored] = mirrorPiece(current, result, laneId, { id });
 		const accepted = isMirrorOk && mirrored.hitId === hitId ? await accept(state, current, mirrored.commands, laneId) : null;
-		if (accepted != null) {
+		if (accepted != null && staysOnColumn(state, accepted, await run(state, accepted), laneId)) {
 			counts.mirror++;
 			return accepted;
 		}
@@ -580,8 +718,8 @@ async function solveHit(state: TBuildState, current: TProject, target: THitResul
 		(!isCancelled(state) ? await buildStep(state, current, target, true) : null) ??
 		(!isCancelled(state) ? await rewind(state, current, target) : null) ??
 		// A piece that was there before the build turns only when nothing else solves the hit
-		(target.dot != null && !isCancelled(state) ? await backtrack(state, current, target, true) : null) ??
-		(!isCancelled(state) ? await unblock(state, current, target, true) : null)
+		(target.dot != null && state.canTurnOwn && !isCancelled(state) ? await backtrack(state, current, target, true) : null) ??
+		(state.canTurnOwn && !isCancelled(state) ? await unblock(state, current, target, true) : null)
 	);
 }
 
@@ -620,8 +758,10 @@ async function tolerate(state: TBuildState, project: TProject): Promise<void> {
 		const lane = laneOfEntity(project, contact.otherEntityId);
 		if (contact.kind === 'marble' || (lane != null && lane !== laneOfEntity(project, contact.marbleEntityId))) state.tolerated.contacts.add(contactKey(contact.marbleEntityId, contact.otherEntityId));
 	}
-	const band = (laneId: string) => frameBand(project, laneId);
-	for (const hit of result.hits) if (hit.pieceEntityId != null && hit.dot != null && !isInBand(hit.dot, band(hit.laneId), 1)) state.tolerated.hits.add(hitKey(hit.laneId, hit.hitId));
+	const band = frameBand(project);
+	for (const hit of result.hits) if (hit.pieceEntityId != null && hit.dot != null && !isInBand(hit.dot, band, 1)) state.tolerated.hits.add(hitKey(hit.laneId, hit.hitId));
+	for (const strike of extraStrikes(project, result)) state.tolerated.strikes.add(strike.entityId);
+	for (const pair of touchingPairs(project, result)) state.tolerated.touching.add(pairKey(pair.a, pair.b));
 }
 
 /**
@@ -699,7 +839,7 @@ function diffCommands(from: TProject, to: TProject): TProjectCommand[] {
 		if (before !== entity && JSON.stringify(before) !== JSON.stringify(entity)) commands.push({ type: 'upsertEntity', entity });
 	}
 	if (from.end !== to.end) commands.push({ type: 'setEnd', end: to.end });
-	if (from.design !== to.design) commands.push({ type: 'setDesign', design: to.design });
+	if (from.design !== to.design && JSON.stringify(from.design) !== JSON.stringify(to.design)) commands.push({ type: 'setDesign', design: to.design });
 	return commands;
 }
 
@@ -729,6 +869,55 @@ function attentionOf(project: TProject, result: TSimulationResult): TBuildAttent
 		}));
 }
 
+/**
+ * The project without what Rebuild From Here builds again: platforms, switchbacks, rails, tunnels and Finishes that belong
+ * to later hits on any marble. A gap piece hangs on the hit before its gap, so one reaching past `from` goes with them,
+ * and the marbles are built together, so every marble is cut at the same time. Scenery a person tied to a marble stays.
+ */
+export function withoutPiecesAfter(project: TProject, from: { laneId: string; hitId: string }): TProject {
+	const time = project.music.lanes.find((lane) => lane.id === from.laneId)?.hits.find((hit) => hit.id === from.hitId)?.time;
+	if (time == null) return project;
+	const nextOf = new Map<string, number>();
+	const timeOf = new Map<string, number>();
+	for (const lane of project.music.lanes) {
+		lane.hits.forEach((hit, index) => {
+			timeOf.set(`${lane.id}/${hit.id}`, hit.time);
+			nextOf.set(`${lane.id}/${hit.id}`, lane.hits[index + 1]?.time ?? Infinity);
+		});
+	}
+	const isRebuilt = (entity: TEntity): boolean => {
+		const { piece, hitLink } = entity.components;
+		if (piece == null || hitLink == null) return false;
+		const key = `${hitLink.laneId}/${hitLink.hitId}`;
+		if (piece.type === FINISH_TYPE) return (timeOf.get(key) ?? Infinity) > time - 1e-9 || (nextOf.get(key) ?? Infinity) > time;
+		if (isGapPiece(piece.type)) return (nextOf.get(key) ?? Infinity) > time + 1e-9;
+		return isMusicalPiece(piece.type) && (timeOf.get(key) ?? Infinity) > time + 1e-9;
+	};
+	return { ...project, entities: project.entities.filter((entity) => !isRebuilt(entity)) };
+}
+
+function isGapPiece(type: string): boolean {
+	return type === 'switchback' || type === 'rail' || type === 'tunnel';
+}
+
+/** `built` with each new platform in the skin of the piece that played its note in `was` */
+function withSkinsOf(was: TProject, built: TProject): TProject {
+	const skins = new Map<string, NonNullable<TEntity['components']['skin']>>();
+	for (const entity of was.entities) {
+		const { hitLink, skin, piece } = entity.components;
+		if (hitLink != null && skin != null && piece != null) skins.set(`${piece.type}/${hitLink.laneId}/${hitLink.hitId}`, skin);
+	}
+	if (skins.size === 0) return built;
+	return {
+		...built,
+		entities: built.entities.map((entity) => {
+			const { hitLink, skin, piece } = entity.components;
+			const wanted = hitLink != null && piece != null ? skins.get(`${piece.type}/${hitLink.laneId}/${hitLink.hitId}`) : undefined;
+			return wanted != null && skin == null ? { ...entity, components: { ...entity.components, skin: wanted } } : entity;
+		})
+	};
+}
+
 /** One step of the build for the hit next in time, as Next's answer to a gap it cannot bridge. Null when nothing works. */
 export async function buildOneStep(project: TProject, deps: TBuildTrackDeps): Promise<{ project: TProject; commands: TProjectCommand[]; target: THitResult } | null> {
 	const state = createState(deps, project);
@@ -744,27 +933,35 @@ export async function buildOneStep(project: TProject, deps: TBuildTrackDeps): Pr
  * stay; one is turned only when nothing else solves a hit, and the outcome names it. Releases move only for marbles
  * without pieces. Each accepted step goes to `deps.commit`, so the pieces appear as they are found.
  */
-export async function buildTrack(project: TProject, deps: TBuildTrackDeps, options: TBuildOptions = {}): Promise<TBuildOutcome> {
-	const { shouldFinish = true } = options;
+export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options: TBuildOptions = {}): Promise<TBuildOutcome> {
+	const { shouldFinish = true, from, gapPiece = null } = options;
+	// What Rebuild From Here keeps; the first commit takes the rest away, so it all stays one undo step
+	const project = from != null ? withoutPiecesAfter(whole, from) : whole;
+	const canTurnOwn = from == null;
 	const total = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
 	const allTimes = project.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time));
-	const firstTime = Math.min(...allTimes, Infinity);
+	const fromTime = from != null ? (whole.music.lanes.find((lane) => lane.id === from.laneId)?.hits.find((hit) => hit.id === from.hitId)?.time ?? -Infinity) : -Infinity;
+	const firstTime = Math.max(fromTime, Math.min(...allTimes, Infinity));
 	const lastTime = Math.max(...allTimes, -Infinity);
 	const people = new Map(project.entities.filter((entity) => entity.components.piece != null).map((entity) => [entity.id, JSON.stringify({ link: entity.components.hitLink, piece: entity.components.piece })]));
-	const bareLanes = new Set(project.music.lanes.filter((lane) => !project.entities.some((entity) => entity.components.hitLink?.laneId === lane.id)).map((lane) => lane.id));
+	const bareLanes = new Set(from != null ? [] : project.music.lanes.filter((lane) => !project.entities.some((entity) => entity.components.hitLink?.laneId === lane.id)).map((lane) => lane.id));
 	const hasBareLane = bareLanes.size > 0;
 	const canCommit = deps.commit;
 
-	let shown = project;
+	let shown = whole;
 	let isFirstCommit = true;
 	let isStopped = false;
 	let restarts = 0;
 	let furthest = 0;
-	/** Shows `next` in the window; false stops the build */
-	const publish = (next: TProject, hit: THitResult | null): boolean => {
+	let shownAt = -Infinity;
+	/** Shows `next` in the window, or leaves it for the next step soon after the last; false stops the build */
+	const publish = (next: TProject, hit: THitResult | null, mustShow = false): boolean => {
+		if (canCommit == null) return true;
+		if (!mustShow && performance.now() - shownAt < SHOW_EVERY) return true;
 		const commands = diffCommands(shown, next);
+		if (!commands.length) return true;
 		shown = next;
-		if (canCommit == null || !commands.length) return true;
+		shownAt = performance.now();
 		const isOk = canCommit(commands, isFirstCommit, hit);
 		isFirstCommit = false;
 		return isOk;
@@ -887,11 +1084,11 @@ export async function buildTrack(project: TProject, deps: TBuildTrackDeps, optio
 		if (attempts > 0 && work >= maxWork) break;
 		attempts++;
 		const start = withReleaseShift(project, shift, bareLanes);
-		const state = createState(deps, start);
+		const state = createState(deps, start, canTurnOwn, gapPiece);
 		await tolerate(state, start);
 		deps.onLog?.(`releases shifted by ${shift.toFixed(3)} m`);
 		if (attempts > 1) restarts++;
-		if (!publish(start, null)) {
+		if (!publish(start, null, true)) {
 			isStopped = true;
 			break;
 		}
@@ -945,6 +1142,10 @@ export async function buildTrack(project: TProject, deps: TBuildTrackDeps, optio
 		}
 	}
 
+	// A rebuilt platform keeps the skin the one on its note had
+	if (from != null && !isStopped) current = withSkinsOf(whole, current);
+	// What the last steps left unshown, a stopped build's too
+	if (!publish(current, null, true)) isStopped = true;
 	const result = await deps.simulate(current);
 	deps.onProgress?.({ done: result.hits.filter((hit) => hit.pieceEntityId != null && hit.status === 'onTime').length, total, at: lastTime, fraction: 1, restarts });
 	return {

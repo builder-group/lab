@@ -8,7 +8,7 @@ use tauri_specta::{collect_commands, collect_events, Builder as SpectaBuilder};
 
 fn specta_builder() -> SpectaBuilder<tauri::Wry> {
     return SpectaBuilder::<tauri::Wry>::new()
-        .events(collect_events![agents::AgentRunEvent, menu::MenuCommandEvent, mcp::McpRequestEvent])
+        .events(collect_events![agents::AgentRunEvent, menu::MenuCommandEvent, mcp::McpRequestEvent, mcp::McpClientsEvent])
         .commands(collect_commands![
             commands::get_app_info,
             package::commands::create_project,

@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnFinish, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
+import { audibleProject, autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnFinish, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
 import {
 	amendHistory,
 	applyProjectCommands,
@@ -33,7 +33,7 @@ import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
 import { parseHitKey, stepHitTarget, toHitKey } from './selection';
-import { TAP_COUNT_IN_SECONDS, tapTime } from './tap';
+import { tapTime } from './tap';
 import type { THitFlash } from './timeline/hit-flash';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
@@ -81,8 +81,6 @@ export class StudioCx {
 	readonly $fitFirstHits = createState(false);
 	/** The Wall view Compose showed before Film replaced it, so coming back keeps it, like a page's view in Figma */
 	composeView: { projectId: string; view: TView } | null = null;
-	/** Song time before which taps record nothing, set when T starts playback (see `tapHit`) */
-	private tapCountInEnd = -Infinity;
 	/** The playback T started: whether the length followed the song then, and whether a tap added a hit */
 	private tapSession: { isAutoEnd: boolean; hasTapped: boolean } | null = null;
 	private tailTimer: ReturnType<typeof setTimeout> | null = null;
@@ -96,6 +94,7 @@ export class StudioCx {
 	readonly $playheadReveal = createState(0);
 	/** Entities the last undo or redo changed; the canvas pans to them once the run for that revision arrives */
 	readonly $historyReveal = createState<{ ids: string[]; revision: number } | null>(null);
+	// `agent` is the chat's panel, unmounted since MCP became the main path (design-language.md, Round 9); nothing opens it
 	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true, agent: false });
 	// Zero fits the timeline to its lanes until the user drags it to a height of their own
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));
@@ -115,7 +114,9 @@ export class StudioCx {
 	readonly $snapping = createState(true);
 	/** Film outlines every piece's hitbox, like Unity's collider gizmos; a selected piece always shows its own */
 	readonly $showHitboxes = createState(false);
-	/** Text and mentions the agent composer takes over once, such as the library's New Theme with Agent… */
+	/** Dragging the playhead on the ruler plays the song where it is, like Logic's Scrub. Remembered on this Mac. */
+	readonly $audioScrubbing = createState(readText(AUDIO_SCRUBBING_KEY) !== 'off');
+	/** Text and mentions the unmounted chat's composer takes over once */
 	readonly $agentDraft = createState<TAgentDraft | null>(null);
 	readonly sources = new SourcesCx(this);
 	readonly hints = new HintsCx(this);
@@ -127,6 +128,7 @@ export class StudioCx {
 		getPlayhead: () => this.$playhead.get(),
 		isPlaying: () => this.$playing.get()
 	});
+	// The chat's, unmounted with it: not mounted, so no CLI is looked for and no run is listed
 	readonly agents = new AgentCx({
 		getPackagePath: () => this.$path.get(),
 		getProject: () => this.project,
@@ -171,7 +173,6 @@ export class StudioCx {
 		void this.restoreOpenProject();
 		const unmountSimulation = this.simulation.mount();
 		const unmountDesign = this.mountDesign();
-		const unmountAgents = this.agents.mount();
 		const unmountHints = this.hints.mount();
 		const unmountMcp = this.mcp.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
@@ -179,13 +180,11 @@ export class StudioCx {
 		// The tap count-in belongs to the playback T started; stopping ends it
 		const stopCountIn = this.$playing.listen(({ value }) => {
 			if (value) return;
-			this.tapCountInEnd = -Infinity;
 			this.finishTapSession();
 		});
 		return () => {
 			unmountSimulation();
 			unmountDesign();
-			unmountAgents();
 			unmountHints();
 			unmountMcp();
 			stopHeight();
@@ -216,7 +215,6 @@ export class StudioCx {
 			// Runs and library items belong to the package
 			this.$path.listen(() => {
 				void this.design.detect();
-				void this.agents.reload();
 				void this.library.refresh();
 				void this.refreshReferences();
 			}),
@@ -257,6 +255,32 @@ export class StudioCx {
 		const lane = project?.music.lanes.find((item) => item.id === laneId);
 		if (project == null || lane == null || pitch == null || !soundsNotes(project)) return;
 		void this.audio.audition(lane, pitch);
+	}
+
+	toggleAudioScrubbing(): void {
+		const isOn = !this.$audioScrubbing.get();
+		this.$audioScrubbing.set(isOn);
+		writeText(AUDIO_SCRUBBING_KEY, isOn ? 'on' : 'off');
+	}
+
+	/**
+	 * Starts hearing a playhead drag, from the press, which is the gesture WebKit asks for. What plays is the soundtrack
+	 * with the Parts' mute and solo. While playing, a drag already restarts playback at each position, so it adds nothing.
+	 */
+	beginAudioScrub(): void {
+		const project = this.project;
+		if (project == null || this.$playing.get() || !this.$audioScrubbing.get()) return;
+		this.audio.beginScrub(audibleProject(project, this.$mix.get()), this.resolveSourceUrl).catch((error: unknown) => {
+			this.notify(`Playback failed: ${(error as Error).message}`, 'error');
+		});
+	}
+
+	audioScrubTo(time: number): void {
+		this.audioEngine?.scrubTo(time);
+	}
+
+	endAudioScrub(): void {
+		this.audioEngine?.endScrub();
 	}
 
 	/**
@@ -461,6 +485,7 @@ export class StudioCx {
 		const isTemporary = this.$isTemporary.get();
 		writeText(OPEN_PROJECT_KEY, null);
 		await this.flush();
+		this.stopAgentForProjectChange();
 		await this.design.close();
 		if (isTemporary && path != null) host.discardTemporaryProject(path);
 		this.$isTemporary.set(false);
@@ -610,6 +635,7 @@ export class StudioCx {
 
 	private load(project: TProject, path: string, isTemporary = false): void {
 		const previous = this.$path.get();
+		if (previous !== path) this.stopAgentForProjectChange();
 		// An unsaved document that another project replaces was closed with Don't Save or had no changes
 		if (this.$isTemporary.get() && previous != null && previous !== path) host.discardTemporaryProject(previous);
 		this.$isTemporary.set(isTemporary);
@@ -706,6 +732,40 @@ export class StudioCx {
 		this.$references.set(path != null && isTauri() ? await specta.commands.agentReferencesRead(path) : NO_REFERENCES);
 	}
 
+	/** Replaces the project's References with these images and words */
+	async setReferences(paths: string[], text: string): Promise<void> {
+		const path = this.$path.get();
+		const project = this.project;
+		if (path == null || project == null) return;
+		const result = await specta.commands.agentReferencesSet(path, project.title, paths, text);
+		if (result.status === 'error') {
+			this.notify(result.error, 'error');
+			return;
+		}
+		this.$references.set(result.data);
+	}
+
+	/** Stop in the Agent panel: ends the run and any Build Track it started; what they did stays */
+	async stopAgent(): Promise<void> {
+		if (this.isInAgentStep) this.$compose.get()?.assist.stopBuild();
+		await this.agents.stopWorking();
+	}
+
+	/** An agent edits whatever is open, so it stops when the person leaves the project; an agent may open one itself */
+	private stopAgentForProjectChange(): void {
+		if (!this.isInAgentStep) void this.agents.stopWorking();
+	}
+
+	/** Names of the agent's Undo steps, latest first */
+	get agentUndoSteps(): { group: number; name: string }[] {
+		const groups = this.$history.get()?.groups;
+		if (groups == null) return [];
+		return [groups.present, ...[...groups.past].reverse()].flatMap((group) => {
+			const name = this.stepLabels.get(group);
+			return name != null ? [{ group, name }] : [];
+		});
+	}
+
 	/** Show Agent Folder: the package's `agent/` in Finder, created on first use */
 	async showAgentFolder(): Promise<void> {
 		const path = this.$path.get();
@@ -793,12 +853,6 @@ export class StudioCx {
 		this.$panels.set((panels) => ({ ...panels, [panel]: !panels[panel] }));
 	}
 
-	/** Opens the agent chat with a prefilled message, like a chat panel's suggested prompt */
-	openAgent(draft: TAgentDraft): void {
-		this.$panels.set((panels) => ({ ...panels, agent: true }));
-		this.$agentDraft.set(draft);
-	}
-
 	toggleMute(partId: string): void {
 		this.$mix.set((mix) => ({ ...mix, muted: toggleItem(mix.muted, partId) }));
 	}
@@ -832,11 +886,8 @@ export class StudioCx {
 	}
 
 	/**
-	 * Records a hit at the playhead on the lane in focus, for tapping along to the music. Taps record only while
-	 * the song plays, as Logic records only with the transport running: with playback stopped, T starts it and
-	 * the next taps add hits. Taps while the audio is still starting, and in the 0.3 s count-in after that press,
-	 * record nothing, so a quick second press never lands a Too Soon hit at 0:00. A tap within 50 ms of a hit
-	 * merges into it.
+	 * T: a hit on the lane in focus. Stopped, it lands at the playhead and is selected, so a spot found by scrubbing gets
+	 * its hit; playing, it lands at the music's time, for tapping along. A press within 50 ms of a hit merges into it.
 	 */
 	tapHit(): void {
 		const project = this.project;
@@ -844,20 +895,19 @@ export class StudioCx {
 		const lane = focusedLane(project, this.$selection.get());
 		if (lane == null) return;
 		if (!this.$playing.get()) {
-			const from = this.$playhead.get() >= project.end ? 0 : this.$playhead.get();
-			this.tapCountInEnd = from + TAP_COUNT_IN_SECONDS;
-			this.tapSession = { isAutoEnd: isAutoEnd(project), hasTapped: false };
-			// From the start at the end, as Play does; `playbackEnd` may lie past the end now
-			if (from !== this.$playhead.get()) this.$playhead.set(from);
-			this.$playing.set(true);
-			this.notify(`Playing: press T on each beat to add hits to ${lane.name}`);
+			const atPlayhead = tapTime(lane.hits, this.$playhead.get());
+			if (atPlayhead == null) return;
+			const placed = { id: createId('hit'), time: atPlayhead };
+			if (this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [placed] }])) this.$selection.set([toHitKey(lane.id, placed.id)]);
 			return;
 		}
 		if (!this.audio.isPlaying()) return;
-		const time = tapTime(lane.hits, this.audio.getTime(), this.tapCountInEnd);
+		// The first tap of a playback starts the session, so tapping can run past the last hit
+		this.tapSession ??= { isAutoEnd: isAutoEnd(project), hasTapped: false };
+		const time = tapTime(lane.hits, this.audio.getTime());
 		if (time == null) return;
 		const hit = { id: createId('hit'), time };
-		if (this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }]) && this.tapSession != null) this.tapSession.hasTapped = true;
+		if (this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }])) this.tapSession.hasTapped = true;
 	}
 
 	/**
@@ -1054,6 +1104,7 @@ export interface TAgentDraft {
 
 const TIMELINE_HEIGHT_KEY = 'midimarble-v4:timeline-height';
 const OPEN_PROJECT_KEY = 'midimarble-v4:open-project';
+const AUDIO_SCRUBBING_KEY = 'midimarble-v4:audio-scrubbing';
 
 function projectName(path: string): string {
 	return path.split('/').pop()?.replace(/\.marble$/, '') ?? path;

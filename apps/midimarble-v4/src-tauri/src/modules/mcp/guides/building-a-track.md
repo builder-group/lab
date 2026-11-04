@@ -4,9 +4,29 @@ Each marble falls and bounces. A **hit** is a moment in the song a marble must s
 
 ## Fastest way
 
-`run_command('build.track')`, "Build Track", builds every marble's open hits in time order, with platforms, switchbacks and rails across long gaps, and ends each marble in a Finish. Pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
+`run_command('build.track')`, "Build Track", builds every marble's open hits in time order, with platforms, rails or switchbacks across long gaps, and ends each marble in a Finish. Pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
 
 A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds the rest. `build.replace` re-places broken platforms; for an open hit, change the ones before it or place it by hit. Then adjust by hand.
+
+Two arguments steer it, and neither is needed by default:
+
+- `args: { from: hitId }` is **Rebuild From Here**: everything up to that hit stays exactly as it is, on every marble, and the rest is built again as one Undo step. Turn a platform by hand, then rebuild from its hit, and the track follows your edit. The hit IDs are in `get_state.marbles[].hits`. `run_command('build.rebuildFrom', { select: [key] })` does the same from a hit's or piece's key, or from what the person selected, and also answers when the build is done.
+- `args: { gapPiece: 'rail' }` or `'switchback'` tries that piece first across every long gap. Without it, a rail where one reads well and a switchback where nothing else bridges the gap. `get_state.lastBuild` and `hits` say what happened.
+
+## How a track should look
+
+Build Track, `build.next`, Continue and `build.replace` share these rules. A hit's timing comes first; a person's hand edit is never undone to meet them.
+
+- **Pieces don't touch.** Two pieces stand at least 1.2 cm apart as the film shows them, and a skin hangs up to 1.4 cm below its hitbox. A pair that comes closer is the tip "Platform 12 touches Platform 13".
+- **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a switchback, rail or Finish don't count.
+- **Marbles may cross.** A marble's run may leave its lane and cross another's path, as long as it touches neither that marble nor its pieces. It stays in its lane where it can, since its pieces would otherwise stand in the other marble's way, and always stays in frame.
+
+To fix a touching pair or a second strike, try these in order of how little they change. Each moves the run a little from there on, since every bounce follows the one before, so read `hits` in the reply and Undo a try that breaks one.
+
+1. **Shorten** (touching only): `setComponent` the platform's `piece` with a smaller `params.length`, down to about two thirds of its own, as long as the marble still strikes it. Build Track does this itself when things are tight.
+2. **Move** (touching only): `setComponent` its `hitLink` with another `contactAt`, from 0.15 to 0.85, which slides the platform along its own surface under the same strike.
+3. **Tilt**: a new `angle` in that `hitLink`, or in the platform before it, which sets where the marble arrives. `build.replace` tries all of these for every such piece when nothing else is wrong.
+4. **Rebuild From Here** from the hit before them, if none of that holds.
 
 ## One step at a time
 
@@ -24,7 +44,9 @@ Build marbles together in time order, since they can collide with each other's p
 
 ## Long gaps
 
-Two notes further apart than about 0.7 s are a long gap: a marble in free fall drops about 5 m in a 2 s gap at the default speed and leaves the track. Build Track and `build.next` bridge them with a switchback, which holds the marble while it descends, or a rail. A rail, tunnel or switchback never plays a note.
+Two notes further apart than about 0.7 s are a long gap: a marble in free fall drops about 5 m in a 2 s gap at the default speed and leaves the track. Build Track and `build.next` bridge them with a rail where one reads well, or a switchback, which holds the marble while it descends, where nothing else does. A rail, tunnel or switchback never plays a note.
+
+To choose the piece yourself, place it on the hit before the gap with `project.execute`: `{ type: 'placePiece', pieceType: 'rail', hit: { laneId, hitId }, params: { entryDelay: 0.3 } }`, where `entryDelay` is how many seconds after that hit the marble meets it, and `path` sets its shape. Any of `rail`, `tunnel` or `switchback` counts as bridging the gap, and Build Track then keeps it and builds around it.
 
 ## project.execute
 
@@ -38,7 +60,7 @@ Two notes further apart than about 0.7 s are a long gap: a marble in free fall d
 The project's own commands work too:
 
 - `{ type: 'setEnd', end }`, `{ type: 'setTempo', tempo: { bpm, beatsPerBar } }`, `{ type: 'setDesign', design: { ... } }`: see `film-look`
-- `{ type: 'setPhysics', physics: { gravityScale } }`: Marble Speed, 0.05 to 2, 0.5 by default (`get_state.physics`). `run_command('marble.speed', { value })` is the same.
+- `{ type: 'setPhysics', physics: { gravityScale } }`: Gravity, 0.05 to 2, 0.5 by default (`get_state.physics`). `run_command('marble.speed', { value })` is the same.
 - `{ type: 'setComponent', entityId, component: { name, value } }`, with the component's whole value; `marble`, `skin` and `wallText` take only what changes. A marble's `{ color, radius }`: `get_state.marbles[]` has both. The radius, in metres and 0.012 as usual, changes the run, so hits can move; change it only on purpose and read `hits` in the reply. Moving a marble's start: `component: { name: 'release', value: { position: { x, y }, time } }`. Turning a platform: `component: { name: 'hitLink', value: { laneId, hitId, angle, contactAt, pinned } }`.
 - `{ type: 'removeEntities', entityIds }`, `{ type: 'upsertEntity', entity: { id, name, components } }`
 - `{ type: 'removeHits', laneId, hitIds }`, `{ type: 'assignHits', hitIds, laneId }`
@@ -47,4 +69,4 @@ Platform params: `length`, `thickness`, `depth`, `bounce`.
 
 ## Tips
 
-Marble Speed changes every marble: it is a share of Earth's gravity, so at the same tilt and bounce slower gives smaller hops and denser columns. Tilt and bounce shape a hop as much, so build again after changing it. Marbles leaving the frame are reported until the camera can follow them: problems about the frame are about Film, not the hits. A rail, tunnel or windmill never plays a note; a marble riding one can't strike a hit until it leaves. Check the length with `get_state.project.length`; `setEnd` changes it.
+Gravity changes every marble: it is a share of Earth's gravity, so at the same tilt and bounce slower gives smaller hops and denser columns. Tilt and bounce shape a hop as much, so build again after changing it. Marbles leaving the frame are reported until the camera can follow them: problems about the frame are about Film, not the hits. A rail, tunnel or windmill never plays a note; a marble riding one can't strike a hit until it leaves. Check the length with `get_state.project.length`; `setEnd` changes it.

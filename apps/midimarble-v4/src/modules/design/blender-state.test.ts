@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { blenderState } from './blender-state';
 
 describe('blenderState function', () => {
-	it('should show a ready Blender in green with its version in the tooltip', () => {
-		expect(blenderState('ready', '4.5.1 LTS')).toEqual({ tone: 'good', label: 'Ready', detail: 'Blender 4.5.1 is connected' });
+	it('should show a ready Blender in its orange with its version in the tooltip', () => {
+		expect(blenderState('ready', '4.5.1 LTS')).toEqual({ tone: 'ready', label: 'Ready', detail: 'Blender 4.5.1 is connected' });
+		expect(blenderState('idle', '4.5.1')).toMatchObject({ tone: 'ready', label: 'Ready' });
 	});
 
 	it('should mark a missing Blender in grey and work without a version', () => {

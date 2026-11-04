@@ -6,6 +6,7 @@ export type TAgentReview = specta.AgentReview;
 /** Review state of a run as the UI shows it, combining the process status and the user's decision */
 export type TAgentRunPhase =
 	| 'working'
+	| 'done' // a chat message answered without a Result; its edits are in Undo
 	| 'review' // finished with a preview, waiting for accept or decline
 	| 'incomplete' // finished without the files the contract asks for
 	| 'failed'
@@ -18,9 +19,13 @@ export function agentRunPhase(run: {
 	review: TAgentReview | null;
 	hasAsset: boolean;
 	previewUrl: string | null;
+	/** Sent in the chat, where most messages make no Result. Earlier runs always had to. */
+	isChat?: boolean;
 }): TAgentRunPhase {
 	if (run.review === 'accepted') return 'accepted';
 	if (run.review === 'declined') return 'declined';
+	// Stopping keeps what's done, so a finished Result still gets its card
+	if (run.isChat === true && run.hasAsset && run.previewUrl != null && (run.status === 'succeeded' || run.status === 'cancelled')) return 'review';
 	switch (run.status) {
 		case 'running':
 			return 'working';
@@ -29,6 +34,7 @@ export function agentRunPhase(run: {
 		case 'cancelled':
 			return 'cancelled';
 		case 'succeeded':
+			if (run.isChat === true && !run.hasAsset) return 'done';
 			return run.hasAsset && run.previewUrl != null ? 'review' : 'incomplete';
 	}
 }
@@ -37,6 +43,8 @@ export function agentRunPhaseLabel(phase: TAgentRunPhase): string {
 	switch (phase) {
 		case 'working':
 			return 'Working…';
+		case 'done':
+			return 'Done';
 		case 'review':
 			return 'Ready for review';
 		case 'incomplete':

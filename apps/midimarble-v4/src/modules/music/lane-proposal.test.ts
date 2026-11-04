@@ -1,6 +1,7 @@
 import { Midi } from '@tonejs/midi';
 import { describe, expect, it } from 'vitest';
-import { alignNotes, MIN_HIT_GAP, proposeLanes } from './lane-proposal';
+import { readFileSync } from 'node:fs';
+import { alignNotes, laneNamesFromTracks, MIN_HIT_GAP, proposeLanes } from './lane-proposal';
 import { parseMidiFile, type TMidiNote } from './midi';
 
 function note(time: number, pitch: number): TMidiNote {
@@ -76,5 +77,29 @@ describe('parseMidiFile', () => {
 
 	it('rejects files that are not MIDI', () => {
 		expect(parseMidiFile(new Uint8Array([1, 2, 3]))[0]).toBe(false);
+	});
+});
+
+describe('laneNamesFromTracks', () => {
+	const melody = [note(0, 72), note(1, 74)];
+	const bass = [note(0, 40), note(1, 42)];
+
+	it('should name each marble after the track most of its notes come from', () => {
+		const tracks = [{ name: 'Melody', hasName: true, notes: melody }, { name: 'Bass', hasName: true, notes: bass }];
+		expect(laneNamesFromTracks([melody, bass], tracks)).toEqual(['Melody', 'Bass']);
+	});
+
+	it('should keep Marble 1 for a track the file does not name, or that two marbles share', () => {
+		expect(laneNamesFromTracks([melody], [{ name: 'glockenspiel', hasName: false, notes: melody }])).toEqual([null]);
+		expect(laneNamesFromTracks([[melody[0] as TMidiNote], [melody[1] as TMidiNote]], [{ name: 'Piano', hasName: true, notes: melody }])).toEqual([null, null]);
+	});
+
+	it('should name Jingle Bells from its tracks', () => {
+		const file = readFileSync(new URL('../../../fixtures/jingle-bells.mid', import.meta.url));
+		const [isParsedOk, , midi] = parseMidiFile(file);
+		expect(isParsedOk).toBe(true);
+		const tracks = midi?.tracks ?? [];
+		const { lanes } = proposeLanes(tracks.flatMap((track) => track.notes));
+		expect(laneNamesFromTracks(lanes, tracks)).toEqual(['Melody', 'Bass']);
 	});
 });

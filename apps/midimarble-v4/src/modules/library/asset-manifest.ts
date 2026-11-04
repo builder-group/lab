@@ -30,7 +30,7 @@ const SAssetTheme = z.strictObject({
 });
 
 /**
- * An extra property of an agent-made skin, shown as a row in the Look panel. Blender writes its value to the material
+ * An extra property of an agent-made skin, shown as a row in the Skin panel. Blender writes its value to the material
  * inputs and to the Value or RGB nodes of this `name` (`apply_properties` in assets.py); a material without one ignores it.
  */
 const SAssetProperty = z.strictObject({
@@ -55,6 +55,8 @@ export const SAssetManifest = z.strictObject({
 	// Extra skin properties beside Colour, On Hit, Glow Colour and Variant
 	properties: z.array(SAssetProperty).optional(),
 	notes: z.string().optional(),
+	// A marble skin that has one colour whatever the marble's: the marble takes it on, so the timeline and Compose agree
+	color: SHexColor.optional(),
 	// Where the item comes from: `agent` is set when a Result is accepted; absent means it was brought in another way
 	origin: z.enum(['agent', 'imported']).optional(),
 	// The Pack it came from: its origin line reads "Christmas Pack", and still names it where the Pack isn't added

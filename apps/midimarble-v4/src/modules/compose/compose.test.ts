@@ -5,7 +5,7 @@ import { dragRotation, formatDegrees, normalizeSurfaceAngle, parseDegrees, snapA
 import { pick, piecesInRect, type TPickScene } from './picking';
 import { marblePositionAt, rotationGrip } from './scene';
 import { findStepTarget, stepAngle } from './step-loop';
-import { fitBounds, gridLayers, PEG_PITCH, screenToWorld, worldToScreen, zoomAt } from './view';
+import { fitBounds, gridLayers, PEG_PITCH, popoverFrame, screenToWorld, worldToScreen, zoomAt } from './view';
 
 const viewport = { width: 800, height: 600 };
 
@@ -209,5 +209,19 @@ describe('step loop', () => {
 		expect(stepAngle(project, next, 'repeat')).toBeCloseTo(0.3);
 		expect(stepAngle(project, next, 'mirror')).toBeCloseTo(-0.3);
 		expect(Math.abs(stepAngle(project, next, 'default'))).toBeCloseTo(toRadians(15));
+	});
+});
+
+describe('popoverFrame function', () => {
+	const canvas = { left: 300, right: 1100, top: 40, bottom: 600 };
+
+	it('should sit against the canvas edge beside its control, inside the canvas', () => {
+		expect(popoverFrame({ top: 200 }, canvas, { width: 304, height: 200 }, 'start')).toEqual({ left: 308, top: 188, maxHeight: 544 });
+		expect(popoverFrame({ top: 200 }, canvas, { width: 304, height: 200 }, 'end').left).toBe(788);
+	});
+
+	it('should move up to fit, and scroll what is taller than the canvas', () => {
+		expect(popoverFrame({ top: 560 }, canvas, { width: 304, height: 300 }, 'end').top).toBe(292);
+		expect(popoverFrame({ top: 560 }, canvas, { width: 304, height: 2000 }, 'end')).toMatchObject({ top: 48, maxHeight: 544 });
 	});
 });

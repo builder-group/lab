@@ -1,21 +1,21 @@
 import { createState } from 'feature-state';
-import { requestFromPrompt, type AgentCx } from '@/modules/agents';
+import type { AgentCx } from '@/modules/agents';
 import { isNewThemeRequest } from '@/modules/agents/agent-brief';
 import { host } from '@/environment';
 import { Err, Ok, type TResult } from 'tuple-result';
-import { addedPacks, isPackAdded, library, packOriginOf, type TLibraryItem, type TPack } from '@/modules/library';
+import { addedPacks, isPackAdded, library, packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack } from '@/modules/library';
 import { applyProjectCommands, type TPackOrigin, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { $blenderObjects, addDecorCommands, assetDecorSource, type TDecorSource } from './decor';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, seedOf } from './decor-scatter';
-import { skinCommands, themeCommands, type TSkinTarget } from './design-commands';
+import { fixedColorCommands, skinCommands, skinTargetIds, themeCommands, type TSkinTarget } from './design-commands';
 import { filmCamera } from './film-camera';
 import { packAddedNotice } from './concept-words';
 import { packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions } from './packs';
-import { agentThemeCommands, packOrigin, packOriginLine } from './project-themes';
+import { agentThemeCommands, packOrigin, packOriginLine, resolveTheme } from './project-themes';
 
 /**
- * The library behind Film's Library tab and the inspector's Look tiles. Items live in the project's library and, when kept (the star), in the user's global
+ * The library behind Film's Library tab and the inspector's skin pickers. Items live in the project's library and, when kept (the star), in the user's global
  * library; the UI shows one list without those scopes. Applying a kept item copies it into the project first so the
  * package stays portable.
  */
@@ -37,7 +37,6 @@ export class DesignLibraryCx {
 
 	private loadedFor: string | null = null;
 	/** Items accepted so far per decor set from the agent */
-	private readonly acceptedSets = new Map<string, TDecorSource[]>();
 
 	constructor(private readonly source: TDesignLibrarySource) {}
 
@@ -53,7 +52,7 @@ export class DesignLibraryCx {
 		const [isGlobalOk, globalErr, globalItems] = await library.list('global', null);
 		const [isProjectOk, projectErr, projectItems] = packagePath == null ? [true, null, []] as const : await library.list('project', packagePath);
 		const [isPacksOk, , packs] = await library.listPacks();
-		if (isPacksOk) addedPacks.set(packs);
+		if (isPacksOk) addedPacks.set(withStarterPack(packs));
 		const [isBundledOk, , bundled] = await library.listBundledPacks();
 		if (isBundledOk) this.$bundledPacks.set(bundled);
 		if (!isGlobalOk || !isProjectOk) {
@@ -82,7 +81,8 @@ export class DesignLibraryCx {
 			this.source.notify('No piece is selected. Select a piece, then apply the skin.');
 			return false;
 		}
-		return this.source.execute(commands);
+		// A skin with a fixed colour gives it to the marbles it dresses, so the timeline and Compose agree with the film
+		return this.source.execute([...commands, ...fixedColorCommands(project, skinTargetIds(project, target), item.manifest?.color)]);
 	}
 
 	/**
@@ -128,6 +128,15 @@ export class DesignLibraryCx {
 		return Ok(pack);
 	}
 
+	/** Export Pack…'s sheet for the current look, with the library skins the project wears already ticked */
+	openExportPack(): void {
+		const project = this.source.getProject();
+		if (project == null) return;
+		const worn = new Set(project.entities.flatMap((entity) => entity.components.skin?.assetId ?? []));
+		const assetIds = this.$projectItems.get().flatMap((item) => (worn.has(item.id) ? [item.id] : []));
+		this.$exportPack.set({ name: resolveTheme(project.design).name, includesTheme: true, assetIds });
+	}
+
 	/** Export Pack…: writes the Pack; `destination` skips the save panel. Ok(null) when cancelled. */
 	async exportPack(options: TPackExportOptions, destination?: string): Promise<TResult<string | null, Error>> {
 		const project = this.source.getProject();
@@ -156,6 +165,7 @@ export class DesignLibraryCx {
 	}
 
 	async removePack(pack: TPack): Promise<void> {
+		if (pack.id === STARTER_PACK_ID) return;
 		const [isRemovedOk, removedErr] = await library.removePack(pack.id);
 		if (!isRemovedOk) {
 			this.source.notify(removedErr.message, 'error');
@@ -236,7 +246,7 @@ export class DesignLibraryCx {
 		await this.refresh();
 		const project = this.source.getProject();
 		if (project == null) return true;
-		const isNewTheme = run != null && isNewThemeRequest(requestFromPrompt(run.prompt));
+		const isNewTheme = run != null && isNewThemeRequest(run.request);
 		// A New Theme Result may bring the theme's colours: the project gets that theme and shows it, with the skin, as one edit
 		const proposal = isNewTheme ? item.manifest?.theme : undefined;
 		const themed = proposal != null ? agentThemeCommands(project, proposal) : null;
@@ -252,32 +262,13 @@ export class DesignLibraryCx {
 			this.source.notify(`${proposal?.name ?? 'The theme'} applied, with “${label(item)}” in the project library`);
 			return true;
 		}
-		// A decoration lands where the agent was asked for it: at the picked point, or scattered with the rest of its set
-		if (item.manifest?.role === 'decoration' && run?.target != null) {
+		// A decoration lands where the agent was asked for it
+		if (item.manifest?.role === 'decoration' && run?.target?.kind === 'wall') {
 			const source = assetDecorSource(item.id, label(item), item.manifest.fittedParams);
-			if (run.target.kind === 'wall') {
-				this.source.execute(addDecorCommands(project, source, run.target.point).commands);
-				return true;
-			}
-			if (run.target.kind === 'scene' && run.target.decorSet != null) return this.scatterAccepted(project, run.target.decorSet.id, source);
-		}
-		this.source.notify(`“${label(item)}” was added to the project library`);
-		return true;
-	}
-
-	/** Scatters the set with the item just accepted, replacing what the set placed before, as one edit */
-	private scatterAccepted(project: TProject, setId: string, source: TDecorSource): boolean {
-		const items = [...(this.acceptedSets.get(setId) ?? []), source];
-		this.acceptedSets.set(setId, items);
-		const result = this.source.getResult();
-		const track = result != null ? filmCamera(project, result).track : null;
-		if (result == null || track == null) {
-			this.source.notify(`“${source.label}” was added to the project library. Use Scatter Decor once the track has updated`);
+			this.source.execute(addDecorCommands(project, source, run.target.point).commands);
 			return true;
 		}
-		const { commands, count } = scatterDecorCommands(project, result, track, { items, density: DEFAULT_SCATTER_DENSITY, seed: seedOf(setId), blenderObjects: $blenderObjects.get() });
-		if (!this.source.execute(commands)) return false;
-		this.source.notify(`“${source.label}” is in the project library, and the set is on the wall: ${count} ${count === 1 ? 'item' : 'items'}`);
+		this.source.notify(`“${label(item)}” was added to the project library`);
 		return true;
 	}
 }
@@ -325,7 +316,7 @@ export function notAddedPackAction(cx: { library: DesignLibraryCx }, item: TLibr
 /** Where an item comes from, as its quiet second line */
 export function libraryItemOrigin(item: TLibraryItem): string {
 	if (item.manifest?.pack != null) return packOriginLine(item.manifest.pack);
-	return item.manifest?.origin === 'agent' ? 'Made with Agent' : 'Imported';
+	return item.manifest?.origin === 'agent' ? 'Made by Agent' : 'Imported';
 }
 
 export { isNewThemeRequest, NEW_THEME_PROMPT } from '@/modules/agents/agent-brief';
@@ -337,11 +328,13 @@ function applyEdit(project: TProject, commands: TProjectCommand[]): TProject {
 }
 
 /** What a Pack holds, in words: "1 theme, 4 skins, 8 decor items" */
-export function packContents(pack: Pick<TPack, 'themes' | 'items' | 'builtInDecor'>): string {
-	const skins = pack.items.filter((item) => item.manifest?.role === 'skin').length;
-	const decor = pack.items.length - skins + pack.builtInDecor.length;
+export function packContents(pack: Pick<TPack, 'themes' | 'items' | 'builtInDecor' | 'builtIn'>): string {
+	const builtIn = pack.builtIn ?? [];
+	const skins = pack.items.filter((item) => item.manifest?.role === 'skin').length + builtIn.filter((item) => item.kind === 'skin').length;
+	const decor = pack.items.filter((item) => item.manifest?.role !== 'skin').length + pack.builtInDecor.length;
+	const themes = pack.themes.length + builtIn.filter((item) => item.kind === 'theme').length;
 	const counted = (count: number, one: string, many: string): string => (count > 0 ? `${count} ${count === 1 ? one : many}` : '');
-	const parts = [counted(pack.themes.length, 'theme', 'themes'), counted(skins, 'skin', 'skins'), counted(decor, 'decor item', 'decor items')];
+	const parts = [counted(themes, 'theme', 'themes'), counted(skins, 'skin', 'skins'), counted(decor, 'decor item', 'decor items')];
 	return parts.filter(Boolean).join(', ') || 'Nothing yet';
 }
 

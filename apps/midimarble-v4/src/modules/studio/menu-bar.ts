@@ -89,6 +89,25 @@ export const menuLayout: readonly TMenuSection[] = [
 		]
 	},
 	{
+		title: 'Insert',
+		items: [
+			{ command: 'tool.platform', showsKey: true },
+			{ command: 'tool.path', showsKey: true },
+			{ command: 'tool.tunnel', showsKey: true },
+			{ command: 'build.addFinish', variant: 'insert' },
+			'separator',
+			{ command: 'design.addText', showsKey: true },
+			{ command: 'decor.particles' },
+			{ command: 'decor.scatter' },
+			{ command: 'design.addPack', variant: 'insert' },
+			'separator',
+			{ command: 'light.add' },
+			{ command: 'camera.addShot', showsKey: true },
+			{ command: 'marble.add' },
+			{ command: 'file.importMidi', variant: 'insert', hasNoKey: true }
+		]
+	},
+	{
 		title: 'View',
 		items: [
 			{ command: 'view.compose' },
@@ -97,7 +116,6 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'view.sidebar', panel: 'sidebar' },
 			{ command: 'view.inspector', panel: 'inspector' },
 			{ command: 'view.timeline', panel: 'timeline' },
-			{ command: 'view.agent', panel: 'agent' },
 			'separator',
 			{ command: 'view.zoomIn' },
 			{ command: 'view.zoomOut' },
@@ -110,6 +128,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'view.snap' },
 			{ command: 'view.showHitboxes' },
 			{ command: 'view.follow' },
+			{ command: 'view.audioScrubbing' },
 			{ command: 'help.quickHelp', hasNoKey: true },
 			'separator',
 			{ standard: 'fullScreen' }
@@ -132,6 +151,7 @@ export const menuLayout: readonly TMenuSection[] = [
 		items: [
 			{ command: 'build.next', showsKey: true },
 			{ command: 'build.track', showsKey: true },
+			{ command: 'build.rebuildFrom' },
 			{ command: 'build.continue', showsKey: true },
 			{ command: 'build.mirror', showsKey: true },
 			{ command: 'build.repeat', showsKey: true },

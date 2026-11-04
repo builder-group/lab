@@ -761,11 +761,11 @@ export class ComposeCx {
 
 	/** Project whose first hits the opening view has been widened to */
 	private revealedProjectId: string | null = null;
-	/** Physics the latest current run was made with, to notice a project-wide change such as Marble Speed */
+	/** Physics the latest current run was made with, to notice a project-wide change such as Gravity */
 	private physicsKey: { projectId: string; key: string } | null = null;
 
 	/**
-	 * A project-wide physics change, such as Marble Speed, moves every marble and piece. Once its run arrives
+	 * A project-wide physics change, such as Gravity, moves every marble and piece. Once its run arrives
 	 * the view pans to the marble at the playhead when it has left the view, keeping the zoom.
 	 */
 	private followPhysics(result: TSimulationResult | null): void {

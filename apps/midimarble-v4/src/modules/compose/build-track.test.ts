@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
+import { expandCommands } from '@/modules/mcp/project-commands';
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '@/modules/music';
 import { applyProjectCommands, createProject, parseProject, type TProject, type TProjectCommand } from '@/modules/project';
-import { createSimulator, finishOfLane, type TAutoPlaceAnswer, type TSimulator } from '@/modules/simulation';
-import { buildOneStep, buildTrack, localBuildDeps, type TBuildOutcome, type TBuildProgress } from './build-track';
+import { createSimulator, extraStrikes, findLongGaps, finishOfLane, touchingPairs, type TAutoPlaceAnswer, type TSimulator } from '@/modules/simulation';
+import { buildOneStep, buildTrack, localBuildDeps, withoutPiecesAfter, type TBuildOutcome, type TBuildProgress } from './build-track';
 
 const MINUTES = 60_000;
 let simulator: TSimulator;
@@ -59,7 +60,10 @@ describe('buildTrack function', () => {
 		for (const lane of outcome.project.music.lanes) expect(finishOfLane(outcome.project, lane.id)).not.toBeNull();
 		expect(progress.at(-1)).toMatchObject({ done: 115, total: 115, fraction: 1 });
 		expect(problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision })).label).toBe('115 of 115 hits on time');
-	}, 5 * MINUTES);
+		// How it looks: nothing touches as the film shows it, each platform is struck once
+		expect(touchingPairs(outcome.project, outcome.result)).toEqual([]);
+		expect(extraStrikes(outcome.project, outcome.result)).toEqual([]);
+	}, 10 * MINUTES);
 
 	it('builds one marble with long gaps, a tapped list with irregular gaps and two tapped marbles', async () => {
 		const songs = [
@@ -151,6 +155,92 @@ describe('buildTrack function', () => {
 		expect(outcome.project.entities.filter((entity) => entity.components.piece != null).length).toBeGreaterThan(0);
 		expect(outcome.attention.length).toBeGreaterThan(0);
 	});
+});
+
+describe('Rebuild From Here', () => {
+	const song = (): TProject => fromHitTimes([Array.from({ length: 14 }, (_, index) => 1 + index * 0.5)]);
+
+	it('should keep everything up to the hit and build the rest again, as one undo step', async () => {
+		const built = await buildTrack(song(), localBuildDeps(simulator));
+		const lane = built.project.music.lanes[0];
+		const hit = lane?.hits[5];
+		if (lane == null || hit == null) throw new Error('No hit');
+		// The person turns the platform of that hit, which steers what comes after it
+		const mine = built.project.entities.find((entity) => entity.components.hitLink?.hitId === hit.id);
+		if (mine?.components.hitLink == null) throw new Error('No platform');
+		mine.components.hitLink.angle -= 0.05;
+		const before = built.project.entities.filter((entity) => {
+			const link = entity.components.hitLink;
+			return link != null && (lane.hits.find((item) => item.id === link.hitId)?.time ?? Infinity) <= hit.time;
+		});
+		let shown = built.project;
+		const firsts: boolean[] = [];
+		const outcome = await buildTrack(built.project, {
+			...localBuildDeps(simulator),
+			commit: (commands: TProjectCommand[], isFirst) => {
+				firsts.push(isFirst);
+				const [isOk, error, applied] = applyProjectCommands(shown, commands);
+				if (!isOk) throw error;
+				shown = applied;
+				return true;
+			}
+		}, { from: { laneId: lane.id, hitId: hit.id } });
+		expect(outcome.turned).toEqual([]);
+		expect(outcome.releaseShift).toBe(0);
+		for (const entity of before) expect(outcome.project.entities.find((item) => item.id === entity.id)?.components.hitLink).toEqual(entity.components.hitLink);
+		expect(outcome.attention).toEqual([]);
+		expect(firsts.filter(Boolean)).toHaveLength(1);
+		expect(piecesOf(shown)).toEqual(piecesOf(outcome.project));
+		// A second go gives the same track
+		const again = await buildTrack(built.project, localBuildDeps(simulator), { from: { laneId: lane.id, hitId: hit.id } });
+		expect(piecesOf(again.project)).toEqual(piecesOf(outcome.project));
+	}, 2 * MINUTES);
+
+	it('should cut every marble at the same time, with a gap piece that reaches past it', () => {
+		const project = fromHitTimes([[1, 1.5, 3, 3.5], [1.2, 1.7, 3.2]]);
+		const [laneA, laneB] = project.music.lanes;
+		const hitOf = (index: number, lane = laneA) => lane?.hits[index]?.id ?? '';
+		const tied = (id: string, type: string, laneId: string, hitId: string) => ({ id, components: { piece: { type, params: {} }, hitLink: { laneId, hitId, angle: 0, contactAt: 0.5, pinned: false } } });
+		const kept = { ...project, entities: [...project.entities, tied('a1', 'platform', laneA?.id ?? '', hitOf(0)), tied('a2', 'platform', laneA?.id ?? '', hitOf(1)), tied('bridge', 'switchback', laneA?.id ?? '', hitOf(1)), tied('a3', 'platform', laneA?.id ?? '', hitOf(2)), tied('b1', 'platform', laneB?.id ?? '', hitOf(0, laneB)), tied('b2', 'platform', laneB?.id ?? '', hitOf(1, laneB))] };
+		const ids = withoutPiecesAfter(kept as TProject, { laneId: laneA?.id ?? '', hitId: hitOf(1) }).entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id);
+		expect(ids).toEqual(['a1', 'a2', 'b1']);
+	});
+});
+
+describe('gap pieces', () => {
+	const gappy = (): TProject => fromHitTimes([[1, 1.5, 2, 3, 3.5, 4, 5, 5.5, 6]]);
+
+	it('should build through long gaps whichever piece it is asked to try first', async () => {
+		for (const gapPiece of ['rail', 'switchback'] as const) {
+			const outcome = await buildTrack(gappy(), localBuildDeps(simulator), { gapPiece });
+			expect(outcome.attention).toEqual([]);
+			for (const gap of findLongGaps(outcome.project, outcome.project.music.lanes[0]?.id ?? '')) expect(gap.bridgedBy).not.toBeNull();
+		}
+	}, 2 * MINUTES);
+});
+
+describe('a chosen gap piece', () => {
+	it('should bridge the gap when placed with project.execute, and stay through Build Track', async () => {
+		const project = fromHitTimes([[1, 1.5, 2, 3, 3.5, 4]]);
+		const lane = project.music.lanes[0];
+		const from = lane?.hits[2];
+		if (lane == null || from == null) throw new Error('No hit');
+		// The platforms up to the gap, then the rail a person or an agent picked
+		let current = project;
+		for (const hit of lane.hits.slice(0, 3)) {
+			const placed = localBuildDeps(simulator).autoPlace({ project: current, laneId: lane.id, hitId: hit.id, type: 'platform', entityId: `mine-${hit.id}` }) as TAutoPlaceAnswer;
+			const [isOk, error, applied] = applyProjectCommands(current, [{ type: 'upsertEntity', entity: placed.entity }]);
+			if (!isOk) throw error;
+			current = applied;
+		}
+		const [isExpanded, expandError, expanded] = expandCommands(current, simulator.simulate(current), [], [{ type: 'placePiece', pieceType: 'rail', hit: { laneId: lane.id, hitId: from.id }, params: { entryDelay: 0.3 }, name: 'My Rail' }]);
+		if (!isExpanded) throw expandError;
+		const [isOk, error, chosen] = applyProjectCommands(current, expanded.commands);
+		if (!isOk) throw error;
+		expect(findLongGaps(chosen, lane.id).map((gap) => gap.bridgedBy)).not.toContain(null);
+		const outcome = await buildTrack(chosen, localBuildDeps(simulator));
+		expect(outcome.project.entities.find((entity) => entity.name === 'My Rail')?.components.piece?.type).toBe('rail');
+	}, MINUTES);
 });
 
 describe('buildOneStep function', () => {

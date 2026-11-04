@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { condenseAgentLines, summarizeToolUse } from './agent-messages';
+import { agentContextUse, condenseAgentLines, summarizeToolUse } from './agent-messages';
 import { agentRunPhase, agentRunPhaseLabel, formatAgentUsage } from './agent-status';
 
 const claudeLines = [
@@ -151,5 +151,55 @@ describe('agent run status', () => {
 	it('should format duration and cost', () => {
 		expect(formatAgentUsage(124_000, 0.4213)).toBe('2 min 4 s · $0.42');
 		expect(formatAgentUsage(null, null)).toBeNull();
+	});
+});
+
+describe('the chat in stream-json', () => {
+	const delta = (text: string): string => JSON.stringify({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text } } });
+	const finished = (text: string, usage?: object): string => JSON.stringify({ type: 'assistant', message: { usage, content: [{ type: 'text', text }] } });
+
+	it('should stream text and put the finished message in its place', () => {
+		expect(condenseAgentLines('claude', [delta('Tilt'), delta('ing')])).toEqual([{ kind: 'text', text: 'Tilting', isPartial: true }]);
+		expect(condenseAgentLines('claude', [delta('Tilt'), delta('ing'), finished('Tilting it.')])).toEqual([{ kind: 'text', text: 'Tilting it.' }]);
+	});
+
+	it('should keep text before and after a step apart', () => {
+		const step = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'mcp__midimarble__get_state', input: {} }] } });
+		const messages = condenseAgentLines('claude', [delta('Looking'), finished('Looking.'), step, delta('Done')]);
+		expect(messages.map((message) => message.kind)).toEqual(['text', 'tool', 'text']);
+	});
+
+	it('should word the app tools for the step list', () => {
+		expect(summarizeToolUse('mcp__midimarble__get_state', {})).toBe('Read the project');
+		expect(summarizeToolUse('mcp__midimarble__get_guide', { topic: 'assets' })).toBe('Read the assets guide');
+		expect(summarizeToolUse('mcp__midimarble__run_command', { id: 'build.track', args: { from: 'h-1' } })).toBe('Build Track');
+		expect(summarizeToolUse('run_command', { id: 'project.execute', args: { label: 'Tilt Platform 12', commands: [] } })).toBe('Tilt Platform 12');
+		expect(summarizeToolUse('run_command', { id: 'project.execute', args: { commands: [{ type: 'placePiece' }] } })).toBe('Place Piece');
+		expect(summarizeToolUse('mcp__midimarble__preview_frame', { time: 6.5 })).toBe('Preview the frame at 6.5 s');
+	});
+
+	it('should follow a Codex MCP step from start to end', () => {
+		const started = JSON.stringify({ type: 'item.started', item: { id: 'i1', type: 'mcp_tool_call', tool: 'get_state', arguments: {} } });
+		const done = JSON.stringify({ type: 'item.completed', item: { id: 'i1', type: 'mcp_tool_call', tool: 'get_state', status: 'completed' } });
+		expect(condenseAgentLines('codex', [started, done])).toEqual([{ kind: 'tool', id: 'i1', tool: 'get_state', summary: 'Read the project', status: 'done' }]);
+	});
+
+	it('should say how full the context is only when the CLI reports its size', () => {
+		const used = finished('Hi', { input_tokens: 100, cache_read_input_tokens: 40_000, cache_creation_input_tokens: 9_900, output_tokens: 5 });
+		const result = JSON.stringify({ type: 'result', subtype: 'success', is_error: false, modelUsage: { m: { contextWindow: 200_000 } } });
+		expect(agentContextUse([{ startedAt: 1, messages: condenseAgentLines('claude', [used]) }])).toBeNull();
+		const earlier = { startedAt: 1, messages: condenseAgentLines('claude', [used, result]) };
+		expect(agentContextUse([earlier])).toEqual({ share: 0.25, used: 50_000, size: 200_000 });
+		const running = { startedAt: 2, messages: condenseAgentLines('claude', [finished('More', { input_tokens: 100_000 })]) };
+		expect(agentContextUse([earlier, running])?.share).toBe(0.5);
+		expect(agentContextUse([{ startedAt: 1, messages: condenseAgentLines('codex', [JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 5 } })]) }])).toBeNull();
+	});
+
+	it('should show a chat message without a Result as done and keep the card of a stopped one', () => {
+		const chat = { review: null, hasAsset: false, previewUrl: null, isChat: true };
+		expect(agentRunPhase({ ...chat, status: 'succeeded' })).toBe('done');
+		expect(agentRunPhase({ ...chat, status: 'cancelled' })).toBe('cancelled');
+		expect(agentRunPhase({ ...chat, status: 'cancelled', hasAsset: true, previewUrl: 'x' })).toBe('review');
+		expect(agentRunPhase({ ...chat, status: 'succeeded', hasAsset: true })).toBe('incomplete');
 	});
 });

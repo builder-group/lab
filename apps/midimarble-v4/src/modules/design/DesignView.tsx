@@ -57,8 +57,9 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}, [studio]);
 
-	const isDraft = preview == null || status === 'unavailable' || status === 'missing' || status === 'error' || isLiveMode;
-	const canShowLive = isLiveEnabled && status !== 'unavailable' && status !== 'missing';
+	const canRunBlender = status !== 'unavailable' && status !== 'missing';
+	const isDraft = preview == null || !canRunBlender || status === 'error' || !isLiveEnabled || isLiveMode;
+	const canShowLive = isLiveEnabled && canRunBlender;
 
 	function toImage(event: React.MouseEvent<HTMLElement>): { u: number; v: number } {
 		const rect = event.currentTarget.getBoundingClientRect();
@@ -118,9 +119,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					studio={studio}
 					frame={frame}
 					isPlacing={placing != null}
-					isBusy={busy}
 					cover={canShowLive ? <LivePreviewFrame live={cx.live} studio={studio} onLevelChange={setLiveLevel} /> : null}
-					coverLabel={canShowLive && liveLevel != null ? `Blender Preview · ${liveLevel === 'fast' ? 'Fast' : 'Flat Light'}` : null}
 					onPick={onPick}
 					onPlace={placeTitle}
 					onDropAsset={onDropAsset}
@@ -170,12 +169,20 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					<span>Click the wall to place a title · ⇧-click to place more</span>
 					<kbd className="mm-keycap">esc</kbd>
 				</div>
-			) : !isDraft && busy ? (
-				<div className="mm-floating absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
-					<LoaderCircle className="animate-spin" size={11} />
-					Preview out of date
-				</div>
 			) : null}
+
+			<div className="mm-floating absolute top-3 left-3 flex items-center gap-1.5 p-[3px] text-[11px] text-[var(--text-secondary)]">
+				<div className="mm-segmented" role="radiogroup" aria-label="Preview">
+					<button role="radio" aria-checked={!canShowLive} data-active={!canShowLive} onClick={() => cx.live.setEnabled(false)} title="Draft: draws the run here, following the film's camera" type="button">
+						Draft
+					</button>
+					<button role="radio" aria-checked={canShowLive} data-active={canShowLive} disabled={!canRunBlender} onClick={() => cx.live.setEnabled(true)} title={canRunBlender ? 'Blender: renders the real look at the playhead' : status === 'missing' ? "Blender isn't installed. Install Blender 4.2 or later to preview and export films." : 'Blender connects in the desktop app'} type="button">
+						Blender
+					</button>
+				</div>
+				{busy && canShowLive ? <LoaderCircle className="animate-spin" size={11} aria-label="Blender is working" /> : null}
+				{canShowLive && liveLevel != null ? <span className="pr-1.5">{liveLevel === 'fast' ? 'Fast' : 'Flat Light'}</span> : null}
+			</div>
 
 			<ScatterPanel cx={studio} />
 

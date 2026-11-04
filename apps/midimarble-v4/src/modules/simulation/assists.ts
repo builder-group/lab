@@ -14,6 +14,8 @@ import { layoutOf } from './piece-layout';
 import { getPieceDefinition, isMusicalPiece, resolvePieceParams, soundsHit } from './pieces';
 import { createLinkedPiece, frameBand, type TFrameBand } from './placement';
 import { wrapAngle, type TPieceShape } from './shapes';
+import { FINISH_TYPE } from './finish';
+import { columnOffset, extraStrikes, MIN_PIECE_GAP, nearestPieceGap, visualShapes } from './track-look';
 import {
 	HIT_TOLERANCE,
 	IMPACT_SPEED,
@@ -198,14 +200,23 @@ const DEGREE = Math.PI / 180;
  * - travel: `TRAVEL_WEIGHT` per share of `minTravel` the horizontal travel falls short of it, so the
  *   marble never bounces in place. `minTravel` is the piece length plus `CLEARANCE` at each end, which
  *   also keeps the next piece clear of this one.
- * - restrike: `RESTRIKE_WEIGHT` per time the marble strikes the piece again before the next hit, which
- *   sounds an extra note. Short intervals after a low bounce sometimes leave no clean angle.
+ * - restrike and touching: a marble that strikes the piece again before the next hit, or a piece closer than
+ *   `MIN_PIECE_GAP` to another as the film shows them (`visualShapes`), is a hard rejection like the checks above.
+ *   Only when no angle at all passes does a last round allow them, at `RESTRIKE_WEIGHT` per strike and
+ *   `CLEARANCE_WEIGHT` per share of the gap missing, so a person pressing N still gets a platform that plays on time
+ *   and the problem list says what is wrong with it. Build Track refuses those answers too and tries something else.
+ *   Mending a run, what counts first is playing again, so there a restrike only costs score, touching costs nothing
+ *   and the problem list names both, with a Fix of its own that does refuse them.
+ *   A platform that would touch first tries a shorter length, `SHORTER_LENGTHS` of its own, which changes nothing in
+ *   the marble's strike at the middle of it and costs `SHORTER_WEIGHT` per step.
  * - clearance: `CLEARANCE_WEIGHT` per share of `CLEARANCE` that the new piece's colliders, the next
  *   piece's colliders or the marble path come closer than `CLEARANCE` to another piece, overlaps
  *   included. Other lanes' open hits count as flat platforms at their dots from their hit time on.
  * - band: `BAND_WEIGHT` times the squared offset of the next dot from the band centre, in half widths,
- *   plus `TRAVEL_WEIGHT` per half width the path leaves the band. With several marbles leaving the
- *   lane's band at all is a hard rejection instead.
+ *   plus `TRAVEL_WEIGHT` per half width the path leaves the band. With several marbles the search first
+ *   stays in the lane, since a piece in another lane stands in that marble's way later, and when no angle
+ *   fits tries the whole frame: a marble may cross another's path, as long as it touches neither that marble
+ *   nor its pieces.
  * - heading, with several marbles in their narrow lanes: `HEADING_WEIGHT` times how far the next dot lies
  *   in the outer half of the band, from 0 at
  *   half the half width to 1 at its edge, when the marble arrives there moving further out, scaled up to
@@ -218,6 +229,13 @@ const DEGREE = Math.PI / 180;
  * - pattern: `PATTERN_WEIGHT` when the travel goes the other way than the neighbours suggest, which is
  *   back after a single step (zigzag) and onward after two steps the same way (staircase), plus
  *   `ANGLE_WEIGHT` times the distance to the previous piece's angle or its mirror, in 40° units
+ * - look, what makes the track read as designed rather than scattered, among angles that all play:
+ *   `COLUMN_WEIGHT` per piece length the next dot lies from the lane's other column, two columns
+ *   `columnOffset` either side of the lane's centre, so the marble zigzags between the same two places;
+ *   `TILT_WEIGHT` when the tilt does not lean toward that column, which alternates the tilts;
+ *   `REPEAT_WEIGHT` per 40° from the tilt the lane used last for the same interval, so a rhythm that repeats
+ *   repeats its shape; and `STEEP_WEIGHT` per 10° past `STEEP_TILT`. A note sooner than `FULL_COLUMN_INTERVAL` cannot
+ *   cross the lane gently, so its column counts for less. The pace term above keeps the drop per beat even.
  * - a tie break of 0.001 per radian toward flatter angles
  *
  * The travel and clearance weights dominate, so a short or crowded candidate wins only when nothing else
@@ -263,6 +281,23 @@ const COMFORT_WEIGHT = 0.5;
 const PATTERN_WEIGHT = 0.3;
 const ANGLE_WEIGHT = 0.2;
 const RESTRIKE_WEIGHT = 5;
+// Shares of a platform's own length it may shrink to where it would touch another piece. Below two thirds it stops
+// reading as a platform of the same kit.
+const SHORTER_LENGTHS = [5 / 6, 2 / 3];
+const SHORTER_WEIGHT = 1;
+const LANE_WEIGHT = 5;
+const COLUMN_WEIGHT = 3;
+const TILT_WEIGHT = 0.3;
+const REPEAT_WEIGHT = 0.6;
+const STEEP_WEIGHT = 0.5;
+// Tilts past this start to read as a hard kick rather than a bounce
+const STEEP_TILT = 20 * DEGREE;
+// A note sooner than this cannot cross the lane at a gentle tilt, so its column counts for less in proportion
+const FULL_COLUMN_INTERVAL = 0.4;
+// A dot this close to the lane's centre counts as on neither column, and goes back the way it came
+const COLUMN_DEADBAND = 0.01;
+// Intervals this close count as the same rhythm, as Continue and Mirror judge it
+const RHYTHM_TOLERANCE = 0.015;
 
 interface TCandidate {
 	angle: number;
@@ -271,16 +306,23 @@ interface TCandidate {
 	travel: number;
 	bounce: number | null;
 	paceError: number | null;
+	/** A shorter length than the piece's own, where its own would touch another piece */
+	length?: number;
 }
 
 /** One angle Auto place tries, in radians, with the shift of its target height */
 export interface TAngleTry {
 	angle: number;
 	shift: number;
+	/**
+	 * Rounds when nothing passed in the marble's own lane: `frame` lets the marble leave it and cross another's path as long
+	 * as nothing touches, and `relaxed` also lets a restrike or a touching piece cost score only
+	 */
+	round?: 'frame' | 'relaxed';
 }
 
 /** Why a tried angle failed a hard check */
-export type TAutoPlaceRejection = 'blocked' | 'missed' | 'strayContact' | 'otherLane' | 'outOfFrame' | 'nextBlocked' | 'offPace' | 'rising';
+export type TAutoPlaceRejection = 'blocked' | 'missed' | 'strayContact' | 'otherLane' | 'outOfFrame' | 'nextBlocked' | 'offPace' | 'rising' | 'restrike' | 'touching';
 
 /** A tried angle's score, or null when it fails a hard check, with the checks its simulations failed */
 export interface TAngleEvaluation {
@@ -298,6 +340,8 @@ export interface TAutoPlacePlan {
 	isFast: boolean;
 	/** The next dot has a target height, so the fallback tries higher and lower arcs */
 	hasTarget: boolean;
+	/** Later hits have pieces already, which follow wherever this one sends the marble */
+	isMending: boolean;
 }
 
 /** Answers to one batch of tries, in the order they were asked */
@@ -454,7 +498,10 @@ export function prepareAutoPlace(
 						)
 					: null;
 	const band = frameBand(project, laneId);
-	const dotShare = 0.9;
+	// The limit of what stays in frame, whichever lane's centre the marble prefers
+	const stage = frameBand(project);
+	// A dot stays a tenth of a lane inside the frame's edge
+	const dotShare = 1 - (0.1 * band.halfWidth) / stage.halfWidth;
 	// The next strike must come from above. Several marbles in narrow lanes need it firm, so a slow
 	// arrival cannot end as a resting contact; one marble only needs it falling.
 	// A next hit that launches into a long gap needs a firm strike to throw the marble; a slow arrival there
@@ -471,8 +518,14 @@ export function prepareAutoPlace(
 			.marble?.radius ?? 0;
 	const pieceLength = resolvePieceParams(baseType, base.components.piece?.params ?? {})['length'];
 	const length = pieceLength ?? resolvePieceParams('platform', {})['length'] ?? 0.09;
+	// Placed in the middle of a run a person or Re-place is mending, the pieces after it follow the marble wherever the
+	// new tilt sends it, so the tilt that keeps closest to the old run wins and only what came before it is judged
+	const isMending = lane.hits.slice(index + 1).some((later) => owners.has(later.id));
 	const minTravel = length + 2 * CLEARANCE;
 	const pattern = travelPattern(result, laneId, lane.hits, index, owners, minTravel);
+	const columns = columnOffset(length);
+	const later = new Set(lane.hits.slice(index + 1).flatMap((item) => owners.get(item.id)?.id ?? []));
+	const rhythmAngle = nextHit != null ? lastTiltOfInterval(lane.hits, index, owners, RHYTHM_TOLERANCE) : null;
 	const reserved = reservedSpots(project, result, laneId, until);
 	const frontiers = openFrontiers(project, result);
 
@@ -480,10 +533,15 @@ export function prepareAutoPlace(
 	const evaluate = (
 		angle: number,
 		bounce: number | null,
-		rejected: TAutoPlaceRejection[]
+		rejected: TAutoPlaceRejection[],
+		isRelaxed: boolean,
+		limit: TFrameBand
 	): { candidate: Omit<TCandidate, 'angle'> | null; nextDot: TVec2 | null } => {
+		// The lane's other column, and whether the tilt leans toward it: a positive angle leans the normal to the left
+		const side = dot.x - band.centerX;
+		const toward = Math.abs(side) > COLUMN_DEADBAND ? -Math.sign(side) : Math.sign(velocity?.x ?? 0) || -1;
 		const entity = withBounce(withAngle(base, angle), bounce);
-		// A flat probe on the next hit checks that its dot can take a piece at all
+		// A flat probe on the next hit checks that its dot can take a piece at all, standing where that piece would
 		const probe =
 			nextHit != null && !owners.has(nextHit.id)
 				? createLinkedPiece('platform', laneId, nextHit.id, 0, { id: `${entity.id}-probe` })
@@ -521,7 +579,7 @@ export function prepareAutoPlace(
 		let heading = 0;
 		if (nextHit != null) {
 			nextDot = findHitResult(trial, laneId, nextHit.id)?.dot ?? null;
-			if (nextDot == null || !isInBand(nextDot, band, dotShare)) {
+			if (nextDot == null || !isInBand(nextDot, limit, limit === band ? 0.9 : dotShare)) {
 				rejected.push('outOfFrame');
 				return { candidate: null, nextDot: null };
 			}
@@ -550,7 +608,7 @@ export function prepareAutoPlace(
 			}
 			end = nextDot;
 		} else {
-			if (!staysInBand(trial, laneId, hit.time, until, band)) {
+			if (!staysInBand(trial, laneId, hit.time, until, limit)) {
 				rejected.push('outOfFrame');
 				return { candidate: null, nextDot: null };
 			}
@@ -567,6 +625,42 @@ export function prepareAutoPlace(
 		const own = placed.find((piece) => piece.entityId === entity.id);
 		const nextId = probe?.id ?? (nextHit != null ? owners.get(nextHit.id)?.id : undefined);
 		const next = placed.find((piece) => piece.entityId === nextId);
+		// How far the piece and the next one fall short of the least gap as the film shows them. Only the piece's own
+		// gap rejects: the next piece gets its tilt when it is placed.
+		let visualShortfall = 0;
+		const nearby = placed.filter((other) => other !== own && other.type !== FINISH_TYPE && other.status !== 'free' && !later.has(other.entityId));
+		const touchingBy = (length: number | null): number => {
+			if (own == null) return 0;
+			const shapes = visualShapes(length != null ? { ...own, params: { ...own.params, length } } : own, marbleRadius);
+			return Math.max(0, ...nearby.map((other) => MIN_PIECE_GAP - shapesGap(shapes, visualShapes(other, marbleRadius), MIN_PIECE_GAP)));
+		};
+		let shorter: number | undefined;
+		let ownTouching = touchingBy(null);
+		if (ownTouching > 0 && !isMending && isBox && own?.params['length'] != null) {
+			const lengths = SHORTER_LENGTHS.map((share) => Math.round((own.params['length'] ?? 0) * share * 1e4) / 1e4);
+			const fits = lengths.find((item) => touchingBy(item) <= 0);
+			if (fits != null) {
+				shorter = fits;
+				ownTouching = 0;
+			}
+		}
+		const nextVisual = next != null ? visualShapes(next, marbleRadius) : [];
+		const ownVisual = own != null ? visualShapes(shorter != null ? { ...own, params: { ...own.params, length: shorter } } : own, marbleRadius) : [];
+		for (const other of nearby) {
+			if (next != null && other !== next) visualShortfall += Math.max(0, MIN_PIECE_GAP - shapesGap(nextVisual, visualShapes(other, marbleRadius), MIN_PIECE_GAP));
+		}
+		if (next != null && own != null) visualShortfall += Math.max(0, MIN_PIECE_GAP - shapesGap(nextVisual, ownVisual, MIN_PIECE_GAP));
+		if (!isRelaxed) {
+			if (restrikes > 0 && !isMending) {
+				rejected.push('restrike');
+				return { candidate: null, nextDot };
+			}
+			if (ownTouching > 0 && !isMending) {
+				rejected.push('touching');
+				return { candidate: null, nextDot };
+			}
+		}
+		visualShortfall += ownTouching;
 		let shortfall = 0;
 		const ownShapes = own != null ? resolvedPieceShapes(own) : [];
 		for (const piece of [own, next]) {
@@ -598,10 +692,16 @@ export function prepareAutoPlace(
 		let outside = 0;
 		for (const sample of samples) {
 			if (sample.time < hit.time || sample.time > until) continue;
-			const offset = Math.abs(sample.position.x - band.centerX) - band.halfWidth;
-			outside = Math.max(outside, offset / band.halfWidth);
+			const offset = Math.abs(sample.position.x - limit.centerX) - limit.halfWidth;
+			outside = Math.max(outside, offset / limit.halfWidth);
 		}
-		// With several marbles a lane's band is a hard wall: crossing it reaches the neighbour's pieces
+		// A marble that leaves its own lane may cross another's path, but its pieces then stand in that marble's way
+		let outsideLane = 0;
+		for (const sample of samples) {
+			if (sample.time < hit.time || sample.time > until) continue;
+			outsideLane = Math.max(outsideLane, (Math.abs(sample.position.x - band.centerX) - band.halfWidth) / band.halfWidth);
+		}
+		// With several marbles the limit is a hard wall: the lane, then when nothing passes the frame
 		if (isShared && outside > 0) {
 			rejected.push('outOfFrame');
 			return { candidate: null, nextDot };
@@ -617,14 +717,24 @@ export function prepareAutoPlace(
 			previousAngle != null
 				? Math.min(Math.abs(angle - previousAngle), Math.abs(angle + previousAngle)) / (40 * DEGREE)
 				: 0;
+		const columnMiss = nextDot != null && !isMending ? (Math.min(1, interval / FULL_COLUMN_INTERVAL) * Math.abs(nextDot.x - (band.centerX + toward * columns))) / length : 0;
+		const isOffTilt = nextDot != null && !isMending && Math.sign(angle) === toward;
+		const repeat = rhythmAngle != null && !isMending ? Math.abs(Math.abs(angle) - rhythmAngle) / (40 * DEGREE) : 0;
 		const offPace =
 			nextDot != null && targetY != null && pace != null ? (nextDot.y - targetY) / pace.limit : 0;
 		const score =
 			(TRAVEL_WEIGHT * Math.max(0, minTravel - distance)) / minTravel +
 			(CLEARANCE_WEIGHT * shortfall) / CLEARANCE +
+			(isMending ? 0 : (CLEARANCE_WEIGHT * visualShortfall) / MIN_PIECE_GAP) +
+			COLUMN_WEIGHT * columnMiss +
+			(isOffTilt ? TILT_WEIGHT : 0) +
+			REPEAT_WEIGHT * repeat +
+			(isMending ? 0 : (STEEP_WEIGHT * Math.max(0, Math.abs(angle) - STEEP_TILT)) / (10 * DEGREE)) +
+			(shorter != null ? SHORTER_WEIGHT * (1 + SHORTER_LENGTHS.findIndex((share) => Math.abs(share * (own?.params['length'] ?? 0) - shorter) < 1e-3)) : 0) +
 			BAND_WEIGHT * centrality * centrality +
 			HEADING_WEIGHT * heading +
 			TRAVEL_WEIGHT * outside +
+			(isShared && limit !== band ? LANE_WEIGHT * Math.max(0, outsideLane) : 0) +
 			PACE_WEIGHT * offPace * offPace +
 			(COMFORT_WEIGHT * Math.abs(distance - comfort)) / comfort +
 			(isAgainstPattern ? PATTERN_WEIGHT : 0) +
@@ -637,7 +747,8 @@ export function prepareAutoPlace(
 				nextDot,
 				travel,
 				bounce: entity.components.piece?.params['bounce'] ?? null,
-				paceError
+				paceError,
+				...(shorter != null ? { length: shorter } : {})
 			},
 			nextDot
 		};
@@ -647,7 +758,9 @@ export function prepareAutoPlace(
 	 * Evaluates an angle with its pace bounce, corrected once when the dot misses its target. `shift` moves
 	 * the target up or down, which the fallback search uses to try higher and lower arcs.
 	 */
-	const evaluateAngle = ({ angle, shift }: TAngleTry): TAngleEvaluation => {
+	const evaluateAngle = ({ angle, shift, round }: TAngleTry): TAngleEvaluation => {
+		const isRelaxed = round === 'relaxed';
+		const limit = round == null ? band : stage;
 		const rejected: TAutoPlaceRejection[] = [];
 		const answer = (candidate: Omit<TCandidate, 'angle'> | null): TAngleEvaluation => ({ candidate, rejected });
 		const target = targetY != null ? targetY + shift : null;
@@ -657,19 +770,19 @@ export function prepareAutoPlace(
 				: takeoff;
 		const solved =
 			lift != null && bounceSpec != null ? paceBounce(velocity, angle, lift, bounceSpec) : null;
-		const first = evaluate(angle, solved?.bounce ?? null, rejected);
+		const first = evaluate(angle, solved?.bounce ?? null, rejected, isRelaxed, limit);
 		if (solved == null || target == null || first.nextDot == null) return answer(first.candidate);
 		const error = first.nextDot.y - target;
 		if (Math.abs(error) <= PACE_TOLERANCE) return answer(first.candidate);
 		const corrected = clampBounce(solved.bounce - error / (interval * solved.gain), bounceSpec);
 		if (bounceSpec == null || Math.abs(corrected - solved.bounce) < 0.01) return answer(first.candidate);
-		const second = evaluate(angle, corrected, rejected).candidate;
+		const second = evaluate(angle, corrected, rejected, isRelaxed, limit).candidate;
 		if (second == null) return answer(first.candidate);
 		return answer(first.candidate == null || second.score < first.candidate.score ? second : first.candidate);
 	};
 
 	const isFast = Math.hypot(velocity?.x ?? 0, velocity?.y ?? 0) > FAST_ARRIVAL * speedScale;
-	return Ok({ plan: { hitId, base, isShared, isFast, hasTarget: targetY != null }, evaluate: evaluateAngle });
+	return Ok({ plan: { hitId, base, isShared, isFast, hasTarget: targetY != null, isMending }, evaluate: evaluateAngle });
 }
 
 /**
@@ -690,7 +803,9 @@ function* autoPlaceSearch(
 		outOfFrame: 0,
 		nextBlocked: 0,
 		offPace: 0,
-		rising: 0
+		rising: 0,
+		restrike: 0,
+		touching: 0
 	};
 	const tried = new Set<string>();
 	function* search(
@@ -698,17 +813,18 @@ function* autoPlaceSearch(
 		best: TCandidate | null,
 		limits: [number, number],
 		shift = 0,
-		resolution = 1
+		resolution = 1,
+		round?: 'frame' | 'relaxed'
 	): Generator<TAngleTry[], TCandidate | null, TAutoPlaceBatch> {
 		const tries: TAngleTry[] = [];
 		for (const angle of angles) {
 			const steps = Math.round(angle / (resolution * DEGREE));
 			const degrees = steps * resolution;
 			const rounded = degrees * DEGREE;
-			const key = `${degrees}/${shift}`;
+			const key = `${degrees}/${shift}/${round ?? ''}`;
 			if (rounded < limits[0] - 1e-9 || rounded > limits[1] + 1e-9 || tried.has(key)) continue;
 			tried.add(key);
-			tries.push({ angle: rounded, shift });
+			tries.push(round != null ? { angle: rounded, shift, round } : { angle: rounded, shift });
 		}
 		if (tries.length === 0) return best;
 		const batch = yield tries;
@@ -748,11 +864,22 @@ function* autoPlaceSearch(
 	}
 	const wide: [number, number] = [-60 * DEGREE, 60 * DEGREE];
 	coarse ??= yield* search(steps(wide[0], wide[1], 5 * DEGREE), null, wide);
+	// Nothing fits in the marble's lane: it may cross another's path, as long as nothing touches
+	// Mending a run, nothing found means the caller tries the platform before; otherwise these are the last resorts
+	if (isShared && known.plan?.isMending !== true) {
+		coarse ??= yield* search(steps(near[0], near[1], step * DEGREE), null, near, 0, step, 'frame');
+		coarse ??= yield* search(steps(wide[0], wide[1], 5 * DEGREE), null, wide, 0, 1, 'frame');
+	}
+	// Nothing plays cleanly: the angle that plays with the least wrong with it, which the problem list then names
+	if (known.plan?.isMending !== true) {
+		coarse ??= yield* search(steps(near[0], near[1], step * DEGREE), null, near, 0, step, 'relaxed');
+		coarse ??= yield* search(steps(wide[0], wide[1], 5 * DEGREE), null, wide, 0, 1, 'relaxed');
+	}
 	const found = known.plan;
 	if (coarse == null || found == null) {
 		return Err(
 			new Error(
-				`No angle keeps the next dot on time and in frame (${rejected.blocked} blocked, ${rejected.missed} missed, ${rejected.strayContact} touch something else, ${rejected.otherLane} change another marble's run, ${rejected.outOfFrame} out of frame, ${rejected.nextBlocked} leave no room at the next dot, ${rejected.offPace} off the descent pace, ${rejected.rising} still rising at the next hit)`
+				`No angle keeps the next dot on time and in frame (${rejected.blocked} blocked, ${rejected.missed} missed, ${rejected.strayContact} touch something else, ${rejected.otherLane} change another marble's run, ${rejected.outOfFrame} out of frame, ${rejected.nextBlocked} leave no room at the next dot, ${rejected.offPace} off the descent pace, ${rejected.rising} still rising at the next hit, ${rejected.restrike} strike it twice, ${rejected.touching} touch another piece)`
 			)
 		);
 	}
@@ -772,7 +899,7 @@ function* autoPlaceSearch(
 				step
 			)) ?? best);
 
-	const entity = withBounce(withAngle(found.base, chosen.angle), chosen.bounce);
+	const entity = withLength(withBounce(withAngle(found.base, chosen.angle), chosen.bounce), chosen.length);
 	const placement: TAutoPlacement = {
 		hitId: found.hitId,
 		entity,
@@ -892,11 +1019,12 @@ const ANGLE_TOLERANCE = 0.5 * DEGREE;
 /**
  * Ghost pieces that continue the lane's recent pattern. The last two to four placed pieces must repeat
  * one angle or alternate it mirrored, and each following open hit must keep the rhythm: its
- * inter-onset interval matches the interval one pattern period earlier. Ghosts stop before a hit that
+ * inter-onset interval matches the interval one pattern period earlier. A ghost's dot may leave the lane's centre but
+ * not the frame. Ghosts stop before a hit that
  * starts a long gap, which needs a launch from Auto place, before the hit ahead of it, which must strike the
  * launch firmly, and after one, and with several marbles before a
  * lane's last hit, whose fall past the other lanes Auto place checks. The ghosts are verified in one
- * simulation and cut after the first that misses, leaves the lane's frame band or, when several marbles
+ * simulation and cut after the first that misses, leaves the frame or, when several marbles
  * share the frame, ends further from the pace y* than the limit (or than the open dot already is, plus a
  * little); the last one is also cut when
  * a flat probe at the hit after it would be blocked. Returns null when there is no pattern to continue.
@@ -995,7 +1123,7 @@ export function continueSuggestions(
 	);
 	const isProbeBlocked =
 		probe != null && trial.pieces.find((piece) => piece.entityId === probe.id)?.status === 'blocked';
-	const band = frameBand(project, laneId);
+	const band = frameBand(project);
 	const isShared = project.entities.filter((entity) => entity.components.marble != null).length > 1;
 	const pace = result.pace ?? descentPace(project, result.hits);
 	const openDot = open.result?.dot ?? null;
@@ -1003,6 +1131,12 @@ export function continueSuggestions(
 		pace != null && openDot != null && isShared
 			? Math.max(pace.limit, Math.abs(openDot.y - paceAt(pace, open.hit.time)) + PACE_SLACK)
 			: Infinity;
+	// A ghost the marble strikes twice, or that touches another piece as the film shows them, stops the run like a miss
+	const placedGhosts = withEntities(project, ghosts.map((ghost) => ghost.entity));
+	const flawed = new Set(extraStrikes(placedGhosts, trial).map((strike) => strike.entityId));
+	for (const ghost of ghosts) {
+		if (nearestPieceGap(placedGhosts, trial, ghost.entity.id, MIN_PIECE_GAP) < MIN_PIECE_GAP) flawed.add(ghost.entity.id);
+	}
 	const suggestions: TContinueSuggestion[] = [];
 	for (const ghost of ghosts) {
 		const hitResult = findHitResult(trial, laneId, ghost.hit.id);
@@ -1014,7 +1148,8 @@ export function continueSuggestions(
 			isOnTime(status) &&
 			isInFrame &&
 			Math.abs(paceError ?? 0) <= allowed &&
-			!(ghost === ghosts[ghosts.length - 1] && isProbeBlocked);
+			!(ghost === ghosts[ghosts.length - 1] && isProbeBlocked) &&
+			!flawed.has(ghost.entity.id);
 		suggestions.push({
 			hitId: ghost.hit.id,
 			entity: ghost.entity,
@@ -1035,6 +1170,21 @@ export function continueSuggestions(
 			.filter((suggestion) => suggestion.isOk)
 			.map((suggestion) => ({ type: 'upsertEntity', entity: suggestion.entity }))
 	};
+}
+
+/** The tilt size of the latest earlier piece of the lane whose interval to its next hit matches this hit's */
+function lastTiltOfInterval(hits: THit[], index: number, owners: Map<string, TEntity>, tolerance: number): number | null {
+	const hit = hits[index];
+	const following = hits[index + 1];
+	if (hit == null || following == null) return null;
+	const interval = following.time - hit.time;
+	for (let i = index - 1; i >= 0; i--) {
+		const [from, to] = [hits[i], hits[i + 1]];
+		if (from == null || to == null || Math.abs(to.time - from.time - interval) > tolerance) continue;
+		const angle = owners.get(from.id)?.components.hitLink?.angle;
+		if (angle != null) return Math.abs(angle);
+	}
+	return null;
 }
 
 /** Repeat when the recent angles are equal, mirror when they alternate in sign */
@@ -1231,6 +1381,12 @@ function withBounce(entity: TEntity, bounce: number | null): TEntity {
 		...entity,
 		components: { ...entity.components, piece: { ...piece, params: { ...piece.params, bounce } } }
 	};
+}
+
+function withLength(entity: TEntity, length: number | undefined): TEntity {
+	const { piece } = entity.components;
+	if (piece == null || length == null) return entity;
+	return { ...entity, components: { ...entity.components, piece: { ...piece, params: { ...piece.params, length } } } };
 }
 
 function withAngle(entity: TEntity, angle: number): TEntity {

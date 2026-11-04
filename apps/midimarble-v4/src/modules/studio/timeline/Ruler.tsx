@@ -1,7 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
+import { openContextMenu } from '@/components';
 import { renderedSpans } from '@/modules/design/live-preview';
 import { createLoop } from '@/modules/simulation';
+import { commandItem } from '../commands';
 import { draggedCycleRange, shownCycle, type TCycleDrag } from '../cycle';
 import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';
@@ -21,7 +23,9 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 	const labels = Array.from({ length: Math.floor(Math.max(width, window.innerWidth) / zoom / step) + 1 }, (_, index) => index * step);
 
 	function seek(clientX: number): void {
-		cx.$playhead.set(Math.min(end, timeAt(clientX)));
+		const time = Math.min(end, timeAt(clientX));
+		cx.$playhead.set(time);
+		cx.audioScrubTo(time);
 	}
 
 	return (
@@ -31,8 +35,12 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 			onPointerDown={(event) => {
 				if (event.button !== 0) return;
 				event.currentTarget.setPointerCapture(event.pointerId);
+				cx.beginAudioScrub();
 				seek(event.clientX);
 			}}
+			onPointerUp={() => cx.endAudioScrub()}
+			onPointerCancel={() => cx.endAudioScrub()}
+			onContextMenu={(event) => openContextMenu(event, [commandItem(cx, 'film.fitToSong')])}
 			onPointerMove={(event) => {
 				if (event.buttons === 1 && endDrag == null) seek(event.clientX);
 			}}

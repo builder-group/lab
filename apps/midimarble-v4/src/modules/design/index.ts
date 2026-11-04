@@ -1,5 +1,4 @@
 export * from './agent-thread';
-export * from './AgentPanel';
 export * from './design-commands';
 export * from './DesignCx';
 export * from './DesignInspector';

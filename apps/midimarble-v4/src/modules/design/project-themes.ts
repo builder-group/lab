@@ -1,6 +1,6 @@
 import type { TSceneThemeOverrides } from '@/modules/blender/scene-description';
 import { createId, type TDesign, type TEntity, type TKeyLightPose, type TProject, type TPackOrigin, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
-import { isPackAdded } from '@/modules/library';
+import { isPackAdded, STARTER_ORIGIN } from '@/modules/library';
 import { canonicalSkin } from '@/modules/project/skin-ids';
 import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, type TSkinElement, type TSkinLook } from './skin-catalog';
 
@@ -189,7 +189,7 @@ export function themeCommands(project: TProject, themeId: string): TProjectComma
 }
 
 /**
- * What Save as Theme builds on: a project theme with the source's base and overrides, named like Finder's copies
+ * What keeping a look builds on: a project theme with the source's base and overrides, named like Finder's copies
  * ("Neon Copy", "Neon Copy 2"), and applied, as one edit
  */
 export function duplicateThemeCommands(project: TProject, sourceId: string): { commands: TProjectCommand[]; themeId: string } {
@@ -217,7 +217,7 @@ export function duplicateThemeCommands(project: TProject, sourceId: string): { c
 	return { commands: [...addThemeCommands(project, saved), { type: 'setDesign', design: { wall: undefined, lights: undefined } }], themeId: saved.id };
 }
 
-/** Whether the project changed the Wall or Lights layers on top of its theme, which Save as Theme stores */
+/** Whether the project changed the Wall or Lights layers on top of its theme, which a kept look stores */
 export function hasLayerChanges(design: Pick<TDesign, 'wall' | 'lights'>): boolean {
 	return Object.keys(design.wall ?? {}).length > 0 || Object.keys(design.lights?.key ?? {}).length > 0 || (design.lights?.added?.length ?? 0) > 0;
 }
@@ -254,11 +254,11 @@ export function themePartCommands(project: TProject, themeId: string, element: T
 }
 
 /**
- * Save as Theme, the one way to make or change a theme: a project theme whose parts are this project's choices per element type: the
+ * The current look as a theme, what Export Pack… keeps: a project theme whose parts are this project's choices per element type: the
  * look most of each type wear, built-in skins only. Pieces in that look then just follow the theme; pieces in another
  * keep it. One edit, and the theme is applied.
  */
-export function saveAsThemeCommands(project: TProject, name?: string): { commands: TProjectCommand[]; themeId: string } {
+export function currentLookThemeCommands(project: TProject, name?: string): { commands: TProjectCommand[]; themeId: string } {
 	const { commands, themeId } = duplicateThemeCommands(project, project.design.theme);
 	const parts = currentThemeParts(project);
 	const clear = project.entities.flatMap((entity): TProjectCommand[] => {
@@ -277,7 +277,7 @@ export function saveAsThemeCommands(project: TProject, name?: string): { command
 	return { commands: [...withCopy, ...clear], themeId };
 }
 
-/** Whether pieces or marbles wear choices of their own, which Save as Theme can turn into a theme */
+/** Whether pieces or marbles wear choices of their own, which Export Pack… can turn into a theme */
 export function hasSkinChoices(project: TProject): boolean {
 	return Object.keys(currentThemeParts(project)).length > 0;
 }
@@ -389,10 +389,10 @@ export function copyName(name: string, taken: readonly string[]): string {
 	}
 }
 
-/** Where a theme comes from, as its card's quiet line: Made with Agent or Based on Neon; a built-in theme has none */
+/** Where a theme comes from, as its tile's quiet line: Starter, its Pack, Made by Agent or Based on Neon */
 export function themeOrigin(theme: TResolvedTheme): string {
-	if (theme.isBuiltIn) return '';
+	if (theme.isBuiltIn) return STARTER_ORIGIN;
 	if (theme.projectTheme?.pack != null) return packOriginLine(theme.projectTheme.pack);
-	if (theme.projectTheme?.origin === 'agent') return 'Made with Agent';
+	if (theme.projectTheme?.origin === 'agent') return 'Made by Agent';
 	return `Based on ${builtInThemeLabel(theme.base) ?? theme.base}`;
 }

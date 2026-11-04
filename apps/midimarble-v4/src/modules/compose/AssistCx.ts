@@ -4,6 +4,7 @@ import {
 	defaultPlatformAngle,
 	findLongGaps,
 	frameBand,
+	gapPieceReads,
 	hitOwners,
 	isMusicalPiece,
 	isSuperseded,
@@ -17,11 +18,11 @@ import {
 	type TSimulationResult
 } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
-import { toHitKey } from '@/modules/studio/selection';
+import { parseHitKey, toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
-import { buildOneStep, buildTrack, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps } from './build-track';
-import { addedProblems, blockedScenery, brokenHits, fixPiece, newlyBroken, replaceBroken, replaceCommands, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
+import { buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps } from './build-track';
+import { addedProblems, blockedScenery, brokenHits, fixPiece, lookPieces, newlyBroken, replaceBroken, replaceCommands, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
 import { findFinish } from './finish-assist';
 import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
@@ -128,8 +129,8 @@ export class AssistCx {
 				this.placeAfterStuckGap(result, gap.laneId, gap.toHitId, type);
 				return;
 			}
-			this.suggestGapPiece('switchback', gap.laneId, gap.fromHitId, gap.toHitId, {
-				fallback: 'rail',
+			this.suggestGapPiece('rail', gap.laneId, gap.fromHitId, gap.toHitId, {
+				fallback: 'switchback',
 				// An agent's Next places the bridge in the same call, so its reply says what happened
 				accept: this.studio.isInAgentStep,
 				onFailed: (message) => void this.stepPastGap(key, message)
@@ -383,7 +384,7 @@ export class AssistCx {
 		this.previewRun++;
 		this.previewKey = key;
 		this.studio.$selection.set([key]);
-		this.suggestGapPiece('switchback', hit.laneId, fromHitId, hit.hitId, { fallback: 'rail' });
+		this.suggestGapPiece('rail', hit.laneId, fromHitId, hit.hitId, { fallback: 'switchback' });
 	}
 
 	/** Whether a click on this dot's hit showed the suggestion that is up */
@@ -473,6 +474,11 @@ export class AssistCx {
 		client.gapPiece({ type, project, laneId, fromHitId, toHitId }).then(
 			(answer) => {
 				this.record('gap', startedAt);
+				// A rail the pace or the frame can't follow leaves the gap to the switchback, like Build Track
+				if (options.fallback != null && options.fallback !== type && answer.check != null && !gapPieceReads(answer.check, this.currentResult()?.pace?.limit ?? Infinity)) {
+					this.suggestGapPiece(options.fallback, laneId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
+					return;
+				}
 				this.dispatch({ type: 'gapAnswer', answer });
 				if (options.accept === true) this.acceptGhosts();
 			},
@@ -512,9 +518,10 @@ export class AssistCx {
 		});
 	}
 
-	/** Stop on Build Track's notice, and `build.stop` */
+	/** `build.stop` and Stop on an agent's pill: ends a running Build Track or Re-place; what it did stays */
 	stopBuild(): void {
 		if (this.buildRun != null) this.buildRun.isCancelled = true;
+		if (this.replaceRun != null) this.replaceRun.isCancelled = true;
 	}
 
 	private buildAction(): { label: string; title: string; run: () => void } {
@@ -540,14 +547,14 @@ export class AssistCx {
 	 * step. Each piece shows on the wall as it is found, with progress and Stop in the notice. Another edit stops it,
 	 * like Re-place, and what it built so far stays.
 	 */
-	async buildTrack(): Promise<TBuildOutcome | null> {
+	async buildTrack(from?: { laneId: string; hitId: string }, gapPiece?: TBuildGapPreference): Promise<TBuildOutcome | null> {
 		const project = this.studio.project;
 		if (project == null || this.buildRun != null || this.replaceRun != null) return null;
 		if (!project.music.lanes.some((lane) => lane.hits.length > 0)) {
 			this.studio.notify('Build Track needs notes. Import a song, or press T and tap along.');
 			return null;
 		}
-		if (!this.hasOpenHits) {
+		if (from == null && !this.hasOpenHits) {
 			this.studio.notify('Every hit already has a platform');
 			return null;
 		}
@@ -590,7 +597,7 @@ export class AssistCx {
 					this.$building.set(progress);
 					this.studio.updateNotice(progressId, { message: progressText(progress), progress: progress.fraction });
 				}
-			});
+			}, { ...(from != null ? { from } : {}), ...(gapPiece != null ? { gapPiece } : {}) });
 		} catch (error: unknown) {
 			this.studio.notify(`Build Track stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
 		} finally {
@@ -604,7 +611,7 @@ export class AssistCx {
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
 		this.replacedRevision = result.revision;
 		const summary = problemSummary(preflightExport(present ?? outcome.project, result));
-		const report = buildReport(project, outcome, summary.label, summary.problems.length, Math.round(performance.now() - startedAt));
+		const report = buildReport(project, outcome, summary.label, summary.problems.length, Math.round(performance.now() - startedAt), from);
 		this.$lastBuild.set(report);
 		const changed = present?.revision !== project.revision;
 		if (changed) {
@@ -614,6 +621,17 @@ export class AssistCx {
 			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [{ label: this.replacePlan(present, result).label, title: 'Re-place the broken platforms', run: () => void this.replace() }] : [], { details: report.details });
 		} else this.studio.notify(report.message);
 		return outcome;
+	}
+
+	/** The hit Rebuild From Here starts at: the selected hit, or the one the selected piece belongs to */
+	get rebuildTarget(): { laneId: string; hitId: string } | null {
+		const project = this.studio.project;
+		const [key] = this.studio.$selection.get();
+		if (project == null || key == null) return null;
+		const hit = parseHitKey(key);
+		if (hit != null) return hit;
+		const link = project.entities.find((entity) => entity.id === key)?.components.hitLink;
+		return link != null ? { laneId: link.laneId, hitId: link.hitId } : null;
 	}
 
 	// MARK: - Fix-its
@@ -757,7 +775,7 @@ export class AssistCx {
 		if (project == null || result == null || client == null || this.replaceRun != null || this.buildRun != null) return null;
 		const targets = brokenHits(result.hits, only);
 		const scenery = only == null ? blockedScenery(project, result) : [];
-		if (!targets.length && !scenery.length) {
+		if (!targets.length && !scenery.length && (only != null || lookPieces(project, result).length === 0)) {
 			this.studio.notify(only == null ? 'Every platform lands its note; nothing to re-place' : 'This platform already lands on time');
 			return null;
 		}
@@ -889,6 +907,10 @@ export class AssistCx {
 		const fix = checked?.revision === project.revision && checked.fix != null ? checked.fix : await fixPiece(project, result, entityId, deps);
 		// Another edit while the what-if ran makes it stale
 		if (this.studio.project?.revision !== project.revision) return;
+		if (fix.rebuildFrom != null) {
+			await this.buildTrack(fix.rebuildFrom);
+			return;
+		}
 		if (fix.commands == null) {
 			this.studio.notify(fix.message);
 			return;
@@ -1024,7 +1046,7 @@ export interface TBuildReport {
 	attention: { marble: string; laneId: string; hitId: string; hit: number; time: number; status: string }[];
 }
 
-function buildReport(project: TProject, outcome: TBuildOutcome, label: string, problems: number, ms: number): TBuildReport {
+function buildReport(project: TProject, outcome: TBuildOutcome, label: string, problems: number, ms: number, from?: { laneId: string; hitId: string }): TBuildReport {
 	const nameOf = (laneId: string): string => project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'The marble';
 	const attention = outcome.attention.map((hit) => ({ marble: nameOf(hit.laneId), laneId: hit.laneId, hitId: hit.hitId, hit: hit.index + 1, time: hit.time, status: hit.status }));
 	const pieces = `${outcome.added} ${outcome.added === 1 ? 'piece' : 'pieces'}`;
@@ -1032,7 +1054,9 @@ function buildReport(project: TProject, outcome: TBuildOutcome, label: string, p
 	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 hit needs' : `${attention.length} hits need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
 	const turned = outcome.turned.length > 0 ? `Turned ${outcome.turned.length} of your ${outcome.turned.length === 1 ? 'platform' : 'platforms'}.` : '';
 	const moved = outcome.releaseShift !== 0 ? `Moved the releases ${Math.abs(outcome.releaseShift * 100).toFixed(1)} cm.` : '';
-	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `Built the track: ${label}, ${pieces}.` : `Built what fits: ${label}, ${pieces}.`;
+	const fromLane = from != null ? project.music.lanes.find((lane) => lane.id === from.laneId) : undefined;
+	const rebuilt = from != null ? `Rebuilt after Hit ${(fromLane?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromLane?.name ?? 'the marble'}` : null;
+	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `${rebuilt ?? 'Built the track'}: ${label}, ${pieces}.` : `${rebuilt ?? 'Built what fits'}: ${label}, ${pieces}.`;
 	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');
 	const details = [message, ...outcome.finishes, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join(' ');
 	return { message, details, isStopped: outcome.isStopped, seconds: Math.round(ms / 100) / 10, added: outcome.added, turned: outcome.turned, releaseShift: outcome.releaseShift, finishes: outcome.finishes, attention };

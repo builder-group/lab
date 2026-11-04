@@ -79,7 +79,9 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const lastFix = useFeatureState(compose?.assist.$lastFix ?? NO_LAST_FIX);
 	const addingFinish = useFeatureState(compose?.assist.$addingFinish ?? NO_ADDING);
 	const workspace = useFeatureState(cx.$workspace);
-	const summary = React.useMemo(() => problemSummary(preflightExport(project, result), workspace === 'compose' ? 'compose' : 'film'), [project, result, workspace]);
+	// While Build Track works the summary only says so, so no step checks the whole run again for it
+	const isBuilding = building != null;
+	const summary = React.useMemo(() => problemSummary(preflightExport(project, isBuilding ? null : result), workspace === 'compose' ? 'compose' : 'film'), [isBuilding, project, result, workspace]);
 	const isCurrent = result != null && result.revision === project.revision;
 	// Blocked scenery's Fix-its are tried on a copy of the run before the menu offers them
 	const blocked = React.useMemo(() => (isCurrent ? blockedScenery(project, result).map((piece) => piece.entityId) : []), [isCurrent, project, result]);
@@ -109,7 +111,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			onSelect: () => void compose?.assist.addFinish(laneId)
 		})),
 		...(hasLastFix ? [{ label: 'Show Last Fix', onSelect: () => compose?.assist.showLastFix() }] : []),
-		// Ends the film `filmTail` after the last hit, measured with a Finish, like the Scene inspector's Fit to Song
+		// Ends the film `filmTail` after the last hit, measured with a Finish, like the ruler's Fit to Song
 		...(fitEnd != null ? [{ label: 'Fit to Song', onSelect: () => void cx.fitToSong() }] : [])
 	];
 	// Already in time order, as the summary keeps them
@@ -215,71 +217,77 @@ const TimeReadout: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const playhead = useFeatureState(cx.$playhead);
 	const end = useFeatureState(cx.$history)?.present.end ?? 0;
-	const [draft, setDraft] = React.useState<string | null>(null);
+	const [draft, setDraft] = React.useState<{ field: 'playhead' | 'length'; text: string } | null>(null);
 	const [isInvalid, setIsInvalid] = React.useState(false);
 
-	function startEditing(): void {
-		cx.$playing.set(false);
+	function startEditing(field: 'playhead' | 'length'): void {
+		if (field === 'playhead') cx.$playing.set(false);
 		setIsInvalid(false);
-		setDraft(formatTime(cx.$playhead.get()));
+		setDraft({ field, text: formatTime(field === 'playhead' ? cx.$playhead.get() : end) });
 	}
 
 	function commit(): void {
 		if (draft == null) return;
-		const time = parseTime(draft);
+		const time = parseTime(draft.text);
 		if (time == null) {
 			setIsInvalid(true);
 			return;
 		}
-		cx.seek(Math.min(end, time));
+		if (draft.field === 'playhead') cx.seek(Math.min(end, time));
+		else if (Math.abs(time - end) > 1e-6) cx.execute([{ type: 'setEnd', end: Math.max(MIN_FILM_LENGTH, time) }]);
 		setDraft(null);
 	}
 
+	const input = (field: 'playhead' | 'length', className: string, label: string): React.ReactElement => (
+		<input
+			className={className}
+			value={draft?.text ?? ''}
+			aria-label={label}
+			aria-invalid={isInvalid}
+			title={isInvalid ? 'Type a time like 1:23.45, 1:23 or seconds' : undefined}
+			spellCheck={false}
+			autoFocus
+			data-field={field}
+			onFocus={(event) => event.currentTarget.select()}
+			onChange={(event) => {
+				setIsInvalid(false);
+				setDraft({ field, text: event.target.value });
+			}}
+			onKeyDown={(event) => {
+				event.stopPropagation();
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					commit();
+				} else if (event.key === 'Escape') {
+					event.preventDefault();
+					setDraft(null);
+				}
+			}}
+			onBlur={() => setDraft(null)}
+		/>
+	);
+
 	return (
 		<div className="mm-lcd" data-editing={draft != null} data-invalid={isInvalid}>
-			{draft != null ? (
-				<input
-					className="mm-lcd-input"
-					value={draft}
-					aria-label="Go to time"
-					aria-invalid={isInvalid}
-					title={isInvalid ? 'Type a time like 1:23.45, 1:23 or seconds' : undefined}
-					spellCheck={false}
-					autoFocus
-					onFocus={(event) => event.currentTarget.select()}
-					onChange={(event) => {
-						setIsInvalid(false);
-						setDraft(event.target.value);
-					}}
-					onKeyDown={(event) => {
-						event.stopPropagation();
-						if (event.key === 'Enter') {
-							event.preventDefault();
-							commit();
-						} else if (event.key === 'Escape') {
-							event.preventDefault();
-							setDraft(null);
-						}
-					}}
-					onBlur={() => setDraft(null)}
-				/>
+			{draft?.field === 'playhead' ? (
+				input('playhead', 'mm-lcd-input', 'Go to time')
 			) : (
-				<button
-					className="mm-lcd-time"
-					onClick={startEditing}
-					title="Playhead position. Click to type a time."
-					aria-label={`Playhead at ${formatTime(playhead)}. Click to type a time.`}
-					type="button"
-				>
+				<button className="mm-lcd-time" onClick={() => startEditing('playhead')} title="Playhead position. Click to type a time." aria-label={`Playhead at ${formatTime(playhead)}. Click to type a time.`} type="button">
 					{formatTime(playhead)}
 				</button>
 			)}
-			<span className="mm-lcd-length" title="Film length">
-				{formatTime(end)}
-			</span>
+			{draft?.field === 'length' ? (
+				input('length', 'mm-lcd-length mm-lcd-length-input', 'Film length')
+			) : (
+				<button className="mm-lcd-length" onClick={() => startEditing('length')} title="Film length. Click to type it, or drag the end marker on the ruler." aria-label={`Film length ${formatTime(end)}. Click to type it.`} type="button">
+					{formatTime(end)}
+				</button>
+			)}
 		</div>
 	);
 };
+
+const MIN_FILM_LENGTH = 0.5;
 
 /** Final Cut's timeline zoom: a slider between − and + glyphs, then Zoom to Fit */
 const ZoomControl: React.FC<{ zoom: number; onZoom: (zoom: number) => void; onZoomToFit: () => void }> = (props) => {

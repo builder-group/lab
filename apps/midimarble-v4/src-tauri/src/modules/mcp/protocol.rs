@@ -6,7 +6,7 @@ const SERVER_NAME: &str = "midimarble";
 const LATEST_PROTOCOL: &str = "2025-06-18";
 const SUPPORTED_PROTOCOLS: [&str; 3] = ["2024-11-05", "2025-03-26", LATEST_PROTOCOL];
 const INSTRUCTIONS: &str = "MidiMarble builds marble-run films from a song. Call get_guide first, then get_state. \
-Every edit shows live in the person's window as one named Undo step, so work in small steps and read the hit summary each reply gives.";
+Every edit shows live in the person's window as one Undo step. When they say \"this\" or \"these\", read get_state.selection. A reply saying Stop means stop and ask.";
 
 /// One tool call as the app answers it. `content` holds MCP content blocks.
 #[derive(Debug, Clone, PartialEq)]
@@ -55,6 +55,7 @@ struct RpcError {
 pub struct McpServer<B: ToolBridge> {
     bridge: B,
     client: Option<String>,
+    is_initialized: bool,
 }
 
 impl<B: ToolBridge> McpServer<B> {
@@ -62,7 +63,17 @@ impl<B: ToolBridge> McpServer<B> {
         return Self {
             bridge,
             client: None,
+            is_initialized: false,
         };
+    }
+
+    /// A client has said hello: `client_name` is what it calls itself, if anything
+    pub fn is_initialized(&self) -> bool {
+        return self.is_initialized;
+    }
+
+    pub fn client_name(&self) -> Option<&str> {
+        return self.client.as_deref();
     }
 
     /// The response to one line, None for a notification. An array is a JSON-RPC batch.
@@ -116,6 +127,7 @@ impl<B: ToolBridge> McpServer<B> {
     }
 
     fn initialize(&mut self, params: &Value) -> Result<Value, RpcError> {
+        self.is_initialized = true;
         self.client = params
             .pointer("/clientInfo/name")
             .and_then(Value::as_str)
@@ -199,7 +211,7 @@ pub fn tool_definitions() -> Vec<Value> {
             "Runs a studio command by id, or `project.execute` with `args.commands`. Each call is one named Undo step. Answers with the new hit summary and errors in plain words.",
             json!({
                 "id": { "type": "string" },
-                "args": { "type": "object", "description": "`select` (layer keys) for any command; `path` for commands that open a panel for a person; `commands` and `label` for project.execute; `value` for marble.speed; `wait: false` for build.track" }
+                "args": { "type": "object", "description": "`select` (layer keys) for any command; `path` for commands that open a panel for a person; `commands` and `label` for project.execute; `value` for marble.speed; `wait: false`, `from` (a hit ID: Rebuild From Here) and `gapPiece` (`rail` or `switchback`, tried first across a long gap) for build.track" }
             }),
             &["id"],
         ),
@@ -211,7 +223,7 @@ pub fn tool_definitions() -> Vec<Value> {
         ),
         tool(
             "set_references",
-            "Stores the images and words that set this film's look, replacing earlier ones. They show in the Scene inspector.",
+            "Stores the images and words that set this film's look in the project's agent/references, replacing earlier ones, for every agent that opens the project. See the film-look guide.",
             json!({
                 "paths": { "type": "array", "items": { "type": "string" }, "description": "Absolute paths of images" },
                 "text": { "type": "string" }
@@ -297,6 +309,8 @@ mod tests {
         assert_eq!(reply["result"]["protocolVersion"], "2025-03-26");
         assert_eq!(reply["result"]["serverInfo"]["name"], "midimarble");
         assert!(reply["result"]["instructions"].as_str().unwrap().len() < 300);
+        assert!(server.is_initialized());
+        assert_eq!(server.client_name(), Some("claude-code"));
 
         let unknown = answer(
             &mut server,
@@ -376,6 +390,17 @@ mod tests {
             r#"{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_guide","arguments":{"topic":"nope"}}}"#,
         );
         assert_eq!(missing["result"]["isError"], true);
+    }
+
+    #[test]
+    fn a_client_cant_call_the_presence_line() {
+        let mut server = McpServer::new(StubBridge::default());
+        let line = format!(
+            r#"{{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{{"name":"{}"}}}}"#,
+            super::super::socket::PRESENCE_TOOL
+        );
+        assert_eq!(answer(&mut server, &line)["error"]["code"], -32602);
+        assert!(server.bridge.calls.is_empty());
     }
 
     #[test]

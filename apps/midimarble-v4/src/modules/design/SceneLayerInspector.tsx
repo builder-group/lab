@@ -6,7 +6,7 @@ import type { StudioCx } from '@/modules/studio';
 import { KEY_LIGHT_KEY, toLightKey } from '@/modules/studio/selection';
 import { SKIN_HELP } from './concept-words';
 import { marbleContrastWarning } from './draft-look';
-import { WallTiles } from './LookTiles';
+import { WallPicker } from './SkinPickers';
 import { appliedOverrides, baseThemeOf, resolveTheme } from './project-themes';
 import {
 	addedLights,
@@ -23,7 +23,7 @@ import {
 // Inspectors of the Wall and Lights layers of Film. Values the theme sets read "From Brass"; a value the project sets
 // keeps its reset, like a piece's skin.
 
-const LIGHT_HELP = 'Shows in the Blender preview. The Draft Preview draws no light; Live Preview shows it after it renders again. Side runs from the far left to the far right of the wall, Height from below to above.';
+const LIGHT_HELP = 'Shows in the Blender preview. The Draft Preview draws no light. Side runs from the far left to the far right of the wall, Height from below to above.';
 
 /** The Wall layer: its Skin, Wall colour and the Background behind it */
 export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
@@ -39,8 +39,8 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 	return (
 		<>
 			<InspectorHeader icon={<BrickWall size={16} strokeWidth={1.7} />} title="Wall" subtitle={isOwn ? `Changed from ${themeName}` : origin} />
-			<Panel id="design.wall" title="Look" accessory={<HelpTip text={`${SKIN_HELP} The wall is what the marbles fall in front of. The Background surrounds it, lights it and reflects in the pieces.`} />}>
-				<WallTiles cx={cx} project={project} />
+			<Panel id="design.wall" title="Skin" accessory={<HelpTip text={`${SKIN_HELP} The wall is what the marbles fall in front of. The Background surrounds it, lights it and reflects in the pieces.`} />}>
+				<WallPicker cx={cx} project={project} />
 				<ColorWell
 					cx={cx}
 					id="wall-color"

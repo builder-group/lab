@@ -4,6 +4,8 @@ use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 pub const CANDIDATES_FOLDER: &str = "candidates";
+pub const AGENT_FOLDER: &str = "agent";
+pub const ASSET_FILE: &str = "asset.blend";
 pub const BRIEF_FILE: &str = "BRIEF.md";
 pub const BRIEF_JSON_FILE: &str = "brief.json";
 pub const PREVIEW_SCRIPT_FILE: &str = "mm_preview.py";
@@ -26,18 +28,6 @@ pub struct AgentBrief {
     pub wall_point: Option<BriefVec2>,
     /// Set for a New Theme request: the agent also proposes the theme's colours in `manifest.json`
     pub theme: Option<BriefTheme>,
-    /// Set for a decor request: this run makes one item of a set, which accepting scatters on the wall
-    pub decor_set: Option<BriefDecorSet>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BriefDecorSet {
-    /// Which item of the set this run makes, from 1
-    pub index: u32,
-    pub total: u32,
-    /// What kind of thing this item should be, so the set stays varied
-    pub suggestion: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -177,8 +167,28 @@ pub fn ensure_inside(root: &Path, path: &Path) -> Result<(), BriefError> {
     return Ok(());
 }
 
-/// Creates the candidate folder with `BRIEF.md`, `brief.json` and the preview helper. Returns the folder.
-pub fn write_candidate(
+/// `<package>/agent/runs/<runId>`: a chat run's record, transcript and log
+pub fn run_dir(package: &Path, run_id: &str) -> Result<PathBuf, BriefError> {
+    // The same checks as a candidate folder
+    candidate_dir(package, run_id)?;
+    let runs = package.join(AGENT_FOLDER).join("runs");
+    let dir = runs.join(run_id);
+    ensure_inside(&runs, &dir)?;
+    return Ok(dir);
+}
+
+/// `<package>/agent/scratch/result-<runId>`, where a run builds a Result. It is inside the agent's working folder, so
+/// Bash's sandbox lets it write there; the host moves a finished Result to `candidates/`.
+pub fn result_dir(package: &Path, run_id: &str) -> Result<PathBuf, BriefError> {
+    candidate_dir(package, run_id)?;
+    let scratch = package.join(AGENT_FOLDER).join("scratch");
+    let dir = scratch.join(format!("result-{}", run_id));
+    ensure_inside(&scratch, &dir)?;
+    return Ok(dir);
+}
+
+/// Creates the run's result folder with `BRIEF.md`, `brief.json` and the preview helper. Returns the folder.
+pub fn write_result_brief(
     package: &Path,
     run_id: &str,
     brief_json: &str,
@@ -186,17 +196,48 @@ pub fn write_candidate(
 ) -> Result<PathBuf, BriefError> {
     let brief: AgentBrief = serde_json::from_str(brief_json)
         .map_err(|error| BriefError::InvalidBrief(error.to_string()))?;
-    let dir = candidate_dir(package, run_id)?;
+    let dir = result_dir(package, run_id)?;
     if dir.exists() {
         return Err(BriefError::AlreadyExists(run_id.to_string()));
     }
     fs::create_dir_all(&dir).map_err(|source| io("create", &dir, source))?;
-    ensure_inside(&package.join(CANDIDATES_FOLDER), &dir)?;
     let markdown = render_brief(&brief, blender);
     write(&dir.join(BRIEF_FILE), markdown.as_bytes())?;
     write(&dir.join(BRIEF_JSON_FILE), brief_json.as_bytes())?;
     write(&dir.join(PREVIEW_SCRIPT_FILE), PREVIEW_SCRIPT.as_bytes())?;
     return Ok(dir);
+}
+
+/// Moves a finished Result to `candidates/<runId>`, where Accept and Discard read it, and returns whether there was
+/// one. A folder that holds only the brief goes away; anything else stays in scratch as what the agent left.
+pub fn settle_result(package: &Path, run_id: &str) -> Result<bool, BriefError> {
+    let dir = result_dir(package, run_id)?;
+    if !dir.is_dir() {
+        return Ok(false);
+    }
+    if dir.join(ASSET_FILE).is_file() {
+        let target = candidate_dir(package, run_id)?;
+        let parent = package.join(CANDIDATES_FOLDER);
+        fs::create_dir_all(&parent).map_err(|source| io("create", &parent, source))?;
+        if target.exists() {
+            return Err(BriefError::AlreadyExists(run_id.to_string()));
+        }
+        fs::rename(&dir, &target).map_err(|source| io("move", &dir, source))?;
+        return Ok(true);
+    }
+    let holds_only_the_brief = fs::read_dir(&dir)
+        .map_err(|source| io("read", &dir, source))?
+        .filter_map(Result::ok)
+        .all(|entry| {
+            let name = entry.file_name();
+            return [BRIEF_FILE, BRIEF_JSON_FILE, PREVIEW_SCRIPT_FILE]
+                .iter()
+                .any(|known| name == *known);
+        });
+    if holds_only_the_brief {
+        let _ = fs::remove_dir_all(&dir);
+    }
+    return Ok(false);
 }
 
 /// Human-readable brief the agent reads first
@@ -319,10 +360,6 @@ pub fn render_brief(brief: &AgentBrief, blender: Option<&Path>) -> String {
 
     if let Some(theme) = &brief.theme {
         render_theme(&mut out, theme);
-    }
-
-    if let Some(decor_set) = &brief.decor_set {
-        render_decor_set(&mut out, decor_set);
     }
 
     let _ = writeln!(out, "## Scale\n");
@@ -463,26 +500,9 @@ fn render_theme(out: &mut String, theme: &BriefTheme) {
         "```json\n\"theme\": {{ \"name\": \"Sunset\", \"base\": \"{}\", \"overrides\": {{ \"wallColor\": \"#3b2a4a\", \"lightColor\": \"#ffb070\" }} }}\n```\n",
         theme.base
     );
-    let _ = writeln!(
-        out,
-        "Use the same `theme` in every result of this request, so the skins of each piece type share one theme.\n"
-    );
 }
 
 /// The decor set section: one item of several, which the app scatters on the free wall the film camera shows
-fn render_decor_set(out: &mut String, decor_set: &BriefDecorSet) {
-    let _ = writeln!(out, "## Decor set\n");
-    let _ = writeln!(
-        out,
-        "This request makes a set of {} decorations for the film, and this run makes item {} of them: {}. Make one element in the style of the request. Other runs make the other items. Accepting the result adds it to the project's Library and scatters it on the free wall the camera shows, beside the marbles' run, so it reads at small sizes and from any side of the run.\n",
-        decor_set.total, decor_set.index, decor_set.suggestion
-    );
-    let _ = writeln!(
-        out,
-        "Keep it small: about 2 to 4 cm across on the wall, with the marble as your scale. Give it a `label` that names just this item, such as \"Red Bauble\".\n"
-    );
-}
-
 fn format_number(value: f64) -> String {
     let text = format!("{:.4}", value);
     let trimmed = text.trim_end_matches('0').trim_end_matches('.');
@@ -541,8 +561,8 @@ pub mod tests {
     #[test]
     fn writes_the_brief_files() {
         let package = temporary_package("brief");
-        let dir = write_candidate(&package, "run-1", BRIEF_JSON, None).unwrap();
-        assert_eq!(dir, package.join("candidates/run-1"));
+        let dir = write_result_brief(&package, "run-1", BRIEF_JSON, None).unwrap();
+        assert_eq!(dir, package.join("agent/scratch/result-run-1"));
         let markdown = fs::read_to_string(dir.join(BRIEF_FILE)).unwrap();
         assert!(markdown.contains("a simple brushed brass bar"));
         assert!(markdown.contains("| Length (`length`) | 0.06 | m |"));
@@ -583,29 +603,6 @@ pub mod tests {
         assert!(markdown.contains("\"base\": \"neon\""));
         let plain: AgentBrief = serde_json::from_str(BRIEF_JSON).unwrap();
         assert!(!render_brief(&plain, None).contains("## Theme"));
-    }
-
-    #[test]
-    fn renders_the_decor_set_section_of_a_decor_brief() {
-        let json = r##"{
-            "request": "Christmas decor along the sides",
-            "target": { "kind": "scene", "role": "decoration" },
-            "contact": { "description": "The back of the element sits flat on the wall." },
-            "scale": { "marbleRadius": 0.008 },
-            "decorSet": { "index": 2, "total": 3, "suggestion": "a flat shape or symbol" }
-        }"##;
-        let brief: AgentBrief = serde_json::from_str(json).unwrap();
-        let markdown = render_brief(&brief, None);
-        assert!(markdown.contains("## Decor set"));
-        assert!(markdown.contains("item 2 of them: a flat shape or symbol"));
-        assert!(markdown.contains("\"role\": \"decoration\""));
-        assert!(markdown.contains("\"width\": 0.03"));
-        assert!(markdown.contains("Decor has no hitbox"));
-        assert!(!markdown.contains("pieceType"));
-        let plain: AgentBrief = serde_json::from_str(BRIEF_JSON).unwrap();
-        let skin = render_brief(&plain, None);
-        assert!(!skin.contains("## Decor set"));
-        assert!(skin.contains("\"pieceType\": \"platform\""));
     }
 
     #[test]
@@ -656,16 +653,39 @@ pub mod tests {
     #[test]
     fn refuses_existing_candidates_and_invalid_briefs() {
         let package = temporary_package("existing");
-        write_candidate(&package, "run-1", BRIEF_JSON, None).unwrap();
+        write_result_brief(&package, "run-1", BRIEF_JSON, None).unwrap();
         assert!(matches!(
-            write_candidate(&package, "run-1", BRIEF_JSON, None),
+            write_result_brief(&package, "run-1", BRIEF_JSON, None),
             Err(BriefError::AlreadyExists(_))
         ));
         assert!(matches!(
-            write_candidate(&package, "run-2", "{}", None),
+            write_result_brief(&package, "run-2", "{}", None),
             Err(BriefError::InvalidBrief(_))
         ));
-        assert!(!package.join("candidates/run-2").exists());
+        assert!(!package.join("agent/scratch/result-run-2").exists());
+        fs::remove_dir_all(package.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn a_finished_result_moves_to_candidates_and_a_bare_brief_goes_away() {
+        let package = temporary_package("settle");
+        let made = write_result_brief(&package, "run-1", BRIEF_JSON, None).unwrap();
+        fs::write(made.join(ASSET_FILE), "blend").unwrap();
+        assert!(settle_result(&package, "run-1").unwrap());
+        assert!(package.join("candidates/run-1/asset.blend").is_file());
+        assert!(package.join("candidates/run-1/BRIEF.md").is_file());
+        assert!(!made.exists());
+
+        let bare = write_result_brief(&package, "run-2", BRIEF_JSON, None).unwrap();
+        assert!(!settle_result(&package, "run-2").unwrap());
+        assert!(!bare.exists());
+
+        // Work without an asset stays where the agent left it
+        let started = write_result_brief(&package, "run-3", BRIEF_JSON, None).unwrap();
+        fs::write(started.join("build_asset.py"), "x").unwrap();
+        assert!(!settle_result(&package, "run-3").unwrap());
+        assert!(started.join("build_asset.py").is_file());
+        assert!(!settle_result(&package, "run-none").unwrap());
         fs::remove_dir_all(package.parent().unwrap()).unwrap();
     }
 }
