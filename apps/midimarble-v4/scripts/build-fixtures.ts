@@ -16,16 +16,24 @@ import { createSimulator } from '../src/modules/simulation/simulate';
 const simulator = await createSimulator();
 const simulate = (project: TProject) => simulator.simulate(project);
 
-const fixtures: [string, TProject][] = [
-	['staircase.marble.json', createStaircaseProject()],
-	['zigzag.marble.json', buildZigzagProject(simulate)],
-	['long-gap.marble.json', buildLongGapProject(simulate)],
-	['windmill.marble.json', buildWindmillProject(simulate)],
-	['two-marbles.marble.json', buildTwoMarblesProject(simulate)]
+const fixtures: [string, () => TProject][] = [
+	['staircase.marble.json', () => createStaircaseProject()],
+	['zigzag.marble.json', () => buildZigzagProject(simulate)],
+	['long-gap.marble.json', () => buildLongGapProject(simulate)],
+	['windmill.marble.json', () => buildWindmillProject(simulate)],
+	['two-marbles.marble.json', () => buildTwoMarblesProject(simulate)]
 ];
-simulator.dispose();
 
-for (const [name, project] of fixtures) {
+for (const [name, build] of fixtures) {
+	let project: TProject;
+	try {
+		project = build();
+	} catch (error) {
+		// One builder failing leaves its committed fixture as it is and doesn't stop the others
+		console.error(`Could not rebuild fixtures/${name}: ${(error as Error).message}`);
+		process.exitCode = 1;
+		continue;
+	}
 	// Pieces are named in time order last, so the Layers list reads Platform 1, 2, 3 down each marble
 	const json = serializeProject(namePiecesInOrder(project));
 	const [isProjectOk, projectErr] = parseProject(json);
@@ -33,3 +41,4 @@ for (const [name, project] of fixtures) {
 	writeFileSync(new URL(`../fixtures/${name}`, import.meta.url), json);
 	console.log(`Wrote fixtures/${name}`);
 }
+simulator.dispose();

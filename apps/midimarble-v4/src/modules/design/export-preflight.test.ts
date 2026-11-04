@@ -81,7 +81,7 @@ function piece(entityId: string, type = 'platform'): TResolvedPiece {
 	return { entityId, type, position: { x: pieceCount, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'placed' };
 }
 
-/** The issues of zigzag, whose track is older than the checks of how a track looks, as are long-gap, reference-20, two-marbles and windmill */
+/** The issues of zigzag, whose track is older than the checks of how a track looks, as are long-gap, reference-20, two-marbles and windmill; their scripts can't rebuild them clean */
 function besidesLook(preflight: TExportPreflight): TPreflightIssue[] {
 	return preflight.issues.filter((issue) => issue.kind !== 'strike' && issue.kind !== 'touching');
 }

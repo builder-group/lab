@@ -70,6 +70,8 @@ const CHRISTMAS_THEME: TProjectTheme = {
 	keyLight: { strength: 5, side: -0.26, height: 0.35, softness: 0.55, exposure: 0.4, bloom: 0.5 },
 	parts: { platform: { skin: 'platform:gift' }, rail: { skin: 'rail:candy' }, switchback: { skin: 'switchback:candy' }, marble: { skin: 'marble:glass-green', colour: 'marble' } }
 };
+const MELODY_RED = '#c8102e';
+const BASS_GREEN = '#0c8a3a';
 const DECOR_DENSITY = 0.18;
 const DECOR_SEED = 1;
 
@@ -126,12 +128,14 @@ project = withStableIds(project);
 // What a user sets after the import: lane names, Celesta for the bass and where each marble starts
 project.music.lanes.forEach((lane, index) => {
 	lane.name = index === 0 ? 'Melody' : 'Bass';
+	lane.color = index === 0 ? MELODY_RED : BASS_GREEN;
 	lane.instrument = index === 0 ? GLOCKENSPIEL : CELESTA;
 });
 project.entities.forEach((entity, index) => {
 	const release = RELEASES[index];
 	if (entity.components.marble == null || release == null) return;
 	entity.name = index === 0 ? 'Melody' : 'Bass';
+	entity.components.marble.color = index === 0 ? MELODY_RED : BASS_GREEN;
 	entity.components.release = { position: { x: release.x, y: release.y }, time: entity.components.release?.time ?? 0 };
 });
 

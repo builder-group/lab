@@ -9,7 +9,7 @@ This document describes how MidiMarble v4 is built. The product behavior is in [
 - **State:** `feature-state` atoms and `Cx` owners following the lab rules
 - **Compose view:** Three.js
 - **Physics:** Rapier's deterministic WASM build (`@dimforge/rapier3d-deterministic-compat`) in a Web Worker. The same simulation module runs headless in Node for tests and fixtures.
-- **Documents:** JSON validated with Zod and versioned with [`versjon`](https://www.npmjs.com/package/versjon), so the format can change through migrations
+- **Documents:** JSON validated with Zod and versioned with [`versjon`](https://www.npmjs.com/package/versjon), so an old file fails with a clear message
 - **Blender:** a bundled Python worker started as a dedicated Blender process. The app never installs a Blender add-on or changes Blender preferences.
 
 Tauri suits the job: the host needs process control and file packages, and Blender does the final rendering, so a bundled Chromium would add weight without benefit.
