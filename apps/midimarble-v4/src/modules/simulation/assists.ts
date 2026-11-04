@@ -273,12 +273,54 @@ interface TCandidate {
 	paceError: number | null;
 }
 
+/** One angle Auto place tries, in radians, with the shift of its target height */
+export interface TAngleTry {
+	angle: number;
+	shift: number;
+}
+
+/** Why a tried angle failed a hard check */
+export type TAutoPlaceRejection = 'blocked' | 'missed' | 'strayContact' | 'otherLane' | 'outOfFrame' | 'nextBlocked' | 'offPace' | 'rising';
+
+/** A tried angle's score, or null when it fails a hard check, with the checks its simulations failed */
+export interface TAngleEvaluation {
+	candidate: Omit<TCandidate, 'angle'> | null;
+	rejected: TAutoPlaceRejection[];
+}
+
+/** What the search needs besides the evaluations; every worker that prepares the same request gets the same plan */
+export interface TAutoPlacePlan {
+	hitId: string;
+	/** The piece the chosen angle and bounce are applied to */
+	base: TEntity;
+	isShared: boolean;
+	/** The marble arrives faster than `FAST_ARRIVAL` */
+	isFast: boolean;
+	/** The next dot has a target height, so the fallback tries higher and lower arcs */
+	hasTarget: boolean;
+}
+
+/** Answers to one batch of tries, in the order they were asked */
+export interface TAutoPlaceBatch {
+	plan: TAutoPlacePlan;
+	evaluations: TAngleEvaluation[];
+}
+
+/** A prepared Auto place: its plan and the simulation of one tried angle, independent of every other try */
+export interface TAutoPlaceSearch {
+	plan: TAutoPlacePlan;
+	evaluate: (angle: TAngleTry) => TAngleEvaluation;
+}
+
+const DEFAULT_RANGE: [number, number] = [-40 * DEGREE, 40 * DEGREE];
+
 /**
  * Chooses the angle for a hit's piece by the Auto place objective above. Candidates every 5°, refined
  * to 1° around the best, or to 0.5° when several marbles share the frame and their lanes are narrow. When none passes, 1° steps between −12° and 12° are tried, which fast arrivals
  * need, quarter degrees between −3° and 3° for arrivals faster than `FAST_ARRIVAL`, then the 1° steps with
  * the target height `FALLBACK_SHIFTS` lower and higher, then 5° steps between −60° and 60°. Ties go to the first candidate searched, so the choice is
- * deterministic.
+ * deterministic. The angles run one after another here; `runAutoPlaceSearch` spreads each stage over workers
+ * and picks the same angle.
  */
 export function autoPlace(
 	project: TProject,
@@ -287,8 +329,60 @@ export function autoPlace(
 	hitId: string,
 	options: TAutoPlaceOptions
 ): TResult<TAutoPlacement, Error> {
+	const [isOk, error, search] = prepareAutoPlace(project, result, laneId, hitId, options);
+	if (!isOk) return Err(error);
+	const steps = autoPlaceSearch(options.range);
+	let step = steps.next();
+	while (step.done !== true) step = steps.next({ plan: search.plan, evaluations: step.value.map(search.evaluate) });
+	return step.value;
+}
+
+/**
+ * Runs the Auto place search with each stage's tries answered by `evaluate`, for example spread over a pool of
+ * workers. The answers are reduced in the order the tries were asked, so the choice is the one `autoPlace` makes
+ * however the work was split. `isCancelled` is checked between stages.
+ */
+export async function runAutoPlaceSearch(
+	evaluate: (tries: TAngleTry[]) => Promise<TAutoPlaceBatch>,
+	options: { range?: [number, number]; isCancelled?: () => boolean } = {}
+): Promise<TResult<TAutoPlacement, Error>> {
+	const steps = autoPlaceSearch(options.range);
+	let step = steps.next();
+	while (step.done !== true) {
+		if (options.isCancelled?.() === true) return Err(new Error('Auto place was stopped'));
+		step = steps.next(await evaluate(step.value));
+	}
+	return step.value;
+}
+
+/**
+ * The end of Auto place's trials for a hit, the latest time its checks read from the run they start from, or null
+ * when the hit does not exist. A search may start from a run that ends `HIT_TOLERANCE` and more after it, which
+ * has the same hits, contacts and samples up to then as the whole run.
+ */
+export function autoPlaceHorizon(project: TProject, laneId: string, hitId: string): number | null {
+	const hits = project.music.lanes.find((lane) => lane.id === laneId)?.hits ?? [];
+	const index = hits.findIndex((hit) => hit.id === hitId);
+	return index >= 0 ? trialEnd(project, hits, index) : null;
+}
+
+function trialEnd(project: TProject, hits: THit[], index: number): number {
+	const hit = hits[index];
+	const following = hits[index + 1];
+	if (hit == null) return 0;
+	if (following != null && following.time - hit.time <= longGapThreshold(project)) return following.time + 0.02;
+	return hit.time + (following != null ? launchHorizon(project) : LAST_HIT_HORIZON);
+}
+
+/** The checks and score of every tried angle for a hit's piece; see `autoPlace` */
+export function prepareAutoPlace(
+	project: TProject,
+	result: TSimulationResult,
+	laneId: string,
+	hitId: string,
+	options: Omit<TAutoPlaceOptions, 'range'>
+): TResult<TAutoPlaceSearch, Error> {
 	const { simulate, type = 'platform' } = options;
-	const range = options.range ?? [-40 * DEGREE, 40 * DEGREE];
 	const lane = project.music.lanes.find((item) => item.id === laneId);
 	const index = lane?.hits.findIndex((hit) => hit.id === hitId) ?? -1;
 	const hit = lane?.hits[index];
@@ -371,10 +465,7 @@ export function autoPlace(
 		isShared ? IMPACT_SPEED * speedScale : 0,
 		isNextLaunch ? LAUNCH_ARRIVAL * Math.sqrt(speedScale) : 0
 	);
-	const until =
-		nextHit != null
-			? nextHit.time + 0.02
-			: hit.time + (followingHit != null ? launchHorizon(project) : LAST_HIT_HORIZON);
+	const until = trialEnd(project, lane.hits, index);
 	const marbleRadius =
 		project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components
 			.marble?.radius ?? 0;
@@ -385,20 +476,11 @@ export function autoPlace(
 	const reserved = reservedSpots(project, result, laneId, until);
 	const frontiers = openFrontiers(project, result);
 
-	const rejected = {
-		blocked: 0,
-		missed: 0,
-		strayContact: 0,
-		otherLane: 0,
-		outOfFrame: 0,
-		nextBlocked: 0,
-		offPace: 0,
-		rising: 0
-	};
 	/** Simulates one angle and bounce; the next dot is returned even when a hard check fails */
 	const evaluate = (
 		angle: number,
-		bounce: number | null
+		bounce: number | null,
+		rejected: TAutoPlaceRejection[]
 	): { candidate: Omit<TCandidate, 'angle'> | null; nextDot: TVec2 | null } => {
 		const entity = withBounce(withAngle(base, angle), bounce);
 		// A flat probe on the next hit checks that its dot can take a piece at all
@@ -413,16 +495,15 @@ export function autoPlace(
 		);
 		const trialHit = findHitResult(trial, laneId, hitId);
 		if (!isOnTime(trialHit?.status)) {
-			if (trialHit?.status === 'blocked') rejected.blocked++;
-			else rejected.missed++;
+			rejected.push(trialHit?.status === 'blocked' ? 'blocked' : 'missed');
 			return { candidate: null, nextDot: null };
 		}
 		if (hasStrayContact(trial, project, laneId, entity.id, hit.time, until, frontiers)) {
-			rejected.strayContact++;
+			rejected.push('strayContact');
 			return { candidate: null, nextDot: null };
 		}
 		if (crossesOtherLanes(result, trial, project, laneId, entity.id, hit.time, until, frontiers)) {
-			rejected.otherLane++;
+			rejected.push('otherLane');
 			return { candidate: null, nextDot: null };
 		}
 		const samples = trial.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
@@ -441,12 +522,12 @@ export function autoPlace(
 		if (nextHit != null) {
 			nextDot = findHitResult(trial, laneId, nextHit.id)?.dot ?? null;
 			if (nextDot == null || !isInBand(nextDot, band, dotShare)) {
-				rejected.outOfFrame++;
+				rejected.push('outOfFrame');
 				return { candidate: null, nextDot: null };
 			}
 			const arrival = findHitResult(trial, laneId, nextHit.id)?.velocity;
 			if (arrival == null || arrival.y > -fallingSpeed) {
-				rejected.rising++;
+				rejected.push('rising');
 				return { candidate: null, nextDot: null };
 			}
 			// A dot in the outer half of the band that the marble reaches moving further out leaves the next
@@ -457,20 +538,20 @@ export function autoPlace(
 					2 * Math.max(0, side * Math.sign(arrival.x) - 0.5) * Math.min(1, Math.abs(arrival.x) / 0.3);
 			const probed = trial.pieces.find((piece) => piece.entityId === probe?.id);
 			if (probed?.status === 'blocked') {
-				rejected.nextBlocked++;
+				rejected.push('nextBlocked');
 				return { candidate: null, nextDot: null };
 			}
 			if (pace != null) {
 				paceError = nextDot.y - paceAt(pace, nextHit.time);
 				if (isShared && Math.abs(paceError) > allowed) {
-					rejected.offPace++;
+					rejected.push('offPace');
 					return { candidate: null, nextDot };
 				}
 			}
 			end = nextDot;
 		} else {
 			if (!staysInBand(trial, laneId, hit.time, until, band)) {
-				rejected.outOfFrame++;
+				rejected.push('outOfFrame');
 				return { candidate: null, nextDot: null };
 			}
 			end = null;
@@ -522,7 +603,7 @@ export function autoPlace(
 		}
 		// With several marbles a lane's band is a hard wall: crossing it reaches the neighbour's pieces
 		if (isShared && outside > 0) {
-			rejected.outOfFrame++;
+			rejected.push('outOfFrame');
 			return { candidate: null, nextDot };
 		}
 		const centrality = end != null ? (end.x - band.centerX) / band.halfWidth : 0;
@@ -566,7 +647,9 @@ export function autoPlace(
 	 * Evaluates an angle with its pace bounce, corrected once when the dot misses its target. `shift` moves
 	 * the target up or down, which the fallback search uses to try higher and lower arcs.
 	 */
-	const evaluateAngle = (angle: number, shift = 0): Omit<TCandidate, 'angle'> | null => {
+	const evaluateAngle = ({ angle, shift }: TAngleTry): TAngleEvaluation => {
+		const rejected: TAutoPlaceRejection[] = [];
+		const answer = (candidate: Omit<TCandidate, 'angle'> | null): TAngleEvaluation => ({ candidate, rejected });
 		const target = targetY != null ? targetY + shift : null;
 		const lift =
 			takeoff != null && target != null && shift !== 0
@@ -574,26 +657,50 @@ export function autoPlace(
 				: takeoff;
 		const solved =
 			lift != null && bounceSpec != null ? paceBounce(velocity, angle, lift, bounceSpec) : null;
-		const first = evaluate(angle, solved?.bounce ?? null);
-		if (solved == null || target == null || first.nextDot == null) return first.candidate;
+		const first = evaluate(angle, solved?.bounce ?? null, rejected);
+		if (solved == null || target == null || first.nextDot == null) return answer(first.candidate);
 		const error = first.nextDot.y - target;
-		if (Math.abs(error) <= PACE_TOLERANCE) return first.candidate;
+		if (Math.abs(error) <= PACE_TOLERANCE) return answer(first.candidate);
 		const corrected = clampBounce(solved.bounce - error / (interval * solved.gain), bounceSpec);
-		if (bounceSpec == null || Math.abs(corrected - solved.bounce) < 0.01) return first.candidate;
-		const second = evaluate(angle, corrected).candidate;
-		if (second == null) return first.candidate;
-		return first.candidate == null || second.score < first.candidate.score ? second : first.candidate;
+		if (bounceSpec == null || Math.abs(corrected - solved.bounce) < 0.01) return answer(first.candidate);
+		const second = evaluate(angle, corrected, rejected).candidate;
+		if (second == null) return answer(first.candidate);
+		return answer(first.candidate == null || second.score < first.candidate.score ? second : first.candidate);
 	};
 
+	const isFast = Math.hypot(velocity?.x ?? 0, velocity?.y ?? 0) > FAST_ARRIVAL * speedScale;
+	return Ok({ plan: { hitId, base, isShared, isFast, hasTarget: targetY != null }, evaluate: evaluateAngle });
+}
+
+/**
+ * The Auto place search as stages of tries: each yield asks for one stage's angles, which are independent of each
+ * other, and the answers are reduced in the order asked, with ties going to the first, so the choice never depends
+ * on how the stage was computed
+ */
+function* autoPlaceSearch(
+	range: [number, number] = DEFAULT_RANGE
+): Generator<TAngleTry[], TResult<TAutoPlacement, Error>, TAutoPlaceBatch> {
+	// Set by the first answer, so a closure assignment the narrowing cannot see
+	const known: { plan: TAutoPlacePlan | null } = { plan: null };
+	const rejected: Record<TAutoPlaceRejection, number> = {
+		blocked: 0,
+		missed: 0,
+		strayContact: 0,
+		otherLane: 0,
+		outOfFrame: 0,
+		nextBlocked: 0,
+		offPace: 0,
+		rising: 0
+	};
 	const tried = new Set<string>();
-	const search = (
+	function* search(
 		angles: number[],
 		best: TCandidate | null,
 		limits: [number, number],
 		shift = 0,
 		resolution = 1
-	): TCandidate | null => {
-		let chosen = best;
+	): Generator<TAngleTry[], TCandidate | null, TAutoPlaceBatch> {
+		const tries: TAngleTry[] = [];
 		for (const angle of angles) {
 			const steps = Math.round(angle / (resolution * DEGREE));
 			const degrees = steps * resolution;
@@ -601,60 +708,73 @@ export function autoPlace(
 			const key = `${degrees}/${shift}`;
 			if (rounded < limits[0] - 1e-9 || rounded > limits[1] + 1e-9 || tried.has(key)) continue;
 			tried.add(key);
-			const evaluated = evaluateAngle(rounded, shift);
-			if (evaluated != null && (chosen == null || evaluated.score < chosen.score - 1e-12))
-				chosen = { angle: rounded, ...evaluated };
+			tries.push({ angle: rounded, shift });
 		}
+		if (tries.length === 0) return best;
+		const batch = yield tries;
+		known.plan = batch.plan;
+		let chosen = best;
+		batch.evaluations.forEach((evaluated, index) => {
+			for (const reason of evaluated.rejected) rejected[reason]++;
+			const angle = tries[index]?.angle;
+			const candidate = evaluated.candidate;
+			if (angle != null && candidate != null && (chosen == null || candidate.score < chosen.score - 1e-12))
+				chosen = { angle, ...candidate };
+		});
 		return chosen;
-	};
+	}
 	const steps = (from: number, to: number, step: number): number[] => {
 		const angles: number[] = [];
 		for (let angle = from; angle <= to + 1e-9; angle += step) angles.push(angle);
 		return angles;
 	};
-	let coarse = search(steps(range[0], range[1], 5 * DEGREE), null, range);
+	let coarse = yield* search(steps(range[0], range[1], 5 * DEGREE), null, range);
+	// The first stage always has tries, and its answer brings the plan
+	const isShared = known.plan?.isShared === true;
 	// Fast arrivals keep their speed along a tilted surface, so only nearly flat pieces keep them in frame
 	const near: [number, number] = [-12 * DEGREE, 12 * DEGREE];
 	// Narrow lanes leave windows of a degree or two, so several marbles search them in half degrees
 	const step = isShared ? 0.5 : 1;
-	coarse ??= search(steps(near[0], near[1], step * DEGREE), null, near, 0, step);
+	coarse ??= yield* search(steps(near[0], near[1], step * DEGREE), null, near, 0, step);
 	// A fast arrival turns every degree of tilt into several centimetres of travel per tenth of a second
 	const flat: [number, number] = [-3 * DEGREE, 3 * DEGREE];
-	if (coarse == null && Math.hypot(velocity?.x ?? 0, velocity?.y ?? 0) > FAST_ARRIVAL * speedScale) {
-		coarse = search(steps(flat[0], flat[1], DEGREE / 4), null, flat, 0, 0.25);
+	if (coarse == null && known.plan?.isFast === true) {
+		coarse = yield* search(steps(flat[0], flat[1], DEGREE / 4), null, flat, 0, 0.25);
 	}
 	// Higher and lower arcs pass crowded pieces differently; the pace check still bounds them
-	if (coarse == null && targetY != null) {
+	if (coarse == null && known.plan?.hasTarget === true) {
 		for (const shift of FALLBACK_SHIFTS)
-			coarse ??= search(steps(near[0], near[1], step * DEGREE), null, near, shift, step);
+			coarse ??= yield* search(steps(near[0], near[1], step * DEGREE), null, near, shift, step);
 	}
 	const wide: [number, number] = [-60 * DEGREE, 60 * DEGREE];
-	coarse ??= search(steps(wide[0], wide[1], 5 * DEGREE), null, wide);
-	if (coarse == null) {
+	coarse ??= yield* search(steps(wide[0], wide[1], 5 * DEGREE), null, wide);
+	const found = known.plan;
+	if (coarse == null || found == null) {
 		return Err(
 			new Error(
 				`No angle keeps the next dot on time and in frame (${rejected.blocked} blocked, ${rejected.missed} missed, ${rejected.strayContact} touch something else, ${rejected.otherLane} change another marble's run, ${rejected.outOfFrame} out of frame, ${rejected.nextBlocked} leave no room at the next dot, ${rejected.offPace} off the descent pace, ${rejected.rising} still rising at the next hit)`
 			)
 		);
 	}
-	const limits: [number, number] = [Math.min(range[0], coarse.angle), Math.max(range[1], coarse.angle)];
-	const isQuarter = Math.abs((coarse.angle / DEGREE) * 2 - Math.round((coarse.angle / DEGREE) * 2)) > 1e-6;
+	const best: TCandidate = coarse;
+	const limits: [number, number] = [Math.min(range[0], best.angle), Math.max(range[1], best.angle)];
+	const isQuarter = Math.abs((best.angle / DEGREE) * 2 - Math.round((best.angle / DEGREE) * 2)) > 1e-6;
 	const offsets = isShared
 		? [-4, -3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4]
 		: [-4, -3, -2, -1, 1, 2, 3, 4];
 	const chosen = isQuarter
-		? coarse
-		: (search(
-				offsets.map((offset) => coarse.angle + offset * DEGREE),
-				coarse,
+		? best
+		: ((yield* search(
+				offsets.map((offset) => best.angle + offset * DEGREE),
+				best,
 				limits,
 				0,
 				step
-			) ?? coarse);
+			)) ?? best);
 
-	const entity = withBounce(withAngle(base, chosen.angle), chosen.bounce);
+	const entity = withBounce(withAngle(found.base, chosen.angle), chosen.bounce);
 	const placement: TAutoPlacement = {
-		hitId,
+		hitId: found.hitId,
 		entity,
 		angle: chosen.angle,
 		nextDot: chosen.nextDot,

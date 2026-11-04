@@ -471,6 +471,7 @@ export class AssistCx {
 		};
 		const progressId = this.studio.notify(progressText(from, 0, targets.length, 0), 'info', { progress: 0, actions: [stop] });
 		const before = only == null ? [...this.lastGood.values()].flat() : undefined;
+		const isCancelled = (): boolean => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected;
 		let outcome: TReplaceOutcome | null = null;
 		try {
 			outcome = await replaceBroken(
@@ -479,12 +480,14 @@ export class AssistCx {
 				{
 					// The assists worker, so Auto place resumes from the run Re-place just simulated
 					simulate: async (next) => client.simulateAssist(next),
+					// Stop also ends a search spread over the assists pool between its stages
 					autoPlace: async (next, hit, entity) => {
-						const answer = await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id });
+						const request = { project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id };
+						const answer = await client.autoPlace(request, { isCancelled });
 						return answer.entity;
 					},
 					gapPiece: async (next, gap, type, entityId) => {
-						const answer = await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId });
+						const answer = await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, { isCancelled });
 						return answer.entity;
 					},
 					commit: (_next, commands, isFirst) => {
@@ -498,7 +501,7 @@ export class AssistCx {
 						this.$replacing.set({ done, total });
 						this.studio.updateNotice(progressId, { message: progressText(at, done, total, fraction), progress: Math.min(1, Math.max(0, fraction)) });
 					},
-					isCancelled: () => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected
+					isCancelled
 				},
 				{ only, before }
 			);

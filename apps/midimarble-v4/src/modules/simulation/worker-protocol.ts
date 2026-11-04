@@ -1,7 +1,31 @@
 import type { TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { autoPlace, continueSuggestions, findHitResult, simulateTrial, withEntities, type TContinueResult, type TSimulateFn } from './assists';
+import type { TResult } from 'tuple-result';
+import {
+	autoPlace,
+	autoPlaceHorizon,
+	continueSuggestions,
+	findHitResult,
+	prepareAutoPlace,
+	simulateTrial,
+	withEntities,
+	type TAngleEvaluation,
+	type TAngleTry,
+	type TAutoPlacePlan,
+	type TContinueResult,
+	type TSimulateFn
+} from './assists';
 import { createLinkedPiece } from './placement';
-import { createRailForGap, createSwitchbackForGap, createTunnelForGap, type TGapPieceCheck } from './gap-pieces';
+import {
+	createRailForGap,
+	createSwitchbackForGap,
+	createTunnelForGap,
+	prepareGapSearch,
+	type TGapEvaluation,
+	type TGapPieceCheck,
+	type TGapPieceProposal,
+	type TGapSearchPlan,
+	type TGapTry
+} from './gap-pieces';
 import type { TSimulator } from './simulate';
 import type { TResolvedPiece, TSimulationResult } from './types';
 
@@ -25,6 +49,23 @@ export type TWorkerRequest =
 			 */
 			launchAngles?: number[];
 	  }
+	| {
+			/**
+			 * Some of one Auto place or gap piece search's tries, for a worker of the assists pool. `search` names
+			 * the search; the first request of a search to a worker carries what it searches for, which the worker
+			 * simulates and prepares once, and later requests leave it out.
+			 */
+			kind: 'searchTries';
+			search: string;
+			prepare?: TSearchRequest;
+			tries: TAngleTry[] | TGapTry[];
+	  }
+	| {
+			/** The full answer for the gap piece a search chose, from the worker that prepared the search */
+			kind: 'gapAnswer';
+			search: string;
+			proposal: TGapPieceProposal;
+	  }
 	| { kind: 'continue'; project: TProject; laneId: string; maxCount?: number }
 	| {
 			kind: 'gapPiece';
@@ -37,6 +78,25 @@ export type TWorkerRequest =
 	  };
 
 export type TWorkerMessage = TWorkerRequest & { id: number };
+
+/** What a search spread over the assists pool looks for */
+export type TSearchRequest =
+	| { assist: 'autoPlace'; project: TProject; laneId: string; hitId: string; type: string; entityId: string }
+	| {
+			assist: 'gapPiece';
+			type: TGapPieceType;
+			project: TProject;
+			laneId: string;
+			fromHitId: string;
+			toHitId: string;
+			entityId: string;
+	  };
+
+/** Answers to some of a search's tries, in the order they were asked, with the search's plan */
+export interface TSearchBatch {
+	plan: TAutoPlacePlan | TGapSearchPlan;
+	evaluations: (TAngleEvaluation | TGapEvaluation)[];
+}
 
 /** Pieces that bridge a long gap */
 export type TGapPieceType = 'switchback' | 'rail' | 'tunnel';
@@ -77,14 +137,40 @@ export interface TGapAnswer {
 export interface TWorkerAnswers {
 	simulate: TSimulationResult;
 	autoPlace: TAutoPlaceAnswer;
+	searchTries: TSearchBatch;
+	gapAnswer: TGapAnswer;
 	continue: TContinueAnswer | null;
 	gapPiece: TGapAnswer;
 }
 
+interface TPreparedSearch {
+	plan: TAutoPlacePlan | TGapSearchPlan;
+	evaluate: (item: never) => TAngleEvaluation | TGapEvaluation;
+}
+
+/** What a worker keeps between requests: the search it prepared last */
+export interface TWorkerMemory {
+	search: { key: string; request: TSearchRequest; prepared: TResult<TPreparedSearch, Error> } | null;
+}
+
+export function createWorkerMemory(): TWorkerMemory {
+	return { search: null };
+}
+
 /** Answers one request. Throws with a readable message when an assist finds nothing. */
-export function answerWorkerRequest(simulator: TSimulator, request: TWorkerRequest): TWorkerAnswers[TWorkerRequest['kind']] {
+export function answerWorkerRequest(
+	simulator: TSimulator,
+	request: TWorkerRequest,
+	memory: TWorkerMemory = createWorkerMemory()
+): TWorkerAnswers[TWorkerRequest['kind']] {
 	const startedAt = performance.now();
 	const simulate = (project: TProject): TSimulationResult => simulator.simulate(project);
+	if (request.kind === 'searchTries') return answerTries(simulate, request, memory);
+	if (request.kind === 'gapAnswer') {
+		const prepared = memory.search;
+		if (prepared?.key !== request.search || prepared.request.assist !== 'gapPiece') throw new Error('The assists worker lost the gap search');
+		return gapAnswer(simulate, prepared.request, request.proposal, startedAt);
+	}
 	const result = simulate(request.project);
 	switch (request.kind) {
 		case 'simulate':
@@ -117,31 +203,74 @@ export function answerWorkerRequest(simulator: TSimulator, request: TWorkerReque
 			const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
 			const [isOk, error, proposal] = create(project, result, laneId, fromHitId, toHitId, { simulate, id: entityId });
 			if (!isOk) throw error;
-			const toTime = project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === toHitId)?.time ?? proposal.entryTime;
-			const trial = simulateTrial(simulate, withEntities(project, [proposal.entity]), toTime + 0.02);
-			const samples = trial.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
-			const track: TVec2[] = [];
-			// About every 10 ms is smooth enough for a dashed preview
-			samples.forEach((sample, index) => {
-				if (sample.time >= proposal.entryTime - 0.05 && sample.time <= toTime && index % 2 === 0) track.push(sample.position);
-			});
-			const dot = findHitResult(trial, laneId, toHitId)?.dot;
-			if (dot != null) track.push(dot);
-			return {
-				revision: project.revision,
-				type,
-				laneId,
-				fromHitId,
-				toHitId,
-				entity: proposal.entity,
-				commands: proposal.commands,
-				piece: trial.pieces.find((piece) => piece.entityId === proposal.entity.id) ?? null,
-				track,
-				check: proposal.check,
-				computeMs: performance.now() - startedAt
-			};
+			return gapAnswer(simulate, request, proposal, startedAt);
 		}
 	}
+}
+
+/** The gap piece answer for a proposal: the piece as the simulation resolves it and the marble's path to the next hit */
+function gapAnswer(
+	simulate: TSimulateFn,
+	request: Pick<Extract<TWorkerRequest, { kind: 'gapPiece' }>, 'type' | 'project' | 'laneId' | 'fromHitId' | 'toHitId'>,
+	proposal: TGapPieceProposal,
+	startedAt: number
+): TGapAnswer {
+	const { project, laneId, fromHitId, toHitId, type } = request;
+	const toTime = project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === toHitId)?.time ?? proposal.entryTime;
+	const trial = simulateTrial(simulate, withEntities(project, [proposal.entity]), toTime + 0.02);
+	const samples = trial.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
+	const track: TVec2[] = [];
+	// About every 10 ms is smooth enough for a dashed preview
+	samples.forEach((sample, index) => {
+		if (sample.time >= proposal.entryTime - 0.05 && sample.time <= toTime && index % 2 === 0) track.push(sample.position);
+	});
+	const dot = findHitResult(trial, laneId, toHitId)?.dot;
+	if (dot != null) track.push(dot);
+	return {
+		revision: project.revision,
+		type,
+		laneId,
+		fromHitId,
+		toHitId,
+		entity: proposal.entity,
+		commands: proposal.commands,
+		piece: trial.pieces.find((piece) => piece.entityId === proposal.entity.id) ?? null,
+		track,
+		check: proposal.check,
+		computeMs: performance.now() - startedAt
+	};
+}
+
+// Past the trials' end, more than a hit's tolerance, so the hits up to it are judged as in the whole run
+const BASE_MARGIN = 0.25;
+
+function answerTries(
+	simulate: TSimulateFn,
+	request: Extract<TWorkerRequest, { kind: 'searchTries' }>,
+	memory: TWorkerMemory
+): TSearchBatch {
+	const { search: key, prepare, tries } = request;
+	if (memory.search?.key !== key) {
+		if (prepare == null) throw new Error('The assists worker lost the search');
+		memory.search = { key, request: prepare, prepared: prepareSearch(simulate, prepare) };
+	}
+	const [isOk, error, search] = memory.search.prepared;
+	if (!isOk) throw error;
+	const evaluate = search.evaluate as (item: TAngleTry | TGapTry) => TAngleEvaluation | TGapEvaluation;
+	return { plan: search.plan, evaluations: (tries as (TAngleTry | TGapTry)[]).map(evaluate) };
+}
+
+/** Simulates the search's project up to the end of its trials, plus `BASE_MARGIN`, the only part its checks read */
+function prepareSearch(simulate: TSimulateFn, request: TSearchRequest): TResult<TPreparedSearch, Error> {
+	const { project, laneId, entityId: id } = request;
+	if (request.assist === 'autoPlace') {
+		const horizon = autoPlaceHorizon(project, laneId, request.hitId);
+		const base = horizon != null ? simulateTrial(simulate, project, horizon + BASE_MARGIN) : simulate(project);
+		return prepareAutoPlace(project, base, laneId, request.hitId, { simulate, type: request.type, id });
+	}
+	const toTime = project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === request.toHitId)?.time;
+	const base = toTime != null ? simulateTrial(simulate, project, toTime + 0.02 + BASE_MARGIN) : simulate(project);
+	return prepareGapSearch(request.type, project, base, laneId, request.fromHitId, request.toHitId, { simulate, id });
 }
 
 /** First of `angles` whose piece lands the hit on time and that the marble has left 0.25 s later */

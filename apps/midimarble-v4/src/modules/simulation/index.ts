@@ -1,3 +1,4 @@
+export * from './assist-pool';
 export * from './assists';
 export * from './client';
 export * from './gap-pieces';

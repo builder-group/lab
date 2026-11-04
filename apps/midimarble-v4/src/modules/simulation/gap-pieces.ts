@@ -114,6 +114,109 @@ interface TGapCandidate {
 	slope: number;
 }
 
+/** A candidate a gap search simulates: a rail or tunnel, or a switchback */
+export type TGapTry = TGapCandidate | TSwitchbackCandidate;
+
+/** How a simulated candidate played, or null when it is never suggested */
+export type TGapEvaluation = { score: number; check: TGapPieceCheck } | null;
+
+/**
+ * What a gap search needs besides the evaluations, the same in every worker that prepares the same request: the
+ * candidates in the order they are tried, and what builds the piece
+ */
+export interface TGapSearchPlan {
+	type: 'rail' | 'tunnel' | 'switchback';
+	id: string;
+	count: number;
+	laneId: string;
+	fromHitId: string;
+	fromTime: number;
+	candidates: TGapTry[];
+	/** What is proposed without simulating */
+	fallback: TGapTry;
+	/** Neighbouring slopes of the best switchback are tried once more */
+	isRefined: boolean;
+}
+
+/** A prepared gap search: its plan and the simulation of one candidate, independent of every other candidate */
+export interface TGapSearch {
+	plan: TGapSearchPlan;
+	evaluate: (candidate: TGapTry) => TGapEvaluation;
+}
+
+/** The proposal for one of a plan's candidates */
+export function gapProposal(plan: TGapSearchPlan, candidate: TGapTry, check: TGapPieceCheck | null): TGapPieceProposal {
+	const entryDelay = candidate.entryTime - plan.fromTime;
+	const isSwitchback = plan.type === 'switchback' && 'legs' in candidate;
+	const entity = isSwitchback
+		? switchbackEntity(plan.id, plan.count, plan.laneId, plan.fromHitId, entryDelay, candidate)
+		: gapEntity(plan.type === 'tunnel' ? 'tunnel' : 'rail', plan.id, plan.count, plan.laneId, plan.fromHitId, entryDelay, candidate as TGapCandidate);
+	return {
+		entity,
+		commands: [{ type: 'upsertEntity', entity }],
+		entryTime: candidate.entryTime,
+		length: isSwitchback ? candidate.width : (candidate as TGapCandidate).length,
+		slope: candidate.slope,
+		check
+	};
+}
+
+/**
+ * The gap search as stages of candidates: each yield asks for one stage, whose candidates are independent of each
+ * other, and the answers are reduced in the order asked, with ties going to the first, so the choice never depends
+ * on how the stage was computed. Switchbacks then try the best one's neighbouring slopes.
+ */
+export function* gapSearch(plan: TGapSearchPlan): Generator<TGapTry[], TResult<TGapPieceProposal, Error>, TGapEvaluation[]> {
+	let best: { score: number; candidate: TGapTry; check: TGapPieceCheck } | null = null;
+	const reduce = (candidates: TGapTry[], evaluations: TGapEvaluation[]): void => {
+		candidates.forEach((candidate, index) => {
+			const played = evaluations[index];
+			if (played != null && (best == null || played.score < best.score - 1e-9)) best = { score: played.score, candidate, check: played.check };
+		});
+	};
+	reduce(plan.candidates, yield plan.candidates);
+	const found = best as { score: number; candidate: TGapTry; check: TGapPieceCheck } | null;
+	if (found == null)
+		return Err(new Error(plan.type === 'switchback' ? 'Every switchback crosses the earlier trajectory or another lane' : 'Every candidate crosses the earlier trajectory or another lane'));
+	// Steeper legs hold shorter and drop the marble lower; one round of neighbouring slopes
+	if (plan.isRefined) {
+		const neighbours: TGapTry[] = [];
+		for (const offset of [-2, 2, -4, 4]) {
+			const slope = found.candidate.slope + offset * DEGREE;
+			if (slope >= 2 * DEGREE && slope <= 25 * DEGREE) neighbours.push({ ...found.candidate, slope });
+		}
+		if (neighbours.length) reduce(neighbours, yield neighbours);
+	}
+	const chosen = best as { score: number; candidate: TGapTry; check: TGapPieceCheck } | null;
+	return Ok(gapProposal(plan, chosen?.candidate ?? found.candidate, chosen?.check ?? found.check));
+}
+
+/** Runs a prepared gap search in this thread, or proposes the first candidate unsimulated without `simulate` */
+function runGapSearch(prepared: TResult<TGapSearch, Error>, isSimulated: boolean): TResult<TGapPieceProposal, Error> {
+	const [isOk, error, search] = prepared;
+	if (!isOk) return Err(error);
+	if (!isSimulated) return Ok(gapProposal(search.plan, search.plan.fallback, null));
+	const steps = gapSearch(search.plan);
+	let step = steps.next();
+	while (step.done !== true) step = steps.next(step.value.map(search.evaluate));
+	return step.value;
+}
+
+/** Prepares the search for a rail, tunnel or switchback across a long gap; see `createRailForGap` and the others */
+export function prepareGapSearch(
+	type: 'rail' | 'tunnel' | 'switchback',
+	project: TProject,
+	result: TSimulationResult,
+	laneId: string,
+	fromHitId: string,
+	toHitId: string,
+	options: TGapPieceOptions = {}
+): TResult<TGapSearch, Error> {
+	return type === 'switchback'
+		? prepareSwitchback(project, result, laneId, fromHitId, toHitId, options)
+		: prepareGapPiece(type, project, result, laneId, fromHitId, toHitId, options);
+}
+
 function createGapPiece(
 	type: 'rail' | 'tunnel',
 	project: TProject,
@@ -123,6 +226,23 @@ function createGapPiece(
 	toHitId: string,
 	options: TGapPieceOptions
 ): TResult<TGapPieceProposal, Error> {
+	return runGapSearch(prepareGapPiece(type, project, result, laneId, fromHitId, toHitId, options), options.simulate != null);
+}
+
+/** Evaluates candidates with `simulate`; a search prepared without it proposes the first candidate unsimulated */
+function unsimulated(): TGapEvaluation {
+	throw new Error('A gap search without `simulate` simulates no candidate');
+}
+
+function prepareGapPiece(
+	type: 'rail' | 'tunnel',
+	project: TProject,
+	result: TSimulationResult,
+	laneId: string,
+	fromHitId: string,
+	toHitId: string,
+	options: TGapPieceOptions
+): TResult<TGapSearch, Error> {
 	const lane = project.music.lanes.find((item) => item.id === laneId);
 	const from = lane?.hits.find((hit) => hit.id === fromHitId);
 	const to = lane?.hits.find((hit) => hit.id === toHitId);
@@ -192,58 +312,43 @@ function createGapPiece(
 			new Error('The marble does not fall freely after the first hit, or the frame has no room')
 		);
 
-	let chosen = first;
-	let check: TGapPieceCheck | null = null;
-	if (options.simulate != null) {
-		const simulate = options.simulate;
-		let best: { score: number; candidate: TGapCandidate; check: TGapPieceCheck } | null = null;
-		const hasPiece = hitOwners(project, laneId).has(to.id);
-		const frontiers = openFrontiers(project, result);
-		for (const candidate of candidates) {
-			const entity = build(candidate);
-			// A flat probe on the next hit checks that the marble has left the piece with room for a platform
-			const probe = !hasPiece
-				? createLinkedPiece('platform', laneId, to.id, 0, { id: `${entity.id}-probe` })
-				: null;
-			const trial = simulateTrial(
-				simulate,
-				withEntities(project, probe != null ? [entity, probe] : [entity]),
-				to.time + 0.02
-			);
-			const played = checkGapPiece(
-				trial,
-				project,
-				laneId,
-				entity.id,
-				candidate.entryTime,
-				to.id,
-				to.time
-			);
-			if (played.pieceStatus !== 'placed') continue;
-			// The rail must keep clear of the other lanes, as Auto place does
-			if (crossesOtherLanes(result, trial, project, laneId, entity.id, from.time + 0.02, to.time, frontiers)) continue;
-			const score =
-				(played.isDotInFrame ? 0 : 10) +
-				(played.isRunInFrame ? 0 : 5) +
-				(played.leaveTime == null ? 20 : Math.abs(to.time - played.leaveTime - PREFERRED_DROP)) +
-				(played.nextStatus === 'missed' || played.nextStatus === 'blocked' ? 10 : 0);
-			if (best == null || score < best.score - 1e-9)
-				best = { score, candidate, check: hasPiece ? played : { ...played, nextStatus: null } };
-		}
-		if (best == null) return Err(new Error('Every candidate crosses the earlier trajectory or another lane'));
-		chosen = best.candidate;
-		check = best.check;
-	}
-
-	const entity = build(chosen);
-	return Ok({
-		entity,
-		commands: [{ type: 'upsertEntity', entity }],
-		entryTime: chosen.entryTime,
-		length: chosen.length,
-		slope: chosen.slope,
-		check
-	});
+	const plan: TGapSearchPlan = { type, id, count, laneId, fromHitId, fromTime: from.time, candidates, fallback: first, isRefined: false };
+	const simulate = options.simulate;
+	if (simulate == null) return Ok({ plan, evaluate: unsimulated });
+	const hasPiece = hitOwners(project, laneId).has(to.id);
+	const frontiers = openFrontiers(project, result);
+	const evaluate = (item: TGapTry): TGapEvaluation => {
+		const candidate = item as TGapCandidate;
+		const entity = build(candidate);
+		// A flat probe on the next hit checks that the marble has left the piece with room for a platform
+		const probe = !hasPiece
+			? createLinkedPiece('platform', laneId, to.id, 0, { id: `${entity.id}-probe` })
+			: null;
+		const trial = simulateTrial(
+			simulate,
+			withEntities(project, probe != null ? [entity, probe] : [entity]),
+			to.time + 0.02
+		);
+		const played = checkGapPiece(
+			trial,
+			project,
+			laneId,
+			entity.id,
+			candidate.entryTime,
+			to.id,
+			to.time
+		);
+		if (played.pieceStatus !== 'placed') return null;
+		// The rail must keep clear of the other lanes, as Auto place does
+		if (crossesOtherLanes(result, trial, project, laneId, entity.id, from.time + 0.02, to.time, frontiers)) return null;
+		const score =
+			(played.isDotInFrame ? 0 : 10) +
+			(played.isRunInFrame ? 0 : 5) +
+			(played.leaveTime == null ? 20 : Math.abs(to.time - played.leaveTime - PREFERRED_DROP)) +
+			(played.nextStatus === 'missed' || played.nextStatus === 'blocked' ? 10 : 0);
+		return { score, check: hasPiece ? played : { ...played, nextStatus: null } };
+	};
+	return Ok({ plan, evaluate });
 }
 
 /**
@@ -404,6 +509,17 @@ export function createSwitchbackForGap(
 	toHitId: string,
 	options: TGapPieceOptions = {}
 ): TResult<TGapPieceProposal, Error> {
+	return runGapSearch(prepareSwitchback(project, result, laneId, fromHitId, toHitId, options), options.simulate != null);
+}
+
+function prepareSwitchback(
+	project: TProject,
+	result: TSimulationResult,
+	laneId: string,
+	fromHitId: string,
+	toHitId: string,
+	options: TGapPieceOptions
+): TResult<TGapSearch, Error> {
 	const lane = project.music.lanes.find((item) => item.id === laneId);
 	const from = lane?.hits.find((hit) => hit.id === fromHitId);
 	const to = lane?.hits.find((hit) => hit.id === toHitId);
@@ -504,80 +620,59 @@ export function createSwitchbackForGap(
 			)
 		);
 
-	let chosen = first.candidate;
-	let check: TGapPieceCheck | null = null;
-	if (options.simulate != null) {
-		const simulate = options.simulate;
-		const owners = hitOwners(project, laneId);
-		const frontiers = openFrontiers(project, result);
-		const play = (
-			candidate: TSwitchbackCandidate
-		): { score: number; check: TGapPieceCheck } | null => {
-			const entity = build(candidate);
-			// A flat probe on the next hit checks that its dot can take a piece below the switchback
-			const probe = !owners.has(to.id)
-				? createLinkedPiece('platform', laneId, to.id, 0, { id: `${entity.id}-probe` })
-				: null;
-			const trial = simulateTrial(
-				simulate,
-				withEntities(project, probe != null ? [entity, probe] : [entity]),
-				to.time + 0.02
-			);
-			const played = checkSwitchback(trial, project, laneId, entity.id, candidate.entryTime, from.time, to.id, to.time);
-			if (played.check.pieceStatus !== 'placed') return null;
-			// Touching the lane's own pieces only costs score; touching another lane is never suggested
-			if (crossesOtherLanes(result, trial, project, laneId, entity.id, from.time + 0.02, to.time, frontiers)) return null;
-			const probeStatus = trial.pieces.find((piece) => piece.entityId === probe?.id)?.status;
-			const paceError = Math.abs(played.check.paceError ?? 0);
-			const limit = pace?.limit ?? Infinity;
-			const score =
-				(played.isStray ? 20 : 0) +
-				(played.check.leaveTime == null ? 20 : 0) +
-				(probeStatus === 'blocked' ||
-				played.check.nextStatus === 'missed' ||
-				played.check.nextStatus === 'blocked'
-					? 10
-					: 0) +
-				(played.check.isDotInFrame ? 0 : 10) +
-				(played.check.isRunInFrame ? 0 : 5) +
-				// Ending below the pace crowds the following pieces, above it is easy to recover from
-				(Number.isFinite(limit)
-					? ((played.check.paceError ?? 0) < 0 ? 2 : 1) * (paceError / limit) +
-						(paceError > limit ? 5 : 0)
-					: 0) +
-				0.01 * candidate.legs;
-			return { score, check: played.check };
-		};
-		let best: { score: number; candidate: TSwitchbackCandidate; check: TGapPieceCheck } | null = null;
-		const consider = (candidate: TSwitchbackCandidate): void => {
-			const played = play(candidate);
-			if (played != null && (best == null || played.score < best.score - 1e-9))
-				best = { score: played.score, candidate, check: played.check };
-		};
-		for (const item of ranked) consider(item.candidate);
-		const found = best as { score: number; candidate: TSwitchbackCandidate; check: TGapPieceCheck } | null;
-		if (found == null) return Err(new Error('Every switchback crosses the earlier trajectory or another lane'));
-		// Steeper legs hold shorter and drop the marble lower; one round of neighbouring slopes
-		if (options.slope == null) {
-			for (const offset of [-2, 2, -4, 4]) {
-				const slope = found.candidate.slope + offset * DEGREE;
-				if (slope >= 2 * DEGREE && slope <= 25 * DEGREE) consider({ ...found.candidate, slope });
-			}
-		}
-		const refined = best as { score: number; candidate: TSwitchbackCandidate; check: TGapPieceCheck } | null;
-		chosen = refined?.candidate ?? found.candidate;
-		check = refined?.check ?? found.check;
-	}
-
-	const entity = build(chosen);
-	return Ok({
-		entity,
-		commands: [{ type: 'upsertEntity', entity }],
-		entryTime: chosen.entryTime,
-		length: chosen.width,
-		slope: chosen.slope,
-		check
-	});
+	const plan: TGapSearchPlan = {
+		type: 'switchback',
+		id,
+		count,
+		laneId,
+		fromHitId,
+		fromTime: from.time,
+		candidates: ranked.map((item) => item.candidate),
+		fallback: first.candidate,
+		isRefined: options.slope == null
+	};
+	const simulate = options.simulate;
+	if (simulate == null) return Ok({ plan, evaluate: unsimulated });
+	const owners = hitOwners(project, laneId);
+	const frontiers = openFrontiers(project, result);
+	const evaluate = (item: TGapTry): TGapEvaluation => {
+		const candidate = item as TSwitchbackCandidate;
+		const entity = build(candidate);
+		// A flat probe on the next hit checks that its dot can take a piece below the switchback
+		const probe = !owners.has(to.id)
+			? createLinkedPiece('platform', laneId, to.id, 0, { id: `${entity.id}-probe` })
+			: null;
+		const trial = simulateTrial(
+			simulate,
+			withEntities(project, probe != null ? [entity, probe] : [entity]),
+			to.time + 0.02
+		);
+		const played = checkSwitchback(trial, project, laneId, entity.id, candidate.entryTime, from.time, to.id, to.time);
+		if (played.check.pieceStatus !== 'placed') return null;
+		// Touching the lane's own pieces only costs score; touching another lane is never suggested
+		if (crossesOtherLanes(result, trial, project, laneId, entity.id, from.time + 0.02, to.time, frontiers)) return null;
+		const probeStatus = trial.pieces.find((piece) => piece.entityId === probe?.id)?.status;
+		const paceError = Math.abs(played.check.paceError ?? 0);
+		const limit = pace?.limit ?? Infinity;
+		const score =
+			(played.isStray ? 20 : 0) +
+			(played.check.leaveTime == null ? 20 : 0) +
+			(probeStatus === 'blocked' ||
+			played.check.nextStatus === 'missed' ||
+			played.check.nextStatus === 'blocked'
+				? 10
+				: 0) +
+			(played.check.isDotInFrame ? 0 : 10) +
+			(played.check.isRunInFrame ? 0 : 5) +
+			// Ending below the pace crowds the following pieces, above it is easy to recover from
+			(Number.isFinite(limit)
+				? ((played.check.paceError ?? 0) < 0 ? 2 : 1) * (paceError / limit) +
+					(paceError > limit ? 5 : 0)
+				: 0) +
+			0.01 * candidate.legs;
+		return { score, check: played.check };
+	};
+	return Ok({ plan, evaluate });
 }
 
 /**
