@@ -59,7 +59,8 @@ describe('fixtures', () => {
 			.map((entity) => entity.components.hitLink?.angle)
 			.filter((angle): angle is number => angle != null);
 		expect(angles).toHaveLength(16);
-		angles.forEach((angle, i) => expect(angle).toBeCloseTo(i % 2 === 0 ? -0.45 : 0.45, 12));
+		// Mirrored, with Continue's small turns where the plain copy would strike twice
+		angles.forEach((angle, i) => expect(Math.abs(angle - (i % 2 === 0 ? -0.45 : 0.45))).toBeLessThanOrEqual((4 * Math.PI) / 180 + 1e-3));
 		// The dots alternate sides of the frame centre once the zigzag settles
 		const xs = result.hits.slice(6).map((hit) => hit.dot?.x ?? 0);
 		xs.forEach((x, i) => expect(Math.sign(x - (xs[i - 1] ?? -x))).toBe(i % 2 === 0 ? -1 : 1));
@@ -154,7 +155,7 @@ describe('fixtures', () => {
 		// No piece of one lane touches the other lane's marble
 		for (const contact of result.contacts.filter((item) => item.kind === 'piece')) {
 			const lane = contact.marbleEntityId.replace('marble-', '');
-			expect(contact.otherEntityId.startsWith(`piece-${lane}-`)).toBe(true);
+			expect(contact.otherEntityId.startsWith(`piece-${lane}-`) || contact.otherEntityId === `finish-lane-${lane}`).toBe(true);
 		}
 	});
 

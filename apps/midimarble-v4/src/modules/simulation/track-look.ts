@@ -1,17 +1,17 @@
 import type { TProject, TVec2 } from '@/modules/project';
 import { resolvedPieceShapes, shapesGap } from './clearance';
-import { shapesBounds } from './shapes';
 import { layoutOf } from './piece-layout';
 import { soundsHit } from './pieces';
-import type { TPieceShape } from './shapes';
-import { HIT_TOLERANCE, IMPACT_SPEED, type TResolvedPiece, type TSimulationResult } from './types';
+import { shapeDistance, shapesBounds, type TBounds2, type TPieceShape } from './shapes';
+import { HIT_TOLERANCE, IMPACT_SPEED, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from './types';
 
-// How a track looks, beyond whether it plays on time: how close its pieces come as the film shows them and how often a
-// marble strikes a platform. Build Track, Next, Fix Hits and the problem list all read these.
+// How a track looks, beyond whether it plays on time: how close its pieces come as the film shows them, how often a
+// marble strikes a platform and whether it bounces off it. Build Track, Next, Fix Hits and the problem list all read these.
 
 /**
- * Least air between two pieces as the film shows them, in metres: a default marble's radius. The film sees skins, not
- * hitboxes, and every built-in platform skin keeps the hitbox's top face and length but hangs below it (`visualShapes`).
+ * Least air between two pieces as the film shows them, in metres at the wall: a default marble's radius. The film sees
+ * skins, not hitboxes: every built-in platform skin keeps the hitbox's top face and length but hangs below it
+ * (`visualShapes`) and stands out from the wall, which the film's pitch folds (`filmView`).
  */
 export const MIN_PIECE_GAP = 0.012;
 
@@ -58,6 +58,138 @@ export function columnOffset(pieceLength: number): number {
 	return STRIKE_COLUMN * pieceLength;
 }
 
+/** How far a built-in platform skin stands out from the wall, in marble radii: a Gift's box, the deepest */
+const SKIN_OUT_RADII = 3;
+
+/** One convex outline in the image, in metres: x as on the wall, y as wall height the image's height stands for */
+export type TFilmOutline = TVec2[];
+
+/** A piece as the film shows it, for measuring against another with `filmGap` */
+export interface TFilmView {
+	shapes: TPieceShape[];
+	/** Only a bar has a body that stands out; a Rail or Switchback is thin wire, and measured on the wall */
+	outline: TFilmOutline | null;
+	bounds: TBounds2;
+	outlineBounds: TBounds2 | null;
+}
+
+/**
+ * A piece as the film shows it. The camera looks along the wall at `pitch` from its normal, so a wall height folds by
+ * cos(pitch) and what stands out from the wall shifts up by sin(pitch) of that distance: at 1.15 rad a 3.6 cm deep bar
+ * covers as much of the image above its own top face as 8 cm of wall. So two bars well apart on the wall can lie on top
+ * of each other in the film. Heights are given back as wall heights, tan(pitch) of the distance from the wall, so the
+ * one least gap holds everywhere. Perspective and the camera's small sway are left out.
+ */
+export function filmView(piece: TResolvedPiece, marbleRadius: number, pitch: number): TFilmView {
+	const shapes = visualShapes(piece, marbleRadius);
+	const bounds = shapesBounds(shapes);
+	if (layoutOf(piece.type) !== 'box') return { shapes, outline: null, bounds, outlineBounds: null };
+	const shift = Math.tan(pitch) * SKIN_OUT_RADII * marbleRadius;
+	const outline = convexHull(shapes.flatMap(shapeCorners).flatMap((point) => [point, { x: point.x, y: point.y + shift }]));
+	return { shapes, outline, bounds, outlineBounds: outlineBounds(outline) };
+}
+
+/**
+ * Air between two pieces as the film shows them, negative when they overlap, measured on the wall. Two bars must also
+ * stand clear of each other in the image, seen through the film's pitch: when they overlap there the result is below
+ * `MIN_PIECE_GAP` by how deep. Asking for air in the image too left Jingle Bells no way through, so bars may just
+ * clear. At least `limit` when their bounds already say so.
+ */
+export function filmGap(a: TFilmView, b: TFilmView, limit = Infinity): number {
+	const onWall = isApart(a.bounds, b.bounds, limit) ? limit : shapesGap(a.shapes, b.shapes, limit);
+	if (a.outline == null || b.outline == null || a.outlineBounds == null || b.outlineBounds == null) return onWall;
+	if (isApart(a.outlineBounds, b.outlineBounds, 0)) return onWall;
+	const inImage = outlineGap(a.outline, b.outline, 0);
+	return inImage > 0 ? onWall : Math.min(onWall, MIN_PIECE_GAP + inImage - 1e-6);
+}
+
+function isApart(a: TBounds2, b: TBounds2, limit: number): boolean {
+	return a.minX - b.maxX >= limit || b.minX - a.maxX >= limit || a.minY - b.maxY >= limit || b.minY - a.maxY >= limit;
+}
+
+/** The film's pitch; a manual camera lives in Blender, so it keeps the pitch the project was left with */
+export function filmPitch(project: TProject): number {
+	return project.design.camera.pitch;
+}
+
+function outlineBounds(outline: TFilmOutline): TBounds2 {
+	return {
+		minX: Math.min(...outline.map((point) => point.x)),
+		minY: Math.min(...outline.map((point) => point.y)),
+		maxX: Math.max(...outline.map((point) => point.x)),
+		maxY: Math.max(...outline.map((point) => point.y))
+	};
+}
+
+function shapeCorners(shape: TPieceShape): TVec2[] {
+	if (shape.kind !== 'box') return [];
+	const { cx, cy, angle, halfLength, halfThickness } = shape.box;
+	const cos = Math.cos(angle);
+	const sin = Math.sin(angle);
+	return [
+		[-halfLength, -halfThickness],
+		[halfLength, -halfThickness],
+		[halfLength, halfThickness],
+		[-halfLength, halfThickness]
+	].map(([lx = 0, ly = 0]) => ({ x: cx + lx * cos - ly * sin, y: cy + lx * sin + ly * cos }));
+}
+
+/** Counter-clockwise convex hull */
+function convexHull(points: TVec2[]): TFilmOutline {
+	const sorted = [...points].sort((p, q) => p.x - q.x || p.y - q.y);
+	const half = (items: TVec2[]): TVec2[] => {
+		const hull: TVec2[] = [];
+		for (const point of items) {
+			for (;;) {
+				const [from, to] = [hull[hull.length - 2], hull[hull.length - 1]];
+				if (from == null || to == null || (to.x - from.x) * (point.y - from.y) - (to.y - from.y) * (point.x - from.x) > 0) break;
+				hull.pop();
+			}
+			hull.push(point);
+		}
+		hull.pop();
+		return hull;
+	};
+	return [...half(sorted), ...half(sorted.reverse())];
+}
+
+/** Distance between two convex outlines, or how deep they overlap as a negative distance */
+function outlineGap(a: TFilmOutline, b: TFilmOutline, limit: number): number {
+	let separation = -Infinity;
+	for (const [from, to] of [
+		[a, b],
+		[b, a]
+	] as const) {
+		from.forEach((start, index) => {
+			const end = from[(index + 1) % from.length] ?? start;
+			const length = Math.hypot(end.x - start.x, end.y - start.y) || 1;
+			// Outward normal of a counter-clockwise edge
+			const nx = (end.y - start.y) / length;
+			const ny = (start.x - end.x) / length;
+			let nearest = Infinity;
+			for (const point of to) nearest = Math.min(nearest, (point.x - start.x) * nx + (point.y - start.y) * ny);
+			separation = Math.max(separation, nearest);
+		});
+	}
+	if (separation <= 0 || separation >= limit) return separation;
+	let gap = Infinity;
+	for (const [from, to] of [
+		[a, b],
+		[b, a]
+	] as const) {
+		for (const point of from) {
+			to.forEach((start, index) => {
+				const end = to[(index + 1) % to.length] ?? start;
+				const dx = end.x - start.x;
+				const dy = end.y - start.y;
+				const along = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy || 1)));
+				gap = Math.min(gap, Math.hypot(point.x - start.x - along * dx, point.y - start.y - along * dy));
+			});
+		}
+	}
+	return gap;
+}
+
 /** Pieces of a run that stand anywhere on the wall: what a Blocked piece leaves out is not in the film */
 function standingPieces(result: TSimulationResult): TResolvedPiece[] {
 	return result.pieces.filter((piece) => piece.status === 'placed' || piece.status === 'pinned' || piece.status === 'free');
@@ -80,26 +212,22 @@ export interface TTouchingPair {
 }
 
 /**
- * Pieces closer than `gap` as the film shows them, in time order. Free pieces and Decor are the person's own composition
+ * Pieces closer than `gap` as the film shows them, two bars seen through its pitch (`filmView`), in time order. Free pieces and Decor are the person's own composition
  * and a Finish stands apart from everything by its own search, so neither is judged.
  */
 export function touchingPairs(project: TProject, result: TSimulationResult, gap = MIN_PIECE_GAP): TTouchingPair[] {
 	const radius = marbleRadiusOf(project);
+	const pitch = filmPitch(project);
 	const entities = new Map(project.entities.map((entity) => [entity.id, entity]));
 	const items = standingPieces(result)
 		.filter((piece) => entities.get(piece.entityId)?.components.hitLink != null && piece.type !== 'finish')
-		.map((piece) => {
-			const shapes = visualShapes(piece, radius);
-			return { piece, shapes, bounds: shapesBounds(shapes), time: piece.hitTime ?? piece.entryTime ?? 0 };
-		});
+		.map((piece) => ({ piece, view: filmView(piece, radius, pitch), time: piece.hitTime ?? piece.entryTime ?? 0 }));
 	const pairs: TTouchingPair[] = [];
 	for (let i = 0; i < items.length; i++) {
 		for (let j = i + 1; j < items.length; j++) {
 			const [first, second] = [items[i], items[j]];
 			if (first == null || second == null) continue;
-			// Bounds this far apart settle it without measuring every pair of shapes
-			if (first.bounds.minX - second.bounds.maxX >= gap || second.bounds.minX - first.bounds.maxX >= gap || first.bounds.minY - second.bounds.maxY >= gap || second.bounds.minY - first.bounds.maxY >= gap) continue;
-			const between = shapesGap(first.shapes, second.shapes, gap);
+			const between = filmGap(first.view, second.view, gap);
 			if (between >= gap) continue;
 			const [a, b] = first.time <= second.time ? [first, second] : [second, first];
 			pairs.push({ a: a.piece.entityId, b: b.piece.entityId, gap: between, point: { x: (a.piece.position.x + b.piece.position.x) / 2, y: (a.piece.position.y + b.piece.position.y) / 2 }, time: b.time });
@@ -115,11 +243,12 @@ export function nearestPieceGap(project: TProject, result: TSimulationResult, en
 	const piece = pieces.find((item) => item.entityId === entityId);
 	if (piece == null) return Infinity;
 	const entities = new Map(project.entities.map((entity) => [entity.id, entity]));
-	const shapes = visualShapes(piece, radius);
+	const pitch = filmPitch(project);
+	const view = filmView(piece, radius, pitch);
 	let nearest = Infinity;
 	for (const other of pieces) {
 		if (other === piece || entities.get(other.entityId)?.components.hitLink == null || other.type === 'finish') continue;
-		nearest = Math.min(nearest, shapesGap(shapes, visualShapes(other, radius), limit));
+		nearest = Math.min(nearest, filmGap(view, filmView(other, radius, pitch), limit));
 	}
 	return nearest;
 }
@@ -166,4 +295,84 @@ export function extraStrikes(project: TProject, result: TSimulationResult): TExt
 		strikes.push({ entityId, laneId: hit.laneId, hitId: hit.hitId, times: extra.length + 1, time: first.time, position: first.position });
 	}
 	return strikes.sort((a, b) => a.time - b.time);
+}
+
+/**
+ * How high a marble must rise off a platform, in marble radii, and how soon, in seconds, for its hit to count as a bounce.
+ * On Jingle Bells a bounce reaches this height in about 0.02 s, at 0.04 s at the slowest, and a roll takes 0.2 s and more.
+ */
+const BOUNCE_RISE_RADII = 1;
+const BOUNCE_RISE_WITHIN = 0.1;
+
+/** Least takeoff speed off a platform that reaches the height of a bounce in time, at this gravity */
+export function bounceTakeoff(marbleRadius: number, gravity: number): number {
+	return (BOUNCE_RISE_RADII * marbleRadius) / BOUNCE_RISE_WITHIN + (gravity * BOUNCE_RISE_WITHIN) / 2;
+}
+
+/** A platform its marble rolls along instead of bouncing off */
+export interface TRollingHit {
+	entityId: string;
+	laneId: string;
+	hitId: string;
+	/** Height the marble reached above the platform in the time a bounce has, in metres */
+	rise: number;
+	time: number;
+	position: TVec2;
+}
+
+/**
+ * Whether a marble struck `piece` at `note` and failed to leave its surface: a platform is for bouncing. The marble must
+ * rise `BOUNCE_RISE_RADII` within `BOUNCE_RISE_WITHIN`, or by its next note when that comes sooner. Null while the run
+ * doesn't reach that far, since nothing is known yet.
+ */
+export function riseAfterHit(piece: TResolvedPiece, marble: TMarbleTrack, note: number, nextNote: number | null): { rise: number; isBounce: boolean } | null {
+	const { samples, radius } = marble;
+	const until = Math.min(note + BOUNCE_RISE_WITHIN, nextNote ?? Infinity);
+	if ((samples.at(-1)?.time ?? -Infinity) < until) return null;
+	const shapes = resolvedPieceShapes(piece);
+	const needed = BOUNCE_RISE_RADII * radius;
+	let low = 0;
+	let high = samples.length;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if ((samples[middle]?.time ?? Infinity) < note) low = middle + 1;
+		else high = middle;
+	}
+	let rise = 0;
+	for (let index = low; index < samples.length; index++) {
+		const sample = samples[index];
+		if (sample == null || sample.time > until) break;
+		for (const shape of shapes) rise = Math.max(rise, shapeDistance(shape, sample.position.x, sample.position.y) - radius);
+		if (rise >= needed) return { rise, isBounce: true };
+	}
+	return { rise, isBounce: false };
+}
+
+/**
+ * Platforms a marble rolls along after its note. Rails, switchbacks and the Finish are exempt, since rolling is their
+ * job, a free platform is scenery, and after a marble's last note it may come to rest. A hit that is already Blocked or
+ * Missed is reported as that.
+ */
+export function rollingHits(project: TProject, result: TSimulationResult): TRollingHit[] {
+	const pieces = new Map(result.pieces.map((piece) => [piece.entityId, piece]));
+	const entities = new Map(project.entities.map((entity) => [entity.id, entity]));
+	const rolls: TRollingHit[] = [];
+	for (const lane of project.music.lanes) {
+		const marble = result.marbles.find((item) => item.laneId === lane.id);
+		if (marble == null) continue;
+		const hits = new Map(result.hits.filter((hit) => hit.laneId === lane.id).map((hit) => [hit.hitId, hit]));
+		lane.hits.forEach((item, index) => {
+			const hit = hits.get(item.id);
+			const following = lane.hits[index + 1];
+			if (following == null || hit?.pieceEntityId == null || hit.actualTime == null || (hit.status !== 'onTime' && hit.status !== 'drifting')) return;
+			const entity = entities.get(hit.pieceEntityId);
+			const piece = pieces.get(hit.pieceEntityId);
+			const type = entity?.components.piece?.type;
+			if (piece == null || type == null || layoutOf(type) !== 'box' || !soundsHit(type, entity?.components.hitLink)) return;
+			const risen = riseAfterHit(piece, marble, hit.actualTime, following.time);
+			if (risen == null || risen.isBounce) return;
+			rolls.push({ entityId: hit.pieceEntityId, laneId: lane.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? piece.position });
+		});
+	}
+	return rolls.sort((a, b) => a.time - b.time);
 }

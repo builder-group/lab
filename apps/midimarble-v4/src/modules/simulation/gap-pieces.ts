@@ -23,8 +23,8 @@ import { getPieceDefinition, KIT_SCALE, resolvePieceParams } from './pieces';
 import { createLinkedPiece, frameBand } from './placement';
 import { projectOnPath, shapesBounds } from './shapes';
 import { trajectoryAt } from './simulate';
-import { columnOffset, MIN_PIECE_GAP, nearestPieceGap } from './track-look';
-import { PHYSICS_HZ, type THitStatus, type TSimulationResult } from './types';
+import { columnOffset, extraStrikes, MIN_PIECE_GAP, nearestPieceGap } from './track-look';
+import { HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from './types';
 import type { TGapPieceType } from './worker-protocol';
 
 /** The piece a long gap gets first: a rail, since a switchback is only for what nothing else bridges, or the one asked for */
@@ -360,11 +360,15 @@ function prepareGapPiece(
 		// The rail must keep clear of the other lanes, as Auto place does
 		if (crossesOtherLanes(result, trial, project, laneId, entity.id, from.time + 0.02, to.time, frontiers)) return null;
 		const isTouching = nearestPieceGap(withEntities(project, [entity]), trial, entity.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
+		const strikes = strikesOnTheWay(project, trial, entity, from.time);
 		const outsideLane = laneOverhang(trial, entity.id, laneBand);
 		const pacePart = played.paceError != null && pace != null ? Math.abs(played.paceError) / pace.limit : 0;
 		const score =
+			STRIKE_WEIGHT * strikes +
 			(hasPiece ? 0 : (isTouching ? 8 : 0) + pacePart + 3 * COLUMN_WEIGHT * columnMiss(played.dot, laneBand) + LANE_WEIGHT * outsideLane) +
 			(played.isDotInFrame ? 0 : 10) +
+			// At the frame's edge no tilt can send the marble on and keep the next dot in frame
+			(played.dot != null && !hasPiece && !isInBand(played.dot, band, EDGE_SHARE) ? 10 : 0) +
 			(played.isRunInFrame ? 0 : 5) +
 			(played.leaveTime == null ? 20 : Math.abs(to.time - played.leaveTime - PREFERRED_DROP)) +
 			(played.nextStatus === 'missed' || played.nextStatus === 'blocked' ? 10 : 0);
@@ -506,6 +510,9 @@ const LANE_WEIGHT = 6;
 const COLUMN_WEIGHT = 1;
 // Estimates ignore the speed the marble enters with, so they only rank: this many per entry and width are
 // simulated, and estimates up to `ESTIMATE_SLACK` too long still count
+// Every strike outweighs what else a gap piece is scored on, but one that strikes is still better than none at all
+const STRIKE_WEIGHT = 30;
+const EDGE_SHARE = 0.75;
 const SHORTLIST = 10;
 const ESTIMATE_SLACK = 0.6;
 
@@ -688,9 +695,12 @@ function prepareSwitchback(
 		const limit = pace?.limit ?? Infinity;
 		const isTouching = nearestPieceGap(withEntities(project, [entity]), trial, entity.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
 		const score =
+			STRIKE_WEIGHT * strikesOnTheWay(project, trial, entity, from.time) +
 			(played.isStray ? 20 : 0) +
 			(isMending ? 0 : (isTouching ? 8 : 0) + COLUMN_WEIGHT * columnMiss(played.check.dot, laneBand) + LANE_WEIGHT * laneOverhang(trial, entity.id, laneBand)) +
 			(played.check.leaveTime == null ? 20 : 0) +
+			// Dropping out as the note is due leaves the next platform right under the switchback
+			(played.check.leaveTime != null && played.check.leaveTime >= to.time - 0.02 ? 2 : 0) +
 			(probeStatus === 'blocked' ||
 			played.check.nextStatus === 'missed' ||
 			played.check.nextStatus === 'blocked'
@@ -713,6 +723,11 @@ function prepareSwitchback(
  * First time after the hit when the marble falls and is at or below `level`, leaving at least 0.25 s
  * before the gap ends
  */
+/** Platforms the marble strikes again on its way across the gap, since a path back past them finds them as readily as a hit */
+function strikesOnTheWay(project: TProject, trial: TSimulationResult, entity: TEntity, from: number): number {
+	return extraStrikes(withEntities(project, [entity]), trial).filter((strike) => strike.time > from + HIT_TOLERANCE).length;
+}
+
 /** How far a piece reaches past its own lane, in piece lengths: it may, but it then stands in the next marble's way */
 function laneOverhang(trial: TSimulationResult, entityId: string, band: { centerX: number; halfWidth: number }): number {
 	const shapes = trial.pieces.find((piece) => piece.entityId === entityId)?.shapes;

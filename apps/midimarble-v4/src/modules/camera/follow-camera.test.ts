@@ -432,17 +432,16 @@ describe('follow camera', () => {
 		}
 	});
 
-	it('ends Reference 20 at the longest tail with its last marble still in the final frame', () => {
+	it('ends Reference 20 no later than the longest tail, on the frame its last marble leaves through its Finish', () => {
 		const { project: reference, result } = fixture('reference-20');
 		const lastNote = Math.max(...reference.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)));
-		expect(reference.end).toBe(songEnd(lastNote, FINISH_TAIL_MAX));
+		expect(reference.end).toBeLessThanOrEqual(songEnd(lastNote, FINISH_TAIL_MAX));
 		const track = required(followCameraTrack(reference, result, 30));
 		const end = track.frameCount - 1;
 		const marble = required(result.marbles[0]);
 		const sample = required([...marble.samples].reverse().find((item) => item.time <= end / 30 + 1e-6));
 		const [u, v] = project(track, end, sample.position.x, sample.position.y);
-		expect(Math.min(u, v)).toBeGreaterThan(0);
-		expect(Math.max(u, v)).toBeLessThan(1);
+		expect(Math.min(u, v) < 0 || Math.max(u, v) > 1).toBe(true);
 	});
 
 	it('frames the last hit and the Finish together in the held ending', () => {

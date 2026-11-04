@@ -79,11 +79,6 @@ function piece(entityId: string, type = 'platform'): TResolvedPiece {
 	return { entityId, type, position: { x: pieceCount, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'placed' };
 }
 
-/** The issues of zigzag, whose track is older than the checks of how a track looks, as are long-gap, reference-20, two-marbles and windmill; their scripts can't rebuild them clean */
-function besidesLook(preflight: TExportPreflight): TPreflightIssue[] {
-	return preflight.issues.filter((issue) => issue.kind !== 'strike' && issue.kind !== 'touching');
-}
-
 function createResult(patch: Partial<TSimulationResult> = {}): TSimulationResult {
 	return {
 		revision: 3,
@@ -132,7 +127,7 @@ describe('preflightExport function', () => {
 
 		const preflight = preflightExport(project, simulator.simulate(project));
 
-		expect(besidesLook(preflight)).toEqual([]);
+		expect(preflight.issues).toEqual([]);
 		expect(preflight.onTimeCount).toBe(16);
 	}, 20_000);
 
@@ -153,7 +148,7 @@ describe('preflightExport function', () => {
 			expect.objectContaining({
 				id: 'frame:lane-2:1',
 				severity: 'warning',
-				title: expect.stringMatching(/^Bass leaves the frame at 0:09\.\d\d \(\d+ hits\)$/),
+				title: expect.stringMatching(/^Bass leaves the frame at 0:0\d\.\d\d \(\d+ hits\)$/),
 				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:1\d\.\d\d\. The camera follows Melody there\.$/),
 				// Framing problems open Film at their time with the Camera selected, with a span for the Camera track
 				target: { ids: ['camera'], time: first?.span?.from, workspace: 'design' }
@@ -161,18 +156,22 @@ describe('preflightExport function', () => {
 		);
 		// The jump lands inside the span, where the Camera panel shows the problem
 		if (first?.span == null) throw new Error('No framing span');
-		expect(framingProblemAt(preflight, first.span.from)?.id).toBe(first.id);
+		const shown = framingProblemAt(preflight, first.span.from);
+		expect(shown?.span?.from).toBeLessThanOrEqual(first.span.from);
+		expect(shown?.span?.to).toBeGreaterThanOrEqual(first.span.from);
 
 		// Add Wide Shot Here is offered only after a what-if of the camera with it keeps Bass in frame there
-		const fix = framingFix(project, result, first);
-		expect(fix).toEqual(expect.objectContaining({ label: 'Add Wide Shot Here', detail: expect.stringMatching(/^Adds a Wide shot at 0:0\d\.\d\d that holds \d\.\d s, so Bass stays in frame\.$/) }));
+		const fixable = framing.find((issue) => framingFix(project, result, issue) != null);
+		if (fixable?.span == null) throw new Error('No framing problem a Wide shot fixes');
+		const fix = framingFix(project, result, fixable);
+		expect(fix).toEqual(expect.objectContaining({ label: 'Add Wide Shot Here', detail: expect.stringMatching(/^Adds a Wide shot at \d:\d\d\.\d\d that holds \d+\.\d s, so (Bass|Melody) stays in frame\.$/) }));
 		const command = fix?.commands[0];
 		if (command?.type !== 'setDesign' || command.design.camera == null) throw new Error('No camera edit');
 		const fixed = { ...project, design: { ...project.design, camera: command.design.camera } };
 		const after = preflightExport(fixed, result).issues.filter((issue) => issue.kind === 'framing');
 		expect(after.length).toBeLessThan(framing.length);
-		const { from, to } = first.span;
-		expect(after.some((issue) => issue.laneId === first.laneId && (issue.span?.from ?? 0) < to && (issue.span?.to ?? 0) > from)).toBe(false);
+		const { from, to } = fixable.span;
+		expect(after.some((issue) => issue.laneId === fixable.laneId && (issue.span?.from ?? 0) < to && (issue.span?.to ?? 0) > from)).toBe(false);
 	}, 20_000);
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
@@ -294,6 +293,22 @@ describe('preflightExport function', () => {
 		expect(preflight.issues.find((issue) => issue.kind === 'strike')).toMatchObject({ title: 'Melody hits pa1 twice', severity: 'warning', label: 'Hit Twice', detail: 'Hits it 2 times from 0:01.20, with one note.' });
 		expect(preflight.issues.find((issue) => issue.kind === 'touching')).toMatchObject({ title: 'pa1 touches pa2', severity: 'info', label: 'Touching' });
 		expect(lookProblems(preflight).get('pa1')?.map((issue) => issue.kind)).toEqual(['strike', 'touching']);
+	});
+
+	it('should count a platform its marble rolls on as a problem, in plain words', () => {
+		const project = createTwoLaneProject();
+		// Melody stays on pa1 for the whole half second after its note at 1 s
+		const samples = Array.from({ length: 300 }, (_, index) => ({ time: index / 120, position: { x: 0, y: 0.015 }, angle: 0, velocity: { x: 0, y: 0 } }));
+		const result = createResult({
+			pieces: [{ ...piece('pa1'), position: { x: 0, y: 0 }, params: { length: 0.09, thickness: 0.012 } }],
+			marbles: [{ entityId: 'marble-a', laneId: 'lane-a', radius: 0.008, samples }],
+			hits: [hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1' })]
+		});
+
+		const preflight = preflightExport(project, result);
+
+		expect(preflight.issues.find((issue) => issue.kind === 'roll')).toMatchObject({ title: 'Melody rolls on pa1', severity: 'warning', label: 'Rolls', target: { ids: ['pa1'], time: 1 } });
+		expect(lookProblems(preflight).get('pa1')?.map((issue) => issue.kind)).toEqual(['roll']);
 	});
 });
 

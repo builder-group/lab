@@ -3,6 +3,7 @@ import { FINISH_TYPE } from '@/modules/simulation/finish';
 import { finishFix, hitKeyOf, isBroken, newlyBroken } from './finish-assist';
 import {
 	extraStrikes,
+	rollingHits,
 	findLongGaps,
 	frameBand,
 	freePose,
@@ -78,7 +79,7 @@ export interface TReplacePlan {
 	sceneryIds: string[];
 	/** Names of the marbles whose release moves to just before their first note */
 	releases: string[];
-	/** Pieces a marble strikes twice or that touch another, fixed one by one when nothing else is wrong */
+	/** Pieces a marble strikes twice or rolls on or that touch another, fixed one by one when nothing else is wrong */
 	looks: string[];
 	/**
 	 * The one label of the command, in the edit's notice and the hit summary's menu, a verb and a count: "Fix 45
@@ -123,7 +124,7 @@ export function replacePlan(project: TProject, result: TSimulationResult, before
 	const steps = [
 		platforms > 0 ? (platforms === 1 ? 'Places the platform again so the hit lands on time' : 'Places platforms again so each hit lands on time') : '',
 		releases.length > 0 ? `moves the release of ${joinWords(releases)}` : '',
-		looks.length > 0 ? 'Tilts again what a marble strikes twice or what touches' : '',
+		looks.length > 0 ? 'Tilts again what a marble strikes twice or rolls on, or what touches' : '',
 		...(blocked.length > 2 ? [`fixes ${blocked.length} blocked pieces`] : blocked.map(sceneryVerb))
 	].filter(Boolean);
 	const title = steps.length ? capitalize(joinWords(steps)) : 'Nothing to fix';
@@ -398,7 +399,7 @@ export async function fixPiece(
 		const fix = await finishFix(project, result, entityId, deps);
 		return { commands: fix.commands, message: fix.message, label: fix.label, kind: fix.commands != null ? 'placeAgain' : undefined };
 	}
-	// Struck twice or touching: another tilt, unless something more serious about the piece comes first
+	// Struck twice, rolled on or touching: another tilt, unless something more serious about the piece comes first
 	if (!hitters.length && result.pieces.find((piece) => piece.entityId === entityId)?.status !== 'blocked' && lookPieces(project, result).includes(entityId)) return fixLook(project, result, entityId, check, deps);
 	if (!soundsHit(type, link)) {
 		const fix = await sceneryFix(project, result, entityId, deps);
@@ -433,14 +434,14 @@ export async function fixPiece(
 	return { commands: null, message: `${refused || `No new tilt of ${laneName(hitter.laneId)}'s platforms before it keeps ${laneName(hitter.laneId)} clear of ${name}`}. Drag it by hand, or move ${laneName(hitter.laneId)}'s platforms.` };
 }
 
-/** Pieces a marble strikes twice, and the later piece of each pair that touches, in time order */
+/** Pieces a marble strikes twice or rolls on, and the later piece of each pair that touches, in time order */
 export function lookPieces(project: TProject, result: TSimulationResult): string[] {
-	const items = [...extraStrikes(project, result).map((strike) => ({ id: strike.entityId, time: strike.time })), ...touchingPairs(project, result).map((pair) => ({ id: pair.b, time: pair.time }))];
+	const items = [...extraStrikes(project, result).map((strike) => ({ id: strike.entityId, time: strike.time })), ...rollingHits(project, result).map((roll) => ({ id: roll.entityId, time: roll.time })), ...touchingPairs(project, result).map((pair) => ({ id: pair.b, time: pair.time }))];
 	return [...new Set(items.sort((a, b) => a.time - b.time).map((item) => item.id))];
 }
 
 /**
- * The Fix of a platform its marble strikes twice or of a piece touching another, each try kept only when its what-if clears
+ * The Fix of a platform its marble strikes twice or rolls on or of a piece touching another, each try kept only when its what-if clears
  * the piece, breaks no hit, adds no problem and leaves no more pieces touching or struck twice than before. In order of how
  * little they change: for a touching platform a shorter length, which changes nothing in the run, or its strike further
  * along it; then a small turn of the platform, then of the one before it, which sets where the marble arrives; then Auto
@@ -464,17 +465,19 @@ async function fixLook(
 		.flatMap((hit) => project.entities.find((item) => item.id === hit.pieceEntityId) ?? []);
 	const touching = touchingPairs(project, result).length;
 	const strikes = extraStrikes(project, result).length;
+	const rolls = rollingHits(project, result).length;
 	const isStruck = extraStrikes(project, result).some((strike) => strike.entityId === entityId);
+	const isRolled = rollingHits(project, result).some((roll) => roll.entityId === entityId);
 	const tryCommands = async (commands: TProjectCommand[], did: string): Promise<TPieceFix | null> => {
 		if (!commands.length) return null;
 		const what = await check(commands);
 		if (what.broken > 0 || what.added.length > 0) return null;
 		const next = withCommands(project, commands);
-		if (lookPieces(next, what.run).includes(entityId) || touchingPairs(next, what.run).length > touching || extraStrikes(next, what.run).length > strikes) return null;
-		return { commands, run: what.run, label: 'Place Again', message: `${did}: ${isStruck ? `the marble now hits ${name} once` : `${name} now stands clear`}` };
+		if (lookPieces(next, what.run).includes(entityId) || touchingPairs(next, what.run).length > touching || extraStrikes(next, what.run).length > strikes || rollingHits(next, what.run).length > rolls) return null;
+		return { commands, run: what.run, label: 'Place Again', message: `${did}: ${isStruck ? `the marble now hits ${name} once` : isRolled ? `the marble now bounces off ${name}` : `${name} now stands clear`}` };
 	};
 	const piece = entity?.components.piece;
-	if (!isStruck && entity != null && link != null && piece != null && isMusicalPiece(piece.type)) {
+	if (!isStruck && !isRolled && entity != null && link != null && piece != null && isMusicalPiece(piece.type)) {
 		const length = piece.params['length'] ?? getPieceDefinition(piece.type)?.params['length']?.default;
 		for (const share of LOOK_SHORTER) {
 			if (length == null) break;
@@ -1187,8 +1190,8 @@ export function addedProblems(
 	working?: { laneId: string; from: number }
 ): TPreflightIssue[] {
 	const warnings = (project: TProject, result: TSimulationResult): TPreflightIssue[] =>
-		// A fix that plays the hits again may cost a second bounce, which keeps its own problem and its own Fix
-		preflightExport(project, { ...result, revision: project.revision }).issues.filter((issue) => issue.severity === 'warning' && issue.kind !== 'strike');
+		// A fix that plays the hits again may cost a second bounce or a roll, which keep their own problem and their own Fix
+		preflightExport(project, { ...result, revision: project.revision }).issues.filter((issue) => issue.severity === 'warning' && issue.kind !== 'strike' && issue.kind !== 'roll');
 	const had = new Set(warnings(beforeProject, before).map((issue) => issue.id));
 	return warnings(afterProject, after).filter((issue) => {
 		if (had.has(issue.id)) return false;

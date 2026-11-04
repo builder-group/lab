@@ -21,9 +21,9 @@ describe('finishExit', () => {
 			expect(exit).toBeLessThan(1.4);
 			expect(await fittedSongEnd(jingle, simulate)).toBe(jingle.end);
 
-			// A marble that stays in frame to the end of the run gets the longest tail
+			// Its marble leaves through its Finish's run-out, so the film ends on that and not at the longest tail
 			const reference = loadFixture('reference-20');
-			expect(finishExit(exitRunProject(reference) as TProject, simulate(exitRunProject(reference) as TProject))).toBe(Number.POSITIVE_INFINITY);
+			expect(finishExit(exitRunProject(reference) as TProject, simulate(exitRunProject(reference) as TProject))).toBeLessThan(1.4);
 			expect(await fittedSongEnd(reference, simulate)).toBe(reference.end);
 			simulator.dispose();
 		},

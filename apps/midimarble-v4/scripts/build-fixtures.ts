@@ -3,11 +3,12 @@
 // building, so regenerating them after an engine change may change their angles; commit the result.
 import { writeFileSync } from 'node:fs';
 import { parseProject, serializeProject, type TProject } from '../src/modules/project';
+import { buildTrack, localBuildDeps } from '../src/modules/compose/build-track';
 import {
 	buildLongGapProject,
-	buildTwoMarblesProject,
 	buildWindmillProject,
-	buildZigzagProject
+	buildZigzagProject,
+	createTwoMarblesStart
 } from '../src/modules/simulation/fixture-builders';
 import { createStaircaseProject } from '../src/modules/simulation/fixture-projects';
 import { namePiecesInOrder } from '../src/modules/simulation/piece-names';
@@ -16,18 +17,18 @@ import { createSimulator } from '../src/modules/simulation/simulate';
 const simulator = await createSimulator();
 const simulate = (project: TProject) => simulator.simulate(project);
 
-const fixtures: [string, () => TProject][] = [
+const fixtures: [string, () => TProject | Promise<TProject>][] = [
 	['staircase.marble.json', () => createStaircaseProject()],
 	['zigzag.marble.json', () => buildZigzagProject(simulate)],
 	['long-gap.marble.json', () => buildLongGapProject(simulate)],
 	['windmill.marble.json', () => buildWindmillProject(simulate)],
-	['two-marbles.marble.json', () => buildTwoMarblesProject(simulate)]
+	['two-marbles.marble.json', async () => (await buildTrack(createTwoMarblesStart(), localBuildDeps(simulator))).project]
 ];
 
 for (const [name, build] of fixtures) {
 	let project: TProject;
 	try {
-		project = build();
+		project = await build();
 	} catch (error) {
 		// One builder failing leaves its committed fixture as it is and doesn't stop the others
 		console.error(`Could not rebuild fixtures/${name}: ${(error as Error).message}`);

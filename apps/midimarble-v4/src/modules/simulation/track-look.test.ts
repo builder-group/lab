@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TProject } from '@/modules/project';
-import { extraStrikes, MIN_PIECE_GAP, touchingPairs, visualShapes } from './track-look';
+import { extraStrikes, MIN_PIECE_GAP, rollingHits, touchingPairs, visualShapes } from './track-look';
 import type { TResolvedPiece, TSimulationResult } from './types';
 
 function platform(entityId: string, x: number, y: number, hitTime = 1, angle = 0): TResolvedPiece {
@@ -9,6 +9,7 @@ function platform(entityId: string, x: number, y: number, hitTime = 1, angle = 0
 
 function project(hitIds: string[]): TProject {
 	return {
+		design: { camera: { pitch: 1.15 } },
 		music: { lanes: [{ id: 'lane', name: 'Melody', hits: hitIds.map((id, index) => ({ id, time: index + 1 })) }] },
 		entities: [
 			{ id: 'marble', components: { marble: { laneId: 'lane', radius: 0.012 } } },
@@ -47,6 +48,19 @@ describe('touchingPairs function', () => {
 		expect(pairs[0]?.gap).toBeLessThan(MIN_PIECE_GAP);
 	});
 
+	it('should name two bars the film shows on top of each other, well apart on the wall', () => {
+		// 6 cm apart on the wall, less than the 8 cm of wall a bar's body stands for at a pitch of 1.15 rad
+		const pieces = [platform('piece-a', 0, 0.08, 1), platform('piece-b', 0, 0, 2)];
+		const pairs = touchingPairs(project(['a', 'b']), run(pieces));
+		expect(pairs.map((pair) => [pair.a, pair.b])).toEqual([['piece-a', 'piece-b']]);
+	});
+
+	it('should leave bars seen straight on alone at the same distance', () => {
+		const flat = project(['a', 'b']);
+		flat.design.camera.pitch = 0;
+		expect(touchingPairs(flat, run([platform('piece-a', 0, 0.08, 1), platform('piece-b', 0, 0, 2)]))).toEqual([]);
+	});
+
 	it('should leave pieces apart by the least gap alone', () => {
 		expect(touchingPairs(project(['a', 'b']), run([platform('piece-a', -0.1, 0), platform('piece-b', 0.1, 0)]))).toEqual([]);
 	});
@@ -65,5 +79,45 @@ describe('extraStrikes function', () => {
 	it('should let the marble roll to rest after its last note', () => {
 		const contacts = [{ time: 2, other: 'piece-b' }, { time: 2.3, other: 'piece-b', speed: 0.05 }];
 		expect(extraStrikes(project(['a', 'b']), run([platform('piece-b', 0, 0)], contacts, { a: 1, b: 2 }))).toEqual([]);
+	});
+});
+
+describe('rollingHits function', () => {
+	/** A marble at height `heightOf(seconds after the note)` above a platform's top face, whose note is at 1 s and next at 1.5 s */
+	function flight(heightOf: (after: number) => number, type = 'platform'): { project: TProject; result: TSimulationResult } {
+		const base = project(['a', 'b']);
+		const samples = Array.from({ length: 200 }, (_, index) => ({ time: index / 120, position: { x: 0, y: 0.006 + 0.012 + heightOf(Math.max(0, index / 120 - 1)) } }));
+		const piece = platform('piece-a', 0, 0);
+		base.entities.forEach((entity) => {
+			if (entity.id === 'piece-a' && entity.components.piece != null) entity.components.piece.type = type;
+		});
+		const result = run([piece], [{ time: 1, other: 'piece-a' }], { a: 1, b: 1.5 });
+		return { project: base, result: { ...result, marbles: [{ entityId: 'marble', laneId: 'lane', radius: 0.012, samples }] } as unknown as TSimulationResult };
+	}
+
+	it('should name a marble that stays on its platform after the note', () => {
+		const { project: rolled, result } = flight((after) => after * 0.01);
+		expect(rollingHits(rolled, result)).toMatchObject([{ entityId: 'piece-a', hitId: 'a', time: 1 }]);
+	});
+
+	it('should leave a bounce alone, even a low one', () => {
+		const { project: bounced, result } = flight((after) => after * 0.5);
+		expect(rollingHits(bounced, result)).toEqual([]);
+	});
+
+	it('should leave rails and a marble after its last note alone', () => {
+		const { project: railed, result } = flight((after) => after * 0.01, 'rail');
+		expect(rollingHits(railed, result)).toEqual([]);
+		const last = flight((after) => after * 0.01);
+		expect(rollingHits(last.project, { ...last.result, hits: last.result.hits.filter((hit) => hit.hitId === 'b') })).toEqual([]);
+		const lastNote = project(['a']);
+		expect(rollingHits(lastNote, last.result)).toEqual([]);
+	});
+
+	it('should not judge a run that ends before the time a bounce has', () => {
+		const { project: cut, result } = flight((after) => after * 0.01);
+		const marble = result.marbles[0];
+		if (marble == null) throw new Error('No marble');
+		expect(rollingHits(cut, { ...result, marbles: [{ ...marble, samples: marble.samples.filter((sample) => sample.time < 1.05) }] })).toEqual([]);
 	});
 });

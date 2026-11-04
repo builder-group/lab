@@ -83,14 +83,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.65,
+						"bounce": 0.79,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-1",
-					"angle": -0.4,
+					"angle": 0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -105,14 +105,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.52,
+						"bounce": 0.59,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-2",
-					"angle": 0.4886921905584123,
+					"angle": -0.6981317007977318,
 					"contactAt": 0.5
 				}
 			}
@@ -127,14 +127,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.92,
+						"bounce": 0.65,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-3",
-					"angle": 0.03490658503988659,
+					"angle": 0.5,
 					"contactAt": 0.5
 				}
 			}
@@ -148,13 +148,13 @@
 					"params": {
 						"radius": 0.00375,
 						"gap": 0.015,
-						"entryDelay": 0.4
+						"entryDelay": 0.375
 					}
 				},
 				"path": {
 					"points": [
 						{
-							"x": -0.12936,
+							"x": -0.20264,
 							"y": 0
 						},
 						{
@@ -162,7 +162,7 @@
 							"y": 0
 						},
 						{
-							"x": 0.15335,
+							"x": 0.14921,
 							"y": 0
 						}
 					]
@@ -185,7 +185,7 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.58,
+						"bounce": 0.34,
 						"entryDelay": 0
 					}
 				},
@@ -207,14 +207,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.59,
+						"bounce": 0.46,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-5",
-					"angle": -0.5759586531581288,
+					"angle": -0.13962634015954636,
 					"contactAt": 0.5
 				}
 			}
@@ -236,7 +236,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
-					"angle": 0.4,
+					"angle": -0.4,
 					"contactAt": 0.5
 				}
 			}
@@ -251,13 +251,13 @@
 						"radius": 0.003,
 						"bore": 0.006,
 						"mouth": 0.045,
-						"entryDelay": 0.358
+						"entryDelay": 0.492
 					}
 				},
 				"path": {
 					"points": [
 						{
-							"x": -0.28419,
+							"x": 0.27565,
 							"y": 0
 						},
 						{
@@ -265,7 +265,7 @@
 							"y": 0
 						},
 						{
-							"x": 0.18772,
+							"x": -0.12,
 							"y": 0
 						}
 					]
@@ -273,7 +273,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
-					"angle": -0.13962634015954636,
+					"angle": 0.20943951023931956,
 					"contactAt": 0.5
 				}
 			}
@@ -288,14 +288,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.74,
+						"bounce": 0.54,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-7",
-					"angle": 0.6981317007977318,
+					"angle": -0.6981317007977318,
 					"contactAt": 0.5
 				}
 			}
@@ -317,7 +317,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-8",
-					"angle": -0.05235987755982989,
+					"angle": 0.08726646259971647,
 					"contactAt": 0.5
 				}
 			}
@@ -328,6 +328,13 @@
 	},
 	"design": {
 		"theme": "pegboard",
+		"themes": [],
+		"wall": {},
+		"lights": {
+			"added": []
+		},
+		"decor": [],
+		"madeInBlender": [],
 		"renderPreset": "balanced",
 		"camera": {
 			"mode": "rig",
@@ -335,15 +342,8 @@
 			"pitch": 0.7,
 			"lead": 0.15,
 			"smoothing": 0.6,
-			"shots": [],
-			"sway": 1
-		},
-		"themes": [],
-		"wall": {},
-		"decor": [],
-		"madeInBlender": [],
-		"lights": {
-			"added": []
+			"sway": 1,
+			"shots": []
 		}
 	}
 }

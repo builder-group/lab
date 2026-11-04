@@ -696,13 +696,42 @@ Measured in Node on Jingle Bells (`.local/cleanup-audit/`: `bench-preflight`, `b
 - Checks: typecheck, lint, test, `cargo test`, `cargo build`. Tests use a temporary HOME and a stand-in tool. Not checked: a real `mcp add` against a real config, and the menu by eye.
 - Next: a real Claude Code test, no rolling on platforms, then the plan below.
 
-## Connect
+## Track assists: regressions, no rolling, film-angle clearance
 
-- The Agent menu's Show AI Workspace is gone, with `workspace.rs` and `mcp_write_workspace`. In its place **Connect Claude Code** and **Connect ChatGPT and Codex**, each reading Disconnect while connected, and **Copy Command for Other Apps**, also in the Help menu and ⌘K (`connect.rs`, `McpCx`, `agent-connect.ts`). A person's existing `~/Documents/MidiMarble AI Workspace` stays where it is, unused.
-- Registry commands can now read by state (`currentTitle`). `MenuButton` has `onOpen`, which refreshes the state as the menu opens. Agents can't run these three commands.
-- `initialize`'s `instructions` carry the rules the workspace's `AGENTS.md` held. Removed the unused `show_as` and `navigate_to_path` in `window.rs`.
-- Checks: typecheck, lint, test, `cargo test`, `cargo build`. Tests use a temporary HOME and a stand-in tool. Not checked: a real `mcp add` against a real config, and the menu by eye.
-- Next: a real Claude Code test, no rolling on platforms, then the plan below.
+Five fixture builders had stopped reproducing their fixtures after the determinism fix and the stricter rules, and a platform is more thought for bouncing.
+
+**Causes and fixes**
+
+- **zigzag.** Continue copied tilts exactly and blamed a graze on the piece that was hit: hit 5 was cut because the bounce off hit 6 grazes it. Now the bounce's own piece takes the blame (`flawedGhosts`), and a copied tilt may turn up to 4° (`canTurn`, on for Continue and off for Build Track's own search) to clear a strike, a roll or a touch. 16 of 16 from -0.4 rad and steeper
+- **reference-20.** The launch before the gap headed outward, every rail then landed at the frame's edge and hit 25 had no tilt in frame. A launch now pays for heading out of the lane (`LAUNCH_OUT_WEIGHT`), and a rail that lands in the outer quarter pays for it. 48/48
+- **long-gap.** Gap pieces didn't look at the marble's own earlier platforms. They now pay for each strike on the way. The script's hand tilts were stale, so it Auto places the first platform and tries launch tilts. The tunnel still grazes Platforms 5 and 6 at every launch tilt tried
+- **tap-along.** The same Continue fix
+- **two-marbles.** The script was stale: every tilt of Melody's second platform leaves the other marble no spot at 0.4 s notes, which one hit at a time can't get out of. It now uses Build Track, with half a second between notes, since the folded clearance leaves nothing at 0.4 s. Clean but for its intended collision
+
+**No rolling.** `rollingHits` and `riseAfterHit` in `track-look.ts`: the marble must rise one marble radius within 0.1 s of its note, or by its next note. Measured on Jingle Bells a bounce gets there in a median 0.02 s and 0.04 s at the slowest, and the four rolls took 0.22 to 0.37 s, so the threshold isn't close. Rejected in Auto place, Continue and Build Track, a warning in preflight ("Melody rolls on Platform 12") with Place Again, a row in `words.md`. Rails, Switchbacks, the Finish and a last note are exempt. Auto place also refuses an arrival too slow for the next platform to bounce, unless it is mending. The committed Jingle Bells rolled at 3.0, 12.0, 28.75 and 29.0 s, not the 13, 14 and 29 s measured on the film the owner saw.
+
+**Film-angle clearance.** `touchingPairs` did not account for this. `visualShapes` grows a bar below its top face on the wall, with no fold and no depth; nothing in the code folds by 0.42 and Build Track's score doesn't either, that number is only in the measuring scripts. A bar 3.6 cm deep stands up as much of the image as 8 cm of wall at a pitch of 1.15. `filmView` and `filmGap` now also refuse two bars that overlap in the image, and the 1.2 cm stays on the wall. Asking 1.2 cm of air in the image too, with Rails and Switchbacks counted, gave 33 pairs on the old track and Build Track never finished, stuck for over 30 minutes; bars only, with air, stuck too. Rails and Switchbacks stay measured on the wall, as thin wire.
+
+| Jingle Bells | Before | No rolling | With clearance |
+| --- | --- | --- | --- |
+| On time, preflight | 115/115, clean | 115/115, clean | 115/115, clean |
+| Double hits, stray contacts | 0, 0 | 0, 0 | 0, 0 |
+| Pairs touching on the wall | 0 | 0 | 0 |
+| Bar pairs overlapping in the image | 4 | 1 | 0 |
+| Rolls, rises under 4 cm | 4, 1 | 0, 0 | 0, 0 |
+| Column shift, median (p90) | 0.00 L (0.48 L) | 0.06 L (0.81 L) | 0.01 L (0.27 L) |
+| Gap pieces | 12 switchbacks | 9 and 3 rails | 11 and 1 rail |
+| Build Track, one thread, import sheet's defaults | 66 s | not run | 149 s |
+| Build Track, pool of six | not run | not run | 76 s |
+| Build Track, one thread, fixture script | 126 s | 336 s | 345 s, two attempts |
+
+Build Track is about 2.3 times slower on one thread, measured against the committed code side by side, under a load of 4 to 7 from other work. The rules leave fewer ways through, so it backs up more.
+
+**Left dirty.** long-gap: the tunnel grazes Platforms 5 and 6. windmill: a Windmill anchored to the path touches two platforms, and the marble rolls on Platform 4. staircase: hand-placed, rolls on Platform 2. reference-20: one tip, Platforms 36 and 37 are 1.1 cm apart.
+
+**Not fixed.** Three tests fail or don't end, each left as it is rather than loosened. In `fix-it.test.ts`, Fix Hits after handing Jingle Bells' first 6 Melody notes to Backing leaves 37 hits broken from hit 15, and after 7 notes adds a new problem, Bass hitting Platform 51. Both depend on the track: against the old one, 7 notes recover and 6 leave one hit. In `build-track.test.ts`, the song with two tapped marbles hadn't finished after more than 6 minutes, where the committed code took 89 s on a like song; its search for the 0.81 s gap keeps finding that every switchback crosses, and this wasn't traced further. Vitest can't time out that test, since the search is synchronous, so `pnpm test` doesn't end until it does.
+
+**Checks.** typecheck and lint pass, with 4 warnings in `Sidebar.tsx`, not from this work. Tests without the song that doesn't end: 837 pass, 2 fail, the two in Not fixed. Determinism test passes. Fixture hit checks: every fixture on time. `besidesLook` is gone from the preflight test, as zigzag is clean. Follow camera dumps regenerated with Blender, within 0.001 mm. Stills not taken: nothing here renders a Draft cheaply. So whether the fold reads right in the film is still to be judged by eye.
 
 ## Decided, not built
 

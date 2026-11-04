@@ -159,6 +159,11 @@ describe('replaceBroken function', () => {
 	it('should offer a platform struck twice or touching a Fix that clears it, breaks no hit and adds no problem', async () => {
 		const [isProjectOk, projectErr, project] = parseProject(readFileSync(new URL('../../../fixtures/zigzag.marble.json', import.meta.url), 'utf8'));
 		if (!isProjectOk) throw projectErr;
+		// The plain copied tilts, which Continue turns a little: the marble grazes two of its own earlier platforms
+		for (const entity of project.entities) {
+			const link = entity.components.hitLink;
+			if (link != null) link.angle = link.angle < 0 ? -0.45 : 0.45;
+		}
 		const result = simulate(project);
 		const problems = lookPieces(project, result);
 		expect(problems.length).toBeGreaterThan(0);
@@ -232,7 +237,7 @@ describe('replaceBroken function', () => {
 		expect(outcome.releases).toEqual([]);
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
 		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
-		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Placed \\d+ platforms? again.*,? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`));
+		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Placed \\d+ platforms? again.*,? and fixed (?:all \\d+ broken hits|the broken hit): ${summary.label}`));
 	}, 60_000);
 });
 

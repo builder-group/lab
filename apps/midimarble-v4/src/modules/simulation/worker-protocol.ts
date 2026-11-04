@@ -68,7 +68,7 @@ export type TWorkerRequest =
 			search: string;
 			proposal: TGapPieceProposal;
 	  }
-	| { kind: 'continue'; project: TProject; laneId: string; maxCount?: number }
+	| { kind: 'continue'; project: TProject; laneId: string; maxCount?: number; canTurn?: boolean }
 	| {
 			kind: 'gapPiece';
 			type: TGapPieceType;
@@ -194,8 +194,8 @@ export function answerWorkerRequest(
 			};
 		}
 		case 'continue': {
-			const { project, laneId, maxCount } = request;
-			const answer = continueSuggestions(project, result, laneId, { simulate, maxCount });
+			const { project, laneId, maxCount, canTurn } = request;
+			const answer = continueSuggestions(project, result, laneId, { simulate, maxCount, canTurn });
 			if (answer == null) return null;
 			return { ...answer, revision: project.revision, laneId, computeMs: performance.now() - startedAt };
 		}

@@ -5,6 +5,7 @@ import {
 	gapPieceOrder,
 	gapPieceReads,
 	extraStrikes,
+	rollingHits,
 	findLongGaps,
 	isInBand,
 	mirrorPiece,
@@ -163,7 +164,7 @@ export interface TBuildTrackDeps {
 	autoPlace: (request: TBuildAutoPlaceRequest) => Promise<TAutoPlaceAnswer> | TAutoPlaceAnswer;
 	/** Rejects when no piece fits */
 	gapPiece: (request: TBuildGapRequest) => Promise<TGapAnswer> | TGapAnswer;
-	continueRun: (request: { project: TProject; laneId: string }) => Promise<TContinueAnswer | null> | TContinueAnswer | null;
+	continueRun: (request: { project: TProject; laneId: string; canTurn?: boolean }) => Promise<TContinueAnswer | null> | TContinueAnswer | null;
 	/** Shows a step: the first starts the undo step, later ones join it. False stops the build. */
 	commit?: (commands: TProjectCommand[], isFirst: boolean, hit: THitResult | null) => boolean;
 	onProgress?: (progress: TBuildProgress) => void;
@@ -215,7 +216,7 @@ interface TBuildState {
 	/** Hits left without a piece, which every check looks past */
 	skipped: Set<string>;
 	/** Problems the run already had, which no step is judged by: the person's, and what a forced step left */
-	tolerated: { hits: Set<string>; pieces: Set<string>; contacts: Set<string>; strikes: Set<string>; touching: Set<string> };
+	tolerated: { hits: Set<string>; pieces: Set<string>; contacts: Set<string>; strikes: Set<string>; rolls: Set<string>; touching: Set<string> };
 	/** Whether a piece that was there before the build may be turned when nothing else solves a hit */
 	canTurnOwn: boolean;
 	gapPiece: TBuildGapPreference | null;
@@ -229,7 +230,7 @@ function emptyCounts(): TBuildCounts {
 }
 
 function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null): TBuildState {
-	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, runs: new WeakMap() };
+	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, runs: new WeakMap() };
 }
 
 const hitKey = (laneId: string, hitId: string): string => `${laneId}/${hitId}`;
@@ -376,6 +377,9 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	// Each marble strikes each platform once, for its note, up to where its path is final
 	const struck = extraStrikes(applied, result).filter((strike) => !tolerated.strikes.has(strike.entityId) && strike.time < (frontier.get(marbleOfLane(applied, strike.laneId)) ?? Infinity));
 	if (struck.length > 0) return reject(state, `struck twice ${struck.map((strike) => strike.hitId).join(' ')}`);
+	// And bounces off it, a platform not being for rolling
+	const rolling = rollingHits(applied, result).filter((roll) => !tolerated.rolls.has(roll.entityId) && roll.time < (frontier.get(marbleOfLane(applied, roll.laneId)) ?? Infinity));
+	if (rolling.length > 0) return reject(state, `rolls ${rolling.map((roll) => roll.hitId).join(' ')}`);
 	// No two pieces touch as the film shows them
 	const touching = touchingPairs(applied, result).filter((pair) => !tolerated.touching.has(pairKey(pair.a, pair.b)));
 	if (touching.length > 0) return reject(state, `touching ${touching.map((pair) => `${pair.a}/${pair.b}`).join(' ')}`);
@@ -534,7 +538,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	if (isCancelled(state)) return null;
 
 	const isLaunch = findLongGaps(current, laneId).some((item) => item.fromHitId === hitId && item.bridgedBy == null);
-	const continued = !isLaunch ? await ask(state, 'continue', () => deps.continueRun({ project: current, laneId })) : null;
+	const continued = !isLaunch ? await ask(state, 'continue', () => deps.continueRun({ project: current, laneId, canTurn: false })) : null;
 	// Ghosts get the build's IDs, so the track is the same on every run
 	const taken = new Set<string>();
 	const ghosts: TProjectCommand[] = (continued?.commands ?? []).map((command) => {
@@ -760,6 +764,7 @@ async function tolerate(state: TBuildState, project: TProject): Promise<void> {
 	const band = frameBand(project);
 	for (const hit of result.hits) if (hit.pieceEntityId != null && hit.dot != null && !isInBand(hit.dot, band, 1)) state.tolerated.hits.add(hitKey(hit.laneId, hit.hitId));
 	for (const strike of extraStrikes(project, result)) state.tolerated.strikes.add(strike.entityId);
+	for (const roll of rollingHits(project, result)) state.tolerated.rolls.add(roll.entityId);
 	for (const pair of touchingPairs(project, result)) state.tolerated.touching.add(pairKey(pair.a, pair.b));
 }
 

@@ -210,7 +210,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-5",
-					"angle": -0.45,
+					"angle": -0.4849,
 					"contactAt": 0.5
 				}
 			}
@@ -463,6 +463,13 @@
 	},
 	"design": {
 		"theme": "pegboard",
+		"themes": [],
+		"wall": {},
+		"lights": {
+			"added": []
+		},
+		"decor": [],
+		"madeInBlender": [],
 		"renderPreset": "balanced",
 		"camera": {
 			"mode": "rig",
@@ -470,15 +477,8 @@
 			"pitch": 0.7,
 			"lead": 0.15,
 			"smoothing": 0.6,
-			"shots": [],
-			"sway": 1
-		},
-		"themes": [],
-		"wall": {},
-		"decor": [],
-		"madeInBlender": [],
-		"lights": {
-			"added": []
+			"sway": 1,
+			"shots": []
 		}
 	}
 }

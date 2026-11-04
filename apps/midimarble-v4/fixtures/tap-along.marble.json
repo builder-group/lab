@@ -92,11 +92,11 @@
 				]
 			}
 		],
+		"backing": [],
 		"tempo": {
 			"bpm": 125,
 			"beatsPerBar": 4
-		},
-		"backing": []
+		}
 	},
 	"entities": [
 		{
@@ -134,7 +134,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-1",
-					"angle": -0.12217304763960307,
+					"angle": 0.06981317007977318,
 					"contactAt": 0.5
 				}
 			}
@@ -149,14 +149,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.65,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-2",
-					"angle": 0.3141592653589793,
+					"angle": -0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -171,14 +171,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.6,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-3",
-					"angle": -0.2792526803190927,
+					"angle": 0.3665191429188092,
 					"contactAt": 0.5
 				}
 			}
@@ -193,14 +193,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.63,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-4",
-					"angle": 0.2792526803190927,
+					"angle": -0.2617993877991494,
 					"contactAt": 0.5
 				}
 			}
@@ -215,14 +215,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.65,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-5",
-					"angle": -0.2792526803190927,
+					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				}
 			}
@@ -237,14 +237,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.59,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-6",
-					"angle": 0.2792526803190927,
+					"angle": -0.5061454830783556,
 					"contactAt": 0.5
 				}
 			}
@@ -259,14 +259,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.6,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-7",
-					"angle": -0.2792526803190927,
+					"angle": 0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -281,14 +281,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.67,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-8",
-					"angle": 0.2792526803190927,
+					"angle": -0.017453292519943295,
 					"contactAt": 0.5
 				}
 			}
@@ -303,14 +303,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.65,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-9",
-					"angle": -0.2792526803190927,
+					"angle": -0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -325,14 +325,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.59,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-10",
-					"angle": 0.2792526803190927,
+					"angle": 0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -347,14 +347,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.65,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-11",
-					"angle": -0.2792526803190927,
+					"angle": -0.2618,
 					"contactAt": 0.5
 				}
 			}
@@ -369,14 +369,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.59,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-12",
-					"angle": 0.2792526803190927,
+					"angle": 0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -391,14 +391,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.65,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-13",
-					"angle": -0.2792526803190927,
+					"angle": -0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -413,14 +413,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.59,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-14",
-					"angle": 0.2792526803190927,
+					"angle": 0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -435,14 +435,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.65,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-15",
-					"angle": -0.2792526803190927,
+					"angle": -0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -457,14 +457,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.64,
+						"bounce": 0.59,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-16",
-					"angle": 0.2792526803190927,
+					"angle": 0.33161255787892263,
 					"contactAt": 0.5
 				}
 			}
@@ -475,6 +475,13 @@
 	},
 	"design": {
 		"theme": "pegboard",
+		"themes": [],
+		"wall": {},
+		"lights": {
+			"added": []
+		},
+		"decor": [],
+		"madeInBlender": [],
 		"renderPreset": "balanced",
 		"camera": {
 			"mode": "rig",
@@ -482,15 +489,8 @@
 			"pitch": 0.7,
 			"lead": 0.15,
 			"smoothing": 0.6,
-			"shots": [],
-			"sway": 1
-		},
-		"themes": [],
-		"wall": {},
-		"decor": [],
-		"madeInBlender": [],
-		"lights": {
-			"added": []
+			"sway": 1,
+			"shots": []
 		}
 	}
 }

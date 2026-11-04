@@ -2,7 +2,7 @@ import { cachedFollowCameraTrack, followCameraTrack, framingStretches, isInFrame
 import { hitReach, isUnreachable, reachStatus } from '@/modules/compose/reachability';
 import { hasSong } from '@/modules/music';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { extraStrikes, FINISH_TYPE, finishCatch, getPieceDefinition, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { extraStrikes, FINISH_TYPE, finishCatch, getPieceDefinition, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
@@ -11,7 +11,7 @@ import { addWideShotCommands } from './shots';
 
 /**
  * The project's problems, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
- * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, platforms struck twice,
+ * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, platforms struck twice or rolled on,
  * pieces that touch, the loop and a stale result. It is the one source for the hit summary in the timeline header, its menu, the export sheet and the
  * Camera track. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
  */
@@ -38,6 +38,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		...finishIssues(project, result, names),
 		...contactIssues(project, result, names),
 		...strikeIssues(project, result, names),
+		...rollIssues(project, result, names),
 		...touchingIssues(project, result, names),
 		...framingIssues(project, result, names),
 		...decorIssues(project, result, names, blenderObjects),
@@ -134,13 +135,13 @@ export function framingProblemAt(preflight: TExportPreflight, time: number): TPr
 }
 
 /**
- * Platforms a marble strikes twice and pieces that touch, by entity ID, with those problems: Layers badges them and the
+ * Platforms a marble strikes twice or rolls on and pieces that touch, by entity ID, with those problems: Layers badges them and the
  * inspector shows a pill and Place Again, from the same list as the summary.
  */
 export function lookProblems(preflight: TExportPreflight): Map<string, TPreflightIssue[]> {
 	const problems = new Map<string, TPreflightIssue[]>();
 	for (const issue of preflight.issues) {
-		if (issue.kind !== 'strike' && issue.kind !== 'touching') continue;
+		if (issue.kind !== 'strike' && issue.kind !== 'roll' && issue.kind !== 'touching') continue;
 		for (const id of issue.target?.ids ?? []) problems.set(id, [...(problems.get(id) ?? []), issue]);
 	}
 	return problems;
@@ -195,7 +196,7 @@ export interface TPreflightIssue {
 	detail?: string;
 	/** Run time the issue happens at, if it has one */
 	time?: number;
-	/** A tip's or problem's words on its own layer, without its name: "Overlaps Melody's path", "Hit Twice", "Touching" */
+	/** A tip's or problem's words on its own layer, without its name: "Overlaps Melody's path", "Hit Twice", "Rolls", "Touching" */
 	label?: string;
 	/** The stretch of the run a framing issue lasts, for the Camera track */
 	span?: { from: number; to: number };
@@ -236,7 +237,7 @@ export interface TPreflightTarget {
 	workspace?: 'compose' | 'design';
 }
 
-export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'touching' | 'framing' | 'decor' | 'simulation' | 'song';
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'framing' | 'decor' | 'simulation' | 'song';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
@@ -488,6 +489,24 @@ function strikeIssues(project: TProject, result: TSimulationResult, names: TName
 			target: { ids: [strike.entityId], point: strike.position, time: strike.time }
 		};
 	});
+}
+
+/**
+ * A marble that stays on its platform instead of bouncing off it: "Melody rolls on Platform 12". A platform is for
+ * bouncing. Rails, switchbacks and the Finish are exempt, and so is a marble's last note (`rollingHits`).
+ */
+function rollIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
+	return rollingHits(project, result).map((roll) => ({
+		id: `roll:${roll.entityId}`,
+		kind: 'roll' as const,
+		severity: 'warning' as const,
+		laneId: roll.laneId,
+		title: `${names.lane(roll.laneId)} rolls on ${names.entity(roll.entityId)}`,
+		label: 'Rolls',
+		detail: `Stays on it after the note at ${formatTime(roll.time)} instead of bouncing off.`,
+		time: roll.time,
+		target: { ids: [roll.entityId], point: roll.position, time: roll.time }
+	}));
 }
 
 /** Two pieces closer than the least gap as the film shows them, where skins hang below their hitboxes: a tip, since every hit still plays */
