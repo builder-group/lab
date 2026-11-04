@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle } from 'lucide-react';
 import React from 'react';
 import { HelpTip } from '@/components';
-import { RailShape, SwitchbackShape, toPoints, TunnelShape } from '@/modules/compose/PieceLayer';
+import { FinishShape, RailShape, SwitchbackShape, toPoints, TunnelShape } from '@/modules/compose/PieceLayer';
 import { pieceKind } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
@@ -15,7 +15,7 @@ import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
  * there. Clicks pick pieces and titles or place a title, library drops skin the piece under the pointer.
  */
 export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
-	const { studio, frame, isPlacing, isBusy, onPick, onPlace, onDropAsset } = props;
+	const { studio, frame, isPlacing, isBusy, cover, coverLabel, onPick, onPlace, onDropAsset } = props;
 	const [draft] = React.useState(() => new DraftPreviewCx(studio));
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const canvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -77,6 +77,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 				>
 					<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 					<DraftOverlay draft={draft} />
+					{cover}
 					{!hasResult ? (
 						<div className="absolute inset-0 flex items-center justify-center text-[var(--text-tertiary)]">
 							<LoaderCircle className="animate-spin" size={22} />
@@ -85,8 +86,17 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 				</div>
 				<div className="mm-floating absolute top-2 left-2 flex items-center gap-1.5 py-1 pr-1.5 pl-2.5 text-[11px] text-[var(--text-secondary)]">
 					{isBusy ? <LoaderCircle className="animate-spin" size={11} /> : null}
-					<span className="font-medium text-[var(--text)]">Draft Preview</span>
-					<HelpTip side="right" text="Blender draws the real look. This preview follows the same camera." />
+					{coverLabel != null ? (
+						<>
+							<span className="font-medium text-[var(--text)]">{coverLabel}</span>
+							<HelpTip side="right" text="Blender renders the film in the background while you work: Flat Light first, then Fast lighting ahead of the playhead. Turn it off with Live Preview in the Blender menu." />
+						</>
+					) : (
+						<>
+							<span className="font-medium text-[var(--text)]">Draft Preview</span>
+							<HelpTip side="right" text="Blender draws the real look. This preview follows the same camera." />
+						</>
+					)}
 				</div>
 			</div>
 		</div>
@@ -99,13 +109,17 @@ interface TDraftPreviewProps {
 	isPlacing: boolean;
 	/** Blender is starting or rendering its preview, which replaces this one when ready */
 	isBusy: boolean;
+	/** Drawn over the frame, such as Blender's background preview frame; clicks still pick through the draft */
+	cover?: React.ReactNode;
+	/** Replaces the Draft Preview label while the cover shows a frame */
+	coverLabel?: string | null;
 	onPick: (entityId: string | null, shiftKey: boolean) => void;
 	/** Click while placing, in 0..1 image coordinates; ⇧-click keeps the tool for another placement */
 	onPlace: (u: number, v: number, keepTool: boolean) => void;
 	onDropAsset: (entityId: string, asset: { id: string; scope: string }) => void;
 }
 
-/** Rails, tunnels and switchbacks as lines in the theme's colours, titles as text and the selection outlines */
+/** Rails, tunnels, switchbacks and Finishes as lines in the theme's colours, titles as text and the selection outlines */
 const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	const { draft } = props;
 	const studio = draft.studio;
@@ -135,6 +149,7 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				if (kind === 'path') return <RailShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
 				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
 				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
+				if (kind === 'catcher') return <FinishShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
 				return null;
 			})}
 			{/* A skin's shape cue on its platform: chrome caps, a key, a lens or a grille, so a skin shows before Blender renders it */}

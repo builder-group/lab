@@ -48,6 +48,12 @@ export const commands = {
 	 *  in the save panel. Returns the destination path.
 	 */
 	copyFileOut: (packagePath: string, relativePath: string, destinationPath: string) => typedError<string, string>(__TAURI_INVOKE("copy_file_out", { packagePath, relativePath, destinationPath })),
+	/**  Background preview frames of a scene signature, started with the worker's `preview_render` */
+	blenderPreviewFrames: (packagePath: string, signature: string) => typedError<BlenderPreviewFramesDto, string>(__TAURI_INVOKE("blender_preview_frames", { packagePath, signature })),
+	/**  Points the running preview job at a new playhead: `{"order": [...], "refine": [...]}` frame numbers */
+	blenderPreviewTarget: (packagePath: string, signature: string, targetJson: string) => typedError<null, string>(__TAURI_INVOKE("blender_preview_target", { packagePath, signature, targetJson })),
+	/**  Stops the preview job after its current chunk; its frames stay */
+	blenderPreviewCancel: (packagePath: string, signature: string) => typedError<null, string>(__TAURI_INVOKE("blender_preview_cancel", { packagePath, signature })),
 	/**  Agent CLIs found on `PATH`, `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin` */
 	agentsDetect: () => typedError<AgentCliDto[], string>(__TAURI_INVOKE("agents_detect")),
 	/**  Writes the brief into `candidates/<runId>/` and starts the CLI there. Output streams as `agent-run-event`. */
@@ -149,6 +155,17 @@ export type BlenderJobPollDto = {
 	progressJson: string | null,
 	/**  The job's response envelope `{id, ok, result | error}` once it finished; taken on read */
 	responseJson: string | null,
+};
+
+export type BlenderPreviewFramesDto = {
+	/**  Absolute folder of the signature's frames: `<frame>.jpg` at Flat Light, `<frame>.fast.jpg` at Fast */
+	folder: string,
+	/**  Frame numbers rendered at Flat Light, ascending */
+	flat: number[],
+	/**  Frame numbers re-rendered with Fast lighting, ascending */
+	fast: number[],
+	/**  The job's `status.json`, if it started */
+	statusJson: string | null,
 };
 
 export type BlenderSessionDto = {

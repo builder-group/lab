@@ -18,6 +18,7 @@
 		"blender:check": "/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_apply_scene.py",
 		"blender:design": "/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_design.py",
 		"blender:film": "/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_film.py",
+		"blender:preview": "tsx scripts/export-blender-fixture.ts jingle-bells .local/preview/package brass 30 && /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_preview_frames.py",
 		"blender:loop": "tsx scripts/export-blender-fixture.ts loop .local/loop/package brass 30 && /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_loop.py",
 		"build": "tauri build",
 		"build:prod": "tauri build --config src-tauri/tauri.prod.conf.json",

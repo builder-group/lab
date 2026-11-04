@@ -1,5 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
+import { renderedSpans } from '@/modules/design/live-preview';
 import { createLoop } from '@/modules/simulation';
 import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';
@@ -66,6 +67,7 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 				<span className="w-[3px] rounded-l-[1px] bg-[var(--text-secondary)]" />
 			</span>
 			<LoopRegion cx={cx} zoom={zoom} />
+			<RenderBar cx={cx} zoom={zoom} />
 			<PlayheadHead cx={cx} zoom={zoom} />
 		</div>
 	);
@@ -92,6 +94,43 @@ const LoopRegion: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
 			style={{ left: loop.start * zoom, width: loop.length * zoom }}
 			title={`Loop ${formatTime(loop.start)} to ${formatTime(loop.end)}`}
 		/>
+	);
+};
+
+/**
+ * Film's render bar along the top of the ruler, like Final Cut's: a thin line over each span Blender's background
+ * preview has rendered, brighter where the frames have Fast lighting, over a faint track while it renders
+ */
+const RenderBar: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
+	const { cx, zoom } = props;
+	const workspace = useFeatureState(cx.$workspace);
+	const frames = useFeatureState(cx.design.live.$frames);
+	const isEnabled = useFeatureState(cx.design.live.$enabled);
+	const isRendering = useFeatureState(cx.design.live.$isRendering);
+	const flat = React.useMemo(() => (frames != null ? renderedSpans(frames.flat, frames.fps, frames.startTime) : []), [frames]);
+	const fast = React.useMemo(() => (frames != null ? renderedSpans(frames.fast, frames.fps, frames.startTime) : []), [frames]);
+	if (workspace !== 'design' || !isEnabled || frames == null || (!isRendering && flat.length === 0)) return null;
+	const songEnd = frames.startTime + frames.total / frames.fps;
+	return (
+		<span className="absolute top-[4px] h-[3px]" style={{ left: frames.startTime * zoom, width: (songEnd - frames.startTime) * zoom }}>
+			{isRendering ? <span className="absolute inset-0 rounded-[1px] bg-[var(--text-tertiary)] opacity-25" title="Rendering preview…" /> : null}
+			{flat.map((span) => (
+				<span
+					key={`flat:${span.start}`}
+					className="absolute top-0 h-full rounded-[1px] bg-[var(--good)] opacity-55"
+					style={{ left: (span.start - frames.startTime) * zoom, width: (span.end - span.start) * zoom }}
+					title={isRendering ? 'Blender preview rendered at Flat Light. Rendering preview…' : 'Blender preview rendered at Flat Light'}
+				/>
+			))}
+			{fast.map((span) => (
+				<span
+					key={`fast:${span.start}`}
+					className="absolute top-0 h-full rounded-[1px] bg-[var(--good)]"
+					style={{ left: (span.start - frames.startTime) * zoom, width: (span.end - span.start) * zoom }}
+					title="Blender preview rendered with Fast lighting"
+				/>
+			))}
+		</span>
 	);
 };
 

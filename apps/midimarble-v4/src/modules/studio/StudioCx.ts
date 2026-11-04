@@ -95,7 +95,8 @@ export class StudioCx {
 		getProject: () => this.project,
 		getResult: () => this.simulation.$result.get(),
 		getPackagePath: () => this.$path.get(),
-		getPlayhead: () => this.$playhead.get()
+		getPlayhead: () => this.$playhead.get(),
+		isPlaying: () => this.$playing.get()
 	});
 	readonly agents = new AgentCx({
 		getPackagePath: () => this.$path.get(),
@@ -162,8 +163,11 @@ export class StudioCx {
 		const inDesign = (): boolean => this.$workspace.get() === 'design' && this.project != null;
 		// The title bar's Blender chip shows whether Blender is installed in Compose too
 		void this.design.detect();
+		this.design.live.setActive(this.$workspace.get() === 'design');
 		const stops = [
 			this.$workspace.listen(({ value }) => {
+				// Background preview frames render only while Film is open
+				this.design.live.setActive(value === 'design');
 				if (value !== 'design') return;
 				void this.design.activate();
 				void this.library.refresh(false);
@@ -174,10 +178,12 @@ export class StudioCx {
 				void this.agents.reload();
 				void this.library.refresh();
 			}),
-			this.$playhead.listen(() => {
+			this.$playhead.listen(({ value }) => {
+				if (inDesign()) this.design.live.follow(value);
 				if (inDesign() && !this.$playing.get()) this.design.requestPreview();
 			}),
 			this.$playing.listen(({ value }) => {
+				if (inDesign()) this.design.live.follow(this.$playhead.get(), true);
 				if (inDesign() && !value) this.design.requestPreview();
 			}),
 			this.simulation.$result.listen(() => {

@@ -4,6 +4,8 @@ import { Err, Ok, type TResult } from 'tuple-result';
 import { blender, buildSceneDescription, type TApplySceneResult, type TPreviewFrameResult } from '@/modules/blender';
 import type { TProject } from '@/modules/project';
 import { createLoop, type TLoop, type TSimulationResult } from '@/modules/simulation';
+import { sceneSignature } from './live-preview';
+import { LivePreviewCx } from './LivePreviewCx';
 
 const PREVIEW_DEBOUNCE_MS = 220;
 
@@ -24,6 +26,8 @@ export class DesignCx {
 	readonly $placing = createState<'text' | null>(null);
 	/** A title just placed, whose Text field takes focus with its contents selected; the inspector clears it */
 	readonly $editingTitle = createState<string | null>(null);
+	/** Background Blender frames for playback, renewed after every scene sync */
+	readonly live: LivePreviewCx;
 
 	private syncedKey: string | null = null;
 	private idPixels: TIdPixels | null = null;
@@ -31,8 +35,12 @@ export class DesignCx {
 	private generation = 0;
 	private startedFor: string | null = null;
 	private queue: Promise<unknown> = Promise.resolve();
+	/** Applies that changed the Blender scene without changing the description (discarded Blender changes, a reset camera) */
+	private forcedApplies = 0;
 
-	constructor(private readonly source: TDesignSource) {}
+	constructor(private readonly source: TDesignSource) {
+		this.live = new LivePreviewCx({ getPlayhead: () => source.getPlayhead(), isPlaying: () => source.isPlaying() });
+	}
 
 	/** Loop range of the current simulation when the project is a seamless loop, as the scene sync writes it */
 	currentLoop(): TLoop | null {
@@ -168,6 +176,7 @@ export class DesignCx {
 	/** Saves and stops the worker of the package that was open */
 	async close(): Promise<void> {
 		clearTimeout(this.previewTimer);
+		this.live.close();
 		const packagePath = this.startedFor;
 		this.startedFor = null;
 		this.syncedKey = null;
@@ -225,6 +234,8 @@ export class DesignCx {
 		if (import.meta.env.DEV) console.debug('[design] apply_scene', applied);
 		this.$camera.set(applied.camera);
 		this.syncedKey = key;
+		if (isForced) this.forcedApplies++;
+		this.live.sceneApplied(packagePath, sceneSignature(build, String(this.forcedApplies)), applied);
 		void this.refreshLinks();
 		return true;
 	}
@@ -259,6 +270,7 @@ export interface TDesignSource {
 	getResult: () => TSimulationResult | null;
 	getPackagePath: () => string | null;
 	getPlayhead: () => number;
+	isPlaying: () => boolean;
 }
 
 export interface TDesignPreview {

@@ -1,5 +1,6 @@
 use super::detect;
 use super::mailbox;
+use super::preview;
 use super::session::BlenderState;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -167,6 +168,49 @@ pub fn blender_job_poll(package_path: String, job_id: String) -> Result<BlenderJ
         progress_json: progress.map(|value| value.to_string()),
         response_json: response.map(|value| value.to_string()),
     });
+}
+
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BlenderPreviewFramesDto {
+    /// Absolute folder of the signature's frames: `<frame>.jpg` at Flat Light, `<frame>.fast.jpg` at Fast
+    pub folder: String,
+    /// Frame numbers rendered at Flat Light, ascending
+    pub flat: Vec<u32>,
+    /// Frame numbers re-rendered with Fast lighting, ascending
+    pub fast: Vec<u32>,
+    /// The job's `status.json`, if it started
+    pub status_json: Option<String>,
+}
+
+/// Background preview frames of a scene signature, started with the worker's `preview_render`
+#[tauri::command]
+#[specta::specta]
+pub async fn blender_preview_frames(package_path: String, signature: String) -> Result<BlenderPreviewFramesDto, String> {
+    return run_blocking(move || {
+        let frames = preview::list_frames(&PathBuf::from(package_path), &signature).map_err(|error| error.to_string())?;
+        return Ok(BlenderPreviewFramesDto {
+            folder: frames.folder.display().to_string(),
+            flat: frames.flat,
+            fast: frames.fast,
+            status_json: frames.status.map(|value| value.to_string()),
+        });
+    })
+    .await;
+}
+
+/// Points the running preview job at a new playhead: `{"order": [...], "refine": [...]}` frame numbers
+#[tauri::command]
+#[specta::specta]
+pub fn blender_preview_target(package_path: String, signature: String, target_json: String) -> Result<(), String> {
+    return preview::write_target(&PathBuf::from(package_path), &signature, &target_json).map_err(|error| error.to_string());
+}
+
+/// Stops the preview job after its current chunk; its frames stay
+#[tauri::command]
+#[specta::specta]
+pub fn blender_preview_cancel(package_path: String, signature: String) -> Result<(), String> {
+    return preview::cancel(&PathBuf::from(package_path), &signature).map_err(|error| error.to_string());
 }
 
 /// Writes bytes to a package-relative path, such as motion files under `.cache/motion/`

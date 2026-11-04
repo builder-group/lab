@@ -167,6 +167,46 @@ export const blender = {
 		return this.request(packagePath, 'cancel', { jobId }, { timeoutMs: 30_000 });
 	},
 
+	/**
+	 * Starts the background preview frames job for the applied scene, or retargets it when it already runs for
+	 * this signature. Frames land in `.cache/preview-frames/<signature>/`.
+	 */
+	startPreviewRender(
+		packagePath: string,
+		options: { signature: string; fps: number; width: number; order: number[]; refine: number[] }
+	): Promise<TResult<TPreviewRenderStarted, BlenderError>> {
+		return this.request<TPreviewRenderStarted>(packagePath, 'preview_render', options, { timeoutMs: 60_000 });
+	},
+
+	/** Points the running preview job at a new playhead without the worker's queue */
+	async targetPreviewRender(packagePath: string, signature: string, target: { order: number[]; refine: number[] }): Promise<TResult<void, BlenderError>> {
+		if (!isTauri()) return Err(unavailable());
+		const result = await specta.commands.blenderPreviewTarget(packagePath, signature, JSON.stringify(target));
+		if (result.status === 'error') return Err(new BlenderError('HOST', result.error));
+		return Ok(undefined);
+	},
+
+	/** Stops the preview job after its current chunk; rendered frames stay */
+	async cancelPreviewRender(packagePath: string, signature: string): Promise<TResult<void, BlenderError>> {
+		if (!isTauri()) return Ok(undefined);
+		const result = await specta.commands.blenderPreviewCancel(packagePath, signature);
+		if (result.status === 'error') return Err(new BlenderError('HOST', result.error));
+		return Ok(undefined);
+	},
+
+	/** Frames of a signature on disk and the job's status */
+	async previewFrames(packagePath: string, signature: string): Promise<TResult<TPreviewFramesListing, BlenderError>> {
+		if (!isTauri()) return Err(unavailable());
+		const result = await specta.commands.blenderPreviewFrames(packagePath, signature);
+		if (result.status === 'error') return Err(new BlenderError('HOST', result.error));
+		return Ok({
+			folder: result.data.folder,
+			flat: result.data.flat,
+			fast: result.data.fast,
+			status: result.data.statusJson != null ? (JSON.parse(result.data.statusJson) as TPreviewRenderStatus) : null
+		});
+	},
+
 	inspect(packagePath: string): Promise<TResult<TInspectResult, BlenderError>> {
 		return this.request<TInspectResult>(packagePath, 'inspect');
 	},
@@ -356,4 +396,49 @@ export interface TRenderFilmResult {
 	renderSeconds: number;
 	msPerFrame: number;
 	hasAudio: boolean;
+}
+
+export interface TPreviewRenderStarted {
+	signature: string;
+	pid: number;
+	frames: number;
+	/** Preview frames per second: the scene's rate divided by a whole step */
+	fps: number;
+	width: number;
+	height: number;
+	/** Scene time of frame 0 in seconds */
+	startTime: number;
+	folder: string;
+	/** The job already ran for this signature and only took the new target */
+	retargeted: boolean;
+}
+
+/** `.cache/preview-frames/<signature>/status.json` */
+export interface TPreviewRenderStatus {
+	signature: string;
+	state: 'rendering' | 'done' | 'cancelled' | 'failed';
+	frames: number;
+	fps: number;
+	startTime: number;
+	width: number;
+	height: number;
+	pid: number;
+	/** Frames rendered at Flat Light and with Fast lighting */
+	flat: number;
+	fast: number;
+	/** Recent milliseconds per frame of each level */
+	flatMs: number | null;
+	fastMs: number | null;
+	level: 'flat' | 'fast' | null;
+	error?: string;
+	startedAt: number;
+	updatedAt: number;
+	flatDoneAt?: number;
+}
+
+export interface TPreviewFramesListing {
+	folder: string;
+	flat: number[];
+	fast: number[];
+	status: TPreviewRenderStatus | null;
 }

@@ -6,11 +6,14 @@ import type { StudioCx } from '@/modules/studio/StudioCx';
 import type { DesignCx } from './DesignCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
 import { DraftPreview } from './DraftPreview';
+import { lookupFrame, type TLivePreviewLevel } from './live-preview';
+import { LivePreviewFrame } from './LivePreviewFrame';
 
 /**
  * Viewer for the Blender scene at the playhead, like the viewer of Final Cut Pro. While Blender's preview is not
  * there (the browser, Blender not installed, starting or failed) the Draft Preview draws the run through the same
- * camera in the app, like Final Cut's proxy playback.
+ * camera in the app, like Final Cut's proxy playback. Playback and scrubbing show Blender's background preview
+ * frames over the Draft Preview where they are rendered.
  */
 export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	const { cx, studio, frame, onPick, onPlace, onDropAsset } = props;
@@ -19,6 +22,9 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	const error = useFeatureState(cx.$error);
 	const placing = useFeatureState(cx.$placing);
 	const [dropTarget, setDropTarget] = React.useState(false);
+	const [liveLevel, setLiveLevel] = React.useState<TLivePreviewLevel | null>(null);
+	const isLiveEnabled = useFeatureState(cx.live.$enabled);
+	const isLiveMode = useLiveMode(cx, studio);
 	const busy = status === 'starting' || status === 'syncing' || status === 'rendering';
 
 	// Escape leaves the placing mode before it reaches the studio shortcuts
@@ -47,7 +53,8 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}, [studio]);
 
-	const isDraft = preview == null || status === 'unavailable' || status === 'missing' || status === 'error';
+	const isDraft = preview == null || status === 'unavailable' || status === 'missing' || status === 'error' || isLiveMode;
+	const canShowLive = isLiveEnabled && status !== 'unavailable' && status !== 'missing';
 
 	function toImage(event: React.MouseEvent<HTMLElement>): { u: number; v: number } {
 		const rect = event.currentTarget.getBoundingClientRect();
@@ -90,6 +97,8 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					frame={frame}
 					isPlacing={placing != null}
 					isBusy={busy}
+					cover={canShowLive ? <LivePreviewFrame live={cx.live} studio={studio} onLevelChange={setLiveLevel} /> : null}
+					coverLabel={canShowLive && liveLevel != null ? `Blender Preview · ${liveLevel === 'fast' ? 'Fast' : 'Flat Light'}` : null}
 					onPick={onPick}
 					onPlace={placeTitle}
 					onDropAsset={onDropAsset}
@@ -154,6 +163,32 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 		</div>
 	);
 };
+
+/**
+ * Whether the viewer draws in the app rather than showing Blender's still: always while playing, and while
+ * paused when the still is not at the playhead yet but a background preview frame is
+ */
+function useLiveMode(cx: DesignCx, studio: StudioCx): boolean {
+	const subscribe = React.useCallback(
+		(onChange: () => void) => {
+			const stops = [studio.$playing.listen(onChange), studio.$playhead.listen(onChange), cx.live.$frames.listen(onChange), cx.live.$enabled.listen(onChange), cx.$preview.listen(onChange)];
+			return () => {
+				for (const stop of stops) stop();
+			};
+		},
+		[cx, studio]
+	);
+	const snapshot = React.useCallback((): boolean => {
+		if (studio.$playing.get()) return true;
+		const frames = cx.live.$frames.get();
+		if (!cx.live.$enabled.get() || frames == null || frames.folder === '') return false;
+		const time = studio.$playhead.get();
+		const preview = cx.$preview.get();
+		const isStillAtPlayhead = preview != null && Math.abs(preview.time - time) < 1e-3;
+		return !isStillAtPlayhead && lookupFrame(frames, time) != null;
+	}, [cx, studio]);
+	return React.useSyncExternalStore(subscribe, snapshot);
+}
 
 interface TDesignViewProps {
 	cx: DesignCx;

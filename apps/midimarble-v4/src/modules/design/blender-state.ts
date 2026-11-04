@@ -8,8 +8,12 @@ export interface TBlenderState {
 	detail: string;
 }
 
-export function blenderState(status: TDesignStatus, version: string | null, error: string | null = null): TBlenderState {
+export function blenderState(status: TDesignStatus, version: string | null, error: string | null = null, isRenderingPreview = false): TBlenderState {
 	const name = version != null ? `Blender ${version.split(' ')[0] ?? ''}` : 'Blender';
+	// The background preview renders in its own Blender while the worker itself is free
+	if (isRenderingPreview && (status === 'ready' || status === 'idle')) {
+		return { tone: 'busy', label: 'Rendering Preview', detail: `${name}: rendering the preview in the background…` };
+	}
 	switch (status) {
 		case 'unavailable':
 			return { tone: 'off', label: 'Blender', detail: 'Blender connects in the desktop app' };

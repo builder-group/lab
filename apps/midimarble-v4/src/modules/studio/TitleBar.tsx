@@ -122,7 +122,9 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 	const status = useFeatureState(cx.design.$status);
 	const version = useFeatureState(cx.design.$blenderVersion);
 	const error = useFeatureState(cx.design.$error);
-	const state = blenderState(status, version, error);
+	const isRenderingPreview = useFeatureState(cx.design.live.$isRendering);
+	const isLiveEnabled = useFeatureState(cx.design.live.$enabled);
+	const state = blenderState(status, version, error, isRenderingPreview);
 
 	let items: TMenuEntry[];
 	if (status === 'missing') {
@@ -134,6 +136,11 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 			commandItem(cx, 'design.editInBlender'),
 			commandItem(cx, 'design.restartBlender'),
 			'separator',
+			{
+				label: 'Live Preview',
+				checked: isLiveEnabled,
+				onSelect: () => cx.design.live.setEnabled(!isLiveEnabled)
+			},
 			{
 				label: 'Show Blender Log',
 				disabled: logPath == null,
