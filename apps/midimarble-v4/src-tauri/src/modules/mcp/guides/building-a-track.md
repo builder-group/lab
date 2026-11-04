@@ -6,7 +6,7 @@ Each marble falls and bounces. A **hit** is a moment in the song a marble must s
 
 `run_command('build.track')`, "Build Track", builds every marble's open hits in time order, with platforms, rails or switchbacks across long gaps, and ends each marble in a Finish. Track pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
 
-A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds the rest. `build.replace` re-places broken platforms; for an open hit, change the ones before it or place it by hit. Then adjust by hand.
+A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds the rest. `build.replace` (Fix Hits) fixes broken hits; for an open hit, change the ones before it or place it by hit. Then adjust by hand.
 
 Two arguments steer it, and neither is needed by default:
 
@@ -31,9 +31,9 @@ To fix a touching pair or a second strike, try these in order of how little they
 ## One step at a time
 
 1. `build.next` takes the next step: a platform at the next open hit, or a switchback or rail when a long gap comes first. Where none fits it takes the step Build Track would, or says what to do; a second press then places a platform at the note after the gap. A reply with `changed: false` placed nothing, and it made no Undo step.
-2. `build.autoPlace`, "Add Platform", solves the selected platform's tilt and bounce so it lands on time, in that platform's Undo step. With a hit selected through `args.select` it places one there.
+2. `build.placeAgain`, "Place Again", solves the selected platform's tilt and bounce so it lands on time, in that platform's Undo step. To place one at an open hit, select the hit through `args.select` and run `build.next`.
 3. `build.continue` accepts a suggested pattern. `build.repeat` and `build.mirror` copy the last platform's tilt, which makes zigzags.
-4. `build.replace` re-places broken platforms. `edit.firstProblem` jumps to the first problem for the person.
+4. `build.replace` (Fix Hits) fixes broken hits. `edit.firstProblem` jumps to the first problem for the person.
 5. `build.addFinish` ends a marble's run in a catch once all its hits are on time.
 
 Build marbles together in time order, since they can collide with each other's pieces. The same project and the same calls always give the same track.

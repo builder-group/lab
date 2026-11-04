@@ -879,7 +879,7 @@ textarea {
 	color: var(--text);
 }
 
-/* Checking… or Re-placing…: dimmed, never a stale count */
+/* Checking… or Fixing…: dimmed, never a stale count */
 .mm-hit-summary[data-tone='pending'] {
 	opacity: 0.6;
 }
@@ -917,7 +917,7 @@ button.mm-hit-summary:hover {
 	border: 1.5px dashed var(--warn);
 }
 
-/* Notice actions such as Undo and Re-place, plain text buttons like Mail's undo toast */
+/* Notice actions such as Undo and Fix Hits, plain text buttons like Mail's undo toast */
 .mm-notice-action {
 	height: 24px;
 	padding: 0 8px;
@@ -937,7 +937,7 @@ button.mm-hit-summary:hover {
 	color: var(--on-accent);
 }
 
-/* A Fix-it beside a status pill, such as Re-place in a Blocked platform's inspector header */
+/* A Fix-it beside a status pill, such as Place Again in a Blocked platform's inspector header */
 .mm-fix-it {
 	display: inline-grid;
 	place-items: center;

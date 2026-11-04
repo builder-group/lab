@@ -47,7 +47,7 @@ export type TComposeKeyAction =
 	| { type: 'nudge'; degrees: number }
 	| { type: 'repeat' }
 	| { type: 'mirror' }
-	| { type: 'autoPlace' }
+	| { type: 'placeAgain' }
 	| { type: 'finishPath' }
 	| { type: 'undoPathPoint' }
 	| { type: 'follow' };
@@ -124,7 +124,7 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 		case 'm':
 			return { type: 'mirror' };
 		case 'a':
-			return { type: 'autoPlace' };
+			return { type: 'placeAgain' };
 	}
 	return null;
 }

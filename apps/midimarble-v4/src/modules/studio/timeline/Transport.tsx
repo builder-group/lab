@@ -66,8 +66,8 @@ interface TTransportProps {
  * The hit summary, like Xcode's issue count, read from the same problem model as the export sheet, Layers and
  * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. A click goes
  * to the first problem in time order. Its menu (the chevron or a right-click) lists every problem in time order, scrolling when long, then Show First
- * Problem and Re-place Broken Platforms. Until the run for the current edit arrives it reads "Checking…", and
- * while Re-place runs only its progress line shows, in the notice.
+ * Problem and Fix Hits. Until the run for the current edit arrives it reads "Checking…", and
+ * while Fix Hits runs only its progress line shows, in the notice.
  */
 const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
@@ -94,7 +94,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		return (
 			<span className="mm-hit-summary" data-tone="pending" role="status" aria-live="polite" data-quick-help="hitSummary">
 				<LoaderCircle size={12} strokeWidth={2} className="animate-spin" aria-hidden />
-				{building != null ? 'Building…' : replacing != null ? 'Re-placing…' : 'Checking…'}
+				{building != null ? 'Building…' : replacing != null ? 'Fixing…' : 'Checking…'}
 			</span>
 		);
 	}
@@ -143,7 +143,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		'separator' as const,
 		{
 			// One label with the edit's notice: "Fix 33 Hits", "Move Windmill 1 Clear"
-			label: plan == null || plan.isEmpty ? 'Re-place Broken Platforms' : plan.label,
+			label: plan == null || plan.isEmpty ? 'Fix Hits' : plan.label,
 			disabled: plan == null || plan.isEmpty || !sceneryWorks || compose == null || compose.assist.isReplacing,
 			onSelect: () => void compose?.assist.replace()
 		},

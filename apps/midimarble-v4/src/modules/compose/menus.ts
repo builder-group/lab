@@ -41,7 +41,6 @@ export function canvasMenu(compose: ComposeCx): TMenuEntry[] {
 		commandItem(cx, 'build.track'),
 		commandItem(cx, 'build.repeat'),
 		commandItem(cx, 'build.mirror'),
-		commandItem(cx, 'build.autoPlace'),
 		compose.assist.hasGhosts ? commandItem(cx, 'build.continue') : null,
 		'separator',
 		commandItem(cx, 'view.fitAll'),

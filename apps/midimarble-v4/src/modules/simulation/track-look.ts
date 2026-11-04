@@ -6,7 +6,7 @@ import type { TPieceShape } from './shapes';
 import { HIT_TOLERANCE, IMPACT_SPEED, type TResolvedPiece, type TSimulationResult } from './types';
 
 // How a track looks, beyond whether it plays on time: how close its pieces come as the film shows them and how often a
-// marble strikes a platform. Build Track, Next, Re-place and the problem list all read these.
+// marble strikes a platform. Build Track, Next, Fix Hits and the problem list all read these.
 
 /**
  * Least air between two pieces as the film shows them, in metres: a default marble's radius. The film sees skins, not

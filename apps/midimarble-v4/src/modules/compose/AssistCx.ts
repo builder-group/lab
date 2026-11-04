@@ -232,26 +232,20 @@ export class AssistCx {
 		if (this.$queuedNext.get() !== 0) this.$queuedNext.set(0);
 	}
 
-	/** A: re-solves the selected piece's angle, or places the next open hit like Next */
-	autoPlace(type = 'platform'): void {
+	/** Place Again (A) for the selected platform; false when no piece that plays a note is selected, where A means Next */
+	placeAgain(): boolean {
 		const project = this.studio.project;
-		const result = this.currentResult();
 		const client = this.studio.simulation.assists;
-		if (project == null || result == null || client == null) return;
+		if (project == null || client == null) return false;
 		const ids = selectedPieceIds(project, this.studio.$selection.get());
 		const entity = ids.length === 1 ? project.entities.find((item) => item.id === ids[0]) : undefined;
 		const link = entity?.components.hitLink;
 		const pieceType = entity?.components.piece?.type;
-		if (entity == null || link == null || pieceType == null) {
-			const target = findStepTarget(project, result, this.studio.$selection.get());
-			if (target != null) void this.place(target, type);
-			else this.studio.notify('No note is open for a platform. Select a platform to tilt it again, or add a note in the timeline.');
-			return;
-		}
+		if (entity == null || link == null || pieceType == null) return false;
 		if (!isMusicalPiece(pieceType)) {
 			const kind = layoutOf(pieceType);
-			this.studio.notify(kind === 'path' || kind === 'tube' ? "Add Platform tilts platforms only. Drag the path's handles to shape it." : 'Add Platform tilts platforms only. Turn this piece by hand.');
-			return;
+			this.studio.notify(kind === 'path' || kind === 'tube' ? "Place Again tilts platforms only. Drag the rail's handles to shape it." : 'Place Again tilts platforms only. Turn this piece by hand.');
+			return true;
 		}
 		client.autoPlace({ project, laneId: link.laneId, hitId: link.hitId, type: pieceType, entityId: entity.id }).then(
 			(answer) => {
@@ -269,6 +263,7 @@ export class AssistCx {
 				if (!isSuperseded(error)) this.studio.notify(autoPlaceFailure(error));
 			}
 		);
+		return true;
 	}
 
 	/**
@@ -506,7 +501,7 @@ export class AssistCx {
 		});
 	}
 
-	/** `build.stop` and Stop on an agent's pill: ends a running Build Track or Re-place; what it did stays */
+	/** `build.stop` and Stop on an agent's pill: ends a running Build Track or Fix Hits; what it did stays */
 	stopBuild(): void {
 		if (this.buildRun != null) this.buildRun.isCancelled = true;
 		if (this.replaceRun != null) this.replaceRun.isCancelled = true;
@@ -533,7 +528,7 @@ export class AssistCx {
 	/**
 	 * Build Track: builds every open hit of every marble in time order and ends each marble in a Finish, as one undo
 	 * step. Each piece shows on the wall as it is found, with progress and Stop in the notice. Another edit stops it,
-	 * like Re-place, and what it built so far stays.
+	 * like Fix Hits, and what it built so far stays.
 	 */
 	async buildTrack(from?: { laneId: string; hitId: string }, gapPiece?: TBuildGapPreference): Promise<TBuildOutcome | null> {
 		const project = this.studio.project;
@@ -606,7 +601,7 @@ export class AssistCx {
 			const lastFix: TLastFix = { projectId: project.id, message: report.message, details: report.details, revision: present?.revision ?? outcome.project.revision };
 			this.$lastFix.set(lastFix);
 			const broken = brokenHits(result.hits).length;
-			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [{ label: this.replacePlan(present, result).label, title: 'Re-place the broken platforms', run: () => void this.replace() }] : [], { details: report.details });
+			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [{ label: this.replacePlan(present, result).label, title: 'Fix the broken hits', run: () => void this.replace() }] : [], { details: report.details });
 		} else this.studio.notify(report.message);
 		return outcome;
 	}
@@ -629,10 +624,10 @@ export class AssistCx {
 	 * on: the inspector's Fix-it and the hit summary's menu show only a fix that passed
 	 */
 	readonly $pieceFixes = createState<Record<string, TPieceFixCheck>>({});
-	/** The run Re-place is working on, if any; Stop sets `isCancelled` */
+	/** The run Fix Hits is working on, if any; Stop sets `isCancelled` */
 	readonly $replacing = createState<{ done: number; total: number } | null>(null);
 	/**
-	 * The result of the latest Re-place in this project, its two-line notice and the full text, so the hit
+	 * The result of the latest Fix Hits in this project, its two-line notice and the full text, so the hit
 	 * summary's Show Last Fix brings it back after the notice is gone, like Xcode's report navigator
 	 */
 	readonly $lastFix = createState<TLastFix | null>(null);
@@ -646,7 +641,7 @@ export class AssistCx {
 
 	/**
 	 * After an edit, compares the new run with the one before it. When later hits became Blocked or Missed, the
-	 * edit's notice gets "Fix N Hits", or a notice says so; undo, redo and Re-place itself do not ask.
+	 * edit's notice gets "Fix N Hits", or a notice says so; undo, redo and Fix Hits itself do not ask.
 	 */
 	private offerFixIt(): void {
 		const project = this.studio.project;
@@ -655,7 +650,7 @@ export class AssistCx {
 		const previous = this.baseline;
 		if (previous?.projectId === project.id && previous.revision === result.revision) return;
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
-		// A run Re-place made is not a reference for the next one: its release came from the reference itself
+		// A run Fix Hits made is not a reference for the next one: its release came from the reference itself
 		if (this.replaceRun == null && this.buildRun == null && result.revision !== this.replacedRevision) this.rememberGood(project, result);
 		if (previous == null || previous.projectId !== project.id || previous.revision > result.revision || this.replaceRun != null || this.buildRun != null) return;
 		if (this.studio.$historyReveal.get()?.revision === result.revision) return;
@@ -691,14 +686,14 @@ export class AssistCx {
 		return this.isPlacing || this.replaceRun != null || this.buildRun != null || this.pendingContinue != null || this.$ghosts.get().pendingGap != null;
 	}
 
-	/** Shows the latest Re-place result of this project again, with its Details */
+	/** Shows the latest Fix Hits result of this project again, with its Details */
 	showLastFix(): void {
 		const last = this.$lastFix.get();
 		if (last == null || last.projectId !== this.studio.project?.id) return;
 		this.studio.notify(last.message, 'info', { details: last.details });
 	}
 
-	/** What Re-place Broken Platforms will change for the run as it is, for its label in the notice and the hit summary */
+	/** What Fix Hits will change for the run as it is, for its label in the notice and the hit summary */
 	replacePlan(project: TProject, result: TSimulationResult): TReplacePlan {
 		const kinds = new Map<string, TSceneryFixKind | null>();
 		for (const [id, check] of Object.entries(this.$pieceFixes.get())) {
@@ -726,7 +721,7 @@ export class AssistCx {
 
 	/**
 	 * Runs the what-if of a piece's Fix-it for the run as it is, once per revision, so the Fix-it is offered only
-	 * when it will work, like Xcode's Fix-its: Move Clear, Place Again or Delete for scenery, Re-place for a
+	 * when it will work, like Xcode's Fix-its: Move Clear, Place Again or Delete for scenery, Fix Hits for a
 	 * platform another marble hits. The answer lands in `$pieceFixes`.
 	 */
 	checkPieceFix(entityId: string): void {
@@ -753,7 +748,7 @@ export class AssistCx {
 	}
 
 	/**
-	 * Re-place: runs Auto place again from the first broken hit onward as one undo step, with progress in the
+	 * Fix Hits: runs Auto place again from the first broken hit onward as one undo step, with progress in the
 	 * notice and Stop. With `only` (`laneId/hitId` keys), just those platforms.
 	 */
 	async replace(only?: string[]): Promise<TReplaceOutcome | null> {
@@ -764,7 +759,7 @@ export class AssistCx {
 		const targets = brokenHits(result.hits, only);
 		const scenery = only == null ? blockedScenery(project, result) : [];
 		if (!targets.length && !scenery.length && (only != null || lookPieces(project, result).length === 0)) {
-			this.studio.notify(only == null ? 'Every platform lands its note; nothing to re-place' : 'This platform already lands on time');
+			this.studio.notify(only == null ? 'Every platform lands its note; nothing to fix' : 'This platform already lands on time');
 			return null;
 		}
 		const run = { isCancelled: false };
@@ -772,15 +767,15 @@ export class AssistCx {
 		this.dispatch({ type: 'dismiss' });
 		const startRevision = project.revision;
 		let expected = startRevision;
-		const stop = { label: 'Stop', title: 'Keep the platforms re-placed so far', run: () => (run.isCancelled = true) };
+		const stop = { label: 'Stop', title: 'Keep the hits fixed so far', run: () => (run.isCancelled = true) };
 		const from = Math.min(targets[0]?.targetTime ?? Infinity, ...scenery.map((piece) => piece.entryTime ?? piece.hitTime ?? Infinity));
 		// Like Finder's copy progress: how far, in broken hits fixed, and how long is left once the rate is known
 		const startedAt = performance.now();
 		const estimate = createEstimate();
 		const progressText = (at: number, done: number, total: number, fraction: number): string => {
-			if (only != null) return `Re-placing the platform at ${formatTime(at)}`;
+			if (only != null) return `Placing the platform at ${formatTime(at)} again`;
 			const left = estimate.update(performance.now() - startedAt, fraction, done, total);
-			return [`Re-placing platforms · ${done} of ${total} broken ${total === 1 ? 'hit' : 'hits'} fixed`, left].filter(Boolean).join(' · ');
+			return [`Fixing hits · ${done} of ${total} fixed`, left].filter(Boolean).join(' · ');
 		};
 		const progressId = this.studio.notify(progressText(from, 0, targets.length, 0), 'info', { progress: 0, actions: [stop] });
 		const before = only == null ? [...this.lastGood.values()].flat() : undefined;
@@ -791,7 +786,7 @@ export class AssistCx {
 				project,
 				result,
 				{
-					// The assists worker, so Auto place resumes from the run Re-place just simulated
+					// The assists worker, so Auto place resumes from the run Fix Hits just simulated
 					simulate: async (next) => client.simulateAssist(next),
 					// Stop also ends a search spread over the assists pool between its stages
 					autoPlace: async (next, hit, entity) => {
@@ -819,7 +814,7 @@ export class AssistCx {
 				{ only, before }
 			);
 		} catch (error: unknown) {
-			this.studio.notify(`Re-place stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
 		} finally {
 			this.replaceRun = null;
 			this.$replacing.set(null);
@@ -834,7 +829,7 @@ export class AssistCx {
 		const added = addedProblems(project, result, outcome.project, outcome.result);
 		const message = !changed
 			? only != null
-				? "No tilt lands this platform on time. Choose Re-place Broken Platforms in the hit summary's menu, or turn it by hand."
+				? "No tilt lands this platform on time. Choose Fix Hits in the hit summary's menu, or turn it by hand."
 				: 'No new tilt helps these platforms without adding a problem. Turn them by hand, or undo the edit that broke them.'
 			: replaceResultMessage(project, result.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
 		if (changed) {
@@ -881,7 +876,7 @@ export class AssistCx {
 	}
 
 	/**
-	 * The Fix-it of a piece that follows a marble and is Blocked or hit by another marble (Move Clear, or Re-place
+	 * The Fix-it of a piece that follows a marble and is Blocked or hit by another marble (Move Clear, or Fix Hits
 	 * of the other marble's platform before the hit), applied only when its what-if run breaks no hit and adds no
 	 * problem, as one undo step
 	 */
@@ -1050,7 +1045,7 @@ export interface TPieceFixCheck {
 	fix: TPieceFix | null;
 }
 
-/** A Re-place result as its notice showed it */
+/** A Fix Hits result as its notice showed it */
 export interface TLastFix {
 	projectId: string;
 	/** The two-line notice */

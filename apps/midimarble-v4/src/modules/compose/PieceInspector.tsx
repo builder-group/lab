@@ -250,7 +250,7 @@ interface TPieceInspectorProps {
 }
 
 /**
- * Re-place under a Blocked, Missed or Stopped platform's status pill, or an early or late one a drag left where it
+ * Place Again under a Blocked, Missed or Stopped platform's status pill, or an early or late one a drag left where it
  * lies, like an Xcode Fix-it: places this platform again on its own, as one undo step
  */
 export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: string }> = (props) => {
@@ -267,7 +267,7 @@ export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: stri
 		>
 			{/* The placing wand, as in the step bar */}
 			<WandSparkles size={12} strokeWidth={1.9} />
-			Re-place
+			Place Again
 		</button>
 	);
 };
@@ -276,7 +276,7 @@ export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: stri
  * The Fix-it beside a piece that follows a marble and is Blocked or hit by another marble. Its what-if runs as
  * soon as the piece shows, like Xcode's Fix-its, so the button offers only what will work: Place Again (a bridge
  * suggested again for its gap), Move Clear or Delete (a Blocked piece the run passes through and never uses) for
- * scenery, Re-place for a platform another marble hits (that marble's platform before the hit tilts again).
+ * scenery, Place Again for a platform another marble hits (that marble's platform before the hit tilts again).
  * When nothing passes it stays dimmed with the reason as its tooltip. One undo step either way.
  */
 export const FixPieceButton: React.FC<{ cx: StudioCx; entityId: string; isPlatform: boolean }> = (props) => {
@@ -298,7 +298,7 @@ export const FixPieceButton: React.FC<{ cx: StudioCx; entityId: string; isPlatfo
 		setIsApplying(true);
 		void compose.assist.fixPiece(entityId).finally(() => setIsApplying(false));
 	}
-	const fallback = isPlatform ? 'Re-place' : 'Move Clear';
+	const fallback = isPlatform ? 'Place Again' : 'Move Clear';
 	const label = fix == null ? 'Checking…' : (fix.label ?? fallback);
 	const title = fix == null ? 'Trying the fix on a copy of the track first' : fix.rebuildFrom != null ? fix.message : works ? 'Tried on a copy of the track first: it breaks no hit and adds no problem' : fix.message;
 	return (

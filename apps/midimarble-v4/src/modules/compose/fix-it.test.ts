@@ -61,7 +61,7 @@ describe('newlyBroken function', () => {
 });
 
 describe('replaceLabel function', () => {
-	it('should be a verb and the count of broken hits, which are known before Re-place runs', () => {
+	it('should be a verb and the count of broken hits, which are known before Fix Hits runs', () => {
 		expect(replaceLabel(24)).toBe('Fix 24 Hits');
 		expect(replaceLabel(1, 'Hit 3 of Melody')).toBe('Fix Hit 3 of Melody');
 		expect(replaceLabel(1)).toBe('Fix 1 Hit');
@@ -194,7 +194,7 @@ describe('replaceBroken function', () => {
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
 		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
 		expect(resultMessage(edited, broken, outcome)).toMatch(
-			new RegExp(`^Melody now starts just before its first note\\. Re-placed \\d+ platforms?.*,? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`)
+			new RegExp(`^Melody now starts just before its first note\\. Placed \\d+ platforms? again.*,? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`)
 		);
 	}, 120_000);
 
@@ -232,7 +232,7 @@ describe('replaceBroken function', () => {
 		expect(outcome.releases).toEqual([]);
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
 		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
-		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Re-placed \\d+ platforms?.*,? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`));
+		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Placed \\d+ platforms? again.*,? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`));
 	}, 60_000);
 });
 
@@ -301,7 +301,7 @@ describe('moveClear function', () => {
 		expect(Math.hypot((offset?.x ?? 0) - 0.1, (offset?.y ?? 0) - 0.2)).toBeCloseTo(0.035, 4);
 	});
 
-	it('should name Move Clear in the Re-place plan for Blocked scenery', () => {
+	it('should name Move Clear in the Fix Hits plan for Blocked scenery', () => {
 		const { project, result } = createBlocked();
 
 		const plan = replacePlan(project, result);
@@ -329,7 +329,7 @@ describe('moveClear function', () => {
 
 		// Assert
 		expect(plan.label).toBe('Fix Hit 1 of Marble 1');
-		expect(plan.title).toBe('Re-places the platform so the hit lands on time and deletes Windmill 1');
+		expect(plan.title).toBe('Places the platform again so the hit lands on time and deletes Windmill 1');
 		expect(plan.title.split(' ').length).toBeLessThanOrEqual(15);
 	});
 
@@ -398,13 +398,13 @@ describe('replaceResultMessage function', () => {
 
 		// Assert
 		expect(message).toBe(
-			'Re-placed 4 platforms, placed Rail 2 again, moved Windmill 1 clear, and fixed the broken hit: 1 of 1 hit on time · 1 other problem · 1 new problem: Bass hits Switchback 6 of Melody'
+			'Placed 4 platforms again, placed Rail 2 again, moved Windmill 1 clear, and fixed the broken hit: 1 of 1 hit on time · 1 other problem · 1 new problem: Bass hits Switchback 6 of Melody'
 		);
 	});
 });
 
 describe('replaceResultSummary function', () => {
-	it('should say in one line what Re-place fixed and changed, with the full text left for Details', () => {
+	it('should say in one line what Fix Hits fixed and changed, with the full text left for Details', () => {
 		// Prepare: 3 broken hits, 2 fixed, a rail deleted and a release moved
 		const project = oneMarble();
 		const withPieces: TProject = { ...project, entities: [...project.entities, { id: 'rail', name: 'Rail 1', components: {} }] };
@@ -416,7 +416,7 @@ describe('replaceResultSummary function', () => {
 		const summary = replaceResultSummary(withPieces, before, outcome, { label: '2 of 3 hits on time', hitProblems: 1, added: [] });
 
 		// Assert
-		expect(summary).toBe('Fixed 2 of 3 hits · re-placed 13 platforms · moved the release · deleted Rail 1 · 2 of 3 hits on time');
+		expect(summary).toBe('Fixed 2 of 3 hits · placed 13 platforms again · moved the release · deleted Rail 1 · 2 of 3 hits on time');
 	});
 });
 
@@ -425,7 +425,7 @@ describe('addedProblems function', () => {
 		return { revision: project.revision, duration: 10, marbles: [], pieces: [], contacts, hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } };
 	}
 
-	it('should count another marble hitting a piece, except ahead of the marble being re-placed', () => {
+	it('should count another marble hitting a piece, except ahead of the marble being fixed', () => {
 		// Prepare: Bass's marble hits a switchback of Melody at 0:05.00
 		const base = createProject();
 		const [melody] = base.music.lanes;

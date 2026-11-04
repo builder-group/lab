@@ -518,7 +518,7 @@ export function prepareAutoPlace(
 			.marble?.radius ?? 0;
 	const pieceLength = resolvePieceParams(baseType, base.components.piece?.params ?? {})['length'];
 	const length = pieceLength ?? resolvePieceParams('platform', {})['length'] ?? 0.09;
-	// Placed in the middle of a run a person or Re-place is mending, the pieces after it follow the marble wherever the
+	// Placed in the middle of a run a person or Fix Hits is mending, the pieces after it follow the marble wherever the
 	// new tilt sends it, so the tilt that keeps closest to the old run wins and only what came before it is judged
 	const isMending = lane.hits.slice(index + 1).some((later) => owners.has(later.id));
 	const minTravel = length + 2 * CLEARANCE;

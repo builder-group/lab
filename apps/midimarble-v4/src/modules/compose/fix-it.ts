@@ -27,7 +27,7 @@ import { resolvedPieceShapes, shapesGap } from '@/modules/simulation/clearance';
 import { preflightExport, type TPreflightIssue } from '@/modules/design/export-preflight';
 
 // Fix-its after edits that break the run, like Xcode's: the edit's notice, the Blocked or Missed platform's
-// inspector header and the hit summary's menu offer Re-place, which runs Auto place again for the broken hits.
+// inspector header and the hit summary's menu offer Fix Hits, which runs Auto place again for the broken hits.
 // Blocked scenery (a windmill, switchback, rail or tunnel that follows a marble) gets Move Clear instead.
 
 /** A hit whose platform no longer plays it: Blocked, Missed or Stopped */
@@ -40,7 +40,7 @@ function needsFix(project: TProject, hit: THitResult): boolean {
 }
 
 /**
- * The broken hits Re-place counts in its label, in time order: Blocked, Missed or Stopped hits, and the early or
+ * The broken hits Fix Hits counts in its label, in time order: Blocked, Missed or Stopped hits, and the early or
  * late ones after the first of them on the same marble, which the same edit usually pushed off. With `only`,
  * just those hits (`laneId/hitId` keys) when their platform does not land on time.
  */
@@ -60,7 +60,7 @@ export function brokenHits(results: THitResult[], only?: string[]): THitResult[]
 
 /**
  * "Fix 24 Hits", or "Fix Hit 3 of Melody" for one: a verb and the count, like Figma's quick actions. The label
- * counts the broken hits, which are known before Re-place runs; how many platforms it tilts again is known only
+ * counts the broken hits, which are known before Fix Hits runs; how many platforms it tilts again is known only
  * after, and the result names it.
  */
 export function replaceLabel(count: number, hitName?: string): string {
@@ -68,7 +68,7 @@ export function replaceLabel(count: number, hitName?: string): string {
 	return `Fix ${count} Hits`;
 }
 
-/** What Re-place Broken Platforms will do, so its button names every kind of change before it runs */
+/** What Fix Hits will do, so its button names every kind of change before it runs */
 export interface TReplacePlan {
 	/** Broken hits it fixes by tilting platforms again */
 	platforms: number;
@@ -87,7 +87,7 @@ export interface TReplacePlan {
 	 */
 	label: string;
 	/**
-	 * The tooltip, one sentence of about 15 words saying what it does: "Re-places platforms so each hit lands on
+	 * The tooltip, one sentence of about 15 words saying what it does: "Places platforms again so each hit lands on
 	 * time, moves Melody's release and deletes Rail 1"
 	 */
 	title: string;
@@ -95,7 +95,7 @@ export interface TReplacePlan {
 }
 
 /**
- * The plan of Re-place Broken Platforms for the run as it is: the broken hits, the Blocked scenery and the
+ * The plan of Fix Hits for the run as it is: the broken hits, the Blocked scenery and the
  * releases `releaseFix` moves given `before`, the hits from before the edit that broke the run. `sceneryFixes`
  * holds the fix a what-if found for a Blocked piece (`sceneryFix`), so the label names what will happen to it;
  * a piece not checked yet reads Move Clear.
@@ -121,19 +121,19 @@ export function replacePlan(project: TProject, result: TSimulationResult, before
 		return fix === 'delete' ? `deletes ${name}` : fix === 'placeAgain' ? `places ${name} again` : `moves ${name} clear`;
 	};
 	const steps = [
-		platforms > 0 ? (platforms === 1 ? 'Re-places the platform so the hit lands on time' : 'Re-places platforms so each hit lands on time') : '',
+		platforms > 0 ? (platforms === 1 ? 'Places the platform again so the hit lands on time' : 'Places platforms again so each hit lands on time') : '',
 		releases.length > 0 ? `moves the release of ${joinWords(releases)}` : '',
 		looks.length > 0 ? 'Tilts again what a marble strikes twice or what touches' : '',
 		...(blocked.length > 2 ? [`fixes ${blocked.length} blocked pieces`] : blocked.map(sceneryVerb))
 	].filter(Boolean);
-	const title = steps.length ? capitalize(joinWords(steps)) : 'Nothing to re-place';
+	const title = steps.length ? capitalize(joinWords(steps)) : 'Nothing to fix';
 	return {
 		platforms,
 		scenery,
 		sceneryIds: blocked,
 		releases,
 		looks,
-		label: label === '' ? 'Re-place Broken Platforms' : label,
+		label: label === '' ? 'Fix Hits' : label,
 		title,
 		isEmpty: platforms === 0 && scenery.length === 0 && looks.length === 0
 	};
@@ -150,7 +150,7 @@ export interface TFixStanding {
 }
 
 /**
- * The fix result after Re-place, in words.md's form: what changed, then how the run stands, ending with the hit
+ * The fix result after Fix Hits, in words.md's form: what changed, then how the run stands, ending with the hit
  * summary's label and the problems the fix added, like Xcode's new issues after a Fix-it. It names every piece it
  * changed besides platforms, and how many of the broken hits are fixed, since a moved release or one new tilt
  * often fixes many platforms at once.
@@ -166,7 +166,7 @@ export function replaceResultMessage(
 		? `${releases.join(' and ')} now ${releases.length === 1 ? 'starts' : 'start'} just before ${releases.length === 1 ? 'its' : 'their'} first note. `
 		: '';
 	const changes = [
-		outcome.replaced > 0 ? `re-placed ${outcome.replaced} ${outcome.replaced === 1 ? 'platform' : 'platforms'}` : '',
+		outcome.replaced > 0 ? `placed ${outcome.replaced} ${outcome.replaced === 1 ? 'platform' : 'platforms'} again` : '',
 		outcome.moved.length > 0 ? `placed ${joinWords(outcome.moved.map((id) => pieceName(outcome.project, id)))} again` : '',
 		outcome.cleared.length > 0 ? `moved ${joinWords(outcome.cleared.map((id) => pieceName(project, id)))} clear` : '',
 		(outcome.removed ?? []).length > 0 ? `deleted ${joinWords((outcome.removed ?? []).map((id) => pieceName(project, id)))}, which the new run passes through and no longer uses` : ''
@@ -183,9 +183,9 @@ export function replaceResultMessage(
 }
 
 /**
- * The two-line result notice after Re-place, with the full `replaceResultMessage` behind its Details: how many
+ * The two-line result notice after Fix Hits, with the full `replaceResultMessage` behind its Details: how many
  * hits it fixed, what it changed in a few words, then the hit summary's label and the problems it added, like
- * "Fixed 37 hits · re-placed 13 platforms · deleted Rail 1 · 108 of 108 hits on time"
+ * "Fixed 37 hits · placed 13 platforms again · deleted Rail 1 · 108 of 108 hits on time"
  */
 export function replaceResultSummary(
 	project: TProject,
@@ -200,7 +200,7 @@ export function replaceResultSummary(
 	const others = outcome.moved.length + outcome.cleared.length;
 	const parts = [
 		total === 0 ? '' : fixed < total ? `Fixed ${fixed} of ${total} hits` : total === 1 ? 'Fixed the hit' : `Fixed ${total} hits`,
-		outcome.replaced > 0 ? `re-placed ${outcome.replaced} ${outcome.replaced === 1 ? 'platform' : 'platforms'}` : '',
+		outcome.replaced > 0 ? `placed ${outcome.replaced} ${outcome.replaced === 1 ? 'platform' : 'platforms'} again` : '',
 		outcome.releases.length > 0 ? `moved ${outcome.releases.length === 1 ? 'the release' : `${outcome.releases.length} releases`}` : '',
 		others > 0 ? `moved ${others} ${others === 1 ? 'piece' : 'pieces'}` : '',
 		removed.length === 1 ? `deleted ${pieceName(project, removed[0] ?? '')}` : removed.length > 1 ? `deleted ${removed.length} pieces` : '',
@@ -354,7 +354,7 @@ export interface TPieceFix {
 	message: string;
 	/** The run with the fix applied */
 	run?: TSimulationResult;
-	/** The Fix-it's label for what passed: "Move Rail 1 Clear", "Place Rail 1 Again", "Delete Rail 1", "Re-place" */
+	/** The Fix-it's label for what passed: "Move Rail 1 Clear", "Place Rail 1 Again", "Delete Rail 1", "Place Again" */
 	label?: string;
 	/** What no local change can do without breaking later hits: Rebuild From Here, from this hit */
 	rebuildFrom?: { laneId: string; hitId: string };
@@ -426,9 +426,9 @@ export async function fixPiece(
 		if (!commands.length) continue;
 		const what = await check(commands);
 		if (what.isClear && what.broken === 0 && what.added.length === 0) {
-			return { commands, run: what.run, label: 'Re-place', message: `Re-placed ${pieceName(project, platform.id)}: ${laneName(hitter.laneId)} now passes clear of ${name}` };
+			return { commands, run: what.run, label: 'Place Again', message: `Placed ${pieceName(project, platform.id)} again: ${laneName(hitter.laneId)} now passes clear of ${name}` };
 		}
-		refused ||= what.isClear ? refusal(`Re-placing ${pieceName(project, platform.id)}`, what.broken, what.added) : '';
+		refused ||= what.isClear ? refusal(`Placing ${pieceName(project, platform.id)} again`, what.broken, what.added) : '';
 	}
 	return { commands: null, message: `${refused || `No new tilt of ${laneName(hitter.laneId)}'s platforms before it keeps ${laneName(hitter.laneId)} clear of ${name}`}. Drag it by hand, or move ${laneName(hitter.laneId)}'s platforms.` };
 }
@@ -471,7 +471,7 @@ async function fixLook(
 		if (what.broken > 0 || what.added.length > 0) return null;
 		const next = withCommands(project, commands);
 		if (lookPieces(next, what.run).includes(entityId) || touchingPairs(next, what.run).length > touching || extraStrikes(next, what.run).length > strikes) return null;
-		return { commands, run: what.run, label: 'Re-place', message: `${did}: ${isStruck ? `the marble now hits ${name} once` : `${name} now stands clear`}` };
+		return { commands, run: what.run, label: 'Place Again', message: `${did}: ${isStruck ? `the marble now hits ${name} once` : `${name} now stands clear`}` };
 	};
 	const piece = entity?.components.piece;
 	if (!isStruck && entity != null && link != null && piece != null && isMusicalPiece(piece.type)) {
@@ -505,7 +505,7 @@ async function fixLook(
 		} catch {
 			continue;
 		}
-		const fixed = await tryCommands(replaceCommands(project, placed), `Re-placed ${pieceName(project, platform.id)}`);
+		const fixed = await tryCommands(replaceCommands(project, placed), `Placed ${pieceName(project, platform.id)} again`);
 		if (fixed != null) return fixed;
 	}
 	// Every marble's later hits follow each tilt, so what is left is to build them again from the hit before this one
@@ -744,9 +744,9 @@ export interface TReplaceOutcome {
  * change, and steps are remembered for the next problem that goes back over the same platforms. A change is kept
  * only when, simulated to the end, the problem moves later, no other marble loses a hit, it crosses no other lane
  * and it adds no problem besides the work still ahead on that marble (`addedProblems`). When the platform
- * before cannot fix it, the arrival there is what fails, so Re-place goes back up to `MAX_BACKTRACK` platforms
+ * before cannot fix it, the arrival there is what fails, so Fix Hits goes back up to `MAX_BACKTRACK` platforms
  * further and builds forward from there, and then turns one of the two platforms before the problem by hand, as the
- * fixture builds do. A problem nothing fixes is left as it is and Re-place carries on after it, up to `MAX_LEFT`
+ * fixture builds do. A problem nothing fixes is left as it is and Fix Hits carries on after it, up to `MAX_LEFT`
  * broken hits per marble. Blocked scenery still Blocked after the platforms, and scenery the new run carried into
  * another marble's way, gets a new bridge for its gap or moves clear (Move Clear) when that breaks no hit and adds
  * no problem, and the platforms after it are fitted once more. With `only`, Auto place runs once for each
@@ -781,7 +781,7 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 		if (next == null) return false;
 		isFirst = false;
 		current = next;
-		// Platforms count as re-placed; a switchback, rail or tunnel suggested again is named in the result
+		// Platforms count as placed again; a switchback, rail or tunnel suggested again is named in the result
 		for (const id of isPiece ? new Set(commands.map(commandEntityId)) : []) {
 			const type = next.entities.find((entity) => entity.id === id)?.components.piece?.type;
 			if (type != null && isMusicalPiece(type)) changed.add(id);
@@ -823,7 +823,7 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 		if (!(await commit(commands, false))) return outcome(true);
 		releases.push(laneId);
 	}
-	// One count for the whole run, the one the label named: the hits broken when Re-place started. A moved release
+	// One count for the whole run, the one the label named: the hits broken when Fix Hits started. A moved release
 	// may break a few more for a moment, but they are not counted, so "0 of 37" never turns into "0 of 38".
 	const counted = brokenHits(result.hits).map(hitKeyOf);
 	const total = Math.max(1, counted.length);
@@ -910,7 +910,7 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 	// Problems up to this time are left as they are, per marble, and how many were
 	const left = new Map<string, number>();
 	const leftCount = new Map<string, number>();
-	// Like Re-place's targets, a marble without broken hits is done, even with hits outside its band
+	// Like Fix Hits's targets, a marble without broken hits is done, even with hits outside its band
 	const firstProblem = (base: TProject, run: TSimulationResult, laneId?: string): THitResult | undefined => {
 		const open = run.hits.filter((hit) => hit.pieceEntityId != null && (laneId == null || hit.laneId === laneId) && hit.targetTime > (left.get(hit.laneId) ?? -Infinity) + 1e-6);
 		const lanes = new Set(open.filter(isBroken).map((hit) => hit.laneId));
@@ -971,10 +971,10 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 	 * for a run is the same the next time, since the run up to the hit is.
 	 */
 	const steps = new Map<string, TProjectCommand[] | null>();
-	/** The project as Re-place tries it for `problem`: simulated up to `TRY_HORIZON` after it */
+	/** The project as Fix Hits tries it for `problem`: simulated up to `TRY_HORIZON` after it */
 	const clipped = (problem: THitResult): TProject => ({ ...current, end: Math.min(current.end, problem.targetTime + TRY_HORIZON) });
 	/**
-	 * Commands that fix `problem`, re-placing from `depth` platforms before the one before it onward; null when none
+	 * Commands that fix `problem`, placing again from `depth` platforms before the one before it onward; null when none
 	 * does. With `turn`, the first of them is turned by hand by that much instead.
 	 */
 	const rebuild = async (run: THitResult[], index: number, depth: number, problem: THitResult, turn?: number): Promise<TFix | null> => {
@@ -1076,7 +1076,7 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 		const pieces = [...new Set([...blockedScenery(current, latest).map((piece) => piece.entityId), ...strays])];
 		for (const [index, entityId] of pieces.entries()) {
 			deps.onProgress?.(done, total, lastTime, SCENERY_SHARE_START + ((1 - SCENERY_SHARE_START) * index) / pieces.length);
-			// Re-place keeps its promise to fix the run: a bridge suggested again, Move Clear or, for a piece the new
+			// Fix Hits keeps its promise to fix the run: a bridge suggested again, Move Clear or, for a piece the new
 			// run passes through and no longer uses, deleting it, each only when its what-if breaks no hit now on
 			// time and adds no problem (`sceneryFix`)
 			const fixed = await sceneryFix(current, latest, entityId, { simulate: deps.simulate, gapPiece: deps.gapPiece, isCancelled });
@@ -1115,11 +1115,11 @@ const TRIES_PER_PROBLEM = 21;
 // Share of the progress bar for the platforms; the Blocked scenery after them takes the rest
 const SCENERY_SHARE_START = 0.96;
 
-// Platforms Re-place goes back before the one before a problem that it cannot fix
+// Platforms Fix Hits goes back before the one before a problem that it cannot fix
 const MAX_BACKTRACK = 3;
-// Seconds after a problem that Re-place simulates each try; one that fixes it is then simulated to the end
+// Seconds after a problem that Fix Hits simulates each try; one that fixes it is then simulated to the end
 const TRY_HORIZON = 3;
-// Problems per marble that nothing fixes before Re-place stops working on that marble
+// Problems per marble that nothing fixes before Fix Hits stops working on that marble
 const MAX_LEFT = 3;
 // What the Fix of a piece struck twice or touching tries: shares of its length, strikes along it and small turns
 const LOOK_SHORTER = [5 / 6, 2 / 3];
@@ -1177,7 +1177,7 @@ function commandEntityId(command: TProjectCommand): string {
  * Problems of the one problem model (`preflightExport`) that `after` has and `before` did not, which a fix must
  * not add: another marble's hits, framing or pace, Blocked scenery, and contacts such as "Bass hits Switchback 6
  * of Melody". With `working`, that marble's problems from `from` on (its hits, framing, Blocked scenery and its
- * pieces another marble hits) are left out, since Re-place works through them next.
+ * pieces another marble hits) are left out, since Fix Hits works through them next.
  */
 export function addedProblems(
 	beforeProject: TProject,
@@ -1193,7 +1193,7 @@ export function addedProblems(
 	return warnings(afterProject, after).filter((issue) => {
 		if (had.has(issue.id)) return false;
 		if (working == null || issue.laneId !== working.laneId) return true;
-		// The marble being re-placed: its later hits, framing, Blocked scenery and pieces another marble hits are the
+		// The marble being fixed: its later hits, framing, Blocked scenery and pieces another marble hits are the
 		// work still ahead, since its later platforms move them again; what is left at the end counts
 		return (issue.time ?? Infinity) < working.from - 1e-6;
 	});
@@ -1216,7 +1216,7 @@ export function withCommands(project: TProject, commands: TProjectCommand[]): TP
 	return { ...project, entities, revision: project.revision + 1 };
 }
 
-/** Where Re-place starts in the song: the first broken hit, or the first Blocked piece */
+/** Where Fix Hits starts in the song: the first broken hit, or the first Blocked piece */
 function firstBrokenTime(result: TSimulationResult, only?: string[]): number {
 	const times = [
 		...brokenHits(result.hits, only).map((hit) => hit.targetTime),

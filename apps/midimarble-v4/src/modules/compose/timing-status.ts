@@ -55,7 +55,7 @@ export function timingStatus(
 /** Why a hit is off time, since neither its tilt nor its Time is the fix: the tilt moves the notes after it, the Time moves the note */
 function offTimeCause(names: TTimingNames): string {
 	if (names.isOffDot == null) return '';
-	return names.isOffDot ? `. ${names.piece ?? 'This platform'} sits off its dot: Re-place, or drag it back` : '. The marble arrives off time from the piece before: Re-place';
+	return names.isOffDot ? `. ${names.piece ?? 'This platform'} sits off its dot: Place Again, or drag it back` : '. The marble arrives off time from the piece before: Place Again';
 }
 
 /** The status pill for an early or late hit, such as `12 ms Late` */

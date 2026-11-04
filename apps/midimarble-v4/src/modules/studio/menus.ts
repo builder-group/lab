@@ -1,8 +1,7 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection } from '@/modules/compose/tie-commands';
 import { createId, type TLane } from '@/modules/project';
-import { isMusicalPiece } from '@/modules/simulation';
-import { commandItem, getCommand, runInWorkspace } from './commands';
+import { commandItem, getCommand, isCommandEnabled, runInWorkspace } from './commands';
 import { formatTime } from './format';
 import { toHitKey } from './selection';
 import type { StudioCx } from './StudioCx';
@@ -14,11 +13,9 @@ import { deleteHits, playedByMenu } from './timeline/hand-notes';
 export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 	// Film shows what works there: Compose's edits ask for the wall
 	if (cx.$workspace.get() !== 'compose') return tidyMenu([commandItem(cx, 'edit.rename'), 'separator', ...pieceLinkItems(cx)]);
-	// Add Platform re-tilts the selected platform; for scenery such as a switchback it would have no clear target
 	const selected = cx.project?.entities.filter((entity) => cx.$selection.get().includes(entity.id)) ?? [];
-	const isPlatforms = selected.length > 0 && selected.every((entity) => isMusicalPiece(entity.components.piece?.type ?? ''));
 	return tidyMenu([
-		isPlatforms ? commandItem(cx, 'build.autoPlace') : null,
+		isCommandEnabled(cx, getCommand('build.placeAgain')) ? commandItem(cx, 'build.placeAgain') : null,
 		selected.some((entity) => entity.components.hitLink != null) ? commandItem(cx, 'build.rebuildFrom') : null,
 		'separator',
 		commandItem(cx, 'view.fitSelection'),

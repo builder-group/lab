@@ -1,5 +1,5 @@
 /**
- * "about 10 s left" for a long task such as Re-place, like Finder's copy progress. Finder waits before it names a
+ * "about 10 s left" for a long task such as Fix Hits, like Finder's copy progress. Finder waits before it names a
  * time and then counts down steadily; this does the same:
  *
  * - Nothing is said until `MIN_STEPS` steps are done, `MIN_ELAPSED_MS` have passed and `MIN_FRACTION` of the work,

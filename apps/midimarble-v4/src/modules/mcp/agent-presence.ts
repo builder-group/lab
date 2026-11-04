@@ -48,7 +48,6 @@ const VERBS: Record<string, string> = {
 	Open: 'Opening',
 	Place: 'Placing',
 	Rebuild: 'Rebuilding',
-	'Re-place': 'Re-placing',
 	Redo: 'Redoing',
 	Remove: 'Removing',
 	Rename: 'Renaming',

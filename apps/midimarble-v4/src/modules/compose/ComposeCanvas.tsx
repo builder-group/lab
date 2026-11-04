@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import { createState } from 'feature-state';
-import { Anchor, ChevronsRight, FlipHorizontal2, Link2, LocateFixed, Magnet, Repeat2, Unlink2, WandSparkles } from 'lucide-react';
+import { Anchor, ChevronsRight, Link2, LocateFixed, Magnet, Unlink2 } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import type { TPathNode, TProject, TVec2 } from '@/modules/project';
@@ -913,16 +913,6 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 			<AssistButton label="Build Track" detail="Build every open hit, in time order, and end in a Finish" shortcut="⇧N" onClick={() => void compose.assist.buildTrack()} isText>
 				Build Track
 			</AssistButton>
-			<div className="mm-assist-divider" />
-			<AssistButton label="Repeat Last Platform" detail="The same tilt again" shortcut="R" onClick={() => compose.step('repeat')}>
-				<Repeat2 size={15} strokeWidth={1.7} />
-			</AssistButton>
-			<AssistButton label="Mirror Last Platform" detail="The last tilt mirrored, for zigzags" shortcut="M" onClick={() => compose.step('mirror')}>
-				<FlipHorizontal2 size={15} strokeWidth={1.7} />
-			</AssistButton>
-			<AssistButton label="Add Platform" detail="Tilted so the marble lands on time" shortcut="A" onClick={() => compose.assist.autoPlace(compose.placementType())}>
-				<WandSparkles size={15} strokeWidth={1.7} />
-			</AssistButton>
 			{continueCount > 0 ? (
 				<>
 					<div className="mm-assist-divider" />
@@ -1012,7 +1002,7 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
 
 /**
- * Says the run is being checked after an edit, or re-placed while Re-place runs, fading in only when it
+ * Says the run is being checked after an edit, or fixed while Fix Hits runs, fading in only when it
  * takes long enough to notice
  */
 const SimulatingIndicator: React.FC<{ cx: StudioCx }> = (props) => {
@@ -1023,7 +1013,7 @@ const SimulatingIndicator: React.FC<{ cx: StudioCx }> = (props) => {
 	if (!computing && replacing == null) return null;
 	return (
 		<div className="mm-floating mm-delayed-fade absolute top-3 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">
-			{replacing == null ? 'Checking…' : 'Re-placing…'}
+			{replacing == null ? 'Checking…' : 'Fixing…'}
 		</div>
 	);
 };

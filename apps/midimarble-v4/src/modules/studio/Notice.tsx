@@ -6,7 +6,7 @@ import type { StudioCx } from './StudioCx';
 /**
  * The notice at the bottom left of the canvas, in both workspaces, above the transport and away from the wall's centre,
  * where the run, the hints and the build bar are: one line, two at most, its actions at the right like the Undo of Mail's and
- * Finder's toasts, and a thin progress bar while a long task such as Re-place runs. Hovering keeps it open. A
+ * Finder's toasts, and a thin progress bar while a long task such as Fix Hits runs. Hovering keeps it open. A
  * notice with details, like Figma's notifications, has a Details disclosure with the full text and a close
  * button, and stays until it is closed or the next edit.
  */

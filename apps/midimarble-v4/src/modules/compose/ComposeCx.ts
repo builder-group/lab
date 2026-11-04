@@ -2050,8 +2050,8 @@ export class ComposeCx {
 			case 'mirror':
 				this.step('mirror');
 				return true;
-			case 'autoPlace':
-				this.assist.autoPlace(this.placementType());
+			case 'placeAgain':
+				this.placeAgain();
 				return true;
 			case 'finishPath':
 				this.finishPen();
@@ -2060,6 +2060,11 @@ export class ComposeCx {
 				this.undoPenPoint();
 				return true;
 		}
+	}
+
+	/** A: Place Again on a selected platform; otherwise the same as Next */
+	placeAgain(): void {
+		if (!this.assist.placeAgain()) this.next();
 	}
 
 	/** Return and N */

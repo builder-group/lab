@@ -45,8 +45,8 @@ describe('createEstimate function', () => {
 		expect(estimate.update(4500, 0.2, 3, 30)).toBe('about 6 s left');
 	});
 
-	it('should not jump from 45 s to a few seconds like the round 7 Re-place', () => {
-		// Re-place of 37 hits in 10.8 s: slow at first, then many hits fixed at once
+	it('should not jump from 45 s to a few seconds like the round 7 Fix Hits', () => {
+		// Fix Hits of 37 hits in 10.8 s: slow at first, then many hits fixed at once
 		const updates: [number, number, number][] = [
 			[1000, 0.02, 0],
 			[2300, 0.05, 3],
