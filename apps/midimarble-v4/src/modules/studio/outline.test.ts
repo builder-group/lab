@@ -24,7 +24,7 @@ function project(options: { hasSong?: boolean; entities?: TEntity[]; shots?: { i
 }
 
 describe('buildOutline function', () => {
-	it('should order Song, marbles with their pieces in hit order, Free Pieces, Camera with shots and Titles', () => {
+	it('should order Song, marbles with their pieces in hit order, Pieces, Camera with shots and Titles', () => {
 		const title = { id: 'title-1', components: { wallText: { text: 'Jingle Bells' } } } as unknown as TEntity;
 		const rows = buildOutline(
 			project({
@@ -53,13 +53,21 @@ describe('buildOutline function', () => {
 		]);
 	});
 
+	it('should name the unlinked pieces\' group Pieces with its help', () => {
+		const rows = buildOutline(project({ entities: [piece('free-1')] }), { workspace: 'compose' });
+		const group = rows.find((row) => row.id === FREE_PIECES_KEY);
+
+		expect(group?.kind === 'group' ? group.label : null).toBe('Pieces');
+		expect(group?.kind === 'group' ? group.help : null).toBe('Pieces no marble plays or follows; marbles can still hit them');
+	});
+
 	it('should give the Song, marbles and Camera a track and nothing else', () => {
 		const rows = buildOutline(project({ entities: [piece('free-1')] }));
 
 		expect(rows.filter((row) => row.track != null).map((row) => row.track)).toEqual(['song', 'lane', 'lane', 'camera']);
 	});
 
-	it('should leave out the Song without one and empty Free Pieces and Titles groups', () => {
+	it('should leave out the Song without one and empty Pieces and Titles groups', () => {
 		const rows = buildOutline(project({ hasSong: false }));
 
 		expect(rows.map((row) => row.kind)).toEqual(['marble', 'marble', 'camera']);

@@ -4,7 +4,7 @@ import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, StatusPill } from '@/components';
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { FINISH_CHUTE, FINISH_CUP, finishCatch, getPieceDefinition, isMusicalPiece, layoutOf, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { FINISH_CHUTE, FINISH_CUP, finishCatch, getPieceDefinition, isMusicalPiece, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import { preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
@@ -12,6 +12,7 @@ import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { attachState, isPathPieceType, pathPieceTypes, withPathType, type TPathPieceType } from './attach-edit';
 import { PieceIcon } from './piece-icons';
+import { pieceParamPanels, showsLinkPanel } from './piece-panels';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
 import { pieceAngle } from './step-loop';
 import type { TPieceFixCheck } from './AssistCx';
@@ -19,7 +20,7 @@ import { timingStatus, type TTimingStatus } from './timing-status';
 
 /**
  * Inspector for selected pieces like Figma UI3: a header with the tie and the timing pill, then Position, the
- * tie (Plays, Follows or Free) and the collapsed Advanced section
+ * link panel of a linked piece (Plays or Follows) and the collapsed Hitbox and Physics panels
  */
 export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
@@ -169,8 +170,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					/>
 				) : null}
 			</Panel>
-			{isSingle ? <AttachSection cx={cx} project={project} entity={first} /> : null}
-			{isSameType && definition != null ? <ParamsSection cx={cx} project={project} entities={entities} type={type} /> : null}
+			{showsLinkPanel(entities) ? <AttachSection cx={cx} project={project} entity={first} /> : null}
+			{isSameType && definition != null ? <ParamsSections cx={cx} project={project} entities={entities} type={type} /> : null}
 		</>
 	);
 };
@@ -255,10 +256,10 @@ function struckStatus(status: TTimingStatus | null, hitBy: TPreflightIssue[] | u
 const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
 const NO_CHECKS = createState<Record<string, TPieceFixCheck>>({});
 
-/** The header subtitle, the piece's tie as words.md names it: `Plays C4 · 0:03.2`, `Follows Marble 1 at 0:03.2` or `Free` */
+/** The header subtitle, the piece's tie as words.md names it: `Plays C4 · 0:03.2`, `Follows Marble 1 at 0:03.2` or `None` */
 function tieLabel(project: TProject, entity: TEntity): string {
 	const attach = attachState(project, entity);
-	if (attach.kind === 'free') return 'Free';
+	if (attach.kind === 'free') return 'None';
 	const lane = project.music.lanes.find((item) => item.id === attach.laneId);
 	if (attach.kind === 'anchored') return `Follows ${lane?.name ?? 'a marble'} at ${formatTime(attach.time)}`;
 	const index = lane?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
@@ -336,8 +337,9 @@ function rideStatus(project: TProject, piece: TResolvedPiece, result: TSimulatio
 const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
 	const { cx, project, entity } = props;
 	const attach = attachState(project, entity);
-	const lane = attach.kind === 'free' ? undefined : project.music.lanes.find((item) => item.id === attach.laneId);
-	const hitIndex = attach.kind === 'free' ? -1 : (lane?.hits.findIndex((item) => item.id === attach.hitId) ?? -1);
+	if (attach.kind === 'free') return null;
+	const lane = project.music.lanes.find((item) => item.id === attach.laneId);
+	const hitIndex = lane?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
 	const hit = lane?.hits[hitIndex];
 
 	function detach(): void {
@@ -369,20 +371,15 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 	return (
 		<Panel
 			id="piece.attach"
-			title={attach.kind === 'linked' ? 'Plays' : attach.kind === 'anchored' ? 'Follows' : 'Free'}
-			isEmpty={attach.kind === 'free'}
-			accessory={
-				<HelpTip
-					text={`${attach.kind === 'free' ? 'Free: tied to no note and no marble, so it stays where it is. ' : ''}Drop a platform on a note's dot and it plays that note. Drop any piece near the line a marble falls along and it follows that marble without playing. Hold ⌥ while dragging to drop it free.`}
-				/>
-			}
+			title={attach.kind === 'linked' ? 'Plays' : 'Follows'}
+			accessory={<HelpTip text="Drop a platform on a note's dot and it plays that note. Drop any piece near the line a marble falls along and it follows that marble without playing. Detach it, or hold ⌥ while dragging, and it stays where it is, tied to nothing." />}
 		>
-			{attach.kind === 'free' ? null : attach.kind === 'linked' ? (
+			{attach.kind === 'linked' ? (
 				<LinkRow
 					title={`Select Note ${hitIndex + 1}`}
 					onOpen={openHit}
 					action={
-						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, free" aria-label="Detach" type="button">
+						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, tied to nothing" aria-label="Detach" type="button">
 							<Unlink2 size={13} strokeWidth={1.9} />
 						</button>
 					}
@@ -403,7 +400,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 					title={`Select ${lane?.name ?? 'the marble'}`}
 					onOpen={openMarble}
 					action={
-						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, free" aria-label="Detach" type="button">
+						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, tied to nothing" aria-label="Detach" type="button">
 							<Unlink2 size={13} strokeWidth={1.9} />
 						</button>
 					}
@@ -542,21 +539,28 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 	);
 };
 
-// MARK: - Advanced
+// MARK: - Hitbox and Physics
 
-/** Physical parameters of the piece type not shown above, with units people read: cm, mm, ms, rpm */
-const ParamsSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string }> = (props) => {
-	const { cx, project, entities, type } = props;
+/** The piece type's parameters in two collapsed panels: what a marble touches and how the piece behaves */
+const ParamsSections: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string }> = (props) => {
+	const { type } = props;
+	const panels = pieceParamPanels(type);
+	return (
+		<>
+			{panels.hitbox.length > 0 ? <ParamsPanel {...props} id="piece.hitbox" title="Hitbox" help="What a marble touches. A skin in Film changes only how the piece looks." names={panels.hitbox} /> : null}
+			{panels.physics.length > 0 ? <ParamsPanel {...props} id="piece.physics" title="Physics" names={panels.physics} /> : null}
+		</>
+	);
+};
+
+/** One collapsed panel of parameters, with units people read: cm, mm, ms, rpm */
+const ParamsPanel: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; id: string; title: string; help?: string; names: string[] }> = (props) => {
+	const { cx, project, entities, type, id, title, help, names } = props;
 	const definition = getPieceDefinition(type);
-	// Length sits in Position and the moment a piece follows in its tie
-	const names = Object.keys(definition?.params ?? {})
-		// A Finish's Style and Mirror sit in its own section
-		.filter((name) => name !== 'entryDelay' && !(layoutOf(type) === 'box' && name === 'length') && !(layoutOf(type) === 'catcher' && (name === 'style' || name === 'mirror')))
-		.sort((a, b) => paramRank(a) - paramRank(b));
-	if (definition == null || !names.length) return null;
+	if (definition == null) return null;
 
 	return (
-		<Panel id="piece.physics" title="Advanced" defaultCollapsed isDense>
+		<Panel id={id} title={title} accessory={help != null ? <HelpTip text={help} /> : undefined} defaultCollapsed isDense>
 			{names.map((name) => {
 				const spec = definition.params[name];
 				if (spec == null) return null;
@@ -590,12 +594,6 @@ const ParamsSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEnti
 		</Panel>
 	);
 };
-
-// Bounce leads, as it is the one people change most; the rest keep the definition's order
-function paramRank(name: string): number {
-	const index = ['bounce', 'thickness', 'depth'].indexOf(name);
-	return index < 0 ? 3 : index;
-}
 
 function displayUnit(name: string, unit: string, isInteger: boolean): { unit: string; factor: number; step: number; precision: number } {
 	if (isInteger) return { unit: '', factor: 1, step: 0.05, precision: 0 };

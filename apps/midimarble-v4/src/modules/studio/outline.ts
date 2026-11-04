@@ -6,8 +6,8 @@ import type { TWorkspace } from './StudioCx';
 
 /**
  * The project's layers in display order, which the Layers list draws and Shift ranges and arrow keys follow:
- * the Song while the project has one, each marble with the pieces it plays or that follow it in hit order, Free
- * Pieces, the Camera with its shots and Titles. Compose is the performance and shows only the Song and the
+ * the Song while the project has one, each marble with the pieces it plays or that follow it in hit order, Pieces
+ * (those no marble plays or follows), the Camera with its shots and Titles. Compose is the performance and shows only the Song and the
  * marbles with their pieces; Film is the presentation and shows every layer. Rows of a collapsed group leave out
  * their children. The timeline shows the same layers as rows, like After Effects: the rows with a `track`.
  */
@@ -30,7 +30,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	const free = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink == null).reverse();
 	if (free.length > 0) {
 		const isOpen = !collapsed.includes(FREE_PIECES_KEY);
-		rows.push({ kind: 'group', id: FREE_PIECES_KEY, depth: 0, parentId: null, track: null, label: 'Free Pieces', groupKey: FREE_PIECES_KEY, childIds: free.map((piece) => piece.id), isOpen });
+		rows.push({ kind: 'group', id: FREE_PIECES_KEY, depth: 0, parentId: null, track: null, label: PIECES_GROUP_LABEL, help: PIECES_GROUP_HELP, groupKey: FREE_PIECES_KEY, childIds: free.map((piece) => piece.id), isOpen });
 		if (isOpen) for (const piece of free) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: FREE_PIECES_KEY, track: null, piece, laneId: null });
 	}
 
@@ -61,6 +61,12 @@ export interface TOutlineOptions {
 /** Group row of the pieces tied to nothing; its ID is never a selection key */
 export const FREE_PIECES_KEY = 'group:free';
 
+/** Name of the group of pieces no marble plays or follows (words.md: Pieces) */
+export const PIECES_GROUP_LABEL = 'Pieces';
+
+/** The ? beside the Pieces group: unlinked pieces still collide */
+export const PIECES_GROUP_HELP = 'Pieces no marble plays or follows; marbles can still hit them';
+
 /** Group row of the titles on the wall; its ID is never a selection key */
 export const TITLES_KEY = 'group:titles';
 
@@ -80,7 +86,7 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'song'; track: 'song'; source: TSource | undefined; label: string })
 	| (TOutlineRowBase & { kind: 'marble'; track: 'lane'; lane: TLane; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TEntity; laneId: string | null })
-	| (TOutlineRowBase & { kind: 'group'; label: string; groupKey: string; childIds: string[]; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'group'; label: string; help?: string; groupKey: string; childIds: string[]; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'camera'; track: 'camera'; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'shot'; shot: TShot })
 	| (TOutlineRowBase & { kind: 'title'; entity: TEntity });

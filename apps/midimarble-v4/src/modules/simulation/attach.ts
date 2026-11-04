@@ -188,7 +188,7 @@ function detach(
 	if (!isFound) return Err(findErr);
 	const { entity, resolved } = found;
 	const { hitLink, piece } = entity.components;
-	if (hitLink == null) return Err(new Error(`${entity.name ?? entityId} is already free`));
+	if (hitLink == null) return Err(new Error(`${entity.name ?? entityId} plays no note and follows no marble`));
 	const isLinked = soundsHit(piece?.type ?? '', hitLink);
 	if (from === 'linked' && !isLinked) return Err(new Error(`${entity.name ?? entityId} is anchored, not linked`));
 	if (from === 'anchored' && isLinked) return Err(new Error(`${entity.name ?? entityId} is linked, not anchored`));

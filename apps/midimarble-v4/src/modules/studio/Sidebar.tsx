@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Anchor, AudioLines, Bookmark, ChevronRight, Eye, EyeOff, Folder, Lock, LockOpen, Music, Plus, Type, Video } from 'lucide-react';
 import React from 'react';
-import { MenuButton, openContextMenu, RenameField } from '@/components';
+import { HelpTip, MenuButton, openContextMenu, RenameField } from '@/components';
 import { attachState } from '@/modules/compose/attach-edit';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
@@ -46,7 +46,7 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 							role="tab"
 							aria-selected={workspace === item.id}
 							data-hint-anchor={item.id === 'design' ? 'film' : undefined}
-							title={`${item.label} (${item.shortcut})`}
+							title={`${item.purpose} (${item.shortcut})`}
 							type="button"
 						>
 							{item.label}
@@ -92,9 +92,9 @@ interface TSidebarProps {
 	cx: StudioCx;
 }
 
-const workspaces: { id: TWorkspace; label: string; shortcut: string }[] = [
-	{ id: 'compose', label: 'Compose', shortcut: '⌘1' },
-	{ id: 'design', label: 'Film', shortcut: '⌘2' }
+const workspaces: { id: TWorkspace; label: string; purpose: string; shortcut: string }[] = [
+	{ id: 'compose', label: 'Compose', purpose: 'Compose: hitboxes and timing', shortcut: '⌘1' },
+	{ id: 'design', label: 'Film', purpose: 'Film: skins, camera and titles', shortcut: '⌘2' }
 ];
 
 const sidebarTabs: { id: TSidebarTab; label: string }[] = [
@@ -156,7 +156,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	const selectedLanes = new Set(selection.flatMap((key) => (key.startsWith('hit:') ? [key.split(':')[1] ?? ''] : [])));
 
 	function isSelected(row: TOutlineRow): boolean {
-		// A group such as Free Pieces only gathers rows; like Figma only the selected rows are tinted, not their group
+		// A group such as Pieces only gathers rows; like Figma only the selected rows are tinted, not their group
 		if (row.kind === 'group') return false;
 		return selectedSet.has(row.id);
 	}
@@ -332,8 +332,14 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 			isRenaming={isRenaming}
 			onRename={rename}
 			meta={
-				view.time != null || hasTrack ? (
+				view.time != null || hasTrack || view.help != null ? (
 					<>
+						{view.help != null ? (
+							// The ? explains the group without selecting it
+							<span className="inline-flex" onClick={(event) => event.stopPropagation()}>
+								<HelpTip text={view.help} />
+							</span>
+						) : null}
 						{view.time != null ? <span>{formatShortTime(view.time)}</span> : null}
 						{hasTrack ? <TrackGlyph /> : null}
 					</>
@@ -349,7 +355,7 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 };
 
 /** Icon, name, fold state and quiet time of a row */
-function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; isOpen?: boolean; time?: number } {
+function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; help?: string; isOpen?: boolean; time?: number } {
 	switch (row.kind) {
 		case 'song': {
 			const isRecording = row.source?.kind === 'audio';
@@ -362,7 +368,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'marble':
 			return { icon: <span className="mm-layer-chip" style={{ background: row.lane.color }} />, label: row.lane.name, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'group':
-			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, isOpen: row.isOpen };
+			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isOpen };
 		case 'camera':
 			return { icon: <Video size={14} strokeWidth={1.75} />, label: 'Camera', isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'shot':

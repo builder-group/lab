@@ -9,6 +9,7 @@ import type { StudioCx } from '@/modules/studio/StudioCx';
 import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
 import { SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TScreenTitleLayout } from './draft-look';
 import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
+import { HitboxOverlay } from './HitboxOverlay';
 
 /**
  * The film frame drawn in the app through the film camera, standing in for Blender's preview while it is not
@@ -78,6 +79,8 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 					<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 					<DraftOverlay draft={draft} />
 					{cover}
+					<SelectionOverlay draft={draft} />
+					<HitboxOverlay draft={draft} />
 					{!hasResult ? (
 						<div className="absolute inset-0 flex items-center justify-center text-[var(--text-tertiary)]">
 							<LoaderCircle className="animate-spin" size={22} />
@@ -119,15 +122,12 @@ interface TDraftPreviewProps {
 	onDropAsset: (entityId: string, asset: { id: string; scope: string }) => void;
 }
 
-/** Rails, tunnels, switchbacks and Finishes as lines in the theme's colours, titles as text and the selection outlines */
+/** Rails, tunnels, switchbacks and Finishes as lines in the theme's colours and titles as text */
 const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	const { draft } = props;
-	const studio = draft.studio;
 	useFeatureState(draft.$frame);
-	const selection = useFeatureState(studio.$selection);
 	const scale = draft.screenScale();
 	const titles = draft.titles();
-	const boxes = titleBoxes(titles);
 	const pieces = draft.pieces();
 	const glows = draft.glows();
 
@@ -170,7 +170,26 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				);
 			})}
 			{titles.map((title) => (title.screen != null ? <ScreenTitle key={title.entityId} title={title} screen={title.screen} /> : <WallTitle key={title.entityId} title={title} />))}
-			{pieces
+		</svg>
+	);
+};
+
+/**
+ * The selection's outlines, through the film camera. They lie above the cover too, so a selected piece stays marked
+ * over Blender's preview frames, which follow the same camera.
+ */
+const SelectionOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
+	const { draft } = props;
+	useFeatureState(draft.$frame);
+	const selection = useFeatureState(draft.studio.$selection);
+	if (!selection.length) return null;
+	const titles = draft.titles();
+	const boxes = titleBoxes(titles);
+
+	return (
+		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden data-selection-outlines>
+			{draft
+				.pieces()
 				.filter((piece) => selection.includes(piece.entityId))
 				.map((piece) => {
 					const points = toPoints(draft.selectionOutline(piece));

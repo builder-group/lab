@@ -19,7 +19,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | A hit without a pitch (tapped or a beat) | **No Pitch** as a quiet value, with **Add Pitch** | None, empty field | Add Pitch starts from the marble's nearest pitched hit, else C4 |
 | Notes no marble plays | **Backing**: heard in the film, no piece needed | dropped, unassigned, left out | musicians know a backing track; a beginner reads it as "plays in the back" |
 | The ball | **Marble** | ball, lane | |
-| A thing in the project with its own row in Layers and in the timeline | **Layer**: the Song (only while the project has a song file or Backing notes), one layer per marble with its pieces, Free Pieces, Camera with its shots, Titles. Each layer owns its settings in the inspector | track, lane, channel | After Effects: each layer has a row in the timeline, so the sidebar outline and the timeline rows are the same objects under one word |
+| A thing in the project with its own row in Layers and in the timeline | **Layer**: the Song (only while the project has a song file or Backing notes), one layer per marble with its pieces, Pieces (the group of those no marble plays or follows), Camera with its shots, Titles. Each layer owns its settings in the inspector | track, lane, channel | After Effects: each layer has a row in the timeline, so the sidebar outline and the timeline rows are the same objects under one word |
 | The moment a marble strikes its note | **Hit** | contact, strike, collision | rhythm games; the hit has a timing status |
 | Everything placed on the wall | **Piece** | object, element, prop, asset | marble-run kits |
 | The piece that plays a note | **Platform** | bar, pad, peg | |
@@ -31,10 +31,13 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | The Wall view keeping the marble at the playhead in sight | **Follow** (toggle in the canvas corner, F; in ⌘K **Follow Marble in View**), off by default | Catch Playhead, autoscroll, track, lock | Logic's Catch Playhead; the noun is a toggle like Snap, and the palette title says *in View* so it never reads as the piece tie **Follows** |
 | A platform tied to its note | **Plays** Note 3 · C4 | linked, attached, bound | says what it does; Final Cut's connected clip is the model |
 | A piece tied to a moment of a marble's fall | **Follows** Marble 1 at 0:03.2 | anchored, parented | says what it does |
-| A piece tied to nothing | **Free** | unlinked, static | |
+| A piece tied to nothing | Link state **None**, shown only as its subtitle; it sits in the **Pieces** group, whose ? says "Pieces no marble plays or follows; marbles can still hit them". Its menus offer **Play a Note…** and **Follow a Marble…** | Free, Free Pieces, unlinked, static | A piece always collides; only its link is missing |
+| What a marble touches | **Hitbox**: drawn in Compose, shaped in the inspector's Hitbox panel (Arms, Run Height, Thickness…), outlined in Film for a selected piece | collider, physics shape | Unity's collider and mesh; the Skin is the mesh |
+| How a piece behaves | **Physics**: the inspector's panel beside Hitbox (Bounce, Brake, Spin) | Advanced, material, restitution | Named by what it holds |
+| Every piece's outline in Film | **Show Hitboxes** (View menu, ⌘K) | Show Colliders, Gizmos, Debug Physics | Unity's collider gizmos |
 | Undoing those ties | **Detach** | unlink, unanchor | one verb for both |
-| A copy of pieces | **Duplicate** (⌘D): free copies beside the originals | clone, copy | Figma and Finder |
-| The two workspaces | **Compose** (song, marbles, pieces, timing) and **Film** (look, camera, titles, export) | Design, Build, Look | "Film" names what you make; camera and export belong there |
+| A copy of pieces | **Duplicate** (⌘D): copies tied to nothing beside the originals | clone, copy | Figma and Finder |
+| The two workspaces | **Compose** ("Compose: hitboxes and timing") and **Film** ("Film: skins, camera and titles", and export) | Design, Build, Look | "Film" names what you make; camera and export belong there |
 | Inspector with nothing selected | **Project** | World, Settings, Document | Figma shows the page when nothing is selected |
 | How fast marbles fall | **Marble Speed** | gravity, physics scale | "Gravity" only in its tooltip |
 | The output | **Film**; the action **Export Film…** | render, video, encode | Final Cut's Export File; "render" only in progress text |
@@ -43,7 +46,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | Where an exported film goes | **In the Project**, or the folder chosen with Choose… | Renders folder, renders/ | the package folder is an implementation detail; Show in Finder finds it |
 | Blender | **Blender**: a status chip in the title bar (Ready, Starting, Rendering Preview, Not Installed, Error; a hollow dot and Blender in the browser) with Open in Blender, Restart Blender, Live Preview, Show Blender Log, or Install Blender… | worker, bridge, mailbox, Edit in Blender | |
 | Changed in Blender | **Detached** with **Discard Blender Changes**; a camera edited there reads **Edited in Blender** with **Reset Camera** | unlinked, taken over, edited, Reset to Compose, Regenerate Camera | says what the button throws away |
-| The project's outline | **Layers**: Song, Marbles, Free Pieces, Camera, Titles; Compose shows the Song and the marbles with their pieces, Film every layer | tree, scene graph, Tracks | Figma; the timeline's column carries the same name |
+| The project's outline | **Layers**: Song, Marbles, Pieces, Camera, Titles; Compose shows the Song and the marbles with their pieces, Film every layer | tree, scene graph, Tracks | Figma; the timeline's column carries the same name |
 | Settings most people never need | **Advanced**, a disclosure at the end of a section | expert, more, details | Final Cut, Logic |
 | How a film is lit and rendered | **Lighting**: Fast or Realistic (Eevee and Cycles in the tooltip); Draft always uses **Flat Light** (Workbench in the tooltip), so the Lighting choice is dimmed with it | renderer, engine | |
 | What an agent run produces | **Result**, shown as a card with Accept and Discard | candidate, output, artifact | |
@@ -114,7 +117,7 @@ A fix sits next to the problem, like Xcode's Fix-its.
 
 ## Piece settings
 
-Advanced sections name what a piece looks like or does, not how it is built. A half-width field carries the short name; the tooltip says the rest.
+The Hitbox and Physics panels name what a piece looks like or does, not how it is built. A half-width field carries the short name; the tooltip says the rest.
 
 | Piece | Field | Means | Not |
 | --- | --- | --- | --- |
@@ -178,11 +181,11 @@ The timeline's left column is **Layers**, the same layers as the sidebar's Layer
 3. **Camera** in Film: shots
 4. **Titles** in Film, when the project has titles: one clip per title from its In to its Out time
 
-A note belongs to exactly one place: a marble, or Backing. A platform exists to play its note, so it goes with it: handed to another marble, the platform plays the note in that marble's run; handed to Backing, the platform is removed. A notice says which, and undo brings it back. (Leaving it Free on the wall would put an obstacle in every marble's path.)
+A note belongs to exactly one place: a marble, or Backing. A platform exists to play its note, so it goes with it: handed to another marble, the platform plays the note in that marble's run; handed to Backing, the platform is removed. A notice says which, and undo brings it back. (Leaving it on the wall tied to nothing would put an obstacle in every marble's path.)
 
 ### Inspector headers
 
-"Platform 3" with the subtitle of its tie: "Plays C4 · 0:03.2", "Follows Marble 1 at 0:03.2" or "Free", and the status pill on the right.
+"Platform 3" with the subtitle of its tie: "Plays C4 · 0:03.2", "Follows Marble 1 at 0:03.2" or "None", and the status pill on the right.
 
 ### Start screen
 

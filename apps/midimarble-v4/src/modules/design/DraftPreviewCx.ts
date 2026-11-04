@@ -11,6 +11,7 @@ import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { selectionHull } from './draft-outline';
 import { filmCamera, imageToWall, type TFilmCamera } from './film-camera';
+import { hitboxOutlines } from './hitbox-outline';
 
 /**
  * Film Draft Preview: the run through the film's follow camera at the playhead, drawn in the app with the theme's
@@ -194,6 +195,12 @@ export class DraftPreviewCx {
 		if (kind === 'path' || kind === 'tube') return wall.map((corner) => this.toScreen(corner, MARBLE_Z));
 		const depth = piece.params['depth'] ?? 0.03;
 		return selectionHull([...wall.map((corner) => this.toScreen(corner, 0)), ...wall.map((corner) => this.toScreen(corner, depth))], 3);
+	}
+
+	/** A piece's hitbox in CSS pixels at the playhead: its colliders' outlines in the plane the marble moves in */
+	hitboxOutline(piece: TResolvedPiece): TVec2[][] {
+		const time = this.studio.$playhead.get();
+		return hitboxOutlines(piece, time).map((outline) => outline.map((corner) => this.toScreen(corner, MARBLE_Z)));
 	}
 
 	/** Title or piece under a CSS pixel point of the frame, titles first like the Blender ID pass shows them on top */

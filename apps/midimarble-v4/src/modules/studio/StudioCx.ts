@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { host, notSongFileMessage, songFileKind, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, isAutoEnd, projectSongEnd, type TAudioEngine } from '@/modules/music';
+import { autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, endsOnFinish, isAutoEnd, projectSongEnd, type TAudioEngine } from '@/modules/music';
 import {
 	amendHistory,
 	applyProjectCommands,
@@ -25,6 +25,8 @@ import {
 	type TVec2
 } from '@/modules/project';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
+import { fittedSongEnd } from '@/modules/camera/finish-exit';
+import { FINISH_TYPE } from '@/modules/simulation/finish';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { parseHitKey } from './selection';
@@ -61,6 +63,7 @@ export class StudioCx {
 	private tapCountInEnd = -Infinity;
 	/** The playback T started: whether the length followed the song then, and whether a tap added a hit */
 	private tapSession: { isAutoEnd: boolean; hasTapped: boolean } | null = null;
+	private tailTimer: ReturnType<typeof setTimeout> | null = null;
 	readonly $notice = createState<TNotice | null>(null);
 	/**
 	 * Selection keys and an optional wall point the Compose canvas should bring into view, set by lists
@@ -86,6 +89,8 @@ export class StudioCx {
 	readonly $locked = createState<string[]>([]);
 	/** Dropping an element links it to a hit dot or anchors it to a trajectory, like Figma's snapping */
 	readonly $snapping = createState(true);
+	/** Film outlines every piece's hitbox, like Unity's collider gizmos; a selected piece always shows its own */
+	readonly $showHitboxes = createState(false);
 	/** Text and mentions the agent composer takes over once, such as the library's New Theme with Agent… */
 	readonly $agentDraft = createState<TAgentDraft | null>(null);
 	readonly sources = new SourcesCx(this);
@@ -579,7 +584,41 @@ export class StudioCx {
 		}
 		this.$history.set(options.amend === true ? amendHistory(history, named) : pushHistory(history, named, options.group));
 		this.scheduleSave();
+		if (this.tapSession == null && changesFinishEnding(commands)) this.measureFinishTail();
 		return true;
+	}
+
+	/**
+	 * Fit to Song: ends the film `filmTail` after the last note, measured on a what-if run when it ends on a Finish.
+	 * A newer edit in the meantime wins.
+	 */
+	async fitToSong(): Promise<void> {
+		const history = this.$history.get();
+		const project = history?.present;
+		if (project == null) return;
+		const client = this.simulation.assists;
+		const end = client != null ? await fittedSongEnd(project, (trial) => client.simulateAssist(trial)) : projectSongEnd(project);
+		if (end == null || this.$history.get()?.present !== project || Math.abs(end - project.end) < 0.005) return;
+		this.execute([{ type: 'setEnd', end }]);
+	}
+
+	/**
+	 * While the length follows the song and ends on a Finish, an edit of the notes or the Finish measures the tail in a
+	 * what-if run shortly after and folds the length into that edit's undo step, so the length needs no run to be
+	 * known at the edit itself. A newer edit restarts it.
+	 */
+	private measureFinishTail(): void {
+		if (this.tailTimer != null) clearTimeout(this.tailTimer);
+		this.tailTimer = setTimeout(() => {
+			this.tailTimer = null;
+			const project = this.project;
+			const client = this.simulation.assists;
+			if (project == null || client == null || !endsOnFinish(project) || !isAutoEnd(project)) return;
+			void fittedSongEnd(project, (trial) => client.simulateAssist(trial)).then((end) => {
+				if (end == null || this.project !== project || Math.abs(end - project.end) < 0.005) return;
+				this.execute([{ type: 'setEnd', end }], { amend: true });
+			});
+		}, TAIL_MEASURE_DELAY);
 	}
 
 	/** The undo group of the latest edit, for folding later commands into it or binding a notice's Undo to it */
@@ -702,6 +741,7 @@ export class StudioCx {
 		const end = projectSongEnd(project);
 		if (end == null) return;
 		if (Math.abs(end - project.end) > 1e-6) this.execute([{ type: 'setEnd', end }], { amend: true });
+		this.measureFinishTail();
 	}
 
 	undo(): void {
@@ -829,6 +869,15 @@ export class StudioCx {
 		const duration = notice.tone === 'error' ? 8000 : notice.actions?.length ? 10000 : 3500;
 		this.noticeTimer = setTimeout(() => this.$notice.set(null), duration);
 	}
+}
+
+/** Seconds after an edit before its Finish tail is measured, so a burst of edits measures once */
+const TAIL_MEASURE_DELAY = 0.4 * 1000;
+
+/** Whether an edit can move when the last marble leaves the frame: it changes the notes or a Finish, and not the length */
+function changesFinishEnding(commands: readonly TProjectCommand[]): boolean {
+	if (commands.some((command) => command.type === 'setEnd')) return false;
+	return changesHitsOnly(commands) || commands.some((command) => (command.type === 'upsertEntity' && command.entity.components.piece?.type === FINISH_TYPE) || command.type === 'removeEntities');
 }
 
 /** A notice that offers a fix, or details to read, stays until it is used or closed, or the next edit */

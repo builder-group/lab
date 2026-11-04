@@ -5,7 +5,7 @@ import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { followKey, toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
 import { canMakeBacking } from '@/modules/compose/reachability';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
-import { detachSelection, followSelection, hasTiedSelection } from '@/modules/compose/tie-commands';
+import { armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu } from '@/modules/compose/tie-commands';
 import type { TRenderPreset } from '@/modules/blender';
 import { BACKING_ID } from '@/modules/project';
 import { soundsHit } from '@/modules/simulation';
@@ -160,7 +160,7 @@ function duplicateSelection(cx: StudioCx): void {
 	const original = project.entities.find((entity) => entity.id === ids[0]);
 	const tied = ids.some((id) => project.entities.find((entity) => entity.id === id)?.components.hitLink != null);
 	const what = named.length === 1 ? `${original?.name ?? 'The piece'} duplicated as ${named[0]?.name ?? 'a copy'}` : `${named.length} pieces duplicated`;
-	cx.notifyEdit(tied ? `${what}, free on the wall` : what);
+	cx.notifyEdit(tied ? `${what}, tied to nothing` : what);
 }
 
 /** The notes Make Backing hands over: selected notes and hits, and the notes the selected platforms play */
@@ -307,6 +307,16 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => cx.$snapping.set(!cx.$snapping.get())
 	},
 	{
+		id: 'view.showHitboxes',
+		workspace: 'design',
+		title: 'Show Hitboxes',
+		section: 'View',
+		keywords: 'collider gizmo outline physics shape what the marble touches',
+		isEnabled: inDesign,
+		isChecked: (cx) => cx.$showHitboxes.get(),
+		run: (cx) => cx.$showHitboxes.set(!cx.$showHitboxes.get())
+	},
+	{
 		id: 'view.follow',
 		workspace: 'compose',
 		title: 'Follow Marble in View',
@@ -412,8 +422,19 @@ export const commands: readonly TCommand[] = [
 			if (laneId != null) void compose(cx)?.assist.addFinish(laneId);
 		}
 	},
-	{ id: 'piece.follow', title: 'Follow Marble', section: 'Pieces', keywords: 'anchor attach tie follows nearest marble', isEnabled: hasPieces, run: (cx) => followSelection(cx) },
-	{ id: 'piece.detach', title: 'Detach', section: 'Pieces', keywords: 'unlink unanchor untie free', isEnabled: (cx) => hasPieces(cx) && hasTiedSelection(cx), run: (cx) => detachSelection(cx) },
+	{
+		id: 'piece.playNote',
+		title: 'Play a Note…',
+		section: 'Pieces',
+		keywords: 'link attach tie plays dot hit',
+		isEnabled: (cx) => hasPieces(cx) && canPlayNote(cx),
+		run: (cx) => {
+			const current = compose(cx);
+			if (current != null) armPlayNote(cx, current);
+		}
+	},
+	{ id: 'piece.follow', title: 'Follow a Marble…', section: 'Pieces', keywords: 'anchor attach tie follows nearest marble', isEnabled: (cx) => hasPieces(cx) && canFollow(cx), run: (cx) => openFollowMenu(cx) },
+	{ id: 'piece.detach', title: 'Detach', section: 'Pieces', keywords: 'unlink unanchor untie free none', isEnabled: (cx) => hasPieces(cx) && hasTiedSelection(cx), run: (cx) => detachSelection(cx) },
 	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Pieces', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.dismiss() },
 	{ id: 'build.rotateLeft', title: 'Rotate 5° Counterclockwise', section: 'Pieces', shortcut: '⇧←', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(5) },
 	{ id: 'build.rotateRight', title: 'Rotate 5° Clockwise', section: 'Pieces', shortcut: '⇧→', keywords: 'turn angle nudge', isEnabled: hasPieces, run: (cx) => compose(cx)?.nudge(-5) },
@@ -662,6 +683,7 @@ export type TCommandId =
 	| 'view.fitAll'
 	| 'view.fitSelection'
 	| 'view.fitFrame'
+	| 'view.showHitboxes'
 	| 'view.follow'
 	| 'play.toggle'
 	| 'play.start'
@@ -682,6 +704,7 @@ export type TCommandId =
 	| 'build.continue'
 	| 'build.dismiss'
 	| 'build.replace'
+	| 'piece.playNote'
 	| 'piece.follow'
 	| 'edit.duplicate'
 	| 'edit.makeBacking'

@@ -1,7 +1,8 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
+import { canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection } from '@/modules/compose/tie-commands';
 import { createId, type TLane } from '@/modules/project';
 import { isMusicalPiece } from '@/modules/simulation';
-import { commandItem } from './commands';
+import { commandItem, getCommand, runInWorkspace } from './commands';
 import { formatTime } from './format';
 import { toHitKey } from './selection';
 import type { StudioCx } from './StudioCx';
@@ -24,8 +25,23 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 		'separator',
 		commandItem(cx, 'edit.duplicate'),
 		commandItem(cx, 'edit.rename'),
-		commandItem(cx, 'edit.delete')
+		commandItem(cx, 'edit.delete'),
+		'separator',
+		...pieceLinkItems(cx)
 	]);
+}
+
+/**
+ * The piece's link: Play a Note… and Follow a Marble…, or Detach. Linking is Compose's work, so from Film's Layers
+ * Play a Note… opens Compose first.
+ */
+function pieceLinkItems(cx: StudioCx): TMenuEntry[] {
+	const follow = followItems(cx);
+	return [
+		{ label: 'Play a Note…', disabled: !canPlayNote(cx), onSelect: () => runInWorkspace(cx, getCommand('piece.playNote')) },
+		{ label: 'Follow a Marble…', disabled: !canFollow(cx), submenu: follow, onSelect: () => undefined },
+		{ label: 'Detach', disabled: !hasTiedSelection(cx), onSelect: () => detachSelection(cx) }
+	];
 }
 
 /** Right-click on a hit in the timeline */

@@ -6,7 +6,7 @@ import { openContextMenu } from '@/components';
 import type { TPathNode, TProject, TVec2 } from '@/modules/project';
 import { frameBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
-import { laneMenu } from '@/modules/studio/menus';
+import { laneMenu, pieceMenu } from '@/modules/studio/menus';
 import { parseHitKey } from '@/modules/studio/selection';
 import { focusedLane, type StudioCx } from '@/modules/studio/StudioCx';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
@@ -17,7 +17,7 @@ import { paletteOf } from './ComposeRenderer';
 import { acceptableCount } from './ghosts';
 import { followKey } from './keys';
 import { GhostHint, GhostShapes } from './GhostLayer';
-import { canvasMenu, canvasPieceMenu, dotMenu } from './menus';
+import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, toPoints } from './PieceLayer';
 import { placeBar, type TScreenRect } from './view';
 import { pathRun, pathToWorld, pieceKind } from './scene';
@@ -77,6 +77,7 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 			<ComposeOverlay compose={compose} />
 			<PenOverlay compose={compose} />
 			<GhostHint compose={compose} />
+			<PlayNoteHint compose={compose} />
 			<AssistBar compose={compose} />
 			<CornerControls compose={compose} />
 			<EmptyWall cx={cx} />
@@ -103,7 +104,7 @@ function openCanvasMenu(compose: ComposeCx, event: React.MouseEvent<HTMLElement>
 		case 'nodeIn':
 		case 'nodeOut':
 			if (!cx.$selection.get().includes(target.entityId)) cx.$selection.set([target.entityId]);
-			openContextMenu(event, canvasPieceMenu(compose, target.entityId));
+			openContextMenu(event, pieceMenu(cx));
 			return;
 		case 'dot':
 			openContextMenu(event, dotMenu(compose, target.laneId, target.hitId));
@@ -425,13 +426,26 @@ const SnapChip: React.FC<{ compose: ComposeCx; project: TProject; position: TVec
 			</>
 		);
 	} else {
-		content = <span className="font-medium">Free</span>;
+		content = <span className="font-medium">None</span>;
 	}
 	return (
 		<div className="mm-snap-chip" data-snapped={snap != null} style={{ left: center.x + 18, top: center.y + 14 }}>
 			{content}
-			{snap != null ? <kbd className="opacity-60">⌥ free</kbd> : null}
+			{snap != null ? <kbd className="opacity-60">⌥ None</kbd> : null}
 			<WhatIfCount compose={compose} result={compose.result} isInChip />
+		</div>
+	);
+};
+
+/** While Play a Note… is armed: which piece waits for a note's dot, and that Escape stops */
+const PlayNoteHint: React.FC<{ compose: ComposeCx }> = (props) => {
+	const { compose } = props;
+	const entityId = useFeatureState(compose.$playNoteFor);
+	if (entityId == null) return null;
+	const name = compose.project?.entities.find((entity) => entity.id === entityId)?.name ?? 'The platform';
+	return (
+		<div className="mm-hint mm-ghost-in absolute top-[52px] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap">
+			Click a note's dot for {name} to play <kbd className="opacity-60">⎋</kbd>
 		</div>
 	);
 };

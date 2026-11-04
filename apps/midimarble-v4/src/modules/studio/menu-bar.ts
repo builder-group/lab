@@ -98,6 +98,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'view.fitFrame' },
 			'separator',
 			{ command: 'view.snap' },
+			{ command: 'view.showHitboxes' },
 			{ command: 'view.follow' },
 			{ command: 'help.quickHelp', hasNoKey: true },
 			'separator',

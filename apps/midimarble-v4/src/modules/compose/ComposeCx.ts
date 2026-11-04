@@ -9,6 +9,7 @@ import {
 	frameBand,
 	gravityOf,
 	layoutOf,
+	linkPieceToHit,
 	resolvePieceParams,
 	resolvePiecePath,
 	soundsHit,
@@ -122,6 +123,8 @@ export class ComposeCx {
 	 * default and remembered per project on this device; panning or zooming by hand turns it off.
 	 */
 	readonly $follow = createState(false);
+	/** The platform Play a Note… armed, which the next click on a note's dot links; any other click disarms it */
+	readonly $playNoteFor = createState<string | null>(null);
 
 	private renderer: ComposeRenderer | null = null;
 	private container: HTMLElement | null = null;
@@ -888,6 +891,10 @@ export class ComposeCx {
 		}
 
 		const target = this.pickAt(point);
+		if (this.$playNoteFor.get() != null) {
+			this.finishPlayNote(target);
+			return;
+		}
 		switch (target?.kind) {
 			case 'rotate':
 				this.startRotate(target.entityId, point);
@@ -1948,9 +1955,32 @@ export class ComposeCx {
 		if (after !== before) this.revealSelection();
 	}
 
+	/** Play a Note…: the next click on a note's dot links this platform to that note */
+	armPlayNote(entityId: string): void {
+		if (!this.result?.hits.some((hit) => hit.status === 'open')) {
+			this.studio.notify('Every note already has a platform; Detach one to open its note');
+			return;
+		}
+		this.$tool.set('select');
+		this.$playNoteFor.set(entityId);
+	}
+
+	private finishPlayNote(target: TPick | null): void {
+		const entityId = this.$playNoteFor.get();
+		this.$playNoteFor.set(null);
+		const project = this.project;
+		const result = this.result;
+		if (entityId == null || target?.kind !== 'dot' || project == null || result == null) return;
+		const [isOk, error, value] = linkPieceToHit(project, result, entityId, target.laneId, target.hitId);
+		if (!isOk) this.studio.notify(error.message);
+		else this.studio.execute(value.commands);
+	}
+
 	/** Escape cancels a drag or a rail in progress, then dismisses ghosts, then leaves a tool, then clears the selection */
 	escape(): void {
-		if (this.assist.$queuedNext.get() > 0) {
+		if (this.$playNoteFor.get() != null) {
+			this.$playNoteFor.set(null);
+		} else if (this.assist.$queuedNext.get() > 0) {
 			this.assist.clearQueuedNext();
 		} else if (this.insertDrag != null) {
 			this.endInsertDrag(false);
