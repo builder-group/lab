@@ -38,7 +38,7 @@ import { flashElement } from './hit-flash';
 import { Transport } from './Transport';
 
 /**
- * The layers along the time, like After Effects' timeline, as a Blender-style dope sheet in a Logic-style track
+ * What changes over time, as a Blender-style dope sheet in a Logic-style track
  * area: the transport and hit summary in the header, the Song on top while the project has one, expandable into
  * every note and its Parts when it has notes, with mute and solo on the Song, then one flat row per marble with its
  * hits by timing status, then in Film the Camera and Titles

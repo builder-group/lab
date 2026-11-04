@@ -12,7 +12,7 @@ import type { TWorkspace } from './StudioCx';
  * (those no marble plays or follows), the Wall, the Lights, the Camera with its shots, Titles and Decor, a fixed order by
  * kind. Compose is the performance and shows only the Song and the marbles with their pieces; Film is the
  * presentation and shows every layer. Rows of a collapsed group leave out
- * their children. The timeline shows the Song, the marbles and the Camera as rows too, like After Effects.
+ * their children. The timeline shows only what changes over time: the Song, the marbles, and in Film the Camera and Titles.
  */
 export function buildOutline(project: TProject, options: TOutlineOptions = {}): TOutlineRow[] {
 	const { collapsed = [], workspace = 'design', blenderObjects = [] } = options;

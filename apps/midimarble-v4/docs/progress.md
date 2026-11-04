@@ -14,6 +14,15 @@ The autonomous build updates this log after every slice. Newest entries go first
 
 ## Log
 
+### 2026-11-04: Deep cleanup, part 2: the UI
+
+- **Audit's Clear items:** Rotate 5°, Add Platform at Default Tilt, palette Quality and Theme, Add Particles line, read-only Position, Apply Theme, Lights, Titles and multi-Decor inspectors (several selected show the Scene), Show First Problem in the summary menu, Take Over Camera and the repeated menu lines are gone. Film's piece menu shows what works. Marble and Title are one command each; O and T stay. Rail is the one word. Played By, Open in Blender. ⌘I is one Import Song, `file.importAudio` gone. Release hides in Film. Snap is Compose only.
+- **Assists:** the bar has Next and Build Track, with Continue Pattern when offered. A without a platform is Next. `build.autoPlace` became `build.placeAgain`. Fix N Hits replaces Re-place Broken Platforms; `build.replace` keeps its id.
+- **Moves:** Add N Suggested Hits on the row menu, ⌘K and empty hint. One marble colour well with a popover. ? kept for concepts only. Release collapsed in Compose. Insert no longer repeats the rail's tools; the Compose empty state still offers Add Marble.
+- **Data still holds `depth` on titles and Decor and `roll` on shots:** the UI and agent args are gone and new values are fixed. Schema removal needs the Python worker and `follow-camera`, and belongs with a data pass.
+- **Packs:** Starter holds Particles only; `packs/Christmas.marblepack` is bundled, not added by default. Handle and Subscribe are gone, with decor text in the schema, worker and Draft Preview. No neutral item exists, so Scatter offers Add Pack… until a Pack brings some.
+- **Layers and timeline:** timeline rows already match the rule (Song, marbles, Camera, Titles); docs corrected. Compose's Layers still lists only the Song and marbles with their pieces.
+
 ### 2026-11-04: Deep cleanup, part 1: determinism, Seamless Loop, `marble-project@5`, dead code
 
 - **Build Track is deterministic:** equal event times go by lane, then hit, not by random IDs (`simulate.ts`). Jingle Bells in the test: about 66 to 72 s on one thread, from 234 to 265 s. Suite without performance tests: 137 s, from 292 s.

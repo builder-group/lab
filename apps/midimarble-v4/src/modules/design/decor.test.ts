@@ -23,7 +23,7 @@ import {
 	overlapLabel,
 	updateDecorCommands
 } from './decor';
-import { DECOR_ITEMS, decorExtent, isFrameEffect } from './decor-catalog';
+import { DECOR_ITEMS, isFrameEffect } from './decor-catalog';
 import { effectDefaults, flakeAt, snowFlakes } from './decor-effects';
 import { buildObstacleField, distanceToBox, type TWallBox } from './decor-clearance';
 import { SCATTER_MARGIN, scatterDecorCommands, scatterPlacements } from './decor-scatter';

@@ -5,7 +5,7 @@ import { hasSongLayer } from './song-layer';
 import type { TWorkspace } from './StudioCx';
 
 /**
- * What the inspector shows for a selection. Each layer owns its settings, like a layer in After Effects: the
+ * What the inspector shows for a selection. Each layer owns its settings: the
  * Song its file and Backing, the Camera its framing, a shot or a title its own, a marble its colour and release,
  * the Wall its skin and colours, a light its colour, strength and direction.
  * Nothing selected is the Scene. The same selection shows the same inspector whether it was made in Layers or in the

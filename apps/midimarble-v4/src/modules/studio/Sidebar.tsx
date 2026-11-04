@@ -50,7 +50,7 @@ interface TSidebarProps {
 
 /**
  * The project's layers like Figma UI3's layer list. Each layer with a row in the timeline shares its selection
- * with that row, like After Effects. The Scene comes first, like Blender's Scene Collection, and a
+ * with that row. The Scene comes first, like Blender's Scene Collection, and a
  * click on empty space selects it. Compose lists the Song and the marbles with their pieces; Film lists every layer,
  * the Wall, the Lights, the Camera with its shots and the titles too. Up and Down move the selection, Left and Right
  * fold a group.
