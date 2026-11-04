@@ -3,13 +3,15 @@ import { ChevronRight, CircleCheck, Info, LoaderCircle, TriangleAlert } from 'lu
 import React from 'react';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/studio/format';
+import { $blenderObjects } from './decor';
 import { preflightExport, type TExportPreflight, type TPreflightIssue } from './export-preflight';
 
 /** The export preflight of the open project and its current simulation result */
 export function useExportPreflight(cx: StudioCx): TExportPreflight | null {
 	const project = useFeatureState(cx.$history)?.present ?? null;
 	const result = useFeatureState(cx.simulation.$result);
-	return React.useMemo(() => (project != null ? preflightExport(project, result) : null), [project, result]);
+	const blenderObjects = useFeatureState($blenderObjects);
+	return React.useMemo(() => (project != null ? preflightExport(project, result, blenderObjects) : null), [project, result, blenderObjects]);
 }
 
 /**

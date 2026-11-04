@@ -29,6 +29,15 @@ export interface TAgentBrief {
 	wallPoint?: TVec2;
 	/** Set for a New Theme request: the agent also proposes the theme's colours in its manifest */
 	theme?: TAgentBriefTheme;
+	/** Set for a decor request: this run makes one item of a set, which Accept scatters on the wall */
+	decorSet?: TAgentBriefDecorSet;
+}
+
+/** One item of a decor set: which of how many, and what kind of thing it should be so the set stays varied */
+export interface TAgentBriefDecorSet {
+	index: number;
+	total: number;
+	suggestion: string;
 }
 
 /** What a New Theme run may propose: a name, a built-in base and the colours a project theme changes */
@@ -45,10 +54,12 @@ export type TReactionSlot = 'press' | 'wobble' | 'glow';
 
 export type TAgentTarget =
 	| { kind: 'piece'; entityId: string }
-	| { kind: 'scene' }
+	// `decorSet` when the run makes one item of a decor set; runs of one request share its `id`
+	| { kind: 'scene'; decorSet?: { id: string; index: number; total: number } }
 	| { kind: 'wall'; point: TVec2; role?: 'decoration' | 'text' };
 
 const TIMING_PARAMS = new Set(['entryDelay']);
+const WALL_CONTACT = 'The back of the element sits flat on the wall. Its origin is the centre of that back face and +Z points out of the wall toward the camera.';
 
 /** Builds the brief for a target from the project and its latest simulation result */
 export function buildAgentBrief(options: {
@@ -63,6 +74,17 @@ export function buildAgentBrief(options: {
 
 /** Prompt the library's New Theme with Agent… action starts the composer with */
 export const NEW_THEME_PROMPT = 'New theme: ';
+
+/** What each item of a decor set is, so a set of three isn't three baubles; also how many results one request gets */
+export const DECOR_SET_SLOTS = ['a round or hanging ornament', 'a flat shape or symbol', 'a small object or a light'] as const;
+
+/**
+ * Whether a request asks for decor as a set: "Christmas decor along the sides". A decoration at a picked point is a
+ * wall request instead, and a skin for a piece never reads this.
+ */
+export function isDecorSetRequest(request: string): boolean {
+	return /\b(decor|decorations?|decorate)\b/i.test(request);
+}
 
 export function isNewThemeRequest(request: string): boolean {
 	// The request starts with the mentions, such as `@[Platform 1] @[Rail 1] New theme: …`
@@ -93,6 +115,19 @@ function buildTargetBrief(options: { project: TProject; result: TSimulationResul
 		notes: `The film frame is ${round(project.frame.width)} m wide and ${round(project.frame.height)} m tall on the wall`
 	};
 
+	if (target.kind === 'scene' && target.decorSet != null) {
+		return {
+			request,
+			target: { kind: 'scene', role: 'decoration' },
+			params: [],
+			contact: { description: WALL_CONTACT },
+			hitTimes: [],
+			reactionSlots: [],
+			scale,
+			decorSet: { index: target.decorSet.index, total: target.decorSet.total, suggestion: DECOR_SET_SLOTS[(target.decorSet.index - 1) % DECOR_SET_SLOTS.length] ?? DECOR_SET_SLOTS[0] }
+		};
+	}
+
 	if (target.kind === 'scene') {
 		return {
 			request,
@@ -112,10 +147,7 @@ function buildTargetBrief(options: { project: TProject; result: TSimulationResul
 			request,
 			target: { kind: 'wall', role },
 			params: [],
-			contact: {
-				description:
-					'The back of the element sits flat on the wall. Its origin is the centre of that back face and +Z points out of the wall toward the camera.'
-			},
+			contact: { description: WALL_CONTACT },
 			hitTimes: [],
 			reactionSlots: [],
 			scale,

@@ -25,6 +25,23 @@ export function parseLightKey(key: string): string | null {
 	return key.startsWith('light:') ? key.slice('light:'.length) : null;
 }
 
+export function toDecorKey(decorId: string): string {
+	return `decor:${decorId}`;
+}
+
+export function parseDecorKey(key: string): string | null {
+	return key.startsWith('decor:') ? key.slice('decor:'.length) : null;
+}
+
+/** An object added directly in Blender, by its Blender name */
+export function toMadeInBlenderKey(name: string): string {
+	return `blender:${name}`;
+}
+
+export function parseMadeInBlenderKey(key: string): string | null {
+	return key.startsWith('blender:') ? key.slice('blender:'.length) : null;
+}
+
 export function toShotKey(shotId: string): string {
 	return `shot:${shotId}`;
 }

@@ -77,7 +77,7 @@ describe('toThreadItem function', () => {
 				}
 			})
 		);
-		expect(item.candidate).toEqual({ previewUrl: 'asset://preview.png', label: 'Sunset Arch', theme: { name: 'Sunset', base: 'pegboard', overrides: { wallColor: '#e8742c' } } });
+		expect(item.candidate).toEqual({ decorSet: null, previewUrl: 'asset://preview.png', label: 'Sunset Arch', theme: { name: 'Sunset', base: 'pegboard', overrides: { wallColor: '#e8742c' } } });
 	});
 
 	it('should leave out a theme the request did not ask for', () => {

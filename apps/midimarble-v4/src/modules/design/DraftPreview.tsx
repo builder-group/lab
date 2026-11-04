@@ -6,7 +6,9 @@ import { FinishShape, RailShape, SwitchbackShape, toPoints, TunnelShape } from '
 import { pieceKind } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
+import { placeDecor, startDecorDrag } from './decor-actions';
+import { DraftDecorShape } from './DraftDecorShape';
+import { DECOR_DRAG_TYPE, LIBRARY_DRAG_TYPE, readDecorDrop } from './DesignLibrary';
 import { SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
 import { appliedOverrides } from './project-themes';
@@ -22,6 +24,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const canvasRef = React.useRef<HTMLCanvasElement>(null);
 	const [dropTarget, setDropTarget] = React.useState(false);
+	const swallowClickRef = React.useRef(false);
 	const hasResult = useFeatureState(studio.simulation.$result) != null;
 	const design = useFeatureState(studio.$history)?.present.design;
 	// A Background colour the theme or the Wall layer set shows around the frame, where the film has no wall
@@ -41,6 +44,10 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 	}
 
 	function onClick(event: React.MouseEvent<HTMLDivElement>): void {
+		if (swallowClickRef.current) {
+			swallowClickRef.current = false;
+			return;
+		}
 		const { point, u, v } = pointOf(event);
 		if (isPlacing) {
 			onPlace(u, v, event.shiftKey);
@@ -51,6 +58,13 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 
 	function onDrop(event: React.DragEvent<HTMLDivElement>): void {
 		setDropTarget(false);
+		const decor = readDecorDrop(event, studio);
+		if (decor != null) {
+			event.preventDefault();
+			const { u, v } = pointOf(event);
+			placeDecor(studio, decor, u, v);
+			return;
+		}
 		const data = event.dataTransfer.getData(LIBRARY_DRAG_TYPE);
 		if (!data) return;
 		event.preventDefault();
@@ -71,8 +85,14 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 					className="mm-preview absolute inset-0 overflow-hidden rounded-[6px]"
 					style={{ boxShadow: '0 0 0 0.5px rgb(0 0 0 / 0.15), 0 12px 40px rgb(0 0 0 / 0.18)' }}
 					onClick={onClick}
+					onPointerDown={(event) => {
+						if (isPlacing || event.button !== 0 || !studio.$selection.get().some((key) => key.startsWith('decor:'))) return;
+						startDecorDrag(studio, event, (point) => draft.decorAt(point), (wasDragged) => {
+							swallowClickRef.current = wasDragged;
+						});
+					}}
 					onDragOver={(event) => {
-						if (!event.dataTransfer.types.includes(LIBRARY_DRAG_TYPE)) return;
+						if (!event.dataTransfer.types.includes(LIBRARY_DRAG_TYPE) && !event.dataTransfer.types.includes(DECOR_DRAG_TYPE)) return;
 						event.preventDefault();
 						event.dataTransfer.dropEffect = 'copy';
 						setDropTarget(true);
@@ -138,6 +158,13 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 
 	return (
 		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+			{/* Decor sits on the wall, so it comes first; the outlines of Blender's own objects say they show only there */}
+			{draft.decor().map((decor) => (
+				<DraftDecorShape key={decor.key} decor={decor} />
+			))}
+			{draft.blenderOutlines().map((outline) => (
+				<polygon key={outline.key} points={toPoints(outline.points)} fill="none" stroke="currentColor" strokeOpacity={0.35 * outline.opacity} strokeWidth={1} strokeDasharray="4 3" />
+			))}
 			{glows ? (
 				// Neon's bloom, cheaply: every piece's outline in its glow colour, blurred once as a group and added onto the frame
 				<g style={{ filter: `blur(${Math.max(2, Math.min(8, scale * 0.012))}px)`, mixBlendMode: 'screen' }} opacity={0.85}>
@@ -259,6 +286,10 @@ const SelectionOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 					const box = boxes.get(title.entityId);
 					return box == null ? null : <polygon key={title.entityId} points={toPoints(box)} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} />;
 				})}
+			{selection.flatMap((key) => {
+				const outline = key.startsWith('decor:') || key.startsWith('blender:') ? draft.decorOutline(key) : null;
+				return outline != null ? [<polygon key={key} points={toPoints(outline)} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} strokeLinejoin="round" />] : [];
+			})}
 		</svg>
 	);
 };

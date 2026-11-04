@@ -5,6 +5,7 @@ import { FINISH_TYPE, finishCatch, getPieceDefinition, soundsHit, type THitResul
 import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
+import { $blenderObjects, decorOverlaps, overlapLabel, type TBlenderObject } from './decor';
 import { describeLoop } from './loop-status';
 import { addWideShotCommands } from './shots';
 
@@ -14,7 +15,7 @@ import { addWideShotCommands } from './shots';
  * result. It is the one source for the hit summary in the timeline header, its menu, the export sheet and the
  * Camera track. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
  */
-export function preflightExport(project: TProject, result: TSimulationResult | null): TExportPreflight {
+export function preflightExport(project: TProject, result: TSimulationResult | null, blenderObjects: readonly TBlenderObject[] = $blenderObjects.get()): TExportPreflight {
 	if (result == null || result.revision !== project.revision) {
 		return {
 			state: 'pending',
@@ -34,7 +35,8 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		...finishIssues(project, result, names),
 		...contactIssues(project, result, names),
 		...framingIssues(project, result, names),
-		...loopIssues(project, result)
+		...loopIssues(project, result),
+		...decorIssues(project, result, names, blenderObjects)
 	];
 	issues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity] || (a.time ?? Infinity) - (b.time ?? Infinity));
 
@@ -142,10 +144,25 @@ export interface TPreflightIssue {
 	detail?: string;
 	/** Run time the issue happens at, if it has one */
 	time?: number;
+	/** A Decor tip's words on its own layer, without its name: "Overlaps Melody's path" */
+	label?: string;
 	/** The stretch of the run a framing issue lasts, for the Camera track */
 	span?: { from: number; to: number };
 	/** What Compose selects and frames when the issue is clicked */
 	target: TPreflightTarget | null;
+}
+
+/**
+ * Decor a marble's path crosses, by selection key, with the tip: Layers badges it and the inspector shows the amber
+ * words and Move Clear, from the same list as the export sheet.
+ */
+export function decorTips(preflight: TExportPreflight): Map<string, TPreflightIssue> {
+	const tips = new Map<string, TPreflightIssue>();
+	for (const issue of preflight.issues) {
+		const key = issue.kind === 'decor' ? issue.target?.ids[0] : undefined;
+		if (key != null) tips.set(key, issue);
+	}
+	return tips;
 }
 
 export interface TPreflightFix {
@@ -168,7 +185,7 @@ export interface TPreflightTarget {
 	workspace?: 'compose' | 'design';
 }
 
-export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'framing' | 'loop' | 'simulation';
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'framing' | 'loop' | 'decor' | 'simulation';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
@@ -531,6 +548,26 @@ function loopIssues(project: TProject, result: TSimulationResult): TPreflightIss
 	const status = describeLoop(project, result);
 	if (status.isOk) return [];
 	return [{ id: 'loop', kind: 'loop', severity: 'warning', title: status.summary, detail: status.details.join(' '), target: null }];
+}
+
+// MARK: - Decor
+
+/** Decor a marble's path crosses: a tip, since Decor has no hitbox and can never change a hit */
+function decorIssues(project: TProject, result: TSimulationResult, names: TNames, blenderObjects: readonly TBlenderObject[]): TPreflightIssue[] {
+	return decorOverlaps(project, result, blenderObjects).map((overlap) => {
+		const first = overlap.lanes[0];
+		const label = overlapLabel(overlap.lanes.map((item) => names.lane(item.laneId)));
+		return {
+			id: `decor:${overlap.key}`,
+			kind: 'decor' as const,
+			severity: 'info' as const,
+			title: `${overlap.name}: ${label.charAt(0).toLowerCase()}${label.slice(1)}`,
+			detail: `The marble passes over it${first != null ? ` at ${formatTime(first.time)}` : ''}. Decor has no hitbox, so the hit stays the same.`,
+			label,
+			time: first?.time,
+			target: { ids: [overlap.key], point: first?.point, time: first?.time, workspace: 'design' as const }
+		};
+	});
 }
 
 // MARK: - Names

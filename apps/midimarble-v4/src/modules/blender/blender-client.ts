@@ -211,6 +211,11 @@ export const blender = {
 		return this.request<TInspectResult>(packagePath, 'inspect');
 	},
 
+	/** Selects objects by name in the open Blender window and frames nothing else; never changes the scene */
+	selectObjects(packagePath: string, names: string[]): Promise<TResult<{ selected: string[] }, BlenderError>> {
+		return this.request(packagePath, 'select_objects', { names });
+	},
+
 	save(packagePath: string): Promise<TResult<{ path: string; saved: boolean }, BlenderError>> {
 		return this.request(packagePath, 'save', {}, { timeoutMs: 60_000 });
 	}
@@ -327,6 +332,8 @@ export interface TInspectResult {
 	}[];
 	detached: string[];
 	texts: { mmId: string; name: string; text: string; link: 'linked' | 'unlinked' }[];
+	/** Objects the user added in Blender, listed in the Decor group; lights and cameras stay out */
+	madeInBlender?: { name: string; bounds: { minX: number; minY: number; maxX: number; maxY: number } }[];
 	studio: { name: string; role: string | null }[];
 	revision: number | null;
 	frameStart: number;

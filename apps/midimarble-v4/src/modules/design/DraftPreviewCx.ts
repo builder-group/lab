@@ -5,6 +5,10 @@ import { ComposeRenderer, MARBLE_Z, type TRenderPiece } from '@/modules/compose/
 import { distanceToSegment, isPointInPolygon } from '@/modules/compose/picking';
 import { marblePositionAt, pieceAngleAt, pieceKind, pieceOutline } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
+import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
+import { $blenderObjects, blenderObjectBox, decorBox, decorList, madeInBlenderLayer } from './decor';
+import { decorExtent, decorItem, decorText, type TDecorItem } from './decor-catalog';
+import { distanceToBox, type TWallBox } from './decor-clearance';
 import { appliedOverrides, DEFAULT_THEME, resolveElementLook, resolveTheme } from './project-themes';
 import { wallKindOverride } from './scene-layers';
 import type { TResolvedPiece } from '@/modules/simulation';
@@ -51,7 +55,8 @@ export class DraftPreviewCx {
 			studio.$history.listen(() => this.draw()),
 			studio.simulation.$result.listen(() => this.draw()),
 			studio.$playhead.listen(() => this.draw()),
-			studio.$hidden.listen(() => this.draw())
+			studio.$hidden.listen(() => this.draw()),
+			$blenderObjects.listen(() => this.draw())
 		];
 		this.draw();
 		return () => {
@@ -159,6 +164,96 @@ export class DraftPreviewCx {
 		});
 	}
 
+	/**
+	 * Decor at the playhead, each with the wall-to-screen matrix it is drawn through, so it stays flat on the wall as the
+	 * camera moves. A preview: Blender draws the real look.
+	 */
+	decor(): TDraftDecor[] {
+		const project = this.studio.project;
+		if (project == null || this.pose == null) return [];
+		const time = this.studio.$playhead.get();
+		return decorList(project.design).flatMap((decor) => {
+			const opacity = decor.hidden === true ? 0 : titleOpacity(time, decor);
+			if (opacity <= 0) return [];
+			const extent = decorExtent(decor);
+			const matrix = this.wallMatrix(decor.position, decor.rotation, decor.depth, decor.scale);
+			if (matrix == null) return [];
+			const asset = decorItem(decor.source) == null ? this.studio.library.$projectItems.get().find((item) => decor.source === `assets/${item.id}/asset.blend`) : undefined;
+			return [{ key: toDecorKey(decor.id), item: decorItem(decor.source), text: decorText(decor), matrix, opacity, extent: { x: extent.x / decor.scale, y: extent.y / decor.scale }, previewUrl: asset?.previewUrl ?? null }];
+		});
+	}
+
+	/** Made in Blender objects as faint outlines at the playhead: their look shows only in the Blender preview */
+	blenderOutlines(): { key: string; points: TVec2[]; opacity: number }[] {
+		const project = this.studio.project;
+		if (project == null || this.pose == null) return [];
+		const time = this.studio.$playhead.get();
+		return $blenderObjects.get().flatMap((object) => {
+			const layer = madeInBlenderLayer(project.design, object.name);
+			const opacity = layer.hidden === true ? 0 : titleOpacity(time, layer);
+			if (opacity <= 0) return [];
+			return [{ key: toMadeInBlenderKey(object.name), points: this.boxOutline(blenderObjectBox(object)), opacity }];
+		});
+	}
+
+	/** A selected decoration's outline in CSS pixels */
+	decorOutline(key: string): TVec2[] | null {
+		const box = this.decorBoxes().find((item) => item.key === key)?.box;
+		return box != null ? this.boxOutline(box) : null;
+	}
+
+	/** The Decor layer under a wall point, the last placed first */
+	decorAt(point: TVec2): string | null {
+		const boxes = this.decorBoxes();
+		for (let index = boxes.length - 1; index >= 0; index--) {
+			const entry = boxes[index];
+			if (entry != null && distanceToBox(entry.box, point.x, point.y) === 0) return entry.key;
+		}
+		return null;
+	}
+
+	private decorBoxes(): { key: string; box: TWallBox }[] {
+		const project = this.studio.project;
+		if (project == null) return [];
+		const time = this.studio.$playhead.get();
+		const shown = decorList(project.design).filter((decor) => decor.hidden !== true && titleOpacity(time, decor) > 0);
+		return [
+			...$blenderObjects
+				.get()
+				.filter((object) => {
+					const layer = madeInBlenderLayer(project.design, object.name);
+					return layer.hidden !== true && titleOpacity(time, layer) > 0;
+				})
+				.map((object) => ({ key: toMadeInBlenderKey(object.name), box: blenderObjectBox(object) })),
+			...shown.map((decor) => ({ key: toDecorKey(decor.id), box: decorBox(decor) }))
+		];
+	}
+
+	private boxOutline(box: TWallBox): TVec2[] {
+		const [cos, sin] = [Math.cos(box.angle), Math.sin(box.angle)];
+		return [
+			[-box.halfX, -box.halfY],
+			[box.halfX, -box.halfY],
+			[box.halfX, box.halfY],
+			[-box.halfX, box.halfY]
+		].map(([x = 0, y = 0]) => this.toScreen({ x: box.x + x * cos - y * sin, y: box.y + x * sin + y * cos }, 0));
+	}
+
+	/** SVG matrix from a decoration's own metres (x right, y down) to CSS pixels, through the film camera at its spot */
+	private wallMatrix(center: TVec2, angle: number, depth: number, scale: number): string | null {
+		const step = 0.01;
+		const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
+		const origin = this.toScreen(center, depth);
+		const along = this.toScreen({ x: center.x + cos * step, y: center.y + sin * step }, depth);
+		const up = this.toScreen({ x: center.x - sin * step, y: center.y + cos * step }, depth);
+		if (![origin.x, origin.y, along.x, along.y, up.x, up.y].every(Number.isFinite)) return null;
+		const a = ((along.x - origin.x) / step) * scale;
+		const b = ((along.y - origin.y) / step) * scale;
+		const c = (-(up.x - origin.x) / step) * scale;
+		const d = (-(up.y - origin.y) / step) * scale;
+		return `matrix(${a} ${b} ${c} ${d} ${origin.x} ${origin.y})`;
+	}
+
 	/** Marbles at the playhead in the theme's look: their wall position, radius, body and rim colours, apart from the wall */
 	marbles(): (TDraftMarble & { entityId: string; radius: number; position: TVec2 })[] {
 		const project = this.studio.project;
@@ -239,7 +334,9 @@ export class DraftPreviewCx {
 			const distance = Math.min(distanceToOutline(point, back), distanceToOutline(point, front));
 			if (distance < 6 && (best == null || distance < best.distance)) best = { id: piece.entityId, distance };
 		}
-		return best?.id ?? null;
+		if (best != null) return best.id;
+		const wall = this.toWall(point.x / this.size.width, point.y / this.size.height);
+		return wall != null ? this.decorAt(wall) : null;
 	}
 
 	private aspect(): number {
@@ -285,6 +382,20 @@ export class DraftPreviewCx {
 		renderer.render();
 		this.$frame.set((value) => value + 1);
 	}
+}
+
+export interface TDraftDecor {
+	key: string;
+	/** Null for an asset */
+	item: TDecorItem | null;
+	text: string | null;
+	/** SVG transform from the item's own metres to CSS pixels */
+	matrix: string;
+	opacity: number;
+	/** Half width and height in the item's own metres */
+	extent: { x: number; y: number };
+	/** An asset's still */
+	previewUrl: string | null;
 }
 
 export interface TDraftTitle {

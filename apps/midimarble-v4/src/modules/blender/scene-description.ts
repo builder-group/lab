@@ -1,3 +1,5 @@
+import type { TSceneDecorItem } from '@/modules/design/decor';
+import type { TMadeInBlender } from '@/modules/project';
 import type { TSkinComponent, TThemeParts } from '@/modules/project';
 
 // Contract between the app and the bundled Blender worker. The app sends a scene description with
@@ -9,6 +11,8 @@ import type { TSkinComponent, TThemeParts } from '@/modules/project';
 export const SCENE_DESCRIPTION_VERSION = 1;
 /** Contact starts closer than this many seconds to the previous one are one contact in `contactTimes` */
 export const CONTACT_MERGE = 0.1;
+
+export type { TSceneDecorItem };
 
 export interface TSceneDescription {
 	version: typeof SCENE_DESCRIPTION_VERSION;
@@ -46,6 +50,10 @@ export interface TSceneDescription {
 	themeOptions?: TSceneThemeOptions;
 	/** Wall text placed in Design. Optional and additive; workers that do not know it ignore it. */
 	wallTexts?: TSceneWallText[];
+	/** The film's Decor layers, without physics. Additive like `wallTexts`. */
+	decor?: TSceneDecorItem[];
+	/** In, Out and Hidden the project sets on objects added directly in Blender, by name. Additive like `wallTexts`. */
+	madeInBlender?: TMadeInBlender[];
 	/**
 	 * Seamless loop: films render [start, end), the camera blends its last `blend` seconds into its poses from before
 	 * `start`, and ghost marbles (`ghostOf`) enter for the next round. `duration` equals `end`.

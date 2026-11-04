@@ -4,7 +4,7 @@ from pathlib import Path
 
 import bpy
 
-from . import live_preview, preview, render, scene
+from . import decor, live_preview, preview, render, scene
 from .util import WorkerError
 
 PROTOCOL_VERSION = 1
@@ -45,6 +45,8 @@ class Worker:
             return render.cancel(self, args)
         if op == 'inspect':
             return scene.inspect()
+        if op == 'select_objects':
+            return decor.select_objects(args.get('names') or [])
         if op == 'save':
             return self.save()
         if op == 'shutdown':

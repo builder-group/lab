@@ -1,6 +1,6 @@
 import { addedLights } from '@/modules/design/scene-layers';
 import type { TProject } from '@/modules/project';
-import { CAMERA_KEY, KEY_LIGHT_ID, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseShotKey, SONG_KEY, WALL_KEY } from './selection';
 import { hasSongLayer } from './song-layer';
 
 /**
@@ -39,6 +39,13 @@ export function inspectorTarget(project: TProject, selection: readonly string[])
 		if (known.length > 1) return { kind: 'lights' };
 	}
 
+	const decorIds = selection.flatMap((key) => parseDecorKey(key) ?? []).filter((id) => project.design.decor?.some((item) => item.id === id) === true);
+	if (decorIds.length === 1) return { kind: 'decor', id: decorIds[0] as string };
+	if (decorIds.length > 1) return { kind: 'decors', ids: decorIds };
+
+	const blenderName = selection.flatMap((key) => parseMadeInBlenderKey(key) ?? [])[0];
+	if (blenderName != null) return { kind: 'madeInBlender', name: blenderName };
+
 	if (selected.has(WALL_KEY)) return { kind: 'wall' };
 	if (selected.has(SONG_KEY) && hasSongLayer(project)) return { kind: 'song' };
 	if (selected.has(CAMERA_KEY)) return { kind: 'camera' };
@@ -54,6 +61,9 @@ export type TInspectorTarget =
 	| { kind: 'marble'; entityId: string; laneId: string }
 	| { kind: 'light'; id: string }
 	| { kind: 'lights' }
+	| { kind: 'decor'; id: string }
+	| { kind: 'decors'; ids: string[] }
+	| { kind: 'madeInBlender'; name: string }
 	| { kind: 'wall' }
 	| { kind: 'song' }
 	| { kind: 'camera' }

@@ -43,6 +43,8 @@ export interface TAgentCandidate {
 	previewUrl: string | null;
 	label: string;
 	theme: TAgentThemeProposal | null;
+	/** One item of a decor set, which Accept scatters on the wall */
+	decorSet: { index: number; total: number } | null;
 }
 
 export interface TAgentThemeProposal {
@@ -98,7 +100,7 @@ export function toThreadItem(run: TAgentRun): TAgentThreadItem {
 		phaseLabel: agentRunPhaseLabel(run.phase),
 		lines,
 		hiddenSteps,
-		candidate: run.phase !== 'declined' && (run.previewUrl != null || theme != null) ? { previewUrl: run.previewUrl, label: run.manifest?.label ?? 'Candidate', theme } : null,
+		candidate: run.phase !== 'declined' && (run.previewUrl != null || theme != null) ? { previewUrl: run.previewUrl, label: run.manifest?.label ?? 'Candidate', theme, decorSet: run.target?.kind === 'scene' && run.target.decorSet != null ? { index: run.target.decorSet.index, total: run.target.decorSet.total } : null } : null,
 		canAccept,
 		canCancel: run.phase === 'working',
 		error: run.phase === 'failed' || run.phase === 'incomplete' ? error : null,

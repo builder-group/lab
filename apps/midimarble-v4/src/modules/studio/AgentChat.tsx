@@ -23,7 +23,7 @@ import { PieceIcon } from '@/modules/compose/piece-icons';
 import { agentSetupHint, cliLabel, toThreadItem, type TAgentCandidate, type TAgentThemeProposal } from '@/modules/design/agent-thread';
 import { themePreview, themeSwatches } from '@/modules/design/theme-preview';
 import { SetupCard } from '@/modules/design/AgentPanel';
-import type { TProject } from '@/modules/project';
+import { createId, type TProject } from '@/modules/project';
 import type { StudioCx, TAgentDraft } from './StudioCx';
 
 /**
@@ -210,6 +210,13 @@ const RunReply: React.FC<{ cx: StudioCx; run: TAgentRun; label: string; marbleCo
 								</span>
 								<span className="truncate text-[11px] text-[var(--text-secondary)]">Theme · with {item.candidate.label}</span>
 							</span>
+						) : item.candidate.decorSet != null ? (
+							<span className="flex min-w-0 flex-1 flex-col">
+								<span className="truncate font-medium">{item.candidate.label}</span>
+								<span className="truncate text-[11px] text-[var(--text-secondary)]">
+									Decor {item.candidate.decorSet.index} of {item.candidate.decorSet.total} · Accept scatters it
+								</span>
+							</span>
 						) : (
 							<span className="min-w-0 flex-1 truncate font-medium">{item.candidate.label}</span>
 						)}
@@ -389,7 +396,7 @@ const Composer: React.FC<{ cx: StudioCx; options: TAgentMention[]; canSend: bool
 		setIsSending(true);
 		setError(null);
 		const failures: string[] = [];
-		for (const plan of planAgentRuns(mentions)) {
+		for (const plan of planAgentRuns(mentions, text, createId('set'))) {
 			const [isStartedOk, startedErr] = await cx.agents.start({ target: plan.target, request, cli: cli ?? undefined, focus: plan.label });
 			if (!isStartedOk) failures.push(startedErr.message);
 		}

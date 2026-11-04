@@ -1,6 +1,7 @@
 import type { TDesign, TEntity, TProject, TThemeParts } from '@/modules/project';
 import { baseThemeOf, sceneThemeOverrides, sceneThemeParts } from '@/modules/design/project-themes';
 import { canonicalSkin } from '@/modules/project/skin-ids';
+import { sceneDecor } from '@/modules/design/decor';
 import { sceneLayers } from '@/modules/design/scene-layers';
 import { createLoop } from '@/modules/simulation/loop';
 import { shotLength } from '@/modules/camera/shots';
@@ -143,6 +144,7 @@ export function buildSceneDescription(
 			...themeOverridesOf(project),
 			...themePartsOf(project),
 			...sceneLayers(project.design),
+			...sceneDecor(project.design),
 			...themeOptionsOf(project),
 			marbles,
 			pieces,

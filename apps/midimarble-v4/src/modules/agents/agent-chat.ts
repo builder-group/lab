@@ -1,4 +1,4 @@
-import type { TAgentTarget } from './agent-brief';
+import { DECOR_SET_SLOTS, isDecorSetRequest, type TAgentTarget } from './agent-brief';
 import type { TAgentRun } from './AgentCx';
 
 // Pure helpers of the shared agent chat: @-mentions in the composer, mapping a message onto runs and
@@ -71,9 +71,15 @@ export function removeMentionQuery(text: string, mention: { start: number; query
 
 /**
  * Runs for a message. Every mentioned piece gets its own run; marbles and the scene have no asset of their
- * own, so they share one scene run. Without mentions the message goes to the scene.
+ * own, so they share one scene run. Without mentions the message goes to the scene. A request for decor without a
+ * mentioned piece makes a set: one run per item, sharing `decorSetId`.
  */
-export function planAgentRuns(mentions: TAgentMention[]): TAgentRunPlan[] {
+export function planAgentRuns(mentions: TAgentMention[], text = '', decorSetId = 'set'): TAgentRunPlan[] {
+	// "Christmas decor along the sides": a set of several results, each one item, which Accept scatters
+	if (!mentions.some((mention) => mention.kind === 'piece') && isDecorSetRequest(text)) {
+		const total = DECOR_SET_SLOTS.length;
+		return DECOR_SET_SLOTS.map((_, index) => ({ target: { kind: 'scene', decorSet: { id: decorSetId, index: index + 1, total } }, label: `Decor ${index + 1} of ${total}` }));
+	}
 	const plans: TAgentRunPlan[] = [];
 	const seen = new Set<string>();
 	let hasScene = !mentions.length;

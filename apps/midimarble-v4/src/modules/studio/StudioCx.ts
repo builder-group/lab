@@ -111,6 +111,7 @@ export class StudioCx {
 	readonly library = new DesignLibraryCx({
 		getPackagePath: () => this.$path.get(),
 		getProject: () => this.project,
+		getResult: () => this.simulation.$result.get(),
 		execute: (commands) => this.execute(commands),
 		notify: (message, tone) => this.notify(message, tone)
 	});

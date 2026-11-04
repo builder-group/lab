@@ -11,6 +11,7 @@ import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { CameraInspector, FilmLookPanel, PieceLook, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
 import { MarbleLook } from '@/modules/design/SkinProperties';
+import { DecorInspector, DecorsInspector, MadeInBlenderInspector } from '@/modules/design/DecorInspector';
 import { KeyLightInspector, LightInspector, LightsInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
 import { addedLights } from '@/modules/design/scene-layers';
 import { DEFAULT_HIT_VELOCITY, endsOnFinish, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_TAIL, suggestedHitTimes } from '@/modules/music';
@@ -99,6 +100,15 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			const light = addedLights(project.design).find((item) => item.id === target.id);
 			return light == null ? null : <LightInspector cx={cx} project={project} light={light} />;
 		}
+		// Decor belongs to Film; a selection left over in Compose shows the Project
+		case 'decor': {
+			const decor = project.design.decor?.find((item) => item.id === target.id);
+			return isFilm && decor != null ? <DecorInspector key={decor.id} cx={cx} project={project} decor={decor} /> : <ProjectInspector cx={cx} project={project} look={null} />;
+		}
+		case 'decors':
+			return isFilm ? <DecorsInspector cx={cx} project={project} ids={target.ids} /> : <ProjectInspector cx={cx} project={project} look={null} />;
+		case 'madeInBlender':
+			return isFilm ? <MadeInBlenderInspector key={target.name} cx={cx} project={project} name={target.name} /> : <ProjectInspector cx={cx} project={project} look={null} />;
 		case 'project':
 			return <ProjectInspector cx={cx} project={project} look={isFilm ? <FilmLookPanel cx={cx} project={project} /> : null} />;
 	}

@@ -241,6 +241,42 @@ const SProjectTheme = z.strictObject({
 	parts: SThemeParts.optional()
 });
 
+/**
+ * A decoration of the film, one layer in the Decor group. Decor has no hitbox: the simulation never reads this list, so
+ * it can't change a hit. `source` is a built-in item (`decor:bauble-red`) or a package asset (`assets/<id>/asset.blend`).
+ */
+const SDecor = z.strictObject({
+	id: SId,
+	name: z.string(),
+	source: z.string().min(1),
+	// Wall point in metres the item is centred on
+	position: SVec2,
+	// A share of the item's own size
+	scale: z.number().positive(),
+	// Radians, counter-clockwise as seen from the front
+	rotation: z.number(),
+	// Metres in front of the wall
+	depth: z.number().nonnegative(),
+	// What a text item reads: the Handle's "@yourchannel"
+	text: z.string().optional(),
+	// Half width and half height of an asset at scale 1, from its manifest; built-in items know their own
+	footprint: z.strictObject({ x: z.number().positive(), y: z.number().positive() }).optional(),
+	// Film time in seconds it shows, like a title; absent means the start and the end of the film
+	in: z.number().nonnegative().optional(),
+	out: z.number().nonnegative().optional(),
+	hidden: z.boolean().optional(),
+	// Placed by Scatter Decor, which replaces only these when it runs again
+	scattered: z.boolean().optional()
+});
+
+/** What the project sets on an object added directly in Blender, by its Blender name. The app never moves or deletes it. */
+const SMadeInBlender = z.strictObject({
+	name: z.string().min(1),
+	in: z.number().nonnegative().optional(),
+	out: z.number().nonnegative().optional(),
+	hidden: z.boolean().optional()
+});
+
 const SDesign = z.strictObject({
 	// A built-in theme id or the id of one of `themes`
 	theme: z.string(),
@@ -261,6 +297,9 @@ const SDesign = z.strictObject({
 			added: z.array(SLight).optional()
 		})
 		.optional(),
+	// The Decor layers. Added later; files without them stay valid
+	decor: z.array(SDecor).optional(),
+	madeInBlender: z.array(SMadeInBlender).optional(),
 	// `draft` was added later; files without it stay valid
 	renderPreset: z.enum(['draft', 'fast', 'balanced', 'best']),
 	loop: z.boolean(),
@@ -436,6 +475,8 @@ export type TThemeParts = z.infer<typeof SThemeParts>;
 export type TThemeOverrides = z.infer<typeof SThemeOverrides>;
 export type TWallKind = z.infer<typeof SWallKind>;
 export type TLight = z.infer<typeof SLight>;
+export type TDecor = z.infer<typeof SDecor>;
+export type TMadeInBlender = z.infer<typeof SMadeInBlender>;
 export type TKeyLightPose = z.infer<typeof SKeyLightPose>;
 export type TShot = z.infer<typeof SShot>;
 export type TTempo = z.infer<typeof STempo>;

@@ -4,7 +4,10 @@ import React from 'react';
 import { isEditingTarget } from '@/lib';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import type { DesignCx } from './DesignCx';
-import { LIBRARY_DRAG_TYPE } from './DesignLibrary';
+import { decorAtWall } from './decor';
+import { placeDecor, startDecorDrag } from './decor-actions';
+import { DECOR_DRAG_TYPE, LIBRARY_DRAG_TYPE, readDecorDrop } from './DesignLibrary';
+import { ScatterPanel } from './ScatterPanel';
 import { DraftPreview } from './DraftPreview';
 import { lookupFrame, type TLivePreviewLevel } from './live-preview';
 import { LivePreviewFrame } from './LivePreviewFrame';
@@ -22,6 +25,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	const error = useFeatureState(cx.$error);
 	const placing = useFeatureState(cx.$placing);
 	const [dropTarget, setDropTarget] = React.useState(false);
+	const swallowClickRef = React.useRef(false);
 	const [liveLevel, setLiveLevel] = React.useState<TLivePreviewLevel | null>(null);
 	const isLiveEnabled = useFeatureState(cx.live.$enabled);
 	const isLiveMode = useLiveMode(cx, studio);
@@ -71,6 +75,10 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	}
 
 	async function onClick(event: React.MouseEvent<HTMLImageElement>): Promise<void> {
+		if (swallowClickRef.current) {
+			swallowClickRef.current = false;
+			return;
+		}
 		const { u, v } = toImage(event);
 		if (placing === 'text') {
 			placeTitle(u, v, event.shiftKey);
@@ -81,6 +89,13 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 
 	async function onDrop(event: React.DragEvent<HTMLImageElement>): Promise<void> {
 		setDropTarget(false);
+		const decor = readDecorDrop(event, studio);
+		if (decor != null) {
+			event.preventDefault();
+			const { u, v } = toImage(event);
+			placeDecor(studio, decor, u, v);
+			return;
+		}
 		const data = event.dataTransfer.getData(LIBRARY_DRAG_TYPE);
 		if (!data) return;
 		event.preventDefault();
@@ -117,8 +132,15 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					data-drop-target={dropTarget}
 					className="mm-preview max-h-full max-w-full rounded-[6px] object-contain"
 					onClick={(event) => void onClick(event)}
+					onPointerDown={(event) => {
+						const project = studio.project;
+						if (project == null || placing != null || event.button !== 0 || !studio.$selection.get().some((key) => key.startsWith('decor:'))) return;
+						startDecorDrag(studio, event, (point) => decorAtWall(project, studio.$playhead.get(), point), (wasDragged) => {
+							swallowClickRef.current = wasDragged;
+						});
+					}}
 					onDragOver={(event) => {
-						if (!event.dataTransfer.types.includes(LIBRARY_DRAG_TYPE)) return;
+						if (!event.dataTransfer.types.includes(LIBRARY_DRAG_TYPE) && !event.dataTransfer.types.includes(DECOR_DRAG_TYPE)) return;
 						event.preventDefault();
 						event.dataTransfer.dropEffect = 'copy';
 						setDropTarget(true);
@@ -147,6 +169,8 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					Preview out of date
 				</div>
 			) : null}
+
+			<ScatterPanel cx={studio} />
 
 			{status === 'error' && error != null ? (
 				<div

@@ -1,12 +1,14 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, AudioLines, Bookmark, BrickWall, ChevronRight, Eye, EyeOff, Folder, Lightbulb, Lock, LockOpen, Music, Plus, Sun, Type, Video } from 'lucide-react';
+import { Anchor, AudioLines, Bookmark, Box, BrickWall, ChevronRight, Eye, EyeOff, Folder, Lightbulb, Lock, LockOpen, Music, Plus, Sparkles, Sun, TriangleAlert, Type, Video } from 'lucide-react';
 import React from 'react';
-import { HelpTip, MenuButton, openContextMenu, RenameField } from '@/components';
+import { HelpTip, MenuButton, openContextMenu, RenameField, type TMenuEntry } from '@/components';
 import { attachState } from '@/modules/compose/attach-edit';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon } from '@/modules/compose/status';
 import { DesignLibrary } from '@/modules/design/DesignLibrary';
-import { preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { $blenderObjects, deleteDecorCommands, duplicateDecorCommands, madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
+import { moveDecorClearAction, revealMadeInBlender } from '@/modules/design/decor-actions';
+import { decorTips, preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import { updateLightCommands } from '@/modules/design/scene-layers';
 import { shotKindLabel } from '@/modules/design/shots';
 import type { TEntity, TProject } from '@/modules/project';
@@ -17,6 +19,7 @@ import { formatTime } from './format';
 import { laneMenu, pieceMenu, songMenu } from './menus';
 import { buildOutline, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import { PieceLibrary } from './PieceLibrary';
+import { toDecorKey } from './selection';
 import { $sidebarTabs, setSidebarTab, type TSidebarTab } from './sidebar-state';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
@@ -147,9 +150,12 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 
 	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.entityId, piece])), [result]);
 	// Pieces another marble hits, from the problem model the hit summary and the inspector read
-	const struck = React.useMemo(() => (result != null && result.revision === project.revision ? struckPieces(preflightExport(project, result)) : null), [project, result]);
+	const blenderObjects = useFeatureState($blenderObjects);
+	const preflight = React.useMemo(() => (result != null && result.revision === project.revision ? preflightExport(project, result, blenderObjects) : null), [project, result, blenderObjects]);
+	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
+	const tips = React.useMemo(() => (preflight != null ? decorTips(preflight) : null), [preflight]);
 	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceEntityId == null ? [] : [[hit.pieceEntityId, hit] as const]))), [result]);
-	const rows = React.useMemo(() => buildOutline(project, { collapsed, workspace }), [project, collapsed, workspace]);
+	const rows = React.useMemo(() => buildOutline(project, { collapsed, workspace, blenderObjects }), [project, collapsed, workspace, blenderObjects]);
 	const isFilm = workspace === 'design';
 	// Rows that Shift ranges and the arrow keys visit; Compose's arrows stay out of the Film rows
 	const order = rows.filter((row) => isSelectableRow(row) && (isFilm || !isFilmRow(row))).map((row) => row.id);
@@ -251,6 +257,8 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		else if (row.kind === 'piece') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
+		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
+		else if (row.kind === 'madeInBlender') openContextMenu(event, [{ label: 'Open in Blender', onSelect: () => revealMadeInBlender(cx, row.name) }, commandItem(cx, 'decor.scatter')]);
 		else if (row.kind === 'camera' || row.kind === 'shot') openContextMenu(event, [commandItem(cx, 'camera.addShot'), ...(row.kind === 'shot' ? [commandItem(cx, 'edit.delete')] : [])]);
 		else event.preventDefault();
 	}
@@ -286,6 +294,9 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 							/>
 						);
 					}
+					if (row.kind === 'decor' || row.kind === 'madeInBlender') {
+						return <DecorRow key={row.id} {...common} cx={cx} isRenaming={renaming === row.id} tip={tips?.get(row.id)?.label} />;
+					}
 					return <OutlineRow key={row.id} {...common} cx={cx} isRenaming={renaming === row.id} onToggle={'groupKey' in row ? () => toggleGroup(row.groupKey) : undefined} />;
 				})}
 			</div>
@@ -304,7 +315,7 @@ interface TRowProps {
 }
 
 function canRename(row: TOutlineRow): boolean {
-	return row.kind === 'marble' || row.kind === 'piece' || row.kind === 'title' || (row.kind === 'light' && row.light != null);
+	return row.kind === 'marble' || row.kind === 'piece' || row.kind === 'title' || row.kind === 'decor' || (row.kind === 'light' && row.light != null);
 }
 
 /** Every row except pieces: the song, marbles, groups, the wall, lights, the camera, shots and titles */
@@ -384,7 +395,88 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 			return { icon: <Type size={14} strokeWidth={1.75} />, label: row.entity.name ?? row.entity.components.wallText?.text ?? 'Title' };
 		case 'piece':
 			return { icon: null, label: row.piece.name ?? '' };
+		case 'decor':
+			return { icon: <Sparkles size={14} strokeWidth={1.75} />, label: row.decor.name };
+		case 'madeInBlender':
+			return { icon: <Box size={14} strokeWidth={1.75} />, label: row.name, title: 'Made in Blender' };
 	}
+}
+
+/** A Decor layer: its eye and, when a marble's path crosses it, the amber badge the inspector explains */
+const DecorRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; tip: string | undefined }> = (props) => {
+	const { cx, row, isSelected, isInSelection, joins, isRenaming, tip, onClick, onContextMenu } = props;
+	const view = outlineRowView(row);
+	const project = cx.project;
+	const isHidden = project != null && (row.kind === 'decor' ? row.decor.hidden === true : row.kind === 'madeInBlender' && madeInBlenderLayer(project.design, row.name).hidden === true);
+
+	function toggleHidden(): void {
+		if (project == null) return;
+		if (row.kind === 'decor') cx.execute(updateDecorCommands(project, [row.decor.id], { hidden: !isHidden }));
+		else if (row.kind === 'madeInBlender') cx.execute(madeInBlenderCommands(project, row.name, { hidden: isHidden ? null : true }));
+	}
+
+	return (
+		<LayerRow
+			id={row.id}
+			depth={row.depth}
+			isSelected={isSelected}
+			isInSelection={isInSelection}
+			joins={joins}
+			isDimmed={isHidden}
+			icon={view.icon}
+			label={view.label}
+			title={view.title}
+			isRenaming={isRenaming}
+			onRename={(value) => {
+				cx.$renaming.set(null);
+				if (row.kind === 'decor' && project != null && value != null && value !== row.decor.name) cx.execute(updateDecorCommands(project, [row.decor.id], { name: value }));
+			}}
+			meta={
+				tip != null ? (
+					<span className="inline-flex" title={tip} aria-label={tip} role="img">
+						<TriangleAlert size={11} strokeWidth={1.8} className="text-[var(--warn)]" aria-hidden />
+					</span>
+				) : undefined
+			}
+			actions={
+				<RowToggle label={isHidden ? 'Show' : 'Hide'} isOn={isHidden} onClick={toggleHidden}>
+					{isHidden ? <EyeOff size={12} strokeWidth={1.8} /> : <Eye size={12} strokeWidth={1.8} />}
+				</RowToggle>
+			}
+			onClick={onClick}
+			onDoubleClick={() => {
+				if (canRename(row)) cx.$renaming.set(row.id);
+			}}
+			onContextMenu={onContextMenu}
+		/>
+	);
+};
+
+/** The context menu of the selected decorations */
+function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
+	const ids = selectedDecorIds(cx.$selection.get());
+	const project = cx.project;
+	return [
+		...(overlaps && ids.length === 1 ? [{ label: 'Move Clear', onSelect: () => moveDecorClearAction(cx, ids[0] as string) }, 'separator' as const] : []),
+		{
+			label: 'Duplicate',
+			shortcut: '⌘D',
+			onSelect: () => {
+				if (project == null) return;
+				const { commands, decorIds } = duplicateDecorCommands(project, ids);
+				if (cx.execute(commands)) cx.$selection.set(decorIds.map(toDecorKey));
+			}
+		},
+		{
+			label: 'Delete',
+			shortcut: '⌫',
+			onSelect: () => {
+				if (project != null && cx.execute(deleteDecorCommands(project, ids))) cx.$selection.set([]);
+			}
+		},
+		'separator',
+		commandItem(cx, 'decor.scatter')
+	];
 }
 
 /** A line with a keyframe: the layer also has a row in the timeline, like After Effects' layers */

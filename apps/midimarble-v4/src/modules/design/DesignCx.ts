@@ -4,10 +4,13 @@ import { Err, Ok, type TResult } from 'tuple-result';
 import { blender, buildSceneDescription, type TApplySceneResult, type TPreviewFrameResult } from '@/modules/blender';
 import type { TProject } from '@/modules/project';
 import { createLoop, type TLoop, type TSimulationResult } from '@/modules/simulation';
+import { $blenderObjects } from './decor';
 import { sceneSignature } from './live-preview';
 import { LivePreviewCx } from './LivePreviewCx';
 
 const PREVIEW_DEBOUNCE_MS = 220;
+/** How often an unchanged scene asks Blender what the user added there */
+const INSPECT_EVERY_MS = 2000;
 
 /**
  * Keeps the package's Blender scene in step with Compose and renders the current playhead.
@@ -37,6 +40,7 @@ export class DesignCx {
 	private queue: Promise<unknown> = Promise.resolve();
 	/** Applies that changed the Blender scene without changing the description (discarded Blender changes, a reset camera) */
 	private forcedApplies = 0;
+	private inspectedAt = 0;
 
 	constructor(private readonly source: TDesignSource) {
 		this.live = new LivePreviewCx({ getPlayhead: () => source.getPlayhead(), isPlaying: () => source.isPlaying() });
@@ -100,13 +104,18 @@ export class DesignCx {
 		this.previewTimer = setTimeout(() => void this.enqueue(() => this.renderPreview()), delay);
 	}
 
-	async openInBlender(): Promise<void> {
+	/** Opens the scene in Blender's window, with `select` the objects to select there */
+	async openInBlender(select: string[] = []): Promise<void> {
 		const packagePath = this.source.getPackagePath();
 		if (packagePath == null) return;
 		await this.enqueue(async () => {
 			await this.sync();
 			const [isShownOk, shownErr] = await blender.show(packagePath);
 			if (!isShownOk) this.fail(shownErr.message);
+			else if (select.length > 0) {
+				const [isSelectedOk, selectedErr] = await blender.selectObjects(packagePath, select);
+				if (!isSelectedOk && import.meta.env.DEV) console.warn('[design] select', selectedErr);
+			}
 			// The background worker was replaced by a window; the next request reapplies the scene
 			this.syncedKey = null;
 			this.startedFor = packagePath;
@@ -163,6 +172,7 @@ export class DesignCx {
 	async refreshLinks(): Promise<void> {
 		const packagePath = this.startedFor;
 		if (packagePath == null) return;
+		this.inspectedAt = Date.now();
 		const [isInspectOk, inspectErr, inspected] = await blender.inspect(packagePath);
 		if (!isInspectOk) {
 			if (import.meta.env.DEV) console.warn('[design] inspect', inspectErr);
@@ -171,6 +181,8 @@ export class DesignCx {
 		const links: Record<string, TDesignLink> = {};
 		for (const holder of inspected.holders) links[holder.mmId] = { link: holder.link, reason: holder.reason };
 		this.$links.set(links);
+		const objects = inspected.madeInBlender ?? [];
+		if (JSON.stringify(objects) !== JSON.stringify($blenderObjects.get())) $blenderObjects.set(objects);
 	}
 
 	/** Saves and stops the worker of the package that was open */
@@ -183,6 +195,7 @@ export class DesignCx {
 		this.idPixels = null;
 		this.$preview.set(null);
 		this.$links.set({});
+		$blenderObjects.set([]);
 		this.$camera.set(null);
 		this.$status.set('idle');
 		if (packagePath == null) return;
@@ -223,7 +236,11 @@ export class DesignCx {
 		const fps = renderFps(project);
 		const key = `${packagePath}:${result.revision}:${fps}`;
 		const isForced = (options.relink?.length ?? 0) > 0 || options.regenerateCamera === true;
-		if (this.syncedKey === key && !isForced) return true;
+		if (this.syncedKey === key && !isForced) {
+			// An object added in Blender since the last look shows up in Layers once the app next talks to Blender
+			if (Date.now() - this.inspectedAt > INSPECT_EVERY_MS) void this.refreshLinks();
+			return true;
+		}
 		this.$status.set('syncing');
 		const build = buildSceneDescription(project, result, { fps });
 		const [isAppliedOk, appliedErr, applied] = await blender.applyScene(packagePath, build, options);

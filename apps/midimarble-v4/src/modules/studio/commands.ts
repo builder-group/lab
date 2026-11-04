@@ -14,10 +14,12 @@ import { NEW_THEME_PROMPT } from '@/modules/design/DesignLibraryCx';
 import { deleteThemeCommands, duplicateThemeCommands, hasLayerChanges, isThemeColorByNote, resolveTheme } from '@/modules/design/project-themes';
 import { canSaveAsTheme, saveAsTheme } from '@/modules/design/SkinProperties';
 import { framingFix, framingProblemAt, preflightExport, type TPreflightFix } from '@/modules/design/export-preflight';
+import { deleteDecorCommands, duplicateDecorCommands, selectedDecorIds } from '@/modules/design/decor';
+import { openScatterPanel } from '@/modules/design/decor-actions';
 import { addLightCommands, deleteLightsCommands } from '@/modules/design/scene-layers';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { duplicatePieces } from './duplicate';
-import { KEY_LIGHT_ID, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, toHitKey, toLightKey, toShotKey } from './selection';
+import { KEY_LIGHT_ID, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, toDecorKey, toHitKey, toLightKey, toShotKey } from './selection';
 import { hasSongLayer } from './song-layer';
 import { handNotes } from './timeline/hand-notes';
 import { setSidebarTab } from './sidebar-state';
@@ -159,6 +161,12 @@ function hasPieces(cx: StudioCx): boolean {
 function duplicateSelection(cx: StudioCx): void {
 	const project = cx.project;
 	if (project == null) return;
+	const decorIds = inDesign(cx) ? selectedDecorIds(cx.$selection.get()) : [];
+	if (decorIds.length > 0) {
+		const copies = duplicateDecorCommands(project, decorIds);
+		if (cx.execute(copies.commands)) cx.$selection.set(copies.decorIds.map(toDecorKey));
+		return;
+	}
 	const ids = selectedPieceIds(project, cx.$selection.get());
 	const { commands, copies } = duplicatePieces(project, cx.simulation.$result.get(), ids);
 	if (!copies.length) {
@@ -265,7 +273,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Edit',
 		shortcut: '⌫',
 		keywords: 'remove',
-		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && (selectedShotIds(cx).length > 0 || selectedLightIds(cx).length > 0)) || isSongSelected(cx),
+		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && (selectedShotIds(cx).length > 0 || selectedLightIds(cx).length > 0 || selectedDecorIds(cx.$selection.get()).length > 0)) || isSongSelected(cx),
 		run: (cx) => {
 			// The Song layer alone deletes the song file and Backing; the marbles keep their hits
 			if (isSongSelected(cx) && cx.$selection.get().length === 1) {
@@ -276,7 +284,7 @@ export const commands: readonly TCommand[] = [
 			deleteSelectedHits(cx);
 		}
 	},
-	{ id: 'edit.duplicate', title: 'Duplicate', section: 'Edit', shortcut: '⌘D', keywords: 'copy clone', workspace: 'compose', isEnabled: hasPieces, run: (cx) => duplicateSelection(cx) },
+	{ id: 'edit.duplicate', title: 'Duplicate', section: 'Edit', shortcut: '⌘D', keywords: 'copy clone', isEnabled: (cx) => hasPieces(cx) || (inDesign(cx) && selectedDecorIds(cx.$selection.get()).length > 0), run: (cx) => duplicateSelection(cx) },
 	{
 		id: 'edit.selectAll', workspace: 'compose',
 		title: 'Select All Pieces',
@@ -508,6 +516,14 @@ export const commands: readonly TCommand[] = [
 		}
 	},
 	{
+		id: 'decor.scatter',
+		title: 'Scatter Decor…',
+		section: 'Film',
+		keywords: 'decoration bauble snowflake christmas fill wall ornaments',
+		isEnabled: hasProject,
+		run: (cx) => openScatterPanel(cx)
+	},
+	{
 		id: 'light.add',
 		title: 'Add Light',
 		section: 'Film',
@@ -687,6 +703,7 @@ export type TCommandId =
 	| 'design.regenerateCamera'
 	| 'camera.addShot'
 	| 'light.add'
+	| 'decor.scatter'
 	| 'camera.addWideShot'
 	| 'design.themePegboard'
 	| 'design.themeBrass'
@@ -827,6 +844,12 @@ export function commandItem(cx: StudioCx, id: TCommandId, title?: string): TMenu
 export function deleteSelectedHits(cx: StudioCx): boolean {
 	const project = cx.project;
 	if (project == null) return false;
+	const decorIds = selectedDecorIds(cx.$selection.get());
+	if (inDesign(cx) && decorIds.length > 0) {
+		const applied = cx.execute(deleteDecorCommands(project, decorIds));
+		if (applied) cx.$selection.set([]);
+		return applied;
+	}
 	const lightIds = selectedLightIds(cx);
 	if (inDesign(cx) && lightIds.length > 0) {
 		const applied = cx.execute(deleteLightsCommands(project, lightIds));

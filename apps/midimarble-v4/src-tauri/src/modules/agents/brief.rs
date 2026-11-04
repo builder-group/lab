@@ -26,6 +26,18 @@ pub struct AgentBrief {
     pub wall_point: Option<BriefVec2>,
     /// Set for a New Theme request: the agent also proposes the theme's colours in `manifest.json`
     pub theme: Option<BriefTheme>,
+    /// Set for a decor request: this run makes one item of a set, which accepting scatters on the wall
+    pub decor_set: Option<BriefDecorSet>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BriefDecorSet {
+    /// Which item of the set this run makes, from 1
+    pub index: u32,
+    pub total: u32,
+    /// What kind of thing this item should be, so the set stays varied
+    pub suggestion: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -194,6 +206,7 @@ pub fn render_brief(brief: &AgentBrief, blender: Option<&Path>) -> String {
         .unwrap_or_else(|| "/Applications/Blender.app/Contents/MacOS/Blender".to_string());
     let mut out = String::new();
     let target = &brief.target;
+    let is_decoration = target.role == "decoration";
 
     let _ = writeln!(out, "# MidiMarble candidate brief\n");
     let _ = writeln!(out, "## Request\n\n{}\n", brief.request.trim());
@@ -308,6 +321,10 @@ pub fn render_brief(brief: &AgentBrief, blender: Option<&Path>) -> String {
         render_theme(&mut out, theme);
     }
 
+    if let Some(decor_set) = &brief.decor_set {
+        render_decor_set(&mut out, decor_set);
+    }
+
     let _ = writeln!(out, "## Scale\n");
     let _ = writeln!(
         out,
@@ -330,7 +347,7 @@ pub fn render_brief(brief: &AgentBrief, blender: Option<&Path>) -> String {
 Produce these files in this folder:
 
 1. `asset.blend` with exactly one collection named `MM_ASSET` holding the visual model
-   - Model in metres. Put the origin at the centre of the contact surface, with +Z pointing away from the contact face, so the face the marble touches lies at z = 0 and the body extends toward -Z. The worker orients it on the piece.
+   - {model_rule}
    - Optional reaction parts are child objects named `MM_REACT_<Name>` with a custom property `mm_reaction` set to `press`, `wobble` or `glow`
    - Pack every texture into the file (File > External Data > Pack Resources, or `bpy.ops.file.pack_all()`)
 2. `manifest.json`:
@@ -340,14 +357,13 @@ Produce these files in this folder:
      "$schema": "marble-asset@1",
      "id": "brass-bar",
      "label": "Brass bar",
-     "role": "{role}",
-     "pieceType": "{piece_type}",
-     "fittedParams": {{ "length": 0.06 }},
+     "role": "{role}",{piece_type_line}
+     "fittedParams": {{ {fitted_example} }},
      "notes": "What the asset is and how its reaction parts move"
    }}
    ```
 
-   `id` uses lowercase letters, digits and `-`. `pieceType` and `fittedParams` are optional; `fittedParams` lists the physical parameters the model was built for.
+   `id` uses lowercase letters, digits and `-`. {manifest_note}
 3. `preview.png`, rendered with the helper in this folder:
 
    ```sh
@@ -374,7 +390,29 @@ The script should start from an empty file (`bpy.ops.wm.read_factory_settings(us
 - Finish with a short summary of what you built
 "#,
         role = target.role,
-        piece_type = target.piece_type.as_deref().unwrap_or("platform"),
+        model_rule = if is_decoration {
+            "Model in metres. Put the origin at the centre of the back face, which sits flat on the wall, with +Z pointing out of the wall toward the camera. Decor has no hitbox: the marbles never touch it. Keep the geometry cheap."
+        } else {
+            "Model in metres. Put the origin at the centre of the contact surface, with +Z pointing away from the contact face, so the face the marble touches lies at z = 0 and the body extends toward -Z. The worker orients it on the piece."
+        },
+        piece_type_line = if is_decoration {
+            String::new()
+        } else {
+            format!(
+                "\n     \"pieceType\": \"{}\",",
+                target.piece_type.as_deref().unwrap_or("platform")
+            )
+        },
+        fitted_example = if is_decoration {
+            "\"width\": 0.03, \"height\": 0.03"
+        } else {
+            "\"length\": 0.06"
+        },
+        manifest_note = if is_decoration {
+            "`fittedParams` gives the element's `width` and `height` on the wall in metres, which keep it clear of the marbles' paths."
+        } else {
+            "`pieceType` and `fittedParams` are optional; `fittedParams` lists the physical parameters the model was built for."
+        },
         blender = blender,
     );
     return out;
@@ -428,6 +466,20 @@ fn render_theme(out: &mut String, theme: &BriefTheme) {
     let _ = writeln!(
         out,
         "Use the same `theme` in every result of this request, so the skins of each piece type share one theme.\n"
+    );
+}
+
+/// The decor set section: one item of several, which the app scatters on the free wall the film camera shows
+fn render_decor_set(out: &mut String, decor_set: &BriefDecorSet) {
+    let _ = writeln!(out, "## Decor set\n");
+    let _ = writeln!(
+        out,
+        "This request makes a set of {} decorations for the film, and this run makes item {} of them: {}. Make one element in the style of the request. Other runs make the other items. Accepting the result adds it to the project's Library and scatters it on the free wall the camera shows, beside the marbles' run, so it reads at small sizes and from any side of the run.\n",
+        decor_set.total, decor_set.index, decor_set.suggestion
+    );
+    let _ = writeln!(
+        out,
+        "Keep it small: about 2 to 4 cm across on the wall, with the marble as your scale. Give it a `label` that names just this item, such as \"Red Bauble\".\n"
     );
 }
 
@@ -531,6 +583,29 @@ pub mod tests {
         assert!(markdown.contains("\"base\": \"neon\""));
         let plain: AgentBrief = serde_json::from_str(BRIEF_JSON).unwrap();
         assert!(!render_brief(&plain, None).contains("## Theme"));
+    }
+
+    #[test]
+    fn renders_the_decor_set_section_of_a_decor_brief() {
+        let json = r##"{
+            "request": "Christmas decor along the sides",
+            "target": { "kind": "scene", "role": "decoration" },
+            "contact": { "description": "The back of the element sits flat on the wall." },
+            "scale": { "marbleRadius": 0.008 },
+            "decorSet": { "index": 2, "total": 3, "suggestion": "a flat shape or symbol" }
+        }"##;
+        let brief: AgentBrief = serde_json::from_str(json).unwrap();
+        let markdown = render_brief(&brief, None);
+        assert!(markdown.contains("## Decor set"));
+        assert!(markdown.contains("item 2 of them: a flat shape or symbol"));
+        assert!(markdown.contains("\"role\": \"decoration\""));
+        assert!(markdown.contains("\"width\": 0.03"));
+        assert!(markdown.contains("Decor has no hitbox"));
+        assert!(!markdown.contains("pieceType"));
+        let plain: AgentBrief = serde_json::from_str(BRIEF_JSON).unwrap();
+        let skin = render_brief(&plain, None);
+        assert!(!skin.contains("## Decor set"));
+        assert!(skin.contains("\"pieceType\": \"platform\""));
     }
 
     #[test]

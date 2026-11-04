@@ -1,10 +1,11 @@
-import type { TComponents, TProject } from '@/modules/project';
+import type { TProject } from '@/modules/project';
 import { parseTime } from '@/modules/studio/timeline/parse-time';
 
-type TWallText = NonNullable<TComponents['wallText']>;
+/** Anything shown over a stretch of the film: a title, a decoration */
+type TTimed = object & { in?: number; out?: number };
 
 /** When a title shows: its In and Out times with the defaults filled in, the start and the end of the film */
-export function titleSpan(text: TWallText, end: number): { start: number; end: number } {
+export function titleSpan(text: TTimed, end: number): { start: number; end: number } {
 	return { start: Math.max(0, text.in ?? 0), end: Math.min(end, text.out ?? end) };
 }
 
@@ -13,14 +14,14 @@ export function titleSpan(text: TWallText, end: number): { start: number; end: n
  * end the title before it starts. A time at the start or the end of the film removes the field, so the title keeps
  * following the film's length.
  */
-export function withTitleTime(text: TWallText, field: 'in' | 'out', typed: string, filmEnd: number): TWallText | null {
+export function withTitleTime<GTimed extends TTimed>(text: GTimed, field: 'in' | 'out', typed: string, filmEnd: number): GTimed | null {
 	const parsed = parseTime(typed);
 	if (parsed == null) return null;
 	const time = Math.round(Math.min(Math.max(parsed, 0), filmEnd) * 100) / 100;
 	const span = titleSpan(text, filmEnd);
 	if (field === 'in' ? time >= span.end : time <= span.start) return null;
 	const { in: start, out, ...rest } = text;
-	const next: TWallText = { ...rest };
+	const next = { ...rest } as GTimed;
 	const nextIn = field === 'in' ? time : start;
 	const nextOut = field === 'out' ? time : out;
 	if (nextIn != null && nextIn > 0) next.in = nextIn;

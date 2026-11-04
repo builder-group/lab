@@ -11,7 +11,7 @@ import time
 import bpy
 import numpy as np
 
-from . import anim, assets, camera, contacts, skins, studio, themes, walltext
+from . import anim, assets, camera, contacts, decor, skins, studio, themes, walltext
 from .util import (
     DEFAULT_MARBLE_RADIUS,
     DEFAULT_PIECE_DEPTH,
@@ -107,6 +107,9 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     report['texts'] = walltext.apply_texts(
         project_dir, description.get('wallTexts') or [], managed, lambda: ensure_collection(DETACHED_COLLECTION),
         fps=fps, duration=duration)
+    report['decor'] = decor.apply_decor(
+        project_dir, description.get('decor') or [], managed, lambda: ensure_collection(DETACHED_COLLECTION), context['assets'],
+        fps=fps, duration=duration)
 
     bounds = scene_bounds(marbles, marble_motion, pieces)
     studio_report = studio.ensure_studio(scene, theme)
@@ -133,6 +136,8 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     report['cameraFramed'] = report['camera'] in ('framed', 'baked')
     # Captions and end cards hang from the film camera, which exists only once the studio is set up
     report['texts']['screen'] = walltext.attach_screen_texts(managed, studio.studio_object('studio.camera'), scene)
+    # What the user added in Blender stays theirs; only its visibility follows the project's In, Out and Hidden
+    report['madeInBlender'] = decor.apply_user_decor(description.get('madeInBlender') or [], scene, fps, duration)
     # The wall covers the run and the camera's view, so the film never shows its edge
     report['wall'] = studio.fit_wall(scene, bounds, theme)
     scene['mm_revision'] = int(description.get('revision', 0))
@@ -171,6 +176,8 @@ def inspect():
         'holders': holders,
         'detached': [obj.name for obj in (detached.objects if detached else [])],
         'texts': walltext.inspect(managed),
+        'decor': decor.inspect(managed),
+        'madeInBlender': decor.report_user_objects(bpy.context.scene),
         'studio': [
             {'name': obj.name, 'role': obj.get('mm_role')}
             for obj in (studio_collection.objects if studio_collection else [])

@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, ChevronLeft, RefreshCw, Search, Sparkles, Star } from 'lucide-react';
+import { Box, ChevronLeft, RefreshCw, Search, Sparkles, Star, Wand2 } from 'lucide-react';
 import React from 'react';
 import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
 import type { TLibraryItem } from '@/modules/library';
@@ -7,6 +7,9 @@ import type { TEntity, TProject } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { deleteTheme, duplicateTheme } from '@/modules/studio/commands';
+import { assetDecorSource, builtInSource, type TDecorSource } from './decor';
+import { libraryDecorSource, openScatterPanel, placeDecor } from './decor-actions';
+import { DECOR_ITEMS, DECOR_SETS } from './decor-catalog';
 import { builtInSkinCommands, commonPieceType, itemFitsPieceType, skinAppliedMessage, skinsForElement, themeCommands, themePresets, type TSkinTarget } from './design-commands';
 import { appliedOverrides, baseThemeOf, isThemeColorByNote, projectThemes, renameThemeCommands, resolveElementLook, resolveTheme, THEME_OVERRIDE_FIELDS, themeOrigin, themePartCommands, type TResolvedTheme } from './project-themes';
 import { draftMarble, marbleContrastWarning } from './draft-look';
@@ -15,6 +18,16 @@ import { libraryEntries, libraryItemLabel, libraryItemOrigin, NEW_THEME_PROMPT, 
 
 /** MIME type of a library item dragged onto the preview or the inspector */
 export const LIBRARY_DRAG_TYPE = 'application/x-midimarble-asset';
+/** MIME type of a built-in Decor item dragged onto the viewer */
+export const DECOR_DRAG_TYPE = 'application/x-midimarble-decor';
+
+/** The decoration a drop on the viewer brings: a built-in item, or a library item whose role is decoration */
+export function readDecorDrop(event: React.DragEvent, cx: StudioCx): TDecorSource | null {
+	const builtIn = event.dataTransfer.getData(DECOR_DRAG_TYPE);
+	if (builtIn !== '') return builtInSource(builtIn);
+	const data = event.dataTransfer.getData(LIBRARY_DRAG_TYPE);
+	return data !== '' ? libraryDecorSource(cx, JSON.parse(data) as { id: string; scope: string }) : null;
+}
 
 /**
  * Library of the Film sidebar, like Figma's Assets panel: one place without storage scopes. With nothing selected it
@@ -129,7 +142,8 @@ const ThemeSection: React.FC<{
 	const themes = [...themePresets.map((theme) => theme.id), ...projectThemes(project.design).map((theme) => theme.id)]
 		.map((id) => resolveTheme(project.design, id))
 		.filter((theme) => matches(`${theme.name} ${themeOrigin(theme)} ${themePresets.find((item) => item.id === theme.id)?.description ?? ''}`));
-	const items = entries.filter((entry) => matches(`${libraryItemLabel(entry.item)} ${entry.item.manifest?.pieceType ?? ''} ${libraryItemOrigin(entry.item)}`));
+	const items = entries.filter((entry) => entry.item.manifest?.role !== 'decoration' && matches(`${libraryItemLabel(entry.item)} ${entry.item.manifest?.pieceType ?? ''} ${libraryItemOrigin(entry.item)}`));
+	const decorations = entries.filter((entry) => entry.item.manifest?.role === 'decoration' && matches(`${libraryItemLabel(entry.item)} ${libraryItemOrigin(entry.item)}`));
 
 	function menu(theme: TResolvedTheme): TMenuEntry[] {
 		const isProjectTheme = theme.projectTheme != null;
@@ -178,12 +192,13 @@ const ThemeSection: React.FC<{
 			</div>
 			{items.length > 0 ? (
 				<>
-					<SectionTitle title="Skins and Decorations" help="Select a piece to apply a skin, or drag an item onto the film" />
+					<SectionTitle title="Skins" help="Select a piece to apply a skin" />
 					<ItemGrid cx={cx} project={project} entries={items} selectedPieces={[]} pieceType={null} />
 				</>
 			) : isUnavailable ? (
-				<SectionTitle title="Skins and Decorations" help="Skins made with the agent are Blender files, so they show in the desktop app" />
+				<SectionTitle title="Skins" help="Skins made with the agent are Blender files, so they show in the desktop app" />
 			) : null}
+			<DecorSection cx={cx} entries={decorations} matches={matches} />
 		</>
 	);
 };
@@ -250,6 +265,96 @@ const ThemeNameField: React.FC<{ name: string; onCommit: (name: string) => void;
 				event.stopPropagation();
 			}}
 		/>
+	);
+};
+
+// MARK: - Decor
+
+/**
+ * The Decor group, like the Assets of a slide app: drag an item onto the wall, or double-click to add it at the frame's
+ * centre at the playhead. A click chooses it for a set, which Scatter Decor fills the free wall with.
+ */
+const DecorSection: React.FC<{ cx: StudioCx; entries: TLibraryEntry[]; matches: (text: string) => boolean }> = (props) => {
+	const { cx, entries, matches } = props;
+	const chosen = useFeatureState(cx.library.$decorSet);
+	const toggle = (source: string): void => cx.library.$decorSet.set(chosen.includes(source) ? chosen.filter((item) => item !== source) : [...chosen, source]);
+	const builtIn = DECOR_ITEMS.filter((item) => matches(`${item.label} decor`));
+	return (
+		<>
+			<SectionTitle title="Decor" help="Drag an item onto the wall, or double-click to add it at the frame's centre. Click to choose a set, then Scatter Decor fills the free wall the camera shows. Decor has no hitbox, so it never changes a hit" />
+			<div className="flex flex-wrap gap-1 px-3 pb-1.5">
+				{DECOR_SETS.map((set) => (
+					<button key={set.id} className="mm-button" data-applied={set.items.every((item) => chosen.includes(item))} onClick={() => cx.library.$decorSet.set([...set.items])} title={`Choose the ${set.label} set`} type="button">
+						{set.label}
+					</button>
+				))}
+				{chosen.length > 0 ? (
+					<button className="mm-button" onClick={() => cx.library.$decorSet.set([])} title="Choose nothing" type="button">
+						Clear
+					</button>
+				) : null}
+			</div>
+			<div className="mm-tile-grid" role="listbox" aria-label="Decor">
+				{builtIn.map((item) => (
+					<SkinTile
+						key={item.id}
+						label={item.label}
+						origin=""
+						previewUrl={item.previewUrl}
+						isApplied={chosen.includes(item.id)}
+						isInUse={false}
+						typeLabel="decor"
+						title={`${item.label}: drag onto the wall, double-click to add, click to choose`}
+						onApply={() => toggle(item.id)}
+						onDoubleClick={() => placeDecor(cx, builtInSource(item.id))}
+						onMenu={() => [
+							{ label: 'Add to the Wall', onSelect: () => void placeDecor(cx, builtInSource(item.id)) },
+							{ label: chosen.includes(item.id) ? 'Leave Out of the Set' : 'Choose for the Set', onSelect: () => toggle(item.id) }
+						]}
+						onDragStart={(event) => {
+							event.dataTransfer.setData(DECOR_DRAG_TYPE, item.id);
+							event.dataTransfer.effectAllowed = 'copy';
+						}}
+					/>
+				))}
+				{entries.map((entry) => {
+					const { item } = entry;
+					const source = assetDecorSource(item.id, libraryItemLabel(item), item.manifest?.fittedParams);
+					return (
+						<SkinTile
+							key={`${item.scope}:${item.id}`}
+							label={libraryItemLabel(item)}
+							origin={libraryItemOrigin(item)}
+							previewUrl={item.previewUrl}
+							isApplied={chosen.includes(source.source)}
+							isInUse={false}
+							isKept={entry.isKept}
+							onKeep={() => void cx.library.setKept(entry, !entry.isKept)}
+							typeLabel="decor"
+							title={`${libraryItemLabel(item)}: drag onto the wall, double-click to add, click to choose`}
+							onApply={() => toggle(source.source)}
+							onDoubleClick={() => placeDecor(cx, source)}
+							onMenu={() => [
+								{ label: 'Keep in Library', checked: entry.isKept, onSelect: () => void cx.library.setKept(entry, !entry.isKept) },
+								{ label: 'Remove', onSelect: () => void removeEntry(cx, entry) }
+							]}
+							onDragStart={(event) => {
+								event.dataTransfer.setData(LIBRARY_DRAG_TYPE, JSON.stringify({ id: item.id, scope: item.scope }));
+								event.dataTransfer.effectAllowed = 'copy';
+							}}
+						/>
+					);
+				})}
+			</div>
+			{chosen.length > 0 ? (
+				<div className="px-3 pt-1 pb-2">
+					<button className="mm-button w-full" onClick={() => openScatterPanel(cx, chosen)} title="Fill the free wall the camera shows with this set" type="button">
+						<Wand2 size={12} strokeWidth={1.8} />
+						Scatter Decor…
+					</button>
+				</div>
+			) : null}
+		</>
 	);
 };
 
@@ -425,8 +530,10 @@ const SkinTile: React.FC<{
 	onKeep?: () => void;
 	isDisabled?: boolean;
 	onDragStart?: (event: React.DragEvent) => void;
+	onDoubleClick?: () => void;
+	title?: string;
 }> = (props) => {
-	const { label, origin, previewUrl, isApplied, isInUse, typeLabel, onApply, onMenu, isKept, onKeep, isDisabled, onDragStart } = props;
+	const { label, origin, previewUrl, isApplied, isInUse, typeLabel, onApply, onMenu, isKept, onKeep, isDisabled, onDragStart, onDoubleClick, title } = props;
 	return (
 		<div className="mm-tile-wrap" role="option" aria-selected={isApplied}>
 			<button
@@ -434,8 +541,9 @@ const SkinTile: React.FC<{
 				data-applied={isApplied}
 				data-dimmed={isDisabled === true}
 				draggable={onDragStart != null}
-				title={onApply != null ? `${label}: click applies to the selection, ⌥-click to every ${typeLabel.toLowerCase()}` : label}
+				title={title ?? onApply != null ? (title ?? `${label}: click applies to the selection, ⌥-click to every ${typeLabel.toLowerCase()}`) : label}
 				onClick={(event) => onApply?.(event.altKey)}
+				onDoubleClick={onDoubleClick}
 				onContextMenu={(event) => openContextMenu(event, onMenu())}
 				onDragStart={onDragStart}
 				type="button"

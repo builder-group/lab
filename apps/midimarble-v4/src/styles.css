@@ -151,6 +151,12 @@ textarea {
 	background: var(--pressed);
 }
 
+/* A choice that is on, such as an item of a Decor set */
+.mm-button[data-applied='true'] {
+	color: var(--accent-strong);
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
 .mm-button[data-variant='primary'] {
 	background: var(--accent);
 	border-color: transparent;

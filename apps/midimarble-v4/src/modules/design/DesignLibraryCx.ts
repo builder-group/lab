@@ -3,7 +3,11 @@ import { requestFromPrompt, type AgentCx } from '@/modules/agents';
 import { isNewThemeRequest } from '@/modules/agents/agent-brief';
 import { library, type TLibraryItem } from '@/modules/library';
 import { applyProjectCommands, type TProject, type TProjectCommand } from '@/modules/project';
+import type { TSimulationResult } from '@/modules/simulation';
+import { $blenderObjects, addDecorCommands, assetDecorSource, type TDecorSource } from './decor';
+import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, seedOf } from './decor-scatter';
 import { skinCommands, type TSkinTarget } from './design-commands';
+import { filmCamera } from './film-camera';
 import { agentThemeCommands } from './project-themes';
 import type { TSkinElement } from './skin-catalog';
 
@@ -19,8 +23,12 @@ export class DesignLibraryCx {
 	readonly $error = createState<string | null>(null);
 	/** The element type a theme's part opened the Library on, while nothing selected says what to show */
 	readonly $filterElement = createState<TSkinElement | null>(null);
+	/** Decor sources chosen in the Library's Decor group, for Scatter Decor */
+	readonly $decorSet = createState<string[]>([]);
 
 	private loadedFor: string | null = null;
+	/** Items accepted so far per decor set from the agent */
+	private readonly acceptedSets = new Map<string, TDecorSource[]>();
 
 	constructor(private readonly source: TDesignLibrarySource) {}
 
@@ -105,7 +113,7 @@ export class DesignLibraryCx {
 	/**
 	 * Accepts an agent Result: the item moves into the project library and, for a piece run, becomes the piece's
 	 * skin in the same step. A "New theme:" request skins every piece of that type, since each of its runs makes
-	 * the theme's skin for one type.
+	 * the theme's skin for one type. A decoration lands on the wall where it was asked for.
 	 */
 	async acceptCandidate(agents: AgentCx, runId: string): Promise<boolean> {
 		const run = agents.getRun(runId);
@@ -133,7 +141,32 @@ export class DesignLibraryCx {
 			this.source.notify(`${proposal?.name ?? 'The theme'} applied, with “${label(item)}” in the project library`);
 			return true;
 		}
+		// A decoration lands where the agent was asked for it: at the picked point, or scattered with the rest of its set
+		if (item.manifest?.role === 'decoration' && run?.target != null) {
+			const source = assetDecorSource(item.id, label(item), item.manifest.fittedParams);
+			if (run.target.kind === 'wall') {
+				this.source.execute(addDecorCommands(project, source, run.target.point).commands);
+				return true;
+			}
+			if (run.target.kind === 'scene' && run.target.decorSet != null) return this.scatterAccepted(project, run.target.decorSet.id, source);
+		}
 		this.source.notify(`“${label(item)}” was added to the project library`);
+		return true;
+	}
+
+	/** Scatters the set with the item just accepted, replacing what the set placed before, as one edit */
+	private scatterAccepted(project: TProject, setId: string, source: TDecorSource): boolean {
+		const items = [...(this.acceptedSets.get(setId) ?? []), source];
+		this.acceptedSets.set(setId, items);
+		const result = this.source.getResult();
+		const track = result != null ? filmCamera(project, result).track : null;
+		if (result == null || track == null) {
+			this.source.notify(`“${source.label}” was added to the project library. Use Scatter Decor once the run has updated`);
+			return true;
+		}
+		const { commands, count } = scatterDecorCommands(project, result, track, { items, density: DEFAULT_SCATTER_DENSITY, seed: seedOf(setId), blenderObjects: $blenderObjects.get() });
+		if (!this.source.execute(commands)) return false;
+		this.source.notify(`“${source.label}” is in the project library, and the set is on the wall: ${count} ${count === 1 ? 'item' : 'items'}`);
 		return true;
 	}
 }
@@ -141,6 +174,7 @@ export class DesignLibraryCx {
 export interface TDesignLibrarySource {
 	getPackagePath: () => string | null;
 	getProject: () => TProject | null;
+	getResult: () => TSimulationResult | null;
 	execute: (commands: TProjectCommand[]) => boolean;
 	notify: (message: string, tone?: 'info' | 'error') => void;
 }

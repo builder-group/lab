@@ -72,12 +72,15 @@ export function isInFrame(track: TCameraTrack, frame: number, marble: TMarbleTra
 	return u >= 0 && u <= 1 && v >= 0 && v <= 1;
 }
 
-/** Wall point in image coordinates of the track's `frame`, 0 to 1 with y up; outside 0 to 1 is out of frame */
-export function projectToFrame(track: TCameraTrack, frame: number, x: number, y: number): [number, number] {
+/**
+ * Wall point in image coordinates of the track's `frame`, 0 to 1 with y up; outside 0 to 1 is out of frame. `distance`
+ * is how far in front of the wall the point stands, the marble plane by default.
+ */
+export function projectToFrame(track: TCameraTrack, frame: number, x: number, y: number, distance = track.depth): [number, number] {
 	const rotation = quaternionToMatrix(track.rotation.subarray(frame * 4, frame * 4 + 4));
 	const relative = [
 		x - (track.position[frame * 3] ?? 0),
-		-track.depth - (track.position[frame * 3 + 1] ?? 0),
+		-distance - (track.position[frame * 3 + 1] ?? 0),
 		y - (track.position[frame * 3 + 2] ?? 0)
 	];
 	// Camera space is the transposed rotation times the offset; the camera looks along its -z
