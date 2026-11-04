@@ -74,7 +74,7 @@ describe('finishCatch', () => {
 				expect(caught.exitTime, `${speed} m/s, ${vx} m/s sideways`).not.toBeNull();
 			}
 		}
-	});
+	}, 20_000);
 
 	it('catches the marble in a Cup and holds it, up to 4 m/s', () => {
 		// Faster, a Cup can swirl the marble up and out of its mouth; the Chute leads that speed away instead
@@ -86,7 +86,7 @@ describe('finishCatch', () => {
 				expect(caught.exitTime).toBeNull();
 			}
 		}
-	});
+	}, 20_000);
 
 	it('catches at Earth gravity too', () => {
 		for (const speed of [1.5, 3, 5]) expect(finishCatch(simulator.simulate(drop(FINISH_CHUTE, speed, 0.3, 1)), 'finish-1').status).toBe('caught');

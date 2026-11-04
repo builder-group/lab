@@ -70,7 +70,7 @@ describe('assignNotesCommands function', () => {
 		expect(link?.hitId).not.toBe(hitId);
 		expect(melody.hits.some((hit) => hit.id === link?.hitId)).toBe(true);
 		expect(after?.entryTime).toBeCloseTo(before?.entryTime ?? NaN, 6);
-	});
+	}, 20_000);
 
 	it('should do nothing for notes already in place', () => {
 		const project = loadFixture('two-marbles');

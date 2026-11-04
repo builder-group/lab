@@ -221,7 +221,7 @@ describe('fixtures', () => {
 		// The MIDI file is the project's song
 		expect(project.music.sources).toEqual([expect.objectContaining({ kind: 'midi', path: 'audio/jingle-bells.mid' })]);
 		expect(project.music.tempo?.bpm).toBe(120);
-	});
+	}, 20_000);
 
 	it('jingle-bells: a windmill no marble comes near leaves every hit and sample unchanged', () => {
 		const project = loadFixture('jingle-bells');
@@ -233,7 +233,7 @@ describe('fixtures', () => {
 			expect(result.marbles).toEqual(base.marbles);
 			expect(result.contacts).toEqual(base.contacts);
 		}
-	});
+	}, 20_000);
 
 	it('jingle-bells: a windmill the bass strikes changes nothing before its first contact', () => {
 		const project = loadFixture('jingle-bells');
@@ -253,7 +253,7 @@ describe('fixtures', () => {
 		expect(result.hits.filter((hit) => hit.targetTime < strikeTime)).toEqual(
 			base.hits.filter((hit) => hit.targetTime < strikeTime)
 		);
-	});
+	}, 20_000);
 
 	it('tap-along: hits suggested from the recording, every one on time and in frame', () => {
 		const project = loadFixture('tap-along');

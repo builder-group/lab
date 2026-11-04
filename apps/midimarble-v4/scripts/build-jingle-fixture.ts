@@ -15,7 +15,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as toneMidi from '@tonejs/midi';
 import { withFinishes } from '../src/modules/compose/finish-assist';
 import { preflightExport } from '../src/modules/design/export-preflight';
-import { alignNotes, createImportCommands, filmTail, parseMidiFile, proposeLanes, songEnd } from '../src/modules/music';
+import { fittedSongEnd } from '../src/modules/camera/finish-exit';
+import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
 import {
 	applyProjectCommands,
 	createProject,
@@ -220,14 +221,15 @@ async function finalized(fixture: TProject, simulateFinish: TSimulateFn): Promis
 	const finished = await withFinishes(fixture, { simulate: simulateFinish }, { lanes: fixture.music.lanes.map((lane) => lane.id) });
 	for (const message of finished.messages) console.log(`finish: ${message}`);
 	const current = finished.project;
+	// The film ends just after the marble that plays last rolls out of its Finish and leaves the frame
+	const end = (await fittedSongEnd(current, simulateFinish)) ?? current.end;
 	const source: TSource = { id: 'source-1', kind: 'midi', path: `audio/${SONG_NAME}`, name: SONG_NAME, offset: IMPORT_START };
 	const removed = current.music.sources.map((item) => ({ type: 'removeSource' as const, sourceId: item.id }));
 	const camera = { ...current.design.camera, distance: DEFAULT_CAMERA_DISTANCE, pitch: DEFAULT_CAMERA_PITCH };
 	const song = apply(
 		current,
 		[...removed, { type: 'upsertSource', source }, { type: 'setTempo', tempo: { bpm: TEMPO, beatsPerBar: 4 } }, { type: 'setDesign', design: { camera } },
-			// The film ends once the marbles that play last have landed in their Finishes
-			{ type: 'setEnd', end: songEnd(Math.max(...current.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time))), filmTail(current)) }
+			{ type: 'setEnd', end }
 		],
 		current.revision
 	);

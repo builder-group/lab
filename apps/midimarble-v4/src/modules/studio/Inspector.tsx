@@ -10,7 +10,7 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStat
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { CameraInspector, FilmLookPanel, PieceLook, ShotInspector, TitlesInspector, WallTextInspector } from '@/modules/design/DesignInspector';
-import { DEFAULT_HIT_VELOCITY, filmTail, findLaneConflicts, FINISH_TAIL, instruments, MIN_HIT_GAP, SONG_TAIL, suggestedHitTimes } from '@/modules/music';
+import { DEFAULT_HIT_VELOCITY, endsOnFinish, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_TAIL, suggestedHitTimes } from '@/modules/music';
 import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { commandItem } from './commands';
@@ -533,11 +533,9 @@ const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
 				<ScrubField id="project-end" label="Length" name="Film length" value={project.end} unit="" step={0.05} precision={2} min={0.5} format={formatTime} parse={parseTime} onCommit={(end) => cx.execute([{ type: 'setEnd', end }])} />
 				<button
 					className="mm-button"
-					disabled={fitEnd == null || Math.abs(fitEnd - project.end) < 0.005}
-					onClick={() => {
-						if (fitEnd != null) cx.execute([{ type: 'setEnd', end: fitEnd }]);
-					}}
-					title={fitEnd == null ? 'The song has no notes yet' : filmTail(project) === FINISH_TAIL ? `End the film ${FINISH_TAIL} s after the last note, once the last marbles have landed in their Finishes (${formatTime(fitEnd)})` : `End the film ${SONG_TAIL} s after the last note, while the last marble is still in view (${formatTime(fitEnd)})`}
+					disabled={fitEnd == null || (!endsOnFinish(project) && Math.abs(fitEnd - project.end) < 0.005)}
+					onClick={() => void cx.fitToSong()}
+					title={fitEnd == null ? 'The song has no notes yet' : endsOnFinish(project) ? 'End the film just after the last marble rolls out of its Finish and leaves the frame' : `End the film ${SONG_TAIL} s after the last note, while the last marble is still in view (${formatTime(fitEnd)})`}
 					type="button"
 				>
 					Fit to Song

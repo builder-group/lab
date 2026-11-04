@@ -18,6 +18,7 @@ import {
 	type TProjectCommand
 } from '../src/modules/project';
 import { withFinishes } from '../src/modules/compose/finish-assist';
+import { fittedSongEnd } from '../src/modules/camera/finish-exit';
 import { songEnd } from '../src/modules/music';
 import { autoPlace, continueSuggestions, mirrorPiece } from '../src/modules/simulation/assists';
 import { createBareRunProject } from '../src/modules/simulation/fixture-projects';
@@ -189,11 +190,12 @@ function withoutOpenHits(current: TProject): TProject {
 	return next;
 }
 
-/** The marble's Finish after its last note (Add Finish), with the film ending on its catch */
+/** The marble's Finish after its last note (Add Finish), with the film ending just after the marble leaves the frame */
 async function finished(current: TProject): Promise<TProject> {
 	const result = await withFinishes(current, { simulate });
 	for (const message of result.messages) console.log(`finish: ${message}`);
-	return result.project;
+	const end = await fittedSongEnd(result.project, simulate);
+	return end == null ? result.project : { ...result.project, end };
 }
 
 /** Section skins on alternating columns, a wall title above each section's first piece and the camera framing */

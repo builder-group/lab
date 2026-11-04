@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { FINISH_TAIL, filmTail, songEnd } from '@/modules/music';
+import { FINISH_TAIL_MAX, finishTail, songEnd } from '@/modules/music';
 import { finishCatch } from '@/modules/simulation/finish';
 import { parseProject, type TProject } from '@/modules/project';
 import { createSimulator } from '@/modules/simulation/simulate';
@@ -15,6 +15,7 @@ import {
 	type TFollowCameraInput,
 	type TFollowMarble
 } from './follow-camera';
+import { finishExit } from './finish-exit';
 import { followCameraTrack } from './project-track';
 
 const FIXTURES = ['zigzag', 'reference-20', 'jingle-bells'] as const;
@@ -392,14 +393,18 @@ describe('follow camera', () => {
 		expect(Math.min(u, v) < 0 || Math.max(u, v) > 1).toBe(true);
 	});
 
-	it('ends Jingle Bells FINISH_TAIL after the last note with both marbles landing in their Finishes in frame', () => {
+	it('ends Jingle Bells just after its last marble leaves the frame, with both marbles landing in their Finishes in frame', () => {
 		const { project: jingle, result } = fixture('jingle-bells');
 		const track = required(followCameraTrack(jingle, result, 30));
 		const lastNote = Math.max(
 			...jingle.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time))
 		);
-		expect(filmTail(jingle)).toBe(FINISH_TAIL);
-		expect(jingle.end).toBe(songEnd(lastNote, FINISH_TAIL));
+		const longer = required(results.get('jingle-bells-longer'));
+		const exit = required(finishExit(longer.project, longer.result));
+		expect(jingle.end).toBe(songEnd(lastNote, finishTail(exit)));
+		// Gone 0.1 s before the end, no empty chute after that
+		expect(lastNote + exit).toBeLessThan(jingle.end);
+		expect(jingle.end - lastNote - exit).toBeLessThan(0.15);
 		const end = track.frameCount - 1;
 		const finishes = jingle.entities.filter((entity) => entity.components.piece?.type === 'finish');
 		expect(finishes).toHaveLength(2);
@@ -420,6 +425,19 @@ describe('follow camera', () => {
 			expect(Math.min(mu, mv)).toBeGreaterThan(0.05);
 			expect(Math.max(mu, mv)).toBeLessThan(0.95);
 		}
+	});
+
+	it('ends Reference 20 at the longest tail with its last marble still in the final frame', () => {
+		const { project: reference, result } = fixture('reference-20');
+		const lastNote = Math.max(...reference.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)));
+		expect(reference.end).toBe(songEnd(lastNote, FINISH_TAIL_MAX));
+		const track = required(followCameraTrack(reference, result, 30));
+		const end = track.frameCount - 1;
+		const marble = required(result.marbles[0]);
+		const sample = required([...marble.samples].reverse().find((item) => item.time <= end / 30 + 1e-6));
+		const [u, v] = project(track, end, sample.position.x, sample.position.y);
+		expect(Math.min(u, v)).toBeGreaterThan(0);
+		expect(Math.max(u, v)).toBeLessThan(1);
 	});
 
 	it('frames the last hit and the Finish together in the held ending', () => {

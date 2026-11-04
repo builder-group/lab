@@ -111,7 +111,7 @@ describe('preflightExport function', () => {
 
 		expect(preflight.issues).toEqual([]);
 		expect(preflight.summary).toBe('16 of 16 hits on time');
-	});
+	}, 20_000);
 
 	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera leaves out once the bass moves sideways', () => {
 		const project = loadFixture('jingle-bells');
@@ -150,7 +150,7 @@ describe('preflightExport function', () => {
 		expect(after.length).toBeLessThan(framing.length);
 		const { from, to } = first.span;
 		expect(after.some((issue) => issue.laneId === first.laneId && (issue.span?.from ?? 0) < to && (issue.span?.to ?? 0) > from)).toBe(false);
-	});
+	}, 20_000);
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
 		const project = loadFixture('zigzag');

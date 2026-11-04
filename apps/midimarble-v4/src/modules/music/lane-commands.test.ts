@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
-import { autoEnd, changesHitsOnly, changesTail, createImportCommands, DEFAULT_PROJECT_END, filmTail, FINISH_TAIL, fitToSongOffer, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
+import { autoEnd, changesHitsOnly, changesTail, createImportCommands, DEFAULT_PROJECT_END, filmTail, FINISH_TAIL, FINISH_TAIL_MAX, FINISH_TAIL_MIN, finishTail, fitToSongOffer, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
 import type { TMidiNote } from './midi';
 
 function note(time: number, pitch: number): TMidiNote {
@@ -82,6 +82,16 @@ describe('autoEnd', () => {
 	});
 });
 
+describe('finishTail', () => {
+	it('should end 0.1 s after the marble leaves the frame, within its bounds', () => {
+		expect(finishTail(1)).toBe(1.1);
+		expect(finishTail(0.2)).toBe(FINISH_TAIL_MIN);
+		expect(finishTail(1.71)).toBe(FINISH_TAIL_MAX);
+		expect(finishTail(Number.POSITIVE_INFINITY)).toBe(FINISH_TAIL_MAX);
+		expect(finishTail(null)).toBe(FINISH_TAIL);
+	});
+});
+
 describe('filmTail', () => {
 	function withLanes(times: number[][], finishes: string[] = [], end = 4): TProject {
 		const project = createProject({ id: 'finish', title: 'Finish' });
@@ -110,5 +120,9 @@ describe('filmTail', () => {
 		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.8))).toBe(true);
 		expect(fitToSongOffer(withLanes([[1, 3.6]], ['lane-0'], 9))).toBe(4.8);
 		expect(autoEnd(withLanes([[1, 3.6]], [], 9), withLanes([[1, 3.6]], ['lane-0'], 9))).toBeNull();
+		// A measured tail counts as following the song and carries over to the next edit
+		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.7))).toBe(true);
+		expect(autoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.7), withLanes([[1, 3.6, 4]], ['lane-0'], 4.7))).toBe(5.1);
+		expect(isAutoEnd(withLanes([[1, 3.6]], [], 4.7))).toBe(false);
 	});
 });

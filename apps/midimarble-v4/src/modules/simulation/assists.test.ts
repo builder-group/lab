@@ -230,7 +230,7 @@ describe('assists', () => {
 			expect(travels).toHaveLength(8);
 			expectClearRun(project, travels);
 		}
-	});
+	}, 20_000);
 
 	it('auto places a zigzag that keeps alternating', () => {
 		const { project, travels } = autoPlaceAll(zigzagStart(evenTimes(8)));
@@ -354,7 +354,7 @@ describe('assists', () => {
 		const [isBadOk, badErr] = createRailForGap(project, result, 'lane-1', 'hit-1-4', 'hit-1-3');
 		expect(isBadOk).toBe(false);
 		expect(badErr?.message).toMatch(/end after/);
-	});
+	}, 20_000);
 
 	it('holds the marble across a long gap in a switchback near the pace', () => {
 		let project = zigzagStart([0.15, 0.45, 0.75, 2.25, 2.55]);

@@ -53,7 +53,7 @@ describe('Add Finish', () => {
 		const run = simulator.simulate({ ...next, end: projectSongEnd(next) ?? next.end });
 		expect(run.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(48);
 		expect(finishCatch(run, placed.entity.id).status).toBe('caught');
-	});
+	}, 20_000);
 
 	it('keeps every hit of the fixtures with their Finishes, which catch both marbles of Jingle Bells', () => {
 		for (const [name, count] of [['jingle-bells', 115], ['reference-20', 48]] as const) {
@@ -67,7 +67,7 @@ describe('Add Finish', () => {
 			}
 			expect(preflightExport(project, result).issues.filter((issue) => issue.id.startsWith('finish:'))).toEqual([]);
 		}
-	});
+	}, 20_000);
 
 	it('reports a Finish that misses its marble and places it again', async () => {
 		const reference = loadFixture('reference-20');

@@ -269,14 +269,30 @@ The reference short's last 2 s (frames in `.local/finish/ref/`): after its final
 
 | Fixture | Last note | Lands in the Finish | Rolls off the Chute | At the catch | Marble leaves the held frame | End |
 | --- | --- | --- | --- | --- | --- | --- |
-| jingle-bells, Bass (plays last) | 32.5 s | +0.49 s | +0.87 s | (0.34, 0.46) | +1.0 s | 33.7 s (32.9 s before) |
+| jingle-bells, Bass (plays last) | 32.5 s | +0.49 s | +0.87 s | (0.34, 0.46) | +1.0 s | 33.6 s (32.9 s before Finishes) |
 | jingle-bells, Melody | 31.0 s | +0.48 s | +0.76 s | (0.17, 0.72), while the camera still follows both | | |
-| reference-20 | 19.25 s | +0.38 s | +0.83 s | (0.70, 0.22) | after +1.5 s | 20.45 s (19.65 s before) |
+| reference-20 | 19.25 s | +0.38 s | +0.83 s | (0.70, 0.22) | +1.71 s | 20.75 s (19.65 s before Finishes) |
 
-- `FINISH_TAIL` is 1.2 s: it shows the catch and the roll-out in every song fixture and ends as the marble falls away, with at most 0.2 s of empty chute; 1.5 s held Jingle Bells 0.5 s on the empty chute. `SONG_TAIL` stays 0.4 s without Finishes, and the audio fade stays 0.4 s
+- The tail is per film since 2026-11-04 (`finishTail` in `lane-commands.ts`, `finishExit` in `camera/finish-exit.ts`): the time the last marble's centre leaves the frame in the follow camera of a what-if run after its last note, plus 0.1 s, clamped to 0.6 to 1.5 s. The camera does not depend on the end, so the longer run reads the same frames. Jingle Bells: leaves at +0.996 s, tail 1.1 s, end 33.6 s (33.7 s before). Reference 20: leaves at +1.71 s, past the longest tail, tail 1.5 s, end 20.75 s (20.45 s before), marble still in the final frame under the chute. A marble a Cup holds never leaves, so it gets 1.5 s by the same rule (not measured on a fixture). `FINISH_TAIL` 1.2 s remains for a Finish that misses and before the first measurement. `SONG_TAIL` stays 0.4 s without Finishes, and the audio fade stays 0.4 s
 - Held ending: half way (`FINISH_FRAME`) from the last hit's follow point to the mouths of the Finishes that catch a marble after the last hit; at the end the mouth sits at (0.39, 0.53) in Jingle Bells and (0.68, 0.34) in Reference 20, and the last pieces stay in frame. `pnpm camera:check` within 0.001 mm and 0.017°
 - Catching: dropped onto a free Chute at half gravity, every arrival from 1 to 5 m/s, straight down or moving up to 1 m/s toward the backstop, lands and rolls out (`finish.test.ts`); without the cover over the run-out, arrivals of 3 m/s and more flew over it, and with a 35° hook a marble clipping it bounced out. A Cup holds arrivals up to 4 m/s and 0.6 m/s sideways. Add Finish finds a spot in 0.15 s (Reference 20) and 0.35 s for both marbles of Jingle Bells in Node, on the first or second drop tried
 - Hits unchanged: Jingle Bells 115 of 115 and Reference 20 48 of 48 on time with their Finishes
+
+### Flat Light against Fast
+
+Measured on 2026-11-04 with `blender/tests/check_flat_colors.py`: median colour of a 360 × 640 frame of Jingle Bells, which is the wall (8-bit display, frames 300 and 760 for Flat Light; tolerance 12 per channel). Studio Workbench light made Brass's wall (68, 64, 77) at frame 760 and (101, 95, 114) in Zigzag: it darkens a camera-facing wall by a factor that varies with the camera angle. Flat lighting is the same at every frame.
+
+| Theme | Fast | Flat Light | Largest difference |
+| --- | --- | --- | --- |
+| Pegboard | 174, 157, 139 | 175, 160, 142 | 3 |
+| Brass | 159, 151, 171 | 161, 156, 174 | 5 |
+| Neon | 14, 19, 31 | 12, 16, 27 | 4 |
+| Brass, wall #c4623a | 182, 88, 48 | 184, 92, 52 | 4 |
+| Pegboard, wall #2f6f8f | 62, 115, 140 | 61, 117, 143 | 3 |
+| Neon, wall #405070 | 50, 71, 100 | 51, 71, 98 | 2 |
+
+- Settings: flat lighting, the scene's AgX look, theme exposure offset and sheen (`flat` in `THEMES`: Pegboard +0.05 stops and 0.025, Brass +1.05 and 0.025, Neon +0.4 and 0.012), metal × 0.4, Neon's materials × 2.2. A project theme's changed light or background colour is not modelled in Flat Light, only its wall
+- Speed: Flat Light 16.0 ms/frame with AgX and flat lighting (20.2 before), Jingle Bells filled in 18.2 s (about 24 s before), JPEGs 18.5 kB
 
 ### Clean frame edges and an opening on the track
 

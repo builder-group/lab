@@ -104,8 +104,8 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			onSelect: () => void compose?.assist.addFinish(laneId)
 		})),
 		...(hasLastFix ? [{ label: 'Show Last Fix', onSelect: () => compose?.assist.showLastFix() }] : []),
-		// Ends the film `filmTail` after the last hit, like the Project inspector's Fit to Song
-		...(fitEnd != null ? [{ label: 'Fit to Song', onSelect: () => void cx.execute([{ type: 'setEnd', end: fitEnd }]) }] : [])
+		// Ends the film `filmTail` after the last hit, measured with a Finish, like the Project inspector's Fit to Song
+		...(fitEnd != null ? [{ label: 'Fit to Song', onSelect: () => void cx.fitToSong() }] : [])
 	];
 	// Already in time order, as the summary keeps them
 	const problems = summary.problems;

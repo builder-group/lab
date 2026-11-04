@@ -20,6 +20,7 @@ THEMES = {
         'world': {'color': (0.72, 0.74, 0.78), 'strength': 0.55},
         'look': 'AgX - Base Contrast',
         'exposure': 0.0,
+        'flat': {'exposure': 0.05, 'sheen': 0.025},
         'fstop': 8.0,
         'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 0.0},
     },
@@ -30,6 +31,7 @@ THEMES = {
         'world': {'color': (0.53, 0.50, 0.62), 'strength': 1.0, 'studio': True},
         'look': 'AgX - Medium High Contrast',
         'exposure': -1.25,
+        'flat': {'exposure': 1.05, 'sheen': 0.025},
         'fstop': 8.0,
         'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 0.0},
     },
@@ -44,6 +46,7 @@ THEMES = {
         'rim': {'energy': 4.0, 'angle': 8.0, 'color': (0.7, 0.85, 1.0), 'direction': (-0.35, -0.75, -0.55)},
         'look': 'AgX - Punchy',
         'exposure': 0.0,
+        'flat': {'exposure': 0.4, 'sheen': 0.012},
         'fstop': 8.0,
         'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 9.0},
     },
@@ -112,6 +115,14 @@ def theme_key(name):
     if not _overrides:
         return name
     return name + ' ' + ' '.join('%s=%s' % (field, _overrides[field]) for field in sorted(_overrides))
+
+
+def flat_look(key):
+    """(stops, sheen) Flat Light adds in the theme of `theme_key`: to the scene's exposure, for the light Eevee's sun and
+    world put on a wall facing the camera, and to the colour of a painted surface, for its satin reflections. Measured
+    per theme against Fast frames; a project theme keeps its base's values."""
+    flat = THEMES.get(str(key).split(' ')[0], {}).get('flat', {})
+    return flat.get('exposure', 0.0), flat.get('sheen', 0.0)
 
 
 # Materials

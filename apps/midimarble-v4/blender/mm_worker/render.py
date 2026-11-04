@@ -17,7 +17,8 @@ presets work regardless of the frame rate the keyframes were written at. A loop 
 end.
 
 The draft preset renders the same scene with Workbench instead of the requested engine: solid colours from each
-material's viewport colour, shadows, cavity and outlines, and no lighting, depth of field or motion blur. Like every
+material's viewport colour under flat lighting, through the scene's view transform and look so it matches what Fast
+shows; shadows, cavity and outlines, and no depth of field or motion blur. Like every
 engine setting, it is applied only inside the job process, so the saved scene keeps its own engine.
 """
 import json
@@ -32,6 +33,7 @@ from pathlib import Path
 
 import bpy
 
+from . import themes
 from .preview import temporary
 from .util import WorkerError, resolve_package_path, write_json_atomic
 
@@ -279,20 +281,27 @@ def engine_settings(scene, engine, samples, width, height):
 WORKBENCH_AA = ((0, 'OFF'), (1, 'FXAA'), (5, '5'), (8, '8'), (11, '11'), (16, '16'), (32, '32'))
 DEFAULT_DIFFUSE = (0.8, 0.8, 0.8)
 DRAFT_LIGHT = (-0.25, 0.55, 0.8)
+# Flat Light has no reflections: metal, which only mirrors the darker room in Eevee, comes back as a darker colour, and
+# the satin sheen on painted surfaces as a small lift (`themes.flat_look`). Measured against Fast frames (references.md).
+FLAT_METAL = 0.4
+# Neon's glowing bodies and trim have no emission in Workbench; a brighter colour stands in for it
+FLAT_NEON = 2.2
 
 
 def workbench_settings(scene, samples):
-    """Draft look: Workbench solid shading in each material's colour, with shadows and outlines so pieces and
-    marbles read against the wall. Neutral colour management, no depth of field or motion blur."""
+    """Flat Light: Workbench solid colours with shadows and outlines so pieces and marbles read against the wall, no
+    depth of field or motion blur. Flat lighting keeps a surface's colour at any camera angle, and the scene's own
+    view transform and look with the theme's exposure offset (`themes.flat_look`) bring it to what Fast shows."""
     shading = scene.display.shading
+    exposure, sheen = themes.flat_look(scene.get('mm_theme'))
     aa = min(WORKBENCH_AA, key=lambda item: abs(item[0] - (samples or 8)))[1]
     settings = [
         (scene.render, 'engine', 'BLENDER_WORKBENCH'),
         (scene.render, 'use_motion_blur', False),
         (scene.display, 'render_aa', aa),
-        (shading, 'light', 'STUDIO'),
+        (shading, 'light', 'FLAT'),
         (shading, 'color_type', 'MATERIAL'),
-        (shading, 'show_specular_highlight', True),
+        (shading, 'show_specular_highlight', False),
         (shading, 'show_shadows', True),
         (shading, 'shadow_intensity', 0.4),
         # Each piece drops a short shadow down and to the right onto the wall behind it
@@ -303,19 +312,39 @@ def workbench_settings(scene, samples):
         (shading, 'curvature_valley_factor', 1.0),
         (shading, 'show_object_outline', True),
         (shading, 'object_outline_color', (0.06, 0.06, 0.07)),
-        (scene.view_settings, 'view_transform', 'Standard'),
-        (scene.view_settings, 'look', 'None'),
-        (scene.view_settings, 'exposure', 0.0),
+        (scene.view_settings, 'exposure', scene.view_settings.exposure + exposure),
         (scene.view_settings, 'gamma', 1.0),
     ]
     if scene.camera is not None and scene.camera.type == 'CAMERA':
         settings.append((scene.camera.data.dof, 'use_dof', False))
-    # Workbench shows a material's viewport colour; give materials that kept the default grey their base colour
-    for material in bpy.data.materials:
-        color = base_color(material)
-        if color is not None and all(abs(a - b) < 1e-3 for a, b in zip(material.diffuse_color[:3], DEFAULT_DIFFUSE)):
-            settings.append((material, 'diffuse_color', (*color[:3], 1.0)))
+    settings += [(material, 'diffuse_color', flat_color(material, sheen)) for material in bpy.data.materials]
     return settings
+
+
+def flat_color(material, sheen):
+    """The colour Workbench shows for `material`: its viewport colour, or its base colour if that kept the default
+    grey, with the reflections it loses made up for"""
+    color = tuple(material.diffuse_color)
+    base = base_color(material)
+    if base is not None and all(abs(a - b) < 1e-3 for a, b in zip(color[:3], DEFAULT_DIFFUSE)):
+        color = (*base[:3], color[3])
+    if material.name.startswith('MM · neon'):
+        color = (*(min(1.0, channel * FLAT_NEON) for channel in color[:3]), color[3])
+    if metallic(material) >= 0.5:
+        return (*(channel * FLAT_METAL for channel in color[:3]), color[3])
+    return (*(channel + sheen for channel in color[:3]), color[3])
+
+
+def metallic(material):
+    """Metallic of the material's Principled BSDF, 0 without one"""
+    if not material.use_nodes or material.node_tree is None:
+        return 0.0
+    for node in material.node_tree.nodes:
+        if node.type == 'BSDF_PRINCIPLED':
+            socket = node.inputs.get('Metallic')
+            if socket is not None and not socket.is_linked:
+                return socket.default_value
+    return 0.0
 
 
 def base_color(material):

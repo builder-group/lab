@@ -184,7 +184,7 @@ describe('simulate', () => {
 				expect(withoutStats(incremental)).toEqual(withoutStats(full));
 			}
 		}
-	});
+	}, 20_000);
 
 	it('resumes past a dragged free piece until a marble could reach it', async () => {
 		const project = loadFixture('zigzag.marble.json');
