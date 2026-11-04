@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus } from 'lucide-react';
+import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus, Type } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
@@ -74,6 +74,8 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			const entity = project.entities.find((item) => item.id === target.id);
 			return entity == null ? null : <WallTextInspector cx={cx} project={project} entity={entity} />;
 		}
+		case 'titles':
+			return <InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={`${target.ids.length} Titles`} subtitle="Multiple selection" />;
 		case 'shot': {
 			const shot = project.design.camera.shots.find((item) => item.id === target.id);
 			return shot == null ? null : <ShotInspector cx={cx} project={project} shot={shot} />;
@@ -272,7 +274,7 @@ const MarbleColor: React.FC<{ cx: StudioCx; color: string; commandsFor: (color: 
 							/>
 						))}
 					</div>
-					<ColorWell cx={cx} id="marble-color" label="Hex" name="Marble colour" own={color} shown={color} commandsFor={(value) => (value != null ? commandsFor(value) : [])} />
+					<ColorWell cx={cx} id="marble-color" label="Hex" name="Marble colour" own={color} shown={color} isHexEditable commandsFor={(value) => (value != null ? commandsFor(value) : [])} />
 				</InsertPopover>
 			) : null}
 		</>

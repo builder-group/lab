@@ -54,7 +54,7 @@ describe('inspectorTarget function', () => {
 			[KEY_LIGHT_KEY, 'light'],
 			[CAMERA_KEY, 'camera'],
 			[toShotKey('shot-1'), 'shot'],
-			[TITLES_KEY, 'scene'],
+			[TITLES_KEY, 'titles'],
 			['title-2', 'title'],
 			['title-1', 'title'],
 			[DECOR_KEY, 'scene']

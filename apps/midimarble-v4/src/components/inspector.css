@@ -379,6 +379,10 @@ input.mm-insp-name {
 }
 
 /* A value always shows five characters whole; a narrow field drops its unit first (see ScrubField) */
+.mm-ifield > input[aria-invalid='true'] {
+	color: var(--bad);
+}
+
 .mm-ifield > input:not([type='color']) {
 	min-width: calc(5ch + 8px);
 }

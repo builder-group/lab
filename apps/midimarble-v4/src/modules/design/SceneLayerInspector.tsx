@@ -3,6 +3,7 @@ import React from 'react';
 import { HelpTip, InspectorHeader, Panel, SliderField } from '@/components';
 import type { TLight, TProject, TProjectCommand } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
+import { parseHexColor } from '@/modules/studio/format';
 import { SKIN_HELP } from './concept-words';
 import { marbleContrastWarning } from './draft-look';
 import { WallPicker } from './SkinPickers';
@@ -146,6 +147,34 @@ const LightSliders: React.FC<{ idPrefix: string; strength: number; side: number;
 	);
 };
 
+/** A hex colour typed by hand; what isn't one stays out of the project and goes back to the colour on leaving */
+const HexInput: React.FC<{ name: string; value: string; onCommit: (color: string) => void }> = (props) => {
+	const { name, value, onCommit } = props;
+	const [draft, setDraft] = React.useState(value.toUpperCase());
+	const parsed = parseHexColor(draft);
+
+	function leave(): void {
+		if (parsed == null) setDraft(value.toUpperCase());
+		else if (parsed !== value.toLowerCase()) onCommit(parsed);
+	}
+
+	return (
+		<input
+			className="mm-ifield-value text-[11px] uppercase"
+			aria-label={name}
+			aria-invalid={parsed == null}
+			title={parsed == null ? 'A colour has six hex digits, like #3478F6' : undefined}
+			spellCheck={false}
+			value={draft}
+			onChange={(event) => setDraft(event.target.value)}
+			onBlur={leave}
+			onKeyDown={(event) => {
+				if (event.key === 'Enter') event.currentTarget.blur();
+			}}
+		/>
+	);
+};
+
 /**
  * One colour well of a layer. An inherited colour names where it comes from, a set one shows its hex with a reset.
  * Dragging in the colour picker is one undo step: changes fold into the first while it is still the latest edit, until
@@ -161,9 +190,11 @@ export const ColorWell: React.FC<{
 	shown: string;
 	origin?: string;
 	resetTitle?: string;
+	/** The hex can be typed, not only read */
+	isHexEditable?: boolean;
 	commandsFor: (color: string | null) => TProjectCommand[];
 }> = (props) => {
-	const { cx, id, label, name, own, shown, origin, resetTitle, commandsFor } = props;
+	const { cx, id, label, name, own, shown, origin, resetTitle, isHexEditable = false, commandsFor } = props;
 	const groupRef = React.useRef<number | null>(null);
 
 	function set(color: string | null): void {
@@ -194,7 +225,7 @@ export const ColorWell: React.FC<{
 					groupRef.current = null;
 				}}
 			/>
-			{own != null || origin == null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{shown}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{origin}</span>}
+			{isHexEditable ? <HexInput key={shown} name={`${name} in hex`} value={shown} onCommit={set} /> : own != null || origin == null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{shown}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{origin}</span>}
 			{own != null && origin != null ? (
 				<button className="mm-icon-button" onClick={() => set(null)} title={resetTitle} aria-label={`Reset ${label}`} type="button">
 					<RotateCcw size={12} strokeWidth={1.9} />
