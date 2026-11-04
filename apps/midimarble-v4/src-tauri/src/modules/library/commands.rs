@@ -9,7 +9,7 @@ const PROJECT_FOLDER: &str = "assets";
 const CANDIDATES_FOLDER: &str = "candidates";
 
 /// Items of the project library (`<package>/assets/`) or the global library in the app's support folder
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_list(
     app: AppHandle,
@@ -22,7 +22,7 @@ pub fn library_list(
 
 /// Copies a candidate's `asset.blend` and `preview.png` into `assets/<itemId>/` with the manifest the app
 /// validated and normalized
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_accept_candidate(
     package_path: String,
@@ -46,7 +46,7 @@ pub fn library_accept_candidate(
 }
 
 /// Copies a project item into the global library for use in other projects
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_promote(
     app: AppHandle,
@@ -65,7 +65,7 @@ pub fn library_promote(
 }
 
 /// Copies a global item, or an item of an imported Pack, into the project so the package stays portable
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_import(
     app: AppHandle,
@@ -91,7 +91,7 @@ pub fn library_import(
     return Ok(store::item(&target, &item_id, LibraryScope::Project));
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_remove(
     app: AppHandle,
@@ -105,7 +105,7 @@ pub fn library_remove(
 
 /// Adds an asset from outside the project: a folder with `asset.blend`, or a `.blend` file with its `preview.png`
 /// beside it, with the manifest the app validated
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_add_asset(
     package_path: String,
@@ -137,33 +137,32 @@ pub fn library_add_asset(
 }
 
 /// The added Packs, kept in the app's support folder
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_list_packs(app: AppHandle) -> Result<Vec<PackDto>, String> {
     return Ok(pack::list_packs(&packs_root(&app)?));
 }
 
 /// The Packs that ship in the app bundle, for the Add Pack sheet
-#[tauri::command]
+///
+/// Off the main thread, and always from the app's own resources: a read under a protected folder such as Documents
+/// waits for a macOS permission prompt, which would freeze the window behind it.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_list_bundled_packs(app: AppHandle) -> Result<Vec<PackDto>, String> {
-    let root = if cfg!(debug_assertions) {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packs")
-    } else {
-        app.path().resource_dir().map_err(|error| error.to_string())?.join("packs")
-    };
+    let root = app.path().resource_dir().map_err(|error| error.to_string())?.join("packs");
     return Ok(pack::list_bundled(&root));
 }
 
 /// Adds a bundled Pack or a Pack from a file: it stays on this Mac for every project. Nothing changes in the open project.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_import_pack(app: AppHandle, path: String) -> Result<PackDto, String> {
     return pack::import_pack(&PathBuf::from(path), &packs_root(&app)?);
 }
 
 /// Export Pack…: writes the Pack folder and returns its path
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_export_pack(
     package_path: String,
@@ -177,7 +176,7 @@ pub fn library_export_pack(
     return Ok(target.display().to_string());
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn library_remove_pack(app: AppHandle, pack_id: String) -> Result<(), String> {
     return pack::remove_pack(&packs_root(&app)?, &pack_id);

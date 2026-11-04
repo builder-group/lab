@@ -12,7 +12,7 @@ pub struct OpenedProjectDto {
     pub project_json: String,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn create_project(
     app: AppHandle,
@@ -28,7 +28,7 @@ pub fn create_project(
     });
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn open_project(app: AppHandle, path: String) -> Result<OpenedProjectDto, String> {
     let package = PathBuf::from(path);
@@ -42,20 +42,20 @@ pub fn open_project(app: AppHandle, path: String) -> Result<OpenedProjectDto, St
     });
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn save_project(path: String, project_json: String) -> Result<(), String> {
     return store::save_project(&PathBuf::from(path), &project_json)
         .map_err(|error| error.to_string());
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn list_recent_projects(app: AppHandle) -> Vec<RecentProjectDto> {
     return recent::list(&app);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn import_source(package_path: String, source_path: String) -> Result<String, String> {
     return store::import_source(&PathBuf::from(package_path), &PathBuf::from(source_path))
@@ -64,7 +64,7 @@ pub fn import_source(package_path: String, source_path: String) -> Result<String
 
 /// Creates an unsaved project, such as an opened example, in the app's cache folder. It is not added to Recent;
 /// `move_project` saves it where the user chooses.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn create_temporary_project(
     app: AppHandle,
@@ -81,7 +81,7 @@ pub fn create_temporary_project(
 }
 
 /// Moves a package to a chosen path and adds it to Recent. Returns the new package path.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn move_project(
     app: AppHandle,
@@ -96,7 +96,7 @@ pub fn move_project(
 
 /// Save As… of a saved project: copies the package with its files to a chosen path and adds the copy to Recent.
 /// Returns the copy's package path.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn copy_project(
     app: AppHandle,
@@ -110,14 +110,14 @@ pub fn copy_project(
 }
 
 /// Clear Menu in File > Open Recent
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn clear_recent_projects(app: AppHandle) {
     let _ = recent::clear(&app);
 }
 
 /// Whether a package is an unsaved project in the app's cache folder
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn is_temporary_project(app: AppHandle, path: String) -> bool {
     return is_temporary(&app, &PathBuf::from(path));
