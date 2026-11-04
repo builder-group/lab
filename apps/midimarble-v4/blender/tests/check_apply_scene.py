@@ -384,8 +384,11 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
     check(holder('platform-1').children[0].children[0].material_slots[0].material.name.startswith('MM · flat'), 'pegboard rebuilds the bar')
     check(marble_skin.data.materials[0] == user_material, 'the edited marble skin still survives')
+    check_neon_theme(worker, root, marble_records, hit, moved, rig)
     write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig)
     worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+    rim = studio_role('studio.rim')
+    check(rim is not None and rim.hide_render, 'a theme without a back light hides it')
 
     # A marble inside a tunnel is hidden through its holder's mm_visible
     from mm_worker import contacts
@@ -442,6 +445,38 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     check('mm_loop' not in scene, 'turning the loop off clears the range')
 
 
+def studio_role(role):
+    return next((obj for obj in bpy.data.collections['MidiMarble · studio'].objects if obj.get('mm_role') == role), None)
+
+
+def check_neon_theme(worker, root, marble_records, hit, moved, rig):
+    """Neon dresses everything: a navy wall, a back light, glossy bars whose bevelled edges glow and flash on a
+    hit, and a neon windmill"""
+    scene = bpy.context.scene
+    write_package(root, marble_records, hit, moved, 0.3, True, theme='neon', camera=rig)
+    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+    check(report['theme'] == 'neon' and report['themed'], 'theme switch to neon re-themes the studio')
+    check(studio_role('studio.wall').data.materials[0].name == 'MM · wall neon', 'untouched wall gets the neon wall')
+    rim = studio_role('studio.rim')
+    check(rim is not None and not rim.hide_render and rim.data.energy > 0, 'neon lights the pieces from behind')
+    check(scene.world.node_tree.nodes['Background'].inputs['Color'].default_value[2] < 0.2, 'neon world is a dark navy')
+    skin = holder('platform-1').children[0]
+    check(skin.data.materials[0].name == 'MM · neon mount', 'neon platform sits on a dark mount')
+    bar = next(child for child in skin.children if child.get('mm_part') == 'bar')
+    names = [material.name for material in bar.data.materials]
+    check(names[0].startswith('MM · neon body') and names[1].startswith('MM · neon trim'), 'neon bar has a body and a glowing trim (%s)' % names)
+    trim_faces = sum(1 for polygon in bar.data.polygons if polygon.material_index == 1)
+    check(0 < trim_faces < len(bar.data.polygons), 'the bar edges glow, its faces do not (%d of %d)' % (trim_faces, len(bar.data.polygons)))
+    top = max(vertex.co.z for vertex in bar.data.vertices)
+    check(abs(top - PLATFORM['thickness'] / 2) < 1e-4, 'neon bar top face is the contact surface (%.5f m)' % top)
+    scene.frame_set(math.ceil(hit * FPS))
+    flash = bar['mm_flash']
+    scene.frame_set(0)
+    check(flash > 1.0 and abs(bar['mm_flash']) < 1e-6, 'neon bar flashes at the hit (%.2f) and rests otherwise' % flash)
+    windmill = holder('windmill-1').children[0]
+    check(windmill.data.materials[0].name.startswith('MM · neon body'), 'windmill skin is rebuilt in neon')
+
+
 def check_device_skins():
     """Brass device skins keep the collider's top face as their contact surface; the knob glows on hits"""
     from mm_worker import skins
@@ -469,7 +504,13 @@ def check_device_skins():
 def check_color_by_note():
     """Colour by Note gives every platform that plays a note its pitch class colour in both themes; without the
     option or without a note the theme's own material stays, and the skin key changes with the pitch class"""
-    from mm_worker import skins
+    from mm_worker import skins, themes
+    neon_piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 69, 'color': '#3478f6'}
+    neon_on = [material.name for material in skins.build_spec('piece', neon_piece, skins.skin_context('neon', RADIUS, options={'colorByNote': True}))['parts'][0]['mesh'].materials]
+    neon_off = [material.name for material in skins.build_spec('piece', neon_piece, skins.skin_context('neon', RADIUS))['parts'][0]['mesh'].materials]
+    expected = themes.neon_body_material(skins.neon_colors(skins.PieceFrame(neon_piece, skins.skin_context('neon', RADIUS, options={'colorByNote': True})))[0]).name
+    check(neon_on[0] == expected and neon_off[0] != expected and themes.note_color(69) is not None,
+          'neon: Colour by Note gives an A platform its note colour (%s, %s)' % (neon_on[0], neon_off[0]))
     for theme, plain in (('pegboard', 'MM · flat'), ('brass', 'MM · brass')):
         on = skins.skin_context(theme, RADIUS, options={'colorByNote': True})
         off = skins.skin_context(theme, RADIUS)
@@ -521,7 +562,7 @@ def check_switchback_skins():
     wires = [[{'x': x, 'y': y} for x, y in wire] for wire in (first, second, stop)]
     piece = {'type': 'switchback', 'params': {'width': 0.1, 'legs': 2, 'radius': 0.0025, 'bend': bend}, 'angle': 0.0,
              'position': {'x': 0.0, 'y': 0.0}, 'paths': wires}
-    for theme in ('brass', 'pegboard'):
+    for theme in ('brass', 'pegboard', 'neon'):
         mesh = skins.build_spec('piece', piece, skins.skin_context(theme, RADIUS))['root']
         xs = [vertex.co.x for vertex in mesh.vertices]
         zs = [vertex.co.z for vertex in mesh.vertices]

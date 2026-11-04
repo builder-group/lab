@@ -44,7 +44,7 @@ One word per concept, used everywhere: in labels, menus, tooltips, errors and do
 | Settings most people never need | **Advanced**, a disclosure at the end of a section | expert, more, details | Final Cut, Logic |
 | How a film is lit and rendered | **Lighting**: Fast or Realistic (Eevee and Cycles in the tooltip); Draft always uses **Flat Light** (Workbench in the tooltip), so the Lighting choice is dimmed with it | renderer, engine | |
 | What an agent run produces | **Result**, shown as a card with Accept and Discard | candidate, output, artifact | |
-| A look preset | **Theme** (Pegboard, Brass): wall, light, marble and a default skin per piece type | style, material, preset | |
+| A look preset | **Theme** (Pegboard, Brass, Neon): wall, light, marble and a default skin per piece type | style, material, preset | |
 | A theme setting that changes the whole look | **Theme option** (Colour by Note) | parameter | |
 | The browser of themes, skins and pieces | **Library** | assets, My Library, In This Project | Figma's Assets panel; one place, no storage scopes |
 | Making an item available in every project | **Keep in Library** (star) | save to My Library, publish | |

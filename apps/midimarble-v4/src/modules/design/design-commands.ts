@@ -18,7 +18,8 @@ export interface TThemePreset {
 /** Themes the Blender worker ships; unknown themes fall back to Pegboard there */
 export const themePresets: readonly TThemePreset[] = [
 	themePreset('pegboard', 'Pegboard', 'Birch pegboard and toy colours, like Compose'),
-	themePreset('brass', 'Brass', 'Plaster wall, brass bars and warm studio light')
+	themePreset('brass', 'Brass', 'Plaster wall, brass bars and warm studio light'),
+	themePreset('neon', 'Neon', 'Dark navy wall, glossy pieces with glowing edges that flash on a hit')
 ];
 
 function themePreset(id: string, label: string, description: string): TThemePreset {
@@ -265,9 +266,9 @@ export function isScreenTitle(style: TWallText['style']): boolean {
 	return style === 'caption' || style === 'songName' || style === 'endCard';
 }
 
-/** The colour titles start with in a theme: white on Brass's lavender plaster, navy on Pegboard's birch */
+/** The colour titles start with in a theme: white on Brass's lavender plaster and Neon's navy, navy on Pegboard's birch */
 export function themeTitleColor(theme: string): string {
-	return theme === 'brass' ? '#ffffff' : '#1f3a5f';
+	return theme === 'brass' || theme === 'neon' ? '#ffffff' : '#1f3a5f';
 }
 
 /** Height of the film frame on the wall at `time`, through the film camera; the letter size of wall titles follows it */

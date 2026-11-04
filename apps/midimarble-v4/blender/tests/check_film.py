@@ -214,6 +214,28 @@ def check_draft_film(worker, root, scene, fast_started):
         result['frames'], result['renderSeconds'], result['msPerFrame'], time.perf_counter() - began))
 
 
+def check_neon_still(worker, root, scene, seconds):
+    """The same run in Neon: a dark wall that reads as navy, pieces whose edges glow in the marble's blue, and a
+    marble that stays readable against the wall"""
+    path = root / '.cache' / 'scene.json'
+    description = json.loads(path.read_text())
+    path.write_text(json.dumps(dict(description, theme='neon')))
+    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+    check(report['theme'] == 'neon' and report['themed'], 'the run re-themes to neon')
+    still = OUT / ('neon-eevee-%.2fs.png' % seconds)
+    render.render_still(scene, still, seconds, 540, 'eevee')
+    # The film frame is 1080x1920, so a still 540 wide is 960 tall
+    pixels = film_frame(still, 540, 960, 0.0)
+    red, green, blue = (pixels[..., channel].astype(float) for channel in range(3))
+    luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    check(float(np.median(luminance)) < 45 and float(np.median(blue - red)) > 4,
+          'neon wall is dark navy (median luminance %.0f)' % np.median(luminance))
+    glow = int(((blue > 170) & (blue > red + 60)).sum())
+    check(glow > 400, 'neon pieces glow in the marble blue (%d px)' % glow)
+    path.write_text(json.dumps(description))
+    worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+
+
 def film_frame(path, width, height, seconds):
     """One decoded RGB frame of a film as a (height, width, 3) array"""
     tool = shutil.which('ffmpeg') or '/opt/homebrew/bin/ffmpeg'
@@ -283,6 +305,7 @@ def main():
     summary.append('film: %d frames in %.1f s (%.0f ms/frame render), total %.1f s' % (
         result['frames'], result['renderSeconds'], result['msPerFrame'], time.perf_counter() - began))
     check_draft_film(worker, root, scene, started)
+    check_neon_still(worker, root, scene, stills[0])
     for name, values in timings.items():
         summary.append('%s: %s' % (name, ', '.join('%.1f s' % value for value in values)))
     shutil.rmtree(root.parent, ignore_errors=True)

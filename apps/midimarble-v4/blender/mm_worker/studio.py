@@ -36,6 +36,14 @@ def ensure_studio(scene, theme):
         sun = create_sun(collection)
     if sun is not None and (switched or created):
         update_sun(sun, theme)
+    # The back light came after the first studios, so it is made once for older scenes too; deleted, it stays gone
+    rim = studio_object('studio.rim')
+    made_rim = rim is None and not scene.get('mm_rim_made')
+    if made_rim:
+        rim = create_rim(collection)
+        scene['mm_rim_made'] = True
+    if rim is not None and (switched or created or made_rim):
+        update_rim(rim, theme)
     if created:
         create_world(scene)
     if switched or created:
@@ -172,6 +180,38 @@ def update_sun(sun, theme):
     sun.data.shadow_filter_radius = 1.5
     sun.rotation_euler = Euler(settings['rotation'])
     written(sun, sun_signature(sun))
+    return True
+
+
+def create_rim(collection):
+    light = bpy.data.lights.new('MM rim', 'SUN')
+    rim = bpy.data.objects.new('Rim Light', light)
+    rim.location = (1.0, 1.0, 2.0)
+    collection.objects.link(rim)
+    tag(rim, 'studio.rim', 'studio.rim')
+    return rim
+
+
+def rim_signature(rim):
+    return [*sun_signature(rim), bool(rim.hide_render)]
+
+
+def update_rim(rim, theme):
+    """Gives an untouched back light the theme's settings; a theme without one hides it"""
+    if rim.type != 'LIGHT' or rim.data.type != 'SUN' or not untouched(rim, rim_signature(rim)):
+        return False
+    settings = themes.rim_settings(theme)
+    rim.hide_render = rim.hide_viewport = settings is None
+    if settings is not None:
+        rim.data.energy = settings['energy']
+        rim.data.angle = settings['angle']
+        rim.data.color = settings['color']
+        # Light from behind the pieces would only cast shadows onto the wall's back; edges are all it is for
+        rim.data.use_shadow = False
+        rim.rotation_euler = Euler(settings['rotation'])
+    else:
+        rim.data.energy = 0.0
+    written(rim, rim_signature(rim))
     return True
 
 

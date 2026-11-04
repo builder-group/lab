@@ -552,7 +552,7 @@ const PieceLook: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }
 /** Whether the app still drives the piece in Blender, as one row with a dot and a reset button when detached */
 const LinkState: React.FC<{ cx: StudioCx; status: TDesignStatus; link: TDesignLink | 'mixed' | null; unlinked: string[] }> = (props) => {
 	const { cx, status, link, unlinked } = props;
-	if (status === 'unavailable') return <StateRow tone="neutral" label="Blender link in the desktop app" detail="Blender reports whether a piece was changed there. Open the project in the desktop app to see it." />;
+	if (status === 'unavailable') return <StateRow tone="neutral" label="Linked in the desktop app" detail="Blender reports whether a piece was changed there. Open the project in the desktop app to see it." />;
 	if (link == null) return <StateRow tone="neutral" label="Link unknown" detail="Blender reports the link once it has updated the preview." />;
 	if (!unlinked.length) return <StateRow tone="good" label="Linked to Blender" detail="The app drives this piece. Changes in Compose appear in Blender." />;
 	const reason = link !== 'mixed' && link.reason != null ? reasonLabel(link.reason) : null;

@@ -455,6 +455,8 @@ def platform_spec(frame, piece, theme):
             'root': bracket.to_mesh('MM bracket', [chrome]),
             'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [metal, chrome]), 'reactive': True}],
         }
+    if theme == 'neon':
+        return neon_platform_spec(frame, length, thickness)
     wood = themes.wood_material()
     bar = MeshBuilder()
     bar.box((length, frame.depth, thickness), (0.0, 0.0, 0.0), bevel=min(thickness, frame.depth) * 0.25)
@@ -464,6 +466,37 @@ def platform_spec(frame, piece, theme):
         'root': peg.to_mesh('MM peg', [wood]),
         'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [pegboard_bar_material(frame)]), 'reactive': True}],
     }
+
+
+def neon_platform_spec(frame, length, thickness):
+    """Neon platform: a glossy deep-coloured bar whose rounded edges are a glowing outline, on a dark peg. The
+    outline is the bar's own bevel, so the top face stays the collider's contact surface."""
+    body, trim = neon_colors(frame)
+    bar = MeshBuilder()
+    bar.box((length, frame.depth, thickness), (0.0, 0.0, 0.0), bevel=min(thickness, frame.depth) * NEON_EDGE_SHARE, material=0)
+    for face in bar.bm.faces:
+        face.normal_update()
+        # Flat faces point along an axis; the bevel's faces between them light up
+        if max(abs(value) for value in face.normal) < 0.98:
+            face.material_index = 1
+    peg = MeshBuilder()
+    peg.cylinder(0.0028, frame.depth * 0.9, (0.0, frame.wall_y - frame.depth * 0.45, -thickness / 2 - 0.0035), axis='Y', bevel=0.0006)
+    return {
+        'root': peg.to_mesh('MM peg', [themes.neon_mount_material()]),
+        'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [themes.neon_body_material(body), themes.neon_trim_material(trim)]),
+                   'reactive': True}],
+    }
+
+
+# Width of a Neon platform's glowing edge as a share of the bar's thickness
+NEON_EDGE_SHARE = 0.3
+
+
+def neon_colors(frame):
+    """(body, trim) linear colours of a Neon piece: its note's colour with Colour by Note, else its marble's colour,
+    both pushed to full saturation; the trim is the brighter one"""
+    source = themes.note_color(frame.note_pitch) if frame.note_pitch is not None else frame.color
+    return themes.neon_color(source, 0.16), themes.neon_color(source, 1.0)
 
 
 def pegboard_bar_material(frame):
@@ -538,6 +571,9 @@ def rail_spec(frame, piece, theme):
     radius = min(physics_radius, 0.0016) if theme == 'brass' else physics_radius * 0.8
     if theme == 'brass':
         wire_material, post_material = themes.chrome_material(), themes.chrome_material()
+    elif theme == 'neon':
+        # Neon rails are tube lights; dimmer than a platform's trim since they run long
+        wire_material, post_material = themes.neon_trim_material(neon_colors(frame)[1], 1.6), themes.neon_mount_material()
     else:
         wire_material, post_material = themes.flat_material(frame.color, 0.35, 0.4), themes.wood_material()
     builder = MeshBuilder()
@@ -589,7 +625,10 @@ def switchback_spec(frame, piece, theme):
             for x, z in (wire[index] for index in wire_post_indices(wire)):
                 builder.cylinder(0.0028, frame.wall_y - frame.marble_y, (x, (frame.wall_y + frame.marble_y) / 2, z), axis='Y',
                                  material=1)
-        materials = [themes.flat_material(frame.color, 0.35, 0.4), themes.wood_material()]
+        if theme == 'neon':
+            materials = [themes.neon_trim_material(neon_colors(frame)[1], 1.6), themes.neon_mount_material()]
+        else:
+            materials = [themes.flat_material(frame.color, 0.35, 0.4), themes.wood_material()]
         return {'root': builder.to_mesh('MM switchback', materials), 'parts': []}
     # Thicker than rail wires: a switchback is seen from further away and its short legs must still read
     radius = min(physics_radius, 0.0022 * k)
@@ -685,6 +724,10 @@ def tunnel_spec(frame, piece, theme):
     radius = frame.marble_radius + bore + support
     if theme == 'brass':
         materials = [themes.frosted_material(), themes.chrome_material()]
+    elif theme == 'neon':
+        # A glossy tinted tube with glowing rings at its mouths
+        body, trim = neon_colors(frame)
+        materials = [themes.neon_body_material(body), themes.neon_trim_material(trim)]
     else:
         materials = [themes.flat_material(frame.color, 0.4, 0.2), themes.wood_material()]
     builder = MeshBuilder()
@@ -709,6 +752,10 @@ def windmill_spec(frame, piece, theme):
     hub = params.get('hubRadius', 0.008)
     if theme == 'brass':
         materials = [themes.brass_material(), themes.chrome_material()]
+    elif theme == 'neon':
+        # Material 0 is the hub and blades, 1 the axle: saturated blades on a glowing axle cap
+        body, trim = neon_colors(frame)
+        materials = [themes.neon_body_material(body), themes.neon_trim_material(trim)]
     else:
         materials = [themes.flat_material(frame.color, 0.42, 0.3), themes.wood_material()]
     builder = MeshBuilder()
@@ -743,7 +790,12 @@ def rotated_blade(builder, reach, length, thickness, depth, center_y, angle):
 def marble_mesh(marble, theme):
     radius = float(marble['radius'])
     color = marble.get('color') or '#d0d4dc'
-    material = themes.glass_marble_material(color) if theme == 'brass' else themes.glossy_marble_material(color)
+    if theme == 'brass':
+        material = themes.glass_marble_material(color)
+    elif theme == 'neon':
+        material = themes.neon_marble_material(color)
+    else:
+        material = themes.glossy_marble_material(color)
     builder = MeshBuilder()
     builder.sphere(radius, segments=48, rings=24)
     return builder.to_mesh('MM marble', [material])

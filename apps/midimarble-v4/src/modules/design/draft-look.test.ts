@@ -21,9 +21,19 @@ describe('draft look', () => {
 		expect(draftPieceColors('brass', { type: 'rail', color: '#3478f6', skin: null }, true).bar).not.toBe('#3478f6');
 	});
 
-	it('should give Pegboard peg holes and Brass a plain wall', () => {
+	it('should dress Neon pieces in their saturated hue, with the note colour under Colour by Note', () => {
+		const platform = { type: 'platform', color: '#3478f6', skin: null, notePitch: 60 };
+		expect(draftPieceColors('neon', platform, false).bar).toBe('#1f6dff');
+		expect(draftPieceColors('neon', platform, true).bar).toBe('#ff1f1f');
+		// A grey marble's pieces turn a cool blue-white instead of a random hue
+		expect(draftPieceColors('neon', { ...platform, color: '#808080' }, false).bar).toBe('#d1e6ff');
+		expect(draftPieceColors('neon', { type: 'rail', color: '#3478f6', skin: null }, false).bar).toBe('#1f6dff');
+	});
+
+	it('should give Pegboard peg holes, Brass a plain wall and Neon a dark navy one', () => {
 		expect(draftWall('pegboard').holes).not.toBeNull();
 		expect(draftWall('brass').holes).toBeNull();
+		expect(draftWall('neon')).toEqual({ color: '#141a2a', holes: null });
 		expect(draftWall('unknown')).toEqual(draftWall('pegboard'));
 	});
 });

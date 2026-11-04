@@ -16,7 +16,7 @@ export interface TSceneDescription {
 	fps: number;
 	duration: number;
 	frame: { width: number; height: number };
-	/** `pegboard` or `brass`; unknown themes fall back to `pegboard` */
+	/** `pegboard`, `brass` or `neon`; unknown themes fall back to `pegboard` */
 	theme: string;
 	marbles: TSceneMarble[];
 	pieces: TScenePiece[];

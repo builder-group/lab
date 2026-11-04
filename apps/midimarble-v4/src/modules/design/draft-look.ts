@@ -34,9 +34,10 @@ export function noteColor(pitch: number): string {
 	return NOTE_COLORS[index] ?? '#888888';
 }
 
-/** Birch hardboard with dark peg holes for Pegboard, matte lavender plaster for Brass */
+/** Birch hardboard with dark peg holes for Pegboard, matte lavender plaster for Brass, deep navy for Neon */
 export function draftWall(theme: string): TWallLook {
 	if (theme === 'brass') return { color: '#a098ac', holes: null };
+	if (theme === 'neon') return { color: '#141a2a', holes: null };
 	return { color: '#b3a38f', holes: 'rgba(72, 56, 40, 0.75)', holeRadius: 0.1 };
 }
 
@@ -60,6 +61,7 @@ const HOUSING = '#26282d';
  */
 export function draftPieceColors(theme: string, piece: Pick<TScenePiece, 'type' | 'color' | 'skin' | 'notePitch'>, colorByNote: boolean): TDraftColors {
 	const note = colorByNote && piece.type === 'platform' && piece.notePitch != null ? noteColor(piece.notePitch) : null;
+	if (theme === 'neon') return neonColors(piece.type, note ?? piece.color);
 	if (theme !== 'brass') {
 		// Pieces take their marble's colour; a lighter tint keeps the marble readable as it rolls over them
 		const body = note ?? tint(piece.color, PEGBOARD_TINT);
@@ -81,6 +83,44 @@ export function draftPieceColors(theme: string, piece: Pick<TScenePiece, 'type' 
 		default:
 			return { bar: CHROME, nub: '#9da1a8' };
 	}
+}
+
+/** Dark gloss mounts and posts of Neon, `neon_mount_material` in themes.py */
+const NEON_MOUNT = '#1c2030';
+
+/**
+ * Neon pieces in the hue of their marble or note at full saturation, after `neon_colors` in skins.py: what reads
+ * is the glow, so platforms, tunnels and windmills show their lit colour with a deeper body, and rails and
+ * switchbacks are tube lights on dark posts
+ */
+function neonColors(type: string, color: string): TDraftColors {
+	const glow = saturate(color, 1);
+	const body = saturate(color, 0.62);
+	switch (type) {
+		case 'platform':
+			return { bar: glow, nub: NEON_MOUNT };
+		case 'tunnel':
+		case 'windmill':
+			return { bar: body, nub: glow };
+		default:
+			return { bar: glow, nub: NEON_MOUNT };
+	}
+}
+
+/** `color` at full saturation and brightness `value`, like `neon_color` in themes.py; a grey turns a cool blue-white */
+function saturate(color: string, value: number): string {
+	const rgb = Number.parseInt(color.replace('#', '').slice(0, 6), 16);
+	if (!Number.isFinite(rgb)) return color;
+	const r = ((rgb >> 16) & 255) / 255;
+	const g = ((rgb >> 8) & 255) / 255;
+	const b = (rgb & 255) / 255;
+	const max = Math.max(r, g, b);
+	const min = Math.min(r, g, b);
+	if (max === 0 || (max - min) / max < 0.08) return toHex(value * 0.82, value * 0.9, value);
+	const saturation = Math.max((max - min) / max, 0.88);
+	// Scale each channel's distance below the maximum to the new saturation, then to the new brightness
+	const channel = (c: number): number => value * (1 - ((max - c) / (max - min)) * saturation);
+	return toHex(channel(r), channel(g), channel(b));
 }
 
 /** Name of a built-in Brass platform skin, `gold` for none or an unknown one, like `brass_skin` in skins.py */

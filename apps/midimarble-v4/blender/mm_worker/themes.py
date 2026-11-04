@@ -33,6 +33,20 @@ THEMES = {
         'fstop': 8.0,
         'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 0.0},
     },
+    'neon': {
+        # Deep navy wall with a faint grid; saturated glossy pieces whose front trim glows and flashes on a hit
+        'wall': {'kind': 'neon', 'color': (0.006, 0.008, 0.02), 'grid': (0.013, 0.019, 0.05)},
+        # A cool key from the upper left; the dark wall keeps its shadows from reading as dirt
+        'sun': {'energy': 2.6, 'angle': 10.0, 'color': (0.86, 0.92, 1.0), 'direction': (0.55, 0.62, -0.56)},
+        # Studio patches give the glossy marbles and bodies their highlights; the navy keeps the fill cool
+        'world': {'color': (0.05, 0.06, 0.12), 'strength': 0.7, 'studio': True},
+        # Back light: a second sun from behind the pieces that only catches their top and side edges
+        'rim': {'energy': 4.0, 'angle': 8.0, 'color': (0.7, 0.85, 1.0), 'direction': (-0.35, -0.75, -0.55)},
+        'look': 'AgX - Punchy',
+        'exposure': 0.0,
+        'fstop': 8.0,
+        'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 9.0},
+    },
 }
 
 
@@ -432,11 +446,171 @@ def pegboard_wall_material(pitch):
     return _shared('MM · pegboard', build)
 
 
+def neon_wall_material(color, grid, spacing=0.05):
+    """Deep navy wall with faint grid lines every `spacing` metres and a soft satin sheen"""
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = _principled(material)
+        material.diffuse_color = (*color, 1.0)
+        coordinates = nodes.new('ShaderNodeTexCoord')
+        mapping = nodes.new('ShaderNodeMapping')
+        mapping.inputs['Scale'].default_value = (1 / spacing, 1 / spacing, 1.0)
+        # Distance to the nearest grid line along x and y, as a share of the cell
+        fraction = nodes.new('ShaderNodeVectorMath')
+        fraction.operation = 'FRACTION'
+        centre = nodes.new('ShaderNodeVectorMath')
+        centre.operation = 'SUBTRACT'
+        centre.inputs[1].default_value = (0.5, 0.5, 0.0)
+        absolute = nodes.new('ShaderNodeVectorMath')
+        absolute.operation = 'ABSOLUTE'
+        separate = nodes.new('ShaderNodeSeparateXYZ')
+        nearest = nodes.new('ShaderNodeMath')
+        nearest.operation = 'MAXIMUM'
+        line = nodes.new('ShaderNodeMapRange')
+        line.inputs['From Min'].default_value = 0.485
+        line.inputs['From Max'].default_value = 0.5
+        links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
+        links.new(mapping.outputs['Vector'], fraction.inputs[0])
+        links.new(fraction.outputs['Vector'], centre.inputs[0])
+        links.new(centre.outputs['Vector'], absolute.inputs[0])
+        links.new(absolute.outputs['Vector'], separate.inputs['Vector'])
+        links.new(separate.outputs['X'], nearest.inputs[0])
+        links.new(separate.outputs['Y'], nearest.inputs[1])
+        links.new(nearest.outputs['Value'], line.inputs['Value'])
+        # Low-frequency mottling so the dark wall reads as a surface, not a void
+        mottle = nodes.new('ShaderNodeTexNoise')
+        mottle.inputs['Scale'].default_value = 5.0
+        mottle.inputs['Detail'].default_value = 2.0
+        base = nodes.new('ShaderNodeMix')
+        base.data_type = 'RGBA'
+        base.inputs['A'].default_value = tuple(channel * 0.8 for channel in color) + (1.0,)
+        base.inputs['B'].default_value = tuple(channel * 1.25 for channel in color) + (1.0,)
+        links.new(coordinates.outputs['Object'], mottle.inputs['Vector'])
+        links.new(mottle.outputs['Fac'], base.inputs['Factor'])
+        tint = nodes.new('ShaderNodeMix')
+        tint.data_type = 'RGBA'
+        tint.inputs['B'].default_value = (*grid, 1.0)
+        links.new(line.outputs['Result'], tint.inputs['Factor'])
+        links.new(base.outputs['Result'], tint.inputs['A'])
+        links.new(tint.outputs['Result'], principled.inputs['Base Color'])
+        _set(principled, 'Roughness', 0.55)
+    return _shared('MM · wall neon', build)
+
+
 def wall_material(theme, pitch):
     wall = theme_settings(theme)['wall']
     if wall['kind'] == 'plaster':
         return plaster_wall_material(wall['color'])
+    if wall['kind'] == 'neon':
+        return neon_wall_material(wall['color'], wall['grid'])
     return pegboard_wall_material(pitch)
+
+
+# Neon: saturated glossy bodies with glowing trim on a dark wall
+
+
+def neon_color(color, value=0.75):
+    """Linear colour of a hex or linear colour pushed to full saturation at brightness `value`, so every piece reads
+    as a strong hue on the dark wall whatever its marble colour"""
+    import colorsys
+    linear = parse_color(color) if isinstance(color, str) else color
+    hue, saturation, _ = colorsys.rgb_to_hsv(*linear[:3])
+    if saturation < 0.08:
+        # A grey marble keeps a cool white-blue instead of a random hue
+        return (value * 0.7, value * 0.82, value)
+    return colorsys.hsv_to_rgb(hue, max(saturation, 0.88), value)
+
+
+def neon_body_material(color):
+    """Glossy coated plastic in `color` (linear) with a faint inner glow that brightens on a hit"""
+    def build(material):
+        tree = material.node_tree
+        principled = _principled(material)
+        base = (*color, 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Roughness', 0.2)
+        _set(principled, 'Coat Weight', 1.0)
+        _set(principled, 'Coat Roughness', 0.03)
+        _set(principled, 'Emission Color', base)
+        attribute = tree.nodes.new('ShaderNodeAttribute')
+        attribute.attribute_type = 'OBJECT'
+        attribute.attribute_name = 'mm_flash'
+        strength = tree.nodes.new('ShaderNodeMath')
+        strength.operation = 'MULTIPLY_ADD'
+        strength.inputs[1].default_value = NEON_BODY_FLASH
+        strength.inputs[2].default_value = NEON_BODY_GLOW
+        tree.links.new(attribute.outputs['Fac'], strength.inputs[0])
+        tree.links.new(strength.outputs['Value'], principled.inputs['Emission Strength'])
+    return _shared('MM · neon body %.3f %.3f %.3f' % tuple(color), build)
+
+
+# Steady glow of a neon body and the share of the hit flash it takes; the trim takes all of it
+NEON_BODY_GLOW = 0.12
+NEON_BODY_FLASH = 0.22
+NEON_TRIM_GLOW = 1.8
+
+
+def neon_trim_material(color, idle=NEON_TRIM_GLOW):
+    """Glowing tube light in `color` (linear): a steady glow the hit flash `mm_flash` raises"""
+    def build(material):
+        tree = material.node_tree
+        principled = _principled(material)
+        # A dark base keeps the strip its own colour; a light one would wash the glow out toward white
+        base = tuple(channel * 0.35 for channel in color) + (1.0,)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Roughness', 0.3)
+        _set(principled, 'Emission Color', (*color, 1.0))
+        attribute = tree.nodes.new('ShaderNodeAttribute')
+        attribute.attribute_type = 'OBJECT'
+        attribute.attribute_name = 'mm_flash'
+        strength = tree.nodes.new('ShaderNodeMath')
+        strength.operation = 'ADD'
+        strength.inputs[1].default_value = idle
+        tree.links.new(attribute.outputs['Fac'], strength.inputs[0])
+        tree.links.new(strength.outputs['Value'], principled.inputs['Emission Strength'])
+    return _shared('MM · neon trim %.3f %.3f %.3f i%.1f' % (*color, idle), build)
+
+
+def neon_mount_material():
+    """Dark gloss mounts and posts; they never glow, so the trim stays the only light"""
+    return plastic_material('neon mount', (0.012, 0.014, 0.024), 0.25, coat=0.8)
+
+
+def neon_marble_material(color):
+    """Glossy marble in a saturated `color` with a bright rim, so it reads against the dark wall from any side"""
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = _principled(material)
+        linear = neon_color(color, 1.0)
+        base = (*linear, 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Roughness', 0.15)
+        _set(principled, 'Coat Weight', 1.0)
+        _set(principled, 'Coat Roughness', 0.02)
+        rim_color = tuple(0.45 + 0.55 * channel for channel in linear) + (1.0,)
+        _set(principled, 'Emission Color', rim_color)
+        # Facing rises toward the silhouette; the power keeps the glow to a thin rim
+        weight = nodes.new('ShaderNodeLayerWeight')
+        weight.inputs['Blend'].default_value = 0.5
+        rim = nodes.new('ShaderNodeMath')
+        rim.operation = 'POWER'
+        rim.inputs[1].default_value = 3.0
+        strength = nodes.new('ShaderNodeMath')
+        strength.operation = 'MULTIPLY_ADD'
+        strength.inputs[1].default_value = NEON_MARBLE_RIM
+        strength.inputs[2].default_value = 0.0
+        links.new(weight.outputs['Facing'], rim.inputs[0])
+        links.new(rim.outputs['Value'], strength.inputs[0])
+        links.new(strength.outputs['Value'], principled.inputs['Emission Strength'])
+    return _shared('MM · neon marble ' + color, build)
+
+
+NEON_MARBLE_RIM = 3.5
 
 
 # Render look
@@ -495,6 +669,19 @@ def sun_settings(theme):
         'angle': math.radians(sun['angle']),
         'color': sun['color'],
         'rotation': tuple(sun_rotation(sun['direction'])),
+    }
+
+
+def rim_settings(theme):
+    """The theme's back light like `sun_settings`, or None for a theme without one"""
+    rim = theme_settings(theme).get('rim')
+    if rim is None:
+        return None
+    return {
+        'energy': rim['energy'],
+        'angle': math.radians(rim['angle']),
+        'color': rim['color'],
+        'rotation': tuple(sun_rotation(rim['direction'])),
     }
 
 

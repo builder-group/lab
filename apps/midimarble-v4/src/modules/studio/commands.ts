@@ -90,7 +90,7 @@ function presetCommand(id: TPresetCommandId, preset: TRenderPreset, title: strin
 
 type TPresetCommandId = 'design.presetDraft' | 'design.presetFast' | 'design.presetBalanced' | 'design.presetBest';
 
-function themeCommand(id: 'design.themePegboard' | 'design.themeBrass', theme: string, title: string): TCommand {
+function themeCommand(id: 'design.themePegboard' | 'design.themeBrass' | 'design.themeNeon', theme: string, title: string): TCommand {
 	return {
 		id,
 		title,
@@ -390,6 +390,7 @@ export const commands: readonly TCommand[] = [
 	},
 	themeCommand('design.themePegboard', 'pegboard', 'Pegboard Theme'),
 	themeCommand('design.themeBrass', 'brass', 'Brass Theme'),
+	themeCommand('design.themeNeon', 'neon', 'Neon Theme'),
 	presetCommand('design.presetDraft', 'draft', 'Draft Quality'),
 	presetCommand('design.presetFast', 'fast', 'Standard Quality'),
 	presetCommand('design.presetBalanced', 'balanced', 'High Quality'),
@@ -510,6 +511,7 @@ export type TCommandId =
 	| 'camera.addShot'
 	| 'design.themePegboard'
 	| 'design.themeBrass'
+	| 'design.themeNeon'
 	| TPresetCommandId
 	| 'design.loop'
 	| 'design.colorByNote'
