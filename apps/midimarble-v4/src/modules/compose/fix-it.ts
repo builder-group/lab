@@ -363,7 +363,7 @@ export interface TReplaceOutcome {
 	result: TSimulationResult;
 	/** Platforms that got a new angle */
 	replaced: number;
-	/** Hits Auto place found no angle for */
+	/** Broken hits left, and Blocked scenery that could not move clear */
 	failed: number;
 	/** Lanes whose marble release moved to just before its first note */
 	releases: string[];
@@ -374,128 +374,263 @@ export interface TReplaceOutcome {
 }
 
 /**
- * Re-runs Auto place platform by platform in time order, like building the run again from the first broken
- * hit: after each new tilt the run is simulated again and the next target is taken from the new result,
- * because a new tilt moves every later platform with the run. A first fall that grew long because the
- * marble's first notes went elsewhere is fixed first by moving the release. Every platform is tried at most
- * twice, and one Auto place cannot improve is left as it is. Blocked scenery still Blocked after the platforms
- * moves clear (Move Clear), and the platforms after it are re-placed once more.
+ * Builds the run again from each marble's first problem onward, the way the step loop built it. A first fall that
+ * grew long because the marble's first notes went elsewhere is fixed first by moving the release. Then, at the
+ * earliest hit that needs attention, Auto place tilts the platform before it again; a launch into a bridged long
+ * gap is tilted for the open gap and its switchback, rail or tunnel suggested again for the new launch, as Next
+ * did. A change is kept only when the problem moves later and no other marble loses a hit. When the platform
+ * before cannot fix it, the arrival there is what fails, so Re-place goes back up to `MAX_BACKTRACK` platforms
+ * further and builds forward from there, and then turns one of the two platforms before the problem by hand, as the
+ * fixture builds do. A problem nothing fixes is left as it is and Re-place carries on after it, up to `MAX_LEFT`
+ * broken hits per marble. Blocked scenery still Blocked after the platforms gets a new bridge for its gap or moves
+ * clear (Move Clear), and the platforms after it are fitted once more. With `only`, Auto place runs once for each
+ * of those platforms.
  */
 export async function replaceBroken(project: TProject, result: TSimulationResult, deps: TReplaceDeps, options: TReplaceOptions = {}): Promise<TReplaceOutcome> {
 	const { only, before } = options;
 	let current = project;
 	let latest = result;
-	let replaced = 0;
 	let failed = 0;
 	let isFirst = true;
-	const tries = new Map<string, number>();
-
-	let total = replaceTargets(current, latest.hits, only).length;
-	deps.onProgress?.(0, total, firstBrokenTime(result, only));
+	const changed = new Set<string>();
 	const releases: string[] = [];
 	const cleared: string[] = [];
-	const stopped = (): TReplaceOutcome => ({
+	const isCancelled = (): boolean => deps.isCancelled?.() === true;
+	const outcome = (isStopped: boolean): TReplaceOutcome => ({
 		project: current,
 		result: latest,
-		replaced,
-		failed,
+		replaced: changed.size,
+		failed: failed + brokenHits(latest.hits, only).length,
 		releases,
 		cleared,
-		isStopped: true
+		isStopped
 	});
-	if (only == null) {
-		for (const laneId of new Set(brokenHits(latest.hits).map((hit) => hit.laneId))) {
-			const commands = releaseFix(current, latest.hits, laneId, before);
-			if (!commands.length) continue;
-			const next = deps.commit(current, commands, isFirst);
-			if (next == null) return stopped();
-			isFirst = false;
-			current = next;
-			releases.push(laneId);
-			latest = await deps.simulate(current);
-		}
-		total = replaceTargets(current, latest.hits).length;
-		deps.onProgress?.(0, total, firstBrokenTime(result, only));
-	}
-
-	let done = 0;
-	const rebridged = new Map<string, number>();
-	// A switchback, rail or tunnel after a hit follows its trajectory; when the hit after the gap needs
-	// attention, the bridge is suggested again for the run as it is now, at most twice per bridge
-	const rebridge = async (target: THitResult): Promise<'rebridged' | 'none' | 'stopped'> => {
-		if (only != null) return 'none';
-		const gap = findLongGaps(current, target.laneId).find((item) => item.fromHitId === target.hitId && item.bridgedBy != null);
-		const after = gap == null ? undefined : latest.hits.find((hit) => hit.laneId === gap.laneId && hit.hitId === gap.toHitId);
-		const bridge = gap == null ? undefined : current.entities.find((item) => item.id === gap.bridgedBy);
-		const bridgeType = bridge?.components.piece?.type;
-		if (gap == null || after == null || bridge == null || !isGapPieceType(bridgeType) || !needsFix(current, after)) return 'none';
-		const count = rebridged.get(bridge.id) ?? 0;
-		if (count >= 2) return 'none';
-		rebridged.set(bridge.id, count + 1);
-		let suggested: TEntity | null;
-		try {
-			suggested = await deps.gapPiece({ ...current, entities: current.entities.filter((item) => item.id !== bridge.id) }, gap, bridgeType, bridge.id);
-		} catch {
-			suggested = null;
-		}
-		if (deps.isCancelled?.() === true) return 'stopped';
-		if (suggested == null) return 'none';
-		const next = deps.commit(current, [{ type: 'upsertEntity', entity: { ...suggested, id: bridge.id, name: bridge.name } }], isFirst);
-		if (next == null) return 'stopped';
+	/** Applies `commands`; `run` is the trial run of the same edit, which saves simulating it again */
+	const commit = async (commands: TProjectCommand[], isPiece = true, run?: TSimulationResult): Promise<boolean> => {
+		const next = deps.commit(current, commands, isFirst);
+		if (next == null) return false;
 		isFirst = false;
 		current = next;
-		latest = await deps.simulate(current);
-		replaced++;
-		return 'rebridged';
+		if (isPiece) for (const command of commands) changed.add(command.type === 'upsertEntity' ? command.entity.id : command.type === 'setComponent' ? command.entityId : '');
+		latest = run != null ? { ...run, revision: current.revision } : await deps.simulate(current);
+		return true;
 	};
+	const placeAgain = async (base: TProject, target: THitResult): Promise<TEntity | null> => {
+		const entity = base.entities.find((item) => item.id === target.pieceEntityId);
+		const type = entity?.components.piece?.type;
+		if (entity == null || type == null || !isMusicalPiece(type)) return null;
+		try {
+			return await deps.autoPlace(base, target, entity);
+		} catch {
+			return null;
+		}
+	};
+
+	deps.onProgress?.(0, brokenHits(result.hits, only).length, firstBrokenTime(result, only));
+	if (only != null) {
+		const keys = brokenHits(result.hits, only).map(hitKeyOf);
+		for (const [index, key] of keys.entries()) {
+			const target = latest.hits.find((hit) => hitKeyOf(hit) === key);
+			if (target == null || target.status === 'onTime') continue;
+			const placed = await placeAgain(current, target);
+			if (isCancelled()) return outcome(true);
+			const commands = placed == null ? [] : replaceCommands(current, placed);
+			if (commands.length && !(await commit(commands))) return outcome(true);
+			deps.onProgress?.(index + 1, keys.length, target.targetTime);
+		}
+		return outcome(isCancelled());
+	}
+
+	for (const laneId of new Set(brokenHits(latest.hits).map((hit) => hit.laneId))) {
+		const commands = releaseFix(current, latest.hits, laneId, before);
+		if (!commands.length) continue;
+		if (!(await commit(commands, false))) return outcome(true);
+		releases.push(laneId);
+	}
+	const total = Math.max(1, brokenHits(latest.hits).length);
+
+	/** A new switchback, rail or tunnel for `gap` in place of `bridge`, for the run in `base` without it */
+	const bridgeCommands = async (base: TProject, gap: TLongGap, bridge: TEntity): Promise<TProjectCommand[] | null> => {
+		const bridgeType = bridge.components.piece?.type;
+		if (!isGapPieceType(bridgeType)) return null;
+		// Like Next, a rail where no switchback fits any more, and a switchback where no rail does
+		const types: TGapPieceType[] = bridgeType === 'switchback' ? ['switchback', 'rail'] : bridgeType === 'rail' ? ['rail', 'switchback'] : [bridgeType];
+		const without = { ...base, entities: base.entities.filter((item) => item.id !== bridge.id) };
+		for (const type of types) {
+			let suggested: TEntity | null;
+			try {
+				suggested = await deps.gapPiece(without, gap, type, bridge.id);
+			} catch {
+				suggested = null;
+			}
+			if (isCancelled()) return null;
+			if (suggested == null) continue;
+			// A bridge of another kind takes that kind's name
+			const name = type === bridgeType ? bridge.name : (suggested.name ?? bridge.name);
+			return [{ type: 'upsertEntity', entity: { ...suggested, id: bridge.id, name } }];
+		}
+		return null;
+	};
+	// Bridges suggested per launch, since a backtrack may ask for the same one again
+	const bridges = new Map<string, TProjectCommand[] | null>();
+	/** The bridge after `launch` suggested again for the run in `base`, when the hit after it needs attention */
+	const suggestBridge = async (base: TProject, run: TSimulationResult, launch: THitResult): Promise<TProjectCommand[] | null> => {
+		const gap = findLongGaps(base, launch.laneId).find((item) => item.fromHitId === launch.hitId && item.bridgedBy != null);
+		const after = gap == null ? undefined : run.hits.find((hit) => hit.laneId === gap.laneId && hit.hitId === gap.toHitId);
+		const bridge = gap == null ? undefined : base.entities.find((item) => item.id === gap.bridgedBy);
+		if (gap == null || after == null || bridge == null || !needsFix(base, after)) return null;
+		const dot = run.hits.find((hit) => hitKeyOf(hit) === hitKeyOf(launch))?.dot;
+		const angle = base.entities.find((item) => item.id === launch.pieceEntityId)?.components.hitLink?.angle;
+		const key = `${bridge.id}@${dot?.x.toFixed(4)},${dot?.y.toFixed(4)},${angle?.toFixed(5)}`;
+		if (bridges.has(key)) return bridges.get(key) ?? null;
+		const commands = await bridgeCommands(base, gap, bridge);
+		if (!isCancelled()) bridges.set(key, commands);
+		return commands;
+	};
+	/**
+	 * The commands that tilt `target` again for the run in `base`, with its bridge when it launches into one: by
+	 * Auto place, or turned by `turn` from its tilt as a user turns a piece by hand. Null when Auto place finds nothing.
+	 */
+	const replaceStep = async (base: TProject, run: TSimulationResult, target: THitResult, turn?: number): Promise<TProjectCommand[] | null> => {
+		// A launch into a bridged gap is tilted for the open gap, as Next placed it before the bridge existed
+		const gap = findLongGaps(base, target.laneId).find((item) => item.fromHitId === target.hitId && item.bridgedBy != null);
+		let commands: TProjectCommand[];
+		if (turn != null) {
+			const entity = base.entities.find((item) => item.id === target.pieceEntityId);
+			const link = entity?.components.hitLink;
+			const type = entity?.components.piece?.type;
+			if (entity == null || link == null || type == null || !isMusicalPiece(type)) return null;
+			commands = [{ type: 'setComponent', entityId: entity.id, component: { name: 'hitLink', value: { ...link, angle: round4(link.angle + turn) } } }];
+		} else {
+			const open = gap == null ? base : { ...base, entities: base.entities.filter((item) => item.id !== gap.bridgedBy) };
+			const placed = await placeAgain(open, target);
+			if (placed == null || isCancelled()) return null;
+			commands = replaceCommands(base, placed);
+		}
+		if (gap == null) return commands;
+		const tilted = withCommands(base, commands);
+		const bridge = await suggestBridge(tilted, commands.length ? await deps.simulate(tilted) : run, target);
+		return [...commands, ...(bridge ?? [])];
+	};
+
+	// Problems up to this time are left as they are, per marble, and how many were
+	const left = new Map<string, number>();
+	const leftCount = new Map<string, number>();
+	// Like Re-place's targets, a marble without broken hits is done, even with hits outside its band
+	const firstProblem = (base: TProject, run: TSimulationResult, laneId?: string): THitResult | undefined => {
+		const open = run.hits.filter((hit) => hit.pieceEntityId != null && (laneId == null || hit.laneId === laneId) && hit.targetTime > (left.get(hit.laneId) ?? -Infinity) + 1e-6);
+		const lanes = new Set(open.filter(isBroken).map((hit) => hit.laneId));
+		return open.filter((hit) => lanes.has(hit.laneId) && needsFix(base, hit)).sort((a, b) => a.targetTime - b.targetTime)[0];
+	};
+	/**
+	 * Whether `trial` fixes `problem` without setting another marble back. A hit that plays on time but outside its
+	 * frame band is fixed only without breaking hits after it.
+	 */
+	const advances = (base: TProject, trial: TSimulationResult, problem: THitResult): boolean => {
+		if ((firstProblem(base, trial, problem.laneId)?.targetTime ?? Infinity) <= problem.targetTime + 1e-6) return false;
+		const broken = (hits: THitResult[]): number => brokenHits(hits).filter((hit) => hit.laneId === problem.laneId).length;
+		if (!isBroken(problem) && problem.status !== 'drifting' && broken(trial.hits) > broken(latest.hits)) return false;
+		for (const lane of base.music.lanes) {
+			if (lane.id === problem.laneId) continue;
+			const was = firstProblem(current, latest, lane.id)?.targetTime ?? Infinity;
+			if ((firstProblem(base, trial, lane.id)?.targetTime ?? Infinity) < was - 1e-6) return false;
+		}
+		return !newlyBroken(latest.hits, trial.hits).some((hit) => hit.laneId !== problem.laneId);
+	};
+	/**
+	 * Commands that fix `problem`, re-placing from `depth` platforms before the one before it onward; null when none
+	 * does. With `turn`, the first of them is turned by hand by that much instead.
+	 */
+	const rebuild = async (run: THitResult[], index: number, depth: number, problem: THitResult, turn?: number): Promise<TFix | null> => {
+		let base = current;
+		let trial = latest;
+		const commands: TProjectCommand[] = [];
+		const start = index - 1 - depth;
+		for (let k = start; k < index; k++) {
+			const key = hitKeyOf(run[k] ?? problem);
+			const target = trial.hits.find((hit) => hitKeyOf(hit) === key);
+			if (target == null) return null;
+			const step = await replaceStep(base, trial, target, k === start ? turn : undefined);
+			if (isCancelled()) return null;
+			// The platform just before the problem must take a new tilt; earlier ones may keep theirs. When the first
+			// platform of a deeper window keeps its tilt, the rest repeats the shallower try.
+			if (step == null && k === index - 1) return null;
+			if (k === start && depth > 0 && turn == null && !step?.length) return null;
+			if (step == null || !step.length) continue;
+			base = withCommands(base, step);
+			commands.push(...step);
+			trial = await deps.simulate(base);
+		}
+		return commands.length && advances(base, trial, problem) ? { commands, run: trial } : null;
+	};
+	const fix = async (problem: THitResult): Promise<TFix | null> => {
+		const run = latest.hits.filter((hit) => hit.laneId === problem.laneId && hit.pieceEntityId != null).sort((a, b) => a.targetTime - b.targetTime);
+		const index = run.findIndex((hit) => hitKeyOf(hit) === hitKeyOf(problem));
+		// A marble's first hit depends on its release alone
+		const previous = run[index - 1];
+		if (previous == null) return null;
+		// Before a long gap the bridge alone may be what no longer fits
+		const bridge = await suggestBridge(current, latest, previous);
+		if (bridge != null && !isCancelled()) {
+			const base = withCommands(current, bridge);
+			const trial = await deps.simulate(base);
+			if (advances(base, trial, problem)) return { commands: bridge, run: trial };
+		}
+		for (let depth = 0; depth <= MAX_BACKTRACK && index - 1 - depth >= 0 && !isCancelled(); depth++) {
+			const rebuilt = await rebuild(run, index, depth, problem);
+			if (rebuilt != null) return rebuilt;
+		}
+		// Auto place gives the same tilts for the same run, so what a user tries next: turning the platform before
+		// the problem, or the one before that, by hand, and placing from there
+		for (let depth = 0; depth < TURN_DEPTH && index - 1 - depth >= 0; depth++) {
+			for (const degrees of TURNS) {
+				if (isCancelled()) return null;
+				const rebuilt = await rebuild(run, index, depth, problem, degrees * DEGREE);
+				if (rebuilt != null) return rebuilt;
+			}
+		}
+		return null;
+	};
+
 	// Platforms first, since the run they make often clears scenery by itself; then Blocked scenery moves clear,
 	// and the platforms after it are fitted once more to the run with the piece in it
 	for (let pass = 0; pass < 2; pass++) {
-		while (deps.isCancelled?.() !== true) {
-			const targets = replaceTargets(current, latest.hits, only).filter((hit) => (tries.get(hitKeyOf(hit)) ?? 0) < 2);
-			const target = targets[0];
-			if (target == null) break;
-			const key = hitKeyOf(target);
-			tries.set(key, (tries.get(key) ?? 0) + 1);
-			total = Math.max(total, done + targets.length);
-			// Before a long gap the bridge alone may be what no longer fits
-			const first = needsFix(current, target) ? 'none' : await rebridge(target);
-			if (first === 'stopped') return stopped();
-			if (first === 'rebridged') {
-				tries.set(key, (tries.get(key) ?? 1) - 1);
+		left.clear();
+		leftCount.clear();
+		while (!isCancelled()) {
+			const problem = firstProblem(current, latest);
+			if (problem == null) break;
+			deps.onProgress?.(Math.max(0, total - brokenHits(latest.hits).length), total, problem.targetTime);
+			const fixed = await fix(problem);
+			if (isCancelled()) return outcome(true);
+			if (fixed != null) {
+				if (!(await commit(fixed.commands, true, fixed.run))) return outcome(true);
 				continue;
 			}
-			const entity = current.entities.find((item) => item.id === target.pieceEntityId);
-			const type = entity?.components.piece?.type;
-			let placed: TEntity | null = null;
-			if (entity != null && type != null && isMusicalPiece(type)) {
-				try {
-					placed = await deps.autoPlace(current, target, entity);
-				} catch {
-					placed = null;
-				}
-			}
-			if (deps.isCancelled?.() === true) return stopped();
-			done++;
-			const commands = placed == null ? [] : replaceCommands(current, placed);
-			if (commands.length) {
-				const next = deps.commit(current, commands, isFirst);
-				if (next == null) return stopped();
-				isFirst = false;
-				current = next;
-				latest = await deps.simulate(current);
-				replaced++;
-			} else {
-				// Nothing better exists for this platform; it is not asked again
-				tries.set(key, 2);
-				if (placed == null && isBroken(target)) failed++;
-			}
-			if ((await rebridge(target)) === 'stopped') return stopped();
-			deps.onProgress?.(done, total, target.targetTime);
+			// Only broken hits count toward giving up on a marble; one outside its band is just left as it is
+			const count = (leftCount.get(problem.laneId) ?? 0) + (isBroken(problem) ? 1 : 0);
+			leftCount.set(problem.laneId, count);
+			left.set(problem.laneId, count >= MAX_LEFT ? Infinity : problem.targetTime);
 		}
-		if (only != null || pass > 0 || deps.isCancelled?.() === true) break;
+		if (pass > 0 || isCancelled()) break;
 		const scenery = blockedScenery(current, latest);
 		for (const piece of scenery) {
+			// A bridge the new run passes through is suggested again for its gap, when the new one keeps every hit
+			const entity = current.entities.find((item) => item.id === piece.entityId);
+			const laneId = entity?.components.hitLink?.laneId;
+			const gap = laneId == null ? undefined : findLongGaps(current, laneId).find((item) => item.bridgedBy === piece.entityId);
+			const fresh = entity == null || gap == null ? null : await bridgeCommands(current, gap, entity);
+			if (isCancelled()) return outcome(true);
+			if (fresh != null) {
+				const trial = await deps.simulate(withCommands(current, fresh));
+				if (isCancelled()) return outcome(true);
+				const isPlaying = trial.pieces.find((item) => item.entityId === piece.entityId)?.status !== 'blocked';
+				if (isPlaying && !newlyBroken(latest.hits, trial.hits).length) {
+					if (!(await commit(fresh, false, trial))) return outcome(true);
+					cleared.push(piece.entityId);
+					continue;
+				}
+			}
 			const move = moveClear(current, latest, piece.entityId);
 			if (move == null) {
 				failed++;
@@ -504,31 +639,33 @@ export async function replaceBroken(project: TProject, result: TSimulationResult
 			// Re-place keeps its promise to fix the run: a move that breaks hits now on time is left to the user,
 			// who has Move Clear in the piece's inspector
 			const trial = await deps.simulate(withCommands(current, move.commands));
-			if (deps.isCancelled?.() === true) return stopped();
+			if (isCancelled()) return outcome(true);
 			if (newlyBroken(latest.hits, trial.hits).length > 0) {
 				failed++;
 				continue;
 			}
-			const next = deps.commit(current, move.commands, isFirst);
-			if (next == null) return stopped();
-			isFirst = false;
-			current = next;
+			if (!(await commit(move.commands, false, trial))) return outcome(true);
 			cleared.push(piece.entityId);
-			latest = await deps.simulate(current);
 		}
 		if (!cleared.length) break;
-		tries.clear();
 	}
-	return {
-		project: current,
-		result: latest,
-		replaced,
-		failed,
-		releases,
-		cleared,
-		isStopped: deps.isCancelled?.() === true
-	};
+	return outcome(isCancelled());
 }
+
+/** Commands that fix a problem, with the run they make */
+interface TFix {
+	commands: TProjectCommand[];
+	run: TSimulationResult;
+}
+
+// Platforms Re-place goes back before the one before a problem that it cannot fix
+const MAX_BACKTRACK = 3;
+// Problems per marble that nothing fixes before Re-place stops working on that marble
+const MAX_LEFT = 3;
+// Turns by hand in degrees, nearest first, like the fixture builds, of the platform before a problem and the one before it
+const TURNS = [3, -3, 6, -6, 9, -9, 12, -12];
+const TURN_DEPTH = 2;
+const DEGREE = Math.PI / 180;
 
 // The release follows the first note by at most this long, like a new marble's
 const RELEASE_LEAD = 0.5;
@@ -569,10 +706,14 @@ export function releaseFix(project: TProject, results: THitResult[], laneId: str
 	return [{ type: 'setComponent', entityId: marble.id, component: { name: 'release', value: next } }];
 }
 
-/** `project` with `setComponent` commands applied, for a trial run before a commit */
+/** `project` with `setComponent` and `upsertEntity` commands applied, for a trial run before a commit */
 function withCommands(project: TProject, commands: TProjectCommand[]): TProject {
 	let entities = project.entities;
 	for (const command of commands) {
+		if (command.type === 'upsertEntity') {
+			const isNew = !entities.some((entity) => entity.id === command.entity.id);
+			entities = isNew ? [...entities, command.entity] : entities.map((entity) => (entity.id === command.entity.id ? command.entity : entity));
+		}
 		if (command.type !== 'setComponent') continue;
 		entities = entities.map((entity) =>
 			entity.id === command.entityId ? { ...entity, components: { ...entity.components, [command.component.name]: command.component.value } } : entity

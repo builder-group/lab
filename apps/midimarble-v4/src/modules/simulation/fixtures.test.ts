@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { parseProject, type TProject } from '@/modules/project';
+import { parseProject, type TProject, type TVec2 } from '@/modules/project';
 import { findLongGaps } from './assists';
 import { paceAt } from './pace';
 import { frameBand } from './placement';
 import { createSimulator, type TSimulator } from './simulate';
-import { HIT_DRIFT, type TSimulationResult } from './types';
+import { HIT_DRIFT, type TMarbleSample, type TSimulationResult } from './types';
 
 function loadFixture(name: string): TProject {
 	const json = readFileSync(
@@ -32,6 +32,24 @@ function expectDotsInFrame(project: TProject, result: TSimulationResult): void {
 		expect(Math.abs((hit.dot?.x ?? Infinity) - band.centerX), hit.hitId).toBeLessThanOrEqual(
 			band.halfWidth
 		);
+}
+
+function withFreeWindmill(project: TProject, position: TVec2, motorSpeed: number): TProject {
+	return {
+		...project,
+		revision: project.revision + 1,
+		entities: [
+			...project.entities,
+			{
+				id: 'windmill-far',
+				name: 'Windmill',
+				components: {
+					piece: { type: 'windmill', params: { motorSpeed } },
+					transform: { position, angle: 0.3 }
+				}
+			}
+		]
+	};
 }
 
 let simulator: TSimulator;
@@ -203,6 +221,38 @@ describe('fixtures', () => {
 		// The MIDI file is the project's song
 		expect(project.music.sources).toEqual([expect.objectContaining({ kind: 'midi', path: 'audio/jingle-bells.mid' })]);
 		expect(project.music.tempo?.bpm).toBe(120);
+	});
+
+	it('jingle-bells: a windmill no marble comes near leaves every hit and sample unchanged', () => {
+		const project = loadFixture('jingle-bells');
+		const base = simulator.simulate(project);
+		for (const motorSpeed of [0, 3]) {
+			const result = simulator.simulate(withFreeWindmill(project, { x: 5, y: 5 }, motorSpeed));
+			expect(result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(115);
+			expect(result.hits).toEqual(base.hits);
+			expect(result.marbles).toEqual(base.marbles);
+			expect(result.contacts).toEqual(base.contacts);
+		}
+	});
+
+	it('jingle-bells: a windmill the bass strikes changes nothing before its first contact', () => {
+		const project = loadFixture('jingle-bells');
+		const base = simulator.simulate(project);
+		const [melody, bass] = base.marbles;
+		// Just below the bass's path at 20 s, on its own side of the lanes
+		const at = bass?.samples.find((sample) => sample.time >= 20)?.position;
+		if (melody == null || bass == null || at == null) throw new Error('Missing bass sample');
+		const result = simulator.simulate(withFreeWindmill(project, { x: at.x + 0.02, y: at.y - 0.12 }, 0));
+		const strike = result.contacts.find((contact) => contact.otherEntityId === 'windmill-far');
+		expect(strike?.marbleEntityId).toBe(bass.entityId);
+		const strikeTime = strike?.time ?? 0;
+		const before = (samples: TMarbleSample[]): TMarbleSample[] =>
+			samples.filter((sample) => sample.time < strikeTime);
+		expect(before(result.marbles[1]?.samples ?? [])).toEqual(before(bass.samples));
+		expect(before(result.marbles[0]?.samples ?? [])).toEqual(before(melody.samples));
+		expect(result.hits.filter((hit) => hit.targetTime < strikeTime)).toEqual(
+			base.hits.filter((hit) => hit.targetTime < strikeTime)
+		);
 	});
 
 	it('tap-along: hits suggested from the recording, every one on time and in frame', () => {

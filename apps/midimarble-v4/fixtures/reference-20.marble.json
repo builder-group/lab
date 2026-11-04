@@ -1580,9 +1580,12 @@
 				"wallText": {
 					"text": "Brass Steps",
 					"font": "Bfont Regular",
-					"size": 0.04,
+					"size": 0.045,
 					"depth": 0.003,
-					"color": "#ffffff"
+					"color": "#ffffff",
+					"style": "caption",
+					"in": 0,
+					"out": 3.15
 				}
 			}
 		},
@@ -1600,9 +1603,12 @@
 				"wallText": {
 					"text": "Night Keys",
 					"font": "Bfont Regular",
-					"size": 0.04,
+					"size": 0.045,
 					"depth": 0.003,
-					"color": "#ffffff"
+					"color": "#ffffff",
+					"style": "caption",
+					"in": 9.9,
+					"out": 13.05
 				}
 			}
 		}

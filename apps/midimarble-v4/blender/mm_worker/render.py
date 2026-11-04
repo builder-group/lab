@@ -49,6 +49,15 @@ JOB_FOLDER = 'renders/.jobs'
 CANCEL_GRACE_SECONDS = 5.0
 FFMPEG_CANDIDATES = ('/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg')
 RENDER_JOB_SCRIPT = Path(__file__).resolve().parents[1] / 'render_job.py'
+# Screen titles (caption, end card) are drawn onto the encoded film, where depth of field cannot blur them, like the
+# overlay titles of the reference films. The 3D copies stay for previews and for Blender's own encoder.
+SCREEN_TITLE_FONTS = ('/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf',
+                      '/System/Library/Fonts/Supplemental/Arial Bold.ttf', '/System/Library/Fonts/SFNS.ttf')
+SCREEN_TITLE_FADE = 0.25
+# Font size over letter height: the description's `size` is the letter height as a fraction of the frame height
+SCREEN_TITLE_FONT_SCALE = 1.4
+# Height of a caption's centre above the frame centre, as a fraction of the half frame height (`walltext.CAPTION_HEIGHT`)
+CAPTION_HEIGHT = 0.7
 
 
 # Live worker side
@@ -95,6 +104,7 @@ def start_render_film(worker, args):
         start_time, duration = float(loop[0]), float(loop[1]) - float(loop[0])
     frame_count = max(1, int(round(duration * preset['fps'])))
     samples = args.get('samples')
+    screen_titles = burned_screen_titles(worker.project_dir, start_time) if find_ffmpeg() is not None else []
     job = {
         'id': job_id,
         'projectDir': str(worker.project_dir),
@@ -116,6 +126,7 @@ def start_render_film(worker, args):
         'keepFrames': bool(args.get('keepFrames')),
         'hostPid': getattr(worker, 'host_pid', None),
         'outbox': str(worker.project_dir / '.bridge' / 'outbox'),
+        'screenTitles': screen_titles,
     }
     write_json_atomic(job_dir / 'job.json', job)
     bpy.ops.wm.save_as_mainfile(filepath=str(job_dir / 'scene.blend'), copy=True, relative_remap=True, compress=False)
@@ -374,6 +385,8 @@ def run_job(job_path):
 
 def render_job(job, job_dir, outbox):
     scene = bpy.context.scene
+    if job.get('screenTitles'):
+        remove_screen_titles(scene)
     frames_dir = job_dir / 'frames'
     frames_dir.mkdir(exist_ok=True)
     engine = job['engine']
@@ -461,6 +474,64 @@ def find_ffmpeg():
     return None
 
 
+def burned_screen_titles(project_dir, start_time):
+    """Caption and end card titles from the scene description, with times relative to the film's first frame"""
+    path = Path(project_dir) / '.cache' / 'scene.json'
+    try:
+        description = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return []
+    titles = []
+    for entry in description.get('wallTexts') or []:
+        style = entry.get('style')
+        text = str(entry.get('text') or '').strip()
+        if style not in ('caption', 'endCard') or not text:
+            continue
+        start = entry.get('in')
+        end = entry.get('out')
+        titles.append({
+            'text': text, 'style': style, 'size': float(entry.get('size') or 0.05), 'color': entry.get('color') or '#ffffff',
+            'in': None if start is None else float(start) - start_time,
+            'out': None if end is None else float(end) - start_time,
+        })
+    return titles
+
+
+def remove_screen_titles(scene):
+    """Removes the 3D screen titles from the film job's copy of the scene; the encoder draws them instead. Their
+    timing keys drive `hide_render`, so hiding them would not hold."""
+    for obj in [obj for obj in scene.objects if obj.get('mm_screen') in ('caption', 'endCard')]:
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+
+def screen_title_filters(job, job_dir):
+    """FFmpeg drawtext filters for the job's screen titles: centred, faded in and out, on a soft dark backing"""
+    titles = job.get('screenTitles') or []
+    font = next((candidate for candidate in SCREEN_TITLE_FONTS if Path(candidate).is_file()), None)
+    if not titles or font is None:
+        return []
+    filters = []
+    for index, title in enumerate(titles):
+        text_file = job_dir / ('title-%d.txt' % index)
+        text_file.write_text(title['text'])
+        size = max(8, int(round(title['size'] * job['height'] * SCREEN_TITLE_FONT_SCALE)))
+        start = title['in'] if title['in'] is not None else -1.0
+        end = title['out'] if title['out'] is not None else job['duration'] + 1.0
+        fade = SCREEN_TITLE_FADE
+        alpha = ('if(lt(t,{s}),0,if(lt(t,{s}+{f}),(t-{s})/{f},if(lt(t,{e}-{f}),1,if(lt(t,{e}),({e}-t)/{f},0))))'
+                 .format(s='%.4f' % start, e='%.4f' % end, f='%.4f' % fade))
+        centre_y = job['height'] / 2 * (1 - CAPTION_HEIGHT) if title['style'] == 'caption' else job['height'] / 2
+        color = '0x' + str(title['color']).lstrip('#')[:6]
+        padding = max(4, size // 3)
+        filters.append(
+            "drawtext=fontfile='{font}':textfile='{text}':fontsize={size}:fontcolor={color}:alpha='{alpha}'"
+            ":x=(w-text_w)/2:y={y:.1f}-text_h/2:box=1:boxcolor=black@0.28:boxborderw={pad}"
+            ":shadowcolor=black@0.35:shadowx=0:shadowy={shadow}".format(
+                font=font, text=text_file, size=size, color=color, alpha=alpha, y=centre_y, pad=padding,
+                shadow=max(1, size // 24)))
+    return filters
+
+
 def encode(job, job_dir, frames_dir, output):
     ffmpeg = find_ffmpeg()
     if ffmpeg is None:
@@ -469,6 +540,9 @@ def encode(job, job_dir, frames_dir, output):
     command = [ffmpeg, '-y', '-loglevel', 'error', '-framerate', str(job['fps']), '-i', str(frames_dir / ('%05d.' + frame_extension(job)))]
     if job.get('audio'):
         command += ['-i', job['audio'], '-map', '0:v:0', '-map', '1:a:0', '-c:a', 'aac', '-b:a', '192k']
+    filters = screen_title_filters(job, job_dir)
+    if filters:
+        command += ['-vf', ','.join(filters)]
     command += ['-c:v', 'libx264', '-preset', job['x264Preset'], '-crf', str(job['crf']), '-pix_fmt', 'yuv420p',
                 '-movflags', '+faststart', '-t', '%.4f' % job['duration'], str(output)]
     with (job_dir / 'ffmpeg.log').open('w') as log:

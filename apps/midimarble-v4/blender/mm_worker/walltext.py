@@ -41,9 +41,11 @@ TIMING_PATHS = ('["%s"]' % VISIBLE_PROPERTY, 'hide_render')
 INTERPOLATION_CONSTANT = 0
 SCREEN_STYLES = ('caption', 'endCard')
 SCREEN_PROPERTY = 'mm_screen'
-# Screen titles sit this far along the way from the camera to the closer of its focus and the wall, in front of the
-# pieces and close to the focus so depth of field keeps them nearly sharp
-SCREEN_DEPTH = 0.85
+# Screen titles sit this far along the way from the camera to the closer of its focus and the wall, just in front of
+# the pieces and close enough to the focus that depth of field keeps them sharp (0.85 blurred small captions)
+SCREEN_DEPTH = 0.96
+# Glow of a screen title: the themes darken the film (Brass exposure -1.25), so plain strength 1 reads grey
+SCREEN_GLOW = 3.0
 # Height of a caption's centre above the frame centre, as a fraction of the half frame height
 CAPTION_HEIGHT = 0.7
 SCREEN_PATHS = (('location', 1), ('location', 2), ('scale', 0), ('scale', 1), ('scale', 2))
@@ -221,7 +223,7 @@ def title_material(color, emissive=False):
         if emissive:
             emission = tree.nodes.new('ShaderNodeEmission')
             emission.inputs['Color'].default_value = linear
-            emission.inputs['Strength'].default_value = 1.0
+            emission.inputs['Strength'].default_value = SCREEN_GLOW
             principled = emission
         transparent = tree.nodes.new('ShaderNodeBsdfTransparent')
         mix = tree.nodes.new('ShaderNodeMixShader')

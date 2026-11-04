@@ -50,6 +50,9 @@ const SECTIONS = [
 		title: { text: 'Night Keys', dx: 0.37, dy: -0.15, angle: 4 * DEGREE }
 	}
 ];
+// Letter height as a share of the frame height, and how long a section's caption stays
+const CAPTION_SIZE = 0.045;
+const CAPTION_SECONDS = 3;
 const TITLE = { size: 0.04, depth: 0.003, color: '#ffffff', font: 'Bfont Regular', rise: 0.1 };
 const CAMERA = { distance: DEFAULT_CAMERA_DISTANCE, pitch: DEFAULT_CAMERA_PITCH };
 const FIXTURE_URL = new URL('../fixtures/reference-20.marble.json', import.meta.url);
@@ -221,7 +224,17 @@ function dress(current: TProject): TProject {
 						position: { x: Math.round(x * 1e4) / 1e4, y: Math.round(y * 1e4) / 1e4 },
 						angle: Math.round(section.title.angle * 1e4) / 1e4
 					},
-					wallText: { text: section.title.text, font: TITLE.font, size: TITLE.size, depth: TITLE.depth, color: TITLE.color }
+					// A caption in the frame, like the reference channels' section titles: the camera can never lose it
+					wallText: {
+						text: section.title.text,
+						font: TITLE.font,
+						size: CAPTION_SIZE,
+						depth: TITLE.depth,
+						color: TITLE.color,
+						style: 'caption' as const,
+						in: Math.max(0, Math.round((section.start - 0.15) * 100) / 100),
+						out: Math.round((section.start + CAPTION_SECONDS) * 100) / 100
+					}
 				}
 			}
 		});

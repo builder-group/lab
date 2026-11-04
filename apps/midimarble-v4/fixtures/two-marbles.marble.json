@@ -1,5 +1,5 @@
 {
-	"$schema": "marble-project@3",
+	"$schema": "marble-project@4",
 	"id": "two-marbles",
 	"title": "Two marbles",
 	"revision": 0,
@@ -51,7 +51,8 @@
 					}
 				]
 			}
-		]
+		],
+		"backing": []
 	},
 	"entities": [
 		{
@@ -108,14 +109,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.36,
+						"bounce": 0.32,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-1",
-					"angle": -0.2879793265790644,
+					"angle": -0.29670597283903605,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -131,7 +132,7 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.35,
+						"bounce": 0.33,
 						"entryDelay": 0
 					}
 				},
@@ -154,14 +155,14 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.39,
+						"bounce": 0.58,
 						"entryDelay": 0
 					}
 				},
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-2",
-					"angle": 0.20943951023931956,
+					"angle": 0.27052603405912107,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -177,7 +178,7 @@
 						"length": 0.09,
 						"thickness": 0.012,
 						"depth": 0.045,
-						"bounce": 0.73,
+						"bounce": 0.66,
 						"entryDelay": 0
 					}
 				},
@@ -207,7 +208,7 @@
 				"hitLink": {
 					"laneId": "lane-1",
 					"hitId": "hit-1-3",
-					"angle": -0.10471975511965978,
+					"angle": -0.19198621771937624,
 					"contactAt": 0.5,
 					"pinned": false
 				}
@@ -230,7 +231,7 @@
 				"hitLink": {
 					"laneId": "lane-2",
 					"hitId": "hit-2-3",
-					"angle": 0.06981317007977318,
+					"angle": 0.39269908169872414,
 					"contactAt": 0.5,
 					"pinned": false
 				}

@@ -159,37 +159,52 @@ describe('replaceBroken function', () => {
 		};
 	}
 
-	it('should recover Jingle Bells after its first 6 Melody notes become Backing', async () => {
-		// Prepare
-		const [isProjectOk, projectErr, project] = parseProject(readFileSync(new URL('../../../fixtures/jingle-bells.marble.json', import.meta.url), 'utf8'));
+	// A fixture with `count` notes of its first track from `from` on handed to Backing, as Played By does
+	function handToBacking(name: string, from: number, count: number): { before: TSimulationResult; edited: TProject; broken: TSimulationResult; laneId: string } {
+		const [isProjectOk, projectErr, project] = parseProject(readFileSync(new URL(`../../../fixtures/${name}.marble.json`, import.meta.url), 'utf8'));
 		if (!isProjectOk) throw projectErr;
 		const before = simulate(project);
-		const melody = project.music.lanes[0];
-		if (melody == null) throw new Error('Jingle Bells has a Melody track');
-		const [isEditOk, editErr, edited] = applyProjectCommands(
-			project,
-			assignNotesCommands(
-				project,
-				before,
-				melody.hits.slice(0, 6).map((item) => item.id),
-				BACKING_ID
-			)
-		);
+		const lane = project.music.lanes[0];
+		if (lane == null) throw new Error(`${name} has a track`);
+		const notes = lane.hits.slice(from, from + count).map((item) => item.id);
+		const [isEditOk, editErr, edited] = applyProjectCommands(project, assignNotesCommands(project, before, notes, BACKING_ID));
 		if (!isEditOk) throw editErr;
-		const broken = simulate(edited);
+		return { before, edited, broken: simulate(edited), laneId: lane.id };
+	}
+
+	it('should recover Jingle Bells after its first 6 Melody notes become Backing', async () => {
+		// Prepare
+		const { before, edited, broken, laneId } = handToBacking('jingle-bells', 0, 6);
 		expect(brokenHits(broken.hits).length).toBeGreaterThan(0);
 
 		// Act
 		const outcome = await replaceBroken(edited, broken, deps(), { before: before.hits });
 
 		// Assert
-		expect(outcome.releases).toEqual([melody.id]);
+		expect(outcome.releases).toEqual([laneId]);
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
 		const summary = hitSummary(outcome.result.hits);
 		expect(replaceResultMessage(outcome.project, broken.hits, outcome, summary.label, 0)).toMatch(
 			new RegExp(`^Melody now starts just before its first note\\. Re-placed \\d+ platforms? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`)
 		);
 	}, 120_000);
+
+	it('should recover Brass Sections after 3 notes in its first section become Backing', async () => {
+		// Prepare
+		const { before, edited, broken } = handToBacking('reference-20', 20, 3);
+		expect(brokenHits(broken.hits).length).toBeGreaterThan(0);
+
+		// Act
+		const outcome = await replaceBroken(edited, broken, deps(), { before: before.hits });
+
+		// Assert: the release stays, since the marble's first notes still play
+		expect(outcome.releases).toEqual([]);
+		const summary = hitSummary(outcome.result.hits);
+		expect(summary.problems).toEqual([]);
+		expect(replaceResultMessage(outcome.project, broken.hits, outcome, summary.label, 0)).toMatch(
+			new RegExp(`^Re-placed \\d+ platforms? and fixed all ${brokenHits(broken.hits).length} broken hits: ${summary.label}`)
+		);
+	}, 60_000);
 });
 
 describe('moveClear function', () => {
