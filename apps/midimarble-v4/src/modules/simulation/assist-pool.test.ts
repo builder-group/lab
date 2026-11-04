@@ -59,7 +59,7 @@ describe('createAssistPool function', () => {
 
 	beforeAll(async () => {
 		simulator = await createSimulator();
-		project = loadFixture('jingle-bells');
+		project = loadFixture('zigzag');
 	});
 
 	/** Auto place in this thread, the answer a single assists worker gives */
@@ -70,11 +70,11 @@ describe('createAssistPool function', () => {
 	}
 
 	it('should place the same platforms as a single worker whatever the pool size and timing', async () => {
-		// Prepare: platforms early, mid-song and late in the melody
+		// Prepare: platforms early, mid-song and late
 		const lane = project.music.lanes[0];
-		if (lane == null) throw new Error('Jingle Bells has a melody');
+		if (lane == null) throw new Error('The fixture has a lane');
 		const owners = hitOwners(project, lane.id);
-		const hits = [3, 12, 25, 40].map((index) => lane.hits[index]).filter((hit): hit is NonNullable<typeof hit> => hit != null && owners.has(hit.id));
+		const hits = [3, 8, 13].map((index) => lane.hits[index]).filter((hit): hit is NonNullable<typeof hit> => hit != null && owners.has(hit.id));
 		expect(hits.length).toBeGreaterThan(2);
 		const expected = hits.map((hit) => placeAlone(lane.id, hit.id, owners.get(hit.id)?.id ?? 'piece'));
 
@@ -106,7 +106,8 @@ describe('createAssistPool function', () => {
 	it('should suggest the same switchbacks, rails and tunnels as a single worker', async () => {
 		// Prepare
 		const simulate = (next: TProject): ReturnType<TSimulator['simulate']> => simulator.simulate(next);
-		const gaps = project.music.lanes.flatMap((lane) => findLongGaps(project, lane.id)).slice(0, 2);
+		const project = loadFixture('long-gap');
+		const gaps = project.music.lanes.flatMap((lane) => findLongGaps(project, lane.id)).slice(0, 1);
 		expect(gaps.length).toBeGreaterThan(0);
 		const { createWorker } = createFakeWorkers(3);
 		const pool = createAssistPool({ size: 3, createWorker });
@@ -133,8 +134,8 @@ describe('createAssistPool function', () => {
 	it('should stop a search between stages and keep answering later requests', async () => {
 		// Prepare
 		const lane = project.music.lanes[0];
-		const hit = lane?.hits[12];
-		if (lane == null || hit == null) throw new Error('Jingle Bells has a melody');
+		const hit = lane?.hits[8];
+		if (lane == null || hit == null) throw new Error('The fixture has a lane');
 		const entityId = hitOwners(project, lane.id).get(hit.id)?.id ?? 'piece';
 		const { createWorker, posted } = createFakeWorkers(5);
 		const pool = createAssistPool({ size: 3, createWorker });
@@ -160,7 +161,7 @@ describe('packResult function', () => {
 	it('should pack samples into transferable arrays that unpack to the same result', async () => {
 		// Prepare
 		const simulator = await createSimulator();
-		const result = simulator.simulate(loadFixture('jingle-bells'));
+		const result = simulator.simulate(loadFixture('two-marbles'));
 
 		// Act
 		const { packed, transfer } = packResult(result);

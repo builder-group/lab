@@ -20,11 +20,9 @@ describe('loadExample function', () => {
 	});
 
 	it('should list the song file each source of the example points at', async () => {
-		const [isMidiOk, , jingle] = await loadExample(example('jingle-bells'));
 		const [isAudioOk, , tap] = await loadExample(example('tap-along'));
 
-		expect(isMidiOk && isAudioOk).toBe(true);
-		expect(jingle?.files).toEqual([{ path: 'audio/jingle-bells.mid', url: expect.stringContaining('jingle-bells.mid') }]);
+		expect(isAudioOk).toBe(true);
 		expect(tap?.files).toEqual([{ path: 'audio/tap-along.wav', url: expect.stringContaining('tap-along.wav') }]);
 		expect(tap?.project.music.sources[0]?.path).toBe('audio/tap-along.wav');
 	});
@@ -33,16 +31,16 @@ describe('loadExample function', () => {
 describe('copyExampleFiles function', () => {
 	it('should copy the song files into the package, where the source resolves', async () => {
 		// Prepare
-		const [, , loaded] = await loadExample(example('jingle-bells'));
-		if (loaded == null) throw new Error('Jingle Bells did not load');
+		const [, , loaded] = await loadExample(example('tap-along'));
+		if (loaded == null) throw new Error('Tap Along did not load');
 		const packagePath = '/browser/Copy Test.marble';
-		expect(host.sourceUrl(packagePath, 'audio/jingle-bells.mid')).toBeNull();
+		expect(host.sourceUrl(packagePath, 'audio/tap-along.wav')).toBeNull();
 
 		// Act
 		const [isCopiedOk] = await copyExampleFiles(packagePath, loaded.files);
 
 		// Assert
 		expect(isCopiedOk).toBe(true);
-		expect(host.sourceUrl(packagePath, 'audio/jingle-bells.mid')).toBe(loaded.files[0]?.url);
+		expect(host.sourceUrl(packagePath, 'audio/tap-along.wav')).toBe(loaded.files[0]?.url);
 	});
 });

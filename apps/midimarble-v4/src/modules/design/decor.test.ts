@@ -34,7 +34,7 @@ import { apply, loadFixture } from '@/modules/project/test-helpers';
 
 function loadBare(name: string): TProject {
 	const project = loadFixture(name);
-	// These tests place their own decor; Jingle Bells ships dressed
+	// These tests place their own decor
 	return { ...project, design: { ...project.design, decor: [] } };
 }
 
@@ -66,10 +66,10 @@ describe('Decor', () => {
 
 	beforeAll(async () => {
 		simulator = await createSimulator();
-		project = loadBare('jingle-bells');
+		project = loadBare('zigzag');
 		result = simulator.simulate(project);
 		const camera = filmCamera(project, result).track;
-		if (camera == null) throw new Error('Jingle Bells has no film camera');
+		if (camera == null) throw new Error('The fixture has no film camera');
 		track = camera;
 	}, 120_000);
 
@@ -238,10 +238,7 @@ describe('Decor', () => {
 		});
 
 		it('should keep every item clear of every run by the margin', () => {
-			const started = performance.now();
 			const placements = scatterPlacements(project, result, track, options);
-			const elapsed = performance.now() - started;
-			console.log(`Scatter Decor on Jingle Bells: ${placements.length} items in ${elapsed.toFixed(0)} ms, ${result.marbles.length} marbles`);
 			for (const placement of placements) {
 				const box = decorBox({ source: placement.source.source, scale: placement.scale, position: placement.position, rotation: placement.rotation });
 				expect(clearanceToRuns(result, box)).toBeGreaterThanOrEqual(SCATTER_MARGIN);
@@ -308,7 +305,7 @@ describe('Decor', () => {
 
 	describe('Particles', () => {
 		function withEffects(): { project: TProject; result: TSimulationResult; track: TCameraTrack } {
-			let project = loadBare('jingle-bells');
+			let project = loadBare('zigzag');
 			for (const source of ['decor:snowfall']) project = apply(project, addDecorCommands(project, builtInSource(source), { x: 0, y: 0 }).commands);
 			const result = simulator.simulate(project);
 			const track = filmCamera(project, result).track;
@@ -338,7 +335,7 @@ describe('Decor', () => {
 		it('Scatter Decor ignores them, as items and as obstacles', () => {
 			const { project, result, track } = withEffects();
 			const items = [builtInSource('decor:star')];
-			const bare = loadBare('jingle-bells');
+			const bare = loadBare('zigzag');
 			const barePlacements = scatterPlacements(bare, simulator.simulate(bare), track, { items, density: 0.3, seed: 1 });
 			expect(scatterPlacements(project, result, track, { items, density: 0.3, seed: 1 })).toEqual(barePlacements);
 			expect(scatterPlacements(project, result, track, { items: [builtInSource('decor:snowfall')], density: 0.3, seed: 1 })).toEqual([]);

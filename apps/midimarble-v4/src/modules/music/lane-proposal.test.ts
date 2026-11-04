@@ -1,6 +1,5 @@
-import { Midi } from '@tonejs/midi';
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { Midi } from '@tonejs/midi';
 import { alignNotes, laneNamesFromTracks, MIN_HIT_GAP, proposeLanes } from './lane-proposal';
 import { parseMidiFile, type TMidiNote } from './midi';
 
@@ -94,9 +93,17 @@ describe('laneNamesFromTracks', () => {
 		expect(laneNamesFromTracks([[melody[0] as TMidiNote], [melody[1] as TMidiNote]], [{ name: 'Piano', hasName: true, notes: melody }])).toEqual([null, null]);
 	});
 
-	it('should name Jingle Bells from its tracks', () => {
-		const file = readFileSync(new URL('../../../fixtures/jingle-bells.mid', import.meta.url));
-		const [isParsedOk, , midi] = parseMidiFile(file);
+	it('should name the lanes of a real MIDI file from its tracks', () => {
+		const file = new Midi();
+		const notes = (midi: number, times: number[]): void => {
+			const track = file.addTrack();
+			track.name = midi > 60 ? 'Melody' : 'Bass';
+			for (const time of times) track.addNote({ midi, time, duration: 0.2 });
+		};
+		notes(76, [0.5, 1, 1.5, 2, 2.5, 3]);
+		// Struck together, so one marble can't play both
+		notes(40, [0.5, 1, 1.5, 2, 2.5, 3]);
+		const [isParsedOk, , midi] = parseMidiFile(file.toArray());
 		expect(isParsedOk).toBe(true);
 		const tracks = midi?.tracks ?? [];
 		const { lanes } = proposeLanes(tracks.flatMap((track) => track.notes));

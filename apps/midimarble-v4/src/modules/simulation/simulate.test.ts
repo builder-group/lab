@@ -84,6 +84,33 @@ describe('simulate', () => {
 		expect(after?.velocity.y).toBeGreaterThan(0);
 	});
 
+	it('leaves every hit and sample unchanged with a windmill no marble comes near', () => {
+		const project = loadFixture('zigzag');
+		const base = simulator.simulate(project);
+		for (const motorSpeed of [0, 3]) {
+			const windmill = { id: 'windmill-far', name: 'Windmill', components: { piece: { type: 'windmill', params: { motorSpeed } }, transform: { position: { x: 5, y: 5 }, angle: 0.3 } } };
+			const result = simulator.simulate({ ...project, revision: project.revision + 1, entities: [...project.entities, windmill] });
+			expect(result.hits).toEqual(base.hits);
+			expect(result.marbles).toEqual(base.marbles);
+			expect(result.contacts).toEqual(base.contacts);
+		}
+	});
+
+	it('changes nothing before a marble first strikes a free windmill', () => {
+		const project = loadFixture('zigzag');
+		const base = simulator.simulate(project);
+		const marble = base.marbles[0];
+		// Just below the marble's path at 3 s
+		const at = marble?.samples.find((sample) => sample.time >= 3)?.position;
+		if (marble == null || at == null) throw new Error('Missing sample');
+		const windmill = { id: 'windmill-near', name: 'Windmill', components: { piece: { type: 'windmill', params: { motorSpeed: 0 } }, transform: { position: { x: at.x + 0.02, y: at.y - 0.12 }, angle: 0.3 } } };
+		const result = simulator.simulate({ ...project, revision: project.revision + 1, entities: [...project.entities, windmill] });
+		const strike = result.contacts.find((contact) => contact.otherEntityId === 'windmill-near');
+		if (strike == null) throw new Error('The marble misses the windmill');
+		expect(result.marbles[0]?.samples.filter((sample) => sample.time < strike.time)).toEqual(marble.samples.filter((sample) => sample.time < strike.time));
+		expect(result.hits.filter((hit) => hit.targetTime < strike.time)).toEqual(base.hits.filter((hit) => hit.targetTime < strike.time));
+	});
+
 	it('puts every staircase hit on time', () => {
 		const project = loadFixture('staircase');
 		const result = simulator.simulate(project);

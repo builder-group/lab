@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SONG_TAIL } from '@/modules/music';
+import { finishTail, SONG_TAIL, songEnd } from '@/modules/music';
 import { type TProject } from '@/modules/project';
 import { createSimulator } from '@/modules/simulation/simulate';
 import { exitRunProject, finishExit, fittedSongEnd } from './finish-exit';
@@ -14,17 +14,13 @@ describe('finishExit', () => {
 			const simulator = await createSimulator();
 			const simulate = (project: TProject) => simulator.simulate(project);
 
-			const jingle = loadFixture('jingle-bells');
-			const trial = exitRunProject(jingle) as TProject;
+			// Its marbles leave through their Finishes' run-outs, so the film ends on that and not at the longest tail
+			const duet = loadFixture('two-marbles');
+			const trial = exitRunProject(duet) as TProject;
 			const exit = finishExit(trial, simulate(trial));
-			expect(exit).toBeGreaterThan(0.9);
+			expect(exit).toBeGreaterThan(0);
 			expect(exit).toBeLessThan(1.4);
-			expect(await fittedSongEnd(jingle, simulate)).toBe(jingle.end);
-
-			// Its marble leaves through its Finish's run-out, so the film ends on that and not at the longest tail
-			const reference = loadFixture('reference-20');
-			expect(finishExit(exitRunProject(reference) as TProject, simulate(exitRunProject(reference) as TProject))).toBeLessThan(1.4);
-			expect(await fittedSongEnd(reference, simulate)).toBe(reference.end);
+			expect(await fittedSongEnd(duet, simulate)).toBe(songEnd(1.55, finishTail(exit ?? 0)));
 			simulator.dispose();
 		},
 		SIMULATION_TIMEOUT

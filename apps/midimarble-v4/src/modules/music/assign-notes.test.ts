@@ -40,19 +40,19 @@ describe('assignNotesCommands function', () => {
 	});
 
 	it('should keep a following piece at its moment, tied to another hit of the lane', () => {
-		const project = loadFixture('jingle-bells');
+		const project = loadFixture('long-gap');
 		const result = simulator.simulate(project);
 		const melody = project.music.lanes[0];
-		const switchback = project.entities.find((entity) => entity.id === 'switchback-1-5');
-		const hitId = switchback?.components.hitLink?.hitId ?? '';
-		if (melody == null || switchback == null) throw new Error('No switchback');
-		const before = result.pieces.find((piece) => piece.entityId === switchback.id);
+		const follower = project.entities.find((entity) => entity.id === 'rail-1');
+		const hitId = follower?.components.hitLink?.hitId ?? '';
+		if (melody == null || follower == null) throw new Error('No rail');
+		const before = result.pieces.find((piece) => piece.entityId === follower.id);
 
 		const next = apply(project, assignNotesCommands(project, result, [hitId], BACKING_ID));
-		const link = next.entities.find((entity) => entity.id === switchback.id)?.components.hitLink;
-		const after = simulator.simulate(next).pieces.find((piece) => piece.entityId === switchback.id);
+		const link = next.entities.find((entity) => entity.id === follower.id)?.components.hitLink;
+		const after = simulator.simulate(next).pieces.find((piece) => piece.entityId === follower.id);
 
-		// The platform before the switchback goes with its note, so the run changes; the switchback keeps its moment
+		// The platform before the rail goes with its note, so the run changes; the rail keeps its moment
 		expect(link).toBeDefined();
 		expect(link?.hitId).not.toBe(hitId);
 		expect(melody.hits.some((hit) => hit.id === link?.hitId)).toBe(true);

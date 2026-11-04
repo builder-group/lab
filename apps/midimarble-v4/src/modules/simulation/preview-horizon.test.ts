@@ -3,7 +3,7 @@ import type { TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createSimulator, type TSimulator } from './simulate';
 
-const HORIZON = 5;
+const HORIZON = 2;
 
 function tilted(project: TProject, time: number, by: number): TProject {
 	const linked = project.entities.flatMap((entity) => {
@@ -25,9 +25,9 @@ async function warmed(project: TProject): Promise<TSimulator> {
 
 describe('a preview that stops at a horizon', () => {
 	it('is exact up to the horizon and shows the whole run past it', async () => {
-		const project = loadFixture('jingle-bells');
+		const project = loadFixture('zigzag');
 		const whole = (await warmed(project)).simulate(project);
-		const edited = tilted(project, 4, 0.02);
+		const edited = tilted(project, 1, 0.1);
 		const simulator = await warmed(project);
 		const near = simulator.simulate(edited, HORIZON);
 		const exact = (await createSimulator()).simulate(edited);
@@ -53,10 +53,10 @@ describe('a preview that stops at a horizon', () => {
 	});
 
 	it('leaves the whole run after it as a run from scratch finds it', async () => {
-		const project = loadFixture('jingle-bells');
+		const project = loadFixture('zigzag');
 		const simulator = await warmed(project);
-		for (const by of [0.001, 0.002, 0.003]) simulator.simulate(tilted(project, 4, by), HORIZON);
-		const edited = tilted(project, 4, 0.003);
+		for (const by of [0.001, 0.002, 0.003]) simulator.simulate(tilted(project, 1, by), HORIZON);
+		const edited = tilted(project, 1, 0.003);
 		const after = simulator.simulate(edited);
 		const fresh = (await createSimulator()).simulate(edited);
 		expect(after.hits).toEqual(fresh.hits);
@@ -65,7 +65,7 @@ describe('a preview that stops at a horizon', () => {
 	});
 
 	it('runs whole without a whole run of this project to show past the stop', async () => {
-		const project = loadFixture('jingle-bells');
+		const project = loadFixture('zigzag');
 		const simulator = await createSimulator();
 		const run = simulator.simulate(project, HORIZON);
 		expect(run.duration).toBeCloseTo(project.end, 2);

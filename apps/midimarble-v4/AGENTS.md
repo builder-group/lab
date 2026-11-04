@@ -33,8 +33,9 @@ The build runs autonomously through the milestones without review between steps.
 
 ## Validation
 
-- Run `pnpm --filter @lab/midimarble-v4 typecheck`, `lint` and `test` before each commit
-- Run fixture hit checks, performance tests and headless Blender checks for the milestones that own them
+- Run `pnpm --filter @lab/midimarble-v4 typecheck`, `lint` and `test` before each commit. `test` is the unit tests, under a minute: no whole songs in them, a small project of a few hits instead.
+- Run `test:e2e` for what touches whole songs: `*.e2e.test.ts` files, with the Jingle Bells build, the fixture checks and the performance tests. It takes minutes, one file at a time.
+- Run headless Blender checks for the milestones that own them
 - Browser and computer-use checks are allowed for this app, including the native window and Blender
 - Report checks run and checks skipped in `progress.md`
 
