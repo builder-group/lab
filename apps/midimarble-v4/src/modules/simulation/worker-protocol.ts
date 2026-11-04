@@ -34,7 +34,7 @@ import type { TResolvedPiece, TSimulationResult } from './types';
 // from the worker's snapshots, and then run the assist against the fresh result.
 
 export type TWorkerRequest =
-	| { kind: 'simulate'; project: TProject }
+	| { kind: 'simulate'; project: TProject; horizon?: number }
 	| {
 			kind: 'autoPlace';
 			project: TProject;
@@ -173,10 +173,9 @@ export function answerWorkerRequest(
 		if (prepared?.key !== request.search || prepared.request.assist !== 'gapPiece') throw new Error('The assists worker lost the gap search');
 		return gapAnswer(simulate, prepared.request, request.proposal, startedAt);
 	}
+	if (request.kind === 'simulate') return simulator.simulate(request.project, request.horizon);
 	const result = simulate(request.project);
 	switch (request.kind) {
-		case 'simulate':
-			return result;
 		case 'autoPlace': {
 			const { project, laneId, hitId, type, entityId, launchAngles, range } = request;
 			if (launchAngles != null) {

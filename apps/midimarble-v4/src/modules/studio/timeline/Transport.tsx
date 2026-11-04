@@ -8,6 +8,7 @@ import { MenuButton, openContextMenu, type TMenuEntry } from '@/components';
 import type { TLastFix, TPieceFixCheck } from '@/modules/compose/AssistCx';
 import { blockedScenery } from '@/modules/compose/fix-it';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
+import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import { fitToSongOffer } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
@@ -80,11 +81,11 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const addingFinish = useFeatureState(compose?.assist.$addingFinish ?? NO_ADDING);
 	const workspace = useFeatureState(cx.$workspace);
 	// While Build Track works the summary only says so, so no step checks the whole run again for it
-	const isBuilding = building != null;
-	const summary = React.useMemo(() => problemSummary(preflightExport(project, isBuilding ? null : result), workspace === 'compose' ? 'compose' : 'film'), [isBuilding, project, result, workspace]);
+	const preflight = useRunPreflight(cx, project);
+	const summary = React.useMemo(() => problemSummary(preflight ?? preflightExport(project, null), workspace === 'compose' ? 'compose' : 'film'), [preflight, project, workspace]);
 	const isCurrent = result != null && result.revision === project.revision;
-	// Blocked scenery's Fix-its are tried on a copy of the run before the menu offers them
-	const blocked = React.useMemo(() => (isCurrent ? blockedScenery(project, result).map((piece) => piece.entityId) : []), [isCurrent, project, result]);
+	// Blocked scenery's Fix-its are tried on a copy of the run before the menu offers them. Follows the preflight, which holds during a drag.
+	const blocked = React.useMemo(() => (preflight != null && result != null ? blockedScenery(project, result).map((piece) => piece.entityId) : []), [preflight]); // eslint-disable-line react-hooks/exhaustive-deps -- a new preflight means a new run to check
 	React.useEffect(() => {
 		if (replacing == null) for (const id of blocked) compose?.assist.checkPieceFix(id);
 	}, [blocked, compose, replacing]);

@@ -5,8 +5,8 @@ import { MenuButton, RenameField, WindowControlsInset, type TMenuEntry } from '@
 import { host } from '@/environment';
 import { openExternalUrl } from '@/lib';
 import { blenderState, type TBlenderState } from '@/modules/design/blender-state';
-import { $blenderObjects } from '@/modules/design/decor';
-import { preflightExport, workspaceProblems } from '@/modules/design/export-preflight';
+import { workspaceProblems } from '@/modules/design/export-preflight';
+import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import { exportStatusLabel } from '@/modules/design/ExportSheet';
 import { agentStatusLine } from '@/modules/mcp/agent-presence';
 import { commandItem } from './commands';
@@ -71,9 +71,8 @@ const WorkspaceSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const workspace = useFeatureState(cx.$workspace);
 	const project = useFeatureState(cx.$history)?.present;
-	const result = useFeatureState(cx.simulation.$result);
-	const blenderObjects = useFeatureState($blenderObjects);
-	const problems = React.useMemo(() => (project != null && result != null && result.revision === project.revision ? workspaceProblems(preflightExport(project, result, blenderObjects)) : null), [project, result, blenderObjects]);
+	const preflight = useRunPreflight(cx, project);
+	const problems = React.useMemo(() => (preflight != null ? workspaceProblems(preflight) : null), [preflight]);
 	return (
 		<div className="mm-segmented mm-titlebar-workspace" role="tablist" aria-label="Workspace" data-quick-help="workspace">
 			{workspaces.map((item) => {

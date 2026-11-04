@@ -7,7 +7,8 @@ import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/m
 import { FINISH_CHUTE, FINISH_CUP, finishCatch, getPieceDefinition, isMusicalPiece, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
-import { lookProblems, preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { lookProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { attachState, isPathPieceType, pathPieceTypes, withPathType, type TPathPieceType } from './attach-edit';
@@ -26,7 +27,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	// Pieces another marble hits, from the problem model the hit summary and Layers read
-	const preflight = React.useMemo(() => (result != null && result.revision === project.revision ? preflightExport(project, result) : null), [project, result]);
+	const preflight = useRunPreflight(cx, project);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
 	const looks = React.useMemo(() => (preflight != null ? lookProblems(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
 	const entities = project.entities.filter((entity) => ids.includes(entity.id) && entity.components.piece != null);

@@ -1,6 +1,5 @@
-import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { preflightExport } from '@/modules/design/export-preflight';
+import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import type { TProject } from '@/modules/project';
 import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';
@@ -12,9 +11,8 @@ import type { StudioCx } from '../StudioCx';
  */
 export const CameraIssues: React.FC<TCameraIssuesProps> = (props) => {
 	const { cx, project, zoom } = props;
-	const result = useFeatureState(cx.simulation.$result);
-	const preflight = React.useMemo(() => preflightExport(project, result), [project, result]);
-	if (preflight.state === 'pending') return null;
+	const preflight = useRunPreflight(cx, project);
+	if (preflight == null) return null;
 	const spans = preflight.issues.filter((issue) => issue.kind === 'framing' && issue.severity === 'warning' && issue.span != null);
 	return (
 		<>

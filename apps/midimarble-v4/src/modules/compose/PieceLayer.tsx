@@ -4,7 +4,8 @@ import type { TVec2 } from '@/modules/project';
 import type { TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
-import { offsetPolyline, pieceKind, tubeCeiling } from './scene';
+import { offsetPolyline, pieceKind, pieceOutline, tubeCeiling } from './scene';
+import { worldToScreen } from './view';
 
 /**
  * Pieces the overlay draws in screen space: rails and tunnels, which are thin lines on the wall, and a
@@ -15,34 +16,58 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	const { compose } = props;
 	const cx = compose.studio;
 	const result = useFeatureState(cx.simulation.$result);
-	useFeatureState(compose.$camera);
+	const { projection, scale, transform } = usePannedProjection(compose);
 	const viewport = useFeatureState(compose.$viewport);
-	useFeatureState(cx.$playhead);
-	useFeatureState(cx.$selection);
-	useFeatureState(cx.$playing);
 	useFeatureState(compose.$override);
 	useFeatureState(compose.$placing);
 	useFeatureState(cx.$hidden);
+	useFeatureState(cx.$history);
 	// Until the canvas is measured every point projects to NaN, which the browser reports for each attribute
 	if (result == null || viewport.width <= 1) return null;
-	const scale = compose.screenScale();
 
 	return (
-		<g>
-			{compose.displayPieces(result).map((piece) => {
-				const kind = pieceKind(piece);
-				if (kind === 'path') return <RailShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
-				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
-				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
-				if (kind === 'catcher') return <FinishShape key={piece.entityId} compose={compose} piece={piece} scale={scale} opacity={1} />;
-				return <MinimumShape key={piece.entityId} compose={compose} piece={piece} />;
-			})}
+		<g transform={transform}>
+			{compose.displayPieces(result).map((piece) => (
+				<PieceShape key={piece.entityId} compose={projection} piece={piece} scale={scale} />
+			))}
 		</g>
 	);
 };
 
 interface TPieceLayerProps {
 	compose: ComposeCx;
+}
+
+const PieceShape = React.memo(function PieceShape(props: { compose: TScreenProjection; piece: TResolvedPiece; scale: number }) {
+	const { compose, piece, scale } = props;
+	const kind = pieceKind(piece);
+	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={1} />;
+	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={1} />;
+	if (kind === 'holder') return <SwitchbackShape compose={compose} piece={piece} scale={scale} opacity={1} />;
+	if (kind === 'catcher') return <FinishShape compose={compose} piece={piece} scale={scale} opacity={1} />;
+	return <MinimumShape compose={compose} piece={piece} />;
+});
+
+/**
+ * Screen projection for overlay marks that a pan only slides: marks are drawn once per zoom against a view centred on
+ * the wall's origin, and `transform` on their parent moves them all with the camera, so playback, Follow and panning
+ * write one attribute per frame instead of every mark's. Only a zoom, whose strokes keep their pixel width, redraws them.
+ */
+export function usePannedProjection(compose: ComposeCx): { projection: TScreenProjection; scale: number; transform: string } {
+	const { center, scale } = useFeatureState(compose.$camera).view;
+	const { width, height } = useFeatureState(compose.$viewport);
+	const projection = React.useMemo<TScreenProjection>(() => {
+		const origin = { center: { x: 0, y: 0 }, scale };
+		const viewport = { width, height };
+		return { toScreen: (point) => worldToScreen(origin, viewport, point) };
+	}, [scale, width, height]);
+	return { projection, scale, transform: `translate(${-center.x * scale} ${center.y * scale})` };
+}
+
+/** Outline of a piece as `projection` draws it, see `pieceOutline` */
+export function projectedOutline(projection: TScreenProjection, piece: TResolvedPiece): TVec2[] {
+	const depth = piece.params['depth'] ?? 0.03;
+	return pieceOutline(piece).map((corner) => projection.toScreen(corner, depth));
 }
 
 /** Two wires with ties between them, like a toy rail seen from the front */
@@ -183,10 +208,10 @@ const RailTies: React.FC<{ path: TVec2[]; spread: number; scale: number; color: 
 };
 
 /** A screen-space stand-in when a platform or windmill shrinks below a few pixels */
-const MinimumShape: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; palette?: { bar: string; nub: string } }> = (props) => {
+const MinimumShape: React.FC<{ compose: TScreenProjection; piece: TResolvedPiece; palette?: { bar: string; nub: string } }> = (props) => {
 	const { compose, piece } = props;
 	const palette = props.palette ?? paletteOf(piece.type);
-	const outline = compose.screenOutline(piece);
+	const outline = projectedOutline(compose, piece);
 	if (!outline.length || !outline.every(isFinitePoint)) return null;
 	if (pieceKind(piece) === 'rotor') {
 		const center = compose.toScreen(piece.position, piece.params['depth'] ?? 0.03);

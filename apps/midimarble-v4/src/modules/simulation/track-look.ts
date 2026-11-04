@@ -1,5 +1,6 @@
 import type { TProject, TVec2 } from '@/modules/project';
 import { resolvedPieceShapes, shapesGap } from './clearance';
+import { shapesBounds } from './shapes';
 import { layoutOf } from './piece-layout';
 import { soundsHit } from './pieces';
 import type { TPieceShape } from './shapes';
@@ -87,12 +88,17 @@ export function touchingPairs(project: TProject, result: TSimulationResult, gap 
 	const entities = new Map(project.entities.map((entity) => [entity.id, entity]));
 	const items = standingPieces(result)
 		.filter((piece) => entities.get(piece.entityId)?.components.hitLink != null && piece.type !== 'finish')
-		.map((piece) => ({ piece, shapes: visualShapes(piece, radius), time: piece.hitTime ?? piece.entryTime ?? 0 }));
+		.map((piece) => {
+			const shapes = visualShapes(piece, radius);
+			return { piece, shapes, bounds: shapesBounds(shapes), time: piece.hitTime ?? piece.entryTime ?? 0 };
+		});
 	const pairs: TTouchingPair[] = [];
 	for (let i = 0; i < items.length; i++) {
 		for (let j = i + 1; j < items.length; j++) {
 			const [first, second] = [items[i], items[j]];
 			if (first == null || second == null) continue;
+			// Bounds this far apart settle it without measuring every pair of shapes
+			if (first.bounds.minX - second.bounds.maxX >= gap || second.bounds.minX - first.bounds.maxX >= gap || first.bounds.minY - second.bounds.maxY >= gap || second.bounds.minY - first.bounds.maxY >= gap) continue;
 			const between = shapesGap(first.shapes, second.shapes, gap);
 			if (between >= gap) continue;
 			const [a, b] = first.time <= second.time ? [first, second] : [second, first];

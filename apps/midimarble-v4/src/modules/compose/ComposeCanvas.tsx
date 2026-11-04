@@ -20,7 +20,7 @@ import { followKey } from './keys';
 import { GhostHint, GhostShapes } from './GhostLayer';
 import { HitFlashLayer } from './HitFlashLayer';
 import { canvasMenu, dotMenu } from './menus';
-import { PieceLayer, toPoints } from './PieceLayer';
+import { PieceLayer, projectedOutline, toPoints, usePannedProjection, type TScreenProjection } from './PieceLayer';
 import { placeBar, type TScreenRect } from './view';
 import { pathRun, pathToWorld, pieceKind } from './scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
@@ -190,7 +190,9 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const insertSnap = useFeatureState(compose.$insertSnap);
 	const hoverPreview = useFeatureState(compose.$hoverPreview);
 	const project = history?.present;
-	if (project == null || result == null || viewport.width <= 1) return null;
+	const { projection, transform } = usePannedProjection(compose);
+	const nextDots = React.useMemo(() => (result != null ? nextOpenHitPerLane(result) : null), [result]);
+	if (project == null || result == null || nextDots == null || viewport.width <= 1) return null;
 
 	const pieces = compose.displayPieces(result);
 	const selectedPieces = selectedPieceIds(project, selection);
@@ -203,12 +205,8 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const pathHandles = single != null && isPathPiece && frame == null && singleKind !== 'holder' ? compose.screenPathHandles(single) : null;
 	const isRotating = drag?.kind === 'rotate';
 	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.entityId));
-	const nextDots = nextOpenHitPerLane(result);
-	const band = frameBand(project);
 	const hoveredPiece = hover?.kind === 'piece' ? hover.entityId : null;
 	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.laneId === hover.laneId && hit.hitId === hover.hitId) : undefined;
-	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
-	const longGaps = compose.longGapKeys(project);
 	const snap = drag?.kind === 'move' ? drag.snap : (insertSnap?.snap ?? null);
 	const singleEntity = single != null ? project.entities.find((entity) => entity.id === single.entityId) : undefined;
 	// The first-run hint "Click a note's dot to see its platform" points at the earliest next open dot
@@ -237,46 +235,10 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					);
 				})}
 				<AgentTouched compose={compose} pieces={pieces} />
-				{drag == null
-					? result.pieces.map((piece) => <PieceBadge key={`badge-${piece.entityId}`} compose={compose} piece={piece} result={result} />)
-					: null}
-				{result.hits.map((hit) => {
-					if (hit.dot == null) return null;
-					const position = compose.toScreen(hit.dot);
-					if (hit.status !== 'open') {
-						return (
-							<HitDot
-								key={`dot-${hit.laneId}-${hit.hitId}`}
-								position={position}
-								color={badgeStyles[hit.status].color}
-								size={hit.status === 'onTime' ? 4 : 5}
-								stemTo={offDotStem(compose, project, result, hit)}
-								isPulsing={hit.status !== 'onTime' && drag == null}
-								isHovered={hoveredDot === hit}
-								isFocused={focusedKeys.has(toHitKey(hit.laneId, hit.hitId))}
-							/>
-						);
-					}
-					const lane = project.music.lanes.find((item) => item.id === hit.laneId);
-					const isNext = nextDots.get(hit.laneId) === hit;
-					const isHovered = hoveredDot === hit;
-					const isFocused = focusedKeys.has(`hit:${hit.laneId}:${hit.hitId}`);
-					const isOutside = hit.outOfFrame ?? Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
-					const isLongGap = longGaps.has(`${hit.laneId}:${hit.hitId}`);
-					const color = isOutside ? 'var(--bad)' : (lane?.color ?? 'var(--text)');
-					return (
-						<HitDot
-							key={`dot-${hit.laneId}-${hit.hitId}`}
-							position={position}
-							color={color}
-							size={isNext ? 5 : 4}
-							isPulsing={isNext && drag == null}
-							isHovered={isHovered}
-							isFocused={isFocused}
-							isLongGap={isLongGap}
-						/>
-					);
-				})}
+				<g transform={transform}>
+					{drag == null ? <PieceBadges projection={projection} result={result} /> : null}
+					<HitDots compose={compose} projection={projection} project={project} result={result} nextDots={nextDots} selection={selection} hoveredDot={hoveredDot} isDragging={drag != null} />
+				</g>
 				<HitFlashLayer compose={compose} />
 				{snap?.kind === 'link' ? <SnapRing position={compose.toScreen(snap.dot)} /> : null}
 				{drag?.kind === 'move' && drag.moved && drag.plays != null && drag.origin != null ? <PlaysGhost compose={compose} origin={drag.origin} dot={drag.plays.dot} /> : null}
@@ -384,10 +346,9 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
  * red. The next open dot and every dot that needs attention pulse, in CSS alone. Selecting the hit adds the accent ring, and a
  * platform a drag left off its dot with a timing problem gets a thin stem to it.
  */
-const HitDot: React.FC<{ position: TVec2; color: string; size: number; isPulsing: boolean; isHovered: boolean; isFocused: boolean; isLongGap?: boolean; stemTo?: TVec2 | null }> = (props) => {
-	const { position, color, size, isPulsing, isHovered, isFocused, isLongGap = false, stemTo = null } = props;
+const HitDot = React.memo(function HitDot(props: { x: number; y: number; color: string; size: number; isPulsing: boolean; isHovered: boolean; isFocused: boolean; isLongGap?: boolean; stemTo?: TVec2 | null }) {
+	const { x, y, color, size, isPulsing, isHovered, isFocused, isLongGap = false, stemTo = null } = props;
 	const radius = size + (isHovered ? 1.5 : 0);
-	const { x, y } = position;
 	return (
 		<g>
 			{stemTo != null ? <line x1={x} y1={y} x2={stemTo.x} y2={stemTo.y} stroke={color} strokeWidth={1} strokeOpacity={0.8} /> : null}
@@ -406,10 +367,58 @@ const HitDot: React.FC<{ position: TVec2; color: string; size: number; isPulsing
 			)}
 		</g>
 	);
-};
+});
+
+/** Every hit's dot, redrawn when the run, the selection, the hovered dot or the zoom changes and not when the view pans */
+const HitDots = React.memo(function HitDots(props: { compose: ComposeCx; projection: TScreenProjection; project: TProject; result: TSimulationResult; nextDots: Map<string, THitResult>; selection: string[]; hoveredDot: THitResult | undefined; isDragging: boolean }) {
+	const { compose, projection, project, result, nextDots, selection, hoveredDot, isDragging } = props;
+	const band = frameBand(project);
+	const longGaps = compose.longGapKeys(project);
+	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
+	return (
+		<>
+			{result.hits.map((hit) => {
+				if (hit.dot == null) return null;
+				const { x, y } = projection.toScreen(hit.dot);
+				if (hit.status !== 'open') {
+					return (
+						<HitDot
+							key={`dot-${hit.laneId}-${hit.hitId}`}
+							x={x}
+							y={y}
+							color={badgeStyles[hit.status].color}
+							size={hit.status === 'onTime' ? 4 : 5}
+							stemTo={offDotStem(projection, project, result, hit)}
+							isPulsing={hit.status !== 'onTime' && !isDragging}
+							isHovered={hoveredDot === hit}
+							isFocused={focusedKeys.has(toHitKey(hit.laneId, hit.hitId))}
+						/>
+					);
+				}
+				const lane = project.music.lanes.find((item) => item.id === hit.laneId);
+				const isNext = nextDots.get(hit.laneId) === hit;
+				const isOutside = hit.outOfFrame ?? Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
+				const color = isOutside ? 'var(--bad)' : (lane?.color ?? 'var(--text)');
+				return (
+					<HitDot
+						key={`dot-${hit.laneId}-${hit.hitId}`}
+						x={x}
+						y={y}
+						color={color}
+						size={isNext ? 5 : 4}
+						isPulsing={isNext && !isDragging}
+						isHovered={hoveredDot === hit}
+						isFocused={focusedKeys.has(`hit:${hit.laneId}:${hit.hitId}`)}
+						isLongGap={longGaps.has(`${hit.laneId}:${hit.hitId}`)}
+					/>
+				);
+			})}
+		</>
+	);
+});
 
 /** Where the stem of an off-time hit ends: on the platform a drag left away from its dot. A platform on its dot needs none. */
-function offDotStem(compose: ComposeCx, project: TProject, result: TSimulationResult, hit: THitResult): TVec2 | null {
+function offDotStem(compose: TScreenProjection, project: TProject, result: TSimulationResult, hit: THitResult): TVec2 | null {
 	if (hit.status === 'onTime' || hit.pieceEntityId == null) return null;
 	if (project.entities.find((entity) => entity.id === hit.pieceEntityId)?.components.hitLink?.pinnedPosition == null) return null;
 	const piece = result.pieces.find((item) => item.entityId === hit.pieceEntityId);
@@ -737,12 +746,26 @@ const Marquee: React.FC<{ from: TVec2; to: TVec2 }> = (props) => {
 	);
 };
 
+/** Every placed piece's status badge, redrawn with the run or the zoom and not when the view pans */
+const PieceBadges = React.memo(function PieceBadges(props: { projection: TScreenProjection; result: TSimulationResult }) {
+	const { projection, result } = props;
+	const hitOfPiece = new Map<string, THitResult>();
+	for (const hit of result.hits) if (hit.pieceEntityId != null && !hitOfPiece.has(hit.pieceEntityId)) hitOfPiece.set(hit.pieceEntityId, hit);
+	return (
+		<>
+			{result.pieces.map((piece) => (
+				<PieceBadge key={`badge-${piece.entityId}`} projection={projection} piece={piece} hit={hitOfPiece.get(piece.entityId)} />
+			))}
+		</>
+	);
+});
+
 /** Status badge off the left end of a placed piece */
-const PieceBadge: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; result: TSimulationResult }> = (props) => {
-	const { compose, piece, result } = props;
-	const status = badgeStatus(piece.status, result.hits.find((item) => item.pieceEntityId === piece.entityId));
+const PieceBadge: React.FC<{ projection: TScreenProjection; piece: TResolvedPiece; hit: THitResult | undefined }> = (props) => {
+	const { projection, piece, hit } = props;
+	const status = badgeStatus(piece.status, hit);
 	if (status == null) return null;
-	const outline = compose.screenOutline(piece);
+	const outline = projectedOutline(projection, piece);
 	if (!outline.length) return null;
 	const left = outline.reduce((best, point) => (point.x < best.x ? point : best));
 	const center = {

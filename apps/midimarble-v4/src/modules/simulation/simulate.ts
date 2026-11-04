@@ -83,8 +83,11 @@ const PROXY_GROUPS = 0x00080001;
 const MARBLE_SLOP = 0.001;
 
 export interface TSimulator {
-	/** Simulates the project, resuming from the latest snapshot whose inputs are unchanged */
-	simulate: (project: TProject) => TSimulationResult;
+	/**
+	 * Simulates the project, resuming from the latest snapshot whose inputs are unchanged. With a `horizon` it stops
+	 * that many seconds after the point it resumed from, and past there the result shows what the latest whole run found.
+	 */
+	simulate: (project: TProject, horizon?: number) => TSimulationResult;
 	dispose: () => void;
 }
 
@@ -94,10 +97,14 @@ export async function createSimulator(): Promise<TSimulator> {
 	rapierReady ??= RAPIER.init();
 	await rapierReady;
 	let cache = new Map<string, TSnapshot>();
+	let whole: { projectId: string; result: TSimulationResult } | null = null;
 	return {
-		simulate(project) {
-			const [result, nextCache] = runSimulation(project, cache);
+		simulate(project, horizon) {
+			const far = whole?.projectId === project.id ? whole.result : null;
+			const [result, nextCache] = runSimulation(project, cache, far != null ? horizon : undefined);
 			cache = nextCache;
+			if (far != null && result.duration < project.end - 1 / PHYSICS_HZ) return withFarRun(result, far);
+			whole = { projectId: project.id, result };
 			return result;
 		},
 		dispose() {
@@ -108,7 +115,8 @@ export async function createSimulator(): Promise<TSimulator> {
 
 function runSimulation(
 	project: TProject,
-	cache: Map<string, TSnapshot>
+	cache: Map<string, TSnapshot>,
+	horizon?: number
 ): [TSimulationResult, Map<string, TSnapshot>] {
 	const startedAt = performance.now();
 	const plan = createPlan(project);
@@ -154,10 +162,11 @@ function runSimulation(
 	}
 	const reusedUntil = resumed != null ? state.step / PHYSICS_HZ : 0;
 
-	const steps = advance(worlds, plan, state, nextCache, resumeIndex);
+	const run = horizon != null ? { ...plan, endStep: Math.min(plan.endStep, state.step + Math.ceil(horizon * PHYSICS_HZ)) } : plan;
+	const steps = advance(worlds, run, state, nextCache, resumeIndex);
 	for (const world of worlds) world.free();
 
-	const result = buildResult(project, plan, state);
+	const result = buildResult(project, run, state);
 	result.stats = { computeMs: performance.now() - startedAt, reusedUntil, steps };
 	return [result, trimCache(nextCache)];
 }
@@ -1886,6 +1895,35 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 			pace != null && plan.marbles.length > 1
 				? descentPoints(pace, plan.startStep / PHYSICS_HZ + 0, plan.endStep / PHYSICS_HZ)
 				: null
+	};
+}
+
+/**
+ * A run that stopped early, completed from the latest whole run: the stretch it simulated is exact, and everything past
+ * its stop stays as that run left it. A diverged marble's track jumps at the stop until the next whole run.
+ */
+function withFarRun(near: TSimulationResult, far: TSimulationResult): TSimulationResult {
+	const until = near.duration;
+	const hitKey = (hit: THitResult): string => `${hit.laneId}/${hit.hitId}`;
+	const farHits = new Map(far.hits.map((hit) => [hitKey(hit), hit]));
+	const farPieces = new Map(far.pieces.map((piece) => [piece.entityId, piece]));
+	const farTracks = new Map(far.marbles.map((track) => [track.entityId, track]));
+	return {
+		...near,
+		duration: far.duration,
+		// A hit this close to the stop could still have been struck in time after it
+		hits: near.hits.map((hit) => (hit.targetTime <= until - HIT_TOLERANCE ? hit : (farHits.get(hitKey(hit)) ?? hit))),
+		pieces: near.pieces.map((piece) => (piece.status === 'unreached' && (piece.entryTime ?? piece.hitTime ?? Infinity) > until ? (farPieces.get(piece.entityId) ?? piece) : piece)),
+		contacts: [...near.contacts, ...far.contacts.filter((contact) => contact.time > until)],
+		marbles: near.marbles.map((track) => {
+			const last = track.samples[track.samples.length - 1];
+			// A marble that fell out before the stop is gone in this run
+			if (last != null && last.time < until - STEP_EPSILON - 1 / PHYSICS_HZ) return track;
+			const samples = farTracks.get(track.entityId)?.samples ?? [];
+			return { ...track, samples: [...track.samples, ...samples.filter((sample) => sample.time > until + STEP_EPSILON)] };
+		}),
+		pace: far.pace,
+		descent: far.descent
 	};
 }
 

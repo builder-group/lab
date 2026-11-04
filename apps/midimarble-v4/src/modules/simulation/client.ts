@@ -9,9 +9,10 @@ import type { TAutoPlaceAnswer, TContinueAnswer, TGapAnswer, TWorkerRequest } fr
 export interface TSimulationClient {
 	/**
 	 * Simulates in the worker. Only the newest request waiting behind a running one is run; requests it
-	 * replaced resolve with its result, whose `revision` tells callers which project it belongs to.
+	 * replaced resolve with its result, whose `revision` tells callers which project it belongs to. With a
+	 * `horizon`, see `TSimulator`.
 	 */
-	simulate: (project: TProject) => Promise<TSimulationResult>;
+	simulate: (project: TProject, horizon?: number) => Promise<TSimulationResult>;
 	/**
 	 * Simulates in the assists worker, for assists that alternate their own runs with Auto place, such as
 	 * Fix Hits: both resume from the snapshots of that worker's latest run instead of rebuilding it.
@@ -41,8 +42,8 @@ export function createSimulationClient(): TSimulationClient {
 	const startPool = (): TAssistPool => (pool ??= createAssistPool({ size: poolSize, createWorker: createPoolWorker }));
 
 	return {
-		simulate(project) {
-			return simulation.queue.enqueue<TSimulationResult>('simulate', { kind: 'simulate', project }, { merge: true });
+		simulate(project, horizon) {
+			return simulation.queue.enqueue<TSimulationResult>('simulate', { kind: 'simulate', project, ...(horizon != null ? { horizon } : {}) }, { merge: true });
 		},
 		simulateAssist(project) {
 			return assists.queue.enqueue<TSimulationResult>('simulate', { kind: 'simulate', project });

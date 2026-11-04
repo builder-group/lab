@@ -676,6 +676,26 @@ From `.local/v3/gaps-round2.md`, the benchmark agent that made a film through MC
 - Removed `brief.rs` and `mm_preview.py`, unused once the chat went; the project's agent folder is `agents/folder.rs`.
 - Next: Connect in the Agent menu replacing the AI Workspace, a real Claude Code test, no rolling on platforms, then the plan below.
 
+### Performance, by feel
+
+Measured in Node on Jingle Bells (`.local/cleanup-audit/`: `bench-preflight`, `bench-horizon`, `bench-panels`, `run-overlay.sh`, the last two on a counting fake DOM, with no layout or paint).
+
+- **Preflight on a drag.** `useRunPreflight` holds the last value while `$previewing` and gives none while Build Track works; `preflightExport` memoises by result. Layers, Timeline and inspector per drag result: 27 ms median, 79 max, to 0.7 and 2.2. Five callers on one result: 78 ms to 28, then none during a drag.
+- **Playback, Follow, pan.** `PieceLayer` read the playhead for nothing: rotors outline a circle, and no other piece moves there. It and the overlay's dots and badges now draw once per zoom against a view centred on the origin, under a parent `transform`. Attribute writes per pan frame: 196 to 1 and 466 to 7. Playhead frame 0.29 ms to 0. Culling skipped: nothing offscreen re-renders now.
+- **Why a broken run is slow.** Marbles come to rest among pieces: speed under 5 cm/s for 2,600 to 3,600 of 8,007 samples, 59 colliders and 25 contact pairs per world in the last stretch against 5 and 1.5 in a good run, so `world.step` costs 37 µs against 5 µs there. Nothing is wrong with the snapshots.
+- **Early-platform drag.** The first preview runs whole, later ones stop 5 s past where the run first changes, and a 150 ms pause or the release runs it whole. Reflow median/max: piece at 1.5 s 343/615 ms to 18/30; 4 s 242/397 to 21/25; 16.5 s 76/138 to 20/28; 29 s unchanged at 14. Hits inside the horizon match a full run (0 wrong of 708), and the whole run afterwards equals a fresh one. Past the horizon hits, pieces and the track stay as the last whole run left them until the pause, so the what-if count and far hits catch up then, and a track that diverged jumps at the stop until then.
+- `touchingPairs` skips pairs whose bounds are apart: 129, 258, 516 pieces 2, 12, 60 ms to 1.2, 7.8, 39 (the measuring of near pairs and building shapes remain).
+- Timeline rows left unmemoised: 0.5 ms per result, and their status attributes do change. `$camera.mode` is never `camera`, so that branch of the renderer is dead; left for a later pass.
+- Not verified in the app: real frame times and how the transformed pulse rings look.
+
+## Connect
+
+- The Agent menu's Show AI Workspace is gone, with `workspace.rs` and `mcp_write_workspace`. In its place **Connect Claude Code** and **Connect ChatGPT and Codex**, each reading Disconnect while connected, and **Copy Command for Other Apps**, also in the Help menu and ⌘K (`connect.rs`, `McpCx`, `agent-connect.ts`). A person's existing `~/Documents/MidiMarble AI Workspace` stays where it is, unused.
+- Registry commands can now read by state (`currentTitle`). `MenuButton` has `onOpen`, which refreshes the state as the menu opens. Agents can't run these three commands.
+- `initialize`'s `instructions` carry the rules the workspace's `AGENTS.md` held. Removed the unused `show_as` and `navigate_to_path` in `window.rs`.
+- Checks: typecheck, lint, test, `cargo test`, `cargo build`. Tests use a temporary HOME and a stand-in tool. Not checked: a real `mcp add` against a real config, and the menu by eye.
+- Next: a real Claude Code test, no rolling on platforms, then the plan below.
+
 ## Connect
 
 - The Agent menu's Show AI Workspace is gone, with `workspace.rs` and `mcp_write_workspace`. In its place **Connect Claude Code** and **Connect ChatGPT and Codex**, each reading Disconnect while connected, and **Copy Command for Other Apps**, also in the Help menu and ⌘K (`connect.rs`, `McpCx`, `agent-connect.ts`). A person's existing `~/Documents/MidiMarble AI Workspace` stays where it is, unused.

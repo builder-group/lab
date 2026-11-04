@@ -28,6 +28,9 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		};
 	}
 
+	const memo = preflightMemo.get(result);
+	if (memo?.project === project && memo.blenderObjects === blenderObjects) return memo.preflight;
+
 	const names = createNames(project);
 	const issues: TPreflightIssue[] = [
 		...hitIssues(project, result, names),
@@ -50,8 +53,13 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	// The sheet says what the hit summary says, with the tips after it
 	const tips = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
 	const summary = problemSummary(checked);
-	return { ...checked, summary: [summary.label, summary.needsSong ? ADD_SONG_LABEL : '', tips].filter(Boolean).join(' · ') };
+	const preflight = { ...checked, summary: [summary.label, summary.needsSong ? ADD_SONG_LABEL : '', tips].filter(Boolean).join(' · ') };
+	preflightMemo.set(result, { project, blenderObjects, preflight });
+	return preflight;
 }
+
+// Layers, the title bar, the hit summary, the inspector and the Camera track all ask about the same run
+const preflightMemo = new WeakMap<TSimulationResult, { project: TProject; blenderObjects: readonly TBlenderObject[]; preflight: TExportPreflight }>();
 
 export const ADD_SONG_LABEL = 'Add a Song';
 

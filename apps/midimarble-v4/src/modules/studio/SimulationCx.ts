@@ -4,18 +4,28 @@ import { createSimulationClient, type TSimulationClient, type TSimulationResult 
 import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';
 
+// Seconds past where an edit starts to change the run that a preview simulates while moving
+const PREVIEW_HORIZON = 5;
+// With no new preview for this long the pointer has paused, and the whole run follows
+const PREVIEW_PAUSE_MS = 150;
+
 /**
  * Keeps a simulation result for the open project. Every history change re-simulates once per animation
  * frame in the worker, on a timer when frames have stopped because the window is covered. Live drags send a temporary project through `preview` without touching history,
- * so the trajectory follows the pointer and the drag commits one history entry on release.
+ * so the trajectory follows the pointer and the drag commits one history entry on release. While a preview keeps
+ * moving only the stretch it changes is simulated; a pause or the release runs it whole, so far-off hits catch up then.
  */
 export class SimulationCx {
 	readonly $result = createState<TSimulationResult | null>(null);
 	readonly $computing = createState(false);
+	/** True from `startPreview` to `endPreview` */
+	readonly $previewing = createState(false);
 	/** Wall time from the newest request to its result, in milliseconds */
 
 	private client: TSimulationClient | null = null;
 	private preview: TProject | null = null;
+	private isMoving = false;
+	private pauseTimer: ReturnType<typeof setTimeout> | null = null;
 	private cancelFrame: (() => void) | null = null;
 	private sent = 0;
 	private accepted = 0;
@@ -28,20 +38,21 @@ export class SimulationCx {
 		const unlisten = this.studio.$history.subscribe(({ value }) => {
 			if (value == null) {
 				projectId = null;
-				this.preview = null;
+				this.clearPreview();
 				this.$result.set(null);
 				return;
 			}
 			// Another project's result must not show while the new one simulates
 			if (value.present.id !== projectId) {
 				projectId = value.present.id;
-				this.preview = null;
+				this.clearPreview();
 				this.$result.set(null);
 			}
 			this.schedule();
 		});
 		return () => {
 			unlisten();
+			this.clearPreview();
 			this.cancelFrame?.();
 			this.cancelFrame = null;
 			this.client?.dispose();
@@ -57,15 +68,34 @@ export class SimulationCx {
 
 	/** Simulates `project` in place of the history's present until `endPreview` */
 	startPreview(project: TProject): void {
+		// The first preview runs whole, so a hover's what-if counts every hit it breaks; only the next ones are moving
+		this.isMoving = this.preview != null;
 		this.preview = project;
+		this.$previewing.set(true);
 		this.schedule();
+		if (this.pauseTimer != null) clearTimeout(this.pauseTimer);
+		this.pauseTimer = !this.isMoving
+			? null
+			: setTimeout(() => {
+					this.pauseTimer = null;
+					this.isMoving = false;
+					this.schedule();
+				}, PREVIEW_PAUSE_MS);
 	}
 
 	/** Returns to the history's present, usually right after the drag committed its edit */
 	endPreview(): void {
 		if (this.preview == null) return;
-		this.preview = null;
+		this.clearPreview();
 		this.schedule();
+	}
+
+	private clearPreview(): void {
+		if (this.pauseTimer != null) clearTimeout(this.pauseTimer);
+		this.pauseTimer = null;
+		this.isMoving = false;
+		this.preview = null;
+		this.$previewing.set(false);
 	}
 
 	get isPreviewing(): boolean {
@@ -96,7 +126,7 @@ export class SimulationCx {
 		if (project == null || client == null) return;
 		const id = ++this.sent;
 		this.$computing.set(true);
-		client.simulate(project).then(
+		client.simulate(project, this.isMoving ? PREVIEW_HORIZON : undefined).then(
 			(result) => {
 				// Requests replaced while waiting resolve with the same newer result, oldest first
 				if (id < this.accepted || this.studio.project?.id !== project.id) return;

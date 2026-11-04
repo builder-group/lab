@@ -1,15 +1,14 @@
 import { useFeatureState } from 'feature-react/state';
-import { createState } from 'feature-state';
 import { Anchor, AudioLines, Bookmark, Box, BrickWall, ChevronRight, Eye, EyeOff, Folder, Globe, Lightbulb, Lock, LockOpen, Music, Sparkles, Sun, TriangleAlert, Type, Video } from 'lucide-react';
 import React from 'react';
 import { HelpTip, openContextMenu, RenameField, type TMenuEntry } from '@/components';
 import { attachState } from '@/modules/compose/attach-edit';
-import type { TBuildProgress } from '@/modules/compose/build-track';
 import { PieceIcon } from '@/modules/compose/piece-icons';
-import { badgeStatus, StatusIcon } from '@/modules/compose/status';
+import { badgeStatus, StatusIcon, type TBadgeStatus } from '@/modules/compose/status';
 import { $blenderObjects, deleteDecorCommands, duplicateDecorCommands, madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
 import { moveDecorClearAction, revealMadeInBlender } from '@/modules/design/decor-actions';
-import { decorTips, lookProblems, preflightExport, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { decorTips, lookProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import { updateLightCommands } from '@/modules/design/scene-layers';
 import { shotKindLabel } from '@/modules/design/shots';
 import type { TEntity, TProject } from '@/modules/project';
@@ -23,7 +22,6 @@ import { SCENE_KEY, toDecorKey } from './selection';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
 /** Full-height sidebar after Paper and Figma, and only Layers; what you add is in the tool rail's Insert */
-const NOT_BUILDING = createState<TBuildProgress | null>(null);
 
 export const Sidebar: React.FC<TSidebarProps> = (props) => {
 	const { cx } = props;
@@ -72,8 +70,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	// Pieces another marble hits, from the problem model the hit summary and the inspector read
 	const blenderObjects = useFeatureState($blenderObjects);
 	// Badges wait while Build Track works: each step would check the whole run again, and the hit summary says Building…
-	const isBuilding = useFeatureState(useFeatureState(cx.$compose)?.assist.$building ?? NOT_BUILDING) != null;
-	const preflight = React.useMemo(() => (!isBuilding && result != null && result.revision === project.revision ? preflightExport(project, result, blenderObjects) : null), [isBuilding, project, result, blenderObjects]);
+	const preflight = useRunPreflight(cx, project);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
 	const looks = React.useMemo(() => (preflight != null ? lookProblems(preflight) : null), [preflight]);
 	const tips = React.useMemo(() => (preflight != null ? decorTips(preflight) : null), [preflight]);
@@ -202,6 +199,20 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 
 	useAgentTouchedRows(cx, treeRef);
 
+	// One object for every row and render, so a memoised row re-renders only when its own props change; each action is this render's
+	const latestRef = React.useRef({ select, openMenu, toggleGroup });
+	React.useLayoutEffect(() => {
+		latestRef.current = { select, openMenu, toggleGroup };
+	});
+	const rowActions = React.useMemo<TRowActions>(
+		() => ({
+			onClick: (row, event) => latestRef.current.select(row, event),
+			onContextMenu: (row, event) => latestRef.current.openMenu(row, event),
+			onToggle: (groupKey) => latestRef.current.toggleGroup(groupKey)
+		}),
+		[]
+	);
+
 	return (
 		<section aria-label="Layers" data-quick-help="layers" className="flex min-h-0 flex-1 flex-col">
 			<div ref={treeRef} role="tree" aria-label="Layers" aria-multiselectable tabIndex={0} className="mm-layers min-h-0 flex-1 overflow-y-auto pb-3" onKeyDown={onKeyDown} onClick={(event) => {
@@ -215,9 +226,9 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 						row,
 						isSelected: isSelected(row),
 						isInSelection: !isSelected(row) && isInSelection(row),
-						joins,
-						onClick: (event: React.MouseEvent) => select(row, event),
-						onContextMenu: (event: React.MouseEvent) => openMenu(row, event)
+						joinsTop: joins.top,
+						joinsBottom: joins.bottom,
+						actions: rowActions
 					};
 					if (row.kind === 'piece') {
 						return (
@@ -229,16 +240,15 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 								isRenaming={renaming === row.id}
 								isHidden={hidden.includes(row.id)}
 								isLocked={locked.includes(row.id)}
-								resolved={pieceResults.get(row.id)}
-								hit={hitResults.get(row.id)}
-								hitBy={struck?.get(row.id)?.[0] ?? looks?.get(row.id)?.[0]}
+								status={pieceRowStatus(row.piece, pieceResults.get(row.id), hitResults.get(row.id), struck?.get(row.id)?.[0] ?? looks?.get(row.id)?.[0])}
+								hitTime={hitResults.get(row.id)?.targetTime}
 							/>
 						);
 					}
 					if (row.kind === 'decor' || row.kind === 'madeInBlender') {
 						return <DecorRow key={row.id} {...common} cx={cx} isRenaming={renaming === row.id} tip={tips?.get(row.id)?.label} />;
 					}
-					return <OutlineRow key={row.id} {...common} cx={cx} isRenaming={renaming === row.id} onToggle={'groupKey' in row ? () => toggleGroup(row.groupKey) : undefined} />;
+					return <OutlineRow key={row.id} {...common} cx={cx} isRenaming={renaming === row.id} />;
 				})}
 			</div>
 		</section>
@@ -249,9 +259,22 @@ interface TRowProps {
 	row: TOutlineRow;
 	isSelected: boolean;
 	isInSelection: boolean;
-	joins: TJoins;
-	onClick: (event: React.MouseEvent) => void;
-	onContextMenu: (event: React.MouseEvent) => void;
+	joinsTop: boolean;
+	joinsBottom: boolean;
+	actions: TRowActions;
+}
+
+interface TRowActions {
+	onClick: (row: TOutlineRow, event: React.MouseEvent) => void;
+	onContextMenu: (row: TOutlineRow, event: React.MouseEvent) => void;
+	onToggle: (groupKey: string) => void;
+}
+
+/** A piece's badge: like Xcode's navigator, only problems get one; on-time pieces stay quiet */
+function pieceRowStatus(piece: TEntity, resolved: TResolvedPiece | undefined, hit: THitResult | undefined, hitBy: TPreflightIssue | undefined): TBadgeStatus | null {
+	const own = soundsHit(piece.components.piece?.type ?? 'platform', piece.components.hitLink) ? badgeStatus(resolved?.status, hit) : resolved?.status === 'blocked' ? 'blocked' : null;
+	// Another marble hitting it shows when the piece's own status is fine
+	return hitBy != null && (own == null || own === 'onTime') ? 'struck' : own;
 }
 
 function canRename(row: TOutlineRow): boolean {
@@ -259,8 +282,8 @@ function canRename(row: TOutlineRow): boolean {
 }
 
 /** Every row except pieces: the song, marbles, groups, the wall, lights, the camera, shots and titles */
-const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onToggle?: () => void }> = (props) => {
-	const { cx, row, isSelected, isInSelection, joins, isRenaming, onToggle, onClick, onContextMenu } = props;
+const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: StudioCx; isRenaming: boolean }) {
+	const { cx, row, isSelected, isInSelection, joinsTop, joinsBottom, isRenaming, actions } = props;
 	const view = outlineRowView(row);
 
 	function rename(value: string | null): void {
@@ -277,9 +300,10 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 			depth={row.depth}
 			isSelected={isSelected}
 			isInSelection={isInSelection}
-			joins={joins}
+			joinsTop={joinsTop}
+			joinsBottom={joinsBottom}
 			isOpen={view.isOpen}
-			onToggle={onToggle}
+			onToggle={'groupKey' in row ? () => actions.onToggle(row.groupKey) : undefined}
 			icon={view.icon}
 			label={view.label}
 			title={view.title}
@@ -299,14 +323,14 @@ const OutlineRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; onTo
 					</>
 				) : undefined
 			}
-			onClick={onClick}
+			onClick={(event) => actions.onClick(row, event)}
 			onDoubleClick={() => {
 				if (canRename(row)) cx.$renaming.set(row.id);
 			}}
-			onContextMenu={onContextMenu}
+			onContextMenu={(event) => actions.onContextMenu(row, event)}
 		/>
 	);
-};
+});
 
 /** Icon, name, fold state and quiet time of a row */
 function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; subtitle?: string | undefined; help?: string; isOpen?: boolean; time?: number } {
@@ -346,8 +370,8 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 }
 
 /** A Decor layer: its eye and, when a marble's path crosses it, the amber badge the inspector explains */
-const DecorRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; tip: string | undefined }> = (props) => {
-	const { cx, row, isSelected, isInSelection, joins, isRenaming, tip, onClick, onContextMenu } = props;
+const DecorRow = React.memo(function DecorRow(props: TRowProps & { cx: StudioCx; isRenaming: boolean; tip: string | undefined }) {
+	const { cx, row, isSelected, isInSelection, joinsTop, joinsBottom, isRenaming, tip, actions } = props;
 	const view = outlineRowView(row);
 	const project = cx.project;
 	const isHidden = project != null && (row.kind === 'decor' ? row.decor.hidden === true : row.kind === 'madeInBlender' && madeInBlenderLayer(project.design, row.name).hidden === true);
@@ -364,7 +388,8 @@ const DecorRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; tip: s
 			depth={row.depth}
 			isSelected={isSelected}
 			isInSelection={isInSelection}
-			joins={joins}
+			joinsTop={joinsTop}
+			joinsBottom={joinsBottom}
 			isDimmed={isHidden}
 			icon={view.icon}
 			label={view.label}
@@ -386,14 +411,14 @@ const DecorRow: React.FC<TRowProps & { cx: StudioCx; isRenaming: boolean; tip: s
 					{isHidden ? <EyeOff size={12} strokeWidth={1.8} /> : <Eye size={12} strokeWidth={1.8} />}
 				</RowToggle>
 			}
-			onClick={onClick}
+			onClick={(event) => actions.onClick(row, event)}
 			onDoubleClick={() => {
 				if (canRename(row)) cx.$renaming.set(row.id);
 			}}
-			onContextMenu={onContextMenu}
+			onContextMenu={(event) => actions.onContextMenu(row, event)}
 		/>
 	);
-};
+});
 
 /** The context menu of the selected decorations */
 function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
@@ -422,20 +447,18 @@ function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
 	];
 }
 
-const PieceRow: React.FC<
-	TRowProps & {
+const PieceRow = React.memo(function PieceRow(
+	props: TRowProps & {
 		cx: StudioCx;
 		piece: TEntity;
 		isRenaming: boolean;
 		isHidden: boolean;
 		isLocked: boolean;
-		resolved: TResolvedPiece | undefined;
-		hit: THitResult | undefined;
-		/** The first problem of another marble hitting this piece */
-		hitBy: TPreflightIssue | undefined;
+		status: TBadgeStatus | null;
+		hitTime: number | undefined;
 	}
-> = (props) => {
-	const { cx, row, piece, isSelected, isInSelection, joins, isRenaming, isHidden, isLocked, resolved, hit, hitBy, onClick, onContextMenu } = props;
+) {
+	const { cx, row, piece, isSelected, isInSelection, joinsTop, joinsBottom, isRenaming, isHidden, isLocked, status, hitTime, actions } = props;
 	const type = piece.components.piece?.type ?? 'platform';
 	const name = piece.name ?? type;
 	const link = piece.components.hitLink;
@@ -445,10 +468,6 @@ const PieceRow: React.FC<
 	const attach = link != null && !isLinked && project != null ? attachState(project, piece) : null;
 	const followLabel =
 		attach?.kind === 'anchored' ? `Follows ${project?.music.lanes.find((lane) => lane.id === attach.laneId)?.name ?? 'a marble'} at ${formatTime(attach.time)}` : null;
-	// Like Xcode's navigator, only problems get a badge; on-time pieces stay quiet
-	const own = isLinked ? badgeStatus(resolved?.status, hit) : resolved?.status === 'blocked' ? 'blocked' : null;
-	// Another marble hitting it shows when the piece's own status is fine
-	const status = hitBy != null && (own == null || own === 'onTime') ? 'struck' : own;
 	const isProblem = status != null && status !== 'onTime';
 
 	return (
@@ -457,7 +476,8 @@ const PieceRow: React.FC<
 			depth={row.depth}
 			isSelected={isSelected}
 			isInSelection={isInSelection}
-			joins={joins}
+			joinsTop={joinsTop}
+			joinsBottom={joinsBottom}
 			isDimmed={isHidden}
 			icon={<PieceIcon type={type} size={14} />}
 			label={name}
@@ -475,7 +495,7 @@ const PieceRow: React.FC<
 							<Anchor size={11} strokeWidth={1.8} aria-hidden />
 						</span>
 					) : null}
-					{isLinked && hit != null ? <span>{formatShortTime(hit.targetTime)}</span> : null}
+					{isLinked && hitTime != null ? <span>{formatShortTime(hitTime)}</span> : null}
 				</>
 			}
 			actions={
@@ -488,12 +508,12 @@ const PieceRow: React.FC<
 					</RowToggle>
 				</>
 			}
-			onClick={onClick}
+			onClick={(event) => actions.onClick(row, event)}
 			onDoubleClick={() => cx.$renaming.set(piece.id)}
-			onContextMenu={onContextMenu}
+			onContextMenu={(event) => actions.onContextMenu(row, event)}
 		/>
 	);
-};
+});
 
 /** Eye and lock buttons in the row's reserved slot: they show on row hover and stay when on, like Figma's layer toggles */
 const RowToggle: React.FC<{ label: string; isOn: boolean; onClick: () => void; children: React.ReactNode }> = (props) => {
@@ -542,7 +562,7 @@ function useAgentTouchedRows(cx: StudioCx, treeRef: React.RefObject<HTMLDivEleme
 }
 
 const LayerRow: React.FC<TLayerRowProps> = (props) => {
-	const { id, depth, isSelected, isInSelection = false, joins, isDimmed = false, isOpen, onToggle, icon, label, title, isRenaming, onRename, meta, actions, onClick, onDoubleClick, onContextMenu } = props;
+	const { id, depth, isSelected, isInSelection = false, joinsTop, joinsBottom, isDimmed = false, isOpen, onToggle, icon, label, title, isRenaming, onRename, meta, actions, onClick, onDoubleClick, onContextMenu } = props;
 	return (
 		<div
 			role="treeitem"
@@ -553,8 +573,8 @@ const LayerRow: React.FC<TLayerRowProps> = (props) => {
 			data-id={id}
 			data-selected={isSelected}
 			data-in-selection={isInSelection}
-			data-join-top={joins.top}
-			data-join-bottom={joins.bottom}
+			data-join-top={joinsTop}
+			data-join-bottom={joinsBottom}
 			data-dimmed={isDimmed}
 			title={title}
 			style={{ paddingLeft: 4 + depth * 16 }}
@@ -594,7 +614,9 @@ interface TLayerRowProps {
 	isSelected: boolean;
 	/** Inside a selected group */
 	isInSelection?: boolean;
-	joins: TJoins;
+	/** The highlight continues into the row above or below, so it reads as one block */
+	joinsTop: boolean;
+	joinsBottom: boolean;
 	isDimmed?: boolean;
 	/** Undefined for rows without children */
 	isOpen?: boolean;
@@ -611,12 +633,6 @@ interface TLayerRowProps {
 	onClick: (event: React.MouseEvent) => void;
 	onDoubleClick: () => void;
 	onContextMenu: (event: React.MouseEvent) => void;
-}
-
-/** Whether a tinted row continues into the row above or below, so the highlight reads as one block */
-interface TJoins {
-	top: boolean;
-	bottom: boolean;
 }
 
 /** Compact time such as `0:03.2` for a row's secondary column */
