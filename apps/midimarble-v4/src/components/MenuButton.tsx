@@ -3,7 +3,7 @@ import { MenuList, type TMenuEntry } from './Menu';
 
 /** Button with a pull-down menu styled like a macOS menu */
 export const MenuButton: React.FC<TMenuButtonProps> = (props) => {
-	const { label, title, items, className, align = 'left' } = props;
+	const { label, title, items, className, align = 'left', onOpen } = props;
 	const [anchor, setAnchor] = React.useState<{ x: number; y: number; alignRight: number; flipY: number } | null>(null);
 	const buttonRef = React.useRef<HTMLButtonElement>(null);
 	const close = React.useCallback(() => setAnchor(null), []);
@@ -14,6 +14,7 @@ export const MenuButton: React.FC<TMenuButtonProps> = (props) => {
 			setAnchor(null);
 			return;
 		}
+		onOpen?.();
 		setAnchor({ x: align === 'right' ? rect.right - 200 : rect.left, y: rect.bottom + 4, alignRight: rect.right, flipY: rect.top - 4 });
 	}
 
@@ -55,4 +56,5 @@ interface TMenuButtonProps {
 	items: TMenuEntry[];
 	className?: string;
 	align?: 'left' | 'right';
+	onOpen?: () => void;
 }

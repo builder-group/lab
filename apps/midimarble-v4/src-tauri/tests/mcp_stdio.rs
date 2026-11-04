@@ -65,6 +65,12 @@ fn says_clearly_when_the_app_is_not_open() {
     let init = server.request("initialize", json!({ "protocolVersion": "2025-06-18", "clientInfo": { "name": "test" } }));
     assert_eq!(init["result"]["serverInfo"]["name"], "midimarble");
 
+    // With no folder to open, the rules reach every agent here, from any folder
+    let instructions = init["result"]["instructions"].as_str().unwrap();
+    assert!(instructions.contains("get_guide first"));
+    assert!(instructions.contains("agent/ folder"));
+    assert!(instructions.contains("never by editing project.json"));
+
     let tools = server.request("tools/list", json!({}));
     assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 10);
 

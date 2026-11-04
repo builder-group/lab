@@ -20,6 +20,7 @@ import { builtInSource, deleteDecorCommands, duplicateDecorCommands, selectedDec
 import { openScatterPanel, placeDecor } from '@/modules/design/decor-actions';
 import { addLightCommands, deleteLightsCommands } from '@/modules/design/scene-layers';
 import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
+import { connectTitle } from '@/modules/mcp/agent-connect';
 import { shownRepeatRange } from './repeat-range';
 import { duplicateClear, type TClearDuplicate } from './duplicate';
 import { CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey } from './selection';
@@ -33,6 +34,8 @@ import type { StudioCx, TWorkspace } from './StudioCx';
 export interface TCommand {
 	id: TCommandId;
 	title: string;
+	/** The title right now, where a row reads by state: Connect or Disconnect. The palette and every menu show it. */
+	currentTitle?: (cx: StudioCx) => string;
 	section: TCommandSection;
 	/** Shortcut glyphs as macOS menus show them */
 	shortcut?: string;
@@ -700,7 +703,25 @@ export const commands: readonly TCommand[] = [
 	},
 	{ id: 'help.resetHints', title: 'Reset Hints', section: 'Help', keywords: 'tips onboarding beginner show again first run', run: (cx) => cx.hints.reset() },
 	{ id: 'help.enableMcp', title: 'Enable MCP', section: 'Help', keywords: 'ai agent claude code codex chatgpt connect server tools', isChecked: (cx) => cx.mcp.$isEnabled.get(), run: (cx) => void cx.mcp.setEnabled(!cx.mcp.$isEnabled.get()) },
-	{ id: 'help.showAiWorkspace', title: 'Show AI Workspace', section: 'Help', keywords: 'ai agent claude code codex chatgpt connect mcp folder', run: (cx) => void cx.mcp.showWorkspace() },
+	{
+		id: 'help.connectClaude',
+		title: connectTitle('claude', false),
+		currentTitle: (cx) => connectTitle('claude', cx.mcp.$connections.get().claude),
+		section: 'Help',
+		keywords: 'ai agent claude code mcp disconnect remove terminal',
+		isEnabled: (cx) => cx.mcp.$connecting.get() == null,
+		run: (cx) => void cx.mcp.toggleConnection('claude')
+	},
+	{
+		id: 'help.connectCodex',
+		title: connectTitle('codex', false),
+		currentTitle: (cx) => connectTitle('codex', cx.mcp.$connections.get().codex),
+		section: 'Help',
+		keywords: 'ai agent openai mcp disconnect remove terminal',
+		isEnabled: (cx) => cx.mcp.$connecting.get() == null,
+		run: (cx) => void cx.mcp.toggleConnection('codex')
+	},
+	{ id: 'help.copyMcpCommand', title: 'Copy Command for Other Apps', section: 'Help', keywords: 'ai agent connect mcp stdio server clipboard', run: (cx) => void cx.mcp.copyServerCommand() },
 	{ id: 'agent.showFolder', title: 'Show Agent Folder', section: 'File', keywords: 'ai references notes runs scratch finder', isEnabled: hasProject, run: (cx) => void cx.showAgentFolder() },
 	{ id: 'design.addPack', title: 'Add Pack…', section: 'File', keywords: 'themes skins decor library browse import starter community', run: (cx) => cx.library.$isAddPackOpen.set(true) },
 	{ id: 'design.exportPack', title: 'Export Pack…', section: 'File', keywords: 'themes skins decor share file', isEnabled: hasProject, run: (cx) => cx.library.openExportPack() }
@@ -807,7 +828,9 @@ export type TCommandId =
 	| 'help.quickHelp'
 	| 'help.resetHints'
 	| 'help.enableMcp'
-	| 'help.showAiWorkspace'
+	| 'help.connectClaude'
+	| 'help.connectCodex'
+	| 'help.copyMcpCommand'
 	| 'agent.showFolder'
 	| 'design.addPack'
 	| 'design.exportPack';
@@ -864,10 +887,15 @@ export function isCommandEnabled(cx: StudioCx, command: TCommand): boolean {
 }
 
 /** A menu item that runs the command, with its title, shortcut, enabled and checked state */
+/** What a command reads as right now */
+export function commandTitle(cx: StudioCx, command: TCommand): string {
+	return command.currentTitle?.(cx) ?? command.title;
+}
+
 export function commandItem(cx: StudioCx, id: TCommandId, title?: string): TMenuItem {
 	const command = getCommand(id);
 	return {
-		label: title ?? command.title,
+		label: title ?? commandTitle(cx, command),
 		shortcut: command.shortcut,
 		disabled: !isCommandEnabled(cx, command),
 		checked: command.isChecked?.(cx),

@@ -6,6 +6,7 @@ const SERVER_NAME: &str = "midimarble";
 const LATEST_PROTOCOL: &str = "2025-06-18";
 const SUPPORTED_PROTOCOLS: [&str; 3] = ["2024-11-05", "2025-03-26", LATEST_PROTOCOL];
 const INSTRUCTIONS: &str = "MidiMarble builds marble-run films from a song. Call get_guide first, then get_state. \
+Files you own go in the project's agent/ folder, get_state.agentFolder. Change the film only through these tools, never by editing project.json. \
 Every edit shows live in the person's window as one Undo step. When they say \"this\" or \"these\", read get_state.selection. A reply saying Stop means stop and ask.";
 
 /// One tool call as the app answers it. `content` holds MCP content blocks.
@@ -308,7 +309,7 @@ mod tests {
         assert_eq!(reply["id"], 1);
         assert_eq!(reply["result"]["protocolVersion"], "2025-03-26");
         assert_eq!(reply["result"]["serverInfo"]["name"], "midimarble");
-        assert!(reply["result"]["instructions"].as_str().unwrap().len() < 300);
+        assert!(reply["result"]["instructions"].as_str().unwrap().len() < 500);
         assert!(server.is_initialized());
         assert_eq!(server.client_name(), Some("claude-code"));
 

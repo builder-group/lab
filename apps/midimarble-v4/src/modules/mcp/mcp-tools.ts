@@ -54,6 +54,9 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
 
+/** Rows for the person: they change or copy how agents reach the app, and an agent could cut itself off with one */
+const PERSON_COMMANDS = new Set<TCommandId>(['help.connectClaude', 'help.connectCodex', 'help.copyMcpCommand']);
+
 /** Commands an agent can start while nothing else may run */
 const WHILE_BUSY = new Set<string>(['build.stop']);
 
@@ -98,7 +101,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const { filter } = z.object({ filter: z.string().optional() }).parse(args);
 		const words = (filter ?? '').toLowerCase().split(/\s+/).filter(Boolean);
 		const listed = registry
-			.filter((command) => command.isHidden !== true)
+			.filter((command) => command.isHidden !== true && !PERSON_COMMANDS.has(command.id))
 			.filter((command) => words.every((word) => `${command.id} ${command.title} ${command.keywords ?? ''}`.toLowerCase().includes(word)))
 			.map((command) => ({
 				id: command.id,
@@ -137,6 +140,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		if (id === REMOVE_PACK) return removePack(cx, commandArgs);
 		const command = registry.find((item) => item.id === id);
 		if (command == null) return fail(cx, `There is no command called ${id}. Use list_commands to find one.`);
+		if (PERSON_COMMANDS.has(command.id)) return fail(cx, `${command.title} is for the person, in the Agent menu.`);
 		const special = ARGUMENT_COMMANDS[command.id];
 		if (special == null && PANEL_COMMANDS[command.id] != null) return fail(cx, `${command.title} asks a person through a panel. Use ${PANEL_COMMANDS[command.id] ?? ''}.`);
 		// Build Track with wait: false answers at once; get_state shows how far it is

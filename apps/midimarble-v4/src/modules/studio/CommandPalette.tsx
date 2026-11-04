@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Search } from 'lucide-react';
 import React from 'react';
-import { commands, commandWorkspace, isCommandEnabled, runInWorkspace, type TCommand } from './commands';
+import { commands, commandTitle, commandWorkspace, isCommandEnabled, runInWorkspace, type TCommand } from './commands';
 import type { StudioCx } from './StudioCx';
 
 /** ⌘K command palette listing every command with its shortcut, like Linear, Raycast and Blender's F3 search */
@@ -102,7 +102,7 @@ const PaletteDialog: React.FC<{ cx: StudioCx; onClose: () => void }> = (props) =
 									onClick={() => run(command)}
 								>
 									<span className="w-3 shrink-0 text-center text-[11px]">{checked ? '✓' : ''}</span>
-									<span className="min-w-0 flex-1 truncate">{command.title}</span>
+									<span className="min-w-0 flex-1 truncate">{commandTitle(cx, command)}</span>
 									{opens != null ? (
 										<span className="text-[11px] opacity-70">Opens {opens === 'compose' ? 'Compose' : 'Film'}</span>
 									) : query.trim() ? (
@@ -167,7 +167,7 @@ function searchCommands(cx: StudioCx, query: string): TCommand[] {
 	const visible = commands.filter((command) => command.isHidden !== true);
 	if (!words.length) return visible.filter((command) => opensWorkspace(cx, command) == null);
 	const scored = visible.flatMap((command) => {
-		const title = command.title.toLowerCase();
+		const title = commandTitle(cx, command).toLowerCase();
 		const haystack = `${title} ${command.section.toLowerCase()} ${command.keywords ?? ''}`;
 		const tokens = haystack.split(/[\s.…°]+/);
 		const matches = words.every((word) => tokens.some((token) => token.startsWith(word)) || haystack.includes(word));

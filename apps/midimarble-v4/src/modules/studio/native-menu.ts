@@ -102,7 +102,10 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		cx.design.$status.listen(schedule),
 		cx.design.$camera.listen(schedule),
 		cx.design.$placing.listen(schedule),
-		cx.design.$links.listen(schedule)
+		cx.design.$links.listen(schedule),
+		cx.mcp.$isEnabled.listen(schedule),
+		cx.mcp.$connections.listen(schedule),
+		cx.mcp.$connecting.listen(schedule)
 	];
 	// Undo, Redo and Select All are there for a focused text field
 	document.addEventListener('focusin', schedule);

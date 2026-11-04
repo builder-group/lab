@@ -1,6 +1,6 @@
 import type { THostRecentProject } from '@/environment';
 import type { specta } from '@/environment';
-import { getCommand, isCommandEnabled, type TCommandId } from './commands';
+import { commandTitle, getCommand, isCommandEnabled, type TCommandId } from './commands';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 
 // The macOS menu bar, laid out from the command registry so its titles, keys and states match the palette and
@@ -170,7 +170,7 @@ export const menuLayout: readonly TMenuSection[] = [
 	{
 		title: 'Help',
 		role: 'help',
-		items: [{ command: 'help.quickHelp', variant: 'help', title: 'MidiMarble Help' }, { command: 'help.resetHints' }, 'separator', { command: 'help.enableMcp' }, { command: 'help.showAiWorkspace' }]
+		items: [{ command: 'help.quickHelp', variant: 'help', title: 'MidiMarble Help' }, { command: 'help.resetHints' }, 'separator', { command: 'help.connectClaude' }, { command: 'help.connectCodex' }, { command: 'help.copyMcpCommand' }, { command: 'help.enableMcp' }]
 	}
 ];
 
@@ -242,7 +242,7 @@ export function readMenuItem(cx: StudioCx, line: TCommandLine, isTextFocused: bo
 		const isShown = cx.$panels.get()[line.panel];
 		return { title: `${isShown ? 'Hide' : 'Show'} ${command.title}`, enabled: isCommandEnabled(cx, command), checked: null };
 	}
-	const title = line.title ?? agentStepTitle(cx, line.command) ?? (line.command === 'play.toggle' && cx.$playing.get() ? 'Pause' : command.title);
+	const title = line.title ?? agentStepTitle(cx, line.command) ?? (line.command === 'play.toggle' && cx.$playing.get() ? 'Pause' : commandTitle(cx, command));
 	return {
 		title: line.showsKey === true && command.shortcut != null ? `${title}\t${command.shortcut}` : title,
 		enabled: (line.text != null && isTextFocused) || isCommandEnabled(cx, command),

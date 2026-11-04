@@ -65,8 +65,14 @@ export const commands = {
 	mcpSetEnabled: (isEnabled: boolean) => typedError<McpStatusDto, string>(__TAURI_INVOKE("mcp_set_enabled", { isEnabled })),
 	/**  Answers a `McpRequestEvent` with `{ content, isError, packagePath }` */
 	mcpRespond: (requestId: number, replyJson: string) => typedError<null, string>(__TAURI_INVOKE("mcp_respond", { requestId, replyJson })),
-	/**  Show AI Workspace: writes the folder for the running binary and returns its path */
-	mcpWriteWorkspace: () => typedError<string, string>(__TAURI_INVOKE("mcp_write_workspace")),
+	/**  Connect in the Agent menu: runs the tool's own `mcp add`, or copies its command text when the tool isn't found */
+	mcpConnect: (tool: McpAgentTool) => typedError<McpConnectOutcome, string>(__TAURI_INVOKE("mcp_connect", { tool })),
+	/**  Disconnect in the Agent menu: runs the tool's own `mcp remove`. Leaves Enable MCP as it is. */
+	mcpDisconnect: (tool: McpAgentTool) => typedError<McpConnectOutcome, string>(__TAURI_INVOKE("mcp_disconnect", { tool })),
+	/**  Whether each agent tool's config lists this binary, so a stale path reads as not connected */
+	mcpConnections: () => typedError<McpConnectionsDto, string>(__TAURI_INVOKE("mcp_connections")),
+	/**  Copy Command for Other Apps */
+	mcpCopyServerCommand: () => typedError<null, string>(__TAURI_INVOKE("mcp_copy_server_command")),
 	/**  Items of the project library (`<package>/assets/`) or the global library in the app's support folder */
 	libraryList: (scope: LibraryScope, packagePath: string | null) => typedError<LibraryItemDto[], string>(__TAURI_INVOKE("library_list", { scope, packagePath })),
 	/**  Copies a project item into the global library for use in other projects */
@@ -172,9 +178,19 @@ export type LibraryScope =
 /**  The app's support folder, shared by every project */
 "global";
 
+export type McpAgentTool = "claude" | "codex";
+
 /**  Which agents are connected changed. `clients` holds what each calls itself in `initialize`, one per connection. */
 export type McpClientsEvent = {
 	clients: string[],
+};
+
+/**  What a click did: the tool's command ran, or it wasn't found and its command text was copied instead */
+export type McpConnectOutcome = "done" | "copied";
+
+export type McpConnectionsDto = {
+	claude: boolean,
+	codex: boolean,
 };
 
 /**  A tool call for the front end to run. Answered with `mcp_respond`. */

@@ -62,21 +62,6 @@ impl AppWindow {
         return Ok(window);
     }
 
-    /// Shows the window at `path`, building a new window there on first open
-    /// and navigating existing windows client-side.
-    pub fn show_as(&self, app: &AppHandle, path: &str) -> tauri::Result<WebviewWindow> {
-        let window = if let Some(window) = self.get(app) {
-            self.navigate_to_path(&window, path)?;
-            window
-        } else {
-            self.build_at(app, path)?
-        };
-
-        window.show()?;
-        window.set_focus()?;
-        return Ok(window);
-    }
-
     fn build(&self, app: &AppHandle) -> tauri::Result<WebviewWindow> {
         return self.build_at(app, self.path());
     }
@@ -129,14 +114,6 @@ impl AppWindow {
         }
 
         return builder;
-    }
-
-    #[allow(dead_code)]
-    fn navigate_to_path(&self, window: &WebviewWindow, path: &str) -> tauri::Result<()> {
-        return window.eval(&format!(
-            "window.__TAURI_ROUTER__?.navigate({{ href: {:?} }});",
-            path
-        ));
     }
 
     #[cfg(target_os = "macos")]

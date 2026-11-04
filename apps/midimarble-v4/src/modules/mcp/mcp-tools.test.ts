@@ -82,6 +82,11 @@ describe('MCP tools', () => {
 		expect(bad.isError).toBe(true);
 		expect(textOf(bad)).toContain("don't fit");
 		expect(textOf(await runTool(cx, 'run_command', { id: 'nope' }))).toContain('list_commands');
+		// Connect is the person's: an agent could cut itself off with it
+		const connect = await runTool(cx, 'run_command', { id: 'help.connectClaude' });
+		expect(connect.isError).toBe(true);
+		expect(textOf(connect)).toContain('Agent menu');
+		expect(textOf(await runTool(cx, 'list_commands', { filter: 'connect' }))).not.toContain('help.connect');
 	});
 
 	it('should list commands with whether they can run, and project.execute', async () => {

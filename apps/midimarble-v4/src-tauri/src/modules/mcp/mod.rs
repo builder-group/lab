@@ -3,11 +3,11 @@
 //! runs the tool on the open project, so each edit shows live in the window with Undo.
 
 pub mod commands;
+mod connect;
 mod guides;
 mod host;
 pub mod protocol;
 pub mod socket;
 pub mod stdio;
-mod workspace;
 
 pub use host::{McpClientsEvent, McpRequestEvent, McpState};

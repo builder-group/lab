@@ -273,7 +273,7 @@ Skins and Decor are Blender assets. Each item is a `.blend` with packed textures
 
 There is no chat in the window (design-language.md, Round 9). The person chats in their own Claude Code, Codex or Claude app, which works in the open project through MCP, the same commands a person uses. Edits show live, each one named Undo step ("Agent: Place Platform"), in Edit › Undo and its notice.
 
-**The Agent button** in the title bar opens a small menu: who is connected ("Claude Code connected", "No agent connected", "MCP is off"), Show AI Workspace, Enable MCP and Show Agent Folder. While an agent works its glyph pulses and the word Working opens.
+**The Agent button** in the title bar opens a small menu: who is connected ("Claude Code connected", "No agent connected", "MCP is off"), Connect Claude Code, Connect ChatGPT and Codex, Copy Command for Other Apps, Enable MCP and Show Agent Folder. While an agent works its glyph pulses and the word Working opens.
 
 **While a call runs**, a pill at the top of the canvas in Compose and Film says what it is doing ("Agent · Placing Platform 12") with **Stop**. Calls that only read don't show it, and it goes 1.5 s after the last call. Stop ends a running Build Track, Re-place or export, turns away calls waiting behind it, and tells the agent in its reply; what's done stays. A Blender frame already rendering finishes, so the pill reads Stopping until then.
 
@@ -342,7 +342,7 @@ Export offers four qualities: Draft (720p, 30 fps), Standard (720p, 30 fps), Hig
 
 ## Connecting an agent
 
-**Enable MCP**, in the Agent menu as well as the Help menu, is on by default. **Show AI Workspace** writes `MidiMarble AI Workspace` in Documents and shows it in Finder; a person opens that folder in Claude Code or ChatGPT and approves the server. Other apps point a stdio MCP server at the app binary with the argument `mcp`. While the app is open, an agent reads the project, runs any command of the palette, places pieces with parameters, adds a song, references and assets, looks at frames and exports. Every edit shows live as one Undo step named like "Agent: Place Platform", in a notice with Undo and in Edit > Undo. If the person is mid-drag or an alert is open, the agent waits briefly or is told to try again.
+**Enable MCP**, in the Agent menu as well as the Help menu, is on by default. **Connect Claude Code** and **Connect ChatGPT and Codex** run that app's own command in the background, replacing any entry for an older path, and turn on Enable MCP; the notice says to start a new session there. A row reads **Disconnect …** while that app lists this copy of MidiMarble, checked each time the menu opens; Disconnect leaves Enable MCP on. If the app can't be found the row stays, and a click copies the command to paste into Terminal or hand to an agent. **Copy Command for Other Apps** copies the command any other app runs as a local stdio MCP server. While the app is open, an agent reads the project, runs any command of the palette, places pieces with parameters, adds a song, references and assets, looks at frames and exports. Every edit shows live as one Undo step named like "Agent: Place Platform", in a notice with Undo and in Edit > Undo. If the person is mid-drag or an alert is open, the agent waits briefly or is told to try again.
 
 **References** are images and words for the film's look. They live in `agent/references` and `get_state`, stored with `set_references`, with no panel in the window. **Show Agent Folder** in the Agent menu opens the project's `agent/` folder in Finder.
 

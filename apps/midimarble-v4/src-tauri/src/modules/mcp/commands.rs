@@ -1,5 +1,5 @@
+use super::connect::{self, McpAgentTool, McpConnectOutcome, McpConnectionsDto};
 use super::host::{FrontEndReply, McpState};
-use super::workspace;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -103,12 +103,38 @@ pub fn mcp_respond(
     return Ok(());
 }
 
-/// Show AI Workspace: writes the folder for the running binary and returns its path
-#[tauri::command]
-#[specta::specta]
-pub fn mcp_write_workspace(app: AppHandle) -> Result<String, String> {
-    let documents = app.path().document_dir().map_err(|error| error.to_string())?;
+fn running_binary() -> Result<String, String> {
     let binary = std::env::current_exe().map_err(|error| error.to_string())?;
-    let folder = workspace::generate(&documents, &binary).map_err(|error| error.to_string())?;
-    return Ok(folder.display().to_string());
+    return Ok(binary.display().to_string());
+}
+
+/// Connect in the Agent menu: runs the tool's own `mcp add`, or copies its command text when the tool isn't found
+#[tauri::command(async)]
+#[specta::specta]
+pub fn mcp_connect(app: AppHandle, tool: McpAgentTool) -> Result<McpConnectOutcome, String> {
+    let home = app.path().home_dir().map_err(|error| error.to_string())?;
+    return connect::connect(tool, &home, &running_binary()?);
+}
+
+/// Disconnect in the Agent menu: runs the tool's own `mcp remove`. Leaves Enable MCP as it is.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn mcp_disconnect(app: AppHandle, tool: McpAgentTool) -> Result<McpConnectOutcome, String> {
+    let home = app.path().home_dir().map_err(|error| error.to_string())?;
+    return connect::disconnect(tool, &home);
+}
+
+/// Whether each agent tool's config lists this binary, so a stale path reads as not connected
+#[tauri::command(async)]
+#[specta::specta]
+pub fn mcp_connections(app: AppHandle) -> Result<McpConnectionsDto, String> {
+    let home = app.path().home_dir().map_err(|error| error.to_string())?;
+    return Ok(connect::connections(&home, &running_binary()?));
+}
+
+/// Copy Command for Other Apps
+#[tauri::command(async)]
+#[specta::specta]
+pub fn mcp_copy_server_command() -> Result<(), String> {
+    return connect::copy_server_command(&running_binary()?);
 }

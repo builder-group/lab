@@ -1,8 +1,9 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
-import { host, specta } from '@/environment';
+import { specta } from '@/environment';
 import { commands as registry } from '@/modules/studio/commands';
 import type { StudioCx } from '@/modules/studio/StudioCx';
+import { COMMAND_COPIED_NOTICE, connectedNotice, disconnectedNotice, SERVER_COMMAND_COPIED_NOTICE, type TAgentTool } from './agent-connect';
 import { presenceLabel, touchedKeys } from './agent-presence';
 import { AgentPresenceCx } from './AgentPresenceCx';
 import { runTool, type TToolReply } from './mcp-tools';
@@ -18,6 +19,10 @@ export class McpCx {
 	readonly $isEnabled = createState(false);
 	/** What each connected agent calls itself, from MCP's `initialize` */
 	readonly $clients = createState<readonly string[]>([]);
+	/** Whether each agent tool's config lists this app, for the Connect rows */
+	readonly $connections = createState<specta.McpConnectionsDto>({ claude: false, codex: false });
+	/** The tool whose own command is running; the rows wait for it */
+	readonly $connecting = createState<TAgentTool | null>(null);
 	/** The agent at work, for the canvas's pill and the Agent button */
 	readonly presence = new AgentPresenceCx();
 	/** A pointer is down in the window: the person is mid-gesture, so an edit waits */
@@ -34,6 +39,7 @@ export class McpCx {
 		let stopEvent: (() => void) | null = null;
 		let stopClients: (() => void) | null = null;
 		const stopWatching = this.watchEdits();
+		void this.refreshConnections();
 		void specta.events.mcpClientsEvent
 			.listen((event) => this.$clients.set(event.payload.clients))
 			.then((stop) => {
@@ -75,25 +81,63 @@ export class McpCx {
 	}
 
 	async setEnabled(isEnabled: boolean): Promise<void> {
+		if (await this.applyEnabled(isEnabled)) this.studio.notify(isEnabled ? 'MCP is on: AI apps on this Mac can use MidiMarble while it is open' : 'MCP is off');
+	}
+
+	private async applyEnabled(isEnabled: boolean): Promise<boolean> {
 		const result = await specta.commands.mcpSetEnabled(isEnabled);
 		if (result.status === 'error') {
 			this.studio.notify(`MCP couldn't ${isEnabled ? 'start' : 'stop'}: ${result.error}`, 'error');
-			return;
+			return false;
 		}
 		this.$isEnabled.set(result.data.isEnabled);
 		this.$clients.set(result.data.clients);
-		this.studio.notify(isEnabled ? 'MCP is on: AI apps on this Mac can use MidiMarble while it is open' : 'MCP is off');
+		return true;
 	}
 
-	/** Show AI Workspace: writes the folder for this app and shows it in Finder */
-	async showWorkspace(): Promise<void> {
-		const result = await specta.commands.mcpWriteWorkspace();
+	/** Reads who lists this app; never waits on an agent tool, since it only reads their config files */
+	async refreshConnections(): Promise<void> {
+		if (!isTauri()) return;
+		const result = await specta.commands.mcpConnections();
+		if (result.status === 'ok') this.$connections.set(result.data);
+	}
+
+	/** Connect or Disconnect, whichever the row reads. A stale path reads as not connected, so Connect fixes it. */
+	async toggleConnection(tool: TAgentTool): Promise<void> {
+		if (this.$connecting.get() != null) return;
+		const isConnected = this.$connections.get()[tool];
+		this.$connecting.set(tool);
+		try {
+			if (isConnected) await this.disconnect(tool);
+			else await this.connect(tool);
+		} finally {
+			this.$connecting.set(null);
+			await this.refreshConnections();
+		}
+	}
+
+	/** Copy Command for Other Apps */
+	async copyServerCommand(): Promise<void> {
+		const result = await specta.commands.mcpCopyServerCommand();
+		if (result.status === 'error') this.studio.notify(result.error, 'error');
+		else this.studio.notify(SERVER_COMMAND_COPIED_NOTICE);
+	}
+
+	private async connect(tool: TAgentTool): Promise<void> {
+		const result = await specta.commands.mcpConnect(tool);
 		if (result.status === 'error') {
-			this.studio.notify(`The AI Workspace couldn't be written: ${result.error}`, 'error');
+			this.studio.notify(result.error, 'error');
 			return;
 		}
-		const [isShownOk, shownErr] = await host.revealInFinder(result.data);
-		if (!isShownOk) this.studio.notify(shownErr.message, 'error');
+		// A command someone pastes needs MCP on just the same. The one notice says what's next, so turning it on stays quiet.
+		if (!(await this.applyEnabled(true))) return;
+		this.studio.notify(result.data === 'copied' ? COMMAND_COPIED_NOTICE : connectedNotice(tool));
+	}
+
+	private async disconnect(tool: TAgentTool): Promise<void> {
+		const result = await specta.commands.mcpDisconnect(tool);
+		if (result.status === 'error') this.studio.notify(result.error, 'error');
+		else this.studio.notify(result.data === 'copied' ? COMMAND_COPIED_NOTICE : disconnectedNotice(tool));
 	}
 
 	/**

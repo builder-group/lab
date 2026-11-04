@@ -657,6 +657,14 @@ From `.local/v3/gaps-round2.md`, the benchmark agent that made a film through MC
 - Removed `brief.rs` and `mm_preview.py`, unused once the chat went; the project's agent folder is `agents/folder.rs`.
 - Next: Connect in the Agent menu replacing the AI Workspace, a real Claude Code test, no rolling on platforms, then the plan below.
 
+## Connect
+
+- The Agent menu's Show AI Workspace is gone, with `workspace.rs` and `mcp_write_workspace`. In its place **Connect Claude Code** and **Connect ChatGPT and Codex**, each reading Disconnect while connected, and **Copy Command for Other Apps**, also in the Help menu and ⌘K (`connect.rs`, `McpCx`, `agent-connect.ts`). A person's existing `~/Documents/MidiMarble AI Workspace` stays where it is, unused.
+- Registry commands can now read by state (`currentTitle`). `MenuButton` has `onOpen`, which refreshes the state as the menu opens. Agents can't run these three commands.
+- `initialize`'s `instructions` carry the rules the workspace's `AGENTS.md` held. Removed the unused `show_as` and `navigate_to_path` in `window.rs`.
+- Checks: typecheck, lint, test, `cargo test`, `cargo build`. Tests use a temporary HOME and a stand-in tool. Not checked: a real `mcp add` against a real config, and the menu by eye.
+- Next: a real Claude Code test, no rolling on platforms, then the plan below.
+
 ## Decided, not built
 
 The owner's decisions from the same session, in build order after Connect and no rolling on platforms. Details in `design-language.md`, Track direction.
@@ -664,6 +672,7 @@ The owner's decisions from the same session, in build order after Connect and no
 1. Curved Rails experiment on Jingle Bells' 12 gaps: C, S and U shapes. Measure hits on time, staying in the column, repeatable exits; render a Draft.
 2. One Rail holding several paths, with shape presets. Switchback and Finish leave Insert; saved files still load them. Bowl is a piece in Insert.
 3. Start on a Rail in Build Track.
-4. Start and End points on the marble's path, with mirroring for Seamless Loop. First test: reaching the mirrored stretch at the right speed.
-5. Keys: a run that plays many hits, maybe a Rail with sections.
-6. V4 film through MCP against the reference.
+4. Keys: a run that plays many hits, maybe a Rail with sections.
+5. V4 film through MCP against the reference.
+
+Parked by the owner until the above is done: Start and End handles with mirroring for Seamless Loop, whose first test is reaching the mirrored stretch at the right speed. Seamless Loop keeps working as it does today.

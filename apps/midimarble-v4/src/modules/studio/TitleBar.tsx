@@ -204,6 +204,9 @@ const AgentChip: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const isEnabled = useFeatureState(cx.mcp.$isEnabled);
 	const clients = useFeatureState(cx.mcp.$clients);
+	// The rows read these through the registry
+	useFeatureState(cx.mcp.$connections);
+	useFeatureState(cx.mcp.$connecting);
 	const isWorking = useFeatureState(cx.mcp.presence.$current) != null;
 	const working = useWorkingWord(isWorking ? 'Working' : null);
 	const status = agentStatusLine(isEnabled, clients);
@@ -213,6 +216,7 @@ const AgentChip: React.FC<{ cx: StudioCx }> = (props) => {
 			className="mm-titlebar-chip"
 			title={status}
 			align="right"
+			onOpen={() => void cx.mcp.refreshConnections()}
 			label={
 				<>
 					<Sparkles className="mm-titlebar-agent-glyph" data-working={isWorking} size={14} strokeWidth={1.7} aria-hidden />
@@ -222,7 +226,7 @@ const AgentChip: React.FC<{ cx: StudioCx }> = (props) => {
 					</span>
 				</>
 			}
-			items={[{ section: status }, commandItem(cx, 'help.showAiWorkspace'), commandItem(cx, 'help.enableMcp'), commandItem(cx, 'agent.showFolder')]}
+			items={[{ section: status }, commandItem(cx, 'help.connectClaude'), commandItem(cx, 'help.connectCodex'), commandItem(cx, 'help.copyMcpCommand'), commandItem(cx, 'help.enableMcp'), commandItem(cx, 'agent.showFolder')]}
 		/>
 	);
 };
