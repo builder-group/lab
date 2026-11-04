@@ -21,6 +21,7 @@ import {
 	IMPACT_SPEED,
 	type THitResult,
 	type THitStatus,
+	type TMarbleSample,
 	type TResolvedPiece,
 	type TSimulationResult
 } from './types';
@@ -429,6 +430,63 @@ export function prepareAutoPlace(
 	hitId: string,
 	options: Omit<TAutoPlaceOptions, 'range'>
 ): TResult<TAutoPlaceSearch, Error> {
+	const [isOk, error, context] = placementContext(project, result, laneId, hitId, options);
+	if (!isOk) return Err(error);
+	const { base, isShared, targetY, isMending, velocity, speedScale } = context;
+	const isFast = Math.hypot(velocity?.x ?? 0, velocity?.y ?? 0) > FAST_ARRIVAL * speedScale;
+	return Ok({ plan: { hitId, base, isShared, isFast, hasTarget: targetY != null, isMending }, evaluate: (angleTry) => evaluateAngle(context, angleTry) });
+}
+
+/** What every tried angle of a hit's piece is judged against, worked out once from the run so far */
+interface TPlacementContext {
+	project: TProject;
+	result: TSimulationResult;
+	simulate: TAutoPlaceOptions['simulate'];
+	laneId: string;
+	hitId: string;
+	hit: THit;
+	dot: TVec2;
+	velocity: TVec2 | null;
+	owners: Map<string, TEntity>;
+	base: TEntity;
+	previousAngle: number | null;
+	followingHit: THit | null;
+	nextHit: THit | null;
+	isLaunch: boolean;
+	pace: TSimulationResult['pace'] | null;
+	isBox: boolean;
+	bounceSpec: NonNullable<ReturnType<typeof getPieceDefinition>>['params'][string] | undefined;
+	g: number;
+	speedScale: number;
+	isShared: boolean;
+	interval: number;
+	targetY: number | null;
+	allowed: number;
+	takeoff: number | null;
+	band: TFrameBand;
+	stage: TFrameBand;
+	dotShare: number;
+	marbleRadius: number;
+	fallingSpeed: number;
+	until: number;
+	length: number;
+	isMending: boolean;
+	minTravel: number;
+	pattern: ReturnType<typeof travelPattern>;
+	columns: number;
+	later: Set<string>;
+	rhythmAngle: number | null;
+	reserved: ReturnType<typeof reservedSpots>;
+	frontiers: ReturnType<typeof openFrontiers>;
+}
+
+function placementContext(
+	project: TProject,
+	result: TSimulationResult,
+	laneId: string,
+	hitId: string,
+	options: Omit<TAutoPlaceOptions, 'range'>
+): TResult<TPlacementContext, Error> {
 	const { simulate, type = 'platform' } = options;
 	const lane = project.music.lanes.find((item) => item.id === laneId);
 	const index = lane?.hits.findIndex((hit) => hit.id === hitId) ?? -1;
@@ -534,273 +592,373 @@ export function prepareAutoPlace(
 	const rhythmAngle = nextHit != null ? lastTiltOfInterval(lane.hits, index, owners, RHYTHM_TOLERANCE) : null;
 	const reserved = reservedSpots(project, result, laneId, until);
 	const frontiers = openFrontiers(project, result);
+	return Ok({
+		project,
+		result,
+		simulate,
+		laneId,
+		hitId,
+		hit,
+		dot,
+		velocity,
+		owners,
+		base,
+		previousAngle,
+		followingHit,
+		nextHit,
+		isLaunch,
+		pace,
+		isBox,
+		bounceSpec,
+		g,
+		speedScale,
+		isShared,
+		interval,
+		targetY,
+		allowed,
+		takeoff,
+		band,
+		stage,
+		dotShare,
+		marbleRadius,
+		fallingSpeed,
+		until,
+		length,
+		isMending,
+		minTravel,
+		pattern,
+		columns,
+		later,
+		rhythmAngle,
+		reserved,
+		frontiers
+	});
+}
 
-	/** Simulates one angle and bounce; the next dot is returned even when a hard check fails */
-	const evaluate = (
-		angle: number,
-		bounce: number | null,
-		rejected: TAutoPlaceRejection[],
-		isRelaxed: boolean,
-		limit: TFrameBand
-	): { candidate: Omit<TCandidate, 'angle'> | null; nextDot: TVec2 | null } => {
-		// The lane's other column, and whether the tilt leans toward it: a positive angle leans the normal to the left
-		const side = dot.x - band.centerX;
-		const toward = Math.abs(side) > COLUMN_DEADBAND ? -Math.sign(side) : Math.sign(velocity?.x ?? 0) || -1;
-		const entity = withBounce(withAngle(base, angle), bounce);
-		// A flat probe on the next hit checks that its dot can take a piece at all, standing where that piece would
-		const probe =
-			nextHit != null && !owners.has(nextHit.id)
-				? createLinkedPiece('platform', laneId, nextHit.id, 0, { id: `${entity.id}-probe` })
-				: null;
-		const trial = simulateTrial(
-			simulate,
-			withEntities(project, probe != null ? [entity, probe] : [entity]),
-			until
-		);
-		const trialHit = findHitResult(trial, laneId, hitId);
-		if (!isOnTime(trialHit?.status)) {
-			rejected.push(trialHit?.status === 'blocked' ? 'blocked' : 'missed');
-			return { candidate: null, nextDot: null };
-		}
-		if (hasStrayContact(trial, project, laneId, entity.id, hit.time, until, frontiers)) {
-			rejected.push('strayContact');
-			return { candidate: null, nextDot: null };
-		}
-		if (crossesOtherLanes(result, trial, project, laneId, entity.id, hit.time, until, frontiers)) {
-			rejected.push('otherLane');
-			return { candidate: null, nextDot: null };
-		}
-		const samples = trial.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
-		const marbleId = trial.marbles.find((marble) => marble.laneId === laneId)?.entityId;
-		const restrikes = trial.contacts.filter(
-			(contact) =>
-				contact.marbleEntityId === marbleId &&
-				contact.otherEntityId === entity.id &&
-				contact.time > hit.time + HIT_TOLERANCE + 0.01 &&
-				contact.time < until - 0.03
-		).length;
-		let nextDot: TVec2 | null = null;
-		let end: TVec2 | null;
-		let paceError: number | null = null;
-		let heading = 0;
-		if (nextHit != null) {
-			nextDot = findHitResult(trial, laneId, nextHit.id)?.dot ?? null;
-			if (nextDot == null || !isInBand(nextDot, limit, limit === band ? 0.9 : dotShare)) {
-				rejected.push('outOfFrame');
-				return { candidate: null, nextDot: null };
-			}
-			const arrival = findHitResult(trial, laneId, nextHit.id)?.velocity;
-			if (arrival == null || arrival.y > -fallingSpeed) {
-				rejected.push('rising');
-				return { candidate: null, nextDot: null };
-			}
-			// A dot in the outer half of the band that the marble reaches moving further out leaves the next
-			// piece little room. Zigzag columns sit inside the inner half, where reaching them outward is normal.
-			const side = (nextDot.x - band.centerX) / band.halfWidth;
-			if (isShared)
-				heading =
-					2 * Math.max(0, side * Math.sign(arrival.x) - 0.5) * Math.min(1, Math.abs(arrival.x) / 0.3);
-			const probed = trial.pieces.find((piece) => piece.entityId === probe?.id);
-			if (probed?.status === 'blocked') {
-				rejected.push('nextBlocked');
-				return { candidate: null, nextDot: null };
-			}
-			if (pace != null) {
-				paceError = nextDot.y - paceAt(pace, nextHit.time);
-				if (isShared && Math.abs(paceError) > allowed) {
-					rejected.push('offPace');
-					return { candidate: null, nextDot };
-				}
-			}
-			end = nextDot;
-		} else {
-			if (!staysInBand(trial, laneId, hit.time, until, limit)) {
-				rejected.push('outOfFrame');
-				return { candidate: null, nextDot: null };
-			}
-			end = null;
-			for (const sample of samples) if (sample.time <= until) end = sample.position;
-		}
-		const travel = end != null ? end.x - dot.x : 0;
-		const distance = Math.abs(travel);
+/**
+ * Evaluates an angle with its pace bounce, corrected once when the dot misses its target. `shift` moves
+ * the target up or down, which the fallback search uses to try higher and lower arcs.
+ */
+function evaluateAngle(context: TPlacementContext, { angle, shift, round }: TAngleTry): TAngleEvaluation {
+	const { targetY, takeoff, g, interval, speedScale, dot, bounceSpec, velocity, band, stage } = context;
+	const isRelaxed = round === 'relaxed';
+	const limit = round == null ? band : stage;
+	const rejected: TAutoPlaceRejection[] = [];
+	const answer = (candidate: Omit<TCandidate, 'angle'> | null): TAngleEvaluation => ({ candidate, rejected });
+	const target = targetY != null ? targetY + shift : null;
+	const lift =
+		takeoff != null && target != null && shift !== 0
+			? Math.min(g * interval - MIN_ARRIVAL * speedScale, takeoffSpeed(dot.y, target, interval, g))
+			: takeoff;
+	const solved =
+		lift != null && bounceSpec != null ? paceBounce(velocity, angle, lift, bounceSpec) : null;
+	const first = evaluatePlacement(context, angle, solved?.bounce ?? null, rejected, isRelaxed, limit);
+	if (solved == null || target == null || first.nextDot == null) return answer(first.candidate);
+	const error = first.nextDot.y - target;
+	if (Math.abs(error) <= PACE_TOLERANCE) return answer(first.candidate);
+	const corrected = clampBounce(solved.bounce - error / (interval * solved.gain), bounceSpec);
+	if (bounceSpec == null || Math.abs(corrected - solved.bounce) < 0.01) return answer(first.candidate);
+	const second = evaluatePlacement(context, angle, corrected, rejected, isRelaxed, limit).candidate;
+	if (second == null) return answer(first.candidate);
+	return answer(first.candidate == null || second.score < first.candidate.score ? second : first.candidate);
+}
 
-		// Clearance of the new piece, the next piece and the marble path from every other piece
-		const placed = trial.pieces.filter(
-			(piece) => piece.status === 'placed' || piece.status === 'pinned' || piece.status === 'free'
-		);
-		const own = placed.find((piece) => piece.entityId === entity.id);
-		const nextId = probe?.id ?? (nextHit != null ? owners.get(nextHit.id)?.id : undefined);
-		const next = placed.find((piece) => piece.entityId === nextId);
-		// How far the piece and the next one fall short of the least gap as the film shows them. Only the piece's own
-		// gap rejects: the next piece gets its tilt when it is placed.
-		let visualShortfall = 0;
-		const nearby = placed.filter((other) => other !== own && other.type !== FINISH_TYPE && other.status !== 'free' && !later.has(other.entityId));
-		const pitch = filmPitch(project);
-		const nearbyViews = nearby.map((other) => ({ other, view: filmView(other, marbleRadius, pitch) }));
-		const touchingBy = (length: number | null): number => {
-			if (own == null) return 0;
-			const view = filmView(length != null ? { ...own, params: { ...own.params, length } } : own, marbleRadius, pitch);
-			return Math.max(0, ...nearbyViews.map((item) => MIN_PIECE_GAP - filmGap(view, item.view, MIN_PIECE_GAP)));
-		};
-		let shorter: number | undefined;
-		let ownTouching = touchingBy(null);
-		if (ownTouching > 0 && !isMending && isBox && own?.params['length'] != null) {
-			const lengths = SHORTER_LENGTHS.map((share) => Math.round((own.params['length'] ?? 0) * share * 1e4) / 1e4);
-			const fits = lengths.find((item) => touchingBy(item) <= 0);
-			if (fits != null) {
-				shorter = fits;
-				ownTouching = 0;
-			}
-		}
-		if (next != null) {
-			const nextView = filmView(next, marbleRadius, pitch);
-			for (const { other, view } of nearbyViews) {
-				if (other !== next) visualShortfall += Math.max(0, MIN_PIECE_GAP - filmGap(nextView, view, MIN_PIECE_GAP));
-			}
-			if (own != null) visualShortfall += Math.max(0, MIN_PIECE_GAP - filmGap(nextView, filmView(shorter != null ? { ...own, params: { ...own.params, length: shorter } } : own, marbleRadius, pitch), MIN_PIECE_GAP));
-		}
-		// A platform is for bouncing: the marble must leave its surface, unless this is its last note and it may rest
-		const ownTrack = trial.marbles.find((marble) => marble.laneId === laneId);
-		const risen = isBox && own != null && ownTrack != null && followingHit != null && trialHit?.actualTime != null ? riseAfterHit(own, ownTrack, trialHit.actualTime, followingHit.time) : null;
-		const isRolling = risen != null && !risen.isBounce;
-		if (!isRelaxed) {
-			if (restrikes > 0 && !isMending) {
-				rejected.push('restrike');
-				return { candidate: null, nextDot };
-			}
-			if (isRolling && !isMending) {
-				rejected.push('rolls');
-				return { candidate: null, nextDot };
-			}
-			if (ownTouching > 0 && !isMending) {
-				rejected.push('touching');
-				return { candidate: null, nextDot };
-			}
-		}
-		visualShortfall += ownTouching;
-		let shortfall = 0;
-		const ownShapes = own != null ? resolvedPieceShapes(own) : [];
-		for (const piece of [own, next]) {
-			if (piece == null) continue;
-			const shapes = piece === own ? ownShapes : resolvedPieceShapes(piece);
-			for (const other of placed) {
-				if (other === piece || (piece === next && other === own)) continue;
-				shortfall += Math.max(
-					0,
-					CLEARANCE - shapesGap(shapes, resolvedPieceShapes(other), CLEARANCE)
-				);
-			}
-		}
-		const others = placed
-			.filter((piece) => piece !== own && piece !== next)
-			.flatMap(resolvedPieceShapes);
-		shortfall += Math.max(
-			0,
-			CLEARANCE - pathGap(samples, marbleRadius, others, hit.time + 0.005, until - 0.03)
-		);
-		for (const spot of reserved) {
-			shortfall += Math.max(0, CLEARANCE - shapesGap(ownShapes, spot.shapes, CLEARANCE));
-			shortfall += Math.max(
-				0,
-				CLEARANCE - pathGap(samples, marbleRadius, spot.shapes, spot.time, until - 0.03)
-			);
-		}
-
-		let outside = 0;
-		for (const sample of samples) {
-			if (sample.time < hit.time || sample.time > until) continue;
-			const offset = Math.abs(sample.position.x - limit.centerX) - limit.halfWidth;
-			outside = Math.max(outside, offset / limit.halfWidth);
-		}
-		// A marble that leaves its own lane may cross another's path, but its pieces then stand in that marble's way
-		let outsideLane = 0;
-		for (const sample of samples) {
-			if (sample.time < hit.time || sample.time > until) continue;
-			outsideLane = Math.max(outsideLane, (Math.abs(sample.position.x - band.centerX) - band.halfWidth) / band.halfWidth);
-		}
-		// With several marbles the limit is a hard wall: the lane, then when nothing passes the frame
-		if (isShared && outside > 0) {
+/** Simulates one angle and bounce; the next dot is returned even when a hard check fails */
+function evaluatePlacement(
+	context: TPlacementContext,
+	angle: number,
+	bounce: number | null,
+	rejected: TAutoPlaceRejection[],
+	isRelaxed: boolean,
+	limit: TFrameBand
+): { candidate: Omit<TCandidate, 'angle'> | null; nextDot: TVec2 | null } {
+	const { project, result, simulate, laneId, hitId, hit, dot, velocity, owners, base, followingHit, nextHit, pace, isBox, isShared, allowed, band, dotShare, fallingSpeed, until, isMending, frontiers } = context;
+	// The lane's other column, and whether the tilt leans toward it: a positive angle leans the normal to the left
+	const side = dot.x - band.centerX;
+	const toward = Math.abs(side) > COLUMN_DEADBAND ? -Math.sign(side) : Math.sign(velocity?.x ?? 0) || -1;
+	const entity = withBounce(withAngle(base, angle), bounce);
+	// A flat probe on the next hit checks that its dot can take a piece at all, standing where that piece would
+	const probe =
+		nextHit != null && !owners.has(nextHit.id)
+			? createLinkedPiece('platform', laneId, nextHit.id, 0, { id: `${entity.id}-probe` })
+			: null;
+	const trial = simulateTrial(
+		simulate,
+		withEntities(project, probe != null ? [entity, probe] : [entity]),
+		until
+	);
+	const trialHit = findHitResult(trial, laneId, hitId);
+	if (!isOnTime(trialHit?.status)) {
+		rejected.push(trialHit?.status === 'blocked' ? 'blocked' : 'missed');
+		return { candidate: null, nextDot: null };
+	}
+	if (hasStrayContact(trial, project, laneId, entity.id, hit.time, until, frontiers)) {
+		rejected.push('strayContact');
+		return { candidate: null, nextDot: null };
+	}
+	if (crossesOtherLanes(result, trial, project, laneId, entity.id, hit.time, until, frontiers)) {
+		rejected.push('otherLane');
+		return { candidate: null, nextDot: null };
+	}
+	const samples = trial.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
+	const marbleId = trial.marbles.find((marble) => marble.laneId === laneId)?.entityId;
+	const restrikes = trial.contacts.filter(
+		(contact) =>
+			contact.marbleEntityId === marbleId &&
+			contact.otherEntityId === entity.id &&
+			contact.time > hit.time + HIT_TOLERANCE + 0.01 &&
+			contact.time < until - 0.03
+	).length;
+	let nextDot: TVec2 | null = null;
+	let end: TVec2 | null;
+	let paceError: number | null = null;
+	let heading = 0;
+	if (nextHit != null) {
+		nextDot = findHitResult(trial, laneId, nextHit.id)?.dot ?? null;
+		if (nextDot == null || !isInBand(nextDot, limit, limit === band ? 0.9 : dotShare)) {
 			rejected.push('outOfFrame');
+			return { candidate: null, nextDot: null };
+		}
+		const arrival = findHitResult(trial, laneId, nextHit.id)?.velocity;
+		if (arrival == null || arrival.y > -fallingSpeed) {
+			rejected.push('rising');
+			return { candidate: null, nextDot: null };
+		}
+		// A dot in the outer half of the band that the marble reaches moving further out leaves the next
+		// piece little room. Zigzag columns sit inside the inner half, where reaching them outward is normal.
+		const side = (nextDot.x - band.centerX) / band.halfWidth;
+		if (isShared)
+			heading =
+				2 * Math.max(0, side * Math.sign(arrival.x) - 0.5) * Math.min(1, Math.abs(arrival.x) / 0.3);
+		const probed = trial.pieces.find((piece) => piece.entityId === probe?.id);
+		if (probed?.status === 'blocked') {
+			rejected.push('nextBlocked');
+			return { candidate: null, nextDot: null };
+		}
+		if (pace != null) {
+			paceError = nextDot.y - paceAt(pace, nextHit.time);
+			if (isShared && Math.abs(paceError) > allowed) {
+				rejected.push('offPace');
+				return { candidate: null, nextDot };
+			}
+		}
+		end = nextDot;
+	} else {
+		if (!staysInBand(trial, laneId, hit.time, until, limit)) {
+			rejected.push('outOfFrame');
+			return { candidate: null, nextDot: null };
+		}
+		end = null;
+		for (const sample of samples) if (sample.time <= until) end = sample.position;
+	}
+	const travel = end != null ? end.x - dot.x : 0;
+
+	// Clearance of the new piece, the next piece and the marble path from every other piece
+	const placed = trial.pieces.filter(
+		(piece) => piece.status === 'placed' || piece.status === 'pinned' || piece.status === 'free'
+	);
+	const own = placed.find((piece) => piece.entityId === entity.id);
+	const nextId = probe?.id ?? (nextHit != null ? owners.get(nextHit.id)?.id : undefined);
+	const next = placed.find((piece) => piece.entityId === nextId);
+	const { ownTouching, visualShortfall, shorter } = filmGaps(context, own, next, placed);
+	// A platform is for bouncing: the marble must leave its surface, unless this is its last note and it may rest
+	const ownTrack = trial.marbles.find((marble) => marble.laneId === laneId);
+	const risen = isBox && own != null && ownTrack != null && followingHit != null && trialHit?.actualTime != null ? riseAfterHit(own, ownTrack, trialHit.actualTime, followingHit.time) : null;
+	const isRolling = risen != null && !risen.isBounce;
+	if (!isRelaxed) {
+		if (restrikes > 0 && !isMending) {
+			rejected.push('restrike');
 			return { candidate: null, nextDot };
 		}
-		const centrality = end != null ? (end.x - band.centerX) / band.halfWidth : 0;
-		// A centred zigzag travels about the band's half width per hit, which caps the default in narrow lanes
-		const comfort = isLaunch
-			? LAUNCH_TRAVEL * length
-			: (pattern.travel ?? Math.min(COMFORT_TRAVEL * length, band.halfWidth));
-		const isAgainstPattern =
-			!isLaunch && pattern.side != null && Math.sign(travel) !== pattern.side;
-		const consistency =
-			previousAngle != null
-				? Math.min(Math.abs(angle - previousAngle), Math.abs(angle + previousAngle)) / (40 * DEGREE)
-				: 0;
-		const columnMiss = nextDot != null && !isMending ? (Math.min(1, interval / FULL_COLUMN_INTERVAL) * Math.abs(nextDot.x - (band.centerX + toward * columns))) / length : 0;
-		const isOffTilt = nextDot != null && !isMending && Math.sign(angle) === toward;
-		const repeat = rhythmAngle != null && !isMending ? Math.abs(Math.abs(angle) - rhythmAngle) / (40 * DEGREE) : 0;
-		const offPace =
-			nextDot != null && targetY != null && pace != null ? (nextDot.y - targetY) / pace.limit : 0;
-		const score =
-			(TRAVEL_WEIGHT * Math.max(0, minTravel - distance)) / minTravel +
-			(CLEARANCE_WEIGHT * shortfall) / CLEARANCE +
-			(isMending ? 0 : (CLEARANCE_WEIGHT * visualShortfall) / MIN_PIECE_GAP) +
-			COLUMN_WEIGHT * columnMiss +
-			(isOffTilt ? TILT_WEIGHT : 0) +
-			REPEAT_WEIGHT * repeat +
-			(isMending ? 0 : (STEEP_WEIGHT * Math.max(0, Math.abs(angle) - STEEP_TILT)) / (10 * DEGREE)) +
-			(shorter != null ? SHORTER_WEIGHT * (1 + SHORTER_LENGTHS.findIndex((share) => Math.abs(share * (own?.params['length'] ?? 0) - shorter) < 1e-3)) : 0) +
-			BAND_WEIGHT * centrality * centrality +
-			(isLaunch && end != null && Math.abs(end.x - band.centerX) > Math.abs(side) ? LAUNCH_OUT_WEIGHT * Math.abs(centrality) : 0) +
-			HEADING_WEIGHT * heading +
-			TRAVEL_WEIGHT * outside +
-			(isShared && limit !== band ? LANE_WEIGHT * Math.max(0, outsideLane) : 0) +
-			PACE_WEIGHT * offPace * offPace +
-			(COMFORT_WEIGHT * Math.abs(distance - comfort)) / comfort +
-			(isAgainstPattern ? PATTERN_WEIGHT : 0) +
-			RESTRIKE_WEIGHT * (restrikes + (isRolling ? 1 : 0)) +
-			ANGLE_WEIGHT * consistency +
-			1e-3 * Math.abs(angle);
-		return {
-			candidate: {
-				score,
-				nextDot,
-				travel,
-				bounce: entity.components.piece?.params['bounce'] ?? null,
-				paceError,
-				...(shorter != null ? { length: shorter } : {})
-			},
-			nextDot
-		};
+		if (isRolling && !isMending) {
+			rejected.push('rolls');
+			return { candidate: null, nextDot };
+		}
+		if (ownTouching > 0 && !isMending) {
+			rejected.push('touching');
+			return { candidate: null, nextDot };
+		}
+	}
+	const shortfall = clearanceShortfall(context, own, next, placed, samples);
+	const outside = furthestOutside(samples, limit, hit.time, until);
+	// A marble that leaves its own lane may cross another's path, but its pieces then stand in that marble's way
+	const outsideLane = furthestOutside(samples, band, hit.time, until);
+	// With several marbles the limit is a hard wall: the lane, then when nothing passes the frame
+	if (isShared && outside > 0) {
+		rejected.push('outOfFrame');
+		return { candidate: null, nextDot };
+	}
+	const score = placementScore(context, {
+		angle,
+		travel,
+		end,
+		nextDot,
+		side,
+		toward,
+		heading,
+		visualShortfall: visualShortfall + ownTouching,
+		shortfall,
+		shorter,
+		ownLength: own?.params['length'] ?? 0,
+		outside,
+		outsideLane,
+		restrikes,
+		isRolling,
+		limit
+	});
+	return {
+		candidate: {
+			score,
+			nextDot,
+			travel,
+			bounce: entity.components.piece?.params['bounce'] ?? null,
+			paceError,
+			...(shorter != null ? { length: shorter } : {})
+		},
+		nextDot
 	};
+}
 
-	/**
-	 * Evaluates an angle with its pace bounce, corrected once when the dot misses its target. `shift` moves
-	 * the target up or down, which the fallback search uses to try higher and lower arcs.
-	 */
-	const evaluateAngle = ({ angle, shift, round }: TAngleTry): TAngleEvaluation => {
-		const isRelaxed = round === 'relaxed';
-		const limit = round == null ? band : stage;
-		const rejected: TAutoPlaceRejection[] = [];
-		const answer = (candidate: Omit<TCandidate, 'angle'> | null): TAngleEvaluation => ({ candidate, rejected });
-		const target = targetY != null ? targetY + shift : null;
-		const lift =
-			takeoff != null && target != null && shift !== 0
-				? Math.min(g * interval - MIN_ARRIVAL * speedScale, takeoffSpeed(dot.y, target, interval, g))
-				: takeoff;
-		const solved =
-			lift != null && bounceSpec != null ? paceBounce(velocity, angle, lift, bounceSpec) : null;
-		const first = evaluate(angle, solved?.bounce ?? null, rejected, isRelaxed, limit);
-		if (solved == null || target == null || first.nextDot == null) return answer(first.candidate);
-		const error = first.nextDot.y - target;
-		if (Math.abs(error) <= PACE_TOLERANCE) return answer(first.candidate);
-		const corrected = clampBounce(solved.bounce - error / (interval * solved.gain), bounceSpec);
-		if (bounceSpec == null || Math.abs(corrected - solved.bounce) < 0.01) return answer(first.candidate);
-		const second = evaluate(angle, corrected, rejected, isRelaxed, limit).candidate;
-		if (second == null) return answer(first.candidate);
-		return answer(first.candidate == null || second.score < first.candidate.score ? second : first.candidate);
+/**
+ * How far the piece and the next one fall short of the least gap as the film shows them, and the shorter length that
+ * clears the piece's own gap. Only the piece's own gap rejects: the next piece gets its tilt when it is placed.
+ */
+function filmGaps(context: TPlacementContext, own: TResolvedPiece | undefined, next: TResolvedPiece | undefined, placed: TResolvedPiece[]): { ownTouching: number; visualShortfall: number; shorter: number | undefined } {
+	const { project, later, marbleRadius, isMending, isBox } = context;
+	let visualShortfall = 0;
+	const nearby = placed.filter((other) => other !== own && other.type !== FINISH_TYPE && other.status !== 'free' && !later.has(other.entityId));
+	const pitch = filmPitch(project);
+	const nearbyViews = nearby.map((other) => ({ other, view: filmView(other, marbleRadius, pitch) }));
+	const touchingBy = (length: number | null): number => {
+		if (own == null) return 0;
+		const view = filmView(length != null ? { ...own, params: { ...own.params, length } } : own, marbleRadius, pitch);
+		return Math.max(0, ...nearbyViews.map((item) => MIN_PIECE_GAP - filmGap(view, item.view, MIN_PIECE_GAP)));
 	};
+	let shorter: number | undefined;
+	let ownTouching = touchingBy(null);
+	if (ownTouching > 0 && !isMending && isBox && own?.params['length'] != null) {
+		const lengths = SHORTER_LENGTHS.map((share) => Math.round((own.params['length'] ?? 0) * share * 1e4) / 1e4);
+		const fits = lengths.find((item) => touchingBy(item) <= 0);
+		if (fits != null) {
+			shorter = fits;
+			ownTouching = 0;
+		}
+	}
+	if (next != null) {
+		const nextView = filmView(next, marbleRadius, pitch);
+		for (const { other, view } of nearbyViews) {
+			if (other !== next) visualShortfall += Math.max(0, MIN_PIECE_GAP - filmGap(nextView, view, MIN_PIECE_GAP));
+		}
+		if (own != null) visualShortfall += Math.max(0, MIN_PIECE_GAP - filmGap(nextView, filmView(shorter != null ? { ...own, params: { ...own.params, length: shorter } } : own, marbleRadius, pitch), MIN_PIECE_GAP));
+	}
+	return { ownTouching, visualShortfall, shorter };
+}
 
-	const isFast = Math.hypot(velocity?.x ?? 0, velocity?.y ?? 0) > FAST_ARRIVAL * speedScale;
-	return Ok({ plan: { hitId, base, isShared, isFast, hasTarget: targetY != null, isMending }, evaluate: evaluateAngle });
+/** How far the new piece, the next piece and the marble path fall short of `CLEARANCE` from every other piece and the spots other marbles need */
+function clearanceShortfall(context: TPlacementContext, own: TResolvedPiece | undefined, next: TResolvedPiece | undefined, placed: TResolvedPiece[], samples: TMarbleSample[]): number {
+	const { hit, marbleRadius, until, reserved } = context;
+	let shortfall = 0;
+	const ownShapes = own != null ? resolvedPieceShapes(own) : [];
+	for (const piece of [own, next]) {
+		if (piece == null) continue;
+		const shapes = piece === own ? ownShapes : resolvedPieceShapes(piece);
+		for (const other of placed) {
+			if (other === piece || (piece === next && other === own)) continue;
+			shortfall += Math.max(
+				0,
+				CLEARANCE - shapesGap(shapes, resolvedPieceShapes(other), CLEARANCE)
+			);
+		}
+	}
+	const others = placed
+		.filter((piece) => piece !== own && piece !== next)
+		.flatMap(resolvedPieceShapes);
+	shortfall += Math.max(
+		0,
+		CLEARANCE - pathGap(samples, marbleRadius, others, hit.time + 0.005, until - 0.03)
+	);
+	for (const spot of reserved) {
+		shortfall += Math.max(0, CLEARANCE - shapesGap(ownShapes, spot.shapes, CLEARANCE));
+		shortfall += Math.max(
+			0,
+			CLEARANCE - pathGap(samples, marbleRadius, spot.shapes, spot.time, until - 0.03)
+		);
+	}
+	return shortfall;
+}
+
+/** How far the marble gets outside `band` between two times, as a share of the band's half width */
+function furthestOutside(samples: TMarbleSample[], band: TFrameBand, from: number, until: number): number {
+	let outside = 0;
+	for (const sample of samples) {
+		if (sample.time < from || sample.time > until) continue;
+		outside = Math.max(outside, (Math.abs(sample.position.x - band.centerX) - band.halfWidth) / band.halfWidth);
+	}
+	return outside;
+}
+
+/** The score of a candidate that passed the hard checks; the lowest wins */
+function placementScore(
+	context: TPlacementContext,
+	placement: {
+		angle: number;
+		travel: number;
+		end: TVec2 | null;
+		nextDot: TVec2 | null;
+		side: number;
+		toward: number;
+		heading: number;
+		visualShortfall: number;
+		shortfall: number;
+		shorter: number | undefined;
+		ownLength: number;
+		outside: number;
+		outsideLane: number;
+		restrikes: number;
+		isRolling: boolean;
+		limit: TFrameBand;
+	}
+): number {
+	const { band, length, isLaunch, pattern, previousAngle, interval, isMending, columns, rhythmAngle, targetY, pace, minTravel, isShared } = context;
+	const { angle, travel, end, nextDot, side, toward, heading, visualShortfall, shortfall, shorter, ownLength, outside, outsideLane, restrikes, isRolling, limit } = placement;
+	const distance = Math.abs(travel);
+	const centrality = end != null ? (end.x - band.centerX) / band.halfWidth : 0;
+	// A centred zigzag travels about the band's half width per hit, which caps the default in narrow lanes
+	const comfort = isLaunch
+		? LAUNCH_TRAVEL * length
+		: (pattern.travel ?? Math.min(COMFORT_TRAVEL * length, band.halfWidth));
+	const isAgainstPattern =
+		!isLaunch && pattern.side != null && Math.sign(travel) !== pattern.side;
+	const consistency =
+		previousAngle != null
+			? Math.min(Math.abs(angle - previousAngle), Math.abs(angle + previousAngle)) / (40 * DEGREE)
+			: 0;
+	const columnMiss = nextDot != null && !isMending ? (Math.min(1, interval / FULL_COLUMN_INTERVAL) * Math.abs(nextDot.x - (band.centerX + toward * columns))) / length : 0;
+	const isOffTilt = nextDot != null && !isMending && Math.sign(angle) === toward;
+	const repeat = rhythmAngle != null && !isMending ? Math.abs(Math.abs(angle) - rhythmAngle) / (40 * DEGREE) : 0;
+	const offPace =
+		nextDot != null && targetY != null && pace != null ? (nextDot.y - targetY) / pace.limit : 0;
+	return (
+		(TRAVEL_WEIGHT * Math.max(0, minTravel - distance)) / minTravel +
+		(CLEARANCE_WEIGHT * shortfall) / CLEARANCE +
+		(isMending ? 0 : (CLEARANCE_WEIGHT * visualShortfall) / MIN_PIECE_GAP) +
+		COLUMN_WEIGHT * columnMiss +
+		(isOffTilt ? TILT_WEIGHT : 0) +
+		REPEAT_WEIGHT * repeat +
+		(isMending ? 0 : (STEEP_WEIGHT * Math.max(0, Math.abs(angle) - STEEP_TILT)) / (10 * DEGREE)) +
+		(shorter != null ? SHORTER_WEIGHT * (1 + SHORTER_LENGTHS.findIndex((share) => Math.abs(share * ownLength - shorter) < 1e-3)) : 0) +
+		BAND_WEIGHT * centrality * centrality +
+		(isLaunch && end != null && Math.abs(end.x - band.centerX) > Math.abs(side) ? LAUNCH_OUT_WEIGHT * Math.abs(centrality) : 0) +
+		HEADING_WEIGHT * heading +
+		TRAVEL_WEIGHT * outside +
+		(isShared && limit !== band ? LANE_WEIGHT * Math.max(0, outsideLane) : 0) +
+		PACE_WEIGHT * offPace * offPace +
+		(COMFORT_WEIGHT * Math.abs(distance - comfort)) / comfort +
+		(isAgainstPattern ? PATTERN_WEIGHT : 0) +
+		RESTRIKE_WEIGHT * (restrikes + (isRolling ? 1 : 0)) +
+		ANGLE_WEIGHT * consistency +
+		1e-3 * Math.abs(angle)
+	);
 }
 
 /**
