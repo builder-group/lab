@@ -7,7 +7,7 @@
 // Usage: tsx scripts/build-tap-fixture.ts
 import { readFileSync, writeFileSync } from 'node:fs';
 import { SoundBankLoader } from 'spessasynth_core';
-import { detectOnsets, encodeMonoWav, IMPORT_RELEASE_LEAD, renderLanes, suggestedHitTimes } from '../src/modules/music';
+import { detectOnsets, encodeMonoWav, IMPORT_RELEASE_LEAD, renderLanes, songEnd, suggestedHitTimes } from '../src/modules/music';
 import {
 	applyProjectCommands,
 	parseProject,
@@ -105,6 +105,8 @@ for (const lead of [IMPORT_RELEASE_LEAD, 0.4, 0.3, 0.2]) {
 }
 if (project == null) throw new Error('Nothing was built');
 project = withoutOpenHits(project);
+// What a user does after tapping: Fit to Song, so the film ends while the marble is still in the held frame
+project = apply(project, [{ type: 'setEnd', end: songEnd(Math.max(...project.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)))) }]);
 const result = simulate(project);
 simulator.dispose();
 const onTime = result.hits.filter((hit) => hit.status === 'onTime').length;

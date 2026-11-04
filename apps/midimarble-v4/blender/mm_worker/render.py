@@ -54,6 +54,9 @@ RENDER_JOB_SCRIPT = Path(__file__).resolve().parents[1] / 'render_job.py'
 SCREEN_TITLE_FONTS = ('/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf',
                       '/System/Library/Fonts/Supplemental/Arial Bold.ttf', '/System/Library/Fonts/SFNS.ttf')
 SCREEN_TITLE_FADE = 0.25
+# Seconds the soundtrack fades out over at the film end, so a note still ringing is not cut off (the app's
+# FILM_AUDIO_FADE). Loop films keep their sound unfaded so the repeat is seamless.
+FILM_AUDIO_FADE = 0.4
 # Font size over letter height: the description's `size` is the letter height as a fraction of the frame height
 SCREEN_TITLE_FONT_SCALE = 1.4
 # Screen title styles the encoder burns in (`walltext.SCREEN_STYLES`)
@@ -535,6 +538,14 @@ def screen_title_filters(job, job_dir):
     return filters
 
 
+def audio_fade(job):
+    """(start, length) in seconds of the soundtrack's closing fade, or None for a loop film or a silent one"""
+    if not job.get('audio') or job.get('loop'):
+        return None
+    length = min(FILM_AUDIO_FADE, job['duration'])
+    return job['duration'] - length, length
+
+
 def encode(job, job_dir, frames_dir, output):
     ffmpeg = find_ffmpeg()
     if ffmpeg is None:
@@ -546,6 +557,9 @@ def encode(job, job_dir, frames_dir, output):
     filters = screen_title_filters(job, job_dir)
     if filters:
         command += ['-vf', ','.join(filters)]
+    fade = audio_fade(job)
+    if fade is not None:
+        command += ['-af', 'afade=t=out:st=%.4f:d=%.4f' % fade]
     command += ['-c:v', 'libx264', '-preset', job['x264Preset'], '-crf', str(job['crf']), '-pix_fmt', 'yuv420p',
                 '-movflags', '+faststart', '-t', '%.4f' % job['duration'], str(output)]
     with (job_dir / 'ffmpeg.log').open('w') as log:
@@ -578,7 +592,13 @@ def encode_with_blender(job, frames_dir, output):
         strip.elements.append(frame.name)
     strip.frame_final_duration = len(frames)
     if job.get('audio'):
-        editor.strips.new_sound('soundtrack', job['audio'], 2, 1)
+        sound = editor.strips.new_sound('soundtrack', job['audio'], 2, 1)
+        fade = audio_fade(job)
+        if fade is not None:
+            fps = float(job['fps'])
+            for frame, volume in ((1 + fade[0] * fps, 1.0), (1 + (fade[0] + fade[1]) * fps, 0.0)):
+                sound.volume = volume
+                sound.keyframe_insert('volume', frame=frame)
     settings = scene.render.image_settings
     try:
         settings.media_type = 'VIDEO'

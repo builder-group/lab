@@ -84,7 +84,6 @@ export class SourcesCx {
 			offset: preview.offset
 		};
 		const firstTrack = pending.midi.tracks.find((track) => pending.trackIds.includes(track.id));
-		const lastTime = [...preview.lanes.flat(), ...preview.backing].reduce((max, note) => Math.max(max, note.time + note.duration), 0);
 		// A film has one song, so a new MIDI file replaces the previous one, as a new recording does
 		const replaced = project.music.sources.filter((item) => item.kind === 'midi');
 		const applied = this.studio.execute([
@@ -94,8 +93,7 @@ export class SourcesCx {
 				backing: preview.backing,
 				backingInstrument: backingInstrument(pending.midi),
 				source,
-				instrument: firstTrack == null ? undefined : suggestInstrument(firstTrack.program),
-				end: Math.ceil(lastTime + 1.5)
+				instrument: firstTrack == null ? undefined : suggestInstrument(firstTrack.program)
 			}),
 			// The time signature is not parsed; most MIDI files are in four
 			...(pending.midi.tempo != null ? [{ type: 'setTempo' as const, tempo: { bpm: pending.midi.tempo, beatsPerBar: 4 } }] : [])

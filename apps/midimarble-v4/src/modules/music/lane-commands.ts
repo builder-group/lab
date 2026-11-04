@@ -21,7 +21,7 @@ export function createImportCommands(
 	project: TProject,
 	options: TImportCommandsOptions
 ): TProjectCommand[] {
-	const { lanes, backing = [], backingInstrument, source, instrument, end } = options;
+	const { lanes, backing = [], backingInstrument, source, instrument } = options;
 	const hasHits = project.music.lanes.some((lane) => lane.hits.length > 0);
 	const commands: TProjectCommand[] = [];
 	let index = project.music.lanes.length;
@@ -53,8 +53,25 @@ export function createImportCommands(
 	}
 	if (backing.length > 0) commands.push({ type: 'upsertHits', laneId: BACKING_ID, hits: backing.map((note) => noteToHit(note)) });
 	if (backingInstrument != null) commands.push({ type: 'setBackingInstrument', instrument: backingInstrument });
-	if (end != null && end > project.end) commands.push({ type: 'setEnd', end });
+	// A fresh import fits the film to the song; an import next to existing hits only lengthens it
+	const played = lanes.flat().length > 0 ? lanes.flat() : backing;
+	if (played.length > 0) {
+		const end = songEnd(played.reduce((max, note) => Math.max(max, note.time), 0));
+		if (!hasHits ? Math.abs(end - project.end) > 1e-6 : end > project.end) commands.push({ type: 'setEnd', end });
+	}
 	return commands;
+}
+
+/**
+ * Seconds a film runs on after the last note. The follow camera holds on the last hit, and the marble that struck
+ * it leaves that held frame 0.47 to 1 s later (Reference 20 to Jingle Bells), so a longer tail ends on an empty
+ * frame. The soundtrack fades out over the last `FILM_AUDIO_FADE` seconds so the final note is not cut off.
+ */
+export const SONG_TAIL = 0.4;
+
+/** Film length for a song whose last note starts at `lastNote`, rounded to 0.01 s */
+export function songEnd(lastNote: number): number {
+	return Math.round((lastNote + SONG_TAIL) * 100) / 100;
 }
 
 /**
@@ -71,7 +88,6 @@ export interface TImportCommandsOptions {
 	backingInstrument?: number;
 	source?: TSource;
 	instrument?: number;
-	end?: number;
 }
 
 export function noteToHit(note: TMidiNote): THit {

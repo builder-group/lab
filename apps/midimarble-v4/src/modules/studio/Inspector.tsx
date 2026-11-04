@@ -10,7 +10,7 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStat
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { DesignInspector } from '@/modules/design/DesignInspector';
-import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, suggestedHitTimes } from '@/modules/music';
+import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_TAIL, suggestedHitTimes } from '@/modules/music';
 import { BACKING_ID, createId, laneColors, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { commandItem } from './commands';
@@ -487,7 +487,7 @@ const ProjectInspector: React.FC<TProjectInspectorProps> = (props) => {
 					onClick={() => {
 						if (fitEnd != null) cx.execute([{ type: 'setEnd', end: fitEnd }]);
 					}}
-					title={fitEnd == null ? 'The song has no notes yet' : `Set the length to the last note plus 1.5 s (${formatTime(fitEnd)})`}
+					title={fitEnd == null ? 'The song has no notes yet' : `End the film ${SONG_TAIL} s after the last note, while the last marble is still in view (${formatTime(fitEnd)})`}
 					type="button"
 				>
 					Fit to Song

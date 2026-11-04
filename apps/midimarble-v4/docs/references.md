@@ -56,7 +56,7 @@ Compared on 2026-11-03. Films and contact sheets are in `.local/jingle/`; the v4
 
 | | Blender prototype (`jingle-bells-christmas.mp4`) | Desktop playground (`jingle-bells.marble.json`) | v4 (`fixtures/jingle-bells.marble.json`) |
 | --- | --- | --- | --- |
-| Music | First phrase, 11 notes (13 in the source), one marble, 9.3 s | First phrase, 13 hits, one marble, 11.25 s | Whole 16-bar refrain plus a quarter-note bass, 51 + 64 hits on two marbles, 35 s |
+| Music | First phrase, 11 notes (13 in the source), one marble, 9.3 s | First phrase, 13 hits, one marble, 11.25 s | Whole 16-bar refrain plus a quarter-note bass, 51 + 64 hits on two marbles, 32.9 s (35 s before the song tail of 0.4 s) |
 | Timing | 0.26 ms worst error, physics-native | Anchors at hit times; no film | All 115 hits within 8 ms; soundtrack synthesized from the lanes |
 | Pieces | Hand-styled pads, paired-wire catch rail, Christmas set dressing | 13 anchors, 9 auto spans and 3 rails, graybox | 115 platforms and 7 rails from the assists, brass theme |
 | Readability | The marble, every pad and the rail are large and readable in every frame | Not rendered | Readable for the first 4 s. From about 5 s the camera pulls back to keep both marbles in frame, pieces shrink to specks and the marbles are invisible; from 22 s the camera passes the edge of the wall and the frame shows the wall edge and background |
@@ -246,6 +246,22 @@ What changed (both `camera.py` and `follow-camera.ts`; `pnpm camera:check` withi
 - Ending: unchanged. In Jingle Bells the last marble leaves the held frame 1.0 s after the last hit (at 32.5 s) and is 5 m below it by 34.2 s, so the last 1.5 s of the 35 s song can only show the pieces. Holding on the last hit itself instead of the middle of the last second kept the marble 0.14 s longer but dropped one of the last five pieces in both fixtures; following the fall would show the empty wall the hold avoids. A film that should end on the marble needs its song end, or an End Card, within about a second of the last hit
 
 Draft film and its 1 fps contact sheet: `.local/camera-r7/films/jingle-bells-draft.mp4` and `jingle-bells-draft-contact.jpg`.
+
+### Song tail: the film ends on the marble
+
+Measured on 2026-11-04 with the TypeScript follow camera (`.local/song-tail/measure.ts`, each run extended to 4 s past its last note): seconds after the last hit until the marble that struck it leaves the held frame, with its centre anywhere in the frame and with a 5 % margin.
+
+| Fixture | Last note | End before | Marble in frame | With 5 % margin | End now |
+| --- | --- | --- | --- | --- | --- |
+| jingle-bells | 32.5 s | 35 s (2.5 s tail) | 1.03 s | 0.93 s | 32.9 s |
+| reference-20 | 19.25 s | 20 s (0.75 s) | 0.47 s | 0.43 s | 19.65 s |
+| two-marbles | 1.3 s | 1.8 s (0.5 s) | 0.83 s | 0.77 s | 1.8 s (hand-built, unchanged) |
+| tap-along | 8.70 s | 11 s (2.3 s) | 0.67 s | 0.63 s | 9.1 s |
+| zigzag, windmill, long-gap, staircase | | | 0.67, 0.63, 0.43, 0.13 s | | unchanged |
+
+- `SONG_TAIL` is 0.4 s (1.5 s before, and the MIDI import rounded the last note's end up to a whole second, 2.5 s for Jingle Bells). The shortest stay among the song fixtures is Reference 20's 0.43 s, so 0.4 s is the longest tail that keeps the last marble inside the final frame for all of them. A tail of 0.8 to 1 s would only suit Jingle Bells and Two Marbles. At the new ends the last marble sits in the final frame at (0.36, 0.43) in Jingle Bells, (0.66, 0.12) in Reference 20 and (0.40, 0.31) in Tap Along (frame 0 to 1, y up)
+- The import now ends at the last note's start plus the tail, not at its end: a long final note would push the film past the marble
+- Audio: `FILM_AUDIO_FADE` 0.4 s, a linear fade over the end of the soundtrack (`renderProjectAudio`, 25 ms before), and an `afade` of the same length in the FFmpeg encode (a volume ramp in Blender's own encoder). Loop films keep their fold and are not faded
 
 ## Scale
 

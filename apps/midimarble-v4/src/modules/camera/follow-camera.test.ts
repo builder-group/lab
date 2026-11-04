@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { songEnd } from '@/modules/music';
 import { parseProject, type TProject } from '@/modules/project';
 import { createSimulator } from '@/modules/simulation/simulate';
 import type { TSimulationResult } from '@/modules/simulation/types';
@@ -71,6 +72,9 @@ describe('follow camera', () => {
 			const loaded = loadFixture(name);
 			results.set(name, { project: loaded, result: simulator.simulate(loaded) });
 		}
+		// Jingle Bells run on 3 s past its film end, to see the hold settle and the last marble leave the frame
+		const longer = { ...fixture('jingle-bells').project, end: fixture('jingle-bells').project.end + 3 };
+		results.set('jingle-bells-longer', { project: longer, result: simulator.simulate(longer) });
 		simulator.dispose();
 	});
 
@@ -198,11 +202,11 @@ describe('follow camera', () => {
 	});
 
 	it('holds on the last hit and shows the final pieces', () => {
-		const { project: jingle, result } = fixture('jingle-bells');
+		const { project: jingle, result } = fixture('jingle-bells-longer');
 		const track = required(followCameraTrack(jingle, result, 30));
 		const last = Math.max(...result.hits.map((hit) => hit.actualTime ?? -Infinity));
 		const end = track.frameCount - 1;
-		expect(last + 2).toBeLessThan(end / 30);
+		expect(last + 3).toBeLessThan(end / 30);
 		// The camera settles after the hit: well under 1 cm/s at the end against about 50 cm/s while following
 		const speed = (frame: number): number =>
 			Math.hypot(...[0, 1, 2].map((axis) => at(track.position, (frame + 1) * 3 + axis) - at(track.position, frame * 3 + axis))) * 30;
@@ -225,6 +229,27 @@ describe('follow camera', () => {
 			expect(Math.min(u, v)).toBeGreaterThan(0);
 			expect(Math.max(u, v)).toBeLessThan(1);
 		}
+		// It leaves the held frame within about a second, so a longer song tail would end the film on an empty frame
+		const leaves = pyRound((last + 1.5) * 30);
+		const sample = required(marble.samples.find((item) => item.time >= leaves / 30));
+		const [u, v] = project(track, leaves, sample.position.x, sample.position.y);
+		expect(Math.min(u, v) < 0 || Math.max(u, v) > 1).toBe(true);
+	});
+
+	it('ends Jingle Bells SONG_TAIL after the last note with the last marble in the final frame', () => {
+		const { project: jingle, result } = fixture('jingle-bells');
+		const track = required(followCameraTrack(jingle, result, 30));
+		const lastNote = Math.max(...jingle.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)));
+		expect(jingle.end).toBe(songEnd(lastNote));
+		const last = Math.max(...result.hits.map((hit) => hit.actualTime ?? -Infinity));
+		const lastLane = required(result.hits.find((hit) => hit.actualTime === last)).laneId;
+		const marble = required(result.marbles.find((item) => item.laneId === lastLane));
+		const end = track.frameCount - 1;
+		const sample = required(marble.samples.find((item) => item.time >= end / 30 - 1e-6));
+		const [u, v] = project(track, end, sample.position.x, sample.position.y);
+		// Inside the frame with a margin of 5 % of it
+		expect(Math.min(u, v)).toBeGreaterThan(0.05);
+		expect(Math.max(u, v)).toBeLessThan(0.95);
 	});
 
 	it('eases a Push In back to the rig after its hold', () => {

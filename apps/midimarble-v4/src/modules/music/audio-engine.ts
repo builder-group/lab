@@ -14,6 +14,12 @@ import { decodeAudioFile } from './waveform';
 const SAMPLE_RATE = 48000;
 const BANK_URL = '/audio/marble-instruments.sf2';
 
+/**
+ * Seconds the soundtrack fades out over at the film end, so a note still ringing after `SONG_TAIL` is not cut off.
+ * Loop films are folded instead and render their fade outside the loop.
+ */
+export const FILM_AUDIO_FADE = 0.4;
+
 export function createAudioEngine(): TAudioEngine {
 	const context = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'interactive' });
 	const master = context.createGain();
@@ -153,7 +159,7 @@ export async function renderProjectAudio(
 	if (!audioSources.length) {
 		const bank = await loadInstrumentBank();
 		const audio = renderLanes(project.music.lanes, { sampleRate, duration: project.end, bank, backing: backingVoice(project) });
-		fadeOut(audio, 0.025);
+		fadeOut(audio, FILM_AUDIO_FADE);
 		return audio;
 	}
 	const length = Math.max(1, Math.ceil(project.end * sampleRate));
@@ -170,7 +176,7 @@ export async function renderProjectAudio(
 	);
 	for (const { source, decoded } of decodedSources)
 		if (decoded != null) mixAudioSource(audio, decoded, source.offset);
-	fadeOut(audio, 0.025);
+	fadeOut(audio, FILM_AUDIO_FADE);
 	return audio;
 }
 

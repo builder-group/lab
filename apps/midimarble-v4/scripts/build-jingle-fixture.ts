@@ -8,11 +8,11 @@
 // and a build log with the pace measurements to `.local/jingle/`. The fixture ships the MIDI file next to it as
 // `fixtures/jingle-bells.mid`, its song, which the example copies into the new package.
 // Usage: tsx scripts/build-jingle-fixture.ts [--finalize]
-//   --finalize re-applies the song and piece names to the existing fixture without rebuilding its pieces
+//   --finalize re-applies the song, piece names and the film end to the existing fixture without rebuilding its pieces
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as toneMidi from '@tonejs/midi';
 import { preflightExport } from '../src/modules/design/export-preflight';
-import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
+import { alignNotes, createImportCommands, parseMidiFile, proposeLanes, songEnd } from '../src/modules/music';
 import {
 	applyProjectCommands,
 	createProject,
@@ -89,14 +89,12 @@ const proposal = proposeLanes(alignNotes(notes, IMPORT_START), { strategy: 'spli
 say(
 	`import: ${midi.tracks.length} tracks, ${notes.length} notes -> lanes ${proposal.lanes.map((lane) => lane.length).join(' + ')}, ${proposal.backing.length} backing`
 );
-const lastTime = proposal.lanes.flat().reduce((max, note) => Math.max(max, note.time + note.duration), 0);
 let project = createProject({ id: 'jingle-bells', title: 'Jingle Bells' });
 project = apply(
 	project,
 	createImportCommands(project, {
 		lanes: proposal.lanes,
-		instrument: GLOCKENSPIEL,
-		end: Math.ceil(lastTime + 1.5)
+		instrument: GLOCKENSPIEL
 	})
 );
 project = withStableIds(project);
@@ -209,8 +207,8 @@ writeFileSync(new URL('build-log.txt', OUT), `${log.join('\n')}\n`);
 
 /**
  * What the import sheet records besides the marbles: the MIDI file as the project's song, starting where its
- * first note plays, and its tempo, and the default camera of a new project. Pieces are named in time order last. None
- * of it changes the run.
+ * first note plays, its tempo, the default camera of a new project and Fit to Song's film end. Pieces are named in
+ * time order last. None of it changes the run before its end.
  */
 function finalized(current: TProject): TProject {
 	const source: TSource = { id: 'source-1', kind: 'midi', path: `audio/${SONG_NAME}`, name: SONG_NAME, offset: IMPORT_START };
@@ -218,7 +216,10 @@ function finalized(current: TProject): TProject {
 	const camera = { ...current.design.camera, distance: DEFAULT_CAMERA_DISTANCE, pitch: DEFAULT_CAMERA_PITCH };
 	const song = apply(
 		current,
-		[...removed, { type: 'upsertSource', source }, { type: 'setTempo', tempo: { bpm: TEMPO, beatsPerBar: 4 } }, { type: 'setDesign', design: { camera } }],
+		[...removed, { type: 'upsertSource', source }, { type: 'setTempo', tempo: { bpm: TEMPO, beatsPerBar: 4 } }, { type: 'setDesign', design: { camera } },
+			// The film ends while the marble that struck the last note is still in the held frame
+			{ type: 'setEnd', end: songEnd(Math.max(...current.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)))) }
+		],
 		current.revision
 	);
 	return namePiecesInOrder(song);

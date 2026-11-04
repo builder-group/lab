@@ -4,7 +4,7 @@
 // their own brass skin (`brass:<skin>` skin asset IDs) and a wall title at its start, like the reference's skin
 // sets and song titles per song.
 // Usage: tsx scripts/build-reference-fixture.ts [--dress]
-//   --dress re-applies skins, titles and piece names to the existing fixture without rebuilding its pieces
+//   --dress re-applies skins, titles, piece names and the film end to the existing fixture without rebuilding its pieces
 import { readFileSync, writeFileSync } from 'node:fs';
 import {
 	applyProjectCommands,
@@ -16,6 +16,7 @@ import {
 	type TProject,
 	type TProjectCommand
 } from '../src/modules/project';
+import { songEnd } from '../src/modules/music';
 import { autoPlace, continueSuggestions, mirrorPiece } from '../src/modules/simulation/assists';
 import { createBareRunProject } from '../src/modules/simulation/fixture-projects';
 import { createRailForGap } from '../src/modules/simulation/gap-pieces';
@@ -241,6 +242,8 @@ function dress(current: TProject): TProject {
 	}
 	// The default close, steep camera: the marble and the next pieces fill the frame and a column's rows stack
 	commands.push({ type: 'setDesign', design: { camera: { ...current.design.camera, ...CAMERA } } });
+	// The film ends while the marble that struck the last note is still in the held frame
+	commands.push({ type: 'setEnd', end: songEnd(Math.max(...hitTime.values())) });
 	return apply(current, commands);
 }
 
