@@ -79,6 +79,7 @@ export function buildSceneDescription(
 			radius: track.radius,
 			color: entity?.components.marble?.color ?? DEFAULT_MARBLE_COLOR,
 			...(entity?.components.skin != null ? { skin: canonicalSkin(entity.components.skin) } : {}),
+			...(skinAssetPath(entity?.components.skin?.assetId) != null ? { assetPath: skinAssetPath(entity?.components.skin?.assetId) } : {}),
 			motionPath,
 			sampleCount: samples.length
 		};
@@ -203,6 +204,7 @@ export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
 		pitch: camera.pitch,
 		lead: camera.lead,
 		smoothing: camera.smoothing,
+		...(camera.sway != null ? { sway: camera.sway } : {}),
 		shots: camera.shots.map((shot) => ({
 			time: shot.time,
 			kind: shot.kind,

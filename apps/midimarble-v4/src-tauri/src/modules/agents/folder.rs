@@ -32,10 +32,23 @@ pub fn ensure(package: &Path, title: &str) -> io::Result<PathBuf> {
         fs::create_dir_all(folder.join(name))?;
     }
     let brief = folder.join(BRIEF_FILE);
-    if !brief.exists() {
-        fs::write(&brief, project_brief(title))?;
+    match fs::read_to_string(&brief) {
+        Ok(written) => retitle_brief(&brief, &written, title)?,
+        Err(_) => fs::write(&brief, project_brief(title))?,
     }
     return Ok(folder);
+}
+
+/// Save As renames the project, so the brief's heading follows; what a person wrote below it stays.
+fn retitle_brief(brief: &Path, written: &str, title: &str) -> io::Result<()> {
+    let Some(rest) = written.strip_prefix("# ") else {
+        return Ok(());
+    };
+    let (heading, body) = rest.split_once('\n').unwrap_or((rest, ""));
+    if heading == title {
+        return Ok(());
+    }
+    return fs::write(brief, format!("# {}\n{}", title, body));
 }
 
 fn project_brief(title: &str) -> String {
@@ -186,6 +199,22 @@ mod tests {
         assert_eq!(fs::read_to_string(folder.join(BRIEF_FILE)).unwrap(), "mine");
         assert!(ensure(Path::new("/no/such/package"), "x").is_err());
         fs::remove_dir_all(package).unwrap();
+    }
+
+    #[test]
+    fn the_brief_heading_follows_a_new_title_and_keeps_the_rest() {
+        let package = temporary_package("retitle");
+        let folder = ensure(&package, "Build Track Test").unwrap();
+        let brief = folder.join(BRIEF_FILE);
+        let written = fs::read_to_string(&brief).unwrap();
+        fs::write(&brief, format!("{}\nA person's note\n", written)).unwrap();
+
+        ensure(&package, "Jingle Bells V3").unwrap();
+        let renamed = fs::read_to_string(&brief).unwrap();
+        assert!(renamed.starts_with("# Jingle Bells V3\n"));
+        assert!(renamed.contains("A person's note"));
+        assert!(!renamed.contains("Build Track Test"));
+        fs::remove_dir_all(&package).unwrap();
     }
 
     #[test]

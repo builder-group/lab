@@ -83,6 +83,23 @@ describe('follow camera', () => {
 		simulator.dispose();
 	});
 
+	it('should keep the wall upright at Sway 0, and roll on its own at the default', () => {
+		const { project, result } = fixture(FIXTURES[0] as string);
+		const tilts = (sway: number | undefined): number[] => {
+			const camera = { ...project.design.camera, ...(sway != null ? { sway } : {}) };
+			const track = required(followCameraTrack({ ...project, design: { ...project.design, camera } }, result, 30));
+			const frames = track.rotation.length / 4;
+			return Array.from({ length: frames }, (_, frame) => {
+				const matrix = quaternionToMatrix(track.rotation.subarray(frame * 4, frame * 4 + 4));
+				// The image's right direction: its share along the wall's up is the roll
+				return Math.abs(matrix[2]?.[0] ?? Number.NaN);
+			});
+		};
+		expect(Math.max(...tilts(0))).toBeLessThan(1e-6);
+		expect(Math.max(...tilts(undefined))).toBeGreaterThan(0.05);
+		expect(Math.max(...tilts(0.5))).toBeLessThan(Math.max(...tilts(undefined)));
+	});
+
 	it('rounds halves to even like Python', () => {
 		expect([0.5, 1.5, 2.5, 4.5, 2.4, 2.6].map(pyRound)).toEqual([0, 2, 2, 4, 2, 3]);
 	});

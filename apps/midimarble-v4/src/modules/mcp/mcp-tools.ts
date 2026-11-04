@@ -1,15 +1,20 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
+import { addWallTextCommands, defaultTitleColor, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/design/design-commands';
 import { filmFileName, getRenderPreset } from '@/modules/design/export-estimate';
-import { library, toItemId } from '@/modules/library';
-import { createProject } from '@/modules/project';
-
-import { commands as registry, commandWorkspace, isCommandEnabled, type TCommand, type TCommandId } from '@/modules/studio/commands';
+import { framingProblemAt, preflightExport } from '@/modules/design/export-preflight';
+import { addShotCommands, shotKinds } from '@/modules/design/shots';
+import { saveAsTheme } from '@/modules/design/SkinProperties';
+import { addedPacks, library, toItemId } from '@/modules/library';
+import { createProject, type TProjectTheme } from '@/modules/project';
+import { songDisplayName } from '@/modules/design/titles';
+import { commands as registry, commandWorkspace, getCommand, isCommandEnabled, type TCommand, type TCommandId } from '@/modules/studio/commands';
 import type { StudioCx, TAgentStepNotice } from '@/modules/studio/StudioCx';
 import { CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY } from '@/modules/studio/selection';
+import { toShotKey } from '@/modules/studio/selection';
 import { hitReport, projectState } from './mcp-state';
-import { expandCommands, type TAgentCommand } from './project-commands';
+import { builtInSkinIds, expandCommands, type TAgentCommand } from './project-commands';
 
 // What each MCP tool does in the app. Edits go through the same `execute` a person's do, inside one named Undo step.
 
@@ -29,6 +34,9 @@ const DRAFT_WIDTH = 540;
 const BLENDER_WIDTH = 1280;
 const PROJECT_EXECUTE = 'project.execute';
 const EDIT_SELECT = 'edit.select';
+const REMOVE_PACK = 'design.removePack';
+/** The export sheet's words for the presets, which `export_film` takes as well as their ids */
+const QUALITY_WORDS: Record<string, 'draft' | 'fast' | 'balanced' | 'best'> = { draft: 'draft', fast: 'fast', standard: 'fast', balanced: 'balanced', high: 'balanced', best: 'best' };
 
 /** Commands that ask a person through a panel, with what they need instead */
 const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
@@ -39,6 +47,10 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.replaceSong': 'the add_song tool',
 	'file.export': 'the export_film tool',
 	'design.exportPack': 'args.path, plus name and either theme or items',
+	'design.addText': 'args.text, and style, at, color, in and out if wanted',
+	'design.saveAsTheme': 'args.name if wanted',
+	'camera.addShot': 'args.time, kind, roll, distance and length if wanted',
+	'camera.addWideShot': 'args.time if wanted',
 	'marble.speed': 'args.value, Marble Speed from 0.05 to 2'
 };
 
@@ -73,6 +85,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
+				packThemes: addedPacks.get().flatMap((pack) => pack.themes.filter((theme) => !project.design.themes?.some((item) => item.id === theme.id)).map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
 				references: { images: references.images.length, text: references.text }
 			})
 		);
@@ -89,10 +102,21 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				title: command.title,
 				section: command.section,
 				canRun: canRun(cx, command),
+				...(!canRun(cx, command) && command.whyDisabled != null ? { why: command.whyDisabled } : {}),
 				...(command.isChecked != null ? { isOn: command.isChecked(cx) === true } : {}),
 				...(PANEL_COMMANDS[command.id] != null ? { needs: PANEL_COMMANDS[command.id] } : {})
 			}));
-		return text(cx, { commands: [{ id: PROJECT_EXECUTE, title: 'Project commands with parameters: see the building-a-track guide' }, { id: EDIT_SELECT, title: 'Select by keys: args.select, such as hit keys, entity IDs, wall or light:key' }, ...listed] });
+		const libraryItems = cx.library.$projectItems.get().flatMap((item) => (item.manifest?.role === 'skin' ? [{ id: item.id, label: item.manifest.label, fits: item.manifest.pieceType ?? 'any piece' }] : []));
+		return text(cx, {
+			commands: [
+				{ id: PROJECT_EXECUTE, title: 'Project commands with parameters: see the building-a-track guide' },
+				{ id: EDIT_SELECT, title: 'Select by keys: args.select, such as hit keys, entity IDs, wall or light:key' },
+				{ id: REMOVE_PACK, title: 'Remove an added Pack: args.name. Projects keep what they use from it' },
+				...listed
+			],
+			// What applySkin takes: built-in skins by element, and the project's own
+			skins: { builtIn: builtInSkinIds(), library: libraryItems }
+		});
 	},
 
 	run_command: async (cx, args) => {
@@ -107,6 +131,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 			applySelection(cx, commandArgs);
 			return text(cx, { selection: cx.$selection.get(), changed: false });
 		}
+		if (id === REMOVE_PACK) return removePack(cx, commandArgs);
 		const command = registry.find((item) => item.id === id);
 		if (command == null) return fail(cx, `There is no command called ${id}. Use list_commands to find one.`);
 		const special = ARGUMENT_COMMANDS[command.id];
@@ -134,7 +159,8 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				}
 				return invoke(cx, command);
 			},
-			undoName != null ? (canStep ? { [command.id === 'edit.undo' ? 'undid' : 'redid']: undoName } : { notices: [`Nothing to ${command.id === 'edit.undo' ? 'undo' : 'redo'}.`] }) : {}
+			undoName != null ? (canStep ? { [command.id === 'edit.undo' ? 'undid' : 'redid']: undoName } : { notices: [`Nothing to ${command.id === 'edit.undo' ? 'undo' : 'redo'}.`] }) : {},
+			command.id === 'file.save' || command.id === 'file.saveAs' ? () => ({ saved: cx.$path.get(), title: cx.project?.title ?? null }) : undefined
 		);
 	},
 
@@ -176,7 +202,9 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		await settled(cx);
 		const [isFrameOk, frameErr, frame] = await cx.design.renderStill(time, quality === 'blender' ? BLENDER_WIDTH : DRAFT_WIDTH);
 		if (!isFrameOk) return fail(cx, frameErr.message);
-		return { content: [{ type: 'imagePath', path: frame.path }, { type: 'text', text: `${frame.width} × ${frame.height} at ${time} s, ${Math.round(frame.renderMs)} ms` }], isError: false, packagePath: cx.$path.get() };
+		const framing = framingProblemAt(preflightExport(cx.project, cx.simulation.$result.get()), time);
+		const words = `${frame.width} × ${frame.height} at ${time} s, ${Math.round(frame.renderMs)} ms${framing != null ? `. ${framing.title} here: this frame may not show it` : ''}`;
+		return { content: [{ type: 'imagePath', path: frame.path }, { type: 'text', text: words }], isError: false, packagePath: cx.$path.get() };
 	},
 
 	play_range: async (cx, args) => {
@@ -188,7 +216,8 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 	},
 
 	export_film: async (cx, args) => {
-		const { quality, path } = z.object({ quality: z.enum(['draft', 'fast', 'balanced', 'best']).optional(), path: SPath.optional() }).parse(args);
+		const { quality: word, path } = z.object({ quality: z.enum(['draft', 'fast', 'standard', 'balanced', 'high', 'best']).optional(), path: SPath.optional() }).parse(args);
+		const quality = word != null ? QUALITY_WORDS[word] : undefined;
 		if (cx.project == null) return noProject(cx);
 		if (quality != null && !cx.film.isRunning) {
 			await settled(cx);
@@ -211,16 +240,24 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 	},
 
 	add_asset: async (cx, args) => {
-		const { path, role, name, pieceType, pack } = z.object({ path: SPath, role: z.enum(['skin', 'decor']), name: z.string().regex(/\S/), pieceType: z.string().optional(), pack: z.string().regex(/\S/).optional() }).parse(args);
+		const given = z.object({ path: SPath, role: z.enum(['skin', 'decor', 'decoration']).optional(), name: z.string().regex(/\S/).optional(), pieceType: z.string().optional(), pack: z.string().regex(/\S/).optional() }).parse(args);
+		const { path, pack } = given;
 		const packagePath = cx.$path.get();
 		if (packagePath == null) return noProject(cx);
-		if (role === 'skin' && pieceType == null) return fail(cx, 'A skin needs a pieceType, the piece it fits, such as platform.');
 		const isBlendFile = path.toLowerCase().endsWith('.blend');
 		const folder = isBlendFile ? path.slice(0, path.lastIndexOf('/')) : path;
 		const manifestUrl = host.pickedFileUrl({ name: 'manifest.json', path: `${folder}/manifest.json` });
 		const [isReadOk, , bytes] = manifestUrl != null ? await host.readFile(manifestUrl) : ([false, null, null] as const);
 		const written = isReadOk ? parseObject(new TextDecoder().decode(bytes)) : {};
-		const manifest = { $schema: 'marble-asset@1', id: toItemId(name), ...written, label: name, role: role === 'skin' ? 'skin' : 'decoration', ...(pieceType != null ? { pieceType } : {}) };
+		// What isn't given comes from the manifest
+		const name = given.name ?? (typeof written['label'] === 'string' ? written['label'] : null);
+		const writtenRole = written['role'] === 'skin' || written['role'] === 'decoration' ? written['role'] : null;
+		const role = given.role === 'decor' ? 'decoration' : (given.role ?? writtenRole);
+		const pieceType = given.pieceType ?? (typeof written['pieceType'] === 'string' ? written['pieceType'] : undefined);
+		if (name == null) return fail(cx, 'add_asset needs a name, or a manifest.json beside the file with a label.');
+		if (role == null) return fail(cx, "add_asset needs a role, skin or decor, or a manifest.json beside the file with a role.");
+		if (role === 'skin' && pieceType == null) return fail(cx, 'A skin needs a pieceType, the piece it fits, such as platform or marble.');
+		const manifest = { $schema: 'marble-asset@1', id: toItemId(name), ...written, label: name, role, ...(pieceType != null ? { pieceType } : {}) };
 		const [isAddedOk, addedErr, item] = await library.addAsset(packagePath, path, JSON.stringify(manifest), pack != null ? { packId: toItemId(pack), packName: pack, version: '1.0' } : undefined);
 		if (!isAddedOk) return fail(cx, addedErr.message);
 		await cx.library.refresh();
@@ -231,6 +268,28 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 
 /** Commands that take their panel's answers as arguments */
 const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<string, unknown>) => Promise<void>>> = {
+	'design.addText': async (cx, args) => {
+		addTitle(cx, args);
+	},
+	'design.saveAsTheme': async (cx, args) => {
+		const { name } = z.object({ name: z.string().regex(/\S/).optional() }).parse(args);
+		const hadChanges = Object.keys(cx.project?.design.wall ?? {}).length > 0 || cx.project?.design.lights != null;
+		saveAsTheme(cx, name);
+		if (hadChanges) cx.notify('The Wall and Lights values moved into the new theme, so get_state.wall.own and lights.own are empty now and its values stay the same.');
+	},
+	'camera.addShot': async (cx, args) => {
+		const { time, kind, roll, distance, length } = SShotArgs.parse(args);
+		const project = cx.project;
+		if (project == null) return;
+		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(roll != null ? { roll } : {}), ...(distance != null ? { distance } : {}), ...(length != null ? { length } : {}) });
+		cx.$workspace.set('design');
+		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
+	},
+	'camera.addWideShot': async (cx, args) => {
+		const { time } = z.object({ time: z.number().min(0).optional() }).parse(args);
+		if (time != null) cx.seek(time);
+		await invoke(cx, getCommand('camera.addWideShot'));
+	},
 	'file.new': async (cx, args) => {
 		const { title, path } = z.object({ title: z.string().optional(), path: SPath.optional() }).parse(args);
 		if (path != null) await cx.newProject({ ...(title != null ? { title } : {}), path });
@@ -250,8 +309,13 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		const named = name != null ? cx.library.$bundledPacks.get().find((pack) => pack.name.toLowerCase() === name.toLowerCase()) : null;
 		if (name != null && named == null) throw new Error(`There is no Pack called ${name} in the app`);
 		const from = named?.path ?? path;
-		if (from == null) cx.library.$isAddPackOpen.set(true);
-		else await cx.library.addPack(from);
+		if (from == null) {
+			cx.library.$isAddPackOpen.set(true);
+			return;
+		}
+		const [isAddedOk, addedErr, pack] = await cx.library.addPack(from);
+		if (!isAddedOk) throw addedErr;
+		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'setDesign', design: { theme: id } }.`);
 	},
 	'design.restartBlender': async (cx) => {
 		await cx.design.restart();
@@ -270,13 +334,74 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	}
 };
 
+const SShotArgs = z.object({
+	time: z.number().min(0).optional(),
+	kind: z.enum(shotKinds.map((item) => item.kind) as [string, ...string[]]).optional() as z.ZodOptional<z.ZodType<(typeof shotKinds)[number]['kind']>>,
+	roll: z.number().optional(),
+	distance: z.number().positive().optional(),
+	length: z.number().nonnegative().optional()
+});
+
+const STitleArgs = z.object({
+	text: z.string().regex(/\S/, 'A title needs words').optional(),
+	style: z.enum(titleStyles.map((item) => item.style) as [TTitleStyle, ...TTitleStyle[]]).optional(),
+	at: z.strictObject({ x: z.number(), y: z.number() }).optional(),
+	color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'A colour is like #1d1d1f').optional(),
+	in: z.number().nonnegative().optional(),
+	out: z.number().nonnegative().optional()
+});
+
+/** A title with its words, as Add Title then typing makes one; at the frame's middle at the playhead unless `at` says */
+function addTitle(cx: StudioCx, args: Record<string, unknown>): void {
+	const { text, style = 'wall', at, color, in: start, out } = STitleArgs.parse(args);
+	const project = cx.project;
+	if (project == null) throw new Error('No project is open.');
+	const result = cx.simulation.$result.get();
+	const playhead = cx.$playhead.get();
+	const frameHeight = frameHeightOnWall(project, result, playhead);
+	const point = at ?? previewPointToWall(project, result, playhead, 0.5, 0.5);
+	const { commands, entityId } = addWallTextCommands(point, { color: color ?? defaultTitleColor(project.design), frameHeight, ...(text != null ? { text } : {}) });
+	const styled = commands.flatMap((command) => {
+		if (command.type !== 'upsertEntity' || command.entity.components.wallText == null) return [command];
+		const title = withTitleStyle(command.entity.components.wallText, style, { frameHeight, playhead, end: project.end, songName: songDisplayName(project), aspect: project.frame.width / project.frame.height });
+		const wallText = { ...title, ...(start != null ? { in: start } : {}), ...(out != null ? { out } : {}) };
+		return [{ ...command, entity: { ...command.entity, name: wallText.text, components: { ...command.entity.components, wallText } } }];
+	});
+	cx.$workspace.set('design');
+	if (cx.execute(styled)) cx.$selection.set([entityId]);
+}
+
+/** Remove Pack by name, which the Add Pack sheet does for a person */
+async function removePack(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
+	const { name } = z.object({ name: z.string() }).parse(args);
+	const pack = addedPacks.get().find((item) => item.name.toLowerCase() === name.toLowerCase());
+	if (pack == null) return fail(cx, `No Pack called ${name} is added. Added: ${addedPacks.get().map((item) => item.name).join(', ') || 'none'}.`);
+	await cx.library.removePack(pack);
+	return text(cx, { removed: pack.name, changed: false });
+}
+
+/** The themes of added Packs that `commands` apply, as a project stores them: their items copied in */
+async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TProjectTheme[]> {
+	const wanted = commands.flatMap((command) => (command.type === 'setDesign' ? [(command as { design?: { theme?: unknown } }).design?.theme] : []));
+	const themes: TProjectTheme[] = [];
+	for (const pack of addedPacks.get()) {
+		for (const theme of pack.themes) {
+			if (!wanted.includes(theme.id) || cx.project?.design.themes?.some((item) => item.id === theme.id) === true) continue;
+			const ready = await cx.library.packThemeInProject(pack, theme);
+			if (ready != null) themes.push(ready);
+		}
+	}
+	return themes;
+}
+
 async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
 	const { commands, label } = z.object({ commands: z.array(z.looseObject({ type: z.string() })).min(1), label: z.string().optional() }).parse(args);
 	const project = cx.project;
 	if (project == null) return noProject(cx);
 	await settled(cx);
 	const items = cx.library.$projectItems.get();
-	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[]);
+	const packThemes = await packThemesToApply(cx, commands);
+	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes);
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
 	if (!expanded.isChange) {
 		applySelection(cx, args);
@@ -286,11 +411,11 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 		if (!cx.execute(expanded.commands)) return;
 		if (expanded.createdIds.length > 0) cx.$selection.set(expanded.createdIds);
 		applySelection(cx, args);
-	});
+	}, { notices: expanded.notices });
 }
 
 /** Runs `work` as one Undo step named "Agent: …", waits for the run to catch up and answers with the hit summary */
-async function editStep(cx: StudioCx, title: string, work: () => Promise<void> | void, extra: { notices?: string[]; undid?: string; redid?: string } = {}): Promise<TToolReply> {
+async function editStep(cx: StudioCx, title: string, work: () => Promise<void> | void, extra: { notices?: string[]; undid?: string; redid?: string } = {}, after?: () => Record<string, unknown>): Promise<TToolReply> {
 	const label = `Agent: ${title.replace(/…$/, '')}`;
 	const outcome = await cx.runAgentStep(label, async () => {
 		await work();
@@ -300,11 +425,12 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 	const errors = outcome.notices.filter((notice: TAgentStepNotice) => notice.tone === 'error').map((notice: TAgentStepNotice) => notice.message);
 	const notices = [...outcome.notices.filter((notice: TAgentStepNotice) => notice.tone !== 'error').map((notice: TAgentStepNotice) => notice.message), ...(extra.notices ?? [])];
 	const reply = {
-		// Whether this call made an Undo step; a reply with only a notice changed nothing
-		changed: outcome.stepName != null,
+		// Whether this call changed the project: an Undo step made, or one taken back or redone. A reply with only a notice changed nothing
+		changed: outcome.stepName != null || extra.undid != null || extra.redid != null,
 		...(outcome.stepName != null ? { undoStep: outcome.stepName } : {}),
 		...(extra.undid != null ? { undid: extra.undid } : {}),
 		...(extra.redid != null ? { redid: extra.redid } : {}),
+		...after?.(),
 		selection: cx.$selection.get(),
 		...(project != null ? hitReport(project, cx.simulation.$result.get()) : {}),
 		...(notices.length > 0 ? { notices } : {}),
@@ -340,7 +466,7 @@ async function invoke(cx: StudioCx, command: TCommand): Promise<void> {
 		await waitFor(() => target === 'design' || cx.$compose.get() != null, 1500);
 		await sleep(50);
 	}
-	if (!isCommandEnabled(cx, command)) throw new Error(`${command.title} can't run right now. get_state shows the project and selection it would act on.`);
+	if (!isCommandEnabled(cx, command)) throw new Error(`${command.title} can't run right now. ${command.whyDisabled ?? 'get_state shows the project and selection it would act on.'}`);
 	command.run(cx);
 }
 

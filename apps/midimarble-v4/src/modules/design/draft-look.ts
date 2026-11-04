@@ -238,7 +238,7 @@ function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverride
 	const lowest = (body: string): number => Math.min(...around.map((other) => contrastRatio(body, other)));
 	const hue = saturate(color, 1);
 	const pearl: TDraftMarble = { body: tint(hue, PEARL_WHITE), rim: hue, tone: 'pearl' };
-	const deep: TDraftMarble = { body: deepColor(color), rim: null, tone: 'deep' };
+	const deep: TDraftMarble = { body: deepColor(color, deepLuminance(around)), rim: null, tone: 'deep' };
 	const chosen = (marble: TDraftMarble): { marble: TDraftMarble; contrast: number } => ({ marble, contrast: lowest(marble.body) });
 	switch (skin?.skin) {
 		case 'marble:pearl':
@@ -276,11 +276,17 @@ function marbleSurfaces(theme: string, color: string): string[] {
 }
 
 /** `color` at full saturation, dark enough to reach `DEEP_LUMINANCE`, found by halving like `deep_color` in themes.py */
-function deepColor(color: string): string {
+/** How light a deep body may be and still keep `MARBLE_CONTRAST` against the darkest of `around`, `deep_luminance` in themes.py */
+function deepLuminance(around: readonly string[]): number {
+	const darkest = Math.min(...around.map(luminance));
+	return Math.min(DEEP_LUMINANCE_LIGHTEST, Math.max(DEEP_LUMINANCE, (darkest + 0.05) / MARBLE_CONTRAST - 0.05));
+}
+
+function deepColor(color: string, target = DEEP_LUMINANCE): string {
 	let [low, high] = [0, 1];
 	for (let step = 0; step < 24; step++) {
 		const middle = (low + high) / 2;
-		if (luminance(saturate(color, middle)) > DEEP_LUMINANCE) high = middle;
+		if (luminance(saturate(color, middle)) > target) high = middle;
 		else low = middle;
 	}
 	return saturate(color, low);
@@ -289,7 +295,9 @@ function deepColor(color: string): string {
 /** Share of white in a pearl marble's body in display colours, `PEARL_WHITE` in themes.py */
 const PEARL_WHITE = 0.8;
 /** Relative luminance of a deep marble, `DEEP_LUMINANCE` in themes.py */
-const DEEP_LUMINANCE = 0.03;
+const DEEP_LUMINANCE = 0.05;
+/** A deep body on a lighter wall can be lighter too, so a warm wall shows its hue rather than a near-black ball */
+const DEEP_LUMINANCE_LIGHTEST = 0.09;
 /** Brightness of a Neon body in its hue */
 const NEON_BODY_VALUE = 0.62;
 

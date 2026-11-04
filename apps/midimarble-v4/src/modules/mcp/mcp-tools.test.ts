@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createHistory, createLane, createMarble, createProject, type TProject } from '@/modules/project';
+import { Ok } from 'tuple-result';
+import { host } from '@/environment';
+import { addedPacks, library, type TLibraryItem, type TPack } from '@/modules/library';
+import { createHistory, createLane, createMarble, createProject, type TEntity, type TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { readMenuItem } from '@/modules/studio/menu-bar';
 import { StudioCx } from '@/modules/studio/StudioCx';
@@ -44,9 +47,12 @@ function textOf(reply: { content: { type: string; text?: string }[] }): string {
 describe('MCP tools', () => {
 	beforeEach(() => {
 		vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 40 });
+		// Autosave writes to the browser's storage when a test runs long enough to reach it
+		vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
 	});
 	afterEach(() => {
 		vi.useRealTimers();
+		vi.unstubAllGlobals();
 	});
 
 	it('should answer get_state in short with the agent folder and hit summary', async () => {
@@ -157,7 +163,8 @@ describe('MCP tools', () => {
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.selection).toEqual(['wall']);
 		expect(state.physics).toEqual({ gravityScale: 0.5, default: 0.5, range: [0.05, 2] });
-		expect(state.wall).toEqual({});
+		expect(state.wall).toMatchObject({ own: {} });
+		expect((state.wall as { kind: string }).kind).toBeTypeOf('string');
 		expect(state.marbles[0]).toMatchObject({ laneId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y'], hitList: [['hit1', 1, 'C4', 'open', 0, -1]] });
 	});
 
@@ -205,7 +212,206 @@ describe('MCP tools', () => {
 		await runTool(cx, 'run_command', { id: 'marble.speed', args: { value: 0.7 } });
 		const reply = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'edit.undo' })));
 		expect(reply.undid).toBe('Agent: Marble Speed');
-		expect(reply.changed).toBe(false);
+		expect(reply.changed).toBe(true);
+	});
+
+	function execute(cx: StudioCx, ...commands: unknown[]): ReturnType<typeof runTool> {
+		return runTool(cx, 'run_command', { id: 'project.execute', args: { commands } });
+	}
+
+	function marbleOf(cx: StudioCx): TEntity {
+		return cx.project?.entities.find((entity) => entity.components.marble != null) as TEntity;
+	}
+
+	function skinItem(id: string, pieceType: string): TLibraryItem {
+		return { id, scope: 'project', path: `/x/${id}`, blendPath: `/x/${id}/asset.blend`, previewUrl: null, manifest: { id, label: id, role: 'skin', pieceType }, manifestError: null } as unknown as TLibraryItem;
+	}
+
+	describe('skins', () => {
+		it.each(['marble:glass', 'marble:metal', 'marble:magic'])('should put %s on a marble from the command to the scene Blender reads', async (skin) => {
+			const { cx } = studio();
+			const marble = marbleOf(cx);
+			const reply = await execute(cx, { type: 'applySkin', assetId: skin, entityIds: [marble.id] });
+			expect(reply.isError).toBe(false);
+			expect(marbleOf(cx).components.skin?.assetId).toBe(skin);
+			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { marbles: { skin: string }[] };
+			expect(state.marbles[0]?.skin).toBe(skin);
+		});
+
+		it('should refuse a skin that does not exist, or fit, with the ones that do', async () => {
+			const { cx } = studio();
+			const marble = marbleOf(cx);
+			for (const assetId of ['marble:nosuchthing', 'platform:copper', 'switchback:gold', 'gift-red']) {
+				const reply = await execute(cx, { type: 'applySkin', assetId, entityIds: [marble.id] });
+				expect(reply.isError, assetId).toBe(true);
+				expect(marbleOf(cx).components.skin).toBeUndefined();
+			}
+			expect(textOf(await execute(cx, { type: 'applySkin', assetId: 'marble:nosuchthing', pieceType: 'marble' }))).toContain('marble:glass');
+			expect(textOf(await execute(cx, { type: 'applySkin', assetId: 'platform:copper', pieceType: 'marble' }))).toContain("can't dress a Marble");
+			expect((await execute(cx, { type: 'applySkin', assetId: 'marble:glass', entityIds: ['nobody'] })).isError).toBe(true);
+			expect((await execute(cx, { type: 'setComponent', entityId: marble.id, component: { name: 'skin', value: { assetId: 'marble:nope' } } })).isError).toBe(true);
+		});
+
+		it('should take a marble skin from the library, and no other piece type', async () => {
+			const { cx } = studio();
+			cx.library.$projectItems.set([skinItem('green-glass', 'marble'), skinItem('gift-red', 'platform')]);
+			const marble = marbleOf(cx);
+			expect((await execute(cx, { type: 'applySkin', assetId: 'gift-red', entityIds: [marble.id] })).isError).toBe(true);
+			expect((await execute(cx, { type: 'applySkin', assetId: 'green-glass', entityIds: [marble.id] })).isError).toBe(false);
+			expect(marbleOf(cx).components.skin?.assetId).toBe('green-glass');
+		});
+
+		it('should list every built-in skin and the library in list_commands', async () => {
+			const { cx } = studio();
+			cx.library.$projectItems.set([skinItem('green-glass', 'marble')]);
+			const listed = JSON.parse(textOf(await runTool(cx, 'list_commands', {}))) as { skins: { builtIn: Record<string, string[]>; library: { id: string; fits: string }[] } };
+			expect(listed.skins.builtIn['marble']).toContain('marble:glass');
+			expect(listed.skins.builtIn['switchback']).toContain('switchback:chrome');
+			expect(listed.skins.library).toEqual([expect.objectContaining({ id: 'green-glass', fits: 'marble' })]);
+		});
+	});
+
+	describe('setDesign', () => {
+		it('should refuse an unknown theme and name the ones there are', async () => {
+			const { cx } = studio();
+			const reply = await execute(cx, { type: 'setDesign', design: { theme: 'theme-nope' } });
+			expect(reply.isError).toBe(true);
+			expect(textOf(reply)).toContain('There is no theme theme-nope');
+			expect(textOf(reply)).toContain('pegboard');
+			expect(cx.project?.design.theme).not.toBe('theme-nope');
+		});
+
+		it('should change only the fields it names', async () => {
+			const { cx } = studio();
+			const before = cx.project?.design.camera.distance;
+			await execute(cx, { type: 'setDesign', design: { camera: { sway: 0 }, wall: { color: '#f6e3b8' }, lights: { key: { color: '#ffd08a' } } } });
+			await execute(cx, { type: 'setDesign', design: { wall: { kind: 'plain' }, lights: { key: { strength: 3 } } } });
+			expect(cx.project?.design.camera.sway).toBe(0);
+			expect(cx.project?.design.camera.distance).toBe(before);
+			expect(cx.project?.design.wall).toEqual({ color: '#f6e3b8', kind: 'plain' });
+			expect(cx.project?.design.lights?.key).toEqual({ color: '#ffd08a', strength: 3 });
+		});
+
+		it('should say what is wrong with the field that is wrong', async () => {
+			const { cx } = studio();
+			expect(textOf(await execute(cx, { type: 'setDesign', design: { lights: { fill: {} } } }))).toContain('lights has key and added');
+			expect(textOf(await execute(cx, { type: 'setDesign', design: { camera: { zoom: 0.5 } } }))).toContain('sway');
+			expect(textOf(await execute(cx, { type: 'setDesign', design: { wall: { paint: '#fff' } } }))).toContain('kind plain');
+			const unknown = textOf(await execute(cx, { type: 'setDesign', design: { sky: {} } }));
+			expect(unknown).toContain('design takes theme, wall, lights, camera');
+			expect(unknown).not.toContain("theme: 'brass' } }.");
+		});
+
+		it("should apply an added Pack's theme by its id", async () => {
+			const { cx } = studio();
+			const theme = { id: 'theme-pack', name: 'Golden', base: 'brass', overrides: { wallColor: '#ffefc8' } };
+			addedPacks.set([{ id: 'xmas', name: 'Christmas', version: '1.0', themes: [theme], items: [], builtInDecor: [] } as unknown as TPack]);
+			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { packThemes: { id: string; pack: string }[] };
+			expect(state.packThemes).toEqual([{ id: 'theme-pack', name: 'Golden', pack: 'Christmas' }]);
+			expect((await execute(cx, { type: 'setDesign', design: { theme: 'theme-pack' } })).isError).toBe(false);
+			expect(cx.project?.design.theme).toBe('theme-pack');
+			expect(cx.project?.design.themes?.[0]?.pack?.packName).toBe('Christmas');
+			addedPacks.set([]);
+		});
+	});
+
+	describe('components', () => {
+		it('should name the real component names in errors', async () => {
+			const { cx } = studio();
+			const reply = textOf(await execute(cx, { type: 'setComponent', entityId: marbleOf(cx).id, component: { name: 'walltext', value: {} } }));
+			expect(reply).toContain('wallText');
+			expect(reply).toContain('hitLink');
+		});
+
+		it('should change a marble colour without a radius, and warn when a radius changes', async () => {
+			const { cx } = studio();
+			const id = marbleOf(cx).id;
+			const radius = marbleOf(cx).components.marble?.radius;
+			const colour = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'marble', value: { color: '#22ff66' } } }))) as { notices?: string[] };
+			expect(marbleOf(cx).components.marble).toMatchObject({ color: '#22ff66', radius });
+			expect(colour.notices).toBeUndefined();
+			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { marbles: { radius: number; color: string }[] };
+			expect(state.marbles[0]).toMatchObject({ radius, color: '#22ff66' });
+			const bigger = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'marble', value: { radius: 0.0125 } } }))) as { notices: string[] };
+			expect(bigger.notices[0]).toContain('radius changes the run');
+			expect((await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'marble', value: { radius: 1.2 } } })).isError).toBe(true);
+		});
+
+		it('should refuse ids that are not there and fonts a title can not use', async () => {
+			const { cx } = studio();
+			expect(textOf(await execute(cx, { type: 'removeEntities', entityIds: ['nobody'] }))).toContain('There is nothing called nobody');
+			expect((await execute(cx, { type: 'removeLane', laneId: 'nope' })).isError).toBe(true);
+			expect((await execute(cx, { type: 'removeSource', sourceId: 'nope' })).isError).toBe(true);
+			await runTool(cx, 'run_command', { id: 'design.addText', args: { text: 'Hello' } });
+			const title = cx.project?.entities.find((entity) => entity.components.wallText != null) as TEntity;
+			expect(textOf(await execute(cx, { type: 'setComponent', entityId: title.id, component: { name: 'wallText', value: { font: 'Georgia' } } }))).toContain("isn't a font");
+		});
+	});
+
+	describe('titles and shots', () => {
+		it('should add a title with its words, readable in get_state', async () => {
+			const { cx } = studio();
+			const reply = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'design.addText', args: { text: 'Jingle Bells', style: 'songName', at: { x: 0.1, y: -0.2 }, color: '#112233' } }))) as { changed: boolean };
+			expect(reply.changed).toBe(true);
+			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { layers: { titles: { text: string; style: string }[] } };
+			expect(state.layers.titles).toEqual([expect.objectContaining({ text: 'Jingle Bells', style: 'songName' })]);
+			const title = cx.project?.entities.find((entity) => entity.components.wallText != null);
+			expect(title?.components.transform?.position).toEqual({ x: 0.1, y: -0.2 });
+			expect(title?.components.wallText?.color).toBe('#112233');
+			expect((await runTool(cx, 'run_command', { id: 'design.addText', args: { style: 'nope' } })).isError).toBe(true);
+		});
+
+		it('should add a shot from its arguments, readable in get_state', async () => {
+			const { cx } = studio();
+			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, kind: 'wide', roll: 0.1, distance: 1.2, length: 2 } });
+			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { camera: { shots: unknown[]; distance: number } };
+			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, kind: 'wide', roll: 0.1, distance: 1.2, length: 2 })]);
+			expect(state.camera.distance).toBeGreaterThan(0);
+		});
+
+		it('should say why Add Wide Shot Here can not run, in the list and the reply', async () => {
+			const { cx } = studio();
+			cx.$workspace.set('design');
+			const reply = await runTool(cx, 'run_command', { id: 'camera.addWideShot', args: { time: 0.5 } });
+			expect(textOf(reply)).toContain('none does here');
+			expect(reply.isError).toBe(true);
+			const listed = JSON.parse(textOf(await runTool(cx, 'list_commands', { filter: 'wide shot' }))) as { commands: { id: string; why?: string }[] };
+			expect(listed.commands.find((item) => item.id === 'camera.addWideShot')?.why).toContain('camera.addShot');
+		});
+	});
+
+	describe('assets and themes', () => {
+		it('should read what add_asset is not told from the manifest', async () => {
+			const { cx } = studio();
+			vi.spyOn(host, 'pickedFileUrl').mockReturnValue('file:///x/manifest.json');
+			vi.spyOn(host, 'readFile').mockResolvedValue(Ok(new TextEncoder().encode(JSON.stringify({ label: 'Green Glass', role: 'skin', pieceType: 'marble' }))) as never);
+			const added = vi.spyOn(library, 'addAsset').mockResolvedValue(Ok({ id: 'green-glass' }) as never);
+			const reply = await runTool(cx, 'add_asset', { path: '/x/green' });
+			expect(reply.isError).toBe(false);
+			const manifest = JSON.parse(added.mock.calls[0]?.[2] as string) as Record<string, string>;
+			expect(manifest).toMatchObject({ label: 'Green Glass', role: 'skin', pieceType: 'marble' });
+			vi.restoreAllMocks();
+		});
+
+		it('should name a saved theme, and take the export words for quality', async () => {
+			const { cx } = studio();
+			await execute(cx, { type: 'setDesign', design: { wall: { color: '#f6e3b8' } } });
+			const reply = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'design.saveAsTheme', args: { name: 'Golden' } }))) as { notices: string[] };
+			expect(cx.project?.design.themes?.[0]?.name).toBe('Golden');
+			expect(reply.notices.join(' ')).toContain('moved into the new theme');
+			expect((await runTool(cx, 'export_film', { quality: 'ultra' })).isError).toBe(true);
+		});
+
+		it('should remove an added Pack by name, and say so when it is not added', async () => {
+			const { cx } = studio();
+			const removed = vi.spyOn(cx.library, 'removePack').mockResolvedValue();
+			addedPacks.set([{ id: 'starter', name: 'Starter', version: '1.0', themes: [], items: [], builtInDecor: [] } as unknown as TPack]);
+			expect((await runTool(cx, 'run_command', { id: 'design.removePack', args: { name: 'starter' } })).isError).toBe(false);
+			expect(removed).toHaveBeenCalled();
+			expect(textOf(await runTool(cx, 'run_command', { id: 'design.removePack', args: { name: 'Nope' } }))).toContain('No Pack called Nope');
+			addedPacks.set([]);
+			vi.restoreAllMocks();
+		});
 	});
 
 	it('should wait for a person mid-gesture, then say busy', async () => {

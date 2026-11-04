@@ -10,6 +10,7 @@ type TSceneDesign = Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>;
 
 /** The Wall layer's Skin choices: the wall kinds of the themes */
 export const WALL_KINDS: readonly { kind: TWallKind; label: string }[] = [
+	{ kind: 'plain', label: 'Plain' },
 	{ kind: 'plaster', label: 'Plaster' },
 	{ kind: 'pegboard', label: 'Pegboard' },
 	{ kind: 'grid', label: 'Grid' }

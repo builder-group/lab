@@ -258,7 +258,7 @@ export function themePartCommands(project: TProject, themeId: string, element: T
  * look most of each type wear, built-in skins only. Pieces in that look then just follow the theme; pieces in another
  * keep it. One edit, and the theme is applied.
  */
-export function saveAsThemeCommands(project: TProject): { commands: TProjectCommand[]; themeId: string } {
+export function saveAsThemeCommands(project: TProject, name?: string): { commands: TProjectCommand[]; themeId: string } {
 	const { commands, themeId } = duplicateThemeCommands(project, project.design.theme);
 	const parts = currentThemeParts(project);
 	const clear = project.entities.flatMap((entity): TProjectCommand[] => {
@@ -272,7 +272,7 @@ export function saveAsThemeCommands(project: TProject): { commands: TProjectComm
 	});
 	const withCopy = commands.flatMap((command) => {
 		if (command.type !== 'setDesign' || command.design.themes == null) return [command];
-		return [{ ...command, design: { ...command.design, themes: command.design.themes.map((theme) => (theme.id === themeId ? { ...theme, parts: { ...theme.parts, ...parts } } : theme)) } }];
+		return [{ ...command, design: { ...command.design, themes: command.design.themes.map((theme) => (theme.id === themeId ? { ...theme, ...(name != null ? { name } : {}), parts: { ...theme.parts, ...parts } } : theme)) } }];
 	});
 	return { commands: [...withCopy, ...clear], themeId };
 }

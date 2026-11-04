@@ -170,18 +170,24 @@ export class DesignLibraryCx {
 		const existing = this.source.getProject();
 		if (existing == null) return false;
 		if (!existing.design.themes?.some((item) => item.id === theme.id)) {
-			const ids = new Map<string, string>();
-			for (const id of themeAssetIds(theme)) {
-				const item = pack.items.find((candidate) => candidate.id === id);
-				const copied = item != null ? await this.inProject(item) : null;
-				if (copied == null) return false;
-				ids.set(id, copied);
-			}
+			const ready = await this.packThemeInProject(pack, theme);
 			const project = this.source.getProject();
-			if (project == null) return false;
-			return this.source.execute(packThemeCommands(project, { ...withThemeAssets(theme, ids), pack: packOriginOf(pack) }));
+			if (ready == null || project == null) return false;
+			return this.source.execute(packThemeCommands(project, ready));
 		}
 		return this.source.execute(themeCommands(existing, theme.id));
+	}
+
+	/** A Pack's theme as a project stores it, with the items it needs copied in; null with a notice when one can't be */
+	async packThemeInProject(pack: TPack, theme: TProjectTheme): Promise<TProjectTheme | null> {
+		const ids = new Map<string, string>();
+		for (const id of themeAssetIds(theme)) {
+			const item = pack.items.find((candidate) => candidate.id === id);
+			const copied = item != null ? await this.inProject(item) : null;
+			if (copied == null) return null;
+			ids.set(id, copied);
+		}
+		return { ...withThemeAssets(theme, ids), pack: packOriginOf(pack) };
 	}
 
 	/** Keep in Library (the star): a project item is copied into the global library; unstarring removes that copy */

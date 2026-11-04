@@ -28,6 +28,18 @@ describe('draft look', () => {
 		expect(noteColor(67)).toBe('#1f9e9e');
 	});
 
+	it('should keep a default marble in its hue on a warm wall, not near-black, with the numbers the film has', () => {
+		// `check_marble_look.py` holds the same numbers
+		expect(draftMarble('brass', '#3478f6').body).toBe('#123f94');
+		expect(draftMarble('brass', '#ff1a2e', { wallColor: '#ffefc8' }).body).toBe('#8a0e19');
+		expect(draftMarble('pegboard', '#34c759').body).toBe('#0c6222');
+		for (const color of ['#3478f6', '#ff1a2e', '#22ff66']) expect(marbleContrast('brass', color, { wallColor: '#ffefc8' })).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
+	});
+
+	it('should draw a Plain wall with no holes on any theme', () => {
+		expect(draftWall('pegboard', {}, 'plain').holes).toBeNull();
+	});
+
 	it('should approximate marble skins and keep the contrast warning working', () => {
 		const look = (assetId: string, fields = {}) => resolveSkinLook('pegboard', null, 'marble', { assetId, link: 'linked', ...fields });
 		expect(draftMarble('pegboard', '#3478f6', {}, look('marble:glass')).finish?.kind).toBe('glass');

@@ -1,5 +1,6 @@
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
-import { resolveTheme } from '@/modules/design/project-themes';
+import { resolveElementLook, resolveTheme } from '@/modules/design/project-themes';
+import { keyLightLayer, wallLayer } from '@/modules/design/scene-layers';
 import type { TProject } from '@/modules/project';
 import { DEFAULT_GRAVITY_SCALE } from '@/modules/project';
 import { noteName } from '@/modules/studio/format';
@@ -37,9 +38,11 @@ export function hitReport(project: TProject, result: TSimulationResult | null): 
 }
 
 /** The project in short. Hit keys in `openHits` work for `select` and `placePiece`. */
-export function projectState(project: TProject, result: TSimulationResult | null, view: { path: string | null; workspace: string; selection: readonly string[]; playhead: number; isPlaying: boolean; agentFolder: string | null; references: { images: number; text: string }; building?: unknown; lastBuild?: unknown }): Record<string, unknown> {
+export function projectState(project: TProject, result: TSimulationResult | null, view: { path: string | null; workspace: string; selection: readonly string[]; playhead: number; isPlaying: boolean; agentFolder: string | null; packThemes?: { id: string; name: string; pack: string }[]; references: { images: number; text: string }; building?: unknown; lastBuild?: unknown }): Record<string, unknown> {
 	const design = project.design;
 	const theme = resolveTheme(design);
+	const wall = wallLayer(design);
+	const light = keyLightLayer(design);
 	const resolved = new Map(result?.pieces.map((piece) => [piece.entityId, piece]) ?? []);
 	const pieces = project.entities.filter((entity) => entity.components.piece != null);
 	const countBy = (values: string[]): Record<string, number> => {
@@ -68,6 +71,9 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				laneId: lane.id,
 				entityId: marble?.id ?? null,
 				name: marble?.name ?? lane.name,
+				color: marble?.components.marble?.color ?? lane.color,
+				radius: marble?.components.marble?.radius ?? null,
+				skin: marble != null ? (marble.components.skin?.assetId ?? resolveElementLook(design, 'marble', marble.components.skin).skin) : null,
 				release: marble?.components.release?.position ?? null,
 				hits: lane.hits.length,
 				onTime: own.filter((hit) => hit.status === 'onTime').length,
@@ -94,14 +100,19 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				};
 			}),
 			...(pieces.length > MAX_PIECES ? { piecesLeftOut: pieces.length - MAX_PIECES } : {}),
-			shots: design.camera.shots.length,
 			lights: design.lights?.added?.length ?? 0,
-			titles: project.entities.filter((entity) => entity.components.wallText != null).length
+			titles: project.entities.flatMap((entity) => {
+				const text = entity.components.wallText;
+				return text != null ? [{ id: entity.id, text: text.text, style: text.style ?? 'wall', ...(text.in != null ? { in: text.in } : {}), ...(text.out != null ? { out: text.out } : {}) }] : [];
+			})
 		},
-		wall: design.wall ?? {},
-		lights: design.lights ?? {},
+		camera: design.camera,
+		// What the film uses, and in `own` what this project changed on top of its theme
+		wall: { color: wall.color, backgroundColor: wall.backgroundColor, kind: wall.kind, own: wall.own },
+		lights: { key: { color: light.color, strength: light.strength, side: light.side, height: light.height, softness: light.softness, exposure: light.exposure, bloom: light.bloom }, own: design.lights ?? {} },
 		theme: { id: theme.id, name: theme.name, base: theme.base, overrides: theme.overrides, parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
 		projectThemes: (design.themes ?? []).map((item) => ({ id: item.id, name: item.name })),
+		...(view.packThemes != null && view.packThemes.length > 0 ? { packThemes: view.packThemes } : {}),
 		decor: { count: design.decor?.length ?? 0, sources: countBy((design.decor ?? []).map((item) => item.source)) },
 		renderPreset: design.renderPreset
 	};

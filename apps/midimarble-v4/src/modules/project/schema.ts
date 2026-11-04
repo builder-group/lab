@@ -199,8 +199,11 @@ const SThemeOverrides = z.strictObject({
 	backgroundColor: SHexColor.optional()
 });
 
-/** The wall's skin in Film: `grid` is the Neon wall's lit grid. An old project's Tinsel reads as Plaster (`withoutRemovedFields`) */
-const SWallKind = z.enum(['plaster', 'pegboard', 'grid']);
+/**
+ * The wall's skin in Film: `plain` is one smooth colour with no pattern at all, `grid` the Neon wall's lit grid. An old
+ * project's Tinsel reads as Plaster (`withoutRemovedFields`)
+ */
+const SWallKind = z.enum(['plain', 'plaster', 'pegboard', 'grid']);
 
 /**
  * How a light stands and how strong it is. `side` runs from the far left (-1) to the far right (1) of the wall and
@@ -341,6 +344,8 @@ export const SDesign = z.strictObject({
 		pitch: z.number(),
 		lead: z.number().nonnegative(),
 		smoothing: z.number().min(0).max(1),
+		// How much the view turns and rolls on its own, 0 to 1; absent is all of it. Added later; files without it stay valid
+		sway: z.number().min(0).max(1).optional(),
 		shots: z.array(SShot),
 		// Marble the camera keeps when several marbles do not fit a readable frame; absent means the first marble
 		focusMarbleId: SId.optional()

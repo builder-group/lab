@@ -238,10 +238,10 @@ export const ThemeParts: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 };
 
 /** Save as Theme for a button or ⌘K, with the notice */
-export function saveAsTheme(cx: StudioCx): void {
+export function saveAsTheme(cx: StudioCx, chosenName?: string): void {
 	const project = cx.project;
 	if (project == null) return;
-	const { commands, themeId } = saveAsThemeCommands(project);
+	const { commands, themeId } = saveAsThemeCommands(project, chosenName);
 	if (!cx.execute(commands)) return;
 	const name = cx.project != null ? resolveTheme(cx.project.design, themeId).name : 'a theme';
 	cx.notifyEdit(`Saved as ${name}`);

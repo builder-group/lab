@@ -82,6 +82,29 @@ function decode(bytes: Uint8Array): number[] {
 }
 
 describe('buildSceneDescription', () => {
+	it.each(['marble:glass', 'marble:metal', 'marble:magic'])("carries a marble's built-in skin %s, without an asset", (assetId) => {
+		const { project, result, marbleId } = fixture();
+		const marble = project.entities.find((entity) => entity.id === marbleId);
+		if (marble != null) marble.components.skin = { assetId, link: 'linked' };
+		const [described] = buildSceneDescription(project, result, { fps: 30 }).description.marbles;
+		expect(described?.skin?.assetId).toBe(assetId);
+		expect(described?.assetPath).toBeUndefined();
+	});
+
+	it("carries the asset of a marble's library skin", () => {
+		const { project, result, marbleId } = fixture();
+		const marble = project.entities.find((entity) => entity.id === marbleId);
+		if (marble != null) marble.components.skin = { assetId: 'green-glass', link: 'linked' };
+		expect(buildSceneDescription(project, result, { fps: 30 }).description.marbles[0]?.assetPath).toBe('assets/green-glass/asset.blend');
+	});
+
+	it('carries the camera sway only when it is set', () => {
+		const { project, result } = fixture();
+		expect(buildSceneDescription(project, result, { fps: 30 }).description.camera).not.toHaveProperty('sway');
+		project.design.camera.sway = 0;
+		expect(buildSceneDescription(project, result, { fps: 30 }).description.camera?.sway).toBe(0);
+	});
+
 	it('writes one [time, x, y, angle] record per marble sample', () => {
 		const { project, result, marbleId } = fixture();
 		const { description, motionFiles } = buildSceneDescription(project, result, { fps: 60 });

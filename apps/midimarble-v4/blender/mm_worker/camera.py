@@ -173,6 +173,7 @@ def settings_from(description_camera, theme_settings):
         'pitch': number('pitch', 0.7, 0.0, 1.45),
         'lead': number('lead', 0.15, 0.0, 2.0),
         'smoothing': number('smoothing', 0.6, 0.0, 1.0),
+        'sway': number('sway', 1.0, 0.0, 1.0),
         'lens': number('lens', LENS, 10.0, 300.0),
         'shots': shots,
         'fstop': float(theme_settings.get('fstop', 4.0)),
@@ -376,11 +377,12 @@ def drift_times(times, hold):
     return np.minimum(times, hold) + HOLD_EASE * (1.0 - np.exp(-past / HOLD_EASE))
 
 
-def view_turn(times, heading, shot_roll, hold):
-    """Side angle around the target and image roll per frame, from the run direction, the slow drift and the shots"""
-    side = SIDE_ANGLE + SIDE_FOLLOW * heading
+def view_turn(times, heading, shot_roll, hold, sway=1.0):
+    """Side angle around the target and image roll per frame, from the run direction, the slow drift and the shots.
+    Sway scales all but the shots: at 0 the wall's up stays straight up in the image, whatever the run does."""
+    side = math.pi + sway * (SIDE_ANGLE - math.pi + SIDE_FOLLOW * heading)
     drift = ROLL_DRIFT * np.sin(2 * math.pi * drift_times(times, hold) / ROLL_PERIOD)
-    roll = np.clip(ROLL_FOLLOW * heading, -ROLL_LIMIT, ROLL_LIMIT) + drift + shot_roll
+    roll = sway * (np.clip(ROLL_FOLLOW * heading, -ROLL_LIMIT, ROLL_LIMIT) + drift) + shot_roll
     return side, roll
 
 
@@ -506,7 +508,7 @@ def group_framing(marbles, motions, times, settings, fps, aspect, heading, aim=N
                   if motions.get(marble['id']) is not None and len(motions[marble['id']])), default=None)
     limit = readable_distance(settings, aspect, radius)
     upper = max(base, limit)
-    side, roll = view_turn(times, heading, shot_roll, hold)
+    side, roll = view_turn(times, heading, shot_roll, hold, settings['sway'])
     axes = view_axes(side, roll, settings['pitch'])
     raw = spread_need(marbles, motions, sample, centre if aim is None else aim, settings['lens'], axes)
     # The opening frame widens the zoom to its pieces; whether the group fits still counts the marbles alone
@@ -924,7 +926,7 @@ def bake(scene, camera, settings, marbles, motions, fps):
     current, depth, distance = framing['current'], framing['depth'], framing['distance']
     # The camera stands below and to the side of the target, looking up along the run; the side follows the run
     # direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
-    side, roll = view_turn(times, heading, framing['roll'], settings.get('hold'))
+    side, roll = view_turn(times, heading, framing['roll'], settings.get('hold'), settings['sway'])
     # Seen through this view, a marble the camera does not lead goes fully in or fully out, never cut at the edge
     if framing['shares'] is not None:
         keep_clear_of_edges(marbles, motions, times, framing['sample'], target, distance,

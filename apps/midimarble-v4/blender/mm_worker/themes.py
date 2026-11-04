@@ -80,7 +80,7 @@ def grid_color(wall):
 
 # The Wall layer's Skin and the Key Light layer's pose on top of the theme: `wallKind` and `keyLight` of the scene
 # description, set for one apply by `set_scene_look`. Grid is the Neon wall's lit grid.
-WALL_KINDS = {'plaster': 'plaster', 'pegboard': 'pegboard', 'grid': 'neon'}
+WALL_KINDS = {'plain': 'plain', 'plaster': 'plaster', 'pegboard': 'pegboard', 'grid': 'neon'}
 # The Key Light's Softness runs from a point sun to this angle in degrees; `softnessOf` in scene-layers.ts reads a theme's
 MAX_SUN_ANGLE = 60.0
 _scene_look = {}
@@ -520,6 +520,16 @@ def _wall_name(name, color, default):
     return name + ' %.4f %.4f %.4f' % tuple(color[:3])
 
 
+def plain_wall_material(color):
+    """One smooth colour: the Wall skin that turns a theme's pattern off"""
+    def build(material):
+        principled = _principled(material)
+        material.diffuse_color = (*color, 1.0)
+        _set(principled, 'Base Color', (*color, 1.0))
+        _set(principled, 'Roughness', 0.88)
+    return _shared(_wall_name('MM · wall plain', color, None), build)
+
+
 def plaster_wall_material(color):
     """Matte painted wall with low-frequency mottling and a fine bump"""
     def build(material):
@@ -660,6 +670,8 @@ def wall_material(theme, pitch):
     wall = theme_settings(theme)['wall']
     # The Wall layer's Skin can put any theme's colour on any kind; a Pegboard theme's own wall has no colour field
     color = wall.get('color', PEGBOARD_COLOR)
+    if wall['kind'] == 'plain':
+        return plain_wall_material(color)
     if wall['kind'] == 'plaster':
         return plaster_wall_material(color)
     if wall['kind'] == 'neon':
@@ -796,7 +808,11 @@ NEON_MARBLE_RIM = 3.5
 
 MARBLE_CONTRAST = 3.0
 PEARL_WHITE = 0.8
-DEEP_LUMINANCE = 0.03
+DEEP_LUMINANCE = 0.05
+# A deep body on a lighter wall can be lighter too, as long as it keeps MARBLE_CONTRAST against all it rolls over, so a
+# warm wall shows the marble's hue rather than a near-black ball. `deepBody` in draft-look.ts
+DEEP_LUMINANCE_LIGHTEST = 0.09
+MARBLE_CONTRAST = 3.0
 NEON_BODY_VALUE = 0.62
 PEGBOARD_TINT = 0.4
 # `draftWall` and the gold `FINISHES` entry in draft-look.ts
@@ -838,16 +854,22 @@ def display_tint(color, amount):
     return _to_hex(*(channel * (1 - amount) + amount for channel in _hex_channels(color)))
 
 
-def deep_color(color):
-    """`color` at full saturation, dark enough to reach `DEEP_LUMINANCE`, found by halving like `deepColor`"""
+def deep_color(color, luminance=DEEP_LUMINANCE):
+    """`color` at full saturation, dark enough to reach `luminance`, found by halving like `deepColor`"""
     low, high = 0.0, 1.0
     for _ in range(24):
         middle = (low + high) / 2
-        if display_luminance(display_saturate(color, middle)) > DEEP_LUMINANCE:
+        if display_luminance(display_saturate(color, middle)) > luminance:
             high = middle
         else:
             low = middle
     return display_saturate(color, low)
+
+
+def deep_luminance(around):
+    """How light a deep body may be and still keep MARBLE_CONTRAST against the darkest of `around`, `deepLuminance` in draft-look.ts"""
+    darkest = min(display_luminance(other) for other in around)
+    return min(DEEP_LUMINANCE_LIGHTEST, max(DEEP_LUMINANCE, (darkest + 0.05) / MARBLE_CONTRAST - 0.05))
 
 
 def marble_surfaces(theme, color):
@@ -867,7 +889,7 @@ def marble_look(name, color, overrides=None):
     color = color if isinstance(color, str) and len(color) == 7 and color.startswith('#') else '#d0d4dc'
     around = [overrides.get('wallColor') or DRAFT_WALLS[theme], *marble_surfaces(theme, color)]
     hue = display_saturate(color, 1.0)
-    candidates = (('pearl', display_tint(hue, PEARL_WHITE)), ('deep', deep_color(color)))
+    candidates = (('pearl', display_tint(hue, PEARL_WHITE)), ('deep', deep_color(color, deep_luminance(around))))
     looks = [{'tone': tone, 'body': body, 'contrast': min(contrast_ratio(body, other) for other in around)} for tone, body in candidates]
     return looks[0] if looks[0]['contrast'] >= looks[1]['contrast'] else looks[1]
 

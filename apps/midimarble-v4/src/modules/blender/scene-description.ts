@@ -78,6 +78,8 @@ export interface TSceneCamera {
 	lead: number;
 	/** 0 to 1; larger follows more calmly */
 	smoothing: number;
+	/** 0 to 1; how much the view turns and rolls with the run and over time. Absent is 1; 0 keeps the wall's up straight up. */
+	sway?: number;
 	shots: TSceneShot[];
 	/**
 	 * Marble the camera keeps when several marbles no longer fit a readable frame; the others may leave it. Absent
@@ -144,6 +146,8 @@ export interface TSceneMarble {
 	sampleCount: number;
 	/** The marble's own skin and property overrides; absent wears the theme's. Physics never reads it. Optional and additive. */
 	skin?: TSkinComponent | null;
+	/** Package-relative `.blend` of a library skin the marble wears; absent for a built-in skin. Optional and additive. */
+	assetPath?: string | null;
 	/**
 	 * Set on the loop ghost of a marble: a second instance that replays the marble's entry so the loop end shows
 	 * the first frame again. The camera does not follow ghosts.
@@ -249,7 +253,7 @@ export interface TSceneThemeOverrides {
 	backgroundColor?: string;
 }
 
-export type TSceneWallKind = 'plaster' | 'pegboard' | 'grid';
+export type TSceneWallKind = 'plain' | 'plaster' | 'pegboard' | 'grid';
 
 /**
  * Direction of a light: `side` from the far left (-1) to the far right (1) and `height` from below (-1) to above (1),

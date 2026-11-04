@@ -144,6 +144,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 					<ScrubField id="camera-pitch" label="Pitch" name="Downward angle" value={(camera.pitch * 180) / Math.PI} unit="°" step={0.5} min={-80} max={80} onCommit={(value) => set({ pitch: (value * Math.PI) / 180 })} />
 					<ScrubField id="camera-lead" label="Lead" name="How far ahead of the marbles the camera looks" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
 					<ScrubField id="camera-smoothing" label="Smooth" name="Smoothing" value={Math.round(camera.smoothing * 100)} unit="%" step={0.5} min={0} max={100} onCommit={(value) => set({ smoothing: value / 100 })} />
+					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 keeps the wall upright" value={Math.round((camera.sway ?? 1) * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
 					{cameraState === 'takenOver' ? (
 						<>
 							<StateRow tone="warn" label="Edited in Blender" detail="The app no longer updates the camera, so your Blender changes stay. Reset Camera discards them and follows the marbles again." />

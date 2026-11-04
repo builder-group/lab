@@ -36,7 +36,7 @@ export const SkinTiles: React.FC<{ cx: StudioCx; project: TProject; element: TSk
 	const typeLabel = pieceType === 'marble' ? elementLabel('marble') : (getPieceDefinition(pieceType)?.label ?? pieceType);
 	const plural = elementPlural(element);
 	const ids = entities.map((entity) => entity.id);
-	const entries = element === 'marble' ? [] : libraryEntries(projectItems, globalItems, packs).filter((entry) => itemFitsPieceType(entry.item, pieceType));
+	const entries = libraryEntries(projectItems, globalItems, packs).filter((entry) => itemFitsPieceType(entry.item, pieceType));
 	const targetOf = (toAll: boolean): TSkinTarget => (toAll ? { kind: 'pieceType', pieceType } : { kind: 'entities', entityIds: ids });
 	const tileTitle = (label: string): string => `${label}: click applies to the selection, ⌥-click to all ${plural.toLowerCase()}`;
 

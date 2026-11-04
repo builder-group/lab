@@ -1,7 +1,7 @@
 """Library skins: `assets/<id>/asset.blend` models placed on piece holders.
 
 An asset holds one collection `MM_ASSET`. Its origin is the centre of the contact surface and +Z points away from
-the contact face. Optional reaction parts are objects named `MM_REACT_<Name>` with `mm_reaction` = `press`,
+the contact face; a marble's asset has its origin at the marble's centre and scales evenly to the marble's radius. Optional reaction parts are objects named `MM_REACT_<Name>` with `mm_reaction` = `press`,
 `wobble` or `glow`.
 
 Appended, not linked: the worker appends `MM_ASSET` once per asset file into a template collection that is not
@@ -44,8 +44,13 @@ MAX_FIT_SCALE = 4.0
 
 
 def layout(piece_type):
-    """Contact layout of a piece type, matching the agent brief: `box`, `path`, `tube` or `rotor`"""
-    return {'rail': 'path', 'tunnel': 'tube', 'windmill': 'rotor'}.get(piece_type, 'box')
+    """Contact layout of a piece type, matching the agent brief: `box`, `path`, `tube`, `rotor` or a marble's `sphere`"""
+    return {'rail': 'path', 'tunnel': 'tube', 'windmill': 'rotor', 'marble': 'sphere'}.get(piece_type, 'box')
+
+
+def marble_piece(marble):
+    """A marble as a skin sees it: a piece with only a radius, on its holder, whose origin is the marble's centre"""
+    return {**marble, 'type': 'marble', 'params': {'radius': float(marble['radius'])}, 'position': {'x': 0.0, 'y': 0.0}, 'angle': 0.0}
 
 
 # Templates
@@ -245,6 +250,10 @@ def _populate(root, holder, piece, template, manifest, collection, context):
         if original.name.startswith(REACT_PREFIX) and reaction_kind in REACTION_KINDS:
             add_part_reaction(copy, original, holder, reaction_kind, reaction, kind)
     apply_properties(copies.values(), property_values(piece, manifest))
+    if kind == 'sphere':
+        # A marble hides inside a tunnel, whatever it wears
+        for copy in copies.values():
+            skins.add_visibility(copy, holder)
     root['mm_asset'] = template.get('mm_asset_path')
     root['mm_skin_key'] = skin_key(piece, template, manifest, context)
     root['mm_skin_print'] = fingerprint(root)
@@ -253,6 +262,8 @@ def _populate(root, holder, piece, template, manifest, collection, context):
 def contact_matrix(frame, kind, manifest):
     """Asset frame in the holder's local frame: x along the piece, y into the wall, z up from the contact face"""
     scale = fit_scale(frame, kind, manifest)
+    if kind == 'sphere':
+        return scale
     if kind == 'rotor':
         # Origin at the hub with +Z toward the camera; blade angle 0 along +x like the physics rotor
         return Matrix.Rotation(math.pi / 2, 4, 'X') @ scale
@@ -272,6 +283,9 @@ def fit_scale(frame, kind, manifest):
             return 1.0
         return min(max(wanted / built, 1 / MAX_FIT_SCALE), MAX_FIT_SCALE)
 
+    if kind == 'sphere':
+        uniform = ratio('radius')
+        return Matrix.Diagonal((uniform, uniform, uniform, 1.0))
     if kind == 'rotor':
         uniform = ratio('bladeLength')
         return Matrix.Diagonal((uniform, uniform, uniform, 1.0))

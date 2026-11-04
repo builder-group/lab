@@ -47,6 +47,8 @@ export interface TCommand {
 	 */
 	workspace?: TWorkspace;
 	isEnabled?: (cx: StudioCx) => boolean;
+	/** Why it can't run right now, in a sentence, for what isn't plain from the project and selection */
+	whyDisabled?: string;
 	isChecked?: (cx: StudioCx) => boolean;
 	run: (cx: StudioCx) => void;
 }
@@ -571,6 +573,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Film',
 		keywords: 'camera framing frame marble out leaves fix wide shot',
 		isEnabled: (cx) => wideShotFix(cx) != null,
+		whyDisabled: 'It fixes a marble leaving the frame at the playhead, and none does here. Add a wide shot anywhere with camera.addShot and args.kind wide.',
 		run: (cx) => {
 			const fix = wideShotFix(cx);
 			if (fix == null) return;

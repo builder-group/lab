@@ -25,6 +25,7 @@ Use these with the person. One word per thing.
 | Pack | bundle, plugin | A file of themes, skins and decor. Add Pack…, Export Pack… |
 | Layer | object | A row in Layers |
 | Shot | keyframe | A camera move at a time |
+| Sway | wobble, drift | How much the camera turns and rolls on its own |
 | References | moodboard | Images and words for the look |
 
 Write plainly: say what happened and what to do next. Name things in Title Case as the app shows them.

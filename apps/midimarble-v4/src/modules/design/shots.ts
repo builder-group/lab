@@ -27,10 +27,11 @@ export function sortShots(shots: TShot[]): TShot[] {
 	return [...shots].sort((a, b) => a.time - b.time);
 }
 
-/** Adds a push-in marker at the given time and returns its id */
-export function addShotCommands(project: TProject, time: number, id = createId('shot')): { commands: TProjectCommand[]; shotId: string } {
+/** Adds a marker at the given time, a Push In unless `options` say otherwise, and returns its id */
+export function addShotCommands(project: TProject, time: number, id = createId('shot'), options: Partial<Pick<TShot, 'kind' | 'roll' | 'distance' | 'length'>> = {}): { commands: TProjectCommand[]; shotId: string } {
 	const camera = project.design.camera;
-	const shot: TShot = { id, time: round(Math.max(0, time)), kind: 'pushIn', roll: 0, distance: shotPresetDistance('pushIn', camera.distance) };
+	const kind = options.kind ?? 'pushIn';
+	const shot: TShot = { id, time: round(Math.max(0, time)), kind, roll: options.roll ?? 0, distance: round(options.distance ?? shotPresetDistance(kind, camera.distance)), ...(options.length != null ? { length: options.length } : {}) };
 	return { commands: shotsCommands(project, [...camera.shots, shot]), shotId: id };
 }
 

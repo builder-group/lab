@@ -220,15 +220,9 @@ def ensure_skin(holder, kind, entity, managed, context):
     """Keeps existing child skins and their local offsets, rebuilding only unedited app skins; creates the wanted
     skin for a bare holder. Returns the state of each skin.
 
-    A piece wants its library skin when `assetPath` names a loadable asset and the theme default otherwise. An
-    unedited app skin of the other kind is replaced, and the new skin takes over its root offset.
+    A piece or marble wants its library skin when `assetPath` names a loadable asset and the theme default otherwise.
+    An unedited app skin of the other kind is replaced, and the new skin takes over its root offset.
     """
-    if kind == 'marble':
-        if holder.children:
-            return [skins.refresh_default_skin(child, kind, entity, context, managed) for child in holder.children]
-        skins.create_marble_skin(holder, entity, managed, context)
-        return ['created']
-
     states = []
     template, manifest = None, None
     relative = entity.get('assetPath')
@@ -243,9 +237,9 @@ def ensure_skin(holder, kind, entity, managed, context):
 
     def create(offset=None):
         if template is not None:
-            assets.create_asset_skin(holder, entity, template, manifest, managed, context, offset)
+            assets.create_asset_skin(holder, assets.marble_piece(entity) if kind == 'marble' else entity, template, manifest, managed, context, offset)
         else:
-            skin = skins.create_piece_skin(holder, entity, managed, context)
+            skin = skins.create_marble_skin(holder, entity, managed, context) if kind == 'marble' else skins.create_piece_skin(holder, entity, managed, context)
             skins.apply_offset(skin, offset)
 
     if not holder.children:
@@ -258,7 +252,7 @@ def ensure_skin(holder, kind, entity, managed, context):
         elif template is None and owner == skins.DEFAULT_SKIN:
             states.append(skins.refresh_default_skin(child, kind, entity, context, managed))
         elif template is not None and owner == assets.ASSET_SKIN and child.get('mm_asset') == relative:
-            states.append(assets.refresh_asset_skin(child, entity, template, manifest, context, managed))
+            states.append(assets.refresh_asset_skin(child, assets.marble_piece(entity) if kind == 'marble' else entity, template, manifest, context, managed))
         elif skins.is_edited(child):
             states.append('edited')
         else:

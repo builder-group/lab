@@ -37,9 +37,9 @@ Two notes further apart than about 0.7 s are a long gap: a marble in free fall d
 
 The project's own commands work too:
 
-- `{ type: 'setEnd', end }`, `{ type: 'setTempo', tempo: { bpm, beatsPerBar } }`, `{ type: 'setDesign', design: { ... } }`
+- `{ type: 'setEnd', end }`, `{ type: 'setTempo', tempo: { bpm, beatsPerBar } }`, `{ type: 'setDesign', design: { ... } }`: see `film-look`
 - `{ type: 'setPhysics', physics: { gravityScale } }`: Marble Speed, 0.05 to 2, 0.5 by default (`get_state.physics`). `run_command('marble.speed', { value })` is the same.
-- `{ type: 'setComponent', entityId, component: { name, value } }`, with the component's whole value. Moving a marble's start: `component: { name: 'release', value: { position: { x, y }, time } }`. Turning a platform: `component: { name: 'hitLink', value: { laneId, hitId, angle, contactAt, pinned } }`.
+- `{ type: 'setComponent', entityId, component: { name, value } }`, with the component's whole value; `marble`, `skin` and `wallText` take only what changes. A marble's `{ color, radius }`: `get_state.marbles[]` has both. The radius, in metres and 0.012 as usual, changes the run, so hits can move; change it only on purpose and read `hits` in the reply. Moving a marble's start: `component: { name: 'release', value: { position: { x, y }, time } }`. Turning a platform: `component: { name: 'hitLink', value: { laneId, hitId, angle, contactAt, pinned } }`.
 - `{ type: 'removeEntities', entityIds }`, `{ type: 'upsertEntity', entity: { id, name, components } }`
 - `{ type: 'removeHits', laneId, hitIds }`, `{ type: 'assignHits', hitIds, laneId }`
 

@@ -202,7 +202,7 @@ describe('A Tinsel wall of an old project', () => {
 		if (!isParsed) throw parseErr;
 		expect(parsed.design.wall).toEqual({ kind: 'plaster' });
 		expect(parsed.design.themes?.[0]).toEqual({ id: 'theme-old', name: 'Old', base: 'brass', overrides: {}, wallKind: 'plaster' });
-		expect(WALL_KINDS.map((item) => item.label)).toEqual(['Plaster', 'Pegboard', 'Grid']);
+		expect(WALL_KINDS.map((item) => item.label)).toEqual(['Plain', 'Plaster', 'Pegboard', 'Grid']);
 	});
 
 	it('should keep a wall skin in Save as Theme and round-trip through the file', () => {

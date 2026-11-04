@@ -199,6 +199,8 @@ function countOf(count: number, label: string): string {
 export function itemFitsPieceType(item: TLibraryItem, pieceType: string | null): boolean {
 	const manifest = item.manifest;
 	if (manifest == null || manifest.role !== 'skin') return false;
+	// A skin made for no type in particular fits any piece, but only a marble's own skin fits a marble
+	if (pieceType === 'marble') return manifest.pieceType === 'marble';
 	return manifest.pieceType == null || pieceType == null || manifest.pieceType === pieceType;
 }
 

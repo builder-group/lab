@@ -202,6 +202,12 @@ describe('itemFitsPieceType function', () => {
 		expect(itemFitsPieceType(item('platform', 'decoration'), 'platform')).toBe(false);
 	});
 
+	it('should offer a marble only a skin made for marbles', () => {
+		expect(itemFitsPieceType(item('marble'), 'marble')).toBe(true);
+		expect(itemFitsPieceType(item(undefined), 'marble')).toBe(false);
+		expect(itemFitsPieceType(item('platform'), 'marble')).toBe(false);
+	});
+
 	it('should say what a skin did on a selection with other piece types or under Colour by Note', () => {
 		const piece = (id: string, type: string, name: string): TProject['entities'][number] => ({ id, name, components: { piece: { type, params: {} } } }) as TProject['entities'][number];
 		const platforms = [1, 2, 3, 4, 5].map((index) => piece(`p${index}`, 'platform', `Platform ${index}`));

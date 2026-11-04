@@ -146,7 +146,7 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	const { targetX, targetY, heading: smoothHeading } = followTarget(framing, settings, fps, times);
 	// The camera stands below and to the side of the target, looking up along the run; the side follows the run
 	// direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
-	const { side, roll } = viewTurn(times, smoothHeading, framing.roll, settings.hold);
+	const { side, roll } = viewTurn(times, smoothHeading, framing.roll, settings.hold, settings.sway);
 	// Seen through this view, a marble the camera does not lead goes fully in or fully out, never cut at the edge
 	if (framing.shares != null) {
 		const axes = Array.from(times, (_, index) =>
@@ -366,6 +366,7 @@ interface TSettings {
 	pitch: number;
 	lead: number;
 	smoothing: number;
+	sway: number;
 	lens: number;
 	shots: { time: number; roll: number; distance: number; length: number | null }[];
 	focus: string | null;
@@ -422,6 +423,7 @@ function settingsFrom(
 		pitch: number(camera.pitch, 0.7, 0.0, 1.45),
 		lead: number(camera.lead, 0.15, 0.0, 2.0),
 		smoothing: number(camera.smoothing, 0.6, 0.0, 1.0),
+		sway: number(camera.sway, 1.0, 0.0, 1.0),
 		lens: LENS,
 		shots,
 		focus: camera.focusMarbleId ?? null,
@@ -640,21 +642,21 @@ function driftTime(time: number, hold: number | null): number {
 	return Math.min(time, hold) + HOLD_EASE * (1.0 - Math.exp(-past / HOLD_EASE));
 }
 
-/** `view_turn`: side angle around the target and image roll per frame */
+/** `view_turn`: side angle around the target and image roll per frame; sway scales all but the shots */
 function viewTurn(
 	times: Float64Array,
 	heading: Float64Array,
 	shotRoll: Float64Array,
-	hold: number | null
+	hold: number | null,
+	sway: number
 ): { side: Float64Array; roll: Float64Array } {
 	const side = new Float64Array(times.length);
 	const roll = new Float64Array(times.length);
 	for (let index = 0; index < times.length; index++) {
 		const turn = heading[index] ?? 0;
-		side[index] = SIDE_ANGLE + SIDE_FOLLOW * turn;
+		side[index] = Math.PI + sway * (SIDE_ANGLE - Math.PI + SIDE_FOLLOW * turn);
 		roll[index] =
-			clamp(ROLL_FOLLOW * turn, -ROLL_LIMIT, ROLL_LIMIT) +
-			ROLL_DRIFT * Math.sin((2 * Math.PI * driftTime(times[index] ?? 0, hold)) / ROLL_PERIOD) +
+			sway * (clamp(ROLL_FOLLOW * turn, -ROLL_LIMIT, ROLL_LIMIT) + ROLL_DRIFT * Math.sin((2 * Math.PI * driftTime(times[index] ?? 0, hold)) / ROLL_PERIOD)) +
 			(shotRoll[index] ?? 0);
 	}
 	return { side, roll };
@@ -821,7 +823,7 @@ function groupFraming(
 	const radii = marbles.filter(hasMotion).map((marble) => marble.radius);
 	const limit = readableDistance(settings, aspect, radii.length ? Math.min(...radii) : null);
 	const upper = Math.max(base, limit);
-	const turn = viewTurn(times, heading, roll, hold);
+	const turn = viewTurn(times, heading, roll, hold, settings.sway);
 	// Sized around the smoothed target when the first pass gave one, else around the group's centre
 	const axes = Array.from(times, (_, index) =>
 		viewAxes(turn.side[index] ?? 0, turn.roll[index] ?? 0, settings.pitch)
