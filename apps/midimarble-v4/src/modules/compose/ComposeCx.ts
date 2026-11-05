@@ -208,6 +208,9 @@ export class ComposeCx {
 		cleanups.push(this.assist.mount());
 		cleanups.push(this.patterns.mount());
 
+		// 3D and Camera cover this canvas with their own; the view keeps moving under them, since 3D stands on `$camera`
+		renderer.setPaused(!this.isFlatShown());
+
 		const observer = new ResizeObserver(() => {
 			const rect = container.getBoundingClientRect();
 			const viewport = { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
@@ -256,9 +259,16 @@ export class ComposeCx {
 				this.renderer?.setWallHidden(this.studio.$hidden.get().includes(WALL_KEY));
 			}),
 			this.studio.$playing.listen(() => this.wakeMotion()),
+			this.studio.$trackView.listen(() => {
+				renderer.setPaused(!this.isFlatShown());
+				this.syncTracks();
+				this.syncPieces();
+				this.syncMarbles();
+				this.syncGuides();
+			}),
 			this.studio.$playhead.subscribe(({ value }) => {
 				renderer.setPlayhead(value);
-				this.syncPieces();
+				this.syncPieceAngles();
 				this.syncMarbles();
 				this.wakeMotion();
 			}),
@@ -344,13 +354,20 @@ export class ComposeCx {
 	 * Pieces as the canvas shows them: the run's poses with the dragged piece where the pointer holds it, and
 	 * platforms the run has not caught up with yet on their dots
 	 */
-	displayPieces(result: TSimulationResult | null = this.result): TResolvedPiece[] {
-		const override = this.$override.get();
-		const hidden = this.studio.$hidden.get();
-		const tilted = this.tilted;
+	displayPieces(result: TSimulationResult | null = this.result): readonly TResolvedPiece[] {
+		const inputs: TShownInputs = { result, project: this.project, override: this.$override.get(), placing: this.$placing.get(), hidden: this.studio.$hidden.get(), tilted: this.tilted };
+		if (this.shown != null && hasSameValues(this.shown.inputs, inputs)) return this.shown.pieces;
+		const pieces = this.buildDisplayPieces(inputs);
+		this.shown = { inputs, pieces };
+		return pieces;
+	}
+
+	/** The last `displayPieces`, kept while every input it was built from is the same object */
+	private shown: { inputs: TShownInputs; pieces: readonly TResolvedPiece[] } | null = null;
+
+	private buildDisplayPieces({ result, override, placing, hidden, tilted }: TShownInputs): readonly TResolvedPiece[] {
 		const pieces = (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId)).map((piece) => tilted?.pieces.get(piece.entityId) ?? piece);
 		pieces.push(...this.pendingPieces(result, hidden));
-		const placing = this.$placing.get();
 		if (placing != null) pieces.push(placing);
 		if (override == null) return pieces;
 		const index = pieces.findIndex((piece) => piece.entityId === override.entityId);
@@ -455,17 +472,38 @@ export class ComposeCx {
 		return this.toScreen({ x: base.position.x + point.x * cos - point.y * sin, y: base.position.y + point.x * sin + point.y * cos });
 	}
 
+	/** What the pointer can land on, in canvas pixels; kept while everything it is built from stays the same */
 	pickScene(): TPickScene {
-		const project = this.project;
-		const result = this.result;
+		const drag = this.$drag.get();
+		const inputs: TPickInputs = {
+			project: this.project,
+			result: this.result,
+			shown: this.displayPieces(),
+			hidden: this.studio.$hidden.get(),
+			locked: this.studio.$locked.get(),
+			selection: this.studio.$selection.get(),
+			// The piece a hover what-if shows is not there yet, so the pointer never lands on it
+			previewId: this.hoverPreview?.entityId ?? null,
+			tool: this.$tool.get(),
+			playNoteFor: this.$playNoteFor.get(),
+			camera: this.$camera.get(),
+			viewport: this.$viewport.get(),
+			// Only these drags change handles; a marquee passing over keeps the scene
+			drag: drag?.kind === 'path' || drag?.kind === 'node' ? drag : null
+		};
+		if (this.picks != null && hasSameValues(this.picks.inputs, inputs)) return this.picks.scene;
+		const scene = this.buildPickScene(inputs);
+		this.picks = { inputs, scene };
+		return scene;
+	}
+
+	private picks: { inputs: TPickInputs; scene: TPickScene } | null = null;
+
+	private buildPickScene({ project, result, shown, hidden, locked, selection, previewId }: TPickInputs): TPickScene {
 		const scene: TPickScene = { handles: [], dots: [], pieces: [] };
 		if (project == null || result == null) return scene;
-		const hidden = this.studio.$hidden.get();
-		const locked = this.studio.$locked.get();
-		const selected = selectedPieceIds(project, this.studio.$selection.get()).filter((id) => !locked.includes(id));
-		// The piece a hover what-if shows is not there yet, so the pointer never lands on it
-		const previewId = this.hoverPreview?.entityId;
-		const pieces = this.displayPieces(result).filter((piece) => piece.entityId !== previewId);
+		const selected = selectedPieceIds(project, selection).filter((id) => !locked.includes(id));
+		const pieces = shown.filter((piece) => piece.entityId !== previewId);
 		for (const piece of pieces) {
 			if (locked.includes(piece.entityId)) continue;
 			const depth = shownDepth(piece);
@@ -626,10 +664,6 @@ export class ComposeCx {
 	}
 
 	// MARK: - Follow and gliding
-
-	setFollow(isOn: boolean): void {
-		this.$follow.set(isOn);
-	}
 
 	toggleFollow(): void {
 		this.$follow.set(!this.$follow.get());
@@ -1644,13 +1678,6 @@ export class ComposeCx {
 		this.studio.simulation.endPreview();
 	}
 
-	/** True when the hit ends a gap too long for a bounce that no rail or tunnel bridges yet */
-	isLongGapDot(laneId: string, hitId: string): boolean {
-		const project = this.project;
-		if (project == null) return false;
-		return this.longGapKeys(project).has(`${laneId}:${hitId}`);
-	}
-
 	private longGapCache: { project: TProject; keys: Map<string, { fromHitId: string; duration: number }> } | null = null;
 
 	/** Unbridged long gaps keyed by `laneId:toHitId` */
@@ -2312,10 +2339,14 @@ export class ComposeCx {
 
 	// MARK: - Renderer sync
 
+	private isFlatShown(): boolean {
+		return this.studio.$trackView.get() === '2d';
+	}
+
 	private syncTracks(): void {
 		const result = this.result;
 		const project = this.project;
-		if (this.renderer == null) return;
+		if (this.renderer == null || !this.isFlatShown()) return;
 		const hidden = this.studio.$hidden.get();
 		const tracks = (result?.marbles ?? []).filter((track) => !hidden.includes(track.entityId)).map((track) => {
 			let buffers = this.trackCache.get(track);
@@ -2330,20 +2361,36 @@ export class ComposeCx {
 	}
 
 	private syncPieces(): void {
-		if (this.renderer == null) return;
+		if (this.renderer == null || !this.isFlatShown()) return;
 		const playhead = this.studio.$playhead.get();
+		const pieces = this.displayPieces();
 		this.renderer.setPieces(
-			this.displayPieces().map((piece) => ({
+			pieces.map((piece) => ({
 				piece,
 				angle: pieceAngleAt(piece, playhead),
 				colors: trackPieceColors(this.project, piece.entityId, piece.type)
 			}))
 		);
+		this.synced = { pieces, moving: pieces.filter((piece) => piece.motion != null) };
+	}
+
+	/** What the renderer was last given, with the windmills among it, the only pieces the playhead moves */
+	private synced: { pieces: readonly TResolvedPiece[]; moving: TResolvedPiece[] } | null = null;
+
+	/** A playhead tick: only the pieces that move turn, unless what the canvas shows changed since the last sync */
+	private syncPieceAngles(): void {
+		if (this.renderer == null || !this.isFlatShown()) return;
+		if (this.synced?.pieces !== this.displayPieces()) {
+			this.syncPieces();
+			return;
+		}
+		const playhead = this.studio.$playhead.get();
+		for (const piece of this.synced.moving) this.renderer.setPieceAngle(piece.entityId, pieceAngleAt(piece, playhead));
 	}
 
 	syncMarbles(): void {
 		const project = this.project;
-		if (this.renderer == null || project == null) return;
+		if (this.renderer == null || project == null || !this.isFlatShown()) return;
 		const result = this.result;
 		const playhead = this.studio.$playhead.get();
 		const drag = this.$drag.get();
@@ -2363,11 +2410,39 @@ export class ComposeCx {
 
 	private syncGuides(): void {
 		const project = this.project;
-		if (this.renderer == null || project == null) return;
+		if (this.renderer == null || project == null || !this.isFlatShown()) return;
 		const bounds = contentBounds(project, this.result);
 		const height = bounds.maxY - bounds.minY;
 		this.renderer.setFrameGuides(frameBand(project), bounds.minY - height - 1, bounds.maxY + height + 1);
 	}
+}
+
+interface TShownInputs {
+	result: TSimulationResult | null;
+	project: TProject | null;
+	override: TResolvedPiece | null;
+	placing: TResolvedPiece | null;
+	hidden: string[];
+	tilted: { pieces: Map<string, TResolvedPiece>; revision: number } | null;
+}
+
+interface TPickInputs {
+	project: TProject | null;
+	result: TSimulationResult | null;
+	shown: readonly TResolvedPiece[];
+	hidden: string[];
+	locked: string[];
+	selection: string[];
+	previewId: string | null;
+	tool: TComposeTool;
+	playNoteFor: string | null;
+	camera: TComposeCamera;
+	viewport: TViewport;
+	drag: TComposeDrag | null;
+}
+
+function hasSameValues<T extends object>(a: T, b: T): boolean {
+	return (Object.keys(a) as (keyof T)[]).every((key) => a[key] === b[key]);
 }
 
 /** "Hit 3 · C4", as the Plays row names a hit */

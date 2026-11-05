@@ -325,7 +325,6 @@ describe('assists', () => {
 				bridgedBy: null
 			}
 		]);
-		expect(findLongGaps(project, 'lane-1', 2)).toEqual([]);
 
 		const result = simulate(project);
 		const [isRailOk, railErr, rail] = createRailForGap(

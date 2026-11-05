@@ -1,7 +1,7 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { specta } from '@/environment';
 import { getCommand, isCommandEnabled } from './commands';
-import { buildMenuBar, changedMenuItems, findCommandLine, menuItemStates, menuLayout, parseMenuItemId, readMenuItem, type TMenuItemState } from './menu-bar';
+import { buildMenuBar, changedMenuItems, findCommandLine, menuItemStates, parseMenuItemId, readMenuItem, type TMenuItemState } from './menu-bar';
 import type { StudioCx } from './StudioCx';
 
 /**
@@ -26,7 +26,7 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		const states = menuItemStates(read);
 		shown = states;
 		wasTextFocused = isTextFieldFocused();
-		void specta.commands.menuSetBar(buildMenuBar(read, cx.$recent.get(), menuLayout, wasTextFocused));
+		void specta.commands.menuSetBar(buildMenuBar(read, cx.$recent.get(), wasTextFocused));
 	};
 
 	// Copy and Paste are AppKit's while a text field has focus, and act on the selection otherwise

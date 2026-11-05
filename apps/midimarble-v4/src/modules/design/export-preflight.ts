@@ -28,8 +28,8 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		};
 	}
 
-	const memo = preflightMemo.get(result);
-	if (memo?.project === project && memo.blenderObjects === blenderObjects) return memo.preflight;
+	const memo = preflightMemo.get(result.hits);
+	if (memo?.project === project && memo.blenderObjects === blenderObjects && isSameRun(memo.result, result)) return memo.preflight;
 
 	const names = createNames(project);
 	const issues: TPreflightIssue[] = withoutBehindBreak(project, result, [
@@ -58,12 +58,19 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	const tips = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
 	const summary = problemSummary(checked);
 	const preflight = { ...checked, summary: [summary.label, summary.needsSong ? ADD_SONG_LABEL : '', tips].filter(Boolean).join(' · ') };
-	preflightMemo.set(result, { project, blenderObjects, preflight });
+	preflightMemo.set(result.hits, { project, result, blenderObjects, preflight });
 	return preflight;
 }
 
-// Layers, the title bar, the hit summary, the inspector and the Camera track all ask about the same run
-const preflightMemo = new WeakMap<TSimulationResult, { project: TProject; blenderObjects: readonly TBlenderObject[]; preflight: TExportPreflight }>();
+// Layers, the title bar, the hit summary, the inspector and the Camera track all ask about the same run. Fix and the
+// assists ask about a copy stamped with the project's revision, so the run is known by its hits, not by its object.
+const preflightMemo = new WeakMap<THitResult[], { project: TProject; result: TSimulationResult; blenderObjects: readonly TBlenderObject[]; preflight: TExportPreflight }>();
+
+/** The same run under another revision stamp: nothing else differs, field by field */
+function isSameRun(a: TSimulationResult, b: TSimulationResult): boolean {
+	const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof TSimulationResult>;
+	return [...keys].every((key) => key === 'revision' || a[key] === b[key]);
+}
 
 export const ADD_SONG_LABEL = 'Add a Song';
 

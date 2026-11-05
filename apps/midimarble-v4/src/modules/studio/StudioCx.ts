@@ -342,9 +342,9 @@ export class StudioCx {
 	}
 
 	/** Selects entities and asks the canvas to frame them when they are out of view */
-	reveal(ids: string[], point?: TVec2): void {
+	reveal(ids: string[]): void {
 		this.$selection.set(ids);
-		this.$reveal.set({ ids, point });
+		this.$reveal.set({ ids });
 	}
 
 	/**
@@ -745,19 +745,6 @@ export class StudioCx {
 	async refreshReferences(): Promise<void> {
 		const path = this.$path.get();
 		this.$references.set(path != null && isTauri() ? await specta.commands.agentReferencesRead(path) : NO_REFERENCES);
-	}
-
-	/** Replaces the project's References with these images and words */
-	async setReferences(paths: string[], text: string): Promise<void> {
-		const path = this.$path.get();
-		const project = this.project;
-		if (path == null || project == null) return;
-		const result = await specta.commands.agentReferencesSet(path, project.title, paths, text);
-		if (result.status === 'error') {
-			this.notify(result.error, 'error');
-			return;
-		}
-		this.$references.set(result.data);
 	}
 
 	/** Names of the agent's Undo steps, latest first */

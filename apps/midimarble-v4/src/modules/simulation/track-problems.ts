@@ -73,7 +73,8 @@ export interface TTouchingPair {
  * Pieces closer than `gap` in the wall plane, in time order. Free pieces and Decor are the person's own composition and
  * a Bowl stands apart from everything by its own search, so neither is judged.
  */
-export function touchingPairs(project: TProject, result: TSimulationResult, gap = MIN_PIECE_GAP): TTouchingPair[] {
+export function touchingPairs(project: TProject, result: TSimulationResult): TTouchingPair[] {
+	const gap = MIN_PIECE_GAP;
 	const radius = marbleRadiusOf(project);
 	const entities = new Map(project.entities.map((entity) => [entity.id, entity]));
 	const items = standingPieces(result)

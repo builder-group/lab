@@ -48,6 +48,46 @@ export function dropTitle(event: React.DragEvent, cx: StudioCx): boolean {
  * made or you imported, titles and a light, with Packs… at its foot. Marbles and pieces are Track's. A click adds the item, a drag onto the viewer places it. How the selection looks, its
  * skins and the theme, is in the inspector.
  */
+/**
+ * What a film preview does with a drag from Film's Insert: a title or Decor lands where it is dropped, a Library skin
+ * on the piece under the pointer
+ */
+export function insertDropHandlers<E extends Element>(options: {
+	studio: StudioCx;
+	setDropTarget: (isTarget: boolean) => void;
+	imagePoint: (event: React.DragEvent<E>) => { u: number; v: number };
+	pieceAt: (event: React.DragEvent<E>) => string | null | Promise<string | null>;
+	onDropAsset: (entityId: string, asset: { id: string; scope: string }) => void;
+}): Pick<React.DOMAttributes<E>, 'onDragOver' | 'onDragLeave' | 'onDrop'> {
+	const { studio, setDropTarget, imagePoint, pieceAt, onDropAsset } = options;
+	return {
+		onDragOver: (event) => {
+			if (!isInsertDrag(event)) return;
+			event.preventDefault();
+			event.dataTransfer.dropEffect = 'copy';
+			setDropTarget(true);
+		},
+		onDragLeave: () => setDropTarget(false),
+		onDrop: (event) => {
+			setDropTarget(false);
+			if (dropTitle(event, studio)) return;
+			const decor = readDecorDrop(event, studio);
+			if (decor != null) {
+				event.preventDefault();
+				const { u, v } = imagePoint(event);
+				placeDecor(studio, decor, u, v);
+				return;
+			}
+			const data = event.dataTransfer.getData(LIBRARY_DRAG_TYPE);
+			if (!data) return;
+			event.preventDefault();
+			void Promise.resolve(pieceAt(event)).then((id) => {
+				if (id != null) onDropAsset(id, JSON.parse(data) as { id: string; scope: string });
+			});
+		}
+	};
+}
+
 export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 	const { cx, anchor, onAddTitle, onAddLight } = props;
 	const status = useFeatureState(cx.library.$status);

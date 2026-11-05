@@ -198,8 +198,8 @@ export function parseMenuItemId(id: string): TMenuItemId {
 }
 
 /** The command item a host id names, to route text commands */
-export function findCommandLine(id: string, layout: readonly TMenuSection[] = menuLayout): TCommandLine | null {
-	for (const section of layout) {
+export function findCommandLine(id: string): TCommandLine | null {
+	for (const section of menuLayout) {
 		for (const line of section.items) {
 			if (isCommandLine(line) && menuItemId(line) === id) return line;
 		}
@@ -260,8 +260,8 @@ function stepTitle(cx: StudioCx, command: TCommandId): string | null {
 }
 
 /** The menus after the app menu, for the host to build */
-export function buildMenuBar(read: (line: TCommandLine) => TMenuItemState, recent: THostRecentProject[], layout: readonly TMenuSection[] = menuLayout, isTextFocused = false): specta.MenuDto[] {
-	return layout.map((section) => ({
+export function buildMenuBar(read: (line: TCommandLine) => TMenuItemState, recent: THostRecentProject[], isTextFocused = false): specta.MenuDto[] {
+	return menuLayout.map((section) => ({
 		title: section.title,
 		role: section.role ?? null,
 		items: section.items.map((line): specta.MenuEntryDto => {
@@ -305,9 +305,9 @@ function recentMenu(recent: THostRecentProject[]): specta.MenuEntryDto {
 }
 
 /** Every command item's state, keyed by its host id */
-export function menuItemStates(read: (line: TCommandLine) => TMenuItemState, layout: readonly TMenuSection[] = menuLayout): Map<string, TMenuItemState> {
+export function menuItemStates(read: (line: TCommandLine) => TMenuItemState): Map<string, TMenuItemState> {
 	const states = new Map<string, TMenuItemState>();
-	for (const section of layout) {
+	for (const section of menuLayout) {
 		for (const line of section.items) {
 			if (isCommandLine(line)) states.set(menuItemId(line), read(line));
 		}

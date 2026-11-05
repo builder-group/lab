@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
-import { createImportCommands, DEFAULT_PROJECT_END, filmTail, BOWL_TAIL, BOWL_TAIL_MAX, BOWL_TAIL_MIN, bowlTail, fitToSongOffer, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
+import { createImportCommands, DEFAULT_PROJECT_END, filmTail, BOWL_TAIL, BOWL_TAIL_MAX, BOWL_TAIL_MIN, bowlTail, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
 import type { TMidiNote } from './midi';
 
 function note(time: number, pitch: number): TMidiNote {
@@ -51,13 +51,6 @@ describe('film length', () => {
 		expect(isAutoEnd(tapped([1, 3.6], 20))).toBe(false);
 	});
 
-	it('offers Fit to Song where the user set a length the song no longer matches', () => {
-		expect(fitToSongOffer(tapped([1, 3.6], 20))).toBe(4);
-		// Hits past a length the user set are cut off
-		expect(fitToSongOffer(tapped([1, 3.6], 3))).toBe(4);
-		expect(fitToSongOffer(tapped([1, 3.6], 4.5))).toBeNull();
-		expect(fitToSongOffer(tapped([1, 3.6]))).toBeNull();
-	});
 });
 
 describe('bowlTail', () => {
@@ -89,9 +82,8 @@ describe('filmTail', () => {
 		expect(filmTail(withLanes([[1, 6], [2.5]], ['lane-0']))).toBe(BOWL_TAIL);
 	});
 
-	it('offers the longer length when the last marble has a Bowl and the film runs on', () => {
+	it('counts a measured Bowl tail as following the song', () => {
 		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.8))).toBe(true);
-		expect(fitToSongOffer(withLanes([[1, 3.6]], ['lane-0'], 9))).toBe(4.8);
 		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.7))).toBe(true);
 		expect(isAutoEnd(withLanes([[1, 3.6]], [], 4.7))).toBe(false);
 	});

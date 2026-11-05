@@ -2,8 +2,8 @@ import { createState } from 'feature-state';
 import { trackWall } from '@/modules/design/draft-look';
 import { pickPiece, pieceScreenOutline } from '@/modules/design/draft-outline';
 import { trackPieceColors } from '@/modules/design/label-colors';
-import type { TVec2 } from '@/modules/project';
-import type { TResolvedPiece } from '@/modules/simulation';
+import type { TProject, TVec2 } from '@/modules/project';
+import type { TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { pathDepth } from '@/modules/simulation/pieces';
 import { createCameraPose, sampleCameraTrack } from '@/modules/camera';
 import { FilmCameraCache } from '@/modules/design/film-camera';
@@ -43,6 +43,9 @@ export class Track3DCx {
 	private container: HTMLElement | null = null;
 	private readonly cameras = new FilmCameraCache();
 	private readonly scratchPose = createCameraPose();
+	private shown: { result: TSimulationResult | null; hidden: string[]; pieces: readonly TResolvedPiece[] } | null = null;
+	/** What the renderer was last given; only the pieces in `moving` change while all of it stays the same */
+	private synced: { pieces: readonly TResolvedPiece[]; project: TProject; pathZ: number; moving: TResolvedPiece[] } | null = null;
 	/** The film frame in the Camera view, in CSS pixels; null in 3D */
 	filmFrame: { x: number; y: number; width: number; height: number } | null = null;
 
@@ -133,9 +136,14 @@ export class Track3DCx {
 		return this.renderer?.project(point, z) ?? { x: Number.NaN, y: Number.NaN };
 	}
 
-	pieces(): TResolvedPiece[] {
+	/** The run's pieces less the hidden ones, the same array until the run or the eyes change */
+	pieces(): readonly TResolvedPiece[] {
+		const result = this.compose.studio.simulation.$result.get();
 		const hidden = this.compose.studio.$hidden.get();
-		return (this.compose.studio.simulation.$result.get()?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId));
+		if (this.shown?.result !== result || this.shown?.hidden !== hidden) {
+			this.shown = { result, hidden, pieces: (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId)) };
+		}
+		return this.shown.pieces;
 	}
 
 	outline(piece: TResolvedPiece): TVec2[] {
@@ -182,15 +190,20 @@ export class Track3DCx {
 			renderer.setOrbit({ yaw: yaw * amount, pitch: pitch * amount, fov: FLAT_FOV + (ORBIT_FOV - FLAT_FOV) * amount, z: this.pathZ });
 			renderer.setCamera({ mode: 'orbit', view });
 		}
-		renderer.setPieces(
-			pieces.map((piece) => ({
-				piece,
-				angle: pieceAngleAt(piece, playhead),
-				colors: trackPieceColors(project, piece.entityId, piece.type),
-				pathZ: this.pathZ,
-				hasSolidPaths: true
-			}))
-		);
+		if (this.synced?.pieces !== pieces || this.synced.project !== project || this.synced.pathZ !== this.pathZ) {
+			renderer.setPieces(
+				pieces.map((piece) => ({
+					piece,
+					angle: pieceAngleAt(piece, playhead),
+					colors: trackPieceColors(project, piece.entityId, piece.type),
+					pathZ: this.pathZ,
+					hasSolidPaths: true
+				}))
+			);
+			this.synced = { pieces, project, pathZ: this.pathZ, moving: pieces.filter((piece) => piece.motion != null) };
+		} else {
+			for (const piece of this.synced.moving) renderer.setPieceAngle(piece.entityId, pieceAngleAt(piece, playhead));
+		}
 		const hidden = studio.$hidden.get();
 		renderer.setWallHidden(hidden.includes(WALL_KEY));
 		renderer.setMarbles(

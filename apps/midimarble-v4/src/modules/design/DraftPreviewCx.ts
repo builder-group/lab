@@ -106,7 +106,6 @@ export class DraftPreviewCx {
 		return draftPieceColors(
 			theme?.base ?? DEFAULT_THEME,
 			scene ?? { type: piece.type, color: '#c8b89a', skin: null },
-			false,
 			theme?.overrides,
 			theme?.projectTheme?.parts
 		);

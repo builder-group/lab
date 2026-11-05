@@ -12,6 +12,20 @@ describe('preflightExport memo', () => {
 		expect(preflightExport(project, result)).toBe(preflightExport(project, result));
 	});
 
+	it('knows the run under a copy stamped with the revision, as Fix asks', () => {
+		const result = run();
+		const objects: [] = [];
+		const first = preflightExport(project, result, objects);
+		expect(preflightExport(project, { ...result, revision: project.revision }, objects)).toBe(first);
+	});
+
+	it('checks again for a copy with the same hits but other pieces', () => {
+		const result = run();
+		const objects: [] = [];
+		const first = preflightExport(project, result, objects);
+		expect(preflightExport(project, { ...result, pieces: [] }, objects)).not.toBe(first);
+	});
+
 	it('checks again for another run, project or set of Blender objects', () => {
 		const result = run();
 		const first = preflightExport(project, result, []);

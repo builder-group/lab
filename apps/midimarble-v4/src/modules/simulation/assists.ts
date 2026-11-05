@@ -1472,11 +1472,8 @@ export interface TLongGap {
  * threshold defaults to `longGapThreshold`: the interval whose bounce at the project's pace would rise
  * more than `MAX_BOUNCE_RISE`.
  */
-export function findLongGaps(
-	project: TProject,
-	laneId: string,
-	threshold = longGapThreshold(project)
-): TLongGap[] {
+export function findLongGaps(project: TProject, laneId: string): TLongGap[] {
+	const threshold = longGapThreshold(project);
 	const lane = project.music.lanes.find((item) => item.id === laneId);
 	if (lane == null) return [];
 	const gaps: TLongGap[] = [];

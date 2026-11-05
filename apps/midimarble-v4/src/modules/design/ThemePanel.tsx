@@ -136,7 +136,7 @@ const ThemePicture: React.FC<{ theme: TResolvedTheme }> = ({ theme }) => {
 /** A project theme has no rendered still of its own, so its base's would lie: its wall, bars and marble as the Draft Preview draws them */
 const ThemeSketch: React.FC<{ theme: TResolvedTheme }> = ({ theme }) => {
 	const wall = draftWall(theme.base, theme.overrides).color;
-	const { bar } = draftPieceColors(theme.base, { type: 'platform', color: SKETCH_BLUE, skin: null }, false, theme.overrides, theme.projectTheme?.parts);
+	const { bar } = draftPieceColors(theme.base, { type: 'platform', color: SKETCH_BLUE, skin: null }, theme.overrides, theme.projectTheme?.parts);
 	const marble = draftMarble(theme.base, SKETCH_BLUE, theme.overrides, theme.parts.marble);
 	return (
 		<svg viewBox="0 0 48 36" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" aria-hidden>
