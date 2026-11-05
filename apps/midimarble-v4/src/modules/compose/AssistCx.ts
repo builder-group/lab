@@ -103,8 +103,8 @@ export class AssistCx {
 
 	/**
 	 * Return and N. Accepts ghosts when some are shown; otherwise acts on the focused marble's next open
-	 * hit: a long gap asks for a switchback, or a rail when no switchback fits, and any other gap gets an
-	 * auto placed piece. Before a long gap Auto place launches the marble into the coming switchback.
+	 * hit: a long gap asks for a rail, with the Switchback layout when a straight one won't do, and any other gap gets an
+	 * auto placed piece. Before a long gap Auto place launches the marble into the coming rail.
 	 */
 	next(type = 'platform'): void {
 		if (this.$ghosts.get().ghost != null) {
@@ -180,7 +180,7 @@ export class AssistCx {
 	}
 
 	/**
-	 * No switchback or rail fits the gap, so Next takes the step Build Track would: another tilt before the gap, a turn
+	 * No rail fits the gap, so Next takes the step Build Track would: another tilt before the gap, a turn
 	 * of what's in the way, or a platform for the note after it. When none works it says so and the next press puts a
 	 * platform at that note regardless, so N never repeats itself.
 	 */
@@ -452,7 +452,7 @@ export class AssistCx {
 	}
 
 	/**
-	 * Asks for a switchback, rail or tunnel across a long gap and shows it as a ghost to accept. With
+	 * Asks for a rail or tunnel across a long gap and shows it as a ghost to accept. With
 	 * `fallback`, a failed search asks for that type instead before telling the user.
 	 */
 	suggestGapPiece(type: TGapPieceType, laneId: string, fromHitId: string, toHitId: string, options: { accept?: boolean; fallback?: TGapPieceType; onFailed?: (message: string) => void } = {}): void {
@@ -462,7 +462,7 @@ export class AssistCx {
 		this.dispatch({ type: 'requestGap', revision: project.revision, laneId, toHitId });
 		client.gapPiece({ type, project, laneId, fromHitId, toHitId }).then(
 			(answer) => {
-				// A rail the pace or the frame can't follow leaves the gap to the switchback, like Build Track
+				// A rail the pace or the frame can't follow leaves the gap to the Switchback layout, like Build Track
 				if (options.fallback != null && options.fallback !== type && answer.check != null && !gapPieceReads(answer.check, this.currentResult()?.pace?.limit ?? Infinity)) {
 					this.suggestGapPiece(options.fallback, laneId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
 					return;
@@ -1031,7 +1031,7 @@ const DEGREE = Math.PI / 180;
 
 /**
  * Clear leans for the hit before a long gap, mirroring the previous piece first like a zigzag. Auto
- * place launches the marble into a switchback itself, so Compose no longer sends these; they remain for
+ * place launches the marble into a rail itself, so Compose no longer sends these; they remain for
  * a rail that needs a steeper launch.
  */
 export function launchAngles(project: TProject, hit: THitResult): number[] | undefined {

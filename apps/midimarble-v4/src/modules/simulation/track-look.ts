@@ -67,7 +67,7 @@ export type TFilmOutline = TVec2[];
 /** A piece as the film shows it, for measuring against another with `filmGap` */
 export interface TFilmView {
 	shapes: TPieceShape[];
-	/** Only a bar has a body that stands out; a Rail or Switchback is thin wire, and measured on the wall */
+	/** Only a bar has a body that stands out; a Rail is thin wire, and measured on the wall */
 	outline: TFilmOutline | null;
 	bounds: TBounds2;
 	outlineBounds: TBounds2 | null;
@@ -270,7 +270,7 @@ const SAME_STRIKE = HIT_TOLERANCE + 0.01;
 
 /**
  * Platforms a marble strikes outside their note: a second bounce, a roll along the top, or a graze on the way to an
- * earlier note. Only platforms that sound a hit count: a marble riding a switchback or rail or landing in a Bowl is
+ * earlier note. Only platforms that sound a hit count: a marble riding a rail or landing in a Bowl is
  * meant to, and a free platform is scenery. A hit that is already Blocked or Missed is reported as that.
  */
 export function extraStrikes(project: TProject, result: TSimulationResult): TExtraStrike[] {
@@ -349,7 +349,7 @@ export function riseAfterHit(piece: TResolvedPiece, marble: TMarbleTrack, note: 
 }
 
 /**
- * Platforms a marble rolls along after its note. Rails, switchbacks and the Bowl are exempt, since rolling is their
+ * Platforms a marble rolls along after its note. Rails and the Bowl are exempt, since rolling is their
  * job, a free platform is scenery, and after a marble's last note it may come to rest. A hit that is already Blocked or
  * Missed is reported as that.
  */

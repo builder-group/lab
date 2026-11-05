@@ -112,7 +112,7 @@ export function problemSummary(preflight: TExportPreflight, workspace?: TProblem
 }
 
 /**
- * The pieces another marble hits outside a note, by entity ID, with those problems: "Bass hits Switchback 6 of
+ * The pieces another marble hits outside a note, by entity ID, with those problems: "Bass hits Rail 6 of
  * Melody". Layers badges them and the inspector shows a pill and a fix, from the same list as the summary.
  */
 export function struckPieces(preflight: TExportPreflight): Map<string, TPreflightIssue[]> {
@@ -204,7 +204,7 @@ export interface TPreflightIssue {
 	 */
 	kind: TPreflightKind;
 	severity: TPreflightSeverity;
-	/** For a marble hitting another lane's piece, that marble's name: "Bass" in "Bass hits Switchback 6 of Melody" */
+	/** For a marble hitting another lane's piece, that marble's name: "Bass" in "Bass hits Rail 6 of Melody" */
 	by?: string;
 	/** The marble the issue is about: for hit, framing, pace and Blocked scenery issues, and for a marble hitting another lane's piece, the lane the piece belongs to */
 	laneId?: string;
@@ -420,7 +420,7 @@ function bowlIssues(project: TProject, result: TSimulationResult, names: TNames)
 
 /**
  * Stray contacts: marbles touching each other or another lane's pieces. Contacts with the marble's own pieces are
- * expected during the ride through a rail, tunnel, switchback or windmill, and a second strike of its own platform is
+ * expected during the ride through a rail, tunnel or windmill, and a second strike of its own platform is
  * `strikeIssues`. Free pieces, platforms included, are environment the marbles may strike.
  */
 function contactIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
@@ -488,8 +488,8 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 
 /**
  * A marble striking its own platform outside the note: "Melody hits Platform 12 twice". It sounds like nothing in the
- * film but reads as a mistake, so it counts as a problem. Rests and rolls after the last note and rides on a switchback,
- * rail or Bowl don't count (`extraStrikes`).
+ * film but reads as a mistake, so it counts as a problem. Rests and rolls after the last note and rides on a rail
+ * or in a Bowl don't count (`extraStrikes`).
  */
 function strikeIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return extraStrikes(project, result).map((strike) => {
@@ -510,7 +510,7 @@ function strikeIssues(project: TProject, result: TSimulationResult, names: TName
 
 /**
  * A marble that stays on its platform instead of bouncing off it: "Melody rolls on Platform 12". A platform is for
- * bouncing. Rails, switchbacks and the Bowl are exempt, and so is a marble's last note (`rollingHits`).
+ * bouncing. Rails and the Bowl are exempt, and so is a marble's last note (`rollingHits`).
  */
 function rollIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return rollingHits(project, result).map((roll) => ({

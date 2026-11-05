@@ -47,7 +47,7 @@ export type TWorkerRequest =
 			/**
 			 * Angles tried in order instead of the Auto place search, for a hit before a long gap: the
 			 * first angle that keeps the hit on time and sends the marble off the piece wins. Auto place
-			 * itself launches into a switchback before a long gap, so Compose no longer sends these.
+			 * itself launches into a rail before a long gap, so Compose no longer sends these.
 			 */
 			launchAngles?: number[];
 			/** Angle range searched first, in radians; see `TAutoPlaceOptions` */

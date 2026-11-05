@@ -4,21 +4,21 @@ Each marble falls and bounces. A **hit** is a moment in the song a marble must s
 
 ## Fastest way
 
-`run_command('build.track')`, "Build Track", builds every marble's open hits in time order, with platforms, rails or switchbacks across long gaps, and ends each marble in a Bowl. Track pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
+`run_command('build.track')`, "Build Track", builds every marble's open hits in time order, with platforms and rails across long gaps, starts each bare marble on a short Rail and ends each marble in a Bowl; both are ordinary pieces you can delete. Track pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
 
 A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds the rest. `build.replace` (Fix Hits) fixes broken hits; for an open hit, change the ones before it or place it by hit. Then adjust by hand.
 
 Two arguments steer it, and neither is needed by default:
 
 - `args: { from: hitId }` is **Rebuild From Here**: everything up to that hit stays exactly as it is, on every marble, and the rest is built again as one Undo step. Turn a platform by hand, then rebuild from its hit, and the track follows your edit. The hit IDs are in `get_state.marbles[].hits`. `run_command('build.rebuildFrom', { select: [key] })` does the same from a hit's or piece's key, or from what the person selected, and also answers when the build is done.
-- `args: { gapPiece: 'rail' }` or `'switchback'` tries that piece first across every long gap. Without it, a rail where one reads well and a switchback where nothing else bridges the gap. `get_state.lastBuild` and `hits` say what happened.
+- `args: { gapPiece: 'rail' }`, `'switchback'` or `'chain'` tries that Rail layout first across every long gap. Without it, a straight Rail where one reads well and the Switchback layout where nothing else bridges the gap. `'chain'` is curved turns, always simulated, and falls back to the Switchback layout when its turns would hold the marble. `get_state.lastBuild` and `hits` say what happened.
 
 ## How a track should look
 
 Build Track, `build.next`, Continue and `build.replace` share these rules. A hit's timing comes first; a person's hand edit is never undone to meet them.
 
 - **Track pieces don't touch.** Two pieces stand at least 1.2 cm apart as the film shows them, and a skin hangs up to 1.4 cm below its hitbox. A pair that comes closer is the tip "Platform 12 touches Platform 13".
-- **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a switchback, rail or Bowl don't count.
+- **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a rail or in a Bowl don't count.
 - **Marbles may cross.** A marble's run may leave its lane and cross another's path, as long as it touches neither that marble nor its pieces. It stays in its lane where it can, since its pieces would otherwise stand in the other marble's way, and always stays in frame.
 
 To fix a touching pair or a second strike, try these in order of how little they change. Each moves the run a little from there on, since every bounce follows the one before, so read `hits` in the reply and Undo a try that breaks one.
@@ -30,7 +30,7 @@ To fix a touching pair or a second strike, try these in order of how little they
 
 ## One step at a time
 
-1. `build.next` takes the next step: a platform at the next open hit, or a switchback or rail when a long gap comes first. Where none fits it takes the step Build Track would, or says what to do; a second press then places a platform at the note after the gap. A reply with `changed: false` placed nothing, and it made no Undo step.
+1. `build.next` takes the next step: a platform at the next open hit, or a rail when a long gap comes first. Where none fits it takes the step Build Track would, or says what to do; a second press then places a platform at the note after the gap. A reply with `changed: false` placed nothing, and it made no Undo step.
 2. `build.placeAgain`, "Place Again", solves the selected platform's tilt and bounce so it lands on time, in that platform's Undo step. To place one at an open hit, select the hit through `args.select` and run `build.next`.
 3. `build.continue` accepts a suggested pattern. `build.repeat` and `build.mirror` copy the last platform's tilt, which makes zigzags.
 4. `build.replace` (Fix Hits) fixes broken hits. `edit.firstProblem` jumps to the first problem for the person.
@@ -44,16 +44,16 @@ Build marbles together in time order, since they can collide with each other's p
 
 ## Long gaps
 
-Two notes further apart than about 0.7 s are a long gap: a marble in free fall drops about 5 m in a 2 s gap at the default speed and leaves the track. Build Track and `build.next` bridge them with a rail where one reads well, or a switchback, which holds the marble while it descends, where nothing else does. A rail, tunnel or switchback never plays a note.
+Two notes further apart than about 0.7 s are a long gap: a marble in free fall drops about 5 m in a 2 s gap at the default speed and leaves the track. Build Track and `build.next` bridge them with a rail where one reads well, or a Rail with the Switchback layout, which holds the marble while it descends, where nothing else does. A rail or tunnel never plays a note.
 
-To choose the piece yourself, place it on the hit before the gap with `project.execute`: `{ type: 'placePiece', pieceType: 'rail', hit: { laneId, hitId }, params: { entryDelay: 0.3 } }`, where `entryDelay` is how many seconds after that hit the marble meets it, and `path` sets its shape. Any of `rail`, `tunnel` or `switchback` counts as bridging the gap, and Build Track then keeps it and builds around it.
+To choose the piece yourself, place it on the hit before the gap with `project.execute`: `{ type: 'placePiece', pieceType: 'rail', hit: { laneId, hitId }, params: { entryDelay: 0.3 } }`, where `entryDelay` is how many seconds after that hit the marble meets it, and `path` sets its shape, or `layout: 'switchback'`, `'chain'`, `'c'` or `'curve'` with `params` such as `turns`, `width` and `drop` generates its paths. A `rail` or `tunnel` counts as bridging the gap, and Build Track then keeps it and builds around it.
 
 ## project.execute
 
 `run_command('project.execute', { label: 'Place Platform', commands: [...] })` applies all commands as one Undo step. An invalid batch changes nothing and says why: a command with a field it doesn't know is refused, and commands that leave the project as it was answer `changed: false` with no Undo step. These read best:
 
 - `{ type: 'placePiece', pieceType: 'platform', hit: { laneId, hitId }, angle?, params? }`: tied to a hit, like clicking its dot. `angle` is in radians; without one the app picks.
-- `{ type: 'placePiece', pieceType: 'rail', position: { x, y }, path: [{ x, y }, ...] }`: a piece tied to nothing. Types: `platform`, `rail`, `tunnel`, `windmill`, `switchback`, `bowl`.
+- `{ type: 'placePiece', pieceType: 'rail', position: { x, y }, path: [{ x, y }, ...] }`: a piece tied to nothing; `paths` adds further paths to the same Rail. Types: `platform`, `rail`, `tunnel`, `windmill`, `bowl`.
 - `{ type: 'applySkin', assetId, pieceType }` or `{ type: 'applySkin', assetId, entityIds }`
 - `{ type: 'placeDecor', source, at: { x, y } }` and `{ type: 'scatterDecor', sources, density?, seed? }`
 

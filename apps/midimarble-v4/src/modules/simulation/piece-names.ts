@@ -22,7 +22,7 @@ export function nextPieceName(type: string, entities: TEntity[]): string {
 /**
  * Renames every piece to its type label and a number in the order the Layers list shows them: each marble's
  * pieces in hit order, marble after marble, then the free pieces. Each type counts on its own, so a project
- * reads "Platform 1…n" and "Switchback 1…n" in time order. Only `name` changes.
+ * reads "Platform 1…n" and "Rail 1…n" in time order. Only `name` changes.
  */
 export function namePiecesInOrder(project: TProject): TProject {
 	const ordered: TEntity[] = [];

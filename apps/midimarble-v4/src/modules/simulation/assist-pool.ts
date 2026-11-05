@@ -4,7 +4,7 @@ import { gapSearch, type TGapEvaluation, type TGapPieceProposal, type TGapSearch
 import { createRequestQueue, type TQueueResponse } from './request-queue';
 import type { TAutoPlaceAnswer, TGapAnswer, TSearchBatch, TSearchRequest, TWorkerMessage, TWorkerRequest } from './worker-protocol';
 
-// A pool of assists workers that share one search at a time: Auto place's angles or a long gap's switchbacks,
+// A pool of assists workers that share one search at a time: Auto place's angles or a long gap's rails,
 // rails and tunnels. Each stage's tries are split into small chunks and handed to whichever worker is free; the
 // answers are put back in the order the tries were asked and reduced there, so the choice is the one a single
 // worker makes, whatever the pool size or the timing. Every worker simulates and prepares the search's project

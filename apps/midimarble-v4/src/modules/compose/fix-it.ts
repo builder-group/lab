@@ -10,6 +10,7 @@ import {
 	getPieceDefinition,
 	gravityOf,
 	isMusicalPiece,
+	gapPieceTypeOf,
 	layoutOf,
 	shapesBounds,
 	shapesDistance,
@@ -29,7 +30,7 @@ import { preflightExport, type TPreflightIssue } from '@/modules/design/export-p
 
 // Fix-its after edits that break the run, like Xcode's: the edit's notice, the Blocked or Missed platform's
 // inspector header and the hit summary's menu offer Fix Hits, which runs Auto place again for the broken hits.
-// Blocked scenery (a windmill, switchback, rail or tunnel that follows a marble) gets Move Clear instead.
+// Blocked scenery (a windmill, rail or tunnel that follows a marble) gets Move Clear instead.
 
 /** A hit whose platform no longer plays it: Blocked, Missed or Stopped */
 /** A hit that needs attention while its marble's run is being mended: broken, early or late, or on time but outside its lane */
@@ -552,7 +553,7 @@ export interface TSceneryFix {
 }
 
 /**
- * The first fix of a windmill, switchback, rail or tunnel that is Blocked or that another marble hits, which a
+ * The first fix of a windmill, rail or tunnel that is Blocked or that another marble hits, which a
  * what-if run passes: it clears the piece, breaks no hit that is on time and adds no problem. In order: a bridge
  * of a long gap is suggested again for its gap (switchback or rail, as Next does), the piece moves clear (Move
  * Clear), and a Blocked piece is deleted. A Blocked piece is left out of the run, so deleting it changes no hit;
@@ -593,8 +594,9 @@ export async function sceneryFix(
 
 	// A bridge suggested again for its gap, for the run without it
 	const gap = findLongGaps(project, link.laneId).find((item) => item.bridgedBy === entityId);
-	const type = entity.components.piece?.type;
-	if (gap != null && deps.gapPiece != null && isGapPieceType(type)) {
+	const piece = entity.components.piece;
+	const type = piece != null && isGapPieceType(piece.type) ? gapPieceTypeOf(piece) : null;
+	if (gap != null && deps.gapPiece != null && type != null) {
 		const types: TGapPieceType[] = type === 'switchback' ? ['switchback', 'rail'] : type === 'chain' ? ['chain', 'switchback'] : type === 'rail' ? ['rail', 'switchback'] : [type];
 		const without = { ...project, entities: project.entities.filter((item) => item.id !== entityId) };
 		for (const kind of types) {
@@ -620,7 +622,7 @@ export async function sceneryFix(
 	} else refusal ||= `No spot within 40 cm clears ${name} of ${runs}'s run`;
 
 	// A Bowl is how the marble ends, wherever the run now goes, so it stays for the person even when Blocked
-	if (isBlocked && type !== BOWL_TYPE) {
+	if (isBlocked && piece?.type !== BOWL_TYPE) {
 		const commands: TProjectCommand[] = [{ type: 'removeEntities', entityIds: [entityId] }];
 		const run = await check(commands, `Deleting ${name}`);
 		if (run != null) return { kind: 'delete', commands, run, message: `${name} deleted: ${laneName(link.laneId)} already passes through its spot, so the run never used it` };
@@ -628,7 +630,7 @@ export async function sceneryFix(
 	return { kind: null, commands: null, message: `${refusal || `Nothing clears ${name}`}, so nothing changed. Drag it by hand or Detach it.` };
 }
 
-/** A piece tied to a marble that plays no note, such as a windmill, switchback, rail or tunnel */
+/** A piece tied to a marble that plays no note, such as a windmill, rail or tunnel */
 function isStrayScenery(project: TProject, entityId: string): boolean {
 	const entity = project.entities.find((item) => item.id === entityId);
 	const link = entity?.components.hitLink;
@@ -701,7 +703,7 @@ export interface TReplaceDeps {
 	simulate: (project: TProject) => Promise<TSimulationResult>;
 	/** Auto place for a hit's existing platform; rejects when no angle passes */
 	autoPlace: (project: TProject, hit: THitResult, entity: TEntity) => Promise<TEntity>;
-	/** A new switchback, rail or tunnel for a long gap, replacing `entityId`; rejects when none fits */
+	/** A new rail or tunnel for a long gap, replacing `entityId`; rejects when none fits */
 	gapPiece: (project: TProject, gap: TLongGap, type: TGapPieceType, entityId: string) => Promise<TEntity>;
 	/** Applies one step's commands; the first step starts the undo step, later ones join it. Null stops. */
 	commit: (project: TProject, commands: TProjectCommand[], isFirst: boolean) => TProject | null;
@@ -725,7 +727,7 @@ export interface TReplaceOutcome {
 	result: TSimulationResult;
 	/** Platforms that got a new angle */
 	replaced: number;
-	/** Switchbacks, rails and tunnels suggested again for their gap */
+	/** Rails and tunnels suggested again for their gap */
 	moved: string[];
 	/** Broken hits left, and Blocked scenery that could not move clear */
 	failed: number;
@@ -743,7 +745,7 @@ export interface TReplaceOutcome {
  * Builds the run again from each marble's first problem onward, the way the step loop built it. A first fall that
  * grew long because the marble's first notes went elsewhere is fixed first by moving the release. Then, at the
  * earliest hit that needs attention, Auto place tilts the platform before it again; a launch into a bridged long
- * gap is tilted for the open gap and its switchback, rail or tunnel suggested again for the new launch, as Next
+ * gap is tilted for the open gap and its rail or tunnel suggested again for the new launch, as Next
  * did. Each try is simulated up to `TRY_HORIZON` past the problem, resuming from the snapshot before its first
  * change, and steps are remembered for the next problem that goes back over the same platforms. A change is kept
  * only when, simulated to the end, the problem moves later, no other marble loses a hit, it crosses no other lane
@@ -864,7 +866,7 @@ async function commitFix(fixing: TFixing, commands: TProjectCommand[], isPiece =
 	if (next == null) return false;
 	fixing.isFirst = false;
 	fixing.current = next;
-	// Platforms count as placed again; a switchback, rail or tunnel suggested again is named in the result
+	// Platforms count as placed again; a rail or tunnel suggested again is named in the result
 	for (const id of isPiece ? new Set(commands.map(commandEntityId)) : []) {
 		const type = next.entities.find((entity) => entity.id === id)?.components.piece?.type;
 		if (type != null && isMusicalPiece(type)) fixing.changed.add(id);
@@ -942,11 +944,12 @@ function reportProblem(fixing: TFixing, progress: TFixProgress, problem: THitRes
 	fixing.deps.onProgress?.(progress.done, total, problem.targetTime, progress.fraction);
 }
 
-/** A new switchback, rail or tunnel for `gap` in place of `bridge`, for the run in `base` without it */
+/** A new rail or tunnel for `gap` in place of `bridge`, for the run in `base` without it */
 async function bridgeCommands(fixing: TFixing, base: TProject, gap: TLongGap, bridge: TEntity): Promise<TProjectCommand[] | null> {
-	const bridgeType = bridge.components.piece?.type;
-	if (!isGapPieceType(bridgeType)) return null;
-	// Like Next, a rail where no switchback fits any more, and a switchback where no rail does
+	const bridgePiece = bridge.components.piece;
+	if (bridgePiece == null || !isGapPieceType(bridgePiece.type)) return null;
+	const bridgeType = gapPieceTypeOf(bridgePiece);
+	// Like Next, a straight rail where no Switchback fits any more, and a Switchback where no straight rail does
 	const types: TGapPieceType[] = bridgeType === 'switchback' ? ['switchback', 'rail'] : bridgeType === 'chain' ? ['chain', 'switchback'] : bridgeType === 'rail' ? ['rail', 'switchback'] : [bridgeType];
 	const without = { ...base, entities: base.entities.filter((item) => item.id !== bridge.id) };
 	for (const type of types) {

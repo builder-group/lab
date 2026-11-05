@@ -2,7 +2,7 @@ import type { TEntity, TVec2 } from '@/modules/project';
 import type { TContinueAnswer, TGapAnswer, THitResult, TResolvedPiece } from '@/modules/simulation';
 
 // Ghost pieces are suggestions drawn in place before they exist: Continue offers the next pieces of a
-// repeating pattern, Next offers a switchback (or a rail) across a long gap, and a click on an open dot shows the
+// repeating pattern, Next offers a rail across a long gap, and a click on an open dot shows the
 // piece it would get. Suggestions belong to one project
 // revision. Any edit makes them stale, so they disappear until the worker answers for the new revision,
 // and answers that arrive for an older revision are dropped.

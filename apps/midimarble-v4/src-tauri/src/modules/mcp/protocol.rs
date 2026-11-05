@@ -212,7 +212,7 @@ pub fn tool_definitions() -> Vec<Value> {
             "Runs a studio command by id, or `project.execute` with `args.commands`. Each call is one named Undo step. Answers with the new hit summary and errors in plain words.",
             json!({
                 "id": { "type": "string" },
-                "args": { "type": "object", "description": "`select` (layer keys) for any command; `path` for commands that open a panel for a person; `commands` and `label` for project.execute; `value` for marble.speed; `wait: false`, `from` (a hit ID: Rebuild From Here) and `gapPiece` (`rail` or `switchback`, tried first across a long gap) for build.track" }
+                "args": { "type": "object", "description": "`select` (layer keys) for any command; `path` for commands that open a panel for a person; `commands` and `label` for project.execute; `value` for marble.speed; `wait: false`, `from` (a hit ID: Rebuild From Here) and `gapPiece` (`rail`, `switchback` or `chain`, tried first across a long gap) for build.track" }
             }),
             &["id"],
         ),

@@ -15,7 +15,7 @@ const stillOutlines = new WeakMap<TResolvedPiece, TVec2[][]>();
 
 /**
  * A piece's hitbox as closed outlines on the wall, from the colliders the simulation uses: a platform's box, the
- * capsule chains of rails, tunnels, switchbacks and Bowls, and a windmill's hub and arms as they turned by `time`
+ * capsule chains of rails, tunnels and Bowls, and a windmill's hub and arms as they turned by `time`
  */
 export function hitboxOutlines(piece: TResolvedPiece, time: number): TVec2[][] {
 	if (pieceKind(piece) === 'rotor') {

@@ -728,10 +728,16 @@ def rail_spec(frame, piece):
                 (x, frame.marble_y, z),
             ], 0.003)
             builder.tube(post, radius * 0.75, material=1, sides=8)
-            builder.cylinder(0.004, 0.002, (below[0], frame.wall_y - 0.001, below[1]), axis='Y', material=1, bevel=0.0005)
+            wall_ball(builder, frame, below[0], below[1], radius)
     else:
         builder.box((0.02, gap, radius * 2), (0.0, frame.marble_y, 0.0))
     return {'root': builder.to_mesh('MM rail', [wire_material, post_material]), 'parts': []}
+
+
+def wall_ball(builder, frame, x, z, radius, material=1):
+    """The ball a rail's post ends in where it meets the wall, as on the reference shorts' wire tracks"""
+    ball = max(radius * 1.9, 0.0028)
+    builder.sphere(ball, (x, frame.wall_y - ball * 0.55, z), material=material, segments=14, rings=8)
 
 
 def rail_paths_spec(frame):
@@ -781,16 +787,16 @@ def rail_paths_spec(frame):
             if index in (0, len(line) - 1):
                 builder.tube([(x, frame.marble_y - half, z), (x, frame.marble_y + half, z)], radius * 0.8, material=0, sides=8)
             builder.tube([(x, frame.marble_y + half, z), (x, frame.wall_y, z)], radius * 0.75, material=0, sides=8)
-            builder.cylinder(0.0035 * k, 0.0015 * k, (x, frame.wall_y - 0.00075 * k, z), axis='Y', material=0, bevel=0.0004 * k)
+            wall_ball(builder, frame, x, z, radius, material=0)
     return {'root': builder.to_mesh('MM rail', [frame.metal(themes.chrome_material())]), 'parts': []}
 
 
 def bowl_spec(frame, piece):
-    """Bowl: the curved wire the marble lands in and settles in (`paths[0]`). Like the reference short's catcher it is a
-    cage of wires: two under the marble's path, one on each side of the marble's plane and set back so the marble rests
-    on both where it touches the capsule, and two guides at the marble's centre height either side of it, held by ties
-    and by posts to the wall. Chrome and Wood draw clear chrome wires; Wood's posts are wooden pegs. Glow draws the wires
-    as glowing tube edges on dark posts. Colour: By Note never applies: a Bowl plays no note."""
+    """Bowl: the curved wire the marble lands in and settles in (`paths[0]`), a wire cradle like the reference short's
+    catcher: two wires under the marble's path, one on each side of the marble's plane and set back so the marble rests
+    on both where it touches the capsule, tied across every 2.5 cm and held by posts that end in a ball at the wall.
+    Chrome and Wood draw clear chrome wires; Wood's posts are wooden pegs. Glow draws the wires as glowing tube edges on
+    dark posts. Colour: By Note never applies: a Bowl plays no note."""
     wires = [wire for wire in frame.local_wires() if len(wire) >= 2]
     physics_radius = frame.params.get('radius', 0.0025)
     k = frame.marble_radius / 0.008
@@ -808,30 +814,18 @@ def bowl_spec(frame, piece):
     reach = frame.marble_radius + radius
     half = min(gap / 2, reach * 0.95)
     setback = frame.marble_radius + physics_radius - math.sqrt(reach * reach - half * half)
-    # The guides run along the marble's centre line, just clear of it on both sides of its plane
-    guide = frame.marble_radius + radius * 1.5
     for wire in wires:
         # The wire turns toward the marble
-        side = marble_side(wire, wire[0])
-        under = offset_wire(wire, -setback * side)
-        centre_line = offset_wire(wire, (frame.marble_radius + physics_radius) * side)
+        under = offset_wire(wire, -setback * marble_side(wire, wire[0]))
         for offset in (-half, half):
             builder.tube([(x, frame.marble_y + offset, z) for x, z in under], radius, material=0, sides=10)
-        for offset in (-guide, guide):
-            builder.tube([(x, frame.marble_y + offset, z) for x, z in centre_line], radius * 0.85, material=0, sides=10)
-        # Ties across the wires every 2.5 cm, the guides tied down to the wires beneath them
         for tie in post_indices(under, 0.025 * k):
             x, z = under[tie]
             builder.tube([(x, frame.marble_y - half, z), (x, frame.marble_y + half, z)], radius * 0.7, material=0, sides=8)
-            gx, gz = centre_line[tie]
-            for sign in (-1, 1):
-                builder.tube([(x, frame.marble_y + sign * half, z), (gx, frame.marble_y + sign * guide, gz)], radius * 0.6,
-                             material=0, sides=6)
-        # Posts from the wall side of the cage to round bases on the wall at the ends and every 8 cm
         for post in post_indices(under, 0.08 * k):
             x, z = under[post]
             builder.tube([(x, frame.marble_y + half, z), (x, frame.wall_y, z)], radius * 0.75, material=1, sides=8)
-            builder.cylinder(0.0035 * k, 0.0015 * k, (x, frame.wall_y - 0.00075 * k, z), axis='Y', material=1, bevel=0.0004 * k)
+            wall_ball(builder, frame, x, z, radius)
     return {'root': builder.to_mesh('MM bowl', materials), 'parts': []}
 
 

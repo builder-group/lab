@@ -174,7 +174,7 @@ export interface TAutoPlacement extends TAssistPlacement {
 	angle: number;
 	/**
 	 * Dot of the following hit with the chosen angle. Null when the lane has no later hit or the next
-	 * hit lies after a long gap, which a switchback, rail or tunnel bridges.
+	 * hit lies after a long gap, which a rail or tunnel bridges.
 	 */
 	nextDot: TVec2 | null;
 	/** Horizontal marble travel from this hit's dot to the next dot, or over the horizon without one */
@@ -195,7 +195,7 @@ const DEGREE = Math.PI / 180;
  * above, and, when several marbles share the frame, the next dot lies within the pace limit of y* (or no
  * further than this hit's dot already is, plus `PACE_SLACK`) (or no further than this hit's dot already is, plus
  * `PACE_SLACK`). Without a next hit in reach the marble must stay in the band over a horizon instead:
- * `LAST_HIT_HORIZON` after the lane's last hit and `LAUNCH_HORIZON` before a long gap, where a switchback,
+ * `LAST_HIT_HORIZON` after the lane's last hit and `LAUNCH_HORIZON` before a long gap, where a rail,
  * rail or tunnel picks the marble up. Passing candidates are ranked by a score, lower is better, that sums:
  *
  * - travel: `TRAVEL_WEIGHT` per share of `minTravel` the horizontal travel falls short of it, so the
@@ -1461,12 +1461,12 @@ export interface TLongGap {
 	from: number;
 	to: number;
 	duration: number;
-	/** Switchback, rail or tunnel linked to the gap's first hit, if one bridges it */
+	/** Rail or tunnel linked to the gap's first hit, if one bridges it */
 	bridgedBy: string | null;
 }
 
 /**
- * Gaps between consecutive hits that are too long for a bounce and need a switchback, rail or tunnel. The
+ * Gaps between consecutive hits that are too long for a bounce and need a rail or tunnel. The
  * threshold defaults to `longGapThreshold`: the interval whose bounce at the project's pace would rise
  * more than `MAX_BOUNCE_RISE`.
  */
@@ -1509,7 +1509,7 @@ export function findLongGaps(
 /**
  * Unbridged long gaps of the lane whose first hit has a piece and whose last hit has none, in time order.
  * Next serves these before any later hit: the marble may fall so far across such a gap that the hit after
- * it has no dot until a switchback, rail or tunnel catches it.
+ * it has no dot until a rail or tunnel catches it.
  */
 export function openLongGaps(project: TProject, laneId: string): TLongGap[] {
 	const owners = hitOwners(project, laneId);
@@ -1730,7 +1730,7 @@ export function crossesOtherLanes(
 
 /**
  * Time after which each marble's path is not built yet: its first open hit, or shortly after the launch
- * into a long gap that no switchback, rail or tunnel bridges yet, across which it falls freely
+ * into a long gap that no rail or tunnel bridges yet, across which it falls freely
  */
 export function openFrontiers(project: TProject, result: TSimulationResult): Map<string, number> {
 	const frontiers = new Map<string, number>();

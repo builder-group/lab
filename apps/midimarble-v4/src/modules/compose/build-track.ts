@@ -27,6 +27,7 @@ import {
 import { checkFraming } from '@/modules/design/export-preflight';
 import { BOWL_TYPE, bowlOfLane } from '@/modules/simulation';
 import { withBowls } from './bowl-assist';
+import { startRailId, withStartRails } from './start-rail';
 import { openHits } from './step-loop';
 import { hitReach } from './reachability';
 
@@ -875,9 +876,12 @@ function withReleaseShift(project: TProject, shift: number, bareLanes: Set<strin
 	return {
 		...project,
 		entities: project.entities.map((entity) => {
-			const { marble, release } = entity.components;
+			const { marble, release, transform } = entity.components;
+			const moved = (x: number): number => Math.round((x + shift) * 1e4) / 1e4;
+			// A marble's start rail goes with it
+			if (transform != null && [...bareLanes].some((laneId) => startRailId(laneId) === entity.id)) return { ...entity, components: { ...entity.components, transform: { ...transform, position: { x: moved(transform.position.x), y: transform.position.y } } } };
 			if (marble == null || release == null || !bareLanes.has(marble.laneId)) return entity;
-			return { ...entity, components: { ...entity.components, release: { ...release, position: { x: Math.round((release.position.x + shift) * 1e4) / 1e4, y: release.position.y } } } };
+			return { ...entity, components: { ...entity.components, release: { ...release, position: { x: moved(release.position.x), y: release.position.y } } } };
 		})
 	};
 }
@@ -955,7 +959,7 @@ export async function buildOneStep(project: TProject, deps: TBuildTrackDeps): Pr
 }
 
 /**
- * Builds every marble's open hits of `project` in time order and ends each marble in a Bowl. Pieces already there
+ * Builds every marble's open hits of `project` in time order, starting each bare marble on a Rail and ending each marble in a Bowl. Pieces already there
  * stay; one is turned only when nothing else solves a hit, and the outcome names it. Releases move only for marbles
  * without pieces. Each accepted step goes to `deps.commit`, so the pieces appear as they are found.
  */
@@ -1088,7 +1092,7 @@ async function bestAttempt(build: TBuildRun): Promise<TBestAttempt | null> {
 	for (const shift of shifts) {
 		if (build.attempts > 0 && searches.used >= searches.limit) break;
 		build.attempts++;
-		const start = withReleaseShift(project, shift, bareLanes);
+		const start = withStartRails(withReleaseShift(project, shift, bareLanes), bareLanes);
 		const state = createState(deps, start, canTurnOwn, gapPiece, searches);
 		await tolerate(state, start);
 		deps.onLog?.(`releases shifted by ${shift.toFixed(3)} m`);
