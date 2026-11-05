@@ -129,7 +129,7 @@ describe('follow camera', () => {
 		expect(targetX(unnoted, 9.5)).toBeLessThan(-0.7);
 	});
 
-	it('leads the frame downward while the marble falls, so it sits above the center', () => {
+	it('follows the run line through a fall: no lurch, and the marble stays in frame', () => {
 		const time = Float64Array.from({ length: 601 }, (_, index) => index / 100);
 		// A slow roll for 2 s, a drop at 2.5 m/s for 1.5 s, then a slow roll again
 		const y = time.map((t) => (t < 2 ? -0.3 * t : t < 3.5 ? -0.6 - 2.5 * (t - 2) : -4.35 - 0.3 * (t - 3.5)));
@@ -144,16 +144,17 @@ describe('follow camera', () => {
 				marbles: [{ id: 'marble', radius: 0.012, hitTimes: [0.5, 1, 1.5, 4, 4.5, 5], motion: { time, x, y } }]
 			})
 		);
-		const height = (seconds: number): number => {
+		const targetSpeed = (frame: number): number =>
+			(at(track.target, frame * 2 + 3) - at(track.target, frame * 2 + 1)) * 30;
+		// The target's speed turns over the drop gradually: the marble's own jumps 2.2 m/s at once
+		for (let frame = 0; frame + 9 < track.frameCount; frame++)
+			expect(Math.abs(targetSpeed(frame + 8) - targetSpeed(frame))).toBeLessThan(1.3);
+		for (let seconds = 0; seconds <= 5.5; seconds += 0.1) {
 			const index = pyRound(seconds * 100);
-			return project(track, pyRound(seconds * 30), at(x, index), at(y, index))[1];
-		};
-		// The look target sits below the falling marble: 0.04 m was all the lead allowed before
-		for (const seconds of [2.4, 2.6, 2.8])
-			expect(at(track.target, pyRound(seconds * 30) * 2 + 1)).toBeLessThan(at(y, pyRound(seconds * 100)) - 0.06);
-		// Mid-drop the marble is in the upper part of the frame (0.51 to 0.61 before), and never near the bottom edge
-		expect(height(2.6)).toBeGreaterThan(0.62);
-		for (let seconds = 2; seconds <= 3.8; seconds += 0.1) expect(height(seconds)).toBeGreaterThan(0.2);
+			const [u, v] = project(track, pyRound(seconds * 30), at(x, index), at(y, index));
+			expect(Math.min(u, v)).toBeGreaterThan(0.05);
+			expect(Math.max(u, v)).toBeLessThan(0.95);
+		}
 	});
 
 	it('keeps a single marble in frame when the opening frames pieces far from it and a long fall pulls the frame ahead', () => {

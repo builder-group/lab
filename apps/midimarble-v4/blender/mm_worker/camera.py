@@ -10,8 +10,9 @@ The camera looks steeply along the wall and travels with the marbles, like the r
    roll, around the smoothed target of a first pass, and eases slowly (DISTANCE_TAU).
 2. Target: the follow point moved toward where it is at `t + lead` (at most LEAD_LIMIT * distance), smoothed with a
    zero-phase critically damped filter (a forward and a backward pass of a second-order filter with time constant
-   0.04 + 0.5 * smoothing seconds), so the camera neither lags nor overshoots. Where smoothing still lets a marble
-   drift toward the frame edge (free falls accelerate), the target is pulled along.
+   0.04 + 0.5 * smoothing seconds), so the frame follows the run's line rather than each hop and fall, and neither
+   lags nor overshoots. Where smoothing still lets a marble drift toward the frame edge (free falls accelerate), a
+   correction as slow as the frame's own move (KEEP_EASE) pulls the target along.
 3. Placement: the camera stands `distance` from the target at `pitch` from the wall normal, above and to the side
    of the run (the Turn, `side`, by default SIDE_ANGLE from straight below, following the run direction by SIDE_FOLLOW). Seen from there the
    bars show their long sides and tops, the wall recedes like a floor and the two columns run diagonally.
@@ -43,25 +44,18 @@ from .util import path_depth
 # near vertical like the reference
 ROLL_FOLLOW = 0.5
 ROLL_LIMIT = math.radians(40)
-ROLL_DRIFT = math.radians(16)
-ROLL_PERIOD = 14.0
+ROLL_DRIFT = math.radians(8)
+ROLL_PERIOD = 56.0
 # Where the camera stands around the target on the wall: 0 straight below, positive to the right
 SIDE_ANGLE = math.radians(95)
 SIDE_FOLLOW = 0.3
 HEADING_TAU = 1.5
 # The lead may move the target at most this fraction of the camera distance ahead of the marble
 LEAD_LIMIT = 0.0235
-# While the follow point falls faster than FALL_START meters per second, the frame looks FALL_AHEAD seconds of the
-# extra speed below it, at most FALL_LIMIT of the camera distance; the speed is taken over FALL_WINDOW seconds either
-# side, the lead lasts FALL_HOLD seconds past the fall and eases over FALL_EASE seconds
-FALL_START = 0.3
-FALL_AHEAD = 0.25
-FALL_LIMIT = 0.088
-FALL_EASE = 0.6
-FALL_WINDOW = 0.1
-FALL_HOLD = 0.5
 # Fraction of the half frame the marble may move away from the target before the camera is pulled along
 FRAME_KEEP = 0.55
+# Time constant in seconds of that pull: a fast one would stand out as a lurch against the frame's steady scroll
+KEEP_EASE = 0.3
 # Width over height of the framing box; portrait films are 9:16
 ASPECT_GUESS = 0.56
 SHOT_EASE = 0.8
@@ -448,10 +442,8 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
     # Hold the widest need for a second so the zoom does not breathe with every bounce; a running median first drops
     # momentary spikes, such as one marble's bounce peak, that the frame margins absorb
     need = held(held(zoom_need, fps, GROUP_SPIKE / 2, np.median), fps, 1.0)
-    # A close shot frames the leading marble alone, and only then leads one marble's fall
-    moving = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']])]
+    # A close shot frames the leading marble alone
     push = np.clip((1 - scale) / (1 - PUSH_FOCUS), 0.0, 1.0)
-    fall_scale = push if len(moving) > 1 else np.ones(len(times))
     # The zoom follows what the group needs, slowly
     group_distance = np.maximum(need, base)
     distance = critically_damped(group_distance[:, None], fps, DISTANCE_TAU)[:, 0]
@@ -470,15 +462,13 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
         center = keep * center + (1 - keep) * lead
         ahead = keep * ahead + (1 - keep) * lead_ahead
     if opening is not None:
-        # The opening frames its box; it leads no fall
-        fall_scale = fall_scale * (1 - opening['weight'])
         weight = opening['weight'][:, None]
         center = weight * opening['point'] + (1 - weight) * center
         ahead = weight * opening['point'] + (1 - weight) * ahead
     if hold is not None:
         bowl = settings.get('bowl')
         center, ahead = settled(center, times, hold, bowl), settled(ahead, times, hold, bowl)
-    return {'current': center, 'ahead': ahead, 'depth': depth, 'distance': distance, 'fall_scale': fall_scale, 'opening_weight': None if opening is None else opening['weight']}
+    return {'current': center, 'ahead': ahead, 'depth': depth, 'distance': distance, 'opening_weight': None if opening is None else opening['weight']}
 
 
 def opening_frame(marbles, motions, times, sample, settings, fps, axes):
@@ -628,27 +618,6 @@ def look_rotation(position, target, up):
     return basis.to_quaternion()
 
 
-def fall_lead(point_y, distance, fps, times, hold):
-    """How far below the follow point the camera looks while it falls, per frame. Above FALL_START meters per second
-    the frame leads by FALL_AHEAD seconds of the extra speed, at most FALL_LIMIT of the camera distance, held FALL_HOLD
-    seconds past the fall (the smoothed target slows before the marble lands) and eased over FALL_EASE seconds, so a
-    falling marble sits above the center with the pieces it falls toward in frame. Over the HOLD_SPAN seconds before
-    the hold the lead fades out, so the held frame still shows the last pieces."""
-    count = len(point_y)
-    window = max(1, int(round(FALL_WINDOW * fps)))
-    index = np.arange(count)
-    ahead = np.minimum(count - 1, index + window)
-    behind = np.maximum(0, index - window)
-    speed = (point_y[behind] - point_y[ahead]) / (np.maximum(ahead - behind, 1) / fps)
-    lead = np.minimum(np.maximum(speed - FALL_START, 0.0) * FALL_AHEAD, FALL_LIMIT * distance)
-    span = int(round(FALL_HOLD * fps))
-    kept = np.array([lead[max(0, frame - span):frame + 1].max() for frame in range(count)]) if count else lead
-    eased = critically_damped(kept[:, None], fps, FALL_EASE / 3)[:, 0]
-    if hold is not None:
-        eased = eased * (1.0 - smoothstep((times - (hold - HOLD_SPAN)) / HOLD_SPAN))
-    return eased
-
-
 def follow_target(framing, settings, fps, times):
     """Look target on the wall per frame, (n, 2), and the run direction (heading) the camera turns with"""
     current, ahead_points, distance = framing['current'], framing['ahead'], framing['distance']
@@ -658,7 +627,6 @@ def follow_target(framing, settings, fps, times):
     limit = LEAD_LIMIT * distance
     scale = np.where(lead_length > limit, limit / np.maximum(lead_length, 1e-9), 1.0)
     follow = current + lead_offset * scale[:, None]
-    follow[:, 1] -= fall_lead(current[:, 1], distance, fps, times, settings.get('hold')) * framing['fall_scale']
     tau = 0.04 + 0.5 * settings['smoothing']
     target = critically_damped(follow, fps, tau)
     # Smoothing averages accelerating motion such as a free fall, so the target can fall behind; pull it back
@@ -669,7 +637,7 @@ def follow_target(framing, settings, fps, times):
         excess = np.maximum(np.abs(offset) - reach[:, None] * np.array([ASPECT_GUESS, 1.0]), 0.0) * np.sign(offset)
         if not np.any(excess):
             break
-        target = target + critically_damped(excess, fps, 0.08) * 1.3
+        target = target + critically_damped(excess, fps, KEEP_EASE) * 1.3
     # Safety net for extreme motion: never let a marble leave the frame
     offset = current - target
     hard = reach[:, None] * np.array([ASPECT_GUESS, 1.0]) * 1.5
