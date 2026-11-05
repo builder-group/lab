@@ -28,16 +28,26 @@ const SIDE_TRIES = 40;
  * without a pose in this run are skipped. One edit for the whole selection.
  */
 export function duplicatePieces(project: TProject, result: TSimulationResult | null, entityIds: string[], offset: TVec2 = DUPLICATE_OFFSET): TDuplicate {
+	return copiesOf(project, freePieces(project, result, entityIds), offset);
+}
+
+/** The pieces as free pieces where they are now, which ⌘C keeps; a tied piece without a pose in this run is left out */
+export function freePieces(project: TProject, result: TSimulationResult | null, entityIds: string[]): TEntity[] {
+	return entityIds.flatMap((entityId) => {
+		const entity = project.entities.find((item) => item.id === entityId);
+		const free = entity?.components.piece != null ? freeEntity(project, result, entity) : null;
+		return free != null ? [free] : [];
+	});
+}
+
+function copiesOf(project: TProject, pieces: readonly TEntity[], offset: TVec2): TDuplicate {
 	const commands: TProjectCommand[] = [];
 	const copies: TEntity[] = [];
 	let entities = project.entities;
-	for (const entityId of entityIds) {
-		const entity = project.entities.find((item) => item.id === entityId);
-		const type = entity?.components.piece?.type;
-		if (entity == null || type == null) continue;
-		const free = freeEntity(project, result, entity);
-		const transform = free?.components.transform;
-		if (free == null || transform == null) continue;
+	for (const free of pieces) {
+		const type = free.components.piece?.type;
+		const transform = free.components.transform;
+		if (type == null || transform == null) continue;
 		const copy: TEntity = {
 			...free,
 			id: createId('piece'),
@@ -67,15 +77,20 @@ export type TClearDuplicate = (TDuplicate & { spot: 'near the original' | 'besid
  * path and every piece, checked with a what-if run, or to the marble-free side at their height, which the notice
  * then says. When even that would break hits, nothing is copied. Without `simulate` the clearance alone decides.
  */
-export async function duplicateClear(project: TProject, result: TSimulationResult | null, entityIds: string[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null): Promise<TClearDuplicate> {
-	const atOriginals = duplicatePieces(project, result, entityIds, { x: 0, y: 0 });
+export function duplicateClear(project: TProject, result: TSimulationResult | null, entityIds: string[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null): Promise<TClearDuplicate> {
+	return pasteClear(project, result, freePieces(project, result, entityIds), simulate);
+}
+
+/** The same for free pieces kept by ⌘C, which may come from another project */
+export async function pasteClear(project: TProject, result: TSimulationResult | null, pieces: readonly TEntity[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null): Promise<TClearDuplicate> {
+	const atOriginals = copiesOf(project, pieces, { x: 0, y: 0 });
 	// Without a run nothing moves a marble's path yet that a spot could be checked against
-	if (result == null || !atOriginals.copies.length) return { ...duplicatePieces(project, result, entityIds), spot: 'near the original' };
+	if (result == null || !atOriginals.copies.length) return { ...copiesOf(project, pieces, DUPLICATE_OFFSET), spot: 'near the original' };
 	const field = clearField(result, atOriginals.copies);
 	const base = result.revision === project.revision || simulate == null ? result : await simulate(project);
 	const fails = async (offset: TVec2): Promise<number | null> => {
 		if (simulate == null) return null;
-		const { commands } = duplicatePieces(project, result, entityIds, offset);
+		const { commands } = copiesOf(project, pieces, offset);
 		const next = withCommands(project, commands);
 		const run = await simulate(next);
 		const broken = newlyBroken(base.hits, run.hits).length;
@@ -86,14 +101,14 @@ export async function duplicateClear(project: TProject, result: TSimulationResul
 	for (const offset of nearbyOffsets()) {
 		if (!field.isClear(offset)) continue;
 		const failed = await fails(offset);
-		if (failed == null) return { ...duplicatePieces(project, result, entityIds, offset), spot: 'near the original' };
+		if (failed == null) return { ...copiesOf(project, pieces, offset), spot: 'near the original' };
 		breaks = Math.max(breaks, failed);
 		if (++tries >= NEARBY_TRIES) break;
 	}
 	const side = field.sideOffset();
 	if (side != null) {
 		const failed = await fails(side);
-		if (failed == null) return { ...duplicatePieces(project, result, entityIds, side), spot: 'beside the run' };
+		if (failed == null) return { ...copiesOf(project, pieces, side), spot: 'beside the run' };
 		breaks = Math.max(breaks, failed);
 	}
 	return { spot: 'refused', breaks: Math.max(1, breaks) };

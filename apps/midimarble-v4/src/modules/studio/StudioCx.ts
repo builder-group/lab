@@ -25,6 +25,7 @@ import {
 	type TSource,
 	type TVec2
 } from '@/modules/project';
+import type { TClipboard } from './clipboard';
 import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
 import { shownRepeatRange, toggledRepeatRange, type TRepeatRange, type TRepeatSpan } from './repeat-range';
@@ -114,6 +115,8 @@ export class StudioCx {
 	readonly $renaming = createState<string | null>(null);
 	/** Pieces hidden from the canvas and locked against canvas edits, like Figma's layer toggles. View state, not saved. */
 	readonly $hidden = createState<string[]>([]);
+	/** What ⌘C kept, for ⌘V; it lasts while the app runs, also into another project */
+	readonly $clipboard = createState<TClipboard | null>(null);
 	readonly $locked = createState<string[]>([]);
 	/** Dropping an element links it to a hit dot or anchors it to a trajectory, like Figma's snapping */
 	readonly $snapping = createState(true);

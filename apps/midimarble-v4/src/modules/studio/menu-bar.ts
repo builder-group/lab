@@ -26,6 +26,8 @@ export type TMenuLine =
 			showsKey?: boolean;
 			/** In a focused text field the item acts on the text, as AppKit's own Undo, Redo and Select All do */
 			text?: TTextCommand;
+			/** In a focused text field AppKit's own item stands here, as Paste can't be asked of the web view */
+			inText?: specta.StandardMenuItem;
 	  }
 	| 'separator'
 	| { standard: specta.StandardMenuItem }
@@ -74,8 +76,8 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'edit.redo', text: 'redo' },
 			'separator',
 			{ standard: 'cut' },
-			{ standard: 'copy' },
-			{ standard: 'paste' },
+			{ command: 'edit.copy', inText: 'copy' },
+			{ command: 'edit.paste', inText: 'paste' },
 			{ command: 'edit.duplicate' },
 			{ command: 'edit.group' },
 			{ command: 'edit.ungroup' },
@@ -257,7 +259,7 @@ function stepTitle(cx: StudioCx, command: TCommandId): string | null {
 }
 
 /** The menus after the app menu, for the host to build */
-export function buildMenuBar(read: (line: TCommandLine) => TMenuItemState, recent: THostRecentProject[], layout: readonly TMenuSection[] = menuLayout): specta.MenuDto[] {
+export function buildMenuBar(read: (line: TCommandLine) => TMenuItemState, recent: THostRecentProject[], layout: readonly TMenuSection[] = menuLayout, isTextFocused = false): specta.MenuDto[] {
 	return layout.map((section) => ({
 		title: section.title,
 		role: section.role ?? null,
@@ -265,6 +267,7 @@ export function buildMenuBar(read: (line: TCommandLine) => TMenuItemState, recen
 			if (line === 'separator') return { kind: 'separator' };
 			if (line === 'recent') return recentMenu(recent);
 			if (!isCommandLine(line)) return { kind: 'standard', item: line.standard };
+			if (isTextFocused && line.inText != null) return { kind: 'standard', item: line.inText };
 			const state = read(line);
 			return {
 				kind: 'command',

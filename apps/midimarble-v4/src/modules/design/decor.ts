@@ -129,10 +129,14 @@ const DUPLICATE_OFFSET = { x: 0.03, y: -0.03 };
 
 /** Duplicate: copies a little right of and below the originals, as one edit. A copy is the user's, not Scatter Decor's. */
 export function duplicateDecorCommands(project: TProject, ids: readonly string[]): { commands: TProjectCommand[]; decorIds: string[] } {
+	return pasteDecorCommands(project, decorList(project.design).filter((item) => ids.includes(item.id)));
+}
+
+/** Copies of these decorations, from this project or kept by ⌘C, with the next free names and a small offset */
+export function pasteDecorCommands(project: TProject, items: readonly TDecor[]): { commands: TProjectCommand[]; decorIds: string[] } {
 	const list = decorList(project.design);
 	const names = list.map((item) => item.name);
-	const copies = list
-		.filter((item) => ids.includes(item.id))
+	const copies = items
 		.map((item) => {
 			const { scattered: _scattered, ...own } = item;
 			const name = nextDecorName(item.name.replace(/ \d+$/, ''), names);

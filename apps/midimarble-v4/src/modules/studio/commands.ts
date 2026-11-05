@@ -21,7 +21,8 @@ import { addShotCommands, removeShotsCommands } from '@/modules/design/shots';
 import { connectTitle } from '@/modules/mcp/agent-connect';
 import { shownRepeatRange } from './repeat-range';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
-import { duplicateClear, type TClearDuplicate } from './duplicate';
+import { pasteFilmCommands } from './clipboard';
+import { duplicateClear, freePieces, pasteClear, type TClearDuplicate } from './duplicate';
 import { CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey } from './selection';
 import { hasSongLayer } from './song-layer';
 import { handNotes } from './timeline/hand-notes';
@@ -125,6 +126,26 @@ function hasPieces(cx: StudioCx): boolean {
 
 let isDuplicating = false;
 
+/** A what-if run of Duplicate's and Paste's spots; a newer what-if of another assist may replace it while it waits */
+function clearSimulate(cx: StudioCx): ((trial: TProject) => Promise<TSimulationResult>) | null {
+	const client = cx.simulation.assists;
+	if (client == null) return null;
+	const simulate = async (trial: TProject, retries = 3): Promise<TSimulationResult> => {
+		try {
+			return await client.simulateAssist(trial);
+		} catch (error) {
+			if (retries > 0 && isSuperseded(error)) return simulate(trial, retries - 1);
+			throw error;
+		}
+	};
+	return simulate;
+}
+
+/** The text that says a copy would break the run, so nothing changed */
+function refusedWords(what: string, breaks: number): string {
+	return `Every spot for a copy of ${what} would break ${breaks === 1 ? 'a hit' : `${breaks} hits`}, so nothing changed`;
+}
+
 /**
  * Duplicate for the selected pieces: free copies clear of every marble's path, selected afterward, as one undo step.
  * The spot is checked with what-if runs first, so a copy never breaks a hit; a newer edit in the meantime wins.
@@ -139,20 +160,10 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 		return;
 	}
 	const ids = selectedPieceIds(project, cx.$selection.get());
-	const client = cx.simulation.assists;
 	isDuplicating = true;
-	const simulate = async (trial: TProject, retries = 3): Promise<TSimulationResult> => {
-		// A newer what-if of another assist may replace this one while it waits
-		try {
-			return await (client as NonNullable<typeof client>).simulateAssist(trial);
-		} catch (error) {
-			if (retries > 0 && isSuperseded(error)) return simulate(trial, retries - 1);
-			throw error;
-		}
-	};
 	let placed: TClearDuplicate;
 	try {
-		placed = await duplicateClear(project, cx.simulation.$result.get(), ids, client != null ? simulate : null);
+		placed = await duplicateClear(project, cx.simulation.$result.get(), ids, clearSimulate(cx));
 	} catch (error) {
 		cx.notify(`Duplicate failed, so nothing changed: ${(error as Error).message}`, 'error');
 		return;
@@ -162,8 +173,7 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 	if (cx.project !== project) return;
 	const original = project.entities.find((entity) => entity.id === ids[0]);
 	if (placed.spot === 'refused') {
-		const breaks = placed.breaks === 1 ? 'a hit' : `${placed.breaks} hits`;
-		cx.notify(`Every spot for a copy of ${original?.name ?? 'this piece'} would break ${breaks}, so nothing changed`);
+		cx.notify(refusedWords(original?.name ?? 'this piece', placed.breaks));
 		return;
 	}
 	if (!placed.copies.length) {
@@ -177,6 +187,72 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 	const what = named.length === 1 ? `${original?.name ?? 'The piece'} duplicated as ${named[0]?.name ?? 'a copy'}` : `${named.length} pieces duplicated`;
 	const where = placed.spot === 'beside the run' ? ', beside the run: no free spot near it' : '';
 	cx.notifyEdit(`${what}${tied ? ', tied to nothing' : ''}${where}`);
+}
+
+function canCopy(cx: StudioCx): boolean {
+	return hasPieces(cx) || (inDesign(cx) && (selectedDecorIds(cx.$selection.get()).length > 0 || selectedTitleIds(cx).length > 0));
+}
+
+/** ⌘C: Track's pieces as free pieces where they are now, Film's titles and Decor. The selection stays */
+function copySelection(cx: StudioCx): void {
+	const project = cx.project;
+	if (project == null) return;
+	if (compose(cx) == null) {
+		const decorIds = selectedDecorIds(cx.$selection.get());
+		const titleIds = selectedTitleIds(cx);
+		cx.$clipboard.set({ pieces: cx.$clipboard.get()?.pieces ?? [], decor: project.design.decor.filter((item) => decorIds.includes(item.id)), titles: project.entities.filter((entity) => titleIds.includes(entity.id)) });
+		return;
+	}
+	const pieces = freePieces(project, cx.simulation.$result.get(), selectedPieceIds(project, cx.$selection.get()));
+	if (!pieces.length) {
+		cx.notify('These track pieces have no place on the track yet, so there is nothing to copy');
+		return;
+	}
+	cx.$clipboard.set({ pieces, decor: cx.$clipboard.get()?.decor ?? [], titles: cx.$clipboard.get()?.titles ?? [] });
+}
+
+/** Whether what ⌘C kept belongs in this workspace: pieces in Track, titles and Decor in Film */
+function canPaste(cx: StudioCx): boolean {
+	const kept = cx.$clipboard.get();
+	if (kept == null || cx.project == null) return false;
+	return compose(cx) != null ? kept.pieces.length > 0 : inDesign(cx) && (kept.titles.length > 0 || kept.decor.length > 0);
+}
+
+/**
+ * ⌘V in Track: the kept pieces as free pieces, in the nearest spot clear of the run, as Duplicate finds it. A piece
+ * that played a note pastes free, since a note has one platform. In Film: the kept titles and Decor beside where they
+ * were, and the next ⌘V steps on from these. One Undo step, the copies selected.
+ */
+async function pasteClipboard(cx: StudioCx): Promise<void> {
+	const project = cx.project;
+	const kept = cx.$clipboard.get();
+	if (project == null || kept == null || isDuplicating) return;
+	if (compose(cx) == null) {
+		const pasted = pasteFilmCommands(project, kept);
+		if (cx.execute(pasted.commands, { label: 'Paste' })) {
+			cx.$clipboard.set({ ...kept, decor: pasted.decor, titles: pasted.titles });
+			cx.$selection.set([...pasted.decor.map((item) => toDecorKey(item.id)), ...pasted.titles.map((entity) => entity.id)]);
+		}
+		return;
+	}
+	isDuplicating = true;
+	let placed: TClearDuplicate;
+	try {
+		placed = await pasteClear(project, cx.simulation.$result.get(), kept.pieces, clearSimulate(cx));
+	} catch (error) {
+		cx.notify(`Paste failed, so nothing changed: ${(error as Error).message}`, 'error');
+		return;
+	} finally {
+		isDuplicating = false;
+	}
+	if (cx.project !== project) return;
+	if (placed.spot === 'refused') {
+		cx.notify(refusedWords(kept.pieces[0]?.name ?? 'this piece', placed.breaks));
+		return;
+	}
+	if (!cx.execute(placed.commands, { label: 'Paste' })) return;
+	cx.$selection.set(placed.copies.map((entity) => entity.id));
+	if (placed.spot === 'beside the run') cx.notifyEdit('Pasted beside the run: no free spot near it');
 }
 
 /** The notes Make Backing hands over: selected notes and hits, and the notes the selected platforms play */
@@ -280,6 +356,8 @@ export const commands: readonly TCommand[] = [
 			deleteSelectedHits(cx);
 		}
 	},
+	{ id: 'edit.copy', title: 'Copy', section: 'Edit', shortcut: '⌘C', keywords: 'clipboard', isEnabled: canCopy, run: (cx) => copySelection(cx) },
+	{ id: 'edit.paste', title: 'Paste', section: 'Edit', shortcut: '⌘V', keywords: 'clipboard', isEnabled: canPaste, run: (cx) => void pasteClipboard(cx) },
 	{ id: 'edit.duplicate', title: 'Duplicate', section: 'Edit', shortcut: '⌘D', keywords: 'copy clone', isEnabled: (cx) => hasPieces(cx) || (inDesign(cx) && selectedDecorIds(cx.$selection.get()).length > 0), run: (cx) => void duplicateSelection(cx) },
 	{ id: 'edit.group', title: 'Group Selection', section: 'Edit', shortcut: '⌘G', keywords: 'folder collect', isEnabled: canGroup, run: (cx) => groupSelected(cx) },
 	{ id: 'edit.ungroup', title: 'Ungroup', section: 'Edit', shortcut: '⇧⌘G', keywords: 'folder separate', isEnabled: canUngroup, run: (cx) => ungroupSelected(cx) },
@@ -767,6 +845,8 @@ export type TCommandId =
 	| 'build.fix'
 	| 'piece.playNote'
 	| 'piece.follow'
+	| 'edit.copy'
+	| 'edit.paste'
 	| 'edit.duplicate'
 	| 'edit.group'
 	| 'edit.ungroup'

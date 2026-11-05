@@ -46,6 +46,7 @@ export function canvasMenu(compose: ComposeCx): TMenuEntry[] {
 		'separator',
 		commandItem(cx, 'view.fitAll'),
 		'separator',
+		cx.$clipboard.get()?.pieces.length ? commandItem(cx, 'edit.paste') : null,
 		commandItem(cx, 'edit.selectAll'),
 		commandItem(cx, 'marble.add')
 	]);

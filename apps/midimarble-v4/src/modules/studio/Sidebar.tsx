@@ -210,7 +210,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
-		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.rename'), labelColorItem(entityLabelEntries(cx, row.entity)), commandItem(cx, 'edit.delete')]);
+		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.copy'), commandItem(cx, 'edit.rename'), labelColorItem(entityLabelEntries(cx, row.entity)), 'separator', commandItem(cx, 'edit.delete')]);
 		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
 		else if (row.kind === 'madeInBlender') openContextMenu(event, [{ label: 'Open in Blender', onSelect: () => revealMadeInBlender(cx, row.name) }, commandItem(cx, 'decor.scatter')]);
 		else if (row.kind === 'group' && row.id === DECOR_KEY) openContextMenu(event, [commandItem(cx, 'decor.scatter')]);
@@ -474,6 +474,7 @@ function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
 	const project = cx.project;
 	return [
 		...(overlaps && ids.length === 1 ? [{ label: 'Move Clear', onSelect: () => moveDecorClearAction(cx, ids[0] as string) }, 'separator' as const] : []),
+		commandItem(cx, 'edit.copy'),
 		{
 			label: 'Duplicate',
 			shortcut: '⌘D',

@@ -64,6 +64,7 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 		'separator',
 		commandItem(cx, 'view.fitSelection'),
 		'separator',
+		commandItem(cx, 'edit.copy'),
 		commandItem(cx, 'edit.duplicate'),
 		commandItem(cx, 'edit.group'),
 		canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null,

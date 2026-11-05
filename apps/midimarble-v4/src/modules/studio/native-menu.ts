@@ -1,7 +1,7 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { specta } from '@/environment';
 import { getCommand, isCommandEnabled } from './commands';
-import { buildMenuBar, changedMenuItems, findCommandLine, menuItemStates, parseMenuItemId, readMenuItem, type TMenuItemState } from './menu-bar';
+import { buildMenuBar, changedMenuItems, findCommandLine, menuItemStates, menuLayout, parseMenuItemId, readMenuItem, type TMenuItemState } from './menu-bar';
 import type { StudioCx } from './StudioCx';
 
 /**
@@ -20,10 +20,19 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 
 	const read = (line: Parameters<typeof readMenuItem>[1]): TMenuItemState => readMenuItem(cx, line, isTextFieldFocused());
 
+	let wasTextFocused = isTextFieldFocused();
+
 	const sendBar = (): void => {
 		const states = menuItemStates(read);
 		shown = states;
-		void specta.commands.menuSetBar(buildMenuBar(read, cx.$recent.get()));
+		wasTextFocused = isTextFieldFocused();
+		void specta.commands.menuSetBar(buildMenuBar(read, cx.$recent.get(), menuLayout, wasTextFocused));
+	};
+
+	// Copy and Paste are AppKit's while a text field has focus, and act on the selection otherwise
+	const onFocusChange = (): void => {
+		if (isTextFieldFocused() !== wasTextFocused) sendBar();
+		else schedule();
 	};
 
 	const flush = (): void => {
@@ -89,6 +98,7 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		cx.$compose.listen(watchCompose),
 		cx.$history.listen(schedule),
 		cx.$selection.listen(schedule),
+		cx.$clipboard.listen(schedule),
 		cx.$playing.listen(schedule),
 		cx.$repeatRange.listen(schedule),
 		cx.$workspace.listen(schedule),
@@ -105,16 +115,16 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		cx.design.$links.listen(schedule)
 	];
 	// Undo, Redo and Select All are there for a focused text field
-	document.addEventListener('focusin', schedule);
-	document.addEventListener('focusout', schedule);
+	document.addEventListener('focusin', onFocusChange);
+	document.addEventListener('focusout', onFocusChange);
 
 	return () => {
 		isMounted = false;
 		clearTimeout(timer);
 		stopEvent?.();
 		for (const stop of [...stops, ...stopCompose]) stop();
-		document.removeEventListener('focusin', schedule);
-		document.removeEventListener('focusout', schedule);
+		document.removeEventListener('focusin', onFocusChange);
+		document.removeEventListener('focusout', onFocusChange);
 	};
 }
 
