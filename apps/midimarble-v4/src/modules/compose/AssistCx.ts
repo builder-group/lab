@@ -21,7 +21,7 @@ import { parseHitKey, toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps } from './build-track';
-import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome } from './fix-it';
+import { addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome } from './fix-it';
 import { findBowl } from './bowl-assist';
 import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
@@ -799,7 +799,7 @@ export class AssistCx {
 		const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }));
 		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
 		if (!fixHelps(before, summary)) {
-			this.studio.notifyEdit(fixWorseWords(before.problems.length, summary.problems.length), [], { isUndoFirst: true });
+			this.studio.notifyEdit(fixWorseWords(before, summary), [], { isUndoFirst: true });
 			return;
 		}
 		const added = addedProblems(project, result, outcome.project, outcome.result);
@@ -814,8 +814,8 @@ export class AssistCx {
 	/**
 	 * Fix for pieces waiting behind a break. A note with no piece gets what Next gives it, at once. Then the marble is
 	 * brought back to the pieces, which moves nothing else. When no tilt reaches them, Fix tries on a copy from where they
-	 * wait, a limited time, and lands only if every hit plays and the run has fewer problems: a try that leaves tens of hits
-	 * broken is no fix, so the pieces go on waiting and the notice offers Rebuild From Here.
+	 * wait, a limited time. Either way it lands only if the total of broken hits and problems falls, over every marble:
+	 * otherwise the pieces go on waiting, the notice gives the real counts and offers Rebuild From Here.
 	 */
 	private async fixHeld(project: TProject, result: TSimulationResult): Promise<void> {
 		const client = this.studio.simulation.assists;
@@ -837,12 +837,20 @@ export class AssistCx {
 		this.fixRun = run;
 		const stop = { label: 'Stop', title: 'Stop trying; the pieces go on waiting', run: () => (run.isCanceled = true) };
 		const progressId = this.studio.notify('Fixing the break', 'info', { progress: 0, actions: [stop] });
-		let fixed: TProject | null = null;
-		let isWorse = false;
+		const verdict: { fixed: TProject | null; label: string; worse: string | null } = { fixed: null, label: '', worse: null };
+		const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }));
+		// Every way is tried on a copy and judged on the whole run, every marble's, by what the hit summary will say
+		const judge = (next: TProject, nextResult: TSimulationResult): void => {
+			const after = problemSummary(preflightExport(next, { ...nextResult, revision: next.revision }));
+			if (fixHelps(before, after)) Object.assign(verdict, { fixed: next, label: after.label });
+			else verdict.worse = fixWorseWords(before, after);
+		};
 		try {
 			const back = await client.reconnect(project);
-			if (back != null) fixed = withSettled(project, back.entities);
-			else {
+			if (back != null) {
+				const next = withSettled(project, back.entities);
+				judge(next, await client.simulateAssist(next));
+			} else {
 				const released = release(project);
 				const outcome = await fixTrack(released, await client.simulateAssist(released), {
 					...deps,
@@ -855,12 +863,7 @@ export class AssistCx {
 					},
 					isCanceled
 				});
-				if (!outcome.isStopped && !brokenHits(outcome.result.hits).length) {
-					const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }));
-					const after = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
-					if (fixHelps(before, after)) fixed = outcome.project;
-					else isWorse = true;
-				}
+				if (!outcome.isStopped && !brokenHits(outcome.result.hits).length) judge(outcome.project, outcome.result);
 			}
 		} catch (error) {
 			if (!isSuperseded(error)) this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
@@ -869,16 +872,17 @@ export class AssistCx {
 		}
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 		if (this.studio.project?.revision !== project.revision) return;
+		const { fixed } = verdict;
 		if (fixed == null) {
 			const from = firstHeld != null ? { laneId: firstHeld.laneId, hitId: firstHeld.hitId } : null;
 			const rebuild = from != null ? [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(from) }] : [];
-			const words = isWorse ? 'Fix would add problems, so nothing changed. Undo the edit, or rebuild from the break.' : run.isCanceled ? 'The pieces go on waiting where they were.' : 'No tilt brings the marble back to the pieces waiting for it. Undo the edit, or rebuild from the break.';
+			const words = verdict.worse ?? (run.isCanceled ? 'The pieces go on waiting where they were.' : 'No tilt brings the marble back to the pieces waiting for it. Undo the edit, or rebuild from the break.');
 			this.studio.notifyEdit(words, rebuild, { isUndoFirst: true });
 			return;
 		}
 		const changed = changedEntities(project, fixed);
 		this.studio.simulation.landSettled(changed, false);
-		this.studio.notifyEdit(`${tiltChange(project, changed)}The marble is back on its run`);
+		this.studio.notifyEdit(`${tiltChange(project, changed)}The marble is back on its run · ${verdict.label}`);
 	}
 
 	/** The marble Add Bowl is searching a Bowl for, while it runs */
@@ -971,12 +975,6 @@ function heldHit(project: TProject): { laneId: string; hitId: string; time: numb
 		return link != null && time != null ? [{ laneId: link.laneId, hitId: link.hitId, time }] : [];
 	});
 	return held.sort((a, b) => a.time - b.time)[0] ?? null;
-}
-
-/** Why a Fix didn't land: "Fix would leave 17 problems where there are 8, so nothing changed." */
-function fixWorseWords(before: number, after: number): string {
-	if (after > before) return `Fix would leave ${after} problems where there ${before === 1 ? 'is 1' : `are ${before}`}, so nothing changed. Undo the edit, or turn the pieces by hand.`;
-	return 'Fix found nothing better than the run as it is, so nothing changed. Undo the edit, or turn the pieces by hand.';
 }
 
 /** `project` with these entities in place of the ones of the same id */

@@ -7,7 +7,7 @@ import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-pr
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
 import { newlyBroken } from './bowl-assist';
-import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, hasFixes, moveClear, problemPieces, releaseFix, sceneryFix, withCommands, type TFixDeps } from './fix-it';
+import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, fixWorseWords, hasFixes, moveClear, problemPieces, releaseFix, sceneryFix, withCommands, type TFixCount, type TFixDeps } from './fix-it';
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
@@ -315,19 +315,34 @@ describe('moveClear function', () => {
 });
 
 describe('fixHelps function', () => {
-	const run = (problems: number, onTime: number): { problems: unknown[]; onTime: number } => ({ problems: Array.from({ length: problems }), onTime });
+	const run = (onTime: number, otherProblems: number, total = 115): TFixCount => ({ onTime, otherProblems, total });
 
-	it('should keep a result with fewer problems', () => {
-		expect(fixHelps(run(8, 100), run(3, 100))).toBe(true);
+	it('should keep a result when the total of broken hits and problems falls', () => {
+		expect(fixHelps(run(114, 5), run(115, 3))).toBe(true);
 	});
 
-	it('should refuse a result with more problems, even with every hit on time', () => {
-		expect(fixHelps(run(8, 100), run(17, 115))).toBe(false);
+	it('should refuse a run that leaves the song worse, as the marble brought back on tens of broken hits did', () => {
+		expect(fixHelps(run(114, 5), run(44, 88))).toBe(false);
 	});
 
-	it('should keep as many problems only with more hits on time', () => {
-		expect(fixHelps(run(2, 100), run(2, 101))).toBe(true);
-		expect(fixHelps(run(2, 100), run(2, 100))).toBe(false);
+	it('should refuse a result that only trades one problem for another', () => {
+		expect(fixHelps(run(114, 2), run(115, 3))).toBe(false);
+		expect(fixHelps(run(100, 2), run(100, 2))).toBe(false);
+	});
+
+	it('should count hits waiting behind a break as broken', () => {
+		expect(fixHelps(run(95, 2), run(115, 4))).toBe(true);
+	});
+});
+
+describe('fixWorseWords function', () => {
+	it('should give the real counts of both runs', () => {
+		const words = fixWorseWords({ onTime: 114, otherProblems: 5, total: 115 }, { onTime: 44, otherProblems: 88, total: 115 });
+		expect(words).toContain('Fix would leave 71 broken hits and 88 other problems, where there are now 1 broken hit and 5 other problems, so nothing changed.');
+	});
+
+	it('should say when nothing better was found', () => {
+		expect(fixWorseWords({ onTime: 10, otherProblems: 0, total: 10 }, { onTime: 10, otherProblems: 0, total: 10 })).toContain('nothing better');
 	});
 });
 

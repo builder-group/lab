@@ -25,7 +25,7 @@ import {
 } from '@/modules/simulation';
 import { crossesOtherLanes, openFrontiers } from '@/modules/simulation/assists';
 import { resolvedPieceShapes, shapesGap } from '@/modules/simulation/clearance';
-import { preflightExport, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { preflightExport, type TPreflightIssue, type TProblemSummary } from '@/modules/design/export-preflight';
 
 // The one Fix, after an edit that broke the run or for a piece with a problem. The edit's notice, the hit summary's
 // menu, a piece's status pill and A all offer it. Undo goes back; Rebuild From Here deletes and builds again.
@@ -64,9 +64,29 @@ export interface TFixStanding {
 	added: TPreflightIssue[];
 }
 
-/** A Fix keeps its result only when the run has fewer problems for it, or as many with more hits on time */
-export function fixHelps(before: { problems: unknown[]; onTime: number }, after: { problems: unknown[]; onTime: number }): boolean {
-	return after.problems.length < before.problems.length || (after.problems.length === before.problems.length && after.onTime > before.onTime);
+/** What a Fix is judged by, from the one problem model */
+export type TFixCount = Pick<TProblemSummary, 'onTime' | 'total' | 'otherProblems'>;
+
+/** Hits that don't play on time, waiting ones too, and the problems beside them */
+function fixTotal(run: TFixCount): number {
+	return run.total - run.onTime + run.otherProblems;
+}
+
+/** A Fix keeps its result only when the total of broken hits and problems falls */
+export function fixHelps(before: TFixCount, after: TFixCount): boolean {
+	return fixTotal(after) < fixTotal(before);
+}
+
+function countWords(run: TFixCount): string {
+	const broken = run.total - run.onTime;
+	const hits = `${broken} broken ${broken === 1 ? 'hit' : 'hits'}`;
+	return run.otherProblems > 0 ? `${hits} and ${run.otherProblems} other ${run.otherProblems === 1 ? 'problem' : 'problems'}` : hits;
+}
+
+/** Why a Fix didn't land, with the real counts: "Fix would leave 71 broken hits and 88 other problems, where there are now 20 broken hits and 5 other problems, so nothing changed." */
+export function fixWorseWords(before: TFixCount, after: TFixCount): string {
+	if (fixTotal(after) === fixTotal(before)) return `Fix found nothing better than the ${countWords(before)} there are now, so nothing changed. Undo the edit, or turn the pieces by hand.`;
+	return `Fix would leave ${countWords(after)}, where there ${before.total - before.onTime + before.otherProblems === 1 ? 'is' : 'are'} now ${countWords(before)}, so nothing changed. Undo the edit, or turn the pieces by hand.`;
 }
 
 /**
