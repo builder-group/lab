@@ -258,7 +258,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					title={`${hits.length} ${ownerIds.has(BACKING_ID) ? 'Notes' : 'Hits'}`}
 					subtitle={[...ownerIds].map((id) => owners.find((owner) => owner.id === id)?.name).join(', ')}
 				/>
-				<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
+				<Panel id="hit.playedBy" title="Played By">
 					{playedBy}
 				</Panel>
 				{!ownerIds.has(BACKING_ID) ? <PatternTiles cx={cx} project={project} /> : null}

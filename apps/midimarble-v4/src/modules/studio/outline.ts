@@ -69,7 +69,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	{
 		const isOpen = !collapsed.includes(DECOR_KEY);
 		const childIds = [...decor.map((item) => toDecorKey(item.id)), ...blenderObjects.map((object) => toMadeInBlenderKey(object.name))];
-		rows.push({ kind: 'group', id: DECOR_KEY, depth: 0, parentId: null, label: DECOR_GROUP_LABEL, help: DECOR_GROUP_HELP, groupKey: DECOR_KEY, childIds, isOpen, ...(childIds.length === 0 ? { isEmpty: true } : {}) });
+		rows.push({ kind: 'group', id: DECOR_KEY, depth: 0, parentId: null, label: DECOR_GROUP_LABEL, groupKey: DECOR_KEY, childIds, isOpen, ...(childIds.length === 0 ? { isEmpty: true } : {}) });
 		if (isOpen) {
 			for (const item of decor) rows.push({ kind: 'decor', id: toDecorKey(item.id), depth: 1, parentId: DECOR_KEY, decor: item });
 			for (const object of blenderObjects) rows.push({ kind: 'madeInBlender', id: toMadeInBlenderKey(object.name), depth: 1, parentId: DECOR_KEY, name: object.name });
@@ -130,9 +130,6 @@ export const DECOR_KEY = 'group:decor';
 
 /** Name of the group of decorations (words.md: Decor) */
 export const DECOR_GROUP_LABEL = 'Decor';
-
-/** The ? beside the Decor group: decor never collides */
-export const DECOR_GROUP_HELP = 'What dresses the film. Decor has no hitbox, so it never changes a hit';
 
 /** Group row of the Key Light and the added lights; its ID is never a selection key */
 export const LIGHTS_KEY = 'group:lights';

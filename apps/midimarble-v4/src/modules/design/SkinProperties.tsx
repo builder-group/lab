@@ -1,13 +1,12 @@
 import { useFeatureState } from 'feature-react/state';
 import { RotateCcw } from 'lucide-react';
 import React from 'react';
-import { HelpTip, Panel, ScrubField, SelectField } from '@/components';
+import { Panel, ScrubField, SelectField } from '@/components';
 import type { TAssetProperty } from '@/modules/library/asset-manifest';
 import { marbleFilmColor, type TEntity, type TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { skinPropertyCommands, type TSkinPropertyPatch } from './design-commands';
 import { resolveElementLook } from './project-themes';
-import { SKIN_HELP } from './concept-words';
 import { themeOriginLabel } from './scene-layers';
 import { SkinPicker } from './SkinPickers';
 import { catalogSkin, COLOUR_LABELS, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties, type TSkinColour } from './skin-catalog';
@@ -198,7 +197,7 @@ export const MarbleSkin: React.FC<{ cx: StudioCx; project: TProject; marble: TEn
 	const { cx, project, marble } = props;
 
 	return (
-		<Panel id="marble.skin" title="Skin" accessory={<HelpTip text={`${SKIN_HELP} A click applies to this marble, ⌥-click to all marbles. A skin never changes how it falls or bounces.`} />}>
+		<Panel id="marble.skin" title="Skin">
 			<SkinPicker cx={cx} project={project} element="marble" pieceType="marble" entities={[marble]} />
 			<SkinPropertyRows cx={cx} project={project} entities={[marble]} />
 		</Panel>

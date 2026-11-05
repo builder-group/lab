@@ -123,7 +123,6 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				<span className="mm-form-label">Where</span>
 				<span className="flex items-center gap-1.5 self-center">
 					<span className="mm-caption">{settings.chosenPath != null ? folderOf(settings.chosenPath) : 'In the Project'}</span>
-					{settings.chosenPath == null ? <HelpTip side="right" text="Kept in the project; Show in Finder finds it. Choose… saves it elsewhere" /> : null}
 				</span>
 			</div>
 
@@ -133,11 +132,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				</div>
 				<div className="flex items-baseline justify-between gap-3">
 					<span className="font-medium">{estimate.seconds != null ? formatEstimate(estimate.seconds) : 'Time unknown'}</span>
-					{estimate.basis === 'none' ? (
-						<HelpTip side="left" text="Shows once Blender has drawn a preview" />
-					) : (
-						<span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, settings.preset)}</span>
-					)}
+					{estimate.basis !== 'none' ? <span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, settings.preset)}</span> : null}
 				</div>
 			</div>
 

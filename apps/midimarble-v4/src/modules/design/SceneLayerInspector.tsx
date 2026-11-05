@@ -1,10 +1,9 @@
 import { BrickWall, Lightbulb, RotateCcw, Sun } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InspectorHeader, Panel, SliderField } from '@/components';
+import { InspectorHeader, Panel, SliderField } from '@/components';
 import type { TLight, TProject, TProjectCommand } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { parseHexColor } from '@/modules/studio/format';
-import { SKIN_HELP } from './concept-words';
 import { WallPicker } from './SkinPickers';
 import { resolveTheme } from './project-themes';
 import {
@@ -21,8 +20,6 @@ import {
 // Inspectors of the Wall and Lights layers of Film. Values the theme sets read "From Brass"; a value the project sets
 // keeps its reset, like a piece's skin.
 
-const LIGHT_HELP = 'Shows in the Blender preview. The Draft Preview draws no light. Side runs from the far left to the far right of the wall, Height from below to above.';
-
 /** The Wall layer: its Skin, Wall colour and the Background behind it */
 export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
@@ -35,7 +32,7 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 	return (
 		<>
 			<InspectorHeader icon={<BrickWall size={16} strokeWidth={1.7} />} title="Wall" subtitle={isOwn ? `Changed from ${themeName}` : origin} />
-			<Panel id="design.wall" title="Skin" accessory={<HelpTip text={`${SKIN_HELP} The wall is what the marbles fall in front of. The Background surrounds it, lights it and reflects in the pieces.`} />}>
+			<Panel id="design.wall" title="Skin">
 				<WallPicker cx={cx} project={project} />
 				<ColorWell
 					cx={cx}
@@ -86,7 +83,6 @@ export const KeyLightInspector: React.FC<{ cx: StudioCx; project: TProject }> = 
 								<RotateCcw size={12} strokeWidth={1.9} />
 							</button>
 						) : null}
-						<HelpTip text={`The theme's main light. ${LIGHT_HELP}`} />
 					</>
 				}
 			>
@@ -118,7 +114,7 @@ export const LightInspector: React.FC<{ cx: StudioCx; project: TProject; light: 
 				subtitle="Light"
 				onRename={(name) => cx.execute(updateLightCommands(requireProject(cx), light.id, { name }))}
 			/>
-			<Panel id="design.light" title="Light" accessory={<HelpTip text={LIGHT_HELP} />}>
+			<Panel id="design.light" title="Light">
 				<ColorWell cx={cx} id="light-color" label="Colour" name={`${light.name} colour`} own={light.color} shown={light.color} commandsFor={(color) => (color != null ? updateLightCommands(requireProject(cx), light.id, { color }) : [])} />
 				<LightSliders idPrefix="light" strength={light.strength} side={light.side} height={light.height} onChange={(patch) => cx.execute(updateLightCommands(requireProject(cx), light.id, patch))} />
 			</Panel>
