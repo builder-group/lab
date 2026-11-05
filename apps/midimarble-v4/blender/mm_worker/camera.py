@@ -102,8 +102,11 @@ OPENING_EASE = 1.5
 # Seconds after the first hit over which the opening's zoom eases back: slower than its frame, as the zoom never pumps
 OPENING_ZOOM_EASE = 6.0
 OPENING_STEPS = 3
-# The opening stands at most this many times the rig distance away; a box that needs more isn't framed
-OPENING_ZOOM = 1.5
+# The opening stands at most this many times the rig distance away, and no further than a marble still spans this share of the frame width; a box that needs more isn't framed
+OPENING_ZOOM = 1.7
+OPENING_MARBLE_SHARE = 0.045
+# The opening's own margin: tighter than GROUP_MARGIN, as its box holds still pieces rather than marbles that swing out
+OPENING_MARGIN = 1.1
 # A view ray that misses the wall, or meets it further than this, counts this many camera heights away when sizing
 # the wall. The steep default pitch (1.15 rad) meets the wall up to about 40 heights away at the far frame corner
 FAR_REACH = 60.0
@@ -438,9 +441,9 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
     side, roll = view_turn(times, heading, hold, settings['sway'])
     axes = view_axes(side, roll, settings['pitch'])
     raw = spread_need(marbles, motions, sample, centre if aim is None else aim, settings['lens'], axes)
-    # The opening frame widens the zoom to its pieces
+    # The opening frame sets the zoom while it leads: its box holds the marbles, and sizing them around its centre would widen it again
     opening = opening_frame(marbles, motions, times, sample, settings, fps, axes)
-    zoom_need = raw if opening is None else np.maximum(raw, opening['need'] * opening['weight'])
+    zoom_need = raw if opening is None else np.maximum(raw * (1 - opening['weight']), opening['need'] * opening['weight'])
     # Hold the widest need for a second so the zoom does not breathe with every bounce; a running median first drops
     # momentary spikes, such as one marble's bounce peak, that the frame margins absorb
     need = held(held(zoom_need, fps, GROUP_SPIKE / 2, np.median), fps, 1.0)
@@ -453,7 +456,7 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
     distance = critically_damped(group_distance[:, None], fps, DISTANCE_TAU)[:, 0]
     # The slow zoom would flatten a need that lasts only for the opening, so the opening stands where it needs most
     if opening is not None:
-        furthest = np.max(group_distance[times <= opening['first']], initial=0.0)
+        furthest = np.max(np.maximum(group_distance, np.where(opening['fit'] > 0.5, opening['need'], 0.0))[times <= opening['first']], initial=0.0)
         share = opening['fit'] * (1.0 - smoothstep((times - opening['first']) / OPENING_ZOOM_EASE))
         distance = distance + share * np.maximum(furthest - distance, 0.0)
     # A closer shot scales the automatic distance; a Wide shot stands at least its scale of the rig distance away
@@ -474,24 +477,28 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
     if hold is not None:
         bowl = settings.get('bowl')
         centre, ahead = settled(centre, times, hold, bowl), settled(ahead, times, hold, bowl)
-    return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'fall_scale': fall_scale}
+    return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'fall_scale': fall_scale, 'opening_weight': None if opening is None else opening['weight']}
 
 
 def opening_frame(marbles, motions, times, sample, settings, fps, axes):
-    """Until the first hit the camera frames the box around the marbles in flight (or waiting at their release
-    point) and the first struck pieces, centred in the image, and eases into the follow over OPENING_EASE seconds after
+    """Until the first hit the camera frames the box around the release points and the first struck pieces, centred in the image, and eases into the follow over OPENING_EASE seconds after
     it. Returns the box centre (n, 2), the distance the box needs and the opening's weight per frame, which eases to 0
-    where the box needs more than OPENING_ZOOM; or None without opening pieces"""
+    where the box needs more than its limit; or None without opening pieces"""
     pieces = settings.get('opening')
     if not pieces:
         return None
     first = min(piece[0] for piece in pieces)
     count = len(times)
-    limit = settings['distance'] * OPENING_ZOOM
+    diameter = 2 * max(float(marble['radius']) for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']]))
+    limit = max(settings['distance'], min(settings['distance'] * OPENING_ZOOM, diameter / (OPENING_MARBLE_SHARE * (SENSOR / settings['lens']) * ASPECT_GUESS)))
     reach = SENSOR / 2 / settings['lens'] * GROUP_KEEP_Y
     reach_x = SENSOR / 2 / settings['lens'] * GROUP_KEEP_X * ASPECT_GUESS
-    moving = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']])]
-    points = [marble_point(marble, motions, sample) for marble in moving]
+    # The film shows a marble at its release point until it drops, and it falls inside this box: the box holds still
+    # until the first hit, so the smoothed target doesn't drift off it. After that it takes in the marbles as they go on
+    released = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']]) and motions[marble['id']][0, 0] <= first + 1e-9]
+    still_x = [piece[1] for piece in pieces] + [float(motions[marble['id']][0, 1]) for marble in released]
+    still_y = [piece[2] for piece in pieces] + [float(motions[marble['id']][0, 2]) for marble in released]
+    points = [marble_point(marble, motions, sample) for marble in released]
     right, image_up, toward = axes
     point = np.zeros((count, 2))
     need = np.zeros(count)
@@ -500,14 +507,11 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes):
     for index in range(count):
         if ramp[index] <= 0:
             continue
-        xs = [piece[1] for piece in pieces]
-        ys = [piece[2] for piece in pieces]
-        for marble, path in zip(moving, points):
-            motion = motions[marble['id']]
-            moment = max(float(sample[index]), float(motion[0, 0]))
-            if in_flight(marble, motion, np.array([moment]))[0]:
-                xs.append(float(path[index, 0]))
-                ys.append(float(path[index, 1]))
+        xs = list(still_x)
+        ys = list(still_y)
+        if times[index] > first:
+            xs += [float(path[index, 0]) for path in points]
+            ys += [float(path[index, 1]) for path in points]
         x = (min(xs) + max(xs)) / 2
         y = (min(ys) + max(ys)) / 2
         rx, rz = right[index, 0], right[index, 2]
@@ -521,7 +525,7 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes):
                 across = abs(dx * rx + dy * rz)
                 high = abs(dx * ux + dy * uz)
                 along = dx * tx + dy * tz
-                widest = max(widest, along + max(across / reach_x, high / reach) * GROUP_MARGIN)
+                widest = max(widest, along + max(across / reach_x, high / reach) * OPENING_MARGIN)
             return widest
 
         # Centre the box in the image rather than on the wall: the steep view enlarges what lies near the camera
@@ -677,6 +681,9 @@ def follow_target(framing, settings, fps, times):
     moving = np.linalg.norm(direction, axis=1) > 1e-4
     heading = np.where(moving, np.arctan2(direction[:, 0], -direction[:, 1]), 0.0)
     heading = np.clip(heading, -math.pi / 2, math.pi / 2)
+    # The opening's target holds still, so its tiny moves name no run direction: the view stays straight until it lets go
+    if framing['opening_weight'] is not None:
+        heading = (1 - framing['opening_weight']) * heading
     # While the camera settles on the last hit the target barely moves; the view keeps the run direction it had
     hold = settings.get('hold')
     if hold is not None:

@@ -80,8 +80,8 @@ describe('follow camera on whole songs', () => {
 			return Math.min(u, v) > 0 && Math.max(u, v) < 1;
 		});
 		expect(at12.length).toBe(2);
-		// The zoom changes slowly and does not pump: at most 10 cm within a second
-		for (let frame = 0; frame + 30 < track.frameCount; frame++)
+		// Once the opening's one push-in from its wide frame is over (6 s from the first hit), the zoom changes slowly and does not pump: at most 10 cm within a second
+		for (let frame = 7 * 30; frame + 30 < track.frameCount; frame++)
 			expect(Math.abs(at(track.distance, frame + 30) - at(track.distance, frame))).toBeLessThan(
 				0.1
 			);

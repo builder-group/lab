@@ -67,8 +67,11 @@ const OPENING_EASE = 1.5;
 const OPENING_ZOOM_EASE = 6.0;
 /** Steps that centre the opening box in the image */
 const OPENING_STEPS = 3;
-/** The opening stands at most this many times the rig distance away; a box that needs more isn't framed */
-const OPENING_ZOOM = 1.5;
+/** The opening stands at most this many times the rig distance away, and no further than a marble still spans this share of the frame width; a box that needs more isn't framed */
+const OPENING_ZOOM = 1.7;
+const OPENING_MARBLE_SHARE = 0.045;
+/** The opening's own margin: tighter than GROUP_MARGIN, as its box holds still pieces rather than marbles that swing out */
+const OPENING_MARGIN = 1.1;
 export const CAMERA_SENSOR = 36.0;
 const GROUP_EASE = 1.2;
 const GROUP_SPIKE = 0.3;
@@ -323,6 +326,8 @@ interface TFraming {
 	distance: Float64Array;
 	/** How much of the fall lead applies per frame: none while a group is framed */
 	fallScale: Float64Array;
+	/** Weight of the opening frame per frame, null without one */
+	openingWeight: Float64Array | null;
 }
 
 function settingsFrom(
@@ -701,13 +706,13 @@ function groupFraming(
 		viewAxes(turn.side[index] ?? 0, turn.roll[index] ?? 0, settings.pitch)
 	);
 	const raw = spreadNeed(marbles, sample, aim ?? centre, settings.lens, turn, settings.pitch);
-	// The opening frame widens the zoom to its pieces
+	// The opening frame sets the zoom while it leads: its box holds the marbles, and sizing them around its centre would widen it again
 	const opening = openingFrame(marbles, times, sample, settings, fps, axes);
 	const zoomNeed = raw.slice();
 	if (opening != null) {
 		for (let index = 0; index < count; index++) {
-			const wanted = (opening.need[index] ?? 0) * (opening.weight[index] ?? 0);
-			zoomNeed[index] = Math.max(zoomNeed[index] ?? 0, wanted);
+			const weight = opening.weight[index] ?? 0;
+			zoomNeed[index] = Math.max((zoomNeed[index] ?? 0) * (1 - weight), (opening.need[index] ?? 0) * weight);
 		}
 	}
 	const need = held(held(zoomNeed, fps, GROUP_SPIKE / 2, 'median'), fps, 1.0, 'max');
@@ -721,7 +726,7 @@ function groupFraming(
 	// The slow zoom would flatten a need that lasts only for the opening, so the opening stands where it needs most
 	if (opening != null) {
 		let furthest = 0;
-		for (let index = 0; index < count && (times[index] ?? 0) <= opening.first; index++) furthest = Math.max(furthest, groupDistance[index] ?? 0);
+		for (let index = 0; index < count && (times[index] ?? 0) <= opening.first; index++) furthest = Math.max(furthest, groupDistance[index] ?? 0, (opening.fit[index] ?? 0) > 0.5 ? (opening.need[index] ?? 0) : 0);
 		for (let index = 0; index < count; index++) {
 			const share = (opening.fit[index] ?? 0) * (1.0 - smoothstep(((times[index] ?? 0) - opening.first) / OPENING_ZOOM_EASE));
 			distance[index] = (distance[index] ?? 0) + share * Math.max(furthest - (distance[index] ?? 0), 0.0);
@@ -762,14 +767,14 @@ function groupFraming(
 		settle(centre, times, hold, settings.bowl);
 		settle(ahead, times, hold, settings.bowl);
 	}
-	return { current: centre, ahead, depth, distance, fallScale };
+	return { current: centre, ahead, depth, distance, fallScale, openingWeight: opening?.weight ?? null };
 }
 
 /**
- * `opening_frame`: until the first hit the camera frames the box around the marbles in flight and the first struck
+ * `opening_frame`: until the first hit the camera frames the box around the release points and the first struck
  * pieces, so the film opens on the track rather than on marbles over an empty wall, and eases into the follow over
  * OPENING_EASE seconds after it. Returns the box centre, the distance the box needs and the weight of the opening per
- * frame; the weight eases to 0 where the box needs more than OPENING_ZOOM.
+ * frame; the weight eases to 0 where the box needs more than its limit.
  */
 function openingFrame(
 	marbles: TFollowMarble[],
@@ -783,11 +788,16 @@ function openingFrame(
 	if (pieces == null || !pieces.length) return null;
 	const first = Math.min(...pieces.map((piece) => piece.time));
 	const count = times.length;
-	const limit = settings.distance * OPENING_ZOOM;
+	const diameter = 2 * Math.max(...marbles.filter(hasMotion).map((marble) => marble.radius));
+	const limit = Math.max(settings.distance, Math.min(settings.distance * OPENING_ZOOM, diameter / (OPENING_MARBLE_SHARE * (CAMERA_SENSOR / settings.lens) * ASPECT_GUESS)));
 	const reach = (CAMERA_SENSOR / 2 / settings.lens) * GROUP_KEEP_Y;
 	const reachX = (CAMERA_SENSOR / 2 / settings.lens) * GROUP_KEEP_X * ASPECT_GUESS;
-	const moving = marbles.filter(hasMotion);
-	const points = moving.map((marble) => marblePoint(marble, sample));
+	// The film shows a marble at its release point until it drops, and it falls inside this box: the box holds still
+	// until the first hit, so the smoothed target doesn't drift off it. After that it takes in the marbles as they go on
+	const released = marbles.filter((marble) => hasMotion(marble) && (marble.motion.time[0] ?? 0) <= first + 1e-9);
+	const stillX = [...pieces.map((piece) => piece.x), ...released.map((marble) => marble.motion.x[0] ?? 0)];
+	const stillY = [...pieces.map((piece) => piece.y), ...released.map((marble) => marble.motion.y[0] ?? 0)];
+	const points = released.map((marble) => marblePoint(marble, sample));
 	const pointX = new Float64Array(count);
 	const pointY = new Float64Array(count);
 	const need = new Float64Array(count);
@@ -796,14 +806,14 @@ function openingFrame(
 	for (let index = 0; index < count; index++) {
 		ramp[index] = 1.0 - smoothstep(((times[index] ?? 0) - first) / OPENING_EASE);
 		if ((ramp[index] ?? 0) <= 0) continue;
-		const xs = pieces.map((piece) => piece.x);
-		const ys = pieces.map((piece) => piece.y);
-		// Marbles waiting at their release point count too, as the film shows them there
-		moving.forEach((marble, which) => {
-			if (!inside(marble, Math.max(sample[index] ?? 0, marble.motion.time[0] ?? 0))) return;
-			xs.push(points[which]?.[0][index] ?? 0);
-			ys.push(points[which]?.[1][index] ?? 0);
-		});
+		const xs = stillX.slice();
+		const ys = stillY.slice();
+		if ((times[index] ?? 0) > first) {
+			points.forEach(([pathX, pathY]) => {
+				xs.push(pathX[index] ?? 0);
+				ys.push(pathY[index] ?? 0);
+			});
+		}
 		let x = (Math.min(...xs) + Math.max(...xs)) / 2;
 		let y = (Math.min(...ys) + Math.max(...ys)) / 2;
 		const { right, up, toward } = axes[index] as TAxes;
@@ -815,7 +825,7 @@ function openingFrame(
 				const across = Math.abs(dx * right[0] + dy * right[2]);
 				const high = Math.abs(dx * up[0] + dy * up[2]);
 				const along = dx * toward[0] + dy * toward[2];
-				widest = Math.max(widest, along + Math.max(across / reachX, high / reach) * GROUP_MARGIN);
+				widest = Math.max(widest, along + Math.max(across / reachX, high / reach) * OPENING_MARGIN);
 			});
 			return widest;
 		};
@@ -1024,7 +1034,9 @@ function followTarget(
 		const dx = (targetX[ahead] ?? 0) - (targetX[behind] ?? 0);
 		const dy = (targetY[ahead] ?? 0) - (targetY[behind] ?? 0);
 		const isMoving = Math.hypot(dx, dy) > 1e-4;
-		heading[index] = clamp(isMoving ? Math.atan2(dx, -dy) : 0.0, -Math.PI / 2, Math.PI / 2);
+		// The opening's target holds still, so its tiny moves name no run direction: the view stays straight until it lets go
+		const free = 1 - (framing.openingWeight?.[index] ?? 0);
+		heading[index] = free * clamp(isMoving ? Math.atan2(dx, -dy) : 0.0, -Math.PI / 2, Math.PI / 2);
 	}
 	// While the camera settles on the last hit the target barely moves; the view keeps the run direction it had
 	if (settings.hold != null) {
