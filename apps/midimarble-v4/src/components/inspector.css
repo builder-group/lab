@@ -537,14 +537,6 @@ input.mm-insp-name {
 	font-variant-numeric: tabular-nums;
 }
 
-/* Checkbox row on the grid, like Figma's Clip content */
-.mm-insp-check {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	height: 24px;
-}
-
 .mm-insp-grid > .mm-segmented {
 	display: flex;
 	height: 24px;
@@ -560,13 +552,6 @@ input.mm-insp-name {
 	font-size: var(--text-small);
 }
 
-.mm-insp-swatches {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	height: 24px;
-}
-
 .mm-insp-slider {
 	display: flex;
 	align-items: center;
@@ -577,16 +562,6 @@ input.mm-insp-name {
 .mm-insp-slider .mm-slider {
 	flex: 1;
 	min-width: 0;
-}
-
-.mm-ifield .mm-color-well {
-	flex: none;
-	width: 20px;
-	height: 16px;
-	margin-right: 8px;
-	padding: 0;
-	border-radius: 4px;
-	box-shadow: inset 0 0 0 1px var(--control-border);
 }
 
 .mm-ifield input.mm-color {

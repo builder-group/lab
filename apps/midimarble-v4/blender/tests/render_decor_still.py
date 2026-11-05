@@ -1,6 +1,6 @@
 """Fast stills of a package with Decor, for looking at a scatter.
 
-Expects the package written by `tsx scripts/export-decor-fixture.ts jingle-bells .local/decor/package brass`.
+Expects a package with Decor and its scene description at `.cache/scene.json`.
 
 Run: Blender --background --factory-startup --python-exit-code 1 --python blender/tests/render_decor_still.py -- <package> <out-dir> <time> [<time> ...]
 """

@@ -19,7 +19,7 @@ import {
 import { gravityOf } from './geometry';
 import { descentPace, paceAt } from './pace';
 import { chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime } from './piece-layout';
-import { getPieceDefinition, KIT_SCALE, railLayoutInfo, resolvePieceParams, type TRailLayout } from './pieces';
+import { getPieceDefinition, KIT_SCALE, railLayoutInfo, railParams, resolvePieceParams, type TRailLayout } from './pieces';
 import { createLinkedPiece, frameBand } from './placement';
 import { projectOnPath, shapesBounds } from './shapes';
 import { trajectoryAt } from './simulate';
@@ -57,7 +57,7 @@ export function gapPieceReads(check: TGapPieceCheck, paceLimit: number): boolean
 // next hit's piece is placed by construction where the marble is at that hit, so timing never depends on
 // the rail. Length and slope only shape the path through the gap.
 
-export interface TGapPieceOptions {
+interface TGapPieceOptions {
 	/** When the marble enters. Defaults to shortly after the bounce apex following the first hit. */
 	entryTime?: number;
 	/** Horizontal run downhill from the entry in meters. Defaults to what fits in the frame band, at most 0.375 m. */
@@ -165,13 +165,13 @@ export interface TGapSearchPlan {
 }
 
 /** A prepared gap search: its plan and the simulation of one candidate, independent of every other candidate */
-export interface TGapSearch {
+interface TGapSearch {
 	plan: TGapSearchPlan;
 	evaluate: (candidate: TGapTry) => TGapEvaluation;
 }
 
 /** The proposal for one of a plan's candidates */
-export function gapProposal(plan: TGapSearchPlan, candidate: TGapTry, check: TGapPieceCheck | null): TGapPieceProposal {
+function gapProposal(plan: TGapSearchPlan, candidate: TGapTry, check: TGapPieceCheck | null): TGapPieceProposal {
 	const entryDelay = candidate.entryTime - plan.fromTime;
 	const hasTurns = (plan.type === 'switchback' || plan.type === 'chain') && 'turns' in candidate;
 	const entity = hasTurns
@@ -543,20 +543,12 @@ interface TTurnsCandidate {
 	slope: number;
 }
 
-/** A Rail's parameters for a layout: its own and the delay, the rest being the definition's */
-function railParams(layout: TRailLayout, values: Record<string, number>): Record<string, number> {
-	const resolved = resolvePieceParams('rail', { ...railLayoutInfo[layout].defaults, ...values });
-	const params: Record<string, number> = {};
-	for (const name of [...railLayoutInfo[layout].params, 'entryDelay']) params[name] = resolved[name] ?? 0;
-	return params;
-}
-
 /**
  * A Chain's curve and lip by the slope a gap search tries: a shallow slope stands for tight, short turns that hold the
  * marble longest and a steep one for wide turns that come round further. Fitted on Jingle Bells' gaps: lips of 95° to
  * 110° and curves of 3 to 8 cm.
  */
-export function chainSwing(slope: number): { arc: number; sweep: number } {
+function chainSwing(slope: number): { arc: number; sweep: number } {
 	const share = (Math.min(25 * DEGREE, Math.max(2 * DEGREE, Math.abs(slope))) - 2 * DEGREE) / (23 * DEGREE);
 	return { arc: Math.round((0.03 + 0.05 * share) * 1e4) / 1e4, sweep: Math.round((95 + 15 * share) * 10) / 10 };
 }

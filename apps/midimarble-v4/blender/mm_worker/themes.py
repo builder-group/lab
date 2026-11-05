@@ -419,25 +419,6 @@ def wire_material():
     return _shared('MM · wire', build)
 
 
-def clear_material():
-    """Clear acrylic: nearly invisible but for its highlights, so the marble shows
-    through it"""
-    def build(material):
-        principled = _principled(material)
-        base = (0.95, 0.97, 1.0, 1.0)
-        material.diffuse_color = (0.95, 0.97, 1.0, 0.25)
-        _set(principled, 'Base Color', base)
-        _set(principled, 'Roughness', 0.04)
-        _set(principled, 'Alpha', 0.14)
-        _set(principled, 'Coat Weight', 1.0)
-        _set(principled, 'Coat Roughness', 0.02)
-        if hasattr(material, 'surface_render_method'):
-            material.surface_render_method = 'BLENDED'
-        if hasattr(material, 'use_backface_culling'):
-            material.use_backface_culling = False
-    return _shared('MM · clear acrylic', build)
-
-
 def frosted_material():
     """Satin frosted metal tube; opaque so the marble disappears inside it like in the film"""
     def build(material):

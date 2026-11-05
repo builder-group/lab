@@ -87,10 +87,6 @@ def ensure_detached_collection():
     return collection
 
 
-def find_collection(name):
-    return bpy.data.collections.get(name)
-
-
 def link_only_to(obj, collection, remove_from=None):
     """Links `obj` to `collection`, unlinking it from `remove_from` when given"""
     if obj.name not in collection.objects:
