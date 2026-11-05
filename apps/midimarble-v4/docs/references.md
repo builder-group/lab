@@ -67,8 +67,8 @@ Measured from the reference short and an earlier Jingle Bells film, with both ch
 The main finding on the look. Our bars read as thin sticks laid across the wall; the reference reads in depth. It takes three things together, none of them physics:
 
 - **Bars long in Z.** Platforms are 3 cm along the wall and 9 cm deep. Hops, columns and the canvas's fit stay spaced by `PLACEMENT_LENGTH`, 9 cm, since spacing by 3 cm stopped repeated Next at 4 of 16 hits on a 0.25 s run.
-- **A side-turned view.** `SIDE_ANGLE` 120°, so bars show their long sides. 145° turned only 3° against 150°.
-- **A steep pitch and a long lens.** Pitch 1.15 rad and 85 mm at a 1.36 m rig, which frames what 0.8 m did at 50 mm, so far rows don't shrink to a pile. Perspective folds a 2.7 bar column step together: a frame shows 6 to 8 bars per column. At 1.3 the near bars are oversized.
+- **A side-turned view.** `SIDE_ANGLE` 95°, chosen by the owner, so bars show their long sides. 145° turned only 3° against 150°.
+- **A steep pitch and a long lens.** Pitch 1.0 rad and 85 mm at a 1.36 m rig, which frames what 0.8 m did at 50 mm, so far rows don't shrink to a pile. Perspective folds a 2.7 bar column step together: a frame shows 6 to 8 bars per column. At 1.3 the near bars are oversized.
 
 Physics stays out of it:
 
