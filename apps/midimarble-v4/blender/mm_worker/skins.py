@@ -428,6 +428,12 @@ class PieceFrame:
             return themes.note_material(self.note_pitch)
         return themes.wood_material() if self.colour == 'skin' else themes.flat_material(self.color, roughness, coat)
 
+    def toy_wood(self, own):
+        """Material of varnished wood: `own` with Colour: Skin, painted in its note's or marble's colour otherwise"""
+        if self.note_pitch is not None:
+            return themes.note_material(self.note_pitch)
+        return own if self.colour == 'skin' else themes.flat_material(self.color, 0.25, 0.8)
+
     def wrap(self, own):
         """Material of a Gift's paper: `own` with Colour: Skin, its note's or its marble's colour otherwise"""
         if self.note_pitch is not None:
@@ -543,10 +549,277 @@ def add_feet(builder, length, back, front, underside, k, material=0):
             builder.cylinder(radius, height, (x, y, underside - height / 2), axis='Z', bevel=0.0005 * k, segments=16)
 
 
+# Polished skins: plates and devices with a studio painted into their reflections. Eevee mirrors only the soft room, so the
+# highlights here are added as light: every face shows what it mirrors of these lights in world space, so plates at
+# different angles catch them differently and a press sweeps a highlight across the top.
+# Each light: direction, dot range from its edge to its middle, strength.
+STUDIO_LIGHTS = (
+    ((-0.12, 0.72, 0.68), 0.93, 0.975, 5.0),
+    ((0.46, 0.80, 0.38), 0.985, 0.994, 7.0),
+    ((-0.55, -0.45, 0.70), 0.90, 0.97, 4.0),
+    ((0.85, -0.50, -0.15), 0.92, 0.975, 2.4),
+)
+# The room around them by the mirrored direction's height: dark floor, wall colour, pale ceiling
+STUDIO_ROOM = ((0.0, 0.03), (0.42, 0.07), (0.50, 0.30), (0.70, 0.14), (0.80, 0.22), (0.85, 2.6), (0.90, 0.5), (1.0, 0.25))
+# How far a face's mirror direction swings per metre along it, so flat faces show gradients like a slightly crowned plate
+STUDIO_CROWN = (6.0, 7.0, 6.0)
+POLISHED_METALS = {
+    'gold': ((1.0, 0.50, 0.06), 0.12),
+    'copper': ((0.86, 0.30, 0.13), 0.14),
+    'chrome': ((0.82, 0.84, 0.88), 0.07),
+    'steel': ((0.20, 0.21, 0.23), 0.22),
+}
+POLISHED_PAINTS = {
+    'housing': ((0.045, 0.055, 0.08), 0.2),
+    'key': ((0.80, 0.82, 0.84), 0.16),
+    'hazard': ((0.95, 0.60, 0.02), 0.2),
+    'black': ((0.012, 0.012, 0.014), 0.2),
+    'wood': ((0.40, 0.125, 0.035), 0.2),
+}
+WOOD_DARK = (0.17, 0.045, 0.014, 1.0)
+PAINT_SHEEN = 0.34
+
+
+def studio_light(tree):
+    """Colour of the studio in the direction this surface mirrors"""
+    geometry = tree.nodes.new('ShaderNodeNewGeometry')
+    view = tree.nodes.new('ShaderNodeVectorMath')
+    view.operation = 'SCALE'
+    tree.links.new(geometry.outputs['Incoming'], view.inputs[0])
+    view.inputs['Scale'].default_value = -1.0
+    mirror = tree.nodes.new('ShaderNodeVectorMath')
+    mirror.operation = 'REFLECT'
+    tree.links.new(view.outputs[0], mirror.inputs[0])
+    tree.links.new(geometry.outputs['Normal'], mirror.inputs[1])
+    coordinates = tree.nodes.new('ShaderNodeTexCoord')
+    crown = tree.nodes.new('ShaderNodeVectorMath')
+    crown.operation = 'MULTIPLY'
+    tree.links.new(coordinates.outputs['Object'], crown.inputs[0])
+    crown.inputs[1].default_value = STUDIO_CROWN
+    swing = tree.nodes.new('ShaderNodeVectorMath')
+    swing.operation = 'ADD'
+    tree.links.new(mirror.outputs[0], swing.inputs[0])
+    tree.links.new(crown.outputs[0], swing.inputs[1])
+    unit = tree.nodes.new('ShaderNodeVectorMath')
+    unit.operation = 'NORMALIZE'
+    tree.links.new(swing.outputs[0], unit.inputs[0])
+    direction = unit.outputs[0]
+    height = tree.nodes.new('ShaderNodeSeparateXYZ')
+    tree.links.new(direction, height.inputs[0])
+    room = tree.nodes.new('ShaderNodeValToRGB')
+    elements = room.color_ramp.elements
+    elements[0].position, elements[1].position = STUDIO_ROOM[0][0], STUDIO_ROOM[-1][0]
+    elements[0].color = (*[STUDIO_ROOM[0][1]] * 3, 1.0)
+    elements[1].color = (*[STUDIO_ROOM[-1][1]] * 3, 1.0)
+    for position, value in STUDIO_ROOM[1:-1]:
+        elements.new(position).color = (value, value, value * 1.04, 1.0)
+    tree.links.new(skin_materials._math(tree, 'ADD', skin_materials._math(tree, 'MULTIPLY', height.outputs['Z'], 0.5), 0.5), room.inputs['Fac'])
+    color = room.outputs['Color']
+    for aim, low, high, strength in STUDIO_LIGHTS:
+        dot = tree.nodes.new('ShaderNodeVectorMath')
+        dot.operation = 'DOT_PRODUCT'
+        tree.links.new(direction, dot.inputs[0])
+        dot.inputs[1].default_value = Vector(aim).normalized()
+        amount = skin_materials._math(tree, 'MULTIPLY', skin_materials._range(tree, dot.outputs['Value'], low, high), strength)
+        color = skin_materials._add_vectors(tree, color, skin_materials._scale(tree, skin_materials._white(tree), amount))
+    return color
+
+
+def polished_material(name):
+    """A key of POLISHED_METALS or POLISHED_PAINTS: a mirror tinted by the metal, or the Fresnel sheen of a clear coat over paint"""
+    is_metal = name in POLISHED_METALS
+    color, roughness = (POLISHED_METALS if is_metal else POLISHED_PAINTS)[name]
+
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = themes._principled(material)
+        base = (*color, 1.0)
+        material.diffuse_color = base
+        themes._set(principled, 'Base Color', base)
+        themes._set(principled, 'Metallic', 1.0 if is_metal else 0.0)
+        themes._set(principled, 'Roughness', roughness)
+        themes._set(principled, 'Coat Weight', 0.0 if is_metal else 1.0)
+        themes._set(principled, 'Coat Roughness', 0.04)
+        themes._flash_emission(material, base)
+        tint = nodes.new('ShaderNodeVectorMath')
+        tint.operation = 'MULTIPLY'
+        links.new(studio_light(tree), tint.inputs[0])
+        if is_metal:
+            tint.inputs[1].default_value = color
+        else:
+            weight = nodes.new('ShaderNodeLayerWeight')
+            weight.inputs['Blend'].default_value = PAINT_SHEEN
+            tint.inputs[1].default_value = (1.0, 1.0, 1.0)
+            scale = nodes.new('ShaderNodeVectorMath')
+            scale.operation = 'SCALE'
+            links.new(tint.outputs[0], scale.inputs[0])
+            links.new(weight.outputs['Fresnel'], scale.inputs['Scale'])
+        if name == 'wood':
+            add_wood_grain(tree, principled, base)
+        studio = nodes.new('ShaderNodeEmission')
+        links.new((tint if is_metal else scale).outputs[0], studio.inputs['Color'])
+        add = nodes.new('ShaderNodeAddShader')
+        links.new(principled.outputs[0], add.inputs[0])
+        links.new(studio.outputs[0], add.inputs[1])
+        links.new(add.outputs[0], nodes['Material Output'].inputs['Surface'])
+    return skin_materials._new('MM · polished ' + name, build)
+
+
+def add_wood_grain(tree, principled, base):
+    """Long grain along the plate, which runs along the piece's y"""
+    coordinates = tree.nodes.new('ShaderNodeTexCoord')
+    mapping = tree.nodes.new('ShaderNodeMapping')
+    mapping.inputs['Scale'].default_value = (70.0, 7.0, 70.0)
+    noise = tree.nodes.new('ShaderNodeTexNoise')
+    noise.inputs['Scale'].default_value = 1.0
+    noise.inputs['Detail'].default_value = 5.0
+    noise.inputs['Distortion'].default_value = 0.6
+    ramp = tree.nodes.new('ShaderNodeValToRGB')
+    elements = ramp.color_ramp.elements
+    elements[0].position, elements[0].color = 0.38, WOOD_DARK
+    elements[1].position, elements[1].color = 0.6, base
+    tree.links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
+    tree.links.new(mapping.outputs['Vector'], noise.inputs['Vector'])
+    tree.links.new(noise.outputs['Fac'], ramp.inputs['Fac'])
+    tree.links.new(ramp.outputs['Color'], principled.inputs['Base Color'])
+
+
+def polished_frame(frame, thickness):
+    """Dimensions every polished skin shares: back at the wall stub, front towards the camera, the contact's top face"""
+    k = frame.marble_radius / 0.008
+    standoff = 0.002 * k
+    back = frame.wall_y - standoff
+    front = back - max(frame.depth - standoff, 0.001)
+    return k, back, front, thickness / 2
+
+
+def add_wheels(builder, length, back, front, z, k, tyre=0, hub=1):
+    """A small wheel on each side at both ends of a plate, half hidden under it"""
+    radius = min(0.0026 * k, (back - front) * 0.12)
+    width = min(0.0024 * k, length * 0.1)
+    inset = radius * 1.5
+    for x in (-length / 2 + width * 0.3, length / 2 - width * 0.3):
+        for y in (front + inset, back - inset):
+            builder.cylinder(radius, width, (x, y, z), axis='X', material=tyre, segments=20, bevel=width * 0.25)
+            builder.cylinder(radius * 0.5, width * 1.15, (x, y, z), axis='X', material=hub, segments=14)
+
+
+def plate_spec(frame, length, thickness, finish):
+    """A thick plate with big rounded edges and a raised block at the camera's end, on a dark chassis with wheels. The
+    plate's top is the contact surface."""
+    k, back, front, top = polished_frame(frame, thickness)
+    depth = back - front
+    edge = min(0.0017 * k, thickness * 0.3, length * 0.2)
+    chassis = MeshBuilder()
+    chassis_height = thickness * 0.7
+    underside = top - thickness * 0.85
+    chassis.box((length * 0.8, depth * 0.92, chassis_height), ((0.0), (front + back) / 2, underside - chassis_height / 2 + edge),
+                bevel=edge * 0.5, segments=2)
+    add_wheels(chassis, length, back, front, underside - chassis_height * 0.45, k)
+    chassis.cylinder(0.005 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, underside - chassis_height / 2), axis='Y', material=1, bevel=0.0006 * k)
+    plate = MeshBuilder()
+    block = min(0.0065 * k, depth * 0.16)
+    plate.box((length, depth - block + edge, thickness * 0.85), (0.0, (front + block - edge + back) / 2, top - thickness * 0.425), bevel=edge, segments=4)
+    # The raised block overhangs the plate a little on three sides
+    trim = 0.0005 * k
+    plate.box((length + 2 * trim, block, thickness), (0.0, front + block / 2, top - thickness / 2), bevel=edge, material=1, segments=4)
+    own = polished_material(finish)
+    trim_material = polished_material('chrome' if finish == 'gold' else 'gold' if finish == 'wood' else finish)
+    return {
+        'root': chassis.to_mesh('MM chassis', [polished_material('black'), polished_material('steel')]),
+        'parts': [{'role': 'bar', 'mesh': plate.to_mesh('MM plate', [frame.metal(own) if finish != 'wood' else frame.toy_wood(own), trim_material]), 'reactive': True}],
+    }
+
+
+def chrome_device_spec(frame, length, thickness):
+    """A gold pad under the marble's lane that presses, and towards the camera a chrome body with a ball housing, hazard
+    ribs and a gold end block. The body stays clear of the lane, so only the pad meets the marble."""
+    k, back, front, top = polished_frame(frame, thickness)
+    edge = min(0.0014 * k, thickness * 0.25, length * 0.18)
+    pad_front = max(frame.marble_y - frame.marble_radius * 1.3, front + (back - front) * 0.25)
+    span = pad_front - front
+    radius = min(length * 0.42, thickness * 1.05)
+    axis_z = top - radius - 0.0004 * k
+    body = MeshBuilder()
+    block = min(0.0055 * k, span * 0.2)
+    body_front = front + block * 0.8
+    # Chassis the length of the piece
+    body.box((length * 0.7, back - front, thickness * 0.5), (0.0, (front + back) / 2, axis_z - radius * 0.45), bevel=edge * 0.5, material=3, segments=2)
+    body.cylinder(radius * 0.7, pad_front - body_front, (0.0, (pad_front + body_front) / 2, axis_z), axis='Y', material=0, segments=24)
+    # Side rails make the body an open cage around the shaft
+    for side in (-1, 1):
+        body.box((length * 0.09, pad_front - body_front, thickness * 0.34), (side * length * 0.44, (pad_front + body_front) / 2, axis_z + radius * 0.2),
+                 bevel=length * 0.02, material=1, segments=2)
+    ball = min(radius, span * 0.24)
+    ball_y = pad_front - ball * 1.2
+    collar = min(0.0013 * k, span * 0.04)
+    for side in (-1, 1):
+        body.cylinder(radius * 0.82, collar, (0.0, ball_y + side * (ball * 0.9 + collar * 0.5), axis_z), axis='Y', material=1, segments=24, bevel=collar * 0.3)
+    body.sphere(ball, (0.0, ball_y, axis_z), material=0, segments=24, rings=14)
+    ribs_back = ball_y - ball * 1.15
+    ribs = 8
+    pitch = max(ribs_back - body_front, 0.0) / ribs
+    for index in range(ribs if pitch > 0.0008 else 0):
+        y = body_front + pitch * (index + 0.5)
+        body.cylinder(radius * 0.92, pitch * 0.82, (0.0, y, axis_z), axis='Y', material=2 if index % 2 else 4, segments=24, bevel=pitch * 0.12)
+    body.box((length, block, thickness * 1.1), (0.0, front + block / 2, top - thickness * 0.55), bevel=edge, material=1, segments=4)
+    add_wheels(body, length, back, front, axis_z - radius * 0.55, k, tyre=4, hub=0)
+    body.cylinder(0.005 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, axis_z - radius * 0.45), axis='Y', material=3, bevel=0.0006 * k)
+    pad = MeshBuilder()
+    pad.box((length, back - pad_front, thickness * 0.8), (0.0, (back + pad_front) / 2, top - thickness * 0.4), bevel=edge, segments=4)
+    gold = polished_material('gold')
+    materials = [polished_material('chrome'), gold, polished_material('hazard'), polished_material('steel'), polished_material('black')]
+    return {
+        'root': body.to_mesh('MM chrome device', materials),
+        'parts': [{'role': 'bar', 'mesh': pad.to_mesh('MM pad', [frame.metal(gold)]), 'reactive': True}],
+    }
+
+
+def dark_housing_spec(frame, length, thickness):
+    """A slate housing, chamfered towards the camera, with a chrome-ringed lens and a long white key over the marble's
+    lane that presses. The key's top is the contact surface; the housing sits just below it."""
+    k, back, front, top = polished_frame(frame, thickness)
+    depth = back - front
+    edge = min(0.0018 * k, thickness * 0.25, length * 0.2)
+    height = thickness * 1.9
+    housing_top = top - 0.0007 * k
+    body = MeshBuilder()
+    body.box((length, depth, height), (0.0, (front + back) / 2, housing_top - height / 2), bevel=edge, segments=4)
+    key_front = front + depth * 0.3
+    key_width = length * 0.74
+    ring = min(length * 0.26, depth * 0.11)
+    ring_y = front + depth * 0.15
+    body.cylinder(ring, 0.0012 * k, (0.0, ring_y, housing_top), axis='Z', material=1, segments=32, bevel=0.0004 * k)
+    body.cylinder(ring * 0.68, 0.0015 * k, (0.0, ring_y, housing_top + 0.0001 * k), axis='Z', material=2, segments=24)
+    body.cylinder(0.0035 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, housing_top - height / 2), axis='Y', material=1, bevel=0.0005 * k)
+    key = MeshBuilder()
+    key_height = 0.0022 * k
+    key.box((key_width, back - key_front - 0.001 * k, key_height), (0.0, (back - 0.001 * k + key_front) / 2, top - key_height / 2), bevel=min(0.0008 * k, key_height * 0.4), segments=3)
+    return {
+        'root': body.to_mesh('MM housing', [polished_material('housing'), polished_material('chrome'), polished_material('black')]),
+        'parts': [{'role': 'bar', 'mesh': key.to_mesh('MM key', [frame.metal(polished_material('key'))]), 'reactive': True}],
+    }
+
+
+def polished_spec(frame, length, thickness):
+    """The builder of a polished skin, or None for any other"""
+    if frame.style == 'chrome-device':
+        return chrome_device_spec(frame, length, thickness)
+    if frame.style == 'dark-housing':
+        return dark_housing_spec(frame, length, thickness)
+    if frame.style.startswith('plate-'):
+        return plate_spec(frame, length, thickness, frame.style.split('-', 1)[1])
+    return None
+
+
 def platform_spec(frame, piece):
     params = frame.params
     length = params.get('length', 0.06)
     thickness = params.get('thickness', 0.008)
+    polished = polished_spec(frame, length, thickness)
+    if polished is not None:
+        return polished
     if frame.device is not None:
         return device_spec(frame, length, thickness)
     if frame.style == 'gift':

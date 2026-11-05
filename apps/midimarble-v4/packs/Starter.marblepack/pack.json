@@ -44,6 +44,36 @@
 		},
 		{
 			"kind": "skin",
+			"id": "platform-plate-gold",
+			"label": "Gold Plate",
+			"source": "platform:plate-gold"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-plate-copper",
+			"label": "Copper Plate",
+			"source": "platform:plate-copper"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-plate-wood",
+			"label": "Wood Plate",
+			"source": "platform:plate-wood"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-chrome-device",
+			"label": "Chrome Device",
+			"source": "platform:chrome-device"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-dark-housing",
+			"label": "Dark Housing",
+			"source": "platform:dark-housing"
+		},
+		{
+			"kind": "skin",
 			"id": "platform-pegboard",
 			"label": "Pegboard",
 			"source": "platform:pegboard"

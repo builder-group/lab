@@ -47,6 +47,66 @@
 					"preview": "platform-silver.png"
 				},
 				{
+					"id": "platform:plate-gold",
+					"label": "Gold Plate",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-plate-gold.png"
+				},
+				{
+					"id": "platform:plate-copper",
+					"label": "Copper Plate",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-plate-copper.png"
+				},
+				{
+					"id": "platform:plate-wood",
+					"label": "Wood Plate",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-plate-wood.png"
+				},
+				{
+					"id": "platform:chrome-device",
+					"label": "Chrome Device",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-chrome-device.png"
+				},
+				{
+					"id": "platform:dark-housing",
+					"label": "Dark Housing",
+					"colour": "skin",
+					"colours": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-dark-housing.png"
+				},
+				{
 					"id": "platform:device",
 					"label": "Device",
 					"hidden": true,
