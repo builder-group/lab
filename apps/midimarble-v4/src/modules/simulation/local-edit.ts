@@ -593,7 +593,7 @@ function hasOtherChange(before: TProject, after: TProject, marbleId: string): bo
 	});
 }
 
-/** `project` as commands on `from`: each component that differs */
+/** The pieces of `project` that differ from `from`, new ones too, in project order */
 export function changedPieces(from: TProject, project: TProject): TPiece[] {
 	const was = new Map(from.track.pieces.map((piece) => [piece.id, piece]));
 	return project.track.pieces.filter((piece) => was.get(piece.id) !== piece && JSON.stringify(was.get(piece.id)) !== JSON.stringify(piece));

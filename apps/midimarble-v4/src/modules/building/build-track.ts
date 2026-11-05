@@ -1,5 +1,5 @@
 import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import { answerWorkerRequest, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { answerWorkerRequest, changedPieces, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
 import { checkFraming } from './export-preflight';
 import { withBowls } from './bowl-assist';
 import { withStartRails } from './start-rail';
@@ -849,7 +849,6 @@ function bowlTrouble(project: TProject): { marbleId: string; from: number } | nu
 /** The commands that turn `from` into `to`: marbles added or released elsewhere, pieces changed, added and removed, the length and the camera */
 function diffCommands(from: TProject, to: TProject): TProjectCommand[] {
 	const commands: TProjectCommand[] = [];
-	const known = new Map(from.track.pieces.map((piece) => [piece.id, piece]));
 	const kept = new Set(to.track.pieces.map((piece) => piece.id));
 	const gone = from.track.pieces.filter((piece) => !kept.has(piece.id)).map((piece) => piece.id);
 	if (gone.length > 0) commands.push({ type: 'removePieces', pieceIds: gone });
@@ -859,10 +858,7 @@ function diffCommands(from: TProject, to: TProject): TProjectCommand[] {
 		if (before == null) commands.push({ type: 'addMarble', marble });
 		else if (before.start !== marble.start && JSON.stringify(before.start) !== JSON.stringify(marble.start)) commands.push({ type: 'updateMarble', marbleId: marble.id, patch: { start: marble.start } });
 	}
-	for (const piece of to.track.pieces) {
-		const before = known.get(piece.id);
-		if (before !== piece && JSON.stringify(before) !== JSON.stringify(piece)) commands.push({ type: 'addPiece', piece });
-	}
+	for (const piece of changedPieces(from, to)) commands.push({ type: 'addPiece', piece });
 	if (from.length !== to.length) commands.push({ type: 'updateProject', patch: { length: to.length } });
 	if (from.film !== to.film && JSON.stringify(from.film) !== JSON.stringify(to.film)) commands.push({ type: 'updateFilm', film: to.film });
 	return commands;

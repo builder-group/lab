@@ -87,12 +87,12 @@ export function frameBand(project: TProject, marbleId?: string): TFrameBand {
 	const aspect = project.format.width / project.format.height;
 	const distance = project.film.camera.distance;
 	const width = 0.45 * (aspect / (9 / 16)) * (distance > 0 ? distance / 1.263 : 1);
-	// A marble waiting on its start rail lands `laneOffset` from where it is released, and its marble lies there
+	// A marble waiting on its start rail lands `landingOffset` from where it is released, and its column lies there
 	const releaseX = (marble: TMarble): number => {
 		const x = marble.start.position.x;
 		const rail = startRailOf(project, marble.id);
 		const railX = freePosition(rail)?.x;
-		return railX != null && Math.abs(railX - x) < 0.02 ? x + (rail?.params['laneOffset'] ?? 0) : x;
+		return railX != null && Math.abs(railX - x) < 0.02 ? x + (rail?.params['landingOffset'] ?? 0) : x;
 	};
 	const { marbles } = project;
 	if (marbles.length <= 1) {

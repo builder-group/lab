@@ -60,7 +60,8 @@ function madeIds(project: TProject): string[] {
 /** The pieces a Build Track run left in the project, in order, as @5 stored them, so they compare with the baseline's */
 function storedPieces(project: TProject): unknown[] {
 	return project.track.pieces.map((piece) => {
-		const { id, name, labelColor, type, layout, params, angle, place, path, skin, ride } = piece;
+		const { id, name, labelColor, type, layout, params: { landingOffset, ...rest }, angle, place, path, skin, ride } = piece;
+		const params = landingOffset != null ? { ...rest, laneOffset: landingOffset } : rest;
 		const laneId = place.kind === 'free' ? '' : place.marbleId.replace('marble-', 'lane-');
 		const tie = place.kind === 'free' ? {} : (({ kind: _kind, marbleId: _marbleId, ...rest }) => rest)(place);
 		const anchored = place.kind === 'follows' && (type === 'bowl' || getPieceDefinition(type)?.musical === true) ? { anchored: true } : {};
