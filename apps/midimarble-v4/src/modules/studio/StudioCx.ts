@@ -461,7 +461,7 @@ export class StudioCx {
 		}
 		const [isProjectOk, projectErr, project] = parseProject(opened.projectJson);
 		if (!isProjectOk) {
-			this.notify(`${projectName(target)} couldn't be opened: ${projectErr.message}`, 'error');
+			this.notify(projectErr.message, 'error');
 			return false;
 		}
 		this.load(project, opened.path);

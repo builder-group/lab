@@ -161,13 +161,22 @@ describe('older files', () => {
 		const project = createProject();
 		const [isParsedOk, parsedErr] = parseProject(JSON.stringify({ ...project, $schema: 'marble-project@4' }));
 		expect(isParsedOk).toBe(false);
-		expect(parsedErr?.message).toBe("This project can't be opened. It was saved as marble-project@4; this app reads marble-project@5 files only, and older projects are not converted.");
+		expect(parsedErr?.message).toBe("This project was made with a different version of MidiMarble and can't be opened.");
+	});
+
+	it('should say the same of a file of this version with another shape', () => {
+		const stored = JSON.parse(serializeProject(createProject())) as { entities: { components: { marble?: { color?: string } } }[] };
+		const marble = stored.entities.find((entity) => entity.components.marble != null)?.components.marble;
+		if (marble != null) marble.color = '#778899';
+		const [isParsedOk, parsedErr] = parseProject(JSON.stringify(stored));
+		expect(isParsedOk).toBe(false);
+		expect(parsedErr?.message).toBe("This project was made with a different version of MidiMarble and can't be opened.");
 	});
 
 	it('should say the same of a file with no version', () => {
 		const [isParsedOk, parsedErr] = parseProject('{ "title": "Mine" }');
 		expect(isParsedOk).toBe(false);
-		expect(parsedErr?.message).toContain("This project can't be opened.");
+		expect(parsedErr?.message).toBe("This project was made with a different version of MidiMarble and can't be opened.");
 	});
 });
 
@@ -188,15 +197,5 @@ describe('label colour and film colour', () => {
 		const [, , next] = applyProjectCommands(project, [{ type: 'setComponent', entityId: marble.id, component: { name: 'skin', value: { color: '#445566' } } }]);
 		expect(marbleFilmColor(next as TProject, lane.id)).toBe('#445566');
 		expect(next?.music.lanes[0]?.color).toBe(lane.color);
-	});
-
-	it('should move a saved marble colour to its skin when a file opens', () => {
-		const project = createProject({ id: 'p', title: 'T' });
-		const stored = JSON.parse(serializeProject(project)) as { entities: { components: { marble?: { color?: string } } }[] };
-		const marble = stored.entities.find((entity) => entity.components.marble != null)?.components.marble;
-		if (marble != null) marble.color = '#778899';
-		const [isOk, , opened] = parseProject(JSON.stringify(stored));
-		expect(isOk).toBe(true);
-		expect(marbleFilmColor(opened as TProject, project.music.lanes[0]?.id as string)).toBe('#778899');
 	});
 });
