@@ -1,3 +1,4 @@
+import { problemPieces } from '@/modules/compose/fix-it';
 import { onNextFrame } from './next-frame';
 import { fitsSong, lastHitTime } from '@/modules/music/lane-commands';
 import { removeSelectedHits } from './timeline/hand-notes';
@@ -537,7 +538,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Track',
 		shortcut: 'A',
 		keywords: 'place again re-place replace repair auto place solve tilt platforms blocked missed stopped broken on time move clear release',
-		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isFixing !== true,
+		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isFixing !== true && !isOnlyOnTimePiece(cx),
 		run: (cx) => compose(cx)?.assist.fixSelection()
 	},
 	{
@@ -955,6 +956,16 @@ export function commandItem(cx: StudioCx, id: TCommandId, title?: string): TMenu
 function selectedTitleIds(cx: StudioCx): string[] {
 	const selection = cx.$selection.get();
 	return cx.project?.entities.filter((entity) => entity.components.wallText != null && selection.includes(entity.id)).map((entity) => entity.id) ?? [];
+}
+
+/** One piece selected that plays on time and has no problem: Fix has nothing to do for it */
+function isOnlyOnTimePiece(cx: StudioCx): boolean {
+	const project = cx.project;
+	const result = cx.simulation.$result.get();
+	const [only, ...others] = cx.$selection.get();
+	if (project == null || result == null || only == null || others.length > 0 || result.revision !== project.revision) return false;
+	const hit = result.hits.find((item) => item.pieceEntityId === only);
+	return hit?.status === 'onTime' && !problemPieces(project, result).includes(only);
 }
 
 export function deleteSelectedHits(cx: StudioCx): boolean {

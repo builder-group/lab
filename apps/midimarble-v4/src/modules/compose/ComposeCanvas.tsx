@@ -508,7 +508,7 @@ const SnapChip: React.FC<{ compose: ComposeCx; project: TProject; position: TVec
 	const { compose, project, snap } = props;
 	const center = compose.toScreen(props.position);
 	const lane = snap != null ? project.music.lanes.find((item) => item.id === snap.laneId) : undefined;
-	let content: React.ReactNode;
+	let content: React.ReactNode = null;
 	if (snap?.kind === 'link') {
 		const index = lane?.hits.findIndex((hit) => hit.id === snap.hitId) ?? -1;
 		const pitch = lane?.hits[index]?.pitch;
@@ -527,8 +527,6 @@ const SnapChip: React.FC<{ compose: ComposeCx; project: TProject; position: TVec
 				<span className="mm-tabular opacity-70">at {formatTime(snap.time)}</span>
 			</>
 		);
-	} else {
-		content = <span className="font-medium">None</span>;
 	}
 	return (
 		<div className="mm-snap-chip" data-snapped={snap != null} style={{ left: center.x + 18, top: center.y + 14 }}>

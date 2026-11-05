@@ -63,7 +63,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 					id="skin-color"
 					label="Color"
 					value={valueOf('colorSource')}
-					options={options(valueOf('colorSource'), first != null ? `${colorSourceLabel(first.look.colorSource)} · ${origin}` : origin, shared.colorSources.map((colorSource) => ({ value: colorSource, label: colorSourceLabel(colorSource) })))}
+					options={options(valueOf('colorSource'), origin, shared.colorSources.map((colorSource) => ({ value: colorSource, label: colorSourceLabel(colorSource) })))}
 					onChange={(value) => {
 						if (value !== MIXED) set({ colorSource: value === FROM_THEME ? null : (value as NonNullable<TSkinPropertyPatch['colorSource']>) });
 					}}

@@ -17,6 +17,9 @@ const MIN_DRAG_PX = 3;
  * hover. Dragging out a range selects its notes, the same as dragging over them below, or the silence itself. A block is
  * a Group: a click selects it; a Pattern's edges resize it, which fits it again.
  */
+/** Pixels a block needs to show a short name whole */
+const MIN_NAMED_BLOCK = 44;
+
 export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	const { cx, lane, zoom, timeAt } = props;
 	const history = useFeatureState(cx.$history);
@@ -117,7 +120,8 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						onPointerUp={(event) => event.stopPropagation()}
 						onClick={() => cx.$selection.set(groupSelection(group))}
 					>
-						<span className="mm-pattern-block-name">{group.name}</span>
+						{/* A block too short for its name shows none, not "Zig…"; the tooltip has it */}
+						{(to - from) * zoom + 2 * pad >= MIN_NAMED_BLOCK ? <span className="mm-pattern-block-name">{group.name}</span> : null}
 						{/* A Long Rail always fills its silence, and a plain Group has no Pattern to fit, so only a Pattern on notes has edges to drag */}
 						{pattern != null && pattern.kind !== 'longRail'
 							? (['from', 'to'] as const).map((edge) => (

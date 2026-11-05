@@ -882,6 +882,12 @@ textarea {
 	color: var(--text);
 }
 
+/* Nothing placed yet: the summary is the action that places it */
+.mm-hit-summary[data-tone='action'] {
+	color: var(--accent);
+	font-weight: 500;
+}
+
 /* Checking… or Fixing…: dimmed, never a stale count */
 .mm-hit-summary[data-tone='pending'] {
 	opacity: 0.6;
@@ -2367,6 +2373,10 @@ button.mm-layer-disclosure:hover {
 .mm-zoom-button {
 	display: inline-flex;
 	align-items: center;
+	justify-content: space-between;
+	/* The width of "100%" and its chevron, so the pills beside it stay put from 1% to 100% */
+	min-width: 56px;
+	font-variant-numeric: tabular-nums;
 	gap: 3px;
 	height: 24px;
 	padding: 0 6px;

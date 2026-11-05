@@ -4,7 +4,7 @@ import { canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection 
 import { createId, laneColors, type TEntity, type TLane, type TProjectCommand } from '@/modules/project';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
 import { moveDecorClearAction } from '@/modules/design/decor-actions';
-import { commandItem, getCommand, isCommandEnabled, runInWorkspace, type TCommandId } from './commands';
+import { commandItem, getCommand, isCommandEnabled, type TCommandId } from './commands';
 import { formatTime } from './format';
 import { parseDecorKey, toHitKey } from './selection';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
@@ -13,7 +13,9 @@ import { deleteHits, playedByMenu } from './timeline/hand-notes';
 
 // Context menus list the same commands as the palette and the shortcuts, so each shows its key
 
-const LABEL_NAMES = ['Blue', 'Orange', 'Green', 'Purple', 'Pink', 'Cyan'];
+const LABEL_NAMES = ['Blue', 'Orange', 'Green', 'Purple', 'Pink', 'Cyan', 'Red'];
+/** What the list offers: every marble's color, and the red the examples' Melody wears, which new marbles don't start with */
+const LABEL_COLORS = [...laneColors, '#c8102e'];
 
 /**
  * The choices of a layer's Label Color, opened from its icon or dot and from Label Color beside Rename: it organizes
@@ -23,7 +25,9 @@ const LABEL_NAMES = ['Blue', 'Orange', 'Green', 'Purple', 'Pink', 'Cyan'];
 export function labelColorEntries(cx: StudioCx, current: string | undefined, commandsFor: (color: string | null) => TProjectCommand[], canClear = true): TMenuEntry[] {
 	return [
 		...(canClear ? [{ label: 'None', checked: current == null, onSelect: () => cx.execute(commandsFor(null)) }] : []),
-		...laneColors.map((color, index) => ({ label: LABEL_NAMES[index] ?? color, swatch: color, checked: current === color, onSelect: () => cx.execute(commandsFor(color)) }))
+		...LABEL_COLORS.map((color, index) => ({ label: LABEL_NAMES[index] ?? color, swatch: color, checked: current === color, onSelect: () => cx.execute(commandsFor(color)) })),
+		// A color from a file or an agent, so the list always marks what the layer wears
+		...(current != null && !LABEL_COLORS.includes(current) ? [{ label: 'Current', swatch: current, checked: true, onSelect: () => undefined }] : [])
 	];
 }
 
@@ -58,7 +62,7 @@ function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 /** Right-click on a piece, on the canvas or in the sidebar */
 export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 	// Film shows what works there: Compose's edits ask for the wall
-	if (cx.$workspace.get() !== 'compose') return tidyMenu([commandItem(cx, 'edit.group'), canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null, 'separator', commandItem(cx, 'edit.rename'), selectionLabelItem(cx), 'separator', ...pieceLinkItems(cx)]);
+	if (cx.$workspace.get() !== 'compose') return tidyMenu([canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null, 'separator', commandItem(cx, 'edit.rename'), selectionLabelItem(cx)]);
 	const selected = cx.project?.entities.filter((entity) => cx.$selection.get().includes(entity.id)) ?? [];
 	return tidyMenu([
 		selected.length === 1 && selected[0]?.components.hitLink != null ? commandItem(cx, 'build.fix') : null,
@@ -80,14 +84,11 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 	]);
 }
 
-/**
- * The piece's link: Play a Note… and Follow a Marble…, or Detach. Linking is Compose's work, so from Film's Layers
- * Play a Note… opens Compose first.
- */
+/** The piece's link: Play a Note… and Follow a Marble…, or Detach. Linking is Track's work */
 function pieceLinkItems(cx: StudioCx): TMenuEntry[] {
 	const follow = followItems(cx);
 	return [
-		{ label: 'Play a Note…', disabled: !canPlayNote(cx), onSelect: () => runInWorkspace(cx, getCommand('piece.playNote')) },
+		{ label: 'Play a Note…', disabled: !canPlayNote(cx), onSelect: () => getCommand('piece.playNote').run(cx) },
 		{ label: 'Follow a Marble…', disabled: !canFollow(cx), submenu: follow, onSelect: () => undefined },
 		{ label: 'Detach', disabled: !hasTiedSelection(cx), onSelect: () => detachSelection(cx) }
 	];

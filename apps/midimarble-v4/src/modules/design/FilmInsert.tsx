@@ -171,7 +171,7 @@ const InsertTile: React.FC<TInsertTileProps> = (props) => {
 		<button className="mm-library-tile" data-film draggable={onDragStart != null} title={title} onClick={onAdd} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={onContextMenu} type="button">
 			<span className="mm-library-preview">{preview}</span>
 			<span className="mm-library-label">
-				<span className="truncate">{label}</span>
+				<span className="line-clamp-2 text-center leading-tight">{label}</span>
 			</span>
 			{detail != null ? <TileDetail text={detail} onClick={onDetail} /> : null}
 		</button>
