@@ -1273,28 +1273,6 @@ button.mm-hit-summary:hover {
 
 /* MARK: - Design */
 
-/* Search field like Finder's sidebar filter, with the glass on the left */
-.mm-search {
-	padding-left: 22px;
-	border-radius: 6px;
-}
-
-.mm-library-header {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	width: 100%;
-	height: 24px;
-	padding: 0 12px 0 14px;
-	font-size: var(--text-small);
-	font-weight: 600;
-	color: var(--text-secondary);
-}
-
-.mm-library-header:hover .mm-disclosure {
-	color: var(--text-secondary);
-}
-
 /* Thumbnail grid of Blender's asset browser, sized for the sidebar */
 .mm-tile-grid {
 	display: grid;
@@ -1370,11 +1348,6 @@ button.mm-hit-summary:hover {
 	text-overflow: ellipsis;
 }
 
-/* Rendered previews of themes and skins are square */
-.mm-tile-thumb-square {
-	aspect-ratio: 1;
-}
-
 /* A tile with a star beside its main button, like Figma's asset favorites */
 .mm-tile-wrap {
 	position: relative;
@@ -1383,20 +1356,6 @@ button.mm-hit-summary:hover {
 
 .mm-tile-wrap > .mm-tile {
 	width: 100%;
-}
-
-.mm-tile-badge {
-	position: absolute;
-	bottom: 4px;
-	left: 4px;
-	padding: 0 5px;
-	border-radius: 4px;
-	background: rgb(0 0 0 / 0.55);
-	color: #fff;
-	font-size: 9px;
-	font-weight: 600;
-	line-height: 15px;
-	backdrop-filter: blur(6px);
 }
 
 .mm-tile-star {
@@ -1423,71 +1382,6 @@ button.mm-hit-summary:hover {
 
 .mm-tile-star[data-kept='true'] {
 	color: var(--accent-strong);
-}
-
-/* Agent requests read like a comment thread in Figma or Pages */
-.mm-thread {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	padding-bottom: 10px;
-	border-bottom: 1px solid var(--separator);
-}
-
-.mm-thread[data-closed='true'] {
-	opacity: 0.6;
-}
-
-.mm-thread-author {
-	color: var(--text-secondary);
-	font-size: var(--text-small);
-	font-weight: 600;
-}
-
-.mm-thread-prompt {
-	line-height: 1.35;
-	overflow-wrap: anywhere;
-}
-
-.mm-thread-phase {
-	display: inline-flex;
-	align-items: center;
-	gap: 3px;
-	margin-left: auto;
-	font-weight: 500;
-	color: var(--text-tertiary);
-}
-
-.mm-thread-phase[data-phase='review'] {
-	color: var(--accent-strong);
-}
-
-.mm-thread-phase[data-phase='accepted'] {
-	color: var(--good);
-}
-
-.mm-thread-phase[data-phase='failed'],
-.mm-thread-phase[data-phase='incomplete'] {
-	color: var(--bad);
-}
-
-.mm-thread-text {
-	font-size: 12px;
-	line-height: 1.4;
-	overflow-wrap: anywhere;
-}
-
-.mm-thread-step {
-	display: flex;
-	align-items: center;
-	gap: 5px;
-	min-width: 0;
-	color: var(--text-secondary);
-	font-size: var(--text-small);
-}
-
-.mm-thread-step[data-status='failed'] {
-	color: var(--bad);
 }
 
 /* Text button like a link in a macOS inspector */

@@ -2,7 +2,7 @@ import type { TEntity, TProject, TVec2 } from '@/modules/project';
 import { gravityOf } from '../geometry';
 import { findEntryTime } from '../gap-pieces';
 import { switchbackHoldTime } from '../piece-layout';
-import { railLayoutInfo, resolvePieceParams } from '../pieces';
+import { railParams, resolvePieceParams } from '../pieces';
 import { frameBand, startRailId } from '../placement';
 import type { TSimulator } from '../simulate';
 import { touchingPairs } from '../track-problems';
@@ -14,9 +14,9 @@ import { sampleAt, withEntity } from './fit-bars';
 
 const DEGREE = Math.PI / 180;
 /** Seconds from where a short ramp stops holding well and a Switchback takes over (the report's 1.5 s) */
-export const RAMP_LIMIT = 1.55;
+const RAMP_LIMIT = 1.55;
 
-export interface TRailFit {
+interface TRailFit {
 	entity: TEntity;
 	project: TProject;
 	kind: 'ramp' | 'switchback';
@@ -31,7 +31,7 @@ export interface TRailFit {
 	isTouching: boolean;
 }
 
-export interface TRailAnswer {
+interface TRailAnswer {
 	fit: TRailFit | null;
 	/** What went wrong most often while looking, in words that finish "No rail holds the marble here:" */
 	why: string | null;
@@ -232,13 +232,6 @@ function switchbackEntity(id: string, tie: TRailTie, delay: number, width: numbe
 			...tie
 		}
 	};
-}
-
-function railParams(layout: 'path' | 'switchback', values: Record<string, number>): Record<string, number> {
-	const resolved = resolvePieceParams('rail', { ...railLayoutInfo[layout].defaults, ...values });
-	const params: Record<string, number> = {};
-	for (const name of [...railLayoutInfo[layout].params, 'entryDelay']) params[name] = resolved[name] ?? 0;
-	return params;
 }
 
 function distanceToPath(path: TVec2[], point: TVec2): number {

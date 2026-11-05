@@ -81,6 +81,14 @@ export const railLayoutInfo: Record<TRailLayout, { label: string; title: string;
 	switchback: { label: 'Switchback', title: 'Straight runs one under the other, sloping left and right, for the steadiest timing', params: ['turns', 'width', 'drop', 'opening', 'lip', 'bend', 'radius', 'gap'], defaults: {} }
 };
 
+/** A Rail's parameters for a layout: its own and the delay, the rest being the definition's */
+export function railParams(layout: TRailLayout, values: Record<string, number>): Record<string, number> {
+	const resolved = resolvePieceParams('rail', { ...railLayoutInfo[layout].defaults, ...values });
+	const params: Record<string, number> = {};
+	for (const name of [...railLayoutInfo[layout].params, 'entryDelay']) params[name] = resolved[name] ?? 0;
+	return params;
+}
+
 /**
  * Rail: what the marble rolls on. It holds one path or several with gaps between them, smoothed into chains of capsules
  * the marble rides on top of, one row in Layers and one Skin. The film shows two wires `gap` apart in depth; since
@@ -97,7 +105,7 @@ export const railLayoutInfo: Record<TRailLayout, { label: string; title: string;
  * Layout `chain` is separate C's in the same column: each turn is a wall curving round through `sweep` on a curve of
  * radius `arc`, `drop` under the one before.
  */
-export const railDefinition: TPieceDefinition = {
+const railDefinition: TPieceDefinition = {
 	type: 'rail',
 	label: 'Rail',
 	params: {
@@ -152,7 +160,7 @@ export const tunnelDefinition: TPieceDefinition = {
  * Blades on a hub that turns around the wall normal. The marble strikes a blade face; with no motor the
  * windmill turns freely and slows down by `damping`, with a motor it turns at `motorSpeed` regardless.
  */
-export const windmillDefinition: TPieceDefinition = {
+const windmillDefinition: TPieceDefinition = {
 	type: 'windmill',
 	label: 'Windmill',
 	params: {
@@ -192,7 +200,7 @@ export const bowlDefinition: TPieceDefinition = {
 	layout: 'catcher'
 };
 
-export const pieceDefinitions: Record<string, TPieceDefinition> = {
+const pieceDefinitions: Record<string, TPieceDefinition> = {
 	[platformDefinition.type]: platformDefinition,
 	[railDefinition.type]: railDefinition,
 	[tunnelDefinition.type]: tunnelDefinition,

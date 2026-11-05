@@ -15,10 +15,6 @@ _SKINS = {skin['id']: skin for element in ELEMENTS.values() for skin in element[
 PART_FIELDS = ('colorSource', 'onHit', 'glowColor', 'variant')
 
 
-def skin_entry(skin_id):
-    return _SKINS.get(skin_id)
-
-
 def element_of(piece_type):
     return piece_type if piece_type in ELEMENTS else 'platform'
 
