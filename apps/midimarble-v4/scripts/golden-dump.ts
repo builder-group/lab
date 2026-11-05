@@ -28,8 +28,8 @@ function marblesOf(project: TProject) {
 	const lanes = new Map(project.music.lanes.map((lane) => [lane.id, lane]));
 	return project.entities.flatMap((entity) => {
 		const marble = entity.components.marble;
-		const lane = marble == null ? undefined : lanes.get(marble.laneId);
-		return lane == null ? [] : [{ id: entity.id, laneId: lane.id, sound: lane.instrument, hits: lane.hits }];
+		const lane = marble == null ? undefined : lanes.get(marble.marbleId);
+		return lane == null ? [] : [{ id: entity.id, marbleId: lane.id, sound: lane.instrument, hits: lane.hits }];
 	});
 }
 
@@ -109,14 +109,14 @@ function blocks<T extends { time: number }>(samples: T[]): unknown {
 
 function sectionsOf(project: TProject, result: TSimulationResult): Record<string, unknown> {
 	const marbles = marblesOf(project);
-	const marbleOfLane = new Map(marbles.map((marble) => [marble.laneId, marble.id]));
+	const marbleOfLane = new Map(marbles.map((marble) => [marble.marbleId, marble.id]));
 	const build = buildSceneDescription(project, result, { fps: SCENE_FPS });
 	// Revision says how often a project was edited, not what it does, and may stop being saved in @6
 	const { revision: _revision, ...scene } = build.description;
 	const hits = result.hits
 		.map((hit) => {
-			const { laneId, ...rest } = hit;
-			return { ...rest, marble: marbleOfLane.get(laneId) ?? `lane:${laneId}` };
+			const { marbleId, ...rest } = hit;
+			return { ...rest, marble: marbleOfLane.get(marbleId) ?? `lane:${marbleId}` };
 		})
 		.sort((a, b) => compareText(a.marble, b.marble) || a.targetTime - b.targetTime || compareText(a.hitId, b.hitId));
 	const pieces = result.pieces

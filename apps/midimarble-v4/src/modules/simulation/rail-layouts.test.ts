@@ -74,7 +74,7 @@ describe('asking for a gap piece', () => {
 	it('should refuse a candidate that keeps the marble in its turns', () => {
 		const candidate: TGapTry = { entryTime: 1, downhill: 1, contactAt: 0.5, width: 0.12, turns: 2, slope: 0.1 };
 		const stuck = { dot: null, isDotInFrame: true, isRunInFrame: true, leaveTime: null, pieceStatus: 'placed', nextStatus: null };
-		const plan: TGapSearchPlan = { type: 'chain', id: 'chain', count: 0, laneId: 'lane', fromHitId: 'hit', fromTime: 0.5, candidates: [candidate], fallback: candidate, isRefined: false };
+		const plan: TGapSearchPlan = { type: 'chain', id: 'chain', count: 0, marbleId: 'lane', fromHitId: 'hit', fromTime: 0.5, candidates: [candidate], fallback: candidate, isRefined: false };
 		const steps = gapSearch(plan);
 		steps.next();
 		const done = steps.next([{ score: 0, check: stuck }]);

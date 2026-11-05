@@ -137,7 +137,7 @@ export const WallPicker: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 /** What the skin None shows on the first of a selection: its label color, or plain wood */
 function noneColor(project: TProject, entity: TEntity | undefined): string {
 	if (entity == null) return PLAIN_PIECE_COLOR;
-	const lane = project.music.lanes.find((item) => item.id === entity.components.marble?.laneId);
+	const lane = project.music.lanes.find((item) => item.id === entity.components.marble?.marbleId);
 	return lane?.color ?? pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR;
 }
 

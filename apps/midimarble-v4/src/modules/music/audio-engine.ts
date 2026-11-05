@@ -1,6 +1,6 @@
 import { SoundBankLoader, SpessaLog, type BasicSoundBank } from 'spessasynth_core';
 import type { TLane, TProject, TSource } from '@/modules/project';
-import { backingVoice, mixAudioSource, renderLanes, type TDecodedAudio, type TStereoAudio } from './synthesize';
+import { backingVoice, mixAudioSource, renderMarbles, type TDecodedAudio, type TStereoAudio } from './synthesize';
 import { hasSong } from './parts';
 import { createScrubber } from './scrub';
 import { decodeAudioFile } from './waveform';
@@ -105,7 +105,7 @@ export function createAudioEngine(): TAudioEngine {
 			let buffer = auditionCache.get(key);
 			if (buffer == null) {
 				const bank = await loadInstrumentBank();
-				const audio = renderLanes(
+				const audio = renderMarbles(
 					[{ ...lane, hits: [{ id: 'audition', time: 0, pitch }] }],
 					{ sampleRate: SAMPLE_RATE, duration: 1, bank }
 				);
@@ -169,7 +169,7 @@ export async function renderProjectAudio(
 	const audioSources = project.music.sources.filter((source) => source.kind === 'audio');
 	if (!audioSources.length) {
 		const bank = await loadInstrumentBank();
-		const audio = renderLanes(project.music.lanes, { sampleRate, duration: project.end, bank, backing: backingVoice(project) });
+		const audio = renderMarbles(project.music.lanes, { sampleRate, duration: project.end, bank, backing: backingVoice(project) });
 		fadeOut(audio, FILM_AUDIO_FADE);
 		return audio;
 	}

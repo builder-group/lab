@@ -11,7 +11,7 @@ import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, fi
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
-		laneId: 'lane-1',
+		marbleId: 'lane-1',
 		hitId: `h${time}`,
 		targetTime: time,
 		pieceEntityId: status === 'open' ? null : `p${time}`,
@@ -29,7 +29,7 @@ function oneMarble(): TProject {
 	const lane = project.music.lanes[0];
 	if (lane != null) lane.id = 'lane-1';
 	const marble = project.entities.find((entity) => entity.components.marble != null);
-	if (marble?.components.marble != null) marble.components.marble.laneId = 'lane-1';
+	if (marble?.components.marble != null) marble.components.marble.marbleId = 'lane-1';
 	return project;
 }
 
@@ -105,13 +105,13 @@ describe('fixTrack function', () => {
 		return {
 			simulate: async (project) => simulate(project),
 			autoPlace: async (project, target, entity) => {
-				const [isOk, error, placement] = autoPlace(project, simulate(project), target.laneId, target.hitId, { simulate, type: entity.components.piece?.type });
+				const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: entity.components.piece?.type });
 				if (!isOk) throw error;
 				return placement.entity;
 			},
 			gapPiece: async (project, gap, type, id) => {
 				const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
-				const [isOk, error, proposal] = create(project, simulate(project), gap.laneId, gap.fromHitId, gap.toHitId, { simulate, id });
+				const [isOk, error, proposal] = create(project, simulate(project), gap.marbleId, gap.fromHitId, gap.toHitId, { simulate, id });
 				if (!isOk) throw error;
 				return proposal.entity;
 			},
@@ -124,7 +124,7 @@ describe('fixTrack function', () => {
 	}
 
 	// A fixture with `count` notes of its first track from `from` on handed to Backing, as Played By does
-	function handToBacking(name: string, from: number, count: number): { before: TSimulationResult; edited: TProject; broken: TSimulationResult; laneId: string } {
+	function handToBacking(name: string, from: number, count: number): { before: TSimulationResult; edited: TProject; broken: TSimulationResult; marbleId: string } {
 		const project = loadFixture(name);
 		const before = simulate(project);
 		const lane = project.music.lanes[0];
@@ -132,7 +132,7 @@ describe('fixTrack function', () => {
 		const notes = lane.hits.slice(from, from + count).map((item) => item.id);
 		const [isEditOk, editErr, edited] = applyProjectCommands(project, assignNotesCommands(project, before, notes, BACKING_ID));
 		if (!isEditOk) throw editErr;
-		return { before, edited, broken: simulate(edited), laneId: lane.id };
+		return { before, edited, broken: simulate(edited), marbleId: lane.id };
 	}
 
 	/** The result notice as Track shows it, with how the run stands from the problem model */
@@ -172,7 +172,7 @@ describe('fixTrack function', () => {
 
 	it('should move the release and recover a run after its first notes become Backing', async () => {
 		// Prepare
-		const { before, edited, broken, laneId } = handToBacking('zigzag', 0, 3);
+		const { before, edited, broken, marbleId } = handToBacking('zigzag', 0, 3);
 		const counted = brokenHits(broken.hits).length;
 		expect(counted).toBeGreaterThan(0);
 		const progress: { done: number; total: number }[] = [];
@@ -181,7 +181,7 @@ describe('fixTrack function', () => {
 		const outcome = await fixTrack(edited, broken, { ...deps(), onProgress: (done, total) => progress.push({ done, total }) }, before.hits);
 
 		// Assert
-		expect(outcome.releases).toEqual([laneId]);
+		expect(outcome.releases).toEqual([marbleId]);
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
 		// One count for the whole run, the label's, and the fixed count only grows: never "0 of 37", then "0 of 38"
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
@@ -223,7 +223,7 @@ describe('moveClear function', () => {
 					components: {
 						piece: { type: 'windmill', params: { entryDelay: 0.5 } },
 						transform: { position: { x: 0, y: 0 }, angle: 0 },
-						hitLink: { laneId: lane.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true, offset: { x: 0.1, y: 0.2 } }
+						hitLink: { marbleId: lane.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true, offset: { x: 0.1, y: 0.2 } }
 					}
 				}
 			]
@@ -232,7 +232,7 @@ describe('moveClear function', () => {
 		const result: TSimulationResult = {
 			revision: project.revision,
 			duration: 3,
-			marbles: [{ entityId: 'marble', laneId: lane.id, radius: 0.008, samples }],
+			marbles: [{ entityId: 'marble', marbleId: lane.id, radius: 0.008, samples }],
 			pieces: [
 				{
 					entityId: 'windmill',
@@ -266,8 +266,8 @@ describe('moveClear function', () => {
 		expect(move?.distance).toBeCloseTo(0.035, 6);
 		const command = move?.commands[0];
 		if (command?.type !== 'setComponent' || command.component.name !== 'hitLink') throw new Error('Move Clear sets the tie');
-		const { offset, laneId, hitId, anchored } = command.component.value;
-		expect({ laneId, hitId, anchored }).toEqual({ laneId: project.music.lanes[0]?.id, hitId: 'h1', anchored: true });
+		const { offset, marbleId, hitId, anchored } = command.component.value;
+		expect({ marbleId, hitId, anchored }).toEqual({ marbleId: project.music.lanes[0]?.id, hitId: 'h1', anchored: true });
 		expect(Math.hypot((offset?.x ?? 0) - 0.1, (offset?.y ?? 0) - 0.2)).toBeCloseTo(0.035, 4);
 	});
 
@@ -281,10 +281,10 @@ describe('moveClear function', () => {
 	it('should move the piece only when its what-if run breaks no hit', async () => {
 		// Prepare: the move clears the windmill, but the run with it moved loses a hit that was on time
 		const { project, result } = createBlocked();
-		const laneId = project.music.lanes[0]?.id ?? '';
-		const onTime = { ...result, hits: [hit(1.5, 'onTime', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const marbleId = project.music.lanes[0]?.id ?? '';
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
 		const unused = (): Promise<never> => Promise.reject(new Error('Move Clear places no platform'));
-		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
 		const keeps = { ...breaks, hits: onTime.hits };
 
 		// Act
@@ -301,9 +301,9 @@ describe('moveClear function', () => {
 		// Prepare
 		const { project: blocked, result } = createBlocked();
 		const project = { ...blocked, entities: blocked.entities.map((entity) => (entity.id === 'windmill' && entity.components.piece != null ? { ...entity, components: { ...entity.components, piece: { ...entity.components.piece, type: 'bowl' } } } : entity)) };
-		const laneId = project.music.lanes[0]?.id ?? '';
-		const onTime = { ...result, hits: [hit(1.5, 'onTime', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
-		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const marbleId = project.music.lanes[0]?.id ?? '';
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
 		const simulate = async (next: TProject): Promise<TSimulationResult> => (next.entities.some((entity) => entity.id === 'windmill') ? breaks : { ...onTime, pieces: [] });
 
 		// Act
@@ -379,8 +379,8 @@ describe('addedProblems function', () => {
 			music: { ...base.music, lanes: [{ ...melody, name: 'Melody' }, { ...melody, id: 'bass', name: 'Bass', hits: [] }] },
 			entities: [
 				...base.entities,
-				{ id: 'bass-marble', name: 'Bass', components: { marble: { laneId: 'bass', radius: 0.008 } } },
-				{ id: 'switchback', name: 'Rail 6', components: { piece: { type: 'rail', layout: 'switchback', params: {} }, hitLink: { laneId: melody.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true } } }
+				{ id: 'bass-marble', name: 'Bass', components: { marble: { marbleId: 'bass', radius: 0.008 } } },
+				{ id: 'switchback', name: 'Rail 6', components: { piece: { type: 'rail', layout: 'switchback', params: {} }, hitLink: { marbleId: melody.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true } } }
 			]
 		} as TProject;
 		const clear = contactResult(project, []);
@@ -388,7 +388,7 @@ describe('addedProblems function', () => {
 
 		// Act
 		const added = addedProblems(project, clear, project, hitBy, NO_BLENDER_OBJECTS);
-		const ahead = addedProblems(project, clear, project, hitBy, NO_BLENDER_OBJECTS, { laneId: melody.id, from: 4 });
+		const ahead = addedProblems(project, clear, project, hitBy, NO_BLENDER_OBJECTS, { marbleId: melody.id, from: 4 });
 
 		// Assert
 		expect(added.map((issue) => issue.title)).toEqual(['Bass hits Rail 6 of Melody']);
@@ -403,7 +403,7 @@ describe('Fix on a small project', () => {
 	const deps = (): TFixDeps => ({
 		simulate: async (project) => simulate(project),
 		autoPlace: async (project, target, entity) => {
-			const [isOk, error, placement] = autoPlace(project, simulate(project), target.laneId, target.hitId, { simulate, type: entity.components.piece?.type });
+			const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: entity.components.piece?.type });
 			if (!isOk) throw error;
 			return placement.entity;
 		},

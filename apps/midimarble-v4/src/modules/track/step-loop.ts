@@ -1,6 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import type { TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { bowlOfLane, createLinkedPiece, defaultPlatformAngle, frameBand, getPieceDefinition, layoutOf, resolvePiecePath, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { bowlOfMarble, createLinkedPiece, defaultPlatformAngle, frameBand, getPieceDefinition, layoutOf, resolvePiecePath, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { parseHitKey } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { openHits } from '@/modules/building';
@@ -8,31 +8,31 @@ import { openHits } from '@/modules/building';
 // The step loop builds a run one hit at a time: place a piece at a dot, rotate it, accept and move on.
 
 /** The first open hit per lane, which the canvas emphasizes as the next step */
-export function nextOpenHitPerLane(result: TSimulationResult): Map<string, THitResult> {
+export function nextOpenHitPerMarble(result: TSimulationResult): Map<string, THitResult> {
 	const next = new Map<string, THitResult>();
-	for (const hit of openHits(result)) if (!next.has(hit.laneId)) next.set(hit.laneId, hit);
+	for (const hit of openHits(result)) if (!next.has(hit.marbleId)) next.set(hit.marbleId, hit);
 	return next;
 }
 
 export interface TLinkedPiece {
 	entity: TEntity;
-	laneId: string;
+	marbleId: string;
 	hitId: string;
 	angle: number;
 	time: number;
 }
 
 /** Hit-linked pieces with their hit time, in time order */
-export function linkedPieces(project: TProject, laneId?: string): TLinkedPiece[] {
+export function linkedPieces(project: TProject, marbleId?: string): TLinkedPiece[] {
 	const times = new Map<string, number>();
 	for (const lane of project.music.lanes) for (const hit of lane.hits) times.set(`${lane.id}/${hit.id}`, hit.time);
 	const pieces: TLinkedPiece[] = [];
 	for (const entity of project.entities) {
 		const link = entity.components.hitLink;
-		if (link == null || entity.components.piece == null || (laneId != null && link.laneId !== laneId)) continue;
-		const time = times.get(`${link.laneId}/${link.hitId}`);
+		if (link == null || entity.components.piece == null || (marbleId != null && link.marbleId !== marbleId)) continue;
+		const time = times.get(`${link.marbleId}/${link.hitId}`);
 		if (time == null) continue;
-		pieces.push({ entity, laneId: link.laneId, hitId: link.hitId, angle: link.angle, time });
+		pieces.push({ entity, marbleId: link.marbleId, hitId: link.hitId, angle: link.angle, time });
 	}
 	return pieces.sort((a, b) => a.time - b.time);
 }
@@ -47,23 +47,23 @@ export function findStepTarget(project: TProject, result: TSimulationResult, sel
 		const key = selection[0] ?? '';
 		const hitKey = parseHitKey(key);
 		if (hitKey != null) {
-			const focused = open.find((hit) => hit.laneId === hitKey.laneId && hit.hitId === hitKey.hitId);
+			const focused = open.find((hit) => hit.marbleId === hitKey.marbleId && hit.hitId === hitKey.hitId);
 			if (focused != null) return focused;
-			const time = result.hits.find((hit) => hit.laneId === hitKey.laneId && hit.hitId === hitKey.hitId)?.targetTime;
+			const time = result.hits.find((hit) => hit.marbleId === hitKey.marbleId && hit.hitId === hitKey.hitId)?.targetTime;
 			// A Backing note belongs to no marble, so the next step is the first open dot of any marble
 			if (time == null) return open[0] ?? null;
 			// Past the last open note the next step is still that marble's earliest open note
-			return open.find((hit) => hit.laneId === hitKey.laneId && hit.targetTime > time) ?? open.find((hit) => hit.laneId === hitKey.laneId) ?? null;
+			return open.find((hit) => hit.marbleId === hitKey.marbleId && hit.targetTime > time) ?? open.find((hit) => hit.marbleId === hitKey.marbleId) ?? null;
 		}
 		const piece = linkedPieces(project).find((item) => item.entity.id === key);
-		if (piece != null) return open.find((hit) => hit.laneId === piece.laneId && hit.targetTime > piece.time) ?? open.find((hit) => hit.laneId === piece.laneId) ?? null;
+		if (piece != null) return open.find((hit) => hit.marbleId === piece.marbleId && hit.targetTime > piece.time) ?? open.find((hit) => hit.marbleId === piece.marbleId) ?? null;
 	}
 	return open[0] ?? null;
 }
 
 /** The latest piece of the lane placed before `time`, which Repeat and Mirror copy */
-export function previousPiece(project: TProject, laneId: string, time: number): TLinkedPiece | null {
-	const before = linkedPieces(project, laneId).filter((piece) => piece.time < time);
+export function previousPiece(project: TProject, marbleId: string, time: number): TLinkedPiece | null {
+	const before = linkedPieces(project, marbleId).filter((piece) => piece.time < time);
 	return before[before.length - 1] ?? null;
 }
 
@@ -71,10 +71,10 @@ export type TStepMode = 'default' | 'repeat' | 'mirror';
 
 /** Angle for a new piece at `hit`: the default lean, or the previous piece's angle repeated or mirrored */
 export function stepAngle(project: TProject, hit: THitResult, mode: TStepMode): number {
-	const previous = mode === 'default' ? null : previousPiece(project, hit.laneId, hit.targetTime);
+	const previous = mode === 'default' ? null : previousPiece(project, hit.marbleId, hit.targetTime);
 	if (previous != null) return mode === 'mirror' ? -previous.angle : previous.angle;
 	const dot = hit.dot ?? { x: 0, y: 0 };
-	return defaultPlatformAngle(dot, hit.velocity, frameBand(project, hit.laneId).centerX);
+	return defaultPlatformAngle(dot, hit.velocity, frameBand(project, hit.marbleId).centerX);
 }
 
 /**
@@ -84,10 +84,10 @@ export function stepAngle(project: TProject, hit: THitResult, mode: TStepMode): 
 export function pieceForHit(project: TProject, hit: THitResult, type: string, mode: TStepMode = 'default', id?: string): TEntity {
 	const kind = layoutOf(type);
 	if (kind === 'path' || kind === 'tube') {
-		const entity = createLinkedPiece(type, hit.laneId, hit.hitId, 0, { entities: project.entities, id });
+		const entity = createLinkedPiece(type, hit.marbleId, hit.hitId, 0, { entities: project.entities, id });
 		return withRunDirection(project, entity, hit.dot, hit.velocity);
 	}
-	return createLinkedPiece(type, hit.laneId, hit.hitId, stepAngle(project, hit, mode), { entities: project.entities, id });
+	return createLinkedPiece(type, hit.marbleId, hit.hitId, stepAngle(project, hit, mode), { entities: project.entities, id });
 }
 
 /**
@@ -97,23 +97,23 @@ export function pieceForHit(project: TProject, hit: THitResult, type: string, mo
  */
 export function followerAt(
 	project: TProject,
-	laneId: string,
+	marbleId: string,
 	type: string,
 	time: number,
 	position: TVec2,
 	velocity: TVec2 | null
 ): TResult<TEntity, Error> {
-	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
 	const hit = [...(lane?.hits ?? [])].reverse().find((item) => item.time < time - 0.005);
 	if (hit == null) return Err(new Error("A piece can follow this marble only after its first hit. Drop it lower on the marble's fall."));
 	const delay = Math.round((time - hit.time) * 1000) / 1000;
 	const maxDelay = getPieceDefinition(type)?.params['entryDelay']?.max ?? 2;
 	if (delay > maxDelay) return Err(new Error(`This spot is ${delay.toFixed(1)} s after the last hit. Drop the piece within ${maxDelay} s of a hit.`));
-	const entity = createLinkedPiece(type, laneId, hit.id, 0, { entities: project.entities });
+	const entity = createLinkedPiece(type, marbleId, hit.id, 0, { entities: project.entities });
 	const piece = entity.components.piece;
 	if (piece != null) piece.params = { ...piece.params, entryDelay: delay };
 	const kind = layoutOf(type);
-	if (kind === 'catcher') return Ok(asLaneBowl(project, entity, velocity));
+	if (kind === 'catcher') return Ok(asMarbleBowl(project, entity, velocity));
 	return Ok(kind === 'path' || kind === 'tube' ? withRunDirection(project, entity, position, velocity) : entity);
 }
 
@@ -121,9 +121,9 @@ export function followerAt(
  * A Bowl for the marble of its anchor: its center on the side the marble moves toward, and the marble's own Bowl
  * kept, moved to the new spot, since a marble has at most one
  */
-export function asLaneBowl(project: TProject, entity: TEntity, velocity: TVec2 | null): TEntity {
-	const laneId = entity.components.hitLink?.laneId;
-	const existing = laneId != null ? bowlOfLane(project, laneId) : undefined;
+export function asMarbleBowl(project: TProject, entity: TEntity, velocity: TVec2 | null): TEntity {
+	const marbleId = entity.components.hitLink?.marbleId;
+	const existing = marbleId != null ? bowlOfMarble(project, marbleId) : undefined;
 	const piece = entity.components.piece;
 	const params: Record<string, number> = { ...(existing?.components.piece?.params ?? {}), ...piece?.params, mirror: (velocity?.x ?? 0) < 0 ? 1 : 0 };
 	const style = existing?.components.piece?.params['style'];
@@ -165,8 +165,8 @@ export function commitAtHit(cx: StudioCx, hit: THitResult, entity: TEntity): boo
 	if (project == null || !cx.execute([{ type: 'upsertEntity', entity }])) return false;
 	cx.$selection.set([entity.id]);
 	if (!cx.$playing.get()) cx.$playhead.set(hit.targetTime);
-	const pitch = project.music.lanes.find((lane) => lane.id === hit.laneId)?.hits.find((item) => item.id === hit.hitId)?.pitch;
-	cx.audition(hit.laneId, pitch);
+	const pitch = project.music.lanes.find((lane) => lane.id === hit.marbleId)?.hits.find((item) => item.id === hit.hitId)?.pitch;
+	cx.audition(hit.marbleId, pitch);
 	return true;
 }
 

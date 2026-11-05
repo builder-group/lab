@@ -22,15 +22,15 @@ export function handNotes(cx: StudioCx, keys: string[], target: string | 'new'):
 	const hitIds = notes.map((item) => item.hit.id);
 	const result = cx.simulation.$result.get();
 	const created = target === 'new' ? newMarbleCommands(project, Math.min(...notes.map((item) => item.hit.time))) : null;
-	const laneId = created?.laneId ?? target;
-	const assigned = assignNotesCommands(project, result, hitIds, laneId);
+	const marbleId = created?.marbleId ?? target;
+	const assigned = assignNotesCommands(project, result, hitIds, marbleId);
 	if (!assigned.length) return false;
 	if (!cx.execute([...(created?.commands ?? []), ...assigned])) return false;
-	cx.$selection.set(hitIds.map((id) => toHitKey(laneId, id)));
+	cx.$selection.set(hitIds.map((id) => toHitKey(marbleId, id)));
 	const removed = assigned.flatMap((command) => (command.type === 'removeEntities' ? command.entityIds : []));
-	const moved = assigned.filter((command) => command.type === 'upsertEntity' && command.entity.components.hitLink?.laneId === laneId).length;
+	const moved = assigned.filter((command) => command.type === 'upsertEntity' && command.entity.components.hitLink?.marbleId === marbleId).length;
 	const name = (id: string): string => project.entities.find((entity) => entity.id === id)?.name ?? 'Platform';
-	const owner = project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the new marble';
+	const owner = project.music.lanes.find((lane) => lane.id === marbleId)?.name ?? 'the new marble';
 	// Each notice offers Undo; when the edit breaks later hits, Track adds Fix to it once the run is simulated
 	if (removed.length === 1) cx.notifyEdit(`${name(removed[0] ?? '')} removed: Backing needs no platform`);
 	else if (removed.length > 1) cx.notifyEdit(`${removed.length} platforms removed: Backing needs no platform`);
@@ -73,7 +73,7 @@ export function deleteHitCommands(project: TProject, result: TSimulationResult |
 	const hitIds = notes.map((item) => item.hit.id).filter((id) => keep?.has(id) !== true);
 	if (!notes.length) return [];
 	const onMarbles = notes.filter((item) => item.ownerId !== BACKING_ID).map((item) => item.hit.id);
-	return [...(onMarbles.length ? assignNotesCommands(project, result, onMarbles, BACKING_ID) : []), { type: 'removeHits', laneId: BACKING_ID, hitIds }];
+	return [...(onMarbles.length ? assignNotesCommands(project, result, onMarbles, BACKING_ID) : []), { type: 'removeHits', marbleId: BACKING_ID, hitIds }];
 }
 
 /** Context menu entries that hand the selected notes over: each marble with its number key, New Marble, Backing */

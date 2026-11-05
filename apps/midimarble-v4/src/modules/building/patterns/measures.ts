@@ -23,9 +23,9 @@ export interface TPatternMeasures {
 }
 
 /** Measures one lane's hits, all of them or those given */
-export function measurePattern(project: TProject, result: TSimulationResult, laneId: string, hitIds?: readonly string[]): TPatternMeasures {
+export function measurePattern(project: TProject, result: TSimulationResult, marbleId: string, hitIds?: readonly string[]): TPatternMeasures {
 	const wanted = hitIds != null ? new Set(hitIds) : null;
-	const hits = result.hits.filter((hit) => hit.laneId === laneId && (wanted == null || wanted.has(hit.hitId)));
+	const hits = result.hits.filter((hit) => hit.marbleId === marbleId && (wanted == null || wanted.has(hit.hitId)));
 	const pieces = new Map(result.pieces.map((piece) => [piece.entityId, piece]));
 	const rows = hits.map((hit) => {
 		const piece = hit.pieceEntityId != null ? pieces.get(hit.pieceEntityId) : undefined;

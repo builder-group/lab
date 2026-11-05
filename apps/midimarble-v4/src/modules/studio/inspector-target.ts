@@ -52,8 +52,8 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 	if (shot != null) return { kind: 'shot', id: shot.id };
 
 	const marble = project.entities.find((entity) => entity.id === selection[0] && entity.components.marble != null);
-	const laneId = marble?.components.marble?.laneId;
-	if (marble != null && laneId != null && project.music.lanes.some((lane) => lane.id === laneId)) return { kind: 'marble', entityId: marble.id, laneId };
+	const marbleId = marble?.components.marble?.marbleId;
+	if (marble != null && marbleId != null && project.music.lanes.some((lane) => lane.id === marbleId)) return { kind: 'marble', entityId: marble.id, marbleId };
 
 	const lightIds = selection.flatMap((key) => parseLightKey(key) ?? []);
 	if (lightIds.length > 0) {
@@ -79,11 +79,11 @@ export type TInspectorTarget =
 	| { kind: 'pieces'; ids: string[] }
 	| { kind: 'hits'; keys: string[] }
 	| { kind: 'group'; id: string }
-	| { kind: 'patternRange'; laneId: string; from: number; to: number }
+	| { kind: 'patternRange'; marbleId: string; from: number; to: number }
 	| { kind: 'title'; id: string }
 	| { kind: 'titles'; ids: string[] }
 	| { kind: 'shot'; id: string }
-	| { kind: 'marble'; entityId: string; laneId: string }
+	| { kind: 'marble'; entityId: string; marbleId: string }
 	| { kind: 'light'; id: string }
 	| { kind: 'decor'; id: string }
 	| { kind: 'decorItems'; ids: string[] }

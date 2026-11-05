@@ -6,22 +6,22 @@ import { pickTrack, type TScreenTrack, fitTargets, nearestMoment, struckAt, plac
 const viewport = { width: 800, height: 600 };
 
 describe('fitTargets', () => {
-	function openHit(laneId: string, time: number, y: number, pieceEntityId: string | null = null): THitResult {
-		return { laneId, hitId: `h${time}`, targetTime: time, pieceEntityId, dot: { x: 0, y }, velocity: null, actualTime: null, error: null, status: pieceEntityId == null ? 'open' : 'onTime' };
+	function openHit(marbleId: string, time: number, y: number, pieceEntityId: string | null = null): THitResult {
+		return { marbleId, hitId: `h${time}`, targetTime: time, pieceEntityId, dot: { x: 0, y }, velocity: null, actualTime: null, error: null, status: pieceEntityId == null ? 'open' : 'onTime' };
 	}
 
 	it('frames tapped hits only down to the first open dot, not the free fall after it', () => {
 		const project = createProject();
-		const laneId = project.music.lanes[0]?.id ?? '';
-		const result = { hits: [openHit(laneId, 0.6, -0.3), openHit(laneId, 1.1, -2.2), openHit(laneId, 2.5, -14)], pieces: [], marbles: [] } as unknown as TSimulationResult;
+		const marbleId = project.music.lanes[0]?.id ?? '';
+		const result = { hits: [openHit(marbleId, 0.6, -0.3), openHit(marbleId, 1.1, -2.2), openHit(marbleId, 2.5, -14)], pieces: [], marbles: [] } as unknown as TSimulationResult;
 		const all = fitTargets(project, result);
 		expect(all.minY).toBeCloseTo(-0.3);
 	});
 
 	it('frames every placed hit and the next open dot after the last one', () => {
 		const project = createProject();
-		const laneId = project.music.lanes[0]?.id ?? '';
-		const hits = [openHit(laneId, 0.5, -0.2, 'p1'), openHit(laneId, 1, -0.5), openHit(laneId, 1.5, -0.8, 'p3'), openHit(laneId, 2, -1.1), openHit(laneId, 3, -6)];
+		const marbleId = project.music.lanes[0]?.id ?? '';
+		const hits = [openHit(marbleId, 0.5, -0.2, 'p1'), openHit(marbleId, 1, -0.5), openHit(marbleId, 1.5, -0.8, 'p3'), openHit(marbleId, 2, -1.1), openHit(marbleId, 3, -6)];
 		const all = fitTargets(project, { hits, pieces: [], marbles: [] } as unknown as TSimulationResult);
 		expect(all.minY).toBeCloseTo(-1.1);
 	});
@@ -29,8 +29,8 @@ describe('fitTargets', () => {
 	it('frames the release high above the pieces and dots, not the fall to the film end', () => {
 		// The review's tapped project: 6 placed hits ending at 0:03.6 of a 0:12 film, released 0.9 m above the first
 		const project = createProject();
-		const laneId = project.music.lanes[0]?.id ?? '';
-		const hits = [0.6, 1.2, 1.8, 2.4, 3, 3.6].map((time, index) => openHit(laneId, time, -0.28 - index * 0.19, `p${index}`));
+		const marbleId = project.music.lanes[0]?.id ?? '';
+		const hits = [0.6, 1.2, 1.8, 2.4, 3, 3.6].map((time, index) => openHit(marbleId, time, -0.28 - index * 0.19, `p${index}`));
 		const all = fitTargets(project, { hits, pieces: [], marbles: [] } as unknown as TSimulationResult);
 
 		expect(all.maxY).toBeCloseTo(0.6);
@@ -39,7 +39,7 @@ describe('fitTargets', () => {
 });
 
 describe('pickTrack', () => {
-	const track: TScreenTrack = { laneId: 'lane', points: [{ x: 100, y: 0 }, { x: 100, y: 200 }], times: [0, 1] };
+	const track: TScreenTrack = { marbleId: 'lane', points: [{ x: 100, y: 0 }, { x: 100, y: 200 }], times: [0, 1] };
 
 	it('picks a trajectory about 12 px away, with the time along it', () => {
 		const near = pickTrack({ x: 111, y: 50 }, [track]);
@@ -80,8 +80,8 @@ describe('placeBar', () => {
 
 describe('struckAt', () => {
 	it('names the dots struck at a time and their pieces, for every marble of a chord', () => {
-		const hit = (laneId: string, time: number, pieceEntityId: string | null): THitResult =>
-			({ laneId, hitId: `h${time}`, targetTime: time, pieceEntityId, dot: { x: 0, y: -time }, velocity: null, actualTime: null, error: null, status: 'onTime' }) as THitResult;
+		const hit = (marbleId: string, time: number, pieceEntityId: string | null): THitResult =>
+			({ marbleId, hitId: `h${time}`, targetTime: time, pieceEntityId, dot: { x: 0, y: -time }, velocity: null, actualTime: null, error: null, status: 'onTime' }) as THitResult;
 		const hits = [hit('a', 1, 'p1'), hit('b', 1, null), hit('a', 1.5, 'p2')];
 
 		expect(struckAt(hits, 1)).toEqual(['hit:a:h1', 'p1', 'hit:b:h1']);

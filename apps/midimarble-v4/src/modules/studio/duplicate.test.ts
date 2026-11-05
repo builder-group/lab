@@ -35,7 +35,7 @@ describe('duplicatePieces', () => {
 	});
 
 	it('should skip a tied piece without a run to read its pose from', () => {
-		const tied = { ...freePlatform('a', 'Platform 1', 0), components: { ...freePlatform('a', 'Platform 1', 0).components, hitLink: { laneId: 'l', hitId: 'h', angle: 0, contactAt: 0.5 } } } as TEntity;
+		const tied = { ...freePlatform('a', 'Platform 1', 0), components: { ...freePlatform('a', 'Platform 1', 0).components, hitLink: { marbleId: 'l', hitId: 'h', angle: 0, contactAt: 0.5 } } } as TEntity;
 		const project = { ...createProject(), entities: [tied] };
 		expect(duplicatePieces(project, null, ['a']).commands).toEqual([]);
 	});

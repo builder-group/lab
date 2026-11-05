@@ -7,7 +7,7 @@ import { unreachableActions, GroupInspector, PatternRangeInspector, PatternTiles
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/building';
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP, addedLights } from '@/modules/scene';
-import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts, BACKING_COLOR } from '@/modules/music';
+import { DEFAULT_HIT_VELOCITY, findMarbleConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts, BACKING_COLOR } from '@/modules/music';
 import { BACKING_ID, type THit, type TEntity, type TLane, type TProject, type TVec2, formatTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
@@ -66,12 +66,12 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return shot == null ? null : <ShotInspector cx={cx} project={project} shot={shot} />;
 		}
 		case 'marble': {
-			const lane = project.music.lanes.find((item) => item.id === target.laneId);
+			const lane = project.music.lanes.find((item) => item.id === target.marbleId);
 			const marble = project.entities.find((item) => item.id === target.entityId);
 			if (lane == null || marble == null) return null;
 			return (
 				<>
-					<LaneInspector cx={cx} project={project} lane={lane} marble={marble} isFilm={isFilm} />
+					<MarbleInspector cx={cx} project={project} lane={lane} marble={marble} isFilm={isFilm} />
 					{isFilm ? <MarbleSkin cx={cx} project={project} marble={marble} /> : null}
 				</>
 			);
@@ -112,9 +112,9 @@ interface TInspectorProps {
 
 // MARK: - Marble
 
-const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; marble: TEntity; isFilm: boolean }> = (props) => {
+const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; marble: TEntity; isFilm: boolean }> = (props) => {
 	const { cx, project, lane, marble, isFilm } = props;
-	const conflicts = findLaneConflicts(lane).size;
+	const conflicts = findMarbleConflicts(lane).size;
 
 	const release = marble.components.release;
 	const releaseProject = (patch: Partial<TVec2>): TProject | null =>
@@ -171,7 +171,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const owners = canMakeBacking(project) || project.music.backing.length > 0 ? [...project.music.lanes, backing] : project.music.lanes;
 	const hits = hitKeys.flatMap((key) => {
 		const parsed = parseHitKey(key);
-		const lane = owners.find((item) => item.id === parsed?.laneId);
+		const lane = owners.find((item) => item.id === parsed?.marbleId);
 		const hit = lane?.hits.find((item) => item.id === parsed?.hitId);
 		return lane == null || hit == null ? [] : [{ lane, hit }];
 	});
@@ -216,9 +216,9 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const isBacking = lane.id === BACKING_ID;
 	const index = lane.hits.indexOf(hit);
 	const piece = project.entities.find(
-		(entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id && entity.components.hitLink.hitId === hit.id
+		(entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id && entity.components.hitLink.hitId === hit.id
 	);
-	const hitResult = result?.hits.find((item) => item.laneId === lane.id && item.hitId === hit.id);
+	const hitResult = result?.hits.find((item) => item.marbleId === lane.id && item.hitId === hit.id);
 	// An open hit no platform can play yet says why (Too Soon, Out of Reach) and offers the fixes in Played By
 	const reach = !isBacking && piece == null && hitResult?.status === 'open' ? hitReach(project, result, hitResult) : null;
 	const unreachable = reach != null && hitResult != null && isUnreachable(reach) ? unreachableStatus(project, result, hitResult) : null;
@@ -233,7 +233,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const openHit = hitResult?.status === 'open' && hitResult.dot != null ? hitResult : null;
 
 	function setHit(patch: Partial<THit>): void {
-		cx.execute([{ type: 'upsertHits', laneId: lane.id, hits: [{ ...hit, ...patch }] }]);
+		cx.execute([{ type: 'upsertHits', marbleId: lane.id, hits: [{ ...hit, ...patch }] }]);
 	}
 
 	function setPitch(pitch: number | null): void {

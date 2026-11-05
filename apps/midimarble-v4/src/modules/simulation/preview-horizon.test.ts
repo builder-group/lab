@@ -8,7 +8,7 @@ const HORIZON = 2;
 function tilted(project: TProject, time: number, by: number): TProject {
 	const linked = project.entities.flatMap((entity) => {
 		const link = entity.components.hitLink;
-		const hit = project.music.lanes.find((lane) => lane.id === link?.laneId)?.hits.find((item) => item.id === link?.hitId);
+		const hit = project.music.lanes.find((lane) => lane.id === link?.marbleId)?.hits.find((item) => item.id === link?.hitId);
 		return link?.angle != null && entity.components.piece?.type === 'platform' && hit != null ? [{ entity, link, time: hit.time }] : [];
 	});
 	const target = linked.filter((item) => item.time >= time).sort((a, b) => a.time - b.time)[0];

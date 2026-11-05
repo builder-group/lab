@@ -1,4 +1,4 @@
-import { problemPieces, lanesWithoutBowl, canMakeBacking } from '@/modules/building';
+import { problemPieces, marblesWithoutBowl, canMakeBacking } from '@/modules/building';
 import { onNextFrame } from './next-frame';
 import { fitsSong, lastHitTime } from '@/modules/music';
 import { followKey, toolKeys, tunnelPathKey, type TTrackTool, removeSelectedHits, canGroup, canUngroup, groupSelected, selectedPattern, ungroupSelected, selectedPieceIds, armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu, handNotes } from '@/modules/track';
@@ -252,11 +252,11 @@ function backingKeys(cx: StudioCx): string[] {
 	const selection = cx.$selection.get();
 	const hits = selection.filter((key) => {
 		const parsed = parseHitKey(key);
-		return parsed != null && parsed.laneId !== BACKING_ID;
+		return parsed != null && parsed.marbleId !== BACKING_ID;
 	});
 	const played = project.entities.flatMap((entity) => {
 		const link = entity.components.hitLink;
-		return selection.includes(entity.id) && link != null && soundsHit(entity.components.piece?.type ?? '', link) ? [toHitKey(link.laneId, link.hitId)] : [];
+		return selection.includes(entity.id) && link != null && soundsHit(entity.components.piece?.type ?? '', link) ? [toHitKey(link.marbleId, link.hitId)] : [];
 	});
 	return [...new Set([...hits, ...played])];
 }
@@ -273,24 +273,24 @@ function selectedShotIds(cx: StudioCx): string[] {
  * The marble Add Bowl works on: the selected marble's (or the selected piece's), else the first marble that plays
  * last and has no Bowl yet; null when there is none
  */
-function bowlLane(cx: StudioCx): string | null {
+function bowlMarble(cx: StudioCx): string | null {
 	const project = cx.project;
 	if (project == null) return null;
 	const selected = cx.$selection.get().flatMap((id) => {
 		const entity = project.entities.find((item) => item.id === id);
-		const laneId = entity?.components.marble?.laneId ?? entity?.components.hitLink?.laneId;
-		return laneId != null ? [laneId] : [];
+		const marbleId = entity?.components.marble?.marbleId ?? entity?.components.hitLink?.marbleId;
+		return marbleId != null ? [marbleId] : [];
 	});
 	const lane = selected[0];
 	if (lane != null && project.music.lanes.some((item) => item.id === lane && item.hits.length > 0)) return lane;
-	return lanesWithoutBowl(project)[0] ?? null;
+	return marblesWithoutBowl(project)[0] ?? null;
 }
 
 /** The marble Add Suggested Hits works on: the selected one, else the first without hits, else the first */
-function suggestionLane(cx: StudioCx): TLane | null {
+function suggestionMarble(cx: StudioCx): TLane | null {
 	const project = cx.project;
 	if (project == null) return null;
-	const selected = project.entities.find((entity) => entity.id === cx.$selection.get()[0])?.components.marble?.laneId;
+	const selected = project.entities.find((entity) => entity.id === cx.$selection.get()[0])?.components.marble?.marbleId;
 	const lanes = project.music.lanes;
 	return lanes.find((lane) => lane.id === selected) ?? lanes.find((lane) => !lane.hits.length) ?? lanes[0] ?? null;
 }
@@ -534,10 +534,10 @@ export const commands: readonly TCommand[] = [
 		title: 'Add Bowl',
 		section: 'Track',
 		keywords: 'bowl end catch collect cup last note ending tail',
-		isEnabled: (cx) => trackCx(cx) != null && bowlLane(cx) != null,
+		isEnabled: (cx) => trackCx(cx) != null && bowlMarble(cx) != null,
 		run: (cx) => {
-			const laneId = bowlLane(cx);
-			if (laneId != null) void cx.assist.addBowl(laneId);
+			const marbleId = bowlMarble(cx);
+			if (marbleId != null) void cx.assist.addBowl(marbleId);
 		}
 	},
 	{
@@ -704,19 +704,19 @@ export const commands: readonly TCommand[] = [
 		id: 'marble.addSuggestedHits',
 		title: 'Add Suggested Hits',
 		currentTitle: (cx) => {
-			const lane = suggestionLane(cx);
+			const lane = suggestionMarble(cx);
 			const count = lane != null ? suggestedHits(cx, lane).length : 0;
 			return count > 0 ? suggestedHitsLabel(count) : 'Add Suggested Hits';
 		},
 		section: 'Marble',
 		keywords: 'beats onsets recording audio tap detect found',
 		isEnabled: (cx) => {
-			const lane = suggestionLane(cx);
+			const lane = suggestionMarble(cx);
 			return lane != null && suggestedHits(cx, lane).length > 0;
 		},
 		whyDisabled: 'It needs a recording with beats the marble does not play yet',
 		run: (cx) => {
-			const lane = suggestionLane(cx);
+			const lane = suggestionMarble(cx);
 			if (lane != null) addSuggestedHits(cx, lane);
 		}
 	},

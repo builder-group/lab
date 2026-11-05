@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
-import { createImportCommands, DEFAULT_PROJECT_END, filmTail, BOWL_TAIL, BOWL_TAIL_MAX, BOWL_TAIL_MIN, bowlTail, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
+import { createImportCommands, DEFAULT_PROJECT_END, filmTail, BOWL_TAIL, BOWL_TAIL_MAX, BOWL_TAIL_MIN, bowlTail, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingMarbles, SONG_TAIL } from './marble-commands';
 import type { TMidiNote } from './midi';
 
 function note(time: number, pitch: number): TMidiNote {
@@ -64,27 +64,27 @@ describe('bowlTail', () => {
 });
 
 describe('filmTail', () => {
-	function withLanes(times: number[][], bowls: string[] = [], end = 4): TProject {
+	function withMarbles(times: number[][], bowls: string[] = [], end = 4): TProject {
 		const project = createProject({ id: 'bowl', title: 'Bowl' });
 		const lanes = times.map((hits, index) => ({ ...(project.music.lanes[0] as TProject['music']['lanes'][number]), id: `lane-${index}`, hits: hits.map((time, hit) => ({ id: `h${index}-${hit}`, time })) }));
-		const entities = bowls.map((laneId) => ({
-			id: `bowl-${laneId}`,
-			components: { piece: { type: 'bowl', params: {} }, hitLink: { laneId, hitId: 'h0-0', angle: 0, contactAt: 0.5, anchored: true } }
+		const entities = bowls.map((marbleId) => ({
+			id: `bowl-${marbleId}`,
+			components: { piece: { type: 'bowl', params: {} }, hitLink: { marbleId, hitId: 'h0-0', angle: 0, contactAt: 0.5, anchored: true } }
 		}));
 		return { ...project, end, music: { ...project.music, lanes }, entities: [...project.entities, ...entities] };
 	}
 
 	it('runs the Bowl tail only when every marble that plays last has a Bowl', () => {
-		expect(lastPlayingLanes(withLanes([[1, 3], [2.5]]))).toEqual(['lane-0', 'lane-1']);
-		expect(lastPlayingLanes(withLanes([[1, 6], [2.5]]))).toEqual(['lane-0']);
-		expect(filmTail(withLanes([[1, 3], [2.5]], ['lane-0']))).toBe(SONG_TAIL);
-		expect(filmTail(withLanes([[1, 3], [2.5]], ['lane-0', 'lane-1']))).toBe(BOWL_TAIL);
-		expect(filmTail(withLanes([[1, 6], [2.5]], ['lane-0']))).toBe(BOWL_TAIL);
+		expect(lastPlayingMarbles(withMarbles([[1, 3], [2.5]]))).toEqual(['lane-0', 'lane-1']);
+		expect(lastPlayingMarbles(withMarbles([[1, 6], [2.5]]))).toEqual(['lane-0']);
+		expect(filmTail(withMarbles([[1, 3], [2.5]], ['lane-0']))).toBe(SONG_TAIL);
+		expect(filmTail(withMarbles([[1, 3], [2.5]], ['lane-0', 'lane-1']))).toBe(BOWL_TAIL);
+		expect(filmTail(withMarbles([[1, 6], [2.5]], ['lane-0']))).toBe(BOWL_TAIL);
 	});
 
 	it('counts a measured Bowl tail as following the song', () => {
-		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.8))).toBe(true);
-		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.7))).toBe(true);
-		expect(isAutoEnd(withLanes([[1, 3.6]], [], 4.7))).toBe(false);
+		expect(isAutoEnd(withMarbles([[1, 3.6]], ['lane-0'], 4.8))).toBe(true);
+		expect(isAutoEnd(withMarbles([[1, 3.6]], ['lane-0'], 4.7))).toBe(true);
+		expect(isAutoEnd(withMarbles([[1, 3.6]], [], 4.7))).toBe(false);
 	});
 });

@@ -12,7 +12,7 @@ export const HitFlashLayer: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const [flashes, setFlashes] = React.useState<(THitFlash & { key: string })[]>([]);
 	useFeatureState(trackCx.$camera);
 	useListener(trackCx.studio.$hitFlash, ({ value }) => {
-		const added = value.filter((flash) => flash.dot != null).map((flash) => ({ ...flash, key: `${flash.laneId}:${flash.hitId}:${flash.time}` }));
+		const added = value.filter((flash) => flash.dot != null).map((flash) => ({ ...flash, key: `${flash.marbleId}:${flash.hitId}:${flash.time}` }));
 		if (added.length > 0) setFlashes((current) => [...current.filter((flash) => !added.some((item) => item.key === flash.key)), ...added]);
 	});
 	return (

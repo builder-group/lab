@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from './export-preflight';
-import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '@/modules/music';
+import { alignNotes, createImportCommands, parseMidiFile, proposeMarbles } from '@/modules/music';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { createSimulator, extraStrikes, bowlOfLane, touchingPairs, type TSimulator } from '@/modules/simulation';
+import { createSimulator, extraStrikes, bowlOfMarble, touchingPairs, type TSimulator } from '@/modules/simulation';
 import { buildTrack, localBuildDeps, type TBuildOutcome, type TBuildProgress } from './build-track';
 
 const MINUTES = 60_000;
@@ -32,7 +32,7 @@ function bareFixture(name: string): TProject {
 function importedJingle(): TProject {
 	const [isMidiOk, midiErr, midi] = parseMidiFile(readFileSync(new URL('../../../fixtures/jingle-bells.mid', import.meta.url)));
 	if (!isMidiOk) throw midiErr;
-	const proposal = proposeLanes(alignNotes(midi.tracks.flatMap((track) => track.notes), 1), { strategy: 'split', maxLanes: 4 });
+	const proposal = proposeMarbles(alignNotes(midi.tracks.flatMap((track) => track.notes), 1), { strategy: 'split', maxMarbles: 4 });
 	const project = createProject({ id: 'jingle', title: 'Jingle Bells' });
 	const [isOk, error, applied] = applyProjectCommands(project, createImportCommands(project, { lanes: proposal.lanes, backing: proposal.backing as never }));
 	if (!isOk) throw error;
@@ -70,7 +70,7 @@ describe('buildTrack function', () => {
 		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(115);
 		expect(outcome.attention).toEqual([]);
 		expect(problemsBesidesSong(outcome.project, outcome)).toEqual([]);
-		for (const lane of outcome.project.music.lanes) expect(bowlOfLane(outcome.project, lane.id)).not.toBeNull();
+		for (const lane of outcome.project.music.lanes) expect(bowlOfMarble(outcome.project, lane.id)).not.toBeNull();
 		expect(progress.at(-1)).toMatchObject({ done: 115, total: 115, fraction: 1 });
 		expect(problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS)).label).toBe('115 of 115 hits on time');
 		// How it looks: nothing touches on the wall, each platform is struck once

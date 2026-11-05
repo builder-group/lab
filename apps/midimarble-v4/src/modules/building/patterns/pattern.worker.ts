@@ -44,7 +44,7 @@ scope.addEventListener('message', (event) => {
 			const { project: after, ...outcome } = runGroupChange(project, change, { sim, isPreview, onProgress: (progress) => scope.postMessage({ id, kind: 'progress', progress }) });
 			const made = new Set(outcome.entities.map((entity) => entity.id));
 			const pieces = isPreview && made.size > 0 ? sim.simulate({ ...after, end: change.to + 0.5 }).pieces.filter((piece) => made.has(piece.entityId)) : [];
-			const check = isChecked ? checkGroupChange(project, { ...outcome, project: after }, change.laneId, sim) : null;
+			const check = isChecked ? checkGroupChange(project, { ...outcome, project: after }, change.marbleId, sim) : null;
 			const checked = check != null ? { commands: check.commands, groupId: check.refusal != null ? null : outcome.groupId, refusal: check.refusal, movedAfter: check.movedAfter } : { refusal: null, movedAfter: 0 };
 			scope.postMessage({ id, kind: 'done', answer: { ...outcome, pieces, ...checked } });
 		})

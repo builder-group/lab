@@ -17,13 +17,13 @@ export const DEFAULT_BACKING_INSTRUMENT = 0;
  * Renders marble lanes as short strikes, one channel each, and Backing on its own channel with the notes' own
  * lengths
  */
-export function renderLanes(lanes: TLane[], options: TRenderLanesOptions): TStereoAudio {
+export function renderMarbles(lanes: TLane[], options: TRenderMarblesOptions): TStereoAudio {
 	const { sampleRate, duration, bank, backing } = options;
 	const length = Math.max(1, Math.ceil(duration * sampleRate));
 	const left = new Float32Array(length);
 	const right = new Float32Array(length);
-	const backingChannel = laneChannel(lanes.length);
-	const events = [...createLaneEvents(lanes, sampleRate), ...(backing == null ? [] : createBackingEvents(backing.hits, backingChannel, sampleRate))].sort(compareEvents);
+	const backingChannel = marbleChannel(lanes.length);
+	const events = [...createMarbleEvents(lanes, sampleRate), ...(backing == null ? [] : createBackingEvents(backing.hits, backingChannel, sampleRate))].sort(compareEvents);
 	if (!events.length) return { sampleRate, left, right };
 
 	SpessaLog.setLogLevel(false, false, false);
@@ -33,7 +33,7 @@ export function renderLanes(lanes: TLane[], options: TRenderLanesOptions): TSter
 	});
 	synth.soundBankManager.addSoundBank(bank, 'marble-instruments');
 	for (const [index, lane] of lanes.entries()) {
-		const channel = laneChannel(index);
+		const channel = marbleChannel(index);
 		while (synth.midiChannels.length <= channel) synth.createMIDIChannel();
 		synth.midiChannels[channel]?.setDrums(false);
 		synth.programChange(channel, lane.instrument);
@@ -64,7 +64,7 @@ export function renderLanes(lanes: TLane[], options: TRenderLanesOptions): TSter
 	return { sampleRate, left, right };
 }
 
-export interface TRenderLanesOptions {
+export interface TRenderMarblesOptions {
 	sampleRate: number;
 	duration: number;
 	bank: BasicSoundBank;
@@ -94,13 +94,13 @@ export interface TStereoAudio {
  * Note events sorted by sample; at equal samples note-offs come first so a repeated pitch retriggers. Only hits
  * from a MIDI note sound: a tapped hit has no pitch and plays nothing, and does not shorten the note before it.
  */
-export function createLaneEvents(lanes: TLane[], sampleRate: number): TLaneEvent[] {
-	const events: TLaneEvent[] = [];
+export function createMarbleEvents(lanes: TLane[], sampleRate: number): TMarbleEvent[] {
+	const events: TMarbleEvent[] = [];
 	for (const [index, lane] of lanes.entries()) {
-		const channel = laneChannel(index);
+		const channel = marbleChannel(index);
 		const hits = lane.hits.filter(hasPitch).sort((a, b) => a.time - b.time);
 		for (const [hitIndex, hit] of hits.entries()) {
-			const length = laneNoteLength(hit, hits[hitIndex + 1]);
+			const length = marbleNoteLength(hit, hits[hitIndex + 1]);
 			const { pitch } = hit;
 			const velocity = Math.round(1 + (hit.velocity ?? DEFAULT_HIT_VELOCITY) * 126);
 			const onSample = Math.round(hit.time * sampleRate);
@@ -121,8 +121,8 @@ export function createLaneEvents(lanes: TLane[], sampleRate: number): TLaneEvent
  * Backing note events on one channel. A note lasts its MIDI length, up to `MAX_BACKING_NOTE_LENGTH`, and ends
  * before the next note of the same pitch so that note sounds in full.
  */
-export function createBackingEvents(hits: THit[], channel: number, sampleRate: number): TLaneEvent[] {
-	const events: TLaneEvent[] = [];
+export function createBackingEvents(hits: THit[], channel: number, sampleRate: number): TMarbleEvent[] {
+	const events: TMarbleEvent[] = [];
 	const sorted = hits.filter(hasPitch).sort((a, b) => a.time - b.time);
 	for (const [index, hit] of sorted.entries()) {
 		const { pitch } = hit;
@@ -136,7 +136,7 @@ export function createBackingEvents(hits: THit[], channel: number, sampleRate: n
 }
 
 /** How long a marble's note sounds: its own length up to `MAX_NOTE_LENGTH`, and only until the marble's next note */
-export function laneNoteLength(hit: THit, next: THit | undefined): number {
+export function marbleNoteLength(hit: THit, next: THit | undefined): number {
 	return Math.min(hit.duration ?? MAX_NOTE_LENGTH, MAX_NOTE_LENGTH, next == null ? MAX_NOTE_LENGTH : next.time - hit.time);
 }
 
@@ -149,11 +149,11 @@ function hasPitch(hit: THit): hit is THit & { pitch: number } {
 	return hit.pitch != null;
 }
 
-function compareEvents(a: TLaneEvent, b: TLaneEvent): number {
+function compareEvents(a: TMarbleEvent, b: TMarbleEvent): number {
 	return a.sample - b.sample || (a.kind === b.kind ? 0 : a.kind === 'off' ? -1 : 1);
 }
 
-export interface TLaneEvent {
+export interface TMarbleEvent {
 	kind: 'on' | 'off';
 	sample: number;
 	channel: number;
@@ -162,7 +162,7 @@ export interface TLaneEvent {
 }
 
 // Skips channel 10, which General MIDI reserves for drums
-function laneChannel(index: number): number {
+function marbleChannel(index: number): number {
 	return index >= 9 ? index + 1 : index;
 }
 

@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createPatternClient, flattenCommands, groupsOfLane, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCanceledError, type TGroupChange, type TPatternClient, type TPatternKind, type TPatternProblem } from '@/modules/building';
+import { createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCanceledError, type TGroupChange, type TPatternClient, type TPatternKind, type TPatternProblem } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
 import { type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TPatternGroup, TProject } from '@/modules/project';
@@ -13,7 +13,7 @@ const LOCK_NOTICE_MS = 3000;
 
 /** Where a Pattern goes: a range of one marble's row, or the Group already there */
 export interface TPatternTarget {
-	laneId: string;
+	marbleId: string;
 	from: number;
 	to: number;
 	group?: TPatternGroup;
@@ -23,7 +23,7 @@ export interface TPatternPreview {
 	revision: number;
 	kind: TPatternKind;
 	key: string;
-	laneId: string;
+	marbleId: string;
 	pieces: TResolvedPiece[];
 	/** Milliseconds from asking in the worker to the answer, for the check of hover speed */
 	ms: number;
@@ -96,7 +96,7 @@ export class PatternsCx {
 				.preview(project, change)
 				.then((answer) => {
 					if (this.hoverKey !== key || this.studio.project?.revision !== project.revision) return;
-					this.$preview.set({ revision: project.revision, kind, key, laneId: change.laneId, pieces: answer.pieces, ms: performance.now() - startedAt });
+					this.$preview.set({ revision: project.revision, kind, key, marbleId: change.marbleId, pieces: answer.pieces, ms: performance.now() - startedAt });
 					// The ghost is one shape, so a click may still find a better one: what's wrong with it is only said to be likely
 					const [blocking] = answer.blocking;
 					if (blocking != null) {
@@ -138,8 +138,8 @@ export class PatternsCx {
 		const project = this.studio.project;
 		if (project == null) return;
 		this.isStopped = false;
-		for (const group of project.music.lanes.flatMap((lane) => groupsOfLane(project, lane.id)[0] ?? [])) {
-			const answer = await this.fit(changeFor({ laneId: group.laneId, from: group.from, to: group.to, group }, group.kind), false);
+		for (const group of project.music.lanes.flatMap((lane) => groupsOfMarble(project, lane.id)[0] ?? [])) {
+			const answer = await this.fit(changeFor({ marbleId: group.marbleId, from: group.from, to: group.to, group }, group.kind), false);
 			if (answer == null) {
 				if (this.isStopped) this.studio.undo();
 				return;
@@ -181,7 +181,7 @@ export class PatternsCx {
 		const width = nearestWidth != null && settings.width !== nearestWidth ? nearestWidth : null;
 		const actions = width != null ? [{ label: `Try Width ${Math.round(width * 100)} cm`, title: 'The nearest Width with no problems', run: () => void this.apply(target, kind, { ...settings, width }) }] : [];
 		this.studio.notify(words, 'error', { actions });
-		if (refusal?.hitId != null) this.studio.$reveal.set({ ids: [toHitKey(refusal.laneId, refusal.hitId)], isZoomKept: true });
+		if (refusal?.hitId != null) this.studio.$reveal.set({ ids: [toHitKey(refusal.marbleId, refusal.hitId)], isZoomKept: true });
 	}
 
 	/** Flatten Pattern: one Undo step, and the pieces are selected, to edit one by one */
@@ -274,17 +274,17 @@ export class PatternsCx {
 
 /** Where the tiles say why a Pattern doesn't fit */
 function failureKey(target: TPatternTarget): string {
-	return target.group != null ? toGroupKey(target.group.id) : toRangeKey(target.laneId, target.from, target.to);
+	return target.group != null ? toGroupKey(target.group.id) : toRangeKey(target.marbleId, target.from, target.to);
 }
 
 function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): TGroupChange {
-	const { group, laneId, from, to } = target;
+	const { group, marbleId, from, to } = target;
 	const defaults = PATTERN_DEFAULTS[kind];
 	const isSameKind = group?.kind === kind;
 	const maxTilt = settings.maxTilt ?? (isSameKind ? group.maxTilt : undefined);
 	return {
 		...(group != null ? { groupId: group.id } : {}),
-		laneId,
+		marbleId,
 		from,
 		to,
 		kind,
@@ -317,14 +317,14 @@ function previewKey(change: TGroupChange): string {
 export function patternTargets(project: TProject, selection: readonly string[]): TPatternTarget[] {
 	const range = selection.flatMap((key) => parseRangeKey(key) ?? [])[0];
 	if (range != null) return [range];
-	const byLane = new Map<string, number[]>();
+	const byMarble = new Map<string, number[]>();
 	for (const key of selection) {
 		const parsed = parseHitKey(key);
-		const hit = project.music.lanes.find((lane) => lane.id === parsed?.laneId)?.hits.find((item) => item.id === parsed?.hitId);
+		const hit = project.music.lanes.find((lane) => lane.id === parsed?.marbleId)?.hits.find((item) => item.id === parsed?.hitId);
 		if (parsed == null || hit == null) continue;
-		byLane.set(parsed.laneId, [...(byLane.get(parsed.laneId) ?? []), hit.time]);
+		byMarble.set(parsed.marbleId, [...(byMarble.get(parsed.marbleId) ?? []), hit.time]);
 	}
-	return [...byLane].map(([laneId, times]) => ({ laneId, from: Math.min(...times), to: Math.max(...times) }));
+	return [...byMarble].map(([marbleId, times]) => ({ marbleId, from: Math.min(...times), to: Math.max(...times) }));
 }
 
 /** A selection with every piece of a live Pattern standing for its whole Group, as a click on one does */
@@ -345,10 +345,10 @@ export function groupSelection(group: TGroup): string[] {
 }
 
 /** Selection for a range dragged in the strip: its notes as hits, the same as dragging over them, or the silence itself */
-export function rangeSelection(project: TProject, laneId: string, from: number, to: number): string[] {
-	const lane = project.music.lanes.find((item) => item.id === laneId);
+export function rangeSelection(project: TProject, marbleId: string, from: number, to: number): string[] {
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
 	if (lane == null) return [];
 	const hits = hitsInRange(lane, from, to);
-	return hits.length > 0 ? hits.map((hit) => toHitKey(laneId, hit.id)) : [toRangeKey(laneId, from, to)];
+	return hits.length > 0 ? hits.map((hit) => toHitKey(marbleId, hit.id)) : [toRangeKey(marbleId, from, to)];
 }
 

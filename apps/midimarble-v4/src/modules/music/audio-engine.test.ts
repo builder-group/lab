@@ -30,7 +30,7 @@ describe('createAudioSignature function', () => {
 	const resolve = (source: { path: string }): string => `asset://${source.path}`;
 
 	it('should ignore changes that do not affect audio', () => {
-		const project = withLane(createProject());
+		const project = withMarble(createProject());
 		const renamed: TProject = {
 			...project,
 			title: 'Other',
@@ -44,11 +44,11 @@ describe('createAudioSignature function', () => {
 	});
 
 	it('should change with hits, instruments and end', () => {
-		const project = withLane(createProject());
+		const project = withMarble(createProject());
 		const base = createAudioSignature(project, resolve);
-		const moved = mapLanes(project, (lane) => ({ ...lane, hits: [{ id: 'hit', time: 0.7, pitch: 76 }] }));
-		const instrument = mapLanes(project, (lane) => ({ ...lane, instrument: 12 }));
-		const tapped = mapLanes(project, (lane) => ({ ...lane, hits: [...lane.hits, { id: 'tap', time: 0.9 }] }));
+		const moved = mapMarbles(project, (lane) => ({ ...lane, hits: [{ id: 'hit', time: 0.7, pitch: 76 }] }));
+		const instrument = mapMarbles(project, (lane) => ({ ...lane, instrument: 12 }));
+		const tapped = mapMarbles(project, (lane) => ({ ...lane, hits: [...lane.hits, { id: 'tap', time: 0.9 }] }));
 
 		expect(createAudioSignature(tapped, resolve)).toBe(base);
 		expect(createAudioSignature(moved, resolve)).not.toBe(base);
@@ -57,7 +57,7 @@ describe('createAudioSignature function', () => {
 	});
 
 	it('should ignore lanes when an audio source exists', () => {
-		const project = withLane(createProject());
+		const project = withMarble(createProject());
 		const withAudio: TProject = {
 			...project,
 			music: {
@@ -69,7 +69,7 @@ describe('createAudioSignature function', () => {
 
 		expect(
 			createAudioSignature(
-				mapLanes(withAudio, (lane) => ({ ...lane, instrument: 12 })),
+				mapMarbles(withAudio, (lane) => ({ ...lane, instrument: 12 })),
 				resolve
 			)
 		).toBe(base);
@@ -104,7 +104,7 @@ describe('computePeaks function', () => {
 	});
 });
 
-function withLane(project: TProject): TProject {
+function withMarble(project: TProject): TProject {
 	return {
 		...project,
 		music: {
@@ -117,7 +117,7 @@ function withLane(project: TProject): TProject {
 	};
 }
 
-function mapLanes(
+function mapMarbles(
 	project: TProject,
 	map: (lane: TProject['music']['lanes'][number]) => TProject['music']['lanes'][number]
 ): TProject {

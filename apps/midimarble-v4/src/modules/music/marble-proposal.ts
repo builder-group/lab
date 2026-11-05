@@ -10,8 +10,8 @@ const CHORD_WINDOW = 0.03;
  * Assigns notes to marbles. A marble plays one note at a time with at least `minGap` between strikes,
  * so chords spread across marbles or keep only their top note. Notes no marble can play become Backing.
  */
-export function proposeLanes(notes: TMidiNote[], options: TProposeLanesOptions = {}): TLaneProposal {
-	const { strategy = 'split', maxLanes = 4, minGap = MIN_HIT_GAP } = options;
+export function proposeMarbles(notes: TMidiNote[], options: TProposeMarblesOptions = {}): TMarbleProposal {
+	const { strategy = 'split', maxMarbles = 4, minGap = MIN_HIT_GAP } = options;
 	const chords = groupChords(notes);
 	const lanes: TMidiNote[][] = [];
 	const backing: TBackingNote[] = [];
@@ -23,13 +23,13 @@ export function proposeLanes(notes: TMidiNote[], options: TProposeLanesOptions =
 		}
 		const used = new Set<number>();
 		for (const note of candidates) {
-			const laneIndex = chooseLane(lanes, note, used, minGap);
+			const laneIndex = chooseMarble(lanes, note, used, minGap);
 			if (laneIndex != null) {
 				lanes[laneIndex]?.push(note);
 				used.add(laneIndex);
 				continue;
 			}
-			if (lanes.length < (strategy === 'melody' ? 1 : maxLanes)) {
+			if (lanes.length < (strategy === 'melody' ? 1 : maxMarbles)) {
 				lanes.push([note]);
 				used.add(lanes.length - 1);
 				continue;
@@ -45,7 +45,7 @@ export function proposeLanes(notes: TMidiNote[], options: TProposeLanesOptions =
  * Names the proposed marbles after the MIDI tracks most of their notes come from: "Melody", "Bass". Null where a track
  * has no name in the file or two marbles would share it, which keeps "Marble 1".
  */
-export function laneNamesFromTracks(lanes: readonly (readonly TMidiNote[])[], tracks: readonly { name: string; hasName: boolean; notes: readonly TMidiNote[] }[]): (string | null)[] {
+export function marbleNamesFromTracks(lanes: readonly (readonly TMidiNote[])[], tracks: readonly { name: string; hasName: boolean; notes: readonly TMidiNote[] }[]): (string | null)[] {
 	const trackOf = new Map(tracks.flatMap((track) => track.notes.map((note) => [note, track] as const)));
 	const names = lanes.map((notes) => {
 		const counts = new Map<(typeof tracks)[number], number>();
@@ -59,13 +59,13 @@ export function laneNamesFromTracks(lanes: readonly (readonly TMidiNote[])[], tr
 	return names.map((name) => (name != null && names.filter((item) => item === name).length === 1 ? name : null));
 }
 
-export interface TProposeLanesOptions {
+export interface TProposeMarblesOptions {
 	strategy?: 'split' | 'melody';
-	maxLanes?: number;
+	maxMarbles?: number;
 	minGap?: number;
 }
 
-export interface TLaneProposal {
+export interface TMarbleProposal {
 	lanes: TMidiNote[][];
 	backing: TBackingNote[];
 }
@@ -97,7 +97,7 @@ function groupChords(notes: TMidiNote[]): TMidiNote[][] {
 }
 
 /** Picks the free lane whose last pitch is closest, which keeps voices smooth */
-function chooseLane(lanes: TMidiNote[][], note: TMidiNote, used: Set<number>, minGap: number): number | null {
+function chooseMarble(lanes: TMidiNote[][], note: TMidiNote, used: Set<number>, minGap: number): number | null {
 	let best: number | null = null;
 	let bestDistance = Number.POSITIVE_INFINITY;
 	for (const [index, lane] of lanes.entries()) {

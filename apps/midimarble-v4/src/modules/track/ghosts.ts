@@ -12,7 +12,7 @@ export type TGhost = { kind: 'continue'; answer: TContinueAnswer } | { kind: 'ga
 /** The piece a clicked open dot would get. `type` names it, so other kinds can be listed later beside the platform. */
 export interface TPlaceAnswer {
 	revision: number;
-	laneId: string;
+	marbleId: string;
 	hit: THitResult;
 	type: string;
 	entity: TEntity;
@@ -31,14 +31,14 @@ export interface TGhostState {
 	revision: number | null;
 	ghost: TGhost | null;
 	/** A gap piece is being computed for this lane and revision */
-	pendingGap: { laneId: string; toHitId: string; revision: number } | null;
+	pendingGap: { marbleId: string; toHitId: string; revision: number } | null;
 	/** Revision whose suggestions were dismissed; nothing is offered again until the next edit */
 	dismissedRevision: number | null;
 }
 
 export type TGhostAction =
 	| { type: 'revision'; revision: number }
-	| { type: 'requestGap'; revision: number; laneId: string; toHitId: string }
+	| { type: 'requestGap'; revision: number; marbleId: string; toHitId: string }
 	| { type: 'continueAnswer'; revision: number; answer: TContinueAnswer | null }
 	| { type: 'gapAnswer'; answer: TGapAnswer }
 	| { type: 'gapFailed'; revision: number }
@@ -62,7 +62,7 @@ export function ghostReducer(state: TGhostState, action: TGhostAction): TGhostSt
 			return {
 				...state,
 				ghost: null,
-				pendingGap: { laneId: action.laneId, toHitId: action.toHitId, revision: action.revision },
+				pendingGap: { marbleId: action.marbleId, toHitId: action.toHitId, revision: action.revision },
 				dismissedRevision: null
 			};
 		case 'continueAnswer': {

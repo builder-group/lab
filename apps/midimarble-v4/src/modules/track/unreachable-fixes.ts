@@ -12,7 +12,7 @@ import { canMakeBacking, hitReach, moveHitLaterFix, type TReleaseFix } from '@/m
 export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TReleaseFix | null): TNoticeAction[] {
 	const project = studio.project;
 	if (project == null) return [];
-	const marble = (): string => studio.project?.music.lanes.find((lane) => lane.id === hit.laneId)?.name ?? 'The marble';
+	const marble = (): string => studio.project?.music.lanes.find((lane) => lane.id === hit.marbleId)?.name ?? 'The marble';
 	const actions: TNoticeAction[] = [];
 	// Fixed from the inspector, the notice that explained the problem goes too
 	if (fix != null) {
@@ -35,7 +35,7 @@ export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TRele
 			run: () => {
 				studio.dismissNotice();
 				if (!studio.execute(later.commands)) return;
-				studio.$selection.set([toHitKey(hit.laneId, hit.hitId)]);
+				studio.$selection.set([toHitKey(hit.marbleId, hit.hitId)]);
 				studio.notifyEdit(`Hit moved to ${formatTime(later.time)}`);
 			}
 		});
@@ -46,7 +46,7 @@ export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TRele
 			title: 'Heard in the film, no platform needed (0)',
 			run: () => {
 				studio.dismissNotice();
-				handNotes(studio, [toHitKey(hit.laneId, hit.hitId)], BACKING_ID);
+				handNotes(studio, [toHitKey(hit.marbleId, hit.hitId)], BACKING_ID);
 			}
 		});
 	} else {
@@ -55,7 +55,7 @@ export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TRele
 			title: 'Remove this hit from the marble',
 			run: () => {
 				studio.dismissNotice();
-				if (!studio.execute([{ type: 'removeHits', laneId: hit.laneId, hitIds: [hit.hitId] }])) return;
+				if (!studio.execute([{ type: 'removeHits', marbleId: hit.marbleId, hitIds: [hit.hitId] }])) return;
 				studio.$selection.set([]);
 				studio.notifyEdit('Hit deleted');
 			}

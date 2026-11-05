@@ -26,17 +26,17 @@ export interface TObstacleField {
 	radius: number[];
 	/** Run time at the point, NaN at a piece's */
 	time: number[];
-	/** Index into `laneIds`, -1 at a piece's */
+	/** Index into `marbleIds`, -1 at a piece's */
 	lane: number[];
-	laneIds: string[];
+	marbleIds: string[];
 	cells: Map<number, number[]>;
 }
 
 /** Every marble's run over the film and the pieces in it. Runs are the marbles' centers at their samples, joined up. */
 export function buildObstacleField(result: TSimulationResult): TObstacleField {
-	const field: TObstacleField = { x: [], y: [], radius: [], time: [], lane: [], laneIds: [], cells: new Map() };
+	const field: TObstacleField = { x: [], y: [], radius: [], time: [], lane: [], marbleIds: [], cells: new Map() };
 	result.marbles.forEach((marble, laneIndex) => {
-		field.laneIds.push(marble.laneId);
+		field.marbleIds.push(marble.marbleId);
 		let last: { x: number; y: number; time: number } | null = null;
 		for (const sample of marble.samples) {
 			if (sample.time > result.duration + 1e-6) break;
@@ -146,7 +146,7 @@ export function isBoxClear(field: TObstacleField, box: TWallBox, margin: number)
 }
 
 /** Each marble whose path crosses the box while `span` shows it, with the first time it does, in time order */
-export function pathOverlaps(field: TObstacleField, box: TWallBox, span: { start: number; end: number }): { laneId: string; time: number; point: TVec2 }[] {
+export function pathOverlaps(field: TObstacleField, box: TWallBox, span: { start: number; end: number }): { marbleId: string; time: number; point: TVec2 }[] {
 	const first = new Map<number, { time: number; point: TVec2 }>();
 	eachNear(field, box.x, box.y, boxReach(box) + 0.02, (index) => {
 		const lane = field.lane[index] as number;
@@ -157,7 +157,7 @@ export function pathOverlaps(field: TObstacleField, box: TWallBox, span: { start
 		const known = first.get(lane);
 		if (known == null || time < known.time) first.set(lane, { time, point: { x, y } });
 	});
-	return [...first].map(([lane, hit]) => ({ laneId: field.laneIds[lane] as string, ...hit })).sort((a, b) => a.time - b.time);
+	return [...first].map(([lane, hit]) => ({ marbleId: field.marbleIds[lane] as string, ...hit })).sort((a, b) => a.time - b.time);
 }
 
 /** The run point nearest (x, y) within `reach`, with its distance and time; pieces don't count */

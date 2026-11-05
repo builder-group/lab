@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { TProject } from '@/modules/project';
-import { bowlCatch, bowlOfLane } from './bowl';
+import { bowlCatch, bowlOfMarble } from './bowl';
 import { createBareRunProject } from './fixture-projects';
 import { bowlGeometry } from './piece-layout';
 import { bowlDefinition, resolvePieceParams } from './pieces';
@@ -77,6 +77,6 @@ describe('bowlCatch', () => {
 
 	it('plays no note', () => {
 		expect(bowlDefinition.musical).not.toBe(true);
-		expect(bowlOfLane(drop(1, 0), 'lane-1')).toBeUndefined();
+		expect(bowlOfMarble(drop(1, 0), 'lane-1')).toBeUndefined();
 	});
 });

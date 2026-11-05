@@ -1,4 +1,4 @@
-import { laneColors, type TEntity, type TProject, type TWallKind, type TWallSkin } from '@/modules/project';
+import { marbleColors, type TEntity, type TProject, type TWallKind, type TWallSkin } from '@/modules/project';
 import { draftMarble, resolveTheme, type TResolvedTheme, wallLayer, WALL_KINDS, catalogSkin, catalogSkins, type TSkinElement, STARTER_ORIGIN } from '@/modules/scene';
 
 // What a selection's picker offers, as tiles: the theme's choice first, the rest as the catalog lists them, and which
@@ -53,7 +53,7 @@ export function usedSkinIds(project: Pick<TProject, 'entities' | 'design'>): Rea
 function themeSkinShown(theme: TResolvedTheme, element: TSkinElement, entity: TEntity | undefined): ReturnType<typeof catalogSkin> {
 	const part = theme.parts[element].skin;
 	if (part !== 'marble:contrast') return catalogSkin(part);
-	return catalogSkin(`marble:${draftMarble(theme.base, entity == null ? '#d0d4dc' : (entity.components.skin?.color ?? laneColors[0] ?? '#d0d4dc'), theme.overrides).tone}`);
+	return catalogSkin(`marble:${draftMarble(theme.base, entity == null ? '#d0d4dc' : (entity.components.skin?.color ?? marbleColors[0] ?? '#d0d4dc'), theme.overrides).tone}`);
 }
 
 /** A wall tile: `kind` null follows the theme. The walls have no rendered previews, so the tile draws its kind */

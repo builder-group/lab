@@ -19,13 +19,13 @@ describe('fixTrack function on Jingle Bells', () => {
 		return {
 			simulate: async (project) => simulate(project),
 			autoPlace: async (project, target, entity) => {
-				const [isOk, error, placement] = autoPlace(project, simulate(project), target.laneId, target.hitId, { simulate, type: entity.components.piece?.type });
+				const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: entity.components.piece?.type });
 				if (!isOk) throw error;
 				return placement.entity;
 			},
 			gapPiece: async (project, gap, type, id) => {
 				const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
-				const [isOk, error, proposal] = create(project, simulate(project), gap.laneId, gap.fromHitId, gap.toHitId, { simulate, id });
+				const [isOk, error, proposal] = create(project, simulate(project), gap.marbleId, gap.fromHitId, gap.toHitId, { simulate, id });
 				if (!isOk) throw error;
 				return proposal.entity;
 			},

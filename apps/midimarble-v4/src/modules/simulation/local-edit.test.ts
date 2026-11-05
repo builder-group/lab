@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { answerSettle, editStart, laneEdits, reconnect, release, settleBase, type TSettleAnswer, withRides } from './local-edit';
+import { answerSettle, editStart, marbleEdits, reconnect, release, settleBase, type TSettleAnswer, withRides } from './local-edit';
 import { createSimulator, type TSimulator } from './simulate';
 import type { TSimulationResult } from './types';
 
@@ -37,11 +37,11 @@ describe('settling an edit', () => {
 		simulator = await createSimulator();
 	});
 
-	describe('laneEdits function', () => {
+	describe('marbleEdits function', () => {
 		const project = loadFixture('zigzag');
 
 		it('should name the lane and the hit of a turned platform', () => {
-			expect(laneEdits(project, turned(project, 'piece-1-5', 0.01))).toEqual([{ laneId: 'lane-1', afterIndex: 4 }]);
+			expect(marbleEdits(project, turned(project, 'piece-1-5', 0.01))).toEqual([{ marbleId: 'lane-1', afterIndex: 4 }]);
 		});
 
 		it('should only keep the rides for a slide along the bar, and ask nothing of a turn of the last platform', () => {
@@ -52,13 +52,13 @@ describe('settling an edit', () => {
 					return entity.id === 'piece-1-5' && link != null ? { ...entity, components: { ...entity.components, hitLink: { ...link, contactAt: 0.3 } } } : entity;
 				})
 			};
-			expect(laneEdits(project, slid)).toEqual([{ laneId: 'lane-1', afterIndex: project.music.lanes[0]?.hits.length }]);
-			expect(laneEdits(project, turned(project, 'piece-1-16', 0.01))).toEqual([]);
+			expect(marbleEdits(project, slid)).toEqual([{ marbleId: 'lane-1', afterIndex: project.music.lanes[0]?.hits.length }]);
+			expect(marbleEdits(project, turned(project, 'piece-1-16', 0.01))).toEqual([]);
 		});
 
 		it('should count the platform before one taken away among those that take up the change', () => {
 			const without = { ...project, entities: project.entities.filter((entity) => entity.id !== 'piece-1-5') };
-			expect(laneEdits(project, without)).toEqual([{ laneId: 'lane-1', afterIndex: 2 }]);
+			expect(marbleEdits(project, without)).toEqual([{ marbleId: 'lane-1', afterIndex: 2 }]);
 		});
 	});
 
@@ -97,7 +97,7 @@ describe('settling an edit', () => {
 			const dot = { x: hit.dot.x, y: hit.dot.y - 0.008 };
 
 			// Act
-			const { answer } = answerSettle(simulator, { before: project, after: project, movedDot: { laneId: 'lane-1', hitId: 'hit-1-5', dot } }, null);
+			const { answer } = answerSettle(simulator, { before: project, after: project, movedDot: { marbleId: 'lane-1', hitId: 'hit-1-5', dot } }, null);
 			const run = await fresh(landed(project, answer));
 
 			// Assert
@@ -121,7 +121,7 @@ describe('settling an edit', () => {
 			if (lane == null || target == null || aiming == null || dot == null) throw new Error('Missing hit');
 
 			// Act
-			const { answer } = answerSettle(simulator, { before: project, after: project, movedDot: { laneId: lane.id, hitId: target.id, dot: { x: dot.x + 0.02, y: dot.y } } }, null);
+			const { answer } = answerSettle(simulator, { before: project, after: project, movedDot: { marbleId: lane.id, hitId: target.id, dot: { x: dot.x + 0.02, y: dot.y } } }, null);
 			const run = await fresh(landed(project, answer));
 
 			// Assert
@@ -143,7 +143,7 @@ describe('settling an edit', () => {
 			const project = loadFixture('zigzag');
 			const hits = project.music.lanes[0]?.hits ?? [];
 			expect(editStart(project, turned(project, 'piece-1-5', 0.01))).toBe(hits[4]?.time);
-			expect(editStart(project, project, { laneId: 'lane-1', hitId: hits[6]?.id ?? '' })).toBe(hits[5]?.time);
+			expect(editStart(project, project, { marbleId: 'lane-1', hitId: hits[6]?.id ?? '' })).toBe(hits[5]?.time);
 			expect(editStart(project, project)).toBe(-Infinity);
 		});
 	});

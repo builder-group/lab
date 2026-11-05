@@ -93,10 +93,10 @@ interface TTrial {
 	why: TBarIssue[];
 }
 
-export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds: string[], shape: TBarShape, onBar?: (done: number, total: number) => void): TBarsFit {
+export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitIds: string[], shape: TBarShape, onBar?: (done: number, total: number) => void): TBarsFit {
 	const gravity = Math.abs(gravityOf(base));
-	const lane = base.music.lanes.find((item) => item.id === laneId);
-	if (lane == null) throw new Error(`Lane ${laneId} does not exist`);
+	const lane = base.music.lanes.find((item) => item.id === marbleId);
+	if (lane == null) throw new Error(`Lane ${marbleId} does not exist`);
 	const times = new Map(lane.hits.map((hit) => [hit.id, hit.time]));
 	const length = shape.barLength ?? BAR_LENGTH;
 	const maxTilt = (shape.maxTilt ?? MAX_TILT) * DEGREE;
@@ -111,7 +111,7 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 	const entities: TEntity[] = [];
 	const first = times.get(hitIds[0] ?? '') ?? 0;
 	let result = run(project, first + 0.03);
-	const arrival = (time: number): TMarbleSample | null => sampleAt(result.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [], time - 1e-6);
+	const arrival = (time: number): TMarbleSample | null => sampleAt(result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [], time - 1e-6);
 	const firstArrival = arrival(first);
 	if (firstArrival == null) return { project, entities, bars, sims, center: 0 };
 	const firstDot = result.hits.find((hit) => hit.hitId === hitIds[0])?.dot ?? firstArrival.position;
@@ -123,7 +123,7 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 	const center = shape.center ?? (shape.kind === 'zigzag' ? firstDot.x - (sideOf(0) * span) / 2 : firstDot.x);
 	const dotX = (index: number): number => (shape.kind === 'zigzag' ? center + (sideOf(index) * span) / 2 : center + index * firstSide * shape.width);
 	const total = shape.stopBefore === true ? hitIds.length - 1 : hitIds.length;
-	const radius = base.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components.marble?.radius ?? 0.012;
+	const radius = base.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components.marble?.radius ?? 0.012;
 	const heights: number[] = [];
 	const planned = shape.drop != null ? plannedDrops(gravity, hitIds.slice(1).map((id, index) => (times.get(id) as number) - (times.get(hitIds[index] as string) as number)), shape.drop, Math.abs(firstArrival.velocity.y)) : [];
 
@@ -190,12 +190,12 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 			let out: TTrial | null = null;
 			for (const shift of [0, 0.012, 0.02, 0.028]) {
 				const contactAt = clamp(strikeAt + (toward * shift) / length, 0.05, 0.95);
-				const entity = barEntity(laneId, id, tryAngle, tryBounce, contactAt, length, shape.barDepth);
+				const entity = barEntity(marbleId, id, tryAngle, tryBounce, contactAt, length, shape.barDepth);
 				const next = withEntity(project, entity);
 				const trialResult = run(next, nextTime + 0.03);
 				trials++;
 				const nextHit = nextId != null ? trialResult.hits.find((hit) => hit.hitId === nextId) : null;
-				const samples = trialResult.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
+				const samples = trialResult.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 				const position = nextHit?.dot ?? sampleAt(samples, nextTime - 1e-6)?.position ?? dot;
 				const why = cleanOf({ entity, project: next, result: trialResult });
 				out = { entity, project: next, result: trialResult, x: position.x, y: position.y, angle: tryAngle, bounce: tryBounce, contactAt, errX: targetX - position.x, errY: targetY != null ? targetY - position.y : 0, why };
@@ -339,8 +339,8 @@ export function isOffColumn(bar: TBar): boolean {
 	return Math.abs(bar.errX) > COLUMN_CLOSE;
 }
 
-function barEntity(laneId: string, hitId: string, angle: number, bounce: number, contactAt: number, length: number, depth = platformDefinition.params['depth']?.default ?? 0.09): TEntity {
-	const entity = createLinkedPiece('platform', laneId, hitId, angle, { id: `bar-${hitId}`, contactAt });
+function barEntity(marbleId: string, hitId: string, angle: number, bounce: number, contactAt: number, length: number, depth = platformDefinition.params['depth']?.default ?? 0.09): TEntity {
+	const entity = createLinkedPiece('platform', marbleId, hitId, angle, { id: `bar-${hitId}`, contactAt });
 	const piece = entity.components.piece;
 	if (piece != null) piece.params = { length, thickness: BAR_THICKNESS, depth, bounce, entryDelay: 0 };
 	return entity;

@@ -28,7 +28,7 @@ const REST_WINDOW = 0.2;
  */
 export function hitReach(project: TProject, result: TSimulationResult | null, hit: THitResult): THitReach {
 	if (hit.status !== 'open') return { kind: 'reachable' };
-	const marble = project.entities.find((entity) => entity.components.marble?.laneId === hit.laneId);
+	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === hit.marbleId);
 	const release = marble?.components.release;
 	if (marble == null || release == null) return { kind: 'noMarble' };
 	const radius = marble.components.marble?.radius ?? 0.012;
@@ -36,9 +36,9 @@ export function hitReach(project: TProject, result: TSimulationResult | null, hi
 	if (hit.targetTime < earliest) return { kind: 'tooSoon', releaseTime: release.time, earliest };
 	// A run is only judged up to the first note still waiting for its platform: past it the marble falls
 	// freely, so later notes stay Open until that note is placed
-	const waiting = result?.hits.some((item) => item.laneId === hit.laneId && item.status === 'open' && item.targetTime < hit.targetTime - 1e-9) === true;
+	const waiting = result?.hits.some((item) => item.marbleId === hit.marbleId && item.status === 'open' && item.targetTime < hit.targetTime - 1e-9) === true;
 	if (waiting) return { kind: 'reachable' };
-	const samples = result?.marbles.find((track) => track.laneId === hit.laneId)?.samples ?? [];
+	const samples = result?.marbles.find((track) => track.marbleId === hit.marbleId)?.samples ?? [];
 	if (hit.dot == null) return { kind: 'outOfReach', lastTime: samples[samples.length - 1]?.time ?? release.time };
 	// Still for the last REST_WINDOW seconds, unlike the slow top of a bounce
 	const before = samples.find((sample) => sample.time >= hit.targetTime - REST_WINDOW);
@@ -62,8 +62,8 @@ function strikeDelay(project: TProject, release: { velocity?: TVec2 | undefined 
  * The first time a tap on this lane can be played, to the next hundredth so it clearly can. A marble with no track
  * yet counts from 0:00, as its release follows its first hit (`releaseFollowsFirstHit`). Null without a marble.
  */
-export function earliestHitTime(project: TProject, laneId: string): number | null {
-	const marble = project.entities.find((entity) => entity.components.marble?.laneId === laneId);
+export function earliestHitTime(project: TProject, marbleId: string): number | null {
+	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId);
 	const release = marble?.components.release;
 	if (marble == null || release == null) return null;
 	const from = hasNoTrack(project) ? 0 : release.time;
@@ -81,19 +81,19 @@ function hasNoTrack(project: TProject): boolean {
  */
 export function releaseFollowsFirstHit(before: TProject, after: TProject, commands: readonly TProjectCommand[]): TProject {
 	if (!hasNoTrack(after) || !commands.every((command) => HIT_EDITS.has(command.type))) return after;
-	const firstTime = (project: TProject, laneId: string): number | null => {
-		const times = project.music.lanes.find((lane) => lane.id === laneId)?.hits.map((hit) => hit.time) ?? [];
+	const firstTime = (project: TProject, marbleId: string): number | null => {
+		const times = project.music.lanes.find((lane) => lane.id === marbleId)?.hits.map((hit) => hit.time) ?? [];
 		return times.length ? Math.min(...times) : null;
 	};
 	const entities = after.entities.map((entity) => {
-		const laneId = entity.components.marble?.laneId;
+		const marbleId = entity.components.marble?.marbleId;
 		const release = entity.components.release;
-		if (laneId == null || release == null) return entity;
-		const first = firstTime(after, laneId);
-		const was = firstTime(before, laneId);
+		if (marbleId == null || release == null) return entity;
+		const first = firstTime(after, marbleId);
+		const was = firstTime(before, marbleId);
 		if (first == null || first === was) return entity;
 		// A marble on a start rail keeps the time the rail takes
-		const hasRail = was != null && startRailOf(after, laneId) != null;
+		const hasRail = was != null && startRailOf(after, marbleId) != null;
 		const time = Math.round(Math.max(0, first - (hasRail ? was - release.time : RELEASE_LEAD)) * 10000) / 10000;
 		return time === release.time ? entity : { ...entity, components: { ...entity.components, release: { ...release, time } } };
 	});
@@ -174,14 +174,14 @@ export function canMakeBacking(project: TProject): boolean {
  */
 export function moveHitLaterFix(project: TProject, hit: THitResult, reach: THitReach): { label: string; time: number; commands: TProjectCommand[] } | null {
 	if (reach.kind !== 'tooSoon' || canMakeBacking(project)) return null;
-	const lane = project.music.lanes.find((item) => item.id === hit.laneId);
+	const lane = project.music.lanes.find((item) => item.id === hit.marbleId);
 	const current = lane?.hits.find((item) => item.id === hit.hitId);
 	if (lane == null || current == null) return null;
 	// The next hundredth past the earliest strike, so the hit is clearly reachable
 	const time = Math.ceil((reach.earliest + 0.005) * 100) / 100;
 	const next = lane.hits.find((item) => item.id !== hit.hitId && item.time > current.time);
 	if (time <= current.time || (next != null && time >= next.time - 0.01)) return null;
-	return { label: 'Move Hit Later', time, commands: [{ type: 'upsertHits', laneId: lane.id, hits: [{ ...current, time }] }] };
+	return { label: 'Move Hit Later', time, commands: [{ type: 'upsertHits', marbleId: lane.id, hits: [{ ...current, time }] }] };
 }
 
 export interface TReleaseFix {
@@ -197,9 +197,9 @@ export interface TReleaseFix {
  * the song's start, or a note after other notes of the marble, which the run before it decides.
  */
 export function releaseFixFor(project: TProject, hit: THitResult, reach: THitReach): TReleaseFix | null {
-	const marble = project.entities.find((entity) => entity.components.marble?.laneId === hit.laneId);
+	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === hit.marbleId);
 	const release = marble?.components.release;
-	const lane = project.music.lanes.find((item) => item.id === hit.laneId);
+	const lane = project.music.lanes.find((item) => item.id === hit.marbleId);
 	if (marble == null || release == null || lane == null) return null;
 	const isFirst = lane.hits.every((item) => item.id === hit.hitId || item.time > hit.targetTime);
 	if (!isFirst) return null;
@@ -216,7 +216,7 @@ export function releaseFixFor(project: TProject, hit: THitResult, reach: THitRea
 /** The Too Soon or Out of Reach status of an open hit with its tooltip, or null when it can get a platform */
 export function unreachableStatus(project: TProject, result: TSimulationResult | null, hit: THitResult): { label: string; detail: string } | null {
 	if (hit.status !== 'open') return null;
-	const marble = project.music.lanes.find((lane) => lane.id === hit.laneId)?.name ?? 'The marble';
+	const marble = project.music.lanes.find((lane) => lane.id === hit.marbleId)?.name ?? 'The marble';
 	return reachStatus(hitReach(project, result, hit), { marble, time: formatTime(hit.targetTime) });
 }
 

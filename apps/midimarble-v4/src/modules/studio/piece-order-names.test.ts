@@ -19,9 +19,9 @@ function names(project: TProject): Record<string, string | undefined> {
 describe('renumberDefaultNames', () => {
 	it('should count a marble\'s start rail first among its rails, as Layers lists it', () => {
 		const before = oneMarble();
-		const rail = (id: string, name: string, hitLink?: { laneId: string; hitId: string; angle: number; contactAt: number }): TEntity => ({ id, name, components: { piece: { type: 'rail', params: {} }, ...(hitLink != null ? { hitLink } : {}) } });
+		const rail = (id: string, name: string, hitLink?: { marbleId: string; hitId: string; angle: number; contactAt: number }): TEntity => ({ id, name, components: { piece: { type: 'rail', params: {} }, ...(hitLink != null ? { hitLink } : {}) } });
 		before.entities.push(rail('free', 'Rail 1'), rail(startRailId('lane-1'), 'Rail 2'));
-		const after = { ...before, entities: [...before.entities, rail('gap', 'Rail 3', { laneId: 'lane-1', hitId: 'hit-1-1', angle: 0, contactAt: 0.5 })] };
+		const after = { ...before, entities: [...before.entities, rail('gap', 'Rail 3', { marbleId: 'lane-1', hitId: 'hit-1-1', angle: 0, contactAt: 0.5 })] };
 
 		expect(names(renumberDefaultNames(before, after))).toEqual({ [startRailId('lane-1')]: 'Rail 1', gap: 'Rail 2', free: 'Rail 3' });
 	});

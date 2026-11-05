@@ -20,17 +20,17 @@ export const PatternTiles: React.FC<{ cx: StudioCx; project: TProject }> = (prop
 	const workspace = useFeatureState(cx.$workspace);
 	const targets = patternTargets(project, selection);
 	if (workspace !== 'track' || !targets.length) return null;
-	return <TilesPanel cx={cx} targets={targets} kinds={BAR_KINDS} failureKey={toRangeKey(targets[0]?.laneId ?? '', targets[0]?.from ?? 0, targets[0]?.to ?? 0)} />;
+	return <TilesPanel cx={cx} targets={targets} kinds={BAR_KINDS} failureKey={toRangeKey(targets[0]?.marbleId ?? '', targets[0]?.from ?? 0, targets[0]?.to ?? 0)} />;
 };
 
 /** A silence dragged out in the strip */
-export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; target: { laneId: string; from: number; to: number } }> = (props) => {
+export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; target: { marbleId: string; from: number; to: number } }> = (props) => {
 	const { cx, project, target } = props;
-	const lane = project.music.lanes.find((item) => item.id === target.laneId);
+	const lane = project.music.lanes.find((item) => item.id === target.marbleId);
 	return (
 		<>
 			<InspectorHeader icon={<Spline size={16} strokeWidth={1.7} />} title={`${(target.to - target.from).toFixed(1)} s`} subtitle={`Silence on ${lane?.name ?? 'a marble'}`} />
-			<TilesPanel cx={cx} targets={[target]} kinds={RAIL_KINDS} failureKey={toRangeKey(target.laneId, target.from, target.to)} />
+			<TilesPanel cx={cx} targets={[target]} kinds={RAIL_KINDS} failureKey={toRangeKey(target.marbleId, target.from, target.to)} />
 		</>
 	);
 };
@@ -40,9 +40,9 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	const { cx, project, groupId } = props;
 	const trackCx = useFeatureState(cx.$trackCx);
 	const group = project.groups?.filter(isPatternGroup).find((item) => item.id === groupId);
-	const lane = project.music.lanes.find((item) => item.id === group?.laneId);
+	const lane = project.music.lanes.find((item) => item.id === group?.marbleId);
 	if (group == null || lane == null || trackCx == null) return null;
-	const target: TPatternTarget = { laneId: group.laneId, from: group.from, to: group.to, group };
+	const target: TPatternTarget = { marbleId: group.marbleId, from: group.from, to: group.to, group };
 	const isRail = group.kind === 'longRail';
 	const count = hitsInRange(lane, group.from, group.to).length;
 	const subtitle = isRail ? `Silence on ${lane.name}, ${formatTime(group.from)} to ${formatTime(group.to)}` : `${count} ${count === 1 ? 'hit' : 'hits'} on ${lane.name}, ${formatTime(group.from)} to ${formatTime(group.to)}`;

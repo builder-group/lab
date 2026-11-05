@@ -1,8 +1,8 @@
 import React from 'react';
 import { openContextMenu, RenameField } from '@/components';
-import { findLaneConflicts } from '@/modules/music';
+import { findMarbleConflicts } from '@/modules/music';
 import type { TLane, TProject } from '@/modules/project';
-import { laneLabelEntries, laneMenu } from '../menus';
+import { marbleLabelEntries, marbleMenu } from '../menus';
 import type { StudioCx } from '../StudioCx';
 import { HEADER_WIDTH, ROW_HEIGHT } from './timeline-layout';
 
@@ -13,9 +13,9 @@ import { HEADER_WIDTH, ROW_HEIGHT } from './timeline-layout';
 export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 	const { cx, lane, project, selection } = props;
 	const [isRenaming, setIsRenaming] = React.useState(false);
-	const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
+	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === lane.id);
 	const id = marble?.id ?? lane.id;
-	const conflicts = findLaneConflicts(lane).size;
+	const conflicts = findMarbleConflicts(lane).size;
 	const isSelected = selection.includes(id) || selection.some((key) => key.startsWith(`hit:${lane.id}:`));
 	const hitCount = `${lane.hits.length} ${lane.hits.length === 1 ? 'hit' : 'hits'}`;
 	const details = conflicts > 0 ? `${conflicts} too close` : hitCount;
@@ -26,9 +26,9 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 			style={{ width: HEADER_WIDTH, height: ROW_HEIGHT }}
 			data-track={id}
 			data-selected={isSelected}
-			onContextMenu={(event) => openContextMenu(event, laneMenu(cx, lane))}
+			onContextMenu={(event) => openContextMenu(event, marbleMenu(cx, lane))}
 		>
-			<button className="mm-track-chip cursor-pointer" style={{ background: lane.color }} onClick={(event) => openContextMenu(event, laneLabelEntries(cx, lane))} title="Color" aria-label={`Label Color of ${lane.name}`} type="button" />
+			<button className="mm-track-chip cursor-pointer" style={{ background: lane.color }} onClick={(event) => openContextMenu(event, marbleLabelEntries(cx, lane))} title="Color" aria-label={`Label Color of ${lane.name}`} type="button" />
 			<button
 				className="mm-track-title flex h-full min-w-0 flex-1 flex-col justify-center text-left leading-tight"
 				onClick={() => cx.$selection.set([id])}

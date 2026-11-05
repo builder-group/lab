@@ -11,10 +11,10 @@ import { selectedPieceIds } from './step-loop';
 // and Detach
 
 /**
- * Follow a Marble for the selected pieces: each piece follows the moment of `laneId`'s
+ * Follow a Marble for the selected pieces: each piece follows the moment of `marbleId`'s
  * fall closest to it, or of the nearest marble's fall without one, keeping where it is. One undo step.
  */
-export function followSelection(cx: StudioCx, laneId?: string): void {
+export function followSelection(cx: StudioCx, marbleId?: string): void {
 	const project = cx.project;
 	const result = cx.simulation.$result.get();
 	if (project == null || result == null) return;
@@ -25,16 +25,16 @@ export function followSelection(cx: StudioCx, laneId?: string): void {
 		if (resolved == null) continue;
 		const point = resolved.contactPoint ?? resolved.position;
 		const moments = result.marbles
-			.filter((track) => laneId == null || track.laneId === laneId)
+			.filter((track) => marbleId == null || track.marbleId === marbleId)
 			.flatMap((track) => {
 				const time = nearestMoment(track.samples, point);
 				const sample = time == null ? null : track.samples.find((item) => item.time >= time - 1e-9);
-				return time == null || sample == null ? [] : [{ laneId: track.laneId, time, distance: Math.hypot(sample.position.x - point.x, sample.position.y - point.y) }];
+				return time == null || sample == null ? [] : [{ marbleId: track.marbleId, time, distance: Math.hypot(sample.position.x - point.x, sample.position.y - point.y) }];
 			})
 			.sort((a, b) => a.distance - b.distance);
 		const nearest = moments[0];
 		if (nearest == null) continue;
-		const [isOk, error, value] = anchorPiece(current, result, entityId, nearest.laneId, nearest.time);
+		const [isOk, error, value] = anchorPiece(current, result, entityId, nearest.marbleId, nearest.time);
 		if (!isOk) {
 			cx.notify(error.message);
 			return;
@@ -109,8 +109,8 @@ export function followItems(cx: StudioCx): TMenuItem[] {
 	const entity = ids.length === 1 ? project.entities.find((item) => item.id === ids[0]) : undefined;
 	const attach = entity != null ? attachState(project, entity) : null;
 	return project.music.lanes
-		.filter((lane) => result.marbles.some((track) => track.laneId === lane.id))
-		.map((lane) => ({ label: lane.name, checked: attach?.kind === 'anchored' && attach.laneId === lane.id, onSelect: () => followSelection(cx, lane.id) }));
+		.filter((lane) => result.marbles.some((track) => track.marbleId === lane.id))
+		.map((lane) => ({ label: lane.name, checked: attach?.kind === 'anchored' && attach.marbleId === lane.id, onSelect: () => followSelection(cx, lane.id) }));
 }
 
 /**

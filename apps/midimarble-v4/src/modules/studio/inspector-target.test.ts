@@ -8,7 +8,7 @@ function fullProject(): TProject {
 	const lane = project.music.lanes[0];
 	if (lane != null) lane.hits = [{ id: 'hit-1', time: 1, pitch: 64 }];
 	project.music.sources = [{ id: 'source-1', kind: 'midi', path: 'song.mid', name: 'Jingle Bells.mid', offset: 0 }];
-	const platform = { id: 'platform-1', components: { piece: { type: 'platform' }, hitLink: { laneId: lane?.id ?? '', hitId: 'hit-1' } } } as unknown as TEntity;
+	const platform = { id: 'platform-1', components: { piece: { type: 'platform' }, hitLink: { marbleId: lane?.id ?? '', hitId: 'hit-1' } } } as unknown as TEntity;
 	const free = { id: 'rail-1', components: { piece: { type: 'rail' } } } as unknown as TEntity;
 	const titles = ['title-1', 'title-2'].map((id) => ({ id, name: id, components: { wallText: { text: id } } }) as unknown as TEntity);
 	project.entities.push(platform, free, ...titles);
@@ -61,10 +61,10 @@ describe('inspectorTarget function', () => {
 
 	it('should show the same inspector for a timeline row as for its row in Layers', () => {
 		const project = fullProject();
-		const marbleId = project.entities[0]?.id ?? '';
+		const marbleEntityId = project.entities[0]?.id ?? '';
 		const rows = buildOutline(project).filter(isSelectableRow);
 		// The keys the timeline's row headers and clips select: Song, a marble, Camera, a shot and a title
-		const timelineKeys = [SONG_KEY, marbleId, CAMERA_KEY, toShotKey('shot-1'), 'title-1'];
+		const timelineKeys = [SONG_KEY, marbleEntityId, CAMERA_KEY, toShotKey('shot-1'), 'title-1'];
 
 		for (const key of timelineKeys) {
 			const row = rows.find((item) => item.id === key);
@@ -78,9 +78,9 @@ describe('inspectorTarget function', () => {
 
 	it('should show hits before the marble they belong to', () => {
 		const project = fullProject();
-		const laneId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.lanes[0]?.id ?? '';
 
-		expect(inspectorTarget(project, [toHitKey(laneId, 'hit-1')])).toEqual({ kind: 'hits', keys: [toHitKey(laneId, 'hit-1')] });
+		expect(inspectorTarget(project, [toHitKey(marbleId, 'hit-1')])).toEqual({ kind: 'hits', keys: [toHitKey(marbleId, 'hit-1')] });
 	});
 
 	it('should show the Project for a Song key once the song is deleted', () => {
@@ -107,10 +107,10 @@ describe('the Scene', () => {
 describe('selectionEnteringFilm function', () => {
 	it('should select the Scene when Track left a piece or a hit selected', () => {
 		const project = fullProject();
-		const laneId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.lanes[0]?.id ?? '';
 		expect(selectionEnteringFilm(project, ['platform-1'])).toEqual([]);
 		expect(selectionEnteringFilm(project, ['platform-1', 'rail-1'])).toEqual([]);
-		expect(selectionEnteringFilm(project, [toHitKey(laneId, 'hit-1')])).toEqual([]);
+		expect(selectionEnteringFilm(project, [toHitKey(marbleId, 'hit-1')])).toEqual([]);
 	});
 
 	it('should keep a layer Film is about', () => {

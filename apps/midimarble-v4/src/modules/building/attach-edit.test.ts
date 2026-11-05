@@ -61,8 +61,8 @@ describe('clearRotorPosition function', () => {
 	const fall = (x: number) => Array.from({ length: 100 }, (_, i) => ({ time: i * 0.01, position: { x, y: 0.6 - i * 0.01 }, angle: 0, velocity: { x: 0, y: -1 } }));
 	const result = {
 		marbles: [
-			{ entityId: 'marble-1', laneId: 'lane-1', radius: 0.012, samples: fall(0) },
-			{ entityId: 'marble-2', laneId: 'lane-2', radius: 0.012, samples: fall(0.2) }
+			{ entityId: 'marble-1', marbleId: 'lane-1', radius: 0.012, samples: fall(0) },
+			{ entityId: 'marble-2', marbleId: 'lane-2', radius: 0.012, samples: fall(0.2) }
 		],
 		pieces: []
 	} as unknown as TSimulationResult;

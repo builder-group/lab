@@ -33,7 +33,7 @@ export function namePiecesInOrder(project: TProject): TProject {
 		if (startRail != null) ordered.push(startRail);
 		ordered.push(
 			...project.entities
-				.filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id)
+				.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id)
 				.sort((a, b) => (order.get(a.components.hitLink?.hitId ?? '') ?? 0) - (order.get(b.components.hitLink?.hitId ?? '') ?? 0))
 		);
 	}

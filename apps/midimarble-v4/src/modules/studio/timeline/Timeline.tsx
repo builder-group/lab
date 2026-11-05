@@ -13,7 +13,7 @@ import type { StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
 import { CameraRow } from './CameraRow';
 import { auditionNote, handNotes, isNoteSelection, ownerForKey, selectedNotes } from '@/modules/track';
-import { LaneTrack, type TDrag, type TDragStart } from './LaneTrack';
+import { MarbleTrack, type TDrag, type TDragStart } from './MarbleTrack';
 import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange } from './piano-roll';
 import { PartRows } from './PartRows';
 import { PlayheadLine, Ruler, TimeGutter } from './Ruler';
@@ -54,13 +54,13 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	// Hit results by lane, so a lane row re-renders only with a new simulation result
 	const hitStatus = React.useMemo(() => {
-		const byLane = new Map<string, Map<string, THitResult>>();
+		const byMarble = new Map<string, Map<string, THitResult>>();
 		for (const hit of result?.hits ?? []) {
-			const lane = byLane.get(hit.laneId) ?? new Map<string, THitResult>();
+			const lane = byMarble.get(hit.marbleId) ?? new Map<string, THitResult>();
 			lane.set(hit.hitId, hit);
-			byLane.set(hit.laneId, lane);
+			byMarble.set(hit.marbleId, lane);
 		}
-		return byLane;
+		return byMarble;
 	}, [result]);
 
 	// A recording has no notes to expand; MIDI or Backing notes without a file expand into every note
@@ -72,7 +72,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		() =>
 			cx.$hitFlash.listen(({ value }) => {
 				for (const flash of value) {
-					const element = scrollRef.current?.querySelector<HTMLElement>(`[data-hit-key="${CSS.escape(toHitKey(flash.laneId, flash.hitId))}"]`);
+					const element = scrollRef.current?.querySelector<HTMLElement>(`[data-hit-key="${CSS.escape(toHitKey(flash.marbleId, flash.hitId))}"]`);
 					if (element != null) flashElement(element, flash.tone);
 				}
 			}),
@@ -153,8 +153,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	/** Moves the dragged hits in time, and in pitch for a drag in the Song's piano roll, as one undo step */
 	function commitDrag(finished: TDrag): void {
 		if (project == null) return;
-		const { laneId, hitId } = finished.grabbed;
-		const key = toHitKey(laneId, hitId);
+		const { marbleId, hitId } = finished.grabbed;
+		const key = toHitKey(marbleId, hitId);
 		if (finished.delta === 0 && finished.pitchDelta === 0) {
 			// A plain click on one note of several selected in the roll selects just that note
 			if (finished.isPitched && finished.keys.length > 1) cx.$selection.set([key]);
@@ -162,7 +162,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		}
 		if (!cx.execute(noteDragCommands(project, finished, songRows)) || finished.pitchDelta === 0) return;
 		const current = cx.project;
-		if (current != null) auditionNote(cx, laneId, selectedNotes(current, [key])[0]?.hit.pitch);
+		if (current != null) auditionNote(cx, marbleId, selectedNotes(current, [key])[0]?.hit.pitch);
 	}
 
 	/** Zooms around a point in the track area, keeping the time under it in place */
@@ -272,7 +272,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<div key={lane.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
 							<TrackHeader cx={cx} lane={lane} project={project} selection={selection} />
 							<TimeGutter />
-							<LaneTrack
+							<MarbleTrack
 								cx={cx}
 								lane={lane}
 								zoom={zoom}

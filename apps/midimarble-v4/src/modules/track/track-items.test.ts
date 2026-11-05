@@ -16,15 +16,15 @@ import { badgeStatus } from './status';
 const viewport = { width: 900, height: 600 };
 const padding = { top: 56, right: 56, bottom: 72, left: 56 };
 
-function openHit(laneId: string, time: number, y: number): THitResult {
-	return { laneId, hitId: `h${time}`, targetTime: time, pieceEntityId: null, dot: { x: 0, y }, velocity: null, actualTime: null, error: null, status: 'open' };
+function openHit(marbleId: string, time: number, y: number): THitResult {
+	return { marbleId, hitId: `h${time}`, targetTime: time, pieceEntityId: null, dot: { x: 0, y }, velocity: null, actualTime: null, error: null, status: 'open' };
 }
 
 describe('firstHitsView', () => {
 	function tapped(y: number): { project: TProject; result: TSimulationResult } {
 		const project = createProject();
-		const laneId = project.music.lanes[0]?.id ?? '';
-		return { project, result: { hits: [openHit(laneId, 0.6, y), openHit(laneId, 1.2, y - 2)], pieces: [], marbles: [] } as unknown as TSimulationResult };
+		const marbleId = project.music.lanes[0]?.id ?? '';
+		return { project, result: { hits: [openHit(marbleId, 0.6, y), openHit(marbleId, 1.2, y - 2)], pieces: [], marbles: [] } as unknown as TSimulationResult };
 	}
 
 	it('should bring the first open dot on screen with room for the hint and the build bar', () => {
@@ -72,7 +72,7 @@ describe('dotClickAction', () => {
 });
 
 describe('a dot click before it places', () => {
-	const answer = { revision: 1, laneId: 'l', type: 'platform', isSolved: true, isOk: true } as unknown as TPlaceAnswer;
+	const answer = { revision: 1, marbleId: 'l', type: 'platform', isSolved: true, isOk: true } as unknown as TPlaceAnswer;
 	const atOne = { ...initialGhostState, revision: 1 };
 
 	it('should keep a preview over background Continue ghosts until an edit or a cancel', () => {
@@ -147,7 +147,7 @@ describe('a dot click before it places', () => {
 	}
 
 	function pieceEntity(project: TProject, hit: THitResult, id: string): TEntity {
-		return createLinkedPiece('platform', hit.laneId, hit.hitId, 0.2, { entities: project.entities, id });
+		return createLinkedPiece('platform', hit.marbleId, hit.hitId, 0.2, { entities: project.entities, id });
 	}
 
 	const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -156,7 +156,7 @@ describe('a dot click before it places', () => {
 		const { assist, cx, hit, project, edits, answer } = await setup();
 		const before = project();
 		assist.preview(hit);
-		expect(cx.$selection.get()).toEqual([toHitKey(hit.laneId, hit.hitId)]);
+		expect(cx.$selection.get()).toEqual([toHitKey(hit.marbleId, hit.hitId)]);
 		expect(assist.$ghosts.get().ghost?.kind).toBe('place');
 		expect(project()).toBe(before);
 
@@ -164,14 +164,14 @@ describe('a dot click before it places', () => {
 		await flush();
 		const { ghost } = assist.$ghosts.get();
 		expect(ghost?.kind === 'place' && ghost.answer.nextDot).toEqual({ x: 0.1, y: -1 });
-		expect(assist.isPreviewing(hit.laneId, hit.hitId)).toBe(true);
+		expect(assist.isPreviewing(hit.marbleId, hit.hitId)).toBe(true);
 
 		// Return and N come through next(), a click on the ghost through acceptGhosts()
 		assist.next();
 		expect(edits()).toBe(1);
 		expect(project().entities.some((entity) => entity.components.hitLink?.hitId === hit.hitId)).toBe(true);
 		expect(assist.$ghosts.get().ghost).toBeNull();
-		expect(cx.$selection.get()[0]).not.toBe(toHitKey(hit.laneId, hit.hitId));
+		expect(cx.$selection.get()[0]).not.toBe(toHitKey(hit.marbleId, hit.hitId));
 	});
 
 	it('should cancel on Escape and when anything else is selected, leaving the project alone', async () => {
@@ -181,7 +181,7 @@ describe('a dot click before it places', () => {
 		await flush();
 		expect(assist.dismiss()).toBe(true);
 		expect(assist.$ghosts.get().ghost).toBeNull();
-		expect(cx.$selection.get()).toEqual([toHitKey(hit.laneId, hit.hitId)]);
+		expect(cx.$selection.get()).toEqual([toHitKey(hit.marbleId, hit.hitId)]);
 
 		assist.preview(hit);
 		cx.$selection.set([]);
@@ -220,12 +220,12 @@ describe('a dot click before it places', () => {
 describe('hit dots', () => {
 	const scene = {
 		handles: [],
-		dots: [{ laneId: 'l', hitId: 'placed', position: { x: 100, y: 100 }, radius: PLACED_DOT_PICK_RADIUS }, { laneId: 'l', hitId: 'open', position: { x: 300, y: 100 } }],
+		dots: [{ marbleId: 'l', hitId: 'placed', position: { x: 100, y: 100 }, radius: PLACED_DOT_PICK_RADIUS }, { marbleId: 'l', hitId: 'open', position: { x: 300, y: 100 } }],
 		pieces: [{ entityId: 'p', corners: [{ x: 70, y: 104 }, { x: 130, y: 104 }, { x: 130, y: 110 }, { x: 70, y: 110 }] }]
 	};
 
 	it('should give the nearer of a placed dot and its platform the click, a tie to the platform', () => {
-		expect(pick({ x: 100, y: 99 }, scene)).toEqual({ kind: 'dot', laneId: 'l', hitId: 'placed' });
+		expect(pick({ x: 100, y: 99 }, scene)).toEqual({ kind: 'dot', marbleId: 'l', hitId: 'placed' });
 		expect(pick({ x: 100, y: 106 }, scene)).toEqual({ kind: 'piece', entityId: 'p' });
 		// 2 px from the dot's center but on the bar, as at low zoom
 		const low = { ...scene, pieces: [{ entityId: 'p', corners: [{ x: 70, y: 98 }, { x: 130, y: 98 }, { x: 130, y: 104 }, { x: 70, y: 104 }] }] };
@@ -233,9 +233,9 @@ describe('hit dots', () => {
 	});
 
 	it('should keep an open dot ahead of pieces within its wider reach', () => {
-		expect(pick({ x: 307, y: 100 }, scene)).toEqual({ kind: 'dot', laneId: 'l', hitId: 'open' });
+		expect(pick({ x: 307, y: 100 }, scene)).toEqual({ kind: 'dot', marbleId: 'l', hitId: 'open' });
 		const over = { ...scene, pieces: [{ entityId: 'q', corners: [{ x: 290, y: 95 }, { x: 310, y: 95 }, { x: 310, y: 105 }, { x: 290, y: 105 }] }] };
-		expect(pick({ x: 305, y: 100 }, over)).toEqual({ kind: 'dot', laneId: 'l', hitId: 'open' });
+		expect(pick({ x: 305, y: 100 }, over)).toEqual({ kind: 'dot', marbleId: 'l', hitId: 'open' });
 	});
 
 	it('should leave the status to the dot and keep the badge for what has no dot', () => {
@@ -262,7 +262,7 @@ describe('arrows in Track', () => {
 
 describe('stepping through hits', () => {
 	const project = {
-		entities: [{ id: 'platform', components: { piece: { type: 'platform' }, hitLink: { laneId: 'a', hitId: 'a2' } } }],
+		entities: [{ id: 'platform', components: { piece: { type: 'platform' }, hitLink: { marbleId: 'a', hitId: 'a2' } } }],
 		music: {
 			lanes: [
 				{ id: 'a', hits: [{ id: 'a1', time: 1 }, { id: 'a2', time: 2 }, { id: 'a3', time: 3 }] },
@@ -288,21 +288,21 @@ describe('stepping through hits', () => {
 });
 
 describe('⌫ on hits', () => {
-	async function played(): Promise<{ project: TProject; result: TSimulationResult; key: string; pieceId: string; hitId: string; laneId: string }> {
+	async function played(): Promise<{ project: TProject; result: TSimulationResult; key: string; pieceId: string; hitId: string; marbleId: string }> {
 		const simulator = await createSimulator();
 		const project = createStaircaseProject();
 		const result = simulator.simulate(project);
 		const piece = project.entities.find((entity) => entity.id === 'piece-1-5');
 		const link = piece?.components.hitLink;
 		if (link == null) throw new Error('expected a platform');
-		return { project, result, key: toHitKey(link.laneId, link.hitId), pieceId: 'piece-1-5', hitId: link.hitId, laneId: link.laneId };
+		return { project, result, key: toHitKey(link.marbleId, link.hitId), pieceId: 'piece-1-5', hitId: link.hitId, marbleId: link.marbleId };
 	}
 
 	it('should leave nothing tied to the hit when Delete Hit removes it, as one edit', async () => {
-		const { project, result, key, hitId, laneId, pieceId } = await played();
+		const { project, result, key, hitId, marbleId, pieceId } = await played();
 		const [isOk, error, next] = applyProjectCommands(project, deleteHitCommands(project, result, [key]));
 		if (!isOk) throw error;
-		expect(next.music.lanes.find((lane) => lane.id === laneId)?.hits.some((hit) => hit.id === hitId)).toBe(false);
+		expect(next.music.lanes.find((lane) => lane.id === marbleId)?.hits.some((hit) => hit.id === hitId)).toBe(false);
 		expect(next.music.backing.some((hit) => hit.id === hitId)).toBe(false);
 		expect(next.entities.some((entity) => entity.id === pieceId)).toBe(false);
 		expect(next.entities.some((entity) => entity.components.hitLink?.hitId === hitId)).toBe(false);
@@ -329,7 +329,7 @@ describe('an added note', () => {
 });
 
 describe('dragging a platform that plays a note', () => {
-	const note = { laneId: 'l', hitId: 'h', dot: { x: 0, y: 0 } };
+	const note = { marbleId: 'l', hitId: 'h', dot: { x: 0, y: 0 } };
 	const options = { isFree: false, reach: KEEP_PLAYS_REACH };
 
 	it('should keep the note near it, free it only far away or with ⌥', () => {
@@ -339,7 +339,7 @@ describe('dragging a platform that plays a note', () => {
 	});
 
 	it('should follow the note again on its own dot and take another open note on its dot', () => {
-		const own: TSnap = { kind: 'link', laneId: 'l', hitId: 'h', dot: { x: 0, y: 0 }, velocity: null };
+		const own: TSnap = { kind: 'link', marbleId: 'l', hitId: 'h', dot: { x: 0, y: 0 }, velocity: null };
 		expect(playsDrop(note, { x: 0, y: 0 }, { x: 0, y: 0 }, own, options)).toBe('onNote');
 		expect(playsDrop(note, { x: 0, y: 0 }, { x: 2, y: 0 }, { ...own, hitId: 'other' }, options)).toBe('otherNote');
 	});

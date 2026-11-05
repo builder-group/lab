@@ -60,7 +60,7 @@
 			"name": "Marble 1",
 			"components": {
 				"marble": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"radius": 0.008
 				},
 				"release": {
@@ -90,7 +90,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-1",
 					"angle": -0.05,
 					"contactAt": 0.5
@@ -112,7 +112,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-2",
 					"angle": -0.1198,
 					"contactAt": 0.5
@@ -134,7 +134,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-3",
 					"angle": -0.05,
 					"contactAt": 0.5
@@ -156,7 +156,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-4",
 					"angle": -0.05,
 					"contactAt": 0.5
@@ -178,7 +178,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-5",
 					"angle": -0.05,
 					"contactAt": 0.5
@@ -200,7 +200,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-6",
 					"angle": -0.05,
 					"contactAt": 0.5
@@ -222,7 +222,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-7",
 					"angle": -0.05,
 					"contactAt": 0.5
@@ -244,7 +244,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-8",
 					"angle": -0.05,
 					"contactAt": 0.5

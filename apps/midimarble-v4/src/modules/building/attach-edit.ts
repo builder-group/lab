@@ -14,13 +14,13 @@ export interface TPose {
 
 export type TAttachState =
 	| { kind: 'free' }
-	| { kind: 'linked'; laneId: string; hitId: string }
-	| { kind: 'anchored'; laneId: string; hitId: string; time: number };
+	| { kind: 'linked'; marbleId: string; hitId: string }
+	| { kind: 'anchored'; marbleId: string; hitId: string; time: number };
 
 /** What a drop attaches the dragged element to */
 export type TSnap =
-	| { kind: 'link'; laneId: string; hitId: string; dot: TVec2; velocity: TVec2 | null }
-	| { kind: 'anchor'; laneId: string; time: number; marble: TVec2 };
+	| { kind: 'link'; marbleId: string; hitId: string; dot: TVec2; velocity: TVec2 | null }
+	| { kind: 'anchor'; marbleId: string; time: number; marble: TVec2 };
 
 /** Seconds before the closest trajectory moment that an anchor is set, so the element appears ahead of the marble */
 export const ANCHOR_LEAD = 0.12;
@@ -28,9 +28,9 @@ export const ANCHOR_LEAD = 0.12;
 export function attachState(project: TProject, entity: TEntity): TAttachState {
 	const link = entity.components.hitLink;
 	if (link == null) return { kind: 'free' };
-	if (soundsHit(entity.components.piece?.type ?? '', link)) return { kind: 'linked', laneId: link.laneId, hitId: link.hitId };
-	const hitTime = project.music.lanes.find((lane) => lane.id === link.laneId)?.hits.find((hit) => hit.id === link.hitId)?.time ?? 0;
-	return { kind: 'anchored', laneId: link.laneId, hitId: link.hitId, time: hitTime + (entity.components.piece?.params['entryDelay'] ?? 0) };
+	if (soundsHit(entity.components.piece?.type ?? '', link)) return { kind: 'linked', marbleId: link.marbleId, hitId: link.hitId };
+	const hitTime = project.music.lanes.find((lane) => lane.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time ?? 0;
+	return { kind: 'anchored', marbleId: link.marbleId, hitId: link.hitId, time: hitTime + (entity.components.piece?.params['entryDelay'] ?? 0) };
 }
 
 /** The free transform that reproduces where a piece is now: its transform, or the pose the run gave it */
@@ -57,7 +57,7 @@ export function asFree(entity: TEntity, pose: TPose): TEntity {
  * A platform linked to a hit so it sounds the note. It keeps its angle; where the dot falls along its
  * surface becomes the contact point, so the run places it touching the marble right there.
  */
-export function asLinked(entity: TEntity, pose: TPose, laneId: string, hitId: string, dot: TVec2): TEntity {
+export function asLinked(entity: TEntity, pose: TPose, marbleId: string, hitId: string, dot: TVec2): TEntity {
 	const { transform: _, ...components } = entity.components;
 	const piece = components.piece ?? { type: 'platform', params: {} };
 	const params = resolvePieceParams(piece.type, piece.params);
@@ -69,18 +69,18 @@ export function asLinked(entity: TEntity, pose: TPose, laneId: string, hitId: st
 		components: {
 			...components,
 			piece: { ...piece, params: { ...piece.params, entryDelay: 0 } },
-			hitLink: { laneId, hitId, angle: pose.angle, contactAt }
+			hitLink: { marbleId, hitId, angle: pose.angle, contactAt }
 		}
 	};
 }
 
 /**
- * A piece anchored to `laneId`'s trajectory at `time`, where the marble is at `marble`. It keeps its pose
+ * A piece anchored to `marbleId`'s trajectory at `time`, where the marble is at `marble`. It keeps its pose
  * relative to the marble at that moment and plays no note. Returns null when the lane has no hit within
  * `ANCHOR_DELAY` of the moment (see `anchorHit`).
  */
-export function asAnchored(project: TProject, entity: TEntity, pose: TPose, laneId: string, time: number, marble: TVec2): TEntity | null {
-	const hits = project.music.lanes.find((lane) => lane.id === laneId)?.hits ?? [];
+export function asAnchored(project: TProject, entity: TEntity, pose: TPose, marbleId: string, time: number, marble: TVec2): TEntity | null {
+	const hits = project.music.lanes.find((lane) => lane.id === marbleId)?.hits ?? [];
 	const hit = anchorHit(hits, time);
 	if (hit == null) return null;
 	const { transform: _, ...components } = entity.components;
@@ -91,7 +91,7 @@ export function asAnchored(project: TProject, entity: TEntity, pose: TPose, lane
 			...components,
 			piece: { ...piece, params: { ...piece.params, entryDelay: Math.round((time - hit.time) * 1e4) / 1e4 } },
 			hitLink: {
-				laneId,
+				marbleId,
 				hitId: hit.id,
 				angle: pose.angle,
 				contactAt: entity.components.hitLink?.contactAt ?? 0.5,
@@ -111,8 +111,8 @@ export const KEEP_PLAYS_REACH = 0.25;
  */
 export type TPlaysDrop = 'onNote' | 'otherNote' | 'keeps' | 'frees';
 
-export function playsDrop(note: { laneId: string; hitId: string; dot: TVec2 | null }, startPosition: TVec2, position: TVec2, snap: TSnap | null, options: { isFree: boolean; reach: number }): TPlaysDrop {
-	if (snap?.kind === 'link') return snap.laneId === note.laneId && snap.hitId === note.hitId ? 'onNote' : 'otherNote';
+export function playsDrop(note: { marbleId: string; hitId: string; dot: TVec2 | null }, startPosition: TVec2, position: TVec2, snap: TSnap | null, options: { isFree: boolean; reach: number }): TPlaysDrop {
+	if (snap?.kind === 'link') return snap.marbleId === note.marbleId && snap.hitId === note.hitId ? 'onNote' : 'otherNote';
 	if (options.isFree) return 'frees';
 	const from = note.dot ?? startPosition;
 	return Math.hypot(position.x - from.x, position.y - from.y) <= options.reach ? 'keeps' : 'frees';
@@ -120,8 +120,8 @@ export function playsDrop(note: { laneId: string; hitId: string; dot: TVec2 | nu
 
 /** The entity a drop produces at `pose` for a snap, falling back to free when the anchor has no hit before it */
 export function withSnap(project: TProject, entity: TEntity, pose: TPose, snap: TSnap | null): TEntity {
-	if (snap?.kind === 'link') return asLinked(entity, pose, snap.laneId, snap.hitId, snap.dot);
-	if (snap?.kind === 'anchor') return asAnchored(project, entity, pose, snap.laneId, snap.time, snap.marble) ?? asFree(entity, pose);
+	if (snap?.kind === 'link') return asLinked(entity, pose, snap.marbleId, snap.hitId, snap.dot);
+	if (snap?.kind === 'anchor') return asAnchored(project, entity, pose, snap.marbleId, snap.time, snap.marble) ?? asFree(entity, pose);
 	return asFree(entity, pose);
 }
 
@@ -270,11 +270,11 @@ export const ROTOR_CLEARANCE = 0.004;
  * it was. The side toward the frame center is tried first, then further out. Without a clear spot, the roomiest
  * one tried.
  */
-export function clearRotorPosition(project: TProject, result: TSimulationResult, at: { position: TVec2; velocity: TVec2 }, reach: number, laneId: string): TVec2 {
+export function clearRotorPosition(project: TProject, result: TSimulationResult, at: { position: TVec2; velocity: TVec2 }, reach: number, marbleId: string): TVec2 {
 	const speed = Math.hypot(at.velocity.x, at.velocity.y);
 	const across = speed > 1e-6 ? { x: -at.velocity.y / speed, y: at.velocity.x / speed } : { x: 1, y: 0 };
-	const marbleRadius = result.marbles.find((track) => track.laneId === laneId)?.radius ?? DEFAULT_MARBLE_RADIUS;
-	const centerX = frameBand(project, laneId).centerX;
+	const marbleRadius = result.marbles.find((track) => track.marbleId === marbleId)?.radius ?? DEFAULT_MARBLE_RADIUS;
+	const centerX = frameBand(project, marbleId).centerX;
 	const inward = Math.sign((centerX - at.position.x) * across.x) || 1;
 	const shapes = result.pieces.flatMap(pieceShapes);
 	const base = reach + marbleRadius + ROTOR_CLEARANCE;

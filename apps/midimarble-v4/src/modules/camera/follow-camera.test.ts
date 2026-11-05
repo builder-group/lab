@@ -320,7 +320,7 @@ describe('follow camera', () => {
 		for (const bowl of bowls) {
 			const caught = bowlCatch(result, bowl.id);
 			expect(caught.status).toBe('caught');
-			const marble = required(result.marbles.find((item) => item.laneId === bowl.components.hitLink?.laneId));
+			const marble = required(result.marbles.find((item) => item.marbleId === bowl.components.hitLink?.marbleId));
 			const enter = pyRound(required(caught.enterTime) * 30);
 			const sample = required(marble.samples.find((item) => item.time >= enter / 30 - 1e-6));
 			const [u, v] = project(track, enter, sample.position.x, sample.position.y);

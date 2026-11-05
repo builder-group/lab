@@ -40,7 +40,7 @@ describe('follow camera on whole songs', () => {
 		const track = required(followCameraTrack(jingle, result, 30));
 		// The melody's last note is at 31 s; the bass plays until 32.5 s, where the camera holds
 		const bass = required(
-			result.marbles.find((marble) => marble.laneId === jingle.music.lanes[1]?.id)
+			result.marbles.find((marble) => marble.marbleId === jingle.music.lanes[1]?.id)
 		);
 		for (let frame = 30 * 30; frame <= 32.5 * 30; frame += 3) {
 			const sample = bass.samples.find((item) => item.time >= frame / 30);
@@ -200,8 +200,8 @@ describe('follow camera on whole songs', () => {
 			expect(Math.max(u, v)).toBeLessThan(1);
 		}
 		// The marble that struck last stays in the held frame as it falls into its Bowl
-		const lastLane = required(result.hits.find((hit) => hit.actualTime === last)).laneId;
-		const marble = required(result.marbles.find((item) => item.laneId === lastLane));
+		const lastMarble = required(result.hits.find((hit) => hit.actualTime === last)).marbleId;
+		const marble = required(result.marbles.find((item) => item.marbleId === lastMarble));
 		for (let frame = pyRound(last * 30); frame <= pyRound((last + 0.8) * 30); frame += 3) {
 			const sample = required(marble.samples.find((item) => item.time >= frame / 30));
 			const [u, v] = project(track, frame, sample.position.x, sample.position.y);
@@ -232,7 +232,7 @@ describe('follow camera on whole songs', () => {
 		for (const bowl of bowls) {
 			const caught = bowlCatch(result, bowl.id);
 			expect(caught.status).toBe('caught');
-			const marble = required(result.marbles.find((item) => item.laneId === bowl.components.hitLink?.laneId));
+			const marble = required(result.marbles.find((item) => item.marbleId === bowl.components.hitLink?.marbleId));
 			// The marble enters its Bowl in frame, with a margin of 5 % of it
 			const enter = pyRound(required(caught.enterTime) * 30);
 			const sample = required(marble.samples.find((item) => item.time >= enter / 30 - 1e-6));

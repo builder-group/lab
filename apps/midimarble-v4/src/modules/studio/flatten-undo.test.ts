@@ -8,7 +8,7 @@ function studio(): { cx: StudioCx; patterns: PatternsCx; group: TPatternGroup } 
 	const created = createProject({ title: 'Song' });
 	const lane = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
 	const pieces = lane.hits.map((hit, index) => createLinkedPiece('platform', lane.id, hit.id, 0.3, { id: `piece-${index}` }));
-	const group: TPatternGroup = { id: 'group-1', name: 'Zigzag', kind: 'zigzag', laneId: lane.id, from: 1, to: 2, width: 0.14, bounce: 0.5, pieceIds: pieces.map((piece) => piece.id) };
+	const group: TPatternGroup = { id: 'group-1', name: 'Zigzag', kind: 'zigzag', marbleId: lane.id, from: 1, to: 2, width: 0.14, bounce: 0.5, pieceIds: pieces.map((piece) => piece.id) };
 	const project: TProject = { ...created, music: { ...created.music, lanes: [lane] }, groups: [group], entities: [createMarble(lane, { x: 0, y: 0 }), ...pieces] };
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
@@ -24,7 +24,7 @@ describe('Flatten and Undo', () => {
 
 		// Act
 		patterns.flatten(group);
-		expect(cx.project?.groups).toEqual([{ id: group.id, name: group.name, laneId: group.laneId, pieceIds: group.pieceIds }]);
+		expect(cx.project?.groups).toEqual([{ id: group.id, name: group.name, marbleId: group.marbleId, pieceIds: group.pieceIds }]);
 		expect(cx.$history.get()?.past.length).toBe(steps + 1);
 		cx.undo();
 
@@ -50,6 +50,6 @@ describe('Flatten and Undo', () => {
 
 		cx.redo();
 
-		expect(cx.project?.groups).toEqual([{ id: group.id, name: group.name, laneId: group.laneId, pieceIds: group.pieceIds }]);
+		expect(cx.project?.groups).toEqual([{ id: group.id, name: group.name, marbleId: group.marbleId, pieceIds: group.pieceIds }]);
 	});
 });

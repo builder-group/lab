@@ -38,8 +38,8 @@ function referenceProject(): TProject {
 	if (lane == null || marble?.components.marble == null) throw new Error('No marble');
 	return apply({ ...project, physics: { gravityScale: reference.gravityScale } }, [
 		{ type: 'upsertLane', lane: { ...lane, id: LANE, hits: reference.hits.map((time, index) => ({ id: `h${index}`, time })) } },
-		{ type: 'removeLane', laneId: lane.id },
-		{ type: 'upsertEntity', entity: { ...marble, components: { marble: { ...marble.components.marble, laneId: LANE }, release: reference.release } } },
+		{ type: 'removeLane', marbleId: lane.id },
+		{ type: 'upsertEntity', entity: { ...marble, components: { marble: { ...marble.components.marble, marbleId: LANE }, release: reference.release } } },
 		{ type: 'upsertEntity', entity: { id: 'start-rail', name: 'Rail 1', components: reference.startRail } },
 		{ type: 'setEnd', end: (reference.hits.at(-1) ?? 0) + 0.6 }
 	]);
@@ -61,7 +61,7 @@ function buildChain(start: TProject): TProject {
 	let project = start;
 	for (const [first, last, kind, width] of CHAIN) {
 		const gap = kind === 'longRail' ? 0.02 : 0;
-		const outcome = runGroupChange(project, { laneId: LANE, from: (times[first] ?? 0) + gap, to: (times[last] ?? 0) - gap, kind, width, bounce: 0.5 }, { sim });
+		const outcome = runGroupChange(project, { marbleId: LANE, from: (times[first] ?? 0) + gap, to: (times[last] ?? 0) - gap, kind, width, bounce: 0.5 }, { sim });
 		project = apply(project, outcome.commands);
 	}
 	return project;
@@ -91,7 +91,7 @@ describe('Patterns chained on the reference hits', () => {
 
 		const first = chain.groups?.filter(isPatternGroup).find((group) => group.from < 2);
 		const changedAt = performance.now();
-		const changed = runGroupChange(chain, { laneId: LANE, groupId: first?.id, from: first?.from ?? 0, to: first?.to ?? 0, kind: 'zigzag', width: 0.15, bounce: 0.5 }, { sim });
+		const changed = runGroupChange(chain, { marbleId: LANE, groupId: first?.id, from: first?.from ?? 0, to: first?.to ?? 0, kind: 'zigzag', width: 0.15, bounce: 0.5 }, { sim });
 		const after = apply(chain, changed.commands);
 		const rerun = sim.simulate(after);
 		const again = measurePattern(after, rerun, LANE);
@@ -105,14 +105,14 @@ describe('Patterns chained on the reference hits', () => {
 	it('should answer a hover preview on real rhythm quickly', { timeout: MINUTES }, () => {
 		const project = referenceProject();
 		const hits = project.music.lanes[0]?.hits ?? [];
-		const start = runGroupChange(project, { laneId: LANE, from: hits[0]?.time ?? 0, to: hits[24]?.time ?? 0, kind: 'zigzag', width: 0.14, bounce: 0.5 }, { sim });
+		const start = runGroupChange(project, { marbleId: LANE, from: hits[0]?.time ?? 0, to: hits[24]?.time ?? 0, kind: 'zigzag', width: 0.14, bounce: 0.5 }, { sim });
 		const base = apply(project, start.commands);
 		const times: number[] = [];
 		for (let first = 0; first + 8 < 25; first += 2) {
 			const from = hits[first]?.time ?? 0;
 			const to = hits[first + 8]?.time ?? 0;
 			const startedAt = performance.now();
-			runGroupChange(base, { laneId: LANE, from, to, kind: 'zigzag', width: 0.14, bounce: 0.5 }, { sim, isPreview: true });
+			runGroupChange(base, { marbleId: LANE, from, to, kind: 'zigzag', width: 0.14, bounce: 0.5 }, { sim, isPreview: true });
 			times.push(performance.now() - startedAt);
 		}
 		const sorted = [...times].sort((a, b) => a - b);

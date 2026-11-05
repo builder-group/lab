@@ -63,9 +63,9 @@ describe('createAssistPool function', () => {
 	});
 
 	/** Auto place in this thread, the answer a single assists worker gives */
-	function placeAlone(laneId: string, hitId: string, entityId: string): unknown {
+	function placeAlone(marbleId: string, hitId: string, entityId: string): unknown {
 		const simulate = (next: TProject): ReturnType<TSimulator['simulate']> => simulator.simulate(next);
-		const [isOk, error, placement] = autoPlace(project, simulate(project), laneId, hitId, { simulate, type: 'platform', id: entityId });
+		const [isOk, error, placement] = autoPlace(project, simulate(project), marbleId, hitId, { simulate, type: 'platform', id: entityId });
 		return isOk ? { entity: placement.entity, angle: placement.angle, nextDot: placement.nextDot } : error.message;
 	}
 
@@ -88,7 +88,7 @@ describe('createAssistPool function', () => {
 			// Act
 			const answers: unknown[] = [];
 			for (const hit of hits) {
-				const request = { project, laneId: lane.id, hitId: hit.id, type: 'platform', entityId: owners.get(hit.id)?.id ?? 'piece' };
+				const request = { project, marbleId: lane.id, hitId: hit.id, type: 'platform', entityId: owners.get(hit.id)?.id ?? 'piece' };
 				answers.push(
 					await pool.autoPlace(request).then(
 						(answer) => ({ entity: answer.entity, angle: answer.angle, nextDot: answer.nextDot }),
@@ -116,10 +116,10 @@ describe('createAssistPool function', () => {
 			for (const type of ['switchback', 'rail', 'tunnel'] as TGapPieceType[]) {
 				const entityId = gap.bridgedBy ?? 'gap-piece';
 				const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
-				const [isOk, error, proposal] = create(project, simulate(project), gap.laneId, gap.fromHitId, gap.toHitId, { simulate, id: entityId });
+				const [isOk, error, proposal] = create(project, simulate(project), gap.marbleId, gap.fromHitId, gap.toHitId, { simulate, id: entityId });
 
 				// Act
-				const answer = await pool.gapPiece({ type, project, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }).then(
+				const answer = await pool.gapPiece({ type, project, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }).then(
 					(value) => ({ entity: value.entity, check: value.check }),
 					(failure: unknown) => (failure instanceof Error ? failure.message : String(failure))
 				);
@@ -139,7 +139,7 @@ describe('createAssistPool function', () => {
 		const entityId = hitOwners(project, lane.id).get(hit.id)?.id ?? 'piece';
 		const { createWorker, posted } = createFakeWorkers(5);
 		const pool = createAssistPool({ size: 3, createWorker });
-		const request = { project, laneId: lane.id, hitId: hit.id, type: 'platform', entityId };
+		const request = { project, marbleId: lane.id, hitId: hit.id, type: 'platform', entityId };
 
 		// Act: Stop pressed once the first stage went out
 		const stopped = pool.autoPlace(request, { isCanceled: () => posted.length > 0 });

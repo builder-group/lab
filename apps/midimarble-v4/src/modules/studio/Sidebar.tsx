@@ -11,7 +11,7 @@ import { isPatternGroup, type TEntity, type TProject, formatTime, SCENE_KEY } fr
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { inspectorTarget } from './inspector-target';
-import { decorLabelEntries, decorMenu, entityLabelEntries, laneLabelEntries, laneMenu, pieceMenu, songMenu, titleMenu } from './menus';
+import { decorLabelEntries, decorMenu, entityLabelEntries, marbleLabelEntries, marbleMenu, pieceMenu, songMenu, titleMenu } from './menus';
 import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
@@ -80,7 +80,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	// Rows that Shift ranges and the arrow keys visit; Track's arrows stay out of the Film rows
 	const order = rows.filter((row) => isSelectableRow(row) && (isFilm || !isFilmRow(row))).map((row) => row.id);
 	const selectedSet = new Set(selection);
-	const selectedLanes = new Set(selection.flatMap((key) => (key.startsWith('hit:') ? [key.split(':')[1] ?? ''] : [])));
+	const selectedMarbles = new Set(selection.flatMap((key) => (key.startsWith('hit:') ? [key.split(':')[1] ?? ''] : [])));
 	const isSceneSelected = inspectorTarget(project, selection, workspace).kind === 'scene';
 
 	function isSelected(row: TOutlineRow): boolean {
@@ -92,7 +92,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 
 	// The children of a selected marble or camera and a marble whose hits are selected get the lighter tint
 	function isInSelection(row: TOutlineRow): boolean {
-		if (row.kind === 'marble') return selectedLanes.has(row.lane.id);
+		if (row.kind === 'marble') return selectedMarbles.has(row.lane.id);
 		return row.parentId != null && selectedSet.has(row.parentId);
 	}
 
@@ -199,7 +199,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 
 	function openMenu(row: TOutlineRow, event: React.MouseEvent): void {
 		if (!isTinted(row) || row.kind === 'group') select(row);
-		if (row.kind === 'marble') openContextMenu(event, laneMenu(cx, row.lane));
+		if (row.kind === 'marble') openContextMenu(event, marbleMenu(cx, row.lane));
 		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
@@ -451,7 +451,7 @@ const DecorRow = React.memo(function DecorRow(props: TRowProps & { cx: StudioCx;
 function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
 	switch (row.kind) {
 		case 'marble':
-			return laneLabelEntries(cx, row.lane);
+			return marbleLabelEntries(cx, row.lane);
 		case 'title':
 			return entityLabelEntries(cx, row.entity);
 		case 'decor': {
@@ -483,7 +483,7 @@ const PieceRow = React.memo(function PieceRow(
 	const project = cx.project;
 	const attach = link != null && !isLinked && project != null ? attachState(project, piece) : null;
 	const followLabel =
-		attach?.kind === 'anchored' ? `Follows ${project?.music.lanes.find((lane) => lane.id === attach.laneId)?.name ?? 'a marble'} at ${formatTime(attach.time)}` : null;
+		attach?.kind === 'anchored' ? `Follows ${project?.music.lanes.find((lane) => lane.id === attach.marbleId)?.name ?? 'a marble'} at ${formatTime(attach.time)}` : null;
 	const isProblem = status != null && status !== 'onTime';
 
 	return (

@@ -47,14 +47,14 @@ export function startRailPlan(lead: number, gravity: number, fall: number): { sl
  * The project with a start rail at the release of each of these marbles, unless it has one, or its first note comes too
  * soon even from the film's start, or it starts with a speed of its own that a person gave it.
  */
-export function withStartRails(project: TProject, laneIds: ReadonlySet<string>): TProject {
+export function withStartRails(project: TProject, marbleIds: ReadonlySet<string>): TProject {
 	const gravity = -gravityOf(project);
 	let entities = project.entities;
 	for (const lane of project.music.lanes) {
 		const [first] = lane.hits;
-		const marble = entities.find((entity) => entity.components.marble?.laneId === lane.id);
+		const marble = entities.find((entity) => entity.components.marble?.marbleId === lane.id);
 		const release = marble?.components.release;
-		if (first == null || marble?.components.marble == null || release == null || !laneIds.has(lane.id)) continue;
+		if (first == null || marble?.components.marble == null || release == null || !marbleIds.has(lane.id)) continue;
 		if (entities.some((entity) => entity.id === startRailId(lane.id))) continue;
 		if (release.velocity != null && (release.velocity.x !== 0 || release.velocity.y !== 0)) continue;
 		// As early as it needs, but no later than the person's release and not before the film starts
@@ -75,7 +75,7 @@ export function withStartRails(project: TProject, laneIds: ReadonlySet<string>):
  * drops, so it falls almost straight onto its first note, as one released without a rail does and a Switchback lets it
  * go. `reach` is how far along x from the release that fall lies.
  */
-function startRail(entities: TEntity[], laneId: string, marbleRadius: number, slope: number): { reach: number; at: (marble: TVec2) => TEntity } {
+function startRail(entities: TEntity[], marbleId: string, marbleRadius: number, slope: number): { reach: number; at: (marble: TVec2) => TEntity } {
 	const params = resolvePieceParams('rail', {});
 	const radius = params['radius'] ?? 0.00375;
 	const onWire = marbleRadius + radius;
@@ -90,7 +90,7 @@ function startRail(entities: TEntity[], laneId: string, marbleRadius: number, sl
 	return {
 		reach: toFall,
 		at: (marble) => ({
-			id: startRailId(laneId),
+			id: startRailId(marbleId),
 			name: nextPieceName('rail', entities),
 			components: {
 				piece: { type: 'rail', params: { ...kept, laneOffset: round(toFall) } },

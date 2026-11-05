@@ -68,10 +68,10 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		selection: view.selection,
 		song: hasSong(project) ? { sources: project.music.sources.map((source) => ({ name: source.name, kind: source.kind, offset: source.offset })), backingNotes: project.music.backing.length, tempo: project.music.tempo ?? null } : null,
 		marbles: project.music.lanes.map((lane) => {
-			const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
-			const own = hits.filter((hit) => hit.laneId === lane.id);
+			const marble = project.entities.find((entity) => entity.components.marble?.marbleId === lane.id);
+			const own = hits.filter((hit) => hit.marbleId === lane.id);
 			return {
-				laneId: lane.id,
+				marbleId: lane.id,
 				entityId: marble?.id ?? null,
 				name: marble?.name ?? lane.name,
 				labelColor: lane.color,
@@ -129,18 +129,18 @@ export function projectState(project: TProject, result: TSimulationResult | null
 export function resolveSelection(project: TProject, result: TSimulationResult | null, selection: readonly string[]): TSelectedItem[] {
 	return selection.map((key) => {
 		const hit = parseHitKey(key);
-		if (hit != null) return resolveHit(project, result, key, hit.laneId, hit.hitId);
+		if (hit != null) return resolveHit(project, result, key, hit.marbleId, hit.hitId);
 		const entity = project.entities.find((item) => item.id === key);
 		if (entity?.components.piece != null) {
 			const pose = pieceInForm(result, entity);
 			const link = entity.components.hitLink ?? result?.hits.find((item) => item.pieceEntityId === entity.id);
-			const played = link != null ? resolveHit(project, result, toHitKey(link.laneId, link.hitId), link.laneId, link.hitId) : null;
-			return { kind: 'piece', key, ...pose, params: entity.components.piece.params ?? {}, hit: played != null ? { key: played.key, laneId: played.laneId, hitId: played.hitId, marble: played.marble, time: played.time, note: played.note, status: played.status } : null };
+			const played = link != null ? resolveHit(project, result, toHitKey(link.marbleId, link.hitId), link.marbleId, link.hitId) : null;
+			return { kind: 'piece', key, ...pose, params: entity.components.piece.params ?? {}, hit: played != null ? { key: played.key, marbleId: played.marbleId, hitId: played.hitId, marble: played.marble, time: played.time, note: played.note, status: played.status } : null };
 		}
 		if (entity?.components.marble != null) {
-			const { laneId, radius } = entity.components.marble;
-			const hits = result?.hits.filter((item) => item.laneId === laneId) ?? [];
-			return { kind: 'marble', key, id: entity.id, laneId, name: entity.name ?? null, labelColor: project.music.lanes.find((lane) => lane.id === laneId)?.color ?? null, filmColor: marbleFilmColor(project, laneId), radius, hits: project.music.lanes.find((lane) => lane.id === laneId)?.hits.length ?? 0, onTime: hits.filter((item) => item.status === 'onTime').length };
+			const { marbleId, radius } = entity.components.marble;
+			const hits = result?.hits.filter((item) => item.marbleId === marbleId) ?? [];
+			return { kind: 'marble', key, id: entity.id, marbleId, name: entity.name ?? null, labelColor: project.music.lanes.find((lane) => lane.id === marbleId)?.color ?? null, filmColor: marbleFilmColor(project, marbleId), radius, hits: project.music.lanes.find((lane) => lane.id === marbleId)?.hits.length ?? 0, onTime: hits.filter((item) => item.status === 'onTime').length };
 		}
 		if (entity?.components.wallText != null) return { kind: 'title', key, id: entity.id, text: entity.components.wallText.text };
 		const lightId = parseLightKey(key);
@@ -156,16 +156,16 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 	});
 }
 
-function resolveHit(project: TProject, result: TSimulationResult | null, key: string, laneId: string, hitId: string): TSelectedHit {
-	const lane = project.music.lanes.find((item) => item.id === laneId);
+function resolveHit(project: TProject, result: TSimulationResult | null, key: string, marbleId: string, hitId: string): TSelectedHit {
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
 	const hit = lane?.hits.find((item) => item.id === hitId);
-	const run = result?.hits.find((item) => item.laneId === laneId && item.hitId === hitId);
-	const marble = project.entities.find((entity) => entity.components.marble?.laneId === laneId);
-	const platform = project.entities.find((entity) => entity.id === run?.pieceEntityId || (entity.components.hitLink?.laneId === laneId && entity.components.hitLink.hitId === hitId));
+	const run = result?.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
+	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId);
+	const platform = project.entities.find((entity) => entity.id === run?.pieceEntityId || (entity.components.hitLink?.marbleId === marbleId && entity.components.hitLink.hitId === hitId));
 	return {
 		kind: 'hit',
 		key,
-		laneId,
+		marbleId,
 		hitId,
 		marble: marble?.name ?? lane?.name ?? null,
 		time: round(hit?.time ?? run?.targetTime ?? 0),
@@ -204,7 +204,7 @@ interface TSelectedPiece {
 interface TSelectedHit {
 	kind: 'hit';
 	key: string;
-	laneId: string;
+	marbleId: string;
 	hitId: string;
 	marble: string | null;
 	time: number;

@@ -39,16 +39,16 @@ interface TTrial extends TRailFit {
  * The rail up to a hit, or why none holds the marble: the longest hold tried and what went wrong with it. It starts at
  * the note before, or at the marble's release with no hit: then it's the marble's start rail, tied to no hit.
  */
-export function fitLongRail(sim: TSimulator, base: TProject, laneId: string, start: { hitId: string | null; time: number }, toHitId: string, onTry?: () => void): TRailAnswer {
+export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, start: { hitId: string | null; time: number }, toHitId: string, onTry?: () => void): TRailAnswer {
 	let sims = 0;
 	const whys = new Map<string, number>();
-	const lane = base.music.lanes.find((item) => item.id === laneId);
+	const lane = base.music.lanes.find((item) => item.id === marbleId);
 	const { hitId: fromHitId, time: from } = start;
 	const to = lane?.hits.find((hit) => hit.id === toHitId)?.time;
 	if (to == null) return { fit: null, why: null };
 	const gap = to - from;
 	const tail = 0.1;
-	const id = fromHitId != null ? `long-rail-${fromHitId}` : startRailId(laneId);
+	const id = fromHitId != null ? `long-rail-${fromHitId}` : startRailId(marbleId);
 	const entryDrop = gap <= RAMP_LIMIT ? 0.002 : 0.006;
 	const kinds: ('ramp' | 'switchback')[] = gap <= RAMP_LIMIT ? ['ramp', 'switchback'] : ['switchback', 'ramp'];
 	const run = (next: TProject, until: number): TSimulationResult => {
@@ -57,9 +57,9 @@ export function fitLongRail(sim: TSimulator, base: TProject, laneId: string, sta
 		return sim.simulate({ ...next, end: until });
 	};
 	const free = run(base, to + 0.02);
-	const entryTime = findEntryTime(free, laneId, from, to, entryDrop) ?? from + 0.12;
+	const entryTime = findEntryTime(free, marbleId, from, to, entryDrop) ?? from + 0.12;
 	let delay = Math.round((entryTime - from) * 1000) / 1000;
-	const samples = free.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
+	const samples = free.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	const entry = samples.find((sample) => sample.time >= entryTime);
 	if (entry == null) return { fit: null, why: 'the marble has stopped by then' };
 	const wanted = gap - tail;
@@ -70,10 +70,10 @@ export function fitLongRail(sim: TSimulator, base: TProject, laneId: string, sta
 
 	/** How the rail stands: tied to the hit before it, or where the marble is that long after its release */
 	const tieOf = (angle: number, contactAt: number, isDrawn: boolean): TRailTie => {
-		if (fromHitId != null) return { hitLink: { laneId, hitId: fromHitId, angle, contactAt } };
+		if (fromHitId != null) return { hitLink: { marbleId, hitId: fromHitId, angle, contactAt } };
 		const marble = sampleAt(samples, from + delay)?.position ?? entry.position;
 		// A generated layout enters at its position; a drawn path's origin is on the wire, under the marble
-		const onWire = isDrawn ? marbleRadius(base, laneId) + wireRadius : 0;
+		const onWire = isDrawn ? marbleRadius(base, marbleId) + wireRadius : 0;
 		return { transform: { position: { x: marble.x + Math.sin(angle) * onWire, y: marble.y - Math.cos(angle) * onWire }, angle } };
 	};
 
@@ -81,9 +81,9 @@ export function fitLongRail(sim: TSimulator, base: TProject, laneId: string, sta
 		const entity = kind === 'ramp' ? rampEntity(id, tieOf(-downhill * slope, 0.5, true), delay, width, slope, downhill) : switchbackEntity(id, tieOf(-downhill * slope, contactAt, false), delay, width, turns);
 		const next = withEntity(base, entity);
 		const result = run(next, to + 0.02);
-		const ride = railRide(result, laneId, id, to, marbleRadius(base, laneId));
+		const ride = railRide(result, marbleId, id, to, marbleRadius(base, marbleId));
 		const nextHit = result.hits.find((hit) => hit.hitId === toHitId);
-		const marble = result.marbles.find((item) => item.laneId === laneId);
+		const marble = result.marbles.find((item) => item.marbleId === marbleId);
 		const last = [...(marble?.samples ?? [])].reverse().find((sample) => sample.time <= to);
 		const leave = ride.leave != null ? ride.leave - from : null;
 		const isStruck = result.contacts.some((contact) => contact.kind === 'piece' && contact.otherEntityId !== id && contact.time > from + 0.03 && contact.time < to - 0.004 && base.entities.find((item) => item.id === contact.otherEntityId)?.components.piece?.type === 'platform');
@@ -192,8 +192,8 @@ export function fitLongRail(sim: TSimulator, base: TProject, laneId: string, sta
 	return { fit: { ...best, sims }, why: null };
 }
 
-function marbleRadius(project: TProject, laneId: string): number {
-	return project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components.marble?.radius ?? 0.012;
+function marbleRadius(project: TProject, marbleId: string): number {
+	return project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components.marble?.radius ?? 0.012;
 }
 
 type TRailTie = Pick<TEntity['components'], 'hitLink' | 'transform'>;
@@ -242,8 +242,8 @@ function distanceToPath(path: TVec2[], point: TVec2): number {
 }
 
 /** When the marble last touches the rail before the next hit, and whether it stands still on it */
-function railRide(result: TSimulationResult, laneId: string, entityId: string, until: number, radius: number): { leave: number | null; isTrapped: boolean; isBlocked: boolean } {
-	const marble = result.marbles.find((item) => item.laneId === laneId);
+function railRide(result: TSimulationResult, marbleId: string, entityId: string, until: number, radius: number): { leave: number | null; isTrapped: boolean; isBlocked: boolean } {
+	const marble = result.marbles.find((item) => item.marbleId === marbleId);
 	const piece = result.pieces.find((item) => item.entityId === entityId);
 	if (piece == null || marble == null) return { leave: null, isTrapped: false, isBlocked: true };
 	const paths = piece.paths ?? (piece.path != null ? [piece.path] : []);

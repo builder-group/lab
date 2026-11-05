@@ -1,4 +1,4 @@
-import { MIN_HIT_GAP } from './lane-proposal';
+import { MIN_HIT_GAP } from './marble-proposal';
 
 // Spectral-flux onset detection: log-compressed magnitude increases, an adaptive median and mean threshold and peak picking
 export function detectOnsets(

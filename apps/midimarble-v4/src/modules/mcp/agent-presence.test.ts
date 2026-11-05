@@ -114,21 +114,21 @@ describe('AgentPresenceCx', () => {
 	});
 });
 
-function withPiece(): { project: TProject; laneId: string; hitId: string; pieceId: string; result: TSimulationResult } {
+function withPiece(): { project: TProject; marbleId: string; hitId: string; pieceId: string; result: TSimulationResult } {
 	const project = createProject({ title: 'Song' });
 	const lane = { ...createLane(0), hits: [{ id: 'hit1', time: 1.5, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
 	const pieceId = 'platform1';
-	const piece = { id: pieceId, name: 'Platform 1', components: { piece: { type: 'platform', params: { length: 0.08 } }, hitLink: { laneId: lane.id, hitId: 'hit1', angle: 0.25 } } } as unknown as TProject['entities'][number];
+	const piece = { id: pieceId, name: 'Platform 1', components: { piece: { type: 'platform', params: { length: 0.08 } }, hitLink: { marbleId: lane.id, hitId: 'hit1', angle: 0.25 } } } as unknown as TProject['entities'][number];
 	const next = { ...project, music: { ...project.music, lanes: [lane] }, entities: [createMarble(lane, { x: 0, y: 0 }), piece] };
 	const result = {
 		revision: next.revision,
 		pieces: [{ entityId: pieceId, position: { x: 0.1, y: -0.2 } }],
 		hits: [
-			{ laneId: lane.id, hitId: 'hit1', targetTime: 1.5, pieceEntityId: pieceId, dot: { x: 0.1, y: -0.2 }, status: 'onTime' },
-			{ laneId: lane.id, hitId: 'hit2', targetTime: 2, pieceEntityId: null, dot: null, status: 'open' }
+			{ marbleId: lane.id, hitId: 'hit1', targetTime: 1.5, pieceEntityId: pieceId, dot: { x: 0.1, y: -0.2 }, status: 'onTime' },
+			{ marbleId: lane.id, hitId: 'hit2', targetTime: 2, pieceEntityId: null, dot: null, status: 'open' }
 		]
 	} as unknown as TSimulationResult;
-	return { project: next, laneId: lane.id, hitId: 'hit1', pieceId, result };
+	return { project: next, marbleId: lane.id, hitId: 'hit1', pieceId, result };
 }
 
 describe('touchedKeys', () => {
@@ -146,13 +146,13 @@ describe('touchedKeys', () => {
 
 describe('resolveSelection', () => {
 	it('should give a hit its marble, time, note, status and platform', () => {
-		const { project, laneId, result, pieceId } = withPiece();
-		const key = `hit:${laneId}:hit1`;
+		const { project, marbleId, result, pieceId } = withPiece();
+		const key = `hit:${marbleId}:hit1`;
 		expect(resolveSelection(project, result, [key])).toEqual([
 			{
 				kind: 'hit',
 				key,
-				laneId,
+				marbleId,
 				hitId: 'hit1',
 				marble: expect.any(String) as string,
 				time: 1.5,
@@ -165,14 +165,14 @@ describe('resolveSelection', () => {
 	});
 
 	it('should say an open hit has no platform yet', () => {
-		const { project, laneId, result } = withPiece();
-		expect(resolveSelection(project, result, [`hit:${laneId}:hit2`])[0]).toMatchObject({ status: 'open', platform: null, dot: null, note: 'D4' });
+		const { project, marbleId, result } = withPiece();
+		expect(resolveSelection(project, result, [`hit:${marbleId}:hit2`])[0]).toMatchObject({ status: 'open', platform: null, dot: null, note: 'D4' });
 	});
 
 	it('should give a piece its hit, and resolve several at once', () => {
-		const { project, laneId, result, pieceId } = withPiece();
+		const { project, marbleId, result, pieceId } = withPiece();
 		const items = resolveSelection(project, result, [pieceId, 'wall', 'light:key']);
-		expect(items[0]).toMatchObject({ kind: 'piece', id: pieceId, x: 0.1, angle: 0.25, length: 0.08, hit: { key: `hit:${laneId}:hit1`, time: 1.5, note: 'C4', status: 'onTime' } });
+		expect(items[0]).toMatchObject({ kind: 'piece', id: pieceId, x: 0.1, angle: 0.25, length: 0.08, hit: { key: `hit:${marbleId}:hit1`, time: 1.5, note: 'C4', status: 'onTime' } });
 		expect(items[1]).toEqual({ kind: 'layer', key: 'wall' });
 		expect(items[2]).toEqual({ kind: 'light', key: 'light:key', id: 'key' });
 	});

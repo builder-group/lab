@@ -2,11 +2,11 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { unreachableStatus, hitTiming, type THitTiming } from '@/modules/building';
-import { findLaneConflicts, MIN_HIT_GAP } from '@/modules/music';
+import { findMarbleConflicts, MIN_HIT_GAP } from '@/modules/music';
 import type { THit, TLane } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { formatTime, noteName, toHitKey } from '@/modules/project';
-import { hitMenu, laneMenu } from '../menus';
+import { hitMenu, marbleMenu } from '../menus';
 import type { StudioCx } from '../StudioCx';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from '../suggested-hits';
 import { offsetLabel } from '@/modules/canvas';
@@ -17,7 +17,7 @@ import { PATTERN_STRIP_HEIGHT, ROW_HEIGHT } from './timeline-layout';
  * The instruction itself, like GarageBand's empty track, not behind a ?, with the recording's suggested hits as a link
  * while the marble has none
  */
-const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane; top: number }> = (props) => {
+const EmptyMarbleHint: React.FC<{ cx: StudioCx; lane: TLane; top: number }> = (props) => {
 	const { cx, lane, top } = props;
 	useFeatureState(cx.sources.$analysis);
 	const suggested = suggestedHits(cx, lane).length;
@@ -41,9 +41,9 @@ const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane; top: number }> = (pro
  * A marble's track: its hits in one flat row, each drawn by its timing status: green On Time, amber Early or
  * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so color is never the only signal.
  */
-export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
+export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
 	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
-	const conflicts = React.useMemo(() => findLaneConflicts(lane), [lane]);
+	const conflicts = React.useMemo(() => findMarbleConflicts(lane), [lane]);
 	const workspace = useFeatureState(cx.$workspace);
 	const isTrack = workspace === 'track';
 	const hitsTop = isTrack ? PATTERN_STRIP_HEIGHT : 0;
@@ -52,7 +52,7 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 	return (
 		<div
 			className="mm-lane-track relative flex-1 border-b border-[var(--separator)]"
-			style={{ minWidth: width, background: marquee.isLaneSelected ? 'color-mix(in srgb, var(--text) 3%, transparent)' : undefined }}
+			style={{ minWidth: width, background: marquee.isMarbleSelected ? 'color-mix(in srgb, var(--text) 3%, transparent)' : undefined }}
 			{...marquee.handlers}
 			onDoubleClick={(event) => {
 				if (event.target !== event.currentTarget) return;
@@ -60,12 +60,12 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 			}}
 			onContextMenu={(event) => {
 				if (event.target !== event.currentTarget) return;
-				openContextMenu(event, laneMenu(cx, lane, timeAt(event.clientX)));
+				openContextMenu(event, marbleMenu(cx, lane, timeAt(event.clientX)));
 			}}
 		>
 			{isTrack ? <PatternStrip cx={cx} lane={lane} zoom={zoom} timeAt={timeAt} /> : null}
 			{!lane.hits.length ? (
-				<EmptyLaneHint cx={cx} lane={lane} top={hitsTop + (ROW_HEIGHT - hitsTop) / 2} />
+				<EmptyMarbleHint cx={cx} lane={lane} top={hitsTop + (ROW_HEIGHT - hitsTop) / 2} />
 			) : null}
 			{lane.hits.map((hit, index) => {
 				const key = toHitKey(lane.id, hit.id);
@@ -92,7 +92,7 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 	);
 };
 
-interface TLaneTrackProps {
+interface TMarbleTrackProps {
 	cx: StudioCx;
 	lane: TLane;
 	zoom: number;
@@ -115,8 +115,8 @@ export interface TDrag {
 	pitchDelta: number;
 	isPitched: boolean;
 	keys: string[];
-	// The grabbed note, auditioned at its new pitch on drop; `laneId` is `BACKING_ID` for a Backing note
-	grabbed: { laneId: string; hitId: string };
+	// The grabbed note, auditioned at its new pitch on drop; `marbleId` is `BACKING_ID` for a Backing note
+	grabbed: { marbleId: string; hitId: string };
 }
 
 export type TDragStart = (hitKey: string, event: { clientX: number; clientY: number }, isPitched: boolean) => void;
@@ -183,7 +183,7 @@ interface THitButtonProps {
 /** Time-range marquee on a track: dragging on empty space selects the hits it spans, Shift adds */
 function useMarquee(cx: StudioCx, lane: TLane, zoom: number, selection: string[], timeAt: (clientX: number) => number, top: number): TMarquee {
 	const [range, setRange] = React.useState<{ from: number; to: number } | null>(null);
-	const isLaneSelected = selection.some((key) => key.startsWith(`hit:${lane.id}:`));
+	const isMarbleSelected = selection.some((key) => key.startsWith(`hit:${lane.id}:`));
 
 	const handlers: TMarquee['handlers'] = {
 		onPointerDown: (event) => {
@@ -218,7 +218,7 @@ function useMarquee(cx: StudioCx, lane: TLane, zoom: number, selection: string[]
 			/>
 		) : null;
 
-	return { handlers, element, isLaneSelected };
+	return { handlers, element, isMarbleSelected };
 }
 
 interface TMarquee {
@@ -228,7 +228,7 @@ interface TMarquee {
 		onPointerUp: (event: React.PointerEvent<HTMLElement>) => void;
 	};
 	element: React.ReactNode;
-	isLaneSelected: boolean;
+	isMarbleSelected: boolean;
 }
 
 function hitTitle(index: number, hit: THit, timing: THitTiming, isConflict: boolean, error: number | null): string {

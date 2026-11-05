@@ -9,7 +9,7 @@ function studio(zigzag = false): { cx: StudioCx; project: TProject } {
 	const created = createProject({ title: 'Song' });
 	const lane = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }, { id: 'hit3', time: 3, pitch: 64 }] };
 	const pieces = lane.hits.map((hit, index) => createLinkedPiece('platform', lane.id, hit.id, 0.3, { id: `piece-${index}` }));
-	const live: TPatternGroup = { id: 'live', name: 'Zigzag', kind: 'zigzag', laneId: lane.id, from: 1, to: 1, width: 0.14, bounce: 0.5, pieceIds: ['piece-0'] };
+	const live: TPatternGroup = { id: 'live', name: 'Zigzag', kind: 'zigzag', marbleId: lane.id, from: 1, to: 1, width: 0.14, bounce: 0.5, pieceIds: ['piece-0'] };
 	const project: TProject = { ...created, music: { ...created.music, lanes: [lane] }, entities: [createMarble(lane, { x: 0, y: 0 }), ...pieces], ...(zigzag ? { groups: [live] } : {}) };
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
@@ -25,7 +25,7 @@ describe('Group by hand', () => {
 		groupSelected(cx);
 
 		const [group] = cx.project?.groups ?? [];
-		expect(group).toMatchObject({ name: 'Group', laneId: project.music.lanes[0]?.id, pieceIds: ['piece-1', 'piece-2'] });
+		expect(group).toMatchObject({ name: 'Group', marbleId: project.music.lanes[0]?.id, pieceIds: ['piece-1', 'piece-2'] });
 		expect(group != null && 'kind' in group).toBe(false);
 		expect(cx.$selection.get()).toEqual([toGroupKey(group?.id ?? ''), 'piece-1', 'piece-2']);
 		expect(cx.$history.get()?.past.length).toBe(steps + 1);

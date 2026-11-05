@@ -46,7 +46,7 @@ export interface TSimulationResult {
 
 export interface TMarbleTrack {
 	entityId: string;
-	laneId: string;
+	marbleId: string;
 	radius: number;
 	/** Sampled every 1 / PHYSICS_HZ seconds from the release time; empty before release */
 	samples: TMarbleSample[];
@@ -126,7 +126,7 @@ export interface TContact {
 }
 
 export interface THitResult {
-	laneId: string;
+	marbleId: string;
 	hitId: string;
 	targetTime: number;
 	/** Entity of the piece linked to this hit, if any */

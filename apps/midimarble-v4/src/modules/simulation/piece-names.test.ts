@@ -16,8 +16,8 @@ function twoMarbles() {
 	});
 }
 
-function linked(type: string, laneId: string, hitId: string, name: string): TEntity {
-	return { ...createLinkedPiece(type, laneId, hitId, 0, { id: `${type}-${hitId}` }), name };
+function linked(type: string, marbleId: string, hitId: string, name: string): TEntity {
+	return { ...createLinkedPiece(type, marbleId, hitId, 0, { id: `${type}-${hitId}` }), name };
 }
 
 describe('namePiecesInOrder function', () => {

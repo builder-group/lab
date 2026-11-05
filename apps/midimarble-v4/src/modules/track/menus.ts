@@ -6,17 +6,17 @@ import type { TrackCx } from './TrackCx';
  * Menu of an open note's dot, opened by a right-click (a click shows the platform first): a platform tilted to land on
  * time and the pieces that bridge a long gap
  */
-export function dotMenu(trackCx: TrackCx, laneId: string, hitId: string): TMenuEntry[] {
+export function dotMenu(trackCx: TrackCx, marbleId: string, hitId: string): TMenuEntry[] {
 	const cx = trackCx.studio;
 	const project = trackCx.project;
-	const hit = trackCx.result?.hits.find((item) => item.laneId === laneId && item.hitId === hitId && item.status === 'open');
+	const hit = trackCx.result?.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId && item.status === 'open');
 	if (project == null || hit == null) return [];
-	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
 	const index = lane?.hits.findIndex((item) => item.id === hitId) ?? -1;
 	const pitch = lane?.hits[index]?.pitch;
-	const gap = trackCx.longGapKeys(project).get(`${laneId}:${hitId}`);
+	const gap = trackCx.longGapKeys(project).get(`${marbleId}:${hitId}`);
 	const bridge = (type: 'switchback' | 'chain' | 'rail' | 'tunnel'): void => {
-		if (gap != null) trackCx.studio.assist.suggestGapPiece(type, laneId, gap.fromHitId, hitId, { accept: true });
+		if (gap != null) trackCx.studio.assist.suggestGapPiece(type, marbleId, gap.fromHitId, hitId, { accept: true });
 	};
 
 	return tidyMenu([

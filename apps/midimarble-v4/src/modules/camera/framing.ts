@@ -17,10 +17,10 @@ const BACK_SHORTEST = 0.25;
  */
 export function framingStretches(result: TSimulationResult, track: TCameraTrack): TFramingStretch[] {
 	const notes = new Map<string, number[]>();
-	for (const hit of result.hits) notes.set(hit.laneId, [...(notes.get(hit.laneId) ?? []), hit.targetTime]);
+	for (const hit of result.hits) notes.set(hit.marbleId, [...(notes.get(hit.marbleId) ?? []), hit.targetTime]);
 	const stretches: TFramingStretch[] = [];
 	for (const marble of result.marbles) {
-		const times = (notes.get(marble.laneId) ?? []).sort((a, b) => a - b);
+		const times = (notes.get(marble.marbleId) ?? []).sort((a, b) => a - b);
 		const first = times[0];
 		const last = times[times.length - 1];
 		if (first == null || last == null || !marble.samples.length) continue;
@@ -48,14 +48,14 @@ export function framingStretches(result: TSimulationResult, track: TCameraTrack)
 			if (stretch.to - stretch.from <= OUT_LONGEST) continue;
 			const struck = times.filter((time) => time >= stretch.from - 1e-9 && time <= stretch.to + 1e-9);
 			if (!struck.length) continue;
-			stretches.push({ laneId: marble.laneId, marbleEntityId: marble.entityId, ...stretch, notes: struck });
+			stretches.push({ marbleId: marble.marbleId, marbleEntityId: marble.entityId, ...stretch, notes: struck });
 		}
 	}
-	return stretches.sort((a, b) => a.from - b.from || a.laneId.localeCompare(b.laneId));
+	return stretches.sort((a, b) => a.from - b.from || a.marbleId.localeCompare(b.marbleId));
 }
 
 export interface TFramingStretch {
-	laneId: string;
+	marbleId: string;
 	marbleEntityId: string;
 	/** Seconds the marble is out of frame, from the first frame out to the end of the last */
 	from: number;

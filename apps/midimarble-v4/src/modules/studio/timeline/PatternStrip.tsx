@@ -28,7 +28,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	const stripRef = React.useRef<HTMLDivElement>(null);
 	if (project == null) return null;
 
-	const groups = (project.groups ?? []).filter((group) => group.laneId === lane.id);
+	const groups = (project.groups ?? []).filter((group) => group.marbleId === lane.id);
 	const selectedGroupIds = new Set(selection.flatMap((key) => parseGroupKey(key) ?? []));
 	const selectedRange = selectedSpan(lane, selection);
 
@@ -65,7 +65,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		const from = edit.edge === 'from' ? Math.min(edit.time, group.to) : group.from;
 		const to = edit.edge === 'to' ? Math.max(edit.time, group.from) : group.to;
 		if (Math.abs(from - group.from) < 1e-4 && Math.abs(to - group.to) < 1e-4) return;
-		void cx.patterns.apply({ laneId: lane.id, from, to, group }, group.kind);
+		void cx.patterns.apply({ marbleId: lane.id, from, to, group }, group.kind);
 	}
 
 	const isHinting = hoverX != null && range == null && selectedRange == null;
@@ -159,11 +159,11 @@ interface TPatternStripProps {
 
 /** What is selected on this row as a span of time: the dragged silence, or from the first selected hit to the last */
 function selectedSpan(lane: TLane, selection: readonly string[]): { from: number; to: number } | null {
-	const range = selection.flatMap((key) => parseRangeKey(key) ?? []).find((item) => item.laneId === lane.id);
+	const range = selection.flatMap((key) => parseRangeKey(key) ?? []).find((item) => item.marbleId === lane.id);
 	if (range != null) return range;
 	const times = selection.flatMap((key) => {
 		const parsed = parseHitKey(key);
-		if (parsed?.laneId !== lane.id) return [];
+		if (parsed?.marbleId !== lane.id) return [];
 		return lane.hits.find((hit) => hit.id === parsed.hitId)?.time ?? [];
 	});
 	return times.length > 1 ? { from: Math.min(...times), to: Math.max(...times) } : null;

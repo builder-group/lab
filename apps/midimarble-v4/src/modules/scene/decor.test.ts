@@ -355,11 +355,11 @@ function isInFrameAt(camera: TCameraTrack, frame: number, point: { x: number; y:
 describe('Film Layers', () => {
 	it('should open with the marbles and Decor closed, and Track open, each toggled the other way by hand', () => {
 		const project = createStaircaseProject();
-		const laneId = project.music.lanes[0]?.id as string;
-		expect(collapsedGroups(project, 'film', [])).toEqual(expect.arrayContaining([laneId, DECOR_KEY]));
+		const marbleId = project.music.lanes[0]?.id as string;
+		expect(collapsedGroups(project, 'film', [])).toEqual(expect.arrayContaining([marbleId, DECOR_KEY]));
 		expect(collapsedGroups(project, 'track', [])).toEqual([]);
-		expect(collapsedGroups(project, 'film', [laneId])).not.toContain(laneId);
-		expect(collapsedGroups(project, 'track', [laneId])).toEqual([laneId]);
+		expect(collapsedGroups(project, 'film', [marbleId])).not.toContain(marbleId);
+		expect(collapsedGroups(project, 'track', [marbleId])).toEqual([marbleId]);
 		const rows = buildOutline(project, { workspace: 'film', collapsed: collapsedGroups(project, 'film', []) });
 		expect(rows.some((row) => row.kind === 'piece')).toBe(false);
 		expect(rows.some((row) => row.kind === 'wall')).toBe(true);
@@ -368,7 +368,7 @@ describe('Film Layers', () => {
 	it('should name the group a selection made elsewhere opens', () => {
 		const project = createStaircaseProject();
 		const piece = project.entities.find((entity) => entity.components.hitLink != null);
-		expect(groupsOfSelection(project, [piece?.id as string])).toEqual([piece?.components.hitLink?.laneId]);
+		expect(groupsOfSelection(project, [piece?.id as string])).toEqual([piece?.components.hitLink?.marbleId]);
 		expect(groupsOfSelection(project, ['decor:1'])).toEqual([DECOR_KEY]);
 		expect(groupsOfSelection(project, ['wall'])).toEqual([]);
 	});

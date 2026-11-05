@@ -83,7 +83,7 @@ describe('moveHitLaterFix function', () => {
 		expect(releaseFixFor(project, hit, reach)).toBeNull();
 		expect(reach.kind === 'tooSoon' && fix != null && fix.time > reach.earliest && fix.time < 1).toBe(true);
 		expect(fix?.label).toBe('Move Hit Later');
-		expect(fix?.commands).toEqual([{ type: 'upsertHits', laneId: hit.laneId, hits: [{ id: 'hit-1', time: fix?.time }] }]);
+		expect(fix?.commands).toEqual([{ type: 'upsertHits', marbleId: hit.marbleId, hits: [{ id: 'hit-1', time: fix?.time }] }]);
 	});
 
 	it('should not move the notes of a song, which offer Make Backing instead', () => {

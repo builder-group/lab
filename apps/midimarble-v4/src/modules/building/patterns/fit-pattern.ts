@@ -14,7 +14,7 @@ export type TPatternKind = 'zigzag' | 'staircase' | 'longRail';
 
 export interface TFitPatternRequest {
 	project: TProject;
-	laneId: string;
+	marbleId: string;
 	/** The hits to play, in time order. A Long Rail takes the two hits around its silence */
 	hitIds: string[];
 	kind: TPatternKind;
@@ -86,13 +86,13 @@ export function fitPattern(request: TFitPatternRequest, options: TFitPatternOpti
 }
 
 /** Pieces on the hits a Pattern plays. A rail on the last hit stays: it belongs to the silence after it */
-function piecesOnHits(project: TProject, laneId: string, hitIds: string[]): string[] {
+function piecesOnHits(project: TProject, marbleId: string, hitIds: string[]): string[] {
 	const last = hitIds.at(-1);
 	const ids = new Set(hitIds);
 	return project.entities
 		.filter((entity) => {
 			const link = entity.components.hitLink;
-			if (link == null || link.laneId !== laneId || !ids.has(link.hitId)) return false;
+			if (link == null || link.marbleId !== marbleId || !ids.has(link.hitId)) return false;
 			return link.hitId !== last || entity.components.piece == null || soundsHit(entity.components.piece.type, link);
 		})
 		.map((entity) => entity.id);
@@ -104,8 +104,8 @@ function without(project: TProject, ids: string[]): TProject {
 	return { ...project, entities: project.entities.filter((entity) => !removed.has(entity.id)) };
 }
 
-function exitOf(result: TSimulationResult, laneId: string, time: number): TPatternExit | null {
-	const sample = sampleAt(result.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [], time - 1e-6);
+function exitOf(result: TSimulationResult, marbleId: string, time: number): TPatternExit | null {
+	const sample = sampleAt(result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [], time - 1e-6);
 	return sample == null ? null : { position: sample.position, velocity: sample.velocity, time: sample.time };
 }
 
@@ -114,19 +114,19 @@ function nothing(request: TFitPatternRequest, problems: TPatternProblem[], sims 
 }
 
 function fitRail(request: TFitPatternRequest, options: TFitPatternOptions): TFitPatternResult {
-	const { project, laneId, hitIds } = request;
-	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const { project, marbleId, hitIds } = request;
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
 	// One hit is the marble's first note: the rail opens the track, from the marble's release
 	const [fromId, toId] = hitIds.length === 1 ? [null, hitIds[0]] : hitIds;
 	const previous = lane?.hits.find((hit) => hit.id === fromId) ?? null;
 	const to = lane?.hits.find((hit) => hit.id === toId);
-	const startTime = previous?.time ?? project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components.release?.time;
+	const startTime = previous?.time ?? project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components.release?.time;
 	if (startTime == null || to == null || (fromId != null && previous == null)) return nothing(request, [{ hitId: fromId ?? toId ?? '', words: 'A Long Rail ends at a note, and starts at the note before it or at the marble’s release.' }]);
 	const from = { hitId: previous?.id ?? null, time: startTime };
 	const hitId = from.hitId ?? to.id;
 	const gap = to.time - from.time;
 	let tries = 0;
-	const { fit, why } = fitLongRail(options.sim, project, laneId, from, to.id, () => {
+	const { fit, why } = fitLongRail(options.sim, project, marbleId, from, to.id, () => {
 		tries++;
 		options.onProgress?.(Math.min(0.95, tries / 80));
 	});
@@ -139,7 +139,7 @@ function fitRail(request: TFitPatternRequest, options: TFitPatternOptions): TFit
 		commands: [{ type: 'upsertEntity', entity: fit.entity }],
 		entities: [fit.entity],
 		removedIds: [],
-		exit: exitOf(result, laneId, to.time),
+		exit: exitOf(result, marbleId, to.time),
 		width: fit.width,
 		drop: null,
 		problems,
@@ -163,13 +163,13 @@ interface TScoredFit extends TBarsFit {
 }
 
 function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions): TFitPatternResult {
-	const { project, laneId, hitIds, kind } = request;
+	const { project, marbleId, hitIds, kind } = request;
 	const { sim } = options;
-	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
 	const hits = hitIds.flatMap((id) => lane?.hits.find((hit) => hit.id === id) ?? []);
 	const last = hits.at(-1);
 	if (lane == null || last == null || kind === 'longRail') return nothing(request, [{ hitId: hitIds[0] ?? '', words: 'A Zigzag or Staircase needs notes to play, and this range has none.' }]);
-	const removedIds = piecesOnHits(project, laneId, hitIds);
+	const removedIds = piecesOnHits(project, marbleId, hitIds);
 	const base = without(project, removedIds);
 	const next = lane.hits.find((hit) => hit.time > last.time);
 	const isNextClose = next != null && next.time - last.time < LONG_GAP;
@@ -202,9 +202,9 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 	let sims = 0;
 	const attemptAt = (width: number, drop: number | null, share: number): TScoredFit => {
 		const attempt = tries++;
-		const fit = fitBars(sim, base, laneId, ids, { ...shape, width, ...(drop != null ? { drop } : {}) }, (done, total) => options.onProgress?.(share * ((attempt + done / total) / maxTries)));
+		const fit = fitBars(sim, base, marbleId, ids, { ...shape, width, ...(drop != null ? { drop } : {}) }, (done, total) => options.onProgress?.(share * ((attempt + done / total) / maxTries)));
 		sims += fit.sims;
-		return scoreFit(sim, fit, laneId, ids, isNextClose, width, drop, last.time);
+		return scoreFit(sim, fit, marbleId, ids, isNextClose, width, drop, last.time);
 	};
 	for (const drop of drops) {
 		if (tries >= maxTries) break;
@@ -232,7 +232,7 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 		commands: [...(removedIds.length > 0 ? [{ type: 'removeEntities' as const, entityIds: removedIds }] : []), ...entities.map((entity) => ({ type: 'upsertEntity' as const, entity }))],
 		entities,
 		removedIds,
-		exit: exitOf(result, laneId, next?.time ?? last.time + 0.3),
+		exit: exitOf(result, marbleId, next?.time ?? last.time + 0.3),
 		width: chosen.width,
 		drop: chosen.drop,
 		problems: [...blocking, ...columnProblems(chosen, shape.maxTilt ?? MAX_TILT), ...(nearest != null ? [{ hitId: hitIds[0] ?? '', words: `Width ${formatCm(nearest)} fits this range.` }] : [])],
@@ -245,10 +245,10 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 	};
 }
 
-function scoreFit(sim: TSimulator, fit: TBarsFit, laneId: string, ids: string[], stopsBefore: boolean, width: number, drop: number | null, lastTime: number): TScoredFit {
+function scoreFit(sim: TSimulator, fit: TBarsFit, marbleId: string, ids: string[], stopsBefore: boolean, width: number, drop: number | null, lastTime: number): TScoredFit {
 	const mine = new Set(stopsBefore ? ids.slice(0, -1) : ids);
 	const made = new Set(fit.entities.map((entity) => entity.id));
-	const nextTime = fit.project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === ids.at(-1))?.time ?? lastTime;
+	const nextTime = fit.project.music.lanes.find((lane) => lane.id === marbleId)?.hits.find((hit) => hit.id === ids.at(-1))?.time ?? lastTime;
 	const result = sim.simulate({ ...fit.project, end: Math.max(lastTime, nextTime) + 0.02 });
 	const late = result.hits.filter((hit) => ids.includes(hit.hitId) && hit.status !== 'onTime' && hit.status !== 'drifting' && hit.status !== 'open').map((hit) => hit.hitId);
 	const strikes = extraStrikes(fit.project, result).flatMap((item) => (mine.has(item.hitId) ? [item.hitId] : []));

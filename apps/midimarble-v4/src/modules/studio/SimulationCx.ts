@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import type { TEntity, TProject, TProjectCommand, TProjectHistory, TVec2 } from '@/modules/project';
-import { createSimulationClient, isSuperseded, laneEdits, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
+import { createSimulationClient, isSuperseded, marbleEdits, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
 import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';
 
@@ -26,7 +26,7 @@ export class SimulationCx {
 
 	private client: TSimulationClient | null = null;
 	private preview: TProject | null = null;
-	private previewMove: { laneId: string; hitId: string; dot: TVec2 } | null = null;
+	private previewMove: { marbleId: string; hitId: string; dot: TVec2 } | null = null;
 	private isMoving = false;
 	/** The pointer has paused, so the preview asks what the drop will do: every way, not the first */
 	private isPaused = false;
@@ -77,7 +77,7 @@ export class SimulationCx {
 	 * Simulates `project` in place of the history's present until `endPreview`. The next platforms take up the change as
 	 * they will when the edit lands, so the preview is what the edit does; `move` is a dragged platform's new dot.
 	 */
-	startPreview(project: TProject, move: { laneId: string; hitId: string; dot: TVec2 } | null = null): void {
+	startPreview(project: TProject, move: { marbleId: string; hitId: string; dot: TVec2 } | null = null): void {
 		this.previewMove = move;
 		// The first preview runs whole, so a hover's what-if counts every hit it breaks; only the next ones are moving
 		this.isMoving = this.preview != null;
@@ -158,7 +158,7 @@ export class SimulationCx {
 		}
 		const before = known.present;
 		const after = history.present;
-		if (!laneEdits(before, after).length) {
+		if (!marbleEdits(before, after).length) {
 			if (!this.isSettling) this.settled = history;
 			return;
 		}
@@ -210,7 +210,7 @@ export class SimulationCx {
 	 * back on the old run, as one undo step. A spot it can't send the marble to takes the platform as far as it can; one
 	 * that fixes the spot (a ride, or the first note) leaves it where it was. Either way a notice says why.
 	 */
-	async moveDot(move: { laneId: string; hitId: string; dot: TVec2 }): Promise<void> {
+	async moveDot(move: { marbleId: string; hitId: string; dot: TVec2 }): Promise<void> {
 		const project = this.studio.project;
 		if (project == null || this.client == null) return;
 		const run = ++this.settleRun;
@@ -261,11 +261,11 @@ export class SimulationCx {
 		if (pending == null || result.revision < pending.revision) return;
 		this.pendingBreak = null;
 		const { first, project } = pending;
-		const status = result.hits.find((hit) => hit.laneId === first.laneId && hit.hitId === first.hitId)?.status;
+		const status = result.hits.find((hit) => hit.marbleId === first.marbleId && hit.hitId === first.hitId)?.status;
 		if (result.revision !== pending.revision || status == null || status === 'onTime' || status === 'drifting' || status === 'waiting') return;
-		const lane = project.music.lanes.find((item) => item.id === first.laneId);
+		const lane = project.music.lanes.find((item) => item.id === first.marbleId);
 		const number = (lane?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
-		const waiting = project.entities.filter((entity) => entity.components.hitLink?.laneId === first.laneId && (lane?.hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -1) > first.time).length;
+		const waiting = project.entities.filter((entity) => entity.components.hitLink?.marbleId === first.marbleId && (lane?.hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -1) > first.time).length;
 		const later = waiting === 1 ? 'The piece after it waits.' : `The ${waiting} pieces after it wait.`;
 		this.studio.notifyEdit(`${lane?.name ?? 'The marble'} misses Hit ${number}. ${later}`, [], { isUndoFirst: true });
 	}
@@ -284,7 +284,7 @@ export class SimulationCx {
 		if (project == null || client == null || this.dropsLanding > 0 || (this.isSettling && this.preview == null)) return;
 		const present = this.studio.project;
 		const preview = this.preview;
-		if (preview == null || present == null || (this.previewMove == null && !laneEdits(present, preview).length)) {
+		if (preview == null || present == null || (this.previewMove == null && !marbleEdits(present, preview).length)) {
 			this.send(client, project);
 			return;
 		}
@@ -343,11 +343,11 @@ const MOVE_LANDED = 0.003;
 const MOVE_MOVED = 0.001;
 
 /** Null when the platform landed where it was dragged */
-export function moveLimit(project: TProject, move: { laneId: string; hitId: string }, answer: Pick<TSettleAnswer, 'move'>): TMoveLimit | null {
+export function moveLimit(project: TProject, move: { marbleId: string; hitId: string }, answer: Pick<TSettleAnswer, 'move'>): TMoveLimit | null {
 	const outcome = answer.move;
 	if (outcome == null || outcome.missed <= MOVE_LANDED) return null;
-	const lane = project.music.lanes.find((item) => item.id === move.laneId);
-	const name = project.entities.find((entity) => entity.components.hitLink?.laneId === move.laneId && entity.components.hitLink.hitId === move.hitId)?.name ?? 'The platform';
+	const lane = project.music.lanes.find((item) => item.id === move.marbleId);
+	const name = project.entities.find((entity) => entity.components.hitLink?.marbleId === move.marbleId && entity.components.hitLink.hitId === move.hitId)?.name ?? 'The platform';
 	const from = project.entities.find((entity) => entity.id === outcome.fromId)?.name;
 	if (outcome.isFixed) {
 		if (from == null) return { chip: "Stays: it's the first note", notice: `${name} stays where it is: it plays ${lane?.name ?? 'the marble'}'s first note. Move the release to change its spot.`, isStuck: true };

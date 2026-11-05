@@ -397,7 +397,7 @@ async function packThemesToApply(cx: StudioCx, commands: readonly { type: string
 
 const SApplyPattern = z.strictObject({
 	type: z.literal('applyPattern'),
-	laneId: z.string(),
+	marbleId: z.string(),
 	from: z.number(),
 	to: z.number(),
 	kind: z.enum(['zigzag', 'staircase', 'longRail']),
@@ -410,16 +410,16 @@ const SApplyPattern = z.strictObject({
 /** A Pattern over a range of a marble's row, as one Undo step; `dryRun` changes nothing and answers the same (prototype) */
 async function runApplyPattern(cx: StudioCx, command: unknown, label: string | undefined): Promise<TToolReply> {
 	const parsed = SApplyPattern.safeParse(command);
-	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', laneId, from: 2.1, to: 8.4, kind: 'zigzag', width: 0.14, bounce: 0.5, dryRun: true }`);
-	const { laneId, from, to, kind, width, bounce, maxTilt, dryRun } = parsed.data;
+	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', marbleId, from: 2.1, to: 8.4, kind: 'zigzag', width: 0.14, bounce: 0.5, dryRun: true }`);
+	const { marbleId, from, to, kind, width, bounce, maxTilt, dryRun } = parsed.data;
 	const project = cx.project;
 	if (project == null) return noProject(cx);
-	if (!project.music.lanes.some((lane) => lane.id === laneId)) return fail(cx, `No marble has lane ${laneId}. get_state lists them.`);
+	if (!project.music.lanes.some((lane) => lane.id === marbleId)) return fail(cx, `No marble has lane ${marbleId}. get_state lists them.`);
 	openTrack(cx);
 	const stop = cx.mcp.presence.stopEpoch;
 	const settings = { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) };
-	const existing = project.groups?.filter(isPatternGroup).find((group) => group.laneId === laneId && group.kind === kind && Math.abs(group.from - from) < 1e-3 && Math.abs(group.to - to) < 1e-3);
-	const target = { laneId, from, to, ...(existing != null ? { group: existing } : {}) };
+	const existing = project.groups?.filter(isPatternGroup).find((group) => group.marbleId === marbleId && group.kind === kind && Math.abs(group.from - from) < 1e-3 && Math.abs(group.to - to) < 1e-3);
+	const target = { marbleId, from, to, ...(existing != null ? { group: existing } : {}) };
 	const report = (answer: Awaited<ReturnType<typeof cx.patterns.apply>>): Record<string, unknown> =>
 		answer == null
 			? { stopped: true }
@@ -495,7 +495,7 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 }
 
 /** Build Track, which answers when it is done: opens Track first, as `invoke` does */
-async function startBuild(cx: StudioCx, command: TCommand, from?: { laneId: string; hitId: string }, gapPiece?: 'rail' | 'switchback' | 'chain'): Promise<void> {
+async function startBuild(cx: StudioCx, command: TCommand, from?: { marbleId: string; hitId: string }, gapPiece?: 'rail' | 'switchback' | 'chain'): Promise<void> {
 	const stopEpoch = cx.mcp.presence.stopEpoch;
 	openTrack(cx);
 	if (cx.mcp.presence.stopEpoch === stopEpoch) await cx.assist.buildTrack(from, gapPiece);
@@ -513,13 +513,13 @@ function gapPreference(args: Record<string, unknown>): 'rail' | 'switchback' | '
 }
 
 /** `from` of `build.track`: the hit Rebuild From Here starts at, null without one, or why it can't */
-function buildFrom(cx: StudioCx, args: Record<string, unknown>): { laneId: string; hitId: string } | string | null {
+function buildFrom(cx: StudioCx, args: Record<string, unknown>): { marbleId: string; hitId: string } | string | null {
 	const hitId = args['from'];
 	if (hitId == null) return null;
 	const lane = cx.project?.music.lanes.find((item) => item.hits.some((hit) => hit.id === hitId));
 	if (lane == null || typeof hitId !== 'string') return `There is no hit called ${String(hitId)}. get_state lists every marble's hits.`;
 	if (cx.assist.isBuilding) return buildRefusal(cx);
-	return { laneId: lane.id, hitId };
+	return { marbleId: lane.id, hitId };
 }
 
 function buildRefusal(cx: StudioCx): string {
@@ -555,11 +555,11 @@ function unknownSelection(cx: StudioCx, args: Record<string, unknown>): string |
 		if (typeof key !== 'string') return false;
 		if (project.entities.some((entity) => entity.id === key)) return true;
 		const hit = parseHitKey(key);
-		if (hit != null) return project.music.lanes.some((lane) => lane.id === hit.laneId && lane.hits.some((item) => item.id === hit.hitId));
+		if (hit != null) return project.music.lanes.some((lane) => lane.id === hit.marbleId && lane.hits.some((item) => item.id === hit.hitId));
 		return key === WALL_KEY || key === CAMERA_KEY || key === SONG_KEY || parseLightKey(key) != null || parseDecorKey(key) != null || key.includes(':');
 	};
 	const bad = select.filter((key) => !isKnown(key));
-	return bad.length > 0 ? `Nothing can be selected as ${bad.join(', ')}. Use a piece or marble ID from get_state, a hit key such as hit:laneId:hitId, wall, light:key, camera or song.` : null;
+	return bad.length > 0 ? `Nothing can be selected as ${bad.join(', ')}. Use a piece or marble ID from get_state, a hit key such as hit:marbleId:hitId, wall, light:key, camera or song.` : null;
 }
 
 function applySelection(cx: StudioCx, args: Record<string, unknown>): void {

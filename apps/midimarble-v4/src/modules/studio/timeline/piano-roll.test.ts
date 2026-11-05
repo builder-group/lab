@@ -22,7 +22,7 @@ describe('piano roll', () => {
 			const song = project([[64, 60]]);
 			const { hit, commands } = addNoteCommands('lane-0', { time: 0.5, pitch: 67, duration: 0.25 });
 
-			expect(commands).toEqual([{ type: 'upsertHits', laneId: 'lane-0', hits: [hit] }]);
+			expect(commands).toEqual([{ type: 'upsertHits', marbleId: 'lane-0', hits: [hit] }]);
 			expect(hit).toMatchObject({ time: 0.5, pitch: 67, duration: 0.25 });
 			expect(songRollRange(song, midi)).not.toBeNull();
 		});
@@ -69,15 +69,15 @@ describe('piano roll', () => {
 			const commands = noteDragCommands(project([[60, 62]], [64]), { keys: ['hit:lane-0:hit-0-1', `hit:${BACKING_ID}:backing-0`], delta: 0.5, pitchDelta: 2 }, range);
 
 			expect(commands).toEqual([
-				{ type: 'upsertHits', laneId: 'lane-0', hits: [{ id: 'hit-0-1', time: 1.5, pitch: 64 }] },
-				{ type: 'upsertHits', laneId: BACKING_ID, hits: [{ id: 'backing-0', time: 0.5, pitch: 66 }] }
+				{ type: 'upsertHits', marbleId: 'lane-0', hits: [{ id: 'hit-0-1', time: 1.5, pitch: 64 }] },
+				{ type: 'upsertHits', marbleId: BACKING_ID, hits: [{ id: 'backing-0', time: 0.5, pitch: 66 }] }
 			]);
 		});
 
 		it('should keep pitches inside the roll and times from going negative', () => {
 			const commands = noteDragCommands(project([[68]]), { keys: ['hit:lane-0:hit-0-0'], delta: -3, pitchDelta: 5 }, range);
 
-			expect(commands).toEqual([{ type: 'upsertHits', laneId: 'lane-0', hits: [{ id: 'hit-0-0', time: 0, pitch: 69 }] }]);
+			expect(commands).toEqual([{ type: 'upsertHits', marbleId: 'lane-0', hits: [{ id: 'hit-0-0', time: 0, pitch: 69 }] }]);
 		});
 
 		it('should leave pitches alone when a diamond moves in a flat row', () => {
@@ -86,7 +86,7 @@ describe('piano roll', () => {
 			expect(commands).toEqual([
 				{
 					type: 'upsertHits',
-					laneId: 'lane-0',
+					marbleId: 'lane-0',
 					hits: [
 						{ id: 'hit-0-0', time: 1, pitch: 60 },
 						{ id: 'hit-0-1', time: 2, pitch: undefined }

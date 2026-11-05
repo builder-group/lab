@@ -260,7 +260,7 @@ interface TPlan {
 
 interface TPlanMarble {
 	entityId: string;
-	laneId: string;
+	marbleId: string;
 	radius: number;
 	release: TVec2;
 	releaseVelocity: TVec2;
@@ -332,7 +332,7 @@ function createPlan(project: TProject): TPlan {
 		if (marble == null || release == null) continue;
 		marbles.push({
 			entityId: entity.id,
-			laneId: marble.laneId,
+			marbleId: marble.marbleId,
 			radius: marble.radius,
 			release: release.position,
 			releaseVelocity: release.velocity ?? { x: 0, y: 0 },
@@ -355,9 +355,9 @@ function createPlan(project: TProject): TPlan {
 		const path = resolvePiecePath(piece.type, entity.components.path?.points);
 
 		if (hitLink != null) {
-			const time = hitTimes.get(`${hitLink.laneId}/${hitLink.hitId}`) ?? null;
+			const time = hitTimes.get(`${hitLink.marbleId}/${hitLink.hitId}`) ?? null;
 			linkedHitTimes.set(entity.id, time);
-			const marbleIndex = marbles.findIndex((marble) => marble.laneId === hitLink.laneId);
+			const marbleIndex = marbles.findIndex((marble) => marble.marbleId === hitLink.marbleId);
 			if (time == null) continue;
 			// Anchored pieces and scenery follow the trajectory at their hit time plus their entry delay
 			const isAnchor = !soundsHit(piece.type, hitLink);
@@ -373,7 +373,7 @@ function createPlan(project: TProject): TPlan {
 				contactAt: hitLink.contactAt,
 				time: eventTime,
 				hitTime: time,
-				hitOrder: hitOrder.get(`${hitLink.laneId}/${hitLink.hitId}`) ?? 0,
+				hitOrder: hitOrder.get(`${hitLink.marbleId}/${hitLink.hitId}`) ?? 0,
 				step: Math.floor(eventTime * PHYSICS_HZ + STEP_EPSILON),
 				marbleIndex,
 				isAnchor,
@@ -1869,7 +1869,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 			continue;
 		}
 		// Linked pieces that were never processed: missing hit, hit after the end or before the start
-		const marble = plan.marbles.find((m) => m.laneId === entity.components.hitLink?.laneId);
+		const marble = plan.marbles.find((m) => m.marbleId === entity.components.hitLink?.marbleId);
 		pieces.push({
 			entityId: entity.id,
 			type: piece.type,
@@ -1893,7 +1893,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 		const piece = pieceById.get(entity.id);
 		// Scenery never sounds its hit
 		if (hitLink == null || piece == null || !soundsHit(piece.type, hitLink)) continue;
-		const key = `${hitLink.laneId}/${hitLink.hitId}`;
+		const key = `${hitLink.marbleId}/${hitLink.hitId}`;
 		if (!linkByHit.has(key)) linkByHit.set(key, entity.id);
 	}
 
@@ -1902,7 +1902,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 	const impactSpeed = IMPACT_SPEED * (plan.gravity / gravityOf({}));
 	for (const lane of project.music.lanes) {
 		const band = frameBand(project);
-		const marbleIndex = plan.marbles.findIndex((marble) => marble.laneId === lane.id);
+		const marbleIndex = plan.marbles.findIndex((marble) => marble.marbleId === lane.id);
 		const marble = plan.marbles[marbleIndex];
 		const samples = state.marbles[marbleIndex]?.samples ?? [];
 		let isBehindBreak = false;
@@ -1913,7 +1913,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 			const onTrajectory =
 				placement?.dot != null ? null : trajectoryAt(samples, hit.time, plan.gravity);
 			const result: THitResult = {
-				laneId: lane.id,
+				marbleId: lane.id,
 				hitId: hit.id,
 				targetTime: hit.time,
 				pieceEntityId,
@@ -1976,7 +1976,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 		duration: plan.endStep / PHYSICS_HZ,
 		marbles: plan.marbles.map((marble, i) => ({
 			entityId: marble.entityId,
-			laneId: marble.laneId,
+			marbleId: marble.marbleId,
 			radius: marble.radius,
 			samples: state.marbles[i]?.samples ?? []
 		})),
@@ -1998,7 +1998,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
  */
 function withFarRun(near: TSimulationResult, far: TSimulationResult): TSimulationResult {
 	const until = near.duration;
-	const hitKey = (hit: THitResult): string => `${hit.laneId}/${hit.hitId}`;
+	const hitKey = (hit: THitResult): string => `${hit.marbleId}/${hit.hitId}`;
 	const farHits = new Map(far.hits.map((hit) => [hitKey(hit), hit]));
 	const farPieces = new Map(far.pieces.map((piece) => [piece.entityId, piece]));
 	const farTracks = new Map(far.marbles.map((track) => [track.entityId, track]));

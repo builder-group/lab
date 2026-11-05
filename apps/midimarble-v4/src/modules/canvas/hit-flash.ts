@@ -9,7 +9,7 @@ import type { StudioCx } from '@/modules/studio';
  * green On Time, amber early or late, red Missed, Blocked or Stopped. Open hits have nothing to land on.
  */
 export interface THitFlash {
-	laneId: string;
+	marbleId: string;
 	hitId: string;
 	tone: 'good' | 'warn' | 'bad';
 	// When the marble lands: its contact, or the note's own time when it never gets there
@@ -24,15 +24,15 @@ const MAX_FLASH_STEP = 0.25;
 export function hitLandings(hits: readonly THitResult[]): THitFlash[] {
 	return hits
 		.flatMap((hit): THitFlash[] => {
-			const { laneId, hitId, dot } = hit;
+			const { marbleId, hitId, dot } = hit;
 			switch (hit.status) {
 				case 'onTime':
-					return [{ laneId, hitId, dot, tone: 'good', time: hit.actualTime ?? hit.targetTime }];
+					return [{ marbleId, hitId, dot, tone: 'good', time: hit.actualTime ?? hit.targetTime }];
 				case 'drifting':
-					return [{ laneId, hitId, dot, tone: 'warn', time: hit.actualTime ?? hit.targetTime }];
+					return [{ marbleId, hitId, dot, tone: 'warn', time: hit.actualTime ?? hit.targetTime }];
 				case 'missed':
 				case 'blocked':
-					return [{ laneId, hitId, dot, tone: 'bad', time: hit.targetTime }];
+					return [{ marbleId, hitId, dot, tone: 'bad', time: hit.targetTime }];
 				default:
 					return [];
 			}

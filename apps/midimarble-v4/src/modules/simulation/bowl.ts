@@ -28,8 +28,8 @@ export interface TBowlCatch {
 }
 
 /** The Bowl of a marble's lane, if it has one: a Bowl anchored to one of the lane's hits */
-export function bowlOfLane(project: TProject, laneId: string): TEntity | undefined {
-	return project.entities.find((entity) => entity.components.piece?.type === BOWL_TYPE && entity.components.hitLink?.laneId === laneId);
+export function bowlOfMarble(project: TProject, marbleId: string): TEntity | undefined {
+	return project.entities.find((entity) => entity.components.piece?.type === BOWL_TYPE && entity.components.hitLink?.marbleId === marbleId);
 }
 
 export function isBowl(entity: TEntity | undefined): boolean {

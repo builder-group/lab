@@ -73,7 +73,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 					id="skin-own-color"
 					label="Marble Color"
 					value={sameOf(entities.map((entity) => entity.components.skin?.color))}
-					fallback={first?.entity.components.marble != null ? marbleFilmColor(project, first.entity.components.marble.laneId) : '#ffffff'}
+					fallback={first?.entity.components.marble != null ? marbleFilmColor(project, first.entity.components.marble.marbleId) : '#ffffff'}
 					origin="Default"
 					patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { color })}
 				/>

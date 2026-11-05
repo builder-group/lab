@@ -25,25 +25,25 @@ function addMarble(
 	project.music.lanes.push(lane);
 	project.entities.push({
 		id: `marble-${index + 1}`,
-		components: { marble: { laneId: lane.id, radius: 0.008 }, release }
+		components: { marble: { marbleId: lane.id, radius: 0.008 }, release }
 	});
 	return lane.id;
 }
 
 function addLinkedHit(
 	project: TProject,
-	laneId: string,
+	marbleId: string,
 	time: number,
 	angle: number,
 	type = 'platform'
 ): string {
-	const lane = project.music.lanes.find((l) => l.id === laneId);
+	const lane = project.music.lanes.find((l) => l.id === marbleId);
 	if (lane == null) throw new Error('Missing lane');
-	const hitId = `${laneId}-hit-${lane.hits.length + 1}`;
+	const hitId = `${marbleId}-hit-${lane.hits.length + 1}`;
 	lane.hits.push({ id: hitId, time });
 	const id = `piece-${hitId}`;
 	project.entities.push(
-		createLinkedPiece(type, laneId, hitId, angle, { entities: project.entities, id })
+		createLinkedPiece(type, marbleId, hitId, angle, { entities: project.entities, id })
 	);
 	return id;
 }
@@ -68,8 +68,8 @@ beforeAll(async () => {
 describe('simulate', () => {
 	it('lands a single linked platform on its hit time', () => {
 		const project = createBareProject(1.5);
-		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0.1 });
-		const pieceId = addLinkedHit(project, laneId, 0.55, 0.1);
+		const marbleId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0.1 });
+		const pieceId = addLinkedHit(project, marbleId, 0.55, 0.1);
 		const result = simulator.simulate(project);
 		const [hit] = result.hits;
 		expect(hit?.pieceEntityId).toBe(pieceId);
@@ -234,10 +234,10 @@ describe('simulate', () => {
 
 	it('marks a piece blocked when the earlier trajectory passes through it', () => {
 		const project = createBareProject(1.2);
-		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
-		addLinkedHit(project, laneId, 0.4, 0);
+		const marbleId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
+		addLinkedHit(project, marbleId, 0.4, 0);
 		// On the way back up the platform faces down onto the path the marble just fell along
-		const blockedId = addLinkedHit(project, laneId, 0.45, 0);
+		const blockedId = addLinkedHit(project, marbleId, 0.45, 0);
 		const result = simulator.simulate(project);
 		expect(result.pieces.find((piece) => piece.entityId === blockedId)?.status).toBe('blocked');
 		expect(result.hits[1]?.status).toBe('blocked');
@@ -275,12 +275,12 @@ describe('simulate', () => {
 
 	it('anchors a rail at its hit time as scenery and rolls the marble along it', () => {
 		const project = createBareProject(1.5);
-		const laneId = addMarble(project, 0, {
+		const marbleId = addMarble(project, 0, {
 			position: { x: 0, y: 0.5 },
 			time: 0,
 			velocity: { x: 0.2, y: 0 }
 		});
-		const railId = addLinkedHit(project, laneId, 0.3, -0.1, 'rail');
+		const railId = addLinkedHit(project, marbleId, 0.3, -0.1, 'rail');
 		const result = simulator.simulate(project);
 		// Scenery never sounds a hit: the hit stays open and the rail is a plain contact at its anchor time
 		expect(result.hits[0]?.status).toBe('open');
@@ -306,12 +306,12 @@ describe('simulate', () => {
 
 	it('keeps the marble inside a tunnel', () => {
 		const project = createBareProject(1.2);
-		const laneId = addMarble(project, 0, {
+		const marbleId = addMarble(project, 0, {
 			position: { x: 0, y: 0.5 },
 			time: 0,
 			velocity: { x: 0.2, y: 0 }
 		});
-		const tunnelId = addLinkedHit(project, laneId, 0.3, -0.15, 'tunnel');
+		const tunnelId = addLinkedHit(project, marbleId, 0.3, -0.15, 'tunnel');
 		const result = simulator.simulate(project);
 		expect(result.hits[0]?.status).toBe('open');
 		expect(result.pieces.find((piece) => piece.entityId === tunnelId)?.status).toBe('placed');
@@ -330,8 +330,8 @@ describe('simulate', () => {
 
 	it('turns a motor windmill before and after the moment it is anchored at', () => {
 		const project = createBareProject(1.2);
-		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
-		const windmillId = addLinkedHit(project, laneId, 0.4, 0.2, 'windmill');
+		const marbleId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
+		const windmillId = addLinkedHit(project, marbleId, 0.4, 0.2, 'windmill');
 		const entity = project.entities.find((item) => item.id === windmillId);
 		if (entity?.components.piece == null) throw new Error('Missing windmill');
 		entity.components.piece.params['motorSpeed'] = 2;
@@ -389,7 +389,7 @@ describe('simulate', () => {
 		// The marble starts at rest on a free bar, so the linked piece that appears under it at its hit is
 		// touched without being struck
 		const shelfTop = 0.4 + (resolvePieceParams('platform', {})['thickness'] ?? 0) / 2;
-		const laneId = addMarble(project, 0, { position: { x: 0, y: shelfTop + 0.0085 }, time: 0 });
+		const marbleId = addMarble(project, 0, { position: { x: 0, y: shelfTop + 0.0085 }, time: 0 });
 		project.entities.push({
 			id: 'shelf',
 			components: {
@@ -397,7 +397,7 @@ describe('simulate', () => {
 				transform: { position: { x: 0, y: 0.4 }, angle: 0 }
 			}
 		});
-		const pieceId = addLinkedHit(project, laneId, 0.5, 0);
+		const pieceId = addLinkedHit(project, marbleId, 0.5, 0);
 		const result = simulator.simulate(project);
 		const hit = result.hits.find((item) => item.pieceEntityId === pieceId);
 		expect(hit?.status).toBe('missed');
@@ -408,8 +408,8 @@ describe('simulate', () => {
 
 	it('records the approach speed of a strike and the shared pace', () => {
 		const project = createBareProject(0.6);
-		const laneId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
-		const pieceId = addLinkedHit(project, laneId, 0.3, 0);
+		const marbleId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
+		const pieceId = addLinkedHit(project, marbleId, 0.3, 0);
 		const result = simulator.simulate(project);
 		expect(result.hits[0]?.status).toBe('onTime');
 		const contact = result.contacts.find((item) => item.otherEntityId === pieceId);
@@ -428,14 +428,14 @@ describe('simulate', () => {
 
 	it('reports open hits with dots on the free-fall path', () => {
 		const project = createBareProject(1);
-		const laneId = addMarble(project, 0, {
+		const marbleId = addMarble(project, 0, {
 			position: { x: 0, y: 0.5 },
 			time: 0,
 			velocity: { x: 0.2, y: 0 }
 		});
 		project.music.lanes[0]?.hits.push({ id: 'open', time: 0.3 });
 		const result = simulator.simulate(project);
-		const hit = result.hits.find((h) => h.laneId === laneId);
+		const hit = result.hits.find((h) => h.marbleId === marbleId);
 		expect(hit?.status).toBe('open');
 		expect(hit?.dot?.x).toBeCloseTo(0.06, 6);
 		// Rapier integrates with semi-implicit Euler, which falls slightly ahead of the exact parabola

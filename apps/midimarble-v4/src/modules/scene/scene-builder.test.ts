@@ -3,7 +3,7 @@ import { createProject, type TProject } from '@/modules/project';
 import type { THitResult, TSimulationResult } from '@/modules/simulation';
 import { buildSceneDescription, encodeRecords, lastStruckTime, MOTION_FOLDER } from './scene-builder';
 
-function fixture(): { project: TProject; result: TSimulationResult; marbleId: string; laneId: string } {
+function fixture(): { project: TProject; result: TSimulationResult; marbleEntityId: string; marbleId: string } {
 	const project = createProject({ title: 'Song', id: 'project-1' });
 	const lane = project.music.lanes[0];
 	const marble = project.entities[0];
@@ -14,11 +14,11 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleId: st
 		components: {
 			piece: { type: 'platform', params: { length: 0.08 } },
 			transform: { position: { x: 0.1, y: 0.2 }, angle: 0.3 },
-			hitLink: { laneId: lane.id, hitId: 'hit-1', angle: 0.3, contactAt: 0.5 }
+			hitLink: { marbleId: lane.id, hitId: 'hit-1', angle: 0.3, contactAt: 0.5 }
 		}
 	});
 	const hit = (overrides: Partial<THitResult>): THitResult => ({
-		laneId: lane.id,
+		marbleId: lane.id,
 		hitId: 'hit-1',
 		targetTime: 0.5,
 		pieceEntityId: 'piece-1',
@@ -35,7 +35,7 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleId: st
 		marbles: [
 			{
 				entityId: marble.id,
-				laneId: lane.id,
+				marbleId: lane.id,
 				radius: 0.008,
 				samples: [0, 1, 2].map((index) => ({
 					time: 0.1 + index / 240,
@@ -67,7 +67,7 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleId: st
 		],
 		stats: { computeMs: 1, reusedUntil: 0, steps: 480 }
 	};
-	return { project, result, marbleId: marble.id, laneId: lane.id };
+	return { project, result, marbleEntityId: marble.id, marbleId: lane.id };
 }
 
 function firstPiece(result: TSimulationResult): TSimulationResult['pieces'][number] {
@@ -83,8 +83,8 @@ function decode(bytes: Uint8Array): number[] {
 
 describe('buildSceneDescription', () => {
 	it.each(['marble:glass', 'marble:metal', 'marble:magic'])("carries a marble's built-in skin %s, without an asset", (assetId) => {
-		const { project, result, marbleId } = fixture();
-		const marble = project.entities.find((entity) => entity.id === marbleId);
+		const { project, result, marbleEntityId } = fixture();
+		const marble = project.entities.find((entity) => entity.id === marbleEntityId);
 		if (marble != null) marble.components.skin = { assetId };
 		const [described] = buildSceneDescription(project, result, { fps: 30 }).description.marbles;
 		expect(described?.skin?.assetId).toBe(assetId);
@@ -92,8 +92,8 @@ describe('buildSceneDescription', () => {
 	});
 
 	it("carries the asset of a marble's library skin", () => {
-		const { project, result, marbleId } = fixture();
-		const marble = project.entities.find((entity) => entity.id === marbleId);
+		const { project, result, marbleEntityId } = fixture();
+		const marble = project.entities.find((entity) => entity.id === marbleEntityId);
 		if (marble != null) marble.components.skin = { assetId: 'green-glass' };
 		expect(buildSceneDescription(project, result, { fps: 30 }).description.marbles[0]?.assetPath).toBe('assets/green-glass/asset.blend');
 	});
@@ -106,10 +106,10 @@ describe('buildSceneDescription', () => {
 	});
 
 	it('writes one [time, x, y, angle] record per marble sample', () => {
-		const { project, result, marbleId } = fixture();
+		const { project, result, marbleEntityId } = fixture();
 		const { description, motionFiles } = buildSceneDescription(project, result, { fps: 60 });
 		const marble = description.marbles[0];
-		expect(marble?.motionPath).toBe(`${MOTION_FOLDER}/${marbleId}.bin`);
+		expect(marble?.motionPath).toBe(`${MOTION_FOLDER}/${marbleEntityId}.bin`);
 		expect(marble?.sampleCount).toBe(3);
 		expect(motionFiles).toHaveLength(1);
 		const file = motionFiles[0];
@@ -145,10 +145,10 @@ describe('buildSceneDescription', () => {
 	});
 
 	it('collects merged contact starts per piece and marks music pieces', () => {
-		const { project, result, marbleId } = fixture();
+		const { project, result, marbleEntityId } = fixture();
 		const contact = (time: number, otherEntityId: string, kind: 'piece' | 'marble' = 'piece') => ({
 			time,
-			marbleEntityId: marbleId,
+			marbleEntityId: marbleEntityId,
 			otherEntityId,
 			kind,
 			position: { x: 0, y: 0 }
@@ -203,7 +203,7 @@ describe('buildSceneDescription', () => {
 	});
 
 	it('carries project metadata and lane colors', () => {
-		const { project, result, laneId } = fixture();
+		const { project, result, marbleId } = fixture();
 		const { description } = buildSceneDescription(project, result, { fps: 30 });
 		expect(description).toMatchObject({
 			version: 1,
@@ -214,8 +214,8 @@ describe('buildSceneDescription', () => {
 			frame: { width: 9, height: 16 },
 			theme: 'pegboard'
 		});
-		const laneColor = project.music.lanes.find((lane) => lane.id === laneId)?.color;
-		expect(description.pieces[0]?.color).toBe(laneColor);
+		const marbleColor = project.music.lanes.find((lane) => lane.id === marbleId)?.color;
+		expect(description.pieces[0]?.color).toBe(marbleColor);
 	});
 });
 

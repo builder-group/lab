@@ -63,22 +63,22 @@ export function parseShotKey(key: string): string | null {
  * Where Previous and Next Hit go. In Track they stay on the marble in focus (of the selected hit, platform or marble)
  * and go on from the selected hit; with nothing in focus, and in Film, they step every marble's hits from the playhead.
  */
-export function stepHitTarget(project: TProject, selection: readonly string[], playhead: number, direction: 1 | -1, isTrack: boolean): { laneId: string; hitId: string; time: number } | null {
+export function stepHitTarget(project: TProject, selection: readonly string[], playhead: number, direction: 1 | -1, isTrack: boolean): { marbleId: string; hitId: string; time: number } | null {
 	const focus = isTrack ? stepFocus(project, selection) : null;
-	const lanes = focus == null ? project.music.lanes : project.music.lanes.filter((lane) => lane.id === focus.laneId);
-	const hits = lanes.flatMap((lane) => lane.hits.map((hit) => ({ laneId: lane.id, hitId: hit.id, time: hit.time }))).sort((a, b) => a.time - b.time);
+	const lanes = focus == null ? project.music.lanes : project.music.lanes.filter((lane) => lane.id === focus.marbleId);
+	const hits = lanes.flatMap((lane) => lane.hits.map((hit) => ({ marbleId: lane.id, hitId: hit.id, time: hit.time }))).sort((a, b) => a.time - b.time);
 	const from = focus?.time ?? playhead;
 	return (direction === 1 ? hits.find((hit) => hit.time > from + 1e-4) : [...hits].reverse().find((hit) => hit.time < from - 1e-4)) ?? null;
 }
 
-function stepFocus(project: TProject, selection: readonly string[]): { laneId: string; time: number | null } | null {
+function stepFocus(project: TProject, selection: readonly string[]): { marbleId: string; time: number | null } | null {
 	for (const key of selection) {
 		const parsed = parseHitKey(key);
 		const entity = project.entities.find((item) => item.id === key);
 		const hitId = parsed?.hitId ?? entity?.components.hitLink?.hitId;
-		const laneId = parsed?.laneId ?? entity?.components.hitLink?.laneId ?? entity?.components.marble?.laneId;
-		const lane = project.music.lanes.find((item) => item.id === laneId);
-		if (lane != null) return { laneId: lane.id, time: lane.hits.find((hit) => hit.id === hitId)?.time ?? null };
+		const marbleId = parsed?.marbleId ?? entity?.components.hitLink?.marbleId ?? entity?.components.marble?.marbleId;
+		const lane = project.music.lanes.find((item) => item.id === marbleId);
+		if (lane != null) return { marbleId: lane.id, time: lane.hits.find((hit) => hit.id === hitId)?.time ?? null };
 	}
 	return null;
 }
@@ -93,22 +93,22 @@ export function parseGroupKey(key: string): string | null {
 }
 
 /** A silence dragged out in a marble's Pattern strip; a range over notes selects the notes instead */
-export function toRangeKey(laneId: string, from: number, to: number): string {
-	return `range:${laneId}:${from.toFixed(4)}:${to.toFixed(4)}`;
+export function toRangeKey(marbleId: string, from: number, to: number): string {
+	return `range:${marbleId}:${from.toFixed(4)}:${to.toFixed(4)}`;
 }
 
-export function parseRangeKey(key: string): { laneId: string; from: number; to: number } | null {
-	const [kind, laneId, from, to] = key.split(':');
-	if (kind !== 'range' || laneId == null || from == null || to == null) return null;
-	return { laneId, from: Number(from), to: Number(to) };
+export function parseRangeKey(key: string): { marbleId: string; from: number; to: number } | null {
+	const [kind, marbleId, from, to] = key.split(':');
+	if (kind !== 'range' || marbleId == null || from == null || to == null) return null;
+	return { marbleId, from: Number(from), to: Number(to) };
 }
 
-export function toHitKey(laneId: string, hitId: string): string {
-	return `hit:${laneId}:${hitId}`;
+export function toHitKey(marbleId: string, hitId: string): string {
+	return `hit:${marbleId}:${hitId}`;
 }
 
-export function parseHitKey(key: string): { laneId: string; hitId: string } | null {
-	const [kind, laneId, hitId] = key.split(':');
-	if (kind !== 'hit' || laneId == null || hitId == null) return null;
-	return { laneId, hitId };
+export function parseHitKey(key: string): { marbleId: string; hitId: string } | null {
+	const [kind, marbleId, hitId] = key.split(':');
+	if (kind !== 'hit' || marbleId == null || hitId == null) return null;
+	return { marbleId, hitId };
 }

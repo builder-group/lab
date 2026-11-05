@@ -78,7 +78,7 @@ describe('hits work without a Song', () => {
 	it('should release a marble with no track before its first hit, and leave it once it has pieces', () => {
 		const lane = noSong.music.lanes[0];
 		if (lane == null) throw new Error('A new project has a marble');
-		const commands: TProjectCommand[] = [{ type: 'upsertHits', laneId: lane.id, hits: [{ id: 'a', time: 3 }] }];
+		const commands: TProjectCommand[] = [{ type: 'upsertHits', marbleId: lane.id, hits: [{ id: 'a', time: 3 }] }];
 		const hit = { ...noSong, music: { ...noSong.music, lanes: [{ ...lane, hits: [{ id: 'a', time: 3 }] }] } };
 
 		expect(releaseFollowsFirstHit(noSong, hit, commands).entities[0]?.components.release?.time).toBe(2.5);

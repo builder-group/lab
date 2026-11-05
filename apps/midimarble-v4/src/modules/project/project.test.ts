@@ -5,7 +5,7 @@ import { createHistory, pushHistory, redoHistory, undoHistory } from './history'
 import { parseProject, serializeProject } from './project-file';
 import { BACKING_ID, type TProject } from './schema';
 
-function firstLaneId(project: TProject): string {
+function firstMarbleId(project: TProject): string {
 	const lane = project.music.lanes[0];
 	if (lane == null) throw new Error('Missing lane');
 	return lane.id;
@@ -62,17 +62,17 @@ describe('project document', () => {
 describe('commands', () => {
 	it('should hand hits to Backing and back, keeping their IDs and order', () => {
 		const project = createProject();
-		const laneId = firstLaneId(project);
+		const marbleId = firstMarbleId(project);
 		const [isEditOk, editErr, edited] = applyProjectCommands(project, [
-			{ type: 'upsertHits', laneId, hits: [{ id: 'a', time: 1 }, { id: 'b', time: 2, duration: 0.25 }] },
-			{ type: 'upsertHits', laneId: BACKING_ID, hits: [{ id: 'c', time: 1.5 }] },
-			{ type: 'assignHits', hitIds: ['b'], laneId: BACKING_ID }
+			{ type: 'upsertHits', marbleId, hits: [{ id: 'a', time: 1 }, { id: 'b', time: 2, duration: 0.25 }] },
+			{ type: 'upsertHits', marbleId: BACKING_ID, hits: [{ id: 'c', time: 1.5 }] },
+			{ type: 'assignHits', hitIds: ['b'], marbleId: BACKING_ID }
 		]);
 		if (!isEditOk) throw editErr;
 		expect(edited.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['a']);
 		expect(edited.music.backing).toEqual([{ id: 'c', time: 1.5 }, { id: 'b', time: 2, duration: 0.25 }]);
 
-		const [isBackOk, backErr, back] = applyProjectCommands(edited, [{ type: 'assignHits', hitIds: ['c', 'b', 'a'], laneId }]);
+		const [isBackOk, backErr, back] = applyProjectCommands(edited, [{ type: 'assignHits', hitIds: ['c', 'b', 'a'], marbleId }]);
 		if (!isBackOk) throw backErr;
 		expect(back.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['a', 'c', 'b']);
 		expect(back.music.backing).toEqual([]);
@@ -80,16 +80,16 @@ describe('commands', () => {
 
 	it('should refuse to assign a hit that does not exist', () => {
 		const project = createProject();
-		const [isEditOk] = applyProjectCommands(project, [{ type: 'assignHits', hitIds: ['missing'], laneId: BACKING_ID }]);
+		const [isEditOk] = applyProjectCommands(project, [{ type: 'assignHits', hitIds: ['missing'], marbleId: BACKING_ID }]);
 		expect(isEditOk).toBe(false);
 	});
 
 	it('applies a batch as one revision and keeps hits sorted', () => {
 		const project = createProject();
-		const laneId = firstLaneId(project);
+		const marbleId = firstMarbleId(project);
 		const [isEditOk, editErr, edited] = applyProjectCommands(project, [
-			{ type: 'upsertHits', laneId, hits: [{ id: 'b', time: 2 }] },
-			{ type: 'upsertHits', laneId, hits: [{ id: 'a', time: 1 }] },
+			{ type: 'upsertHits', marbleId, hits: [{ id: 'b', time: 2 }] },
+			{ type: 'upsertHits', marbleId, hits: [{ id: 'a', time: 1 }] },
 			{ type: 'setTitle', title: 'Renamed' }
 		]);
 		expect(editErr).toBeUndefined();
@@ -103,13 +103,13 @@ describe('commands', () => {
 		const project = createProject();
 		const [isEditOk] = applyProjectCommands(project, [
 			{ type: 'setTitle', title: 'Changed' },
-			{ type: 'upsertHits', laneId: 'missing', hits: [] }
+			{ type: 'upsertHits', marbleId: 'missing', hits: [] }
 		]);
 		expect(isEditOk).toBe(false);
 		expect(project.title).toBe('Untitled');
 
 		const [isNegativeOk] = applyProjectCommands(project, [
-			{ type: 'upsertHits', laneId: firstLaneId(project), hits: [{ id: 'x', time: -1 }] }
+			{ type: 'upsertHits', marbleId: firstMarbleId(project), hits: [{ id: 'x', time: -1 }] }
 		]);
 		expect(isNegativeOk).toBe(false);
 	});
@@ -135,7 +135,7 @@ describe('commands', () => {
 	it('removes the marble of a removed lane', () => {
 		const project = createProject();
 		const [, , edited] = applyProjectCommands(project, [
-			{ type: 'removeLane', laneId: firstLaneId(project) }
+			{ type: 'removeLane', marbleId: firstMarbleId(project) }
 		]);
 		expect(edited?.music.lanes).toEqual([]);
 		expect(edited?.entities).toEqual([]);

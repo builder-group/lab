@@ -1,4 +1,4 @@
-import { BACKING_ID, createLane, createMarble, LANE_SPACING, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { BACKING_ID, createLane, createMarble, MARBLE_SPACING, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 // Deep imports keep the simulation client and its worker out of the music module
 import { anchorHit, freePose, soundsHit } from '@/modules/simulation';
 import type { TSimulationResult } from '@/modules/simulation';
@@ -15,52 +15,52 @@ export function assignNotesCommands(
 	project: TProject,
 	result: TSimulationResult | null,
 	hitIds: string[],
-	laneId: string
+	marbleId: string
 ): TProjectCommand[] {
 	const wanted = new Set(hitIds);
 	const leaving = new Map<string, Set<string>>();
 	for (const lane of project.music.lanes) {
-		if (lane.id === laneId) continue;
+		if (lane.id === marbleId) continue;
 		const ids = lane.hits.filter((hit) => wanted.has(hit.id)).map((hit) => hit.id);
 		if (ids.length > 0) leaving.set(lane.id, new Set(ids));
 	}
-	const fromBacking = laneId !== BACKING_ID && project.music.backing.some((hit) => wanted.has(hit.id));
+	const fromBacking = marbleId !== BACKING_ID && project.music.backing.some((hit) => wanted.has(hit.id));
 	if (!leaving.size && !fromBacking) return [];
 
 	const removed: string[] = [];
 	const ties = project.entities.flatMap((entity): TProjectCommand[] => {
 		const link = entity.components.hitLink;
 		const piece = entity.components.piece;
-		if (piece == null || link == null || leaving.get(link.laneId)?.has(link.hitId) !== true) return [];
+		if (piece == null || link == null || leaving.get(link.marbleId)?.has(link.hitId) !== true) return [];
 		if (soundsHit(piece.type, link)) {
-			if (laneId === BACKING_ID) {
+			if (marbleId === BACKING_ID) {
 				removed.push(entity.id);
 				return [];
 			}
-			return [{ type: 'upsertEntity', entity: { ...entity, components: { ...entity.components, hitLink: { ...link, laneId } } } }];
+			return [{ type: 'upsertEntity', entity: { ...entity, components: { ...entity.components, hitLink: { ...link, marbleId } } } }];
 		}
-		const followed = refollow(project, entity, leaving.get(link.laneId) ?? new Set());
+		const followed = refollow(project, entity, leaving.get(link.marbleId) ?? new Set());
 		return [{ type: 'upsertEntity', entity: followed ?? asFreePiece(project, result, entity) }];
 	});
-	return [...ties, ...(removed.length ? [{ type: 'removeEntities' as const, entityIds: removed }] : []), { type: 'assignHits', hitIds: [...wanted], laneId }];
+	return [...ties, ...(removed.length ? [{ type: 'removeEntities' as const, entityIds: removed }] : []), { type: 'assignHits', hitIds: [...wanted], marbleId }];
 }
 
 /** A new marble with its lane, to the right of the last marble and released a short drop before `firstTime` */
-export function newMarbleCommands(project: TProject, firstTime?: number): { laneId: string; commands: TProjectCommand[] } {
+export function newMarbleCommands(project: TProject, firstTime?: number): { marbleId: string; commands: TProjectCommand[] } {
 	const lane = createLane(project.music.lanes.length);
 	const releases = project.entities.flatMap((entity) => (entity.components.release != null ? [entity.components.release.position] : []));
-	const position = { x: releases.length ? Math.max(...releases.map((point) => point.x)) + LANE_SPACING : 0, y: releases[0]?.y ?? 0.6 };
+	const position = { x: releases.length ? Math.max(...releases.map((point) => point.x)) + MARBLE_SPACING : 0, y: releases[0]?.y ?? 0.6 };
 	const marble = createMarble(lane, position);
 	if (marble.components.release != null && firstTime != null) {
 		marble.components.release.time = Math.round(Math.max(0, firstTime - IMPORT_RELEASE_LEAD) * 10000) / 10000;
 	}
-	return { laneId: lane.id, commands: [{ type: 'upsertLane', lane }, { type: 'upsertEntity', entity: marble }] };
+	return { marbleId: lane.id, commands: [{ type: 'upsertLane', lane }, { type: 'upsertEntity', entity: marble }] };
 }
 
 /** A following piece tied to the lane's nearest remaining hit with the delay that keeps its moment */
 function refollow(project: TProject, entity: TEntity, leaving: Set<string>): TEntity | null {
 	const { hitLink: link, piece } = entity.components;
-	const hits = project.music.lanes.find((lane) => lane.id === link?.laneId)?.hits ?? [];
+	const hits = project.music.lanes.find((lane) => lane.id === link?.marbleId)?.hits ?? [];
 	const hit = hits.find((item) => item.id === link?.hitId);
 	if (link == null || piece == null || hit == null) return null;
 	const moment = hit.time + (piece.params['entryDelay'] ?? 0);
@@ -96,7 +96,7 @@ function currentPose(project: TProject, result: TSimulationResult | null, entity
 	if (result == null || result.revision !== project.revision) return null;
 	const resolved = result.pieces.find((item) => item.entityId === entity.id);
 	if (resolved == null || resolved.status === 'unreached') return null;
-	const radius = result.marbles.find((marble) => marble.laneId === entity.components.hitLink?.laneId)?.radius;
+	const radius = result.marbles.find((marble) => marble.marbleId === entity.components.hitLink?.marbleId)?.radius;
 	return freePose(entity, resolved, radius);
 }
 
@@ -104,6 +104,6 @@ function currentPose(project: TProject, result: TSimulationResult | null, entity
 function fallbackPosition(project: TProject, entity: TEntity): TVec2 {
 	const link = entity.components.hitLink;
 	if (link?.held != null) return { ...link.held.dot };
-	const release = project.entities.find((item) => item.components.marble?.laneId === link?.laneId)?.components.release?.position;
+	const release = project.entities.find((item) => item.components.marble?.marbleId === link?.marbleId)?.components.release?.position;
 	return release != null ? { x: release.x, y: release.y - 0.2 } : { x: 0, y: 0 };
 }

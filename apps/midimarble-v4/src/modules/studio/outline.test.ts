@@ -4,7 +4,7 @@ import { startRailId } from '@/modules/simulation';
 import { buildOutline, DECOR_KEY, FREE_PIECES_KEY, isFilmRow, LIGHTS_KEY, TITLES_KEY } from './outline';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
 
-function piece(id: string, hitLink?: { laneId: string; hitId: string }): TEntity {
+function piece(id: string, hitLink?: { marbleId: string; hitId: string }): TEntity {
 	return { id, components: { piece: { type: 'platform' }, ...(hitLink != null ? { hitLink } : {}) } } as unknown as TEntity;
 }
 
@@ -19,25 +19,25 @@ function project(options: { hasSong?: boolean; entities?: TEntity[]; shots?: { i
 			],
 			backing: []
 		},
-		entities: [{ id: 'marble-1', components: { marble: { laneId: 'lane-1' } } }, { id: 'marble-2', components: { marble: { laneId: 'lane-2' } } }, ...entities],
+		entities: [{ id: 'marble-1', components: { marble: { marbleId: 'lane-1' } } }, { id: 'marble-2', components: { marble: { marbleId: 'lane-2' } } }, ...entities],
 		design: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], camera: { shots } }
 	} as unknown as TProject;
 }
 
 describe('buildOutline function', () => {
 	it('should list a marble\'s start rail first under it, not under Track Pieces', () => {
-		const rows = buildOutline(project({ entities: [piece('p-a', { laneId: 'lane-1', hitId: 'a' }), piece('free-1'), piece(startRailId('lane-1'))] }), { workspace: 'track' });
+		const rows = buildOutline(project({ entities: [piece('p-a', { marbleId: 'lane-1', hitId: 'a' }), piece('free-1'), piece(startRailId('lane-1'))] }), { workspace: 'track' });
 		const rail = rows.find((row) => row.id === startRailId('lane-1'));
 
 		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, CAMERA_KEY, WALL_KEY, 'marble-1', startRailId('lane-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1']);
-		expect(rail).toMatchObject({ kind: 'piece', parentId: 'marble-1', laneId: 'lane-1', depth: 1 });
+		expect(rail).toMatchObject({ kind: 'piece', parentId: 'marble-1', marbleId: 'lane-1', depth: 1 });
 	});
 
 	it('should order Song, Camera with shots, Wall, marbles with their pieces in hit order, Pieces, Lights and Titles, leaving out empty groups', () => {
 		const title = { id: 'title-1', components: { wallText: { text: 'Jingle Bells' } } } as unknown as TEntity;
 		const rows = buildOutline(
 			project({
-				entities: [piece('p-b', { laneId: 'lane-1', hitId: 'b' }), piece('p-a', { laneId: 'lane-1', hitId: 'a' }), piece('free-1'), piece('free-2'), title],
+				entities: [piece('p-b', { marbleId: 'lane-1', hitId: 'b' }), piece('p-a', { marbleId: 'lane-1', hitId: 'a' }), piece('free-1'), piece('free-2'), title],
 				shots: [
 					{ id: 'late', time: 5 },
 					{ id: 'early', time: 1 }
@@ -106,7 +106,7 @@ describe('buildOutline function', () => {
 	});
 
 	it('should leave out the children of collapsed groups', () => {
-		const rows = buildOutline(project({ entities: [piece('p-a', { laneId: 'lane-1', hitId: 'a' }), piece('free-1')], shots: [{ id: 'shot', time: 1 }] }), {
+		const rows = buildOutline(project({ entities: [piece('p-a', { marbleId: 'lane-1', hitId: 'a' }), piece('free-1')], shots: [{ id: 'shot', time: 1 }] }), {
 			collapsed: ['lane-1', FREE_PIECES_KEY, CAMERA_KEY]
 		});
 

@@ -9,8 +9,8 @@ const startRails = new WeakMap<TProject, Map<string, string>>();
 /** The piece's own label color, else its marble's; null for a piece no marble plays or starts on */
 export function pieceLabelColor(project: TProject, entity: TEntity): string | null {
 	if (entity.labelColor != null) return entity.labelColor;
-	const laneId = entity.components.hitLink?.laneId ?? startRailsOf(project).get(entity.id);
-	return project.music.lanes.find((lane) => lane.id === laneId)?.color ?? null;
+	const marbleId = entity.components.hitLink?.marbleId ?? startRailsOf(project).get(entity.id);
+	return project.music.lanes.find((lane) => lane.id === marbleId)?.color ?? null;
 }
 
 /** The marble's start rail per project state, since every piece asks on every frame */

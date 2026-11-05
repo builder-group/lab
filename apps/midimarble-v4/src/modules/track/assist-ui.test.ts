@@ -7,7 +7,7 @@ import { pickTrack, pathHandles, pathRun, pathToLocal, pathToWorld, pieceAngleAt
 function continueAnswer(revision: number, okCount: number): TContinueAnswer {
 	return {
 		revision,
-		laneId: 'lane-1',
+		marbleId: 'lane-1',
 		computeMs: 1,
 		pattern: 'mirror',
 		commands: [],
@@ -28,7 +28,7 @@ function gapAnswer(revision: number): TGapAnswer {
 	return {
 		revision,
 		type: 'rail',
-		laneId: 'lane-1',
+		marbleId: 'lane-1',
 		fromHitId: 'hit-3',
 		toHitId: 'hit-4',
 		entity: { id: 'rail', components: {} },
@@ -67,7 +67,7 @@ describe('ghost state', () => {
 	});
 
 	it('lets a requested gap piece win over background Continue answers', () => {
-		const pending = ghostReducer(at(5), { type: 'requestGap', revision: 5, laneId: 'lane-1', toHitId: 'hit-4' });
+		const pending = ghostReducer(at(5), { type: 'requestGap', revision: 5, marbleId: 'lane-1', toHitId: 'hit-4' });
 		expect(pending.pendingGap).not.toBeNull();
 		expect(ghostReducer(pending, { type: 'continueAnswer', revision: 5, answer: continueAnswer(5, 2) }).ghost).toBeNull();
 		const shown = ghostReducer(pending, { type: 'gapAnswer', answer: gapAnswer(5) });
@@ -78,7 +78,7 @@ describe('ghost state', () => {
 	});
 
 	it('drops a gap answer that arrives after Escape or an edit', () => {
-		const pending = ghostReducer(at(5), { type: 'requestGap', revision: 5, laneId: 'lane-1', toHitId: 'hit-4' });
+		const pending = ghostReducer(at(5), { type: 'requestGap', revision: 5, marbleId: 'lane-1', toHitId: 'hit-4' });
 		expect(ghostReducer(ghostReducer(pending, { type: 'dismiss' }), { type: 'gapAnswer', answer: gapAnswer(5) }).ghost).toBeNull();
 		expect(ghostReducer(ghostReducer(pending, { type: 'revision', revision: 6 }), { type: 'gapAnswer', answer: gapAnswer(5) }).ghost).toBeNull();
 	});
@@ -188,9 +188,9 @@ describe('canvas helpers', () => {
 	});
 
 	it('picks a trajectory point with its time', () => {
-		const tracks = [{ laneId: 'lane-1', points: [{ x: 0, y: 0 }, { x: 100, y: 0 }], times: [1, 2] }];
+		const tracks = [{ marbleId: 'lane-1', points: [{ x: 0, y: 0 }, { x: 100, y: 0 }], times: [1, 2] }];
 		const picked = pickTrack({ x: 25, y: 3 }, tracks);
-		expect(picked).toMatchObject({ kind: 'track', laneId: 'lane-1' });
+		expect(picked).toMatchObject({ kind: 'track', marbleId: 'lane-1' });
 		expect(picked?.kind === 'track' ? picked.time : null).toBeCloseTo(1.25, 9);
 		expect(pickTrack({ x: 25, y: 30 }, tracks)).toBeNull();
 	});

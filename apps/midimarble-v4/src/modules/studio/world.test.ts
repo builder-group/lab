@@ -7,7 +7,7 @@ function projectWithHits(times: number[][], bowls: number[] = []): TProject {
 		music: { sources: [], lanes: times.map((hits, index) => ({ id: `lane-${index}`, hits: hits.map((time, hit) => ({ id: `hit-${hit}`, time })) })), backing: [] },
 		entities: bowls.map((index) => ({
 			id: `bowl-${index}`,
-			components: { piece: { type: 'bowl', params: {} }, hitLink: { laneId: `lane-${index}`, hitId: 'hit-0', angle: 0, contactAt: 0.5, pinned: false, anchored: true } }
+			components: { piece: { type: 'bowl', params: {} }, hitLink: { marbleId: `lane-${index}`, hitId: 'hit-0', angle: 0, contactAt: 0.5, pinned: false, anchored: true } }
 		}))
 	} as unknown as TProject;
 }

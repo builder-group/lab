@@ -11,7 +11,7 @@ import type { TGroupRunOutcome } from './run-group';
 
 /** Why a Pattern wasn't made: the hit to look at and what's wrong there */
 export interface TPatternRefusal {
-	laneId: string;
+	marbleId: string;
 	hitId: string | null;
 	words: string;
 }
@@ -29,21 +29,21 @@ function standing(project: TProject, result: TSimulationResult): TProblemSummary
 	return problemSummary(preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS), 'track');
 }
 
-function hitWords(project: TProject, hitId: string): { laneId: string; hitId: string; number: number; name: string } | null {
+function hitWords(project: TProject, hitId: string): { marbleId: string; hitId: string; number: number; name: string } | null {
 	for (const lane of project.music.lanes) {
 		const index = lane.hits.findIndex((hit) => hit.id === hitId);
-		if (index >= 0) return { laneId: lane.id, hitId, number: index + 1, name: lane.name };
+		if (index >= 0) return { marbleId: lane.id, hitId, number: index + 1, name: lane.name };
 	}
 	return null;
 }
 
 /** The hit a problem's target is about: its own key, or the note its piece plays */
-function namedHit(project: TProject, ids: readonly string[]): { laneId: string; hitId: string } | null {
+function namedHit(project: TProject, ids: readonly string[]): { marbleId: string; hitId: string } | null {
 	for (const id of ids) {
 		const hit = parseHitKey(id);
 		if (hit != null) return hit;
 		const link = project.entities.find((entity) => entity.id === id)?.components.hitLink;
-		if (link != null) return { laneId: link.laneId, hitId: link.hitId };
+		if (link != null) return { marbleId: link.marbleId, hitId: link.hitId };
 	}
 	return null;
 }
@@ -59,14 +59,14 @@ function firstNew(before: TProblemSummary, after: TProblemSummary): TProblemSumm
 }
 
 /** Decides whether a Group change lands, and with what. Nothing is changed here */
-export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, laneId: string, sim: TSimulator): TGroupCheck {
+export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, marbleId: string, sim: TSimulator): TGroupCheck {
 	const label = outcome.name.replace(/ \d+$/, '');
 	const refused = (refusal: TPatternRefusal): TGroupCheck => ({ refusal, commands: [], movedAfter: 0 });
 	const [blocking] = outcome.blocking;
 	if (blocking != null) {
 		const hit = hitWords(before, blocking.hitId);
 		const at = hit != null ? `at Hit ${hit.number} of ${hit.name}` : 'here';
-		return refused({ laneId: hit?.laneId ?? laneId, hitId: hit?.hitId ?? null, words: `${label} doesn't fit ${at}. ${blocking.words} Nothing changed.` });
+		return refused({ marbleId: hit?.marbleId ?? marbleId, hitId: hit?.hitId ?? null, words: `${label} doesn't fit ${at}. ${blocking.words} Nothing changed.` });
 	}
 	if (!outcome.commands.length) return { refusal: null, commands: [], movedAfter: 0 };
 
@@ -87,7 +87,7 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, la
 	const worst = freeRun.problems.length <= settledRun.problems.length ? freeRun : settledRun;
 	const first = firstNew(was, worst);
 	const named = namedHit(after, first?.target?.ids ?? []);
-	return refused({ laneId: named?.laneId ?? laneId, hitId: named?.hitId ?? null, words: `${label} would break what follows: ${first?.title ?? 'a later hit no longer plays'}. Nothing changed.` });
+	return refused({ marbleId: named?.marbleId ?? marbleId, hitId: named?.hitId ?? null, words: `${label} would break what follows: ${first?.title ?? 'a later hit no longer plays'}. Nothing changed.` });
 }
 
 /** How many pieces after the Pattern stand somewhere else in the run */

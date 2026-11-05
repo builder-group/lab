@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Minus, Plus } from 'lucide-react';
 import React from 'react';
 import { HelpTip } from '@/components';
-import { laneColors } from '@/modules/project';
+import { marbleColors } from '@/modules/project';
 import { previewMidiImport } from './SourcesCx';
 import type { StudioCx } from './StudioCx';
 
@@ -32,10 +32,10 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 
 	if (pending == null || preview == null) return null;
 	const strategy = pending.options.strategy ?? 'split';
-	const maxLanes = pending.options.maxLanes ?? 4;
+	const maxMarbles = pending.options.maxMarbles ?? 4;
 	const end = Math.max(1, ...[...preview.lanes.flat(), ...preview.backing].map((note) => note.time + note.duration));
 	const rows = [
-		...preview.lanes.map((notes, index) => ({ key: `marble-${index}`, name: preview.names[index] ?? `Marble ${index + 1}`, color: laneColors[index % laneColors.length] ?? 'var(--accent)', notes })),
+		...preview.lanes.map((notes, index) => ({ key: `marble-${index}`, name: preview.names[index] ?? `Marble ${index + 1}`, color: marbleColors[index % marbleColors.length] ?? 'var(--accent)', notes })),
 		...(preview.backing.length > 0 ? [{ key: 'backing', name: 'Backing', color: BACKING_COLOR, notes: preview.backing }] : [])
 	];
 
@@ -98,18 +98,18 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 							<span className="text-[var(--text-secondary)]">Up to</span>
 							<button
 								className="mm-icon-button !h-6 !w-6"
-								disabled={maxLanes <= 1}
-								onClick={() => cx.sources.updateMidiImport({ options: { ...pending.options, maxLanes: maxLanes - 1 } })}
+								disabled={maxMarbles <= 1}
+								onClick={() => cx.sources.updateMidiImport({ options: { ...pending.options, maxMarbles: maxMarbles - 1 } })}
 								title="Fewer marbles"
 								type="button"
 							>
 								<Minus size={13} />
 							</button>
-							<span className="mm-tabular w-5 text-center">{maxLanes}</span>
+							<span className="mm-tabular w-5 text-center">{maxMarbles}</span>
 							<button
 								className="mm-icon-button !h-6 !w-6"
-								disabled={maxLanes >= 6}
-								onClick={() => cx.sources.updateMidiImport({ options: { ...pending.options, maxLanes: maxLanes + 1 } })}
+								disabled={maxMarbles >= 6}
+								onClick={() => cx.sources.updateMidiImport({ options: { ...pending.options, maxMarbles: maxMarbles + 1 } })}
 								title="More marbles"
 								type="button"
 							>

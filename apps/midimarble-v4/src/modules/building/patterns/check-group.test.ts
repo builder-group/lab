@@ -25,13 +25,13 @@ function smallProject(times: number[]): TProject {
 	if (lane == null || marble?.components.marble == null) throw new Error('No marble');
 	return apply(project, [
 		{ type: 'upsertLane', lane: { ...lane, id: LANE, hits: times.map((time, index) => ({ id: `h${index}`, time })) } },
-		{ type: 'removeLane', laneId: lane.id },
-		{ type: 'upsertEntity', entity: { ...marble, components: { ...marble.components, marble: { ...marble.components.marble, laneId: LANE } } } },
+		{ type: 'removeLane', marbleId: lane.id },
+		{ type: 'upsertEntity', entity: { ...marble, components: { ...marble.components, marble: { ...marble.components.marble, marbleId: LANE } } } },
 		{ type: 'setEnd', end: (times.at(-1) ?? 0) + 0.6 }
 	]);
 }
 
-const change = { laneId: LANE, from: 1, to: 2.2, kind: 'zigzag' as const, width: 0.1, bounce: 0.5 };
+const change = { marbleId: LANE, from: 1, to: 2.2, kind: 'zigzag' as const, width: 0.1, bounce: 0.5 };
 
 function outcomeOf(project: TProject, over: Partial<TGroupRunOutcome> = {}): TGroupRunOutcome {
 	return { ...runGroupChange(project, change, { sim }), ...over };
@@ -44,7 +44,7 @@ describe('checkGroupChange function', () => {
 		const check = checkGroupChange(project, outcomeOf(project, { blocking: [{ hitId: 'h2', words: 'The marble lands on this bar a second time.' }] }), LANE, sim);
 
 		expect(check.commands).toEqual([]);
-		expect(check.refusal).toEqual({ laneId: LANE, hitId: 'h2', words: expect.stringContaining('Hit 3 of') as string });
+		expect(check.refusal).toEqual({ marbleId: LANE, hitId: 'h2', words: expect.stringContaining('Hit 3 of') as string });
 		expect(check.refusal?.words).toContain('The marble lands on this bar a second time. Nothing changed.');
 	});
 

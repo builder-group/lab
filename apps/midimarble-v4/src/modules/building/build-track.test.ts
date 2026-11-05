@@ -72,7 +72,7 @@ describe('buildTrack function', () => {
 		const lane = project.music.lanes[0];
 		const first = lane?.hits[0];
 		if (lane == null || first == null) throw new Error('No hit');
-		const { entity: mine, angle } = localBuildDeps(simulator).autoPlace({ project, laneId: lane.id, hitId: first.id, type: 'platform', entityId: 'mine' }) as TAutoPlaceAnswer;
+		const { entity: mine, angle } = localBuildDeps(simulator).autoPlace({ project, marbleId: lane.id, hitId: first.id, type: 'platform', entityId: 'mine' }) as TAutoPlaceAnswer;
 		const [isOk, error, placed] = applyProjectCommands(project, [{ type: 'upsertEntity', entity: mine }]);
 		if (!isOk) throw error;
 		const outcome = await buildTrack(placed, localBuildDeps(simulator));
@@ -173,7 +173,7 @@ describe('Rebuild From Here', () => {
 				shown = applied;
 				return true;
 			}
-		}, { from: { laneId: lane.id, hitId: hit.id } });
+		}, { from: { marbleId: lane.id, hitId: hit.id } });
 		expect(outcome.turned).toEqual([]);
 		expect(outcome.releaseShift).toBe(0);
 		for (const entity of before) expect(outcome.project.entities.find((item) => item.id === entity.id)?.components.hitLink).toEqual(entity.components.hitLink);
@@ -181,7 +181,7 @@ describe('Rebuild From Here', () => {
 		expect(firsts.filter(Boolean)).toHaveLength(1);
 		expect(piecesOf(shown)).toEqual(piecesOf(outcome.project));
 		// A second go gives the same track
-		const again = await buildTrack(built.project, localBuildDeps(simulator), { from: { laneId: lane.id, hitId: hit.id } });
+		const again = await buildTrack(built.project, localBuildDeps(simulator), { from: { marbleId: lane.id, hitId: hit.id } });
 		expect(piecesOf(again.project)).toEqual(piecesOf(outcome.project));
 	}, 2 * MINUTES);
 
@@ -189,9 +189,9 @@ describe('Rebuild From Here', () => {
 		const project = fromHitTimes([[1, 1.5, 3, 3.5], [1.2, 1.7, 3.2]]);
 		const [laneA, laneB] = project.music.lanes;
 		const hitOf = (index: number, lane = laneA) => lane?.hits[index]?.id ?? '';
-		const tied = (id: string, type: string, laneId: string, hitId: string) => ({ id, components: { piece: { type, params: {} }, hitLink: { laneId, hitId, angle: 0, contactAt: 0.5 } } });
+		const tied = (id: string, type: string, marbleId: string, hitId: string) => ({ id, components: { piece: { type, params: {} }, hitLink: { marbleId, hitId, angle: 0, contactAt: 0.5 } } });
 		const kept = { ...project, entities: [...project.entities, tied('a1', 'platform', laneA?.id ?? '', hitOf(0)), tied('a2', 'platform', laneA?.id ?? '', hitOf(1)), tied('bridge', 'rail', laneA?.id ?? '', hitOf(1)), tied('a3', 'platform', laneA?.id ?? '', hitOf(2)), tied('b1', 'platform', laneB?.id ?? '', hitOf(0, laneB)), tied('b2', 'platform', laneB?.id ?? '', hitOf(1, laneB))] };
-		const ids = withoutPiecesAfter(kept as TProject, { laneId: laneA?.id ?? '', hitId: hitOf(1) }).entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id);
+		const ids = withoutPiecesAfter(kept as TProject, { marbleId: laneA?.id ?? '', hitId: hitOf(1) }).entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id);
 		expect(ids).toEqual(['a1', 'a2', 'b1']);
 	});
 });
@@ -217,12 +217,12 @@ describe('a chosen gap piece', () => {
 		// The platforms up to the gap, then the rail a person or an agent picked
 		let current = project;
 		for (const hit of lane.hits.slice(0, 3)) {
-			const placed = localBuildDeps(simulator).autoPlace({ project: current, laneId: lane.id, hitId: hit.id, type: 'platform', entityId: `mine-${hit.id}` }) as TAutoPlaceAnswer;
+			const placed = localBuildDeps(simulator).autoPlace({ project: current, marbleId: lane.id, hitId: hit.id, type: 'platform', entityId: `mine-${hit.id}` }) as TAutoPlaceAnswer;
 			const [isOk, error, applied] = applyProjectCommands(current, [{ type: 'upsertEntity', entity: placed.entity }]);
 			if (!isOk) throw error;
 			current = applied;
 		}
-		const [isExpanded, expandError, expanded] = expandCommands(current, simulator.simulate(current), [], [{ type: 'placePiece', pieceType: 'rail', hit: { laneId: lane.id, hitId: from.id }, params: { entryDelay: 0.3 }, name: 'My Rail' }]);
+		const [isExpanded, expandError, expanded] = expandCommands(current, simulator.simulate(current), [], [{ type: 'placePiece', pieceType: 'rail', hit: { marbleId: lane.id, hitId: from.id }, params: { entryDelay: 0.3 }, name: 'My Rail' }]);
 		if (!isExpanded) throw expandError;
 		const [isOk, error, chosen] = applyProjectCommands(current, expanded.commands);
 		if (!isOk) throw error;

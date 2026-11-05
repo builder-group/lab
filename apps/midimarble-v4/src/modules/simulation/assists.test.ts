@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { applyProjectCommands, LANE_SPACING, type TEntity, type TProject } from '@/modules/project';
-import { autoPlace, continueSuggestions, copyLinkedPiece, crossesOtherLanes, findLongGaps, mirrorPiece, nextOpenHit, openLongGaps, repeatPiece, type TSimulateFn } from './assists';
+import { applyProjectCommands, MARBLE_SPACING, type TEntity, type TProject } from '@/modules/project';
+import { autoPlace, continueSuggestions, copyLinkedPiece, crossesOtherMarbles, findLongGaps, mirrorPiece, nextOpenHit, openLongGaps, repeatPiece, type TSimulateFn } from './assists';
 import { resolvedPieceShapes, shapesGap } from './clearance';
 import { createBareRunProject } from './fixture-projects';
 import { createRailForGap, createSwitchbackForGap } from './gap-pieces';
@@ -50,8 +50,8 @@ function halfGravityRun(hitTimes: number[], placed: number): TProject {
 		title: 'Half gravity',
 		end,
 		marbles: [
-			{ x: -LANE_SPACING / 2, y: 0.6, releaseTime: (hitTimes[0] ?? 0.5) - 0.5, hitTimes },
-			{ x: LANE_SPACING / 2, y: 0.6, releaseTime: 0.5, hitTimes: evenTimes(Math.floor(end / 0.5) - 1, 0.5, 1) }
+			{ x: -MARBLE_SPACING / 2, y: 0.6, releaseTime: (hitTimes[0] ?? 0.5) - 0.5, hitTimes },
+			{ x: MARBLE_SPACING / 2, y: 0.6, releaseTime: 0.5, hitTimes: evenTimes(Math.floor(end / 0.5) - 1, 0.5, 1) }
 		]
 	});
 	for (const hit of project.music.lanes[0]?.hits.slice(0, placed) ?? []) {
@@ -305,7 +305,7 @@ describe('assists', () => {
 		);
 		expect(findLongGaps(project, 'lane-1')).toEqual([
 			{
-				laneId: 'lane-1',
+				marbleId: 'lane-1',
 				fromHitId: 'hit-1-3',
 				toHitId: 'hit-1-4',
 				from: 0.75,
@@ -438,15 +438,15 @@ describe('assists', () => {
 			title: 'Duet',
 			end: 3,
 			marbles: [
-				{ x: -LANE_SPACING / 2, y: 0.6, releaseTime: 0, hitTimes: evenTimes(9, 0.25, 1) },
-				{ x: LANE_SPACING / 2, y: 0.6, releaseTime: 0, hitTimes: evenTimes(5, 0.5, 1) }
+				{ x: -MARBLE_SPACING / 2, y: 0.6, releaseTime: 0, hitTimes: evenTimes(9, 0.25, 1) },
+				{ x: MARBLE_SPACING / 2, y: 0.6, releaseTime: 0, hitTimes: evenTimes(5, 0.5, 1) }
 			]
 		});
 		// Both marbles arrive at 4.9 m/s after the first fall; the pace bounce sends each to its next dot
-		const nextDots: { laneId: string; hitId: string }[] = [];
-		for (const laneId of ['lane-1', 'lane-2']) {
-			const hitId = laneId === 'lane-1' ? 'hit-1-1' : 'hit-2-1';
-			const [isPlacedOk, placedErr, placed] = autoPlace(project, simulate(project), laneId, hitId, {
+		const nextDots: { marbleId: string; hitId: string }[] = [];
+		for (const marbleId of ['lane-1', 'lane-2']) {
+			const hitId = marbleId === 'lane-1' ? 'hit-1-1' : 'hit-2-1';
+			const [isPlacedOk, placedErr, placed] = autoPlace(project, simulate(project), marbleId, hitId, {
 				simulate,
 				id: hitId.replace('hit', 'piece')
 			});
@@ -454,15 +454,15 @@ describe('assists', () => {
 			const [isAppliedOk, appliedErr, applied] = applyProjectCommands(project, placed.commands);
 			if (!isAppliedOk) throw appliedErr;
 			project = applied;
-			nextDots.push({ laneId, hitId: hitId.replace(/1$/, '2') });
+			nextDots.push({ marbleId, hitId: hitId.replace(/1$/, '2') });
 		}
 		const result = simulate(project);
 		const pace = result.pace;
 		if (pace == null) throw new Error('No pace');
-		for (const { laneId, hitId } of nextDots) {
+		for (const { marbleId, hitId } of nextDots) {
 			const hit = result.hits.find((item) => item.hitId === hitId);
 			expect(Math.abs((hit?.dot?.y ?? Infinity) - paceAt(pace, hit?.targetTime ?? 0)), hitId).toBeLessThanOrEqual(pace.limit);
-			const band = frameBand(project, laneId);
+			const band = frameBand(project, marbleId);
 			expect(Math.abs((hit?.dot?.x ?? Infinity) - band.centerX), hitId).toBeLessThanOrEqual(band.halfWidth);
 		}
 		expect(result.hits.filter((hit) => hit.pieceEntityId != null).every((hit) => hit.status === 'onTime')).toBe(true);
@@ -470,7 +470,7 @@ describe('assists', () => {
 	});
 });
 
-describe('crossesOtherLanes', () => {
+describe('crossesOtherMarbles', () => {
 	// Two lanes with a piece each; the new piece `piece-1-2` belongs to lane 1, the other marble's frontier is 2 s
 	const project = createBareRunProject({
 		id: 'cross',
@@ -487,8 +487,8 @@ describe('crossesOtherLanes', () => {
 		createLinkedPiece('platform', 'lane-2', 'hit-2-2', 0, { id: 'piece-2-2' })
 	);
 	const frontiers = new Map([['marble-2', 2]]);
-	const hit = (laneId: string, hitId: string, targetTime: number, status: THitResult['status']): THitResult => ({
-		laneId,
+	const hit = (marbleId: string, hitId: string, targetTime: number, status: THitResult['status']): THitResult => ({
+		marbleId,
 		hitId,
 		targetTime,
 		pieceEntityId: null,
@@ -509,7 +509,7 @@ describe('crossesOtherLanes', () => {
 		stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
 	});
 	const crosses = (trial: TSimulationResult): boolean =>
-		crossesOtherLanes(run([]), trial, project, 'lane-1', 'piece-1-2', 0.5, 3.5, frontiers);
+		crossesOtherMarbles(run([]), trial, project, 'lane-1', 'piece-1-2', 0.5, 3.5, frontiers);
 
 	it('should let the marble strike its own lane and free pieces', () => {
 		expect(crosses(run([{ otherEntityId: 'piece-1-1' }, { otherEntityId: 'free-piece' }]))).toBe(false);

@@ -15,7 +15,7 @@ export type TWorkerRequest =
 	| {
 			kind: 'autoPlace';
 			project: TProject;
-			laneId: string;
+			marbleId: string;
 			hitId: string;
 			type: string;
 			entityId?: string;
@@ -39,14 +39,14 @@ export type TWorkerRequest =
 			search: string;
 			proposal: TGapPieceProposal;
 	  }
-	| { kind: 'continue'; project: TProject; laneId: string; maxCount?: number; canTurn?: boolean }
+	| { kind: 'continue'; project: TProject; marbleId: string; maxCount?: number; canTurn?: boolean }
 	| ({ kind: 'settle' } & TSettleRequest)
 	| { kind: 'reconnect'; project: TProject }
 	| {
 			kind: 'gapPiece';
 			type: TGapPieceType;
 			project: TProject;
-			laneId: string;
+			marbleId: string;
 			fromHitId: string;
 			toHitId: string;
 			entityId?: string;
@@ -56,12 +56,12 @@ export type TWorkerMessage = TWorkerRequest & { id: number };
 
 /** What a search spread over the assists pool looks for */
 export type TSearchRequest =
-	| { assist: 'autoPlace'; project: TProject; laneId: string; hitId: string; type: string; entityId: string; range?: [number, number] }
+	| { assist: 'autoPlace'; project: TProject; marbleId: string; hitId: string; type: string; entityId: string; range?: [number, number] }
 	| {
 			assist: 'gapPiece';
 			type: TGapPieceType;
 			project: TProject;
-			laneId: string;
+			marbleId: string;
 			fromHitId: string;
 			toHitId: string;
 			entityId: string;
@@ -89,14 +89,14 @@ export interface TAutoPlaceAnswer {
 export interface TContinueAnswer extends TContinueResult {
 	/** Revision of the project the suggestions were made for */
 	revision: number;
-	laneId: string;
+	marbleId: string;
 	computeMs: number;
 }
 
 export interface TGapAnswer {
 	revision: number;
 	type: TGapPieceType;
-	laneId: string;
+	marbleId: string;
 	fromHitId: string;
 	toHitId: string;
 	entity: TEntity;
@@ -160,8 +160,8 @@ export function answerWorkerRequest(
 	const result = simulate(request.project);
 	switch (request.kind) {
 		case 'autoPlace': {
-			const { project, laneId, hitId, type, entityId, range } = request;
-			const [isOk, error, placement] = autoPlace(project, result, laneId, hitId, { simulate, type, id: entityId, ...(range != null ? { range } : {}) });
+			const { project, marbleId, hitId, type, entityId, range } = request;
+			const [isOk, error, placement] = autoPlace(project, result, marbleId, hitId, { simulate, type, id: entityId, ...(range != null ? { range } : {}) });
 			if (!isOk) throw error;
 			return {
 				entity: placement.entity,
@@ -172,15 +172,15 @@ export function answerWorkerRequest(
 			};
 		}
 		case 'continue': {
-			const { project, laneId, maxCount, canTurn } = request;
-			const answer = continueSuggestions(project, result, laneId, { simulate, maxCount, canTurn });
+			const { project, marbleId, maxCount, canTurn } = request;
+			const answer = continueSuggestions(project, result, marbleId, { simulate, maxCount, canTurn });
 			if (answer == null) return null;
-			return { ...answer, revision: project.revision, laneId, computeMs: performance.now() - startedAt };
+			return { ...answer, revision: project.revision, marbleId, computeMs: performance.now() - startedAt };
 		}
 		case 'gapPiece': {
-			const { project, laneId, fromHitId, toHitId, entityId, type } = request;
+			const { project, marbleId, fromHitId, toHitId, entityId, type } = request;
 			const create = type === 'switchback' ? createSwitchbackForGap : type === 'chain' ? createChainForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
-			const [isOk, error, proposal] = create(project, result, laneId, fromHitId, toHitId, { simulate, id: entityId });
+			const [isOk, error, proposal] = create(project, result, marbleId, fromHitId, toHitId, { simulate, id: entityId });
 			if (!isOk) throw error;
 			return gapAnswer(simulate, request, proposal, startedAt);
 		}
@@ -190,25 +190,25 @@ export function answerWorkerRequest(
 /** The gap piece answer for a proposal: the piece as the simulation resolves it and the marble's path to the next hit */
 function gapAnswer(
 	simulate: TSimulateFn,
-	request: Pick<Extract<TWorkerRequest, { kind: 'gapPiece' }>, 'type' | 'project' | 'laneId' | 'fromHitId' | 'toHitId'>,
+	request: Pick<Extract<TWorkerRequest, { kind: 'gapPiece' }>, 'type' | 'project' | 'marbleId' | 'fromHitId' | 'toHitId'>,
 	proposal: TGapPieceProposal,
 	startedAt: number
 ): TGapAnswer {
-	const { project, laneId, fromHitId, toHitId, type } = request;
-	const toTime = project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === toHitId)?.time ?? proposal.entryTime;
+	const { project, marbleId, fromHitId, toHitId, type } = request;
+	const toTime = project.music.lanes.find((lane) => lane.id === marbleId)?.hits.find((hit) => hit.id === toHitId)?.time ?? proposal.entryTime;
 	const trial = simulateTrial(simulate, withEntities(project, [proposal.entity]), toTime + 0.02);
-	const samples = trial.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
+	const samples = trial.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	const track: TVec2[] = [];
 	// About every 10 ms is smooth enough for a dashed preview
 	samples.forEach((sample, index) => {
 		if (sample.time >= proposal.entryTime - 0.05 && sample.time <= toTime && index % 2 === 0) track.push(sample.position);
 	});
-	const dot = findHitResult(trial, laneId, toHitId)?.dot;
+	const dot = findHitResult(trial, marbleId, toHitId)?.dot;
 	if (dot != null) track.push(dot);
 	return {
 		revision: project.revision,
 		type,
-		laneId,
+		marbleId,
 		fromHitId,
 		toHitId,
 		entity: proposal.entity,
@@ -241,13 +241,13 @@ function answerTries(
 
 /** Simulates the search's project up to the end of its trials, plus `BASE_MARGIN`, the only part its checks read */
 function prepareSearch(simulate: TSimulateFn, request: TSearchRequest): TResult<TPreparedSearch, Error> {
-	const { project, laneId, entityId: id } = request;
+	const { project, marbleId, entityId: id } = request;
 	if (request.assist === 'autoPlace') {
-		const horizon = autoPlaceHorizon(project, laneId, request.hitId);
+		const horizon = autoPlaceHorizon(project, marbleId, request.hitId);
 		const base = horizon != null ? simulateTrial(simulate, project, horizon + BASE_MARGIN) : simulate(project);
-		return prepareAutoPlace(project, base, laneId, request.hitId, { simulate, type: request.type, id });
+		return prepareAutoPlace(project, base, marbleId, request.hitId, { simulate, type: request.type, id });
 	}
-	const toTime = project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === request.toHitId)?.time;
+	const toTime = project.music.lanes.find((lane) => lane.id === marbleId)?.hits.find((hit) => hit.id === request.toHitId)?.time;
 	const base = toTime != null ? simulateTrial(simulate, project, toTime + 0.02 + BASE_MARGIN) : simulate(project);
-	return prepareGapSearch(request.type, project, base, laneId, request.fromHitId, request.toHitId, { simulate, id });
+	return prepareGapSearch(request.type, project, base, marbleId, request.fromHitId, request.toHitId, { simulate, id });
 }

@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject, type TVec2 } from '@/modules/project';
 import { NO_BLENDER_OBJECTS, preflightExport } from '@/modules/building';
 import { findLongGaps } from './assists';
-import { bowlCatch, bowlOfLane } from './bowl';
+import { bowlCatch, bowlOfMarble } from './bowl';
 import { paceAt } from './pace';
 import { frameBand, startRailId } from './placement';
 import { createSimulator, type TSimulator } from './simulate';
@@ -200,7 +200,7 @@ describe('fixtures', () => {
 		expect(played.filter((contact) => contact.kind === 'marble')).toHaveLength(0);
 		const laneOf = (id: string): string | undefined => {
 			const entity = project.entities.find((item) => item.id === id);
-			return entity?.components.hitLink?.laneId ?? entity?.components.marble?.laneId ?? project.music.lanes.find((lane) => startRailId(lane.id) === id)?.id;
+			return entity?.components.hitLink?.marbleId ?? entity?.components.marble?.marbleId ?? project.music.lanes.find((lane) => startRailId(lane.id) === id)?.id;
 		};
 		for (const contact of played.filter((item) => item.kind === 'piece'))
 			expect(laneOf(contact.otherEntityId), contact.otherEntityId).toBe(laneOf(contact.marbleEntityId));
@@ -220,11 +220,11 @@ describe('fixtures', () => {
 		}
 		expect(spread).toBeLessThan(1);
 		// Half gravity stacks each column's pieces about 0.3 m apart, against 0.52 m at full gravity
-		const melodyLane = project.music.lanes[0]?.id;
+		const melodyMarble = project.music.lanes[0]?.id;
 		const platforms = result.pieces.filter(
 			(piece) =>
 				piece.type === 'platform' &&
-				project.entities.find((entity) => entity.id === piece.entityId)?.components.hitLink?.laneId === melodyLane
+				project.entities.find((entity) => entity.id === piece.entityId)?.components.hitLink?.marbleId === melodyMarble
 		);
 		const heights = platforms.map((piece) => piece.position.y);
 		expect(platforms.length / (Math.max(...heights) - Math.min(...heights))).toBeGreaterThan(5);
@@ -278,7 +278,7 @@ describe('fixtures', () => {
 			const result = simulator.simulate(project);
 			expect(result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(count);
 			for (const lane of project.music.lanes) {
-				const bowl = bowlOfLane(project, lane.id);
+				const bowl = bowlOfMarble(project, lane.id);
 				expect(bowl, `${name} ${lane.name}`).toBeDefined();
 				expect(bowlCatch(result, bowl?.id ?? '').status).toBe('caught');
 			}

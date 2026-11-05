@@ -65,10 +65,10 @@ export function rideLength(transit: TTransit): number {
 export function bakeRide(project: TProject, result: TSimulationResult, entity: TEntity): TTransit | null {
 	const link = entity.components.hitLink;
 	const piece = result.pieces.find((item) => item.entityId === entity.id);
-	const track = result.marbles.find((marble) => marble.laneId === link?.laneId);
+	const track = result.marbles.find((marble) => marble.marbleId === link?.marbleId);
 	const shapes = piece?.shapes;
 	if (link == null || piece == null || track == null || shapes == null || piece.status !== 'placed') return null;
-	const lane = project.music.lanes.find((item) => item.id === link.laneId);
+	const lane = project.music.lanes.find((item) => item.id === link.marbleId);
 	const index = lane?.hits.findIndex((hit) => hit.id === link.hitId) ?? -1;
 	const hit = lane?.hits[index];
 	if (lane == null || hit == null || !track.samples.length) return null;

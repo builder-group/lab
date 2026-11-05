@@ -119,17 +119,17 @@ export class AssistCx {
 		// A long gap after the last piece comes first: across it the marble may fall too far to leave a dot
 		const gap = project.music.lanes
 			.flatMap((lane) => openLongGaps(project, lane.id))
-			.filter((item) => target == null || item.laneId === target.laneId || item.to <= target.targetTime)
+			.filter((item) => target == null || item.marbleId === target.marbleId || item.to <= target.targetTime)
 			.sort((a, b) => a.to - b.to)[0];
 		if (gap != null && (target == null || gap.to <= target.targetTime + 1e-9)) {
 			// A suggestion waits for the user to accept it, so presses queued behind it end here
 			this.clearQueuedNext();
-			const key = `${project.revision}:${gap.laneId}/${gap.toHitId}`;
+			const key = `${project.revision}:${gap.marbleId}/${gap.toHitId}`;
 			if (this.stuckGap === key) {
-				this.placeAfterStuckGap(result, gap.laneId, gap.toHitId, type);
+				this.placeAfterStuckGap(result, gap.marbleId, gap.toHitId, type);
 				return;
 			}
-			this.suggestGapPiece('rail', gap.laneId, gap.fromHitId, gap.toHitId, {
+			this.suggestGapPiece('rail', gap.marbleId, gap.fromHitId, gap.toHitId, {
 				fallback: 'switchback',
 				// An agent's Next places the bridge in the same call, so its reply says what happened
 				accept: this.studio.isInAgentStep,
@@ -156,20 +156,20 @@ export class AssistCx {
 	 * platform, so Next explains it instead of skipping it silently or placing a platform that cannot play
 	 */
 	private firstUnreachable(project: TProject, result: TSimulationResult, target: THitResult | null): THitResult | null {
-		const laneId = target?.laneId ?? focusedLaneId(project, this.studio.$selection.get());
-		const open = result.hits.filter((hit) => hit.status === 'open' && (laneId == null || hit.laneId === laneId) && (target == null || hit.targetTime <= target.targetTime)).sort((a, b) => a.targetTime - b.targetTime);
+		const marbleId = target?.marbleId ?? focusedMarbleId(project, this.studio.$selection.get());
+		const open = result.hits.filter((hit) => hit.status === 'open' && (marbleId == null || hit.marbleId === marbleId) && (target == null || hit.targetTime <= target.targetTime)).sort((a, b) => a.targetTime - b.targetTime);
 		return open.find((hit) => isUnreachable(hitReach(project, result, hit))) ?? null;
 	}
 
 	/** N's message for an unreachable hit, with the fixes as actions: Move Release Earlier or Later and Make Backing */
 	explainUnreachable(project: TProject, result: TSimulationResult, hit: THitResult): void {
 		const reach = hitReach(project, result, hit);
-		const lane = project.music.lanes.find((item) => item.id === hit.laneId);
+		const lane = project.music.lanes.find((item) => item.id === hit.marbleId);
 		const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 		const fix = releaseFixFor(project, hit, reach);
 		const message = reachMessage(reach, { hit: `Hit ${index + 1}`, marble: lane?.name ?? 'The marble' }, fix, canMakeBacking(project));
 		if (message == null) return;
-		this.studio.$selection.set([toHitKey(hit.laneId, hit.hitId)]);
+		this.studio.$selection.set([toHitKey(hit.marbleId, hit.hitId)]);
 		if (!this.studio.$playing.get()) this.studio.$playhead.set(hit.targetTime);
 		this.studio.notify(message, 'info', { actions: unreachableActions(this.studio, hit, fix) });
 	}
@@ -205,8 +205,8 @@ export class AssistCx {
 	}
 
 	/** The press after `stepPastGap` found nothing: a platform at the note after the gap, or what to do when it has no dot */
-	private placeAfterStuckGap(result: TSimulationResult, laneId: string, hitId: string, type: string): void {
-		const hit = result.hits.find((item) => item.laneId === laneId && item.hitId === hitId);
+	private placeAfterStuckGap(result: TSimulationResult, marbleId: string, hitId: string, type: string): void {
+		const hit = result.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
 		if (hit?.dot != null) {
 			void this.place(hit, type);
 			return;
@@ -260,7 +260,7 @@ export class AssistCx {
 			return;
 		}
 		const ask = (): Promise<TAutoPlaceAnswer | 'failed' | 'superseded'> =>
-			client.autoPlace({ project, laneId: hit.laneId, hitId: hit.hitId, type, entityId: id }).then(
+			client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, entityId: id }).then(
 				(answer) => answer,
 				(error: unknown) => (isSuperseded(error) ? 'superseded' : 'failed')
 			);
@@ -306,14 +306,14 @@ export class AssistCx {
 		const { dot, velocity } = hit;
 		if (project == null || dot == null) return;
 		const run = ++this.previewRun;
-		const key = toHitKey(hit.laneId, hit.hitId);
+		const key = toHitKey(hit.marbleId, hit.hitId);
 		this.previewKey = key;
 		this.studio.$selection.set([key]);
 		const id = createId('piece');
-		const radius = project.entities.find((entity) => entity.components.marble?.laneId === hit.laneId)?.components.marble?.radius ?? DEFAULT_MARBLE_RADIUS;
+		const radius = project.entities.find((entity) => entity.components.marble?.marbleId === hit.marbleId)?.components.marble?.radius ?? DEFAULT_MARBLE_RADIUS;
 		const show = (entity: TEntity, angle: number, nextDot: TVec2 | null, isSolved: boolean, isOk: boolean): void => {
 			const piece = displayPiece(entity, { pose: { position: dot, angle }, dot, velocity }, radius);
-			this.dispatch({ type: 'preview', answer: { revision: project.revision, laneId: hit.laneId, hit, type, entity, piece, nextDot, isSolved, isOk } });
+			this.dispatch({ type: 'preview', answer: { revision: project.revision, marbleId: hit.marbleId, hit, type, entity, piece, nextDot, isSolved, isOk } });
 		};
 		const guess = pieceForHit(project, hit, type, 'default', id);
 		const guessAngle = guess.components.hitLink?.angle ?? 0;
@@ -323,7 +323,7 @@ export class AssistCx {
 			return;
 		}
 		show(guess, guessAngle, null, false, true);
-		client.autoPlace({ project, laneId: hit.laneId, hitId: hit.hitId, type, entityId: id }).then(
+		client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, entityId: id }).then(
 			(answer) => {
 				if (run === this.previewRun && this.studio.project?.revision === project.revision) show(answer.entity, answer.angle, answer.nextDot, true, true);
 			},
@@ -335,16 +335,16 @@ export class AssistCx {
 
 	/** The first click on a long gap's dot: selects the hit and shows what bridges the gap, like `preview` */
 	previewGap(hit: THitResult, fromHitId: string): void {
-		const key = toHitKey(hit.laneId, hit.hitId);
+		const key = toHitKey(hit.marbleId, hit.hitId);
 		this.previewRun++;
 		this.previewKey = key;
 		this.studio.$selection.set([key]);
-		this.suggestGapPiece('rail', hit.laneId, fromHitId, hit.hitId, { fallback: 'switchback' });
+		this.suggestGapPiece('rail', hit.marbleId, fromHitId, hit.hitId, { fallback: 'switchback' });
 	}
 
 	/** Whether a click on this dot's hit showed the suggestion that is up */
-	isPreviewing(laneId: string, hitId: string): boolean {
-		return this.previewKey === toHitKey(laneId, hitId) && this.hasGhosts;
+	isPreviewing(marbleId: string, hitId: string): boolean {
+		return this.previewKey === toHitKey(marbleId, hitId) && this.hasGhosts;
 	}
 
 	/** The suggested piece a click would add: a dot's preview or a long gap's bridge. Continue ghosts are taken with Tab. */
@@ -378,7 +378,7 @@ export class AssistCx {
 		this.dispatch({ type: 'accepted' });
 		if (ghost.kind === 'continue') {
 			const last = ghost.answer.suggestions.filter((suggestion) => suggestion.isOk).at(-1);
-			const time = project.music.lanes.find((lane) => lane.id === ghost.answer.laneId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
+			const time = project.music.lanes.find((lane) => lane.id === ghost.answer.marbleId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
 			if (last != null) this.studio.$selection.set([last.entity.id]);
 			if (time != null && !this.studio.$playing.get()) this.studio.$playhead.set(time);
 			this.studio.notifyEdit(`Added ${acceptableCount(ghost)} ${acceptableCount(ghost) === 1 ? 'platform' : 'platforms'}`);
@@ -417,16 +417,16 @@ export class AssistCx {
 	 * Asks for a rail or tunnel across a long gap and shows it as a ghost to accept. With
 	 * `fallback`, a failed search asks for that type instead before telling the user.
 	 */
-	suggestGapPiece(type: TGapPieceType, laneId: string, fromHitId: string, toHitId: string, options: { accept?: boolean; fallback?: TGapPieceType; onFailed?: (message: string) => void } = {}): void {
+	suggestGapPiece(type: TGapPieceType, marbleId: string, fromHitId: string, toHitId: string, options: { accept?: boolean; fallback?: TGapPieceType; onFailed?: (message: string) => void } = {}): void {
 		const project = this.studio.project;
 		const client = this.studio.simulation.assists;
 		if (project == null || client == null) return;
-		this.dispatch({ type: 'requestGap', revision: project.revision, laneId, toHitId });
-		client.gapPiece({ type, project, laneId, fromHitId, toHitId }).then(
+		this.dispatch({ type: 'requestGap', revision: project.revision, marbleId, toHitId });
+		client.gapPiece({ type, project, marbleId, fromHitId, toHitId }).then(
 			(answer) => {
 				// A rail the pace or the frame can't follow leaves the gap to the Switchback layout, like Build Track
 				if (options.fallback != null && options.fallback !== type && answer.check != null && !gapPieceReads(answer.check, this.currentResult()?.pace?.limit ?? Infinity)) {
-					this.suggestGapPiece(options.fallback, laneId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
+					this.suggestGapPiece(options.fallback, marbleId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
 					return;
 				}
 				this.dispatch({ type: 'gapAnswer', answer });
@@ -436,7 +436,7 @@ export class AssistCx {
 				this.dispatch({ type: 'gapFailed', revision: project.revision });
 				if (isSuperseded(error)) return;
 				if (options.fallback != null && options.fallback !== type) {
-					this.suggestGapPiece(options.fallback, laneId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
+					this.suggestGapPiece(options.fallback, marbleId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
 					return;
 				}
 				const message = gapFailure(type, error instanceof Error ? error.message : String(error));
@@ -497,7 +497,7 @@ export class AssistCx {
 	 * step. Each piece shows on the wall as it is found, with progress and Stop in the notice. Another edit stops it,
 	 * like Fix, and what it built so far stays.
 	 */
-	async buildTrack(from?: { laneId: string; hitId: string }, gapPiece?: TBuildGapPreference): Promise<TBuildOutcome | null> {
+	async buildTrack(from?: { marbleId: string; hitId: string }, gapPiece?: TBuildGapPreference): Promise<TBuildOutcome | null> {
 		const project = this.studio.project;
 		if (project == null || this.buildRun != null || this.fixRun != null) return null;
 		if (!project.music.lanes.some((lane) => lane.hits.length > 0)) {
@@ -547,7 +547,7 @@ export class AssistCx {
 					expected = this.studio.project?.revision ?? expected;
 					if (hit != null && !this.studio.$playing.get()) {
 						this.studio.$playhead.set(hit.targetTime);
-						this.studio.$reveal.set({ ids: [toHitKey(hit.laneId, hit.hitId)], isZoomKept: from != null });
+						this.studio.$reveal.set({ ids: [toHitKey(hit.marbleId, hit.hitId)], isZoomKept: from != null });
 					}
 					return true;
 				},
@@ -593,23 +593,23 @@ export class AssistCx {
 				this.studio.$playhead.set(0);
 				this.studio.$trackCx.get()?.fitOnceSimulated();
 			} else {
-				const at = project.music.lanes.find((lane) => lane.id === from.laneId)?.hits.find((hit) => hit.id === from.hitId)?.time;
+				const at = project.music.lanes.find((lane) => lane.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time;
 				if (at != null) this.studio.$playhead.set(at);
-				this.studio.$reveal.set({ ids: [toHitKey(from.laneId, from.hitId)], isZoomKept: true });
+				this.studio.$reveal.set({ ids: [toHitKey(from.marbleId, from.hitId)], isZoomKept: true });
 			}
 		}
 		return outcome;
 	}
 
 	/** The hit Rebuild From Here starts at: the selected hit, or the one the selected piece belongs to */
-	get rebuildTarget(): { laneId: string; hitId: string } | null {
+	get rebuildTarget(): { marbleId: string; hitId: string } | null {
 		const project = this.studio.project;
 		const [key] = this.studio.$selection.get();
 		if (project == null || key == null) return null;
 		const hit = parseHitKey(key);
 		if (hit != null) return hit;
 		const link = project.entities.find((entity) => entity.id === key)?.components.hitLink;
-		return link != null ? { laneId: link.laneId, hitId: link.hitId } : null;
+		return link != null ? { marbleId: link.marbleId, hitId: link.hitId } : null;
 	}
 
 	// MARK: - Fix
@@ -662,7 +662,7 @@ export class AssistCx {
 		if (this.lastGoodProjectId !== project.id) this.lastGood.clear();
 		this.lastGoodProjectId = project.id;
 		for (const lane of project.music.lanes) {
-			const hits = result.hits.filter((hit) => hit.laneId === lane.id);
+			const hits = result.hits.filter((hit) => hit.marbleId === lane.id);
 			if (hits.some((hit) => hit.pieceEntityId != null) && !brokenHits(hits).length) this.lastGood.set(lane.id, hits);
 		}
 	}
@@ -684,8 +684,8 @@ export class AssistCx {
 		return {
 			// The assists worker, so Auto place resumes from the run Fix just simulated
 			simulate: async (next) => client.simulateAssist(next),
-			autoPlace: async (next, hit, entity) => (await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id }, options)).entity,
-			gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, options)).entity,
+			autoPlace: async (next, hit, entity) => (await client.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id }, options)).entity,
+			gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, options)).entity,
 			settle: async (before, after) => (await client.settle({ before, after })).entities
 		};
 	}
@@ -833,7 +833,7 @@ export class AssistCx {
 		const firstHeld = heldHit(project);
 		if (open?.dot != null && firstHeld != null && open.targetTime <= firstHeld.time) {
 			await this.place(open, this.studio.$trackCx.get()?.placementType() ?? 'platform');
-			const lane = project.music.lanes.find((item) => item.id === open.laneId);
+			const lane = project.music.lanes.find((item) => item.id === open.marbleId);
 			const number = (lane?.hits.findIndex((hit) => hit.id === open.hitId) ?? -1) + 1;
 			if (this.studio.project?.revision !== project.revision) this.studio.notifyEdit(`Placed a platform at Hit ${number}. Fix again for the pieces still waiting.`);
 			return;
@@ -887,7 +887,7 @@ export class AssistCx {
 		if (this.studio.project?.revision !== project.revision) return;
 		const { fixed } = verdict;
 		if (fixed == null) {
-			const from = firstHeld != null ? { laneId: firstHeld.laneId, hitId: firstHeld.hitId } : null;
+			const from = firstHeld != null ? { marbleId: firstHeld.marbleId, hitId: firstHeld.hitId } : null;
 			const rebuild = from != null ? [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(from) }] : [];
 			const words = verdict.worse ?? (run.isCanceled ? 'The pieces go on waiting where they were.' : 'No tilt brings the marble back to the pieces waiting for it. Undo the edit, or rebuild from the break.');
 			this.studio.notifyEdit(words, rebuild, { isUndoFirst: true });
@@ -905,13 +905,13 @@ export class AssistCx {
 	 * Add Bowl: a Bowl on the marble's fall after its last note, which what-if runs found to catch it, break no
 	 * hit and touch no other marble or its pieces, as one undo step. A film that would end before the catch is lengthened.
 	 */
-	async addBowl(laneId: string): Promise<void> {
+	async addBowl(marbleId: string): Promise<void> {
 		const project = this.studio.project;
 		const deps = this.fixDeps();
 		if (project == null || deps == null || this.$addingBowl.get() != null) return;
-		this.$addingBowl.set(laneId);
+		this.$addingBowl.set(marbleId);
 		try {
-			const placed = await findBowl(project, laneId, { simulate: deps.simulate });
+			const placed = await findBowl(project, marbleId, { simulate: deps.simulate });
 			// Another edit while the what-ifs ran makes them stale
 			if (this.studio.project?.revision !== project.revision) return;
 			if ('error' in placed) {
@@ -939,11 +939,11 @@ export class AssistCx {
 		const state = this.$ghosts.get();
 		if (state.dismissedRevision === project.revision || state.pendingGap != null || state.ghost?.kind === 'gap' || state.ghost?.kind === 'place') return;
 		const target = findStepTarget(project, result, this.studio.$selection.get());
-		const laneId = target?.laneId ?? null;
-		const key = `${project.revision}:${laneId}`;
+		const marbleId = target?.marbleId ?? null;
+		const key = `${project.revision}:${marbleId}`;
 		if (key === this.continueKey) return;
 		this.continueKey = key;
-		if (laneId == null) {
+		if (marbleId == null) {
 			this.dispatch({ type: 'continueAnswer', revision: project.revision, answer: null });
 			return;
 		}
@@ -951,7 +951,7 @@ export class AssistCx {
 		const done = (): void => {
 			if (this.pendingContinue === key) this.pendingContinue = null;
 		};
-		client.continueRun({ project, laneId }).then(
+		client.continueRun({ project, marbleId }).then(
 			(answer: TContinueAnswer | null) => {
 				done();
 				this.dispatch({ type: 'continueAnswer', revision: project.revision, answer });
@@ -982,11 +982,11 @@ export class AssistCx {
 
 
 /** The earliest hit whose piece waits behind a break */
-function heldHit(project: TProject): { laneId: string; hitId: string; time: number } | null {
+function heldHit(project: TProject): { marbleId: string; hitId: string; time: number } | null {
 	const held = project.entities.flatMap((entity) => {
 		const link = entity.components.hitLink;
-		const time = link?.held != null ? project.music.lanes.find((lane) => lane.id === link.laneId)?.hits.find((hit) => hit.id === link.hitId)?.time : undefined;
-		return link != null && time != null ? [{ laneId: link.laneId, hitId: link.hitId, time }] : [];
+		const time = link?.held != null ? project.music.lanes.find((lane) => lane.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time : undefined;
+		return link != null && time != null ? [{ marbleId: link.marbleId, hitId: link.hitId, time }] : [];
 	});
 	return held.sort((a, b) => a.time - b.time)[0] ?? null;
 }
@@ -1012,8 +1012,8 @@ function tiltChange(project: TProject, changed: TEntity[]): string {
 }
 
 /** The piece that plays this hit, if any */
-function pieceForHitKey(project: TProject, hit: { laneId: string; hitId: string }): string | undefined {
-	return project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === hit.laneId && entity.components.hitLink.hitId === hit.hitId)?.id;
+function pieceForHitKey(project: TProject, hit: { marbleId: string; hitId: string }): string | undefined {
+	return project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === hit.marbleId && entity.components.hitLink.hitId === hit.hitId)?.id;
 }
 
 function wait(ms: number): Promise<void> {
@@ -1032,18 +1032,18 @@ function gapFailure(type: TGapPieceType, message: string): string {
 
 /** Next's message when it has nothing left to place, naming the marble in focus */
 function everyNotePlacedMessage(project: TProject, selection: string[]): string {
-	const laneId = focusedLaneId(project, selection);
-	const marble = laneId != null ? project.music.lanes.find((lane) => lane.id === laneId)?.name : undefined;
+	const marbleId = focusedMarbleId(project, selection);
+	const marble = marbleId != null ? project.music.lanes.find((lane) => lane.id === marbleId)?.name : undefined;
 	if (marble != null) return `Every note ${marble} reaches already has a platform`;
 	return project.music.lanes.length === 1 ? `Every note ${project.music.lanes[0]?.name ?? 'the marble'} reaches already has a platform` : 'Every note the marbles reach already has a platform';
 }
 
 /** The lane of the selected hit or piece, if any */
-function focusedLaneId(project: TProject, selection: string[]): string | null {
+function focusedMarbleId(project: TProject, selection: string[]): string | null {
 	for (const key of selection) {
 		const entity = project.entities.find((item) => item.id === key);
-		const laneId = entity?.components.hitLink?.laneId ?? entity?.components.marble?.laneId;
-		if (laneId != null) return laneId;
+		const marbleId = entity?.components.hitLink?.marbleId ?? entity?.components.marble?.marbleId;
+		if (marbleId != null) return marbleId;
 		const lane = project.music.lanes.find((item) => key.startsWith(`hit:${item.id}:`));
 		if (lane != null) return lane.id;
 	}
@@ -1063,19 +1063,19 @@ export interface TBuildReport {
 	releaseShift: number;
 	bowls: string[];
 	/** Hits that are not on time, as `marble`, 1-based `hit`, `time` and `status` */
-	attention: { marble: string; laneId: string; hitId: string; hit: number; time: number; status: string }[];
+	attention: { marble: string; marbleId: string; hitId: string; hit: number; time: number; status: string }[];
 }
 
-function buildReport(project: TProject, outcome: TBuildOutcome, label: string, problems: number, ms: number, from?: { laneId: string; hitId: string }): TBuildReport {
-	const nameOf = (laneId: string): string => project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'The marble';
-	const attention = outcome.attention.map((hit) => ({ marble: nameOf(hit.laneId), laneId: hit.laneId, hitId: hit.hitId, hit: hit.index + 1, time: hit.time, status: hit.status }));
+function buildReport(project: TProject, outcome: TBuildOutcome, label: string, problems: number, ms: number, from?: { marbleId: string; hitId: string }): TBuildReport {
+	const nameOf = (marbleId: string): string => project.music.lanes.find((lane) => lane.id === marbleId)?.name ?? 'The marble';
+	const attention = outcome.attention.map((hit) => ({ marble: nameOf(hit.marbleId), marbleId: hit.marbleId, hitId: hit.hitId, hit: hit.index + 1, time: hit.time, status: hit.status }));
 	const pieces = `${outcome.added} ${outcome.added === 1 ? 'piece' : 'pieces'}`;
 	const named = attention.slice(0, 3).map((hit) => `${hit.marble} hit ${hit.hit}`);
 	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 hit needs' : `${attention.length} hits need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
 	const turned = outcome.turned.length > 0 ? `Turned ${outcome.turned.length} of your ${outcome.turned.length === 1 ? 'platform' : 'platforms'}.` : '';
 	const moved = outcome.releaseShift !== 0 ? `Moved the releases ${Math.abs(outcome.releaseShift * 100).toFixed(1)} cm.` : '';
-	const fromLane = from != null ? project.music.lanes.find((lane) => lane.id === from.laneId) : undefined;
-	const rebuilt = from != null ? `Rebuilt after Hit ${(fromLane?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromLane?.name ?? 'the marble'}` : null;
+	const fromMarble = from != null ? project.music.lanes.find((lane) => lane.id === from.marbleId) : undefined;
+	const rebuilt = from != null ? `Rebuilt after Hit ${(fromMarble?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromMarble?.name ?? 'the marble'}` : null;
 	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `${rebuilt ?? 'Built the track'}: ${label}, ${pieces}.` : `${rebuilt ?? 'Built what fits'}: ${label}, ${pieces}.`;
 	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');
 	const details = [...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join(' ');

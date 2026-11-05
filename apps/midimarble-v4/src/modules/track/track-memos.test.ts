@@ -70,7 +70,7 @@ describe('pickScene method', () => {
 	it('should rebuild for the tool, which decides whether placed dots pick', () => {
 		// Prepare
 		const { cx, trackCx, piece, result, project } = shown();
-		const hit = { laneId: project.music.lanes[0]?.id, hitId: 'a', targetTime: 1, dot: { x: 0, y: 0 }, pieceEntityId: piece.entityId, status: 'onTime' };
+		const hit = { marbleId: project.music.lanes[0]?.id, hitId: 'a', targetTime: 1, dot: { x: 0, y: 0 }, pieceEntityId: piece.entityId, status: 'onTime' };
 		cx.simulation.$result.set({ ...result, hits: [hit] } as unknown as TSimulationResult);
 		expect(trackCx.pickScene().dots).toHaveLength(1);
 

@@ -95,10 +95,10 @@ describe('worker protocol', () => {
 	it('answers simulate, autoPlace, continue and gapPiece requests', async () => {
 		const simulator = await createSimulator();
 		const zigzag = bareRun([0.15, 0.45, 0.75, 1.05, 1.35, 1.65], [-0.4, 0.4]);
-		const placed = answerWorkerRequest(simulator, { kind: 'autoPlace', project: zigzag, laneId: 'lane-1', hitId: 'hit-1-3', type: 'platform', entityId: 'auto-1' });
+		const placed = answerWorkerRequest(simulator, { kind: 'autoPlace', project: zigzag, marbleId: 'lane-1', hitId: 'hit-1-3', type: 'platform', entityId: 'auto-1' });
 		expect(placed).toMatchObject({ entity: { id: 'auto-1' } });
 
-		const continued = answerWorkerRequest(simulator, { kind: 'continue', project: zigzag, laneId: 'lane-1' }) as TContinueAnswer;
+		const continued = answerWorkerRequest(simulator, { kind: 'continue', project: zigzag, marbleId: 'lane-1' }) as TContinueAnswer;
 		expect(continued.pattern).toBe('mirror');
 		expect(continued.revision).toBe(zigzag.revision);
 		expect(continued.suggestions.filter((item) => item.isOk).length).toBeGreaterThanOrEqual(3);
@@ -108,7 +108,7 @@ describe('worker protocol', () => {
 			kind: 'gapPiece',
 			type: 'rail',
 			project: gap,
-			laneId: 'lane-1',
+			marbleId: 'lane-1',
 			fromHitId: 'hit-1-3',
 			toHitId: 'hit-1-4'
 		}) as TGapAnswer;
@@ -122,7 +122,7 @@ describe('worker protocol', () => {
 			kind: 'gapPiece',
 			type: 'switchback',
 			project: gap,
-			laneId: 'lane-1',
+			marbleId: 'lane-1',
 			fromHitId: 'hit-1-3',
 			toHitId: 'hit-1-4'
 		}) as TGapAnswer;
@@ -132,7 +132,7 @@ describe('worker protocol', () => {
 		expect(switchback.check?.leaveTime).not.toBeNull();
 
 		expect(() =>
-			answerWorkerRequest(simulator, { kind: 'autoPlace', project: gap, laneId: 'lane-1', hitId: 'missing', type: 'platform' })
+			answerWorkerRequest(simulator, { kind: 'autoPlace', project: gap, marbleId: 'lane-1', hitId: 'missing', type: 'platform' })
 		).toThrow();
 		simulator.dispose();
 	}, 20_000);

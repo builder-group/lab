@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { audibleProject, BACKING_COLOR, backingNoteLength, laneNoteLength, soundsNotes } from '@/modules/music';
+import { audibleProject, BACKING_COLOR, backingNoteLength, marbleNoteLength, soundsNotes } from '@/modules/music';
 import type { THit, TProject } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 
@@ -24,7 +24,7 @@ export function noteSpans(project: TProject): TNoteSpan[] {
 	if (!soundsNotes(project)) return [];
 	const pitched = (hits: THit[]): TPitchedHit[] => hits.filter((hit): hit is TPitchedHit => hit.pitch != null).sort((a, b) => a.time - b.time);
 	const lanes = project.music.lanes.flatMap((lane) =>
-		pitched(lane.hits).map((hit, index, hits) => ({ pitch: hit.pitch, color: lane.color, start: hit.time, end: hit.time + laneNoteLength(hit, hits[index + 1]) }))
+		pitched(lane.hits).map((hit, index, hits) => ({ pitch: hit.pitch, color: lane.color, start: hit.time, end: hit.time + marbleNoteLength(hit, hits[index + 1]) }))
 	);
 	const backing = pitched(project.music.backing).map((hit, index, hits) => {
 		const next = hits.slice(index + 1).find((item) => item.pitch === hit.pitch);

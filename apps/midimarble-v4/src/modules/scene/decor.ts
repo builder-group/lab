@@ -170,7 +170,7 @@ export interface TDecorOverlap {
 	key: string;
 	name: string;
 	/** Marbles whose path crosses it while it shows, the earliest first */
-	lanes: { laneId: string; time: number; point: TVec2 }[];
+	lanes: { marbleId: string; time: number; point: TVec2 }[];
 }
 
 /** Layers a marble's path crosses while they show. Hidden layers and layers outside the film overlap nothing. */

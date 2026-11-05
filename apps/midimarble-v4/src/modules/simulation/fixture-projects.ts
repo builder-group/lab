@@ -92,7 +92,7 @@ function createRunProject(options: {
 				Object.assign(piece.components.piece.params, marble.platform);
 			entities.push(piece);
 		});
-		const component = entities.find((entity) => entity.components.marble?.laneId === lane.id)?.components.marble;
+		const component = entities.find((entity) => entity.components.marble?.marbleId === lane.id)?.components.marble;
 		if (marble.radius != null && component != null) component.radius = marble.radius;
 	});
 	return project;
@@ -128,7 +128,7 @@ export function createBareRunProject(options: {
 			id: `marble-${index + 1}`,
 			name: lane.name,
 			components: {
-				marble: { laneId: lane.id, radius: DEFAULT_MARBLE_RADIUS },
+				marble: { marbleId: lane.id, radius: DEFAULT_MARBLE_RADIUS },
 				release
 			}
 		});

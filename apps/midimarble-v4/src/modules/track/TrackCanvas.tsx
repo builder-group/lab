@@ -22,7 +22,7 @@ import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
 import { placeBar, type TScreenRect, ZOOM_100_SCALE, hiddenMarbleLanes, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
-import { findStepTarget, linkedPieces, nextOpenHitPerLane, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
+import { findStepTarget, linkedPieces, nextOpenHitPerMarble, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
 /** The Track wall: the wall and its content in WebGL, with screen-space handles on top */
 export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
@@ -113,19 +113,19 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 			openContextMenu(event, cx.menus.piece());
 			return;
 		case 'dot': {
-			const lane = trackCx.project?.music.lanes.find((item) => item.id === target.laneId);
-			const hit = trackCx.result?.hits.find((item) => item.laneId === target.laneId && item.hitId === target.hitId);
+			const lane = trackCx.project?.music.lanes.find((item) => item.id === target.marbleId);
+			const hit = trackCx.result?.hits.find((item) => item.marbleId === target.marbleId && item.hitId === target.hitId);
 			if (lane != null && hit != null && hit.status !== 'open') {
-				cx.$selection.set([toHitKey(target.laneId, target.hitId)]);
+				cx.$selection.set([toHitKey(target.marbleId, target.hitId)]);
 				openContextMenu(event, cx.menus.hit(lane, target.hitId));
 				return;
 			}
-			openContextMenu(event, dotMenu(trackCx, target.laneId, target.hitId));
+			openContextMenu(event, dotMenu(trackCx, target.marbleId, target.hitId));
 			return;
 		}
 		case 'release': {
-			const laneId = trackCx.project?.entities.find((entity) => entity.id === target.entityId)?.components.marble?.laneId;
-			const lane = trackCx.project?.music.lanes.find((item) => item.id === laneId);
+			const marbleId = trackCx.project?.entities.find((entity) => entity.id === target.entityId)?.components.marble?.marbleId;
+			const lane = trackCx.project?.music.lanes.find((item) => item.id === marbleId);
 			cx.$selection.set([target.entityId]);
 			if (lane != null) openContextMenu(event, cx.menus.lane(lane));
 			return;
@@ -195,7 +195,7 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const marbleGhost = useFeatureState(trackCx.$marbleGhost);
 	const project = history?.present;
 	const { projection, scale, transform } = usePannedProjection(trackCx);
-	const nextDots = React.useMemo(() => (result != null ? nextOpenHitPerLane(result) : null), [result]);
+	const nextDots = React.useMemo(() => (result != null ? nextOpenHitPerMarble(result) : null), [result]);
 	if (project == null || result == null || nextDots == null || viewport.width <= 1) return null;
 
 	const pieces = trackCx.displayPieces(result);
@@ -211,7 +211,7 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const isRotating = drag?.kind === 'rotate';
 	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.entityId));
 	const hoveredPiece = hover?.kind === 'piece' ? hover.entityId : null;
-	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.laneId === hover.laneId && hit.hitId === hover.hitId) : undefined;
+	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.marbleId === hover.marbleId && hit.hitId === hover.hitId) : undefined;
 	const snap = drag?.kind === 'move' ? drag.snap : (insertSnap?.snap ?? null);
 	const singleEntity = single != null ? project.entities.find((entity) => entity.id === single.entityId) : undefined;
 	// The first-run hint "Click a note's dot to see its platform" points at the earliest next open dot
@@ -255,7 +255,7 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 					const isSelected = selection.includes(entity.id);
 					const isActive = isSelected || (hover?.kind === 'release' && hover.entityId === entity.id) || (drag?.kind === 'release' && drag.entityId === entity.id);
 					const radius = Math.max(9, marble.radius * camera.view.scale + 5);
-					const labelColor = project.music.lanes.find((lane) => lane.id === marble.laneId)?.color;
+					const labelColor = project.music.lanes.find((lane) => lane.id === marble.marbleId)?.color;
 					return (
 						<g key={`release-${entity.id}`}>
 							{isSelected ? <circle cx={center.x} cy={center.y} r={radius + 3} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} /> : null}
@@ -314,9 +314,9 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 			) : null}
 			{hover?.kind === 'track' && drag == null ? (
 				<CanvasTooltip position={hover.position}>
-					{trackCx.followsAt(hover.laneId, hover.time) ? (
+					{trackCx.followsAt(hover.marbleId, hover.time) ? (
 						<>
-							<span className="font-medium">Follows {project.music.lanes.find((lane) => lane.id === hover.laneId)?.name ?? 'Marble'}</span>
+							<span className="font-medium">Follows {project.music.lanes.find((lane) => lane.id === hover.marbleId)?.name ?? 'Marble'}</span>
 							<span className="mm-tabular ml-1 text-[var(--text-secondary)]">at {formatTime(hover.time)}</span>
 						</>
 					) : (
@@ -389,19 +389,19 @@ const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; 
 	const band = frameBand(project);
 	const longGaps = trackCx.longGapKeys(project);
 	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
-	const hiddenLanes = hiddenMarbleLanes(project, hidden);
+	const hiddenMarbles = hiddenMarbleLanes(project, hidden);
 	return (
 		<>
 			{result.hits.map((hit) => {
-				if (hit.dot == null || hiddenLanes.has(hit.laneId)) return null;
+				if (hit.dot == null || hiddenMarbles.has(hit.marbleId)) return null;
 				const { x, y } = projection.toScreen(hit.dot);
 				if (hit.status !== 'open') {
 					// Zoomed far out a dot is wider than its platform, so on-time ones step aside for the track
-					const isFocused = focusedKeys.has(toHitKey(hit.laneId, hit.hitId));
+					const isFocused = focusedKeys.has(toHitKey(hit.marbleId, hit.hitId));
 					if (hit.status === 'onTime' && scale < ON_TIME_DOT_MIN_SCALE && !isFocused && hoveredDot !== hit) return null;
 					return (
 						<HitDot
-							key={`dot-${hit.laneId}-${hit.hitId}`}
+							key={`dot-${hit.marbleId}-${hit.hitId}`}
 							x={x}
 							y={y}
 							color={badgeStyles[hit.status].color}
@@ -412,21 +412,21 @@ const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; 
 						/>
 					);
 				}
-				const lane = project.music.lanes.find((item) => item.id === hit.laneId);
-				const isNext = nextDots.get(hit.laneId) === hit;
+				const lane = project.music.lanes.find((item) => item.id === hit.marbleId);
+				const isNext = nextDots.get(hit.marbleId) === hit;
 				const isOutside = hit.outOfFrame ?? Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
 				const color = isOutside ? 'var(--bad)' : (lane?.color ?? 'var(--text)');
 				return (
 					<HitDot
-						key={`dot-${hit.laneId}-${hit.hitId}`}
+						key={`dot-${hit.marbleId}-${hit.hitId}`}
 						x={x}
 						y={y}
 						color={color}
 						size={isNext ? 5 : 4}
 						isPulsing={isNext && !isDragging}
 						isHovered={hoveredDot === hit}
-						isFocused={focusedKeys.has(`hit:${hit.laneId}:${hit.hitId}`)}
-						isLongGap={longGaps.has(`${hit.laneId}:${hit.hitId}`)}
+						isFocused={focusedKeys.has(`hit:${hit.marbleId}:${hit.hitId}`)}
+						isLongGap={longGaps.has(`${hit.marbleId}:${hit.hitId}`)}
 					/>
 				);
 			})}
@@ -472,7 +472,7 @@ const PlaysChip: React.FC<{ trackCx: TrackCx; project: TProject; drag: Extract<T
 	if (plays == null) return null;
 	// Beside the piece, on its left near the wall's right edge, so the timing never runs under the inspector
 	const place = center.x + PLAYS_CHIP_ROOM > trackCx.$viewport.get().width ? { right: trackCx.$viewport.get().width - center.x + 18, top: center.y + 14 } : { left: center.x + 18, top: center.y + 14 };
-	const label = noteLabel(project, plays.laneId, plays.hitId);
+	const label = noteLabel(project, plays.marbleId, plays.hitId);
 	if (drag.playsDrop === 'frees') {
 		return (
 			<div className="mm-snap-chip" data-snapped={false} style={place}>
@@ -483,7 +483,7 @@ const PlaysChip: React.FC<{ trackCx: TrackCx; project: TProject; drag: Extract<T
 		);
 	}
 	// The run for this spot has arrived once the what-if can count; until then the hit still reads as before
-	const hit = trackCx.whatIfBreaks(result) != null ? result.hits.find((item) => item.laneId === plays.laneId && item.hitId === plays.hitId) : undefined;
+	const hit = trackCx.whatIfBreaks(result) != null ? result.hits.find((item) => item.marbleId === plays.marbleId && item.hitId === plays.hitId) : undefined;
 	const status = timingStatus(undefined, hit);
 	return (
 		<div className="mm-snap-chip" data-snapped style={place}>
@@ -502,7 +502,7 @@ const PlaysChip: React.FC<{ trackCx: TrackCx; project: TProject; drag: Extract<T
 const SnapChip: React.FC<{ trackCx: TrackCx; project: TProject; position: TVec2; snap: TSnap | null }> = (props) => {
 	const { trackCx, project, snap } = props;
 	const center = trackCx.toScreen(props.position);
-	const lane = snap != null ? project.music.lanes.find((item) => item.id === snap.laneId) : undefined;
+	const lane = snap != null ? project.music.lanes.find((item) => item.id === snap.marbleId) : undefined;
 	let content: React.ReactNode = null;
 	if (snap?.kind === 'link') {
 		const index = lane?.hits.findIndex((hit) => hit.id === snap.hitId) ?? -1;
@@ -805,7 +805,7 @@ const DotTooltip: React.FC<{ trackCx: TrackCx; project: TProject; hit: THitResul
 	const { trackCx, project, hit } = props;
 	if (hit.dot == null) return null;
 	const position = trackCx.toScreen(hit.dot);
-	const lane = project.music.lanes.find((item) => item.id === hit.laneId);
+	const lane = project.music.lanes.find((item) => item.id === hit.marbleId);
 	const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 	const pitch = lane?.hits[index]?.pitch;
 	const band = frameBand(project);

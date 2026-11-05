@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { SoundBankLoader } from 'spessasynth_core';
 import { buildSceneDescription, SCENE_DESCRIPTION_PATH } from '../src/modules/scene/scene-builder';
 import { encodeWav } from '../src/modules/music/audio-engine';
-import { renderLanes } from '../src/modules/music/synthesize';
+import { renderMarbles } from '../src/modules/music/synthesize';
 import { parseProject, serializeProject } from '../src/modules/project/project-file';
 import { createSimulator } from '../src/modules/simulation/simulate';
 
@@ -35,7 +35,7 @@ write(SCENE_DESCRIPTION_PATH, JSON.stringify(build.description));
 const bank = SoundBankLoader.fromArrayBuffer(
 	new Uint8Array(readFileSync(new URL('../public/audio/marble-instruments.sf2', import.meta.url))).buffer
 );
-const audio = renderLanes(project.music.lanes, { sampleRate: 48000, duration: project.end, bank });
+const audio = renderMarbles(project.music.lanes, { sampleRate: 48000, duration: project.end, bank });
 write('renders/soundtrack.wav', encodeWav(audio.left, audio.right, audio.sampleRate));
 
 const hits = result.hits.filter((hit) => hit.actualTime != null).length;

@@ -7,7 +7,7 @@ import { sceneDecor } from './decor';
 import { sceneLayers } from './scene-layers';
 import { shotLength } from './shot-timing';
 import { getPieceDefinition, pathDepth, bowlCatch, BOWL_TYPE } from '@/modules/simulation';
-import { lastPlayingLanes } from '@/modules/music';
+import { lastPlayingMarbles } from '@/modules/music';
 import type { TMarbleSample, TMarbleTrack, TSimulationResult } from '@/modules/simulation';
 import { CONTACT_MERGE, SCENE_DESCRIPTION_VERSION, type TSceneCamera, type TSceneDescentPoint, type TSceneDescription, type TSceneMarble, type TScenePiece, type TSceneThemeOverrides } from './scene-description';
 
@@ -29,7 +29,7 @@ export const MARBLE_ACTIVE_TAIL = 0.6;
  */
 function markActiveUntil(project: TProject, result: TSimulationResult, marbles: TSceneMarble[]): void {
 	const lastNote = new Map(project.music.lanes.map((lane) => [lane.id, lane.hits.reduce((max, hit) => Math.max(max, hit.time), -Infinity)]));
-	const lasts = result.marbles.map((track) => lastNote.get(track.laneId) ?? -Infinity);
+	const lasts = result.marbles.map((track) => lastNote.get(track.marbleId) ?? -Infinity);
 	const latest = Math.max(...lasts);
 	result.marbles.forEach((track, index) => {
 		const last = lasts[index] ?? -Infinity;
@@ -39,8 +39,8 @@ function markActiveUntil(project: TProject, result: TSimulationResult, marbles: 
 }
 
 /** Sorted note times of a lane, rounded like `activeUntil`, which the follow camera reads to find the leading marble */
-function noteTimes(project: TProject, laneId: string): number[] {
-	const lane = project.music.lanes.find((item) => item.id === laneId);
+function noteTimes(project: TProject, marbleId: string): number[] {
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
 	return (lane?.hits ?? []).map((hit) => Math.round(hit.time * 1e4) / 1e4).sort((a, b) => a - b);
 }
 
@@ -65,7 +65,7 @@ export function buildSceneDescription(
 			radius: track.radius,
 			pathDepth: pathDepth(result.pieces, track.radius),
 			// The skin None wears the label color, the only skin that does
-			color: resolveElementLook(project.design, 'marble', entity?.components.skin).skin === 'marble:none' ? (project.music.lanes.find((lane) => lane.id === track.laneId)?.color ?? marbleFilmColor(project, track.laneId)) : marbleFilmColor(project, track.laneId),
+			color: resolveElementLook(project.design, 'marble', entity?.components.skin).skin === 'marble:none' ? (project.music.lanes.find((lane) => lane.id === track.marbleId)?.color ?? marbleFilmColor(project, track.marbleId)) : marbleFilmColor(project, track.marbleId),
 			...(entity?.components.skin != null ? { skin: entity.components.skin } : {}),
 			...(skinAssetPath(entity?.components.skin?.assetId) != null ? { assetPath: skinAssetPath(entity?.components.skin?.assetId) } : {}),
 			motionPath,
@@ -74,13 +74,13 @@ export function buildSceneDescription(
 	};
 	const marbles: TSceneMarble[] = result.marbles.map((track) => ({
 		...marbleFor(track, track.entityId, track.samples),
-		hitTimes: noteTimes(project, track.laneId)
+		hitTimes: noteTimes(project, track.marbleId)
 	}));
 	markActiveUntil(project, result, marbles);
 
 	const pieces: TScenePiece[] = result.pieces.map((piece) => {
 		const entity = entities.get(piece.entityId);
-		const laneId = entity?.components.hitLink?.laneId;
+		const marbleId = entity?.components.hitLink?.marbleId;
 		let motionPath: string | null = null;
 		let sampleCount = 0;
 		if (piece.motion != null && piece.motion.length > 0) {
@@ -109,7 +109,7 @@ export function buildSceneDescription(
 			// The skin None wears the label color, the only skin that does
 			color:
 				entity != null && resolveElementLook(project.design, skinElement(piece.type), entity.components.skin).skin.endsWith(':none') ? (pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR)
-				: laneId != null && project.music.lanes.some((lane) => lane.id === laneId) ? marbleFilmColor(project, laneId)
+				: marbleId != null && project.music.lanes.some((lane) => lane.id === marbleId) ? marbleFilmColor(project, marbleId)
 				: DEFAULT_PIECE_COLOR,
 			...notePitchOf(project, entity),
 			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
@@ -165,12 +165,12 @@ export function lastStruckTime(result: TSimulationResult): number | null {
  * last pieces, and so is one whose catch comes before the hold, which the camera saw while it still followed.
  */
 export function heldBowls(project: TProject, result: TSimulationResult): { x: number; y: number }[] | null {
-	const lanes = new Set(lastPlayingLanes(project));
+	const lanes = new Set(lastPlayingMarbles(project));
 	const hold = lastStruckTime(result);
 	if (hold == null) return null;
 	const points = project.entities.flatMap((entity) => {
-		const laneId = entity.components.hitLink?.laneId;
-		if (entity.components.piece?.type !== BOWL_TYPE || laneId == null || !lanes.has(laneId)) return [];
+		const marbleId = entity.components.hitLink?.marbleId;
+		if (entity.components.piece?.type !== BOWL_TYPE || marbleId == null || !lanes.has(marbleId)) return [];
 		const piece = result.pieces.find((item) => item.entityId === entity.id);
 		const caught = bowlCatch(result, entity.id);
 		if (piece == null || caught.status !== 'caught' || (caught.enterTime ?? -Infinity) < hold) return [];
@@ -276,7 +276,7 @@ export function encodeRecords(records: number[][]): Uint8Array {
 function notePitchOf(project: TProject, entity: TEntity | undefined): { notePitch?: number } {
 	const link = entity?.components.hitLink;
 	if (link == null || link.anchored === true || getPieceDefinition(entity?.components.piece?.type ?? '')?.musical !== true) return {};
-	const pitch = project.music.lanes.find((lane) => lane.id === link.laneId)?.hits.find((hit) => hit.id === link.hitId)?.pitch;
+	const pitch = project.music.lanes.find((lane) => lane.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.pitch;
 	return pitch == null ? {} : { notePitch: pitch };
 }
 

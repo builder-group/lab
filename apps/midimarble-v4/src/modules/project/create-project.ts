@@ -19,7 +19,7 @@ export const DEFAULT_GRAVITY_SCALE = 0.5;
 export const DEFAULT_CAMERA_DISTANCE = 1.36;
 export const DEFAULT_CAMERA_PITCH = 1;
 /** Distance between the releases of neighboring marbles, and between their lanes' bands in the frame */
-export const LANE_SPACING = 0.26;
+export const MARBLE_SPACING = 0.26;
 
 export function createId(prefix: string): string {
 	const random = Math.random().toString(36).slice(2, 10);
@@ -65,24 +65,24 @@ interface TCreateProjectOptions {
 	id?: string;
 }
 
-export const laneColors = ['#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375f', '#64d2ff'];
+export const marbleColors = ['#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375f', '#64d2ff'];
 
 /**
  * The color a marble is in the film: its skin's own, otherwise the palette's by its place among the marbles. It never
  * reads the lane's `color`, which is only a label for organizing.
  */
-export function marbleFilmColor(project: Pick<TProject, 'music' | 'entities'>, laneId: string): string {
-	const own = project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components.skin?.color;
+export function marbleFilmColor(project: Pick<TProject, 'music' | 'entities'>, marbleId: string): string {
+	const own = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components.skin?.color;
 	if (own != null) return own;
-	const index = Math.max(0, project.music.lanes.findIndex((lane) => lane.id === laneId));
-	return laneColors[index % laneColors.length] ?? '#3478f6';
+	const index = Math.max(0, project.music.lanes.findIndex((lane) => lane.id === marbleId));
+	return marbleColors[index % marbleColors.length] ?? '#3478f6';
 }
 
 export function createLane(index: number, id = createId('lane')): TLane {
 	return {
 		id,
 		name: `Marble ${index + 1}`,
-		color: laneColors[index % laneColors.length] ?? '#3478f6',
+		color: marbleColors[index % marbleColors.length] ?? '#3478f6',
 		// General MIDI 9 is Glockenspiel, a clear default for marble strikes
 		instrument: 9,
 		hits: []
@@ -94,7 +94,7 @@ export function createMarble(lane: TLane, position: { x: number; y: number }): T
 		id: createId('marble'),
 		name: lane.name,
 		components: {
-			marble: { laneId: lane.id, radius: DEFAULT_MARBLE_RADIUS },
+			marble: { marbleId: lane.id, radius: DEFAULT_MARBLE_RADIUS },
 			release: { position, time: 0 }
 		}
 	};

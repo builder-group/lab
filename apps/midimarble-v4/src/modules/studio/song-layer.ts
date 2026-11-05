@@ -27,7 +27,7 @@ export function deleteSongCommands(project: TProject): TProjectCommand[] {
 	const { sources, backing, backingInstrument } = project.music;
 	return [
 		...sources.map((source) => ({ type: 'removeSource' as const, sourceId: source.id })),
-		...(backing.length > 0 ? [{ type: 'removeHits' as const, laneId: BACKING_ID, hitIds: backing.map((hit) => hit.id) }] : []),
+		...(backing.length > 0 ? [{ type: 'removeHits' as const, marbleId: BACKING_ID, hitIds: backing.map((hit) => hit.id) }] : []),
 		...(backingInstrument != null ? [{ type: 'setBackingInstrument' as const, instrument: null }] : [])
 	];
 }

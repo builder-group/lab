@@ -1,4 +1,4 @@
-import { createId, LANE_SPACING, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import { createId, MARBLE_SPACING, type TEntity, type TProject, type TVec2 } from '@/modules/project';
 import { nextPieceName } from './piece-names';
 import { getPieceDefinition, type TRailLayout } from './pieces';
 
@@ -7,7 +7,7 @@ const DEFAULT_TILT = (15 * Math.PI) / 180;
 const CENTER_DEADBAND = 0.02;
 // Half width of a lane's band with several marbles: two columns of default bars at least a bar and a
 // clearance apart, with half a bar to spare at each side
-const LANE_HALF_WIDTH = 0.13;
+const MARBLE_HALF_WIDTH = 0.13;
 
 /**
  * Default surface angle for a new piece at a hit dot. The surface tilts by 15° so its normal leans toward
@@ -37,7 +37,7 @@ export interface TCreateLinkedPieceOptions {
 /** A piece bound to a hit, with default parameters and its contact in the middle of the surface */
 export function createLinkedPiece(
 	type: string,
-	laneId: string,
+	marbleId: string,
 	hitId: string,
 	angle: number,
 	options: TCreateLinkedPieceOptions = {}
@@ -51,7 +51,7 @@ export function createLinkedPiece(
 		name: nextPieceName(type, entities),
 		components: {
 			piece: { type, ...(options.layout != null ? { layout: options.layout } : {}), params },
-			hitLink: { laneId, hitId, angle, contactAt: options.contactAt ?? 0.5 }
+			hitLink: { marbleId, hitId, angle, contactAt: options.contactAt ?? 0.5 }
 		}
 	};
 }
@@ -65,31 +65,31 @@ export interface TFrameBand {
  * Horizontal band the run should stay within. With one marble it is the film frame: 0.45 m wide at 9:16 for a camera
  * 1.263 m away through the 85 mm lens, scaled with the project's aspect and camera distance, so the 1.36 m default of
  * new projects keeps the 0.485 m Build Track was tuned on (a wider one leaves hits open), centered on the marble's release. With several marbles each lane gets a
- * band `2 · LANE_HALF_WIDTH` wide, room for a zigzag of the default kit, and the lanes sit `LANE_SPACING`
- * apart in the order of their releases from left to right, centered on the mean release. `laneId` picks a lane's
+ * band `2 · MARBLE_HALF_WIDTH` wide, room for a zigzag of the default kit, and the lanes sit `MARBLE_SPACING`
+ * apart in the order of their releases from left to right, centered on the mean release. `marbleId` picks a lane's
  * band, which is only where the marble prefers to stay: a marble may cross another's path as long as it touches
  * neither that marble nor its pieces, which the assists check by simulation. Without it the band covering every lane
  * is returned, the limit every placement stays inside so the run stays in frame.
  */
 /** The ID of the Rail a marble starts on: Build Track makes it, tied to no hit, and it stays the marble's in Layers */
-export function startRailId(laneId: string): string {
-	return `start-rail-${laneId}`.slice(0, 64);
+export function startRailId(marbleId: string): string {
+	return `start-rail-${marbleId}`.slice(0, 64);
 }
 
 /** The Rail this marble starts on, if it still has one */
-export function startRailOf(project: TProject, laneId: string): TEntity | undefined {
-	const id = startRailId(laneId);
+export function startRailOf(project: TProject, marbleId: string): TEntity | undefined {
+	const id = startRailId(marbleId);
 	return project.entities.find((entity) => entity.id === id);
 }
 
-export function frameBand(project: TProject, laneId?: string): TFrameBand {
+export function frameBand(project: TProject, marbleId?: string): TFrameBand {
 	const aspect = project.frame.width / project.frame.height;
 	const distance = project.design.camera.distance;
 	const width = 0.45 * (aspect / (9 / 16)) * (distance > 0 ? distance / 1.263 : 1);
 	// A marble waiting on its start rail lands `laneOffset` from where it is released, and its lane lies there
 	const releaseX = (entity: TEntity): number => {
 		const x = entity.components.release?.position.x ?? 0;
-		const rail = startRailOf(project, entity.components.marble?.laneId ?? '')?.components;
+		const rail = startRailOf(project, entity.components.marble?.marbleId ?? '')?.components;
 		return rail?.transform != null && Math.abs(rail.transform.position.x - x) < 0.02 ? x + (rail.piece?.params['laneOffset'] ?? 0) : x;
 	};
 	const marbles = project.entities.filter(
@@ -103,9 +103,9 @@ export function frameBand(project: TProject, laneId?: string): TFrameBand {
 	const ordered = marbles
 		.map((entity, index) => ({ entity, index }))
 		.sort((a, b) => releaseX(a.entity) - releaseX(b.entity) || a.index - b.index);
-	const slot = ordered.findIndex((item) => item.entity.components.marble?.laneId === laneId);
-	const span = (marbles.length - 1) * LANE_SPACING;
+	const slot = ordered.findIndex((item) => item.entity.components.marble?.marbleId === marbleId);
+	const span = (marbles.length - 1) * MARBLE_SPACING;
 	// With several marbles the camera moves back for the group, so the whole band is at least the film frame
-	if (laneId == null || slot < 0) return { centerX, halfWidth: Math.max(span / 2 + LANE_HALF_WIDTH, width / 2) };
-	return { centerX: centerX - span / 2 + slot * LANE_SPACING, halfWidth: LANE_HALF_WIDTH };
+	if (marbleId == null || slot < 0) return { centerX, halfWidth: Math.max(span / 2 + MARBLE_HALF_WIDTH, width / 2) };
+	return { centerX: centerX - span / 2 + slot * MARBLE_SPACING, halfWidth: MARBLE_HALF_WIDTH };
 }

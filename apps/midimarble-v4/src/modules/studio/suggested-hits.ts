@@ -20,5 +20,5 @@ export function suggestedHitsLabel(count: number): string {
 
 export function addSuggestedHits(cx: StudioCx, lane: TLane): void {
 	const hits = suggestedHits(cx, lane).map((time) => ({ id: createId('hit'), time }));
-	if (hits.length > 0) cx.execute([{ type: 'upsertHits', laneId: lane.id, hits }]);
+	if (hits.length > 0) cx.execute([{ type: 'upsertHits', marbleId: lane.id, hits }]);
 }

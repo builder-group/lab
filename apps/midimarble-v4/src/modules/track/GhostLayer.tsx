@@ -18,7 +18,7 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 	const isEditing = useFeatureState(trackCx.$override) != null;
 	const { ghost } = state;
 	if (ghost == null || project == null || isEditing || viewport.width <= 1) return null;
-	const laneColor = project.music.lanes.find((lane) => lane.id === ghost.answer.laneId)?.color ?? 'var(--text)';
+	const marbleColor = project.music.lanes.find((lane) => lane.id === ghost.answer.marbleId)?.color ?? 'var(--text)';
 
 	if (ghost.kind === 'gap') {
 		const { piece, track } = ghost.answer;
@@ -26,9 +26,9 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 		const end = points[points.length - 1];
 		return (
 			<g className="mm-ghost-in">
-				<polyline points={toPoints(points)} fill="none" stroke={laneColor} strokeWidth={1.5} strokeDasharray="2 4" strokeLinecap="round" opacity={0.8} />
+				<polyline points={toPoints(points)} fill="none" stroke={marbleColor} strokeWidth={1.5} strokeDasharray="2 4" strokeLinecap="round" opacity={0.8} />
 				{piece != null ? <GhostPiece trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk /> : null}
-				{end != null ? <GhostDot position={end} color={ghost.answer.check?.isDotInFrame === false ? 'var(--bad)' : laneColor} /> : null}
+				{end != null ? <GhostDot position={end} color={ghost.answer.check?.isDotInFrame === false ? 'var(--bad)' : marbleColor} /> : null}
 			</g>
 		);
 	}
@@ -38,7 +38,7 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 		return (
 			<g className="mm-ghost-in">
 				<GhostPiece trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk={isOk} />
-				{nextDot != null ? <GhostDot position={trackCx.toScreen(nextDot)} color={laneColor} /> : null}
+				{nextDot != null ? <GhostDot position={trackCx.toScreen(nextDot)} color={marbleColor} /> : null}
 			</g>
 		);
 	}
@@ -48,7 +48,7 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 			{ghost.answer.suggestions.map((suggestion) => (
 				<g key={suggestion.hitId}>
 					{suggestion.piece != null ? <GhostPiece trackCx={trackCx} piece={suggestion.piece} scale={camera.view.scale} isOk={suggestion.isOk} /> : null}
-					{suggestion.dot != null ? <GhostDot position={trackCx.toScreen(suggestion.dot)} color={suggestion.isOk ? laneColor : 'var(--bad)'} /> : null}
+					{suggestion.dot != null ? <GhostDot position={trackCx.toScreen(suggestion.dot)} color={suggestion.isOk ? marbleColor : 'var(--bad)'} /> : null}
 				</g>
 			))}
 		</g>
@@ -96,8 +96,8 @@ export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 	let anchor: TVec2 | null = null;
 	let content: React.ReactNode = null;
 	if (state.pendingGap != null) {
-		const { laneId, toHitId } = state.pendingGap;
-		const dot = result?.hits.find((hit) => hit.laneId === laneId && hit.hitId === toHitId)?.dot;
+		const { marbleId, toHitId } = state.pendingGap;
+		const dot = result?.hits.find((hit) => hit.marbleId === marbleId && hit.hitId === toHitId)?.dot;
 		anchor = dot != null ? trackCx.toScreen(dot) : null;
 		content = <span className="text-[var(--text-secondary)]">Finding a rail for this gap…</span>;
 	} else if (state.ghost?.kind === 'gap' || state.ghost?.kind === 'place') {

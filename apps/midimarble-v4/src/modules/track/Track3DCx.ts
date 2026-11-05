@@ -208,7 +208,7 @@ export class Track3DCx {
 			project.entities.flatMap((entity) => {
 				const { marble, release } = entity.components;
 				if (marble == null || release == null || hidden.includes(entity.id)) return [];
-				const color = project.music.lanes.find((lane) => lane.id === marble.laneId)?.color ?? '#3478f6';
+				const color = project.music.lanes.find((lane) => lane.id === marble.marbleId)?.color ?? '#3478f6';
 				const motion = result?.marbles.find((item) => item.entityId === entity.id);
 				return [{ entityId: entity.id, color, radius: marble.radius, position: marblePositionAt(motion, playhead, release.position), z: this.pathZ }];
 			})

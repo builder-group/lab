@@ -17,12 +17,12 @@ function samples(x: number): TMarbleTrack['samples'] {
 
 function scene(melody: number[], bass: number[], isClose = true): { result: TSimulationResult; track: TCameraTrack } {
 	const marbles: TMarbleTrack[] = [
-		{ entityId: 'marble-a', laneId: 'melody', radius: 0.012, samples: samples(-SPREAD) },
-		{ entityId: 'marble-b', laneId: 'bass', radius: 0.012, samples: samples(SPREAD) }
+		{ entityId: 'marble-a', marbleId: 'melody', radius: 0.012, samples: samples(-SPREAD) },
+		{ entityId: 'marble-b', marbleId: 'bass', radius: 0.012, samples: samples(SPREAD) }
 	];
-	const hit = (laneId: string, time: number, index: number): THitResult => ({
-		laneId,
-		hitId: `${laneId}-${index}`,
+	const hit = (marbleId: string, time: number, index: number): THitResult => ({
+		marbleId,
+		hitId: `${marbleId}-${index}`,
 		targetTime: time,
 		pieceEntityId: null,
 		dot: null,
@@ -78,7 +78,7 @@ describe('framingStretches function', () => {
 
 		expect(stretches.length).toBeGreaterThan(0);
 		for (const stretch of stretches) {
-			expect(stretch.laneId).toBe('bass');
+			expect(stretch.marbleId).toBe('bass');
 			expect(stretch.to - stretch.from).toBeGreaterThan(0.5);
 			expect(stretch.notes.length).toBeGreaterThan(0);
 			for (const note of stretch.notes) expect(note >= stretch.from && note <= stretch.to).toBe(true);

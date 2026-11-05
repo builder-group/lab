@@ -11,7 +11,7 @@ import { auditionNote } from '@/modules/track';
 import { openingRollOffset, rowCount, type TPitchRange } from './piano-roll';
 import { PartToggles } from './PartToggles';
 import { Keyboard, SongRoll } from './SongRoll';
-import type { TDrag, TDragStart } from './LaneTrack';
+import type { TDrag, TDragStart } from './MarbleTrack';
 import { TimeGutter } from './Ruler';
 import { HEADER_WIDTH, NOTE_ROW_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
 import { toggleSongExpanded } from './timeline-state';

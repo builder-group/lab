@@ -1,11 +1,11 @@
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { BACKING_ID, type THit, type TProject, formatTime, noteName, toHitKey } from '@/modules/project';
-import { focusedLane, type StudioCx } from '../StudioCx';
+import { focusedMarble, type StudioCx } from '../StudioCx';
 import { auditionNote, isNoteSelection, playedByMenu } from '@/modules/track';
 import { BACKING_COLOR } from '@/modules/music';
 import { isPitched } from '@/modules/building';
-import type { TDrag, TDragStart } from './LaneTrack';
+import type { TDrag, TDragStart } from './MarbleTrack';
 import { addNoteCommands, clampPitch, isBlackKey, pitchToRow, resizedNoteLength, rowCount, snapNoteTime, type TPitchRange } from './piano-roll';
 import { useSoundingKeys } from './sounding-keys';
 import { KEYBOARD_WIDTH, NOTE_ROW_HEIGHT } from './timeline-layout';
@@ -70,7 +70,7 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 		const pitch = clampPitch(range.high - Math.floor((event.clientY - rect.top) / NOTE_ROW_HEIGHT), range);
 		const at = (event.clientX - rect.left) / zoom;
 		const time = event.altKey ? at : snapNoteTime(at, project.music.tempo?.bpm, zoom);
-		const ownerId = focusedLane(project, selection)?.id ?? BACKING_ID;
+		const ownerId = focusedMarble(project, selection)?.id ?? BACKING_ID;
 		const { hit, commands } = addNoteCommands(ownerId, { time, pitch, duration: $noteLength.get() });
 		if (!cx.execute(commands)) return;
 		cx.$selection.set([toHitKey(ownerId, hit.id)]);
@@ -105,7 +105,7 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 				setResize(null);
 				if (resize.length === resize.start) return;
 				$noteLength.set(resize.length);
-				cx.execute([{ type: 'upsertHits', laneId: resize.note.ownerId, hits: [{ ...resize.note.hit, duration: resize.length }] }]);
+				cx.execute([{ type: 'upsertHits', marbleId: resize.note.ownerId, hits: [{ ...resize.note.hit, duration: resize.length }] }]);
 				return;
 			}
 			if (box == null) return;

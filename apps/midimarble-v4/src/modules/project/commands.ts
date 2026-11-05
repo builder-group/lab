@@ -8,12 +8,12 @@ export type TProjectCommand =
 	| { type: 'upsertSource'; source: TSource }
 	| { type: 'removeSource'; sourceId: string }
 	| { type: 'upsertLane'; lane: Omit<TLane, 'hits'> & { hits?: THit[] } }
-	| { type: 'removeLane'; laneId: string }
+	| { type: 'removeLane'; marbleId: string }
 	// `BACKING_ID` as the lane edits Backing
-	| { type: 'upsertHits'; laneId: string; hits: THit[] }
-	| { type: 'removeHits'; laneId: string; hitIds: string[] }
+	| { type: 'upsertHits'; marbleId: string; hits: THit[] }
+	| { type: 'removeHits'; marbleId: string; hitIds: string[] }
 	// Moves hits from wherever they are to a lane or to Backing (`BACKING_ID`), keeping their IDs
-	| { type: 'assignHits'; hitIds: string[]; laneId: string }
+	| { type: 'assignHits'; hitIds: string[]; marbleId: string }
 	| { type: 'setBackingInstrument'; instrument: number | null }
 	| { type: 'upsertEntity'; entity: TEntity }
 	| { type: 'removeEntities'; entityIds: string[] }
@@ -75,16 +75,16 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			return Ok(project);
 		}
 		case 'removeLane': {
-			project.music.lanes = project.music.lanes.filter((lane) => lane.id !== command.laneId);
+			project.music.lanes = project.music.lanes.filter((lane) => lane.id !== command.marbleId);
 			// A lane owns its marble; pieces linked to its hits stay and surface as orphans
 			project.entities = project.entities.filter(
-				(entity) => entity.components.marble?.laneId !== command.laneId
+				(entity) => entity.components.marble?.marbleId !== command.marbleId
 			);
-			if (project.groups != null) setGroups(project, project.groups.filter((group) => group.laneId !== command.laneId));
+			if (project.groups != null) setGroups(project, project.groups.filter((group) => group.marbleId !== command.marbleId));
 			return Ok(project);
 		}
 		case 'upsertHits': {
-			const [isOwnerOk, ownerErr, owner] = hitOwner(project, command.laneId);
+			const [isOwnerOk, ownerErr, owner] = hitOwner(project, command.marbleId);
 			if (!isOwnerOk) return Err(ownerErr);
 			let hits = owner.hits;
 			for (const hit of command.hits) hits = upsertById(hits, hit);
@@ -92,20 +92,20 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			return Ok(project);
 		}
 		case 'removeHits': {
-			const [isOwnerOk, ownerErr, owner] = hitOwner(project, command.laneId);
+			const [isOwnerOk, ownerErr, owner] = hitOwner(project, command.marbleId);
 			if (!isOwnerOk) return Err(ownerErr);
 			const removed = new Set(command.hitIds);
 			owner.hits = owner.hits.filter((hit) => !removed.has(hit.id));
 			return Ok(project);
 		}
 		case 'assignHits': {
-			const [isTargetOk, targetErr, target] = hitOwner(project, command.laneId);
+			const [isTargetOk, targetErr, target] = hitOwner(project, command.marbleId);
 			if (!isTargetOk) return Err(targetErr);
 			const wanted = new Set(command.hitIds);
 			const owners = [...project.music.lanes, backingOwner(project)];
 			const moved: THit[] = [];
 			for (const owner of owners) {
-				if (owner.id === command.laneId) continue;
+				if (owner.id === command.marbleId) continue;
 				moved.push(...owner.hits.filter((hit) => wanted.has(hit.id)));
 				owner.hits = owner.hits.filter((hit) => !wanted.has(hit.id));
 			}
@@ -174,10 +174,10 @@ function setGroups(project: TProject, groups: TGroup[]): void {
 }
 
 /** The hit list a command edits: a lane's hits, or Backing for `BACKING_ID`. Writes to `hits` go to the project. */
-function hitOwner(project: TProject, laneId: string): TResult<THitOwner, Error> {
-	if (laneId === BACKING_ID) return Ok(backingOwner(project));
-	const lane = project.music.lanes.find((item) => item.id === laneId);
-	if (lane == null) return Err(new Error(`Lane ${laneId} does not exist`));
+function hitOwner(project: TProject, marbleId: string): TResult<THitOwner, Error> {
+	if (marbleId === BACKING_ID) return Ok(backingOwner(project));
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
+	if (lane == null) return Err(new Error(`Lane ${marbleId} does not exist`));
 	return Ok(lane);
 }
 

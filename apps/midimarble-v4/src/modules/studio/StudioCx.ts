@@ -3,7 +3,7 @@ import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
 import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
-import { amendHistory, applyProjectCommands, createHistory, createId, createLane, createMarble, createProject, LANE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TLane, type TProject, type TProjectCommand, type TProjectHistory, type TSource, type TVec2, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey } from '@/modules/project';
+import { amendHistory, applyProjectCommands, createHistory, createId, createLane, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TLane, type TProject, type TProjectCommand, type TProjectHistory, type TSource, type TVec2, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey } from '@/modules/project';
 import type { TClipboard } from './clipboard';
 import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
@@ -22,7 +22,7 @@ import { earliestHitTime, releaseFollowsFirstHit, preflightExport, problemSummar
 import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
 import { commandItem, commands, commandWorkspace, deleteTheme, isCommandEnabled, type TCommand, type TCommandId } from './commands';
-import { filmMenu, filmObjectMenu, hitMenu, laneMenu, pieceMenu } from './menus';
+import { filmMenu, filmObjectMenu, hitMenu, marbleMenu, pieceMenu } from './menus';
 import { addWallTextCommands, FilmCx, FilmLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, songDisplayName } from '@/modules/scene';
 
@@ -141,7 +141,7 @@ export class StudioCx {
 	readonly menus = {
 		piece: () => pieceMenu(this),
 		hit: (lane: TLane, hitId: string) => hitMenu(this, lane, hitId),
-		lane: (lane: TLane) => laneMenu(this, lane),
+		lane: (lane: TLane) => marbleMenu(this, lane),
 		film: () => filmMenu(this),
 		filmObject: (id: string) => filmObjectMenu(this, id)
 	};
@@ -256,9 +256,9 @@ export class StudioCx {
 	 * Plays a note of the Song as feedback when it is placed or selected. The Song is the only sound, so a tapped hit
 	 * has nothing to play, and neither has a project without a Song or with a recording, which has no notes to pick.
 	 */
-	audition(laneId: string, pitch?: number): void {
+	audition(marbleId: string, pitch?: number): void {
 		const project = this.project;
-		const lane = project?.music.lanes.find((item) => item.id === laneId);
+		const lane = project?.music.lanes.find((item) => item.id === marbleId);
 		if (project == null || lane == null || pitch == null || !soundsNotes(project)) return;
 		void this.audio.audition(lane, pitch);
 	}
@@ -812,7 +812,7 @@ export class StudioCx {
 		if (project == null) return null;
 		const lane = createLane(project.music.lanes.length);
 		const releases = project.entities.flatMap((entity) => (entity.components.release != null ? [entity.components.release.position] : []));
-		const fallback = { x: releases.length ? Math.max(...releases.map((point) => point.x)) + LANE_SPACING : 0, y: releases[0]?.y ?? 0.6 };
+		const fallback = { x: releases.length ? Math.max(...releases.map((point) => point.x)) + MARBLE_SPACING : 0, y: releases[0]?.y ?? 0.6 };
 		const marble = createMarble(lane, position ?? fallback);
 		if (!this.execute([{ type: 'upsertLane', lane }, { type: 'upsertEntity', entity: marble }])) return null;
 		this.$selection.set([marble.id]);
@@ -824,9 +824,9 @@ export class StudioCx {
 
 	toggleHidden(id: string): void {
 		const hidden = this.$hidden.get();
-		const laneId = this.project?.entities.find((entity) => entity.id === id)?.components.marble?.laneId;
+		const marbleId = this.project?.entities.find((entity) => entity.id === id)?.components.marble?.marbleId;
 		const isHiding = !hidden.includes(id);
-		const pieces = isHiding && laneId != null ? (this.project?.entities ?? []).filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === laneId && !hidden.includes(entity.id)).map((entity) => entity.id) : (this.hiddenByMarble.get(id) ?? []);
+		const pieces = isHiding && marbleId != null ? (this.project?.entities ?? []).filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marbleId && !hidden.includes(entity.id)).map((entity) => entity.id) : (this.hiddenByMarble.get(id) ?? []);
 		if (isHiding) {
 			this.hiddenByMarble.set(id, pieces);
 			this.$hidden.set([...hidden, id, ...pieces]);
@@ -887,7 +887,7 @@ export class StudioCx {
 		const next = stepHitTarget(project, this.$selection.get(), this.$playhead.get(), direction, isTrack);
 		if (next == null) return false;
 		this.seek(next.time);
-		if (isTrack) this.$selection.set([toHitKey(next.laneId, next.hitId)]);
+		if (isTrack) this.$selection.set([toHitKey(next.marbleId, next.hitId)]);
 		return true;
 	}
 
@@ -909,13 +909,13 @@ export class StudioCx {
 	tapHit(): void {
 		const project = this.project;
 		if (project == null) return;
-		const lane = focusedLane(project, this.$selection.get());
+		const lane = focusedMarble(project, this.$selection.get());
 		if (lane == null) return;
 		if (!this.$playing.get()) {
 			let target = Math.max(this.$playhead.get(), earliestHitTime(project, lane.id) ?? 0);
 			while (tapTime(lane.hits, target) == null) target += TAP_STEP;
 			const placed = { id: createId('hit'), time: tapTime(lane.hits, target) ?? target };
-			if (!this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [placed] }])) return;
+			if (!this.execute([{ type: 'upsertHits', marbleId: lane.id, hits: [placed] }])) return;
 			this.$selection.set([toHitKey(lane.id, placed.id)]);
 			if (placed.time !== this.$playhead.get()) this.$playhead.set(placed.time);
 			return;
@@ -926,7 +926,7 @@ export class StudioCx {
 		const time = tapTime(lane.hits, this.audio.getTime());
 		if (time == null) return;
 		const hit = { id: createId('hit'), time };
-		if (this.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }])) this.tapSession.hasTapped = true;
+		if (this.execute([{ type: 'upsertHits', marbleId: lane.id, hits: [hit] }])) this.tapSession.hasTapped = true;
 	}
 
 	/**
@@ -1259,12 +1259,12 @@ export interface TNoticeAction {
 }
 
 /** The lane of the selected marble or hit, otherwise the first lane */
-export function focusedLane(project: TProject, selection: TSelection): TLane | undefined {
+export function focusedMarble(project: TProject, selection: TSelection): TLane | undefined {
 	for (const key of selection) {
-		const hitLane = parseHitKey(key)?.laneId;
-		const entityLane = project.entities.find((entity) => entity.id === key)?.components.marble?.laneId;
-		const laneId = hitLane ?? entityLane;
-		const lane = project.music.lanes.find((item) => item.id === laneId);
+		const hitMarble = parseHitKey(key)?.marbleId;
+		const entityLane = project.entities.find((entity) => entity.id === key)?.components.marble?.marbleId;
+		const marbleId = hitMarble ?? entityLane;
+		const lane = project.music.lanes.find((item) => item.id === marbleId);
 		if (lane != null) return lane;
 	}
 	return project.music.lanes[0];

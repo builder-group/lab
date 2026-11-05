@@ -36,7 +36,7 @@ function piecesInLayersOrder(project: TProject): TEntity[] {
 	const ordered: TEntity[] = [];
 	for (const lane of project.music.lanes) {
 		const order = new Map(lane.hits.map((hit) => [hit.id, hit.time]));
-		const tied = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id);
+		const tied = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id);
 		const startRail = startRailOf(project, lane.id);
 		if (startRail != null) ordered.push(startRail);
 		ordered.push(...tied.map((entity, index) => ({ entity, index, time: tieTime(entity, order) })).sort((a, b) => a.time - b.time || a.index - b.index).map((item) => item.entity));

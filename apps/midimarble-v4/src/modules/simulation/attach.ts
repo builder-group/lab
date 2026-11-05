@@ -30,7 +30,7 @@ export function anchorHit<T extends { time: number }>(hits: T[], time: number): 
 }
 
 /**
- * Anchors a piece to the trajectory of `laneId`'s marble at `time`. The piece keeps its pose relative to the
+ * Anchors a piece to the trajectory of `marbleId`'s marble at `time`. The piece keeps its pose relative to the
  * marble at that moment, so it follows upstream edits, and it never sounds a hit. Any piece type can be
  * anchored; the moment must lie within `ANCHOR_DELAY` seconds after one of the lane's hits, or before its
  * first hit.
@@ -39,18 +39,18 @@ export function anchorPiece(
 	project: TProject,
 	result: TSimulationResult,
 	entityId: string,
-	laneId: string,
+	marbleId: string,
 	time: number
 ): TResult<TAttachResult, Error> {
 	const [isFound, findErr, found] = findPiece(project, result, entityId);
 	if (!isFound) return Err(findErr);
 	const { entity, resolved } = found;
-	const lane = project.music.lanes.find((item) => item.id === laneId);
-	if (lane == null) return Err(new Error(`Lane ${laneId} not found`));
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
+	if (lane == null) return Err(new Error(`Lane ${marbleId} not found`));
 	const hit = anchorHit(lane.hits, time);
 	if (hit == null)
 		return Err(new Error(`No hit of ${lane.name} within ${ANCHOR_DELAY} s of that moment`));
-	const track = result.marbles.find((marble) => marble.laneId === laneId);
+	const track = result.marbles.find((marble) => marble.marbleId === marbleId);
 	const sample = track != null ? trajectoryAt(track.samples, time, gravityOf(project)) : null;
 	if (track == null || sample == null)
 		return Err(new Error(`The marble of ${lane.name} does not reach that moment`));
@@ -60,7 +60,7 @@ export function anchorPiece(
 	const next = withPiece(entity, {
 		params,
 		hitLink: {
-			laneId,
+			marbleId,
 			hitId: hit.id,
 			angle: pose.angle,
 			contactAt: entity.components.hitLink?.contactAt ?? 0.5,
@@ -89,7 +89,7 @@ export function linkPieceToHit(
 	project: TProject,
 	result: TSimulationResult,
 	entityId: string,
-	laneId: string,
+	marbleId: string,
 	hitId: string
 ): TResult<TAttachResult, Error> {
 	const [isFound, findErr, found] = findPiece(project, result, entityId);
@@ -97,20 +97,20 @@ export function linkPieceToHit(
 	const { entity, resolved } = found;
 	const type = entity.components.piece?.type ?? '';
 	if (!isMusicalPiece(type)) return Err(new Error(`A ${type} is scenery; anchor it instead`));
-	const lane = project.music.lanes.find((item) => item.id === laneId);
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
 	const hit = lane?.hits.find((item) => item.id === hitId);
 	if (lane == null || hit == null) return Err(new Error(`Hit ${hitId} not found`));
 	const owner = project.entities.find(
 		(item) =>
 			item.id !== entityId &&
-			item.components.hitLink?.laneId === laneId &&
+			item.components.hitLink?.marbleId === marbleId &&
 			item.components.hitLink.hitId === hitId &&
 			soundsHit(item.components.piece?.type ?? '', item.components.hitLink)
 	);
 	if (owner != null) return Err(new Error(`The hit already has ${owner.name ?? 'a piece'}`));
-	const track = result.marbles.find((marble) => marble.laneId === laneId);
+	const track = result.marbles.find((marble) => marble.marbleId === marbleId);
 	const dot =
-		result.hits.find((item) => item.laneId === laneId && item.hitId === hitId)?.dot ??
+		result.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId)?.dot ??
 		(track != null ? trajectoryAt(track.samples, hit.time, gravityOf(project))?.position : null);
 	if (dot == null) return Err(new Error(`The marble of ${lane.name} does not reach that hit`));
 
@@ -122,7 +122,7 @@ export function linkPieceToHit(
 	const contactAt = Math.min(1, Math.max(0, 0.5 + along / length));
 	const next = withPiece(entity, {
 		params: { ...entity.components.piece?.params, entryDelay: 0 },
-		hitLink: { laneId, hitId, angle: pose.angle, contactAt }
+		hitLink: { marbleId, hitId, angle: pose.angle, contactAt }
 	});
 	return Ok({ entity: next, commands: [{ type: 'upsertEntity', entity: next }] });
 }
@@ -183,7 +183,7 @@ function detach(
 	if (from === 'anchored' && isLinked) return Err(new Error(`${entity.name ?? entityId} is linked, not anchored`));
 	if (resolved.status === 'unreached')
 		return Err(new Error(`${entity.name ?? entityId} has no pose in this run`));
-	const radius = result.marbles.find((marble) => marble.laneId === hitLink.laneId)?.radius;
+	const radius = result.marbles.find((marble) => marble.marbleId === hitLink.marbleId)?.radius;
 	const pose = freePose(entity, resolved, radius);
 	const { hitLink: _, ...components } = entity.components;
 	const params = { ...piece?.params };

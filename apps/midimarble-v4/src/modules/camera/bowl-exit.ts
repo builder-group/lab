@@ -1,6 +1,6 @@
-import { endsOnBowl, BOWL_TAIL_MAX, lastPlayingLanes, projectSongEnd } from '@/modules/music';
+import { endsOnBowl, BOWL_TAIL_MAX, lastPlayingMarbles, projectSongEnd } from '@/modules/music';
 import type { TProject } from '@/modules/project';
-import { BOWL_TYPE, bowlCatch, bowlOfLane } from '@/modules/simulation';
+import { BOWL_TYPE, bowlCatch, bowlOfMarble } from '@/modules/simulation';
 import type { TSimulationResult } from '@/modules/simulation';
 import { projectToFrame } from './framing';
 import { followCameraTrack } from './project-track';
@@ -21,14 +21,14 @@ export function exitRunProject(project: TProject): TProject | null {
  */
 export function bowlExit(project: TProject, run: TSimulationResult): number | null {
 	const last = lastNote(project);
-	const lanes = lastPlayingLanes(project);
+	const lanes = lastPlayingMarbles(project);
 	if (last == null || !lanes.length) return null;
 	const track = followCameraTrack(project, run, EXIT_FPS);
 	if (track == null) return null;
 	let exit = Number.NEGATIVE_INFINITY;
-	for (const laneId of lanes) {
-		const bowl = bowlOfLane(project, laneId);
-		const marble = run.marbles.find((item) => item.laneId === laneId);
+	for (const marbleId of lanes) {
+		const bowl = bowlOfMarble(project, marbleId);
+		const marble = run.marbles.find((item) => item.marbleId === marbleId);
 		if (bowl?.components.piece?.type !== BOWL_TYPE || marble == null) return null;
 		const caught = bowlCatch(run, bowl.id);
 		if (caught.status !== 'caught' || caught.enterTime == null) return null;

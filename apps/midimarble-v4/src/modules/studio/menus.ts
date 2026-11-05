@@ -1,6 +1,6 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { canUngroup, selectedPattern, canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection, deleteHits, playedByMenu } from '@/modules/track';
-import { createId, laneColors, type TEntity, type TLane, type TProjectCommand, formatTime, parseDecorKey, toHitKey } from '@/modules/project';
+import { createId, marbleColors, type TEntity, type TLane, type TProjectCommand, formatTime, parseDecorKey, toHitKey } from '@/modules/project';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
 import { moveDecorClearAction } from '@/modules/film';
 import { commandItem, getCommand, isCommandEnabled, type TCommandId } from './commands';
@@ -11,7 +11,7 @@ import type { StudioCx } from './StudioCx';
 
 const LABEL_NAMES = ['Blue', 'Orange', 'Green', 'Purple', 'Pink', 'Cyan', 'Red'];
 /** What the list offers: every marble's color, and the red the examples' Melody wears, which new marbles don't start with */
-const LABEL_COLORS = [...laneColors, '#c8102e'];
+const LABEL_COLORS = [...marbleColors, '#c8102e'];
 
 /**
  * The choices of a layer's Label Color, opened from its icon or dot and from Label Color beside Rename: it organizes
@@ -33,7 +33,7 @@ export function labelColorItem(entries: TMenuEntry[]): TMenuEntry {
 }
 
 /** A marble's label is its lane's color, which it always has */
-export function laneLabelEntries(cx: StudioCx, lane: TLane): TMenuEntry[] {
+export function marbleLabelEntries(cx: StudioCx, lane: TLane): TMenuEntry[] {
 	return labelColorEntries(cx, lane.color, (color) => (color != null ? [{ type: 'upsertLane', lane: { ...lane, color } }] : []), false);
 }
 
@@ -136,7 +136,7 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 	const project = cx.project;
 	const hit = lane.hits.find((item) => item.id === hitId);
 	if (project == null || hit == null) return [];
-	const piece = project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id && entity.components.hitLink.hitId === hitId);
+	const piece = project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id && entity.components.hitLink.hitId === hitId);
 	const selected = cx.$selection.get();
 	const key = toHitKey(lane.id, hitId);
 	const moving = selected.includes(key) ? selected : [key];
@@ -152,7 +152,7 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 			}
 		},
 		piece != null ? { label: `Select ${piece.name ?? 'Piece'}`, onSelect: () => cx.reveal([piece.id]) } : null,
-		{ label: 'Rebuild From Here', disabled: cx.$trackCx.get() == null || cx.assist.isBuilding === true, onSelect: () => void cx.assist.buildTrack({ laneId: lane.id, hitId }) },
+		{ label: 'Rebuild From Here', disabled: cx.$trackCx.get() == null || cx.assist.isBuilding === true, onSelect: () => void cx.assist.buildTrack({ marbleId: lane.id, hitId }) },
 		'separator',
 		...playedByMenu(cx, moving),
 		'separator',
@@ -161,10 +161,10 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 }
 
 /** Right-click on a lane row or its header; `time` is where an added hit goes */
-export function laneMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[] {
+export function marbleMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[] {
 	const project = cx.project;
 	if (project == null) return [];
-	const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
+	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === lane.id);
 	const suggested = suggestedHits(cx, lane).length;
 
 	return tidyMenu([
@@ -182,16 +182,16 @@ export function laneMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[]
 					}
 				}
 			: null,
-		labelColorItem(laneLabelEntries(cx, lane)),
+		labelColorItem(marbleLabelEntries(cx, lane)),
 		cx.$workspace.get() === 'track' ? commandItem(cx, 'marble.add') : null,
-		{ label: 'Delete Marble', disabled: project.music.lanes.length <= 1, onSelect: () => cx.execute([{ type: 'removeLane', laneId: lane.id }]) }
+		{ label: 'Delete Marble', disabled: project.music.lanes.length <= 1, onSelect: () => cx.execute([{ type: 'removeLane', marbleId: lane.id }]) }
 	]);
 }
 
 export function addHit(cx: StudioCx, lane: TLane, time: number): void {
 	// A hit has a pitch only when it comes from a MIDI note; one placed by hand is timing alone
 	const hit = { id: createId('hit'), time: Math.round(time * 10000) / 10000 };
-	if (cx.execute([{ type: 'upsertHits', laneId: lane.id, hits: [hit] }])) cx.$selection.set([toHitKey(lane.id, hit.id)]);
+	if (cx.execute([{ type: 'upsertHits', marbleId: lane.id, hits: [hit] }])) cx.$selection.set([toHitKey(lane.id, hit.id)]);
 }
 
 /** The Song layer's menu, in Layers and on its timeline row */

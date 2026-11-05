@@ -12,19 +12,19 @@ function withSongFixture(name: string): TProject {
 }
 
 // Two lanes side by side with one platform each, a free rail and a free platform
-function createTwoLaneProject(): TProject {
-	const marble = (id: string, laneId: string, x: number): TEntity => ({
+function createTwoMarbleProject(): TProject {
+	const marble = (id: string, marbleId: string, x: number): TEntity => ({
 		id,
 		name: id === 'marble-a' ? 'Melody' : 'Bass',
-		components: { marble: { laneId, radius: 0.008 }, release: { position: { x, y: 0.6 }, time: 0 } }
+		components: { marble: { marbleId, radius: 0.008 }, release: { position: { x, y: 0.6 }, time: 0 } }
 	});
-	const platform = (id: string, laneId: string | null, hitId: string): TEntity => ({
+	const platform = (id: string, marbleId: string | null, hitId: string): TEntity => ({
 		id,
 		name: id,
 		components: {
 			piece: { type: 'platform', params: {} },
 			transform: { position: { x: 0, y: 0 }, angle: 0 },
-			...(laneId != null ? { hitLink: { laneId, hitId, angle: 0, contactAt: 0.5 } } : {})
+			...(marbleId != null ? { hitLink: { marbleId, hitId, angle: 0, contactAt: 0.5 } } : {})
 		}
 	});
 	return {
@@ -66,9 +66,9 @@ function createTwoLaneProject(): TProject {
 	};
 }
 
-function hit(laneId: string, hitId: string, targetTime: number, patch: Partial<THitResult> = {}): THitResult {
-	const x = laneId === 'lane-a' ? -0.1 : 0.1;
-	return { laneId, hitId, targetTime, pieceEntityId: null, dot: { x, y: 0.5 - targetTime * 0.3 }, velocity: null, actualTime: targetTime, error: 0, status: 'onTime', ...patch };
+function hit(marbleId: string, hitId: string, targetTime: number, patch: Partial<THitResult> = {}): THitResult {
+	const x = marbleId === 'lane-a' ? -0.1 : 0.1;
+	return { marbleId, hitId, targetTime, pieceEntityId: null, dot: { x, y: 0.5 - targetTime * 0.3 }, velocity: null, actualTime: targetTime, error: 0, status: 'onTime', ...patch };
 }
 
 let pieceCount = 0;
@@ -84,8 +84,8 @@ function createResult(patch: Partial<TSimulationResult> = {}): TSimulationResult
 		revision: 3,
 		duration: 4,
 		marbles: [
-			{ entityId: 'marble-a', laneId: 'lane-a', radius: 0.008, samples: [] },
-			{ entityId: 'marble-b', laneId: 'lane-b', radius: 0.008, samples: [] }
+			{ entityId: 'marble-a', marbleId: 'lane-a', radius: 0.008, samples: [] },
+			{ entityId: 'marble-b', marbleId: 'lane-b', radius: 0.008, samples: [] }
 		],
 		pieces: [piece('pa1'), piece('pa2'), piece('pb1'), piece('loose'), piece('rail', 'rail')],
 		contacts: [],
@@ -123,11 +123,11 @@ describe('preflightExport function', () => {
 	});
 
 	it('should tip about a long free fall in plain words, without counting it as a problem', () => {
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 		const lane = project.music.lanes[0];
 		const result = simulator.simulate(project);
 		const dots = [0.4, -1.7];
-		const hits = (lane?.hits ?? []).slice(0, 2).map((hit, index) => ({ laneId: lane?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceEntityId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'open' as const }));
+		const hits = (lane?.hits ?? []).slice(0, 2).map((hit, index) => ({ marbleId: lane?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceEntityId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'open' as const }));
 
 		const preflight = preflightExport(project, { ...result, revision: project.revision, hits }, []);
 		const tip = preflight.issues.find((issue) => issue.kind === 'fall');
@@ -171,14 +171,14 @@ describe('preflightExport function', () => {
 	});
 
 	it('should be pending without a result for the current revision', () => {
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 
 		expect(preflightExport(project, null, NO_BLENDER_OBJECTS).state).toBe('pending');
 		expect(preflightExport(project, createResult({ revision: 2 }), NO_BLENDER_OBJECTS).summary).toBe('Checking the track…');
 	});
 
 	it('should explain missed, resting, blocked and drifting hits', () => {
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 		const result = createResult({
 			hits: [
 				hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1', status: 'missed', actualTime: 1.05, error: 0.05 }),
@@ -201,7 +201,7 @@ describe('preflightExport function', () => {
 	});
 
 	it('should note open hits per lane and select the first one', () => {
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 
 		const preflight = preflightExport(project, createResult(), NO_BLENDER_OBJECTS);
 
@@ -211,14 +211,14 @@ describe('preflightExport function', () => {
 	});
 
 	it('should not report framing from dots alone: the run without marble motion has no camera', () => {
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 		const result = createResult({ hits: [hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1', dot: { x: 1.2, y: 0 } })] });
 
 		expect(preflightExport(project, result, NO_BLENDER_OBJECTS).issues).toEqual([]);
 	});
 
 	it('should flag stray contacts but not contacts with the marble own pieces, scenery or free pieces', () => {
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 		const contact = (time: number, marbleEntityId: string, otherEntityId: string, kind: 'piece' | 'marble' = 'piece') => ({
 			time,
 			marbleEntityId,
@@ -252,7 +252,7 @@ describe('preflightExport function', () => {
 	});
 
 	it('should count a platform its own marble strikes twice as a problem, and pieces that touch', () => {
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 		const at = (entityId: string, y: number): TResolvedPiece => ({ ...piece(entityId), position: { x: 0, y }, params: { length: 0.09, thickness: 0.012 } });
 		const strike = (time: number) => ({ time, marbleEntityId: 'marble-a', otherEntityId: 'pa1', kind: 'piece' as const, position: { x: 0, y: 0.03 }, speed: 1.5 });
 		const result = createResult({
@@ -269,12 +269,12 @@ describe('preflightExport function', () => {
 	});
 
 	it('should count a platform its marble rolls on as a problem, in plain words', () => {
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 		// Melody stays on pa1 for the whole half second after its note at 1 s
 		const samples = Array.from({ length: 300 }, (_, index) => ({ time: index / 120, position: { x: 0, y: 0.015 }, angle: 0, velocity: { x: 0, y: 0 } }));
 		const result = createResult({
 			pieces: [{ ...piece('pa1'), position: { x: 0, y: 0 }, params: { length: 0.09, thickness: 0.012 } }],
-			marbles: [{ entityId: 'marble-a', laneId: 'lane-a', radius: 0.008, samples }],
+			marbles: [{ entityId: 'marble-a', marbleId: 'lane-a', radius: 0.008, samples }],
 			hits: [hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1' })]
 		});
 
@@ -287,7 +287,7 @@ describe('preflightExport function', () => {
 
 describe('a project with hits and no Song', () => {
 	function noSong(): TProject {
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 		return { ...project, music: { ...project.music, sources: [] } };
 	}
 
@@ -324,21 +324,21 @@ describe('problemSummary function', () => {
 			components: {
 				piece: { type: 'windmill', params: { entryDelay: 0.5 } },
 				transform: { position: { x: 0, y: 0 }, angle: 0 },
-				hitLink: { laneId: 'lane-a', hitId: 'a2', angle: 0, contactAt: 0.5, anchored: true, offset: { x: 0, y: 0 } }
+				hitLink: { marbleId: 'lane-a', hitId: 'a2', angle: 0, contactAt: 0.5, anchored: true, offset: { x: 0, y: 0 } }
 			}
 		};
 		return { ...project, entities: [...project.entities, windmill] };
 	}
 
 	it('should read Checking until the run for the current revision arrives', () => {
-		const summary = problemSummary(preflightExport(createTwoLaneProject(), createResult({ revision: 2 }), NO_BLENDER_OBJECTS));
+		const summary = problemSummary(preflightExport(createTwoMarbleProject(), createResult({ revision: 2 }), NO_BLENDER_OBJECTS));
 
 		expect(summary).toEqual(expect.objectContaining({ state: 'pending', label: 'Checking…', problems: [] }));
 	});
 
 	it('should count hits on time and other problems such as Blocked scenery and extra strikes', () => {
 		// Prepare
-		const project = withWindmill(createTwoLaneProject());
+		const project = withWindmill(createTwoMarbleProject());
 		const result = createResult({
 			pieces: [...createResult().pieces, { ...piece('windmill', 'windmill'), status: 'blocked', entryTime: 2.5 }],
 			contacts: [{ time: 2.2, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } }]
@@ -354,7 +354,7 @@ describe('problemSummary function', () => {
 
 	it('should list the pieces another marble hits, for the Layers badge and the inspector pill', () => {
 		// Prepare: Melody's marble hits Bass's platform twice, and the two marbles touch once
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 		const result = createResult({
 			contacts: [
 				{ time: 2.2, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } },
@@ -368,12 +368,12 @@ describe('problemSummary function', () => {
 
 		// Assert: only the piece, named by the marble that hits it
 		expect([...struck.keys()]).toEqual(['pb1']);
-		expect(struck.get('pb1')).toEqual([expect.objectContaining({ title: 'Melody hits pb1 of Bass', by: 'Melody', laneId: 'lane-b', detail: 'Hits it 2 times from 0:02.20, without a note.' })]);
+		expect(struck.get('pb1')).toEqual([expect.objectContaining({ title: 'Melody hits pb1 of Bass', by: 'Melody', marbleId: 'lane-b', detail: 'Hits it 2 times from 0:02.20, without a note.' })]);
 	});
 
 	it('should order problems by their time, a framing span or their target, with timeless ones last', () => {
 		// Prepare
-		const project = withWindmill(createTwoLaneProject());
+		const project = withWindmill(createTwoMarbleProject());
 		const result = createResult({
 			pieces: [...createResult().pieces, { ...piece('windmill', 'windmill'), status: 'blocked', entryTime: 2.5 }],
 			contacts: [{ time: 2.2, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } }]
@@ -388,7 +388,7 @@ describe('problemSummary function', () => {
 	});
 
 	it('should put hit problems first in the label and every problem in time order', () => {
-		const project = withWindmill(createTwoLaneProject());
+		const project = withWindmill(createTwoMarbleProject());
 		const base = createResult();
 		const result = createResult({
 			pieces: [...base.pieces, { ...piece('windmill', 'windmill'), status: 'blocked', entryTime: 0.5 }],
@@ -403,7 +403,7 @@ describe('problemSummary function', () => {
 
 	it('should keep a note after an Open note of the same marble Open rather than Out of Reach', () => {
 		// Prepare: no platforms after Hit 1, so the marble falls out of the run before Hits 2 and 3
-		const project = createTwoLaneProject();
+		const project = createTwoMarbleProject();
 		const base = createResult();
 		const open = { pieceEntityId: null, dot: null, actualTime: null, error: null, status: 'open' as const };
 		const result = createResult({

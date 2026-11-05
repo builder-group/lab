@@ -10,35 +10,35 @@ import { StudioCx } from '@/modules/studio';
 import { expandCommands } from './project-commands';
 import { busyReason, runTool } from './mcp-tools';
 
-function projectWithHit(): { project: TProject; laneId: string; hitId: string } {
+function projectWithHit(): { project: TProject; marbleId: string; hitId: string } {
 	const project = createProject({ title: 'Song' });
 	const lane = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }] };
-	return { project: { ...project, music: { ...project.music, lanes: [lane] }, entities: [createMarble(lane, { x: 0, y: 0 })] }, laneId: lane.id, hitId: 'hit1' };
+	return { project: { ...project, music: { ...project.music, lanes: [lane] }, entities: [createMarble(lane, { x: 0, y: 0 })] }, marbleId: lane.id, hitId: 'hit1' };
 }
 
-function resultFor(project: TProject, laneId: string, hitId: string): TSimulationResult {
+function resultFor(project: TProject, marbleId: string, hitId: string): TSimulationResult {
 	return {
 		revision: project.revision,
 		duration: project.end,
 		marbles: [],
 		pieces: [],
 		contacts: [],
-		hits: [{ laneId, hitId, targetTime: 1, pieceEntityId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' }],
+		hits: [{ marbleId, hitId, targetTime: 1, pieceEntityId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' }],
 		stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
 	} as unknown as TSimulationResult;
 }
 
 /** A studio whose run keeps up with the project, as the simulation worker does */
-function studio(): { cx: StudioCx; laneId: string; hitId: string } {
-	const { project, laneId, hitId } = projectWithHit();
+function studio(): { cx: StudioCx; marbleId: string; hitId: string } {
+	const { project, marbleId, hitId } = projectWithHit();
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	cx.$path.set('/tmp/Song.marble');
-	cx.simulation.$result.set(resultFor(project, laneId, hitId));
+	cx.simulation.$result.set(resultFor(project, marbleId, hitId));
 	cx.$history.listen(({ value }) => {
-		if (value != null) cx.simulation.$result.set(resultFor(value.present, laneId, hitId));
+		if (value != null) cx.simulation.$result.set(resultFor(value.present, marbleId, hitId));
 	});
-	return { cx, laneId, hitId };
+	return { cx, marbleId, hitId };
 }
 
 function textOf(reply: { content: { type: string; text?: string }[] }): string {
@@ -111,11 +111,11 @@ describe('MCP tools', () => {
 	});
 
 	it('should make one project.execute one named Undo step, shown in Edit > Undo', async () => {
-		const { cx, laneId, hitId } = studio();
+		const { cx, marbleId, hitId } = studio();
 		const before = cx.$history.get()?.past.length;
 		const reply = await runTool(cx, 'run_command', {
 			id: 'project.execute',
-			args: { commands: [{ type: 'placePiece', pieceType: 'platform', hit: { laneId, hitId }, angle: 0.2 }, { type: 'setEnd', end: 9 }], label: 'Place Platform' }
+			args: { commands: [{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId }, angle: 0.2 }, { type: 'setEnd', end: 9 }], label: 'Place Platform' }
 		});
 		const answer = JSON.parse(textOf(reply)) as { undoStep: string; selection: string[]; hits: string };
 		expect(reply.isError).toBe(false);
@@ -148,11 +148,11 @@ describe('MCP tools', () => {
 	});
 
 	it('should refuse an invalid batch without changing the project', async () => {
-		const { cx, laneId } = studio();
+		const { cx, marbleId } = studio();
 		const project = cx.project;
 		const reply = await runTool(cx, 'run_command', {
 			id: 'project.execute',
-			args: { commands: [{ type: 'setEnd', end: 9 }, { type: 'placePiece', pieceType: 'nope', hit: { laneId, hitId: 'hit1' } }] }
+			args: { commands: [{ type: 'setEnd', end: 9 }, { type: 'placePiece', pieceType: 'nope', hit: { marbleId, hitId: 'hit1' } }] }
 		});
 		expect(reply.isError).toBe(true);
 		expect(textOf(reply)).toContain('no piece called nope');
@@ -173,11 +173,11 @@ describe('MCP tools', () => {
 	});
 
 	it('should answer build.rebuildFrom only when its build is done, and say what it needs without a target', async () => {
-		const { cx, laneId, hitId } = studio();
+		const { cx, marbleId, hitId } = studio();
 		let bowlBuild: () => void = () => undefined;
 		const buildTrack = vi.fn(() => new Promise<null>((resolve) => (bowlBuild = () => resolve(null))));
-		const key = `hit:${laneId}:${hitId}`;
-		const assist = { get rebuildTarget() { return cx.$selection.get().includes(key) ? { laneId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
+		const key = `hit:${marbleId}:${hitId}`;
+		const assist = { get rebuildTarget() { return cx.$selection.get().includes(key) ? { marbleId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
 		Object.assign(cx, { assist });
 		cx.$trackCx.set({} as never);
 		cx.$workspace.set('track');
@@ -193,7 +193,7 @@ describe('MCP tools', () => {
 			return reply;
 		});
 		await vi.advanceTimersByTimeAsync(1000);
-		expect(buildTrack).toHaveBeenCalledWith({ laneId, hitId });
+		expect(buildTrack).toHaveBeenCalledWith({ marbleId, hitId });
 		expect(isAnswered).toBe(false);
 		bowlBuild();
 		expect((await answer).isError).toBe(false);
@@ -209,7 +209,7 @@ describe('MCP tools', () => {
 	});
 
 	it('should select by key with edit.select, and show the Wall and physics in get_state', async () => {
-		const { cx, laneId } = studio();
+		const { cx, marbleId } = studio();
 		const reply = await runTool(cx, 'run_command', { id: 'edit.select', args: { select: ['wall'] } });
 		expect(JSON.parse(textOf(reply))).toMatchObject({ selection: ['wall'], changed: false });
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
@@ -217,7 +217,7 @@ describe('MCP tools', () => {
 		expect(state.physics).toEqual({ gravityScale: 0.5, default: 0.5, range: [0.05, 2] });
 		expect(state.wall).toMatchObject({ own: {} });
 		expect((state.wall as { kind: string }).kind).toBeTypeOf('string');
-		expect(state.marbles[0]).toMatchObject({ laneId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y'], hitList: [['hit1', 1, 'C4', 'open', 0, -1]] });
+		expect(state.marbles[0]).toMatchObject({ marbleId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y'], hitList: [['hit1', 1, 'C4', 'open', 0, -1]] });
 	});
 
 	it("should refuse a command's wrong fields, naming them, with no Undo step", async () => {
@@ -393,7 +393,7 @@ describe('MCP tools', () => {
 		it('should refuse ids that are not there and fonts a title can not use', async () => {
 			const { cx } = studio();
 			expect(textOf(await execute(cx, { type: 'removeEntities', entityIds: ['nobody'] }))).toContain('There is nothing called nobody');
-			expect((await execute(cx, { type: 'removeLane', laneId: 'nope' })).isError).toBe(true);
+			expect((await execute(cx, { type: 'removeLane', marbleId: 'nope' })).isError).toBe(true);
 			expect((await execute(cx, { type: 'removeSource', sourceId: 'nope' })).isError).toBe(true);
 			await runTool(cx, 'run_command', { id: 'film.addText', args: { text: 'Hello' } });
 			const title = cx.project?.entities.find((entity) => entity.components.wallText != null) as TEntity;
@@ -512,19 +512,19 @@ describe('expandCommands function', () => {
 	it("should answer in words that a live Pattern's piece doesn't edit, and free it with flattenPattern", () => {
 		const base = createProject({ id: 'p', title: 'P' });
 		const bar: TEntity = { id: 'bar', name: 'Bar', components: { piece: { type: 'platform', params: { depth: 0.09 } }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
-		const project: TProject = { ...base, entities: [...base.entities, bar], groups: [{ id: 'g', name: 'Zigzag', laneId: base.music.lanes[0]?.id ?? '', from: 1, to: 2, kind: 'zigzag', width: 0.14, bounce: 0.5, pieceIds: ['bar'] }] };
+		const project: TProject = { ...base, entities: [...base.entities, bar], groups: [{ id: 'g', name: 'Zigzag', marbleId: base.music.lanes[0]?.id ?? '', from: 1, to: 2, kind: 'zigzag', width: 0.14, bounce: 0.5, pieceIds: ['bar'] }] };
 		const moved: TEntity = { ...bar, components: { ...bar.components, transform: { position: { x: 1, y: 0 }, angle: 0 } } };
 		const deeper: TEntity = { ...bar, components: { ...bar.components, piece: { type: 'platform', params: { depth: 0.05 } } } };
 
 		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: moved }])[1]?.message).toContain('Part of Zigzag. Flatten to edit it.');
 		expect(expandCommands(project, null, [], [{ type: 'removeEntities', entityIds: ['bar'] }])[0]).toBe(true);
 		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: deeper }])[0]).toBe(true);
-		expect(expandCommands(project, null, [], [{ type: 'flattenPattern', groupId: 'g' }])[2]?.commands).toEqual([{ type: 'upsertGroup', group: { id: 'g', name: 'Zigzag', laneId: base.music.lanes[0]?.id ?? '', pieceIds: ['bar'] } }]);
+		expect(expandCommands(project, null, [], [{ type: 'flattenPattern', groupId: 'g' }])[2]?.commands).toEqual([{ type: 'upsertGroup', group: { id: 'g', name: 'Zigzag', marbleId: base.music.lanes[0]?.id ?? '', pieceIds: ['bar'] } }]);
 	});
 
 	it('should refuse what it can\'t do in plain words', () => {
-		const { project, laneId, hitId } = projectWithHit();
-		expect(expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform', hit: { laneId, hitId } }])[1]?.message).toContain('no dot yet');
+		const { project, marbleId, hitId } = projectWithHit();
+		expect(expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId } }])[1]?.message).toContain('no dot yet');
 		expect(expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform' }])[1]?.message).toContain('hit or a position');
 		expect(expandCommands(project, null, [], [{ type: 'applySkin', assetId: 'gone', pieceType: 'platform' }])[1]?.message).toContain('add_asset');
 		expect(expandCommands(project, null, [], [{ type: 'placeDecor', source: 'gone', at: { x: 0, y: 0 } }])[1]?.message).toContain("isn't a Decor item");

@@ -4,14 +4,14 @@ import { createProject, type TGroup, type TProject, parseRangeKey, toGroupKey, t
 import { inspectorTarget } from './inspector-target';
 import { buildOutline, defaultCollapsed } from './outline';
 
-const group: TGroup = { id: 'g1', name: 'Zigzag', laneId: 'lane', from: 1, to: 2, kind: 'zigzag', width: 0.14, bounce: 0.5, pieceIds: ['p1', 'p2'] };
+const group: TGroup = { id: 'g1', name: 'Zigzag', marbleId: 'lane', from: 1, to: 2, kind: 'zigzag', width: 0.14, bounce: 0.5, pieceIds: ['p1', 'p2'] };
 
 function project(): TProject {
 	const base = createProject({ id: 'p', title: 'P' });
 	const lane = { ...base.music.lanes[0], id: 'lane', hits: [1, 2, 3, 5].map((time, index) => ({ id: `h${index + 1}`, time })) } as TProject['music']['lanes'][number];
 	const marble = base.entities[0] as TProject['entities'][number];
-	const piece = (id: string, hitId: string): TProject['entities'][number] => ({ id, name: id, components: { piece: { type: 'platform', params: {} }, hitLink: { laneId: 'lane', hitId, angle: 0, contactAt: 0.5 } } });
-	return { ...base, music: { ...base.music, lanes: [lane] }, entities: [{ ...marble, components: { ...marble.components, marble: { radius: 0.012, laneId: 'lane' } } }, piece('p1', 'h1'), piece('p2', 'h2'), piece('p3', 'h3')], groups: [group] };
+	const piece = (id: string, hitId: string): TProject['entities'][number] => ({ id, name: id, components: { piece: { type: 'platform', params: {} }, hitLink: { marbleId: 'lane', hitId, angle: 0, contactAt: 0.5 } } });
+	return { ...base, music: { ...base.music, lanes: [lane] }, entities: [{ ...marble, components: { ...marble.components, marble: { radius: 0.012, marbleId: 'lane' } } }, piece('p1', 'h1'), piece('p2', 'h2'), piece('p3', 'h3')], groups: [group] };
 }
 
 describe('Pattern selection', () => {
@@ -21,13 +21,13 @@ describe('Pattern selection', () => {
 
 	it('should keep a strip range over silence as a range the inspector can show', () => {
 		const [key = ''] = rangeSelection(project(), 'lane', 3.2, 4.8);
-		expect(parseRangeKey(key)).toEqual({ laneId: 'lane', from: 3.2, to: 4.8 });
-		expect(inspectorTarget(project(), [key], 'track')).toEqual({ kind: 'patternRange', laneId: 'lane', from: 3.2, to: 4.8 });
-		expect(patternTargets(project(), [key])).toEqual([{ laneId: 'lane', from: 3.2, to: 4.8 }]);
+		expect(parseRangeKey(key)).toEqual({ marbleId: 'lane', from: 3.2, to: 4.8 });
+		expect(inspectorTarget(project(), [key], 'track')).toEqual({ kind: 'patternRange', marbleId: 'lane', from: 3.2, to: 4.8 });
+		expect(patternTargets(project(), [key])).toEqual([{ marbleId: 'lane', from: 3.2, to: 4.8 }]);
 	});
 
 	it('should offer one range per marble from selected hits', () => {
-		expect(patternTargets(project(), [toHitKey('lane', 'h3'), toHitKey('lane', 'h1')])).toEqual([{ laneId: 'lane', from: 1, to: 3 }]);
+		expect(patternTargets(project(), [toHitKey('lane', 'h3'), toHitKey('lane', 'h1')])).toEqual([{ marbleId: 'lane', from: 1, to: 3 }]);
 	});
 
 	it('should show a Group in Track and its pieces in Film', () => {

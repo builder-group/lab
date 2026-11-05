@@ -8,7 +8,7 @@ import { fitBounds, isBoundsVisible, type TBounds, type TPadding, type TView, ty
 /** Marble center at `time`, interpolated between samples. Before release it waits at its release point. */
 /** The lanes of the marbles the eye in Layers hides: their trajectories and dots go with them */
 export function hiddenMarbleLanes(project: TProject, hidden: readonly string[]): Set<string> {
-	return new Set(project.entities.flatMap((entity) => (entity.components.marble != null && hidden.includes(entity.id) ? [entity.components.marble.laneId] : [])));
+	return new Set(project.entities.flatMap((entity) => (entity.components.marble != null && hidden.includes(entity.id) ? [entity.components.marble.marbleId] : [])));
 }
 
 export function marblePositionAt(track: TMarbleTrack | undefined, time: number, release: TVec2): TVec2 {
@@ -203,15 +203,15 @@ export function contentBounds(project: TProject, result: TSimulationResult | nul
  */
 function workEnds(hits: readonly THitResult[]): Map<string, number> {
 	const placed = new Map<string, number>();
-	for (const hit of hits) if (hit.pieceEntityId != null) placed.set(hit.laneId, Math.max(placed.get(hit.laneId) ?? -Infinity, hit.targetTime));
+	for (const hit of hits) if (hit.pieceEntityId != null) placed.set(hit.marbleId, Math.max(placed.get(hit.marbleId) ?? -Infinity, hit.targetTime));
 	const ends = new Map(placed);
 	for (const hit of hits) {
 		if (hit.pieceEntityId != null || hit.dot == null) continue;
-		const after = placed.get(hit.laneId) ?? -Infinity;
+		const after = placed.get(hit.marbleId) ?? -Infinity;
 		if (hit.targetTime <= after) continue;
-		const end = ends.get(hit.laneId);
+		const end = ends.get(hit.marbleId);
 		// The earliest open dot past the last placed hit
-		if (end == null || end === after || hit.targetTime < end) ends.set(hit.laneId, hit.targetTime);
+		if (end == null || end === after || hit.targetTime < end) ends.set(hit.marbleId, hit.targetTime);
 	}
 	return ends;
 }
@@ -232,10 +232,10 @@ export function fitTargets(project: TProject, result: TSimulationResult | null):
 	const work: TVec2[] = [];
 	for (const piece of result?.pieces ?? []) work.push(...pieceOutline(piece));
 	const ends = workEnds(result?.hits ?? []);
-	for (const hit of result?.hits ?? []) if (hit.dot != null && hit.targetTime <= (ends.get(hit.laneId) ?? -Infinity)) work.push(hit.dot);
+	for (const hit of result?.hits ?? []) if (hit.dot != null && hit.targetTime <= (ends.get(hit.marbleId) ?? -Infinity)) work.push(hit.dot);
 	const points = [...releases, ...work];
 	for (const track of result?.marbles ?? []) {
-		const last = ends.get(track.laneId) ?? -Infinity;
+		const last = ends.get(track.marbleId) ?? -Infinity;
 		if (!Number.isFinite(last)) continue;
 		for (let i = 0; i < track.samples.length; i += 4) {
 			const sample = track.samples[i];
@@ -267,8 +267,8 @@ export function firstHitsView(project: TProject, result: TSimulationResult, view
 	const next = new Map<string, THitResult>();
 	for (const hit of result.hits) {
 		if (hit.status !== 'open' || hit.dot == null) continue;
-		const known = next.get(hit.laneId);
-		if (known == null || hit.targetTime < known.targetTime) next.set(hit.laneId, hit);
+		const known = next.get(hit.marbleId);
+		if (known == null || hit.targetTime < known.targetTime) next.set(hit.marbleId, hit);
 	}
 	const dots = boundsOfPoints([...next.values()].flatMap((hit) => (hit.dot != null ? [hit.dot] : [])));
 	if (dots == null || isBoundsVisible(view, viewport, dots, FIRST_HITS_MARGIN)) return null;
@@ -292,7 +292,7 @@ export function firstHitsView(project: TProject, result: TSimulationResult, view
 export function struckAt(hits: readonly THitResult[], time: number): string[] {
 	return hits
 		.filter((hit) => hit.dot != null && Math.abs(hit.targetTime - time) < 1e-3)
-		.flatMap((hit) => [toHitKey(hit.laneId, hit.hitId), ...(hit.pieceEntityId != null ? [hit.pieceEntityId] : [])]);
+		.flatMap((hit) => [toHitKey(hit.marbleId, hit.hitId), ...(hit.pieceEntityId != null ? [hit.pieceEntityId] : [])]);
 }
 
 /** Time of the trajectory sample closest to `point`, or null for an empty trajectory */
@@ -465,8 +465,8 @@ export interface TPathRide {
 }
 
 /** When the lane's marble rides on a rail or tunnel floor, from the result's samples */
-export function pathRide(result: TSimulationResult, piece: TResolvedPiece, laneId: string, until: number): TPathRide {
-	const marble = result.marbles.find((track) => track.laneId === laneId);
+export function pathRide(result: TSimulationResult, piece: TResolvedPiece, marbleId: string, until: number): TPathRide {
+	const marble = result.marbles.find((track) => track.marbleId === marbleId);
 	const paths = piece.paths ?? (piece.path != null ? [piece.path] : []);
 	const from = (pieceTime(piece) ?? 0) - 2 / PHYSICS_HZ;
 	if (marble == null || !paths.some((path) => path.length >= 2)) return { enter: null, leave: null };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LANE_SPACING } from '@/modules/project';
+import { MARBLE_SPACING } from '@/modules/project';
 import { createBareRunProject } from './fixture-projects';
 import { COLUMN_CLEARANCE, columnRate, descentPace, descentPoints, longGapThreshold, paceAt, paceRate, PACE_LIMIT } from './pace';
 import { frameBand } from './placement';
@@ -46,7 +46,7 @@ describe('pace', () => {
 					title: 'Pace',
 					end: 6,
 					marbles: Array.from({ length: count }, (_, i) => ({
-						x: i * LANE_SPACING,
+						x: i * MARBLE_SPACING,
 						y: 0.6,
 						releaseTime: 0,
 						hitTimes: evenTimes(9, 0.5)
@@ -108,7 +108,7 @@ describe('pace', () => {
 	});
 
 	describe('frameBand function', () => {
-		it('should give each lane its own band, LANE_SPACING apart', () => {
+		it('should give each lane its own band, MARBLE_SPACING apart', () => {
 			const project = createBareRunProject({
 			gravityScale: 1,
 				id: 'bands',
@@ -122,12 +122,12 @@ describe('pace', () => {
 			const whole = frameBand(project);
 			expect(whole.centerX).toBeCloseTo(0, 12);
 			// The band covering every lane is at least the film frame, the limit of what stays in view
-			expect(whole.halfWidth).toBeGreaterThanOrEqual(LANE_SPACING / 2 + frameBand(project, 'lane-1').halfWidth);
+			expect(whole.halfWidth).toBeGreaterThanOrEqual(MARBLE_SPACING / 2 + frameBand(project, 'lane-1').halfWidth);
 			// Lanes follow their releases from left to right; neighboring bands meet without a gap
 			const left = frameBand(project, 'lane-2');
 			const right = frameBand(project, 'lane-1');
-			expect(left.centerX).toBeCloseTo(-LANE_SPACING / 2, 12);
-			expect(right.centerX).toBeCloseTo(LANE_SPACING / 2, 12);
+			expect(left.centerX).toBeCloseTo(-MARBLE_SPACING / 2, 12);
+			expect(right.centerX).toBeCloseTo(MARBLE_SPACING / 2, 12);
 			expect(left.centerX + left.halfWidth).toBeGreaterThanOrEqual(right.centerX - right.halfWidth - 1e-12);
 			// One marble gets the film frame: 0.45 m at 1.263 m through the 85 mm lens, wider further away
 			const single = createBareRunProject({

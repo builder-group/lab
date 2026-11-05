@@ -60,7 +60,7 @@
 			"name": "Marble 1",
 			"components": {
 				"marble": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"radius": 0.012
 				},
 				"release": {
@@ -90,7 +90,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-1",
 					"angle": 0.33161255787892263,
 					"contactAt": 0.5
@@ -112,7 +112,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-2",
 					"angle": -0.6981317007977318,
 					"contactAt": 0.5
@@ -134,7 +134,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-3",
 					"angle": 0.5,
 					"contactAt": 0.5
@@ -170,7 +170,7 @@
 					]
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-3",
 					"angle": -0.20943951023931956,
 					"contactAt": 0.5
@@ -192,7 +192,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-4",
 					"angle": 0.6981317007977318,
 					"contactAt": 0.5
@@ -214,7 +214,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-5",
 					"angle": -0.13962634015954636,
 					"contactAt": 0.5
@@ -236,7 +236,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-6",
 					"angle": -0.4,
 					"contactAt": 0.5
@@ -273,7 +273,7 @@
 					]
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-6",
 					"angle": 0.20943951023931956,
 					"contactAt": 0.5
@@ -295,7 +295,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-7",
 					"angle": -0.6981317007977318,
 					"contactAt": 0.5
@@ -317,7 +317,7 @@
 					}
 				},
 				"hitLink": {
-					"laneId": "lane-1",
+					"marbleId": "lane-1",
 					"hitId": "hit-1-8",
 					"angle": 0.08726646259971647,
 					"contactAt": 0.5

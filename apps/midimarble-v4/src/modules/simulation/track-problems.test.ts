@@ -13,8 +13,8 @@ function project(hitIds: string[]): TProject {
 		design: { camera: { pitch: 1.15 } },
 		music: { lanes: [{ id: 'lane', name: 'Melody', hits: hitIds.map((id, index) => ({ id, time: index + 1 })) }] },
 		entities: [
-			{ id: 'marble', components: { marble: { laneId: 'lane', radius: 0.012 } } },
-			...hitIds.map((id) => ({ id: `piece-${id}`, components: { piece: { type: 'platform', params: {} }, hitLink: { laneId: 'lane', hitId: id, angle: 0, contactAt: 0.5 } } }))
+			{ id: 'marble', components: { marble: { marbleId: 'lane', radius: 0.012 } } },
+			...hitIds.map((id) => ({ id: `piece-${id}`, components: { piece: { type: 'platform', params: {} }, hitLink: { marbleId: 'lane', hitId: id, angle: 0, contactAt: 0.5 } } }))
 		]
 	} as unknown as TProject;
 }
@@ -23,9 +23,9 @@ function run(pieces: TResolvedPiece[], contacts: { time: number; other: string; 
 	return {
 		duration: 10,
 		pieces,
-		marbles: [{ entityId: 'marble', laneId: 'lane', radius: 0.012, samples: [] }],
+		marbles: [{ entityId: 'marble', marbleId: 'lane', radius: 0.012, samples: [] }],
 		contacts: contacts.map((contact) => ({ time: contact.time, marbleEntityId: 'marble', otherEntityId: contact.other, kind: 'piece', position: { x: 0, y: 0 }, speed: contact.speed ?? 1 })),
-		hits: Object.entries(times).map(([hitId, time]) => ({ laneId: 'lane', hitId, targetTime: time, pieceEntityId: `piece-${hitId}`, dot: { x: 0, y: 0 }, velocity: null, actualTime: time, error: 0, status: 'onTime' }))
+		hits: Object.entries(times).map(([hitId, time]) => ({ marbleId: 'lane', hitId, targetTime: time, pieceEntityId: `piece-${hitId}`, dot: { x: 0, y: 0 }, velocity: null, actualTime: time, error: 0, status: 'onTime' }))
 	} as unknown as TSimulationResult;
 }
 
@@ -85,7 +85,7 @@ describe('rollingHits function', () => {
 			if (entity.id === 'piece-a' && entity.components.piece != null) entity.components.piece.type = type;
 		});
 		const result = run([piece], [{ time: 1, other: 'piece-a' }], { a: 1, b: 1.5 });
-		return { project: base, result: { ...result, marbles: [{ entityId: 'marble', laneId: 'lane', radius: 0.012, samples }] } as unknown as TSimulationResult };
+		return { project: base, result: { ...result, marbles: [{ entityId: 'marble', marbleId: 'lane', radius: 0.012, samples }] } as unknown as TSimulationResult };
 	}
 
 	it('should name a marble that stays on its platform after the note', () => {

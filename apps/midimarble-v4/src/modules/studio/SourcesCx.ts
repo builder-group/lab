@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
-import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, mixToMono, parseMidiFile, laneNamesFromTracks, proposeLanes, type TMidiFile, type TMidiNote, type TProposeLanesOptions } from '@/modules/music';
+import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
 import { createId, type TProject, type TSource, SONG_KEY } from '@/modules/project';
 import { deleteSongCommands, deleteSongNotice, deleteSongQuestion, hasSongLayer } from './song-layer';
 import type { StudioCx } from './StudioCx';
@@ -41,7 +41,7 @@ export class SourcesCx {
 			file,
 			midi,
 			trackIds: (melodic.length ? melodic : midi.tracks).map((track) => track.id),
-			options: { strategy: 'split', maxLanes: 4 }
+			options: { strategy: 'split', maxMarbles: 4 }
 		});
 	}
 
@@ -202,7 +202,7 @@ export interface TMidiImport {
 	file: THostPickedFile;
 	midi: TMidiFile;
 	trackIds: string[];
-	options: TProposeLanesOptions;
+	options: TProposeMarblesOptions;
 }
 
 export interface TSourceAnalysis {
@@ -232,9 +232,9 @@ export function previewMidiImport(pending: TMidiImport): TMidiImportPreview {
 	const chosen = melodic.filter((track) => pending.trackIds.includes(track.id));
 	const others = melodic.filter((track) => !pending.trackIds.includes(track.id));
 	const shifted = chosen.map((track) => ({ ...track, notes: shift(track.notes) }));
-	const proposal = proposeLanes(shifted.flatMap((track) => track.notes), pending.options);
+	const proposal = proposeMarbles(shifted.flatMap((track) => track.notes), pending.options);
 	const backing = [...proposal.backing.map((item) => item.note), ...shift(others.flatMap((track) => track.notes))].sort((a, b) => a.time - b.time || b.pitch - a.pitch);
-	return { lanes: proposal.lanes, names: laneNamesFromTracks(proposal.lanes, shifted), backing, offset };
+	return { lanes: proposal.lanes, names: marbleNamesFromTracks(proposal.lanes, shifted), backing, offset };
 }
 
 export interface TMidiImportPreview {

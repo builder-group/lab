@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Midi } from '@tonejs/midi';
-import { alignNotes, laneNamesFromTracks, MIN_HIT_GAP, proposeLanes } from './lane-proposal';
+import { alignNotes, marbleNamesFromTracks, MIN_HIT_GAP, proposeMarbles } from './marble-proposal';
 import { parseMidiFile, type TMidiNote } from './midi';
 
 function note(time: number, pitch: number): TMidiNote {
@@ -11,17 +11,17 @@ function gaps(lane: TMidiNote[]): number[] {
 	return lane.slice(1).map((item, index) => item.time - (lane[index]?.time ?? 0));
 }
 
-describe('proposeLanes', () => {
+describe('proposeMarbles', () => {
 	it('keeps a monophonic melody on one marble', () => {
 		const notes = [note(0, 60), note(0.25, 62), note(0.5, 64)];
-		const proposal = proposeLanes(notes);
+		const proposal = proposeMarbles(notes);
 		expect(proposal.lanes).toHaveLength(1);
 		expect(proposal.backing).toEqual([]);
 	});
 
 	it('spreads chords across marbles and respects the minimum gap', () => {
 		const notes = [note(0, 72), note(0, 64), note(0, 60), note(0.5, 74), note(0.5, 65), note(0.6, 76)];
-		const proposal = proposeLanes(notes, { maxLanes: 4 });
+		const proposal = proposeMarbles(notes, { maxMarbles: 4 });
 		expect(proposal.lanes.length).toBe(3);
 		for (const lane of proposal.lanes) {
 			for (const gap of gaps(lane)) expect(gap).toBeGreaterThanOrEqual(MIN_HIT_GAP - 1e-9);
@@ -31,19 +31,19 @@ describe('proposeLanes', () => {
 	});
 
 	it('keeps the highest note on the first marble', () => {
-		const proposal = proposeLanes([note(0, 60), note(0, 72), note(1, 62), note(1, 74)]);
+		const proposal = proposeMarbles([note(0, 60), note(0, 72), note(1, 62), note(1, 74)]);
 		expect(proposal.lanes[0]?.map((item) => item.pitch)).toEqual([72, 74]);
 	});
 
 	it('drops notes when voices exceed the marble limit', () => {
 		const chord = [note(0, 60), note(0, 64), note(0, 67), note(0, 72)];
-		const proposal = proposeLanes(chord, { maxLanes: 2 });
+		const proposal = proposeMarbles(chord, { maxMarbles: 2 });
 		expect(proposal.lanes).toHaveLength(2);
 		expect(proposal.backing.map((item) => item.reason)).toEqual(['tooManyVoices', 'tooManyVoices']);
 	});
 
 	it('keeps only top notes in melody mode', () => {
-		const proposal = proposeLanes([note(0, 60), note(0, 72), note(0.1, 74), note(0.4, 70)], { strategy: 'melody' });
+		const proposal = proposeMarbles([note(0, 60), note(0, 72), note(0.1, 74), note(0.4, 70)], { strategy: 'melody' });
 		expect(proposal.lanes).toHaveLength(1);
 		expect(proposal.lanes[0]?.map((item) => item.pitch)).toEqual([72, 70]);
 		expect(proposal.backing.map((item) => item.reason).sort()).toEqual(['chord', 'tooClose']);
@@ -79,18 +79,18 @@ describe('parseMidiFile', () => {
 	});
 });
 
-describe('laneNamesFromTracks', () => {
+describe('marbleNamesFromTracks', () => {
 	const melody = [note(0, 72), note(1, 74)];
 	const bass = [note(0, 40), note(1, 42)];
 
 	it('should name each marble after the track most of its notes come from', () => {
 		const tracks = [{ name: 'Melody', hasName: true, notes: melody }, { name: 'Bass', hasName: true, notes: bass }];
-		expect(laneNamesFromTracks([melody, bass], tracks)).toEqual(['Melody', 'Bass']);
+		expect(marbleNamesFromTracks([melody, bass], tracks)).toEqual(['Melody', 'Bass']);
 	});
 
 	it('should keep Marble 1 for a track the file does not name, or that two marbles share', () => {
-		expect(laneNamesFromTracks([melody], [{ name: 'glockenspiel', hasName: false, notes: melody }])).toEqual([null]);
-		expect(laneNamesFromTracks([[melody[0] as TMidiNote], [melody[1] as TMidiNote]], [{ name: 'Piano', hasName: true, notes: melody }])).toEqual([null, null]);
+		expect(marbleNamesFromTracks([melody], [{ name: 'glockenspiel', hasName: false, notes: melody }])).toEqual([null]);
+		expect(marbleNamesFromTracks([[melody[0] as TMidiNote], [melody[1] as TMidiNote]], [{ name: 'Piano', hasName: true, notes: melody }])).toEqual([null, null]);
 	});
 
 	it('should name the lanes of a real MIDI file from its tracks', () => {
@@ -106,7 +106,7 @@ describe('laneNamesFromTracks', () => {
 		const [isParsedOk, , midi] = parseMidiFile(file.toArray());
 		expect(isParsedOk).toBe(true);
 		const tracks = midi?.tracks ?? [];
-		const { lanes } = proposeLanes(tracks.flatMap((track) => track.notes));
-		expect(laneNamesFromTracks(lanes, tracks)).toEqual(['Melody', 'Bass']);
+		const { lanes } = proposeMarbles(tracks.flatMap((track) => track.notes));
+		expect(marbleNamesFromTracks(lanes, tracks)).toEqual(['Melody', 'Bass']);
 	});
 });

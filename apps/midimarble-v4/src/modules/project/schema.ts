@@ -41,7 +41,7 @@ export const STempo = z.strictObject({
 });
 
 const SMarbleComponent = z.strictObject({
-	laneId: SId,
+	marbleId: SId,
 	radius: z.number().positive()
 });
 
@@ -66,7 +66,7 @@ const STransformComponent = z.strictObject({
 });
 
 const SHitLinkComponent = z.strictObject({
-	laneId: SId,
+	marbleId: SId,
 	hitId: SId,
 	// Absolute surface angle in radians. Reflow moves the piece along the trajectory and keeps this angle.
 	angle: z.number(),
@@ -380,7 +380,7 @@ export const BACKING_ID = 'backing';
 const SPatternGroup = z.strictObject({
 	id: SId,
 	name: z.string(),
-	laneId: SId,
+	marbleId: SId,
 	from: z.number(),
 	to: z.number(),
 	kind: z.enum(['zigzag', 'staircase', 'longRail']),
@@ -393,11 +393,11 @@ const SPatternGroup = z.strictObject({
 	problems: z.array(z.strictObject({ hitId: z.string(), words: z.string() })).optional()
 });
 
-// A Group with no Pattern, made by hand or left by a Flatten. `laneId` while its pieces are one marble's
+// A Group with no Pattern, made by hand or left by a Flatten. `marbleId` while its pieces are one marble's
 const SPlainGroup = z.strictObject({
 	id: SId,
 	name: z.string(),
-	laneId: SId.optional(),
+	marbleId: SId.optional(),
 	pieceIds: z.array(SId)
 });
 

@@ -2,9 +2,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { NO_BLENDER_OBJECTS, preflightExport } from './export-preflight';
 import { BOWL_TAIL, projectSongEnd } from '@/modules/music';
 import { type TProject } from '@/modules/project';
-import { bowlCatch, bowlOfLane, createSimulator, type TSimulator } from '@/modules/simulation';
-import { findBowl, bowlFix, lanesWithoutBowl } from './bowl-assist';
-import { asLaneBowl } from '@/modules/track';
+import { bowlCatch, bowlOfMarble, createSimulator, type TSimulator } from '@/modules/simulation';
+import { findBowl, bowlFix, marblesWithoutBowl } from './bowl-assist';
+import { asMarbleBowl } from '@/modules/track';
 import { loadFixture } from '@/modules/project/test-helpers';
 
 function withoutBowls(project: TProject): TProject {
@@ -22,10 +22,10 @@ describe('Add Bowl', () => {
 	it('offers a Bowl for each marble that plays last and has none', () => {
 		const duet = withoutBowls(loadFixture('two-marbles'));
 		// Their last notes lie closer together than the Bowl's tail, so both play last
-		expect(lanesWithoutBowl(duet)).toEqual(['lane-1', 'lane-2']);
+		expect(marblesWithoutBowl(duet)).toEqual(['lane-1', 'lane-2']);
 		// With Marble 2's last note later than that, only it does
-		expect(lanesWithoutBowl({ ...duet, music: { ...duet.music, lanes: duet.music.lanes.map((lane) => (lane.id === 'lane-2' ? { ...lane, hits: [...lane.hits, { id: 'late', time: 5 }] } : lane)) } })).toEqual(['lane-2']);
-		expect(lanesWithoutBowl(loadFixture('two-marbles'))).toEqual([]);
+		expect(marblesWithoutBowl({ ...duet, music: { ...duet.music, lanes: duet.music.lanes.map((lane) => (lane.id === 'lane-2' ? { ...lane, hits: [...lane.hits, { id: 'late', time: 5 }] } : lane)) } })).toEqual(['lane-2']);
+		expect(marblesWithoutBowl(loadFixture('two-marbles'))).toEqual([]);
 	});
 
 	it('places a Bowl on the fall after the last note that catches the marble and breaks no hit', async () => {
@@ -52,7 +52,7 @@ describe('Add Bowl', () => {
 		const result = simulator.simulate(project);
 		expect(result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(6);
 		for (const lane of project.music.lanes) {
-			const bowl = bowlOfLane(project, lane.id);
+			const bowl = bowlOfMarble(project, lane.id);
 			expect(bowl, lane.name).toBeDefined();
 			expect(bowlCatch(result, bowl?.id ?? '').status).toBe('caught');
 		}
@@ -87,10 +87,10 @@ describe('Add Bowl', () => {
 
 	it('keeps one Bowl per marble: a new one for a marble moves its own', () => {
 		const duet = loadFixture('two-marbles');
-		const own = bowlOfLane(duet, 'lane-1');
-		const dropped = asLaneBowl(
+		const own = bowlOfMarble(duet, 'lane-1');
+		const dropped = asMarbleBowl(
 			duet,
-			{ id: 'piece-new', name: 'Bowl 3', components: { piece: { type: 'bowl', params: { entryDelay: 0.5 } }, hitLink: { laneId: 'lane-1', hitId: 'hit-1-2', angle: 0, contactAt: 0.5 } } },
+			{ id: 'piece-new', name: 'Bowl 3', components: { piece: { type: 'bowl', params: { entryDelay: 0.5 } }, hitLink: { marbleId: 'lane-1', hitId: 'hit-1-2', angle: 0, contactAt: 0.5 } } },
 			{ x: -0.4, y: -1 }
 		);
 		expect(dropped.id).toBe(own?.id);

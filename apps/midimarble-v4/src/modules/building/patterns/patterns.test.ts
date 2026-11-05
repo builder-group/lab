@@ -30,8 +30,8 @@ function smallProject(times: number[], id = 'small'): TProject {
 	const marble = project.entities[0]!;
 	return apply(project, [
 		{ type: 'upsertLane', lane: { ...lane, id: LANE, hits: times.map((time, index) => ({ id: `h${index + 1}`, time })) } },
-		{ type: 'removeLane', laneId: lane.id },
-		{ type: 'upsertEntity', entity: { ...marble, components: { marble: { ...marble.components.marble!, laneId: LANE }, release: { position: { x: 0, y: 0.6 }, time: times[0]! - 0.35 } } } },
+		{ type: 'removeLane', marbleId: lane.id },
+		{ type: 'upsertEntity', entity: { ...marble, components: { marble: { ...marble.components.marble!, marbleId: LANE }, release: { position: { x: 0, y: 0.6 }, time: times[0]! - 0.35 } } } },
 		{ type: 'setEnd', end: times.at(-1)! + 0.6 }
 	]);
 }
@@ -41,7 +41,7 @@ const ids = (from: number, to: number): string[] => Array.from({ length: to - fr
 describe('fitPattern function', () => {
 	it('should play every note of a Zigzag on time in two straight columns', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
-		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', width: 0.14, drop: 0.08, barDepth: 0.03 }, { sim });
+		const fit = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 6), kind: 'zigzag', width: 0.14, drop: 0.08, barDepth: 0.03 }, { sim });
 		const measures = measurePattern(fit.project, sim.simulate(fit.project), LANE);
 
 		expect(fit.problems).toEqual([]);
@@ -54,8 +54,8 @@ describe('fitPattern function', () => {
 
 	it('should default a Zigzag to tight columns, and build any Width asked exactly', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
-		const tight = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag' }, { sim });
-		const wide = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', width: 0.17 }, { sim });
+		const tight = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 6), kind: 'zigzag' }, { sim });
+		const wide = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 6), kind: 'zigzag', width: 0.17 }, { sim });
 		// Where the marble strikes is what's solved: a quarter of a bar inside each bar's center
 		const apart = (fit: typeof tight): number => {
 			const hits = sim.simulate(fit.project).hits;
@@ -72,8 +72,8 @@ describe('fitPattern function', () => {
 	it('should share the fall a longer hop needs with the hop before it, and fit the same way twice', () => {
 		// A marble can't leave a bar faster than it landed: 0.235 s hops, then 0.37 and 0.59 s, must fall about 0.36 m at Gravity 1
 		const project = { ...smallProject([1, 1.235, 1.47, 1.843, 2.43, 2.8]), physics: { gravityScale: 1 } };
-		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', drop: 0.08 }, { sim });
-		const again = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', drop: 0.08 }, { sim });
+		const fit = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 6), kind: 'zigzag', drop: 0.08 }, { sim });
+		const again = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 6), kind: 'zigzag', drop: 0.08 }, { sim });
 		const measures = measurePattern(fit.project, sim.simulate(fit.project), LANE);
 
 		expect(measures.onTime).toBe(6);
@@ -83,7 +83,7 @@ describe('fitPattern function', () => {
 
 	it('should keep Length and Depth asked for, with the strike on the bar', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2]);
-		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 4), kind: 'zigzag', width: 0.14, drop: 0.08, barLength: 0.04, barDepth: 0.03 }, { sim });
+		const fit = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 4), kind: 'zigzag', width: 0.14, drop: 0.08, barLength: 0.04, barDepth: 0.03 }, { sim });
 
 		expect(fit.entities.map((entity) => entity.components.piece?.params['length'])).toEqual([0.04, 0.04, 0.04, 0.04]);
 		expect(fit.entities.map((entity) => entity.components.piece?.params['depth'])).toEqual([0.03, 0.03, 0.03, 0.03]);
@@ -92,7 +92,7 @@ describe('fitPattern function', () => {
 
 	it('should step sideways by Width in a Staircase', () => {
 		const project = smallProject([1, 1.5, 2, 2.5, 3]);
-		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 5), kind: 'staircase', width: 0.09, drop: 0.12 }, { sim });
+		const fit = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 5), kind: 'staircase', width: 0.09, drop: 0.12 }, { sim });
 		const result = sim.simulate(fit.project);
 		const dots = result.hits.map((hit) => hit.dot?.x ?? 0);
 
@@ -103,7 +103,7 @@ describe('fitPattern function', () => {
 
 	it('should say in words why a hop can not fit, instead of falling back silently', () => {
 		const project = smallProject([1, 1.14, 1.28, 1.42, 1.56]);
-		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, maxTries: 1 }, { sim });
+		const fit = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, maxTries: 1 }, { sim });
 
 		expect(fit.width).toBeCloseTo(0.3, 5);
 		expect(fit.problems.length).toBeGreaterThan(0);
@@ -112,8 +112,8 @@ describe('fitPattern function', () => {
 
 	it('should build the Width asked, tilt past the usual limit only when asked, and offer a Width that fits in words', () => {
 		const project = smallProject([1, 1.14, 1.28, 1.42, 1.56]);
-		const usual = fitPattern({ project, laneId: LANE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, offersNearestWidth: true }, { sim });
-		const steep = fitPattern({ project, laneId: LANE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, maxTilt: 70 }, { sim });
+		const usual = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, offersNearestWidth: true }, { sim });
+		const steep = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, maxTilt: 70 }, { sim });
 		const steepest = (fit: typeof usual): number => Math.max(...fit.entities.map((entity) => Math.abs(entity.components.hitLink?.angle ?? 0) * (180 / Math.PI)));
 
 		expect(usual.width).toBe(0.3);
@@ -126,8 +126,8 @@ describe('fitPattern function', () => {
 
 	it('should fill a long silence with a Long Rail that lets go in time for the next note', () => {
 		const project = smallProject([1, 2.2]);
-		const placed = fitPattern({ project, laneId: LANE, hitIds: ['h1'], kind: 'zigzag', width: 0.14, drop: 0.08 }, { sim });
-		const rail = fitPattern({ project: placed.project, laneId: LANE, hitIds: ['h1', 'h2'], kind: 'longRail' }, { sim });
+		const placed = fitPattern({ project, marbleId: LANE, hitIds: ['h1'], kind: 'zigzag', width: 0.14, drop: 0.08 }, { sim });
+		const rail = fitPattern({ project: placed.project, marbleId: LANE, hitIds: ['h1', 'h2'], kind: 'longRail' }, { sim });
 		const result = sim.simulate(rail.project);
 		const free = sim.simulate(placed.project);
 		const fall = (run: typeof result): number => (run.hits[0]?.dot?.y ?? 0) - (run.hits[1]?.dot?.y ?? 0);
@@ -139,22 +139,22 @@ describe('fitPattern function', () => {
 
 	it('should use a Switchback for a silence over the rail limit', () => {
 		const project = smallProject([1, 3]);
-		const placed = fitPattern({ project, laneId: LANE, hitIds: ['h1'], kind: 'zigzag', width: 0.14, drop: 0.08 }, { sim });
-		const rail = fitPattern({ project: placed.project, laneId: LANE, hitIds: ['h1', 'h2'], kind: 'longRail' }, { sim });
+		const placed = fitPattern({ project, marbleId: LANE, hitIds: ['h1'], kind: 'zigzag', width: 0.14, drop: 0.08 }, { sim });
+		const rail = fitPattern({ project: placed.project, marbleId: LANE, hitIds: ['h1', 'h2'], kind: 'longRail' }, { sim });
 
 		expect(rail.entities[0]?.components.piece?.layout).toBe('switchback');
 	});
 
 	it('should use the same bounce on every bar when one is given', () => {
 		const project = smallProject([1, 1.4, 1.8]);
-		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 3), kind: 'zigzag', width: 0.14, bounce: 0.6, maxTries: 1 }, { sim });
+		const fit = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 3), kind: 'zigzag', width: 0.14, bounce: 0.6, maxTries: 1 }, { sim });
 		expect(fit.drop).toBeNull();
 		expect(fit.entities[0]?.components.piece?.params['bounce']).toBeCloseTo(0.6, 1);
 	});
 });
 
 describe('runGroupChange function', () => {
-	const change = { laneId: LANE, from: 1, to: 2.2, kind: 'zigzag' as const, width: 0.14, bounce: 0.5 };
+	const change = { marbleId: LANE, from: 1, to: 2.2, kind: 'zigzag' as const, width: 0.14, bounce: 0.5 };
 
 	it('should make one Group named after the Pattern and leave the project untouched', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2]);
@@ -207,7 +207,7 @@ describe('runGroupChange function', () => {
 		expect(patternOfPiece(first, firstGroup?.pieceIds[0] ?? '')?.id).toBe(firstGroup?.id);
 		const flat = apply(first, flattenCommands(firstGroup!));
 
-		expect(flat.groups).toEqual([{ id: firstGroup?.id, name: firstGroup?.name, laneId: LANE, pieceIds: firstGroup?.pieceIds }]);
+		expect(flat.groups).toEqual([{ id: firstGroup?.id, name: firstGroup?.name, marbleId: LANE, pieceIds: firstGroup?.pieceIds }]);
 		expect(flat.entities).toHaveLength(first.entities.length);
 		expect(patternOfPiece(flat, firstGroup?.pieceIds[0] ?? '')).toBeNull();
 		const next = apply(flat, runGroupChange(flat, { ...change, from: 2.2, to: 3 }, { sim }).commands);
@@ -251,7 +251,7 @@ describe('runGroupChange function', () => {
 	it('should say when a later Group can not fit any more', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6]);
 		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
-		const second = apply(first, [{ type: 'upsertGroup', group: { id: 'late', name: 'Long Rail', laneId: LANE, from: 2.2, to: 2.6, kind: 'longRail', width: 0.14, bounce: 0.5, pieceIds: [] } }]);
+		const second = apply(first, [{ type: 'upsertGroup', group: { id: 'late', name: 'Long Rail', marbleId: LANE, from: 2.2, to: 2.6, kind: 'longRail', width: 0.14, bounce: 0.5, pieceIds: [] } }]);
 		const earlier = second.groups?.filter(isPatternGroup).find((group) => group.from === 1);
 		const outcome = runGroupChange(second, { ...change, groupId: earlier?.id, to: 1.8, width: 0.16 }, { sim });
 		const later = outcome.later.find((item) => item.groupId === 'late');
@@ -285,8 +285,8 @@ describe('runGroupChange function', () => {
 });
 
 describe('Group commands', () => {
-	const group = { id: 'g', name: 'Zigzag', laneId: LANE, from: 1, to: 2, kind: 'zigzag' as const, width: 0.14, bounce: 0.5, pieceIds: ['a', 'b'] };
-	const piece = (id: string) => ({ id, components: { piece: { type: 'platform', params: {} }, hitLink: { laneId: LANE, hitId: 'h1', angle: 0, contactAt: 0.5 } } });
+	const group = { id: 'g', name: 'Zigzag', marbleId: LANE, from: 1, to: 2, kind: 'zigzag' as const, width: 0.14, bounce: 0.5, pieceIds: ['a', 'b'] };
+	const piece = (id: string) => ({ id, components: { piece: { type: 'platform', params: {} }, hitLink: { marbleId: LANE, hitId: 'h1', angle: 0, contactAt: 0.5 } } });
 
 	it('should forget a deleted piece and drop a Group that lost them all', () => {
 		const project = apply(smallProject([1, 2]), [{ type: 'upsertEntity', entity: piece('a') }, { type: 'upsertEntity', entity: piece('b') }, { type: 'upsertGroup', group }]);
@@ -299,6 +299,6 @@ describe('Group commands', () => {
 
 	it('should take the Groups of a removed marble with it', () => {
 		const project = apply(smallProject([1, 2]), [{ type: 'upsertGroup', group }]);
-		expect(apply(project, [{ type: 'removeLane', laneId: LANE }]).groups).toBeUndefined();
+		expect(apply(project, [{ type: 'removeLane', marbleId: LANE }]).groups).toBeUndefined();
 	});
 });

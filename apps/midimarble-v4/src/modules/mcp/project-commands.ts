@@ -18,7 +18,7 @@ export type TAgentCommand =
 			type: 'placePiece';
 			pieceType: string;
 			/** Tied to a hit, as a click on its dot ties a platform */
-			hit?: { laneId: string; hitId: string };
+			hit?: { marbleId: string; hitId: string };
 			/** A free piece at this wall point */
 			position?: TVec2;
 			/** Surface angle in radians; the app picks one for a hit without it */
@@ -66,10 +66,10 @@ const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
 	upsertSource: { schema: z.strictObject({ type: z.string(), source: SSource }), example: "{ type: 'upsertSource', source }" },
 	removeSource: { schema: z.strictObject({ type: z.string(), sourceId: z.string() }), example: "{ type: 'removeSource', sourceId }" },
 	upsertLane: { schema: z.strictObject({ type: z.string(), lane: SLane.partial({ hits: true }) }), example: "{ type: 'upsertLane', lane }" },
-	removeLane: { schema: z.strictObject({ type: z.string(), laneId: z.string() }), example: "{ type: 'removeLane', laneId }" },
-	upsertHits: { schema: z.strictObject({ type: z.string(), laneId: z.string(), hits: z.array(SHit) }), example: "{ type: 'upsertHits', laneId, hits: [{ id, time }] }" },
-	removeHits: { schema: z.strictObject({ type: z.string(), laneId: z.string(), hitIds: z.array(z.string()) }), example: "{ type: 'removeHits', laneId, hitIds: [] }" },
-	assignHits: { schema: z.strictObject({ type: z.string(), hitIds: z.array(z.string()), laneId: z.string() }), example: "{ type: 'assignHits', hitIds: [], laneId }" },
+	removeLane: { schema: z.strictObject({ type: z.string(), marbleId: z.string() }), example: "{ type: 'removeLane', marbleId }" },
+	upsertHits: { schema: z.strictObject({ type: z.string(), marbleId: z.string(), hits: z.array(SHit) }), example: "{ type: 'upsertHits', marbleId, hits: [{ id, time }] }" },
+	removeHits: { schema: z.strictObject({ type: z.string(), marbleId: z.string(), hitIds: z.array(z.string()) }), example: "{ type: 'removeHits', marbleId, hitIds: [] }" },
+	assignHits: { schema: z.strictObject({ type: z.string(), hitIds: z.array(z.string()), marbleId: z.string() }), example: "{ type: 'assignHits', hitIds: [], marbleId }" },
 	setBackingInstrument: { schema: z.strictObject({ type: z.string(), instrument: z.number().int().nullable() }), example: "{ type: 'setBackingInstrument', instrument: 0 }" },
 	upsertEntity: { schema: z.strictObject({ type: z.string(), entity: SEntity }), example: "{ type: 'upsertEntity', entity: { id, name, components } }" },
 	removeEntities: { schema: z.strictObject({ type: z.string(), entityIds: z.array(z.string()) }), example: "{ type: 'removeEntities', entityIds: [] }" },
@@ -88,8 +88,8 @@ const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
 	setPhysics: { schema: z.strictObject({ type: z.string(), physics: SPhysics }), example: "{ type: 'setPhysics', physics: { gravityScale: 0.5 } }" },
 	setTempo: { schema: z.strictObject({ type: z.string(), tempo: STempo.nullable() }), example: "{ type: 'setTempo', tempo: { bpm: 120, beatsPerBar: 4 } }" },
 	placePiece: {
-		schema: z.strictObject({ type: z.string(), pieceType: z.string(), hit: z.strictObject({ laneId: z.string(), hitId: z.string() }).optional(), position: SVec.optional(), angle: z.number().optional(), params: z.record(z.string(), z.number()).optional(), name: z.string().optional(), path: z.array(SVec).optional(), paths: z.array(z.array(SVec)).optional(), layout: z.enum(RAIL_LAYOUTS).optional() }),
-		example: "{ type: 'placePiece', pieceType: 'platform', hit: { laneId, hitId }, angle }"
+		schema: z.strictObject({ type: z.string(), pieceType: z.string(), hit: z.strictObject({ marbleId: z.string(), hitId: z.string() }).optional(), position: SVec.optional(), angle: z.number().optional(), params: z.record(z.string(), z.number()).optional(), name: z.string().optional(), path: z.array(SVec).optional(), paths: z.array(z.array(SVec)).optional(), layout: z.enum(RAIL_LAYOUTS).optional() }),
+		example: "{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId }, angle }"
 	},
 	applySkin: { schema: z.strictObject({ type: z.string(), assetId: z.string(), pieceType: z.string().optional(), entityIds: z.array(z.string()).optional() }), example: "{ type: 'applySkin', assetId, pieceType }" },
 	flattenPattern: { schema: z.strictObject({ type: z.string(), groupId: z.string() }), example: "{ type: 'flattenPattern', groupId: 'group-h1' }" },
@@ -207,7 +207,7 @@ function entityProblem(project: TProject, items: readonly TLibraryItem[], entity
 	}
 	if (marble != null) {
 		if (marble.radius < MARBLE_RADIUS.min || marble.radius > MARBLE_RADIUS.max) return `A marble's radius is in meters, from ${MARBLE_RADIUS.min} to ${MARBLE_RADIUS.max}; ${marble.radius} is outside that. get_state.marbles[].radius has the current one.`;
-		if (!project.music.lanes.some((lane) => lane.id === marble.laneId)) return `There is no lane ${marble.laneId}. get_state.marbles[].laneId lists them.`;
+		if (!project.music.lanes.some((lane) => lane.id === marble.marbleId)) return `There is no lane ${marble.marbleId}. get_state.marbles[].marbleId lists them.`;
 	}
 	return null;
 }
@@ -231,7 +231,7 @@ const NO_ENTITY = 'get_state lists them: marbles[].entityId, layers.pieces[].id,
 
 /** Why a command that fits its shape still can't run on this project: an id or value it names isn't there */
 function valueProblem(project: TProject, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], command: TAgentCommand): string | null {
-	const missingLane = (laneId: string): string | null => (laneId === 'backing' || project.music.lanes.some((lane) => lane.id === laneId) ? null : `There is no lane ${laneId}. get_state.marbles[].laneId lists them.`);
+	const missingMarble = (marbleId: string): string | null => (marbleId === 'backing' || project.music.lanes.some((lane) => lane.id === marbleId) ? null : `There is no lane ${marbleId}. get_state.marbles[].marbleId lists them.`);
 	const missingEntity = (entityId: string): string | null => (project.entities.some((entity) => entity.id === entityId) ? null : `There is nothing called ${entityId}. ${NO_ENTITY}`);
 	switch (command.type) {
 		case 'setComponent': {
@@ -263,11 +263,11 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 		case 'removeLane':
 		case 'upsertHits':
 		case 'assignHits':
-			return missingLane(command.laneId);
+			return missingMarble(command.marbleId);
 		case 'removeHits': {
-			const lane = missingLane(command.laneId);
+			const lane = missingMarble(command.marbleId);
 			if (lane != null) return lane;
-			const owner = project.music.lanes.find((item) => item.id === command.laneId);
+			const owner = project.music.lanes.find((item) => item.id === command.marbleId);
 			const missing = owner == null ? undefined : command.hitIds.find((id) => !owner.hits.some((hit) => hit.id === id));
 			return missing != null ? `There is no hit ${missing} on that lane. get_state.marbles[].hitList lists them.` : null;
 		}
@@ -397,7 +397,7 @@ function placedPiece(project: TProject, result: TSimulationResult | null, comman
 	let entity: TEntity;
 	if (command.hit != null) {
 		const hit = command.hit;
-		const target = result?.hits.find((item) => item.laneId === hit.laneId && item.hitId === hit.hitId);
+		const target = result?.hits.find((item) => item.marbleId === hit.marbleId && item.hitId === hit.hitId);
 		if (target?.dot == null) return Err(new Error(`Hit ${hit.hitId} has no dot yet. Place the hits before it first.`));
 		entity = pieceForHit(project, target, command.pieceType);
 	} else if (command.position != null) {

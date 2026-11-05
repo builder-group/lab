@@ -116,7 +116,7 @@ export const LONG_FALL = 1;
 /** A platform its own marble strikes more than the once its note asks for */
 export interface TExtraStrike {
 	entityId: string;
-	laneId: string;
+	marbleId: string;
 	hitId: string;
 	/** Every strike of the marble on it, the note's included */
 	times: number;
@@ -134,7 +134,7 @@ const SAME_STRIKE = HIT_TOLERANCE + 0.01;
  * meant to, and a free platform is scenery. A hit that is already Blocked or Missed is reported as that.
  */
 export function extraStrikes(project: TProject, result: TSimulationResult): TExtraStrike[] {
-	const marbleOf = new Map(result.marbles.map((marble) => [marble.laneId, marble.entityId]));
+	const marbleOf = new Map(result.marbles.map((marble) => [marble.marbleId, marble.entityId]));
 	const strikes: TExtraStrike[] = [];
 	for (const hit of result.hits) {
 		const entityId = hit.pieceEntityId;
@@ -142,17 +142,17 @@ export function extraStrikes(project: TProject, result: TSimulationResult): TExt
 		const entity = project.entities.find((item) => item.id === entityId);
 		const type = entity?.components.piece?.type;
 		if (type == null || layoutOf(type) !== 'box' || !soundsHit(type, entity?.components.hitLink)) continue;
-		const marbleId = marbleOf.get(hit.laneId);
+		const marbleEntityId = marbleOf.get(hit.marbleId);
 		const note = hit.actualTime;
-		const isLast = project.music.lanes.find((lane) => lane.id === hit.laneId)?.hits.at(-1)?.id === hit.hitId;
+		const isLast = project.music.lanes.find((lane) => lane.id === hit.marbleId)?.hits.at(-1)?.id === hit.hitId;
 		const extra = result.contacts.filter((contact) => {
-			if (contact.marbleEntityId !== marbleId || contact.otherEntityId !== entityId || contact.time > result.duration || Math.abs(contact.time - note) <= SAME_STRIKE) return false;
+			if (contact.marbleEntityId !== marbleEntityId || contact.otherEntityId !== entityId || contact.time > result.duration || Math.abs(contact.time - note) <= SAME_STRIKE) return false;
 			// After the marble's last note it may come to rest; only another real bounce still shows
 			return !isLast || contact.time < note || (contact.speed ?? Infinity) >= IMPACT_SPEED;
 		});
 		const first = extra[0];
 		if (first == null) continue;
-		strikes.push({ entityId, laneId: hit.laneId, hitId: hit.hitId, times: extra.length + 1, time: first.time, position: first.position });
+		strikes.push({ entityId, marbleId: hit.marbleId, hitId: hit.hitId, times: extra.length + 1, time: first.time, position: first.position });
 	}
 	return strikes.sort((a, b) => a.time - b.time);
 }
@@ -163,7 +163,7 @@ const PASS_DEPTH_RADII = 0.25;
 /** A piece whose skin a marble goes through, where it has no hitbox */
 export interface TPassThrough {
 	entityId: string;
-	laneId: string;
+	marbleId: string;
 	time: number;
 	position: TVec2;
 }
@@ -182,7 +182,7 @@ export function passThroughs(project: TProject, result: TSimulationResult): TPas
 		for (const { piece, shapes, reach } of shaped) {
 			const { x, y } = piece.position;
 			const sample = marble.samples.find(({ time, position }) => time <= result.duration && Math.abs(position.x - x) < reach && Math.abs(position.y - y) < reach && shapes.some((shape) => shapeDistance(shape, position.x, position.y) < limit));
-			if (sample != null) passes.push({ entityId: piece.entityId, laneId: marble.laneId, time: sample.time, position: sample.position });
+			if (sample != null) passes.push({ entityId: piece.entityId, marbleId: marble.marbleId, time: sample.time, position: sample.position });
 		}
 	}
 	return passes.sort((a, b) => a.time - b.time);
@@ -210,7 +210,7 @@ export function bounceTakeoff(marbleRadius: number, gravity: number): number {
 /** A platform its marble rolls along instead of bouncing off */
 export interface TRollingHit {
 	entityId: string;
-	laneId: string;
+	marbleId: string;
 	hitId: string;
 	/** Height the marble reached above the platform in the time a bounce has, in meters */
 	rise: number;
@@ -257,9 +257,9 @@ export function rollingHits(project: TProject, result: TSimulationResult): TRoll
 	const entities = new Map(project.entities.map((entity) => [entity.id, entity]));
 	const rolls: TRollingHit[] = [];
 	for (const lane of project.music.lanes) {
-		const marble = result.marbles.find((item) => item.laneId === lane.id);
+		const marble = result.marbles.find((item) => item.marbleId === lane.id);
 		if (marble == null) continue;
-		const hits = new Map(result.hits.filter((hit) => hit.laneId === lane.id).map((hit) => [hit.hitId, hit]));
+		const hits = new Map(result.hits.filter((hit) => hit.marbleId === lane.id).map((hit) => [hit.hitId, hit]));
 		lane.hits.forEach((item, index) => {
 			const hit = hits.get(item.id);
 			const following = lane.hits[index + 1];
@@ -270,7 +270,7 @@ export function rollingHits(project: TProject, result: TSimulationResult): TRoll
 			if (piece == null || type == null || layoutOf(type) !== 'box' || !soundsHit(type, entity?.components.hitLink)) return;
 			const risen = riseAfterHit(piece, marble, hit.actualTime, following.time);
 			if (risen == null || risen.isBounce) return;
-			rolls.push({ entityId: hit.pieceEntityId, laneId: lane.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? piece.position });
+			rolls.push({ entityId: hit.pieceEntityId, marbleId: lane.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? piece.position });
 		});
 	}
 	return rolls.sort((a, b) => a.time - b.time);

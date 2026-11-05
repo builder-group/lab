@@ -75,8 +75,8 @@ describe('picking', () => {
 	const scene: TPickScene = {
 		handles: [{ kind: 'rotate', entityId: 'a', position: { x: 300, y: 100 }, radius: 6 }],
 		dots: [
-			{ laneId: 'l', hitId: 'h1', position: { x: 100, y: 100 } },
-			{ laneId: 'l', hitId: 'h2', position: { x: 108, y: 100 } }
+			{ marbleId: 'l', hitId: 'h1', position: { x: 100, y: 100 } },
+			{ marbleId: 'l', hitId: 'h2', position: { x: 108, y: 100 } }
 		],
 		pieces: [
 			{
@@ -93,7 +93,7 @@ describe('picking', () => {
 
 	it('prefers handles, then the nearest dot, then pieces', () => {
 		expect(pick({ x: 303, y: 102 }, scene)).toEqual({ kind: 'rotate', entityId: 'a' });
-		expect(pick({ x: 106, y: 101 }, scene)).toEqual({ kind: 'dot', laneId: 'l', hitId: 'h2' });
+		expect(pick({ x: 106, y: 101 }, scene)).toEqual({ kind: 'dot', marbleId: 'l', hitId: 'h2' });
 		expect(pick({ x: 250, y: 100 }, scene)).toEqual({ kind: 'piece', entityId: 'a' });
 		// Thin pieces stay clickable a few pixels outside their outline
 		expect(pick({ x: 250, y: 108 }, scene)).toEqual({ kind: 'piece', entityId: 'a' });
@@ -127,7 +127,7 @@ describe('scene', () => {
 	it('interpolates the marble between samples and waits at the release before', () => {
 		const track = {
 			entityId: 'm',
-			laneId: 'l',
+			marbleId: 'l',
 			radius: 0.008,
 			samples: [0, 1, 2].map((index) => ({
 				time: index / 240,
@@ -170,7 +170,7 @@ describe('step loop', () => {
 	project.entities.push(placed);
 
 	const hit = (hitId: string, time: number, status: THitResult['status']): THitResult => ({
-		laneId: lane.id,
+		marbleId: lane.id,
 		hitId,
 		targetTime: time,
 		pieceEntityId: status === 'open' ? null : 'p1',

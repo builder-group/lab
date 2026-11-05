@@ -28,7 +28,7 @@ describe('preflightExport function on whole songs', () => {
 		const result = simulator.simulate(project);
 		const preflight = preflightExport(project, result, NO_BLENDER_OBJECTS);
 		const framing = preflight.issues.filter((issue) => issue.kind === 'framing');
-		const first = framing.find((issue) => issue.laneId === 'lane-2');
+		const first = framing.find((issue) => issue.marbleId === 'lane-2');
 
 		expect(first).toEqual(
 			expect.objectContaining({

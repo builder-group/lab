@@ -27,7 +27,7 @@ export function noteDragCommands(project: TProject, drag: { keys: string[]; delt
 				time: round(Math.max(0, hit.time + drag.delta)),
 				pitch: hit.pitch != null && range != null && drag.pitchDelta !== 0 ? clampPitch(hit.pitch + drag.pitchDelta, range) : hit.pitch
 			}));
-		return moved.length ? [{ type: 'upsertHits' as const, laneId: owner.id, hits: moved }] : [];
+		return moved.length ? [{ type: 'upsertHits' as const, marbleId: owner.id, hits: moved }] : [];
 	});
 }
 
@@ -54,7 +54,7 @@ export function snapNoteTime(time: number, bpm: number | undefined, zoom: number
  */
 export function addNoteCommands(ownerId: string, note: { time: number; pitch: number; duration: number }): { hit: THit; commands: TProjectCommand[] } {
 	const hit: THit = { id: createId('hit'), time: round(note.time), pitch: note.pitch, duration: round(note.duration) };
-	return { hit, commands: [{ type: 'upsertHits', laneId: ownerId, hits: [hit] }] };
+	return { hit, commands: [{ type: 'upsertHits', marbleId: ownerId, hits: [hit] }] };
 }
 
 /** The longest a note of this owner can be resized to: what it can sound for */

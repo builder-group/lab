@@ -1,5 +1,5 @@
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { BOWL_TYPE, extraStrikes, rollingHits, findLongGaps, freePose, getPieceDefinition, gravityOf, isMusicalPiece, gapPieceTypeOf, layoutOf, shapesBounds, shapesDistance, soundsHit, touchingPairs, trajectoryAt, transformShape, type TGapPieceType, type THitResult, type TLongGap, type TResolvedPiece, type TSimulationResult, crossesOtherLanes, openFrontiers, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
+import { BOWL_TYPE, extraStrikes, rollingHits, findLongGaps, freePose, getPieceDefinition, gravityOf, isMusicalPiece, gapPieceTypeOf, layoutOf, shapesBounds, shapesDistance, soundsHit, touchingPairs, trajectoryAt, transformShape, type TGapPieceType, type THitResult, type TLongGap, type TResolvedPiece, type TSimulationResult, crossesOtherMarbles, openFrontiers, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
 import { bowlFix, hitKeyOf, isBroken, newlyBroken } from './bowl-assist';
 import type { TBlenderObject } from '@/modules/scene';
 import { NO_BLENDER_OBJECTS, preflightExport, type TPreflightIssue, type TProblemSummary } from './export-preflight';
@@ -19,9 +19,9 @@ function needsFix(hit: THitResult): boolean {
 export function brokenHits(results: THitResult[]): THitResult[] {
 	const sorted = results.filter((hit) => hit.pieceEntityId != null).sort((a, b) => a.targetTime - b.targetTime);
 	const firstBroken = new Map<string, number>();
-	for (const hit of sorted) if (isBroken(hit) && !firstBroken.has(hit.laneId)) firstBroken.set(hit.laneId, hit.targetTime);
+	for (const hit of sorted) if (isBroken(hit) && !firstBroken.has(hit.marbleId)) firstBroken.set(hit.marbleId, hit.targetTime);
 	return sorted.filter((hit) => {
-		const from = firstBroken.get(hit.laneId);
+		const from = firstBroken.get(hit.marbleId);
 		return from != null && hit.targetTime >= from && (isBroken(hit) || hit.status === 'drifting');
 	});
 }
@@ -87,7 +87,7 @@ export function fixMessage(project: TProject, before: THitResult[], outcome: Pic
 	return `${capitalize(parts.join(' · '))}${advice}`;
 }
 
-/** How many of the `counted` hits (`laneId/hitId` keys) are no longer broken in `hits` */
+/** How many of the `counted` hits (`marbleId/hitId` keys) are no longer broken in `hits` */
 function fixedCount(counted: string[], hits: THitResult[]): number {
 	const still = new Set(brokenHits(hits).map(hitKeyOf));
 	return counted.filter((key) => !still.has(key)).length;
@@ -126,7 +126,7 @@ export function moveClear(project: TProject, result: TSimulationResult, entityId
 	const link = entity?.components.hitLink;
 	const resolved = result.pieces.find((piece) => piece.entityId === entityId);
 	if (entity == null || link == null || resolved == null) return null;
-	const ownMarble = result.marbles.find((track) => track.laneId === link.laneId)?.entityId;
+	const ownMarble = result.marbles.find((track) => track.marbleId === link.marbleId)?.entityId;
 	if (resolved.status !== 'blocked' && !strayHitters(project, result, entityId).length) return null;
 	const type = entity.components.piece?.type ?? resolved.type;
 	const time = resolved.entryTime ?? resolved.hitTime ?? 0;
@@ -197,7 +197,7 @@ export function moveClear(project: TProject, result: TSimulationResult, entityId
 		offset = { x: link.offset.x + best.d.x, y: link.offset.y + best.d.y };
 	} else {
 		// A piece placed touching the marble gets the offset that keeps its pose, then the nudge
-		const track = result.marbles.find((item) => item.laneId === link.laneId);
+		const track = result.marbles.find((item) => item.marbleId === link.marbleId);
 		const sample = track != null ? trajectoryAt(track.samples, time, gravityOf(project)) : null;
 		if (track == null || sample == null) return null;
 		const pose = freePose(entity, resolved, track.radius);
@@ -223,7 +223,7 @@ export interface TPieceFix {
 	/** The run with the fix applied */
 	run?: TSimulationResult;
 	/** What no local change can do without breaking later hits: Rebuild From Here, from this hit */
-	rebuildFrom?: { laneId: string; hitId: string };
+	rebuildFrom?: { marbleId: string; hitId: string };
 }
 
 /**
@@ -255,7 +255,7 @@ export async function fixPiece(
 	// A platform another marble hits: that marble's platform before the hit tilts so it passes clear
 	const hitter = hitters[0];
 	if (hitter == null) {
-		const hit = result.hits.find((item) => item.laneId === link.laneId && item.hitId === link.hitId);
+		const hit = result.hits.find((item) => item.marbleId === link.marbleId && item.hitId === link.hitId);
 		if (hit == null || hit.status === 'onTime') return { commands: null, message: `${name} has nothing to fix` };
 		let placed: TEntity;
 		try {
@@ -267,7 +267,7 @@ export async function fixPiece(
 		return commands.length ? { commands, message: `Placed ${name} again` } : { commands: null, message: `${name} has nothing to fix` };
 	}
 	const before = result.hits
-		.filter((hit) => hit.laneId === hitter.laneId && hit.pieceEntityId != null && hit.targetTime < hitter.time - 1e-6)
+		.filter((hit) => hit.marbleId === hitter.marbleId && hit.pieceEntityId != null && hit.targetTime < hitter.time - 1e-6)
 		.sort((a, b) => b.targetTime - a.targetTime)
 		.slice(0, 2);
 	let refused = '';
@@ -284,11 +284,11 @@ export async function fixPiece(
 		if (!commands.length) continue;
 		const what = await check(commands);
 		if (what.isClear && what.broken === 0 && what.added.length === 0) {
-			return { commands, run: what.run, message: `Placed ${pieceName(project, platform.id)} again: ${laneName(project, hitter.laneId)} now passes clear of ${name}` };
+			return { commands, run: what.run, message: `Placed ${pieceName(project, platform.id)} again: ${marbleName(project, hitter.marbleId)} now passes clear of ${name}` };
 		}
 		refused ||= what.isClear ? `${costOf(`Placing ${pieceName(project, platform.id)} again`, what)}, so nothing moved` : '';
 	}
-	return { commands: null, message: `${refused || `No new tilt of ${laneName(project, hitter.laneId)}'s platforms before it keeps ${laneName(project, hitter.laneId)} clear of ${name}`}. Drag it by hand, or move ${laneName(project, hitter.laneId)}'s platforms.` };
+	return { commands: null, message: `${refused || `No new tilt of ${marbleName(project, hitter.marbleId)}'s platforms before it keeps ${marbleName(project, hitter.marbleId)} clear of ${name}`}. Drag it by hand, or move ${marbleName(project, hitter.marbleId)}'s platforms.` };
 }
 
 /** The run of `commands`, stamped as this project's, with what it means for the piece: clear of every marble, hits broken, problems added */
@@ -311,8 +311,8 @@ function costOf(what: string, { broken, added }: Pick<TFixTrial, 'broken' | 'add
 	return broken > 0 ? `${what} would break ${broken === 1 ? 'a hit' : `${broken} hits`}` : `${what} would add a problem (${added[0]?.title ?? 'another marble'})`;
 }
 
-function laneName(project: TProject, laneId: string): string {
-	return project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the marble';
+function marbleName(project: TProject, marbleId: string): string {
+	return project.music.lanes.find((lane) => lane.id === marbleId)?.name ?? 'the marble';
 }
 
 /** Pieces a marble strikes twice or rolls on, and the later piece of each pair that touches, in time order */
@@ -338,9 +338,9 @@ async function fixProblemPiece(
 	const name = pieceName(project, entityId);
 	const entity = project.entities.find((item) => item.id === entityId);
 	const link = entity?.components.hitLink;
-	const time = result.hits.find((hit) => hit.laneId === link?.laneId && hit.hitId === link?.hitId)?.targetTime ?? Infinity;
+	const time = result.hits.find((hit) => hit.marbleId === link?.marbleId && hit.hitId === link?.hitId)?.targetTime ?? Infinity;
 	const platforms = result.hits
-		.filter((hit) => hit.laneId === link?.laneId && hit.pieceEntityId != null && hit.targetTime <= time + 1e-6)
+		.filter((hit) => hit.marbleId === link?.marbleId && hit.pieceEntityId != null && hit.targetTime <= time + 1e-6)
 		.sort((a, b) => b.targetTime - a.targetTime)
 		.slice(0, 2)
 		.flatMap((hit) => project.entities.find((item) => item.id === hit.pieceEntityId) ?? []);
@@ -404,12 +404,12 @@ async function fixProblemPiece(
 		if (settled != null) return settled;
 	}
 	// Every marble's later hits follow each tilt, so what is left is to build them again from the hit before this one
-	const hits = project.music.lanes.find((lane) => lane.id === link?.laneId)?.hits ?? [];
+	const hits = project.music.lanes.find((lane) => lane.id === link?.marbleId)?.hits ?? [];
 	const before = hits[hits.findIndex((hit) => hit.id === link?.hitId) - 1];
 	return {
 		commands: null,
 		message: `Any new tilt of ${name} moves the hits after it. Rebuild From Here keeps the track before it and builds the rest again.`,
-		...(before != null && link != null ? { rebuildFrom: { laneId: link.laneId, hitId: before.id } } : {})
+		...(before != null && link != null ? { rebuildFrom: { marbleId: link.marbleId, hitId: before.id } } : {})
 	};
 }
 
@@ -417,15 +417,15 @@ async function fixProblemPiece(
  * The other marbles that hit a piece tied to a marble, in the order they first do, as the problem model reports
  * them ("Bass hits Switchback 6 of Melody"): a marble touching another lane's piece outside a note
  */
-export function strayHitters(project: TProject, result: TSimulationResult, entityId: string): { marbleEntityId: string; laneId: string; time: number }[] {
+export function strayHitters(project: TProject, result: TSimulationResult, entityId: string): { marbleEntityId: string; marbleId: string; time: number }[] {
 	const link = project.entities.find((entity) => entity.id === entityId)?.components.hitLink;
 	if (link == null) return [];
-	const hitters = new Map<string, { marbleEntityId: string; laneId: string; time: number }>();
+	const hitters = new Map<string, { marbleEntityId: string; marbleId: string; time: number }>();
 	for (const contact of result.contacts) {
 		if (contact.otherEntityId !== entityId || contact.time > result.duration || hitters.has(contact.marbleEntityId)) continue;
-		const laneId = result.marbles.find((track) => track.entityId === contact.marbleEntityId)?.laneId;
-		if (laneId == null || laneId === link.laneId) continue;
-		hitters.set(contact.marbleEntityId, { marbleEntityId: contact.marbleEntityId, laneId, time: contact.time });
+		const marbleId = result.marbles.find((track) => track.entityId === contact.marbleEntityId)?.marbleId;
+		if (marbleId == null || marbleId === link.marbleId) continue;
+		hitters.set(contact.marbleEntityId, { marbleEntityId: contact.marbleEntityId, marbleId, time: contact.time });
 	}
 	return [...hitters.values()].sort((a, b) => a.time - b.time);
 }
@@ -449,7 +449,7 @@ export async function sceneryFix(
 	const hitters = strayHitters(project, result, entityId);
 	const isBlocked = result.pieces.find((piece) => piece.entityId === entityId)?.status === 'blocked';
 	if (!isBlocked && !hitters.length) return { commands: null, message: `${name} is clear of every run` };
-	const runs = joinWords([...new Set([link.laneId, ...hitters.map((hitter) => hitter.laneId)])].map((laneId) => laneName(project, laneId)));
+	const runs = joinWords([...new Set([link.marbleId, ...hitters.map((hitter) => hitter.marbleId)])].map((marbleId) => marbleName(project, marbleId)));
 	let refusal = '';
 	const check = async (commands: TProjectCommand[], what: string): Promise<TSimulationResult | null> => {
 		const trial = await tryOnRun(project, result, entityId, commands, deps);
@@ -459,7 +459,7 @@ export async function sceneryFix(
 	};
 
 	// A bridge suggested again for its gap, for the run without it
-	const gap = findLongGaps(project, link.laneId).find((item) => item.bridgedBy === entityId);
+	const gap = findLongGaps(project, link.marbleId).find((item) => item.bridgedBy === entityId);
 	if (gap != null && deps.gapPiece != null) {
 		const commands = await bridgeCommands({ gapPiece: deps.gapPiece, isCanceled: () => deps.isCanceled?.() === true }, project, gap, entity);
 		if (deps.isCanceled?.() === true) return { commands: null, message: '' };
@@ -691,11 +691,11 @@ async function placeAgain(fixing: TFixing, base: TProject, target: THitResult): 
 
 /** A first fall that grew long is fixed first by moving the release. False when a commit was refused. */
 async function moveReleases(fixing: TFixing, before: THitResult[] | undefined): Promise<boolean> {
-	for (const laneId of new Set(brokenHits(fixing.latest.hits).map((hit) => hit.laneId))) {
-		const commands = releaseFix(fixing.current, fixing.latest.hits, laneId, before);
+	for (const marbleId of new Set(brokenHits(fixing.latest.hits).map((hit) => hit.marbleId))) {
+		const commands = releaseFix(fixing.current, fixing.latest.hits, marbleId, before);
 		if (!commands.length) continue;
 		if (!(await commitFix(fixing, commands, false))) return false;
-		fixing.releases.push(laneId);
+		fixing.releases.push(marbleId);
 	}
 	return true;
 }
@@ -749,8 +749,8 @@ async function bridgeCommands(deps: Pick<TFixDeps, 'gapPiece'> & { isCanceled: (
 
 /** The bridge after `launch` suggested again for the run in `base`, when the hit after it needs attention */
 async function suggestBridge(fixing: TFixing, base: TProject, run: TSimulationResult, launch: THitResult): Promise<TProjectCommand[] | null> {
-	const gap = findLongGaps(base, launch.laneId).find((item) => item.fromHitId === launch.hitId && item.bridgedBy != null);
-	const after = gap == null ? undefined : run.hits.find((hit) => hit.laneId === gap.laneId && hit.hitId === gap.toHitId);
+	const gap = findLongGaps(base, launch.marbleId).find((item) => item.fromHitId === launch.hitId && item.bridgedBy != null);
+	const after = gap == null ? undefined : run.hits.find((hit) => hit.marbleId === gap.marbleId && hit.hitId === gap.toHitId);
 	const bridge = gap == null ? undefined : base.entities.find((item) => item.id === gap.bridgedBy);
 	if (gap == null || after == null || bridge == null || !needsFix(after)) return null;
 	const dot = run.hits.find((hit) => hitKeyOf(hit) === hitKeyOf(launch))?.dot;
@@ -768,7 +768,7 @@ async function suggestBridge(fixing: TFixing, base: TProject, run: TSimulationRe
  */
 async function replaceStep(fixing: TFixing, base: TProject, run: TSimulationResult, target: THitResult, turn?: number): Promise<TProjectCommand[] | null> {
 	// A launch into a bridged gap is tilted for the open gap, as Next placed it before the bridge existed
-	const gap = findLongGaps(base, target.laneId).find((item) => item.fromHitId === target.hitId && item.bridgedBy != null);
+	const gap = findLongGaps(base, target.marbleId).find((item) => item.fromHitId === target.hitId && item.bridgedBy != null);
 	let commands: TProjectCommand[];
 	if (turn != null) {
 		const entity = base.entities.find((item) => item.id === target.pieceEntityId);
@@ -789,10 +789,10 @@ async function replaceStep(fixing: TFixing, base: TProject, run: TSimulationResu
 }
 
 /** The earliest hit to work on. A marble without broken hits is done */
-function firstProblem(fixing: TFixing, run: TSimulationResult, laneId?: string): THitResult | undefined {
-	const open = run.hits.filter((hit) => hit.pieceEntityId != null && (laneId == null || hit.laneId === laneId) && hit.targetTime > (fixing.left.get(hit.laneId) ?? -Infinity) + 1e-6);
-	const lanes = new Set(open.filter(isBroken).map((hit) => hit.laneId));
-	return open.filter((hit) => lanes.has(hit.laneId) && needsFix(hit)).sort((a, b) => a.targetTime - b.targetTime)[0];
+function firstProblem(fixing: TFixing, run: TSimulationResult, marbleId?: string): THitResult | undefined {
+	const open = run.hits.filter((hit) => hit.pieceEntityId != null && (marbleId == null || hit.marbleId === marbleId) && hit.targetTime > (fixing.left.get(hit.marbleId) ?? -Infinity) + 1e-6);
+	const lanes = new Set(open.filter(isBroken).map((hit) => hit.marbleId));
+	return open.filter((hit) => lanes.has(hit.marbleId) && needsFix(hit)).sort((a, b) => a.targetTime - b.targetTime)[0];
 }
 
 /** Whether `trial` fixes `problem` without setting another marble back */
@@ -802,28 +802,28 @@ function advances(fixing: TFixing, base: TProject, trial: TSimulationResult, pro
 	const end = trial.duration - 1e-6;
 	const tried = { ...trial, hits: trial.hits.filter((hit) => hit.targetTime < end) };
 	const was = latest.hits.filter((hit) => hit.targetTime < end);
-	if ((firstProblem(fixing, tried, problem.laneId)?.targetTime ?? Infinity) <= problem.targetTime + 1e-6) return false;
+	if ((firstProblem(fixing, tried, problem.marbleId)?.targetTime ?? Infinity) <= problem.targetTime + 1e-6) return false;
 	for (const lane of base.music.lanes) {
-		if (lane.id === problem.laneId) continue;
+		if (lane.id === problem.marbleId) continue;
 		const first = firstProblem(fixing, latest, lane.id)?.targetTime ?? Infinity;
 		if ((firstProblem(fixing, tried, lane.id)?.targetTime ?? Infinity) < Math.min(first, end) - 1e-6) return false;
 	}
-	return !newlyBroken(was, tried.hits).some((hit) => hit.laneId !== problem.laneId);
+	return !newlyBroken(was, tried.hits).some((hit) => hit.marbleId !== problem.marbleId);
 }
 
 /**
  * Whether the pieces `commands` change cross another marble's run in `trial` where they did not before:
- * Auto place's own lane check (`crossesOtherLanes`), from the earliest changed piece's hit to the trial's end
+ * Auto place's own lane check (`crossesOtherMarbles`), from the earliest changed piece's hit to the trial's end
  */
-function crossesLanes(fixing: TFixing, base: TProject, trial: TSimulationResult, problem: THitResult, commands: TProjectCommand[]): boolean {
+function crossesMarbles(fixing: TFixing, base: TProject, trial: TSimulationResult, problem: THitResult, commands: TProjectCommand[]): boolean {
 	const { current, latest } = fixing;
 	const frontiers = openFrontiers(base, latest);
 	for (const id of new Set(commands.map(commandEntityId))) {
 		const link = base.entities.find((entity) => entity.id === id)?.components.hitLink;
 		if (link == null || id === '') continue;
-		const from = latest.hits.find((hit) => hit.laneId === link.laneId && hit.hitId === link.hitId)?.targetTime ?? problem.targetTime;
+		const from = latest.hits.find((hit) => hit.marbleId === link.marbleId && hit.hitId === link.hitId)?.targetTime ?? problem.targetTime;
 		const until = trial.duration;
-		if (crossesOtherLanes(latest, trial, base, link.laneId, id, from, until, frontiers) && !crossesOtherLanes(latest, latest, current, link.laneId, id, from, until, frontiers)) return true;
+		if (crossesOtherMarbles(latest, trial, base, link.marbleId, id, from, until, frontiers) && !crossesOtherMarbles(latest, latest, current, link.marbleId, id, from, until, frontiers)) return true;
 	}
 	return false;
 }
@@ -835,11 +835,11 @@ function crossesLanes(fixing: TFixing, base: TProject, trial: TSimulationResult,
  */
 async function keepFix(fixing: TFixing, base: TProject, trial: TSimulationResult, problem: THitResult, commands: TProjectCommand[]): Promise<TFix | null> {
 	const { current, latest, deps } = fixing;
-	if (!advances(fixing, base, trial, problem) || crossesLanes(fixing, base, trial, problem, commands)) return null;
+	if (!advances(fixing, base, trial, problem) || crossesMarbles(fixing, base, trial, problem, commands)) return null;
 	const whole = { ...base, end: current.end };
 	const run = trial.duration >= current.end - 1e-6 ? trial : await deps.simulate(whole);
 	if (isCanceled(fixing) || !advances(fixing, whole, run, problem)) return null;
-	const added = addedProblems(current, latest, whole, run, fixing.deps.blenderObjects?.() ?? NO_BLENDER_OBJECTS, { laneId: problem.laneId, from: problem.targetTime });
+	const added = addedProblems(current, latest, whole, run, fixing.deps.blenderObjects?.() ?? NO_BLENDER_OBJECTS, { marbleId: problem.marbleId, from: problem.targetTime });
 	return added.length ? null : { commands, run };
 }
 
@@ -892,7 +892,7 @@ async function rebuild(fixing: TFixing, run: THitResult[], index: number, depth:
 /** What fixes `problem`: its bridge alone, placing again from further and further back, then turning by hand */
 async function fixProblem(fixing: TFixing, problem: THitResult): Promise<TFix | null> {
 	const { deps, latest } = fixing;
-	const run = latest.hits.filter((hit) => hit.laneId === problem.laneId && hit.pieceEntityId != null).sort((a, b) => a.targetTime - b.targetTime);
+	const run = latest.hits.filter((hit) => hit.marbleId === problem.marbleId && hit.pieceEntityId != null).sort((a, b) => a.targetTime - b.targetTime);
 	const index = run.findIndex((hit) => hitKeyOf(hit) === hitKeyOf(problem));
 	// A marble's first hit depends on its release alone
 	const previous = run[index - 1];
@@ -935,9 +935,9 @@ async function fixPlatforms(fixing: TFixing, progress: TFixProgress): Promise<bo
 			if (!(await commitFix(fixing, fixed.commands, true, fixed.run))) return false;
 			continue;
 		}
-		const count = (leftCount.get(problem.laneId) ?? 0) + 1;
-		leftCount.set(problem.laneId, count);
-		left.set(problem.laneId, count >= MAX_LEFT ? Infinity : problem.targetTime);
+		const count = (leftCount.get(problem.marbleId) ?? 0) + 1;
+		leftCount.set(problem.marbleId, count);
+		left.set(problem.marbleId, count >= MAX_LEFT ? Infinity : problem.targetTime);
 	}
 	return true;
 }
@@ -1009,15 +1009,15 @@ const MIN_RELEASE_LEAD = 0.1;
  * as it was. Returns no commands when nothing on the marble is broken, its first fall is short already or
  * `before` does not know the old arrival.
  */
-export function releaseFix(project: TProject, results: THitResult[], laneId: string, before?: THitResult[]): TProjectCommand[] {
-	const lane = project.music.lanes.find((item) => item.id === laneId);
-	const marble = project.entities.find((entity) => entity.components.marble?.laneId === laneId);
+export function releaseFix(project: TProject, results: THitResult[], marbleId: string, before?: THitResult[]): TProjectCommand[] {
+	const lane = project.music.lanes.find((item) => item.id === marbleId);
+	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId);
 	const release = marble?.components.release;
 	const first = lane?.hits[0];
 	if (lane == null || marble == null || release == null || first == null) return [];
 	// A first fall longer than twice the lead is what handing the first notes away leaves behind
-	if (!results.some((hit) => hit.laneId === laneId && isBroken(hit)) || first.time - release.time <= 2 * RELEASE_LEAD + 1e-6) return [];
-	const old = before?.find((hit) => hit.laneId === laneId && hit.hitId === first.id);
+	if (!results.some((hit) => hit.marbleId === marbleId && isBroken(hit)) || first.time - release.time <= 2 * RELEASE_LEAD + 1e-6) return [];
+	const old = before?.find((hit) => hit.marbleId === marbleId && hit.hitId === first.id);
 	// Without the old arrival a later release only trades one broken run for another
 	if (old?.dot == null || old.velocity == null || old.status !== 'onTime') return [];
 	const g = -gravityOf(project);
@@ -1055,7 +1055,7 @@ export function addedProblems(
 	afterProject: TProject,
 	after: TSimulationResult,
 	blenderObjects: readonly TBlenderObject[],
-	working?: { laneId: string; from: number }
+	working?: { marbleId: string; from: number }
 ): TPreflightIssue[] {
 	const warnings = (project: TProject, result: TSimulationResult): TPreflightIssue[] =>
 		// A fix that plays the hits again may cost a second bounce or a roll, which keep their own problem and their own Fix
@@ -1064,7 +1064,7 @@ export function addedProblems(
 	return warnings(afterProject, after).filter((issue) => {
 		if (had.has(issue.id)) return false;
 		if (working != null && issue.kind === 'touching' && (issue.time ?? Infinity) >= working.from - 1e-6) return false;
-		if (working == null || issue.laneId !== working.laneId) return true;
+		if (working == null || issue.marbleId !== working.marbleId) return true;
 		// The marble being fixed: its later hits, framing, Blocked scenery and pieces another marble hits are the
 		// work still ahead, since its later platforms move them again; what is left at the end counts
 		return (issue.time ?? Infinity) < working.from - 1e-6;

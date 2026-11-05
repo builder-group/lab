@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveSkinLook } from './skin-catalog';
 import { verticalFov } from '@/modules/camera';
 import { contrastRatio, draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, MARBLE_CONTRAST, marbleContrast, noteColor, previewScreenTitleLayout, screenTitleLayout, titleOpacity, TITLE_FADE } from './draft-look';
-import { laneColors } from '@/modules/project';
+import { marbleColors } from '@/modules/project';
 import { imageToWall } from '@/modules/film/image-to-wall';
 
 describe('draft look', () => {
@@ -90,7 +90,7 @@ describe('draft look', () => {
 
 	it('should keep every lane marble 3:1 apart from its wall and its own pieces in every theme', () => {
 		for (const theme of ['pegboard', 'brass', 'neon']) {
-			for (const color of [...laneColors, '#808080']) {
+			for (const color of [...marbleColors, '#808080']) {
 				const marble = draftMarble(theme, color);
 				const platform = draftPieceColors(theme, { type: 'platform', color, skin: null });
 				expect(contrastRatio(marble.body, draftWall(theme).color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);

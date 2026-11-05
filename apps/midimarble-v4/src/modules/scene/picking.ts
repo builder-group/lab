@@ -23,7 +23,7 @@ export interface TScreenHandle {
 }
 
 export interface TScreenDot {
-	laneId: string;
+	marbleId: string;
 	hitId: string;
 	position: TVec2;
 	/** Set for a placed hit's dot, how close a click has to be; an open dot takes `DOT_PICK_RADIUS` and wins over pieces */
@@ -42,7 +42,7 @@ export interface TScreenPiece {
 
 /** A marble trajectory in screen space with the time of each point */
 export interface TScreenTrack {
-	laneId: string;
+	marbleId: string;
 	points: TVec2[];
 	times: number[];
 }
@@ -50,10 +50,10 @@ export interface TScreenTrack {
 export type TPick =
 	| { kind: 'rotate' | 'release' | 'pathEnd' | 'pathBend'; entityId: string }
 	| { kind: 'node' | 'nodeIn' | 'nodeOut'; entityId: string; index: number }
-	| { kind: 'dot'; laneId: string; hitId: string }
+	| { kind: 'dot'; marbleId: string; hitId: string }
 	| { kind: 'ghost' }
 	| { kind: 'piece'; entityId: string }
-	| { kind: 'track'; laneId: string; time: number; position: TVec2 };
+	| { kind: 'track'; marbleId: string; time: number; position: TVec2 };
 
 export const DOT_PICK_RADIUS = 10;
 // A placed hit's dot is small: its visible radius and 2 px, and then only when it is nearer than the platform
@@ -84,7 +84,7 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 		return nearest;
 	};
 	const open = nearestWithin(scene.dots.filter((dot) => dot.radius == null), DOT_PICK_RADIUS);
-	if (open != null) return { kind: 'dot', laneId: open.dot.laneId, hitId: open.dot.hitId };
+	if (open != null) return { kind: 'dot', marbleId: open.dot.marbleId, hitId: open.dot.hitId };
 
 	let piecePick: { entityId: string; distance: number } | null = null;
 	for (let i = scene.pieces.length - 1; i >= 0; i--) {
@@ -99,7 +99,7 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 		if (piecePick == null || pieceDistance < piecePick.distance) piecePick = { entityId: piece.entityId, distance: pieceDistance };
 	}
 	const placed = nearestWithin(scene.dots.filter((dot) => dot.radius != null), PLACED_DOT_PICK_RADIUS);
-	if (placed != null && (piecePick == null || placed.distance < piecePick.distance)) return { kind: 'dot', laneId: placed.dot.laneId, hitId: placed.dot.hitId };
+	if (placed != null && (piecePick == null || placed.distance < piecePick.distance)) return { kind: 'dot', marbleId: placed.dot.marbleId, hitId: placed.dot.hitId };
 	return piecePick == null ? null : { kind: 'piece', entityId: piecePick.entityId };
 }
 
@@ -113,7 +113,7 @@ export const TRACK_PICK_RADIUS = 12;
 
 /** The trajectory point nearest to `point` within a few pixels, with its time interpolated along the segment */
 export function pickTrack(point: TVec2, tracks: TScreenTrack[], radius = TRACK_PICK_RADIUS): TPick | null {
-	let best: { laneId: string; time: number; position: TVec2; distance: number } | null = null;
+	let best: { marbleId: string; time: number; position: TVec2; distance: number } | null = null;
 	for (const track of tracks) {
 		for (let i = 1; i < track.points.length; i++) {
 			const a = track.points[i - 1] as TVec2;
@@ -126,11 +126,11 @@ export function pickTrack(point: TVec2, tracks: TScreenTrack[], radius = TRACK_P
 			const d = distance(point, position);
 			if (d <= radius && (best == null || d < best.distance)) {
 				const time = (track.times[i - 1] ?? 0) + ((track.times[i] ?? 0) - (track.times[i - 1] ?? 0)) * t;
-				best = { laneId: track.laneId, time, position, distance: d };
+				best = { marbleId: track.marbleId, time, position, distance: d };
 			}
 		}
 	}
-	return best == null ? null : { kind: 'track', laneId: best.laneId, time: best.time, position: best.position };
+	return best == null ? null : { kind: 'track', marbleId: best.marbleId, time: best.time, position: best.position };
 }
 
 export interface TRect {

@@ -10,7 +10,7 @@ function project(entities: Partial<TEntity>[]): TProject {
 	return { entities, music: { lanes: [{ id: 'lane', color: LANE, hits: [] }] } } as unknown as TProject;
 }
 
-const played = { id: 'a', components: { piece: { type: 'platform' }, hitLink: { laneId: 'lane', hitId: 'h' } } } as unknown as TEntity;
+const played = { id: 'a', components: { piece: { type: 'platform' }, hitLink: { marbleId: 'lane', hitId: 'h' } } } as unknown as TEntity;
 const free = { id: 'b', components: { piece: { type: 'platform' } } } as unknown as TEntity;
 
 describe('pieceLabelColor function', () => {
