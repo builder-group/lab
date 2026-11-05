@@ -150,7 +150,7 @@ A Long Rail over the silence before a marble's first note opens the track: it's 
 
 What can't fit is said next to the tiles in plain words, as "The 0.21 s hop needs more than 40° of tilt at Width 15 cm." Width is what's asked and is never changed; when one nearby fits, it's offered: "Width 13 cm fits this range." The Tilt limit is 40° unless asked otherwise; bars past 40° are allowed once asked for, with a note. A fall of a metre or more inside a range is reported, with a Long Rail as the way out. Nothing falls back silently. A Long Rail that can't be made leaves the project as it was.
 
-Changing a Group fits the later Groups on that marble again when the marble now leaves it differently, in one Undo step, with progress and Stop in the notice. Stop changes nothing, and an edit made meanwhile stops it. A later Group that can't fit any more is what the notice says first. A Group with several marbles' hits selected is made per marble, and the notice warns if pieces touch.
+Changing Gravity fits every marble's live Patterns again, with it in one Undo step, and Stop takes the change back too. Changing a Group fits the later Groups on that marble again when the marble now leaves it differently, in one Undo step, with progress and Stop in the notice. Stop changes nothing, and an edit made meanwhile stops it. A later Group that can't fit any more is what the notice says first. A Group with several marbles' hits selected is made per marble, and the notice warns if pieces touch.
 
 Bars steeper than 20° on average below Gravity 0.9 get a line beside the tiles: Gravity 1 about halves that. Gravity is never changed for you, since it sets the whole film's pace.
 

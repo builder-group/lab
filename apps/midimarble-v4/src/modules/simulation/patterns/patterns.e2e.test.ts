@@ -80,7 +80,7 @@ describe('Patterns chained on the reference hits', () => {
 		const result = sim.simulate(chain);
 		const measures = measurePattern(chain, result, LANE);
 		const falls = gapFalls(result);
-		console.log('chain', JSON.stringify({ ...measures, falls, ms: Math.round(chainMs), touching: touchingPairs(chain, result).length, problems: chain.groups?.flatMap((group) => group.problems ?? []).map((problem) => problem.words) }));
+		console.log('chain', JSON.stringify({ ...measures, falls, ms: Math.round(chainMs), touching: touchingPairs(chain, result).length, problems: chain.groups?.filter(isPatternGroup).flatMap((group) => group.problems ?? []).map((problem) => problem.words) }));
 
 		expect(measures.onTime).toBe(58);
 		// Width stays what's asked, so what it can't do is said, not fixed by another Width

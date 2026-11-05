@@ -516,7 +516,9 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 						unit="×"
 						onPreview={(value) => cx.simulation.startPreview(withSpeed(value))}
 						onCommit={(value) => {
-							cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
+							const compose = cx.$compose.get();
+							if (compose != null) void compose.patterns.setGravity(value);
+							else cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
 							cx.simulation.endPreview();
 						}}
 					/>

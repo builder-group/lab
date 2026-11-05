@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createPatternClient, flattenCommands, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCancelledError, type TGroupChange, type TPatternAnswer, type TPatternClient, type TPatternKind, type TPatternProblem, type TResolvedPiece } from '@/modules/simulation';
+import { createPatternClient, flattenCommands, groupsOfLane, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCancelledError, type TGroupChange, type TPatternAnswer, type TPatternClient, type TPatternKind, type TPatternProblem, type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TPatternGroup, TProject } from '@/modules/project';
 import { parseHitKey, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
@@ -108,7 +108,35 @@ export class PatternsCx {
 	}
 
 	stop(): void {
+		this.isStopped = true;
 		this.client?.cancel();
+	}
+
+	private isStopped = false;
+
+	/**
+	 * Gravity changes how every marble falls, so live Patterns fit again, in one Undo step with it. A Group fits the later
+	 * ones on its marble itself, so the first of each marble is enough. Stop takes the change back, so nothing changed.
+	 */
+	async setGravity(gravityScale: number): Promise<void> {
+		this.endHover();
+		if (!this.studio.execute([{ type: 'setPhysics', physics: { gravityScale } }])) return;
+		const project = this.studio.project;
+		if (project == null) return;
+		this.isStopped = false;
+		for (const group of project.music.lanes.flatMap((lane) => groupsOfLane(project, lane.id)[0] ?? [])) {
+			const answer = await this.fit(changeFor({ laneId: group.laneId, from: group.from, to: group.to, group }, group.kind));
+			if (answer == null) {
+				if (this.isStopped) this.studio.undo();
+				return;
+			}
+			if (!answer.commands.length) {
+				this.studio.notify(`${group.name} can't fit at this Gravity: ${answer.problems[0]?.words ?? 'try another Width.'}`, 'error');
+				continue;
+			}
+			if (!this.studio.execute(answer.commands, { amend: true })) return;
+			this.tell(answer, `Fitted ${answer.name} again`);
+		}
 	}
 
 	/** Makes or changes the Group and selects it. Null when it was stopped or couldn't be made */
