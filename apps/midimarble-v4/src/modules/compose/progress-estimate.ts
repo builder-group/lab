@@ -9,12 +9,21 @@
  * - The shown figure counts down with the clock and moves toward the raw figure by `SMOOTHING` per update. It
  *   never rises, and falls no faster than `MAX_FALL_RATE` seconds per second, so it never jumps from 45 s to a few
  *   seconds
+ * - When the raw figure runs far past the shown one, as at a stuck hit, the figure goes away until the rate is steady
  */
 export function createEstimate(): TEstimate {
 	let lastRaw: number | null = null;
 	let shown: { seconds: number; at: number } | null = null;
+	let lastStep = { done: 0, at: 0 };
 	return {
 		update(elapsedMs, fraction, done = 0, total = 0) {
+			if (done !== lastStep.done) lastStep = { done, at: elapsedMs };
+			// Stuck on a step, the rate says nothing: no figure until the steps move again
+			if (elapsedMs - lastStep.at > STALL_MS) {
+				shown = null;
+				lastRaw = null;
+				return '';
+			}
 			const raw = estimateLeft(elapsedMs, fraction, done, total);
 			if (raw == null) return '';
 			if (shown == null) {
@@ -26,6 +35,12 @@ export function createEstimate(): TEstimate {
 			}
 			const passed = Math.max(0, (elapsedMs - shown.at) / 1000);
 			const counted = Math.max(0, shown.seconds - passed);
+			// The work slowed down far past what was promised: say nothing until the rate is steady again
+			if (raw > counted * UNSTEADY_RATIO + UNSTEADY_SECONDS) {
+				shown = null;
+				lastRaw = raw;
+				return '';
+			}
 			const target = counted + SMOOTHING * (raw - counted);
 			const seconds = Math.max(shown.seconds - passed * MAX_FALL_RATE, Math.min(counted, target));
 			shown = { seconds: Math.max(0, seconds), at: elapsedMs };
@@ -66,3 +81,6 @@ const MIN_STEPS = 3;
 const MAX_FIRST_CHANGE = 0.3;
 const SMOOTHING = 0.3;
 const MAX_FALL_RATE = 3;
+const STALL_MS = 4000;
+const UNSTEADY_RATIO = 3;
+const UNSTEADY_SECONDS = 10;

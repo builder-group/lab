@@ -560,9 +560,13 @@ export class AssistCx {
 		const stop = { label: 'Stop', title: 'Keep the pieces built so far', run: () => (run.isCancelled = true) };
 		// A back-up undoes steps; what the bar and the count show never goes back with it
 		let furthest = { done: 0, fraction: 0 };
+		// Hits a rebuild keeps were done from the start: the rate counts only what this build plays
+		let doneAtStart: number | null = null;
 		const progressText = (progress: TBuildProgress): string => {
 			furthest = { done: Math.max(furthest.done, progress.done), fraction: Math.max(furthest.fraction, progress.fraction) };
-			const left = estimate.update(performance.now() - startedAt, furthest.fraction, furthest.done, progress.total);
+			if (progress !== firstProgress) doneAtStart ??= progress.done;
+			const kept = doneAtStart ?? 0;
+			const left = estimate.update(performance.now() - startedAt, furthest.fraction, furthest.done - kept, progress.total - kept);
 			return ['Building track', `${furthest.done} of ${progress.total} ${progress.total === 1 ? 'hit' : 'hits'}`, progress.restarts > 0 ? 'trying another start' : '', left].filter(Boolean).join(' · ');
 		};
 		const total = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
@@ -602,7 +606,9 @@ export class AssistCx {
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
 		this.replacedRevision = result.revision;
 		const summary = problemSummary(preflightExport(present ?? outcome.project, result));
-		const report = buildReport(project, outcome, summary.label, summary.problems.length, Math.round(performance.now() - startedAt), from);
+		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterwards
+		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'hit' : 'hits'} on time`;
+		const report = buildReport(project, outcome, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
 		this.$lastBuild.set(report);
 		const changed = present?.revision !== project.revision;
 		if (changed) {
@@ -611,8 +617,8 @@ export class AssistCx {
 			const broken = brokenHits(result.hits).length;
 			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [{ label: this.replacePlan(present, result).label, title: 'Fix the broken hits', run: () => void this.replace() }] : [], { details: report.details });
 		} else this.studio.notify(report.message);
-		// A person's whole build ends with its result in view; an agent's leaves their view alone
-		if (from == null && !this.studio.isInAgentStep) this.studio.$compose.get()?.fitOnceSimulated();
+		// A person's build ends with its result in view; an agent's leaves their view alone
+		if (!this.studio.isInAgentStep) this.studio.$compose.get()?.fitOnceSimulated();
 		return outcome;
 	}
 
@@ -915,8 +921,9 @@ export class AssistCx {
 			this.studio.notifyEdit(run.isCancelled ? 'The pieces go on waiting where they were.' : "No tilt brings the marble back to the pieces waiting for it. Turn the platforms before the break by hand, undo the edit, or choose Rebuild From Here.", [], { isUndoFirst: true });
 			return;
 		}
-		this.studio.simulation.landSettled(changedEntities(project, fixed), false);
-		this.studio.notifyEdit('The marble is back on its run');
+		const changed = changedEntities(project, fixed);
+		this.studio.simulation.landSettled(changed, false);
+		this.studio.notifyEdit(`${tiltChange(project, changed)}The marble is back on its run`);
 	}
 
 	/** The marble Add Bowl is searching a Bowl for, while it runs */
@@ -1046,6 +1053,20 @@ export function launchAngles(project: TProject, hit: THitResult): number[] | und
 function withSettled(project: TProject, entities: TEntity[]): TProject {
 	const changed = new Map(entities.map((entity) => [entity.id, entity]));
 	return { ...project, entities: project.entities.map((entity) => changed.get(entity.id) ?? entity) };
+}
+
+/** What a fix did to a person's tilts, so it never rewrites an edit quietly: "Platform 8 went from 22.9° to 40°. " */
+function tiltChange(project: TProject, changed: TEntity[]): string {
+	const tilts = changed.flatMap((entity) => {
+		const before = project.entities.find((item) => item.id === entity.id)?.components.hitLink?.angle;
+		const after = entity.components.hitLink?.angle;
+		return before != null && after != null && Math.abs(after - before) > DEGREE / 10 && entity.components.piece?.type === 'platform' ? [{ name: entity.name ?? 'A platform', before, after }] : [];
+	});
+	const degrees = (angle: number): string => `${Math.round((angle / DEGREE) * 10) / 10}°`;
+	const [first] = tilts;
+	if (first == null) return '';
+	if (tilts.length === 1) return `${first.name} went from ${degrees(first.before)} to ${degrees(first.after)}. `;
+	return `Tilted ${tilts.length} platforms again, from ${first.name}. `;
 }
 
 function wait(ms: number): Promise<void> {

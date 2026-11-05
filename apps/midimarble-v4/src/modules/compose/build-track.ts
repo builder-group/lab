@@ -59,6 +59,8 @@ const SEARCHES_PER_HIT = 6;
 const FORCED_SEARCHES_PER_HIT = 2;
 /** What one attempt may search per hit, so a release that goes badly leaves room for the next: Jingle Bells takes about 2 when it goes well */
 const ATTEMPT_SEARCHES_PER_HIT = 3;
+/** A rebuild keeps its releases, so its attempts differ in the turn of each marble's first new platform instead, in degrees */
+const REBUILD_TURNS = [0, 3, -3, 6, -6, 9, -9, 12, -12];
 const PREVIOUS_TURNS = [3, -3, 6, -6, 9, -9, 12, -12, 18, -18];
 const OTHER_TURNS = [3, -3, 6, -6, 9, -9];
 /** Turns tried on the last platform before a stretch the camera loses a marble in, one per try */
@@ -781,16 +783,26 @@ async function forceHit(state: TBuildState, current: TProject, target: THitResul
 	state.counts.failed++;
 	if (target.dot != null) {
 		const id = pieceId(current, target.hitId);
+		const band = frameBand(current, target.laneId);
+		// Of the leans that play it, the one whose next dot stays nearest the lane, or a forced run wanders off in a long diagonal
+		let best: { project: TProject; degrees: number; offset: number } | null = null;
 		for (const degrees of LEANS) {
 			if (isCancelled(state)) break;
 			const entity = createLinkedPiece('platform', target.laneId, target.hitId, degrees * DEGREE, { id, entities: current.entities });
 			const placed = apply(current, [{ type: 'upsertEntity', entity }]);
 			if (placed == null) continue;
-			const status = (await run(state, placed)).hits.find((hit) => hit.laneId === target.laneId && hit.hitId === target.hitId)?.status;
+			const result = await run(state, placed);
+			const status = result.hits.find((hit) => hit.laneId === target.laneId && hit.hitId === target.hitId)?.status;
 			if (status !== 'onTime' && status !== 'drifting') continue;
-			state.deps.onLog?.(`  ${target.hitId}: placed at ${degrees}° for Fix (${state.reasons.at(-1) ?? ''})`);
-			await tolerate(state, placed);
-			return placed;
+			const dot = nextOpenPerLane(state, result).get(target.laneId)?.dot;
+			const offset = dot != null ? Math.abs(dot.x - band.centerX) : 0;
+			if (best == null || offset < best.offset - 1e-6) best = { project: placed, degrees, offset };
+			if (offset <= band.halfWidth / 2) break;
+		}
+		if (best != null) {
+			state.deps.onLog?.(`  ${target.hitId}: placed at ${best.degrees}° for Fix (${state.reasons.at(-1) ?? ''})`);
+			await tolerate(state, best.project);
+			return best.project;
 		}
 	}
 	state.deps.onLog?.(`  ${target.hitId}: left open for Fix (${state.reasons.at(-1) ?? ''})`);
@@ -1039,6 +1051,11 @@ interface TBuildRun {
 	/** Marbles without pieces, whose releases may move */
 	bareLanes: Set<string>;
 	total: number;
+	/** Hits it builds: all of them, or those after Rebuild From Here's hit */
+	rest: number;
+	isRebuild: boolean;
+	/** This attempt's turn of each marble's first new platform, in degrees */
+	firstTurn: number;
 	firstTime: number;
 	lastTime: number;
 	searches: TSearchBudget;
@@ -1059,6 +1076,8 @@ function createBuildRun(whole: TProject, project: TProject, deps: TBuildTrackDep
 	const total = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
 	const allTimes = project.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time));
 	const fromTime = from != null ? (whole.music.lanes.find((lane) => lane.id === from.laneId)?.hits.find((hit) => hit.id === from.hitId)?.time ?? -Infinity) : -Infinity;
+	// The budget is per hit that gets built, so a rebuild of the last hits doesn't search as long as a whole song
+	const rest = allTimes.filter((time) => time > fromTime).length;
 	return {
 		deps,
 		project,
@@ -1068,7 +1087,10 @@ function createBuildRun(whole: TProject, project: TProject, deps: TBuildTrackDep
 		total,
 		firstTime: Math.max(fromTime, Math.min(...allTimes, Infinity)),
 		lastTime: Math.max(...allTimes, -Infinity),
-		searches: { used: 0, limit: SEARCHES_PER_HIT * total },
+		rest,
+		isRebuild: from != null,
+		firstTurn: 0,
+		searches: { used: 0, limit: SEARCHES_PER_HIT * rest },
 		counts: emptyCounts(),
 		attempts: 0,
 		restarts: 0,
@@ -1109,17 +1131,19 @@ function addCounts(counts: TBuildCounts, from: TBuildCounts): void {
 /** Tries the releases in turn until one gets through; the attempt that got furthest, or null when none started */
 async function bestAttempt(build: TBuildRun): Promise<TBestAttempt | null> {
 	const { deps, project, bareLanes, searches, canTurnOwn, gapPiece } = build;
-	const shifts = bareLanes.size > 0 ? RELEASE_SHIFTS : [0];
+	const variants = bareLanes.size > 0 ? RELEASE_SHIFTS : build.isRebuild ? REBUILD_TURNS : [0];
 	let best: TBestAttempt | null = null;
-	for (const shift of shifts) {
+	for (const variant of variants) {
 		if (build.attempts > 0 && searches.used >= searches.limit) break;
 		build.attempts++;
+		const shift = build.isRebuild ? 0 : variant;
+		build.firstTurn = build.isRebuild ? variant : 0;
 		const budget = searches.limit;
-		searches.limit = Math.min(budget, searches.used + ATTEMPT_SEARCHES_PER_HIT * build.total);
+		searches.limit = Math.min(budget, searches.used + ATTEMPT_SEARCHES_PER_HIT * build.rest);
 		const start = withStartRails(withReleaseShift(project, shift, bareLanes), bareLanes);
 		const state = createState(deps, start, canTurnOwn, gapPiece, searches);
 		await tolerate(state, start);
-		deps.onLog?.(`releases shifted by ${shift.toFixed(3)} m`);
+		deps.onLog?.(build.isRebuild ? `first new platforms turned by ${variant}°` : `releases shifted by ${shift.toFixed(3)} m`);
 		if (build.attempts > 1) build.restarts++;
 		if (!publish(build, start, null, true)) {
 			build.isStopped = true;
@@ -1156,7 +1180,7 @@ async function reachedWhenChecked(state: TBuildState, attempted: TAttempt): Prom
 
 /** The attempt that got furthest goes on past what stopped it; the project it ends with */
 async function goOnPastStuck(build: TBuildRun, best: TBestAttempt): Promise<TProject> {
-	const { project, deps, searches, total, counts } = build;
+	const { project, deps, searches, rest: restHits, counts } = build;
 	const { state } = best;
 	if (build.isStopped) return best.project;
 	if (!publish(build, best.project, null)) build.isStopped = true;
@@ -1164,7 +1188,8 @@ async function goOnPastStuck(build: TBuildRun, best: TBestAttempt): Promise<TPro
 	deps.onLog?.(`no attempt got through, so the one that reached ${best.reached.toFixed(2)} s goes on past it`);
 	const before = { ...state.counts };
 	state.counts = emptyCounts();
-	searches.limit = searches.used + FORCED_SEARCHES_PER_HIT * total;
+	searches.limit = searches.used + FORCED_SEARCHES_PER_HIT * restHits;
+	build.firstTurn = 0;
 	const rest = await attemptBuild(build, state, best.project, true);
 	addCounts(counts, state.counts);
 	state.counts = before;
@@ -1216,6 +1241,15 @@ async function backUp(build: TBuildRun, state: TBuildState, progress: TAttemptPr
 	return false;
 }
 
+/** `project` with the platform of `target` turned by `degrees`, or as it is when the turn doesn't hold */
+async function turned(state: TBuildState, project: TProject, target: THitResult, degrees: number): Promise<TProject> {
+	const platform = project.entities.find((entity) => entity.components.hitLink?.laneId === target.laneId && entity.components.hitLink.hitId === target.hitId && entity.components.piece?.type === 'platform');
+	if (platform?.components.hitLink == null) return project;
+	const rotated = structuredClone(platform);
+	if (rotated.components.hitLink != null) rotated.components.hitLink.angle += degrees * DEGREE;
+	return (await accept(state, project, [{ type: 'upsertEntity', entity: rotated }], target.laneId, false)) ?? project;
+}
+
 /**
  * Steps through the song from `start`. Without `canForce` it ends at the first hit nothing solves; with it, that
  * hit is left for Fix and the rest gets built.
@@ -1223,6 +1257,7 @@ async function backUp(build: TBuildRun, state: TBuildState, progress: TAttemptPr
 async function attemptBuild(build: TBuildRun, state: TBuildState, start: TProject, canForce: boolean): Promise<TAttempt> {
 	const { deps, total, firstTime } = build;
 	const progress: TAttemptProgress = { current: start, history: [{ project: start, time: -Infinity }], nextFrameCheck: firstTime + FRAME_CHECK_EVERY, tried: new Set(), backUps: 0 };
+	const turnedLanes = new Set<string>();
 	const stopped = (): TAttempt => {
 		build.isStopped = true;
 		return { project: progress.current, reached: -Infinity };
@@ -1260,10 +1295,12 @@ async function attemptBuild(build: TBuildRun, state: TBuildState, start: TProjec
 		if (next == null && !canForce) {
 			deps.onLog?.(`  ${target.hitId}: nothing solves it at ${target.targetTime.toFixed(2)} s (${state.reasons.join('; ') || 'no assist found a piece'})`);
 			// With another release to try, that comes cheaper than backing up: a song's first hits take few searches, a stuck hit dozens
-			if (build.bareLanes.size === 0 && (await wentBack({ laneId: target.laneId, from: target.targetTime - progress.backUps * STUCK_REACH }))) continue;
+			if (build.bareLanes.size === 0 && !build.isRebuild && (await wentBack({ laneId: target.laneId, from: target.targetTime - progress.backUps * STUCK_REACH }))) continue;
 			return { project: current, reached: target.targetTime };
 		}
-		progress.current = next ?? (await forceHit(state, current, target));
+		const played = next != null && build.firstTurn !== 0 && !turnedLanes.has(target.laneId) ? await turned(state, next, target, build.firstTurn) : next;
+		if (next != null) turnedLanes.add(target.laneId);
+		progress.current = played ?? (await forceHit(state, current, target));
 		progress.history.push({ project: progress.current, time: target.targetTime });
 		if (!publish(build, progress.current, target)) return stopped();
 	}
