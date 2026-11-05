@@ -13,9 +13,9 @@ import type { TWorkspace } from './StudioCx';
  * shows the Scene there.
  */
 export function inspectorTarget(project: TProject, selection: readonly string[], workspace: TWorkspace = 'design'): TInspectorTarget {
-	// Patterns are Compose's: in Film a Group's selection is its pieces
+	// Patterns are Compose's: in Film a Group's selection is its pieces. In Compose a live Pattern's piece shows its Group
 	if (workspace === 'compose') {
-		const group = project.groups?.find((item) => selection.some((key) => parseGroupKey(key) === item.id));
+		const group = project.groups?.find((item) => selection.some((key) => parseGroupKey(key) === item.id || item.pieceIds.includes(key)));
 		if (group != null) return { kind: 'group', id: group.id };
 		const range = selection.flatMap((key) => parseRangeKey(key) ?? [])[0];
 		if (range != null) return { kind: 'patternRange', ...range };

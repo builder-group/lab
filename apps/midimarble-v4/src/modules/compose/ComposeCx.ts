@@ -2,13 +2,14 @@ import { createState } from 'feature-state';
 import type React from 'react';
 import * as THREE from 'three';
 import { isEditingTarget } from '@/lib';
-import type { TEntity, TPathNode, TProject, TVec2 } from '@/modules/project';
+import type { TEntity, TGroup, TPathNode, TProject, TVec2 } from '@/modules/project';
 import {
 	findLongGaps,
 	frameBand,
 	gravityOf,
 	layoutOf,
 	linkPieceToHit,
+	patternOfPiece,
 	PLACEMENT_LENGTH,
 	resolvePieceParams,
 	resolvePiecePath,
@@ -23,7 +24,7 @@ import { formatTime, noteName } from '@/modules/studio/format';
 import { CAMERA_KEY, parseHitKey, SONG_KEY, toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { dragRotation, normalizeSurfaceAngle, screenAngle, snapAngle, toRadians, type TRotationDrag } from './angles';
-import { PatternsCx } from './PatternsCx';
+import { groupSelection, PatternsCx, withWholePatterns } from './PatternsCx';
 import { AssistCx } from './AssistCx';
 import { dotClickAction } from './reachability';
 import {
@@ -471,7 +472,8 @@ export class ComposeCx {
 			if (release == null || entity.components.marble == null || hidden.includes(entity.id) || locked.includes(entity.id)) continue;
 			scene.handles.push({ kind: 'release', entityId: entity.id, position: this.toScreen(release.position), radius: 9 });
 		}
-		const single = selected.length === 1 ? pieces.find((piece) => piece.entityId === selected[0]) : undefined;
+		// A live Pattern's piece has no handles of its own
+		const single = selected.length === 1 && patternOfPiece(project, selected[0] ?? '') == null ? pieces.find((piece) => piece.entityId === selected[0]) : undefined;
 		const kind = single != null ? pieceKind(single) : null;
 		const frame = single != null ? this.railFrame(single.entityId) : null;
 		if (single != null && frame != null) {
@@ -976,6 +978,13 @@ export class ComposeCx {
 			this.finishPlayNote(target);
 			return;
 		}
+		if (target != null && 'entityId' in target) {
+			const group = patternOfPiece(project, target.entityId);
+			if (group != null) {
+				this.pressLivePiece(group, target.kind, point, event.shiftKey);
+				return;
+			}
+		}
 		switch (target?.kind) {
 			case 'rotate':
 				this.startRotate(target.entityId, point);
@@ -1029,6 +1038,19 @@ export class ComposeCx {
 			return;
 		}
 		this.$drag.set({ kind: 'click', target: null, start: point });
+	}
+
+	/** A press on a live Pattern's piece selects its Group, as Blender's Array modifier has no pieces of its own to grab */
+	private pressLivePiece(group: TGroup, kind: string, point: TVec2, isShift: boolean): void {
+		if (kind !== 'piece') {
+			this.patterns.tellLocked(group);
+			return;
+		}
+		const whole = groupSelection(group);
+		const selection = this.studio.$selection.get();
+		if (!isShift) this.studio.$selection.set(whole);
+		else this.studio.$selection.set(selection.includes(whole[0] ?? '') ? selection.filter((id) => !whole.includes(id)) : [...new Set([...selection, ...whole])]);
+		this.$drag.set({ kind: 'livePiece', group, start: point });
 	}
 
 	onPointerMove(event: React.PointerEvent<HTMLElement>): void {
@@ -1088,13 +1110,21 @@ export class ComposeCx {
 			case 'marquee': {
 				this.$drag.set({ ...drag, to: point });
 				const ids = piecesInRect(rectFromPoints(drag.from, point), this.pickScene().pieces);
-				this.studio.$selection.set([...new Set([...drag.base, ...ids])]);
+				this.studio.$selection.set(project != null ? withWholePatterns(project, [...new Set([...drag.base, ...ids])]) : [...new Set([...drag.base, ...ids])]);
 				return;
 			}
+			case 'livePiece':
+				if (Math.hypot(point.x - drag.start.x, point.y - drag.start.y) >= 4) this.patterns.tellLocked(drag.group);
+				return;
 			case 'click': {
 				// A placed hit's dot sits on its platform: pressing there and dragging still moves the platform
 				const pieceId = drag.target?.kind === 'dot' ? this.placedPieceAt(drag.target.laneId, drag.target.hitId) : null;
 				if (pieceId == null || Math.hypot(point.x - drag.start.x, point.y - drag.start.y) < 4) return;
+				const group = project != null ? patternOfPiece(project, pieceId) : null;
+				if (group != null) {
+					this.pressLivePiece(group, 'piece', drag.start, false);
+					return;
+				}
 				this.studio.$selection.set([pieceId]);
 				this.startMove(pieceId, drag.start);
 				return;
@@ -1971,7 +2001,11 @@ export class ComposeCx {
 	nudge(degrees: number): boolean {
 		const project = this.project;
 		if (project == null) return false;
-		const ids = this.tiltTargets(project);
+		const targets = this.tiltTargets(project);
+		const ids = targets.filter((id) => patternOfPiece(project, id) == null);
+		const live = targets.map((id) => patternOfPiece(project, id)).find((group) => group != null);
+		if (live != null) this.patterns.tellLocked(live);
+		if (live != null && !ids.length) return true;
 		const angles = new Map<string, number>();
 		for (const entity of project.entities) {
 			const angle = pieceAngle(entity);
@@ -2367,6 +2401,7 @@ interface TNodeDrag {
 }
 
 export type TComposeDrag =
+	| { kind: 'livePiece'; group: TGroup; start: TVec2 }
 	| { kind: 'pan'; last: TVec2 }
 	| TRotateDrag
 	| TMoveDrag

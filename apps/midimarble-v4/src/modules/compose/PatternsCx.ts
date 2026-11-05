@@ -1,11 +1,13 @@
 import { createState } from 'feature-state';
-import { createPatternClient, hitsInRange, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCancelledError, type TGroupChange, type TPatternAnswer, type TPatternClient, type TPatternKind, type TPatternProblem, type TResolvedPiece } from '@/modules/simulation';
+import { createPatternClient, flattenCommands, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCancelledError, type TGroupChange, type TPatternAnswer, type TPatternClient, type TPatternKind, type TPatternProblem, type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TProject } from '@/modules/project';
 import { parseGroupKey, parseHitKey, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 
 /** How long a pointer rests on a tile before its ghost is worked out: real rhythm takes about 230 ms for 9 hits, so moving across tiles asks nothing */
 const HOVER_DELAY = 180;
+/** A second try on a locked piece within this is the same try, and says nothing new */
+const LOCK_NOTICE_MS = 3000;
 
 /** Where a Pattern goes: a range of one marble's row, or the Group already there */
 export interface TPatternTarget {
@@ -23,6 +25,13 @@ export interface TPatternPreview {
 	pieces: TResolvedPiece[];
 	/** Milliseconds from asking in the worker to the answer, for the check of hover speed */
 	ms: number;
+}
+
+/** What the inspector or an agent asks of a Pattern, past its range */
+export interface TPatternSettings {
+	width?: number;
+	bounce?: number;
+	maxTilt?: number;
 }
 
 /** What the tiles say for a range that couldn't take a Pattern */
@@ -103,7 +112,7 @@ export class PatternsCx {
 	}
 
 	/** Makes or changes the Group and selects it. Null when it was stopped or couldn't be made */
-	async apply(target: TPatternTarget, kind: TPatternKind, settings: { width?: number; bounce?: number } = {}): Promise<TPatternAnswer | null> {
+	async apply(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): Promise<TPatternAnswer | null> {
 		this.endHover();
 		const change = changeFor(target, kind, settings);
 		const answer = await this.fit(change);
@@ -123,8 +132,31 @@ export class PatternsCx {
 		return answer;
 	}
 
+	/** Flatten Pattern: one Undo step, and the pieces are selected, to edit one by one */
+	flatten(group: TGroup): void {
+		this.endHover();
+		if (!this.studio.execute(flattenCommands(group))) return;
+		this.studio.$selection.set(group.pieceIds);
+		this.studio.notifyEdit(`Flattened ${group.name}`);
+	}
+
+	private toldAt = 0;
+	private toldGroup: string | null = null;
+
+	/** Says once per try that a live Pattern's piece doesn't edit: a held key or a long drag is one try */
+	tellLocked(group: TGroup): void {
+		const now = performance.now();
+		if (this.toldGroup === group.id && now - this.toldAt < LOCK_NOTICE_MS) {
+			this.toldAt = now;
+			return;
+		}
+		this.toldGroup = group.id;
+		this.toldAt = now;
+		this.studio.notify(patternLockWords(group));
+	}
+
 	/** The same run with nothing applied, for an agent's dry run */
-	async dryRun(target: TPatternTarget, kind: TPatternKind, settings: { width?: number; bounce?: number } = {}): Promise<TPatternAnswer | null> {
+	async dryRun(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): Promise<TPatternAnswer | null> {
 		return this.fit(changeFor(target, kind, settings));
 	}
 
@@ -169,7 +201,7 @@ export class PatternsCx {
 	/** One notice for the whole run: what it made, what else moved, and first of all what no longer fits */
 	private tell(answer: TPatternAnswer): void {
 		const broken = answer.later.filter((item) => item.problems.length > 0);
-		const lines = [...answer.problems.map((problem) => `${answer.name}: ${problem.words}`), ...broken.flatMap((item) => item.problems.map((problem) => `${item.name}: ${problem.words}`)), ...answer.otherMarbleTouches];
+		const lines = [...answer.notes, ...answer.problems.map((problem) => `${answer.name}: ${problem.words}`), ...broken.flatMap((item) => item.problems.map((problem) => `${item.name}: ${problem.words}`)), ...answer.otherMarbleTouches];
 		const details = lines.length > 0 ? lines.join(' ') : undefined;
 		if (broken.length > 0) {
 			const first = broken[0];
@@ -184,10 +216,11 @@ export class PatternsCx {
 	}
 }
 
-function changeFor(target: TPatternTarget, kind: TPatternKind, settings: { width?: number; bounce?: number } = {}): TGroupChange {
+function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): TGroupChange {
 	const { group, laneId, from, to } = target;
 	const defaults = PATTERN_DEFAULTS[kind];
 	const isSameKind = group?.kind === kind;
+	const maxTilt = settings.maxTilt ?? (isSameKind ? group.maxTilt : undefined);
 	return {
 		...(group != null ? { groupId: group.id } : {}),
 		laneId,
@@ -195,7 +228,8 @@ function changeFor(target: TPatternTarget, kind: TPatternKind, settings: { width
 		to,
 		kind,
 		width: settings.width ?? (isSameKind ? group.width : defaults.width),
-		bounce: settings.bounce ?? (isSameKind ? group.bounce : defaults.bounce)
+		bounce: settings.bounce ?? (isSameKind ? group.bounce : defaults.bounce),
+		...(maxTilt != null ? { maxTilt } : {})
 	};
 }
 
@@ -219,6 +253,12 @@ export function patternTargets(project: TProject, selection: readonly string[]):
 		byLane.set(parsed.laneId, [...(byLane.get(parsed.laneId) ?? []), hit.time]);
 	}
 	return [...byLane].map(([laneId, times]) => ({ laneId, from: Math.min(...times), to: Math.max(...times) }));
+}
+
+/** A selection with every piece of a live Pattern standing for its whole Group, as a click on one does */
+export function withWholePatterns(project: TProject, selection: readonly string[]): string[] {
+	const groups = new Set(selection.flatMap((key) => patternOfPiece(project, key) ?? []));
+	return [...new Set([...selection, ...[...groups].flatMap(groupSelection)])];
 }
 
 /** Selecting a Group selects its pieces with it, so the wall and the hits show them and Delete takes them */

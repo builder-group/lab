@@ -7,12 +7,12 @@ import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon, type TBadgeStatus } from '@/modules/compose/status';
 import { $blenderObjects, deleteDecorCommands, duplicateDecorCommands, madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
 import { $scatterPanel, moveDecorClearAction, revealMadeInBlender } from '@/modules/design/decor-actions';
-import { decorTips, lookProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { decorTips, pieceProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import { updateLightCommands } from '@/modules/design/scene-layers';
 import { shotKindLabel } from '@/modules/design/shots';
 import type { TEntity, TProject } from '@/modules/project';
-import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
+import { patternOfPiece, soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime } from './format';
 import { inspectorTarget } from './inspector-target';
@@ -79,7 +79,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	// Badges wait while Build Track works: each step would check the whole run again, and the hit summary says Building…
 	const preflight = useRunPreflight(cx, project);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
-	const looks = React.useMemo(() => (preflight != null ? lookProblems(preflight) : null), [preflight]);
+	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : null), [preflight]);
 	const tips = React.useMemo(() => (preflight != null ? decorTips(preflight) : null), [preflight]);
 	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceEntityId == null ? [] : [[hit.pieceEntityId, hit] as const]))), [result]);
 	const rows = React.useMemo(() => buildOutline(project, { collapsed, workspace, blenderObjects }), [project, collapsed, workspace, blenderObjects]);
@@ -161,6 +161,13 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		if (row.kind === 'patternGroup') {
 			cx.$selection.set(groupSelection(row.group));
 			cx.$compose.get()?.revealOnceSimulated(row.group.pieceIds);
+			return;
+		}
+		// In Compose a live Pattern's piece selects its Group; in Film it's a piece to dress
+		const live = row.kind === 'piece' && cx.$workspace.get() === 'compose' ? patternOfPiece(project, row.id) : null;
+		if (live != null) {
+			cx.$selection.set(groupSelection(live));
+			cx.$compose.get()?.revealOnceSimulated(live.pieceIds);
 			return;
 		}
 		// Marbles and pieces are brought into view on the wall

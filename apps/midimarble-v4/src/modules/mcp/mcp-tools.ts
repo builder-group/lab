@@ -419,6 +419,7 @@ const SApplyPattern = z.strictObject({
 	kind: z.enum(['zigzag', 'staircase', 'longRail']),
 	width: z.number().positive().optional(),
 	bounce: z.number().min(0).max(1).optional(),
+	maxTilt: z.number().positive().optional(),
 	dryRun: z.boolean().optional()
 });
 
@@ -426,19 +427,19 @@ const SApplyPattern = z.strictObject({
 async function runApplyPattern(cx: StudioCx, command: unknown, label: string | undefined): Promise<TToolReply> {
 	const parsed = SApplyPattern.safeParse(command);
 	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', laneId, from: 2.1, to: 8.4, kind: 'zigzag', width: 0.14, bounce: 0.5, dryRun: true }`);
-	const { laneId, from, to, kind, width, bounce, dryRun } = parsed.data;
+	const { laneId, from, to, kind, width, bounce, maxTilt, dryRun } = parsed.data;
 	const project = cx.project;
 	if (project == null) return noProject(cx);
 	if (!project.music.lanes.some((lane) => lane.id === laneId)) return fail(cx, `No marble has lane ${laneId}. get_state lists them.`);
 	const compose = await openCompose(cx, 'Apply Pattern');
 	const stop = cx.mcp.presence.stopEpoch;
-	const settings = { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}) };
+	const settings = { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) };
 	const existing = project.groups?.find((group) => group.laneId === laneId && group.kind === kind && Math.abs(group.from - from) < 1e-3 && Math.abs(group.to - to) < 1e-3);
 	const target = { laneId, from, to, ...(existing != null ? { group: existing } : {}) };
 	const report = (answer: Awaited<ReturnType<typeof compose.patterns.apply>>): Record<string, unknown> =>
 		answer == null
 			? { stopped: true }
-			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, later: answer.later, ...(answer.widthUsed != null ? { widthUsed: answer.widthUsed } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
+			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
 	if (dryRun === true) {
 		// A step that edits nothing, so Stop reaches it and no Undo step comes of it
 		let answer: Awaited<ReturnType<typeof compose.patterns.dryRun>> = null;

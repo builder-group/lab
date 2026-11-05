@@ -523,6 +523,19 @@ describe('expandCommands function', () => {
 		expect(expanded?.summary).toBe('Place Rail');
 	});
 
+	it("should answer in words that a live Pattern's piece doesn't edit, and free it with flattenPattern", () => {
+		const base = createProject({ id: 'p', title: 'P' });
+		const bar: TEntity = { id: 'bar', name: 'Bar', components: { piece: { type: 'platform', params: { depth: 0.09 } }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
+		const project: TProject = { ...base, entities: [...base.entities, bar], groups: [{ id: 'g', name: 'Zigzag', laneId: base.music.lanes[0]?.id ?? '', from: 1, to: 2, kind: 'zigzag', width: 0.14, bounce: 0.5, pieceIds: ['bar'] }] };
+		const moved: TEntity = { ...bar, components: { ...bar.components, transform: { position: { x: 1, y: 0 }, angle: 0 } } };
+		const deeper: TEntity = { ...bar, components: { ...bar.components, piece: { type: 'platform', params: { depth: 0.05 } } } };
+
+		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: moved }])[1]?.message).toContain('Part of Zigzag. Flatten to edit it.');
+		expect(expandCommands(project, null, [], [{ type: 'removeEntities', entityIds: ['bar'] }])[0]).toBe(true);
+		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: deeper }])[0]).toBe(true);
+		expect(expandCommands(project, null, [], [{ type: 'flattenPattern', groupId: 'g' }])[2]?.commands).toEqual([{ type: 'removeGroups', groupIds: ['g'] }]);
+	});
+
 	it('should refuse what it can\'t do in plain words', () => {
 		const { project, laneId, hitId } = projectWithHit();
 		expect(expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform', hit: { laneId, hitId } }])[1]?.message).toContain('no dot yet');

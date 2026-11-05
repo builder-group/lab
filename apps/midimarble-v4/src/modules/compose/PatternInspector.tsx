@@ -3,7 +3,7 @@ import { Folder, Spline } from 'lucide-react';
 import React from 'react';
 import { InspectorHeader, Panel, SliderField } from '@/components';
 import type { TGroup, TProject } from '@/modules/project';
-import { hitsInRange, PATTERN_LABELS, type TPatternKind, type TPatternProblem } from '@/modules/simulation';
+import { hitsInRange, MAX_TILT, PATTERN_LABELS, type TPatternKind, type TPatternProblem } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { toGroupKey, toRangeKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
@@ -68,10 +68,13 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 							onCommit={(width) => void compose.patterns.apply(target, group.kind, { width })}
 						/>
 						<SliderField id="pattern-bounce" label="Bounce" value={group.bounce} min={0.3} max={0.7} step={0.05} unit="" format={(value) => value.toFixed(2)} onCommit={(bounce) => void compose.patterns.apply(target, group.kind, { bounce })} />
+						<SliderField id="pattern-tilt" label="Tilt limit" value={group.maxTilt ?? MAX_TILT} min={20} max={70} step={5} unit="°" format={(value) => value.toFixed(0)} onCommit={(maxTilt) => void compose.patterns.apply(target, group.kind, { maxTilt })} />
 					</div>
 				) : null}
-				{group.widthUsed != null ? <p className="mm-pattern-note">Width {formatCm(group.width)} left bars off their columns, so this used {formatCm(group.widthUsed)}.</p> : null}
 				<TiltNote project={project} group={group} />
+				<button className="mm-button" onClick={() => compose.patterns.flatten(group)} title="Keep these pieces as they are and remove the Pattern, to edit them one by one" type="button">
+					Flatten
+				</button>
 			</TilesPanel>
 		</>
 	);
@@ -137,6 +140,8 @@ const TiltNote: React.FC<{ project: TProject; group: TGroup }> = (props) => {
 	const tilts = project.entities.filter((entity) => group.pieceIds.includes(entity.id) && entity.components.piece?.type === 'platform').map((entity) => Math.abs(entity.components.hitLink?.angle ?? 0) * (180 / Math.PI));
 	if (!tilts.length) return null;
 	const median = [...tilts].sort((a, b) => a - b)[Math.floor(tilts.length / 2)] ?? 0;
+	const steepest = Math.max(...tilts);
+	if (steepest > MAX_TILT + 0.5) return <p className="mm-pattern-note">Bars tilt up to {steepest.toFixed(0)}°, past the usual {MAX_TILT}°.</p>;
 	if (median < STEEP_TILT || project.physics.gravityScale >= 0.9) return null;
 	return (
 		<p className="mm-pattern-note">
@@ -144,11 +149,6 @@ const TiltNote: React.FC<{ project: TProject; group: TGroup }> = (props) => {
 		</p>
 	);
 };
-
-/** "14 cm", "14.5 cm" */
-function formatCm(metres: number): string {
-	return `${Number((metres * 100).toFixed(1))} cm`;
-}
 
 const TILE_TITLES: Record<TPatternKind, string> = {
 	zigzag: 'Two columns: the marble crosses between them on every hit',

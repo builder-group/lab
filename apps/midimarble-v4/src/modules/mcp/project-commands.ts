@@ -13,7 +13,7 @@ import { filmCamera } from '@/modules/design/film-camera';
 import type { TLibraryItem } from '@/modules/library';
 import { z } from 'zod';
 import { applyProjectCommands, SComponents, SDesign, SEntity, SHit, SLane, SPhysics, SSource, STempo, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TVec2 } from '@/modules/project';
-import { getPieceDefinition, RAIL_LAYOUTS, railLayoutInfo, type TRailLayout, type TSimulationResult } from '@/modules/simulation';
+import { flattenCommands, getPieceDefinition, patternLockWords, patternOfPiece, RAIL_LAYOUTS, railLayoutInfo, type TRailLayout, type TSimulationResult } from '@/modules/simulation';
 
 // `project.execute` takes the project's own commands plus a few that say what an agent means, so it needs not know a
 // piece's every field. Each expands here into project commands, against the project as the earlier ones left it.
@@ -43,7 +43,9 @@ export type TAgentCommand =
 	/** A decoration at a wall point: `source` is a built-in `decor:` id or `assets/<id>/asset.blend` */
 	| { type: 'placeDecor'; source: string; at: TVec2 }
 	/** Scatter Decor: fills the free wall the camera sees and replaces what it placed before */
-	| { type: 'scatterDecor'; sources?: string[]; density?: number; seed?: number };
+	| { type: 'scatterDecor'; sources?: string[]; density?: number; seed?: number }
+	/** Flatten a live Pattern: its pieces stay as they are, to edit one by one, and the Pattern is gone */
+	| { type: 'flattenPattern'; groupId: string };
 
 export interface TExpandedCommands {
 	commands: TProjectCommand[];
@@ -96,6 +98,7 @@ const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
 		example: "{ type: 'placePiece', pieceType: 'platform', hit: { laneId, hitId }, angle }"
 	},
 	applySkin: { schema: z.strictObject({ type: z.string(), assetId: z.string(), pieceType: z.string().optional(), entityIds: z.array(z.string()).optional() }), example: "{ type: 'applySkin', assetId, pieceType }" },
+	flattenPattern: { schema: z.strictObject({ type: z.string(), groupId: z.string() }), example: "{ type: 'flattenPattern', groupId: 'group-h1' }" },
 	placeDecor: { schema: z.strictObject({ type: z.string(), source: z.string(), at: SVec }), example: "{ type: 'placeDecor', source: 'decor:snowfall', at: { x, y } }" },
 	scatterDecor: { schema: z.strictObject({ type: z.string(), sources: z.array(z.string()).optional(), density: z.number().optional(), seed: z.number().optional() }), example: "{ type: 'scatterDecor', sources: [], density: 0.2 }" }
 };
@@ -216,6 +219,21 @@ function entityProblem(project: TProject, items: readonly TLibraryItem[], entity
 	return null;
 }
 
+/** How a piece stands and plays: a live Pattern owns all of it. A Skin and its Depth are only how it looks */
+function physicalOf(entity: TEntity): string {
+	const { hitLink, transform, path, piece } = entity.components;
+	const { depth: _depth, ...params } = piece?.params ?? {};
+	return JSON.stringify([hitLink, transform, path, piece?.type, piece?.layout, params]);
+}
+
+/** The same answer a person gets dragging a piece of a live Pattern, naming the command that frees it */
+function livePatternProblem(project: TProject, entityId: string, next: TEntity | null): string | null {
+	const group = patternOfPiece(project, entityId);
+	const entity = project.entities.find((item) => item.id === entityId);
+	if (group == null || entity == null || (next != null && physicalOf(next) === physicalOf(entity))) return null;
+	return `${patternLockWords(group)} { type: 'flattenPattern', groupId: '${group.id}' } does, or applyPattern fits it again.`;
+}
+
 const NO_ENTITY = 'get_state lists them: marbles[].entityId, layers.pieces[].id, layers.titles[].id.';
 
 /** Why a command that fits its shape still can't run on this project: an id or value it names isn't there */
@@ -226,17 +244,27 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 		case 'setComponent': {
 			const entity = project.entities.find((item) => item.id === command.entityId);
 			if (entity == null) return missingEntity(command.entityId);
-			return entityProblem(project, items, { ...entity, components: { ...entity.components, [command.component.name]: command.component.value } });
+			const next = { ...entity, components: { ...entity.components, [command.component.name]: command.component.value } };
+			return livePatternProblem(project, entity.id, next) ?? entityProblem(project, items, next);
 		}
 		case 'removeComponent': {
 			const entity = project.entities.find((item) => item.id === command.entityId);
 			if (entity == null) return missingEntity(command.entityId);
-			return entity.components[command.name] == null ? `${entity.name ?? entity.id} has no ${command.name}.` : null;
+			if (entity.components[command.name] == null) return `${entity.name ?? entity.id} has no ${command.name}.`;
+			const { [command.name]: _removed, ...rest } = entity.components;
+			return livePatternProblem(project, entity.id, { ...entity, components: rest });
 		}
 		case 'upsertEntity':
-			return entityProblem(project, items, command.entity);
-		case 'removeEntities':
-			return command.entityIds.map(missingEntity).find((problem) => problem != null) ?? null;
+			return livePatternProblem(project, command.entity.id, command.entity) ?? entityProblem(project, items, command.entity);
+		case 'removeEntities': {
+			const missing = command.entityIds.map(missingEntity).find((problem) => problem != null);
+			if (missing != null) return missing;
+			// A whole Pattern goes at once, like deleting its Group; one piece of it doesn't
+			const partOf = command.entityIds.find((id) => patternOfPiece(project, id)?.pieceIds.some((piece) => !command.entityIds.includes(piece)) === true);
+			return partOf != null ? livePatternProblem(project, partOf, null) : null;
+		}
+		case 'flattenPattern':
+			return project.groups?.some((group) => group.id === command.groupId) === true ? null : `There is no Group ${command.groupId}. get_state lists them.`;
 		case 'removeSource':
 			return project.music.sources.some((source) => source.id === command.sourceId) ? null : `There is no source ${command.sourceId}. get_state.song.sources lists them.`;
 		case 'removeLane':
@@ -329,6 +357,10 @@ function changesRadius(project: TProject, command: TAgentCommand): boolean {
 
 function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; entity?: TEntity }, Error> {
 	switch (command.type) {
+		case 'flattenPattern': {
+			const group = project.groups?.find((item) => item.id === command.groupId);
+			return group != null ? Ok({ commands: flattenCommands(group) }) : Err(new Error(`There is no Group ${command.groupId}. get_state lists them.`));
+		}
 		case 'placePiece': {
 			const [isPieceOk, pieceErr, entity] = placedPiece(project, result, command);
 			return isPieceOk ? Ok({ commands: [{ type: 'upsertEntity', entity }], entity }) : Err(pieceErr);
@@ -409,6 +441,8 @@ function summaryOf(input: readonly TAgentCommand[]): string | null {
 	if (!isSame) return null;
 	const count = input.length > 1 ? ` (${input.length})` : '';
 	switch (first.type) {
+		case 'flattenPattern':
+			return 'Flatten Pattern';
 		case 'placePiece':
 			return `Place ${getPieceDefinition(first.pieceType)?.label ?? 'Piece'}${count}`;
 		case 'applySkin':
