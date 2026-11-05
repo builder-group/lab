@@ -1,7 +1,7 @@
 import type { TSceneThemeOverrides } from './scene-description';
 import { createId, type TFilm, type TKeyLightPose, type TProject, type TPackOrigin, type TProjectCommand, type TProjectTheme, type TSkin, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
 import { STARTER_ORIGIN } from './pack-data';
-import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, skinCommand, skinnedOf, type TSkinElement, type TSkinLook } from './skin-catalog';
+import { catalogSkin, skinElementOf, resolveSkinLook, SKIN_ELEMENTS, skinCommand, skinnedOf, type TSkinElement, type TSkinLook } from './skin-catalog';
 
 // Themes a project makes from a built-in one. A project theme keeps its base's skins, reactions and render look and
 // changes a few colors on top (`TThemeOverrides`). `film.theme` names a built-in id or a project theme's id; the
@@ -241,13 +241,13 @@ function withoutColor(key: TFilm['lights']['key']): TKeyLightPose {
 export function currentLookThemeCommands(project: TProject, name?: string): { commands: TProjectCommand[]; themeId: string } {
 	const { commands, themeId } = duplicateThemeCommands(project, project.film.theme);
 	const parts = currentThemeParts(project);
-	const clear = skinnedOf(project).flatMap((entity): TProjectCommand[] => {
-		const skin = entity.skin;
-		const part = parts[entitySkinElement(entity)];
+	const clear = skinnedOf(project).flatMap((piece): TProjectCommand[] => {
+		const skin = piece.skin;
+		const part = parts[skinElementOf(piece)];
 		if (skin == null || part == null) return [];
 		const rest = withoutPart(skin, part);
 		if (rest === skin) return [];
-		return [skinCommand(entity, rest)];
+		return [skinCommand(piece, rest)];
 	});
 	const withCopy = commands.flatMap((command) => {
 		if (command.type !== 'updateFilm' || command.film.themes == null) return [command];
@@ -258,9 +258,9 @@ export function currentLookThemeCommands(project: TProject, name?: string): { co
 
 function currentThemeParts(project: TProject): TThemeParts {
 	const counts = new Map<TSkinElement, Map<string, { part: TThemePart; count: number }>>();
-	for (const entity of skinnedOf(project)) {
-		const element = entitySkinElement(entity);
-		const part = partOf(entity.skin);
+	for (const piece of skinnedOf(project)) {
+		const element = skinElementOf(piece);
+		const part = partOf(piece.skin);
 		if (part == null) continue;
 		const looks = counts.get(element) ?? new Map<string, { part: TThemePart; count: number }>();
 		const key = JSON.stringify(part);
@@ -270,7 +270,7 @@ function currentThemeParts(project: TProject): TThemeParts {
 	const parts: TThemeParts = {};
 	for (const element of SKIN_ELEMENTS) {
 		const looks = [...(counts.get(element)?.values() ?? [])];
-		const total = skinnedOf(project).filter((entity) => entitySkinElement(entity) === element).length;
+		const total = skinnedOf(project).filter((piece) => skinElementOf(piece) === element).length;
 		const best = looks.sort((a, b) => b.count - a.count)[0];
 		// Only what most of the type wear becomes its default; a few skinned pieces stay exceptions
 		if (best != null && best.count * 2 >= total) parts[element] = best.part;

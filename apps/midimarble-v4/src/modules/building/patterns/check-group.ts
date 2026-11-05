@@ -1,7 +1,7 @@
 import { NO_BLENDER_OBJECTS, preflightExport, problemSummary, type TProblemSummary } from '../export-preflight';
 import type { TProject, TProjectCommand } from '@/modules/project';
 import { parseHitKey, tieOf } from '@/modules/project';
-import { answerSettle, changedEntities } from '@/modules/simulation';
+import { answerSettle, changedPieces } from '@/modules/simulation';
 import type { TSimulator, TSimulationResult } from '@/modules/simulation';
 import type { TGroupRunOutcome } from './run-group';
 
@@ -42,7 +42,7 @@ function namedHit(project: TProject, ids: readonly string[]): { marbleId: string
 	for (const id of ids) {
 		const hit = parseHitKey(id);
 		if (hit != null) return hit;
-		const link = tieOf(project.track.pieces.find((entity) => entity.id === id));
+		const link = tieOf(project.track.pieces.find((piece) => piece.id === id));
 		if (link != null) return { marbleId: link.marbleId, hitId: link.hitId };
 	}
 	return null;
@@ -74,9 +74,9 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 	const after = outcome.project;
 	// The next platforms take up the change, as a local edit does; the track after them stays where it was
 	const { answer } = answerSettle(sim, { before, after }, null);
-	const settled = answer.entities.length > 0 ? { ...after, track: { ...after.track, pieces: after.track.pieces.map((entity) => answer.entities.find((item) => item.id === entity.id) ?? entity) } } : after;
+	const settled = answer.pieces.length > 0 ? { ...after, track: { ...after.track, pieces: after.track.pieces.map((piece) => answer.pieces.find((item) => item.id === piece.id) ?? piece) } } : after;
 	const settledRun = standing(settled, sim.simulate(settled));
-	if (!answer.heldFrom.length && isKept(was, settledRun)) return { refusal: null, commands: [...outcome.commands, ...answer.entities.map((entity) => ({ type: 'addPiece' as const, piece: entity }))], movedAfter: 0 };
+	if (!answer.heldFrom.length && isKept(was, settledRun)) return { refusal: null, commands: [...outcome.commands, ...answer.pieces.map((piece) => ({ type: 'addPiece' as const, piece }))], movedAfter: 0 };
 	// Or everything after it moves with the marble, staying on time, which is said
 	const freeResult = sim.simulate(after);
 	const freeRun = standing(after, freeResult);
@@ -93,7 +93,7 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 /** How many pieces after the Pattern stand somewhere else in the run */
 function changedPlaces(before: TProject, after: TProject, sim: TSimulator, result: TSimulationResult): number {
 	const was = new Map(sim.simulate(before).pieces.map((piece) => [piece.entityId, piece.position]));
-	const made = new Set(changedEntities(before, after).map((entity) => entity.id));
+	const made = new Set(changedPieces(before, after).map((piece) => piece.id));
 	return result.pieces.filter((piece) => {
 		const position = was.get(piece.entityId);
 		return !made.has(piece.entityId) && position != null && Math.hypot(piece.position.x - position.x, piece.position.y - position.y) > 0.005;

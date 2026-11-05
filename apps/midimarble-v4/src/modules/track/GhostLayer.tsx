@@ -21,7 +21,7 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 	const marbleColor = project.marbles.find((marble) => marble.id === ghost.answer.marbleId)?.labelColor ?? 'var(--text)';
 
 	if (ghost.kind === 'gap') {
-		const { piece, track } = ghost.answer;
+		const { resolved: piece, track } = ghost.answer;
 		const points = track.map((point) => trackCx.toScreen(point));
 		const end = points[points.length - 1];
 		return (
@@ -34,7 +34,7 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 	}
 
 	if (ghost.kind === 'place') {
-		const { piece, nextDot, isOk } = ghost.answer;
+		const { resolved: piece, nextDot, isOk } = ghost.answer;
 		return (
 			<g className="mm-ghost-in">
 				<GhostPiece trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk={isOk} />
@@ -47,7 +47,7 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 		<g className="mm-ghost-in">
 			{ghost.answer.suggestions.map((suggestion) => (
 				<g key={suggestion.hitId}>
-					{suggestion.piece != null ? <GhostPiece trackCx={trackCx} piece={suggestion.piece} scale={camera.view.scale} isOk={suggestion.isOk} /> : null}
+					{suggestion.resolved != null ? <GhostPiece trackCx={trackCx} piece={suggestion.resolved} scale={camera.view.scale} isOk={suggestion.isOk} /> : null}
 					{suggestion.dot != null ? <GhostDot position={trackCx.toScreen(suggestion.dot)} color={suggestion.isOk ? marbleColor : 'var(--bad)'} /> : null}
 				</g>
 			))}
@@ -172,7 +172,7 @@ const HintContent: React.FC<{ trackCx: TrackCx; ghost: TGhost }> = (props) => {
 
 /** Screen point right of the first ghost piece */
 function hintAnchor(trackCx: TrackCx, ghost: TGhost): TVec2 | null {
-	const piece = ghost.kind !== 'continue' ? ghost.answer.piece : (ghost.answer.suggestions.find((suggestion) => suggestion.piece != null)?.piece ?? null);
+	const piece = ghost.kind !== 'continue' ? ghost.answer.resolved : (ghost.answer.suggestions.find((suggestion) => suggestion.resolved != null)?.resolved ?? null);
 	if (piece == null) return null;
 	const outline = trackCx.screenOutline(piece);
 	if (!outline.length) return null;

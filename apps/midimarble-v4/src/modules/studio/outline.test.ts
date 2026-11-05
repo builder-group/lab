@@ -4,8 +4,8 @@ import { startRailId } from '@/modules/simulation';
 import { buildOutline, DECOR_KEY, FREE_PIECES_KEY, isFilmRow, LIGHTS_KEY, TITLES_KEY } from './outline';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
 
-function piece(id: string, hitLink?: { marbleId: string; hitId: string }): TPiece {
-	return { id, type: 'platform', params: {}, angle: 0, place: hitLink != null ? { kind: 'plays', ...hitLink, contactAt: 0.5 } : { kind: 'free', position: { x: 0, y: 0 } } };
+function piece(id: string, tie?: { marbleId: string; hitId: string }): TPiece {
+	return { id, type: 'platform', params: {}, angle: 0, place: tie != null ? { kind: 'plays', ...tie, contactAt: 0.5 } : { kind: 'free', position: { x: 0, y: 0 } } };
 }
 
 function project(options: { hasSong?: boolean; pieces?: TPiece[]; titles?: TTitle[]; shots?: { id: string; time: number }[] } = {}): TProject {

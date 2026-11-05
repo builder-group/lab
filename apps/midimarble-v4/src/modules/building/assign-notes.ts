@@ -28,18 +28,18 @@ export function assignNotesCommands(
 	if (!leaving.size && !fromBacking) return [];
 
 	const removed: string[] = [];
-	const ties = project.track.pieces.flatMap((entity): TProjectCommand[] => {
-		const link = tieOf(entity);
+	const ties = project.track.pieces.flatMap((piece): TProjectCommand[] => {
+		const link = tieOf(piece);
 		if (link == null || leaving.get(link.marbleId)?.has(link.hitId) !== true) return [];
-		if (soundsHit(entity.type, link)) {
+		if (soundsHit(piece.type, link)) {
 			if (marbleId === BACKING_ID) {
-				removed.push(entity.id);
+				removed.push(piece.id);
 				return [];
 			}
-			return [{ type: 'addPiece', piece: { ...entity, place: { ...link, marbleId } } }];
+			return [{ type: 'addPiece', piece: { ...piece, place: { ...link, marbleId } } }];
 		}
-		const followed = refollow(project, entity, leaving.get(link.marbleId) ?? new Set());
-		return [{ type: 'addPiece', piece: followed ?? asFreePiece(project, result, entity) }];
+		const followed = refollow(project, piece, leaving.get(link.marbleId) ?? new Set());
+		return [{ type: 'addPiece', piece: followed ?? asFreePiece(project, result, piece) }];
 	});
 	return [...ties, ...(removed.length ? [{ type: 'removePieces' as const, pieceIds: removed }] : []), { type: 'assignHits', hitIds: [...wanted], marbleId }];
 }
@@ -54,40 +54,40 @@ export function newMarbleCommands(project: TProject, firstTime?: number): { marb
 }
 
 /** A following piece tied to the marble's nearest remaining hit with the delay that keeps its moment */
-function refollow(project: TProject, entity: TPiece, leaving: Set<string>): TPiece | null {
-	const link = tieOf(entity);
+function refollow(project: TProject, piece: TPiece, leaving: Set<string>): TPiece | null {
+	const link = tieOf(piece);
 	const hits = project.marbles.find((marble) => marble.id === link?.marbleId)?.hits ?? [];
 	const hit = hits.find((item) => item.id === link?.hitId);
 	if (link == null || hit == null) return null;
-	const moment = hit.time + (entity.params['entryDelay'] ?? 0);
+	const moment = hit.time + (piece.params['entryDelay'] ?? 0);
 	const anchor = anchorHit(
 		hits.filter((item) => !leaving.has(item.id)),
 		moment
 	);
 	if (anchor == null) return null;
 	const entryDelay = Math.round((moment - anchor.time) * 1e6) / 1e6;
-	return { ...entity, params: { ...entity.params, entryDelay }, place: { ...link, hitId: anchor.id } };
+	return { ...piece, params: { ...piece.params, entryDelay }, place: { ...link, hitId: anchor.id } };
 }
 
 /** The piece without its tie, standing where the current run shows it */
-function asFreePiece(project: TProject, result: TSimulationResult | null, entity: TPiece): TPiece {
-	const params = { ...entity.params };
+function asFreePiece(project: TProject, result: TSimulationResult | null, piece: TPiece): TPiece {
+	const params = { ...piece.params };
 	delete params['entryDelay'];
-	const pose = currentPose(project, result, entity) ?? { position: fallbackPosition(project, entity), angle: entity.angle };
-	return { ...entity, params, angle: pose.angle, place: { kind: 'free', position: pose.position } };
+	const pose = currentPose(project, result, piece) ?? { position: fallbackPosition(project, piece), angle: piece.angle };
+	return { ...piece, params, angle: pose.angle, place: { kind: 'free', position: pose.position } };
 }
 
-function currentPose(project: TProject, result: TSimulationResult | null, entity: TPiece): { position: TVec2; angle: number } | null {
+function currentPose(project: TProject, result: TSimulationResult | null, piece: TPiece): { position: TVec2; angle: number } | null {
 	if (result == null || result.revision !== project.revision) return null;
-	const resolved = result.pieces.find((item) => item.entityId === entity.id);
+	const resolved = result.pieces.find((item) => item.entityId === piece.id);
 	if (resolved == null || resolved.status === 'unreached') return null;
-	const radius = result.marbles.find((marble) => marble.marbleId === tieOf(entity)?.marbleId)?.radius;
-	return freePose(entity, resolved, radius);
+	const radius = result.marbles.find((marble) => marble.marbleId === tieOf(piece)?.marbleId)?.radius;
+	return freePose(piece, resolved, radius);
 }
 
 // Without a pose from the run: where it waits, otherwise beside its marble's release
-function fallbackPosition(project: TProject, entity: TPiece): TVec2 {
-	const link = tieOf(entity);
+function fallbackPosition(project: TProject, piece: TPiece): TVec2 {
+	const link = tieOf(piece);
 	if (link?.held != null) return { ...link.held.dot };
 	const release = project.marbles.find((item) => item.id === link?.marbleId)?.start.position;
 	return release != null ? { x: release.x, y: release.y - 0.2 } : { x: 0, y: 0 };

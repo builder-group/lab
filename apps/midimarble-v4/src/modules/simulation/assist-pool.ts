@@ -202,7 +202,7 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 			);
 			if (!isOk) throw error;
 			return {
-				entity: placement.entity,
+				piece: placement.piece,
 				angle: placement.angle,
 				nextDot: placement.nextDot,
 				paceError: placement.paceError ?? null,

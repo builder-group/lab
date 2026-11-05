@@ -212,7 +212,7 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const hoveredPiece = hover?.kind === 'piece' ? hover.entityId : null;
 	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.marbleId === hover.marbleId && hit.hitId === hover.hitId) : undefined;
 	const snap = drag?.kind === 'move' ? drag.snap : (insertSnap?.snap ?? null);
-	const singleEntity = single != null ? project.track.pieces.find((entity) => entity.id === single.entityId) : undefined;
+	const singlePiece = single != null ? project.track.pieces.find((piece) => piece.id === single.entityId) : undefined;
 	// The first-run hint "Click a note's dot to see its platform" points at the earliest next open dot
 	const firstNext = [...nextDots.values()].filter((hit) => hit.dot != null).sort((a, b) => a.targetTime - b.targetTime)[0];
 	const firstNextScreen = firstNext?.dot != null ? trackCx.toScreen(firstNext.dot) : null;
@@ -337,12 +337,12 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 				)
 			) : null}
 			{insertSnap != null && drag == null ? <SnapChip trackCx={trackCx} project={project} position={insertSnap.position} snap={insertSnap.snap} /> : null}
-			{single != null && grip != null && singleEntity != null ? (
+			{single != null && grip != null && singlePiece != null ? (
 				<AngleReadout
 					trackCx={trackCx}
 					piece={single}
 					position={drag?.kind === 'rotate' ? { x: drag.pointer.x + 14, y: drag.pointer.y + 14 } : { x: grip.grip.x + 10, y: grip.grip.y + 8 }}
-					angle={drag?.kind === 'rotate' ? drag.angle : pieceAngle(singleEntity)}
+					angle={drag?.kind === 'rotate' ? drag.angle : pieceAngle(singlePiece)}
 				/>
 			) : null}
 			{drag?.kind === 'path' && pathHandles != null && single != null ? <PathReadout piece={single} points={drag.points} position={pathHandles.end} /> : null}
@@ -534,7 +534,7 @@ const PlayNoteHint: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const { trackCx } = props;
 	const entityId = useFeatureState(trackCx.$playNoteFor);
 	if (entityId == null) return null;
-	const name = trackCx.project?.track.pieces.find((entity) => entity.id === entityId)?.name ?? 'The platform';
+	const name = trackCx.project?.track.pieces.find((piece) => piece.id === entityId)?.name ?? 'The platform';
 	return (
 		<div className="mm-hint mm-ghost-in absolute top-[52px] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap">
 			Click a note's dot for {name} to play <kbd className="opacity-60">⎋</kbd>
@@ -908,15 +908,15 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 	// With a selection, the bar belongs to the selected piece or dot and only shows when Next has a target after it
 	let anchor: TVec2;
 	const pieceId = selection.length === 1 ? selection[0] : undefined;
-	const piece = pieceId != null ? linkedPieces(project).find((item) => item.entity.id === pieceId) : undefined;
-	const resolved = piece != null ? result.pieces.find((item) => item.entityId === piece.entity.id) : undefined;
+	const piece = pieceId != null ? linkedPieces(project).find((item) => item.piece.id === pieceId) : undefined;
+	const resolved = piece != null ? result.pieces.find((item) => item.entityId === piece.piece.id) : undefined;
 	if (selection.length > 0 && piece == null && parseHitKey(selection[0] ?? '') == null) return null;
 	if (resolved != null) {
 		const outline = trackCx.screenOutline(resolved);
 		anchor = { x: outline.reduce((sum, point) => sum + point.x, 0) / outline.length, y: Math.max(...outline.map((point) => point.y)) + 30 };
 	} else {
 		// Below the ghost piece at the dot when one shows, so the bar never covers it
-		const ghost = ghosts.ghost?.kind === 'continue' ? ghosts.ghost.answer.suggestions.find((item) => item.piece != null)?.piece : ghosts.ghost?.kind === 'place' ? ghosts.ghost.answer.piece : null;
+		const ghost = ghosts.ghost?.kind === 'continue' ? ghosts.ghost.answer.suggestions.find((item) => item.resolved != null)?.resolved : ghosts.ghost?.kind === 'place' ? ghosts.ghost.answer.resolved : null;
 		const outline = ghost != null ? trackCx.screenOutline(ghost) : [];
 		const dot = trackCx.toScreen(target.dot);
 		anchor = outline.length ? { x: dot.x, y: Math.max(dot.y, ...outline.map((point) => point.y)) + 26 } : { x: dot.x, y: dot.y + 24 };
@@ -957,7 +957,7 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 /** Screen boxes of the ghost pieces and dots on show, which the build bar keeps clear of */
 function ghostRects(trackCx: TrackCx, ghost: ReturnType<AssistCx['$ghosts']['get']>['ghost']): TScreenRect[] {
 	if (ghost == null) return [];
-	const pieces = ghost.kind === 'continue' ? ghost.answer.suggestions.map((item) => item.piece) : [ghost.answer.piece];
+	const pieces = ghost.kind === 'continue' ? ghost.answer.suggestions.map((item) => item.resolved) : [ghost.answer.resolved];
 	const dots = ghost.kind === 'gap' ? [ghost.answer.track.at(-1)] : ghost.kind === 'place' ? [ghost.answer.nextDot] : ghost.answer.suggestions.map((item) => item.dot);
 	const rects: TScreenRect[] = [];
 	for (const piece of pieces) {

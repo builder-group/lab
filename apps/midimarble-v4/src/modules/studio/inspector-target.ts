@@ -30,14 +30,14 @@ const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['light', 'decor'
  * those go and the Scene shows (ux-benchmark item 3); a marble, the Song and Film's own layers stay.
  */
 export function selectionEnteringFilm(project: TProject, selection: readonly string[]): string[] {
-	const pieces = new Set(project.track.pieces.map((entity) => entity.id));
+	const pieces = new Set(project.track.pieces.map((piece) => piece.id));
 	return selection.filter((key) => !pieces.has(key) && parseHitKey(key) == null && parseGroupKey(key) == null && parseRangeKey(key) == null);
 }
 
 function selectedTarget(project: TProject, selection: readonly string[]): TInspectorTarget {
 	const selected = new Set(selection);
 
-	const pieceIds = project.track.pieces.filter((entity) => selected.has(entity.id)).map((entity) => entity.id);
+	const pieceIds = project.track.pieces.filter((piece) => selected.has(piece.id)).map((piece) => piece.id);
 	if (pieceIds.length > 0) return { kind: 'pieces', ids: pieceIds };
 
 	const hitKeys = selection.filter((key) => parseHitKey(key) != null);

@@ -62,7 +62,7 @@ describe('checkGroupChange function', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2]);
 		const outcome = outcomeOf(project);
 		// A piece dropped on the marble's way: the edit would land a problem the song didn't have
-		const bar = outcome.project.track.pieces.find((entity) => entity.type === 'platform') as TPiece;
+		const bar = outcome.project.track.pieces.find((piece) => piece.type === 'platform') as TPiece;
 		const stray: TPiece = { ...bar, id: 'stray', name: 'Stray', place: { ...tieOf(bar)!, hitId: 'h1' } };
 		const worse = { ...outcome, project: { ...outcome.project, track: { ...outcome.project.track, pieces: [...outcome.project.track.pieces, stray] } } };
 

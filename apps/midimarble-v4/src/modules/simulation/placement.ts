@@ -27,8 +27,8 @@ export function defaultPlatformAngle(
 export interface TCreateLinkedPieceOptions {
 	/** How a Rail gets its paths */
 	layout?: TRailLayout;
-	/** Existing entities, used to number the name */
-	entities?: TPiece[];
+	/** Existing pieces, used to number the name */
+	pieces?: TPiece[];
 	id?: string;
 	/** Where along it the marble strikes, the middle by default */
 	contactAt?: number;
@@ -42,13 +42,13 @@ export function createLinkedPiece(
 	angle: number,
 	options: TCreateLinkedPieceOptions = {}
 ): TPiece {
-	const { entities = [], id = createId('piece') } = options;
+	const { pieces: pieces = [], id = createId('piece') } = options;
 	const definition = getPieceDefinition(type);
 	const params: Record<string, number> = {};
 	for (const [name, spec] of Object.entries(definition?.params ?? {})) params[name] = spec.default;
 	return {
 		id,
-		name: nextPieceName(type, entities),
+		name: nextPieceName(type, pieces),
 		type,
 		...(options.layout != null ? { layout: options.layout } : {}),
 		params,
@@ -80,7 +80,7 @@ export function startRailId(marbleId: string): string {
 /** The Rail this marble starts on, if it still has one */
 export function startRailOf(project: TProject, marbleId: string): TPiece | undefined {
 	const id = startRailId(marbleId);
-	return project.track.pieces.find((entity) => entity.id === id);
+	return project.track.pieces.find((piece) => piece.id === id);
 }
 
 export function frameBand(project: TProject, marbleId?: string): TFrameBand {

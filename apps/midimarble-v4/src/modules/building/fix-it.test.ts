@@ -102,16 +102,16 @@ describe('fixTrack function', () => {
 	function deps(): TFixDeps {
 		return {
 			simulate: async (project) => simulate(project),
-			autoPlace: async (project, target, entity) => {
-				const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: entity.type });
+			autoPlace: async (project, target, piece) => {
+				const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: piece.type });
 				if (!isOk) throw error;
-				return placement.entity;
+				return placement.piece;
 			},
 			gapPiece: async (project, gap, type, id) => {
 				const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
 				const [isOk, error, proposal] = create(project, simulate(project), gap.marbleId, gap.fromHitId, gap.toHitId, { simulate, id });
 				if (!isOk) throw error;
-				return proposal.entity;
+				return proposal.piece;
 			},
 			commit: (project, commands) => {
 				const [isOk, error, next] = applyProjectCommands(project, commands);
@@ -143,9 +143,9 @@ describe('fixTrack function', () => {
 	it('should offer a platform struck twice or touching a Fix that clears it, breaks no hit and adds no problem', async () => {
 		const project = loadFixture('zigzag');
 		// The plain copied tilts, which Continue turns a little: the marble grazes two of its own earlier platforms
-		for (const entity of project.track.pieces) {
-			const link = tieOf(entity);
-			if (link != null) entity.angle = entity.angle < 0 ? -0.45 : 0.45;
+		for (const piece of project.track.pieces) {
+			const link = tieOf(piece);
+			if (link != null) piece.angle = piece.angle < 0 ? -0.45 : 0.45;
 		}
 		const result = simulate(project);
 		const problems = problemPieces(project, result);
@@ -226,7 +226,7 @@ describe('moveClear function', () => {
 		const result: TSimulationResult = {
 			revision: project.revision,
 			duration: 3,
-			marbles: [{ entityId: 'marble', marbleId: marble.id, radius: 0.008, samples }],
+			marbles: [{ marbleId: marble.id, radius: 0.008, samples }],
 			pieces: [
 				{
 					entityId: 'windmill',
@@ -294,11 +294,11 @@ describe('moveClear function', () => {
 	it('should keep a Blocked Bowl, which is how its marble ends, even when moving it clear would break a hit', async () => {
 		// Prepare
 		const { project: blocked, result } = createBlocked();
-		const project = { ...blocked, track: { ...blocked.track, pieces: blocked.track.pieces.map((entity) => (entity.id === 'windmill' ? { ...entity, type: 'bowl' } : entity)) } };
+		const project = { ...blocked, track: { ...blocked.track, pieces: blocked.track.pieces.map((piece) => (piece.id === 'windmill' ? { ...piece, type: 'bowl' } : piece)) } };
 		const marbleId = project.marbles[0]?.id ?? '';
 		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
 		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
-		const simulate = async (next: TProject): Promise<TSimulationResult> => (next.track.pieces.some((entity) => entity.id === 'windmill') ? breaks : { ...onTime, pieces: [] });
+		const simulate = async (next: TProject): Promise<TSimulationResult> => (next.track.pieces.some((piece) => piece.id === 'windmill') ? breaks : { ...onTime, pieces: [] });
 
 		// Act
 		const fix = await sceneryFix(project, onTime, 'windmill', { simulate });
@@ -395,15 +395,15 @@ describe('Fix on a small project', () => {
 	const simulate = (project: TProject): TSimulationResult => simulator.simulate(project);
 	const deps = (): TFixDeps => ({
 		simulate: async (project) => simulate(project),
-		autoPlace: async (project, target, entity) => {
-			const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: entity.type });
+		autoPlace: async (project, target, piece) => {
+			const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: piece.type });
 			if (!isOk) throw error;
-			return placement.entity;
+			return placement.piece;
 		},
 		gapPiece: async () => {
 			throw new Error('No gaps here');
 		},
-		settle: async (before, after) => answerSettle(simulator, { before, after }, null).answer.entities,
+		settle: async (before, after) => answerSettle(simulator, { before, after }, null).answer.pieces,
 		commit: (project, commands) => {
 			const [isOk, error, next] = applyProjectCommands(project, commands);
 			if (!isOk) throw error;
@@ -417,20 +417,20 @@ describe('Fix on a small project', () => {
 		const marble = track.marbles[0];
 		if (marble == null) throw new Error('The project has a marble');
 		for (const [index, note] of marble.hits.entries()) {
-			const entity = createLinkedPiece('platform', marble.id, note.id, index % 2 === 0 ? -0.4 : 0.4, { id: `piece-${index}` });
-			const placed = withCommands(track, [{ type: 'addPiece', piece: entity }]);
+			const piece = createLinkedPiece('platform', marble.id, note.id, index % 2 === 0 ? -0.4 : 0.4, { id: `piece-${index}` });
+			const placed = withCommands(track, [{ type: 'addPiece', piece }]);
 			const [isOk, error, placement] = autoPlace(placed, simulate(placed), marble.id, note.id, { simulate, type: 'platform' });
 			if (!isOk) throw error;
-			track = withCommands(placed, [{ type: 'addPiece', piece: { ...placement.entity, id: entity.id } }]);
+			track = withCommands(placed, [{ type: 'addPiece', piece: { ...placement.piece, id: piece.id } }]);
 		}
 	});
 
 	/** The track with one bar tilted, the first way that shows a problem */
 	function tiltedUntil(isShown: (project: TProject, run: TSimulationResult) => boolean): TProject {
-		for (const entity of track.track.pieces) {
-			if (tieOf(entity) == null) continue;
+		for (const piece of track.track.pieces) {
+			if (tieOf(piece) == null) continue;
 			for (let angle = -1.3; angle <= 1.3; angle += 0.1) {
-				const next = withCommands(track, [{ type: 'updatePiece', pieceId: entity.id, patch: { angle } }]);
+				const next = withCommands(track, [{ type: 'updatePiece', pieceId: piece.id, patch: { angle } }]);
 				if (isShown(next, simulate(next))) return next;
 			}
 		}

@@ -820,7 +820,7 @@ export class StudioCx {
 		const hidden = this.$hidden.get();
 		const isMarble = this.project?.marbles.some((marble) => marble.id === id) === true;
 		const isHiding = !hidden.includes(id);
-		const pieces = isHiding && isMarble ? (this.project?.track.pieces ?? []).filter((entity) => tieOf(entity)?.marbleId === id && !hidden.includes(entity.id)).map((entity) => entity.id) : (this.hiddenByMarble.get(id) ?? []);
+		const pieces = isHiding && isMarble ? (this.project?.track.pieces ?? []).filter((piece) => tieOf(piece)?.marbleId === id && !hidden.includes(piece.id)).map((piece) => piece.id) : (this.hiddenByMarble.get(id) ?? []);
 		if (isHiding) {
 			this.hiddenByMarble.set(id, pieces);
 			this.$hidden.set([...hidden, id, ...pieces]);

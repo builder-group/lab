@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { TPiece } from '@/modules/project';
 import { pieceParamPanels, showsLinkPanel } from './piece-panels';
 
-function piece(hitLink?: { marbleId: string; hitId: string }): TPiece {
-	return { id: 'piece', type: 'platform', params: {}, angle: 0, place: hitLink != null ? { kind: 'plays', ...hitLink, contactAt: 0.5 } : { kind: 'free', position: { x: 0, y: 0 } } };
+function piece(tie?: { marbleId: string; hitId: string }): TPiece {
+	return { id: 'piece', type: 'platform', params: {}, angle: 0, place: tie != null ? { kind: 'plays', ...tie, contactAt: 0.5 } : { kind: 'free', position: { x: 0, y: 0 } } };
 }
 
 describe('pieceParamPanels function', () => {

@@ -7,10 +7,10 @@ function platform(id: string, assetId?: string): TPiece {
 	return { id, type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } }, ...(assetId != null ? { skin: { assetId } } : {}) };
 }
 
-function brassProject(entities: TPiece[] = []): TProject {
+function brassProject(pieces: TPiece[] = []): TProject {
 	const project = createProject({ id: 'p', title: 'T' });
 	project.film.theme = 'brass';
-	project.track.pieces.push(...entities);
+	project.track.pieces.push(...pieces);
 	return project;
 }
 
@@ -26,7 +26,7 @@ describe('skinTiles function', () => {
 
 	it('should ring the skin the selection wears, and nothing for a mixed selection', () => {
 		const film = brassProject().film;
-		const current = (entities: TPiece[]): string[] => skinTiles(film, 'platform', entities).filter((tile) => tile.isCurrent).map((tile) => tile.id);
+		const current = (pieces: TPiece[]): string[] => skinTiles(film, 'platform', pieces).filter((tile) => tile.isCurrent).map((tile) => tile.id);
 		expect(current([platform('a', 'platform:copper')])).toEqual(['platform:copper']);
 		expect(current([platform('a', 'platform:copper'), platform('b', 'platform:copper')])).toEqual(['platform:copper']);
 		expect(current([platform('a', 'platform:copper'), platform('b', 'platform:silver')])).toEqual([]);

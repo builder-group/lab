@@ -6,8 +6,8 @@ import { pieceLabelColor, trackPieceColors } from './label-colors';
 const MARBLE = '#3478f6';
 const OWN = '#e0622e';
 
-function project(entities: Partial<TPiece>[]): TProject {
-	return { track: { pieces: entities, groups: [] }, marbles: [{ id: 'marble', labelColor: MARBLE, hits: [] }] } as unknown as TProject;
+function project(pieces: Partial<TPiece>[]): TProject {
+	return { track: { pieces, groups: [] }, marbles: [{ id: 'marble', labelColor: MARBLE, hits: [] }] } as unknown as TProject;
 }
 
 const played: TPiece = { id: 'a', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId: 'marble', hitId: 'h', contactAt: 0.5 } };

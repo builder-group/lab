@@ -58,7 +58,7 @@ function marbleRadiusOf(project: TProject): number {
 }
 
 export interface TTouchingPair {
-	/** Entity IDs, the piece that plays first first */
+	/** Piece IDs, the piece that plays first first */
 	a: string;
 	b: string;
 	/** Air between them in the wall plane, in meters; negative when they overlap */
@@ -76,9 +76,9 @@ export interface TTouchingPair {
 export function touchingPairs(project: TProject, result: TSimulationResult): TTouchingPair[] {
 	const gap = MIN_PIECE_GAP;
 	const radius = marbleRadiusOf(project);
-	const entities = new Map(project.track.pieces.map((entity) => [entity.id, entity]));
+	const pieces = new Map(project.track.pieces.map((piece) => [piece.id, piece]));
 	const items = standingPieces(result)
-		.filter((piece) => tieOf(entities.get(piece.entityId)) != null && piece.type !== 'bowl')
+		.filter((piece) => tieOf(pieces.get(piece.entityId)) != null && piece.type !== 'bowl')
 		.map((piece) => ({ piece, shapes: visualShapes(piece, radius), time: piece.hitTime ?? piece.entryTime ?? 0 }));
 	const pairs: TTouchingPair[] = [];
 	for (let i = 0; i < items.length; i++) {
@@ -97,14 +97,14 @@ export function touchingPairs(project: TProject, result: TSimulationResult): TTo
 /** Air from `piece` to the nearest other standing piece in the wall plane, for a check while placing */
 export function nearestPieceGap(project: TProject, result: TSimulationResult, entityId: string, limit: number): number {
 	const radius = marbleRadiusOf(project);
-	const pieces = standingPieces(result);
-	const piece = pieces.find((item) => item.entityId === entityId);
+	const resolvedPieces = standingPieces(result);
+	const piece = resolvedPieces.find((item) => item.entityId === entityId);
 	if (piece == null) return Infinity;
-	const entities = new Map(project.track.pieces.map((entity) => [entity.id, entity]));
+	const pieces = new Map(project.track.pieces.map((piece) => [piece.id, piece]));
 	const shapes = visualShapes(piece, radius);
 	let nearest = Infinity;
-	for (const other of pieces) {
-		if (other === piece || tieOf(entities.get(other.entityId)) == null || other.type === 'bowl') continue;
+	for (const other of resolvedPieces) {
+		if (other === piece || tieOf(pieces.get(other.entityId)) == null || other.type === 'bowl') continue;
 		nearest = Math.min(nearest, shapesGap(shapes, visualShapes(other, radius), limit));
 	}
 	return nearest;
@@ -134,14 +134,14 @@ const SAME_STRIKE = HIT_TOLERANCE + 0.01;
  * meant to, and a free platform is scenery. A hit that is already Blocked or Missed is reported as that.
  */
 export function extraStrikes(project: TProject, result: TSimulationResult): TExtraStrike[] {
-	const marbleOf = new Map(result.marbles.map((marble) => [marble.marbleId, marble.entityId]));
+	const marbleOf = new Map(result.marbles.map((marble) => [marble.marbleId, marble.marbleId]));
 	const strikes: TExtraStrike[] = [];
 	for (const hit of result.hits) {
 		const entityId = hit.pieceEntityId;
 		if (entityId == null || hit.actualTime == null || (hit.status !== 'onTime' && hit.status !== 'drifting')) continue;
-		const entity = project.track.pieces.find((item) => item.id === entityId);
-		const type = entity?.type;
-		if (type == null || layoutOf(type) !== 'box' || !soundsHit(type, tieOf(entity))) continue;
+		const piece = project.track.pieces.find((item) => item.id === entityId);
+		const type = piece?.type;
+		if (type == null || layoutOf(type) !== 'box' || !soundsHit(type, tieOf(piece))) continue;
 		const marbleEntityId = marbleOf.get(hit.marbleId);
 		const note = hit.actualTime;
 		const isLast = project.marbles.find((marble) => marble.id === hit.marbleId)?.hits.at(-1)?.id === hit.hitId;
@@ -253,8 +253,8 @@ export function riseAfterHit(piece: TResolvedPiece, marble: TMarbleTrack, note: 
  * Missed is reported as that.
  */
 export function rollingHits(project: TProject, result: TSimulationResult): TRollingHit[] {
-	const pieces = new Map(result.pieces.map((piece) => [piece.entityId, piece]));
-	const entities = new Map(project.track.pieces.map((entity) => [entity.id, entity]));
+	const resolvedPieces = new Map(result.pieces.map((piece) => [piece.entityId, piece]));
+	const pieces = new Map(project.track.pieces.map((piece) => [piece.id, piece]));
 	const rolls: TRollingHit[] = [];
 	for (const marble of project.marbles) {
 		const marbleEntity = result.marbles.find((item) => item.marbleId === marble.id);
@@ -264,13 +264,13 @@ export function rollingHits(project: TProject, result: TSimulationResult): TRoll
 			const hit = hits.get(item.id);
 			const following = marble.hits[index + 1];
 			if (following == null || hit?.pieceEntityId == null || hit.actualTime == null || (hit.status !== 'onTime' && hit.status !== 'drifting')) return;
-			const entity = entities.get(hit.pieceEntityId);
 			const piece = pieces.get(hit.pieceEntityId);
-			const type = entity?.type;
-			if (piece == null || type == null || layoutOf(type) !== 'box' || !soundsHit(type, tieOf(entity))) return;
-			const risen = riseAfterHit(piece, marbleEntity, hit.actualTime, following.time);
+			const resolvedPiece = resolvedPieces.get(hit.pieceEntityId);
+			const type = piece?.type;
+			if (resolvedPiece == null || type == null || layoutOf(type) !== 'box' || !soundsHit(type, tieOf(piece))) return;
+			const risen = riseAfterHit(resolvedPiece, marbleEntity, hit.actualTime, following.time);
 			if (risen == null || risen.isBounce) return;
-			rolls.push({ entityId: hit.pieceEntityId, marbleId: marble.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? piece.position });
+			rolls.push({ entityId: hit.pieceEntityId, marbleId: marble.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? resolvedPiece.position });
 		});
 	}
 	return rolls.sort((a, b) => a.time - b.time);

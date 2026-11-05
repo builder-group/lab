@@ -8,7 +8,7 @@ import { asMarbleBowl } from '@/modules/track';
 import { loadFixture } from '@/modules/project/test-helpers';
 
 function withoutBowls(project: TProject): TProject {
-	return { ...project, revision: project.revision + 1, track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.type !== 'bowl') } };
+	return { ...project, revision: project.revision + 1, track: { ...project.track, pieces: project.track.pieces.filter((piece) => piece.type !== 'bowl') } };
 }
 
 let simulator: TSimulator;
@@ -33,18 +33,18 @@ describe('Add Bowl', () => {
 		const placed = await findBowl(zigzag, 'marble-1', deps);
 		if ('error' in placed) throw new Error(placed.error);
 		expect(placed.catch.status).toBe('caught');
-		const link = tieOf(placed.entity);
+		const link = tieOf(placed.piece);
 		expect(link?.kind).toBe('follows');
 		expect(link?.hitId).toBe('hit-1-16');
-		const delay = placed.entity.params['entryDelay'] ?? 0;
+		const delay = placed.piece.params['entryDelay'] ?? 0;
 		expect(delay).toBeGreaterThan(0.1);
 		expect(delay).toBeLessThan(1.2);
 		// The film that follows the song runs on until the catch shows
-		const next = { ...zigzag, track: { ...zigzag.track, pieces: [...zigzag.track.pieces, placed.entity] } };
+		const next = { ...zigzag, track: { ...zigzag.track, pieces: [...zigzag.track.pieces, placed.piece] } };
 		expect(projectSongEnd(next)).toBeCloseTo(6.2 + BOWL_TAIL, 6);
 		const run = simulator.simulate({ ...next, length: projectSongEnd(next) ?? next.length });
 		expect(run.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(16);
-		expect(bowlCatch(run, placed.entity.id).status).toBe('caught');
+		expect(bowlCatch(run, placed.piece.id).status).toBe('caught');
 	}, 20_000);
 
 	it('keeps every hit with their Bowls, which catch both marbles', () => {
@@ -63,7 +63,7 @@ describe('Add Bowl', () => {
 		const zigzag = withoutBowls(loadFixture('zigzag'));
 		const found = await findBowl(zigzag, 'marble-1', deps);
 		if ('error' in found) throw new Error(found.error);
-		const bowl = found.entity;
+		const bowl = found.piece;
 		if (bowl.place.kind !== 'follows') throw new Error('No Bowl');
 		// Pushed off to the side, the marble falls past it
 		const missing: TProject = {
@@ -81,7 +81,7 @@ describe('Add Bowl', () => {
 		if (placed?.type !== 'addPiece') throw new Error(fix.message);
 		expect(placed.piece.id).toBe(bowl.id);
 		expect(placed.piece.place.kind === 'follows' ? placed.piece.place.offset : undefined).toBeUndefined();
-		const fixed = { ...missing, track: { ...missing.track, pieces: missing.track.pieces.map((entity) => (entity.id === bowl.id ? placed.piece : entity)) } };
+		const fixed = { ...missing, track: { ...missing.track, pieces: missing.track.pieces.map((piece) => (piece.id === bowl.id ? placed.piece : piece)) } };
 		expect(bowlCatch(simulator.simulate(fixed), bowl.id).status).toBe('caught');
 	});
 

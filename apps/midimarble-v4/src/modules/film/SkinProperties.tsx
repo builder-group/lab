@@ -5,7 +5,7 @@ import type { TAssetProperty } from '@/modules/scene';
 import { marbleFilmColor, type TMarble, type TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { skinPropertyCommands, type TSkinPropertyPatch } from './film-commands';
-import { resolveElementLook, themeOriginLabel, catalogSkin, COLOR_SOURCE_LABELS, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties, type TSkinColorSource, type TSkinned } from '@/modules/scene';
+import { resolveElementLook, themeOriginLabel, catalogSkin, COLOR_SOURCE_LABELS, skinElementOf, ON_HIT_LABELS, sharedSkinProperties, type TSkinColorSource, type TSkinned } from '@/modules/scene';
 import { SkinPicker } from './SkinPickers';
 import { ColorWell } from './SceneLayerInspector';
 
@@ -15,20 +15,20 @@ const MIXED = '__mixed__';
 const FROM_THEME = '__theme__';
 
 /**
- * Color, On Hit, Glow Color, Variant and a library skin's extra properties for the selected entities: what their skins
+ * Color, On Hit, Glow Color, Variant and a library skin's extra properties for the selected pieces: what their skins
  * share, each with its theme's value as the first choice. Every change is one undo step.
  */
-export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entities: TSkinned[] }> = (props) => {
-	const { cx, project, entities } = props;
+export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; pieces: TSkinned[] }> = (props) => {
+	const { cx, project, pieces } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
-	const looks = entities.map((entity) => {
-		const element = entitySkinElement(entity);
-		return { entity, element, look: resolveElementLook(project.film, element, entity.skin) };
+	const looks = pieces.map((piece) => {
+		const element = skinElementOf(piece);
+		return { piece, element, look: resolveElementLook(project.film, element, piece.skin) };
 	});
 	const shared = sharedSkinProperties(looks);
-	const ids = entities.map((entity) => entity.id);
-	const extras = sharedExtras(project, entities, [...projectItems, ...globalItems]);
+	const ids = pieces.map((piece) => piece.id);
+	const extras = sharedExtras(project, pieces, [...projectItems, ...globalItems]);
 
 	function set(patch: TSkinPropertyPatch): void {
 		cx.execute(skinPropertyCommands(project, ids, patch));
@@ -36,7 +36,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 
 	/** The row's value: the one override, the theme's when nothing is overridden, or Mixed */
 	function valueOf(field: 'colorSource' | 'onHit' | 'variant'): string {
-		const values = new Set(entities.map((entity) => entity.skin?.[field] ?? FROM_THEME));
+		const values = new Set(pieces.map((piece) => piece.skin?.[field] ?? FROM_THEME));
 		return values.size > 1 ? MIXED : ([...values][0] ?? FROM_THEME);
 	}
 
@@ -72,8 +72,8 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 					cx={cx}
 					id="skin-own-color"
 					label="Marble Color"
-					value={sameOf(entities.map((entity) => entity.skin?.color))}
-					fallback={first != null && !('type' in first.entity) ? marbleFilmColor(project, first.entity.id) : '#ffffff'}
+					value={sameOf(pieces.map((piece) => piece.skin?.color))}
+					fallback={first != null && !('type' in first.piece) ? marbleFilmColor(project, first.piece.id) : '#ffffff'}
 					origin="Default"
 					patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { color })}
 				/>
@@ -89,7 +89,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 					}}
 				/>
 			) : null}
-			{shared.glowColor ? <SkinColor cx={cx} id="skin-glow" label="Glow Color" value={sameOf(entities.map((entity) => entity.skin?.glowColor))} fallback={first?.look.glowColor ?? '#ffffff'} origin={origin} patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { glowColor: color })} /> : null}
+			{shared.glowColor ? <SkinColor cx={cx} id="skin-glow" label="Glow Color" value={sameOf(pieces.map((piece) => piece.skin?.glowColor))} fallback={first?.look.glowColor ?? '#ffffff'} origin={origin} patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { glowColor: color })} /> : null}
 			{shared.variants.length > 0 ? (
 				<SelectField
 					id="skin-variant"
@@ -108,7 +108,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 						cx={cx}
 						id={`skin-extra-${extra.name}`}
 						label={extra.name}
-						value={sameOf(entities.map((entity) => entity.skin?.properties?.[extra.name])) as string | null}
+						value={sameOf(pieces.map((piece) => piece.skin?.properties?.[extra.name])) as string | null}
 						fallback={typeof extra.default === 'string' ? extra.default : '#ffffff'}
 							origin={origin}
 						patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { property: { name: extra.name, value: color } })}
@@ -119,7 +119,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 						id={`skin-extra-${extra.name}`}
 						label={extra.name}
 						name={extra.name}
-						value={Number(sameOf(entities.map((entity) => entity.skin?.properties?.[extra.name])) ?? extra.default ?? 0)}
+						value={Number(sameOf(pieces.map((piece) => piece.skin?.properties?.[extra.name])) ?? extra.default ?? 0)}
 						unit=""
 						step={0.01}
 						precision={2}
@@ -138,12 +138,12 @@ function sameOf<T>(values: readonly (T | undefined)[]): T | null {
 	return set.size === 1 ? (values[0] ?? null) : null;
 }
 
-/** Extra properties every selected entity's skin has: a library skin's manifest declares them, the catalog a built-in skin's */
-function sharedExtras(project: TProject, entities: TSkinned[], items: readonly { id: string; manifest?: { properties?: TAssetProperty[] | undefined } | null }[]): TAssetProperty[] {
-	const lists = entities.map((entity) => {
-		const library = items.find((item) => item.id === entity.skin?.assetId)?.manifest?.properties;
+/** Extra properties every selected piece's skin has: a library skin's manifest declares them, the catalog a built-in skin's */
+function sharedExtras(project: TProject, pieces: TSkinned[], items: readonly { id: string; manifest?: { properties?: TAssetProperty[] | undefined } | null }[]): TAssetProperty[] {
+	const lists = pieces.map((piece) => {
+		const library = items.find((item) => item.id === piece.skin?.assetId)?.manifest?.properties;
 		if (library != null) return library;
-		return catalogSkin(resolveElementLook(project.film, entitySkinElement(entity), entity.skin).skin)?.properties ?? [];
+		return catalogSkin(resolveElementLook(project.film, skinElementOf(piece), piece.skin).skin)?.properties ?? [];
 	});
 	return (lists[0] ?? []).filter((property) => lists.every((list) => list.some((item) => item.name === property.name && item.type === property.type)));
 }
@@ -160,8 +160,8 @@ export const MarbleSkin: React.FC<{ cx: StudioCx; project: TProject; marble: TMa
 
 	return (
 		<Panel id="marble.skin" title="Appearance">
-			<SkinPicker cx={cx} project={project} element="marble" pieceType="marble" entities={[marble]} />
-			<SkinPropertyRows cx={cx} project={project} entities={[marble]} />
+			<SkinPicker cx={cx} project={project} element="marble" pieceType="marble" pieces={[marble]} />
+			<SkinPropertyRows cx={cx} project={project} pieces={[marble]} />
 		</Panel>
 	);
 };

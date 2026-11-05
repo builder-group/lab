@@ -89,17 +89,17 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		}),
 		...hitReport(project, result, view.blenderObjects),
 		layers: {
-			pieceCounts: countBy(pieces.map((entity) => entity.type ?? 'piece')),
-			pieces: pieces.slice(0, MAX_PIECES).map((entity) => {
-				const pose = resolved.get(entity.id);
+			pieceCounts: countBy(pieces.map((piece) => piece.type ?? 'piece')),
+			pieces: pieces.slice(0, MAX_PIECES).map((piece) => {
+				const pose = resolved.get(piece.id);
 				return {
-					id: entity.id,
-					name: entity.name,
-					type: entity.type,
+					id: piece.id,
+					name: piece.name,
+					type: piece.type,
 					...(pose != null ? { x: round(pose.position.x), y: round(pose.position.y) } : {}),
-					...(tieOf(entity) != null ? { hitId: tieOf(entity)?.hitId } : {}),
-					angle: round(entity.angle),
-					params: entity.params ?? {}
+					...(tieOf(piece) != null ? { hitId: tieOf(piece)?.hitId } : {}),
+					angle: round(piece.angle),
+					params: piece.params ?? {}
 				};
 			}),
 			...(pieces.length > MAX_PIECES ? { piecesLeftOut: pieces.length - MAX_PIECES } : {}),
@@ -126,12 +126,12 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 	return selection.map((key) => {
 		const hit = parseHitKey(key);
 		if (hit != null) return resolveHit(project, result, key, hit.marbleId, hit.hitId);
-		const entity = project.track.pieces.find((item) => item.id === key);
-		if (entity != null) {
-			const pose = pieceInForm(result, entity);
-			const link = tieOf(entity) ?? result?.hits.find((item) => item.pieceEntityId === entity.id);
+		const piece = project.track.pieces.find((item) => item.id === key);
+		if (piece != null) {
+			const pose = pieceInForm(result, piece);
+			const link = tieOf(piece) ?? result?.hits.find((item) => item.pieceEntityId === piece.id);
 			const played = link != null ? resolveHit(project, result, toHitKey(link.marbleId, link.hitId), link.marbleId, link.hitId) : null;
-			return { kind: 'piece', key, ...pose, params: entity.params ?? {}, hit: played != null ? { key: played.key, marbleId: played.marbleId, hitId: played.hitId, marble: played.marble, time: played.time, note: played.note, status: played.status } : null };
+			return { kind: 'piece', key, ...pose, params: piece.params ?? {}, hit: played != null ? { key: played.key, marbleId: played.marbleId, hitId: played.hitId, marble: played.marble, time: played.time, note: played.note, status: played.status } : null };
 		}
 		const marble = project.marbles.find((item) => item.id === key);
 		if (marble != null) {
@@ -158,7 +158,7 @@ function resolveHit(project: TProject, result: TSimulationResult | null, key: st
 	const marble = project.marbles.find((item) => item.id === marbleId);
 	const hit = marble?.hits.find((item) => item.id === hitId);
 	const run = result?.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
-	const platform = project.track.pieces.find((entity) => entity.id === run?.pieceEntityId || (tieOf(entity)?.marbleId === marbleId && tieOf(entity)?.hitId === hitId));
+	const platform = project.track.pieces.find((piece) => piece.id === run?.pieceEntityId || (tieOf(piece)?.marbleId === marbleId && tieOf(piece)?.hitId === hitId));
 	return {
 		kind: 'hit',
 		key,
@@ -174,14 +174,14 @@ function resolveHit(project: TProject, result: TSimulationResult | null, key: st
 }
 
 /** A piece's id, name, place, angle in radians and length, each only when it has one */
-function pieceInForm(result: TSimulationResult | null, entity: TPiece): TSelectedPiece {
-	const position = result?.pieces.find((piece) => piece.entityId === entity.id)?.position;
-	const { angle } = entity;
-	const length = entity.params['length'];
+function pieceInForm(result: TSimulationResult | null, piece: TPiece): TSelectedPiece {
+	const position = result?.pieces.find((item) => item.entityId === piece.id)?.position;
+	const { angle } = piece;
+	const length = piece.params['length'];
 	return {
-		id: entity.id,
-		name: entity.name ?? null,
-		type: entity.type,
+		id: piece.id,
+		name: piece.name ?? null,
+		type: piece.type,
 		...(position != null ? { x: round(position.x), y: round(position.y) } : {}),
 		angle: round(angle),
 		...(length != null ? { length: round(length) } : {})

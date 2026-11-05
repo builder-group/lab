@@ -29,7 +29,7 @@ describe('withStartRails function', () => {
 		const start = project();
 		const marbleId = start.marbles[0]?.id ?? '';
 		const built = withStartRails(start, new Set([marbleId]));
-		const rail = built.track.pieces.find((entity) => entity.id === startRailId(marbleId));
+		const rail = built.track.pieces.find((piece) => piece.id === startRailId(marbleId));
 		expect(rail?.type).toBe('rail');
 		expect(tieOf(rail)).toBeNull();
 		expect(rail?.name).toBe('Rail 1');

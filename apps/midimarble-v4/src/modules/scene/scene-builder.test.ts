@@ -29,7 +29,6 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleId: st
 		duration: 2,
 		marbles: [
 			{
-				entityId: marble.id,
 				marbleId: marble.id,
 				radius: 0.008,
 				samples: [0, 1, 2].map((index) => ({

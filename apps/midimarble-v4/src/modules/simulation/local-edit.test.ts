@@ -11,16 +11,16 @@ function turned(project: TProject, id: string, by: number): TProject {
 	return {
 		...project,
 		revision: project.revision + 1,
-		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
-			const link = tieOf(entity);
-			return entity.id === id && link != null ? { ...entity, angle: entity.angle + by } : entity;
+		track: { ...project.track, pieces: project.track.pieces.map((piece) => {
+			const link = tieOf(piece);
+			return piece.id === id && link != null ? { ...piece, angle: piece.angle + by } : piece;
 		}) }
 	};
 }
 
 function landed(project: TProject, answer: TSettleAnswer): TProject {
-	const changed = new Map(answer.entities.map((entity) => [entity.id, entity]));
-	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } };
+	const changed = new Map(answer.pieces.map((piece) => [piece.id, piece]));
+	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((piece) => changed.get(piece.id) ?? piece) } };
 }
 
 function shift(a: TSimulationResult, b: TSimulationResult, hitId: string): number {
@@ -47,9 +47,9 @@ describe('settling an edit', () => {
 		it('should only keep the rides for a slide along the bar, and ask nothing of a turn of the last platform', () => {
 			const slid = {
 				...project,
-				track: { ...project.track, pieces: project.track.pieces.map((entity) => {
-					const link = tieOf(entity);
-					return entity.id === 'piece-1-5' && link != null ? { ...entity, place: { ...link, contactAt: 0.3 } } : entity;
+				track: { ...project.track, pieces: project.track.pieces.map((piece) => {
+					const link = tieOf(piece);
+					return piece.id === 'piece-1-5' && link != null ? { ...piece, place: { ...link, contactAt: 0.3 } } : piece;
 				}) }
 			};
 			expect(marbleEdits(project, slid)).toEqual([{ marbleId: 'marble-1', afterIndex: project.marbles[0]?.hits.length }]);
@@ -57,7 +57,7 @@ describe('settling an edit', () => {
 		});
 
 		it('should count the platform before one taken away among those that take up the change', () => {
-			const without = { ...project, track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.id !== 'piece-1-5') } };
+			const without = { ...project, track: { ...project.track, pieces: project.track.pieces.filter((piece) => piece.id !== 'piece-1-5') } };
 			expect(marbleEdits(project, without)).toEqual([{ marbleId: 'marble-1', afterIndex: 2 }]);
 		});
 	});
@@ -85,7 +85,7 @@ describe('settling an edit', () => {
 			const after = turned(project, 'piece-1-3', -2 * DEGREE);
 			const warm = answerSettle(simulator, { before: project, after }, null).answer;
 			const cold = answerSettle(await createSimulator(), { before: project, after }, null).answer;
-			expect(cold.entities).toEqual(warm.entities);
+			expect(cold.pieces).toEqual(warm.pieces);
 		});
 
 		it('should send the marble to a dragged platform and back on the old run after it', async () => {
@@ -126,7 +126,7 @@ describe('settling an edit', () => {
 
 			// Assert
 			const timeOf = (id: string): number => {
-				const link = tieOf(project.track.pieces.find((entity) => entity.id === id));
+				const link = tieOf(project.track.pieces.find((piece) => piece.id === id));
 				return hits.find((hit) => hit.id === link?.hitId)?.time ?? Infinity;
 			};
 			const earlier = before.pieces.filter((piece) => timeOf(piece.entityId) < aiming.time);
@@ -136,7 +136,7 @@ describe('settling an edit', () => {
 				expect(now?.position).toEqual(piece.position);
 				expect(now?.angle).toEqual(piece.angle);
 			}
-			expect(answer.entities.filter((entity) => timeOf(entity.id) < aiming.time)).toEqual([]);
+			expect(answer.pieces.filter((piece) => timeOf(piece.id) < aiming.time)).toEqual([]);
 		});
 
 		it('should start an edit at its earliest changed hit, or the platform before a moved dot', () => {
@@ -154,7 +154,7 @@ describe('settling an edit', () => {
 			const project = loadFixture('long-gap');
 			const run = await fresh(project);
 			const ridden = withRides(project, run);
-			const pieces = ridden.track.pieces.filter((entity) => entity.ride != null);
+			const pieces = ridden.track.pieces.filter((piece) => piece.ride != null);
 
 			// Act
 			const again = await fresh(ridden);
@@ -170,13 +170,13 @@ describe('settling an edit', () => {
 		it('should be simulated again once the piece changes', async () => {
 			const project = loadFixture('long-gap');
 			const ridden = withRides(project, await fresh(project));
-			const ride = ridden.track.pieces.find((entity) => entity.ride != null);
+			const ride = ridden.track.pieces.find((piece) => piece.ride != null);
 			if (ride == null) throw new Error('No ride');
 			const changed = {
 				...ridden,
-				track: { ...ridden.track, pieces: ridden.track.pieces.map((entity) => {
-					const hitLink = tieOf(entity);
-					return entity.id === ride.id && hitLink != null ? { ...entity, angle: entity.angle + 0.05 } : entity;
+				track: { ...ridden.track, pieces: ridden.track.pieces.map((piece) => {
+					const tie = tieOf(piece);
+					return piece.id === ride.id && tie != null ? { ...piece, angle: piece.angle + 0.05 } : piece;
 				}) }
 			};
 			const a = await fresh(ridden);
@@ -219,7 +219,7 @@ describe('settling an edit', () => {
 			const back = turned(held, 'piece-1-5', 85 * DEGREE);
 			const reconnected = reconnect(simulator, back);
 			if (reconnected == null) throw new Error('No way back');
-			const run = await fresh(landed(back, { ...answer, entities: reconnected.entities }));
+			const run = await fresh(landed(back, { ...answer, pieces: reconnected.pieces }));
 
 			// Assert
 			expect(run.hits.every((hit) => hit.status === 'onTime')).toBe(true);
@@ -229,7 +229,7 @@ describe('settling an edit', () => {
 		it('should let every piece follow the marble again on release', async () => {
 			const { after, answer } = breakIt();
 			const released = release(landed(after, answer));
-			expect(released.track.pieces.every((entity) => tieOf(entity)?.held == null)).toBe(true);
+			expect(released.track.pieces.every((piece) => tieOf(piece)?.held == null)).toBe(true);
 		});
 	});
 

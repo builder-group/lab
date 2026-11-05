@@ -210,8 +210,8 @@ export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TS
 
 // MARK: - Title
 
-export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TTitle }> = (props) => {
-	const { cx, project, entity: text } = props;
+export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; piece: TTitle }> = (props) => {
+	const { cx, project, piece: text } = props;
 	const filmEnd = project.length;
 	const editingTitle = useFeatureState(cx.film.$editingTitle);
 	const [timingKey, setTimingKey] = React.useState(0);
@@ -347,11 +347,11 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TSki
 	// Skins fit one piece type: with several types selected they go on the most common one
 	const type = commonPieceType(pieces) ?? ('type' in first ? first.type : 'platform');
 	const typeLabel = getPieceDefinition(type)?.label ?? type;
-	const ids = pieces.map((entity) => entity.id);
-	const skinned = pieces.filter((entity) => 'type' in entity && entity.type === type);
+	const ids = pieces.map((piece) => piece.id);
+	const skinned = pieces.filter((piece) => 'type' in piece && piece.type === type);
 	const isMixedTypes = skinned.length < pieces.length;
 	const isSingle = pieces.length === 1;
-	const skinIds = [...new Set(skinned.map((entity) => entity.skin?.assetId ?? ''))];
+	const skinIds = [...new Set(skinned.map((piece) => piece.skin?.assetId ?? ''))];
 	const ownSkin = skinIds.length === 1 && skinIds[0] !== '' ? (skinIds[0] as string) : null;
 	const link = mergedLink(ids.map((id) => links[id]));
 	const unlinked = ids.filter((id) => links[id]?.link === 'unlinked');
@@ -380,8 +380,8 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TSki
 					/>
 				}
 			>
-				<SkinPicker cx={cx} project={project} element={skinElement(type)} pieceType={type} entities={skinned} selected={pieces} />
-				<SkinPropertyRows cx={cx} project={project} entities={pieces} />
+				<SkinPicker cx={cx} project={project} element={skinElement(type)} pieceType={type} pieces={skinned} selected={pieces} />
+				<SkinPropertyRows cx={cx} project={project} pieces={pieces} />
 				{ownSkin != null ? (
 					<button className="mm-button" data-span="2" onClick={() => applyToAll(ownSkin)} type="button">
 						Apply to All {typeLabel}s

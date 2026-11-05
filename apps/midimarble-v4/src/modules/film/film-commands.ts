@@ -39,61 +39,61 @@ export function builtInSkinCommands(project: TProject, target: TSkinTarget, skin
 	return commands;
 }
 
-/** The entities show the theme's skin again and keep their property overrides */
+/** The pieces show the theme's skin again and keep their property overrides */
 export function followThemeSkinCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
-	return skinnedOf(project).flatMap((entity) => {
-		const skin = entity.skin;
-		if (skin == null || !entityIds.includes(entity.id)) return [];
+	return skinnedOf(project).flatMap((piece) => {
+		const skin = piece.skin;
+		if (skin == null || !entityIds.includes(piece.id)) return [];
 		const { assetId: _assetId, ...rest } = skin;
-		return [skinValueCommand(entity, rest)];
+		return [skinValueCommand(piece, rest)];
 	});
 }
 
 /** Sets or removes a skin: one that says nothing but its link goes away */
-function skinValueCommand(entity: TSkinned, skin: TSkin): TProjectCommand {
+function skinValueCommand(piece: TSkinned, skin: TSkin): TProjectCommand {
 	const isEmpty = Object.entries(skin).every(([name, value]) => name === 'link' || value == null);
-	return skinCommand(entity, isEmpty ? null : skin);
+	return skinCommand(piece, isEmpty ? null : skin);
 }
 
 /** The skin properties the inspector edits, with null removing an override so the theme's value shows again */
 export type TSkinPropertyPatch = { [K in 'colorSource' | 'color' | 'onHit' | 'glowColor' | 'variant']?: TSkin[K] | null } & { property?: { name: string; value: number | string | null } };
 
 /**
- * Changes skin properties on the target entities, as one edit.
+ * Changes skin properties on the target pieces, as one edit.
  */
 export function skinPropertyCommands(project: TProject, entityIds: readonly string[], patch: TSkinPropertyPatch): TProjectCommand[] {
 	return skinnedOf(project)
-		.filter((entity) => entityIds.includes(entity.id))
-		.flatMap((entity): TProjectCommand[] => {
+		.filter((piece) => entityIds.includes(piece.id))
+		.flatMap((piece): TProjectCommand[] => {
 			const { property, ...fields } = patch;
-			const merged: Record<string, unknown> = { ...entity.skin, ...fields };
+			const merged: Record<string, unknown> = { ...piece.skin, ...fields };
 			if (property != null) {
-				const others = Object.entries(entity.skin?.properties ?? {}).filter(([name]) => name !== property.name);
+				const others = Object.entries(piece.skin?.properties ?? {}).filter(([name]) => name !== property.name);
 				const entries = property.value != null ? [...others, [property.name, property.value] as const] : others;
 				merged['properties'] = entries.length > 0 ? Object.fromEntries(entries) : null;
 			}
 			const skin = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null)) as TSkin;
-			return [skinValueCommand(entity, skin)];
+			return [skinValueCommand(piece, skin)];
 		});
 }
 
-/** Reset to Theme: the entities lose their own skin and properties, as one edit */
+/** Reset to Theme: the pieces lose their own skin and properties, as one edit */
 export function resetToThemeCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
 	return skinnedOf(project)
-		.filter((entity) => entityIds.includes(entity.id))
-		.flatMap((entity): TProjectCommand[] => {
-			const skin = entity.skin;
+		.filter((piece) => entityIds.includes(piece.id))
+		.flatMap((piece): TProjectCommand[] => {
+			const skin = piece.skin;
 			if (skin == null) return [];
 			// A marble keeps its film color: it isn't the theme's to give back
-			return [skinCommand(entity, skin.color != null ? { color: skin.color } : null)];
+			return [skinCommand(piece, skin.color != null ? { color: skin.color } : null)];
 		});
 }
 
-/** The entities wearing something of their own over the theme */
+/** The pieces wearing something of their own over the theme */
 function handSkinnedIds(project: TProject): string[] {
 	return skinnedOf(project)
-		.filter((entity) => Object.keys(entity.skin ?? {}).some((name) => name !== 'color'))
-		.map((entity) => entity.id);
+		.filter((piece) => Object.keys(piece.skin ?? {}).some((name) => name !== 'color'))
+		.map((piece) => piece.id);
 }
 
 /** How many changes the project makes over its theme: pieces and marbles with a skin of their own, and each Wall and Key Light value set on the layer */
@@ -112,27 +112,27 @@ function publicUrl(path: string): string {
 	return `/${path}`;
 }
 
-export type TSkinTarget = { kind: 'entities'; entityIds: string[] } | { kind: 'pieceType'; pieceType: string };
+export type TSkinTarget = { kind: 'pieces'; entityIds: string[] } | { kind: 'pieceType'; pieceType: string };
 
-/** Pieces and marbles a skin target covers: the given entities, or every one of a type (`marble` for the marbles) */
+/** Pieces and marbles a skin target covers: the given pieces, or every one of a type (`marble` for the marbles) */
 export function skinTargetIds(project: TProject, target: TSkinTarget): string[] {
-	return skinTargets(project, target).map((entity) => entity.id);
+	return skinTargets(project, target).map((piece) => piece.id);
 }
 
 function skinTargets(project: TProject, target: TSkinTarget): TSkinned[] {
-	return skinnedOf(project).filter((entity) => (target.kind === 'entities' ? target.entityIds.includes(entity.id) : ('type' in entity ? entity.type : 'marble') === target.pieceType));
+	return skinnedOf(project).filter((piece) => (target.kind === 'pieces' ? target.entityIds.includes(piece.id) : ('type' in piece ? piece.type : 'marble') === target.pieceType));
 }
 
 /** Sets a linked skin on everything targeted, keeping what each has chosen for its properties */
 export function skinCommands(project: TProject, target: TSkinTarget, assetId: string): TProjectCommand[] {
-	return skinTargets(project, target).map((entity) => skinCommand(entity, { ...entity.skin, assetId }));
+	return skinTargets(project, target).map((piece) => skinCommand(piece, { ...piece.skin, assetId }));
 }
 
 /** The piece type most of the pieces have, so a section selected as a range in Layers shows its platforms' skins */
 export function commonPieceType(pieces: readonly TSkinned[]): string | null {
 	const counts = new Map<string, number>();
-	for (const entity of pieces) {
-		if ('type' in entity) counts.set(entity.type, (counts.get(entity.type) ?? 0) + 1);
+	for (const piece of pieces) {
+		if ('type' in piece) counts.set(piece.type, (counts.get(piece.type) ?? 0) + 1);
 	}
 	let best: string | null = null;
 	for (const [type, count] of counts) if (best == null || count > (counts.get(best) ?? 0)) best = type;
@@ -142,8 +142,8 @@ export function commonPieceType(pieces: readonly TSkinned[]): string | null {
 /** Counts per piece type, most first: `5 Platforms, 1 Rail` */
 export function pieceCountLabel(pieces: readonly TSkinned[]): string {
 	const counts = new Map<string, number>();
-	for (const entity of pieces) {
-		if ('type' in entity) counts.set(entity.type, (counts.get(entity.type) ?? 0) + 1);
+	for (const piece of pieces) {
+		if ('type' in piece) counts.set(piece.type, (counts.get(piece.type) ?? 0) + 1);
 	}
 	return [...counts]
 		.sort((a, b) => b[1] - a[1])
@@ -158,15 +158,15 @@ export function pieceCountLabel(pieces: readonly TSkinned[]): string {
  */
 export function skinAppliedMessage(options: { skinLabel: string; pieceType: string; selected: readonly TSkinned[]; keepsSkinColor: boolean }): string | null {
 	const { skinLabel, pieceType, selected, keepsSkinColor } = options;
-	const pieces = selected.flatMap((entity) => ('type' in entity ? [entity] : []));
-	const applied = pieces.filter((entity) => entity.type === pieceType);
-	const kept = pieces.filter((entity) => entity.type !== pieceType);
+	const pieces = selected.flatMap((piece) => ('type' in piece ? [piece] : []));
+	const applied = pieces.filter((piece) => piece.type === pieceType);
+	const kept = pieces.filter((piece) => piece.type !== pieceType);
 	const isColorKept = keepsSkinColor && pieceType === 'platform';
 	if (!applied.length || (!kept.length && !isColorKept)) return null;
 	const typeLabel = getPieceDefinition(pieceType)?.label ?? pieceType;
 	let message = `${skinLabel} applied to ${countOf(applied.length, typeLabel).toLowerCase()}`;
 	if (kept.length > 0) {
-		const names = kept.map((entity) => entity.name ?? getPieceDefinition(entity.type)?.label ?? 'Piece');
+		const names = kept.map((piece) => piece.name ?? getPieceDefinition(piece.type)?.label ?? 'Piece');
 		message += kept.length === 1 ? `; ${names[0]} kept its skin` : kept.length === 2 ? `; ${names[0]} and ${names[1]} kept their skins` : `; ${kept.length} other pieces kept their skins`;
 	}
 	if (isColorKept) message += `. ${applied.length === 1 ? 'It keeps' : 'They keep'} ${skinLabel}'s color with Color by Note`;
@@ -328,7 +328,7 @@ export function previewPointToWall(
 	if (point != null) return point;
 	const band = frameBand(project);
 	const marble = project.marbles[0];
-	const track = result?.marbles.find((item) => item.entityId === marble?.id);
+	const track = result?.marbles.find((item) => item.marbleId === marble?.id);
 	const focus = (track == null ? null : trajectoryAt(track.samples, time, gravityOf(project))?.position) ?? marble?.start.position ?? { x: band.centerX, y: 0 };
 	const width = band.halfWidth * 2;
 	const height = width * (project.format.height / project.format.width);

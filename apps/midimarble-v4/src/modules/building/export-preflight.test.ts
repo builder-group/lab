@@ -79,8 +79,8 @@ function createResult(patch: Partial<TSimulationResult> = {}): TSimulationResult
 		revision: 3,
 		duration: 4,
 		marbles: [
-			{ entityId: 'marble-a', marbleId: 'marble-a', radius: 0.008, samples: [] },
-			{ entityId: 'marble-b', marbleId: 'marble-b', radius: 0.008, samples: [] }
+			{ marbleId: 'marble-a', radius: 0.008, samples: [] },
+			{ marbleId: 'marble-b', radius: 0.008, samples: [] }
 		],
 		pieces: [piece('pa1'), piece('pa2'), piece('pb1'), piece('loose'), piece('rail', 'rail')],
 		contacts: [],
@@ -144,7 +144,7 @@ describe('preflightExport function', () => {
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
 		const project = withSongFixture('zigzag');
-		const turned = project.track.pieces.find((entity) => tieOf(entity)?.hitId === project.marbles[0]?.hits[4]?.id);
+		const turned = project.track.pieces.find((piece) => tieOf(piece)?.hitId === project.marbles[0]?.hits[4]?.id);
 		if (turned == null || tieOf(turned) == null) throw new Error('No linked platform');
 		turned.angle += 0.9;
 
@@ -269,7 +269,7 @@ describe('preflightExport function', () => {
 		const samples = Array.from({ length: 300 }, (_, index) => ({ time: index / 120, position: { x: 0, y: 0.015 }, angle: 0, velocity: { x: 0, y: 0 } }));
 		const result = createResult({
 			pieces: [{ ...piece('pa1'), position: { x: 0, y: 0 }, params: { length: 0.09, thickness: 0.012 } }],
-			marbles: [{ entityId: 'marble-a', marbleId: 'marble-a', radius: 0.008, samples }],
+			marbles: [{ marbleId: 'marble-a', radius: 0.008, samples }],
 			hits: [hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1' })]
 		});
 

@@ -29,7 +29,7 @@ export function withTitleTime<GTimed extends TTimed>(text: GTimed, field: 'in' |
 	return next;
 }
 
-/** Titles as clips for the Titles track: their entity, text and span, by start time */
+/** Titles as clips for the Titles track: their piece, text and span, by start time */
 export function titleClips(project: TProject): { entityId: string; text: string; start: number; end: number }[] {
 	return project.film.titles.map((title) => ({ entityId: title.id, text: title.text, ...titleSpan(title, project.length) })).sort((a, b) => a.start - b.start);
 }

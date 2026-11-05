@@ -13,7 +13,7 @@ import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, riseAfterHit, rollingHits, 
 import { HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from './types';
 
 // Step loop assists. Each one is a pure function over the project and its latest simulation result that
-// returns entities and the commands that add them. Assists that predict the future take a `simulate`
+// returns pieces and the commands that add them. Assists that predict the future take a `simulate`
 // function, normally `TSimulator.simulate`; they simulate trial copies of the project that end shortly
 // after the hits they check, so trials resume from the simulator's snapshots and stay cheap.
 
@@ -21,12 +21,12 @@ export type TSimulateFn = (project: TProject) => TSimulationResult;
 
 export interface TAssistPlacement {
 	hitId: string;
-	entity: TPiece;
+	piece: TPiece;
 	commands: TProjectCommand[];
 }
 
 export interface TAssistIdOptions {
-	/** Entity ID for the new piece, generated when omitted */
+	/** Piece ID for the new piece, generated when omitted */
 	id?: string;
 }
 
@@ -37,7 +37,7 @@ export interface TOpenHit {
 	/** The hit result for the open hit, if the result has it */
 	result: THitResult | null;
 	/** The last hit before it that has a piece, with that piece */
-	previous: { hit: THit; entity: TPiece } | null;
+	previous: { hit: THit; piece: TPiece } | null;
 }
 
 /** The first hit after the marble's last hit with a piece that has no piece itself */
@@ -56,14 +56,14 @@ export function nextOpenHit(
 	const hit = marble.hits[lastOwned + 1];
 	if (hit == null) return null;
 	const previousHit = marble.hits[lastOwned];
-	const previousEntity = previousHit != null ? owners.get(previousHit.id) : undefined;
+	const previousPiece = previousHit != null ? owners.get(previousHit.id) : undefined;
 	return {
 		hit,
 		index: lastOwned + 1,
 		result: findHitResult(result, marbleId, hit.id),
 		previous:
-			previousHit != null && previousEntity != null
-				? { hit: previousHit, entity: previousEntity }
+			previousHit != null && previousPiece != null
+				? { hit: previousHit, piece: previousPiece }
 				: null
 	};
 }
@@ -98,11 +98,11 @@ function copyToNextOpenHit(
 	const open = nextOpenHit(project, result, marbleId);
 	if (open == null) return Err(new Error('The marble has no open hit after its last piece'));
 	if (open.previous == null) return Err(new Error('There is no earlier piece to copy'));
-	const entity = copyLinkedPiece(open.previous.entity, open.hit.id, isMirrored, {
-		entities: project.track.pieces,
+	const piece = copyLinkedPiece(open.previous.piece, open.hit.id, isMirrored, {
+		pieces: project.track.pieces,
 		id: options.id
 	});
-	return Ok({ hitId: open.hit.id, entity, commands: [{ type: 'addPiece', piece: entity }] });
+	return Ok({ hitId: open.hit.id, piece, commands: [{ type: 'addPiece', piece }] });
 }
 
 /**
@@ -114,13 +114,13 @@ export function copyLinkedPiece(
 	source: TPiece,
 	hitId: string,
 	isMirrored: boolean,
-	options: { entities?: TPiece[]; id?: string } = {}
+	options: { pieces?: TPiece[]; id?: string } = {}
 ): TPiece {
-	const { entities = [], id = createId('piece') } = options;
-	const hitLink = tieOf(source);
-	if (hitLink == null) throw new Error(`Piece ${source.id} is not a linked piece`);
+	const { pieces: pieces = [], id = createId('piece') } = options;
+	const tie = tieOf(source);
+	if (tie == null) throw new Error(`Piece ${source.id} is not a linked piece`);
 	let { angle } = source;
-	let contactAt = hitLink.contactAt ?? 0.5;
+	let contactAt = tie.contactAt ?? 0.5;
 	let points = source.path?.points.map((point) => ({ ...point }));
 	if (isMirrored) {
 		const kind = layoutOf(source.type);
@@ -130,18 +130,18 @@ export function copyLinkedPiece(
 		if (points != null) points = points.map((point) => ({ x: -point.x, y: point.y }));
 	}
 	const definition = getPieceDefinition(source.type);
-	const count = entities.filter((entity) => entity.type === source.type).length;
-	const entity: TPiece = {
+	const count = pieces.filter((piece) => piece.type === source.type).length;
+	const piece: TPiece = {
 		id,
 		name: `${definition?.label ?? source.type} ${count + 1}`,
 		type: source.type,
 		...(source.layout != null ? { layout: source.layout } : {}),
 		params: { ...source.params },
 		angle,
-		place: hitPlace(source.type, hitLink.marbleId, hitId, contactAt)
+		place: hitPlace(source.type, tie.marbleId, hitId, contactAt)
 	};
-	if (points != null) entity.path = { points, ...(source.path?.paths != null ? { paths: isMirrored ? source.path.paths.map((line) => line.map((point) => ({ x: -point.x, y: point.y }))) : source.path.paths } : {}) };
-	return entity;
+	if (points != null) piece.path = { points, ...(source.path?.paths != null ? { paths: isMirrored ? source.path.paths.map((line) => line.map((point) => ({ x: -point.x, y: point.y }))) : source.path.paths } : {}) };
+	return piece;
 }
 
 // Auto place
@@ -491,7 +491,7 @@ function placementContext(
 	const existing = owners.get(hitId);
 	let base =
 		existing ??
-		createLinkedPiece(type, marbleId, hitId, 0, { entities: project.track.pieces, id: options.id });
+		createLinkedPiece(type, marbleId, hitId, 0, { pieces: project.track.pieces, id: options.id });
 	const baseType = base.type ?? type;
 	let previousAngle: number | null = null;
 	for (let i = index - 1; i >= 0 && previousAngle == null; i--) {
@@ -662,15 +662,15 @@ function evaluatePlacement(
 	// The marble's other column, and whether the tilt leans toward it: a positive angle leans the normal to the left
 	const side = dot.x - band.centerX;
 	const toward = Math.abs(side) > COLUMN_DEADBAND ? -Math.sign(side) : Math.sign(velocity?.x ?? 0) || -1;
-	const entity = withBounce(withAngle(base, angle), bounce);
+	const piece = withBounce(withAngle(base, angle), bounce);
 	// A flat probe on the next hit checks that its dot can take a piece at all, standing where that piece would
 	const probe =
 		nextHit != null && !owners.has(nextHit.id)
-			? createLinkedPiece('platform', marbleId, nextHit.id, 0, { id: `${entity.id}-probe` })
+			? createLinkedPiece('platform', marbleId, nextHit.id, 0, { id: `${piece.id}-probe` })
 			: null;
 	const trial = simulateTrial(
 		simulate,
-		withEntities(project, probe != null ? [entity, probe] : [entity]),
+		withPieces(project, probe != null ? [piece, probe] : [piece]),
 		until
 	);
 	const trialHit = findHitResult(trial, marbleId, hitId);
@@ -678,20 +678,20 @@ function evaluatePlacement(
 		rejected.push(trialHit?.status === 'blocked' ? 'blocked' : 'missed');
 		return { candidate: null, nextDot: null };
 	}
-	if (hasStrayContact(trial, project, marbleId, entity.id, hit.time, until, frontiers)) {
+	if (hasStrayContact(trial, project, marbleId, piece.id, hit.time, until, frontiers)) {
 		rejected.push('strayContact');
 		return { candidate: null, nextDot: null };
 	}
-	if (crossesOtherMarbles(result, trial, project, marbleId, entity.id, hit.time, until, frontiers)) {
+	if (crossesOtherMarbles(result, trial, project, marbleId, piece.id, hit.time, until, frontiers)) {
 		rejected.push('otherMarble');
 		return { candidate: null, nextDot: null };
 	}
 	const samples = trial.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
-	const marbleEntityId = trial.marbles.find((marble) => marble.marbleId === marbleId)?.entityId;
+	const marbleEntityId = trial.marbles.find((marble) => marble.marbleId === marbleId)?.marbleId;
 	const restrikes = trial.contacts.filter(
 		(contact) =>
 			contact.marbleEntityId === marbleEntityId &&
-			contact.otherEntityId === entity.id &&
+			contact.otherEntityId === piece.id &&
 			contact.time > hit.time + HIT_TOLERANCE + 0.01 &&
 			contact.time < until - 0.03
 	).length;
@@ -743,7 +743,7 @@ function evaluatePlacement(
 	const placed = trial.pieces.filter(
 		(piece) => piece.status === 'placed' || piece.status === 'held' || piece.status === 'free'
 	);
-	const own = placed.find((piece) => piece.entityId === entity.id);
+	const own = placed.find((item) => item.entityId === piece.id);
 	const nextId = probe?.id ?? (nextHit != null ? owners.get(nextHit.id)?.id : undefined);
 	const next = placed.find((piece) => piece.entityId === nextId);
 	const { ownTouching, visualShortfall, shorter } = pieceGaps(context, own, next, placed);
@@ -797,7 +797,7 @@ function evaluatePlacement(
 			score,
 			nextDot,
 			travel,
-			bounce: entity.params['bounce'] ?? null,
+			bounce: piece.params['bounce'] ?? null,
 			paceError,
 			...(shorter != null ? { length: shorter } : {})
 		},
@@ -1063,15 +1063,15 @@ function* autoPlaceSearch(
 				step
 			)) ?? best);
 
-	const entity = withLength(withBounce(withAngle(found.base, chosen.angle), chosen.bounce), chosen.length);
+	const piece = withLength(withBounce(withAngle(found.base, chosen.angle), chosen.bounce), chosen.length);
 	const placement: TAutoPlacement = {
 		hitId: found.hitId,
-		entity,
+		piece,
 		angle: chosen.angle,
 		nextDot: chosen.nextDot,
 		travel: chosen.travel,
 		paceError: chosen.paceError,
-		commands: [{ type: 'addPiece', piece: entity }]
+		commands: [{ type: 'addPiece', piece }]
 	};
 	if (chosen.bounce != null) placement.bounce = chosen.bounce;
 	return Ok(placement);
@@ -1150,7 +1150,7 @@ export interface TContinueOptions {
 	maxCount?: number;
 	/** Largest difference between matching inter-onset intervals, in seconds */
 	rhythmTolerance?: number;
-	/** Entity ID per ghost hit, generated when omitted */
+	/** Piece ID per ghost hit, generated when omitted */
 	idFor?: (hitId: string) => string;
 	/** Whether a copied tilt may turn a little to clear a second strike, a roll or a touch. Build Track has its own search and says no. */
 	canTurn?: boolean;
@@ -1158,9 +1158,9 @@ export interface TContinueOptions {
 
 export interface TContinueSuggestion {
 	hitId: string;
-	entity: TPiece;
+	piece: TPiece;
 	/** Resolved piece from the verification run */
-	piece: TResolvedPiece | null;
+	resolved: TResolvedPiece | null;
 	dot: TVec2 | null;
 	status: THitStatus;
 	error: number | null;
@@ -1217,16 +1217,16 @@ export function continueSuggestions(
 	if (open == null) return null;
 
 	// The placed run before the open hit: consecutive hits with pieces of one type that land on time
-	const run: { hit: THit; entity: TPiece; angle: number }[] = [];
+	const run: { hit: THit; piece: TPiece; angle: number }[] = [];
 	for (let i = open.index - 1; i >= 0 && run.length < 4; i--) {
 		const hit = marble.hits[i];
-		const entity = hit != null ? owners.get(hit.id) : undefined;
-		const angle = entity?.angle;
-		if (hit == null || entity == null || angle == null) break;
+		const piece = hit != null ? owners.get(hit.id) : undefined;
+		const angle = piece?.angle;
+		if (hit == null || piece == null || angle == null) break;
 		if (!isOnTime(findHitResult(result, marbleId, hit.id)?.status)) break;
-		if (run[0] != null && run[0].entity.type !== entity.type)
+		if (run[0] != null && run[0].piece.type !== piece.type)
 			break;
-		run.unshift({ hit, entity, angle });
+		run.unshift({ hit, piece, angle });
 	}
 	const pattern = detectPattern(run.map((item) => item.angle));
 	if (pattern == null) return null;
@@ -1236,9 +1236,9 @@ export function continueSuggestions(
 
 	// Source of each ghost: the piece one period earlier, placed or ghost
 	const sources = new Map<number, TPiece>();
-	run.forEach((item, i) => sources.set(open.index - run.length + i, item.entity));
-	const ghosts: { hit: THit; entity: TPiece }[] = [];
-	const entities = [...project.track.pieces];
+	run.forEach((item, i) => sources.set(open.index - run.length + i, item.piece));
+	const ghosts: { hit: THit; piece: TPiece }[] = [];
+	const pieces = [...project.track.pieces];
 	for (let k = open.index; k < marble.hits.length && ghosts.length < maxCount; k++) {
 		const hit = marble.hits[k];
 		const previous = marble.hits[k - 1];
@@ -1270,10 +1270,10 @@ export function continueSuggestions(
 		const source = sources.get(k - period);
 		if (source == null) break;
 		// A mirror pattern copies the piece two hits back, which equals mirroring the previous one
-		const entity = copyLinkedPiece(source, hit.id, false, { entities, id: idFor(hit.id) });
-		entities.push(entity);
-		sources.set(k, entity);
-		ghosts.push({ hit, entity });
+		const piece = copyLinkedPiece(source, hit.id, false, { pieces, id: idFor(hit.id) });
+		pieces.push(piece);
+		sources.set(k, piece);
+		ghosts.push({ hit, piece });
 	}
 	if (!ghosts.length) return null;
 
@@ -1297,11 +1297,11 @@ export function continueSuggestions(
 	const verify = (list: TGhost[]): TGhostCheck => {
 		const trial = simulateTrial(
 			simulate,
-			withEntities(project, [...list.map((ghost) => ghost.entity), ...(probe != null ? [probe] : [])]),
+			withPieces(project, [...list.map((ghost) => ghost.piece), ...(probe != null ? [probe] : [])]),
 			(probe != null && after != null ? after.time : last.hit.time) + 0.05
 		);
 		const isProbeBlocked = probe != null && trial.pieces.find((piece) => piece.entityId === probe.id)?.status === 'blocked';
-		const flawed = flawedGhosts(withEntities(project, list.map((ghost) => ghost.entity)), trial, list);
+		const flawed = flawedGhosts(withPieces(project, list.map((ghost) => ghost.piece)), trial, list);
 		const suggestions: TContinueSuggestion[] = [];
 		let isLook = false;
 		for (const [index, ghost] of list.entries()) {
@@ -1314,8 +1314,8 @@ export function continueSuggestions(
 			const isOk = isPlaying && !flawed.has(index);
 			suggestions.push({
 				hitId: ghost.hit.id,
-				entity: ghost.entity,
-				piece: trial.pieces.find((piece) => piece.entityId === ghost.entity.id) ?? null,
+				piece: ghost.piece,
+				resolved: trial.pieces.find((piece) => piece.entityId === ghost.piece.id) ?? null,
 				dot,
 				status,
 				error: hitResult?.error ?? null,
@@ -1343,12 +1343,12 @@ export function continueSuggestions(
 		// What a ghost touches also depends on where the one before it sends the marble
 		for (const index of [reach, reach - 1]) {
 			const ghost = list[index];
-			const angle = ghost?.entity.angle;
+			const angle = ghost?.piece.angle;
 			if (ghost == null || angle == null) continue;
 			for (const degrees of CONTINUE_TURNS) {
 				if (tries <= 0 || turned != null) break;
 				tries--;
-				const candidate = list.map((item, at) => (at === index ? { ...item, entity: withAngle(item.entity, Math.round((angle + degrees * DEGREE) * 1e4) / 1e4) } : item));
+				const candidate = list.map((item, at) => (at === index ? { ...item, piece: withAngle(item.piece, Math.round((angle + degrees * DEGREE) * 1e4) / 1e4) } : item));
 				const verified = verify(candidate);
 				if (verified.reach > reach) turned = { list: candidate, check: verified };
 			}
@@ -1364,13 +1364,13 @@ export function continueSuggestions(
 		suggestions,
 		commands: suggestions
 			.filter((suggestion) => suggestion.isOk)
-			.map((suggestion) => ({ type: 'addPiece', piece: suggestion.entity }))
+			.map((suggestion) => ({ type: 'addPiece', piece: suggestion.piece }))
 	};
 }
 
 interface TGhost {
 	hit: THit;
-	entity: TPiece;
+	piece: TPiece;
 }
 
 interface TGhostCheck {
@@ -1389,7 +1389,7 @@ interface TGhostCheck {
  */
 function flawedGhosts(project: TProject, trial: TSimulationResult, ghosts: TGhost[]): Set<number> {
 	const flawed = new Set<number>();
-	const indexOf = new Map(ghosts.map((ghost, index) => [ghost.entity.id, index]));
+	const indexOf = new Map(ghosts.map((ghost, index) => [ghost.piece.id, index]));
 	for (const strike of extraStrikes(project, trial)) {
 		let index = -1;
 		for (const [at, ghost] of ghosts.entries()) if (ghost.hit.time <= strike.time) index = at;
@@ -1466,14 +1466,14 @@ export function findLongGaps(project: TProject, marbleId: string): TLongGap[] {
 		const to = marble.hits[i] as THit;
 		const duration = to.time - from.time;
 		if (duration <= threshold) continue;
-		const bridge = project.track.pieces.find((entity) => {
-			const hitLink = tieOf(entity);
-			if (entity == null || hitLink == null) return false;
-			const kind = layoutOf(entity.type);
+		const bridge = project.track.pieces.find((piece) => {
+			const tie = tieOf(piece);
+			if (piece == null || tie == null) return false;
+			const kind = layoutOf(piece.type);
 			return (
 				(kind === 'path' || kind === 'tube' || kind === 'generated') &&
-				hitLink.marbleId === marbleId &&
-				hitLink.hitId === from.id
+				tie.marbleId === marbleId &&
+				tie.hitId === from.id
 			);
 		});
 		gaps.push({
@@ -1506,12 +1506,12 @@ export function openLongGaps(project: TProject, marbleId: string): TLongGap[] {
 /** Pieces that sound each hit of the marble: linked musical pieces (platforms), never scenery */
 export function hitOwners(project: TProject, marbleId: string): Map<string, TPiece> {
 	const owners = new Map<string, TPiece>();
-	for (const entity of project.track.pieces) {
-		const hitLink = tieOf(entity);
-		if (hitLink == null || hitLink.marbleId !== marbleId) continue;
-		if (getPieceDefinition(entity.type) == null) continue;
-		if (!soundsHit(entity.type, hitLink)) continue;
-		if (!owners.has(hitLink.hitId)) owners.set(hitLink.hitId, entity);
+	for (const piece of project.track.pieces) {
+		const tie = tieOf(piece);
+		if (tie == null || tie.marbleId !== marbleId) continue;
+		if (getPieceDefinition(piece.type) == null) continue;
+		if (!soundsHit(piece.type, tie)) continue;
+		if (!owners.has(tie.hitId)) owners.set(tie.hitId, piece);
 	}
 	return owners;
 }
@@ -1524,7 +1524,7 @@ export function findHitResult(
 	return result?.hits.find((hit) => hit.marbleId === marbleId && hit.hitId === hitId) ?? null;
 }
 
-/** Project copy with the entities added or replaced and the run ending at `until` */
+/** Project copy with the pieces added or replaced and the run ending at `until` */
 export function simulateTrial(
 	simulate: TSimulateFn,
 	project: TProject,
@@ -1533,10 +1533,10 @@ export function simulateTrial(
 	return simulate({ ...project, length: Math.max(1 / 240, Math.min(project.length, until)) });
 }
 
-export function withEntities(project: TProject, entities: TPiece[]): TProject {
-	const replaced = new Map(entities.map((entity) => [entity.id, entity]));
-	const kept = project.track.pieces.map((entity) => replaced.get(entity.id) ?? entity);
-	const added = entities.filter((entity) => !project.track.pieces.some((e) => e.id === entity.id));
+export function withPieces(project: TProject, pieces: TPiece[]): TProject {
+	const replaced = new Map(pieces.map((piece) => [piece.id, piece]));
+	const kept = project.track.pieces.map((piece) => replaced.get(piece.id) ?? piece);
+	const added = pieces.filter((piece) => !project.track.pieces.some((e) => e.id === piece.id));
 	return { ...project, track: { ...project.track, pieces: [...kept, ...added] } };
 }
 
@@ -1557,19 +1557,19 @@ function isOnTime(status: THitStatus | undefined): boolean {
  * Pieces without a `bounce` parameter are unchanged.
  */
 function withSettlingBounce(
-	entity: TPiece,
+	piece: TPiece,
 	velocity: TVec2 | null,
 	interval: number,
 	g = -GRAVITY_Y
 ): TPiece {
 	
-	const spec = entity != null ? getPieceDefinition(entity.type)?.params['bounce'] : undefined;
-	if (spec == null || velocity == null) return entity;
+	const spec = piece != null ? getPieceDefinition(piece.type)?.params['bounce'] : undefined;
+	if (spec == null || velocity == null) return piece;
 	const steady = (g * interval) / (1 + spec.default);
 	const speed = -velocity.y;
 	const bounce =
 		speed > 0 ? Math.min(spec.max, Math.max(spec.min, (spec.default * steady) / speed)) : spec.max;
-	return { ...entity, params: { ...entity.params, bounce: Math.round(bounce * 100) / 100 } };
+	return { ...piece, params: { ...piece.params, bounce: Math.round(bounce * 100) / 100 } };
 }
 
 /**
@@ -1599,18 +1599,18 @@ function clampBounce(bounce: number, spec: { min: number; max: number } | undefi
 	return Math.round(Math.min(spec.max, Math.max(spec.min, bounce)) * 100) / 100;
 }
 
-function withBounce(entity: TPiece, bounce: number | null): TPiece {
-	if (bounce == null) return entity;
-	return { ...entity, params: { ...entity.params, bounce } };
+function withBounce(piece: TPiece, bounce: number | null): TPiece {
+	if (bounce == null) return piece;
+	return { ...piece, params: { ...piece.params, bounce } };
 }
 
-function withLength(entity: TPiece, length: number | undefined): TPiece {
-	if (length == null) return entity;
-	return { ...entity, params: { ...entity.params, length } };
+function withLength(piece: TPiece, length: number | undefined): TPiece {
+	if (length == null) return piece;
+	return { ...piece, params: { ...piece.params, length } };
 }
 
-function withAngle(entity: TPiece, angle: number): TPiece {
-	return tieOf(entity) == null ? entity : { ...entity, angle };
+function withAngle(piece: TPiece, angle: number): TPiece {
+	return tieOf(piece) == null ? piece : { ...piece, angle };
 }
 
 /**
@@ -1631,10 +1631,10 @@ function hasStrayContact(
 	// Free, anchored and scenery pieces are environment the marble may strike; only hit pieces are stray
 	const environment = new Set(
 		project.track.pieces
-			.filter((entity) => {
-				return entity.id !== entityId && !soundsHit(entity.type, tieOf(entity));
+			.filter((piece) => {
+				return piece.id !== entityId && !soundsHit(piece.type, tieOf(piece));
 			})
-			.map((entity) => entity.id)
+			.map((piece) => piece.id)
 	);
 	return result.contacts.some((contact) => {
 		if (contact.time <= from + 0.005 || contact.time >= until - 0.03) return false;
@@ -1668,9 +1668,9 @@ export function crossesOtherMarbles(
 ): boolean {
 	const marbleEntityId = project.marbles.find((item) => item.id === marbleId)?.id;
 	const marbleOfPiece = new Map(
-		project.track.pieces.flatMap((entity) => {
-			const tie = tieOf(entity);
-			return tie != null ? [[entity.id, tie.marbleId] as const] : [];
+		project.track.pieces.flatMap((piece) => {
+			const tie = tieOf(piece);
+			return tie != null ? [[piece.id, tie.marbleId] as const] : [];
 		})
 	);
 	const isCrossing = trial.contacts.some((contact) => {

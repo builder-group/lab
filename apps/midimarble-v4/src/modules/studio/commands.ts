@@ -161,7 +161,7 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 		isDuplicating = false;
 	}
 	if (cx.project !== project) return;
-	const original = project.track.pieces.find((entity) => entity.id === ids[0]);
+	const original = project.track.pieces.find((piece) => piece.id === ids[0]);
 	if (placed.spot === 'refused') {
 		cx.notify(refusedWords(original?.name ?? 'this piece', placed.breaks));
 		return;
@@ -171,9 +171,9 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 		return;
 	}
 	if (!cx.execute(placed.commands, { label: 'Duplicate' })) return;
-	const named = cx.project?.track.pieces.filter((entity) => placed.copies.some((copy) => copy.id === entity.id)) ?? placed.copies;
-	cx.$selection.set(named.map((entity) => entity.id));
-	const tied = ids.some((id) => tieOf(project.track.pieces.find((entity) => entity.id === id)) != null);
+	const named = cx.project?.track.pieces.filter((piece) => placed.copies.some((copy) => copy.id === piece.id)) ?? placed.copies;
+	cx.$selection.set(named.map((piece) => piece.id));
+	const tied = ids.some((id) => tieOf(project.track.pieces.find((piece) => piece.id === id)) != null);
 	const what = named.length === 1 ? `${original?.name ?? 'The piece'} duplicated as ${named[0]?.name ?? 'a copy'}` : `${named.length} pieces duplicated`;
 	const where = placed.spot === 'beside the run' ? ', beside the run: no free spot near it' : '';
 	cx.notifyEdit(`${what}${tied ? ', tied to nothing' : ''}${where}`);
@@ -221,7 +221,7 @@ async function pasteClipboard(cx: StudioCx): Promise<void> {
 		const pasted = pasteFilmCommands(project, kept);
 		if (cx.execute(pasted.commands, { label: 'Paste' })) {
 			cx.$clipboard.set({ ...kept, decor: pasted.decor, titles: pasted.titles });
-			cx.$selection.set([...pasted.decor.map((item) => toDecorKey(item.id)), ...pasted.titles.map((entity) => entity.id)]);
+			cx.$selection.set([...pasted.decor.map((item) => toDecorKey(item.id)), ...pasted.titles.map((piece) => piece.id)]);
 		}
 		return;
 	}
@@ -241,7 +241,7 @@ async function pasteClipboard(cx: StudioCx): Promise<void> {
 		return;
 	}
 	if (!cx.execute(placed.commands, { label: 'Paste' })) return;
-	cx.$selection.set(placed.copies.map((entity) => entity.id));
+	cx.$selection.set(placed.copies.map((piece) => piece.id));
 	if (placed.spot === 'beside the run') cx.notifyEdit('Pasted beside the run: no free spot near it');
 }
 
@@ -254,9 +254,9 @@ function backingKeys(cx: StudioCx): string[] {
 		const parsed = parseHitKey(key);
 		return parsed != null && parsed.marbleId !== BACKING_ID;
 	});
-	const played = project.track.pieces.flatMap((entity) => {
-		const link = tieOf(entity);
-		return selection.includes(entity.id) && link != null && soundsHit(entity.type, link) ? [toHitKey(link.marbleId, link.hitId)] : [];
+	const played = project.track.pieces.flatMap((piece) => {
+		const link = tieOf(piece);
+		return selection.includes(piece.id) && link != null && soundsHit(piece.type, link) ? [toHitKey(link.marbleId, link.hitId)] : [];
 	});
 	return [...new Set([...hits, ...played])];
 }
@@ -369,7 +369,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Edit',
 		shortcut: '⌘A',
 		isEnabled: (cx) => trackCx(cx) != null,
-		run: (cx) => cx.$selection.set(cx.project?.track.pieces.map((entity) => entity.id) ?? [])
+		run: (cx) => cx.$selection.set(cx.project?.track.pieces.map((piece) => piece.id) ?? [])
 	},
 	{ id: 'edit.deselect', title: 'Deselect', section: 'Edit', keywords: 'select scene none project length speed theme', isEnabled: (cx) => cx.$selection.get().length > 0, run: (cx) => cx.$selection.set([]) },
 	{

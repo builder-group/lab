@@ -160,7 +160,7 @@ describe('Theme manifests and parts', () => {
 		expect(next.film.theme).toBe(themeId);
 		expect(theme.name).toBe('Brass Copy');
 		expect(theme.parts.platform.skin).toBe('platform:copper');
-		const skinOf = (id: string) => next.track.pieces.find((entity) => entity.id === id)?.skin;
+		const skinOf = (id: string) => next.track.pieces.find((piece) => piece.id === id)?.skin;
 		expect(skinOf('a')).toBeUndefined();
 		expect(skinOf('c')?.assetId).toBe('platform:key');
 		expect(skinOf('d')?.assetId).toBe('library-skin');

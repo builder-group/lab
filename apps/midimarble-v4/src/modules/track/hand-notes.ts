@@ -29,7 +29,7 @@ export function handNotes(cx: StudioCx, keys: string[], target: string | 'new'):
 	cx.$selection.set(hitIds.map((id) => toHitKey(marbleId, id)));
 	const removed = assigned.flatMap((command) => (command.type === 'removePieces' ? command.pieceIds : []));
 	const moved = assigned.filter((command) => command.type === 'addPiece' && tieOf(command.piece)?.marbleId === marbleId).length;
-	const name = (id: string): string => project.track.pieces.find((entity) => entity.id === id)?.name ?? 'Platform';
+	const name = (id: string): string => project.track.pieces.find((piece) => piece.id === id)?.name ?? 'Platform';
 	const owner = project.marbles.find((marble) => marble.id === marbleId)?.name ?? 'the new marble';
 	// Each notice offers Undo; when the edit breaks later hits, Track adds Fix to it once the run is simulated
 	if (removed.length === 1) cx.notifyEdit(`${name(removed[0] ?? '')} removed: Backing needs no platform`);

@@ -123,7 +123,7 @@ export interface TSceneReactions {
 }
 
 export interface TSceneMarble {
-	/** Stable entity ID; becomes the holder object's `mm_id` */
+	/** Stable piece ID; becomes the holder object's `mm_id` */
 	id: string;
 	name: string;
 	radius: number;
@@ -177,7 +177,7 @@ export interface TScenePiece {
 	sampleCount: number;
 	/**
 	 * Support line of rails and tunnels in wall coordinates: the resolved, smoothed polyline the simulation
-	 * collides with (derived from the entity's `path` component). The marble center rides `radius + wire radius`
+	 * collides with (derived from the piece's `path` component). The marble center rides `radius + wire radius`
 	 * above it.
 	 */
 	path?: { x: number; y: number }[] | null;

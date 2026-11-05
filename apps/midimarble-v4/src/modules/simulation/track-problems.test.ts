@@ -78,8 +78,8 @@ describe('rollingHits function', () => {
 		const base = project(['a', 'b']);
 		const samples = Array.from({ length: 200 }, (_, index) => ({ time: index / 120, position: { x: 0, y: 0.006 + 0.012 + heightOf(Math.max(0, index / 120 - 1)) } }));
 		const piece = platform('piece-a', 0, 0);
-		base.track.pieces.forEach((entity) => {
-			if (entity.id === 'piece-a') entity.type = type;
+		base.track.pieces.forEach((piece) => {
+			if (piece.id === 'piece-a') piece.type = type;
 		});
 		const result = run([piece], [{ time: 1, other: 'piece-a' }], { a: 1, b: 1.5 });
 		return { project: base, result: { ...result, marbles: [{ entityId: 'marble', marbleId: 'marble', radius: 0.012, samples }] } as unknown as TSimulationResult };

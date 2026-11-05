@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import { builtRunCommands } from './group-commands';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
-import { gapPieceReads, hitOwners, isSuperseded, layoutOf, openLongGaps, release, changedEntities, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { gapPieceReads, hitOwners, isSuperseded, layoutOf, openLongGaps, release, changedPieces, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { preflightExport, problemSummary, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
 import { unreachableActions } from './unreachable-fixes';
@@ -188,7 +188,7 @@ export class AssistCx {
 			const step = await buildOneStep(project, deps);
 			if (this.studio.project?.revision !== project.revision) return;
 			if (step != null && step.commands.length > 0 && this.studio.execute(step.commands)) {
-				const placed = step.project.track.pieces.find((entity) => tieOf(entity)?.hitId === step.target.hitId);
+				const placed = step.project.track.pieces.find((piece) => tieOf(piece)?.hitId === step.target.hitId);
 				if (placed != null) this.studio.$selection.set([placed.id]);
 				if (!this.studio.$playing.get()) this.studio.$playhead.set(step.target.targetTime);
 				this.studio.notifyEdit(`${message} Next found another way past it.`);
@@ -269,7 +269,7 @@ export class AssistCx {
 		const present = this.studio.project;
 		if (present == null) return;
 		if (typeof quick === 'object' && present.revision === project.revision) {
-			commitAtHit(this.studio, hit, quick.entity);
+			commitAtHit(this.studio, hit, quick.piece);
 			return;
 		}
 		// Only the wait for the picture depends on timing: the piece shows at the default tilt until the answer comes, and
@@ -289,7 +289,7 @@ export class AssistCx {
 		const latest = this.studio.project;
 		// Only refine while nothing else happened since the default placement; the tilt undoes with it
 		if (latest == null || latest.revision !== placedRevision) return;
-		const commands = replaceCommands(latest, answer.entity);
+		const commands = replaceCommands(latest, answer.piece);
 		if (commands.length > 0) this.studio.execute(commands, { group: placedGroup });
 	}
 
@@ -311,9 +311,9 @@ export class AssistCx {
 		this.studio.$selection.set([key]);
 		const id = createId('piece');
 		const radius = project.marbles.find((item) => item.id === hit.marbleId)?.radius ?? DEFAULT_MARBLE_RADIUS;
-		const show = (entity: TPiece, angle: number, nextDot: TVec2 | null, isSolved: boolean, isOk: boolean): void => {
-			const piece = displayPiece(entity, { pose: { position: dot, angle }, dot, velocity }, radius);
-			this.dispatch({ type: 'preview', answer: { revision: project.revision, marbleId: hit.marbleId, hit, type, entity, piece, nextDot, isSolved, isOk } });
+		const show = (piece: TPiece, angle: number, nextDot: TVec2 | null, isSolved: boolean, isOk: boolean): void => {
+			const resolvedPiece = displayPiece(piece, { pose: { position: dot, angle }, dot, velocity }, radius);
+			this.dispatch({ type: 'preview', answer: { revision: project.revision, marbleId: hit.marbleId, hit, type, piece, resolved: resolvedPiece, nextDot, isSolved, isOk } });
 		};
 		const guess = pieceForHit(project, hit, type, 'default', id);
 		const guessAngle = guess.angle ?? 0;
@@ -325,7 +325,7 @@ export class AssistCx {
 		show(guess, guessAngle, null, false, true);
 		client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, entityId: id }).then(
 			(answer) => {
-				if (run === this.previewRun && this.studio.project?.revision === project.revision) show(answer.entity, answer.angle, answer.nextDot, true, true);
+				if (run === this.previewRun && this.studio.project?.revision === project.revision) show(answer.piece, answer.angle, answer.nextDot, true, true);
 			},
 			(error: unknown) => {
 				if (run === this.previewRun && !isSuperseded(error) && this.studio.project?.revision === project.revision) show(guess, guessAngle, null, true, false);
@@ -350,7 +350,7 @@ export class AssistCx {
 	/** The suggested piece a click would add: a dot's preview or a long gap's bridge. Continue ghosts are taken with Tab. */
 	get clickableGhost(): TResolvedPiece | null {
 		const { ghost } = this.$ghosts.get();
-		return ghost == null || ghost.kind === 'continue' ? null : ghost.answer.piece;
+		return ghost == null || ghost.kind === 'continue' ? null : ghost.answer.resolved;
 	}
 
 	/** Takes back what a dot's click showed; a Continue offer it replaced comes back */
@@ -379,12 +379,12 @@ export class AssistCx {
 		if (ghost.kind === 'continue') {
 			const last = ghost.answer.suggestions.filter((suggestion) => suggestion.isOk).at(-1);
 			const time = project.marbles.find((marble) => marble.id === ghost.answer.marbleId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
-			if (last != null) this.studio.$selection.set([last.entity.id]);
+			if (last != null) this.studio.$selection.set([last.piece.id]);
 			if (time != null && !this.studio.$playing.get()) this.studio.$playhead.set(time);
 			this.studio.notifyEdit(`Added ${acceptableCount(ghost)} ${acceptableCount(ghost) === 1 ? 'platform' : 'platforms'}`);
 		} else {
-			this.studio.$selection.set([ghost.answer.entity.id]);
-			if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.piece?.entryTime ?? this.studio.$playhead.get());
+			this.studio.$selection.set([ghost.answer.piece.id]);
+			if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.resolved?.entryTime ?? this.studio.$playhead.get());
 		}
 		return true;
 	}
@@ -396,7 +396,7 @@ export class AssistCx {
 			if (!this.isPlacing) void this.place(answer.hit, answer.type).finally(() => this.dispatch({ type: 'accepted' }));
 			return true;
 		}
-		if (!commitAtHit(this.studio, answer.hit, answer.entity)) return false;
+		if (!commitAtHit(this.studio, answer.hit, answer.piece)) return false;
 		this.dispatch({ type: 'accepted' });
 		if (!answer.isOk) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
 		return true;
@@ -608,7 +608,7 @@ export class AssistCx {
 		if (project == null || key == null) return null;
 		const hit = parseHitKey(key);
 		if (hit != null) return hit;
-		const link = tieOf(project.track.pieces.find((entity) => entity.id === key));
+		const link = tieOf(project.track.pieces.find((piece) => piece.id === key));
 		return link != null ? { marbleId: link.marbleId, hitId: link.hitId } : null;
 	}
 
@@ -684,9 +684,9 @@ export class AssistCx {
 		return {
 			// The assists worker, so Auto place resumes from the run Fix just simulated
 			simulate: async (next) => client.simulateAssist(next),
-			autoPlace: async (next, hit, entity) => (await client.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: entity.type ?? 'platform', entityId: entity.id }, options)).entity,
-			gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, options)).entity,
-			settle: async (before, after) => (await client.settle({ before, after })).entities
+			autoPlace: async (next, hit, piece) => (await client.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: piece.type ?? 'platform', entityId: piece.id }, options)).piece,
+			gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, options)).piece,
+			settle: async (before, after) => (await client.settle({ before, after })).pieces
 		};
 	}
 
@@ -713,7 +713,7 @@ export class AssistCx {
 			this.studio.notify('The run is still being checked. Press Fix again in a moment.');
 			return;
 		}
-		if (project.track.pieces.some((entity) => tieOf(entity)?.held != null)) await this.fixHeld(project, result);
+		if (project.track.pieces.some((piece) => tieOf(piece)?.held != null)) await this.fixHeld(project, result);
 		else if (entityId != null) await this.fixOnePiece(project, result, entityId);
 		else if (hasFixes(project, result)) await this.fixWholeRun(project, result);
 		else this.studio.notify(this.nothingToFixWords(project, result));
@@ -857,7 +857,7 @@ export class AssistCx {
 		try {
 			const back = await client.reconnect(project);
 			if (back != null) {
-				const next = withSettled(project, back.entities);
+				const next = withSettled(project, back.pieces);
 				judge(next, await client.simulateAssist(next));
 			} else {
 				const released = release(project);
@@ -893,7 +893,7 @@ export class AssistCx {
 			this.studio.notifyEdit(words, rebuild, { isUndoFirst: true });
 			return;
 		}
-		const changed = changedEntities(project, fixed);
+		const changed = changedPieces(project, fixed);
 		// Fix may move a release too
 		const released = fixed.marbles.flatMap((marble): TProjectCommand[] => {
 			const was = project.marbles.find((item) => item.id === marble.id);
@@ -924,7 +924,7 @@ export class AssistCx {
 				return;
 			}
 			if (!this.studio.execute(placed.commands)) return;
-			this.studio.$selection.set([placed.entity.id]);
+			this.studio.$selection.set([placed.piece.id]);
 			const lengthened = await this.studio.lengthenForCatch();
 			this.studio.notifyEdit(lengthened != null ? `${placed.message} The film now runs to ${formatTime(lengthened)}, to show the catch.` : placed.message);
 		} catch (error) {
@@ -988,27 +988,27 @@ export class AssistCx {
 
 /** The earliest hit whose piece waits behind a break */
 function heldHit(project: TProject): { marbleId: string; hitId: string; time: number } | null {
-	const held = project.track.pieces.flatMap((entity) => {
-		const link = tieOf(entity);
+	const held = project.track.pieces.flatMap((piece) => {
+		const link = tieOf(piece);
 		const time = link?.held != null ? project.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time : undefined;
 		return link != null && time != null ? [{ marbleId: link.marbleId, hitId: link.hitId, time }] : [];
 	});
 	return held.sort((a, b) => a.time - b.time)[0] ?? null;
 }
 
-/** `project` with these entities in place of the ones of the same id */
-function withSettled(project: TProject, entities: TPiece[]): TProject {
-	const changed = new Map(entities.map((entity) => [entity.id, entity]));
-	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } };
+/** `project` with these pieces in place of the ones of the same id */
+function withSettled(project: TProject, pieces: TPiece[]): TProject {
+	const changed = new Map(pieces.map((piece) => [piece.id, piece]));
+	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((piece) => changed.get(piece.id) ?? piece) } };
 }
 
 /** What a fix did to a person's tilts, so it never rewrites an edit quietly: "Platform 8 went from 22.9° to 40°. " */
 function tiltChange(project: TProject, changed: TPiece[]): string {
-	const tilts = changed.flatMap((entity) => {
-		const was = project.track.pieces.find((item) => item.id === entity.id);
+	const tilts = changed.flatMap((piece) => {
+		const was = project.track.pieces.find((item) => item.id === piece.id);
 		const before = tieOf(was) != null ? was?.angle : undefined;
-		const after = tieOf(entity) != null ? entity.angle : undefined;
-		return before != null && after != null && Math.abs(after - before) > DEGREE / 10 && entity.type === 'platform' ? [{ name: entity.name ?? 'A platform', before, after }] : [];
+		const after = tieOf(piece) != null ? piece.angle : undefined;
+		return before != null && after != null && Math.abs(after - before) > DEGREE / 10 && piece.type === 'platform' ? [{ name: piece.name ?? 'A platform', before, after }] : [];
 	});
 	const degrees = (angle: number): string => `${Math.round((angle / DEGREE) * 10) / 10}°`;
 	const [first] = tilts;
@@ -1019,7 +1019,7 @@ function tiltChange(project: TProject, changed: TPiece[]): string {
 
 /** The piece that plays this hit, if any */
 function pieceForHitKey(project: TProject, hit: { marbleId: string; hitId: string }): string | undefined {
-	return project.track.pieces.find((entity) => tieOf(entity)?.marbleId === hit.marbleId && tieOf(entity)?.hitId === hit.hitId)?.id;
+	return project.track.pieces.find((piece) => tieOf(piece)?.marbleId === hit.marbleId && tieOf(piece)?.hitId === hit.hitId)?.id;
 }
 
 function wait(ms: number): Promise<void> {

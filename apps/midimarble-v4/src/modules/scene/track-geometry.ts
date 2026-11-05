@@ -279,7 +279,7 @@ export function firstHitsView(project: TProject, result: TSimulationResult, view
 
 /**
  * What a step to the hit at `time` brings into view: the hit dots struck then and their pieces, as hit keys and
- * entity ids, so a chord of several marbles shows every marble that strikes it
+ * piece ids, so a chord of several marbles shows every marble that strikes it
  */
 export function struckAt(hits: readonly THitResult[], time: number): string[] {
 	return hits

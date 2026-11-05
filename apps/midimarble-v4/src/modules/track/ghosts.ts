@@ -15,12 +15,12 @@ export interface TPlaceAnswer {
 	marbleId: string;
 	hit: THitResult;
 	type: string;
-	entity: TPiece;
+	piece: TPiece;
 	/** The piece as it shows at its dot */
-	piece: TResolvedPiece;
+	resolved: TResolvedPiece;
 	/** Where the marble's next note lands with this piece; null until Auto place answers */
 	nextDot: TVec2 | null;
-	/** Auto place has answered, so `entity` is what gets added */
+	/** Auto place has answered, so `piece` is what gets added */
 	isSolved: boolean;
 	/** False when no tilt keeps the next note in the frame and the piece has the default tilt */
 	isOk: boolean;

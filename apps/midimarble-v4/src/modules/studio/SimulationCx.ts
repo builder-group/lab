@@ -167,7 +167,7 @@ export class SimulationCx {
 		this.client.settle({ before, after }).then(
 			(answer) => {
 				if (run !== this.settleRun || this.studio.project?.revision !== after.revision) return;
-				this.landSettled(answer.entities, true);
+				this.landSettled(answer.pieces, true);
 				this.sayBreak(answer, after);
 			},
 			(error: unknown) => {
@@ -179,8 +179,8 @@ export class SimulationCx {
 	}
 
 	/** Lands what a settle found, in the edit's undo step or as its own */
-	landSettled(entities: TPiece[], isAmend: boolean): void {
-		this.landWorkedOut(entities.map((entity) => ({ type: 'addPiece', piece: entity })), { amend: isAmend });
+	landSettled(pieces: TPiece[], isAmend: boolean): void {
+		this.landWorkedOut(pieces.map((piece) => ({ type: 'addPiece', piece })), { amend: isAmend });
 	}
 
 	/** Lands an edit that already worked out how the run goes on, so nothing folds into it: a settle would decide again */
@@ -226,7 +226,7 @@ export class SimulationCx {
 			if (run !== this.settleRun || this.studio.project?.revision !== project.revision) return;
 			const limit = moveLimit(project, move, answer);
 			// Nothing moved, so nothing lands: no undo step for a drop that didn't happen
-			this.landSettled(limit?.isStuck === true ? [] : answer.entities, false);
+			this.landSettled(limit?.isStuck === true ? [] : answer.pieces, false);
 			if (limit?.isStuck === true) this.studio.notify(limit.notice);
 			else if (limit != null) this.studio.notifyEdit(limit.notice);
 			this.sayBreak(answer, project);
@@ -265,7 +265,7 @@ export class SimulationCx {
 		if (result.revision !== pending.revision || status == null || status === 'onTime' || status === 'drifting' || status === 'waiting') return;
 		const marble = project.marbles.find((item) => item.id === first.marbleId);
 		const number = (marble?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
-		const waiting = project.track.pieces.filter((entity) => tieOf(entity)?.marbleId === first.marbleId && (marble?.hits.find((hit) => hit.id === tieOf(entity)?.hitId)?.time ?? -1) > first.time).length;
+		const waiting = project.track.pieces.filter((piece) => tieOf(piece)?.marbleId === first.marbleId && (marble?.hits.find((hit) => hit.id === tieOf(piece)?.hitId)?.time ?? -1) > first.time).length;
 		const later = waiting === 1 ? 'The piece after it waits.' : `The ${waiting} pieces after it wait.`;
 		this.studio.notifyEdit(`${marble?.name ?? 'The marble'} misses Hit ${number}. ${later}`, [], { isUndoFirst: true });
 	}
@@ -294,7 +294,7 @@ export class SimulationCx {
 				if (this.preview !== preview) return;
 				const limit = move != null ? moveLimit(present, move, answer) : null;
 				if (limit?.chip !== this.$moveLimit.get()?.chip) this.$moveLimit.set(limit);
-				this.send(client, withEntities(preview, answer.entities));
+				this.send(client, withPieces(preview, answer.pieces));
 			},
 			(error: unknown) => {
 				if (!isSuperseded(error) && this.preview === preview) this.send(client, preview);
@@ -324,10 +324,10 @@ export class SimulationCx {
 	}
 }
 
-/** `project` with these entities in place of the ones of the same id */
-function withEntities(project: TProject, entities: TPiece[]): TProject {
-	const changed = new Map(entities.map((entity) => [entity.id, entity]));
-	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } };
+/** `project` with these pieces in place of the ones of the same id */
+function withPieces(project: TProject, pieces: TPiece[]): TProject {
+	const changed = new Map(pieces.map((piece) => [piece.id, piece]));
+	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((piece) => changed.get(piece.id) ?? piece) } };
 }
 
 /** Why a dragged platform can't go all the way: `chip` beside the drag, `notice` after the drop */
@@ -347,8 +347,8 @@ export function moveLimit(project: TProject, move: { marbleId: string; hitId: st
 	const outcome = answer.move;
 	if (outcome == null || outcome.missed <= MOVE_LANDED) return null;
 	const marble = project.marbles.find((item) => item.id === move.marbleId);
-	const name = project.track.pieces.find((entity) => tieOf(entity)?.marbleId === move.marbleId && tieOf(entity)?.hitId === move.hitId)?.name ?? 'The platform';
-	const from = project.track.pieces.find((entity) => entity.id === outcome.fromId)?.name;
+	const name = project.track.pieces.find((piece) => tieOf(piece)?.marbleId === move.marbleId && tieOf(piece)?.hitId === move.hitId)?.name ?? 'The platform';
+	const from = project.track.pieces.find((piece) => piece.id === outcome.fromId)?.name;
 	if (outcome.isFixed) {
 		if (from == null) return { chip: "Stays: it's the first note", notice: `${name} stays where it is: it plays ${marble?.name ?? 'the marble'}'s first note. Move the release to change its spot.`, isStuck: true };
 		return { chip: `Stays: the marble leaves ${from} here`, notice: `${name} stays where it is: the marble leaves ${from} here. Move ${from} to change its spot.`, isStuck: true };

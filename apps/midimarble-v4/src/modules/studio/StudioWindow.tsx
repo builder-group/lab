@@ -46,7 +46,7 @@ export const StudioWindow: React.FC<{ cx: StudioCx }> = (props) => {
 							const item = [...cx.library.$projectItems.get(), ...cx.library.$globalItems.get()].find((candidate) => candidate.id === asset.id && candidate.scope === asset.scope);
 							if (item == null) return;
 							cx.$selection.set([entityId]);
-							void cx.library.applySkin(item, { kind: 'entities', entityIds: [entityId] });
+							void cx.library.applySkin(item, { kind: 'pieces', entityIds: [entityId] });
 						}}
 					/>
 				)

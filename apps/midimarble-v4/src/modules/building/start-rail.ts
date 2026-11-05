@@ -49,26 +49,26 @@ export function startRailPlan(lead: number, gravity: number, fall: number): { sl
  */
 export function withStartRails(project: TProject, marbleIds: ReadonlySet<string>): TProject {
 	const gravity = -gravityOf(project);
-	let entities = project.track.pieces;
+	let pieces = project.track.pieces;
 	let marbles = project.marbles;
 	for (const marble of project.marbles) {
 		const [first] = marble.hits;
 		const release = marble.start;
 		if (first == null || !marbleIds.has(marble.id)) continue;
-		if (entities.some((entity) => entity.id === startRailId(marble.id))) continue;
+		if (pieces.some((piece) => piece.id === startRailId(marble.id))) continue;
 		if (release.velocity != null && (release.velocity.x !== 0 || release.velocity.y !== 0)) continue;
 		// As early as it needs, but no later than the person's release and not before the film starts
 		const lead = Math.min(first.time, Math.max(first.time - release.time, rollTime(MIN_SLOPE, gravity) + FALL));
 		const plan = startRailPlan(lead, gravity, FALL);
 		if (plan == null) continue;
 		// Every rail runs the same way: the marbles start side by side and the camera opens on all of them
-		const placed = startRail(entities, marble.id, marble.radius, plan.slope);
+		const placed = startRail(pieces, marble.id, marble.radius, plan.slope);
 		const position: TVec2 = { x: Math.round((release.position.x - placed.reach) * 1e4) / 1e4, y: release.position.y };
 		const start = { ...release, position, time: Math.round((first.time - lead) * 1e4) / 1e4 };
 		marbles = marbles.map((item) => (item.id === marble.id ? { ...item, start } : item));
-		entities = [...entities, placed.at(position)];
+		pieces = [...pieces, placed.at(position)];
 	}
-	return entities === project.track.pieces ? project : { ...project, marbles, track: { ...project.track, pieces: entities } };
+	return pieces === project.track.pieces ? project : { ...project, marbles, track: { ...project.track, pieces } };
 }
 
 /**
@@ -76,7 +76,7 @@ export function withStartRails(project: TProject, marbleIds: ReadonlySet<string>
  * drops, so it falls almost straight onto its first note, as one released without a rail does and a Switchback lets it
  * go. `reach` is how far along x from the release that fall lies.
  */
-function startRail(entities: TPiece[], marbleId: string, marbleRadius: number, slope: number): { reach: number; at: (marble: TVec2) => TPiece } {
+function startRail(pieces: TPiece[], marbleId: string, marbleRadius: number, slope: number): { reach: number; at: (marble: TVec2) => TPiece } {
 	const params = resolvePieceParams('rail', {});
 	const radius = params['radius'] ?? 0.00375;
 	const onWire = marbleRadius + radius;
@@ -92,7 +92,7 @@ function startRail(entities: TPiece[], marbleId: string, marbleRadius: number, s
 		reach: toFall,
 		at: (marble) => ({
 			id: startRailId(marbleId),
-			name: nextPieceName('rail', entities),
+			name: nextPieceName('rail', pieces),
 			type: 'rail', params: { ...kept, laneOffset: round(toFall) }, angle: round(-slope), place: { kind: 'free', position: { x: round(marble.x - sin * (onWire + CLEARANCE)), y: round(marble.y - cos * (onWire + CLEARANCE)) } }, path: {
 					points: [{ x: -BACK_LENGTH, y: 0 }, { x: 0, y: 0 }, { x: ROLL_LENGTH, y: 0 }],
 					paths: [[local(gap, 2 * onWire), local(gap, -2 * marbleRadius)]]

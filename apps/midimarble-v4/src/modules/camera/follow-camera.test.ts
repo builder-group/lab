@@ -315,7 +315,7 @@ describe('follow camera', () => {
 	it('shows each marble landing in its Bowl', () => {
 		const { project: duet, result } = fixture('two-marbles');
 		const track = required(followCameraTrack(duet, result, 30));
-		const bowls = duet.track.pieces.filter((entity) => entity.type === 'bowl');
+		const bowls = duet.track.pieces.filter((piece) => piece.type === 'bowl');
 		expect(bowls).toHaveLength(2);
 		for (const bowl of bowls) {
 			const caught = bowlCatch(result, bowl.id);

@@ -70,14 +70,14 @@ async function setup(): Promise<{ cx: SimulationCx; studio: StudioCx; simulated:
 }
 
 function turn(project: TProject, id: string, by: number): TProjectCommand[] {
-	const entity = project.track.pieces.find((item) => item.id === id);
-	const link = tieOf(entity);
-	if (entity == null || link == null) throw new Error('Missing platform');
-	return [{ type: 'updatePiece', pieceId: id, patch: { angle: entity.angle + by } }];
+	const piece = project.track.pieces.find((item) => item.id === id);
+	const link = tieOf(piece);
+	if (piece == null || link == null) throw new Error('Missing platform');
+	return [{ type: 'updatePiece', pieceId: id, patch: { angle: piece.angle + by } }];
 }
 
 function leavesOf(project: TProject, id: string): unknown {
-	const place = project.track.pieces.find((entity) => entity.id === id)?.place;
+	const place = project.track.pieces.find((piece) => piece.id === id)?.place;
 	return place?.kind === 'plays' ? place.leaves : undefined;
 }
 

@@ -34,7 +34,7 @@ describe('attach helpers', () => {
 		const result = simulator.simulate(project);
 		const marble = project.marbles[0];
 		const hit = marble?.hits[8];
-		const linked = project.track.pieces.find((entity) => tieOf(entity)?.hitId === hit?.id);
+		const linked = project.track.pieces.find((piece) => tieOf(piece)?.hitId === hit?.id);
 		if (marble == null || hit == null || linked == null) throw new Error('No linked platform');
 
 		const [isUnlinked, unlinkErr, unlinked] = unlinkPiece(project, result, linked.id);
@@ -42,7 +42,7 @@ describe('attach helpers', () => {
 		const free = apply(project, unlinked.commands);
 		const freeResult = simulator.simulate(free);
 
-		expect(tieOf(unlinked.entity)).toBeNull();
+		expect(tieOf(unlinked.piece)).toBeNull();
 		expectSamePose(pieceOf(freeResult, linked.id), pieceOf(result, linked.id));
 		expect(freeResult.hits.find((item) => item.hitId === hit.id)?.status).toBe('open');
 
@@ -58,7 +58,7 @@ describe('attach helpers', () => {
 		const project = loadFixture('zigzag');
 		const result = simulator.simulate(project);
 		const marble = project.marbles[0];
-		const [first, second] = project.track.pieces.filter((entity) => tieOf(entity) != null);
+		const [first, second] = project.track.pieces.filter((piece) => tieOf(piece) != null);
 		if (marble == null || first == null || second == null) throw new Error('No linked platforms');
 
 		const [isLinked, linkErr] = linkPieceToHit(project, result, first.id, marble.id, tieOf(second)?.hitId ?? '');
@@ -97,7 +97,7 @@ describe('attach helpers', () => {
 			result = simulator.simulate(current);
 			const after = pieceOf(result, id);
 
-			expect(tieOf(anchored.entity)).toEqual(expect.objectContaining({ kind: 'follows', hitId: marble.hits[3]?.id }));
+			expect(tieOf(anchored.piece)).toEqual(expect.objectContaining({ kind: 'follows', hitId: marble.hits[3]?.id }));
 			expect(after.entryTime).toBeCloseTo(time, 9);
 			expectSamePose(after, before);
 		}
@@ -131,8 +131,8 @@ describe('attach helpers', () => {
 		if (!isAnchored) throw anchorErr;
 		const next = simulator.simulate(apply(project, anchored.commands));
 
-		expect(tieOf(anchored.entity)?.hitId).toBe(first.id);
-		expect(anchored.entity.params['entryDelay']).toBeCloseTo(time - first.time, 9);
+		expect(tieOf(anchored.piece)?.hitId).toBe(first.id);
+		expect(anchored.piece.params['entryDelay']).toBeCloseTo(time - first.time, 9);
 		expect(pieceOf(next, 'early-windmill').entryTime).toBeCloseTo(time, 9);
 		expectSamePose(pieceOf(next, 'early-windmill'), before);
 		expect(next.hits.filter((item) => item.status !== 'onTime')).toEqual([]);

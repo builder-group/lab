@@ -46,7 +46,7 @@ describe('history groups', () => {
 		// Assert
 		expect(late.past).toHaveLength(3);
 		expect(ids(undone.present).slice(-2)).toEqual(['windmill', 'platform']);
-		expect(undone.present.track.pieces.find((entity) => entity.id === 'windmill')?.name).toBe('windmill');
+		expect(undone.present.track.pieces.find((piece) => piece.id === 'windmill')?.name).toBe('windmill');
 	});
 
 	it('should keep the group through an amend, which changes the revision', () => {
@@ -82,15 +82,15 @@ describe('history groups', () => {
 });
 
 function ids(project: TProject): string[] {
-	return project.track.pieces.map((entity) => entity.id);
+	return project.track.pieces.map((piece) => piece.id);
 }
 
 function piece(id: string): TPiece {
 	return { id, name: id, type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } };
 }
 
-function edit(history: TProjectHistory, entity: TPiece, group?: number): TProjectHistory {
-	const [isOk, error, next] = applyProjectCommands(history.present, [{ type: 'addPiece', piece: entity }]);
+function edit(history: TProjectHistory, piece: TPiece, group?: number): TProjectHistory {
+	const [isOk, error, next] = applyProjectCommands(history.present, [{ type: 'addPiece', piece }]);
 	if (!isOk) throw error;
 	return pushHistory(history, next, group);
 }

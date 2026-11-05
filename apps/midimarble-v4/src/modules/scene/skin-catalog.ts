@@ -73,13 +73,13 @@ export function skinnedOf(project: Pick<TProject, 'track' | 'marbles'>): TSkinne
 }
 
 /** The element of a piece or a marble */
-export function entitySkinElement(entity: TSkinned): TSkinElement {
-	return 'type' in entity ? skinElement(entity.type) : 'marble';
+export function skinElementOf(piece: TSkinned): TSkinElement {
+	return 'type' in piece ? skinElement(piece.type) : 'marble';
 }
 
 /** The edit that gives a piece or a marble a skin; null takes its skin away */
-export function skinCommand(entity: TSkinned, skin: TSkin | null): TProjectCommand {
-	return 'type' in entity ? { type: 'updatePiece', pieceId: entity.id, patch: { skin } } : { type: 'updateMarble', marbleId: entity.id, patch: { skin } };
+export function skinCommand(piece: TSkinned, skin: TSkin | null): TProjectCommand {
+	return 'type' in piece ? { type: 'updatePiece', pieceId: piece.id, patch: { skin } } : { type: 'updateMarble', marbleId: piece.id, patch: { skin } };
 }
 
 export function elementLabel(element: TSkinElement): string {

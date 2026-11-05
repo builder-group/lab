@@ -1,6 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { crossesOtherMarbles, findHitResult, hitOwners, isInBand, openFrontiers, simulateTrial, withEntities, type TSimulateFn } from './assists';
+import { crossesOtherMarbles, findHitResult, hitOwners, isInBand, openFrontiers, simulateTrial, withPieces, type TSimulateFn } from './assists';
 import { gravityOf } from './geometry';
 import { descentPace, paceAt } from './pace';
 import { chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime } from './piece-layout';
@@ -58,7 +58,7 @@ interface TGapPieceOptions {
 }
 
 export interface TGapPieceProposal {
-	entity: TPiece;
+	piece: TPiece;
 	commands: TProjectCommand[];
 	entryTime: number;
 	length: number;
@@ -159,12 +159,12 @@ interface TGapSearch {
 function gapProposal(plan: TGapSearchPlan, candidate: TGapTry, check: TGapPieceCheck | null): TGapPieceProposal {
 	const entryDelay = candidate.entryTime - plan.fromTime;
 	const hasTurns = (plan.type === 'switchback' || plan.type === 'chain') && 'turns' in candidate;
-	const entity = hasTurns
-		? turnsEntity(plan.type as TTurnsLayout, plan.id, plan.count, plan.marbleId, plan.fromHitId, entryDelay, candidate)
-		: gapEntity(plan.type === 'tunnel' ? 'tunnel' : 'rail', plan.id, plan.count, plan.marbleId, plan.fromHitId, entryDelay, candidate as TGapCandidate);
+	const piece = hasTurns
+		? turnsPiece(plan.type as TTurnsLayout, plan.id, plan.count, plan.marbleId, plan.fromHitId, entryDelay, candidate)
+		: gapPiece(plan.type === 'tunnel' ? 'tunnel' : 'rail', plan.id, plan.count, plan.marbleId, plan.fromHitId, entryDelay, candidate as TGapCandidate);
 	return {
-		entity,
-		commands: [{ type: 'addPiece', piece: entity }],
+		piece,
+		commands: [{ type: 'addPiece', piece }],
 		entryTime: candidate.entryTime,
 		length: hasTurns ? candidate.width : (candidate as TGapCandidate).length,
 		slope: candidate.slope,
@@ -271,10 +271,10 @@ function prepareGapPiece(
 	const replaced = findGapPiece(project, marbleId, fromHitId);
 	const id = replaced?.id ?? options.id ?? createId('piece');
 	const count = project.track.pieces.filter(
-		(entity) => entity.type === type && entity.id !== replaced?.id
+		(piece) => piece.type === type && piece.id !== replaced?.id
 	).length;
 	const build = (candidate: TGapCandidate): TPiece =>
-		gapEntity(type, id, count, marbleId, fromHitId, candidate.entryTime - from.time, candidate);
+		gapPiece(type, id, count, marbleId, fromHitId, candidate.entryTime - from.time, candidate);
 
 	// Candidates: how far below the bounce apex the marble enters, whether the piece runs with the
 	// marble's travel or against it, slope and length
@@ -336,31 +336,31 @@ function prepareGapPiece(
 	const marbleBand = frameBand(project, marbleId);
 	const evaluate = (item: TGapTry): TGapEvaluation => {
 		const candidate = item as TGapCandidate;
-		const entity = build(candidate);
+		const piece = build(candidate);
 		// A flat probe on the next hit checks that the marble has left the piece with room for a platform
 		const probe = !hasPiece
-			? createLinkedPiece('platform', marbleId, to.id, 0, { id: `${entity.id}-probe` })
+			? createLinkedPiece('platform', marbleId, to.id, 0, { id: `${piece.id}-probe` })
 			: null;
 		const trial = simulateTrial(
 			simulate,
-			withEntities(project, probe != null ? [entity, probe] : [entity]),
+			withPieces(project, probe != null ? [piece, probe] : [piece]),
 			to.time + 0.02
 		);
 		const played = checkGapPiece(
 			trial,
 			project,
 			marbleId,
-			entity.id,
+			piece.id,
 			candidate.entryTime,
 			to.id,
 			to.time
 		);
 		if (played.pieceStatus !== 'placed') return null;
 		// The rail must keep clear of the other marbles, as Auto place does
-		if (crossesOtherMarbles(result, trial, project, marbleId, entity.id, from.time + 0.02, to.time, frontiers)) return null;
-		const isTouching = nearestPieceGap(withEntities(project, [entity]), trial, entity.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
-		const strikes = strikesOnTheWay(project, trial, entity, from.time);
-		const outsideMarble = marbleOverhang(trial, entity.id, marbleBand);
+		if (crossesOtherMarbles(result, trial, project, marbleId, piece.id, from.time + 0.02, to.time, frontiers)) return null;
+		const isTouching = nearestPieceGap(withPieces(project, [piece]), trial, piece.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
+		const strikes = strikesOnTheWay(project, trial, piece, from.time);
+		const outsideMarble = marbleOverhang(trial, piece.id, marbleBand);
 		const pacePart = played.paceError != null && pace != null ? Math.abs(played.paceError) / pace.limit : 0;
 		const score =
 			STRIKE_WEIGHT * strikes +
@@ -399,7 +399,7 @@ export function findEntryTime(
 	return null;
 }
 
-function gapEntity(
+function gapPiece(
 	type: 'rail' | 'tunnel',
 	id: string,
 	count: number,
@@ -480,10 +480,10 @@ function checkGapPiece(
 
 /** The rail or tunnel linked to a hit of the marble, if any */
 function findGapPiece(project: TProject, marbleId: string, hitId: string): TPiece | undefined {
-	return project.track.pieces.find((entity) => {
-		const hitLink = tieOf(entity);
-		if (entity == null || hitLink?.marbleId !== marbleId || hitLink.hitId !== hitId) return false;
-		const kind = layoutOf(entity.type);
+	return project.track.pieces.find((piece) => {
+		const tie = tieOf(piece);
+		if (piece == null || tie?.marbleId !== marbleId || tie.hitId !== hitId) return false;
+		const kind = layoutOf(piece.type);
 		return kind === 'path' || kind === 'tube';
 	});
 }
@@ -620,12 +620,12 @@ function prepareTurns(
 	const isMending = hitOwners(project, marbleId).has(to.id);
 	const id = replaced?.id ?? options.id ?? createId('piece');
 	const count = project.track.pieces.filter(
-		(entity) => entity.type === 'rail' && entity.id !== replaced?.id
+		(piece) => piece.type === 'rail' && piece.id !== replaced?.id
 	).length;
 	const defaults = resolvePieceParams('rail', railLayoutInfo[layout].defaults);
 	const defaultWidth = resolvePieceParams('rail', {})['width'] ?? 0.15;
 	const build = (candidate: TTurnsCandidate): TPiece =>
-		turnsEntity(layout, id, count, marbleId, fromHitId, candidate.entryTime - from.time, candidate);
+		turnsPiece(layout, id, count, marbleId, fromHitId, candidate.entryTime - from.time, candidate);
 
 	const entryTimes =
 		options.entryTime != null
@@ -706,28 +706,28 @@ function prepareTurns(
 	const frontiers = openFrontiers(project, result);
 	const evaluate = (item: TGapTry): TGapEvaluation => {
 		const candidate = item as TTurnsCandidate;
-		const entity = build(candidate);
+		const piece = build(candidate);
 		// A flat probe on the next hit checks that its dot can take a piece below the switchback
 		const probe = !owners.has(to.id)
-			? createLinkedPiece('platform', marbleId, to.id, 0, { id: `${entity.id}-probe` })
+			? createLinkedPiece('platform', marbleId, to.id, 0, { id: `${piece.id}-probe` })
 			: null;
 		const trial = simulateTrial(
 			simulate,
-			withEntities(project, probe != null ? [entity, probe] : [entity]),
+			withPieces(project, probe != null ? [piece, probe] : [piece]),
 			to.time + 0.02
 		);
-		const played = checkSwitchback(trial, project, marbleId, entity.id, candidate.entryTime, from.time, to.id, to.time);
+		const played = checkSwitchback(trial, project, marbleId, piece.id, candidate.entryTime, from.time, to.id, to.time);
 		if (played.check.pieceStatus !== 'placed') return null;
 		// Touching the marble's own pieces only costs score; touching another marble is never suggested
-		if (crossesOtherMarbles(result, trial, project, marbleId, entity.id, from.time + 0.02, to.time, frontiers)) return null;
+		if (crossesOtherMarbles(result, trial, project, marbleId, piece.id, from.time + 0.02, to.time, frontiers)) return null;
 		const probeStatus = trial.pieces.find((piece) => piece.entityId === probe?.id)?.status;
 		const paceError = Math.abs(played.check.paceError ?? 0);
 		const limit = pace?.limit ?? Infinity;
-		const isTouching = nearestPieceGap(withEntities(project, [entity]), trial, entity.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
+		const isTouching = nearestPieceGap(withPieces(project, [piece]), trial, piece.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
 		const score =
-			STRIKE_WEIGHT * strikesOnTheWay(project, trial, entity, from.time) +
+			STRIKE_WEIGHT * strikesOnTheWay(project, trial, piece, from.time) +
 			(played.isStray ? 20 : 0) +
-			(isMending ? 0 : (isTouching ? 8 : 0) + COLUMN_WEIGHT * columnMiss(played.check.dot, marbleBand) + MARBLE_WEIGHT * marbleOverhang(trial, entity.id, marbleBand)) +
+			(isMending ? 0 : (isTouching ? 8 : 0) + COLUMN_WEIGHT * columnMiss(played.check.dot, marbleBand) + MARBLE_WEIGHT * marbleOverhang(trial, piece.id, marbleBand)) +
 			(played.check.leaveTime == null ? 20 : 0) +
 			// Dropping out as the note is due leaves the next platform right under the switchback
 			(played.check.leaveTime != null && played.check.leaveTime >= to.time - 0.02 ? 2 : 0) +
@@ -754,8 +754,8 @@ function prepareTurns(
  * before the gap ends
  */
 /** Platforms the marble strikes again on its way across the gap, since a path back past them finds them as readily as a hit */
-function strikesOnTheWay(project: TProject, trial: TSimulationResult, entity: TPiece, from: number): number {
-	return extraStrikes(withEntities(project, [entity]), trial).filter((strike) => strike.time > from + HIT_TOLERANCE).length;
+function strikesOnTheWay(project: TProject, trial: TSimulationResult, piece: TPiece, from: number): number {
+	return extraStrikes(withPieces(project, [piece]), trial).filter((strike) => strike.time > from + HIT_TOLERANCE).length;
 }
 
 /** How far a piece reaches past its own marble, in piece lengths: it may, but it then stands in the next marble's way */
@@ -788,7 +788,7 @@ function findDropTime(
 	return null;
 }
 
-function turnsEntity(
+function turnsPiece(
 	layout: TTurnsLayout,
 	id: string,
 	count: number,
@@ -831,7 +831,7 @@ function checkSwitchback(
 		if (leaveTime == null && sample.position.y < bottom - (marble?.radius ?? 0))
 			leaveTime = sample.time;
 	}
-	const marbleEntityId = marble?.entityId;
+	const marbleEntityId = marble?.marbleId;
 	const isStray = trial.contacts.some((contact) => {
 		if (contact.time <= fromTime + 0.02 || contact.time >= toTime - 0.01) return false;
 		if (contact.marbleEntityId !== marbleEntityId) return contact.otherEntityId === entityId;

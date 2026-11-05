@@ -66,7 +66,7 @@ describe('createAssistPool function', () => {
 	function placeAlone(marbleId: string, hitId: string, entityId: string): unknown {
 		const simulate = (next: TProject): ReturnType<TSimulator['simulate']> => simulator.simulate(next);
 		const [isOk, error, placement] = autoPlace(project, simulate(project), marbleId, hitId, { simulate, type: 'platform', id: entityId });
-		return isOk ? { entity: placement.entity, angle: placement.angle, nextDot: placement.nextDot } : error.message;
+		return isOk ? { piece: placement.piece, angle: placement.angle, nextDot: placement.nextDot } : error.message;
 	}
 
 	it('should place the same platforms as a single worker whatever the pool size and timing', async () => {
@@ -91,7 +91,7 @@ describe('createAssistPool function', () => {
 				const request = { project, marbleId: marble.id, hitId: hit.id, type: 'platform', entityId: owners.get(hit.id)?.id ?? 'piece' };
 				answers.push(
 					await pool.autoPlace(request).then(
-						(answer) => ({ entity: answer.entity, angle: answer.angle, nextDot: answer.nextDot }),
+						(answer) => ({ piece: answer.piece, angle: answer.angle, nextDot: answer.nextDot }),
 						(error: unknown) => (error instanceof Error ? error.message : String(error))
 					)
 				);
@@ -120,12 +120,12 @@ describe('createAssistPool function', () => {
 
 				// Act
 				const answer = await pool.gapPiece({ type, project, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }).then(
-					(value) => ({ entity: value.entity, check: value.check }),
+					(value) => ({ piece: value.piece, check: value.check }),
 					(failure: unknown) => (failure instanceof Error ? failure.message : String(failure))
 				);
 
 				// Assert
-				expect(answer).toEqual(isOk ? { entity: proposal.entity, check: proposal.check } : error.message);
+				expect(answer).toEqual(isOk ? { piece: proposal.piece, check: proposal.check } : error.message);
 			}
 		}
 		pool.dispose();
@@ -150,7 +150,7 @@ describe('createAssistPool function', () => {
 		// Assert
 		await expect(stopped).rejects.toThrow('Auto place was stopped');
 		expect(isSuperseded(await waiting)).toBe(true);
-		await expect(newest).resolves.toMatchObject({ entity: (placeAlone(marble.id, hit.id, entityId) as { entity: unknown }).entity });
+		await expect(newest).resolves.toMatchObject({ piece: (placeAlone(marble.id, hit.id, entityId) as { piece: unknown }).piece });
 		const late = pool.autoPlace(request);
 		pool.dispose();
 		await expect(late).rejects.toThrow();

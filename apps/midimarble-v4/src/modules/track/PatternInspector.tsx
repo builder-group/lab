@@ -83,7 +83,7 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 const BarDepthPanel: React.FC<{ cx: StudioCx; project: TProject; group: TPatternGroup }> = (props) => {
 	const { cx, project, group } = props;
 	const spec = platformDefinition.params['depth'];
-	const bars = project.track.pieces.filter((entity) => entity.type === 'platform' && group.pieceIds.includes(entity.id));
+	const bars = project.track.pieces.filter((piece) => piece.type === 'platform' && group.pieceIds.includes(piece.id));
 	const [first] = bars;
 	if (first == null || spec == null) return null;
 	const depthOf = (bar: TPiece): number => bar.params['depth'] ?? spec.default;
@@ -162,7 +162,7 @@ const PatternProblems: React.FC<{ trackCx: TrackCx; failureKey: string; problems
 
 const TiltNote: React.FC<{ project: TProject; group: TPatternGroup }> = (props) => {
 	const { project, group } = props;
-	const tilts = project.track.pieces.filter((entity) => group.pieceIds.includes(entity.id) && entity.type === 'platform').map((entity) => Math.abs(tieOf(entity) != null ? entity.angle : 0) * (180 / Math.PI));
+	const tilts = project.track.pieces.filter((piece) => group.pieceIds.includes(piece.id) && piece.type === 'platform').map((piece) => Math.abs(tieOf(piece) != null ? piece.angle : 0) * (180 / Math.PI));
 	if (!tilts.length) return null;
 	const steepest = Math.max(...tilts);
 	if (steepest <= MAX_TILT + 0.5) return null;

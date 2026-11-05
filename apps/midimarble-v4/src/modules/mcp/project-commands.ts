@@ -1,7 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createFreePiece, flattenCommands, patternLockWords, patternOfPiece } from '@/modules/building';
 import { pieceForHit } from '@/modules/track';
-import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, projectThemes, catalogSkin, catalogSkins, elementLabel, entitySkinElement, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
+import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, projectThemes, catalogSkin, catalogSkins, elementLabel, skinElementOf, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, readScatterChoice, skinCommands } from '@/modules/film';
 import { filmCamera } from '@/modules/camera';
 import type { TLibraryItem } from '@/modules/scene';
@@ -256,7 +256,7 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 			}
 			const targets = skinned.filter((item) => command.ids?.includes(item.id) ?? ('type' in item ? item.type : 'marble') === command.pieceType);
 			for (const item of targets) {
-				const problem = skinProblem(command.assetId, entitySkinElement(item), items);
+				const problem = skinProblem(command.assetId, skinElementOf(item), items);
 				if (problem != null) return problem;
 			}
 			// With nothing of that type yet, the skin itself can still be wrong
@@ -306,7 +306,7 @@ export function expandCommands(project: TProject, result: TSimulationResult | nu
 		if (changesRadius(running, command)) notices.push('A marble\'s radius changes the run, so hits can move. Read hits in this reply; 0.012 is the usual radius, and Undo takes it back.');
 		running = applied;
 		commands.push(...expanded.commands);
-		if (expanded.entity != null) createdIds.push(expanded.entity.id);
+		if (expanded.piece != null) createdIds.push(expanded.piece.id);
 	}
 	return Ok({ commands, createdIds, summary: summaryOf(input), isChange: JSON.stringify({ ...running, revision: 0 }) !== JSON.stringify({ ...project, revision: 0 }), notices });
 }
@@ -316,18 +316,18 @@ function changesRadius(project: TProject, command: TAgentCommand): boolean {
 	return project.marbles.find((marble) => marble.id === command.marbleId)?.radius !== command.patch.radius;
 }
 
-function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], blenderObjects: readonly TBlenderObject[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; entity?: TPiece }, Error> {
+function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], blenderObjects: readonly TBlenderObject[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; piece?: TPiece }, Error> {
 	switch (command.type) {
 		case 'flattenPattern': {
 			const group = project.track.groups.find((item) => item.id === command.groupId);
 			return group != null ? Ok({ commands: flattenCommands(group) }) : Err(new Error(`There is no Group ${command.groupId}. get_state lists them.`));
 		}
 		case 'placePiece': {
-			const [isPieceOk, pieceErr, entity] = placedPiece(project, result, command);
-			return isPieceOk ? Ok({ commands: [{ type: 'addPiece', piece: entity }], entity }) : Err(pieceErr);
+			const [isPieceOk, pieceErr, piece] = placedPiece(project, result, command);
+			return isPieceOk ? Ok({ commands: [{ type: 'addPiece', piece }], piece }) : Err(pieceErr);
 		}
 		case 'applySkin': {
-			const target = command.ids != null ? { kind: 'entities' as const, entityIds: command.ids } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
+			const target = command.ids != null ? { kind: 'pieces' as const, entityIds: command.ids } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
 			if (target == null) return Err(new Error('applySkin needs a pieceType or ids'));
 			const commands = skinCommands(project, target, command.assetId);
 			return commands.length > 0 ? Ok({ commands }) : Err(new Error(`Nothing is a ${command.pieceType ?? 'target'} in this project yet, so ${command.assetId} has nothing to dress.`));
@@ -362,27 +362,27 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 function placedPiece(project: TProject, result: TSimulationResult | null, command: Extract<TAgentCommand, { type: 'placePiece' }>): TResult<TPiece, Error> {
 	const definition = getPieceDefinition(command.pieceType);
 	if (definition == null) return Err(new Error(`There is no piece called ${command.pieceType}`));
-	let entity: TPiece;
+	let piece: TPiece;
 	if (command.hit != null) {
 		const hit = command.hit;
 		const target = result?.hits.find((item) => item.marbleId === hit.marbleId && item.hitId === hit.hitId);
 		if (target?.dot == null) return Err(new Error(`Hit ${hit.hitId} has no dot yet. Place the hits before it first.`));
-		entity = pieceForHit(project, target, command.pieceType);
+		piece = pieceForHit(project, target, command.pieceType);
 	} else if (command.position != null) {
-		entity = createFreePiece(command.pieceType, { position: command.position, angle: command.angle ?? 0 }, project.track.pieces, command.path != null ? { points: command.path } : undefined);
+		piece = createFreePiece(command.pieceType, { position: command.position, angle: command.angle ?? 0 }, project.track.pieces, command.path != null ? { points: command.path } : undefined);
 	} else {
 		return Err(new Error('placePiece needs a hit or a position'));
 	}
-	if (command.params != null) entity.params = { ...entity.params, ...command.params };
-	if (command.angle != null) entity.angle = command.angle;
-	if (command.path != null && command.hit != null) entity.path = { points: command.path };
-	if (command.paths != null && entity.path != null) entity.path = { ...entity.path, paths: command.paths };
-	if (command.layout != null && entity.type === 'rail') {
-		entity.layout = command.layout;
-		entity.params = { ...entity.params, ...railLayoutInfo[command.layout].defaults, ...command.params };
+	if (command.params != null) piece.params = { ...piece.params, ...command.params };
+	if (command.angle != null) piece.angle = command.angle;
+	if (command.path != null && command.hit != null) piece.path = { points: command.path };
+	if (command.paths != null && piece.path != null) piece.path = { ...piece.path, paths: command.paths };
+	if (command.layout != null && piece.type === 'rail') {
+		piece.layout = command.layout;
+		piece.params = { ...piece.params, ...railLayoutInfo[command.layout].defaults, ...command.params };
 	}
-	if (command.name != null) entity.name = command.name;
-	return Ok(entity);
+	if (command.name != null) piece.name = command.name;
+	return Ok(piece);
 }
 
 function decorSource(items: readonly TLibraryItem[], source: string): ReturnType<typeof builtInSource> | null {

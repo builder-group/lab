@@ -13,8 +13,8 @@ function continueAnswer(revision: number, okCount: number): TContinueAnswer {
 		commands: [],
 		suggestions: Array.from({ length: okCount + 1 }, (_, index) => ({
 			hitId: `hit-${index}`,
-			entity: { id: `ghost-${index}` },
-			piece: null,
+			piece: { id: `ghost-${index}` },
+			resolved: null,
 			dot: { x: 0, y: 0 },
 			status: index < okCount ? 'onTime' : 'missed',
 			error: 0,
@@ -31,9 +31,9 @@ function gapAnswer(revision: number): TGapAnswer {
 		marbleId: 'marble-1',
 		fromHitId: 'hit-3',
 		toHitId: 'hit-4',
-		entity: { id: 'rail' },
+		piece: { id: 'rail' },
 		commands: [],
-		piece: null,
+		resolved: null,
 		track: [],
 		check: null,
 		computeMs: 1

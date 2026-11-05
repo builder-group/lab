@@ -60,7 +60,7 @@ function halfGravityRun(hitTimes: number[], placed: number): TProject {
 			id: hit.id.replace('hit', 'piece')
 		});
 		if (!isPlacedOk) throw new Error(`${hit.id}: ${placedErr.message}`);
-		project = { ...project, track: { ...project.track, pieces: [...project.track.pieces, piece.entity] } };
+		project = { ...project, track: { ...project.track, pieces: [...project.track.pieces, piece.piece] } };
 	}
 	return project;
 }
@@ -75,7 +75,7 @@ function autoPlaceAll(start: TProject): { project: TProject; travels: number[] }
 	const travels: number[] = [];
 	const marble = project.marbles[0];
 	for (const hit of marble?.hits ?? []) {
-		if (project.track.pieces.some((entity) => tieOf(entity)?.hitId === hit.id)) continue;
+		if (project.track.pieces.some((piece) => tieOf(piece)?.hitId === hit.id)) continue;
 		const [isPlacedOk, placedErr, placed] = autoPlace(
 			project,
 			simulate(project),
@@ -124,7 +124,7 @@ describe('assists', () => {
 		const project = zigzagStart(evenTimes(4));
 		const open = nextOpenHit(project, simulate(project), 'marble-1');
 		expect(open?.hit.id).toBe('hit-1-3');
-		expect(open?.previous?.entity.id).toBe('piece-1-2');
+		expect(open?.previous?.piece.id).toBe('piece-1-2');
 		expect(open?.result?.status).toBe('open');
 	});
 
@@ -134,11 +134,11 @@ describe('assists', () => {
 		const [isRepeatOk, , repeated] = repeatPiece(project, result, 'marble-1', { id: 'r' });
 		expect(isRepeatOk).toBe(true);
 		expect(repeated?.hitId).toBe('hit-1-3');
-		expect(repeated?.entity.angle).toBe(TILT);
+		expect(repeated?.piece.angle).toBe(TILT);
 		const [isMirrorOk, , mirrored] = mirrorPiece(project, result, 'marble-1', { id: 'm' });
 		expect(isMirrorOk).toBe(true);
-		expect(mirrored?.entity).toMatchObject({ angle: -TILT, place: { hitId: 'hit-1-3' } });
-		expect(mirrored?.commands).toEqual([{ type: 'addPiece', piece: mirrored?.entity }]);
+		expect(mirrored?.piece).toMatchObject({ angle: -TILT, place: { hitId: 'hit-1-3' } });
+		expect(mirrored?.commands).toEqual([{ type: 'addPiece', piece: mirrored?.piece }]);
 
 		const empty = createBareRunProject({
 		gravity: 1,
@@ -197,7 +197,7 @@ describe('assists', () => {
 		expect(Math.abs((placed.nextDot?.x ?? Infinity) - band.centerX)).toBeLessThanOrEqual(
 			band.halfWidth * 0.9
 		);
-		const placedProject = { ...project, track: { ...project.track, pieces: [...project.track.pieces, placed.entity] } };
+		const placedProject = { ...project, track: { ...project.track, pieces: [...project.track.pieces, placed.piece] } };
 		const after = simulate(placedProject);
 		expect(after.hits[2]?.status).toBe('onTime');
 		expect(after.hits[3]?.dot).toEqual(placed.nextDot);
@@ -226,8 +226,8 @@ describe('assists', () => {
 
 	it('auto places after a staircase start without bouncing in place', () => {
 		const project = zigzagStart(evenTimes(8));
-		for (const entity of project.track.pieces)
-			if (tieOf(entity) != null) entity.angle = -0.2;
+		for (const piece of project.track.pieces)
+			if (tieOf(piece) != null) piece.angle = -0.2;
 		// The two hand placed pieces send the third dot out of frame; Auto place brings the marble back
 		const placed = autoPlaceAll(project);
 		expectClearRun(placed.project, placed.travels, 3);
@@ -243,7 +243,7 @@ describe('assists', () => {
 		if (!isPlacedOk) throw placedErr;
 		expect(placed.nextDot).toBeNull();
 		expect(Math.abs(placed.travel)).toBeGreaterThanOrEqual(MIN_TRAVEL);
-		const after = simulate({ ...project, track: { ...project.track, pieces: [...project.track.pieces, placed.entity] } });
+		const after = simulate({ ...project, track: { ...project.track, pieces: [...project.track.pieces, placed.piece] } });
 		expect(after.hits[2]?.status).toBe('onTime');
 	});
 
@@ -267,9 +267,9 @@ describe('assists', () => {
 			'hit-1-7'
 		]);
 		expect(
-			suggestions.every((s) => s.isOk && s.status === 'onTime' && s.piece?.status === 'placed')
+			suggestions.every((s) => s.isOk && s.status === 'onTime' && s.resolved?.status === 'placed')
 		).toBe(true);
-		expect(suggestions.map((s) => s.entity.angle)).toEqual([
+		expect(suggestions.map((s) => s.piece.angle)).toEqual([
 			-tilt, tilt, -tilt, tilt, -tilt
 		]);
 		expect(continued?.commands).toHaveLength(5);
@@ -326,11 +326,11 @@ describe('assists', () => {
 			}
 		);
 		if (!isRailOk) throw railErr;
-		expect(rail.entity.params['entryDelay']).toBeGreaterThan(0);
+		expect(rail.piece.params['entryDelay']).toBeGreaterThan(0);
 		expect(rail.check?.pieceStatus).toBe('placed');
 		expect(rail.check?.isRunInFrame).toBe(true);
 		expect(rail.check?.isDotInFrame).toBe(true);
-		const bridged = { ...project, track: { ...project.track, pieces: [...project.track.pieces, rail.entity] } };
+		const bridged = { ...project, track: { ...project.track, pieces: [...project.track.pieces, rail.piece] } };
 		expect(findLongGaps(bridged, 'marble-1')[0]?.bridgedBy).toBe('rail');
 		// The rail follows hit 3 and does not take over its result
 		const after = simulate(bridged);
@@ -349,7 +349,7 @@ describe('assists', () => {
 			id: 'piece-1-3'
 		});
 		if (!isLaunchOk) throw launchErr;
-		project = { ...project, track: { ...project.track, pieces: [...project.track.pieces, launch.entity] } };
+		project = { ...project, track: { ...project.track, pieces: [...project.track.pieces, launch.piece] } };
 		expect(openLongGaps(project, 'marble-1').map((gap) => gap.toHitId)).toEqual(['hit-1-4']);
 		const result = simulate(project);
 		const [isHeldOk, heldErr, held] = createSwitchbackForGap(project, result, 'marble-1', 'hit-1-3', 'hit-1-4', {
@@ -357,14 +357,14 @@ describe('assists', () => {
 			id: 'switchback'
 		});
 		if (!isHeldOk) throw heldErr;
-		expect(held.entity.type).toBe('rail');
-		expect(held.entity.layout).toBe('switchback');
-		expect(held.entity.params['entryDelay']).toBeGreaterThan(0);
+		expect(held.piece.type).toBe('rail');
+		expect(held.piece.layout).toBe('switchback');
+		expect(held.piece.params['entryDelay']).toBeGreaterThan(0);
 		expect(held.check).toMatchObject({ pieceStatus: 'placed', isDotInFrame: true, isRunInFrame: true });
 		// The marble drops out below the switchback before the next hit, close to the pace
 		expect(held.check?.leaveTime).toBeLessThan(2.25);
 		expect(Math.abs(held.check?.paceError ?? Infinity)).toBeLessThan(0.25);
-		const bridged = { ...project, track: { ...project.track, pieces: [...project.track.pieces, held.entity] } };
+		const bridged = { ...project, track: { ...project.track, pieces: [...project.track.pieces, held.piece] } };
 		expect(findLongGaps(bridged, 'marble-1')[0]?.bridgedBy).toBe('switchback');
 		expect(openLongGaps(bridged, 'marble-1')).toEqual([]);
 		const after = simulate(bridged);
@@ -375,10 +375,10 @@ describe('assists', () => {
 		expect(Math.abs(dot.y - paceAt(pace, 2.25))).toBeLessThan(0.25);
 		// Same result each time, and mirroring flips the first leg's direction
 		const [, , again] = createSwitchbackForGap(project, result, 'marble-1', 'hit-1-3', 'hit-1-4', { simulate, id: 'switchback' });
-		expect(again?.entity).toEqual(held.entity);
-		const mirrored = copyLinkedPiece(held.entity, 'hit-1-3', true);
-		expect(mirrored.angle).toBe(-(held.entity.angle ?? 0));
-		expect(tieOf(mirrored)?.contactAt ?? 0.5).toBe(tieOf(held.entity)?.contactAt ?? 0.5);
+		expect(again?.piece).toEqual(held.piece);
+		const mirrored = copyLinkedPiece(held.piece, 'hit-1-3', true);
+		expect(mirrored.angle).toBe(-(held.piece.angle ?? 0));
+		expect(tieOf(mirrored)?.contactAt ?? 0.5).toBe(tieOf(held.piece)?.contactAt ?? 0.5);
 	}, 20000);
 
 	it('launches at half gravity with a hop that stays in its column until it falls back', () => {
@@ -389,7 +389,7 @@ describe('assists', () => {
 			id: 'launch'
 		});
 		if (!isPlacedOk) throw placedErr;
-		const after = simulate({ ...project, track: { ...project.track, pieces: [...project.track.pieces, placed.entity] } });
+		const after = simulate({ ...project, track: { ...project.track, pieces: [...project.track.pieces, placed.piece] } });
 		expect(after.hits[2]?.status).toBe('onTime');
 		const dot = after.hits[2]?.dot;
 		if (dot == null) throw new Error('No launch dot');
@@ -408,7 +408,7 @@ describe('assists', () => {
 			id: 'piece-1-3'
 		});
 		if (!isLaunchOk) throw launchErr;
-		project = { ...project, track: { ...project.track, pieces: [...project.track.pieces, launch.entity] } };
+		project = { ...project, track: { ...project.track, pieces: [...project.track.pieces, launch.piece] } };
 		const [isHeldOk, heldErr, held] = createSwitchbackForGap(project, simulate(project), 'marble-1', 'hit-1-3', 'hit-1-4', {
 			simulate,
 			id: 'switchback'

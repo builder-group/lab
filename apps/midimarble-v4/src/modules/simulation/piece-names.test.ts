@@ -39,7 +39,7 @@ describe('namePiecesInOrder function', () => {
 		const named = namePiecesInOrder(project);
 
 		// Assert
-		const names = Object.fromEntries(named.track.pieces.map((entity) => [entity.id, entity.name]));
+		const names = Object.fromEntries(named.track.pieces.map((piece) => [piece.id, piece.name]));
 		expect(names).toMatchObject({
 			'platform-hit-1-1': 'Platform 1',
 			'platform-hit-1-2': 'Platform 2',
@@ -51,13 +51,13 @@ describe('namePiecesInOrder function', () => {
 		});
 	});
 
-	it('should change only names and keep the entity order', () => {
+	it('should change only names and keep the piece order', () => {
 		const project = twoMarbles();
 		project.track.pieces.push(linked('platform', 'marble-1', 'hit-1-2', 'Platform 7'), linked('platform', 'marble-1', 'hit-1-1', 'Platform 8'));
 
 		const named = namePiecesInOrder(project);
 
-		const withoutNames = (entities: TPiece[]) => entities.map(({ name: _name, ...entity }) => entity);
+		const withoutNames = (pieces: TPiece[]) => pieces.map(({ name: _name, ...piece }) => piece);
 		expect(withoutNames(named.track.pieces)).toEqual(withoutNames(project.track.pieces));
 		expect({ ...named, track: { ...named.track, pieces: [] } }).toEqual({ ...project, track: { ...project.track, pieces: [] } });
 		// Marbles keep their names
@@ -67,20 +67,20 @@ describe('namePiecesInOrder function', () => {
 
 describe('nextPieceName function', () => {
 	it('should continue after the highest number of the type in use', () => {
-		const entities = [
+		const pieces = [
 			linked('platform', 'marble-1', 'hit-1-1', 'Platform 1'),
 			linked('platform', 'marble-1', 'hit-1-3', 'Platform 3'),
 			linked('tunnel', 'marble-1', 'hit-1-2', 'Tunnel 1')
 		];
 
-		expect(nextPieceName('platform', entities)).toBe('Platform 4');
-		expect(nextPieceName('tunnel', entities)).toBe('Tunnel 2');
-		expect(nextPieceName('rail', entities)).toBe('Rail 1');
+		expect(nextPieceName('platform', pieces)).toBe('Platform 4');
+		expect(nextPieceName('tunnel', pieces)).toBe('Tunnel 2');
+		expect(nextPieceName('rail', pieces)).toBe('Rail 1');
 	});
 
 	it('should count renamed pieces so a new name is not taken', () => {
-		const entities = [linked('platform', 'marble-1', 'hit-1-1', 'Top'), linked('platform', 'marble-1', 'hit-1-2', 'Platform 1')];
+		const pieces = [linked('platform', 'marble-1', 'hit-1-1', 'Top'), linked('platform', 'marble-1', 'hit-1-2', 'Platform 1')];
 
-		expect(nextPieceName('platform', entities)).toBe('Platform 3');
+		expect(nextPieceName('platform', pieces)).toBe('Platform 3');
 	});
 });

@@ -275,7 +275,7 @@ export interface TApplySceneResult {
 	updated: string[];
 	/** Unlinked holders the worker left alone */
 	skipped: string[];
-	/** Entities whose skins moved to the detached collection */
+	/** Pieces whose skins moved to the detached collection */
 	removed: string[];
 	keyframes: number;
 	studioCreated: boolean;
@@ -294,7 +294,7 @@ export interface TApplySceneResult {
 	 * collection (the holder keeps its current skin, or gets the theme default)
 	 */
 	skins: Record<string, 'edited' | 'custom' | 'missingAsset' | 'invalidAsset'>;
-	/** Wall texts by entity ID; `skipped` texts were edited in Blender and left alone */
+	/** Wall texts by piece ID; `skipped` texts were edited in Blender and left alone */
 	texts: { created: string[]; updated: string[]; skipped: string[]; removed: string[] };
 	fps: number;
 	frameStart: number;
@@ -308,7 +308,7 @@ export interface TPreviewFrameResult {
 	path: string;
 	/** Absolute path of the flat object ID image */
 	idPath: string;
-	/** `#rrggbb` of the ID image to the holder's entity ID; other colors are unmanaged objects or background */
+	/** `#rrggbb` of the ID image to the holder's piece ID; other colors are unmanaged objects or background */
 	ids: Record<string, string>;
 	width: number;
 	height: number;

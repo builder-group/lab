@@ -9,14 +9,14 @@ function shown(): { cx: StudioCx; trackCx: TrackCx; project: TProject; result: T
 	const created = createProject({ title: 'Song' });
 	const marble = createMarble(0, { x: 0, y: 0 });
 	const pose = { position: { x: 0.2, y: -0.2 }, angle: 0 };
-	const entity = createFreePiece('platform', pose, []);
-	const piece = displayPiece(entity, { pose });
-	const project: TProject = { ...created, marbles: [marble], track: { ...created.track, pieces: [entity] } };
-	const result = { revision: project.revision, duration: project.length, marbles: [], pieces: [piece], contacts: [], hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult;
+	const piece = createFreePiece('platform', pose, []);
+	const resolvedPiece = displayPiece(piece, { pose });
+	const project: TProject = { ...created, marbles: [marble], track: { ...created.track, pieces: [piece] } };
+	const result = { revision: project.revision, duration: project.length, marbles: [], pieces: [resolvedPiece], contacts: [], hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult;
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	cx.simulation.$result.set(result);
-	return { cx, trackCx: new TrackCx(cx), project, result, piece };
+	return { cx, trackCx: new TrackCx(cx), project, result, piece: resolvedPiece };
 }
 
 describe('pickScene method', () => {

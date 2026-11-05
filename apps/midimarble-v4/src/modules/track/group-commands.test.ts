@@ -88,7 +88,7 @@ describe('Group by hand', () => {
 		const piece = (hitId: string, type: 'platform' | 'rail') => createLinkedPiece(type, marble.id, hitId, 0.3, { id: `p-${hitId}` });
 		const pieces = [piece('h1', 'platform'), piece('h2', 'platform'), piece('h3', 'platform'), piece('h4', 'platform'), piece('h5', 'rail'), piece('h6', 'platform'), piece('h7', 'platform')];
 		const after: TProject = { ...created, marbles: [marble], track: { ...created.track, pieces } };
-		const before: TProject = { ...after, track: { ...after.track, pieces: pieces.filter((entity) => entity.id !== 'p-h2' && entity.id !== 'p-h3' && entity.id !== 'p-h4' && entity.id !== 'p-h5' && entity.id !== 'p-h6') } };
+		const before: TProject = { ...after, track: { ...after.track, pieces: pieces.filter((piece) => piece.id !== 'p-h2' && piece.id !== 'p-h3' && piece.id !== 'p-h4' && piece.id !== 'p-h5' && piece.id !== 'p-h6') } };
 		const dots = [0, -1, 1, -1, 0, 0, 1];
 		const hits = hitIds.map((id, index) => ({ pieceEntityId: `p-${id}`, dot: { x: dots[index] ?? 0, y: 0 } })) as unknown as Parameters<typeof builtRunCommands>[2];
 

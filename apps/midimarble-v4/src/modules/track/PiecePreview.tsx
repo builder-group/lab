@@ -161,42 +161,42 @@ function previewScene(item: TInsertItem): TPreviewScene {
 		return withBounds({ piece: null, marble: { x: 0, y: 0 }, trail });
 	}
 	const path = item === 'rail' || item === 'tunnel' ? { points: resolvePiecePath(item, undefined) } : undefined;
-	const entity = createFreePiece(item, { position: { x: 0, y: 0 }, angle: 0 }, [], path);
-	const piece = displayPiece(entity, { pose: { position: { x: 0, y: 0 }, angle: 0 } });
-	const line = piece.path ?? [];
-	const params = piece.params;
+	const piece = createFreePiece(item, { position: { x: 0, y: 0 }, angle: 0 }, [], path);
+	const resolvedPiece = displayPiece(piece, { pose: { position: { x: 0, y: 0 }, angle: 0 } });
+	const line = resolvedPiece.path ?? [];
+	const params = resolvedPiece.params;
 	switch (item) {
 		case 'platform': {
 			const top = (params['thickness'] ?? 0.012) / 2 + r;
 			const half = (params['length'] ?? 0.09) / 2;
 			const trail = [...arc({ x: -half * 0.9, y: top + 0.06 }, { x: 0, y: top }, { x: -half * 0.5, y: top + 0.05 }), ...arc({ x: 0, y: top }, { x: half * 1.1, y: top + 0.035 }, { x: half * 0.55, y: top + 0.06 })];
-			return withBounds({ piece, marble: { x: 0, y: top }, trail });
+			return withBounds({ piece: resolvedPiece, marble: { x: 0, y: top }, trail });
 		}
 		case 'rail': {
 			const at = alongPath(line, 0.35);
 			const marble = { x: at.x, y: at.y + r + (params['radius'] ?? 0.004) };
 			const start = line[0] ?? { x: 0, y: 0 };
 			const trail = [...arc({ x: start.x - 0.02, y: start.y + 0.05 }, { x: start.x + 0.01, y: start.y + r }, { x: start.x - 0.012, y: start.y + 0.03 }), marble];
-			return withBounds({ piece, marble, trail });
+			return withBounds({ piece: resolvedPiece, marble, trail });
 		}
 		case 'tunnel': {
 			const mouth = alongPath(line, 0.08);
 			const inside = line.map((point) => ({ x: point.x, y: point.y + r }));
 			const trail = [{ x: mouth.x - 0.006, y: mouth.y + 0.06 }, { x: mouth.x, y: mouth.y + r }, ...inside.filter((point) => point.x > mouth.x)];
-			return withBounds({ piece, marble: { x: mouth.x - 0.006, y: mouth.y + 0.06 }, trail });
+			return withBounds({ piece: resolvedPiece, marble: { x: mouth.x - 0.006, y: mouth.y + 0.06 }, trail });
 		}
 		case 'windmill': {
 			const reach = (params['bladeLength'] ?? 0.09) + (params['hubRadius'] ?? 0.012);
 			const hitAt = { x: reach * 0.72, y: (params['bladeThickness'] ?? 0.009) / 2 + r };
 			const trail = [...arc({ x: hitAt.x - 0.035, y: hitAt.y + 0.07 }, hitAt, { x: hitAt.x - 0.03, y: hitAt.y + 0.04 }), ...arc(hitAt, { x: reach * 1.25, y: -reach * 0.5 }, { x: reach * 1.05, y: hitAt.y + 0.01 })];
-			return withBounds({ piece, marble: hitAt, trail });
+			return withBounds({ piece: resolvedPiece, marble: hitAt, trail });
 		}
 		case 'bowl': {
 			// The marble drops into the curve and settles in it
-			const wire = piece.paths?.[0] ?? [];
-			const mouth = piece.position;
+			const wire = resolvedPiece.paths?.[0] ?? [];
+			const mouth = resolvedPiece.position;
 			const trail = [{ x: mouth.x, y: mouth.y + 0.06 }, mouth, ...wire.slice(Math.floor(wire.length * 0.6)).map((point) => ({ x: point.x, y: point.y + r }))];
-			return withBounds({ piece, marble: { x: mouth.x, y: mouth.y + 0.03 }, trail });
+			return withBounds({ piece: resolvedPiece, marble: { x: mouth.x, y: mouth.y + 0.03 }, trail });
 		}
 	}
 }

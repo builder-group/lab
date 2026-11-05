@@ -70,7 +70,7 @@ describe('fixtures', () => {
 		expectAllOnTime(result, 16);
 		expectDotsInFrame(project, result);
 		const angles = project.track.pieces
-			.map((entity) => entity.angle)
+			.map((piece) => piece.angle)
 			.filter((angle): angle is number => angle != null);
 		expect(angles).toHaveLength(16);
 		// Mirrored, with Continue's small turns where the plain copy would strike twice
@@ -196,8 +196,8 @@ describe('fixtures', () => {
 		const played = result.contacts.filter((contact) => contact.time <= until);
 		expect(played.filter((contact) => contact.kind === 'marble')).toHaveLength(0);
 		const marbleOf = (id: string): string | undefined => {
-			const entity = project.track.pieces.find((item) => item.id === id);
-			return tieOf(entity)?.marbleId ?? project.marbles.find((marble) => marble.id === id || startRailId(marble.id) === id)?.id;
+			const piece = project.track.pieces.find((item) => item.id === id);
+			return tieOf(piece)?.marbleId ?? project.marbles.find((marble) => marble.id === id || startRailId(marble.id) === id)?.id;
 		};
 		for (const contact of played.filter((item) => item.kind === 'piece'))
 			expect(marbleOf(contact.otherEntityId), contact.otherEntityId).toBe(marbleOf(contact.marbleEntityId));
@@ -219,9 +219,9 @@ describe('fixtures', () => {
 		// Half gravity stacks each column's pieces about 0.3 m apart, against 0.52 m at full gravity
 		const melodyMarble = project.marbles[0]?.id;
 		const platforms = result.pieces.filter(
-			(piece) =>
-				piece.type === 'platform' &&
-				tieOf(project.track.pieces.find((entity) => entity.id === piece.entityId))?.marbleId === melodyMarble
+			(item) =>
+				item.type === 'platform' &&
+				tieOf(project.track.pieces.find((piece) => piece.id === item.entityId))?.marbleId === melodyMarble
 		);
 		const heights = platforms.map((piece) => piece.position.y);
 		expect(platforms.length / (Math.max(...heights) - Math.min(...heights))).toBeGreaterThan(5);
@@ -258,7 +258,7 @@ describe('fixtures', () => {
 		const at = bass.samples.filter((sample) => sample.time >= 10 && sample.time <= 25 && Math.round(sample.time * 240) % 24 === 0).reduce((best, sample) => (farthest(sample) > farthest(best) ? sample : best)).position;
 		const result = simulator.simulate(withFreeWindmill(project, { x: at.x + 0.02, y: at.y - 0.12 }, 0));
 		const strike = result.contacts.find((contact) => contact.otherEntityId === 'windmill-far');
-		expect(strike?.marbleEntityId).toBe(bass.entityId);
+		expect(strike?.marbleEntityId).toBe(bass.marbleId);
 		const strikeTime = strike?.time ?? 0;
 		const before = (samples: TMarbleSample[]): TMarbleSample[] =>
 			samples.filter((sample) => sample.time < strikeTime);

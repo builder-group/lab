@@ -33,7 +33,7 @@ describe('withPathType function', () => {
 	});
 
 	it('should keep the anchor and its moment on the trajectory', () => {
-		const rail = createLinkedPiece('rail', 'marble-1', 'hit-2', 0, { entities: [] });
+		const rail = createLinkedPiece('rail', 'marble-1', 'hit-2', 0, { pieces: [] });
 		rail.params = { ...rail.params, entryDelay: 0.25 };
 		rail.place = { kind: 'follows', marbleId: 'marble-1', hitId: 'hit-2', offset: { x: 0.01, y: -0.02 } };
 

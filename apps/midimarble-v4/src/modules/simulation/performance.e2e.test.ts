@@ -5,7 +5,7 @@ import { createPerfProject, createStaircaseProject } from './fixture-projects';
 import { createSimulator } from './simulate';
 
 function setAngle(project: TProject, entityId: string, angle: number): void {
-	const piece = project.track.pieces.find((entity) => entity.id === entityId);
+	const piece = project.track.pieces.find((piece) => piece.id === entityId);
 	if (piece == null || tieOf(piece) == null) throw new Error(`Missing linked piece ${entityId}`);
 	piece.angle = angle;
 }

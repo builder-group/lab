@@ -83,7 +83,7 @@ function createRunProject(options: {
 		if (marble == null) return;
 		marble.hits.forEach((hit, hitIndex) => {
 			const piece = createLinkedPiece('platform', marble.id, hit.id, item.angles(hitIndex), {
-				entities: pieces,
+				pieces,
 				id: `piece-${index + 1}-${hitIndex + 1}`
 			});
 			if (item.bounce != null) piece.params['bounce'] = item.bounce;

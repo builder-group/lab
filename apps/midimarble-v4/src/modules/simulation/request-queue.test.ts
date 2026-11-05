@@ -96,7 +96,7 @@ describe('worker protocol', () => {
 		const simulator = await createSimulator();
 		const zigzag = bareRun([0.15, 0.45, 0.75, 1.05, 1.35, 1.65], [-0.4, 0.4]);
 		const placed = answerWorkerRequest(simulator, { kind: 'autoPlace', project: zigzag, marbleId: 'marble-1', hitId: 'hit-1-3', type: 'platform', entityId: 'auto-1' });
-		expect(placed).toMatchObject({ entity: { id: 'auto-1' } });
+		expect(placed).toMatchObject({ piece: { id: 'auto-1' } });
 
 		const continued = answerWorkerRequest(simulator, { kind: 'continue', project: zigzag, marbleId: 'marble-1' }) as TContinueAnswer;
 		expect(continued.pattern).toBe('mirror');
@@ -112,7 +112,7 @@ describe('worker protocol', () => {
 			fromHitId: 'hit-1-3',
 			toHitId: 'hit-1-4'
 		}) as TGapAnswer;
-		expect(rail.piece?.status).toBe('placed');
+		expect(rail.resolved?.status).toBe('placed');
 		expect(rail.track.length).toBeGreaterThan(10);
 		expect(rail.commands).toHaveLength(1);
 		// The answer is plain data that survives the structured clone between worker and UI
@@ -127,8 +127,8 @@ describe('worker protocol', () => {
 			toHitId: 'hit-1-4'
 		}) as TGapAnswer;
 		expect(switchback.type).toBe('switchback');
-		expect(switchback.piece?.status).toBe('placed');
-		expect(switchback.piece?.paths?.length).toBeGreaterThanOrEqual(3);
+		expect(switchback.resolved?.status).toBe('placed');
+		expect(switchback.resolved?.paths?.length).toBeGreaterThanOrEqual(3);
 		expect(switchback.check?.leaveTime).not.toBeNull();
 
 		expect(() =>

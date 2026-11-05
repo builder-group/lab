@@ -23,7 +23,7 @@ export class FilmCx {
 	readonly $preview = createState<TFilmPreview | null>(null);
 	readonly $error = createState<string | null>(null);
 	readonly $blenderVersion = createState<string | null>(null);
-	/** Link state of app-owned holders by entity ID, from `inspect` after each sync */
+	/** Link state of app-owned holders by piece ID, from `inspect` after each sync */
 	readonly $links = createState<Record<string, TFilmLink>>({});
 	/** Camera state the last sync reported; `takenOver` means the user edited it in Blender */
 	readonly $camera = createState<TApplySceneResult['camera'] | null>(null);
@@ -130,7 +130,7 @@ export class FilmCx {
 		});
 	}
 
-	/** Entity ID under a point of the preview, from the object ID image, in 0..1 image coordinates */
+	/** Piece ID under a point of the preview, from the object ID image, in 0..1 image coordinates */
 	async pick(u: number, v: number): Promise<string | null> {
 		const preview = this.$preview.get();
 		if (preview == null) return null;

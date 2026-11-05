@@ -367,7 +367,7 @@ describe('Film Layers', () => {
 
 	it('should name the group a selection made elsewhere opens', () => {
 		const project = createStaircaseProject();
-		const piece = project.track.pieces.find((entity) => tieOf(entity) != null);
+		const piece = project.track.pieces.find((piece) => tieOf(piece) != null);
 		expect(groupsOfSelection(project, [piece?.id as string])).toEqual([tieOf(piece)?.marbleId]);
 		expect(groupsOfSelection(project, ['decor:1'])).toEqual([DECOR_KEY]);
 		expect(groupsOfSelection(project, ['wall'])).toEqual([]);

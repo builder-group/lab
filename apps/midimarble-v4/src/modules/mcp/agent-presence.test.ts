@@ -135,10 +135,10 @@ describe('touchedKeys', () => {
 	it('should find the pieces, marbles, titles and layers an edit changed, not a removed one', () => {
 		const { project, pieceId } = withPiece();
 		expect(touchedKeys(project, { ...project, revision: project.revision + 1 })).toEqual([]);
-		const changed = project.track.pieces.map((entity) => (entity.id === pieceId ? { ...entity, name: 'Renamed' } : entity));
+		const changed = project.track.pieces.map((piece) => (piece.id === pieceId ? { ...piece, name: 'Renamed' } : piece));
 		const added: TPiece = { id: 'new1', name: 'New', type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } };
 		expect(touchedKeys(project, { ...project, track: { ...project.track, pieces: [...changed, added] } })).toEqual([pieceId, 'new1']);
-		expect(touchedKeys(project, { ...project, track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.id !== pieceId) } })).toEqual([]);
+		expect(touchedKeys(project, { ...project, track: { ...project.track, pieces: project.track.pieces.filter((piece) => piece.id !== pieceId) } })).toEqual([]);
 		const marbleId = project.marbles[0]?.id;
 		const renamed = project.marbles.map((marble) => ({ ...marble, name: 'Renamed' }));
 		expect(touchedKeys(project, { ...project, marbles: renamed })).toEqual([marbleId]);

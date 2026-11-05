@@ -1,6 +1,6 @@
 import type { TPiece, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import type { TResult } from 'tuple-result';
-import { autoPlace, autoPlaceHorizon, continueSuggestions, findHitResult, prepareAutoPlace, simulateTrial, withEntities, type TAngleEvaluation, type TAngleTry, type TAutoPlacePlan, type TContinueResult, type TSimulateFn } from './assists';
+import { autoPlace, autoPlaceHorizon, continueSuggestions, findHitResult, prepareAutoPlace, simulateTrial, withPieces, type TAngleEvaluation, type TAngleTry, type TAutoPlacePlan, type TContinueResult, type TSimulateFn } from './assists';
 import { createRailForGap, createChainForGap, createSwitchbackForGap, createTunnelForGap, prepareGapSearch, type TGapEvaluation, type TGapPieceCheck, type TGapPieceProposal, type TGapSearchPlan, type TGapTry } from './gap-pieces';
 import { answerSettle, reconnect, type TSettleAnswer, type TSettleBase, type TSettleRequest } from './local-edit';
 import type { TSimulator } from './simulate';
@@ -77,7 +77,7 @@ export interface TSearchBatch {
 export type TGapPieceType = 'switchback' | 'chain' | 'rail' | 'tunnel';
 
 export interface TAutoPlaceAnswer {
-	entity: TPiece;
+	piece: TPiece;
 	angle: number;
 	nextDot: TVec2 | null;
 	/** Height of the next dot above the shared pace y*, when known */
@@ -99,10 +99,10 @@ export interface TGapAnswer {
 	marbleId: string;
 	fromHitId: string;
 	toHitId: string;
-	entity: TPiece;
+	piece: TPiece;
 	commands: TProjectCommand[];
 	/** The suggested piece as the simulation resolves it, for drawing the ghost */
-	piece: TResolvedPiece | null;
+	resolved: TResolvedPiece | null;
 	/** Predicted marble path from the entry to the next hit */
 	track: TVec2[];
 	check: TGapPieceCheck | null;
@@ -117,7 +117,7 @@ export interface TWorkerAnswers {
 	continue: TContinueAnswer | null;
 	gapPiece: TGapAnswer;
 	settle: TSettleAnswer;
-	reconnect: { entities: TPiece[] } | null;
+	reconnect: { pieces: TPiece[] } | null;
 }
 
 interface TPreparedSearch {
@@ -164,7 +164,7 @@ export function answerWorkerRequest(
 			const [isOk, error, placement] = autoPlace(project, result, marbleId, hitId, { simulate, type, id: entityId, ...(range != null ? { range } : {}) });
 			if (!isOk) throw error;
 			return {
-				entity: placement.entity,
+				piece: placement.piece,
 				angle: placement.angle,
 				nextDot: placement.nextDot,
 				paceError: placement.paceError ?? null,
@@ -196,7 +196,7 @@ function gapAnswer(
 ): TGapAnswer {
 	const { project, marbleId, fromHitId, toHitId, type } = request;
 	const toTime = project.marbles.find((marble) => marble.id === marbleId)?.hits.find((hit) => hit.id === toHitId)?.time ?? proposal.entryTime;
-	const trial = simulateTrial(simulate, withEntities(project, [proposal.entity]), toTime + 0.02);
+	const trial = simulateTrial(simulate, withPieces(project, [proposal.piece]), toTime + 0.02);
 	const samples = trial.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	const track: TVec2[] = [];
 	// About every 10 ms is smooth enough for a dashed preview
@@ -211,9 +211,9 @@ function gapAnswer(
 		marbleId,
 		fromHitId,
 		toHitId,
-		entity: proposal.entity,
+		piece: proposal.piece,
 		commands: proposal.commands,
-		piece: trial.pieces.find((piece) => piece.entityId === proposal.entity.id) ?? null,
+		resolved: trial.pieces.find((piece) => piece.entityId === proposal.piece.id) ?? null,
 		track,
 		check: proposal.check,
 		computeMs: performance.now() - startedAt

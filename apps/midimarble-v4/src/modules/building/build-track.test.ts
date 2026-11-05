@@ -74,14 +74,14 @@ describe('buildTrack function', () => {
 		const marble = project.marbles[0];
 		const first = marble?.hits[0];
 		if (marble == null || first == null) throw new Error('No hit');
-		const { entity: mine, angle } = localBuildDeps(simulator).autoPlace({ project, marbleId: marble.id, hitId: first.id, type: 'platform', entityId: 'mine' }) as TAutoPlaceAnswer;
+		const { piece: mine, angle } = localBuildDeps(simulator).autoPlace({ project, marbleId: marble.id, hitId: first.id, type: 'platform', entityId: 'mine' }) as TAutoPlaceAnswer;
 		const [isOk, error, placed] = applyProjectCommands(project, [{ type: 'addPiece', piece: mine }]);
 		if (!isOk) throw error;
 		const outcome = await buildTrack(placed, localBuildDeps(simulator));
 		expect(outcome.attention).toEqual([]);
 		expect(outcome.turned).toEqual([]);
 		expect(outcome.releaseShift).toBe(0);
-		expect(outcome.project.track.pieces.find((entity) => entity.id === 'mine')?.angle).toBe(angle);
+		expect(outcome.project.track.pieces.find((piece) => piece.id === 'mine')?.angle).toBe(angle);
 	}, MINUTES);
 
 	it('finishes the rest and names a hit no platform can play', async () => {
@@ -157,11 +157,11 @@ describe('Rebuild From Here', () => {
 		const hit = marble?.hits[5];
 		if (marble == null || hit == null) throw new Error('No hit');
 		// The person turns the platform of that hit, which steers what comes after it
-		const mine = built.project.track.pieces.find((entity) => tieOf(entity)?.hitId === hit.id);
+		const mine = built.project.track.pieces.find((piece) => tieOf(piece)?.hitId === hit.id);
 		if (mine == null || tieOf(mine) == null) throw new Error('No platform');
 		mine.angle -= 0.05;
-		const before = built.project.track.pieces.filter((entity) => {
-			const link = tieOf(entity);
+		const before = built.project.track.pieces.filter((piece) => {
+			const link = tieOf(piece);
 			return link != null && (marble.hits.find((item) => item.id === link.hitId)?.time ?? Infinity) <= hit.time;
 		});
 		let shown = built.project;
@@ -178,10 +178,10 @@ describe('Rebuild From Here', () => {
 		}, { from: { marbleId: marble.id, hitId: hit.id } });
 		expect(outcome.turned).toEqual([]);
 		expect(outcome.releaseShift).toBe(0);
-		for (const entity of before) {
-			const kept = outcome.project.track.pieces.find((item) => item.id === entity.id);
-			expect(tieOf(kept)).toEqual(tieOf(entity));
-			expect(kept?.angle).toBe(entity.angle);
+		for (const piece of before) {
+			const kept = outcome.project.track.pieces.find((item) => item.id === piece.id);
+			expect(tieOf(kept)).toEqual(tieOf(piece));
+			expect(kept?.angle).toBe(piece.angle);
 		}
 		expect(outcome.attention).toEqual([]);
 		expect(firsts.filter(Boolean)).toHaveLength(1);
@@ -197,7 +197,7 @@ describe('Rebuild From Here', () => {
 		const hitOf = (index: number, marble = marbleA) => marble?.hits[index]?.id ?? '';
 		const tied = (id: string, type: string, marbleId: string, hitId: string): TPiece => ({ id, type, params: {}, angle: 0, place: hitPlace(type, marbleId, hitId) });
 		const kept = { ...project, track: { ...project.track, pieces: [...project.track.pieces, tied('a1', 'platform', marbleA?.id ?? '', hitOf(0)), tied('a2', 'platform', marbleA?.id ?? '', hitOf(1)), tied('bridge', 'rail', marbleA?.id ?? '', hitOf(1)), tied('a3', 'platform', marbleA?.id ?? '', hitOf(2)), tied('b1', 'platform', marbleB?.id ?? '', hitOf(0, marbleB)), tied('b2', 'platform', marbleB?.id ?? '', hitOf(1, marbleB))] } };
-		const ids = withoutPiecesAfter(kept, { marbleId: marbleA?.id ?? '', hitId: hitOf(1) }).track.pieces.map((entity) => entity.id);
+		const ids = withoutPiecesAfter(kept, { marbleId: marbleA?.id ?? '', hitId: hitOf(1) }).track.pieces.map((piece) => piece.id);
 		expect(ids).toEqual(['a1', 'a2', 'b1']);
 	});
 });
@@ -224,7 +224,7 @@ describe('a chosen gap piece', () => {
 		let current = project;
 		for (const hit of marble.hits.slice(0, 3)) {
 			const placed = localBuildDeps(simulator).autoPlace({ project: current, marbleId: marble.id, hitId: hit.id, type: 'platform', entityId: `mine-${hit.id}` }) as TAutoPlaceAnswer;
-			const [isOk, error, applied] = applyProjectCommands(current, [{ type: 'addPiece', piece: placed.entity }]);
+			const [isOk, error, applied] = applyProjectCommands(current, [{ type: 'addPiece', piece: placed.piece }]);
 			if (!isOk) throw error;
 			current = applied;
 		}
@@ -234,7 +234,7 @@ describe('a chosen gap piece', () => {
 		if (!isOk) throw error;
 		expect(findLongGaps(chosen, marble.id).map((gap) => gap.bridgedBy)).not.toContain(null);
 		const outcome = await buildTrack(chosen, localBuildDeps(simulator));
-		expect(outcome.project.track.pieces.find((entity) => entity.name === 'My Rail')?.type).toBe('rail');
+		expect(outcome.project.track.pieces.find((piece) => piece.name === 'My Rail')?.type).toBe('rail');
 	}, MINUTES);
 });
 

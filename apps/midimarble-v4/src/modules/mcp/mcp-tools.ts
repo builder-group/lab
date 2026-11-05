@@ -106,7 +106,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		return text(cx, {
 			commands: [
 				{ id: PROJECT_EXECUTE, title: 'Project commands with parameters: see the building-a-track guide' },
-				{ id: EDIT_SELECT, title: 'Select by keys: args.select, such as hit keys, entity IDs, wall or light:key' },
+				{ id: EDIT_SELECT, title: 'Select by keys: args.select, such as hit keys, piece IDs, wall or light:key' },
 				{ id: REMOVE_PACK, title: 'Remove an added Pack: args.name. Projects keep what they use from it' },
 				...listed
 			],
@@ -556,7 +556,7 @@ function unknownSelection(cx: StudioCx, args: Record<string, unknown>): string |
 	if (!Array.isArray(select) || project == null) return null;
 	const isKnown = (key: unknown): boolean => {
 		if (typeof key !== 'string') return false;
-		if ([...project.marbles, ...project.track.pieces, ...project.film.titles].some((entity) => entity.id === key)) return true;
+		if ([...project.marbles, ...project.track.pieces, ...project.film.titles].some((piece) => piece.id === key)) return true;
 		const hit = parseHitKey(key);
 		if (hit != null) return project.marbles.some((marble) => marble.id === hit.marbleId && marble.hits.some((item) => item.id === hit.hitId));
 		return key === WALL_KEY || key === CAMERA_KEY || key === SONG_KEY || parseLightKey(key) != null || parseDecorKey(key) != null || key.includes(':');

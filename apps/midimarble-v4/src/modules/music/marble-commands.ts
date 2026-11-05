@@ -116,7 +116,7 @@ export function lastPlayingMarbles(project: TProject): string[] {
 
 /** Whether a marble's marble has a Bowl, the piece that catches it after its last note */
 export function hasBowl(project: TProject, marbleId: string): boolean {
-	return project.track.pieces.some((entity) => entity.type === BOWL_TYPE && tieOf(entity)?.marbleId === marbleId);
+	return project.track.pieces.some((piece) => piece.type === BOWL_TYPE && tieOf(piece)?.marbleId === marbleId);
 }
 
 /** Whether every marble that plays last has a Bowl, so the film ends on the catch */

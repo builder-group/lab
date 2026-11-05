@@ -38,10 +38,10 @@ export function marbleLabelEntries(cx: StudioCx, marble: TMarble): TMenuEntry[] 
 }
 
 /** The piece's or title's Label Color, and with it the rest of the selected pieces and titles when it is part of the selection, as one edit */
-export function entityLabelEntries(cx: StudioCx, entity: TPiece | TTitle): TMenuEntry[] {
+export function layerLabelEntries(cx: StudioCx, piece: TPiece | TTitle): TMenuEntry[] {
 	const selection = cx.$selection.get();
-	const ids = selection.includes(entity.id) ? selection : [entity.id];
-	return labelColorEntries(cx, entity.labelColor, (color) => (cx.project != null ? labelColorCommands(cx.project, ids, color) : []));
+	const ids = selection.includes(piece.id) ? selection : [piece.id];
+	return labelColorEntries(cx, piece.labelColor, (color) => (cx.project != null ? labelColorCommands(cx.project, ids, color) : []));
 }
 
 function labelColorCommands(project: TProject, ids: readonly string[], color: string | null): TProjectCommand[] {
@@ -59,8 +59,8 @@ function labelColorCommands(project: TProject, ids: readonly string[], color: st
 /** Label Color for the selected pieces' and titles' menu */
 function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 	const selection = cx.$selection.get();
-	const first = cx.project?.track.pieces.find((entity) => selection.includes(entity.id)) ?? cx.project?.film.titles.find((title) => selection.includes(title.id));
-	return first != null ? labelColorItem(entityLabelEntries(cx, first)) : null;
+	const first = cx.project?.track.pieces.find((piece) => selection.includes(piece.id)) ?? cx.project?.film.titles.find((title) => selection.includes(title.id));
+	return first != null ? labelColorItem(layerLabelEntries(cx, first)) : null;
 }
 
 /** Right-click on a piece, on the canvas or in the sidebar */
@@ -68,11 +68,11 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 	// Film shows what works there: Track's edits ask for the wall
 	if (cx.$workspace.get() !== 'track') return tidyMenu([canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null, 'separator', commandItem(cx, 'edit.rename'), selectionLabelItem(cx)]);
 	const selection = cx.$selection.get();
-	const selected = cx.project?.track.pieces.filter((entity) => selection.includes(entity.id)) ?? [];
+	const selected = cx.project?.track.pieces.filter((piece) => selection.includes(piece.id)) ?? [];
 	const isOnlyPiece = selected.length === 1 && ![...(cx.project?.marbles ?? []), ...(cx.project?.film.titles ?? [])].some((layer) => selection.includes(layer.id));
 	return tidyMenu([
 		isOnlyPiece && tieOf(selected[0]) != null ? commandItem(cx, 'build.fix') : null,
-		selected.some((entity) => tieOf(entity) != null) ? commandItem(cx, 'build.rebuildFrom') : null,
+		selected.some((piece) => tieOf(piece) != null) ? commandItem(cx, 'build.rebuildFrom') : null,
 		'separator',
 		commandItem(cx, 'view.fitSelection'),
 		'separator',
@@ -102,7 +102,7 @@ function pieceLinkItems(cx: StudioCx): TMenuEntry[] {
 
 /** Right-click on a title, in Layers or Film's preview */
 export function titleMenu(cx: StudioCx, title: TTitle): TMenuEntry[] {
-	return [commandItem(cx, 'edit.copy'), commandItem(cx, 'edit.rename'), labelColorItem(entityLabelEntries(cx, title)), 'separator', commandItem(cx, 'edit.delete')];
+	return [commandItem(cx, 'edit.copy'), commandItem(cx, 'edit.rename'), labelColorItem(layerLabelEntries(cx, title)), 'separator', commandItem(cx, 'edit.delete')];
 }
 
 /** The Label Color of the selected decorations */
@@ -146,7 +146,7 @@ export function hitMenu(cx: StudioCx, marble: TMarble, hitId: string): TMenuEntr
 	const project = cx.project;
 	const hit = marble.hits.find((item) => item.id === hitId);
 	if (project == null || hit == null) return [];
-	const piece = project.track.pieces.find((entity) => tieOf(entity)?.marbleId === marble.id && tieOf(entity)?.hitId === hitId);
+	const piece = project.track.pieces.find((piece) => tieOf(piece)?.marbleId === marble.id && tieOf(piece)?.hitId === hitId);
 	const selected = cx.$selection.get();
 	const key = toHitKey(marble.id, hitId);
 	const moving = selected.includes(key) ? selected : [key];

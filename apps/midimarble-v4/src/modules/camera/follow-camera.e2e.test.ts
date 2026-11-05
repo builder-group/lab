@@ -227,7 +227,7 @@ describe('follow camera on whole songs', () => {
 		expect(exit).toBe(Number.POSITIVE_INFINITY);
 		expect(jingle.length).toBe(songEnd(lastNote, bowlTail(exit)));
 		const end = track.frameCount - 1;
-		const bowls = jingle.track.pieces.filter((entity) => entity.type === 'bowl');
+		const bowls = jingle.track.pieces.filter((piece) => piece.type === 'bowl');
 		expect(bowls).toHaveLength(2);
 		for (const bowl of bowls) {
 			const caught = bowlCatch(result, bowl.id);
@@ -266,7 +266,7 @@ describe('follow camera on whole songs', () => {
 		const held = required(followCameraTrack(reference, result, 30));
 		const without = required(
 			followCameraTrack(
-				{ ...reference, track: { ...reference.track, pieces: reference.track.pieces.filter((entity) => entity.type !== 'bowl') } },
+				{ ...reference, track: { ...reference.track, pieces: reference.track.pieces.filter((piece) => piece.type !== 'bowl') } },
 				{ ...result, pieces: result.pieces.filter((piece) => piece.type !== 'bowl') },
 				30
 			)

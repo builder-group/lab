@@ -6,15 +6,15 @@ import { createSimulator, type TSimulator } from './simulate';
 const HORIZON = 2;
 
 function tilted(project: TProject, time: number, by: number): TProject {
-	const linked = project.track.pieces.flatMap((entity) => {
-		const link = tieOf(entity);
+	const linked = project.track.pieces.flatMap((piece) => {
+		const link = tieOf(piece);
 		const hit = project.marbles.find((marble) => marble.id === link?.marbleId)?.hits.find((item) => item.id === link?.hitId);
-		return entity.type === 'platform' && hit != null ? [{ entity, time: hit.time }] : [];
+		return piece.type === 'platform' && hit != null ? [{ piece, time: hit.time }] : [];
 	});
 	const target = linked.filter((item) => item.time >= time).sort((a, b) => a.time - b.time)[0];
 	if (target == null) throw new Error('No platform at that time');
-	const entities = project.track.pieces.map((entity) => (entity === target.entity ? { ...entity, angle: entity.angle + by } : entity));
-	return { ...project, track: { ...project.track, pieces: entities } };
+	const pieces = project.track.pieces.map((piece) => (piece === target.piece ? { ...piece, angle: piece.angle + by } : piece));
+	return { ...project, track: { ...project.track, pieces } };
 }
 
 async function warmed(project: TProject): Promise<TSimulator> {

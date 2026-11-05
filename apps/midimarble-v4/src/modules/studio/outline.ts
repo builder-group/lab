@@ -41,7 +41,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 
 	// Newest first, like Figma's layer list
 	const startRails = new Set(project.marbles.map((marble) => startRailOf(project, marble.id)));
-	const free = project.track.pieces.filter((entity) => tieOf(entity) == null && !startRails.has(entity) && !beyondMarbles.has(entity.id)).reverse();
+	const free = project.track.pieces.filter((piece) => tieOf(piece) == null && !startRails.has(piece) && !beyondMarbles.has(piece.id)).reverse();
 	if (free.length > 0 || looseGroups.length > 0) {
 		const isOpen = !collapsed.includes(FREE_PIECES_KEY);
 		rows.push({ kind: 'group', id: FREE_PIECES_KEY, depth: 0, parentId: null, label: PIECES_GROUP_LABEL, help: PIECES_GROUP_HELP, groupKey: FREE_PIECES_KEY, childIds: [...free.map((piece) => piece.id), ...beyondMarbles], isOpen });
@@ -50,7 +50,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 				const isGroupOpen = !collapsed.includes(group.id);
 				const key = toGroupKey(group.id);
 				rows.push({ kind: 'patternGroup', id: key, depth: 1, parentId: FREE_PIECES_KEY, group, groupKey: group.id, hasChildren: group.pieceIds.length > 0, isOpen: isGroupOpen });
-				if (isGroupOpen) for (const piece of project.track.pieces.filter((entity) => group.pieceIds.includes(entity.id))) rows.push({ kind: 'piece', id: piece.id, depth: 2, parentId: key, piece, marbleId: null });
+				if (isGroupOpen) for (const piece of project.track.pieces.filter((piece) => group.pieceIds.includes(piece.id))) rows.push({ kind: 'piece', id: piece.id, depth: 2, parentId: key, piece, marbleId: null });
 			}
 			for (const piece of free) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: FREE_PIECES_KEY, piece, marbleId: null });
 		}
@@ -107,7 +107,7 @@ export function collapsedGroups(project: TProject, workspace: 'track' | 'film', 
 export function groupsOfSelection(project: TProject, selection: readonly string[]): string[] {
 	return selection.flatMap((key) => {
 		if (key.startsWith('decor:') || key.startsWith('blender:')) return [DECOR_KEY];
-		const marbleId = tieOf(project.track.pieces.find((entity) => entity.id === key))?.marbleId ?? project.marbles.find((marble) => startRailOf(project, marble.id)?.id === key)?.id;
+		const marbleId = tieOf(project.track.pieces.find((piece) => piece.id === key))?.marbleId ?? project.marbles.find((marble) => startRailOf(project, marble.id)?.id === key)?.id;
 		const group = project.track.groups.find((item) => item.pieceIds.includes(key));
 		if (marbleId != null && group?.marbleId != null) return [marbleId, group.id];
 		if (group != null) return [FREE_PIECES_KEY, group.id];
@@ -212,7 +212,7 @@ function marblePieces(project: TProject, marble: TMarble): TPiece[] {
 	const order = new Map(marble.hits.map((hit, index) => [hit.id, index]));
 	const startRail = startRailOf(project, marble.id);
 	const tied = project.track.pieces
-		.filter((entity) => tieOf(entity)?.marbleId === marble.id)
+		.filter((piece) => tieOf(piece)?.marbleId === marble.id)
 		.sort((a, b) => (order.get(tieOf(a)?.hitId ?? '') ?? 0) - (order.get(tieOf(b)?.hitId ?? '') ?? 0));
 	return startRail != null ? [startRail, ...tied] : tied;
 }

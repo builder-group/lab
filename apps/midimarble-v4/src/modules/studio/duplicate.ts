@@ -32,26 +32,26 @@ export function duplicatePieces(project: TProject, result: TSimulationResult | n
 /** The pieces as free pieces where they are now, which ⌘C keeps; a tied piece without a pose in this run is left out */
 export function freePieces(project: TProject, result: TSimulationResult | null, entityIds: string[]): TPiece[] {
 	return entityIds.flatMap((entityId) => {
-		const entity = project.track.pieces.find((item) => item.id === entityId);
-		const free = entity != null ? freeEntity(project, result, entity) : null;
+		const piece = project.track.pieces.find((item) => item.id === entityId);
+		const free = piece != null ? freePiece(project, result, piece) : null;
 		return free != null ? [free] : [];
 	});
 }
 
-function copiesOf(project: TProject, pieces: readonly TPiece[], offset: TVec2): TDuplicate {
+function copiesOf(project: TProject, resolvedPieces: readonly TPiece[], offset: TVec2): TDuplicate {
 	const commands: TProjectCommand[] = [];
 	const copies: TPiece[] = [];
-	let entities = project.track.pieces;
-	for (const free of pieces) {
+	let pieces = project.track.pieces;
+	for (const free of resolvedPieces) {
 		const position = freePosition(free);
 		if (position == null) continue;
 		const copy: TPiece = {
 			...free,
 			id: createId('piece'),
-			name: nextPieceName(free.type, entities),
+			name: nextPieceName(free.type, pieces),
 			place: { kind: 'free', position: { x: position.x + offset.x, y: position.y + offset.y } }
 		};
-		entities = [...entities, copy];
+		pieces = [...pieces, copy];
 		copies.push(copy);
 		commands.push({ type: 'addPiece', piece: copy });
 	}
@@ -185,10 +185,10 @@ function clearField(result: TSimulationResult, copies: TPiece[]): { isClear: (of
 }
 
 /** The piece as a free piece where it is now, or null when it is tied and has no pose in this run */
-function freeEntity(project: TProject, result: TSimulationResult | null, entity: TPiece): TPiece | null {
-	const link = tieOf(entity);
-	if (link == null) return entity;
+function freePiece(project: TProject, result: TSimulationResult | null, piece: TPiece): TPiece | null {
+	const link = tieOf(piece);
+	if (link == null) return piece;
 	if (result == null) return null;
-	const [isOk, , value] = soundsHit(entity.type, link) ? unlinkPiece(project, result, entity.id) : unanchorPiece(project, result, entity.id);
-	return isOk ? value.entity : null;
+	const [isOk, , value] = soundsHit(piece.type, link) ? unlinkPiece(project, result, piece.id) : unanchorPiece(project, result, piece.id);
+	return isOk ? value.piece : null;
 }

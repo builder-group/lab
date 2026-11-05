@@ -14,9 +14,9 @@ function turned(project: TProject, id: string, by: number): TProject {
 	return {
 		...project,
 		revision: project.revision + 1,
-		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
-			const link = tieOf(entity);
-			return entity.id === id && link != null ? { ...entity, angle: entity.angle + by } : entity;
+		track: { ...project.track, pieces: project.track.pieces.map((piece) => {
+			const link = tieOf(piece);
+			return piece.id === id && link != null ? { ...piece, angle: piece.angle + by } : piece;
 		}) }
 	};
 }
@@ -40,8 +40,8 @@ describe('small edits on Jingle Bells', () => {
 				const after = turned(project, id, by * DEGREE);
 				const settled = answerSettle(simulator, { before: project, after }, memo);
 				memo = settled.memo;
-				const changed = new Map(settled.answer.entities.map((entity) => [entity.id, entity]));
-				const run = (await createSimulator()).simulate({ ...after, track: { ...after.track, pieces: after.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } });
+				const changed = new Map(settled.answer.pieces.map((piece) => [piece.id, piece]));
+				const run = (await createSimulator()).simulate({ ...after, track: { ...after.track, pieces: after.track.pieces.map((piece) => changed.get(piece.id) ?? piece) } });
 
 				// Assert: what a later session opens is what the settle promised
 				const broken = run.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked');
@@ -64,15 +64,15 @@ describe('small edits on Jingle Bells', () => {
 			const after = {
 				...project,
 				revision: project.revision + 1,
-				track: { ...project.track, pieces: project.track.pieces.map((entity) => {
-					const link = tieOf(entity);
-					return entity.id === id && link != null ? { ...entity, place: { ...link, contactAt: 0.4 } } : entity;
+				track: { ...project.track, pieces: project.track.pieces.map((piece) => {
+					const link = tieOf(piece);
+					return piece.id === id && link != null ? { ...piece, place: { ...link, contactAt: 0.4 } } : piece;
 				}) }
 			};
 			const settled = answerSettle(simulator, { before: project, after }, memo);
 			memo = settled.memo;
-			const changed = new Map(settled.answer.entities.map((entity) => [entity.id, entity]));
-			const run = (await createSimulator()).simulate({ ...after, track: { ...after.track, pieces: after.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } });
+			const changed = new Map(settled.answer.pieces.map((piece) => [piece.id, piece]));
+			const run = (await createSimulator()).simulate({ ...after, track: { ...after.track, pieces: after.track.pieces.map((piece) => changed.get(piece.id) ?? piece) } });
 
 			// Assert
 			expect(run.hits.filter((hit) => hit.status === 'onTime'), id).toHaveLength(run.hits.length);
@@ -82,11 +82,11 @@ describe('small edits on Jingle Bells', () => {
 	it('should leave at most a few problems and no heap when a platform goes', async () => {
 		for (const id of ['piece-1-2', 'piece-1-8', 'piece-2-16', 'piece-2-31']) {
 			// Act
-			const after = { ...project, revision: project.revision + 1, track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.id !== id) } };
+			const after = { ...project, revision: project.revision + 1, track: { ...project.track, pieces: project.track.pieces.filter((piece) => piece.id !== id) } };
 			const settled = answerSettle(simulator, { before: project, after }, memo);
 			memo = settled.memo;
-			const changed = new Map(settled.answer.entities.map((entity) => [entity.id, entity]));
-			const run = (await createSimulator()).simulate({ ...after, track: { ...after.track, pieces: after.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } });
+			const changed = new Map(settled.answer.pieces.map((piece) => [piece.id, piece]));
+			const run = (await createSimulator()).simulate({ ...after, track: { ...after.track, pieces: after.track.pieces.map((piece) => changed.get(piece.id) ?? piece) } });
 
 			// Assert: pieces after a break stay where they were
 			expect(run.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked').length, id).toBeLessThanOrEqual(3);

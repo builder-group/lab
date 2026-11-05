@@ -11,7 +11,7 @@ import { isPatternGroup, type TPiece, type TProject, formatTime, SCENE_KEY, tieO
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { inspectorTarget } from './inspector-target';
-import { decorLabelEntries, decorMenu, entityLabelEntries, marbleLabelEntries, marbleMenu, pieceMenu, songMenu, titleMenu } from './menus';
+import { decorLabelEntries, decorMenu, layerLabelEntries, marbleLabelEntries, marbleMenu, pieceMenu, songMenu, titleMenu } from './menus';
 import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
@@ -453,7 +453,7 @@ function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
 		case 'marble':
 			return marbleLabelEntries(cx, row.marble);
 		case 'title':
-			return entityLabelEntries(cx, row.title);
+			return layerLabelEntries(cx, row.title);
 		case 'decor': {
 			const selected = selectedDecorIds(cx.$selection.get());
 			return decorLabelEntries(cx, selected.includes(row.decor.id) ? selected : [row.decor.id]);
@@ -531,7 +531,7 @@ const PieceRow = React.memo(function PieceRow(
 			onClick={(event) => actions.onClick(row, event)}
 			onDoubleClick={() => cx.$renaming.set(piece.id)}
 			onContextMenu={(event) => actions.onContextMenu(row, event)}
-			onIconClick={(event) => openContextMenu(event, entityLabelEntries(cx, piece))}
+			onIconClick={(event) => openContextMenu(event, layerLabelEntries(cx, piece))}
 		/>
 	);
 });

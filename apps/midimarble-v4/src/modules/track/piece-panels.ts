@@ -29,6 +29,6 @@ function shapeRank(name: string): number {
  * Whether the inspector shows the link panel: only for one piece that plays a note or follows a marble, as a piece
  * tied to nothing has nothing to show. Play a Note… and Follow a Marble… in its menus tie it.
  */
-export function showsLinkPanel(entities: TPiece[]): boolean {
-	return entities.length === 1 && tieOf(entities[0]) != null;
+export function showsLinkPanel(pieces: TPiece[]): boolean {
+	return pieces.length === 1 && tieOf(pieces[0]) != null;
 }

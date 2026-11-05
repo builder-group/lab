@@ -62,7 +62,7 @@ describe('dotClickAction', () => {
 
 	it('should preview the platform for an open note, and the bridge for a long gap', async () => {
 		const simulator = await createSimulator();
-		const without = { ...project, track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.id !== 'piece-1-5') } };
+		const without = { ...project, track: { ...project.track, pieces: project.track.pieces.filter((piece) => piece.id !== 'piece-1-5') } };
 		const result = simulator.simulate(without);
 		const hit = result.hits.find((item) => item.status === 'open');
 		if (hit == null) throw new Error('expected an open note');
@@ -92,7 +92,7 @@ describe('a dot click before it places', () => {
 	async function setup(): Promise<{ assist: AssistCx; cx: StudioCx; hit: THitResult; project: () => TProject; edits: () => number; answer: () => void; fail: () => void }> {
 		const simulator = await createSimulator();
 		const start = createStaircaseProject();
-		const without = { ...start, track: { ...start.track, pieces: start.track.pieces.filter((entity) => entity.id !== 'piece-1-5') } };
+		const without = { ...start, track: { ...start.track, pieces: start.track.pieces.filter((piece) => piece.id !== 'piece-1-5') } };
 		const result = simulator.simulate(without);
 		const hit = result.hits.find((item) => item.status === 'open');
 		if (hit == null) throw new Error('expected an open note');
@@ -139,15 +139,15 @@ describe('a dot click before it places', () => {
 			edits: () => edits,
 			answer: () => {
 				const pending = settle as { resolve: (value: TAutoPlaceAnswer) => void; entityId: string } | null;
-				const entity = pieceEntity(project, hit, pending?.entityId ?? 'piece');
-				pending?.resolve({ entity, angle: 0.2, nextDot: { x: 0.1, y: -1 }, computeMs: 1 });
+				const piece = pieceRecord(project, hit, pending?.entityId ?? 'piece');
+				pending?.resolve({ piece, angle: 0.2, nextDot: { x: 0.1, y: -1 }, computeMs: 1 });
 			},
 			fail: () => (settle as { reject: (error: Error) => void } | null)?.reject(new Error('No angle'))
 		};
 	}
 
-	function pieceEntity(project: TProject, hit: THitResult, id: string): TPiece {
-		return createLinkedPiece('platform', hit.marbleId, hit.hitId, 0.2, { entities: project.track.pieces, id });
+	function pieceRecord(project: TProject, hit: THitResult, id: string): TPiece {
+		return createLinkedPiece('platform', hit.marbleId, hit.hitId, 0.2, { pieces: project.track.pieces, id });
 	}
 
 	const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -169,7 +169,7 @@ describe('a dot click before it places', () => {
 		// Return and N come through next(), a click on the ghost through acceptGhosts()
 		assist.next();
 		expect(edits()).toBe(1);
-		expect(project().track.pieces.some((entity) => tieOf(entity)?.hitId === hit.hitId)).toBe(true);
+		expect(project().track.pieces.some((piece) => tieOf(piece)?.hitId === hit.hitId)).toBe(true);
 		expect(assist.$ghosts.get().ghost).toBeNull();
 		expect(cx.$selection.get()[0]).not.toBe(toHitKey(hit.marbleId, hit.hitId));
 	});
@@ -290,7 +290,7 @@ describe('⌫ on hits', () => {
 		const simulator = await createSimulator();
 		const project = createStaircaseProject();
 		const result = simulator.simulate(project);
-		const piece = project.track.pieces.find((entity) => entity.id === 'piece-1-5');
+		const piece = project.track.pieces.find((piece) => piece.id === 'piece-1-5');
 		const link = tieOf(piece);
 		if (link == null) throw new Error('expected a platform');
 		return { project, result, key: toHitKey(link.marbleId, link.hitId), pieceId: 'piece-1-5', hitId: link.hitId, marbleId: link.marbleId };
@@ -302,8 +302,8 @@ describe('⌫ on hits', () => {
 		if (!isOk) throw error;
 		expect(next.marbles.find((marble) => marble.id === marbleId)?.hits.some((hit) => hit.id === hitId)).toBe(false);
 		expect(backingOf(next).some((hit) => hit.id === hitId)).toBe(false);
-		expect(next.track.pieces.some((entity) => entity.id === pieceId)).toBe(false);
-		expect(next.track.pieces.some((entity) => tieOf(entity)?.hitId === hitId)).toBe(false);
+		expect(next.track.pieces.some((piece) => piece.id === pieceId)).toBe(false);
+		expect(next.track.pieces.some((piece) => tieOf(piece)?.hitId === hitId)).toBe(false);
 	});
 });
 
@@ -355,18 +355,18 @@ describe('dragging a platform that plays a note', () => {
 	it('should keep Plays where it lies, report the timing there, and go back on time when placed again', () => {
 		const project = createStaircaseProject();
 		const before = simulate(project);
-		const entity = project.track.pieces.find((item) => item.id === 'piece-1-5');
+		const piece = project.track.pieces.find((item) => item.id === 'piece-1-5');
 		const resolved = before.pieces.find((piece) => piece.entityId === 'piece-1-5');
-		if (entity == null || resolved == null) throw new Error('missing piece');
+		if (piece == null || resolved == null) throw new Error('missing piece');
 
 		// Waiting where it was, the run keeps it exactly there and the marble passes
-		const link = tieOf(entity);
+		const link = tieOf(piece);
 		if (link == null) throw new Error('missing link');
-		const waiting = { ...entity, place: { ...link, held: { dot: { x: resolved.position.x, y: resolved.position.y - 0.1 }, velocity: { x: 0, y: -1 }, leaves: null } } };
+		const waiting = { ...piece, place: { ...link, held: { dot: { x: resolved.position.x, y: resolved.position.y - 0.1 }, velocity: { x: 0, y: -1 }, leaves: null } } };
 		const lowerProject = withCommands(project, [{ type: 'addPiece', piece: waiting }]);
 
 		// Placed again, it follows its note once more
-		const commands = replaceCommands(lowerProject, entity);
+		const commands = replaceCommands(lowerProject, piece);
 		expect(commands.length).toBeGreaterThan(0);
 		const back = withCommands(lowerProject, commands);
 		expect(tieOf(back.track.pieces.find((item) => item.id === 'piece-1-5'))?.held).toBeUndefined();
@@ -375,9 +375,9 @@ describe('dragging a platform that plays a note', () => {
 
 	it('should show the dragged platform where the pointer holds it', () => {
 		const project = createStaircaseProject();
-		const entity = project.track.pieces.find((item) => item.id === 'piece-1-5');
-		if (entity == null) throw new Error('missing piece');
-		const shown = displayPiece(entity, { pose: { position: { x: 0.3, y: 0.2 }, angle: 0.1 } });
+		const piece = project.track.pieces.find((item) => item.id === 'piece-1-5');
+		if (piece == null) throw new Error('missing piece');
+		const shown = displayPiece(piece, { pose: { position: { x: 0.3, y: 0.2 }, angle: 0.1 } });
 		expect(shown.position.x).toBeCloseTo(0.3);
 		expect(shown.position.y).toBeCloseTo(0.2);
 		expect(isBoundsVisible({ center: { x: 0.3, y: 0.2 }, scale: 900 }, viewport, { minX: 0.29, maxX: 0.31, minY: 0.19, maxY: 0.21 })).toBe(true);

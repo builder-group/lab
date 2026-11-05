@@ -39,13 +39,13 @@ function addLinkedHit(
 	marble.hits.push({ id: hitId, time });
 	const id = `piece-${hitId}`;
 	project.track.pieces.push(
-		createLinkedPiece(type, marbleId, hitId, angle, { entities: project.track.pieces, id })
+		createLinkedPiece(type, marbleId, hitId, angle, { pieces: project.track.pieces, id })
 	);
 	return id;
 }
 
 function setAngle(project: TProject, entityId: string, angle: number): void {
-	const piece = project.track.pieces.find((entity) => entity.id === entityId);
+	const piece = project.track.pieces.find((piece) => piece.id === entityId);
 	if (piece == null || tieOf(piece) == null) throw new Error(`Missing linked piece ${entityId}`);
 	piece.angle = angle;
 }
@@ -140,7 +140,7 @@ describe('simulate', () => {
 		const waiting = structuredClone(project);
 		const fifth = before.pieces.find((piece) => piece.entityId === 'piece-1-5');
 		const fifthHit = before.hits.find((hit) => hit.pieceEntityId === 'piece-1-5');
-		const link = tieOf(waiting.track.pieces.find((entity) => entity.id === 'piece-1-5'));
+		const link = tieOf(waiting.track.pieces.find((piece) => piece.id === 'piece-1-5'));
 		if (fifth == null || fifthHit?.dot == null || link == null) throw new Error('Missing fifth platform');
 		link.held = { dot: fifthHit.dot, velocity: fifthHit.velocity, leaves: null };
 		const waitingResult = simulator.simulate(waiting);
@@ -248,7 +248,7 @@ describe('simulate', () => {
 		for (const time of [0.5, 0.9, 1.3]) addLinkedHit(project, marbleA, time, -0.1);
 		for (const time of [0.7, 1.1, 1.5]) addLinkedHit(project, marbleB, time, 0.1);
 		// After the long first falls, a lower bounce than the default keeps the marbles falling at each hit
-		for (const entity of project.track.pieces) entity.params['bounce'] = 0.55;
+		for (const piece of project.track.pieces) piece.params['bounce'] = 0.55;
 		const result = simulator.simulate(project);
 		expect(result.marbles).toHaveLength(2);
 		expect(result.hits).toHaveLength(6);
@@ -327,9 +327,9 @@ describe('simulate', () => {
 		const project = createBareProject(1.2);
 		const marbleId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
 		const windmillId = addLinkedHit(project, marbleId, 0.4, 0.2, 'windmill');
-		const entity = project.track.pieces.find((item) => item.id === windmillId);
-		if (entity == null) throw new Error('Missing windmill');
-		entity.params['motorSpeed'] = 2;
+		const piece = project.track.pieces.find((item) => item.id === windmillId);
+		if (piece == null) throw new Error('Missing windmill');
+		piece.params['motorSpeed'] = 2;
 		const result = simulator.simulate(project);
 		// The windmill is scenery: the marble strikes it at 0.4 s, but the hit there stays open
 		expect(result.hits[0]?.status).toBe('open');

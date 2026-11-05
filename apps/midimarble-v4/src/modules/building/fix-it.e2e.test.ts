@@ -18,16 +18,16 @@ describe('fixTrack function on Jingle Bells', () => {
 	function deps(): TFixDeps {
 		return {
 			simulate: async (project) => simulate(project),
-			autoPlace: async (project, target, entity) => {
-				const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: entity.type });
+			autoPlace: async (project, target, piece) => {
+				const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: piece.type });
 				if (!isOk) throw error;
-				return placement.entity;
+				return placement.piece;
 			},
 			gapPiece: async (project, gap, type, id) => {
 				const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
 				const [isOk, error, proposal] = create(project, simulate(project), gap.marbleId, gap.fromHitId, gap.toHitId, { simulate, id });
 				if (!isOk) throw error;
-				return proposal.entity;
+				return proposal.piece;
 			},
 			commit: (project, commands) => {
 				const [isOk, error, next] = applyProjectCommands(project, commands);
@@ -81,7 +81,7 @@ describe('fixTrack function on Jingle Bells', () => {
 
 		// Assert
 		expect(brokenHits(outcome.result.hits).length).toBeLessThan(brokenHits(broken.hits).length);
-		expect(outcome.project.track.pieces.some((entity) => entity.id === 'bowl-lane-1')).toBe(true);
+		expect(outcome.project.track.pieces.some((piece) => piece.id === 'bowl-lane-1')).toBe(true);
 		expect(messageOf(edited, broken, outcome)).toMatch(/Turn them by hand or undo the edit/);
 	}, 120_000);
 });

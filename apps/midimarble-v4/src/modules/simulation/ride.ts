@@ -30,10 +30,10 @@ export function hasRide(type: string): boolean {
 }
 
 /** What a ride depends on besides the entry speed: the piece's shape and how it sits on the marble */
-export function rideKey(entity: TPiece): string {
-	const hitLink = tieOf(entity);
-	const { entryDelay: _, ...params } = resolvePieceParams(entity?.type ?? '', entity?.params ?? {});
-	return hash(JSON.stringify([entity.type, entity.layout, params, entity.path?.points, entity.path?.paths, hitLink != null ? entity.angle : undefined, hitLink != null ? (hitLink.contactAt ?? 0.5) : undefined, hitLink?.kind === 'follows' ? hitLink.offset : undefined]));
+export function rideKey(piece: TPiece): string {
+	const tie = tieOf(piece);
+	const { entryDelay: _, ...params } = resolvePieceParams(piece?.type ?? '', piece?.params ?? {});
+	return hash(JSON.stringify([piece.type, piece.layout, params, piece.path?.points, piece.path?.paths, tie != null ? piece.angle : undefined, tie != null ? (tie.contactAt ?? 0.5) : undefined, tie?.kind === 'follows' ? tie.offset : undefined]));
 }
 
 function hash(text: string): string {
@@ -46,33 +46,33 @@ function hash(text: string): string {
 }
 
 /** One ride as the simulation plays it, in the units of the stored frames */
-export function rideFrame(transit: TRide, index: number): { x: number; y: number; angle: number } {
+export function rideFrame(ride: TRide, index: number): { x: number; y: number; angle: number } {
 	return {
-		x: (transit.frames[index * 3] ?? 0) * POSITION_UNIT,
-		y: (transit.frames[index * 3 + 1] ?? 0) * POSITION_UNIT,
-		angle: (transit.frames[index * 3 + 2] ?? 0) * ANGLE_UNIT
+		x: (ride.frames[index * 3] ?? 0) * POSITION_UNIT,
+		y: (ride.frames[index * 3 + 1] ?? 0) * POSITION_UNIT,
+		angle: (ride.frames[index * 3 + 2] ?? 0) * ANGLE_UNIT
 	};
 }
 
-export function rideLength(transit: TRide): number {
-	return Math.floor(transit.frames.length / 3);
+export function rideLength(ride: TRide): number {
+	return Math.floor(ride.frames.length / 3);
 }
 
 /**
- * The ride `entity` gave in `result`: from where the piece entered the run to where the marble last comes near it
+ * The ride `piece` gave in `result`: from where the piece entered the run to where the marble last comes near it
  * before its next hit. Null when the piece didn't enter the run or the marble never rides it.
  */
-export function bakeRide(project: TProject, result: TSimulationResult, entity: TPiece): TRide | null {
-	const link = tieOf(entity);
-	const piece = result.pieces.find((item) => item.entityId === entity.id);
+export function bakeRide(project: TProject, result: TSimulationResult, piece: TPiece): TRide | null {
+	const link = tieOf(piece);
+	const resolvedPiece = result.pieces.find((item) => item.entityId === piece.id);
 	const track = result.marbles.find((marble) => marble.marbleId === link?.marbleId);
-	const shapes = piece?.shapes;
-	if (link == null || piece == null || track == null || shapes == null || piece.status !== 'placed') return null;
+	const shapes = resolvedPiece?.shapes;
+	if (link == null || resolvedPiece == null || track == null || shapes == null || resolvedPiece.status !== 'placed') return null;
 	const marble = project.marbles.find((item) => item.id === link.marbleId);
 	const index = marble?.hits.findIndex((hit) => hit.id === link.hitId) ?? -1;
 	const hit = marble?.hits[index];
 	if (marble == null || hit == null || !track.samples.length) return null;
-	const entryTime = hit.time + (entity.params['entryDelay'] ?? 0);
+	const entryTime = hit.time + (piece.params['entryDelay'] ?? 0);
 	const first = track.samples[0]?.time ?? 0;
 	const start = Math.floor(entryTime * PHYSICS_HZ + 1e-6) - Math.round(first * PHYSICS_HZ);
 	const next = marble.hits[index + 1];
@@ -105,7 +105,7 @@ export function bakeRide(project: TProject, result: TSimulationResult, entity: T
 	const beforeOut = track.samples[end - 1];
 	if (out == null || beforeOut == null) return null;
 	return {
-		key: rideKey(entity),
+		key: rideKey(piece),
 		entry: { ...origin.velocity },
 		exit: {
 			position: { x: out.position.x - origin.position.x, y: out.position.y - origin.position.y },
@@ -113,7 +113,7 @@ export function bakeRide(project: TProject, result: TSimulationResult, entity: T
 			angle,
 			spin: wrap(out.angle - beforeOut.angle) * PHYSICS_HZ
 		},
-		touches: [...new Set(result.contacts.filter((contact) => contact.marbleEntityId === track.entityId && contact.kind === 'piece' && contact.time >= origin.time && contact.time <= out.time && contact.otherEntityId !== entity.id).map((contact) => contact.otherEntityId ?? ''))],
+		touches: [...new Set(result.contacts.filter((contact) => contact.marbleEntityId === track.marbleId && contact.kind === 'piece' && contact.time >= origin.time && contact.time <= out.time && contact.otherEntityId !== piece.id).map((contact) => contact.otherEntityId ?? ''))],
 		frames
 	};
 }
@@ -123,21 +123,21 @@ function wrap(angle: number): number {
 }
 
 /** Velocity of a ride's frame from its neighbors; the last is how the marble comes out */
-export function rideVelocity(transit: TRide, index: number): TVec2 {
-	if (index >= rideLength(transit) - 1) return transit.exit.velocity;
-	const after = rideFrame(transit, index + 1);
-	const before = index > 0 ? rideFrame(transit, index - 1) : { x: 0, y: 0, angle: 0 };
+export function rideVelocity(ride: TRide, index: number): TVec2 {
+	if (index >= rideLength(ride) - 1) return ride.exit.velocity;
+	const after = rideFrame(ride, index + 1);
+	const before = index > 0 ? rideFrame(ride, index - 1) : { x: 0, y: 0, angle: 0 };
 	return { x: ((after.x - before.x) * PHYSICS_HZ) / 2, y: ((after.y - before.y) * PHYSICS_HZ) / 2 };
 }
 
 const rideHashes = new WeakMap<TRide, string>();
 
 /** Stands for a ride in a run's snapshot keys, so a new ride never resumes from an old one */
-export function rideHash(transit: TRide): string {
-	let known = rideHashes.get(transit);
+export function rideHash(ride: TRide): string {
+	let known = rideHashes.get(ride);
 	if (known == null) {
-		known = hash(`${JSON.stringify(transit.entry)}${transit.frames.join()}`);
-		rideHashes.set(transit, known);
+		known = hash(`${JSON.stringify(ride.entry)}${ride.frames.join()}`);
+		rideHashes.set(ride, known);
 	}
 	return known;
 }

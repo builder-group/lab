@@ -43,7 +43,7 @@ describe('fitPattern function', () => {
 		const measures = measurePattern(fit.project, sim.simulate(fit.project), MARBLE);
 
 		expect(fit.problems).toEqual([]);
-		expect(fit.entities).toHaveLength(6);
+		expect(fit.pieces).toHaveLength(6);
 		expect(measures.onTime).toBe(6);
 		expect(measures.columnStraightness).toBeLessThan(0.005);
 		expect(measures.dropPerHit).toBeCloseTo(fit.drop ?? 0, 2);
@@ -83,8 +83,8 @@ describe('fitPattern function', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2]);
 		const fit = fitPattern({ project, marbleId: MARBLE, hitIds: ids(1, 4), kind: 'zigzag', width: 0.14, drop: 0.08, barLength: 0.04, barDepth: 0.03 }, { sim });
 
-		expect(fit.entities.map((entity) => entity.params['length'])).toEqual([0.04, 0.04, 0.04, 0.04]);
-		expect(fit.entities.map((entity) => entity.params['depth'])).toEqual([0.03, 0.03, 0.03, 0.03]);
+		expect(fit.pieces.map((piece) => piece.params['length'])).toEqual([0.04, 0.04, 0.04, 0.04]);
+		expect(fit.pieces.map((piece) => piece.params['depth'])).toEqual([0.03, 0.03, 0.03, 0.03]);
 		expect(sim.simulate(fit.project).hits.every((hit) => hit.status === 'onTime' || hit.status === 'drifting')).toBe(true);
 	});
 
@@ -112,7 +112,7 @@ describe('fitPattern function', () => {
 		const project = smallProject([1, 1.14, 1.28, 1.42, 1.56]);
 		const usual = fitPattern({ project, marbleId: MARBLE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, offersNearestWidth: true }, { sim });
 		const steep = fitPattern({ project, marbleId: MARBLE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, maxTilt: 70 }, { sim });
-		const steepest = (fit: typeof usual): number => Math.max(...fit.entities.map((entity) => Math.abs(entity.angle ?? 0) * (180 / Math.PI)));
+		const steepest = (fit: typeof usual): number => Math.max(...fit.pieces.map((piece) => Math.abs(piece.angle ?? 0) * (180 / Math.PI)));
 
 		expect(usual.width).toBe(0.3);
 		expect(steep.width).toBe(0.3);
@@ -131,7 +131,7 @@ describe('fitPattern function', () => {
 		const fall = (run: typeof result): number => (run.hits[0]?.dot?.y ?? 0) - (run.hits[1]?.dot?.y ?? 0);
 
 		expect(rail.problems).toEqual([]);
-		expect(rail.entities[0]?.type).toBe('rail');
+		expect(rail.pieces[0]?.type).toBe('rail');
 		expect(fall(result)).toBeLessThan(fall(free) / 2);
 	});
 
@@ -140,14 +140,14 @@ describe('fitPattern function', () => {
 		const placed = fitPattern({ project, marbleId: MARBLE, hitIds: ['h1'], kind: 'zigzag', width: 0.14, drop: 0.08 }, { sim });
 		const rail = fitPattern({ project: placed.project, marbleId: MARBLE, hitIds: ['h1', 'h2'], kind: 'longRail' }, { sim });
 
-		expect(rail.entities[0]?.layout).toBe('switchback');
+		expect(rail.pieces[0]?.layout).toBe('switchback');
 	});
 
 	it('should use the same bounce on every bar when one is given', () => {
 		const project = smallProject([1, 1.4, 1.8]);
 		const fit = fitPattern({ project, marbleId: MARBLE, hitIds: ids(1, 3), kind: 'zigzag', width: 0.14, bounce: 0.6, maxTries: 1 }, { sim });
 		expect(fit.drop).toBeNull();
-		expect(fit.entities[0]?.params['bounce']).toBeCloseTo(0.6, 1);
+		expect(fit.pieces[0]?.params['bounce']).toBeCloseTo(0.6, 1);
 	});
 });
 
@@ -170,11 +170,11 @@ describe('runGroupChange function', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2]);
 		const made = apply(project, runGroupChange(project, change, { sim }).commands);
 		const group = made.track.groups?.[0];
-		const [bar] = made.track.pieces.filter((entity) => group?.pieceIds.includes(entity.id));
+		const [bar] = made.track.pieces.filter((piece) => group?.pieceIds.includes(piece.id));
 		const dressed = apply(made, [{ type: 'addPiece', piece: { ...bar!, skin: { assetId: 'platform:gift' } } }]);
 		const again = apply(dressed, runGroupChange(dressed, { ...change, groupId: group!.id, width: 0.16 }, { sim }).commands);
 
-		expect(again.track.pieces.find((entity) => entity.id === bar!.id)?.skin?.assetId).toBe('platform:gift');
+		expect(again.track.pieces.find((piece) => piece.id === bar!.id)?.skin?.assetId).toBe('platform:gift');
 		expect(again.track.groups?.filter(isPatternGroup)[0]?.pattern.width).toBe(0.16);
 	});
 
@@ -209,7 +209,7 @@ describe('runGroupChange function', () => {
 		expect(flat.track.pieces).toHaveLength(first.track.pieces.length);
 		expect(patternOfPiece(flat, firstGroup?.pieceIds[0] ?? '')).toBeNull();
 		const next = apply(flat, runGroupChange(flat, { ...change, from: 2.2, to: 3 }, { sim }).commands);
-		expect(next.track.pieces.filter((entity) => firstGroup?.pieceIds.includes(entity.id))).toEqual(flat.track.pieces.filter((entity) => firstGroup?.pieceIds.includes(entity.id)));
+		expect(next.track.pieces.filter((piece) => firstGroup?.pieceIds.includes(piece.id))).toEqual(flat.track.pieces.filter((piece) => firstGroup?.pieceIds.includes(piece.id)));
 	});
 
 	it('should refuse a Long Rail over notes and a Zigzag over silence, in words', () => {
@@ -266,13 +266,13 @@ describe('runGroupChange function', () => {
 
 		expect(again.track.groups).toHaveLength(2);
 		expect(rail?.pieceIds).toHaveLength(1);
-		expect(again.track.pieces.some((entity) => entity.id === rail?.pieceIds[0])).toBe(true);
+		expect(again.track.pieces.some((piece) => piece.id === rail?.pieceIds[0])).toBe(true);
 	});
 
 	it('should let a preview answer without touching what follows', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2]);
 		const outcome = runGroupChange(project, change, { sim, isPreview: true });
-		expect(outcome.entities).toHaveLength(4);
+		expect(outcome.madePieces).toHaveLength(4);
 		expect(outcome.measures).toBeNull();
 	});
 

@@ -43,13 +43,13 @@ describe('assignNotesCommands function', () => {
 		const project = loadFixture('long-gap');
 		const result = simulator.simulate(project);
 		const melody = project.marbles[0];
-		const follower = project.track.pieces.find((entity) => entity.id === 'rail-1');
+		const follower = project.track.pieces.find((piece) => piece.id === 'rail-1');
 		const hitId = tieOf(follower)?.hitId ?? '';
 		if (melody == null || follower == null) throw new Error('No rail');
 		const before = result.pieces.find((piece) => piece.entityId === follower.id);
 
 		const next = apply(project, assignNotesCommands(project, result, [hitId], BACKING_ID));
-		const link = tieOf(next.track.pieces.find((entity) => entity.id === follower.id));
+		const link = tieOf(next.track.pieces.find((piece) => piece.id === follower.id));
 		const after = simulator.simulate(next).pieces.find((piece) => piece.entityId === follower.id);
 
 		// The platform before the rail goes with its note, so the run changes; the rail keeps its moment

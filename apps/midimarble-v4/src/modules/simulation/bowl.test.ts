@@ -70,7 +70,7 @@ describe('bowlCatch', () => {
 
 	it('reports a marble that falls past the Bowl as missed', () => {
 		const project = drop(2, 0);
-		const bowl = project.track.pieces.find((entity) => entity.id === 'bowl-1');
+		const bowl = project.track.pieces.find((piece) => piece.id === 'bowl-1');
 		if (bowl?.place.kind === 'free') bowl.place.position = { x: 0.3, y: 0 };
 		expect(bowlCatch(simulator.simulate(project), 'bowl-1').status).toBe('missed');
 	});

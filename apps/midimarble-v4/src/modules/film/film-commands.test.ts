@@ -9,7 +9,7 @@ import { libraryEntries } from './FilmLibraryCx';
 import { apply } from '@/modules/project/test-helpers';
 
 function pieceIds(project: TProject): string[] {
-	return project.track.pieces.map((entity) => entity.id);
+	return project.track.pieces.map((piece) => piece.id);
 }
 
 describe('film commands', () => {
@@ -24,10 +24,10 @@ describe('film commands', () => {
 		const [first] = pieceIds(project);
 		if (first == null) throw new Error('fixture');
 		const linked = apply(project, builtInSkinCommands(project, { kind: 'pieceType', pieceType: 'platform' }, 'platform:copper'));
-		const piece = linked.track.pieces.find((entity) => entity.id === first);
+		const piece = linked.track.pieces.find((piece) => piece.id === first);
 		expect(piece?.skin?.assetId).toBe('platform:copper');
-		const cleared = apply(linked, builtInSkinCommands(linked, { kind: 'entities', entityIds: [first] }, 'platform:gold'));
-		const clearedPiece = cleared.track.pieces.find((entity) => entity.id === first);
+		const cleared = apply(linked, builtInSkinCommands(linked, { kind: 'pieces', entityIds: [first] }, 'platform:gold'));
+		const clearedPiece = cleared.track.pieces.find((piece) => piece.id === first);
 		expect(clearedPiece?.skin).toBeUndefined();
 	});
 
@@ -37,16 +37,16 @@ describe('film commands', () => {
 		const commands = skinPropertyCommands(project, ids, { colorSource: 'note', onHit: 'glow', glowColor: '#00ff88' });
 		expect(commands).toHaveLength(2);
 		const set = apply(project, commands);
-		const skinOf = (next: TProject) => next.track.pieces.find((entity) => entity.id === ids[0])?.skin;
+		const skinOf = (next: TProject) => next.track.pieces.find((piece) => piece.id === ids[0])?.skin;
 		expect(skinOf(set)).toEqual({ colorSource: 'note', onHit: 'glow', glowColor: '#00ff88' });
-		const skinned = apply(set, skinCommands(set, { kind: 'entities', entityIds: ids }, 'platform:key'));
+		const skinned = apply(set, skinCommands(set, { kind: 'pieces', entityIds: ids }, 'platform:key'));
 		expect(skinOf(skinned)).toMatchObject({ assetId: 'platform:key', colorSource: 'note' });
 		const cleared = apply(skinned, skinPropertyCommands(skinned, ids, { glowColor: null }));
 		expect(skinOf(cleared)).not.toHaveProperty('glowColor');
 		const extra = apply(set, skinPropertyCommands(set, ids, { property: { name: 'Ribbon Color', value: '#ff0000' } }));
 		expect(skinOf(extra)?.properties).toEqual({ 'Ribbon Color': '#ff0000' });
 		const reset = apply(skinned, resetToThemeCommands(skinned, ids));
-		expect(reset.track.pieces.some((entity) => entity.skin != null)).toBe(false);
+		expect(reset.track.pieces.some((piece) => piece.skin != null)).toBe(false);
 		// Only overrides that leave nothing remove the component
 		const back = apply(set, skinPropertyCommands(set, ids, { colorSource: null, onHit: null, glowColor: null }));
 		expect(skinOf(back)).toBeUndefined();
@@ -61,7 +61,7 @@ describe('film commands', () => {
 		expect(skinned?.skin?.assetId).toBe('marble:glass');
 		expect(skinned?.radius).toBe(marble.radius);
 		expect(skinned?.start).toEqual(marble.start);
-		expect(skinTargetIds(next, { kind: 'entities', entityIds: [marble.id] })).toEqual([marble.id]);
+		expect(skinTargetIds(next, { kind: 'pieces', entityIds: [marble.id] })).toEqual([marble.id]);
 	});
 
 	it('should show a kept project item once and kept items from other projects', () => {
@@ -89,15 +89,15 @@ describe('film commands', () => {
 	it('should link a skin to the selected pieces only', () => {
 		const project = createStaircaseProject();
 		const [first, second] = pieceIds(project);
-		const next = apply(project, skinCommands(project, { kind: 'entities', entityIds: [first ?? ''] }, 'piano-key'));
-		expect(next.track.pieces.find((entity) => entity.id === first)?.skin).toEqual({ assetId: 'piano-key' });
-		expect(next.track.pieces.find((entity) => entity.id === second)?.skin).toBeUndefined();
+		const next = apply(project, skinCommands(project, { kind: 'pieces', entityIds: [first ?? ''] }, 'piano-key'));
+		expect(next.track.pieces.find((piece) => piece.id === first)?.skin).toEqual({ assetId: 'piano-key' });
+		expect(next.track.pieces.find((piece) => piece.id === second)?.skin).toBeUndefined();
 	});
 
 	it('should skin every piece of a type', () => {
 		const project = createStaircaseProject();
 		const skinned = apply(project, skinCommands(project, { kind: 'pieceType', pieceType: 'platform' }, 'piano-key'));
-		expect(skinned.track.pieces.filter((entity) => entity.skin?.assetId === 'piano-key')).toHaveLength(pieceIds(project).length);
+		expect(skinned.track.pieces.filter((piece) => piece.skin?.assetId === 'piano-key')).toHaveLength(pieceIds(project).length);
 	});
 
 	it('should add wall text as a title with a position that reaches the scene description', () => {
@@ -222,7 +222,7 @@ describe('hand changes', () => {
 		expect(handChangeCount(project)).toBe(0);
 		const piece = project.track.pieces[0];
 		const changed = apply(project, [
-			...skinCommands(project, { kind: 'entities', entityIds: [piece?.id as string] }, 'platform:copper'),
+			...skinCommands(project, { kind: 'pieces', entityIds: [piece?.id as string] }, 'platform:copper'),
 			{ type: 'updateFilm', film: { wall: { color: '#112233', kind: 'grid' }, lights: { key: { strength: 2 }, added: [] } } }
 		]);
 		expect(handChangeCount(changed)).toBe(4);
@@ -234,7 +234,7 @@ describe('a skin and the label color', () => {
 	it("should leave a marble's label color and film color alone when a skin is applied", () => {
 		const project = createStaircaseProject();
 		const marble = project.marbles[0];
-		const target = { kind: 'entities' as const, entityIds: [marble?.id as string] };
+		const target = { kind: 'pieces' as const, entityIds: [marble?.id as string] };
 		const next = apply(project, builtInSkinCommands(project, target, 'marble:glass-green'));
 		const dressed = next.marbles.find((item) => item.id === marble?.id);
 		expect(dressed?.skin?.assetId).toBe('marble:glass-green');

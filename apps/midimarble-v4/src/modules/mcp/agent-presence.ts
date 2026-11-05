@@ -125,10 +125,10 @@ function isSame(a: unknown, b: unknown): boolean {
 /** The selection keys of what changed from `before` to `after`, so the window can mark them. A removed layer has no row or outline left to mark. */
 export function touchedKeys(before: TProject, after: TProject): string[] {
 	const keys: string[] = [];
-	const entities = new Map(layersOf(before).map((entity) => [entity.id, entity]));
-	for (const entity of layersOf(after)) {
-		const previous = entities.get(entity.id);
-		if (previous !== entity && (previous == null || !isSame(previous, entity))) keys.push(entity.id);
+	const pieces = new Map(layersOf(before).map((piece) => [piece.id, piece]));
+	for (const piece of layersOf(after)) {
+		const previous = pieces.get(piece.id);
+		if (previous !== piece && (previous == null || !isSame(previous, piece))) keys.push(piece.id);
 	}
 	const was = before.film;
 	const is = after.film;

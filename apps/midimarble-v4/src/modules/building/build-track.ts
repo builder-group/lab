@@ -109,7 +109,7 @@ export interface TBuildOutcome {
 	result: TSimulationResult;
 	/** Pieces the build added */
 	added: number;
-	/** The person's pieces it had to turn, by entity ID */
+	/** The person's pieces it had to turn, by piece ID */
 	turned: string[];
 	/** How far it moved the releases, in meters; 0 when they stayed */
 	releaseShift: number;
@@ -223,7 +223,7 @@ function emptyCounts(): TBuildCounts {
 }
 
 function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null, searches: TSearchBudget = { used: 0, limit: Infinity }): TBuildState {
-	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.track.pieces.map((entity) => entity.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, mayLeavePace: false, searches, runs: new WeakMap() };
+	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.track.pieces.map((piece) => piece.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, mayLeavePace: false, searches, runs: new WeakMap() };
 }
 
 const hitKey = (marbleId: string, hitId: string): string => `${marbleId}/${hitId}`;
@@ -300,9 +300,9 @@ function pieceId(current: TProject, hitId: string): string {
 }
 
 function freeId(current: TProject, id: string): string {
-	if (!current.track.pieces.some((entity) => entity.id === id)) return id;
+	if (!current.track.pieces.some((piece) => piece.id === id)) return id;
 	let index = 2;
-	while (current.track.pieces.some((entity) => entity.id === `${id}-${index}`)) index++;
+	while (current.track.pieces.some((piece) => piece.id === `${id}-${index}`)) index++;
 	return `${id}-${index}`;
 }
 
@@ -496,7 +496,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	const gap = findLongGaps(current, marbleId).find((item) => item.toHitId === hitId && item.bridgedBy == null);
 	if (gap != null) {
 		const options: { project: TProject; type: TGapPieceType; cost: number; log: string; label: string }[] = [];
-		const rodeSwitchback = current.track.pieces.filter((entity) => tieOf(entity)?.marbleId === marbleId && entity.type !== 'platform' && !state.own.has(entity.id)).at(-1)?.layout === 'switchback';
+		const rodeSwitchback = current.track.pieces.filter((piece) => tieOf(piece)?.marbleId === marbleId && piece.type !== 'platform' && !state.own.has(piece.id)).at(-1)?.layout === 'switchback';
 		for (const type of gapPieceOrder(state.gapPiece)) {
 			if (isCanceled(state)) return null;
 			const entityId = gapPieceId(state, current, type, marbleId);
@@ -513,9 +513,9 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 			// The hit after the gap piece is placed by construction wherever the marble arrives
 			const accepted = answer != null ? await accept(state, current, answer.commands, marbleId, false) : null;
 			if (accepted == null) continue;
-			const params = answer?.entity.params ?? {};
+			const params = answer?.piece.params ?? {};
 			const pace = answer?.check?.paceError;
-			const log = `  ${gap.fromHitId} -> ${gap.toHitId}: ${type} over ${gap.duration.toFixed(2)} s${type === 'switchback' || type === 'chain' ? ` (${params['turns']} turns at ${(Math.abs(answer?.entity.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`;
+			const log = `  ${gap.fromHitId} -> ${gap.toHitId}: ${type} over ${gap.duration.toFixed(2)} s${type === 'switchback' || type === 'chain' ? ` (${params['turns']} turns at ${(Math.abs(answer?.piece.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`;
 			const isAsked = state.gapPiece === type;
 			options.push({ project: accepted, type, log, label: type, cost: isAsked || (type !== 'switchback') ? 0 : SWITCHBACK_COST + (rodeSwitchback ? SWITCHBACK_IN_A_ROW_COST : 0) });
 			// Asked for by name, or trying ahead already: the first that fits
@@ -569,7 +569,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	if (isCanceled(state)) return null;
 
 	const placed = await ask(state, 'autoPlace', () => deps.autoPlace({ project: current, marbleId, hitId, type: 'platform', entityId: id }));
-	const accepted = placed != null ? await accept(state, current, [{ type: 'addPiece', piece: placed.entity }], marbleId) : null;
+	const accepted = placed != null ? await accept(state, current, [{ type: 'addPiece', piece: placed.piece }], marbleId) : null;
 	if (accepted != null) {
 		if (isLaunch) counts.launch++;
 		else counts.autoPlace++;
@@ -579,7 +579,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	// What a person tries next: turning further than Auto place searches. A search that found nothing already tried these.
 	if (placed != null) {
 		const wide = await ask(state, 'wide autoPlace', () => deps.autoPlace({ project: current, marbleId, hitId, type: 'platform', entityId: id, range: [-60 * DEGREE, 60 * DEGREE] }));
-		const widened = wide != null ? await accept(state, current, [{ type: 'addPiece', piece: wide.entity }], marbleId) : null;
+		const widened = wide != null ? await accept(state, current, [{ type: 'addPiece', piece: wide.piece }], marbleId) : null;
 		if (widened != null) {
 			counts.wide++;
 			return widened;
@@ -590,8 +590,8 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	let best: { project: TProject; angle: number; offset: number } | null = null;
 	for (let degrees = -24; degrees <= 24; degrees += 3) {
 		if (isCanceled(state)) return null;
-		const entity = createLinkedPiece('platform', marbleId, hitId, degrees * DEGREE, { id, entities: current.track.pieces });
-		const leaned = await accept(state, current, [{ type: 'addPiece', piece: entity }], marbleId, false);
+		const piece = createLinkedPiece('platform', marbleId, hitId, degrees * DEGREE, { id, pieces: current.track.pieces });
+		const leaned = await accept(state, current, [{ type: 'addPiece', piece }], marbleId, false);
 		if (leaned == null) continue;
 		const dot = nextOpenPerMarble(state, await run(state, leaned)).get(marbleId)?.dot;
 		const offset = dot == null ? 0 : Math.abs(dot.x - band.centerX);
@@ -610,7 +610,7 @@ async function backtrack(state: TBuildState, current: TProject, target: THitResu
 	const marble = current.marbles.find((item) => item.id === target.marbleId);
 	const index = marble?.hits.findIndex((hit) => hit.id === target.hitId) ?? -1;
 	const previousHit = marble?.hits[index - 1];
-	const previous = current.track.pieces.find((entity) => tieOf(entity)?.hitId === previousHit?.id && entity.type === 'platform');
+	const previous = current.track.pieces.find((piece) => tieOf(piece)?.hitId === previousHit?.id && piece.type === 'platform');
 	const angle = tieOf(previous) != null ? previous?.angle : undefined;
 	if (previous == null || angle == null || (state.own.has(previous.id) && !canTurnOwn)) return null;
 	for (const delta of PREVIOUS_TURNS) {
@@ -641,7 +641,7 @@ async function unblock(state: TBuildState, current: TProject, target: THitResult
 		return true;
 	});
 	for (const other of others) {
-		const piece = current.track.pieces.find((entity) => tieOf(entity)?.hitId === other.hitId && entity.type === 'platform');
+		const piece = current.track.pieces.find((piece) => tieOf(piece)?.hitId === other.hitId && piece.type === 'platform');
 		const angle = piece?.angle;
 		if (piece == null || angle == null || (state.own.has(piece.id) && !canTurnOwn)) continue;
 		for (const delta of OTHER_TURNS) {
@@ -674,22 +674,22 @@ async function rewind(state: TBuildState, current: TProject, target: THitResult)
 	const index = hits.findIndex((hit) => hit.id === target.hitId);
 	for (const depth of REWIND_DEPTHS) {
 		const from = hits[index - depth];
-		const pivot = current.track.pieces.find((entity) => tieOf(entity)?.hitId === from?.id && entity.type === 'platform');
+		const pivot = current.track.pieces.find((piece) => tieOf(piece)?.hitId === from?.id && piece.type === 'platform');
 		const angle = pivot?.angle;
 		if (from == null || pivot == null || angle == null || state.own.has(pivot.id)) continue;
 		const after = new Set(hits.slice(index - depth + 1, index).map((hit) => hit.id));
-		const dropped = current.track.pieces.filter((entity) => {
-			const link = tieOf(entity);
+		const dropped = current.track.pieces.filter((piece) => {
+			const link = tieOf(piece);
 			if (link?.marbleId !== target.marbleId) return false;
 			// A gap piece hangs on the hit before its gap, so the one on the turned platform goes as well
-			return after.has(link.hitId) || (link.hitId === from.id && entity.id !== pivot.id);
+			return after.has(link.hitId) || (link.hitId === from.id && piece.id !== pivot.id);
 		});
-		if (dropped.some((entity) => state.own.has(entity.id))) continue;
+		if (dropped.some((piece) => state.own.has(piece.id))) continue;
 		for (const delta of REWIND_TURNS) {
 			if (shouldStopLooking(state)) return null;
 			const rotated = structuredClone(pivot);
 			if (tieOf(rotated) != null) rotated.angle = angle + delta * DEGREE;
-			let next = await accept(state, current, [...(dropped.length > 0 ? [{ type: 'removePieces' as const, pieceIds: dropped.map((entity) => entity.id) }] : []), { type: 'addPiece', piece: rotated }], target.marbleId, false);
+			let next = await accept(state, current, [...(dropped.length > 0 ? [{ type: 'removePieces' as const, pieceIds: dropped.map((piece) => piece.id) }] : []), { type: 'addPiece', piece: rotated }], target.marbleId, false);
 			for (let step = 0; next != null && step < depth * 2 + 2; step++) {
 				const project: TProject = next;
 				const result = await run(state, project);
@@ -746,8 +746,8 @@ async function forceHit(state: TBuildState, current: TProject, target: THitResul
 		let best: { project: TProject; degrees: number; offset: number } | null = null;
 		for (const degrees of LEANS) {
 			if (isCanceled(state)) break;
-			const entity = createLinkedPiece('platform', target.marbleId, target.hitId, degrees * DEGREE, { id, entities: current.track.pieces });
-			const placed = apply(current, [{ type: 'addPiece', piece: entity }]);
+			const piece = createLinkedPiece('platform', target.marbleId, target.hitId, degrees * DEGREE, { id, pieces: current.track.pieces });
+			const placed = apply(current, [{ type: 'addPiece', piece }]);
 			if (placed == null) continue;
 			const result = await run(state, placed);
 			const status = result.hits.find((hit) => hit.marbleId === target.marbleId && hit.hitId === target.hitId)?.status;
@@ -849,9 +849,9 @@ function bowlTrouble(project: TProject): { marbleId: string; from: number } | nu
 /** The commands that turn `from` into `to`: marbles added or released elsewhere, pieces changed, added and removed, the length and the camera */
 function diffCommands(from: TProject, to: TProject): TProjectCommand[] {
 	const commands: TProjectCommand[] = [];
-	const known = new Map(from.track.pieces.map((entity) => [entity.id, entity]));
-	const kept = new Set(to.track.pieces.map((entity) => entity.id));
-	const gone = from.track.pieces.filter((entity) => !kept.has(entity.id)).map((entity) => entity.id);
+	const known = new Map(from.track.pieces.map((piece) => [piece.id, piece]));
+	const kept = new Set(to.track.pieces.map((piece) => piece.id));
+	const gone = from.track.pieces.filter((piece) => !kept.has(piece.id)).map((piece) => piece.id);
 	if (gone.length > 0) commands.push({ type: 'removePieces', pieceIds: gone });
 	const marbles = new Map(from.marbles.map((marble) => [marble.id, marble]));
 	for (const marble of to.marbles) {
@@ -859,9 +859,9 @@ function diffCommands(from: TProject, to: TProject): TProjectCommand[] {
 		if (before == null) commands.push({ type: 'addMarble', marble });
 		else if (before.start !== marble.start && JSON.stringify(before.start) !== JSON.stringify(marble.start)) commands.push({ type: 'updateMarble', marbleId: marble.id, patch: { start: marble.start } });
 	}
-	for (const entity of to.track.pieces) {
-		const before = known.get(entity.id);
-		if (before !== entity && JSON.stringify(before) !== JSON.stringify(entity)) commands.push({ type: 'addPiece', piece: entity });
+	for (const piece of to.track.pieces) {
+		const before = known.get(piece.id);
+		if (before !== piece && JSON.stringify(before) !== JSON.stringify(piece)) commands.push({ type: 'addPiece', piece });
 	}
 	if (from.length !== to.length) commands.push({ type: 'updateProject', patch: { length: to.length } });
 	if (from.film !== to.film && JSON.stringify(from.film) !== JSON.stringify(to.film)) commands.push({ type: 'updateFilm', film: to.film });
@@ -877,11 +877,11 @@ function withReleaseShift(project: TProject, shift: number, bareMarbles: Set<str
 		marbles: project.marbles.map((marble) => (bareMarbles.has(marble.id) ? { ...marble, start: { ...marble.start, position: { x: moved(marble.start.position.x), y: marble.start.position.y } } } : marble)),
 		track: {
 			...project.track,
-			pieces: project.track.pieces.map((entity) => {
-				const position = freePosition(entity);
+			pieces: project.track.pieces.map((piece) => {
+				const position = freePosition(piece);
 				// A marble's start rail goes with it
-				if (position == null || ![...bareMarbles].some((marbleId) => startRailId(marbleId) === entity.id)) return entity;
-				return { ...entity, place: { kind: 'free' as const, position: { x: moved(position.x), y: position.y } } };
+				if (position == null || ![...bareMarbles].some((marbleId) => startRailId(marbleId) === piece.id)) return piece;
+				return { ...piece, place: { kind: 'free' as const, position: { x: moved(position.x), y: position.y } } };
 			})
 		}
 	};
@@ -916,15 +916,15 @@ export function withoutPiecesAfter(project: TProject, from: { marbleId: string; 
 			nextOf.set(`${marble.id}/${hit.id}`, marble.hits[index + 1]?.time ?? Infinity);
 		});
 	}
-	const isRebuilt = (entity: TPiece): boolean => {
-		const hitLink = tieOf(entity);
-		if (hitLink == null) return false;
-		const key = `${hitLink.marbleId}/${hitLink.hitId}`;
-		if (entity.type === BOWL_TYPE) return (timeOf.get(key) ?? Infinity) > time - 1e-9 || (nextOf.get(key) ?? Infinity) > time;
-		if (isGapPiece(entity.type)) return (nextOf.get(key) ?? Infinity) > time + 1e-9;
-		return isMusicalPiece(entity.type) && (timeOf.get(key) ?? Infinity) > time + 1e-9;
+	const isRebuilt = (piece: TPiece): boolean => {
+		const tie = tieOf(piece);
+		if (tie == null) return false;
+		const key = `${tie.marbleId}/${tie.hitId}`;
+		if (piece.type === BOWL_TYPE) return (timeOf.get(key) ?? Infinity) > time - 1e-9 || (nextOf.get(key) ?? Infinity) > time;
+		if (isGapPiece(piece.type)) return (nextOf.get(key) ?? Infinity) > time + 1e-9;
+		return isMusicalPiece(piece.type) && (timeOf.get(key) ?? Infinity) > time + 1e-9;
 	};
-	return { ...project, track: { ...project.track, pieces: project.track.pieces.filter((entity) => !isRebuilt(entity)) } };
+	return { ...project, track: { ...project.track, pieces: project.track.pieces.filter((piece) => !isRebuilt(piece)) } };
 }
 
 function isGapPiece(type: string): boolean {
@@ -934,17 +934,17 @@ function isGapPiece(type: string): boolean {
 /** `built` with each new platform in the skin of the piece that played its note in `was` */
 function withSkinsOf(was: TProject, built: TProject): TProject {
 	const skins = new Map<string, NonNullable<TPiece['skin']>>();
-	for (const entity of was.track.pieces) {
-		const hitLink = tieOf(entity);
-		if (hitLink != null && entity.skin != null) skins.set(`${entity.type}/${hitLink.marbleId}/${hitLink.hitId}`, entity.skin);
+	for (const piece of was.track.pieces) {
+		const tie = tieOf(piece);
+		if (tie != null && piece.skin != null) skins.set(`${piece.type}/${tie.marbleId}/${tie.hitId}`, piece.skin);
 	}
 	if (skins.size === 0) return built;
 	return {
 		...built,
-		track: { ...built.track, pieces: built.track.pieces.map((entity) => {
-			const hitLink = tieOf(entity);
-			const wanted = hitLink != null ? skins.get(`${entity.type}/${hitLink.marbleId}/${hitLink.hitId}`) : undefined;
-			return wanted != null && entity.skin == null ? { ...entity, skin: wanted } : entity;
+		track: { ...built.track, pieces: built.track.pieces.map((piece) => {
+			const tie = tieOf(piece);
+			const wanted = tie != null ? skins.get(`${piece.type}/${tie.marbleId}/${tie.hitId}`) : undefined;
+			return wanted != null && piece.skin == null ? { ...piece, skin: wanted } : piece;
 		}) }
 	};
 }
@@ -968,7 +968,7 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 	const { from, gapPiece = null } = options;
 	// What Rebuild From Here keeps; the first commit takes the rest away, so it all stays one undo step
 	const project = from != null ? withoutPiecesAfter(whole, from) : whole;
-	const people = new Map(project.track.pieces.map((entity) => [entity.id, playedShape(entity)]));
+	const people = new Map(project.track.pieces.map((piece) => [piece.id, playedShape(piece)]));
 	const build = createBuildRun(whole, project, deps, gapPiece, from);
 	const best = await bestAttempt(build);
 	if (best == null) throw new Error('Build Track started no attempt');
@@ -995,10 +995,10 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 	return {
 		project: current,
 		result,
-		added: current.track.pieces.filter((entity: TPiece) => !people.has(entity.id)).length,
+		added: current.track.pieces.filter((piece: TPiece) => !people.has(piece.id)).length,
 		turned: [...people].filter(([id, was]) => {
-			const entity = current.track.pieces.find((item) => item.id === id);
-			return entity != null && playedShape(entity) !== was;
+			const piece = current.track.pieces.find((item) => item.id === id);
+			return piece != null && playedShape(piece) !== was;
 		}).map(([id]) => id),
 		releaseShift: best.shift,
 		attention: attentionOf(current, result),
@@ -1010,9 +1010,9 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 }
 
 /** What a build's turn of a person's piece would change: its tie with the tied angle, its type and its parameters */
-function playedShape(entity: TPiece): string {
-	const link = tieOf(entity);
-	return JSON.stringify({ link, angle: link != null ? entity.angle : undefined, type: entity.type, layout: entity.layout, params: entity.params });
+function playedShape(piece: TPiece): string {
+	const link = tieOf(piece);
+	return JSON.stringify({ link, angle: link != null ? piece.angle : undefined, type: piece.type, layout: piece.layout, params: piece.params });
 }
 
 /** One Build Track, through all its attempts: what it builds, what the window shows of it and how far it got */
@@ -1056,7 +1056,7 @@ function createBuildRun(whole: TProject, project: TProject, deps: TBuildTrackDep
 		project,
 		gapPiece,
 		canTurnOwn: from == null,
-		bareMarbles: new Set(from != null ? [] : project.marbles.filter((marble) => !project.track.pieces.some((entity) => tieOf(entity)?.marbleId === marble.id)).map((marble) => marble.id)),
+		bareMarbles: new Set(from != null ? [] : project.marbles.filter((marble) => !project.track.pieces.some((piece) => tieOf(piece)?.marbleId === marble.id)).map((marble) => marble.id)),
 		total,
 		firstTime: Math.max(fromTime, Math.min(...allTimes, Infinity)),
 		lastTime: Math.max(...allTimes, -Infinity),
@@ -1192,8 +1192,8 @@ async function backUp(build: TBuildRun, state: TBuildState, progress: TAttemptPr
 	const base = history[Math.max(0, before)]?.project;
 	if (base == null) return false;
 	const hits = base.marbles.find((marble) => marble.id === trouble.marbleId)?.hits ?? [];
-	const owned = base.track.pieces.filter((entity) => tieOf(entity)?.marbleId === trouble.marbleId && entity.type === 'platform' && !state.own.has(entity.id));
-	const pivot = owned.map((entity) => ({ entity, time: hits.find((hit) => hit.id === tieOf(entity)?.hitId)?.time ?? -Infinity })).sort((a, b) => b.time - a.time)[0]?.entity;
+	const owned = base.track.pieces.filter((piece) => tieOf(piece)?.marbleId === trouble.marbleId && piece.type === 'platform' && !state.own.has(piece.id));
+	const pivot = owned.map((piece) => ({ piece, time: hits.find((hit) => hit.id === tieOf(piece)?.hitId)?.time ?? -Infinity })).sort((a, b) => b.time - a.time)[0]?.piece;
 	const angle = pivot?.angle;
 	if (pivot == null || angle == null) return false;
 	for (const delta of FRAME_TURNS) {
@@ -1216,7 +1216,7 @@ async function backUp(build: TBuildRun, state: TBuildState, progress: TAttemptPr
 
 /** `project` with the platform of `target` turned by `degrees`, or as it is when the turn doesn't hold */
 async function turned(state: TBuildState, project: TProject, target: THitResult, degrees: number): Promise<TProject> {
-	const platform = project.track.pieces.find((entity) => tieOf(entity)?.marbleId === target.marbleId && tieOf(entity)?.hitId === target.hitId && entity.type === 'platform');
+	const platform = project.track.pieces.find((piece) => tieOf(piece)?.marbleId === target.marbleId && tieOf(piece)?.hitId === target.hitId && piece.type === 'platform');
 	if (platform == null || tieOf(platform) == null) return project;
 	const rotated = structuredClone(platform);
 	if (tieOf(rotated) != null) rotated.angle += degrees * DEGREE;

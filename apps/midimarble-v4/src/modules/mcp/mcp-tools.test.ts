@@ -123,7 +123,7 @@ describe('MCP tools', () => {
 		expect(answer.hits).toBeTypeOf('string');
 		expect(cx.$history.get()?.past.length).toBe((before ?? 0) + 1);
 
-		const placed = cx.project?.track.pieces.find((entity) => entity.id === answer.selection[0]);
+		const placed = cx.project?.track.pieces.find((piece) => piece.id === answer.selection[0]);
 		expect(placed?.type).toBe('platform');
 		expect(placed?.angle).toBe(0.2);
 		expect(cx.undoLabel).toBe('Agent: Place Platform');
@@ -132,7 +132,7 @@ describe('MCP tools', () => {
 		expect(readMenuItem(cx, { command: 'edit.undo' }, false).title).toBe('Undo Agent: Place Platform');
 
 		cx.undo();
-		expect(cx.project?.track.pieces.some((entity) => entity.id === answer.selection[0])).toBe(false);
+		expect(cx.project?.track.pieces.some((piece) => piece.id === answer.selection[0])).toBe(false);
 		expect(cx.undoLabel).toBeNull();
 		expect(readMenuItem(cx, { command: 'edit.redo' }, false).title).toBe('Redo Agent: Place Platform');
 		expect(readMenuItem(cx, { command: 'edit.undo' }, false).title).toBe('Undo');

@@ -29,11 +29,11 @@ export interface TBowlCatch {
 
 /** The Bowl of a marble's marble, if it has one: a Bowl anchored to one of the marble's hits */
 export function bowlOfMarble(project: TProject, marbleId: string): TPiece | undefined {
-	return project.track.pieces.find((entity) => entity.type === BOWL_TYPE && tieOf(entity)?.marbleId === marbleId);
+	return project.track.pieces.find((piece) => piece.type === BOWL_TYPE && tieOf(piece)?.marbleId === marbleId);
 }
 
-export function isBowl(entity: TPiece | undefined): boolean {
-	return entity?.type === BOWL_TYPE;
+export function isBowl(piece: TPiece | undefined): boolean {
+	return piece?.type === BOWL_TYPE;
 }
 
 /**
@@ -52,7 +52,7 @@ export function bowlCatch(result: TSimulationResult, entityId: string): TBowlCat
 }
 
 function trackOf(result: TSimulationResult, marbleEntityId: string): TMarbleTrack | undefined {
-	return result.marbles.find((track) => track.entityId === marbleEntityId);
+	return result.marbles.find((track) => track.marbleId === marbleEntityId);
 }
 
 /** The marble that meets an anchored Bowl first is its own: the Bowl enters the run at that marble */

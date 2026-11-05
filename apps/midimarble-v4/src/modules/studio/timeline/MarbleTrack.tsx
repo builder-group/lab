@@ -128,8 +128,8 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 	const isSelected = selection.includes(key);
 	// Hits of selected pieces are outlined, like keyframes of the selected object in Blender
 	const isLinked = status?.pieceEntityId != null && selection.includes(status.pieceEntityId);
-	const pieceEntity = status?.pieceEntityId == null ? undefined : cx.project?.track.pieces.find((entity) => entity.id === status.pieceEntityId);
-	const piece = pieceEntity?.name;
+	const pieceRecord = status?.pieceEntityId == null ? undefined : cx.project?.track.pieces.find((piece) => piece.id === status.pieceEntityId);
+	const piece = pieceRecord?.name;
 	const project = cx.project;
 	const unreachable = status?.status === 'open' && project != null ? unreachableStatus(project, cx.simulation.$result.get(), status) : null;
 	const timing = hitTiming(status, { marble: marble.name, pitch: hit.pitch, piece }, unreachable);

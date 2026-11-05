@@ -9,25 +9,25 @@ import { getPieceDefinition, startRailOf } from '@/modules/simulation';
  * refinement that arrives with the name the piece had before the renumbering.
  */
 export function renumberDefaultNames(before: TProject, after: TProject): TProject {
-	const known = new Set(before.track.pieces.map((entity) => entity.id));
-	const isAdded = after.track.pieces.some((entity) => !known.has(entity.id));
+	const known = new Set(before.track.pieces.map((piece) => piece.id));
+	const isAdded = after.track.pieces.some((piece) => !known.has(piece.id));
 	if (!isAdded && !hasDuplicateDefaultNames(after)) return after;
 
 	const names = new Map<TPiece, string>();
 	const counts = new Map<string, number>();
-	for (const entity of piecesInLayersOrder(after)) {
-		const type = entity.type;
-		if (!isDefaultName(entity.name, type)) continue;
+	for (const piece of piecesInLayersOrder(after)) {
+		const type = piece.type;
+		if (!isDefaultName(piece.name, type)) continue;
 		const number = (counts.get(type) ?? 0) + 1;
 		counts.set(type, number);
-		names.set(entity, `${pieceLabel(type)} ${number}`);
+		names.set(piece, `${pieceLabel(type)} ${number}`);
 	}
-	if ([...names].every(([entity, name]) => entity.name === name)) return after;
+	if ([...names].every(([piece, name]) => piece.name === name)) return after;
 	return {
 		...after,
-		track: { ...after.track, pieces: after.track.pieces.map((entity) => {
-			const name = names.get(entity);
-			return name == null || name === entity.name ? entity : { ...entity, name };
+		track: { ...after.track, pieces: after.track.pieces.map((piece) => {
+			const name = names.get(piece);
+			return name == null || name === piece.name ? piece : { ...piece, name };
 		}) }
 	};
 }
@@ -36,29 +36,29 @@ function piecesInLayersOrder(project: TProject): TPiece[] {
 	const ordered: TPiece[] = [];
 	for (const marble of project.marbles) {
 		const order = new Map(marble.hits.map((hit) => [hit.id, hit.time]));
-		const tied = project.track.pieces.filter((entity) => tieOf(entity)?.marbleId === marble.id);
+		const tied = project.track.pieces.filter((piece) => tieOf(piece)?.marbleId === marble.id);
 		const startRail = startRailOf(project, marble.id);
 		if (startRail != null) ordered.push(startRail);
-		ordered.push(...tied.map((entity, index) => ({ entity, index, time: tieTime(entity, order) })).sort((a, b) => a.time - b.time || a.index - b.index).map((item) => item.entity));
+		ordered.push(...tied.map((piece, index) => ({ piece, index, time: tieTime(piece, order) })).sort((a, b) => a.time - b.time || a.index - b.index).map((item) => item.piece));
 	}
 	const placed = new Set(ordered);
-	ordered.push(...project.track.pieces.filter((entity) => !placed.has(entity)));
+	ordered.push(...project.track.pieces.filter((piece) => !placed.has(piece)));
 	return ordered;
 }
 
 /** The time a tied piece sits at: its hit's time, plus the delay a piece that follows the marble waits */
-function tieTime(entity: TPiece, hitTimes: Map<string, number>): number {
-	const link = tieOf(entity);
+function tieTime(piece: TPiece, hitTimes: Map<string, number>): number {
+	const link = tieOf(piece);
 	const hitTime = link == null ? undefined : hitTimes.get(link.hitId);
-	return hitTime == null ? Infinity : hitTime + (entity.params['entryDelay'] ?? 0);
+	return hitTime == null ? Infinity : hitTime + (piece.params['entryDelay'] ?? 0);
 }
 
 function hasDuplicateDefaultNames(project: TProject): boolean {
 	const seen = new Set<string>();
-	for (const entity of project.track.pieces) {
-		if (entity.name == null || !isDefaultName(entity.name, entity.type)) continue;
-		if (seen.has(entity.name)) return true;
-		seen.add(entity.name);
+	for (const piece of project.track.pieces) {
+		if (piece.name == null || !isDefaultName(piece.name, piece.type)) continue;
+		if (seen.has(piece.name)) return true;
+		seen.add(piece.name);
 	}
 	return false;
 }

@@ -48,7 +48,7 @@ export function framingStretches(result: TSimulationResult, track: TCameraTrack)
 			if (stretch.to - stretch.from <= OUT_LONGEST) continue;
 			const struck = times.filter((time) => time >= stretch.from - 1e-9 && time <= stretch.to + 1e-9);
 			if (!struck.length) continue;
-			stretches.push({ marbleId: marble.marbleId, marbleEntityId: marble.entityId, ...stretch, notes: struck });
+			stretches.push({ marbleId: marble.marbleId, marbleEntityId: marble.marbleId, ...stretch, notes: struck });
 		}
 	}
 	return stretches.sort((a, b) => a.from - b.from || a.marbleId.localeCompare(b.marbleId));

@@ -46,7 +46,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 	switch (target.kind) {
 		case 'pieces': {
 			if (!isFilm) return <PieceInspector cx={cx} project={project} ids={target.ids} />;
-			const pieces = project.track.pieces.filter((entity) => target.ids.includes(entity.id));
+			const pieces = project.track.pieces.filter((piece) => target.ids.includes(piece.id));
 			return <PieceSkin cx={cx} project={project} pieces={pieces} />;
 		}
 		case 'hits':
@@ -57,7 +57,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return <PatternRangeInspector cx={cx} project={project} target={target} />;
 		case 'title': {
 			const title = project.film.titles.find((item) => item.id === target.id);
-			return title == null ? null : <WallTextInspector cx={cx} project={project} entity={title} />;
+			return title == null ? null : <WallTextInspector cx={cx} project={project} piece={title} />;
 		}
 		case 'titles':
 			return <InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={`${target.ids.length} Titles`} subtitle="Multiple selection" />;
@@ -207,7 +207,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const { marble, hit } = single;
 	const isBacking = marble.id === BACKING_ID;
 	const index = marble.hits.indexOf(hit);
-	const piece = project.track.pieces.find((entity) => tieOf(entity)?.marbleId === marble.id && tieOf(entity)?.hitId === hit.id);
+	const piece = project.track.pieces.find((piece) => tieOf(piece)?.marbleId === marble.id && tieOf(piece)?.hitId === hit.id);
 	const hitResult = result?.hits.find((item) => item.marbleId === marble.id && item.hitId === hit.id);
 	// An open hit no platform can play yet says why (Too Soon, Out of Reach) and offers the fixes in Played By
 	const reach = !isBacking && piece == null && hitResult?.status === 'open' ? hitReach(project, result, hitResult) : null;

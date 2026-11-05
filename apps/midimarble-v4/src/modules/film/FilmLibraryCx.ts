@@ -124,7 +124,7 @@ export class FilmLibraryCx {
 	openExportPack(): void {
 		const project = this.source.getProject();
 		if (project == null) return;
-		const worn = new Set(skinnedOf(project).flatMap((entity) => entity.skin?.assetId ?? []));
+		const worn = new Set(skinnedOf(project).flatMap((piece) => piece.skin?.assetId ?? []));
 		const assetIds = this.$projectItems.get().flatMap((item) => (worn.has(item.id) ? [item.id] : []));
 		this.$exportPack.set({ name: resolveTheme(project.film).name, includesTheme: true, assetIds });
 	}

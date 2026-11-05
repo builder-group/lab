@@ -147,7 +147,7 @@ function sectionsOf(project: TProject, result: TSimulationResult): Record<string
 		scene,
 		motion: {
 			marbles: result.marbles
-				.map((track) => ({ id: track.entityId, radius: track.radius, samples: blocks(track.samples) }))
+				.map((track) => ({ id: track.marbleId, radius: track.radius, samples: blocks(track.samples) }))
 				.sort((a, b) => compareText(a.id, b.id)),
 			files: build.motionFiles
 				.map((file) => ({ path: file.path, bytes: file.bytes.length, sha256: createHash('sha256').update(file.bytes).digest('hex') }))

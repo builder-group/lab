@@ -13,13 +13,13 @@ function linked(hitId: string, name: string): TPiece {
 }
 
 function names(project: TProject): Record<string, string | undefined> {
-	return Object.fromEntries(project.track.pieces.map((entity) => [entity.id, entity.name]));
+	return Object.fromEntries(project.track.pieces.map((piece) => [piece.id, piece.name]));
 }
 
 describe('renumberDefaultNames', () => {
 	it('should count a marble\'s start rail first among its rails, as Layers lists it', () => {
 		const before = oneMarble();
-		const rail = (id: string, name: string, hitLink?: { marbleId: string; hitId: string; contactAt: number }): TPiece => ({ id, name, type: 'rail', params: {}, angle: 0, place: hitLink != null ? { kind: 'plays', marbleId: hitLink.marbleId, hitId: hitLink.hitId, contactAt: hitLink.contactAt } : { kind: 'free', position: { x: 0, y: 0 } } });
+		const rail = (id: string, name: string, tie?: { marbleId: string; hitId: string; contactAt: number }): TPiece => ({ id, name, type: 'rail', params: {}, angle: 0, place: tie != null ? { kind: 'plays', marbleId: tie.marbleId, hitId: tie.hitId, contactAt: tie.contactAt } : { kind: 'free', position: { x: 0, y: 0 } } });
 		before.track.pieces.push(rail('free', 'Rail 1'), rail(startRailId('marble-1'), 'Rail 2'));
 		const after = { ...before, track: { ...before.track, pieces: [...before.track.pieces, rail('gap', 'Rail 3', { marbleId: 'marble-1', hitId: 'hit-1-1', contactAt: 0.5 })] } };
 

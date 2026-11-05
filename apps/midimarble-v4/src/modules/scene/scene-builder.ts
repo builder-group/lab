@@ -33,7 +33,7 @@ function markActiveUntil(project: TProject, result: TSimulationResult, marbles: 
 	const latest = Math.max(...lasts);
 	result.marbles.forEach((track, index) => {
 		const last = lasts[index] ?? -Infinity;
-		const marble = marbles.find((item) => item.id === track.entityId);
+		const marble = marbles.find((item) => item.id === track.marbleId);
 		if (marble != null && Number.isFinite(last) && last < latest - 1e-6) marble.activeUntil = Math.round((last + MARBLE_ACTIVE_TAIL) * 1e4) / 1e4;
 	});
 }
@@ -49,11 +49,11 @@ export function buildSceneDescription(
 	result: TSimulationResult,
 	options: { fps: number }
 ): TSceneBuild {
-	const entities = new Map(project.track.pieces.map((entity) => [entity.id, entity]));
+	const pieces = new Map(project.track.pieces.map((piece) => [piece.id, piece]));
 		const motionFiles: TMotionFile[] = [];
 
 	const marbleFor = (track: TMarbleTrack, id: string, samples: TMarbleSample[]): TSceneMarble => {
-		const marble = project.marbles.find((item) => item.id === track.entityId);
+		const marble = project.marbles.find((item) => item.id === track.marbleId);
 		const motionPath = `${MOTION_FOLDER}/${id}.bin`;
 		const bytes = encodeRecords(
 			samples.map((sample) => [sample.time, sample.position.x, sample.position.y, sample.angle])
@@ -61,7 +61,7 @@ export function buildSceneDescription(
 		motionFiles.push({ path: motionPath, bytes });
 		return {
 			id,
-			name: marble?.name ?? track.entityId,
+			name: marble?.name ?? track.marbleId,
 			radius: track.radius,
 			pathDepth: pathDepth(result.pieces, track.radius),
 			// The skin None wears the label color, the only skin that does
@@ -73,47 +73,47 @@ export function buildSceneDescription(
 		};
 	};
 	const marbles: TSceneMarble[] = result.marbles.map((track) => ({
-		...marbleFor(track, track.entityId, track.samples),
+		...marbleFor(track, track.marbleId, track.samples),
 		hitTimes: noteTimes(project, track.marbleId)
 	}));
 	markActiveUntil(project, result, marbles);
 
-	const pieces: TScenePiece[] = result.pieces.map((piece) => {
-		const entity = entities.get(piece.entityId);
-		const marbleId = tieOf(entity)?.marbleId;
+	const resolvedPieces: TScenePiece[] = result.pieces.map((item) => {
+		const piece = pieces.get(item.entityId);
+		const marbleId = tieOf(piece)?.marbleId;
 		let motionPath: string | null = null;
 		let sampleCount = 0;
-		if (piece.motion != null && piece.motion.length > 0) {
-			motionPath = `${MOTION_FOLDER}/${piece.entityId}.bin`;
-			sampleCount = piece.motion.length;
+		if (item.motion != null && item.motion.length > 0) {
+			motionPath = `${MOTION_FOLDER}/${item.entityId}.bin`;
+			sampleCount = item.motion.length;
 			motionFiles.push({
 				path: motionPath,
-				bytes: encodeRecords(piece.motion.map((sample) => [sample.time, sample.angle]))
+				bytes: encodeRecords(item.motion.map((sample) => [sample.time, sample.angle]))
 			});
 		}
 		return {
-			id: piece.entityId,
-			name: entity?.name ?? piece.entityId,
-			type: piece.type,
-			params: { ...piece.params },
-			position: { x: piece.position.x, y: piece.position.y },
-			angle: piece.angle,
-			wallOffset: getPieceDefinition(piece.type)?.wallOffset ?? 0,
-			hitTimes: hitTimesFor(result, piece.entityId),
-			contactTimes: contactTimesFor(result, piece.entityId),
-			musical: getPieceDefinition(piece.type)?.musical === true,
+			id: item.entityId,
+			name: piece?.name ?? item.entityId,
+			type: item.type,
+			params: { ...item.params },
+			position: { x: item.position.x, y: item.position.y },
+			angle: item.angle,
+			wallOffset: getPieceDefinition(item.type)?.wallOffset ?? 0,
+			hitTimes: hitTimesFor(result, item.entityId),
+			contactTimes: contactTimesFor(result, item.entityId),
+			musical: getPieceDefinition(item.type)?.musical === true,
 			motionPath,
 			sampleCount,
-			skin: entity?.skin != null ? entity.skin : null,
-			assetPath: skinAssetPath(entity?.skin?.assetId),
+			skin: piece?.skin != null ? piece.skin : null,
+			assetPath: skinAssetPath(piece?.skin?.assetId),
 			// The skin None wears the label color, the only skin that does
 			color:
-				entity != null && resolveElementLook(project.film, skinElement(piece.type), entity.skin).skin.endsWith(':none') ? (pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR)
+				piece != null && resolveElementLook(project.film, skinElement(item.type), piece.skin).skin.endsWith(':none') ? (pieceLabelColor(project, piece) ?? PLAIN_PIECE_COLOR)
 				: marbleId != null && project.marbles.some((marble) => marble.id === marbleId) ? marbleFilmColor(project, marbleId)
 				: DEFAULT_PIECE_COLOR,
-			...notePitchOf(project, entity),
-			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
-			paths: piece.paths?.map((wire) => wire.map((point) => ({ x: point.x, y: point.y }))) ?? null
+			...notePitchOf(project, piece),
+			path: item.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
+			paths: item.paths?.map((wire) => wire.map((point) => ({ x: point.x, y: point.y }))) ?? null
 		};
 	});
 
@@ -131,7 +131,7 @@ export function buildSceneDescription(
 			...sceneLayers(project.film),
 			...sceneDecor(project.film),
 			marbles,
-			pieces,
+			pieces: resolvedPieces,
 			camera: {
 				...buildSceneCamera(project.film.camera),
 				descent: descentCurve(result),
@@ -163,13 +163,13 @@ export function heldBowls(project: TProject, result: TSimulationResult): { x: nu
 	const marbles = new Set(lastPlayingMarbles(project));
 	const hold = lastStruckTime(result);
 	if (hold == null) return null;
-	const points = project.track.pieces.flatMap((entity) => {
-		const marbleId = tieOf(entity)?.marbleId;
-		if (entity.type !== BOWL_TYPE || marbleId == null || !marbles.has(marbleId)) return [];
-		const piece = result.pieces.find((item) => item.entityId === entity.id);
-		const caught = bowlCatch(result, entity.id);
-		if (piece == null || caught.status !== 'caught' || (caught.enterTime ?? -Infinity) < hold) return [];
-		return [{ x: Math.round(piece.position.x * 1e5) / 1e5, y: Math.round(piece.position.y * 1e5) / 1e5 }];
+	const points = project.track.pieces.flatMap((piece) => {
+		const marbleId = tieOf(piece)?.marbleId;
+		if (piece.type !== BOWL_TYPE || marbleId == null || !marbles.has(marbleId)) return [];
+		const resolvedPiece = result.pieces.find((item) => item.entityId === piece.id);
+		const caught = bowlCatch(result, piece.id);
+		if (resolvedPiece == null || caught.status !== 'caught' || (caught.enterTime ?? -Infinity) < hold) return [];
+		return [{ x: Math.round(resolvedPiece.position.x * 1e5) / 1e5, y: Math.round(resolvedPiece.position.y * 1e5) / 1e5 }];
 	});
 	return points.length ? points : null;
 }
@@ -272,9 +272,9 @@ export function encodeRecords(records: number[][]): Uint8Array {
 }
 
 /** The pitch of the note a platform plays; a piece that follows or stands free plays none */
-function notePitchOf(project: TProject, entity: TPiece | undefined): { notePitch?: number } {
-	const link = tieOf(entity);
-	if (link == null || link.kind === 'follows' || getPieceDefinition(entity?.type ?? '')?.musical !== true) return {};
+function notePitchOf(project: TProject, piece: TPiece | undefined): { notePitch?: number } {
+	const link = tieOf(piece);
+	if (link == null || link.kind === 'follows' || getPieceDefinition(piece?.type ?? '')?.musical !== true) return {};
 	const pitch = project.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.pitch;
 	return pitch == null ? {} : { notePitch: pitch };
 }

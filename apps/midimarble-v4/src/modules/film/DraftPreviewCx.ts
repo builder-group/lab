@@ -286,7 +286,7 @@ export class DraftPreviewCx {
 		const playhead = this.studio.$playhead.get();
 		return project.marbles.flatMap((marble): TPlacedMarble[] => {
 			if (hidden.includes(marble.id)) return [];
-			const motion = result?.marbles.find((item) => item.entityId === marble.id);
+			const motion = result?.marbles.find((item) => item.marbleId === marble.id);
 			const position = marblePositionAt(motion, playhead, marble.start.position);
 			const look = resolveElementLook(project.film, 'marble', marble.skin);
 			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? marble.labelColor : marbleFilmColor(project, marble.id), appliedOverrides(project.film), look);

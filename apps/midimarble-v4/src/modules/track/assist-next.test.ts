@@ -17,9 +17,9 @@ function studio(assists: Record<string, unknown>): { cx: StudioCx; project: TPro
 }
 
 function solved(marbleId: string, hitId: string, entityId: string): TAutoPlaceAnswer {
-	const entity: TPiece = createLinkedPiece('platform', marbleId, hitId, 0.31, { id: entityId });
-	entity.params = { ...entity.params, bounce: 0.42 };
-	return { entity, angle: 0.31, nextDot: null, computeMs: 1 };
+	const piece: TPiece = createLinkedPiece('platform', marbleId, hitId, 0.31, { id: entityId });
+	piece.params = { ...piece.params, bounce: 0.42 };
+	return { piece, angle: 0.31, nextDot: null, computeMs: 1 };
 }
 
 describe('AssistCx place function', () => {
@@ -49,6 +49,6 @@ describe('AssistCx place function', () => {
 		answer(solved(hit.marbleId, hit.hitId, placed?.id ?? ''));
 		await placing;
 		expect(assist.isAnswering).toBe(false);
-		expect(cx.project?.track.pieces.find((entity) => entity.id === placed?.id)?.params['bounce']).toBe(0.42);
+		expect(cx.project?.track.pieces.find((piece) => piece.id === placed?.id)?.params['bounce']).toBe(0.42);
 	});
 });

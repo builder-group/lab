@@ -24,7 +24,7 @@ export interface TSimulationResult {
 	/** Seconds simulated, normally the project end */
 	duration: number;
 	marbles: TMarbleTrack[];
-	/** Resolved pose of every piece entity, linked or free */
+	/** Resolved pose of every piece piece, linked or free */
 	pieces: TResolvedPiece[];
 	/** Every contact start between a marble and a piece or another marble, in time order */
 	contacts: TContact[];
@@ -45,7 +45,6 @@ export interface TSimulationResult {
 }
 
 export interface TMarbleTrack {
-	entityId: string;
 	marbleId: string;
 	radius: number;
 	/** Sampled every 1 / PHYSICS_HZ seconds from the release time; empty before release */
@@ -114,7 +113,7 @@ export type TPieceStatus =
 export interface TContact {
 	time: number;
 	marbleEntityId: string;
-	/** Piece entity ID, or the other marble's entity ID for marble collisions */
+	/** Piece piece ID, or the other marble's piece ID for marble collisions */
 	otherEntityId: string;
 	kind: 'piece' | 'marble';
 	position: TVec2;
@@ -129,7 +128,7 @@ export interface THitResult {
 	marbleId: string;
 	hitId: string;
 	targetTime: number;
-	/** Entity of the piece linked to this hit, if any */
+	/** Piece of the piece linked to this hit, if any */
 	pieceEntityId: string | null;
 	/** Marble center at the target time on the current trajectory: the dot the user clicks */
 	dot: TVec2 | null;

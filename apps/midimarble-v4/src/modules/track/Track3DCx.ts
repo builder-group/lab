@@ -207,7 +207,7 @@ export class Track3DCx {
 		renderer.setMarbles(
 			project.marbles.flatMap((marble) => {
 				if (hidden.includes(marble.id)) return [];
-				const motion = result?.marbles.find((item) => item.entityId === marble.id);
+				const motion = result?.marbles.find((item) => item.marbleId === marble.id);
 				return [{ entityId: marble.id, color: marble.labelColor, radius: marble.radius, position: marblePositionAt(motion, playhead, marble.start.position), z: this.pathZ }];
 			})
 		);

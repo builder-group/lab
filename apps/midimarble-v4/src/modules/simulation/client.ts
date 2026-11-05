@@ -22,7 +22,7 @@ export interface TSimulationClient {
 	/** Keeps the run after an edit (`settleEdit`); a newer request replaces a waiting one */
 	settle: (request: TSettleRequest) => Promise<TSettleAnswer>;
 	/** Brings the marble back to pieces waiting for it, null when no way plays every hit */
-	reconnect: (project: TProject) => Promise<{ entities: TPiece[] } | null>;
+	reconnect: (project: TProject) => Promise<{ pieces: TPiece[] } | null>;
 	/**
 	 * Assists run in a second worker so a slow search never holds up the live trajectory. Each kind keeps
 	 * only its newest waiting request; replaced requests reject with a `SupersededError`. Auto place spreads its
@@ -62,7 +62,7 @@ export function createSimulationClient(): TSimulationClient {
 			return assists.queue.enqueue<TSettleAnswer>('settle', { kind: 'settle', ...request });
 		},
 		reconnect(project) {
-			return assists.queue.enqueue<{ entities: TPiece[] } | null>('reconnect', { kind: 'reconnect', project });
+			return assists.queue.enqueue<{ pieces: TPiece[] } | null>('reconnect', { kind: 'reconnect', project });
 		},
 		continueRun(request) {
 			return assists.queue.enqueue<TContinueAnswer | null>('continue', { kind: 'continue', ...request });
