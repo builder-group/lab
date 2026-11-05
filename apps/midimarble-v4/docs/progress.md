@@ -2,6 +2,18 @@
 
 The autonomous build updates this log after every slice. Newest entries go first.
 
+## Patterns round 2, and Problems
+
+**Patterns,** like a Blender modifier and Apply. A live Pattern's pieces don't edit one by one in Compose; clicking selects the Group, drag and tilt say "Part of Zigzag. Flatten to edit it.", and `project.execute` answers the same. **Flatten** removes the Pattern and its Group in one Undo step, leaving plain pieces. A re-run keeps skins, names and Depth. Width is what's asked, with the nearest that fits offered in words; Tilt limit is a parameter (40° by default, past it allowed with a note). A fall of 1 m or more inside a range is reported. A Long Rail before the first note is the marble's start rail, with the release at the range's start.
+
+**Rails in films.** The ghosts were a thin chrome wire (1.6 mm, against 3.3 mm on generated Rails) with posts only at a drawn path's points, so none along a long straight run. Now the same thickness, and posts every 8 cm.
+
+**Problems.** `track-look.ts` is `track-problems.ts`; the only ranking number left, the strike column, is `build-track-defaults.ts`. Touching is now a Problem, and so is a marble passing through a skin's body, from samples against `visualShapes` (no false hits on Jingle Bells or the 3 cm Zigzags; `long-gap` has one, a real one). Film's Problems are a marble out of frame for 1.5 s or more and a screen title wider than the frame; shorter misses are tips, the contrast warnings are gone. Depth is on the piece's Skin panel in Film.
+
+**Bounce threshold, measured** on Zigzags of 3 cm bars at Gravity 0.5 and 1: distance from the bar called a dead bar's skid off its end a bounce, so the rise is now along the normal. Dead bars reach 0.11 to 0.19 radii, real bounces 1.45 and up, the fixtures' 0.71 and up, so a roll is under 0.5. Next and Build Track's takeoff still aims for 1.
+
+**Checks:** see the commit. **Not done:** a Problem for a missing asset: nothing in the app knows the library at that point, and Blender's own report only comes while it's open.
+
 ## Chosen look: 3×9 bars, marble at mid depth
 
 New platforms are 3 cm long and 9 cm deep on the current camera (85 mm, pitch 1.15, 1.36 m); a 145° side turn stays a test setting: as `SIDE_ANGLE` it turns only 3° against 150, and the grid's option C looked closer to 120.
@@ -189,7 +201,7 @@ From `.local/v3/gaps-round2.md`, the benchmark agent that made a film through MC
 
 ### 2026-11-04: Track quality
 
-- **Clearance**: `simulation/track-look.ts`. `visualShapes` grows a platform to the deepest built-in skin (a Gift hangs 1.4 cm below its hitbox), `touchingPairs` names pieces closer than `MIN_PIECE_GAP` (1.2 cm). Auto place refuses them, trying a shorter platform (5/6, then 2/3) first; Continue, Build Track's `accept` and the gap searches check too. Tip in the problem model, "Platform 12 touches Platform 13", with a Fix
+- **Clearance**: `simulation/track-problems.ts`. `visualShapes` grows a platform to the deepest built-in skin (a Gift hangs 1.4 cm below its hitbox), `touchingPairs` names pieces closer than `MIN_PIECE_GAP` (1.2 cm). Auto place refuses them, trying a shorter platform (5/6, then 2/3) first; Continue, Build Track's `accept` and the gap searches check too. Tip in the problem model, "Platform 12 touches Platform 13", with a Fix
 - **One strike**: `extraStrikes`; "Hits it {times}" was only ever about another lane's pieces. Auto place, Continue and `accept` refuse a second strike; existing ones are a warning, "Melody hits Platform 12 twice". Rests after a marble's last note and Finishes, switchbacks and rails don't count. Fix: shorter, a strike further along it, small turns, Auto place, and when each of those moves the hits after it, Rebuild From Here. **Fix 3 Platforms** in the hit summary's menu when nothing else is wrong
 - **Look score** in Auto place, documented with its weights: the lane's two columns, tilt toward the next one, the tilt last used for the same interval, gentle tilts; pace and comfort as before. Mirror and Continue count only while the next dot stays on its column. Mending a run (later hits have pieces) keeps the old score, since Re-place's recovery tests depend on it
 - **Rebuild From Here** (`build.rebuildFrom`, `build.track {from}`): Track menu, hit and piece menus, ⌘K. Keeps everything up to the hit on every marble, turns nothing kept, moves no release, keeps skins, one undo step
@@ -820,7 +832,7 @@ Five fixture builders had stopped reproducing their fixtures after the determini
 - **tap-along.** The same Continue fix
 - **two-marbles.** The script was stale: every tilt of Melody's second platform leaves the other marble no spot at 0.4 s notes, which one hit at a time can't get out of. It now uses Build Track, with half a second between notes, since the folded clearance leaves nothing at 0.4 s. Clean but for its intended collision
 
-**No rolling.** `rollingHits` and `riseAfterHit` in `track-look.ts`: the marble must rise one marble radius within 0.1 s of its note, or by its next note. Measured on Jingle Bells a bounce gets there in a median 0.02 s and 0.04 s at the slowest, and the four rolls took 0.22 to 0.37 s, so the threshold isn't close. Rejected in Auto place, Continue and Build Track, a warning in preflight ("Melody rolls on Platform 12") with Place Again, a row in `words.md`. Rails, Switchbacks, the Finish and a last note are exempt. Auto place also refuses an arrival too slow for the next platform to bounce, unless it is mending. The committed Jingle Bells rolled at 3.0, 12.0, 28.75 and 29.0 s, not the 13, 14 and 29 s measured on the film the owner saw.
+**No rolling.** `rollingHits` and `riseAfterHit` in `track-problems.ts`: the marble must rise one marble radius within 0.1 s of its note, or by its next note. Measured on Jingle Bells a bounce gets there in a median 0.02 s and 0.04 s at the slowest, and the four rolls took 0.22 to 0.37 s, so the threshold isn't close. Rejected in Auto place, Continue and Build Track, a warning in preflight ("Melody rolls on Platform 12") with Place Again, a row in `words.md`. Rails, Switchbacks, the Finish and a last note are exempt. Auto place also refuses an arrival too slow for the next platform to bounce, unless it is mending. The committed Jingle Bells rolled at 3.0, 12.0, 28.75 and 29.0 s, not the 13, 14 and 29 s measured on the film the owner saw.
 
 **Film-angle clearance.** `touchingPairs` did not account for this. `visualShapes` grows a bar below its top face on the wall, with no fold and no depth; nothing in the code folds by 0.42 and Build Track's score doesn't either, that number is only in the measuring scripts. A bar 3.6 cm deep stands up as much of the image as 8 cm of wall at a pitch of 1.15. `filmView` and `filmGap` now also refuse two bars that overlap in the image, and the 1.2 cm stays on the wall. Asking 1.2 cm of air in the image too, with Rails and Switchbacks counted, gave 33 pairs on the old track and Build Track never finished, stuck for over 30 minutes; bars only, with air, stuck too. Rails and Switchbacks stay measured on the wall, as thin wire.
 

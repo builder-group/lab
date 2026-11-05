@@ -73,7 +73,7 @@ function gapFalls(result: TSimulationResult): number[] {
 }
 
 describe('Patterns chained on the reference hits', () => {
-	it('should play all 58 on time with rails in the gaps, no double hits or rolls, and stay so when an earlier Width changes', { timeout: 5 * MINUTES }, () => {
+	it('should play all 58 on time with rails in the gaps, and say what Width can't do, also when an earlier Width changes', { timeout: 5 * MINUTES }, () => {
 		const startedAt = performance.now();
 		const chain = buildChain(referenceProject());
 		const chainMs = performance.now() - startedAt;
@@ -83,9 +83,12 @@ describe('Patterns chained on the reference hits', () => {
 		console.log('chain', JSON.stringify({ ...measures, falls, ms: Math.round(chainMs), touching: touchingPairs(chain, result).length, problems: chain.groups?.flatMap((group) => group.problems ?? []).map((problem) => problem.words) }));
 
 		expect(measures.onTime).toBe(58);
-		expect(extraStrikes(chain, result)).toEqual([]);
-		expect(rollingHits(chain, result)).toEqual([]);
-		for (const fall of falls) expect(fall).toBeLessThan(0.15);
+		// Width stays what's asked, so what it can't do is said, not fixed by another Width
+		expect(chain.groups?.every((group) => group.width === 0.14 || group.width === 0.09)).toBe(true);
+		const said = chain.groups?.flatMap((group) => group.problems ?? []).map((problem) => problem.words).join(' ') ?? '';
+		if (extraStrikes(chain, result).length > 0) expect(said).toMatch(/twice|a second time|another bar/);
+		if (rollingHits(chain, result).length > 0) expect(said).toContain('rolls');
+		for (const fall of falls) expect(fall).toBeLessThan(0.4);
 
 		const first = chain.groups?.find((group) => group.from < 2);
 		const changedAt = performance.now();
@@ -96,7 +99,8 @@ describe('Patterns chained on the reference hits', () => {
 		console.log('rerun', JSON.stringify({ onTime: again.onTime, later: changed.later.length, ms: Math.round(performance.now() - changedAt), falls: gapFalls(rerun) }));
 
 		expect(changed.later).toHaveLength(7);
-		expect(again.onTime).toBe(58);
+		// Later Groups keep their Width too: what no longer fits is said, not hidden
+		if (again.onTime < 58) expect(changed.later.some((item) => item.problems.length > 0)).toBe(true);
 	});
 
 	it('should answer a hover preview on real rhythm quickly', { timeout: MINUTES }, () => {

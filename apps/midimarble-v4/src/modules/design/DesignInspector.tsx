@@ -412,6 +412,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 						id="piece-depth"
 						label="Depth"
 						name="Depth: how far it stands out of the wall"
+						span={2}
 						value={sharedDepth == null ? null : Math.round(sharedDepth * 1000) / 10}
 						unit="cm"
 						step={0.1}
