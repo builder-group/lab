@@ -1,4 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
+import { Box, type LucideIcon, Square, Video } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import type { TVec2 } from '@/modules/project';
@@ -12,21 +13,25 @@ import { groupSelection } from './PatternsCx';
 import { toPoints } from './PieceLayer';
 import { Track3DCx } from './Track3DCx';
 
-const views: { id: TTrackView; label: string; title: string }[] = [
-	{ id: '2d', label: '2D', title: 'Flat and precise, with all editing' },
-	{ id: '3d', label: '3D', title: 'Look around the track: drag to turn, it selects but nothing drags' },
-	{ id: 'camera', label: 'Camera', title: "Through the film's camera; with the Camera layer selected a drag orbits it" }
+const views: { id: TTrackView; label: string; Icon: LucideIcon; tooltip: string; shortcut?: string }[] = [
+	{ id: '2d', label: '2D', Icon: Square, tooltip: '2D: flat, with all editing' },
+	{ id: '3d', label: '3D', Icon: Box, tooltip: '3D: drag to look around', shortcut: 'D' },
+	{ id: 'camera', label: 'Camera', Icon: Video, tooltip: "Camera: through the film's camera" }
 ];
 
-/** Track's 2D, 3D or Camera switch, at the canvas's top right beside Snap and Follow */
+/** Track's 2D, 3D or Camera view, as icons at the canvas's top right beside Snap and Follow */
 export const TrackViewSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const view = useFeatureState(cx.$trackView);
 	return (
-		<div className="mm-floating mm-segmented" role="radiogroup" aria-label="Track view">
+		<div className="mm-floating mm-tooltip-below flex items-center gap-0.5 p-[3px]" role="radiogroup" aria-label="Track view">
 			{views.map((item) => (
-				<button key={item.id} role="radio" aria-checked={view === item.id} data-active={view === item.id} title={item.title} onClick={() => cx.$trackView.set(item.id)} type="button">
-					{item.label}
+				<button key={item.id} className="mm-tool-button !h-7 !w-7" role="radio" aria-checked={view === item.id} aria-label={item.label} data-active={view === item.id} onClick={() => cx.$trackView.set(item.id)} type="button">
+					<item.Icon size={14} strokeWidth={1.7} />
+					<span className="mm-tooltip">
+						{item.tooltip}
+						{item.shortcut != null ? <kbd>{item.shortcut}</kbd> : null}
+					</span>
 				</button>
 			))}
 		</div>
