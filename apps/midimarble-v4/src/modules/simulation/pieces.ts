@@ -39,16 +39,51 @@ export const platformDefinition: TPieceDefinition = {
 };
 
 /**
- * Wire rail the marble lands on and rolls along. The path is smoothed into a chain of capsules the
- * marble rides on top of. The film shows two wires `gap` apart in depth; since marbles are locked to
- * the wall plane, physics models them as one support line of the wire radius.
+ * How a Rail gets its paths, like one Blender curve with several splines: `path` is drawn, the others generate their
+ * paths from the parameters each time the piece is laid out, around the point the marble enters.
+ */
+export const RAIL_LAYOUTS = ['path', 'curve', 'c', 'chain', 'switchback'] as const;
+export type TRailLayout = (typeof RAIL_LAYOUTS)[number];
+
+/** What the inspector calls each layout, says about it and shows for it, in the order it shows them */
+export const railLayoutInfo: Record<TRailLayout, { label: string; title: string; params: string[]; defaults: Record<string, number> }> = {
+	path: { label: 'Drawn', title: 'The path you drew with the Rail tool', params: ['radius', 'gap'], defaults: {} },
+	curve: { label: 'Curve', title: 'One smooth curve down to the side', params: ['width', 'drop', 'radius', 'gap'], defaults: { width: kit(0.1), drop: 0.06 } },
+	c: { label: 'C', title: 'One wall that curves round and sends the marble back the way it came', params: ['width', 'arc', 'sweep', 'radius', 'gap'], defaults: { width: 0.12, arc: 0.05, sweep: 100 } },
+	chain: { label: 'Chain', title: 'Curved turns one under the other, with gaps the marble drops through. Tried by simulating it.', params: ['turns', 'width', 'drop', 'arc', 'sweep', 'radius', 'gap'], defaults: { turns: 3, width: 0.12, drop: 0.07, arc: 0.05, sweep: 100 } },
+	switchback: { label: 'Switchback', title: 'Straight runs one under the other, sloping left and right, for the steadiest timing', params: ['turns', 'width', 'drop', 'opening', 'lip', 'bend', 'radius', 'gap'], defaults: {} }
+};
+
+/**
+ * Rail: what the marble rolls on. It holds one path or several with gaps between them, smoothed into chains of capsules
+ * the marble rides on top of, one row in Layers and one Skin. The film shows two wires `gap` apart in depth; since
+ * marbles are locked to the wall plane, physics models them as one support line of the wire radius.
+ *
+ * Layout `switchback` is for long gaps: legs stacked in a column, sloping alternately left and right. Each leg is one
+ * bent wire: a wall comes down on its high side and turns through a rounded bend of radius `bend` into the leg. The
+ * marble drops in at the top, rolls down a leg, falls through the `opening` at its low end against the next leg's wall,
+ * rolls up that leg's bend and back down the leg the other way, and leaves through the opening of the last leg past a
+ * short stop, so it stays in a narrow column for a predictable time. The linked hit's `angle` sets the leg slope, with
+ * its sign the direction of the first leg (negative runs downhill to +x), and `contactAt` where the marble enters across
+ * the top. The wall the marble moves toward rises `lip` above the others to catch a sideways entry.
+ *
+ * Layout `chain` is separate C's in the same column: each turn is a wall curving round through `sweep` on a curve of
+ * radius `arc`, `drop` under the one before.
  */
 export const railDefinition: TPieceDefinition = {
 	type: 'rail',
 	label: 'Rail',
 	params: {
 		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Thickness of each rail', short: 'Thickness', unit: 'm' },
-		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Width between the two rails', short: 'Width', unit: 'm' },
+		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Width between the two rails', short: 'Spread', unit: 'm' },
+		width: { default: kit(0.1), min: 0.06, max: 0.3, label: 'Width', unit: 'm' },
+		turns: { default: 3, min: 1, max: 6, label: 'Number of turns', short: 'Turns', unit: '', integer: true },
+		drop: { default: kit(0.035), min: 0.026, max: 0.15, label: 'Height between the turns', short: 'Drop', unit: 'm' },
+		opening: { default: kit(0.032), min: 0.026, max: 0.09, label: 'Gap at each turn where the marble drops through', short: 'Turn Gap', unit: 'm' },
+		lip: { default: kit(0.04), min: 0, max: 0.15, label: 'Height of the guard that catches the marble', short: 'Guard', unit: 'm' },
+		bend: { default: 0.04, min: 0, max: 0.08, label: 'Roundness of each turn', short: 'Turn Curve', unit: 'm' },
+		arc: { default: 0.05, min: 0.02, max: 0.12, label: 'Radius of each curved turn', short: 'Curve', unit: 'm' },
+		sweep: { default: 100, min: 70, max: 130, label: 'How far each curved turn comes round. Past 90° the marble can settle in it', short: 'Lip', unit: '°' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
 	wallOffset: 0,
@@ -110,36 +145,6 @@ export const windmillDefinition: TPieceDefinition = {
 	layout: 'rotor'
 };
 
-/**
- * Holder for long gaps: wire legs stacked in a column, sloping alternately left and right. Each leg is one
- * bent wire: a wall comes down on its high side and turns through a rounded bend of radius `bend` into the
- * leg. The marble drops in at the top, rolls down a leg, falls through the `opening` at its low end against
- * the next leg's wall, rolls up that leg's bend and back down the leg the other way, and leaves through the
- * opening of the last leg past a short stop, so it stays in a narrow column for a predictable time. A bend
- * of 0 gives sharp corners. The linked hit's `angle` sets the leg slope, with its
- * sign the direction of the first leg like a rail (negative runs downhill to +x), and `contactAt` where
- * the marble enters across the top, from the first leg's high end (0) to its low end (1). The wall the
- * marble moves toward rises `lip` above the others to catch a sideways entry.
- */
-export const switchbackDefinition: TPieceDefinition = {
-	type: 'switchback',
-	label: 'Switchback',
-	params: {
-		width: { default: kit(0.1), min: 0.06, max: 0.3, label: 'Width', unit: 'm' },
-		legs: { default: 3, min: 1, max: 6, label: 'Number of runs down the zigzag', short: 'Runs', unit: '', integer: true },
-		drop: { default: kit(0.035), min: 0.026, max: 0.15, label: 'Height between the runs', short: 'Run Height', unit: 'm' },
-		opening: { default: kit(0.032), min: 0.026, max: 0.09, label: 'Gap at each turn where the marble drops through', short: 'Turn Gap', unit: 'm' },
-		lip: { default: kit(0.04), min: 0, max: 0.15, label: 'Height of the guard that catches the marble', short: 'Guard', unit: 'm' },
-		bend: { default: 0.04, min: 0, max: 0.08, label: 'Roundness of each turn', short: 'Turn Curve', unit: 'm' },
-		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Thickness of the rails', short: 'Thickness', unit: 'm' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
-	},
-	wallOffset: 0,
-	restitution: 0.15,
-	friction: 0.4,
-	layout: 'holder'
-};
-
 /** `style` values of a Finish */
 export const FINISH_CHUTE = 0;
 export const FINISH_CUP = 1;
@@ -174,7 +179,6 @@ export const pieceDefinitions: Record<string, TPieceDefinition> = {
 	[railDefinition.type]: railDefinition,
 	[tunnelDefinition.type]: tunnelDefinition,
 	[windmillDefinition.type]: windmillDefinition,
-	[switchbackDefinition.type]: switchbackDefinition,
 	[finishDefinition.type]: finishDefinition
 };
 
@@ -213,7 +217,7 @@ export function resolvePiecePath(type: string, points: TVec2[] | undefined): TVe
 }
 
 /**
- * Pieces that sound the hit they are linked to: platforms. Windmills, rails, tunnels and switchbacks are
+ * Pieces that sound the hit they are linked to: platforms. Windmills, rails and tunnels are
  * scenery; their hit link anchors them to the trajectory `entryDelay` seconds after the hit.
  */
 export function isMusicalPiece(type: string): boolean {

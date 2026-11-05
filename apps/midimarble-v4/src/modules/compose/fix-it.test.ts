@@ -393,14 +393,14 @@ describe('replaceResultMessage function', () => {
 		};
 		const before = [hit(1, 'blocked')];
 		const outcome = { project: withPieces, result: { hits: [hit(1, 'onTime')] } as TSimulationResult, replaced: 4, moved: ['rail'], cleared: ['windmill'], releases: [] };
-		const added = [{ id: 'contact:m:s', kind: 'contact' as const, severity: 'warning' as const, title: 'Bass hits Switchback 6 of Melody', target: null }];
+		const added = [{ id: 'contact:m:s', kind: 'contact' as const, severity: 'warning' as const, title: 'Bass hits Rail 6 of Melody', target: null }];
 
 		// Act
 		const message = replaceResultMessage(withPieces, before, outcome, { label: '1 of 1 hit on time · 1 other problem', hitProblems: 0, added });
 
 		// Assert
 		expect(message).toBe(
-			'Placed 4 platforms again, placed Rail 2 again, moved Windmill 1 clear, and fixed the broken hit: 1 of 1 hit on time · 1 other problem · 1 new problem: Bass hits Switchback 6 of Melody'
+			'Placed 4 platforms again, placed Rail 2 again, moved Windmill 1 clear, and fixed the broken hit: 1 of 1 hit on time · 1 other problem · 1 new problem: Bass hits Rail 6 of Melody'
 		);
 	});
 });
@@ -438,7 +438,7 @@ describe('addedProblems function', () => {
 			entities: [
 				...base.entities,
 				{ id: 'bass-marble', name: 'Bass', components: { marble: { laneId: 'bass', radius: 0.008 } } },
-				{ id: 'switchback', name: 'Switchback 6', components: { piece: { type: 'switchback', params: {} }, hitLink: { laneId: melody.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true } } }
+				{ id: 'switchback', name: 'Rail 6', components: { piece: { type: 'rail', layout: 'switchback', params: {} }, hitLink: { laneId: melody.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true } } }
 			]
 		} as TProject;
 		const clear = contactResult(project, []);
@@ -449,7 +449,7 @@ describe('addedProblems function', () => {
 		const ahead = addedProblems(project, clear, project, hitBy, { laneId: melody.id, from: 4 });
 
 		// Assert
-		expect(added.map((issue) => issue.title)).toEqual(['Bass hits Switchback 6 of Melody']);
+		expect(added.map((issue) => issue.title)).toEqual(['Bass hits Rail 6 of Melody']);
 		expect(ahead).toEqual([]);
 	});
 });

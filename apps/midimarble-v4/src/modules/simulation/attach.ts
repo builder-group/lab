@@ -150,7 +150,7 @@ export function unlinkPiece(
 
 /**
  * The free transform that reproduces a resolved pose. Free layouts place rails and tunnels by their
- * local origin and switchbacks by their entry point, so the shift between the pose origin and the
+ * local origin and generated paths by their entry point, so the shift between the pose origin and the
  * transform is taken from a layout at the world origin.
  */
 export function freePose(
@@ -166,6 +166,8 @@ export function freePose(
 		type,
 		params: resolved.params,
 		path: resolvePiecePath(type, entity.components.path?.points),
+		extraPaths: entity.components.path?.paths,
+		layout: entity.components.piece?.layout,
 		angle: resolved.angle,
 		contactAt: entity.components.hitLink?.contactAt ?? 0.5,
 		marbleRadius

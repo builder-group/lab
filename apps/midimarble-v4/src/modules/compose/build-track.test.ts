@@ -190,7 +190,7 @@ describe('Rebuild From Here', () => {
 		const [laneA, laneB] = project.music.lanes;
 		const hitOf = (index: number, lane = laneA) => lane?.hits[index]?.id ?? '';
 		const tied = (id: string, type: string, laneId: string, hitId: string) => ({ id, components: { piece: { type, params: {} }, hitLink: { laneId, hitId, angle: 0, contactAt: 0.5 } } });
-		const kept = { ...project, entities: [...project.entities, tied('a1', 'platform', laneA?.id ?? '', hitOf(0)), tied('a2', 'platform', laneA?.id ?? '', hitOf(1)), tied('bridge', 'switchback', laneA?.id ?? '', hitOf(1)), tied('a3', 'platform', laneA?.id ?? '', hitOf(2)), tied('b1', 'platform', laneB?.id ?? '', hitOf(0, laneB)), tied('b2', 'platform', laneB?.id ?? '', hitOf(1, laneB))] };
+		const kept = { ...project, entities: [...project.entities, tied('a1', 'platform', laneA?.id ?? '', hitOf(0)), tied('a2', 'platform', laneA?.id ?? '', hitOf(1)), tied('bridge', 'rail', laneA?.id ?? '', hitOf(1)), tied('a3', 'platform', laneA?.id ?? '', hitOf(2)), tied('b1', 'platform', laneB?.id ?? '', hitOf(0, laneB)), tied('b2', 'platform', laneB?.id ?? '', hitOf(1, laneB))] };
 		const ids = withoutPiecesAfter(kept as TProject, { laneId: laneA?.id ?? '', hitId: hitOf(1) }).entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id);
 		expect(ids).toEqual(['a1', 'a2', 'b1']);
 	});

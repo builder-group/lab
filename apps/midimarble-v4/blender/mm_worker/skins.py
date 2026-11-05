@@ -339,7 +339,7 @@ def build_spec(kind, entity, context):
     piece_type = entity.get('type', 'platform')
     frame = PieceFrame(entity, context)
     builder = {'rail': rail_spec, 'tunnel': tunnel_spec, 'windmill': windmill_spec,
-               'switchback': switchback_spec, 'finish': finish_spec}.get(piece_type, platform_spec)
+               'finish': finish_spec}.get(piece_type, platform_spec)
     spec = builder(frame, entity)
     meshes = [spec['root'], *(part['mesh'] for part in spec['parts'])]
     reaction = piece_reaction(entity, context)
@@ -400,7 +400,7 @@ class PieceFrame:
         position = piece.get('position') or {'x': 0.0, 'y': 0.0}
         self.origin = (float(position['x']), float(position['y']))
         self.path = [(float(point['x']), float(point['y'])) for point in (piece.get('path') or [])]
-        # Switchback wires: two walls, then the legs from the top
+        # A Rail's several paths, top first
         self.wires = [[(float(point['x']), float(point['y'])) for point in wire] for wire in (piece.get('paths') or [])]
         self.color = piece.get('color') or '#c8b89a'
         self.look = piece_look(piece, context)
@@ -692,6 +692,8 @@ CANDY_COLOR = '#c8202c'
 
 
 def rail_spec(frame, piece):
+    if frame.wires:
+        return rail_paths_spec(frame)
     params = frame.params
     physics_radius = params.get('radius', 0.0025)
     gap = params.get('gap', 0.01)
@@ -732,9 +734,10 @@ def rail_spec(frame, piece):
     return {'root': builder.to_mesh('MM rail', [wire_material, post_material]), 'parts': []}
 
 
-def switchback_spec(frame, piece):
-    """Switchback: one bent wire per leg (its wall, a rounded bend, the leg), then a short exit stop. Each wire is a
-    capsule of `radius` around its polyline; the marble rolls down the legs and through the bends.
+def rail_paths_spec(frame):
+    """A Rail with several paths, in the same skins as one path. A path with a Switchback layout is one bent wire per
+    leg (its wall, a rounded bend, the leg), then a short exit stop; each is a capsule of `radius` around its polyline
+    that the marble rolls along and through the bends.
 
     Chrome draws every wire as a pair of thin chrome wires like the rails, one on each side of the marble's plane and
     set back toward the wire's far side so the marble touches both where it touches the capsule, with ties at the
@@ -746,7 +749,7 @@ def switchback_spec(frame, piece):
     builder = MeshBuilder()
     if not wires:
         builder.box((0.02, 0.01, 0.004), (0.0, frame.marble_y, 0.0))
-        return {'root': builder.to_mesh('MM switchback', [themes.chrome_material()]), 'parts': []}
+        return {'root': builder.to_mesh('MM rail', [themes.chrome_material()]), 'parts': []}
     points = [point for wire in wires for point in wire]
     centre = (sum(x for x, _ in points) / len(points), sum(z for _, z in points) / len(points))
     if frame.style != 'chrome':
@@ -761,10 +764,10 @@ def switchback_spec(frame, piece):
             materials = [skin_materials.candy_material(CANDY_COLOR if frame.colour == 'skin' else frame.color), themes.chrome_material()]
         else:
             materials = [frame.toy(), themes.wood_material()]
-        return {'root': builder.to_mesh('MM switchback', materials), 'parts': []}
-    # Thicker than rail wires: a switchback is seen from further away and its short legs must still read
+        return {'root': builder.to_mesh('MM rail', materials), 'parts': []}
+    # Thicker than a single path's wires: several paths are seen from further away and their short legs must still read
     radius = min(physics_radius, 0.0022 * k)
-    gap = 1.25 * frame.marble_radius
+    gap = frame.params.get('gap', 1.25 * frame.marble_radius)
     reach = frame.marble_radius + radius
     half = min(gap / 2, reach * 0.95)
     # Wire centres sit back from the capsule line so the marble rests on both wires where it would touch the capsule
@@ -779,7 +782,7 @@ def switchback_spec(frame, piece):
                 builder.tube([(x, frame.marble_y - half, z), (x, frame.marble_y + half, z)], radius * 0.8, material=0, sides=8)
             builder.tube([(x, frame.marble_y + half, z), (x, frame.wall_y, z)], radius * 0.75, material=0, sides=8)
             builder.cylinder(0.0035 * k, 0.0015 * k, (x, frame.wall_y - 0.00075 * k, z), axis='Y', material=0, bevel=0.0004 * k)
-    return {'root': builder.to_mesh('MM switchback', [frame.metal(themes.chrome_material())]), 'parts': []}
+    return {'root': builder.to_mesh('MM rail', [frame.metal(themes.chrome_material())]), 'parts': []}
 
 
 def finish_spec(frame, piece):
@@ -859,7 +862,7 @@ def marble_side(wire, centre):
     """+1 when the marble rides on the left of the wire's direction, -1 on the right.
 
     A bent wire turns toward the marble: it rolls inside the bend, above the leg and inside the wall. A straight
-    wire, such as the exit stop, faces the middle of the switchback."""
+    wire, such as the exit stop, faces the middle of the rail."""
     turn = 0.0
     for (ax, az), (bx, bz), (cx, cz) in zip(wire, wire[1:], wire[2:]):
         turn += (bx - ax) * (cz - bz) - (bz - az) * (cx - bx)

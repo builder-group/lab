@@ -106,7 +106,7 @@ describe('MCP tools', () => {
 		expect(textOf(unknownHit)).toContain('no hit called no-such-hit');
 		const unknownPiece = await runTool(cx, 'run_command', { id: 'build.track', args: { gapPiece: 'tunnel' } });
 		expect(unknownPiece.isError).toBe(true);
-		expect(textOf(unknownPiece)).toContain('gapPiece is rail or switchback');
+		expect(textOf(unknownPiece)).toContain('gapPiece is rail, switchback or chain');
 	});
 
 	it('should make one project.execute one named Undo step, shown in Edit > Undo', async () => {
@@ -291,7 +291,7 @@ describe('MCP tools', () => {
 		it('should refuse a skin that does not exist, or fit, with the ones that do', async () => {
 			const { cx } = studio();
 			const marble = marbleOf(cx);
-			for (const assetId of ['marble:nosuchthing', 'platform:copper', 'switchback:gold', 'gift-red']) {
+			for (const assetId of ['marble:nosuchthing', 'platform:copper', 'rail:gold', 'gift-red']) {
 				const reply = await execute(cx, { type: 'applySkin', assetId, entityIds: [marble.id] });
 				expect(reply.isError, assetId).toBe(true);
 				expect(marbleOf(cx).components.skin).toBeUndefined();
@@ -323,7 +323,7 @@ describe('MCP tools', () => {
 			cx.library.$projectItems.set([skinItem('green-glass', 'marble')]);
 			const listed = JSON.parse(textOf(await runTool(cx, 'list_commands', {}))) as { skins: { builtIn: Record<string, string[]>; library: { id: string; fits: string }[] } };
 			expect(listed.skins.builtIn['marble']).toContain('marble:glass');
-			expect(listed.skins.builtIn['switchback']).toContain('switchback:chrome');
+			expect(listed.skins.builtIn['rail']).toContain('rail:chrome');
 			expect(listed.skins.library).toEqual([expect.objectContaining({ id: 'green-glass', fits: 'marble' })]);
 		});
 	});

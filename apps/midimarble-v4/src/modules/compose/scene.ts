@@ -7,6 +7,7 @@ import {
 	smoothPath,
 	type THitResult,
 	type TMarbleTrack,
+	type TRailLayout,
 	type TResolvedPiece,
 	type TSimulationResult
 } from '@/modules/simulation';
@@ -57,10 +58,10 @@ export function pieceCorners(piece: TResolvedPiece): TVec2[] {
 	].map(([x = 0, y = 0]) => ({ x: piece.position.x + x * cos - y * sin, y: piece.position.y + x * sin + y * cos }));
 }
 
-export type TPieceKind = 'box' | 'path' | 'tube' | 'rotor' | 'holder' | 'catcher';
+export type TPieceKind = 'box' | 'path' | 'tube' | 'rotor' | 'generated' | 'catcher';
 
-export function pieceKind(piece: { type: string }): TPieceKind {
-	return layoutOf(piece.type);
+export function pieceKind(piece: { type: string; layout?: TRailLayout | undefined }): TPieceKind {
+	return layoutOf(piece.type, piece.layout);
 }
 
 /**
@@ -70,7 +71,7 @@ export function pieceKind(piece: { type: string }): TPieceKind {
 export function pieceOutline(piece: TResolvedPiece): TVec2[] {
 	const kind = pieceKind(piece);
 	if (kind === 'box') return pieceCorners(piece);
-	if (kind === 'holder' || kind === 'catcher') {
+	if (kind === 'generated' || kind === 'catcher') {
 		// The rectangle around the walls and legs, or the Finish's wires
 		const points = (piece.paths ?? []).flat();
 		if (!points.length) return [piece.position];
@@ -470,16 +471,16 @@ export interface TPathRide {
 /** When the lane's marble rides on a rail or tunnel floor, from the result's samples */
 export function pathRide(result: TSimulationResult, piece: TResolvedPiece, laneId: string, until: number): TPathRide {
 	const marble = result.marbles.find((track) => track.laneId === laneId);
-	const path = piece.path ?? [];
+	const paths = piece.paths ?? (piece.path != null ? [piece.path] : []);
 	const from = (pieceTime(piece) ?? 0) - 2 / PHYSICS_HZ;
-	if (marble == null || path.length < 2) return { enter: null, leave: null };
+	if (marble == null || !paths.some((path) => path.length >= 2)) return { enter: null, leave: null };
 	const reach = marble.radius + (piece.params['radius'] ?? 0.002) + 0.002;
 	let enter: number | null = null;
 	let leave: number | null = null;
 	for (const sample of marble.samples) {
 		if (sample.time < from) continue;
 		if (sample.time > until) break;
-		const isNear = projectOnPath(path, sample.position.x, sample.position.y).distance <= reach;
+		const isNear = paths.some((path) => projectOnPath(path, sample.position.x, sample.position.y).distance <= reach);
 		if (isNear) {
 			enter ??= sample.time;
 			leave = null;

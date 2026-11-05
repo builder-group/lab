@@ -251,7 +251,7 @@ def check_gift_candy():
     first = materials(skins.build_spec('piece', dict(piece(linked_skin('platform:gift')), id='gift-1'), brass))
     check(first == materials(skins.build_spec('piece', dict(piece(linked_skin('platform:gift')), id='gift-1'), brass)), 'a piece keeps its paper on every apply')
 
-    for element in ('rail', 'switchback'):
+    for element in ('rail',):
         names = materials(skins.build_spec('piece', piece(linked_skin(element + ':candy'), element), brass))
         check(any(name.startswith('MM · candy #c8202c') for name in names), 'Candy %s is striped red and white (%s)' % (element, names))
         names = materials(skins.build_spec('piece', piece(linked_skin(element + ':candy', colour='marble'), element), brass))

@@ -54,6 +54,8 @@ const SReleaseComponent = z.strictObject({
 
 const SPieceComponent = z.strictObject({
 	type: z.string(),
+	// How a Rail gets its paths; absent is one it holds itself, drawn or tapped in `path`
+	layout: z.enum(['path', 'curve', 'c', 'chain', 'switchback']).optional(),
 	params: z.record(z.string(), z.number())
 });
 
@@ -99,7 +101,9 @@ const SPathComponent = z.strictObject({
 	points: z.array(SVec2).min(2),
 	// The editable curve the points were sampled from, set for rails drawn with the path tool. The engine
 	// only reads `points`; files without nodes stay valid.
-	nodes: z.array(SPathNode).min(2).optional()
+	nodes: z.array(SPathNode).min(2).optional(),
+	// A Rail's further paths in the same local coordinates, with gaps between them
+	paths: z.array(z.array(SVec2).min(2)).optional()
 });
 
 /**
@@ -134,7 +138,6 @@ const SThemeParts = z.strictObject({
 	platform: SThemePart.optional(),
 	rail: SThemePart.optional(),
 	tunnel: SThemePart.optional(),
-	switchback: SThemePart.optional(),
 	windmill: SThemePart.optional(),
 	finish: SThemePart.optional(),
 	marble: SThemePart.optional()
@@ -155,7 +158,7 @@ const SWallTextComponent = z.strictObject({
 });
 
 /**
- * The ride a marble took through a switchback or rail, relative to where it entered: the frames are x, y (micrometres)
+ * The ride a marble took along a rail, relative to where it entered: the frames are x, y (micrometres)
  * and rolled angle (1e-4 rad) per physics step after the entry. `key` says which shape of the piece it was made on.
  */
 const STransitComponent = z.strictObject({

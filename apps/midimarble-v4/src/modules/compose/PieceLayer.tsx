@@ -43,7 +43,7 @@ const PieceShape = React.memo(function PieceShape(props: { compose: TScreenProje
 	const kind = pieceKind(piece);
 	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={1} />;
 	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={1} />;
-	if (kind === 'holder') return <SwitchbackShape compose={compose} piece={piece} scale={scale} opacity={1} />;
+	if (kind === 'generated') return <RailPathsShape compose={compose} piece={piece} scale={scale} opacity={1} />;
 	if (kind === 'catcher') return <FinishShape compose={compose} piece={piece} scale={scale} opacity={1} />;
 	return <MinimumShape compose={compose} piece={piece} />;
 });
@@ -116,8 +116,8 @@ export const TunnelShape: React.FC<TShapeProps> = (props) => {
 	);
 };
 
-/** Walls and legs of a switchback as single wires */
-export const SwitchbackShape: React.FC<TShapeProps> = (props) => {
+/** A Rail's several paths as single wires */
+export const RailPathsShape: React.FC<TShapeProps> = (props) => {
 	const { compose, piece, scale, opacity, dashed = false, tint } = props;
 	const palette = props.palette ?? paletteOf(piece.type);
 	const wire = Math.max((piece.params['radius'] ?? 0.0025) * 2 * scale, 1.5);

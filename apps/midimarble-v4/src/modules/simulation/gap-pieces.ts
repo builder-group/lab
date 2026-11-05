@@ -18,8 +18,8 @@ import {
 } from './assists';
 import { gravityOf } from './geometry';
 import { descentPace, paceAt } from './pace';
-import { layoutOf, switchbackGeometry, switchbackHoldTime } from './piece-layout';
-import { getPieceDefinition, KIT_SCALE, resolvePieceParams } from './pieces';
+import { chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime } from './piece-layout';
+import { getPieceDefinition, KIT_SCALE, railLayoutInfo, resolvePieceParams, type TRailLayout } from './pieces';
 import { createLinkedPiece, frameBand } from './placement';
 import { projectOnPath, shapesBounds } from './shapes';
 import { trajectoryAt } from './simulate';
@@ -27,9 +27,19 @@ import { columnOffset, extraStrikes, MIN_PIECE_GAP, nearestPieceGap } from './tr
 import { HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from './types';
 import type { TGapPieceType } from './worker-protocol';
 
-/** The piece a long gap gets first: a rail, since a switchback is only for what nothing else bridges, or the one asked for */
-export function gapPieceOrder(preferred?: 'rail' | 'switchback' | null): TGapPieceType[] {
+/**
+ * What a long gap gets first: a straight Rail, since the Switchback layout is only for what nothing else bridges, or the
+ * one asked for. A Chain falls back to the Switchback layout, which it is measured against.
+ */
+export function gapPieceOrder(preferred?: 'rail' | 'switchback' | 'chain' | null): TGapPieceType[] {
+	if (preferred === 'chain') return ['chain', 'switchback'];
 	return preferred === 'switchback' ? ['switchback', 'rail'] : ['rail', 'switchback'];
+}
+
+/** What a gap search asks for to make a piece like this one again */
+export function gapPieceTypeOf(piece: { type: string; layout?: TRailLayout | undefined }): TGapPieceType {
+	if (piece.type === 'tunnel') return 'tunnel';
+	return piece.layout === 'switchback' || piece.layout === 'chain' ? piece.layout : 'rail';
 }
 
 /**
@@ -129,8 +139,8 @@ interface TGapCandidate {
 	slope: number;
 }
 
-/** A candidate a gap search simulates: a rail or tunnel, or a switchback */
-export type TGapTry = TGapCandidate | TSwitchbackCandidate;
+/** A candidate a gap search simulates: a straight rail or tunnel, or a Rail with generated turns */
+export type TGapTry = TGapCandidate | TTurnsCandidate;
 
 /** How a simulated candidate played, or null when it is never suggested */
 export type TGapEvaluation = { score: number; check: TGapPieceCheck } | null;
@@ -140,7 +150,7 @@ export type TGapEvaluation = { score: number; check: TGapPieceCheck } | null;
  * candidates in the order they are tried, and what builds the piece
  */
 export interface TGapSearchPlan {
-	type: 'rail' | 'tunnel' | 'switchback';
+	type: TGapPieceType;
 	id: string;
 	count: number;
 	laneId: string;
@@ -162,15 +172,15 @@ export interface TGapSearch {
 /** The proposal for one of a plan's candidates */
 export function gapProposal(plan: TGapSearchPlan, candidate: TGapTry, check: TGapPieceCheck | null): TGapPieceProposal {
 	const entryDelay = candidate.entryTime - plan.fromTime;
-	const isSwitchback = plan.type === 'switchback' && 'legs' in candidate;
-	const entity = isSwitchback
-		? switchbackEntity(plan.id, plan.count, plan.laneId, plan.fromHitId, entryDelay, candidate)
+	const hasTurns = (plan.type === 'switchback' || plan.type === 'chain') && 'turns' in candidate;
+	const entity = hasTurns
+		? turnsEntity(plan.type as TTurnsLayout, plan.id, plan.count, plan.laneId, plan.fromHitId, entryDelay, candidate)
 		: gapEntity(plan.type === 'tunnel' ? 'tunnel' : 'rail', plan.id, plan.count, plan.laneId, plan.fromHitId, entryDelay, candidate as TGapCandidate);
 	return {
 		entity,
 		commands: [{ type: 'upsertEntity', entity }],
 		entryTime: candidate.entryTime,
-		length: isSwitchback ? candidate.width : (candidate as TGapCandidate).length,
+		length: hasTurns ? candidate.width : (candidate as TGapCandidate).length,
 		slope: candidate.slope,
 		check
 	};
@@ -183,16 +193,19 @@ export function gapProposal(plan: TGapSearchPlan, candidate: TGapTry, check: TGa
  */
 export function* gapSearch(plan: TGapSearchPlan): Generator<TGapTry[], TResult<TGapPieceProposal, Error>, TGapEvaluation[]> {
 	let best: { score: number; candidate: TGapTry; check: TGapPieceCheck } | null = null;
+	const hasTurns = plan.type === 'switchback' || plan.type === 'chain';
 	const reduce = (candidates: TGapTry[], evaluations: TGapEvaluation[]): void => {
 		candidates.forEach((candidate, index) => {
 			const played = evaluations[index];
+			// A marble still inside the turns at the next hit is stuck in them, whatever else the candidate does well
+			if (hasTurns && played != null && played.check.leaveTime == null) return;
 			if (played != null && (best == null || played.score < best.score - 1e-9)) best = { score: played.score, candidate, check: played.check };
 		});
 	};
 	reduce(plan.candidates, yield plan.candidates);
 	const found = best as { score: number; candidate: TGapTry; check: TGapPieceCheck } | null;
 	if (found == null)
-		return Err(new Error(plan.type === 'switchback' ? 'Every switchback crosses the earlier trajectory or another lane' : 'Every candidate crosses the earlier trajectory or another lane'));
+		return Err(new Error(hasTurns ? 'Every candidate crosses the earlier trajectory or another lane, or holds the marble' : 'Every candidate crosses the earlier trajectory or another lane'));
 	// Steeper legs hold shorter and drop the marble lower; one round of neighbouring slopes
 	if (plan.isRefined) {
 		const neighbours: TGapTry[] = [];
@@ -217,9 +230,9 @@ function runGapSearch(prepared: TResult<TGapSearch, Error>, isSimulated: boolean
 	return step.value;
 }
 
-/** Prepares the search for a rail, tunnel or switchback across a long gap; see `createRailForGap` and the others */
+/** Prepares the search for a rail, tunnel, Switchback or Chain across a long gap; see `createRailForGap` and the others */
 export function prepareGapSearch(
-	type: 'rail' | 'tunnel' | 'switchback',
+	type: TGapPieceType,
 	project: TProject,
 	result: TSimulationResult,
 	laneId: string,
@@ -227,8 +240,8 @@ export function prepareGapSearch(
 	toHitId: string,
 	options: TGapPieceOptions = {}
 ): TResult<TGapSearch, Error> {
-	return type === 'switchback'
-		? prepareSwitchback(project, result, laneId, fromHitId, toHitId, options)
+	return type === 'switchback' || type === 'chain'
+		? prepareTurns(type, project, result, laneId, fromHitId, toHitId, options)
 		: prepareGapPiece(type, project, result, laneId, fromHitId, toHitId, options);
 }
 
@@ -411,7 +424,8 @@ function gapEntity(
 ): TEntity {
 	const { downhill, length, catchLength, slope } = candidate;
 	const definition = getPieceDefinition(type);
-	const params = resolvePieceParams(type, { entryDelay: Math.round(entryDelay * 1000) / 1000 });
+	const delay = Math.round(entryDelay * 1000) / 1000;
+	const params = type === 'rail' ? railParams('path', { entryDelay: delay }) : resolvePieceParams(type, { entryDelay: delay });
 	// Local path along the downhill direction through the entry point at the origin, with the catch
 	// section behind it. The angle tilts it downhill.
 	const scale = 1 / Math.cos(slope);
@@ -478,17 +492,17 @@ function checkGapPiece(
 	};
 }
 
-/** The switchback, rail or tunnel linked to a hit of the lane, if any */
+/** The rail or tunnel linked to a hit of the lane, if any */
 function findGapPiece(project: TProject, laneId: string, hitId: string): TEntity | undefined {
 	return project.entities.find((entity) => {
 		const { piece, hitLink } = entity.components;
 		if (piece == null || hitLink?.laneId !== laneId || hitLink.hitId !== hitId) return false;
 		const kind = layoutOf(piece.type);
-		return kind === 'path' || kind === 'tube' || kind === 'holder';
+		return kind === 'path' || kind === 'tube';
 	});
 }
 
-// Switchbacks
+// Rails with generated turns: the Switchback and Chain layouts
 
 const SWITCHBACK_MARGIN = 0.01;
 // How far below the launching hit the marble enters, so the switchback stays clear of the piece above it as the
@@ -516,14 +530,40 @@ const EDGE_SHARE = 0.75;
 const SHORTLIST = 10;
 const ESTIMATE_SLACK = 0.6;
 
-interface TSwitchbackCandidate {
+type TTurnsLayout = 'switchback' | 'chain';
+
+interface TTurnsCandidate {
 	entryTime: number;
-	/** Direction of the first leg downhill along x, +1 or -1 */
+	/** Direction of the first turn along x, +1 or -1 */
 	downhill: number;
 	contactAt: number;
 	width: number;
-	legs: number;
+	turns: number;
 	slope: number;
+}
+
+/** A Rail's parameters for a layout: its own and the delay, the rest being the definition's */
+function railParams(layout: TRailLayout, values: Record<string, number>): Record<string, number> {
+	const resolved = resolvePieceParams('rail', { ...railLayoutInfo[layout].defaults, ...values });
+	const params: Record<string, number> = {};
+	for (const name of [...railLayoutInfo[layout].params, 'entryDelay']) params[name] = resolved[name] ?? 0;
+	return params;
+}
+
+/**
+ * A Chain's curve and lip by the slope a gap search tries: a shallow slope stands for tight, short turns that hold the
+ * marble longest and a steep one for wide turns that come round further. Fitted on Jingle Bells' gaps: lips of 95° to
+ * 110° and curves of 3 to 8 cm.
+ */
+export function chainSwing(slope: number): { arc: number; sweep: number } {
+	const share = (Math.min(25 * DEGREE, Math.max(2 * DEGREE, Math.abs(slope))) - 2 * DEGREE) / (23 * DEGREE);
+	return { arc: Math.round((0.03 + 0.05 * share) * 1e4) / 1e4, sweep: Math.round((95 + 15 * share) * 10) / 10 };
+}
+
+/** The parameters of a candidate's turns */
+function turnsParams(layout: TTurnsLayout, candidate: Pick<TTurnsCandidate, 'turns' | 'width' | 'slope'>): Record<string, number> {
+	const { turns, width, slope } = candidate;
+	return layout === 'chain' ? { turns, width, ...chainSwing(slope) } : { turns, width };
 }
 
 /**
@@ -545,10 +585,23 @@ export function createSwitchbackForGap(
 	toHitId: string,
 	options: TGapPieceOptions = {}
 ): TResult<TGapPieceProposal, Error> {
-	return runGapSearch(prepareSwitchback(project, result, laneId, fromHitId, toHitId, options), options.simulate != null);
+	return runGapSearch(prepareTurns('switchback', project, result, laneId, fromHitId, toHitId, options), options.simulate != null);
 }
 
-function prepareSwitchback(
+/** A Rail with the Chain layout across a long gap, searched like the Switchback layout and always simulated */
+export function createChainForGap(
+	project: TProject,
+	result: TSimulationResult,
+	laneId: string,
+	fromHitId: string,
+	toHitId: string,
+	options: TGapPieceOptions = {}
+): TResult<TGapPieceProposal, Error> {
+	return runGapSearch(prepareTurns('chain', project, result, laneId, fromHitId, toHitId, options), options.simulate != null);
+}
+
+function prepareTurns(
+	layout: TTurnsLayout,
 	project: TProject,
 	result: TSimulationResult,
 	laneId: string,
@@ -590,11 +643,12 @@ function prepareSwitchback(
 	const isMending = hitOwners(project, laneId).has(to.id);
 	const id = replaced?.id ?? options.id ?? createId('piece');
 	const count = project.entities.filter(
-		(entity) => entity.components.piece?.type === 'switchback' && entity.id !== replaced?.id
+		(entity) => entity.components.piece?.type === 'rail' && entity.id !== replaced?.id
 	).length;
-	const defaults = resolvePieceParams('switchback', {});
-	const build = (candidate: TSwitchbackCandidate): TEntity =>
-		switchbackEntity(id, count, laneId, fromHitId, candidate.entryTime - from.time, candidate);
+	const defaults = resolvePieceParams('rail', railLayoutInfo[layout].defaults);
+	const defaultWidth = resolvePieceParams('rail', {})['width'] ?? 0.15;
+	const build = (candidate: TTurnsCandidate): TEntity =>
+		turnsEntity(layout, id, count, laneId, fromHitId, candidate.entryTime - from.time, candidate);
 
 	const entryTimes =
 		options.entryTime != null
@@ -605,13 +659,13 @@ function prepareSwitchback(
 					(time): time is number => time != null
 				);
 	const slopes = options.slope != null ? [options.slope] : SWITCHBACK_SLOPES;
-	type TRanked = { candidate: TSwitchbackCandidate; predicted: number };
+	type TRanked = { candidate: TTurnsCandidate; predicted: number };
 	const ranked: TRanked[] = [];
 	for (const entryTime of [...new Set(entryTimes)]) {
 		const entry = trajectoryAt(samples, entryTime, -GRAVITY);
 		if (entry == null) continue;
-		for (const width of SWITCHBACK_WIDTHS.map((share) => share * (defaults['width'] ?? 0.15))) {
-			const fits: Omit<TSwitchbackCandidate, 'legs' | 'slope'>[] = [];
+		for (const width of SWITCHBACK_WIDTHS.map((share) => share * defaultWidth)) {
+			const fits: Omit<TTurnsCandidate, 'turns' | 'slope'>[] = [];
 			for (const downhill of [1, -1]) {
 				for (const contactAt of SWITCHBACK_ENTRIES) {
 					const a = entry.position.x - downhill * contactAt * width;
@@ -623,29 +677,28 @@ function prepareSwitchback(
 			}
 			if (!fits.length) continue;
 			// Leg counts and slopes by their estimated pace error at the next hit
-			const params = { ...defaults, width };
-			const estimates: { legs: number; slope: number; predicted: number }[] = [];
-			for (const legs of SWITCHBACK_LEGS) {
+			const estimates: { turns: number; slope: number; predicted: number }[] = [];
+			for (const turns of SWITCHBACK_LEGS) {
 				for (const slope of slopes) {
-					const sized = { ...params, legs };
+					const sized = { ...defaults, ...turnsParams(layout, { turns, width, slope }) };
 					const exitTime =
 						entryTime +
-						switchbackHoldTime(sized, slope, GRAVITY, Math.hypot(entry.velocity.x, entry.velocity.y));
+						(layout === 'chain' ? chainHoldTime(sized) : switchbackHoldTime(sized, slope, GRAVITY, Math.hypot(entry.velocity.x, entry.velocity.y)));
 					const fall = to.time - exitTime;
 					if (fall < minExitFall - ESTIMATE_SLACK) continue;
-					const geometry = switchbackGeometry(sized, -slope, 0.5, entry.position, marbleRadius, null);
+					const geometry = (layout === 'chain' ? chainGeometry : switchbackGeometry)(sized, -slope, 0.5, entry.position, marbleRadius, null);
 					const y = geometry.exit.y - (GRAVITY * fall * fall) / 2;
-					estimates.push({ legs, slope, predicted: targetY != null ? y - targetY : 0 });
+					estimates.push({ turns, slope, predicted: targetY != null ? y - targetY : 0 });
 				}
 			}
 			estimates.sort(
 				(a, b) =>
-					Math.abs(a.predicted) - Math.abs(b.predicted) || a.legs - b.legs || a.slope - b.slope
+					Math.abs(a.predicted) - Math.abs(b.predicted) || a.turns - b.turns || a.slope - b.slope
 			);
 			for (const estimate of estimates.slice(0, SHORTLIST)) {
 				for (const fit of fits)
 					ranked.push({
-						candidate: { ...fit, legs: estimate.legs, slope: estimate.slope },
+						candidate: { ...fit, turns: estimate.turns, slope: estimate.slope },
 						predicted: estimate.predicted
 					});
 			}
@@ -655,12 +708,12 @@ function prepareSwitchback(
 	if (first == null)
 		return Err(
 			new Error(
-				'The marble does not fall below the hit before the gap ends, or the frame has no room for a switchback'
+				'The marble does not fall below the hit before the gap ends, or the frame has no room for the turns'
 			)
 		);
 
 	const plan: TGapSearchPlan = {
-		type: 'switchback',
+		type: layout,
 		id,
 		count,
 		laneId,
@@ -675,7 +728,7 @@ function prepareSwitchback(
 	const owners = hitOwners(project, laneId);
 	const frontiers = openFrontiers(project, result);
 	const evaluate = (item: TGapTry): TGapEvaluation => {
-		const candidate = item as TSwitchbackCandidate;
+		const candidate = item as TTurnsCandidate;
 		const entity = build(candidate);
 		// A flat probe on the next hit checks that its dot can take a piece below the switchback
 		const probe = !owners.has(to.id)
@@ -713,7 +766,7 @@ function prepareSwitchback(
 				? ((played.check.paceError ?? 0) < 0 ? 2 : 1) * (paceError / limit) +
 					(paceError > limit ? 5 : 0)
 				: 0) +
-			0.01 * candidate.legs;
+			0.01 * candidate.turns;
 		return { score, check: played.check };
 	};
 	return Ok({ plan, evaluate });
@@ -758,25 +811,21 @@ function findDropTime(
 	return null;
 }
 
-function switchbackEntity(
+function turnsEntity(
+	layout: TTurnsLayout,
 	id: string,
 	count: number,
 	laneId: string,
 	hitId: string,
 	entryDelay: number,
-	candidate: TSwitchbackCandidate
+	candidate: TTurnsCandidate
 ): TEntity {
-	const definition = getPieceDefinition('switchback');
-	const params = resolvePieceParams('switchback', {
-		entryDelay: Math.round(entryDelay * 1000) / 1000,
-		width: candidate.width,
-		legs: candidate.legs
-	});
+	const params = railParams(layout, { entryDelay: Math.round(entryDelay * 1000) / 1000, ...turnsParams(layout, candidate) });
 	return {
 		id,
-		name: `${definition?.label ?? 'Switchback'} ${count + 1}`,
+		name: `${getPieceDefinition('rail')?.label ?? 'Rail'} ${count + 1}`,
 		components: {
-			piece: { type: 'switchback', params },
+			piece: { type: 'rail', layout, params },
 			hitLink: {
 				laneId,
 				hitId,
@@ -787,7 +836,7 @@ function switchbackEntity(
 	};
 }
 
-/** How a switchback played: when the marble dropped below it, frame, pace and stray contacts */
+/** How a Rail's turns played: when the marble dropped below it, frame, pace and stray contacts */
 function checkSwitchback(
 	trial: TSimulationResult,
 	project: TProject,

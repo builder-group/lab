@@ -12,7 +12,7 @@ function pieceOf(result: TSimulationResult, entityId: string): TResolvedPiece {
 	return piece;
 }
 
-// Free rails and switchbacks report their transform as the position, so compare their world points
+// Free rails report their transform as the position, so compare their world points
 function expectSamePose(after: TResolvedPiece, before: TResolvedPiece, tolerance = 1e-6): void {
 	const points = (piece: TResolvedPiece) => piece.paths?.flat() ?? piece.path ?? [piece.position];
 	const a = points(after);
@@ -71,14 +71,14 @@ describe('attach helpers', () => {
 		const base = loadFixture('zigzag');
 		const lane = base.music.lanes[0];
 		if (lane == null) throw new Error('No lane');
-		const away = (id: string, type: string, x: number, y: number, angle: number): TEntity => ({
+		const away = (id: string, type: string, x: number, y: number, angle: number, layout?: 'switchback'): TEntity => ({
 			id,
 			name: id,
-			components: { piece: { type, params: {} }, transform: { position: { x, y }, angle } }
+			components: { piece: { type, ...(layout != null ? { layout } : {}), params: {} }, transform: { position: { x, y }, angle } }
 		});
 		const project = apply(base, [
 			{ type: 'upsertEntity', entity: away('scenery-rail', 'rail', 1.5, -0.4, -0.2) },
-			{ type: 'upsertEntity', entity: away('scenery-switchback', 'switchback', -1.5, -0.6, -0.15) },
+			{ type: 'upsertEntity', entity: away('scenery-switchback', 'rail', -1.5, -0.6, -0.15, 'switchback') },
 			{ type: 'upsertEntity', entity: away('scenery-windmill', 'windmill', 1.5, 0.2, 0.3) }
 		]);
 		let result = simulator.simulate(project);

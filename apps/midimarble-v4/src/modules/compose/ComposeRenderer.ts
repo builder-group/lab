@@ -461,7 +461,6 @@ export const piecePalette: Record<string, { bar: string; nub: string }> = {
 	rail: { bar: '#3c9ee0', nub: '#2373ad' },
 	tunnel: { bar: '#9a7bf0', nub: '#6c4fd0' },
 	windmill: { bar: '#4fb879', nub: '#2f8a52' },
-	switchback: { bar: '#d9a520', nub: '#a87c10' },
 	// A clear chute: pale steel wires
 	finish: { bar: '#8fa3b8', nub: '#5f7287' }
 };

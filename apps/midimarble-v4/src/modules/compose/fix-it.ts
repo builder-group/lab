@@ -595,7 +595,7 @@ export async function sceneryFix(
 	const gap = findLongGaps(project, link.laneId).find((item) => item.bridgedBy === entityId);
 	const type = entity.components.piece?.type;
 	if (gap != null && deps.gapPiece != null && isGapPieceType(type)) {
-		const types: TGapPieceType[] = type === 'switchback' ? ['switchback', 'rail'] : type === 'rail' ? ['rail', 'switchback'] : [type];
+		const types: TGapPieceType[] = type === 'switchback' ? ['switchback', 'rail'] : type === 'chain' ? ['chain', 'switchback'] : type === 'rail' ? ['rail', 'switchback'] : [type];
 		const without = { ...project, entities: project.entities.filter((item) => item.id !== entityId) };
 		for (const kind of types) {
 			let suggested: TEntity | null;
@@ -947,7 +947,7 @@ async function bridgeCommands(fixing: TFixing, base: TProject, gap: TLongGap, br
 	const bridgeType = bridge.components.piece?.type;
 	if (!isGapPieceType(bridgeType)) return null;
 	// Like Next, a rail where no switchback fits any more, and a switchback where no rail does
-	const types: TGapPieceType[] = bridgeType === 'switchback' ? ['switchback', 'rail'] : bridgeType === 'rail' ? ['rail', 'switchback'] : [bridgeType];
+	const types: TGapPieceType[] = bridgeType === 'switchback' ? ['switchback', 'rail'] : bridgeType === 'chain' ? ['chain', 'switchback'] : bridgeType === 'rail' ? ['rail', 'switchback'] : [bridgeType];
 	const without = { ...base, entities: base.entities.filter((item) => item.id !== bridge.id) };
 	for (const type of types) {
 		let suggested: TEntity | null;
@@ -1336,7 +1336,7 @@ function firstBrokenTime(result: TSimulationResult, only?: string[]): number {
 }
 
 function isGapPieceType(type: string | undefined): type is TGapPieceType {
-	return type === 'switchback' || type === 'rail' || type === 'tunnel';
+	return type === 'rail' || type === 'tunnel';
 }
 
 function round4(value: number): number {

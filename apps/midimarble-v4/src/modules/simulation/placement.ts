@@ -1,6 +1,6 @@
 import { createId, LANE_SPACING, type TEntity, type TProject, type TVec2 } from '@/modules/project';
 import { nextPieceName } from './piece-names';
-import { getPieceDefinition } from './pieces';
+import { getPieceDefinition, type TRailLayout } from './pieces';
 
 const DEFAULT_TILT = (15 * Math.PI) / 180;
 // Dots closer than this to the frame centre lean against the horizontal motion instead
@@ -25,6 +25,8 @@ export function defaultPlatformAngle(
 }
 
 export interface TCreateLinkedPieceOptions {
+	/** How a Rail gets its paths */
+	layout?: TRailLayout;
 	/** Existing entities, used to number the name */
 	entities?: TEntity[];
 	id?: string;
@@ -48,7 +50,7 @@ export function createLinkedPiece(
 		id,
 		name: nextPieceName(type, entities),
 		components: {
-			piece: { type, params },
+			piece: { type, ...(options.layout != null ? { layout: options.layout } : {}), params },
 			hitLink: { laneId, hitId, angle, contactAt: options.contactAt ?? 0.5 }
 		}
 	};

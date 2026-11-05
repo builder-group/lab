@@ -1,5 +1,5 @@
 import type { TEntity } from '@/modules/project';
-import { getPieceDefinition, layoutOf } from '@/modules/simulation';
+import { getPieceDefinition, layoutOf, railLayoutInfo, type TRailLayout } from '@/modules/simulation';
 
 /** The parameters the Physics panel holds: how a piece behaves. Everything else shapes its Hitbox. */
 const PHYSICS_PARAMS = ['bounce', 'damping', 'motorSpeed'];
@@ -7,9 +7,10 @@ const PHYSICS_PARAMS = ['bounce', 'damping', 'motorSpeed'];
 /**
  * A piece type's parameters by inspector panel: Hitbox for what a marble touches, Physics for how it behaves. A
  * box's Length sits in Position, the moment a piece follows in its link panel and a Finish's Style and Mirror in its
- * own panel.
+ * own panel. A Rail shows what its layout uses.
  */
-export function pieceParamPanels(type: string): { hitbox: string[]; physics: string[] } {
+export function pieceParamPanels(type: string, railLayout?: TRailLayout): { hitbox: string[]; physics: string[] } {
+	if (type === 'rail') return { hitbox: railLayoutInfo[railLayout ?? 'path'].params, physics: [] };
 	const layout = layoutOf(type);
 	const names = Object.keys(getPieceDefinition(type)?.params ?? {}).filter((name) => name !== 'entryDelay' && !(layout === 'box' && name === 'length') && !(layout === 'catcher' && (name === 'style' || name === 'mirror')));
 	return {

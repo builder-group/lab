@@ -16,7 +16,7 @@ export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMen
 	const index = lane?.hits.findIndex((item) => item.id === hitId) ?? -1;
 	const pitch = lane?.hits[index]?.pitch;
 	const gap = compose.longGapKeys(project).get(`${laneId}:${hitId}`);
-	const bridge = (type: 'switchback' | 'rail' | 'tunnel'): void => {
+	const bridge = (type: 'switchback' | 'chain' | 'rail' | 'tunnel'): void => {
 		if (gap != null) compose.assist.suggestGapPiece(type, laneId, gap.fromHitId, hitId, { accept: true });
 	};
 
@@ -25,8 +25,9 @@ export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMen
 		{ label: 'Add Platform', shortcut: 'A', onSelect: () => compose.placePlatform(hit) },
 		gap != null ? 'separator' : null,
 		gap != null ? { section: `Long Gap · ${gap.duration.toFixed(1)} s` } : null,
-		gap != null ? { label: 'Add Switchback', onSelect: () => bridge('switchback') } : null,
 		gap != null ? { label: 'Add Rail', onSelect: () => bridge('rail') } : null,
+		gap != null ? { label: 'Add Rail: Switchback', onSelect: () => bridge('switchback') } : null,
+		gap != null ? { label: 'Add Rail: Chain', onSelect: () => bridge('chain') } : null,
 		gap != null ? { label: 'Add Tunnel', onSelect: () => bridge('tunnel') } : null,
 		'separator',
 		{ label: 'Go to Note', onSelect: () => cx.$playhead.set(hit.targetTime) }

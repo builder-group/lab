@@ -401,7 +401,7 @@ export class ComposeCx {
 		if (drag?.kind === 'path' && drag.entityId === entityId) return drag.points;
 		const piece = this.project?.entities.find((entity) => entity.id === entityId)?.components;
 		if (piece?.piece == null) return null;
-		const kind = layoutOf(piece.piece.type);
+		const kind = layoutOf(piece.piece.type, piece.piece.layout);
 		if (kind !== 'path' && kind !== 'tube') return null;
 		return resolvePiecePath(piece.piece.type, piece.path?.points);
 	}
@@ -1234,7 +1234,7 @@ export class ComposeCx {
 		const ghost = this.assist.clickableGhost;
 		if (ghost != null && picked?.kind !== 'dot' && this.$tool.get() === 'select' && isOnGhost(point, this.screenOutline(ghost))) return { kind: 'ghost' };
 		if (picked != null || !this.isSceneryTool()) return picked;
-		// Windmills and switchbacks can also start anywhere on a trajectory, not only at a hit
+		// Windmills can also start anywhere on a trajectory, not only at a hit
 		return pickTrack(point, this.screenTrackPoints());
 	}
 
@@ -1243,10 +1243,10 @@ export class ComposeCx {
 		return 'platform';
 	}
 
-	/** True for a scenery tool (windmill, switchback, finish), which anchors its piece where the trajectory is clicked */
+	/** True for a scenery tool (windmill, finish), which anchors its piece where the trajectory is clicked */
 	isSceneryTool(): boolean {
 		const tool = this.$tool.get();
-		return tool === 'windmill' || tool === 'switchback' || tool === 'finish';
+		return tool === 'windmill' || tool === 'finish';
 	}
 
 	/** Arms a tool; the path tool takes the piece it draws, a rail unless asked for a tunnel */
@@ -1391,7 +1391,7 @@ export class ComposeCx {
 	/**
 	 * The scenery piece the armed tool adds where the marble is at `time`, or why none fits. A windmill sits
 	 * beside the fall, its arms clear of every marble's path, so adding one keeps the run; dragging it into the
-	 * path afterwards makes the marble turn it. A switchback is laid out against the marble, since it holds it.
+	 * path afterwards makes the marble turn it. Generated rail paths are laid out against the marble, since they hold it.
 	 */
 	private followerFor(laneId: string, time: number): { entity: TEntity; pose: TPose | null } | { error: string } | null {
 		const project = this.project;
@@ -1447,7 +1447,7 @@ export class ComposeCx {
 	}
 
 	/**
-	 * While an armed Windmill or Switchback hovers over a trajectory or a dot, or the Platform tool over a
+	 * While an armed Windmill hovers over a trajectory or a dot, or the Platform tool over a
 	 * trajectory, shows the piece a click would add and the run with it, like a drag's what-if
 	 */
 	private updateHoverPreview(point: TVec2, hover: TPick | null): void {

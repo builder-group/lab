@@ -21,11 +21,13 @@ describe('pieceParamPanels function', () => {
 		expect(panels.physics).toEqual(['bounce']);
 	});
 
-	it('should show a switchback\'s shape in Hitbox and no empty Physics', () => {
-		const panels = pieceParamPanels('switchback');
+	it('should show what a Rail\'s layout uses in Hitbox and no empty Physics', () => {
+		const panels = pieceParamPanels('rail', 'switchback');
 
-		expect(panels.hitbox).toEqual(['width', 'legs', 'drop', 'opening', 'lip', 'bend', 'radius']);
+		expect(panels.hitbox).toEqual(['turns', 'width', 'drop', 'opening', 'lip', 'bend', 'radius', 'gap']);
 		expect(panels.physics).toEqual([]);
+		expect(pieceParamPanels('rail').hitbox).toEqual(['radius', 'gap']);
+		expect(pieceParamPanels('rail', 'chain').hitbox).toContain('sweep');
 	});
 
 	it('should show a Finish\'s size in Hitbox, leaving Style and Mirror to its own panel', () => {

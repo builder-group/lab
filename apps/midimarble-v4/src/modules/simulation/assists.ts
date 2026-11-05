@@ -149,11 +149,11 @@ export function copyLinkedPiece(
 		id,
 		name: `${definition?.label ?? piece.type} ${count + 1}`,
 		components: {
-			piece: { type: piece.type, params: { ...piece.params } },
+			piece: { ...piece, params: { ...piece.params } },
 			hitLink: { laneId: hitLink.laneId, hitId, angle, contactAt }
 		}
 	};
-	if (points != null) entity.components.path = { points };
+	if (points != null) entity.components.path = { points, ...(path?.paths != null ? { paths: isMirrored ? path.paths.map((line) => line.map((point) => ({ x: -point.x, y: point.y }))) : path.paths } : {}) };
 	return entity;
 }
 
@@ -1488,7 +1488,7 @@ export function findLongGaps(
 			if (piece == null || hitLink == null) return false;
 			const kind = layoutOf(piece.type);
 			return (
-				(kind === 'path' || kind === 'tube' || kind === 'holder') &&
+				(kind === 'path' || kind === 'tube' || kind === 'generated') &&
 				hitLink.laneId === laneId &&
 				hitLink.hitId === from.id
 			);

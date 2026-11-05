@@ -326,63 +326,6 @@
 				}
 			]
 		},
-		"switchback": {
-			"label": "Switchback",
-			"plural": "Switchbacks",
-			"onHit": [
-				"none",
-				"glow"
-			],
-			"skins": [
-				{
-					"id": "switchback:chrome",
-					"label": "Chrome Switchback",
-					"colour": "skin",
-					"colours": [
-						"skin",
-						"marble"
-					],
-					"reacts": "none",
-					"preview": "switchback-chrome.png"
-				},
-				{
-					"id": "switchback:candy",
-					"label": "Candy Switchback",
-					"hidden": true,
-					"origin": "Christmas Pack",
-					"colour": "skin",
-					"colours": [
-						"skin",
-						"marble"
-					],
-					"reacts": "none",
-					"preview": "switchback-candy.png"
-				},
-				{
-					"id": "switchback:wood",
-					"label": "Wood Switchback",
-					"colour": "marble",
-					"colours": [
-						"skin",
-						"marble"
-					],
-					"reacts": "none",
-					"preview": "switchback-wood.png"
-				},
-				{
-					"id": "switchback:glow",
-					"label": "Glow Switchback",
-					"colour": "marble",
-					"colours": [
-						"skin",
-						"marble"
-					],
-					"reacts": "none",
-					"preview": "switchback-glow.png",
-					"glows": true
-				}
-			]
-		},
 		"windmill": {
 			"label": "Windmill",
 			"plural": "Windmills",
@@ -587,7 +530,6 @@
 			"platform": "platform:pegboard",
 			"rail": "rail:wood",
 			"tunnel": "tunnel:wood",
-			"switchback": "switchback:wood",
 			"windmill": "windmill:wood",
 			"finish": "finish:wood",
 			"marble": "marble:contrast"
@@ -596,7 +538,6 @@
 			"platform": "platform:gold",
 			"rail": "rail:chrome",
 			"tunnel": "tunnel:frosted",
-			"switchback": "switchback:chrome",
 			"windmill": "windmill:gold",
 			"finish": "finish:chrome",
 			"marble": "marble:contrast"
@@ -605,7 +546,6 @@
 			"platform": "platform:neon",
 			"rail": "rail:glow",
 			"tunnel": "tunnel:glow",
-			"switchback": "switchback:glow",
 			"windmill": "windmill:glow",
 			"finish": "finish:glow",
 			"marble": "marble:contrast"

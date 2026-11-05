@@ -13,7 +13,7 @@ import { filmCamera } from '@/modules/design/film-camera';
 import type { TLibraryItem } from '@/modules/library';
 import { z } from 'zod';
 import { applyProjectCommands, SComponents, SDesign, SEntity, SHit, SLane, SPhysics, SSource, STempo, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TVec2 } from '@/modules/project';
-import { getPieceDefinition, type TSimulationResult } from '@/modules/simulation';
+import { getPieceDefinition, RAIL_LAYOUTS, railLayoutInfo, type TRailLayout, type TSimulationResult } from '@/modules/simulation';
 
 // `project.execute` takes the project's own commands plus a few that say what an agent means, so it needs not know a
 // piece's every field. Each expands here into project commands, against the project as the earlier ones left it.
@@ -33,6 +33,10 @@ export type TAgentCommand =
 			name?: string;
 			/** A rail's or tunnel's points on the wall */
 			path?: TVec2[];
+			/** A Rail's further paths, in the same coordinates as `path` */
+			paths?: TVec2[][];
+			/** How a Rail gets its paths: `path` (drawn, the default), `curve`, `c`, `chain` or `switchback`, shaped by `params` such as `turns`, `width` and `drop` */
+			layout?: TRailLayout;
 	  }
 	/** A library item as the skin of a piece type or of pieces */
 	| { type: 'applySkin'; assetId: string; pieceType?: string; entityIds?: string[] }
@@ -88,7 +92,7 @@ const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
 	setPhysics: { schema: z.strictObject({ type: z.string(), physics: SPhysics }), example: "{ type: 'setPhysics', physics: { gravityScale: 0.5 } }" },
 	setTempo: { schema: z.strictObject({ type: z.string(), tempo: STempo.nullable() }), example: "{ type: 'setTempo', tempo: { bpm: 120, beatsPerBar: 4 } }" },
 	placePiece: {
-		schema: z.strictObject({ type: z.string(), pieceType: z.string(), hit: z.strictObject({ laneId: z.string(), hitId: z.string() }).optional(), position: SVec.optional(), angle: z.number().optional(), params: z.record(z.string(), z.number()).optional(), name: z.string().optional(), path: z.array(SVec).optional() }),
+		schema: z.strictObject({ type: z.string(), pieceType: z.string(), hit: z.strictObject({ laneId: z.string(), hitId: z.string() }).optional(), position: SVec.optional(), angle: z.number().optional(), params: z.record(z.string(), z.number()).optional(), name: z.string().optional(), path: z.array(SVec).optional(), paths: z.array(z.array(SVec)).optional(), layout: z.enum(RAIL_LAYOUTS).optional() }),
 		example: "{ type: 'placePiece', pieceType: 'platform', hit: { laneId, hitId }, angle }"
 	},
 	applySkin: { schema: z.strictObject({ type: z.string(), assetId: z.string(), pieceType: z.string().optional(), entityIds: z.array(z.string()).optional() }), example: "{ type: 'applySkin', assetId, pieceType }" },
@@ -382,6 +386,11 @@ function placedPiece(project: TProject, result: TSimulationResult | null, comman
 	if (command.angle != null && hitLink != null) hitLink.angle = command.angle;
 	if (command.angle != null && hitLink == null && transform != null) transform.angle = command.angle;
 	if (command.path != null && command.hit != null) entity.components.path = { points: command.path };
+	if (command.paths != null && entity.components.path != null) entity.components.path = { ...entity.components.path, paths: command.paths };
+	if (command.layout != null && piece != null && piece.type === 'rail') {
+		piece.layout = command.layout;
+		piece.params = { ...piece.params, ...railLayoutInfo[command.layout].defaults, ...command.params };
+	}
 	if (command.name != null) entity.name = command.name;
 	return Ok(entity);
 }

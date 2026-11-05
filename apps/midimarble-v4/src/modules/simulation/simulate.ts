@@ -13,7 +13,8 @@ import {
 	soundsHit,
 	pieceRestitution,
 	resolvePieceParams,
-	resolvePiecePath
+	resolvePiecePath,
+	type TRailLayout
 } from './pieces';
 import { descentPace, descentPoints } from './pace';
 import { frameBand } from './placement';
@@ -60,7 +61,7 @@ const MAX_SNAPSHOTS = 512;
 // Every marble has a Rapier world of its own, and a piece is in a marble's world only while that marble
 // could reach it before the next check. Any enabled collider reshapes Rapier's broad-phase tree, even one
 // that never meets anything, and the tree's shape sets the order of the contacts a marble meets in one
-// step, such as two switchback wires; that order changes the solve in the last bits, and a tightly tuned
+// step, such as two rail wires; that order changes the solve in the last bits, and a tightly tuned
 // run cascades from there. Keeping far pieces and the other marbles' pieces out of a marble's world
 // leaves its run bit for bit unchanged until it comes near them. Checks run every few steps on the global
 // step grid so resumed runs match. Parking also keeps Rapier's step cost, which grows with every
@@ -316,6 +317,10 @@ interface TPlanEvent {
 	params: Record<string, number>;
 	/** Local control points of rails and tunnels */
 	path: TVec2[];
+	/** A drawn Rail's further paths */
+	extraPaths: TVec2[][] | undefined;
+	/** How a Rail gets its paths */
+	railLayout: TRailLayout | undefined;
 	angle: number;
 	contactAt: number;
 	/** When the piece is placed: the hit time, plus the entry delay for follower rails and tunnels */
@@ -389,6 +394,8 @@ function createPlan(project: TProject): TPlan {
 				definition,
 				params,
 				path,
+				extraPaths: entity.components.path?.paths,
+				railLayout: piece.layout,
 				angle: hitLink.angle,
 				contactAt: hitLink.contactAt,
 				time: eventTime,
@@ -411,13 +418,15 @@ function createPlan(project: TProject): TPlan {
 				type: piece.type,
 				params,
 				path,
+				extraPaths: entity.components.path?.paths,
+				layout: piece.layout,
 				angle: transform.angle,
 				contactAt: 0.5,
 				marbleRadius: defaultRadius
 			},
 			transform.position
 		);
-		const resolved = resolvedFromLayout(entity.id, piece.type, params, layout, null, 'free');
+		const resolved = resolvedFromLayout(entity.id, piece.type, params, layout, null, 'free', piece.layout);
 		resolved.position = transform.position;
 		staticPieces.push({ entityId: entity.id, definition, params, layout, resolved, key: '' });
 	}
@@ -465,6 +474,8 @@ function createPlan(project: TProject): TPlan {
 				event.definition.type,
 				event.params,
 				event.path,
+				event.extraPaths,
+				event.railLayout,
 				event.angle,
 				event.contactAt,
 				event.time,
@@ -1437,6 +1448,7 @@ function processEvent(
 		piece: {
 			entityId: event.entityId,
 			type: event.definition.type,
+			...(event.railLayout != null ? { layout: event.railLayout } : {}),
 			position: marble?.release ?? { x: 0, y: 0 },
 			angle: event.angle,
 			params: event.params,
@@ -1450,10 +1462,10 @@ function processEvent(
 	};
 	if (event.isAnchor) unreached.piece.entryTime = event.time;
 	if (event.held != null && marble != null) {
-		const input = { type: event.definition.type, params: event.params, path: event.path, angle: event.angle, contactAt: event.contactAt, marbleRadius: marble.radius };
+		const input = { type: event.definition.type, params: event.params, path: event.path, extraPaths: event.extraPaths, layout: event.railLayout, angle: event.angle, contactAt: event.contactAt, marbleRadius: marble.radius };
 		const { dot, velocity } = event.held;
 		const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
-		const resolved = resolvedFromLayout(event.entityId, event.definition.type, event.params, layout, event.hitTime, 'held');
+		const resolved = resolvedFromLayout(event.entityId, event.definition.type, event.params, layout, event.hitTime, 'held', event.railLayout);
 		if (unreached.piece.entryTime != null) resolved.entryTime = unreached.piece.entryTime;
 		state.placements.set(event.entityId, { piece: resolved, dot, velocity });
 		const held = insertPiece(state, event.entityId, event.definition, event.params, layout);
@@ -1481,6 +1493,8 @@ function processEvent(
 		type: event.definition.type,
 		params: event.params,
 		path: event.path,
+		extraPaths: event.extraPaths,
+		layout: event.railLayout,
 		angle: event.angle,
 		contactAt: event.contactAt,
 		marbleRadius: marble.radius
@@ -1497,7 +1511,8 @@ function processEvent(
 		event.params,
 		layout,
 		event.hitTime,
-		isBlocked ? 'blocked' : 'placed'
+		isBlocked ? 'blocked' : 'placed',
+		event.railLayout
 	);
 	if (unreached.piece.entryTime != null) resolved.entryTime = unreached.piece.entryTime;
 	state.placements.set(event.entityId, { piece: resolved, dot: position, velocity });
@@ -1517,11 +1532,13 @@ function resolvedFromLayout(
 	params: Record<string, number>,
 	layout: TPieceLayout,
 	hitTime: number | null,
-	status: TResolvedPiece['status']
+	status: TResolvedPiece['status'],
+	railLayout: TRailLayout | undefined
 ): TResolvedPiece {
 	const resolved: TResolvedPiece = {
 		entityId,
 		type,
+		...(railLayout != null ? { layout: railLayout } : {}),
 		position: layout.position,
 		angle: layout.angle,
 		params,
@@ -1869,6 +1886,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 		pieces.push({
 			entityId: entity.id,
 			type: piece.type,
+			...(piece.layout != null ? { layout: piece.layout } : {}),
 			position: marble?.release ?? { x: 0, y: 0 },
 			angle: entity.components.hitLink?.angle ?? 0,
 			params: resolvePieceParams(piece.type, piece.params),

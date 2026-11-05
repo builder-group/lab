@@ -199,10 +199,10 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const single = selectedPieces.length === 1 ? pieces.find((piece) => piece.entityId === selectedPieces[0]) : undefined;
 	const singleKind = single != null ? pieceKind(single) : null;
 	const frame = single != null ? compose.railFrame(single.entityId) : null;
-	const isPathPiece = singleKind === 'path' || singleKind === 'tube' || singleKind === 'holder';
+	const isPathPiece = singleKind === 'path' || singleKind === 'tube' || singleKind === 'generated';
 	const isMoveDrag = drag?.kind === 'move' && drag.moved;
 	const grip = single != null && !isPathPiece && !isMoveDrag ? compose.screenGrip(single) : null;
-	const pathHandles = single != null && isPathPiece && frame == null && singleKind !== 'holder' ? compose.screenPathHandles(single) : null;
+	const pathHandles = single != null && isPathPiece && frame == null && singleKind !== 'generated' ? compose.screenPathHandles(single) : null;
 	const isRotating = drag?.kind === 'rotate';
 	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.entityId));
 	const hoveredPiece = hover?.kind === 'piece' ? hover.entityId : null;
@@ -297,7 +297,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 				{pathHandles != null && single != null ? <PathHandles handles={pathHandles} hover={hover} drag={drag} entityId={single.entityId} /> : null}
 				{frame != null && single != null ? <RailNodes compose={compose} entityId={single.entityId} frame={frame} hover={hover} drag={drag} /> : null}
 				{hover?.kind === 'track' && drag == null ? (
-					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf(tool === 'switchback' ? 'switchback' : 'windmill').bar} strokeWidth={2} />
+					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf('windmill').bar} strokeWidth={2} />
 				) : null}
 				{drag?.kind === 'marquee' ? <Marquee from={drag.from} to={drag.to} /> : null}
 			</svg>

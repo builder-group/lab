@@ -2,16 +2,16 @@ import { useFeatureState } from 'feature-react/state';
 import { createState } from 'feature-state';
 import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
 import React from 'react';
-import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, StatusPill } from '@/components';
+import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { FINISH_CHUTE, FINISH_CUP, finishCatch, getPieceDefinition, isMusicalPiece, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { FINISH_CHUTE, FINISH_CUP, finishCatch, getPieceDefinition, isMusicalPiece, RAIL_LAYOUTS, railLayoutInfo, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import { lookProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
-import { attachState, isPathPieceType, pathPieceTypes, withPathType, type TPathPieceType } from './attach-edit';
+import { attachState, isPathPieceType, pathPieceTypes, withPathType, withRailLayout, type TPathPieceType } from './attach-edit';
 import { PieceIcon } from './piece-icons';
 import { pieceParamPanels, showsLinkPanel } from './piece-panels';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
@@ -38,7 +38,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const isSingle = entities.length === 1;
 	const label = definition?.label ?? type;
 	const isSameType = entities.every((entity) => entity.components.piece?.type === type);
-	const kind = pieceKind({ type });
+	const kind = pieceKind(first.components.piece ?? { type });
 	const isPath = kind === 'path' || kind === 'tube';
 	const resolved = result?.pieces.find((item) => item.entityId === first.id);
 	const attach = attachState(project, first);
@@ -175,7 +175,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				) : null}
 			</Panel>
 			{showsLinkPanel(entities) ? <AttachSection cx={cx} project={project} entity={first} /> : null}
-			{isSameType && definition != null ? <ParamsSections cx={cx} project={project} entities={entities} type={type} /> : null}
+			{isSameType && definition != null ? <ParamsSections cx={cx} project={project} entities={entities} type={type} railLayout={sharedRailLayout(entities)} /> : null}
 		</>
 	);
 };
@@ -355,8 +355,8 @@ function pieceStatus(project: TProject, entity: TEntity, resolved: TResolvedPiec
 		const pitch = lane?.hits.find((item) => item.id === link.hitId)?.pitch;
 		return timingStatus(resolved, hit, { marble: lane?.name, note: pitch == null ? undefined : noteName(pitch), piece: entity.name ?? undefined });
 	}
-	const kind = pieceKind({ type });
-	if ((kind === 'path' || kind === 'tube') && resolved != null && result != null) return rideStatus(project, resolved, result, link.laneId);
+	const kind = pieceKind(entity.components.piece ?? { type });
+	if ((kind === 'path' || kind === 'tube' || kind === 'generated') && resolved != null && result != null) return rideStatus(project, resolved, result, link.laneId);
 	if (kind === 'catcher' && resolved != null && result != null) return finishStatus(project, entity, resolved, result, link.laneId);
 	if (resolved?.status === 'blocked') return timingStatus(resolved, undefined, { marble: project.music.lanes.find((item) => item.id === link.laneId)?.name });
 	return null;
@@ -531,12 +531,18 @@ const PathTypeSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEn
 	const { cx, project, entities } = props;
 	const types = new Set(entities.map((entity) => entity.components.piece?.type));
 	const current = types.size === 1 ? [...types][0] : null;
+	const layouts = new Set(entities.map((entity) => entity.components.piece?.layout ?? 'path'));
+	const layout = layouts.size === 1 ? [...layouts][0] : null;
 
 	function switchTo(type: TPathPieceType): void {
 		const switched: TEntity[] = [];
 		for (const entity of entities) switched.push(withPathType(entity, type, [...project.entities, ...switched]));
 		const commands = switched.filter((entity, index) => entity !== entities[index]).map((entity): TProjectCommand => ({ type: 'upsertEntity', entity }));
 		if (commands.length > 0) cx.execute(commands);
+	}
+
+	function setLayout(value: TRailLayout): void {
+		cx.execute(entities.map((entity): TProjectCommand => ({ type: 'upsertEntity', entity: withRailLayout(entity, value) })));
 	}
 
 	return (
@@ -557,6 +563,16 @@ const PathTypeSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEn
 					</button>
 				))}
 			</div>
+			{current === 'rail' ? (
+				<SelectField
+					id="rail-layout"
+					label="Layout"
+					span={2}
+					value={layout ?? ''}
+					options={RAIL_LAYOUTS.map((value) => ({ value, label: railLayoutInfo[value].label }))}
+					onChange={(value) => setLayout(value as TRailLayout)}
+				/>
+			) : null}
 		</Panel>
 	);
 };
@@ -617,9 +633,9 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 // MARK: - Hitbox and Physics
 
 /** The piece type's parameters in two collapsed panels: what a marble touches and how the piece behaves */
-const ParamsSections: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string }> = (props) => {
-	const { type } = props;
-	const panels = pieceParamPanels(type);
+const ParamsSections: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; railLayout: TRailLayout | undefined }> = (props) => {
+	const { type, railLayout } = props;
+	const panels = pieceParamPanels(type, railLayout);
 	return (
 		<>
 			{panels.hitbox.length > 0 ? <ParamsPanel {...props} id="piece.hitbox" title="Hitbox" help="What a marble touches. A skin in Film changes only how the piece looks." names={panels.hitbox} /> : null}
@@ -684,6 +700,8 @@ function displayUnit(name: string, unit: string, isInteger: boolean): { unit: st
 			return { unit: '°', factor: 180 / Math.PI, step: 0.5, precision: 1 };
 		case 'rad/s':
 			return { unit: 'rpm', factor: 60 / (2 * Math.PI), step: 0.5, precision: 0 };
+		case '°':
+			return { unit: '°', factor: 1, step: 0.5, precision: 0 };
 		default:
 			return { unit: '', factor: 1, step: 0.02, precision: 2 };
 	}
@@ -725,6 +743,12 @@ function applyPieceEdit(project: TProject, entities: TEntity[], edit: TPieceEdit
 		edited.set(entity.id, { ...entity, components });
 	}
 	return { project: { ...project, entities: project.entities.map((entity) => edited.get(entity.id) ?? entity) }, commands };
+}
+
+/** The layout all these rails share, Drawn when none is set, or undefined when they differ */
+function sharedRailLayout(entities: TEntity[]): TRailLayout | undefined {
+	const layouts = new Set(entities.map((entity) => entity.components.piece?.layout ?? 'path'));
+	return layouts.size === 1 ? [...layouts][0] : undefined;
 }
 
 function resolvedParam(entity: TEntity, name: string): number {

@@ -17,6 +17,7 @@ import {
 import { createLinkedPiece } from './placement';
 import {
 	createRailForGap,
+	createChainForGap,
 	createSwitchbackForGap,
 	createTunnelForGap,
 	prepareGapSearch,
@@ -104,7 +105,7 @@ export interface TSearchBatch {
 }
 
 /** Pieces that bridge a long gap */
-export type TGapPieceType = 'switchback' | 'rail' | 'tunnel';
+export type TGapPieceType = 'switchback' | 'chain' | 'rail' | 'tunnel';
 
 export interface TAutoPlaceAnswer {
 	entity: TEntity;
@@ -214,7 +215,7 @@ export function answerWorkerRequest(
 		}
 		case 'gapPiece': {
 			const { project, laneId, fromHitId, toHitId, entityId, type } = request;
-			const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
+			const create = type === 'switchback' ? createSwitchbackForGap : type === 'chain' ? createChainForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
 			const [isOk, error, proposal] = create(project, result, laneId, fromHitId, toHitId, { simulate, id: entityId });
 			if (!isOk) throw error;
 			return gapAnswer(simulate, request, proposal, startedAt);

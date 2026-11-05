@@ -582,7 +582,7 @@ def check_switchback_skins():
     second, centre_b, radius_b = bent_wire(0.1, -0.04, -0.075, -1, slope, 0.032, -0.075 - math.tan(slope) * 0.068, bend)
     stop = [(0.0, -0.06), (0.0, -0.12)]
     wires = [[{'x': x, 'y': y} for x, y in wire] for wire in (first, second, stop)]
-    piece = {'type': 'switchback', 'params': {'width': 0.1, 'legs': 2, 'radius': 0.0025, 'bend': bend}, 'angle': 0.0,
+    piece = {'type': 'rail', 'layout': 'switchback', 'params': {'width': 0.1, 'turns': 2, 'radius': 0.0025, 'bend': bend}, 'angle': 0.0,
              'position': {'x': 0.0, 'y': 0.0}, 'paths': wires}
     for theme in ('brass', 'pegboard', 'neon'):
         mesh = skins.build_spec('piece', piece, skins.skin_context(theme, RADIUS))['root']
@@ -594,7 +594,7 @@ def check_switchback_skins():
 
     check(skins.marble_side(first, (0.05, -0.05)) > 0 and skins.marble_side(second, (0.05, -0.05)) < 0,
           'the marble rides inside each bend')
-    check(skins.marble_side(stop, (0.05, -0.05)) > 0, 'a straight stop faces the middle of the switchback')
+    check(skins.marble_side(stop, (0.05, -0.05)) > 0, 'a straight stop faces the middle of the rail')
     setback = 0.004
     for wire, centre, radius, label in ((first, centre_a, radius_a, 'left'), (second, centre_b, radius_b, 'right')):
         line = skins.offset_wire(wire, -setback * skins.marble_side(wire, (0.05, -0.05)))

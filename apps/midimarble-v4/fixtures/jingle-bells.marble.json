@@ -1040,20 +1040,21 @@
 		},
 		{
 			"id": "switchback-1-1",
-			"name": "Switchback 1",
+			"name": "Rail 1",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.12,
-						"legs": 3,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.404
-					}
+						"entryDelay": 0.404,
+						"turns": 3
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -1219,20 +1220,21 @@
 		},
 		{
 			"id": "switchback-1-2",
-			"name": "Switchback 2",
+			"name": "Rail 2",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.0975,
-						"legs": 2,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.413
-					}
+						"entryDelay": 0.413,
+						"turns": 2
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -1662,20 +1664,21 @@
 		},
 		{
 			"id": "switchback-1-3",
-			"name": "Switchback 3",
+			"name": "Rail 3",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.12,
-						"legs": 1,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.396
-					}
+						"entryDelay": 0.396,
+						"turns": 1
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -1731,20 +1734,21 @@
 		},
 		{
 			"id": "switchback-1-4",
-			"name": "Switchback 4",
+			"name": "Rail 4",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.15,
-						"legs": 4,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.408
-					}
+						"entryDelay": 0.408,
+						"turns": 4
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -1822,20 +1826,21 @@
 		},
 		{
 			"id": "switchback-1-5",
-			"name": "Switchback 5",
+			"name": "Rail 5",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.12,
-						"legs": 1,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.4
-					}
+						"entryDelay": 0.4,
+						"turns": 1
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -2463,20 +2468,21 @@
 		},
 		{
 			"id": "switchback-1-6",
-			"name": "Switchback 6",
+			"name": "Rail 6",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.0975,
-						"legs": 2,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.417
-					}
+						"entryDelay": 0.417,
+						"turns": 2
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -2510,20 +2516,21 @@
 		},
 		{
 			"id": "switchback-1-7",
-			"name": "Switchback 7",
+			"name": "Rail 7",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.0975,
-						"legs": 2,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.4
-					}
+						"entryDelay": 0.4,
+						"turns": 2
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -2601,20 +2608,21 @@
 		},
 		{
 			"id": "switchback-1-8",
-			"name": "Switchback 8",
+			"name": "Rail 8",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.0975,
-						"legs": 3,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.4
-					}
+						"entryDelay": 0.4,
+						"turns": 3
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -2692,20 +2700,21 @@
 		},
 		{
 			"id": "switchback-1-9",
-			"name": "Switchback 9",
+			"name": "Rail 9",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.15,
-						"legs": 1,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.404
-					}
+						"entryDelay": 0.404,
+						"turns": 1
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -3237,20 +3246,21 @@
 		},
 		{
 			"id": "switchback-1-12",
-			"name": "Switchback 10",
+			"name": "Rail 10",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.0975,
-						"legs": 6,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.396
-					}
+						"entryDelay": 0.396,
+						"turns": 6
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -3328,20 +3338,21 @@
 		},
 		{
 			"id": "switchback-1-13",
-			"name": "Switchback 11",
+			"name": "Rail 11",
 			"components": {
 				"piece": {
-					"type": "switchback",
+					"type": "rail",
 					"params": {
 						"width": 0.12,
-						"legs": 1,
 						"drop": 0.0525,
 						"opening": 0.048,
 						"lip": 0.06,
 						"bend": 0.04,
 						"radius": 0.00375,
-						"entryDelay": 0.413
-					}
+						"entryDelay": 0.413,
+						"turns": 1
+					},
+					"layout": "switchback"
 				},
 				"hitLink": {
 					"laneId": "lane-1",
@@ -3803,9 +3814,6 @@
 					},
 					"rail": {
 						"skin": "rail:candy"
-					},
-					"switchback": {
-						"skin": "switchback:candy"
 					},
 					"marble": {
 						"skin": "marble:glass-green",

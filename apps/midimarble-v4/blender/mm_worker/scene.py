@@ -377,7 +377,7 @@ def write_piece(holder, piece, motion, fps):
 
 
 def is_musical(piece):
-    """Music pieces sound their hits; scenery (rails, tunnels, windmills, switchbacks) never has hits"""
+    """Music pieces sound their hits; scenery (rails, tunnels, windmills) never has hits"""
     musical = piece.get('musical')
     return musical if isinstance(musical, bool) else piece.get('type', 'platform') == 'platform'
 

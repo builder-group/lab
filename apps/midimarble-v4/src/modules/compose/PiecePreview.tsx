@@ -104,16 +104,6 @@ const PieceDrawing: React.FC<TPieceDrawingProps> = (props) => {
 			</g>
 		);
 	}
-	if (piece.type === 'switchback') {
-		const wire = Math.max((piece.params['radius'] ?? 0.0025) * 2 * scale, 1.4);
-		return (
-			<g>
-				{(piece.paths ?? []).map((line) => (
-					<polyline key={toPoints(line)} points={points(line)} fill="none" stroke={palette.bar} strokeWidth={wire} strokeLinecap="round" strokeLinejoin="round" />
-				))}
-			</g>
-		);
-	}
 	return (
 		<g>
 			{(piece.shapes ?? []).map((shape) => {
@@ -207,20 +197,6 @@ function previewScene(item: TInsertItem): TPreviewScene {
 			const mouth = piece.position;
 			const trail = [{ x: mouth.x, y: mouth.y + 0.06 }, mouth, ...wire.slice(Math.floor(wire.length * 0.6)).map((point) => ({ x: point.x, y: point.y + r }))];
 			return withBounds({ piece, marble: { x: mouth.x, y: mouth.y + 0.03 }, trail });
-		}
-		case 'switchback': {
-			const wires = piece.paths ?? [];
-			const all = wires.flat();
-			const top = Math.max(...all.map((point) => point.y));
-			const minX = Math.min(...all.map((point) => point.x));
-			const maxX = Math.max(...all.map((point) => point.x));
-			const center = (minX + maxX) / 2;
-			const marble = { x: center, y: top + r * 2.5 };
-			const legs = Math.round(params['legs'] ?? 3);
-			const step = (top - Math.min(...all.map((point) => point.y))) / Math.max(1, legs);
-			const trail: TVec2[] = [marble];
-			for (let leg = 0; leg < legs; leg++) trail.push({ x: leg % 2 === 0 ? minX + r * 1.2 : maxX - r * 1.2, y: top - step * (leg + 0.65) });
-			return withBounds({ piece, marble, trail });
 		}
 	}
 }

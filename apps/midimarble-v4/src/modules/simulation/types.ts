@@ -1,4 +1,5 @@
 import type { TVec2 } from '@/modules/project';
+import type { TRailLayout } from './pieces';
 import type { TDescentPace, TDescentPoint } from './pace';
 import type { TPieceShape } from './shapes';
 
@@ -82,10 +83,12 @@ export interface TResolvedPiece {
 	/** Smoothed support line of a rail or tunnel floor in world coordinates */
 	path?: TVec2[];
 	/**
-	 * Wire polylines of a switchback in world coordinates: one bent wire per leg from the top (wall, rounded bend,
-	 * leg), then the short exit stop
+	 * Every path of a Rail that holds several, in world coordinates, top first. A Switchback layout has one bent wire
+	 * per leg (wall, rounded bend, leg), then the short exit stop.
 	 */
 	paths?: TVec2[][];
+	/** A Rail's layout, when it isn't drawn */
+	layout?: TRailLayout;
 	/** When a scenery piece is anchored to the trajectory, `hitTime + entryDelay` */
 	entryTime?: number;
 	/**
@@ -151,7 +154,7 @@ export type THitStatus =
 	| 'blocked' // the linked piece could not be inserted
 	| 'waiting'; // its platform waits where it was, behind a hit an edit broke
 
-export type TPieceLayoutKind = 'box' | 'path' | 'tube' | 'rotor' | 'holder' | 'catcher';
+export type TPieceLayoutKind = 'box' | 'path' | 'tube' | 'rotor' | 'generated' | 'catcher';
 
 /**
  * Piece definitions. Each type builds its colliders from parameters and places its contact surface on a
@@ -171,7 +174,7 @@ export interface TPieceDefinition {
 			label: string;
 			/** Name inside the inspector field when it differs from `label`; up to 7 characters fit a half-width field */
 			short?: string;
-			unit: 'm' | 'rad' | 's' | 'rad/s' | '';
+			unit: 'm' | 'rad' | 's' | 'rad/s' | '' | '°';
 			/** Rounded to a whole number when resolved */
 			integer?: boolean;
 		}
@@ -189,8 +192,8 @@ export interface TPieceDefinition {
 	friction: number;
 	/**
 	 * How the piece is built: `box` (default) is a platform bar, `path` a rail along `path` points,
-	 * `tube` a tunnel along `path` points, `rotor` a windmill turning around its hub and `holder` a
-	 * switchback built from its parameters, `catcher` a Finish built from its parameters
+	 * `tube` a tunnel along `path` points, `rotor` a windmill turning around its hub, `generated` a
+	 * Rail whose layout builds its paths from its parameters, `catcher` a Finish built from its parameters
 	 */
 	layout?: TPieceLayoutKind;
 	/** Local control points used when a path piece has no `path` component */

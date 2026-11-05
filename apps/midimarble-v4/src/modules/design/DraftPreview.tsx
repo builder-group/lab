@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle } from 'lucide-react';
 import React from 'react';
-import { FinishShape, RailShape, SwitchbackShape, toPoints, TunnelShape } from '@/modules/compose/PieceLayer';
+import { FinishShape, RailShape, RailPathsShape, toPoints, TunnelShape } from '@/modules/compose/PieceLayer';
 import { pieceKind } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
 import type { TTouched } from '@/modules/mcp/AgentPresenceCx';
@@ -181,7 +181,7 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				const palette = draft.colorsOf(piece);
 				if (kind === 'path') return <RailShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
 				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'holder') return <SwitchbackShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
+				if (kind === 'generated') return <RailPathsShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
 				if (kind === 'catcher') return <FinishShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
 				return null;
 			})}

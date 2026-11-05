@@ -145,7 +145,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		// Build Track with wait: false answers at once; get_state shows how far it is
 		const from = command.id === 'build.track' ? buildFrom(cx, commandArgs) : null;
 		if (typeof from === 'string') return fail(cx, from);
-		if (command.id === 'build.track' && commandArgs['gapPiece'] != null && gapPreference(commandArgs) == null) return fail(cx, `gapPiece is rail or switchback, not ${String(commandArgs['gapPiece'])}.`);
+		if (command.id === 'build.track' && commandArgs['gapPiece'] != null && gapPreference(commandArgs) == null) return fail(cx, `gapPiece is rail, switchback or chain, not ${String(commandArgs['gapPiece'])}.`);
 		if (command.id === 'build.track' && commandArgs['wait'] === false) {
 			if (from == null && !canRun(cx, command)) return fail(cx, buildRefusal(cx));
 			// The call answers at once, but the agent is still at work until the build ends
@@ -462,7 +462,7 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 }
 
 /** Build Track, which answers when it is done: opens Compose first, as `invoke` does */
-async function startBuild(cx: StudioCx, command: TCommand, from?: { laneId: string; hitId: string }, gapPiece?: 'rail' | 'switchback'): Promise<void> {
+async function startBuild(cx: StudioCx, command: TCommand, from?: { laneId: string; hitId: string }, gapPiece?: 'rail' | 'switchback' | 'chain'): Promise<void> {
 	const stopEpoch = cx.mcp.presence.stopEpoch;
 	const compose = await openCompose(cx, command.title);
 	if (cx.mcp.presence.stopEpoch === stopEpoch) await compose.assist.buildTrack(from, gapPiece);
@@ -480,9 +480,9 @@ async function openCompose(cx: StudioCx, title: string): Promise<ComposeCx> {
 }
 
 /** `gapPiece` of `build.track`: the piece tried first across a long gap */
-function gapPreference(args: Record<string, unknown>): 'rail' | 'switchback' | undefined {
+function gapPreference(args: Record<string, unknown>): 'rail' | 'switchback' | 'chain' | undefined {
 	const piece = args['gapPiece'];
-	return piece === 'rail' || piece === 'switchback' ? piece : undefined;
+	return piece === 'rail' || piece === 'switchback' || piece === 'chain' ? piece : undefined;
 }
 
 /** `from` of `build.track`: the hit Rebuild From Here starts at, null without one, or why it can't */

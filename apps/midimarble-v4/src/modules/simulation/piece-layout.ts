@@ -1,6 +1,6 @@
 import type { TVec2 } from '@/modules/project';
 import { GRAVITY_Y, placeBoxAtContact, placeBoxAtMarble, surfaceNormal, type TBox2 } from './geometry';
-import { getPieceDefinition } from './pieces';
+import { getPieceDefinition, type TRailLayout } from './pieces';
 import { projectOnPath, smoothPath, transformShape, type TPieceShape } from './shapes';
 import type { TPieceLayoutKind } from './types';
 
@@ -20,7 +20,7 @@ export interface TPieceLayout {
 	/** Smoothed support line of rails and tunnels in world coordinates */
 	path: TVec2[] | null;
 	rotor: TRotorLayout | null;
-	/** Wire polylines of a switchback in world coordinates */
+	/** Every path of a Rail that holds several, in world coordinates */
 	paths?: TVec2[][];
 }
 
@@ -39,6 +39,10 @@ export interface TLayoutInput {
 	params: Record<string, number>;
 	/** Local control points of rails and tunnels */
 	path: TVec2[];
+	/** A drawn Rail's further paths, in the same local coordinates */
+	extraPaths?: TVec2[][];
+	/** How a Rail gets its paths */
+	layout?: TRailLayout;
 	angle: number;
 	contactAt: number;
 	marbleRadius: number;
@@ -50,9 +54,10 @@ export function layoutAtMarble(
 	position: TVec2,
 	velocity: TVec2 | null
 ): TPieceLayout {
-	if (layoutOf(input.type) === 'holder') return holderLayout(input, position, velocity);
-	if (layoutOf(input.type) === 'catcher') return catcherLayout(input, position);
-	if (layoutOf(input.type) === 'box') {
+	const kind = layoutOf(input.type, input.layout);
+	if (kind === 'generated') return generatedLayout(input, position, velocity);
+	if (kind === 'catcher') return catcherLayout(input, position);
+	if (kind === 'box') {
 		const { length, thickness } = boxSize(input.params);
 		const placement = placeBoxAtMarble(
 			position,
@@ -85,9 +90,9 @@ export function layoutAtContact(
 	contactPoint: TVec2,
 	normal: TVec2 | null = null
 ): TPieceLayout {
-	const kind = layoutOf(input.type);
-	// A switchback has no contact surface; the point is where the marble enters it
-	if (kind === 'holder') return holderLayout(input, contactPoint, null);
+	const kind = layoutOf(input.type, input.layout);
+	// Generated paths have no contact surface; the point is where the marble enters them
+	if (kind === 'generated') return generatedLayout(input, contactPoint, null);
 	// Nor has a Finish: the point is its mouth
 	if (kind === 'catcher') return catcherLayout(input, contactPoint);
 	const n = normal ?? baseNormal(input);
@@ -124,8 +129,8 @@ export function layoutAtContact(
 
 /** Places an unlinked piece from its transform */
 export function layoutFree(input: TLayoutInput, position: TVec2): TPieceLayout {
-	const kind = layoutOf(input.type);
-	if (kind === 'holder') return holderLayout(input, position, null);
+	const kind = layoutOf(input.type, input.layout);
+	if (kind === 'generated') return generatedLayout(input, position, null);
 	if (kind === 'catcher') return catcherLayout(input, position);
 	if (kind === 'box') {
 		const { length, thickness } = boxSize(input.params);
@@ -150,8 +155,10 @@ export function layoutFree(input: TLayoutInput, position: TVec2): TPieceLayout {
 	return pathLayout(input, local, origin, 1, null, null);
 }
 
-export function layoutOf(type: string): TPieceLayoutKind {
-	return getPieceDefinition(type)?.layout ?? 'box';
+/** How a piece is built; a Rail's layout decides whether its paths are held or generated */
+export function layoutOf(type: string, railLayout?: TRailLayout): TPieceLayoutKind {
+	const kind = getPieceDefinition(type)?.layout ?? 'box';
+	return kind === 'path' && railLayout != null && railLayout !== 'path' ? 'generated' : kind;
 }
 
 // Platforms
@@ -237,6 +244,8 @@ function pathLayout(
 		const ceiling = offsetPath(local.points, local.anchorAlong + mouth, offset * side);
 		shapes.push(...capsuleChain(ceiling.map(toWorld), radius));
 	}
+	const extra = (input.extraPaths ?? []).map((points) => smoothPath(points).map(toWorld));
+	for (const line of extra) shapes.push(...capsuleChain(line, radius));
 	return {
 		position: origin,
 		angle: input.angle,
@@ -245,7 +254,8 @@ function pathLayout(
 		shapes,
 		box: null,
 		path,
-		rotor: null
+		rotor: null,
+		...(extra.length > 0 ? { paths: [path, ...extra] } : {})
 	};
 }
 
@@ -361,17 +371,18 @@ function rotorLayout(
 	};
 }
 
-// Switchbacks
+// Generated rail paths
 
 const DEGREE = Math.PI / 180;
 const MIN_LEG_SLOPE = 2 * DEGREE;
 const MAX_LEG_SLOPE = 25 * DEGREE;
-// Space between the marble at its entry and the switchback's top
+// Space between the marble at its entry and the top of a generated rail
 const ENTRY_CLEARANCE = 0.003;
 // How far the walls rise above the first leg's high end
 const WALL_RISE = 0.03;
 // Points per bend; a bend of radius 3 cm then turns about 7° between segments
 const BEND_POINTS = 12;
+const CURVE_POINTS = 20;
 
 export interface TSwitchbackGeometry {
 	/**
@@ -405,7 +416,7 @@ export function switchbackGeometry(
 	velocity: TVec2 | null
 ): TSwitchbackGeometry {
 	const width = params['width'] ?? 0.1;
-	const legCount = Math.max(1, Math.round(params['legs'] ?? 3));
+	const legCount = Math.max(1, Math.round(params['turns'] ?? 3));
 	const drop = params['drop'] ?? 0.035;
 	const opening = params['opening'] ?? 0.032;
 	const lip = params['lip'] ?? 0.04;
@@ -552,7 +563,7 @@ export function switchbackHoldTime(
 	entrySpeed = 0
 ): number {
 	const width = params['width'] ?? 0.1;
-	const legCount = Math.max(1, Math.round(params['legs'] ?? 3));
+	const legCount = Math.max(1, Math.round(params['turns'] ?? 3));
 	const drop = params['drop'] ?? 0.035;
 	const opening = params['opening'] ?? 0.032;
 	const limited = Math.min(MAX_LEG_SLOPE, Math.max(MIN_LEG_SLOPE, Math.abs(slope)));
@@ -569,15 +580,110 @@ export function switchbackHoldTime(
 	return time;
 }
 
-function holderLayout(input: TLayoutInput, entry: TVec2, velocity: TVec2 | null): TPieceLayout {
-	const geometry = switchbackGeometry(
-		input.params,
-		input.angle,
-		input.contactAt,
-		entry,
-		input.marbleRadius,
-		velocity
-	);
+/**
+ * Separate C's chained down a column: each turn is a wall coming down on one side that curves round through `sweep` on a
+ * curve of radius `arc` and throws the marble across to the next turn, `drop` under it. A straight run doesn't lead into
+ * a turn, so nothing stops the marble between two curves, as one continuous S does. No stop follows the last turn: the
+ * marble leaves off its lip. The hit link's `angle` gives only the direction of the first turn.
+ */
+export function chainGeometry(params: Record<string, number>, angle: number, contactAt: number, entry: TVec2, marbleRadius: number, velocity: TVec2 | null): TSwitchbackGeometry {
+	const width = params['width'] ?? 0.12;
+	const turns = Math.max(1, Math.round(params['turns'] ?? 3));
+	const step = params['drop'] ?? 0.07;
+	const lip = params['lip'] ?? 0.04;
+	const radius = params['radius'] ?? 0.0025;
+	const direction = angle > 0 ? -1 : 1;
+	const clear = marbleRadius + radius + ENTRY_CLEARANCE;
+	const entryU = Math.min(width - clear, Math.max(clear, contactAt * width));
+	const toWorld = (u: number, y: number): TVec2 => ({ x: entry.x + direction * (u - entryU), y });
+	const rim = entry.y - clear;
+	const moving = velocity != null && Math.abs(velocity.x) > 0.05 ? Math.sign(velocity.x * direction) : 0;
+	// The marble must fit between a lip and the far wall
+	const fit = 2 * marbleRadius + 2 * radius + 0.008;
+	const curve = Math.min((params['arc'] ?? 0.05) + marbleRadius + radius, (width - fit) / 1.02);
+	const over = Math.min(((params['sweep'] ?? 100) - 90) * DEGREE, Math.asin(Math.max(0, Math.min(1, (width - fit) / curve - 1))));
+	const sweep = Math.PI / 2 + over;
+	const top = rim - WALL_RISE;
+	const lipRise = curve * Math.sin(over);
+	const catchHeight = 2 * marbleRadius + 2 * radius + 0.005;
+	const wires: TVec2[][] = [];
+	const walls: [TVec2, TVec2][] = [];
+	const legs: [TVec2, TVec2][] = [];
+	let lastLip = entry;
+	let lastLipU = 0;
+	for (let k = 0; k < turns; k++) {
+		const along = k % 2 === 0 ? 1 : -1;
+		const wallU = k % 2 === 0 ? 0 : width;
+		const centreY = top - k * step;
+		const centreU = wallU + along * curve;
+		const previousLip = centreY + step - curve + lipRise;
+		const wallTop = k === 0 ? rim + (moving < 0 ? lip : 0) : k === 1 ? (moving > 0 ? Math.max(rim + lip, previousLip + catchHeight) : Math.max(centreY, Math.min(rim, previousLip + catchHeight))) : Math.max(centreY, previousLip + catchHeight);
+		const count = Math.max(6, Math.ceil(sweep / (4 * DEGREE)));
+		const canonical: [number, number][] = [[wallU, wallTop]];
+		for (let i = 0; i <= count; i++) {
+			const turned = (sweep * i) / count;
+			canonical.push([centreU - along * curve * Math.cos(turned), centreY - curve * Math.sin(turned)]);
+		}
+		const points = canonical.map(([u, y]) => toWorld(u, y));
+		wires.push(points);
+		walls.push([points[0] as TVec2, toWorld(wallU, centreY)]);
+		const end = canonical[canonical.length - 1] as [number, number];
+		lastLip = toWorld(end[0], end[1]);
+		lastLipU = end[0];
+		legs.push([toWorld(wallU, centreY), lastLip]);
+	}
+	const exitU = (turns - 1) % 2 === 0 ? width : 0;
+	return {
+		wires,
+		walls,
+		legs,
+		exit: toWorld((lastLipU + exitU) / 2, lastLip.y),
+		bottom: Math.min(...wires.flat().map((point) => point.y)) - radius,
+		slope: Math.min(MAX_LEG_SLOPE, Math.max(MIN_LEG_SLOPE, Math.abs(angle)))
+	};
+}
+
+/** Rough time a marble spends in a chain, fitted to simulated Jingle Bells gaps. Used to rank candidates before simulating them. */
+export function chainHoldTime(params: Record<string, number>): number {
+	const turns = Math.max(1, Math.round(params['turns'] ?? 3));
+	return 0.25 + (turns - 1) * (0.27 + 0.6 * (params['arc'] ?? 0.05) + 0.0035 * ((params['sweep'] ?? 100) - 95));
+}
+
+/** One smooth curve: a parabola from the high side that steepens by `drop` across `width`, on top of the link's slope */
+function curveGeometry(params: Record<string, number>, angle: number, contactAt: number, entry: TVec2, marbleRadius: number): TSwitchbackGeometry {
+	const width = params['width'] ?? 0.15;
+	const drop = params['drop'] ?? 0.06;
+	const radius = params['radius'] ?? 0.0025;
+	const direction = angle > 0 ? -1 : 1;
+	const slope = Math.tan(Math.abs(angle));
+	const heightAt = (u: number): number => -slope * u - (drop * u * u) / (width * width);
+	const entryU = contactAt * width;
+	const rim = entry.y - marbleRadius - radius - ENTRY_CLEARANCE;
+	const wire: TVec2[] = [];
+	for (let i = 0; i <= CURVE_POINTS; i++) {
+		const u = (width * i) / CURVE_POINTS;
+		wire.push({ x: entry.x + direction * (u - entryU), y: rim + heightAt(u) - heightAt(entryU) });
+	}
+	const last = wire[wire.length - 1] as TVec2;
+	return { wires: [wire], walls: [], legs: [[wire[0] as TVec2, last]], exit: { ...last }, bottom: last.y - radius, slope: Math.abs(angle) };
+}
+
+function generatedGeometry(input: TLayoutInput, entry: TVec2, velocity: TVec2 | null): TSwitchbackGeometry {
+	const { params, angle, contactAt, marbleRadius } = input;
+	switch (input.layout) {
+		case 'curve':
+			return curveGeometry(params, angle, contactAt, entry, marbleRadius);
+		case 'c':
+			return chainGeometry({ ...params, turns: 1 }, angle, contactAt, entry, marbleRadius, velocity);
+		case 'chain':
+			return chainGeometry(params, angle, contactAt, entry, marbleRadius, velocity);
+		default:
+			return switchbackGeometry(params, angle, contactAt, entry, marbleRadius, velocity);
+	}
+}
+
+function generatedLayout(input: TLayoutInput, entry: TVec2, velocity: TVec2 | null): TPieceLayout {
+	const geometry = generatedGeometry(input, entry, velocity);
 	const radius = input.params['radius'] ?? 0.0025;
 	const shapes: TPieceShape[] = geometry.wires.flatMap((wire) => capsuleChain(wire, radius));
 	const tops = geometry.wires.slice(0, 2).map((wire) => wire[0] ?? entry);

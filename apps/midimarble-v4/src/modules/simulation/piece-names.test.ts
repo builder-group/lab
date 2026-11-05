@@ -30,7 +30,7 @@ describe('namePiecesInOrder function', () => {
 			linked('platform', 'lane-1', 'hit-1-1', 'Platform 1'),
 			linked('platform', 'lane-2', 'hit-2-1', 'Platform 2'),
 			linked('platform', 'lane-1', 'hit-1-3', 'Platform 3'),
-			linked('switchback', 'lane-1', 'hit-1-2', 'Switchback 4'),
+			linked('tunnel', 'lane-1', 'hit-1-2', 'Tunnel 4'),
 			linked('platform', 'lane-1', 'hit-1-2', 'Platform 5'),
 			linked('platform', 'lane-2', 'hit-2-2', 'Platform 6')
 		);
@@ -46,7 +46,7 @@ describe('namePiecesInOrder function', () => {
 			'platform-hit-1-3': 'Platform 3',
 			'platform-hit-2-1': 'Platform 4',
 			'platform-hit-2-2': 'Platform 5',
-			'switchback-hit-1-2': 'Switchback 1',
+			'tunnel-hit-1-2': 'Tunnel 1',
 			free: 'Rail 1'
 		});
 	});
@@ -70,11 +70,11 @@ describe('nextPieceName function', () => {
 		const entities = [
 			linked('platform', 'lane-1', 'hit-1-1', 'Platform 1'),
 			linked('platform', 'lane-1', 'hit-1-3', 'Platform 3'),
-			linked('switchback', 'lane-1', 'hit-1-2', 'Switchback 1')
+			linked('tunnel', 'lane-1', 'hit-1-2', 'Tunnel 1')
 		];
 
 		expect(nextPieceName('platform', entities)).toBe('Platform 4');
-		expect(nextPieceName('switchback', entities)).toBe('Switchback 2');
+		expect(nextPieceName('tunnel', entities)).toBe('Tunnel 2');
 		expect(nextPieceName('rail', entities)).toBe('Rail 1');
 	});
 

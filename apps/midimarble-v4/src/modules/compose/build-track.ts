@@ -34,7 +34,7 @@ import { hitReach } from './reachability';
 // fallback and the fixture script. Marbles are built together in time order, so each keeps clear of what the others
 // have built so far. Each step takes the first of these that keeps every placed hit on time, every marble on its own
 // pieces and striking each platform once, every piece clear of the others as the film shows them, the next dot in
-// frame and near the shared pace: a rail across a long gap, or a switchback where no rail fits, Continue and Mirror when the rhythm repeats and
+// frame and near the shared pace: a rail across a long gap, or its Switchback layout where a straight one won't do, Continue and Mirror when the rhythm repeats and
 // the next dot stays on its column, Auto place (which launches into a coming gap and ranks its angles by how regular the
 // track looks), a wider Auto place. When none does,
 // it does what a person tries next: turn the lane's previous platform, turn the other marble's platform in the way,
@@ -80,7 +80,7 @@ const SHOW_EVERY = 250;
 /** How many hits ahead a choice between pieces is tried, and what each hit it can't reach counts for against its look */
 const LOOK_AHEAD_HITS = 3;
 const DEAD_END_COST = 100;
-/** What a switchback costs against a rail that also works, and more when the marble just rode one, in units of `lookCost` */
+/** What the Switchback layout costs against a straight rail that also works, and more when the marble just rode one, in units of `lookCost` */
 const SWITCHBACK_COST = 0.3;
 const SWITCHBACK_IN_A_ROW_COST = 0.3;
 /** Look of a tilt away from about 10°, in the same units per 10° */
@@ -89,6 +89,7 @@ const LOOK_TILT = 10 * DEGREE;
 export interface TBuildCounts {
 	next: number;
 	switchback: number;
+	chain: number;
 	rail: number;
 	continue: number;
 	continued: number;
@@ -177,7 +178,7 @@ export interface TBuildTrackDeps {
 	isCancelled?: () => boolean;
 }
 
-export type TBuildGapPreference = 'rail' | 'switchback';
+export type TBuildGapPreference = 'rail' | 'switchback' | 'chain';
 
 export interface TBuildOptions {
 	/**
@@ -185,7 +186,7 @@ export interface TBuildOptions {
 	 * already has, and what plays after it is built again. Nothing kept is ever turned and no release moves.
 	 */
 	from?: { laneId: string; hitId: string };
-	/** The piece tried first across a long gap, the other when it doesn't fit: a rail unless asked otherwise */
+	/** What is tried first across a long gap, the other when it doesn't fit: a straight rail unless asked otherwise; a Chain falls back to the Switchback layout */
 	gapPiece?: TBuildGapPreference;
 }
 
@@ -238,7 +239,7 @@ interface TSearchBudget {
 }
 
 function emptyCounts(): TBuildCounts {
-	return { next: 0, switchback: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, unblock: 0, rewind: 0, frame: 0, failed: 0 };
+	return { next: 0, switchback: 0, chain: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, unblock: 0, rewind: 0, frame: 0, failed: 0 };
 }
 
 function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null, searches: TSearchBudget = { used: 0, limit: Infinity }): TBuildState {
@@ -332,7 +333,7 @@ function freeId(current: TProject, id: string): string {
 
 function gapPieceId(state: TBuildState, current: TProject, type: TGapPieceType, laneId: string): string {
 	const lane = current.music.lanes.findIndex((item) => item.id === laneId) + 1;
-	return freeId(current, `${type}-${lane}-${state.counts.switchback + state.counts.rail + 1}`);
+	return freeId(current, `${type}-${lane}-${state.counts.switchback + state.counts.chain + state.counts.rail + 1}`);
 }
 
 /**
@@ -528,7 +529,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	const gap = findLongGaps(current, laneId).find((item) => item.toHitId === hitId && item.bridgedBy == null);
 	if (gap != null) {
 		const options: { project: TProject; type: TGapPieceType; cost: number; log: string; label: string }[] = [];
-		const rodeSwitchback = current.entities.filter((entity) => entity.components.hitLink?.laneId === laneId && entity.components.piece != null && entity.components.piece.type !== 'platform' && !state.own.has(entity.id)).at(-1)?.components.piece?.type === 'switchback';
+		const rodeSwitchback = current.entities.filter((entity) => entity.components.hitLink?.laneId === laneId && entity.components.piece != null && entity.components.piece.type !== 'platform' && !state.own.has(entity.id)).at(-1)?.components.piece?.layout === 'switchback';
 		for (const type of gapPieceOrder(state.gapPiece)) {
 			if (isCancelled(state)) return null;
 			const entityId = gapPieceId(state, current, type, laneId);
@@ -543,15 +544,15 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 			if (accepted == null) continue;
 			const params = answer?.entity.components.piece?.params ?? {};
 			const pace = answer?.check?.paceError;
-			const log = `  ${gap.fromHitId} -> ${gap.toHitId}: ${type} over ${gap.duration.toFixed(2)} s${type === 'switchback' ? ` (${params['legs']} legs at ${(Math.abs(answer?.entity.components.hitLink?.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`;
+			const log = `  ${gap.fromHitId} -> ${gap.toHitId}: ${type} over ${gap.duration.toFixed(2)} s${type === 'switchback' || type === 'chain' ? ` (${params['turns']} turns at ${(Math.abs(answer?.entity.components.hitLink?.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`;
 			const isAsked = state.gapPiece === type;
-			options.push({ project: accepted, type, log, label: type, cost: isAsked || type !== 'switchback' ? 0 : SWITCHBACK_COST + (rodeSwitchback ? SWITCHBACK_IN_A_ROW_COST : 0) });
+			options.push({ project: accepted, type, log, label: type, cost: isAsked || (type !== 'switchback') ? 0 : SWITCHBACK_COST + (rodeSwitchback ? SWITCHBACK_IN_A_ROW_COST : 0) });
 			// Asked for by name, or trying ahead already: the first that fits
 			if (isAsked || state.isLooking) break;
 		}
 		const chosen = options.length > 1 ? await chooseAhead(state, options, laneId) : options[0];
 		if (chosen != null) {
-			counts[chosen.type === 'switchback' ? 'switchback' : 'rail']++;
+			counts[chosen.type === 'switchback' || chosen.type === 'chain' ? chosen.type : 'rail']++;
 			deps.onLog?.(chosen.log);
 			return chosen.project;
 		}
@@ -922,7 +923,7 @@ export function withoutPiecesAfter(project: TProject, from: { laneId: string; hi
 }
 
 function isGapPiece(type: string): boolean {
-	return type === 'switchback' || type === 'rail' || type === 'tunnel';
+	return type === 'rail' || type === 'tunnel';
 }
 
 /** `built` with each new platform in the skin of the piece that played its note in `was` */

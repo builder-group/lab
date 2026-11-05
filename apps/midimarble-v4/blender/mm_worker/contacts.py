@@ -31,7 +31,7 @@ def snap(time, grid):
 
 def marble_contacts(motion, radius, pieces):
     """Strike times this marble makes on `pieces`: hits of music pieces and contact starts with windmill blades,
-    when the marble is at the piece at that time. Rails, tunnels and switchbacks are rolled along, not struck."""
+    when the marble is at the piece at that time. Rails and tunnels are rolled along, not struck."""
     if not len(motion):
         return []
     contacts = []

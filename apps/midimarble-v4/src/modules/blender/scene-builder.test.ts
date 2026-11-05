@@ -268,7 +268,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 		expect(description.pieces[0]?.path).toBeNull();
 	});
 
-	it('passes the wires of a switchback in wall coordinates', () => {
+	it('passes the paths of a Rail in wall coordinates', () => {
 		const { project, result } = fixture();
 		const paths = [
 			[
@@ -286,7 +286,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 		];
 		result.pieces.push({
 			entityId: 'switchback-1',
-			type: 'switchback',
+			type: 'rail',
 			position: { x: 0.05, y: 0.1 },
 			angle: -0.3,
 			params: { width: 0.1, legs: 1, radius: 0.0025 },

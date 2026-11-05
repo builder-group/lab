@@ -92,24 +92,6 @@
 		},
 		{
 			"kind": "skin",
-			"id": "switchback-chrome",
-			"label": "Chrome Switchback",
-			"source": "switchback:chrome"
-		},
-		{
-			"kind": "skin",
-			"id": "switchback-wood",
-			"label": "Wood Switchback",
-			"source": "switchback:wood"
-		},
-		{
-			"kind": "skin",
-			"id": "switchback-glow",
-			"label": "Glow Switchback",
-			"source": "switchback:glow"
-		},
-		{
-			"kind": "skin",
 			"id": "windmill-gold",
 			"label": "Gold Windmill",
 			"source": "windmill:gold"

@@ -371,7 +371,8 @@ describe('assists', () => {
 			id: 'switchback'
 		});
 		if (!isHeldOk) throw heldErr;
-		expect(held.entity.components.piece?.type).toBe('switchback');
+		expect(held.entity.components.piece?.type).toBe('rail');
+		expect(held.entity.components.piece?.layout).toBe('switchback');
 		expect(held.entity.components.piece?.params['entryDelay']).toBeGreaterThan(0);
 		expect(held.check).toMatchObject({ pieceStatus: 'placed', isDotInFrame: true, isRunInFrame: true });
 		// The marble drops out below the switchback before the next hit, close to the pace
@@ -494,7 +495,7 @@ describe('crossesOtherLanes', () => {
 	});
 	project.entities.push(
 		createLinkedPiece('platform', 'lane-1', 'hit-1-1', 0, { id: 'piece-1-1' }),
-		createLinkedPiece('switchback', 'lane-2', 'hit-2-1', 0, { id: 'switchback-2-1' }),
+		createLinkedPiece('rail', 'lane-2', 'hit-2-1', 0, { id: 'switchback-2-1', layout: 'switchback' }),
 		createLinkedPiece('platform', 'lane-2', 'hit-2-2', 0, { id: 'piece-2-2' })
 	);
 	const frontiers = new Map([['marble-2', 2]]);

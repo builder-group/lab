@@ -8,6 +8,7 @@ import {
 	layoutAtMarble,
 	layoutFree,
 	layoutOf,
+	railLayoutInfo,
 	resolvePieceParams,
 	resolvePiecePath,
 	shapeDistance,
@@ -16,6 +17,7 @@ import {
 	type TLayoutInput,
 	type TPieceLayout,
 	type TPieceShape,
+	type TRailLayout,
 	type TResolvedPiece,
 	type TSimulationResult
 } from '@/modules/simulation';
@@ -194,6 +196,18 @@ export function withPathType(entity: TEntity, type: TPathPieceType, entities: TE
 	return { ...entity, ...(name != null ? { name } : {}), components: { ...entity.components, piece: { type, params }, path } };
 }
 
+/**
+ * The Rail with another layout: the parameters that layout starts from, keeping those it shares such as thickness and
+ * when it starts. Drawn takes away the layout and uses the path the Rail holds.
+ */
+export function withRailLayout(entity: TEntity, layout: TRailLayout): TEntity {
+	const piece = entity.components.piece;
+	if (piece == null || piece.type !== 'rail' || (piece.layout ?? 'path') === layout) return entity;
+	const { layout: _layout, ...rest } = piece;
+	const params = { ...piece.params, ...railLayoutInfo[layout].defaults };
+	return { ...entity, components: { ...entity.components, piece: layout === 'path' ? { ...rest, params } : { ...rest, layout, params } } };
+}
+
 /** Rail drawn with the path tool: the first node is the local origin, so the transform sits on it */
 export function railPath(nodes: TPathNode[]): { points: TVec2[]; nodes: TPathNode[] } {
 	const points = sampleNodes(nodes);
@@ -215,14 +229,18 @@ export function displayPiece(entity: TEntity, at: { pose: TPose } | { pose: TPos
 		type,
 		params,
 		path: resolvePiecePath(type, entity.components.path?.points),
+		extraPaths: entity.components.path?.paths,
+		layout: entity.components.piece?.layout,
 		angle: at.pose.angle,
 		contactAt: entity.components.hitLink?.contactAt ?? 0.5,
 		marbleRadius
 	};
 	const layout: TPieceLayout = 'dot' in at ? layoutAtMarble(input, at.dot, at.velocity) : layoutFree(input, at.pose.position);
+	const railLayout = entity.components.piece?.layout;
 	return {
 		entityId: entity.id,
 		type,
+		...(railLayout != null ? { layout: railLayout } : {}),
 		position: layout.position,
 		angle: layout.angle,
 		params,

@@ -192,8 +192,8 @@ describe('fixtures', () => {
 		expect(project.design.decor.map((item) => item.source)).toEqual(expect.arrayContaining(['decor:snowfall']));
 		// Built at new projects' default half gravity, which the assists keep on the shared pace
 		expect(project.physics.gravityScale).toBe(0.5);
-		// Switchbacks hold the melody across its long notes
-		expect(result.pieces.filter((piece) => piece.type === 'switchback').length).toBeGreaterThanOrEqual(10);
+		// Rails with the Switchback layout hold the melody across its long notes
+		expect(result.pieces.filter((piece) => piece.layout === 'switchback').length).toBeGreaterThanOrEqual(10);
 		// While both marbles play, they never touch each other or the other lane's pieces
 		const until = Math.min(...project.music.lanes.map((lane) => lane.hits.at(-1)?.time ?? 0));
 		const played = result.contacts.filter((contact) => contact.time <= until);

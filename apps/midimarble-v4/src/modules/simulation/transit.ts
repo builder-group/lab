@@ -4,7 +4,7 @@ import { resolvePieceParams } from './pieces';
 import { shapeDistance } from './shapes';
 import { PHYSICS_HZ, type TSimulationResult } from './types';
 
-// A marble rolling through a switchback or a rail repeats nothing: a turn of a thousandth of a degree before it
+// A marble rolling along a rail repeats nothing: a turn of a thousandth of a degree before it
 // changes where it comes out by tens of centimetres. So once a track is edited its gap pieces keep the ride they gave,
 // as frames relative to where the marble entered, and every later piece stays where it is. A ride is used while the
 // marble enters within `TRANSIT_TOLERANCE` of the speed it was made with; past that the piece is simulated again.
@@ -26,14 +26,14 @@ const TOUCH_MARGIN = 0.002;
 /** The layouts a marble rides through rather than bounces off */
 export function hasRide(type: string): boolean {
 	const layout = layoutOf(type);
-	return layout === 'holder' || layout === 'path' || layout === 'tube';
+	return layout === 'path' || layout === 'tube';
 }
 
 /** What a ride depends on besides the entry speed: the piece's shape and how it sits on the marble */
 export function rideKey(entity: TEntity): string {
 	const { piece, hitLink, path } = entity.components;
 	const { entryDelay: _, ...params } = resolvePieceParams(piece?.type ?? '', piece?.params ?? {});
-	return hash(JSON.stringify([piece?.type, params, path?.points, hitLink?.angle, hitLink?.contactAt, hitLink?.offset]));
+	return hash(JSON.stringify([piece?.type, piece?.layout, params, path?.points, path?.paths, hitLink?.angle, hitLink?.contactAt, hitLink?.offset]));
 }
 
 function hash(text: string): string {

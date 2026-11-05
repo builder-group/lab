@@ -401,14 +401,13 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => compose(cx)?.armTool('path', 'tunnel')
 	},
 	toolCommand('windmill', 'Windmill Tool', 'piece add rotor blades'),
-	toolCommand('switchback', 'Switchback Tool', 'piece add holder zigzag long gap'),
 	toolCommand('finish', 'Finish Tool', 'piece add end catch chute cup last note'),
 	{
 		id: 'tool.insert',
 		title: 'Insert…',
 		section: 'Tools',
 		shortcut: '⇧I',
-		keywords: 'library assets add piece windmill switchback rail tunnel title caption song name end card decor decoration ornament light shot',
+		keywords: 'library assets add piece windmill rail tunnel title caption song name end card decor decoration ornament light shot',
 		isEnabled: (cx) => compose(cx) != null || inDesign(cx),
 		run: (cx) => {
 			if (inDesign(cx)) cx.library.$insertOpen.set(true);
@@ -787,7 +786,6 @@ export type TCommandId =
 	| 'tool.platform'
 	| 'tool.tunnel'
 	| 'tool.windmill'
-	| 'tool.switchback'
 	| 'tool.finish'
 	| 'build.addFinish'
 	| 'tool.insert'

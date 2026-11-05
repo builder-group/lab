@@ -5,7 +5,7 @@ import { PACE_LIMIT, type TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
 import { acceptableCount, type TGhost } from './ghosts';
-import { FinishShape, RailShape, SwitchbackShape, toPoints, TunnelShape } from './PieceLayer';
+import { FinishShape, RailShape, RailPathsShape, toPoints, TunnelShape } from './PieceLayer';
 import { pieceKind } from './scene';
 
 /** Suggested pieces drawn dashed and see-through in place, with the dots they would produce */
@@ -66,7 +66,7 @@ const GhostPiece: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; scale: n
 	const tint = isOk ? undefined : 'var(--bad)';
 	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
-	if (kind === 'holder') return <SwitchbackShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
+	if (kind === 'generated') return <RailPathsShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	if (kind === 'catcher') return <FinishShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	const palette = paletteOf(piece.type);
 	const outline = compose.screenOutline(piece);
@@ -100,7 +100,7 @@ export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 		const { laneId, toHitId } = state.pendingGap;
 		const dot = result?.hits.find((hit) => hit.laneId === laneId && hit.hitId === toHitId)?.dot;
 		anchor = dot != null ? compose.toScreen(dot) : null;
-		content = <span className="text-[var(--text-secondary)]">Finding a switchback for this gap…</span>;
+		content = <span className="text-[var(--text-secondary)]">Finding a rail for this gap…</span>;
 	} else if (state.ghost?.kind === 'gap' || state.ghost?.kind === 'place') {
 		// Continue is offered in the contextual build bar; a dot's piece and gap pieces keep their own hint
 		anchor = hintAnchor(compose, state.ghost);
@@ -140,7 +140,7 @@ const HintContent: React.FC<{ compose: ComposeCx; ghost: TGhost }> = (props) => 
 	}
 	if (ghost.kind === 'gap') {
 		const { check, type } = ghost.answer;
-		const label = type === 'switchback' ? 'Switchback' : type === 'rail' ? 'Rail' : 'Tunnel';
+		const label = type === 'tunnel' ? 'Tunnel' : 'Rail';
 		const offPace = check?.paceError != null && Math.abs(check.paceError) > PACE_LIMIT ? `next dot ${Math.abs(check.paceError).toFixed(2)} m off the descent` : null;
 		const note = check == null ? null : !check.isDotInFrame ? 'next dot leaves the frame' : check.leaveTime == null ? 'marble stays on it' : offPace;
 		return (

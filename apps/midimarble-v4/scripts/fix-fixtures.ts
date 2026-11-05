@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { replaceBroken } from '../src/modules/compose/fix-it';
 import { applyProjectCommands, parseProject, serializeProject, type TProject } from '../src/modules/project';
-import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap } from '../src/modules/simulation';
+import { autoPlace, createChainForGap, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap } from '../src/modules/simulation';
 
 const simulator = await createSimulator();
 const simulate = (project: TProject): ReturnType<typeof simulator.simulate> => simulator.simulate(project);
@@ -20,7 +20,7 @@ for (const name of process.argv.slice(2)) {
 			return placement.entity;
 		},
 		gapPiece: async (next, gap, type, id) => {
-			const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
+			const create = type === 'switchback' ? createSwitchbackForGap : type === 'chain' ? createChainForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
 			const [isOk, error, proposal] = create(next, simulate(next), gap.laneId, gap.fromHitId, gap.toHitId, { simulate, id });
 			if (!isOk) throw error;
 			return proposal.entity;

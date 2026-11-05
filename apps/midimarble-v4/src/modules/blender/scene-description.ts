@@ -165,7 +165,7 @@ export interface TScenePiece {
 	contactTimes?: number[];
 	/**
 	 * True for pieces that sound their hits (platforms); their reactions follow `hitTimes`. False for scenery
-	 * (rails, tunnels, windmills, switchbacks), whose reactions follow `contactTimes`. Absent treats platforms as
+	 * (rails, tunnels, windmills), whose reactions follow `contactTimes`. Absent treats platforms as
 	 * music pieces and every other type as scenery. Optional and additive.
 	 */
 	musical?: boolean;
@@ -179,7 +179,7 @@ export interface TScenePiece {
 	 */
 	path?: { x: number; y: number }[] | null;
 	/**
-	 * Wires of a switchback in wall coordinates, from the resolved piece: one bent wire per leg from the top (its
+	 * A Rail's several paths in wall coordinates, from the resolved piece: for a Switchback one bent wire per leg from the top (its
 	 * wall, a rounded bend of the `bend` param's radius, then the leg), then the short exit stop. Each wire is a
 	 * capsule of the piece's `radius` param around its polyline. Optional and additive.
 	 */
