@@ -475,6 +475,8 @@ RIBBON_COLOR = '#d9a520'
 # Gift: a colour of its own per piece, so a run of them reads as a pile of presents
 # (paper, ribbon)
 GIFT_PAPERS = (('#a01522', RIBBON_COLOR), ('#14603a', RIBBON_COLOR), ('#ece4d2', '#a81a26'), ('#a01522', RIBBON_COLOR), ('#14603a', '#ece4d2'))
+# The furthest a built-in platform skin stands out of the wall, in marble radii
+SKIN_OUT_RADII = 3.5
 # Height of a Gift at the 16 mm marble of the Marble Race Kit: its top face is the contact surface
 PRESENT_HEIGHT = 0.017
 
@@ -533,6 +535,12 @@ def gift_spec(frame, length, thickness):
     }
 
 
+def plain_bar_depth(frame):
+    """How far a Pegboard or Neon bar stands out of the wall. Like the device and bar skins it stops at SKIN_OUT_RADII
+    marble radii, so the default 9 cm depth gives a bar rather than a square tile; `SKIN_OUT_RADII` in track-look.ts"""
+    return min(frame.depth, SKIN_OUT_RADII * frame.marble_radius)
+
+
 def platform_spec(frame, piece):
     params = frame.params
     length = params.get('length', 0.06)
@@ -587,9 +595,10 @@ def platform_spec(frame, piece):
         return neon_platform_spec(frame, length, thickness)
     wood = themes.wood_material()
     bar = MeshBuilder()
-    bar.box((length, frame.depth, thickness), (0.0, 0.0, 0.0), bevel=min(thickness, frame.depth) * 0.25)
+    depth = plain_bar_depth(frame)
+    bar.box((length, depth, thickness), (0.0, frame.wall_y - depth / 2, 0.0), bevel=min(thickness, depth) * 0.25)
     peg = MeshBuilder()
-    peg.cylinder(0.0028, frame.depth * 0.9, (0.0, frame.wall_y - frame.depth * 0.45, -thickness / 2 - 0.0035), axis='Y', bevel=0.0006)
+    peg.cylinder(0.0028, depth * 0.9, (0.0, frame.wall_y - depth * 0.45, -thickness / 2 - 0.0035), axis='Y', bevel=0.0006)
     return {
         'root': peg.to_mesh('MM peg', [wood]),
         'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [frame.toy(0.42, 0.3)]), 'reactive': True}],
@@ -601,14 +610,15 @@ def neon_platform_spec(frame, length, thickness):
     outline is the bar's own bevel, so the top face stays the collider's contact surface."""
     body, trim = neon_colors(frame)
     bar = MeshBuilder()
-    bar.box((length, frame.depth, thickness), (0.0, 0.0, 0.0), bevel=min(thickness, frame.depth) * NEON_EDGE_SHARE, material=0)
+    depth = plain_bar_depth(frame)
+    bar.box((length, depth, thickness), (0.0, frame.wall_y - depth / 2, 0.0), bevel=min(thickness, depth) * NEON_EDGE_SHARE, material=0)
     for face in bar.bm.faces:
         face.normal_update()
         # Flat faces point along an axis; the bevel's faces between them light up
         if max(abs(value) for value in face.normal) < 0.98:
             face.material_index = 1
     peg = MeshBuilder()
-    peg.cylinder(0.0028, frame.depth * 0.9, (0.0, frame.wall_y - frame.depth * 0.45, -thickness / 2 - 0.0035), axis='Y', bevel=0.0006)
+    peg.cylinder(0.0028, depth * 0.9, (0.0, frame.wall_y - depth * 0.45, -thickness / 2 - 0.0035), axis='Y', bevel=0.0006)
     return {
         'root': peg.to_mesh('MM peg', [themes.neon_mount_material()]),
         'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [themes.neon_body_material(body), themes.neon_trim_material(trim)]),

@@ -50,9 +50,13 @@ const GLASS_DENSITY = 2500;
 // highest `bounce` a piece allows, so Min never clips a piece's value.
 const MARBLE_RESTITUTION = 0.95;
 const MARBLE_FRICTION = 0.5;
-// Marble centres move in this plane. Pieces span z from their wall offset over their depth, and the
-// smallest allowed depth is 0.02 m, so the plane runs through every piece and contact normals stay in xy.
+// Marble centres move in this plane. Colliders span z from their wall offset over COLLIDER_DEPTH, so the plane runs
+// through every piece and contact normals stay in xy.
 const MARBLE_Z = 0.01;
+// A piece's `depth` is how far it stands out in the film and plays no part in the run. Its collider keeps this fixed
+// depth: a Jingle Bells rebuilt at 9 cm colliders missed 53 of 115 hits, as Rapier's rounding differs with a box's size
+// and a long run amplifies it. Tracks built at the earlier default of 4.5 cm play exactly as before.
+const COLLIDER_DEPTH = 0.045;
 // A marble stops being simulated this far below its release or the lowest piece, whichever is lower
 const FALL_LIMIT = 20;
 // Earlier samples may touch a new piece by this much before it counts as blocked
@@ -1069,9 +1073,8 @@ function staticColliderDesc(
 	switch (shape.kind) {
 		case 'box': {
 			const { box } = shape;
-			const depth = params['depth'] ?? 0.03;
-			return RAPIER.ColliderDesc.cuboid(box.halfLength, box.halfThickness, depth / 2)
-				.setTranslation(box.cx, box.cy, definition.wallOffset + depth / 2)
+			return RAPIER.ColliderDesc.cuboid(box.halfLength, box.halfThickness, COLLIDER_DEPTH / 2)
+				.setTranslation(box.cx, box.cy, definition.wallOffset + COLLIDER_DEPTH / 2)
 				.setRotation(zRotation(box.angle));
 		}
 		case 'capsule': {
@@ -1133,8 +1136,8 @@ function addRotorBody(
 		let desc: RAPIER.ColliderDesc;
 		if (shape.kind === 'box') {
 			const { box } = shape;
-			desc = RAPIER.ColliderDesc.cuboid(box.halfLength, box.halfThickness, rotor.depth / 2)
-				.setTranslation(box.cx, box.cy, piece.definition.wallOffset + rotor.depth / 2 - MARBLE_Z)
+			desc = RAPIER.ColliderDesc.cuboid(box.halfLength, box.halfThickness, COLLIDER_DEPTH / 2)
+				.setTranslation(box.cx, box.cy, piece.definition.wallOffset + COLLIDER_DEPTH / 2 - MARBLE_Z)
 				.setRotation(zRotation(box.angle));
 		} else if (shape.kind === 'ball') {
 			desc = RAPIER.ColliderDesc.ball(shape.radius).setTranslation(

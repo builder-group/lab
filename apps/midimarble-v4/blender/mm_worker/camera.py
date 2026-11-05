@@ -54,14 +54,15 @@ ROLL_PERIOD = 14.0
 SIDE_ANGLE = math.radians(150)
 SIDE_FOLLOW = 0.3
 HEADING_TAU = 1.5
-# The lead may move the target at most this fraction of the camera distance ahead of the marble
-LEAD_LIMIT = 0.04
+# The lead may move the target at most this fraction of the camera distance ahead of the marble; these two shares were
+# 0.04 and 0.15 at 50 mm and follow the lens, which sees 50/85 as much per metre of distance
+LEAD_LIMIT = 0.0235
 # While the follow point falls faster than FALL_START metres per second, the frame looks FALL_AHEAD seconds of the
 # extra speed below it, at most FALL_LIMIT of the camera distance; the speed is taken over FALL_WINDOW seconds either
 # side, the lead lasts FALL_HOLD seconds past the fall and eases over FALL_EASE seconds
 FALL_START = 0.3
 FALL_AHEAD = 0.25
-FALL_LIMIT = 0.15
+FALL_LIMIT = 0.088
 FALL_EASE = 0.6
 FALL_WINDOW = 0.1
 FALL_HOLD = 0.5
@@ -70,11 +71,11 @@ FRAME_KEEP = 0.55
 # Width over height of the framing box; portrait films are 9:16
 ASPECT_GUESS = 0.56
 SHOT_EASE = 0.8
-LENS = 50.0
+LENS = 85.0
 # Readable maximum distance: a typical piece spans at least MIN_PIECE_FRACTION of the frame width, a marble at least
-# MIN_MARBLE_FRACTION, and the camera never pulls back further than ZOOM_LIMIT times its set distance. 5 % at the rig
-# distance keeps a 24 mm marble at about 4.6 % or more of a 9:16 frame as the steep view sees it and both marbles of
-# Jingle Bells in frame on 95.5 % of the frames (6 %: 80.8 %; 3.5 % let it pull back to a survey of 20 and more bars)
+# MIN_MARBLE_FRACTION, and the camera never pulls back further than ZOOM_LIMIT times its set distance. These are shares
+# of the frame, so they follow the lens. 5 % at the 1.36 m rig distance and 85 mm keeps a 24 mm marble at 5.4 % or more (10th percentile) of
+# a 9:16 frame and both marbles of Jingle Bells in frame on 96 % of the frames (`docs/references.md`, Tuned film view)
 MIN_PIECE_FRACTION = 0.06
 MIN_MARBLE_FRACTION = 0.05
 ZOOM_LIMIT = 3.0
@@ -85,8 +86,8 @@ ZOOM_LIMIT = 3.0
 # 0.85 and 0.85 keep both marbles in frame on every frame at 4.4 % of the frame width or more (p10); 0.9 crops one
 GROUP_KEEP_X = 0.85
 GROUP_KEEP_Y = 0.85
-# Margin on the distance a framed group needs
-GROUP_MARGIN = 1.1
+# Margin on the distance a framed group needs: a long lens leaves less of the perspective that gave 1.1 room at 50 mm
+GROUP_MARGIN = 1.2
 # Weight in the group centre of a marble past its `activeUntil`
 FINISHED_WEIGHT = 0.001
 SENSOR = 36.0
@@ -100,7 +101,7 @@ BOWL_FRAME = 0.5
 GROUP_EASE = 1.2
 # A group that needs more than the readable distance for less than this many seconds stays framed
 GROUP_SPIKE = 0.3
-# Time constant in seconds of the group distance, so the zoom changes slowly (at most 0.05 m within a second)
+# Time constant in seconds of the group distance, so the zoom changes slowly (at most about 0.1 m within a second at 85 mm)
 DISTANCE_TAU = 1.8
 # Where the group does not fit, the marble in flight with the most notes within LEAD_AHEAD seconds leads the frame; the
 # focus marble gets FOCUS_BIAS extra so the melody leads on a tie, a lead lasts at least LEAD_HOLD seconds and the frame
@@ -119,9 +120,9 @@ OPENING_EASE = 1.5
 # Seconds after the first hit over which the opening's zoom eases back: slower than its frame, as the zoom never pumps
 OPENING_ZOOM_EASE = 6.0
 OPENING_STEPS = 3
-# The opening box fits within this share of the readable maximum, as its marbles fall while it holds: Two Marbles' box
-# needs 0.96 of it and lost both marbles at the top of its first frame
-OPENING_ROOM = 0.85
+# The opening box fits within this share of the readable maximum, as its marbles fall while it holds. At 85 mm Jingle
+# Bells' box needs 0.92 to 0.97 of it with the group margin; below that its first piece sits at the frame's edge
+OPENING_ROOM = 0.97
 # A marble in flight stays inside EDGE_IN of the half frame (10 % of the frame from its edge) or beyond EDGE_OUT
 # (fully out); in between it would sit cut at the edge, so the frame shifts it in or out. A marble that cannot be kept
 # in is pushed out only once within EDGE_NEAR (6 % of the frame from the edge). The leading marble stays within

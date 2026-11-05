@@ -1,5 +1,6 @@
 import type { TEntity, TProject } from '@/modules/project';
 import { gravityOf } from '../geometry';
+import { platformDefinition } from '../pieces';
 import { createLinkedPiece } from '../placement';
 import type { TSimulator } from '../simulate';
 import { rollingHits } from '../track-look';
@@ -292,7 +293,7 @@ export function isOffColumn(bar: TBar): boolean {
 function barEntity(laneId: string, hitId: string, angle: number, bounce: number, contactAt: number, length: number): TEntity {
 	const entity = createLinkedPiece('platform', laneId, hitId, angle, { id: `bar-${hitId}`, contactAt });
 	const piece = entity.components.piece;
-	if (piece != null) piece.params = { length, thickness: 0.012, depth: 0.045, bounce, entryDelay: 0 };
+	if (piece != null) piece.params = { length, thickness: 0.012, depth: platformDefinition.params['depth']?.default ?? 0.09, bounce, entryDelay: 0 };
 	return entity;
 }
 

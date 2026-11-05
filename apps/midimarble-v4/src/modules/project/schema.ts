@@ -154,7 +154,9 @@ const SWallTextComponent = z.strictObject({
 	out: z.number().nonnegative().optional(),
 	// `wall` (absent) sits on the wall; `caption`, `songName` and `endCard` sit in the frame, where `size` is the
 	// letter height as a fraction of the frame height
-	style: z.enum(['wall', 'caption', 'songName', 'endCard']).optional()
+	style: z.enum(['wall', 'caption', 'songName', 'endCard']).optional(),
+	// A screen title's soft dark plate and shadow behind plain text; absent is plain text
+	plate: z.boolean().optional()
 });
 
 /**

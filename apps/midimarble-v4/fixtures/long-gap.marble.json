@@ -82,7 +82,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.79,
 						"entryDelay": 0
 					}
@@ -104,7 +104,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.59,
 						"entryDelay": 0
 					}
@@ -126,7 +126,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.65,
 						"entryDelay": 0
 					}
@@ -154,7 +154,7 @@
 				"path": {
 					"points": [
 						{
-							"x": -0.20264,
+							"x": -0.20268,
 							"y": 0
 						},
 						{
@@ -162,7 +162,7 @@
 							"y": 0
 						},
 						{
-							"x": 0.14921,
+							"x": 0.14922,
 							"y": 0
 						}
 					]
@@ -184,7 +184,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.34,
 						"entryDelay": 0
 					}
@@ -206,7 +206,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.46,
 						"entryDelay": 0
 					}
@@ -228,7 +228,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.65,
 						"entryDelay": 0
 					}
@@ -257,7 +257,7 @@
 				"path": {
 					"points": [
 						{
-							"x": 0.27565,
+							"x": 0.28013,
 							"y": 0
 						},
 						{
@@ -265,7 +265,7 @@
 							"y": 0
 						},
 						{
-							"x": -0.12,
+							"x": -0.11824,
 							"y": 0
 						}
 					]
@@ -287,8 +287,8 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
-						"bounce": 0.54,
+						"depth": 0.09,
+						"bounce": 0.51,
 						"entryDelay": 0
 					}
 				},
@@ -309,7 +309,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.65,
 						"entryDelay": 0
 					}
@@ -338,7 +338,7 @@
 		"renderPreset": "balanced",
 		"camera": {
 			"mode": "rig",
-			"distance": 0.8999999999999999,
+			"distance": 1.7489999999999999,
 			"pitch": 0.7,
 			"lead": 0.15,
 			"smoothing": 0.6,

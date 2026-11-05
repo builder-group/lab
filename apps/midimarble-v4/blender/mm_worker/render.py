@@ -524,6 +524,7 @@ def burned_screen_titles(project_dir, start_time):
             'text': text, 'style': style, 'size': float(entry.get('size') or 0.05), 'color': entry.get('color') or '#ffffff',
             'in': None if start is None else float(start) - start_time,
             'out': None if end is None else float(end) - start_time,
+            'plate': bool(entry.get('plate')),
         })
     return titles
 
@@ -536,7 +537,8 @@ def remove_screen_titles(scene):
 
 
 def screen_title_filters(job, job_dir):
-    """FFmpeg drawtext filters for the job's screen titles: centred, faded in and out, on a soft dark backing"""
+    """FFmpeg drawtext filters for the job's screen titles: plain text, centred, faded in and out, like the preview's
+    title; a title that asks for a plate also gets a soft dark box and shadow"""
     titles = job.get('screenTitles') or []
     font = next((candidate for candidate in SCREEN_TITLE_FONTS if Path(candidate).is_file()), None)
     if not titles or font is None:
@@ -553,13 +555,12 @@ def screen_title_filters(job, job_dir):
                  .format(s='%.4f' % start, e='%.4f' % end, f='%.4f' % fade))
         centre_y = job['height'] / 2 * (1 - SCREEN_TITLE_HEIGHTS.get(title['style'], 0.0))
         color = '0x' + str(title['color']).lstrip('#')[:6]
-        padding = max(4, size // 3)
+        plate = (':box=1:boxcolor=black@0.28:boxborderw=%d:shadowcolor=black@0.35:shadowx=0:shadowy=%d'
+                 % (max(4, size // 3), max(1, size // 24))) if title.get('plate') else ''
         filters.append(
             "drawtext=fontfile='{font}':textfile='{text}':fontsize={size}:fontcolor={color}:alpha='{alpha}'"
-            ":x=(w-text_w)/2:y={y:.1f}-text_h/2:box=1:boxcolor=black@0.28:boxborderw={pad}"
-            ":shadowcolor=black@0.35:shadowx=0:shadowy={shadow}".format(
-                font=font, text=text_file, size=size, color=color, alpha=alpha, y=centre_y, pad=padding,
-                shadow=max(1, size // 24)))
+            ":x=(w-text_w)/2:y={y:.1f}-text_h/2{plate}".format(
+                font=font, text=text_file, size=size, color=color, alpha=alpha, y=centre_y, plate=plate))
     return filters
 
 

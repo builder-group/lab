@@ -12,6 +12,7 @@ import {
 	resolvePieceParams,
 	resolvePiecePath,
 	soundsHit,
+	shownDepth,
 	trajectoryAt,
 	type THitResult,
 	type TResolvedPiece,
@@ -380,7 +381,7 @@ export class ComposeCx {
 	/** Grip and pivot of the selected piece's rotation handle in screen space */
 	screenGrip(piece: TResolvedPiece): { pivot: TVec2; grip: TVec2 } {
 		const { pivot, grip } = rotationGrip(piece);
-		const depth = piece.params['depth'] ?? 0.03;
+		const depth = shownDepth(piece);
 		const screenPivot = this.toScreen(pivot, depth);
 		const screenEnd = this.toScreen(grip, depth);
 		const dx = screenEnd.x - screenPivot.x;
@@ -392,7 +393,7 @@ export class ComposeCx {
 
 	/** Outline of a piece in screen space, see `pieceOutline` */
 	screenOutline(piece: TResolvedPiece): TVec2[] {
-		const depth = piece.params['depth'] ?? 0.03;
+		const depth = shownDepth(piece);
 		return pieceOutline(piece).map((corner) => this.toScreen(corner, depth));
 	}
 
@@ -453,7 +454,7 @@ export class ComposeCx {
 		const pieces = this.displayPieces(result).filter((piece) => piece.entityId !== previewId);
 		for (const piece of pieces) {
 			if (locked.includes(piece.entityId)) continue;
-			const depth = piece.params['depth'] ?? 0.03;
+			const depth = shownDepth(piece);
 			// A generated Rail is mostly air: only its wires pick, while its box still frames and marquees it
 			const lines = pieceKind(piece) === 'generated' ? piece.paths?.map((path) => path.map((point) => this.toScreen(point, depth))) : undefined;
 			scene.pieces.push({ entityId: piece.entityId, corners: this.screenOutline(piece), lines, isSelected: selected.includes(piece.entityId) });

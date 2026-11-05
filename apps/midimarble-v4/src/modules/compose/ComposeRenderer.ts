@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { CAMERA_CLIP_END, CAMERA_CLIP_START, verticalFov, type TCameraPose } from '@/modules/camera';
 import type { TVec2 } from '@/modules/project';
-import { getPieceDefinition, layoutOf, rotorLocalShapes, type TResolvedPiece } from '@/modules/simulation';
+import { getPieceDefinition, layoutOf, rotorLocalShapes, shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import { worldToScreen, type TView, type TViewport } from './view';
 
 // Draws the wall content with WebGL over the CSS dot grid. Objects are kept between updates and only
@@ -398,7 +398,7 @@ export class ComposeRenderer {
 	private platformParts(piece: TResolvedPiece): TPiecePart[] {
 		const length = piece.params['length'] ?? 0.06;
 		const thickness = piece.params['thickness'] ?? 0.008;
-		const depth = piece.params['depth'] ?? 0.03;
+		const depth = shownDepth(piece);
 		const bar = new THREE.Mesh(this.boxGeometry(length, thickness, depth));
 		bar.position.z = depth / 2;
 		const nub = new THREE.Mesh(this.nubGeometry);

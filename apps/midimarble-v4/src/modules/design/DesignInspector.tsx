@@ -333,6 +333,14 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 						</button>
 					) : null}
 				</span>
+				{isScreen ? (
+					<span className="mm-ifield" data-span="2">
+						<label htmlFor="text-plate" className="mm-ifield-label">
+							Plate
+						</label>
+						<input id="text-plate" type="checkbox" className="mm-checkbox" checked={text.plate === true} onChange={(event) => setText({ plate: event.target.checked ? true : undefined })} title="A soft dark plate and shadow behind the text" />
+					</span>
+				) : null}
 			</Panel>
 			<Panel id="design.wallText.timing" title="Timing">
 				<TextField key={`in-${timingKey}`} id="text-in" label="In" name="Time the title appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />

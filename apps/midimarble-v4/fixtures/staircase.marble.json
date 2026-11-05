@@ -265,7 +265,7 @@
 		"renderPreset": "balanced",
 		"camera": {
 			"mode": "rig",
-			"distance": 0.6,
+			"distance": 1.166,
 			"pitch": 0.7,
 			"lead": 0.15,
 			"smoothing": 0.6,

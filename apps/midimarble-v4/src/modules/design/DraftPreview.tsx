@@ -339,7 +339,7 @@ const WallTitle: React.FC<{ title: TDraftTitle }> = (props) => {
 	);
 };
 
-/** A Caption, Song Name or End Card as the encoded film draws it: bold, centred, on a soft dark backing with a shadow */
+/** A Caption, Song Name or End Card as the encoded film draws it: bold and centred, on a soft dark plate with a shadow if it asks for one */
 const ScreenTitle: React.FC<{ title: TDraftTitle; screen: TScreenTitleLayout }> = (props) => {
 	const { title, screen } = props;
 	const width = textWidth(title.text, screen.fontSize);
@@ -347,13 +347,15 @@ const ScreenTitle: React.FC<{ title: TDraftTitle; screen: TScreenTitleLayout }> 
 	const height = screen.fontSize * 1.1;
 	return (
 		<g opacity={title.opacity}>
-			<rect
-				x={screen.center.x - width / 2 - screen.padding}
-				y={screen.center.y - height / 2 - screen.padding}
-				width={width + screen.padding * 2}
-				height={height + screen.padding * 2}
-				fill={SCREEN_TITLE_BACKING}
-			/>
+			{title.hasPlate === true ? (
+				<rect
+					x={screen.center.x - width / 2 - screen.padding}
+					y={screen.center.y - height / 2 - screen.padding}
+					width={width + screen.padding * 2}
+					height={height + screen.padding * 2}
+					fill={SCREEN_TITLE_BACKING}
+				/>
+			) : null}
 			<text
 				x={screen.center.x}
 				y={screen.center.y}
@@ -362,7 +364,7 @@ const ScreenTitle: React.FC<{ title: TDraftTitle; screen: TScreenTitleLayout }> 
 				fontWeight={700}
 				textAnchor="middle"
 				dominantBaseline="central"
-				style={{ fontFamily: SCREEN_TITLE_FONT, textShadow: `0 ${screen.shadow}px 0 ${SCREEN_TITLE_SHADOW}` }}
+				style={{ fontFamily: SCREEN_TITLE_FONT, textShadow: title.hasPlate === true ? `0 ${screen.shadow}px 0 ${SCREEN_TITLE_SHADOW}` : undefined }}
 			>
 				{title.text}
 			</text>

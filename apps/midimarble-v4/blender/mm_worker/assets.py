@@ -41,6 +41,8 @@ REACT_PREFIX = 'MM_REACT_'
 REACTION_KINDS = ('press', 'wobble', 'glow')
 # Fitted scale stays within this factor of the asset's own size, so a wrong manifest cannot blow it up
 MAX_FIT_SCALE = 4.0
+# The depth an asset without a fitted depth is taken to be built for, the default kit's until the 9 cm plates
+BUILT_DEPTH = 0.045
 
 
 def layout(piece_type):
@@ -270,7 +272,10 @@ def contact_matrix(frame, kind, manifest):
     if kind in ('path', 'tube'):
         return scale
     thickness = frame.params.get('thickness', 0.008)
-    return Matrix.Translation((0.0, 0.0, thickness / 2)) @ scale
+    fitted = manifest.get('fittedParams') if isinstance(manifest.get('fittedParams'), dict) else {}
+    # The origin sits mid depth, so an asset that does not scale with depth keeps to the wall as a deeper piece moves it out
+    to_wall = max(0.0, frame.depth - BUILT_DEPTH) / 2 if 'depth' not in fitted else 0.0
+    return Matrix.Translation((0.0, to_wall, thickness / 2)) @ scale
 
 
 def fit_scale(frame, kind, manifest):

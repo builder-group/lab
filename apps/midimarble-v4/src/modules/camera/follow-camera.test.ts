@@ -53,7 +53,7 @@ describe('follow camera', () => {
 		const { project: zigzag, result } = fixture('zigzag');
 		const track = required(followCameraTrack(zigzag, result, 30));
 		expect(track.frameCount).toBe(Math.ceil(result.duration * 30 - 1e-6) + 1);
-		expect(track.lens).toBe(50);
+		expect(track.lens).toBe(85);
 		const samples = required(result.marbles[0]).samples;
 		const release = required(samples[0]).time;
 		for (let frame = 0; frame < track.frameCount; frame += 5) {
@@ -121,7 +121,8 @@ describe('follow camera', () => {
 				fps: 30,
 				duration: 6,
 				frame: { width: 1080, height: 1920 },
-				camera: { mode: 'rig', distance: 0.9, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots: [] },
+				// As much in frame as 0.9 m through the former 50 mm lens
+				camera: { mode: 'rig', distance: 1.53, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots: [] },
 				pieceLength: 0.09,
 				marbles: [{ id: 'marble', radius: 0.012, hitTimes: [0.5, 1, 1.5, 4, 4.5, 5], motion: { time, x, y } }]
 			})

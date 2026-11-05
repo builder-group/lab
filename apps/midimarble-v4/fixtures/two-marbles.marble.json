@@ -108,7 +108,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.41,
 						"entryDelay": 0
 					}
@@ -130,7 +130,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.38,
 						"entryDelay": 0
 					}
@@ -152,7 +152,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.63,
 						"entryDelay": 0
 					}
@@ -174,7 +174,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.7,
 						"entryDelay": 0
 					}
@@ -196,7 +196,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.65,
 						"entryDelay": 0
 					}
@@ -218,7 +218,7 @@
 					"params": {
 						"length": 0.09,
 						"thickness": 0.012,
-						"depth": 0.045,
+						"depth": 0.09,
 						"bounce": 0.65,
 						"entryDelay": 0
 					}
@@ -291,7 +291,7 @@
 		"renderPreset": "balanced",
 		"camera": {
 			"mode": "rig",
-			"distance": 0.8999999999999999,
+			"distance": 1.7489999999999999,
 			"pitch": 0.7,
 			"lead": 0.15,
 			"smoothing": 0.6,

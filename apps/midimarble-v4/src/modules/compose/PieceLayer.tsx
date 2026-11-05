@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import type { TVec2 } from '@/modules/project';
-import type { TResolvedPiece } from '@/modules/simulation';
+import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
 import { offsetPolyline, pieceKind, pieceOutline, tubeCeiling } from './scene';
@@ -66,7 +66,7 @@ export function usePannedProjection(compose: ComposeCx): { projection: TScreenPr
 
 /** Outline of a piece as `projection` draws it, see `pieceOutline` */
 export function projectedOutline(projection: TScreenProjection, piece: TResolvedPiece): TVec2[] {
-	const depth = piece.params['depth'] ?? 0.03;
+	const depth = shownDepth(piece);
 	return pieceOutline(piece).map((corner) => projection.toScreen(corner, depth));
 }
 
@@ -214,7 +214,7 @@ const MinimumShape: React.FC<{ compose: TScreenProjection; piece: TResolvedPiece
 	const outline = projectedOutline(compose, piece);
 	if (!outline.length || !outline.every(isFinitePoint)) return null;
 	if (pieceKind(piece) === 'rotor') {
-		const center = compose.toScreen(piece.position, piece.params['depth'] ?? 0.03);
+		const center = compose.toScreen(piece.position, shownDepth(piece));
 		const reach = Math.max(...outline.map((point) => Math.hypot(point.x - center.x, point.y - center.y)));
 		if (reach >= 8) return null;
 		return <circle cx={center.x} cy={center.y} r={4} fill={palette.bar} stroke={palette.nub} strokeWidth={1} />;

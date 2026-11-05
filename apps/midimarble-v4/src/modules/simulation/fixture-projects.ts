@@ -32,7 +32,7 @@ export function createStaircaseProject(): TProject {
 			}
 		]
 	});
-	project.design.camera.distance = 0.6;
+	project.design.camera.distance = 1.166;
 	project.physics.gravityScale = 1;
 	return project;
 }
@@ -158,8 +158,8 @@ export function createBareRunProject(options: {
 			decor: [],
 			madeInBlender: [],
 			renderPreset: 'balanced',
-			// 0.6 m frames the Marble Race Kit; the default kit is KIT_SCALE times larger
-			camera: { mode: 'rig', distance: 0.6 * KIT_SCALE, pitch: 0.7, lead: 0.15, smoothing: 0.6, sway: 1, shots: [] }
+			// 1.166 m frames the Marble Race Kit through the 85 mm lens; the default kit is KIT_SCALE times larger
+			camera: { mode: 'rig', distance: 1.166 * KIT_SCALE, pitch: 0.7, lead: 0.15, smoothing: 0.6, sway: 1, shots: [] }
 		}
 	};
 }

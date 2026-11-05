@@ -58,8 +58,11 @@ export function columnOffset(pieceLength: number): number {
 	return STRIKE_COLUMN * pieceLength;
 }
 
-/** How far a built-in platform skin stands out from the wall, in marble radii: a Gift's box, the deepest */
-const SKIN_OUT_RADII = 3;
+/**
+ * How far a built-in platform skin stands out from the wall, in marble radii, whatever the piece's `depth`: a bar's
+ * standoff and body, the deepest. `SKIN_OUT_RADII` in skins.py
+ */
+const SKIN_OUT_RADII = 3.5;
 
 /** One convex outline in the image, in metres: x as on the wall, y as wall height the image's height stands for */
 export type TFilmOutline = TVec2[];

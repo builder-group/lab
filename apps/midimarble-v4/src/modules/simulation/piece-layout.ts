@@ -31,7 +31,6 @@ export interface TRotorLayout {
 	localShapes: TPieceShape[];
 	damping: number;
 	motorSpeed: number;
-	depth: number;
 }
 
 export interface TLayoutInput {
@@ -365,8 +364,7 @@ function rotorLayout(
 			angle: input.angle,
 			localShapes,
 			damping: input.params['damping'] ?? 0.5,
-			motorSpeed: input.params['motorSpeed'] ?? 0,
-			depth: input.params['depth'] ?? 0.03
+			motorSpeed: input.params['motorSpeed'] ?? 0
 		}
 	};
 }

@@ -217,6 +217,8 @@ export interface TSceneWallText {
 	 * `endCard` (centre) hang from the film camera, and the film encoder draws them onto the film. Optional and additive.
 	 */
 	style?: 'wall' | 'caption' | 'songName' | 'endCard';
+	/** A screen title's soft dark plate and shadow behind its text; absent is plain text */
+	plate?: boolean;
 }
 
 /**

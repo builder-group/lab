@@ -393,8 +393,8 @@ export interface TScreenTitleLayout {
 
 /**
  * Where and how big a Caption, Song Name or End Card sits in a frame of `width` by `height` CSS pixels, scaled from
- * `screen_title_filters` in render.py at the film's `filmHeight`: a soft dark box `padding` around the text and a
- * shadow `shadow` below it
+ * `screen_title_filters` in render.py at the film's `filmHeight`; a title with a plate gets a soft dark box `padding`
+ * around the text and a shadow `shadow` below it
  */
 export function screenTitleLayout(style: keyof typeof SCREEN_TITLE_HEIGHT, size: number, frame: { width: number; height: number }, filmHeight: number): TScreenTitleLayout {
 	const scale = frame.height / Math.max(1, filmHeight);
@@ -422,7 +422,7 @@ export function previewScreenTitleLayout(
 	return screenTitleLayout(style, size, frame, filmSize(projectFrame, preset).height);
 }
 
-/** Backing of the encoder: black at 28 %, shadow black at 35 % */
+/** A title's plate in the encoder: black at 28 %, shadow black at 35 % */
 export const SCREEN_TITLE_BACKING = 'rgb(0 0 0 / 0.28)';
 export const SCREEN_TITLE_SHADOW = 'rgb(0 0 0 / 0.35)';
 

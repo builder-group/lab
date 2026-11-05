@@ -10,6 +10,15 @@ export const KIT_SCALE = 1.5;
 /** Longest time after its hit, or before the lane's first hit, that an anchored piece may follow the trajectory */
 export const ANCHOR_DELAY = 10;
 
+/**
+ * How far a piece stands out of the wall in the app's views. A built-in platform skin stops at 3.5 marble radii,
+ * 4.2 cm at the default marble (`SKIN_OUT_RADII` in skins.py), so a Draft or Compose bar reads as it does in the film.
+ */
+export function shownDepth(piece: { type: string; params: Record<string, number> }): number {
+	const depth = piece.params['depth'] ?? 0.03;
+	return piece.type === 'platform' ? Math.min(depth, 0.042) : depth;
+}
+
 function kit(value: number): number {
 	return Math.round(value * KIT_SCALE * 1e6) / 1e6;
 }
@@ -28,7 +37,8 @@ export const platformDefinition: TPieceDefinition = {
 	params: {
 		length: { default: kit(0.06), min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
 		thickness: { default: kit(0.008), min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
-		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
+		// How far the plate stands out of the wall, 9 cm by default: visual only, as the marble moves in the wall plane
+		depth: { default: kit(0.06), min: 0.02, max: 0.12, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},

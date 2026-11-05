@@ -14,6 +14,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import bmesh
 import bpy
@@ -23,7 +24,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from mm_worker import render, themes, walltext  # noqa: E402
+from mm_worker import assets, render, themes, walltext  # noqa: E402
 from mm_worker.ops import Worker  # noqa: E402
 from mm_worker.util import DETACHED_COLLECTION, MANAGED_COLLECTION, STUDIO_COLLECTION, parse_color  # noqa: E402
 
@@ -237,6 +238,12 @@ def main():
     along = Vector((math.cos(PLATFORM_ANGLE), 0.0, math.sin(PLATFORM_ANGLE)))
     expected_tip = centre + along * (FITTED_LENGTH / 2 * PLATFORM['length'] / FITTED_LENGTH) - contact_normal() * 0.01
     check((tip - expected_tip).length < 1e-6, 'fittedParams stretch the asset to the platform length')
+    # A deeper plate: an asset fitted by depth scales across it about mid depth, one that is not stays on the wall
+    deep = SimpleNamespace(params={'length': 0.09, 'thickness': 0.012, 'depth': 0.09}, depth=0.09)
+    fitted_deep = assets.contact_matrix(deep, 'box', {'fittedParams': {'length': 0.09, 'depth': 0.045}})
+    check(abs(fitted_deep[1][1] - 2.0) < 1e-6 and abs(fitted_deep[1][3]) < 1e-9, 'an asset fitted to 4.5 cm doubles on a 9 cm plate, centred mid depth')
+    plain_deep = assets.contact_matrix(deep, 'box', {'fittedParams': {'length': 0.09}})
+    check(abs(plain_deep[1][1] - 1.0) < 1e-6 and abs(plain_deep[1][3] - 0.0225) < 1e-9, 'an asset without a fitted depth keeps its size and stays on the wall')
     skin.location = offset
 
     # The press part follows mm_hit; the holder and marble keys are untouched
@@ -442,11 +449,12 @@ def main():
               'a perspective camera %.2f m from the wall keeps the caption at the top in front of the wall' % abs(location[1]))
     states = {item['mmId']: item['link'] for item in worker.handle('inspect', {})['texts']}
     check(states == {'text-caption': 'linked', 'text-end': 'linked', 'text-song': 'linked'}, 'camera drivers do not detach a screen title')
-    # The film encoder burns a song name in like a caption, in the upper third on the same backing
-    filters = render.screen_title_filters({'height': 1920, 'duration': 10.0, 'screenTitles': [
-        {'text': 'SONG', 'style': 'songName', 'size': 0.07, 'color': '#ffffff', 'in': None, 'out': 3.0}]}, Path(root))
-    check(not filters or (':y=672.0-text_h/2' in filters[0] and 'boxcolor=black@0.28' in filters[0]),
-          'the encoder draws a song name in the upper third on its backing')
+    # The film encoder burns a song name in like a caption, in the upper third, plain like the preview unless it asks for a plate
+    song = {'text': 'SONG', 'style': 'songName', 'size': 0.07, 'color': '#ffffff', 'in': None, 'out': 3.0}
+    filters = render.screen_title_filters({'height': 1920, 'duration': 10.0, 'screenTitles': [song, dict(song, plate=True)]}, Path(root))
+    check(not filters or (':y=672.0-text_h/2' in filters[0] and 'box=' not in filters[0] and 'shadow' not in filters[0]),
+          'the encoder draws a song name in the upper third as plain text')
+    check(not filters or 'boxcolor=black@0.28' in filters[1], 'a title that asks for a plate gets its backing')
     write_package(root, records, hit, asset=True, texts=[dict(caption, style='wall')])
     apply(worker)
     unparented = text_object('text-caption')

@@ -12,7 +12,7 @@ import { snowfallOf, snowFlakes, type TFlake } from './decor-effects';
 import { distanceToBox, type TWallBox } from './decor-clearance';
 import { appliedOverrides, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme } from './project-themes';
 import { wallKindOverride } from './scene-layers';
-import type { TResolvedPiece } from '@/modules/simulation';
+import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { selectionHull } from './draft-outline';
@@ -117,7 +117,7 @@ export class DraftPreviewCx {
 		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: this.scenePiece(piece.entityId)?.skin ?? null, angle: piece.angle }, theme.projectTheme?.parts);
 		if (!marks.length) return [];
 		const angle = pieceAngleAt(piece, this.studio.$playhead.get());
-		const [length, thickness, depth] = [piece.params['length'] ?? 0.06, piece.params['thickness'] ?? 0.008, piece.params['depth'] ?? 0.03];
+		const [length, thickness, depth] = [piece.params['length'] ?? 0.06, piece.params['thickness'] ?? 0.008, shownDepth(piece)];
 		const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
 		// A point on the front face, in shares of the bar's length and thickness from its centre
 		const at = (x: number, y: number): TVec2 =>
@@ -142,9 +142,9 @@ export class DraftPreviewCx {
 			if (text == null) return [];
 			const color = text.color ?? defaultTitleColor(project.design);
 			if (text.style === 'caption' || text.style === 'songName' || text.style === 'endCard') {
-				// Screen titles are drawn onto the encoded film: a fixed place and size in the frame on a soft backing
+				// Screen titles are drawn onto the encoded film: a fixed place and size in the frame, plain unless they ask for a plate
 				const screen = previewScreenTitleLayout(text.style, text.size, this.size, project.frame, project.design.renderPreset);
-				return [{ entityId: entity.id, text: text.text, color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen }];
+				return [{ entityId: entity.id, text: text.text, color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen, hasPlate: text.plate === true }];
 			}
 			if (transform == null) return [];
 			const center = this.toScreen(transform.position, 0);
@@ -323,7 +323,7 @@ export class DraftPreviewCx {
 		const kind = pieceKind(piece);
 		const wall = pieceOutline(piece);
 		if (kind === 'path' || kind === 'tube') return wall.map((corner) => this.toScreen(corner, MARBLE_Z));
-		const depth = piece.params['depth'] ?? 0.03;
+		const depth = shownDepth(piece);
 		return selectionHull([...wall.map((corner) => this.toScreen(corner, 0)), ...wall.map((corner) => this.toScreen(corner, depth))], 3);
 	}
 
@@ -353,7 +353,7 @@ export class DraftPreviewCx {
 			}
 			// The steep film camera sees bars from above: the piece covers its outline at the wall, at its front and the
 			// sides between them
-			const depth = piece.params['depth'] ?? 0.03;
+			const depth = shownDepth(piece);
 			const back = wall.map((corner) => this.toScreen(corner, 0));
 			const front = wall.map((corner) => this.toScreen(corner, depth));
 			const sides = wall.map((_, index) => {
@@ -439,8 +439,10 @@ export interface TDraftTitle {
 	/** Screen angle in degrees, clockwise */
 	angle: number;
 	opacity: number;
-	/** Caption, Song Name and End Card: the encoder's backing and shadow */
+	/** Caption, Song Name and End Card: their place and size as the encoder draws them */
 	screen?: TScreenTitleLayout;
+	/** A screen title with the encoder's soft dark plate and shadow */
+	hasPlate?: boolean;
 }
 
 function distanceToOutline(point: TVec2, outline: TVec2[]): number {

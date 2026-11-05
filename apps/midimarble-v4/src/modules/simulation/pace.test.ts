@@ -138,7 +138,7 @@ describe('pace', () => {
 			expect(left.centerX).toBeCloseTo(-LANE_SPACING / 2, 12);
 			expect(right.centerX).toBeCloseTo(LANE_SPACING / 2, 12);
 			expect(left.centerX + left.halfWidth).toBeGreaterThanOrEqual(right.centerX - right.halfWidth - 1e-12);
-			// One marble gets the film frame: 0.45 m at the original 0.65 m camera distance, wider further away
+			// One marble gets the film frame: 0.45 m at 1.263 m through the 85 mm lens, wider further away
 			const single = createBareRunProject({
 			gravityScale: 1,
 				id: 'single',
@@ -147,7 +147,7 @@ describe('pace', () => {
 				marbles: [{ x: 0.1, y: 0.6, releaseTime: 0, hitTimes: [0.5] }]
 			});
 			expect(frameBand(single, 'lane-1').centerX).toBe(0.1);
-			expect(frameBand(single, 'lane-1').halfWidth).toBeCloseTo((0.225 * single.design.camera.distance) / 0.65, 12);
+			expect(frameBand(single, 'lane-1').halfWidth).toBeCloseTo((0.225 * single.design.camera.distance) / 1.263, 12);
 		});
 	});
 });

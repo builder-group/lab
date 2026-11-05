@@ -20,7 +20,7 @@ const ROLL_PERIOD = 14.0;
 const SIDE_ANGLE = radians(150);
 const SIDE_FOLLOW = 0.3;
 const HEADING_TAU = 1.5;
-const LEAD_LIMIT = 0.04;
+const LEAD_LIMIT = 0.0235;
 /**
  * While the follow point falls faster than FALL_START metres per second, the frame looks FALL_AHEAD seconds of the
  * extra speed below it, at most FALL_LIMIT of the camera distance, eased over FALL_EASE seconds; the speed is taken
@@ -28,31 +28,31 @@ const LEAD_LIMIT = 0.04;
  */
 const FALL_START = 0.3;
 const FALL_AHEAD = 0.25;
-const FALL_LIMIT = 0.15;
+const FALL_LIMIT = 0.088;
 const FALL_EASE = 0.6;
 const FALL_WINDOW = 0.1;
 const FALL_HOLD = 0.5;
 const FRAME_KEEP = 0.55;
 const ASPECT_GUESS = 0.56;
 const SHOT_EASE = 0.8;
-const LENS = 50.0;
+const LENS = 85;
 const MIN_PIECE_FRACTION = 0.06;
 const ZOOM_LIMIT = 3.0;
 const GROUP_KEEP_X = 0.85;
 const GROUP_KEEP_Y = 0.85;
 /**
- * A marble spans at least this fraction of the frame width at the readable maximum: 5 % keeps both marbles of Jingle
- * Bells in frame on 95.5 % of the frames with every marble at 4.6 % or more (6 % kept both on 80.8 %)
+ * A marble spans at least this fraction of the frame width at the readable maximum, a share of the frame that follows
+ * the lens: 5 % keeps both marbles of Jingle Bells in frame on 96 % of the frames with a marble at 5.4 % at the 10th percentile
  */
 const MIN_MARBLE_FRACTION = 0.05;
-/** Margin on the distance a framed group needs */
-const GROUP_MARGIN = 1.1;
+/** Margin on the distance a framed group needs: a long lens leaves less of the perspective that gave 1.1 room at 50 mm */
+const GROUP_MARGIN = 1.2;
 /** Seconds over which the camera settles once it holds on the last hit, and the stretch of run before that hit */
 const HOLD_EASE = 1.0;
 const HOLD_SPAN = 1.0;
 /** With Bowls, the held follow point sits this share of the way from the last hit to the Bowls' mouths */
 const BOWL_FRAME = 0.5;
-/** Time constant in seconds of the group distance, so the zoom changes slowly (at most 0.05 m within a second) */
+/** Time constant in seconds of the group distance, so the zoom changes slowly (at most about 0.1 m within a second at 85 mm) */
 const DISTANCE_TAU = 1.8;
 /** Seconds ahead over which a marble's upcoming hits count toward leading the frame */
 const LEAD_AHEAD = 2.0;
@@ -78,7 +78,7 @@ const OPENING_STEPS = 3;
  * The opening box fits within this share of the readable maximum, as its marbles fall while it holds: Two Marbles'
  * box needs 0.96 of it and lost both marbles at the top of its first frame
  */
-const OPENING_ROOM = 0.85;
+const OPENING_ROOM = 0.97;
 /**
  * A marble the camera does not lead stays inside EDGE_IN of the half frame (10 % of the frame from its edge) or
  * beyond EDGE_OUT (fully out); in between it would sit cut at the edge, so the frame shifts it in or out

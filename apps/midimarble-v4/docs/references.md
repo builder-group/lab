@@ -130,6 +130,32 @@ Rebuilt and rendered on 2026-11-03 after the 1.5× default kit and the 0.26 m la
 
 Verdict: better than the previous film, with pieces about one and a half times larger and the marbles readable, but still about half the reference's scale. The remaining limit is the group camera, not the lanes. It keeps every marble within 55 % of the half frame height (65 % of the half width) and holds the widest need for a second. A 0.5 s bounce sags gT²/8 ≈ 0.31 m from the straight pace line between its dots, so the bass alone asks for about 1.3 m of camera distance against the set 0.85 m, and the lane spacing about 1.1 m. Rendering the same package with the group framing loosened in memory to 0.8 of the half height and 0.85 of the half width (`.local/look4/patched_look.py`, nothing in `blender/` changed; stills in `.local/look4/framing-compare.jpg`) gives bars of 23 to 25 % and marbles of about 4.5 %, with both marbles still in frame. Lanes at the requested 0.15 to 0.18 m were not reachable: all marbles share one physics world, so interleaved lanes strike each other's bars and every build attempt failed within 2 to 13 s; they would need collisions limited to a lane's own pieces and a depth offset per lane in Blender. The film still ends with three seconds of empty wall after the last notes.
 
+### Tuned film view
+
+Measured on 2026-11-05 after the owner noticed the reference reads more in depth and our bars read as thin sticks laid across the wall. Previews of the recreation on four cases chose lens 85 mm (from 50 mm), pitch 1.15, rig distance 1.36 m and platform depth 9 cm (from 4.5 cm). 1.36 m through 85 mm frames what 0.8 m did through 50 mm; far rows no longer shrink to a pile.
+
+| Fixture | Rig distance | Camera distance, median and max | Marble in frame width, median (10th pct) | Both marbles in frame | Framing problems |
+| --- | --- | --- | --- | --- | --- |
+| Jingle Bells | 1.36 m | 1.64, 2.01 m | 6.2 % (5.4 %) | 96.0 % | 0 |
+| Reference 20 | 1.36 m | 1.36, 1.36 m | 7.4 % (7.4 %) | 100 % | 0 |
+| Two Marbles | 1.75 m | 1.89, 1.90 m | 5.3 % (5.3 %) | 100 % | 0 |
+
+What depended on the old lens, and why:
+
+- `MIN_MARBLE_FRACTION`, `MIN_PIECE_FRACTION`, the framing problems and the frame overlays are shares of the frame and follow the lens by themselves: unchanged.
+- `LEAD_LIMIT` 0.04 to 0.0235 and `FALL_LIMIT` 0.15 to 0.088: shares of the camera distance that move the frame; at 85 mm a metre of distance sees 50/85 as much, so left alone the frame leads 1.7 times as far.
+- `GROUP_MARGIN` 1.1 to 1.2: the group's need adds the offset toward the camera in metres, which is a smaller part of a 1.6 m distance than of a 1 m one, so 1.1 left the Bass cut at 0:12 (u 1.05). At 1.2 both are in frame, 0.37 and 0.90.
+- `OPENING_ROOM` 0.85 to 0.97: Jingle Bells' opening box needs that share of the readable maximum now; at 0.92 the frame gave up the box and its second piece sat at the bottom edge (v 0.03).
+- The e2e's zoom limit, 6 cm within a second, became 10 cm: the same share of the frame at 85 mm. Measured 6.1 cm.
+- `frameBand` (`placement.ts`) scaled with distance as metres at 50 mm. It now reads 0.45 m at 1.263 m, so the 1.36 m default keeps the 0.485 m band Build Track was tuned on. Scaling it 1:1 with the frame (0.55 m) left a hit open on Zigzag and 114 of 115 on Jingle Bells, so this is a builder's preference rather than the frame. The small-kit fixtures moved to 1.166 m times their kit for the same reason, framing about 14 % wider than their old 0.6 m at 50 mm.
+
+- **Depth was not free of physics.** At 9 cm colliders Jingle Bells missed 53 of 115 hits and the marble ended up 5 m away; 6 cm missed 6, 12 cm 26. Zigzag and Reference 20 were bit-identical. Normals stay in the wall plane, but Rapier's rounding differs with a box's size and a long run amplifies it. Colliders now keep a fixed 4.5 cm (`COLLIDER_DEPTH`), so every depth plays bit-identically to the earlier default, and depth is truly visual.
+- **Skins stop at 3.5 marble radii,** 4.2 cm at the 24 mm marble, whatever the depth. Bar and device skins already stopped near there, so on Brass 9 cm reads 7 to 19 % wider than 4.5 cm, not twice. Pegboard and Neon used the full depth and became square tiles at 9 cm (stills in `.local/tuned/grid-a.jpg`), so they stop there too (`grid-b.jpg`). Draft and Compose show the same depth (`shownDepth`), and the folded clearance's `SKIN_OUT_RADII` went from 3 to 3.5, what the bars now do. No fixture gained a touching pair.
+- **Custom assets.** A manifest with `fittedParams.depth` scales across the depth about its middle: built for 4.5 cm it doubles on a 9 cm plate. One without stays its size and now keeps to the wall, moved 2.25 cm back so it doesn't float (`check_design.py`).
+- **Wall edge.** At pitch 1.15 and 85 mm a frame corner's ray stays at most 79.5° from the wall normal and meets the wall within 5.5 camera heights; the wall is fitted to 60 (`.local/tuned/wedge.py` over the dumps of `camera:check`). So the wall needed no change. The black wedge seen at pitch 1.25 didn't return in stills of Reference 20 at 1.25 and its cause wasn't found; the film at 1.15 is checked frame by frame for it.
+- **Titles.** The encoder drew Captions, Song Names and End Cards with a soft dark box and shadow, while the Blender preview draws only the text; the grey box was that plate. Plain text is now the default in the film and Draft, and the title's Plate field asks for it.
+- **Older projects** keep their saved distance, so a project at 0.7 m frames 1.7 times closer through 85 mm until its Distance is set. There is no migration; `marble-project@5` is unchanged.
+
 ### Column density and the steeper camera
 
 Measured on 2026-11-03 with `reference-20`. Its dots step down 0.244 m per column (2.7 bar lengths between two bars of one column) with the columns 0.25 m apart; the reference stacks a column's bars about half a bar apart, so a frame shows 8 to 10 per column against our 3 to 4.

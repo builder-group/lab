@@ -11,12 +11,12 @@ export const DEFAULT_MARBLE_RADIUS = 0.012;
  */
 export const DEFAULT_GRAVITY_SCALE = 0.5;
 /**
- * Follow camera of new projects. At 0.7 m a single marble spans about 9 % of the frame width and the next four pieces
- * are in frame with bars at about a fifth of the width, close to the reference shorts; the steep pitch looks along
+ * Follow camera of new projects. Through the 85 mm lens 1.36 m frames as much as 0.8 m did through 50 mm: a single
+ * marble spans about 7.4 % of the frame width, and far rows no longer shrink to a pile. The steep pitch looks along
  * the wall like the reference, so a column shows several stacked bars. Groups of marbles pull back only as far as
- * they need (`camera.py`, readable distance). Measured in `references.md`, Close camera.
+ * they need (`camera.py`, readable distance). Measured in `references.md`, Tuned film view.
  */
-export const DEFAULT_CAMERA_DISTANCE = 0.7;
+export const DEFAULT_CAMERA_DISTANCE = 1.36;
 export const DEFAULT_CAMERA_PITCH = 1.15;
 /** Distance between the releases of neighbouring marbles, and between their lanes' bands in the frame */
 export const LANE_SPACING = 0.26;

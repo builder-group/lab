@@ -62,9 +62,9 @@ export interface TFrameBand {
 }
 
 /**
- * Horizontal band the run should stay within. With one marble it is the film frame: 0.45 m wide at 9:16 for
- * the camera's original 0.65 m distance, scaled with the project's aspect and camera distance (0.59 m at the
- * 0.85 m default of new projects), centred on the marble's release. With several marbles each lane gets a
+ * Horizontal band the run should stay within. With one marble it is the film frame: 0.45 m wide at 9:16 for a camera
+ * 1.263 m away through the 85 mm lens, scaled with the project's aspect and camera distance, so the 1.36 m default of
+ * new projects keeps the 0.485 m Build Track was tuned on (a wider one leaves hits open), centred on the marble's release. With several marbles each lane gets a
  * band `2 · LANE_HALF_WIDTH` wide, room for a zigzag of the default kit, and the lanes sit `LANE_SPACING`
  * apart in the order of their releases from left to right, centred on the mean release. `laneId` picks a lane's
  * band, which is only where the marble prefers to stay: a marble may cross another's path as long as it touches
@@ -85,7 +85,7 @@ export function startRailOf(project: TProject, laneId: string): TEntity | undefi
 export function frameBand(project: TProject, laneId?: string): TFrameBand {
 	const aspect = project.frame.width / project.frame.height;
 	const distance = project.design.camera.distance;
-	const width = 0.45 * (aspect / (9 / 16)) * (distance > 0 ? distance / 0.65 : 1);
+	const width = 0.45 * (aspect / (9 / 16)) * (distance > 0 ? distance / 1.263 : 1);
 	// A marble waiting on its start rail lands `laneOffset` from where it is released, and its lane lies there
 	const releaseX = (entity: TEntity): number => {
 		const x = entity.components.release?.position.x ?? 0;

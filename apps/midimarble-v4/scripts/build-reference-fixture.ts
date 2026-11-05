@@ -33,7 +33,7 @@ const DEGREE = Math.PI / 180;
 // piece lengths, which packs the columns like the reference
 const SCALE = 1.5;
 const MARBLE_RADIUS = 0.008 * SCALE;
-const PLATFORM = { length: 0.06 * SCALE, thickness: 0.008 * SCALE, depth: 0.03 * SCALE };
+const PLATFORM = { length: 0.06 * SCALE, thickness: 0.008 * SCALE, depth: 0.06 * SCALE };
 // At the default half gravity a 0.3 s zigzag hops about half a bar, so the bars would overlap
 const GAP = 0.4;
 // Skins per column and an original title per section. Titles are art-directed like a user would in Design: shifted
