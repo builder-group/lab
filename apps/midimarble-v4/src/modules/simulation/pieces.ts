@@ -15,6 +15,9 @@ export function shownDepth(piece: { type: string; params: Record<string, number>
 	return piece.params['depth'] ?? 0.03;
 }
 
+/** How deep a bar's body gets, `POST_BODY_DEPTH` in skins.py at the default kit: a deeper bar stands out on a post */
+export const BAR_BODY_DEPTH = 0.09;
+
 /** Bar length that hops, columns and the canvas's fit are spaced by, whatever a bar's own length: a thin bar doesn't crowd the run */
 export const PLACEMENT_LENGTH = 0.09;
 
@@ -31,7 +34,7 @@ export function pathDepth(pieces: readonly { type: string; params: Record<string
 		.filter((piece) => piece.type === 'platform')
 		.map(shownDepth)
 		.sort((a, b) => a - b);
-	const depth = depths[Math.floor(depths.length / 2)] ?? platformDefinition.params['depth']?.default ?? 0.09;
+	const depth = depths[Math.floor(depths.length / 2)] ?? platformDefinition.params['depth']?.default ?? BAR_BODY_DEPTH;
 	return Math.max(depth / 2, marbleRadius + MARBLE_WALL_GAP);
 }
 
@@ -54,9 +57,9 @@ export const platformDefinition: TPieceDefinition = {
 		// A thin plate seen end on, 3 cm along the wall: the collider's length too
 		length: { default: kit(0.02), min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
 		thickness: { default: kit(0.008), min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
-		// How far the plate stands out of the wall, 9 cm by default: visual only, as the marble moves in the wall plane. Past
-		// 9 cm skins keep the bar's size and stand it out on a long post (`post_standoff` in skins.py)
-		depth: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Depth', unit: 'm' },
+		// How far the plate stands out of the wall, 15 cm by default: visual only, as the marble moves in the wall plane. Past
+		// `BAR_BODY_DEPTH` skins keep the bar's size and stand it out on a long post (`post_standoff` in skins.py)
+		depth: { default: kit(0.1), min: 0.02, max: 0.2, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},

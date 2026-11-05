@@ -72,7 +72,7 @@ const FILM_EXAMPLES: Record<string, string> = {
 	theme: "{ type: 'updateFilm', film: { theme: 'brass' } }, with pegboard, brass, neon or an id from get_state.themes",
 	wall: "{ type: 'updateFilm', film: { wall: { color: '#f6e3b8', backgroundColor: '#fff2d2', kind: 'plain' } } }, with kind plain, plaster, pegboard, grid or none, the plain Pegboard wall in wall.labelColor, the color it has in Track",
 	lights: "{ type: 'updateFilm', film: { lights: { key: { color: '#ffd08a', strength: 4, side: 0.4, height: 0.3, softness: 0.2, exposure: 0, bloom: 0.2 } } } }; lights has key and added, a film has one Key Light",
-	camera: "{ type: 'updateFilm', film: { camera: { distance: 1.36, tilt: 1.15, turn: 1.66, sway: 0, auto: true } } }; name only what changes. A shot looks like { id, time, kind: 'wide', distance: 1.1 }, with kind wide, follow, pushIn or closeUp",
+	camera: "{ type: 'updateFilm', film: { camera: { distance: 0.48, tilt: 0.54, turn: 1.57, sway: 0, auto: true } } }; name only what changes. A shot looks like { id, time, kind: 'wide', distance: 1.1 }, with kind wide, follow, pushIn or closeUp",
 	quality: "{ type: 'updateFilm', film: { quality: 'final' } }, with draft or final",
 	decor: 'Decor is easier with placeDecor and scatterDecor',
 	themes: "A stored theme looks like { id, name, base: 'brass', overrides: { wallColor } }"

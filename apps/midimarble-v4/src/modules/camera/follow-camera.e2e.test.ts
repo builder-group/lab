@@ -109,9 +109,9 @@ describe('follow camera on whole songs', () => {
 	});
 
 	it('opens on the release points and the first struck pieces', () => {
-		// Jingle Bells' box spans 0.78 m and needs 2.28 m of distance, past the 2.25 m at which a marble still spans
-		// 4.5 % of the frame width (`OPENING_MARBLE_SHARE`), so it opens at that limit with 8 % to spare, not 10 %
-		for (const [name, margin] of [['jingle-bells', 0.08], ['reference-20', 0.1]] as const) {
+		// Jingle Bells' box spans 0.78 m and needs about 0.81 m of distance for 10 %, past the 0.79 m at which a marble
+		// still spans 4.5 % of the frame width (`OPENING_MARBLE_SHARE`), so it opens at that limit with 9 % to spare
+		for (const [name, margin] of [['jingle-bells', 0.09], ['reference-20', 0.1]] as const) {
 			const { project: loaded, result } = fixture(name);
 			const track = required(followCameraTrack(loaded, result, 30));
 			const firstPieces = result.pieces

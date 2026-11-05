@@ -104,7 +104,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -123,7 +123,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -142,7 +142,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -161,7 +161,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -180,7 +180,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -199,7 +199,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -218,7 +218,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -237,7 +237,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -256,7 +256,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -275,7 +275,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -294,7 +294,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -313,7 +313,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -332,7 +332,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -351,7 +351,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -370,7 +370,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -389,7 +389,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -417,9 +417,9 @@
 		"quality": "final",
 		"camera": {
 			"auto": true,
-			"distance": 1.7489999999999999,
+			"distance": 0.48,
 			"sway": 1,
-			"tilt": 0.7,
+			"tilt": 0.54,
 			"shots": []
 		}
 	}

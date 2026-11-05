@@ -18,6 +18,10 @@ import { framingProblemAt, preflightExport } from '@/modules/building';
 // Inspectors of the Film layers on the inspector grid: a piece's skin, a title, a shot and the
 // Camera. The studio's Inspector picks one for the selection.
 
+/** Camera distance in the inspector, in cm: closer than this it stands among the bars, further a marble is under 2 % of the frame */
+const MIN_CAMERA_CM = 15;
+const MAX_CAMERA_CM = 200;
+
 /**
  * The Camera layer's inspector, in Track and in Film: Follow Marbles with the rig's distance, turn, tilt and sway and the framing
  * problem at the playhead; off, the camera is the user's, moved in Blender
@@ -99,7 +103,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			{camera.auto ? (
 				<>
 					{cx.$workspace.get() === 'film' ? <FramingProblem cx={cx} project={project} /> : null}
-					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
+					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={MIN_CAMERA_CM} max={MAX_CAMERA_CM} onCommit={(value) => set({ distance: value / 100 })} />
 					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the preview to orbit" value={radiansToDegrees(angles.turn)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ turn: degreesToRadians(value) })} />
 					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the preview to orbit" value={radiansToDegrees(angles.tilt)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ tilt: degreesToRadians(value) })} />
 					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 holds the Turn and keeps the wall upright" value={Math.round(camera.sway * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
@@ -188,7 +192,7 @@ export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TS
 			>
 				<SelectField id="shot-kind" label="Kind" value={shot.kind} options={shotKinds.map((item) => ({ value: item.kind, label: item.label }))} onChange={(value) => set({ kind: value as TShotKind })} />
 				<ScrubField id="shot-time" label="Time" name="Time" value={shot.time} unit="" step={0.01} precision={2} min={0} max={project.length} format={formatTime} parse={parseTime} onCommit={(value) => set({ time: value })} />
-				<ScrubField id="shot-distance" label="Distance" name="Distance" value={shot.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
+				<ScrubField id="shot-distance" label="Distance" name="Distance" value={shot.distance * 100} unit="cm" step={0.5} precision={1} min={MIN_CAMERA_CM} max={MAX_CAMERA_CM} onCommit={(value) => set({ distance: value / 100 })} />
 				<ScrubField
 					id="shot-hold"
 					label="Hold"

@@ -40,7 +40,9 @@ describe('follow camera', () => {
 			});
 		};
 		expect(Math.max(...tilts(0))).toBeLessThan(1e-6);
-		expect(Math.max(...tilts(undefined))).toBeGreaterThan(0.05);
+		// The reference hardly rolls: under a degree or so, and only with Sway
+		expect(Math.max(...tilts(undefined))).toBeGreaterThan(0.005);
+		expect(Math.max(...tilts(undefined))).toBeLessThan(0.05);
 		expect(Math.max(...tilts(0.5))).toBeLessThan(Math.max(...tilts(undefined)));
 	});
 
@@ -64,7 +66,7 @@ describe('follow camera', () => {
 		const { project: zigzag, result } = fixture('zigzag');
 		const track = required(followCameraTrack(zigzag, result, 30));
 		expect(track.frameCount).toBe(Math.ceil(result.duration * 30 - 1e-6) + 1);
-		expect(track.lens).toBe(85);
+		expect(track.lens).toBe(30);
 		const samples = required(result.marbles[0]).samples;
 		const release = required(samples[0]).time;
 		for (let frame = 0; frame < track.frameCount; frame += 5) {

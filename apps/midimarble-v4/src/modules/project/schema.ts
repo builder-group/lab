@@ -370,7 +370,7 @@ export const SFilm = z.strictObject({
 		distance: z.number().positive(),
 		// Downward angle in radians
 		tilt: z.number(),
-		// The camera's side angle around what it follows in radians, 0 to 2π; absent is 95°
+		// The camera's side angle around what it follows in radians, 0 to 2π; absent is 90°
 		turn: z.number().min(0).max(2 * Math.PI).optional(),
 		// How much the view turns and rolls on its own, 0 to 1
 		sway: z.number().min(0).max(1),

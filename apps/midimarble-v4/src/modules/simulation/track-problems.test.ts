@@ -120,7 +120,7 @@ describe('pathDepth function', () => {
 	});
 
 	it('should use the default Depth without bars, and stay clear of the wall', () => {
-		expect(pathDepth([{ type: 'rail', params: {} }], 0.012)).toBeCloseTo(0.045);
+		expect(pathDepth([{ type: 'rail', params: {} }], 0.012)).toBeCloseTo(0.075);
 		expect(pathDepth([bar(0.02)], 0.012)).toBeCloseTo(0.0125);
 	});
 });

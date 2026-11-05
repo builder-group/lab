@@ -11,13 +11,30 @@ export const DEFAULT_MARBLE_RADIUS = 0.012;
  */
 export const DEFAULT_GRAVITY = 0.5;
 /**
- * Follow camera of new projects. Through the 85 mm lens 1.36 m frames as much as 0.8 m did through 50 mm: a single
- * marble spans about 7.4 % of the frame width, and far rows no longer shrink to a pile. The steep tilt looks along
- * the wall like the reference, so a column shows several stacked bars. Groups of marbles pull back only as far as
- * they need (`camera.py`, readable distance). Measured in `references.md`, Tuned film view.
+ * Follow camera of new projects. Close through a wide lens, bars fan out from a point just beside the frame as in the
+ * reference, and a single marble spans about 7.3 % of the frame width. Groups of marbles pull back only as far as they
+ * need (`camera.py`). Measured in `references.md`.
  */
-export const DEFAULT_CAMERA_DISTANCE = 1.36;
-export const DEFAULT_CAMERA_TILT = 1;
+export const DEFAULT_CAMERA_DISTANCE = 0.48;
+export const DEFAULT_CAMERA_TILT = 0.54;
+/** The Turn of a project that sets none, `SIDE_ANGLE` in `camera.py` */
+export const DEFAULT_CAMERA_TURN = Math.PI / 2;
+/** Focal length of the film camera in mm, `LENS` in `camera.py`, and the sensor it's on: the sensor spans the frame's longer side */
+export const CAMERA_LENS = 30;
+export const CAMERA_SENSOR = 36;
+/** The steepest tilt the follow camera takes, in `camera.py` as well */
+const STEEPEST_TILT = 1.45;
+
+/**
+ * How much wall in meters the film frame shows across its width, at the camera's distance: more than the frame's own
+ * width, since a tilted camera sees the wall's width at a slant. `aspect` is width over height.
+ */
+export function wallWidthInFrame(camera: { distance: number; tilt: number; turn?: number }, aspect: number): number {
+	const frameWidth = camera.distance * (CAMERA_SENSOR / CAMERA_LENS) * Math.min(aspect, 1);
+	const tilt = Math.min(Math.abs(camera.tilt), STEEPEST_TILT);
+	const side = Math.sin(camera.turn ?? DEFAULT_CAMERA_TURN) * Math.sin(tilt);
+	return (frameWidth * Math.hypot(Math.cos(tilt), side)) / Math.cos(tilt);
+}
 /** Distance between the releases of neighboring marbles, and between their marbles' bands in the frame */
 export const MARBLE_SPACING = 0.26;
 

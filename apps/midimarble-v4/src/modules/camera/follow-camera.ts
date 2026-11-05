@@ -1,3 +1,4 @@
+import { CAMERA_LENS, CAMERA_SENSOR, DEFAULT_CAMERA_TURN } from '@/modules/project';
 import type { TMotionFile, TSceneCamera, TSceneDescription } from '@/modules/scene';
 
 /**
@@ -13,15 +14,14 @@ import type { TMotionFile, TSceneCamera, TSceneDescription } from '@/modules/sce
  */
 
 // Constants mirror camera.py; see the comments there
-const ROLL_FOLLOW = 0.5;
-const ROLL_LIMIT = radians(40);
-const ROLL_DRIFT = radians(8);
+const ROLL_FOLLOW = 0.05;
+const ROLL_DRIFT = radians(1);
 const ROLL_PERIOD = 56.0;
 /** The Turn of a project that sets none: `SIDE_ANGLE` in `camera.py` */
-export const SIDE_ANGLE = radians(95);
+export const SIDE_ANGLE = DEFAULT_CAMERA_TURN;
 const SIDE_FOLLOW = 0.3;
 const HEADING_TAU = 1.5;
-const LEAD_LIMIT = 0.0235;
+const LEAD_LIMIT = 0.0666;
 const FRAME_KEEP = 0.55;
 /** Time constant in seconds of the pull that keeps the marble in frame: a fast one would stand out as a lurch against the frame's steady scroll */
 const KEEP_EASE = 0.3;
@@ -30,11 +30,10 @@ const FRAME_LIMIT = 0.7;
 const LIMIT_EASE = 0.08;
 const ASPECT_GUESS = 0.56;
 const SHOT_EASE = 0.8;
-const LENS = 85;
 const GROUP_KEEP_X = 0.85;
 const GROUP_KEEP_Y = 0.85;
 /** Margin on the distance a framed group needs */
-const GROUP_MARGIN = 1.2;
+const GROUP_MARGIN = 1.1;
 /** Seconds over which the camera settles once it holds on the last hit, and the stretch of run before that hit */
 const HOLD_EASE = 1.0;
 const HOLD_SPAN = 1.0;
@@ -66,8 +65,7 @@ const OPENING_STEPS = 3;
 const OPENING_ZOOM = 1.7;
 const OPENING_MARBLE_SHARE = 0.045;
 /** The opening's own margin: tighter than GROUP_MARGIN, as its box holds still pieces rather than marbles that swing out */
-const OPENING_MARGIN = 1.1;
-export const CAMERA_SENSOR = 36.0;
+const OPENING_MARGIN = 1.065;
 const GROUP_EASE = 1.2;
 const GROUP_SPIKE = 0.3;
 /** Gap between a marble and the wall, `MARBLE_WALL_GAP` in `mm_worker/util.py` */
@@ -190,7 +188,7 @@ export function sampleCameraTrack(
 }
 
 export function createCameraPose(): TCameraPose {
-	return { position: [0, 0, 0], rotation: [1, 0, 0, 0], focus: 1, lens: LENS };
+	return { position: [0, 0, 0], rotation: [1, 0, 0, 0], focus: 1, lens: CAMERA_LENS };
 }
 
 /**
@@ -353,7 +351,7 @@ function settingsFrom(
 		smoothing: number(camera.smoothing, 0.6, 0.0, 1.0),
 		side: number(camera.side, SIDE_ANGLE, 0.0, 2 * Math.PI),
 		sway: number(camera.sway, 1.0, 0.0, 1.0),
-		lens: LENS,
+		lens: CAMERA_LENS,
 		shots,
 		focus: camera.focusMarbleId ?? null,
 		hold:
@@ -548,7 +546,7 @@ function viewTurn(
 	for (let index = 0; index < times.length; index++) {
 		const turn = heading[index] ?? 0;
 		side[index] = baseSide + sway * SIDE_FOLLOW * turn;
-		roll[index] = sway * (clamp(ROLL_FOLLOW * turn, -ROLL_LIMIT, ROLL_LIMIT) + ROLL_DRIFT * Math.sin((2 * Math.PI * driftTime(times[index] ?? 0, hold)) / ROLL_PERIOD));
+		roll[index] = sway * (ROLL_FOLLOW * turn + ROLL_DRIFT * Math.sin((2 * Math.PI * driftTime(times[index] ?? 0, hold)) / ROLL_PERIOD));
 	}
 	return { side, roll };
 }
@@ -697,11 +695,21 @@ function groupFraming(
 	const scale = shotDistance.map((value) => value / settings.distance);
 	const base = settings.distance;
 	const turn = viewTurn(times, heading, hold, settings.side, settings.sway);
-	// Sized around the smoothed target when the first pass gave one, else around the group's center
+	// A close shot frames the leading marble alone
+	const push = scale.map((value) => clamp((1 - value) / (1 - PUSH_FOCUS), 0.0, 1.0));
+	// Sized around the smoothed target when the first pass gave one, else around the group's center. A close shot's
+	// target sits on its leading marble, so it's sized around the center: it scales what the group needs without it
 	const axes = Array.from(times, (_, index) =>
 		viewAxes(turn.side[index] ?? 0, turn.roll[index] ?? 0, settings.pitch)
 	);
-	const raw = spreadNeed(marbles, sample, aim ?? center, settings.lens, turn, settings.pitch);
+	const sizedAround: [Float64Array, Float64Array] =
+		aim == null
+			? center
+			: [
+					aim[0].map((value, index) => value + (push[index] ?? 0) * ((center[0][index] ?? 0) - value)),
+					aim[1].map((value, index) => value + (push[index] ?? 0) * ((center[1][index] ?? 0) - value))
+				];
+	const raw = spreadNeed(marbles, sample, sizedAround, settings.lens, turn, settings.pitch);
 	// The opening frame sets the zoom while it leads: its box holds the marbles, and sizing them around its center would widen it again
 	const opening = openingFrame(marbles, times, sample, settings, fps, axes);
 	const zoomNeed = raw.slice();
@@ -712,8 +720,6 @@ function groupFraming(
 		}
 	}
 	const need = held(held(zoomNeed, fps, GROUP_SPIKE / 2, 'median'), fps, 1.0, 'max');
-	// A close shot frames the leading marble alone
-	const push = scale.map((value) => clamp((1 - value) / (1 - PUSH_FOCUS), 0.0, 1.0));
 	// The zoom follows what the group needs, slowly
 	const groupDistance = need.map((value) => Math.max(value, base));
 	const distance = criticallyDamped(groupDistance, fps, DISTANCE_TAU);

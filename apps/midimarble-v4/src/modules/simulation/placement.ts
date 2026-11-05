@@ -1,4 +1,4 @@
-import { createId, MARBLE_SPACING, type TPiece, type TProject, type TVec2, type TMarble, freePosition } from '@/modules/project';
+import { createId, wallWidthInFrame, MARBLE_SPACING, type TPiece, type TProject, type TVec2, type TMarble, freePosition } from '@/modules/project';
 import { nextPieceName } from './piece-names';
 import { getPieceDefinition, hitPlace, type TRailLayout } from './pieces';
 
@@ -63,9 +63,8 @@ export interface TFrameBand {
 }
 
 /**
- * Horizontal band the run should stay within. With one marble it is the film frame: 0.45 m wide at 9:16 for a camera
- * 1.263 m away through the 85 mm lens, scaled with the project's aspect and camera distance, so the 1.36 m default of
- * new projects keeps the 0.485 m Build Track was tuned on (a wider one leaves hits open), centered on the marble's release. With several marbles each marble gets a
+ * Horizontal band the run should stay within. With one marble it is the wall the film frame shows across its width,
+ * centered on the marble's release. With several marbles each marble gets a
  * band `2 · MARBLE_HALF_WIDTH` wide, room for a zigzag of the default kit, and the marbles sit `MARBLE_SPACING`
  * apart in the order of their releases from left to right, centered on the mean release. `marbleId` picks a marble's
  * band, which is only where the marble prefers to stay: a marble may cross another's path as long as it touches
@@ -84,9 +83,7 @@ export function startRailOf(project: TProject, marbleId: string): TPiece | undef
 }
 
 export function frameBand(project: TProject, marbleId?: string): TFrameBand {
-	const aspect = project.format.width / project.format.height;
-	const distance = project.film.camera.distance;
-	const width = 0.45 * (aspect / (9 / 16)) * (distance > 0 ? distance / 1.263 : 1);
+	const width = wallWidthInFrame(project.film.camera, project.format.width / project.format.height);
 	// A marble waiting on its start rail lands `laneOffset` from where it is released, and its marble lies there
 	const releaseX = (marble: TMarble): number => {
 		const x = marble.start.position.x;

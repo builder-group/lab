@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { CAMERA_CLIP_END, CAMERA_CLIP_START, verticalFov, type TCameraPose } from '@/modules/camera';
 import type { TWallLook } from '@/modules/scene';
 import type { TVec2 } from '@/modules/project';
-import { getPieceDefinition, layoutOf, rotorLocalShapes, shownDepth, type TResolvedPiece } from '@/modules/simulation';
+import { BAR_BODY_DEPTH, getPieceDefinition, layoutOf, rotorLocalShapes, shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import { pathMeshes } from './path-meshes';
 import { worldToScreen, type TView, type TViewport } from '@/modules/scene';
 
@@ -528,13 +528,14 @@ export class TrackRenderer {
 		return geometry;
 	}
 
-	/** A bar on the wall with the round bracket nub that holds it */
+	/** A bar on the wall with the round bracket nub that holds it; a deep bar stands out on the nub as on a post, as in the film */
 	private platformParts(piece: TResolvedPiece): TPiecePart[] {
 		const length = piece.params['length'] ?? 0.06;
 		const thickness = piece.params['thickness'] ?? 0.008;
 		const depth = shownDepth(piece);
-		const bar = new THREE.Mesh(this.boxGeometry(length, thickness, depth));
-		bar.position.z = depth / 2;
+		const body = Math.min(depth, BAR_BODY_DEPTH);
+		const bar = new THREE.Mesh(this.boxGeometry(length, thickness, body));
+		bar.position.z = depth - body / 2;
 		const nub = new THREE.Mesh(this.nubGeometry);
 		const nubRadius = Math.min(thickness * 0.32, 0.0028);
 		nub.scale.set(nubRadius, nubRadius, depth + 0.0012);
