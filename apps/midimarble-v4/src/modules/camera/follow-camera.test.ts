@@ -5,7 +5,7 @@ import { bowlCatch } from '@/modules/simulation/bowl';
 import { createSimulator } from '@/modules/simulation/simulate';
 import type { TSimulationResult } from '@/modules/simulation/types';
 import { quaternionToMatrix } from './compare-track';
-import { bakeFollowCamera, pyRound, sampleCameraTrack, verticalFov, type TCameraTrack, type TFollowCameraInput, type TFollowMarble } from './follow-camera';
+import { bakeFollowCamera, pyRound, sampleCameraTrack, SIDE_ANGLE, verticalFov, type TCameraTrack, type TFollowCameraInput, type TFollowMarble } from './follow-camera';
 import { at, project, required } from './follow-camera-test-helpers';
 import { followCameraTrack } from './project-track';
 
@@ -43,6 +43,18 @@ describe('follow camera', () => {
 		expect(Math.max(...tilts(0))).toBeLessThan(1e-6);
 		expect(Math.max(...tilts(undefined))).toBeGreaterThan(0.05);
 		expect(Math.max(...tilts(0.5))).toBeLessThan(Math.max(...tilts(undefined)));
+	});
+
+	it('should stand the camera at the Turn, the same as the default when the project sets 95°', () => {
+		const { project, result } = fixture(FIXTURES[0] as string);
+		const track = (side: number | undefined): Float64Array => {
+			const { side: _, ...base } = project.design.camera;
+			const camera = { ...base, ...(side != null ? { side } : {}) };
+			return required(followCameraTrack({ ...project, design: { ...project.design, camera } }, result, 30)).position;
+		};
+		const standard = track(undefined);
+		expect(Array.from(track(SIDE_ANGLE))).toEqual(Array.from(standard));
+		expect(track(SIDE_ANGLE + 0.5)[0]).not.toBeCloseTo(standard[0] ?? 0, 3);
 	});
 
 	it('rounds halves to even like Python', () => {

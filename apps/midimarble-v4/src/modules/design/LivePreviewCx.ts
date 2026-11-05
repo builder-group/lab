@@ -1,40 +1,37 @@
 import { createState } from 'feature-state';
-import { blender, type TApplySceneResult, type TPreviewRenderStatus } from '@/modules/blender';
+import { blender, type TApplySceneResult } from '@/modules/blender';
 import {
 	frameIndexAt,
 	LIVE_PREVIEW_FPS,
 	LIVE_PREVIEW_LEAD,
-	LIVE_PREVIEW_REFINE,
 	LIVE_PREVIEW_WIDTH,
 	previewFrameOrder,
 	previewTimeline,
-	refineFrames,
 	type TLivePreviewFrames
 } from './live-preview';
 
-const STORAGE_KEY = 'mm.livePreview';
+const STORAGE_KEY = 'mm.draftPreview';
 const POLL_MS = 400;
-/** The job's target moves when the playhead is this many frames away from the last one */
-const RETARGET_FRAMES = LIVE_PREVIEW_FPS / 2;
+/** Milliseconds without an edit, a scrub or playback before the job renders again, like Final Cut's background render */
+const IDLE_MS = 1500;
 /** A finished job restarts at most this often for frames it has not rendered yet */
 const RESTART_MS = 3000;
-/** A running job whose status has not changed for this long is taken as stopped */
-const SILENT_MS = 30_000;
+/** A running job whose status has not changed for this long is taken as stopped; its first Eevee frames can take a while */
+const SILENT_MS = 60_000;
 
 /**
- * Background Blender preview frames for Film playback, like Final Cut's background render: after each scene
- * sync a separate Blender process renders small Flat Light frames around and ahead of the playhead, then outward,
- * then refines the frames ahead of the playhead with Fast lighting. Film shows them while playing or scrubbing.
+ * The real look of Film in the background, like Final Cut's and After Effects' background render: after each scene
+ * sync a separate Blender process renders small frames with Fast lighting around and ahead of the playhead, then
+ * outward. Film plays them where they exist and draws the Draft Preview where not. The job pauses while the person
+ * works, plays or scrubs, and goes on from the playhead a moment after they stop.
  */
 export class LivePreviewCx {
-	/** The preview's Draft or Blender switch; Blender by default, Draft saves CPU and battery */
-	readonly $enabled = createState(readEnabled());
+	/** Whether Film shows the real look; the View menu's Draft Preview turns it off, which also saves CPU and battery */
+	readonly $enabled = createState(!readIsDraftPreview());
 	/** Frames of the current scene on disk */
 	readonly $frames = createState<TLivePreviewFrames | null>(null);
-	/** Whether the job is rendering, for the Blender chip and the render bar's tooltip */
+	/** Whether the job is rendering now, for the Blender chip and the render bar's tooltip */
 	readonly $isRendering = createState(false);
-	/** The job's last status, with its timing */
-	readonly $status = createState<TPreviewRenderStatus | null>(null);
 
 	private packagePath: string | null = null;
 	private signature: string | null = null;
@@ -42,10 +39,12 @@ export class LivePreviewCx {
 	private isActive = false;
 	private isRunning = false;
 	private isStarting = false;
+	private isWorking = false;
 	private lastStartAt = -Infinity;
-	private targetFrame: number | null = null;
+	private failedSignature: string | null = null;
 	private pid: number | null = null;
 	private pollTimer: ReturnType<typeof setInterval> | undefined;
+	private idleTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(private readonly source: { getPlayhead: () => number; isPlaying: () => boolean }) {}
 
@@ -57,7 +56,7 @@ export class LivePreviewCx {
 		this.signature = signature;
 		this.timeline = previewTimeline(applied);
 		const { fps, startTime, total } = this.timeline;
-		this.$frames.set({ signature, folder: '', fps, startTime, total, flat: new Set(), fast: new Set() });
+		this.$frames.set({ signature, folder: '', fps, startTime, total, rendered: new Set() });
 		void this.refresh();
 		this.ensureJob(true);
 	}
@@ -71,63 +70,66 @@ export class LivePreviewCx {
 
 	setEnabled(isEnabled: boolean): void {
 		this.$enabled.set(isEnabled);
-		writeEnabled(isEnabled);
+		writeIsDraftPreview(!isEnabled);
 		if (isEnabled) this.ensureJob(true);
 		else this.stopJob();
 	}
 
-	/**
-	 * The playhead moved: the job renders around the new place first. `isForced` retargets even for a small move,
-	 * such as when playback stops and the refine pass may start.
-	 */
-	follow(time: number, isForced = false): void {
-		const timeline = this.timeline;
-		if (timeline == null || !this.canRender()) return;
-		const frame = frameIndexAt(time, timeline.fps, timeline.startTime);
-		if (this.isRunning) {
-			if (isForced || this.targetFrame == null || Math.abs(frame - this.targetFrame) >= RETARGET_FRAMES) void this.retarget(frame);
-			return;
-		}
-		this.ensureJob(false);
+	/** The person is working: the job holds still, keeping its scene and shaders, and goes on from the playhead a moment after they stop */
+	pauseForWork(): void {
+		clearTimeout(this.idleTimer);
+		this.idleTimer = setTimeout(() => this.resume(), IDLE_MS);
+		if (this.isWorking) return;
+		this.isWorking = true;
+		this.updateIsRendering();
+		if (this.isRunning) this.sendTarget({ order: [], paused: true });
 	}
 
 	/** Stops the job and forgets the scene, when the project closes */
 	close(): void {
+		clearTimeout(this.idleTimer);
+		this.isWorking = false;
 		this.stopJob();
 		this.packagePath = null;
 		this.signature = null;
 		this.timeline = null;
+		this.failedSignature = null;
 		this.$frames.set(null);
-		this.$status.set(null);
 	}
 
 	// MARK: - Internals
 
 	private canRender(): boolean {
-		return this.isActive && this.$enabled.get() && this.packagePath != null && this.signature != null && blender.isAvailable();
+		return this.isActive && this.$enabled.get() && this.packagePath != null && this.signature != null && this.signature !== this.failedSignature && blender.isAvailable();
 	}
 
-	private target(frame: number): { order: number[]; refine: number[] } {
-		const total = this.timeline?.total ?? 0;
-		// Fast frames take about 15 times longer than Flat Light ones and could never keep up with playback
-		const refine = this.source.isPlaying() ? [] : refineFrames(frame, total, LIVE_PREVIEW_REFINE);
-		return { order: previewFrameOrder(frame, total, LIVE_PREVIEW_LEAD), refine };
+	/** The idle timer ran out; playback counts as work until it stops, which starts the timer again */
+	private resume(): void {
+		if (this.source.isPlaying()) return;
+		this.isWorking = false;
+		this.updateIsRendering();
+		if (this.isRunning) this.sendTarget(this.targetAtPlayhead());
+		else this.ensureJob(true);
 	}
 
-	/** Starts the job when frames near the playhead are missing; `force` skips the restart throttle */
+	private targetAtPlayhead(): { order: number[]; paused: boolean } {
+		const timeline = this.timeline;
+		if (timeline == null) return { order: [], paused: this.isWorking };
+		const frame = frameIndexAt(this.source.getPlayhead(), timeline.fps, timeline.startTime);
+		return { order: previewFrameOrder(frame, timeline.total, LIVE_PREVIEW_LEAD), paused: this.isWorking };
+	}
+
+	/** Starts the job when frames are missing; `force` skips the restart throttle */
 	private ensureJob(force: boolean): void {
 		const timeline = this.timeline;
 		const frames = this.$frames.get();
-		if (!this.canRender() || timeline == null || frames == null || this.isRunning || this.isStarting) return;
+		if (!this.canRender() || timeline == null || frames == null || this.isRunning || this.isStarting || this.isWorking) return;
 		if (!force && Date.now() - this.lastStartAt < RESTART_MS) return;
-		const frame = frameIndexAt(this.source.getPlayhead(), timeline.fps, timeline.startTime);
-		const target = this.target(frame);
-		const isComplete = frames.flat.size >= timeline.total && target.refine.every((index) => frames.fast.has(index));
-		if (isComplete && frames.folder !== '') return;
-		void this.start(frame, target);
+		if (frames.rendered.size >= timeline.total && frames.folder !== '') return;
+		void this.start();
 	}
 
-	private async start(frame: number, target: { order: number[]; refine: number[] }): Promise<void> {
+	private async start(): Promise<void> {
 		const packagePath = this.packagePath;
 		const signature = this.signature;
 		if (packagePath == null || signature == null) return;
@@ -137,11 +139,13 @@ export class LivePreviewCx {
 			signature,
 			fps: LIVE_PREVIEW_FPS,
 			width: LIVE_PREVIEW_WIDTH,
-			...target
+			...this.targetAtPlayhead()
 		});
 		this.isStarting = false;
 		if (signature !== this.signature || !this.canRender()) {
 			if (isStartedOk) void blender.cancelPreviewRender(packagePath, signature);
+			// The scene changed while Blender saved the old one
+			this.ensureJob(true);
 			return;
 		}
 		if (!isStartedOk) {
@@ -149,32 +153,36 @@ export class LivePreviewCx {
 			return;
 		}
 		this.timeline = { fps: started.fps, startTime: started.startTime, total: started.frames };
-		this.targetFrame = frame;
 		this.pid = started.pid;
 		this.setRunning(true);
 		this.startPolling();
+		// The person went back to work while Blender saved the scene
+		if (this.isWorking) this.sendTarget({ order: [], paused: true });
 	}
 
-	private async retarget(frame: number): Promise<void> {
+	private sendTarget(target: { order: number[]; paused: boolean }): void {
 		const packagePath = this.packagePath;
 		const signature = this.signature;
 		if (packagePath == null || signature == null) return;
-		this.targetFrame = frame;
-		const [isTargetOk, targetErr] = await blender.targetPreviewRender(packagePath, signature, this.target(frame));
-		if (!isTargetOk && import.meta.env.DEV) console.warn('[live preview] target', targetErr);
+		void blender.targetPreviewRender(packagePath, signature, target).then(([isTargetOk, targetErr]) => {
+			if (!isTargetOk && import.meta.env.DEV) console.warn('[live preview] target', targetErr);
+		});
 	}
 
 	private stopJob(): void {
 		clearInterval(this.pollTimer);
 		this.pollTimer = undefined;
 		if (this.isRunning && this.packagePath != null && this.signature != null) void blender.cancelPreviewRender(this.packagePath, this.signature);
-		this.targetFrame = null;
 		this.setRunning(false);
 	}
 
 	private setRunning(isRunning: boolean): void {
 		this.isRunning = isRunning;
-		this.$isRendering.set(isRunning);
+		this.updateIsRendering();
+	}
+
+	private updateIsRendering(): void {
+		this.$isRendering.set(this.isRunning && !this.isWorking);
 	}
 
 	private startPolling(): void {
@@ -195,10 +203,9 @@ export class LivePreviewCx {
 			return;
 		}
 		const current = this.$frames.get();
-		if (current == null || current.folder !== listed.folder || current.flat.size !== listed.flat.length || current.fast.size !== listed.fast.length) {
-			this.$frames.set({ signature, folder: listed.folder, ...timeline, flat: new Set(listed.flat), fast: new Set(listed.fast) });
+		if (current == null || current.folder !== listed.folder || current.rendered.size !== listed.frames.length) {
+			this.$frames.set({ signature, folder: listed.folder, ...timeline, rendered: new Set(listed.frames) });
 		}
-		this.$status.set(listed.status);
 		// Only this run's status counts; the folder keeps the status of an earlier run until the new one writes
 		const status = listed.status?.pid === this.pid ? listed.status : null;
 		// A job stopped without a last word (the worker restarted) leaves a status that no longer updates
@@ -207,23 +214,28 @@ export class LivePreviewCx {
 			clearInterval(this.pollTimer);
 			this.pollTimer = undefined;
 			this.setRunning(false);
-			if (status?.state === 'failed' && import.meta.env.DEV) console.warn('[live preview] failed', status.error);
-			if (status?.state === 'done') this.ensureJob(false);
+			if (status?.state === 'failed' || isSilent) {
+				// Starting a job that can't run again and again would save the scene each time for nothing
+				this.failedSignature = signature;
+				if (import.meta.env.DEV) console.warn('[live preview] failed', status?.error ?? 'no status');
+			} else {
+				this.ensureJob(false);
+			}
 		}
 	}
 }
 
-function readEnabled(): boolean {
+function readIsDraftPreview(): boolean {
 	try {
-		return localStorage.getItem(STORAGE_KEY) !== 'off';
+		return localStorage.getItem(STORAGE_KEY) === 'on';
 	} catch {
-		return true;
+		return false;
 	}
 }
 
-function writeEnabled(isEnabled: boolean): void {
+function writeIsDraftPreview(isDraft: boolean): void {
 	try {
-		localStorage.setItem(STORAGE_KEY, isEnabled ? 'on' : 'off');
+		localStorage.setItem(STORAGE_KEY, isDraft ? 'on' : 'off');
 	} catch {
 		// A blocked storage keeps the choice for this session only
 	}

@@ -2,17 +2,15 @@
 
 `preview_render` saves a copy of the live scene into `.cache/preview-frames/<signature>/scene.blend` and starts a
 background Blender on it with `blender/preview_job.py`, so the live worker stays responsive. The job renders small
-JPEG frames with the Draft export's Flat Light settings (Workbench) into the same folder:
+JPEG frames with Eevee and the film's own lights into the same folder: `00042.jpg` is frame 42, time
+`startTime + 42 / fps`.
 
-- `00042.jpg`: frame 42, time `startTime + 42 / fps`, Flat Light
-- `00042.fast.jpg`: the same frame re-rendered with Fast lighting (Eevee) by the refine pass
-
-The app decides the order. It writes `target.json` (`{"order": [...], "refine": [...]}`) into the folder, through
-this op or directly through the host, whenever the playhead moves. The job re-reads it between chunks: it takes the
-first frame of `order` without a Flat Light file, else the first frame of `refine` without a Fast file, and renders it
-with its missing neighbours as one short animation render (`CHUNK_FRAMES`), which keeps Blender's render scene between
-frames. It exits once both lists are done. `cancel` in the folder stops it between chunks. `status.json` reports
-progress, with `pid` naming the run.
+The app decides the order. It writes `target.json` (`{"order": [...], "paused": false}`) into the folder, through
+this op or directly through the host, whenever the person stops working. The job re-reads it between chunks: it takes
+the first frame of `order` without a file and renders it with its missing neighbours as one short animation render
+(`CHUNK_FRAMES`), which keeps Blender's render scene between frames. While `paused` it sleeps, keeping its scene and
+shaders. It exits once `order` is done. `cancel` in the folder stops it between chunks. `status.json` reports progress,
+with `pid` naming the run.
 
 The signature names the scene: the app hashes the scene description and motion files it applied, so any scene
 change starts a new folder and leaves the old frames unused (invalidate all). Undo returns to an earlier signature
@@ -24,7 +22,6 @@ import shutil
 import subprocess
 import sys
 import time
-from contextlib import ExitStack
 from pathlib import Path
 
 import bpy
@@ -37,15 +34,18 @@ PREVIEW_FOLDER = '.cache/preview-frames'
 KEEP_SIGNATURES = 3
 DEFAULT_WIDTH = 360
 DEFAULT_FPS = 30.0
-# Workbench antialiasing samples of the flat pass: 5 keeps edges smooth at 360 px for less than the export's 8
-FLAT_SAMPLES = 5
-FAST_SAMPLES = 8
-# Frames per animation render: short enough to follow a new playhead or a cancel within about half a second
-CHUNK_FRAMES = {'flat': 24, 'fast': 8}
+SAMPLES = 8
+# Frames per animation render: short enough to pause, follow a new playhead or cancel within about a second
+CHUNK_FRAMES = 4
+# Seconds between looks at `target.json` while paused, and between status updates that say the job is alive
+PAUSE_SLEEP_SECONDS = 0.25
+PAUSE_REPORT_SECONDS = 5.0
+# The job shares the machine with the person's work: lower priority, and never every core
+NICENESS = 10
+MAX_THREADS = 4
 JPEG_QUALITY = 82
 STOP_GRACE_SECONDS = 2.0
 JOB_SCRIPT = Path(__file__).resolve().parents[1] / 'preview_job.py'
-LEVEL_SUFFIX = {'flat': '.jpg', 'fast': '.fast.jpg'}
 
 
 # Live worker side
@@ -61,10 +61,11 @@ def start_preview_render(worker, args):
     fps = float(args.get('fps') or DEFAULT_FPS)
     if not 1 <= fps <= 60:
         raise WorkerError('INVALID_ARGS', 'Preview fps must be between 1 and 60')
-    target = {'order': int_list(args.get('order')), 'refine': int_list(args.get('refine'))}
+    target = {'order': int_list(args.get('order')), 'paused': args.get('paused') is True}
     folder = preview_folder(worker.project_dir, signature)
     current = getattr(worker, 'preview', None)
     if current is not None and current['signature'] == signature and current['process'].poll() is None:
+        (folder / 'cancel').unlink(missing_ok=True)
         write_json_atomic(folder / 'target.json', target)
         return {**current['info'], 'retargeted': True}
     stop_preview(worker)
@@ -96,7 +97,7 @@ def start_preview_render(worker, args):
     write_json_atomic(folder / 'target.json', target)
     bpy.ops.wm.save_as_mainfile(filepath=str(folder / 'scene.blend'), copy=True, relative_remap=True, compress=False)
     command = [
-        bpy.app.binary_path, '--background', '--factory-startup', str(folder / 'scene.blend'),
+        bpy.app.binary_path, '--background', '--factory-startup', '--threads', str(MAX_THREADS), str(folder / 'scene.blend'),
         '--python-exit-code', '1', '--python', str(JOB_SCRIPT), '--', str(folder / 'job.json'),
     ]
     log = (folder / 'render.log').open('w')
@@ -157,19 +158,15 @@ def int_list(value):
     return [int(item) for item in value if isinstance(item, (int, float)) and item >= 0]
 
 
-def frame_path(folder, index, level):
-    return Path(folder) / ('%05d%s' % (index, LEVEL_SUFFIX[level]))
+def frame_path(folder, index):
+    return Path(folder) / ('%05d.jpg' % index)
 
 
 def next_frame(target, frames, has_frame):
-    """(index, level) of the first frame of `order` without a Flat Light file, else the first frame of `refine`
-    without a Fast file, or None when both lists are done"""
+    """The first frame of `order` without a file, or None when it is done"""
     for index in target.get('order') or []:
-        if 0 <= index < frames and not has_frame(index, 'flat'):
-            return index, 'flat'
-    for index in target.get('refine') or []:
-        if 0 <= index < frames and not has_frame(index, 'fast'):
-            return index, 'fast'
+        if 0 <= index < frames and not has_frame(index):
+            return index
     return None
 
 
@@ -198,11 +195,12 @@ def run_preview_job(job_path):
     job_path = Path(job_path)
     job = json.loads(job_path.read_text())
     folder = job_path.parent
+    os.nice(NICENESS)
     began = time.time()
     status = {'signature': job['signature'], 'state': 'rendering', 'frames': job['frames'], 'fps': job['fps'],
               'startTime': job['startTime'], 'width': job['width'], 'height': job['height'], 'pid': os.getpid(),
-              'flat': 0, 'fast': 0, 'flatMs': None, 'fastMs': None, 'level': None, 'startedAt': began,
-              'updatedAt': began}
+              'rendered': 0, 'frameMs': None, 'startedAt': began, 'updatedAt': began}
+    write_json_atomic(folder / 'status.json', status)
     try:
         render_preview_frames(job, folder, status)
         status['state'] = 'done'
@@ -219,32 +217,25 @@ def run_preview_job(job_path):
 
 def render_preview_frames(job, folder, status):
     """Renders the target's frames in chunks of consecutive frames as short animation renders: Blender keeps the
-    render scene between the frames of one animation render, which makes a 360 px Workbench frame about four times
-    faster than a still render each (about 20 ms against 65-80 ms)"""
+    render scene between the frames of one animation render, and Eevee its compiled shaders"""
     scene = bpy.context.scene
     frames = int(job['frames'])
     step = int(job.get('step', 1))
     frame_start = int(job.get('frameStart', scene.frame_start))
-    width, height = int(job['width']), int(job['height'])
-    jpeg = [(scene.render.image_settings, 'file_format', 'JPEG'), (scene.render.image_settings, 'quality', JPEG_QUALITY),
-            (scene.render.image_settings, 'color_mode', 'RGB'), (scene.render, 'use_file_extension', True),
-            (scene.render, 'use_overwrite', True), (scene.render, 'use_placeholder', False), (scene, 'frame_step', step)]
-    settings = {
-        'flat': engine_settings(scene, 'workbench', FLAT_SAMPLES, width, height) + jpeg,
-        'fast': engine_settings(scene, 'eevee', FAST_SAMPLES, width, height) + jpeg,
-    }
+    settings = engine_settings(scene, 'eevee', SAMPLES, int(job['width']), int(job['height'])) + [
+        (scene.render.image_settings, 'file_format', 'JPEG'), (scene.render.image_settings, 'quality', JPEG_QUALITY),
+        (scene.render.image_settings, 'color_mode', 'RGB'), (scene.render, 'use_file_extension', True),
+        (scene.render, 'use_overwrite', True), (scene.render, 'use_placeholder', False), (scene, 'frame_step', step)]
     existing = {name for name in os.listdir(folder) if name.endswith('.jpg') and not name.startswith('.')}
 
-    def has_frame(index, level):
-        return ('%05d%s' % (index, LEVEL_SUFFIX[level])) in existing
+    def has_frame(index):
+        return ('%05d.jpg' % index) in existing
 
-    status['flat'] = sum(1 for name in existing if name.count('.') == 1)
-    status['fast'] = sum(1 for name in existing if name.endswith('.fast.jpg'))
+    status['rendered'] = len(existing)
     target_path = folder / 'target.json'
     target, target_stamp = {}, None
-    timings = {'flat': [], 'fast': []}
-    with ExitStack() as stack:
-        level_now = None
+    timings = []
+    with temporary(settings):
         while True:
             check_stop(job, folder)
             stamp = target_path.stat().st_mtime_ns if target_path.is_file() else None
@@ -254,19 +245,17 @@ def render_preview_frames(job, folder, status):
                     target = json.loads(target_path.read_text())
                 except (OSError, ValueError):
                     target = {}
-            found = next_frame(target, frames, has_frame)
-            if found is None:
+            if target.get('paused') is True:
+                if time.time() - status['updatedAt'] > PAUSE_REPORT_SECONDS:
+                    report(folder, status, timings)
+                time.sleep(PAUSE_SLEEP_SECONDS)
+                continue
+            index = next_frame(target, frames, has_frame)
+            if index is None:
                 break
-            index, level = found
-            wanted = set(target.get('order' if level == 'flat' else 'refine') or [])
-            first, last = chunk_around(index, frames, lambda other: other in wanted and 0 <= other < frames and not has_frame(other, level),
-                                       CHUNK_FRAMES[level])
-            if level != level_now:
-                # Engine settings stay applied across chunks of one level; Eevee keeps its compiled shaders
-                stack.close()
-                stack.enter_context(temporary(settings[level]))
-                level_now = level
-                status['level'] = level
+            wanted = set(target.get('order') or [])
+            first, last = chunk_around(index, frames, lambda other: other in wanted and 0 <= other < frames and not has_frame(other),
+                                       CHUNK_FRAMES)
             began = time.perf_counter()
             with temporary([(scene, 'frame_start', frame_start + first * step), (scene, 'frame_end', frame_start + last * step),
                             (scene.render, 'filepath', str(folder / '.partial-#####'))]):
@@ -275,22 +264,18 @@ def render_preview_frames(job, folder, status):
             for other in range(first, last + 1):
                 partial = folder / ('.partial-%05d.jpg' % (frame_start + other * step))
                 if partial.is_file():
-                    final = frame_path(folder, other, level)
+                    final = frame_path(folder, other)
                     os.replace(partial, final)
                     existing.add(final.name)
-                    status[level] += 1
-            if status['flat'] >= frames and 'flatDoneAt' not in status:
-                status['flatDoneAt'] = time.time()
-            count = last - first + 1
-            timings[level].append(((time.perf_counter() - began) * 1000, count))
+                    status['rendered'] += 1
+            timings.append(((time.perf_counter() - began) * 1000, last - first + 1))
             report(folder, status, timings)
 
 
 def report(folder, status, timings):
-    for level in ('flat', 'fast'):
-        recent = timings[level][-20:]
-        if recent:
-            status[level + 'Ms'] = round(sum(ms for ms, _ in recent) / sum(count for _, count in recent), 1)
+    recent = timings[-20:]
+    if recent:
+        status['frameMs'] = round(sum(ms for ms, _ in recent) / sum(count for _, count in recent), 1)
     status['updatedAt'] = time.time()
     write_json_atomic(Path(folder) / 'status.json', status)
 

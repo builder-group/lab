@@ -4,6 +4,7 @@ import { Err, Ok, type TResult } from 'tuple-result';
 import { blender, buildSceneDescription, type TApplySceneResult, type TPreviewFrameResult } from '@/modules/blender';
 import type { TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
+import type { TCameraAngles } from './camera-orbit';
 import { $blenderObjects } from './decor';
 import { getRenderPreset } from './export-estimate';
 import { sceneSignature } from './live-preview';
@@ -30,6 +31,8 @@ export class DesignCx {
 	readonly $placing = createState<'text' | null>(null);
 	/** A title just placed, whose Text field takes focus with its contents selected; the inspector clears it */
 	readonly $editingTitle = createState<string | null>(null);
+	/** Turn and Tilt of a camera drag in the preview, drawn by the Draft Preview until Blender's still has caught up */
+	readonly $orbit = createState<TCameraAngles | null>(null);
 	/** Background Blender frames for playback, renewed after every scene sync */
 	readonly live: LivePreviewCx;
 
@@ -42,6 +45,8 @@ export class DesignCx {
 	/** Applies that changed the Blender scene without changing the description (discarded Blender changes, a reset camera) */
 	private forcedApplies = 0;
 	private inspectedAt = 0;
+	/** The render generation when a camera drag ended; the first still rendered after it ends the drag's draft */
+	private orbitEndedAt: number | null = null;
 
 	constructor(private readonly source: TDesignSource) {
 		this.live = new LivePreviewCx({ getPlayhead: () => source.getPlayhead(), isPlaying: () => source.isPlaying() });
@@ -95,6 +100,14 @@ export class DesignCx {
 		const status = this.$status.get();
 		if (status === 'unavailable' || status === 'missing') return;
 		this.previewTimer = setTimeout(() => void this.enqueue(() => this.renderPreview()), delay);
+	}
+
+	/** A camera drag ended: Blender renders the new angle, and the Draft Preview holds until that still is there */
+	endOrbit(): void {
+		this.orbitEndedAt = this.generation;
+		const status = this.$status.get();
+		if (status === 'unavailable' || status === 'missing') this.clearOrbit();
+		else this.requestPreview(0);
 	}
 
 	/** Opens the scene in Blender's window, with `select` the objects to select there */
@@ -265,7 +278,10 @@ export class DesignCx {
 
 	private async renderPreview(): Promise<void> {
 		const generation = ++this.generation;
-		if (!(await this.sync())) return;
+		if (!(await this.sync())) {
+			this.clearOrbit();
+			return;
+		}
 		const packagePath = this.source.getPackagePath();
 		if (packagePath == null || generation !== this.generation) return;
 		const time = this.source.getPlayhead();
@@ -278,9 +294,16 @@ export class DesignCx {
 		this.$error.set(null);
 		this.$preview.set(toPreview(frame, this.source.getResult()?.revision ?? 0));
 		this.$status.set('ready');
+		if (this.orbitEndedAt != null && generation > this.orbitEndedAt) this.clearOrbit();
+	}
+
+	private clearOrbit(): void {
+		this.orbitEndedAt = null;
+		this.$orbit.set(null);
 	}
 
 	private fail(message: string): void {
+		this.clearOrbit();
 		this.$error.set(message);
 		this.$status.set('error');
 	}

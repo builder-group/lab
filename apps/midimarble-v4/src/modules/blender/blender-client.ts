@@ -173,13 +173,13 @@ export const blender = {
 	 */
 	startPreviewRender(
 		packagePath: string,
-		options: { signature: string; fps: number; width: number; order: number[]; refine: number[] }
+		options: { signature: string; fps: number; width: number; order: number[]; paused: boolean }
 	): Promise<TResult<TPreviewRenderStarted, BlenderError>> {
 		return this.request<TPreviewRenderStarted>(packagePath, 'preview_render', options, { timeoutMs: 60_000 });
 	},
 
-	/** Points the running preview job at a new playhead without the worker's queue */
-	async targetPreviewRender(packagePath: string, signature: string, target: { order: number[]; refine: number[] }): Promise<TResult<void, BlenderError>> {
+	/** Points the running preview job at the playhead or pauses it, without the worker's queue */
+	async targetPreviewRender(packagePath: string, signature: string, target: { order: number[]; paused: boolean }): Promise<TResult<void, BlenderError>> {
 		if (!isTauri()) return Err(unavailable());
 		const result = await specta.commands.blenderPreviewTarget(packagePath, signature, JSON.stringify(target));
 		if (result.status === 'error') return Err(new BlenderError('HOST', result.error));
@@ -201,8 +201,7 @@ export const blender = {
 		if (result.status === 'error') return Err(new BlenderError('HOST', result.error));
 		return Ok({
 			folder: result.data.folder,
-			flat: result.data.flat,
-			fast: result.data.fast,
+			frames: result.data.frames,
 			status: result.data.statusJson != null ? (JSON.parse(result.data.statusJson) as TPreviewRenderStatus) : null
 		});
 	},
@@ -428,22 +427,17 @@ export interface TPreviewRenderStatus {
 	width: number;
 	height: number;
 	pid: number;
-	/** Frames rendered at Flat Light and with Fast lighting */
-	flat: number;
-	fast: number;
-	/** Recent milliseconds per frame of each level */
-	flatMs: number | null;
-	fastMs: number | null;
-	level: 'flat' | 'fast' | null;
+	/** Frames on disk */
+	rendered: number;
+	/** Recent milliseconds per frame */
+	frameMs: number | null;
 	error?: string;
 	startedAt: number;
 	updatedAt: number;
-	flatDoneAt?: number;
 }
 
 export interface TPreviewFramesListing {
 	folder: string;
-	flat: number[];
-	fast: number[];
+	frames: number[];
 	status: TPreviewRenderStatus | null;
 }

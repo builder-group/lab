@@ -5,7 +5,7 @@ import { addedPacks, type TLibraryItem } from '@/modules/library';
 import type { TEntity, TProject, TWallKind } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { builtInSkinCommands, followThemeSkinCommands, itemFitsPieceType, skinAppliedMessage, skinTargetIds, type TSkinTarget } from './design-commands';
+import { builtInSkinCommands, itemFitsPieceType, resetToThemeCommands, skinAppliedMessage, skinTargetIds, type TSkinTarget } from './design-commands';
 import { libraryEntries, libraryItemKey, libraryItemLabel, libraryItemOrigin, notAddedPackAction, type TLibraryEntry } from './DesignLibraryCx';
 import { LIBRARY_DRAG_TYPE, removeLibraryEntry } from './FilmInsert';
 import { isThemeColorByNote, resolveElementLook } from './project-themes';
@@ -16,15 +16,15 @@ import { TilePicker, type TPickerTile } from './TilePicker';
 
 // The inspector's Skin row, opening a picker. Each pick is one undo step.
 
-/** The row for a set of tiles: the current tile, or Mixed; Theme Default names the skin it stands for */
+/** The row for a set of tiles: the current tile, or Mixed */
 function currentOf(tiles: readonly TPickerTile[], fallback: string): React.ComponentProps<typeof TilePicker>['current'] {
 	const tile = tiles.find((item) => item.isCurrent);
 	if (tile == null) return { label: fallback, previewUrl: null };
-	return { label: tile.label, ...(tile.key === THEME_DEFAULT_TILE && tile.detail != null ? { detail: tile.detail } : {}), previewUrl: tile.previewUrl, ...(tile.thumb != null ? { thumb: tile.thumb } : {}) };
+	return { label: tile.label, previewUrl: tile.previewUrl, ...(tile.thumb != null ? { thumb: tile.thumb } : {}) };
 }
 
 /**
- * The skin of the selected marbles or pieces of one type: Theme Default, the Starter skins, then skins from added Packs,
+ * The skin of the selected marbles or pieces of one type: the theme's, the Starter skins, then skins from added Packs,
  * made by an agent or imported. A click applies to the selection, ⌥-click to every one of the type.
  */
 export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TSkinElement; pieceType: string; entities: TEntity[]; selected?: TEntity[] }> = (props) => {
@@ -45,7 +45,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 
 	function apply(id: string, label: string, toAll: boolean): void {
 		const target = targetOf(toAll);
-		const commands = id === THEME_DEFAULT_TILE ? followThemeSkinCommands(project, skinTargetIds(project, target)) : builtInSkinCommands(project, target, id);
+		const commands = id === THEME_DEFAULT_TILE ? resetToThemeCommands(project, skinTargetIds(project, target)) : builtInSkinCommands(project, target, id);
 		if (commands.length > 0 && cx.execute(commands) && !toAll) notify(label, id === THEME_DEFAULT_TILE ? null : id);
 	}
 
@@ -68,7 +68,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 			detail: tile.detail,
 			previewUrl: tile.previewUrl,
 			isCurrent: tile.isCurrent,
-			title: tileTitle(tile.detail.length > 0 ? `${tile.label} (${tile.detail})` : tile.label),
+			title: tile.id === THEME_DEFAULT_TILE ? `Back to the theme, with its colours and properties: click for the selection, ⌥-click for all ${plural.toLowerCase()}` : tileTitle(`${tile.label} (${tile.detail})`),
 			onApply: (toAll: boolean) => apply(tile.id, tile.label, toAll),
 			onMenu: () => menu((toAll) => apply(tile.id, tile.label, toAll))
 		})),
@@ -126,9 +126,9 @@ export const WallPicker: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 		previewUrl: null,
 		thumb: <WallThumb kind={tile.shownKind} color={color} />,
 		isCurrent: tile.isCurrent,
-		title: tile.kind == null ? `Use the theme's wall (${tile.detail})` : `A ${tile.label} wall`,
+		title: tile.kind == null ? "Back to the theme's wall, with its colours" : `A ${tile.label} wall`,
 		onApply: () => {
-			const commands = wallCommands(project, { kind: tile.kind });
+			const commands = wallCommands(project, tile.kind == null ? { kind: null, color: null, backgroundColor: null } : { kind: tile.kind });
 			if (commands.length > 0) cx.execute(commands);
 		}
 	}));

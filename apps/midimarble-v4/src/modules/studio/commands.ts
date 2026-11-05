@@ -535,7 +535,7 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Layers and settings, found by name in ⌘K
 	selectLayerCommand('layer.wall', 'Wall', WALL_KEY, 'warm cold colour color background plaster pegboard grid skin'),
 	selectLayerCommand('layer.keyLight', 'Key Light', KEY_LIGHT_KEY, 'warm cold bright dark sun main lighting'),
-	selectLayerCommand('layer.camera', 'Camera', CAMERA_KEY, 'closer zoom distance sway shake tilt angle look ahead'),
+	selectLayerCommand('layer.camera', 'Camera', CAMERA_KEY, 'closer zoom distance turn orbit rotate sway shake tilt angle'),
 	{
 		id: 'layer.song',
 		title: 'Song',
@@ -561,12 +561,12 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => focusSceneField(cx, 'scene-theme')
 	},
 	{
-		id: 'film.blenderPreview',
-		title: 'Blender Preview',
-		section: 'Film',
-		keywords: 'live preview render real look draft',
+		id: 'view.draftPreview',
+		title: 'Draft Preview',
+		section: 'View',
+		keywords: 'fast shading solid render real look blender background battery',
 		isEnabled: canRunBlender,
-		isChecked: (cx) => cx.design.live.$enabled.get(),
+		isChecked: (cx) => !cx.design.live.$enabled.get(),
 		run: (cx) => cx.design.live.setEnabled(!cx.design.live.$enabled.get())
 	},
 	{
@@ -722,7 +722,7 @@ export type TCommandId =
 	| 'film.fitToSong'
 	| 'film.format'
 	| 'film.theme'
-	| 'film.blenderPreview'
+	| 'view.draftPreview'
 	| 'layer.wall'
 	| 'layer.keyLight'
 	| 'layer.camera'

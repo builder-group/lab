@@ -166,7 +166,7 @@ const PickerTile: React.FC<{ tile: TPickerTile; onPick: (toAll: boolean) => void
 				<span className="mm-library-preview">{tile.thumb ?? (tile.previewUrl != null ? <img alt="" src={tile.previewUrl} draggable={false} /> : <Box size={20} strokeWidth={1.4} className="text-[var(--text-tertiary)]" />)}</span>
 				{nameField != null ? null : (
 					<span className="mm-library-label">
-						<span className="truncate">{tile.label}</span>
+						<span className="line-clamp-2">{tile.label}</span>
 					</span>
 				)}
 				{tile.detail != null && tile.detail !== '' ? <TileDetail text={tile.detail} onClick={tile.onDetail} /> : null}

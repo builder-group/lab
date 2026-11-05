@@ -5,8 +5,8 @@ import { HelpTip, Panel, ScrubField, SelectField } from '@/components';
 import type { TAssetProperty } from '@/modules/library/asset-manifest';
 import type { TEntity, TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
-import { resetToThemeCommands, skinPropertyCommands, type TSkinPropertyPatch } from './design-commands';
-import { resolveElementLook, resolveTheme } from './project-themes';
+import { skinPropertyCommands, type TSkinPropertyPatch } from './design-commands';
+import { resolveElementLook } from './project-themes';
 import { SKIN_HELP } from './concept-words';
 import { themeOriginLabel } from './scene-layers';
 import { SkinPicker } from './SkinPickers';
@@ -178,19 +178,6 @@ const ColourRow: React.FC<{ cx: StudioCx; id: string; label: string; value: stri
 	);
 };
 
-/** Reset to Theme: for a selection with a skin or a property of its own */
-export const ResetToTheme: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[] }> = (props) => {
-	const { cx, project, entities } = props;
-	const commands = resetToThemeCommands(project, entities.map((entity) => entity.id));
-	if (!commands.length) return null;
-	return (
-		<button className="mm-button" data-span="2" onClick={() => cx.execute(commands)} title={`Show ${resolveTheme(project.design).name}'s skin and properties again`} type="button">
-			<RotateCcw size={12} strokeWidth={1.9} />
-			Reset to Theme
-		</button>
-	);
-};
-
 /** A marble's Skin section in Film: its skin and properties. Its physics never change with its skin. */
 export const MarbleSkin: React.FC<{ cx: StudioCx; project: TProject; marble: TEntity }> = (props) => {
 	const { cx, project, marble } = props;
@@ -199,7 +186,6 @@ export const MarbleSkin: React.FC<{ cx: StudioCx; project: TProject; marble: TEn
 		<Panel id="marble.skin" title="Skin" accessory={<HelpTip text={`${SKIN_HELP} A click applies to this marble, ⌥-click to all marbles. A skin never changes how it falls or bounces.`} />}>
 			<SkinPicker cx={cx} project={project} element="marble" pieceType="marble" entities={[marble]} />
 			<SkinPropertyRows cx={cx} project={project} entities={[marble]} />
-			<ResetToTheme cx={cx} project={project} entities={[marble]} />
 		</Panel>
 	);
 };

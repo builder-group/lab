@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
 	framePath,
@@ -5,14 +7,13 @@ import {
 	lookupFrame,
 	previewFrameOrder,
 	previewTimeline,
-	refineFrames,
 	renderedSpans,
 	sceneSignature,
 	type TLivePreviewFrames
 } from './live-preview';
 
-function frames(flat: number[], fast: number[] = [], total = 100): TLivePreviewFrames {
-	return { signature: 's1', folder: '/p/.cache/preview-frames/s1', fps: 30, startTime: 0, total, flat: new Set(flat), fast: new Set(fast) };
+function frames(rendered: number[], total = 100): TLivePreviewFrames {
+	return { signature: 's1', folder: '/p/.cache/preview-frames/s1', fps: 30, startTime: 0, total, rendered: new Set(rendered) };
 }
 
 describe('previewFrameOrder', () => {
@@ -31,49 +32,34 @@ describe('previewFrameOrder', () => {
 	});
 });
 
-describe('refineFrames', () => {
-	it('takes the frames from the playhead ahead, clipped to the song', () => {
-		expect(refineFrames(8, 10, 5)).toEqual([8, 9]);
-		expect(refineFrames(2, 10, 3)).toEqual([2, 3, 4]);
-	});
-});
-
 describe('lookupFrame', () => {
-	it('finds the frame at a time, Fast before Flat Light', () => {
-		const cached = frames([10, 11, 12], [11]);
-		expect(lookupFrame(cached, 10 / 30)).toEqual({ index: 10, level: 'flat' });
-		expect(lookupFrame(cached, 11 / 30)).toEqual({ index: 11, level: 'fast' });
+	it('finds the frame at a time', () => {
+		expect(lookupFrame(frames([10, 11, 12]), 11 / 30)).toBe(11);
 	});
 
 	it('uses a neighbour within the tolerance, else nothing', () => {
 		const cached = frames([10]);
-		expect(lookupFrame(cached, 11 / 30)).toEqual({ index: 10, level: 'flat' });
+		expect(lookupFrame(cached, 11 / 30)).toBe(10);
 		expect(lookupFrame(cached, 12 / 30)).toBeNull();
-		expect(lookupFrame(cached, 12 / 30, 2)).toEqual({ index: 10, level: 'flat' });
+		expect(lookupFrame(cached, 12 / 30, 2)).toBe(10);
 	});
 
 	it('honours the start time of a scene that starts later', () => {
 		const cached = { ...frames([0]), startTime: 2 };
-		expect(lookupFrame(cached, 2)).toEqual({ index: 0, level: 'flat' });
+		expect(lookupFrame(cached, 2)).toBe(0);
 		expect(lookupFrame(cached, 0)).toBeNull();
 	});
 });
 
 describe('framesAhead', () => {
 	it('lists rendered frames one second ahead in playback order', () => {
-		const cached = frames([0, 1, 2, 40, 50], [1]);
-		expect(framesAhead(cached, 0, 1)).toEqual([
-			{ index: 0, level: 'flat' },
-			{ index: 1, level: 'fast' },
-			{ index: 2, level: 'flat' }
-		]);
+		expect(framesAhead(frames([0, 1, 2, 40, 50]), 0, 1)).toEqual([0, 1, 2]);
 	});
 });
 
 describe('framePath', () => {
-	it('names frames by number and level', () => {
-		expect(framePath('/f', 42, 'flat')).toBe('/f/00042.jpg');
-		expect(framePath('/f', 42, 'fast')).toBe('/f/00042.fast.jpg');
+	it('names frames by number', () => {
+		expect(framePath('/f', 42)).toBe('/f/00042.jpg');
 	});
 });
 
@@ -106,5 +92,15 @@ describe('previewTimeline', () => {
 		expect(previewTimeline({ fps: 30, frameStart: 0, frameEnd: 1020 })).toEqual({ fps: 30, startTime: 0, total: 1021 });
 		expect(previewTimeline({ fps: 60, frameStart: 0, frameEnd: 2041 })).toEqual({ fps: 30, startTime: 0, total: 1021 });
 		expect(previewTimeline({ fps: 30, frameStart: 60, frameEnd: 90 }).startTime).toBe(2);
+	});
+});
+
+describe('the bundled app', () => {
+	it('should ship every script the worker starts, so the background render runs outside the repository too', () => {
+		const root = resolve(import.meta.dirname, '../../..');
+		const config = JSON.parse(readFileSync(resolve(root, 'src-tauri/tauri.conf.json'), 'utf8')) as { bundle: { resources: Record<string, string> } };
+		const scripts = readdirSync(resolve(root, 'blender')).filter((name) => name.endsWith('.py'));
+		expect(scripts).toContain('preview_job.py');
+		for (const script of scripts) expect(config.bundle.resources[`../blender/${script}`]).toBe(`blender/${script}`);
 	});
 });

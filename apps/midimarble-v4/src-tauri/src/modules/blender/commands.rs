@@ -175,10 +175,8 @@ pub fn blender_job_poll(package_path: String, job_id: String) -> Result<BlenderJ
 pub struct BlenderPreviewFramesDto {
     /// Absolute folder of the signature's frames: `<frame>.jpg` at Flat Light, `<frame>.fast.jpg` at Fast
     pub folder: String,
-    /// Frame numbers rendered at Flat Light, ascending
-    pub flat: Vec<u32>,
-    /// Frame numbers re-rendered with Fast lighting, ascending
-    pub fast: Vec<u32>,
+    /// Frame numbers rendered, ascending
+    pub frames: Vec<u32>,
     /// The job's `status.json`, if it started
     pub status_json: Option<String>,
 }
@@ -191,15 +189,14 @@ pub async fn blender_preview_frames(package_path: String, signature: String) -> 
         let frames = preview::list_frames(&PathBuf::from(package_path), &signature).map_err(|error| error.to_string())?;
         return Ok(BlenderPreviewFramesDto {
             folder: frames.folder.display().to_string(),
-            flat: frames.flat,
-            fast: frames.fast,
+            frames: frames.frames,
             status_json: frames.status.map(|value| value.to_string()),
         });
     })
     .await;
 }
 
-/// Points the running preview job at a new playhead: `{"order": [...], "refine": [...]}` frame numbers
+/// Points the running preview job at a new playhead: `{"order": [...], "paused": false}`
 #[tauri::command]
 #[specta::specta]
 pub fn blender_preview_target(package_path: String, signature: String, target_json: String) -> Result<(), String> {

@@ -134,8 +134,7 @@ const RepeatStrip: React.FC<{ cx: StudioCx; end: number; zoom: number; timeAt: (
 
 /**
  * Film's render bar, like Final Cut's: the separator line between the ruler and the rows fills green over each span
- * Blender's background preview has rendered, brighter where the frames have Fast lighting. Where nothing is rendered
- * the ruler's own separator shows.
+ * Blender has rendered in the background. Where nothing is rendered the ruler's own separator shows.
  */
 const RenderBar: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
 	const { cx, zoom } = props;
@@ -143,28 +142,17 @@ const RenderBar: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
 	const frames = useFeatureState(cx.design.live.$frames);
 	const isEnabled = useFeatureState(cx.design.live.$enabled);
 	const isRendering = useFeatureState(cx.design.live.$isRendering);
-	const flat = React.useMemo(() => (frames != null ? renderedSpans(frames.flat, frames.fps, frames.startTime) : []), [frames]);
-	const fast = React.useMemo(() => (frames != null ? renderedSpans(frames.fast, frames.fps, frames.startTime) : []), [frames]);
-	if (workspace !== 'design' || !isEnabled || frames == null || (!isRendering && flat.length === 0)) return null;
+	const spans = React.useMemo(() => (frames != null ? renderedSpans(frames.rendered, frames.fps, frames.startTime) : []), [frames]);
+	if (workspace !== 'design' || !isEnabled || frames == null || (!isRendering && spans.length === 0)) return null;
 	const songEnd = frames.startTime + frames.total / frames.fps;
 	return (
-		<span className="mm-render-bar" style={{ left: frames.startTime * zoom, width: (songEnd - frames.startTime) * zoom }} title={isRendering ? 'Rendering preview…' : undefined}>
-			{flat.map((span) => (
+		<span className="mm-render-bar" style={{ left: frames.startTime * zoom, width: (songEnd - frames.startTime) * zoom }} title={isRendering ? 'Rendering in Blender…' : undefined}>
+			{spans.map((span) => (
 				<span
-					key={`flat:${span.start}`}
+					key={span.start}
 					className="mm-render-span"
-					data-level="flat"
 					style={{ left: (span.start - frames.startTime) * zoom, width: (span.end - span.start) * zoom }}
-					title={isRendering ? 'Blender preview rendered at Flat Light. Rendering preview…' : 'Blender preview rendered at Flat Light'}
-				/>
-			))}
-			{fast.map((span) => (
-				<span
-					key={`fast:${span.start}`}
-					className="mm-render-span"
-					data-level="fast"
-					style={{ left: (span.start - frames.startTime) * zoom, width: (span.end - span.start) * zoom }}
-					title="Blender preview rendered with Fast lighting"
+					title={isRendering ? 'Rendered in Blender. Rendering more…' : 'Rendered in Blender'}
 				/>
 			))}
 		</span>

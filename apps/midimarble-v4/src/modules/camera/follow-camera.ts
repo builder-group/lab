@@ -17,7 +17,8 @@ const ROLL_FOLLOW = 0.5;
 const ROLL_LIMIT = radians(40);
 const ROLL_DRIFT = radians(16);
 const ROLL_PERIOD = 14.0;
-const SIDE_ANGLE = radians(95);
+/** The Turn of a project that sets none: `SIDE_ANGLE` in `camera.py` */
+export const SIDE_ANGLE = radians(95);
 const SIDE_FOLLOW = 0.3;
 const HEADING_TAU = 1.5;
 const LEAD_LIMIT = 0.0235;
@@ -116,7 +117,7 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	const { targetX, targetY, heading: smoothHeading } = followTarget(framing, settings, fps, times);
 	// The camera stands below and to the side of the target, looking up along the run; the side follows the run
 	// direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
-	const { side, roll } = viewTurn(times, smoothHeading, settings.hold, settings.sway);
+	const { side, roll } = viewTurn(times, smoothHeading, settings.hold, settings.side, settings.sway);
 
 	const pitch = settings.pitch;
 	const position = new Float64Array(count * 3);
@@ -307,6 +308,7 @@ interface TSettings {
 	pitch: number;
 	lead: number;
 	smoothing: number;
+	side: number;
 	sway: number;
 	lens: number;
 	shots: { time: number; distance: number; length: number | null }[];
@@ -357,6 +359,7 @@ function settingsFrom(
 		pitch: number(camera.pitch, 0.7, 0.0, 1.45),
 		lead: number(camera.lead, 0.15, 0.0, 2.0),
 		smoothing: number(camera.smoothing, 0.6, 0.0, 1.0),
+		side: number(camera.side, SIDE_ANGLE, 0.0, 2 * Math.PI),
 		sway: number(camera.sway, 1.0, 0.0, 1.0),
 		lens: LENS,
 		shots,
@@ -540,18 +543,19 @@ function driftTime(time: number, hold: number | null): number {
 	return Math.min(time, hold) + HOLD_EASE * (1.0 - Math.exp(-past / HOLD_EASE));
 }
 
-/** `view_turn`: side angle around the target and image roll per frame, scaled by sway */
+/** `view_turn`: side angle around the target from the Turn and the run, and image roll per frame; sway scales what moves on its own */
 function viewTurn(
 	times: Float64Array,
 	heading: Float64Array,
 	hold: number | null,
+	baseSide: number,
 	sway: number
 ): { side: Float64Array; roll: Float64Array } {
 	const side = new Float64Array(times.length);
 	const roll = new Float64Array(times.length);
 	for (let index = 0; index < times.length; index++) {
 		const turn = heading[index] ?? 0;
-		side[index] = Math.PI + sway * (SIDE_ANGLE - Math.PI + SIDE_FOLLOW * turn);
+		side[index] = baseSide + sway * SIDE_FOLLOW * turn;
 		roll[index] = sway * (clamp(ROLL_FOLLOW * turn, -ROLL_LIMIT, ROLL_LIMIT) + ROLL_DRIFT * Math.sin((2 * Math.PI * driftTime(times[index] ?? 0, hold)) / ROLL_PERIOD));
 	}
 	return { side, roll };
@@ -700,7 +704,7 @@ function groupFraming(
 	const shotDistance = shotValues(times, settings.distance, settings.shots);
 	const scale = shotDistance.map((value) => value / settings.distance);
 	const base = settings.distance;
-	const turn = viewTurn(times, heading, hold, settings.sway);
+	const turn = viewTurn(times, heading, hold, settings.side, settings.sway);
 	// Sized around the smoothed target when the first pass gave one, else around the group's centre
 	const axes = Array.from(times, (_, index) =>
 		viewAxes(turn.side[index] ?? 0, turn.roll[index] ?? 0, settings.pitch)

@@ -21,12 +21,13 @@ import {
 	withTitleStyle,
 	type TTitleStyle
 } from './design-commands';
+import { cameraAngles, MAX_TILT_DEGREES } from './camera-orbit';
 import type { TDesignLink } from './DesignCx';
 import { SKIN_HELP } from './concept-words';
 import { themeOriginLabel } from './scene-layers';
 import { skinElement } from './skin-catalog';
 import { SkinPicker } from './SkinPickers';
-import { ResetToTheme, SkinPropertyRows } from './SkinProperties';
+import { SkinPropertyRows } from './SkinProperties';
 import { framingProblemAt, preflightExport } from './export-preflight';
 import { shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
 import { songDisplayName, titleSpan, withTitleTime } from './titles';
@@ -36,7 +37,7 @@ import { songDisplayName, titleSpan, withTitleTime } from './titles';
 
 /**
  * The Camera layer's inspector, in Compose and in Film: the frame of the film, then Automatic or Manual with the
- * rig's distance, pitch, lead and smoothing, the framing problem at the playhead and the shots
+ * rig's distance, turn, tilt and sway, the framing problem at the playhead and the shots
  */
 export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
@@ -78,12 +79,22 @@ const frameAspects = [
 	{ label: '16:9 Landscape', width: 16, height: 9 }
 ];
 
+function radiansToDegrees(radians: number): number {
+	return (radians * 180) / Math.PI;
+}
+
+function degreesToRadians(degrees: number): number {
+	return (degrees * Math.PI) / 180;
+}
+
 const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const camera = project.design.camera;
 	const cameraState = useFeatureState(cx.design.$camera);
 	const status = useFeatureState(cx.design.$status);
 	const [isConfirming, setIsConfirming] = React.useState(false);
+	// A drag in the preview shows here as it goes
+	const angles = useFeatureState(cx.design.$orbit) ?? cameraAngles(camera);
 
 	function set(patch: Partial<TDesign['camera']>): void {
 		cx.execute(cameraCommands(project, patch));
@@ -94,7 +105,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		<Panel
 			id="design.camera"
 			title="Camera"
-			accessory={<HelpTip text="Automatic: the camera follows the marbles, shaped by the shots. Manual: you move and animate the camera in Blender and the app leaves it alone." />}
+			accessory={<HelpTip text="Automatic: the camera follows the marbles, shaped by the shots; drag in Film's preview to orbit it. Manual: you move and animate the camera in Blender and the app leaves it alone." />}
 		>
 			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Camera mode">
 				{(['rig', 'manual'] as const).map((mode) => (
@@ -107,8 +118,9 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 				<>
 					<FramingProblem cx={cx} project={project} />
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
-					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle" value={(camera.pitch * 180) / Math.PI} unit="°" step={0.5} min={-80} max={80} onCommit={(value) => set({ pitch: (value * Math.PI) / 180 })} />
-					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 keeps the wall upright" value={Math.round(camera.sway * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
+					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the preview to orbit" value={radiansToDegrees(angles.side)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ side: degreesToRadians(value) })} />
+					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the preview to orbit" value={radiansToDegrees(angles.pitch)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ pitch: degreesToRadians(value) })} />
+					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 holds the Turn and keeps the wall upright" value={Math.round(camera.sway * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
 					{cameraState === 'takenOver' ? (
 						<>
 							<StateRow tone="warn" label="Edited in Blender" detail="The app no longer updates the camera, so your Blender changes stay. Reset Camera discards them and follows the marbles again." />
@@ -143,12 +155,6 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 				</button>
 			)}
 		</Panel>
-		{camera.mode === 'rig' ? (
-			<Panel id="design.camera.advanced" title="Advanced" defaultCollapsed>
-				<ScrubField id="camera-lead" label="Look Ahead" name="How far ahead of the marbles the camera looks" value={camera.lead} unit="s" step={0.01} precision={2} min={0} max={3} onCommit={(value) => set({ lead: value })} />
-				<ScrubField id="camera-smoothing" label="Smooth" name="Smoothing" value={Math.round(camera.smoothing * 100)} unit="%" step={0.5} min={0} max={100} onCommit={(value) => set({ smoothing: value / 100 })} />
-			</Panel>
-		) : null}
 		</>
 	);
 };
@@ -414,7 +420,6 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 						Apply to All {typeLabel}s
 					</button>
 				) : null}
-				<ResetToTheme cx={cx} project={project} entities={pieces} />
 				<LinkState cx={cx} link={link} unlinked={unlinked} />
 			</Panel>
 		</>

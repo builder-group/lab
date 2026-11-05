@@ -338,6 +338,8 @@ export const SDesign = z.strictObject({
 		pitch: z.number(),
 		lead: z.number().nonnegative(),
 		smoothing: z.number().min(0).max(1),
+		// Turn: the camera's side angle around what it follows in radians, 0 to 2π; absent is 95°
+		side: z.number().min(0).max(2 * Math.PI).optional(),
 		// How much the view turns and rolls on its own, 0 to 1
 		sway: z.number().min(0).max(1),
 		shots: z.array(SShot),

@@ -123,6 +123,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			'separator',
 			{ command: 'view.snap' },
 			{ command: 'view.showHitboxes' },
+			{ command: 'view.draftPreview' },
 			{ command: 'view.follow' },
 			{ command: 'view.audioScrubbing' },
 			'separator',

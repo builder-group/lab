@@ -16,7 +16,7 @@ import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { selectionHull } from './draft-outline';
-import { filmCamera, imageToWall, type TFilmCamera } from './film-camera';
+import { filmCamera, filmCameraAt, imageToWall, type TFilmCamera } from './film-camera';
 import { hitboxOutlines } from './hitbox-outline';
 
 /**
@@ -34,6 +34,7 @@ export class DraftPreviewCx {
 	private renderer: ComposeRenderer | null = null;
 	private size = { width: 1, height: 1 };
 	private camera: { key: string; value: TFilmCamera } | null = null;
+	private orbited: { key: string; value: TFilmCamera } | null = null;
 	private pose: TCameraPose | null = null;
 	private wallTheme: string | null = null;
 	private readonly scratchPose = createCameraPose();
@@ -58,7 +59,8 @@ export class DraftPreviewCx {
 			studio.simulation.$result.listen(() => this.draw()),
 			studio.$playhead.listen(() => this.draw()),
 			studio.$hidden.listen(() => this.draw()),
-			$blenderObjects.listen(() => this.draw())
+			$blenderObjects.listen(() => this.draw()),
+			studio.design.$orbit.listen(() => this.draw())
 		];
 		this.draw();
 		return () => {
@@ -389,7 +391,11 @@ export class DraftPreviewCx {
 			this.camera = { key, value: filmCamera(project, result) };
 			this.$isManualCamera.set(this.camera.value.isManual);
 		}
-		return this.camera.value;
+		const orbit = this.studio.design.$orbit.get();
+		if (orbit == null) return this.camera.value;
+		const orbitKey = `${key}:${orbit.side}:${orbit.pitch}`;
+		if (this.orbited?.key !== orbitKey) this.orbited = { key: orbitKey, value: filmCameraAt(this.camera.value, orbit) };
+		return this.orbited.value;
 	}
 
 	private draw(): void {

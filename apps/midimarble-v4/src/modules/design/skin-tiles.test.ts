@@ -15,9 +15,9 @@ function brassProject(entities: TEntity[] = []): TProject {
 }
 
 describe('skinTiles function', () => {
-	it('should list Theme Default first, standing for the theme skin, then the other skins with previews', () => {
+	it('should list the skin of the theme first, by name, then the other skins with previews', () => {
 		const tiles = skinTiles(brassProject().design, 'platform', [platform('a')]);
-		expect(tiles[0]).toMatchObject({ id: THEME_DEFAULT_TILE, label: 'Theme Default', detail: 'Gold', isCurrent: true });
+		expect(tiles[0]).toMatchObject({ id: THEME_DEFAULT_TILE, label: 'Theme: Gold', isCurrent: true });
 		expect(tiles[0]?.previewUrl).toBe('/skins/platform-gold.png');
 		expect(tiles.some((tile) => tile.id === 'platform:gold')).toBe(false);
 		expect(tiles.length).toBe(catalogSkins('platform').length);
@@ -59,7 +59,7 @@ describe('wallTiles function', () => {
 describe('hidden skins', () => {
 	it('should stay off the tiles until the project uses them, and show their origin then', () => {
 		const labels = (skins?: ReadonlySet<string>): string[] => skinTiles(brassProject().design, 'platform', [], skins).map((tile) => tile.label);
-		expect(labels()).toEqual(['Theme Default', 'Copper', 'Silver', 'Gold Plate', 'Copper Plate', 'Wood Plate', 'Chrome Device', 'Dark Housing', 'Pegboard', 'Neon']);
+		expect(labels()).toEqual(['Theme: Gold', 'Copper', 'Silver', 'Gold Plate', 'Copper Plate', 'Wood Plate', 'Chrome Device', 'Dark Housing', 'Pegboard', 'Neon']);
 		const used = usedSkinIds(brassProject([platform('a', 'platform:knob')]));
 		expect(labels(used)).toContain('Knob');
 		expect(skinTiles(brassProject().design, 'platform', [], used).find((tile) => tile.label === 'Knob')?.detail).toBe('Brass Sections');
@@ -71,13 +71,13 @@ describe('hidden skins', () => {
 		expect(used.has('rail:candy')).toBe(true);
 	});
 
-	it('should offer Glass, Metal and Magic for marbles, with Pearl or Deep behind Theme Default', () => {
-		expect(skinTiles(brassProject().design, 'marble', []).map((tile) => tile.label)).toEqual(['Theme Default', 'Glass', 'Metal', 'Magic']);
+	it('should offer Glass, Metal and Magic for marbles, with the theme\'s Pearl or Deep first', () => {
+		expect(skinTiles(brassProject().design, 'marble', []).map((tile) => tile.label)).toEqual([expect.stringMatching(/^Theme: (Pearl|Deep)$/), 'Glass', 'Metal', 'Magic']);
 	});
 });
 
 describe('filterTiles function', () => {
-	const tiles = [{ label: 'Theme Default', detail: 'Gold' }, { label: 'Copper', detail: 'Starter' }, { label: 'Gift', detail: 'Christmas Pack' }];
+	const tiles = [{ label: 'Theme: Gold', detail: '' }, { label: 'Copper', detail: 'Starter' }, { label: 'Gift', detail: 'Christmas Pack' }];
 
 	it('should keep every tile without a query and match the name or the origin by each word', () => {
 		expect(filterTiles(tiles, ' ')).toHaveLength(3);
