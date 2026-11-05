@@ -121,9 +121,9 @@ function targetOf(lane: TLane, change: Pick<TGroupChange, 'from' | 'to' | 'kind'
 }
 
 /** A new name: "Zigzag", then "Zigzag 2" */
-function nextGroupName(project: TProject, kind: TPatternKind): string {
+function nextGroupName(groups: readonly TGroup[], kind: TPatternKind): string {
 	const label = PATTERN_LABELS[kind];
-	const names = new Set((project.groups ?? []).map((group) => group.name));
+	const names = new Set(groups.map((group) => group.name));
 	if (!names.has(label)) return label;
 	for (let index = 2; ; index++) if (!names.has(`${label} ${index}`)) return `${label} ${index}`;
 }
@@ -149,7 +149,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	const { sim, isPreview = false, onProgress } = options;
 	const lane = project.music.lanes.find((item) => item.id === change.laneId);
 	const existing = change.groupId != null ? project.groups?.find((group) => group.id === change.groupId) : undefined;
-	const name = existing?.name ?? nextGroupName(project, change.kind);
+	let name = existing != null && existing.kind === change.kind ? existing.name : nextGroupName(project.groups ?? [], change.kind);
 	const refuse = (problems: TPatternProblem[]): TGroupRunOutcome => ({ commands: [], groupId: null, name, problems, later: [], laterLateHits: 0, otherMarbleTouches: [], widthUsed: null, measures: null, entities: [], project });
 	if (lane == null) return refuse([{ hitId: '', words: 'That marble is gone.' }]);
 	const target = targetOf(lane, change);
@@ -158,8 +158,10 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	const others = groupsOfLane(project, lane.id).filter((group) => group.id !== existing?.id);
 	const later = isPreview ? [] : others.filter((group) => group.from > target.to - 1e-6);
 	const { trimmed, removedGroupIds, freed } = trimOverlaps(project, others, target.hitIds, lane, target.from, target.to);
+	if (existing?.kind !== change.kind) name = nextGroupName((project.groups ?? []).filter((group) => !removedGroupIds.includes(group.id) && group.id !== existing?.id), change.kind);
 
-	let working = withoutPieces(project, [...(existing?.pieceIds ?? [])]);
+	// A rail it replaces goes first: the new one may take its ID
+	let working = withoutPieces(project, [...(existing?.pieceIds ?? []), ...freed]);
 	const steps = 1 + later.length;
 	const askFit = (hitIds: string[], kind: TPatternKind, width: number, bounce: number, step: number, label: string, keepsDirection = false): TFitPatternResult =>
 		fitPattern(
@@ -188,7 +190,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	if (!fit.entities.length) return refuse(fit.problems);
 	working = fit.project;
 
-	const groupId = existing?.id ?? `group-${target.hitIds[0] ?? 'range'}`.slice(0, 64);
+	const groupId = existing?.id ?? `group-${change.kind === 'longRail' ? 'rail-' : ''}${target.hitIds[0] ?? 'range'}`.slice(0, 64);
 	const group: TGroup = {
 		id: groupId,
 		name,
@@ -226,7 +228,6 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	}
 
 	for (const item of trimmed) if (!groups.has(item.id)) groups.set(item.id, item);
-	working = withoutPieces(working, freed);
 	const commands = editCommands(project, working, [...groups.values()], removedGroupIds);
 
 	const result = isPreview ? null : sim.simulate(working);

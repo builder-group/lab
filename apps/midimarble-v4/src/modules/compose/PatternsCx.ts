@@ -1,0 +1,240 @@
+import { createState } from 'feature-state';
+import { createPatternClient, hitsInRange, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCancelledError, type TGroupChange, type TPatternAnswer, type TPatternClient, type TPatternKind, type TPatternProblem, type TResolvedPiece } from '@/modules/simulation';
+import type { TGroup, TProject } from '@/modules/project';
+import { parseGroupKey, parseHitKey, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/studio/selection';
+import type { StudioCx } from '@/modules/studio/StudioCx';
+
+/** How long a pointer rests on a tile before its ghost is worked out: real rhythm takes about 230 ms for 9 hits, so moving across tiles asks nothing */
+const HOVER_DELAY = 180;
+
+/** Where a Pattern goes: a range of one marble's row, or the Group already there */
+export interface TPatternTarget {
+	laneId: string;
+	from: number;
+	to: number;
+	group?: TGroup;
+}
+
+export interface TPatternPreview {
+	revision: number;
+	kind: TPatternKind;
+	key: string;
+	laneId: string;
+	pieces: TResolvedPiece[];
+	/** Milliseconds from asking in the worker to the answer, for the check of hover speed */
+	ms: number;
+}
+
+/** What the tiles say for a range that couldn't take a Pattern */
+export interface TPatternFailure {
+	key: string;
+	problems: TPatternProblem[];
+}
+
+/**
+ * The Patterns prototype in Compose: a click on a tile makes or changes a Group, one Undo step, with progress and Stop in
+ * the notice; resting on a tile shows its ghost on the wall. Agents come here too, with `applyPattern`.
+ */
+export class PatternsCx {
+	readonly $preview = createState<TPatternPreview | null>(null);
+	readonly $failure = createState<TPatternFailure | null>(null);
+	readonly $isRunning = createState(false);
+
+	private client: TPatternClient | null = null;
+	private hoverTimer: ReturnType<typeof setTimeout> | undefined;
+	private hoverKey: string | null = null;
+	/** The run on its way, which an edit ends; `isReplaced` when a newer click takes its place, which says nothing */
+	private run: { key: string; isReplaced: boolean } | null = null;
+
+	constructor(readonly studio: StudioCx) {}
+
+	mount(): () => void {
+		const unlisten = [
+			this.studio.$history.listen(({ value }) => {
+				if (this.$preview.get() != null && this.$preview.get()?.revision !== value?.present.revision) this.$preview.set(null);
+				// A new Undo step or an Undo is an edit; the song's length and a settled run amend the step they follow
+				if (this.run != null && value != null && stepKey(value) !== this.run.key) this.client?.cancel();
+			}),
+			this.studio.$selection.listen(() => {
+				if (this.$failure.get() != null) this.$failure.set(null);
+			})
+		];
+		return () => {
+			for (const stop of unlisten) stop();
+			clearTimeout(this.hoverTimer);
+			this.client?.dispose();
+			this.client = null;
+		};
+	}
+
+	/** Rest on a tile. The ghost shows the first of several marbles */
+	hover(target: TPatternTarget, kind: TPatternKind): void {
+		const project = this.studio.project;
+		if (project == null || this.run != null) return;
+		const change = changeFor(target, kind);
+		const key = previewKey(change);
+		this.hoverKey = key;
+		clearTimeout(this.hoverTimer);
+		this.hoverTimer = setTimeout(() => {
+			const startedAt = performance.now();
+			this.clientNow()
+				.preview(project, change)
+				.then((answer) => {
+					if (this.hoverKey !== key || this.studio.project?.revision !== project.revision) return;
+					this.$preview.set({ revision: project.revision, kind, key, laneId: change.laneId, pieces: answer.pieces, ms: performance.now() - startedAt });
+					// Notes in free fall lie far below the view: a ghost nobody sees previews nothing, so the view pans to it, keeping the zoom
+					const middle = answer.pieces[Math.floor(answer.pieces.length / 2)];
+					if (middle != null) this.studio.$reveal.set({ ids: [], point: middle.position });
+				})
+				.catch((error: unknown) => {
+					if (!(error instanceof PatternCancelledError)) console.warn(error);
+				});
+		}, HOVER_DELAY);
+	}
+
+	endHover(): void {
+		this.hoverKey = null;
+		clearTimeout(this.hoverTimer);
+		if (this.$preview.get() != null) this.$preview.set(null);
+	}
+
+	stop(): void {
+		this.client?.cancel();
+	}
+
+	/** Makes or changes the Group and selects it. Null when it was stopped or couldn't be made */
+	async apply(target: TPatternTarget, kind: TPatternKind, settings: { width?: number; bounce?: number } = {}): Promise<TPatternAnswer | null> {
+		this.endHover();
+		const change = changeFor(target, kind, settings);
+		const answer = await this.fit(change);
+		if (answer == null) return null;
+		const failureKey = target.group != null ? toGroupKey(target.group.id) : toRangeKey(target.laneId, target.from, target.to);
+		if (!answer.commands.length || answer.groupId == null) {
+			this.$failure.set({ key: failureKey, problems: answer.problems });
+			this.studio.notify(answer.problems[0]?.words ?? `${PATTERN_LABELS[kind]} can't fit here.`, 'error');
+			return answer;
+		}
+		if (!this.studio.execute(answer.commands)) return null;
+		const group = this.studio.project?.groups?.find((item) => item.id === answer.groupId);
+		const pieceIds = group?.pieceIds ?? [];
+		this.studio.$selection.set([toGroupKey(answer.groupId), ...pieceIds]);
+		this.studio.$compose.get()?.revealOnceSimulated(pieceIds);
+		this.tell(answer);
+		return answer;
+	}
+
+	/** The same run with nothing applied, for an agent's dry run */
+	async dryRun(target: TPatternTarget, kind: TPatternKind, settings: { width?: number; bounce?: number } = {}): Promise<TPatternAnswer | null> {
+		return this.fit(changeFor(target, kind, settings));
+	}
+
+	private clientNow(): TPatternClient {
+		this.client ??= createPatternClient();
+		return this.client;
+	}
+
+	private async fit(change: TGroupChange): Promise<TPatternAnswer | null> {
+		const project = this.studio.project;
+		if (project == null) return null;
+		if (this.run != null) this.run.isReplaced = true;
+		const history = this.studio.$history.get();
+		const run = { key: history != null ? stepKey(history) : '', isReplaced: false };
+		this.run = run;
+		this.$isRunning.set(true);
+		const label = PATTERN_LABELS[change.kind];
+		const noticeId = this.studio.notify(`Fitting ${label}`, 'info', { progress: 0, actions: [{ label: 'Stop', title: 'Stop fitting; nothing changes', run: () => this.stop() }] });
+		try {
+			const answer = await this.clientNow().run(project, change, (progress) => {
+				const steps = progress.steps > 1 ? ` · ${progress.step} of ${progress.steps} Groups` : '';
+				this.studio.updateNotice(noticeId, { message: `Fitting ${progress.name}${steps}`, progress: progress.fraction });
+			});
+			this.studio.updateNotice(noticeId, { progress: undefined, actions: [] });
+			return answer;
+		} catch (error) {
+			this.studio.updateNotice(noticeId, { progress: undefined, actions: [] });
+			if (error instanceof PatternCancelledError) {
+				if (!run.isReplaced) this.studio.notify(`Stopped fitting ${label}. Nothing changed.`);
+				return null;
+			}
+			this.studio.notify((error as Error).message, 'error');
+			return null;
+		} finally {
+			if (this.run === run) {
+				this.run = null;
+				this.$isRunning.set(false);
+			}
+		}
+	}
+
+	/** One notice for the whole run: what it made, what else moved, and first of all what no longer fits */
+	private tell(answer: TPatternAnswer): void {
+		const broken = answer.later.filter((item) => item.problems.length > 0);
+		const lines = [...answer.problems.map((problem) => `${answer.name}: ${problem.words}`), ...broken.flatMap((item) => item.problems.map((problem) => `${item.name}: ${problem.words}`)), ...answer.otherMarbleTouches];
+		const details = lines.length > 0 ? lines.join(' ') : undefined;
+		if (broken.length > 0) {
+			const first = broken[0];
+			this.studio.notify(`${first?.name} can't fit any more: ${first?.problems[0]?.words}`, 'error', details != null ? { details } : {});
+			return;
+		}
+		const parts = [answer.later.length > 0 ? `${answer.name} and ${answer.later.length === 1 ? answer.later[0]?.name : `${answer.later.length} later Groups`} fitted, so everything stays on time` : `Made ${answer.name}`];
+		if (answer.problems.length > 0) parts.push(`${answer.problems.length} ${answer.problems.length === 1 ? 'problem' : 'problems'}`);
+		if (answer.laterLateHits > 0) parts.push(`${answer.laterLateHits} later ${answer.laterLateHits === 1 ? 'hit is' : 'hits are'} no longer on time`);
+		if (answer.otherMarbleTouches.length > 0) parts.push('it touches another marble’s pieces');
+		this.studio.notifyEdit(parts.join(' · '), [], details != null ? { details } : {});
+	}
+}
+
+function changeFor(target: TPatternTarget, kind: TPatternKind, settings: { width?: number; bounce?: number } = {}): TGroupChange {
+	const { group, laneId, from, to } = target;
+	const defaults = PATTERN_DEFAULTS[kind];
+	const isSameKind = group?.kind === kind;
+	return {
+		...(group != null ? { groupId: group.id } : {}),
+		laneId,
+		from,
+		to,
+		kind,
+		width: settings.width ?? (isSameKind ? group.width : defaults.width),
+		bounce: settings.bounce ?? (isSameKind ? group.bounce : defaults.bounce)
+	};
+}
+
+function stepKey(history: { past: readonly unknown[]; future: readonly unknown[] }): string {
+	return `${history.past.length}:${history.future.length}`;
+}
+
+function previewKey(change: TGroupChange): string {
+	return JSON.stringify(change);
+}
+
+/** The ranges a selection offers tiles for, one per marble: selected hits or a dragged silence. Empty when it offers none */
+export function patternTargets(project: TProject, selection: readonly string[]): TPatternTarget[] {
+	const range = selection.flatMap((key) => parseRangeKey(key) ?? [])[0];
+	if (range != null) return [range];
+	const byLane = new Map<string, number[]>();
+	for (const key of selection) {
+		const parsed = parseHitKey(key);
+		const hit = project.music.lanes.find((lane) => lane.id === parsed?.laneId)?.hits.find((item) => item.id === parsed?.hitId);
+		if (parsed == null || hit == null) continue;
+		byLane.set(parsed.laneId, [...(byLane.get(parsed.laneId) ?? []), hit.time]);
+	}
+	return [...byLane].map(([laneId, times]) => ({ laneId, from: Math.min(...times), to: Math.max(...times) }));
+}
+
+/** Selecting a Group selects its pieces with it, so the wall and the hits show them and Delete takes them */
+export function groupSelection(group: TGroup): string[] {
+	return [toGroupKey(group.id), ...group.pieceIds];
+}
+
+/** Selection for a range dragged in the strip: its notes as hits, the same as dragging over them, or the silence itself */
+export function rangeSelection(project: TProject, laneId: string, from: number, to: number): string[] {
+	const lane = project.music.lanes.find((item) => item.id === laneId);
+	if (lane == null) return [];
+	const hits = hitsInRange(lane, from, to);
+	return hits.length > 0 ? hits.map((hit) => toHitKey(laneId, hit.id)) : [toRangeKey(laneId, from, to)];
+}
+
+export function selectedGroup(project: TProject, selection: readonly string[]): TGroup | null {
+	const id = selection.flatMap((key) => parseGroupKey(key) ?? [])[0];
+	return project.groups?.find((group) => group.id === id) ?? null;
+}

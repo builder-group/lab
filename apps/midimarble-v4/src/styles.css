@@ -2952,3 +2952,114 @@ button.mm-lcd-length:hover {
 		animation: none;
 	}
 }
+
+/* Patterns prototype: the slim strip above a marble's hits */
+.mm-pattern-strip {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	z-index: 1;
+	cursor: crosshair;
+}
+
+.mm-pattern-strip:hover {
+	background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.mm-pattern-hint {
+	position: absolute;
+	top: 50%;
+	color: var(--text-tertiary);
+	font-size: 10px;
+	white-space: nowrap;
+	transform: translateY(-50%);
+	pointer-events: none;
+}
+
+.mm-pattern-range {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	border-radius: 3px;
+	background: var(--selection);
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+	pointer-events: none;
+}
+
+.mm-pattern-block {
+	position: absolute;
+	top: 2px;
+	bottom: 1px;
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+	padding: 0 6px;
+	border-radius: 3px;
+	background: color-mix(in srgb, var(--lane) 26%, transparent);
+	box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--lane) 55%, transparent);
+	cursor: default;
+}
+
+.mm-pattern-block:hover {
+	background: color-mix(in srgb, var(--lane) 36%, transparent);
+}
+
+.mm-pattern-block[data-selected='true'] {
+	background: color-mix(in srgb, var(--lane) 48%, transparent);
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.mm-pattern-block[data-problem='true'] {
+	box-shadow: inset 0 0 0 1px var(--warn);
+}
+
+.mm-pattern-block-name {
+	overflow: hidden;
+	color: var(--text);
+	font-size: 10px;
+	line-height: 1;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.mm-pattern-edge {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 6px;
+	cursor: ew-resize;
+}
+
+.mm-pattern-edge[data-edge='from'] {
+	left: 0;
+}
+
+.mm-pattern-edge[data-edge='to'] {
+	right: 0;
+}
+
+.mm-pattern-edge:hover {
+	background: color-mix(in srgb, var(--accent-strong) 45%, transparent);
+}
+
+.mm-pattern-fields {
+	margin-top: 4px;
+}
+
+.mm-pattern-note {
+	margin: 6px 12px 0;
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+	line-height: 1.4;
+}
+
+.mm-pattern-problems {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 6px 12px 0;
+	color: var(--warn);
+	font-size: var(--text-small);
+	line-height: 1.4;
+}

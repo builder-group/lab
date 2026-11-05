@@ -1,6 +1,6 @@
 import { addedLights } from '@/modules/design/scene-layers';
 import type { TProject } from '@/modules/project';
-import { CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseShotKey, SONG_KEY, WALL_KEY } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseRangeKey, parseShotKey, SONG_KEY, WALL_KEY } from './selection';
 import { hasSongLayer } from './song-layer';
 import type { TWorkspace } from './StudioCx';
 
@@ -13,6 +13,13 @@ import type { TWorkspace } from './StudioCx';
  * shows the Scene there.
  */
 export function inspectorTarget(project: TProject, selection: readonly string[], workspace: TWorkspace = 'design'): TInspectorTarget {
+	// Patterns are Compose's: in Film a Group's selection is its pieces
+	if (workspace === 'compose') {
+		const group = project.groups?.find((item) => selection.some((key) => parseGroupKey(key) === item.id));
+		if (group != null) return { kind: 'group', id: group.id };
+		const range = selection.flatMap((key) => parseRangeKey(key) ?? [])[0];
+		if (range != null) return { kind: 'patternRange', ...range };
+	}
 	const target = selectedTarget(project, selection);
 	return workspace === 'compose' && FILM_ONLY_TARGETS.includes(target.kind) ? { kind: 'scene' } : target;
 }
@@ -25,7 +32,7 @@ const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['wall', 'light',
  */
 export function selectionEnteringFilm(project: TProject, selection: readonly string[]): string[] {
 	const pieces = new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id));
-	return selection.filter((key) => !pieces.has(key) && parseHitKey(key) == null);
+	return selection.filter((key) => !pieces.has(key) && parseHitKey(key) == null && parseGroupKey(key) == null && parseRangeKey(key) == null);
 }
 
 function selectedTarget(project: TProject, selection: readonly string[]): TInspectorTarget {
@@ -72,6 +79,8 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 export type TInspectorTarget =
 	| { kind: 'pieces'; ids: string[] }
 	| { kind: 'hits'; keys: string[] }
+	| { kind: 'group'; id: string }
+	| { kind: 'patternRange'; laneId: string; from: number; to: number }
 	| { kind: 'title'; id: string }
 	| { kind: 'titles'; ids: string[] }
 	| { kind: 'shot'; id: string }

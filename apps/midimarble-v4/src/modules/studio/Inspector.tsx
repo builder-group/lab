@@ -6,6 +6,7 @@ import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { InsertPopover } from '@/modules/compose/InsertLibrary';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { unreachableActions } from '@/modules/compose/unreachable-fixes';
+import { GroupInspector, PatternRangeInspector, PatternTiles } from '@/modules/compose/PatternInspector';
 import { PieceInspector, PlatformFields, ReplaceButton } from '@/modules/compose/PieceInspector';
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/compose/reachability';
 import { placeAtHit } from '@/modules/compose/step-loop';
@@ -70,6 +71,10 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 		}
 		case 'hits':
 			return <HitInspector cx={cx} project={project} hitKeys={target.keys} />;
+		case 'group':
+			return <GroupInspector cx={cx} project={project} groupId={target.id} />;
+		case 'patternRange':
+			return <PatternRangeInspector cx={cx} project={project} target={target} />;
 		case 'title': {
 			const entity = project.entities.find((item) => item.id === target.id);
 			return entity == null ? null : <WallTextInspector cx={cx} project={project} entity={entity} />;
@@ -330,6 +335,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 					{playedBy}
 				</Panel>
+				{!ownerIds.has(BACKING_ID) ? <PatternTiles cx={cx} project={project} /> : null}
 			</>
 		);
 	}

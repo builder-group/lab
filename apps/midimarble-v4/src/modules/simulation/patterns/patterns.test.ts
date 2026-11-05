@@ -1,9 +1,12 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { applyProjectCommands, createProject, type TProject, type TProjectCommand } from '@/modules/project';
 import { createSimulator, type TSimulator } from '../simulate';
 import { fitPattern } from './fit-pattern';
 import { measurePattern } from './measures';
 import { dropForBounce, runGroupChange } from './run-group';
+
+// Real fits of a few hits, which an otherwise busy machine runs several times slower
+vi.setConfig({ testTimeout: 30_000 });
 
 let sim: TSimulator;
 
@@ -123,7 +126,7 @@ describe('runGroupChange function', () => {
 		expect(overSilence.problems[0]?.words).toContain('Try Long Rail');
 	});
 
-	it('should fit later Groups again when an earlier one changes, as one edit', { timeout: 20_000 }, () => {
+	it('should fit later Groups again when an earlier one changes, as one edit', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
 		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
 		const second = apply(first, runGroupChange(first, { ...change, from: 2.2, to: 3 }, { sim }).commands);
@@ -137,7 +140,7 @@ describe('runGroupChange function', () => {
 		expect(result.hits.every((hit) => hit.status === 'onTime' || hit.status === 'drifting')).toBe(true);
 	});
 
-	it('should leave hand edits on later Groups alone when the marble leaves the same way', { timeout: 20_000 }, () => {
+	it('should leave hand edits on later Groups alone when the marble leaves the same way', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
 		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
 		const second = apply(first, runGroupChange(first, { ...change, from: 2.2, to: 3 }, { sim }).commands);
@@ -146,7 +149,7 @@ describe('runGroupChange function', () => {
 		expect(same.later).toEqual([]);
 	});
 
-	it('should say when a later Group can not fit any more', { timeout: 20_000 }, () => {
+	it('should say when a later Group can not fit any more', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6]);
 		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
 		const second = apply(first, [{ type: 'upsertGroup', group: { id: 'late', name: 'Long Rail', laneId: LANE, from: 2.2, to: 2.6, kind: 'longRail', width: 0.14, bounce: 0.5, pieceIds: [] } }]);
@@ -155,6 +158,18 @@ describe('runGroupChange function', () => {
 		const later = outcome.later.find((item) => item.groupId === 'late');
 
 		expect(later?.problems[0]?.words).toContain('fills silence');
+	});
+
+	it('should replace a Long Rail when one is made over it', () => {
+		const project = smallProject([1, 2.2]);
+		const first = apply(project, runGroupChange(project, { ...change, to: 1 }, { sim }).commands);
+		const railed = apply(first, runGroupChange(first, { ...change, from: 1.2, to: 2, kind: 'longRail' }, { sim }).commands);
+		const again = apply(railed, runGroupChange(railed, { ...change, from: 1.3, to: 1.9, kind: 'longRail' }, { sim }).commands);
+		const rail = again.groups?.find((group) => group.kind === 'longRail');
+
+		expect(again.groups).toHaveLength(2);
+		expect(rail?.pieceIds).toHaveLength(1);
+		expect(again.entities.some((entity) => entity.id === rail?.pieceIds[0])).toBe(true);
 	});
 
 	it('should let a preview answer without touching what follows', () => {

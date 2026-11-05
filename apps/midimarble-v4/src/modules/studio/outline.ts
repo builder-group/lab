@@ -1,8 +1,8 @@
 import { decorList, type TBlenderObject } from '@/modules/design/decor';
 import { addedLights } from '@/modules/design/scene-layers';
-import type { TDecor, TEntity, TLane, TLight, TProject, TShot, TSource } from '@/modules/project';
+import type { TDecor, TEntity, TGroup, TLane, TLight, TProject, TShot, TSource } from '@/modules/project';
 import { startRailOf } from '@/modules/simulation';
-import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toDecorKey, toLightKey, toMadeInBlenderKey, toShotKey, WALL_KEY } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toDecorKey, toLightKey, toGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY } from './selection';
 import { hasSongLayer, SONG_LAYER_LABEL } from './song-layer';
 import { songSource } from './SourcesCx';
 import type { TWorkspace } from './StudioCx';
@@ -26,8 +26,8 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 		const id = marble?.id ?? lane.id;
 		const pieces = lanePieces(project, lane);
 		const isOpen = !collapsed.includes(lane.id);
-		rows.push({ kind: 'marble', id, depth: 0, parentId: null, lane, groupKey: lane.id, hasChildren: pieces.length > 0, isOpen });
-		if (isOpen) for (const piece of pieces) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: id, piece, laneId: lane.id });
+		rows.push({ kind: 'marble', id, depth: 0, parentId: null, lane, groupKey: lane.id, hasChildren: pieces.length > 0 || (project.groups ?? []).some((group) => group.laneId === lane.id), isOpen });
+		if (isOpen) rows.push(...lanePieceRows(project, lane.id, id, pieces, collapsed));
 	}
 
 	// Newest first, like Figma's layer list
@@ -84,7 +84,8 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
  * without scrolling; none in Compose, where the pieces are the work
  */
 export function defaultCollapsed(project: TProject, workspace: 'compose' | 'design'): string[] {
-	return workspace === 'design' ? [...project.music.lanes.map((lane) => lane.id), DECOR_KEY] : [];
+	const groups = (project.groups ?? []).map((group) => group.id);
+	return workspace === 'design' ? [...project.music.lanes.map((lane) => lane.id), DECOR_KEY, ...groups] : groups;
 }
 
 /** The closed groups: the defaults, with the ones the user toggled the other way */
@@ -98,7 +99,8 @@ export function groupsOfSelection(project: TProject, selection: readonly string[
 	return selection.flatMap((key) => {
 		if (key.startsWith('decor:') || key.startsWith('blender:')) return [DECOR_KEY];
 		const laneId = project.entities.find((entity) => entity.id === key)?.components.hitLink?.laneId ?? project.music.lanes.find((lane) => startRailOf(project, lane.id)?.id === key)?.id;
-		return laneId != null ? [laneId] : [];
+		const group = project.groups?.find((item) => item.pieceIds.includes(key));
+		return laneId != null ? [laneId, ...(group != null ? [group.id] : [])] : [];
 	});
 }
 
@@ -152,6 +154,8 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'song'; source: TSource | undefined; label: string })
 	| (TOutlineRowBase & { kind: 'marble'; lane: TLane; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TEntity; laneId: string | null })
+	// What a Pattern made (prototype): selects as itself, with its pieces under it
+	| (TOutlineRowBase & { kind: 'patternGroup'; group: TGroup; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'group'; label: string; help?: string; groupKey: string; childIds: string[]; isOpen: boolean; isEmpty?: boolean })
 	| (TOutlineRowBase & { kind: 'wall' })
 	// `light` is null for the Key Light, which comes from the theme
@@ -170,6 +174,29 @@ export function isFilmRow(row: TOutlineRow): boolean {
 /** Whether a click on the row selects the row itself; group rows select their children instead */
 export function isSelectableRow(row: TOutlineRow): boolean {
 	return row.kind !== 'group';
+}
+
+/** A marble's pieces in hit order, those of a Group under its row, which comes where its first piece would */
+function lanePieceRows(project: TProject, laneId: string, parentId: string, pieces: readonly TEntity[], collapsed: readonly string[]): TOutlineRow[] {
+	const groups = (project.groups ?? []).filter((group) => group.laneId === laneId);
+	const ofPiece = new Map(groups.flatMap((group) => group.pieceIds.map((id) => [id, group] as const)));
+	const rows: TOutlineRow[] = [];
+	const shown = new Set<string>();
+	const groupRow = (group: TGroup): void => {
+		shown.add(group.id);
+		const inGroup = pieces.filter((piece) => ofPiece.get(piece.id)?.id === group.id);
+		const isOpen = !collapsed.includes(group.id);
+		const key = toGroupKey(group.id);
+		rows.push({ kind: 'patternGroup', id: key, depth: 1, parentId, group, groupKey: group.id, hasChildren: inGroup.length > 0, isOpen });
+		if (isOpen) for (const piece of inGroup) rows.push({ kind: 'piece', id: piece.id, depth: 2, parentId: key, piece, laneId });
+	};
+	for (const piece of pieces) {
+		const group = ofPiece.get(piece.id);
+		if (group == null) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId, piece, laneId });
+		else if (!shown.has(group.id)) groupRow(group);
+	}
+	for (const group of groups) if (!shown.has(group.id)) groupRow(group);
+	return rows;
 }
 
 /** The Rail the lane's marble starts on, then the pieces linked or anchored to its hits, in hit order */

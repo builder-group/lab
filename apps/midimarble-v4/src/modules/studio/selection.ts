@@ -83,6 +83,26 @@ function stepFocus(project: TProject, selection: readonly string[]): { laneId: s
 	return null;
 }
 
+/** A Group from a Pattern (prototype), selected together with its pieces */
+export function toGroupKey(groupId: string): string {
+	return `pattern:${groupId}`;
+}
+
+export function parseGroupKey(key: string): string | null {
+	return key.startsWith('pattern:') ? key.slice('pattern:'.length) : null;
+}
+
+/** A silence dragged out in a marble's Pattern strip; a range over notes selects the notes instead */
+export function toRangeKey(laneId: string, from: number, to: number): string {
+	return `range:${laneId}:${from.toFixed(4)}:${to.toFixed(4)}`;
+}
+
+export function parseRangeKey(key: string): { laneId: string; from: number; to: number } | null {
+	const [kind, laneId, from, to] = key.split(':');
+	if (kind !== 'range' || laneId == null || from == null || to == null) return null;
+	return { laneId, from: Number(from), to: Number(to) };
+}
+
 export function toHitKey(laneId: string, hitId: string): string {
 	return `hit:${laneId}:${hitId}`;
 }

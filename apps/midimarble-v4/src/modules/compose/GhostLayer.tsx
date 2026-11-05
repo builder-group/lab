@@ -60,7 +60,7 @@ interface TGhostLayerProps {
 	compose: ComposeCx;
 }
 
-const GhostPiece: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; scale: number; isOk: boolean }> = (props) => {
+export const GhostPiece: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; scale: number; isOk: boolean }> = (props) => {
 	const { compose, piece, scale, isOk } = props;
 	const kind = pieceKind(piece);
 	const tint = isOk ? undefined : 'var(--bad)';

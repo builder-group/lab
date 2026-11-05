@@ -21,6 +21,7 @@ import { formatTime, noteName } from '@/modules/studio/format';
 import { CAMERA_KEY, parseHitKey, SONG_KEY, toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { dragRotation, normalizeSurfaceAngle, screenAngle, snapAngle, toRadians, type TRotationDrag } from './angles';
+import { PatternsCx } from './PatternsCx';
 import { AssistCx } from './AssistCx';
 import { dotClickAction } from './reachability';
 import {
@@ -124,6 +125,7 @@ export class ComposeCx {
 	/** What a drop does, beside the piece dragged in from the Insert library */
 	readonly $insertSnap = createState<{ position: TVec2; snap: TSnap | null } | null>(null);
 	readonly assist: AssistCx;
+	readonly patterns: PatternsCx;
 	/**
 	 * Follow, like Logic's Catch Playhead: the Wall view glides with the focused marble as the playhead moves. Off by
 	 * default and remembered per project on this device; panning or zooming by hand turns it off.
@@ -151,6 +153,7 @@ export class ComposeCx {
 
 	constructor(readonly studio: StudioCx) {
 		this.assist = new AssistCx(studio);
+		this.patterns = new PatternsCx(studio);
 	}
 
 	get project(): TProject | null {
@@ -181,6 +184,7 @@ export class ComposeCx {
 		cleanups.push(() => scheme.removeEventListener('change', applyTheme));
 
 		cleanups.push(this.assist.mount());
+		cleanups.push(this.patterns.mount());
 
 		const observer = new ResizeObserver(() => {
 			const rect = container.getBoundingClientRect();

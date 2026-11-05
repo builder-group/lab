@@ -17,6 +17,7 @@ import { commandItem } from './commands';
 import { formatTime } from './format';
 import { inspectorTarget } from './inspector-target';
 import { laneMenu, pieceMenu, songMenu } from './menus';
+import { groupSelection } from '@/modules/compose/PatternsCx';
 import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import { SCENE_KEY, toDecorKey } from './selection';
 import type { StudioCx, TWorkspace } from './StudioCx';
@@ -156,6 +157,12 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 			cx.$selection.set(current.includes(row.id) ? current.filter((item) => item !== row.id) : [...current, row.id]);
 			return;
 		}
+		// A Group selects with its pieces, like a collection's objects in Blender
+		if (row.kind === 'patternGroup') {
+			cx.$selection.set(groupSelection(row.group));
+			cx.$compose.get()?.revealOnceSimulated(row.group.pieceIds);
+			return;
+		}
 		// Marbles and pieces are brought into view on the wall
 		if (row.kind === 'marble' || row.kind === 'piece') cx.reveal([row.id]);
 		else cx.$selection.set([row.id]);
@@ -193,7 +200,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	function openMenu(row: TOutlineRow, event: React.MouseEvent): void {
 		if (!isTinted(row) || row.kind === 'group') select(row);
 		if (row.kind === 'marble') openContextMenu(event, laneMenu(cx, row.lane));
-		else if (row.kind === 'piece') openContextMenu(event, pieceMenu(cx));
+		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
 		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.rename'), commandItem(cx, 'edit.delete')]);
@@ -356,6 +363,8 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 			return { icon: <span className="mm-layer-chip" style={{ background: row.lane.color }} />, label: row.lane.name, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'group':
 			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isEmpty === true ? undefined : row.isOpen };
+		case 'patternGroup':
+			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.group.name, title: `${row.group.name}: made by a Pattern, ordinary pieces you can edit`, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'wall':
 			return { icon: <BrickWall size={14} strokeWidth={1.75} />, label: 'Wall' };
 		case 'light':

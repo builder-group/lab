@@ -18,6 +18,7 @@ import { timingStatus } from './timing-status';
 import { acceptableCount } from './ghosts';
 import { followKey } from './keys';
 import { GhostHint, GhostShapes } from './GhostLayer';
+import { PatternGhost } from './PatternInspector';
 import { HitFlashLayer } from './HitFlashLayer';
 import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, projectedOutline, toPoints, usePannedProjection, type TScreenProjection } from './PieceLayer';
@@ -65,6 +66,7 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
 				<PieceLayer compose={compose} />
 				<GhostShapes compose={compose} />
+				<PatternGhost compose={compose} />
 			</svg>
 			<div
 				className="absolute inset-0 touch-none"

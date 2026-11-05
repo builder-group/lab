@@ -12,18 +12,19 @@ import type { StudioCx } from '../StudioCx';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from '../suggested-hits';
 import { offsetLabel } from './hit-flash';
 import { hitTiming, type THitTiming } from './hit-status';
-import { ROW_HEIGHT } from './timeline-layout';
+import { PatternStrip } from './PatternStrip';
+import { PATTERN_STRIP_HEIGHT, ROW_HEIGHT } from './timeline-layout';
 
 /**
  * The instruction itself, like GarageBand's empty track, not behind a ?, with the recording's suggested hits as a link
  * while the marble has none
  */
-const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane }> = (props) => {
-	const { cx, lane } = props;
+const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane; top: number }> = (props) => {
+	const { cx, lane, top } = props;
 	useFeatureState(cx.sources.$analysis);
 	const suggested = suggestedHits(cx, lane).length;
 	return (
-		<span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 truncate text-[11px] text-[var(--text-tertiary)]" data-hint-anchor="tap">
+		<span className="pointer-events-none absolute left-3 -translate-y-1/2 truncate text-[11px] text-[var(--text-tertiary)]" style={{ top }} data-hint-anchor="tap">
 			No hits yet
 			{suggested > 0 ? (
 				<>
@@ -45,7 +46,10 @@ const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane }> = (props) => {
 export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
 	const conflicts = React.useMemo(() => findLaneConflicts(lane), [lane]);
-	const marquee = useMarquee(cx, lane, zoom, selection, timeAt);
+	const workspace = useFeatureState(cx.$workspace);
+	const isCompose = workspace === 'compose';
+	const hitsTop = isCompose ? PATTERN_STRIP_HEIGHT : 0;
+	const marquee = useMarquee(cx, lane, zoom, selection, timeAt, hitsTop);
 
 	return (
 		<div
@@ -61,8 +65,9 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 				openContextMenu(event, laneMenu(cx, lane, timeAt(event.clientX)));
 			}}
 		>
+			{isCompose ? <PatternStrip cx={cx} lane={lane} zoom={zoom} timeAt={timeAt} /> : null}
 			{!lane.hits.length ? (
-				<EmptyLaneHint cx={cx} lane={lane} />
+				<EmptyLaneHint cx={cx} lane={lane} top={hitsTop + (ROW_HEIGHT - hitsTop) / 2} />
 			) : null}
 			{lane.hits.map((hit, index) => {
 				const key = toHitKey(lane.id, hit.id);
@@ -77,7 +82,7 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 						selection={selection}
 						status={statuses?.get(hit.id)}
 						isConflict={conflicts.has(hit.id)}
-						style={{ left: Math.max(0, hit.time + offset) * zoom, top: ROW_HEIGHT / 2, opacity: isAudible ? 1 : 0.4 }}
+						style={{ left: Math.max(0, hit.time + offset) * zoom, top: hitsTop + (ROW_HEIGHT - hitsTop) / 2, opacity: isAudible ? 1 : 0.4 }}
 						onDragStart={(event) => onDragStart(key, event, false)}
 					>
 						<span />
@@ -178,7 +183,7 @@ interface THitButtonProps {
 }
 
 /** Time-range marquee on a track: dragging on empty space selects the hits it spans, Shift adds */
-function useMarquee(cx: StudioCx, lane: TLane, zoom: number, selection: string[], timeAt: (clientX: number) => number): TMarquee {
+function useMarquee(cx: StudioCx, lane: TLane, zoom: number, selection: string[], timeAt: (clientX: number) => number, top: number): TMarquee {
 	const [range, setRange] = React.useState<{ from: number; to: number } | null>(null);
 	const isLaneSelected = selection.some((key) => key.startsWith(`hit:${lane.id}:`));
 
@@ -209,8 +214,8 @@ function useMarquee(cx: StudioCx, lane: TLane, zoom: number, selection: string[]
 	const element =
 		range != null ? (
 			<span
-				className="pointer-events-none absolute top-1 bottom-1 z-10 rounded-[3px] border border-[var(--accent-strong)] bg-[var(--selection)]"
-				style={{ left: Math.min(range.from, range.to) * zoom, width: Math.abs(range.to - range.from) * zoom }}
+				className="pointer-events-none absolute bottom-1 z-10 rounded-[3px] border border-[var(--accent-strong)] bg-[var(--selection)]"
+				style={{ top: top + 4, left: Math.min(range.from, range.to) * zoom, width: Math.abs(range.to - range.from) * zoom }}
 			/>
 		) : null;
 

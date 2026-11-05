@@ -18,3 +18,4 @@ export * from './bowl';
 export * from './track-look';
 export * from './transit';
 export * from './local-edit';
+export * from './patterns';
