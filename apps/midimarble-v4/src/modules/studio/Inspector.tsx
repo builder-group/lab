@@ -22,7 +22,7 @@ import { ColorWell, KeyLightInspector, LightInspector, WallInspector } from '@/m
 import { addedLights } from '@/modules/design/scene-layers';
 import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts } from '@/modules/music';
 import { BACKING_ID, laneColors, type THit, type TEntity, type TLane, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
-import { getPieceDefinition, patternOfPiece } from '@/modules/simulation';
+import { getPieceDefinition } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';

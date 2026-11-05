@@ -110,7 +110,7 @@ interface TInspectorHeaderProps {
 	subtitle?: React.ReactNode;
 	/** A status pill on the right, such as the timing of a platform */
 	status?: React.ReactNode;
-	/** A Fix-it under the status pill, such as Place Again or Move Clear */
+	/** Fix under the status pill */
 	fix?: React.ReactNode;
 	/** Makes the name editable in place */
 	onRename?: (name: string) => void;
