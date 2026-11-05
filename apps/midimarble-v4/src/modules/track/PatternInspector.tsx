@@ -3,7 +3,7 @@ import { Folder, Spline } from 'lucide-react';
 import React from 'react';
 import { InspectorHeader, Panel, ScrubField, SliderField } from '@/components';
 import { isPatternGroup, type TPiece, type TPatternGroup, type TProject, type TProjectCommand, formatTime, tieOf, toGroupKey, toRangeKey } from '@/modules/project';
-import { hitsInRange, MAX_TILT, PATTERN_LABELS, patternSpan, type TPatternKind, type TPatternProblem } from '@/modules/building';
+import { groupProblems, hitsInRange, MAX_TILT, PATTERN_LABELS, patternSpan, type TPatternKind, type TPatternProblem } from '@/modules/building';
 import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import type { TrackCx } from './TrackCx';
@@ -39,19 +39,21 @@ export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; 
 export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId: string }> = (props) => {
 	const { cx, project, groupId } = props;
 	const trackCx = useFeatureState(cx.$trackCx);
+	const result = useFeatureState(cx.simulation.$result);
 	const group = project.track.groups.filter(isPatternGroup).find((item) => item.id === groupId);
 	const marble = project.marbles.find((item) => item.id === group?.marbleId);
 	const span = group != null && marble != null ? patternSpan(marble, group) : null;
 	if (group == null || marble == null || trackCx == null || span == null) return null;
 	const target: TPatternTarget = { marbleId: group.marbleId, from: span.from, to: span.to, group };
 	const isRail = group.pattern.kind === 'longRail';
+	const problems = groupProblems(project, result, group);
 	const count = hitsInRange(marble, span.from, span.to).length;
 	const subtitle = isRail ? `Silence on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}` : `${count} ${count === 1 ? 'hit' : 'hits'} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`;
 	const widthRange = group.pattern.kind === 'staircase' ? { min: 0.05, max: 0.16 } : { min: 0.1, max: 0.26 };
 	return (
 		<>
 			<InspectorHeader icon={<Folder size={16} strokeWidth={1.7} />} title={group.name} subtitle={subtitle} />
-			<TilesPanel cx={cx} targets={[target]} kinds={isRail ? RAIL_KINDS : BAR_KINDS} applied={group.pattern.kind} failureKey={toGroupKey(group.id)} problems={group.pattern.problems ?? []}>
+			<TilesPanel cx={cx} targets={[target]} kinds={isRail ? RAIL_KINDS : BAR_KINDS} applied={group.pattern.kind} failureKey={toGroupKey(group.id)} problems={problems}>
 				{!isRail ? (
 					<div className="mm-insp-grid mm-pattern-fields">
 						<SliderField

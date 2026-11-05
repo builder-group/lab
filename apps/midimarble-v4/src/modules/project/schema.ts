@@ -397,9 +397,7 @@ const SPattern = z.strictObject({
 	width: z.number().positive(),
 	bounce: z.number().min(0).max(1),
 	// The steepest a bar may tilt, in degrees, when asked for; absent is the usual limit
-	maxTilt: z.number().positive().optional(),
-	// What the last run couldn't do, shown beside the tiles
-	problems: z.array(z.strictObject({ hitId: z.string(), words: z.string() })).optional()
+	maxTilt: z.number().positive().optional()
 });
 
 // Pieces kept together. `marbleId` while they are one marble's. Without a Pattern it's a plain Group, by hand or left by a

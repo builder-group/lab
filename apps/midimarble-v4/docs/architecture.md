@@ -26,7 +26,7 @@ Song    { id, name, kind, path?, start, tempo?, backing, backingSound? }
 Marble  { id, name, labelColor, sound, radius, start: { position, time, velocity?, spin? }, skin?, hits }
 Hit     { id, time, pitch?, velocity?, duration?, songId? }
 Piece   { id, name?, labelColor?, type, layout?, params, angle, place, path?, skin?, ride? }
-Group   { id, name, marbleId?, pieceIds, pattern?: { kind, hitIds, width, bounce, maxTilt?, problems? } }
+Group   { id, name, marbleId?, pieceIds, pattern?: { kind, hitIds, width, bounce, maxTilt? } }
 Film    { theme, themes, wall, lights, decor, madeInBlender, titles, quality, camera }
 ```
 

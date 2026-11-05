@@ -55,15 +55,18 @@ const CHAIN: [number, number, 'zigzag' | 'staircase' | 'longRail', number][] = [
 	[43, 57, 'zigzag', 0.14]
 ];
 
-function buildChain(start: TProject): TProject {
+/** The chain, and what each step said it couldn't do */
+function buildChain(start: TProject): { project: TProject; said: string[] } {
 	const times = start.marbles[0]?.hits.map((hit) => hit.time) ?? [];
 	let project = start;
+	const said: string[] = [];
 	for (const [first, last, kind, width] of CHAIN) {
 		const gap = kind === 'longRail' ? 0.02 : 0;
 		const outcome = runGroupChange(project, { marbleId: MARBLE, from: (times[first] ?? 0) + gap, to: (times[last] ?? 0) - gap, kind, width, bounce: 0.5 }, { sim });
 		project = apply(project, outcome.commands);
+		said.push(...outcome.problems.map((problem) => problem.words));
 	}
-	return project;
+	return { project, said };
 }
 
 function gapFalls(result: TSimulationResult): number[] {
@@ -73,17 +76,17 @@ function gapFalls(result: TSimulationResult): number[] {
 describe('Patterns chained on the reference hits', () => {
 	it('should play all 58 on time with rails in the gaps, and say what a Width cannot do, also when an earlier Width changes', { timeout: 5 * MINUTES }, () => {
 		const startedAt = performance.now();
-		const chain = buildChain(referenceProject());
+		const { project: chain, said: sayings } = buildChain(referenceProject());
 		const chainMs = performance.now() - startedAt;
+		const said = sayings.join(' ');
 		const result = sim.simulate(chain);
 		const measures = measurePattern(chain, result, MARBLE);
 		const falls = gapFalls(result);
-		console.log('chain', JSON.stringify({ ...measures, falls, ms: Math.round(chainMs), touching: touchingPairs(chain, result).length, problems: chain.track.groups?.filter(isPatternGroup).flatMap((group) => group.pattern.problems ?? []).map((problem) => problem.words) }));
+		console.log('chain', JSON.stringify({ ...measures, falls, ms: Math.round(chainMs), touching: touchingPairs(chain, result).length, problems: said }));
 
 		expect(measures.onTime).toBe(58);
 		// Width stays what's asked, so what it can't do is said, not fixed by another Width
 		expect(chain.track.groups?.filter(isPatternGroup).every((group) => group.pattern.width === 0.14 || group.pattern.width === 0.09)).toBe(true);
-		const said = chain.track.groups?.filter(isPatternGroup).flatMap((group) => group.pattern.problems ?? []).map((problem) => problem.words).join(' ') ?? '';
 		if (extraStrikes(chain, result).length > 0) expect(said).toMatch(/twice|a second time|another bar/);
 		if (rollingHits(chain, result).length > 0) expect(said).toContain('rolls');
 		for (const fall of falls) expect(fall).toBeLessThan(0.4);

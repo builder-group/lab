@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { patternSpan } from '@/modules/building';
+import { groupProblems, patternSpan } from '@/modules/building';
 import { groupSelection, rangeSelection, plainGroupSpan } from '@/modules/track';
 import { isPatternGroup, type TPatternGroup, type TMarble, formatTime, parseGroupKey, parseHitKey, parseRangeKey } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
@@ -22,6 +22,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	const { cx, marble, zoom, timeAt } = props;
 	const history = useFeatureState(cx.$history);
 	const selection = useFeatureState(cx.$selection);
+	const result = useFeatureState(cx.simulation.$result);
 	const project = history?.present;
 	const [range, setRange] = React.useState<{ from: number; to: number } | null>(null);
 	const [hoverX, setHoverX] = React.useState<number | null>(null);
@@ -106,7 +107,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						key={group.id}
 						className="mm-pattern-block"
 						data-selected={selectedGroupIds.has(group.id)}
-						data-problem={(group.pattern?.problems?.length ?? 0) > 0}
+						data-problem={isPatternGroup(group) && groupProblems(project, result, group).length > 0}
 						role="button"
 						tabIndex={-1}
 						aria-label={`${group.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`}

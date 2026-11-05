@@ -182,8 +182,7 @@ function convertGroup(group: TAny, lanes: TAny[], marbleId: (laneId: string) => 
 			hitIds,
 			width: group.width,
 			bounce: group.bounce,
-			...(group.maxTilt != null ? { maxTilt: group.maxTilt } : {}),
-			...(group.problems != null ? { problems: group.problems } : {})
+			...(group.maxTilt != null ? { maxTilt: group.maxTilt } : {})
 		}
 	};
 }

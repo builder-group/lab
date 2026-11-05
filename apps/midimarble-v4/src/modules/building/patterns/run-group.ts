@@ -1,5 +1,5 @@
 import { isPatternGroup, type TPiece, type TGroup, type TMarble, type TPatternGroup, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import type { TSimulator } from '@/modules/simulation';
+import type { TSimulationResult, TSimulator } from '@/modules/simulation';
 import { touchingPairs } from '@/modules/simulation';
 import { sampleAt, ZIGZAG_WIDTH } from './fit-bars';
 import { fitPattern, type TFitPatternResult, type TPatternExit, type TPatternKind, type TPatternProblem } from './fit-pattern';
@@ -128,6 +128,19 @@ export function patternSpan(marble: TMarble, group: TPatternGroup): { from: numb
 	if (group.pattern.kind !== 'longRail') return { from: first, to: last };
 	if (group.pattern.hitIds.length === 1) return { from: marble.start.time, to: last - RAIL_MARGIN };
 	return times.length === 2 ? { from: first + RAIL_MARGIN, to: last - RAIL_MARGIN } : null;
+}
+
+/** A live Pattern's hits that don't play right now, worked out from the run: a verdict is never stored */
+export function groupProblems(project: TProject, result: TSimulationResult | null, group: TPatternGroup): TPatternProblem[] {
+	const marble = project.marbles.find((item) => item.id === group.marbleId);
+	if (marble == null || result == null) return [];
+	const isSilence = group.pattern.kind === 'longRail';
+	return group.pattern.hitIds.flatMap((hitId) => {
+		const hit = result.hits.find((item) => item.marbleId === marble.id && item.hitId === hitId);
+		const isOff = hit?.status === 'missed' || hit?.status === 'blocked' || hit?.status === 'waiting' || (hit?.status === 'open' && !isSilence);
+		if (hit == null || !isOff) return [];
+		return [{ hitId, words: `Hit ${marble.hits.findIndex((item) => item.id === hitId) + 1} of ${marble.name} doesn't play. Fit ${group.name} again, or Flatten it.` }];
+	});
 }
 
 /** The hits in a range, in time order */
@@ -261,8 +274,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 			hitIds: target.hitIds,
 			width: change.width,
 			bounce: change.bounce,
-			...(change.maxTilt != null ? { maxTilt: change.maxTilt } : {}),
-			...(fit.problems.length > 0 ? { problems: fit.problems } : {})
+			...(change.maxTilt != null ? { maxTilt: change.maxTilt } : {})
 		}
 	};
 
@@ -278,15 +290,14 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 			const laterTarget = targetOfGroup(marble, item);
 			if (laterTarget.problem != null) {
 				blocking.push(laterTarget.problem);
-				groups.set(item.id, { ...item, pieceIds: [], pattern: { ...item.pattern, problems: [laterTarget.problem] } });
+				groups.set(item.id, { ...item, pieceIds: [] });
 				outcomes.push({ groupId: item.id, name: item.name, problems: [laterTarget.problem] });
 				return;
 			}
 			const laterFit = askFit(laterTarget.hitIds, item.pattern, index + 2, item.name, item.pieceIds);
 			working = laterFit.project;
 			blocking.push(...laterFit.blocking);
-			const { problems: _old, ...pattern } = item.pattern;
-			groups.set(item.id, { ...item, pieceIds: laterFit.pieces.map((piece) => piece.id), pattern: { ...pattern, hitIds: laterTarget.hitIds, ...(laterFit.problems.length > 0 ? { problems: laterFit.problems } : {}) } });
+			groups.set(item.id, { ...item, pieceIds: laterFit.pieces.map((piece) => piece.id), pattern: { ...item.pattern, hitIds: laterTarget.hitIds } });
 			outcomes.push({ groupId: item.id, name: item.name, problems: laterFit.problems });
 		});
 	}
