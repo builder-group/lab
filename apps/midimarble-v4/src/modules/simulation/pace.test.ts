@@ -129,7 +129,7 @@ describe('pace', () => {
 			expect(left.centerX).toBeCloseTo(-MARBLE_SPACING / 2, 12);
 			expect(right.centerX).toBeCloseTo(MARBLE_SPACING / 2, 12);
 			expect(left.centerX + left.halfWidth).toBeGreaterThanOrEqual(right.centerX - right.halfWidth - 1e-12);
-			// One marble gets the wall the film frame shows: 36 mm over 30 mm of distance on the long side, 9:16 of that across, at the tilt's slant
+			// One marble gets 1.5 film frames: 36 mm over 30 mm of distance on the long side, 9:16 of that across
 			const single = createBareRunProject({
 			gravity: 1,
 				id: 'single',
@@ -138,7 +138,7 @@ describe('pace', () => {
 				marbles: [{ x: 0.1, y: 0.6, releaseTime: 0, hitTimes: [0.5] }]
 			});
 			expect(frameBand(single, 'marble-1').centerX).toBe(0.1);
-			expect(frameBand(single, 'marble-1').halfWidth).toBeCloseTo((single.film.camera.distance * 1.2 * (9 / 16)) / Math.cos(single.film.camera.tilt) / 2, 12);
+			expect(frameBand(single, 'marble-1').halfWidth).toBeCloseTo((1.5 * single.film.camera.distance * 1.2 * (9 / 16)) / 2, 12);
 		});
 	});
 });

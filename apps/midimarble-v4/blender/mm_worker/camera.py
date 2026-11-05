@@ -102,6 +102,8 @@ OPENING_ZOOM = 1.7
 OPENING_MARBLE_SHARE = 0.045
 # The opening's own margin: tighter than GROUP_MARGIN, as its box holds still pieces rather than marbles that swing out
 OPENING_MARGIN = 1.065
+# The least share of the opening's distance a point's depth counts as while centering the box
+OPENING_NEAREST = 0.2
 # A view ray that misses the wall, or meets it further than this, counts this many camera heights away when sizing
 # the wall. A steep pitch (1.15 rad) meets the wall up to about 40 heights away at the far frame corner
 FAR_REACH = 60.0
@@ -464,14 +466,15 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
         keep = (1 - push)[:, None]
         center = keep * center + (1 - keep) * lead
         ahead = keep * ahead + (1 - keep) * lead_ahead
+    followed = center
     if opening is not None:
         weight = opening['weight'][:, None]
         center = weight * opening['point'] + (1 - weight) * center
         ahead = weight * opening['point'] + (1 - weight) * ahead
     if hold is not None:
         bowl = settings.get('bowl')
-        center, ahead = settled(center, times, hold, bowl), settled(ahead, times, hold, bowl)
-    return {'current': center, 'ahead': ahead, 'depth': depth, 'distance': distance, 'opening_weight': None if opening is None else opening['weight']}
+        center, ahead, followed = settled(center, times, hold, bowl), settled(ahead, times, hold, bowl), settled(followed, times, hold, bowl)
+    return {'current': center, 'ahead': ahead, 'marbles': followed, 'depth': depth, 'distance': distance, 'opening_weight': None if opening is None else opening['weight']}
 
 
 def opening_frame(marbles, motions, times, sample, settings, fps, axes):
@@ -531,7 +534,8 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes):
             image_x, image_y = [], []
             for value_x, value_y in zip(xs, ys):
                 dx, dy = value_x - x, value_y - y
-                depth = max(reach_out - (dx * tx + dy * tz), 1e-6)
+                # A point at or behind the camera says nothing about the image, and dividing by its depth would throw the box far away
+                depth = max(reach_out - (dx * tx + dy * tz), OPENING_NEAREST * reach_out)
                 image_x.append((dx * rx + dy * rz) / depth)
                 image_y.append((dx * ux + dy * uz) / depth)
             want_x = (min(image_x) + max(image_x)) / 2 * reach_out
@@ -643,8 +647,8 @@ def follow_target(framing, settings, fps, times):
             if not np.any(excess):
                 break
             target = target + critically_damped(excess, fps, ease) * 1.3
-    # Safety net for extreme motion: never let a marble leave the frame
-    offset = current - target
+    # Safety net for extreme motion: never let a marble leave the frame, also while the opening's frame eases out
+    offset = framing['marbles'] - target
     hard = half_frame[:, None] * FRAME_KEEP * np.array([ASPECT_GUESS, 1.0]) * 1.5
     target = target + np.maximum(np.abs(offset) - hard, 0.0) * np.sign(offset)
     # Run direction from the smoothed target over one second, then smoothed again for slow heading changes

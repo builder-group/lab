@@ -11,7 +11,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - **Film:** themes, skins, Lights as layers, Wall, Camera with shots, titles, Decor with Scatter, Packs, Draft Preview and background Blender frames. Problems here are clear output mistakes only: a marble out of frame, a screen title wider than the frame.
 - **Export:** Draft and Final.
 - **Agents:** MCP only, with Connect in the Agent menu. No chat in the window.
-- **Defaults:** platforms 3 cm long and 9 cm deep, 85 mm lens, pitch 1.0, side 95°, rig distance 1.36 m, Gravity 0.5. Why: `references.md`.
+- **Defaults:** platforms 3 cm long and 15 cm deep on long posts, 30 mm lens, tilt 0.54, Turn 90°, distance 48 cm, Gravity 0.5. Why: `references.md`.
 - **Data:** `marble-project@6`, no migrations, since the app hasn't shipped.
 
 ## Verified
@@ -21,27 +21,27 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - Titles: a white wall title and a white screen title in Eevee stills on the Christmas wall. The wall title reads, with less contrast than the screen title.
 - `typecheck`, `lint`, `test`, `camera:check`, `blender:check`.
 - With the chosen look: `blender:design`.
-- The film's look against the reference, on Brass's defaults: gold, wall, marble and scroll energy near its numbers (`references.md`, Look). The camera holds at both 85 mm and the 30 mm trial.
+- The film's look against the reference, on Brass's defaults: gold, wall, marble and scroll energy near its numbers (`references.md`, Look).
 - Patterns on the reference's hit times: 58 of 58 on time, no double hits or rolls, at Width 14 cm and Gravity 0.5.
 
 ## Not verified
 
-- The opening's push-in watched in motion: Jingle Bells opens at about 2.2 m and comes to the rig by about 7 s, up to 20 cm/s (about 10 % of the distance per second). It's one eased move, judged from numbers and stills, so `follow-camera.e2e` checks 10 cm/s only from 7 s on. If it reads as too fast in a film, lengthen `OPENING_ZOOM_EASE`.
+- The opening's push-in watched in motion: Jingle Bells opens at about 0.79 m and comes to about 0.65 m by about 7 s. It's one eased move, judged from numbers and stills, so `follow-camera.e2e` checks 10 cm/s only from 7 s on. If it reads as too fast in a film, lengthen `OPENING_ZOOM_EASE`.
 - Fix in the app, through the worker: the e2e tests call it in Node
-- A Final film since Draft and Final replaced the old presets, and a whole film with the 3×9 bars at 120°
+- A Final film since Draft and Final replaced the old presets, and a whole Final film at the default camera
 - Native window: export through the sheet, the unsaved-example save panel, a covered window (music, playhead, export progress), and how the Playback and Track menus show a single key
 - Build Track in the native window against Node's time, read from `get_state.lastBuild.seconds`
-- The camera numbers in `references.md` predate the 120° turn and the removal of the readable maximum
 
 ## Known problems
 
 - Build Track on Jingle Bells gets stuck on its first release position and goes through on the second. That is one song's luck, not a fix.
 - `long-gap` has one marble passing through a skin, a real Problem in that fixture
-- Fixtures keep their 9 cm long bars, and example stills aren't regenerated
+- Fixtures keep their 9 cm long bars, so they read as wide slabs on 15 cm posts; bars built today are 3 cm. Example stills aren't regenerated
 - Applying a Pattern can still zoom the wall out a little, seen from 17 % to 11 % on Jingle Bells; the reveal itself keeps the zoom, so something else moves it
 - Patterns: Bounce sets a drop aim, so bars still vary. Median tilt is high at Gravity 0.5 (about 29°, about 16° at Gravity 1). Width 16 cm leaves many problems. A run with 7 later Groups takes 24 s with nothing moving on the wall.
 - No Problem for a missing asset: only Blender knows, and only while open
-- `blender:film` fails its first check: its made-up run lifts the marble above the frame at 0.25 s, before and after the look round. The rest passes with that check limited to after 0.5 s.
+- `blender:design` stops at its last step: `export-marble-skin-scenes.ts` imports `film-commands`, which reaches `inspector.css`, so the script can't run under tsx. Its Blender checks pass when the script runs with CSS stubbed.
+- `assists.test.ts` "holds the marble across a long gap" runs about 360 simulations per search and takes 10 to 30 s depending on the machine's load, against its 20 s limit
 - Flat Light reads paler than Fast on the Christmas look. Draft Preview draws no lights, shadows or metal.
 - Skin: Cat's-Eye reads weakly when the platform behind has its hue
 

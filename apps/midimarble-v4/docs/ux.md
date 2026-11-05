@@ -132,7 +132,7 @@ A Bowl collects a marble, like the catcher in the reference short: the marble dr
 
 Rails and tunnels shape the path through long gaps; they do not have to deliver the marble to an exact point. The user places one onto the trajectory and adjusts its length and shape while the live trajectory shows where the marble goes. After it, the marble is in free flight again, and the next hit's platform is placed where the marble is at that note's time, so the hit stays on time.
 
-Each piece type is one self-contained definition with a physics shape, a few parameters and a default skin. New projects use a kit one and a half times the Marble Race Kit's size: 24 mm marbles and platforms 3 cm long and 9 cm deep, spaced as 9 cm bars (`references.md`). Depth is visual. Parameters are physical: platform length and thickness, rail radius, tunnel length, windmill blade count, blade length and damping. Adding a piece type later means adding one definition.
+Each piece type is one self-contained definition with a physics shape, a few parameters and a default skin. New projects use a kit one and a half times the Marble Race Kit's size: 24 mm marbles and platforms 3 cm long and 15 cm deep on long posts, spaced as 9 cm bars (`references.md`). Depth is visual. Parameters are physical: platform length and thickness, rail radius, tunnel length, windmill blade count, blade length and damping. Adding a piece type later means adding one definition.
 
 Each marble has a release with its own position on the wall and time on the timeline, independent of the first hit. The MIDI import releases each marble 0.5 s before its first note, a short drop, so the film does not open on a long empty fall. Like a clip in a video editor, the release can be moved earlier to leave a gap before the first hit, and that stretch can hold any pieces.
 
@@ -354,8 +354,8 @@ Film's **Insert** has one Decor section, whose ? says what Decor is: **Sphere**,
 
 The default camera is a native Blender camera with baked keyframes:
 
-- It follows the smoothed trajectory at a distance from the wall, looking down along the run and turned to the side. New projects stand it 1.36 m from the marble through an 85 mm lens at the steep 1.15 rad pitch (`references.md`)
-- Its target leads the marble, and its roll follows the run's direction slowly
+- It follows the smoothed trajectory at a distance from the wall, turned to the side, so bars fan out from a point just beside the frame. New projects stand it 48 cm from the marble through a 30 mm lens at a 0.54 rad tilt (`references.md`)
+- Its target leads the marble, and it barely rolls
 - Shot markers on the timeline, such as wide, push in or close on a hit, with eased transitions. A shot's distance is relative to the rig's: it scales whatever the automatic camera frames at that time, so a Push In at 0.7 times the rig distance comes 30 % closer also where two marbles have widened the frame, and a Push In or Close-Up frames the leading marble alone. A shot holds for its Hold and then eases back to the automatic camera; Push In and Close-Up hold 2 s by default, Wide and Follow until the next shot, and a Hold of 0 keeps any shot until the next one
 - After the run's last struck hit the camera stops following: it settles over a second on the last stretch of the run, so the film ends on the final pieces instead of a marble falling down an empty wall. The marble that struck last falls out of this held frame about a second after its hit; a film whose end is later than that holds on the pieces alone. The default song length, the last note plus 0.4 s, ends on the marble. With Bowls, the held frame sits half way between the last hit and the mouths of the Bowls that catch a marble after it, so the film ends on the last piece and the marble landing in its Bowl, 1.2 s after the last note
 

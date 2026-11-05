@@ -22,18 +22,10 @@ export const DEFAULT_CAMERA_TURN = Math.PI / 2;
 /** Focal length of the film camera in mm, `LENS` in `camera.py`, and the sensor it's on: the sensor spans the frame's longer side */
 export const CAMERA_LENS = 30;
 export const CAMERA_SENSOR = 36;
-/** The steepest tilt the follow camera takes, in `camera.py` as well */
-const STEEPEST_TILT = 1.45;
 
-/**
- * How much wall in meters the film frame shows across its width, at the camera's distance: more than the frame's own
- * width, since a tilted camera sees the wall's width at a slant. `aspect` is width over height.
- */
-export function wallWidthInFrame(camera: { distance: number; tilt: number; turn?: number }, aspect: number): number {
-	const frameWidth = camera.distance * (CAMERA_SENSOR / CAMERA_LENS) * Math.min(aspect, 1);
-	const tilt = Math.min(Math.abs(camera.tilt), STEEPEST_TILT);
-	const side = Math.sin(camera.turn ?? DEFAULT_CAMERA_TURN) * Math.sin(tilt);
-	return (frameWidth * Math.hypot(Math.cos(tilt), side)) / Math.cos(tilt);
+/** Width in meters of the film frame at `distance` from the camera, for a frame of `aspect`, width over height */
+export function frameWidthAt(distance: number, aspect: number): number {
+	return distance * (CAMERA_SENSOR / CAMERA_LENS) * Math.min(aspect, 1);
 }
 /** Distance between the releases of neighboring marbles, and between their marbles' bands in the frame */
 export const MARBLE_SPACING = 0.26;

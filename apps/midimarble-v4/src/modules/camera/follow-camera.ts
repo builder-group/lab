@@ -66,6 +66,8 @@ const OPENING_ZOOM = 1.7;
 const OPENING_MARBLE_SHARE = 0.045;
 /** The opening's own margin: tighter than GROUP_MARGIN, as its box holds still pieces rather than marbles that swing out */
 const OPENING_MARGIN = 1.065;
+/** The least share of the opening's distance a point's depth counts as while centering the box */
+const OPENING_NEAREST = 0.2;
 const GROUP_EASE = 1.2;
 const GROUP_SPIKE = 0.3;
 /** Gap between a marble and the wall, `MARBLE_WALL_GAP` in `mm_worker/util.py` */
@@ -316,6 +318,8 @@ interface TSettings {
 interface TFraming {
 	current: [Float64Array, Float64Array];
 	ahead: [Float64Array, Float64Array];
+	/** The follow point before the opening's frame leans on it */
+	marbles: [Float64Array, Float64Array];
 	depth: number;
 	distance: Float64Array;
 	/** Weight of the opening frame per frame, null without one */
@@ -750,6 +754,7 @@ function groupFraming(
 			}
 		}
 	}
+	const followed: [Float64Array, Float64Array] = [center[0].slice(), center[1].slice()];
 	if (opening != null) {
 		for (const axis of [0, 1] as const) {
 			for (let index = 0; index < count; index++) {
@@ -763,8 +768,9 @@ function groupFraming(
 	if (hold != null) {
 		settle(center, times, hold, settings.bowl);
 		settle(ahead, times, hold, settings.bowl);
+		settle(followed, times, hold, settings.bowl);
 	}
-	return { current: center, ahead, depth, distance, openingWeight: opening?.weight ?? null };
+	return { current: center, ahead, marbles: followed, depth, distance, openingWeight: opening?.weight ?? null };
 }
 
 /**
@@ -826,7 +832,7 @@ function openingFrame(
 			});
 			return widest;
 		};
-		// Center the box in the image rather than on the wall: the steep view enlarges what lies near the camera
+		// Center the box in the image rather than on the wall: the view enlarges what lies near the camera
 		const determinant = right[0] * up[2] - right[2] * up[0];
 		for (
 			let iteration = 0;
@@ -841,7 +847,8 @@ function openingFrame(
 			xs.forEach((value, which) => {
 				const dx = value - x;
 				const dy = (ys[which] ?? 0) - y;
-				const depth = Math.max(reachOut - (dx * toward[0] + dy * toward[2]), 1e-6);
+				// A point at or behind the camera says nothing about the image, and dividing by its depth would throw the box far away
+				const depth = Math.max(reachOut - (dx * toward[0] + dy * toward[2]), OPENING_NEAREST * reachOut);
 				const imageX = (dx * right[0] + dy * right[2]) / depth;
 				const imageY = (dx * up[0] + dy * up[2]) / depth;
 				lowX = Math.min(lowX, imageX);
@@ -967,17 +974,12 @@ function followTarget(
 			}
 		}
 	}
-	// Safety net for extreme motion: never let a marble leave the frame
+	// Safety net for extreme motion: never let a marble leave the frame, also while the opening's frame eases out
+	const [marblesX, marblesY] = framing.marbles;
 	for (let index = 0; index < count; index++) {
-		targetX[index] =
-			(targetX[index] ?? 0) +
-			excess(
-				(currentX[index] ?? 0) - (targetX[index] ?? 0),
-				(halfFrame[index] ?? 0) * FRAME_KEEP * ASPECT_GUESS * 1.5
-			);
-		targetY[index] =
-			(targetY[index] ?? 0) +
-			excess((currentY[index] ?? 0) - (targetY[index] ?? 0), (halfFrame[index] ?? 0) * FRAME_KEEP * 1.0 * 1.5);
+		const hard = (halfFrame[index] ?? 0) * FRAME_KEEP * 1.5;
+		targetX[index] = (targetX[index] ?? 0) + excess((marblesX[index] ?? 0) - (targetX[index] ?? 0), hard * ASPECT_GUESS);
+		targetY[index] = (targetY[index] ?? 0) + excess((marblesY[index] ?? 0) - (targetY[index] ?? 0), hard);
 	}
 	// Run direction from the smoothed target over one second, then smoothed again for slow heading changes
 	const window = Math.max(1, pyRound(0.5 * fps));
