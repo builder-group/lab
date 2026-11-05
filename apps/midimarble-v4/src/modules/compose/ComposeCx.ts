@@ -208,6 +208,9 @@ export class ComposeCx {
 		cleanups.push(this.assist.mount());
 		cleanups.push(this.patterns.mount());
 
+		// 3D and Camera cover this canvas with their own; the view keeps moving under them, since 3D stands on `$camera`
+		renderer.setPaused(!this.isFlatShown());
+
 		const observer = new ResizeObserver(() => {
 			const rect = container.getBoundingClientRect();
 			const viewport = { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
@@ -256,6 +259,13 @@ export class ComposeCx {
 				this.renderer?.setWallHidden(this.studio.$hidden.get().includes(WALL_KEY));
 			}),
 			this.studio.$playing.listen(() => this.wakeMotion()),
+			this.studio.$trackView.listen(() => {
+				renderer.setPaused(!this.isFlatShown());
+				this.syncTracks();
+				this.syncPieces();
+				this.syncMarbles();
+				this.syncGuides();
+			}),
 			this.studio.$playhead.subscribe(({ value }) => {
 				renderer.setPlayhead(value);
 				this.syncPieceAngles();
@@ -2317,10 +2327,14 @@ export class ComposeCx {
 
 	// MARK: - Renderer sync
 
+	private isFlatShown(): boolean {
+		return this.studio.$trackView.get() === '2d';
+	}
+
 	private syncTracks(): void {
 		const result = this.result;
 		const project = this.project;
-		if (this.renderer == null) return;
+		if (this.renderer == null || !this.isFlatShown()) return;
 		const hidden = this.studio.$hidden.get();
 		const tracks = (result?.marbles ?? []).filter((track) => !hidden.includes(track.entityId)).map((track) => {
 			let buffers = this.trackCache.get(track);
@@ -2335,7 +2349,7 @@ export class ComposeCx {
 	}
 
 	private syncPieces(): void {
-		if (this.renderer == null) return;
+		if (this.renderer == null || !this.isFlatShown()) return;
 		const playhead = this.studio.$playhead.get();
 		const pieces = this.displayPieces();
 		this.renderer.setPieces(
@@ -2353,7 +2367,7 @@ export class ComposeCx {
 
 	/** A playhead tick: only the pieces that move turn, unless what the canvas shows changed since the last sync */
 	private syncPieceAngles(): void {
-		if (this.renderer == null) return;
+		if (this.renderer == null || !this.isFlatShown()) return;
 		if (this.synced?.pieces !== this.displayPieces()) {
 			this.syncPieces();
 			return;
@@ -2364,7 +2378,7 @@ export class ComposeCx {
 
 	syncMarbles(): void {
 		const project = this.project;
-		if (this.renderer == null || project == null) return;
+		if (this.renderer == null || project == null || !this.isFlatShown()) return;
 		const result = this.result;
 		const playhead = this.studio.$playhead.get();
 		const drag = this.$drag.get();
@@ -2384,7 +2398,7 @@ export class ComposeCx {
 
 	private syncGuides(): void {
 		const project = this.project;
-		if (this.renderer == null || project == null) return;
+		if (this.renderer == null || project == null || !this.isFlatShown()) return;
 		const bounds = contentBounds(project, this.result);
 		const height = bounds.maxY - bounds.minY;
 		this.renderer.setFrameGuides(frameBand(project), bounds.minY - height - 1, bounds.maxY + height + 1);

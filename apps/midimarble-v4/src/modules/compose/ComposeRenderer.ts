@@ -107,6 +107,7 @@ export class ComposeRenderer {
 	private playhead = 0;
 	private frame: number | null = null;
 	private isDisposed = false;
+	private isPaused = false;
 
 	constructor(canvas: HTMLCanvasElement) {
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: true });
@@ -379,8 +380,18 @@ export class ComposeRenderer {
 
 	// MARK: - Rendering
 
+	/** Another canvas covers this one: inputs still land and `project` stays right, but nothing draws until it shows again */
+	setPaused(isPaused: boolean): void {
+		this.isPaused = isPaused;
+		if (isPaused && this.frame != null) {
+			cancelAnimationFrame(this.frame);
+			this.frame = null;
+		}
+		this.invalidate();
+	}
+
 	invalidate(): void {
-		if (this.frame != null || this.isDisposed) return;
+		if (this.frame != null || this.isDisposed || this.isPaused) return;
 		this.frame = requestAnimationFrame(() => {
 			this.frame = null;
 			this.render();

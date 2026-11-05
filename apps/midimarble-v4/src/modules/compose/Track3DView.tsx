@@ -40,7 +40,7 @@ export const TrackViewSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 };
 
 /**
- * Track's 3D or Camera view over the flat canvas, which stays mounted behind it so the tool rail, keys and Follow keep working.
+ * Track's 3D or Camera view over the flat canvas, which stays mounted behind it, not drawing, so the tool rail, keys and Follow keep working.
  * Choosing 2D eases back to front-on before it goes. Arming a tool or dragging a tile out of Insert goes to 2D, the only
  * place they work.
  */
