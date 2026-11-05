@@ -9,7 +9,7 @@ A song plays; marbles play its notes; you build the run they fall through; then 
 3. Build the run: `run_command('build.track')` builds it all, then adjust; see the `building-a-track` guide. Read the hit summary in every reply and fix problems before going on.
 4. Make it look right: see `film-look`. `set_references` stores images and words the person gave you in `agent/references`, for this and every later agent; there is no panel for them, so tell the person what you stored.
 5. Look with `preview_frame`, show the person with `play_range`.
-6. `export_film`: draft first, then balanced or best.
+6. `export_film`: draft first, then final.
 
 ## Tools
 

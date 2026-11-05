@@ -21,7 +21,7 @@ Film dresses the run without changing a single hit. Make the environment fit the
 | Field | Default | What it does |
 | --- | --- | --- |
 | `mode` | `rig` | `rig` follows the marbles. `manual` leaves the camera to Blender: use it only with Open in Blender, as it freezes the camera where it is |
-| `distance` | 0.7 | How close: the frame shows about `0.4 × distance` of wall across in 9:16 from the front, more wall than that along a steep view. Marbles get smaller as it grows, so 0.6 to 1.2 reads best and side Decor belongs inside that width |
+| `distance` | 1.36 | How close: the 85 mm lens shows about `0.24 × distance` of wall across in 9:16 from the front, more wall than that along a steep view. Marbles get smaller as it grows, and side Decor belongs inside that width |
 | `pitch` | 1.15 | Downward angle: 0 looks straight at the wall, 1.15 steeply along the run |
 | `lead` | 0.15 | Seconds the view looks ahead of the marbles, 0 to 2 |
 | `smoothing` | 0.6 | 0 to 1, larger follows more calmly |
@@ -41,4 +41,4 @@ Then `play_range(from, to)` for the person, and ask them.
 
 ## Export
 
-`export_film({ quality: 'draft' })` is flat and quick, for timing. `standard` (720p), `high` (1080p) and `best` (1080p at 60 fps) use the real look and take longer. `get_state.renderPreset` holds the choice, by its ids `draft`, `fast`, `balanced` and `best`, which `export_film` and `setDesign { renderPreset }` take too. It answers within seconds with progress; call `export_film()` with no quality to check. Without `path` the film lands in the project's `renders` folder.
+`export_film({ quality: 'draft' })` is flat and quick, for testing. `final` is 1080p with the real look and takes longer; stills from `preview_frame` are the quick way to judge a look. `get_state.renderPreset` holds the choice by its ids, `draft` and `balanced` (Final), which `setDesign { renderPreset }` takes too. It answers within seconds with progress; call `export_film()` with no quality to check. Without `path` the film lands in the project's `renders` folder.

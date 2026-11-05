@@ -8,7 +8,7 @@ Each marble falls and bounces. A **hit** is a moment in the song a marble must s
 
 **Patterns (prototype): chain them instead of running Build Track again.** `project.execute` with one command `{ type: 'applyPattern', laneId, from, to, kind, width, bounce, dryRun }` fits `zigzag` or `staircase` over the notes between `from` and `to` (seconds), or `longRail` over the silence there, as a Group: ordinary pieces in one Undo step, named after the Pattern. Work from the first note on; each starts where the last left the marble, and changing an earlier one fits the later ones again. `width` is in metres, `bounce` asks for less fall per hit when higher (0.3 to 0.7). `dryRun: true` changes nothing and answers the same `problems` in plain words plus `measures`: `onTime`, `columnStraightness`, `dropPerHit`, `medianTilt`. A problem means it did not fit as asked; `widthUsed` says when another Width was used. It never falls back silently. Tilt follows Gravity, not Bounce.
 
-A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds the rest. `build.replace` (Fix Hits) fixes broken hits; for an open hit, change the ones before it or place it by hit. Then adjust by hand.
+A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds the rest. `build.fix` (Fix) fixes broken hits; for an open hit, change the ones before it or place it by hit. Then adjust by hand.
 
 Two arguments steer it, and neither is needed by default:
 
@@ -17,9 +17,9 @@ Two arguments steer it, and neither is needed by default:
 
 ## How a track should look
 
-Build Track, `build.next`, Continue and `build.replace` share these rules. A hit's timing comes first; a person's hand edit is never undone to meet them.
+Build Track, `build.next`, Continue and `build.fix` share these rules. A hit's timing comes first; a person's hand edit is never undone to meet them.
 
-- **Track pieces don't touch.** Two pieces stand at least 1.2 cm apart as the film shows them, and a skin hangs up to 1.4 cm below its hitbox. A pair that comes closer is the tip "Platform 12 touches Platform 13".
+- **Track pieces don't touch.** Two pieces stand at least 1.2 cm apart on the wall, skins included. A pair that comes closer is the problem "Platform 12 touches Platform 13".
 - **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a rail or in a Bowl don't count.
 - **Marbles may cross.** A marble's run may leave its lane and cross another's path, as long as it touches neither that marble nor its pieces. It stays in its lane where it can, since its pieces would otherwise stand in the other marble's way, and always stays in frame.
 
@@ -27,15 +27,15 @@ To fix a touching pair or a second strike, try these in order of how little they
 
 1. **Shorten** (touching only): `setComponent` the platform's `piece` with a smaller `params.length`, down to about two thirds of its own, as long as the marble still strikes it. Build Track does this itself when things are tight.
 2. **Move** (touching only): `setComponent` its `hitLink` with another `contactAt`, from 0.15 to 0.85, which slides the platform along its own surface under the same strike.
-3. **Tilt**: a new `angle` in that `hitLink`, or in the platform before it, which sets where the marble arrives. `build.replace` tries all of these for every such piece when nothing else is wrong.
+3. **Tilt**: a new `angle` in that `hitLink`, or in the platform before it, which sets where the marble arrives. `build.fix` tries all of these for every such piece when nothing else is wrong.
 4. **Rebuild From Here** from the hit before them, if none of that holds.
 
 ## One step at a time
 
 1. `build.next` takes the next step: a platform at the next open hit, or a rail when a long gap comes first. Where none fits it takes the step Build Track would, or says what to do; a second press then places a platform at the note after the gap. A reply with `changed: false` placed nothing, and it made no Undo step.
-2. `build.placeAgain`, "Place Again", solves the selected platform's tilt and bounce so it lands on time, in that platform's Undo step. To place one at an open hit, select the hit through `args.select` and run `build.next`.
+2. `build.fix` with a platform selected through `args.select` solves that platform's tilt and bounce so it lands on time. To place one at an open hit, select the hit through `args.select` and run `build.next`.
 3. `build.continue` accepts a suggested pattern. `build.repeat` and `build.mirror` copy the last platform's tilt, which makes zigzags.
-4. `build.replace` (Fix Hits) fixes broken hits. `edit.firstProblem` jumps to the first problem for the person.
+4. `build.fix` with nothing selected fixes the whole run. `edit.firstProblem` jumps to the first problem for the person.
 5. `build.addBowl` ends a marble's run in a catch once all its hits are on time.
 
 Build marbles together in time order, since they can collide with each other's pieces. The same project and the same calls always give the same track.
