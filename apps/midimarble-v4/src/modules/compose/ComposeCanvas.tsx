@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import { createState } from 'feature-state';
-import { Anchor, ChevronDown, ChevronsRight, Link2, LocateFixed, Magnet, Unlink2 } from 'lucide-react';
+import { Anchor, ChevronDown, ChevronsRight, Focus, Link2, Magnet, Unlink2 } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
 import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2 } from '@/modules/project';
@@ -1033,7 +1033,7 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 					onClick={() => compose.toggleFollow()}
 					type="button"
 				>
-					<LocateFixed size={14} strokeWidth={1.7} />
+					<Focus size={14} strokeWidth={1.7} />
 					<span className="mm-tooltip">
 						Follow the marble at the playhead · panning turns it off <kbd>{followKey.key}</kbd>
 					</span>
