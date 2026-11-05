@@ -4,7 +4,7 @@ import { createLinkedPiece } from '@/modules/simulation';
 import { buildOutline, FREE_PIECES_KEY } from '@/modules/studio/outline';
 import { toGroupKey } from '@/modules/studio/selection';
 import { StudioCx } from '@/modules/studio/StudioCx';
-import { canUngroup, groupSelected, plainGroupSpan, ungroupSelected } from './group-commands';
+import { builtRunCommands, canUngroup, groupSelected, plainGroupSpan, ungroupSelected } from './group-commands';
 
 function studio(zigzag = false): { cx: StudioCx; project: TProject } {
 	const created = createProject({ title: 'Song' });
@@ -80,5 +80,24 @@ describe('Group by hand', () => {
 
 		expect(rows.find((row) => row.id === toGroupKey('across'))?.parentId).toBe(FREE_PIECES_KEY);
 		expect(rows.find((row) => row.id === 'piece-1')?.parentId).toBe(toGroupKey('across'));
+	});
+
+	it('should group what a build placed by run: a Zigzag, a Rail, and nothing for a lone bar or an older piece', () => {
+		const created = createProject({ title: 'Song' });
+		const hitIds = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7'];
+		const lane = { ...createLane(0), hits: hitIds.map((id, index) => ({ id, time: index + 1, pitch: 60 })) };
+		const piece = (hitId: string, type: 'platform' | 'rail') => createLinkedPiece(type, lane.id, hitId, 0.3, { id: `p-${hitId}` });
+		const entities = [createMarble(lane, { x: 0, y: 0 }), piece('h1', 'platform'), piece('h2', 'platform'), piece('h3', 'platform'), piece('h4', 'platform'), piece('h5', 'rail'), piece('h6', 'platform'), piece('h7', 'platform')];
+		const after: TProject = { ...created, music: { ...created.music, lanes: [lane] }, entities };
+		const before: TProject = { ...after, entities: entities.filter((entity) => entity.id !== 'p-h2' && entity.id !== 'p-h3' && entity.id !== 'p-h4' && entity.id !== 'p-h5' && entity.id !== 'p-h6') };
+		const dots = [0, -1, 1, -1, 0, 0, 1];
+		const hits = hitIds.map((id, index) => ({ pieceEntityId: `p-${id}`, dot: { x: dots[index] ?? 0, y: 0 } })) as unknown as Parameters<typeof builtRunCommands>[2];
+
+		const commands = builtRunCommands(before, after, hits);
+
+		expect(commands.map((command) => (command.type === 'upsertGroup' ? [command.group.name, command.group.pieceIds] : null))).toEqual([
+			['Zigzag', ['p-h2', 'p-h3', 'p-h4']],
+			['Rail', ['p-h5']]
+		]);
 	});
 });

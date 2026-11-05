@@ -1,5 +1,5 @@
 import { createId, isPatternGroup, type TEntity, type TGroup, type TLane, type TPlainGroup, type TProject, type TProjectCommand } from '@/modules/project';
-import { startRailOf, patternLockWords, patternOfPiece } from '@/modules/simulation';
+import { startRailOf, patternLockWords, patternOfPiece, type THitResult } from '@/modules/simulation';
 import { parseGroupKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { groupSelection } from './PatternsCx';
@@ -88,4 +88,52 @@ export function plainGroupSpan(project: TProject, lane: TLane, group: TPlainGrou
 	const hitIds = new Set(project.entities.filter((entity) => group.pieceIds.includes(entity.id) && entity.components.hitLink?.laneId === lane.id).map((entity) => entity.components.hitLink?.hitId));
 	const times = lane.hits.filter((hit) => hitIds.has(hit.id)).map((hit) => hit.time);
 	return times.length > 0 ? { from: Math.min(...times), to: Math.max(...times) } : null;
+}
+
+/** Share of the turns in a run of bars that go back the way they came, from which it reads as a Zigzag */
+const ZIGZAG_TURNS = 0.7;
+
+/** "Zigzag" when the run's dots go back and forth across the wall, else a neutral "Run" */
+function runName(dots: readonly number[]): string {
+	const steps = dots.slice(1).map((x, index) => x - (dots[index] ?? x));
+	const turns = steps.slice(1).filter((step, index) => step * (steps[index] ?? 0) < 0).length;
+	return steps.length > 1 && turns / (steps.length - 1) >= ZIGZAG_TURNS ? 'Zigzag' : 'Run';
+}
+
+/**
+ * Plain Groups for what a build just placed, so its runs show on the strip: pieces in a row of one kind on a marble's
+ * notes, a Rail's or a run of bars. Pieces already in a Group stay there; a lone bar or a Bowl stays a piece.
+ */
+export function builtRunCommands(before: TProject, after: TProject, hits: readonly THitResult[]): TProjectCommand[] {
+	const existing = new Set(before.entities.map((entity) => entity.id));
+	const grouped = new Set((after.groups ?? []).flatMap((group) => group.pieceIds));
+	const groups: TGroup[] = [...(after.groups ?? [])];
+	const commands: TProjectCommand[] = [];
+	const dotOf = new Map(hits.flatMap((hit) => (hit.pieceEntityId != null && hit.dot != null ? [[hit.pieceEntityId, hit.dot.x] as const] : [])));
+	for (const lane of after.music.lanes) {
+		const order = new Map(lane.hits.map((hit, index) => [hit.id, index]));
+		const pieces = after.entities
+			.filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id)
+			.sort((a, b) => (order.get(a.components.hitLink?.hitId ?? '') ?? 0) - (order.get(b.components.hitLink?.hitId ?? '') ?? 0));
+		const close = (run: readonly TEntity[], type: string | undefined): void => {
+			if (type === 'rail' ? !run.length : type !== 'platform' || run.length < 2) return;
+			const name = nextPlainGroupName(groups, type === 'rail' ? 'Rail' : runName(run.flatMap((piece) => dotOf.get(piece.id) ?? [])));
+			const group: TPlainGroup = { id: createId('group'), name, laneId: lane.id, pieceIds: run.map((piece) => piece.id) };
+			groups.push(group);
+			commands.push({ type: 'upsertGroup', group });
+		};
+		let run: TEntity[] = [];
+		let runType: string | undefined;
+		for (const piece of pieces) {
+			const type = piece.components.piece?.type;
+			if (type !== runType || existing.has(piece.id) || grouped.has(piece.id)) {
+				close(run, runType);
+				run = [];
+				runType = type;
+			}
+			if (!existing.has(piece.id) && !grouped.has(piece.id)) run.push(piece);
+		}
+		close(run, runType);
+	}
+	return commands;
 }

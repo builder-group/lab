@@ -38,7 +38,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - `long-gap` has one marble passing through a skin, a real Problem in that fixture
 - Fixtures keep their 9 cm long bars, and example stills aren't regenerated
 - Applying a Pattern can still zoom the wall out a little, seen from 17 % to 11 % on Jingle Bells; the reveal itself keeps the zoom, so something else moves it
-- Patterns: Bounce sets a drop aim, so bars still vary. Median tilt is high at Gravity 0.5 (about 29°, about 16° at Gravity 1). Width 16 cm leaves many problems. A run with 7 later Groups takes 24 s with nothing moving on the wall. Build Track fills no blocks in the strip, though the decision asks for it.
+- Patterns: Bounce sets a drop aim, so bars still vary. Median tilt is high at Gravity 0.5 (about 29°, about 16° at Gravity 1). Width 16 cm leaves many problems. A run with 7 later Groups takes 24 s with nothing moving on the wall.
 - No Problem for a missing asset: only Blender knows, and only while open
 - Flat Light reads paler than Fast on the Christmas look. Draft Preview draws no lights, shadows or metal.
 - Skin: Cat's-Eye reads weakly when the platform behind has its hue

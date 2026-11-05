@@ -136,7 +136,7 @@ Each marble has a release with its own position on the wall and time on the time
 
 ### Patterns (prototype)
 
-A prototype the owner hasn't approved yet. If undone, this section goes, with the commits starting `#11 Patterns prototype:` and the Flatten work. Compose only; one marble worked out at a time. Build Track and Next don't use it.
+A prototype the owner hasn't approved yet. If undone, this section goes, with the commits starting `#11 Patterns prototype:` and the Flatten work. Compose only; one marble worked out at a time. Build Track and Next don't use it, but what Build Track places shows as plain Groups: a Zigzag, a Rail or a neutral Run of the marble's notes.
 
 Each marble's row has a slim strip, 16 px, above its hits: nearly invisible while empty, "Drag to choose a Pattern" on hover. Two ways in, one result: select hits with the usual drag in the hits area, or drag out a range in the strip, also over silence. A strip range over notes selects those notes. The inspector shows "9 Hits" or "0.7 s" and the tiles: Zigzag and Staircase for notes, Long Rail for silence (past 1.5 s it is a solved Switchback layout).
 

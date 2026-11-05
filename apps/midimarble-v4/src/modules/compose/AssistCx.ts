@@ -1,4 +1,5 @@
 import { createState } from 'feature-state';
+import { builtRunCommands } from './group-commands';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import {
 	gapPieceReads,
@@ -567,6 +568,11 @@ export class AssistCx {
 		}
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 		if (outcome == null) return null;
+		// What it built shows as plain Groups on the strip, in the build's Undo step
+		if (this.studio.project?.revision === expected) {
+			const runs = builtRunCommands(project, this.studio.project, outcome.result.hits);
+			if (runs.length > 0) this.studio.execute(runs, { amend: true });
+		}
 		const present = this.studio.project;
 		const result: TSimulationResult = { ...outcome.result, revision: present?.revision ?? outcome.project.revision };
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
