@@ -108,8 +108,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		// What the film uses, and in `own` what this project changed on top of its theme
 		wall: { color: wall.color, backgroundColor: wall.backgroundColor, kind: wall.kind, own: wall.own },
 		lights: { key: { color: light.color, strength: light.strength, side: light.side, height: light.height, softness: light.softness, exposure: light.exposure, bloom: light.bloom }, own: film.lights ?? {} },
-		theme: { id: theme.id, name: theme.name, base: theme.base, overrides: theme.overrides, parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
-		projectThemes: film.themes.map((item) => ({ id: item.id, name: item.name })),
+		theme: { id: theme.id, name: theme.name, base: theme.base, ...(theme.glowColor != null ? { glowColor: theme.glowColor } : {}), ...(theme.pack != null ? { pack: theme.pack.packName } : {}), parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
 		...(view.packThemes != null && view.packThemes.length > 0 ? { packThemes: view.packThemes } : {}),
 		decor: { count: film.decor.length, sources: countBy(film.decor.map((item) => item.source)) },
 		quality: film.quality

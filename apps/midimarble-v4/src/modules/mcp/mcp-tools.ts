@@ -2,10 +2,11 @@ import { isTauri } from '@tauri-apps/api/core';
 import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
-import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
+import type { TReadyPackTheme } from './project-commands';
+import { defaultTitleColor, packOriginOf, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
 import { framingProblemAt, patternSpan } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
-import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey } from '@/modules/project';
+import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
 import { editPresenceLabel } from './agent-presence';
 import { hitReport, projectState, resolveSelection } from './mcp-state';
@@ -81,7 +82,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
-				packThemes: addedPacks.get().flatMap((pack) => pack.themes.filter((theme) => !project.film.themes.some((item) => item.id === theme.id)).map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
+				packThemes: addedPacks.get().flatMap((pack) => pack.themes.map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
 				references: { images: references.images.length, text: references.text }
 			})
 		);
@@ -319,7 +320,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		}
 		const [isAddedOk, addedErr, pack] = await cx.library.addPack(from);
 		if (!isAddedOk) throw addedErr;
-		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'updateFilm', film: { theme: id } }.`);
+		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'applyTheme', theme: id }.`);
 	},
 	'film.restartBlender': async (cx) => {
 		await cx.film.restart();
@@ -380,15 +381,15 @@ async function removePack(cx: StudioCx, args: Record<string, unknown>): Promise<
 	return text(cx, { removed: pack.name, changed: false });
 }
 
-/** The themes of added Packs that `commands` apply, as a project stores them: their items copied in */
-async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TProjectTheme[]> {
-	const wanted = commands.flatMap((command) => (command.type === 'updateFilm' ? [(command as { film?: { theme?: unknown } }).film?.theme] : []));
-	const themes: TProjectTheme[] = [];
+/** The themes of added Packs that `commands` apply, with their items copied in */
+async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TReadyPackTheme[]> {
+	const wanted = commands.flatMap((command) => (command.type === 'applyTheme' ? [(command as { theme?: unknown }).theme] : []));
+	const themes: TReadyPackTheme[] = [];
 	for (const pack of addedPacks.get()) {
 		for (const theme of pack.themes) {
-			if (!wanted.includes(theme.id) || cx.project?.film.themes.some((item) => item.id === theme.id) === true) continue;
+			if (!wanted.includes(theme.id)) continue;
 			const ready = await cx.library.packThemeInProject(pack, theme);
-			if (ready != null) themes.push(ready);
+			if (ready != null) themes.push({ theme: ready, origin: packOriginOf(pack) });
 		}
 	}
 	return themes;

@@ -1,4 +1,3 @@
-import { addedLights } from '@/modules/scene';
 import { isPatternGroup, type TProject, CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseRangeKey, parseShotKey, parseSongKey, shownSongs, WALL_KEY } from '@/modules/project';
 import type { TWorkspace } from './StudioCx';
 
@@ -53,7 +52,7 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 
 	const lightIds = selection.flatMap((key) => parseLightKey(key) ?? []);
 	if (lightIds.length > 0) {
-		const added = addedLights(project.film);
+		const added = project.film.lights.added;
 		const known = lightIds.filter((id) => id === KEY_LIGHT_ID || added.some((light) => light.id === id));
 		if (known.length === 1) return { kind: 'light', id: known[0] as string };
 	}

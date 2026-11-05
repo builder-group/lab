@@ -68,7 +68,7 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 
 	// A marble's start Rail is found by its ID, which says whose it is
 	const startRails = new Map([...marbleIdOf].map(([laneId, id]) => [`start-rail-${laneId}`.slice(0, 64), `start-rail-${id}`.slice(0, 64)]));
-	const { renderPreset, camera, ...film } = raw.design;
+	const { renderPreset, camera, theme, themes, wall, lights, ...film } = raw.design;
 	if (renderPreset !== 'draft' && renderPreset !== 'final') notes.push(`The render preset ${renderPreset} is gone; it's final now`);
 	const { mode, pitch, lead, smoothing, side, shots, ...rig } = camera;
 	if (lead !== CAMERA_LEAD || smoothing !== CAMERA_SMOOTHING) notes.push(`The camera's lead ${lead} and smoothing ${smoothing} become the constants ${CAMERA_LEAD} and ${CAMERA_SMOOTHING}`);
@@ -85,6 +85,7 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 		track: { pieces, groups },
 		film: {
 			...film,
+			...convertTheme(theme, themes, wall, lights, notes),
 			titles,
 			quality: renderPreset === 'draft' ? 'draft' : 'final',
 			camera: {
@@ -96,6 +97,28 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 			}
 		}
 	});
+}
+
+/** The one theme worn: the rest of `themes` is dropped, and its colors, Wall skin and light go on the Wall and Lights underneath the project's own */
+function convertTheme(id: string, themes: TAny[], wall: TAny, lights: TAny, notes: string[]): TAny {
+	for (const other of themes) if (other.id !== id) notes.push(`The theme ${other.name} wasn't worn, so it's dropped`);
+	const worn = themes.find((item) => item.id === id);
+	if (worn == null) return { theme: { base: id }, wall, lights };
+	const { wallColor, lightColor, glowColor, backgroundColor } = worn.overrides;
+	if (worn.pack == null) notes.push(`The theme ${worn.name} isn't from a Pack, so the film now reads as ${worn.base}`);
+	return {
+		theme: {
+			base: worn.base,
+			...(worn.parts != null ? { parts: worn.parts } : {}),
+			...(glowColor != null ? { glowColor } : {}),
+			...(worn.pack != null ? { pack: { ...worn.pack, themeId: worn.id, themeName: worn.name } } : {})
+		},
+		wall: { ...(wallColor != null ? { color: wallColor } : {}), ...(backgroundColor != null ? { backgroundColor } : {}), ...(worn.wallKind != null ? { kind: worn.wallKind } : {}), ...wall },
+		lights: {
+			...(lightColor != null || worn.keyLight != null || lights.key != null ? { key: { ...(lightColor != null ? { color: lightColor } : {}), ...worn.keyLight, ...lights.key } } : {}),
+			added: [...(worn.lights ?? []), ...lights.added]
+		}
+	};
 }
 
 /** The project with some IDs replaced, wherever they're used: as a piece's ID, in a Group, among what a ride touches */

@@ -21,7 +21,7 @@ import { AssistCx, PatternsCx, withWholePatterns } from '@/modules/track';
 import { earliestHitTime, releaseFollowsFirstHit, problemSummary, type TPreflightTarget } from '@/modules/building';
 import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
-import { commandItem, commands, commandWorkspace, deleteTheme, isCommandEnabled, type TCommand, type TCommandId } from './commands';
+import { commandItem, commands, commandWorkspace, isCommandEnabled, type TCommand, type TCommandId } from './commands';
 import { filmMenu, filmObjectMenu, hitMenu, marbleMenu, pieceMenu } from './menus';
 import { addWallTextCommands, FilmCx, FilmLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, songDisplayName } from '@/modules/scene';
@@ -134,8 +134,7 @@ export class StudioCx {
 		all: commands,
 		item: (id: TCommandId) => commandItem(this, id),
 		workspaceOf: (command: TCommand) => commandWorkspace(command),
-		isEnabled: (command: TCommand) => isCommandEnabled(this, command),
-		deleteTheme: (themeId: string) => deleteTheme(this, themeId)
+		isEnabled: (command: TCommand) => isCommandEnabled(this, command)
 	};
 	/** The context menus the canvases open */
 	readonly menus = {

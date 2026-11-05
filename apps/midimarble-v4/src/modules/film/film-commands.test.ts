@@ -20,7 +20,7 @@ describe('film commands', () => {
 	});
 
 	it('should link a built-in skin, and follow the theme again with the theme\'s own skin', () => {
-		const project = { ...createStaircaseProject(), film: { ...createStaircaseProject().film, theme: 'brass' } };
+		const project = { ...createStaircaseProject(), film: { ...createStaircaseProject().film, theme: { base: 'brass' } } };
 		const [first] = pieceIds(project);
 		if (first == null) throw new Error('fixture');
 		const linked = apply(project, builtInSkinCommands(project, { kind: 'pieceType', pieceType: 'platform' }, 'platform:copper'));
@@ -76,8 +76,8 @@ describe('film commands', () => {
 
 	it('should set the theme once and skip an unchanged theme', () => {
 		const project = createStaircaseProject();
-		expect(themeCommands(project, project.film.theme)).toEqual([]);
-		expect(apply(project, themeCommands(project, 'brass')).film.theme).toBe('brass');
+		expect(themeCommands(project, project.film.theme.base)).toEqual([]);
+		expect(apply(project, themeCommands(project, 'brass')).film.theme).toEqual({ base: 'brass' });
 	});
 
 	it('should keep the other camera settings when one changes', () => {
@@ -206,10 +206,10 @@ describe('itemFitsPieceType function', () => {
 
 	it('should recolor titles that still have the old theme\'s title color when the theme changes', () => {
 		const project = createStaircaseProject();
-		const title = { id: 'text-1', name: 'Title', text: 'Title', font: 'Bfont Regular', size: 0.03, color: themeTitleColor(project.film.theme), position: { x: 0, y: 0 }, angle: 0 };
+		const title = { id: 'text-1', name: 'Title', text: 'Title', font: 'Bfont Regular', size: 0.03, color: themeTitleColor(project.film.theme.base), position: { x: 0, y: 0 }, angle: 0 };
 		const custom = { ...title, id: 'text-2', color: '#ff0000' };
 		const withTitles = apply(project, [{ type: 'updateFilm', film: { titles: [title, custom] } }]);
-		const other = withTitles.film.theme === 'brass' ? 'pegboard' : 'brass';
+		const other = withTitles.film.theme.base === 'brass' ? 'pegboard' : 'brass';
 		const next = apply(withTitles, themeCommands(withTitles, other));
 		expect(next.film.titles.find((item) => item.id === 'text-1')?.color).toBe(themeTitleColor(other));
 		expect(next.film.titles.find((item) => item.id === 'text-2')?.color).toBe('#ff0000');

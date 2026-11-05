@@ -86,15 +86,14 @@ describe('title color', () => {
 
 	it('should follow the wall the project shows: its own color, then its theme', () => {
 		const project = createProject({ id: 'p', title: 'T' });
-		const christmas = { id: 'theme-x', name: 'Christmas', base: 'brass', overrides: { wallColor: '#f7f5f0' } };
-		expect(defaultTitleColor({ ...project.film, theme: 'brass' })).toBe(WHITE);
-		expect(defaultTitleColor({ ...project.film, theme: 'theme-x', themes: [christmas] })).toBe(DARK);
-		expect(defaultTitleColor({ ...project.film, theme: 'theme-x', themes: [christmas], wall: { color: '#101010' } })).toBe(WHITE);
+		expect(defaultTitleColor({ ...project.film, theme: { base: 'brass' } })).toBe(WHITE);
+		expect(defaultTitleColor({ ...project.film, theme: { base: 'brass' }, wall: { color: '#f7f5f0' } })).toBe(DARK);
+		expect(defaultTitleColor({ ...project.film, theme: { base: 'brass' }, wall: { color: '#101010' } })).toBe(WHITE);
 	});
 
 	it('should give an unset title the default in the scene, and leave one out of a theme switch', () => {
 		const project = createProject({ id: 'p', title: 'T' });
-		project.film.theme = 'pegboard';
+		project.film.theme = { base: 'pegboard' };
 		const { color: _color, ...unset } = TEXT;
 		project.film.titles.push({ id: 'text-1', name: 'Fin', ...unset, position: { x: 0, y: 0 }, angle: 0 });
 		const build = buildSceneDescription(project, { revision: project.revision, duration: 1, marbles: [], pieces: [], hits: [] } as never, { fps: 30 });

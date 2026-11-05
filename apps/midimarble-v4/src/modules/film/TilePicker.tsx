@@ -41,7 +41,6 @@ export interface TPickerTile {
 	isKept?: boolean;
 	onKeep?: () => void;
 	/** Takes the label's place while the tile is renamed */
-	nameField?: React.ReactNode;
 }
 
 /**
@@ -138,7 +137,7 @@ const PickerPanel: React.FC<{ heading: string; label: string; anchor: React.RefO
 
 const PickerTile: React.FC<{ tile: TPickerTile; onPick: (toAll: boolean) => void; onDragBegin: () => void; onDragEnd: () => void }> = (props) => {
 	const { tile, onPick, onDragBegin, onDragEnd } = props;
-	const { onDragStart, onMenu, onKeep, isKept, nameField } = tile;
+	const { onDragStart, onMenu, onKeep, isKept } = tile;
 	return (
 		<div className="mm-tile-wrap" role="option" aria-selected={tile.isCurrent}>
 			<button
@@ -161,14 +160,11 @@ const PickerTile: React.FC<{ tile: TPickerTile; onPick: (toAll: boolean) => void
 				type="button"
 			>
 				<span className="mm-library-preview">{tile.thumb ?? (tile.previewUrl != null ? <img alt="" src={tile.previewUrl} draggable={false} /> : <Box size={20} strokeWidth={1.4} className="text-[var(--text-tertiary)]" />)}</span>
-				{nameField != null ? null : (
-					<span className="mm-library-label">
-						<span className="line-clamp-2">{tile.label}</span>
-					</span>
-				)}
+				<span className="mm-library-label">
+					<span className="line-clamp-2">{tile.label}</span>
+				</span>
 				{tile.detail != null && tile.detail !== '' ? <TileDetail text={tile.detail} onClick={tile.onDetail} /> : null}
 			</button>
-			{nameField}
 			{onKeep != null ? (
 				<button
 					className="mm-tile-star"

@@ -317,7 +317,7 @@ describe('follow camera on whole songs', () => {
 		it.skipIf(dump == null)(`matches the camera Blender bakes for ${name}`, () => {
 			const { project: loaded, result } = fixture(name);
 			const track = required(
-				followCameraTrack({ ...loaded, film: { ...loaded.film, theme: 'brass' } }, result, 30)
+				followCameraTrack({ ...loaded, film: { ...loaded.film, theme: { base: 'brass' } } }, result, 30)
 			);
 			const error = compareCameraTrack(track, required(dump));
 			expect(error.frameCountDelta).toBe(0);

@@ -2,8 +2,8 @@ import { createState } from 'feature-state';
 import { host } from '@/environment';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { addedPacks, isPackAdded, library } from '@/modules/library';
-import { packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack, themeCommands, packAddedNotice, packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions, packOrigin, packOriginLine, resolveTheme, skinnedOf } from '@/modules/scene';
-import { type TPackOrigin, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
+import { packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack, packAddedNotice, packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions, packOrigin, packOriginLine, resolveTheme, skinnedOf } from '@/modules/scene';
+import { type TPackOrigin, type TPackTheme, type TProject, type TProjectCommand } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { skinCommands, type TSkinTarget } from './film-commands';
 
@@ -167,21 +167,16 @@ export class FilmLibraryCx {
 		this.source.notify(`${packOrigin(pack.name)} removed. Projects keep what they use from it.`);
 	}
 
-	/** Applies a Pack's theme: the items it needs are copied in, then the project gets the theme and shows it, as one edit */
-	async applyPackTheme(pack: TPack, theme: TProjectTheme): Promise<boolean> {
-		const existing = this.source.getProject();
-		if (existing == null) return false;
-		if (!existing.film.themes.some((item) => item.id === theme.id)) {
-			const ready = await this.packThemeInProject(pack, theme);
-			const project = this.source.getProject();
-			if (ready == null || project == null) return false;
-			return this.source.execute(packThemeCommands(project, ready));
-		}
-		return this.source.execute(themeCommands(existing, theme.id));
+	/** Wears a Pack's theme: the items it needs are copied in, then its look goes on the film, as one edit */
+	async applyPackTheme(pack: TPack, theme: TPackTheme): Promise<boolean> {
+		const ready = await this.packThemeInProject(pack, theme);
+		const project = this.source.getProject();
+		if (ready == null || project == null) return false;
+		return this.source.execute(packThemeCommands(project, ready, packOriginOf(pack)));
 	}
 
-	/** A Pack's theme as a project stores it, with the items it needs copied in; null with a notice when one can't be */
-	async packThemeInProject(pack: TPack, theme: TProjectTheme): Promise<TProjectTheme | null> {
+	/** A Pack's theme with the items it needs copied in; null with a notice when one can't be */
+	async packThemeInProject(pack: TPack, theme: TPackTheme): Promise<TPackTheme | null> {
 		const ids = new Map<string, string>();
 		for (const id of themeAssetIds(theme)) {
 			const item = pack.items.find((candidate) => candidate.id === id);
@@ -189,7 +184,7 @@ export class FilmLibraryCx {
 			if (copied == null) return null;
 			ids.set(id, copied);
 		}
-		return { ...withThemeAssets(theme, ids), pack: packOriginOf(pack) };
+		return withThemeAssets(theme, ids);
 	}
 
 	/** Keep in Library (the star): a project item is copied into the global library; unstarring removes that copy */

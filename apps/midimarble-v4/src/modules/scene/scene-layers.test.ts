@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { applyProjectCommands, createHistory, parseProject, pushHistory, serializeProject, undoHistory, type TProject, type TProjectCommand } from '@/modules/project';
+import { createHistory, parseProject, pushHistory, serializeProject, undoHistory, type TProject, type TProjectCommand } from '@/modules/project';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
 import { draftWall } from './draft-look';
-import { appliedOverrides, duplicateThemeCommands, hasLayerChanges, resolveTheme, sceneThemeOverrides, themeCommands } from './project-themes';
-import { addedLights, addLightCommands, deleteLightsCommands, keyLightCommands, keyLightLayer, lightPlacement, resetKeyLightCommands, sceneLayers, updateLightCommands, wallCommands, wallKindOverride, wallLayer } from './scene-layers';
+import { appliedColors, sceneThemeOverrides, themeCommands } from './project-themes';
+import { addLightCommands, deleteLightsCommands, keyLightCommands, keyLightLayer, lightPlacement, resetKeyLightCommands, sceneLayers, updateLightCommands, wallCommands, wallKindOverride, wallLayer } from './scene-layers';
 import { apply } from '@/modules/project/test-helpers';
 
-function withTheme(theme: string): TProject {
+function withTheme(base: string): TProject {
 	const project = createStaircaseProject();
-	return { ...project, film: { ...project.film, theme } };
+	return { ...project, film: { ...project.film, theme: { base } } };
 }
 
 describe('wall layer', () => {
@@ -17,11 +17,10 @@ describe('wall layer', () => {
 		const brass = apply(project, themeCommands(project, 'brass'));
 		const colored = apply(brass, [{ type: 'updateFilm', film: { wall: { labelColor: '#2f6f8f' } } }]);
 		// Under any other skin the theme's wall stays
-		expect(appliedOverrides(colored.film).wallColor).toBeUndefined();
-		expect(hasLayerChanges(colored.film)).toBe(false);
+		expect(appliedColors(colored.film).wallColor).toBeUndefined();
 
 		const none = apply(colored, wallCommands(colored, { kind: 'none' }));
-		expect(appliedOverrides(none.film).wallColor).toBe('#2f6f8f');
+		expect(appliedColors(none.film).wallColor).toBe('#2f6f8f');
 		expect(sceneLayers(none.film).wallKind).toBe('pegboard');
 		expect(wallLayer(none.film)).toMatchObject({ kind: 'none', color: '#2f6f8f' });
 	});
@@ -34,7 +33,7 @@ describe('wall layer', () => {
 		expect(wallLayer(colored.film)).toMatchObject({ color: '#336699', backgroundColor: '#112233', kind: 'grid' });
 		expect(sceneThemeOverrides(colored.film)).toEqual({ wallColor: '#336699', backgroundColor: '#112233' });
 		expect(sceneLayers(colored.film)).toEqual({ wallKind: 'grid' });
-		expect(draftWall('brass', appliedOverrides(colored.film), wallKindOverride(colored.film))).toEqual({ color: '#336699', holes: null });
+		expect(draftWall('brass', appliedColors(colored.film), wallKindOverride(colored.film))).toEqual({ color: '#336699', holes: null });
 
 		const reset = apply(colored, wallCommands(colored, { color: null, backgroundColor: null, kind: null }));
 		expect(reset.film.wall).toEqual({});
@@ -103,22 +102,22 @@ describe('added lights', () => {
 		};
 		const { commands, lightId } = addLightCommands(project);
 		const added = edit(project, commands);
-		expect(addedLights(added.film)).toMatchObject([{ id: lightId, name: 'Light 1', color: '#ffffff' }]);
+		expect(added.film.lights.added).toMatchObject([{ id: lightId, name: 'Light 1', color: '#ffffff' }]);
 		// The first light fills from the other side of the wall than Brass's Key Light on the left
-		expect(addedLights(added.film)[0]?.side).toBeGreaterThan(0);
+		expect(added.film.lights.added[0]?.side).toBeGreaterThan(0);
 
 		const changed = edit(added, updateLightCommands(added, lightId, { color: '#00FF88', strength: 4, side: -0.2, height: 0.6 }));
-		expect(addedLights(changed.film)[0]).toMatchObject({ color: '#00ff88', strength: 4, side: -0.2, height: 0.6 });
+		expect(changed.film.lights.added[0]).toMatchObject({ color: '#00ff88', strength: 4, side: -0.2, height: 0.6 });
 		expect(sceneLayers(changed.film).lights).toEqual([{ id: lightId, name: 'Light 1', color: '#00ff88', strength: 4, side: -0.2, height: 0.6 }]);
 
 		const deleted = edit(changed, deleteLightsCommands(changed, [lightId]));
-		expect(addedLights(deleted.film)).toEqual([]);
+		expect(deleted.film.lights.added).toEqual([]);
 		expect(deleted.film.lights).toEqual({ added: [] });
 
 		history = undoHistory(history);
-		expect(addedLights(history.present.film)[0]?.color).toBe('#00ff88');
+		expect(history.present.film.lights.added[0]?.color).toBe('#00ff88');
 		history = undoHistory(history);
-		expect(addedLights(history.present.film)[0]?.color).toBe('#ffffff');
+		expect(history.present.film.lights.added[0]?.color).toBe('#ffffff');
 		history = undoHistory(history);
 		expect(history.present.film.lights).toEqual({ added: [] });
 	});
@@ -127,44 +126,9 @@ describe('added lights', () => {
 		const project = withTheme('pegboard');
 		const first = apply(project, addLightCommands(project).commands);
 		const second = apply(first, addLightCommands(first).commands);
-		expect(addedLights(second.film).map((light) => light.name)).toEqual(['Light 1', 'Light 2']);
+		expect(second.film.lights.added.map((light) => light.name)).toEqual(['Light 1', 'Light 2']);
 		expect(updateLightCommands(second, 'light-unknown', { strength: 1 })).toEqual([]);
 		expect(deleteLightsCommands(second, ['light-unknown'])).toEqual([]);
-	});
-});
-
-describe('save as theme', () => {
-	it("should move the project's Wall and Lights into the new theme and keep the look", () => {
-		const project = withTheme('brass');
-		let current = apply(project, wallCommands(project, { color: '#336699', kind: 'pegboard' }));
-		current = apply(current, keyLightCommands(current, { color: '#ff8800', strength: 7, softness: 0.6, exposure: 0.25, bloom: 0.5 }));
-		const { commands: lightCommands, lightId } = addLightCommands(current);
-		current = apply(current, lightCommands);
-		expect(hasLayerChanges(current.film)).toBe(true);
-		const before = { overrides: sceneThemeOverrides(current.film), layers: sceneLayers(current.film) };
-
-		const { commands, themeId } = duplicateThemeCommands(current, 'brass');
-		const saved = apply(current, commands);
-		expect(saved.film.theme).toBe(themeId);
-		expect(saved.film.wall).toEqual({});
-		expect(saved.film.lights).toEqual({ added: [] });
-		expect(hasLayerChanges(saved.film)).toBe(false);
-		expect(resolveTheme(saved.film).projectTheme).toMatchObject({ overrides: { wallColor: '#336699', lightColor: '#ff8800' }, wallKind: 'pegboard', keyLight: { strength: 7, softness: 0.6, exposure: 0.25, bloom: 0.5 } });
-		expect({ overrides: sceneThemeOverrides(saved.film), layers: sceneLayers(saved.film) }).toEqual(before);
-
-		// A light the theme holds is still a layer that edits and deletes
-		const edited = apply(saved, updateLightCommands(saved, lightId, { strength: 3 }));
-		expect(addedLights(edited.film)[0]?.strength).toBe(3);
-		const removed = apply(edited, deleteLightsCommands(edited, [lightId]));
-		expect(addedLights(removed.film)).toEqual([]);
-	});
-
-	it('should leave out the project changes when duplicating another theme', () => {
-		const project = withTheme('brass');
-		const colored = apply(project, wallCommands(project, { color: '#336699' }));
-		const copied = apply(colored, duplicateThemeCommands(colored, 'neon').commands);
-		expect(resolveTheme(copied.film).projectTheme?.overrides).toEqual({});
-		expect(copied.film.wall.color).toBe('#336699');
 	});
 });
 
@@ -185,19 +149,5 @@ describe('project file', () => {
 
 		const reset = apply(current, [...wallCommands(current, { color: null, kind: null })]);
 		expect(JSON.parse(serializeProject(reset)).film.wall).toEqual({});
-	});
-});
-
-describe('Wall skins', () => {
-	it('should keep a wall skin in Save as Theme and round-trip through the file', () => {
-		const staircase = createStaircaseProject();
-		const source: TProject = { ...staircase, film: { ...staircase.film, theme: 'brass', wall: { kind: 'grid' } } };
-		const { commands, themeId } = duplicateThemeCommands(source, 'brass');
-		const [isOk, err, saved] = applyProjectCommands(source, commands);
-		if (!isOk) throw err;
-		expect(resolveTheme(saved.film, themeId).projectTheme).toMatchObject({ wallKind: 'grid' });
-		const [isParsed, parseErr, parsed] = parseProject(serializeProject(saved));
-		if (!isParsed) throw parseErr;
-		expect(wallLayer(parsed.film)).toMatchObject({ kind: 'grid' });
 	});
 });

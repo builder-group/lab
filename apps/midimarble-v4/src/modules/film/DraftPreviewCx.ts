@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import type { TScenePiece } from '@/modules/scene';
 import { createCameraPose, sampleCameraTrack, verticalFov, type TCameraPose, FilmCameraCache, type TFilmCamera } from '@/modules/camera';
 import { TrackRenderer, MARBLE_Z, type TRenderPiece, pickPiece, pieceScreenOutline, hitboxOutlines } from '@/modules/canvas';
-import { isPointInPolygon, marblePositionAt, pieceAngleAt, blenderObjectBox, decorBox, decorList, madeInBlenderLayer, decorExtent, decorItem, isFrameEffect, type TDecorItem, snowfallOf, snowFlakes, type TFlake, distanceToBox, type TWallBox, appliedOverrides, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme, wallKindOverride, draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from '@/modules/scene';
+import { isPointInPolygon, marblePositionAt, pieceAngleAt, blenderObjectBox, decorBox, decorList, madeInBlenderLayer, decorExtent, decorItem, isFrameEffect, type TDecorItem, snowfallOf, snowFlakes, type TFlake, distanceToBox, type TWallBox, appliedColors, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme, wallKindOverride, draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from '@/modules/scene';
 import { marbleFilmColor, type TVec2, toDecorKey, toMadeInBlenderKey, WALL_KEY } from '@/modules/project';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
@@ -95,8 +95,8 @@ export class DraftPreviewCx {
 		return draftPieceColors(
 			theme?.base ?? DEFAULT_THEME,
 			scene ?? { type: piece.type, color: '#c8b89a', skin: null },
-			theme?.overrides,
-			theme?.projectTheme?.parts
+			theme?.glowColor != null ? { glowColor: theme.glowColor } : {},
+			theme?.ownParts
 		);
 	}
 
@@ -108,7 +108,7 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (piece.type !== 'platform' || project == null) return [];
 		const theme = resolveTheme(project.film);
-		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: this.scenePiece(piece.pieceId)?.skin ?? null, angle: piece.angle }, theme.projectTheme?.parts);
+		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: this.scenePiece(piece.pieceId)?.skin ?? null, angle: piece.angle }, theme.ownParts);
 		if (!marks.length) return [];
 		const angle = pieceAngleAt(piece, this.studio.$playhead.get());
 		const [length, thickness, depth] = [piece.params['length'] ?? 0.06, piece.params['thickness'] ?? 0.008, shownDepth(piece)];
@@ -289,7 +289,7 @@ export class DraftPreviewCx {
 			const motion = result?.marbles.find((item) => item.marbleId === marble.id);
 			const position = marblePositionAt(motion, playhead, marble.start.position);
 			const look = resolveElementLook(project.film, 'marble', marble.skin);
-			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? marble.labelColor : marbleFilmColor(project, marble.id), appliedOverrides(project.film), look);
+			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? marble.labelColor : marbleFilmColor(project, marble.id), appliedColors(project.film), look);
 			// Draft isn't the film: a marble no skin dresses shows its label color, so it reads as the same marble as in Track
 			const label = look.skin === 'marble:contrast' && marble.skin?.color == null ? marble.labelColor : undefined;
 			return [
@@ -357,7 +357,7 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (renderer == null || project == null) return;
 		const theme = resolveTheme(project.film);
-		const overrides = appliedOverrides(project.film);
+		const overrides = appliedColors(project.film);
 		const wallKind = wallKindOverride(project.film);
 		const wallKey = `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''}`;
 		if (this.wallTheme !== wallKey) {

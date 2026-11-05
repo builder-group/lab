@@ -4,9 +4,11 @@ import { STARTER_PACK, withStarterPack, type TLibraryItem, type TPack } from './
 import { decorItem } from './decor-catalog';
 import { WALL_KINDS } from './scene-layers';
 import { catalogSkins, SKIN_ELEMENTS } from './skin-catalog';
-import { createProject, type TProjectTheme } from '@/modules/project';
+import { createProject, type TPackTheme } from '@/modules/project';
+import { apply } from '@/modules/project/test-helpers';
+import { packThemeCommands } from './project-themes';
 import { libraryEntries, libraryItemOrigin, packContents } from '@/modules/film';
-import { packExport, packThemeCommands, themeAssetIds, withThemeAssets } from './packs';
+import { packExport, themeAssetIds, withThemeAssets } from './packs';
 import { packOrigin } from './project-themes';
 
 function item(id: string, role: 'skin' | 'decoration', extra: Partial<TLibraryItem> = {}, pack?: string): TLibraryItem {
@@ -23,7 +25,7 @@ function item(id: string, role: 'skin' | 'decoration', extra: Partial<TLibraryIt
 	};
 }
 
-const theme: TProjectTheme = { id: 'cozy', name: 'Cozy', base: 'brass', overrides: {}, parts: { platform: { skin: 'brass-bar' }, rail: { skin: 'rail:chrome' } } };
+const theme: TPackTheme = { id: 'cozy', name: 'Cozy', base: 'brass', parts: { platform: { skin: 'brass-bar' }, rail: { skin: 'rail:chrome' } } };
 
 function pack(items: TLibraryItem[], extra: Partial<TPack> = {}): TPack {
 	return { id: 'christmas', path: '/p', name: 'Christmas', version: '1.0', description: null, author: null, link: null, pictureUrl: null, themes: [], items, builtInDecor: [], ...extra };
@@ -35,22 +37,22 @@ describe('Packs', () => {
 		expect(withThemeAssets(theme, new Map([['brass-bar', 'brass-bar-2']])).parts?.platform?.skin).toBe('brass-bar-2');
 	});
 
-	it('should add a theme and show it as one edit', () => {
+	it('should wear a theme as one edit', () => {
 		const project = createProject({ title: 'Song' });
-		const commands = packThemeCommands(project, theme);
-		expect(commands[0]).toEqual({ type: 'updateFilm', film: { themes: [theme] } });
-		expect(commands.some((command) => command.type === 'updateFilm' && command.film.theme === 'cozy')).toBe(true);
+		const commands = packThemeCommands(project, theme, { packId: 'christmas', packName: 'Christmas', version: '1.0' });
+		expect(commands).toHaveLength(1);
+		expect(apply(project, commands).film.theme).toEqual({ base: 'brass', parts: theme.parts, pack: { packId: 'christmas', packName: 'Christmas', version: '1.0', themeId: 'cozy', themeName: 'Cozy' } });
 	});
 
 	it('should export the shown theme and chosen items, with what the theme needs', () => {
 		const project = createProject({ title: 'Song' });
-		const withTheme = { ...project, film: { ...project.film, themes: [theme], theme: 'cozy' } };
+		const withTheme = { ...project, film: { ...project.film, theme: { base: 'brass', parts: theme.parts } } };
 		const [isOk, , exported] = packExport(withTheme, [item('brass-bar', 'skin'), item('bauble', 'decoration'), item('tree', 'decoration')], { name: ' Christmas ', includesTheme: true, assetIds: ['bauble'] });
 		expect(isOk).toBe(true);
 		expect(exported?.manifest).toMatchObject({ id: 'christmas', name: 'Christmas', version: '1.0' });
 		expect(exported?.assetIds.sort()).toEqual(['bauble', 'brass-bar']);
 		expect(exported?.manifest.items.map((entry) => entry.kind).sort()).toEqual(['decor', 'skin', 'theme']);
-		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TProjectTheme;
+		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TPackTheme;
 		expect(stored.name).toBe('Christmas');
 		expect(stored.id).not.toBe('cozy');
 	});
@@ -58,8 +60,8 @@ describe('Packs', () => {
 	it('should export a built-in theme as a stored theme on its base', () => {
 		const project = createProject({ title: 'Song' });
 		const [, , exported] = packExport(project, [], { name: 'Mine', includesTheme: true, assetIds: [] });
-		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TProjectTheme;
-		expect(stored.base).toBe(project.film.theme);
+		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TPackTheme;
+		expect(stored.base).toBe(project.film.theme.base);
 	});
 
 	it('should refuse an empty or unnamed Pack and an item that is not in the project', () => {

@@ -1,12 +1,12 @@
 import type { TSceneKeyLight, TSceneLight, TSceneWallKind } from './scene-description';
 import { createId, type TFilm, type TKeyLightPose, type TLight, type TProject, type TProjectCommand, type TWallKind, type TWallSkin } from '@/modules/project';
-import { DEFAULT_THEME, noneWallColor, resolveTheme, themeDefaultColor, type TResolvedTheme } from './project-themes';
+import { DEFAULT_THEME, noneWallColor, resolveTheme, themeDefaultColor } from './project-themes';
 
 // The Wall and Lights layers of Film. Each sets its values on top of the applied theme, like a piece's skin: unset
-// fields show the theme's and read "From Brass". A project's own values live in `film.wall` and `film.lights`;
-// Export This Look… moves them into the theme it keeps (`duplicateThemeCommands`).
+// fields show the base theme's and read "From Brass". The values live in `film.wall` and `film.lights`, a Pack theme's
+// among them.
 
-type TSceneFilm = Pick<TFilm, 'theme' | 'themes' | 'wall' | 'lights'>;
+type TSceneFilm = Pick<TFilm, 'theme' | 'wall' | 'lights'>;
 
 /** The Wall layer's Skin choices: the wall kinds of the themes */
 export const WALL_KINDS: readonly { kind: TWallKind; label: string }[] = [
@@ -32,7 +32,7 @@ const BASE_SCENES: Record<string, { wallKind: TWallKind; strength: number; angle
 const MAX_SUN_ANGLE = 60;
 
 /** Name a layer reads while the theme dresses it, as in "From Brass" */
-export function themeOriginLabel(film: Pick<TFilm, 'theme' | 'themes'>): string {
+export function themeOriginLabel(film: Pick<TFilm, 'theme'>): string {
 	return `From ${resolveTheme(film).name}`;
 }
 
@@ -62,11 +62,11 @@ export interface TWallLayer {
 }
 
 export function wallLayer(film: TSceneFilm): TWallLayer {
-	const theme = resolveTheme(film);
+	const { base } = resolveTheme(film);
 	const themeLook = {
-		color: theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff',
-		backgroundColor: theme.overrides.backgroundColor ?? themeDefaultColor(theme.base, 'backgroundColor') ?? '#ffffff',
-		kind: theme.projectTheme?.wallKind ?? baseScene(theme.base).wallKind
+		color: themeDefaultColor(base, 'wallColor') ?? '#ffffff',
+		backgroundColor: themeDefaultColor(base, 'backgroundColor') ?? '#ffffff',
+		kind: baseScene(base).wallKind
 	};
 	const own = film.wall;
 	return {
@@ -81,7 +81,7 @@ export function wallLayer(film: TSceneFilm): TWallLayer {
 /** The Wall's Skin when it is not its base theme's own: what the scene description and the Draft Preview need */
 export function wallKindOverride(film: TSceneFilm): TWallKind | undefined {
 	if (film.wall.kind === 'none') return 'pegboard';
-	return film.wall.kind ?? resolveTheme(film).projectTheme?.wallKind;
+	return film.wall.kind;
 }
 
 /** Sets or, with null, clears the Wall layer's own values; clearing brings the theme's back */
@@ -107,9 +107,8 @@ export interface TKeyLightLayer {
 }
 
 export function keyLightLayer(film: TSceneFilm): TKeyLightLayer {
-	const theme = resolveTheme(film);
 	const own = film.lights.key ?? {};
-	const themed = themedKeyLight(theme);
+	const themed = themedKeyLight(resolveTheme(film).base);
 	return {
 		color: own.color ?? themed.color,
 		strength: own.strength ?? themed.strength,
@@ -122,18 +121,17 @@ export function keyLightLayer(film: TSceneFilm): TKeyLightLayer {
 	};
 }
 
-function themedKeyLight(theme: TResolvedTheme): Required<TKeyLightPose> & { color: string } {
-	const base = baseScene(theme.base);
-	const pose = theme.projectTheme?.keyLight ?? {};
+function themedKeyLight(themeBase: string): Required<TKeyLightPose> & { color: string } {
+	const base = baseScene(themeBase);
 	const placement = lightPlacement(base.direction);
 	return {
-		color: theme.overrides.lightColor ?? themeDefaultColor(theme.base, 'lightColor') ?? '#ffffff',
-		strength: pose.strength ?? base.strength,
-		side: pose.side ?? placement.side,
-		height: pose.height ?? placement.height,
-		softness: pose.softness ?? base.angle / MAX_SUN_ANGLE,
-		exposure: pose.exposure ?? 0,
-		bloom: pose.bloom ?? 0
+		color: themeDefaultColor(themeBase, 'lightColor') ?? '#ffffff',
+		strength: base.strength,
+		side: placement.side,
+		height: placement.height,
+		softness: base.angle / MAX_SUN_ANGLE,
+		exposure: 0,
+		bloom: 0
 	};
 }
 
@@ -154,16 +152,10 @@ export function resetKeyLightCommands(project: TProject): TProjectCommand[] {
 
 // MARK: - Added lights
 
-/** Every added light of the film, the applied project theme's first; order as in Layers */
-export function addedLights(film: TSceneFilm): TLight[] {
-	const themed = film.themes.find((theme) => theme.id === film.theme)?.lights ?? [];
-	return [...themed, ...film.lights.added];
-}
-
 /** A new light, on the other side of the wall from the Key Light so it fills the shadows, and named Light 1, Light 2… */
 export function addLightCommands(project: TProject): { commands: TProjectCommand[]; lightId: string } {
 	const key = keyLightLayer(project.film);
-	const taken = addedLights(project.film).map((light) => light.name);
+	const taken = project.film.lights.added.map((light) => light.name);
 	let index = 1;
 	while (taken.includes(`Light ${index}`)) index++;
 	const light: TLight = { id: createId('light'), name: `Light ${index}`, color: '#ffffff', strength: 2, side: key.side <= 0 ? 0.5 : -0.5, height: 0.3 };
@@ -171,29 +163,15 @@ export function addLightCommands(project: TProject): { commands: TProjectCommand
 }
 
 export function updateLightCommands(project: TProject, lightId: string, patch: Partial<Omit<TLight, 'id'>>): TProjectCommand[] {
-	const change = (light: TLight): TLight => (light.id === lightId ? { ...light, ...patch, ...(patch.color != null ? { color: patch.color.toLowerCase() } : {}) } : light);
-	return editLightLists(project, lightId, (lights) => lights.map(change));
+	const { lights } = project.film;
+	if (!lights.added.some((light) => light.id === lightId)) return [];
+	return setLights({ ...lights, added: lights.added.map((light) => (light.id === lightId ? { ...light, ...patch, ...(patch.color != null ? { color: patch.color.toLowerCase() } : {}) } : light)) });
 }
 
 export function deleteLightsCommands(project: TProject, lightIds: readonly string[]): TProjectCommand[] {
-	const keep = (light: TLight): boolean => !lightIds.includes(light.id);
-	const { film } = project;
-	const patch: Partial<TFilm> = {};
-	if (film.lights.added.some((light) => !keep(light))) patch.lights = { ...film.lights, added: film.lights.added.filter(keep) };
-	if (film.themes.find((theme) => theme.id === film.theme)?.lights?.some((light) => !keep(light)) === true) {
-		patch.themes = film.themes.map((theme) => (theme.id === film.theme ? { ...theme, lights: theme.lights?.filter(keep) } : theme));
-	}
-	return Object.keys(patch).length > 0 ? [{ type: 'updateFilm', film: patch }] : [];
-}
-
-/** Applies a light edit to the list holding the light: the project's, or the applied project theme's */
-function editLightLists(project: TProject, lightId: string, edit: (lights: TLight[]) => TLight[]): TProjectCommand[] {
-	const { film } = project;
-	const added = film.lights.added;
-	if (added.some((light) => light.id === lightId)) return setLights({ ...film.lights, added: edit(added) });
-	const applied = film.themes.find((theme) => theme.id === film.theme);
-	if (applied?.lights?.some((light) => light.id === lightId) !== true) return [];
-	return [{ type: 'updateFilm', film: { themes: film.themes.map((theme) => (theme.id === applied.id ? { ...theme, lights: edit(theme.lights ?? []) } : theme)) } }];
+	const { lights } = project.film;
+	const added = lights.added.filter((light) => !lightIds.includes(light.id));
+	return added.length !== lights.added.length ? setLights({ ...lights, added }) : [];
 }
 
 function setLights(lights: TFilm['lights']): TProjectCommand[] {
@@ -204,11 +182,9 @@ function setLights(lights: TFilm['lights']): TProjectCommand[] {
 
 /** The Wall's Skin, the Key Light's pose and the added lights for the scene description; absent when they are the theme's */
 export function sceneLayers(film: TSceneFilm): { wallKind?: TSceneWallKind; keyLight?: TSceneKeyLight; lights?: TSceneLight[] } {
-	const theme = resolveTheme(film);
 	const kind = wallKindOverride(film);
-	const { color: _color, ...ownPose } = film.lights.key ?? {};
-	const pose: TKeyLightPose = { ...theme.projectTheme?.keyLight, ...ownPose };
-	const lights = addedLights(film);
+	const { color: _color, ...pose } = film.lights.key ?? {};
+	const lights = film.lights.added;
 	return {
 		...(kind != null ? { wallKind: kind } : {}),
 		...(Object.keys(pose).length > 0 ? { keyLight: pose } : {}),

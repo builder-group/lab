@@ -49,8 +49,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 		marbles: [createMarble(0, { x: 0, y: 0.6 })],
 		track: { pieces: [], groups: [] },
 		film: {
-			theme: 'pegboard',
-			themes: [],
+			theme: { base: 'pegboard' },
 			wall: {},
 			lights: { added: [] },
 			decor: [],

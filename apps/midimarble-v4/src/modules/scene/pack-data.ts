@@ -1,5 +1,5 @@
 import starterManifest from '../../../packs/Starter.marblepack/pack.json';
-import { SProjectTheme, type TPackOrigin, type TProjectTheme } from '@/modules/project';
+import { SPackTheme, type TPackOrigin, type TPackTheme } from '@/modules/project';
 import type { TAssetManifest } from './asset-manifest';
 
 // What a Pack and a library item are, with nothing that talks to the host: the Starter Pack, its origin line and a theme as a Pack stores it.
@@ -31,7 +31,7 @@ export interface TPack {
 	author: string | null;
 	link: string | null;
 	pictureUrl: string | null;
-	themes: TProjectTheme[];
+	themes: TPackTheme[];
 	items: TLibraryItem[];
 	/** Decor the app draws itself, by source such as `decor:bauble-red`, for a bundled Pack without assets yet */
 	builtInDecor: string[];
@@ -75,9 +75,9 @@ export function packOriginOf(pack: Pick<TPack, 'id' | 'name' | 'version' | 'auth
 	return { packId: pack.id, packName: pack.name, version: pack.version, ...(pack.author != null ? { author: pack.author } : {}), ...(pack.link != null ? { link: pack.link } : {}) };
 }
 
-export function parsePackTheme(json: string): TProjectTheme | null {
+export function parsePackTheme(json: string): TPackTheme | null {
 	try {
-		const parsed = SProjectTheme.safeParse(JSON.parse(json));
+		const parsed = SPackTheme.safeParse(JSON.parse(json));
 		return parsed.success ? parsed.data : null;
 	} catch {
 		return null;
