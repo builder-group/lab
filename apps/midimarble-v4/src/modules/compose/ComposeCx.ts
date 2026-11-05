@@ -665,10 +665,6 @@ export class ComposeCx {
 
 	// MARK: - Follow and gliding
 
-	setFollow(isOn: boolean): void {
-		this.$follow.set(isOn);
-	}
-
 	toggleFollow(): void {
 		this.$follow.set(!this.$follow.get());
 	}
@@ -1679,13 +1675,6 @@ export class ComposeCx {
 		this.$hoverPreview.set(null);
 		if (this.$drag.get() == null) this.$override.set(null);
 		this.studio.simulation.endPreview();
-	}
-
-	/** True when the hit ends a gap too long for a bounce that no rail or tunnel bridges yet */
-	isLongGapDot(laneId: string, hitId: string): boolean {
-		const project = this.project;
-		if (project == null) return false;
-		return this.longGapKeys(project).has(`${laneId}:${hitId}`);
 	}
 
 	private longGapCache: { project: TProject; keys: Map<string, { fromHitId: string; duration: number }> } | null = null;

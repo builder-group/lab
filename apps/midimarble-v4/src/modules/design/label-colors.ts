@@ -52,7 +52,7 @@ export function trackPieceColors(project: TProject | null | undefined, entityId:
 	const key = `${type}:${color ?? ''}`;
 	let colors = trackColors.get(key);
 	if (colors == null) {
-		colors = draftPieceColors('pegboard', { type, color: color ?? '#000000', skin: color != null ? null : { colorSource: 'skin' } }, false);
+		colors = draftPieceColors('pegboard', { type, color: color ?? '#000000', skin: color != null ? null : { colorSource: 'skin' } });
 		trackColors.set(key, colors);
 	}
 	return colors;

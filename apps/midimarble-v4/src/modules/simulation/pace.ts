@@ -79,10 +79,10 @@ export function paceRate(project: TProject): number {
  * hits back. With a drop d per hit and k = g·T²/2 a bounce rises r = (k − d)² / 4k above its piece, which
  * lies d below the piece two hits back, so d − r = clearance gives d = 3k − √(8k² − 4k · clearance).
  */
-export function columnRate(interval: number, g = EARTH, clearance = COLUMN_CLEARANCE): number {
+export function columnRate(interval: number, g = EARTH): number {
 	if (interval <= 0) return 0;
 	const k = (g * interval * interval) / 2;
-	const drop = 3 * k - Math.sqrt(Math.max(0, 8 * k * k - 4 * k * clearance));
+	const drop = 3 * k - Math.sqrt(Math.max(0, 8 * k * k - 4 * k * COLUMN_CLEARANCE));
 	return drop / interval;
 }
 
@@ -111,8 +111,9 @@ export interface TDescentPoint {
 	y: number;
 }
 
-/** y*(t) sampled every `step` seconds from `from` to `to`, both included, for consumers that interpolate */
-export function descentPoints(pace: TDescentPace, from: number, to: number, step = 0.5): TDescentPoint[] {
+/** y*(t) sampled every half second from `from` to `to`, both included, for consumers that interpolate */
+export function descentPoints(pace: TDescentPace, from: number, to: number): TDescentPoint[] {
+	const step = 0.5;
 	const points: TDescentPoint[] = [];
 	const count = Math.max(1, Math.ceil((to - from) / step - 1e-9));
 	for (let i = 0; i <= count; i++) {

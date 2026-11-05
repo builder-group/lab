@@ -224,19 +224,6 @@ export function changesTail(commands: readonly TProjectCommand[], before: TProje
 const HIT_COMMANDS = new Set<TProjectCommand['type']>(['upsertLane', 'removeLane', 'upsertHits', 'removeHits', 'assignHits']);
 
 /**
- * Fit to Song to offer where the user set the length: the fitted length when the song ends more than
- * `FIT_OFFER_GAP` before it, or after it, so its last hits are cut off. Null while the length follows the song.
- */
-export function fitToSongOffer(project: TProject): number | null {
-	const end = projectSongEnd(project);
-	if (end == null || isAutoEnd(project)) return null;
-	return end < project.end - FIT_OFFER_GAP || end > project.end + 1e-6 ? end : null;
-}
-
-// Seconds of film past the song's end before Fit to Song is offered
-const FIT_OFFER_GAP = 1;
-
-/**
  * Seconds between an imported marble's release and its first note: a 0.6 m drop at half gravity. Shorter leads
  * built Jingle Bells worse (0.35 s crossed the lanes), as the first arrival speed shapes the whole run.
  */
@@ -265,13 +252,13 @@ export function noteToHit(note: TMidiNote): THit {
 }
 
 /** Hits that follow their predecessor too closely for one marble */
-export function findLaneConflicts(lane: TLane, minGap = MIN_HIT_GAP): Set<string> {
+export function findLaneConflicts(lane: TLane): Set<string> {
 	const conflicts = new Set<string>();
 	for (let index = 1; index < lane.hits.length; index++) {
 		const previous = lane.hits[index - 1];
 		const hit = lane.hits[index];
 		if (previous == null || hit == null) continue;
-		if (hit.time - previous.time < minGap - 1e-9) {
+		if (hit.time - previous.time < MIN_HIT_GAP - 1e-9) {
 			conflicts.add(previous.id);
 			conflicts.add(hit.id);
 		}

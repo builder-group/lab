@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
-import { autoEnd, changesHitsOnly, changesTail, createImportCommands, DEFAULT_PROJECT_END, filmTail, BOWL_TAIL, BOWL_TAIL_MAX, BOWL_TAIL_MIN, bowlTail, fitsSong, fitToSongOffer, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
+import { autoEnd, changesHitsOnly, changesTail, createImportCommands, DEFAULT_PROJECT_END, filmTail, BOWL_TAIL, BOWL_TAIL_MAX, BOWL_TAIL_MIN, bowlTail, fitsSong, IMPORT_RELEASE_LEAD, isAutoEnd, lastPlayingLanes, SONG_TAIL } from './lane-commands';
 import type { TMidiNote } from './midi';
 
 function note(time: number, pitch: number): TMidiNote {
@@ -69,14 +69,6 @@ describe('autoEnd', () => {
 		expect(autoEnd(set, tapped([1, 3.6, 5], 20))).toBeNull();
 	});
 
-	it('offers Fit to Song where the user set a length the song no longer matches', () => {
-		expect(fitToSongOffer(tapped([1, 3.6], 20))).toBe(4);
-		// Hits past a length the user set are cut off
-		expect(fitToSongOffer(tapped([1, 3.6], 3))).toBe(4);
-		expect(fitToSongOffer(tapped([1, 3.6], 4.5))).toBeNull();
-		expect(fitToSongOffer(tapped([1, 3.6]))).toBeNull();
-	});
-
 	it('follows the song only for edits of the notes, not one that sets the length', () => {
 		expect(changesHitsOnly([{ type: 'upsertHits', laneId: 'l', hits: [] }])).toBe(true);
 		expect(changesHitsOnly([{ type: 'upsertHits', laneId: 'l', hits: [] }, { type: 'setEnd', end: 3 }])).toBe(false);
@@ -118,9 +110,7 @@ describe('filmTail', () => {
 		const after = withLanes([[1, 3.6]], ['lane-0'], 4);
 		expect(changesTail([{ type: 'upsertEntity', entity: after.entities[after.entities.length - 1] as TProject['entities'][number] }], before, after)).toBe(true);
 		expect(autoEnd(before, after)).toBe(3.6 + BOWL_TAIL);
-		// A length the user set stays theirs, and Fit to Song offers the longer one
 		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.8))).toBe(true);
-		expect(fitToSongOffer(withLanes([[1, 3.6]], ['lane-0'], 9))).toBe(4.8);
 		expect(autoEnd(withLanes([[1, 3.6]], [], 9), withLanes([[1, 3.6]], ['lane-0'], 9))).toBeNull();
 		// A measured tail counts as following the song and carries over to the next edit
 		expect(isAutoEnd(withLanes([[1, 3.6]], ['lane-0'], 4.7))).toBe(true);

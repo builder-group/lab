@@ -940,10 +940,10 @@ export function commandTitle(cx: StudioCx, command: TCommand): string {
 	return command.currentTitle?.(cx) ?? command.title;
 }
 
-export function commandItem(cx: StudioCx, id: TCommandId, title?: string): TMenuItem {
+export function commandItem(cx: StudioCx, id: TCommandId): TMenuItem {
 	const command = getCommand(id);
 	return {
-		label: title ?? commandTitle(cx, command),
+		label: commandTitle(cx, command),
 		shortcut: command.shortcut,
 		disabled: !isCommandEnabled(cx, command),
 		checked: command.isChecked?.(cx),

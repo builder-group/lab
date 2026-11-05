@@ -51,15 +51,15 @@ export function detectOnsets(
 
 /**
  * Timeline times for a recording's onsets, as Add Suggested Hits places them: shifted by the source offset,
- * rounded to 0.1 ms, at least `minGap` apart and away from the hits the lane already has
+ * rounded to 0.1 ms, at least `MIN_HIT_GAP` apart and away from the hits the lane already has
  */
-export function suggestedHitTimes(onsets: number[], offset: number, existing: number[] = [], minGap = MIN_HIT_GAP): number[] {
+export function suggestedHitTimes(onsets: number[], offset: number, existing: number[] = []): number[] {
 	const times: number[] = [];
 	let last = Number.NEGATIVE_INFINITY;
 	for (const onset of onsets) {
 		const time = Math.round((onset + offset) * 10000) / 10000;
-		if (time - last < minGap) continue;
-		if (existing.some((item) => Math.abs(item - time) < minGap)) continue;
+		if (time - last < MIN_HIT_GAP) continue;
+		if (existing.some((item) => Math.abs(item - time) < MIN_HIT_GAP)) continue;
 		times.push(time);
 		last = time;
 	}

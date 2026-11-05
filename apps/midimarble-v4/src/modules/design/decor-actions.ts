@@ -97,16 +97,14 @@ function rememberScatterChoice(sources: readonly string[]): void {
 }
 
 /**
- * Opens the panel. It asks what to scatter, starting from the last choice, and changes nothing until Scatter is pressed;
- * `sources`, such as what an agent just made, scatter at once.
+ * Opens the panel. It asks what to scatter, starting from the last choice, and changes nothing until Scatter is pressed.
  */
-export function openScatterPanel(cx: StudioCx, sources?: string[]): void {
+export function openScatterPanel(cx: StudioCx): void {
 	if (cx.project == null) return;
 	cx.$workspace.set('design');
 	const offered = new Set(scatterItems(cx).map((item) => item.id));
-	const panel: TScatterPanel = { sources: sources ?? readScatterChoice().filter((source) => offered.has(source)), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, isAtMost: false, group: null };
+	const panel: TScatterPanel = { sources: readScatterChoice().filter((source) => offered.has(source)), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, isAtMost: false, group: null };
 	$scatterPanel.set(panel);
-	if (sources != null && sources.length > 0) runScatter(cx, panel);
 }
 
 /** What the panel offers: the listed items that scatter, then Decor from the Library that is in this project */

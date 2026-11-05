@@ -61,13 +61,15 @@ export function panBy(view: TView, dx: number, dy: number): TView {
 	return { scale: view.scale, center: { x: view.center.x - dx / view.scale, y: view.center.y + dy / view.scale } };
 }
 
-/** View that shows `bounds` with `padding` CSS pixels around it, never closer than `maxScale` */
-export function fitBounds(bounds: TBounds, viewport: TViewport, padding: TPadding, maxScale = 4000): TView {
+const MAX_FIT_SCALE = 4000;
+
+/** View that shows `bounds` with `padding` CSS pixels around it, never closer than `MAX_FIT_SCALE` */
+export function fitBounds(bounds: TBounds, viewport: TViewport, padding: TPadding): TView {
 	const width = Math.max(1, viewport.width - padding.left - padding.right);
 	const height = Math.max(1, viewport.height - padding.top - padding.bottom);
 	const spanX = Math.max(1e-4, bounds.maxX - bounds.minX);
 	const spanY = Math.max(1e-4, bounds.maxY - bounds.minY);
-	const scale = clampScale(Math.min(width / spanX, height / spanY, maxScale));
+	const scale = clampScale(Math.min(width / spanX, height / spanY, MAX_FIT_SCALE));
 	// Center the content in the padded area, which may be off the viewport center
 	const offsetX = (padding.left - padding.right) / 2 / scale;
 	const offsetY = (padding.bottom - padding.top) / 2 / scale;
@@ -125,7 +127,8 @@ export interface TScreenRect {
  * `obstacles`: under the anchor, under the obstacles, beside them or above the anchor, whichever fits in the
  * viewport first. Falls back to the anchor, kept inside the viewport.
  */
-export function placeBar(anchor: TVec2, size: { width: number; height: number }, obstacles: TScreenRect[], viewport: TViewport, gap = 10): { left: number; top: number } {
+export function placeBar(anchor: TVec2, size: { width: number; height: number }, obstacles: TScreenRect[], viewport: TViewport): { left: number; top: number } {
+	const gap = 10;
 	const margin = 8;
 	const clampLeft = (left: number): number => Math.min(Math.max(left, size.width / 2 + margin), viewport.width - size.width / 2 - margin);
 	const clampTop = (top: number): number => Math.min(Math.max(top, 48), viewport.height - size.height - margin);

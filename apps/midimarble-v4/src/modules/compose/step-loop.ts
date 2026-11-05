@@ -16,10 +16,10 @@ import type { StudioCx } from '@/modules/studio/StudioCx';
 
 // The step loop builds a run one hit at a time: place a piece at a dot, rotate it, accept and move on.
 
-/** Open hits of a lane that the marble reaches, in time order */
-export function openHits(result: TSimulationResult, laneId?: string): THitResult[] {
+/** Open hits that a marble reaches, in time order */
+export function openHits(result: TSimulationResult): THitResult[] {
 	return result.hits
-		.filter((hit) => hit.status === 'open' && hit.dot != null && (laneId == null || hit.laneId === laneId))
+		.filter((hit) => hit.status === 'open' && hit.dot != null)
 		.sort((a, b) => a.targetTime - b.targetTime);
 }
 
@@ -187,10 +187,10 @@ export function commitAtHit(cx: StudioCx, hit: THitResult, entity: TEntity): boo
 }
 
 /** Places a piece of `type` at an open hit, selects it, moves the playhead there and plays the note */
-export function placeAtHit(cx: StudioCx, hit: THitResult, type: string, mode: TStepMode = 'default'): string | null {
+export function placeAtHit(cx: StudioCx, hit: THitResult, type: string): string | null {
 	const project = cx.project;
 	if (project == null || hit.dot == null) return null;
-	const entity = pieceForHit(project, hit, type, mode);
+	const entity = pieceForHit(project, hit, type, 'default');
 	return commitAtHit(cx, hit, entity) ? entity.id : null;
 }
 

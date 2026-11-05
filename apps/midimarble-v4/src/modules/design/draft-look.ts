@@ -91,17 +91,15 @@ function accentOf(look: TSkinLook, piece: Pick<TScenePiece, 'color' | 'notePitch
 
 /**
  * Body and accent color of a piece from its scene description entry: its skin, wherever the theme stands, and that skin's
- * Color. `colorByNote` is the theme's default for platforms; `parts` a project theme's parts.
+ * Color. `parts` a project theme's parts.
  */
 export function draftPieceColors(
 	theme: string,
 	piece: Pick<TScenePiece, 'type' | 'color' | 'skin' | 'notePitch'>,
-	colorByNote: boolean,
 	overrides: Pick<TThemeOverrides, 'glowColor'> = {},
 	parts?: TThemeParts
 ): TDraftColors {
-	const withNote = colorByNote ? { ...parts, platform: { ...parts?.platform, colorSource: 'note' as const } } : parts;
-	const look = resolveSkinLook(theme, withNote, skinElement(piece.type), piece.skin);
+	const look = resolveSkinLook(theme, parts, skinElement(piece.type), piece.skin);
 	const style = look.skin.split(':')[1] ?? '';
 	const accent = accentOf(look, piece);
 	// None is a plain piece in its label color, whatever the theme

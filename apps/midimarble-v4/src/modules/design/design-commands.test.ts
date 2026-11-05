@@ -35,7 +35,7 @@ describe('design commands', () => {
 	it('should dress a skin the same in every theme', () => {
 		// The Draft Preview dresses a skin the same in every theme, like the Blender worker
 		const copper = { type: 'platform', color: '#3478f6', skin: { assetId: 'platform:copper' } };
-		expect(draftPieceColors('neon', copper, false)).toEqual(draftPieceColors('brass', copper, false));
+		expect(draftPieceColors('neon', copper)).toEqual(draftPieceColors('brass', copper));
 	});
 
 	it('should link a built-in skin, and follow the theme again with the theme\'s own skin', () => {

@@ -138,8 +138,8 @@ describe('project themes in Blender and the Draft Preview', () => {
 		expect(draftWall('pegboard', { wallColor: '#336699' })).toMatchObject({ color: '#336699', holes: expect.any(String) });
 		expect(draftWall('brass').color).toBe('#a098ac');
 		const piece = { type: 'platform', color: '#d94f4f', skin: null };
-		expect(draftPieceColors('neon', piece, false, { glowColor: '#00ff88' }).bar).toBe('#00ff88');
-		expect(draftPieceColors('neon', piece, false).bar).not.toBe('#00ff88');
+		expect(draftPieceColors('neon', piece, { glowColor: '#00ff88' }).bar).toBe('#00ff88');
+		expect(draftPieceColors('neon', piece).bar).not.toBe('#00ff88');
 	});
 });
 

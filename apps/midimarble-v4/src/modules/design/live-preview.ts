@@ -26,8 +26,8 @@ export interface TLivePreviewFrames {
  * Preview frames of an applied scene, as the worker's `preview_render` counts them: every `step`-th scene frame,
  * so a 60 fps scene previews at 30 fps
  */
-export function previewTimeline(scene: { fps: number; frameStart: number; frameEnd: number }, fps = LIVE_PREVIEW_FPS): { fps: number; startTime: number; total: number } {
-	const step = Math.max(1, Math.round(scene.fps / fps));
+export function previewTimeline(scene: { fps: number; frameStart: number; frameEnd: number }): { fps: number; startTime: number; total: number } {
+	const step = Math.max(1, Math.round(scene.fps / LIVE_PREVIEW_FPS));
 	return {
 		fps: scene.fps / step,
 		startTime: scene.frameStart / scene.fps,

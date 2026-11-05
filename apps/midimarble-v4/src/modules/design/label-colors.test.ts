@@ -49,7 +49,7 @@ describe('trackPieceColors function', () => {
 describe('the skin None', () => {
 	it('should draw in its color in every theme, and no other skin takes the label color', () => {
 		for (const theme of ['pegboard', 'brass', 'neon']) {
-			expect(draftPieceColors(theme, { type: 'platform', color: OWN, skin: { assetId: 'platform:none' } }, false).bar).toBe(OWN);
+			expect(draftPieceColors(theme, { type: 'platform', color: OWN, skin: { assetId: 'platform:none' } }).bar).toBe(OWN);
 		}
 	});
 });

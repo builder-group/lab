@@ -104,8 +104,9 @@ export function deadZoneGoal(goal: TVec2, scale: number, viewport: TViewport, po
 	};
 }
 
-/** Center moved just enough that `point` lies `edge` of the half view inside the view */
-export function keepInView(center: TVec2, scale: number, viewport: TViewport, point: TVec2, edge = FOLLOW_SETTINGS.edge): TVec2 {
+/** Center moved just enough that `point` lies the settings' edge of the half view inside the view */
+export function keepInView(center: TVec2, scale: number, viewport: TViewport, point: TVec2): TVec2 {
+	const { edge } = FOLLOW_SETTINGS;
 	const half = halfSize(scale, viewport);
 	const reach = { x: half.x * (1 - edge), y: half.y * (1 - edge) };
 	return {
@@ -115,7 +116,8 @@ export function keepInView(center: TVec2, scale: number, viewport: TViewport, po
 }
 
 /** Follow for one frame: eases the look-ahead and moves the goal center with the marble's look-ahead point */
-export function followMarble(motion: TViewMotion, position: TVec2, velocity: TVec2, viewport: TViewport, dt: number, settings = FOLLOW_SETTINGS): void {
+export function followMarble(motion: TViewMotion, position: TVec2, velocity: TVec2, viewport: TViewport, dt: number): void {
+	const settings = FOLLOW_SETTINGS;
 	const scale = motion.goal.scale;
 	motion.lead = smoothLead(motion.lead, velocity, scale, viewport, dt, settings);
 	const point = { x: position.x + motion.lead.x, y: position.y + motion.lead.y };
