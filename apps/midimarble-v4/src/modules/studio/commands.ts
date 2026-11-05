@@ -330,6 +330,7 @@ export const commands: readonly TCommand[] = [
 	// A saved project autosaves, so Save is there only while an edit waits, a save failed or the project is unsaved
 	{ id: 'file.save', title: 'Save', section: 'File', shortcut: '⌘S', keywords: 'keep unsaved example', isEnabled: canSave, run: (cx) => void cx.save() },
 	{ id: 'file.saveAs', title: 'Save As…', section: 'File', shortcut: '⇧⌘S', keywords: 'copy duplicate keep elsewhere', isEnabled: hasProject, run: (cx) => void cx.saveAs() },
+	{ id: 'file.revert', title: 'Revert to Opened…', section: 'File', keywords: 'back restore undo all discard last saved', isEnabled: (cx) => cx.canRevert(), run: (cx) => void cx.revertToOpened() },
 	{ id: 'file.importMidi', title: 'Import Song…', section: 'File', shortcut: '⌘I', keywords: 'midi recording audio wav mp3 music', isEnabled: hasProject, run: (cx) => void cx.importSong() },
 	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: hasSong, run: (cx) => void cx.sources.replaceSong() },
 	{ id: 'file.removeSong', title: 'Delete Song', section: 'File', keywords: 'music midi audio soundtrack remove backing', isEnabled: hasSong, run: (cx) => void cx.sources.deleteSong() },
@@ -786,6 +787,7 @@ export type TCommandId =
 	| 'file.close'
 	| 'file.save'
 	| 'file.saveAs'
+	| 'file.revert'
 	| 'file.importMidi'
 	| 'file.replaceSong'
 	| 'file.removeSong'

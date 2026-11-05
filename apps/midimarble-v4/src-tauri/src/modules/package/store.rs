@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const PROJECT_FILE: &str = "project.json";
+pub const PREVIOUS_SAVE_FILE: &str = "project.json1";
 pub const PACKAGE_EXTENSION: &str = "marble";
 const PACKAGE_FOLDERS: [&str; 5] = [
     "audio",
@@ -69,6 +70,18 @@ pub fn save_project(package: &Path, project_json: &str) -> Result<(), PackageErr
         fs::create_dir_all(&folder_path).map_err(|source| io("create", &folder_path, source))?;
     }
     return write_atomic(&package.join(PROJECT_FILE), project_json.as_bytes());
+}
+
+/// Keeps the project file as it is now beside it, like Blender's `.blend1`, before the first save after opening:
+/// autosave overwrites the rest within a second, so this is the way back after a session went wrong
+pub fn keep_previous_save(package: &Path) -> Result<(), PackageError> {
+    let file = package.join(PROJECT_FILE);
+    if !file.is_file() {
+        return Err(PackageError::NotAPackage(display(package)));
+    }
+    let backup = package.join(PREVIOUS_SAVE_FILE);
+    fs::copy(&file, &backup).map_err(|source| io("copy", &backup, source))?;
+    return Ok(());
 }
 
 /// Copies a source file into the package `audio/` folder and returns its package-relative path
@@ -212,6 +225,17 @@ mod tests {
         assert!(package.join("audio").is_dir());
         assert_eq!(read_project(&package).unwrap(), "{\"a\":1}");
         save_project(&package, "{\"a\":2}").unwrap();
+        assert_eq!(read_project(&package).unwrap(), "{\"a\":2}");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn keeps_the_previous_save() {
+        let root = temporary_root("previous");
+        let package = create_package(&root.join("Song"), "{\"a\":1}").unwrap();
+        keep_previous_save(&package).unwrap();
+        save_project(&package, "{\"a\":2}").unwrap();
+        assert_eq!(fs::read_to_string(package.join(PREVIOUS_SAVE_FILE)).unwrap(), "{\"a\":1}");
         assert_eq!(read_project(&package).unwrap(), "{\"a\":2}");
         fs::remove_dir_all(root).unwrap();
     }

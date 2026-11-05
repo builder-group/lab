@@ -59,6 +59,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'file.close' },
 			{ command: 'file.save' },
 			{ command: 'file.saveAs' },
+			{ command: 'file.revert' },
 			'separator',
 			{ command: 'file.importMidi' },
 			{ command: 'file.replaceSong' },

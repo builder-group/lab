@@ -51,6 +51,12 @@ pub fn save_project(path: String, project_json: String) -> Result<(), String> {
 
 #[tauri::command(async)]
 #[specta::specta]
+pub fn keep_previous_save(path: String) -> Result<(), String> {
+    return store::keep_previous_save(&PathBuf::from(path)).map_err(|error| error.to_string());
+}
+
+#[tauri::command(async)]
+#[specta::specta]
 pub fn list_recent_projects(app: AppHandle) -> Vec<RecentProjectDto> {
     return recent::list(&app);
 }

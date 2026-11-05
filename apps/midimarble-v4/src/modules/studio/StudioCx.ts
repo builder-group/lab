@@ -160,6 +160,10 @@ export class StudioCx {
 	private isRestoring = false;
 	private saveTimer: ReturnType<typeof setTimeout> | undefined;
 	private savedRevision = 0;
+	/** The project as it opened, for Revert to Opened */
+	private openedProject: TProject | null = null;
+	/** The first save after opening keeps the file it overwrites */
+	private needsPreviousSave = false;
 	private noticeTimer: ReturnType<typeof setTimeout> | undefined;
 	private answerClosePrompt: ((choice: TClosePromptChoice) => void) | null = null;
 	private answerConfirmPrompt: ((isConfirmed: boolean) => void) | null = null;
@@ -651,6 +655,8 @@ export class StudioCx {
 		this.$isTemporary.set(isTemporary);
 		this.savedRevision = project.revision;
 		this.stepLabels.clear();
+		this.openedProject = project;
+		this.needsPreviousSave = !isTemporary;
 		this.$history.set(createHistory(project));
 		this.$mix.set(EMPTY_MIX);
 		this.$path.set(path);
@@ -1007,6 +1013,24 @@ export class StudioCx {
 		this.scheduleSave();
 	}
 
+	/** Whether Revert to Opened would change anything: undoing every edit returns to how the project opened */
+	canRevert(): boolean {
+		const history = this.$history.get();
+		return history != null && this.openedProject != null && hasUnsavedChanges(history, this.openedProject.revision);
+	}
+
+	/** Revert to Opened…: asks first, and is one more step, so Undo takes it back. The title follows the file, as in `retitle` */
+	async revertToOpened(): Promise<void> {
+		const title = this.project?.title;
+		if (title == null || !(await this.confirm({ question: `Revert ${title} to how it opened?`, detail: 'Every edit since then goes. Undo brings them back.', action: 'Revert' }))) return;
+		const history = this.$history.get();
+		const opened = this.openedProject;
+		if (history == null || opened == null) return;
+		const next = pushHistory(history, { ...opened, title: history.present.title, revision: history.present.revision + 1 });
+		this.stepLabels.set(next.groups.present, 'Revert to Opened');
+		this.stepHistory(history, next);
+	}
+
 	// MARK: - Persistence
 
 	private scheduleSave(): void {
@@ -1021,6 +1045,10 @@ export class StudioCx {
 		const path = this.$path.get();
 		if (project == null || path == null || project.revision === this.savedRevision) return;
 		this.$save.set('saving');
+		if (this.needsPreviousSave) {
+			this.needsPreviousSave = false;
+			await host.keepPreviousSave(path);
+		}
 		const [isSavedOk, savedErr] = await host.saveProject(path, serializeProject(project));
 		if (!isSavedOk) {
 			this.$save.set('failed');

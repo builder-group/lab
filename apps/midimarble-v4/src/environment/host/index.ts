@@ -91,6 +91,11 @@ export const host = {
 		return result.status === 'ok' ? Ok(undefined) : Err(new Error(result.error));
 	},
 
+	/** Keeps the saved project beside it, like Blender's `.blend1`; the browser has no such file */
+	async keepPreviousSave(path: string): Promise<void> {
+		if (isTauri()) await specta.commands.keepPreviousSave(path);
+	},
+
 	/**
 	 * Lets the user pick a song file: a MIDI file, a recording, or with `song` either of them in one panel. Returns
 	 * a path the host can import.
