@@ -88,7 +88,7 @@ describe('draft look', () => {
 		expect(draftGlows('pegboard')).toBe(false);
 	});
 
-	it('should keep every lane marble 3:1 apart from its wall and its own pieces in every theme', () => {
+	it('should keep every marble marble 3:1 apart from its wall and its own pieces in every theme', () => {
 		for (const theme of ['pegboard', 'brass', 'neon']) {
 			for (const color of [...marbleColors, '#808080']) {
 				const marble = draftMarble(theme, color);
@@ -96,12 +96,12 @@ describe('draft look', () => {
 				expect(contrastRatio(marble.body, draftWall(theme).color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
 				// Pegboard and Brass marbles sit on the bar; Neon's on its deep body inside the glowing edge
 				if (theme !== 'neon') expect(contrastRatio(marble.body, platform.bar)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
-				// The film paints Pegboard's platform in the lane color itself, not the Draft Preview's tint of it
+				// The film paints Pegboard's platform in the marble color itself, not the Draft Preview's tint of it
 				if (theme === 'pegboard') expect(contrastRatio(marble.body, color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
 				expect(marbleContrast(theme, color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
 			}
 		}
-		// Light walls get deep marbles in the lane's hue, the dark Neon wall pearl ones with a rim
+		// Light walls get deep marbles in the marble's hue, the dark Neon wall pearl ones with a rim
 		expect(draftMarble('pegboard', '#3478f6').tone).toBe('deep');
 		expect(draftMarble('brass', '#ff9f0a').tone).toBe('deep');
 		expect(draftMarble('neon', '#ff9f0a').tone).toBe('pearl');

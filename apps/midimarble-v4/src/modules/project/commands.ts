@@ -5,12 +5,12 @@ export type TProjectCommand =
 	| { type: 'updateProject'; patch: Partial<Pick<TProject, 'title' | 'length' | 'format' | 'gravity'>> }
 	| { type: 'upsertSource'; source: TSource }
 	| { type: 'removeSource'; sourceId: string }
-	| { type: 'upsertLane'; lane: Omit<TLane, 'hits'> & { hits?: THit[] } }
+	| { type: 'upsertLane'; marble: Omit<TLane, 'hits'> & { hits?: THit[] } }
 	| { type: 'removeLane'; marbleId: string }
-	// `BACKING_ID` as the lane edits Backing
+	// `BACKING_ID` as the marble edits Backing
 	| { type: 'upsertHits'; marbleId: string; hits: THit[] }
 	| { type: 'removeHits'; marbleId: string; hitIds: string[] }
-	// Moves hits from wherever they are to a lane or to Backing (`BACKING_ID`), keeping their IDs
+	// Moves hits from wherever they are to a marble or to Backing (`BACKING_ID`), keeping their IDs
 	| { type: 'assignHits'; hitIds: string[]; marbleId: string }
 	| { type: 'setBackingInstrument'; instrument: number | null }
 	| { type: 'upsertEntity'; entity: TEntity }
@@ -60,14 +60,14 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			project.music.sources = project.music.sources.filter((source) => source.id !== command.sourceId);
 			return Ok(project);
 		case 'upsertLane': {
-			const existing = project.music.lanes.find((lane) => lane.id === command.lane.id);
-			const lane: TLane = { ...command.lane, hits: sortHits(command.lane.hits ?? existing?.hits ?? []) };
-			project.music.lanes = upsertById(project.music.lanes, lane);
+			const existing = project.music.marbles.find((marble) => marble.id === command.marble.id);
+			const marble: TLane = { ...command.marble, hits: sortHits(command.marble.hits ?? existing?.hits ?? []) };
+			project.music.marbles = upsertById(project.music.marbles, marble);
 			return Ok(project);
 		}
 		case 'removeLane': {
-			project.music.lanes = project.music.lanes.filter((lane) => lane.id !== command.marbleId);
-			// A lane owns its marble; pieces linked to its hits stay and surface as orphans
+			project.music.marbles = project.music.marbles.filter((marble) => marble.id !== command.marbleId);
+			// A marble owns its marble; pieces linked to its hits stay and surface as orphans
 			project.entities = project.entities.filter(
 				(entity) => entity.components.marble?.marbleId !== command.marbleId
 			);
@@ -93,7 +93,7 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			const [isTargetOk, targetErr, target] = hitOwner(project, command.marbleId);
 			if (!isTargetOk) return Err(targetErr);
 			const wanted = new Set(command.hitIds);
-			const owners = [...project.music.lanes, backingOwner(project)];
+			const owners = [...project.music.marbles, backingOwner(project)];
 			const moved: THit[] = [];
 			for (const owner of owners) {
 				if (owner.id === command.marbleId) continue;
@@ -161,12 +161,12 @@ function setGroups(project: TProject, groups: TGroup[]): void {
 	else delete project.groups;
 }
 
-/** The hit list a command edits: a lane's hits, or Backing for `BACKING_ID`. Writes to `hits` go to the project. */
+/** The hit list a command edits: a marble's hits, or Backing for `BACKING_ID`. Writes to `hits` go to the project. */
 function hitOwner(project: TProject, marbleId: string): TResult<THitOwner, Error> {
 	if (marbleId === BACKING_ID) return Ok(backingOwner(project));
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
-	if (lane == null) return Err(new Error(`Lane ${marbleId} does not exist`));
-	return Ok(lane);
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	if (marble == null) return Err(new Error(`Marble ${marbleId} does not exist`));
+	return Ok(marble);
 }
 
 function backingOwner(project: TProject): THitOwner {

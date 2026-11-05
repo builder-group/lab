@@ -5,20 +5,20 @@ import { buildSceneDescription, encodeRecords, lastStruckTime, MOTION_FOLDER } f
 
 function fixture(): { project: TProject; result: TSimulationResult; marbleEntityId: string; marbleId: string } {
 	const project = createProject({ title: 'Song', id: 'project-1' });
-	const lane = project.music.lanes[0];
-	const marble = project.entities[0];
-	if (lane == null || marble == null) throw new Error('Missing default lane or marble');
+	const marble = project.music.marbles[0];
+	const marbleEntity = project.entities[0];
+	if (marble == null || marbleEntity == null) throw new Error('Missing default marble or marble');
 	project.entities.push({
 		id: 'piece-1',
 		name: 'Platform 1',
 		components: {
 			piece: { type: 'platform', params: { length: 0.08 } },
 			transform: { position: { x: 0.1, y: 0.2 }, angle: 0.3 },
-			hitLink: { marbleId: lane.id, hitId: 'hit-1', angle: 0.3, contactAt: 0.5 }
+			hitLink: { marbleId: marble.id, hitId: 'hit-1', angle: 0.3, contactAt: 0.5 }
 		}
 	});
 	const hit = (overrides: Partial<THitResult>): THitResult => ({
-		marbleId: lane.id,
+		marbleId: marble.id,
 		hitId: 'hit-1',
 		targetTime: 0.5,
 		pieceEntityId: 'piece-1',
@@ -34,8 +34,8 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleEntity
 		duration: 2,
 		marbles: [
 			{
-				entityId: marble.id,
-				marbleId: lane.id,
+				entityId: marbleEntity.id,
+				marbleId: marble.id,
 				radius: 0.008,
 				samples: [0, 1, 2].map((index) => ({
 					time: 0.1 + index / 240,
@@ -67,7 +67,7 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleEntity
 		],
 		stats: { computeMs: 1, reusedUntil: 0, steps: 480 }
 	};
-	return { project, result, marbleEntityId: marble.id, marbleId: lane.id };
+	return { project, result, marbleEntityId: marbleEntity.id, marbleId: marble.id };
 }
 
 function firstPiece(result: TSimulationResult): TSimulationResult['pieces'][number] {
@@ -202,7 +202,7 @@ describe('buildSceneDescription', () => {
 		expect(rail?.path).toEqual(path);
 	});
 
-	it('carries project metadata and lane colors', () => {
+	it('carries project metadata and marble colors', () => {
 		const { project, result, marbleId } = fixture();
 		const { description } = buildSceneDescription(project, result, { fps: 30 });
 		expect(description).toMatchObject({
@@ -214,7 +214,7 @@ describe('buildSceneDescription', () => {
 			frame: { width: 9, height: 16 },
 			theme: 'pegboard'
 		});
-		const marbleColor = project.music.lanes.find((lane) => lane.id === marbleId)?.color;
+		const marbleColor = project.music.marbles.find((marble) => marble.id === marbleId)?.color;
 		expect(description.pieces[0]?.color).toBe(marbleColor);
 	});
 });

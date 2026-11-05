@@ -66,13 +66,13 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return shot == null ? null : <ShotInspector cx={cx} project={project} shot={shot} />;
 		}
 		case 'marble': {
-			const lane = project.music.lanes.find((item) => item.id === target.marbleId);
-			const marble = project.entities.find((item) => item.id === target.entityId);
-			if (lane == null || marble == null) return null;
+			const marble = project.music.marbles.find((item) => item.id === target.marbleId);
+			const marbleEntity = project.entities.find((item) => item.id === target.entityId);
+			if (marble == null || marbleEntity == null) return null;
 			return (
 				<>
-					<MarbleInspector cx={cx} project={project} lane={lane} marble={marble} isFilm={isFilm} />
-					{isFilm ? <MarbleSkin cx={cx} project={project} marble={marble} /> : null}
+					<MarbleInspector cx={cx} project={project} marble={marble} marbleEntity={marbleEntity} isFilm={isFilm} />
+					{isFilm ? <MarbleSkin cx={cx} project={project} marble={marbleEntity} /> : null}
 				</>
 			);
 		}
@@ -112,18 +112,18 @@ interface TInspectorProps {
 
 // MARK: - Marble
 
-const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; marble: TEntity; isFilm: boolean }> = (props) => {
-	const { cx, project, lane, marble, isFilm } = props;
-	const conflicts = findMarbleConflicts(lane).size;
+const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TLane; marbleEntity: TEntity; isFilm: boolean }> = (props) => {
+	const { cx, project, marble, marbleEntity, isFilm } = props;
+	const conflicts = findMarbleConflicts(marble).size;
 
-	const release = marble.components.release;
+	const release = marbleEntity.components.release;
 	const releaseProject = (patch: Partial<TVec2>): TProject | null =>
 		release == null
 			? null
 			: {
 					...project,
 					entities: project.entities.map((item) =>
-						item.id === marble.id ? { ...item, components: { ...item.components, release: { ...release, position: { ...release.position, ...patch } } } } : item
+						item.id === marbleEntity.id ? { ...item, components: { ...item.components, release: { ...release, position: { ...release.position, ...patch } } } } : item
 					)
 				};
 	function previewRelease(patch: Partial<TVec2>): void {
@@ -131,7 +131,7 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; 
 		if (next != null) cx.simulation.startPreview(next);
 	}
 	function commitRelease(patch: Partial<TVec2>): void {
-		if (release != null) cx.execute([{ type: 'setComponent', entityId: marble.id, component: { name: 'release', value: { ...release, position: { ...release.position, ...patch } } } }]);
+		if (release != null) cx.execute([{ type: 'setComponent', entityId: marbleEntity.id, component: { name: 'release', value: { ...release, position: { ...release.position, ...patch } } } }]);
 		cx.simulation.endPreview();
 	}
 
@@ -139,10 +139,10 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; 
 	return (
 		<>
 			<InspectorHeader
-				icon={<span className="h-3 w-3 rounded-full" style={{ background: lane.color }} />}
-				title={lane.name}
-				subtitle={`Marble · ${lane.hits.length} ${lane.hits.length === 1 ? 'hit' : 'hits'}`}
-				onRename={(name) => cx.execute([{ type: 'upsertLane', lane: { ...lane, name } }])}
+				icon={<span className="h-3 w-3 rounded-full" style={{ background: marble.color }} />}
+				title={marble.name}
+				subtitle={`Marble · ${marble.hits.length} ${marble.hits.length === 1 ? 'hit' : 'hits'}`}
+				onRename={(name) => cx.execute([{ type: 'upsertLane', marble: { ...marble, name } }])}
 				status={
 					conflicts > 0 ? (
 						<StatusPill tone="bad" label={`${conflicts} Too Close`} detail={`${conflicts === 1 ? 'A hit is' : `${conflicts} hits are`} less than ${MIN_HIT_GAP * 1000} ms from the next one. Drag them apart or move them to another marble.`} />
@@ -165,18 +165,18 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const { cx, project, hitKeys } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	const trackCx = useFeatureState(cx.$trackCx);
-	// Backing joins the marbles' lanes so a Backing note shows like a hit without a marble
+	// Backing joins the marbles' marbles so a Backing note shows like a hit without a marble
 	const backing: TLane = { id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, instrument: project.music.backingInstrument ?? 0, hits: project.music.backing };
 	// Without a song Backing is not offered: its notes show only in the Song track (see canMakeBacking)
-	const owners = canMakeBacking(project) || project.music.backing.length > 0 ? [...project.music.lanes, backing] : project.music.lanes;
+	const owners = canMakeBacking(project) || project.music.backing.length > 0 ? [...project.music.marbles, backing] : project.music.marbles;
 	const hits = hitKeys.flatMap((key) => {
 		const parsed = parseHitKey(key);
-		const lane = owners.find((item) => item.id === parsed?.marbleId);
-		const hit = lane?.hits.find((item) => item.id === parsed?.hitId);
-		return lane == null || hit == null ? [] : [{ lane, hit }];
+		const marble = owners.find((item) => item.id === parsed?.marbleId);
+		const hit = marble?.hits.find((item) => item.id === parsed?.hitId);
+		return marble == null || hit == null ? [] : [{ marble, hit }];
 	});
 	const single = hits.length === 1 ? hits[0] : undefined;
-	const ownerIds = new Set(hits.map((item) => item.lane.id));
+	const ownerIds = new Set(hits.map((item) => item.marble.id));
 	const playedBy = (
 		<SelectField
 			id="hit-played-by"
@@ -212,13 +212,13 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 		);
 	}
 
-	const { lane, hit } = single;
-	const isBacking = lane.id === BACKING_ID;
-	const index = lane.hits.indexOf(hit);
+	const { marble, hit } = single;
+	const isBacking = marble.id === BACKING_ID;
+	const index = marble.hits.indexOf(hit);
 	const piece = project.entities.find(
-		(entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id && entity.components.hitLink.hitId === hit.id
+		(entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marble.id && entity.components.hitLink.hitId === hit.id
 	);
-	const hitResult = result?.hits.find((item) => item.marbleId === lane.id && item.hitId === hit.id);
+	const hitResult = result?.hits.find((item) => item.marbleId === marble.id && item.hitId === hit.id);
 	// An open hit no platform can play yet says why (Too Soon, Out of Reach) and offers the fixes in Played By
 	const reach = !isBacking && piece == null && hitResult?.status === 'open' ? hitReach(project, result, hitResult) : null;
 	const unreachable = reach != null && hitResult != null && isUnreachable(reach) ? unreachableStatus(project, result, hitResult) : null;
@@ -229,16 +229,16 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			? unreachable == null
 				? null
 				: { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
-			: timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult, { marble: lane.name, piece: pieceLabel });
+			: timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult, { marble: marble.name, piece: pieceLabel });
 	const openHit = hitResult?.status === 'open' && hitResult.dot != null ? hitResult : null;
 
 	function setHit(patch: Partial<THit>): void {
-		cx.execute([{ type: 'upsertHits', marbleId: lane.id, hits: [{ ...hit, ...patch }] }]);
+		cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [{ ...hit, ...patch }] }]);
 	}
 
 	function setPitch(pitch: number | null): void {
 		setHit({ pitch: pitch ?? undefined });
-		if (pitch != null) auditionNote(cx, lane.id, pitch);
+		if (pitch != null) auditionNote(cx, marble.id, pitch);
 	}
 
 	function addPlatform(): void {
@@ -250,9 +250,9 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	return (
 		<>
 			<InspectorHeader
-				icon={<HitGlyph color={lane.color} />}
+				icon={<HitGlyph color={marble.color} />}
 				title={isBacking ? `Note ${index + 1}` : `Hit ${index + 1}`}
-				subtitle={`${lane.name} · ${formatTime(hit.time)}`}
+				subtitle={`${marble.name} · ${formatTime(hit.time)}`}
 				status={timing == null ? null : <StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />}
 				fix={(timing?.tone === 'bad' || timing?.tone === 'warn') && piece != null && !isBacking ? <FixButton cx={cx} entityId={piece.id} /> : null}
 			/>

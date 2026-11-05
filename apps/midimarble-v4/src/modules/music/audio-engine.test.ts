@@ -36,7 +36,7 @@ describe('createAudioSignature function', () => {
 			title: 'Other',
 			music: {
 				...project.music,
-				lanes: project.music.lanes.map((lane) => ({ ...lane, name: 'x', color: '#fff' }))
+				marbles: project.music.marbles.map((marble) => ({ ...marble, name: 'x', color: '#fff' }))
 			}
 		};
 
@@ -46,9 +46,9 @@ describe('createAudioSignature function', () => {
 	it('should change with hits, instruments and end', () => {
 		const project = withMarble(createProject());
 		const base = createAudioSignature(project, resolve);
-		const moved = mapMarbles(project, (lane) => ({ ...lane, hits: [{ id: 'hit', time: 0.7, pitch: 76 }] }));
-		const instrument = mapMarbles(project, (lane) => ({ ...lane, instrument: 12 }));
-		const tapped = mapMarbles(project, (lane) => ({ ...lane, hits: [...lane.hits, { id: 'tap', time: 0.9 }] }));
+		const moved = mapMarbles(project, (marble) => ({ ...marble, hits: [{ id: 'hit', time: 0.7, pitch: 76 }] }));
+		const instrument = mapMarbles(project, (marble) => ({ ...marble, instrument: 12 }));
+		const tapped = mapMarbles(project, (marble) => ({ ...marble, hits: [...marble.hits, { id: 'tap', time: 0.9 }] }));
 
 		expect(createAudioSignature(tapped, resolve)).toBe(base);
 		expect(createAudioSignature(moved, resolve)).not.toBe(base);
@@ -56,7 +56,7 @@ describe('createAudioSignature function', () => {
 		expect(createAudioSignature({ ...project, length: project.length + 1 }, resolve)).not.toBe(base);
 	});
 
-	it('should ignore lanes when an audio source exists', () => {
+	it('should ignore marbles when an audio source exists', () => {
 		const project = withMarble(createProject());
 		const withAudio: TProject = {
 			...project,
@@ -69,7 +69,7 @@ describe('createAudioSignature function', () => {
 
 		expect(
 			createAudioSignature(
-				mapMarbles(withAudio, (lane) => ({ ...lane, instrument: 12 })),
+				mapMarbles(withAudio, (marble) => ({ ...marble, instrument: 12 })),
 				resolve
 			)
 		).toBe(base);
@@ -109,8 +109,8 @@ function withMarble(project: TProject): TProject {
 		...project,
 		music: {
 			...project.music,
-			lanes: [
-				{ id: 'lane', name: 'Lane', color: '#f00', instrument: 9, hits: [{ id: 'hit', time: 0.5, pitch: 76 }] }
+			marbles: [
+				{ id: 'lane', name: 'Marble', color: '#f00', instrument: 9, hits: [{ id: 'hit', time: 0.5, pitch: 76 }] }
 			],
 			sources: [{ id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }]
 		}
@@ -119,7 +119,7 @@ function withMarble(project: TProject): TProject {
 
 function mapMarbles(
 	project: TProject,
-	map: (lane: TProject['music']['lanes'][number]) => TProject['music']['lanes'][number]
+	map: (marble: TProject['music']['marbles'][number]) => TProject['music']['marbles'][number]
 ): TProject {
-	return { ...project, music: { ...project.music, lanes: project.music.lanes.map(map) } };
+	return { ...project, music: { ...project.music, marbles: project.music.marbles.map(map) } };
 }

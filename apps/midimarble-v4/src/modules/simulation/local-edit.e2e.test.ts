@@ -47,7 +47,7 @@ describe('small edits on Jingle Bells', () => {
 				const broken = run.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked');
 				// One break holds what comes later; only marbles that strike each other break one each
 				const hasCollided = run.contacts.some((contact) => contact.kind === 'marble');
-				expect(broken.length, `${id} by ${by}°`).toBeLessThanOrEqual(hasCollided ? project.music.lanes.length : 1);
+				expect(broken.length, `${id} by ${by}°`).toBeLessThanOrEqual(hasCollided ? project.music.marbles.length : 1);
 				const near = new Set([id, ...settled.answer.absorbedBy]);
 				const shifts = run.hits.flatMap((hit) => {
 					const was = before.hits.find((item) => item.hitId === hit.hitId);

@@ -7,7 +7,7 @@ const MIDI: TSource = { id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song.
 
 function song(melody: THit[], backing: THit[] = [], sources: TSource[] = [MIDI]): TProject {
 	const base = createProject({ title: 'Keys' });
-	return { ...base, music: { ...base.music, sources, backing, lanes: [{ id: 'melody', name: 'Melody', color: '#3478f6', instrument: 0, hits: melody }] } };
+	return { ...base, music: { ...base.music, sources, backing, marbles: [{ id: 'melody', name: 'Melody', color: '#3478f6', instrument: 0, hits: melody }] } };
 }
 
 describe('soundingKeys function', () => {

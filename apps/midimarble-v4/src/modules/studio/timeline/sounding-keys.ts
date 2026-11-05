@@ -23,14 +23,14 @@ const NOTHING_SOUNDS: ReadonlyMap<number, string> = new Map();
 export function noteSpans(project: TProject): TNoteSpan[] {
 	if (!soundsNotes(project)) return [];
 	const pitched = (hits: THit[]): TPitchedHit[] => hits.filter((hit): hit is TPitchedHit => hit.pitch != null).sort((a, b) => a.time - b.time);
-	const lanes = project.music.lanes.flatMap((lane) =>
-		pitched(lane.hits).map((hit, index, hits) => ({ pitch: hit.pitch, color: lane.color, start: hit.time, end: hit.time + marbleNoteLength(hit, hits[index + 1]) }))
+	const marbles = project.music.marbles.flatMap((marble) =>
+		pitched(marble.hits).map((hit, index, hits) => ({ pitch: hit.pitch, color: marble.color, start: hit.time, end: hit.time + marbleNoteLength(hit, hits[index + 1]) }))
 	);
 	const backing = pitched(project.music.backing).map((hit, index, hits) => {
 		const next = hits.slice(index + 1).find((item) => item.pitch === hit.pitch);
 		return { pitch: hit.pitch, color: BACKING_COLOR, start: hit.time, end: hit.time + backingNoteLength(hit, next) };
 	});
-	return [...lanes, ...backing].sort((a, b) => a.start - b.start);
+	return [...marbles, ...backing].sort((a, b) => a.start - b.start);
 }
 
 /** The keys sounding at `time` with their colors; of two notes on one key the later one shows */

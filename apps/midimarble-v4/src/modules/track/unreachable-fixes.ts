@@ -12,7 +12,7 @@ import { canMakeBacking, hitReach, moveHitLaterFix, type TReleaseFix } from '@/m
 export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TReleaseFix | null): TNoticeAction[] {
 	const project = studio.project;
 	if (project == null) return [];
-	const marble = (): string => studio.project?.music.lanes.find((lane) => lane.id === hit.marbleId)?.name ?? 'The marble';
+	const marble = (): string => studio.project?.music.marbles.find((marble) => marble.id === hit.marbleId)?.name ?? 'The marble';
 	const actions: TNoticeAction[] = [];
 	// Fixed from the inspector, the notice that explained the problem goes too
 	if (fix != null) {

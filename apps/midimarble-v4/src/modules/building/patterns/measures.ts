@@ -22,7 +22,7 @@ export interface TPatternMeasures {
 	touching: number;
 }
 
-/** Measures one lane's hits, all of them or those given */
+/** Measures one marble's hits, all of them or those given */
 export function measurePattern(project: TProject, result: TSimulationResult, marbleId: string, hitIds?: readonly string[]): TPatternMeasures {
 	const wanted = hitIds != null ? new Set(hitIds) : null;
 	const hits = result.hits.filter((hit) => hit.marbleId === marbleId && (wanted == null || wanted.has(hit.hitId)));

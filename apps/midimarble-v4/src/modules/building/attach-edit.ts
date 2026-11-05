@@ -29,7 +29,7 @@ export function attachState(project: TProject, entity: TEntity): TAttachState {
 	const link = entity.components.hitLink;
 	if (link == null) return { kind: 'free' };
 	if (soundsHit(entity.components.piece?.type ?? '', link)) return { kind: 'linked', marbleId: link.marbleId, hitId: link.hitId };
-	const hitTime = project.music.lanes.find((lane) => lane.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time ?? 0;
+	const hitTime = project.music.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time ?? 0;
 	return { kind: 'anchored', marbleId: link.marbleId, hitId: link.hitId, time: hitTime + (entity.components.piece?.params['entryDelay'] ?? 0) };
 }
 
@@ -76,11 +76,11 @@ export function asLinked(entity: TEntity, pose: TPose, marbleId: string, hitId: 
 
 /**
  * A piece anchored to `marbleId`'s trajectory at `time`, where the marble is at `marble`. It keeps its pose
- * relative to the marble at that moment and plays no note. Returns null when the lane has no hit within
+ * relative to the marble at that moment and plays no note. Returns null when the marble has no hit within
  * `ANCHOR_DELAY` of the moment (see `anchorHit`).
  */
 export function asAnchored(project: TProject, entity: TEntity, pose: TPose, marbleId: string, time: number, marble: TVec2): TEntity | null {
-	const hits = project.music.lanes.find((lane) => lane.id === marbleId)?.hits ?? [];
+	const hits = project.music.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
 	const hit = anchorHit(hits, time);
 	if (hit == null) return null;
 	const { transform: _, ...components } = entity.components;

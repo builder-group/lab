@@ -40,7 +40,7 @@ describe('follow camera on whole songs', () => {
 		const track = required(followCameraTrack(jingle, result, 30));
 		// The melody's last note is at 31 s; the bass plays until 32.5 s, where the camera holds
 		const bass = required(
-			result.marbles.find((marble) => marble.marbleId === jingle.music.lanes[1]?.id)
+			result.marbles.find((marble) => marble.marbleId === jingle.music.marbles[1]?.id)
 		);
 		for (let frame = 30 * 30; frame <= 32.5 * 30; frame += 3) {
 			const sample = bass.samples.find((item) => item.time >= frame / 30);
@@ -220,7 +220,7 @@ describe('follow camera on whole songs', () => {
 		const { project: jingle, result } = fixture('jingle-bells');
 		const track = required(followCameraTrack(jingle, result, 30));
 		const lastNote = Math.max(
-			...jingle.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time))
+			...jingle.music.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time))
 		);
 		const longer = required(results.get('jingle-bells-longer'));
 		const exit = required(bowlExit(longer.project, longer.result));
@@ -250,7 +250,7 @@ describe('follow camera on whole songs', () => {
 
 	it('ends Reference 20 no later than the longest tail, with its last marble in its Bowl in frame', () => {
 		const { project: reference, result } = fixture('reference-20');
-		const lastNote = Math.max(...reference.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)));
+		const lastNote = Math.max(...reference.music.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time)));
 		expect(reference.length).toBeLessThanOrEqual(songEnd(lastNote, BOWL_TAIL_MAX));
 		const track = required(followCameraTrack(reference, result, 30));
 		const end = track.frameCount - 1;

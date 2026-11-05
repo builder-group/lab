@@ -168,7 +168,7 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 							width: Math.max(4, Math.min(length, 4) * zoom),
 							top: pitchToRow(pitch, range) * NOTE_ROW_HEIGHT + 1,
 							height: NOTE_ROW_HEIGHT - 2,
-							['--lane' as string]: note.color
+							['--row-color' as string]: note.color
 						}}
 						onPointerDown={(event) => selectNote(note, event)}
 						onContextMenu={(event) => openNoteMenu(note, event)}
@@ -224,7 +224,7 @@ function boxRect(box: TBox): { left: number; top: number; width: number; height:
 /** Every pitched note of the song with the track that holds it */
 export function songNotes(project: TProject): TSongNote[] {
 	const owners = [
-		...project.music.lanes.map((lane) => ({ id: lane.id, name: lane.name, color: lane.color, hits: lane.hits })),
+		...project.music.marbles.map((marble) => ({ id: marble.id, name: marble.name, color: marble.color, hits: marble.hits })),
 		{ id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, hits: project.music.backing }
 	];
 	return owners.flatMap((owner) =>

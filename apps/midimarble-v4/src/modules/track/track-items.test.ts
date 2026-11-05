@@ -23,7 +23,7 @@ function openHit(marbleId: string, time: number, y: number): THitResult {
 describe('firstHitsView', () => {
 	function tapped(y: number): { project: TProject; result: TSimulationResult } {
 		const project = createProject();
-		const marbleId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.marbles[0]?.id ?? '';
 		return { project, result: { hits: [openHit(marbleId, 0.6, y), openHit(marbleId, 1.2, y - 2)], pieces: [], marbles: [] } as unknown as TSimulationResult };
 	}
 
@@ -264,7 +264,7 @@ describe('stepping through hits', () => {
 	const project = {
 		entities: [{ id: 'platform', components: { piece: { type: 'platform' }, hitLink: { marbleId: 'a', hitId: 'a2' } } }],
 		music: {
-			lanes: [
+			marbles: [
 				{ id: 'a', hits: [{ id: 'a1', time: 1 }, { id: 'a2', time: 2 }, { id: 'a3', time: 3 }] },
 				{ id: 'b', hits: [{ id: 'b1', time: 1.5 }, { id: 'b2', time: 2.5 }] }
 			]
@@ -302,7 +302,7 @@ describe('⌫ on hits', () => {
 		const { project, result, key, hitId, marbleId, pieceId } = await played();
 		const [isOk, error, next] = applyProjectCommands(project, deleteHitCommands(project, result, [key]));
 		if (!isOk) throw error;
-		expect(next.music.lanes.find((lane) => lane.id === marbleId)?.hits.some((hit) => hit.id === hitId)).toBe(false);
+		expect(next.music.marbles.find((marble) => marble.id === marbleId)?.hits.some((hit) => hit.id === hitId)).toBe(false);
 		expect(next.music.backing.some((hit) => hit.id === hitId)).toBe(false);
 		expect(next.entities.some((entity) => entity.id === pieceId)).toBe(false);
 		expect(next.entities.some((entity) => entity.components.hitLink?.hitId === hitId)).toBe(false);
@@ -313,18 +313,18 @@ describe('an added note', () => {
 	it('should give the marble a hit with a dot, as one undo step', async () => {
 		const simulator = await createSimulator();
 		const project = createStaircaseProject();
-		const lane = project.music.lanes[0];
-		if (lane == null) throw new Error('expected a marble');
-		const last = Math.max(...lane.hits.map((hit) => hit.time));
-		const { hit, commands } = addNoteCommands(lane.id, { time: last + 0.5, pitch: 67, duration: 0.25 });
+		const marble = project.music.marbles[0];
+		if (marble == null) throw new Error('expected a marble');
+		const last = Math.max(...marble.hits.map((hit) => hit.time));
+		const { hit, commands } = addNoteCommands(marble.id, { time: last + 0.5, pitch: 67, duration: 0.25 });
 		const [isOk, error, added] = applyProjectCommands(project, commands);
 		if (!isOk) throw error;
 		const history = pushHistory(createHistory(project), added);
 		const result = simulator.simulate({ ...added, length: last + 2 });
 
-		expect(history.present.music.lanes[0]?.hits.find((item) => item.id === hit.id)?.pitch).toBe(67);
+		expect(history.present.music.marbles[0]?.hits.find((item) => item.id === hit.id)?.pitch).toBe(67);
 		expect(result.hits.find((item) => item.hitId === hit.id)?.status).toBe('open');
-		expect(undoHistory(history).present.music.lanes[0]?.hits.some((item) => item.id === hit.id)).toBe(false);
+		expect(undoHistory(history).present.music.marbles[0]?.hits.some((item) => item.id === hit.id)).toBe(false);
 	});
 });
 

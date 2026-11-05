@@ -95,9 +95,9 @@ interface TTrial {
 
 export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitIds: string[], shape: TBarShape, onBar?: (done: number, total: number) => void): TBarsFit {
 	const gravity = Math.abs(gravityOf(base));
-	const lane = base.music.lanes.find((item) => item.id === marbleId);
-	if (lane == null) throw new Error(`Lane ${marbleId} does not exist`);
-	const times = new Map(lane.hits.map((hit) => [hit.id, hit.time]));
+	const marble = base.music.marbles.find((item) => item.id === marbleId);
+	if (marble == null) throw new Error(`Marble ${marbleId} does not exist`);
+	const times = new Map(marble.hits.map((hit) => [hit.id, hit.time]));
 	const length = shape.barLength ?? BAR_LENGTH;
 	const maxTilt = (shape.maxTilt ?? MAX_TILT) * DEGREE;
 	const scanTilt = Math.floor((shape.maxTilt ?? MAX_TILT) / 4) * 4;

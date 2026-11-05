@@ -298,10 +298,10 @@ interface TPlanEvent {
 	/** When the piece is placed: the hit time, plus the entry delay for follower rails and tunnels */
 	time: number;
 	hitTime: number;
-	/** Position among all hits, lane by lane: settles equal times */
+	/** Position among all hits, marble by marble: settles equal times */
 	hitOrder: number;
 	step: number;
-	/** Index into `TPlan.marbles`, -1 when the lane has no marble */
+	/** Index into `TPlan.marbles`, -1 when the marble has no marble */
 	marbleIndex: number;
 	/** Anchored or scenery: follows the trajectory without sounding its hit */
 	isAnchor: boolean;
@@ -319,10 +319,10 @@ function createPlan(project: TProject): TPlan {
 	const hitTimes = new Map<string, number>();
 	const hitOrder = new Map<string, number>();
 	let nextHitOrder = 0;
-	for (const lane of project.music.lanes) {
-		for (const hit of lane.hits) {
-			hitTimes.set(`${lane.id}/${hit.id}`, hit.time);
-			hitOrder.set(`${lane.id}/${hit.id}`, nextHitOrder++);
+	for (const marble of project.music.marbles) {
+		for (const hit of marble.hits) {
+			hitTimes.set(`${marble.id}/${hit.id}`, hit.time);
+			hitOrder.set(`${marble.id}/${hit.id}`, nextHitOrder++);
 		}
 	}
 
@@ -403,7 +403,7 @@ function createPlan(project: TProject): TPlan {
 		resolved.position = transform.position;
 		staticPieces.push({ entityId: entity.id, definition, params, layout, resolved, key: '' });
 	}
-	// Equal times go by lane, then hit: IDs are random, so ordering by them gives one song different tracks
+	// Equal times go by marble, then hit: IDs are random, so ordering by them gives one song different tracks
 	events.sort((a, b) => a.time - b.time || a.hitOrder - b.hitOrder);
 
 	const startStep = Math.min(0, ...marbles.map((marble) => marble.releaseStep));
@@ -1347,7 +1347,7 @@ function pieceIndex(state: TRunState): TPieceIndex {
 
 /**
  * Another marble enters a marble's world as a proxy only while the two could touch within the next two
- * steps. Checked every step with the marbles' own speeds, so neighboring lanes, which pass within a
+ * steps. Checked every step with the marbles' own speeds, so neighboring marbles, which pass within a
  * parking reach of each other all the time, stay apart.
  */
 function updateProxies(worlds: RAPIER.World[], plan: TPlan, state: TRunState): void {
@@ -1900,20 +1900,20 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 	const hits: THitResult[] = [];
 	// Speeds scale with gravity, so the strike threshold does too
 	const impactSpeed = IMPACT_SPEED * (plan.gravity / gravityOf({}));
-	for (const lane of project.music.lanes) {
+	for (const marble of project.music.marbles) {
 		const band = frameBand(project);
-		const marbleIndex = plan.marbles.findIndex((marble) => marble.marbleId === lane.id);
-		const marble = plan.marbles[marbleIndex];
+		const marbleIndex = plan.marbles.findIndex((item) => item.marbleId === marble.id);
+		const marbleEntity = plan.marbles[marbleIndex];
 		const samples = state.marbles[marbleIndex]?.samples ?? [];
 		let isBehindBreak = false;
-		for (const hit of lane.hits) {
-			const pieceEntityId = linkByHit.get(`${lane.id}/${hit.id}`) ?? null;
+		for (const hit of marble.hits) {
+			const pieceEntityId = linkByHit.get(`${marble.id}/${hit.id}`) ?? null;
 			const piece = pieceEntityId != null ? pieceById.get(pieceEntityId) : undefined;
 			const placement = pieceEntityId != null ? state.placements.get(pieceEntityId) : undefined;
 			const onTrajectory =
 				placement?.dot != null ? null : trajectoryAt(samples, hit.time, plan.gravity);
 			const result: THitResult = {
-				marbleId: lane.id,
+				marbleId: marble.id,
 				hitId: hit.id,
 				targetTime: hit.time,
 				pieceEntityId,
@@ -1923,7 +1923,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 				error: null,
 				status: 'open'
 			};
-			if (piece == null || marble == null) {
+			if (piece == null || marbleEntity == null) {
 				if (piece != null) result.status = 'missed';
 				else if (result.dot != null)
 					result.outOfFrame = Math.abs(result.dot.x - band.centerX) > band.halfWidth;
@@ -1939,7 +1939,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 			const contact = contacts.find(
 				(c) =>
 					c.time >= from &&
-					c.marbleEntityId === marble.entityId &&
+					c.marbleEntityId === marbleEntity.entityId &&
 					c.otherEntityId === piece.entityId
 			);
 			if (contact != null) {

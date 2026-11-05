@@ -138,7 +138,7 @@ export class PatternsCx {
 		const project = this.studio.project;
 		if (project == null) return;
 		this.isStopped = false;
-		for (const group of project.music.lanes.flatMap((lane) => groupsOfMarble(project, lane.id)[0] ?? [])) {
+		for (const group of project.music.marbles.flatMap((marble) => groupsOfMarble(project, marble.id)[0] ?? [])) {
 			const answer = await this.fit(changeFor({ marbleId: group.marbleId, from: group.from, to: group.to, group }, group.kind), false);
 			if (answer == null) {
 				if (this.isStopped) this.studio.undo();
@@ -320,7 +320,7 @@ export function patternTargets(project: TProject, selection: readonly string[]):
 	const byMarble = new Map<string, number[]>();
 	for (const key of selection) {
 		const parsed = parseHitKey(key);
-		const hit = project.music.lanes.find((lane) => lane.id === parsed?.marbleId)?.hits.find((item) => item.id === parsed?.hitId);
+		const hit = project.music.marbles.find((marble) => marble.id === parsed?.marbleId)?.hits.find((item) => item.id === parsed?.hitId);
 		if (parsed == null || hit == null) continue;
 		byMarble.set(parsed.marbleId, [...(byMarble.get(parsed.marbleId) ?? []), hit.time]);
 	}
@@ -346,9 +346,9 @@ export function groupSelection(group: TGroup): string[] {
 
 /** Selection for a range dragged in the strip: its notes as hits, the same as dragging over them, or the silence itself */
 export function rangeSelection(project: TProject, marbleId: string, from: number, to: number): string[] {
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
-	if (lane == null) return [];
-	const hits = hitsInRange(lane, from, to);
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	if (marble == null) return [];
+	const hits = hitsInRange(marble, from, to);
 	return hits.length > 0 ? hits.map((hit) => toHitKey(marbleId, hit.id)) : [toRangeKey(marbleId, from, to)];
 }
 

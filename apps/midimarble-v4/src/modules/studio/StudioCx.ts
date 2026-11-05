@@ -79,7 +79,7 @@ export class StudioCx {
 	/** The revision the last undo or redo landed on, whose run no notice speaks about */
 	readonly $historyReveal = createState<{ revision: number } | null>(null);
 	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true });
-	// Zero fits the timeline to its lanes until the user drags it to a height of their own
+	// Zero fits the timeline to its marbles until the user drags it to a height of their own
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));
 	readonly $paletteOpen = createState(false);
 	/** Muted and soloed Parts of the Song. View state, not saved; each opened project starts with everything on. */
@@ -88,7 +88,7 @@ export class StudioCx {
 	readonly $hitFlash = createState<THitFlash[]>([]);
 	/** The mounted Track canvas, so commands and menus outside it can drive its tools */
 	readonly $trackCx = createState<TrackCx | null>(null);
-	/** Marble entity, lane or piece whose name is being edited in place in the sidebar */
+	/** Marble entity, marble or piece whose name is being edited in place in the sidebar */
 	readonly $renaming = createState<string | null>(null);
 	/** Pieces hidden from the canvas and locked against canvas edits, like Figma's layer toggles. View state, not saved. */
 	readonly $hidden = createState<string[]>([]);
@@ -140,8 +140,8 @@ export class StudioCx {
 	/** The context menus the canvases open */
 	readonly menus = {
 		piece: () => pieceMenu(this),
-		hit: (lane: TLane, hitId: string) => hitMenu(this, lane, hitId),
-		lane: (lane: TLane) => marbleMenu(this, lane),
+		hit: (marble: TLane, hitId: string) => hitMenu(this, marble, hitId),
+		marble: (marble: TLane) => marbleMenu(this, marble),
 		film: () => filmMenu(this),
 		filmObject: (id: string) => filmObjectMenu(this, id)
 	};
@@ -258,9 +258,9 @@ export class StudioCx {
 	 */
 	audition(marbleId: string, pitch?: number): void {
 		const project = this.project;
-		const lane = project?.music.lanes.find((item) => item.id === marbleId);
-		if (project == null || lane == null || pitch == null || !soundsNotes(project)) return;
-		void this.audio.audition(lane, pitch);
+		const marble = project?.music.marbles.find((item) => item.id === marbleId);
+		if (project == null || marble == null || pitch == null || !soundsNotes(project)) return;
+		void this.audio.audition(marble, pitch);
 	}
 
 	toggleAudioScrubbing(): void {
@@ -806,17 +806,17 @@ export class StudioCx {
 		return this.$history.get()?.groups.present ?? null;
 	}
 
-	/** Adds a marble with its lane, released at `position` or to the right of the last marble */
+	/** Adds a marble with its marble, released at `position` or to the right of the last marble */
 	addMarble(position?: TVec2): string | null {
 		const project = this.project;
 		if (project == null) return null;
-		const lane = createLane(project.music.lanes.length);
+		const marble = createLane(project.music.marbles.length);
 		const releases = project.entities.flatMap((entity) => (entity.components.release != null ? [entity.components.release.position] : []));
 		const fallback = { x: releases.length ? Math.max(...releases.map((point) => point.x)) + MARBLE_SPACING : 0, y: releases[0]?.y ?? 0.6 };
-		const marble = createMarble(lane, position ?? fallback);
-		if (!this.execute([{ type: 'upsertLane', lane }, { type: 'upsertEntity', entity: marble }])) return null;
-		this.$selection.set([marble.id]);
-		return marble.id;
+		const marbleEntity = createMarble(marble, position ?? fallback);
+		if (!this.execute([{ type: 'upsertLane', marble }, { type: 'upsertEntity', entity: marbleEntity }])) return null;
+		this.$selection.set([marbleEntity.id]);
+		return marbleEntity.id;
 	}
 
 	/** The pieces a marble's eye hid, which its eye shows again; one hidden by its own eye stays hidden, like Blender's Outliner */
@@ -901,7 +901,7 @@ export class StudioCx {
 	}
 
 	/**
-	 * T: a hit on the lane in focus, never before the marble can play one. Stopped, it lands at the playhead and is
+	 * T: a hit on the marble in focus, never before the marble can play one. Stopped, it lands at the playhead and is
 	 * selected, so a spot found by scrubbing gets its hit, and the playhead goes where it landed: before the earliest
 	 * time it lands there, and on a hit it lands a step later, so further presses keep adding. Playing, it lands at the
 	 * music's time, for tapping along, and a press within 50 ms of a hit merges into it.
@@ -909,24 +909,24 @@ export class StudioCx {
 	tapHit(): void {
 		const project = this.project;
 		if (project == null) return;
-		const lane = focusedMarble(project, this.$selection.get());
-		if (lane == null) return;
+		const marble = focusedMarble(project, this.$selection.get());
+		if (marble == null) return;
 		if (!this.$playing.get()) {
-			let target = Math.max(this.$playhead.get(), earliestHitTime(project, lane.id) ?? 0);
-			while (tapTime(lane.hits, target) == null) target += TAP_STEP;
-			const placed = { id: createId('hit'), time: tapTime(lane.hits, target) ?? target };
-			if (!this.execute([{ type: 'upsertHits', marbleId: lane.id, hits: [placed] }])) return;
-			this.$selection.set([toHitKey(lane.id, placed.id)]);
+			let target = Math.max(this.$playhead.get(), earliestHitTime(project, marble.id) ?? 0);
+			while (tapTime(marble.hits, target) == null) target += TAP_STEP;
+			const placed = { id: createId('hit'), time: tapTime(marble.hits, target) ?? target };
+			if (!this.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [placed] }])) return;
+			this.$selection.set([toHitKey(marble.id, placed.id)]);
 			if (placed.time !== this.$playhead.get()) this.$playhead.set(placed.time);
 			return;
 		}
 		if (!this.audio.isPlaying()) return;
 		// The first tap of a playback starts the session, so tapping can run past the last hit
 		this.tapSession ??= { isAutoEnd: isAutoEnd(project), hasTapped: false };
-		const time = tapTime(lane.hits, this.audio.getTime());
+		const time = tapTime(marble.hits, this.audio.getTime());
 		if (time == null) return;
 		const hit = { id: createId('hit'), time };
-		if (this.execute([{ type: 'upsertHits', marbleId: lane.id, hits: [hit] }])) this.tapSession.hasTapped = true;
+		if (this.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [hit] }])) this.tapSession.hasTapped = true;
 	}
 
 	/**
@@ -1258,16 +1258,16 @@ export interface TNoticeAction {
 	run: () => void;
 }
 
-/** The lane of the selected marble or hit, otherwise the first lane */
+/** The marble of the selected marble or hit, otherwise the first marble */
 export function focusedMarble(project: TProject, selection: TSelection): TLane | undefined {
 	for (const key of selection) {
 		const hitMarble = parseHitKey(key)?.marbleId;
-		const entityLane = project.entities.find((entity) => entity.id === key)?.components.marble?.marbleId;
-		const marbleId = hitMarble ?? entityLane;
-		const lane = project.music.lanes.find((item) => item.id === marbleId);
-		if (lane != null) return lane;
+		const entityMarble = project.entities.find((entity) => entity.id === key)?.components.marble?.marbleId;
+		const marbleId = hitMarble ?? entityMarble;
+		const marble = project.music.marbles.find((item) => item.id === marbleId);
+		if (marble != null) return marble;
 	}
-	return project.music.lanes[0];
+	return project.music.marbles[0];
 }
 
 /** Calls back while the person presses, drags, scrolls or types anywhere in the window */

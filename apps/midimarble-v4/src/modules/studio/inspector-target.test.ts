@@ -5,10 +5,10 @@ import { buildOutline, DECOR_KEY, isSelectableRow, TITLES_KEY, type TOutlineRow 
 
 function fullProject(): TProject {
 	const project = createProject({ id: 'project', title: 'Jingle Bells' });
-	const lane = project.music.lanes[0];
-	if (lane != null) lane.hits = [{ id: 'hit-1', time: 1, pitch: 64 }];
+	const marble = project.music.marbles[0];
+	if (marble != null) marble.hits = [{ id: 'hit-1', time: 1, pitch: 64 }];
 	project.music.sources = [{ id: 'source-1', kind: 'midi', path: 'song.mid', name: 'Jingle Bells.mid', offset: 0 }];
-	const platform = { id: 'platform-1', components: { piece: { type: 'platform' }, hitLink: { marbleId: lane?.id ?? '', hitId: 'hit-1' } } } as unknown as TEntity;
+	const platform = { id: 'platform-1', components: { piece: { type: 'platform' }, hitLink: { marbleId: marble?.id ?? '', hitId: 'hit-1' } } } as unknown as TEntity;
 	const free = { id: 'rail-1', components: { piece: { type: 'rail' } } } as unknown as TEntity;
 	const titles = ['title-1', 'title-2'].map((id) => ({ id, name: id, components: { wallText: { text: id } } }) as unknown as TEntity);
 	project.entities.push(platform, free, ...titles);
@@ -78,7 +78,7 @@ describe('inspectorTarget function', () => {
 
 	it('should show hits before the marble they belong to', () => {
 		const project = fullProject();
-		const marbleId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.marbles[0]?.id ?? '';
 
 		expect(inspectorTarget(project, [toHitKey(marbleId, 'hit-1')])).toEqual({ kind: 'hits', keys: [toHitKey(marbleId, 'hit-1')] });
 	});
@@ -107,7 +107,7 @@ describe('the Scene', () => {
 describe('selectionEnteringFilm function', () => {
 	it('should select the Scene when Track left a piece or a hit selected', () => {
 		const project = fullProject();
-		const marbleId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.marbles[0]?.id ?? '';
 		expect(selectionEnteringFilm(project, ['platform-1'])).toEqual([]);
 		expect(selectionEnteringFilm(project, ['platform-1', 'rail-1'])).toEqual([]);
 		expect(selectionEnteringFilm(project, [toHitKey(marbleId, 'hit-1')])).toEqual([]);

@@ -11,7 +11,7 @@
 	"gravity": 1,
 	"music": {
 		"sources": [],
-		"lanes": [
+		"marbles": [
 			{
 				"id": "lane-1",
 				"name": "Marble 1",

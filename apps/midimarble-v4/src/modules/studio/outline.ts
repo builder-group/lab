@@ -32,17 +32,17 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	const looseGroups = (project.groups ?? []).filter((group) => group.marbleId == null);
 	const beyondMarbles = new Set(looseGroups.flatMap((group) => group.pieceIds));
 
-	for (const lane of project.music.lanes) {
-		const marble = project.entities.find((entity) => entity.components.marble?.marbleId === lane.id);
-		const id = marble?.id ?? lane.id;
-		const pieces = marblePieces(project, lane).filter((piece) => !beyondMarbles.has(piece.id));
-		const isOpen = !collapsed.includes(lane.id);
-		rows.push({ kind: 'marble', id, depth: 0, parentId: null, lane, groupKey: lane.id, hasChildren: pieces.length > 0 || (project.groups ?? []).some((group) => group.marbleId === lane.id), isOpen });
-		if (isOpen) rows.push(...marblePieceRows(project, lane.id, id, pieces, collapsed));
+	for (const marble of project.music.marbles) {
+		const marbleEntity = project.entities.find((entity) => entity.components.marble?.marbleId === marble.id);
+		const id = marbleEntity?.id ?? marble.id;
+		const pieces = marblePieces(project, marble).filter((piece) => !beyondMarbles.has(piece.id));
+		const isOpen = !collapsed.includes(marble.id);
+		rows.push({ kind: 'marble', id, depth: 0, parentId: null, marble, groupKey: marble.id, hasChildren: pieces.length > 0 || (project.groups ?? []).some((group) => group.marbleId === marble.id), isOpen });
+		if (isOpen) rows.push(...marblePieceRows(project, marble.id, id, pieces, collapsed));
 	}
 
 	// Newest first, like Figma's layer list
-	const startRails = new Set(project.music.lanes.map((lane) => startRailOf(project, lane.id)));
+	const startRails = new Set(project.music.marbles.map((marble) => startRailOf(project, marble.id)));
 	const free = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink == null && !startRails.has(entity) && !beyondMarbles.has(entity.id)).reverse();
 	if (free.length > 0 || looseGroups.length > 0) {
 		const isOpen = !collapsed.includes(FREE_PIECES_KEY);
@@ -96,7 +96,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
  */
 export function defaultCollapsed(project: TProject, workspace: 'track' | 'film'): string[] {
 	const groups = (project.groups ?? []).map((group) => group.id);
-	return workspace === 'film' ? [...project.music.lanes.map((lane) => lane.id), DECOR_KEY, ...groups] : groups;
+	return workspace === 'film' ? [...project.music.marbles.map((marble) => marble.id), DECOR_KEY, ...groups] : groups;
 }
 
 /** The closed groups: the defaults, with the ones the user toggled the other way */
@@ -109,7 +109,7 @@ export function collapsedGroups(project: TProject, workspace: 'track' | 'film', 
 export function groupsOfSelection(project: TProject, selection: readonly string[]): string[] {
 	return selection.flatMap((key) => {
 		if (key.startsWith('decor:') || key.startsWith('blender:')) return [DECOR_KEY];
-		const marbleId = project.entities.find((entity) => entity.id === key)?.components.hitLink?.marbleId ?? project.music.lanes.find((lane) => startRailOf(project, lane.id)?.id === key)?.id;
+		const marbleId = project.entities.find((entity) => entity.id === key)?.components.hitLink?.marbleId ?? project.music.marbles.find((marble) => startRailOf(project, marble.id)?.id === key)?.id;
 		const group = project.groups?.find((item) => item.pieceIds.includes(key));
 		if (marbleId != null && group?.marbleId != null) return [marbleId, group.id];
 		if (group != null) return [FREE_PIECES_KEY, group.id];
@@ -118,7 +118,7 @@ export function groupsOfSelection(project: TProject, selection: readonly string[
 }
 
 export interface TOutlineOptions {
-	/** Group keys of folded groups: a lane ID, the Camera key or a group row's ID */
+	/** Group keys of folded groups: a marble ID, the Camera key or a group row's ID */
 	collapsed?: string[];
 	/** Track leaves out the Lights, the titles and Decor; Film, the default, shows every layer */
 	workspace?: TWorkspace;
@@ -162,7 +162,7 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'scene' })
 	// Without a file the Song layer holds only Backing notes
 	| (TOutlineRowBase & { kind: 'song'; source: TSource | undefined; label: string })
-	| (TOutlineRowBase & { kind: 'marble'; lane: TLane; groupKey: string; hasChildren: boolean; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'marble'; marble: TLane; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TEntity; marbleId: string | null })
 	// What a Pattern made (prototype) or a plain Group: selects as itself, with its pieces under it
 	| (TOutlineRowBase & { kind: 'patternGroup'; group: TGroup; groupKey: string; hasChildren: boolean; isOpen: boolean })
@@ -209,12 +209,12 @@ function marblePieceRows(project: TProject, marbleId: string, parentId: string, 
 	return rows;
 }
 
-/** The Rail the lane's marble starts on, then the pieces linked or anchored to its hits, in hit order */
-function marblePieces(project: TProject, lane: TLane): TEntity[] {
-	const order = new Map(lane.hits.map((hit, index) => [hit.id, index]));
-	const startRail = startRailOf(project, lane.id);
+/** The Rail the marble's marble starts on, then the pieces linked or anchored to its hits, in hit order */
+function marblePieces(project: TProject, marble: TLane): TEntity[] {
+	const order = new Map(marble.hits.map((hit, index) => [hit.id, index]));
+	const startRail = startRailOf(project, marble.id);
 	const tied = project.entities
-		.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id)
+		.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marble.id)
 		.sort((a, b) => (order.get(a.components.hitLink?.hitId ?? '') ?? 0) - (order.get(b.components.hitLink?.hitId ?? '') ?? 0));
 	return startRail != null ? [startRail, ...tied] : tied;
 }

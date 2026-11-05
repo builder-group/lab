@@ -30,7 +30,7 @@ export function handNotes(cx: StudioCx, keys: string[], target: string | 'new'):
 	const removed = assigned.flatMap((command) => (command.type === 'removeEntities' ? command.entityIds : []));
 	const moved = assigned.filter((command) => command.type === 'upsertEntity' && command.entity.components.hitLink?.marbleId === marbleId).length;
 	const name = (id: string): string => project.entities.find((entity) => entity.id === id)?.name ?? 'Platform';
-	const owner = project.music.lanes.find((lane) => lane.id === marbleId)?.name ?? 'the new marble';
+	const owner = project.music.marbles.find((marble) => marble.id === marbleId)?.name ?? 'the new marble';
 	// Each notice offers Undo; when the edit breaks later hits, Track adds Fix to it once the run is simulated
 	if (removed.length === 1) cx.notifyEdit(`${name(removed[0] ?? '')} removed: Backing needs no platform`);
 	else if (removed.length > 1) cx.notifyEdit(`${removed.length} platforms removed: Backing needs no platform`);
@@ -84,11 +84,11 @@ export function playedByMenu(cx: StudioCx, keys: string[]): TMenuEntry[] {
 	const only = owners.size === 1 ? [...owners][0] : undefined;
 	return [
 		{ section: 'Played By' },
-		...project.music.lanes.map((lane, index) => ({
-			label: lane.name,
+		...project.music.marbles.map((marble, index) => ({
+			label: marble.name,
 			shortcut: index < 9 ? String(index + 1) : undefined,
-			checked: only === lane.id,
-			onSelect: () => void handNotes(cx, keys, lane.id)
+			checked: only === marble.id,
+			onSelect: () => void handNotes(cx, keys, marble.id)
 		})),
 		{ label: 'New Marble', onSelect: () => void handNotes(cx, keys, 'new') },
 		{ label: 'Backing', shortcut: '0', checked: only === BACKING_ID, disabled: !canMakeBacking(project), onSelect: () => void handNotes(cx, keys, BACKING_ID) }
@@ -100,13 +100,13 @@ export function ownerForKey(project: TProject, key: string): string | null {
 	if (key === '0') return BACKING_ID;
 	const index = Number(key) - 1;
 	if (!Number.isInteger(index) || index < 0 || index > 8) return null;
-	return project.music.lanes[index]?.id ?? null;
+	return project.music.marbles[index]?.id ?? null;
 }
 
-/** The notes of selection keys with the lane or Backing that holds them */
+/** The notes of selection keys with the marble or Backing that holds them */
 export function selectedNotes(project: TProject, keys: string[]): TOwnedNote[] {
 	const wanted = new Set(keys);
-	const owners = [...project.music.lanes, { id: BACKING_ID, hits: project.music.backing }];
+	const owners = [...project.music.marbles, { id: BACKING_ID, hits: project.music.backing }];
 	return owners.flatMap((owner) => owner.hits.filter((hit) => wanted.has(toHitKey(owner.id, hit.id))).map((hit) => ({ ownerId: owner.id, hit })));
 }
 

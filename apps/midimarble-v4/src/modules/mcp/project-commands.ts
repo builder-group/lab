@@ -63,7 +63,7 @@ const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
 	updateProject: { schema: z.strictObject({ type: z.string(), patch: SProject.pick({ title: true, length: true, format: true, gravity: true }).partial().strict() }), example: "{ type: 'updateProject', patch: { title: 'Name', length: 32, format: { width: 9, height: 16 }, gravity: 0.5 } }" },
 	upsertSource: { schema: z.strictObject({ type: z.string(), source: SSource }), example: "{ type: 'upsertSource', source }" },
 	removeSource: { schema: z.strictObject({ type: z.string(), sourceId: z.string() }), example: "{ type: 'removeSource', sourceId }" },
-	upsertLane: { schema: z.strictObject({ type: z.string(), lane: SLane.partial({ hits: true }) }), example: "{ type: 'upsertLane', lane }" },
+	upsertLane: { schema: z.strictObject({ type: z.string(), marble: SLane.partial({ hits: true }) }), example: "{ type: 'upsertLane', marble }" },
 	removeLane: { schema: z.strictObject({ type: z.string(), marbleId: z.string() }), example: "{ type: 'removeLane', marbleId }" },
 	upsertHits: { schema: z.strictObject({ type: z.string(), marbleId: z.string(), hits: z.array(SHit) }), example: "{ type: 'upsertHits', marbleId, hits: [{ id, time }] }" },
 	removeHits: { schema: z.strictObject({ type: z.string(), marbleId: z.string(), hitIds: z.array(z.string()) }), example: "{ type: 'removeHits', marbleId, hitIds: [] }" },
@@ -192,7 +192,7 @@ function titleProblem(text: NonNullable<TEntity['components']['wallText']>): str
 }
 
 function entityProblem(project: TProject, items: readonly TLibraryItem[], entity: TEntity): string | null {
-	const { skin, wallText, marble } = entity.components;
+	const { skin, wallText, marble: marbleEntity } = entity.components;
 	const element = entitySkinElement(entity);
 	if (skin?.assetId != null && element != null) {
 		const problem = skinProblem(skin.assetId, element, items);
@@ -202,9 +202,9 @@ function entityProblem(project: TProject, items: readonly TLibraryItem[], entity
 		const problem = titleProblem(wallText);
 		if (problem != null) return problem;
 	}
-	if (marble != null) {
-		if (marble.radius < MARBLE_RADIUS.min || marble.radius > MARBLE_RADIUS.max) return `A marble's radius is in meters, from ${MARBLE_RADIUS.min} to ${MARBLE_RADIUS.max}; ${marble.radius} is outside that. get_state.marbles[].radius has the current one.`;
-		if (!project.music.lanes.some((lane) => lane.id === marble.marbleId)) return `There is no lane ${marble.marbleId}. get_state.marbles[].marbleId lists them.`;
+	if (marbleEntity != null) {
+		if (marbleEntity.radius < MARBLE_RADIUS.min || marbleEntity.radius > MARBLE_RADIUS.max) return `A marble's radius is in meters, from ${MARBLE_RADIUS.min} to ${MARBLE_RADIUS.max}; ${marbleEntity.radius} is outside that. get_state.marbles[].radius has the current one.`;
+		if (!project.music.marbles.some((marble) => marble.id === marbleEntity.marbleId)) return `There is no marble ${marbleEntity.marbleId}. get_state.marbles[].marbleId lists them.`;
 	}
 	return null;
 }
@@ -228,7 +228,7 @@ const NO_ENTITY = 'get_state lists them: marbles[].entityId, layers.pieces[].id,
 
 /** Why a command that fits its shape still can't run on this project: an id or value it names isn't there */
 function valueProblem(project: TProject, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], command: TAgentCommand): string | null {
-	const missingMarble = (marbleId: string): string | null => (marbleId === 'backing' || project.music.lanes.some((lane) => lane.id === marbleId) ? null : `There is no lane ${marbleId}. get_state.marbles[].marbleId lists them.`);
+	const missingMarble = (marbleId: string): string | null => (marbleId === 'backing' || project.music.marbles.some((marble) => marble.id === marbleId) ? null : `There is no marble ${marbleId}. get_state.marbles[].marbleId lists them.`);
 	const missingEntity = (entityId: string): string | null => (project.entities.some((entity) => entity.id === entityId) ? null : `There is nothing called ${entityId}. ${NO_ENTITY}`);
 	switch (command.type) {
 		case 'setComponent': {
@@ -262,11 +262,11 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 		case 'assignHits':
 			return missingMarble(command.marbleId);
 		case 'removeHits': {
-			const lane = missingMarble(command.marbleId);
-			if (lane != null) return lane;
-			const owner = project.music.lanes.find((item) => item.id === command.marbleId);
+			const marble = missingMarble(command.marbleId);
+			if (marble != null) return marble;
+			const owner = project.music.marbles.find((item) => item.id === command.marbleId);
 			const missing = owner == null ? undefined : command.hitIds.find((id) => !owner.hits.some((hit) => hit.id === id));
-			return missing != null ? `There is no hit ${missing} on that lane. get_state.marbles[].hitList lists them.` : null;
+			return missing != null ? `There is no hit ${missing} on that marble. get_state.marbles[].hitList lists them.` : null;
 		}
 		case 'updateFilm':
 			return filmProblem(project, items, packThemes, command.film);

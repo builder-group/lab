@@ -11,7 +11,7 @@ import { loadFixture } from '@/modules/project/test-helpers';
 function createBareProject(end: number): TProject {
 	const project = createStaircaseProject();
 	project.length = end;
-	project.music.lanes = [];
+	project.music.marbles = [];
 	project.entities = [];
 	return project;
 }
@@ -21,13 +21,13 @@ function addMarble(
 	index: number,
 	release: TEntity['components']['release']
 ): string {
-	const lane = createLane(index, `lane-${index + 1}`);
-	project.music.lanes.push(lane);
+	const marble = createLane(index, `lane-${index + 1}`);
+	project.music.marbles.push(marble);
 	project.entities.push({
 		id: `marble-${index + 1}`,
-		components: { marble: { marbleId: lane.id, radius: 0.008 }, release }
+		components: { marble: { marbleId: marble.id, radius: 0.008 }, release }
 	});
-	return lane.id;
+	return marble.id;
 }
 
 function addLinkedHit(
@@ -37,10 +37,10 @@ function addLinkedHit(
 	angle: number,
 	type = 'platform'
 ): string {
-	const lane = project.music.lanes.find((l) => l.id === marbleId);
-	if (lane == null) throw new Error('Missing lane');
-	const hitId = `${marbleId}-hit-${lane.hits.length + 1}`;
-	lane.hits.push({ id: hitId, time });
+	const marble = project.music.marbles.find((l) => l.id === marbleId);
+	if (marble == null) throw new Error('Missing marble');
+	const hitId = `${marbleId}-hit-${marble.hits.length + 1}`;
+	marble.hits.push({ id: hitId, time });
 	const id = `piece-${hitId}`;
 	project.entities.push(
 		createLinkedPiece(type, marbleId, hitId, angle, { entities: project.entities, id })
@@ -247,10 +247,10 @@ describe('simulate', () => {
 
 	it('runs several marbles in one world and records marble contacts', () => {
 		const project = createBareProject(3);
-		const laneA = addMarble(project, 0, { position: { x: -0.2, y: 0.5 }, time: 0 });
-		const laneB = addMarble(project, 1, { position: { x: 0.2, y: 0.5 }, time: 0.15 });
-		for (const time of [0.5, 0.9, 1.3]) addLinkedHit(project, laneA, time, -0.1);
-		for (const time of [0.7, 1.1, 1.5]) addLinkedHit(project, laneB, time, 0.1);
+		const marbleA = addMarble(project, 0, { position: { x: -0.2, y: 0.5 }, time: 0 });
+		const marbleB = addMarble(project, 1, { position: { x: 0.2, y: 0.5 }, time: 0.15 });
+		for (const time of [0.5, 0.9, 1.3]) addLinkedHit(project, marbleA, time, -0.1);
+		for (const time of [0.7, 1.1, 1.5]) addLinkedHit(project, marbleB, time, 0.1);
 		// After the long first falls, a lower bounce than the default keeps the marbles falling at each hit
 		for (const entity of project.entities)
 			if (entity.components.piece != null) entity.components.piece.params['bounce'] = 0.55;
@@ -421,7 +421,7 @@ describe('simulate', () => {
 	it('flags open dots outside the frame band', () => {
 		const project = createBareProject(1);
 		addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0, velocity: { x: 0.5, y: 0 } });
-		project.music.lanes[0]?.hits.push({ id: 'near', time: 0.2 }, { id: 'far', time: 0.8 });
+		project.music.marbles[0]?.hits.push({ id: 'near', time: 0.2 }, { id: 'far', time: 0.8 });
 		const result = simulator.simulate(project);
 		expect(result.hits.map((hit) => hit.outOfFrame)).toEqual([false, true]);
 	});
@@ -433,7 +433,7 @@ describe('simulate', () => {
 			time: 0,
 			velocity: { x: 0.2, y: 0 }
 		});
-		project.music.lanes[0]?.hits.push({ id: 'open', time: 0.3 });
+		project.music.marbles[0]?.hits.push({ id: 'open', time: 0.3 });
 		const result = simulator.simulate(project);
 		const hit = result.hits.find((h) => h.marbleId === marbleId);
 		expect(hit?.status).toBe('open');

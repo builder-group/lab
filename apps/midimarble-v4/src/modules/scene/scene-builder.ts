@@ -24,11 +24,11 @@ const DEFAULT_PIECE_COLOR = '#c8b89a';
 export const MARBLE_ACTIVE_TAIL = 0.6;
 
 /**
- * A marble whose lane has finished falls away from the others; once it no longer plays, the camera keeps the
+ * A marble whose marble has finished falls away from the others; once it no longer plays, the camera keeps the
  * marbles that still do. The marble that plays last stays framed to the end.
  */
 function markActiveUntil(project: TProject, result: TSimulationResult, marbles: TSceneMarble[]): void {
-	const lastNote = new Map(project.music.lanes.map((lane) => [lane.id, lane.hits.reduce((max, hit) => Math.max(max, hit.time), -Infinity)]));
+	const lastNote = new Map(project.music.marbles.map((marble) => [marble.id, marble.hits.reduce((max, hit) => Math.max(max, hit.time), -Infinity)]));
 	const lasts = result.marbles.map((track) => lastNote.get(track.marbleId) ?? -Infinity);
 	const latest = Math.max(...lasts);
 	result.marbles.forEach((track, index) => {
@@ -38,10 +38,10 @@ function markActiveUntil(project: TProject, result: TSimulationResult, marbles: 
 	});
 }
 
-/** Sorted note times of a lane, rounded like `activeUntil`, which the follow camera reads to find the leading marble */
+/** Sorted note times of a marble, rounded like `activeUntil`, which the follow camera reads to find the leading marble */
 function noteTimes(project: TProject, marbleId: string): number[] {
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
-	return (lane?.hits ?? []).map((hit) => Math.round(hit.time * 1e4) / 1e4).sort((a, b) => a - b);
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	return (marble?.hits ?? []).map((hit) => Math.round(hit.time * 1e4) / 1e4).sort((a, b) => a - b);
 }
 
 export function buildSceneDescription(
@@ -65,7 +65,7 @@ export function buildSceneDescription(
 			radius: track.radius,
 			pathDepth: pathDepth(result.pieces, track.radius),
 			// The skin None wears the label color, the only skin that does
-			color: resolveElementLook(project.film, 'marble', entity?.components.skin).skin === 'marble:none' ? (project.music.lanes.find((lane) => lane.id === track.marbleId)?.color ?? marbleFilmColor(project, track.marbleId)) : marbleFilmColor(project, track.marbleId),
+			color: resolveElementLook(project.film, 'marble', entity?.components.skin).skin === 'marble:none' ? (project.music.marbles.find((marble) => marble.id === track.marbleId)?.color ?? marbleFilmColor(project, track.marbleId)) : marbleFilmColor(project, track.marbleId),
 			...(entity?.components.skin != null ? { skin: entity.components.skin } : {}),
 			...(skinAssetPath(entity?.components.skin?.assetId) != null ? { assetPath: skinAssetPath(entity?.components.skin?.assetId) } : {}),
 			motionPath,
@@ -109,7 +109,7 @@ export function buildSceneDescription(
 			// The skin None wears the label color, the only skin that does
 			color:
 				entity != null && resolveElementLook(project.film, skinElement(piece.type), entity.components.skin).skin.endsWith(':none') ? (pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR)
-				: marbleId != null && project.music.lanes.some((lane) => lane.id === marbleId) ? marbleFilmColor(project, marbleId)
+				: marbleId != null && project.music.marbles.some((marble) => marble.id === marbleId) ? marbleFilmColor(project, marbleId)
 				: DEFAULT_PIECE_COLOR,
 			...notePitchOf(project, entity),
 			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
@@ -165,12 +165,12 @@ export function lastStruckTime(result: TSimulationResult): number | null {
  * last pieces, and so is one whose catch comes before the hold, which the camera saw while it still followed.
  */
 export function heldBowls(project: TProject, result: TSimulationResult): { x: number; y: number }[] | null {
-	const lanes = new Set(lastPlayingMarbles(project));
+	const marbles = new Set(lastPlayingMarbles(project));
 	const hold = lastStruckTime(result);
 	if (hold == null) return null;
 	const points = project.entities.flatMap((entity) => {
 		const marbleId = entity.components.hitLink?.marbleId;
-		if (entity.components.piece?.type !== BOWL_TYPE || marbleId == null || !lanes.has(marbleId)) return [];
+		if (entity.components.piece?.type !== BOWL_TYPE || marbleId == null || !marbles.has(marbleId)) return [];
 		const piece = result.pieces.find((item) => item.entityId === entity.id);
 		const caught = bowlCatch(result, entity.id);
 		if (piece == null || caught.status !== 'caught' || (caught.enterTime ?? -Infinity) < hold) return [];
@@ -280,7 +280,7 @@ export function encodeRecords(records: number[][]): Uint8Array {
 function notePitchOf(project: TProject, entity: TEntity | undefined): { notePitch?: number } {
 	const link = entity?.components.hitLink;
 	if (link == null || link.anchored === true || getPieceDefinition(entity?.components.piece?.type ?? '')?.musical !== true) return {};
-	const pitch = project.music.lanes.find((lane) => lane.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.pitch;
+	const pitch = project.music.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.pitch;
 	return pitch == null ? {} : { notePitch: pitch };
 }
 

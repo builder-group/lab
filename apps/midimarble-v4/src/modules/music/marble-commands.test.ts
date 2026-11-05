@@ -10,7 +10,7 @@ function note(time: number, pitch: number): TMidiNote {
 describe('createImportCommands', () => {
 	it('releases each marble a short lead before its first note', () => {
 		const project = createProject({ id: 'import', title: 'Import' });
-		const commands = createImportCommands(project, { lanes: [[note(2, 60), note(2.5, 62)], [note(0.1, 48)]] });
+		const commands = createImportCommands(project, { marbles: [[note(2, 60), note(2.5, 62)], [note(0.1, 48)]] });
 		const [isApplied, applyErr, next] = applyProjectCommands(project, commands);
 		if (!isApplied) throw applyErr;
 		const releases = next.entities.map((entity) => entity.components.release?.time).filter((time) => time != null);
@@ -23,11 +23,11 @@ describe('createImportCommands', () => {
 
 	it('should keep every note, with the notes no marble plays in Backing', () => {
 		const project = createProject({ id: 'import', title: 'Import' });
-		const commands = createImportCommands(project, { lanes: [[note(1, 60)]], backing: [note(1, 55), note(1.1, 52)], backingInstrument: 0 });
+		const commands = createImportCommands(project, { marbles: [[note(1, 60)]], backing: [note(1, 55), note(1.1, 52)], backingInstrument: 0 });
 		const [isApplied, applyErr, next] = applyProjectCommands(project, commands);
 		if (!isApplied) throw applyErr;
 
-		expect(next.music.lanes[0]?.hits.map((hit) => hit.duration)).toEqual([0.2]);
+		expect(next.music.marbles[0]?.hits.map((hit) => hit.duration)).toEqual([0.2]);
 		expect(next.music.backing.map((hit) => hit.pitch)).toEqual([55, 52]);
 		expect(next.music.backingInstrument).toBe(0);
 	});
@@ -36,8 +36,8 @@ describe('createImportCommands', () => {
 describe('film length', () => {
 	function tapped(times: number[], end = DEFAULT_PROJECT_END): TProject {
 		const project = createProject({ id: 'tap', title: 'Tap' });
-		const lane = project.music.lanes[0];
-		if (lane != null) lane.hits = times.map((time, index) => ({ id: `h${index}`, time }));
+		const marble = project.music.marbles[0];
+		if (marble != null) marble.hits = times.map((time, index) => ({ id: `h${index}`, time }));
 		return { ...project, length: end };
 	}
 
@@ -66,12 +66,12 @@ describe('bowlTail', () => {
 describe('filmTail', () => {
 	function withMarbles(times: number[][], bowls: string[] = [], end = 4): TProject {
 		const project = createProject({ id: 'bowl', title: 'Bowl' });
-		const lanes = times.map((hits, index) => ({ ...(project.music.lanes[0] as TProject['music']['lanes'][number]), id: `lane-${index}`, hits: hits.map((time, hit) => ({ id: `h${index}-${hit}`, time })) }));
+		const marbles = times.map((hits, index) => ({ ...(project.music.marbles[0] as TProject['music']['marbles'][number]), id: `lane-${index}`, hits: hits.map((time, hit) => ({ id: `h${index}-${hit}`, time })) }));
 		const entities = bowls.map((marbleId) => ({
 			id: `bowl-${marbleId}`,
 			components: { piece: { type: 'bowl', params: {} }, hitLink: { marbleId, hitId: 'h0-0', angle: 0, contactAt: 0.5, anchored: true } }
 		}));
-		return { ...project, length: end, music: { ...project.music, lanes }, entities: [...project.entities, ...entities] };
+		return { ...project, length: end, music: { ...project.music, marbles }, entities: [...project.entities, ...entities] };
 	}
 
 	it('runs the Bowl tail only when every marble that plays last has a Bowl', () => {

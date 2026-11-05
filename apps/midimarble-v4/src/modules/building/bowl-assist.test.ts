@@ -24,7 +24,7 @@ describe('Add Bowl', () => {
 		// Their last notes lie closer together than the Bowl's tail, so both play last
 		expect(marblesWithoutBowl(duet)).toEqual(['lane-1', 'lane-2']);
 		// With Marble 2's last note later than that, only it does
-		expect(marblesWithoutBowl({ ...duet, music: { ...duet.music, lanes: duet.music.lanes.map((lane) => (lane.id === 'lane-2' ? { ...lane, hits: [...lane.hits, { id: 'late', time: 5 }] } : lane)) } })).toEqual(['lane-2']);
+		expect(marblesWithoutBowl({ ...duet, music: { ...duet.music, marbles: duet.music.marbles.map((marble) => (marble.id === 'lane-2' ? { ...marble, hits: [...marble.hits, { id: 'late', time: 5 }] } : marble)) } })).toEqual(['lane-2']);
 		expect(marblesWithoutBowl(loadFixture('two-marbles'))).toEqual([]);
 	});
 
@@ -51,9 +51,9 @@ describe('Add Bowl', () => {
 		const project = loadFixture('two-marbles');
 		const result = simulator.simulate(project);
 		expect(result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(6);
-		for (const lane of project.music.lanes) {
-			const bowl = bowlOfMarble(project, lane.id);
-			expect(bowl, lane.name).toBeDefined();
+		for (const marble of project.music.marbles) {
+			const bowl = bowlOfMarble(project, marble.id);
+			expect(bowl, marble.name).toBeDefined();
 			expect(bowlCatch(result, bowl?.id ?? '').status).toBe('caught');
 		}
 		expect(preflightExport(project, result, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.id.startsWith('bowl:'))).toEqual([]);

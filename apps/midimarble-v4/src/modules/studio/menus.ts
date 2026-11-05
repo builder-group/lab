@@ -32,9 +32,9 @@ export function labelColorItem(entries: TMenuEntry[]): TMenuEntry {
 	return { label: 'Label Color', onSelect: () => undefined, submenu: entries };
 }
 
-/** A marble's label is its lane's color, which it always has */
-export function marbleLabelEntries(cx: StudioCx, lane: TLane): TMenuEntry[] {
-	return labelColorEntries(cx, lane.color, (color) => (color != null ? [{ type: 'upsertLane', lane: { ...lane, color } }] : []), false);
+/** A marble's label is its marble's color, which it always has */
+export function marbleLabelEntries(cx: StudioCx, marble: TLane): TMenuEntry[] {
+	return labelColorEntries(cx, marble.color, (color) => (color != null ? [{ type: 'upsertLane', marble: { ...marble, color } }] : []), false);
 }
 
 /** The entity's Label Color, and with it the rest of the selection when it is part of one, as one edit */
@@ -132,17 +132,17 @@ export function filmMenu(cx: StudioCx): TMenuEntry[] {
 }
 
 /** Right-click on a hit in the timeline */
-export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] {
+export function hitMenu(cx: StudioCx, marble: TLane, hitId: string): TMenuEntry[] {
 	const project = cx.project;
-	const hit = lane.hits.find((item) => item.id === hitId);
+	const hit = marble.hits.find((item) => item.id === hitId);
 	if (project == null || hit == null) return [];
-	const piece = project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id && entity.components.hitLink.hitId === hitId);
+	const piece = project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marble.id && entity.components.hitLink.hitId === hitId);
 	const selected = cx.$selection.get();
-	const key = toHitKey(lane.id, hitId);
+	const key = toHitKey(marble.id, hitId);
 	const moving = selected.includes(key) ? selected : [key];
 
 	return tidyMenu([
-		{ section: `${lane.name} · Hit ${lane.hits.indexOf(hit) + 1} · ${formatTime(hit.time)}` },
+		{ section: `${marble.name} · Hit ${marble.hits.indexOf(hit) + 1} · ${formatTime(hit.time)}` },
 		{ label: 'Go to Hit', onSelect: () => cx.$playhead.set(hit.time) },
 		{
 			label: 'Play from Hit',
@@ -152,7 +152,7 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 			}
 		},
 		piece != null ? { label: `Select ${piece.name ?? 'Piece'}`, onSelect: () => cx.reveal([piece.id]) } : null,
-		{ label: 'Rebuild From Here', disabled: cx.$trackCx.get() == null || cx.assist.isBuilding === true, onSelect: () => void cx.assist.buildTrack({ marbleId: lane.id, hitId }) },
+		{ label: 'Rebuild From Here', disabled: cx.$trackCx.get() == null || cx.assist.isBuilding === true, onSelect: () => void cx.assist.buildTrack({ marbleId: marble.id, hitId }) },
 		'separator',
 		...playedByMenu(cx, moving),
 		'separator',
@@ -160,38 +160,38 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 	]);
 }
 
-/** Right-click on a lane row or its header; `time` is where an added hit goes */
-export function marbleMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[] {
+/** Right-click on a marble row or its header; `time` is where an added hit goes */
+export function marbleMenu(cx: StudioCx, marble: TLane, time?: number): TMenuEntry[] {
 	const project = cx.project;
 	if (project == null) return [];
-	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === lane.id);
-	const suggested = suggestedHits(cx, lane).length;
+	const marbleEntity = project.entities.find((entity) => entity.components.marble?.marbleId === marble.id);
+	const suggested = suggestedHits(cx, marble).length;
 
 	return tidyMenu([
-		{ section: lane.name },
-		time != null ? { label: `Add Hit at ${formatTime(time)}`, onSelect: () => addHit(cx, lane, time) } : null,
-		{ label: 'Select All Hits', disabled: !lane.hits.length, onSelect: () => cx.$selection.set(lane.hits.map((hit) => toHitKey(lane.id, hit.id))) },
-		suggested > 0 ? { label: suggestedHitsLabel(suggested), onSelect: () => addSuggestedHits(cx, lane) } : null,
+		{ section: marble.name },
+		time != null ? { label: `Add Hit at ${formatTime(time)}`, onSelect: () => addHit(cx, marble, time) } : null,
+		{ label: 'Select All Hits', disabled: !marble.hits.length, onSelect: () => cx.$selection.set(marble.hits.map((hit) => toHitKey(marble.id, hit.id))) },
+		suggested > 0 ? { label: suggestedHitsLabel(suggested), onSelect: () => addSuggestedHits(cx, marble) } : null,
 		'separator',
-		marble != null
+		marbleEntity != null
 			? {
 					label: 'Rename…',
 					onSelect: () => {
-						cx.$selection.set([marble.id]);
+						cx.$selection.set([marbleEntity.id]);
 						cx.renameSelection();
 					}
 				}
 			: null,
-		labelColorItem(marbleLabelEntries(cx, lane)),
+		labelColorItem(marbleLabelEntries(cx, marble)),
 		cx.$workspace.get() === 'track' ? commandItem(cx, 'marble.add') : null,
-		{ label: 'Delete Marble', disabled: project.music.lanes.length <= 1, onSelect: () => cx.execute([{ type: 'removeLane', marbleId: lane.id }]) }
+		{ label: 'Delete Marble', disabled: project.music.marbles.length <= 1, onSelect: () => cx.execute([{ type: 'removeLane', marbleId: marble.id }]) }
 	]);
 }
 
-export function addHit(cx: StudioCx, lane: TLane, time: number): void {
+export function addHit(cx: StudioCx, marble: TLane, time: number): void {
 	// A hit has a pitch only when it comes from a MIDI note; one placed by hand is timing alone
 	const hit = { id: createId('hit'), time: Math.round(time * 10000) / 10000 };
-	if (cx.execute([{ type: 'upsertHits', marbleId: lane.id, hits: [hit] }])) cx.$selection.set([toHitKey(lane.id, hit.id)]);
+	if (cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [hit] }])) cx.$selection.set([toHitKey(marble.id, hit.id)]);
 }
 
 /** The Song layer's menu, in Layers and on its timeline row */

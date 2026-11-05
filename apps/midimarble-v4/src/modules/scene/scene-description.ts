@@ -72,11 +72,11 @@ export interface TSceneCamera {
 	shots: TSceneShot[];
 	/**
 	 * Marble the camera keeps when several marbles no longer fit a readable frame; the others may leave it. Absent
-	 * picks the first marble, which carries the melody lane. Optional and additive.
+	 * picks the first marble, which carries the melody marble. Optional and additive.
 	 */
 	focusMarbleId?: string | null;
 	/**
-	 * Shared descent pace y*(t) of the lanes from the simulation, in wall meters. The camera frames a group of
+	 * Shared descent pace y*(t) of the marbles from the simulation, in wall meters. The camera frames a group of
 	 * marbles at this height instead of their bouncing center. Optional and additive.
 	 */
 	descent?: TSceneDescentPoint[] | null;

@@ -8,10 +8,10 @@ const group: TGroup = { id: 'g1', name: 'Zigzag', marbleId: 'lane', from: 1, to:
 
 function project(): TProject {
 	const base = createProject({ id: 'p', title: 'P' });
-	const lane = { ...base.music.lanes[0], id: 'lane', hits: [1, 2, 3, 5].map((time, index) => ({ id: `h${index + 1}`, time })) } as TProject['music']['lanes'][number];
-	const marble = base.entities[0] as TProject['entities'][number];
+	const marble = { ...base.music.marbles[0], id: 'lane', hits: [1, 2, 3, 5].map((time, index) => ({ id: `h${index + 1}`, time })) } as TProject['music']['marbles'][number];
+	const marbleEntity = base.entities[0] as TProject['entities'][number];
 	const piece = (id: string, hitId: string): TProject['entities'][number] => ({ id, name: id, components: { piece: { type: 'platform', params: {} }, hitLink: { marbleId: 'lane', hitId, angle: 0, contactAt: 0.5 } } });
-	return { ...base, music: { ...base.music, lanes: [lane] }, entities: [{ ...marble, components: { ...marble.components, marble: { radius: 0.012, marbleId: 'lane' } } }, piece('p1', 'h1'), piece('p2', 'h2'), piece('p3', 'h3')], groups: [group] };
+	return { ...base, music: { ...base.music, marbles: [marble] }, entities: [{ ...marbleEntity, components: { ...marbleEntity.components, marble: { radius: 0.012, marbleId: 'lane' } } }, piece('p1', 'h1'), piece('p2', 'h2'), piece('p3', 'h3')], groups: [group] };
 }
 
 describe('Pattern selection', () => {

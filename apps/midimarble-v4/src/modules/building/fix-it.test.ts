@@ -26,10 +26,10 @@ function hit(time: number, status: THitResult['status'], options: Partial<THitRe
 
 function oneMarble(): TProject {
 	const project = createProject();
-	const lane = project.music.lanes[0];
-	if (lane != null) lane.id = 'lane-1';
-	const marble = project.entities.find((entity) => entity.components.marble != null);
-	if (marble?.components.marble != null) marble.components.marble.marbleId = 'lane-1';
+	const marble = project.music.marbles[0];
+	if (marble != null) marble.id = 'lane-1';
+	const marbleEntity = project.entities.find((entity) => entity.components.marble != null);
+	if (marbleEntity?.components.marble != null) marbleEntity.components.marble.marbleId = 'lane-1';
 	return project;
 }
 
@@ -59,8 +59,8 @@ describe('releaseFix function', () => {
 	it('should release the marble so it arrives where and how fast it did before the edit', () => {
 		// Prepare
 		const project = oneMarble();
-		const lane = project.music.lanes[0];
-		if (lane != null) lane.hits = [{ id: 'h5', time: 5 }];
+		const marble = project.music.marbles[0];
+		if (marble != null) marble.hits = [{ id: 'h5', time: 5 }];
 		const before = [hit(5, 'onTime', { dot: { x: 0.1, y: -2 }, velocity: { x: 0.2, y: -1 } })];
 		const after = [hit(5, 'blocked')];
 
@@ -83,8 +83,8 @@ describe('releaseFix function', () => {
 
 	it('should leave a short first fall alone', () => {
 		const project = oneMarble();
-		const lane = project.music.lanes[0];
-		if (lane != null) lane.hits = [{ id: 'h1', time: 0.8 }];
+		const marble = project.music.marbles[0];
+		if (marble != null) marble.hits = [{ id: 'h1', time: 0.8 }];
 
 		expect(releaseFix(project, [hit(0.8, 'blocked')], 'lane-1', [hit(0.8, 'onTime')])).toEqual([]);
 	});
@@ -127,12 +127,12 @@ describe('fixTrack function', () => {
 	function handToBacking(name: string, from: number, count: number): { before: TSimulationResult; edited: TProject; broken: TSimulationResult; marbleId: string } {
 		const project = loadFixture(name);
 		const before = simulate(project);
-		const lane = project.music.lanes[0];
-		if (lane == null) throw new Error(`${name} has a track`);
-		const notes = lane.hits.slice(from, from + count).map((item) => item.id);
+		const marble = project.music.marbles[0];
+		if (marble == null) throw new Error(`${name} has a track`);
+		const notes = marble.hits.slice(from, from + count).map((item) => item.id);
 		const [isEditOk, editErr, edited] = applyProjectCommands(project, assignNotesCommands(project, before, notes, BACKING_ID));
 		if (!isEditOk) throw editErr;
-		return { before, edited, broken: simulate(edited), marbleId: lane.id };
+		return { before, edited, broken: simulate(edited), marbleId: marble.id };
 	}
 
 	/** The result notice as Track shows it, with how the run stands from the problem model */
@@ -210,11 +210,11 @@ describe('moveClear function', () => {
 	// A windmill that follows Marble 1 at 0:02.00, sitting on the marble's straight fall from 0:00 to 0:01
 	function createBlocked(): { project: TProject; result: TSimulationResult } {
 		const base = createProject({ title: 'Move Clear' });
-		const lane = base.music.lanes[0];
-		if (lane == null) throw new Error('A new project has a marble');
+		const marble = base.music.marbles[0];
+		if (marble == null) throw new Error('A new project has a marble');
 		const project: TProject = {
 			...base,
-			music: { ...base.music, lanes: [{ ...lane, hits: [{ id: 'h1', time: 1.5 }] }] },
+			music: { ...base.music, marbles: [{ ...marble, hits: [{ id: 'h1', time: 1.5 }] }] },
 			entities: [
 				...base.entities,
 				{
@@ -223,7 +223,7 @@ describe('moveClear function', () => {
 					components: {
 						piece: { type: 'windmill', params: { entryDelay: 0.5 } },
 						transform: { position: { x: 0, y: 0 }, angle: 0 },
-						hitLink: { marbleId: lane.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true, offset: { x: 0.1, y: 0.2 } }
+						hitLink: { marbleId: marble.id, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true, offset: { x: 0.1, y: 0.2 } }
 					}
 				}
 			]
@@ -232,7 +232,7 @@ describe('moveClear function', () => {
 		const result: TSimulationResult = {
 			revision: project.revision,
 			duration: 3,
-			marbles: [{ entityId: 'marble', marbleId: lane.id, radius: 0.008, samples }],
+			marbles: [{ entityId: 'marble', marbleId: marble.id, radius: 0.008, samples }],
 			pieces: [
 				{
 					entityId: 'windmill',
@@ -267,7 +267,7 @@ describe('moveClear function', () => {
 		const command = move?.commands[0];
 		if (command?.type !== 'setComponent' || command.component.name !== 'hitLink') throw new Error('Move Clear sets the tie');
 		const { offset, marbleId, hitId, anchored } = command.component.value;
-		expect({ marbleId, hitId, anchored }).toEqual({ marbleId: project.music.lanes[0]?.id, hitId: 'h1', anchored: true });
+		expect({ marbleId, hitId, anchored }).toEqual({ marbleId: project.music.marbles[0]?.id, hitId: 'h1', anchored: true });
 		expect(Math.hypot((offset?.x ?? 0) - 0.1, (offset?.y ?? 0) - 0.2)).toBeCloseTo(0.035, 4);
 	});
 
@@ -281,7 +281,7 @@ describe('moveClear function', () => {
 	it('should move the piece only when its what-if run breaks no hit', async () => {
 		// Prepare: the move clears the windmill, but the run with it moved loses a hit that was on time
 		const { project, result } = createBlocked();
-		const marbleId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.marbles[0]?.id ?? '';
 		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
 		const unused = (): Promise<never> => Promise.reject(new Error('Move Clear places no platform'));
 		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
@@ -301,7 +301,7 @@ describe('moveClear function', () => {
 		// Prepare
 		const { project: blocked, result } = createBlocked();
 		const project = { ...blocked, entities: blocked.entities.map((entity) => (entity.id === 'windmill' && entity.components.piece != null ? { ...entity, components: { ...entity.components, piece: { ...entity.components.piece, type: 'bowl' } } } : entity)) };
-		const marbleId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.marbles[0]?.id ?? '';
 		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
 		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
 		const simulate = async (next: TProject): Promise<TSimulationResult> => (next.entities.some((entity) => entity.id === 'windmill') ? breaks : { ...onTime, pieces: [] });
@@ -372,11 +372,11 @@ describe('addedProblems function', () => {
 	it('should count another marble hitting a piece, except ahead of the marble being fixed', () => {
 		// Prepare: Bass's marble hits a switchback of Melody at 0:05.00
 		const base = createProject();
-		const [melody] = base.music.lanes;
+		const [melody] = base.music.marbles;
 		if (melody == null) throw new Error('A new project has a marble');
 		const project: TProject = {
 			...base,
-			music: { ...base.music, lanes: [{ ...melody, name: 'Melody' }, { ...melody, id: 'bass', name: 'Bass', hits: [] }] },
+			music: { ...base.music, marbles: [{ ...melody, name: 'Melody' }, { ...melody, id: 'bass', name: 'Bass', hits: [] }] },
 			entities: [
 				...base.entities,
 				{ id: 'bass-marble', name: 'Bass', components: { marble: { marbleId: 'bass', radius: 0.008 } } },
@@ -421,12 +421,12 @@ describe('Fix on a small project', () => {
 	beforeAll(async () => {
 		simulator = await createSimulator();
 		track = createBareRunProject({ id: 'small', title: 'Small', end: 5, marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(0.3, 0.45, 8) }] });
-		const lane = track.music.lanes[0];
-		if (lane == null) throw new Error('The project has a lane');
-		for (const [index, note] of lane.hits.entries()) {
-			const entity = createLinkedPiece('platform', lane.id, note.id, index % 2 === 0 ? -0.4 : 0.4, { id: `piece-${index}` });
+		const marble = track.music.marbles[0];
+		if (marble == null) throw new Error('The project has a marble');
+		for (const [index, note] of marble.hits.entries()) {
+			const entity = createLinkedPiece('platform', marble.id, note.id, index % 2 === 0 ? -0.4 : 0.4, { id: `piece-${index}` });
 			const placed = withCommands(track, [{ type: 'upsertEntity', entity }]);
-			const [isOk, error, placement] = autoPlace(placed, simulate(placed), lane.id, note.id, { simulate, type: 'platform' });
+			const [isOk, error, placement] = autoPlace(placed, simulate(placed), marble.id, note.id, { simulate, type: 'platform' });
 			if (!isOk) throw error;
 			track = withCommands(placed, [{ type: 'upsertEntity', entity: { ...placement.entity, id: entity.id } }]);
 		}

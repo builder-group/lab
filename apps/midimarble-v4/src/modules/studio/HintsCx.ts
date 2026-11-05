@@ -118,7 +118,7 @@ export function hintFacts(
 	const hits = isCurrent ? result.hits : [];
 	return {
 		hasSong: project.music.sources.length > 0,
-		hasHits: project.music.lanes.some((lane) => lane.hits.length > 0),
+		hasHits: project.music.marbles.some((marble) => marble.hits.length > 0),
 		workspace: view.workspace,
 		isPlaying: view.isPlaying,
 		editCount,

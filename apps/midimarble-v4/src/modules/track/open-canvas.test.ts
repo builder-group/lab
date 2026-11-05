@@ -51,9 +51,9 @@ describe('bezier', () => {
 describe('open canvas attachments', () => {
 	function project(): { project: TProject; marble: TEntity } {
 		const base = createProject({ title: 'Test' });
-		const lane = { ...createLane(0, 'lane-1'), hits: [{ id: 'hit-a', time: 0.5 }, { id: 'hit-b', time: 1 }] };
-		const marble = createMarble(lane, { x: 0, y: 0.6 });
-		return { project: { ...base, music: { ...base.music, lanes: [lane] }, entities: [marble] }, marble };
+		const marble = { ...createLane(0, 'lane-1'), hits: [{ id: 'hit-a', time: 0.5 }, { id: 'hit-b', time: 1 }] };
+		const marbleEntity = createMarble(marble, { x: 0, y: 0.6 });
+		return { project: { ...base, music: { ...base.music, marbles: [marble] }, entities: [marbleEntity] }, marble: marbleEntity };
 	}
 
 	it('should keep the pose when a free platform links to a dot and frees again', () => {
@@ -85,7 +85,7 @@ describe('open canvas attachments', () => {
 		expect(early?.components.hitLink).toMatchObject({ hitId: 'hit-a', anchored: true });
 		expect(attachState(base, early as TEntity)).toMatchObject({ kind: 'anchored', hitId: 'hit-a' });
 		expect((attachState(base, early as TEntity) as { time: number }).time).toBeCloseTo(0.2, 6);
-		// A lane without hits has nothing to count from, so a drop stays free
+		// A marble without hits has nothing to count from, so a drop stays free
 		expect(withSnap(base, piece, { position: { x: 0, y: 0 }, angle: 0 }, { kind: 'anchor', marbleId: 'missing', time: 0.2, marble: { x: 0, y: 0 } }).components.hitLink).toBeUndefined();
 	});
 

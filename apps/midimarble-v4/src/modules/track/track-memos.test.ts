@@ -7,12 +7,12 @@ import { TrackCx } from './TrackCx';
 
 function shown(): { cx: StudioCx; trackCx: TrackCx; project: TProject; result: TSimulationResult; piece: TResolvedPiece } {
 	const created = createProject({ title: 'Song' });
-	const lane = createLane(0);
-	const marble = createMarble(lane, { x: 0, y: 0 });
+	const marble = createLane(0);
+	const marbleEntity = createMarble(marble, { x: 0, y: 0 });
 	const pose = { position: { x: 0.2, y: -0.2 }, angle: 0 };
-	const entity = createFreePiece('platform', pose, [marble]);
+	const entity = createFreePiece('platform', pose, [marbleEntity]);
 	const piece = displayPiece(entity, { pose });
-	const project: TProject = { ...created, music: { ...created.music, lanes: [lane] }, entities: [marble, entity] };
+	const project: TProject = { ...created, music: { ...created.music, marbles: [marble] }, entities: [marbleEntity, entity] };
 	const result = { revision: project.revision, duration: project.length, marbles: [], pieces: [piece], contacts: [], hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult;
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
@@ -70,7 +70,7 @@ describe('pickScene method', () => {
 	it('should rebuild for the tool, which decides whether placed dots pick', () => {
 		// Prepare
 		const { cx, trackCx, piece, result, project } = shown();
-		const hit = { marbleId: project.music.lanes[0]?.id, hitId: 'a', targetTime: 1, dot: { x: 0, y: 0 }, pieceEntityId: piece.entityId, status: 'onTime' };
+		const hit = { marbleId: project.music.marbles[0]?.id, hitId: 'a', targetTime: 1, dot: { x: 0, y: 0 }, pieceEntityId: piece.entityId, status: 'onTime' };
 		cx.simulation.$result.set({ ...result, hits: [hit] } as unknown as TSimulationResult);
 		expect(trackCx.pickScene().dots).toHaveLength(1);
 

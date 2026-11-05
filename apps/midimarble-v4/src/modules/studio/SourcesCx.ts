@@ -78,7 +78,7 @@ export class SourcesCx {
 		const applied = this.studio.execute([
 			...replaced.map((item) => ({ type: 'removeSource' as const, sourceId: item.id })),
 			...createImportCommands(project, {
-				lanes: preview.lanes,
+				marbles: preview.marbles,
 				names: preview.names,
 				backing: preview.backing,
 				backingInstrument: backingInstrument(pending.midi),
@@ -91,7 +91,7 @@ export class SourcesCx {
 		if (!applied) return;
 		this.$midiImport.set(null);
 		this.studio.$fitFirstHits.set(true);
-		const marbles = `${preview.lanes.length} ${preview.lanes.length === 1 ? 'marble' : 'marbles'}`;
+		const marbles = `${preview.marbles.length} ${preview.marbles.length === 1 ? 'marble' : 'marbles'}`;
 		const backing = preview.backing.length;
 		this.studio.notify(backing > 0 ? `Imported ${marbles}. ${backing} ${backing === 1 ? 'note plays' : 'notes play'} as Backing.` : `Imported ${marbles}.`);
 	}
@@ -234,11 +234,11 @@ export function previewMidiImport(pending: TMidiImport): TMidiImportPreview {
 	const shifted = chosen.map((track) => ({ ...track, notes: shift(track.notes) }));
 	const proposal = proposeMarbles(shifted.flatMap((track) => track.notes), pending.options);
 	const backing = [...proposal.backing.map((item) => item.note), ...shift(others.flatMap((track) => track.notes))].sort((a, b) => a.time - b.time || b.pitch - a.pitch);
-	return { lanes: proposal.lanes, names: marbleNamesFromTracks(proposal.lanes, shifted), backing, offset };
+	return { marbles: proposal.marbles, names: marbleNamesFromTracks(proposal.marbles, shifted), backing, offset };
 }
 
 export interface TMidiImportPreview {
-	lanes: TMidiNote[][];
+	marbles: TMidiNote[][];
 	// What the file calls each marble; null keeps "Marble 1"
 	names: (string | null)[];
 	backing: TMidiNote[];

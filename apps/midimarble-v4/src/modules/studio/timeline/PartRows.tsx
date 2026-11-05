@@ -46,7 +46,7 @@ export const PartRows: React.FC<TPartRowsProps> = (props) => {
 						<PartToggles cx={cx} id={part.id} name={part.name} />
 					</div>
 					<TimeGutter />
-					<div className="mm-song-lane relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width, opacity: isAudible(part.id) ? 1 : 0.35 }} aria-label={`Notes of ${part.name}`}>
+					<div className="mm-song-row relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width, opacity: isAudible(part.id) ? 1 : 0.35 }} aria-label={`Notes of ${part.name}`}>
 						<NoteOverview project={project} only={part.id} zoom={zoom} width={width} height={PART_ROW_HEIGHT - 1} />
 					</div>
 				</div>

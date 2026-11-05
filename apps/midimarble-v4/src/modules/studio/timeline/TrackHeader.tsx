@@ -11,13 +11,13 @@ import { HEADER_WIDTH, ROW_HEIGHT } from './timeline-layout';
  * its row stays flat: notes open only in the Song layer's piano roll.
  */
 export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
-	const { cx, lane, project, selection } = props;
+	const { cx, marble, project, selection } = props;
 	const [isRenaming, setIsRenaming] = React.useState(false);
-	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === lane.id);
-	const id = marble?.id ?? lane.id;
-	const conflicts = findMarbleConflicts(lane).size;
-	const isSelected = selection.includes(id) || selection.some((key) => key.startsWith(`hit:${lane.id}:`));
-	const hitCount = `${lane.hits.length} ${lane.hits.length === 1 ? 'hit' : 'hits'}`;
+	const marbleEntity = project.entities.find((entity) => entity.components.marble?.marbleId === marble.id);
+	const id = marbleEntity?.id ?? marble.id;
+	const conflicts = findMarbleConflicts(marble).size;
+	const isSelected = selection.includes(id) || selection.some((key) => key.startsWith(`hit:${marble.id}:`));
+	const hitCount = `${marble.hits.length} ${marble.hits.length === 1 ? 'hit' : 'hits'}`;
 	const details = conflicts > 0 ? `${conflicts} too close` : hitCount;
 
 	return (
@@ -26,27 +26,27 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 			style={{ width: HEADER_WIDTH, height: ROW_HEIGHT }}
 			data-track={id}
 			data-selected={isSelected}
-			onContextMenu={(event) => openContextMenu(event, marbleMenu(cx, lane))}
+			onContextMenu={(event) => openContextMenu(event, marbleMenu(cx, marble))}
 		>
-			<button className="mm-track-chip cursor-pointer" style={{ background: lane.color }} onClick={(event) => openContextMenu(event, marbleLabelEntries(cx, lane))} title="Color" aria-label={`Label Color of ${lane.name}`} type="button" />
+			<button className="mm-track-chip cursor-pointer" style={{ background: marble.color }} onClick={(event) => openContextMenu(event, marbleLabelEntries(cx, marble))} title="Color" aria-label={`Label Color of ${marble.name}`} type="button" />
 			<button
 				className="mm-track-title flex h-full min-w-0 flex-1 flex-col justify-center text-left leading-tight"
 				onClick={() => cx.$selection.set([id])}
 				onDoubleClick={() => setIsRenaming(true)}
-				aria-label={lane.name}
-				title={`Select ${lane.name}; double-click to rename`}
+				aria-label={marble.name}
+				title={`Select ${marble.name}; double-click to rename`}
 				type="button"
 			>
 				{isRenaming ? (
 					<RenameField
-						value={lane.name}
+						value={marble.name}
 						onDone={(name) => {
 							setIsRenaming(false);
-							if (name != null && name !== lane.name) cx.execute([{ type: 'upsertLane', lane: { ...lane, name } }]);
+							if (name != null && name !== marble.name) cx.execute([{ type: 'upsertLane', marble: { ...marble, name } }]);
 						}}
 					/>
 				) : (
-					<span className="truncate font-medium">{lane.name}</span>
+					<span className="truncate font-medium">{marble.name}</span>
 				)}
 				<span className="truncate text-[11px]" style={{ color: conflicts > 0 ? 'var(--bad)' : 'var(--text-secondary)' }}>
 					{details}
@@ -58,7 +58,7 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 
 interface TTrackHeaderProps {
 	cx: StudioCx;
-	lane: TLane;
+	marble: TLane;
 	project: TProject;
 	selection: string[];
 }

@@ -238,6 +238,6 @@ describe('a skin and the label color', () => {
 		const dressed = next.entities.find((entity) => entity.id === marble?.id);
 		expect(dressed?.components.skin?.assetId).toBe('marble:glass-green');
 		expect(dressed?.components.skin?.color).toBe(marble?.components.skin?.color);
-		expect(next.music.lanes[0]?.color).toBe(project.music.lanes[0]?.color);
+		expect(next.music.marbles[0]?.color).toBe(project.music.marbles[0]?.color);
 	});
 });

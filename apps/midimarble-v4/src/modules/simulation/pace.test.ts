@@ -22,7 +22,7 @@ describe('pace', () => {
 			expect(paceRate(project)).toBeCloseTo((0.35 / 1.65) * 9.81 * 0.15, 6);
 		});
 
-		it('should share one rate between lanes and ignore long notes', () => {
+		it('should share one rate between marbles and ignore long notes', () => {
 			const project = createBareRunProject({
 			gravity: 1,
 				id: 'pace',
@@ -108,7 +108,7 @@ describe('pace', () => {
 	});
 
 	describe('frameBand function', () => {
-		it('should give each lane its own band, MARBLE_SPACING apart', () => {
+		it('should give each marble its own band, MARBLE_SPACING apart', () => {
 			const project = createBareRunProject({
 			gravity: 1,
 				id: 'bands',
@@ -121,9 +121,9 @@ describe('pace', () => {
 			});
 			const whole = frameBand(project);
 			expect(whole.centerX).toBeCloseTo(0, 12);
-			// The band covering every lane is at least the film frame, the limit of what stays in view
+			// The band covering every marble is at least the film frame, the limit of what stays in view
 			expect(whole.halfWidth).toBeGreaterThanOrEqual(MARBLE_SPACING / 2 + frameBand(project, 'lane-1').halfWidth);
-			// Lanes follow their releases from left to right; neighboring bands meet without a gap
+			// Marbles follow their releases from left to right; neighboring bands meet without a gap
 			const left = frameBand(project, 'lane-2');
 			const right = frameBand(project, 'lane-1');
 			expect(left.centerX).toBeCloseTo(-MARBLE_SPACING / 2, 12);

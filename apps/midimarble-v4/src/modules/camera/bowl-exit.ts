@@ -21,12 +21,12 @@ export function exitRunProject(project: TProject): TProject | null {
  */
 export function bowlExit(project: TProject, run: TSimulationResult): number | null {
 	const last = lastNote(project);
-	const lanes = lastPlayingMarbles(project);
-	if (last == null || !lanes.length) return null;
+	const marbles = lastPlayingMarbles(project);
+	if (last == null || !marbles.length) return null;
 	const track = followCameraTrack(project, run, EXIT_FPS);
 	if (track == null) return null;
 	let exit = Number.NEGATIVE_INFINITY;
-	for (const marbleId of lanes) {
+	for (const marbleId of marbles) {
 		const bowl = bowlOfMarble(project, marbleId);
 		const marble = run.marbles.find((item) => item.marbleId === marbleId);
 		if (bowl?.components.piece?.type !== BOWL_TYPE || marble == null) return null;
@@ -60,6 +60,6 @@ function leavesFrame(track: NonNullable<ReturnType<typeof followCameraTrack>>, m
 }
 
 function lastNote(project: TProject): number | null {
-	const times = project.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time));
+	const times = project.music.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time));
 	return times.length ? Math.max(...times) : null;
 }

@@ -3,7 +3,7 @@ import type React from 'react';
 import * as THREE from 'three';
 import { isEditingTarget } from '@/lib';
 import { isPatternGroup, type TEntity, type TPatternGroup, type TPathNode, type TProject, type TVec2, formatTime, noteName, CAMERA_KEY, parseHitKey, SONG_KEY, toHitKey, WALL_KEY } from '@/modules/project';
-import { trackWall, distanceToSegment, isOnGhost, pick, pickTrack, PLACED_DOT_PICK_RADIUS, piecesInRect, rectFromPoints, TRACK_PICK_RADIUS, type TPick, type TPickScene, type TScreenTrack, boundsOfPieces, contentBounds, firstHitsView, fitTargets, marblePositionAt, pathHandles, pathToLocal, pathToWorld, pieceAngleAt, pieceKind, pieceOutline, struckAt, rotationGrip, trackBuffers, withPathBend, withPathEnd, hiddenMarbleLanes, boundsOf, fitBounds, isBoundsVisible, panBy, screenToWorld, worldToScreen, zoomAt, ZOOM_100_SCALE, type TBounds, type TPadding, type TView, type TViewport, trackPieceColors } from '@/modules/scene';
+import { trackWall, distanceToSegment, isOnGhost, pick, pickTrack, PLACED_DOT_PICK_RADIUS, piecesInRect, rectFromPoints, TRACK_PICK_RADIUS, type TPick, type TPickScene, type TScreenTrack, boundsOfPieces, contentBounds, firstHitsView, fitTargets, marblePositionAt, pathHandles, pathToLocal, pathToWorld, pieceAngleAt, pieceKind, pieceOutline, struckAt, rotationGrip, trackBuffers, withPathBend, withPathEnd, hiddenMarbleIds, boundsOf, fitBounds, isBoundsVisible, panBy, screenToWorld, worldToScreen, zoomAt, ZOOM_100_SCALE, type TBounds, type TPadding, type TView, type TViewport, trackPieceColors } from '@/modules/scene';
 import { anchorHit, findLongGaps, frameBand, gravityOf, layoutOf, linkPieceToHit, PLACEMENT_LENGTH, resolvePieceParams, resolvePiecePath, soundsHit, shownDepth, trajectoryAt, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { patternOfPiece, dotClickAction, ANCHOR_LEAD, asAnchored, asFree, canLink, clearRotorPosition, createFreePiece, displayPiece, isPathPieceType, KEEP_PLAYS_REACH, piecePose, playsDrop, railPath, rotateResolved, withEntity, withSnap, type TPlaysDrop, type TPose, type TSnap, rebaseNodes, withNodeHandle, withNodePoint, marblesWithoutBowl, newlyBroken } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
@@ -432,7 +432,7 @@ export class TrackCx {
 		}
 		// An armed tool or Play a Note… is after open dots; placed ones select their hit only with the Move tool
 		const pickPlaced = this.$tool.get() === 'select' && this.$playNoteFor.get() == null;
-		const hiddenMarbles = hiddenMarbleLanes(project, hidden);
+		const hiddenMarbles = hiddenMarbleIds(project, hidden);
 		for (const hit of result.hits) {
 			if (hit.dot == null || (hit.status !== 'open' && !pickPlaced) || hiddenMarbles.has(hit.marbleId)) continue;
 			scene.dots.push({ marbleId: hit.marbleId, hitId: hit.hitId, position: this.toScreen(hit.dot), radius: hit.status === 'open' ? undefined : PLACED_DOT_PICK_RADIUS });
@@ -812,9 +812,9 @@ export class TrackCx {
 			const release = entity.components.release;
 			if (release != null && playhead <= 1e-3) points.push(release.position);
 		}
-		for (const lane of project.music.lanes) {
+		for (const marble of project.music.marbles) {
 			const first = result.hits
-				.filter((hit) => hit.marbleId === lane.id && hit.dot != null && hit.targetTime >= playhead - 1e-3)
+				.filter((hit) => hit.marbleId === marble.id && hit.dot != null && hit.targetTime >= playhead - 1e-3)
 				.sort((a, b) => a.targetTime - b.targetTime)[0];
 			if (first?.dot != null) points.push(first.dot);
 		}
@@ -1319,7 +1319,7 @@ export class TrackCx {
 
 	/** Whether a click at `time` on this marble's fall ties the armed piece to it, so the tooltip says what the click does */
 	followsAt(marbleId: string, time: number): boolean {
-		const hits = this.project?.music.lanes.find((lane) => lane.id === marbleId)?.hits ?? [];
+		const hits = this.project?.music.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
 		return anchorHit(hits, time) != null;
 	}
 
@@ -1498,7 +1498,7 @@ export class TrackCx {
 			const reach = (params['hubRadius'] ?? 0) + (params['bladeLength'] ?? 0);
 			const position = clearRotorPosition(project, result, at, reach, marbleId);
 			const pose = { position, angle: 0 };
-			// Before the lane's first hit the piece follows the marble from its release, counted back from that hit
+			// Before the marble's first hit the piece follows the marble from its release, counted back from that hit
 			const entity = asAnchored(project, free, pose, marbleId, time, at.position);
 			return { entity: entity ?? asFree(free, pose), pose };
 		}
@@ -1560,8 +1560,8 @@ export class TrackCx {
 			if (key === this.hoverPreview?.key) return;
 			const made = this.followerFor(hover.marbleId, time);
 			if (made == null) return this.clearHoverPreview();
-			const lane = project.music.lanes.find((item) => item.id === hover.marbleId)?.name ?? 'Marble';
-			this.showHoverPreview(key, made.entity, made.pose, hover.kind === 'track' ? hover.position : point, hover.kind === 'dot' ? `Follows ${lane} at ${formatTime(time)}` : null);
+			const marble = project.music.marbles.find((item) => item.id === hover.marbleId)?.name ?? 'Marble';
+			this.showHoverPreview(key, made.entity, made.pose, hover.kind === 'track' ? hover.position : point, hover.kind === 'dot' ? `Follows ${marble} at ${formatTime(time)}` : null);
 			return;
 		}
 		const placed = toolPieceType[tool];
@@ -1603,9 +1603,9 @@ export class TrackCx {
 	longGapKeys(project: TProject): Map<string, { fromHitId: string; duration: number }> {
 		if (this.longGapCache?.project === project) return this.longGapCache.keys;
 		const keys = new Map<string, { fromHitId: string; duration: number }>();
-		for (const lane of project.music.lanes) {
-			for (const gap of findLongGaps(project, lane.id)) {
-				if (gap.bridgedBy == null) keys.set(`${lane.id}:${gap.toHitId}`, { fromHitId: gap.fromHitId, duration: gap.duration });
+		for (const marble of project.music.marbles) {
+			for (const gap of findLongGaps(project, marble.id)) {
+				if (gap.bridgedBy == null) keys.set(`${marble.id}:${gap.toHitId}`, { fromHitId: gap.fromHitId, duration: gap.duration });
 			}
 		}
 		this.longGapCache = { project, keys };
@@ -1783,7 +1783,7 @@ export class TrackCx {
 		const track = result.marbles.find((item) => item.marbleId === near.marbleId);
 		const at = track != null ? trajectoryAt(track.samples, time, gravityOf(project)) : null;
 		if (at == null) return null;
-		// Anchoring needs a hit of the lane to count the moment from
+		// Anchoring needs a hit of the marble to count the moment from
 		return asAnchored(project, entity, pose, near.marbleId, time, at.position) != null ? { kind: 'anchor', marbleId: near.marbleId, time, marble: at.position } : null;
 	}
 
@@ -2069,14 +2069,14 @@ export class TrackCx {
 		return [...pieces, ...ofHits];
 	}
 
-	/** Deletes the selected pieces, and selected marbles with their lanes while another marble remains */
+	/** Deletes the selected pieces, and selected marbles with their marbles while another marble remains */
 	deleteSelection(): boolean {
 		const project = this.project;
 		if (project == null) return false;
 		const selection = this.studio.$selection.get();
 		const ids = selectedPieceIds(project, selection);
-		const lanes = project.entities.filter((entity) => selection.includes(entity.id) && entity.components.marble != null).map((entity) => entity.components.marble?.marbleId ?? '');
-		const removable = lanes.slice(0, Math.max(0, project.music.lanes.length - 1));
+		const marbles = project.entities.filter((entity) => selection.includes(entity.id) && entity.components.marble != null).map((entity) => entity.components.marble?.marbleId ?? '');
+		const removable = marbles.slice(0, Math.max(0, project.music.marbles.length - 1));
 		const commands = [
 			...(ids.length ? [{ type: 'removeEntities' as const, entityIds: ids }] : []),
 			...removable.map((marbleId) => ({ type: 'removeLane' as const, marbleId }))
@@ -2273,7 +2273,7 @@ export class TrackCx {
 				buffers = trackBuffers(track);
 				this.trackCache.set(track, buffers);
 			}
-			const color = project?.music.lanes.find((lane) => lane.id === track.marbleId)?.color ?? '#3478f6';
+			const color = project?.music.marbles.find((marble) => marble.id === track.marbleId)?.color ?? '#3478f6';
 			return { entityId: track.entityId, color, ...buffers };
 		});
 		this.renderer.setTracks(tracks);
@@ -2315,14 +2315,14 @@ export class TrackCx {
 		const drag = this.$drag.get();
 		const hidden = this.studio.$hidden.get();
 		const marbles = project.entities.flatMap((entity) => {
-			const { marble, release } = entity.components;
-			if (marble == null || release == null || hidden.includes(entity.id)) return [];
+			const { marble: marbleEntity, release } = entity.components;
+			if (marbleEntity == null || release == null || hidden.includes(entity.id)) return [];
 			const releasePosition = drag?.kind === 'release' && drag.entityId === entity.id ? drag.position : release.position;
 			const track = result?.marbles.find((item) => item.entityId === entity.id);
 			// Until the dragged release has a new result, keep the marble on the handle
 			const isDragged = drag?.kind === 'release' && drag.entityId === entity.id;
 			const position = isDragged && playhead <= release.time ? releasePosition : marblePositionAt(track, playhead, releasePosition);
-			return [{ entityId: entity.id, color: project?.music.lanes.find((lane) => lane.id === marble.marbleId)?.color ?? '#3478f6', radius: marble.radius, position }];
+			return [{ entityId: entity.id, color: project?.music.marbles.find((marble) => marble.id === marbleEntity.marbleId)?.color ?? '#3478f6', radius: marbleEntity.radius, position }];
 		});
 		this.renderer.setMarbles(marbles);
 	}
@@ -2366,7 +2366,7 @@ function hasSameValues<T extends object>(a: T, b: T): boolean {
 
 /** "Hit 3 · C4", as the Plays row names a hit */
 export function noteLabel(project: TProject, marbleId: string, hitId: string): string {
-	const hits = project.music.lanes.find((lane) => lane.id === marbleId)?.hits ?? [];
+	const hits = project.music.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
 	const index = hits.findIndex((hit) => hit.id === hitId);
 	const pitch = hits[index]?.pitch;
 	return `Hit ${index + 1}${pitch != null ? ` · ${noteName(pitch)}` : ''}`;
@@ -2486,10 +2486,10 @@ function openingPoints(project: TProject): TVec2[] {
 	const gravity = gravityOf(project);
 	const points: TVec2[] = [];
 	for (const entity of project.entities) {
-		const { release, marble } = entity.components;
-		if (release == null || marble == null) continue;
+		const { release, marble: marbleEntity } = entity.components;
+		if (release == null || marbleEntity == null) continue;
 		points.push(release.position);
-		const first = project.music.lanes.find((lane) => lane.id === marble.marbleId)?.hits.reduce<number | null>((min, hit) => (min == null || hit.time < min ? hit.time : min), null);
+		const first = project.music.marbles.find((marble) => marble.id === marbleEntity.marbleId)?.hits.reduce<number | null>((min, hit) => (min == null || hit.time < min ? hit.time : min), null);
 		if (first == null) continue;
 		const fall = Math.max(0, first - release.time);
 		points.push({ x: release.position.x, y: release.position.y + 0.5 * gravity * fall * fall });

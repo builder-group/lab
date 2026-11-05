@@ -7,10 +7,10 @@ import { builtRunCommands, canUngroup, groupSelected, plainGroupSpan, ungroupSel
 
 function studio(zigzag = false): { cx: StudioCx; project: TProject } {
 	const created = createProject({ title: 'Song' });
-	const lane = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }, { id: 'hit3', time: 3, pitch: 64 }] };
-	const pieces = lane.hits.map((hit, index) => createLinkedPiece('platform', lane.id, hit.id, 0.3, { id: `piece-${index}` }));
-	const live: TPatternGroup = { id: 'live', name: 'Zigzag', kind: 'zigzag', marbleId: lane.id, from: 1, to: 1, width: 0.14, bounce: 0.5, pieceIds: ['piece-0'] };
-	const project: TProject = { ...created, music: { ...created.music, lanes: [lane] }, entities: [createMarble(lane, { x: 0, y: 0 }), ...pieces], ...(zigzag ? { groups: [live] } : {}) };
+	const marble = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }, { id: 'hit3', time: 3, pitch: 64 }] };
+	const pieces = marble.hits.map((hit, index) => createLinkedPiece('platform', marble.id, hit.id, 0.3, { id: `piece-${index}` }));
+	const live: TPatternGroup = { id: 'live', name: 'Zigzag', kind: 'zigzag', marbleId: marble.id, from: 1, to: 1, width: 0.14, bounce: 0.5, pieceIds: ['piece-0'] };
+	const project: TProject = { ...created, music: { ...created.music, marbles: [marble] }, entities: [createMarble(marble, { x: 0, y: 0 }), ...pieces], ...(zigzag ? { groups: [live] } : {}) };
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	return { cx, project };
@@ -25,7 +25,7 @@ describe('Group by hand', () => {
 		groupSelected(cx);
 
 		const [group] = cx.project?.groups ?? [];
-		expect(group).toMatchObject({ name: 'Group', marbleId: project.music.lanes[0]?.id, pieceIds: ['piece-1', 'piece-2'] });
+		expect(group).toMatchObject({ name: 'Group', marbleId: project.music.marbles[0]?.id, pieceIds: ['piece-1', 'piece-2'] });
 		expect(group != null && 'kind' in group).toBe(false);
 		expect(cx.$selection.get()).toEqual([toGroupKey(group?.id ?? ''), 'piece-1', 'piece-2']);
 		expect(cx.$history.get()?.past.length).toBe(steps + 1);
@@ -66,7 +66,7 @@ describe('Group by hand', () => {
 		if (!isOk) throw err;
 
 		const [group] = opened.groups ?? [];
-		expect(group != null && !('kind' in group) && plainGroupSpan(opened, project.music.lanes[0]!, group)).toEqual({ from: 1, to: 3 });
+		expect(group != null && !('kind' in group) && plainGroupSpan(opened, project.music.marbles[0]!, group)).toEqual({ from: 1, to: 3 });
 		expect(canUngroup(cx)).toBe(true);
 	});
 
@@ -84,10 +84,10 @@ describe('Group by hand', () => {
 	it('should group what a build placed by run: a Zigzag, a Rail, and nothing for a lone bar or an older piece', () => {
 		const created = createProject({ title: 'Song' });
 		const hitIds = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7'];
-		const lane = { ...createLane(0), hits: hitIds.map((id, index) => ({ id, time: index + 1, pitch: 60 })) };
-		const piece = (hitId: string, type: 'platform' | 'rail') => createLinkedPiece(type, lane.id, hitId, 0.3, { id: `p-${hitId}` });
-		const entities = [createMarble(lane, { x: 0, y: 0 }), piece('h1', 'platform'), piece('h2', 'platform'), piece('h3', 'platform'), piece('h4', 'platform'), piece('h5', 'rail'), piece('h6', 'platform'), piece('h7', 'platform')];
-		const after: TProject = { ...created, music: { ...created.music, lanes: [lane] }, entities };
+		const marble = { ...createLane(0), hits: hitIds.map((id, index) => ({ id, time: index + 1, pitch: 60 })) };
+		const piece = (hitId: string, type: 'platform' | 'rail') => createLinkedPiece(type, marble.id, hitId, 0.3, { id: `p-${hitId}` });
+		const entities = [createMarble(marble, { x: 0, y: 0 }), piece('h1', 'platform'), piece('h2', 'platform'), piece('h3', 'platform'), piece('h4', 'platform'), piece('h5', 'rail'), piece('h6', 'platform'), piece('h7', 'platform')];
+		const after: TProject = { ...created, music: { ...created.music, marbles: [marble] }, entities };
 		const before: TProject = { ...after, entities: entities.filter((entity) => entity.id !== 'p-h2' && entity.id !== 'p-h3' && entity.id !== 'p-h4' && entity.id !== 'p-h5' && entity.id !== 'p-h6') };
 		const dots = [0, -1, 1, -1, 0, 0, 1];
 		const hits = hitIds.map((id, index) => ({ pieceEntityId: `p-${id}`, dot: { x: dots[index] ?? 0, y: 0 } })) as unknown as Parameters<typeof builtRunCommands>[2];

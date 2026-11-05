@@ -11,7 +11,7 @@ function selectedPieces(project: TProject, selection: readonly string[]): TEntit
 
 /** The marble a piece is tied to: the note it plays or the Rail it starts on */
 function marbleOfPiece(project: TProject, piece: TEntity): string | null {
-	return piece.components.hitLink?.marbleId ?? project.music.lanes.find((lane) => startRailOf(project, lane.id)?.id === piece.id)?.id ?? null;
+	return piece.components.hitLink?.marbleId ?? project.music.marbles.find((marble) => startRailOf(project, marble.id)?.id === piece.id)?.id ?? null;
 }
 
 /** "Group", then "Group 2" */
@@ -24,8 +24,8 @@ export function nextPlainGroupName(groups: readonly TGroup[], label = 'Group'): 
 /** A new plain Group of these pieces, which leave any plain Group they were in */
 export function groupCommands(project: TProject, pieces: readonly TEntity[], id: string): { commands: TProjectCommand[]; group: TPlainGroup } {
 	const ids = new Set(pieces.map((piece) => piece.id));
-	const lanes = new Set(pieces.map((piece) => marbleOfPiece(project, piece)));
-	const [marbleId] = lanes;
+	const marbles = new Set(pieces.map((piece) => marbleOfPiece(project, piece)));
+	const [marbleId] = marbles;
 	const emptied: string[] = [];
 	const shrunk: TProjectCommand[] = [];
 	for (const group of project.groups ?? []) {
@@ -34,7 +34,7 @@ export function groupCommands(project: TProject, pieces: readonly TEntity[], id:
 		if (kept.length > 0) shrunk.push({ type: 'upsertGroup', group: { ...group, pieceIds: kept } });
 		else emptied.push(group.id);
 	}
-	const group: TPlainGroup = { id, name: nextPlainGroupName((project.groups ?? []).filter((item) => !emptied.includes(item.id))), ...(lanes.size === 1 && marbleId != null ? { marbleId } : {}), pieceIds: pieces.map((piece) => piece.id) };
+	const group: TPlainGroup = { id, name: nextPlainGroupName((project.groups ?? []).filter((item) => !emptied.includes(item.id))), ...(marbles.size === 1 && marbleId != null ? { marbleId } : {}), pieceIds: pieces.map((piece) => piece.id) };
 	return { commands: [...(emptied.length > 0 ? [{ type: 'removeGroups' as const, groupIds: emptied }] : []), ...shrunk, { type: 'upsertGroup', group }], group };
 }
 
@@ -90,9 +90,9 @@ export function ungroupSelected(cx: StudioCx): void {
 }
 
 /** The span a plain Group's block fills on its marble's row, from the notes its pieces play. Null without any */
-export function plainGroupSpan(project: TProject, lane: TLane, group: TPlainGroup): { from: number; to: number } | null {
-	const hitIds = new Set(project.entities.filter((entity) => group.pieceIds.includes(entity.id) && entity.components.hitLink?.marbleId === lane.id).map((entity) => entity.components.hitLink?.hitId));
-	const times = lane.hits.filter((hit) => hitIds.has(hit.id)).map((hit) => hit.time);
+export function plainGroupSpan(project: TProject, marble: TLane, group: TPlainGroup): { from: number; to: number } | null {
+	const hitIds = new Set(project.entities.filter((entity) => group.pieceIds.includes(entity.id) && entity.components.hitLink?.marbleId === marble.id).map((entity) => entity.components.hitLink?.hitId));
+	const times = marble.hits.filter((hit) => hitIds.has(hit.id)).map((hit) => hit.time);
 	return times.length > 0 ? { from: Math.min(...times), to: Math.max(...times) } : null;
 }
 
@@ -116,15 +116,15 @@ export function builtRunCommands(before: TProject, after: TProject, hits: readon
 	const groups: TGroup[] = [...(after.groups ?? [])];
 	const commands: TProjectCommand[] = [];
 	const dotOf = new Map(hits.flatMap((hit) => (hit.pieceEntityId != null && hit.dot != null ? [[hit.pieceEntityId, hit.dot.x] as const] : [])));
-	for (const lane of after.music.lanes) {
-		const order = new Map(lane.hits.map((hit, index) => [hit.id, index]));
+	for (const marble of after.music.marbles) {
+		const order = new Map(marble.hits.map((hit, index) => [hit.id, index]));
 		const pieces = after.entities
-			.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id)
+			.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marble.id)
 			.sort((a, b) => (order.get(a.components.hitLink?.hitId ?? '') ?? 0) - (order.get(b.components.hitLink?.hitId ?? '') ?? 0));
 		const close = (run: readonly TEntity[], type: string | undefined): void => {
 			if (type === 'rail' ? !run.length : type !== 'platform' || run.length < 2) return;
 			const name = nextPlainGroupName(groups, type === 'rail' ? 'Rail' : runName(run.flatMap((piece) => dotOf.get(piece.id) ?? [])));
-			const group: TPlainGroup = { id: createId('group'), name, marbleId: lane.id, pieceIds: run.map((piece) => piece.id) };
+			const group: TPlainGroup = { id: createId('group'), name, marbleId: marble.id, pieceIds: run.map((piece) => piece.id) };
 			groups.push(group);
 			commands.push({ type: 'upsertGroup', group });
 		};

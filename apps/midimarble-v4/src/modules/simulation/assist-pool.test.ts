@@ -71,12 +71,12 @@ describe('createAssistPool function', () => {
 
 	it('should place the same platforms as a single worker whatever the pool size and timing', async () => {
 		// Prepare: platforms early, mid-song and late
-		const lane = project.music.lanes[0];
-		if (lane == null) throw new Error('The fixture has a lane');
-		const owners = hitOwners(project, lane.id);
-		const hits = [3, 8, 13].map((index) => lane.hits[index]).filter((hit): hit is NonNullable<typeof hit> => hit != null && owners.has(hit.id));
+		const marble = project.music.marbles[0];
+		if (marble == null) throw new Error('The fixture has a marble');
+		const owners = hitOwners(project, marble.id);
+		const hits = [3, 8, 13].map((index) => marble.hits[index]).filter((hit): hit is NonNullable<typeof hit> => hit != null && owners.has(hit.id));
 		expect(hits.length).toBeGreaterThan(2);
-		const expected = hits.map((hit) => placeAlone(lane.id, hit.id, owners.get(hit.id)?.id ?? 'piece'));
+		const expected = hits.map((hit) => placeAlone(marble.id, hit.id, owners.get(hit.id)?.id ?? 'piece'));
 
 		for (const [size, seed] of [
 			[2, 1],
@@ -88,7 +88,7 @@ describe('createAssistPool function', () => {
 			// Act
 			const answers: unknown[] = [];
 			for (const hit of hits) {
-				const request = { project, marbleId: lane.id, hitId: hit.id, type: 'platform', entityId: owners.get(hit.id)?.id ?? 'piece' };
+				const request = { project, marbleId: marble.id, hitId: hit.id, type: 'platform', entityId: owners.get(hit.id)?.id ?? 'piece' };
 				answers.push(
 					await pool.autoPlace(request).then(
 						(answer) => ({ entity: answer.entity, angle: answer.angle, nextDot: answer.nextDot }),
@@ -107,7 +107,7 @@ describe('createAssistPool function', () => {
 		// Prepare
 		const simulate = (next: TProject): ReturnType<TSimulator['simulate']> => simulator.simulate(next);
 		const project = loadFixture('long-gap');
-		const gaps = project.music.lanes.flatMap((lane) => findLongGaps(project, lane.id)).slice(0, 1);
+		const gaps = project.music.marbles.flatMap((marble) => findLongGaps(project, marble.id)).slice(0, 1);
 		expect(gaps.length).toBeGreaterThan(0);
 		const { createWorker } = createFakeWorkers(3);
 		const pool = createAssistPool({ size: 3, createWorker });
@@ -133,13 +133,13 @@ describe('createAssistPool function', () => {
 
 	it('should stop a search between stages and keep answering later requests', async () => {
 		// Prepare
-		const lane = project.music.lanes[0];
-		const hit = lane?.hits[8];
-		if (lane == null || hit == null) throw new Error('The fixture has a lane');
-		const entityId = hitOwners(project, lane.id).get(hit.id)?.id ?? 'piece';
+		const marble = project.music.marbles[0];
+		const hit = marble?.hits[8];
+		if (marble == null || hit == null) throw new Error('The fixture has a marble');
+		const entityId = hitOwners(project, marble.id).get(hit.id)?.id ?? 'piece';
 		const { createWorker, posted } = createFakeWorkers(5);
 		const pool = createAssistPool({ size: 3, createWorker });
-		const request = { project, marbleId: lane.id, hitId: hit.id, type: 'platform', entityId };
+		const request = { project, marbleId: marble.id, hitId: hit.id, type: 'platform', entityId };
 
 		// Act: Stop pressed once the first stage went out
 		const stopped = pool.autoPlace(request, { isCanceled: () => posted.length > 0 });
@@ -150,7 +150,7 @@ describe('createAssistPool function', () => {
 		// Assert
 		await expect(stopped).rejects.toThrow('Auto place was stopped');
 		expect(isSuperseded(await waiting)).toBe(true);
-		await expect(newest).resolves.toMatchObject({ entity: (placeAlone(lane.id, hit.id, entityId) as { entity: unknown }).entity });
+		await expect(newest).resolves.toMatchObject({ entity: (placeAlone(marble.id, hit.id, entityId) as { entity: unknown }).entity });
 		const late = pool.autoPlace(request);
 		pool.dispose();
 		await expect(late).rejects.toThrow();

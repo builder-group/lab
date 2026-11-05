@@ -414,7 +414,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	const { marbleId, from, to, kind, width, bounce, maxTilt, dryRun } = parsed.data;
 	const project = cx.project;
 	if (project == null) return noProject(cx);
-	if (!project.music.lanes.some((lane) => lane.id === marbleId)) return fail(cx, `No marble has lane ${marbleId}. get_state lists them.`);
+	if (!project.music.marbles.some((marble) => marble.id === marbleId)) return fail(cx, `No marble has marble ${marbleId}. get_state lists them.`);
 	openTrack(cx);
 	const stop = cx.mcp.presence.stopEpoch;
 	const settings = { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) };
@@ -516,15 +516,15 @@ function gapPreference(args: Record<string, unknown>): 'rail' | 'switchback' | '
 function buildFrom(cx: StudioCx, args: Record<string, unknown>): { marbleId: string; hitId: string } | string | null {
 	const hitId = args['from'];
 	if (hitId == null) return null;
-	const lane = cx.project?.music.lanes.find((item) => item.hits.some((hit) => hit.id === hitId));
-	if (lane == null || typeof hitId !== 'string') return `There is no hit called ${String(hitId)}. get_state lists every marble's hits.`;
+	const marble = cx.project?.music.marbles.find((item) => item.hits.some((hit) => hit.id === hitId));
+	if (marble == null || typeof hitId !== 'string') return `There is no hit called ${String(hitId)}. get_state lists every marble's hits.`;
 	if (cx.assist.isBuilding) return buildRefusal(cx);
-	return { marbleId: lane.id, hitId };
+	return { marbleId: marble.id, hitId };
 }
 
 function buildRefusal(cx: StudioCx): string {
 	if (cx.assist.isBuilding) return 'Build Track is already running. get_state shows how far it is; build.stop stops it.';
-	if (cx.project?.music.lanes.some((lane) => lane.hits.length > 0) !== true) return 'Build Track needs notes. Call add_song first.';
+	if (cx.project?.music.marbles.some((marble) => marble.hits.length > 0) !== true) return 'Build Track needs notes. Call add_song first.';
 	return 'Every hit already has a platform.';
 }
 
@@ -555,7 +555,7 @@ function unknownSelection(cx: StudioCx, args: Record<string, unknown>): string |
 		if (typeof key !== 'string') return false;
 		if (project.entities.some((entity) => entity.id === key)) return true;
 		const hit = parseHitKey(key);
-		if (hit != null) return project.music.lanes.some((lane) => lane.id === hit.marbleId && lane.hits.some((item) => item.id === hit.hitId));
+		if (hit != null) return project.music.marbles.some((marble) => marble.id === hit.marbleId && marble.hits.some((item) => item.id === hit.hitId));
 		return key === WALL_KEY || key === CAMERA_KEY || key === SONG_KEY || parseLightKey(key) != null || parseDecorKey(key) != null || key.includes(':');
 	};
 	const bad = select.filter((key) => !isKnown(key));

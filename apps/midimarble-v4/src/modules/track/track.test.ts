@@ -163,14 +163,14 @@ describe('scene', () => {
 
 describe('step loop', () => {
 	const project = createProject();
-	const lane = project.music.lanes[0];
-	if (lane == null) throw new Error('missing lane');
-	lane.hits = [0.4, 0.8, 1.2].map((time, index) => ({ id: `h${index + 1}`, time }));
-	const placed = createLinkedPiece('platform', lane.id, 'h1', 0.3, { id: 'p1' });
+	const marble = project.music.marbles[0];
+	if (marble == null) throw new Error('missing marble');
+	marble.hits = [0.4, 0.8, 1.2].map((time, index) => ({ id: `h${index + 1}`, time }));
+	const placed = createLinkedPiece('platform', marble.id, 'h1', 0.3, { id: 'p1' });
 	project.entities.push(placed);
 
 	const hit = (hitId: string, time: number, status: THitResult['status']): THitResult => ({
-		marbleId: lane.id,
+		marbleId: marble.id,
 		hitId,
 		targetTime: time,
 		pieceEntityId: status === 'open' ? null : 'p1',
@@ -191,14 +191,14 @@ describe('step loop', () => {
 	};
 
 	it('targets the focused dot, else the next open dot after the selected piece', () => {
-		expect(findStepTarget(project, result, [`hit:${lane.id}:h3`])?.hitId).toBe('h3');
+		expect(findStepTarget(project, result, [`hit:${marble.id}:h3`])?.hitId).toBe('h3');
 		expect(findStepTarget(project, result, ['p1'])?.hitId).toBe('h2');
 		expect(findStepTarget(project, result, [])?.hitId).toBe('h2');
 	});
 
 	it('goes back to the earliest open dot from a hit after it', () => {
 		const later: TSimulationResult = { ...result, hits: [hit('h1', 0.4, 'open'), hit('h2', 0.8, 'onTime'), hit('h3', 1.2, 'onTime')] };
-		expect(findStepTarget(project, later, [`hit:${lane.id}:h3`])?.hitId).toBe('h1');
+		expect(findStepTarget(project, later, [`hit:${marble.id}:h3`])?.hitId).toBe('h1');
 	});
 
 	it('repeats and mirrors the previous piece angle', () => {

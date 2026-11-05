@@ -281,8 +281,8 @@ function bowlMarble(cx: StudioCx): string | null {
 		const marbleId = entity?.components.marble?.marbleId ?? entity?.components.hitLink?.marbleId;
 		return marbleId != null ? [marbleId] : [];
 	});
-	const lane = selected[0];
-	if (lane != null && project.music.lanes.some((item) => item.id === lane && item.hits.length > 0)) return lane;
+	const marble = selected[0];
+	if (marble != null && project.music.marbles.some((item) => item.id === marble && item.hits.length > 0)) return marble;
 	return marblesWithoutBowl(project)[0] ?? null;
 }
 
@@ -291,8 +291,8 @@ function suggestionMarble(cx: StudioCx): TLane | null {
 	const project = cx.project;
 	if (project == null) return null;
 	const selected = project.entities.find((entity) => entity.id === cx.$selection.get()[0])?.components.marble?.marbleId;
-	const lanes = project.music.lanes;
-	return lanes.find((lane) => lane.id === selected) ?? lanes.find((lane) => !lane.hits.length) ?? lanes[0] ?? null;
+	const marbles = project.music.marbles;
+	return marbles.find((marble) => marble.id === selected) ?? marbles.find((marble) => !marble.hits.length) ?? marbles[0] ?? null;
 }
 
 function isTool(cx: StudioCx, tool: TTrackTool): boolean {
@@ -704,20 +704,20 @@ export const commands: readonly TCommand[] = [
 		id: 'marble.addSuggestedHits',
 		title: 'Add Suggested Hits',
 		currentTitle: (cx) => {
-			const lane = suggestionMarble(cx);
-			const count = lane != null ? suggestedHits(cx, lane).length : 0;
+			const marble = suggestionMarble(cx);
+			const count = marble != null ? suggestedHits(cx, marble).length : 0;
 			return count > 0 ? suggestedHitsLabel(count) : 'Add Suggested Hits';
 		},
 		section: 'Marble',
 		keywords: 'beats onsets recording audio tap detect found',
 		isEnabled: (cx) => {
-			const lane = suggestionMarble(cx);
-			return lane != null && suggestedHits(cx, lane).length > 0;
+			const marble = suggestionMarble(cx);
+			return marble != null && suggestedHits(cx, marble).length > 0;
 		},
 		whyDisabled: 'It needs a recording with beats the marble does not play yet',
 		run: (cx) => {
-			const lane = suggestionMarble(cx);
-			if (lane != null) addSuggestedHits(cx, lane);
+			const marble = suggestionMarble(cx);
+			if (marble != null) addSuggestedHits(cx, marble);
 		}
 	},
 	{

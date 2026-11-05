@@ -170,7 +170,7 @@ export interface TDecorOverlap {
 	key: string;
 	name: string;
 	/** Marbles whose path crosses it while it shows, the earliest first */
-	lanes: { marbleId: string; time: number; point: TVec2 }[];
+	marbles: { marbleId: string; time: number; point: TVec2 }[];
 }
 
 /** Layers a marble's path crosses while they show. Hidden layers and layers outside the film overlap nothing. */
@@ -182,21 +182,21 @@ export function decorOverlaps(project: TProject, result: TSimulationResult, blen
 	const field = cachedObstacleField(result);
 	const overlaps: TDecorOverlap[] = [];
 	for (const item of decor) {
-		const lanes = pathOverlaps(field, decorBox(item), titleSpan(item, project.length));
-		if (lanes.length > 0) overlaps.push({ key: toDecorKey(item.id), name: item.name, lanes });
+		const marbles = pathOverlaps(field, decorBox(item), titleSpan(item, project.length));
+		if (marbles.length > 0) overlaps.push({ key: toDecorKey(item.id), name: item.name, marbles });
 	}
 	for (const object of blenderObjects) {
 		const layer = madeInBlenderLayer(project.film, object.name);
 		if (layer.hidden === true) continue;
-		const lanes = pathOverlaps(field, blenderObjectBox(object), titleSpan(layer, project.length));
-		if (lanes.length > 0) overlaps.push({ key: toMadeInBlenderKey(object.name), name: object.name, lanes });
+		const marbles = pathOverlaps(field, blenderObjectBox(object), titleSpan(layer, project.length));
+		if (marbles.length > 0) overlaps.push({ key: toMadeInBlenderKey(object.name), name: object.name, marbles });
 	}
 	return overlaps;
 }
 
 /** The amber words on the layer: "Overlaps Melody's path", or with several marbles "Overlaps Melody's and Bass's paths" */
-export function overlapLabel(laneNames: readonly string[]): string {
-	const names = laneNames.map((name) => `${name}'s`);
+export function overlapLabel(marbleNames: readonly string[]): string {
+	const names = marbleNames.map((name) => `${name}'s`);
 	return names.length < 2 ? `Overlaps ${names[0] ?? 'a marble\'s'} path` : `Overlaps ${names.slice(0, -1).join(', ')} and ${names[names.length - 1] ?? ''} paths`;
 }
 

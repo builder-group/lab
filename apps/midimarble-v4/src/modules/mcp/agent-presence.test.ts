@@ -116,19 +116,19 @@ describe('AgentPresenceCx', () => {
 
 function withPiece(): { project: TProject; marbleId: string; hitId: string; pieceId: string; result: TSimulationResult } {
 	const project = createProject({ title: 'Song' });
-	const lane = { ...createLane(0), hits: [{ id: 'hit1', time: 1.5, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
+	const marble = { ...createLane(0), hits: [{ id: 'hit1', time: 1.5, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
 	const pieceId = 'platform1';
-	const piece = { id: pieceId, name: 'Platform 1', components: { piece: { type: 'platform', params: { length: 0.08 } }, hitLink: { marbleId: lane.id, hitId: 'hit1', angle: 0.25 } } } as unknown as TProject['entities'][number];
-	const next = { ...project, music: { ...project.music, lanes: [lane] }, entities: [createMarble(lane, { x: 0, y: 0 }), piece] };
+	const piece = { id: pieceId, name: 'Platform 1', components: { piece: { type: 'platform', params: { length: 0.08 } }, hitLink: { marbleId: marble.id, hitId: 'hit1', angle: 0.25 } } } as unknown as TProject['entities'][number];
+	const next = { ...project, music: { ...project.music, marbles: [marble] }, entities: [createMarble(marble, { x: 0, y: 0 }), piece] };
 	const result = {
 		revision: next.revision,
 		pieces: [{ entityId: pieceId, position: { x: 0.1, y: -0.2 } }],
 		hits: [
-			{ marbleId: lane.id, hitId: 'hit1', targetTime: 1.5, pieceEntityId: pieceId, dot: { x: 0.1, y: -0.2 }, status: 'onTime' },
-			{ marbleId: lane.id, hitId: 'hit2', targetTime: 2, pieceEntityId: null, dot: null, status: 'open' }
+			{ marbleId: marble.id, hitId: 'hit1', targetTime: 1.5, pieceEntityId: pieceId, dot: { x: 0.1, y: -0.2 }, status: 'onTime' },
+			{ marbleId: marble.id, hitId: 'hit2', targetTime: 2, pieceEntityId: null, dot: null, status: 'open' }
 		]
 	} as unknown as TSimulationResult;
-	return { project: next, marbleId: lane.id, hitId: 'hit1', pieceId, result };
+	return { project: next, marbleId: marble.id, hitId: 'hit1', pieceId, result };
 }
 
 describe('touchedKeys', () => {

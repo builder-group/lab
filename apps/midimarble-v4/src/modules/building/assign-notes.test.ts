@@ -18,7 +18,7 @@ describe('assignNotesCommands function', () => {
 		const next = apply(project, assignNotesCommands(project, result, ['hit-1-2'], BACKING_ID));
 
 		expect(next.music.backing.map((hit) => hit.id)).toEqual(['hit-1-2']);
-		expect(next.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['hit-1-1', 'hit-1-3']);
+		expect(next.music.marbles[0]?.hits.map((hit) => hit.id)).toEqual(['hit-1-1', 'hit-1-3']);
 		expect(next.entities.some((item) => item.id === 'piece-1-2')).toBe(false);
 		// The other hits keep their platforms and timing
 		expect(simulator.simulate(next).hits.filter((hit) => hit.marbleId === 'lane-1').map((hit) => hit.status)).toEqual(['onTime', 'onTime']);
@@ -34,15 +34,15 @@ describe('assignNotesCommands function', () => {
 
 		expect(moved.entities.find((item) => item.id === 'piece-1-3')?.components.hitLink).toMatchObject({ marbleId: 'lane-2', hitId: 'hit-1-3' });
 		expect(movedResult.hits.find((hit) => hit.hitId === 'hit-1-3')?.marbleId).toBe('lane-2');
-		expect(back.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['hit-1-1', 'hit-1-2', 'hit-1-3']);
+		expect(back.music.marbles[0]?.hits.map((hit) => hit.id)).toEqual(['hit-1-1', 'hit-1-2', 'hit-1-3']);
 		expect(back.entities.find((item) => item.id === 'piece-1-3')?.components.hitLink).toMatchObject({ marbleId: 'lane-1', hitId: 'hit-1-3' });
 		expect(simulator.simulate(back).hits.every((hit) => hit.status === 'onTime')).toBe(true);
 	});
 
-	it('should keep a following piece at its moment, tied to another hit of the lane', () => {
+	it('should keep a following piece at its moment, tied to another hit of the marble', () => {
 		const project = loadFixture('long-gap');
 		const result = simulator.simulate(project);
-		const melody = project.music.lanes[0];
+		const melody = project.music.marbles[0];
 		const follower = project.entities.find((entity) => entity.id === 'rail-1');
 		const hitId = follower?.components.hitLink?.hitId ?? '';
 		if (melody == null || follower == null) throw new Error('No rail');
@@ -70,7 +70,7 @@ describe('assignNotesCommands function', () => {
 		const next = apply(project, [...commands, ...assignNotesCommands(project, simulator.simulate(project), ['hit-2-3'], marbleId)]);
 
 		expect(next.revision).toBe(project.revision + 1);
-		expect(next.music.lanes.find((lane) => lane.id === marbleId)?.hits.map((hit) => hit.id)).toEqual(['hit-2-3']);
+		expect(next.music.marbles.find((marble) => marble.id === marbleId)?.hits.map((hit) => hit.id)).toEqual(['hit-2-3']);
 		expect(next.entities.some((entity) => entity.components.marble?.marbleId === marbleId)).toBe(true);
 	});
 });

@@ -58,13 +58,13 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 		case 'removeLane':
 			return 'Delete Marble';
 		case 'upsertLane': {
-			const lane = before.music.lanes.find((item) => item.id === command.lane.id);
-			if (lane == null) return 'Add Marble';
-			if (lane.name !== command.lane.name) return 'Rename Marble';
-			return lane.color !== command.lane.color ? 'Label Color' : 'Change Marble';
+			const marble = before.music.marbles.find((item) => item.id === command.marble.id);
+			if (marble == null) return 'Add Marble';
+			if (marble.name !== command.marble.name) return 'Rename Marble';
+			return marble.color !== command.marble.color ? 'Label Color' : 'Change Marble';
 		}
 		case 'upsertHits': {
-			const ids = new Set([...before.music.lanes.flatMap((lane) => lane.hits), ...before.music.backing].map((hit) => hit.id));
+			const ids = new Set([...before.music.marbles.flatMap((marble) => marble.hits), ...before.music.backing].map((hit) => hit.id));
 			const isNew = command.hits.some((hit) => !ids.has(hit.id));
 			return `${isNew ? 'Add' : 'Move'} ${counted(command.hits.length, 'Hit')}`;
 		}

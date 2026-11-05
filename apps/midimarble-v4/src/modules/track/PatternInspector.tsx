@@ -26,10 +26,10 @@ export const PatternTiles: React.FC<{ cx: StudioCx; project: TProject }> = (prop
 /** A silence dragged out in the strip */
 export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; target: { marbleId: string; from: number; to: number } }> = (props) => {
 	const { cx, project, target } = props;
-	const lane = project.music.lanes.find((item) => item.id === target.marbleId);
+	const marble = project.music.marbles.find((item) => item.id === target.marbleId);
 	return (
 		<>
-			<InspectorHeader icon={<Spline size={16} strokeWidth={1.7} />} title={`${(target.to - target.from).toFixed(1)} s`} subtitle={`Silence on ${lane?.name ?? 'a marble'}`} />
+			<InspectorHeader icon={<Spline size={16} strokeWidth={1.7} />} title={`${(target.to - target.from).toFixed(1)} s`} subtitle={`Silence on ${marble?.name ?? 'a marble'}`} />
 			<TilesPanel cx={cx} targets={[target]} kinds={RAIL_KINDS} failureKey={toRangeKey(target.marbleId, target.from, target.to)} />
 		</>
 	);
@@ -40,12 +40,12 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	const { cx, project, groupId } = props;
 	const trackCx = useFeatureState(cx.$trackCx);
 	const group = project.groups?.filter(isPatternGroup).find((item) => item.id === groupId);
-	const lane = project.music.lanes.find((item) => item.id === group?.marbleId);
-	if (group == null || lane == null || trackCx == null) return null;
+	const marble = project.music.marbles.find((item) => item.id === group?.marbleId);
+	if (group == null || marble == null || trackCx == null) return null;
 	const target: TPatternTarget = { marbleId: group.marbleId, from: group.from, to: group.to, group };
 	const isRail = group.kind === 'longRail';
-	const count = hitsInRange(lane, group.from, group.to).length;
-	const subtitle = isRail ? `Silence on ${lane.name}, ${formatTime(group.from)} to ${formatTime(group.to)}` : `${count} ${count === 1 ? 'hit' : 'hits'} on ${lane.name}, ${formatTime(group.from)} to ${formatTime(group.to)}`;
+	const count = hitsInRange(marble, group.from, group.to).length;
+	const subtitle = isRail ? `Silence on ${marble.name}, ${formatTime(group.from)} to ${formatTime(group.to)}` : `${count} ${count === 1 ? 'hit' : 'hits'} on ${marble.name}, ${formatTime(group.from)} to ${formatTime(group.to)}`;
 	const widthRange = group.kind === 'staircase' ? { min: 0.05, max: 0.16 } : { min: 0.1, max: 0.26 };
 	return (
 		<>

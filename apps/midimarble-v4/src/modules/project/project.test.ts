@@ -6,9 +6,9 @@ import { parseProject, serializeProject } from './project-file';
 import { BACKING_ID, type TProject } from './schema';
 
 function firstMarbleId(project: TProject): string {
-	const lane = project.music.lanes[0];
-	if (lane == null) throw new Error('Missing lane');
-	return lane.id;
+	const marble = project.music.marbles[0];
+	if (marble == null) throw new Error('Missing marble');
+	return marble.id;
 }
 
 describe('project document', () => {
@@ -69,12 +69,12 @@ describe('commands', () => {
 			{ type: 'assignHits', hitIds: ['b'], marbleId: BACKING_ID }
 		]);
 		if (!isEditOk) throw editErr;
-		expect(edited.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['a']);
+		expect(edited.music.marbles[0]?.hits.map((hit) => hit.id)).toEqual(['a']);
 		expect(edited.music.backing).toEqual([{ id: 'c', time: 1.5 }, { id: 'b', time: 2, duration: 0.25 }]);
 
 		const [isBackOk, backErr, back] = applyProjectCommands(edited, [{ type: 'assignHits', hitIds: ['c', 'b', 'a'], marbleId }]);
 		if (!isBackOk) throw backErr;
-		expect(back.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['a', 'c', 'b']);
+		expect(back.music.marbles[0]?.hits.map((hit) => hit.id)).toEqual(['a', 'c', 'b']);
 		expect(back.music.backing).toEqual([]);
 	});
 
@@ -95,8 +95,8 @@ describe('commands', () => {
 		expect(editErr).toBeUndefined();
 		expect(isEditOk).toBe(true);
 		expect(edited?.revision).toBe(project.revision + 1);
-		expect(edited?.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['a', 'b']);
-		expect(project.music.lanes[0]?.hits).toEqual([]);
+		expect(edited?.music.marbles[0]?.hits.map((hit) => hit.id)).toEqual(['a', 'b']);
+		expect(project.music.marbles[0]?.hits).toEqual([]);
 	});
 
 	it('leaves the source untouched when a batch is invalid', () => {
@@ -132,12 +132,12 @@ describe('commands', () => {
 		expect(without?.entities[0]?.components.transform).toBeUndefined();
 	});
 
-	it('removes the marble of a removed lane', () => {
+	it('removes the marble of a removed marble', () => {
 		const project = createProject();
 		const [, , edited] = applyProjectCommands(project, [
 			{ type: 'removeLane', marbleId: firstMarbleId(project) }
 		]);
-		expect(edited?.music.lanes).toEqual([]);
+		expect(edited?.music.marbles).toEqual([]);
 		expect(edited?.entities).toEqual([]);
 	});
 });
@@ -181,21 +181,21 @@ describe('older files', () => {
 });
 
 describe('label color and film color', () => {
-	it('should keep a lane\'s label color out of the film', () => {
+	it('should keep a marble\'s label color out of the film', () => {
 		const project = createProject({ id: 'p', title: 'T' });
-		const lane = project.music.lanes[0] as TProject['music']['lanes'][number];
-		const film = marbleFilmColor(project, lane.id);
-		const [, , next] = applyProjectCommands(project, [{ type: 'upsertLane', lane: { ...lane, color: '#112233' } }]);
-		expect(next?.music.lanes[0]?.color).toBe('#112233');
-		expect(marbleFilmColor(next as TProject, lane.id)).toBe(film);
+		const marble = project.music.marbles[0] as TProject['music']['marbles'][number];
+		const film = marbleFilmColor(project, marble.id);
+		const [, , next] = applyProjectCommands(project, [{ type: 'upsertLane', marble: { ...marble, color: '#112233' } }]);
+		expect(next?.music.marbles[0]?.color).toBe('#112233');
+		expect(marbleFilmColor(next as TProject, marble.id)).toBe(film);
 	});
 
 	it('should read a marble\'s film color from its skin', () => {
 		const project = createProject({ id: 'p', title: 'T' });
-		const lane = project.music.lanes[0] as TProject['music']['lanes'][number];
-		const marble = project.entities.find((entity) => entity.components.marble != null) as TProject['entities'][number];
-		const [, , next] = applyProjectCommands(project, [{ type: 'setComponent', entityId: marble.id, component: { name: 'skin', value: { color: '#445566' } } }]);
-		expect(marbleFilmColor(next as TProject, lane.id)).toBe('#445566');
-		expect(next?.music.lanes[0]?.color).toBe(lane.color);
+		const marble = project.music.marbles[0] as TProject['music']['marbles'][number];
+		const marbleEntity = project.entities.find((entity) => entity.components.marble != null) as TProject['entities'][number];
+		const [, , next] = applyProjectCommands(project, [{ type: 'setComponent', entityId: marbleEntity.id, component: { name: 'skin', value: { color: '#445566' } } }]);
+		expect(marbleFilmColor(next as TProject, marble.id)).toBe('#445566');
+		expect(next?.music.marbles[0]?.color).toBe(marble.color);
 	});
 });

@@ -288,19 +288,19 @@ export class DraftPreviewCx {
 		const hidden = this.studio.$hidden.get();
 		const playhead = this.studio.$playhead.get();
 		return project.entities.flatMap((entity): TPlacedMarble[] => {
-			const { marble, release } = entity.components;
-			if (marble == null || release == null || hidden.includes(entity.id)) return [];
+			const { marble: marbleEntity, release } = entity.components;
+			if (marbleEntity == null || release == null || hidden.includes(entity.id)) return [];
 			const motion = result?.marbles.find((item) => item.entityId === entity.id);
 			const position = marblePositionAt(motion, playhead, release.position);
 			const look = resolveElementLook(project.film, 'marble', entity.components.skin);
-			const marbleColor = project.music.lanes.find((lane) => lane.id === marble.marbleId)?.color;
-			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? (marbleColor ?? '#3478f6') : marbleFilmColor(project, marble.marbleId), appliedOverrides(project.film), look);
+			const marbleColor = project.music.marbles.find((marble) => marble.id === marbleEntity.marbleId)?.color;
+			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? (marbleColor ?? '#3478f6') : marbleFilmColor(project, marbleEntity.marbleId), appliedOverrides(project.film), look);
 			// Draft isn't the film: a marble no skin dresses shows its label color, so it reads as the same marble as in Track
-			const label = look.skin === 'marble:contrast' && entity.components.skin?.color == null ? project.music.lanes.find((lane) => lane.id === marble.marbleId)?.color : undefined;
+			const label = look.skin === 'marble:contrast' && entity.components.skin?.color == null ? project.music.marbles.find((marble) => marble.id === marbleEntity.marbleId)?.color : undefined;
 			return [
 				{
 					entityId: entity.id,
-					radius: marble.radius,
+					radius: marbleEntity.radius,
 					position,
 					...draft,
 					...(label != null ? { body: label, rim: null } : {})

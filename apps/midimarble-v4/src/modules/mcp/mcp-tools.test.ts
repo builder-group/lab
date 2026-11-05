@@ -12,8 +12,8 @@ import { busyReason, runTool } from './mcp-tools';
 
 function projectWithHit(): { project: TProject; marbleId: string; hitId: string } {
 	const project = createProject({ title: 'Song' });
-	const lane = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }] };
-	return { project: { ...project, music: { ...project.music, lanes: [lane] }, entities: [createMarble(lane, { x: 0, y: 0 })] }, marbleId: lane.id, hitId: 'hit1' };
+	const marble = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }] };
+	return { project: { ...project, music: { ...project.music, marbles: [marble] }, entities: [createMarble(marble, { x: 0, y: 0 })] }, marbleId: marble.id, hitId: 'hit1' };
 }
 
 function resultFor(project: TProject, marbleId: string, hitId: string): TSimulationResult {
@@ -512,14 +512,14 @@ describe('expandCommands function', () => {
 	it("should answer in words that a live Pattern's piece doesn't edit, and free it with flattenPattern", () => {
 		const base = createProject({ id: 'p', title: 'P' });
 		const bar: TEntity = { id: 'bar', name: 'Bar', components: { piece: { type: 'platform', params: { depth: 0.09 } }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
-		const project: TProject = { ...base, entities: [...base.entities, bar], groups: [{ id: 'g', name: 'Zigzag', marbleId: base.music.lanes[0]?.id ?? '', from: 1, to: 2, kind: 'zigzag', width: 0.14, bounce: 0.5, pieceIds: ['bar'] }] };
+		const project: TProject = { ...base, entities: [...base.entities, bar], groups: [{ id: 'g', name: 'Zigzag', marbleId: base.music.marbles[0]?.id ?? '', from: 1, to: 2, kind: 'zigzag', width: 0.14, bounce: 0.5, pieceIds: ['bar'] }] };
 		const moved: TEntity = { ...bar, components: { ...bar.components, transform: { position: { x: 1, y: 0 }, angle: 0 } } };
 		const deeper: TEntity = { ...bar, components: { ...bar.components, piece: { type: 'platform', params: { depth: 0.05 } } } };
 
 		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: moved }])[1]?.message).toContain('Part of Zigzag. Flatten to edit it.');
 		expect(expandCommands(project, null, [], [{ type: 'removeEntities', entityIds: ['bar'] }])[0]).toBe(true);
 		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: deeper }])[0]).toBe(true);
-		expect(expandCommands(project, null, [], [{ type: 'flattenPattern', groupId: 'g' }])[2]?.commands).toEqual([{ type: 'upsertGroup', group: { id: 'g', name: 'Zigzag', marbleId: base.music.lanes[0]?.id ?? '', pieceIds: ['bar'] } }]);
+		expect(expandCommands(project, null, [], [{ type: 'flattenPattern', groupId: 'g' }])[2]?.commands).toEqual([{ type: 'upsertGroup', group: { id: 'g', name: 'Zigzag', marbleId: base.music.marbles[0]?.id ?? '', pieceIds: ['bar'] } }]);
 	});
 
 	it('should refuse what it can\'t do in plain words', () => {

@@ -144,7 +144,7 @@ export function extraStrikes(project: TProject, result: TSimulationResult): TExt
 		if (type == null || layoutOf(type) !== 'box' || !soundsHit(type, entity?.components.hitLink)) continue;
 		const marbleEntityId = marbleOf.get(hit.marbleId);
 		const note = hit.actualTime;
-		const isLast = project.music.lanes.find((lane) => lane.id === hit.marbleId)?.hits.at(-1)?.id === hit.hitId;
+		const isLast = project.music.marbles.find((marble) => marble.id === hit.marbleId)?.hits.at(-1)?.id === hit.hitId;
 		const extra = result.contacts.filter((contact) => {
 			if (contact.marbleEntityId !== marbleEntityId || contact.otherEntityId !== entityId || contact.time > result.duration || Math.abs(contact.time - note) <= SAME_STRIKE) return false;
 			// After the marble's last note it may come to rest; only another real bounce still shows
@@ -256,21 +256,21 @@ export function rollingHits(project: TProject, result: TSimulationResult): TRoll
 	const pieces = new Map(result.pieces.map((piece) => [piece.entityId, piece]));
 	const entities = new Map(project.entities.map((entity) => [entity.id, entity]));
 	const rolls: TRollingHit[] = [];
-	for (const lane of project.music.lanes) {
-		const marble = result.marbles.find((item) => item.marbleId === lane.id);
-		if (marble == null) continue;
-		const hits = new Map(result.hits.filter((hit) => hit.marbleId === lane.id).map((hit) => [hit.hitId, hit]));
-		lane.hits.forEach((item, index) => {
+	for (const marble of project.music.marbles) {
+		const marbleEntity = result.marbles.find((item) => item.marbleId === marble.id);
+		if (marbleEntity == null) continue;
+		const hits = new Map(result.hits.filter((hit) => hit.marbleId === marble.id).map((hit) => [hit.hitId, hit]));
+		marble.hits.forEach((item, index) => {
 			const hit = hits.get(item.id);
-			const following = lane.hits[index + 1];
+			const following = marble.hits[index + 1];
 			if (following == null || hit?.pieceEntityId == null || hit.actualTime == null || (hit.status !== 'onTime' && hit.status !== 'drifting')) return;
 			const entity = entities.get(hit.pieceEntityId);
 			const piece = pieces.get(hit.pieceEntityId);
 			const type = entity?.components.piece?.type;
 			if (piece == null || type == null || layoutOf(type) !== 'box' || !soundsHit(type, entity?.components.hitLink)) return;
-			const risen = riseAfterHit(piece, marble, hit.actualTime, following.time);
+			const risen = riseAfterHit(piece, marbleEntity, hit.actualTime, following.time);
 			if (risen == null || risen.isBounce) return;
-			rolls.push({ entityId: hit.pieceEntityId, marbleId: lane.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? piece.position });
+			rolls.push({ entityId: hit.pieceEntityId, marbleId: marble.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? piece.position });
 		});
 	}
 	return rolls.sort((a, b) => a.time - b.time);

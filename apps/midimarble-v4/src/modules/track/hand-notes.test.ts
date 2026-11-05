@@ -10,11 +10,11 @@ function fake(project: TProject) {
 
 function withHit(hit: { id: string; time: number; pitch?: number }, hasSong: boolean): { project: TProject; key: string } {
 	const base = createProject({ title: 'Hits' });
-	const lane = base.music.lanes[0];
-	if (lane == null) throw new Error('A new project has a marble');
+	const marble = base.music.marbles[0];
+	if (marble == null) throw new Error('A new project has a marble');
 	const sources = hasSong ? [{ id: 'song', kind: 'midi', path: 'song.mid', offset: 0 }] : [];
-	const project = { ...base, music: { ...base.music, sources, lanes: [{ ...lane, hits: [hit] }] } } as unknown as TProject;
-	return { project, key: toHitKey(lane.id, hit.id) };
+	const project = { ...base, music: { ...base.music, sources, marbles: [{ ...marble, hits: [hit] }] } } as unknown as TProject;
+	return { project, key: toHitKey(marble.id, hit.id) };
 }
 
 describe('removeSelectedHits function', () => {

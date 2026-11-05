@@ -59,7 +59,7 @@ describe('songDisplayName function', () => {
 				name == null
 					? []
 					: [{ id: 's', kind: 'midi' as const, path: `midi/${name}`, name, offset: 0 }],
-			lanes: []
+			marbles: []
 		}
 	});
 

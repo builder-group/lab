@@ -13,13 +13,13 @@ beforeAll(async () => {
 /** A new project whose marble is released at `releaseTime` and has open hits at `times` */
 function tapped(times: number[], releaseTime = 0): { project: TProject; result: TSimulationResult; hits: THitResult[] } {
 	const project = createProject();
-	const lane = project.music.lanes[0];
-	const marble = project.entities.find((entity) => entity.components.marble != null);
-	if (lane == null || marble?.components.release == null) throw new Error('A new project has a marble');
-	lane.hits = times.map((time, index) => ({ id: `hit-${index + 1}`, time }));
-	marble.components.release.time = releaseTime;
+	const marble = project.music.marbles[0];
+	const marbleEntity = project.entities.find((entity) => entity.components.marble != null);
+	if (marble == null || marbleEntity?.components.release == null) throw new Error('A new project has a marble');
+	marble.hits = times.map((time, index) => ({ id: `hit-${index + 1}`, time }));
+	marbleEntity.components.release.time = releaseTime;
 	const result = simulate(project);
-	const hits = lane.hits.map((item) => result.hits.find((hit) => hit.hitId === item.id)).filter((hit) => hit != null);
+	const hits = marble.hits.map((item) => result.hits.find((hit) => hit.hitId === item.id)).filter((hit) => hit != null);
 	return { project, result, hits };
 }
 

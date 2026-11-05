@@ -6,9 +6,9 @@ import { AssistCx, AUTO_PLACE_WAIT_MS } from './AssistCx';
 
 function studio(assists: Record<string, unknown>): { cx: StudioCx; project: TProject; hit: THitResult } {
 	const created = createProject({ title: 'Song' });
-	const lane = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }] };
-	const project: TProject = { ...created, music: { ...created.music, lanes: [lane] }, entities: [createMarble(lane, { x: 0, y: 0 })] };
-	const hit = { marbleId: lane.id, hitId: 'hit1', targetTime: 1, pieceEntityId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' } as unknown as THitResult;
+	const marble = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }] };
+	const project: TProject = { ...created, music: { ...created.music, marbles: [marble] }, entities: [createMarble(marble, { x: 0, y: 0 })] };
+	const hit = { marbleId: marble.id, hitId: 'hit1', targetTime: 1, pieceEntityId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' } as unknown as THitResult;
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	Object.defineProperty(cx.simulation, 'assists', { get: () => assists });

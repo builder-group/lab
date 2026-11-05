@@ -117,8 +117,8 @@ export class AssistCx {
 		}
 		const target = findStepTarget(project, result, this.studio.$selection.get());
 		// A long gap after the last piece comes first: across it the marble may fall too far to leave a dot
-		const gap = project.music.lanes
-			.flatMap((lane) => openLongGaps(project, lane.id))
+		const gap = project.music.marbles
+			.flatMap((marble) => openLongGaps(project, marble.id))
 			.filter((item) => target == null || item.marbleId === target.marbleId || item.to <= target.targetTime)
 			.sort((a, b) => a.to - b.to)[0];
 		if (gap != null && (target == null || gap.to <= target.targetTime + 1e-9)) {
@@ -164,10 +164,10 @@ export class AssistCx {
 	/** N's message for an unreachable hit, with the fixes as actions: Move Release Earlier or Later and Make Backing */
 	explainUnreachable(project: TProject, result: TSimulationResult, hit: THitResult): void {
 		const reach = hitReach(project, result, hit);
-		const lane = project.music.lanes.find((item) => item.id === hit.marbleId);
-		const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
+		const marble = project.music.marbles.find((item) => item.id === hit.marbleId);
+		const index = marble?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 		const fix = releaseFixFor(project, hit, reach);
-		const message = reachMessage(reach, { hit: `Hit ${index + 1}`, marble: lane?.name ?? 'The marble' }, fix, canMakeBacking(project));
+		const message = reachMessage(reach, { hit: `Hit ${index + 1}`, marble: marble?.name ?? 'The marble' }, fix, canMakeBacking(project));
 		if (message == null) return;
 		this.studio.$selection.set([toHitKey(hit.marbleId, hit.hitId)]);
 		if (!this.studio.$playing.get()) this.studio.$playhead.set(hit.targetTime);
@@ -378,7 +378,7 @@ export class AssistCx {
 		this.dispatch({ type: 'accepted' });
 		if (ghost.kind === 'continue') {
 			const last = ghost.answer.suggestions.filter((suggestion) => suggestion.isOk).at(-1);
-			const time = project.music.lanes.find((lane) => lane.id === ghost.answer.marbleId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
+			const time = project.music.marbles.find((marble) => marble.id === ghost.answer.marbleId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
 			if (last != null) this.studio.$selection.set([last.entity.id]);
 			if (time != null && !this.studio.$playing.get()) this.studio.$playhead.set(time);
 			this.studio.notifyEdit(`Added ${acceptableCount(ghost)} ${acceptableCount(ghost) === 1 ? 'platform' : 'platforms'}`);
@@ -462,9 +462,9 @@ export class AssistCx {
 	get hasOpenHits(): boolean {
 		const project = this.studio.project;
 		if (project == null) return false;
-		return project.music.lanes.some((lane) => {
-			const owners = hitOwners(project, lane.id);
-			return lane.hits.some((hit) => !owners.has(hit.id));
+		return project.music.marbles.some((marble) => {
+			const owners = hitOwners(project, marble.id);
+			return marble.hits.some((hit) => !owners.has(hit.id));
 		});
 	}
 
@@ -500,7 +500,7 @@ export class AssistCx {
 	async buildTrack(from?: { marbleId: string; hitId: string }, gapPiece?: TBuildGapPreference): Promise<TBuildOutcome | null> {
 		const project = this.studio.project;
 		if (project == null || this.buildRun != null || this.fixRun != null) return null;
-		if (!project.music.lanes.some((lane) => lane.hits.length > 0)) {
+		if (!project.music.marbles.some((marble) => marble.hits.length > 0)) {
 			this.studio.notify('Build Track needs notes. Import a song, or press T and tap along.');
 			return null;
 		}
@@ -532,7 +532,7 @@ export class AssistCx {
 			const left = estimate.update(performance.now() - startedAt, furthest.fraction, furthest.done - kept, progress.total - kept);
 			return ['Building track', `${furthest.done} of ${progress.total} ${progress.total === 1 ? 'hit' : 'hits'}`, progress.restarts > 0 ? 'trying another start' : '', left].filter(Boolean).join(' · ');
 		};
-		const total = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
+		const total = project.music.marbles.reduce((sum, marble) => sum + marble.hits.length, 0);
 		const firstProgress: TBuildProgress = { done: 0, total, at: 0, fraction: 0, restarts: 0 };
 		this.$building.set(firstProgress);
 		const progressId = this.studio.notify(progressText(firstProgress), 'info', { progress: 0, actions: [stop] });
@@ -593,7 +593,7 @@ export class AssistCx {
 				this.studio.$playhead.set(0);
 				this.studio.$trackCx.get()?.fitOnceSimulated();
 			} else {
-				const at = project.music.lanes.find((lane) => lane.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time;
+				const at = project.music.marbles.find((marble) => marble.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time;
 				if (at != null) this.studio.$playhead.set(at);
 				this.studio.$reveal.set({ ids: [toHitKey(from.marbleId, from.hitId)], isZoomKept: true });
 			}
@@ -661,9 +661,9 @@ export class AssistCx {
 	private rememberGood(project: TProject, result: TSimulationResult): void {
 		if (this.lastGoodProjectId !== project.id) this.lastGood.clear();
 		this.lastGoodProjectId = project.id;
-		for (const lane of project.music.lanes) {
-			const hits = result.hits.filter((hit) => hit.marbleId === lane.id);
-			if (hits.some((hit) => hit.pieceEntityId != null) && !brokenHits(hits).length) this.lastGood.set(lane.id, hits);
+		for (const marble of project.music.marbles) {
+			const hits = result.hits.filter((hit) => hit.marbleId === marble.id);
+			if (hits.some((hit) => hit.pieceEntityId != null) && !brokenHits(hits).length) this.lastGood.set(marble.id, hits);
 		}
 	}
 
@@ -833,8 +833,8 @@ export class AssistCx {
 		const firstHeld = heldHit(project);
 		if (open?.dot != null && firstHeld != null && open.targetTime <= firstHeld.time) {
 			await this.place(open, this.studio.$trackCx.get()?.placementType() ?? 'platform');
-			const lane = project.music.lanes.find((item) => item.id === open.marbleId);
-			const number = (lane?.hits.findIndex((hit) => hit.id === open.hitId) ?? -1) + 1;
+			const marble = project.music.marbles.find((item) => item.id === open.marbleId);
+			const number = (marble?.hits.findIndex((hit) => hit.id === open.hitId) ?? -1) + 1;
 			if (this.studio.project?.revision !== project.revision) this.studio.notifyEdit(`Placed a platform at Hit ${number}. Fix again for the pieces still waiting.`);
 			return;
 		}
@@ -985,7 +985,7 @@ export class AssistCx {
 function heldHit(project: TProject): { marbleId: string; hitId: string; time: number } | null {
 	const held = project.entities.flatMap((entity) => {
 		const link = entity.components.hitLink;
-		const time = link?.held != null ? project.music.lanes.find((lane) => lane.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time : undefined;
+		const time = link?.held != null ? project.music.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time : undefined;
 		return link != null && time != null ? [{ marbleId: link.marbleId, hitId: link.hitId, time }] : [];
 	});
 	return held.sort((a, b) => a.time - b.time)[0] ?? null;
@@ -1025,7 +1025,7 @@ function gapFailure(type: TGapPieceType, message: string): string {
 	const piece: string = type;
 	if (message.includes('fall freely')) return `No ${piece} fits this gap. Tilt the platform before the gap so the marble flies off it, then try again.`;
 	if (message.includes('fall below')) return `No ${piece} fits this gap. The marble doesn't fall far enough before the next note; try a rail or a tunnel.`;
-	if (message.includes('crosses the earlier trajectory')) return `No ${piece} fits this gap. Every spot crosses the marble's earlier fall or another marble's lane; move the pieces around the gap.`;
+	if (message.includes('crosses the earlier trajectory')) return `No ${piece} fits this gap. Every spot crosses the marble's earlier fall or another marble's marble; move the pieces around the gap.`;
 	if (message.includes('does not reach the hit')) return `No ${piece} fits this gap. The marble doesn't reach the note before the gap; fix that platform first.`;
 	return `No ${piece} fits this gap. ${message}.`;
 }
@@ -1033,19 +1033,19 @@ function gapFailure(type: TGapPieceType, message: string): string {
 /** Next's message when it has nothing left to place, naming the marble in focus */
 function everyNotePlacedMessage(project: TProject, selection: string[]): string {
 	const marbleId = focusedMarbleId(project, selection);
-	const marble = marbleId != null ? project.music.lanes.find((lane) => lane.id === marbleId)?.name : undefined;
+	const marble = marbleId != null ? project.music.marbles.find((marble) => marble.id === marbleId)?.name : undefined;
 	if (marble != null) return `Every note ${marble} reaches already has a platform`;
-	return project.music.lanes.length === 1 ? `Every note ${project.music.lanes[0]?.name ?? 'the marble'} reaches already has a platform` : 'Every note the marbles reach already has a platform';
+	return project.music.marbles.length === 1 ? `Every note ${project.music.marbles[0]?.name ?? 'the marble'} reaches already has a platform` : 'Every note the marbles reach already has a platform';
 }
 
-/** The lane of the selected hit or piece, if any */
+/** The marble of the selected hit or piece, if any */
 function focusedMarbleId(project: TProject, selection: string[]): string | null {
 	for (const key of selection) {
 		const entity = project.entities.find((item) => item.id === key);
 		const marbleId = entity?.components.hitLink?.marbleId ?? entity?.components.marble?.marbleId;
 		if (marbleId != null) return marbleId;
-		const lane = project.music.lanes.find((item) => key.startsWith(`hit:${item.id}:`));
-		if (lane != null) return lane.id;
+		const marble = project.music.marbles.find((item) => key.startsWith(`hit:${item.id}:`));
+		if (marble != null) return marble.id;
 	}
 	return null;
 }
@@ -1067,14 +1067,14 @@ export interface TBuildReport {
 }
 
 function buildReport(project: TProject, outcome: TBuildOutcome, label: string, problems: number, ms: number, from?: { marbleId: string; hitId: string }): TBuildReport {
-	const nameOf = (marbleId: string): string => project.music.lanes.find((lane) => lane.id === marbleId)?.name ?? 'The marble';
+	const nameOf = (marbleId: string): string => project.music.marbles.find((marble) => marble.id === marbleId)?.name ?? 'The marble';
 	const attention = outcome.attention.map((hit) => ({ marble: nameOf(hit.marbleId), marbleId: hit.marbleId, hitId: hit.hitId, hit: hit.index + 1, time: hit.time, status: hit.status }));
 	const pieces = `${outcome.added} ${outcome.added === 1 ? 'piece' : 'pieces'}`;
 	const named = attention.slice(0, 3).map((hit) => `${hit.marble} hit ${hit.hit}`);
 	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 hit needs' : `${attention.length} hits need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
 	const turned = outcome.turned.length > 0 ? `Turned ${outcome.turned.length} of your ${outcome.turned.length === 1 ? 'platform' : 'platforms'}.` : '';
 	const moved = outcome.releaseShift !== 0 ? `Moved the releases ${Math.abs(outcome.releaseShift * 100).toFixed(1)} cm.` : '';
-	const fromMarble = from != null ? project.music.lanes.find((lane) => lane.id === from.marbleId) : undefined;
+	const fromMarble = from != null ? project.music.marbles.find((marble) => marble.id === from.marbleId) : undefined;
 	const rebuilt = from != null ? `Rebuilt after Hit ${(fromMarble?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromMarble?.name ?? 'the marble'}` : null;
 	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `${rebuilt ?? 'Built the track'}: ${label}, ${pieces}.` : `${rebuilt ?? 'Built what fits'}: ${label}, ${pieces}.`;
 	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');

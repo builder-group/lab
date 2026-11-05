@@ -177,7 +177,7 @@ describe('Decor', () => {
 			const over = apply(project, commands);
 			const hidden = apply(over, updateDecorCommands(over, [decorId], { hidden: true }));
 			expect(decorOverlaps(hidden, result, [])).toEqual([]);
-			const time = decorOverlaps(over, result, [])[0]?.lanes[0]?.time ?? 0;
+			const time = decorOverlaps(over, result, [])[0]?.marbles[0]?.time ?? 0;
 			const later = apply(over, updateDecorCommands(over, [decorId], { in: time + 100 }));
 			expect(decorOverlaps(later, result, []).length).toBe(0);
 		});
@@ -355,7 +355,7 @@ function isInFrameAt(camera: TCameraTrack, frame: number, point: { x: number; y:
 describe('Film Layers', () => {
 	it('should open with the marbles and Decor closed, and Track open, each toggled the other way by hand', () => {
 		const project = createStaircaseProject();
-		const marbleId = project.music.lanes[0]?.id as string;
+		const marbleId = project.music.marbles[0]?.id as string;
 		expect(collapsedGroups(project, 'film', [])).toEqual(expect.arrayContaining([marbleId, DECOR_KEY]));
 		expect(collapsedGroups(project, 'track', [])).toEqual([]);
 		expect(collapsedGroups(project, 'film', [marbleId])).not.toContain(marbleId);

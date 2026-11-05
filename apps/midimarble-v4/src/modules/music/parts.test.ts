@@ -19,7 +19,7 @@ function project(sources: TSource[], melody: THit[], bass: THit[], backing: THit
 			sources,
 			backing,
 			backingInstrument: 12,
-			lanes: [
+			marbles: [
 				{ id: 'melody', name: 'Melody', color: '#3478f6', instrument: 9, hits: melody },
 				{ id: 'bass', name: 'Bass', color: '#ff9f0a', instrument: 12, hits: bass }
 			]
@@ -67,11 +67,11 @@ describe('songParts function', () => {
 });
 
 describe('setPartSoundCommands function', () => {
-	it('should set the lane instrument of a marble and the Backing instrument of Backing', () => {
+	it('should set the marble instrument of a marble and the Backing instrument of Backing', () => {
 		const song = project([MIDI], [note('a', 1)], []);
 
 		expect(setPartSoundCommands(song, BACKING_ID, 8)).toEqual([{ type: 'setBackingInstrument', instrument: 8 }]);
-		expect(setPartSoundCommands(song, 'melody', 8)).toEqual([{ type: 'upsertLane', lane: { ...song.music.lanes[0], instrument: 8 } }]);
+		expect(setPartSoundCommands(song, 'melody', 8)).toEqual([{ type: 'upsertLane', marble: { ...song.music.marbles[0], instrument: 8 } }]);
 	});
 });
 
@@ -91,14 +91,14 @@ describe('audibleProject function', () => {
 	it('should leave only the slice of a soloed marble', () => {
 		const solo = audibleProject(song, { muted: [], solo: ['bass'] });
 
-		expect(solo.music.lanes.map((lane) => lane.id)).toEqual(['bass']);
+		expect(solo.music.marbles.map((marble) => marble.id)).toEqual(['bass']);
 		expect(solo.music.backing).toEqual([]);
 	});
 
 	it('should mute and solo Backing like a marble', () => {
 		expect(audibleProject(song, { muted: [BACKING_ID], solo: [] }).music.backing).toEqual([]);
 		const solo = audibleProject(song, { muted: [], solo: [BACKING_ID] });
-		expect(solo.music.lanes).toEqual([]);
+		expect(solo.music.marbles).toEqual([]);
 		expect(solo.music.backing).toHaveLength(1);
 	});
 
@@ -129,7 +129,7 @@ describe('soundtrackProject function', () => {
 	const song = project([MIDI], [note('a', 0.5)], [note('b', 1)]);
 
 	it('should keep muted Parts out and ignore solo', () => {
-		expect(soundtrackProject(song, { muted: ['melody'], solo: [] }).music.lanes.map((lane) => lane.id)).toEqual(['bass']);
+		expect(soundtrackProject(song, { muted: ['melody'], solo: [] }).music.marbles.map((marble) => marble.id)).toEqual(['bass']);
 		expect(soundtrackProject(song, { muted: [], solo: ['melody'] })).toBe(song);
 	});
 

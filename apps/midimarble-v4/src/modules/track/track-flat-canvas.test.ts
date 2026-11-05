@@ -33,16 +33,16 @@ function runFrames(): void {
 
 function mounted(): { cx: StudioCx; trackCx: TrackCx; renderer: TrackRenderer; windmillId: string; unmount: () => void } {
 	const created = createProject({ title: 'Song' });
-	const lane = createLane(0);
-	const marble = createMarble(lane, { x: 0, y: 0 });
+	const marble = createLane(0);
+	const marbleEntity = createMarble(marble, { x: 0, y: 0 });
 	const pose = { position: { x: 0.2, y: -0.2 }, angle: 0 };
-	const windmill = createFreePiece('windmill', pose, [marble]);
-	const project: TProject = { ...created, music: { ...created.music, lanes: [lane] }, entities: [marble, windmill] };
+	const windmill = createFreePiece('windmill', pose, [marbleEntity]);
+	const project: TProject = { ...created, music: { ...created.music, marbles: [marble] }, entities: [marbleEntity, windmill] };
 	const samples = Array.from({ length: 600 }, (_, index) => ({ time: index / 60, position: { x: index * 0.02, y: -index * 0.02 }, velocity: { x: 1.2, y: -1.2 } }));
 	const result = {
 		revision: project.revision,
 		duration: project.length,
-		marbles: [{ entityId: marble.id, marbleId: lane.id, samples }],
+		marbles: [{ entityId: marbleEntity.id, marbleId: marble.id, samples }],
 		pieces: [{ ...displayPiece(windmill, { pose }), motion: [{ time: 0, angle: 0 }, { time: 10, angle: 10 }] }],
 		contacts: [],
 		hits: [],

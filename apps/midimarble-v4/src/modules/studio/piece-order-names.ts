@@ -34,10 +34,10 @@ export function renumberDefaultNames(before: TProject, after: TProject): TProjec
 
 function piecesInLayersOrder(project: TProject): TEntity[] {
 	const ordered: TEntity[] = [];
-	for (const lane of project.music.lanes) {
-		const order = new Map(lane.hits.map((hit) => [hit.id, hit.time]));
-		const tied = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id);
-		const startRail = startRailOf(project, lane.id);
+	for (const marble of project.music.marbles) {
+		const order = new Map(marble.hits.map((hit) => [hit.id, hit.time]));
+		const tied = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marble.id);
+		const startRail = startRailOf(project, marble.id);
 		if (startRail != null) ordered.push(startRail);
 		ordered.push(...tied.map((entity, index) => ({ entity, index, time: tieTime(entity, order) })).sort((a, b) => a.time - b.time || a.index - b.index).map((item) => item.entity));
 	}

@@ -20,7 +20,7 @@ import { PatternGhost } from './PatternInspector';
 import { HitFlashLayer } from './HitFlashLayer';
 import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
-import { placeBar, type TScreenRect, ZOOM_100_SCALE, hiddenMarbleLanes, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
+import { placeBar, type TScreenRect, ZOOM_100_SCALE, hiddenMarbleIds, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
 import { findStepTarget, linkedPieces, nextOpenHitPerMarble, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
@@ -113,11 +113,11 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 			openContextMenu(event, cx.menus.piece());
 			return;
 		case 'dot': {
-			const lane = trackCx.project?.music.lanes.find((item) => item.id === target.marbleId);
+			const marble = trackCx.project?.music.marbles.find((item) => item.id === target.marbleId);
 			const hit = trackCx.result?.hits.find((item) => item.marbleId === target.marbleId && item.hitId === target.hitId);
-			if (lane != null && hit != null && hit.status !== 'open') {
+			if (marble != null && hit != null && hit.status !== 'open') {
 				cx.$selection.set([toHitKey(target.marbleId, target.hitId)]);
-				openContextMenu(event, cx.menus.hit(lane, target.hitId));
+				openContextMenu(event, cx.menus.hit(marble, target.hitId));
 				return;
 			}
 			openContextMenu(event, dotMenu(trackCx, target.marbleId, target.hitId));
@@ -125,9 +125,9 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 		}
 		case 'release': {
 			const marbleId = trackCx.project?.entities.find((entity) => entity.id === target.entityId)?.components.marble?.marbleId;
-			const lane = trackCx.project?.music.lanes.find((item) => item.id === marbleId);
+			const marble = trackCx.project?.music.marbles.find((item) => item.id === marbleId);
 			cx.$selection.set([target.entityId]);
-			if (lane != null) openContextMenu(event, cx.menus.lane(lane));
+			if (marble != null) openContextMenu(event, cx.menus.marble(marble));
 			return;
 		}
 		default:
@@ -147,7 +147,7 @@ const EmptyWall: React.FC<{ cx: StudioCx }> = (props) => {
 	const history = useFeatureState(cx.$history);
 	const project = history?.present;
 	if (project == null || !isEmptyProject(project)) return null;
-	const hasMarble = project.music.lanes.length > 0;
+	const hasMarble = project.music.marbles.length > 0;
 	return (
 		<div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center px-4">
 			<div className="mm-floating pointer-events-auto flex max-w-[460px] flex-col items-center gap-2 px-5 py-4 text-center" role="group" aria-label="Start the Project">
@@ -172,7 +172,7 @@ const EmptyWall: React.FC<{ cx: StudioCx }> = (props) => {
 
 /** No song and no hit on any marble: the state of a new project */
 export function isEmptyProject(project: TProject): boolean {
-	return project.music.sources.length === 0 && project.music.lanes.every((lane) => lane.hits.length === 0);
+	return project.music.sources.length === 0 && project.music.marbles.every((marble) => marble.hits.length === 0);
 }
 
 // MARK: - Overlay
@@ -248,14 +248,14 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 				{snap?.kind === 'link' ? <SnapRing position={trackCx.toScreen(snap.dot)} /> : null}
 				{drag?.kind === 'move' && drag.moved && drag.plays != null && drag.origin != null ? <PlaysGhost trackCx={trackCx} origin={drag.origin} dot={drag.plays.dot} /> : null}
 				{project.entities.map((entity) => {
-					const { release, marble } = entity.components;
-					if (release == null || marble == null || hidden.includes(entity.id)) return null;
+					const { release, marble: marbleEntity } = entity.components;
+					if (release == null || marbleEntity == null || hidden.includes(entity.id)) return null;
 					const position = drag?.kind === 'release' && drag.entityId === entity.id ? drag.position : release.position;
 					const center = trackCx.toScreen(position);
 					const isSelected = selection.includes(entity.id);
 					const isActive = isSelected || (hover?.kind === 'release' && hover.entityId === entity.id) || (drag?.kind === 'release' && drag.entityId === entity.id);
-					const radius = Math.max(9, marble.radius * camera.view.scale + 5);
-					const labelColor = project.music.lanes.find((lane) => lane.id === marble.marbleId)?.color;
+					const radius = Math.max(9, marbleEntity.radius * camera.view.scale + 5);
+					const labelColor = project.music.marbles.find((marble) => marble.id === marbleEntity.marbleId)?.color;
 					return (
 						<g key={`release-${entity.id}`}>
 							{isSelected ? <circle cx={center.x} cy={center.y} r={radius + 3} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} /> : null}
@@ -316,7 +316,7 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 				<CanvasTooltip position={hover.position}>
 					{trackCx.followsAt(hover.marbleId, hover.time) ? (
 						<>
-							<span className="font-medium">Follows {project.music.lanes.find((lane) => lane.id === hover.marbleId)?.name ?? 'Marble'}</span>
+							<span className="font-medium">Follows {project.music.marbles.find((marble) => marble.id === hover.marbleId)?.name ?? 'Marble'}</span>
 							<span className="mm-tabular ml-1 text-[var(--text-secondary)]">at {formatTime(hover.time)}</span>
 						</>
 					) : (
@@ -389,7 +389,7 @@ const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; 
 	const band = frameBand(project);
 	const longGaps = trackCx.longGapKeys(project);
 	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
-	const hiddenMarbles = hiddenMarbleLanes(project, hidden);
+	const hiddenMarbles = hiddenMarbleIds(project, hidden);
 	return (
 		<>
 			{result.hits.map((hit) => {
@@ -412,10 +412,10 @@ const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; 
 						/>
 					);
 				}
-				const lane = project.music.lanes.find((item) => item.id === hit.marbleId);
+				const marble = project.music.marbles.find((item) => item.id === hit.marbleId);
 				const isNext = nextDots.get(hit.marbleId) === hit;
 				const isOutside = hit.outOfFrame ?? Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
-				const color = isOutside ? 'var(--bad)' : (lane?.color ?? 'var(--text)');
+				const color = isOutside ? 'var(--bad)' : (marble?.color ?? 'var(--text)');
 				return (
 					<HitDot
 						key={`dot-${hit.marbleId}-${hit.hitId}`}
@@ -502,11 +502,11 @@ const PlaysChip: React.FC<{ trackCx: TrackCx; project: TProject; drag: Extract<T
 const SnapChip: React.FC<{ trackCx: TrackCx; project: TProject; position: TVec2; snap: TSnap | null }> = (props) => {
 	const { trackCx, project, snap } = props;
 	const center = trackCx.toScreen(props.position);
-	const lane = snap != null ? project.music.lanes.find((item) => item.id === snap.marbleId) : undefined;
+	const marble = snap != null ? project.music.marbles.find((item) => item.id === snap.marbleId) : undefined;
 	let content: React.ReactNode = null;
 	if (snap?.kind === 'link') {
-		const index = lane?.hits.findIndex((hit) => hit.id === snap.hitId) ?? -1;
-		const pitch = lane?.hits[index]?.pitch;
+		const index = marble?.hits.findIndex((hit) => hit.id === snap.hitId) ?? -1;
+		const pitch = marble?.hits[index]?.pitch;
 		content = (
 			<>
 				<Link2 size={11} strokeWidth={2.2} />
@@ -518,7 +518,7 @@ const SnapChip: React.FC<{ trackCx: TrackCx; project: TProject; position: TVec2;
 		content = (
 			<>
 				<Anchor size={11} strokeWidth={2.2} />
-				<span className="font-medium">Follows {lane?.name ?? 'Marble'}</span>
+				<span className="font-medium">Follows {marble?.name ?? 'Marble'}</span>
 				<span className="mm-tabular opacity-70">at {formatTime(snap.time)}</span>
 			</>
 		);
@@ -805,9 +805,9 @@ const DotTooltip: React.FC<{ trackCx: TrackCx; project: TProject; hit: THitResul
 	const { trackCx, project, hit } = props;
 	if (hit.dot == null) return null;
 	const position = trackCx.toScreen(hit.dot);
-	const lane = project.music.lanes.find((item) => item.id === hit.marbleId);
-	const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
-	const pitch = lane?.hits[index]?.pitch;
+	const marble = project.music.marbles.find((item) => item.id === hit.marbleId);
+	const index = marble?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
+	const pitch = marble?.hits[index]?.pitch;
 	const band = frameBand(project);
 	const overshoot = Math.abs(hit.dot.x - band.centerX) - band.halfWidth;
 	const isOutside = hit.outOfFrame ?? overshoot > 0;

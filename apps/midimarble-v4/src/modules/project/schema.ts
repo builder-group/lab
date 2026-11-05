@@ -127,7 +127,7 @@ const SSkinComponent = z.strictObject({
 	// below
 	assetId: z.string().optional(),
 	...skinPropertyShape,
-	// A marble's own film color, what Color: Marble shows on it and on the pieces it plays. Never the lane's label color
+	// A marble's own film color, what Color: Marble shows on it and on the pieces it plays. Never the marble's label color
 	color: z
 		.string()
 		.regex(/^#[0-9a-fA-F]{6}$/)
@@ -193,7 +193,7 @@ export const SComponents = z.strictObject({
 export const SEntity = z.strictObject({
 	id: SId,
 	name: z.string().optional(),
-	// Organizes Layers and colors the piece in Track; in the film only the skin None wears it. A marble's is its lane's `color`
+	// Organizes Layers and colors the piece in Track; in the film only the skin None wears it. A marble's is its marble's `color`
 	labelColor: z
 		.string()
 		.regex(/^#[0-9a-fA-F]{6}$/)
@@ -362,8 +362,8 @@ export const SFilm = z.strictObject({
 });
 
 /**
- * Lane ID that addresses Backing in hit commands and hit selection keys. Lane IDs are created with a prefix
- * and a random part, so no lane has this ID.
+ * Marble ID that addresses Backing in hit commands and hit selection keys. Marble IDs are created with a prefix
+ * and a random part, so no marble has this ID.
  */
 export const BACKING_ID = 'backing';
 
@@ -410,7 +410,7 @@ export const SProject = z.strictObject({
 	gravity: z.number().min(0.05).max(2),
 	music: z.strictObject({
 		sources: z.array(SSource),
-		lanes: z.array(SLane),
+		marbles: z.array(SLane),
 		// Every note no marble plays, heard in the film without a piece
 		backing: z.array(SHit),
 		// General MIDI program of Backing: the song's first MIDI program when the bank has it; absent means piano

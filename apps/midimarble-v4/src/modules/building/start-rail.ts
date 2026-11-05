@@ -5,7 +5,7 @@ import { gravityOf, nextPieceName, railLayoutInfo, resolvePieceParams, startRail
 // instead of dropping. It is a normal Rail tied to nothing, which anyone can delete. The marble then falls as long as one
 // released without a rail, so it strikes its first note as firmly, so the release moves earlier by the time the rail
 // takes, and back along the rail so the note lands where it would have. The rail keeps that distance as `laneOffset`,
-// since the lane lies where the marble lands (`frameBand`).
+// since the marble lies where the marble lands (`frameBand`).
 
 const DEGREE = Math.PI / 180;
 /** The shortest and steepest a start rail gets: gentler or shorter and the leave time stops following the formula */
@@ -50,22 +50,22 @@ export function startRailPlan(lead: number, gravity: number, fall: number): { sl
 export function withStartRails(project: TProject, marbleIds: ReadonlySet<string>): TProject {
 	const gravity = -gravityOf(project);
 	let entities = project.entities;
-	for (const lane of project.music.lanes) {
-		const [first] = lane.hits;
-		const marble = entities.find((entity) => entity.components.marble?.marbleId === lane.id);
-		const release = marble?.components.release;
-		if (first == null || marble?.components.marble == null || release == null || !marbleIds.has(lane.id)) continue;
-		if (entities.some((entity) => entity.id === startRailId(lane.id))) continue;
+	for (const marble of project.music.marbles) {
+		const [first] = marble.hits;
+		const marbleEntity = entities.find((entity) => entity.components.marble?.marbleId === marble.id);
+		const release = marbleEntity?.components.release;
+		if (first == null || marbleEntity?.components.marble == null || release == null || !marbleIds.has(marble.id)) continue;
+		if (entities.some((entity) => entity.id === startRailId(marble.id))) continue;
 		if (release.velocity != null && (release.velocity.x !== 0 || release.velocity.y !== 0)) continue;
 		// As early as it needs, but no later than the person's release and not before the film starts
 		const lead = Math.min(first.time, Math.max(first.time - release.time, rollTime(MIN_SLOPE, gravity) + FALL));
 		const plan = startRailPlan(lead, gravity, FALL);
 		if (plan == null) continue;
 		// Every rail runs the same way: the marbles start side by side and the camera opens on all of them
-		const placed = startRail(entities, lane.id, marble.components.marble.radius, plan.slope);
+		const placed = startRail(entities, marble.id, marbleEntity.components.marble.radius, plan.slope);
 		const position: TVec2 = { x: Math.round((release.position.x - placed.reach) * 1e4) / 1e4, y: release.position.y };
-		const moved: TEntity = { ...marble, components: { ...marble.components, release: { ...release, position, time: Math.round((first.time - lead) * 1e4) / 1e4 } } };
-		entities = [...entities.map((entity) => (entity === marble ? moved : entity)), placed.at(position)];
+		const moved: TEntity = { ...marbleEntity, components: { ...marbleEntity.components, release: { ...release, position, time: Math.round((first.time - lead) * 1e4) / 1e4 } } };
+		entities = [...entities.map((entity) => (entity === marbleEntity ? moved : entity)), placed.at(position)];
 	}
 	return entities === project.entities ? project : { ...project, entities };
 }

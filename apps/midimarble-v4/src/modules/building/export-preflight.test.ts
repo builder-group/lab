@@ -11,7 +11,7 @@ function withSongFixture(name: string): TProject {
 	return { ...project, music: { ...project.music, sources: [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }] } };
 }
 
-// Two lanes side by side with one platform each, a free rail and a free platform
+// Two marbles side by side with one platform each, a free rail and a free platform
 function createTwoMarbleProject(): TProject {
 	const marble = (id: string, marbleId: string, x: number): TEntity => ({
 		id,
@@ -37,7 +37,7 @@ function createTwoMarbleProject(): TProject {
 		length: 4,
 		music: {
 			sources: [{ id: 'song', kind: 'midi', path: 'audio/song.mid', name: 'Song', offset: 0 }],
-			lanes: [
+			marbles: [
 				{
 					id: 'lane-a',
 					name: 'Melody',
@@ -124,15 +124,15 @@ describe('preflightExport function', () => {
 
 	it('should tip about a long free fall in plain words, without counting it as a problem', () => {
 		const project = createTwoMarbleProject();
-		const lane = project.music.lanes[0];
+		const marble = project.music.marbles[0];
 		const result = simulator.simulate(project);
 		const dots = [0.4, -1.7];
-		const hits = (lane?.hits ?? []).slice(0, 2).map((hit, index) => ({ marbleId: lane?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceEntityId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'open' as const }));
+		const hits = (marble?.hits ?? []).slice(0, 2).map((hit, index) => ({ marbleId: marble?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceEntityId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'open' as const }));
 
 		const preflight = preflightExport(project, { ...result, revision: project.revision, hits }, []);
 		const tip = preflight.issues.find((issue) => issue.kind === 'fall');
 
-		expect(tip?.title).toBe(`${lane?.name} falls 2.1 m at 0:09: a Long Rail fills that gap`);
+		expect(tip?.title).toBe(`${marble?.name} falls 2.1 m at 0:09: a Long Rail fills that gap`);
 		expect(tip?.severity).toBe('info');
 		expect(problemSummary(preflight).problems.some((issue) => issue.kind === 'fall')).toBe(false);
 	});
@@ -149,7 +149,7 @@ describe('preflightExport function', () => {
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
 		const project = withSongFixture('zigzag');
-		const turned = project.entities.find((entity) => entity.components.hitLink?.hitId === project.music.lanes[0]?.hits[4]?.id);
+		const turned = project.entities.find((entity) => entity.components.hitLink?.hitId === project.music.marbles[0]?.hits[4]?.id);
 		if (turned?.components.hitLink == null) throw new Error('No linked platform');
 		turned.components.hitLink.angle += 0.9;
 
@@ -161,7 +161,7 @@ describe('preflightExport function', () => {
 		expect(preflight.issues.filter((issue) => issue.kind === 'framing')).toEqual([]);
 	});
 
-	it('should not report a single marble the camera follows, even with dots past the old lane band', () => {
+	it('should not report a single marble the camera follows, even with dots past the old marble band', () => {
 		const project = withSongFixture('tap-along');
 
 		const preflight = preflightExport(project, simulator.simulate(project), NO_BLENDER_OBJECTS);
@@ -200,7 +200,7 @@ describe('preflightExport function', () => {
 		expect(preflight.issues[0]?.target).toEqual({ ids: ['pa1'], point: { x: -0.1, y: 0.2 }, time: 1 });
 	});
 
-	it('should note open hits per lane and select the first one', () => {
+	it('should note open hits per marble and select the first one', () => {
 		const project = createTwoMarbleProject();
 
 		const preflight = preflightExport(project, createResult(), NO_BLENDER_OBJECTS);
@@ -293,7 +293,7 @@ describe('a project with hits and no Song', () => {
 
 	it('should warn in the sheet and ask for a Song beside the summary, without counting a problem', () => {
 		const project = noSong();
-		const hits = project.music.lanes.flatMap((lane) => lane.hits.map((item) => hit(lane.id, item.id, item.time)));
+		const hits = project.music.marbles.flatMap((marble) => marble.hits.map((item) => hit(marble.id, item.id, item.time)));
 
 		const preflight = preflightExport(project, createResult({ hits, revision: project.revision }), NO_BLENDER_OBJECTS);
 		const summary = problemSummary(preflight);
@@ -307,7 +307,7 @@ describe('a project with hits and no Song', () => {
 
 	it('should not ask for a Song with no hits to play', () => {
 		const empty = noSong();
-		const project = { ...empty, music: { ...empty.music, lanes: empty.music.lanes.map((lane) => ({ ...lane, hits: [] })) } };
+		const project = { ...empty, music: { ...empty.music, marbles: empty.music.marbles.map((marble) => ({ ...marble, hits: [] })) } };
 
 		const preflight = preflightExport(project, createResult({ hits: [], revision: project.revision }), NO_BLENDER_OBJECTS);
 

@@ -15,10 +15,10 @@ beforeAll(async () => {
 });
 afterAll(() => simulator.dispose());
 
-function fromHitTimes(lanes: number[][]): TProject {
+function fromHitTimes(marbles: number[][]): TProject {
 	const project = createProject({ id: 'build', title: 'Build' });
-	const notes = lanes.map((times) => times.map((time, index) => ({ time, duration: 0.2, midi: 60 + (index % 12), velocity: 0.8, id: `note-${index}` })));
-	const [isOk, error, applied] = applyProjectCommands(project, createImportCommands(project, { lanes: notes as never }));
+	const notes = marbles.map((times) => times.map((time, index) => ({ time, duration: 0.2, midi: 60 + (index % 12), velocity: 0.8, id: `note-${index}` })));
+	const [isOk, error, applied] = applyProjectCommands(project, createImportCommands(project, { marbles: notes as never }));
 	if (!isOk) throw error;
 	return applied;
 }
@@ -34,23 +34,23 @@ function importedJingle(): TProject {
 	if (!isMidiOk) throw midiErr;
 	const proposal = proposeMarbles(alignNotes(midi.tracks.flatMap((track) => track.notes), 1), { strategy: 'split', maxMarbles: 4 });
 	const project = createProject({ id: 'jingle', title: 'Jingle Bells' });
-	const [isOk, error, applied] = applyProjectCommands(project, createImportCommands(project, { lanes: proposal.lanes, backing: proposal.backing as never }));
+	const [isOk, error, applied] = applyProjectCommands(project, createImportCommands(project, { marbles: proposal.marbles, backing: proposal.backing as never }));
 	if (!isOk) throw error;
 	return applied;
 }
 
 /** The same project with other hit IDs, as another import would give it */
-function withHitIds(project: TProject, order: 'lane 0 sorts first' | 'last lane sorts first'): TProject {
-	const count = project.music.lanes.length;
-	const lanes = project.music.lanes.map((lane, laneIndex) => ({
-		...lane,
-		hits: lane.hits.map((hit, hitIndex) => ({ ...hit, id: `hit-${order === 'lane 0 sorts first' ? laneIndex : count - laneIndex}-${String(hitIndex).padStart(3, '0')}` }))
+function withHitIds(project: TProject, order: 'marble 0 sorts first' | 'last marble sorts first'): TProject {
+	const count = project.music.marbles.length;
+	const marbles = project.music.marbles.map((marble, marbleIndex) => ({
+		...marble,
+		hits: marble.hits.map((hit, hitIndex) => ({ ...hit, id: `hit-${order === 'marble 0 sorts first' ? marbleIndex : count - marbleIndex}-${String(hitIndex).padStart(3, '0')}` }))
 	}));
-	return { ...project, music: { ...project.music, lanes } };
+	return { ...project, music: { ...project.music, marbles } };
 }
 
 function piecesByOrder(project: TProject): string[] {
-	const order = new Map(project.music.lanes.flatMap((lane) => lane.hits).map((hit, index) => [hit.id, index]));
+	const order = new Map(project.music.marbles.flatMap((marble) => marble.hits).map((hit, index) => [hit.id, index]));
 	return project.entities
 		.filter((entity) => entity.components.piece != null)
 		.map(({ components: { hitLink, ...rest } }) => JSON.stringify({ ...rest, hitLink: hitLink == null ? null : { ...hitLink, hitId: order.get(hitLink.hitId) } }));
@@ -70,7 +70,7 @@ describe('buildTrack function', () => {
 		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(115);
 		expect(outcome.attention).toEqual([]);
 		expect(problemsBesidesSong(outcome.project, outcome)).toEqual([]);
-		for (const lane of outcome.project.music.lanes) expect(bowlOfMarble(outcome.project, lane.id)).not.toBeNull();
+		for (const marble of outcome.project.music.marbles) expect(bowlOfMarble(outcome.project, marble.id)).not.toBeNull();
 		expect(progress.at(-1)).toMatchObject({ done: 115, total: 115, fraction: 1 });
 		expect(problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS)).label).toBe('115 of 115 hits on time');
 		// How it looks: nothing touches on the wall, each platform is struck once
@@ -116,9 +116,9 @@ describe('buildTrack function', () => {
 
 	it('gives the same track whatever the random IDs, when hits of two marbles coincide', async () => {
 		const opening = importedJingle();
-		const project = { ...opening, music: { ...opening.music, lanes: opening.music.lanes.map((lane) => ({ ...lane, hits: lane.hits.filter((hit) => hit.time < 16) })) } };
-		const first = await buildTrack(withHitIds(project, 'lane 0 sorts first'), localBuildDeps(simulator));
-		const second = await buildTrack(withHitIds(project, 'last lane sorts first'), localBuildDeps(simulator));
+		const project = { ...opening, music: { ...opening.music, marbles: opening.music.marbles.map((marble) => ({ ...marble, hits: marble.hits.filter((hit) => hit.time < 16) })) } };
+		const first = await buildTrack(withHitIds(project, 'marble 0 sorts first'), localBuildDeps(simulator));
+		const second = await buildTrack(withHitIds(project, 'last marble sorts first'), localBuildDeps(simulator));
 		expect(piecesByOrder(second.project)).toEqual(piecesByOrder(first.project));
 	}, 10 * MINUTES);
 });

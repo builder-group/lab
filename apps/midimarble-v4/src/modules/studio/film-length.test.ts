@@ -4,12 +4,12 @@ import { StudioCx } from './StudioCx';
 
 function opened(end: number): { cx: StudioCx; marbleId: string } {
 	const project = createProject({ title: 'Song' });
-	const lane = project.music.lanes[0];
-	if (lane == null) throw new Error('No lane');
-	lane.hits = [{ id: 'h0', time: 1 }, { id: 'h1', time: 3.6 }];
+	const marble = project.music.marbles[0];
+	if (marble == null) throw new Error('No marble');
+	marble.hits = [{ id: 'h0', time: 1 }, { id: 'h1', time: 3.6 }];
 	const cx = new StudioCx();
 	(cx as unknown as { load: (project: TProject, path: string) => void }).load({ ...project, length: end }, '/tmp/Song.marble');
-	return { cx, marbleId: lane.id };
+	return { cx, marbleId: marble.id };
 }
 
 describe('the film length', () => {

@@ -28,12 +28,12 @@ export interface TSimulationResult {
 	pieces: TResolvedPiece[];
 	/** Every contact start between a marble and a piece or another marble, in time order */
 	contacts: TContact[];
-	/** Validation per hit of every lane, including hits without a piece */
+	/** Validation per hit of every marble, including hits without a piece */
 	hits: THitResult[];
 	/** Milliseconds spent computing this result and how much was reused from snapshots */
 	stats: { computeMs: number; reusedUntil: number; steps: number };
 	/**
-	 * Shared descent pace y*(t) that the assists keep every lane near and the camera can follow. Null
+	 * Shared descent pace y*(t) that the assists keep every marble near and the camera can follow. Null
 	 * before any hit has a dot; absent in results made by hand.
 	 */
 	pace?: TDescentPace | null;
@@ -144,7 +144,7 @@ export interface THitResult {
 	status: THitStatus;
 	/** Why a hit with a piece is missed: `resting` when the first contact is slower than `IMPACT_SPEED` */
 	reason?: 'resting';
-	/** Set on open hits with a dot: true when the dot lies out of frame, outside the band covering every lane */
+	/** Set on open hits with a dot: true when the dot lies out of frame, outside the band covering every marble */
 	outOfFrame?: boolean;
 }
 

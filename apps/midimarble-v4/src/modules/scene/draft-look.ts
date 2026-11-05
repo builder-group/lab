@@ -198,7 +198,7 @@ const NEON_MOUNT = '#1c2030';
 export interface TDraftMarble {
 	body: string;
 	rim: string | null;
-	/** Pearl: near white with its lane's hue on the rim. Deep: its lane's hue made dark. */
+	/** Pearl: near white with its marble's hue on the rim. Deep: its marble's hue made dark. */
 	tone: 'pearl' | 'deep';
 	/** A marble skin drawn over the body: the vanes of Glass, the mirror of Metal, the smoke of Magic */
 	finish?: { kind: 'glass' | 'metal' | 'magic'; color: string; second: string };
@@ -216,7 +216,7 @@ export const MARBLE_CONTRAST = 3;
 
 /**
  * A marble's look in a theme. The marble is the subject of the film, so it stands apart from its wall and its own
- * pieces in every theme: pearl white with its lane's hue on the rim on a dark wall (Neon), or its lane's hue made
+ * pieces in every theme: pearl white with its marble's hue on the rim on a dark wall (Neon), or its marble's hue made
  * deep on a light one (Pegboard's birch, Brass's lavender), whichever contrasts more with both. A project theme's
  * Wall color can change the choice. The same rule as `marble_look` in themes.py.
  */
@@ -301,7 +301,7 @@ const PEARL_WHITE = 0.8;
 const DEEP_LUMINANCE = 0.05;
 /** A deep body on a lighter wall can be lighter too, so a warm wall shows its hue rather than a near-black ball */
 const DEEP_LUMINANCE_LIGHTEST = 0.09;
-/** Darker still where its own Pegboard platform is a dark lane color, `DEEP_LUMINANCE_DARKEST` in themes.py */
+/** Darker still where its own Pegboard platform is a dark marble color, `DEEP_LUMINANCE_DARKEST` in themes.py */
 const DEEP_LUMINANCE_DARKEST = 0.03;
 /** Brightness of a Neon body in its hue */
 const NEON_BODY_VALUE = 0.62;

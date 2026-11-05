@@ -40,7 +40,7 @@ export interface TDecodedAudioFile extends TDecodedAudio {
 	duration: number;
 }
 
-// Averages all channels into one, used for onset detection and the lane waveform
+// Averages all channels into one, used for onset detection and the marble waveform
 export function mixToMono(channels: Float32Array[]): Float32Array {
 	const first = channels[0];
 	if (first == null) return new Float32Array(0);

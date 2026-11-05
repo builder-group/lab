@@ -51,7 +51,7 @@ export function detectOnsets(
 
 /**
  * Timeline times for a recording's onsets, as Add Suggested Hits places them: shifted by the source offset,
- * rounded to 0.1 ms, at least `MIN_HIT_GAP` apart and away from the hits the lane already has
+ * rounded to 0.1 ms, at least `MIN_HIT_GAP` apart and away from the hits the marble already has
  */
 export function suggestedHitTimes(onsets: number[], offset: number, existing: number[] = []): number[] {
 	const times: number[] = [];

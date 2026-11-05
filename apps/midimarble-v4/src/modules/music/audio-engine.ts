@@ -100,13 +100,13 @@ export function createAudioEngine(): TAudioEngine {
 		},
 		scrubTo: (time) => scrubber.move(time),
 		endScrub,
-		async audition(lane, pitch) {
-			const key = `${lane.instrument}:${pitch}`;
+		async audition(marble, pitch) {
+			const key = `${marble.instrument}:${pitch}`;
 			let buffer = auditionCache.get(key);
 			if (buffer == null) {
 				const bank = await loadInstrumentBank();
 				const audio = renderMarbles(
-					[{ ...lane, hits: [{ id: 'audition', time: 0, pitch }] }],
+					[{ ...marble, hits: [{ id: 'audition', time: 0, pitch }] }],
 					{ sampleRate: SAMPLE_RATE, duration: 1, bank }
 				);
 				fadeOut(audio, 0.05);
@@ -148,7 +148,7 @@ export interface TAudioEngine {
 	scrubTo: (time: number) => void;
 	endScrub: () => void;
 	// Plays one note of the Song; a hit without a pitch has nothing to play
-	audition: (lane: TLane, pitch: number) => Promise<void>;
+	audition: (marble: TLane, pitch: number) => Promise<void>;
 	setVolume: (volume: number) => void;
 	dispose: () => void;
 }
@@ -156,7 +156,7 @@ export interface TAudioEngine {
 export type TResolveSourceUrl = (source: TSource) => string | null;
 
 /**
- * The Song is the only sound. Imported recordings already contain the music, so lanes and Backing are synthesized
+ * The Song is the only sound. Imported recordings already contain the music, so marbles and Backing are synthesized
  * only without an audio source, and a project without a Song renders as silence, whatever pitches its hits keep.
  */
 export async function renderProjectAudio(
@@ -169,7 +169,7 @@ export async function renderProjectAudio(
 	const audioSources = project.music.sources.filter((source) => source.kind === 'audio');
 	if (!audioSources.length) {
 		const bank = await loadInstrumentBank();
-		const audio = renderMarbles(project.music.lanes, { sampleRate, duration: project.length, bank, backing: backingVoice(project) });
+		const audio = renderMarbles(project.music.marbles, { sampleRate, duration: project.length, bank, backing: backingVoice(project) });
 		fadeOut(audio, FILM_AUDIO_FADE);
 		return audio;
 	}
@@ -195,15 +195,15 @@ export function createAudioSignature(
 		.filter((source) => source.kind === 'audio')
 		.map((source) => ({ url: resolveSourceUrl(source), offset: source.offset }));
 	const isSynthesized = !audioSources.length && hasSong(project);
-	const lanes = isSynthesized
-		? project.music.lanes.map((lane) => ({
-				instrument: lane.instrument,
-				hits: lane.hits.flatMap((hit) => (hit.pitch == null ? [] : [[hit.time, hit.pitch, hit.velocity ?? null, hit.duration ?? null]]))
+	const marbles = isSynthesized
+		? project.music.marbles.map((marble) => ({
+				instrument: marble.instrument,
+				hits: marble.hits.flatMap((hit) => (hit.pitch == null ? [] : [[hit.time, hit.pitch, hit.velocity ?? null, hit.duration ?? null]]))
 			}))
 		: [];
 	const backing = isSynthesized ? backingVoice(project) : undefined;
 	const backingKey = backing == null ? null : { instrument: backing.instrument, hits: backing.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null]) };
-	return JSON.stringify({ end: project.length, audioSources, lanes, backing: backingKey });
+	return JSON.stringify({ end: project.length, audioSources, marbles, backing: backingKey });
 }
 
 let bankPromise: Promise<BasicSoundBank> | null = null;

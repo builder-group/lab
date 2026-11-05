@@ -52,13 +52,13 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const audioAnalysis = audio == null ? undefined : analysis[audio.id];
 	const trackWidth = Math.max((project?.length ?? 1) * zoom + 120, 0);
 
-	// Hit results by lane, so a lane row re-renders only with a new simulation result
+	// Hit results by marble, so a marble row re-renders only with a new simulation result
 	const hitStatus = React.useMemo(() => {
 		const byMarble = new Map<string, Map<string, THitResult>>();
 		for (const hit of result?.hits ?? []) {
-			const lane = byMarble.get(hit.marbleId) ?? new Map<string, THitResult>();
-			lane.set(hit.hitId, hit);
-			byMarble.set(hit.marbleId, lane);
+			const marble = byMarble.get(hit.marbleId) ?? new Map<string, THitResult>();
+			marble.set(hit.hitId, hit);
+			byMarble.set(hit.marbleId, marble);
 		}
 		return byMarble;
 	}, [result]);
@@ -222,7 +222,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const showsParts = isSongExpanded && songRows != null;
 	const showsTitles = workspace === 'film' && project.entities.some((entity) => entity.components.wallText != null);
 	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
-	const rowsHeight = project.music.lanes.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + CAMERA_ROW_HEIGHT;
+	const rowsHeight = project.music.marbles.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + CAMERA_ROW_HEIGHT;
 
 	// MARK: - UI
 
@@ -268,33 +268,33 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 					{showsParts ? <PartRows cx={cx} project={project} parts={parts} zoom={zoom} width={trackWidth} isAudible={(id) => isPartAudible(partMix, id)} /> : null}
 					{/* The same layers as Layers, in the same order: Song, the Camera, marbles, then in Film Titles */}
 					<CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} />
-					{project.music.lanes.map((lane) => (
-						<div key={lane.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
-							<TrackHeader cx={cx} lane={lane} project={project} selection={selection} />
+					{project.music.marbles.map((marble) => (
+						<div key={marble.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
+							<TrackHeader cx={cx} marble={marble} project={project} selection={selection} />
 							<TimeGutter />
 							<MarbleTrack
 								cx={cx}
-								lane={lane}
+								marble={marble}
 								zoom={zoom}
 								width={trackWidth}
 								selection={selection}
 								drag={drag}
-								statuses={hitStatus.get(lane.id)}
-								isAudible={isPartAudible(partMix, lane.id)}
+								statuses={hitStatus.get(marble.id)}
+								isAudible={isPartAudible(partMix, marble.id)}
 								onDragStart={startDrag}
 								timeAt={timeAt}
-								onAdd={(time, event) => addHit(cx, lane, snap(time, event.altKey))}
+								onAdd={(time, event) => addHit(cx, marble, snap(time, event.altKey))}
 							/>
 						</div>
 					))}
-					{!project.music.lanes.length ? (
+					{!project.music.marbles.length ? (
 						<div className="mm-placeholder !h-auto !items-start py-6" style={{ paddingLeft: TIME_ORIGIN + 24 }}>
 							<span className="mm-placeholder-title">No Marbles</span>
 							<span className="mm-placeholder-body">Import a MIDI file with ⌘I, drop one on the window or add a marble with +.</span>
 						</div>
 					) : null}
 					{showsTitles ? <TitlesRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
-					{/* The header column continues below the last lane, like Logic's track list */}
+					{/* The header column continues below the last marble, like Logic's track list */}
 					<div
 						className="flex flex-1"
 						onClick={(event) => {

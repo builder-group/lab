@@ -11,14 +11,14 @@ const PITCH_MARGIN = 2;
  */
 export function songRollRange(project: TProject, song: TSource | undefined): TPitchRange | null {
 	if (song?.kind === 'audio') return null;
-	const pitches = [...project.music.lanes.flatMap((lane) => lane.hits), ...project.music.backing].flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch]));
+	const pitches = [...project.music.marbles.flatMap((marble) => marble.hits), ...project.music.backing].flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch]));
 	if (!pitches.length) return null;
 	return { low: Math.max(0, Math.min(...pitches) - PITCH_MARGIN), high: Math.min(127, Math.max(...pitches) + PITCH_MARGIN) };
 }
 
 /** The edit a note drag makes: every dragged hit or Backing note moves in time and, in the Song's piano roll, in pitch */
 export function noteDragCommands(project: TProject, drag: { keys: string[]; delta: number; pitchDelta: number }, range: TPitchRange | null): TProjectCommand[] {
-	const owners = [...project.music.lanes, { id: BACKING_ID, hits: project.music.backing }];
+	const owners = [...project.music.marbles, { id: BACKING_ID, hits: project.music.backing }];
 	return owners.flatMap((owner) => {
 		const moved = owner.hits
 			.filter((hit) => drag.keys.includes(toHitKey(owner.id, hit.id)))
@@ -49,7 +49,7 @@ export function snapNoteTime(time: number, bpm: number | undefined, zoom: number
 }
 
 /**
- * The edit that adds a note: a hit with a pitch in a marble's lane, so the run gets a dot for it, or a Backing note.
+ * The edit that adds a note: a hit with a pitch in a marble's marble, so the run gets a dot for it, or a Backing note.
  * One command, so one undo step.
  */
 export function addNoteCommands(ownerId: string, note: { time: number; pitch: number; duration: number }): { hit: THit; commands: TProjectCommand[] } {

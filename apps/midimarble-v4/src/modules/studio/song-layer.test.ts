@@ -6,8 +6,8 @@ import { deleteSongCommands, deleteSongNotice, deleteSongQuestion, hasSongLayer,
 function songProject(options: { hasFile?: boolean; backing?: number; backingInstrument?: number } = {}): TProject {
 	const { hasFile = true, backing = 0, backingInstrument } = options;
 	const project = createProject({ id: 'project', title: 'Jingle Bells' });
-	const lane = project.music.lanes[0];
-	if (lane != null) lane.hits = [{ id: 'hit-1', time: 1, pitch: 64 }, { id: 'hit-2', time: 2, pitch: 67 }];
+	const marble = project.music.marbles[0];
+	if (marble != null) marble.hits = [{ id: 'hit-1', time: 1, pitch: 64 }, { id: 'hit-2', time: 2, pitch: 67 }];
 	project.music.sources = hasFile ? [{ id: 'source-1', kind: 'midi', path: 'song.mid', name: 'Jingle Bells.mid', offset: 0 }] : [];
 	project.music.backing = Array.from({ length: backing }, (_, index) => ({ id: `backing-${index}`, time: 1 + index * 0.5, pitch: 48 }));
 	if (backingInstrument != null) project.music.backingInstrument = backingInstrument;
@@ -49,7 +49,7 @@ describe('deleteSongCommands function', () => {
 		expect(deleted?.music.sources).toEqual([]);
 		expect(deleted?.music.backing).toEqual([]);
 		expect(deleted?.music.backingInstrument).toBeUndefined();
-		expect(deleted?.music.lanes[0]?.hits.map((hit) => hit.id)).toEqual(['hit-1', 'hit-2']);
+		expect(deleted?.music.marbles[0]?.hits.map((hit) => hit.id)).toEqual(['hit-1', 'hit-2']);
 		expect(deleted != null && hasSongLayer(deleted)).toBe(false);
 	});
 

@@ -263,11 +263,11 @@ export class SimulationCx {
 		const { first, project } = pending;
 		const status = result.hits.find((hit) => hit.marbleId === first.marbleId && hit.hitId === first.hitId)?.status;
 		if (result.revision !== pending.revision || status == null || status === 'onTime' || status === 'drifting' || status === 'waiting') return;
-		const lane = project.music.lanes.find((item) => item.id === first.marbleId);
-		const number = (lane?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
-		const waiting = project.entities.filter((entity) => entity.components.hitLink?.marbleId === first.marbleId && (lane?.hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -1) > first.time).length;
+		const marble = project.music.marbles.find((item) => item.id === first.marbleId);
+		const number = (marble?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
+		const waiting = project.entities.filter((entity) => entity.components.hitLink?.marbleId === first.marbleId && (marble?.hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -1) > first.time).length;
 		const later = waiting === 1 ? 'The piece after it waits.' : `The ${waiting} pieces after it wait.`;
-		this.studio.notifyEdit(`${lane?.name ?? 'The marble'} misses Hit ${number}. ${later}`, [], { isUndoFirst: true });
+		this.studio.notifyEdit(`${marble?.name ?? 'The marble'} misses Hit ${number}. ${later}`, [], { isUndoFirst: true });
 	}
 
 	private schedule(): void {
@@ -346,11 +346,11 @@ const MOVE_MOVED = 0.001;
 export function moveLimit(project: TProject, move: { marbleId: string; hitId: string }, answer: Pick<TSettleAnswer, 'move'>): TMoveLimit | null {
 	const outcome = answer.move;
 	if (outcome == null || outcome.missed <= MOVE_LANDED) return null;
-	const lane = project.music.lanes.find((item) => item.id === move.marbleId);
+	const marble = project.music.marbles.find((item) => item.id === move.marbleId);
 	const name = project.entities.find((entity) => entity.components.hitLink?.marbleId === move.marbleId && entity.components.hitLink.hitId === move.hitId)?.name ?? 'The platform';
 	const from = project.entities.find((entity) => entity.id === outcome.fromId)?.name;
 	if (outcome.isFixed) {
-		if (from == null) return { chip: "Stays: it's the first note", notice: `${name} stays where it is: it plays ${lane?.name ?? 'the marble'}'s first note. Move the release to change its spot.`, isStuck: true };
+		if (from == null) return { chip: "Stays: it's the first note", notice: `${name} stays where it is: it plays ${marble?.name ?? 'the marble'}'s first note. Move the release to change its spot.`, isStuck: true };
 		return { chip: `Stays: the marble leaves ${from} here`, notice: `${name} stays where it is: the marble leaves ${from} here. Move ${from} to change its spot.`, isStuck: true };
 	}
 	const source = from ?? 'the piece before it';

@@ -40,7 +40,7 @@ describe('fixTrack function on Jingle Bells', () => {
 	function handFirstNotesToBacking(count: number): { before: TSimulationResult; edited: TProject; broken: TSimulationResult } {
 		const project = loadFixture('jingle-bells');
 		const before = simulate(project);
-		const notes = project.music.lanes[0]?.hits.slice(0, count).map((item) => item.id) ?? [];
+		const notes = project.music.marbles[0]?.hits.slice(0, count).map((item) => item.id) ?? [];
 		const [isEditOk, editErr, edited] = applyProjectCommands(project, assignNotesCommands(project, before, notes, BACKING_ID));
 		if (!isEditOk) throw editErr;
 		return { before, edited, broken: simulate(edited) };

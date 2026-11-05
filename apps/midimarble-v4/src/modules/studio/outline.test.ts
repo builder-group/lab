@@ -13,7 +13,7 @@ function project(options: { hasSong?: boolean; entities?: TEntity[]; shots?: { i
 	return {
 		music: {
 			sources: hasSong ? [{ id: 'source', kind: 'midi', name: 'Jingle Bells.mid' }] : [],
-			lanes: [
+			marbles: [
 				{ id: 'lane-1', name: 'Melody', hits: [{ id: 'a', time: 1 }, { id: 'b', time: 2 }] },
 				{ id: 'lane-2', name: 'Bass', hits: [] }
 			],

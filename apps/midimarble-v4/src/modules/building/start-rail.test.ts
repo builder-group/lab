@@ -26,7 +26,7 @@ describe('startRailPlan function', () => {
 describe('withStartRails function', () => {
 	it('should add a normal Rail under the marble at each release it can start on', () => {
 		const start = project();
-		const marbleId = start.music.lanes[0]?.id ?? '';
+		const marbleId = start.music.marbles[0]?.id ?? '';
 		const built = withStartRails(start, new Set([marbleId]));
 		const rail = built.entities.find((entity) => entity.id === startRailId(marbleId));
 		expect(rail?.components.piece?.type).toBe('rail');
@@ -38,15 +38,15 @@ describe('withStartRails function', () => {
 
 	it('should leave a marble with a speed of its own, or a note too soon, as it is', () => {
 		const moving = project(1, { x: 0.3, y: 0 });
-		expect(withStartRails(moving, new Set([moving.music.lanes[0]?.id ?? '']))).toBe(moving);
+		expect(withStartRails(moving, new Set([moving.music.marbles[0]?.id ?? '']))).toBe(moving);
 		const soon = project(0.25);
-		expect(withStartRails(soon, new Set([soon.music.lanes[0]?.id ?? '']))).toBe(soon);
+		expect(withStartRails(soon, new Set([soon.music.marbles[0]?.id ?? '']))).toBe(soon);
 	});
 
 	it('should roll the marble off the rail and against its stop before its first note', async () => {
 		const simulator = await createSimulator();
 		const start = project();
-		const marbleId = start.music.lanes[0]?.id ?? '';
+		const marbleId = start.music.marbles[0]?.id ?? '';
 		const built = withStartRails(start, new Set([marbleId]));
 		const result = simulator.simulate(built);
 		const samples = result.marbles[0]?.samples ?? [];

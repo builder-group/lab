@@ -12,9 +12,9 @@ import { TimeGutter } from './Ruler';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
 
 /**
- * The Camera track, in both workspaces, last like the Camera row in Layers: its shots are the marks on the lane, like
+ * The Camera track, in both workspaces, last like the Camera row in Layers: its shots are the marks on the marble, like
  * Blender's camera markers. A press anywhere on the row selects the Camera, as its row in Layers does; a press on a mark
- * selects that shot, dragging moves its time with one undo step, and a double-click on the lane adds a shot.
+ * selects that shot, dragging moves its time with one undo step, and a double-click on the marble adds a shot.
  */
 export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 	const { cx, project, zoom, width, selection, timeAt } = props;

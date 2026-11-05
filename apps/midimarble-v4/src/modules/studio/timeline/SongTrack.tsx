@@ -50,7 +50,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	const [offset, setOffset] = React.useState<number | null>(null);
 	// Opens on the song's first notes, their top row just below the ruler
 	const opening = React.useMemo(
-		() => (range == null || !isExpanded ? 0 : openingRollOffset([...project.music.lanes.flatMap((lane) => lane.hits), ...project.music.backing], range, NOTE_ROW_HEIGHT, height)),
+		() => (range == null || !isExpanded ? 0 : openingRollOffset([...project.music.marbles.flatMap((marble) => marble.hits), ...project.music.backing], range, NOTE_ROW_HEIGHT, height)),
 		[project.music, range, isExpanded, height]
 	);
 	const shown = Math.min(maxOffset, Math.max(0, offset ?? opening));
@@ -127,7 +127,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 					</div>
 				</div>
 			) : (
-			<div className="mm-song-lane relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }} onClick={(event) => { if (!event.shiftKey) cx.$selection.set([]); }} onContextMenu={openMenu} aria-label={`Song ${name}`}>
+			<div className="mm-song-row relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }} onClick={(event) => { if (!event.shiftKey) cx.$selection.set([]); }} onContextMenu={openMenu} aria-label={`Song ${name}`}>
 				{song != null && isAudio && analysis != null ? (
 					<>
 						<Waveform analysis={analysis} offset={song.offset} zoom={zoom} height={SONG_ROW_HEIGHT - 1} />
@@ -167,10 +167,10 @@ const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; heigh
 	const { project, zoom, width, height, drag } = props;
 	return (
 		<svg className="pointer-events-none absolute top-0 left-0" width={width} height={height} aria-hidden>
-			{project.music.lanes.map((lane) => (
-				<g key={lane.id} fill={lane.color}>
-					{lane.hits.map((hit) => {
-						const delta = drag?.keys.includes(toHitKey(lane.id, hit.id)) === true ? drag.delta : 0;
+			{project.music.marbles.map((marble) => (
+				<g key={marble.id} fill={marble.color}>
+					{marble.hits.map((hit) => {
+						const delta = drag?.keys.includes(toHitKey(marble.id, hit.id)) === true ? drag.delta : 0;
 						return <rect key={hit.id} x={Math.max(0, hit.time + delta) * zoom - 0.75} y={4} width={1.5} height={height - 8} rx={0.75} />;
 					})}
 				</g>
@@ -182,8 +182,8 @@ const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; heigh
 /** Every note in one strip, higher notes higher, in the marble colors and Backing in gray; `only` limits it to one Part */
 export const NoteOverview: React.FC<{ project: TProject; only?: string; zoom: number; width: number; height: number }> = (props) => {
 	const { project, only, zoom, width, height } = props;
-	const lanes = [...project.music.lanes, { id: BACKING_ID, color: BACKING_COLOR, hits: project.music.backing }].filter((lane) => only == null || lane.id === only);
-	const pitches = lanes.flatMap((lane) => lane.hits.flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch])));
+	const marbles = [...project.music.marbles, { id: BACKING_ID, color: BACKING_COLOR, hits: project.music.backing }].filter((marble) => only == null || marble.id === only);
+	const pitches = marbles.flatMap((marble) => marble.hits.flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch])));
 	const low = pitches.length ? Math.min(...pitches) : 60;
 	const high = pitches.length ? Math.max(...pitches) : 72;
 	const pad = 6;
@@ -195,9 +195,9 @@ export const NoteOverview: React.FC<{ project: TProject; only?: string; zoom: nu
 
 	return (
 		<svg className="pointer-events-none absolute top-0 left-0" width={width} height={height} aria-hidden>
-			{lanes.map((lane) => (
-				<g key={lane.id} fill={lane.color}>
-					{lane.hits.map((hit) => (
+			{marbles.map((marble) => (
+				<g key={marble.id} fill={marble.color}>
+					{marble.hits.map((hit) => (
 						<rect key={hit.id} x={hit.time * zoom} y={y(hit.pitch)} width={Math.max(3, Math.min(8, zoom * 0.06))} height={2} rx={1} />
 					))}
 				</g>

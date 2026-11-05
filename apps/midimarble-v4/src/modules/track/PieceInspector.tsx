@@ -192,10 +192,10 @@ function lookStatus(status: TTimingStatus | null, look: TPreflightIssue[] | unde
 function tieLabel(project: TProject, entity: TEntity): string {
 	const attach = attachState(project, entity);
 	if (attach.kind === 'free') return 'None';
-	const lane = project.music.lanes.find((item) => item.id === attach.marbleId);
-	if (attach.kind === 'anchored') return `Follows ${lane?.name ?? 'a marble'} at ${formatTime(attach.time)}`;
-	const index = lane?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
-	const hit = lane?.hits[index];
+	const marble = project.music.marbles.find((item) => item.id === attach.marbleId);
+	if (attach.kind === 'anchored') return `Follows ${marble?.name ?? 'a marble'} at ${formatTime(attach.time)}`;
+	const index = marble?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
+	const hit = marble?.hits[index];
 	const note = hit?.pitch != null ? noteName(hit.pitch) : `Hit ${index + 1}`;
 	return hit == null ? 'Plays a note' : `Plays ${note} · ${formatTime(hit.time)}`;
 }
@@ -208,20 +208,20 @@ function pieceStatus(project: TProject, entity: TEntity, resolved: TResolvedPiec
 	const attach = attachState(project, entity);
 	if (attach.kind === 'linked' && isMusicalPiece(type)) {
 		const hit = result?.hits.find((item) => item.pieceEntityId === entity.id || (item.marbleId === link.marbleId && item.hitId === link.hitId));
-		const lane = project.music.lanes.find((item) => item.id === link.marbleId);
-		const pitch = lane?.hits.find((item) => item.id === link.hitId)?.pitch;
-		return timingStatus(resolved, hit, { marble: lane?.name, note: pitch == null ? undefined : noteName(pitch), piece: entity.name ?? undefined });
+		const marble = project.music.marbles.find((item) => item.id === link.marbleId);
+		const pitch = marble?.hits.find((item) => item.id === link.hitId)?.pitch;
+		return timingStatus(resolved, hit, { marble: marble?.name, note: pitch == null ? undefined : noteName(pitch), piece: entity.name ?? undefined });
 	}
 	const kind = pieceKind(entity.components.piece ?? { type });
 	if ((kind === 'path' || kind === 'tube' || kind === 'generated') && resolved != null && result != null) return rideStatus(project, resolved, result, link.marbleId);
 	if (kind === 'catcher' && resolved != null && result != null) return bowlStatus(project, entity, resolved, result, link.marbleId);
-	if (resolved?.status === 'blocked') return timingStatus(resolved, undefined, { marble: project.music.lanes.find((item) => item.id === link.marbleId)?.name });
+	if (resolved?.status === 'blocked') return timingStatus(resolved, undefined, { marble: project.music.marbles.find((item) => item.id === link.marbleId)?.name });
 	return null;
 }
 
 /** Whether the Bowl catches its marble: Catches, Missed, Bounces Out or Blocked, read from the simulation */
 function bowlStatus(project: TProject, entity: TEntity, piece: TResolvedPiece, result: TSimulationResult, marbleId: string): TTimingStatus {
-	const marble = project.music.lanes.find((item) => item.id === marbleId)?.name ?? 'The marble';
+	const marble = project.music.marbles.find((item) => item.id === marbleId)?.name ?? 'The marble';
 	const caught = bowlCatch(result, entity.id);
 	const enters = piece.entryTime != null ? `Opens at ${formatTime(piece.entryTime)}.\n` : '';
 	switch (caught.status) {
@@ -242,24 +242,24 @@ function bowlStatus(project: TProject, entity: TEntity, piece: TResolvedPiece, r
 
 /** What the marble does on a rail or tunnel, read from the simulation */
 function rideStatus(project: TProject, piece: TResolvedPiece, result: TSimulationResult, marbleId: string): TTimingStatus {
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
 	const start = pieceTime(piece) ?? 0;
-	const next = lane?.hits.find((hit) => hit.time > start + 1e-3);
-	const nextIndex = next != null ? (lane?.hits.indexOf(next) ?? -1) : -1;
+	const next = marble?.hits.find((hit) => hit.time > start + 1e-3);
+	const nextIndex = next != null ? (marble?.hits.indexOf(next) ?? -1) : -1;
 	const ride = pathRide(result, piece, marbleId, next?.time ?? result.duration);
 	const label = getPieceDefinition(piece.type)?.label.toLowerCase() ?? 'piece';
-	const marble = lane?.name ?? 'The marble';
+	const marbleEntity = marble?.name ?? 'The marble';
 	const starts = `Starts at ${formatTime(start)}.`;
-	if (piece.status === 'blocked') return { tone: 'bad', label: 'Blocked', detail: `${marble} already passes through this spot earlier in its run` };
-	if (ride.enter == null) return { tone: 'bad', label: 'Missed', detail: `${starts}\n${marble} passes the ${label} without touching it.` };
+	if (piece.status === 'blocked') return { tone: 'bad', label: 'Blocked', detail: `${marbleEntity} already passes through this spot earlier in its run` };
+	if (ride.enter == null) return { tone: 'bad', label: 'Missed', detail: `${starts}\n${marbleEntity} passes the ${label} without touching it.` };
 	if (ride.leave == null) {
 		return next != null
-			? { tone: 'warn', label: 'Still Riding', detail: `${starts}\n${marble} is still on the ${label} at hit ${nextIndex + 1}.` }
-			: { tone: 'neutral', label: 'Rides to End', detail: `${starts}\n${marble} stays on the ${label} to the end.` };
+			? { tone: 'warn', label: 'Still Riding', detail: `${starts}\n${marbleEntity} is still on the ${label} at hit ${nextIndex + 1}.` }
+			: { tone: 'neutral', label: 'Rides to End', detail: `${starts}\n${marbleEntity} stays on the ${label} to the end.` };
 	}
 	const rides = ride.leave - ride.enter;
 	const flight = next == null ? '' : `, then falls ${(next.time - ride.leave).toFixed(2)} s to hit ${nextIndex + 1}`;
-	return { tone: 'good', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\n${marble} leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
+	return { tone: 'good', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\n${marbleEntity} leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
 }
 
 /**
@@ -270,9 +270,9 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 	const { cx, project, entity } = props;
 	const attach = attachState(project, entity);
 	if (attach.kind === 'free') return null;
-	const lane = project.music.lanes.find((item) => item.id === attach.marbleId);
-	const hitIndex = lane?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
-	const hit = lane?.hits[hitIndex];
+	const marble = project.music.marbles.find((item) => item.id === attach.marbleId);
+	const hitIndex = marble?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
+	const hit = marble?.hits[hitIndex];
 
 	function detach(): void {
 		const result = cx.simulation.$result.get();
@@ -298,7 +298,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 		if (!cx.$playing.get()) cx.$playhead.set(attach.time);
 	}
 
-	const marbleDot = <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: lane?.color }} />;
+	const marbleDot = <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: marble?.color }} />;
 
 	return (
 		<Panel
@@ -329,7 +329,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 			) : (
 				<LinkRow
 					icon={<Anchor size={13} strokeWidth={1.9} className="shrink-0 text-[var(--text-secondary)]" />}
-					title={`Select ${lane?.name ?? 'the marble'}`}
+					title={`Select ${marble?.name ?? 'the marble'}`}
 					onOpen={openMarble}
 					action={
 						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, tied to nothing" aria-label="Detach" type="button">
@@ -340,7 +340,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 					<span className="inline-flex items-center gap-2">
 						{marbleDot}
 						<span>
-							{lane?.name ?? 'Marble'}
+							{marble?.name ?? 'Marble'}
 							<span className="mm-insp-secondary"> · {formatTime(attach.time)}</span>
 						</span>
 					</span>

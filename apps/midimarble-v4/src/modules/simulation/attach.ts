@@ -32,7 +32,7 @@ export function anchorHit<T extends { time: number }>(hits: T[], time: number): 
 /**
  * Anchors a piece to the trajectory of `marbleId`'s marble at `time`. The piece keeps its pose relative to the
  * marble at that moment, so it follows upstream edits, and it never sounds a hit. Any piece type can be
- * anchored; the moment must lie within `ANCHOR_DELAY` seconds after one of the lane's hits, or before its
+ * anchored; the moment must lie within `ANCHOR_DELAY` seconds after one of the marble's hits, or before its
  * first hit.
  */
 export function anchorPiece(
@@ -45,15 +45,15 @@ export function anchorPiece(
 	const [isFound, findErr, found] = findPiece(project, result, entityId);
 	if (!isFound) return Err(findErr);
 	const { entity, resolved } = found;
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
-	if (lane == null) return Err(new Error(`Lane ${marbleId} not found`));
-	const hit = anchorHit(lane.hits, time);
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	if (marble == null) return Err(new Error(`Marble ${marbleId} not found`));
+	const hit = anchorHit(marble.hits, time);
 	if (hit == null)
-		return Err(new Error(`No hit of ${lane.name} within ${ANCHOR_DELAY} s of that moment`));
+		return Err(new Error(`No hit of ${marble.name} within ${ANCHOR_DELAY} s of that moment`));
 	const track = result.marbles.find((marble) => marble.marbleId === marbleId);
 	const sample = track != null ? trajectoryAt(track.samples, time, gravityOf(project)) : null;
 	if (track == null || sample == null)
-		return Err(new Error(`The marble of ${lane.name} does not reach that moment`));
+		return Err(new Error(`The marble of ${marble.name} does not reach that moment`));
 
 	const pose = freePose(entity, resolved, track.radius);
 	const params = { ...entity.components.piece?.params, entryDelay: time - hit.time };
@@ -97,9 +97,9 @@ export function linkPieceToHit(
 	const { entity, resolved } = found;
 	const type = entity.components.piece?.type ?? '';
 	if (!isMusicalPiece(type)) return Err(new Error(`A ${type} is scenery; anchor it instead`));
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
-	const hit = lane?.hits.find((item) => item.id === hitId);
-	if (lane == null || hit == null) return Err(new Error(`Hit ${hitId} not found`));
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const hit = marble?.hits.find((item) => item.id === hitId);
+	if (marble == null || hit == null) return Err(new Error(`Hit ${hitId} not found`));
 	const owner = project.entities.find(
 		(item) =>
 			item.id !== entityId &&
@@ -112,7 +112,7 @@ export function linkPieceToHit(
 	const dot =
 		result.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId)?.dot ??
 		(track != null ? trajectoryAt(track.samples, hit.time, gravityOf(project))?.position : null);
-	if (dot == null) return Err(new Error(`The marble of ${lane.name} does not reach that hit`));
+	if (dot == null) return Err(new Error(`The marble of ${marble.name} does not reach that hit`));
 
 	const pose = freePose(entity, resolved, track?.radius);
 	const params = resolvePieceParams(type, entity.components.piece?.params ?? {});

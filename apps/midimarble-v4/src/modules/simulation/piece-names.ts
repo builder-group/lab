@@ -27,13 +27,13 @@ export function nextPieceName(type: string, entities: TEntity[]): string {
  */
 export function namePiecesInOrder(project: TProject): TProject {
 	const ordered: TEntity[] = [];
-	for (const lane of project.music.lanes) {
-		const order = new Map(lane.hits.map((hit, index) => [hit.id, index]));
-		const startRail = startRailOf(project, lane.id);
+	for (const marble of project.music.marbles) {
+		const order = new Map(marble.hits.map((hit, index) => [hit.id, index]));
+		const startRail = startRailOf(project, marble.id);
 		if (startRail != null) ordered.push(startRail);
 		ordered.push(
 			...project.entities
-				.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === lane.id)
+				.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marble.id)
 				.sort((a, b) => (order.get(a.components.hitLink?.hitId ?? '') ?? 0) - (order.get(b.components.hitLink?.hitId ?? '') ?? 0))
 		);
 	}

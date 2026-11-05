@@ -53,7 +53,7 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 
 	const marble = project.entities.find((entity) => entity.id === selection[0] && entity.components.marble != null);
 	const marbleId = marble?.components.marble?.marbleId;
-	if (marble != null && marbleId != null && project.music.lanes.some((lane) => lane.id === marbleId)) return { kind: 'marble', entityId: marble.id, marbleId };
+	if (marble != null && marbleId != null && project.music.marbles.some((marble) => marble.id === marbleId)) return { kind: 'marble', entityId: marble.id, marbleId };
 
 	const lightIds = selection.flatMap((key) => parseLightKey(key) ?? []);
 	if (lightIds.length > 0) {

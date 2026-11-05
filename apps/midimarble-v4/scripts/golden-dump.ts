@@ -25,15 +25,15 @@ const BUILD_CASE = 'jingle-bells';
 
 /** Marbles with the ID results and scene use, each with what sets its sound */
 function marblesOf(project: TProject) {
-	const lanes = new Map(project.music.lanes.map((lane) => [lane.id, lane]));
+	const marbles = new Map(project.music.marbles.map((marble) => [marble.id, marble]));
 	return project.entities.flatMap((entity) => {
-		const marble = entity.components.marble;
-		const lane = marble == null ? undefined : lanes.get(marble.marbleId);
-		return lane == null ? [] : [{ id: entity.id, marbleId: lane.id, sound: lane.instrument, hits: lane.hits }];
+		const marbleEntity = entity.components.marble;
+		const marble = marbleEntity == null ? undefined : marbles.get(marbleEntity.marbleId);
+		return marble == null ? [] : [{ id: entity.id, marbleId: marble.id, sound: marble.instrument, hits: marble.hits }];
 	});
 }
 
-/** Everything that changes what's heard, by marble and not by lane, since lanes go in @6 */
+/** Everything that changes what's heard, by marble and not by marble, since marbles go in @6 */
 function audioInputs(project: TProject) {
 	const backing = backingVoice(project);
 	return {
@@ -116,7 +116,7 @@ function sectionsOf(project: TProject, result: TSimulationResult): Record<string
 	const hits = result.hits
 		.map((hit) => {
 			const { marbleId, ...rest } = hit;
-			return { ...rest, marble: marbleOfLane.get(marbleId) ?? `lane:${marbleId}` };
+			return { ...rest, marble: marbleOfLane.get(marbleId) ?? `marble:${marbleId}` };
 		})
 		.sort((a, b) => compareText(a.marble, b.marble) || a.targetTime - b.targetTime || compareText(a.hitId, b.hitId));
 	const pieces = result.pieces

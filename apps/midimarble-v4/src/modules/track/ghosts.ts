@@ -30,7 +30,7 @@ export interface TGhostState {
 	/** Newest project revision seen */
 	revision: number | null;
 	ghost: TGhost | null;
-	/** A gap piece is being computed for this lane and revision */
+	/** A gap piece is being computed for this marble and revision */
 	pendingGap: { marbleId: string; toHitId: string; revision: number } | null;
 	/** Revision whose suggestions were dismissed; nothing is offered again until the next edit */
 	dismissedRevision: number | null;

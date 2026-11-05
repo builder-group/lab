@@ -3,20 +3,20 @@ import { MIN_HIT_GAP } from './marble-proposal';
 import type { TMidiNote } from './midi';
 
 /**
- * Creates lanes and marbles for proposed note lists and adds the other notes to Backing. Empty projects are
- * replaced so a fresh import starts clean; projects with hits keep their lanes and Backing and gain new ones.
+ * Creates marbles and marbles for proposed note lists and adds the other notes to Backing. Empty projects are
+ * replaced so a fresh import starts clean; projects with hits keep their marbles and Backing and gain new ones.
  */
 export function createImportCommands(
 	project: TProject,
 	options: TImportCommandsOptions
 ): TProjectCommand[] {
-	const { lanes, names = [], backing = [], backingInstrument, source, instrument } = options;
-	const hasHits = project.music.lanes.some((lane) => lane.hits.length > 0);
+	const { marbles, names = [], backing = [], backingInstrument, source, instrument } = options;
+	const hasHits = project.music.marbles.some((marble) => marble.hits.length > 0);
 	const commands: TProjectCommand[] = [];
-	let index = project.music.lanes.length;
+	let index = project.music.marbles.length;
 
 	if (!hasHits) {
-		for (const lane of project.music.lanes) commands.push({ type: 'removeLane', marbleId: lane.id });
+		for (const marble of project.music.marbles) commands.push({ type: 'removeLane', marbleId: marble.id });
 		if (project.music.backing.length > 0) {
 			commands.push({ type: 'removeHits', marbleId: BACKING_ID, hitIds: project.music.backing.map((hit) => hit.id) });
 		}
@@ -24,29 +24,29 @@ export function createImportCommands(
 	}
 	if (source != null) commands.push({ type: 'upsertSource', source });
 
-	const takenNames = new Set(hasHits ? project.music.lanes.map((lane) => lane.name) : []);
-	for (const [laneIndex, notes] of lanes.entries()) {
-		const named = names[laneIndex];
-		const lane: TLane = {
+	const takenNames = new Set(hasHits ? project.music.marbles.map((marble) => marble.name) : []);
+	for (const [marbleIndex, notes] of marbles.entries()) {
+		const named = names[marbleIndex];
+		const marble: TLane = {
 			...createLane(index),
 			...(named != null && !takenNames.has(named) ? { name: named } : {}),
 			instrument: instrument ?? createLane(index).instrument,
 			hits: notes.map((note) => noteToHit(note))
 		};
-		commands.push({ type: 'upsertLane', lane });
-		const marble = createMarble(lane, { x: index * MARBLE_SPACING, y: 0.6 });
+		commands.push({ type: 'upsertLane', marble });
+		const marbleEntity = createMarble(marble, { x: index * MARBLE_SPACING, y: 0.6 });
 		// Released a short drop before its first note, so the film does not open on a long empty fall
-		const first = lane.hits.reduce((min, hit) => Math.min(min, hit.time), Infinity);
-		if (marble.components.release != null && Number.isFinite(first)) {
-			marble.components.release.time = round(Math.max(0, first - IMPORT_RELEASE_LEAD));
+		const first = marble.hits.reduce((min, hit) => Math.min(min, hit.time), Infinity);
+		if (marbleEntity.components.release != null && Number.isFinite(first)) {
+			marbleEntity.components.release.time = round(Math.max(0, first - IMPORT_RELEASE_LEAD));
 		}
-		commands.push({ type: 'upsertEntity', entity: marble });
+		commands.push({ type: 'upsertEntity', entity: marbleEntity });
 		index++;
 	}
 	if (backing.length > 0) commands.push({ type: 'upsertHits', marbleId: BACKING_ID, hits: backing.map((note) => noteToHit(note)) });
 	if (backingInstrument != null) commands.push({ type: 'setBackingInstrument', instrument: backingInstrument });
 	// A fresh import fits the film to the song; an import next to existing hits only lengthens it
-	const played = lanes.flat().length > 0 ? lanes.flat() : backing;
+	const played = marbles.flat().length > 0 ? marbles.flat() : backing;
 	if (played.length > 0) {
 		const end = songEnd(played.reduce((max, note) => Math.max(max, note.time), 0));
 		if (!hasHits ? Math.abs(end - project.length) > 1e-6 : end > project.length) commands.push({ type: 'updateProject', patch: { length: end } });
@@ -97,24 +97,24 @@ export function songEnd(lastNote: number, tail = SONG_TAIL): number {
 
 /**
  * The marbles that play last: those whose last hit falls within `BOWL_TAIL` of the song's last hit, so they
- * would still fall through the frame during a Bowl's tail. Lane IDs, empty without hits.
+ * would still fall through the frame during a Bowl's tail. Marble IDs, empty without hits.
  */
 export function lastPlayingMarbles(project: TProject): string[] {
-	const lasts = project.music.lanes.flatMap((lane) => (lane.hits.length ? [{ id: lane.id, time: Math.max(...lane.hits.map((hit) => hit.time)) }] : []));
+	const lasts = project.music.marbles.flatMap((marble) => (marble.hits.length ? [{ id: marble.id, time: Math.max(...marble.hits.map((hit) => hit.time)) }] : []));
 	if (!lasts.length) return [];
 	const last = Math.max(...lasts.map((item) => item.time));
 	return lasts.filter((item) => item.time >= last - BOWL_TAIL - 1e-9).map((item) => item.id);
 }
 
-/** Whether a marble's lane has a Bowl, the piece that catches it after its last note */
+/** Whether a marble's marble has a Bowl, the piece that catches it after its last note */
 export function hasBowl(project: TProject, marbleId: string): boolean {
 	return project.entities.some((entity) => entity.components.piece?.type === BOWL_TYPE && entity.components.hitLink?.marbleId === marbleId);
 }
 
 /** Whether every marble that plays last has a Bowl, so the film ends on the catch */
 export function endsOnBowl(project: TProject): boolean {
-	const lanes = lastPlayingMarbles(project);
-	return lanes.length > 0 && lanes.every((marbleId) => hasBowl(project, marbleId));
+	const marbles = lastPlayingMarbles(project);
+	return marbles.length > 0 && marbles.every((marbleId) => hasBowl(project, marbleId));
 }
 
 /**
@@ -138,7 +138,7 @@ export const DEFAULT_PROJECT_END = 12;
 
 /** Time of the last hit the marbles play, or of Backing without them; null without notes */
 export function lastHitTime(project: TProject): number | null {
-	const played = project.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time));
+	const played = project.music.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time));
 	const times = played.length ? played : project.music.backing.map((hit) => hit.time);
 	return times.length ? Math.max(...times) : null;
 }
@@ -171,12 +171,12 @@ export function fitsSong(project: TProject): boolean {
 
 /**
  * Seconds between an imported marble's release and its first note: a 0.6 m drop at half gravity. Shorter leads
- * built Jingle Bells worse (0.35 s crossed the lanes), as the first arrival speed shapes the whole run.
+ * built Jingle Bells worse (0.35 s crossed the marbles), as the first arrival speed shapes the whole run.
  */
 export const IMPORT_RELEASE_LEAD = 0.5;
 
 export interface TImportCommandsOptions {
-	lanes: TMidiNote[][];
+	marbles: TMidiNote[][];
 	// What to call each marble; null or missing keeps "Marble 1"
 	names?: readonly (string | null)[];
 	// Notes no marble plays
@@ -198,11 +198,11 @@ export function noteToHit(note: TMidiNote): THit {
 }
 
 /** Hits that follow their predecessor too closely for one marble */
-export function findMarbleConflicts(lane: TLane): Set<string> {
+export function findMarbleConflicts(marble: TLane): Set<string> {
 	const conflicts = new Set<string>();
-	for (let index = 1; index < lane.hits.length; index++) {
-		const previous = lane.hits[index - 1];
-		const hit = lane.hits[index];
+	for (let index = 1; index < marble.hits.length; index++) {
+		const previous = marble.hits[index - 1];
+		const hit = marble.hits[index];
 		if (previous == null || hit == null) continue;
 		if (hit.time - previous.time < MIN_HIT_GAP - 1e-9) {
 			conflicts.add(previous.id);

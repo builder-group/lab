@@ -33,9 +33,9 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 	if (pending == null || preview == null) return null;
 	const strategy = pending.options.strategy ?? 'split';
 	const maxMarbles = pending.options.maxMarbles ?? 4;
-	const end = Math.max(1, ...[...preview.lanes.flat(), ...preview.backing].map((note) => note.time + note.duration));
+	const end = Math.max(1, ...[...preview.marbles.flat(), ...preview.backing].map((note) => note.time + note.duration));
 	const rows = [
-		...preview.lanes.map((notes, index) => ({ key: `marble-${index}`, name: preview.names[index] ?? `Marble ${index + 1}`, color: marbleColors[index % marbleColors.length] ?? 'var(--accent)', notes })),
+		...preview.marbles.map((notes, index) => ({ key: `marble-${index}`, name: preview.names[index] ?? `Marble ${index + 1}`, color: marbleColors[index % marbleColors.length] ?? 'var(--accent)', notes })),
 		...(preview.backing.length > 0 ? [{ key: 'backing', name: 'Backing', color: BACKING_COLOR, notes: preview.backing }] : [])
 	];
 
@@ -148,7 +148,7 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 						data-size="dialog"
 						title="Import (↩)"
 						data-variant="primary"
-						disabled={!preview.lanes.length}
+						disabled={!preview.marbles.length}
 						onClick={() => void cx.sources.confirmMidiImport()}
 						type="button"
 					>

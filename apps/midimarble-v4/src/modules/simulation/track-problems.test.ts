@@ -11,7 +11,7 @@ function platform(entityId: string, x: number, y: number, hitTime = 1, angle = 0
 function project(hitIds: string[]): TProject {
 	return {
 		film: { camera: { pitch: 1.15 } },
-		music: { lanes: [{ id: 'lane', name: 'Melody', hits: hitIds.map((id, index) => ({ id, time: index + 1 })) }] },
+		music: { marbles: [{ id: 'lane', name: 'Melody', hits: hitIds.map((id, index) => ({ id, time: index + 1 })) }] },
 		entities: [
 			{ id: 'marble', components: { marble: { marbleId: 'lane', radius: 0.012 } } },
 			...hitIds.map((id) => ({ id: `piece-${id}`, components: { piece: { type: 'platform', params: {} }, hitLink: { marbleId: 'lane', hitId: id, angle: 0, contactAt: 0.5 } } }))

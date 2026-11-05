@@ -19,7 +19,7 @@ export const EMPTY_MIX: TSongMix = { muted: [], solo: [] };
 
 /** A slice of a MIDI Song: the notes one marble plays, or Backing, with the General MIDI program they sound with */
 export interface TPart {
-	// The lane's ID, or `BACKING_ID`
+	// The marble's ID, or `BACKING_ID`
 	id: string;
 	name: string;
 	color: string;
@@ -50,7 +50,7 @@ export function soundsNotes(project: TProject): boolean {
 export function songParts(project: TProject): TPart[] {
 	if (!soundsNotes(project)) return [];
 	const owners = [
-		...project.music.lanes,
+		...project.music.marbles,
 		{ id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, instrument: project.music.backingInstrument ?? DEFAULT_BACKING_INSTRUMENT, hits: project.music.backing }
 	];
 	return owners.flatMap((owner) => {
@@ -86,13 +86,13 @@ export function audibleProject(project: TProject, mix: TSongMix): TProject {
 	const { music } = project;
 	if (isAudioSong(project)) {
 		if (isPartAudible(current, SONG_MIX_ID)) return project;
-		return { ...project, music: { ...music, sources: music.sources.filter((source) => source.kind !== 'audio'), lanes: [], backing: [] } };
+		return { ...project, music: { ...music, sources: music.sources.filter((source) => source.kind !== 'audio'), marbles: [], backing: [] } };
 	}
 	return {
 		...project,
 		music: {
 			...music,
-			lanes: music.lanes.filter((lane) => isPartAudible(current, lane.id)),
+			marbles: music.marbles.filter((marble) => isPartAudible(current, marble.id)),
 			backing: isPartAudible(current, BACKING_ID) ? music.backing : []
 		}
 	};
@@ -132,8 +132,8 @@ export function mixLabel(project: TProject, mix: TSongMix): string | null {
 /** The edit that gives a Part another Sound */
 export function setPartSoundCommands(project: TProject, partId: string, instrument: number): TProjectCommand[] {
 	if (partId === BACKING_ID) return [{ type: 'setBackingInstrument', instrument }];
-	const lane = project.music.lanes.find((item) => item.id === partId);
-	return lane == null ? [] : [{ type: 'upsertLane', lane: { ...lane, instrument } }];
+	const marble = project.music.marbles.find((item) => item.id === partId);
+	return marble == null ? [] : [{ type: 'upsertLane', marble: { ...marble, instrument } }];
 }
 
 function joinNames(names: string[]): string {

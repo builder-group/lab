@@ -18,7 +18,7 @@ export const DEFAULT_GRAVITY = 0.5;
  */
 export const DEFAULT_CAMERA_DISTANCE = 1.36;
 export const DEFAULT_CAMERA_TILT = 1;
-/** Distance between the releases of neighboring marbles, and between their lanes' bands in the frame */
+/** Distance between the releases of neighboring marbles, and between their marbles' bands in the frame */
 export const MARBLE_SPACING = 0.26;
 
 export function createId(prefix: string): string {
@@ -28,7 +28,7 @@ export function createId(prefix: string): string {
 
 export function createProject(options: TCreateProjectOptions = {}): TProject {
 	const { title = 'Untitled', id = createId('project') } = options;
-	const lane = createLane(0);
+	const marble = createLane(0);
 	return {
 		$schema: 'marble-project@5',
 		id,
@@ -37,8 +37,8 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 		format: { width: 9, height: 16 },
 		length: 12,
 		gravity: DEFAULT_GRAVITY,
-		music: { sources: [], lanes: [lane], backing: [] },
-		entities: [createMarble(lane, { x: 0, y: 0.6 })],
+		music: { sources: [], marbles: [marble], backing: [] },
+		entities: [createMarble(marble, { x: 0, y: 0.6 })],
 		film: {
 			theme: 'pegboard',
 			themes: [],
@@ -67,12 +67,12 @@ export const marbleColors = ['#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375
 
 /**
  * The color a marble is in the film: its skin's own, otherwise the palette's by its place among the marbles. It never
- * reads the lane's `color`, which is only a label for organizing.
+ * reads the marble's `color`, which is only a label for organizing.
  */
 export function marbleFilmColor(project: Pick<TProject, 'music' | 'entities'>, marbleId: string): string {
 	const own = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components.skin?.color;
 	if (own != null) return own;
-	const index = Math.max(0, project.music.lanes.findIndex((lane) => lane.id === marbleId));
+	const index = Math.max(0, project.music.marbles.findIndex((marble) => marble.id === marbleId));
 	return marbleColors[index % marbleColors.length] ?? '#3478f6';
 }
 
@@ -87,12 +87,12 @@ export function createLane(index: number, id = createId('lane')): TLane {
 	};
 }
 
-export function createMarble(lane: TLane, position: { x: number; y: number }): TEntity {
+export function createMarble(marble: TLane, position: { x: number; y: number }): TEntity {
 	return {
 		id: createId('marble'),
-		name: lane.name,
+		name: marble.name,
 		components: {
-			marble: { marbleId: lane.id, radius: DEFAULT_MARBLE_RADIUS },
+			marble: { marbleId: marble.id, radius: DEFAULT_MARBLE_RADIUS },
 			release: { position, time: 0 }
 		}
 	};

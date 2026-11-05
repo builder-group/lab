@@ -42,9 +42,9 @@ interface TTrial extends TRailFit {
 export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, start: { hitId: string | null; time: number }, toHitId: string, onTry?: () => void): TRailAnswer {
 	let sims = 0;
 	const whys = new Map<string, number>();
-	const lane = base.music.lanes.find((item) => item.id === marbleId);
+	const marble = base.music.marbles.find((item) => item.id === marbleId);
 	const { hitId: fromHitId, time: from } = start;
-	const to = lane?.hits.find((hit) => hit.id === toHitId)?.time;
+	const to = marble?.hits.find((hit) => hit.id === toHitId)?.time;
 	if (to == null) return { fit: null, why: null };
 	const gap = to - from;
 	const tail = 0.1;

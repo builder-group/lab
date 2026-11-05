@@ -3,11 +3,11 @@ import type { TEntity, TProject } from '@/modules/project';
 import { draftPieceColors, PLAIN_PIECE_COLOR } from './draft-look';
 import { pieceLabelColor, trackPieceColors } from './label-colors';
 
-const LANE = '#3478f6';
+const MARBLE = '#3478f6';
 const OWN = '#e0622e';
 
 function project(entities: Partial<TEntity>[]): TProject {
-	return { entities, music: { lanes: [{ id: 'lane', color: LANE, hits: [] }] } } as unknown as TProject;
+	return { entities, music: { marbles: [{ id: 'lane', color: MARBLE, hits: [] }] } } as unknown as TProject;
 }
 
 const played = { id: 'a', components: { piece: { type: 'platform' }, hitLink: { marbleId: 'lane', hitId: 'h' } } } as unknown as TEntity;
@@ -15,7 +15,7 @@ const free = { id: 'b', components: { piece: { type: 'platform' } } } as unknown
 
 describe('pieceLabelColor function', () => {
 	it('should prefer its own color, then its marble\'s, then none', () => {
-		expect(pieceLabelColor(project([played]), played)).toBe(LANE);
+		expect(pieceLabelColor(project([played]), played)).toBe(MARBLE);
 		expect(pieceLabelColor(project([{ ...played, labelColor: OWN }]), { ...played, labelColor: OWN })).toBe(OWN);
 		expect(pieceLabelColor(project([free]), free)).toBeNull();
 	});

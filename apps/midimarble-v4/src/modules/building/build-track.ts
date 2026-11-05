@@ -12,7 +12,7 @@ import { hitReach, openHits } from './reachability';
 // frame and near the shared pace: a rail across a long gap, or its Switchback layout where a straight one won't do, Continue and Mirror when the rhythm repeats and
 // the next dot stays on its column, Auto place (which launches into a coming gap and ranks its angles by how regular the
 // track looks), a wider Auto place. When none does,
-// it does what a person tries next: turn the lane's previous platform, turn the other marble's platform in the way,
+// it does what a person tries next: turn the marble's previous platform, turn the other marble's platform in the way,
 // lean this platform by hand, then back up a few hits, turn the platform there and build forward again. A song that
 // still gets stuck, or whose finished run leaves the pace or the camera's frame, is started again with the releases a
 // few millimeters over, as a person would: what a stuck hit tries costs more than a song's first hits, so a release
@@ -98,7 +98,7 @@ export interface TBuildProgress {
 export interface TBuildAttention {
 	marbleId: string;
 	hitId: string;
-	/** Position among the lane's hits, from 0 */
+	/** Position among the marble's hits, from 0 */
 	index: number;
 	time: number;
 	status: THitResult['status'];
@@ -193,7 +193,7 @@ interface TBuildState {
 	counts: TBuildCounts;
 	/** Why the current hit's options failed, for the log */
 	reasons: string[];
-	/** Other lanes' hits the current hit's options left Blocked or Stopped */
+	/** Other marbles' hits the current hit's options left Blocked or Stopped */
 	inTheWay: { marbleId: string; hitId: string }[];
 	/** Pieces there before the build, which backing up never takes away */
 	own: Set<string>;
@@ -263,7 +263,7 @@ function apply(current: TProject, commands: TProjectCommand[]): TProject | null 
 	return isAppliedOk ? applied : null;
 }
 
-function laneOfEntity(current: TProject, entityId: string): string | null {
+function marbleOfEntity(current: TProject, entityId: string): string | null {
 	const entity = current.entities.find((item) => item.id === entityId);
 	return entity?.components.hitLink?.marbleId ?? entity?.components.marble?.marbleId ?? null;
 }
@@ -292,7 +292,7 @@ function isBeforeLongGap(current: TProject, hit: THitResult): boolean {
 
 /** The interval to this hit equals the interval before, so a mirrored piece keeps the zigzag rhythm */
 function repeatsInterval(current: TProject, marbleId: string, hitId: string): boolean {
-	const hits = current.music.lanes.find((lane) => lane.id === marbleId)?.hits ?? [];
+	const hits = current.music.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
 	const index = hits.findIndex((hit) => hit.id === hitId);
 	const [a, b, c] = [hits[index - 2], hits[index - 1], hits[index]];
 	if (a == null || b == null || c == null) return false;
@@ -312,15 +312,15 @@ function freeId(current: TProject, id: string): string {
 }
 
 function gapPieceId(state: TBuildState, current: TProject, type: TGapPieceType, marbleId: string): string {
-	const lane = current.music.lanes.findIndex((item) => item.id === marbleId) + 1;
-	return freeId(current, `${type}-${lane}-${state.counts.switchback + state.counts.chain + state.counts.rail + 1}`);
+	const marble = current.music.marbles.findIndex((item) => item.id === marbleId) + 1;
+	return freeId(current, `${type}-${marble}-${state.counts.switchback + state.counts.chain + state.counts.rail + 1}`);
 }
 
 /**
  * Applies the commands when every hit with a piece stays on time afterward (a resting first contact counts as
- * missed), in the lane being built and in the other lanes up to the other marbles' next open hits, no switchback,
- * rail or tunnel is blocked, each marble touches only its own pieces, every placed dot of the lane lies in its band,
- * and the lane's next open dot lies in its band and, with several marbles, within the pace limit of y* (or no further
+ * missed), in the marble being built and in the other marbles up to the other marbles' next open hits, no switchback,
+ * rail or tunnel is blocked, each marble touches only its own pieces, every placed dot of the marble lies in its band,
+ * and the marble's next open dot lies in its band and, with several marbles, within the pace limit of y* (or no further
  * than the target dot already was). Before a long gap the dot cannot do either until a gap piece exists.
  */
 async function accept(state: TBuildState, current: TProject, commands: TProjectCommand[], marbleId: string, checkFrame = true): Promise<TProject | null> {
@@ -337,15 +337,15 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 		frontier.set(marbleEntityId, Math.min(frontier.get(marbleEntityId) ?? Infinity, hit.targetTime));
 	}
 	// Across a long gap that nothing bridges yet the marble falls freely until its switchback exists
-	for (const lane of applied.music.lanes) {
-		const marbleEntityId = marbleOfLane(applied, lane.id);
-		for (const gap of openLongGaps(applied, lane.id)) {
-			if (!state.skipped.has(hitKey(lane.id, gap.toHitId))) frontier.set(marbleEntityId, Math.min(frontier.get(marbleEntityId) ?? Infinity, gap.from + 0.3));
+	for (const marble of applied.music.marbles) {
+		const marbleEntityId = marbleOfLane(applied, marble.id);
+		for (const gap of openLongGaps(applied, marble.id)) {
+			if (!state.skipped.has(hitKey(marble.id, gap.toHitId))) frontier.set(marbleEntityId, Math.min(frontier.get(marbleEntityId) ?? Infinity, gap.from + 0.3));
 		}
 	}
-	const othersFrontier = (lane: string): number =>
-		Math.min(Infinity, ...applied.entities.filter((entity) => entity.components.marble != null && entity.components.marble.marbleId !== lane).map((entity) => frontier.get(entity.id) ?? Infinity));
-	// The lane being built keeps all its placed hits on time; another lane's hits only count up to where this lane's
+	const othersFrontier = (marble: string): number =>
+		Math.min(Infinity, ...applied.entities.filter((entity) => entity.components.marble != null && entity.components.marble.marbleId !== marble).map((entity) => frontier.get(entity.id) ?? Infinity));
+	// The marble being built keeps all its placed hits on time; another marble's hits only count up to where this marble's
 	// path is final
 	const late = result.hits.filter((hit) => hit.status !== 'open' && hit.status !== 'onTime' && !tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)) && (hit.marbleId === marbleId || hit.targetTime < othersFrontier(hit.marbleId)));
 	if (late.length > 0) {
@@ -357,22 +357,22 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	}
 	// A switchback, rail or tunnel the marble's run now passes through earlier is left out, like a blocked hit
 	const blocked = result.pieces.filter((piece) => {
-		const lane = laneOfEntity(applied, piece.entityId);
+		const marble = marbleOfEntity(applied, piece.entityId);
 		const time = piece.entryTime ?? piece.hitTime ?? 0;
-		return piece.status === 'blocked' && !tolerated.pieces.has(piece.entityId) && lane != null && (lane === marbleId || time < othersFrontier(lane));
+		return piece.status === 'blocked' && !tolerated.pieces.has(piece.entityId) && marble != null && (marble === marbleId || time < othersFrontier(marble));
 	});
 	if (blocked.length > 0) return reject(state, `blocked ${blocked.map((piece) => piece.entityId).join(' ')}`);
-	// Each marble may only touch its own lane's pieces and never the other marble; a free piece is the person's scenery
+	// Each marble may only touch its own marble's pieces and never the other marble; a free piece is the person's scenery
 	const crossed = result.contacts.filter((contact) => {
 		if (tolerated.contacts.has(contactKey(contact.marbleEntityId, contact.otherEntityId))) return false;
 		const reach = Math.min(frontier.get(contact.marbleEntityId) ?? Infinity, contact.kind === 'marble' ? (frontier.get(contact.otherEntityId) ?? Infinity) : Infinity);
 		if (contact.time >= reach) return false;
 		if (contact.kind === 'marble') return true;
-		const lane = laneOfEntity(applied, contact.otherEntityId);
-		return contact.kind === 'piece' && lane != null && lane !== laneOfEntity(applied, contact.marbleEntityId);
+		const marble = marbleOfEntity(applied, contact.otherEntityId);
+		return contact.kind === 'piece' && marble != null && marble !== marbleOfEntity(applied, contact.marbleEntityId);
 	});
 	if (crossed.length > 0) return reject(state, `crossing ${crossed.map((contact) => `${contact.marbleEntityId}/${contact.otherEntityId}`).join(' ')}`);
-	// Every hit of the lane with a piece keeps its dot in frame; its own lane's center is only Auto place's preference
+	// Every hit of the marble with a piece keeps its dot in frame; its own marble's center is only Auto place's preference
 	const band = frameBand(applied);
 	const outside = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceEntityId != null && hit.dot != null && !tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)) && !isInBand(hit.dot, band, 1));
 	if (outside.length > 0) return reject(state, `outside the band ${outside.map((hit) => hit.hitId).join(' ')}`);
@@ -388,7 +388,7 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	if (!checkFrame) return applied;
 	const next = nextOpenPerMarble(state, result).get(marbleId);
 	if (next?.dot == null || isBeforeLongGap(applied, next)) return applied;
-	// A tenth of a lane inside the frame's edge, as Auto place asks
+	// A tenth of a marble inside the frame's edge, as Auto place asks
 	if (!isInBand(next.dot, band, 1 - (0.1 * frameBand(applied, marbleId).halfWidth) / band.halfWidth)) return reject(state, `out of band ${next.hitId}@${next.dot.x.toFixed(2)}`);
 	// A flat platform must still fit at the next dot, as Auto place checks for its own pieces
 	const probe = createLinkedPiece('platform', marbleId, next.hitId, 0, { id: 'accept-probe' });
@@ -408,15 +408,15 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 }
 
 /**
- * Whether the lane's next open dot still lands on the column opposite this one: a copied tilt keeps its shape only while
+ * Whether the marble's next open dot still lands on the column opposite this one: a copied tilt keeps its shape only while
  * it does, and otherwise the small errors of each copy add up and the run wanders. Before a long gap any spot will do,
  * since a gap piece picks the marble up.
  */
 function staysOnColumn(state: TBuildState, project: TProject, result: TSimulationResult, marbleId: string): boolean {
 	const next = nextOpenPerMarble(state, result).get(marbleId);
 	if (next?.dot == null || isBeforeLongGap(project, next)) return true;
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
-	const previous = lane?.hits[(lane.hits.findIndex((hit) => hit.id === next.hitId) ?? 0) - 1];
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const previous = marble?.hits[(marble.hits.findIndex((hit) => hit.id === next.hitId) ?? 0) - 1];
 	const from = result.hits.find((hit) => hit.marbleId === marbleId && hit.hitId === previous?.id)?.dot;
 	if (from == null) return true;
 	const band = frameBand(project, marbleId);
@@ -425,7 +425,7 @@ function staysOnColumn(state: TBuildState, project: TProject, result: TSimulatio
 	return Math.abs(next.dot.x - column) <= COLUMN_TOLERANCE * length;
 }
 
-/** How regular the lane's last hits look, lower is better, per hit: how far each drop lies from the pace's for its interval, in piece lengths */
+/** How regular the marble's last hits look, lower is better, per hit: how far each drop lies from the pace's for its interval, in piece lengths */
 function lookCost(result: TSimulationResult, marbleId: string): number {
 	const length = PLACEMENT_LENGTH;
 	const played = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceEntityId != null && hit.dot != null).sort((a, b) => a.targetTime - b.targetTime).slice(-1 - LOOK_AHEAD_HITS);
@@ -508,7 +508,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 			if (isCanceled(state)) return null;
 			const entityId = gapPieceId(state, current, type, marbleId);
 			const answer = await ask(state, 'gapPiece', () => deps.gapPiece({ type, project: current, marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }));
-			// A piece that ends far from the pace or the lane leaves the gap to the other, which has to do
+			// A piece that ends far from the pace or the marble leaves the gap to the other, which has to do
 			if (type !== gapPieceOrder(state.gapPiece).at(-1) && answer?.check != null && !gapPieceReads(answer.check, result.pace?.limit ?? Infinity)) {
 				reject(state, `the ${type} ends ${Math.abs(answer.check.paceError ?? 0).toFixed(2)} m from the pace`);
 				continue;
@@ -558,8 +558,8 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 		}
 	}
 
-	const lane = current.music.lanes.find((item) => item.id === marbleId);
-	const hits = lane?.hits ?? [];
+	const marble = current.music.marbles.find((item) => item.id === marbleId);
+	const hits = marble?.hits ?? [];
 	const isLast = hits.at(-1)?.id === hitId;
 	// Like Continue, Mirror leaves the hit ahead of a launch to Auto place, which checks the launch is struck firmly
 	const following = hits[hits.findIndex((hit) => hit.id === hitId) + 1];
@@ -602,7 +602,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 		if (leaned == null) continue;
 		const dot = nextOpenPerMarble(state, await run(state, leaned)).get(marbleId)?.dot;
 		const offset = dot == null ? 0 : Math.abs(dot.x - band.centerX);
-		// A lean that throws the marble out of its lane only moves the trouble: it lands among the other marble's pieces
+		// A lean that throws the marble out of its marble only moves the trouble: it lands among the other marble's pieces
 		if (offset > band.halfWidth) continue;
 		if (best == null || offset < best.offset - 1e-6) best = { project: leaned, angle: degrees, offset };
 	}
@@ -612,11 +612,11 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	return best.project;
 }
 
-/** The lane's previous platform turned a little so the marble arrives differently, then the step again */
+/** The marble's previous platform turned a little so the marble arrives differently, then the step again */
 async function backtrack(state: TBuildState, current: TProject, target: THitResult, canTurnOwn = false): Promise<TProject | null> {
-	const lane = current.music.lanes.find((item) => item.id === target.marbleId);
-	const index = lane?.hits.findIndex((hit) => hit.id === target.hitId) ?? -1;
-	const previousHit = lane?.hits[index - 1];
+	const marble = current.music.marbles.find((item) => item.id === target.marbleId);
+	const index = marble?.hits.findIndex((hit) => hit.id === target.hitId) ?? -1;
+	const previousHit = marble?.hits[index - 1];
 	const previous = current.entities.find((entity) => entity.components.hitLink?.hitId === previousHit?.id && entity.components.piece?.type === 'platform');
 	const angle = previous?.components.hitLink?.angle;
 	if (previous == null || angle == null || (state.own.has(previous.id) && !canTurnOwn)) return null;
@@ -673,11 +673,11 @@ async function unblock(state: TBuildState, current: TProject, target: THitResult
 }
 
 /**
- * Backs up a few hits on the lane: the platform there is turned a little, the pieces the build placed after it go, and
- * the lane is built forward again up to the stuck hit. Pieces that were there before the build stop it going further back.
+ * Backs up a few hits on the marble: the platform there is turned a little, the pieces the build placed after it go, and
+ * the marble is built forward again up to the stuck hit. Pieces that were there before the build stop it going further back.
  */
 async function rewind(state: TBuildState, current: TProject, target: THitResult): Promise<TProject | null> {
-	const hits = current.music.lanes.find((lane) => lane.id === target.marbleId)?.hits ?? [];
+	const hits = current.music.marbles.find((marble) => marble.id === target.marbleId)?.hits ?? [];
 	const index = hits.findIndex((hit) => hit.id === target.hitId);
 	for (const depth of REWIND_DEPTHS) {
 		const from = hits[index - depth];
@@ -749,7 +749,7 @@ async function forceHit(state: TBuildState, current: TProject, target: THitResul
 	if (target.dot != null) {
 		const id = pieceId(current, target.hitId);
 		const band = frameBand(current, target.marbleId);
-		// Of the leans that play it, the one whose next dot stays nearest the lane, or a forced run wanders off in a long diagonal
+		// Of the leans that play it, the one whose next dot stays nearest the marble, or a forced run wanders off in a long diagonal
 		let best: { project: TProject; degrees: number; offset: number } | null = null;
 		for (const degrees of LEANS) {
 			if (isCanceled(state)) break;
@@ -781,8 +781,8 @@ async function tolerate(state: TBuildState, project: TProject): Promise<void> {
 	for (const hit of result.hits) if (hit.status !== 'open' && hit.status !== 'onTime') state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
 	for (const piece of result.pieces) if (piece.status === 'blocked') state.tolerated.pieces.add(piece.entityId);
 	for (const contact of result.contacts) {
-		const lane = laneOfEntity(project, contact.otherEntityId);
-		if (contact.kind === 'marble' || (lane != null && lane !== laneOfEntity(project, contact.marbleEntityId))) state.tolerated.contacts.add(contactKey(contact.marbleEntityId, contact.otherEntityId));
+		const marble = marbleOfEntity(project, contact.otherEntityId);
+		if (contact.kind === 'marble' || (marble != null && marble !== marbleOfEntity(project, contact.marbleEntityId))) state.tolerated.contacts.add(contactKey(contact.marbleEntityId, contact.otherEntityId));
 	}
 	const band = frameBand(project);
 	for (const hit of result.hits) if (hit.pieceEntityId != null && hit.dot != null && !isInBand(hit.dot, band, 1)) state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
@@ -798,14 +798,14 @@ async function tolerate(state: TBuildState, project: TProject): Promise<void> {
 function nextTarget(state: TBuildState, current: TProject, result: TSimulationResult): THitResult | null {
 	for (;;) {
 		const open = remainingHits(state, result)[0];
-		const gap = current.music.lanes
-			.flatMap((lane) => openLongGaps(current, lane.id))
+		const gap = current.music.marbles
+			.flatMap((marble) => openLongGaps(current, marble.id))
 			.filter((item) => !state.skipped.has(hitKey(item.marbleId, item.toHitId)))
 			.sort((a, b) => a.to - b.to)[0];
 		const atGap = gap != null && (open == null || gap.to <= open.targetTime + 1e-9) ? result.hits.find((hit) => hit.marbleId === gap.marbleId && hit.hitId === gap.toHitId) : undefined;
 		if (atGap != null) return atGap;
 		if (open == null) return null;
-		// Only what no earlier piece changes is set aside: a note too soon after the release, a lane without a marble
+		// Only what no earlier piece changes is set aside: a note too soon after the release, a marble without a marble
 		const reach = hitReach(current, result, open).kind;
 		if (reach !== 'tooSoon' && reach !== 'noMarble') return open;
 		state.skipped.add(hitKey(open.marbleId, open.hitId));
@@ -844,13 +844,13 @@ function paceTrouble(project: TProject, result: TSimulationResult): { marbleId: 
 }
 
 function marblesWithHits(project: TProject): string[] {
-	return project.music.lanes.filter((lane) => lane.hits.length > 0).map((lane) => lane.id);
+	return project.music.marbles.filter((marble) => marble.hits.length > 0).map((marble) => marble.id);
 }
 
 /** A marble no Bowl could catch: its last platforms go another way, so its fall ends somewhere a Bowl fits */
 function bowlTrouble(project: TProject): { marbleId: string; from: number } | null {
-	const lane = project.music.lanes.find((item) => item.hits.length > 0 && bowlOfMarble(project, item.id) == null);
-	return lane != null ? { marbleId: lane.id, from: lane.hits.at(-1)?.time ?? 0 } : null;
+	const marble = project.music.marbles.find((item) => item.hits.length > 0 && bowlOfMarble(project, item.id) == null);
+	return marble != null ? { marbleId: marble.id, from: marble.hits.at(-1)?.time ?? 0 } : null;
 }
 
 /** The commands that turn `from` into `to`: pieces and marbles changed, added and removed, the length and the camera */
@@ -869,7 +869,7 @@ function diffCommands(from: TProject, to: TProject): TProjectCommand[] {
 	return commands;
 }
 
-/** The project with the releases of the marbles whose lanes have no pieces moved sideways */
+/** The project with the releases of the marbles whose marbles have no pieces moved sideways */
 function withReleaseShift(project: TProject, shift: number, bareMarbles: Set<string>): TProject {
 	if (shift === 0) return project;
 	return {
@@ -892,7 +892,7 @@ function attentionOf(project: TProject, result: TSimulationResult): TBuildAttent
 		.map((hit) => ({
 			marbleId: hit.marbleId,
 			hitId: hit.hitId,
-			index: project.music.lanes.find((lane) => lane.id === hit.marbleId)?.hits.findIndex((item) => item.id === hit.hitId) ?? 0,
+			index: project.music.marbles.find((marble) => marble.id === hit.marbleId)?.hits.findIndex((item) => item.id === hit.hitId) ?? 0,
 			time: hit.targetTime,
 			status: hit.status
 		}));
@@ -904,14 +904,14 @@ function attentionOf(project: TProject, result: TSimulationResult): TBuildAttent
  * and the marbles are built together, so every marble is cut at the same time. Scenery a person tied to a marble stays.
  */
 export function withoutPiecesAfter(project: TProject, from: { marbleId: string; hitId: string }): TProject {
-	const time = project.music.lanes.find((lane) => lane.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time;
+	const time = project.music.marbles.find((marble) => marble.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time;
 	if (time == null) return project;
 	const nextOf = new Map<string, number>();
 	const timeOf = new Map<string, number>();
-	for (const lane of project.music.lanes) {
-		lane.hits.forEach((hit, index) => {
-			timeOf.set(`${lane.id}/${hit.id}`, hit.time);
-			nextOf.set(`${lane.id}/${hit.id}`, lane.hits[index + 1]?.time ?? Infinity);
+	for (const marble of project.music.marbles) {
+		marble.hits.forEach((hit, index) => {
+			timeOf.set(`${marble.id}/${hit.id}`, hit.time);
+			nextOf.set(`${marble.id}/${hit.id}`, marble.hits[index + 1]?.time ?? Infinity);
 		});
 	}
 	const isRebuilt = (entity: TEntity): boolean => {
@@ -975,7 +975,7 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 	// Each marble ends in a Bowl after its last note, and the film length follows
 	const bowls: string[] = [];
 	if (!build.isStopped && !isCanceled(best.state)) {
-		const finished = best.finished ?? (await withBowls(current, { simulate: (next) => deps.simulate(next), isCanceled: deps.isCanceled }, { lanes: marblesWithHits(current) }));
+		const finished = best.finished ?? (await withBowls(current, { simulate: (next) => deps.simulate(next), isCanceled: deps.isCanceled }, { marbles: marblesWithHits(current) }));
 		bowls.push(...finished.messages);
 		if (isCanceled(best.state)) build.isStopped = true;
 		else {
@@ -1038,9 +1038,9 @@ interface TBuildRun {
 type TBestAttempt = TAttempt & { shift: number; state: TBuildState };
 
 function createBuildRun(whole: TProject, project: TProject, deps: TBuildTrackDeps, gapPiece: TBuildRun['gapPiece'], from: TBuildOptions['from']): TBuildRun {
-	const total = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
-	const allTimes = project.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time));
-	const fromTime = from != null ? (whole.music.lanes.find((lane) => lane.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time ?? -Infinity) : -Infinity;
+	const total = project.music.marbles.reduce((sum, marble) => sum + marble.hits.length, 0);
+	const allTimes = project.music.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time));
+	const fromTime = from != null ? (whole.music.marbles.find((marble) => marble.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time ?? -Infinity) : -Infinity;
 	// The budget is per hit that gets built, so a rebuild of the last hits doesn't search as long as a whole song
 	const rest = allTimes.filter((time) => time > fromTime).length;
 	return {
@@ -1048,7 +1048,7 @@ function createBuildRun(whole: TProject, project: TProject, deps: TBuildTrackDep
 		project,
 		gapPiece,
 		canTurnOwn: from == null,
-		bareMarbles: new Set(from != null ? [] : project.music.lanes.filter((lane) => !project.entities.some((entity) => entity.components.hitLink?.marbleId === lane.id)).map((lane) => lane.id)),
+		bareMarbles: new Set(from != null ? [] : project.music.marbles.filter((marble) => !project.entities.some((entity) => entity.components.hitLink?.marbleId === marble.id)).map((marble) => marble.id)),
 		total,
 		firstTime: Math.max(fromTime, Math.min(...allTimes, Infinity)),
 		lastTime: Math.max(...allTimes, -Infinity),
@@ -1183,7 +1183,7 @@ async function backUp(build: TBuildRun, state: TBuildState, progress: TAttemptPr
 	while (before > 0 && (history[before]?.time ?? -Infinity) >= trouble.from - FRAME_BACKUP) before--;
 	const base = history[Math.max(0, before)]?.project;
 	if (base == null) return false;
-	const hits = base.music.lanes.find((lane) => lane.id === trouble.marbleId)?.hits ?? [];
+	const hits = base.music.marbles.find((marble) => marble.id === trouble.marbleId)?.hits ?? [];
 	const owned = base.entities.filter((entity) => entity.components.hitLink?.marbleId === trouble.marbleId && entity.components.piece?.type === 'platform' && !state.own.has(entity.id));
 	const pivot = owned.map((entity) => ({ entity, time: hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -Infinity })).sort((a, b) => b.time - a.time)[0]?.entity;
 	const angle = pivot?.components.hitLink?.angle;
@@ -1240,7 +1240,7 @@ async function attemptBuild(build: TBuildRun, state: TBuildState, start: TProjec
 		const target = nextTarget(state, current, result);
 		if (target == null) {
 			// The whole run is built, so the camera's answer, the pace and the Bowls are final
-			const finished = await withBowls(current, { simulate: (next) => deps.simulate(next), isCanceled: deps.isCanceled }, { lanes: marblesWithHits(current) });
+			const finished = await withBowls(current, { simulate: (next) => deps.simulate(next), isCanceled: deps.isCanceled }, { marbles: marblesWithHits(current) });
 			if (isCanceled(state)) return stopped();
 			const trouble = canForce ? null : (framingTrouble(finished?.project ?? current, finished != null ? await deps.simulate(finished.project) : result) ?? paceTrouble(current, result) ?? bowlTrouble(finished?.project ?? current));
 			if (trouble != null && (await wentBack(trouble))) continue;

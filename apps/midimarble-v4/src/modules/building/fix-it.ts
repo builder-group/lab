@@ -312,7 +312,7 @@ function costOf(what: string, { broken, added }: Pick<TFixTrial, 'broken' | 'add
 }
 
 function marbleName(project: TProject, marbleId: string): string {
-	return project.music.lanes.find((lane) => lane.id === marbleId)?.name ?? 'the marble';
+	return project.music.marbles.find((marble) => marble.id === marbleId)?.name ?? 'the marble';
 }
 
 /** Pieces a marble strikes twice or rolls on, and the later piece of each pair that touches, in time order */
@@ -404,7 +404,7 @@ async function fixProblemPiece(
 		if (settled != null) return settled;
 	}
 	// Every marble's later hits follow each tilt, so what is left is to build them again from the hit before this one
-	const hits = project.music.lanes.find((lane) => lane.id === link?.marbleId)?.hits ?? [];
+	const hits = project.music.marbles.find((marble) => marble.id === link?.marbleId)?.hits ?? [];
 	const before = hits[hits.findIndex((hit) => hit.id === link?.hitId) - 1];
 	return {
 		commands: null,
@@ -415,7 +415,7 @@ async function fixProblemPiece(
 
 /**
  * The other marbles that hit a piece tied to a marble, in the order they first do, as the problem model reports
- * them ("Bass hits Switchback 6 of Melody"): a marble touching another lane's piece outside a note
+ * them ("Bass hits Switchback 6 of Melody"): a marble touching another marble's piece outside a note
  */
 export function strayHitters(project: TProject, result: TSimulationResult, entityId: string): { marbleEntityId: string; marbleId: string; time: number }[] {
 	const link = project.entities.find((entity) => entity.id === entityId)?.components.hitLink;
@@ -551,7 +551,7 @@ export interface TFixOutcome {
 	moved: string[];
 	/** Broken hits left, and Blocked scenery that could not move clear */
 	failed: number;
-	/** Lanes whose marble release moved to just before its first note */
+	/** Marbles whose marble release moved to just before its first note */
 	releases: string[];
 	/** Blocked scenery moved clear of the run or placed again for its gap */
 	cleared: string[];
@@ -565,7 +565,7 @@ export interface TFixOutcome {
  * (`before`: the hits from before the edit). Then, at the earliest hit that needs attention, Auto place tilts the
  * platform before it again; a launch into a bridged long gap is tilted for the open gap and its rail or tunnel
  * suggested again. Each try is simulated up to `TRY_HORIZON` past the problem, and a change is kept only when,
- * simulated to the end, the problem moves later, no other marble loses a hit, it crosses no other lane and it adds no
+ * simulated to the end, the problem moves later, no other marble loses a hit, it crosses no other marble and it adds no
  * problem besides the work still ahead on that marble (`addedProblems`). When the platform before cannot fix it, Fix
  * goes back up to `MAX_BACKTRACK` platforms and builds forward from there, and then turns one of the two platforms
  * before the problem by hand. A problem nothing fixes is left and Fix carries on after it, up to `MAX_LEFT` broken
@@ -791,8 +791,8 @@ async function replaceStep(fixing: TFixing, base: TProject, run: TSimulationResu
 /** The earliest hit to work on. A marble without broken hits is done */
 function firstProblem(fixing: TFixing, run: TSimulationResult, marbleId?: string): THitResult | undefined {
 	const open = run.hits.filter((hit) => hit.pieceEntityId != null && (marbleId == null || hit.marbleId === marbleId) && hit.targetTime > (fixing.left.get(hit.marbleId) ?? -Infinity) + 1e-6);
-	const lanes = new Set(open.filter(isBroken).map((hit) => hit.marbleId));
-	return open.filter((hit) => lanes.has(hit.marbleId) && needsFix(hit)).sort((a, b) => a.targetTime - b.targetTime)[0];
+	const marbles = new Set(open.filter(isBroken).map((hit) => hit.marbleId));
+	return open.filter((hit) => marbles.has(hit.marbleId) && needsFix(hit)).sort((a, b) => a.targetTime - b.targetTime)[0];
 }
 
 /** Whether `trial` fixes `problem` without setting another marble back */
@@ -803,17 +803,17 @@ function advances(fixing: TFixing, base: TProject, trial: TSimulationResult, pro
 	const tried = { ...trial, hits: trial.hits.filter((hit) => hit.targetTime < end) };
 	const was = latest.hits.filter((hit) => hit.targetTime < end);
 	if ((firstProblem(fixing, tried, problem.marbleId)?.targetTime ?? Infinity) <= problem.targetTime + 1e-6) return false;
-	for (const lane of base.music.lanes) {
-		if (lane.id === problem.marbleId) continue;
-		const first = firstProblem(fixing, latest, lane.id)?.targetTime ?? Infinity;
-		if ((firstProblem(fixing, tried, lane.id)?.targetTime ?? Infinity) < Math.min(first, end) - 1e-6) return false;
+	for (const marble of base.music.marbles) {
+		if (marble.id === problem.marbleId) continue;
+		const first = firstProblem(fixing, latest, marble.id)?.targetTime ?? Infinity;
+		if ((firstProblem(fixing, tried, marble.id)?.targetTime ?? Infinity) < Math.min(first, end) - 1e-6) return false;
 	}
 	return !newlyBroken(was, tried.hits).some((hit) => hit.marbleId !== problem.marbleId);
 }
 
 /**
  * Whether the pieces `commands` change cross another marble's run in `trial` where they did not before:
- * Auto place's own lane check (`crossesOtherMarbles`), from the earliest changed piece's hit to the trial's end
+ * Auto place's own marble check (`crossesOtherMarbles`), from the earliest changed piece's hit to the trial's end
  */
 function crossesMarbles(fixing: TFixing, base: TProject, trial: TSimulationResult, problem: THitResult, commands: TProjectCommand[]): boolean {
 	const { current, latest } = fixing;
@@ -1010,11 +1010,11 @@ const MIN_RELEASE_LEAD = 0.1;
  * `before` does not know the old arrival.
  */
 export function releaseFix(project: TProject, results: THitResult[], marbleId: string, before?: THitResult[]): TProjectCommand[] {
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
-	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId);
-	const release = marble?.components.release;
-	const first = lane?.hits[0];
-	if (lane == null || marble == null || release == null || first == null) return [];
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marbleEntity = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId);
+	const release = marbleEntity?.components.release;
+	const first = marble?.hits[0];
+	if (marble == null || marbleEntity == null || release == null || first == null) return [];
 	// A first fall longer than twice the lead is what handing the first notes away leaves behind
 	if (!results.some((hit) => hit.marbleId === marbleId && isBroken(hit)) || first.time - release.time <= 2 * RELEASE_LEAD + 1e-6) return [];
 	const old = before?.find((hit) => hit.marbleId === marbleId && hit.hitId === first.id);
@@ -1035,7 +1035,7 @@ export function releaseFix(project: TProject, results: THitResult[], marbleId: s
 		velocity: { x: round4(velocity.x), y: round4(velocity.y) },
 		...(old.spin != null ? { spin: round4(old.spin) } : {})
 	};
-	return [{ type: 'setComponent', entityId: marble.id, component: { name: 'release', value: next } }];
+	return [{ type: 'setComponent', entityId: marbleEntity.id, component: { name: 'release', value: next } }];
 }
 
 function commandEntityId(command: TProjectCommand): string {

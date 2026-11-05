@@ -39,8 +39,8 @@ function evenTimes(count: number, gap = 0.3, start = 0.15): number[] {
 }
 
 /**
- * Two marbles in their lanes at half gravity, released 0.5 s before their first hits, with the first
- * `placed` hits of lane 1 auto placed. Lane 2 plays quarter notes and has no pieces yet.
+ * Two marbles in their marbles at half gravity, released 0.5 s before their first hits, with the first
+ * `placed` hits of marble 1 auto placed. Marble 2 plays quarter notes and has no pieces yet.
  */
 function halfGravityRun(hitTimes: number[], placed: number): TProject {
 	const end = (hitTimes.at(-1) ?? 0) + 1;
@@ -54,7 +54,7 @@ function halfGravityRun(hitTimes: number[], placed: number): TProject {
 			{ x: MARBLE_SPACING / 2, y: 0.6, releaseTime: 0.5, hitTimes: evenTimes(Math.floor(end / 0.5) - 1, 0.5, 1) }
 		]
 	});
-	for (const hit of project.music.lanes[0]?.hits.slice(0, placed) ?? []) {
+	for (const hit of project.music.marbles[0]?.hits.slice(0, placed) ?? []) {
 		const [isPlacedOk, placedErr, piece] = autoPlace(project, simulate(project), 'lane-1', hit.id, {
 			simulate,
 			id: hit.id.replace('hit', 'piece')
@@ -69,12 +69,12 @@ function halfGravityRun(hitTimes: number[], placed: number): TProject {
 const MIN_TRAVEL = 0.06;
 const MIN_GAP = 0.003;
 
-/** Auto places every open hit of lane 1 in order, as repeated Next presses do */
+/** Auto places every open hit of marble 1 in order, as repeated Next presses do */
 function autoPlaceAll(start: TProject): { project: TProject; travels: number[] } {
 	let project = start;
 	const travels: number[] = [];
-	const lane = project.music.lanes[0];
-	for (const hit of lane?.hits ?? []) {
+	const marble = project.music.marbles[0];
+	for (const hit of marble?.hits ?? []) {
 		if (project.entities.some((entity) => entity.components.hitLink?.hitId === hit.id)) continue;
 		const [isPlacedOk, placedErr, placed] = autoPlace(
 			project,
@@ -383,7 +383,7 @@ describe('assists', () => {
 		expect(mirrored.components.hitLink?.contactAt).toBe(held.entity.components.hitLink?.contactAt);
 	}, 20000);
 
-	it('launches at half gravity with a hop that stays in its lane until it falls back', () => {
+	it('launches at half gravity with a hop that stays in its marble until it falls back', () => {
 		// The hop rises as high as at full gravity but stays in the air √2 times as long, about 0.35 s
 		const project = halfGravityRun([1, 1.5, 2, 4], 2);
 		const [isPlacedOk, placedErr, placed] = autoPlace(project, simulate(project), 'lane-1', 'hit-1-3', {
@@ -471,7 +471,7 @@ describe('assists', () => {
 });
 
 describe('crossesOtherMarbles', () => {
-	// Two lanes with a piece each; the new piece `piece-1-2` belongs to lane 1, the other marble's frontier is 2 s
+	// Two marbles with a piece each; the new piece `piece-1-2` belongs to marble 1, the other marble's frontier is 2 s
 	const project = createBareRunProject({
 		id: 'cross',
 		title: 'Cross',
@@ -511,11 +511,11 @@ describe('crossesOtherMarbles', () => {
 	const crosses = (trial: TSimulationResult): boolean =>
 		crossesOtherMarbles(run([]), trial, project, 'lane-1', 'piece-1-2', 0.5, 3.5, frontiers);
 
-	it('should let the marble strike its own lane and free pieces', () => {
+	it('should let the marble strike its own marble and free pieces', () => {
 		expect(crosses(run([{ otherEntityId: 'piece-1-1' }, { otherEntityId: 'free-piece' }]))).toBe(false);
 	});
 
-	it("should refuse another lane's platforms and gap pieces and the other marble", () => {
+	it("should refuse another marble's platforms and gap pieces and the other marble", () => {
 		expect(crosses(run([{ otherEntityId: 'piece-2-2' }]))).toBe(true);
 		expect(crosses(run([{ otherEntityId: 'switchback-2-1' }]))).toBe(true);
 		expect(crosses(run([{ otherEntityId: 'marble-2', kind: 'marble' }]))).toBe(true);
@@ -527,7 +527,7 @@ describe('crossesOtherMarbles', () => {
 		expect(crosses(run([{ otherEntityId: 'marble-2', kind: 'marble', time: 2.5 }]))).toBe(false);
 	});
 
-	it("should refuse a piece that breaks another lane's built hits, not its unbuilt ones", () => {
+	it("should refuse a piece that breaks another marble's built hits, not its unbuilt ones", () => {
 		expect(crosses(run([], [hit('lane-2', 'hit-2-2', 1, 'missed'), onTime[1] as THitResult]))).toBe(true);
 		expect(crosses(run([], [onTime[0] as THitResult, hit('lane-2', 'hit-2-3', 3, 'missed')]))).toBe(false);
 	});

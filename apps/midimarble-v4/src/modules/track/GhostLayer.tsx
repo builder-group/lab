@@ -18,7 +18,7 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 	const isEditing = useFeatureState(trackCx.$override) != null;
 	const { ghost } = state;
 	if (ghost == null || project == null || isEditing || viewport.width <= 1) return null;
-	const marbleColor = project.music.lanes.find((lane) => lane.id === ghost.answer.marbleId)?.color ?? 'var(--text)';
+	const marbleColor = project.music.marbles.find((marble) => marble.id === ghost.answer.marbleId)?.color ?? 'var(--text)';
 
 	if (ghost.kind === 'gap') {
 		const { piece, track } = ghost.answer;

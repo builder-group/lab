@@ -18,7 +18,7 @@ const MIN_DRAG_PX = 3;
 const MIN_NAMED_BLOCK = 44;
 
 export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
-	const { cx, lane, zoom, timeAt } = props;
+	const { cx, marble, zoom, timeAt } = props;
 	const history = useFeatureState(cx.$history);
 	const selection = useFeatureState(cx.$selection);
 	const project = history?.present;
@@ -28,9 +28,9 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	const stripRef = React.useRef<HTMLDivElement>(null);
 	if (project == null) return null;
 
-	const groups = (project.groups ?? []).filter((group) => group.marbleId === lane.id);
+	const groups = (project.groups ?? []).filter((group) => group.marbleId === marble.id);
 	const selectedGroupIds = new Set(selection.flatMap((key) => parseGroupKey(key) ?? []));
-	const selectedRange = selectedSpan(lane, selection);
+	const selectedRange = selectedSpan(marble, selection);
 
 	function onPointerDown(event: React.PointerEvent<HTMLDivElement>): void {
 		if (event.button !== 0) return;
@@ -51,7 +51,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		const from = Math.max(0, Math.min(range.from, range.to));
 		const to = Math.max(range.from, range.to);
 		setRange(null);
-		const selected = (to - from) * zoom < MIN_DRAG_PX ? [] : rangeSelection(project, lane.id, from, to);
+		const selected = (to - from) * zoom < MIN_DRAG_PX ? [] : rangeSelection(project, marble.id, from, to);
 		cx.$selection.set(selected);
 		// The wall comes to the range, so its ghost and its pieces are in view from the start
 		if (selected.length > 0) cx.$reveal.set({ ids: selected, isZoomKept: true });
@@ -65,7 +65,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		const from = edit.edge === 'from' ? Math.min(edit.time, group.to) : group.from;
 		const to = edit.edge === 'to' ? Math.max(edit.time, group.from) : group.to;
 		if (Math.abs(from - group.from) < 1e-4 && Math.abs(to - group.to) < 1e-4) return;
-		void cx.patterns.apply({ marbleId: lane.id, from, to, group }, group.kind);
+		void cx.patterns.apply({ marbleId: marble.id, from, to, group }, group.kind);
 	}
 
 	const isHinting = hoverX != null && range == null && selectedRange == null;
@@ -93,7 +93,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 			{shownRange != null ? <span className="mm-pattern-range" style={{ left: Math.min(shownRange.from, shownRange.to) * zoom, width: Math.max(1, Math.abs(shownRange.to - shownRange.from) * zoom) }} /> : null}
 			{groups.map((group) => {
 				const pattern = isPatternGroup(group) ? group : null;
-				const span = pattern ?? (isPatternGroup(group) ? null : plainGroupSpan(project, lane, group));
+				const span = pattern ?? (isPatternGroup(group) ? null : plainGroupSpan(project, marble, group));
 				if (span == null) return null;
 				const isResizing = resize?.groupId === group.id;
 				const from = isResizing && resize.edge === 'from' ? Math.min(resize.time, span.to) : span.from;
@@ -110,7 +110,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						tabIndex={-1}
 						aria-label={`${group.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`}
 						title={`${group.name} · ${formatTime(span.from)} to ${formatTime(span.to)}`}
-						style={{ left: from * zoom - pad, width: Math.max(10, (to - from) * zoom + 2 * pad), ['--lane' as string]: lane.color }}
+						style={{ left: from * zoom - pad, width: Math.max(10, (to - from) * zoom + 2 * pad), ['--row-color' as string]: marble.color }}
 						onPointerDown={(event) => event.stopPropagation()}
 						onPointerEnter={() => setHoverX(null)}
 						onPointerMove={(event) => event.stopPropagation()}
@@ -152,19 +152,19 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 
 interface TPatternStripProps {
 	cx: StudioCx;
-	lane: TLane;
+	marble: TLane;
 	zoom: number;
 	timeAt: (clientX: number) => number;
 }
 
 /** What is selected on this row as a span of time: the dragged silence, or from the first selected hit to the last */
-function selectedSpan(lane: TLane, selection: readonly string[]): { from: number; to: number } | null {
-	const range = selection.flatMap((key) => parseRangeKey(key) ?? []).find((item) => item.marbleId === lane.id);
+function selectedSpan(marble: TLane, selection: readonly string[]): { from: number; to: number } | null {
+	const range = selection.flatMap((key) => parseRangeKey(key) ?? []).find((item) => item.marbleId === marble.id);
 	if (range != null) return range;
 	const times = selection.flatMap((key) => {
 		const parsed = parseHitKey(key);
-		if (parsed?.marbleId !== lane.id) return [];
-		return lane.hits.find((hit) => hit.id === parsed.hitId)?.time ?? [];
+		if (parsed?.marbleId !== marble.id) return [];
+		return marble.hits.find((hit) => hit.id === parsed.hitId)?.time ?? [];
 	});
 	return times.length > 1 ? { from: Math.min(...times), to: Math.max(...times) } : null;
 }

@@ -92,7 +92,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 
 	// The children of a selected marble or camera and a marble whose hits are selected get the lighter tint
 	function isInSelection(row: TOutlineRow): boolean {
-		if (row.kind === 'marble') return selectedMarbles.has(row.lane.id);
+		if (row.kind === 'marble') return selectedMarbles.has(row.marble.id);
 		return row.parentId != null && selectedSet.has(row.parentId);
 	}
 
@@ -199,7 +199,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 
 	function openMenu(row: TOutlineRow, event: React.MouseEvent): void {
 		if (!isTinted(row) || row.kind === 'group') select(row);
-		if (row.kind === 'marble') openContextMenu(event, marbleMenu(cx, row.lane));
+		if (row.kind === 'marble') openContextMenu(event, marbleMenu(cx, row.marble));
 		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
@@ -303,7 +303,7 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 	function rename(value: string | null): void {
 		cx.$renaming.set(null);
 		if (value == null || value === view.label) return;
-		if (row.kind === 'marble') cx.execute([{ type: 'upsertLane', lane: { ...row.lane, name: value } }]);
+		if (row.kind === 'marble') cx.execute([{ type: 'upsertLane', marble: { ...row.marble, name: value } }]);
 		else if (row.kind === 'patternGroup') cx.execute([{ type: 'upsertGroup', group: { ...row.group, name: value } }]);
 		else if (row.kind === 'title') cx.execute([{ type: 'upsertEntity', entity: { ...row.entity, name: value } }]);
 		else if (row.kind === 'light' && row.light != null && cx.project != null) cx.execute(updateLightCommands(cx.project, row.light.id, { name: value }));
@@ -371,7 +371,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 			};
 		}
 		case 'marble':
-			return { icon: <span className="mm-layer-chip" style={{ background: row.lane.color }} />, label: row.lane.name, isOpen: row.hasChildren ? row.isOpen : undefined };
+			return { icon: <span className="mm-layer-chip" style={{ background: row.marble.color }} />, label: row.marble.name, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'group':
 			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isOpen };
 		case 'patternGroup':
@@ -451,7 +451,7 @@ const DecorRow = React.memo(function DecorRow(props: TRowProps & { cx: StudioCx;
 function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
 	switch (row.kind) {
 		case 'marble':
-			return marbleLabelEntries(cx, row.lane);
+			return marbleLabelEntries(cx, row.marble);
 		case 'title':
 			return entityLabelEntries(cx, row.entity);
 		case 'decor': {
@@ -483,7 +483,7 @@ const PieceRow = React.memo(function PieceRow(
 	const project = cx.project;
 	const attach = link != null && !isLinked && project != null ? attachState(project, piece) : null;
 	const followLabel =
-		attach?.kind === 'anchored' ? `Follows ${project?.music.lanes.find((lane) => lane.id === attach.marbleId)?.name ?? 'a marble'} at ${formatTime(attach.time)}` : null;
+		attach?.kind === 'anchored' ? `Follows ${project?.music.marbles.find((marble) => marble.id === attach.marbleId)?.name ?? 'a marble'} at ${formatTime(attach.time)}` : null;
 	const isProblem = status != null && status !== 'onTime';
 
 	return (

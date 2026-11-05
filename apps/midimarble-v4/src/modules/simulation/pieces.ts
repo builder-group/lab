@@ -7,7 +7,7 @@ import type { TPieceDefinition } from './types';
  */
 export const KIT_SCALE = 1.5;
 
-/** Longest time after its hit, or before the lane's first hit, that an anchored piece may follow the trajectory */
+/** Longest time after its hit, or before the marble's first hit, that an anchored piece may follow the trajectory */
 export const ANCHOR_DELAY = 10;
 
 /** How far a piece stands out of the wall in the app's views and the film: its Depth, however large */

@@ -12,7 +12,7 @@ describe('fitTargets', () => {
 
 	it('frames tapped hits only down to the first open dot, not the free fall after it', () => {
 		const project = createProject();
-		const marbleId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.marbles[0]?.id ?? '';
 		const result = { hits: [openHit(marbleId, 0.6, -0.3), openHit(marbleId, 1.1, -2.2), openHit(marbleId, 2.5, -14)], pieces: [], marbles: [] } as unknown as TSimulationResult;
 		const all = fitTargets(project, result);
 		expect(all.minY).toBeCloseTo(-0.3);
@@ -20,7 +20,7 @@ describe('fitTargets', () => {
 
 	it('frames every placed hit and the next open dot after the last one', () => {
 		const project = createProject();
-		const marbleId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.marbles[0]?.id ?? '';
 		const hits = [openHit(marbleId, 0.5, -0.2, 'p1'), openHit(marbleId, 1, -0.5), openHit(marbleId, 1.5, -0.8, 'p3'), openHit(marbleId, 2, -1.1), openHit(marbleId, 3, -6)];
 		const all = fitTargets(project, { hits, pieces: [], marbles: [] } as unknown as TSimulationResult);
 		expect(all.minY).toBeCloseTo(-1.1);
@@ -29,7 +29,7 @@ describe('fitTargets', () => {
 	it('frames the release high above the pieces and dots, not the fall to the film end', () => {
 		// The review's tapped project: 6 placed hits ending at 0:03.6 of a 0:12 film, released 0.9 m above the first
 		const project = createProject();
-		const marbleId = project.music.lanes[0]?.id ?? '';
+		const marbleId = project.music.marbles[0]?.id ?? '';
 		const hits = [0.6, 1.2, 1.8, 2.4, 3, 3.6].map((time, index) => openHit(marbleId, time, -0.28 - index * 0.19, `p${index}`));
 		const all = fitTargets(project, { hits, pieces: [], marbles: [] } as unknown as TSimulationResult);
 

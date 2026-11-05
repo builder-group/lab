@@ -32,10 +32,10 @@ describe('attach helpers', () => {
 	it('should unlink a platform in place and link it back onto its hit', () => {
 		const project = loadFixture('zigzag');
 		const result = simulator.simulate(project);
-		const lane = project.music.lanes[0];
-		const hit = lane?.hits[8];
+		const marble = project.music.marbles[0];
+		const hit = marble?.hits[8];
 		const linked = project.entities.find((entity) => entity.components.hitLink?.hitId === hit?.id);
-		if (lane == null || hit == null || linked == null) throw new Error('No linked platform');
+		if (marble == null || hit == null || linked == null) throw new Error('No linked platform');
 
 		const [isUnlinked, unlinkErr, unlinked] = unlinkPiece(project, result, linked.id);
 		if (!isUnlinked) throw unlinkErr;
@@ -46,7 +46,7 @@ describe('attach helpers', () => {
 		expectSamePose(pieceOf(freeResult, linked.id), pieceOf(result, linked.id));
 		expect(freeResult.hits.find((item) => item.hitId === hit.id)?.status).toBe('open');
 
-		const [isLinked, linkErr, relinked] = linkPieceToHit(free, freeResult, linked.id, lane.id, hit.id);
+		const [isLinked, linkErr, relinked] = linkPieceToHit(free, freeResult, linked.id, marble.id, hit.id);
 		if (!isLinked) throw linkErr;
 		const back = simulator.simulate(apply(free, relinked.commands));
 
@@ -57,11 +57,11 @@ describe('attach helpers', () => {
 	it('should refuse to link scenery or a hit that already sounds', () => {
 		const project = loadFixture('zigzag');
 		const result = simulator.simulate(project);
-		const lane = project.music.lanes[0];
+		const marble = project.music.marbles[0];
 		const [first, second] = project.entities.filter((entity) => entity.components.hitLink != null);
-		if (lane == null || first == null || second == null) throw new Error('No linked platforms');
+		if (marble == null || first == null || second == null) throw new Error('No linked platforms');
 
-		const [isLinked, linkErr] = linkPieceToHit(project, result, first.id, lane.id, second.components.hitLink?.hitId ?? '');
+		const [isLinked, linkErr] = linkPieceToHit(project, result, first.id, marble.id, second.components.hitLink?.hitId ?? '');
 
 		expect(isLinked).toBe(false);
 		expect(linkErr?.message).toMatch(/already has/);
@@ -69,8 +69,8 @@ describe('attach helpers', () => {
 
 	it('should anchor free pieces to a moment on the trajectory and free them in place', () => {
 		const base = loadFixture('zigzag');
-		const lane = base.music.lanes[0];
-		if (lane == null) throw new Error('No lane');
+		const marble = base.music.marbles[0];
+		if (marble == null) throw new Error('No marble');
 		const away = (id: string, type: string, x: number, y: number, angle: number, layout?: 'switchback'): TEntity => ({
 			id,
 			name: id,
@@ -83,17 +83,17 @@ describe('attach helpers', () => {
 		]);
 		let result = simulator.simulate(project);
 		let current = project;
-		const time = (lane.hits[3]?.time ?? 1) + 0.1;
+		const time = (marble.hits[3]?.time ?? 1) + 0.1;
 
 		for (const id of ['scenery-rail', 'scenery-switchback', 'scenery-windmill']) {
 			const before = pieceOf(result, id);
-			const [isAnchored, anchorErr, anchored] = anchorPiece(current, result, id, lane.id, time);
+			const [isAnchored, anchorErr, anchored] = anchorPiece(current, result, id, marble.id, time);
 			if (!isAnchored) throw anchorErr;
 			current = apply(current, anchored.commands);
 			result = simulator.simulate(current);
 			const after = pieceOf(result, id);
 
-			expect(anchored.entity.components.hitLink).toEqual(expect.objectContaining({ anchored: true, hitId: lane.hits[3]?.id }));
+			expect(anchored.entity.components.hitLink).toEqual(expect.objectContaining({ anchored: true, hitId: marble.hits[3]?.id }));
 			expect(after.entryTime).toBeCloseTo(time, 9);
 			expectSamePose(after, before);
 		}
@@ -110,9 +110,9 @@ describe('attach helpers', () => {
 
 	it('should anchor before the first hit with a negative delay on it', () => {
 		const base = loadFixture('zigzag');
-		const lane = base.music.lanes[0];
-		const first = lane?.hits[0];
-		if (lane == null || first == null) throw new Error('No lane');
+		const marble = base.music.marbles[0];
+		const first = marble?.hits[0];
+		if (marble == null || first == null) throw new Error('No marble');
 		const project = apply(base, [
 			{
 				type: 'upsertEntity',
@@ -123,7 +123,7 @@ describe('attach helpers', () => {
 		const before = pieceOf(result, 'early-windmill');
 		const time = first.time / 2;
 
-		const [isAnchored, anchorErr, anchored] = anchorPiece(project, result, 'early-windmill', lane.id, time);
+		const [isAnchored, anchorErr, anchored] = anchorPiece(project, result, 'early-windmill', marble.id, time);
 		if (!isAnchored) throw anchorErr;
 		const next = simulator.simulate(apply(project, anchored.commands));
 

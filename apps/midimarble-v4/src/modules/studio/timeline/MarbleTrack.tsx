@@ -17,17 +17,17 @@ import { PATTERN_STRIP_HEIGHT, ROW_HEIGHT } from './timeline-layout';
  * The instruction itself, like GarageBand's empty track, not behind a ?, with the recording's suggested hits as a link
  * while the marble has none
  */
-const EmptyMarbleHint: React.FC<{ cx: StudioCx; lane: TLane; top: number }> = (props) => {
-	const { cx, lane, top } = props;
+const EmptyMarbleHint: React.FC<{ cx: StudioCx; marble: TLane; top: number }> = (props) => {
+	const { cx, marble, top } = props;
 	useFeatureState(cx.sources.$analysis);
-	const suggested = suggestedHits(cx, lane).length;
+	const suggested = suggestedHits(cx, marble).length;
 	return (
 		<span className="pointer-events-none absolute left-3 -translate-y-1/2 truncate text-[11px] text-[var(--text-tertiary)]" style={{ top }} data-hint-anchor="tap">
 			No hits yet
 			{suggested > 0 ? (
 				<>
 					{' · '}
-					<button className="mm-link pointer-events-auto" onClick={() => addSuggestedHits(cx, lane)} onPointerDown={(event) => event.stopPropagation()} title="Add a hit for each beat found in the recording" type="button">
+					<button className="mm-link pointer-events-auto" onClick={() => addSuggestedHits(cx, marble)} onPointerDown={(event) => event.stopPropagation()} title="Add a hit for each beat found in the recording" type="button">
 						{suggestedHitsLabel(suggested)}
 					</button>
 				</>
@@ -42,16 +42,16 @@ const EmptyMarbleHint: React.FC<{ cx: StudioCx; lane: TLane; top: number }> = (p
  * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so color is never the only signal.
  */
 export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
-	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
-	const conflicts = React.useMemo(() => findMarbleConflicts(lane), [lane]);
+	const { cx, marble, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
+	const conflicts = React.useMemo(() => findMarbleConflicts(marble), [marble]);
 	const workspace = useFeatureState(cx.$workspace);
 	const isTrack = workspace === 'track';
 	const hitsTop = isTrack ? PATTERN_STRIP_HEIGHT : 0;
-	const marquee = useMarquee(cx, lane, zoom, selection, timeAt, hitsTop);
+	const marquee = useMarquee(cx, marble, zoom, selection, timeAt, hitsTop);
 
 	return (
 		<div
-			className="mm-lane-track relative flex-1 border-b border-[var(--separator)]"
+			className="mm-marble-track relative flex-1 border-b border-[var(--separator)]"
 			style={{ minWidth: width, background: marquee.isMarbleSelected ? 'color-mix(in srgb, var(--text) 3%, transparent)' : undefined }}
 			{...marquee.handlers}
 			onDoubleClick={(event) => {
@@ -60,21 +60,21 @@ export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
 			}}
 			onContextMenu={(event) => {
 				if (event.target !== event.currentTarget) return;
-				openContextMenu(event, marbleMenu(cx, lane, timeAt(event.clientX)));
+				openContextMenu(event, marbleMenu(cx, marble, timeAt(event.clientX)));
 			}}
 		>
-			{isTrack ? <PatternStrip cx={cx} lane={lane} zoom={zoom} timeAt={timeAt} /> : null}
-			{!lane.hits.length ? (
-				<EmptyMarbleHint cx={cx} lane={lane} top={hitsTop + (ROW_HEIGHT - hitsTop) / 2} />
+			{isTrack ? <PatternStrip cx={cx} marble={marble} zoom={zoom} timeAt={timeAt} /> : null}
+			{!marble.hits.length ? (
+				<EmptyMarbleHint cx={cx} marble={marble} top={hitsTop + (ROW_HEIGHT - hitsTop) / 2} />
 			) : null}
-			{lane.hits.map((hit, index) => {
-				const key = toHitKey(lane.id, hit.id);
+			{marble.hits.map((hit, index) => {
+				const key = toHitKey(marble.id, hit.id);
 				const offset = drag?.keys.includes(key) === true ? drag.delta : 0;
 				return (
 					<HitButton
 						key={hit.id}
 						cx={cx}
-						lane={lane}
+						marble={marble}
 						hit={hit}
 						index={index}
 						selection={selection}
@@ -94,7 +94,7 @@ export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
 
 interface TMarbleTrackProps {
 	cx: StudioCx;
-	lane: TLane;
+	marble: TLane;
 	zoom: number;
 	width: number;
 	selection: string[];
@@ -123,8 +123,8 @@ export type TDragStart = (hitKey: string, event: { clientX: number; clientY: num
 
 /** A hit diamond: click selects and plays its note if it has one, Shift-click toggles, drag moves */
 const HitButton: React.FC<THitButtonProps> = (props) => {
-	const { cx, lane, hit, index, selection, status, isConflict, style, onDragStart, children } = props;
-	const key = toHitKey(lane.id, hit.id);
+	const { cx, marble, hit, index, selection, status, isConflict, style, onDragStart, children } = props;
+	const key = toHitKey(marble.id, hit.id);
 	const isSelected = selection.includes(key);
 	// Hits of selected pieces are outlined, like keyframes of the selected object in Blender
 	const isLinked = status?.pieceEntityId != null && selection.includes(status.pieceEntityId);
@@ -132,7 +132,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 	const piece = pieceEntity?.name;
 	const project = cx.project;
 	const unreachable = status?.status === 'open' && project != null ? unreachableStatus(project, cx.simulation.$result.get(), status) : null;
-	const timing = hitTiming(status, { marble: lane.name, pitch: hit.pitch, piece }, unreachable);
+	const timing = hitTiming(status, { marble: marble.name, pitch: hit.pitch, piece }, unreachable);
 	return (
 		<button
 			aria-label={`Hit ${index + 1}${hit.pitch == null ? '' : ` ${noteName(hit.pitch)}`} at ${formatTime(hit.time)}`}
@@ -143,7 +143,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 			data-state={timing.state}
 			data-conflict={isConflict}
 			data-linked={isLinked}
-			style={{ ...style, ['--lane' as string]: lane.color }}
+			style={{ ...style, ['--row-color' as string]: marble.color }}
 			title={hitTitle(index, hit, timing, isConflict, status?.error ?? null)}
 			onPointerDown={(event) => {
 				if (event.button !== 0) return;
@@ -152,13 +152,13 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 					cx.$selection.set(isSelected ? selection.filter((item) => item !== key) : [...selection, key]);
 					return;
 				}
-				cx.audition(lane.id, hit.pitch);
+				cx.audition(marble.id, hit.pitch);
 				onDragStart(event);
 			}}
 			onContextMenu={(event) => {
 				event.stopPropagation();
 				if (!isSelected) cx.$selection.set([key]);
-				openContextMenu(event, hitMenu(cx, lane, hit.id));
+				openContextMenu(event, hitMenu(cx, marble, hit.id));
 			}}
 			type="button"
 		>
@@ -169,7 +169,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 
 interface THitButtonProps {
 	cx: StudioCx;
-	lane: TLane;
+	marble: TLane;
 	hit: THit;
 	index: number;
 	selection: string[];
@@ -181,9 +181,9 @@ interface THitButtonProps {
 }
 
 /** Time-range marquee on a track: dragging on empty space selects the hits it spans, Shift adds */
-function useMarquee(cx: StudioCx, lane: TLane, zoom: number, selection: string[], timeAt: (clientX: number) => number, top: number): TMarquee {
+function useMarquee(cx: StudioCx, marble: TLane, zoom: number, selection: string[], timeAt: (clientX: number) => number, top: number): TMarquee {
 	const [range, setRange] = React.useState<{ from: number; to: number } | null>(null);
-	const isMarbleSelected = selection.some((key) => key.startsWith(`hit:${lane.id}:`));
+	const isMarbleSelected = selection.some((key) => key.startsWith(`hit:${marble.id}:`));
 
 	const handlers: TMarquee['handlers'] = {
 		onPointerDown: (event) => {
@@ -204,7 +204,7 @@ function useMarquee(cx: StudioCx, lane: TLane, zoom: number, selection: string[]
 				if (!event.shiftKey) cx.$selection.set([]);
 				return;
 			}
-			const keys = lane.hits.filter((hit) => hit.time >= from && hit.time <= to).map((hit) => toHitKey(lane.id, hit.id));
+			const keys = marble.hits.filter((hit) => hit.time >= from && hit.time <= to).map((hit) => toHitKey(marble.id, hit.id));
 			cx.$selection.set(event.shiftKey ? [...new Set([...selection, ...keys])] : keys);
 			if (keys.length > 0) cx.$reveal.set({ ids: keys, isZoomKept: true });
 		}

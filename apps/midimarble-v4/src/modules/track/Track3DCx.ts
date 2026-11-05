@@ -206,11 +206,11 @@ export class Track3DCx {
 		renderer.setWallHidden(hidden.includes(WALL_KEY));
 		renderer.setMarbles(
 			project.entities.flatMap((entity) => {
-				const { marble, release } = entity.components;
-				if (marble == null || release == null || hidden.includes(entity.id)) return [];
-				const color = project.music.lanes.find((lane) => lane.id === marble.marbleId)?.color ?? '#3478f6';
+				const { marble: marbleEntity, release } = entity.components;
+				if (marbleEntity == null || release == null || hidden.includes(entity.id)) return [];
+				const color = project.music.marbles.find((marble) => marble.id === marbleEntity.marbleId)?.color ?? '#3478f6';
 				const motion = result?.marbles.find((item) => item.entityId === entity.id);
-				return [{ entityId: entity.id, color, radius: marble.radius, position: marblePositionAt(motion, playhead, release.position), z: this.pathZ }];
+				return [{ entityId: entity.id, color, radius: marbleEntity.radius, position: marblePositionAt(motion, playhead, release.position), z: this.pathZ }];
 			})
 		);
 		renderer.render();

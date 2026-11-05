@@ -115,11 +115,11 @@ function nothing(request: TFitPatternRequest, problems: TPatternProblem[], sims 
 
 function fitRail(request: TFitPatternRequest, options: TFitPatternOptions): TFitPatternResult {
 	const { project, marbleId, hitIds } = request;
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
 	// One hit is the marble's first note: the rail opens the track, from the marble's release
 	const [fromId, toId] = hitIds.length === 1 ? [null, hitIds[0]] : hitIds;
-	const previous = lane?.hits.find((hit) => hit.id === fromId) ?? null;
-	const to = lane?.hits.find((hit) => hit.id === toId);
+	const previous = marble?.hits.find((hit) => hit.id === fromId) ?? null;
+	const to = marble?.hits.find((hit) => hit.id === toId);
 	const startTime = previous?.time ?? project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components.release?.time;
 	if (startTime == null || to == null || (fromId != null && previous == null)) return nothing(request, [{ hitId: fromId ?? toId ?? '', words: 'A Long Rail ends at a note, and starts at the note before it or at the marble’s release.' }]);
 	const from = { hitId: previous?.id ?? null, time: startTime };
@@ -165,13 +165,13 @@ interface TScoredFit extends TBarsFit {
 function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions): TFitPatternResult {
 	const { project, marbleId, hitIds, kind } = request;
 	const { sim } = options;
-	const lane = project.music.lanes.find((item) => item.id === marbleId);
-	const hits = hitIds.flatMap((id) => lane?.hits.find((hit) => hit.id === id) ?? []);
+	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const hits = hitIds.flatMap((id) => marble?.hits.find((hit) => hit.id === id) ?? []);
 	const last = hits.at(-1);
-	if (lane == null || last == null || kind === 'longRail') return nothing(request, [{ hitId: hitIds[0] ?? '', words: 'A Zigzag or Staircase needs notes to play, and this range has none.' }]);
+	if (marble == null || last == null || kind === 'longRail') return nothing(request, [{ hitId: hitIds[0] ?? '', words: 'A Zigzag or Staircase needs notes to play, and this range has none.' }]);
 	const removedIds = piecesOnHits(project, marbleId, hitIds);
 	const base = without(project, removedIds);
-	const next = lane.hits.find((hit) => hit.time > last.time);
+	const next = marble.hits.find((hit) => hit.time > last.time);
 	const isNextClose = next != null && next.time - last.time < LONG_GAP;
 	const ids = isNextClose ? [...hitIds, next.id] : hitIds;
 	const asked = request.width ?? (kind === 'zigzag' ? ZIGZAG_WIDTH : 0.09);
@@ -227,7 +227,7 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 	}
 	const result = sim.simulate({ ...chosen.project, length: (next?.time ?? last.time + 0.3) + 0.01 });
 	const entities = chosen.entities;
-	const blocking = [...problemsOf(chosen, lane.hits), ...longFalls(result, ids, lane.hits)];
+	const blocking = [...problemsOf(chosen, marble.hits), ...longFalls(result, ids, marble.hits)];
 	return {
 		commands: [...(removedIds.length > 0 ? [{ type: 'removeEntities' as const, entityIds: removedIds }] : []), ...entities.map((entity) => ({ type: 'upsertEntity' as const, entity }))],
 		entities,
@@ -248,7 +248,7 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 function scoreFit(sim: TSimulator, fit: TBarsFit, marbleId: string, ids: string[], stopsBefore: boolean, width: number, drop: number | null, lastTime: number): TScoredFit {
 	const mine = new Set(stopsBefore ? ids.slice(0, -1) : ids);
 	const made = new Set(fit.entities.map((entity) => entity.id));
-	const nextTime = fit.project.music.lanes.find((lane) => lane.id === marbleId)?.hits.find((hit) => hit.id === ids.at(-1))?.time ?? lastTime;
+	const nextTime = fit.project.music.marbles.find((marble) => marble.id === marbleId)?.hits.find((hit) => hit.id === ids.at(-1))?.time ?? lastTime;
 	const result = sim.simulate({ ...fit.project, length: Math.max(lastTime, nextTime) + 0.02 });
 	const late = result.hits.filter((hit) => ids.includes(hit.hitId) && hit.status !== 'onTime' && hit.status !== 'drifting' && hit.status !== 'open').map((hit) => hit.hitId);
 	const strikes = extraStrikes(fit.project, result).flatMap((item) => (mine.has(item.hitId) ? [item.hitId] : []));

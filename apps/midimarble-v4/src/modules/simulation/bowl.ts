@@ -27,7 +27,7 @@ export interface TBowlCatch {
 	enterPoint: TVec2 | null;
 }
 
-/** The Bowl of a marble's lane, if it has one: a Bowl anchored to one of the lane's hits */
+/** The Bowl of a marble's marble, if it has one: a Bowl anchored to one of the marble's hits */
 export function bowlOfMarble(project: TProject, marbleId: string): TEntity | undefined {
 	return project.entities.find((entity) => entity.components.piece?.type === BOWL_TYPE && entity.components.hitLink?.marbleId === marbleId);
 }
@@ -37,7 +37,7 @@ export function isBowl(entity: TEntity | undefined): boolean {
 }
 
 /**
- * Whether the marble of the Bowl's lane lands in it and stays: after its first contact the marble keeps within
+ * Whether the marble of the Bowl's marble lands in it and stays: after its first contact the marble keeps within
  * `CATCH_MARGIN` of the wire until the run ends
  */
 export function bowlCatch(result: TSimulationResult, entityId: string): TBowlCatch {

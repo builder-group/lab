@@ -4,12 +4,12 @@ import { platformDefinition } from './pieces';
 
 // Shared descent pace. Every marble of a project should stay near one height curve y*(t) that falls at a
 // constant rate, so a camera following that curve keeps every marble in frame. The rate comes from the
-// lanes' rhythm: it is the steady descent of the default platform bounce at the median hit interval.
+// marbles' rhythm: it is the steady descent of the default platform bounce at the median hit interval.
 
 export interface TDescentPace {
 	/** Descent rate in meters per second */
 	rate: number;
-	/** y*(t) = anchorY − rate · (t − anchorTime). The anchor is the earliest hit dot of any lane. */
+	/** y*(t) = anchorY − rate · (t − anchorTime). The anchor is the earliest hit dot of any marble. */
 	anchorTime: number;
 	anchorY: number;
 	/** Assists keep hit dots within this distance of y*, or no further than they already are */
@@ -21,7 +21,7 @@ export const PACE_LIMIT = 0.25;
 /**
  * Highest a bounce may rise above its takeoff at Earth's gravity before the gap counts as long and needs a
  * holder. It scales with the project's gravity, like every height at a given rhythm: the pace drop per hit
- * and so the spacing of a lane's earlier pieces above the marble shrink with gravity, and a fixed 0.4 m
+ * and so the spacing of a marble's earlier pieces above the marble shrink with gravity, and a fixed 0.4 m
  * bounce at half gravity rose through the two pieces above it.
  */
 export const MAX_BOUNCE_RISE = 0.4;
@@ -42,18 +42,18 @@ export const COLUMN_CLEARANCE = 0.065;
 
 /**
  * Descent rate for the project: (1 − e) / (1 + e) · g · T / 2 for the project's gravity g, the default platform bounce e and the
- * median interval T between consecutive hits of all lanes, ignoring long notes. A single regular lane
- * therefore keeps the descent its default bounce gives, and lanes with different rhythms share one.
+ * median interval T between consecutive hits of all marbles, ignoring long notes. A single regular marble
+ * therefore keeps the descent its default bounce gives, and marbles with different rhythms share one.
  *
  * With several marbles the rate is at least `columnRate`, so a zigzag at the pace keeps `COLUMN_CLEARANCE`
  * under its earlier pieces. Every height at a rhythm scales with gravity but the pieces do not, so at low
- * gravity or fast rhythms the default bounce stacks the pieces of a narrow lane too densely.
+ * gravity or fast rhythms the default bounce stacks the pieces of a narrow marble too densely.
  */
 export function paceRate(project: TProject): number {
 	const intervals: number[] = [];
-	for (const lane of project.music.lanes) {
-		for (let i = 1; i < lane.hits.length; i++) {
-			const interval = (lane.hits[i]?.time ?? 0) - (lane.hits[i - 1]?.time ?? 0);
+	for (const marble of project.music.marbles) {
+		for (let i = 1; i < marble.hits.length; i++) {
+			const interval = (marble.hits[i]?.time ?? 0) - (marble.hits[i - 1]?.time ?? 0);
 			if (interval > 0.05 && interval <= RHYTHM_INTERVAL) intervals.push(interval);
 		}
 	}

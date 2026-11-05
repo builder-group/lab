@@ -5,11 +5,11 @@ import type { TSimulationResult } from '@/modules/simulation';
 import { IMPORT_RELEASE_LEAD } from '@/modules/music';
 
 /**
- * Hands notes to a marble's lane or to Backing (`BACKING_ID`) as one edit, keeping their IDs. A platform exists
+ * Hands notes to a marble's marble or to Backing (`BACKING_ID`) as one edit, keeping their IDs. A platform exists
  * to play its note, so it goes with the note: handed to another marble it plays the note in that marble's run,
  * handed to Backing it is removed (Backing needs no piece). Leaving a platform on the wall instead would put an
  * obstacle in every marble's path. A piece that follows the marble at a moment keeps that moment, tied to
- * another hit of the lane, and stands Free only when no hit is near enough.
+ * another hit of the marble, and stands Free only when no hit is near enough.
  */
 export function assignNotesCommands(
 	project: TProject,
@@ -19,10 +19,10 @@ export function assignNotesCommands(
 ): TProjectCommand[] {
 	const wanted = new Set(hitIds);
 	const leaving = new Map<string, Set<string>>();
-	for (const lane of project.music.lanes) {
-		if (lane.id === marbleId) continue;
-		const ids = lane.hits.filter((hit) => wanted.has(hit.id)).map((hit) => hit.id);
-		if (ids.length > 0) leaving.set(lane.id, new Set(ids));
+	for (const marble of project.music.marbles) {
+		if (marble.id === marbleId) continue;
+		const ids = marble.hits.filter((hit) => wanted.has(hit.id)).map((hit) => hit.id);
+		if (ids.length > 0) leaving.set(marble.id, new Set(ids));
 	}
 	const fromBacking = marbleId !== BACKING_ID && project.music.backing.some((hit) => wanted.has(hit.id));
 	if (!leaving.size && !fromBacking) return [];
@@ -45,22 +45,22 @@ export function assignNotesCommands(
 	return [...ties, ...(removed.length ? [{ type: 'removeEntities' as const, entityIds: removed }] : []), { type: 'assignHits', hitIds: [...wanted], marbleId }];
 }
 
-/** A new marble with its lane, to the right of the last marble and released a short drop before `firstTime` */
+/** A new marble with its marble, to the right of the last marble and released a short drop before `firstTime` */
 export function newMarbleCommands(project: TProject, firstTime?: number): { marbleId: string; commands: TProjectCommand[] } {
-	const lane = createLane(project.music.lanes.length);
+	const marble = createLane(project.music.marbles.length);
 	const releases = project.entities.flatMap((entity) => (entity.components.release != null ? [entity.components.release.position] : []));
 	const position = { x: releases.length ? Math.max(...releases.map((point) => point.x)) + MARBLE_SPACING : 0, y: releases[0]?.y ?? 0.6 };
-	const marble = createMarble(lane, position);
-	if (marble.components.release != null && firstTime != null) {
-		marble.components.release.time = Math.round(Math.max(0, firstTime - IMPORT_RELEASE_LEAD) * 10000) / 10000;
+	const marbleEntity = createMarble(marble, position);
+	if (marbleEntity.components.release != null && firstTime != null) {
+		marbleEntity.components.release.time = Math.round(Math.max(0, firstTime - IMPORT_RELEASE_LEAD) * 10000) / 10000;
 	}
-	return { marbleId: lane.id, commands: [{ type: 'upsertLane', lane }, { type: 'upsertEntity', entity: marble }] };
+	return { marbleId: marble.id, commands: [{ type: 'upsertLane', marble }, { type: 'upsertEntity', entity: marbleEntity }] };
 }
 
-/** A following piece tied to the lane's nearest remaining hit with the delay that keeps its moment */
+/** A following piece tied to the marble's nearest remaining hit with the delay that keeps its moment */
 function refollow(project: TProject, entity: TEntity, leaving: Set<string>): TEntity | null {
 	const { hitLink: link, piece } = entity.components;
-	const hits = project.music.lanes.find((lane) => lane.id === link?.marbleId)?.hits ?? [];
+	const hits = project.music.marbles.find((marble) => marble.id === link?.marbleId)?.hits ?? [];
 	const hit = hits.find((item) => item.id === link?.hitId);
 	if (link == null || piece == null || hit == null) return null;
 	const moment = hit.time + (piece.params['entryDelay'] ?? 0);

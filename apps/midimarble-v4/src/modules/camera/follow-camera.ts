@@ -407,7 +407,7 @@ function hasMotion(marble: TFollowMarble): boolean {
 	return marble.motion.time.length > 0;
 }
 
-/** `in_flight` in `camera.py`: from the first sample to the last, or to `activeUntil` once the lane has finished */
+/** `in_flight` in `camera.py`: from the first sample to the last, or to `activeUntil` once the marble has finished */
 function inside(marble: TFollowMarble, time: number): boolean {
 	const motion = marble.motion.time;
 	const end = Math.min(motion[motion.length - 1] ?? 0, marble.activeUntil ?? Infinity);

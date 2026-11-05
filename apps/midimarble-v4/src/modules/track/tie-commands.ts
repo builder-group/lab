@@ -108,9 +108,9 @@ export function followItems(cx: StudioCx): TMenuItem[] {
 	const ids = selectedPieceIds(project, cx.$selection.get());
 	const entity = ids.length === 1 ? project.entities.find((item) => item.id === ids[0]) : undefined;
 	const attach = entity != null ? attachState(project, entity) : null;
-	return project.music.lanes
-		.filter((lane) => result.marbles.some((track) => track.marbleId === lane.id))
-		.map((lane) => ({ label: lane.name, checked: attach?.kind === 'anchored' && attach.marbleId === lane.id, onSelect: () => followSelection(cx, lane.id) }));
+	return project.music.marbles
+		.filter((marble) => result.marbles.some((track) => track.marbleId === marble.id))
+		.map((marble) => ({ label: marble.name, checked: attach?.kind === 'anchored' && attach.marbleId === marble.id, onSelect: () => followSelection(cx, marble.id) }));
 }
 
 /**

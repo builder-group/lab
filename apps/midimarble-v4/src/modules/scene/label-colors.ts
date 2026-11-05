@@ -10,7 +10,7 @@ const startRails = new WeakMap<TProject, Map<string, string>>();
 export function pieceLabelColor(project: TProject, entity: TEntity): string | null {
 	if (entity.labelColor != null) return entity.labelColor;
 	const marbleId = entity.components.hitLink?.marbleId ?? startRailsOf(project).get(entity.id);
-	return project.music.lanes.find((lane) => lane.id === marbleId)?.color ?? null;
+	return project.music.marbles.find((marble) => marble.id === marbleId)?.color ?? null;
 }
 
 /** The marble's start rail per project state, since every piece asks on every frame */
@@ -18,9 +18,9 @@ function startRailsOf(project: TProject): Map<string, string> {
 	let rails = startRails.get(project);
 	if (rails == null) {
 		rails = new Map();
-		for (const lane of project.music.lanes) {
-			const rail = startRailOf(project, lane.id);
-			if (rail != null) rails.set(rail.id, lane.id);
+		for (const marble of project.music.marbles) {
+			const rail = startRailOf(project, marble.id);
+			if (rail != null) rails.set(rail.id, marble.id);
 		}
 		startRails.set(project, rails);
 	}

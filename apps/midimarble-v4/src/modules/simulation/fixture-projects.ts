@@ -78,27 +78,27 @@ function createRunProject(options: {
 }): TProject {
 	const project = createBareRunProject(options);
 	const { entities } = project;
-	options.marbles.forEach((marble, index) => {
-		const lane = project.music.lanes[index];
-		if (lane == null) return;
-		lane.hits.forEach((hit, hitIndex) => {
-			const piece = createLinkedPiece('platform', lane.id, hit.id, marble.angles(hitIndex), {
+	options.marbles.forEach((item, index) => {
+		const marble = project.music.marbles[index];
+		if (marble == null) return;
+		marble.hits.forEach((hit, hitIndex) => {
+			const piece = createLinkedPiece('platform', marble.id, hit.id, item.angles(hitIndex), {
 				entities,
 				id: `piece-${index + 1}-${hitIndex + 1}`
 			});
-			if (marble.bounce != null && piece.components.piece != null)
-				piece.components.piece.params['bounce'] = marble.bounce;
-			if (marble.platform != null && piece.components.piece != null)
-				Object.assign(piece.components.piece.params, marble.platform);
+			if (item.bounce != null && piece.components.piece != null)
+				piece.components.piece.params['bounce'] = item.bounce;
+			if (item.platform != null && piece.components.piece != null)
+				Object.assign(piece.components.piece.params, item.platform);
 			entities.push(piece);
 		});
-		const component = entities.find((entity) => entity.components.marble?.marbleId === lane.id)?.components.marble;
-		if (marble.radius != null && component != null) component.radius = marble.radius;
+		const component = entities.find((entity) => entity.components.marble?.marbleId === marble.id)?.components.marble;
+		if (item.radius != null && component != null) component.radius = item.radius;
 	});
 	return project;
 }
 
-/** Lanes `lane-N` with hits `hit-N-M` and marbles `marble-N`, without pieces */
+/** Marbles `lane-N` with hits `hit-N-M` and marbles `marble-N`, without pieces */
 export function createBareRunProject(options: {
 	id: string;
 	title: string;
@@ -107,28 +107,28 @@ export function createBareRunProject(options: {
 	/** Share of Earth gravity, the default of new projects when unset */
 	gravity?: number;
 }): TProject {
-	const lanes = options.marbles.map((marble, index) => {
-		const lane = createLane(index, `lane-${index + 1}`);
-		lane.hits = marble.hitTimes.map((time, hitIndex) => ({
+	const marbles = options.marbles.map((item, index) => {
+		const marble = createLane(index, `lane-${index + 1}`);
+		marble.hits = item.hitTimes.map((time, hitIndex) => ({
 			id: `hit-${index + 1}-${hitIndex + 1}`,
 			time
 		}));
-		return lane;
+		return marble;
 	});
 	const entities: TEntity[] = [];
-	options.marbles.forEach((marble, index) => {
-		const lane = lanes[index];
-		if (lane == null) return;
+	options.marbles.forEach((item, index) => {
+		const marble = marbles[index];
+		if (marble == null) return;
 		const release: NonNullable<TEntity['components']['release']> = {
-			position: { x: marble.x, y: marble.y },
-			time: marble.releaseTime
+			position: { x: item.x, y: item.y },
+			time: item.releaseTime
 		};
-		if (marble.velocity != null) release.velocity = marble.velocity;
+		if (item.velocity != null) release.velocity = item.velocity;
 		entities.push({
 			id: `marble-${index + 1}`,
-			name: lane.name,
+			name: marble.name,
 			components: {
-				marble: { marbleId: lane.id, radius: DEFAULT_MARBLE_RADIUS },
+				marble: { marbleId: marble.id, radius: DEFAULT_MARBLE_RADIUS },
 				release
 			}
 		});
@@ -140,7 +140,7 @@ export function createBareRunProject(options: {
 		revision: 0,
 		format: { width: 9, height: 16 },
 		length: options.end,
-		music: { sources: [], lanes, backing: [] },
+		music: { sources: [], marbles, backing: [] },
 		entities,
 		gravity: options.gravity ?? DEFAULT_GRAVITY,
 		film: {

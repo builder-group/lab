@@ -27,28 +27,28 @@ export interface TObstacleField {
 	/** Run time at the point, NaN at a piece's */
 	time: number[];
 	/** Index into `marbleIds`, -1 at a piece's */
-	lane: number[];
+	marble: number[];
 	marbleIds: string[];
 	cells: Map<number, number[]>;
 }
 
 /** Every marble's run over the film and the pieces in it. Runs are the marbles' centers at their samples, joined up. */
 export function buildObstacleField(result: TSimulationResult): TObstacleField {
-	const field: TObstacleField = { x: [], y: [], radius: [], time: [], lane: [], marbleIds: [], cells: new Map() };
-	result.marbles.forEach((marble, laneIndex) => {
+	const field: TObstacleField = { x: [], y: [], radius: [], time: [], marble: [], marbleIds: [], cells: new Map() };
+	result.marbles.forEach((marble, marbleIndex) => {
 		field.marbleIds.push(marble.marbleId);
 		let last: { x: number; y: number; time: number } | null = null;
 		for (const sample of marble.samples) {
 			if (sample.time > result.duration + 1e-6) break;
 			const { x, y } = sample.position;
-			if (last == null) addPoint(field, x, y, marble.radius, sample.time, laneIndex);
+			if (last == null) addPoint(field, x, y, marble.radius, sample.time, marbleIndex);
 			else {
 				const gap = Math.hypot(x - last.x, y - last.y);
 				if (gap < POINT_SPACING) continue;
 				const steps = Math.ceil(gap / POINT_SPACING);
 				for (let step = 1; step <= steps; step++) {
 					const t = step / steps;
-					addPoint(field, last.x + (x - last.x) * t, last.y + (y - last.y) * t, marble.radius, last.time + (sample.time - last.time) * t, laneIndex);
+					addPoint(field, last.x + (x - last.x) * t, last.y + (y - last.y) * t, marble.radius, last.time + (sample.time - last.time) * t, marbleIndex);
 				}
 			}
 			last = { x, y, time: sample.time };
@@ -97,13 +97,13 @@ function cellKey(ix: number, iy: number): number {
 	return (ix + 0x8000) * 0x10000 + (iy + 0x8000);
 }
 
-function addPoint(field: TObstacleField, x: number, y: number, radius: number, time: number, lane: number): void {
+function addPoint(field: TObstacleField, x: number, y: number, radius: number, time: number, marble: number): void {
 	const index = field.x.length;
 	field.x.push(x);
 	field.y.push(y);
 	field.radius.push(radius);
 	field.time.push(time);
-	field.lane.push(lane);
+	field.marble.push(marble);
 	const key = cellKey(Math.floor(x / CELL), Math.floor(y / CELL));
 	const cell = field.cells.get(key);
 	if (cell != null) cell.push(index);
@@ -149,22 +149,22 @@ export function isBoxClear(field: TObstacleField, box: TWallBox, margin: number)
 export function pathOverlaps(field: TObstacleField, box: TWallBox, span: { start: number; end: number }): { marbleId: string; time: number; point: TVec2 }[] {
 	const first = new Map<number, { time: number; point: TVec2 }>();
 	eachNear(field, box.x, box.y, boxReach(box) + 0.02, (index) => {
-		const lane = field.lane[index] as number;
+		const marble = field.marble[index] as number;
 		const time = field.time[index] as number;
-		if (lane < 0 || time < span.start || time > span.end) return;
+		if (marble < 0 || time < span.start || time > span.end) return;
 		const [x, y] = [field.x[index] as number, field.y[index] as number];
 		if (distanceToBox(box, x, y) > (field.radius[index] as number)) return;
-		const known = first.get(lane);
-		if (known == null || time < known.time) first.set(lane, { time, point: { x, y } });
+		const known = first.get(marble);
+		if (known == null || time < known.time) first.set(marble, { time, point: { x, y } });
 	});
-	return [...first].map(([lane, hit]) => ({ marbleId: field.marbleIds[lane] as string, ...hit })).sort((a, b) => a.time - b.time);
+	return [...first].map(([marble, hit]) => ({ marbleId: field.marbleIds[marble] as string, ...hit })).sort((a, b) => a.time - b.time);
 }
 
 /** The run point nearest (x, y) within `reach`, with its distance and time; pieces don't count */
 export function nearestRunPoint(field: TObstacleField, x: number, y: number, reach: number): { distance: number; time: number } | null {
 	let best: { distance: number; time: number } | null = null;
 	eachNear(field, x, y, reach, (index) => {
-		if ((field.lane[index] as number) < 0) return;
+		if ((field.marble[index] as number) < 0) return;
 		const distance = Math.hypot((field.x[index] as number) - x, (field.y[index] as number) - y);
 		if (distance <= reach && (best == null || distance < best.distance)) best = { distance, time: field.time[index] as number };
 	});

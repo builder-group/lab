@@ -14,7 +14,7 @@ describe('renderMarbles function', () => {
 	);
 
 	it('should be silent before the first hit and audible after it', () => {
-		const audio = renderMarbles([lane('a', 9, [0.5, 1])], { sampleRate, duration: 1.5, bank });
+		const audio = renderMarbles([marble('a', 9, [0.5, 1])], { sampleRate, duration: 1.5, bank });
 
 		expect(audio.left).toHaveLength(Math.ceil(1.5 * sampleRate));
 		expect(peak(audio.left, 0, 0.49)).toBe(0);
@@ -25,7 +25,7 @@ describe('renderMarbles function', () => {
 
 	it('should render every instrument of the bank on repeated use', () => {
 		for (const program of [0, 9, 12, 46, 108]) {
-			const audio = renderMarbles([lane('a', program, [0.05])], { sampleRate, duration: 0.5, bank });
+			const audio = renderMarbles([marble('a', program, [0.05])], { sampleRate, duration: 0.5, bank });
 			expect(peak(audio.left, 0.05, 0.3)).toBeGreaterThan(0.005);
 		}
 	});
@@ -33,7 +33,7 @@ describe('renderMarbles function', () => {
 	it('should play Backing on its own channel with the notes held for their length', () => {
 		const backing = { instrument: 0, hits: [{ id: 'b', time: 0.2, pitch: 60, duration: 1 }] };
 
-		const audio = renderMarbles([lane('a', 9, [])], { sampleRate, duration: 1.5, bank, backing });
+		const audio = renderMarbles([marble('a', 9, [])], { sampleRate, duration: 1.5, bank, backing });
 
 		expect(peak(audio.left, 0, 0.19)).toBe(0);
 		expect(peak(audio.left, 0.2, 0.4)).toBeGreaterThan(0.01);
@@ -58,12 +58,12 @@ describe('renderMarbles function', () => {
 		]);
 	});
 
-	it('should render more than nine lanes', () => {
-		const lanes = Array.from({ length: 11 }, (_, index) =>
-			lane(`l${index}`, 12, index === 10 ? [0.1] : [])
+	it('should render more than nine marbles', () => {
+		const marbles = Array.from({ length: 11 }, (_, index) =>
+			marble(`l${index}`, 12, index === 10 ? [0.1] : [])
 		);
 
-		const audio = renderMarbles(lanes, { sampleRate, duration: 0.5, bank });
+		const audio = renderMarbles(marbles, { sampleRate, duration: 0.5, bank });
 
 		expect(peak(audio.left, 0.1, 0.3)).toBeGreaterThan(0.005);
 	});
@@ -71,7 +71,7 @@ describe('renderMarbles function', () => {
 
 describe('createMarbleEvents function', () => {
 	it('should end notes at the next hit or after 0.6 s', () => {
-		const events = createMarbleEvents([lane('a', 9, [1, 0, 0.2])], 1000);
+		const events = createMarbleEvents([marble('a', 9, [1, 0, 0.2])], 1000);
 
 		expect(events.map((event) => `${event.kind}@${event.sample}`)).toEqual([
 			'on@0',
@@ -84,10 +84,10 @@ describe('createMarbleEvents function', () => {
 	});
 
 	it('should map velocity defaults and play nothing for a hit without a pitch', () => {
-		const [on] = createMarbleEvents([{ ...lane('a', 9, []), hits: [{ id: 'h', time: 0, pitch: 76 }] }], 1000);
-		const silent = createMarbleEvents([{ ...lane('a', 9, []), hits: [{ id: 'h', time: 0 }] }], 1000);
+		const [on] = createMarbleEvents([{ ...marble('a', 9, []), hits: [{ id: 'h', time: 0, pitch: 76 }] }], 1000);
+		const silent = createMarbleEvents([{ ...marble('a', 9, []), hits: [{ id: 'h', time: 0 }] }], 1000);
 		const [loud] = createMarbleEvents(
-			[{ ...lane('a', 9, []), hits: [{ id: 'h', time: 0, pitch: 60, velocity: 1 }] }],
+			[{ ...marble('a', 9, []), hits: [{ id: 'h', time: 0, pitch: 60, velocity: 1 }] }],
 			1000
 		);
 
@@ -129,7 +129,7 @@ describe('mixAudioSource function', () => {
 	});
 });
 
-function lane(id: string, instrument: number, times: number[]): TLane {
+function marble(id: string, instrument: number, times: number[]): TLane {
 	return {
 		id,
 		name: id,

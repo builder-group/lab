@@ -8,10 +8,10 @@ import { PatternsCx } from './PatternsCx';
 
 function studio(): { cx: StudioCx; patterns: PatternsCx; group: TPatternGroup; run: ReturnType<typeof vi.fn> } {
 	const created = createProject({ title: 'Song' });
-	const lane = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
-	const pieces = lane.hits.map((hit, index) => createLinkedPiece('platform', lane.id, hit.id, 0.3, { id: `piece-${index}` }));
-	const group: TPatternGroup = { id: 'group-1', name: 'Zigzag', kind: 'zigzag', marbleId: lane.id, from: 1, to: 2, width: 0.14, bounce: 0.5, pieceIds: pieces.map((piece) => piece.id) };
-	const project: TProject = { ...created, music: { ...created.music, lanes: [lane] }, groups: [group], entities: [createMarble(lane, { x: 0, y: 0 }), ...pieces] };
+	const marble = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
+	const pieces = marble.hits.map((hit, index) => createLinkedPiece('platform', marble.id, hit.id, 0.3, { id: `piece-${index}` }));
+	const group: TPatternGroup = { id: 'group-1', name: 'Zigzag', kind: 'zigzag', marbleId: marble.id, from: 1, to: 2, width: 0.14, bounce: 0.5, pieceIds: pieces.map((piece) => piece.id) };
+	const project: TProject = { ...created, music: { ...created.music, marbles: [marble] }, groups: [group], entities: [createMarble(marble, { x: 0, y: 0 }), ...pieces] };
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	const patterns = new PatternsCx(cx);

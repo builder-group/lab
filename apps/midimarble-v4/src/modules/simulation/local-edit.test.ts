@@ -40,7 +40,7 @@ describe('settling an edit', () => {
 	describe('marbleEdits function', () => {
 		const project = loadFixture('zigzag');
 
-		it('should name the lane and the hit of a turned platform', () => {
+		it('should name the marble and the hit of a turned platform', () => {
 			expect(marbleEdits(project, turned(project, 'piece-1-5', 0.01))).toEqual([{ marbleId: 'lane-1', afterIndex: 4 }]);
 		});
 
@@ -52,7 +52,7 @@ describe('settling an edit', () => {
 					return entity.id === 'piece-1-5' && link != null ? { ...entity, components: { ...entity.components, hitLink: { ...link, contactAt: 0.3 } } } : entity;
 				})
 			};
-			expect(marbleEdits(project, slid)).toEqual([{ marbleId: 'lane-1', afterIndex: project.music.lanes[0]?.hits.length }]);
+			expect(marbleEdits(project, slid)).toEqual([{ marbleId: 'lane-1', afterIndex: project.music.marbles[0]?.hits.length }]);
 			expect(marbleEdits(project, turned(project, 'piece-1-16', 0.01))).toEqual([]);
 		});
 
@@ -113,15 +113,15 @@ describe('settling an edit', () => {
 			// Prepare
 			const project = loadFixture('long-gap');
 			const before = await fresh(project);
-			const lane = project.music.lanes[0];
-			const hits = lane?.hits ?? [];
+			const marble = project.music.marbles[0];
+			const hits = marble?.hits ?? [];
 			const target = hits[hits.length - 2];
 			const aiming = hits[hits.length - 3];
 			const dot = before.hits.find((hit) => hit.hitId === target?.id)?.dot;
-			if (lane == null || target == null || aiming == null || dot == null) throw new Error('Missing hit');
+			if (marble == null || target == null || aiming == null || dot == null) throw new Error('Missing hit');
 
 			// Act
-			const { answer } = answerSettle(simulator, { before: project, after: project, movedDot: { marbleId: lane.id, hitId: target.id, dot: { x: dot.x + 0.02, y: dot.y } } }, null);
+			const { answer } = answerSettle(simulator, { before: project, after: project, movedDot: { marbleId: marble.id, hitId: target.id, dot: { x: dot.x + 0.02, y: dot.y } } }, null);
 			const run = await fresh(landed(project, answer));
 
 			// Assert
@@ -141,7 +141,7 @@ describe('settling an edit', () => {
 
 		it('should start an edit at its earliest changed hit, or the platform before a moved dot', () => {
 			const project = loadFixture('zigzag');
-			const hits = project.music.lanes[0]?.hits ?? [];
+			const hits = project.music.marbles[0]?.hits ?? [];
 			expect(editStart(project, turned(project, 'piece-1-5', 0.01))).toBe(hits[4]?.time);
 			expect(editStart(project, project, { marbleId: 'lane-1', hitId: hits[6]?.id ?? '' })).toBe(hits[5]?.time);
 			expect(editStart(project, project)).toBe(-Infinity);

@@ -8,7 +8,7 @@ const HORIZON = 2;
 function tilted(project: TProject, time: number, by: number): TProject {
 	const linked = project.entities.flatMap((entity) => {
 		const link = entity.components.hitLink;
-		const hit = project.music.lanes.find((lane) => lane.id === link?.marbleId)?.hits.find((item) => item.id === link?.hitId);
+		const hit = project.music.marbles.find((marble) => marble.id === link?.marbleId)?.hits.find((item) => item.id === link?.hitId);
 		return link?.angle != null && entity.components.piece?.type === 'platform' && hit != null ? [{ entity, link, time: hit.time }] : [];
 	});
 	const target = linked.filter((item) => item.time >= time).sort((a, b) => a.time - b.time)[0];
@@ -69,6 +69,6 @@ describe('a preview that stops at a horizon', () => {
 		const simulator = await createSimulator();
 		const run = simulator.simulate(project, HORIZON);
 		expect(run.duration).toBeCloseTo(project.length, 2);
-		expect(run.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(project.music.lanes.reduce((count, lane) => count + lane.hits.length, 0));
+		expect(run.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(project.music.marbles.reduce((count, marble) => count + marble.hits.length, 0));
 	});
 });

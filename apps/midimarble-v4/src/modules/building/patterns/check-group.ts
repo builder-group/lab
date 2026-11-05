@@ -30,9 +30,9 @@ function standing(project: TProject, result: TSimulationResult): TProblemSummary
 }
 
 function hitWords(project: TProject, hitId: string): { marbleId: string; hitId: string; number: number; name: string } | null {
-	for (const lane of project.music.lanes) {
-		const index = lane.hits.findIndex((hit) => hit.id === hitId);
-		if (index >= 0) return { marbleId: lane.id, hitId, number: index + 1, name: lane.name };
+	for (const marble of project.music.marbles) {
+		const index = marble.hits.findIndex((hit) => hit.id === hitId);
+		if (index >= 0) return { marbleId: marble.id, hitId, number: index + 1, name: marble.name };
 	}
 	return null;
 }

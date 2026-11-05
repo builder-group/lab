@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { BACKING_ID, type THit, type TProject, type TSource } from '@/modules/project';
 import { addNoteCommands, clampPitch, isBlackKey, maxNoteLength, noteDragCommands, OPENING_GAP, openingRollOffset, pitchDeltaFor, pitchToRow, resizedNoteLength, rowCount, snapNoteTime, songRollRange } from './piano-roll';
 
-function project(lanes: (number | undefined)[][], backing: (number | undefined)[] = []): TProject {
+function project(marbles: (number | undefined)[][], backing: (number | undefined)[] = []): TProject {
 	const hits = (id: string, pitches: (number | undefined)[]): THit[] => pitches.map((pitch, index) => ({ id: `${id}-${index}`, time: index, pitch }));
 	return {
 		music: {
 			sources: [],
-			lanes: lanes.map((pitches, index) => ({ id: `lane-${index}`, name: 'Melody', color: '#f00', instrument: 9, hits: hits(`hit-${index}`, pitches) })),
+			marbles: marbles.map((pitches, index) => ({ id: `lane-${index}`, name: 'Melody', color: '#f00', instrument: 9, hits: hits(`hit-${index}`, pitches) })),
 			backing: hits('backing', backing)
 		}
 	} as unknown as TProject;

@@ -184,7 +184,7 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 					return <MarbleFinish key={marble.entityId} finish={marble.finish} center={center} radius={radius} turn={turn} time={playhead} />;
 				}
 				if (marble.rim == null) return null;
-				// Pearl marbles are near white; a ring in their hue says which lane each one is
+				// Pearl marbles are near white; a ring in their hue says which marble each one is
 				return (
 					<g key={marble.entityId}>
 						<circle cx={center.x} cy={center.y} r={radius * 1.35} fill="none" stroke={marble.rim} strokeOpacity={0.45} strokeWidth={Math.max(2, radius * 0.5)} style={{ filter: 'blur(2px)' }} />
