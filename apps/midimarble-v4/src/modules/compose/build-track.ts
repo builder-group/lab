@@ -90,8 +90,6 @@ const DEAD_END_COST = 100;
 /** What the Switchback layout costs against a straight rail that also works, and more when the marble just rode one, in units of `lookCost` */
 const SWITCHBACK_COST = 0.3;
 const SWITCHBACK_IN_A_ROW_COST = 0.3;
-/** Look of a tilt away from about 10°, in the same units per 10° */
-const LOOK_TILT = 10 * DEGREE;
 
 export interface TBuildCounts {
 	next: number;
@@ -454,19 +452,13 @@ function staysOnColumn(state: TBuildState, project: TProject, result: TSimulatio
 	return Math.abs(next.dot.x - column) <= COLUMN_TOLERANCE * length;
 }
 
-/**
- * How regular the lane's last hits look, lower is better, per hit: how far its dot lies from a column, in piece lengths,
- * how far its drop lies from the pace's for its interval, and how far its tilt lies from about 10°
- */
-function lookCost(project: TProject, result: TSimulationResult, laneId: string): number {
-	const band = frameBand(project, laneId);
+/** How regular the lane's last hits look, lower is better, per hit: how far each drop lies from the pace's for its interval, in piece lengths */
+function lookCost(result: TSimulationResult, laneId: string): number {
 	const length = PLACEMENT_LENGTH;
 	const played = result.hits.filter((hit) => hit.laneId === laneId && hit.pieceEntityId != null && hit.dot != null).sort((a, b) => a.targetTime - b.targetTime).slice(-1 - LOOK_AHEAD_HITS);
 	let cost = 0;
 	played.forEach((hit, index) => {
 		const before = played[index - 1];
-		const angle = project.entities.find((entity) => entity.id === hit.pieceEntityId)?.components.hitLink?.angle ?? 0;
-		cost += Math.abs(Math.abs((hit.dot?.x ?? 0) - band.centerX) - columnOffset(length)) / length + Math.abs(Math.abs(angle) - LOOK_TILT) / LOOK_TILT;
 		if (before?.dot != null && hit.dot != null && result.pace != null) cost += Math.abs(before.dot.y - hit.dot.y - result.pace.rate * (hit.targetTime - before.targetTime)) / length;
 	});
 	return cost / Math.max(1, played.length);
@@ -495,7 +487,7 @@ async function lookAhead(state: TBuildState, start: TProject, laneId: string): P
 	Object.assign(state.counts, counts);
 	state.reasons.splice(0, state.reasons.length, ...reasons);
 	state.inTheWay.splice(0, state.inTheWay.length, ...inTheWay);
-	return cost + lookCost(current, await run(state, current), laneId);
+	return cost + lookCost(await run(state, current), laneId);
 }
 
 /** The option that looks and goes on best over the next few hits, the first of equals */
