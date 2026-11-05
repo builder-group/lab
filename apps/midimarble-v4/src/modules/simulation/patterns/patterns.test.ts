@@ -40,7 +40,7 @@ const ids = (from: number, to: number): string[] => Array.from({ length: to - fr
 describe('fitPattern function', () => {
 	it('should play every note of a Zigzag on time in two straight columns', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
-		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', width: 0.14, drop: 0.08 }, { sim });
+		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', width: 0.14, drop: 0.08, barDepth: 0.03 }, { sim });
 		const measures = measurePattern(fit.project, sim.simulate(fit.project), LANE);
 
 		expect(fit.problems).toEqual([]);
@@ -49,6 +49,15 @@ describe('fitPattern function', () => {
 		expect(measures.columnStraightness).toBeLessThan(0.005);
 		expect(measures.dropPerHit).toBeCloseTo(fit.drop ?? 0, 2);
 		expect(fit.exit).not.toBeNull();
+	});
+
+	it('should keep Length and Depth asked for, with the strike on the bar', () => {
+		const project = smallProject([1, 1.4, 1.8, 2.2]);
+		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 4), kind: 'zigzag', width: 0.14, drop: 0.08, barLength: 0.04, barDepth: 0.03 }, { sim });
+
+		expect(fit.entities.map((entity) => entity.components.piece?.params['length'])).toEqual([0.04, 0.04, 0.04, 0.04]);
+		expect(fit.entities.map((entity) => entity.components.piece?.params['depth'])).toEqual([0.03, 0.03, 0.03, 0.03]);
+		expect(sim.simulate(fit.project).hits.every((hit) => hit.status === 'onTime' || hit.status === 'drifting')).toBe(true);
 	});
 
 	it('should step sideways by Width in a Staircase', () => {

@@ -7,7 +7,7 @@ The autonomous build updates this log after every slice. Newest entries go first
 Lens 85 mm, rig distance 1.36 m, pitch 1.15 and platform depth 9 cm are the defaults of new projects. Numbers and reasons in `references.md`, Tuned film view.
 
 - **Physics.** Colliders keep a fixed 4.5 cm (`COLLIDER_DEPTH`): at 9 cm colliders Jingle Bells missed 53 of 115 hits by rounding alone. Any depth now plays bit-identically.
-- **Skins.** Pegboard and Neon stop at 3.5 marble radii like the bar and device skins, so 9 cm doesn't make square tiles. Draft and Compose show that depth (`shownDepth`). `SKIN_OUT_RADII` 3 to 3.5. Assets without a fitted depth stay on the wall.
+- **Skins.** All platform skins follow Depth and Length with no limit, with four small feet near a plate's corners; bar caps sit on the plate's short ends. Draft, Compose and clearance use the real Depth. Assets without a fitted depth scale from their measured depth. A Group's re-run keeps the Length and Depth of its bars.
 - **Followed the lens.** `LEAD_LIMIT`, `FALL_LIMIT`, `GROUP_MARGIN`, `OPENING_ROOM`, `frameBand`, the e2e's zoom limit, follow-camera tests at equal framing and fixture cameras. `MIN_MARBLE_FRACTION` and the framing limits are shares of the frame and didn't change.
 - **Titles.** Screen titles export as plain text like the preview; a Plate field on the title asks for the soft box and shadow.
 - **Fixtures.** Rebuilt by their scripts: zigzag, staircase (with `fixtures:fix`), long-gap, windmill, two-marbles, tap-along, reference-20. Jingle Bells: `--finalize` for the camera and its 115 depths set to 9 cm in place, keeping its pieces, as depth doesn't touch its run.

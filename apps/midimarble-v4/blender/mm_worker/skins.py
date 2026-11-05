@@ -475,8 +475,6 @@ RIBBON_COLOR = '#d9a520'
 # Gift: a colour of its own per piece, so a run of them reads as a pile of presents
 # (paper, ribbon)
 GIFT_PAPERS = (('#a01522', RIBBON_COLOR), ('#14603a', RIBBON_COLOR), ('#ece4d2', '#a81a26'), ('#a01522', RIBBON_COLOR), ('#14603a', '#ece4d2'))
-# The furthest a built-in platform skin stands out of the wall, in marble radii
-SKIN_OUT_RADII = 3.5
 # Height of a Gift at the 16 mm marble of the Marble Race Kit: its top face is the contact surface
 PRESENT_HEIGHT = 0.017
 
@@ -484,7 +482,7 @@ PRESENT_HEIGHT = 0.017
 def present_box(frame, length, thickness):
     """(depth, y of the middle, top, bottom) of a box that stands on the wall and whose top face is the collider's"""
     k = frame.marble_radius / 0.008
-    depth = min(max(frame.depth, 2.2 * frame.marble_radius + 0.004 * k), 3.0 * frame.marble_radius)
+    depth = frame.depth
     top = thickness / 2
     return depth, frame.wall_y - 0.0004 - depth / 2, top, top - max(thickness * 1.15, PRESENT_HEIGHT * k)
 
@@ -535,10 +533,14 @@ def gift_spec(frame, length, thickness):
     }
 
 
-def plain_bar_depth(frame):
-    """How far a Pegboard or Neon bar stands out of the wall. Like the device and bar skins it stops at SKIN_OUT_RADII
-    marble radii, so the default 9 cm depth gives a bar rather than a square tile; `SKIN_OUT_RADII` in track-look.ts"""
-    return min(frame.depth, SKIN_OUT_RADII * frame.marble_radius)
+def add_feet(builder, length, back, front, underside, k, material=0):
+    """Four small feet near a plate's corners, under its contact surface"""
+    radius = 0.0028 * k
+    height = 0.006 * k
+    inset = min(0.0045 * k, length * 0.2, (back - front) * 0.2)
+    for x in (-length / 2 + inset, length / 2 - inset):
+        for y in (front + inset, back - inset):
+            builder.cylinder(radius, height, (x, y, underside - height / 2), axis='Z', bevel=0.0005 * k, segments=16)
 
 
 def platform_spec(frame, piece):
@@ -555,7 +557,7 @@ def platform_spec(frame, piece):
         # Bracket parts scale with the kit, measured against the 16 mm marble of the Marble Race Kit
         k = frame.marble_radius / 0.008
         standoff = 0.0025 * k
-        bar_depth = min(max(frame.depth * 0.72, 1.7 * frame.marble_radius), 3.2 * frame.marble_radius)
+        bar_depth = max(frame.depth - standoff, 0.001)
         bar_y = frame.wall_y - standoff - bar_depth / 2
         # The top face is the collider's contact surface; the bar reaches a little below the collider so it reads
         # as a solid ingot like the reference
@@ -563,30 +565,17 @@ def platform_spec(frame, piece):
         bar_z = thickness / 2 - bar_thickness / 2
         bar = MeshBuilder()
         bar.box((length, bar_depth, bar_thickness), (0.0, bar_y, bar_z), bevel=bar_thickness * 0.22, segments=3)
+        cap = 0.0045 * k
+        cap_size = (cap, bar_depth, bar_thickness * 1.15) if length >= bar_depth else (length, cap, bar_thickness * 1.15)
         for side in (-1, 1):
-            # End caps are flush with the contact surface and reach a little further down and out
-            bar.box((0.0045 * k, bar_depth * 1.04, bar_thickness * 1.15),
-                    (side * (length / 2 - 0.00225 * k), bar_y, bar_z - bar_thickness * 0.075), bevel=0.0007 * k, material=1)
+            # End caps on the plate's short ends, flush with the contact surface and reaching a little further down
+            at = (side * (length / 2 - cap / 2), bar_y) if length >= bar_depth else (0.0, bar_y + side * (bar_depth - cap) / 2)
+            bar.box(cap_size, (at[0], at[1], bar_z - bar_thickness * 0.075), bevel=0.0007 * k, material=1)
         bracket = MeshBuilder()
         underside = bar_z - bar_thickness / 2
-        drop = max(0.022 * k, thickness * 2.6)
-        base_z = underside - drop
-        bracket.cylinder(0.0055 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, base_z), axis='Y', bevel=0.0008 * k, segments=28)
-        bracket.cylinder(0.0028 * k, 0.003 * k, (0.0, frame.wall_y - 0.0042 * k, base_z), axis='Y', bevel=0.0006 * k, segments=20)
-        rod = rounded_polyline([
-            (0.0, frame.wall_y - 0.004 * k, base_z),
-            (0.0, bar_y, base_z),
-            (0.0, bar_y, underside + 0.0004 * k),
-        ], 0.004 * k)
-        bracket.tube(rod, 0.0012 * k, sides=10)
-        for side in (-1, 1):
-            arm = rounded_polyline([
-                (side * 0.001 * k, bar_y, base_z + 0.002 * k),
-                (side * length * 0.16, bar_y, underside - 0.002 * k),
-                (side * length * 0.22, bar_y, underside + 0.0004 * k),
-            ], 0.003 * k)
-            bracket.tube(arm, 0.0009 * k, sides=8)
-        bracket.box((length * 0.46, bar_depth * 0.7, 0.0012 * k), (0.0, bar_y, underside - 0.0006 * k), bevel=0.0004 * k)
+        # A small block on the wall under the plate's far end, and four feet near its corners
+        bracket.box((min(length * 0.5, 0.012 * k), standoff + 0.002 * k, 0.003 * k), (0.0, frame.wall_y - (standoff + 0.002 * k) / 2, underside - 0.0015 * k), bevel=0.0004 * k)
+        add_feet(bracket, length, bar_y + bar_depth / 2, bar_y - bar_depth / 2, underside, k)
         return {
             'root': bracket.to_mesh('MM bracket', [chrome]),
             'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [metal, chrome]), 'reactive': True}],
@@ -595,10 +584,11 @@ def platform_spec(frame, piece):
         return neon_platform_spec(frame, length, thickness)
     wood = themes.wood_material()
     bar = MeshBuilder()
-    depth = plain_bar_depth(frame)
+    depth = frame.depth
     bar.box((length, depth, thickness), (0.0, frame.wall_y - depth / 2, 0.0), bevel=min(thickness, depth) * 0.25)
     peg = MeshBuilder()
     peg.cylinder(0.0028, depth * 0.9, (0.0, frame.wall_y - depth * 0.45, -thickness / 2 - 0.0035), axis='Y', bevel=0.0006)
+    add_feet(peg, length, frame.wall_y, frame.wall_y - depth, -thickness / 2, frame.marble_radius / 0.008)
     return {
         'root': peg.to_mesh('MM peg', [wood]),
         'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [frame.toy(0.42, 0.3)]), 'reactive': True}],
@@ -610,7 +600,7 @@ def neon_platform_spec(frame, length, thickness):
     outline is the bar's own bevel, so the top face stays the collider's contact surface."""
     body, trim = neon_colors(frame)
     bar = MeshBuilder()
-    depth = plain_bar_depth(frame)
+    depth = frame.depth
     bar.box((length, depth, thickness), (0.0, frame.wall_y - depth / 2, 0.0), bevel=min(thickness, depth) * NEON_EDGE_SHARE, material=0)
     for face in bar.bm.faces:
         face.normal_update()
@@ -619,6 +609,7 @@ def neon_platform_spec(frame, length, thickness):
             face.material_index = 1
     peg = MeshBuilder()
     peg.cylinder(0.0028, depth * 0.9, (0.0, frame.wall_y - depth * 0.45, -thickness / 2 - 0.0035), axis='Y', bevel=0.0006)
+    add_feet(peg, length, frame.wall_y, frame.wall_y - depth, -thickness / 2, frame.marble_radius / 0.008)
     return {
         'root': peg.to_mesh('MM peg', [themes.neon_mount_material()]),
         'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [themes.neon_body_material(body), themes.neon_trim_material(trim)]),
@@ -644,7 +635,7 @@ def device_spec(frame, length, thickness):
     so the detail sits there."""
     k = frame.marble_radius / 0.008
     standoff = 0.002 * k
-    depth = min(max(frame.depth * 0.8, 2.0 * frame.marble_radius), 3.2 * frame.marble_radius)
+    depth = max(frame.depth - standoff, 0.001)
     back = frame.wall_y - standoff
     front = back - depth
     middle = (front + back) / 2
@@ -652,6 +643,7 @@ def device_spec(frame, length, thickness):
     stub = MeshBuilder()
     stub.cylinder(0.005 * k, 0.0025 * k, (0.0, frame.wall_y - 0.00125 * k, top - thickness), axis='Y', bevel=0.0006 * k, segments=24)
     stub.cylinder(0.0022 * k, standoff + 0.002 * k, (0.0, back - 0.001 * k + standoff / 2, top - thickness), axis='Y', segments=16)
+    add_feet(stub, length, back, front, top - thickness * 1.7, k)
     root = stub.to_mesh('MM stub', [themes.chrome_material()])
     body = MeshBuilder()
     if frame.device == 'device':

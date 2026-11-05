@@ -3,8 +3,8 @@ import type { TProject } from '@/modules/project';
 import { extraStrikes, MIN_PIECE_GAP, rollingHits, touchingPairs, visualShapes } from './track-look';
 import type { TResolvedPiece, TSimulationResult } from './types';
 
-function platform(entityId: string, x: number, y: number, hitTime = 1, angle = 0): TResolvedPiece {
-	return { entityId, type: 'platform', position: { x, y }, angle, params: { length: 0.09, thickness: 0.012 }, status: 'placed', hitTime } as unknown as TResolvedPiece;
+function platform(entityId: string, x: number, y: number, hitTime = 1, angle = 0, depth = 0.03): TResolvedPiece {
+	return { entityId, type: 'platform', position: { x, y }, angle, params: { length: 0.09, thickness: 0.012, depth }, status: 'placed', hitTime } as unknown as TResolvedPiece;
 }
 
 function project(hitIds: string[]): TProject {
@@ -49,10 +49,17 @@ describe('touchingPairs function', () => {
 	});
 
 	it('should name two bars the film shows on top of each other, well apart on the wall', () => {
-		// 6 cm apart on the wall, less than the 8 cm of wall a bar's body stands for at a pitch of 1.15 rad
+		// 8 cm apart on the wall; a 3 cm Depth stands for 6.7 cm of wall, and the bars' bodies close the rest, at a pitch of 1.15 rad
 		const pieces = [platform('piece-a', 0, 0.08, 1), platform('piece-b', 0, 0, 2)];
 		const pairs = touchingPairs(project(['a', 'b']), run(pieces));
 		expect(pairs.map((pair) => [pair.a, pair.b])).toEqual([['piece-a', 'piece-b']]);
+	});
+
+	it('should measure the film overlap with the piece\'s real Depth', () => {
+		// 25 cm apart on the wall: clear at 9 cm Depth, which stands for 20 cm of wall, not at 12 cm, which stands for 27 cm
+		const at = (depth: number) => [platform('piece-a', 0, 0.25, 1, 0, depth), platform('piece-b', 0, 0, 2, 0, depth)];
+		expect(touchingPairs(project(['a', 'b']), run(at(0.09)))).toEqual([]);
+		expect(touchingPairs(project(['a', 'b']), run(at(0.12))).map((pair) => pair.a)).toEqual(['piece-a']);
 	});
 
 	it('should leave bars seen straight on alone at the same distance', () => {

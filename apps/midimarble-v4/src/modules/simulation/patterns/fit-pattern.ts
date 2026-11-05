@@ -5,7 +5,7 @@ import { soundsHit } from '../pieces';
 import type { TSimulator } from '../simulate';
 import { extraStrikes, rollingHits, touchingPairs } from '../track-look';
 import type { TSimulationResult } from '../types';
-import { COLUMN_PROBLEM, fitBars, isOffColumn, MAX_TILT, sampleAt, type TBar, type TBarIssue, type TBarShape, type TBarsFit } from './fit-bars';
+import { BAR_LENGTH, COLUMN_PROBLEM, fitBars, isOffColumn, MAX_TILT, sampleAt, type TBar, type TBarIssue, type TBarShape, type TBarsFit } from './fit-bars';
 import { fitLongRail } from './fit-rail';
 
 /** Notes closer than this count as the next hop; a longer gap is left for a rail, where a marble must not free fall (`building-a-track`) */
@@ -25,6 +25,9 @@ export interface TFitPatternRequest {
 	bounce?: number;
 	/** A bounce per bar instead, aiming for this wall drop per hit, in metres */
 	drop?: number;
+	/** Bar size, the default plate's otherwise: Length changes the run, Depth is only how far it stands out */
+	barLength?: number;
+	barDepth?: number;
 	/** How many nearby shapes to try for a clean one; a hover preview takes the first */
 	maxTries?: number;
 	/** The last bar keeps its own direction instead of turning the marble toward the frame's middle */
@@ -161,7 +164,10 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 	const shape: TBarShape = {
 		kind,
 		width: asked,
-		strike: kind === 'zigzag' ? 0.0225 : 0,
+		// A quarter of a bar from its centre, toward where the marble flies next
+		strike: kind === 'zigzag' ? (request.barLength ?? BAR_LENGTH) / 4 : 0,
+		...(request.barLength != null ? { barLength: request.barLength } : {}),
+		...(request.barDepth != null ? { barDepth: request.barDepth } : {}),
 		bounce: request.bounce ?? 0.5,
 		...(isNextClose ? { stopBefore: true } : {}),
 		...(next != null && !isNextClose && request.keepsDirection !== true ? { exitToFrame: frameBand(project).centerX } : {})

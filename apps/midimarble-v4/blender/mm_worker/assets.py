@@ -39,10 +39,6 @@ ASSET_SKIN = 'asset'
 TEMPLATE_PREFIX = 'MM asset · '
 REACT_PREFIX = 'MM_REACT_'
 REACTION_KINDS = ('press', 'wobble', 'glow')
-# Fitted scale stays within this factor of the asset's own size, so a wrong manifest cannot blow it up
-MAX_FIT_SCALE = 4.0
-# The depth an asset without a fitted depth is taken to be built for, the default kit's until the 9 cm plates
-BUILT_DEPTH = 0.045
 
 
 def layout(piece_type):
@@ -220,7 +216,7 @@ def _populate(root, holder, piece, template, manifest, collection, context):
     frame_object['mm_owner'] = OWNER
 
     originals = sorted(template.all_objects, key=lambda obj: obj.name)
-    asset_matrix = contact_matrix(frame, kind, manifest)
+    asset_matrix = contact_matrix(frame, kind, manifest, built_depth(originals))
     curve = None
     if kind in ('path', 'tube') and len(frame.path) >= 2:
         curve = path_curve(root, frame, kind, collection)
@@ -261,9 +257,15 @@ def _populate(root, holder, piece, template, manifest, collection, context):
     root['mm_skin_print'] = fingerprint(root)
 
 
-def contact_matrix(frame, kind, manifest):
+def built_depth(originals):
+    """How deep an asset is built, measured from its meshes: None without any"""
+    ys = [corner[1] for obj in originals if obj.type == 'MESH' for corner in world_corners(obj)]
+    return max(ys) - min(ys) if ys else None
+
+
+def contact_matrix(frame, kind, manifest, built_depth=None):
     """Asset frame in the holder's local frame: x along the piece, y into the wall, z up from the contact face"""
-    scale = fit_scale(frame, kind, manifest)
+    scale = fit_scale(frame, kind, manifest, built_depth)
     if kind == 'sphere':
         return scale
     if kind == 'rotor':
@@ -272,21 +274,19 @@ def contact_matrix(frame, kind, manifest):
     if kind in ('path', 'tube'):
         return scale
     thickness = frame.params.get('thickness', 0.008)
-    fitted = manifest.get('fittedParams') if isinstance(manifest.get('fittedParams'), dict) else {}
-    # The origin sits mid depth, so an asset that does not scale with depth keeps to the wall as a deeper piece moves it out
-    to_wall = max(0.0, frame.depth - BUILT_DEPTH) / 2 if 'depth' not in fitted else 0.0
-    return Matrix.Translation((0.0, to_wall, thickness / 2)) @ scale
+    return Matrix.Translation((0.0, 0.0, thickness / 2)) @ scale
 
 
-def fit_scale(frame, kind, manifest):
-    """Scales the asset from the parameters it was built for (`fittedParams`) to the piece's own"""
+def fit_scale(frame, kind, manifest, built_depth=None):
+    """Scales the asset from the parameters it was built for (`fittedParams`) to the piece's own. A skin follows the
+    piece however large; only its contact surface has to match the Hitbox."""
     fitted = manifest.get('fittedParams') if isinstance(manifest.get('fittedParams'), dict) else {}
 
     def ratio(name):
         built, wanted = fitted.get(name), frame.params.get(name)
         if not isinstance(built, (int, float)) or isinstance(built, bool) or built <= 0 or wanted is None or wanted <= 0:
             return 1.0
-        return min(max(wanted / built, 1 / MAX_FIT_SCALE), MAX_FIT_SCALE)
+        return wanted / built
 
     if kind == 'sphere':
         uniform = ratio('radius')
@@ -297,7 +297,11 @@ def fit_scale(frame, kind, manifest):
     if kind in ('path', 'tube'):
         across = ratio('radius')
         return Matrix.Diagonal((1.0, across, across, 1.0))
-    return Matrix.Diagonal((ratio('length'), ratio('depth'), ratio('thickness'), 1.0))
+    depth = ratio('depth')
+    # Without a fitted depth the asset's measured depth stands for it, so it fills the piece from its origin at mid depth
+    if 'depth' not in fitted and built_depth is not None and built_depth > 1e-6:
+        depth = frame.depth / built_depth
+    return Matrix.Diagonal((ratio('length'), depth, ratio('thickness'), 1.0))
 
 
 def world_corners(obj):

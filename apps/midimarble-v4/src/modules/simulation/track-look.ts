@@ -1,7 +1,7 @@
 import type { TProject, TVec2 } from '@/modules/project';
 import { resolvedPieceShapes, shapesGap } from './clearance';
 import { layoutOf } from './piece-layout';
-import { soundsHit } from './pieces';
+import { shownDepth, soundsHit } from './pieces';
 import { shapeDistance, shapesBounds, type TBounds2, type TPieceShape } from './shapes';
 import { HIT_TOLERANCE, IMPACT_SPEED, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from './types';
 
@@ -58,12 +58,6 @@ export function columnOffset(pieceLength: number): number {
 	return STRIKE_COLUMN * pieceLength;
 }
 
-/**
- * How far a built-in platform skin stands out from the wall, in marble radii, whatever the piece's `depth`: a bar's
- * standoff and body, the deepest. `SKIN_OUT_RADII` in skins.py
- */
-const SKIN_OUT_RADII = 3.5;
-
 /** One convex outline in the image, in metres: x as on the wall, y as wall height the image's height stands for */
 export type TFilmOutline = TVec2[];
 
@@ -78,8 +72,8 @@ export interface TFilmView {
 
 /**
  * A piece as the film shows it. The camera looks along the wall at `pitch` from its normal, so a wall height folds by
- * cos(pitch) and what stands out from the wall shifts up by sin(pitch) of that distance: at 1.15 rad a 3.6 cm deep bar
- * covers as much of the image above its own top face as 8 cm of wall. So two bars well apart on the wall can lie on top
+ * cos(pitch) and what stands out from the wall shifts up by sin(pitch) of that distance: at 1.15 rad a 9 cm deep plate
+ * covers as much of the image above its own top face as 20 cm of wall. So two bars well apart on the wall can lie on top
  * of each other in the film. Heights are given back as wall heights, tan(pitch) of the distance from the wall, so the
  * one least gap holds everywhere. Perspective and the camera's small sway are left out.
  */
@@ -87,7 +81,7 @@ export function filmView(piece: TResolvedPiece, marbleRadius: number, pitch: num
 	const shapes = visualShapes(piece, marbleRadius);
 	const bounds = shapesBounds(shapes);
 	if (layoutOf(piece.type) !== 'box') return { shapes, outline: null, bounds, outlineBounds: null };
-	const shift = Math.tan(pitch) * SKIN_OUT_RADII * marbleRadius;
+	const shift = Math.tan(pitch) * shownDepth(piece);
 	const outline = convexHull(shapes.flatMap(shapeCorners).flatMap((point) => [point, { x: point.x, y: point.y + shift }]));
 	return { shapes, outline, bounds, outlineBounds: outlineBounds(outline) };
 }

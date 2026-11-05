@@ -238,12 +238,12 @@ def main():
     along = Vector((math.cos(PLATFORM_ANGLE), 0.0, math.sin(PLATFORM_ANGLE)))
     expected_tip = centre + along * (FITTED_LENGTH / 2 * PLATFORM['length'] / FITTED_LENGTH) - contact_normal() * 0.01
     check((tip - expected_tip).length < 1e-6, 'fittedParams stretch the asset to the platform length')
-    # A deeper plate: an asset fitted by depth scales across it about mid depth, one that is not stays on the wall
+    # A deeper plate: an asset fitted by depth scales across it about mid depth, one without takes its measured depth
     deep = SimpleNamespace(params={'length': 0.09, 'thickness': 0.012, 'depth': 0.09}, depth=0.09)
     fitted_deep = assets.contact_matrix(deep, 'box', {'fittedParams': {'length': 0.09, 'depth': 0.045}})
     check(abs(fitted_deep[1][1] - 2.0) < 1e-6 and abs(fitted_deep[1][3]) < 1e-9, 'an asset fitted to 4.5 cm doubles on a 9 cm plate, centred mid depth')
-    plain_deep = assets.contact_matrix(deep, 'box', {'fittedParams': {'length': 0.09}})
-    check(abs(plain_deep[1][1] - 1.0) < 1e-6 and abs(plain_deep[1][3] - 0.0225) < 1e-9, 'an asset without a fitted depth keeps its size and stays on the wall')
+    plain_deep = assets.contact_matrix(deep, 'box', {'fittedParams': {'length': 0.09}}, 0.045)
+    check(abs(plain_deep[1][1] - 2.0) < 1e-6 and abs(plain_deep[1][3]) < 1e-9, 'an asset measured at 4.5 cm doubles on a 9 cm plate, centred mid depth')
     skin.location = offset
 
     # The press part follows mm_hit; the holder and marble keys are untouched

@@ -163,15 +163,15 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	// A rail it replaces goes first: the new one may take its ID
 	let working = withoutPieces(project, [...(existing?.pieceIds ?? []), ...freed]);
 	const steps = 1 + later.length;
-	const askFit = (hitIds: string[], kind: TPatternKind, width: number, bounce: number, step: number, label: string, keepsDirection = false): TFitPatternResult =>
+	const askFit = (hitIds: string[], kind: TPatternKind, width: number, bounce: number, step: number, label: string, pieceIds: readonly string[], keepsDirection = false): TFitPatternResult =>
 		fitPattern(
-			{ project: working, laneId: lane.id, hitIds, kind, width, drop: dropForBounce(kind, bounce), ...(isPreview ? { maxTries: 1 } : {}), ...(keepsDirection ? { keepsDirection } : {}) },
+			{ project: working, laneId: lane.id, hitIds, kind, width, drop: dropForBounce(kind, bounce), ...barSizeOf(project, pieceIds), ...(isPreview ? { maxTries: 1 } : {}), ...(keepsDirection ? { keepsDirection } : {}) },
 			{ sim, onProgress: (fraction) => onProgress?.({ name: label, step, steps, fraction: (step - 1 + fraction) / steps }) }
 		);
 
 	const exitBefore = later[0] != null ? marbleAt(sim, project, lane.id, later[0].from) : null;
 	const before = [...others].reverse().find((group) => group.to <= target.from + 1e-6);
-	let fit = askFit(target.hitIds, change.kind, change.width, change.bounce, 1, name);
+	let fit = askFit(target.hitIds, change.kind, change.width, change.bounce, 1, name, existing?.pieceIds ?? []);
 	let refitBefore: { group: TGroup; fit: TFitPatternResult } | null = null;
 
 	// A rail that doesn't fit after the turn toward the frame: the bars before it play again without that turn
@@ -180,7 +180,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 		if (refit != null) {
 			const saved = working;
 			working = refit.project;
-			const retried = askFit(target.hitIds, change.kind, change.width, change.bounce, 1, name);
+			const retried = askFit(target.hitIds, change.kind, change.width, change.bounce, 1, name, existing?.pieceIds ?? []);
 			if (retried.entities.length > 0) {
 				fit = retried;
 				refitBefore = { group: before, fit: refit };
@@ -219,7 +219,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 				outcomes.push({ groupId: item.id, name: item.name, problems: [laterTarget.problem] });
 				return;
 			}
-			const laterFit = askFit(laterTarget.hitIds, item.kind, item.width, item.bounce, index + 2, item.name);
+			const laterFit = askFit(laterTarget.hitIds, item.kind, item.width, item.bounce, index + 2, item.name, item.pieceIds);
 			working = laterFit.project;
 			const { problems: _old, widthUsed: _oldWidth, ...plain } = item;
 			groups.set(item.id, { ...plain, pieceIds: laterFit.entities.map((entity) => entity.id), ...(item.kind !== 'longRail' && Math.abs(laterFit.width - item.width) > 1e-4 ? { widthUsed: laterFit.width } : {}), ...(laterFit.problems.length > 0 ? { problems: laterFit.problems } : {}) });
@@ -259,11 +259,18 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	};
 }
 
+/** The size a Group's bars have now, so running it again keeps a Length or Depth changed by hand */
+function barSizeOf(project: TProject, pieceIds: readonly string[]): { barLength?: number; barDepth?: number } {
+	const ids = new Set(pieceIds);
+	const params = project.entities.find((entity) => ids.has(entity.id) && entity.components.piece?.type === 'platform')?.components.piece?.params;
+	return { ...(params?.['length'] != null ? { barLength: params['length'] } : {}), ...(params?.['depth'] != null ? { barDepth: params['depth'] } : {}) };
+}
+
 /** The bars before a rail played again, the last one keeping its own direction; null when that leaves problems of its own */
 function refitBarsWithoutTurn(group: TGroup, lane: TLane, working: TProject, sim: TSimulator): TFitPatternResult | null {
 	if (group.kind === 'longRail') return null;
 	const hits = hitsInRange(lane, group.from, group.to).map((hit) => hit.id);
-	const fit = fitPattern({ project: withoutPieces(working, group.pieceIds), laneId: lane.id, hitIds: hits, kind: group.kind, width: group.width, bounce: group.bounce, keepsDirection: true }, { sim });
+	const fit = fitPattern({ project: withoutPieces(working, group.pieceIds), laneId: lane.id, hitIds: hits, kind: group.kind, width: group.width, bounce: group.bounce, keepsDirection: true, ...barSizeOf(working, group.pieceIds) }, { sim });
 	return fit.entities.length > 0 ? fit : null;
 }
 

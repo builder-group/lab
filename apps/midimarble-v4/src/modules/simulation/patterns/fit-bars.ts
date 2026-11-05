@@ -29,6 +29,8 @@ export interface TBarShape {
 	/** When set, a bounce per bar too, aiming for this wall drop per hit */
 	drop?: number;
 	barLength?: number;
+	/** How far the bars stand out of the wall: their look only, the run doesn't change with it */
+	barDepth?: number;
 	maxTilt?: number;
 	/** Staircase direction, Zigzag's first side when no arrival motion decides */
 	dir?: number;
@@ -172,7 +174,7 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 			let out: TTrial | null = null;
 			for (const shift of [0, 0.012, 0.02, 0.028]) {
 				const contactAt = clamp(strikeAt + (toward * shift) / length, 0.05, 0.95);
-				const entity = barEntity(laneId, id, tryAngle, tryBounce, contactAt, length);
+				const entity = barEntity(laneId, id, tryAngle, tryBounce, contactAt, length, shape.barDepth);
 				const next = withEntity(project, entity);
 				const trialResult = run(next, nextTime + 0.03);
 				trials++;
@@ -290,10 +292,10 @@ export function isOffColumn(bar: TBar): boolean {
 	return Math.abs(bar.errX) > COLUMN_CLOSE;
 }
 
-function barEntity(laneId: string, hitId: string, angle: number, bounce: number, contactAt: number, length: number): TEntity {
+function barEntity(laneId: string, hitId: string, angle: number, bounce: number, contactAt: number, length: number, depth = platformDefinition.params['depth']?.default ?? 0.09): TEntity {
 	const entity = createLinkedPiece('platform', laneId, hitId, angle, { id: `bar-${hitId}`, contactAt });
 	const piece = entity.components.piece;
-	if (piece != null) piece.params = { length, thickness: 0.012, depth: platformDefinition.params['depth']?.default ?? 0.09, bounce, entryDelay: 0 };
+	if (piece != null) piece.params = { length, thickness: 0.012, depth, bounce, entryDelay: 0 };
 	return entity;
 }
 
