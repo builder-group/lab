@@ -126,10 +126,10 @@ describe('selectionEnteringFilm function', () => {
 });
 
 describe('buildOutline function in Compose', () => {
-	it('should list only the Song and the marbles with their pieces; Film lists every layer', () => {
+	it('should list the Song, the marbles with their pieces and the Camera; Film lists every layer', () => {
 		const project = fullProject();
 
-		expect(buildOutline(project, { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'song', 'marble', 'piece', 'group', 'piece']);
+		expect(buildOutline(project, { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'song', 'marble', 'piece', 'group', 'piece', 'camera', 'shot']);
 		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('camera');
 		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('title');
 	});

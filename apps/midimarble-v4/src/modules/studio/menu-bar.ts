@@ -124,6 +124,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'view.fitSelection' },
 			'separator',
 			{ command: 'view.track3d' },
+			{ command: 'view.trackCamera' },
 			{ command: 'view.snap' },
 			{ command: 'view.showHitboxes' },
 			{ command: 'view.draftPreview' },

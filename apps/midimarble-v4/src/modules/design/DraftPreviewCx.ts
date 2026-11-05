@@ -16,7 +16,7 @@ import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { pickPiece, pieceScreenOutline } from './draft-outline';
-import { filmCamera, filmCameraAt, imageToWall, type TFilmCamera } from './film-camera';
+import { FilmCameraCache, imageToWall, type TFilmCamera } from './film-camera';
 import { hitboxOutlines } from './hitbox-outline';
 
 /**
@@ -33,8 +33,7 @@ export class DraftPreviewCx {
 
 	private renderer: ComposeRenderer | null = null;
 	private size = { width: 1, height: 1 };
-	private camera: { key: string; value: TFilmCamera } | null = null;
-	private orbited: { key: string; value: TFilmCamera } | null = null;
+	private readonly cameras = new FilmCameraCache();
 	private pose: TCameraPose | null = null;
 	private wallTheme: string | null = null;
 	private readonly scratchPose = createCameraPose();
@@ -74,7 +73,7 @@ export class DraftPreviewCx {
 
 	/** How far out from the wall the film runs the marble's path */
 	private pathZ(): number {
-		return this.camera?.value.build.description.marbles[0]?.pathDepth ?? MARBLE_Z;
+		return this.cameras.base?.build.description.marbles[0]?.pathDepth ?? MARBLE_Z;
 	}
 
 	/** CSS pixel position in the frame of a wall point at depth `z`, through the film camera */
@@ -96,7 +95,7 @@ export class DraftPreviewCx {
 
 	/** Scene description entry of a piece, for its theme colors */
 	scenePiece(entityId: string): TScenePiece | undefined {
-		return this.camera?.value.build.description.pieces.find((piece) => piece.id === entityId);
+		return this.cameras.base?.build.description.pieces.find((piece) => piece.id === entityId);
 	}
 
 	/** Theme colors of a piece in the draft */
@@ -364,17 +363,9 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		const result = this.studio.simulation.$result.get();
 		if (project == null || result == null) return null;
-		// The result changes with every edit; the description also carries skins, colors and theme options
-		const key = `${result.revision}:${project.revision}`;
-		if (this.camera?.key !== key) {
-			this.camera = { key, value: filmCamera(project, result) };
-			this.$isManualCamera.set(this.camera.value.isManual);
-		}
-		const orbit = this.studio.design.$orbit.get();
-		if (orbit == null) return this.camera.value;
-		const orbitKey = `${key}:${orbit.side}:${orbit.pitch}`;
-		if (this.orbited?.key !== orbitKey) this.orbited = { key: orbitKey, value: filmCameraAt(this.camera.value, orbit) };
-		return this.orbited.value;
+		const camera = this.cameras.at(project, result, this.studio.design.$orbit.get());
+		this.$isManualCamera.set(camera.isManual);
+		return camera;
 	}
 
 	private draw(): void {

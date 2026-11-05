@@ -13,7 +13,7 @@ import { TimeGutter } from './Ruler';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
 
 /**
- * The Camera track of the Film workspace, last like the Camera row in Layers: its shots are the marks on the lane, like
+ * The Camera track, in both workspaces, last like the Camera row in Layers: its shots are the marks on the lane, like
  * Blender's camera markers. A press anywhere on the row selects the Camera, as its row in Layers does; a press on a mark
  * selects that shot, dragging moves its time with one undo step, and a double-click on the lane adds a shot.
  */
@@ -56,7 +56,8 @@ export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 				}}
 			>
 				<CameraShotSpans project={project} zoom={zoom} selection={selection} dragged={drag?.moved ? drag : null} />
-				<CameraIssues cx={cx} project={project} zoom={zoom} />
+				{/* Framing problems are Film's */}
+				{cx.$workspace.get() === 'design' ? <CameraIssues cx={cx} project={project} zoom={zoom} /> : null}
 				{shots.map((shot) => {
 					const key = toShotKey(shot.id);
 					const isSelected = selection.includes(key);

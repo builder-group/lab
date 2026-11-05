@@ -3,7 +3,9 @@ import React from 'react';
 import { openContextMenu } from '@/components';
 import type { TVec2 } from '@/modules/project';
 import { patternOfPiece } from '@/modules/simulation';
+import { startCameraOrbit } from '@/modules/design/camera-orbit';
 import { pieceMenu } from '@/modules/studio/menus';
+import { CAMERA_KEY } from '@/modules/studio/selection';
 import type { StudioCx, TTrackView } from '@/modules/studio/StudioCx';
 import type { ComposeCx } from './ComposeCx';
 import { groupSelection } from './PatternsCx';
@@ -12,10 +14,11 @@ import { Track3DCx } from './Track3DCx';
 
 const views: { id: TTrackView; label: string; title: string }[] = [
 	{ id: '2d', label: '2D', title: 'Flat and precise, with all editing' },
-	{ id: '3d', label: '3D', title: 'Look around the track: drag to turn, it selects but nothing drags' }
+	{ id: '3d', label: '3D', title: 'Look around the track: drag to turn, it selects but nothing drags' },
+	{ id: 'camera', label: 'Camera', title: "Through the film's camera; with the Camera layer selected a drag orbits it" }
 ];
 
-/** Track's 2D or 3D switch, at the canvas's top right beside Snap and Follow */
+/** Track's 2D, 3D or Camera switch, at the canvas's top right beside Snap and Follow */
 export const TrackViewSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const view = useFeatureState(cx.$trackView);
@@ -31,7 +34,7 @@ export const TrackViewSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 };
 
 /**
- * Track's 3D view over the flat canvas, which stays mounted behind it so the tool rail, keys and Follow keep working.
+ * Track's 3D or Camera view over the flat canvas, which stays mounted behind it so the tool rail, keys and Follow keep working.
  * Choosing 2D eases back to front-on before it goes. Arming a tool or dragging a tile out of Insert goes to 2D, the only
  * place they work.
  */
@@ -40,9 +43,9 @@ export const Track3DView: React.FC<{ compose: ComposeCx }> = (props) => {
 	const cx = compose.studio;
 	const view = useFeatureState(cx.$trackView);
 	// Coming back from Film already in 3D doesn't replay the ease
-	const [startsIn3d] = React.useState(view === '3d');
-	const [isShown, setIsShown] = React.useState(view === '3d');
-	if (view === '3d' && !isShown) setIsShown(true);
+	const [startsIn3d] = React.useState(view !== '2d');
+	const [isShown, setIsShown] = React.useState(view !== '2d');
+	if (view !== '2d' && !isShown) setIsShown(true);
 
 	React.useEffect(() => {
 		const stops = [
@@ -77,9 +80,13 @@ const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boo
 	const spaceHeld = useFeatureState(compose.$spaceHeld);
 	const tool = useFeatureState(compose.$tool);
 	const [hover, setHover] = React.useState<string | null>(null);
-	const dragRef = React.useRef<{ kind: 'turn' | 'pan'; last: TVec2; moved: number } | null>(null);
+	const dragRef = React.useRef<{ kind: 'turn' | 'pan' | 'still'; last: TVec2; moved: number } | null>(null);
 	const [isDragging, setIsDragging] = React.useState(false);
-	const isPanTool = spaceHeld || tool === 'hand';
+	const selection = useFeatureState(cx.$selection);
+	const cameraMode = useFeatureState(cx.$history)?.present.design.camera.mode;
+	const isCamera = view === 'camera';
+	const canOrbit = isCamera && selection.includes(CAMERA_KEY) && cameraMode === 'rig';
+	const isPanTool = !isCamera && (spaceHeld || tool === 'hand');
 
 	React.useEffect(() => {
 		const container = containerRef.current;
@@ -89,7 +96,8 @@ const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boo
 	}, [track]);
 
 	React.useEffect(() => {
-		if (view === '3d') {
+		if (view !== '2d') {
+			track.setView(view === 'camera' ? 'camera' : 'orbit');
 			if (track.$amount.get() < 1) track.easeTo(1);
 		} else track.easeTo(0, onFlat);
 	}, [track, view, onFlat]);
@@ -111,15 +119,16 @@ const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boo
 	return (
 		<div
 			ref={containerRef}
-			className="absolute inset-0 z-[25] touch-none bg-[var(--canvas)]"
+			className="absolute inset-0 z-[25] touch-none overflow-hidden bg-[var(--canvas)]"
 			// The flat canvas and this one match at the ends of the ease, so a short fade hides the change of look
-			style={{ opacity: Math.min(1, amount * 8), pointerEvents: view === '3d' ? undefined : 'none', cursor: isDragging ? 'grabbing' : isPanTool ? 'grab' : hover != null ? 'pointer' : 'default' }}
+			style={{ opacity: Math.min(1, amount * 8), pointerEvents: view !== '2d' ? undefined : 'none', cursor: isDragging ? 'grabbing' : isPanTool || canOrbit ? 'grab' : hover != null ? 'pointer' : 'default' }}
 			role="img"
-			aria-label="Track in 3D"
+			aria-label={isCamera ? "Track through the film's camera" : 'Track in 3D'}
 			onPointerDown={(event) => {
 				if (event.button !== 0 && event.button !== 1) return;
 				event.currentTarget.setPointerCapture(event.pointerId);
-				dragRef.current = { kind: isPanTool || event.button === 1 ? 'pan' : 'turn', last: pointOf(event), moved: 0 };
+				dragRef.current = { kind: isCamera ? 'still' : isPanTool || event.button === 1 ? 'pan' : 'turn', last: pointOf(event), moved: 0 };
+				if (canOrbit && event.button === 0) startCameraOrbit(cx, event);
 			}}
 			onPointerMove={(event) => {
 				const point = pointOf(event);
@@ -131,14 +140,14 @@ const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boo
 				const [dx, dy] = [point.x - drag.last.x, point.y - drag.last.y];
 				const moved = drag.moved + Math.hypot(dx, dy);
 				dragRef.current = { ...drag, last: point, moved };
-				if (moved < CLICK_SLOP) return;
+				if (moved < CLICK_SLOP || (drag.kind === 'still' && !canOrbit)) return;
 				setIsDragging(true);
 				if (drag.kind === 'turn') track.turn(dx, dy);
-				else track.pan(dx, dy);
+				else if (drag.kind === 'pan') track.pan(dx, dy);
 			}}
 			onPointerUp={(event) => {
 				const drag = dragRef.current;
-				if (drag != null && drag.moved < CLICK_SLOP && drag.kind === 'turn') select(track.pick(pointOf(event)), event.shiftKey);
+				if (drag != null && drag.moved < CLICK_SLOP && drag.kind !== 'pan') select(track.pick(pointOf(event)), event.shiftKey);
 				dragRef.current = null;
 				setIsDragging(false);
 			}}
@@ -155,9 +164,19 @@ const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boo
 			}}
 		>
 			<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+			<Viewfinder track={track} />
 			<Outlines track={track} hover={hover} />
 		</div>
 	);
+};
+
+/** The film's frame in the Camera view: the wall beyond it dims, like Blender's passepartout */
+const Viewfinder: React.FC<{ track: Track3DCx }> = (props) => {
+	const { track } = props;
+	useFeatureState(track.$frame);
+	const frame = track.filmFrame;
+	if (frame == null) return null;
+	return <div className="pointer-events-none absolute" style={{ left: frame.x, top: frame.y, width: frame.width, height: frame.height, boxShadow: '0 0 0 2000px rgb(0 0 0 / 0.6)' }} />;
 };
 
 /** The selection and what the pointer is over, drawn over the view */

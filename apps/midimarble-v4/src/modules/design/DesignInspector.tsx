@@ -105,7 +105,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		<Panel
 			id="design.camera"
 			title="Camera"
-			accessory={<HelpTip text="Automatic: the camera follows the marbles, shaped by the shots; drag in Film's preview to orbit it. Manual: you move and animate the camera in Blender and the app leaves it alone." />}
+			accessory={<HelpTip text="Automatic: the camera follows the marbles, shaped by the shots; drag in Track's Camera view or Film's preview to orbit it. Manual: you move and animate the camera in Blender and the app leaves it alone." />}
 		>
 			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Camera mode">
 				{(['rig', 'manual'] as const).map((mode) => (
@@ -116,7 +116,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</div>
 			{camera.mode === 'rig' ? (
 				<>
-					<FramingProblem cx={cx} project={project} />
+					{cx.$workspace.get() === 'design' ? <FramingProblem cx={cx} project={project} /> : null}
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
 					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the preview to orbit" value={radiansToDegrees(angles.side)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ side: degreesToRadians(value) })} />
 					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the preview to orbit" value={radiansToDegrees(angles.pitch)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ pitch: degreesToRadians(value) })} />

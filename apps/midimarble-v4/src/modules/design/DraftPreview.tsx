@@ -12,7 +12,6 @@ import { DraftEffects } from './DraftEffects';
 import { dropTitle, isInsertDrag, LIBRARY_DRAG_TYPE, readDecorDrop } from './FilmInsert';
 import { SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
-import { appliedOverrides } from './project-themes';
 import { HitboxOverlay } from './HitboxOverlay';
 
 /**
@@ -27,9 +26,6 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 	const [dropTarget, setDropTarget] = React.useState(false);
 	const swallowClickRef = React.useRef(false);
 	const hasResult = useFeatureState(studio.simulation.$result) != null;
-	const design = useFeatureState(studio.$history)?.present.design;
-	// A Background color the theme or the Wall layer set shows around the frame, where the film has no wall
-	const background = design != null ? appliedOverrides(design).backgroundColor : undefined;
 
 	React.useEffect(() => {
 		const container = containerRef.current;
@@ -87,7 +83,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 	return (
 		<div
 			className="flex h-full min-h-0 w-full min-w-0 items-center justify-center"
-			style={{ containerType: 'size', background }}
+			style={{ containerType: 'size' }}
 			onClick={(event) => {
 				if (event.target === event.currentTarget && !event.shiftKey && !isPlacing) studio.$selection.set([]);
 			}}

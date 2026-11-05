@@ -233,9 +233,9 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	// A recording's mute and solo are the Song's alone, so they leave the marbles' hits as they are
 	const partMix = isAudioSong(project) ? EMPTY_MIX : currentMix(project, mix);
 	const showsParts = isSongExpanded && songRows != null;
-	const showsCamera = workspace === 'design';
+	const showsTitles = workspace === 'design';
 	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
-	const rowsHeight = project.music.lanes.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
+	const rowsHeight = project.music.lanes.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + CAMERA_ROW_HEIGHT;
 
 	// MARK: - UI
 
@@ -304,9 +304,9 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							<span className="mm-placeholder-body">Import a MIDI file with ⌘I, drop one on the window or add a marble with +.</span>
 						</div>
 					) : null}
-					{/* The same layers as Layers, in the same order: Song, marbles, then in Film Camera and Titles */}
-					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
-					{showsCamera ? <TitlesRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
+					{/* The same layers as Layers, in the same order: Song, marbles, the Camera, then in Film Titles */}
+					<CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} />
+					{showsTitles ? <TitlesRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{/* The header column continues below the last lane, like Logic's track list */}
 					<div
 						className="flex flex-1"

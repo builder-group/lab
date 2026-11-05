@@ -11,9 +11,9 @@ import type { TWorkspace } from './StudioCx';
  * The project's layers in display order, which the Layers list draws and Shift ranges and arrow keys follow:
  * the Scene in both workspaces, the Song while the project has one, each marble with the Rail it starts on and the pieces it plays or that follow it in hit order, Pieces
  * (those no marble plays, follows or starts on), the Wall, the Lights, the Camera with its shots, Titles and Decor, a fixed order by
- * kind. Compose is the performance and shows only the Song and the marbles with their pieces; Film is the
- * presentation and shows every layer. Rows of a collapsed group leave out
- * their children. The timeline shows only what changes over time: the Song, the marbles, and in Film the Camera and Titles.
+ * kind. Track is the skeleton and shows the Song, the marbles with their pieces and the Camera; Film is what the viewer
+ * sees and shows every layer. Rows of a collapsed group leave out
+ * their children. The timeline shows only what changes over time: the Song, the marbles, and the Camera, and in Film Titles.
  */
 export function buildOutline(project: TProject, options: TOutlineOptions = {}): TOutlineRow[] {
 	const { collapsed = [], workspace = 'design', blenderObjects = [] } = options;
@@ -51,7 +51,10 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 		}
 	}
 
-	if (workspace === 'compose') return rows;
+	const shots = [...project.design.camera.shots].sort((a, b) => a.time - b.time);
+	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
+	const cameraRows: TOutlineRow[] = [{ kind: 'camera', id: CAMERA_KEY, depth: 0, parentId: null, groupKey: CAMERA_KEY, hasChildren: shots.length > 0, isOpen: isCameraOpen }, ...(isCameraOpen ? shots.map((shot): TOutlineRow => ({ kind: 'shot', id: toShotKey(shot.id), depth: 1, parentId: CAMERA_KEY, shot })) : [])];
+	if (workspace === 'compose') return [...rows, ...cameraRows];
 
 	rows.push({ kind: 'wall', id: WALL_KEY, depth: 0, parentId: null });
 
@@ -63,10 +66,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 		for (const light of lights) rows.push({ kind: 'light', id: toLightKey(light.id), depth: 1, parentId: LIGHTS_KEY, label: light.name, light });
 	}
 
-	const shots = [...project.design.camera.shots].sort((a, b) => a.time - b.time);
-	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
-	rows.push({ kind: 'camera', id: CAMERA_KEY, depth: 0, parentId: null, groupKey: CAMERA_KEY, hasChildren: shots.length > 0, isOpen: isCameraOpen });
-	if (isCameraOpen) for (const shot of shots) rows.push({ kind: 'shot', id: toShotKey(shot.id), depth: 1, parentId: CAMERA_KEY, shot });
+	rows.push(...cameraRows);
 
 	// Titles and Decor always show in Film, empty too, each with its inline +
 	const titles = project.entities.filter((entity) => entity.components.wallText != null).reverse();
@@ -121,7 +121,7 @@ export function groupsOfSelection(project: TProject, selection: readonly string[
 export interface TOutlineOptions {
 	/** Group keys of folded groups: a lane ID, the Camera key or a group row's ID */
 	collapsed?: string[];
-	/** Compose leaves out the Wall, the Lights, the Camera, its shots, the titles and Decor; Film, the default, shows every layer */
+	/** Track leaves out the Wall, the Lights, the titles and Decor; Film, the default, shows every layer */
 	workspace?: TWorkspace;
 	/** Objects the Blender file holds that the app doesn't own, listed under Decor as Made in Blender */
 	blenderObjects?: readonly TBlenderObject[];
@@ -177,9 +177,9 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'decor'; decor: TDecor })
 	| (TOutlineRowBase & { kind: 'madeInBlender'; name: string });
 
-/** Whether a row belongs to the Film workspace only: the Wall, the Lights, the Camera with its shots, the titles and Decor */
+/** Whether a row belongs to the Film workspace only: the Wall, the Lights, the titles and Decor */
 export function isFilmRow(row: TOutlineRow): boolean {
-	return row.kind === 'wall' || row.kind === 'light' || row.kind === 'camera' || row.kind === 'shot' || row.kind === 'title' || row.kind === 'decor' || row.kind === 'madeInBlender' || (row.kind === 'group' && (row.id === TITLES_KEY || row.id === LIGHTS_KEY || row.id === DECOR_KEY));
+	return row.kind === 'wall' || row.kind === 'light' || row.kind === 'title' || row.kind === 'decor' || row.kind === 'madeInBlender' || (row.kind === 'group' && (row.id === TITLES_KEY || row.id === LIGHTS_KEY || row.id === DECOR_KEY));
 }
 
 /** Whether a click on the row selects the row itself; group rows select their children instead */

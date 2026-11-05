@@ -44,7 +44,7 @@ export interface TCommand {
 	 * The workspace the command acts in when its section does not say it, such as the Compose canvas's zoom.
 	 * Tools and Pieces belong to Compose and Film to Film; the rest work in both.
 	 */
-	workspace?: TWorkspace;
+	workspace?: TWorkspace | null;
 	isEnabled?: (cx: StudioCx) => boolean;
 	/** Why it can't run right now, in a sentence, for what isn't plain from the project and selection */
 	whyDisabled?: string;
@@ -267,7 +267,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Edit',
 		shortcut: '⌫',
 		keywords: 'remove',
-		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && (selectedShotIds(cx).length > 0 || selectedLightIds(cx).length > 0 || selectedDecorIds(cx.$selection.get()).length > 0 || selectedTitleIds(cx).length > 0)) || isSongSelected(cx),
+		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || selectedShotIds(cx).length > 0 || (inDesign(cx) && (selectedLightIds(cx).length > 0 || selectedDecorIds(cx.$selection.get()).length > 0 || selectedTitleIds(cx).length > 0)) || isSongSelected(cx),
 		run: (cx) => {
 			// The Song layer alone deletes the song file and Backing; the marbles keep their hits
 			if (isSongSelected(cx) && cx.$selection.get().length === 1) {
@@ -334,6 +334,16 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => cx.$trackView.set(cx.$trackView.get() === '3d' ? '2d' : '3d')
 	},
 	{
+		id: 'view.trackCamera',
+		workspace: 'compose',
+		title: 'Camera View',
+		section: 'View',
+		keywords: 'through the film camera frame framing orbit track view',
+		isEnabled: hasProject,
+		isChecked: (cx) => cx.$trackView.get() === 'camera',
+		run: (cx) => cx.$trackView.set(cx.$trackView.get() === 'camera' ? '2d' : 'camera')
+	},
+	{
 		id: 'view.showHitboxes',
 		workspace: 'design',
 		title: 'Show Hitboxes',
@@ -350,7 +360,7 @@ export const commands: readonly TCommand[] = [
 		section: 'View',
 		shortcut: followKey.key,
 		keywords: 'catch playhead autoscroll track scroll keep in view playback',
-		isEnabled: (cx) => compose(cx) != null,
+		isEnabled: (cx) => compose(cx) != null && cx.$trackView.get() === '2d',
 		isChecked: (cx) => compose(cx)?.$follow.get() === true,
 		run: (cx) => compose(cx)?.toggleFollow()
 	},
@@ -498,11 +508,12 @@ export const commands: readonly TCommand[] = [
 	},
 	{
 		id: 'camera.addShot',
+		workspace: null,
 		title: 'Add Shot',
 		section: 'Film',
 		shortcut: '⇧M',
 		keywords: 'camera marker keyframe push in wide follow close up',
-		isEnabled: inDesign,
+		isEnabled: hasProject,
 		run: (cx) => {
 			const project = cx.project;
 			if (project == null) return;
@@ -549,7 +560,7 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Layers and settings, found by name in ⌘K
 	selectLayerCommand('layer.wall', 'Wall', WALL_KEY, 'warm cold color background plaster pegboard grid skin'),
 	selectLayerCommand('layer.keyLight', 'Key Light', KEY_LIGHT_KEY, 'warm cold bright dark sun main lighting'),
-	selectLayerCommand('layer.camera', 'Camera', CAMERA_KEY, 'closer zoom distance turn orbit rotate sway shake tilt angle'),
+	{ ...selectLayerCommand('layer.camera', 'Camera', CAMERA_KEY, 'closer zoom distance turn orbit rotate sway shake tilt angle'), workspace: null },
 	{
 		id: 'layer.song',
 		title: 'Song',
@@ -718,6 +729,7 @@ export type TCommandId =
 	| 'tool.path'
 	| 'view.snap'
 	| 'view.track3d'
+	| 'view.trackCamera'
 	| 'build.next'
 	| 'build.track'
 	| 'build.rebuildFrom'
@@ -769,7 +781,7 @@ export function getCommand(id: TCommandId): TCommand {
 
 /** The workspace a command acts in, or null when it works in both */
 export function commandWorkspace(command: TCommand): TWorkspace | null {
-	if (command.workspace != null) return command.workspace;
+	if (command.workspace !== undefined) return command.workspace;
 	if (command.section === 'Tools' || command.section === 'Track') return 'compose';
 	if (command.section === 'Film') return 'design';
 	return null;
@@ -851,7 +863,7 @@ export function deleteSelectedHits(cx: StudioCx): boolean {
 		return applied;
 	}
 	const shotIds = selectedShotIds(cx);
-	if (inDesign(cx) && shotIds.length > 0) {
+	if (shotIds.length > 0) {
 		const applied = cx.execute(removeShotsCommands(project, shotIds));
 		if (applied) cx.$selection.set([]);
 		return applied;

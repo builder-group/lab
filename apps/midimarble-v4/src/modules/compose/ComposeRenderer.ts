@@ -446,6 +446,8 @@ export class ComposeRenderer {
 		const { width, height } = this.viewport;
 		if (film == null || film.frame.height <= 0) return;
 		const { position, rotation } = film.pose;
+		this.film.near = CAMERA_CLIP_START;
+		this.film.far = CAMERA_CLIP_END;
 		this.film.position.set(position[0], position[2], -position[1]);
 		filmRotation.set(rotation[1], rotation[2], rotation[3], rotation[0]);
 		this.film.quaternion.copy(blenderToScene).multiply(filmRotation);

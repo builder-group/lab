@@ -1005,22 +1005,21 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 	const follow = useFeatureState(compose.$follow);
 	const snapping = useFeatureState(compose.studio.$snapping);
 	const trackView = useFeatureState(compose.studio.$trackView);
+	// Only the flat view snaps and follows
+	if (trackView !== '2d') return null;
 	return (
 		<div className="mm-floating mm-tooltip-below flex items-center gap-0.5 p-[3px]">
-			{/* Nothing drags in 3D, so there is nothing to snap */}
-			{trackView === '2d' ? (
-				<button
-					className="mm-tool-button !h-7 !w-7"
-					data-active={snapping}
-					aria-label="Snap"
-					aria-pressed={snapping}
-					onClick={() => compose.studio.$snapping.set(!snapping)}
-					type="button"
-				>
-					<Magnet size={14} strokeWidth={1.7} />
-					<span className="mm-tooltip">Snap pieces to notes and marbles · hold ⌥ to skip</span>
-				</button>
-			) : null}
+			<button
+				className="mm-tool-button !h-7 !w-7"
+				data-active={snapping}
+				aria-label="Snap"
+				aria-pressed={snapping}
+				onClick={() => compose.studio.$snapping.set(!snapping)}
+				type="button"
+			>
+				<Magnet size={14} strokeWidth={1.7} />
+				<span className="mm-tooltip">Snap pieces to notes and marbles · hold ⌥ to skip</span>
+			</button>
 			<button
 				className="mm-tool-button !h-7 !w-7"
 				data-active={follow}

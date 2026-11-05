@@ -34,6 +34,27 @@ export function filmCameraAt(film: TFilmCamera, angles: TCameraAngles): TFilmCam
  * Wall point under a point of the film frame, in 0..1 image coordinates, seen through the film camera's pose.
  * Null when the ray misses the wall.
  */
+/** The film's camera for the current project and run, computed once per edit, and turned while `orbit` is set */
+export class FilmCameraCache {
+	private camera: { key: string; value: TFilmCamera } | null = null;
+	private orbited: { key: string; value: TFilmCamera } | null = null;
+
+	/** What the last `at` was computed from, before any orbit */
+	get base(): TFilmCamera | null {
+		return this.camera?.value ?? null;
+	}
+
+	at(project: TProject, result: TSimulationResult, orbit: TCameraAngles | null): TFilmCamera {
+		// The result changes with every edit; the description also carries skins, colors and theme options
+		const key = `${result.revision}:${project.revision}`;
+		if (this.camera?.key !== key) this.camera = { key, value: filmCamera(project, result) };
+		if (orbit == null) return this.camera.value;
+		const orbitKey = `${key}:${orbit.side}:${orbit.pitch}`;
+		if (this.orbited?.key !== orbitKey) this.orbited = { key: orbitKey, value: filmCameraAt(this.camera.value, orbit) };
+		return this.orbited.value;
+	}
+}
+
 export function imageToWall(pose: TCameraPose, aspect: number, u: number, v: number): TVec2 | null {
 	const halfHeight = Math.tan((verticalFov(pose.lens, aspect) * Math.PI) / 360);
 	const halfWidth = halfHeight * aspect;

@@ -638,6 +638,11 @@ export class ComposeCx {
 	}
 
 	/** The user moves the view by hand: Follow turns off and a glide in progress stops where it is */
+	/** Follow works in 2D; the 3D and Camera views keep it for coming back */
+	private isFollowing(): boolean {
+		return this.$follow.get() && this.studio.$trackView.get() === '2d';
+	}
+
 	/** Pans from Track's 3D view, which has no flat drag of its own */
 	panView(dx: number, dy: number): void {
 		if (this.$spaceHeld.get()) this.spacePanned = true;
@@ -678,7 +683,7 @@ export class ComposeCx {
 	/** Starts the frame loop when Follow or a glide has work to do */
 	private wakeMotion(force = false): void {
 		if (this.motionFrame !== 0 || this.renderer == null || typeof requestAnimationFrame === 'undefined') return;
-		if (!force && !this.isNavigating && !this.$follow.get()) return;
+		if (!force && !this.isNavigating && !this.isFollowing()) return;
 		this.motionTime = performance.now();
 		this.motionFrame = requestAnimationFrame(this.stepMotion);
 	}
@@ -696,7 +701,7 @@ export class ComposeCx {
 		const dt = Math.min(Math.max(0, (now - this.motionTime) / 1000), 1 / 20);
 		this.motionTime = now;
 		const motion = this.syncMotion();
-		const at = this.$follow.get() ? this.marbleMotion() : null;
+		const at = this.isFollowing() ? this.marbleMotion() : null;
 		if (at != null) followMarble(motion, at.position, at.velocity, viewport, dt);
 		let view = stepViewMotion(motion, dt, this.isNavigating ? NAVIGATE_RATE : FOLLOW_RATE);
 		// The spring trails a fast fall; the marble itself never leaves the view
@@ -2175,10 +2180,10 @@ export class ComposeCx {
 	runKeyAction(action: TComposeKeyAction): boolean {
 		switch (action.type) {
 			case 'follow':
-				this.toggleFollow();
+				if (this.studio.$trackView.get() === '2d') this.toggleFollow();
 				return true;
 			case 'view3d':
-				this.studio.$trackView.set(this.studio.$trackView.get() === '3d' ? '2d' : '3d');
+				this.studio.$trackView.set(this.studio.$trackView.get() === '2d' ? '3d' : '2d');
 				return true;
 			case 'zoom':
 				this.zoomBy(action.factor);

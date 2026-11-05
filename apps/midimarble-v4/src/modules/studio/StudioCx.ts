@@ -32,7 +32,7 @@ import { BOWL_TYPE } from '@/modules/simulation/bowl';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
-import { parseGroupKey, parseHitKey, parseShotKey, stepHitTarget, toHitKey } from './selection';
+import { parseGroupKey, parseHitKey, stepHitTarget, toHitKey } from './selection';
 import { tapTime } from './tap';
 import type { THitFlash } from './timeline/hit-flash';
 import { SimulationCx } from './SimulationCx';
@@ -73,7 +73,7 @@ export class StudioCx {
 	/** Quick Help labels the window's regions and explains the control under the pointer. Always off at launch. */
 	readonly $quickHelp = createState(false);
 	readonly $workspace = createState<TWorkspace>('compose');
-	/** Track's canvas: flat and precise, or a free look around in 3D */
+	/** Track's canvas: flat and precise, a free look around in 3D, or through the film's camera */
 	readonly $trackView = createState<TTrackView>('2d');
 	/** The angle Track's 3D view last had, in radians */
 	readonly $trackAngles = createState<TTrackAngles>({ yaw: -0.6, pitch: 0.3 });
@@ -174,11 +174,6 @@ export class StudioCx {
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
 		// Tapping along belongs to the playback T started, so stopping playback finishes the tap session
-		// A Shot belongs to Film, so going to Compose leaves nothing selected there that it can't show
-		const stopFilmSelection = this.$workspace.listen(({ value }) => {
-			const selection = this.$selection.get();
-			if (value === 'compose' && selection.some((key) => parseShotKey(key) != null)) this.$selection.set(selection.filter((key) => parseShotKey(key) == null));
-		});
 		const stopTapSessionListener = this.$playing.listen(({ value }) => {
 			if (value) return;
 			this.finishTapSession();
@@ -191,7 +186,6 @@ export class StudioCx {
 			stopHeight();
 			stopNotices();
 			stopTapSessionListener();
-			stopFilmSelection();
 			void this.design.close();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
@@ -1134,7 +1128,7 @@ function hasFix(notice: TNotice): boolean {
 }
 
 export type TWorkspace = 'compose' | 'design';
-export type TTrackView = '2d' | '3d';
+export type TTrackView = '2d' | '3d' | 'camera';
 export interface TTrackAngles {
 	yaw: number;
 	pitch: number;

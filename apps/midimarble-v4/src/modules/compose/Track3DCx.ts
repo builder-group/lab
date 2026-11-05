@@ -5,6 +5,8 @@ import { trackPieceColors } from '@/modules/design/label-colors';
 import type { TVec2 } from '@/modules/project';
 import type { TResolvedPiece } from '@/modules/simulation';
 import { pathDepth } from '@/modules/simulation/pieces';
+import { createCameraPose, sampleCameraTrack } from '@/modules/camera';
+import { FilmCameraCache } from '@/modules/design/film-camera';
 import type { ComposeCx } from './ComposeCx';
 import { ComposeRenderer, MARBLE_Z } from './ComposeRenderer';
 import { marblePositionAt, pieceAngleAt } from './scene';
@@ -17,10 +19,14 @@ const EASE_SECONDS = 0.38;
 /** How far the view turns; past this the wall would hide everything */
 export const MAX_ORBIT = (75 / 180) * Math.PI;
 
+/** Pixels around the film frame in the Camera view */
+const FRAME_INSET = 40;
+
 /**
- * Track's free 3D view, like orbiting Blender's viewport: its own canvas over the flat one, on the same center and scale
- * of `compose.$camera`, so wheel, pinch, the zoom commands and Follow move both. The Pegboard look whatever the project's
- * theme, pieces and marbles in their label colors. It looks and selects; nothing drags here.
+ * Track's 3D and Camera views, like Blender's viewport and its Camera view: their own canvas over the flat one. 3D stands
+ * on the same center and scale of `compose.$camera`, so wheel, pinch and the zoom commands move both; Camera looks through
+ * the film's camera, with the frame's edge marked. The Pegboard look whatever the project's theme, pieces and marbles in
+ * their label colors. They look and select; nothing drags here.
  */
 export class Track3DCx {
 	/** Bumps after every draw, so the overlay's outlines reproject */
@@ -30,6 +36,12 @@ export class Track3DCx {
 	private renderer: ComposeRenderer | null = null;
 	private animation: number | null = null;
 	private pathZ = MARBLE_Z;
+	private size = { width: 1, height: 1 };
+	private view: 'orbit' | 'camera' = 'orbit';
+	private readonly cameras = new FilmCameraCache();
+	private readonly scratchPose = createCameraPose();
+	/** The film frame in the Camera view, in CSS pixels; null in 3D */
+	filmFrame: { x: number; y: number; width: number; height: number } | null = null;
 
 	constructor(readonly compose: ComposeCx) {}
 
@@ -40,7 +52,8 @@ export class Track3DCx {
 		renderer.setWallLook(draftWall('pegboard'));
 		const observer = new ResizeObserver(() => {
 			const rect = container.getBoundingClientRect();
-			renderer.setViewport({ width: Math.max(1, rect.width), height: Math.max(1, rect.height) }, Math.min(window.devicePixelRatio || 1, 3));
+			this.size = { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
+			renderer.setViewport(this.size, Math.min(window.devicePixelRatio || 1, 3));
 			this.draw();
 		});
 		observer.observe(container);
@@ -51,6 +64,7 @@ export class Track3DCx {
 			studio.$playhead.listen(() => this.draw()),
 			studio.$hidden.listen(() => this.draw()),
 			studio.$trackAngles.listen(() => this.draw()),
+			studio.design.$orbit.listen(() => this.draw()),
 			this.compose.$camera.listen(() => this.draw()),
 			this.$amount.listen(() => this.draw())
 		];
@@ -81,6 +95,12 @@ export class Track3DCx {
 			onDone?.();
 		};
 		this.animation = requestAnimationFrame(step);
+	}
+
+	/** Which view it draws; when going back to 2D it keeps the last so the ease has something to leave */
+	setView(view: 'orbit' | 'camera'): void {
+		this.view = view;
+		this.draw();
 	}
 
 	turn(dx: number, dy: number): void {
@@ -123,10 +143,24 @@ export class Track3DCx {
 		const playhead = studio.$playhead.get();
 		const radius = project.entities.find((entity) => entity.components.marble != null)?.components.marble?.radius ?? 0.012;
 		this.pathZ = pathDepth(pieces, radius);
-		const amount = this.$amount.get();
-		const { yaw, pitch } = studio.$trackAngles.get();
-		renderer.setOrbit({ yaw: yaw * amount, pitch: pitch * amount, fov: FLAT_FOV + (ORBIT_FOV - FLAT_FOV) * amount, z: this.pathZ });
-		renderer.setCamera({ mode: 'orbit', view: this.compose.$camera.get().view });
+		const result = studio.simulation.$result.get();
+		const view = this.compose.$camera.get().view;
+		const filmTrack = this.view === 'camera' && result != null ? this.cameras.at(project, result, studio.design.$orbit.get()).track : null;
+		const pose = filmTrack != null ? sampleCameraTrack(filmTrack, playhead, this.scratchPose) : null;
+		if (pose != null) {
+			const aspect = project.frame.width / project.frame.height;
+			const height = Math.max(1, Math.min(this.size.height - FRAME_INSET * 2, (this.size.width - FRAME_INSET * 2) / aspect));
+			const width = height * aspect;
+			this.filmFrame = { x: (this.size.width - width) / 2, y: (this.size.height - height) / 2, width, height };
+			renderer.setCamera({ mode: 'camera', view });
+			renderer.setFilm({ pose, aspect, frame: this.filmFrame });
+		} else {
+			const amount = this.$amount.get();
+			const { yaw, pitch } = studio.$trackAngles.get();
+			this.filmFrame = null;
+			renderer.setOrbit({ yaw: yaw * amount, pitch: pitch * amount, fov: FLAT_FOV + (ORBIT_FOV - FLAT_FOV) * amount, z: this.pathZ });
+			renderer.setCamera({ mode: 'orbit', view });
+		}
 		renderer.setPieces(
 			pieces.map((piece) => ({
 				piece,
@@ -136,7 +170,6 @@ export class Track3DCx {
 				hasSolidPaths: true
 			}))
 		);
-		const result = studio.simulation.$result.get();
 		const hidden = studio.$hidden.get();
 		renderer.setMarbles(
 			project.entities.flatMap((entity) => {
