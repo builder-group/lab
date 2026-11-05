@@ -22,12 +22,16 @@ export interface THitReport {
 	/** False while the run is still updating */
 	isCurrent: boolean;
 	problems: { title: string; detail?: string; time?: number; hit?: string }[];
+	/** What every hit plays through but the film shows badly, such as a long fall */
+	tips?: string[];
 }
 
 export function hitReport(project: TProject, result: TSimulationResult | null): THitReport {
 	const preflight = preflightExport(project, result);
 	const summary = problemSummary(preflight);
+	const tips = preflight.issues.filter((issue) => issue.kind === 'fall').slice(0, MAX_PROBLEMS).map((issue) => issue.title);
 	return {
+		...(tips.length > 0 ? { tips } : {}),
 		hits: summary.label,
 		isCurrent: summary.state !== 'pending',
 		problems: summary.problems.slice(0, MAX_PROBLEMS).map((issue) => ({

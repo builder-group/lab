@@ -411,8 +411,56 @@ async function packThemesToApply(cx: StudioCx, commands: readonly { type: string
 	return themes;
 }
 
+const SApplyPattern = z.strictObject({
+	type: z.literal('applyPattern'),
+	laneId: z.string(),
+	from: z.number(),
+	to: z.number(),
+	kind: z.enum(['zigzag', 'staircase', 'longRail']),
+	width: z.number().positive().optional(),
+	bounce: z.number().min(0).max(1).optional(),
+	dryRun: z.boolean().optional()
+});
+
+/** A Pattern over a range of a marble's row, as one Undo step; `dryRun` changes nothing and answers the same (prototype) */
+async function runApplyPattern(cx: StudioCx, command: unknown, label: string | undefined): Promise<TToolReply> {
+	const parsed = SApplyPattern.safeParse(command);
+	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', laneId, from: 2.1, to: 8.4, kind: 'zigzag', width: 0.14, bounce: 0.5, dryRun: true }`);
+	const { laneId, from, to, kind, width, bounce, dryRun } = parsed.data;
+	const project = cx.project;
+	if (project == null) return noProject(cx);
+	if (!project.music.lanes.some((lane) => lane.id === laneId)) return fail(cx, `No marble has lane ${laneId}. get_state lists them.`);
+	const compose = await openCompose(cx, 'Apply Pattern');
+	const stop = cx.mcp.presence.stopEpoch;
+	const settings = { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}) };
+	const existing = project.groups?.find((group) => group.laneId === laneId && group.kind === kind && Math.abs(group.from - from) < 1e-3 && Math.abs(group.to - to) < 1e-3);
+	const target = { laneId, from, to, ...(existing != null ? { group: existing } : {}) };
+	const report = (answer: Awaited<ReturnType<typeof compose.patterns.apply>>): Record<string, unknown> =>
+		answer == null
+			? { stopped: true }
+			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, later: answer.later, ...(answer.widthUsed != null ? { widthUsed: answer.widthUsed } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
+	if (dryRun === true) {
+		// A step that edits nothing, so Stop reaches it and no Undo step comes of it
+		let answer: Awaited<ReturnType<typeof compose.patterns.dryRun>> = null;
+		await cx.runAgentStep('Agent: Try Pattern', async () => {
+			answer = await compose.patterns.dryRun(target, kind, settings);
+		});
+		return text(cx, { changed: false, dryRun: true, ...report(answer) });
+	}
+	if (cx.mcp.presence.stopEpoch !== stop) return text(cx, { changed: false, selection: cx.$selection.get() });
+	cx.mcp.presence.relabel(label ?? `Fitting ${kind === 'longRail' ? 'Long Rail' : kind === 'zigzag' ? 'Zigzag' : 'Staircase'}`);
+	let reply: Record<string, unknown> = {};
+	return editStep(cx, label ?? 'Apply Pattern', async () => {
+		reply = report(await compose.patterns.apply(target, kind, settings));
+	}, {}, () => reply);
+}
+
 async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
 	const { commands, label } = z.object({ commands: z.array(z.looseObject({ type: z.string() })).min(1), label: z.string().optional() }).parse(args);
+	if (commands.some((command) => command.type === 'applyPattern')) {
+		if (commands.length > 1) return fail(cx, 'applyPattern takes its own project.execute call, since it fits against the real run.');
+		return runApplyPattern(cx, commands[0], label);
+	}
 	const project = cx.project;
 	if (project == null) return noProject(cx);
 	const stopEpoch = cx.mcp.presence.stopEpoch;

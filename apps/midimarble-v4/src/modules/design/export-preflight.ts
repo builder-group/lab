@@ -40,6 +40,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		...strikeIssues(project, result, names),
 		...rollIssues(project, result, names),
 		...touchingIssues(project, result, names),
+		...fallIssues(project, result, names),
 		...framingIssues(project, result, names),
 		...decorIssues(project, result, names, blenderObjects),
 		...songIssues(project)
@@ -253,7 +254,7 @@ export interface TPreflightTarget {
 	workspace?: 'compose' | 'design';
 }
 
-export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'framing' | 'decor' | 'simulation' | 'song';
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'fall' | 'framing' | 'decor' | 'simulation' | 'song';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
@@ -538,6 +539,42 @@ function touchingIssues(project: TProject, result: TSimulationResult, names: TNa
 		time: pair.time,
 		target: { ids: [pair.b, pair.a], point: pair.point, time: pair.time }
 	}));
+}
+
+/** A marble falling this far between two notes leaves the frame on the way: about a film frame's height on the wall */
+const LONG_FALL = 1;
+
+/** A long free fall between two notes: a tip, since every hit still plays and the film just goes empty for a moment */
+function fallIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
+	const issues: TPreflightIssue[] = [];
+	for (const lane of project.music.lanes) {
+		const hits = result.hits.filter((hit) => hit.laneId === lane.id && hit.dot != null).sort((a, b) => a.targetTime - b.targetTime);
+		for (let index = 1; index < hits.length; index++) {
+			const from = hits[index - 1];
+			const to = hits[index];
+			if (from?.dot == null || to?.dot == null) continue;
+			const fall = from.dot.y - to.dot.y;
+			if (fall < LONG_FALL) continue;
+			const isBridged = project.entities.some((entity) => entity.components.hitLink?.laneId === lane.id && entity.components.hitLink.hitId === from.hitId && !soundsHit(entity.components.piece?.type ?? '', entity.components.hitLink));
+			if (isBridged) continue;
+			issues.push({
+				id: `fall:${lane.id}:${from.hitId}`,
+				kind: 'fall',
+				severity: 'info',
+				laneId: lane.id,
+				title: `${names.lane(lane.id)} falls ${fall.toFixed(1)} m at ${wholeSeconds(from.targetTime)}: a Long Rail fills that gap`,
+				label: 'Long fall',
+				time: from.targetTime,
+				target: { ids: [from.pieceEntityId ?? '', project.entities.find((entity) => entity.components.marble?.laneId === lane.id)?.id ?? ''].filter(Boolean), point: from.dot, time: from.targetTime }
+			});
+		}
+	}
+	return issues;
+}
+
+function wholeSeconds(time: number): string {
+	const whole = Math.round(time);
+	return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
 
 // MARK: - Framing

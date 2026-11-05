@@ -147,7 +147,10 @@ export class McpCx {
 	 */
 	stop(): void {
 		this.presence.requestStop();
-		if (this.studio.isInAgentStep) this.studio.$compose.get()?.assist.stopBuild();
+		if (this.studio.isInAgentStep) {
+			this.studio.$compose.get()?.assist.stopBuild();
+			this.studio.$compose.get()?.patterns.stop();
+		}
 		if (this.runningTools.includes('export_film')) this.studio.film.cancel();
 	}
 
