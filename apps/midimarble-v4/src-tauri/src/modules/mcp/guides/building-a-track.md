@@ -21,13 +21,13 @@ Build Track, `build.next`, Continue and `build.fix` share these rules. A hit's t
 
 - **Track pieces don't touch.** Two pieces stand at least 1.2 cm apart on the wall, skins included. A pair that comes closer is the problem "Platform 12 touches Platform 13".
 - **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a rail or in a Bowl don't count.
-- **Marbles may cross.** A marble's run may leave its lane and cross another's path, as long as it touches neither that marble nor its pieces. It stays in its lane where it can, since its pieces would otherwise stand in the other marble's way, and always stays in frame.
+- **Marbles may cross.** A marble's run may leave its band of the wall and cross another's path, as long as it touches neither that marble nor its pieces. It stays in its band where it can, since its pieces would otherwise stand in the other marble's way, and always stays in frame.
 
 To fix a touching pair or a second strike, try these in order of how little they change. Each moves the run a little from there on, since every bounce follows the one before, so read `hits` in the reply and Undo a try that breaks one.
 
-1. **Shorten** (touching only): `setComponent` the platform's `piece` with a smaller `params.length`, down to about two thirds of its own, as long as the marble still strikes it. Build Track does this itself when things are tight.
-2. **Move** (touching only): `setComponent` its `hitLink` with another `contactAt`, from 0.15 to 0.85, which slides the platform along its own surface under the same strike.
-3. **Tilt**: a new `angle` in that `hitLink`, or in the platform before it, which sets where the marble arrives. `build.fix` tries all of these for every such piece when nothing else is wrong.
+1. **Shorten** (touching only): `updatePiece` the platform with a smaller `length` in its `params`, down to about two thirds of its own, as long as the marble still strikes it. Build Track does this itself when things are tight.
+2. **Move** (touching only): `updatePiece` its `place` with another `contactAt`, from 0.15 to 0.85, which slides the platform along its own surface under the same strike.
+3. **Tilt**: `updatePiece` with a new `angle`, or on the platform before it, which sets where the marble arrives. `build.fix` tries all of these for every such piece when nothing else is wrong.
 4. **Rebuild From Here** from the hit before them, if none of that holds.
 
 ## One step at a time
@@ -42,7 +42,7 @@ Build marbles together in time order, since they can collide with each other's p
 
 ## Reading hits
 
-`get_state.marbles[].hitList` lists every hit as `hitColumns` says: id, time, note, status and its dot, where the marble is at that time. A hit's time is the MIDI note's time plus the Song's `offset` (`get_state.song.sources`), one second for an import. `nextOpen` gives the next open hits; `hasDot` means a platform can go there now. Each piece in `layers.pieces` has its `angle` in radians (positive tilts to the left) and `params`, such as a platform's `length` and `bounce`. Statuses in `problems`: **Early/Late** by some ms (tilt or move the platform), **Missed** (the marble passes it), **Stopped** (it rests on it: tilt it), **Blocked** (a piece is in the way before this note), **Too Soon** and **Out of Reach** (no platform can play this hit from where the marble is: change the earlier ones, or make the note Backing with `edit.makeBacking`).
+`get_state.marbles[].hitList` lists every hit as `hitColumns` says: id, time, note, status and its dot, where the marble is at that time. A hit's time is the MIDI note's time plus the Song's `start` (`get_state.song.songs`), one second for an import. `nextOpen` gives the next open hits; `hasDot` means a platform can go there now. Each piece in `layers.pieces` has its `angle` in radians (positive tilts to the left) and `params`, such as a platform's `length` and `bounce`. Statuses in `problems`: **Early/Late** by some ms (tilt or move the platform), **Missed** (the marble passes it), **Stopped** (it rests on it: tilt it), **Blocked** (a piece is in the way before this note), **Too Soon** and **Out of Reach** (no platform can play this hit from where the marble is: change the earlier ones, or make the note Backing with `edit.makeBacking`).
 
 ## Long gaps
 
@@ -56,19 +56,22 @@ To choose the piece yourself, place it on the hit before the gap with `project.e
 
 - `{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId }, angle?, params? }`: tied to a hit, like clicking its dot. `angle` is in radians; without one the app picks.
 - `{ type: 'placePiece', pieceType: 'rail', position: { x, y }, path: [{ x, y }, ...] }`: a piece tied to nothing; `paths` adds further paths to the same Rail. Types: `platform`, `rail`, `tunnel`, `windmill`, `bowl`.
-- `{ type: 'applySkin', assetId, pieceType }` or `{ type: 'applySkin', assetId, entityIds }`
+- `{ type: 'applySkin', assetId, pieceType }` or `{ type: 'applySkin', assetId, ids }`
+- `{ type: 'flattenPattern', groupId }`: a live Pattern's pieces stay as they are, to edit one by one, and the Pattern is gone
 - `{ type: 'placeDecor', source, at: { x, y } }` and `{ type: 'scatterDecor', sources, density?, seed? }`
 
-The project's own commands work too:
+The project's own commands work too. `add` replaces what has the same ID. `update` changes the fields in `patch` and leaves the rest, and `null` deletes a field. A skin and a marble's `start` take only what changes.
 
-- `{ type: 'setEnd', end }`, `{ type: 'setTempo', tempo: { bpm, beatsPerBar } }`, `{ type: 'setDesign', design: { ... } }`: see `film-look`
-- `{ type: 'setPhysics', physics: { gravityScale } }`: Gravity, 0.05 to 2, 0.5 by default (`get_state.physics`). `run_command('marble.speed', { value })` is the same.
-- `{ type: 'setComponent', entityId, component: { name, value } }`, with the component's whole value; `marble`, `skin` and `wallText` take only what changes. A marble's `{ radius }`: `get_state.marbles[]` has it. The radius, in meters and 0.012 as usual, changes the run, so hits can move; change it only on purpose and read `hits` in the reply. Moving a marble's start: `component: { name: 'release', value: { position: { x, y }, time } }`. Turning a platform: `component: { name: 'hitLink', value: { marbleId, hitId, angle, contactAt } }`.
-- `{ type: 'removeEntities', entityIds }`, `{ type: 'upsertEntity', entity: { id, name, components } }`
-- `{ type: 'removeHits', marbleId, hitIds }`, `{ type: 'assignHits', hitIds, marbleId }`
+- `{ type: 'updateProject', patch: { title, length, format: { width, height }, gravity } }`: `gravity` is 0.05 to 2, 0.5 by default (`get_state.gravity`), and `run_command('marble.speed', { value })` is the same.
+- `{ type: 'updateFilm', film: { ... } }`: see `film-look`
+- `{ type: 'updateMarble', marbleId, patch: { ... } }`, `{ type: 'addMarble', marble }`, `{ type: 'removeMarble', marbleId }`. A marble is `{ id, name, labelColor, sound, radius, start: { position: { x, y }, time }, skin?, hits }`. Moving its start: `patch: { start: { position: { x, y } } }`. Its `radius`, in meters and 0.012 as usual, changes the run, so hits can move; change it only on purpose and read `hits` in the reply.
+- `{ type: 'updatePiece', pieceId, patch: { ... } }`, `{ type: 'addPiece', piece }`, `{ type: 'removePieces', pieceIds }`. A piece is `{ id, name?, labelColor?, type, layout?, params, angle, place, path?, skin? }`, and its `place` is one of `{ kind: 'free', position: { x, y } }`, `{ kind: 'plays', marbleId, hitId, contactAt }`, for a platform, or `{ kind: 'follows', marbleId, hitId, contactAt?, offset? }`. Turning a platform: `patch: { angle }`.
+- `{ type: 'upsertHits', marbleId, hits: [{ id, time, pitch?, velocity?, duration? }] }`, `{ type: 'removeHits', marbleId, hitIds }`, `{ type: 'assignHits', hitIds, marbleId }`. `marbleId: 'backing'` means Backing.
+- `{ type: 'addGroup', group: { id, name, marbleId?, pieceIds } }`, `{ type: 'updateGroup', groupId, patch: { ... } }`, `{ type: 'removeGroups', groupIds }`
+- `{ type: 'addSong', song: { id, name, kind, path, start, backing: [] } }`, `{ type: 'updateSong', songId, patch: { tempo: { bpm, beatsPerBar }, backingSound } }`, `{ type: 'removeSong', songId }`: removing one takes its Backing, and hits a marble plays stay
 
 Platform params: `length`, `thickness`, `depth`, `bounce`.
 
 ## Tips
 
-Gravity changes every marble: it is a share of Earth's gravity, so at the same tilt and bounce slower gives smaller hops and denser columns. Tilt and bounce shape a hop as much, so build again after changing it. Marbles leaving the frame are reported until the camera can follow them: problems about the frame are about Film, not the hits. A rail, tunnel or windmill never plays a note; a marble riding one can't strike a hit until it leaves. Check the length with `get_state.project.length`; `setEnd` changes it.
+Gravity changes every marble: it is a share of Earth's gravity, so at the same tilt and bounce slower gives smaller hops and denser columns. Tilt and bounce shape a hop as much, so build again after changing it. Marbles leaving the frame are reported until the camera can follow them: problems about the frame are about Film, not the hits. A rail, tunnel or windmill never plays a note; a marble riding one can't strike a hit until it leaves. Check the length with `get_state.project.length`; `updateProject` changes it.

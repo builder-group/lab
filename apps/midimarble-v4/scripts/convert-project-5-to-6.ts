@@ -1,4 +1,5 @@
-// One-off: turns a marble-project@5 document into @6. Every ID stays, and pieces and marbles keep their relative order. Used for
+// One-off: turns a marble-project@5 document into @6. Every ID stays but a start Rail's, which says its marble's ID, and pieces
+// and marbles keep their relative order. Used for
 // the fixtures and the owner's local projects; the app itself refuses other versions.
 // As a module its default export takes the @5 JSON and returns the @6 JSON; `.local/golden/README.md` says how the golden dump
 // uses it. Differences from @5 that can't be kept go to `notes`.
@@ -28,6 +29,9 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 		}
 		if (parts.release == null) notes.push(`Marble ${entity.id} has no release: it starts at the wall's origin at 0 s`);
 		marbleIdOf.set(lane.id, entity.id);
+		// An older field the schema no longer allows: the marble's own film color, which a skin holds now
+		const skin = parts.marble.color != null && parts.skin?.color == null ? { ...parts.skin, color: parts.marble.color } : parts.skin;
+		if (parts.marble.color != null) notes.push(`Marble ${entity.id}'s color ${parts.marble.color} moves to its skin`);
 		return [
 			{
 				id: entity.id,
@@ -36,7 +40,7 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 				sound: lane.instrument,
 				radius: parts.marble.radius,
 				start: parts.release ?? { position: { x: 0, y: 0 }, time: 0 },
-				...(parts.skin != null ? { skin: parts.skin } : {}),
+				...(skin != null ? { skin } : {}),
 				hits: lane.hits
 			}
 		];
@@ -59,10 +63,13 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 	const midiSongId = songs.find((song: TAny) => song.kind === 'midi' && song.path != null)?.id;
 	const tied = midiSongId == null ? marbles : marbles.map((marble) => ({ ...marble, hits: marble.hits.map((hit: TAny) => (hit.pitch != null ? { ...hit, songId: midiSongId } : hit)) }));
 
+	// A marble's start Rail is found by its ID, which says whose it is
+	const startRails = new Map([...marbleIdOf].map(([laneId, id]) => [`start-rail-${laneId}`.slice(0, 64), `start-rail-${id}`.slice(0, 64)]));
 	const { renderPreset, camera, ...film } = raw.design;
+	if (renderPreset !== 'draft' && renderPreset !== 'final') notes.push(`The render preset ${renderPreset} is gone; it's final now`);
 	const { mode, pitch, lead, smoothing, side, shots, ...rig } = camera;
 	if (lead !== CAMERA_LEAD || smoothing !== CAMERA_SMOOTHING) notes.push(`The camera's lead ${lead} and smoothing ${smoothing} become the constants ${CAMERA_LEAD} and ${CAMERA_SMOOTHING}`);
-	return {
+	return withIds(startRails, {
 		$schema: 'marble-project@6',
 		id: raw.id,
 		title: raw.title,
@@ -76,7 +83,7 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 		film: {
 			...film,
 			titles,
-			quality: renderPreset,
+			quality: renderPreset === 'draft' ? 'draft' : 'final',
 			camera: {
 				auto: mode === 'rig',
 				...rig,
@@ -85,7 +92,18 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 				shots: shots.map(({ length, ...shot }: TAny) => ({ ...shot, ...(length != null ? { hold: length } : {}) }))
 			}
 		}
+	});
+}
+
+/** The project with some IDs replaced, wherever they're used: as a piece's ID, in a Group, among what a ride touches */
+function withIds(ids: ReadonlyMap<string, string>, project: TAny): TAny {
+	const swap = (value: TAny): TAny => {
+		if (typeof value === 'string') return ids.get(value) ?? value;
+		if (Array.isArray(value)) return value.map(swap);
+		if (value == null || typeof value !== 'object') return value;
+		return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, swap(item)]));
 	};
+	return swap(project);
 }
 
 function convertPiece(entity: TAny, marbleId: (laneId: string) => string, notes: string[]): TAny {

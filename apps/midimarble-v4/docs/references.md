@@ -32,7 +32,7 @@ Source: `~/Downloads/Legendary-Meme-Songs-SnapYT.App.mp4` from [@virtual3dworld_
 
 A frame from @marvinblend, "Internet Classics", Boomwhackers section. Not stored in the repository.
 
-- Two marbles share one frame, each with a dense column, so two lanes are a legitimate format
+- Two marbles share one frame, each with a dense column, so two marbles side by side are a legitimate format
 - Tubes about 15 to 20 % of the frame width, marbles about 5 %
 - Tubes are colored by note, so pitch is visible
 - Tubes point into depth at varied angles on wire brackets, adding depth without changing the contact surface
@@ -85,7 +85,7 @@ Physics stays out of it:
 
 **Tight columns don't fit our rhythm.** A hop under about 1.4 L at half gravity and half-second notes gets stuck on restrikes. Columns stay 1.5 to 1.7 L apart on Jingle Bells. The reference's 0.25 s rhythm is half our 0.5 s, and hop height goes with its square, so this probably closes with faster notes or less gravity, not with placement.
 
-**Lanes.** `MARBLE_SPACING` stays 0.26 m. Rebuilds at 0.16 to 0.22 m gave no clean build that frames closer, as built marbles stay 0.26 to 0.29 m apart at every spacing. Closer two-marble films need lanes that interleave by design.
+**Marbles side by side.** `MARBLE_SPACING` stays 0.26 m. Rebuilds at 0.16 to 0.22 m gave no clean build that frames closer, as built marbles stay 0.26 to 0.29 m apart at every spacing. Closer two-marble films need bands that interleave by design.
 
 **Patterns and tilt,** on the reference's hit times:
 

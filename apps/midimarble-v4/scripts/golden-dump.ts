@@ -159,7 +159,10 @@ function sectionsOf(project: TProject, result: TSimulationResult): Record<string
 	};
 }
 
-function writeSections(outDir: string, name: string, sections: Record<string, unknown>, rename: (text: string) => string = (text) => text): void {
+/** A start Rail's ID says its marble's, which was its lane's in the baseline; everything else about it must match */
+const baselineRailId = (text: string): string => text.replace(/start-rail-marble-/g, 'start-rail-lane-');
+
+function writeSections(outDir: string, name: string, sections: Record<string, unknown>, rename: (text: string) => string = baselineRailId): void {
 	const dir = join(outDir, name);
 	mkdirSync(dir, { recursive: true });
 	for (const [section, value] of Object.entries(sections)) writeFileSync(join(dir, `${section}.json`), rename(stableJson(value)));

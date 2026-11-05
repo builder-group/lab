@@ -296,7 +296,7 @@ describe('follow camera on whole songs', () => {
 							time: 6,
 							kind: 'pushIn',
 							distance: rig * 0.7,
-							...(length != null ? { length } : {})
+							...(length != null ? { hold: length } : {})
 						}
 					]
 				}

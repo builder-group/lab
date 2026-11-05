@@ -12,7 +12,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - **Export:** Draft and Final.
 - **Agents:** MCP only, with Connect in the Agent menu. No chat in the window.
 - **Defaults:** platforms 3 cm long and 9 cm deep, 85 mm lens, pitch 1.0, side 95°, rig distance 1.36 m, Gravity 0.5. Why: `references.md`.
-- **Data:** `marble-project@5`, no migrations, since the app hasn't shipped.
+- **Data:** `marble-project@6`, no migrations, since the app hasn't shipped.
 
 ## Verified
 

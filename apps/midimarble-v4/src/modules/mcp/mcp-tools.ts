@@ -266,6 +266,9 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 	}
 };
 
+/** What Rust's `tools/list` offers and forwards here */
+export const TOOL_NAMES = Object.keys(TOOLS);
+
 /** Commands that take their panel's answers as arguments, or that answer only when their work is done */
 const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<string, unknown>) => Promise<void>>> = {
 	// Like build.track, this answers when the build is done, so the reply reports the finished track

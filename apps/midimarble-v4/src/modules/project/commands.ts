@@ -169,7 +169,9 @@ export function backingSong(project: Pick<TProject, 'songs'>): TSong | undefined
 
 /** The notes no marble plays */
 export function backingOf(project: Pick<TProject, 'songs'>): THit[] {
-	return backingSong(project)?.backing ?? [];
+	const holders = project.songs.filter((song) => song.backing.length > 0);
+	if (holders.length <= 1) return holders[0]?.backing ?? [];
+	return sortHits(holders.flatMap((song) => song.backing));
 }
 
 /** The song's meter, known from an imported MIDI file */
