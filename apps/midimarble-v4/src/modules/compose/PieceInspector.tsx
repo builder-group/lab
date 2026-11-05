@@ -19,8 +19,8 @@ import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
 
 /**
- * Inspector for selected pieces like Figma UI3: a header with the tie and the timing pill, then Position, the
- * link panel of a linked piece (Plays or Follows), then Shape and the collapsed Physics panel
+ * Inspector for selected pieces like Figma UI3: a header with the tie and the timing pill, then Position, Shape, the
+ * collapsed Physics panel and the link panel of a linked piece (Plays or Follows). A skin is Film's Appearance.
  */
 export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
@@ -84,7 +84,6 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					status == null || link == null ? null : ((status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link)) || (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isBowlMissed || look != null ? <FixButton cx={cx} entityId={first.id} /> : null
 				}
 			/>
-			{entities.every((entity) => isPathPieceType(entity.components.piece?.type)) ? <PathTypeSection cx={cx} project={project} entities={entities} /> : null}
 			<Panel id="piece.position" title="Position">
 				{isSingle && position != null ? (
 					<>
@@ -149,8 +148,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					/>
 				) : null}
 			</Panel>
-			{showsLinkPanel(entities) ? <AttachSection cx={cx} project={project} entity={first} /> : null}
 			{isSameType && definition != null ? <ParamsSections cx={cx} project={project} entities={entities} type={type} railLayout={sharedRailLayout(entities)} /> : null}
+			{showsLinkPanel(entities) ? <AttachSection cx={cx} project={project} entity={first} /> : null}
 		</>
 	);
 };
@@ -359,7 +358,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 // MARK: - Rails and tunnels
 
 /** Rail or Tunnel for a drawn path, switched in one edit that keeps the path and where it sits */
-const PathTypeSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[] }> = (props) => {
+const PathTypeFields: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[] }> = (props) => {
 	const { cx, project, entities } = props;
 	const types = new Set(entities.map((entity) => entity.components.piece?.type));
 	const current = types.size === 1 ? [...types][0] : null;
@@ -378,7 +377,7 @@ const PathTypeSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEn
 	}
 
 	return (
-		<Panel id="piece.pathType" title="Rail">
+		<>
 			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Rail or tunnel">
 				{pathPieceTypes.map((type) => (
 					<button
@@ -405,7 +404,7 @@ const PathTypeSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEn
 					onChange={(value) => setLayout(value as TRailLayout)}
 				/>
 			) : null}
-		</Panel>
+		</>
 	);
 };
 
@@ -466,24 +465,30 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 
 /** The piece type's parameters in two panels: its size, open like Position, and how it behaves, collapsed */
 const ParamsSections: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; railLayout: TRailLayout | undefined }> = (props) => {
-	const { type, railLayout } = props;
+	const { type, railLayout, cx, project, entities } = props;
 	const panels = pieceParamPanels(type, railLayout);
+	const isPath = entities.every((entity) => isPathPieceType(entity.components.piece?.type));
 	return (
 		<>
-			{panels.shape.length > 0 ? <ParamsPanel {...props} id="piece.shape" title="Shape" help="The piece's size, which skins in Film follow. Depth is how far it stands out of the wall; a marble never feels it. The rest is the hitbox, what a marble touches." names={panels.shape} isOpen /> : null}
+			{panels.shape.length > 0 || isPath ? (
+				<ParamsPanel {...props} id="piece.shape" title="Shape" help="The piece's size, which skins in Film follow. Depth is how far it stands out of the wall; a marble never feels it. The rest is the hitbox, what a marble touches." names={panels.shape} isOpen>
+					{isPath ? <PathTypeFields cx={cx} project={project} entities={entities} /> : null}
+				</ParamsPanel>
+			) : null}
 			{panels.physics.length > 0 ? <ParamsPanel {...props} id="piece.physics" title="Physics" names={panels.physics} /> : null}
 		</>
 	);
 };
 
 /** One panel of parameters, collapsed unless `isOpen`, with units people read: cm, mm, ms, rpm */
-const ParamsPanel: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; id: string; title: string; help?: string; names: string[]; isOpen?: boolean }> = (props) => {
-	const { cx, project, entities, type, id, title, help, names, isOpen = false } = props;
+const ParamsPanel: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; id: string; title: string; help?: string; names: string[]; isOpen?: boolean; children?: React.ReactNode }> = (props) => {
+	const { cx, project, entities, type, id, title, help, names, isOpen = false, children } = props;
 	const definition = getPieceDefinition(type);
 	if (definition == null) return null;
 
 	return (
 		<Panel id={id} title={title} accessory={help != null ? <HelpTip text={help} /> : undefined} defaultCollapsed={!isOpen} isDense>
+			{children}
 			{names.map((name) => {
 				const spec = definition.params[name];
 				if (spec == null) return null;

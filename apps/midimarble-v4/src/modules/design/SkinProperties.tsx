@@ -197,7 +197,7 @@ export const MarbleSkin: React.FC<{ cx: StudioCx; project: TProject; marble: TEn
 	const { cx, project, marble } = props;
 
 	return (
-		<Panel id="marble.skin" title="Skin">
+		<Panel id="marble.skin" title="Appearance">
 			<SkinPicker cx={cx} project={project} element="marble" pieceType="marble" entities={[marble]} />
 			<SkinPropertyRows cx={cx} project={project} entities={[marble]} />
 		</Panel>

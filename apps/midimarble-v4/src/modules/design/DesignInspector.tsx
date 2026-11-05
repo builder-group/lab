@@ -36,8 +36,8 @@ import { songDisplayName, titleSpan, withTitleTime } from './titles';
 // Camera. The studio's Inspector picks one for the selection.
 
 /**
- * The Camera layer's inspector, in Compose and in Film: the frame of the film, then Automatic or Manual with the
- * rig's distance, turn, tilt and sway, the framing problem at the playhead and the shots
+ * The Camera layer's inspector, in Compose and in Film: Follow Marbles with the rig's distance, turn, tilt and sway and the framing
+ * problem at the playhead; off, the camera is the user's, moved in Blender
  */
 export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
@@ -48,7 +48,7 @@ export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (p
 			<InspectorHeader
 				icon={<Video size={16} strokeWidth={1.7} />}
 				title="Camera"
-				subtitle={`${camera.mode === 'rig' ? 'Automatic' : 'Manual'} · ${shots === 1 ? '1 shot' : `${shots} shots`}`}
+				subtitle={`${camera.mode === 'rig' ? 'Follows Marbles' : 'In Blender'} · ${shots === 1 ? '1 shot' : `${shots} shots`}`}
 			/>
 			<CameraPanel cx={cx} project={project} />
 		</>
@@ -105,15 +105,14 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		<Panel
 			id="design.camera"
 			title="Camera"
-			accessory={<HelpTip text="Automatic: the camera follows the marbles, shaped by the shots; drag in Track's Camera view or Film's preview to orbit it. Manual: you move and animate the camera in Blender and the app leaves it alone." />}
+			accessory={<HelpTip text="Follow Marbles: the camera follows the marbles, shaped by the shots; drag in Track's Camera view or Film's preview to orbit it. Off: the camera stays where it is, and you move and animate it in Blender." />}
 		>
-			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Camera mode">
-				{(['rig', 'manual'] as const).map((mode) => (
-					<button key={mode} role="radio" aria-checked={camera.mode === mode} data-active={camera.mode === mode} onClick={() => set({ mode })} type="button">
-						{mode === 'rig' ? 'Automatic' : 'Manual'}
-					</button>
-				))}
-			</div>
+			<span className="mm-ifield" data-span="2">
+				<label htmlFor="camera-follow" className="mm-ifield-label">
+					Follow Marbles
+				</label>
+				<input id="camera-follow" type="checkbox" className="mm-checkbox" checked={camera.mode === 'rig'} onChange={(event) => set({ mode: event.target.checked ? 'rig' : 'manual' })} />
+			</span>
 			{camera.mode === 'rig' ? (
 				<>
 					{cx.$workspace.get() === 'design' ? <FramingProblem cx={cx} project={project} /> : null}
@@ -150,9 +149,14 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 					) : null}
 				</>
 			) : (
-				<button className="mm-button" data-span="2" disabled={status === 'unavailable' || status === 'missing'} onClick={() => void cx.design.openInBlender()} type="button">
-					Open in Blender
-				</button>
+				<>
+					<p className="mm-caption" data-span="2">
+						The camera is yours: move it in Blender.
+					</p>
+					<button className="mm-button" data-span="2" disabled={status === 'unavailable' || status === 'missing'} onClick={() => void cx.design.openInBlender()} type="button">
+						Open in Blender
+					</button>
+				</>
 			)}
 		</Panel>
 		</>
@@ -289,6 +293,12 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 	return (
 		<>
 			<InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={text.text || 'Title'} subtitle={titleStyles.find((item) => item.style === style)?.label ?? 'Title'} />
+			{!isScreen ? (
+				<Panel id="design.wallText.position" title="Position">
+					<ScrubField id="text-x" label="X" name="X" value={(transform?.position.x ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />
+					<ScrubField id="text-y" label="Y" name="Y" value={(transform?.position.y ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
+				</Panel>
+			) : null}
 			<Panel
 				id="design.wallText"
 				title="Text"
@@ -314,6 +324,8 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 				) : (
 					<ScrubField id="text-size" label="Size" name="Letter height" value={text.size * 100} unit="cm" step={0.05} precision={1} min={0.2} max={50} onCommit={(value) => setText({ size: value / 100 })} />
 				)}
+			</Panel>
+			<Panel id="design.wallText.appearance" title="Appearance">
 				<span className="mm-ifield" data-span="2">
 					<label htmlFor="text-color" className="mm-ifield-label">
 						Color
@@ -339,12 +351,6 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 				<TextField key={`in-${timingKey}`} id="text-in" label="In" name="Time the title appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="text-out" label="Out" name="Time the title disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
-			{!isScreen ? (
-				<Panel id="design.wallText.position" title="Position">
-					<ScrubField id="text-x" label="X" name="X" value={(transform?.position.x ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />
-					<ScrubField id="text-y" label="Y" name="Y" value={(transform?.position.y ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
-				</Panel>
-			) : null}
 		</>
 	);
 };
@@ -387,7 +393,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 			/>
 			<Panel
 				id="design.skin"
-				title="Skin"
+				title="Appearance"
 				accessory={
 					<HelpTip
 						text={`${SKIN_HELP} A click applies to the selection, ⌥-click to all ${typeLabel.toLowerCase()}s; a skin your agent makes shows here. On Hit moves or lights the skin on every hit; a skin never changes how the marble bounces.${isMixedTypes ? ` With several kinds of piece selected, a skin goes on the ${typeLabel.toLowerCase()}s and the others keep theirs.` : ''}`}

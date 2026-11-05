@@ -600,3 +600,19 @@ input.mm-insp-name {
 	-webkit-appearance: auto;
 }
 
+/* A toggle in a field row sits at its end at its own size */
+.mm-ifield > input.mm-checkbox:not([type='color']) {
+	flex: none;
+	width: 14px;
+	height: 14px;
+	min-width: 0;
+	margin: 0 5px 0 auto;
+	padding: 0;
+	background: var(--control);
+	border: 0.5px solid var(--control-border);
+}
+
+.mm-ifield > input.mm-checkbox:checked {
+	background: var(--accent);
+	border-color: transparent;
+}

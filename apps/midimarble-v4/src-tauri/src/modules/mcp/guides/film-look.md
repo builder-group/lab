@@ -20,7 +20,7 @@ Film dresses the run without changing a single hit. Make the environment fit the
 
 | Field | Default | What it does |
 | --- | --- | --- |
-| `mode` | `rig` | `rig` follows the marbles. `manual` leaves the camera to Blender: use it only with Open in Blender, as it freezes the camera where it is |
+| `mode` | `rig` | The Follow Marbles toggle. `rig` is on: the camera follows the marbles. `manual` is off: the camera is left to Blender, so use it only with Open in Blender, as it freezes the camera where it is |
 | `distance` | 1.36 | How close: the 85 mm lens shows about `0.24 × distance` of wall across in 9:16 from the front, more wall than that along a steep view. Marbles get smaller as it grows, and side Decor belongs inside that width |
 | `pitch` | 1.15 | Downward angle: 0 looks straight at the wall, 1.15 steeply along the run |
 | `side` | 1.66 (95°) | Turn: how far around the marbles the camera stands, 0 to 2π radians |
