@@ -1,6 +1,8 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { CornerControls } from '@/modules/compose/ComposeCanvas';
+import { groupSelection } from '@/modules/compose/PatternsCx';
+import { patternOfPiece } from '@/modules/simulation';
 import { CAMERA_KEY } from '@/modules/studio/selection';
 import type { StudioCx, TTrackView } from '@/modules/studio/StudioCx';
 import { startCameraOrbit } from './camera-orbit';
@@ -41,9 +43,12 @@ export const TrackCameraView: React.FC<TTrackCameraViewProps> = (props) => {
 	}, [cx, compose]);
 
 	function onPick(id: string | null, shiftKey: boolean): void {
+		// A live Pattern's bar selects its Group, as on the Wall
+		const group = id != null && cx.project != null ? patternOfPiece(cx.project, id) : null;
+		const keys = group != null ? groupSelection(group) : id != null ? [id] : [];
 		const current = cx.$selection.get();
-		if (!shiftKey) cx.$selection.set(id == null ? [] : [id]);
-		else if (id != null) cx.$selection.set(current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+		if (!shiftKey) cx.$selection.set(keys);
+		else if (keys.length > 0) cx.$selection.set(keys.every((key) => current.includes(key)) ? current.filter((item) => !keys.includes(item)) : [...new Set([...current, ...keys])]);
 	}
 
 	return (

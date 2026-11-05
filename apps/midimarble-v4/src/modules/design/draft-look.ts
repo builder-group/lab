@@ -52,7 +52,7 @@ export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallC
 }
 
 /** Track's Camera view, like Blender's Solid mode: a neutral wall with a dot grid for depth and scale */
-export const CLAY_WALL: TWallLook = { color: '#d6d5d1', holes: 'rgba(0, 0, 0, 0.3)', holeRadius: 0.07 };
+export const CLAY_WALL: TWallLook = { color: '#d6d5d1', holes: 'rgba(0, 0, 0, 0.3)', holeRadius: 0.05, pitch: 0.05 };
 /** Track's Camera view: every piece the same neutral, so only its shape and the marbles' label colors read */
 export const CLAY_PIECE: TDraftColors = { bar: '#8e8d89', nub: '#6f6e6a' };
 
