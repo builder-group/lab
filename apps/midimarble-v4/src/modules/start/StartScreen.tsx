@@ -42,7 +42,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 	return (
 		<div className="relative flex h-full">
 			<WindowHeader floating />
-			<section className="flex flex-1 flex-col items-center justify-center gap-8 bg-[var(--content)] px-10">
+			<section className="relative flex flex-1 flex-col items-center justify-center gap-8 bg-[var(--content)] px-10">
 				<div className="flex flex-col items-center gap-2">
 					<img alt="" src="/app-icon.svg" className="h-28 w-28" draggable={false} />
 					<h1 className="m-0 text-[28px] font-semibold tracking-tight">MidiMarble</h1>
@@ -71,6 +71,9 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 						onClick={() => void cx.openProject()}
 					/>
 				</div>
+				<p className="absolute bottom-3 m-0 text-[11px] text-[var(--text-tertiary)] tabular-nums select-text" data-testid="build-version">
+					Version {__APP_VERSION__} · {__APP_COMMIT__}
+				</p>
 			</section>
 			<aside className="flex w-[360px] flex-col overflow-y-auto bg-[var(--chrome)] pt-12 pb-4" aria-label="Recent projects and examples">
 				<div className="mm-section-title">Recent</div>
