@@ -199,16 +199,12 @@ export function autoEnd(before: TProject, after: TProject): number | null {
 }
 
 /**
- * The length a film just being started keeps, so its first hits do not collapse it around them: without a song, a
- * Bowl or `FEW_HITS` hits it stays at the default, or at the shorter `current` once Fit to Song chose that. Else 0.
+ * The length a project without a song or a Bowl keeps whatever its hits do, so tapping never shrinks the film: only Fit
+ * to Song takes it in. Else 0, and the tail rule decides.
  */
 export function startingLength(project: TProject, current: number): number {
-	if (project.music.sources.length > 0 || endsOnBowl(project)) return 0;
-	const hits = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
-	return hits < FEW_HITS ? Math.min(current, DEFAULT_PROJECT_END) : 0;
+	return project.music.sources.length > 0 || endsOnBowl(project) ? 0 : current;
 }
-
-const FEW_HITS = 4;
 
 /** Whether an edit changes notes without setting the length itself, so the length may follow the song (`autoEnd`) */
 export function changesHitsOnly(commands: readonly TProjectCommand[]): boolean {

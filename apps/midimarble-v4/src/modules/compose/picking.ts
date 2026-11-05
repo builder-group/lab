@@ -34,6 +34,10 @@ export interface TScreenPiece {
 	entityId: string;
 	/** Outline corners in order */
 	corners: TVec2[];
+	/** What picks instead of the outline, for a piece that is mostly air */
+	lines?: TVec2[][] | undefined;
+	/** Selected: under the pointer it wins over what lies on top of it */
+	isSelected?: boolean;
 }
 
 /** A marble trajectory in screen space with the time of each point */
@@ -86,8 +90,13 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 	for (let i = scene.pieces.length - 1; i >= 0; i--) {
 		const piece = scene.pieces[i];
 		if (piece == null) continue;
-		const pieceDistance = isPointInPolygon(point, piece.corners) ? 0 : distanceToPolygon(point, piece.corners);
-		if (pieceDistance <= PIECE_PICK_SLOP && (piecePick == null || pieceDistance < piecePick.distance)) piecePick = { entityId: piece.entityId, distance: pieceDistance };
+		const pieceDistance = distanceToPiece(point, piece);
+		if (pieceDistance > PIECE_PICK_SLOP) continue;
+		if (piece.isSelected === true) {
+			piecePick = { entityId: piece.entityId, distance: pieceDistance };
+			break;
+		}
+		if (piecePick == null || pieceDistance < piecePick.distance) piecePick = { entityId: piece.entityId, distance: pieceDistance };
 	}
 	const placed = nearestWithin(scene.dots.filter((dot) => dot.radius != null), PLACED_DOT_PICK_RADIUS);
 	if (placed != null && (piecePick == null || placed.distance < piecePick.distance)) return { kind: 'dot', laneId: placed.dot.laneId, hitId: placed.dot.hitId };
@@ -169,6 +178,11 @@ export function isPointInPolygon(point: TVec2, corners: TVec2[]): boolean {
 		if (crosses) inside = !inside;
 	}
 	return inside;
+}
+
+function distanceToPiece(point: TVec2, piece: TScreenPiece): number {
+	if (piece.lines != null) return Math.min(...piece.lines.flatMap((line) => line.slice(1).map((end, index) => distanceToSegment(point, line[index] as TVec2, end))), Number.POSITIVE_INFINITY);
+	return isPointInPolygon(point, piece.corners) ? 0 : distanceToPolygon(point, piece.corners);
 }
 
 function distanceToPolygon(point: TVec2, corners: TVec2[]): number {

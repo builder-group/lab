@@ -130,6 +130,22 @@ describe('picking', () => {
 	});
 });
 
+describe('picking a Rail', () => {
+	const rail = { entityId: 'rail', corners: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], lines: [[{ x: 0, y: 0 }, { x: 100, y: 0 }]] };
+	const platform = { entityId: 'platform', corners: [{ x: 40, y: 45 }, { x: 60, y: 45 }, { x: 60, y: 55 }, { x: 40, y: 55 }] };
+
+	it('takes only its path, so its empty box leaves the click to what lies inside', () => {
+		expect(pick({ x: 50, y: 50 }, { handles: [], dots: [], pieces: [platform, rail] })).toEqual({ kind: 'piece', entityId: 'platform' });
+		expect(pick({ x: 20, y: 60 }, { handles: [], dots: [], pieces: [platform, rail] })).toBeNull();
+		expect(pick({ x: 20, y: 2 }, { handles: [], dots: [], pieces: [platform, rail] })).toEqual({ kind: 'piece', entityId: 'rail' });
+	});
+
+	it('lets the selected piece win over one on top of it', () => {
+		const below = { entityId: 'below', corners: platform.corners, isSelected: true };
+		expect(pick({ x: 50, y: 50 }, { handles: [], dots: [], pieces: [below, platform] })).toEqual({ kind: 'piece', entityId: 'below' });
+	});
+});
+
 describe('scene', () => {
 	it('interpolates the marble between samples and waits at the release before', () => {
 		const track = {
@@ -201,6 +217,11 @@ describe('step loop', () => {
 		expect(findStepTarget(project, result, [`hit:${lane.id}:h3`])?.hitId).toBe('h3');
 		expect(findStepTarget(project, result, ['p1'])?.hitId).toBe('h2');
 		expect(findStepTarget(project, result, [])?.hitId).toBe('h2');
+	});
+
+	it('goes back to the earliest open dot from a hit after it', () => {
+		const later: TSimulationResult = { ...result, hits: [hit('h1', 0.4, 'open'), hit('h2', 0.8, 'onTime'), hit('h3', 1.2, 'onTime')] };
+		expect(findStepTarget(project, later, [`hit:${lane.id}:h3`])?.hitId).toBe('h1');
 	});
 
 	it('repeats and mirrors the previous piece angle', () => {

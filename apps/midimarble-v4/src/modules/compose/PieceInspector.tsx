@@ -510,7 +510,7 @@ const PathTypeSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEn
 	}
 
 	function setLayout(value: TRailLayout): void {
-		cx.execute(entities.map((entity): TProjectCommand => ({ type: 'upsertEntity', entity: withRailLayout(entity, value) })));
+		if (cx.execute(entities.map((entity): TProjectCommand => ({ type: 'upsertEntity', entity: withRailLayout(entity, value) })))) cx.$compose.get()?.revealOnceSimulated(entities.map((entity) => entity.id));
 	}
 
 	return (

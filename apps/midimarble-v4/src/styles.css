@@ -2112,6 +2112,11 @@ button.mm-layer-disclosure:hover {
 }
 
 /* The eye and lock's slot at the row's right edge is always reserved, so the eye keeps one column down the list and hover moves and hides nothing */
+/* A hovered row's actions take the time's place, so the name keeps its room */
+.mm-layer:hover .mm-layer-meta {
+	display: none;
+}
+
 .mm-layer-actions {
 	display: inline-flex;
 	align-items: center;

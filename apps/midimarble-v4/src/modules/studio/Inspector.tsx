@@ -431,7 +431,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 						</button>
 					))
 				) : (
-					<button className="mm-button" data-span="2" disabled={openHit == null} onClick={addPlatform} title="Add an auto-placed platform that plays this hit (A)" type="button">
+					<button className="mm-button" data-span="2" disabled={openHit == null} onClick={addPlatform} title={openHit != null ? 'Add an auto-placed platform that plays this hit (A)' : "The marble doesn't reach this hit yet: the hits before it come first. N places the next one"} type="button">
 						<Plus size={12} strokeWidth={2} />
 						Add Platform
 					</button>
@@ -577,7 +577,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 					<FormatField cx={cx} project={project} />
 				</Panel>
 			) : (
-				<Panel id="scene.compose" title="Film" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>
+				<Panel id="scene.compose" title="Physics" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>
 					<SliderField
 						id="world-speed"
 						label="Gravity"

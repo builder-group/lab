@@ -131,7 +131,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const plan = compose != null && isCurrent ? compose.assist.replacePlan(project, result) : null;
 	// A plan of Blocked scenery alone is offered only once a what-if found a fix for one of its pieces
 	const sceneryChecks = blocked.map((id) => checks[id]).map((check) => (check?.revision === project.revision ? check.fix : null));
-	const isSceneryOnly = plan != null && plan.platforms === 0 && plan.releases.length === 0;
+	const isSceneryOnly = plan != null && plan.scenery.length > 0 && plan.platforms === 0 && plan.releases.length === 0;
 	const sceneryWorks = !isSceneryOnly || sceneryChecks.some((fix) => fix?.commands != null);
 	const menu = (): TMenuEntry[] => [
 		{ section: problems.length === 1 ? '1 Problem' : `${problems.length} Problems` },
@@ -142,12 +142,8 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			onSelect: () => issue.target != null && cx.revealIssue(issue.target)
 		})),
 		'separator' as const,
-		{
-			// One label with the edit's notice: "Fix 33 Hits", "Move Windmill 1 Clear"
-			label: plan == null || plan.isEmpty ? 'Fix Hits' : plan.label,
-			disabled: plan == null || plan.isEmpty || !sceneryWorks || compose == null || compose.assist.isReplacing,
-			onSelect: () => void compose?.assist.replace()
-		},
+		// One label with the edit's notice: "Fix 33 Hits", "Move Windmill 1 Clear"; shown only when it can run
+		...(plan != null && !plan.isEmpty && sceneryWorks && compose != null && !compose.assist.isReplacing ? [{ label: plan.label, onSelect: () => void compose.assist.replace() }] : []),
 		...extras
 	];
 	return (

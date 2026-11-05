@@ -6,7 +6,6 @@ import { audibleProject, autoEnd, changesHitsOnly, changesTail, createAudioEngin
 import {
 	amendHistory,
 	applyProjectCommands,
-	changedEntityIds,
 	createHistory,
 	createId,
 	createLane,
@@ -32,7 +31,7 @@ import { BOWL_TYPE } from '@/modules/simulation/bowl';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
-import { parseHitKey, stepHitTarget, toHitKey } from './selection';
+import { parseHitKey, parseShotKey, stepHitTarget, toHitKey } from './selection';
 import { tapTime } from './tap';
 import type { THitFlash } from './timeline/hit-flash';
 import { SimulationCx } from './SimulationCx';
@@ -92,8 +91,8 @@ export class StudioCx {
 	readonly $reveal = createState<TReveal | null>(null);
 	/** Counts `seek` calls; the canvas brings the marble at the playhead into view on each */
 	readonly $playheadReveal = createState(0);
-	/** Entities the last undo or redo changed; the canvas pans to them once the run for that revision arrives */
-	readonly $historyReveal = createState<{ ids: string[]; revision: number } | null>(null);
+	/** The revision the last undo or redo landed on, whose run no notice speaks about */
+	readonly $historyReveal = createState<{ revision: number } | null>(null);
 	// `agent` is the chat's panel, unmounted since MCP became the main path (design-language.md, Round 9); nothing opens it
 	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true, agent: false });
 	// Zero fits the timeline to its lanes until the user drags it to a height of their own
@@ -172,6 +171,11 @@ export class StudioCx {
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
 		// Tapping along belongs to the playback T started, so stopping playback finishes the tap session
+		// A Shot belongs to Film, so going to Compose leaves nothing selected there that it can't show
+		const stopFilmSelection = this.$workspace.listen(({ value }) => {
+			const selection = this.$selection.get();
+			if (value === 'compose' && selection.some((key) => parseShotKey(key) != null)) this.$selection.set(selection.filter((key) => parseShotKey(key) == null));
+		});
 		const stopTapSessionListener = this.$playing.listen(({ value }) => {
 			if (value) return;
 			this.finishTapSession();
@@ -184,6 +188,7 @@ export class StudioCx {
 			stopHeight();
 			stopNotices();
 			stopTapSessionListener();
+			stopFilmSelection();
 			void this.design.close();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
@@ -342,7 +347,10 @@ export class StudioCx {
 		this.$playing.set(false);
 		this.$workspace.set(target.workspace ?? 'compose');
 		if (target.workspace === 'design') this.$selection.set(target.ids);
-		else this.reveal(target.ids, target.point);
+		else {
+			this.$selection.set(target.ids);
+			this.$reveal.set({ ids: target.ids, point: target.point, isFramed: true });
+		}
 		// After the selection, which moves the playhead to a selected piece's own hit
 		if (target.time != null) this.$playhead.set(target.time);
 	}
@@ -959,7 +967,7 @@ export class StudioCx {
 		const removed = new Set(history.present.entities.filter((entity) => !kept.has(entity.id)).map((entity) => entity.id));
 		const selection = this.$selection.get();
 		if (selection.some((id) => removed.has(id))) this.$selection.set(selection.filter((id) => !removed.has(id)));
-		this.$historyReveal.set({ ids: changedEntityIds(history.present, next.present), revision: next.present.revision });
+		this.$historyReveal.set({ revision: next.present.revision });
 		this.scheduleSave();
 	}
 
@@ -1156,6 +1164,8 @@ export type TSelection = string[];
 export interface TReveal {
 	ids: string[];
 	point?: TVec2;
+	/** Comes close enough to read, as a problem does, rather than only into view */
+	isFramed?: boolean;
 }
 
 export interface TNotice extends TNoticeOptions {

@@ -45,18 +45,11 @@ describe('autoEnd', () => {
 		expect(createProject().end).toBe(DEFAULT_PROJECT_END);
 	});
 
-	it('ends a tapped project with its last hit while the length is the untouched default', () => {
+	it('keeps the length of a tapped film, however many hits it gets, until Fit to Song', () => {
 		// The review's tapped project: 6 hits ending at 0:03.6 in a 0:12 film
-		const before = tapped([]);
-		const after = tapped([0.6, 1.2, 1.8, 2.4, 3, 3.6]);
-
-		expect(autoEnd(before, after)).toBe(4);
-	});
-
-	it('keeps the default length for the first few hits of a film without a song', () => {
+		expect(autoEnd(tapped([]), tapped([0.6, 1.2, 1.8, 2.4, 3, 3.6]))).toBeNull();
 		expect(autoEnd(tapped([]), tapped([0.2]))).toBeNull();
-		expect(autoEnd(tapped([0.2]), tapped([0.2, 0.7, 1.2]))).toBeNull();
-		expect(autoEnd(tapped([0.2, 0.7, 1.2]), tapped([0.2, 0.7, 1.2, 1.7]))).toBe(2.1);
+		expect(autoEnd(tapped([0.2, 0.7, 1.2]), tapped([0.2, 0.7, 1.2, 1.7]))).toBeNull();
 		// Fit to Song chose a shorter film, so the next hit does not jump back to the default
 		expect(autoEnd(tapped([0.2], 0.6), tapped([0.2, 0.5], 0.6))).toBe(0.9);
 		expect(isAutoEnd(tapped([0.2]))).toBe(true);

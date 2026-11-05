@@ -86,6 +86,9 @@ import { createViewMotion, FOLLOW_RATE, followMarble, isSettled, keepInView, NAV
 
 export type { TComposeTool } from './keys';
 
+/** Metres of the wall kept around a framed problem */
+const FRAME_ROOM = 0.25;
+
 /**
  * Owns the Compose canvas: camera, tools, pointer and keyboard interaction and the WebGL renderer. The
  * canvas is open like Figma: every element can be placed anywhere, moved and turned, and a drop decides
@@ -212,6 +215,7 @@ export class ComposeCx {
 			this.$viewport.listen(updateGrid),
 			this.studio.simulation.$result.subscribe(({ value }) => {
 				this.screenTracks = null;
+				if (this.tilted != null && value != null && value.revision >= this.tilted.revision) this.tilted = null;
 				if (this.settleRevision != null && value != null && value.revision >= this.settleRevision) {
 					this.settleRevision = null;
 					this.$override.set(null);
@@ -226,6 +230,7 @@ export class ComposeCx {
 				this.revealHistory(value);
 				this.fitFirstHits();
 				this.runPendingFit();
+				this.runPendingReveal();
 			}),
 			this.studio.$fitFirstHits.listen(() => this.fitFirstHits()),
 			this.studio.$playing.listen(() => this.fitFirstHits()),
@@ -323,7 +328,8 @@ export class ComposeCx {
 	displayPieces(result: TSimulationResult | null = this.result): TResolvedPiece[] {
 		const override = this.$override.get();
 		const hidden = this.studio.$hidden.get();
-		const pieces = (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId));
+		const tilted = this.tilted;
+		const pieces = (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId)).map((piece) => tilted?.pieces.get(piece.entityId) ?? piece);
 		pieces.push(...this.pendingPieces(result, hidden));
 		const placing = this.$placing.get();
 		if (placing != null) pieces.push(placing);
@@ -416,7 +422,8 @@ export class ComposeCx {
 		const entity = this.project?.entities.find((item) => item.id === entityId);
 		const nodes = entity?.components.path?.nodes;
 		const link = entity?.components.hitLink;
-		if (entity == null || nodes == null || (link != null && link.offset == null)) return null;
+		// Only a Drawn Rail has points of its own; a layout generates its paths
+		if (entity == null || nodes == null || (link != null && link.offset == null) || (entity.components.piece?.layout ?? 'path') !== 'path') return null;
 		const resolved = this.displayPieces().find((piece) => piece.entityId === entityId);
 		if (resolved == null) return null;
 		return { nodes, base: { position: resolved.position, angle: resolved.angle } };
@@ -441,7 +448,11 @@ export class ComposeCx {
 		const previewId = this.hoverPreview?.entityId;
 		const pieces = this.displayPieces(result).filter((piece) => piece.entityId !== previewId);
 		for (const piece of pieces) {
-			if (!locked.includes(piece.entityId)) scene.pieces.push({ entityId: piece.entityId, corners: this.screenOutline(piece) });
+			if (locked.includes(piece.entityId)) continue;
+			const depth = piece.params['depth'] ?? 0.03;
+			// A generated Rail is mostly air: only its wires pick, while its box still frames and marquees it
+			const lines = pieceKind(piece) === 'generated' ? piece.paths?.map((path) => path.map((point) => this.toScreen(point, depth))) : undefined;
+			scene.pieces.push({ entityId: piece.entityId, corners: this.screenOutline(piece), lines, isSelected: selected.includes(piece.entityId) });
 		}
 		// An armed tool or Play a Note… is after open dots; placed ones select their hit only with the Move tool
 		const pickPlaced = this.$tool.get() === 'select' && this.$playNoteFor.get() == null;
@@ -500,6 +511,23 @@ export class ComposeCx {
 	}
 
 	/** Build Track ended: Zoom to Fit once the run of its last edit has been simulated, unless the song has started */
+	/** Brings these pieces into view once the run of the edit that changed them arrives, so a new shape doesn't run off the wall */
+	revealOnceSimulated(ids: string[]): void {
+		this.pendingReveal = ids;
+		this.runPendingReveal();
+	}
+
+	private pendingReveal: string[] | null = null;
+
+	private runPendingReveal(): void {
+		const ids = this.pendingReveal;
+		const project = this.project;
+		const result = this.result;
+		if (ids == null || project == null || result == null || result.revision !== project.revision) return;
+		this.pendingReveal = null;
+		this.reveal(ids);
+	}
+
 	fitOnceSimulated(): void {
 		this.isFitPending = true;
 		this.runPendingFit();
@@ -824,8 +852,8 @@ export class ComposeCx {
 	private revealHistory(result: TSimulationResult | null): void {
 		const pending = this.studio.$historyReveal.get();
 		if (pending == null || result == null || result.revision < pending.revision) return;
+		// Undo keeps the view: what it brought back may be off screen, like Figma's
 		this.studio.$historyReveal.set(null);
-		if (pending.ids.length > 0 && this.$drag.get() == null) this.reveal(pending.ids);
 	}
 
 	/**
@@ -847,14 +875,14 @@ export class ComposeCx {
 		const pending = this.studio.$reveal.get();
 		if (pending == null || this.result == null || this.$viewport.get().width <= 1) return;
 		this.studio.$reveal.set(null);
-		this.reveal(pending.ids, pending.point);
+		this.reveal(pending.ids, pending.point, pending.isFramed === true);
 	}
 
 	/**
 	 * Pans to pieces, hit dots and a point that are out of view, keeping the zoom unless they do not fit.
 	 * Hit keys reveal their dot.
 	 */
-	private reveal(ids: string[], point?: TVec2): void {
+	private reveal(ids: string[], point?: TVec2, isFramed = false): void {
 		const result = this.result;
 		if (result == null) return;
 		const points: TVec2[] = point != null ? [point] : [];
@@ -881,6 +909,14 @@ export class ComposeCx {
 		if (bounds == null) return;
 		const viewport = this.$viewport.get();
 		const camera = this.$camera.get();
+		if (isFramed) {
+			// A problem has to read: it comes close enough to see what is wrong, with some of the run around it
+			const around = { minX: bounds.minX - FRAME_ROOM, minY: bounds.minY - FRAME_ROOM, maxX: bounds.maxX + FRAME_ROOM, maxY: bounds.maxY + FRAME_ROOM };
+			const framed = fitBounds(around, viewport, canvasPadding);
+			if (camera.view.scale >= framed.scale && isBoundsVisible(camera.view, viewport, bounds, 40)) return;
+			this.navigateTo(framed);
+			return;
+		}
 		if (isBoundsVisible(camera.view, viewport, bounds, 40)) return;
 		const fitted = fitBounds(bounds, viewport, canvasPadding);
 		this.navigateTo(fitted.scale < camera.view.scale ? fitted : { scale: camera.view.scale, center: fitted.center });
@@ -1476,27 +1512,29 @@ export class ComposeCx {
 			this.showHoverPreview(key, made.entity, made.pose, hover.kind === 'track' ? hover.position : point, hover.kind === 'dot' ? `Follows ${lane} at ${formatTime(time)}` : null);
 			return;
 		}
-		if (tool === 'platform' && hover == null) {
-			// A click on the wall drops a free platform; near a trajectory it changes the run
-			const halfLength = ((resolvePieceParams('platform', {})['length'] ?? 0.09) / 2) * this.$camera.get().view.scale;
-			if (pickTrack(point, this.screenTrackPoints(), Math.max(TRACK_PICK_RADIUS, halfLength + 6)) == null) return this.clearHoverPreview();
-			const key = `platform:${Math.round(point.x)}:${Math.round(point.y)}`;
-			if (key === this.hoverPreview?.key) return;
+		const placed = toolPieceType[tool];
+		if (placed != null && hover == null) {
+			// The armed piece follows the pointer over the wall; near a trajectory a click changes the run, so the what-if runs there
 			const pose = { position: this.toWorld(point), angle: 0 };
-			this.showHoverPreview(key, createFreePiece('platform', pose, project.entities), pose, point, null);
+			const key = `${placed}:${Math.round(point.x)}:${Math.round(point.y)}`;
+			if (key === this.hoverPreview?.key) return;
+			const halfLength = ((resolvePieceParams(placed, {})['length'] ?? 0.09) / 2) * this.$camera.get().view.scale;
+			const isNearRun = pickTrack(point, this.screenTrackPoints(), Math.max(TRACK_PICK_RADIUS, halfLength + 6)) != null;
+			this.showHoverPreview(key, createFreePiece(placed, pose, project.entities), pose, point, null, isNearRun);
 			return;
 		}
 		this.clearHoverPreview();
 	}
 
-	private showHoverPreview(key: string, entity: TEntity, pose: TPose | null, position: TVec2, label: string | null): void {
+	private showHoverPreview(key: string, entity: TEntity, pose: TPose | null, position: TVec2, label: string | null, isWhatIf = true): void {
 		const project = this.project;
 		if (project == null) return;
 		this.hoverPreview = { key, entityId: entity.id };
 		const laneId = entity.components.hitLink?.laneId;
 		this.$override.set(pose != null ? displayPiece(entity, { pose }, this.marbleRadius(laneId)) : null);
 		this.$hoverPreview.set({ position, label });
-		this.previewWhatIf(withEntity(project, entity));
+		if (isWhatIf) this.previewWhatIf(withEntity(project, entity));
+		else this.studio.simulation.endPreview();
 	}
 
 	private clearHoverPreview(): void {
@@ -1937,12 +1975,35 @@ export class ComposeCx {
 		// A hold or a quick run of presses is one undo step
 		const now = performance.now();
 		const group = this.lastNudge != null && now - this.lastNudge.at < NUDGE_FOLD_MS ? this.lastNudge.group : undefined;
+		const shown = new Map(this.displayPieces().map((piece) => [piece.entityId, piece]));
 		this.studio.execute(pieceAngleCommands(project, angles), { group });
 		this.lastNudge = { at: now, group: this.studio.editGroup ?? 0 };
+		this.showTilted(angles, shown);
 		return true;
 	}
 
 	private lastNudge: { at: number; group: number } | null = null;
+	/** Pieces ↑ ↓ tilted, drawn at their new angle until the run for that edit arrives, as a drag draws its piece */
+	private tilted: { pieces: Map<string, TResolvedPiece>; revision: number } | null = null;
+
+	private showTilted(angles: Map<string, number>, shown: Map<string, TResolvedPiece>): void {
+		const project = this.project;
+		if (project == null) return;
+		const pieces = new Map(this.tilted?.pieces);
+		for (const [id, angle] of angles) {
+			const piece = shown.get(id);
+			const entity = project.entities.find((item) => item.id === id);
+			if (piece == null || entity == null) continue;
+			const link = entity.components.hitLink;
+			const hit = link != null ? this.result?.hits.find((item) => item.laneId === link.laneId && item.hitId === link.hitId) : undefined;
+			const pose = { position: piece.position, angle };
+			// Geometry only: its status and motion wait for the run
+			const { position, angle: drawn, contactPoint, contactNormal, shapes, path, paths } = displayPiece(entity, hit?.dot != null ? { pose, dot: hit.dot, velocity: hit.velocity } : { pose }, this.marbleRadius(link?.laneId));
+			pieces.set(id, { ...piece, position, angle: drawn, contactPoint, contactNormal, shapes, ...(path != null ? { path } : {}), ...(paths != null ? { paths } : {}) });
+		}
+		this.tilted = { pieces, revision: project.revision };
+		this.syncPieces();
+	}
 
 	/** What ↑ ↓ tilt: the selected pieces and the platforms of the selected hits */
 	private tiltTargets(project: TProject): string[] {
@@ -1953,7 +2014,9 @@ export class ComposeCx {
 			const piece = project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === parsed.laneId && entity.components.hitLink.hitId === parsed.hitId && soundsHit(entity.components.piece.type, entity.components.hitLink));
 			return piece == null ? [] : [piece.id];
 		});
-		return [...selectedPieceIds(project, selection), ...ofHits];
+		// A Bowl always stands upright: its physics has no angle
+		const pieces = selectedPieceIds(project, selection).filter((id) => layoutOf(project.entities.find((entity) => entity.id === id)?.components.piece?.type ?? '') !== 'catcher');
+		return [...pieces, ...ofHits];
 	}
 
 	/** Deletes the selected pieces, and selected marbles with their lanes while another marble remains */
@@ -1999,6 +2062,9 @@ export class ComposeCx {
 			}
 			return;
 		}
+		// The Layers tree owns its arrows and Return: they walk and rename rows there, and never tilt or place
+		const isInTree = event.target instanceof Element && event.target.closest('[role="tree"]') != null;
+		if (isInTree && (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'Enter')) return;
 		const project = this.project;
 		const selection = this.studio.$selection.get();
 		const action = composeKeyAction(event, {
