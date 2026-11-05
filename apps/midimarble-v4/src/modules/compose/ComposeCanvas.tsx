@@ -1041,7 +1041,7 @@ const SimulatingIndicator: React.FC<{ cx: StudioCx }> = (props) => {
 	const fixing = useFeatureState(compose?.assist.$fixing ?? NO_FIXING);
 	if (!computing && fixing == null) return null;
 	return (
-		<div className="mm-floating mm-delayed-fade absolute top-3 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">
+		<div className="mm-floating mm-delayed-fade absolute top-12 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">
 			{fixing == null ? 'Checking…' : 'Fixing…'}
 		</div>
 	);

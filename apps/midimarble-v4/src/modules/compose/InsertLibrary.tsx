@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Music } from 'lucide-react';
+import { Music, Video } from 'lucide-react';
 import React from 'react';
 import { popoverFrame } from './view';
 import { HelpTip } from '@/components';
@@ -104,7 +104,7 @@ function useCanvasBounds(): DOMRect | null {
 
 /** Compose's Insert: a tile per item with a preview of its real geometry. A click arms the item's tool; a drag drops it on the canvas. */
 export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
-	const { compose, anchor, onStartDrag, onAddSong } = props;
+	const { compose, anchor, onStartDrag, onAddSong, onAddShot } = props;
 	const tool = useFeatureState(compose.$tool);
 	const pathType = useFeatureState(compose.$pathType);
 	const armed = armedInsertItem(tool, pathType);
@@ -170,6 +170,28 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 					</div>
 				</section>
 			) : null}
+			<section className="mm-library-section" aria-label="Camera">
+				<div className="mm-library-section-title">Camera</div>
+				<div className="mm-library-grid">
+					<button
+						className="mm-library-tile"
+						aria-label="Shot: add a shot at the playhead"
+						onClick={() => {
+							close();
+							onAddShot();
+						}}
+						type="button"
+					>
+						<span className="mm-library-preview">
+							<Video size={22} strokeWidth={1.4} />
+						</span>
+						<span className="mm-library-label">
+							<span>Shot</span>
+						</span>
+						<span className="mm-tooltip">Add a shot at the playhead</span>
+					</button>
+				</div>
+			</section>
 		</InsertPopover>
 	);
 };
@@ -182,6 +204,7 @@ interface TInsertLibraryProps {
 	onStartDrag: (item: TInsertItem, event: React.PointerEvent) => void;
 	/** Adds the song; absent while the project has one */
 	onAddSong?: (() => void) | undefined;
+	onAddShot: () => void;
 }
 
 /** Tile that follows the pointer while a library item is dragged outside the canvas */

@@ -62,7 +62,9 @@ export function startCameraOrbit(cx: StudioCx, event: React.PointerEvent): void 
 		const angles = cx.design.$orbit.get();
 		const current = cx.project;
 		if (angles != null && current != null && end.type === 'pointerup') cx.execute(cameraCommands(current, angles));
-		cx.design.endOrbit();
+		// Track draws only the Draft Preview, so no Blender frame will end the orbit there
+		if (cx.$workspace.get() === 'compose') cx.design.clearOrbit();
+		else cx.design.endOrbit();
 		if (end.type === 'pointerup') swallowNextClick();
 	}
 

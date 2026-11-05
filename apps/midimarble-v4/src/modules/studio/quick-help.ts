@@ -7,16 +7,16 @@ import type { TWorkspace } from './StudioCx';
  * with their own tooltips; these lines only name the regions.
  */
 export const quickHelpRegions: TQuickHelpRegion[] = [
-	{ id: 'workspace', title: 'Compose and Film', line: 'Compose: the track, hitboxes and timing. Film: skins, camera and titles', gutter: 'left' },
-	{ id: 'layers', title: 'Layers', line: 'The Scene and everything in it: the song, marbles and track pieces, in Film also the wall, lights, camera and titles', gutter: 'left' },
-	{ id: 'tools', title: 'Tools', line: 'Move, Hand, then Insert for what you add: the track in Compose, titles and Decor in Film', gutter: 'left' },
+	{ id: 'workspace', title: 'Track and Film', line: 'Track: the track, hitboxes, timing and camera. Film: skins, lights and titles', gutter: 'left' },
+	{ id: 'layers', title: 'Layers', line: 'The Scene and everything in it: the song, marbles and track pieces, the camera in Track, the wall, lights and titles in Film', gutter: 'left' },
+	{ id: 'tools', title: 'Tools', line: 'Move, Hand, then Insert for what you add: the track in Track, titles and Decor in Film', gutter: 'left' },
 	{ id: 'wall', title: 'Wall', line: 'Marbles fall here and play their notes on the track', gutter: 'center', workspace: 'compose' },
 	{ id: 'wall', title: 'Preview', line: 'The film as Blender renders it at the playhead', gutter: 'center', workspace: 'design' },
 	{ id: 'export', title: 'Export Film…', line: 'Makes the movie file once the track plays well', gutter: 'right' },
 	{ id: 'agent', title: 'Agent', line: 'Who is connected: your own Claude Code, Codex or Claude app works in this window through MCP', gutter: 'right' },
 	{ id: 'blender', title: 'Blender', line: 'Renders the film; its logo shows the state and its menu opens the scene in Blender', gutter: 'right' },
 	{ id: 'inspector', title: 'Inspector', line: 'Settings of the selection: its skin, or the Scene with its theme', gutter: 'right' },
-	{ id: 'timelineLayers', title: 'Timeline', line: 'The same layers along the time: the song and each marble, in Film also camera and titles', gutter: 'bottom' },
+	{ id: 'timelineLayers', title: 'Timeline', line: 'The same layers along the time: the song and each marble, the camera in Track, titles in Film', gutter: 'bottom' },
 	{ id: 'song', title: 'Song', line: "The only sound; each marble plays some of its notes. Expand it to mute, solo or change a marble's Part", gutter: 'bottom' },
 	{ id: 'hitSummary', title: 'Hit Summary', line: 'Says when every hit is on time; click it to find a problem', gutter: 'bottom' },
 	{ id: 'transport', title: 'Transport', line: 'Play, step from hit to hit and see the time', gutter: 'bottom' }

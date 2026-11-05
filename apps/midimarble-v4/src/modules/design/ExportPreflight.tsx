@@ -101,7 +101,7 @@ const PreflightRow: React.FC<{ issue: TPreflightIssue; onReveal?: () => void }> 
 	);
 	if (onReveal == null) return <div className="mm-preflight-row">{content}</div>;
 	return (
-		<button className="mm-preflight-row" data-clickable onClick={onReveal} title={issue.target?.workspace === 'design' ? 'Show in Film with the Camera' : 'Show in Compose'} type="button">
+		<button className="mm-preflight-row" data-clickable onClick={onReveal} title={issue.target?.workspace === 'design' ? 'Show in Film' : 'Show in Track'} type="button">
 			{content}
 		</button>
 	);

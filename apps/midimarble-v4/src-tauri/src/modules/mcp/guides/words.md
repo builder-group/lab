@@ -18,7 +18,7 @@ Use these with the person. One word per thing.
 | Platform | bar, pad, peg | The piece that plays a note |
 | Rail, Tunnel, Windmill, Bowl | scenery | The other pieces. A Rail's Layout is Drawn, Curve, C, Chain or Switchback |
 | On Time, Early, Late, Missed, Stopped, Blocked, Open | | A hit's status |
-| Compose, Film | Design | The two workspaces |
+| Track, Film | Compose, Design | The two workspaces |
 | Theme | style, preset | Dresses the whole film; one per project |
 | Gravity | Marble Speed | How fast all marbles fall; the command stays `marble.speed` |
 | Format | Frame, aspect | The shape of the film |

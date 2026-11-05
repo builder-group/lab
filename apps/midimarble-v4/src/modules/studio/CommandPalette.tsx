@@ -104,7 +104,7 @@ const PaletteDialog: React.FC<{ cx: StudioCx; onClose: () => void }> = (props) =
 									<span className="w-3 shrink-0 text-center text-[11px]">{checked ? '✓' : ''}</span>
 									<span className="min-w-0 flex-1 truncate">{commandTitle(cx, command)}</span>
 									{opens != null ? (
-										<span className="text-[11px] opacity-70">Opens {opens === 'compose' ? 'Compose' : 'Film'}</span>
+										<span className="text-[11px] opacity-70">Opens {opens === 'compose' ? 'Track' : 'Film'}</span>
 									) : query.trim() ? (
 										<span className="text-[11px] opacity-55">{command.section}</span>
 									) : null}
