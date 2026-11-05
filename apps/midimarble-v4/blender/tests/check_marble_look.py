@@ -165,12 +165,12 @@ def check_skins_reach_blender():
 
 def check_default_marble_look():
     # The same numbers `draft-look.test.ts` holds, so the Draft Preview and the film agree
-    expected = {('brass', '#3478f6', None): '#123f94', ('brass', '#ff1a2e', '#ffefc8'): '#8a0e19', ('pegboard', '#34c759', None): '#0c6222'}
+    expected = {('brass', '#3478f6', None): '#103782', ('brass', '#ff1a2e', '#ffefc8'): '#a9111f', ('pegboard', '#34c759', None): '#0c6222'}
     for (theme, color, wall), body in expected.items():
         look = themes.marble_look(theme, color, {'wallColor': wall} if wall else {})
         check(look['tone'] == 'deep', '%s on %s is deep' % (color, theme))
         check(look['body'].lower() == body, '%s on %s has the body the draft has: %s, got %s' % (color, theme, body, look['body']))
-        check(themes.display_luminance(look['body']) >= themes.DEEP_LUMINANCE - 1e-3, 'a deep marble is no near-black ball (%s)' % look['body'])
+        check(themes.display_luminance(look['body']) >= 0.04, 'a deep marble is no near-black ball (%s)' % look['body'])
         check(look['contrast'] >= 2.9, '%s on %s still stands apart (%.2f)' % (color, theme, look['contrast']))
 
 

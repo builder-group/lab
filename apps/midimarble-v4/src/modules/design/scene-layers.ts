@@ -24,7 +24,7 @@ export const MAX_LIGHT_STRENGTH = 20;
  */
 const BASE_SCENES: Record<string, { wallKind: TWallKind; strength: number; angle: number; direction: readonly [number, number, number] }> = {
 	pegboard: { wallKind: 'pegboard', strength: 3.2, angle: 12, direction: [0.62, 0.62, -0.48] },
-	brass: { wallKind: 'plaster', strength: 5.2, angle: 16, direction: [0.82, 0.4, -0.36] },
+	brass: { wallKind: 'plaster', strength: 5.2, angle: 30, direction: [0.82, 0.4, -0.22] },
 	neon: { wallKind: 'grid', strength: 2.6, angle: 10, direction: [0.55, 0.62, -0.56] }
 };
 

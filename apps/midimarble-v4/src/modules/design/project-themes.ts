@@ -138,7 +138,7 @@ export function themeDefaultColor(base: string, name: TThemeOverrideName): strin
 // Linear colors of `THEMES` in themes.py: the wall (Pegboard's hardboard tint), the sun and the world
 const BASE_COLORS: Record<string, { wall: readonly number[]; light: readonly number[]; background: readonly number[] }> = {
 	pegboard: { wall: [0.58, 0.42, 0.26], light: [1.0, 0.96, 0.9], background: [0.72, 0.74, 0.78] },
-	brass: { wall: [0.42, 0.355, 0.53], light: [1.0, 0.95, 0.88], background: [0.53, 0.5, 0.62] },
+	brass: { wall: [0.385, 0.34, 0.5], light: [1.0, 0.95, 0.88], background: [0.53, 0.5, 0.62] },
 	neon: { wall: [0.006, 0.008, 0.02], light: [0.86, 0.92, 1.0], background: [0.05, 0.06, 0.12] }
 };
 

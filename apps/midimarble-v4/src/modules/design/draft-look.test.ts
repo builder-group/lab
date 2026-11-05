@@ -28,8 +28,8 @@ describe('draft look', () => {
 
 	it('should keep a default marble in its hue on a warm wall, not near-black, with the numbers the film has', () => {
 		// `check_marble_look.py` holds the same numbers
-		expect(draftMarble('brass', '#3478f6').body).toBe('#123f94');
-		expect(draftMarble('brass', '#ff1a2e', { wallColor: '#ffefc8' }).body).toBe('#8a0e19');
+		expect(draftMarble('brass', '#3478f6').body).toBe('#103782');
+		expect(draftMarble('brass', '#ff1a2e', { wallColor: '#ffefc8' }).body).toBe('#a9111f');
 		expect(draftMarble('pegboard', '#34c759').body).toBe('#0c6222');
 		for (const color of ['#3478f6', '#ff1a2e', '#22ff66']) expect(marbleContrast('brass', color, { wallColor: '#ffefc8' })).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
 	});
@@ -108,8 +108,8 @@ describe('draft look', () => {
 				const marble = draftMarble(theme, color);
 				const platform = draftPieceColors(theme, { type: 'platform', color, skin: null });
 				expect(contrastRatio(marble.body, draftWall(theme).color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
-				// Pegboard and Brass marbles sit on the bar; Neon's on its deep body inside the glowing edge
-				if (theme !== 'neon') expect(contrastRatio(marble.body, platform.bar)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
+				// Pegboard marbles sit on the bar; Neon's on its deep body inside the glowing edge; Brass's read by color on dark gold
+				if (theme === 'pegboard') expect(contrastRatio(marble.body, platform.bar)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
 				// The film paints Pegboard's platform in the lane color itself, not the Draft Preview's tint of it
 				if (theme === 'pegboard') expect(contrastRatio(marble.body, color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
 				expect(marbleContrast(theme, color)).toBeGreaterThanOrEqual(MARBLE_CONTRAST);
@@ -117,7 +117,7 @@ describe('draft look', () => {
 		}
 		// Light walls get deep marbles in the lane's hue, the dark Neon wall pearl ones with a rim
 		expect(draftMarble('pegboard', '#3478f6').tone).toBe('deep');
-		expect(draftMarble('brass', '#ff9f0a').tone).toBe('deep');
+		expect(draftMarble('brass', '#ff9f0a').tone).toBe('pearl');
 		expect(draftMarble('neon', '#ff9f0a').tone).toBe('pearl');
 		expect(draftMarble('brass', '#3478f6').rim).toBeNull();
 	});
