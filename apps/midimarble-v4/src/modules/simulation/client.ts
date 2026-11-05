@@ -59,7 +59,10 @@ export function createSimulationClient(): TSimulationClient {
 			return startPool().autoPlace(request, options);
 		},
 		settle(request) {
-			return assists.queue.enqueue<TSettleAnswer>('settle', { kind: 'settle', ...request });
+			// A whole settle ends on the run the edit then asks for, so in the trajectory worker that run resumes from its snapshots.
+			// A drag's quick one stops short of the song's end, and the trajectory worker keeps the end for what lies past a preview.
+			const queue = request.isQuick === true ? assists.queue : simulation.queue;
+			return queue.enqueue<TSettleAnswer>('settle', { kind: 'settle', ...request });
 		},
 		reconnect(project) {
 			return assists.queue.enqueue<{ pieces: TPiece[] } | null>('reconnect', { kind: 'reconnect', project });
