@@ -448,7 +448,7 @@ function checkGapPiece(
 	// Leaving the marble counts against a piece in the search, so a piece stays in it wherever one fits
 	const band = frameBand(project, marbleId);
 	const pace = trial.pace ?? descentPace(project, trial.hits);
-	const piece = trial.pieces.find((item) => item.entityId === entityId);
+	const piece = trial.pieces.find((item) => item.pieceId === entityId);
 	const marble = trial.marbles.find((item) => item.marbleId === marbleId);
 	const next = findHitResult(trial, marbleId, toHitId);
 	const dot = next?.dot ?? null;
@@ -473,7 +473,7 @@ function checkGapPiece(
 		isRunInFrame,
 		leaveTime: isOnPiece ? leaveTime : null,
 		pieceStatus: piece?.status ?? 'unreached',
-		nextStatus: next?.pieceEntityId != null ? next.status : null,
+		nextStatus: next?.pieceId != null ? next.status : null,
 		paceError: dot != null && pace != null ? dot.y - paceAt(pace, toTime) : null
 	};
 }
@@ -720,7 +720,7 @@ function prepareTurns(
 		if (played.check.pieceStatus !== 'placed') return null;
 		// Touching the marble's own pieces only costs score; touching another marble is never suggested
 		if (crossesOtherMarbles(result, trial, project, marbleId, piece.id, from.time + 0.02, to.time, frontiers)) return null;
-		const probeStatus = trial.pieces.find((piece) => piece.entityId === probe?.id)?.status;
+		const probeStatus = trial.pieces.find((piece) => piece.pieceId === probe?.id)?.status;
 		const paceError = Math.abs(played.check.paceError ?? 0);
 		const limit = pace?.limit ?? Infinity;
 		const isTouching = nearestPieceGap(withPieces(project, [piece]), trial, piece.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
@@ -760,7 +760,7 @@ function strikesOnTheWay(project: TProject, trial: TSimulationResult, piece: TPi
 
 /** How far a piece reaches past its own marble, in piece lengths: it may, but it then stands in the next marble's way */
 function marbleOverhang(trial: TSimulationResult, entityId: string, band: { centerX: number; halfWidth: number }): number {
-	const shapes = trial.pieces.find((piece) => piece.entityId === entityId)?.shapes;
+	const shapes = trial.pieces.find((piece) => piece.pieceId === entityId)?.shapes;
 	if (shapes == null || !shapes.length) return 0;
 	const bounds = shapesBounds(shapes);
 	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
@@ -801,7 +801,7 @@ function turnsPiece(
 	return {
 		id,
 		name: `${getPieceDefinition('rail')?.label ?? 'Rail'} ${count + 1}`,
-		type: 'rail', layout: layout, params: params, angle: round(-candidate.downhill * candidate.slope), place: { kind: 'follows', marbleId: marbleId, hitId: hitId, contactAt: candidate.contactAt }
+		type: 'rail', layout: layout, params: params, angle: round(-candidate.downhill * candidate.slope), place: { kind: 'follows', marbleId, hitId: hitId, contactAt: candidate.contactAt }
 	};
 }
 
@@ -818,7 +818,7 @@ function checkSwitchback(
 ): { check: TGapPieceCheck; isStray: boolean } {
 	const band = frameBand(project, marbleId);
 	const pace = trial.pace ?? descentPace(project, trial.hits);
-	const piece = trial.pieces.find((item) => item.entityId === entityId);
+	const piece = trial.pieces.find((item) => item.pieceId === entityId);
 	const marble = trial.marbles.find((item) => item.marbleId === marbleId);
 	const next = findHitResult(trial, marbleId, toHitId);
 	const dot = next?.dot ?? null;
@@ -831,11 +831,10 @@ function checkSwitchback(
 		if (leaveTime == null && sample.position.y < bottom - (marble?.radius ?? 0))
 			leaveTime = sample.time;
 	}
-	const marbleEntityId = marble?.marbleId;
 	const isStray = trial.contacts.some((contact) => {
 		if (contact.time <= fromTime + 0.02 || contact.time >= toTime - 0.01) return false;
-		if (contact.marbleEntityId !== marbleEntityId) return contact.otherEntityId === entityId;
-		return contact.otherEntityId !== entityId;
+		if (contact.marbleId !== marbleId) return contact.otherId === entityId;
+		return contact.otherId !== entityId;
 	});
 	return {
 		check: {
@@ -844,7 +843,7 @@ function checkSwitchback(
 			isRunInFrame,
 			leaveTime,
 			pieceStatus: piece?.status ?? 'unreached',
-			nextStatus: next?.pieceEntityId != null ? next.status : null,
+			nextStatus: next?.pieceId != null ? next.status : null,
 			paceError: dot != null && pace != null ? dot.y - paceAt(pace, toTime) : null
 		},
 		isStray

@@ -61,7 +61,7 @@ describe('duplicateClear', () => {
 		expect(tieOf(copy)).toBeNull();
 		const after = simulate(withCopies(placed.copies));
 		expect(newlyBroken(run.hits, after.hits)).toEqual([]);
-		expect(after.contacts.some((contact) => contact.otherEntityId === copy?.id)).toBe(false);
+		expect(after.contacts.some((contact) => contact.otherId === copy?.id)).toBe(false);
 	});
 
 	it('should place several copies together, with the same shift', async () => {

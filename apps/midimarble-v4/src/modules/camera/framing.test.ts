@@ -24,7 +24,7 @@ function scene(melody: number[], bass: number[], isClose = true): { result: TSim
 		marbleId,
 		hitId: `${marbleId}-${index}`,
 		targetTime: time,
-		pieceEntityId: null,
+		pieceId: null,
 		dot: null,
 		velocity: null,
 		actualTime: time,

@@ -951,7 +951,7 @@ function isOnlyOnTimePiece(cx: StudioCx): boolean {
 	const result = cx.simulation.$result.get();
 	const [only, ...others] = cx.$selection.get();
 	if (project == null || result == null || only == null || others.length > 0 || result.revision !== project.revision) return false;
-	const hit = result.hits.find((item) => item.pieceEntityId === only);
+	const hit = result.hits.find((item) => item.pieceId === only);
 	return hit?.status === 'onTime' && !problemPieces(project, result).includes(only);
 }
 

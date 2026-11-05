@@ -60,7 +60,7 @@ export interface TMarbleSample {
 }
 
 export interface TResolvedPiece {
-	entityId: string;
+	pieceId: string;
 	type: string;
 	/** Pose of the piece origin. For platforms the origin is the center of the collider box. */
 	position: TVec2;
@@ -112,9 +112,9 @@ export type TPieceStatus =
 
 export interface TContact {
 	time: number;
-	marbleEntityId: string;
+	marbleId: string;
 	/** Piece piece ID, or the other marble's piece ID for marble collisions */
-	otherEntityId: string;
+	otherId: string;
 	kind: 'piece' | 'marble';
 	position: TVec2;
 	/**
@@ -129,7 +129,7 @@ export interface THitResult {
 	hitId: string;
 	targetTime: number;
 	/** Piece of the piece linked to this hit, if any */
-	pieceEntityId: string | null;
+	pieceId: string | null;
 	/** Marble center at the target time on the current trajectory: the dot the user clicks */
 	dot: TVec2 | null;
 	/** Marble velocity at the target time, used for default angles and guardrails */

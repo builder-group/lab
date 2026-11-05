@@ -51,9 +51,9 @@ describe('Rail layouts', () => {
 		project.track.pieces.push(rail);
 		const simulator = await createSimulator();
 		const result = simulator.simulate(project);
-		expect(result.pieces.find((piece) => piece.entityId === 'rail')?.paths).toHaveLength(2);
+		expect(result.pieces.find((piece) => piece.pieceId === 'rail')?.paths).toHaveLength(2);
 		// The marble lands on the further path
-		expect(result.contacts.some((contact) => contact.otherEntityId === 'rail')).toBe(true);
+		expect(result.contacts.some((contact) => contact.otherId === 'rail')).toBe(true);
 		simulator.dispose();
 	}, 20_000);
 });

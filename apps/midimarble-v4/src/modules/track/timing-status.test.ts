@@ -7,7 +7,7 @@ function hitResult(patch: Partial<THitResult>): THitResult {
 		marbleId: 'marble-1',
 		hitId: 'hit-1',
 		targetTime: 1,
-		pieceEntityId: 'piece-1',
+		pieceId: 'piece-1',
 		dot: null,
 		velocity: null,
 		actualTime: 1,

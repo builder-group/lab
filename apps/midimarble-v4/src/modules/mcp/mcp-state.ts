@@ -44,7 +44,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 	const theme = resolveTheme(film);
 	const wall = wallLayer(film);
 	const light = keyLightLayer(film);
-	const resolved = new Map(result?.pieces.map((piece) => [piece.entityId, piece]) ?? []);
+	const resolved = new Map(result?.pieces.map((piece) => [piece.pieceId, piece]) ?? []);
 	const pieces = project.track.pieces;
 	const countBy = (values: string[]): Record<string, number> => {
 		const counts: Record<string, number> = {};
@@ -127,7 +127,7 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 		const piece = project.track.pieces.find((item) => item.id === key);
 		if (piece != null) {
 			const pose = pieceInForm(result, piece);
-			const link = tieOf(piece) ?? result?.hits.find((item) => item.pieceEntityId === piece.id);
+			const link = tieOf(piece) ?? result?.hits.find((item) => item.pieceId === piece.id);
 			const played = link != null ? resolveHit(project, result, toHitKey(link.marbleId, link.hitId), link.marbleId, link.hitId) : null;
 			return { kind: 'piece', key, ...pose, params: piece.params ?? {}, hit: played != null ? { key: played.key, marbleId: played.marbleId, hitId: played.hitId, marble: played.marble, time: played.time, note: played.note, status: played.status } : null };
 		}
@@ -156,7 +156,7 @@ function resolveHit(project: TProject, result: TSimulationResult | null, key: st
 	const marble = project.marbles.find((item) => item.id === marbleId);
 	const hit = marble?.hits.find((item) => item.id === hitId);
 	const run = result?.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
-	const platform = project.track.pieces.find((piece) => piece.id === run?.pieceEntityId || (tieOf(piece)?.marbleId === marbleId && tieOf(piece)?.hitId === hitId));
+	const platform = project.track.pieces.find((piece) => piece.id === run?.pieceId || (tieOf(piece)?.marbleId === marbleId && tieOf(piece)?.hitId === hitId));
 	return {
 		kind: 'hit',
 		key,
@@ -173,7 +173,7 @@ function resolveHit(project: TProject, result: TSimulationResult | null, key: st
 
 /** A piece's id, name, place, angle in radians and length, each only when it has one */
 function pieceInForm(result: TSimulationResult | null, piece: TPiece): TSelectedPiece {
-	const position = result?.pieces.find((item) => item.entityId === piece.id)?.position;
+	const position = result?.pieces.find((item) => item.pieceId === piece.id)?.position;
 	const { angle } = piece;
 	const length = piece.params['length'];
 	return {

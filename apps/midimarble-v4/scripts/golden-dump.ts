@@ -133,17 +133,17 @@ function sectionsOf(project: TProject, result: TSimulationResult): Record<string
 	const { revision: _revision, ...scene } = build.description;
 	const hits = result.hits
 		.map((hit) => {
-			const { marbleId, ...rest } = hit;
-			return { ...rest, marble: marbleOfLane.get(marbleId) ?? `marble:${marbleId}` };
+			const { marbleId, pieceId, ...rest } = hit;
+			return { ...rest, pieceEntityId: pieceId, marble: marbleOfLane.get(marbleId) ?? `marble:${marbleId}` };
 		})
 		.sort((a, b) => compareText(a.marble, b.marble) || a.targetTime - b.targetTime || compareText(a.hitId, b.hitId));
 	const pieces = result.pieces
-		.map(({ motion, ...rest }) => ({ ...rest, motion: motion == null ? null : blocks(motion) }))
+		.map(({ motion, pieceId, ...rest }) => ({ ...rest, entityId: pieceId, motion: motion == null ? null : blocks(motion) }))
 		.sort((a, b) => compareText(a.entityId, b.entityId));
 	return {
 		hits: { duration: result.duration, onTime: hits.filter((hit) => hit.status === 'onTime').length, total: hits.length, hits },
 		pieces,
-		contacts: result.contacts,
+		contacts: result.contacts.map(({ marbleId, otherId, ...rest }) => ({ ...rest, marbleEntityId: marbleId, otherEntityId: otherId })),
 		scene,
 		motion: {
 			marbles: result.marbles

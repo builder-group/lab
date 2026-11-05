@@ -3,7 +3,7 @@ import type { THitResult } from '@/modules/simulation';
 import { hitLandings, landedBetween, offsetLabel } from './hit-flash';
 
 function hit(hitId: string, status: THitResult['status'], targetTime: number, actualTime: number | null = null): THitResult {
-	return { marbleId: 'marble', hitId, status, targetTime, actualTime, error: actualTime == null ? null : actualTime - targetTime, pieceEntityId: null, dot: { x: 0, y: 0 }, velocity: null };
+	return { marbleId: 'marble', hitId, status, targetTime, actualTime, error: actualTime == null ? null : actualTime - targetTime, pieceId: null, dot: { x: 0, y: 0 }, velocity: null };
 }
 
 describe('hitLandings function', () => {

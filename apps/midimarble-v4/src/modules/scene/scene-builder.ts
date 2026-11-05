@@ -79,12 +79,12 @@ export function buildSceneDescription(
 	markActiveUntil(project, result, marbles);
 
 	const resolvedPieces: TScenePiece[] = result.pieces.map((item) => {
-		const piece = pieces.get(item.entityId);
+		const piece = pieces.get(item.pieceId);
 		const marbleId = tieOf(piece)?.marbleId;
 		let motionPath: string | null = null;
 		let sampleCount = 0;
 		if (item.motion != null && item.motion.length > 0) {
-			motionPath = `${MOTION_FOLDER}/${item.entityId}.bin`;
+			motionPath = `${MOTION_FOLDER}/${item.pieceId}.bin`;
 			sampleCount = item.motion.length;
 			motionFiles.push({
 				path: motionPath,
@@ -92,15 +92,15 @@ export function buildSceneDescription(
 			});
 		}
 		return {
-			id: item.entityId,
-			name: piece?.name ?? item.entityId,
+			id: item.pieceId,
+			name: piece?.name ?? item.pieceId,
 			type: item.type,
 			params: { ...item.params },
 			position: { x: item.position.x, y: item.position.y },
 			angle: item.angle,
 			wallOffset: getPieceDefinition(item.type)?.wallOffset ?? 0,
-			hitTimes: hitTimesFor(result, item.entityId),
-			contactTimes: contactTimesFor(result, item.entityId),
+			hitTimes: hitTimesFor(result, item.pieceId),
+			contactTimes: contactTimesFor(result, item.pieceId),
 			musical: getPieceDefinition(item.type)?.musical === true,
 			motionPath,
 			sampleCount,
@@ -166,7 +166,7 @@ export function heldBowls(project: TProject, result: TSimulationResult): { x: nu
 	const points = project.track.pieces.flatMap((piece) => {
 		const marbleId = tieOf(piece)?.marbleId;
 		if (piece.type !== BOWL_TYPE || marbleId == null || !marbles.has(marbleId)) return [];
-		const resolvedPiece = result.pieces.find((item) => item.entityId === piece.id);
+		const resolvedPiece = result.pieces.find((item) => item.pieceId === piece.id);
 		const caught = bowlCatch(result, piece.id);
 		if (resolvedPiece == null || caught.status !== 'caught' || (caught.enterTime ?? -Infinity) < hold) return [];
 		return [{ x: Math.round(resolvedPiece.position.x * 1e5) / 1e5, y: Math.round(resolvedPiece.position.y * 1e5) / 1e5 }];
@@ -236,7 +236,7 @@ export interface TMotionFile {
 /** Times the marble actually touched the piece for each linked hit, sorted. Hits without a contact are left out. */
 function hitTimesFor(result: TSimulationResult, entityId: string): number[] {
 	return result.hits
-		.flatMap((hit) => (hit.pieceEntityId === entityId && hit.actualTime != null ? [hit.actualTime] : []))
+		.flatMap((hit) => (hit.pieceId === entityId && hit.actualTime != null ? [hit.actualTime] : []))
 		.sort((a, b) => a - b);
 }
 
@@ -246,7 +246,7 @@ function hitTimesFor(result: TSimulationResult, entityId: string): number[] {
  */
 function contactTimesFor(result: TSimulationResult, entityId: string): number[] {
 	const times = result.contacts
-		.flatMap((contact) => (contact.kind === 'piece' && contact.otherEntityId === entityId ? [contact.time] : []))
+		.flatMap((contact) => (contact.kind === 'piece' && contact.otherId === entityId ? [contact.time] : []))
 		.sort((a, b) => a - b);
 	const merged: number[] = [];
 	for (const time of times) {

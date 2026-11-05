@@ -24,7 +24,7 @@ describe('the film length', () => {
 
 	it('should stay when a Bowl is added or removed', () => {
 		const { cx, marbleId } = opened(4);
-		cx.execute([{ type: 'addPiece', piece: { id: 'bowl', type: 'bowl', params: {}, angle: 0, place: { kind: 'follows', marbleId: marbleId, hitId: 'h1' } } }]);
+		cx.execute([{ type: 'addPiece', piece: { id: 'bowl', type: 'bowl', params: {}, angle: 0, place: { kind: 'follows', marbleId, hitId: 'h1' } } }]);
 		expect(cx.project?.length).toBe(4);
 		cx.execute([{ type: 'removePieces', pieceIds: ['bowl'] }]);
 		expect(cx.project?.length).toBe(4);

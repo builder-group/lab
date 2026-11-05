@@ -63,7 +63,7 @@ function createTwoMarbleProject(): TProject {
 
 function hit(marbleId: string, hitId: string, targetTime: number, patch: Partial<THitResult> = {}): THitResult {
 	const x = marbleId === 'marble-a' ? -0.1 : 0.1;
-	return { marbleId, hitId, targetTime, pieceEntityId: null, dot: { x, y: 0.5 - targetTime * 0.3 }, velocity: null, actualTime: targetTime, error: 0, status: 'onTime', ...patch };
+	return { marbleId, hitId, targetTime, pieceId: null, dot: { x, y: 0.5 - targetTime * 0.3 }, velocity: null, actualTime: targetTime, error: 0, status: 'onTime', ...patch };
 }
 
 let pieceCount = 0;
@@ -71,7 +71,7 @@ let pieceCount = 0;
 /** A piece well away from the others */
 function piece(entityId: string, type = 'platform'): TResolvedPiece {
 	pieceCount++;
-	return { entityId, type, position: { x: pieceCount, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'placed' };
+	return { pieceId: entityId, type, position: { x: pieceCount, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'placed' };
 }
 
 function createResult(patch: Partial<TSimulationResult> = {}): TSimulationResult {
@@ -85,10 +85,10 @@ function createResult(patch: Partial<TSimulationResult> = {}): TSimulationResult
 		pieces: [piece('pa1'), piece('pa2'), piece('pb1'), piece('loose'), piece('rail', 'rail')],
 		contacts: [],
 		hits: [
-			hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1' }),
-			hit('marble-a', 'a2', 2, { pieceEntityId: 'pa2' }),
-			hit('marble-a', 'a3', 3, { pieceEntityId: null, actualTime: null, error: null, status: 'open' }),
-			hit('marble-b', 'b1', 1.5, { pieceEntityId: 'pb1' })
+			hit('marble-a', 'a1', 1, { pieceId: 'pa1' }),
+			hit('marble-a', 'a2', 2, { pieceId: 'pa2' }),
+			hit('marble-a', 'a3', 3, { pieceId: null, actualTime: null, error: null, status: 'open' }),
+			hit('marble-b', 'b1', 1.5, { pieceId: 'pb1' })
 		],
 		stats: { computeMs: 0, reusedUntil: 0, steps: 0 },
 		...patch
@@ -122,7 +122,7 @@ describe('checkRun function', () => {
 		const marble = project.marbles[0];
 		const result = simulator.simulate(project);
 		const dots = [0.4, -1.7];
-		const hits = (marble?.hits ?? []).slice(0, 2).map((hit, index) => ({ marbleId: marble?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceEntityId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'open' as const }));
+		const hits = (marble?.hits ?? []).slice(0, 2).map((hit, index) => ({ marbleId: marble?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'open' as const }));
 
 		const preflight = checkRun(project, { ...result, hits }, []);
 		const tip = preflight.issues.find((issue) => issue.kind === 'fall');
@@ -176,10 +176,10 @@ describe('checkRun function', () => {
 		const project = createTwoMarbleProject();
 		const result = createResult({
 			hits: [
-				hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1', status: 'missed', actualTime: 1.05, error: 0.05 }),
-				hit('marble-a', 'a2', 2, { pieceEntityId: 'pa2', status: 'missed', reason: 'resting' }),
-				hit('marble-a', 'a3', 3, { pieceEntityId: 'loose', status: 'drifting', error: -0.012 }),
-				hit('marble-b', 'b1', 1.5, { pieceEntityId: 'pb1', status: 'blocked', actualTime: null, error: null })
+				hit('marble-a', 'a1', 1, { pieceId: 'pa1', status: 'missed', actualTime: 1.05, error: 0.05 }),
+				hit('marble-a', 'a2', 2, { pieceId: 'pa2', status: 'missed', reason: 'resting' }),
+				hit('marble-a', 'a3', 3, { pieceId: 'loose', status: 'drifting', error: -0.012 }),
+				hit('marble-b', 'b1', 1.5, { pieceId: 'pb1', status: 'blocked', actualTime: null, error: null })
 			]
 		});
 
@@ -207,17 +207,17 @@ describe('checkRun function', () => {
 
 	it('should not report framing from dots alone: the run without marble motion has no camera', () => {
 		const project = createTwoMarbleProject();
-		const result = createResult({ hits: [hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1', dot: { x: 1.2, y: 0 } })] });
+		const result = createResult({ hits: [hit('marble-a', 'a1', 1, { pieceId: 'pa1', dot: { x: 1.2, y: 0 } })] });
 
 		expect(checkRun(project, result, NO_BLENDER_OBJECTS).issues).toEqual([]);
 	});
 
 	it('should flag stray contacts but not contacts with the marble own pieces, scenery or free pieces', () => {
 		const project = createTwoMarbleProject();
-		const contact = (time: number, marbleEntityId: string, otherEntityId: string, kind: 'piece' | 'marble' = 'piece') => ({
+		const contact = (time: number, marbleId: string, otherId: string, kind: 'piece' | 'marble' = 'piece') => ({
 			time,
-			marbleEntityId,
-			otherEntityId,
+			marbleId,
+			otherId,
 			kind,
 			position: { x: 0, y: 0 },
 			speed: 1
@@ -249,7 +249,7 @@ describe('checkRun function', () => {
 	it('should count a platform its own marble strikes twice as a problem, and pieces that touch', () => {
 		const project = createTwoMarbleProject();
 		const at = (entityId: string, y: number): TResolvedPiece => ({ ...piece(entityId), position: { x: 0, y }, params: { length: 0.09, thickness: 0.012 } });
-		const strike = (time: number) => ({ time, marbleEntityId: 'marble-a', otherEntityId: 'pa1', kind: 'piece' as const, position: { x: 0, y: 0.03 }, speed: 1.5 });
+		const strike = (time: number) => ({ time, marbleId: 'marble-a', otherId: 'pa1', kind: 'piece' as const, position: { x: 0, y: 0.03 }, speed: 1.5 });
 		const result = createResult({
 			pieces: [at('pa1', 0.03), at('pa2', 0)],
 			contacts: [strike(1), strike(1.2)],
@@ -270,7 +270,7 @@ describe('checkRun function', () => {
 		const result = createResult({
 			pieces: [{ ...piece('pa1'), position: { x: 0, y: 0 }, params: { length: 0.09, thickness: 0.012 } }],
 			marbles: [{ marbleId: 'marble-a', radius: 0.008, samples }],
-			hits: [hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1' })]
+			hits: [hit('marble-a', 'a1', 1, { pieceId: 'pa1' })]
 		});
 
 		const preflight = checkRun(project, result, NO_BLENDER_OBJECTS);
@@ -332,7 +332,7 @@ describe('problemSummary function', () => {
 		const project = withWindmill(createTwoMarbleProject());
 		const result = createResult({
 			pieces: [...createResult().pieces, { ...piece('windmill', 'windmill'), status: 'blocked', entryTime: 2.5 }],
-			contacts: [{ time: 2.2, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } }]
+			contacts: [{ time: 2.2, marbleId: 'marble-a', otherId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } }]
 		});
 
 		// Act
@@ -348,9 +348,9 @@ describe('problemSummary function', () => {
 		const project = createTwoMarbleProject();
 		const result = createResult({
 			contacts: [
-				{ time: 2.2, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } },
-				{ time: 2.4, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } },
-				{ time: 2.6, marbleEntityId: 'marble-a', otherEntityId: 'marble-b', kind: 'marble', position: { x: 0, y: 0 } }
+				{ time: 2.2, marbleId: 'marble-a', otherId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } },
+				{ time: 2.4, marbleId: 'marble-a', otherId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } },
+				{ time: 2.6, marbleId: 'marble-a', otherId: 'marble-b', kind: 'marble', position: { x: 0, y: 0 } }
 			]
 		});
 
@@ -367,7 +367,7 @@ describe('problemSummary function', () => {
 		const project = withWindmill(createTwoMarbleProject());
 		const result = createResult({
 			pieces: [...createResult().pieces, { ...piece('windmill', 'windmill'), status: 'blocked', entryTime: 2.5 }],
-			contacts: [{ time: 2.2, marbleEntityId: 'marble-a', otherEntityId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } }]
+			contacts: [{ time: 2.2, marbleId: 'marble-a', otherId: 'pb1', kind: 'piece', position: { x: 0, y: 0 } }]
 		});
 
 		// Act
@@ -383,7 +383,7 @@ describe('problemSummary function', () => {
 		const base = createResult();
 		const result = createResult({
 			pieces: [...base.pieces, { ...piece('windmill', 'windmill'), status: 'blocked', entryTime: 0.5 }],
-			hits: [hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1', status: 'drifting', error: 0.012 }), ...base.hits.slice(1)]
+			hits: [hit('marble-a', 'a1', 1, { pieceId: 'pa1', status: 'drifting', error: 0.012 }), ...base.hits.slice(1)]
 		});
 
 		const summary = problemSummary(checkRun(project, result, NO_BLENDER_OBJECTS));
@@ -396,7 +396,7 @@ describe('problemSummary function', () => {
 		// Prepare: no platforms after Hit 1, so the marble falls out of the run before Hits 2 and 3
 		const project = createTwoMarbleProject();
 		const base = createResult();
-		const open = { pieceEntityId: null, dot: null, actualTime: null, error: null, status: 'open' as const };
+		const open = { pieceId: null, dot: null, actualTime: null, error: null, status: 'open' as const };
 		const result = createResult({
 			hits: [base.hits[0] ?? hit('marble-a', 'a1', 1), hit('marble-a', 'a2', 2, open), hit('marble-a', 'a3', 3, open), base.hits[3] ?? hit('marble-b', 'b1', 1.5)]
 		});

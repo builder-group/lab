@@ -24,7 +24,7 @@ function resultFor(project: TProject, marbleId: string, hitId: string): TSimulat
 		marbles: [],
 		pieces: [],
 		contacts: [],
-		hits: [{ marbleId, hitId, targetTime: 1, pieceEntityId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' }],
+		hits: [{ marbleId, hitId, targetTime: 1, pieceId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' }],
 		stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
 	} as unknown as TSimulationResult;
 }

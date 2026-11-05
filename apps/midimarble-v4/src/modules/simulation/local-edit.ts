@@ -348,7 +348,7 @@ function solveStep(simulator: TSimulator, project: TProject, marbleId: string, s
 }
 
 function isBroken(hit: THitResult): boolean {
-	return hit.pieceEntityId != null && (hit.status === 'blocked' || hit.status === 'missed');
+	return hit.pieceId != null && (hit.status === 'blocked' || hit.status === 'missed');
 }
 
 /** Hits the run broke that were fine in `base` */
@@ -364,7 +364,7 @@ function strayContacts(base: TSimulationResult, result: TSimulationResult): numb
 		for (const contact of run.contacts) {
 			// A touch with no speed is Rapier's early report of a contact that never comes
 			if (contact.kind !== 'piece' || (contact.speed ?? 1) < 0.02) continue;
-			const key = `${contact.marbleEntityId}|${contact.otherEntityId}`;
+			const key = `${contact.marbleId}|${contact.otherId}`;
 			map.set(key, (map.get(key) ?? 0) + 1);
 		}
 		return map;
@@ -396,7 +396,7 @@ function laterShift(base: TSimulationResult, result: TSimulationResult, edits: T
 	let shift = 0;
 	for (const edit of edits) {
 		const hits = result.hits.filter((hit) => hit.marbleId === edit.marbleId).sort((a, b) => a.targetTime - b.targetTime);
-		const last = hits.reduce((latest, hit, index) => (hit.pieceEntityId != null && taken.has(hit.pieceEntityId) ? index : latest), edit.afterIndex + 1);
+		const last = hits.reduce((latest, hit, index) => (hit.pieceId != null && taken.has(hit.pieceId) ? index : latest), edit.afterIndex + 1);
 		for (const hit of hits.slice(last + 1)) {
 			const was = base.hits.find((item) => item.marbleId === hit.marbleId && item.hitId === hit.hitId);
 			if (hit.dot != null && was?.dot != null) shift = Math.max(shift, Math.hypot(hit.dot.x - was.dot.x, hit.dot.y - was.dot.y));

@@ -687,11 +687,10 @@ function evaluatePlacement(
 		return { candidate: null, nextDot: null };
 	}
 	const samples = trial.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
-	const marbleEntityId = trial.marbles.find((marble) => marble.marbleId === marbleId)?.marbleId;
 	const restrikes = trial.contacts.filter(
 		(contact) =>
-			contact.marbleEntityId === marbleEntityId &&
-			contact.otherEntityId === piece.id &&
+			contact.marbleId === marbleId &&
+			contact.otherId === piece.id &&
 			contact.time > hit.time + HIT_TOLERANCE + 0.01 &&
 			contact.time < until - 0.03
 	).length;
@@ -716,7 +715,7 @@ function evaluatePlacement(
 		if (isShared)
 			heading =
 				2 * Math.max(0, side * Math.sign(arrival.x) - 0.5) * Math.min(1, Math.abs(arrival.x) / 0.3);
-		const probed = trial.pieces.find((piece) => piece.entityId === probe?.id);
+		const probed = trial.pieces.find((piece) => piece.pieceId === probe?.id);
 		if (probed?.status === 'blocked') {
 			rejected.push('nextBlocked');
 			return { candidate: null, nextDot: null };
@@ -743,9 +742,9 @@ function evaluatePlacement(
 	const placed = trial.pieces.filter(
 		(piece) => piece.status === 'placed' || piece.status === 'held' || piece.status === 'free'
 	);
-	const own = placed.find((item) => item.entityId === piece.id);
+	const own = placed.find((item) => item.pieceId === piece.id);
 	const nextId = probe?.id ?? (nextHit != null ? owners.get(nextHit.id)?.id : undefined);
-	const next = placed.find((piece) => piece.entityId === nextId);
+	const next = placed.find((piece) => piece.pieceId === nextId);
 	const { ownTouching, visualShortfall, shorter } = pieceGaps(context, own, next, placed);
 	// A platform is for bouncing: the marble must leave its surface, unless this is its last note and it may rest
 	const ownTrack = trial.marbles.find((marble) => marble.marbleId === marbleId);
@@ -812,7 +811,7 @@ function evaluatePlacement(
 function pieceGaps(context: TPlacementContext, own: TResolvedPiece | undefined, next: TResolvedPiece | undefined, placed: TResolvedPiece[]): { ownTouching: number; visualShortfall: number; shorter: number | undefined } {
 	const { later, marbleRadius, isMending, isBox } = context;
 	let visualShortfall = 0;
-	const nearby = placed.filter((other) => other !== own && other.type !== BOWL_TYPE && other.status !== 'free' && !later.has(other.entityId));
+	const nearby = placed.filter((other) => other !== own && other.type !== BOWL_TYPE && other.status !== 'free' && !later.has(other.pieceId));
 	const nearbyShapes = nearby.map((other) => ({ other, shapes: visualShapes(other, marbleRadius) }));
 	const ownAt = (piece: TResolvedPiece, length: number | undefined): TPieceShape[] => visualShapes(length != null ? { ...piece, params: { ...piece.params, length } } : piece, marbleRadius);
 	const missing = (a: TPieceShape[], b: TPieceShape[]): number => Math.max(0, MIN_PIECE_GAP - shapesGap(a, b, MIN_PIECE_GAP));
@@ -1300,7 +1299,7 @@ export function continueSuggestions(
 			withPieces(project, [...list.map((ghost) => ghost.piece), ...(probe != null ? [probe] : [])]),
 			(probe != null && after != null ? after.time : last.hit.time) + 0.05
 		);
-		const isProbeBlocked = probe != null && trial.pieces.find((piece) => piece.entityId === probe.id)?.status === 'blocked';
+		const isProbeBlocked = probe != null && trial.pieces.find((piece) => piece.pieceId === probe.id)?.status === 'blocked';
 		const flawed = flawedGhosts(withPieces(project, list.map((ghost) => ghost.piece)), trial, list);
 		const suggestions: TContinueSuggestion[] = [];
 		let isLook = false;
@@ -1315,7 +1314,7 @@ export function continueSuggestions(
 			suggestions.push({
 				hitId: ghost.hit.id,
 				piece: ghost.piece,
-				resolved: trial.pieces.find((piece) => piece.entityId === ghost.piece.id) ?? null,
+				resolved: trial.pieces.find((piece) => piece.pieceId === ghost.piece.id) ?? null,
 				dot,
 				status,
 				error: hitResult?.error ?? null,
@@ -1638,14 +1637,14 @@ function hasStrayContact(
 	);
 	return result.contacts.some((contact) => {
 		if (contact.time <= from + 0.005 || contact.time >= until - 0.03) return false;
-		if (contact.marbleEntityId !== marble?.id) {
-			if (contact.time > (frontiers.get(contact.marbleEntityId) ?? Infinity)) return false;
-			return contact.otherEntityId === entityId;
+		if (contact.marbleId !== marble?.id) {
+			if (contact.time > (frontiers.get(contact.marbleId) ?? Infinity)) return false;
+			return contact.otherId === entityId;
 		}
-		if (contact.kind === 'marble' && contact.time > (frontiers.get(contact.otherEntityId) ?? Infinity))
+		if (contact.kind === 'marble' && contact.time > (frontiers.get(contact.otherId) ?? Infinity))
 			return false;
-		if (contact.kind === 'piece' && environment.has(contact.otherEntityId)) return false;
-		return contact.otherEntityId !== entityId;
+		if (contact.kind === 'piece' && environment.has(contact.otherId)) return false;
+		return contact.otherId !== entityId;
 	});
 }
 
@@ -1666,7 +1665,6 @@ export function crossesOtherMarbles(
 	until: number,
 	frontiers: Map<string, number>
 ): boolean {
-	const marbleEntityId = project.marbles.find((item) => item.id === marbleId)?.id;
 	const marbleOfPiece = new Map(
 		project.track.pieces.flatMap((piece) => {
 			const tie = tieOf(piece);
@@ -1675,10 +1673,10 @@ export function crossesOtherMarbles(
 	);
 	const isCrossing = trial.contacts.some((contact) => {
 		if (contact.time <= from + 0.005 || contact.time >= until - 0.01) return false;
-		if (contact.marbleEntityId !== marbleEntityId)
-			return contact.otherEntityId === entityId && contact.time <= (frontiers.get(contact.marbleEntityId) ?? Infinity);
-		if (contact.kind === 'marble') return contact.time <= (frontiers.get(contact.otherEntityId) ?? Infinity);
-		const pieceMarble = marbleOfPiece.get(contact.otherEntityId);
+		if (contact.marbleId !== marbleId)
+			return contact.otherId === entityId && contact.time <= (frontiers.get(contact.marbleId) ?? Infinity);
+		if (contact.kind === 'marble') return contact.time <= (frontiers.get(contact.otherId) ?? Infinity);
+		const pieceMarble = marbleOfPiece.get(contact.otherId);
 		return pieceMarble != null && pieceMarble !== marbleId;
 	});
 	if (isCrossing) return true;
@@ -1701,8 +1699,8 @@ export function openFrontiers(project: TProject, result: TSimulationResult): Map
 	const frontiers = new Map<string, number>();
 	const marbleOf = (marbleId: string): string | undefined =>
 		project.marbles.find((item) => item.id === marbleId)?.id;
-	const earlier = (marbleEntityId: string | undefined, time: number): void => {
-		if (marbleEntityId != null) frontiers.set(marbleEntityId, Math.min(frontiers.get(marbleEntityId) ?? Infinity, time));
+	const earlier = (marbleId: string | undefined, time: number): void => {
+		if (marbleId != null) frontiers.set(marbleId, Math.min(frontiers.get(marbleId) ?? Infinity, time));
 	};
 	for (const hit of result.hits) if (hit.status === 'open') earlier(marbleOf(hit.marbleId), hit.targetTime);
 	for (const marble of project.marbles) {

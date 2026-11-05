@@ -51,7 +51,7 @@ describe('withStartRails function', () => {
 		const built = withStartRails(start, new Set([marbleId]));
 		const result = simulator.simulate(built);
 		const samples = result.marbles[0]?.samples ?? [];
-		const contacts = result.contacts.filter((contact) => contact.otherEntityId === startRailId(marbleId));
+		const contacts = result.contacts.filter((contact) => contact.otherId === startRailId(marbleId));
 		expect(contacts.length).toBeGreaterThan(0);
 		// Rolling down the rail, then in the air with room to spare at the note
 		const release = built.marbles[0]?.start;

@@ -199,10 +199,10 @@ export function contentBounds(project: TProject, result: TSimulationResult | nul
  */
 function workEnds(hits: readonly THitResult[]): Map<string, number> {
 	const placed = new Map<string, number>();
-	for (const hit of hits) if (hit.pieceEntityId != null) placed.set(hit.marbleId, Math.max(placed.get(hit.marbleId) ?? -Infinity, hit.targetTime));
+	for (const hit of hits) if (hit.pieceId != null) placed.set(hit.marbleId, Math.max(placed.get(hit.marbleId) ?? -Infinity, hit.targetTime));
 	const ends = new Map(placed);
 	for (const hit of hits) {
-		if (hit.pieceEntityId != null || hit.dot == null) continue;
+		if (hit.pieceId != null || hit.dot == null) continue;
 		const after = placed.get(hit.marbleId) ?? -Infinity;
 		if (hit.targetTime <= after) continue;
 		const end = ends.get(hit.marbleId);
@@ -284,7 +284,7 @@ export function firstHitsView(project: TProject, result: TSimulationResult, view
 export function struckAt(hits: readonly THitResult[], time: number): string[] {
 	return hits
 		.filter((hit) => hit.dot != null && Math.abs(hit.targetTime - time) < 1e-3)
-		.flatMap((hit) => [toHitKey(hit.marbleId, hit.hitId), ...(hit.pieceEntityId != null ? [hit.pieceEntityId] : [])]);
+		.flatMap((hit) => [toHitKey(hit.marbleId, hit.hitId), ...(hit.pieceId != null ? [hit.pieceId] : [])]);
 }
 
 /** Time of the trajectory sample closest to `point`, or null for an empty trajectory */

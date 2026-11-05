@@ -90,7 +90,7 @@ export class DraftPreviewCx {
 	/** Theme colors of a piece in the draft */
 	colorsOf(piece: TResolvedPiece): TDraftColors {
 		const project = this.studio.project;
-		const scene = this.scenePiece(piece.entityId);
+		const scene = this.scenePiece(piece.pieceId);
 		const theme = project != null ? resolveTheme(project.film) : null;
 		return draftPieceColors(
 			theme?.base ?? DEFAULT_THEME,
@@ -108,7 +108,7 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (piece.type !== 'platform' || project == null) return [];
 		const theme = resolveTheme(project.film);
-		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: this.scenePiece(piece.entityId)?.skin ?? null, angle: piece.angle }, theme.projectTheme?.parts);
+		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: this.scenePiece(piece.pieceId)?.skin ?? null, angle: piece.angle }, theme.projectTheme?.parts);
 		if (!marks.length) return [];
 		const angle = pieceAngleAt(piece, this.studio.$playhead.get());
 		const [length, thickness, depth] = [piece.params['length'] ?? 0.06, piece.params['thickness'] ?? 0.008, shownDepth(piece)];
@@ -122,7 +122,7 @@ export class DraftPreviewCx {
 	/** Pieces in the draft: the run's pieces without the hidden ones */
 	pieces(): TResolvedPiece[] {
 		const hidden = this.studio.$hidden.get();
-		return (this.studio.simulation.$result.get()?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId));
+		return (this.studio.simulation.$result.get()?.pieces ?? []).filter((piece) => !hidden.includes(piece.pieceId));
 	}
 
 	/** Titles with their frame position, on-screen size and angle and their opacity at the playhead */
@@ -198,7 +198,7 @@ export class DraftPreviewCx {
 	 * the playhead goes to when it plays. A piece no marble times stays where it is.
 	 */
 	revealPiece(id: string): void {
-		const piece = this.pieces().find((item) => item.entityId === id);
+		const piece = this.pieces().find((item) => item.pieceId === id);
 		const time = piece?.hitTime ?? piece?.entryTime;
 		if (piece == null || time == null) return;
 		const isInFrame = this.selectionOutline(piece).some((point) => point.x >= 0 && point.x <= this.size.width && point.y >= 0 && point.y <= this.size.height);

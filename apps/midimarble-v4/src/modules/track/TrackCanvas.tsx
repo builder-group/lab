@@ -199,20 +199,20 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 
 	const pieces = trackCx.displayPieces(result);
 	const selectedPieces = selectedPieceIds(project, selection);
-	const single = selectedPieces.length === 1 ? pieces.find((piece) => piece.entityId === selectedPieces[0]) : undefined;
+	const single = selectedPieces.length === 1 ? pieces.find((piece) => piece.pieceId === selectedPieces[0]) : undefined;
 	const singleKind = single != null ? pieceKind(single) : null;
-	const frame = single != null ? trackCx.railFrame(single.entityId) : null;
+	const frame = single != null ? trackCx.railFrame(single.pieceId) : null;
 	const isPathPiece = singleKind === 'path' || singleKind === 'tube' || singleKind === 'generated';
 	const isMoveDrag = drag?.kind === 'move' && drag.moved;
 	// A Bowl always stands upright, so it has nothing to turn
 	const grip = single != null && !isPathPiece && singleKind !== 'catcher' && !isMoveDrag ? trackCx.screenGrip(single) : null;
 	const pathHandles = single != null && isPathPiece && frame == null && singleKind !== 'generated' ? trackCx.screenPathHandles(single) : null;
 	const isRotating = drag?.kind === 'rotate';
-	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.entityId));
+	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.pieceId));
 	const hoveredPiece = hover?.kind === 'piece' ? hover.entityId : null;
 	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.marbleId === hover.marbleId && hit.hitId === hover.hitId) : undefined;
 	const snap = drag?.kind === 'move' ? drag.snap : (insertSnap?.snap ?? null);
-	const singlePiece = single != null ? project.track.pieces.find((piece) => piece.id === single.entityId) : undefined;
+	const singlePiece = single != null ? project.track.pieces.find((piece) => piece.id === single.pieceId) : undefined;
 	// The first-run hint "Click a note's dot to see its platform" points at the earliest next open dot
 	const firstNext = [...nextDots.values()].filter((hit) => hit.dot != null).sort((a, b) => a.targetTime - b.targetTime)[0];
 	const firstNextScreen = firstNext?.dot != null ? trackCx.toScreen(firstNext.dot) : null;
@@ -222,13 +222,13 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 		<>
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
 				{pieces.map((piece) => {
-					const isSelected = selection.includes(piece.entityId);
-					const isHovered = hoveredPiece === piece.entityId && !isSelected;
+					const isSelected = selection.includes(piece.pieceId);
+					const isHovered = hoveredPiece === piece.pieceId && !isSelected;
 					if (!isSelected && !isHovered) return null;
 					const outline = pieceKind(piece) === 'box' ? inflate(trackCx.screenOutline(piece), 2.5) : trackCx.screenOutline(piece);
 					return (
 						<polygon
-							key={`outline-${piece.entityId}`}
+							key={`outline-${piece.pieceId}`}
 							points={toPoints(outline)}
 							fill="none"
 							stroke="var(--accent-strong)"
@@ -298,8 +298,8 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 						<circle cx={grip.grip.x} cy={grip.grip.y} r={5} fill="white" stroke="var(--accent-strong)" strokeWidth={1.5} />
 					</g>
 				) : null}
-				{pathHandles != null && single != null ? <PathHandles handles={pathHandles} hover={hover} drag={drag} entityId={single.entityId} /> : null}
-				{frame != null && single != null ? <RailNodes trackCx={trackCx} entityId={single.entityId} frame={frame} hover={hover} drag={drag} /> : null}
+				{pathHandles != null && single != null ? <PathHandles handles={pathHandles} hover={hover} drag={drag} entityId={single.pieceId} /> : null}
+				{frame != null && single != null ? <RailNodes trackCx={trackCx} entityId={single.pieceId} frame={frame} hover={hover} drag={drag} /> : null}
 				{hover?.kind === 'track' && drag == null ? (
 					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf('windmill').bar} strokeWidth={2} />
 				) : null}
@@ -701,7 +701,7 @@ const AgentTouched: React.FC<{ trackCx: TrackCx; pieces: readonly TResolvedPiece
 	return (
 		<>
 			{touched.map((item) => {
-				const piece = pieces.find((candidate) => candidate.entityId === item.key);
+				const piece = pieces.find((candidate) => candidate.pieceId === item.key);
 				if (piece == null) return null;
 				const outline = pieceKind(piece) === 'box' ? inflate(trackCx.screenOutline(piece), 2.5) : trackCx.screenOutline(piece);
 				return <polygon key={`${item.key}-${item.stamp}`} className="mm-agent-touched" points={toPoints(outline)} fill="none" stroke="var(--accent-strong)" strokeWidth={2} strokeLinejoin="round" />;
@@ -755,11 +755,11 @@ const Marquee: React.FC<{ from: TVec2; to: TVec2 }> = (props) => {
 const PieceBadges = React.memo(function PieceBadges(props: { projection: TScreenProjection; result: TSimulationResult }) {
 	const { projection, result } = props;
 	const hitOfPiece = new Map<string, THitResult>();
-	for (const hit of result.hits) if (hit.pieceEntityId != null && !hitOfPiece.has(hit.pieceEntityId)) hitOfPiece.set(hit.pieceEntityId, hit);
+	for (const hit of result.hits) if (hit.pieceId != null && !hitOfPiece.has(hit.pieceId)) hitOfPiece.set(hit.pieceId, hit);
 	return (
 		<>
 			{result.pieces.map((piece) => (
-				<PieceBadge key={`badge-${piece.entityId}`} projection={projection} piece={piece} hit={hitOfPiece.get(piece.entityId)} />
+				<PieceBadge key={`badge-${piece.pieceId}`} projection={projection} piece={piece} hit={hitOfPiece.get(piece.pieceId)} />
 			))}
 		</>
 	);
@@ -824,7 +824,7 @@ const DotTooltip: React.FC<{ trackCx: TrackCx; project: TProject; hit: THitResul
 /** Live angle next to the grip or the pointer. Double-click to type an exact angle. */
 const AngleReadout: React.FC<{ trackCx: TrackCx; piece: TResolvedPiece; position: TVec2; angle: number }> = (props) => {
 	const { trackCx, piece, position, angle } = props;
-	const editing = useFeatureState(trackCx.$editingAngle) === piece.entityId;
+	const editing = useFeatureState(trackCx.$editingAngle) === piece.pieceId;
 	const [draft, setDraft] = React.useState('');
 
 	function commit(): void {
@@ -832,7 +832,7 @@ const AngleReadout: React.FC<{ trackCx: TrackCx; piece: TResolvedPiece; position
 		const project = trackCx.project;
 		trackCx.$editingAngle.set(null);
 		if (value == null || project == null) return;
-		trackCx.studio.execute(pieceAngleCommands(project, new Map([[piece.entityId, value]])));
+		trackCx.studio.execute(pieceAngleCommands(project, new Map([[piece.pieceId, value]])));
 	}
 
 	return (
@@ -857,7 +857,7 @@ const AngleReadout: React.FC<{ trackCx: TrackCx; piece: TResolvedPiece; position
 					title="Double-click to type an angle"
 					onDoubleClick={() => {
 						setDraft(formatDegrees(angle).replace('°', ''));
-						trackCx.$editingAngle.set(piece.entityId);
+						trackCx.$editingAngle.set(piece.pieceId);
 					}}
 					type="button"
 				>
@@ -909,7 +909,7 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 	let anchor: TVec2;
 	const pieceId = selection.length === 1 ? selection[0] : undefined;
 	const piece = pieceId != null ? linkedPieces(project).find((item) => item.piece.id === pieceId) : undefined;
-	const resolved = piece != null ? result.pieces.find((item) => item.entityId === piece.piece.id) : undefined;
+	const resolved = piece != null ? result.pieces.find((item) => item.pieceId === piece.piece.id) : undefined;
 	if (selection.length > 0 && piece == null && parseHitKey(selection[0] ?? '') == null) return null;
 	if (resolved != null) {
 		const outline = trackCx.screenOutline(resolved);

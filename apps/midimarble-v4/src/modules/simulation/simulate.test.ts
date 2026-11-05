@@ -68,7 +68,7 @@ describe('simulate', () => {
 		const pieceId = addLinkedHit(project, marbleId, 0.55, 0.1);
 		const result = simulator.simulate(project);
 		const [hit] = result.hits;
-		expect(hit?.pieceEntityId).toBe(pieceId);
+		expect(hit?.pieceId).toBe(pieceId);
 		expect(hit?.status).toBe('onTime');
 		expect(Math.abs(hit?.error ?? Infinity)).toBeLessThanOrEqual(HIT_DRIFT);
 		expect(result.pieces[0]?.status).toBe('placed');
@@ -101,7 +101,7 @@ describe('simulate', () => {
 		if (marble == null || at == null) throw new Error('Missing sample');
 		const windmill: TPiece = { id: 'windmill-near', name: 'Windmill', type: 'windmill', params: { motorSpeed: 0 }, angle: 0.3, place: { kind: 'free', position: { x: at.x + 0.02, y: at.y - 0.12 } } };
 		const result = simulator.simulate({ ...project, revision: project.revision + 1, track: { ...project.track, pieces: [...project.track.pieces, windmill] } });
-		const strike = result.contacts.find((contact) => contact.otherEntityId === 'windmill-near');
+		const strike = result.contacts.find((contact) => contact.otherId === 'windmill-near');
 		if (strike == null) throw new Error('The marble misses the windmill');
 		expect(result.marbles[0]?.samples.filter((sample) => sample.time < strike.time)).toEqual(marble.samples.filter((sample) => sample.time < strike.time));
 		expect(result.hits.filter((hit) => hit.targetTime < strike.time)).toEqual(base.hits.filter((hit) => hit.targetTime < strike.time));
@@ -129,8 +129,8 @@ describe('simulate', () => {
 		const after = simulator.simulate(rotated);
 		for (let i = 3; i <= 8; i++) {
 			const id = `piece-1-${i}`;
-			const old = before.pieces.find((piece) => piece.entityId === id);
-			const now = after.pieces.find((piece) => piece.entityId === id);
+			const old = before.pieces.find((piece) => piece.pieceId === id);
+			const now = after.pieces.find((piece) => piece.pieceId === id);
 			expect(now?.position).not.toEqual(old?.position);
 			expect(now?.angle).toBe(old?.angle);
 		}
@@ -138,13 +138,13 @@ describe('simulate', () => {
 
 		// The fifth platform waits at its current dot
 		const waiting = structuredClone(project);
-		const fifth = before.pieces.find((piece) => piece.entityId === 'piece-1-5');
-		const fifthHit = before.hits.find((hit) => hit.pieceEntityId === 'piece-1-5');
+		const fifth = before.pieces.find((piece) => piece.pieceId === 'piece-1-5');
+		const fifthHit = before.hits.find((hit) => hit.pieceId === 'piece-1-5');
 		const link = tieOf(waiting.track.pieces.find((piece) => piece.id === 'piece-1-5'));
 		if (fifth == null || fifthHit?.dot == null || link == null) throw new Error('Missing fifth platform');
 		link.held = { dot: fifthHit.dot, velocity: fifthHit.velocity, leaves: null };
 		const waitingResult = simulator.simulate(waiting);
-		const waitingPiece = waitingResult.pieces.find((piece) => piece.entityId === 'piece-1-5');
+		const waitingPiece = waitingResult.pieces.find((piece) => piece.pieceId === 'piece-1-5');
 		expect(waitingPiece?.status).toBe('held');
 		expect(waitingPiece?.position.x).toBeCloseTo(fifth.position.x, 9);
 		expect(waitingPiece?.position.y).toBeCloseTo(fifth.position.y, 9);
@@ -152,8 +152,8 @@ describe('simulate', () => {
 
 		setAngle(waiting, 'piece-1-2', 0.1);
 		const waitingAfter = simulator.simulate(waiting);
-		expect(waitingAfter.pieces.find((piece) => piece.entityId === 'piece-1-5')?.position).toEqual(waitingPiece?.position);
-		expect(waitingAfter.hits.find((hit) => hit.pieceEntityId === 'piece-1-5')?.status).not.toBe('onTime');
+		expect(waitingAfter.pieces.find((piece) => piece.pieceId === 'piece-1-5')?.position).toEqual(waitingPiece?.position);
+		expect(waitingAfter.hits.find((hit) => hit.pieceId === 'piece-1-5')?.status).not.toBe('onTime');
 		// Hits before the rotated platform are unaffected
 		expect(waitingAfter.hits[0]?.status).toBe('onTime');
 	});
@@ -235,10 +235,10 @@ describe('simulate', () => {
 		// On the way back up the platform faces down onto the path the marble just fell along
 		const blockedId = addLinkedHit(project, marbleId, 0.45, 0);
 		const result = simulator.simulate(project);
-		expect(result.pieces.find((piece) => piece.entityId === blockedId)?.status).toBe('blocked');
+		expect(result.pieces.find((piece) => piece.pieceId === blockedId)?.status).toBe('blocked');
 		expect(result.hits[1]?.status).toBe('blocked');
 		expect(result.hits[0]?.status).toBe('onTime');
-		expect(result.contacts.some((contact) => contact.otherEntityId === blockedId)).toBe(false);
+		expect(result.contacts.some((contact) => contact.otherId === blockedId)).toBe(false);
 	});
 
 	it('runs several marbles in one world and records marble contacts', () => {
@@ -261,8 +261,8 @@ describe('simulate', () => {
 		const crossed = simulator.simulate(crossing);
 		const marbleContacts = crossed.contacts.filter((contact) => contact.kind === 'marble');
 		expect(marbleContacts).toHaveLength(2);
-		expect(marbleContacts[0]?.marbleEntityId).toBe('marble-1');
-		expect(marbleContacts[0]?.otherEntityId).toBe('marble-2');
+		expect(marbleContacts[0]?.marbleId).toBe('marble-1');
+		expect(marbleContacts[0]?.otherId).toBe('marble-2');
 		// Head-on at 2 m/s closing speed, touching when the centers are 16 mm apart
 		expect(marbleContacts[0]?.time).toBeCloseTo((0.2 - 0.016) / 2, 3);
 		expect(marbleContacts[0]?.position.x).toBeCloseTo(0, 6);
@@ -279,10 +279,10 @@ describe('simulate', () => {
 		const result = simulator.simulate(project);
 		// Scenery never sounds a hit: the hit stays open and the rail is a plain contact at its anchor time
 		expect(result.hits[0]?.status).toBe('open');
-		expect(result.hits[0]?.pieceEntityId).toBeNull();
-		expect(result.pieces.find((piece) => piece.entityId === railId)?.entryTime).toBe(0.3);
-		expect(result.contacts.find((contact) => contact.otherEntityId === railId)?.time).toBeCloseTo(0.3, 2);
-		const rail = result.pieces.find((piece) => piece.entityId === railId);
+		expect(result.hits[0]?.pieceId).toBeNull();
+		expect(result.pieces.find((piece) => piece.pieceId === railId)?.entryTime).toBe(0.3);
+		expect(result.contacts.find((contact) => contact.otherId === railId)?.time).toBeCloseTo(0.3, 2);
+		const rail = result.pieces.find((piece) => piece.pieceId === railId);
 		expect(rail?.status).toBe('placed');
 		expect(rail?.shapes?.every((shape) => shape.kind === 'capsule')).toBe(true);
 		// Rolling on the support: the center stays one marble and wire radius above the path
@@ -296,7 +296,7 @@ describe('simulate', () => {
 			const gap = projectOnPath(path, sample.position.x, sample.position.y).distance;
 			expect(Math.abs(gap - 0.008 - (resolvePieceParams('rail', {})['radius'] ?? 0))).toBeLessThan(0.002);
 		}
-		expect(result.contacts.filter((contact) => contact.otherEntityId === railId)).toHaveLength(1);
+		expect(result.contacts.filter((contact) => contact.otherId === railId)).toHaveLength(1);
 	});
 
 	it('keeps the marble inside a tunnel', () => {
@@ -309,8 +309,8 @@ describe('simulate', () => {
 		const tunnelId = addLinkedHit(project, marbleId, 0.3, -0.15, 'tunnel');
 		const result = simulator.simulate(project);
 		expect(result.hits[0]?.status).toBe('open');
-		expect(result.pieces.find((piece) => piece.entityId === tunnelId)?.status).toBe('placed');
-		const tunnel = result.pieces.find((piece) => piece.entityId === tunnelId);
+		expect(result.pieces.find((piece) => piece.pieceId === tunnelId)?.status).toBe('placed');
+		const tunnel = result.pieces.find((piece) => piece.pieceId === tunnelId);
 		const floor = (tunnel?.path?.length ?? 0) - 1;
 		expect(tunnel?.shapes?.length).toBeGreaterThan(floor);
 		const path = tunnel?.path ?? [];
@@ -333,8 +333,8 @@ describe('simulate', () => {
 		const result = simulator.simulate(project);
 		// The windmill is scenery: the marble strikes it at 0.4 s, but the hit there stays open
 		expect(result.hits[0]?.status).toBe('open');
-		expect(result.contacts.find((contact) => contact.otherEntityId === windmillId)?.time).toBeCloseTo(0.4, 2);
-		const motion = result.pieces.find((piece) => piece.entityId === windmillId)?.motion ?? [];
+		expect(result.contacts.find((contact) => contact.otherId === windmillId)?.time).toBeCloseTo(0.4, 2);
+		const motion = result.pieces.find((piece) => piece.pieceId === windmillId)?.motion ?? [];
 		expect(motion[0]?.time).toBe(0);
 		expect(motion[0]?.angle).toBeCloseTo(0.2 - 2 * 0.4, 9);
 		const last = motion[motion.length - 1];
@@ -361,11 +361,11 @@ describe('simulate', () => {
 			}
 		);
 		const result = simulator.simulate(project);
-		const rail = result.pieces.find((piece) => piece.entityId === 'free-rail');
+		const rail = result.pieces.find((piece) => piece.pieceId === 'free-rail');
 		expect(rail?.status).toBe('free');
 		expect(rail?.path?.[0]).toEqual({ x: 0.1, y: 0.2 });
 		expect(rail?.path?.[1]?.x).toBeCloseTo(0.2, 12);
-		const windmill = result.pieces.find((piece) => piece.entityId === 'free-windmill');
+		const windmill = result.pieces.find((piece) => piece.pieceId === 'free-windmill');
 		expect(windmill?.shapes).toHaveLength(4);
 		expect(windmill?.motion?.[0]).toEqual({ time: 0, angle: 0.5 });
 		// Untouched, so it rests
@@ -384,10 +384,10 @@ describe('simulate', () => {
 		});
 		const pieceId = addLinkedHit(project, marbleId, 0.5, 0);
 		const result = simulator.simulate(project);
-		const hit = result.hits.find((item) => item.pieceEntityId === pieceId);
+		const hit = result.hits.find((item) => item.pieceId === pieceId);
 		expect(hit?.status).toBe('missed');
 		expect(hit?.reason).toBe('resting');
-		const contact = result.contacts.find((item) => item.otherEntityId === pieceId);
+		const contact = result.contacts.find((item) => item.otherId === pieceId);
 		expect(contact?.speed ?? Infinity).toBeLessThan(0.3);
 	});
 
@@ -397,7 +397,7 @@ describe('simulate', () => {
 		const pieceId = addLinkedHit(project, marbleId, 0.3, 0);
 		const result = simulator.simulate(project);
 		expect(result.hits[0]?.status).toBe('onTime');
-		const contact = result.contacts.find((item) => item.otherEntityId === pieceId);
+		const contact = result.contacts.find((item) => item.otherId === pieceId);
 		expect(contact?.speed).toBeCloseTo(9.81 * 0.3, 1);
 		expect(result.pace?.anchorTime).toBe(0.3);
 		expect(result.pace?.anchorY).toBeCloseTo(result.hits[0]?.dot?.y ?? 0, 12);

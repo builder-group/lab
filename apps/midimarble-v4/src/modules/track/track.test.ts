@@ -144,7 +144,7 @@ describe('scene', () => {
 
 	it('puts the rotation grip at the far end of the bar from the hit point', () => {
 		const piece = {
-			entityId: 'p',
+			pieceId: 'p',
 			type: 'platform',
 			position: { x: 0, y: 0 },
 			angle: 0,
@@ -173,7 +173,7 @@ describe('step loop', () => {
 		marbleId: marble.id,
 		hitId,
 		targetTime: time,
-		pieceEntityId: status === 'open' ? null : 'p1',
+		pieceId: status === 'open' ? null : 'p1',
 		dot: { x: 0, y: -time },
 		velocity: { x: 0, y: -1 },
 		actualTime: null,

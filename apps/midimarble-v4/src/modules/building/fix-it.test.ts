@@ -14,7 +14,7 @@ function hit(time: number, status: THitResult['status'], options: Partial<THitRe
 		marbleId: 'marble-1',
 		hitId: `h${time}`,
 		targetTime: time,
-		pieceEntityId: status === 'open' ? null : `p${time}`,
+		pieceId: status === 'open' ? null : `p${time}`,
 		dot: { x: 0, y: -time },
 		velocity: { x: 0, y: -1 },
 		actualTime: null,
@@ -229,7 +229,7 @@ describe('moveClear function', () => {
 			marbles: [{ marbleId: marble.id, radius: 0.008, samples }],
 			pieces: [
 				{
-					entityId: 'windmill',
+					pieceId: 'windmill',
 					type: 'windmill',
 					position: { x: 0, y: 0 },
 					angle: 0,
@@ -276,9 +276,9 @@ describe('moveClear function', () => {
 		// Prepare: the move clears the windmill, but the run with it moved loses a hit that was on time
 		const { project, result } = createBlocked();
 		const marbleId = project.marbles[0]?.id ?? '';
-		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
 		const unused = (): Promise<never> => Promise.reject(new Error('Move Clear places no platform'));
-		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
 		const keeps = { ...breaks, hits: onTime.hits };
 
 		// Act
@@ -296,8 +296,8 @@ describe('moveClear function', () => {
 		const { project: blocked, result } = createBlocked();
 		const project = { ...blocked, track: { ...blocked.track, pieces: blocked.track.pieces.map((piece) => (piece.id === 'windmill' ? { ...piece, type: 'bowl' } : piece)) } };
 		const marbleId = project.marbles[0]?.id ?? '';
-		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
-		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
 		const simulate = async (next: TProject): Promise<TSimulationResult> => (next.track.pieces.some((piece) => piece.id === 'windmill') ? breaks : { ...onTime, pieces: [] });
 
 		// Act
@@ -377,7 +377,7 @@ describe('addedProblems function', () => {
 			] }
 		} as TProject;
 		const clear = contactResult(project, []);
-		const hitBy = contactResult(project, [{ kind: 'piece', marbleEntityId: 'bass', otherEntityId: 'switchback', time: 5, position: { x: 0, y: 0 } }] as TSimulationResult['contacts']);
+		const hitBy = contactResult(project, [{ kind: 'piece', marbleId: 'bass', otherId: 'switchback', time: 5, position: { x: 0, y: 0 } }] as TSimulationResult['contacts']);
 
 		// Act
 		const added = addedProblems(project, clear, project, hitBy, NO_BLENDER_OBJECTS);

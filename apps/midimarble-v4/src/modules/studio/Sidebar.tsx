@@ -66,7 +66,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	}, [hasScattered]);
 	const wasRenamingRef = React.useRef(false);
 
-	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.entityId, piece])), [result]);
+	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.pieceId, piece])), [result]);
 	// Pieces another marble hits, from the problem model the hit summary and the inspector read
 	const blenderObjects = useFeatureState(cx.film.$blenderObjects);
 	// Badges wait while Build Track works: each step would check the whole run again, and the hit summary says Building…
@@ -74,7 +74,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
 	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : null), [preflight]);
 	const tips = React.useMemo(() => (preflight != null ? decorTips(preflight) : null), [preflight]);
-	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceEntityId == null ? [] : [[hit.pieceEntityId, hit] as const]))), [result]);
+	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceId == null ? [] : [[hit.pieceId, hit] as const]))), [result]);
 	const rows = React.useMemo(() => buildOutline(project, { collapsed, workspace, blenderObjects }), [project, collapsed, workspace, blenderObjects]);
 	const isFilm = workspace === 'film';
 	// Rows that Shift ranges and the arrow keys visit; Track's arrows stay out of the Film rows

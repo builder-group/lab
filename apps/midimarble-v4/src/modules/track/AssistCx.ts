@@ -663,7 +663,7 @@ export class AssistCx {
 		this.lastGoodProjectId = project.id;
 		for (const marble of project.marbles) {
 			const hits = result.hits.filter((hit) => hit.marbleId === marble.id);
-			if (hits.some((hit) => hit.pieceEntityId != null) && !brokenHits(hits).length) this.lastGood.set(marble.id, hits);
+			if (hits.some((hit) => hit.pieceId != null) && !brokenHits(hits).length) this.lastGood.set(marble.id, hits);
 		}
 	}
 

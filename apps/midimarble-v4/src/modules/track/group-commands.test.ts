@@ -90,7 +90,7 @@ describe('Group by hand', () => {
 		const after: TProject = { ...created, marbles: [marble], track: { ...created.track, pieces } };
 		const before: TProject = { ...after, track: { ...after.track, pieces: pieces.filter((piece) => piece.id !== 'p-h2' && piece.id !== 'p-h3' && piece.id !== 'p-h4' && piece.id !== 'p-h5' && piece.id !== 'p-h6') } };
 		const dots = [0, -1, 1, -1, 0, 0, 1];
-		const hits = hitIds.map((id, index) => ({ pieceEntityId: `p-${id}`, dot: { x: dots[index] ?? 0, y: 0 } })) as unknown as Parameters<typeof builtRunCommands>[2];
+		const hits = hitIds.map((id, index) => ({ pieceId: `p-${id}`, dot: { x: dots[index] ?? 0, y: 0 } })) as unknown as Parameters<typeof builtRunCommands>[2];
 
 		const commands = builtRunCommands(before, after, hits);
 

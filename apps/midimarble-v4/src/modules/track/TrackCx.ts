@@ -285,11 +285,11 @@ export class TrackCx {
 	private shown: { inputs: TShownInputs; pieces: readonly TResolvedPiece[] } | null = null;
 
 	private buildDisplayPieces({ result, override, placing, hidden, tilted }: TShownInputs): readonly TResolvedPiece[] {
-		const pieces = (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId)).map((piece) => tilted?.pieces.get(piece.entityId) ?? piece);
+		const pieces = (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.pieceId)).map((piece) => tilted?.pieces.get(piece.pieceId) ?? piece);
 		pieces.push(...this.pendingPieces(result, hidden));
 		if (placing != null) pieces.push(placing);
 		if (override == null) return pieces;
-		const index = pieces.findIndex((piece) => piece.entityId === override.entityId);
+		const index = pieces.findIndex((piece) => piece.pieceId === override.pieceId);
 		if (index < 0) return [...pieces, override];
 		return pieces.map((piece, i) => (i === index ? override : piece));
 	}
@@ -306,7 +306,7 @@ export class TrackCx {
 		for (const piece of project.track.pieces) {
 			const link = tieOf(piece);
 			if (link == null || !soundsHit(piece.type ?? '', link) || hidden.includes(piece.id)) continue;
-			if (result.pieces.some((item) => item.entityId === piece.id)) continue;
+			if (result.pieces.some((item) => item.pieceId === piece.id)) continue;
 			const hit = result.hits.find((item) => item.marbleId === link.marbleId && item.hitId === link.hitId);
 			if (hit?.dot == null) continue;
 			pending.push(displayPiece(piece, { pose: { position: hit.dot, angle: piece.angle }, dot: hit.dot, velocity: hit.velocity }, this.marbleRadius(link.marbleId)));
@@ -349,7 +349,7 @@ export class TrackCx {
 
 	/** End and bend handles of a selected rail or tunnel without drawn nodes, in screen space */
 	screenPathHandles(piece: TResolvedPiece): { end: TVec2; bend: TVec2; entry: TVec2 } | null {
-		const controls = this.pathControls(piece.entityId);
+		const controls = this.pathControls(piece.pieceId);
 		const handles = controls != null ? pathHandles(controls) : null;
 		if (controls == null || handles == null) return null;
 		const toScreen = (point: TVec2): TVec2 => this.toScreen(pathToWorld(piece, controls, point));
@@ -379,7 +379,7 @@ export class TrackCx {
 		const link = tieOf(piece);
 		// Only a Drawn Rail has points of its own; a layout generates its paths
 		if (piece == null || nodes == null || (link != null && (link.kind === 'plays' || link.offset == null)) || (piece.layout ?? 'path') !== 'path') return null;
-		const resolved = this.displayPieces().find((piece) => piece.entityId === entityId);
+		const resolved = this.displayPieces().find((piece) => piece.pieceId === entityId);
 		if (resolved == null) return null;
 		return { nodes, base: { position: resolved.position, angle: resolved.angle } };
 	}
@@ -422,13 +422,13 @@ export class TrackCx {
 		const scene: TPickScene = { handles: [], dots: [], pieces: [] };
 		if (project == null || result == null) return scene;
 		const selected = selectedPieceIds(project, selection).filter((id) => !locked.includes(id));
-		const pieces = shown.filter((piece) => piece.entityId !== previewId);
+		const pieces = shown.filter((piece) => piece.pieceId !== previewId);
 		for (const piece of pieces) {
-			if (locked.includes(piece.entityId)) continue;
+			if (locked.includes(piece.pieceId)) continue;
 			const depth = shownDepth(piece);
 			// A generated Rail is mostly air: only its wires pick, while its box still frames and marquees it
 			const lines = pieceKind(piece) === 'generated' ? piece.paths?.map((path) => path.map((point) => this.toScreen(point, depth))) : undefined;
-			scene.pieces.push({ entityId: piece.entityId, corners: this.screenOutline(piece), lines, isSelected: selected.includes(piece.entityId) });
+			scene.pieces.push({ entityId: piece.pieceId, corners: this.screenOutline(piece), lines, isSelected: selected.includes(piece.pieceId) });
 		}
 		// An armed tool or Play a Note… is after open dots; placed ones select their hit only with the Move tool
 		const pickPlaced = this.$tool.get() === 'select' && this.$playNoteFor.get() == null;
@@ -442,29 +442,29 @@ export class TrackCx {
 			scene.handles.push({ kind: 'release', entityId: marble.id, position: this.toScreen(marble.start.position), radius: 9 });
 		}
 		// A live Pattern's piece has no handles of its own
-		const single = selected.length === 1 && patternOfPiece(project, selected[0] ?? '') == null ? pieces.find((piece) => piece.entityId === selected[0]) : undefined;
+		const single = selected.length === 1 && patternOfPiece(project, selected[0] ?? '') == null ? pieces.find((piece) => piece.pieceId === selected[0]) : undefined;
 		const kind = single != null ? pieceKind(single) : null;
-		const frame = single != null ? this.railFrame(single.entityId) : null;
+		const frame = single != null ? this.railFrame(single.pieceId) : null;
 		if (single != null && frame != null) {
 			frame.nodes.forEach((node, index) => {
 				const add = (handle: 'in' | 'out'): void => {
 					const offset = node[handle];
 					if (offset == null || Math.hypot(offset.x, offset.y) < 1e-9) return;
 					const position = this.frameToScreen(frame.base, { x: node.point.x + offset.x, y: node.point.y + offset.y });
-					scene.handles.push({ kind: handle === 'in' ? 'nodeIn' : 'nodeOut', entityId: single.entityId, index, position, radius: 4 });
+					scene.handles.push({ kind: handle === 'in' ? 'nodeIn' : 'nodeOut', entityId: single.pieceId, index, position, radius: 4 });
 				};
 				add('in');
 				add('out');
-				scene.handles.push({ kind: 'node', entityId: single.entityId, index, position: this.frameToScreen(frame.base, node.point), radius: 5 });
+				scene.handles.push({ kind: 'node', entityId: single.pieceId, index, position: this.frameToScreen(frame.base, node.point), radius: 5 });
 			});
 		} else if (single != null && (kind === 'path' || kind === 'tube')) {
 			const handles = this.screenPathHandles(single);
 			if (handles != null) {
-				scene.handles.push({ kind: 'pathBend', entityId: single.entityId, position: handles.bend, radius: 5 });
-				scene.handles.push({ kind: 'pathEnd', entityId: single.entityId, position: handles.end, radius: 6 });
+				scene.handles.push({ kind: 'pathBend', entityId: single.pieceId, position: handles.bend, radius: 5 });
+				scene.handles.push({ kind: 'pathEnd', entityId: single.pieceId, position: handles.end, radius: 6 });
 			}
 		} else if (single != null && (kind === 'box' || kind === 'rotor')) {
-			scene.handles.push({ kind: 'rotate', entityId: single.entityId, position: this.screenGrip(single).grip, radius: 6 });
+			scene.handles.push({ kind: 'rotate', entityId: single.pieceId, position: this.screenGrip(single).grip, radius: 6 });
 		}
 		return scene;
 	}
@@ -689,7 +689,7 @@ export class TrackCx {
 		const result = this.result;
 		if (project == null || result == null) return;
 		const selection = this.studio.$selection.get();
-		const pieces = result.pieces.filter((piece) => selection.includes(piece.entityId));
+		const pieces = result.pieces.filter((piece) => selection.includes(piece.pieceId));
 		const points: TVec2[] = pieces.flatMap(pieceOutline);
 		for (const key of selection) {
 			const parsed = parseHitKey(key);
@@ -887,7 +887,7 @@ export class TrackCx {
 		}
 		const margin = 0.03;
 		const bounds = [
-			boundsOfPieces(result.pieces.filter((piece) => ids.includes(piece.entityId))),
+			boundsOfPieces(result.pieces.filter((piece) => ids.includes(piece.pieceId))),
 			...points.map((item) => ({ minX: item.x - margin, minY: item.y - margin, maxX: item.x + margin, maxY: item.y + margin }))
 		].reduce<TBounds | null>(
 			(union, item) =>
@@ -1082,7 +1082,7 @@ export class TrackCx {
 				this.moveNode(drag, point, event.altKey);
 				return;
 			case 'path': {
-				const piece = this.result?.pieces.find((item) => item.entityId === drag.entityId);
+				const piece = this.result?.pieces.find((item) => item.pieceId === drag.entityId);
 				if (project == null || piece == null) return;
 				const local = pathToLocal(piece, drag.start, this.toWorld(point));
 				const points = drag.handle === 'end' ? withPathEnd(drag.start, local) : withPathBend(drag.start, local);
@@ -1126,7 +1126,7 @@ export class TrackCx {
 
 	/** The unlocked platform playing a hit, if it has one */
 	private placedPieceAt(marbleId: string, hitId: string): string | null {
-		const id = this.result?.hits.find((hit) => hit.marbleId === marbleId && hit.hitId === hitId)?.pieceEntityId ?? null;
+		const id = this.result?.hits.find((hit) => hit.marbleId === marbleId && hit.hitId === hitId)?.pieceId ?? null;
 		return id != null && !this.studio.$locked.get().includes(id) ? id : null;
 	}
 
@@ -1608,7 +1608,7 @@ export class TrackCx {
 	/** Pans to a piece an assist just placed once the run shows where it is, like Figma scrolling to a new layer */
 	private revealPlaced(): void {
 		const id = this.placedId;
-		const piece = id != null ? this.result?.pieces.find((item) => item.entityId === id) : undefined;
+		const piece = id != null ? this.result?.pieces.find((item) => item.pieceId === id) : undefined;
 		if (piece == null || this.$drag.get() != null) return;
 		this.placedId = null;
 		this.revealPoint(piece.contactPoint ?? piece.position);
@@ -1622,14 +1622,14 @@ export class TrackCx {
 
 	private followSelection(selection: string[]): void {
 		const only = selection.length === 1 ? selection[0] : undefined;
-		this.placedId = only != null && this.result?.pieces.some((piece) => piece.entityId === only) !== true ? only : null;
+		this.placedId = only != null && this.result?.pieces.some((piece) => piece.pieceId === only) !== true ? only : null;
 		if (selection.length !== 1 || this.studio.$playing.get()) return;
 		const project = this.project;
 		if (project == null) return;
 		// Selecting in the timeline or the layers pans to it when it is off screen, like Final Cut's viewer
 		const hitKey = parseHitKey(only ?? '');
 		const hit = hitKey != null ? this.result?.hits.find((item) => item.marbleId === hitKey.marbleId && item.hitId === hitKey.hitId) : undefined;
-		const piece = this.result?.pieces.find((item) => item.entityId === only);
+		const piece = this.result?.pieces.find((item) => item.pieceId === only);
 		this.revealPoint(hit?.dot ?? piece?.contactPoint ?? piece?.position ?? null, 0, 0);
 	}
 
@@ -1655,7 +1655,7 @@ export class TrackCx {
 
 	private startMove(entityId: string, point: TVec2): void {
 		const piece = this.piece(entityId);
-		const resolved = this.result?.pieces.find((piece) => piece.entityId === entityId);
+		const resolved = this.result?.pieces.find((piece) => piece.pieceId === entityId);
 		if (piece == null || this.studio.$locked.get().includes(entityId)) return;
 		const pose = piecePose(piece, resolved, this.marbleRadius(tieOf(piece)?.marbleId));
 		if (pose == null) {
@@ -1664,7 +1664,7 @@ export class TrackCx {
 		}
 		// Snap targets come from the run before the drag, since the dragged piece changes the run after it
 		const dots = (this.result?.hits ?? []).flatMap((hit) =>
-			hit.dot != null && (hit.status === 'open' || hit.pieceEntityId === entityId)
+			hit.dot != null && (hit.status === 'open' || hit.pieceId === entityId)
 				? [{ marbleId: hit.marbleId, hitId: hit.hitId, dot: hit.dot, velocity: hit.velocity, screen: this.toScreen(hit.dot) }]
 				: []
 		);
@@ -1808,7 +1808,7 @@ export class TrackCx {
 
 	private startRotate(entityId: string, point: TVec2): void {
 		const piece = this.piece(entityId);
-		const resolvedPiece = this.displayPieces().find((item) => item.entityId === entityId);
+		const resolvedPiece = this.displayPieces().find((item) => item.pieceId === entityId);
 		if (piece == null || resolvedPiece == null) return;
 		const startAngle = pieceAngle(piece);
 		const { pivot } = this.screenGrip(resolvedPiece);
@@ -2012,7 +2012,7 @@ export class TrackCx {
 		// A hold or a quick run of presses is one undo step
 		const now = performance.now();
 		const group = this.lastNudge != null && now - this.lastNudge.at < NUDGE_FOLD_MS ? this.lastNudge.group : undefined;
-		const shown = new Map(this.displayPieces().map((piece) => [piece.entityId, piece]));
+		const shown = new Map(this.displayPieces().map((piece) => [piece.pieceId, piece]));
 		this.studio.execute(pieceAngleCommands(project, angles), { group });
 		this.lastNudge = { at: now, group: this.studio.editGroup ?? 0 };
 		this.showTilted(angles, shown);
@@ -2233,7 +2233,7 @@ export class TrackCx {
 	private revealSelection(): void {
 		const result = this.result;
 		const id = this.studio.$selection.get()[0];
-		const piece = result?.pieces.find((item) => item.entityId === id);
+		const piece = result?.pieces.find((item) => item.pieceId === id);
 		if (piece?.contactPoint != null) this.revealPoint(piece.contactPoint);
 	}
 
@@ -2274,7 +2274,7 @@ export class TrackCx {
 			pieces.map((piece) => ({
 				piece,
 				angle: pieceAngleAt(piece, playhead),
-				colors: trackPieceColors(this.project, piece.entityId, piece.type)
+				colors: trackPieceColors(this.project, piece.pieceId, piece.type)
 			}))
 		);
 		this.synced = { pieces, moving: pieces.filter((piece) => piece.motion != null) };
@@ -2291,7 +2291,7 @@ export class TrackCx {
 			return;
 		}
 		const playhead = this.studio.$playhead.get();
-		for (const piece of this.synced.moving) this.renderer.setPieceAngle(piece.entityId, pieceAngleAt(piece, playhead));
+		for (const piece of this.synced.moving) this.renderer.setPieceAngle(piece.pieceId, pieceAngleAt(piece, playhead));
 	}
 
 	syncMarbles(): void {

@@ -38,19 +38,19 @@ describe('pickScene method', () => {
 		const pieceIds = (): string[] => trackCx.pickScene().pieces.map((item) => item.entityId);
 		const isSelected = (): boolean | undefined => trackCx.pickScene().pieces[0]?.isSelected;
 		const outline = (): unknown => trackCx.pickScene().pieces[0]?.corners;
-		expect(pieceIds()).toEqual([piece.entityId]);
+		expect(pieceIds()).toEqual([piece.pieceId]);
 		expect(isSelected()).toBe(false);
 
 		// Act, Assert: selection
-		cx.$selection.set([piece.entityId]);
+		cx.$selection.set([piece.pieceId]);
 		expect(isSelected()).toBe(true);
 		cx.$selection.set([]);
 
 		// Act, Assert: hidden and locked
-		cx.$hidden.set([piece.entityId]);
+		cx.$hidden.set([piece.pieceId]);
 		expect(pieceIds()).toEqual([]);
 		cx.$hidden.set([]);
-		cx.$locked.set([piece.entityId]);
+		cx.$locked.set([piece.pieceId]);
 		expect(pieceIds()).toEqual([]);
 		cx.$locked.set([]);
 
@@ -69,7 +69,7 @@ describe('pickScene method', () => {
 	it('should rebuild for the tool, which decides whether placed dots pick', () => {
 		// Prepare
 		const { cx, trackCx, piece, result, project } = shown();
-		const hit = { marbleId: project.marbles[0]?.id, hitId: 'a', targetTime: 1, dot: { x: 0, y: 0 }, pieceEntityId: piece.entityId, status: 'onTime' };
+		const hit = { marbleId: project.marbles[0]?.id, hitId: 'a', targetTime: 1, dot: { x: 0, y: 0 }, pieceId: piece.pieceId, status: 'onTime' };
 		cx.simulation.$result.set({ ...result, hits: [hit] } as unknown as TSimulationResult);
 		expect(trackCx.pickScene().dots).toHaveLength(1);
 
@@ -119,7 +119,7 @@ describe('displayPieces method', () => {
 		trackCx.$placing.set(placing);
 		const during = trackCx.displayPieces();
 		trackCx.$placing.set(null);
-		cx.$hidden.set([piece.entityId]);
+		cx.$hidden.set([piece.pieceId]);
 
 		// Assert
 		expect(during).toEqual([piece, placing]);

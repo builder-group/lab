@@ -92,10 +92,10 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 
 /** How many pieces after the Pattern stand somewhere else in the run */
 function changedPlaces(before: TProject, after: TProject, sim: TSimulator, result: TSimulationResult): number {
-	const was = new Map(sim.simulate(before).pieces.map((piece) => [piece.entityId, piece.position]));
+	const was = new Map(sim.simulate(before).pieces.map((piece) => [piece.pieceId, piece.position]));
 	const made = new Set(changedPieces(before, after).map((piece) => piece.id));
 	return result.pieces.filter((piece) => {
-		const position = was.get(piece.entityId);
-		return !made.has(piece.entityId) && position != null && Math.hypot(piece.position.x - position.x, piece.position.y - position.y) > 0.005;
+		const position = was.get(piece.pieceId);
+		return !made.has(piece.pieceId) && position != null && Math.hypot(piece.position.x - position.x, piece.position.y - position.y) > 0.005;
 	}).length;
 }

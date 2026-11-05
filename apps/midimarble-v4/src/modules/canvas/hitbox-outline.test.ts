@@ -5,7 +5,7 @@ import { shapeDistance, type TPieceShape } from '@/modules/simulation';
 import { hitboxOutlines, shapeOutlines } from './hitbox-outline';
 
 function piece(values: Partial<TResolvedPiece>): TResolvedPiece {
-	return { entityId: 'piece', type: 'platform', position: { x: 0, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'ok', ...values } as TResolvedPiece;
+	return { pieceId: 'piece', type: 'platform', position: { x: 0, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'ok', ...values } as TResolvedPiece;
 }
 
 /** Each outline corner lies on the collider's own outline: distance zero from the shape */

@@ -210,7 +210,7 @@ export const PatternGhost: React.FC<{ trackCx: TrackCx }> = (props) => {
 	return (
 		<g className="mm-ghost-in" data-pattern-ghost={preview.kind} data-preview-ms={Math.round(preview.ms)}>
 			{preview.pieces.map((piece) => (
-				<GhostPiece key={piece.entityId} trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk />
+				<GhostPiece key={piece.pieceId} trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk />
 			))}
 		</g>
 	);

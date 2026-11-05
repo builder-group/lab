@@ -51,7 +51,7 @@ export interface TPlanMarble {
 }
 
 export interface TStaticPiece {
-	entityId: string;
+	pieceId: string;
 	definition: TPieceDefinition;
 	params: Record<string, number>;
 	layout: TPieceLayout;
@@ -65,7 +65,7 @@ export interface TStaticPiece {
 }
 
 export interface TPlanEvent {
-	entityId: string;
+	pieceId: string;
 	definition: TPieceDefinition;
 	params: Record<string, number>;
 	/** Local control points of rails and tunnels */
@@ -137,7 +137,7 @@ export function createPlan(project: TRunInput): TPlan {
 			const isAnchor = !soundsHit(piece.type, tie);
 			const eventTime = time + (isAnchor ? (params['entryDelay'] ?? 0) : 0);
 			events.push({
-				entityId: piece.id,
+				pieceId: piece.id,
 				definition,
 				params,
 				path,
@@ -175,7 +175,7 @@ export function createPlan(project: TRunInput): TPlan {
 		);
 		const resolved = resolvedFromLayout(piece.id, piece.type, params, layout, null, 'free', piece.layout);
 		resolved.position = freeAt;
-		staticPieces.push({ entityId: piece.id, definition, params, layout, resolved, key: '' });
+		staticPieces.push({ pieceId: piece.id, definition, params, layout, resolved, key: '' });
 	}
 	// Equal times go by marble, then hit: IDs are random, so ordering by them gives one song different tracks
 	events.sort((a, b) => a.time - b.time || a.hitOrder - b.hitOrder);
@@ -189,7 +189,7 @@ export function createPlan(project: TRunInput): TPlan {
 		staticLowY = Math.min(staticLowY, lowPointOf(piece.layout));
 		if (piece.layout.rotor == null)
 			piece.key = signature(
-				JSON.stringify([piece.entityId, piece.definition.type, piece.params, piece.layout.shapes])
+				JSON.stringify([piece.pieceId, piece.definition.type, piece.params, piece.layout.shapes])
 			);
 	}
 
@@ -204,7 +204,7 @@ export function createPlan(project: TRunInput): TPlan {
 			staticPieces
 				.filter((piece) => piece.key === '')
 				.map((piece) => [
-					piece.entityId,
+					piece.pieceId,
 					piece.definition.type,
 					piece.params,
 					piece.layout.shapes,
@@ -217,7 +217,7 @@ export function createPlan(project: TRunInput): TPlan {
 		eventKeys.push(signature(`${chain}|${event.step}`));
 		chain = signature(
 			`${chain}|${JSON.stringify([
-				event.entityId,
+				event.pieceId,
 				event.definition.type,
 				event.params,
 				event.path,
@@ -254,7 +254,7 @@ export function lowPointOf(layout: TPieceLayout): number {
 }
 
 export function resolvedFromLayout(
-	entityId: string,
+	pieceId: string,
 	type: string,
 	params: Record<string, number>,
 	layout: TPieceLayout,
@@ -263,7 +263,7 @@ export function resolvedFromLayout(
 	railLayout: TRailLayout | undefined
 ): TResolvedPiece {
 	const resolved: TResolvedPiece = {
-		entityId,
+		pieceId,
 		type,
 		...(railLayout != null ? { layout: railLayout } : {}),
 		position: layout.position,

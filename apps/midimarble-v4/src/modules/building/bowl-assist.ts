@@ -69,7 +69,7 @@ export async function findBowl(
 	};
 	const base = await deps.simulate(trial);
 	const hit = base.hits.find((item) => item.marbleId === marbleId && item.hitId === last.id);
-	if (hit?.pieceEntityId == null || hit.actualTime == null)
+	if (hit?.pieceId == null || hit.actualTime == null)
 		return {
 			error: `${marbleName}'s last note has no platform yet. Add Bowl once ${marbleName} plays it.`
 		};
@@ -155,7 +155,7 @@ export function newlyBroken(before: THitResult[], after: THitResult[]): THitResu
 
 /** A platform that should play its hit and doesn't */
 export function isBroken(hit: THitResult): boolean {
-	return hit.pieceEntityId != null && (hit.status === 'blocked' || hit.status === 'missed');
+	return hit.pieceId != null && (hit.status === 'blocked' || hit.status === 'missed');
 }
 
 export function hitKeyOf(hit: Pick<THitResult, 'marbleId' | 'hitId'>): string {
@@ -164,7 +164,7 @@ export function hitKeyOf(hit: Pick<THitResult, 'marbleId' | 'hitId'>): string {
 
 /** Whether a marble other than the Bowl's own touches it */
 function isTouchedByOthers(run: TSimulationResult, entityId: string, marbleId: string): boolean {
-	return run.contacts.some((contact) => contact.otherEntityId === entityId && contact.marbleEntityId !== marbleId && contact.time <= run.duration);
+	return run.contacts.some((contact) => contact.otherId === entityId && contact.marbleId !== marbleId && contact.time <= run.duration);
 }
 
 /** Whether the marble of `marbleId` touches another marble's piece after `from` */
@@ -180,9 +180,9 @@ function touchesOtherMarbles(
 		if (tie != null) marbleOf.set(piece.id, tie.marbleId);
 	}
 	return run.contacts.some((contact) => {
-		if (contact.marbleEntityId !== marbleId || contact.time <= from) return false;
+		if (contact.marbleId !== marbleId || contact.time <= from) return false;
 		if (contact.kind === 'marble') return true;
-		const other = marbleOf.get(contact.otherEntityId);
+		const other = marbleOf.get(contact.otherId);
 		return other != null && other !== marbleId;
 	});
 }

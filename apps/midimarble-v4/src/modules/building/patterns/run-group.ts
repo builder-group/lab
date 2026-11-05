@@ -296,7 +296,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 
 	const result = isPreview ? null : sim.simulate(working);
 	const inGroups = new Set([...groups.values(), ...others].flatMap((item) => item.pieceIds));
-	const laterLateHits = result == null ? 0 : result.hits.filter((hit) => hit.marbleId === marble.id && hit.targetTime > target.to && hit.pieceEntityId != null && !inGroups.has(hit.pieceEntityId) && hit.status !== 'onTime' && hit.status !== 'drifting' && hit.status !== 'open').length;
+	const laterLateHits = result == null ? 0 : result.hits.filter((hit) => hit.marbleId === marble.id && hit.targetTime > target.to && hit.pieceId != null && !inGroups.has(hit.pieceId) && hit.status !== 'onTime' && hit.status !== 'drifting' && hit.status !== 'open').length;
 	const made = new Set(group.pieceIds);
 	const marbleOf = (id: string): string | null => tieOf(working.track.pieces.find((piece) => piece.id === id))?.marbleId ?? null;
 	const otherMarbleTouches =
