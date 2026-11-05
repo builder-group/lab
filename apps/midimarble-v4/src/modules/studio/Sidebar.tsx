@@ -50,8 +50,8 @@ interface TSidebarProps {
 /**
  * The project's layers like Figma UI3's layer list. Each layer with a row in the timeline shares its selection
  * with that row. The Scene comes first, like Blender's Scene Collection, and a
- * click on empty space selects it. Compose lists the Song and the marbles with their pieces; Film lists every layer,
- * the Wall, the Lights, the Camera with its shots and the titles too. Up and Down move the selection, Left and Right
+ * click on empty space selects it, then the Song, the Camera with its shots, the Wall and the marbles with their pieces;
+ * Film adds the Lights, the titles and Decor. Up and Down move the selection, Left and Right
  * fold a group.
  */
 const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace }> = (props) => {
@@ -213,6 +213,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.rename'), labelColorItem(entityLabelEntries(cx, row.entity)), commandItem(cx, 'edit.delete')]);
 		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
 		else if (row.kind === 'madeInBlender') openContextMenu(event, [{ label: 'Open in Blender', onSelect: () => revealMadeInBlender(cx, row.name) }, commandItem(cx, 'decor.scatter')]);
+		else if (row.kind === 'group' && row.id === DECOR_KEY) openContextMenu(event, [commandItem(cx, 'decor.scatter')]);
 		else if (row.kind === 'camera' || row.kind === 'shot') openContextMenu(event, [commandItem(cx, 'camera.addShot'), ...(row.kind === 'shot' ? [commandItem(cx, 'edit.delete')] : [])]);
 		else event.preventDefault();
 	}
@@ -371,11 +372,11 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'marble':
 			return { icon: <span className="mm-layer-chip" style={{ background: row.lane.color }} />, label: row.lane.name, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'group':
-			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isEmpty === true ? undefined : row.isOpen };
+			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isOpen };
 		case 'patternGroup':
 			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.group.name, ...(isPatternGroup(row.group) ? { title: `${row.group.name}: made by a Pattern; Flatten to edit its pieces one by one` } : {}), isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'wall':
-			return { icon: <BrickWall size={14} strokeWidth={1.75} />, label: 'Wall' };
+			return { icon: <BrickWall size={14} strokeWidth={1.75} style={{ color: row.labelColor }} />, label: 'Wall' };
 		case 'light':
 			return { icon: row.light == null ? <Sun size={14} strokeWidth={1.75} /> : <Lightbulb size={14} strokeWidth={1.75} />, label: row.label };
 		case 'camera':
@@ -655,8 +656,8 @@ const LayerRow: React.FC<TLayerRowProps> = (props) => {
 			)}
 			<span
 				className="mm-layer-icon"
-				style={onIconClick != null ? { cursor: 'pointer' } : undefined}
-				title={onIconClick != null ? 'Label Color' : undefined}
+				data-colorable={onIconClick != null}
+				title={onIconClick != null ? 'Color' : undefined}
 				onClick={
 					onIconClick != null
 						? (event) => {

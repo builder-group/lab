@@ -38,6 +38,7 @@ export class Track3DCx {
 	private pathZ = MARBLE_Z;
 	private size = { width: 1, height: 1 };
 	private view: 'orbit' | 'camera' = 'orbit';
+	private wallColor: string | undefined;
 	private readonly cameras = new FilmCameraCache();
 	private readonly scratchPose = createCameraPose();
 	/** The film frame in the Camera view, in CSS pixels; null in 3D */
@@ -49,7 +50,7 @@ export class Track3DCx {
 		const renderer = new ComposeRenderer(canvas);
 		this.renderer = renderer;
 		renderer.setSolidLight();
-		renderer.setWallLook(draftWall('pegboard'));
+		this.paintWall(renderer);
 		const observer = new ResizeObserver(() => {
 			const rect = container.getBoundingClientRect();
 			this.size = { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
@@ -134,11 +135,19 @@ export class Track3DCx {
 		return pickPiece(this.pieces(), point, (at, z) => this.toScreen(at, z), this.pathZ);
 	}
 
+	/** The plain Pegboard wall in the Wall layer's color */
+	private paintWall(renderer: ComposeRenderer): void {
+		const wallColor = this.compose.studio.project?.design.wall.labelColor;
+		renderer.setWallLook(draftWall('pegboard', wallColor != null ? { wallColor } : {}));
+		this.wallColor = wallColor;
+	}
+
 	private draw(): void {
 		const renderer = this.renderer;
 		const studio = this.compose.studio;
 		const project = studio.project;
 		if (renderer == null || project == null) return;
+		if (project.design.wall.labelColor !== this.wallColor) this.paintWall(renderer);
 		const pieces = this.pieces();
 		const playhead = studio.$playhead.get();
 		const radius = project.entities.find((entity) => entity.components.marble != null)?.components.marble?.radius ?? 0.012;

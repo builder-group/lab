@@ -101,7 +101,8 @@ function handSkinnedIds(project: TProject): string[] {
 /** How many changes the project makes over its theme: pieces and marbles with a skin of their own, and each Wall and Key Light value set on the layer */
 export function handChangeCount(project: TProject): number {
 	const { wall, lights } = project.design;
-	return handSkinnedIds(project).length + Object.keys(wall).length + Object.keys(lights.key ?? {}).length;
+	// The Wall's label color is Track's, like a piece's, so it isn't a change over the theme
+	return handSkinnedIds(project).length + Object.keys(wall).filter((name) => name !== 'labelColor').length + Object.keys(lights.key ?? {}).length;
 }
 
 /** Clears those changes so the theme shows as it is, as one edit. Added lights and Decor are things added, so they stay. */

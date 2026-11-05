@@ -541,7 +541,11 @@ textarea {
 }
 
 .mm-track-header[data-muted='true'] .mm-track-title,
-.mm-track-header[data-muted='true'] .mm-track-chip {
+.mm-track-header[data-muted='true'] button.mm-track-chip:hover {
+	box-shadow: 0 0 0 2px var(--control-border);
+}
+
+.mm-track-chip {
 	opacity: 0.45;
 }
 
@@ -2070,6 +2074,17 @@ button.mm-layer-disclosure:hover {
 
 .mm-layer[data-selected='true'] .mm-layer-icon {
 	color: var(--text);
+}
+
+.mm-layer-icon[data-colorable='true'] {
+	cursor: pointer;
+	border-radius: 4px;
+}
+
+/* A click chooses the layer's color, so the icon says so on hover like a button */
+.mm-layer-icon[data-colorable='true']:hover {
+	background: var(--control);
+	box-shadow: 0 0 0 1px var(--control-border);
 }
 
 .mm-layer-chip {

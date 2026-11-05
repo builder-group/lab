@@ -28,6 +28,9 @@ import { pathRun, pathToWorld, pieceKind } from './scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
 import { findStepTarget, linkedPieces, nextOpenHitPerLane, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
+/** The peg holes on a wall the Wall layer colors, as the Draft draws them */
+const WALL_COLOR_DOT = 'rgb(72 56 40 / 0.55)';
+
 /** The Compose wall: WebGL content over the CSS dot grid, with screen-space handles on top */
 export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 	const { cx } = props;
@@ -38,6 +41,7 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 	const spaceHeld = useFeatureState(compose.$spaceHeld);
 	const drag = useFeatureState(compose.$drag);
 	const hover = useFeatureState(compose.$hover);
+	const wallColor = useFeatureState(cx.$history)?.present.design.wall.labelColor;
 
 	React.useEffect(() => {
 		const container = containerRef.current;
@@ -62,7 +66,7 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 		: 'default';
 
 	return (
-		<div ref={containerRef} className="mm-pegboard relative h-full w-full overflow-hidden">
+		<div ref={containerRef} className="mm-pegboard relative h-full w-full overflow-hidden" style={wallColor != null ? ({ '--canvas': wallColor, '--canvas-dot': WALL_COLOR_DOT } as React.CSSProperties) : undefined}>
 			<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
 				<PieceLayer compose={compose} />

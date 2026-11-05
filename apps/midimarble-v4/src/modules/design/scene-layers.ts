@@ -1,10 +1,10 @@
 import type { TSceneKeyLight, TSceneLight, TSceneWallKind } from '@/modules/blender/scene-description';
-import { createId, type TDesign, type TKeyLightPose, type TLight, type TProject, type TProjectCommand, type TWallKind } from '@/modules/project';
-import { DEFAULT_THEME, resolveTheme, themeDefaultColor, type TResolvedTheme } from './project-themes';
+import { createId, type TDesign, type TKeyLightPose, type TLight, type TProject, type TProjectCommand, type TWallKind, type TWallSkin } from '@/modules/project';
+import { DEFAULT_THEME, noneWallColor, resolveTheme, themeDefaultColor, type TResolvedTheme } from './project-themes';
 
 // The Wall and Lights layers of Film. Each sets its values on top of the applied theme, like a piece's skin: unset
 // fields show the theme's and read "From Brass". A project's own values live in `design.wall` and `design.lights`;
-// Export Pack… moves them into the theme it keeps (`duplicateThemeCommands`).
+// Export This Look… moves them into the theme it keeps (`duplicateThemeCommands`).
 
 type TSceneDesign = Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>;
 
@@ -54,7 +54,7 @@ export interface TWallLayer {
 	/** The colors the film uses */
 	color: string;
 	backgroundColor: string;
-	kind: TWallKind;
+	kind: TWallSkin;
 	/** What the project set itself; absent fields read "From Brass" */
 	own: TDesign['wall'];
 	/** What the theme shows without the project's values */
@@ -70,7 +70,7 @@ export function wallLayer(design: TSceneDesign): TWallLayer {
 	};
 	const own = design.wall;
 	return {
-		color: own.color ?? themeLook.color,
+		color: own.kind === 'none' ? noneWallColor(own.labelColor) : (own.color ?? themeLook.color),
 		backgroundColor: own.backgroundColor ?? themeLook.backgroundColor,
 		kind: own.kind ?? themeLook.kind,
 		own,
@@ -80,6 +80,7 @@ export function wallLayer(design: TSceneDesign): TWallLayer {
 
 /** The Wall's Skin when it is not its base theme's own: what the scene description and the Draft Preview need */
 export function wallKindOverride(design: TSceneDesign): TWallKind | undefined {
+	if (design.wall.kind === 'none') return 'pegboard';
 	return design.wall.kind ?? resolveTheme(design).projectTheme?.wallKind;
 }
 

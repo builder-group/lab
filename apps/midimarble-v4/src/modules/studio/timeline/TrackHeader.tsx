@@ -28,7 +28,7 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 			data-selected={isSelected}
 			onContextMenu={(event) => openContextMenu(event, laneMenu(cx, lane))}
 		>
-			<button className="mm-track-chip cursor-pointer" style={{ background: lane.color }} onClick={(event) => openContextMenu(event, laneLabelEntries(cx, lane))} title="Label Color" aria-label={`Label Color of ${lane.name}`} type="button" />
+			<button className="mm-track-chip cursor-pointer" style={{ background: lane.color }} onClick={(event) => openContextMenu(event, laneLabelEntries(cx, lane))} title="Color" aria-label={`Label Color of ${lane.name}`} type="button" />
 			<button
 				className="mm-track-title flex h-full min-w-0 flex-1 flex-col justify-center text-left leading-tight"
 				onClick={() => cx.$selection.set([id])}

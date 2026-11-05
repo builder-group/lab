@@ -332,7 +332,9 @@ export const SDesign = z.strictObject({
 	wall: z.strictObject({
 		color: SHexColor.optional(),
 		backgroundColor: SHexColor.optional(),
-		kind: SWallKind.optional()
+		kind: z.union([SWallKind, z.literal('none')]).optional(),
+		// The plain Pegboard wall's color in Track, and in Film under the skin None; like a piece's label color
+		labelColor: SHexColor.optional()
 	}),
 	// This project's changes to the Key Light on top of the theme, and its added lights
 	lights: z.strictObject({
@@ -448,6 +450,8 @@ export type TThemePart = z.infer<typeof SThemePart>;
 export type TThemeParts = z.infer<typeof SThemeParts>;
 export type TThemeOverrides = z.infer<typeof SThemeOverrides>;
 export type TWallKind = z.infer<typeof SWallKind>;
+/** What the Wall layer can wear: a wall kind, or None, the plain Pegboard wall in the layer's color */
+export type TWallSkin = TWallKind | 'none';
 export type TLight = z.infer<typeof SLight>;
 export type TDecor = z.infer<typeof SDecor>;
 export type TSnowfall = NonNullable<TDecor['snowfall']>;

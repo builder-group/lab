@@ -99,13 +99,19 @@ export function baseThemeOf(design: Pick<TDesign, 'theme' | 'themes'>): string {
 	return resolveTheme(design).base;
 }
 
+/** The Wall under the skin None: plain Pegboard in its color, whatever the theme */
+export function noneWallColor(labelColor: string | undefined): string {
+	return labelColor ?? themeDefaultColor('pegboard', 'wallColor') ?? '#ffffff';
+}
+
 /**
  * The colors the film uses: the applied theme's overrides with the Wall and Key Light layers' own colors on top,
  * for the scene description and the Draft Preview
  */
 export function appliedOverrides(design: Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>): TThemeOverrides {
 	const overrides: TThemeOverrides = { ...resolveTheme(design).overrides };
-	if (design.wall.color != null) overrides.wallColor = design.wall.color;
+	if (design.wall.kind === 'none') overrides.wallColor = noneWallColor(design.wall.labelColor);
+	else if (design.wall.color != null) overrides.wallColor = design.wall.color;
 	if (design.wall.backgroundColor != null) overrides.backgroundColor = design.wall.backgroundColor;
 	if (design.lights.key?.color != null) overrides.lightColor = design.lights.key.color;
 	return overrides;
@@ -163,7 +169,7 @@ export function themeTitleColor(base: string): string {
 /** What a title reads in when its own color is unset, and the color a new one starts with: it stands apart from the wall the project shows */
 export function defaultTitleColor(design: Pick<TDesign, 'theme' | 'themes' | 'wall'>): string {
 	const theme = resolveTheme(design);
-	return titleColorOnWall(design.wall.color ?? theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff');
+	return titleColorOnWall((design.wall.kind === 'none' ? noneWallColor(design.wall.labelColor) : design.wall.color) ?? theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff');
 }
 
 /**
@@ -206,17 +212,17 @@ export function duplicateThemeCommands(project: TProject, sourceId: string): { c
 		...theme,
 		overrides: appliedOverrides(project.design),
 		...sceneOf({
-			wallKind: wall.kind ?? theme.wallKind,
+			wallKind: wall.kind === 'none' ? 'pegboard' : (wall.kind ?? theme.wallKind),
 			keyLight: { ...theme.keyLight, ...withoutColor(lights.key) },
 			lights: [...(theme.lights ?? []), ...lights.added]
 		})
 	};
-	return { commands: [...addThemeCommands(project, saved), { type: 'setDesign', design: { wall: {}, lights: { added: [] } } }], themeId: saved.id };
+	return { commands: [...addThemeCommands(project, saved), { type: 'setDesign', design: { wall: wall.labelColor != null ? { labelColor: wall.labelColor } : {}, lights: { added: [] } } }], themeId: saved.id };
 }
 
 /** Whether the project changed the Wall or Lights layers on top of its theme, which a kept look stores */
 export function hasLayerChanges(design: Pick<TDesign, 'wall' | 'lights'>): boolean {
-	return Object.keys(design.wall).length > 0 || Object.keys(design.lights.key ?? {}).length > 0 || design.lights.added.length > 0;
+	return Object.keys(design.wall).some((name) => name !== 'labelColor') || Object.keys(design.lights.key ?? {}).length > 0 || design.lights.added.length > 0;
 }
 
 /** A project theme's Wall skin, Key Light and lights, leaving out what it does not set */
@@ -234,7 +240,7 @@ function withoutColor(key: TDesign['lights']['key']): TKeyLightPose {
 }
 
 /**
- * The current look as a theme, what Export Pack… keeps: a project theme whose parts are this project's choices per element type: the
+ * The current look as a theme, what Export This Look… keeps: a project theme whose parts are this project's choices per element type: the
  * look most of each type wear, built-in skins only. Pieces in that look then just follow the theme; pieces in another
  * keep it. One edit, and the theme is applied.
  */

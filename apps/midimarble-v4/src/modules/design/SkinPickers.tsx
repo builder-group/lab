@@ -2,13 +2,15 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import type { TMenuEntry } from '@/components';
 import { addedPacks, type TLibraryItem } from '@/modules/library';
-import type { TEntity, TProject, TWallKind } from '@/modules/project';
+import type { TEntity, TProject, TWallSkin } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { builtInSkinCommands, itemFitsPieceType, resetToThemeCommands, skinAppliedMessage, skinTargetIds, type TSkinTarget } from './design-commands';
 import { libraryEntries, libraryItemKey, libraryItemLabel, libraryItemOrigin, notAddedPackAction, type TLibraryEntry } from './DesignLibraryCx';
 import { LIBRARY_DRAG_TYPE, removeLibraryEntry } from './FilmInsert';
-import { isThemeColorByNote, resolveElementLook } from './project-themes';
+import { isThemeColorByNote, noneWallColor, resolveElementLook } from './project-themes';
+import { PLAIN_PIECE_COLOR } from './draft-look';
+import { pieceLabelColor } from './label-colors';
 import { wallCommands, wallLayer } from './scene-layers';
 import { catalogSkin, elementLabel, elementPlural, type TSkinElement } from './skin-catalog';
 import { skinTiles, THEME_DEFAULT_TILE, usedSkinIds, wallTiles } from './skin-tiles';
@@ -67,6 +69,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 			label: tile.label,
 			detail: tile.detail,
 			previewUrl: tile.previewUrl,
+			...(tile.label === 'None' ? { thumb: <NoneThumb isMarble={element === 'marble'} color={noneColor(project, entities[0])} /> } : {}),
 			isCurrent: tile.isCurrent,
 			title: tile.id === THEME_DEFAULT_TILE ? `Back to the theme, with its colors and properties: click for the selection, ⌥-click for all ${plural.toLowerCase()}` : tileTitle(`${tile.label} (${tile.detail})`),
 			onApply: (toAll: boolean) => apply(tile.id, tile.label, toAll),
@@ -124,9 +127,9 @@ export const WallPicker: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 		label: tile.label,
 		detail: tile.detail,
 		previewUrl: null,
-		thumb: <WallThumb kind={tile.shownKind} color={color} />,
+		thumb: <WallThumb kind={tile.shownKind} color={tile.kind === 'none' ? noneWallColor(project.design.wall.labelColor) : color} />,
 		isCurrent: tile.isCurrent,
-		title: tile.kind == null ? "Back to the theme's wall, with its colors" : `A ${tile.label} wall`,
+		title: tile.kind == null ? "Back to the theme's wall, with its colors" : tile.kind === 'none' ? 'The plain Pegboard wall in the color Track gives it' : `A ${tile.label} wall`,
 		onApply: () => {
 			const commands = wallCommands(project, tile.kind == null ? { kind: null, color: null, backgroundColor: null } : { kind: tile.kind });
 			if (commands.length > 0) cx.execute(commands);
@@ -135,11 +138,27 @@ export const WallPicker: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 	return <TilePicker heading="Skin" label="Wall skins" current={currentOf(tiles, 'Mixed')} title="Choose the wall's skin" tiles={tiles} />;
 };
 
+/** What the skin None shows on the first of a selection: its label color, or plain wood */
+function noneColor(project: TProject, entity: TEntity | undefined): string {
+	if (entity == null) return PLAIN_PIECE_COLOR;
+	const lane = project.music.lanes.find((item) => item.id === entity.components.marble?.laneId);
+	return lane?.color ?? pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR;
+}
+
+/** The skin None in small: the plain shape in its color, since it has no rendered look of its own */
+const NoneThumb: React.FC<{ isMarble: boolean; color: string }> = ({ isMarble, color }) => (
+	<span className="absolute inset-0 flex items-center justify-center bg-[var(--control)]">
+		<span className={isMarble ? 'h-1/2 aspect-square rounded-full' : 'h-[14%] w-3/5 rounded-[2px]'} style={{ background: color }} />
+	</span>
+);
+
 /** A wall's kind in small: the walls have no rendered previews */
-const WallThumb: React.FC<{ kind: TWallKind; color: string }> = ({ kind, color }) => {
+const WallThumb: React.FC<{ kind: TWallSkin; color: string }> = ({ kind, color }) => {
 	const dark = 'rgb(0 0 0 / 0.28)';
-	const looks: Partial<Record<TWallKind, React.CSSProperties>> = {
-		pegboard: { backgroundImage: `radial-gradient(circle, ${dark} 1.5px, transparent 2px)`, backgroundSize: '9px 9px' },
+	const holes: React.CSSProperties = { backgroundImage: `radial-gradient(circle, ${dark} 1.5px, transparent 2px)`, backgroundSize: '9px 9px' };
+	const looks: Partial<Record<TWallSkin, React.CSSProperties>> = {
+		pegboard: holes,
+		none: holes,
 		grid: { backgroundImage: `linear-gradient(${dark} 1px, transparent 1px), linear-gradient(90deg, ${dark} 1px, transparent 1px)`, backgroundSize: '12px 12px' }
 	};
 	return <span className="absolute inset-0" style={{ backgroundColor: color, ...looks[kind] }} />;

@@ -9,7 +9,7 @@ import type { TWorkspace } from './StudioCx';
  * Song its file and Backing, the Camera its framing, a shot or a title its own, a marble its color and release,
  * the Wall its skin and colors, a light its color, strength and direction.
  * Nothing selected is the Scene. The same selection shows the same inspector whether it was made in Layers or in the
- * timeline, and in either workspace, except that Compose has no Wall, Lights or Decor: a selection left over from Film
+ * timeline, and in either workspace, except that Compose has no Lights or Decor: a selection left over from Film
  * shows the Scene there.
  */
 export function inspectorTarget(project: TProject, selection: readonly string[], workspace: TWorkspace = 'design'): TInspectorTarget {
@@ -24,7 +24,7 @@ export function inspectorTarget(project: TProject, selection: readonly string[],
 	return workspace === 'compose' && FILM_ONLY_TARGETS.includes(target.kind) ? { kind: 'scene' } : target;
 }
 
-const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['wall', 'light', 'decor', 'decorItems', 'madeInBlender'];
+const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['light', 'decor', 'decorItems', 'madeInBlender'];
 
 /**
  * What stays selected when Film opens. The piece or hit Compose's work last left selected would hide the theme, so

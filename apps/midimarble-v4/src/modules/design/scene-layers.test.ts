@@ -25,6 +25,20 @@ function withTheme(theme: string): TProject {
 }
 
 describe('wall layer', () => {
+	it('should show plain Pegboard in its color under the skin None, whatever the theme, and leave it out of a theme\'s changes', () => {
+		const project = createStaircaseProject();
+		const brass = apply(project, themeCommands(project, 'brass'));
+		const colored = apply(brass, [{ type: 'setDesign', design: { wall: { labelColor: '#2f6f8f' } } }]);
+		// Under any other skin the theme's wall stays
+		expect(appliedOverrides(colored.design).wallColor).toBeUndefined();
+		expect(hasLayerChanges(colored.design)).toBe(false);
+
+		const none = apply(colored, wallCommands(colored, { kind: 'none' }));
+		expect(appliedOverrides(none.design).wallColor).toBe('#2f6f8f');
+		expect(sceneLayers(none.design).wallKind).toBe('pegboard');
+		expect(wallLayer(none.design)).toMatchObject({ kind: 'none', color: '#2f6f8f' });
+	});
+
 	it('should override a built-in theme per project and return to the theme on reset', () => {
 		const project = withTheme('brass');
 		expect(wallLayer(project.design)).toMatchObject({ color: '#ada1c0', kind: 'plaster', own: {} });

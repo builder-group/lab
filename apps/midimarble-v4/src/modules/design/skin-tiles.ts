@@ -1,4 +1,4 @@
-import { laneColors, type TEntity, type TProject, type TWallKind } from '@/modules/project';
+import { laneColors, type TEntity, type TProject, type TWallKind, type TWallSkin } from '@/modules/project';
 import { draftMarble } from './draft-look';
 import { resolveTheme, type TResolvedTheme } from './project-themes';
 import { wallLayer, WALL_KINDS } from './scene-layers';
@@ -62,8 +62,8 @@ function themeSkinShown(theme: TResolvedTheme, element: TSkinElement, entity: TE
 
 /** A wall tile: `kind` null follows the theme. The walls have no rendered previews, so the tile draws its kind */
 export interface TWallTile extends TLookTile {
-	kind: TWallKind | null;
-	shownKind: TWallKind;
+	kind: TWallSkin | null;
+	shownKind: TWallSkin;
 }
 
 export function wallTiles(design: Parameters<typeof wallLayer>[0]): TWallTile[] {
@@ -71,6 +71,7 @@ export function wallTiles(design: Parameters<typeof wallLayer>[0]): TWallTile[] 
 	const themeKind = wall.theme.kind;
 	return [
 		{ id: THEME_DEFAULT_TILE, kind: null, shownKind: themeKind, label: themeTileLabel(wallKindLabel(themeKind)), detail: '', previewUrl: null, isCurrent: wall.own.kind == null || wall.own.kind === themeKind },
+		{ id: 'none', kind: 'none', shownKind: 'none', label: 'None', detail: STARTER_ORIGIN, previewUrl: null, isCurrent: wall.own.kind === 'none' },
 		...WALL_KINDS.filter((item) => item.kind !== themeKind).map((item) => ({ id: item.kind, kind: item.kind, shownKind: item.kind, label: item.label, detail: STARTER_ORIGIN, previewUrl: null, isCurrent: wall.own.kind === item.kind }))
 	];
 }
