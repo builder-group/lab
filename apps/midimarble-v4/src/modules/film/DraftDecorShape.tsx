@@ -54,7 +54,7 @@ const Shape: React.FC<{ decor: TDraftDecor }> = (props) => {
 				<>
 					<path d="M -0.033 -0.004 Q 0 0.012 0.033 -0.004" fill="none" stroke="#3a3a3a" strokeWidth={0.0006} />
 					{[-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03].map((x) => (
-						<circle key={x} cx={x} cy={0.004 - (x * x) / 0.11 + 0.002} r={0.0022} fill={color} style={{ filter: 'drop-shadow(0 0 2px rgb(255 214 138 / 0.9))' }} />
+						<circle key={x} cx={x} cy={0.004 - (x * x) / 0.11 + 0.002} r={0.0022} fill={color} />
 					))}
 				</>
 			);
