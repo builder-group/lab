@@ -259,16 +259,16 @@ function useWorkingWord(label: string | null): { word: string; isShown: boolean 
 
 /**
  * The window's one accent button. While a film exports with the sheet closed it carries the progress as a
- * small ring, like Final Cut's background tasks; a finished or failed export leaves a dot until the sheet opens
+ * small ring, like Final Cut's background tasks; a failed export leaves a dot until the sheet opens
  */
 const ExportButton: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const job = useFeatureState(cx.film.$job);
 	const isSheetOpen = useFeatureState(cx.film.$isSheetOpen);
 	const isExporting = job.phase === 'preparing' || job.phase === 'rendering' || job.phase === 'encoding';
-	const isFinished = job.phase === 'done' || job.phase === 'failed';
-	const showsActivity = !isSheetOpen && (isExporting || isFinished);
-	const title = !showsActivity ? 'Export the film (⌘E)' : isExporting ? `${exportStatusLabel(job)}. Click to show the export` : job.phase === 'done' ? 'Film exported. Click to show it' : 'Export failed. Click for details';
+	const hasFailed = job.phase === 'failed';
+	const showsActivity = !isSheetOpen && (isExporting || hasFailed);
+	const title = !showsActivity ? 'Export the film (⌘E)' : isExporting ? `${exportStatusLabel(job)}. Click to show the export` : 'Export failed. Click for details';
 
 	return (
 		<button
@@ -281,7 +281,7 @@ const ExportButton: React.FC<{ cx: StudioCx }> = (props) => {
 			type="button"
 		>
 			{showsActivity && isExporting ? <ProgressRing progress={job.phase === 'preparing' ? null : job.progress} /> : null}
-			{showsActivity && isFinished ? <span className="mm-titlebar-export-dot" data-tone={job.phase === 'done' ? 'good' : 'bad'} /> : null}
+			{showsActivity && hasFailed ? <span className="mm-titlebar-export-dot" /> : null}
 			Export Film…
 		</button>
 	);

@@ -1828,21 +1828,14 @@ button.mm-hit-summary:hover {
 	filter: brightness(0.94);
 }
 
-/* Done or failed while the sheet was closed; a ring on the accent so it reads on yellow */
+/* Failed while the sheet was closed; a ring on the accent so it reads on yellow */
 .mm-titlebar-export-dot {
 	width: 7px;
 	height: 7px;
 	flex-shrink: 0;
 	border-radius: 999px;
-	box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--on-accent) 25%, transparent);
-}
-
-.mm-titlebar-export-dot[data-tone='good'] {
-	background: var(--good);
-}
-
-.mm-titlebar-export-dot[data-tone='bad'] {
 	background: var(--bad);
+	box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--on-accent) 25%, transparent);
 }
 
 /* Final Cut's background-task ring, drawn in the button's text colour */
