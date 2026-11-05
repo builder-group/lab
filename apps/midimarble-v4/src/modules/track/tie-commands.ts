@@ -21,7 +21,7 @@ export function followSelection(cx: StudioCx, marbleId?: string): void {
 	let current = project;
 	const commands: TProjectCommand[] = [];
 	for (const entityId of selectedPieceIds(project, cx.$selection.get())) {
-		const resolved = result.pieces.find((piece) => piece.entityId === entityId);
+		const resolved = result.pieces.find((piece) => piece.pieceId === entityId);
 		if (resolved == null) continue;
 		const point = resolved.contactPoint ?? resolved.position;
 		const moments = result.marbles

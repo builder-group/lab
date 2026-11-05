@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { NO_BLENDER_OBJECTS, preflightExport } from './export-preflight';
+import { NO_BLENDER_OBJECTS, checkRun } from './export-preflight';
 import { BOWL_TAIL, projectSongEnd } from '@/modules/music';
 import { type TProject, tieOf } from '@/modules/project';
 import { bowlCatch, bowlOfMarble, createSimulator, type TSimulator } from '@/modules/simulation';
@@ -56,7 +56,7 @@ describe('Add Bowl', () => {
 			expect(bowl, marble.name).toBeDefined();
 			expect(bowlCatch(result, bowl?.id ?? '').status).toBe('caught');
 		}
-		expect(preflightExport(project, result, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.id.startsWith('bowl:'))).toEqual([]);
+		expect(checkRun(project, result, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.id.startsWith('bowl:'))).toEqual([]);
 	});
 
 	it('reports a Bowl that misses its marble and places it again', async () => {
@@ -73,7 +73,7 @@ describe('Add Bowl', () => {
 			track: { ...zigzag.track, pieces: [...zigzag.track.pieces, { ...bowl, place: { ...bowl.place, offset: { x: 0.25, y: 0 } } }] }
 		};
 		const result = simulator.simulate(missing);
-		const issue = preflightExport(missing, result, NO_BLENDER_OBJECTS).issues.find((item) => item.id === `bowl:${bowl.id}`);
+		const issue = checkRun(missing, result, NO_BLENDER_OBJECTS).issues.find((item) => item.id === `bowl:${bowl.id}`);
 		expect(issue?.title).toBe('Marble 1 misses the Bowl');
 		expect(issue?.severity).toBe('warning');
 		const fix = await bowlFix(missing, result, bowl.id, deps);

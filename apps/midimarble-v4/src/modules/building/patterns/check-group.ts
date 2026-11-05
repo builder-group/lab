@@ -1,4 +1,4 @@
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary, type TProblemSummary } from '../export-preflight';
+import { NO_BLENDER_OBJECTS, checkRun, problemSummary, type TProblemSummary } from '../export-preflight';
 import type { TProject, TProjectCommand } from '@/modules/project';
 import { parseHitKey, tieOf } from '@/modules/project';
 import { answerSettle, changedPieces } from '@/modules/simulation';
@@ -26,7 +26,7 @@ export interface TGroupCheck {
 }
 
 function standing(project: TProject, result: TSimulationResult): TProblemSummary {
-	return problemSummary(preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS), 'track');
+	return problemSummary(checkRun(project, result, NO_BLENDER_OBJECTS), 'track');
 }
 
 function hitWords(project: TProject, hitId: string): { marbleId: string; hitId: string; number: number; name: string } | null {
@@ -92,10 +92,10 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 
 /** How many pieces after the Pattern stand somewhere else in the run */
 function changedPlaces(before: TProject, after: TProject, sim: TSimulator, result: TSimulationResult): number {
-	const was = new Map(sim.simulate(before).pieces.map((piece) => [piece.entityId, piece.position]));
+	const was = new Map(sim.simulate(before).pieces.map((piece) => [piece.pieceId, piece.position]));
 	const made = new Set(changedPieces(before, after).map((piece) => piece.id));
 	return result.pieces.filter((piece) => {
-		const position = was.get(piece.entityId);
-		return !made.has(piece.entityId) && position != null && Math.hypot(piece.position.x - position.x, piece.position.y - position.y) > 0.005;
+		const position = was.get(piece.pieceId);
+		return !made.has(piece.pieceId) && position != null && Math.hypot(piece.position.x - position.x, piece.position.y - position.y) > 0.005;
 	}).length;
 }

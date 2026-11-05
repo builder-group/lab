@@ -86,7 +86,7 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 		const marble = result.marbles.find((item) => item.marbleId === marbleId);
 		const last = [...(marble?.samples ?? [])].reverse().find((sample) => sample.time <= to);
 		const leave = ride.leave != null ? ride.leave - from : null;
-		const isStruck = result.contacts.some((contact) => contact.kind === 'piece' && contact.otherEntityId !== id && contact.time > from + 0.03 && contact.time < to - 0.004 && base.track.pieces.find((item) => item.id === contact.otherEntityId)?.type === 'platform');
+		const isStruck = result.contacts.some((contact) => contact.kind === 'piece' && contact.otherId !== id && contact.time > from + 0.03 && contact.time < to - 0.004 && base.track.pieces.find((item) => item.id === contact.otherId)?.type === 'platform');
 		const isTouching = !ride.isBlocked && touchingPairs(next, result).some((pair) => pair.a === id || pair.b === id);
 		const why = ride.isBlocked ? 'it would run through the marble’s path' : ride.isTrapped ? 'the marble stops on it' : leave == null ? 'the marble misses it' : isStruck ? 'the marble strikes a bar on the way' : null;
 		if (why != null) whys.set(why, (whys.get(why) ?? 0) + 1);
@@ -243,7 +243,7 @@ function distanceToPath(path: TVec2[], point: TVec2): number {
 /** When the marble last touches the rail before the next hit, and whether it stands still on it */
 function railRide(result: TSimulationResult, marbleId: string, entityId: string, until: number, radius: number): { leave: number | null; isTrapped: boolean; isBlocked: boolean } {
 	const marble = result.marbles.find((item) => item.marbleId === marbleId);
-	const piece = result.pieces.find((item) => item.entityId === entityId);
+	const piece = result.pieces.find((item) => item.pieceId === entityId);
 	if (piece == null || marble == null) return { leave: null, isTrapped: false, isBlocked: true };
 	const paths = piece.paths ?? (piece.path != null ? [piece.path] : []);
 	const reach = radius + (piece.params['radius'] ?? 0.004) + 0.003;

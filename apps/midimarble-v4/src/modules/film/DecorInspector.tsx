@@ -8,22 +8,21 @@ import { formatTime, toDecorKey, toMadeInBlenderKey } from '@/modules/project';
 import { madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands, decorItem, SNOWFALL_DEFAULTS, snowfallOf, titleSpan, withTitleTime } from '@/modules/scene';
 import { moveDecorClearAction, openScatterPanel, revealMadeInBlender } from './decor-actions';
 import { ColorWell } from './SceneLayerInspector';
-import { decorTips, preflightExport } from '@/modules/building';
+import { decorTips } from '@/modules/building';
 
 // Inspectors of the Decor group: Position, Scale, Rotation and In and Out
 // with the title pattern. Decor has no hitbox. Made in Blender objects keep their place in Blender, so they show only In, Out and their tip.
 
 /** The amber tip on a layer a marble's path crosses, from the one problem model */
-function useDecorTip(cx: StudioCx, project: TProject, key: string): string | null {
-	const result = useFeatureState(cx.simulation.$result);
-	const objects = useFeatureState(cx.film.$blenderObjects);
-	return React.useMemo(() => (result != null && result.revision === project.revision ? (decorTips(preflightExport(project, result, objects)).get(key)?.label ?? null) : null), [project, result, objects, key]);
+function useDecorTip(cx: StudioCx, key: string): string | null {
+	const problems = useFeatureState(cx.simulation.$problems);
+	return React.useMemo(() => decorTips(problems).get(key)?.label ?? null, [problems, key]);
 }
 
 export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: TDecor }> = (props) => {
 	const { cx, project, decor } = props;
 	const [timingKey, setTimingKey] = React.useState(0);
-	const tip = useDecorTip(cx, project, toDecorKey(decor.id));
+	const tip = useDecorTip(cx, toDecorKey(decor.id));
 	const item = decorItem(decor.source);
 	const span = titleSpan(decor, project.length);
 	const update = (patch: Parameters<typeof updateDecorCommands>[2]): void => void cx.execute(updateDecorCommands(requireProject(cx), [decor.id], patch));
@@ -100,7 +99,7 @@ const SnowfallPanel: React.FC<{ cx: StudioCx; decor: TDecor }> = (props) => {
 export const MadeInBlenderInspector: React.FC<{ cx: StudioCx; project: TProject; name: string }> = (props) => {
 	const { cx, project, name } = props;
 	const [timingKey, setTimingKey] = React.useState(0);
-	const tip = useDecorTip(cx, project, toMadeInBlenderKey(name));
+	const tip = useDecorTip(cx, toMadeInBlenderKey(name));
 	const layer = madeInBlenderLayer(project.film, name);
 	const span = titleSpan(layer, project.length);
 

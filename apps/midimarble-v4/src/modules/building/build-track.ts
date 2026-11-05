@@ -1,5 +1,5 @@
 import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import { answerWorkerRequest, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { answerWorkerRequest, changedPieces, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
 import { checkFraming } from './export-preflight';
 import { withBowls } from './bowl-assist';
 import { withStartRails } from './start-rail';
@@ -350,24 +350,24 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	}
 	// A switchback, rail or tunnel the marble's run now passes through earlier is left out, like a blocked hit
 	const blocked = result.pieces.filter((piece) => {
-		const marble = marbleOfPiece(applied, piece.entityId);
+		const marble = marbleOfPiece(applied, piece.pieceId);
 		const time = piece.entryTime ?? piece.hitTime ?? 0;
-		return piece.status === 'blocked' && !tolerated.pieces.has(piece.entityId) && marble != null && (marble === marbleId || time < othersFrontier(marble));
+		return piece.status === 'blocked' && !tolerated.pieces.has(piece.pieceId) && marble != null && (marble === marbleId || time < othersFrontier(marble));
 	});
-	if (blocked.length > 0) return reject(state, `blocked ${blocked.map((piece) => piece.entityId).join(' ')}`);
+	if (blocked.length > 0) return reject(state, `blocked ${blocked.map((piece) => piece.pieceId).join(' ')}`);
 	// Each marble may only touch its own marble's pieces and never the other marble; a free piece is the person's scenery
 	const crossed = result.contacts.filter((contact) => {
-		if (tolerated.contacts.has(contactKey(contact.marbleEntityId, contact.otherEntityId))) return false;
-		const reach = Math.min(frontier.get(contact.marbleEntityId) ?? Infinity, contact.kind === 'marble' ? (frontier.get(contact.otherEntityId) ?? Infinity) : Infinity);
+		if (tolerated.contacts.has(contactKey(contact.marbleId, contact.otherId))) return false;
+		const reach = Math.min(frontier.get(contact.marbleId) ?? Infinity, contact.kind === 'marble' ? (frontier.get(contact.otherId) ?? Infinity) : Infinity);
 		if (contact.time >= reach) return false;
 		if (contact.kind === 'marble') return true;
-		const marble = marbleOfPiece(applied, contact.otherEntityId);
-		return contact.kind === 'piece' && marble != null && marble !== contact.marbleEntityId;
+		const marble = marbleOfPiece(applied, contact.otherId);
+		return contact.kind === 'piece' && marble != null && marble !== contact.marbleId;
 	});
-	if (crossed.length > 0) return reject(state, `crossing ${crossed.map((contact) => `${contact.marbleEntityId}/${contact.otherEntityId}`).join(' ')}`);
+	if (crossed.length > 0) return reject(state, `crossing ${crossed.map((contact) => `${contact.marbleId}/${contact.otherId}`).join(' ')}`);
 	// Every hit of the marble with a piece keeps its dot in frame; its own marble's center is only Auto place's preference
 	const band = frameBand(applied);
-	const outside = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceEntityId != null && hit.dot != null && !tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)) && !isInBand(hit.dot, band, 1));
+	const outside = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceId != null && hit.dot != null && !tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)) && !isInBand(hit.dot, band, 1));
 	if (outside.length > 0) return reject(state, `outside the band ${outside.map((hit) => hit.hitId).join(' ')}`);
 	// Each marble strikes each platform once, for its note, up to where its path is final
 	const struck = extraStrikes(applied, result).filter((strike) => !tolerated.strikes.has(strike.entityId) && strike.time < (frontier.get(strike.marbleId) ?? Infinity));
@@ -386,7 +386,7 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	// A flat platform must still fit at the next dot, as Auto place checks for its own pieces
 	const probe = createLinkedPiece('platform', marbleId, next.hitId, 0, { id: 'accept-probe' });
 	const probed = await state.deps.simulate({ ...applied, track: { ...applied.track, pieces: [...applied.track.pieces, probe] }, length: Math.min(applied.length, next.targetTime + 0.05) });
-	if (probed.pieces.find((piece) => piece.entityId === probe.id)?.status === 'blocked') return reject(state, `no room at ${next.hitId}`);
+	if (probed.pieces.find((piece) => piece.pieceId === probe.id)?.status === 'blocked') return reject(state, `no room at ${next.hitId}`);
 	const pace = result.pace;
 	if (pace != null && isShared(applied)) {
 		const before = (await run(state, current)).hits.find((hit) => hit.marbleId === marbleId && hit.status === 'open' && hit.dot != null);
@@ -421,7 +421,7 @@ function staysOnColumn(state: TBuildState, project: TProject, result: TSimulatio
 /** How regular the marble's last hits look, lower is better, per hit: how far each drop lies from the pace's for its interval, in piece lengths */
 function lookCost(result: TSimulationResult, marbleId: string): number {
 	const length = PLACEMENT_LENGTH;
-	const played = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceEntityId != null && hit.dot != null).sort((a, b) => a.targetTime - b.targetTime).slice(-1 - LOOK_AHEAD_HITS);
+	const played = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceId != null && hit.dot != null).sort((a, b) => a.targetTime - b.targetTime).slice(-1 - LOOK_AHEAD_HITS);
 	let cost = 0;
 	played.forEach((hit, index) => {
 		const before = played[index - 1];
@@ -772,13 +772,13 @@ async function forceHit(state: TBuildState, current: TProject, target: THitResul
 async function tolerate(state: TBuildState, project: TProject): Promise<void> {
 	const result = await run(state, project);
 	for (const hit of result.hits) if (hit.status !== 'open' && hit.status !== 'onTime') state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
-	for (const piece of result.pieces) if (piece.status === 'blocked') state.tolerated.pieces.add(piece.entityId);
+	for (const piece of result.pieces) if (piece.status === 'blocked') state.tolerated.pieces.add(piece.pieceId);
 	for (const contact of result.contacts) {
-		const marble = marbleOfPiece(project, contact.otherEntityId);
-		if (contact.kind === 'marble' || (marble != null && marble !== contact.marbleEntityId)) state.tolerated.contacts.add(contactKey(contact.marbleEntityId, contact.otherEntityId));
+		const marble = marbleOfPiece(project, contact.otherId);
+		if (contact.kind === 'marble' || (marble != null && marble !== contact.marbleId)) state.tolerated.contacts.add(contactKey(contact.marbleId, contact.otherId));
 	}
 	const band = frameBand(project);
-	for (const hit of result.hits) if (hit.pieceEntityId != null && hit.dot != null && !isInBand(hit.dot, band, 1)) state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
+	for (const hit of result.hits) if (hit.pieceId != null && hit.dot != null && !isInBand(hit.dot, band, 1)) state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
 	for (const strike of extraStrikes(project, result)) state.tolerated.strikes.add(strike.entityId);
 	for (const roll of rollingHits(project, result)) state.tolerated.rolls.add(roll.entityId);
 	for (const pair of touchingPairs(project, result)) state.tolerated.touching.add(pairKey(pair.a, pair.b));
@@ -819,7 +819,7 @@ function keepsPace(project: TProject, result: TSimulationResult): boolean {
  * camera looks ahead, so a run is only final some way before its marbles' next open hits
  */
 function framingTrouble(project: TProject, result: TSimulationResult, until = Infinity): { marbleId: string; from: number } | null {
-	const stretches = checkFraming(project, { ...result, revision: project.revision })?.stretches ?? [];
+	const stretches = checkFraming(project, result)?.stretches ?? [];
 	return stretches.find((stretch) => stretch.to < until) ?? null;
 }
 
@@ -849,7 +849,6 @@ function bowlTrouble(project: TProject): { marbleId: string; from: number } | nu
 /** The commands that turn `from` into `to`: marbles added or released elsewhere, pieces changed, added and removed, the length and the camera */
 function diffCommands(from: TProject, to: TProject): TProjectCommand[] {
 	const commands: TProjectCommand[] = [];
-	const known = new Map(from.track.pieces.map((piece) => [piece.id, piece]));
 	const kept = new Set(to.track.pieces.map((piece) => piece.id));
 	const gone = from.track.pieces.filter((piece) => !kept.has(piece.id)).map((piece) => piece.id);
 	if (gone.length > 0) commands.push({ type: 'removePieces', pieceIds: gone });
@@ -859,10 +858,7 @@ function diffCommands(from: TProject, to: TProject): TProjectCommand[] {
 		if (before == null) commands.push({ type: 'addMarble', marble });
 		else if (before.start !== marble.start && JSON.stringify(before.start) !== JSON.stringify(marble.start)) commands.push({ type: 'updateMarble', marbleId: marble.id, patch: { start: marble.start } });
 	}
-	for (const piece of to.track.pieces) {
-		const before = known.get(piece.id);
-		if (before !== piece && JSON.stringify(before) !== JSON.stringify(piece)) commands.push({ type: 'addPiece', piece });
-	}
+	for (const piece of changedPieces(from, to)) commands.push({ type: 'addPiece', piece });
 	if (from.length !== to.length) commands.push({ type: 'updateProject', patch: { length: to.length } });
 	if (from.film !== to.film && JSON.stringify(from.film) !== JSON.stringify(to.film)) commands.push({ type: 'updateFilm', film: to.film });
 	return commands;
@@ -991,7 +987,7 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 	// What the last steps left unshown, a stopped build's too
 	if (!publish(build, current, null, true)) build.isStopped = true;
 	const result = await deps.simulate(current);
-	deps.onProgress?.({ done: result.hits.filter((hit) => hit.pieceEntityId != null && hit.status === 'onTime').length, total: build.total, at: build.lastTime, fraction: 1, restarts: build.restarts });
+	deps.onProgress?.({ done: result.hits.filter((hit) => hit.pieceId != null && hit.status === 'onTime').length, total: build.total, at: build.lastTime, fraction: 1, restarts: build.restarts });
 	return {
 		project: current,
 		result,
@@ -1091,7 +1087,7 @@ function publish(build: TBuildRun, next: TProject, hit: THitResult | null, mustS
 
 function reportBuildProgress(build: TBuildRun, result: TSimulationResult, at: number): void {
 	const { total, firstTime, lastTime, restarts } = build;
-	const done = result.hits.filter((hit) => hit.pieceEntityId != null && hit.status === 'onTime').length;
+	const done = result.hits.filter((hit) => hit.pieceId != null && hit.status === 'onTime').length;
 	const span = lastTime - firstTime;
 	build.furthest = Math.max(build.furthest, span > 0 ? Math.min(1, Math.max(0, (at - firstTime) / span)) : 1);
 	build.deps.onProgress?.({ done, total, at, fraction: build.furthest, restarts });

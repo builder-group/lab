@@ -3,7 +3,7 @@ import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
 import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
-import { amendHistory, applyProjectCommands, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey, tieOf } from '@/modules/project';
+import { amendHistory, applyProjectCommands, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_KEY, isFilmLayerKey, parseGroupKey, parseHitKey, stepHitTarget, toHitKey, tieOf } from '@/modules/project';
 import type { TClipboard } from './clipboard';
 import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
@@ -18,7 +18,7 @@ import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { TrackCx } from '@/modules/track';
 import { AssistCx, PatternsCx, withWholePatterns } from '@/modules/track';
-import { earliestHitTime, releaseFollowsFirstHit, preflightExport, problemSummary, type TPreflightTarget } from '@/modules/building';
+import { earliestHitTime, releaseFollowsFirstHit, problemSummary, type TPreflightTarget } from '@/modules/building';
 import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
 import { commandItem, commands, commandWorkspace, deleteTheme, isCommandEnabled, type TCommand, type TCommandId } from './commands';
@@ -360,7 +360,7 @@ export class StudioCx {
 	showFirstProblem(): void {
 		const project = this.project;
 		if (project == null) return;
-		const summary = problemSummary(preflightExport(project, this.simulation.$result.get(), this.film.$blenderObjects.get()));
+		const summary = problemSummary(this.simulation.$problems.get());
 		if (summary.state === 'pending') {
 			this.notify('Checking the track…');
 			return;
@@ -850,9 +850,8 @@ export class StudioCx {
 		const project = this.project;
 		const id = this.$selection.get()[0];
 		if (project == null || id == null) return null;
-		if (layerIds(project).includes(id) || parseDecorKey(id) != null) return id;
-		const lightId = parseLightKey(id);
-		if (lightId != null) return lightId !== KEY_LIGHT_ID ? id : null;
+		if (layerIds(project).includes(id)) return id;
+		if (isFilmLayerKey(id)) return id !== KEY_LIGHT_KEY ? id : null;
 		const groupId = parseGroupKey(id);
 		const group = project.track.groups.find((item) => item.id === groupId);
 		return group != null && !isPatternGroup(group) ? id : null;

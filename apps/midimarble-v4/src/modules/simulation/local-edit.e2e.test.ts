@@ -51,7 +51,7 @@ describe('small edits on Jingle Bells', () => {
 				const near = new Set([id, ...settled.answer.absorbedBy]);
 				const shifts = run.hits.flatMap((hit) => {
 					const was = before.hits.find((item) => item.hitId === hit.hitId);
-					return hit.pieceEntityId != null && !near.has(hit.pieceEntityId) && hit.dot != null && was?.dot != null ? [Math.hypot(hit.dot.x - was.dot.x, hit.dot.y - was.dot.y)] : [];
+					return hit.pieceId != null && !near.has(hit.pieceId) && hit.dot != null && was?.dot != null ? [Math.hypot(hit.dot.x - was.dot.x, hit.dot.y - was.dot.y)] : [];
 				});
 				if (!broken.length) expect(Math.max(...shifts), `${id} by ${by}°`).toBeLessThan(0.05);
 			}
@@ -91,8 +91,8 @@ describe('small edits on Jingle Bells', () => {
 			// Assert: pieces after a break stay where they were
 			expect(run.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked').length, id).toBeLessThanOrEqual(3);
 			for (const piece of run.pieces.filter((item) => item.status === 'held')) {
-				const was = before.pieces.find((item) => item.entityId === piece.entityId);
-				expect(Math.hypot(piece.position.x - (was?.position.x ?? 0), piece.position.y - (was?.position.y ?? 0)), piece.entityId).toBeLessThan(0.002);
+				const was = before.pieces.find((item) => item.pieceId === piece.pieceId);
+				expect(Math.hypot(piece.position.x - (was?.position.x ?? 0), piece.position.y - (was?.position.y ?? 0)), piece.pieceId).toBeLessThan(0.002);
 			}
 		}
 	}, 120_000);

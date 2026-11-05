@@ -219,7 +219,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			? unreachable == null
 				? null
 				: { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
-			: timingStatus(result?.pieces.find((item) => item.entityId === piece.id), hitResult, { marble: marble.name, piece: pieceLabel });
+			: timingStatus(result?.pieces.find((item) => item.pieceId === piece.id), hitResult, { marble: marble.name, piece: pieceLabel });
 	const openHit = hitResult?.status === 'open' && hitResult.dot != null ? hitResult : null;
 
 	function setHit(patch: Partial<THit>): void {

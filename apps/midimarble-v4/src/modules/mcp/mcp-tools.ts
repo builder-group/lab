@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
-import { framingProblemAt, patternSpan, preflightExport } from '@/modules/building';
+import { framingProblemAt, patternSpan } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
-import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY, toShotKey } from '@/modules/project';
+import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseHitKey, SONG_KEY, WALL_KEY, toShotKey } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
 import { editPresenceLabel } from './agent-presence';
 import { hitReport, projectState, resolveSelection } from './mcp-state';
@@ -77,7 +77,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				selection: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get()),
 				building: cx.assist.$building.get(),
 				lastBuild: cx.assist.$lastBuild.get(),
-				blenderObjects: cx.film.$blenderObjects.get(),
+				problems: cx.simulation.$problems.get(),
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
@@ -204,7 +204,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		await settled(cx);
 		const [isFrameOk, frameErr, frame] = await cx.film.renderStill(time, quality === 'blender' ? BLENDER_WIDTH : DRAFT_WIDTH);
 		if (!isFrameOk) return fail(cx, frameErr.message);
-		const framing = framingProblemAt(preflightExport(cx.project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()), time);
+		const framing = framingProblemAt(cx.simulation.$problems.get(), time);
 		const words = `${frame.width} × ${frame.height} at ${time} s, ${Math.round(frame.renderMs)} ms${framing != null ? `. ${framing.title} here: this frame may not show it` : ''}`;
 		return { content: [{ type: 'imagePath', path: frame.path }, { type: 'text', text: words }], isError: false, packagePath: cx.$path.get() };
 	},
@@ -456,12 +456,12 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 	const items = cx.library.$projectItems.get();
 	const packThemes = await packThemesToApply(cx, commands);
 	// Stop came while waiting for the run: this edit never starts, and McpCx's reply says why
-	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()) });
+	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(cx.simulation.$problems.get()) });
 	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes, cx.film.$blenderObjects.get());
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
 	if (!expanded.isChange) {
 		applySelection(cx, args);
-		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
+		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(cx.simulation.$problems.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
 	}
 	const created = expanded.createdIds.length === 1 ? expanded.commands.find((command) => command.type === 'addPiece' && command.piece.id === expanded.createdIds[0]) : undefined;
 	cx.mcp.presence.relabel(editPresenceLabel(label, expanded.summary, created?.type === 'addPiece' ? (created.piece.name ?? null) : null));
@@ -490,7 +490,7 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 		...(extra.redid != null ? { redid: extra.redid } : {}),
 		...after?.(),
 		selection: cx.$selection.get(),
-		...(project != null ? hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()) : {}),
+		...(project != null ? hitReport(cx.simulation.$problems.get()) : {}),
 		...(notices.length > 0 ? { notices } : {}),
 		...(errors.length > 0 ? { errors } : {})
 	};
@@ -559,7 +559,7 @@ function unknownSelection(cx: StudioCx, args: Record<string, unknown>): string |
 		if ([...project.marbles, ...project.track.pieces, ...project.film.titles].some((piece) => piece.id === key)) return true;
 		const hit = parseHitKey(key);
 		if (hit != null) return project.marbles.some((marble) => marble.id === hit.marbleId && marble.hits.some((item) => item.id === hit.hitId));
-		return key === WALL_KEY || key === CAMERA_KEY || key === SONG_KEY || parseLightKey(key) != null || parseDecorKey(key) != null || key.includes(':');
+		return key === WALL_KEY || key === CAMERA_KEY || key === SONG_KEY || key.includes(':');
 	};
 	const bad = select.filter((key) => !isKnown(key));
 	return bad.length > 0 ? `Nothing can be selected as ${bad.join(', ')}. Use a piece or marble ID from get_state, a hit key such as hit:marbleId:hitId, wall, light:key, camera or song.` : null;

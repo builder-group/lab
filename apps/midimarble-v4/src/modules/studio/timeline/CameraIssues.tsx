@@ -1,6 +1,5 @@
 import React from 'react';
 import { useRunPreflight } from '@/modules/canvas';
-import type { TProject } from '@/modules/project';
 import { formatTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 
@@ -10,8 +9,8 @@ import type { StudioCx } from '../StudioCx';
  * same problem in the export sheet. Shot markers are drawn by the track itself.
  */
 export const CameraIssues: React.FC<TCameraIssuesProps> = (props) => {
-	const { cx, project, zoom } = props;
-	const preflight = useRunPreflight(cx, project);
+	const { cx, zoom } = props;
+	const preflight = useRunPreflight(cx);
 	if (preflight == null) return null;
 	const spans = preflight.issues.filter((issue) => issue.kind === 'framing' && issue.severity === 'warning' && issue.span != null);
 	return (
@@ -39,6 +38,5 @@ export const CameraIssues: React.FC<TCameraIssuesProps> = (props) => {
 
 interface TCameraIssuesProps {
 	cx: StudioCx;
-	project: TProject;
 	zoom: number;
 }

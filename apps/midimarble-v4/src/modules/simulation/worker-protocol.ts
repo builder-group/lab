@@ -213,7 +213,7 @@ function gapAnswer(
 		toHitId,
 		piece: proposal.piece,
 		commands: proposal.commands,
-		resolved: trial.pieces.find((piece) => piece.entityId === proposal.piece.id) ?? null,
+		resolved: trial.pieces.find((piece) => piece.pieceId === proposal.piece.id) ?? null,
 		track,
 		check: proposal.check,
 		computeMs: performance.now() - startedAt

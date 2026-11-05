@@ -3,7 +3,7 @@ import type { TResolvedPiece } from '@/modules/simulation';
 import { pathMeshes, spots } from './path-meshes';
 
 function rail(path: { x: number; y: number }[], overrides: Partial<TResolvedPiece> = {}): TResolvedPiece {
-	return { entityId: 'r', type: 'rail', position: { x: 0, y: 0 }, angle: 0, params: { radius: 0.0025 }, shapes: [], path, ...overrides } as unknown as TResolvedPiece;
+	return { pieceId: 'r', type: 'rail', position: { x: 0, y: 0 }, angle: 0, params: { radius: 0.0025 }, shapes: [], path, ...overrides } as unknown as TResolvedPiece;
 }
 
 describe('pathMeshes function', () => {

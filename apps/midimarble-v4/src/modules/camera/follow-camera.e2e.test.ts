@@ -243,7 +243,7 @@ describe('follow camera on whole songs', () => {
 			expect(Math.max(u, v)).toBeLessThan(0.95);
 			// A catch after the last hit stays in the held frame to the end
 			if (required(caught.enterTime) < Math.max(...result.hits.map((hit) => hit.actualTime ?? -Infinity))) continue;
-			const mouth = required(result.pieces.find((piece) => piece.entityId === bowl.id)).position;
+			const mouth = required(result.pieces.find((piece) => piece.pieceId === bowl.id)).position;
 			const [mu, mv] = project(track, end, mouth.x, mouth.y);
 			expect(Math.min(mu, mv)).toBeGreaterThan(0.05);
 			expect(Math.max(mu, mv)).toBeLessThan(0.95);

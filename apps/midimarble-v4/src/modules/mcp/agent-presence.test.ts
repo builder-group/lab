@@ -122,10 +122,10 @@ function withPiece(): { project: TProject; marbleId: string; hitId: string; piec
 	const next = { ...project, marbles: [marble], track: { ...project.track, pieces: [piece] } };
 	const result = {
 		revision: next.revision,
-		pieces: [{ entityId: pieceId, position: { x: 0.1, y: -0.2 } }],
+		pieces: [{ pieceId, position: { x: 0.1, y: -0.2 } }],
 		hits: [
-			{ marbleId: marble.id, hitId: 'hit1', targetTime: 1.5, pieceEntityId: pieceId, dot: { x: 0.1, y: -0.2 }, status: 'onTime' },
-			{ marbleId: marble.id, hitId: 'hit2', targetTime: 2, pieceEntityId: null, dot: null, status: 'open' }
+			{ marbleId: marble.id, hitId: 'hit1', targetTime: 1.5, pieceId, dot: { x: 0.1, y: -0.2 }, status: 'onTime' },
+			{ marbleId: marble.id, hitId: 'hit2', targetTime: 2, pieceId: null, dot: null, status: 'open' }
 		]
 	} as unknown as TSimulationResult;
 	return { project: next, marbleId: marble.id, hitId: 'hit1', pieceId, result };

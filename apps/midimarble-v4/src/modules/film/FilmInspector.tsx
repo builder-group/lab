@@ -13,7 +13,7 @@ import { builtInSkinCommands, commonPieceType, frameHeightOnWall, isScreenTitle,
 import type { TFilmLink } from './FilmCx';
 import { SkinPicker } from './SkinPickers';
 import { SkinPropertyRows } from './SkinProperties';
-import { framingProblemAt, preflightExport } from '@/modules/building';
+import { framingProblemAt } from '@/modules/building';
 
 // Inspectors of the Film layers on the inspector grid: a piece's skin, a title, a shot and the
 // Camera. The studio's Inspector picks one for the selection.
@@ -98,7 +98,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</span>
 			{camera.auto ? (
 				<>
-					{cx.$workspace.get() === 'film' ? <FramingProblem cx={cx} project={project} /> : null}
+					{cx.$workspace.get() === 'film' ? <FramingProblem cx={cx} /> : null}
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
 					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the preview to orbit" value={radiansToDegrees(angles.turn)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ turn: degreesToRadians(value) })} />
 					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the preview to orbit" value={radiansToDegrees(angles.tilt)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ tilt: degreesToRadians(value) })} />
@@ -150,12 +150,11 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
  * The framing problem at the playhead, which a jump from the hit summary, the export sheet or the Camera track lands
  * on: "Bass leaves the frame at 0:12.00 (6 hits)"
  */
-const FramingProblem: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
-	const result = useFeatureState(cx.simulation.$result);
+const FramingProblem: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
+	const problems = useFeatureState(cx.simulation.$problems);
 	const playhead = useFeatureState(cx.$playhead);
-	const preflight = React.useMemo(() => preflightExport(project, result, cx.film.$blenderObjects.get()), [project, result]);
-	const issue = framingProblemAt(preflight, playhead);
+	const issue = framingProblemAt(problems, playhead);
 	if (issue == null) return null;
 	return <StateRow tone="warn" label={issue.title} detail={issue.detail} />;
 };

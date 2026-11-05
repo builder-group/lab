@@ -121,7 +121,7 @@ describe('the flat canvas behind 3D and Camera', () => {
 
 		// Assert
 		const shown = setPieces.mock.lastCall?.[0] as TRenderPiece[];
-		expect(shown[0]?.piece.entityId).toBe(windmillId);
+		expect(shown[0]?.piece.pieceId).toBe(windmillId);
 		expect(shown[0]?.angle).toBeCloseTo(4);
 		expect(draws.count).toBeGreaterThan(0);
 

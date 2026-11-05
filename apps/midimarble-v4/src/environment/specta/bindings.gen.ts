@@ -5,7 +5,6 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 
 /** Commands */
 export const commands = {
-	getAppInfo: () => __TAURI_INVOKE<AppInfoDto>("get_app_info"),
 	createProject: (path: string, projectJson: string) => typedError<OpenedProjectDto, string>(__TAURI_INVOKE("create_project", { path, projectJson })),
 	openProject: (path: string) => typedError<OpenedProjectDto, string>(__TAURI_INVOKE("open_project", { path })),
 	saveProject: (path: string, projectJson: string) => typedError<null, string>(__TAURI_INVOKE("save_project", { path, projectJson })),
@@ -114,14 +113,6 @@ export type AgentReferencesDto = {
 	/**  Absolute paths of the images */
 	images: string[],
 	text: string,
-};
-
-export type AppDistribution = "appStore" | "direct";
-
-export type AppInfoDto = {
-	version: string,
-	stage: Stage,
-	distribution: AppDistribution,
 };
 
 export type BlenderInstallDto = {
@@ -271,8 +262,6 @@ export type RecentProjectDto = {
 	name: string,
 	openedAt: number | null,
 };
-
-export type Stage = "dev" | "prod";
 
 export type StandardMenuItem = "cut" | "copy" | "paste" | "minimize" | "zoom" | "fullScreen" | "bringAllToFront";
 

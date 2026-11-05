@@ -74,9 +74,9 @@ export function pickPiece(pieces: readonly TResolvedPiece[], point: TVec2, toScr
 		const wall = pieceOutline(piece);
 		if (kind === 'path' || kind === 'tube') {
 			const outline = wall.map((corner) => toScreen(corner, pathZ));
-			if (isPointInPolygon(point, outline)) return piece.entityId;
+			if (isPointInPolygon(point, outline)) return piece.pieceId;
 			const distance = distanceToOutline(point, outline);
-			if (distance < 6 && (best == null || distance < best.distance)) best = { id: piece.entityId, distance };
+			if (distance < 6 && (best == null || distance < best.distance)) best = { id: piece.pieceId, distance };
 			continue;
 		}
 		// A steep camera sees bars from above: the piece covers its outline at the wall, at its front and the sides between them
@@ -87,9 +87,9 @@ export function pickPiece(pieces: readonly TResolvedPiece[], point: TVec2, toScr
 			const next = (index + 1) % wall.length;
 			return [back[index], back[next], front[next], front[index]].filter((corner) => corner != null);
 		});
-		if ([back, front, ...sides].some((polygon) => isPointInPolygon(point, polygon))) return piece.entityId;
+		if ([back, front, ...sides].some((polygon) => isPointInPolygon(point, polygon))) return piece.pieceId;
 		const distance = Math.min(distanceToOutline(point, back), distanceToOutline(point, front));
-		if (distance < 6 && (best == null || distance < best.distance)) best = { id: piece.entityId, distance };
+		if (distance < 6 && (best == null || distance < best.distance)) best = { id: piece.pieceId, distance };
 	}
 	return best?.id ?? null;
 }

@@ -115,7 +115,7 @@ export function builtRunCommands(before: TProject, after: TProject, hits: readon
 	const grouped = new Set((after.track.groups).flatMap((group) => group.pieceIds));
 	const groups: TGroup[] = [...(after.track.groups)];
 	const commands: TProjectCommand[] = [];
-	const dotOf = new Map(hits.flatMap((hit) => (hit.pieceEntityId != null && hit.dot != null ? [[hit.pieceEntityId, hit.dot.x] as const] : [])));
+	const dotOf = new Map(hits.flatMap((hit) => (hit.pieceId != null && hit.dot != null ? [[hit.pieceId, hit.dot.x] as const] : [])));
 	for (const marble of after.marbles) {
 		const order = new Map(marble.hits.map((hit, index) => [hit.id, index]));
 		const pieces = after.track.pieces

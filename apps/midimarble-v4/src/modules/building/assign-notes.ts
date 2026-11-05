@@ -79,7 +79,7 @@ function asFreePiece(project: TProject, result: TSimulationResult | null, piece:
 
 function currentPose(project: TProject, result: TSimulationResult | null, piece: TPiece): { position: TVec2; angle: number } | null {
 	if (result == null || result.revision !== project.revision) return null;
-	const resolved = result.pieces.find((item) => item.entityId === piece.id);
+	const resolved = result.pieces.find((item) => item.pieceId === piece.id);
 	if (resolved == null || resolved.status === 'unreached') return null;
 	const radius = result.marbles.find((marble) => marble.marbleId === tieOf(piece)?.marbleId)?.radius;
 	return freePose(piece, resolved, radius);

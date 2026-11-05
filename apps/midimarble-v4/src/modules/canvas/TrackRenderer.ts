@@ -210,16 +210,16 @@ export class TrackRenderer {
 			const kind = layoutOf(piece.type);
 			if (kind !== 'box' && kind !== 'rotor') {
 				if (item.hasSolidPaths === true) {
-					seen.add(piece.entityId);
+					seen.add(piece.pieceId);
 					this.setPathPiece(item);
 				}
 				return;
 			}
-			seen.add(piece.entityId);
-			let object = this.pieces.get(piece.entityId);
+			seen.add(piece.pieceId);
+			let object = this.pieces.get(piece.pieceId);
 			if (object == null) {
 				object = { group: new THREE.Group(), parts: [], geometryKey: '' };
-				this.pieces.set(piece.entityId, object);
+				this.pieces.set(piece.pieceId, object);
 				this.scene.add(object.group);
 			}
 			// A run's pieces are never changed in place, so the same one needs no second look at its params
@@ -269,10 +269,10 @@ export class TrackRenderer {
 	/** A path piece's meshes in wall coordinates, rebuilt only when the piece or its depth changes */
 	private setPathPiece(item: TRenderPiece): void {
 		const { piece, pathZ = MARBLE_Z } = item;
-		let object = this.pieces.get(piece.entityId);
+		let object = this.pieces.get(piece.pieceId);
 		if (object == null) {
 			object = { group: new THREE.Group(), parts: [], geometryKey: '' };
-			this.pieces.set(piece.entityId, object);
+			this.pieces.set(piece.pieceId, object);
 			this.scene.add(object.group);
 		}
 		if (object.pathSource !== piece || object.pathZ !== pathZ) {

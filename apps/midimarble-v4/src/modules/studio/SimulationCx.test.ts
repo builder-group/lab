@@ -126,6 +126,84 @@ describe('SimulationCx class', () => {
 		});
 	});
 
+	describe('a film edit', () => {
+		const film = (project: TProject, distance: number): TProjectCommand[] => [{ type: 'updateFilm', film: { camera: { ...project.film.camera, distance } } }];
+
+		it('should keep the run and move it to the new revision', async () => {
+			// Prepare
+			const { cx, studio, simulated, execute, flush } = await setup();
+			const before = cx.$result.get();
+			simulated.length = 0;
+
+			// Act
+			execute(film(studio.project as TProject, 3));
+			await flush();
+
+			// Assert
+			expect(simulated).toHaveLength(0);
+			expect(cx.isCurrent).toBe(true);
+			expect(cx.$result.get()?.hits).toBe(before?.hits);
+		});
+
+		it('should keep the run through its undo', async () => {
+			// Prepare
+			const { cx, studio, simulated, execute, flush } = await setup();
+			const $history = (studio as unknown as { $history: { get: () => TProjectHistory; set: (value: TProjectHistory) => void } }).$history;
+			execute(film(studio.project as TProject, 3));
+			await flush();
+			simulated.length = 0;
+
+			// Act
+			$history.set(undoHistory($history.get()));
+			await flush();
+
+			// Assert
+			expect(simulated).toHaveLength(0);
+			expect(cx.isCurrent).toBe(true);
+		});
+
+		it('should be current when it lands while the run of a track edit is on its way', async () => {
+			// Prepare
+			const { cx, studio, simulated, execute, flush } = await setup();
+			execute(turn(studio.project as TProject, 'piece-1-16', 0.01));
+			await flush();
+			simulated.length = 0;
+			const present = studio.project as TProject;
+			const gravity: TProjectCommand[] = [{ type: 'updateProject', patch: { gravity: (present.gravity ?? 1) * 0.999 } }];
+
+			// Act
+			execute(gravity);
+			for (let i = 0; i < 3 && !cx.$computing.get(); i++) await new Promise((resolve) => setTimeout(resolve, 0));
+			execute(film(studio.project as TProject, 3));
+			await flush();
+
+			// Assert
+			expect(simulated).toHaveLength(1);
+			expect(cx.isCurrent).toBe(true);
+			expect(cx.$computing.get()).toBe(false);
+		});
+
+		it('should run again after a failed run, even with the same input', async () => {
+			// Prepare
+			const { cx, studio, simulated, execute, flush } = await setup();
+			const working = client.current as { simulate: (project: TProject) => Promise<TSimulationResult> };
+			const simulate = working.simulate;
+			working.simulate = () => Promise.reject(new Error('worker lost'));
+			execute([{ type: 'updateProject', patch: { length: (studio.project as TProject).length + 1 } }]);
+			await flush();
+			working.simulate = simulate;
+			simulated.length = 0;
+
+			// Act
+			execute(film(studio.project as TProject, 3));
+			await flush();
+
+			// Assert
+			expect(simulated).toHaveLength(1);
+			expect(cx.isCurrent).toBe(true);
+		});
+	});
+
 	describe('a preview', () => {
 		it('should show what the edit will do, with the next platforms taking it up', async () => {
 			// Prepare

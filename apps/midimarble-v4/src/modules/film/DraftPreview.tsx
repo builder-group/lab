@@ -157,22 +157,22 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 					{pieces.map((piece) => {
 						const palette = draft.colorsOf(piece);
 						const glow = pieceKind(piece) === 'tube' || pieceKind(piece) === 'rotor' ? palette.nub : palette.bar;
-						return <polygon key={piece.entityId} points={toPoints(draft.selectionOutline(piece))} fill={glow} fillOpacity={0.35} stroke={glow} strokeWidth={Math.max(2, scale * 0.006)} strokeLinejoin="round" />;
+						return <polygon key={piece.pieceId} points={toPoints(draft.selectionOutline(piece))} fill={glow} fillOpacity={0.35} stroke={glow} strokeWidth={Math.max(2, scale * 0.006)} strokeLinejoin="round" />;
 					})}
 				</g>
 			) : null}
 			{pieces.map((piece) => {
 				const kind = pieceKind(piece);
 				const palette = draft.colorsOf(piece);
-				if (kind === 'path') return <RailShape key={piece.entityId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
-				if (kind === 'tube') return <TunnelShape key={piece.entityId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'generated') return <RailPathsShape key={piece.entityId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'catcher') return <BowlShape key={piece.entityId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
+				if (kind === 'path') return <RailShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
+				if (kind === 'tube') return <TunnelShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
+				if (kind === 'generated') return <RailPathsShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
+				if (kind === 'catcher') return <BowlShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
 				return null;
 			})}
 			{/* A skin's shape cue on its platform: chrome caps, a key, a lens or a grille, so a skin shows before Blender renders it */}
 			{pieces.map((piece) =>
-				draft.skinMarks(piece).map((mark) => <polygon key={`${piece.entityId}:${mark.id}`} points={toPoints(mark.points)} fill={mark.color} stroke={mark.color} strokeWidth={0.5} strokeLinejoin="round" />)
+				draft.skinMarks(piece).map((mark) => <polygon key={`${piece.pieceId}:${mark.id}`} points={toPoints(mark.points)} fill={mark.color} stroke={mark.color} strokeWidth={0.5} strokeLinejoin="round" />)
 			)}
 			{draft.marbles().map((marble) => {
 				const center = draft.toScreen(marble.position);
@@ -254,12 +254,12 @@ const SelectionOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden data-selection-outlines>
 			{draft
 				.pieces()
-				.filter((piece) => selection.includes(piece.entityId))
+				.filter((piece) => selection.includes(piece.pieceId))
 				.map((piece) => {
 					const points = toPoints(draft.selectionOutline(piece));
 					// A white halo and a light fill under the accent stroke keep the outline readable on Brass's gold bars
 					return (
-						<g key={piece.entityId}>
+						<g key={piece.pieceId}>
 							<polygon points={points} fill="none" stroke="white" strokeOpacity={0.9} strokeWidth={3.75} strokeLinejoin="round" />
 							<polygon points={points} fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="var(--accent-strong)" strokeWidth={1.75} strokeLinejoin="round" />
 						</g>
@@ -295,7 +295,7 @@ const AgentTouchedOutlines: React.FC<{ draft: DraftPreviewCx; touched: readonly 
 	return (
 		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
 			{touched.map((item) => {
-				const piece = pieces.find((candidate) => candidate.entityId === item.key);
+				const piece = pieces.find((candidate) => candidate.pieceId === item.key);
 				const outline = piece != null ? draft.selectionOutline(piece) : item.key.startsWith('decor:') ? draft.decorOutline(item.key) : null;
 				return outline != null ? <polygon key={`${item.key}-${item.stamp}`} className="mm-agent-touched" points={toPoints(outline)} fill="none" stroke="var(--accent-strong)" strokeWidth={2} strokeLinejoin="round" /> : null;
 			})}

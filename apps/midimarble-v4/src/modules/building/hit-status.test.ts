@@ -3,7 +3,7 @@ import type { THitResult } from '@/modules/simulation';
 import { hitSummary, hitTiming, problemsInTimeOrder } from './hit-status';
 
 function result(hitId: string, status: THitResult['status'], targetTime: number, extra: Partial<THitResult> = {}): THitResult {
-	return { marbleId: 'marble-1', hitId, targetTime, pieceEntityId: null, dot: null, velocity: null, actualTime: null, error: null, status, ...extra };
+	return { marbleId: 'marble-1', hitId, targetTime, pieceId: null, dot: null, velocity: null, actualTime: null, error: null, status, ...extra };
 }
 
 describe('hitTiming function', () => {

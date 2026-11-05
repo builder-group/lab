@@ -22,7 +22,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	// Pieces another marble hits, from the problem model the hit summary and Layers read
-	const preflight = useRunPreflight(cx, project);
+	const preflight = useRunPreflight(cx);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
 	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
 	const pieces = project.track.pieces.filter((piece) => ids.includes(piece.id));
@@ -35,7 +35,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const isSameType = pieces.every((piece) => piece.type === type);
 	const kind = pieceKind(first);
 	const isPath = kind === 'path' || kind === 'tube';
-	const resolved = result?.pieces.find((item) => item.entityId === first.id);
+	const resolved = result?.pieces.find((item) => item.pieceId === first.id);
 	const attach = attachState(project, first);
 	const isFree = pieces.every((piece) => tieOf(piece) == null);
 
@@ -207,7 +207,7 @@ function pieceStatus(project: TProject, piece: TPiece, resolved: TResolvedPiece 
 	if (link == null) return null;
 	const attach = attachState(project, piece);
 	if (attach.kind === 'linked' && isMusicalPiece(type)) {
-		const hit = result?.hits.find((item) => item.pieceEntityId === piece.id || (item.marbleId === link.marbleId && item.hitId === link.hitId));
+		const hit = result?.hits.find((item) => item.pieceId === piece.id || (item.marbleId === link.marbleId && item.hitId === link.hitId));
 		const marble = project.marbles.find((item) => item.id === link.marbleId);
 		const pitch = marble?.hits.find((item) => item.id === link.hitId)?.pitch;
 		return timingStatus(resolved, hit, { marble: marble?.name, note: pitch == null ? undefined : noteName(pitch), piece: piece.name ?? undefined });
