@@ -76,6 +76,8 @@ Each piece type is one definition in a registry:
 - Placement rule that puts its contact surface at a trajectory point
 - Default skin per theme
 - Optional dynamic behavior, such as the windmill hinge with damping or motor
+- Layout kind (`layout`), which decides how it is built and drawn
+- Canvas colors (`palette`) and its tile in Insert (`tile`)
 
 The first set is platform, rail, tunnel, windmill and Bowl:
 
@@ -90,6 +92,24 @@ The first set is platform, rail, tunnel, windmill and Bowl:
 - **Start rail** (`building/start-rail.ts`): Build Track's free Rail at each bare marble's release, the first row under its marble in Layers (`startRailOf`), 6 cm at 10° or steeper, with a short stop past its end as a second path. The marble rolls off, meets the stop and drops almost straight, then falls 0.5 s as one released without a rail does, or down to 0.12 s when the first note comes too soon for that, so the first strike is as firm and the track's first bounces come out the same; the release moves earlier by the time the rail takes. All rails run the same way, so the marbles wait side by side and the opening frame holds them. The rail's `laneOffset` keeps how far along x the marble lands, since a marble's band of the wall lies where it lands (`frameBand`), while the marble still waits on the rail. A marble with a speed of its own gets no rail.
 
 Rails, tunnels and windmills are scenery: anchored to the trajectory a short delay after the hit before a gap, they follow upstream edits like platforms but never sound a hit. The next platform is placed where the marble actually is, so hits stay on time whatever the gap piece does. Gap suggestions search their parameters by simulation and report honestly whether the result stays in frame and near the pace. `createSwitchbackForGap` enters where the marble has fallen 1.25 or 2.5 marble diameters below the launching hit, so the earlier path stays above the switchback; ranks leg counts (1 to 6) and slopes (2° to 17°) by an estimated hold time (`switchbackHoldTime`, rolling at 5/7 · g · sin slope from 0.35 of the entry speed and keeping the speed through the bends, within about 0.2 s rms of simulated holds at full and half gravity, with 0.6 s slack; rolling every leg from rest overestimated holds two to five times and at half gravity shortlisted only switchbacks that released the marble far too early) and the height the marble would reach at the next hit after falling from the exit; simulates the best ten per entry and width (the kit width and 0.8 and 0.65 of it) for both directions and three entry positions with a flat probe at the next hit; and scores the next dot's pace error (twice as much below the pace), frame, stray contacts and room for the next piece, then refines the best slope by ±2° and ±4°. The marble must leave early enough to fall below the switchback by the next bounce's rise plus 6 cm.
+
+### Add a piece type
+
+A piece type with an existing `layout` other than `path` or `tube` takes these steps. `track/piece-registry.test.ts` names the parts of steps 1 to 4 a type lacks, and `scene/skin-catalog.test.ts` and `scene/packs.test.ts` cover steps 3, 5 and 6.
+
+1. **Definition:** add it to `pieceDefinitions` in `simulation/pieces.ts`. Insert, the tool and its key, the command palette, the Insert menu and the canvas colors read it. Pick a free letter for `tile.shortcut`, or leave it out.
+2. **Icon:** add it to `pieceIcons` in `canvas/piece-icons.tsx`.
+3. **Catalog:** add an element to `blender/mm_worker/skin_catalog.json` with at least three skins, and the skin each theme dresses it with. The project schema and the skin pickers read this file.
+4. **Builder:** add it to the table in `build_spec` in `blender/mm_worker/skins.py`, with an existing `*_spec` function or a new one.
+5. **Starter Pack:** add an item per offered skin to `packs/Starter.marblepack/pack.json`, in catalog order.
+6. **Previews:** render a PNG per offered skin into `public/skins/` with `blender/tests/render_skin_previews.py`.
+7. **Words:** add its name to `docs/words.md` and `src-tauri/src/modules/mcp/guides/words.md`.
+
+Draft colors are optional: `draftPieceColors` in `scene/draft-look.ts` gives an unlisted type chrome.
+
+The Blender worker is Python and can't read the definition, so it names some types itself. A `box` type needs nothing beyond step 4. A `rotor` type also goes in `layout` in `assets.py` and the windmill checks in `skins.py` and `contacts.py`.
+
+A new `layout` kind, or a type drawn with the path tool, is more work: a new kind goes through `piece-layout.ts`, `shapes.ts`, `pieceOutline` and the shapes in `canvas/PieceShapes.tsx`, and a drawn type through `TPathType` in `track/keys.ts`, `pathPieceTypes` in `building/attach-edit.ts` and `pieceToolCommand` in `studio/commands.ts`.
 
 ## Simulation
 
