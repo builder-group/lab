@@ -185,7 +185,7 @@ def ffprobe(path):
     return json.loads(result.stdout)
 
 
-def check_draft_film(worker, root, scene, fast_started):
+def check_draft_film(worker, root, scene, final_started):
     """The draft preset renders the same range with Workbench, whatever engine is asked for, and leaves the scene be"""
     engine_before = scene.render.engine
     began = time.perf_counter()
@@ -203,7 +203,7 @@ def check_draft_film(worker, root, scene, fast_started):
     check(result['engine'] == 'workbench' and (streams['video']['width'], streams['video']['height']) == (720, 1280),
           'draft film is Workbench at 720x1280')
     check(streams['audio']['codec_name'] == 'aac', 'draft film carries the AAC soundtrack')
-    check(started['frames'] == fast_started['frames'] and started['fps'] == 30, 'draft film covers the same frames as fast')
+    check(started['frames'] == final_started['frames'] and started['fps'] == 30, 'draft film covers the same frames as final')
     # A frame at the fourth hit: the blue marble, deep navy against Brass's light wall and gold bars, and the brass
     # bars must read as their colours on the wall
     pixels = film_frame(film, started['width'], started['height'], math.ceil(FIRST_HIT * 30 + 3 * HIT_GAP * 30) / 30)
@@ -287,19 +287,19 @@ def main():
     check(cycles_path.is_file(), 'Cycles still renders')
 
     began = time.perf_counter()
-    started = worker.handle('render_film', {'preset': 'fast', 'outputPath': 'renders/film-fast.mp4',
+    started = worker.handle('render_film', {'preset': 'final', 'outputPath': 'renders/film-final.mp4',
                                             'audioPath': 'renders/soundtrack.wav', 'jobId': 'film-check'})
     last = {}
     envelope = render.wait_for_job(root, 'film-check', timeout=3600, on_progress=last.update)
     check(envelope['ok'], 'render_film finishes: %s' % envelope.get('error'))
     result = envelope['result']
-    film = OUT / 'brass-film-fast.mp4'
+    film = OUT / 'brass-film-final.mp4'
     shutil.copy(result['path'], film)
     probe = ffprobe(film)
     streams = {stream['codec_type']: stream for stream in probe['streams']}
     duration = float(probe['format']['duration'])
-    check(streams['video']['codec_name'] == 'h264' and (streams['video']['width'], streams['video']['height']) == (720, 1280),
-          'film is H.264 at 720x1280')
+    check(streams['video']['codec_name'] == 'h264' and (streams['video']['width'], streams['video']['height']) == (1080, 1920),
+          'film is H.264 at 1080x1920')
     check(streams['audio']['codec_name'] == 'aac', 'film carries the AAC soundtrack')
     check(abs(duration - started['frames'] / started['fps']) < 0.1 and duration >= 6.0, 'film lasts %.2f s' % duration)
     check(last.get('frames') == started['frames'], 'progress reports frames')

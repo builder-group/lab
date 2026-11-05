@@ -46,7 +46,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 			lights: { added: [] },
 			decor: [],
 			madeInBlender: [],
-			renderPreset: 'balanced',
+			renderPreset: 'final',
 			camera: {
 				mode: 'rig',
 				distance: DEFAULT_CAMERA_DISTANCE,

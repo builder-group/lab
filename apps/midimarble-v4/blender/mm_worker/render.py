@@ -40,9 +40,7 @@ PRESETS = {
     # Its frames go through JPEG: writing PNG took as long as rendering the frame
     'draft': {'short': 720, 'fps': 30, 'engine': 'workbench', 'workbench': 8, 'frames': 'jpg', 'x264': 'veryfast',
               'crf': 23},
-    'fast': {'short': 720, 'fps': 30, 'eevee': 16, 'cycles': 32, 'x264': 'veryfast', 'crf': 20},
-    'balanced': {'short': 1080, 'fps': 30, 'eevee': 32, 'cycles': 64, 'x264': 'medium', 'crf': 18},
-    'best': {'short': 1080, 'fps': 60, 'eevee': 64, 'cycles': 128, 'x264': 'slow', 'crf': 17},
+    'final': {'short': 1080, 'fps': 30, 'eevee': 32, 'cycles': 64, 'x264': 'medium', 'crf': 18},
 }
 JOB_ID = re.compile(r'[A-Za-z0-9_-]{1,100}')
 JOB_FOLDER = 'renders/.jobs'
@@ -70,9 +68,9 @@ SCREEN_TITLE_HEIGHTS = {'caption': 0.7, 'songName': 0.3, 'endCard': 0.0}
 
 
 def start_render_film(worker, args):
-    preset_name = args.get('preset', 'balanced')
+    preset_name = args.get('preset', 'final')
     if preset_name not in PRESETS:
-        raise WorkerError('INVALID_ARGS', 'preset must be draft, fast, balanced or best')
+        raise WorkerError('INVALID_ARGS', 'preset must be draft or final')
     preset = PRESETS[preset_name]
     engine = args.get('engine') or 'eevee'
     if engine not in ('eevee', 'cycles'):

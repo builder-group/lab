@@ -36,8 +36,6 @@ const BLENDER_WIDTH = 1280;
 const PROJECT_EXECUTE = 'project.execute';
 const EDIT_SELECT = 'edit.select';
 const REMOVE_PACK = 'design.removePack';
-/** The export sheet's words for the presets, which `export_film` takes as well as their ids */
-const QUALITY_WORDS: Record<string, 'draft' | 'balanced'> = { draft: 'draft', final: 'balanced', balanced: 'balanced' };
 
 /** Commands that ask a person through a panel, with what they need instead */
 const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
@@ -227,8 +225,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 	},
 
 	export_film: async (cx, args) => {
-		const { quality: word, path } = z.object({ quality: z.enum(['draft', 'final', 'balanced']).optional(), path: SPath.optional() }).parse(args);
-		const quality = word != null ? QUALITY_WORDS[word] : undefined;
+		const { quality, path } = z.object({ quality: z.enum(['draft', 'final']).optional(), path: SPath.optional() }).parse(args);
 		if (cx.project == null) return noProject(cx);
 		if (quality != null && !cx.film.isRunning) {
 			await settled(cx);

@@ -157,7 +157,7 @@ export function createBareRunProject(options: {
 			lights: { added: [] },
 			decor: [],
 			madeInBlender: [],
-			renderPreset: 'balanced',
+			renderPreset: 'final',
 			// 1.166 m frames the Marble Race Kit through the 85 mm lens; the default kit is KIT_SCALE times larger
 			camera: { mode: 'rig', distance: 1.166 * KIT_SCALE, pitch: 0.7, lead: 0.15, smoothing: 0.6, sway: 1, shots: [] }
 		}

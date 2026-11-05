@@ -250,7 +250,7 @@ pub fn tool_definitions() -> Vec<Value> {
             "export_film",
             "Starts a film export and answers with its progress or result. Call it without quality to check on a running export.",
             json!({
-                "quality": { "type": "string", "enum": ["draft", "fast", "balanced", "best"] },
+                "quality": { "type": "string", "enum": ["draft", "final"] },
                 "path": { "type": "string", "description": "Absolute .mp4 path; defaults to the project's renders folder" }
             }),
             &[],

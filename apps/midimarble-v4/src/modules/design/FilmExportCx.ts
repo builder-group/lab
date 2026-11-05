@@ -15,7 +15,7 @@ const RENDERS_FOLDER = 'renders';
  */
 export class FilmExportCx {
 	readonly $isSheetOpen = createState(false);
-	readonly $settings = createState<TExportSettings>({ preset: 'balanced', fileName: 'Film.mp4', chosenPath: null });
+	readonly $settings = createState<TExportSettings>({ preset: 'final', fileName: 'Film.mp4', chosenPath: null });
 	readonly $job = createState<TExportJob>(IDLE_JOB);
 	/** Per-frame times of earlier film renders by engine, for the estimate */
 	readonly $measured = createState<Partial<Record<TFilmEngine, TMeasuredRender>>>(readMeasured());

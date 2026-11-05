@@ -341,13 +341,13 @@ export interface TInspectResult {
 	fps: number;
 }
 
-export type TRenderPreset = 'draft' | 'balanced';
+export type TRenderPreset = 'draft' | 'final';
 
 /** Engine a film renders with; the draft preset always uses Workbench */
 export type TFilmEngine = 'eevee' | 'cycles' | 'workbench';
 
 export interface TRenderFilmOptions {
-	/** Draft 720p 30 fps in Workbench, Final (`balanced`) 1080p 30 fps in Eevee; short side for portrait frames */
+	/** Draft 720p 30 fps in Workbench, Final 1080p 30 fps in Eevee; short side for portrait frames */
 	preset: TRenderPreset;
 	/** Package-relative `.mp4` path */
 	outputPath: string;

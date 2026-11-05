@@ -5322,7 +5322,7 @@
 			}
 		],
 		"madeInBlender": [],
-		"renderPreset": "balanced",
+		"renderPreset": "final",
 		"camera": {
 			"mode": "rig",
 			"distance": 1.36,

@@ -62,7 +62,7 @@ function createTwoLaneProject(): TProject {
 			platform('loose', null, ''),
 			{ id: 'rail', name: 'rail', components: { piece: { type: 'rail', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 } } }
 		],
-		design: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], renderPreset: 'balanced', camera: { mode: 'rig', distance: 0.85, pitch: 1, lead: 0.15, smoothing: 0.6, sway: 1, shots: [] } }
+		design: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], renderPreset: 'final', camera: { mode: 'rig', distance: 0.85, pitch: 1, lead: 0.15, smoothing: 0.6, sway: 1, shots: [] } }
 	};
 }
 

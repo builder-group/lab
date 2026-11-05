@@ -1,7 +1,7 @@
 """Applies an exported package and renders stills for look review.
 
 Run: Blender --background --factory-startup --python blender/tests/render_look.py -- <package> <out-dir> [--times 1.0,2.5]
-     [--engine eevee|cycles] [--width 540] [--samples N] [--film fast] [--marble-skin marble:glass] [--marble-variant cats-eye]
+     [--engine eevee|cycles] [--width 540] [--samples N] [--film final] [--marble-skin marble:glass] [--marble-variant cats-eye]
 """
 import argparse
 import json

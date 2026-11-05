@@ -418,8 +418,8 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
         check(False, 'unknown presets are rejected')
     except Exception as error:
         check(getattr(error, 'code', None) == 'INVALID_ARGS', 'unknown presets are rejected')
-    started = worker.handle('render_film', {'preset': 'fast', 'outputPath': 'renders/cancel.mp4', 'jobId': 'job-cancel'})
-    check(started['frames'] == 30 and (started['width'], started['height']) == (720, 1280), 'fast preset is 720x1280 at 30 fps')
+    started = worker.handle('render_film', {'preset': 'final', 'outputPath': 'renders/cancel.mp4', 'jobId': 'job-cancel'})
+    check(started['frames'] == 30 and (started['width'], started['height']) == (1080, 1920), 'final preset is 1080x1920 at 30 fps')
     time.sleep(1.0)
     worker.handle('cancel', {'jobId': 'job-cancel'})
     envelope = render.wait_for_job(root, 'job-cancel', timeout=30)

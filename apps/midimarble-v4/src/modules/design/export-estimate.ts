@@ -13,12 +13,11 @@ export interface TRenderPresetInfo {
 
 /**
  * Export qualities from words.md: Draft to check motion in seconds, in flat colours without lighting (Workbench), and
- * Final for the film (Eevee). `balanced` is Final's id in saved projects and in the Blender worker. Blender itself is
- * there for other renderers and sizes.
+ * Final for the film (Eevee). Blender itself is there for other renderers and sizes.
  */
 export const renderPresets: readonly TRenderPresetInfo[] = [
 	{ id: 'draft', label: 'Draft', shortSide: 720, fps: 30, engine: 'workbench', detail: 'Flat Light' },
-	{ id: 'balanced', label: 'Final', shortSide: 1080, fps: 30, engine: 'eevee' }
+	{ id: 'final', label: 'Final', shortSide: 1080, fps: 30, engine: 'eevee' }
 ];
 
 export function getRenderPreset(id: TRenderPreset): TRenderPresetInfo {

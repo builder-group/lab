@@ -22,7 +22,7 @@ describe('project document', () => {
 
 	it('accepts the draft render preset alongside the earlier presets', () => {
 		const project = createProject();
-		for (const renderPreset of ['draft', 'balanced'] as const) {
+		for (const renderPreset of ['draft', 'final'] as const) {
 			const [isParsedOk, , parsed] = parseProject(serializeProject({ ...project, design: { ...project.design, renderPreset } }));
 			expect(isParsedOk).toBe(true);
 			expect(parsed?.design.renderPreset).toBe(renderPreset);
