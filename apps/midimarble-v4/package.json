@@ -15,6 +15,7 @@
 	"author": "@bennobuilder",
 	"type": "module",
 	"scripts": {
+		"bindings:check": "out=$(mktemp) && MM_BINDINGS_OUT=$out cargo test --manifest-path src-tauri/Cargo.toml --lib exports_typescript_bindings --quiet && diff $out src/environment/specta/bindings.gen.ts",
 		"blender:check": "/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_apply_scene.py",
 		"blender:design": "/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_design.py && /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_decor.py && /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_skins.py && tsx scripts/export-marble-skin-scenes.ts .local/marble-skins/package && /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_marble_look.py -- .local/marble-skins/package",
 		"blender:film": "/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_film.py",
@@ -34,6 +35,7 @@
 		"start:dev": "tauri dev",
 		"test": "vitest run",
 		"test:e2e": "vitest run --config vitest.e2e.config.ts",
+		"test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
 		"typecheck": "tsc --noEmit",
 		"ui:build": "pnpm typecheck && vite build",
 		"ui:start:dev": "vite dev",

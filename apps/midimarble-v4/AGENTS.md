@@ -23,6 +23,8 @@ The documents say how things are now, with no history; git keeps that. Update th
 
 - Run `pnpm --filter @lab/midimarble-v4 typecheck`, `lint` and `test` before each commit. `test` is the unit tests, under a minute: no whole songs in them, a small project of a few hits instead.
 - Run `test:e2e` at milestones or when whole-song logic changes: `*.e2e.test.ts` files, with the Jingle Bells build, the fixture checks and the performance tests. It takes minutes, one file at a time.
+- Run `test:rust` when Rust changes: `cargo test` in `src-tauri`
+- Run `bindings:check` when a command or DTO changes: fails if `src/environment/specta/bindings.gen.ts` is stale
 - Test films with Draft and stills; a Final film only at milestones
 - Run headless Blender checks when their code changes
 - Browser and computer-use checks are allowed for this app, including the native window and Blender

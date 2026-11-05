@@ -51,7 +51,7 @@ export const commands = {
 	copyFileOut: (packagePath: string, relativePath: string, destinationPath: string) => typedError<string, string>(__TAURI_INVOKE("copy_file_out", { packagePath, relativePath, destinationPath })),
 	/**  Background preview frames of a scene signature, started with the worker's `preview_render` */
 	blenderPreviewFrames: (packagePath: string, signature: string) => typedError<BlenderPreviewFramesDto, string>(__TAURI_INVOKE("blender_preview_frames", { packagePath, signature })),
-	/**  Points the running preview job at a new playhead: `{"order": [...], "refine": [...]}` frame numbers */
+	/**  Points the running preview job at a new playhead: `{"order": [...], "paused": false}` */
 	blenderPreviewTarget: (packagePath: string, signature: string, targetJson: string) => typedError<null, string>(__TAURI_INVOKE("blender_preview_target", { packagePath, signature, targetJson })),
 	/**  Stops the preview job after its current chunk; its frames stay */
 	blenderPreviewCancel: (packagePath: string, signature: string) => typedError<null, string>(__TAURI_INVOKE("blender_preview_cancel", { packagePath, signature })),
@@ -139,7 +139,7 @@ export type BlenderJobPollDto = {
 export type BlenderPreviewFramesDto = {
 	/**  Absolute folder of the signature's frames: `<frame>.jpg` at Flat Light, `<frame>.fast.jpg` at Fast */
 	folder: string,
-	/**  Frame numbers rendered at Flat Light, ascending */
+	/**  Frame numbers rendered, ascending */
 	frames: number[],
 	/**  The job's `status.json`, if it started */
 	statusJson: string | null,
