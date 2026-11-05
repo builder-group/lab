@@ -600,28 +600,39 @@ function disposeOwned(object: TPieceObject): void {
 	object.ownsGeometry = false;
 }
 
-/** Pegboard holes for the Camera view's wall, one hole per texture repeat */
+/** How strong the holes stay in each smaller mip level: they fade out with distance and at grazing angles instead of shimmering */
+const PEG_MIP_FADES = [1, 1, 0.7, 0.35, 0.1, 0, 0];
+
+/** Pegboard holes for the Camera view's wall, one hole per texture repeat, fading with distance through its mip levels */
 function createPegTexture(look: TWallLook = { color: '#f2f1ee', holes: 'rgba(0, 0, 0, 0.16)' }): THREE.Texture {
 	const size = 64;
-	const canvas = document.createElement('canvas');
-	canvas.width = size;
-	canvas.height = size;
-	const context = canvas.getContext('2d');
-	if (context != null) {
-		context.fillStyle = look.color;
-		context.fillRect(0, 0, size, size);
-		if (look.holes != null) {
-			context.fillStyle = look.holes;
-			context.beginPath();
-			context.arc(size / 2, size / 2, size * (look.holeRadius ?? 0.09), 0, Math.PI * 2);
-			context.fill();
+	const levels = PEG_MIP_FADES.map((fade, level) => {
+		const side = size >> level;
+		const canvas = document.createElement('canvas');
+		canvas.width = side;
+		canvas.height = side;
+		const context = canvas.getContext('2d');
+		if (context != null) {
+			context.fillStyle = look.color;
+			context.fillRect(0, 0, side, side);
+			if (look.holes != null && fade > 0) {
+				context.globalAlpha = fade;
+				context.fillStyle = look.holes;
+				context.beginPath();
+				context.arc(side / 2, side / 2, side * (look.holeRadius ?? 0.09), 0, Math.PI * 2);
+				context.fill();
+			}
 		}
-	}
-	const texture = new THREE.CanvasTexture(canvas);
+		return canvas;
+	});
+	const texture = new THREE.CanvasTexture(levels[0] as HTMLCanvasElement);
+	texture.mipmaps = levels;
+	texture.generateMipmaps = false;
+	texture.minFilter = THREE.LinearMipmapLinearFilter;
 	texture.wrapS = THREE.RepeatWrapping;
 	texture.wrapT = THREE.RepeatWrapping;
 	texture.colorSpace = THREE.SRGBColorSpace;
-	texture.anisotropy = 8;
+	texture.anisotropy = 4;
 	return texture;
 }
 
