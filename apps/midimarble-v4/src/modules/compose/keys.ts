@@ -108,7 +108,8 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 			return { type: 'nudge', degrees: (input.key === 'ArrowUp' ? 1 : -1) * (input.shiftKey ? 5 : 1) };
 	}
 	if (input.shiftKey) {
-		if (input.code === 'KeyI') return { type: 'library' };
+		// ⇧A is Blender's way to Insert, an alias
+		if (input.code === 'KeyI' || input.code === 'KeyA') return { type: 'library' };
 		return input.code === 'KeyN' ? { type: 'buildTrack' } : null;
 	}
 	if (input.code === followKey.code) return { type: 'follow' };
@@ -126,6 +127,9 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 			return { type: 'mirror' };
 		case 'a':
 			return { type: 'fix' };
+		// Blender's Delete, an alias
+		case 'x':
+			return context.hasPieces ? { type: 'delete' } : null;
 	}
 	return null;
 }

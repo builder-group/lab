@@ -78,7 +78,7 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 		function onKeyDown(event: KeyboardEvent): void {
 			if (isEditingTarget(event) || event.metaKey || event.ctrlKey || event.altKey) return;
 			if (event.shiftKey) {
-				if (event.code !== 'KeyI') return;
+				if (event.code !== 'KeyI' && event.code !== 'KeyA') return;
 				cx.library.$insertOpen.set(!cx.library.$insertOpen.get());
 				event.preventDefault();
 				event.stopPropagation();

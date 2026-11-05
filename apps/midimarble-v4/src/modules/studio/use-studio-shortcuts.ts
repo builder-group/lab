@@ -101,7 +101,7 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				cx.$playhead.set(0);
 				return;
 			}
-			if (event.key === 'Backspace' || event.key === 'Delete') {
+			if (event.key === 'Backspace' || event.key === 'Delete' || (key === 'x' && !event.shiftKey)) {
 				// The Song layer alone deletes the song file and Backing, asking first when Backing notes would go
 				if (selection.length === 1 && selection[0] === SONG_KEY) {
 					event.preventDefault();
