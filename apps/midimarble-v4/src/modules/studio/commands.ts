@@ -260,7 +260,7 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Edit
 	{ id: 'edit.undo', title: 'Undo', section: 'Edit', shortcut: '⌘Z', isEnabled: (cx) => (cx.$history.get()?.past.length ?? 0) > 0, run: (cx) => cx.undo() },
 	{ id: 'edit.redo', title: 'Redo', section: 'Edit', shortcut: '⇧⌘Z', isEnabled: (cx) => (cx.$history.get()?.future.length ?? 0) > 0, run: (cx) => cx.redo() },
-	{ id: 'edit.rename', title: 'Rename…', section: 'Edit', isEnabled: (cx) => cx.project?.entities.some((entity) => entity.id === cx.$selection.get()[0]) === true, run: (cx) => cx.renameSelection() },
+	{ id: 'edit.rename', title: 'Rename…', section: 'Edit', isEnabled: (cx) => cx.renameTarget() != null, run: (cx) => cx.renameSelection() },
 	{
 		id: 'edit.delete',
 		title: 'Delete',

@@ -12,6 +12,7 @@ import {
 	createMarble,
 	createProject,
 	LANE_SPACING,
+	isPatternGroup,
 	parseProject,
 	pushHistory,
 	redoHistory,
@@ -31,7 +32,7 @@ import { BOWL_TYPE } from '@/modules/simulation/bowl';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
-import { parseHitKey, parseShotKey, stepHitTarget, toHitKey } from './selection';
+import { parseGroupKey, parseHitKey, parseShotKey, stepHitTarget, toHitKey } from './selection';
 import { tapTime } from './tap';
 import type { THitFlash } from './timeline/hit-flash';
 import { SimulationCx } from './SimulationCx';
@@ -841,11 +842,21 @@ export class StudioCx {
 
 	/** Starts renaming the selected marble or piece in the sidebar, like Return in Finder */
 	renameSelection(): void {
-		const id = this.$selection.get()[0];
-		const isEntity = id != null && this.project?.entities.some((entity) => entity.id === id) === true;
-		if (!isEntity) return;
+		const id = this.renameTarget();
+		if (id == null) return;
 		this.$panels.set((panels) => ({ ...panels, sidebar: true }));
 		this.$renaming.set(id);
+	}
+
+	/** What Rename… names: the first selected entity, or a plain Group selected as a whole. A Pattern's Group is named after it */
+	renameTarget(): string | null {
+		const project = this.project;
+		const id = this.$selection.get()[0];
+		if (project == null || id == null) return null;
+		if (project.entities.some((entity) => entity.id === id)) return id;
+		const groupId = parseGroupKey(id);
+		const group = project.groups?.find((item) => item.id === groupId);
+		return group != null && !isPatternGroup(group) ? id : null;
 	}
 
 	togglePanel(panel: TStudioPanel): void {

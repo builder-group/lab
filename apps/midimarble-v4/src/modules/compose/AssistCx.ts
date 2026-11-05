@@ -638,7 +638,9 @@ export class AssistCx {
 		if (!broken.length) return;
 		const action = this.fixAction();
 		const notice = this.studio.$notice.get();
-		if (notice != null && notice.revision === result.revision && notice.progress == null) {
+		// A run under way, such as Gravity's re-fit, keeps its progress and Stop
+		if (notice?.progress != null) return;
+		if (notice != null && notice.revision === result.revision) {
 			this.studio.updateNotice(notice.id, { actions: [...(notice.actions ?? []), action] });
 			return;
 		}
