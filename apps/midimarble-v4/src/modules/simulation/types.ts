@@ -164,6 +164,17 @@ export type TPieceLayoutKind = 'box' | 'path' | 'tube' | 'rotor' | 'generated' |
 export interface TPieceDefinition {
 	type: string;
 	label: string;
+	/** Flat toy colors on the Track canvas: the body and a darker shade for brackets, hubs and outlines */
+	palette: { bar: string; nub: string };
+	/** The piece's tile in the Insert library and its tool in the command palette */
+	tile: {
+		/** One line for the tile tooltip: what the piece does to the marble */
+		description: string;
+		/** The letter key that arms its tool */
+		shortcut?: string;
+		/** Search words for its tool in the command palette */
+		keywords: string;
+	};
 	/** Parameter defaults and limits, in meters or radians */
 	params: Record<
 		string,
@@ -192,11 +203,11 @@ export interface TPieceDefinition {
 	musical?: boolean;
 	friction: number;
 	/**
-	 * How the piece is built: `box` (default) is a platform bar, `path` a rail along `path` points,
+	 * How the piece is built and drawn: `box` is a platform bar, `path` a rail along `path` points,
 	 * `tube` a tunnel along `path` points, `rotor` a windmill turning around its hub, `generated` a
 	 * Rail whose layout builds its paths from its parameters, `catcher` a Bowl built from its parameters
 	 */
-	layout?: TPieceLayoutKind;
+	layout: TPieceLayoutKind;
 	/** Local control points used when a path piece has no `path` component */
 	defaultPath?: TVec2[];
 }

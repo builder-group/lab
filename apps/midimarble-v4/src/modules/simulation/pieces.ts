@@ -49,7 +49,10 @@ function kit(value: number): number {
  */
 export const platformDefinition: TPieceDefinition = {
 	type: 'platform',
+	layout: 'box',
 	label: 'Platform',
+	palette: { bar: '#f2845c', nub: '#c4603d' },
+	tile: { description: 'Click or drag to place, click a dot to play its note', shortcut: 'P', keywords: 'piece add place bar' },
 	params: {
 		// A thin plate seen end on, 3 cm along the wall: the collider's length too
 		length: { default: kit(0.02), min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
@@ -109,6 +112,8 @@ export function railParams(layout: TRailLayout, values: Record<string, number>):
 const railDefinition: TPieceDefinition = {
 	type: 'rail',
 	label: 'Rail',
+	palette: { bar: '#3c9ee0', nub: '#2373ad' },
+	tile: { description: 'Draw a rail: click points, drag for curves', shortcut: 'B', keywords: 'path pen bezier spline curve draw' },
 	params: {
 		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Thickness of each rail', short: 'Thickness', unit: 'm' },
 		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Width between the two rails', short: 'Spread', unit: 'm' },
@@ -140,6 +145,8 @@ const railDefinition: TPieceDefinition = {
 export const tunnelDefinition: TPieceDefinition = {
 	type: 'tunnel',
 	label: 'Tunnel',
+	palette: { bar: '#9a7bf0', nub: '#6c4fd0' },
+	tile: { description: 'The marble drops in and rolls through, hidden', shortcut: 'U', keywords: 'tube path pen bezier curve draw' },
 	params: {
 		radius: { default: kit(0.002), min: 0.001, max: 0.006, label: 'Wall thickness', short: 'Wall', unit: 'm' },
 		bore: { default: kit(0.004), min: 0.001, max: 0.02, label: 'Room around the marble', short: 'Room', unit: 'm' },
@@ -164,6 +171,8 @@ export const tunnelDefinition: TPieceDefinition = {
 const windmillDefinition: TPieceDefinition = {
 	type: 'windmill',
 	label: 'Windmill',
+	palette: { bar: '#4fb879', nub: '#2f8a52' },
+	tile: { description: 'The marble strikes a blade and sets it turning', shortcut: 'W', keywords: 'piece add rotor blades' },
 	params: {
 		bladeCount: { default: 4, min: 2, max: 8, label: 'Number of arms', short: 'Arms', unit: '', integer: true },
 		bladeLength: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Arm length', short: 'Arm Length', unit: 'm' },
@@ -189,6 +198,9 @@ const windmillDefinition: TPieceDefinition = {
 export const bowlDefinition: TPieceDefinition = {
 	type: 'bowl',
 	label: 'Bowl',
+	// Clear wires: pale steel
+	palette: { bar: '#8fa3b8', nub: '#5f7287' },
+	tile: { description: 'Collects the marble, so the film can end on the catch', keywords: 'piece add end catch collect cup last note' },
 	params: {
 		mirror: { default: 0, min: 0, max: 1, label: 'Which side of the marble the center lies on', short: 'Mirror', unit: '', integer: true },
 		size: { default: kit(0.04), min: 0.035, max: 0.15, label: 'Size of the curve that catches the marble', short: 'Size', unit: 'm' },
@@ -201,16 +213,21 @@ export const bowlDefinition: TPieceDefinition = {
 	layout: 'catcher'
 };
 
-const pieceDefinitions: Record<string, TPieceDefinition> = {
-	[platformDefinition.type]: platformDefinition,
-	[railDefinition.type]: railDefinition,
-	[tunnelDefinition.type]: tunnelDefinition,
-	[windmillDefinition.type]: windmillDefinition,
-	[bowlDefinition.type]: bowlDefinition
+export const pieceDefinitions = {
+	platform: platformDefinition,
+	rail: railDefinition,
+	tunnel: tunnelDefinition,
+	windmill: windmillDefinition,
+	bowl: bowlDefinition
 };
 
+export type TPieceType = keyof typeof pieceDefinitions;
+
+/** Every piece type, in the order Insert and the command palette show them */
+export const PIECE_TYPES = Object.keys(pieceDefinitions) as TPieceType[];
+
 export function getPieceDefinition(type: string): TPieceDefinition | undefined {
-	return pieceDefinitions[type];
+	return (pieceDefinitions as Record<string, TPieceDefinition>)[type];
 }
 
 /** Parameters with defaults filled in and values clamped to their limits */

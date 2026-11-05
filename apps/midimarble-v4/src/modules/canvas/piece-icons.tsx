@@ -1,22 +1,21 @@
 import React from 'react';
+import type { TPieceType } from '@/modules/simulation';
 
 /** Icon for a piece type, in the lucide stroke style used across the app */
 export const PieceIcon: React.FC<{ type: string; size?: number }> = (props) => {
 	const { type, size = 16 } = props;
-	switch (type) {
-		case 'rail':
-			return <RailIcon size={size} />;
-		case 'tunnel':
-			return <TunnelIcon size={size} />;
-		case 'windmill':
-			return <WindmillIcon size={size} />;
-		case 'bowl':
-			return <BowlIcon size={size} />;
-		case 'marble':
-			return <MarbleIcon size={size} />;
-		default:
-			return <PlatformIcon size={size} />;
-	}
+	const icon = pieceIcons[type as TPieceType] ?? PlatformIcon;
+	return icon({ size });
+};
+
+/** Each piece type's icon, and the marble's; an unknown type shows as a platform */
+export const pieceIcons: Record<TPieceType | 'marble', (props: { size: number }) => React.ReactElement> = {
+	platform: PlatformIcon,
+	rail: RailIcon,
+	tunnel: TunnelIcon,
+	windmill: WindmillIcon,
+	bowl: BowlIcon,
+	marble: MarbleIcon
 };
 
 // Piece icons are drawn to match the lucide stroke style

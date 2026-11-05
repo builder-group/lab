@@ -7,7 +7,7 @@ import type { TMenuItem } from '@/components';
 import { newProjectTitle } from '@/environment';
 import type { TrackCx } from '@/modules/track';
 import { BACKING_ID, type TMarble, type TProject, CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey, tieOf } from '@/modules/project';
-import { isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
+import { isSuperseded, PIECE_TYPES, pieceDefinitions, soundsHit, type TPieceType, type TSimulationResult } from '@/modules/simulation';
 import { deleteThemeCommands, resolveTheme, deleteDecorCommands, duplicateDecorCommands, selectedDecorIds, addLightCommands, deleteLightsCommands, addShotCommands, removeShotsCommands } from '@/modules/scene';
 import { openScatterPanel } from '@/modules/film';
 import { connectTitle } from '@/modules/mcp/agent-connect';
@@ -311,6 +311,23 @@ function toolCommand(tool: Exclude<TTrackTool, 'marble'>, title: string, keyword
 	};
 }
 
+/** The command that arms a piece's tool: Rail and Tunnel share the path tool */
+function pieceToolCommand(type: TPieceType): TCommand {
+	const { label, tile } = pieceDefinitions[type];
+	const title = `${label} Tool`;
+	if (type !== 'tunnel') return toolCommand(type === 'rail' ? 'path' : type, title, tile.keywords);
+	return {
+		id: 'tool.tunnel',
+		title,
+		section: 'Tools',
+		shortcut: tunnelPathKey.key,
+		keywords: tile.keywords,
+		isEnabled: (cx) => trackCx(cx) != null,
+		isChecked: (cx) => isTool(cx, 'path') && trackCx(cx)?.$pathType.get() === 'tunnel',
+		run: (cx) => trackCx(cx)?.armTool('path', 'tunnel')
+	};
+}
+
 export const commands: readonly TCommand[] = [
 	// MARK: - File
 	{ id: 'file.new', title: newProjectTitle(), section: 'File', shortcut: '⌘N', run: (cx) => void cx.newProject() },
@@ -466,20 +483,7 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Tools
 	toolCommand('select', 'Move Tool', 'select pointer arrow'),
 	toolCommand('hand', 'Hand Tool', 'pan'),
-	toolCommand('platform', 'Platform Tool', 'piece add place bar'),
-	toolCommand('path', 'Rail Tool', 'path pen bezier spline curve draw'),
-	{
-		id: 'tool.tunnel',
-		title: 'Tunnel Tool',
-		section: 'Tools',
-		shortcut: tunnelPathKey.key,
-		keywords: 'tube path pen bezier curve draw',
-		isEnabled: (cx) => trackCx(cx) != null,
-		isChecked: (cx) => isTool(cx, 'path') && trackCx(cx)?.$pathType.get() === 'tunnel',
-		run: (cx) => trackCx(cx)?.armTool('path', 'tunnel')
-	},
-	toolCommand('windmill', 'Windmill Tool', 'piece add rotor blades'),
-	toolCommand('bowl', 'Bowl Tool', 'piece add end catch collect cup last note'),
+	...PIECE_TYPES.map(pieceToolCommand),
 	{
 		id: 'tool.insert',
 		title: 'Insert…',
