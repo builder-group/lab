@@ -5,10 +5,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const PROJECT_FILE: &str = "project.json";
 pub const PACKAGE_EXTENSION: &str = "marble";
-const PACKAGE_FOLDERS: [&str; 6] = [
+const PACKAGE_FOLDERS: [&str; 5] = [
     "audio",
     "assets",
-    "candidates",
     "renders",
     ".cache",
     ".bridge",

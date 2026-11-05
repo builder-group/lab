@@ -174,7 +174,7 @@ const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React
 	);
 };
 
-/** Repeat Range: playback loops the range on the ruler, like Logic's cycle button. A preview only, unrelated to Seamless Loop. */
+/** Repeat Range: playback loops the range on the ruler, like Logic's cycle button. A preview only. */
 const RepeatButton: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	useFeatureState(cx.$repeatRange);

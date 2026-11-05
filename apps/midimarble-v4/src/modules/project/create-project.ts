@@ -7,7 +7,7 @@ import type { TEntity, TLane, TProject } from './schema';
 export const DEFAULT_MARBLE_RADIUS = 0.012;
 /**
  * Gravity of new projects as a share of Earth's. Chosen by measurement so a default-kit zigzag hops about one
- * bar length per hit like the reference film; see `progress.md`.
+ * bar length per hit like the reference film; see `references.md`.
  */
 export const DEFAULT_GRAVITY_SCALE = 0.5;
 /**

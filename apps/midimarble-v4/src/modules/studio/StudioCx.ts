@@ -75,7 +75,7 @@ export class StudioCx {
 	readonly $selection = createState<TSelection>([]);
 	readonly $playhead = createState(0);
 	readonly $playing = createState(false);
-	/** Repeat Range: the range on the ruler that playback loops. A preview for this session, never saved, unrelated to Seamless Loop. */
+	/** Repeat Range: the range on the ruler that playback loops. A preview for this session, never saved. */
 	readonly $repeatRange = createState<TRepeatRange | null>(null);
 	/** Fit the Wall view to the first open hits, once playback stopped and the run for the latest edit arrived */
 	readonly $fitFirstHits = createState(false);
@@ -94,7 +94,6 @@ export class StudioCx {
 	readonly $playheadReveal = createState(0);
 	/** The revision the last undo or redo landed on, whose run no notice speaks about */
 	readonly $historyReveal = createState<{ revision: number } | null>(null);
-	// `agent` is the chat's panel, unmounted since MCP became the main path (design-language.md, Round 9); nothing opens it
 	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true });
 	// Zero fits the timeline to its lanes until the user drags it to a height of their own
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));

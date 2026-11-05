@@ -792,7 +792,7 @@ function firstProblem(fixing: TFixing, run: TSimulationResult, laneId?: string):
 
 /** Whether `trial` fixes `problem` without setting another marble back */
 function advances(fixing: TFixing, base: TProject, trial: TSimulationResult, problem: THitResult): boolean {
-	const { current, latest } = fixing;
+	const { latest } = fixing;
 	// A try simulated only up to its horizon is judged on the hits before it
 	const end = trial.duration - 1e-6;
 	const tried = { ...trial, hits: trial.hits.filter((hit) => hit.targetTime < end) };
