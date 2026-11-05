@@ -356,7 +356,7 @@ export class ComposeCx {
 	 */
 	displayPieces(result: TSimulationResult | null = this.result): readonly TResolvedPiece[] {
 		const inputs: TShownInputs = { result, project: this.project, override: this.$override.get(), placing: this.$placing.get(), hidden: this.studio.$hidden.get(), tilted: this.tilted };
-		if (this.shown != null && isSameInputs(this.shown.inputs, inputs)) return this.shown.pieces;
+		if (this.shown != null && hasSameValues(this.shown.inputs, inputs)) return this.shown.pieces;
 		const pieces = this.buildDisplayPieces(inputs);
 		this.shown = { inputs, pieces };
 		return pieces;
@@ -472,17 +472,38 @@ export class ComposeCx {
 		return this.toScreen({ x: base.position.x + point.x * cos - point.y * sin, y: base.position.y + point.x * sin + point.y * cos });
 	}
 
+	/** What the pointer can land on, in canvas pixels; kept while everything it is built from stays the same */
 	pickScene(): TPickScene {
-		const project = this.project;
-		const result = this.result;
+		const drag = this.$drag.get();
+		const inputs: TPickInputs = {
+			project: this.project,
+			result: this.result,
+			shown: this.displayPieces(),
+			hidden: this.studio.$hidden.get(),
+			locked: this.studio.$locked.get(),
+			selection: this.studio.$selection.get(),
+			// The piece a hover what-if shows is not there yet, so the pointer never lands on it
+			previewId: this.hoverPreview?.entityId ?? null,
+			tool: this.$tool.get(),
+			playNoteFor: this.$playNoteFor.get(),
+			camera: this.$camera.get(),
+			viewport: this.$viewport.get(),
+			// Only these drags change handles; a marquee passing over keeps the scene
+			drag: drag?.kind === 'path' || drag?.kind === 'node' ? drag : null
+		};
+		if (this.picks != null && hasSameValues(this.picks.inputs, inputs)) return this.picks.scene;
+		const scene = this.buildPickScene(inputs);
+		this.picks = { inputs, scene };
+		return scene;
+	}
+
+	private picks: { inputs: TPickInputs; scene: TPickScene } | null = null;
+
+	private buildPickScene({ project, result, shown, hidden, locked, selection, previewId }: TPickInputs): TPickScene {
 		const scene: TPickScene = { handles: [], dots: [], pieces: [] };
 		if (project == null || result == null) return scene;
-		const hidden = this.studio.$hidden.get();
-		const locked = this.studio.$locked.get();
-		const selected = selectedPieceIds(project, this.studio.$selection.get()).filter((id) => !locked.includes(id));
-		// The piece a hover what-if shows is not there yet, so the pointer never lands on it
-		const previewId = this.hoverPreview?.entityId;
-		const pieces = this.displayPieces(result).filter((piece) => piece.entityId !== previewId);
+		const selected = selectedPieceIds(project, selection).filter((id) => !locked.includes(id));
+		const pieces = shown.filter((piece) => piece.entityId !== previewId);
 		for (const piece of pieces) {
 			if (locked.includes(piece.entityId)) continue;
 			const depth = shownDepth(piece);
@@ -2414,8 +2435,23 @@ interface TShownInputs {
 	tilted: { pieces: Map<string, TResolvedPiece>; revision: number } | null;
 }
 
-function isSameInputs(a: TShownInputs, b: TShownInputs): boolean {
-	return a.result === b.result && a.project === b.project && a.override === b.override && a.placing === b.placing && a.hidden === b.hidden && a.tilted === b.tilted;
+interface TPickInputs {
+	project: TProject | null;
+	result: TSimulationResult | null;
+	shown: readonly TResolvedPiece[];
+	hidden: string[];
+	locked: string[];
+	selection: string[];
+	previewId: string | null;
+	tool: TComposeTool;
+	playNoteFor: string | null;
+	camera: TComposeCamera;
+	viewport: TViewport;
+	drag: TComposeDrag | null;
+}
+
+function hasSameValues<T extends object>(a: T, b: T): boolean {
+	return (Object.keys(a) as (keyof T)[]).every((key) => a[key] === b[key]);
 }
 
 /** "Hit 3 · C4", as the Plays row names a hit */

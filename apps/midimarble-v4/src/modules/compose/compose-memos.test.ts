@@ -20,6 +20,68 @@ function shown(): { cx: StudioCx; compose: ComposeCx; project: TProject; result:
 	return { cx, compose: new ComposeCx(cx), project, result, piece };
 }
 
+describe('pickScene method', () => {
+	it('should keep the scene through pointer moves and playback', () => {
+		// Prepare
+		const { cx, compose } = shown();
+		const first = compose.pickScene();
+
+		// Act
+		cx.$playhead.set(3);
+
+		// Assert
+		expect(compose.pickScene()).toBe(first);
+	});
+
+	it('should rebuild for what a pick depends on', () => {
+		// Prepare
+		const { cx, compose, piece, result } = shown();
+		const pieceIds = (): string[] => compose.pickScene().pieces.map((item) => item.entityId);
+		const isSelected = (): boolean | undefined => compose.pickScene().pieces[0]?.isSelected;
+		const outline = (): unknown => compose.pickScene().pieces[0]?.corners;
+		expect(pieceIds()).toEqual([piece.entityId]);
+		expect(isSelected()).toBe(false);
+
+		// Act, Assert: selection
+		cx.$selection.set([piece.entityId]);
+		expect(isSelected()).toBe(true);
+		cx.$selection.set([]);
+
+		// Act, Assert: hidden and locked
+		cx.$hidden.set([piece.entityId]);
+		expect(pieceIds()).toEqual([]);
+		cx.$hidden.set([]);
+		cx.$locked.set([piece.entityId]);
+		expect(pieceIds()).toEqual([]);
+		cx.$locked.set([]);
+
+		// Act, Assert: the dragged piece
+		const before = outline();
+		compose.$override.set({ ...piece, angle: 1 });
+		expect(outline()).not.toEqual(before);
+		compose.$override.set(null);
+		expect(outline()).toEqual(before);
+
+		// Act, Assert: a new run
+		cx.simulation.$result.set({ ...result, pieces: [] });
+		expect(pieceIds()).toEqual([]);
+	});
+
+	it('should rebuild for the tool, which decides whether placed dots pick', () => {
+		// Prepare
+		const { cx, compose, piece, result, project } = shown();
+		const hit = { laneId: project.music.lanes[0]?.id, hitId: 'a', targetTime: 1, dot: { x: 0, y: 0 }, pieceEntityId: piece.entityId, status: 'onTime' };
+		cx.simulation.$result.set({ ...result, hits: [hit] } as unknown as TSimulationResult);
+		expect(compose.pickScene().dots).toHaveLength(1);
+
+		// Act
+		compose.$tool.set('hand');
+
+		// Assert
+		expect(compose.pickScene().dots).toHaveLength(0);
+	});
+});
+
 describe('displayPieces method', () => {
 	it('should give the same array while nothing it reads changed', () => {
 		// Prepare
