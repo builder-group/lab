@@ -53,6 +53,8 @@ The music:
 
 What only the film sees, such as camera rig settings, shot markers, theme and quality, sits in `film`. Detailed Blender edits stay in `scene.blend`.
 
+**Film layers:** `project/film-layers.ts` is the table of the lists under `film` that show as layers, for what treats them alike: Edit > Undo's names, an agent's presence marks, Rename and the keys a selection may hold. Each one's row in Layers, inspector and drawing stay with it, since those really differ.
+
 **Decor:** `film.decor` lists `{id, name, source, position, scale, rotation, snowfall?, footprint?, in?, out?, hidden?, scattered?}`. `source` is a built-in item (`decor:bauble-red`, from `blender/mm_worker/decor_catalog.json`, which the app and worker both read) or a package asset (`assets/<id>/asset.blend`); `footprint` is an asset's half size from its manifest's `fittedParams` `width` and `height`; `scattered` tags what Scatter Decor may replace. `film.madeInBlender` holds `{name, in?, out?, hidden?}` per Blender object name. Selection keys are `decor:<id>` and `blender:<name>`. What Blender reports is session state (`$blenderObjects`), never saved in the project, which `SimulationCx.$problems` reads.
 
 `modules/scene/decor-clearance.ts` holds every marble's path, as points at most 3 mm apart with the marble's radius and time, and the pieces, in a grid per run; `decor.ts` asks it for overlaps and Move Clear, `decor-scatter.ts` for Scatter Decor. Scatter is pure and deterministic for a seed. The camera check uses `projectToFrame` with distance 0, the wall plane rather than the marble plane.
