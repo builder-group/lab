@@ -31,7 +31,7 @@ import { BOWL_TYPE } from '@/modules/simulation/bowl';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
-import { parseHitKey, parseShotKey, stepHitTarget, toHitKey } from './selection';
+import { parseHitKey, stepHitTarget, toHitKey } from './selection';
 import { tapTime } from './tap';
 import type { THitFlash } from './timeline/hit-flash';
 import { SimulationCx } from './SimulationCx';
@@ -72,6 +72,8 @@ export class StudioCx {
 	/** Quick Help labels the window's regions and explains the control under the pointer. Always off at launch. */
 	readonly $quickHelp = createState(false);
 	readonly $workspace = createState<TWorkspace>('compose');
+	/** Track's canvas: the flat Wall with all editing, or the Camera that judges the framing */
+	readonly $trackView = createState<TTrackView>('wall');
 	readonly $selection = createState<TSelection>([]);
 	readonly $playhead = createState(0);
 	readonly $playing = createState(false);
@@ -169,11 +171,6 @@ export class StudioCx {
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
 		// Tapping along belongs to the playback T started, so stopping playback finishes the tap session
-		// A Shot belongs to Film, so going to Compose leaves nothing selected there that it can't show
-		const stopFilmSelection = this.$workspace.listen(({ value }) => {
-			const selection = this.$selection.get();
-			if (value === 'compose' && selection.some((key) => parseShotKey(key) != null)) this.$selection.set(selection.filter((key) => parseShotKey(key) == null));
-		});
 		const stopTapSessionListener = this.$playing.listen(({ value }) => {
 			if (value) return;
 			this.finishTapSession();
@@ -186,7 +183,6 @@ export class StudioCx {
 			stopHeight();
 			stopNotices();
 			stopTapSessionListener();
-			stopFilmSelection();
 			void this.design.close();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
@@ -344,14 +340,17 @@ export class StudioCx {
 
 	/**
 	 * Shows a problem like a click in Xcode's issue navigator: closes the export sheet, moves the playhead to the
-	 * problem and selects and frames what it is about, in Compose, or in Film with the Camera for framing problems
+	 * problem and selects and frames what it is about, in Track, with the Camera view for framing problems, or in Film
 	 */
 	revealIssue(target: TPreflightTarget): void {
 		this.film.closeSheet();
 		this.$playing.set(false);
 		this.$workspace.set(target.workspace ?? 'compose');
-		if (target.workspace === 'design') this.$selection.set(target.ids);
-		else {
+		if (target.workspace != null) {
+			// Framing problems are judged through the camera
+			if (target.workspace === 'compose') this.$trackView.set('camera');
+			this.$selection.set(target.ids);
+		} else {
 			this.$selection.set(target.ids);
 			this.$reveal.set({ ids: target.ids, point: target.point, isFramed: true });
 		}
@@ -657,6 +656,7 @@ export class StudioCx {
 		this.$locked.set([]);
 		this.$playhead.set(0);
 		this.$workspace.set('compose');
+		this.$trackView.set('wall');
 		this.sources.$analysis.set({});
 		this.sources.ensureAnalysis(project);
 		void this.refreshRecent();
@@ -1118,6 +1118,7 @@ function hasFix(notice: TNotice): boolean {
 }
 
 export type TWorkspace = 'compose' | 'design';
+export type TTrackView = 'wall' | 'camera';
 export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline';
 
 const TIMELINE_HEIGHT_KEY = 'midimarble-v4:timeline-height';

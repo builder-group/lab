@@ -15,7 +15,7 @@ type TClipDrag = { entityId: string; edge: 'move' | 'in' | 'out'; originX: numbe
 const MIN_CLIP = 0.1;
 
 /**
- * The Titles track of the Film workspace, after Camera like the Titles group in Layers: each title is a clip from
+ * The Titles track of the Film workspace, like the Titles group in Layers: each title is a clip from
  * its In to its Out time, like a title in Final Cut's timeline. Click selects the title, dragging the clip moves it
  * and dragging an edge trims it, each as one undo step. Absent while the project has no titles.
  */

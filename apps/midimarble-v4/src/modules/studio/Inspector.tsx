@@ -131,7 +131,8 @@ const InspectorTopBar: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const compose = useFeatureState(cx.$compose);
 	const workspace = useFeatureState(cx.$workspace);
-	if (workspace !== 'compose' || compose == null) return null;
+	const trackView = useFeatureState(cx.$trackView);
+	if (workspace !== 'compose' || trackView !== 'wall' || compose == null) return null;
 	return (
 		<div className="mm-insp-top">
 			<ZoomMenu cx={cx} compose={compose} />
@@ -486,7 +487,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 
 /**
  * The Scene, selected by its row in Layers or by clearing the selection, like Blender's Scene properties: only what the
- * whole film shares. Film shows the Theme row and Format. Compose shows Gravity. The length is the transport's and
+ * whole film shares. Film shows the Theme row. Track shows Gravity and Format. The length is the transport's and
  * the ruler's; each layer keeps its own settings.
  */
 const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolean }> = (props) => {
@@ -499,28 +500,32 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 		<>
 			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Scene" subtitle={formatTime(project.end)} />
 			{isFilm ? (
-				<Panel id="scene.film" title="Film" accessory={<HelpTip text={`${THEME_HELP} Picking a theme keeps your changes on the layers. Export Pack… keeps a look as a theme. Format is the shape of the film: Portrait suits phones and Shorts; the camera frames the marbles for it.`} />}>
+				<Panel id="scene.film" title="Film" accessory={<HelpTip text={`${THEME_HELP} Picking a theme keeps your changes on the layers. Export Pack… keeps a look as a theme.`} />}>
 					<ThemeRow cx={cx} project={project} />
-					<FormatField cx={cx} project={project} />
 				</Panel>
 			) : (
-				<Panel id="scene.compose" title="Physics" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>
-					<SliderField
-						id="world-speed"
-						label="Gravity"
-						value={speed}
-						min={0.05}
-						max={2}
-						step={0.05}
-						format={(value) => value.toFixed(2)}
-						unit="×"
-						onPreview={(value) => cx.simulation.startPreview(withSpeed(value))}
-						onCommit={(value) => {
-							cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
-							cx.simulation.endPreview();
-						}}
-					/>
-				</Panel>
+				<>
+					<Panel id="scene.compose" title="Physics" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>
+						<SliderField
+							id="world-speed"
+							label="Gravity"
+							value={speed}
+							min={0.05}
+							max={2}
+							step={0.05}
+							format={(value) => value.toFixed(2)}
+							unit="×"
+							onPreview={(value) => cx.simulation.startPreview(withSpeed(value))}
+							onCommit={(value) => {
+								cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
+								cx.simulation.endPreview();
+							}}
+						/>
+					</Panel>
+					<Panel id="scene.format" title="Film" accessory={<HelpTip text="Format is the shape of the film: Portrait suits phones and Shorts; the camera frames the marbles for it." />}>
+						<FormatField cx={cx} project={project} />
+					</Panel>
+				</>
 			)}
 		</>
 	);

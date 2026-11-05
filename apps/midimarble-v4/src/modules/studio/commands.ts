@@ -87,6 +87,10 @@ function inDesign(cx: StudioCx): boolean {
 	return cx.project != null && cx.$workspace.get() === 'design';
 }
 
+function inTrack(cx: StudioCx): boolean {
+	return cx.project != null && cx.$workspace.get() === 'compose';
+}
+
 /** Whether Blender runs for the Film workspace; false in the browser and without Blender */
 function hasBlender(cx: StudioCx): boolean {
 	const status = cx.design.$status.get();
@@ -266,7 +270,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Edit',
 		shortcut: '⌫',
 		keywords: 'remove',
-		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inDesign(cx) && (selectedShotIds(cx).length > 0 || selectedLightIds(cx).length > 0 || selectedDecorIds(cx.$selection.get()).length > 0 || selectedTitleIds(cx).length > 0)) || isSongSelected(cx),
+		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || (inTrack(cx) && selectedShotIds(cx).length > 0) || (inDesign(cx) && (selectedLightIds(cx).length > 0 || selectedDecorIds(cx.$selection.get()).length > 0 || selectedTitleIds(cx).length > 0)) || isSongSelected(cx),
 		run: (cx) => {
 			// The Song layer alone deletes the song file and Backing; the marbles keep their hits
 			if (isSongSelected(cx) && cx.$selection.get().length === 1) {
@@ -299,7 +303,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'edit.firstProblem', title: 'Show First Problem', section: 'Edit', keywords: 'issue error attention broken next jump hit summary', isEnabled: hasProject, run: (cx) => cx.showFirstProblem() },
 
 	// MARK: - View
-	{ id: 'view.compose', title: 'Compose', section: 'View', shortcut: '⌘1', keywords: 'workspace', isChecked: (cx) => cx.$workspace.get() === 'compose', run: (cx) => cx.$workspace.set('compose') },
+	{ id: 'view.compose', title: 'Track', section: 'View', shortcut: '⌘1', keywords: 'workspace compose camera', isChecked: (cx) => cx.$workspace.get() === 'compose', run: (cx) => cx.$workspace.set('compose') },
 	{ id: 'view.design', title: 'Film', section: 'View', shortcut: '⌘2', keywords: 'workspace blender design look export', isChecked: (cx) => cx.$workspace.get() === 'design', run: (cx) => cx.$workspace.set('design') },
 	{ id: 'view.sidebar', title: 'Sidebar', section: 'View', shortcut: '⌃⌘S', keywords: 'outliner panel', isChecked: (cx) => cx.$panels.get().sidebar, run: (cx) => cx.togglePanel('sidebar') },
 	{ id: 'view.inspector', title: 'Inspector', section: 'View', shortcut: '⌃⌘I', keywords: 'properties panel', isChecked: (cx) => cx.$panels.get().inspector, run: (cx) => cx.togglePanel('inspector') },
@@ -484,11 +488,12 @@ export const commands: readonly TCommand[] = [
 	},
 	{
 		id: 'camera.addShot',
+		workspace: 'compose',
 		title: 'Add Shot',
 		section: 'Film',
 		shortcut: '⇧M',
 		keywords: 'camera marker keyframe push in wide follow close up',
-		isEnabled: inDesign,
+		isEnabled: inTrack,
 		run: (cx) => {
 			const project = cx.project;
 			if (project == null) return;
@@ -535,7 +540,7 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Layers and settings, found by name in ⌘K
 	selectLayerCommand('layer.wall', 'Wall', WALL_KEY, 'warm cold colour color background plaster pegboard grid skin'),
 	selectLayerCommand('layer.keyLight', 'Key Light', KEY_LIGHT_KEY, 'warm cold bright dark sun main lighting'),
-	selectLayerCommand('layer.camera', 'Camera', CAMERA_KEY, 'closer zoom distance turn orbit rotate sway shake tilt angle'),
+	{ ...selectLayerCommand('layer.camera', 'Camera', CAMERA_KEY, 'closer zoom distance turn orbit rotate sway shake tilt angle'), workspace: 'compose' },
 	{
 		id: 'layer.song',
 		title: 'Song',
@@ -546,6 +551,7 @@ export const commands: readonly TCommand[] = [
 	},
 	{
 		id: 'film.format',
+		workspace: 'compose',
 		title: 'Format',
 		section: 'Film',
 		keywords: 'aspect portrait square vertical landscape shorts frame shape ratio',
@@ -812,7 +818,7 @@ export function commandItem(cx: StudioCx, id: TCommandId, title?: string): TMenu
 	};
 }
 
-/** Deletes the selected hits, or in Film the selected shots */
+/** The selected titles */
 function selectedTitleIds(cx: StudioCx): string[] {
 	const selection = cx.$selection.get();
 	return cx.project?.entities.filter((entity) => entity.components.wallText != null && selection.includes(entity.id)).map((entity) => entity.id) ?? [];
@@ -834,7 +840,7 @@ export function deleteSelectedHits(cx: StudioCx): boolean {
 		return applied;
 	}
 	const shotIds = selectedShotIds(cx);
-	if (inDesign(cx) && shotIds.length > 0) {
+	if (inTrack(cx) && shotIds.length > 0) {
 		const applied = cx.execute(removeShotsCommands(project, shotIds));
 		if (applied) cx.$selection.set([]);
 		return applied;

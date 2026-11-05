@@ -357,7 +357,7 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: string; title?: string; subtitle?: string | undefined; help?: string; isOpen?: boolean; time?: number } {
 	switch (row.kind) {
 		case 'scene':
-			return { icon: <Globe size={14} strokeWidth={1.75} />, label: 'Scene', title: 'The film as a whole: Gravity in Compose, the theme in Film' };
+			return { icon: <Globe size={14} strokeWidth={1.75} />, label: 'Scene', title: 'The film as a whole: Gravity and Format in Track, the theme in Film' };
 		case 'song': {
 			const isRecording = row.source?.kind === 'audio';
 			return {

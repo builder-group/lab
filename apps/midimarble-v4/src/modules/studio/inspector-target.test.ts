@@ -52,12 +52,14 @@ describe('inspectorTarget function', () => {
 			[WALL_KEY, 'wall'],
 			['group:lights', 'light'],
 			[KEY_LIGHT_KEY, 'light'],
-			[CAMERA_KEY, 'camera'],
-			[toShotKey('shot-1'), 'shot'],
 			[TITLES_KEY, 'titles'],
 			['title-2', 'title'],
 			['title-1', 'title'],
 			[DECOR_KEY, 'scene']
+		]);
+		expect(buildOutline(project, { workspace: 'compose' }).slice(-2).map((row) => [row.id, inspectorTarget(project, rowSelection(row), 'compose').kind])).toEqual([
+			[CAMERA_KEY, 'camera'],
+			[toShotKey('shot-1'), 'shot']
 		]);
 	});
 
@@ -65,13 +67,20 @@ describe('inspectorTarget function', () => {
 		const project = fullProject();
 		const marbleId = project.entities[0]?.id ?? '';
 		const rows = buildOutline(project).filter(isSelectableRow);
-		// The keys the timeline's row headers and clips select: Song, a marble, Camera, a shot and a title
-		const timelineKeys = [SONG_KEY, marbleId, CAMERA_KEY, toShotKey('shot-1'), 'title-1'];
+		// The keys the timeline's row headers and clips select: Song, a marble and a title in Film
+		const timelineKeys = [SONG_KEY, marbleId, 'title-1'];
 
 		for (const key of timelineKeys) {
 			const row = rows.find((item) => item.id === key);
 			expect(row, key).toBeDefined();
 			expect(inspectorTarget(project, [key])).toEqual(inspectorTarget(project, rowSelection(row as TOutlineRow)));
+		}
+		// Camera and a shot in Track
+		const trackRows = buildOutline(project, { workspace: 'compose' }).filter(isSelectableRow);
+		for (const key of [CAMERA_KEY, toShotKey('shot-1')]) {
+			const row = trackRows.find((item) => item.id === key);
+			expect(row, key).toBeDefined();
+			expect(inspectorTarget(project, [key], 'compose')).toEqual(inspectorTarget(project, rowSelection(row as TOutlineRow), 'compose'));
 		}
 		// The Titles row header selects every title, as the Titles group in Layers does
 		const group = buildOutline(project).find((row) => row.id === TITLES_KEY);
@@ -102,7 +111,10 @@ describe('the Scene', () => {
 		expect(inspectorTarget(fullProject(), [WALL_KEY], 'compose')).toEqual({ kind: 'scene' });
 		expect(inspectorTarget(fullProject(), [KEY_LIGHT_KEY], 'compose')).toEqual({ kind: 'scene' });
 		expect(inspectorTarget(fullProject(), [WALL_KEY], 'design')).toEqual({ kind: 'wall' });
+		expect(inspectorTarget(fullProject(), ['title-1'], 'compose')).toEqual({ kind: 'scene' });
 		expect(inspectorTarget(fullProject(), [CAMERA_KEY], 'compose')).toEqual({ kind: 'camera' });
+		expect(inspectorTarget(fullProject(), [CAMERA_KEY], 'design')).toEqual({ kind: 'scene' });
+		expect(inspectorTarget(fullProject(), [toShotKey('shot-1')], 'design')).toEqual({ kind: 'scene' });
 	});
 });
 
@@ -118,19 +130,20 @@ describe('selectionEnteringFilm function', () => {
 	it('should keep a layer Film is about', () => {
 		const project = fullProject();
 		const marble = project.entities[0]?.id ?? '';
-		for (const selection of [[WALL_KEY], [CAMERA_KEY], [toShotKey('shot-1')], ['title-1'], [SONG_KEY], [marble], [toLightKey('key')]]) {
+		for (const selection of [[WALL_KEY], ['title-1'], [SONG_KEY], [marble], [toLightKey('key')]]) {
 			expect(selectionEnteringFilm(project, selection)).toEqual(selection);
 		}
 		expect(selectionEnteringFilm(project, [])).toEqual([]);
+		expect(selectionEnteringFilm(project, [CAMERA_KEY, toShotKey('shot-1')])).toEqual([]);
 	});
 });
 
 describe('buildOutline function in Compose', () => {
-	it('should list only the Song and the marbles with their pieces; Film lists every layer', () => {
+	it('should list the Song, the marbles with their pieces and the Camera; Film the other layers', () => {
 		const project = fullProject();
 
-		expect(buildOutline(project, { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'song', 'marble', 'piece', 'group', 'piece']);
-		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('camera');
+		expect(buildOutline(project, { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'song', 'marble', 'piece', 'group', 'piece', 'camera', 'shot']);
+		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).not.toContain('camera');
 		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('title');
 	});
 });

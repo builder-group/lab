@@ -6,7 +6,7 @@ import type { StudioCx } from '../StudioCx';
 
 /**
  * Framing problems of the problem model as amber spans along the Camera track, from the first to the last moment
- * the camera may lose a marble. A click opens the problem in Film at its time with the Camera selected, like the
+ * the camera may lose a marble. A click opens the problem in the Camera view at its time with the Camera selected, like the
  * same problem in the export sheet. Shot markers are drawn by the track itself.
  */
 export const CameraIssues: React.FC<TCameraIssuesProps> = (props) => {

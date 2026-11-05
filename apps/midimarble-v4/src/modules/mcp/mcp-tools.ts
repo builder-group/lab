@@ -80,7 +80,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 			cx,
 			projectState(project, cx.simulation.$result.get(), {
 				path: cx.$path.get(),
-				workspace: cx.$workspace.get() === 'design' ? 'film' : 'compose',
+				workspace: cx.$workspace.get() === 'design' ? 'film' : 'track',
 				selection: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get()),
 				building: assist?.$building.get(),
 				lastBuild: assist?.$lastBuild.get(),
@@ -290,7 +290,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		const project = cx.project;
 		if (project == null) return;
 		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(length != null ? { length } : {}) });
-		cx.$workspace.set('design');
+		cx.$workspace.set('compose');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
 	},
 	'file.new': async (cx, args) => {
@@ -514,7 +514,7 @@ async function openCompose(cx: StudioCx, title: string): Promise<ComposeCx> {
 	}
 	await sleep(50);
 	const compose = cx.$compose.get();
-	if (compose == null) throw new Error(`${title} needs Compose, which didn't open.`);
+	if (compose == null) throw new Error(`${title} needs Track, which didn't open.`);
 	return compose;
 }
 
