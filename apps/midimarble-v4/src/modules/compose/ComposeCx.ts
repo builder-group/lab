@@ -258,7 +258,7 @@ export class ComposeCx {
 			this.studio.$playing.listen(() => this.wakeMotion()),
 			this.studio.$playhead.subscribe(({ value }) => {
 				renderer.setPlayhead(value);
-				this.syncPieces();
+				this.syncPieceAngles();
 				this.syncMarbles();
 				this.wakeMotion();
 			}),
@@ -344,13 +344,20 @@ export class ComposeCx {
 	 * Pieces as the canvas shows them: the run's poses with the dragged piece where the pointer holds it, and
 	 * platforms the run has not caught up with yet on their dots
 	 */
-	displayPieces(result: TSimulationResult | null = this.result): TResolvedPiece[] {
-		const override = this.$override.get();
-		const hidden = this.studio.$hidden.get();
-		const tilted = this.tilted;
+	displayPieces(result: TSimulationResult | null = this.result): readonly TResolvedPiece[] {
+		const inputs: TShownInputs = { result, project: this.project, override: this.$override.get(), placing: this.$placing.get(), hidden: this.studio.$hidden.get(), tilted: this.tilted };
+		if (this.shown != null && isSameInputs(this.shown.inputs, inputs)) return this.shown.pieces;
+		const pieces = this.buildDisplayPieces(inputs);
+		this.shown = { inputs, pieces };
+		return pieces;
+	}
+
+	/** The last `displayPieces`, kept while every input it was built from is the same object */
+	private shown: { inputs: TShownInputs; pieces: readonly TResolvedPiece[] } | null = null;
+
+	private buildDisplayPieces({ result, override, placing, hidden, tilted }: TShownInputs): readonly TResolvedPiece[] {
 		const pieces = (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId)).map((piece) => tilted?.pieces.get(piece.entityId) ?? piece);
 		pieces.push(...this.pendingPieces(result, hidden));
-		const placing = this.$placing.get();
 		if (placing != null) pieces.push(placing);
 		if (override == null) return pieces;
 		const index = pieces.findIndex((piece) => piece.entityId === override.entityId);
@@ -2330,13 +2337,29 @@ export class ComposeCx {
 	private syncPieces(): void {
 		if (this.renderer == null) return;
 		const playhead = this.studio.$playhead.get();
+		const pieces = this.displayPieces();
 		this.renderer.setPieces(
-			this.displayPieces().map((piece) => ({
+			pieces.map((piece) => ({
 				piece,
 				angle: pieceAngleAt(piece, playhead),
 				colors: trackPieceColors(this.project, piece.entityId, piece.type)
 			}))
 		);
+		this.synced = { pieces, moving: pieces.filter((piece) => piece.motion != null) };
+	}
+
+	/** What the renderer was last given, with the windmills among it, the only pieces the playhead moves */
+	private synced: { pieces: readonly TResolvedPiece[]; moving: TResolvedPiece[] } | null = null;
+
+	/** A playhead tick: only the pieces that move turn, unless what the canvas shows changed since the last sync */
+	private syncPieceAngles(): void {
+		if (this.renderer == null) return;
+		if (this.synced?.pieces !== this.displayPieces()) {
+			this.syncPieces();
+			return;
+		}
+		const playhead = this.studio.$playhead.get();
+		for (const piece of this.synced.moving) this.renderer.setPieceAngle(piece.entityId, pieceAngleAt(piece, playhead));
 	}
 
 	syncMarbles(): void {
@@ -2366,6 +2389,19 @@ export class ComposeCx {
 		const height = bounds.maxY - bounds.minY;
 		this.renderer.setFrameGuides(frameBand(project), bounds.minY - height - 1, bounds.maxY + height + 1);
 	}
+}
+
+interface TShownInputs {
+	result: TSimulationResult | null;
+	project: TProject | null;
+	override: TResolvedPiece | null;
+	placing: TResolvedPiece | null;
+	hidden: string[];
+	tilted: { pieces: Map<string, TResolvedPiece>; revision: number } | null;
+}
+
+function isSameInputs(a: TShownInputs, b: TShownInputs): boolean {
+	return a.result === b.result && a.project === b.project && a.override === b.override && a.placing === b.placing && a.hidden === b.hidden && a.tilted === b.tilted;
 }
 
 /** "Hit 3 · C4", as the Plays row names a hit */

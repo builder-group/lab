@@ -227,23 +227,34 @@ export class ComposeRenderer {
 				this.pieces.set(piece.entityId, object);
 				this.scene.add(object.group);
 			}
-			const geometryKey = `${piece.type}:${Object.entries(piece.params)
-				.map(([name, value]) => `${name}=${value}`)
-				.join(',')}`;
-			if (object.geometryKey !== geometryKey) {
-				object.group.clear();
-				object.parts = kind === 'rotor' ? this.rotorParts(piece) : this.platformParts(piece);
-				for (const part of object.parts) object.group.add(part.mesh);
-				object.geometryKey = geometryKey;
+			// A run's pieces are never changed in place, so the same one needs no second look at its params
+			let isRebuilt = false;
+			if (object.keySource !== piece) {
+				object.keySource = piece;
+				const geometryKey = `${piece.type}:${Object.entries(piece.params)
+					.map(([name, value]) => `${name}=${value}`)
+					.join(',')}`;
+				if (object.geometryKey !== geometryKey) {
+					object.group.clear();
+					object.parts = kind === 'rotor' ? this.rotorParts(piece) : this.platformParts(piece);
+					for (const part of object.parts) object.group.add(part.mesh);
+					object.geometryKey = geometryKey;
+					isRebuilt = true;
+				}
 			}
 			const definition = getPieceDefinition(piece.type);
 			// A Windmill turns around the marble's path
 			const rotorZ = kind === 'rotor' && item.pathZ != null ? item.pathZ - (piece.params['depth'] ?? 0.03) * 0.4 : 0;
 			object.group.position.set(piece.position.x, piece.position.y, (definition?.wallOffset ?? 0) + rotorZ);
 			object.group.rotation.z = item.angle;
-			for (const part of object.parts) part.mesh.material = this.pieceMaterial(piece.type, part.role, item.colors);
+			if (isRebuilt || object.colors !== item.colors) {
+				object.colors = item.colors;
+				for (const part of object.parts) {
+					part.mesh.material = this.pieceMaterial(piece.type, part.role, item.colors);
+					part.mesh.renderOrder = 1;
+				}
+			}
 			object.group.renderOrder = 1;
-			for (const part of object.parts) part.mesh.renderOrder = 1;
 		});
 		for (const [id, object] of this.pieces) {
 			if (seen.has(id)) continue;
@@ -252,6 +263,12 @@ export class ComposeRenderer {
 			this.pieces.delete(id);
 		}
 		this.invalidate();
+	}
+
+	/** Turns a platform or windmill already set, for a playhead tick that changes nothing else; a path piece has no angle here */
+	setPieceAngle(entityId: string, angle: number): void {
+		const object = this.pieces.get(entityId);
+		if (object != null && object.pathSource == null) object.group.rotation.z = angle;
 	}
 
 	/** A path piece's meshes in wall coordinates, rebuilt only when the piece or its depth changes */
@@ -372,6 +389,9 @@ export class ComposeRenderer {
 
 	render(): void {
 		if (this.isDisposed) return;
+		// A direct draw covers the frame an input just asked for
+		if (this.frame != null) cancelAnimationFrame(this.frame);
+		this.frame = null;
 		const resolution = new THREE.Vector2(this.viewport.width * this.pixelRatio, this.viewport.height * this.pixelRatio);
 		for (const track of this.tracks.values()) track.setResolution(resolution, this.pixelRatio);
 		this.guides.setResolution(resolution, this.pixelRatio);
@@ -593,6 +613,10 @@ interface TPieceObject {
 	group: THREE.Group;
 	parts: TPiecePart[];
 	geometryKey: string;
+	/** The piece `geometryKey` was last checked against */
+	keySource?: TResolvedPiece;
+	/** The palette its parts wear; the same palette is the same object, see `trackPieceColors` */
+	colors?: { bar: string; nub: string } | undefined;
 	/** A path piece: what its meshes were built from, and that it alone holds them */
 	pathSource?: TResolvedPiece;
 	pathZ?: number;

@@ -22,6 +22,20 @@ describe('pieceLabelColor function', () => {
 });
 
 describe('trackPieceColors function', () => {
+	it('should read a recolored piece from the new project state', () => {
+		// Prepare
+		const before = project([{ ...free, labelColor: '#ff0000' }]);
+		const after = project([{ ...free, labelColor: '#00ff00' }]);
+
+		// Act
+		const first = trackPieceColors(before, free.id, 'platform');
+		const second = trackPieceColors(after, free.id, 'platform');
+
+		// Assert
+		expect(first).not.toBe(second);
+		expect(trackPieceColors(before, free.id, 'platform')).toBe(first);
+	});
+
 	it('should draw a piece with no color as plain Pegboard wood, whatever the theme', () => {
 		expect(trackPieceColors(project([free]), 'b', 'platform').bar).toBe(PLAIN_PIECE_COLOR);
 	});
