@@ -43,7 +43,7 @@ export interface TPatternFailure {
 }
 
 /**
- * The Patterns prototype in Compose: a click on a tile makes or changes a Group, one Undo step, with progress and Stop in
+ * The Patterns prototype in Track: a click on a tile makes or changes a Group, one Undo step, with progress and Stop in
  * the notice; resting on a tile shows its ghost on the wall. Agents come here too, with `applyPattern`.
  */
 export class PatternsCx {
@@ -166,7 +166,7 @@ export class PatternsCx {
 		const pieceIds = group?.pieceIds ?? [];
 		this.studio.$selection.set([toGroupKey(answer.groupId), ...pieceIds]);
 		// The zoom stays where the range was framed, like an operator's redo in Blender
-		this.studio.$compose.get()?.revealOnceSimulated(pieceIds, true);
+		this.studio.$trackCx.get()?.revealOnceSimulated(pieceIds, true);
 		this.tell(answer, madeWords(target, kind, settings, answer.name));
 		return answer;
 	}

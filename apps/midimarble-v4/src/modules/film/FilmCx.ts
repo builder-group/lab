@@ -15,16 +15,16 @@ const PREVIEW_DEBOUNCE_MS = 220;
 const INSPECT_EVERY_MS = 2000;
 
 /**
- * Keeps the package's Blender scene in step with Compose and renders the current playhead.
+ * Keeps the package's Blender scene in step with Track and renders the current playhead.
  * The worker runs in the background; the user opens the same scene in Blender for detailed work.
  */
-export class DesignCx {
-	readonly $status = createState<TDesignStatus>('idle');
-	readonly $preview = createState<TDesignPreview | null>(null);
+export class FilmCx {
+	readonly $status = createState<TFilmStatus>('idle');
+	readonly $preview = createState<TFilmPreview | null>(null);
 	readonly $error = createState<string | null>(null);
 	readonly $blenderVersion = createState<string | null>(null);
 	/** Link state of app-owned holders by entity ID, from `inspect` after each sync */
-	readonly $links = createState<Record<string, TDesignLink>>({});
+	readonly $links = createState<Record<string, TFilmLink>>({});
 	/** Camera state the last sync reported; `takenOver` means the user edited it in Blender */
 	readonly $camera = createState<TApplySceneResult['camera'] | null>(null);
 	/** Set while the next click on the preview places something on the wall */
@@ -50,7 +50,7 @@ export class DesignCx {
 	/** The render generation when a camera drag ended; the first still rendered after it ends the drag's draft */
 	private orbitEndedAt: number | null = null;
 
-	constructor(private readonly source: TDesignSource) {
+	constructor(private readonly source: TFilmSource) {
 		this.live = new LivePreviewCx({ getPlayhead: () => source.getPlayhead(), isPlaying: () => source.isPlaying() });
 	}
 
@@ -59,7 +59,7 @@ export class DesignCx {
 		if (await this.detect()) this.requestPreview(0);
 	}
 
-	/** Finds Blender without starting it, so the title bar knows whether it is installed in Compose too */
+	/** Finds Blender without starting it, so the title bar knows whether it is installed in Track too */
 	async detect(): Promise<boolean> {
 		if (!blender.isAvailable()) {
 			this.$status.set('unavailable');
@@ -122,7 +122,7 @@ export class DesignCx {
 			if (!isShownOk) this.fail(shownErr.message);
 			else if (select.length > 0) {
 				const [isSelectedOk, selectedErr] = await blender.selectObjects(packagePath, select);
-				if (!isSelectedOk && import.meta.env.DEV) console.warn('[design] select', selectedErr);
+				if (!isSelectedOk && import.meta.env.DEV) console.warn('[film] select', selectedErr);
 			}
 			// The background worker was replaced by a window; the next request reapplies the scene
 			this.syncedKey = null;
@@ -138,7 +138,7 @@ export class DesignCx {
 		if (pixels == null) {
 			const [isLoadedOk, loadedErr, loaded] = await loadIdPixels(preview.idUrl);
 			if (!isLoadedOk) {
-				if (import.meta.env.DEV) console.warn('[design] object ID image', loadedErr);
+				if (import.meta.env.DEV) console.warn('[film] object ID image', loadedErr);
 				return null;
 			}
 			pixels = loaded;
@@ -196,10 +196,10 @@ export class DesignCx {
 		this.inspectedAt = Date.now();
 		const [isInspectOk, inspectErr, inspected] = await blender.inspect(packagePath);
 		if (!isInspectOk) {
-			if (import.meta.env.DEV) console.warn('[design] inspect', inspectErr);
+			if (import.meta.env.DEV) console.warn('[film] inspect', inspectErr);
 			return;
 		}
-		const links: Record<string, TDesignLink> = {};
+		const links: Record<string, TFilmLink> = {};
 		for (const holder of inspected.holders) links[holder.mmId] = { link: holder.link, reason: holder.reason };
 		this.$links.set(links);
 		const objects = inspected.madeInBlender ?? [];
@@ -269,7 +269,7 @@ export class DesignCx {
 			this.fail(appliedErr.message);
 			return false;
 		}
-		if (import.meta.env.DEV) console.debug('[design] apply_scene', applied);
+		if (import.meta.env.DEV) console.debug('[film] apply_scene', applied);
 		this.$camera.set(applied.camera);
 		this.syncedKey = key;
 		if (isForced) this.forcedApplies++;
@@ -311,9 +311,9 @@ export class DesignCx {
 	}
 }
 
-export type TDesignStatus = 'idle' | 'unavailable' | 'missing' | 'starting' | 'syncing' | 'rendering' | 'ready' | 'error';
+export type TFilmStatus = 'idle' | 'unavailable' | 'missing' | 'starting' | 'syncing' | 'rendering' | 'ready' | 'error';
 
-export interface TDesignSource {
+export interface TFilmSource {
 	getProject: () => TProject | null;
 	getResult: () => TSimulationResult | null;
 	getPackagePath: () => string | null;
@@ -321,7 +321,7 @@ export interface TDesignSource {
 	isPlaying: () => boolean;
 }
 
-export interface TDesignPreview {
+export interface TFilmPreview {
 	url: string;
 	idUrl: string;
 	ids: Record<string, string>;
@@ -332,7 +332,7 @@ export interface TDesignPreview {
 	renderMs: number;
 }
 
-export interface TDesignLink {
+export interface TFilmLink {
 	link: 'linked' | 'unlinked';
 	/** Why a holder is unlinked: `marked`, `transform` or `keyframes` */
 	reason: string | null;
@@ -345,7 +345,7 @@ interface TIdPixels {
 	data: Uint8ClampedArray;
 }
 
-function toPreview(frame: TPreviewFrameResult, revision: number): TDesignPreview {
+function toPreview(frame: TPreviewFrameResult, revision: number): TFilmPreview {
 	// Note: no query string for cache busting. Tauri's asset protocol reads it as part of the file path, and
 	// the worker writes every render under a new file name anyway.
 	return {

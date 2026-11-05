@@ -104,7 +104,7 @@ const PaletteDialog: React.FC<{ cx: StudioCx; onClose: () => void }> = (props) =
 									<span className="w-3 shrink-0 text-center text-[11px]">{checked ? '✓' : ''}</span>
 									<span className="min-w-0 flex-1 truncate">{commandTitle(cx, command)}</span>
 									{opens != null ? (
-										<span className="text-[11px] opacity-70">Opens {opens === 'compose' ? 'Track' : 'Film'}</span>
+										<span className="text-[11px] opacity-70">Opens {opens === 'track' ? 'Track' : 'Film'}</span>
 									) : query.trim() ? (
 										<span className="text-[11px] opacity-55">{command.section}</span>
 									) : null}
@@ -147,7 +147,7 @@ function splitShortcut(value: string): string[] {
 }
 
 /** The other workspace a command opens before it runs, or null when it runs here */
-function opensWorkspace(cx: StudioCx, command: TCommand): 'compose' | 'design' | null {
+function opensWorkspace(cx: StudioCx, command: TCommand): 'track' | 'film' | null {
 	const target = commandWorkspace(command);
 	return target == null || target === cx.$workspace.get() ? null : target;
 }

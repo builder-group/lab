@@ -8,7 +8,7 @@ import { startCameraOrbit, toPoints } from '@/modules/canvas';
 import { pieceMenu } from '@/modules/studio/menus';
 import { CAMERA_KEY } from '@/modules/project';
 import type { StudioCx, TTrackView } from '@/modules/studio';
-import type { ComposeCx } from './TrackCx';
+import type { TrackCx } from './TrackCx';
 import { groupSelection } from './PatternsCx';
 import { canvasMenu } from './menus';
 import { Track3DCx } from './Track3DCx';
@@ -43,9 +43,9 @@ export const TrackViewSwitch: React.FC<{ cx: StudioCx }> = (props) => {
  * Choosing 2D eases back to front-on before it goes. Arming a tool or dragging a tile out of Insert goes to 2D, the only
  * place they work.
  */
-export const Track3DView: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
-	const cx = compose.studio;
+export const Track3DView: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
+	const cx = trackCx.studio;
 	const view = useFeatureState(cx.$trackView);
 	// Coming back from Film already in 3D doesn't replay the ease
 	const [startsIn3d] = React.useState(view !== '2d');
@@ -54,36 +54,36 @@ export const Track3DView: React.FC<{ compose: ComposeCx }> = (props) => {
 
 	React.useEffect(() => {
 		const stops = [
-			compose.$tool.listen(({ value }) => {
+			trackCx.$tool.listen(({ value }) => {
 				if (value !== 'select' && value !== 'hand') cx.$trackView.set('2d');
 			}),
-			compose.$inserting.listen(({ value }) => {
+			trackCx.$inserting.listen(({ value }) => {
 				if (value != null) cx.$trackView.set('2d');
 			})
 		];
 		return () => {
 			for (const stop of stops) stop();
 		};
-	}, [cx, compose]);
+	}, [cx, trackCx]);
 
-	return isShown ? <Viewport compose={compose} view={view} startsIn3d={startsIn3d} onFlat={() => setIsShown(false)} /> : null;
+	return isShown ? <Viewport trackCx={trackCx} view={view} startsIn3d={startsIn3d} onFlat={() => setIsShown(false)} /> : null;
 };
 
 const CLICK_SLOP = 4;
 
-const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boolean; onFlat: () => void }> = (props) => {
-	const { compose, view, startsIn3d, onFlat } = props;
-	const cx = compose.studio;
+const Viewport: React.FC<{ trackCx: TrackCx; view: TTrackView; startsIn3d: boolean; onFlat: () => void }> = (props) => {
+	const { trackCx, view, startsIn3d, onFlat } = props;
+	const cx = trackCx.studio;
 	const [track] = React.useState(() => {
-		const created = new Track3DCx(compose);
+		const created = new Track3DCx(trackCx);
 		created.$amount.set(startsIn3d ? 1 : 0);
 		return created;
 	});
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const canvasRef = React.useRef<HTMLCanvasElement>(null);
 	const amount = useFeatureState(track.$amount);
-	const spaceHeld = useFeatureState(compose.$spaceHeld);
-	const tool = useFeatureState(compose.$tool);
+	const spaceHeld = useFeatureState(trackCx.$spaceHeld);
+	const tool = useFeatureState(trackCx.$tool);
 	const [hover, setHover] = React.useState<string | null>(null);
 	const dragRef = React.useRef<{ kind: 'turn' | 'pan' | 'still'; last: TVec2; moved: number } | null>(null);
 	const [isDragging, setIsDragging] = React.useState(false);
@@ -164,7 +164,7 @@ const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boo
 			onContextMenu={(event) => {
 				const id = track.pick(pointOf(event));
 				if (id == null) {
-					openContextMenu(event, canvasMenu(track.compose));
+					openContextMenu(event, canvasMenu(track.trackCx));
 					return;
 				}
 				if (!cx.$selection.get().includes(id)) select(id, false);
@@ -191,7 +191,7 @@ const Viewfinder: React.FC<{ track: Track3DCx }> = (props) => {
 const Outlines: React.FC<{ track: Track3DCx; hover: string | null }> = (props) => {
 	const { track, hover } = props;
 	useFeatureState(track.$frame);
-	const selection = useFeatureState(track.compose.studio.$selection);
+	const selection = useFeatureState(track.trackCx.studio.$selection);
 	const pieces = track.pieces();
 	return (
 		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden data-selection-outlines>

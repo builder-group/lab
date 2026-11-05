@@ -1,4 +1,4 @@
-// Compose keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B, W), U draws a tunnel with
+// Track keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B, W), U draws a tunnel with
 // the path tool, ⇧I opens the Insert library like Figma's assets, the build assists
 // keep theirs (N, ⇧N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma, F turns Follow on and off like Logic's Catch Playhead, D is 2D or 3D and
 // T stays free for tapping hits.
@@ -27,17 +27,17 @@ export interface TKeyContext {
 	hasNotes?: boolean;
 }
 
-/** Tools of the Compose tool rail, then the pieces the Insert library arms */
-export type TComposeTool = 'select' | 'hand' | 'marble' | 'platform' | 'path' | 'windmill' | 'bowl';
+/** Tools of the Track tool rail, then the pieces the Insert library arms */
+export type TTrackTool = 'select' | 'hand' | 'marble' | 'platform' | 'path' | 'windmill' | 'bowl';
 
 /** Piece the path tool draws; the inspector switches a drawn path between both */
 export type TPathType = 'rail' | 'tunnel';
 
-export type TComposeKeyAction =
+export type TTrackKeyAction =
 	| { type: 'zoom'; factor: number }
 	| { type: 'zoom100' }
 	| { type: 'fit'; target: 'all' | 'selection' }
-	| { type: 'tool'; tool: TComposeTool; pathType?: TPathType }
+	| { type: 'tool'; tool: TTrackTool; pathType?: TPathType }
 	| { type: 'library' }
 	| { type: 'next' }
 	| { type: 'buildTrack' }
@@ -54,7 +54,7 @@ export type TComposeKeyAction =
 	| { type: 'view3d' };
 
 /** Tool keys, shared by the rail tooltips, the Insert tiles and the command palette */
-export const toolKeys: { tool: TComposeTool; code: string; key: string }[] = [
+export const toolKeys: { tool: TTrackTool; code: string; key: string }[] = [
 	{ tool: 'select', code: 'KeyV', key: 'V' },
 	{ tool: 'hand', code: 'KeyH', key: 'H' },
 	{ tool: 'marble', code: 'KeyO', key: 'O' },
@@ -70,10 +70,10 @@ export const followKey = { code: 'KeyF', key: 'F' };
 export const tunnelPathKey = { code: 'KeyU', key: 'U' };
 
 /** Piece type each placing tool puts down with a click or drag; the path tool draws instead */
-export const toolPieceType: Partial<Record<TComposeTool, string>> = { platform: 'platform', windmill: 'windmill', bowl: 'bowl' };
+export const toolPieceType: Partial<Record<TTrackTool, string>> = { platform: 'platform', windmill: 'windmill', bowl: 'bowl' };
 
-/** The action a key press asks for, or null when Compose leaves it to the studio or the browser */
-export function composeKeyAction(input: TKeyInput, context: TKeyContext): TComposeKeyAction | null {
+/** The action a key press asks for, or null when Track leaves it to the studio or the browser */
+export function trackKeyAction(input: TKeyInput, context: TKeyContext): TTrackKeyAction | null {
 	const key = input.key.toLowerCase();
 	if (input.metaKey && !input.ctrlKey && !input.altKey) {
 		if (key === '=' || key === '+') return { type: 'zoom', factor: 2 };

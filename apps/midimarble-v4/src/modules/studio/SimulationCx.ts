@@ -149,7 +149,7 @@ export class SimulationCx {
 		const known = this.settled;
 		const seen = this.seenHistory;
 		this.seenHistory = history;
-		const assist = this.studio.$compose.get()?.assist;
+		const assist = this.studio.$trackCx.get()?.assist;
 		const isStep = seen != null && (seen.past.at(-1)?.entities === history.present.entities || seen.future[0]?.entities === history.present.entities);
 		if (known == null || this.client == null || known.present.id !== history.present.id || isStep || assist?.isBuilding === true || assist?.isFixing === true) {
 			this.settleRun++;

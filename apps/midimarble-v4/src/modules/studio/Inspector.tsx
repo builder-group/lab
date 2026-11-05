@@ -39,10 +39,10 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	);
 };
 
-/** The inspector of the selected layer; Compose and Film differ only in what a piece shows (shape or skin) */
+/** The inspector of the selected layer; Track and Film differ only in what a piece shows (shape or skin) */
 const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInspectorTarget; workspace: TWorkspace }> = (props) => {
 	const { cx, project, target, workspace } = props;
-	const isFilm = workspace === 'design';
+	const isFilm = workspace === 'film';
 	switch (target.kind) {
 		case 'pieces': {
 			if (!isFilm) return <PieceInspector cx={cx} project={project} ids={target.ids} />;
@@ -80,7 +80,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return <SongInspector cx={cx} project={project} />;
 		case 'camera':
 			return <CameraInspector cx={cx} project={project} />;
-		// Lights and Decor belong to Film; inspectorTarget shows the Scene for them in Compose
+		// Lights and Decor belong to Film; inspectorTarget shows the Scene for them in Track
 		case 'wall':
 			return <WallInspector cx={cx} project={project} isFilm={isFilm} />;
 		case 'light': {
@@ -164,7 +164,7 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[] }> = (props) => {
 	const { cx, project, hitKeys } = props;
 	const result = useFeatureState(cx.simulation.$result);
-	const compose = useFeatureState(cx.$compose);
+	const trackCx = useFeatureState(cx.$trackCx);
 	// Backing joins the marbles' lanes so a Backing note shows like a hit without a marble
 	const backing: TLane = { id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, instrument: project.music.backingInstrument ?? 0, hits: project.music.backing };
 	// Without a song Backing is not offered: its notes show only in the Song track (see canMakeBacking)
@@ -243,7 +243,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 
 	function addPlatform(): void {
 		if (openHit == null) return;
-		if (compose != null) void compose.assist.place(openHit, 'platform');
+		if (trackCx != null) void trackCx.assist.place(openHit, 'platform');
 		else placeAtHit(cx, openHit, 'platform');
 	}
 
@@ -432,7 +432,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 
 /**
  * The Scene, selected by its row in Layers or by clearing the selection, like Blender's Scene properties: only what the
- * whole film shares. Film shows the Theme row and Format. Compose shows Gravity. The length is the transport's and
+ * whole film shares. Film shows the Theme row and Format. Track shows Gravity. The length is the transport's and
  * the ruler's; each layer keeps its own settings.
  */
 const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolean }> = (props) => {
@@ -450,7 +450,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 					<FormatField cx={cx} project={project} />
 				</Panel>
 			) : (
-				<Panel id="scene.compose" title="Physics" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>
+				<Panel id="scene.track" title="Physics" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>
 					<SliderField
 						id="world-speed"
 						label="Gravity"
@@ -462,8 +462,8 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 						unit="×"
 						onPreview={(value) => cx.simulation.startPreview(withSpeed(value))}
 						onCommit={(value) => {
-							const compose = cx.$compose.get();
-							if (compose != null) void compose.patterns.setGravity(value);
+							const trackCx = cx.$trackCx.get();
+							if (trackCx != null) void trackCx.patterns.setGravity(value);
 							else cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
 							cx.simulation.endPreview();
 						}}

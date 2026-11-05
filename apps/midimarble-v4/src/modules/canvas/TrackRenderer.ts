@@ -10,7 +10,7 @@ import { worldToScreen, type TView, type TViewport } from '@/modules/scene';
 // Draws the wall and what is on it with WebGL. Objects are kept between updates and only
 // their buffers and transforms change. Frames render on demand through `invalidate`.
 
-export interface TComposeCamera {
+export interface TTrackCamera {
 	/** `camera` looks through the film's follow camera, see `setFilm`; `orbit` is Track's free 3D view, see `setOrbit` */
 	mode: '2d' | 'camera' | 'orbit';
 	view: TView;
@@ -66,7 +66,7 @@ export interface TRenderTrack {
 	times: Float32Array;
 }
 
-export interface TComposeTheme {
+export interface TTrackTheme {
 	canvas: string;
 	guide: string;
 }
@@ -76,7 +76,7 @@ export const MARBLE_Z = 0.01;
 /** Marbles never shrink below this radius on screen, so a zoomed-out run still shows where they are */
 export const MIN_MARBLE_PX = 3.5;
 
-export class ComposeRenderer {
+export class TrackRenderer {
 	private readonly renderer: THREE.WebGLRenderer;
 	private readonly scene = new THREE.Scene();
 	private readonly orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
@@ -96,8 +96,8 @@ export class ComposeRenderer {
 	private readonly key = new THREE.DirectionalLight(0xffffff, 0.36 * Math.PI);
 	private viewport: TViewport = { width: 1, height: 1 };
 	private pixelRatio = 1;
-	private camera: TComposeCamera = { mode: '2d', view: { center: { x: 0, y: 0 }, scale: 500 } };
-	private theme: TComposeTheme = { canvas: '#f2f1ee', guide: '#000000' };
+	private camera: TTrackCamera = { mode: '2d', view: { center: { x: 0, y: 0 }, scale: 500 } };
+	private theme: TTrackTheme = { canvas: '#f2f1ee', guide: '#000000' };
 	private playhead = 0;
 	private frame: number | null = null;
 	private isDisposed = false;
@@ -139,7 +139,7 @@ export class ComposeRenderer {
 		this.invalidate();
 	}
 
-	setCamera(camera: TComposeCamera): void {
+	setCamera(camera: TTrackCamera): void {
 		this.camera = camera;
 		this.updateCamera();
 		for (const marble of this.marbles.values()) this.scaleMarble(marble);
@@ -160,7 +160,7 @@ export class ComposeRenderer {
 		this.invalidate();
 	}
 
-	setTheme(theme: TComposeTheme): void {
+	setTheme(theme: TTrackTheme): void {
 		this.theme = theme;
 		for (const track of this.tracks.values()) track.setFutureMix(theme.canvas);
 		this.guides.setColor(theme.guide);

@@ -14,9 +14,9 @@ export function projectedOutline(projection: TScreenProjection, piece: TResolved
 
 /** Two wires with ties between them, like a toy rail seen from the front */
 export const RailShape: React.FC<TShapeProps> = (props) => {
-	const { compose, piece, scale, opacity, dashed = false, tint } = props;
+	const { projection, piece, scale, opacity, dashed = false, tint } = props;
 	const palette = props.palette ?? paletteOf(piece.type);
-	const path = finitePoints((piece.path ?? []).map((point) => compose.toScreen(point)));
+	const path = finitePoints((piece.path ?? []).map((point) => projection.toScreen(point)));
 	if (path.length < 2) return null;
 	const radius = piece.params['radius'] ?? 0.0025;
 	const wire = Math.max(radius * scale * 0.9, 1.25);
@@ -37,10 +37,10 @@ export const RailShape: React.FC<TShapeProps> = (props) => {
 
 /** A translucent tube between the floor and the ceiling, open at the mouth where the marble drops in */
 export const TunnelShape: React.FC<TShapeProps> = (props) => {
-	const { compose, piece, scale, opacity, dashed = false, tint } = props;
+	const { projection, piece, scale, opacity, dashed = false, tint } = props;
 	const palette = props.palette ?? paletteOf(piece.type);
-	const floor = finitePoints((piece.path ?? []).map((point) => compose.toScreen(point)));
-	const ceiling = finitePoints(tubeCeiling(piece).map((point) => compose.toScreen(point)));
+	const floor = finitePoints((piece.path ?? []).map((point) => projection.toScreen(point)));
+	const ceiling = finitePoints(tubeCeiling(piece).map((point) => projection.toScreen(point)));
 	if (floor.length < 2) return null;
 	const wall = Math.max((piece.params['radius'] ?? 0.002) * 2 * scale, 1.5);
 	const stroke = tint ?? palette.nub;
@@ -60,7 +60,7 @@ export const TunnelShape: React.FC<TShapeProps> = (props) => {
 
 /** A Rail's several paths as single wires */
 export const RailPathsShape: React.FC<TShapeProps> = (props) => {
-	const { compose, piece, scale, opacity, dashed = false, tint } = props;
+	const { projection, piece, scale, opacity, dashed = false, tint } = props;
 	const palette = props.palette ?? paletteOf(piece.type);
 	const wire = Math.max((piece.params['radius'] ?? 0.0025) * 2 * scale, 1.5);
 	const color = tint ?? palette.bar;
@@ -69,7 +69,7 @@ export const RailPathsShape: React.FC<TShapeProps> = (props) => {
 			{(piece.paths ?? []).map((line) => (
 				<polyline
 					key={line.map((point) => `${point.x.toFixed(5)},${point.y.toFixed(5)}`).join(' ')}
-					points={toPoints(line.map((point) => compose.toScreen(point)))}
+					points={toPoints(line.map((point) => projection.toScreen(point)))}
 					fill="none"
 					stroke={color}
 					strokeWidth={wire}
@@ -96,13 +96,13 @@ export const BowlShape: React.FC<TShapeProps> = (props) => {
 	);
 };
 
-/** What the shapes need to draw: wall points to CSS pixels, as the Compose canvas or the Film Draft Preview projects them */
+/** What the shapes need to draw: wall points to CSS pixels, as the Track canvas or the Film Draft Preview projects them */
 export interface TScreenProjection {
 	toScreen: (point: TVec2, z?: number) => TVec2;
 }
 
 interface TShapeProps {
-	compose: TScreenProjection;
+	projection: TScreenProjection;
 	piece: TResolvedPiece;
 	scale: number;
 	opacity: number;

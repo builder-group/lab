@@ -57,8 +57,8 @@ function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 
 /** Right-click on a piece, on the canvas or in the sidebar */
 export function pieceMenu(cx: StudioCx): TMenuEntry[] {
-	// Film shows what works there: Compose's edits ask for the wall
-	if (cx.$workspace.get() !== 'compose') return tidyMenu([canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null, 'separator', commandItem(cx, 'edit.rename'), selectionLabelItem(cx)]);
+	// Film shows what works there: Track's edits ask for the wall
+	if (cx.$workspace.get() !== 'track') return tidyMenu([canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null, 'separator', commandItem(cx, 'edit.rename'), selectionLabelItem(cx)]);
 	const selected = cx.project?.entities.filter((entity) => cx.$selection.get().includes(entity.id)) ?? [];
 	return tidyMenu([
 		selected.length === 1 && selected[0]?.components.hitLink != null ? commandItem(cx, 'build.fix') : null,
@@ -128,7 +128,7 @@ export function filmObjectMenu(cx: StudioCx, id: string): TMenuEntry[] | null {
 /** Right-click on empty space in Film's preview: what works here, as Track's canvas lists its assists */
 export function filmMenu(cx: StudioCx): TMenuEntry[] {
 	const working = (id: TCommandId): TMenuEntry | null => (isCommandEnabled(cx, getCommand(id)) ? commandItem(cx, id) : null);
-	return tidyMenu([working('edit.paste'), 'separator', working('decor.add'), working('design.addText'), working('light.add'), working('camera.addShot'), 'separator', working('decor.scatter'), working('design.editInBlender'), 'separator', working('file.export')]);
+	return tidyMenu([working('edit.paste'), 'separator', working('decor.add'), working('film.addText'), working('light.add'), working('camera.addShot'), 'separator', working('decor.scatter'), working('film.editInBlender'), 'separator', working('file.export')]);
 }
 
 /** Right-click on a hit in the timeline */
@@ -152,7 +152,7 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 			}
 		},
 		piece != null ? { label: `Select ${piece.name ?? 'Piece'}`, onSelect: () => cx.reveal([piece.id]) } : null,
-		{ label: 'Rebuild From Here', disabled: cx.$compose.get() == null || cx.$compose.get()?.assist.isBuilding === true, onSelect: () => void cx.$compose.get()?.assist.buildTrack({ laneId: lane.id, hitId }) },
+		{ label: 'Rebuild From Here', disabled: cx.$trackCx.get() == null || cx.$trackCx.get()?.assist.isBuilding === true, onSelect: () => void cx.$trackCx.get()?.assist.buildTrack({ laneId: lane.id, hitId }) },
 		'separator',
 		...playedByMenu(cx, moving),
 		'separator',
@@ -183,7 +183,7 @@ export function laneMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[]
 				}
 			: null,
 		labelColorItem(laneLabelEntries(cx, lane)),
-		cx.$workspace.get() === 'compose' ? commandItem(cx, 'marble.add') : null,
+		cx.$workspace.get() === 'track' ? commandItem(cx, 'marble.add') : null,
 		{ label: 'Delete Marble', disabled: project.music.lanes.length <= 1, onSelect: () => cx.execute([{ type: 'removeLane', laneId: lane.id }]) }
 	]);
 }

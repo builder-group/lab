@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import type { TScenePiece } from '@/modules/scene';
 import { createCameraPose, sampleCameraTrack, verticalFov, type TCameraPose, FilmCameraCache, type TFilmCamera } from '@/modules/camera';
-import { ComposeRenderer, MARBLE_Z, type TRenderPiece, pickPiece, pieceScreenOutline, hitboxOutlines } from '@/modules/canvas';
+import { TrackRenderer, MARBLE_Z, type TRenderPiece, pickPiece, pieceScreenOutline, hitboxOutlines } from '@/modules/canvas';
 import { isPointInPolygon, marblePositionAt, pieceAngleAt, blenderObjectBox, decorBox, decorList, madeInBlenderLayer, decorExtent, decorItem, isFrameEffect, type TDecorItem, snowfallOf, snowFlakes, type TFlake, distanceToBox, type TWallBox, appliedOverrides, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme, wallKindOverride, draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from '@/modules/scene';
 import { marbleFilmColor, type TVec2, toDecorKey, toMadeInBlenderKey, WALL_KEY } from '@/modules/project';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
@@ -11,7 +11,7 @@ import { imageToWall } from './image-to-wall';
 /**
  * Film Draft Preview: the run through the film's follow camera at the playhead, drawn in the app with the theme's
  * look approximated, for whenever Blender's preview is not there (browser, not installed, starting, failed).
- * Reuses the Compose renderer's Camera view; the canvas is exactly the film frame.
+ * Reuses the Track renderer's Camera view; the canvas is exactly the film frame.
  */
 export class DraftPreviewCx {
 	/** Bumps after every draw, so the overlay of rails, titles and selection reprojects */
@@ -20,7 +20,7 @@ export class DraftPreviewCx {
 	/** The project's camera is manual, so the draft follows the automatic camera */
 	readonly $isManualCamera = createState(false);
 
-	private renderer: ComposeRenderer | null = null;
+	private renderer: TrackRenderer | null = null;
 	private size = { width: 1, height: 1 };
 	private readonly cameras = new FilmCameraCache();
 	private pose: TCameraPose | null = null;
@@ -30,7 +30,7 @@ export class DraftPreviewCx {
 	constructor(readonly studio: StudioCx) {}
 
 	mount(container: HTMLElement, canvas: HTMLCanvasElement): () => void {
-		const renderer = new ComposeRenderer(canvas);
+		const renderer = new TrackRenderer(canvas);
 		this.renderer = renderer;
 		this.wallTheme = null;
 		renderer.setCamera({ mode: 'camera', view: { center: { x: 0, y: 0 }, scale: 1000 } });
@@ -47,8 +47,8 @@ export class DraftPreviewCx {
 			studio.simulation.$result.listen(() => this.draw()),
 			studio.$playhead.listen(() => this.draw()),
 			studio.$hidden.listen(() => this.draw()),
-			studio.design.$blenderObjects.listen(() => this.draw()),
-			studio.design.$orbit.listen(() => this.draw())
+			studio.film.$blenderObjects.listen(() => this.draw()),
+			studio.film.$orbit.listen(() => this.draw())
 		];
 		this.draw();
 		return () => {
@@ -213,7 +213,7 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
-		return this.studio.design.$blenderObjects.get().flatMap((object) => {
+		return this.studio.film.$blenderObjects.get().flatMap((object) => {
 			const layer = madeInBlenderLayer(project.design, object.name);
 			const opacity = layer.hidden === true ? 0 : titleOpacity(time, layer);
 			if (opacity <= 0) return [];
@@ -243,7 +243,7 @@ export class DraftPreviewCx {
 		const time = this.studio.$playhead.get();
 		const shown = decorList(project.design).filter((decor) => decor.hidden !== true && titleOpacity(time, decor) > 0 && !isFrameEffect(decor));
 		return [
-			...this.studio.design.$blenderObjects
+			...this.studio.film.$blenderObjects
 				.get()
 				.filter((object) => {
 					const layer = madeInBlenderLayer(project.design, object.name);
@@ -295,7 +295,7 @@ export class DraftPreviewCx {
 			const look = resolveElementLook(project.design, 'marble', entity.components.skin);
 			const laneColor = project.music.lanes.find((lane) => lane.id === marble.laneId)?.color;
 			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? (laneColor ?? '#3478f6') : marbleFilmColor(project, marble.laneId), appliedOverrides(project.design), look);
-			// Draft isn't the film: a marble no skin dresses shows its label color, so it reads as the same marble as in Compose
+			// Draft isn't the film: a marble no skin dresses shows its label color, so it reads as the same marble as in Track
 			const label = look.skin === 'marble:contrast' && entity.components.skin?.color == null ? project.music.lanes.find((lane) => lane.id === marble.laneId)?.color : undefined;
 			return [
 				{
@@ -319,7 +319,7 @@ export class DraftPreviewCx {
 
 	/**
 	 * Selection outline of a piece in CSS pixels: rails and tunnels by their outline, solid pieces by everything the
-	 * camera sees of them from the wall to their front, a few pixels out like the Compose canvas
+	 * camera sees of them from the wall to their front, a few pixels out like the Track canvas
 	 */
 	selectionOutline(piece: TResolvedPiece): TVec2[] {
 		return pieceScreenOutline(piece, (point, z) => this.toScreen(point, z), this.pathZ());
@@ -352,7 +352,7 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		const result = this.studio.simulation.$result.get();
 		if (project == null || result == null) return null;
-		const camera = this.cameras.at(project, result, this.studio.design.$orbit.get());
+		const camera = this.cameras.at(project, result, this.studio.film.$orbit.get());
 		this.$isManualCamera.set(camera.isManual);
 		return camera;
 	}

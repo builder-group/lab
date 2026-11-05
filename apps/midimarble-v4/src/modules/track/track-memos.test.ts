@@ -3,9 +3,9 @@ import { createHistory, createLane, createMarble, createProject, type TProject }
 import type { TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio';
 import { createFreePiece, displayPiece } from '@/modules/building';
-import { ComposeCx } from './TrackCx';
+import { TrackCx } from './TrackCx';
 
-function shown(): { cx: StudioCx; compose: ComposeCx; project: TProject; result: TSimulationResult; piece: TResolvedPiece } {
+function shown(): { cx: StudioCx; trackCx: TrackCx; project: TProject; result: TSimulationResult; piece: TResolvedPiece } {
 	const created = createProject({ title: 'Song' });
 	const lane = createLane(0);
 	const marble = createMarble(lane, { x: 0, y: 0 });
@@ -17,28 +17,28 @@ function shown(): { cx: StudioCx; compose: ComposeCx; project: TProject; result:
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	cx.simulation.$result.set(result);
-	return { cx, compose: new ComposeCx(cx), project, result, piece };
+	return { cx, trackCx: new TrackCx(cx), project, result, piece };
 }
 
 describe('pickScene method', () => {
 	it('should keep the scene through pointer moves and playback', () => {
 		// Prepare
-		const { cx, compose } = shown();
-		const first = compose.pickScene();
+		const { cx, trackCx } = shown();
+		const first = trackCx.pickScene();
 
 		// Act
 		cx.$playhead.set(3);
 
 		// Assert
-		expect(compose.pickScene()).toBe(first);
+		expect(trackCx.pickScene()).toBe(first);
 	});
 
 	it('should rebuild for what a pick depends on', () => {
 		// Prepare
-		const { cx, compose, piece, result } = shown();
-		const pieceIds = (): string[] => compose.pickScene().pieces.map((item) => item.entityId);
-		const isSelected = (): boolean | undefined => compose.pickScene().pieces[0]?.isSelected;
-		const outline = (): unknown => compose.pickScene().pieces[0]?.corners;
+		const { cx, trackCx, piece, result } = shown();
+		const pieceIds = (): string[] => trackCx.pickScene().pieces.map((item) => item.entityId);
+		const isSelected = (): boolean | undefined => trackCx.pickScene().pieces[0]?.isSelected;
+		const outline = (): unknown => trackCx.pickScene().pieces[0]?.corners;
 		expect(pieceIds()).toEqual([piece.entityId]);
 		expect(isSelected()).toBe(false);
 
@@ -57,9 +57,9 @@ describe('pickScene method', () => {
 
 		// Act, Assert: the dragged piece
 		const before = outline();
-		compose.$override.set({ ...piece, angle: 1 });
+		trackCx.$override.set({ ...piece, angle: 1 });
 		expect(outline()).not.toEqual(before);
-		compose.$override.set(null);
+		trackCx.$override.set(null);
 		expect(outline()).toEqual(before);
 
 		// Act, Assert: a new run
@@ -69,78 +69,78 @@ describe('pickScene method', () => {
 
 	it('should rebuild for the tool, which decides whether placed dots pick', () => {
 		// Prepare
-		const { cx, compose, piece, result, project } = shown();
+		const { cx, trackCx, piece, result, project } = shown();
 		const hit = { laneId: project.music.lanes[0]?.id, hitId: 'a', targetTime: 1, dot: { x: 0, y: 0 }, pieceEntityId: piece.entityId, status: 'onTime' };
 		cx.simulation.$result.set({ ...result, hits: [hit] } as unknown as TSimulationResult);
-		expect(compose.pickScene().dots).toHaveLength(1);
+		expect(trackCx.pickScene().dots).toHaveLength(1);
 
 		// Act
-		compose.$tool.set('hand');
+		trackCx.$tool.set('hand');
 
 		// Assert
-		expect(compose.pickScene().dots).toHaveLength(0);
+		expect(trackCx.pickScene().dots).toHaveLength(0);
 	});
 });
 
 describe('displayPieces method', () => {
 	it('should give the same array while nothing it reads changed', () => {
 		// Prepare
-		const { cx, compose } = shown();
-		const first = compose.displayPieces();
+		const { cx, trackCx } = shown();
+		const first = trackCx.displayPieces();
 
 		// Act
 		cx.$playhead.set(3);
 		cx.$selection.set(['anything']);
 
 		// Assert
-		expect(compose.displayPieces()).toBe(first);
+		expect(trackCx.displayPieces()).toBe(first);
 	});
 
 	it('should show the dragged piece and let it go again', () => {
 		// Prepare
-		const { compose, piece } = shown();
+		const { trackCx, piece } = shown();
 		const dragged = { ...piece, angle: 1 };
 
 		// Act
-		compose.$override.set(dragged);
-		const during = compose.displayPieces();
-		compose.$override.set(null);
+		trackCx.$override.set(dragged);
+		const during = trackCx.displayPieces();
+		trackCx.$override.set(null);
 
 		// Assert
 		expect(during).toEqual([dragged]);
-		expect(compose.displayPieces()).toEqual([piece]);
+		expect(trackCx.displayPieces()).toEqual([piece]);
 	});
 
 	it('should show a placing piece and drop a hidden one', () => {
 		// Prepare
-		const { cx, compose, piece } = shown();
+		const { cx, trackCx, piece } = shown();
 		const placing = { ...piece, entityId: 'placing' };
 
 		// Act
-		compose.$placing.set(placing);
-		const during = compose.displayPieces();
-		compose.$placing.set(null);
+		trackCx.$placing.set(placing);
+		const during = trackCx.displayPieces();
+		trackCx.$placing.set(null);
 		cx.$hidden.set([piece.entityId]);
 
 		// Assert
 		expect(during).toEqual([piece, placing]);
-		expect(compose.displayPieces()).toEqual([]);
+		expect(trackCx.displayPieces()).toEqual([]);
 	});
 
 	it('should follow a new run and a new project state', () => {
 		// Prepare
-		const { cx, compose, project, result, piece } = shown();
+		const { cx, trackCx, project, result, piece } = shown();
 		const moved = { ...piece, angle: 2 };
-		const first = compose.displayPieces();
+		const first = trackCx.displayPieces();
 
 		// Act
 		cx.simulation.$result.set({ ...result, pieces: [moved] });
-		const afterRun = compose.displayPieces();
+		const afterRun = trackCx.displayPieces();
 		cx.$history.set(createHistory({ ...project }));
 
 		// Assert
 		expect(afterRun).toEqual([moved]);
-		expect(compose.displayPieces()).not.toBe(first);
-		expect(compose.displayPieces()).not.toBe(afterRun);
+		expect(trackCx.displayPieces()).not.toBe(first);
+		expect(trackCx.displayPieces()).not.toBe(afterRun);
 	});
 });

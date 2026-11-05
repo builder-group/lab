@@ -14,8 +14,8 @@ import type { TExportJob } from './FilmExportCx';
 /** Export Film sheet, like a macOS export sheet: settings and an estimate, then progress, then the film */
 export const ExportSheet: React.FC<TExportSheetProps> = (props) => {
 	const { cx } = props;
-	const isOpen = useFeatureState(cx.film.$isSheetOpen);
-	const job = useFeatureState(cx.film.$job);
+	const isOpen = useFeatureState(cx.filmExport.$isSheetOpen);
+	const job = useFeatureState(cx.filmExport.$job);
 
 	React.useEffect(() => {
 		if (!isOpen) return;
@@ -26,12 +26,12 @@ export const ExportSheet: React.FC<TExportSheetProps> = (props) => {
 			if (event.key === 'Escape') {
 				event.preventDefault();
 				event.stopPropagation();
-				cx.film.closeSheet();
+				cx.filmExport.closeSheet();
 			}
-			if (event.key === 'Enter' && !isTextField && cx.film.$job.get().phase === 'idle' && cx.film.isAvailable) {
+			if (event.key === 'Enter' && !isTextField && cx.filmExport.$job.get().phase === 'idle' && cx.filmExport.isAvailable) {
 				event.preventDefault();
 				event.stopPropagation();
-				void cx.film.start();
+				void cx.filmExport.start();
 			}
 		}
 		window.addEventListener('keydown', onKeyDown, true);
@@ -63,14 +63,14 @@ interface TExportSheetProps {
 
 const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
-	const settings = useFeatureState(cx.film.$settings);
-	const measured = useFeatureState(cx.film.$measured);
-	const preview = useFeatureState(cx.design.$preview);
+	const settings = useFeatureState(cx.filmExport.$settings);
+	const measured = useFeatureState(cx.filmExport.$measured);
+	const preview = useFeatureState(cx.film.$preview);
 	const result = useFeatureState(cx.simulation.$result);
 	const project = useFeatureState(cx.$history)?.present;
 	const preflight = useExportPreflight(cx);
 	const mix = useFeatureState(cx.$mix);
-	const isAvailable = cx.film.isAvailable;
+	const isAvailable = cx.filmExport.isAvailable;
 	if (project == null || preflight == null) return null;
 	const mutedNote = mutedSoundtrackNote(project, mix);
 	// Issues never block an export; the default button only says that it goes ahead despite them
@@ -102,7 +102,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 					value={settings.preset}
 					options={renderPresets.map((item) => ({ value: item.id, label: renderPresetOption(item) }))}
 					onChange={(value) => {
-						cx.film.updateSettings({ preset: value as TRenderPreset });
+						cx.filmExport.updateSettings({ preset: value as TRenderPreset });
 						// The project remembers the last choice, so the sheet opens on it next time
 						cx.execute([{ type: 'setDesign', design: { renderPreset: value as TRenderPreset } }]);
 					}}
@@ -114,9 +114,9 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 						type="text"
 						className="mm-input min-w-0 flex-1"
 						value={settings.fileName}
-						onChange={(event) => cx.film.updateSettings({ fileName: event.target.value, chosenPath: null })}
+						onChange={(event) => cx.filmExport.updateSettings({ fileName: event.target.value, chosenPath: null })}
 					/>
-					<button className="mm-button" disabled={!isAvailable} onClick={() => void cx.film.chooseLocation()} type="button">
+					<button className="mm-button" disabled={!isAvailable} onClick={() => void cx.filmExport.chooseLocation()} type="button">
 						Choose…
 					</button>
 				</div>
@@ -140,10 +140,10 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 			{mutedNote != null ? <p className="text-[11px] leading-snug text-[var(--text-secondary)]">{mutedNote}</p> : null}
 
 			<div className="flex justify-end gap-2">
-				<button className="mm-button" data-size="dialog" onClick={() => cx.film.closeSheet()} title="Cancel (Esc)" type="button">
+				<button className="mm-button" data-size="dialog" onClick={() => cx.filmExport.closeSheet()} title="Cancel (Esc)" type="button">
 					Cancel
 				</button>
-				<button className="mm-button" data-size="dialog" data-variant="primary" disabled={!isAvailable} onClick={() => void cx.film.start()} title={`${exportLabel} (↩)`} type="button">
+				<button className="mm-button" data-size="dialog" data-variant="primary" disabled={!isAvailable} onClick={() => void cx.filmExport.start()} title={`${exportLabel} (↩)`} type="button">
 					{exportLabel}
 				</button>
 			</div>
@@ -166,10 +166,10 @@ const ExportProgress: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 				<span>{remaining != null ? `About ${formatClock(remaining)} remaining` : job.phase === 'encoding' ? 'Finishing…' : 'Estimating…'}</span>
 			</div>
 			<div className="flex justify-end gap-2">
-				<button className="mm-button" data-size="dialog" onClick={() => cx.film.cancel()} type="button">
+				<button className="mm-button" data-size="dialog" onClick={() => cx.filmExport.cancel()} type="button">
 					Cancel Export
 				</button>
-				<button className="mm-button" data-size="dialog" data-variant="primary" onClick={() => cx.film.$isSheetOpen.set(false)} title="Hide and keep working; the title bar shows the progress (Esc)" type="button">
+				<button className="mm-button" data-size="dialog" data-variant="primary" onClick={() => cx.filmExport.$isSheetOpen.set(false)} title="Hide and keep working; the title bar shows the progress (Esc)" type="button">
 					Hide
 				</button>
 			</div>
@@ -202,7 +202,7 @@ const ExportDone: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 					<Film size={12} strokeWidth={1.8} />
 					Show in Finder
 				</button>
-				<button className="mm-button" data-size="dialog" data-variant="primary" onClick={() => cx.film.closeSheet()} type="button">
+				<button className="mm-button" data-size="dialog" data-variant="primary" onClick={() => cx.filmExport.closeSheet()} type="button">
 					Done
 				</button>
 			</div>
@@ -222,10 +222,10 @@ const ExportStopped: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 			/>
 			{job.error != null ? <p className="mm-error-box">{job.error}</p> : null}
 			<div className="flex justify-end gap-2">
-				<button className="mm-button" data-size="dialog" onClick={() => cx.film.closeSheet()} type="button">
+				<button className="mm-button" data-size="dialog" onClick={() => cx.filmExport.closeSheet()} type="button">
 					Close
 				</button>
-				<button className="mm-button" data-size="dialog" data-variant="primary" onClick={() => cx.film.$job.set({ ...job, phase: 'idle', error: null })} type="button">
+				<button className="mm-button" data-size="dialog" data-variant="primary" onClick={() => cx.filmExport.$job.set({ ...job, phase: 'idle', error: null })} type="button">
 					Try Again
 				</button>
 			</div>

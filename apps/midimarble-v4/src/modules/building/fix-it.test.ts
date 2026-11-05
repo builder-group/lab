@@ -135,7 +135,7 @@ describe('fixTrack function', () => {
 		return { before, edited, broken: simulate(edited), laneId: lane.id };
 	}
 
-	/** The result notice as Compose shows it, with how the run stands from the problem model */
+	/** The result notice as Track shows it, with how the run stands from the problem model */
 	function resultMessage(edited: TProject, broken: TSimulationResult, outcome: Awaited<ReturnType<typeof fixTrack>>): string {
 		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
 		const added = addedProblems(edited, broken, outcome.project, outcome.result, NO_BLENDER_OBJECTS);

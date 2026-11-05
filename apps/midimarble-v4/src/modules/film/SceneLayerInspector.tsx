@@ -49,7 +49,7 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: 
 	return (
 		<>
 			<InspectorHeader icon={<BrickWall size={16} strokeWidth={1.7} />} title="Wall" subtitle={isOwn ? `Changed from ${themeName}` : origin} />
-			<Panel id="design.wall" title="Appearance">
+			<Panel id="film.wall" title="Appearance">
 				<WallPicker cx={cx} project={project} />
 				{wall.own.kind === 'none' ? (
 					labelWell
@@ -95,7 +95,7 @@ export const KeyLightInspector: React.FC<{ cx: StudioCx; project: TProject }> = 
 		<>
 			<InspectorHeader icon={<Sun size={16} strokeWidth={1.7} />} title="Key Light" subtitle={isOwn ? `Changed from ${themeName}` : origin} />
 			<Panel
-				id="design.keyLight.position"
+				id="film.keyLight.position"
 				title="Position"
 				accessory={
 					<>
@@ -109,7 +109,7 @@ export const KeyLightInspector: React.FC<{ cx: StudioCx; project: TProject }> = 
 			>
 				<LightPosition idPrefix="key-light" side={key.side} height={key.height} onChange={(patch) => cx.execute(keyLightCommands(requireProject(cx), patch))} />
 			</Panel>
-			<Panel id="design.keyLight" title="Appearance">
+			<Panel id="film.keyLight" title="Appearance">
 				<ColorWell
 					cx={cx}
 					id="key-light-color"
@@ -138,10 +138,10 @@ export const LightInspector: React.FC<{ cx: StudioCx; project: TProject; light: 
 				subtitle="Light"
 				onRename={(name) => cx.execute(updateLightCommands(requireProject(cx), light.id, { name }))}
 			/>
-			<Panel id="design.light.position" title="Position">
+			<Panel id="film.light.position" title="Position">
 				<LightPosition idPrefix="light" side={light.side} height={light.height} onChange={(patch) => cx.execute(updateLightCommands(requireProject(cx), light.id, patch))} />
 			</Panel>
-			<Panel id="design.light" title="Appearance">
+			<Panel id="film.light" title="Appearance">
 				<ColorWell cx={cx} id="light-color" label="Color" name={`${light.name} color`} own={light.color} shown={light.color} commandsFor={(color) => (color != null ? updateLightCommands(requireProject(cx), light.id, { color }) : [])} />
 				<LightStrength idPrefix="light" strength={light.strength} onChange={(patch) => cx.execute(updateLightCommands(requireProject(cx), light.id, patch))} />
 			</Panel>

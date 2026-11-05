@@ -16,7 +16,7 @@ import type { TWorkspace } from './StudioCx';
  * marbles, and in Film Titles.
  */
 export function buildOutline(project: TProject, options: TOutlineOptions = {}): TOutlineRow[] {
-	const { collapsed = [], workspace = 'design', blenderObjects = [] } = options;
+	const { collapsed = [], workspace = 'film', blenderObjects = [] } = options;
 	const rows: TOutlineRow[] = [{ kind: 'scene', id: SCENE_KEY, depth: 0, parentId: null }];
 
 	if (hasSongLayer(project)) rows.push({ kind: 'song', id: SONG_KEY, depth: 0, parentId: null, source: songSource(project), label: SONG_LAYER_LABEL });
@@ -58,7 +58,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 		}
 	}
 
-	if (workspace === 'compose') return rows;
+	if (workspace === 'track') return rows;
 
 	const lights = addedLights(project.design);
 	const isLightsOpen = !collapsed.includes(LIGHTS_KEY);
@@ -92,15 +92,15 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 
 /**
  * The groups that start closed: in Film the marbles' pieces and Decor, so the Lights and Titles are in view
- * without scrolling; none in Compose, where the pieces are the work
+ * without scrolling; none in Track, where the pieces are the work
  */
-export function defaultCollapsed(project: TProject, workspace: 'compose' | 'design'): string[] {
+export function defaultCollapsed(project: TProject, workspace: 'track' | 'film'): string[] {
 	const groups = (project.groups ?? []).map((group) => group.id);
-	return workspace === 'design' ? [...project.music.lanes.map((lane) => lane.id), DECOR_KEY, ...groups] : groups;
+	return workspace === 'film' ? [...project.music.lanes.map((lane) => lane.id), DECOR_KEY, ...groups] : groups;
 }
 
 /** The closed groups: the defaults, with the ones the user toggled the other way */
-export function collapsedGroups(project: TProject, workspace: 'compose' | 'design', toggled: readonly string[]): string[] {
+export function collapsedGroups(project: TProject, workspace: 'track' | 'film', toggled: readonly string[]): string[] {
 	const defaults = defaultCollapsed(project, workspace);
 	return [...defaults.filter((key) => !toggled.includes(key)), ...toggled.filter((key) => !defaults.includes(key))];
 }

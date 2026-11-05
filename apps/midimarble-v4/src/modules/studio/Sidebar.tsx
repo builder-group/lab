@@ -55,20 +55,20 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	const hidden = useFeatureState(cx.$hidden);
 	const locked = useFeatureState(cx.$locked);
 	// What the user folded the other way, per workspace, while this stays open
-	const [toggled, setToggled] = React.useState<Record<TWorkspace, string[]>>({ compose: [], design: [] });
+	const [toggled, setToggled] = React.useState<Record<TWorkspace, string[]>>({ track: [], film: [] });
 	const collapsed = React.useMemo(() => collapsedGroups(project, workspace, toggled[workspace]), [project, workspace, toggled]);
 	const treeRef = React.useRef<HTMLDivElement>(null);
 	const hasScattered = useFeatureState($scatterPanel)?.group != null;
 
 	// What Scatter Decor places stays folded away, even in a Decor group that was open
 	React.useEffect(() => {
-		if (hasScattered) setToggled((current) => ({ ...current, design: current.design.filter((key) => key !== DECOR_KEY) }));
+		if (hasScattered) setToggled((current) => ({ ...current, film: current.film.filter((key) => key !== DECOR_KEY) }));
 	}, [hasScattered]);
 	const wasRenamingRef = React.useRef(false);
 
 	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.entityId, piece])), [result]);
 	// Pieces another marble hits, from the problem model the hit summary and the inspector read
-	const blenderObjects = useFeatureState(cx.design.$blenderObjects);
+	const blenderObjects = useFeatureState(cx.film.$blenderObjects);
 	// Badges wait while Build Track works: each step would check the whole run again, and the hit summary says Building…
 	const preflight = useRunPreflight(cx, project);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
@@ -76,8 +76,8 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	const tips = React.useMemo(() => (preflight != null ? decorTips(preflight) : null), [preflight]);
 	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceEntityId == null ? [] : [[hit.pieceEntityId, hit] as const]))), [result]);
 	const rows = React.useMemo(() => buildOutline(project, { collapsed, workspace, blenderObjects }), [project, collapsed, workspace, blenderObjects]);
-	const isFilm = workspace === 'design';
-	// Rows that Shift ranges and the arrow keys visit; Compose's arrows stay out of the Film rows
+	const isFilm = workspace === 'film';
+	// Rows that Shift ranges and the arrow keys visit; Track's arrows stay out of the Film rows
 	const order = rows.filter((row) => isSelectableRow(row) && (isFilm || !isFilmRow(row))).map((row) => row.id);
 	const selectedSet = new Set(selection);
 	const selectedLanes = new Set(selection.flatMap((key) => (key.startsWith('hit:') ? [key.split(':')[1] ?? ''] : [])));
@@ -131,7 +131,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 			cx.$selection.set([]);
 			return;
 		}
-		if (!isFilm && isFilmRow(row)) cx.$workspace.set('design');
+		if (!isFilm && isFilmRow(row)) cx.$workspace.set('film');
 		const current = cx.$selection.get();
 		if (row.kind === 'group') {
 			const isAdding = event?.metaKey === true || event?.shiftKey === true;
@@ -153,14 +153,14 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		// A Group selects with its pieces, like a collection's objects in Blender
 		if (row.kind === 'patternGroup') {
 			cx.$selection.set(groupSelection(row.group));
-			cx.$compose.get()?.revealOnceSimulated(row.group.pieceIds);
+			cx.$trackCx.get()?.revealOnceSimulated(row.group.pieceIds);
 			return;
 		}
-		// In Compose a live Pattern's piece selects its Group; in Film it's a piece to dress
-		const live = row.kind === 'piece' && cx.$workspace.get() === 'compose' ? patternOfPiece(project, row.id) : null;
+		// In Track a live Pattern's piece selects its Group; in Film it's a piece to dress
+		const live = row.kind === 'piece' && cx.$workspace.get() === 'track' ? patternOfPiece(project, row.id) : null;
 		if (live != null) {
 			cx.$selection.set(groupSelection(live));
-			cx.$compose.get()?.revealOnceSimulated(live.pieceIds);
+			cx.$trackCx.get()?.revealOnceSimulated(live.pieceIds);
 			return;
 		}
 		// Marbles and pieces are brought into view on the wall

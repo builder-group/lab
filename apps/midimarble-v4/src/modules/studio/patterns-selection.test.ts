@@ -22,7 +22,7 @@ describe('Pattern selection', () => {
 	it('should keep a strip range over silence as a range the inspector can show', () => {
 		const [key = ''] = rangeSelection(project(), 'lane', 3.2, 4.8);
 		expect(parseRangeKey(key)).toEqual({ laneId: 'lane', from: 3.2, to: 4.8 });
-		expect(inspectorTarget(project(), [key], 'compose')).toEqual({ kind: 'patternRange', laneId: 'lane', from: 3.2, to: 4.8 });
+		expect(inspectorTarget(project(), [key], 'track')).toEqual({ kind: 'patternRange', laneId: 'lane', from: 3.2, to: 4.8 });
 		expect(patternTargets(project(), [key])).toEqual([{ laneId: 'lane', from: 3.2, to: 4.8 }]);
 	});
 
@@ -30,23 +30,23 @@ describe('Pattern selection', () => {
 		expect(patternTargets(project(), [toHitKey('lane', 'h3'), toHitKey('lane', 'h1')])).toEqual([{ laneId: 'lane', from: 1, to: 3 }]);
 	});
 
-	it('should show a Group in Compose and its pieces in Film', () => {
+	it('should show a Group in Track and its pieces in Film', () => {
 		const selection = groupSelection(group);
 		expect(selection).toEqual([toGroupKey('g1'), 'p1', 'p2']);
-		expect(inspectorTarget(project(), selection, 'compose')).toEqual({ kind: 'group', id: 'g1' });
-		expect(inspectorTarget(project(), selection, 'design').kind).toBe('pieces');
-		expect(inspectorTarget(project(), [toRangeKey('lane', 1, 2)], 'design').kind).toBe('scene');
+		expect(inspectorTarget(project(), selection, 'track')).toEqual({ kind: 'group', id: 'g1' });
+		expect(inspectorTarget(project(), selection, 'film').kind).toBe('pieces');
+		expect(inspectorTarget(project(), [toRangeKey('lane', 1, 2)], 'film').kind).toBe('scene');
 	});
 });
 
 describe('buildOutline with Groups', () => {
 	it('should gather a Group\'s pieces under a collapsible row beneath the marble', () => {
-		const open = buildOutline(project(), { workspace: 'compose', collapsed: [] }).map((row) => `${row.depth}:${row.kind}:${row.id}`);
+		const open = buildOutline(project(), { workspace: 'track', collapsed: [] }).map((row) => `${row.depth}:${row.kind}:${row.id}`);
 		expect(open.slice(-4)).toEqual([`1:patternGroup:${toGroupKey('g1')}`, '2:piece:p1', '2:piece:p2', '1:piece:p3']);
 	});
 
 	it('should start a Group closed', () => {
-		const rows = buildOutline(project(), { workspace: 'compose', collapsed: defaultCollapsed(project(), 'compose') });
+		const rows = buildOutline(project(), { workspace: 'track', collapsed: defaultCollapsed(project(), 'track') });
 		expect(rows.some((row) => row.id === 'p1')).toBe(false);
 		expect(rows.some((row) => row.id === 'p3')).toBe(true);
 	});

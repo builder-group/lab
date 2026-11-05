@@ -4,7 +4,7 @@ import { stepHints, type THintFacts, type THintState } from './HintsCx';
 const empty: THintState = { open: null, seen: [], mark: { editCount: 0, openCount: 0 } };
 
 function facts(overrides: Partial<THintFacts> = {}): THintFacts {
-	return { hasSong: true, hasHits: true, workspace: 'compose', isPlaying: false, editCount: 0, openCount: 3, isAllOnTime: false, ...overrides };
+	return { hasSong: true, hasHits: true, workspace: 'track', isPlaying: false, editCount: 0, openCount: 3, isAllOnTime: false, ...overrides };
 }
 
 describe('stepHints function', () => {
@@ -70,7 +70,7 @@ describe('stepHints function', () => {
 		// Act
 		const untouched = stepHints(earlier, facts({ isAllOnTime: true, openCount: 0 }));
 		const opened = stepHints(earlier, facts({ isAllOnTime: true, openCount: 0, editCount: 2 }));
-		const inFilm = stepHints(opened, facts({ isAllOnTime: true, openCount: 0, editCount: 2, workspace: 'design' }));
+		const inFilm = stepHints(opened, facts({ isAllOnTime: true, openCount: 0, editCount: 2, workspace: 'film' }));
 
 		// Assert
 		expect(untouched.open).toBeNull();
@@ -85,6 +85,6 @@ describe('stepHints function', () => {
 	});
 
 	it('should not open hints in Film', () => {
-		expect(stepHints(empty, facts({ workspace: 'design' })).open).toBeNull();
+		expect(stepHints(empty, facts({ workspace: 'film' })).open).toBeNull();
 	});
 });

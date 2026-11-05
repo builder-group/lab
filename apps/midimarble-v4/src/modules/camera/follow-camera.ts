@@ -3,7 +3,7 @@ import type { TMotionFile, TSceneCamera, TSceneDescription } from '@/modules/sce
 /**
  * TypeScript port of the follow camera in `blender/mm_worker/camera.py`, which stays the source of the film. Given
  * the scene description the app sends to `apply_scene` and its motion files, `bakeFollowCamera` computes the pose
- * the worker bakes for every film frame: same constants, same smoothing, same group and focus logic. Compose's
+ * the worker bakes for every film frame: same constants, same smoothing, same group and focus logic. Track's
  * Camera view samples the result per animation frame.
  *
  * Coordinates are Blender's: x along the wall, y into the wall (the camera stands at y < 0),

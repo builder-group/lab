@@ -81,21 +81,21 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 
 	sendBar();
 
-	// Compose's tool and Follow live on the canvas, which comes and goes with the workspace
-	let stopCompose: (() => void)[] = [];
-	const watchCompose = (): void => {
-		for (const stop of stopCompose) stop();
-		const compose = cx.$compose.get();
-		stopCompose = compose != null ? [compose.$tool.listen(schedule), compose.$follow.listen(schedule), compose.$pathType.listen(schedule), compose.assist.$ghosts.listen(schedule)] : [];
+	// Track's tool and Follow live on the canvas, which comes and goes with the workspace
+	let stopTrack: (() => void)[] = [];
+	const watchTrack = (): void => {
+		for (const stop of stopTrack) stop();
+		const trackCx = cx.$trackCx.get();
+		stopTrack = trackCx != null ? [trackCx.$tool.listen(schedule), trackCx.$follow.listen(schedule), trackCx.$pathType.listen(schedule), trackCx.assist.$ghosts.listen(schedule)] : [];
 		schedule();
 	};
-	watchCompose();
+	watchTrack();
 
 	const stops = [
 		cx.$recent.listen(sendBar),
 		// Opening or saving a project adds it to Recent in the host
 		cx.$path.listen(() => void cx.refreshRecent()),
-		cx.$compose.listen(watchCompose),
+		cx.$trackCx.listen(watchTrack),
 		cx.$history.listen(schedule),
 		cx.$selection.listen(schedule),
 		cx.$clipboard.listen(schedule),
@@ -109,10 +109,10 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		cx.$audioScrubbing.listen(schedule),
 		cx.$save.listen(schedule),
 		cx.$isTemporary.listen(schedule),
-		cx.design.$status.listen(schedule),
-		cx.design.$camera.listen(schedule),
-		cx.design.$placing.listen(schedule),
-		cx.design.$links.listen(schedule)
+		cx.film.$status.listen(schedule),
+		cx.film.$camera.listen(schedule),
+		cx.film.$placing.listen(schedule),
+		cx.film.$links.listen(schedule)
 	];
 	// Undo, Redo and Select All are there for a focused text field
 	document.addEventListener('focusin', onFocusChange);
@@ -122,7 +122,7 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		isMounted = false;
 		clearTimeout(timer);
 		stopEvent?.();
-		for (const stop of [...stops, ...stopCompose]) stop();
+		for (const stop of [...stops, ...stopTrack]) stop();
 		document.removeEventListener('focusin', onFocusChange);
 		document.removeEventListener('focusout', onFocusChange);
 	};

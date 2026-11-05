@@ -11,7 +11,7 @@ describe('commands', () => {
 		expect(new Set(titles).size).toBe(titles.length);
 	});
 
-	it('should show the same keys for tools as the Compose key map', () => {
+	it('should show the same keys for tools as the Track key map', () => {
 		for (const tool of toolKeys) {
 			expect(commands.find((command) => command.id === (tool.tool === 'marble' ? 'marble.add' : `tool.${tool.tool}`))?.shortcut).toBe(tool.key);
 		}

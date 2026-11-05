@@ -12,7 +12,7 @@ import { skinCommands, type TSkinTarget } from './film-commands';
  * library; the UI shows one list without those scopes. Applying a kept item copies it into the project first so the
  * package stays portable.
  */
-export class DesignLibraryCx {
+export class FilmLibraryCx {
 	readonly $projectItems = createState<TLibraryItem[]>([]);
 	readonly $globalItems = createState<TLibraryItem[]>([]);
 	/** The Packs that ship inside the app */
@@ -31,7 +31,7 @@ export class DesignLibraryCx {
 	private loadedFor: string | null = null;
 	/** Items accepted so far per decor set from the agent */
 
-	constructor(private readonly source: TDesignLibrarySource) {}
+	constructor(private readonly source: TFilmLibrarySource) {}
 
 	/** Loads both libraries; `force` reloads even when the package did not change */
 	async refresh(force = true): Promise<void> {
@@ -225,7 +225,7 @@ export class DesignLibraryCx {
 
 }
 
-export interface TDesignLibrarySource {
+export interface TFilmLibrarySource {
 	getPackagePath: () => string | null;
 	getProject: () => TProject | null;
 	getResult: () => TSimulationResult | null;
@@ -260,7 +260,7 @@ export function libraryItemKey(item: TLibraryItem): string {
 }
 
 /** What clicking an item's origin line does: opens its Pack's card when this Mac doesn't have the Pack */
-export function notAddedPackAction(cx: { library: DesignLibraryCx }, item: TLibraryItem): (() => void) | undefined {
+export function notAddedPackAction(cx: { library: FilmLibraryCx }, item: TLibraryItem): (() => void) | undefined {
 	const origin = item.manifest?.pack;
 	return origin != null && !isPackAdded(origin.packId) ? () => cx.library.openPackCard(origin) : undefined;
 }

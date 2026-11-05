@@ -160,10 +160,10 @@ interface TPieceInspectorProps {
 /** Fix under a piece's problem pill: says in the notice what it did or why it couldn't, as one undo step */
 export const FixButton: React.FC<{ cx: StudioCx; entityId: string }> = (props) => {
 	const { cx, entityId } = props;
-	const compose = useFeatureState(cx.$compose);
-	const fixing = useFeatureState(compose?.assist.$fixing ?? NO_FIXING);
+	const trackCx = useFeatureState(cx.$trackCx);
+	const fixing = useFeatureState(trackCx?.assist.$fixing ?? NO_FIXING);
 	return (
-		<button className="mm-fix-it mm-fix-it-label" disabled={compose == null || fixing != null} onClick={() => void compose?.assist.fix(entityId)} title="Try to clear this problem without breaking a hit" type="button">
+		<button className="mm-fix-it mm-fix-it-label" disabled={trackCx == null || fixing != null} onClick={() => void trackCx?.assist.fix(entityId)} title="Try to clear this problem without breaking a hit" type="button">
 			<WandSparkles size={12} strokeWidth={1.9} />
 			Fix
 		</button>
@@ -370,7 +370,7 @@ const PathTypeFields: React.FC<{ cx: StudioCx; project: TProject; entities: TEnt
 	}
 
 	function setLayout(value: TRailLayout): void {
-		if (cx.execute(entities.map((entity): TProjectCommand => ({ type: 'upsertEntity', entity: withRailLayout(entity, value) })))) cx.$compose.get()?.revealOnceSimulated(entities.map((entity) => entity.id));
+		if (cx.execute(entities.map((entity): TProjectCommand => ({ type: 'upsertEntity', entity: withRailLayout(entity, value) })))) cx.$trackCx.get()?.revealOnceSimulated(entities.map((entity) => entity.id));
 	}
 
 	return (

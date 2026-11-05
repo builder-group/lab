@@ -1,6 +1,6 @@
 // Writes `fixtures/jingle-bells.marble.json`: the public domain Jingle Bells refrain with a simple bass line,
 // imported like the app's MIDI import sheet (split across up to two marbles, aligned to the import start) and
-// built by Build Track, the app's own builder (`src/modules/compose/build-track.ts`), which ends each marble in a
+// built by Build Track, the app's own builder (`src/modules/building/build-track.ts`), which ends each marble in a
 // Bowl. Writes the MIDI file and a build log with the pace measurements to `.local/jingle/`. The fixture ships the
 // MIDI file next to it as `fixtures/jingle-bells.mid`, its song, which the example copies into the new package.
 // The film ends with the marbles' catch.

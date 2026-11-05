@@ -4,7 +4,7 @@ import { blender, renderFilm, type TRenderFilmResult } from '@/modules/blender';
 import type { TFilmEngine, TRenderPreset } from '@/modules/scene';
 import { soundtrackProject, type TResolveSourceUrl, type TSongMix } from '@/modules/music';
 import type { TProject } from '@/modules/project';
-import type { DesignCx } from './FilmCx';
+import type { FilmCx } from './FilmCx';
 import { filmFileName, type TMeasuredRender } from '@/modules/scene';
 
 const MEASURED_KEY = 'midimarble-v4:measured-render';
@@ -77,8 +77,8 @@ export class FilmExportCx {
 		const startedAt = Date.now();
 		this.$job.set({ ...IDLE_JOB, phase: 'preparing', step: 'Preparing the film…', startedAt, outsidePackage: output.outsidePackage });
 
-		if (!(await this.source.design.prepareRender())) {
-			this.fail(this.source.design.$error.get() ?? "Blender couldn't prepare the film. Export again; if it fails twice, quit and reopen MidiMarble.");
+		if (!(await this.source.film.prepareRender())) {
+			this.fail(this.source.film.$error.get() ?? "Blender couldn't prepare the film. Export again; if it fails twice, quit and reopen MidiMarble.");
 			return;
 		}
 		if (abort.signal.aborted) {
@@ -147,7 +147,7 @@ export interface TFilmExportSource {
 	getMix: () => TSongMix;
 	getPackagePath: () => string | null;
 	resolveSourceUrl: TResolveSourceUrl;
-	design: DesignCx;
+	film: FilmCx;
 }
 
 export interface TExportSettings {

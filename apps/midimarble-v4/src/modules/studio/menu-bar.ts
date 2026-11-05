@@ -64,7 +64,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'file.replaceSong' },
 			{ command: 'file.removeSong' },
 			'separator',
-			{ command: 'design.packs' },
+			{ command: 'film.packs' },
 			'separator',
 			{ command: 'file.export' }
 		]
@@ -103,7 +103,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'tool.bowl', title: 'Bowl', showsKey: true },
 			'separator',
 			{ command: 'decor.add', title: 'Decor…' },
-			{ command: 'design.addText', title: 'Title', showsKey: true },
+			{ command: 'film.addText', title: 'Title', showsKey: true },
 			{ command: 'light.add', title: 'Light' },
 			'separator',
 			{ command: 'camera.addShot', title: 'Shot', showsKey: true }
@@ -112,8 +112,8 @@ export const menuLayout: readonly TMenuSection[] = [
 	{
 		title: 'View',
 		items: [
-			{ command: 'view.compose' },
-			{ command: 'view.design' },
+			{ command: 'view.track' },
+			{ command: 'view.film' },
 			'separator',
 			{ command: 'view.sidebar', panel: 'sidebar' },
 			{ command: 'view.inspector', panel: 'inspector' },

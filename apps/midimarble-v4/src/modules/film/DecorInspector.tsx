@@ -16,7 +16,7 @@ import { decorTips, preflightExport } from '@/modules/building';
 /** The amber tip on a layer a marble's path crosses, from the one problem model */
 function useDecorTip(cx: StudioCx, project: TProject, key: string): string | null {
 	const result = useFeatureState(cx.simulation.$result);
-	const objects = useFeatureState(cx.design.$blenderObjects);
+	const objects = useFeatureState(cx.film.$blenderObjects);
 	return React.useMemo(() => (result != null && result.revision === project.revision ? (decorTips(preflightExport(project, result, objects)).get(key)?.label ?? null) : null), [project, result, objects, key]);
 }
 
@@ -55,14 +55,14 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 				</DecorTip>
 			) : null}
 			{item?.effect == null ? (
-			<Panel id="design.decor.place" title="Position">
+			<Panel id="film.decor.place" title="Position">
 				<ScrubField id="decor-x" label="X" name="X" value={decor.position.x * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => update({ position: { ...decor.position, x: value / 100 } })} />
 				<ScrubField id="decor-y" label="Y" name="Y" value={decor.position.y * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => update({ position: { ...decor.position, y: value / 100 } })} />
 				<ScrubField id="decor-scale" label="Scale" name="Scale" value={decor.scale * 100} unit="%" step={1} min={10} max={1000} onCommit={(value) => update({ scale: value / 100 })} />
 				<ScrubField id="decor-rotation" label="Rotation" name="Rotation" value={(decor.rotation * 180) / Math.PI} unit="°" step={1} onCommit={(value) => update({ rotation: (value * Math.PI) / 180 })} />
 			</Panel>
 			) : null}
-			<Panel id="design.decor.timing" title="Timing">
+			<Panel id="film.decor.timing" title="Timing">
 				<TextField key={`in-${timingKey}`} id="decor-in" label="In" name="Time it appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="decor-out" label="Out" name="Time it disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
@@ -73,7 +73,7 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 
 /** Scatter Decor… is an action on the Decor layer, here and in its menu and ⌘K */
 export const ScatterPanel: React.FC<{ cx: StudioCx }> = ({ cx }) => (
-	<Panel id="design.decor.scatter" title="Scatter">
+	<Panel id="film.decor.scatter" title="Scatter">
 		<button className="mm-button" data-span="2" onClick={() => openScatterPanel(cx)} title="Asks what to scatter, then fills the free wall the camera shows" type="button">
 			Scatter Decor…
 		</button>
@@ -87,7 +87,7 @@ const SnowfallPanel: React.FC<{ cx: StudioCx; decor: TDecor }> = (props) => {
 	const commands = (patch: Partial<TSnowfall>): TProjectCommand[] => updateDecorCommands(requireProject(cx), [decor.id], { snowfall: { ...snow, ...patch } });
 	const asPercent = (value: number): string => String(Math.round(value));
 	return (
-		<Panel id="design.decor.snowfall" title="Particles">
+		<Panel id="film.decor.snowfall" title="Particles">
 			<SliderField id="snowfall-density" label="Density" value={snow.density * 100} min={0} max={100} step={1} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ density: value / 100 }))} />
 			<SliderField id="snowfall-size" label="Size" value={snow.size * 100} min={25} max={300} step={5} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ size: value / 100 }))} />
 			<SliderField id="snowfall-speed" label="Speed" value={snow.speed * 100} min={0} max={300} step={5} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ speed: value / 100 }))} />
@@ -121,7 +121,7 @@ export const MadeInBlenderInspector: React.FC<{ cx: StudioCx; project: TProject;
 				subtitle="Made in Blender"
 			/>
 			{tip != null ? <DecorTip tip={tip} detail="A marble passes over it while it shows. Move it in Blender if that isn't what you want." /> : null}
-			<Panel id="design.madeInBlender" title="Blender" accessory={<HelpTip text="You added this in the Blender file. MidiMarble never moves or deletes it, and it has no hitbox." />}>
+			<Panel id="film.madeInBlender" title="Blender" accessory={<HelpTip text="You added this in the Blender file. MidiMarble never moves or deletes it, and it has no hitbox." />}>
 				<ReadoutField label="Preview" name="Where it shows" span={2}>
 					Shows in the Blender preview
 				</ReadoutField>
@@ -130,7 +130,7 @@ export const MadeInBlenderInspector: React.FC<{ cx: StudioCx; project: TProject;
 					Open in Blender
 				</button>
 			</Panel>
-			<Panel id="design.madeInBlender.timing" title="Timing">
+			<Panel id="film.madeInBlender.timing" title="Timing">
 				<TextField key={`in-${timingKey}`} id="blender-in" label="In" name="Time it appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="blender-out" label="Out" name="Time it disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>

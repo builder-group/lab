@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { trackPieceColors, pieceKind, worldToScreen } from '@/modules/scene';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
-import type { ComposeCx } from './TrackCx';
+import type { TrackCx } from './TrackCx';
 import { paletteOf, BowlShape, isFinitePoint, projectedOutline, RailPathsShape, RailShape, TunnelShape, type TScreenProjection } from '@/modules/canvas';
 
 /**
@@ -11,13 +11,13 @@ import { paletteOf, BowlShape, isFinitePoint, projectedOutline, RailPathsShape, 
  * stroke at any zoom, every piece stays visible.
  */
 export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
-	const { compose } = props;
-	const cx = compose.studio;
+	const { trackCx } = props;
+	const cx = trackCx.studio;
 	const result = useFeatureState(cx.simulation.$result);
-	const { projection, scale, transform } = usePannedProjection(compose);
-	const viewport = useFeatureState(compose.$viewport);
-	useFeatureState(compose.$override);
-	useFeatureState(compose.$placing);
+	const { projection, scale, transform } = usePannedProjection(trackCx);
+	const viewport = useFeatureState(trackCx.$viewport);
+	useFeatureState(trackCx.$override);
+	useFeatureState(trackCx.$placing);
 	useFeatureState(cx.$hidden);
 	useFeatureState(cx.$history);
 	// Until the canvas is measured every point projects to NaN, which the browser reports for each attribute
@@ -25,25 +25,25 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 
 	return (
 		<g transform={transform}>
-			{compose.displayPieces(result).map((piece) => (
-				<PieceShape key={piece.entityId} compose={projection} piece={piece} scale={scale} palette={trackPieceColors(cx.project, piece.entityId, piece.type)} />
+			{trackCx.displayPieces(result).map((piece) => (
+				<PieceShape key={piece.entityId} projection={projection} piece={piece} scale={scale} palette={trackPieceColors(cx.project, piece.entityId, piece.type)} />
 			))}
 		</g>
 	);
 };
 
 interface TPieceLayerProps {
-	compose: ComposeCx;
+	trackCx: TrackCx;
 }
 
-const PieceShape = React.memo(function PieceShape(props: { compose: TScreenProjection; piece: TResolvedPiece; scale: number; palette: { bar: string; nub: string } }) {
-	const { compose, piece, scale, palette } = props;
+const PieceShape = React.memo(function PieceShape(props: { projection: TScreenProjection; piece: TResolvedPiece; scale: number; palette: { bar: string; nub: string } }) {
+	const { projection, piece, scale, palette } = props;
 	const kind = pieceKind(piece);
-	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
-	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
-	if (kind === 'generated') return <RailPathsShape compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
-	if (kind === 'catcher') return <BowlShape compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
-	return <MinimumShape compose={compose} piece={piece} palette={palette} />;
+	if (kind === 'path') return <RailShape projection={projection} piece={piece} scale={scale} opacity={1} palette={palette} />;
+	if (kind === 'tube') return <TunnelShape projection={projection} piece={piece} scale={scale} opacity={1} palette={palette} />;
+	if (kind === 'generated') return <RailPathsShape projection={projection} piece={piece} scale={scale} opacity={1} palette={palette} />;
+	if (kind === 'catcher') return <BowlShape projection={projection} piece={piece} scale={scale} opacity={1} palette={palette} />;
+	return <MinimumShape projection={projection} piece={piece} palette={palette} />;
 });
 
 /**
@@ -51,9 +51,9 @@ const PieceShape = React.memo(function PieceShape(props: { compose: TScreenProje
  * the wall's origin, and `transform` on their parent moves them all with the camera, so playback, Follow and panning
  * write one attribute per frame instead of every mark's. Only a zoom, whose strokes keep their pixel width, redraws them.
  */
-export function usePannedProjection(compose: ComposeCx): { projection: TScreenProjection; scale: number; transform: string } {
-	const { center, scale } = useFeatureState(compose.$camera).view;
-	const { width, height } = useFeatureState(compose.$viewport);
+export function usePannedProjection(trackCx: TrackCx): { projection: TScreenProjection; scale: number; transform: string } {
+	const { center, scale } = useFeatureState(trackCx.$camera).view;
+	const { width, height } = useFeatureState(trackCx.$viewport);
 	const projection = React.useMemo<TScreenProjection>(() => {
 		const origin = { center: { x: 0, y: 0 }, scale };
 		const viewport = { width, height };
@@ -63,13 +63,13 @@ export function usePannedProjection(compose: ComposeCx): { projection: TScreenPr
 }
 
 /** A screen-space stand-in when a platform or windmill shrinks below a few pixels */
-const MinimumShape: React.FC<{ compose: TScreenProjection; piece: TResolvedPiece; palette?: { bar: string; nub: string } }> = (props) => {
-	const { compose, piece } = props;
+const MinimumShape: React.FC<{ projection: TScreenProjection; piece: TResolvedPiece; palette?: { bar: string; nub: string } }> = (props) => {
+	const { projection, piece } = props;
 	const palette = props.palette ?? paletteOf(piece.type);
-	const outline = projectedOutline(compose, piece);
+	const outline = projectedOutline(projection, piece);
 	if (!outline.length || !outline.every(isFinitePoint)) return null;
 	if (pieceKind(piece) === 'rotor') {
-		const center = compose.toScreen(piece.position, shownDepth(piece));
+		const center = projection.toScreen(piece.position, shownDepth(piece));
 		const reach = Math.max(...outline.map((point) => Math.hypot(point.x - center.x, point.y - center.y)));
 		if (reach >= 8) return null;
 		return <circle cx={center.x} cy={center.y} r={4} fill={palette.bar} stroke={palette.nub} strokeWidth={1} />;

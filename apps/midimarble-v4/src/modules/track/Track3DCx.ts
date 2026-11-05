@@ -1,11 +1,11 @@
 import { createState } from 'feature-state';
 import { trackWall, trackPieceColors, marblePositionAt, pieceAngleAt } from '@/modules/scene';
-import { pickPiece, pieceScreenOutline, ComposeRenderer, MARBLE_Z } from '@/modules/canvas';
+import { pickPiece, pieceScreenOutline, TrackRenderer, MARBLE_Z } from '@/modules/canvas';
 import type { TProject, TVec2 } from '@/modules/project';
 import type { TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { pathDepth } from '@/modules/simulation';
 import { createCameraPose, sampleCameraTrack, FilmCameraCache } from '@/modules/camera';
-import type { ComposeCx } from './TrackCx';
+import type { TrackCx } from './TrackCx';
 import { WALL_KEY } from '@/modules/project';
 
 /** The field of view of the free look, wide enough for depth to read */
@@ -21,7 +21,7 @@ const FRAME_INSET = 40;
 
 /**
  * Track's 3D and Camera views, like Blender's viewport and its Camera view: their own canvas over the flat one. 3D stands
- * on the same center and scale of `compose.$camera`, so wheel, pinch and the zoom commands move both; Camera looks through
+ * on the same center and scale of `trackCx.$camera`, so wheel, pinch and the zoom commands move both; Camera looks through
  * the film's camera, with the frame's edge marked. The Pegboard look whatever the project's theme, pieces and marbles in
  * their label colors. They look and select; nothing drags here.
  */
@@ -30,7 +30,7 @@ export class Track3DCx {
 	readonly $frame = createState(0);
 	/** 0 flat to 1 fully in 3D */
 	readonly $amount = createState(0);
-	private renderer: ComposeRenderer | null = null;
+	private renderer: TrackRenderer | null = null;
 	private animation: number | null = null;
 	private pathZ = MARBLE_Z;
 	private size = { width: 1, height: 1 };
@@ -45,10 +45,10 @@ export class Track3DCx {
 	/** The film frame in the Camera view, in CSS pixels; null in 3D */
 	filmFrame: { x: number; y: number; width: number; height: number } | null = null;
 
-	constructor(readonly compose: ComposeCx) {}
+	constructor(readonly trackCx: TrackCx) {}
 
 	mount(container: HTMLElement, canvas: HTMLCanvasElement): () => void {
-		const renderer = new ComposeRenderer(canvas);
+		const renderer = new TrackRenderer(canvas);
 		this.renderer = renderer;
 		// A new renderer holds no pieces, whatever the last one was given
 		this.synced = null;
@@ -62,7 +62,7 @@ export class Track3DCx {
 			this.draw();
 		});
 		observer.observe(container);
-		const studio = this.compose.studio;
+		const studio = this.trackCx.studio;
 		// The wall's tokens change with the appearance, as in the flat view
 		const scheme = window.matchMedia('(prefers-color-scheme: dark)');
 		const repaint = (): void => {
@@ -77,8 +77,8 @@ export class Track3DCx {
 			studio.$playhead.listen(() => this.draw()),
 			studio.$hidden.listen(() => this.draw()),
 			studio.$trackAngles.listen(() => this.draw()),
-			studio.design.$orbit.listen(() => this.draw()),
-			this.compose.$camera.listen(() => this.draw()),
+			studio.film.$orbit.listen(() => this.draw()),
+			this.trackCx.$camera.listen(() => this.draw()),
 			this.$amount.listen(() => this.draw())
 		];
 		this.draw();
@@ -117,8 +117,8 @@ export class Track3DCx {
 	}
 
 	turn(dx: number, dy: number): void {
-		const angles = this.compose.studio.$trackAngles.get();
-		this.compose.studio.$trackAngles.set({
+		const angles = this.trackCx.studio.$trackAngles.get();
+		this.trackCx.studio.$trackAngles.set({
 			yaw: clamp(angles.yaw - dx * TURN_PER_PIXEL, MAX_ORBIT),
 			pitch: clamp(angles.pitch + dy * TURN_PER_PIXEL, MAX_ORBIT)
 		});
@@ -126,8 +126,8 @@ export class Track3DCx {
 
 	/** Pans so the wall follows the pointer, which takes a longer way on a wall seen at an angle */
 	pan(dx: number, dy: number): void {
-		const { yaw, pitch } = this.compose.studio.$trackAngles.get();
-		this.compose.panView(dx / Math.max(0.3, Math.cos(yaw)), dy / Math.max(0.3, Math.cos(pitch)));
+		const { yaw, pitch } = this.trackCx.studio.$trackAngles.get();
+		this.trackCx.panView(dx / Math.max(0.3, Math.cos(yaw)), dy / Math.max(0.3, Math.cos(pitch)));
 	}
 
 	toScreen(point: TVec2, z: number): TVec2 {
@@ -136,8 +136,8 @@ export class Track3DCx {
 
 	/** The run's pieces less the hidden ones, the same array until the run or the eyes change */
 	pieces(): readonly TResolvedPiece[] {
-		const result = this.compose.studio.simulation.$result.get();
-		const hidden = this.compose.studio.$hidden.get();
+		const result = this.trackCx.studio.simulation.$result.get();
+		const hidden = this.trackCx.studio.$hidden.get();
 		if (this.shown?.result !== result || this.shown?.hidden !== hidden) {
 			this.shown = { result, hidden, pieces: (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId)) };
 		}
@@ -153,16 +153,16 @@ export class Track3DCx {
 	}
 
 	/** The same wall as the flat view */
-	private paintWall(renderer: ComposeRenderer): void {
+	private paintWall(renderer: TrackRenderer): void {
 		if (this.container == null) return;
-		const wallColor = this.compose.studio.project?.design.wall.labelColor;
+		const wallColor = this.trackCx.studio.project?.design.wall.labelColor;
 		renderer.setWallLook(trackWall(this.container, wallColor));
 		this.wallColor = wallColor;
 	}
 
 	private draw(): void {
 		const renderer = this.renderer;
-		const studio = this.compose.studio;
+		const studio = this.trackCx.studio;
 		const project = studio.project;
 		if (renderer == null || project == null) return;
 		if (project.design.wall.labelColor !== this.wallColor) this.paintWall(renderer);
@@ -171,8 +171,8 @@ export class Track3DCx {
 		const radius = project.entities.find((entity) => entity.components.marble != null)?.components.marble?.radius ?? 0.012;
 		this.pathZ = pathDepth(pieces, radius);
 		const result = studio.simulation.$result.get();
-		const view = this.compose.$camera.get().view;
-		const filmTrack = this.view === 'camera' && result != null ? this.cameras.at(project, result, studio.design.$orbit.get()).track : null;
+		const view = this.trackCx.$camera.get().view;
+		const filmTrack = this.view === 'camera' && result != null ? this.cameras.at(project, result, studio.film.$orbit.get()).track : null;
 		const pose = filmTrack != null ? sampleCameraTrack(filmTrack, playhead, this.scratchPose) : null;
 		if (pose != null) {
 			const aspect = project.frame.width / project.frame.height;

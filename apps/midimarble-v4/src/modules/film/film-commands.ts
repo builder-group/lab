@@ -6,7 +6,7 @@ import { imageToWall } from './image-to-wall';
 import { resolveTheme, resetKeyLightCommands, wallCommands, entitySkinElement, type TSkinElement } from '@/modules/scene';
 
 
-// Project edits made from the Design workspace. Each function returns the commands of one undoable edit.
+// Project edits made from the Film workspace. Each function returns the commands of one undoable edit.
 
 export interface TThemePreset {
 	id: string;

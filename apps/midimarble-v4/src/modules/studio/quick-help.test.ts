@@ -13,9 +13,9 @@ describe('splitShortcut function', () => {
 });
 
 describe('regionsFor function', () => {
-	it('should name the wall in Compose and the preview in Film', () => {
-		expect(regionsFor('compose').find((region) => region.id === 'wall')?.title).toBe('Wall');
-		expect(regionsFor('design').find((region) => region.id === 'wall')?.title).toBe('Preview');
+	it('should name the wall in Track and the preview in Film', () => {
+		expect(regionsFor('track').find((region) => region.id === 'wall')?.title).toBe('Wall');
+		expect(regionsFor('film').find((region) => region.id === 'wall')?.title).toBe('Preview');
 	});
 
 	it('should give every region one line without a period', () => {
@@ -41,7 +41,7 @@ describe('placeQuickHelpLabels function', () => {
 		hitSummary: { left: 210, top: 644, right: 400, bottom: 672 },
 		transport: { left: 640, top: 644, right: 800, bottom: 672 }
 	};
-	const items = regionsFor('compose').map((region) => ({ region, rect: rects[region.id] as TRect }));
+	const items = regionsFor('track').map((region) => ({ region, rect: rects[region.id] as TRect }));
 	const panel: TRect = { left: 908, top: 532, right: 1168, bottom: 628 };
 	const places = placeQuickHelpLabels(items, wall, viewport, panel);
 

@@ -18,7 +18,7 @@ export function placeDecor(cx: StudioCx, source: TDecorSource, u = 0.5, v = 0.5)
 	const point = previewPointToWall(project, cx.simulation.$result.get(), cx.$playhead.get(), u, v);
 	const { commands, decorId } = addDecorCommands(project, source, point);
 	if (!cx.execute(commands)) return false;
-	cx.$workspace.set('design');
+	cx.$workspace.set('film');
 	cx.$selection.set([toDecorKey(decorId)]);
 	return true;
 }
@@ -55,7 +55,7 @@ export function moveDecorClearAction(cx: StudioCx, decorId: string): void {
 /** Selects an object in the Blender window, opening it first */
 export function revealMadeInBlender(cx: StudioCx, name: string): void {
 	cx.$selection.set([toMadeInBlenderKey(name)]);
-	void cx.design.openInBlender([name]);
+	void cx.film.openInBlender([name]);
 }
 
 // MARK: - Scatter Decor
@@ -100,7 +100,7 @@ function rememberScatterChoice(sources: readonly string[]): void {
  */
 export function openScatterPanel(cx: StudioCx): void {
 	if (cx.project == null) return;
-	cx.$workspace.set('design');
+	cx.$workspace.set('film');
 	const offered = new Set(scatterItems(cx).map((item) => item.id));
 	const panel: TScatterPanel = { sources: readScatterChoice().filter((source) => offered.has(source)), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, isAtMost: false, group: null };
 	$scatterPanel.set(panel);
@@ -134,7 +134,7 @@ export function scatter(cx: StudioCx, items: readonly TDecorSource[], density: n
 		cx.notify('The track is still updating. Try Scatter Decor again in a moment');
 		return null;
 	}
-	const { commands, count, isAtMost } = scatterDecorCommands(project, result, track, { items, density, seed, blenderObjects: cx.design.$blenderObjects.get() });
+	const { commands, count, isAtMost } = scatterDecorCommands(project, result, track, { items, density, seed, blenderObjects: cx.film.$blenderObjects.get() });
 	if (group != null && cx.editGroup === group) cx.execute(commands, { group });
 	else cx.execute(commands);
 	return { count, isAtMost };

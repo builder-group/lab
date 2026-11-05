@@ -30,7 +30,7 @@ const MARBLE_RADIUS = 0.008 * SCALE;
 const PLATFORM = { length: 0.06 * SCALE, thickness: 0.008 * SCALE, depth: 0.06 * SCALE };
 // At the default half gravity a 0.3 s zigzag hops about half a bar, so the bars would overlap
 const GAP = 0.4;
-// Skins per column and an original title per section. Titles are art-directed like a user would in Design: shifted
+// Skins per column and an original title per section. Titles are art-directed like a user would in Film: shifted
 // toward where the camera looks when the section starts and turned so they read level in the rolled film
 const SECTIONS = [
 	{

@@ -114,7 +114,7 @@ describe('hits work without a Song', () => {
 });
 
 describe('stepHit method', () => {
-	function stepping(workspace: 'compose' | 'design'): StudioCx {
+	function stepping(workspace: 'track' | 'film'): StudioCx {
 		const base = createProject({ title: 'Two' });
 		const lane = base.music.lanes[0];
 		if (lane == null) throw new Error('A new project has a marble');
@@ -131,8 +131,8 @@ describe('stepHit method', () => {
 		return cx as unknown as StudioCx;
 	}
 
-	it('should move to the next hit and select it in Compose', () => {
-		const cx = stepping('compose');
+	it('should move to the next hit and select it in Track', () => {
+		const cx = stepping('track');
 
 		expect(cx.stepHit(1)).toBe(true);
 
@@ -142,7 +142,7 @@ describe('stepHit method', () => {
 	});
 
 	it('should keep the selection in Film, where the Scene stays in view', () => {
-		const cx = stepping('design');
+		const cx = stepping('film');
 
 		cx.stepHit(1);
 

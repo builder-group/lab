@@ -15,9 +15,9 @@ const NOT_BUILDING = createState<TBuildProgress | null>(null);
  */
 export function useRunPreflight(cx: StudioCx, project: TProject | undefined): TExportPreflight | null {
 	const result = useFeatureState(cx.simulation.$result);
-	const blenderObjects = useFeatureState(cx.design.$blenderObjects);
+	const blenderObjects = useFeatureState(cx.film.$blenderObjects);
 	const isPreviewing = useFeatureState(cx.simulation.$previewing);
-	const isBuilding = useFeatureState(useFeatureState(cx.$compose)?.assist.$building ?? NOT_BUILDING) != null;
+	const isBuilding = useFeatureState(useFeatureState(cx.$trackCx)?.assist.$building ?? NOT_BUILDING) != null;
 	return React.useMemo(() => {
 		if (project == null || isBuilding) return null;
 		const held = isPreviewing ? lastPreflight.get(cx) : undefined;

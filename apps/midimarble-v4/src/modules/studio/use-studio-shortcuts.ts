@@ -63,7 +63,7 @@ export function useStudioShortcuts(cx: StudioCx): void {
 			}
 			if (command && !event.ctrlKey && (key === '1' || key === '2')) {
 				event.preventDefault();
-				cx.$workspace.set(key === '1' ? 'compose' : 'design');
+				cx.$workspace.set(key === '1' ? 'track' : 'film');
 				return;
 			}
 			if (command && event.ctrlKey) {

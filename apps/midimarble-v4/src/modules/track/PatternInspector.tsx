@@ -6,7 +6,7 @@ import { isPatternGroup, type TEntity, type TPatternGroup, type TProject, type T
 import { hitsInRange, MAX_TILT, PATTERN_LABELS, type TPatternKind, type TPatternProblem } from '@/modules/building';
 import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import type { ComposeCx } from './TrackCx';
+import type { TrackCx } from './TrackCx';
 import { GhostPiece } from './GhostLayer';
 import { patternTargets, type TPatternTarget } from './PatternsCx';
 
@@ -19,7 +19,7 @@ export const PatternTiles: React.FC<{ cx: StudioCx; project: TProject }> = (prop
 	const selection = useFeatureState(cx.$selection);
 	const workspace = useFeatureState(cx.$workspace);
 	const targets = patternTargets(project, selection);
-	if (workspace !== 'compose' || !targets.length) return null;
+	if (workspace !== 'track' || !targets.length) return null;
 	return <TilesPanel cx={cx} targets={targets} kinds={BAR_KINDS} failureKey={toRangeKey(targets[0]?.laneId ?? '', targets[0]?.from ?? 0, targets[0]?.to ?? 0)} />;
 };
 
@@ -38,10 +38,10 @@ export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; 
 /** A Group: its tiles with Width and Bounce, like Blender's Adjust Last Operation. Using them fits it again */
 export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId: string }> = (props) => {
 	const { cx, project, groupId } = props;
-	const compose = useFeatureState(cx.$compose);
+	const trackCx = useFeatureState(cx.$trackCx);
 	const group = project.groups?.filter(isPatternGroup).find((item) => item.id === groupId);
 	const lane = project.music.lanes.find((item) => item.id === group?.laneId);
-	if (group == null || lane == null || compose == null) return null;
+	if (group == null || lane == null || trackCx == null) return null;
 	const target: TPatternTarget = { laneId: group.laneId, from: group.from, to: group.to, group };
 	const isRail = group.kind === 'longRail';
 	const count = hitsInRange(lane, group.from, group.to).length;
@@ -62,14 +62,14 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 							step={0.01}
 							unit="cm"
 							format={(value) => (value * 100).toFixed(0)}
-							onCommit={(width) => void compose.patterns.apply(target, group.kind, { width })}
+							onCommit={(width) => void trackCx.patterns.apply(target, group.kind, { width })}
 						/>
-						<SliderField id="pattern-bounce" label="Bounce" value={group.bounce} min={0.3} max={0.7} step={0.05} unit="" format={(value) => value.toFixed(2)} onCommit={(bounce) => void compose.patterns.apply(target, group.kind, { bounce })} />
-						<SliderField id="pattern-tilt" label="Tilt limit" value={group.maxTilt ?? MAX_TILT} min={20} max={70} step={5} unit="°" format={(value) => value.toFixed(0)} onCommit={(maxTilt) => void compose.patterns.apply(target, group.kind, { maxTilt })} />
+						<SliderField id="pattern-bounce" label="Bounce" value={group.bounce} min={0.3} max={0.7} step={0.05} unit="" format={(value) => value.toFixed(2)} onCommit={(bounce) => void trackCx.patterns.apply(target, group.kind, { bounce })} />
+						<SliderField id="pattern-tilt" label="Tilt limit" value={group.maxTilt ?? MAX_TILT} min={20} max={70} step={5} unit="°" format={(value) => value.toFixed(0)} onCommit={(maxTilt) => void trackCx.patterns.apply(target, group.kind, { maxTilt })} />
 					</div>
 				) : null}
 				<TiltNote project={project} group={group} />
-				<button className="mm-button" onClick={() => compose.patterns.flatten(group)} title="Keep these pieces as they are, as a plain Group, and remove the Pattern" type="button">
+				<button className="mm-button" onClick={() => trackCx.patterns.flatten(group)} title="Keep these pieces as they are, as a plain Group, and remove the Pattern" type="button">
 					Flatten
 				</button>
 			</TilesPanel>
@@ -115,8 +115,8 @@ const BarDepthPanel: React.FC<{ cx: StudioCx; project: TProject; group: TPattern
 
 const TilesPanel: React.FC<{ cx: StudioCx; targets: TPatternTarget[]; kinds: TPatternKind[]; applied?: TPatternKind; failureKey: string; problems?: TPatternProblem[]; children?: React.ReactNode }> = (props) => {
 	const { cx, targets, kinds, applied, failureKey, problems = [], children } = props;
-	const compose = useFeatureState(cx.$compose);
-	if (compose == null) return null;
+	const trackCx = useFeatureState(cx.$trackCx);
+	if (trackCx == null) return null;
 	return (
 		<Panel id="pattern" title="Pattern" isGrid={false}>
 			<div className="mm-tile-grid">
@@ -127,10 +127,10 @@ const TilesPanel: React.FC<{ cx: StudioCx; targets: TPatternTarget[]; kinds: TPa
 						data-applied={applied === kind}
 						onPointerEnter={() => {
 							const [first] = targets;
-							if (first != null) compose.patterns.hover(first, kind);
+							if (first != null) trackCx.patterns.hover(first, kind);
 						}}
-						onPointerLeave={() => compose.patterns.endHover()}
-						onClick={() => void applyAll(compose, targets, kind)}
+						onPointerLeave={() => trackCx.patterns.endHover()}
+						onClick={() => void applyAll(trackCx, targets, kind)}
 						title={TILE_TITLES[kind]}
 						type="button"
 					>
@@ -142,19 +142,19 @@ const TilesPanel: React.FC<{ cx: StudioCx; targets: TPatternTarget[]; kinds: TPa
 				))}
 			</div>
 			{children}
-			<PatternProblems compose={compose} failureKey={failureKey} problems={problems} />
+			<PatternProblems trackCx={trackCx} failureKey={failureKey} problems={problems} />
 		</Panel>
 	);
 };
 
 /** Several marbles work one by one for now: each gets its own Group, and a run says if pieces touch */
-async function applyAll(compose: ComposeCx, targets: TPatternTarget[], kind: TPatternKind): Promise<void> {
-	for (const target of targets) await compose.patterns.apply(target, kind);
+async function applyAll(trackCx: TrackCx, targets: TPatternTarget[], kind: TPatternKind): Promise<void> {
+	for (const target of targets) await trackCx.patterns.apply(target, kind);
 }
 
-const PatternProblems: React.FC<{ compose: ComposeCx; failureKey: string; problems: TPatternProblem[] }> = (props) => {
-	const { compose, failureKey, problems } = props;
-	const failure = useFeatureState(compose.patterns.$failure);
+const PatternProblems: React.FC<{ trackCx: TrackCx; failureKey: string; problems: TPatternProblem[] }> = (props) => {
+	const { trackCx, failureKey, problems } = props;
+	const failure = useFeatureState(trackCx.patterns.$failure);
 	const shown = failure != null && failure.key === failureKey ? failure.problems : problems;
 	const [first] = shown;
 	if (first == null) return null;
@@ -207,16 +207,16 @@ const PatternGlyph: React.FC<{ kind: TPatternKind }> = (props) => {
 };
 
 /** The ghost of the tile the pointer rests on, as Continue's ghosts look */
-export const PatternGhost: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
-	const preview = useFeatureState(compose.patterns.$preview);
-	const camera = useFeatureState(compose.$camera);
-	useFeatureState(compose.$viewport);
+export const PatternGhost: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
+	const preview = useFeatureState(trackCx.patterns.$preview);
+	const camera = useFeatureState(trackCx.$camera);
+	useFeatureState(trackCx.$viewport);
 	if (preview == null) return null;
 	return (
 		<g className="mm-ghost-in" data-pattern-ghost={preview.kind} data-preview-ms={Math.round(preview.ms)}>
 			{preview.pieces.map((piece) => (
-				<GhostPiece key={piece.entityId} compose={compose} piece={piece} scale={camera.view.scale} isOk />
+				<GhostPiece key={piece.entityId} trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk />
 			))}
 		</g>
 	);

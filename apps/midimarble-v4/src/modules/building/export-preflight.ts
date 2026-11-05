@@ -81,16 +81,16 @@ function songIssues(project: TProject): TPreflightIssue[] {
 	return [{ id: 'song', kind: 'song', severity: 'warning', title: ADD_SONG_LABEL, detail: 'This project has hits but no song, so the film has no sound.', target: null }];
 }
 
-export type TProblemWorkspace = 'compose' | 'film';
+export type TProblemWorkspace = 'track' | 'film';
 
-/** Where a problem gets fixed: camera framing, titles and Decor in Film, everything about the run in Compose */
+/** Where a problem gets fixed: camera framing, titles and Decor in Film, everything about the run in Track */
 export function problemWorkspace(issue: TPreflightIssue): TProblemWorkspace {
-	return issue.kind === 'framing' || issue.kind === 'title' || issue.kind === 'decor' ? 'film' : 'compose';
+	return issue.kind === 'framing' || issue.kind === 'title' || issue.kind === 'decor' ? 'film' : 'track';
 }
 
 /** Each workspace's open problems, for the dot on the other workspace's switch */
 export function workspaceProblems(preflight: TExportPreflight): Record<TProblemWorkspace, number> {
-	const counts = { compose: 0, film: 0 };
+	const counts = { track: 0, film: 0 };
 	for (const issue of preflight.issues) if (issue.severity === 'warning' && issue.kind !== 'song') counts[problemWorkspace(issue)] += 1;
 	return counts;
 }
@@ -100,7 +100,7 @@ export function workspaceProblems(preflight: TExportPreflight): Record<TProblemW
  * Layers or the Camera track: "107 of 109 hits on time · 4 other problems", "2 hits need attention", or
  * "Checking…" until the run for the current edit arrives. Problems are the warnings in time order, so the
  * summary's click and Show First Problem go to the earliest. With a workspace it counts only that workspace's
- * problems, so Compose never speaks of the camera; the export sheet passes none and lists them all.
+ * problems, so Track never speaks of the camera; the export sheet passes none and lists them all.
  */
 export function problemSummary(preflight: TExportPreflight, workspace?: TProblemWorkspace): TProblemSummary {
 	const { hitCount: total, onTimeCount: onTime } = preflight;
@@ -226,7 +226,7 @@ export interface TPreflightIssue {
 	label?: string;
 	/** The stretch of the run a framing issue lasts, for the Camera track */
 	span?: { from: number; to: number };
-	/** What Compose selects and frames when the issue is clicked */
+	/** What Track selects and frames when the issue is clicked */
 	target: TPreflightTarget | null;
 }
 
@@ -251,7 +251,7 @@ export interface TPreflightTarget {
 	/** Playhead time to show */
 	time?: number;
 	/** The workspace that shows the issue; framing issues open Film with the Camera selected */
-	workspace?: 'compose' | 'design';
+	workspace?: 'track' | 'film';
 }
 
 export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'passes' | 'fall' | 'framing' | 'title' | 'decor' | 'simulation' | 'song';
@@ -679,7 +679,7 @@ function titleIssues(project: TProject): TPreflightIssue[] {
 				title: `“${title.text.split('\n')[0]}” is cut off`,
 				detail: 'The title is wider than the frame. A shorter line or a smaller Size fits it.',
 				time: title.in ?? 0,
-				target: { ids: [entity.id], time: title.in ?? 0, workspace: 'design' as const }
+				target: { ids: [entity.id], time: title.in ?? 0, workspace: 'film' as const }
 			}
 		];
 	});
@@ -700,7 +700,7 @@ function decorIssues(project: TProject, result: TSimulationResult, names: TNames
 			detail: `The marble passes over it${first != null ? ` at ${formatTime(first.time)}` : ''}. Decor has no hitbox, so the hit stays the same.`,
 			label,
 			time: first?.time,
-			target: { ids: [overlap.key], point: first?.point, time: first?.time, workspace: 'design' as const }
+			target: { ids: [overlap.key], point: first?.point, time: first?.time, workspace: 'film' as const }
 		};
 	});
 }
@@ -726,7 +726,7 @@ function createNames(project: TProject): TNames {
 
 /** Framing issues open Film at their time with the Camera selected */
 function cameraTarget(time: number): TPreflightTarget {
-	return { ids: [CAMERA_KEY], time, workspace: 'design' };
+	return { ids: [CAMERA_KEY], time, workspace: 'film' };
 }
 
 function countHits(project: TProject): number {

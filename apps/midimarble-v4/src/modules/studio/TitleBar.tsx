@@ -56,12 +56,12 @@ interface TTitleBarProps {
 }
 
 const workspaces: { id: TWorkspace; label: string; purpose: string; shortcut: string }[] = [
-	{ id: 'compose', label: 'Track', purpose: 'Track: shapes and timing, in 2D, 3D or Camera', shortcut: '⌘1' },
-	{ id: 'design', label: 'Film', purpose: 'Film: skins, camera and titles', shortcut: '⌘2' }
+	{ id: 'track', label: 'Track', purpose: 'Track: shapes and timing, in 2D, 3D or Camera', shortcut: '⌘1' },
+	{ id: 'film', label: 'Film', purpose: 'Film: skins, camera and titles', shortcut: '⌘2' }
 ];
 
 function problemsLabel(workspace: TWorkspace, count: number): string {
-	if (workspace === 'compose') return count === 1 ? '1 hit needs attention' : `${count} hits need attention`;
+	if (workspace === 'track') return count === 1 ? '1 hit needs attention' : `${count} hits need attention`;
 	return count === 1 ? '1 problem needs attention' : `${count} problems need attention`;
 }
 
@@ -76,7 +76,7 @@ const WorkspaceSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 		<div className="mm-segmented mm-titlebar-workspace" role="tablist" aria-label="Workspace" data-quick-help="workspace">
 			{workspaces.map((item) => {
 				// Only the other workspace's problems: the one you are in shows its own in place, like Xcode's tab badges
-				const count = item.id === workspace || problems == null ? 0 : problems[item.id === 'design' ? 'film' : 'compose'];
+				const count = item.id === workspace || problems == null ? 0 : problems[item.id];
 				const attention = count > 0 ? problemsLabel(item.id, count) : null;
 				return (
 					<button
@@ -85,7 +85,7 @@ const WorkspaceSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 						onClick={() => cx.$workspace.set(item.id)}
 						role="tab"
 						aria-selected={workspace === item.id}
-						data-hint-anchor={item.id === 'design' ? 'film' : undefined}
+						data-hint-anchor={item.id === 'film' ? 'film' : undefined}
 						title={`${attention != null ? `${attention} · ` : ''}${item.purpose} (${item.shortcut})`}
 						type="button"
 					>
@@ -146,10 +146,10 @@ const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
  */
 const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
-	const status = useFeatureState(cx.design.$status);
-	const version = useFeatureState(cx.design.$blenderVersion);
-	const error = useFeatureState(cx.design.$error);
-	const isRenderingPreview = useFeatureState(cx.design.live.$isRendering);
+	const status = useFeatureState(cx.film.$status);
+	const version = useFeatureState(cx.film.$blenderVersion);
+	const error = useFeatureState(cx.film.$error);
+	const isRenderingPreview = useFeatureState(cx.film.live.$isRendering);
 	const state = blenderState(status, version, error, isRenderingPreview);
 	const working = useWorkingWord(state.tone === 'busy' ? state.label : null);
 
@@ -157,11 +157,11 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 	if (status === 'missing') {
 		items = [{ section: 'Blender Not Installed' }, { label: 'Install Blender…', onSelect: () => void openExternalUrl(BLENDER_DOWNLOAD_URL) }];
 	} else {
-		const logPath = cx.design.logPath();
+		const logPath = cx.film.logPath();
 		items = [
 			{ section: state.detail },
-			commandItem(cx, 'design.editInBlender'),
-			commandItem(cx, 'design.restartBlender'),
+			commandItem(cx, 'film.editInBlender'),
+			commandItem(cx, 'film.restartBlender'),
 			{
 				label: 'Show Blender Log',
 				disabled: logPath == null,
@@ -264,8 +264,8 @@ function useWorkingWord(label: string | null): { word: string; isShown: boolean 
  */
 const ExportButton: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
-	const job = useFeatureState(cx.film.$job);
-	const isSheetOpen = useFeatureState(cx.film.$isSheetOpen);
+	const job = useFeatureState(cx.filmExport.$job);
+	const isSheetOpen = useFeatureState(cx.filmExport.$isSheetOpen);
 	const isExporting = job.phase === 'preparing' || job.phase === 'rendering' || job.phase === 'encoding';
 	const hasFailed = job.phase === 'failed';
 	const showsActivity = !isSheetOpen && (isExporting || hasFailed);
@@ -276,7 +276,7 @@ const ExportButton: React.FC<{ cx: StudioCx }> = (props) => {
 			className="mm-button mm-titlebar-export"
 			data-variant="primary"
 			data-quick-help="export"
-			onClick={() => cx.film.openSheet()}
+			onClick={() => cx.filmExport.openSheet()}
 			title={title}
 			aria-label={showsActivity ? title : 'Export Film…'}
 			type="button"

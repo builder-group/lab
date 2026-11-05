@@ -10,7 +10,7 @@ import type { StudioCx } from '@/modules/studio';
 import { formatTime, parseTime } from '@/modules/project';
 import { cameraCommands } from '@/modules/camera';
 import { builtInSkinCommands, commonPieceType, frameHeightOnWall, isScreenTitle, pieceCountLabel, titleStyles, withTitleStyle, type TTitleStyle } from './film-commands';
-import type { TDesignLink } from './FilmCx';
+import type { TFilmLink } from './FilmCx';
 import { SkinPicker } from './SkinPickers';
 import { SkinPropertyRows } from './SkinProperties';
 import { framingProblemAt, preflightExport } from '@/modules/building';
@@ -19,7 +19,7 @@ import { framingProblemAt, preflightExport } from '@/modules/building';
 // Camera. The studio's Inspector picks one for the selection.
 
 /**
- * The Camera layer's inspector, in Compose and in Film: Follow Marbles with the rig's distance, turn, tilt and sway and the framing
+ * The Camera layer's inspector, in Track and in Film: Follow Marbles with the rig's distance, turn, tilt and sway and the framing
  * problem at the playhead; off, the camera is the user's, moved in Blender
  */
 export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
@@ -73,11 +73,11 @@ function degreesToRadians(degrees: number): number {
 const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const camera = project.design.camera;
-	const cameraState = useFeatureState(cx.design.$camera);
-	const status = useFeatureState(cx.design.$status);
+	const cameraState = useFeatureState(cx.film.$camera);
+	const status = useFeatureState(cx.film.$status);
 	const [isConfirming, setIsConfirming] = React.useState(false);
 	// A drag in the preview shows here as it goes
-	const angles = useFeatureState(cx.design.$orbit) ?? cameraAngles(camera);
+	const angles = useFeatureState(cx.film.$orbit) ?? cameraAngles(camera);
 
 	function set(patch: Partial<TDesign['camera']>): void {
 		cx.execute(cameraCommands(project, patch));
@@ -86,7 +86,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	return (
 		<>
 		<Panel
-			id="design.camera"
+			id="film.camera"
 			title="Camera"
 			accessory={<HelpTip text="Follow Marbles: the camera follows the marbles, shaped by the shots; drag in Track's Camera view or Film's preview to orbit it. Off: the camera stays where it is, and you move and animate it in Blender." />}
 		>
@@ -98,7 +98,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</span>
 			{camera.mode === 'rig' ? (
 				<>
-					{cx.$workspace.get() === 'design' ? <FramingProblem cx={cx} project={project} /> : null}
+					{cx.$workspace.get() === 'film' ? <FramingProblem cx={cx} project={project} /> : null}
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
 					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the preview to orbit" value={radiansToDegrees(angles.side)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ side: degreesToRadians(value) })} />
 					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the preview to orbit" value={radiansToDegrees(angles.pitch)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ pitch: degreesToRadians(value) })} />
@@ -116,7 +116,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 										data-variant="primary"
 										onClick={() => {
 											setIsConfirming(false);
-											void cx.design.regenerateCamera();
+											void cx.film.regenerateCamera();
 										}}
 										type="button"
 									>
@@ -136,7 +136,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 					<p className="mm-caption" data-span="2">
 						The camera is yours: move it in Blender.
 					</p>
-					<button className="mm-button" data-span="2" disabled={status === 'unavailable' || status === 'missing'} onClick={() => void cx.design.openInBlender()} type="button">
+					<button className="mm-button" data-span="2" disabled={status === 'unavailable' || status === 'missing'} onClick={() => void cx.film.openInBlender()} type="button">
 						Open in Blender
 					</button>
 				</>
@@ -154,7 +154,7 @@ const FramingProblem: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 	const { cx, project } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	const playhead = useFeatureState(cx.$playhead);
-	const preflight = React.useMemo(() => preflightExport(project, result, cx.design.$blenderObjects.get()), [project, result]);
+	const preflight = React.useMemo(() => preflightExport(project, result, cx.film.$blenderObjects.get()), [project, result]);
 	const issue = framingProblemAt(preflight, playhead);
 	if (issue == null) return null;
 	return <StateRow tone="warn" label={issue.title} detail={issue.detail} />;
@@ -180,7 +180,7 @@ export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TS
 		<>
 			<InspectorHeader icon={<Bookmark size={16} strokeWidth={1.7} />} title={shotKindLabel(shot.kind)} subtitle="Shot" />
 			<Panel
-				id="design.shot"
+				id="film.shot"
 				title="Shot"
 				accessory={
 					<HelpTip text="When the shot starts, the camera eases to its distance over 0.8 s. After its hold it eases back to the automatic camera; a hold of 0 keeps the shot until the next one. Drag the shot on the timeline to move it." />
@@ -215,13 +215,13 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 	const text = entity.components.wallText;
 	const transform = entity.components.transform;
 	const filmEnd = project.end;
-	const editingTitle = useFeatureState(cx.design.$editingTitle);
+	const editingTitle = useFeatureState(cx.film.$editingTitle);
 	const [timingKey, setTimingKey] = React.useState(0);
 
 	// A title just placed starts in its Text field with the text selected, like Figma's text tool
 	React.useEffect(() => {
 		if (editingTitle !== entity.id) return;
-		cx.design.$editingTitle.set(null);
+		cx.film.$editingTitle.set(null);
 		const field = document.getElementById('text-content');
 		if (field instanceof HTMLInputElement) {
 			field.focus();
@@ -277,13 +277,13 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 		<>
 			<InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={text.text || 'Title'} subtitle={titleStyles.find((item) => item.style === style)?.label ?? 'Title'} />
 			{!isScreen ? (
-				<Panel id="design.wallText.position" title="Position">
+				<Panel id="film.wallText.position" title="Position">
 					<ScrubField id="text-x" label="X" name="X" value={(transform?.position.x ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />
 					<ScrubField id="text-y" label="Y" name="Y" value={(transform?.position.y ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
 				</Panel>
 			) : null}
 			<Panel
-				id="design.wallText"
+				id="film.wallText"
 				title="Text"
 				accessory={
 					<HelpTip text="Wall Title sits on the wall where you placed it. Caption, Song Name and End Card stay in the frame while the camera moves, and their size is a share of the frame height. Song Name opens the film, Caption shows for 3 s from the playhead and End Card covers the last 3 s." />
@@ -308,7 +308,7 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 					<ScrubField id="text-size" label="Size" name="Letter height" value={text.size * 100} unit="cm" step={0.05} precision={1} min={0.2} max={50} onCommit={(value) => setText({ size: value / 100 })} />
 				)}
 			</Panel>
-			<Panel id="design.wallText.appearance" title="Appearance">
+			<Panel id="film.wallText.appearance" title="Appearance">
 				<span className="mm-ifield" data-span="2">
 					<label htmlFor="text-color" className="mm-ifield-label">
 						Color
@@ -330,7 +330,7 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 					</span>
 				) : null}
 			</Panel>
-			<Panel id="design.wallText.timing" title="Timing">
+			<Panel id="film.wallText.timing" title="Timing">
 				<TextField key={`in-${timingKey}`} id="text-in" label="In" name="Time the title appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="text-out" label="Out" name="Time the title disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
@@ -344,7 +344,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 	const { cx, project, pieces } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
-	const links = useFeatureState(cx.design.$links);
+	const links = useFeatureState(cx.film.$links);
 
 	const first = pieces[0] as TEntity;
 	// Skins fit one piece type: with several types selected they go on the most common one
@@ -375,7 +375,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 				onRename={isSingle ? (value) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name: value } }]) : undefined}
 			/>
 			<Panel
-				id="design.skin"
+				id="film.skin"
 				title="Appearance"
 				accessory={
 					<HelpTip
@@ -397,7 +397,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 };
 
 /** A piece changed in Blender, as one row with a reset button; the normal state needs no row */
-const LinkState: React.FC<{ cx: StudioCx; link: TDesignLink | 'mixed' | null; unlinked: string[] }> = (props) => {
+const LinkState: React.FC<{ cx: StudioCx; link: TFilmLink | 'mixed' | null; unlinked: string[] }> = (props) => {
 	const { cx, link, unlinked } = props;
 	if (link == null || !unlinked.length) return null;
 	const reason = link !== 'mixed' && link.reason != null ? reasonLabel(link.reason) : null;
@@ -407,7 +407,7 @@ const LinkState: React.FC<{ cx: StudioCx; link: TDesignLink | 'mixed' | null; un
 			label={link === 'mixed' ? 'Some detached' : `Detached${reason != null ? ` · ${reason}` : ''}`}
 			detail="Changed in Blender, so the app no longer moves it. The marble still bounces off the Track position."
 			action={
-				<button className="mm-icon-button" onClick={() => void cx.design.relink(unlinked)} title="Discard Blender Changes: the app moves it again" aria-label="Discard Blender Changes" type="button">
+				<button className="mm-icon-button" onClick={() => void cx.film.relink(unlinked)} title="Discard Blender Changes: the app moves it again" aria-label="Discard Blender Changes" type="button">
 					<RotateCcw size={12} strokeWidth={1.9} />
 				</button>
 			}
@@ -415,10 +415,10 @@ const LinkState: React.FC<{ cx: StudioCx; link: TDesignLink | 'mixed' | null; un
 	);
 };
 
-function mergedLink(links: (TDesignLink | undefined)[]): TDesignLink | 'mixed' | null {
-	const known = links.filter((link): link is TDesignLink => link != null);
+function mergedLink(links: (TFilmLink | undefined)[]): TFilmLink | 'mixed' | null {
+	const known = links.filter((link): link is TFilmLink => link != null);
 	if (!known.length) return null;
-	const first = known[0] as TDesignLink;
+	const first = known[0] as TFilmLink;
 	return known.every((link) => link.link === first.link) ? first : 'mixed';
 }
 

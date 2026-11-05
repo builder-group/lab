@@ -60,12 +60,12 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	function endResize(group: TPatternGroup): void {
 		const edit = resize;
 		setResize(null);
-		const compose = cx.$compose.get();
-		if (edit == null || compose == null) return;
+		const trackCx = cx.$trackCx.get();
+		if (edit == null || trackCx == null) return;
 		const from = edit.edge === 'from' ? Math.min(edit.time, group.to) : group.from;
 		const to = edit.edge === 'to' ? Math.max(edit.time, group.from) : group.to;
 		if (Math.abs(from - group.from) < 1e-4 && Math.abs(to - group.to) < 1e-4) return;
-		void compose.patterns.apply({ laneId: lane.id, from, to, group }, group.kind);
+		void trackCx.patterns.apply({ laneId: lane.id, from, to, group }, group.kind);
 	}
 
 	const isHinting = hoverX != null && range == null && selectedRange == null;

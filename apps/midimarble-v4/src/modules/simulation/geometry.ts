@@ -1,6 +1,6 @@
 import type { TVec2 } from '@/modules/project';
 
-// Wall-plane geometry shared by the simulation and the Compose helpers
+// Wall-plane geometry shared by the simulation and the Track helpers
 
 /** Earth gravity along y; a project scales it by `physics.gravityScale` (`gravityOf`) */
 export const GRAVITY_Y = -9.81;

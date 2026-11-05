@@ -45,8 +45,8 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
 	const conflicts = React.useMemo(() => findLaneConflicts(lane), [lane]);
 	const workspace = useFeatureState(cx.$workspace);
-	const isCompose = workspace === 'compose';
-	const hitsTop = isCompose ? PATTERN_STRIP_HEIGHT : 0;
+	const isTrack = workspace === 'track';
+	const hitsTop = isTrack ? PATTERN_STRIP_HEIGHT : 0;
 	const marquee = useMarquee(cx, lane, zoom, selection, timeAt, hitsTop);
 
 	return (
@@ -63,7 +63,7 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 				openContextMenu(event, laneMenu(cx, lane, timeAt(event.clientX)));
 			}}
 		>
-			{isCompose ? <PatternStrip cx={cx} lane={lane} zoom={zoom} timeAt={timeAt} /> : null}
+			{isTrack ? <PatternStrip cx={cx} lane={lane} zoom={zoom} timeAt={timeAt} /> : null}
 			{!lane.hits.length ? (
 				<EmptyLaneHint cx={cx} lane={lane} top={hitsTop + (ROW_HEIGHT - hitsTop) / 2} />
 			) : null}

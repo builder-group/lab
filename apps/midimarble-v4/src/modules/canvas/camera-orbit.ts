@@ -42,7 +42,7 @@ export function startCameraOrbit(cx: StudioCx, event: React.PointerEvent): void 
 		if (move.pointerId !== pointerId) return;
 		if (!isDragged && Math.hypot(move.clientX - startX, move.clientY - startY) < DRAG_THRESHOLD) return;
 		isDragged = true;
-		cx.design.$orbit.set(orbitedAngles(start, move.clientX - startX, move.clientY - startY));
+		cx.film.$orbit.set(orbitedAngles(start, move.clientX - startX, move.clientY - startY));
 	}
 
 	function onEnd(end: PointerEvent): void {
@@ -51,12 +51,12 @@ export function startCameraOrbit(cx: StudioCx, event: React.PointerEvent): void 
 		window.removeEventListener('pointerup', onEnd);
 		window.removeEventListener('pointercancel', onEnd);
 		if (!isDragged) return;
-		const angles = cx.design.$orbit.get();
+		const angles = cx.film.$orbit.get();
 		const current = cx.project;
 		if (angles != null && current != null && end.type === 'pointerup') cx.execute(cameraCommands(current, angles));
 		// Track draws only the plain view, so no Blender frame will end the orbit there
-		if (cx.$workspace.get() === 'compose') cx.design.clearOrbit();
-		else cx.design.endOrbit();
+		if (cx.$workspace.get() === 'track') cx.film.clearOrbit();
+		else cx.film.endOrbit();
 		if (end.type === 'pointerup') swallowNextClick();
 	}
 

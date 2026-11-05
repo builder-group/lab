@@ -3,7 +3,7 @@ import type { TProjectCommand } from '@/modules/project';
 import { anchorPiece, isMusicalPiece, unanchorPiece, unlinkPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { attachState } from '@/modules/building';
-import type { ComposeCx } from './TrackCx';
+import type { TrackCx } from './TrackCx';
 import { nearestMoment } from '@/modules/scene';
 import { selectedPieceIds } from './step-loop';
 
@@ -88,9 +88,9 @@ export function canPlayNote(cx: StudioCx): boolean {
 }
 
 /** Play a Note…: arms the selected platform for a click on a note's dot */
-export function armPlayNote(cx: StudioCx, compose: ComposeCx): void {
+export function armPlayNote(cx: StudioCx, trackCx: TrackCx): void {
 	const entityId = pieceToLink(cx);
-	if (entityId != null) compose.armPlayNote(entityId);
+	if (entityId != null) trackCx.armPlayNote(entityId);
 }
 
 /** Whether a selected piece can follow a marble in the run */

@@ -157,12 +157,12 @@ function isStepDone(id: THintId, mark: THintMark, facts: THintFacts): boolean {
 		case 'dot':
 			return facts.openCount != null && facts.openCount < mark.openCount;
 		case 'film':
-			return facts.workspace === 'design';
+			return facts.workspace === 'film';
 	}
 }
 
 function canOpen(id: THintId, seen: THintId[], facts: THintFacts): boolean {
-	if (facts.workspace !== 'compose') return false;
+	if (facts.workspace !== 'track') return false;
 	switch (id) {
 		case 'song':
 			return facts.hasSong;

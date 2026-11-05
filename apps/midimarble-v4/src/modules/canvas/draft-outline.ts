@@ -5,7 +5,7 @@ import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 /**
  * Selection outline of a solid piece in the Draft Preview: the convex hull of its corners at the wall and at its
  * front, as the steep film camera sees the whole bar, moved out by `margin` pixels so the stroke clears the piece
- * like the Compose canvas's selection. Points that are not finite are left out.
+ * like the Track canvas's selection. Points that are not finite are left out.
  */
 export function selectionHull(points: TVec2[], margin: number): TVec2[] {
 	const hull = convexHull(points.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y)));

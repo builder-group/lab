@@ -1,8 +1,8 @@
 import { useFeatureState } from 'feature-react/state';
 import { Hand, MousePointer2, Plus } from 'lucide-react';
 import React from 'react';
-import type { ComposeCx } from '@/modules/track';
-import { InsertDragGhost, InsertLibrary, toolKeys, type TComposeTool } from '@/modules/track';
+import type { TrackCx } from '@/modules/track';
+import { InsertDragGhost, InsertLibrary, toolKeys, type TTrackTool } from '@/modules/track';
 import { FilmInsert } from '@/modules/film';
 import { isEditingTarget } from '@/lib';
 import { getCommand } from './commands';
@@ -14,10 +14,10 @@ import { useInsertDrag } from './use-insert-drag';
 export const ToolRail: React.FC<TToolRailProps> = (props) => {
 	const { cx } = props;
 	const workspace = useFeatureState(cx.$workspace);
-	const compose = useFeatureState(cx.$compose);
+	const trackCx = useFeatureState(cx.$trackCx);
 	return (
 		<nav className="mm-tool-rail" aria-label="Tools" data-quick-help="tools">
-			{workspace === 'compose' ? compose != null ? <ComposeTools cx={cx} compose={compose} /> : null : <DesignTools cx={cx} />}
+			{workspace === 'track' ? trackCx != null ? <TrackTools cx={cx} trackCx={trackCx} /> : null : <FilmTools cx={cx} />}
 		</nav>
 	);
 };
@@ -26,16 +26,16 @@ interface TToolRailProps {
 	cx: StudioCx;
 }
 
-const ComposeTools: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
-	const { cx, compose } = props;
+const TrackTools: React.FC<{ cx: StudioCx; trackCx: TrackCx }> = (props) => {
+	const { cx, trackCx } = props;
 	const history = useFeatureState(cx.$history);
-	const tool = useFeatureState(compose.$tool);
-	const isLibraryOpen = useFeatureState(compose.$libraryOpen);
-	const inserting = useFeatureState(compose.$inserting);
+	const tool = useFeatureState(trackCx.$tool);
+	const isLibraryOpen = useFeatureState(trackCx.$libraryOpen);
+	const inserting = useFeatureState(trackCx.$inserting);
 	const insertButtonRef = React.useRef<HTMLButtonElement>(null);
-	const ghost = useInsertDrag(compose);
-	const item = (id: TComposeTool, label: string, detail: string, icon: React.ReactNode): React.ReactNode => (
-		<RailButton key={id} label={label} detail={detail} shortcut={toolKeys.find((key) => key.tool === id)?.key} isActive={tool === id} onClick={() => compose.armTool(id)}>
+	const ghost = useInsertDrag(trackCx);
+	const item = (id: TTrackTool, label: string, detail: string, icon: React.ReactNode): React.ReactNode => (
+		<RailButton key={id} label={label} detail={detail} shortcut={toolKeys.find((key) => key.tool === id)?.key} isActive={tool === id} onClick={() => trackCx.armTool(id)}>
 			{icon}
 		</RailButton>
 	);
@@ -53,26 +53,26 @@ const ComposeTools: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => 
 				shortcut="⇧I"
 				isActive={isLibraryTool}
 				isOpen={isLibraryOpen}
-				onClick={() => compose.$libraryOpen.set(!isLibraryOpen)}
+				onClick={() => trackCx.$libraryOpen.set(!isLibraryOpen)}
 			>
 				<Plus size={18} strokeWidth={1.6} />
 			</RailButton>
-			{isLibraryOpen && inserting == null ? <InsertLibrary compose={compose} anchor={insertButtonRef} onStartDrag={ghost.start} onAddSong={history?.present != null && hasSongLayer(history.present) ? undefined : () => getCommand('file.importMidi').run(cx)} /> : null}
+			{isLibraryOpen && inserting == null ? <InsertLibrary trackCx={trackCx} anchor={insertButtonRef} onStartDrag={ghost.start} onAddSong={history?.present != null && hasSongLayer(history.present) ? undefined : () => getCommand('file.importMidi').run(cx)} /> : null}
 			{ghost.state != null && !ghost.state.isOnCanvas ? <InsertDragGhost item={ghost.state.item} position={ghost.state.position} /> : null}
 		</>
 	);
 };
 
-const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
+const FilmTools: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
-	const placing = useFeatureState(cx.design.$placing);
+	const placing = useFeatureState(cx.film.$placing);
 	const isInsertOpen = useFeatureState(cx.library.$insertOpen);
 	const insertButtonRef = React.useRef<HTMLButtonElement>(null);
 
 	// Closes with the workspace, so it doesn't come back open
 	React.useEffect(() => () => cx.library.$insertOpen.set(false), [cx]);
 
-	// V and T switch tools and ⇧I opens Insert while Film is open; Compose keeps T for tapping hits
+	// V and T switch tools and ⇧I opens Insert while Film is open; Track keeps T for tapping hits
 	React.useEffect(() => {
 		function onKeyDown(event: KeyboardEvent): void {
 			if (isEditingTarget(event) || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -84,8 +84,8 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 				return;
 			}
 			const key = event.key.toLowerCase();
-			if (key === 'v') cx.design.$placing.set(null);
-			else if (key === 't') getCommand('design.addText').run(cx);
+			if (key === 'v') cx.film.$placing.set(null);
+			else if (key === 't') getCommand('film.addText').run(cx);
 			else return;
 			event.preventDefault();
 			event.stopPropagation();
@@ -96,7 +96,7 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 
 	return (
 		<>
-			<RailButton label="Move" detail="Select track pieces and titles in the preview" shortcut="V" isActive={placing == null} onClick={() => cx.design.$placing.set(null)}>
+			<RailButton label="Move" detail="Select track pieces and titles in the preview" shortcut="V" isActive={placing == null} onClick={() => cx.film.$placing.set(null)}>
 				<MousePointer2 size={17} strokeWidth={1.6} />
 			</RailButton>
 			<div className="mm-tool-rail-divider" />
@@ -106,7 +106,7 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 			{isInsertOpen ? <FilmInsert
 					cx={cx}
 					anchor={insertButtonRef}
-					onAddTitle={() => getCommand('design.addText').run(cx)}
+					onAddTitle={() => getCommand('film.addText').run(cx)}
 					onAddLight={() => getCommand('light.add').run(cx)}
 				/> : null}
 		</>

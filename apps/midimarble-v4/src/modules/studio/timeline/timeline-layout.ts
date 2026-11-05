@@ -5,7 +5,7 @@ export const TIME_INSET = 8;
 export const TIME_ORIGIN = HEADER_WIDTH + TIME_INSET;
 export const RULER_HEIGHT = 24;
 export const ROW_HEIGHT = 44;
-// The slim Pattern strip above a marble's hits in Compose (prototype); the hits sit in the rest of the row
+// The slim Pattern strip above a marble's hits in Track (prototype); the hits sit in the rest of the row
 export const PATTERN_STRIP_HEIGHT = 16;
 export const SONG_ROW_HEIGHT = 40;
 // One Part of the expanded Song, below its piano roll

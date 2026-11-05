@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { ComposeCanvas } from '@/modules/track';
-import { DesignView } from '@/modules/film';
+import { TrackCanvas } from '@/modules/track';
+import { FilmView } from '@/modules/film';
 import { mountNativeMenu } from './native-menu';
 import { Studio } from './Studio';
 import { StudioCx } from './StudioCx';
@@ -29,11 +29,11 @@ export const StudioWindow: React.FC<{ cx: StudioCx }> = (props) => {
 		<Studio
 			cx={cx}
 			canvas={
-				workspace === 'compose' ? (
-					<ComposeCanvas cx={cx} />
+				workspace === 'track' ? (
+					<TrackCanvas cx={cx} />
 				) : (
-					<DesignView
-						cx={cx.design}
+					<FilmView
+						cx={cx.film}
 						studio={cx}
 						frame={history.present.frame}
 						onPick={(id, shiftKey) => {

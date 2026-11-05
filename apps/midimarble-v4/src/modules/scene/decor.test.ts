@@ -148,11 +148,11 @@ describe('Decor', () => {
 				return { project: apply(project, commands), decorId: id };
 			})();
 			const objects = [{ name: 'Tree', bounds: { minX: 0, minY: 0, maxX: 1, maxY: 1 } }];
-			const film = buildOutline(base, { workspace: 'design', blenderObjects: objects });
+			const film = buildOutline(base, { workspace: 'film', blenderObjects: objects });
 			const group = film.findIndex((row) => row.id === DECOR_KEY);
 			expect(group).toBeGreaterThan(film.findIndex((row) => row.kind === 'camera'));
 			expect(film.slice(group + 1).map((row) => row.kind)).toEqual(['decor', 'madeInBlender']);
-			expect(buildOutline(base, { workspace: 'compose', blenderObjects: objects }).some((row) => row.id === DECOR_KEY || row.kind === 'decor')).toBe(false);
+			expect(buildOutline(base, { workspace: 'track', blenderObjects: objects }).some((row) => row.id === DECOR_KEY || row.kind === 'decor')).toBe(false);
 			expect(inspectorTarget(base, [toDecorKey(decorId)])).toEqual({ kind: 'decor', id: decorId });
 			expect(inspectorTarget(base, [toMadeInBlenderKey('Tree')])).toEqual({ kind: 'madeInBlender', name: 'Tree' });
 		});
@@ -167,7 +167,7 @@ describe('Decor', () => {
 			const tip = decorTips(preflight).get(toDecorKey(decorId));
 			expect(tip?.severity).toBe('info');
 			expect(tip?.label).toMatch(/^Overlaps .+'s path/);
-			expect(tip?.target?.workspace).toBe('design');
+			expect(tip?.target?.workspace).toBe('film');
 			const warnings = preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS).warnings;
 			expect(preflight.warnings).toBe(warnings);
 		});
@@ -353,14 +353,14 @@ function isInFrameAt(camera: TCameraTrack, frame: number, point: { x: number; y:
 }
 
 describe('Film Layers', () => {
-	it('should open with the marbles and Decor closed, and Compose open, each toggled the other way by hand', () => {
+	it('should open with the marbles and Decor closed, and Track open, each toggled the other way by hand', () => {
 		const project = createStaircaseProject();
 		const laneId = project.music.lanes[0]?.id as string;
-		expect(collapsedGroups(project, 'design', [])).toEqual(expect.arrayContaining([laneId, DECOR_KEY]));
-		expect(collapsedGroups(project, 'compose', [])).toEqual([]);
-		expect(collapsedGroups(project, 'design', [laneId])).not.toContain(laneId);
-		expect(collapsedGroups(project, 'compose', [laneId])).toEqual([laneId]);
-		const rows = buildOutline(project, { workspace: 'design', collapsed: collapsedGroups(project, 'design', []) });
+		expect(collapsedGroups(project, 'film', [])).toEqual(expect.arrayContaining([laneId, DECOR_KEY]));
+		expect(collapsedGroups(project, 'track', [])).toEqual([]);
+		expect(collapsedGroups(project, 'film', [laneId])).not.toContain(laneId);
+		expect(collapsedGroups(project, 'track', [laneId])).toEqual([laneId]);
+		const rows = buildOutline(project, { workspace: 'film', collapsed: collapsedGroups(project, 'film', []) });
 		expect(rows.some((row) => row.kind === 'piece')).toBe(false);
 		expect(rows.some((row) => row.kind === 'wall')).toBe(true);
 	});

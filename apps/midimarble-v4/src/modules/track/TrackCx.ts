@@ -10,29 +10,29 @@ import type { StudioCx } from '@/modules/studio';
 import { dragRotation, normalizeSurfaceAngle, screenAngle, snapAngle, toRadians, type TRotationDrag } from './angles';
 import { groupSelection, PatternsCx, withWholeGroups } from './PatternsCx';
 import { AssistCx } from './AssistCx';
-import { ComposeRenderer, MARBLE_Z, type TComposeCamera } from '@/modules/canvas';
-import { composeKeyAction, toolPieceType, type TComposeKeyAction, type TComposeTool, type TPathType } from './keys';
+import { TrackRenderer, MARBLE_Z, type TTrackCamera } from '@/modules/canvas';
+import { trackKeyAction, toolPieceType, type TTrackKeyAction, type TTrackTool, type TPathType } from './keys';
 import { insertTool, type TInsertItem } from './library';
 import { asLaneBowl, commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
 import { createViewMotion, FOLLOW_RATE, followMarble, isSettled, keepInView, NAVIGATE_RATE, stepViewMotion, type TViewMotion } from './view-follow';
 
-export type { TComposeTool } from './keys';
+export type { TTrackTool } from './keys';
 
 /** Meters of the wall kept around a framed problem */
 const FRAME_ROOM = 0.25;
 
 /**
- * Owns the Compose canvas: camera, tools, pointer and keyboard interaction and the WebGL renderer. The
+ * Owns the Track canvas: camera, tools, pointer and keyboard interaction and the WebGL renderer. The
  * canvas is open like Figma: every element can be placed anywhere, moved and turned, and a drop decides
  * whether it stays free, links to a hit dot or anchors to a trajectory.
  */
 /** Two presses on a piece this close are a double click */
 const DOUBLE_PRESS_MS = 400;
 
-export class ComposeCx {
-	readonly $camera = createState<TComposeCamera>({ mode: '2d', view: { center: { x: 0, y: 0.4 }, scale: 900 } });
+export class TrackCx {
+	readonly $camera = createState<TTrackCamera>({ mode: '2d', view: { center: { x: 0, y: 0.4 }, scale: 900 } });
 	readonly $viewport = createState<TViewport>({ width: 0, height: 0 });
-	readonly $tool = createState<TComposeTool>('select');
+	readonly $tool = createState<TTrackTool>('select');
 	/** Piece the path tool draws, set by B (rail), U (tunnel) or the Insert library */
 	readonly $pathType = createState<TPathType>('rail');
 	/** The Insert library popover of the tool rail is open */
@@ -40,7 +40,7 @@ export class ComposeCx {
 	/** Library item being dragged onto the canvas */
 	readonly $inserting = createState<TInsertItem | null>(null);
 	readonly $hover = createState<TPick | null>(null);
-	readonly $drag = createState<TComposeDrag | null>(null);
+	readonly $drag = createState<TTrackDrag | null>(null);
 	readonly $spaceHeld = createState(false);
 	/** Entity whose angle readout is being typed into */
 	readonly $editingAngle = createState<string | null>(null);
@@ -68,7 +68,7 @@ export class ComposeCx {
 	/** The platform Play a Note… armed, which the next click on a note's dot links; any other click disarms it */
 	readonly $playNoteFor = createState<string | null>(null);
 
-	private renderer: ComposeRenderer | null = null;
+	private renderer: TrackRenderer | null = null;
 	private container: HTMLElement | null = null;
 	private framedProjectId: string | null = null;
 	private spacePanned = false;
@@ -101,7 +101,7 @@ export class ComposeCx {
 	// MARK: - Lifecycle
 
 	mount(container: HTMLElement, canvas: HTMLCanvasElement): () => void {
-		const renderer = new ComposeRenderer(canvas);
+		const renderer = new TrackRenderer(canvas);
 		this.renderer = renderer;
 		this.container = container;
 		const cleanups: (() => void)[] = [];
@@ -242,14 +242,14 @@ export class ComposeCx {
 		});
 
 		this.loadFollow();
-		this.studio.$compose.set(this);
+		this.studio.$trackCx.set(this);
 		cleanups.push(() => {
-			if (this.studio.$compose.get() === this) this.studio.$compose.set(null);
+			if (this.studio.$trackCx.get() === this) this.studio.$trackCx.set(null);
 		});
 
 		return () => {
 			const projectId = this.project?.id;
-			if (projectId != null && projectId === this.framedProjectId) this.studio.composeView = { projectId, view: this.$camera.get().view };
+			if (projectId != null && projectId === this.framedProjectId) this.studio.trackWallView = { projectId, view: this.$camera.get().view };
 			for (const cleanup of cleanups) cleanup();
 			this.studio.simulation.endPreview();
 			window.clearTimeout(this.openingTimer);
@@ -742,7 +742,7 @@ export class ComposeCx {
 			this.framedProjectId = project.id;
 			this.revealedProjectId = null;
 			// Back from Film, the wall stays where the user left it
-			const kept = this.studio.composeView;
+			const kept = this.studio.trackWallView;
 			if (kept?.projectId === project.id) {
 				this.$camera.set((camera) => ({ ...camera, view: kept.view }));
 				this.revealedProjectId = project.id;
@@ -764,7 +764,7 @@ export class ComposeCx {
 		this.revealedProjectId = project.id;
 		this.revealFirstHits(project);
 		this.setOpening(false);
-		// A reveal sent while Compose was not mounted, such as from the export preflight in Design
+		// A reveal sent while Track was not mounted, such as from the export preflight in Film
 		this.revealPending();
 	}
 
@@ -1335,7 +1335,7 @@ export class ComposeCx {
 	}
 
 	/** Arms a tool; the path tool takes the piece it draws, a rail unless asked for a tunnel */
-	armTool(tool: TComposeTool, pathType: TPathType = 'rail'): void {
+	armTool(tool: TTrackTool, pathType: TPathType = 'rail'): void {
 		const pen = this.$pen.get();
 		if (tool === 'path' && pathType !== this.$pathType.get()) {
 			this.$pathType.set(pathType);
@@ -2107,7 +2107,7 @@ export class ComposeCx {
 	// MARK: - Keyboard
 
 	private onKeyDown(event: KeyboardEvent): void {
-		if (isEditingTarget(event) || this.studio.$workspace.get() !== 'compose') return;
+		if (isEditingTarget(event) || this.studio.$workspace.get() !== 'track') return;
 		if (event.key === ' ' && !event.metaKey && !event.ctrlKey && !event.altKey) {
 			// Space and drag pans like Figma; a plain press still plays and pauses on release
 			event.preventDefault();
@@ -2122,7 +2122,7 @@ export class ComposeCx {
 		if (isInTree && (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'Enter')) return;
 		const project = this.project;
 		const selection = this.studio.$selection.get();
-		const action = composeKeyAction(event, {
+		const action = trackKeyAction(event, {
 			hasPieces: project != null && (selectedPieceIds(project, selection).length > 0 || project.entities.some((entity) => selection.includes(entity.id) && entity.components.marble != null)),
 			// A selected Song or Camera track is no Next target, so Return keeps its timeline meaning there
 			hasSelection: selection.some((key) => key !== SONG_KEY && key !== CAMERA_KEY),
@@ -2136,7 +2136,7 @@ export class ComposeCx {
 	}
 
 	/** Runs a keyboard action; returns false when it did nothing, so the key falls through */
-	runKeyAction(action: TComposeKeyAction): boolean {
+	runKeyAction(action: TTrackKeyAction): boolean {
 		switch (action.type) {
 			case 'follow':
 				if (this.studio.$trackView.get() !== 'camera') this.toggleFollow();
@@ -2358,11 +2358,11 @@ interface TPickInputs {
 	locked: string[];
 	selection: string[];
 	previewId: string | null;
-	tool: TComposeTool;
+	tool: TTrackTool;
 	playNoteFor: string | null;
-	camera: TComposeCamera;
+	camera: TTrackCamera;
 	viewport: TViewport;
-	drag: TComposeDrag | null;
+	drag: TTrackDrag | null;
 }
 
 function hasSameValues<T extends object>(a: T, b: T): boolean {
@@ -2462,7 +2462,7 @@ interface TNodeDrag {
 	moved: boolean;
 }
 
-export type TComposeDrag =
+export type TTrackDrag =
 	| { kind: 'livePiece'; group: TPatternGroup; start: TVec2 }
 	| { kind: 'pan'; last: TVec2 }
 	| TRotateDrag

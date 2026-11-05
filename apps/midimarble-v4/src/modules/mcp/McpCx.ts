@@ -152,10 +152,10 @@ export class McpCx {
 	stop(): void {
 		this.presence.requestStop();
 		if (this.studio.isInAgentStep) {
-			this.studio.$compose.get()?.assist.stopBuild();
-			this.studio.$compose.get()?.patterns.stop();
+			this.studio.$trackCx.get()?.assist.stopBuild();
+			this.studio.$trackCx.get()?.patterns.stop();
 		}
-		if (this.runningTools.includes('export_film')) this.studio.film.cancel();
+		if (this.runningTools.includes('export_film')) this.studio.filmExport.cancel();
 	}
 
 	/** Marks what an agent's call changes, edit by edit, so a Build Track's pieces light up as they land */

@@ -11,7 +11,7 @@ import type { StudioCx } from '@/modules/studio';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
 import type { TPose, TSnap } from '@/modules/building';
 import { mapNodes, nodesPathData } from '@/modules/building';
-import { ComposeCx, noteLabel, type TComposeDrag } from './TrackCx';
+import { TrackCx, noteLabel, type TTrackDrag } from './TrackCx';
 import { paletteOf, projectedOutline, toPoints, type TScreenProjection } from '@/modules/canvas';
 import { Track3DView, TrackViewSwitch } from './Track3DView';
 import { timingStatus } from './timing-status';
@@ -26,16 +26,16 @@ import { placeBar, type TScreenRect, ZOOM_100_SCALE, hiddenMarbleLanes, pathRun,
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
 import { findStepTarget, linkedPieces, nextOpenHitPerLane, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
-/** The Compose wall: the wall and its content in WebGL, with screen-space handles on top */
-export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
+/** The Track wall: the wall and its content in WebGL, with screen-space handles on top */
+export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 	const { cx } = props;
-	const [compose] = React.useState(() => new ComposeCx(cx));
+	const [trackCx] = React.useState(() => new TrackCx(cx));
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const canvasRef = React.useRef<HTMLCanvasElement>(null);
-	const tool = useFeatureState(compose.$tool);
-	const spaceHeld = useFeatureState(compose.$spaceHeld);
-	const drag = useFeatureState(compose.$drag);
-	const hover = useFeatureState(compose.$hover);
+	const tool = useFeatureState(trackCx.$tool);
+	const spaceHeld = useFeatureState(trackCx.$spaceHeld);
+	const drag = useFeatureState(trackCx.$drag);
+	const hover = useFeatureState(trackCx.$hover);
 	const wallColor = useFeatureState(cx.$history)?.present.design.wall.labelColor;
 
 	React.useEffect(() => {
@@ -43,9 +43,9 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 		const canvas = canvasRef.current;
 		if (container == null || canvas == null) return;
 		// Development hook for browser checks and latency measurements
-		if (import.meta.env.DEV) (window as unknown as { __midimarble?: unknown }).__midimarble = { studio: cx, compose };
-		return compose.mount(container, canvas);
-	}, [compose, cx]);
+		if (import.meta.env.DEV) (window as unknown as { __midimarble?: unknown }).__midimarble = { studio: cx, trackCx };
+		return trackCx.mount(container, canvas);
+	}, [trackCx, cx]);
 
 	const isPanning = drag?.kind === 'pan';
 	const isMoving = drag?.kind === 'release' || drag?.kind === 'path' || drag?.kind === 'move' || drag?.kind === 'node';
@@ -64,45 +64,45 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 		<div ref={containerRef} className="mm-pegboard relative h-full w-full overflow-hidden" style={wallColor != null ? ({ '--canvas': wallColor } as React.CSSProperties) : undefined}>
 			<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
-				<PieceLayer compose={compose} />
-				<GhostShapes compose={compose} />
-				<PatternGhost compose={compose} />
+				<PieceLayer trackCx={trackCx} />
+				<GhostShapes trackCx={trackCx} />
+				<PatternGhost trackCx={trackCx} />
 			</svg>
 			<div
 				className="absolute inset-0 touch-none"
 				style={{ cursor }}
-				onPointerDown={(event) => compose.onPointerDown(event)}
-				onPointerMove={(event) => compose.onPointerMove(event)}
-				onPointerUp={(event) => compose.onPointerUp(event)}
-				onPointerCancel={(event) => compose.onPointerUp(event)}
-				onPointerLeave={() => compose.onPointerLeave()}
-				onContextMenu={(event) => openCanvasMenu(compose, event)}
+				onPointerDown={(event) => trackCx.onPointerDown(event)}
+				onPointerMove={(event) => trackCx.onPointerMove(event)}
+				onPointerUp={(event) => trackCx.onPointerUp(event)}
+				onPointerCancel={(event) => trackCx.onPointerUp(event)}
+				onPointerLeave={() => trackCx.onPointerLeave()}
+				onContextMenu={(event) => openCanvasMenu(trackCx, event)}
 			/>
-			<ComposeOverlay compose={compose} />
-			<PenOverlay compose={compose} />
-			<GhostHint compose={compose} />
-			<PlayNoteHint compose={compose} />
-			<AssistBar compose={compose} />
+			<TrackOverlay trackCx={trackCx} />
+			<PenOverlay trackCx={trackCx} />
+			<GhostHint trackCx={trackCx} />
+			<PlayNoteHint trackCx={trackCx} />
+			<AssistBar trackCx={trackCx} />
 			<EmptyWall cx={cx} />
 			<SimulatingIndicator cx={cx} />
-			<Track3DView compose={compose} />
+			<Track3DView trackCx={trackCx} />
 			<div className="absolute top-3 right-3 z-30 flex items-center gap-2">
-				<CornerControls compose={compose} />
+				<CornerControls trackCx={trackCx} />
 				<TrackViewSwitch cx={cx} />
 			</div>
 		</div>
 	);
 };
 
-interface TComposeCanvasProps {
+interface TTrackCanvasProps {
 	cx: StudioCx;
 }
 
 /** Right-click opens the menu for what is under the pointer, selecting it first like Finder */
-function openCanvasMenu(compose: ComposeCx, event: React.MouseEvent<HTMLElement>): void {
-	const cx = compose.studio;
+function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>): void {
+	const cx = trackCx.studio;
 	const rect = event.currentTarget.getBoundingClientRect();
-	const target = compose.pickAt({ x: event.clientX - rect.left, y: event.clientY - rect.top });
+	const target = trackCx.pickAt({ x: event.clientX - rect.left, y: event.clientY - rect.top });
 	switch (target?.kind) {
 		case 'piece':
 		case 'rotate':
@@ -115,25 +115,25 @@ function openCanvasMenu(compose: ComposeCx, event: React.MouseEvent<HTMLElement>
 			openContextMenu(event, pieceMenu(cx));
 			return;
 		case 'dot': {
-			const lane = compose.project?.music.lanes.find((item) => item.id === target.laneId);
-			const hit = compose.result?.hits.find((item) => item.laneId === target.laneId && item.hitId === target.hitId);
+			const lane = trackCx.project?.music.lanes.find((item) => item.id === target.laneId);
+			const hit = trackCx.result?.hits.find((item) => item.laneId === target.laneId && item.hitId === target.hitId);
 			if (lane != null && hit != null && hit.status !== 'open') {
 				cx.$selection.set([toHitKey(target.laneId, target.hitId)]);
 				openContextMenu(event, hitMenu(cx, lane, target.hitId));
 				return;
 			}
-			openContextMenu(event, dotMenu(compose, target.laneId, target.hitId));
+			openContextMenu(event, dotMenu(trackCx, target.laneId, target.hitId));
 			return;
 		}
 		case 'release': {
-			const laneId = compose.project?.entities.find((entity) => entity.id === target.entityId)?.components.marble?.laneId;
-			const lane = compose.project?.music.lanes.find((item) => item.id === laneId);
+			const laneId = trackCx.project?.entities.find((entity) => entity.id === target.entityId)?.components.marble?.laneId;
+			const lane = trackCx.project?.music.lanes.find((item) => item.id === laneId);
 			cx.$selection.set([target.entityId]);
 			if (lane != null) openContextMenu(event, laneMenu(cx, lane));
 			return;
 		}
 		default:
-			openContextMenu(event, canvasMenu(compose));
+			openContextMenu(event, canvasMenu(trackCx));
 	}
 }
 
@@ -179,37 +179,37 @@ export function isEmptyProject(project: TProject): boolean {
 
 // MARK: - Overlay
 
-const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
-	const cx = compose.studio;
+const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
+	const cx = trackCx.studio;
 	// Subscriptions that move anything drawn here
-	const camera = useFeatureState(compose.$camera);
-	const viewport = useFeatureState(compose.$viewport);
+	const camera = useFeatureState(trackCx.$camera);
+	const viewport = useFeatureState(trackCx.$viewport);
 	const result = useFeatureState(cx.simulation.$result);
 	const history = useFeatureState(cx.$history);
 	const selection = useFeatureState(cx.$selection);
-	const hover = useFeatureState(compose.$hover);
-	const drag = useFeatureState(compose.$drag);
-	useFeatureState(compose.$override);
+	const hover = useFeatureState(trackCx.$hover);
+	const drag = useFeatureState(trackCx.$drag);
+	useFeatureState(trackCx.$override);
 	const hidden = useFeatureState(cx.$hidden);
-	const insertSnap = useFeatureState(compose.$insertSnap);
-	const hoverPreview = useFeatureState(compose.$hoverPreview);
-	const marbleGhost = useFeatureState(compose.$marbleGhost);
+	const insertSnap = useFeatureState(trackCx.$insertSnap);
+	const hoverPreview = useFeatureState(trackCx.$hoverPreview);
+	const marbleGhost = useFeatureState(trackCx.$marbleGhost);
 	const project = history?.present;
-	const { projection, scale, transform } = usePannedProjection(compose);
+	const { projection, scale, transform } = usePannedProjection(trackCx);
 	const nextDots = React.useMemo(() => (result != null ? nextOpenHitPerLane(result) : null), [result]);
 	if (project == null || result == null || nextDots == null || viewport.width <= 1) return null;
 
-	const pieces = compose.displayPieces(result);
+	const pieces = trackCx.displayPieces(result);
 	const selectedPieces = selectedPieceIds(project, selection);
 	const single = selectedPieces.length === 1 ? pieces.find((piece) => piece.entityId === selectedPieces[0]) : undefined;
 	const singleKind = single != null ? pieceKind(single) : null;
-	const frame = single != null ? compose.railFrame(single.entityId) : null;
+	const frame = single != null ? trackCx.railFrame(single.entityId) : null;
 	const isPathPiece = singleKind === 'path' || singleKind === 'tube' || singleKind === 'generated';
 	const isMoveDrag = drag?.kind === 'move' && drag.moved;
 	// A Bowl always stands upright, so it has nothing to turn
-	const grip = single != null && !isPathPiece && singleKind !== 'catcher' && !isMoveDrag ? compose.screenGrip(single) : null;
-	const pathHandles = single != null && isPathPiece && frame == null && singleKind !== 'generated' ? compose.screenPathHandles(single) : null;
+	const grip = single != null && !isPathPiece && singleKind !== 'catcher' && !isMoveDrag ? trackCx.screenGrip(single) : null;
+	const pathHandles = single != null && isPathPiece && frame == null && singleKind !== 'generated' ? trackCx.screenPathHandles(single) : null;
 	const isRotating = drag?.kind === 'rotate';
 	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.entityId));
 	const hoveredPiece = hover?.kind === 'piece' ? hover.entityId : null;
@@ -218,7 +218,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const singleEntity = single != null ? project.entities.find((entity) => entity.id === single.entityId) : undefined;
 	// The first-run hint "Click a note's dot to see its platform" points at the earliest next open dot
 	const firstNext = [...nextDots.values()].filter((hit) => hit.dot != null).sort((a, b) => a.targetTime - b.targetTime)[0];
-	const firstNextScreen = firstNext?.dot != null ? compose.toScreen(firstNext.dot) : null;
+	const firstNextScreen = firstNext?.dot != null ? trackCx.toScreen(firstNext.dot) : null;
 	const hintDot = firstNextScreen != null && firstNextScreen.x >= 0 && firstNextScreen.x <= viewport.width && firstNextScreen.y >= 0 && firstNextScreen.y <= viewport.height ? firstNextScreen : null;
 
 	return (
@@ -228,7 +228,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					const isSelected = selection.includes(piece.entityId);
 					const isHovered = hoveredPiece === piece.entityId && !isSelected;
 					if (!isSelected && !isHovered) return null;
-					const outline = pieceKind(piece) === 'box' ? inflate(compose.screenOutline(piece), 2.5) : compose.screenOutline(piece);
+					const outline = pieceKind(piece) === 'box' ? inflate(trackCx.screenOutline(piece), 2.5) : trackCx.screenOutline(piece);
 					return (
 						<polygon
 							key={`outline-${piece.entityId}`}
@@ -241,19 +241,19 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 						/>
 					);
 				})}
-				<AgentTouched compose={compose} pieces={pieces} />
+				<AgentTouched trackCx={trackCx} pieces={pieces} />
 				<g transform={transform}>
 					{drag == null ? <PieceBadges projection={projection} result={result} /> : null}
-					<HitDots hidden={hidden} compose={compose} projection={projection} scale={scale} project={project} result={result} nextDots={nextDots} selection={selection} hoveredDot={hoveredDot} isDragging={drag != null} />
+					<HitDots hidden={hidden} trackCx={trackCx} projection={projection} scale={scale} project={project} result={result} nextDots={nextDots} selection={selection} hoveredDot={hoveredDot} isDragging={drag != null} />
 				</g>
-				<HitFlashLayer compose={compose} />
-				{snap?.kind === 'link' ? <SnapRing position={compose.toScreen(snap.dot)} /> : null}
-				{drag?.kind === 'move' && drag.moved && drag.plays != null && drag.origin != null ? <PlaysGhost compose={compose} origin={drag.origin} dot={drag.plays.dot} /> : null}
+				<HitFlashLayer trackCx={trackCx} />
+				{snap?.kind === 'link' ? <SnapRing position={trackCx.toScreen(snap.dot)} /> : null}
+				{drag?.kind === 'move' && drag.moved && drag.plays != null && drag.origin != null ? <PlaysGhost trackCx={trackCx} origin={drag.origin} dot={drag.plays.dot} /> : null}
 				{project.entities.map((entity) => {
 					const { release, marble } = entity.components;
 					if (release == null || marble == null || hidden.includes(entity.id)) return null;
 					const position = drag?.kind === 'release' && drag.entityId === entity.id ? drag.position : release.position;
-					const center = compose.toScreen(position);
+					const center = trackCx.toScreen(position);
 					const isSelected = selection.includes(entity.id);
 					const isActive = isSelected || (hover?.kind === 'release' && hover.entityId === entity.id) || (drag?.kind === 'release' && drag.entityId === entity.id);
 					const radius = Math.max(9, marble.radius * camera.view.scale + 5);
@@ -303,20 +303,20 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					</g>
 				) : null}
 				{pathHandles != null && single != null ? <PathHandles handles={pathHandles} hover={hover} drag={drag} entityId={single.entityId} /> : null}
-				{frame != null && single != null ? <RailNodes compose={compose} entityId={single.entityId} frame={frame} hover={hover} drag={drag} /> : null}
+				{frame != null && single != null ? <RailNodes trackCx={trackCx} entityId={single.entityId} frame={frame} hover={hover} drag={drag} /> : null}
 				{hover?.kind === 'track' && drag == null ? (
 					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf('windmill').bar} strokeWidth={2} />
 				) : null}
 				{drag?.kind === 'marquee' ? <Marquee from={drag.from} to={drag.to} /> : null}
-				{marbleGhost != null && drag == null ? <circle cx={marbleGhost.x} cy={marbleGhost.y} r={Math.max(7, DEFAULT_MARBLE_RADIUS * compose.screenScale())} fill="var(--text)" fillOpacity={0.3} stroke="var(--text)" strokeOpacity={0.6} /> : null}
+				{marbleGhost != null && drag == null ? <circle cx={marbleGhost.x} cy={marbleGhost.y} r={Math.max(7, DEFAULT_MARBLE_RADIUS * trackCx.screenScale())} fill="var(--text)" fillOpacity={0.3} stroke="var(--text)" strokeOpacity={0.6} /> : null}
 			</svg>
-			{hoveredDot != null && drag == null && hoverPreview == null ? <DotTooltip compose={compose} project={project} hit={hoveredDot} /> : null}
+			{hoveredDot != null && drag == null && hoverPreview == null ? <DotTooltip trackCx={trackCx} project={project} hit={hoveredDot} /> : null}
 			{hintDot != null && drag == null ? (
 				<span data-hint-anchor="dot" className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2" style={{ left: hintDot.x, top: hintDot.y }} />
 			) : null}
 			{hover?.kind === 'track' && drag == null ? (
 				<CanvasTooltip position={hover.position}>
-					{compose.followsAt(hover.laneId, hover.time) ? (
+					{trackCx.followsAt(hover.laneId, hover.time) ? (
 						<>
 							<span className="font-medium">Follows {project.music.lanes.find((lane) => lane.id === hover.laneId)?.name ?? 'Marble'}</span>
 							<span className="mm-tabular ml-1 text-[var(--text-secondary)]">at {formatTime(hover.time)}</span>
@@ -324,26 +324,26 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					) : (
 						<span className="font-medium">None</span>
 					)}
-					<WhatIfCount compose={compose} result={result} />
+					<WhatIfCount trackCx={trackCx} result={result} />
 				</CanvasTooltip>
 			) : null}
 			{hoverPreview != null && hover?.kind !== 'track' && drag == null ? (
 				<CanvasTooltip position={hoverPreview.position}>
 					{hoverPreview.label != null ? <span className="font-medium">{hoverPreview.label}</span> : null}
-					<WhatIfCount compose={compose} result={result} isFirst={hoverPreview.label == null} />
+					<WhatIfCount trackCx={trackCx} result={result} isFirst={hoverPreview.label == null} />
 				</CanvasTooltip>
 			) : null}
 			{drag?.kind === 'move' && drag.moved ? (
 				drag.plays != null && (drag.playsDrop === 'keeps' || (drag.playsDrop === 'frees' && drag.snap == null)) ? (
-					<PlaysChip compose={compose} project={project} drag={drag} result={result} />
+					<PlaysChip trackCx={trackCx} project={project} drag={drag} result={result} />
 				) : (
-					<SnapChip compose={compose} project={project} position={drag.current.position} snap={drag.snap} />
+					<SnapChip trackCx={trackCx} project={project} position={drag.current.position} snap={drag.snap} />
 				)
 			) : null}
-			{insertSnap != null && drag == null ? <SnapChip compose={compose} project={project} position={insertSnap.position} snap={insertSnap.snap} /> : null}
+			{insertSnap != null && drag == null ? <SnapChip trackCx={trackCx} project={project} position={insertSnap.position} snap={insertSnap.snap} /> : null}
 			{single != null && grip != null && singleEntity != null ? (
 				<AngleReadout
-					compose={compose}
+					trackCx={trackCx}
 					piece={single}
 					position={drag?.kind === 'rotate' ? { x: drag.pointer.x + 14, y: drag.pointer.y + 14 } : { x: grip.grip.x + 10, y: grip.grip.y + 8 }}
 					angle={drag?.kind === 'rotate' ? drag.angle : (pieceAngle(singleEntity) ?? single.angle)}
@@ -386,10 +386,10 @@ const HitDot = React.memo(function HitDot(props: { x: number; y: number; color: 
 const ON_TIME_DOT_MIN_SCALE = 180;
 
 /** Every hit's dot, redrawn when the run, the selection, the hovered dot or the zoom changes and not when the view pans */
-const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; compose: ComposeCx; projection: TScreenProjection; scale: number; project: TProject; result: TSimulationResult; nextDots: Map<string, THitResult>; selection: string[]; hoveredDot: THitResult | undefined; isDragging: boolean }) {
-	const { hidden, compose, projection, scale, project, result, nextDots, selection, hoveredDot, isDragging } = props;
+const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; trackCx: TrackCx; projection: TScreenProjection; scale: number; project: TProject; result: TSimulationResult; nextDots: Map<string, THitResult>; selection: string[]; hoveredDot: THitResult | undefined; isDragging: boolean }) {
+	const { hidden, trackCx, projection, scale, project, result, nextDots, selection, hoveredDot, isDragging } = props;
 	const band = frameBand(project);
-	const longGaps = compose.longGapKeys(project);
+	const longGaps = trackCx.longGapKeys(project);
 	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
 	const hiddenLanes = hiddenMarbleLanes(project, hidden);
 	return (
@@ -448,12 +448,12 @@ const SnapRing: React.FC<{ position: TVec2 }> = (props) => {
 };
 
 /** Where a platform that plays a note was when the drag began, and its note's dot, so the way back stays in view */
-const PlaysGhost: React.FC<{ compose: ComposeCx; origin: TResolvedPiece; dot: TVec2 | null }> = (props) => {
-	const { compose, origin, dot } = props;
-	const center = dot != null ? compose.toScreen(dot) : null;
+const PlaysGhost: React.FC<{ trackCx: TrackCx; origin: TResolvedPiece; dot: TVec2 | null }> = (props) => {
+	const { trackCx, origin, dot } = props;
+	const center = dot != null ? trackCx.toScreen(dot) : null;
 	return (
 		<g>
-			<polygon points={toPoints(compose.screenOutline(origin))} fill="none" stroke="var(--text-secondary)" strokeWidth={1.25} strokeDasharray="3 3" strokeLinejoin="round" />
+			<polygon points={toPoints(trackCx.screenOutline(origin))} fill="none" stroke="var(--text-secondary)" strokeWidth={1.25} strokeDasharray="3 3" strokeLinejoin="round" />
 			{center != null ? <circle cx={center.x} cy={center.y} r={5} fill="none" stroke="var(--text-secondary)" strokeWidth={1.25} strokeDasharray="2 2" /> : null}
 		</g>
 	);
@@ -466,26 +466,26 @@ const PLAYS_CHIP_ROOM = 300;
  * Beside a dragged platform that plays a note: that it keeps playing it, with how the marble would land there, or that
  * a drop this far away detaches it
  */
-const PlaysChip: React.FC<{ compose: ComposeCx; project: TProject; drag: Extract<TComposeDrag, { kind: 'move' }>; result: TSimulationResult }> = (props) => {
-	const { compose, project, drag, result } = props;
-	const limit = useFeatureState(compose.studio.simulation.$moveLimit);
-	const center = compose.toScreen(drag.current.position);
+const PlaysChip: React.FC<{ trackCx: TrackCx; project: TProject; drag: Extract<TTrackDrag, { kind: 'move' }>; result: TSimulationResult }> = (props) => {
+	const { trackCx, project, drag, result } = props;
+	const limit = useFeatureState(trackCx.studio.simulation.$moveLimit);
+	const center = trackCx.toScreen(drag.current.position);
 	const plays = drag.plays;
 	if (plays == null) return null;
 	// Beside the piece, on its left near the wall's right edge, so the timing never runs under the inspector
-	const place = center.x + PLAYS_CHIP_ROOM > compose.$viewport.get().width ? { right: compose.$viewport.get().width - center.x + 18, top: center.y + 14 } : { left: center.x + 18, top: center.y + 14 };
+	const place = center.x + PLAYS_CHIP_ROOM > trackCx.$viewport.get().width ? { right: trackCx.$viewport.get().width - center.x + 18, top: center.y + 14 } : { left: center.x + 18, top: center.y + 14 };
 	const label = noteLabel(project, plays.laneId, plays.hitId);
 	if (drag.playsDrop === 'frees') {
 		return (
 			<div className="mm-snap-chip" data-snapped={false} style={place}>
 				<Unlink2 size={11} strokeWidth={2.2} />
 				<span className="font-medium">Detaches {label}</span>
-				<WhatIfCount compose={compose} result={result} isInChip />
+				<WhatIfCount trackCx={trackCx} result={result} isInChip />
 			</div>
 		);
 	}
 	// The run for this spot has arrived once the what-if can count; until then the hit still reads as before
-	const hit = compose.whatIfBreaks(result) != null ? result.hits.find((item) => item.laneId === plays.laneId && item.hitId === plays.hitId) : undefined;
+	const hit = trackCx.whatIfBreaks(result) != null ? result.hits.find((item) => item.laneId === plays.laneId && item.hitId === plays.hitId) : undefined;
 	const status = timingStatus(undefined, hit);
 	return (
 		<div className="mm-snap-chip" data-snapped style={place}>
@@ -494,16 +494,16 @@ const PlaysChip: React.FC<{ compose: ComposeCx; project: TProject; drag: Extract
 			<span className="mm-chip-timing" data-tone={status.tone}>
 				{status.label}
 			</span>
-			<WhatIfCount compose={compose} result={result} isInChip />
+			<WhatIfCount trackCx={trackCx} result={result} isInChip />
 			{limit != null ? <span className="mm-whatif-count" data-bad data-chip>{limit.chip}</span> : null}
 		</div>
 	);
 };
 
 /** What a drop will do, next to the dragged piece: play a note, follow a marble at a moment or stay free */
-const SnapChip: React.FC<{ compose: ComposeCx; project: TProject; position: TVec2; snap: TSnap | null }> = (props) => {
-	const { compose, project, snap } = props;
-	const center = compose.toScreen(props.position);
+const SnapChip: React.FC<{ trackCx: TrackCx; project: TProject; position: TVec2; snap: TSnap | null }> = (props) => {
+	const { trackCx, project, snap } = props;
+	const center = trackCx.toScreen(props.position);
 	const lane = snap != null ? project.music.lanes.find((item) => item.id === snap.laneId) : undefined;
 	let content: React.ReactNode = null;
 	if (snap?.kind === 'link') {
@@ -528,17 +528,17 @@ const SnapChip: React.FC<{ compose: ComposeCx; project: TProject; position: TVec
 	return (
 		<div className="mm-snap-chip" data-snapped={snap != null} style={{ left: center.x + 18, top: center.y + 14 }}>
 			{content}
-			<WhatIfCount compose={compose} result={compose.result} isInChip />
+			<WhatIfCount trackCx={trackCx} result={trackCx.result} isInChip />
 		</div>
 	);
 };
 
 /** While Play a Note… is armed: which piece waits for a note's dot, and that Escape stops */
-const PlayNoteHint: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
-	const entityId = useFeatureState(compose.$playNoteFor);
+const PlayNoteHint: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
+	const entityId = useFeatureState(trackCx.$playNoteFor);
 	if (entityId == null) return null;
-	const name = compose.project?.entities.find((entity) => entity.id === entityId)?.name ?? 'The platform';
+	const name = trackCx.project?.entities.find((entity) => entity.id === entityId)?.name ?? 'The platform';
 	return (
 		<div className="mm-hint mm-ghost-in absolute top-[52px] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap">
 			Click a note's dot for {name} to play <kbd className="opacity-60">⎋</kbd>
@@ -550,9 +550,9 @@ const PlayNoteHint: React.FC<{ compose: ComposeCx }> = (props) => {
  * What the shown what-if does to the run, beside a hover or drag: "Breaks 86 hits" in red, or "Breaks no hits".
  * Nothing shows until the what-if run arrives.
  */
-const WhatIfCount: React.FC<{ compose: ComposeCx; result: TSimulationResult | null; isFirst?: boolean; isInChip?: boolean }> = (props) => {
-	const { compose, result, isFirst = false, isInChip = false } = props;
-	const count = compose.whatIfBreaks(result);
+const WhatIfCount: React.FC<{ trackCx: TrackCx; result: TSimulationResult | null; isFirst?: boolean; isInChip?: boolean }> = (props) => {
+	const { trackCx, result, isFirst = false, isInChip = false } = props;
+	const count = trackCx.whatIfBreaks(result);
 	if (count == null) return null;
 	const text = count === 0 ? 'Breaks no hits' : `Breaks ${count} ${count === 1 ? 'hit' : 'hits'}`;
 	return (
@@ -564,14 +564,14 @@ const WhatIfCount: React.FC<{ compose: ComposeCx; result: TSimulationResult | nu
 
 /** Points and handles of a selected rail drawn with the path tool, editable like a Figma vector */
 const RailNodes: React.FC<{
-	compose: ComposeCx;
+	trackCx: TrackCx;
 	entityId: string;
 	frame: { nodes: TPathNode[]; base: TPose };
-	hover: ReturnType<ComposeCx['$hover']['get']>;
-	drag: ReturnType<ComposeCx['$drag']['get']>;
+	hover: ReturnType<TrackCx['$hover']['get']>;
+	drag: ReturnType<TrackCx['$drag']['get']>;
 }> = (props) => {
-	const { compose, entityId, frame, hover, drag } = props;
-	const map = (point: TVec2): TVec2 => compose.frameToScreen(frame.base, point);
+	const { trackCx, entityId, frame, hover, drag } = props;
+	const map = (point: TVec2): TVec2 => trackCx.frameToScreen(frame.base, point);
 	const nodes = mapNodes(frame.nodes, map);
 	const isActive = (kind: 'node' | 'nodeIn' | 'nodeOut', index: number): boolean =>
 		(hover != null && 'index' in hover && hover.kind === kind && hover.entityId === entityId && hover.index === index) ||
@@ -611,13 +611,13 @@ const RailNodes: React.FC<{
 };
 
 /** The rail being drawn with the path tool: placed points, their handles and the next segment */
-const PenOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
-	const pen = useFeatureState(compose.$pen);
-	useFeatureState(compose.$camera);
-	useFeatureState(compose.$viewport);
+const PenOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
+	const pen = useFeatureState(trackCx.$pen);
+	useFeatureState(trackCx.$camera);
+	useFeatureState(trackCx.$viewport);
 	if (pen == null) return null;
-	const map = (point: TVec2): TVec2 => compose.toScreen(point);
+	const map = (point: TVec2): TVec2 => trackCx.toScreen(point);
 	const nodes = mapNodes(pen.nodes, map);
 	const last = pen.nodes[pen.nodes.length - 1];
 	const preview = pen.pointer != null && !pen.isDragging && last != null ? nodesPathData([last, { point: pen.pointer }], map) : null;
@@ -651,8 +651,8 @@ const PenOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 /** End and bend handles of a selected rail or tunnel, joined by a dashed control line like Blender curves */
 const PathHandles: React.FC<{
 	handles: { end: TVec2; bend: TVec2; entry: TVec2 };
-	hover: ReturnType<ComposeCx['$hover']['get']>;
-	drag: ReturnType<ComposeCx['$drag']['get']>;
+	hover: ReturnType<TrackCx['$hover']['get']>;
+	drag: ReturnType<TrackCx['$drag']['get']>;
 	entityId: string;
 }> = (props) => {
 	const { handles, hover, drag, entityId } = props;
@@ -698,16 +698,16 @@ const PathReadout: React.FC<{ piece: TResolvedPiece; points: TVec2[]; position: 
 };
 
 /** What an agent's edit just changed: the selection's outline in the accent, fading in about a second */
-const AgentTouched: React.FC<{ compose: ComposeCx; pieces: readonly TResolvedPiece[] }> = (props) => {
-	const { compose, pieces } = props;
-	const touched = useFeatureState(compose.studio.mcp.presence.$touched);
+const AgentTouched: React.FC<{ trackCx: TrackCx; pieces: readonly TResolvedPiece[] }> = (props) => {
+	const { trackCx, pieces } = props;
+	const touched = useFeatureState(trackCx.studio.mcp.presence.$touched);
 	if (!touched.length) return null;
 	return (
 		<>
 			{touched.map((item) => {
 				const piece = pieces.find((candidate) => candidate.entityId === item.key);
 				if (piece == null) return null;
-				const outline = pieceKind(piece) === 'box' ? inflate(compose.screenOutline(piece), 2.5) : compose.screenOutline(piece);
+				const outline = pieceKind(piece) === 'box' ? inflate(trackCx.screenOutline(piece), 2.5) : trackCx.screenOutline(piece);
 				return <polygon key={`${item.key}-${item.stamp}`} className="mm-agent-touched" points={toPoints(outline)} fill="none" stroke="var(--accent-strong)" strokeWidth={2} strokeLinejoin="round" />;
 			})}
 		</>
@@ -803,10 +803,10 @@ const CanvasTooltip: React.FC<{ position: TVec2; children: React.ReactNode }> = 
 	);
 };
 
-const DotTooltip: React.FC<{ compose: ComposeCx; project: TProject; hit: THitResult }> = (props) => {
-	const { compose, project, hit } = props;
+const DotTooltip: React.FC<{ trackCx: TrackCx; project: TProject; hit: THitResult }> = (props) => {
+	const { trackCx, project, hit } = props;
 	if (hit.dot == null) return null;
-	const position = compose.toScreen(hit.dot);
+	const position = trackCx.toScreen(hit.dot);
 	const lane = project.music.lanes.find((item) => item.id === hit.laneId);
 	const index = lane?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 	const pitch = lane?.hits[index]?.pitch;
@@ -826,17 +826,17 @@ const DotTooltip: React.FC<{ compose: ComposeCx; project: TProject; hit: THitRes
 };
 
 /** Live angle next to the grip or the pointer. Double-click to type an exact angle. */
-const AngleReadout: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; position: TVec2; angle: number }> = (props) => {
-	const { compose, piece, position, angle } = props;
-	const editing = useFeatureState(compose.$editingAngle) === piece.entityId;
+const AngleReadout: React.FC<{ trackCx: TrackCx; piece: TResolvedPiece; position: TVec2; angle: number }> = (props) => {
+	const { trackCx, piece, position, angle } = props;
+	const editing = useFeatureState(trackCx.$editingAngle) === piece.entityId;
 	const [draft, setDraft] = React.useState('');
 
 	function commit(): void {
 		const value = parseDegrees(draft);
-		const project = compose.project;
-		compose.$editingAngle.set(null);
+		const project = trackCx.project;
+		trackCx.$editingAngle.set(null);
 		if (value == null || project == null) return;
-		compose.studio.execute(pieceAngleCommands(project, new Map([[piece.entityId, value]])));
+		trackCx.studio.execute(pieceAngleCommands(project, new Map([[piece.entityId, value]])));
 	}
 
 	return (
@@ -852,7 +852,7 @@ const AngleReadout: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; positi
 					onKeyDown={(event) => {
 						event.stopPropagation();
 						if (event.key === 'Enter') event.currentTarget.blur();
-						if (event.key === 'Escape') compose.$editingAngle.set(null);
+						if (event.key === 'Escape') trackCx.$editingAngle.set(null);
 					}}
 				/>
 			) : (
@@ -861,7 +861,7 @@ const AngleReadout: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; positi
 					title="Double-click to type an angle"
 					onDoubleClick={() => {
 						setDraft(formatDegrees(angle).replace('°', ''));
-						compose.$editingAngle.set(piece.entityId);
+						trackCx.$editingAngle.set(piece.entityId);
 					}}
 					type="button"
 				>
@@ -878,22 +878,22 @@ const AngleReadout: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; positi
  * The build assists next to where they act, like Figma's selection toolbar: under the selected last piece of
  * a marble, or under the next open dot when nothing is selected. Their keys work everywhere.
  */
-const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
-	const cx = compose.studio;
+const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
+	const cx = trackCx.studio;
 	const result = useFeatureState(cx.simulation.$result);
 	const project = useFeatureState(cx.$history)?.present;
 	const selection = useFeatureState(cx.$selection);
 	const playing = useFeatureState(cx.$playing);
-	const drag = useFeatureState(compose.$drag);
-	const pen = useFeatureState(compose.$pen);
-	const tool = useFeatureState(compose.$tool);
-	const ghosts = useFeatureState(compose.assist.$ghosts);
-	const queued = useFeatureState(compose.assist.$queuedNext);
-	const building = useFeatureState(compose.assist.$building);
+	const drag = useFeatureState(trackCx.$drag);
+	const pen = useFeatureState(trackCx.$pen);
+	const tool = useFeatureState(trackCx.$tool);
+	const ghosts = useFeatureState(trackCx.assist.$ghosts);
+	const queued = useFeatureState(trackCx.assist.$queuedNext);
+	const building = useFeatureState(trackCx.assist.$building);
 	// The bar sits at screen positions, so it moves with the view
-	useFeatureState(compose.$camera);
-	const viewport = useFeatureState(compose.$viewport);
+	useFeatureState(trackCx.$camera);
+	const viewport = useFeatureState(trackCx.$viewport);
 	// The bar's measured size, so it can move off ghosts it would cover
 	const [size, setSize] = React.useState({ width: 240, height: 38 });
 	const barRef = React.useCallback((bar: HTMLDivElement | null) => {
@@ -916,19 +916,19 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 	const resolved = piece != null ? result.pieces.find((item) => item.entityId === piece.entity.id) : undefined;
 	if (selection.length > 0 && piece == null && parseHitKey(selection[0] ?? '') == null) return null;
 	if (resolved != null) {
-		const outline = compose.screenOutline(resolved);
+		const outline = trackCx.screenOutline(resolved);
 		anchor = { x: outline.reduce((sum, point) => sum + point.x, 0) / outline.length, y: Math.max(...outline.map((point) => point.y)) + 30 };
 	} else {
 		// Below the ghost piece at the dot when one shows, so the bar never covers it
 		const ghost = ghosts.ghost?.kind === 'continue' ? ghosts.ghost.answer.suggestions.find((item) => item.piece != null)?.piece : ghosts.ghost?.kind === 'place' ? ghosts.ghost.answer.piece : null;
-		const outline = ghost != null ? compose.screenOutline(ghost) : [];
-		const dot = compose.toScreen(target.dot);
+		const outline = ghost != null ? trackCx.screenOutline(ghost) : [];
+		const dot = trackCx.toScreen(target.dot);
 		anchor = outline.length ? { x: dot.x, y: Math.max(dot.y, ...outline.map((point) => point.y)) + 26 } : { x: dot.x, y: dot.y + 24 };
 	}
 	// The bar belongs next to what it acts on; when that is out of view it stays away
 	if (anchor.x < 0 || anchor.x > viewport.width || anchor.y < 0 || anchor.y > viewport.height + 20) return null;
 	const continueCount = ghosts.ghost?.kind === 'continue' ? acceptableCount(ghosts.ghost) : 0;
-	const { left, top } = placeBar(anchor, size, ghostRects(compose, ghosts.ghost), viewport);
+	const { left, top } = placeBar(anchor, size, ghostRects(trackCx, ghosts.ghost), viewport);
 
 	return (
 		<div ref={barRef} className="mm-assist-bar mm-ghost-in" style={{ left, top }} role="toolbar" aria-label="Assists">
@@ -936,19 +936,19 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 				label="Place Next Platform"
 				detail={queued > 0 ? `${queued} more ${queued === 1 ? 'press' : 'presses'} waiting for the track · esc cancels` : 'Add the platform for the next open note'}
 				shortcut="N"
-				onClick={() => compose.next()}
+				onClick={() => trackCx.next()}
 				isText
 			>
 				{/* Presses made while the run catches up queue up, like key repeat in a text field */}
 				{queued > 0 ? <span className="tabular-nums">Next ×{queued}</span> : 'Next'}
 			</AssistButton>
-			<AssistButton label="Build Track" detail="Build every open hit, in time order, and end in a Bowl" shortcut="⇧N" onClick={() => void compose.assist.buildTrack()} isText>
+			<AssistButton label="Build Track" detail="Build every open hit, in time order, and end in a Bowl" shortcut="⇧N" onClick={() => void trackCx.assist.buildTrack()} isText>
 				Build Track
 			</AssistButton>
 			{continueCount > 0 ? (
 				<>
 					<div className="mm-assist-divider" />
-					<AssistButton label={`Continue Pattern (${continueCount})`} detail={`Repeat the pattern for ${continueCount} more ${continueCount === 1 ? 'note' : 'notes'} · esc dismisses`} shortcut="⇥" onClick={() => compose.assist.acceptGhosts()} isText>
+					<AssistButton label={`Continue Pattern (${continueCount})`} detail={`Repeat the pattern for ${continueCount} more ${continueCount === 1 ? 'note' : 'notes'} · esc dismisses`} shortcut="⇥" onClick={() => trackCx.assist.acceptGhosts()} isText>
 						<ChevronsRight size={14} strokeWidth={1.8} />
 						Continue Pattern ({continueCount})
 					</AssistButton>
@@ -959,14 +959,14 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 };
 
 /** Screen boxes of the ghost pieces and dots on show, which the build bar keeps clear of */
-function ghostRects(compose: ComposeCx, ghost: ReturnType<ComposeCx['assist']['$ghosts']['get']>['ghost']): TScreenRect[] {
+function ghostRects(trackCx: TrackCx, ghost: ReturnType<TrackCx['assist']['$ghosts']['get']>['ghost']): TScreenRect[] {
 	if (ghost == null) return [];
 	const pieces = ghost.kind === 'continue' ? ghost.answer.suggestions.map((item) => item.piece) : [ghost.answer.piece];
 	const dots = ghost.kind === 'gap' ? [ghost.answer.track.at(-1)] : ghost.kind === 'place' ? [ghost.answer.nextDot] : ghost.answer.suggestions.map((item) => item.dot);
 	const rects: TScreenRect[] = [];
 	for (const piece of pieces) {
 		if (piece == null) continue;
-		const outline = compose.screenOutline(piece).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+		const outline = trackCx.screenOutline(piece).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
 		if (!outline.length) continue;
 		const xs = outline.map((point) => point.x);
 		const ys = outline.map((point) => point.y);
@@ -974,7 +974,7 @@ function ghostRects(compose: ComposeCx, ghost: ReturnType<ComposeCx['assist']['$
 	}
 	for (const dot of dots) {
 		if (dot == null) continue;
-		const screen = compose.toScreen(dot);
+		const screen = trackCx.toScreen(dot);
 		rects.push({ x: screen.x - 7, y: screen.y - 7, width: 14, height: 14 });
 	}
 	return rects;
@@ -998,11 +998,11 @@ const AssistButton: React.FC<{ label: string; detail: string; shortcut: string; 
 // MARK: - Canvas chrome
 
 /** The pills beside the view icons change with the view: Snap and Follow in 2D, Follow in 3D, each with the zoom; nothing in Camera */
-const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
-	const follow = useFeatureState(compose.$follow);
-	const snapping = useFeatureState(compose.studio.$snapping);
-	const trackView = useFeatureState(compose.studio.$trackView);
+const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
+	const follow = useFeatureState(trackCx.$follow);
+	const snapping = useFeatureState(trackCx.studio.$snapping);
+	const trackView = useFeatureState(trackCx.studio.$trackView);
 	if (trackView === 'camera') return null;
 	return (
 		<>
@@ -1013,7 +1013,7 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 						data-active={snapping}
 						aria-label="Snap"
 						aria-pressed={snapping}
-						onClick={() => compose.studio.$snapping.set(!snapping)}
+						onClick={() => trackCx.studio.$snapping.set(!snapping)}
 						type="button"
 					>
 						<Magnet size={14} strokeWidth={1.7} />
@@ -1025,7 +1025,7 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 					data-active={follow}
 					aria-label="Follow"
 					aria-pressed={follow}
-					onClick={() => compose.toggleFollow()}
+					onClick={() => trackCx.toggleFollow()}
 					type="button"
 				>
 					<Focus size={14} strokeWidth={1.7} />
@@ -1035,16 +1035,16 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 				</button>
 			</div>
 			<div className="mm-floating flex items-center p-[3px]">
-				<ZoomMenu compose={compose} />
+				<ZoomMenu trackCx={trackCx} />
 			</div>
 		</>
 	);
 };
 
-const ZoomMenu: React.FC<{ compose: ComposeCx }> = (props) => {
-	const { compose } = props;
-	const cx = compose.studio;
-	const camera = useFeatureState(compose.$camera);
+const ZoomMenu: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
+	const cx = trackCx.studio;
+	const camera = useFeatureState(trackCx.$camera);
 	const zoom = Math.round((camera.view.scale / ZOOM_100_SCALE) * 100);
 	return (
 		<MenuButton
@@ -1076,8 +1076,8 @@ const NO_FIXING = createState<{ done: number; total: number } | null>(null);
 const SimulatingIndicator: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const computing = useFeatureState(cx.simulation.$computing);
-	const compose = useFeatureState(cx.$compose);
-	const fixing = useFeatureState(compose?.assist.$fixing ?? NO_FIXING);
+	const trackCx = useFeatureState(cx.$trackCx);
+	const fixing = useFeatureState(trackCx?.assist.$fixing ?? NO_FIXING);
 	if (!computing && fixing == null) return null;
 	return (
 		<div className="mm-floating mm-delayed-fade absolute top-3 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">

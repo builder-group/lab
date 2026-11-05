@@ -16,12 +16,12 @@ import { tapTime } from './tap';
 import type { THitFlash } from '@/modules/canvas';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
-import type { ComposeCx } from '@/modules/track';
+import type { TrackCx } from '@/modules/track';
 import { withWholePatterns } from '@/modules/track';
 import { earliestHitTime, releaseFollowsFirstHit, preflightExport, problemSummary, type TPreflightTarget } from '@/modules/building';
 import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
-import { addWallTextCommands, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/film';
+import { addWallTextCommands, FilmCx, FilmLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, songDisplayName } from '@/modules/scene';
 
 export interface TAgentStepNotice {
@@ -50,7 +50,7 @@ export class StudioCx {
 	readonly $confirmPrompt = createState<TConfirmPrompt | null>(null);
 	/** Quick Help labels the window's regions and explains the control under the pointer. Always off at launch. */
 	readonly $quickHelp = createState(false);
-	readonly $workspace = createState<TWorkspace>('compose');
+	readonly $workspace = createState<TWorkspace>('track');
 	/** Track's canvas: flat and precise, a free look around in 3D, or through the film's camera */
 	readonly $trackView = createState<TTrackView>('2d');
 	/** The angle Track's 3D view last had, in radians */
@@ -62,14 +62,14 @@ export class StudioCx {
 	readonly $repeatRange = createState<TRepeatRange | null>(null);
 	/** Fit the Wall view to the first open hits, once playback stopped and the run for the latest edit arrived */
 	readonly $fitFirstHits = createState(false);
-	/** The Wall view Compose showed before Film replaced it, so coming back keeps it, like a page's view in Figma */
-	composeView: { projectId: string; view: TView } | null = null;
+	/** The Wall view Track showed before Film replaced it, so coming back keeps it, like a page's view in Figma */
+	trackWallView: { projectId: string; view: TView } | null = null;
 	/** The playback T started: whether the length followed the song then, and whether a tap added a hit */
 	private tapSession: { isAutoEnd: boolean; hasTapped: boolean } | null = null;
 	readonly $notice = createState<TNotice | null>(null);
 	/**
-	 * Selection keys and an optional wall point the Compose canvas should bring into view, set by lists
-	 * outside the canvas. The canvas clears it once handled, so a reveal sent from Design waits for Compose.
+	 * Selection keys and an optional wall point the Track canvas should bring into view, set by lists
+	 * outside the canvas. The canvas clears it once handled, so a reveal sent from Film waits for Track.
 	 */
 	readonly $reveal = createState<TReveal | null>(null);
 	/** Counts `seek` calls; the canvas brings the marble at the playhead into view on each */
@@ -84,8 +84,8 @@ export class StudioCx {
 	readonly $mix = createState<TSongMix>(EMPTY_MIX);
 	/** The hits a marble just landed while playing, for their dots to flash (`useHitFlash`) */
 	readonly $hitFlash = createState<THitFlash[]>([]);
-	/** The mounted Compose canvas, so commands and menus outside it can drive its tools */
-	readonly $compose = createState<ComposeCx | null>(null);
+	/** The mounted Track canvas, so commands and menus outside it can drive its tools */
+	readonly $trackCx = createState<TrackCx | null>(null);
 	/** Marble entity, lane or piece whose name is being edited in place in the sidebar */
 	readonly $renaming = createState<string | null>(null);
 	/** Pieces hidden from the canvas and locked against canvas edits, like Figma's layer toggles. View state, not saved. */
@@ -102,26 +102,26 @@ export class StudioCx {
 	readonly sources = new SourcesCx(this);
 	readonly hints = new HintsCx(this);
 	readonly simulation = new SimulationCx(this);
-	readonly design = new DesignCx({
+	readonly film = new FilmCx({
 		getProject: () => this.project,
 		getResult: () => this.simulation.$result.get(),
 		getPackagePath: () => this.$path.get(),
 		getPlayhead: () => this.$playhead.get(),
 		isPlaying: () => this.$playing.get()
 	});
-	readonly library = new DesignLibraryCx({
+	readonly library = new FilmLibraryCx({
 		getPackagePath: () => this.$path.get(),
 		getProject: () => this.project,
 		getResult: () => this.simulation.$result.get(),
 		execute: (commands) => this.execute(commands),
 		notify: (message, tone) => this.notify(message, tone)
 	});
-	readonly film = new FilmExportCx({
+	readonly filmExport = new FilmExportCx({
 		getProject: () => this.project,
 		getMix: () => this.$mix.get(),
 		getPackagePath: () => this.$path.get(),
 		resolveSourceUrl: (source) => this.resolveSourceUrl(source),
-		design: this.design
+		film: this.film
 	});
 	readonly mcp = new McpCx(this);
 	/** The project's References: images and words in `agent/references/` */
@@ -151,7 +151,7 @@ export class StudioCx {
 		void this.refreshRecent();
 		void this.restoreOpenProject();
 		const unmountSimulation = this.simulation.mount();
-		const unmountDesign = this.mountDesign();
+		const unmountFilm = this.mountFilm();
 		const unmountHints = this.hints.mount();
 		const unmountMcp = this.mcp.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
@@ -163,56 +163,56 @@ export class StudioCx {
 		});
 		return () => {
 			unmountSimulation();
-			unmountDesign();
+			unmountFilm();
 			unmountHints();
 			unmountMcp();
 			stopHeight();
 			stopNotices();
 			stopTapSessionListener();
-			void this.design.close();
+			void this.film.close();
 			clearTimeout(this.noticeTimer);
 			this.audioEngine?.dispose();
 			void this.flush();
 		};
 	}
 
-	/** Keeps the Design preview at the playhead while the Design workspace is open */
-	private mountDesign(): () => void {
-		const inDesign = (): boolean => this.$workspace.get() === 'design' && this.project != null;
-		// The title bar's Blender chip shows whether Blender is installed in Compose too
-		void this.design.detect();
-		this.design.live.setActive(this.$workspace.get() === 'design');
+	/** Keeps the Film preview at the playhead while the Film workspace is open */
+	private mountFilm(): () => void {
+		const inFilm = (): boolean => this.$workspace.get() === 'film' && this.project != null;
+		// The title bar's Blender chip shows whether Blender is installed in Track too
+		void this.film.detect();
+		this.film.live.setActive(this.$workspace.get() === 'film');
 		const stops = [
 			this.$workspace.listen(({ value }) => {
 				// Background preview frames render only while Film is open
-				this.design.live.setActive(value === 'design');
-				if (value !== 'design') return;
+				this.film.live.setActive(value === 'film');
+				if (value !== 'film') return;
 				this.selectEnteringFilm();
-				void this.design.activate();
+				void this.film.activate();
 				void this.library.refresh(false);
 			}),
 			// Runs and library items belong to the package
 			this.$path.listen(() => {
-				void this.design.detect();
+				void this.film.detect();
 				void this.library.refresh();
 				void this.refreshReferences();
 			}),
 			this.$playhead.listen(() => {
-				if (inDesign() && !this.$playing.get()) {
-					this.design.live.pauseForWork();
-					this.design.requestPreview();
+				if (inFilm() && !this.$playing.get()) {
+					this.film.live.pauseForWork();
+					this.film.requestPreview();
 				}
 			}),
 			this.$playing.listen(({ value }) => {
-				if (inDesign()) this.design.live.pauseForWork();
-				if (inDesign() && !value) this.design.requestPreview();
+				if (inFilm()) this.film.live.pauseForWork();
+				if (inFilm() && !value) this.film.requestPreview();
 			}),
 			this.simulation.$result.listen(() => {
-				if (inDesign()) this.design.live.pauseForWork();
-				if (inDesign() && !this.$playing.get()) this.design.requestPreview(400);
+				if (inFilm()) this.film.live.pauseForWork();
+				if (inFilm() && !this.$playing.get()) this.film.requestPreview(400);
 			}),
 			watchForWork(() => {
-				if (inDesign()) this.design.live.pauseForWork();
+				if (inFilm()) this.film.live.pauseForWork();
 			})
 		];
 		return () => {
@@ -275,7 +275,7 @@ export class StudioCx {
 	placeWallText(u = 0.5, v = 0.5): void {
 		const project = this.project;
 		if (project == null) return;
-		this.design.$placing.set(null);
+		this.film.$placing.set(null);
 		const result = this.simulation.$result.get();
 		const time = this.$playhead.get();
 		const point = previewPointToWall(project, result, time, u, v);
@@ -283,14 +283,14 @@ export class StudioCx {
 		if (!this.execute(commands)) return;
 		this.$selection.set([entityId]);
 		// Typing starts at once, like Figma's text tool: the inspector focuses the Text field with its contents selected
-		this.design.$editingTitle.set(entityId);
+		this.film.$editingTitle.set(entityId);
 	}
 
 	/** A new Caption, Song Name or End Card at its default timing, selected, with its text ready to type */
 	addScreenTitle(style: TTitleStyle): void {
 		const project = this.project;
 		if (project == null) return;
-		this.design.$placing.set(null);
+		this.film.$placing.set(null);
 		const result = this.simulation.$result.get();
 		const playhead = this.$playhead.get();
 		const frameHeight = frameHeightOnWall(project, result, playhead);
@@ -304,9 +304,9 @@ export class StudioCx {
 		// Keep the new title in view: a Song Name opens the film and an End Card closes it, wherever the playhead is
 		const text = styled.flatMap((command) => (command.type === 'upsertEntity' && command.entity.id === entityId ? [command.entity.components.wallText] : []))[0];
 		if (text != null && (playhead < (text.in ?? 0) || playhead >= (text.out ?? project.end))) this.$playhead.set(text.in ?? 0);
-		this.$workspace.set('design');
+		this.$workspace.set('film');
 		this.$selection.set([entityId]);
-		this.design.$editingTitle.set(entityId);
+		this.film.$editingTitle.set(entityId);
 	}
 
 	/** Film opens on the Scene with its theme in view, unless a layer Film is about stays selected */
@@ -326,13 +326,13 @@ export class StudioCx {
 
 	/**
 	 * Shows a problem like a click in Xcode's issue navigator: closes the export sheet, moves the playhead to the
-	 * problem and selects and frames what it is about, in Compose, or in Film with the Camera for framing problems
+	 * problem and selects and frames what it is about, in Track, or in Film with the Camera for framing problems
 	 */
 	revealIssue(target: TPreflightTarget): void {
-		this.film.closeSheet();
+		this.filmExport.closeSheet();
 		this.$playing.set(false);
-		this.$workspace.set(target.workspace ?? 'compose');
-		if (target.workspace === 'design') this.$selection.set(target.ids);
+		this.$workspace.set(target.workspace ?? 'track');
+		if (target.workspace === 'film') this.$selection.set(target.ids);
 		else {
 			this.$selection.set(target.ids);
 			this.$reveal.set({ ids: target.ids, point: target.point, isFramed: true });
@@ -344,7 +344,7 @@ export class StudioCx {
 	showFirstProblem(): void {
 		const project = this.project;
 		if (project == null) return;
-		const summary = problemSummary(preflightExport(project, this.simulation.$result.get(), this.design.$blenderObjects.get()));
+		const summary = problemSummary(preflightExport(project, this.simulation.$result.get(), this.film.$blenderObjects.get()));
 		if (summary.state === 'pending') {
 			this.notify('Checking the track…');
 			return;
@@ -475,7 +475,7 @@ export class StudioCx {
 		const isTemporary = this.$isTemporary.get();
 		writeText(OPEN_PROJECT_KEY, null);
 		await this.flush();
-		await this.design.close();
+		await this.film.close();
 		if (isTemporary && path != null) host.discardTemporaryProject(path);
 		this.$isTemporary.set(false);
 		this.$history.set(null);
@@ -511,19 +511,19 @@ export class StudioCx {
 		await this.flush();
 		if (this.$save.get() === 'failed') return false;
 		// Blender's worker holds the package path; it starts again at the new place
-		const wasInFilm = this.$workspace.get() === 'design';
-		await this.design.close();
+		const wasInFilm = this.$workspace.get() === 'film';
+		await this.film.close();
 		const [isMovedOk, movedErr, path] = await host.moveProject(from, destination);
 		if (!isMovedOk) {
 			this.notify(`${project.title} couldn't be saved: ${movedErr.message}. It stays open as an unsaved project.`, 'error');
-			if (wasInFilm) void this.design.activate();
+			if (wasInFilm) void this.film.activate();
 			return false;
 		}
 		this.$isTemporary.set(false);
 		this.$path.set(path);
 		writeText(OPEN_PROJECT_KEY, path);
 		this.retitle(projectName(path));
-		if (wasInFilm) void this.design.activate();
+		if (wasInFilm) void this.film.activate();
 		void this.refreshRecent();
 		return true;
 	}
@@ -548,12 +548,12 @@ export class StudioCx {
 			return false;
 		}
 		// Blender's worker holds the package path; it starts again with the copy
-		const wasInFilm = this.$workspace.get() === 'design';
-		await this.design.close();
+		const wasInFilm = this.$workspace.get() === 'film';
+		await this.film.close();
 		this.$path.set(path);
 		writeText(OPEN_PROJECT_KEY, path);
 		this.retitle(projectName(path));
-		if (wasInFilm) void this.design.activate();
+		if (wasInFilm) void this.film.activate();
 		void this.refreshRecent();
 		return true;
 	}
@@ -641,7 +641,7 @@ export class StudioCx {
 		this.hiddenByMarble.clear();
 		this.$locked.set([]);
 		this.$playhead.set(0);
-		this.$workspace.set('compose');
+		this.$workspace.set('track');
 		this.$trackView.set('2d');
 		this.sources.$analysis.set({});
 		this.sources.ensureAnalysis(project);
@@ -856,17 +856,17 @@ export class StudioCx {
 	}
 
 	/**
-	 * Moves the playhead to the previous or next hit (see `stepHitTarget`) and, in Compose, selects that hit so the
+	 * Moves the playhead to the previous or next hit (see `stepHitTarget`) and, in Track, selects that hit so the
 	 * inspector is ready to edit it and ↑ ↓ tilt its platform. Returns false at the ends.
 	 */
 	stepHit(direction: 1 | -1): boolean {
 		const project = this.project;
 		if (project == null) return false;
-		const isCompose = this.$workspace.get() === 'compose';
-		const next = stepHitTarget(project, this.$selection.get(), this.$playhead.get(), direction, isCompose);
+		const isTrack = this.$workspace.get() === 'track';
+		const next = stepHitTarget(project, this.$selection.get(), this.$playhead.get(), direction, isTrack);
 		if (next == null) return false;
 		this.seek(next.time);
-		if (isCompose) this.$selection.set([toHitKey(next.laneId, next.hitId)]);
+		if (isTrack) this.$selection.set([toHitKey(next.laneId, next.hitId)]);
 		return true;
 	}
 
@@ -949,7 +949,7 @@ export class StudioCx {
 
 	undo(): void {
 		// While a Pattern fits nothing has changed yet, so ⌘Z stops it
-		const patterns = this.$compose.get()?.patterns;
+		const patterns = this.$trackCx.get()?.patterns;
 		if (patterns?.$isRunning.get() === true) {
 			patterns.stop();
 			return;
@@ -1129,7 +1129,7 @@ function hasFix(notice: TNotice): boolean {
 	return notice.details != null || notice.actions?.some((action) => action.isUndo !== true) === true;
 }
 
-export type TWorkspace = 'compose' | 'design';
+export type TWorkspace = 'track' | 'film';
 export type TTrackView = '2d' | '3d' | 'camera';
 export interface TTrackAngles {
 	yaw: number;

@@ -1,4 +1,4 @@
-// The one-line meaning of each concept, shown where people meet it and held to `docs/words.md`. Track belongs to Compose;
+// The one-line meaning of each concept, shown where people meet it and held to `docs/words.md`. Track belongs to the Track workspace;
 // Skin, Theme, Decor and Pack to Film.
 
 export const TRACK_HELP = 'Track: what the marbles run on, made of track pieces; each has a hitbox.';

@@ -45,8 +45,8 @@ export interface TSceneDescription {
 	camera?: TSceneCamera;
 	/** Overrides of the theme's hit reactions */
 	reactions?: TSceneReactions;
-	/** Theme options from Design; absent keeps the theme as it is. Additive like `wallTexts`. */
-	/** Wall text placed in Design. Optional and additive; workers that do not know it ignore it. */
+	/** Theme options from Film; absent keeps the theme as it is. Additive like `wallTexts`. */
+	/** Wall text placed in Film. Optional and additive; workers that do not know it ignore it. */
 	wallTexts?: TSceneWallText[];
 	/** The film's Decor layers, without physics. Additive like `wallTexts`. */
 	decor?: TSceneDecorItem[];

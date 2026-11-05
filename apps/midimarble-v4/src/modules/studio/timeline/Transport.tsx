@@ -65,13 +65,13 @@ interface TTransportProps {
  */
 const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const compose = useFeatureState(cx.$compose);
-	const fixing = useFeatureState(compose?.assist.$fixing ?? NO_FIXING);
-	const building = useFeatureState(compose?.assist.$building ?? NO_BUILDING);
+	const trackCx = useFeatureState(cx.$trackCx);
+	const fixing = useFeatureState(trackCx?.assist.$fixing ?? NO_FIXING);
+	const building = useFeatureState(trackCx?.assist.$building ?? NO_BUILDING);
 	const workspace = useFeatureState(cx.$workspace);
 	// While Build Track works the summary only says so, so no step checks the whole run again for it
 	const preflight = useRunPreflight(cx, project);
-	const summary = React.useMemo(() => problemSummary(preflight ?? preflightExport(project, null, NO_BLENDER_OBJECTS), workspace === 'compose' ? 'compose' : 'film'), [preflight, project, workspace]);
+	const summary = React.useMemo(() => problemSummary(preflight ?? preflightExport(project, null, NO_BLENDER_OBJECTS), workspace), [preflight, project, workspace]);
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
 
 	if (fixing != null || building != null || summary.state === 'pending') {
@@ -83,7 +83,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		);
 	}
 	// Nothing placed yet: what the summary would count is what Build Track does
-	if (!summary.problems.length && summary.onTime === 0 && workspace === 'compose') {
+	if (!summary.problems.length && summary.onTime === 0 && workspace === 'track') {
 		const build = getCommand('build.track');
 		return (
 			<button className="mm-hit-summary" data-tone="action" data-quick-help="hitSummary" onClick={() => build.run(cx)} title={`Build every open hit, in time order (${build.shortcut ?? ''})`} type="button">

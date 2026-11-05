@@ -157,11 +157,11 @@ const RepeatStrip: React.FC<{ cx: StudioCx; end: number; zoom: number; timeAt: (
 const RenderBar: React.FC<{ cx: StudioCx; zoom: number }> = (props) => {
 	const { cx, zoom } = props;
 	const workspace = useFeatureState(cx.$workspace);
-	const frames = useFeatureState(cx.design.live.$frames);
-	const isEnabled = useFeatureState(cx.design.live.$enabled);
-	const isRendering = useFeatureState(cx.design.live.$isRendering);
+	const frames = useFeatureState(cx.film.live.$frames);
+	const isEnabled = useFeatureState(cx.film.live.$enabled);
+	const isRendering = useFeatureState(cx.film.live.$isRendering);
 	const spans = React.useMemo(() => (frames != null ? renderedSpans(frames.rendered, frames.fps, frames.startTime) : []), [frames]);
-	if (workspace !== 'design' || !isEnabled || frames == null || (!isRendering && spans.length === 0)) return null;
+	if (workspace !== 'film' || !isEnabled || frames == null || (!isRendering && spans.length === 0)) return null;
 	const songEnd = frames.startTime + frames.total / frames.fps;
 	return (
 		<span className="mm-render-bar" style={{ left: frames.startTime * zoom, width: (songEnd - frames.startTime) * zoom }} title={isRendering ? 'Rendering in Blender…' : undefined}>

@@ -4,7 +4,7 @@ import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
 import { framingProblemAt, preflightExport } from '@/modules/building';
-import type { ComposeCx } from '@/modules/track';
+import type { TrackCx } from '@/modules/track';
 import { addedPacks, library } from '@/modules/library';
 import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY, toShotKey } from '@/modules/project';
 import { commands as registry, commandWorkspace, isCommandEnabled, type TCommand, type TCommandId } from '@/modules/studio/commands';
@@ -31,7 +31,7 @@ const DRAFT_WIDTH = 540;
 const BLENDER_WIDTH = 1280;
 const PROJECT_EXECUTE = 'project.execute';
 const EDIT_SELECT = 'edit.select';
-const REMOVE_PACK = 'design.removePack';
+const REMOVE_PACK = 'film.removePack';
 
 /** Commands that ask a person through a panel, with what they need instead */
 const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
@@ -40,8 +40,8 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.importMidi': 'the add_song tool',
 	'file.replaceSong': 'the add_song tool',
 	'file.export': 'the export_film tool',
-	'design.exportPack': 'args.path, plus name and either theme or items',
-	'design.addText': 'args.text, and style, at, color, in and out if wanted',
+	'film.exportPack': 'args.path, plus name and either theme or items',
+	'film.addText': 'args.text, and style, at, color, in and out if wanted',
 	'camera.addShot': 'args.time, kind, distance and length if wanted',
 	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
@@ -71,16 +71,16 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const project = cx.project;
 		if (project == null) return text(cx, { project: null, note: 'No project is open. Call add_song, or run_command with file.new or file.open.' });
 		const references = cx.$references.get();
-		const assist = cx.$compose.get()?.assist;
+		const assist = cx.$trackCx.get()?.assist;
 		return text(
 			cx,
 			projectState(project, cx.simulation.$result.get(), {
 				path: cx.$path.get(),
-				workspace: cx.$workspace.get() === 'design' ? 'film' : 'track',
+				workspace: cx.$workspace.get(),
 				selection: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get()),
 				building: assist?.$building.get(),
 				lastBuild: assist?.$lastBuild.get(),
-				blenderObjects: cx.design.$blenderObjects.get(),
+				blenderObjects: cx.film.$blenderObjects.get(),
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
@@ -145,7 +145,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 			// The call answers at once, but the agent is still at work until the build ends
 			const end = cx.mcp.presence.begin('Building Track');
 			void editStep(cx, command.title, () => startBuild(cx, command, from ?? undefined, gapPreference(commandArgs))).finally(end);
-			await waitFor(() => cx.$compose.get()?.assist.isBuilding === true, 1500);
+			await waitFor(() => cx.$trackCx.get()?.assist.isBuilding === true, 1500);
 			return text(cx, { started: true, note: 'Building. get_state shows building and, when done, lastBuild; build.stop stops it.' });
 		}
 		// What Undo and Redo take back, named beforehand since the step is gone afterward
@@ -205,9 +205,9 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const { time, quality } = z.object({ time: z.number().min(0), quality: z.enum(['draft', 'blender']).optional() }).parse(args);
 		if (cx.project == null) return noProject(cx);
 		await settled(cx);
-		const [isFrameOk, frameErr, frame] = await cx.design.renderStill(time, quality === 'blender' ? BLENDER_WIDTH : DRAFT_WIDTH);
+		const [isFrameOk, frameErr, frame] = await cx.film.renderStill(time, quality === 'blender' ? BLENDER_WIDTH : DRAFT_WIDTH);
 		if (!isFrameOk) return fail(cx, frameErr.message);
-		const framing = framingProblemAt(preflightExport(cx.project, cx.simulation.$result.get(), cx.design.$blenderObjects.get()), time);
+		const framing = framingProblemAt(preflightExport(cx.project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()), time);
 		const words = `${frame.width} × ${frame.height} at ${time} s, ${Math.round(frame.renderMs)} ms${framing != null ? `. ${framing.title} here: this frame may not show it` : ''}`;
 		return { content: [{ type: 'imagePath', path: frame.path }, { type: 'text', text: words }], isError: false, packagePath: cx.$path.get() };
 	},
@@ -223,22 +223,22 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 	export_film: async (cx, args) => {
 		const { quality, path } = z.object({ quality: z.enum(['draft', 'final']).optional(), path: SPath.optional() }).parse(args);
 		if (cx.project == null) return noProject(cx);
-		if (quality != null && !cx.film.isRunning) {
+		if (quality != null && !cx.filmExport.isRunning) {
 			await settled(cx);
-			cx.film.updateSettings({ preset: quality, ...(path != null ? { fileName: filmFileName(path), chosenPath: path } : {}) });
-			void cx.film.start();
+			cx.filmExport.updateSettings({ preset: quality, ...(path != null ? { fileName: filmFileName(path), chosenPath: path } : {}) });
+			void cx.filmExport.start();
 			await sleep(50);
 		}
 		const deadline = Date.now() + EXPORT_WAIT_MS;
-		while (cx.film.isRunning && quality != null && Date.now() < deadline) await sleep(250);
-		const job = cx.film.$job.get();
+		while (cx.filmExport.isRunning && quality != null && Date.now() < deadline) await sleep(250);
+		const job = cx.filmExport.$job.get();
 		if (job.phase === 'failed') return fail(cx, job.error ?? 'The export failed');
 		return text(cx, {
 			phase: job.phase,
 			...(job.frames != null ? { frame: job.frame, frames: job.frames } : {}),
 			...(job.progress != null ? { progress: Math.round(job.progress * 100) / 100 } : {}),
 			...(job.result != null ? { result: job.result } : {}),
-			...(cx.film.isRunning ? { note: 'Still exporting. Call export_film without quality to check again.' } : {})
+			...(cx.filmExport.isRunning ? { note: 'Still exporting. Call export_film without quality to check again.' } : {})
 		});
 	},
 
@@ -274,12 +274,12 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	// Like build.track, this answers when the build is done, so the reply reports the finished track
 	'build.rebuildFrom': async (cx) => {
 		const stopEpoch = cx.mcp.presence.stopEpoch;
-		const compose = await openCompose(cx, 'Rebuild From Here');
-		const from = compose.assist.rebuildTarget;
+		const trackCx = await openTrack(cx, 'Rebuild From Here');
+		const from = trackCx.assist.rebuildTarget;
 		if (from == null) throw new Error('Rebuild From Here needs a hit, or a piece that plays one: select it with args.select.');
-		if (cx.mcp.presence.stopEpoch === stopEpoch) await compose.assist.buildTrack(from);
+		if (cx.mcp.presence.stopEpoch === stopEpoch) await trackCx.assist.buildTrack(from);
 	},
-	'design.addText': async (cx, args) => {
+	'film.addText': async (cx, args) => {
 		addTitle(cx, args);
 	},
 	'camera.addShot': async (cx, args) => {
@@ -287,7 +287,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		const project = cx.project;
 		if (project == null) return;
 		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(length != null ? { length } : {}) });
-		cx.$workspace.set('design');
+		cx.$workspace.set('film');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
 	},
 	'file.new': async (cx, args) => {
@@ -304,7 +304,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	'file.saveAs': async (cx, args) => {
 		await cx.saveAs(z.object({ path: SPath }).parse(args).path);
 	},
-	'design.addPack': async (cx, args) => {
+	'film.addPack': async (cx, args) => {
 		const { path, name } = z.object({ path: SPath.optional(), name: z.string().optional() }).parse(args);
 		if (name?.toLowerCase() === STARTER_PACK.name.toLowerCase()) {
 			cx.notify('The Starter Pack is always there; nothing to add.');
@@ -321,17 +321,17 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		if (!isAddedOk) throw addedErr;
 		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'setDesign', design: { theme: id } }.`);
 	},
-	'design.restartBlender': async (cx) => {
-		await cx.design.restart();
-		const error = cx.design.$error.get();
+	'film.restartBlender': async (cx) => {
+		await cx.film.restart();
+		const error = cx.film.$error.get();
 		if (error != null) throw new Error(`Blender did not come back: ${error}`);
-		cx.notify(cx.design.$status.get() === 'idle' ? 'Blender stopped; it starts again with the next preview' : 'Blender restarted');
+		cx.notify(cx.film.$status.get() === 'idle' ? 'Blender stopped; it starts again with the next preview' : 'Blender restarted');
 	},
 	'marble.speed': async (cx, args) => {
 		const { value } = z.object({ value: z.number().min(0.05).max(2) }).parse(args);
 		cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
 	},
-	'design.exportPack': async (cx, args) => {
+	'film.exportPack': async (cx, args) => {
 		const { path, name, description, author, theme, items } = z.object({ path: SPath, name: z.string(), description: z.string().optional(), author: z.string().optional(), theme: z.boolean().optional(), items: z.array(z.string()).optional() }).parse(args);
 		const [isExportedOk, exportedErr] = await cx.library.exportPack({ name, ...(description != null ? { description } : {}), ...(author != null ? { author } : {}), includesTheme: theme === true, assetIds: items ?? [] }, path);
 		if (!isExportedOk) throw exportedErr;
@@ -370,7 +370,7 @@ function addTitle(cx: StudioCx, args: Record<string, unknown>): void {
 		const wallText = { ...title, ...(start != null ? { in: start } : {}), ...(out != null ? { out } : {}) };
 		return [{ ...command, entity: { ...command.entity, name: wallText.text, components: { ...command.entity.components, wallText } } }];
 	});
-	cx.$workspace.set('design');
+	cx.$workspace.set('film');
 	if (cx.execute(styled)) cx.$selection.set([entityId]);
 }
 
@@ -418,20 +418,20 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	const project = cx.project;
 	if (project == null) return noProject(cx);
 	if (!project.music.lanes.some((lane) => lane.id === laneId)) return fail(cx, `No marble has lane ${laneId}. get_state lists them.`);
-	const compose = await openCompose(cx, 'Apply Pattern');
+	const trackCx = await openTrack(cx, 'Apply Pattern');
 	const stop = cx.mcp.presence.stopEpoch;
 	const settings = { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) };
 	const existing = project.groups?.filter(isPatternGroup).find((group) => group.laneId === laneId && group.kind === kind && Math.abs(group.from - from) < 1e-3 && Math.abs(group.to - to) < 1e-3);
 	const target = { laneId, from, to, ...(existing != null ? { group: existing } : {}) };
-	const report = (answer: Awaited<ReturnType<typeof compose.patterns.apply>>): Record<string, unknown> =>
+	const report = (answer: Awaited<ReturnType<typeof trackCx.patterns.apply>>): Record<string, unknown> =>
 		answer == null
 			? { stopped: true }
 			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, ...(answer.refusal != null ? { refusal: answer.refusal } : {}), later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
 	if (dryRun === true) {
 		// A step that edits nothing, so Stop reaches it and no Undo step comes of it
-		let answer: Awaited<ReturnType<typeof compose.patterns.dryRun>> = null;
+		let answer: Awaited<ReturnType<typeof trackCx.patterns.dryRun>> = null;
 		await cx.runAgentStep('Agent: Try Pattern', async () => {
-			answer = await compose.patterns.dryRun(target, kind, settings);
+			answer = await trackCx.patterns.dryRun(target, kind, settings);
 		});
 		return text(cx, { changed: false, dryRun: true, ...report(answer) });
 	}
@@ -439,7 +439,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	cx.mcp.presence.relabel(label ?? `Fitting ${kind === 'longRail' ? 'Long Rail' : kind === 'zigzag' ? 'Zigzag' : 'Staircase'}`);
 	let reply: Record<string, unknown> = {};
 	return editStep(cx, label ?? 'Apply Pattern', async () => {
-		reply = report(await compose.patterns.apply(target, kind, settings));
+		reply = report(await trackCx.patterns.apply(target, kind, settings));
 	}, {}, () => reply);
 }
 
@@ -456,12 +456,12 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 	const items = cx.library.$projectItems.get();
 	const packThemes = await packThemesToApply(cx, commands);
 	// Stop came while waiting for the run: this edit never starts, and McpCx's reply says why
-	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.design.$blenderObjects.get()) });
-	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes, cx.design.$blenderObjects.get());
+	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()) });
+	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes, cx.film.$blenderObjects.get());
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
 	if (!expanded.isChange) {
 		applySelection(cx, args);
-		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.design.$blenderObjects.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
+		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
 	}
 	const created = expanded.createdIds.length === 1 ? expanded.commands.find((command) => command.type === 'upsertEntity' && command.entity.id === expanded.createdIds[0]) : undefined;
 	cx.mcp.presence.relabel(editPresenceLabel(label, expanded.summary, created?.type === 'upsertEntity' ? (created.entity.name ?? null) : null));
@@ -490,29 +490,29 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 		...(extra.redid != null ? { redid: extra.redid } : {}),
 		...after?.(),
 		selection: cx.$selection.get(),
-		...(project != null ? hitReport(project, cx.simulation.$result.get(), cx.design.$blenderObjects.get()) : {}),
+		...(project != null ? hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()) : {}),
 		...(notices.length > 0 ? { notices } : {}),
 		...(errors.length > 0 ? { errors } : {})
 	};
 	return { ...text(cx, reply), isError: errors.length > 0 };
 }
 
-/** Build Track, which answers when it is done: opens Compose first, as `invoke` does */
+/** Build Track, which answers when it is done: opens Track first, as `invoke` does */
 async function startBuild(cx: StudioCx, command: TCommand, from?: { laneId: string; hitId: string }, gapPiece?: 'rail' | 'switchback' | 'chain'): Promise<void> {
 	const stopEpoch = cx.mcp.presence.stopEpoch;
-	const compose = await openCompose(cx, command.title);
-	if (cx.mcp.presence.stopEpoch === stopEpoch) await compose.assist.buildTrack(from, gapPiece);
+	const trackCx = await openTrack(cx, command.title);
+	if (cx.mcp.presence.stopEpoch === stopEpoch) await trackCx.assist.buildTrack(from, gapPiece);
 }
 
-async function openCompose(cx: StudioCx, title: string): Promise<ComposeCx> {
-	if (cx.$workspace.get() !== 'compose') {
-		cx.$workspace.set('compose');
-		await waitFor(() => cx.$compose.get() != null, 1500);
+async function openTrack(cx: StudioCx, title: string): Promise<TrackCx> {
+	if (cx.$workspace.get() !== 'track') {
+		cx.$workspace.set('track');
+		await waitFor(() => cx.$trackCx.get() != null, 1500);
 	}
 	await sleep(50);
-	const compose = cx.$compose.get();
-	if (compose == null) throw new Error(`${title} needs Track, which didn't open.`);
-	return compose;
+	const trackCx = cx.$trackCx.get();
+	if (trackCx == null) throw new Error(`${title} needs Track, which didn't open.`);
+	return trackCx;
 }
 
 /** `gapPiece` of `build.track`: the piece tried first across a long gap */
@@ -527,12 +527,12 @@ function buildFrom(cx: StudioCx, args: Record<string, unknown>): { laneId: strin
 	if (hitId == null) return null;
 	const lane = cx.project?.music.lanes.find((item) => item.hits.some((hit) => hit.id === hitId));
 	if (lane == null || typeof hitId !== 'string') return `There is no hit called ${String(hitId)}. get_state lists every marble's hits.`;
-	if (cx.$compose.get()?.assist.isBuilding === true) return buildRefusal(cx);
+	if (cx.$trackCx.get()?.assist.isBuilding === true) return buildRefusal(cx);
 	return { laneId: lane.id, hitId };
 }
 
 function buildRefusal(cx: StudioCx): string {
-	const assist = cx.$compose.get()?.assist;
+	const assist = cx.$trackCx.get()?.assist;
 	if (assist?.isBuilding === true) return 'Build Track is already running. get_state shows how far it is; build.stop stops it.';
 	if (cx.project?.music.lanes.some((lane) => lane.hits.length > 0) !== true) return 'Build Track needs notes. Call add_song first.';
 	return 'Every hit already has a platform.';
@@ -543,7 +543,7 @@ async function invoke(cx: StudioCx, command: TCommand): Promise<void> {
 	const target = commandWorkspace(command);
 	if (target != null && cx.$workspace.get() !== target && cx.project != null) {
 		cx.$workspace.set(target);
-		await waitFor(() => target === 'design' || cx.$compose.get() != null, 1500);
+		await waitFor(() => target === 'film' || cx.$trackCx.get() != null, 1500);
 		await sleep(50);
 	}
 	if (!isCommandEnabled(cx, command)) throw new Error(`${command.title} can't run right now. ${command.whyDisabled ?? 'get_state shows the project and selection it would act on.'}`);
@@ -600,7 +600,7 @@ async function waitUntilFree(cx: StudioCx): Promise<string | null> {
 }
 
 export function busyReason(cx: StudioCx): string | null {
-	if (cx.$compose.get()?.assist.isBuilding === true) return 'Build Track is running. get_state shows how far it is; build.stop stops it.';
+	if (cx.$trackCx.get()?.assist.isBuilding === true) return 'Build Track is running. get_state shows how far it is; build.stop stops it.';
 	if (cx.mcp.isPointerDown) return 'The person is in the middle of a drag in MidiMarble. Try again in a moment.';
 	if (cx.$confirmPrompt.get() != null || cx.$closePrompt.get() != null) return 'MidiMarble is waiting for the person to answer a question. Try again in a moment.';
 	if (cx.sources.$midiImport.get() != null) return 'The person has the Import Song sheet open. Try again in a moment.';
@@ -620,7 +620,7 @@ export async function settled(cx: StudioCx): Promise<void> {
 			since = Date.now();
 		}
 		const isRunCurrent = cx.project == null || cx.simulation.$result.get()?.revision === current;
-		const isAssistFree = !cx.simulation.isSettling && cx.$compose.get()?.assist.isAnswering !== true;
+		const isAssistFree = !cx.simulation.isSettling && cx.$trackCx.get()?.assist.isAnswering !== true;
 		if (isRunCurrent && isAssistFree && Date.now() - since >= SETTLE_MS) return;
 		if (cx.$confirmPrompt.get() != null || cx.$closePrompt.get() != null) return;
 	}

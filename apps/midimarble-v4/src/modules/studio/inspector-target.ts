@@ -8,25 +8,25 @@ import type { TWorkspace } from './StudioCx';
  * Song its file and Backing, the Camera its framing, a shot or a title its own, a marble its color and release,
  * the Wall its skin and colors, a light its color, strength and direction.
  * Nothing selected is the Scene. The same selection shows the same inspector whether it was made in Layers or in the
- * timeline, and in either workspace, except that Compose has no Lights or Decor: a selection left over from Film
+ * timeline, and in either workspace, except that Track has no Lights or Decor: a selection left over from Film
  * shows the Scene there.
  */
-export function inspectorTarget(project: TProject, selection: readonly string[], workspace: TWorkspace = 'design'): TInspectorTarget {
-	// Patterns are Compose's: in Film a Group's selection is its pieces. In Compose a live Pattern's piece shows its Group
-	if (workspace === 'compose') {
+export function inspectorTarget(project: TProject, selection: readonly string[], workspace: TWorkspace = 'film'): TInspectorTarget {
+	// Patterns are Track's: in Film a Group's selection is its pieces. In Track a live Pattern's piece shows its Group
+	if (workspace === 'track') {
 		const group = project.groups?.filter(isPatternGroup).find((item) => selection.some((key) => parseGroupKey(key) === item.id || item.pieceIds.includes(key)));
 		if (group != null) return { kind: 'group', id: group.id };
 		const range = selection.flatMap((key) => parseRangeKey(key) ?? [])[0];
 		if (range != null) return { kind: 'patternRange', ...range };
 	}
 	const target = selectedTarget(project, selection);
-	return workspace === 'compose' && FILM_ONLY_TARGETS.includes(target.kind) ? { kind: 'scene' } : target;
+	return workspace === 'track' && FILM_ONLY_TARGETS.includes(target.kind) ? { kind: 'scene' } : target;
 }
 
 const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['light', 'decor', 'decorItems', 'madeInBlender'];
 
 /**
- * What stays selected when Film opens. The piece or hit Compose's work last left selected would hide the theme, so
+ * What stays selected when Film opens. The piece or hit Track's work last left selected would hide the theme, so
  * those go and the Scene shows (ux-benchmark item 3); a marble, the Song and Film's own layers stay.
  */
 export function selectionEnteringFilm(project: TProject, selection: readonly string[]): string[] {

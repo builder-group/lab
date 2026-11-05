@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TContinueAnswer, TGapAnswer, TResolvedPiece } from '@/modules/simulation';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostState } from './ghosts';
-import { composeKeyAction, type TKeyContext, type TKeyInput } from './keys';
+import { trackKeyAction, type TKeyContext, type TKeyInput } from './keys';
 import { pickTrack, pathHandles, pathRun, pathToLocal, pathToWorld, pieceAngleAt, turnPathRun, withPathBend, withPathEnd, withPathRun } from '@/modules/scene';
 
 function continueAnswer(revision: number, okCount: number): TContinueAnswer {
@@ -84,10 +84,10 @@ describe('ghost state', () => {
 	});
 });
 
-describe('compose keys', () => {
+describe('track keys', () => {
 	const none: TKeyContext = { hasPieces: false, hasSelection: false, hasGhosts: false };
-	const press = (key: string, extra: Partial<TKeyInput> = {}, context: TKeyContext = none): ReturnType<typeof composeKeyAction> =>
-		composeKeyAction({ key, code: extra.code ?? `Key${key.toUpperCase()}`, shiftKey: false, metaKey: false, ctrlKey: false, altKey: false, ...extra }, context);
+	const press = (key: string, extra: Partial<TKeyInput> = {}, context: TKeyContext = none): ReturnType<typeof trackKeyAction> =>
+		trackKeyAction({ key, code: extra.code ?? `Key${key.toUpperCase()}`, shiftKey: false, metaKey: false, ctrlKey: false, altKey: false, ...extra }, context);
 
 	it('should map the tool rail letters and leave ⇧1 and ⇧2 for framing', () => {
 		expect(press('v')).toEqual({ type: 'tool', tool: 'select' });

@@ -220,7 +220,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	// A recording's mute and solo are the Song's alone, so they leave the marbles' hits as they are
 	const partMix = isAudioSong(project) ? EMPTY_MIX : currentMix(project, mix);
 	const showsParts = isSongExpanded && songRows != null;
-	const showsTitles = workspace === 'design' && project.entities.some((entity) => entity.components.wallText != null);
+	const showsTitles = workspace === 'film' && project.entities.some((entity) => entity.components.wallText != null);
 	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
 	const rowsHeight = project.music.lanes.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + CAMERA_ROW_HEIGHT;
 

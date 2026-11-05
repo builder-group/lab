@@ -7,7 +7,7 @@ import { filmMenu, filmObjectMenu } from '@/modules/studio/menus';
 import { CAMERA_KEY } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { startCameraOrbit } from '@/modules/canvas';
-import type { DesignCx } from './FilmCx';
+import type { FilmCx } from './FilmCx';
 import { decorAtWall } from '@/modules/scene';
 import { startDecorDrag } from './decor-actions';
 import { insertDropHandlers } from './FilmInsert';
@@ -23,7 +23,7 @@ import { LivePreviewFrame } from './LivePreviewFrame';
  * show Blender's background frames over the Draft Preview where they are rendered. With the Camera selected, a drag
  * orbits it, drawn by the Draft Preview until Blender catches up.
  */
-export const DesignView: React.FC<TDesignViewProps> = (props) => {
+export const FilmView: React.FC<TFilmViewProps> = (props) => {
 	const { cx, studio, frame, onPick, onPlace, onDropAsset } = props;
 	const status = useFeatureState(cx.$status);
 	const preview = useFeatureState(cx.$preview);
@@ -52,7 +52,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 		return () => window.removeEventListener('keydown', onKeyDown, true);
 	}, [cx, placing]);
 
-	// Escape selects the Scene, as it does on the Compose canvas. Menus, sheets and text fields handle their own Escape
+	// Escape selects the Scene, as it does on the Track canvas. Menus, sheets and text fields handle their own Escape
 	// first.
 	React.useEffect(() => {
 		function onKeyDown(event: KeyboardEvent): void {
@@ -203,7 +203,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
  * Whether the viewer draws in the app rather than showing Blender's still: always while playing, and while
  * paused when the still is not at the playhead yet but a background preview frame is
  */
-function useLiveMode(cx: DesignCx, studio: StudioCx): boolean {
+function useLiveMode(cx: FilmCx, studio: StudioCx): boolean {
 	const subscribe = React.useCallback(
 		(onChange: () => void) => {
 			const stops = [studio.$playing.listen(onChange), studio.$playhead.listen(onChange), cx.live.$frames.listen(onChange), cx.live.$enabled.listen(onChange), cx.$preview.listen(onChange)];
@@ -225,8 +225,8 @@ function useLiveMode(cx: DesignCx, studio: StudioCx): boolean {
 	return React.useSyncExternalStore(subscribe, snapshot);
 }
 
-interface TDesignViewProps {
-	cx: DesignCx;
+interface TFilmViewProps {
+	cx: FilmCx;
 	studio: StudioCx;
 	frame: { width: number; height: number };
 	/** A click on the preview; Shift adds to or removes from the selection */

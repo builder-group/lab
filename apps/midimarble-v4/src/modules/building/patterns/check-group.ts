@@ -26,7 +26,7 @@ export interface TGroupCheck {
 }
 
 function standing(project: TProject, result: TSimulationResult): TProblemSummary {
-	return problemSummary(preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS), 'compose');
+	return problemSummary(preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS), 'track');
 }
 
 function hitWords(project: TProject, hitId: string): { laneId: string; hitId: string; number: number; name: string } | null {

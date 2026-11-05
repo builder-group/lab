@@ -165,10 +165,10 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 			{pieces.map((piece) => {
 				const kind = pieceKind(piece);
 				const palette = draft.colorsOf(piece);
-				if (kind === 'path') return <RailShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
-				if (kind === 'tube') return <TunnelShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'generated') return <RailPathsShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'catcher') return <BowlShape key={piece.entityId} compose={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
+				if (kind === 'path') return <RailShape key={piece.entityId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
+				if (kind === 'tube') return <TunnelShape key={piece.entityId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
+				if (kind === 'generated') return <RailPathsShape key={piece.entityId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
+				if (kind === 'catcher') return <BowlShape key={piece.entityId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
 				return null;
 			})}
 			{/* A skin's shape cue on its platform: chrome caps, a key, a lens or a grille, so a skin shows before Blender renders it */}

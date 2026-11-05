@@ -3,8 +3,8 @@ import { createHistory, createLane, createMarble, createProject, type TProject }
 import type { TSimulationResult } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio';
 import { createFreePiece, displayPiece } from '@/modules/building';
-import { ComposeCx } from './TrackCx';
-import type { ComposeRenderer, TRenderPiece } from '@/modules/canvas';
+import { TrackCx } from './TrackCx';
+import type { TrackRenderer, TRenderPiece } from '@/modules/canvas';
 
 const draws = vi.hoisted(() => ({ count: 0 }));
 
@@ -31,7 +31,7 @@ function runFrames(): void {
 	for (const frame of due) frame.callback(performance.now() + 16);
 }
 
-function mounted(): { cx: StudioCx; compose: ComposeCx; renderer: ComposeRenderer; windmillId: string; unmount: () => void } {
+function mounted(): { cx: StudioCx; trackCx: TrackCx; renderer: TrackRenderer; windmillId: string; unmount: () => void } {
 	const created = createProject({ title: 'Song' });
 	const lane = createLane(0);
 	const marble = createMarble(lane, { x: 0, y: 0 });
@@ -51,14 +51,14 @@ function mounted(): { cx: StudioCx; compose: ComposeCx; renderer: ComposeRendere
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	cx.simulation.$result.set(result);
-	const compose = new ComposeCx(cx);
+	const trackCx = new TrackCx(cx);
 	const container = { dataset: {}, addEventListener() {}, removeEventListener() {}, getBoundingClientRect: () => ({ width: 1200, height: 800 }) } as unknown as HTMLElement;
-	const unmount = compose.mount(container, {} as HTMLCanvasElement);
-	const renderer = (compose as unknown as { renderer: ComposeRenderer }).renderer;
+	const unmount = trackCx.mount(container, {} as HTMLCanvasElement);
+	const renderer = (trackCx as unknown as { renderer: TrackRenderer }).renderer;
 	renderer.setViewport({ width: 1200, height: 800 }, 1);
-	compose.$viewport.set({ width: 1200, height: 800 });
+	trackCx.$viewport.set({ width: 1200, height: 800 });
 	runFrames();
-	return { cx, compose, renderer, windmillId: windmill.id, unmount };
+	return { cx, trackCx, renderer, windmillId: windmill.id, unmount };
 }
 
 beforeEach(() => {
@@ -138,30 +138,30 @@ describe('the flat canvas behind 3D and Camera', () => {
 
 	it('should keep Follow moving the view in 3D, which stands on it, and not in Camera', () => {
 		// Prepare
-		const { cx, compose, unmount } = mounted();
+		const { cx, trackCx, unmount } = mounted();
 		cx.$trackView.set('3d');
-		compose.$follow.set(true);
-		const start = compose.$camera.get().view;
+		trackCx.$follow.set(true);
+		const start = trackCx.$camera.get().view;
 
 		// Act
 		cx.$playhead.set(8);
 		runFrames();
 
 		// Assert
-		expect(compose.$camera.get().view).not.toEqual(start);
+		expect(trackCx.$camera.get().view).not.toEqual(start);
 
 		// Prepare
 		cx.$trackView.set('camera');
 		// A glide under way ends on its goal
 		for (let frame = 0; frame < 2000 && frames.length > 0; frame += 1) runFrames();
-		const held = compose.$camera.get().view;
+		const held = trackCx.$camera.get().view;
 
 		// Act
 		cx.$playhead.set(9);
 		runFrames();
 
 		// Assert
-		expect(compose.$camera.get().view).toEqual(held);
+		expect(trackCx.$camera.get().view).toEqual(held);
 		unmount();
 	});
 });

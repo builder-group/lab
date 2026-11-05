@@ -30,11 +30,11 @@ describe('Agent status line', () => {
 });
 
 describe('Presence words', () => {
-	const titleOf = (id: string): string | null => ({ 'build.track': 'Build Track', 'build.addBowl': 'Add Bowl', 'view.compose': 'Compose' })[id] ?? null;
+	const titleOf = (id: string): string | null => ({ 'build.track': 'Build Track', 'build.addBowl': 'Add Bowl', 'view.track': 'Track' })[id] ?? null;
 
 	it('should say what a call is doing and nothing for what only reads', () => {
 		expect(presenceLabel('run_command', { id: 'build.track' }, titleOf)).toBe('Building Track');
-		expect(presenceLabel('run_command', { id: 'view.compose' }, titleOf)).toBe('Compose');
+		expect(presenceLabel('run_command', { id: 'view.track' }, titleOf)).toBe('Track');
 		expect(presenceLabel('run_command', { id: 'project.execute', args: { label: 'Tilt Platform 12' } }, titleOf)).toBe('Tilting Platform 12');
 		expect(presenceLabel('run_command', { id: 'project.execute', args: {} }, titleOf)).toBe('Editing');
 		expect(presenceLabel('preview_frame', { time: 12 }, titleOf)).toContain('Looking at');
@@ -223,7 +223,7 @@ describe('Stop and edits through McpCx', () => {
 	it('should end an agent build on Stop and keep what it built, leaving a person\'s own build alone', async () => {
 		const cx = studio();
 		const assist = { stopBuild: vi.fn(), isBuilding: true };
-		cx.$compose.set({ assist, patterns: { stop: vi.fn() } } as never);
+		cx.$trackCx.set({ assist, patterns: { stop: vi.fn() } } as never);
 		cx.mcp.stop();
 		expect(assist.stopBuild).not.toHaveBeenCalled();
 		let bowl: () => void = () => undefined;

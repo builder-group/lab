@@ -93,19 +93,19 @@ describe('inspectorTarget function', () => {
 
 describe('the Scene', () => {
 	it('should be what an emptied selection shows, in both workspaces', () => {
-		for (const workspace of ['compose', 'design'] as const) expect(inspectorTarget(fullProject(), [], workspace)).toEqual({ kind: 'scene' });
+		for (const workspace of ['track', 'film'] as const) expect(inspectorTarget(fullProject(), [], workspace)).toEqual({ kind: 'scene' });
 	});
 
-	it('should show for a Film layer left selected in Compose, and not in Film', () => {
-		expect(inspectorTarget(fullProject(), [KEY_LIGHT_KEY], 'compose')).toEqual({ kind: 'scene' });
-		expect(inspectorTarget(fullProject(), [KEY_LIGHT_KEY], 'design')).toEqual({ kind: 'light', id: 'key' });
-		expect(inspectorTarget(fullProject(), [WALL_KEY], 'compose')).toEqual({ kind: 'wall' });
-		expect(inspectorTarget(fullProject(), [CAMERA_KEY], 'compose')).toEqual({ kind: 'camera' });
+	it('should show for a Film layer left selected in Track, and not in Film', () => {
+		expect(inspectorTarget(fullProject(), [KEY_LIGHT_KEY], 'track')).toEqual({ kind: 'scene' });
+		expect(inspectorTarget(fullProject(), [KEY_LIGHT_KEY], 'film')).toEqual({ kind: 'light', id: 'key' });
+		expect(inspectorTarget(fullProject(), [WALL_KEY], 'track')).toEqual({ kind: 'wall' });
+		expect(inspectorTarget(fullProject(), [CAMERA_KEY], 'track')).toEqual({ kind: 'camera' });
 	});
 });
 
 describe('selectionEnteringFilm function', () => {
-	it('should select the Scene when Compose left a piece or a hit selected', () => {
+	it('should select the Scene when Track left a piece or a hit selected', () => {
 		const project = fullProject();
 		const laneId = project.music.lanes[0]?.id ?? '';
 		expect(selectionEnteringFilm(project, ['platform-1'])).toEqual([]);
@@ -123,23 +123,23 @@ describe('selectionEnteringFilm function', () => {
 	});
 });
 
-describe('buildOutline function in Compose', () => {
+describe('buildOutline function in Track', () => {
 	it('should list the Song, the Camera, the Wall and the marbles with their pieces; Film lists every layer', () => {
 		const project = fullProject();
 
-		expect(buildOutline(project, { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'song', 'camera', 'shot', 'wall', 'marble', 'piece', 'group', 'piece']);
-		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('camera');
-		expect(buildOutline(project, { workspace: 'design' }).map((row) => row.kind)).toContain('title');
+		expect(buildOutline(project, { workspace: 'track' }).map((row) => row.kind)).toEqual(['scene', 'song', 'camera', 'shot', 'wall', 'marble', 'piece', 'group', 'piece']);
+		expect(buildOutline(project, { workspace: 'film' }).map((row) => row.kind)).toContain('camera');
+		expect(buildOutline(project, { workspace: 'film' }).map((row) => row.kind)).toContain('title');
 	});
 });
 
 describe('several Decor items', () => {
-	it('should have an inspector of their own in Film, and show the Scene in Compose', () => {
+	it('should have an inspector of their own in Film, and show the Scene in Track', () => {
 		const base = createProject({ title: 'Decor' });
 		const decor = (id: string): TDecor => ({ id, source: 'decor:sphere', position: { x: 0, y: 0 }, scale: 1, rotation: 0 }) as unknown as TDecor;
 		const project = { ...base, design: { ...base.design, decor: [decor('a'), decor('b')] } };
 
 		expect(inspectorTarget(project, [toDecorKey('a'), toDecorKey('b')])).toEqual({ kind: 'decorItems', ids: ['a', 'b'] });
-		expect(inspectorTarget(project, [toDecorKey('a'), toDecorKey('b')], 'compose').kind).toBe('scene');
+		expect(inspectorTarget(project, [toDecorKey('a'), toDecorKey('b')], 'track').kind).toBe('scene');
 	});
 });

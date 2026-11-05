@@ -75,7 +75,7 @@ describe('Group by hand', () => {
 		const [isOk, err, next] = applyProjectCommands(project, [{ type: 'upsertGroup', group: { id: 'across', name: 'Group', pieceIds: ['piece-1'] } }]);
 		if (!isOk) throw err;
 
-		const rows = buildOutline(next, { workspace: 'compose' });
+		const rows = buildOutline(next, { workspace: 'track' });
 
 		expect(rows.find((row) => row.id === toGroupKey('across'))?.parentId).toBe(FREE_PIECES_KEY);
 		expect(rows.find((row) => row.id === 'piece-1')?.parentId).toBe(toGroupKey('across'));

@@ -1,4 +1,4 @@
-import type { TDesignStatus } from './FilmCx';
+import type { TFilmStatus } from './FilmCx';
 
 /** Blender's connection as the logo's tint, the state word and the detail for the tooltip, for the title bar's Blender button */
 export interface TBlenderState {
@@ -9,7 +9,7 @@ export interface TBlenderState {
 	detail: string;
 }
 
-export function blenderState(status: TDesignStatus, version: string | null, error: string | null = null, isRenderingPreview = false): TBlenderState {
+export function blenderState(status: TFilmStatus, version: string | null, error: string | null = null, isRenderingPreview = false): TBlenderState {
 	const name = version != null ? `Blender ${version.split(' ')[0] ?? ''}` : 'Blender';
 	// The background preview renders in its own Blender while the worker itself is free
 	if (isRenderingPreview && (status === 'ready' || status === 'idle')) {

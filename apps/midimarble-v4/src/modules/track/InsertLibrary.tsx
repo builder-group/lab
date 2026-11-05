@@ -3,18 +3,18 @@ import { Music } from 'lucide-react';
 import React from 'react';
 import { HelpTip } from '@/components';
 import { TRACK_HELP } from '@/modules/scene';
-import type { ComposeCx } from './TrackCx';
+import type { TrackCx } from './TrackCx';
 import { InsertPopover } from '@/modules/canvas';
 import { armedInsertItem, insertSections, type TInsertItem } from './library';
 import { PiecePreview } from './PiecePreview';
 
-/** Compose's Insert: a tile per item with a preview of its real geometry. A click arms the item's tool; a drag drops it on the canvas. */
+/** Track's Insert: a tile per item with a preview of its real geometry. A click arms the item's tool; a drag drops it on the canvas. */
 export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
-	const { compose, anchor, onStartDrag, onAddSong } = props;
-	const tool = useFeatureState(compose.$tool);
-	const pathType = useFeatureState(compose.$pathType);
+	const { trackCx, anchor, onStartDrag, onAddSong } = props;
+	const tool = useFeatureState(trackCx.$tool);
+	const pathType = useFeatureState(trackCx.$pathType);
 	const armed = armedInsertItem(tool, pathType);
-	const close = React.useCallback(() => compose.$libraryOpen.set(false), [compose]);
+	const close = React.useCallback(() => trackCx.$libraryOpen.set(false), [trackCx]);
 
 	return (
 		<InsertPopover anchor={anchor} onClose={close} shortcut="⇧I">
@@ -35,7 +35,7 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 								onKeyDown={(event) => {
 									if (event.key !== 'Enter' && event.key !== ' ') return;
 									event.preventDefault();
-									compose.armInsert(entry.item);
+									trackCx.armInsert(entry.item);
 								}}
 								type="button"
 							>
@@ -81,7 +81,7 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 };
 
 interface TInsertLibraryProps {
-	compose: ComposeCx;
+	trackCx: TrackCx;
 	/** The rail's Insert button, which the popover opens beside */
 	anchor: React.RefObject<HTMLButtonElement | null>;
 	/** A press on a tile: a click arms it, a drag past a few pixels drops it on the canvas */

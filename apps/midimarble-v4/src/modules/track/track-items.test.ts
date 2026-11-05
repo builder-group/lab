@@ -9,7 +9,7 @@ import { AssistCx } from './AssistCx';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
 import { displayPiece, KEEP_PLAYS_REACH, playsDrop, type TSnap, replaceCommands, withCommands, dotClickAction } from '@/modules/building';
 import { ghostReducer, initialGhostState, type TPlaceAnswer } from './ghosts';
-import { composeKeyAction } from './keys';
+import { trackKeyAction } from './keys';
 import { isOnGhost, pick, PLACED_DOT_PICK_RADIUS, firstHitsView, isBoundsVisible, worldToScreen } from '@/modules/scene';
 import { badgeStatus } from './status';
 
@@ -52,7 +52,7 @@ describe('firstHitsView', () => {
 
 describe('Zoom to 100%', () => {
 	it('should be ⌘0', () => {
-		const action = composeKeyAction({ key: '0', code: 'Digit0', shiftKey: false, metaKey: true, ctrlKey: false, altKey: false }, { hasPieces: false, hasSelection: false, hasGhosts: false });
+		const action = trackKeyAction({ key: '0', code: 'Digit0', shiftKey: false, metaKey: true, ctrlKey: false, altKey: false }, { hasPieces: false, hasSelection: false, hasGhosts: false });
 		expect(action).toEqual({ type: 'zoom100' });
 	});
 });
@@ -247,16 +247,16 @@ describe('hit dots', () => {
 	});
 });
 
-describe('arrows in Compose', () => {
+describe('arrows in Track', () => {
 	const key = (code: string, shiftKey = false) => ({ key: code, code, shiftKey, metaKey: false, ctrlKey: false, altKey: false });
 	const context = { hasPieces: true, hasSelection: true, hasGhosts: false, canTilt: true };
 
 	it('should leave ← → to Previous and Next Hit whatever is selected, and tilt with ↑ ↓', () => {
-		expect(composeKeyAction(key('ArrowRight'), context)).toBeNull();
-		expect(composeKeyAction(key('ArrowLeft'), context)).toBeNull();
-		expect(composeKeyAction(key('ArrowUp'), context)).toEqual({ type: 'nudge', degrees: 1 });
-		expect(composeKeyAction(key('ArrowDown', true), context)).toEqual({ type: 'nudge', degrees: -5 });
-		expect(composeKeyAction(key('ArrowUp'), { ...context, canTilt: false })).toBeNull();
+		expect(trackKeyAction(key('ArrowRight'), context)).toBeNull();
+		expect(trackKeyAction(key('ArrowLeft'), context)).toBeNull();
+		expect(trackKeyAction(key('ArrowUp'), context)).toEqual({ type: 'nudge', degrees: 1 });
+		expect(trackKeyAction(key('ArrowDown', true), context)).toEqual({ type: 'nudge', degrees: -5 });
+		expect(trackKeyAction(key('ArrowUp'), { ...context, canTilt: false })).toBeNull();
 	});
 });
 

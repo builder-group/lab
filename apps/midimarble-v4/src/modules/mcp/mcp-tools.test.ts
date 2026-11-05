@@ -178,8 +178,8 @@ describe('MCP tools', () => {
 		const buildTrack = vi.fn(() => new Promise<null>((resolve) => (bowlBuild = () => resolve(null))));
 		const key = `hit:${laneId}:${hitId}`;
 		const assist = { get rebuildTarget() { return cx.$selection.get().includes(key) ? { laneId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
-		cx.$compose.set({ assist } as never);
-		cx.$workspace.set('compose');
+		cx.$trackCx.set({ assist } as never);
+		cx.$workspace.set('track');
 
 		const missing = await runTool(cx, 'run_command', { id: 'build.rebuildFrom' });
 		expect(missing.isError).toBe(true);
@@ -201,7 +201,7 @@ describe('MCP tools', () => {
 	it('should show the running build and its result in get_state', async () => {
 		const { cx } = studio();
 		const lastBuild = { message: 'Built' };
-		cx.$compose.set({ assist: { $building: { get: () => ({ done: 2, total: 5 }) }, $lastBuild: { get: () => lastBuild } } } as never);
+		cx.$trackCx.set({ assist: { $building: { get: () => ({ done: 2, total: 5 }) }, $lastBuild: { get: () => lastBuild } } } as never);
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.building).toEqual({ done: 2, total: 5 });
 		expect(state.lastBuild).toEqual(lastBuild);
@@ -394,7 +394,7 @@ describe('MCP tools', () => {
 			expect(textOf(await execute(cx, { type: 'removeEntities', entityIds: ['nobody'] }))).toContain('There is nothing called nobody');
 			expect((await execute(cx, { type: 'removeLane', laneId: 'nope' })).isError).toBe(true);
 			expect((await execute(cx, { type: 'removeSource', sourceId: 'nope' })).isError).toBe(true);
-			await runTool(cx, 'run_command', { id: 'design.addText', args: { text: 'Hello' } });
+			await runTool(cx, 'run_command', { id: 'film.addText', args: { text: 'Hello' } });
 			const title = cx.project?.entities.find((entity) => entity.components.wallText != null) as TEntity;
 			expect(textOf(await execute(cx, { type: 'setComponent', entityId: title.id, component: { name: 'wallText', value: { font: 'Georgia' } } }))).toContain("isn't a font");
 		});
@@ -403,14 +403,14 @@ describe('MCP tools', () => {
 	describe('titles and shots', () => {
 		it('should add a title with its words, readable in get_state', async () => {
 			const { cx } = studio();
-			const reply = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'design.addText', args: { text: 'Jingle Bells', style: 'songName', at: { x: 0.1, y: -0.2 }, color: '#112233' } }))) as { changed: boolean };
+			const reply = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'film.addText', args: { text: 'Jingle Bells', style: 'songName', at: { x: 0.1, y: -0.2 }, color: '#112233' } }))) as { changed: boolean };
 			expect(reply.changed).toBe(true);
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { layers: { titles: { text: string; style: string }[] } };
 			expect(state.layers.titles).toEqual([expect.objectContaining({ text: 'Jingle Bells', style: 'songName' })]);
 			const title = cx.project?.entities.find((entity) => entity.components.wallText != null);
 			expect(title?.components.transform?.position).toEqual({ x: 0.1, y: -0.2 });
 			expect(title?.components.wallText?.color).toBe('#112233');
-			expect((await runTool(cx, 'run_command', { id: 'design.addText', args: { style: 'nope' } })).isError).toBe(true);
+			expect((await runTool(cx, 'run_command', { id: 'film.addText', args: { style: 'nope' } })).isError).toBe(true);
 		});
 
 		it('should add a shot from its arguments, readable in get_state', async () => {
@@ -444,11 +444,11 @@ describe('MCP tools', () => {
 			const { cx } = studio();
 			const removed = vi.spyOn(cx.library, 'removePack').mockResolvedValue();
 			addedPacks.set([{ id: 'christmas', name: 'Christmas', version: '1.0', themes: [], items: [], builtInDecor: [] } as unknown as TPack, { id: 'starter', name: 'Starter', version: '1.0', themes: [], items: [], builtInDecor: [] } as unknown as TPack]);
-			expect((await runTool(cx, 'run_command', { id: 'design.removePack', args: { name: 'christmas' } })).isError).toBe(false);
+			expect((await runTool(cx, 'run_command', { id: 'film.removePack', args: { name: 'christmas' } })).isError).toBe(false);
 			expect(removed).toHaveBeenCalledTimes(1);
-			expect(textOf(await runTool(cx, 'run_command', { id: 'design.removePack', args: { name: 'starter' } }))).toContain("can't be removed");
+			expect(textOf(await runTool(cx, 'run_command', { id: 'film.removePack', args: { name: 'starter' } }))).toContain("can't be removed");
 			expect(removed).toHaveBeenCalledTimes(1);
-			expect(textOf(await runTool(cx, 'run_command', { id: 'design.removePack', args: { name: 'Nope' } }))).toContain('No Pack called Nope');
+			expect(textOf(await runTool(cx, 'run_command', { id: 'film.removePack', args: { name: 'Nope' } }))).toContain('No Pack called Nope');
 			addedPacks.set([]);
 			vi.restoreAllMocks();
 		});

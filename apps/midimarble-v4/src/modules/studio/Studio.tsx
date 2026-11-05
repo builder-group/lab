@@ -36,7 +36,7 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 				<div className="flex min-w-0 flex-1 flex-col">
 					<div className="flex min-h-0 flex-1">
 						<ToolRail cx={cx} />
-						<main className="relative min-w-0 flex-1" data-canvas-bounds data-quick-help="wall" aria-label={workspace === 'compose' ? 'Track wall' : 'Film preview'}>
+						<main className="relative min-w-0 flex-1" data-canvas-bounds data-quick-help="wall" aria-label={workspace === 'track' ? 'Track wall' : 'Film preview'}>
 							{canvas}
 							<Notice cx={cx} />
 						</main>

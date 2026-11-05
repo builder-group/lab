@@ -2,32 +2,32 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import type { TVec2 } from '@/modules/project';
 import { PACE_LIMIT, type TResolvedPiece } from '@/modules/simulation';
-import type { ComposeCx } from './TrackCx';
+import type { TrackCx } from './TrackCx';
 import { paletteOf, BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from '@/modules/canvas';
 import { acceptableCount, type TGhost } from './ghosts';
 import { pieceKind } from '@/modules/scene';
 
 /** Suggested pieces drawn dashed and see-through in place, with the dots they would produce */
 export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
-	const { compose } = props;
-	const state = useFeatureState(compose.assist.$ghosts);
-	const camera = useFeatureState(compose.$camera);
-	const viewport = useFeatureState(compose.$viewport);
-	const project = useFeatureState(compose.studio.$history)?.present;
+	const { trackCx } = props;
+	const state = useFeatureState(trackCx.assist.$ghosts);
+	const camera = useFeatureState(trackCx.$camera);
+	const viewport = useFeatureState(trackCx.$viewport);
+	const project = useFeatureState(trackCx.studio.$history)?.present;
 	// Suggestions belong to the run before an edit; while an element is dragged or drawn they would mislead
-	const isEditing = useFeatureState(compose.$override) != null;
+	const isEditing = useFeatureState(trackCx.$override) != null;
 	const { ghost } = state;
 	if (ghost == null || project == null || isEditing || viewport.width <= 1) return null;
 	const laneColor = project.music.lanes.find((lane) => lane.id === ghost.answer.laneId)?.color ?? 'var(--text)';
 
 	if (ghost.kind === 'gap') {
 		const { piece, track } = ghost.answer;
-		const points = track.map((point) => compose.toScreen(point));
+		const points = track.map((point) => trackCx.toScreen(point));
 		const end = points[points.length - 1];
 		return (
 			<g className="mm-ghost-in">
 				<polyline points={toPoints(points)} fill="none" stroke={laneColor} strokeWidth={1.5} strokeDasharray="2 4" strokeLinecap="round" opacity={0.8} />
-				{piece != null ? <GhostPiece compose={compose} piece={piece} scale={camera.view.scale} isOk /> : null}
+				{piece != null ? <GhostPiece trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk /> : null}
 				{end != null ? <GhostDot position={end} color={ghost.answer.check?.isDotInFrame === false ? 'var(--bad)' : laneColor} /> : null}
 			</g>
 		);
@@ -37,8 +37,8 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 		const { piece, nextDot, isOk } = ghost.answer;
 		return (
 			<g className="mm-ghost-in">
-				<GhostPiece compose={compose} piece={piece} scale={camera.view.scale} isOk={isOk} />
-				{nextDot != null ? <GhostDot position={compose.toScreen(nextDot)} color={laneColor} /> : null}
+				<GhostPiece trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk={isOk} />
+				{nextDot != null ? <GhostDot position={trackCx.toScreen(nextDot)} color={laneColor} /> : null}
 			</g>
 		);
 	}
@@ -47,8 +47,8 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 		<g className="mm-ghost-in">
 			{ghost.answer.suggestions.map((suggestion) => (
 				<g key={suggestion.hitId}>
-					{suggestion.piece != null ? <GhostPiece compose={compose} piece={suggestion.piece} scale={camera.view.scale} isOk={suggestion.isOk} /> : null}
-					{suggestion.dot != null ? <GhostDot position={compose.toScreen(suggestion.dot)} color={suggestion.isOk ? laneColor : 'var(--bad)'} /> : null}
+					{suggestion.piece != null ? <GhostPiece trackCx={trackCx} piece={suggestion.piece} scale={camera.view.scale} isOk={suggestion.isOk} /> : null}
+					{suggestion.dot != null ? <GhostDot position={trackCx.toScreen(suggestion.dot)} color={suggestion.isOk ? laneColor : 'var(--bad)'} /> : null}
 				</g>
 			))}
 		</g>
@@ -56,19 +56,19 @@ export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 };
 
 interface TGhostLayerProps {
-	compose: ComposeCx;
+	trackCx: TrackCx;
 }
 
-export const GhostPiece: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; scale: number; isOk: boolean }> = (props) => {
-	const { compose, piece, scale, isOk } = props;
+export const GhostPiece: React.FC<{ trackCx: TrackCx; piece: TResolvedPiece; scale: number; isOk: boolean }> = (props) => {
+	const { trackCx, piece, scale, isOk } = props;
 	const kind = pieceKind(piece);
 	const tint = isOk ? undefined : 'var(--bad)';
-	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
-	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
-	if (kind === 'generated') return <RailPathsShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
-	if (kind === 'catcher') return <BowlShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
+	if (kind === 'path') return <RailShape projection={trackCx} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
+	if (kind === 'tube') return <TunnelShape projection={trackCx} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
+	if (kind === 'generated') return <RailPathsShape projection={trackCx} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
+	if (kind === 'catcher') return <BowlShape projection={trackCx} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	const palette = paletteOf(piece.type);
-	const outline = compose.screenOutline(piece);
+	const outline = trackCx.screenOutline(piece);
 	// Colors come in as variables so dark mode can lighten the outline and raise the fill (styles.css)
 	const style = { '--ghost-fill': palette.bar, '--ghost-stroke': isOk ? palette.nub : 'var(--bad)' } as React.CSSProperties;
 	return <polygon className="mm-ghost-piece" data-ok={isOk} points={toPoints(outline)} style={style} strokeWidth={1.25} strokeDasharray="4 3" strokeLinejoin="round" />;
@@ -84,13 +84,13 @@ const GhostDot: React.FC<{ position: TVec2; color: string }> = (props) => {
  * that Escape hides it. While a gap piece is being searched it says so instead.
  */
 export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
-	const { compose } = props;
-	const state = useFeatureState(compose.assist.$ghosts);
+	const { trackCx } = props;
+	const state = useFeatureState(trackCx.assist.$ghosts);
 	// The hint is placed at a screen position, so it moves with the view
-	useFeatureState(compose.$camera);
-	const viewport = useFeatureState(compose.$viewport);
-	const result = useFeatureState(compose.studio.simulation.$result);
-	const drag = useFeatureState(compose.$drag);
+	useFeatureState(trackCx.$camera);
+	const viewport = useFeatureState(trackCx.$viewport);
+	const result = useFeatureState(trackCx.studio.simulation.$result);
+	const drag = useFeatureState(trackCx.$drag);
 	if (drag != null) return null;
 
 	let anchor: TVec2 | null = null;
@@ -98,12 +98,12 @@ export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 	if (state.pendingGap != null) {
 		const { laneId, toHitId } = state.pendingGap;
 		const dot = result?.hits.find((hit) => hit.laneId === laneId && hit.hitId === toHitId)?.dot;
-		anchor = dot != null ? compose.toScreen(dot) : null;
+		anchor = dot != null ? trackCx.toScreen(dot) : null;
 		content = <span className="text-[var(--text-secondary)]">Finding a rail for this gap…</span>;
 	} else if (state.ghost?.kind === 'gap' || state.ghost?.kind === 'place') {
 		// Continue is offered in the contextual build bar; a dot's piece and gap pieces keep their own hint
-		anchor = hintAnchor(compose, state.ghost);
-		content = <HintContent compose={compose} ghost={state.ghost} />;
+		anchor = hintAnchor(trackCx, state.ghost);
+		content = <HintContent trackCx={trackCx} ghost={state.ghost} />;
 	}
 	if (anchor == null || content == null) return null;
 	// Keep the hint inside the canvas, clear of the corner controls and the tool bar
@@ -116,11 +116,11 @@ export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 	);
 };
 
-const HintContent: React.FC<{ compose: ComposeCx; ghost: TGhost }> = (props) => {
-	const { compose, ghost } = props;
+const HintContent: React.FC<{ trackCx: TrackCx; ghost: TGhost }> = (props) => {
+	const { trackCx, ghost } = props;
 	const count = acceptableCount(ghost);
 	const accept = (): void => {
-		compose.assist.acceptGhosts();
+		trackCx.assist.acceptGhosts();
 	};
 	if (ghost.kind === 'place') {
 		const { type, isOk } = ghost.answer;
@@ -171,10 +171,10 @@ const HintContent: React.FC<{ compose: ComposeCx; ghost: TGhost }> = (props) => 
 };
 
 /** Screen point right of the first ghost piece */
-function hintAnchor(compose: ComposeCx, ghost: TGhost): TVec2 | null {
+function hintAnchor(trackCx: TrackCx, ghost: TGhost): TVec2 | null {
 	const piece = ghost.kind !== 'continue' ? ghost.answer.piece : (ghost.answer.suggestions.find((suggestion) => suggestion.piece != null)?.piece ?? null);
 	if (piece == null) return null;
-	const outline = compose.screenOutline(piece);
+	const outline = trackCx.screenOutline(piece);
 	if (!outline.length) return null;
 	const right = outline.reduce((best, point) => (point.x > best.x ? point : best));
 	const top = Math.min(...outline.map((point) => point.y));

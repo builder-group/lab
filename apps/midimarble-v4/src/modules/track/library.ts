@@ -1,4 +1,4 @@
-import type { TComposeTool, TPathType } from './keys';
+import type { TTrackTool, TPathType } from './keys';
 
 // Items of the Insert library, the tool rail's + popover. A click arms the tool that places the item and a
 // drag drops it on the canvas. Each tile shows the key that arms it without opening the panel.
@@ -33,13 +33,13 @@ export const insertSections: TInsertSection[] = [
 ];
 
 /** The tool a click on a library item arms, with the path type for rails and tunnels */
-export function insertTool(item: TInsertItem): { tool: TComposeTool; pathType?: TPathType } {
+export function insertTool(item: TInsertItem): { tool: TTrackTool; pathType?: TPathType } {
 	if (item === 'rail' || item === 'tunnel') return { tool: 'path', pathType: item };
 	return { tool: item };
 }
 
 /** The library item that a tool and path type place, to mark its tile as armed */
-export function armedInsertItem(tool: TComposeTool, pathType: TPathType): TInsertItem | null {
+export function armedInsertItem(tool: TTrackTool, pathType: TPathType): TInsertItem | null {
 	if (tool === 'path') return pathType;
 	if (tool === 'select' || tool === 'hand') return null;
 	return tool;

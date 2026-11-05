@@ -3,7 +3,7 @@ import type { TRailLayout } from './pieces';
 import type { TDescentPace, TDescentPoint } from './pace';
 import type { TPieceShape } from './shapes';
 
-// Contract between the simulation engine and its consumers (Compose view, Blender handoff, fixtures).
+// Contract between the simulation engine and its consumers (Track view, Blender handoff, fixtures).
 // Units: meters, seconds, radians. Wall-plane coordinates: x right, y up; the wall surface is z = 0.
 
 /** Fixed physics rate. Samples, contacts and snapshots use this clock. */
@@ -181,7 +181,7 @@ export interface TPieceDefinition {
 			integer?: boolean;
 		}
 	>;
-	/** Distance of the piece from the wall surface along +z, so Blender and Compose agree on depth */
+	/** Distance of the piece from the wall surface along +z, so Blender and Track agree on depth */
 	wallOffset: number;
 	/** Restitution of marble contacts, unless the piece has a `bounce` parameter */
 	restitution: number;

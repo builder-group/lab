@@ -60,11 +60,11 @@ export function parseShotKey(key: string): string | null {
 }
 
 /**
- * Where Previous and Next Hit go. In Compose they stay on the marble in focus (of the selected hit, platform or marble)
+ * Where Previous and Next Hit go. In Track they stay on the marble in focus (of the selected hit, platform or marble)
  * and go on from the selected hit; with nothing in focus, and in Film, they step every marble's hits from the playhead.
  */
-export function stepHitTarget(project: TProject, selection: readonly string[], playhead: number, direction: 1 | -1, isCompose: boolean): { laneId: string; hitId: string; time: number } | null {
-	const focus = isCompose ? stepFocus(project, selection) : null;
+export function stepHitTarget(project: TProject, selection: readonly string[], playhead: number, direction: 1 | -1, isTrack: boolean): { laneId: string; hitId: string; time: number } | null {
+	const focus = isTrack ? stepFocus(project, selection) : null;
 	const lanes = focus == null ? project.music.lanes : project.music.lanes.filter((lane) => lane.id === focus.laneId);
 	const hits = lanes.flatMap((lane) => lane.hits.map((hit) => ({ laneId: lane.id, hitId: hit.id, time: hit.time }))).sort((a, b) => a.time - b.time);
 	const from = focus?.time ?? playhead;

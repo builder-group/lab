@@ -49,7 +49,7 @@ async function setup(): Promise<{ cx: SimulationCx; studio: StudioCx; simulated:
 	};
 	const studio = {
 		$history,
-		$compose: createState(null),
+		$trackCx: createState(null),
 		get project() {
 			return $history.get()?.present ?? null;
 		},

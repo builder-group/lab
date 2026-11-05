@@ -1,23 +1,23 @@
 import React from 'react';
-import type { ComposeCx, TInsertItem } from '@/modules/track';
+import type { TrackCx, TInsertItem } from '@/modules/track';
 
 /**
  * Press on a library tile: a release in place arms its tool, a drag past a few pixels takes it out of the
  * popover and drops it where the pointer is released over the wall
  */
-export function useInsertDrag(compose: ComposeCx): { state: TInsertGhostState | null; start: (item: TInsertItem, event: React.PointerEvent) => void } {
+export function useInsertDrag(trackCx: TrackCx): { state: TInsertGhostState | null; start: (item: TInsertItem, event: React.PointerEvent) => void } {
 	const [state, setState] = React.useState<TInsertGhostState | null>(null);
 	const cleanupRef = React.useRef<(() => void) | null>(null);
 
-	// Escape or a tool change ends the drag in ComposeCx, so the ghost follows its state
+	// Escape or a tool change ends the drag in TrackCx, so the ghost follows its state
 	React.useEffect(
 		() =>
-			compose.$inserting.listen(({ value }) => {
+			trackCx.$inserting.listen(({ value }) => {
 				if (value != null) return;
 				cleanupRef.current?.();
 				setState(null);
 			}),
-		[compose]
+		[trackCx]
 	);
 	React.useEffect(() => () => cleanupRef.current?.(), []);
 
@@ -32,15 +32,15 @@ export function useInsertDrag(compose: ComposeCx): { state: TInsertGhostState | 
 			if (!isDragging) {
 				if (Math.hypot(position.x - origin.x, position.y - origin.y) < 4) return;
 				isDragging = true;
-				compose.beginInsertDrag(item);
+				trackCx.beginInsertDrag(item);
 			}
-			const isOnCanvas = compose.moveInsertDrag(position, move.altKey);
+			const isOnCanvas = trackCx.moveInsertDrag(position, move.altKey);
 			setState({ item, position, isOnCanvas });
 		}
 		function onUp(): void {
 			remove();
-			if (isDragging) compose.endInsertDrag(true);
-			else compose.armInsert(item);
+			if (isDragging) trackCx.endInsertDrag(true);
+			else trackCx.armInsert(item);
 			setState(null);
 		}
 		function remove(): void {
@@ -51,7 +51,7 @@ export function useInsertDrag(compose: ComposeCx): { state: TInsertGhostState | 
 		}
 		function onCancel(): void {
 			remove();
-			if (isDragging) compose.endInsertDrag(false);
+			if (isDragging) trackCx.endInsertDrag(false);
 			setState(null);
 		}
 		cleanupRef.current?.();

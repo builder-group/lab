@@ -104,12 +104,12 @@ describe('problem workspaces', () => {
 	const issue = (kind: TPreflightIssue['kind'], id: string): TPreflightIssue => ({ id, kind, severity: 'warning', title: id, detail: '', target: null });
 	const preflight: TExportPreflight = { state: 'checked', issues: [issue('hit', 'a'), issue('framing', 'b'), issue('decor', 'c'), issue('song', 'd')], summary: '', warnings: 4, notes: 0, hitCount: 2, onTimeCount: 1 };
 
-	it('should count hits in Compose and camera and Decor problems in Film, without the Song', () => {
-		expect(workspaceProblems(preflight)).toEqual({ compose: 1, film: 2 });
+	it('should count hits in Track and camera and Decor problems in Film, without the Song', () => {
+		expect(workspaceProblems(preflight)).toEqual({ track: 1, film: 2 });
 	});
 
 	it('should summarize only the workspace it is asked for', () => {
-		expect(problemSummary(preflight, 'compose').label).toBe('1 hit needs attention');
+		expect(problemSummary(preflight, 'track').label).toBe('1 hit needs attention');
 		expect(problemSummary(preflight, 'film').label).toBe('1 of 2 hits on time · 2 other problems');
 		expect(problemSummary(preflight).problems).toHaveLength(3);
 	});

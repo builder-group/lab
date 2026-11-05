@@ -12,7 +12,7 @@ function pieceIds(project: TProject): string[] {
 	return project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id);
 }
 
-describe('design commands', () => {
+describe('film commands', () => {
 	it('should dress a skin the same in every theme', () => {
 		// The Draft Preview dresses a skin the same in every theme, like the Blender worker
 		const copper = { type: 'platform', color: '#3478f6', skin: { assetId: 'platform:copper' } };
