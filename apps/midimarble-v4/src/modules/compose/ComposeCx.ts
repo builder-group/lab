@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import type React from 'react';
 import * as THREE from 'three';
 import { isEditingTarget } from '@/lib';
-import type { TEntity, TGroup, TPathNode, TProject, TVec2 } from '@/modules/project';
+import { isPatternGroup, type TEntity, type TPatternGroup, type TPathNode, type TProject, type TVec2 } from '@/modules/project';
 import {
 	anchorHit,
 	findLongGaps,
@@ -25,7 +25,7 @@ import { formatTime, noteName } from '@/modules/studio/format';
 import { CAMERA_KEY, parseHitKey, SONG_KEY, toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { dragRotation, normalizeSurfaceAngle, screenAngle, snapAngle, toRadians, type TRotationDrag } from './angles';
-import { groupSelection, PatternsCx, withWholePatterns } from './PatternsCx';
+import { groupSelection, PatternsCx, withWholeGroups } from './PatternsCx';
 import { AssistCx } from './AssistCx';
 import { dotClickAction } from './reachability';
 import {
@@ -100,6 +100,9 @@ const FRAME_ROOM = 0.25;
  * canvas is open like Figma: every element can be placed anywhere, moved and turned, and a drop decides
  * whether it stays free, links to a hit dot or anchors to a trajectory.
  */
+/** Two presses on a piece this close are a double click */
+const DOUBLE_PRESS_MS = 400;
+
 export class ComposeCx {
 	readonly $camera = createState<TComposeCamera>({ mode: '2d', view: { center: { x: 0, y: 0.4 }, scale: 900 } });
 	readonly $viewport = createState<TViewport>({ width: 0, height: 0 });
@@ -1026,13 +1029,19 @@ export class ComposeCx {
 			}
 			case 'piece': {
 				const selection = this.studio.$selection.get();
+				// Like Figma, a click takes the whole Group; ⌘-click or a double click reaches the piece inside
+				const plain = project.groups?.filter((group) => !isPatternGroup(group)).find((group) => group.pieceIds.includes(target.entityId));
+				const now = performance.now();
+				const isDeep = event.metaKey || (this.lastPiecePress?.id === target.entityId && now - this.lastPiecePress.at < DOUBLE_PRESS_MS);
+				this.lastPiecePress = { id: target.entityId, at: now };
+				const pressed = plain != null && !isDeep ? groupSelection(plain) : [target.entityId];
 				if (event.shiftKey) {
 					const has = selection.includes(target.entityId);
-					this.studio.$selection.set(has ? selection.filter((id) => id !== target.entityId) : [...selection, target.entityId]);
+					this.studio.$selection.set(has ? selection.filter((id) => !pressed.includes(id)) : [...new Set([...selection, ...pressed])]);
 					this.$drag.set({ kind: 'click', target, start: point });
 					return;
 				}
-				if (!selection.includes(target.entityId)) this.studio.$selection.set([target.entityId]);
+				if (isDeep ? plain != null || !selection.includes(target.entityId) : !selection.includes(target.entityId)) this.studio.$selection.set(pressed);
 				this.startMove(target.entityId, point);
 				return;
 			}
@@ -1055,8 +1064,10 @@ export class ComposeCx {
 		this.$drag.set({ kind: 'click', target: null, start: point });
 	}
 
+	private lastPiecePress: { id: string; at: number } | null = null;
+
 	/** A press on a live Pattern's piece selects its Group, as Blender's Array modifier has no pieces of its own to grab */
-	private pressLivePiece(group: TGroup, kind: string, point: TVec2, isShift: boolean): void {
+	private pressLivePiece(group: TPatternGroup, kind: string, point: TVec2, isShift: boolean): void {
 		if (kind !== 'piece') {
 			this.patterns.tellLocked(group);
 			return;
@@ -1125,7 +1136,7 @@ export class ComposeCx {
 			case 'marquee': {
 				this.$drag.set({ ...drag, to: point });
 				const ids = piecesInRect(rectFromPoints(drag.from, point), this.pickScene().pieces);
-				this.studio.$selection.set(project != null ? withWholePatterns(project, [...new Set([...drag.base, ...ids])]) : [...new Set([...drag.base, ...ids])]);
+				this.studio.$selection.set(project != null ? withWholeGroups(project, [...new Set([...drag.base, ...ids])]) : [...new Set([...drag.base, ...ids])]);
 				return;
 			}
 			case 'livePiece':
@@ -2427,7 +2438,7 @@ interface TNodeDrag {
 }
 
 export type TComposeDrag =
-	| { kind: 'livePiece'; group: TGroup; start: TVec2 }
+	| { kind: 'livePiece'; group: TPatternGroup; start: TVec2 }
 	| { kind: 'pan'; last: TVec2 }
 	| TRotateDrag
 	| TMoveDrag

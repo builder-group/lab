@@ -1,7 +1,8 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { groupSelection, rangeSelection } from '@/modules/compose/PatternsCx';
-import type { TGroup, TLane } from '@/modules/project';
+import { plainGroupSpan } from '@/modules/compose/group-commands';
+import { isPatternGroup, type TPatternGroup, type TLane } from '@/modules/project';
 import { formatTime } from '../format';
 import { parseGroupKey, parseHitKey, parseRangeKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
@@ -14,7 +15,7 @@ const MIN_DRAG_PX = 3;
 /**
  * The slim strip above a marble's hits (Patterns prototype): nearly invisible while empty, "Drag to choose a Pattern" on
  * hover. Dragging out a range selects its notes, the same as dragging over them below, or the silence itself. A block is
- * a Group: a click selects it, its edges resize it, which fits it again.
+ * a Group: a click selects it; a Pattern's edges resize it, which fits it again.
  */
 export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	const { cx, lane, zoom, timeAt } = props;
@@ -56,7 +57,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		if (selected.length > 0) cx.$reveal.set({ ids: selected });
 	}
 
-	function endResize(group: TGroup): void {
+	function endResize(group: TPatternGroup): void {
 		const edit = resize;
 		setResize(null);
 		const compose = cx.$compose.get();
@@ -91,21 +92,24 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 			) : null}
 			{shownRange != null ? <span className="mm-pattern-range" style={{ left: Math.min(shownRange.from, shownRange.to) * zoom, width: Math.max(1, Math.abs(shownRange.to - shownRange.from) * zoom) }} /> : null}
 			{groups.map((group) => {
+				const pattern = isPatternGroup(group) ? group : null;
+				const span = pattern ?? (isPatternGroup(group) ? null : plainGroupSpan(project, lane, group));
+				if (span == null) return null;
 				const isResizing = resize?.groupId === group.id;
-				const from = isResizing && resize.edge === 'from' ? Math.min(resize.time, group.to) : group.from;
-				const to = isResizing && resize.edge === 'to' ? Math.max(resize.time, group.from) : group.to;
+				const from = isResizing && resize.edge === 'from' ? Math.min(resize.time, span.to) : span.from;
+				const to = isResizing && resize.edge === 'to' ? Math.max(resize.time, span.from) : span.to;
 				// A rail's block stops short of the notes around its silence, whose blocks reach past them
-				const pad = group.kind === 'longRail' ? -BLOCK_PAD : BLOCK_PAD;
+				const pad = pattern?.kind === 'longRail' ? -BLOCK_PAD : BLOCK_PAD;
 				return (
 					<div
 						key={group.id}
 						className="mm-pattern-block"
 						data-selected={selectedGroupIds.has(group.id)}
-						data-problem={(group.problems?.length ?? 0) > 0}
+						data-problem={(pattern?.problems?.length ?? 0) > 0}
 						role="button"
 						tabIndex={-1}
-						aria-label={`${group.name}, ${formatTime(group.from)} to ${formatTime(group.to)}`}
-						title={`${group.name} · ${formatTime(group.from)} to ${formatTime(group.to)}`}
+						aria-label={`${group.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`}
+						title={`${group.name} · ${formatTime(span.from)} to ${formatTime(span.to)}`}
 						style={{ left: from * zoom - pad, width: Math.max(10, (to - from) * zoom + 2 * pad), ['--lane' as string]: lane.color }}
 						onPointerDown={(event) => event.stopPropagation()}
 						onPointerEnter={() => setHoverX(null)}
@@ -114,8 +118,8 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						onClick={() => cx.$selection.set(groupSelection(group))}
 					>
 						<span className="mm-pattern-block-name">{group.name}</span>
-						{/* A Long Rail always fills its silence, so only notes have edges to drag */}
-						{group.kind !== 'longRail'
+						{/* A Long Rail always fills its silence, and a plain Group has no Pattern to fit, so only a Pattern on notes has edges to drag */}
+						{pattern != null && pattern.kind !== 'longRail'
 							? (['from', 'to'] as const).map((edge) => (
 									<span
 										key={edge}
@@ -126,14 +130,14 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 											if (event.button !== 0) return;
 											event.stopPropagation();
 											event.currentTarget.setPointerCapture(event.pointerId);
-											setResize({ groupId: group.id, edge, time: edge === 'from' ? group.from : group.to });
+											setResize({ groupId: group.id, edge, time: edge === 'from' ? pattern.from : pattern.to });
 										}}
 										onPointerMove={(event) => {
 											if (resize?.groupId === group.id) setResize({ ...resize, time: timeAt(event.clientX) });
 										}}
 										onPointerUp={(event) => {
 											event.stopPropagation();
-											endResize(group);
+											endResize(pattern);
 										}}
 									/>
 								))

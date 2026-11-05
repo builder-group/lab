@@ -1,4 +1,5 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
+import { canUngroup } from '@/modules/compose/group-commands';
 import { canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection } from '@/modules/compose/tie-commands';
 import { createId, laneColors, type TEntity, type TLane, type TProjectCommand } from '@/modules/project';
 import { commandItem, getCommand, runInWorkspace } from './commands';
@@ -55,7 +56,7 @@ function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 /** Right-click on a piece, on the canvas or in the sidebar */
 export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 	// Film shows what works there: Compose's edits ask for the wall
-	if (cx.$workspace.get() !== 'compose') return tidyMenu([commandItem(cx, 'edit.rename'), selectionLabelItem(cx), 'separator', ...pieceLinkItems(cx)]);
+	if (cx.$workspace.get() !== 'compose') return tidyMenu([commandItem(cx, 'edit.group'), canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null, 'separator', commandItem(cx, 'edit.rename'), selectionLabelItem(cx), 'separator', ...pieceLinkItems(cx)]);
 	const selected = cx.project?.entities.filter((entity) => cx.$selection.get().includes(entity.id)) ?? [];
 	return tidyMenu([
 		selected.length === 1 && selected[0]?.components.hitLink != null ? commandItem(cx, 'build.fix') : null,
@@ -64,6 +65,8 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 		commandItem(cx, 'view.fitSelection'),
 		'separator',
 		commandItem(cx, 'edit.duplicate'),
+		commandItem(cx, 'edit.group'),
+		canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null,
 		commandItem(cx, 'edit.rename'),
 		selectionLabelItem(cx),
 		commandItem(cx, 'edit.delete'),

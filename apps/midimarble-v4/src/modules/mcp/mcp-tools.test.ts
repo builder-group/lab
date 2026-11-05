@@ -517,7 +517,7 @@ describe('expandCommands function', () => {
 		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: moved }])[1]?.message).toContain('Part of Zigzag. Flatten to edit it.');
 		expect(expandCommands(project, null, [], [{ type: 'removeEntities', entityIds: ['bar'] }])[0]).toBe(true);
 		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: deeper }])[0]).toBe(true);
-		expect(expandCommands(project, null, [], [{ type: 'flattenPattern', groupId: 'g' }])[2]?.commands).toEqual([{ type: 'removeGroups', groupIds: ['g'] }]);
+		expect(expandCommands(project, null, [], [{ type: 'flattenPattern', groupId: 'g' }])[2]?.commands).toEqual([{ type: 'upsertGroup', group: { id: 'g', name: 'Zigzag', laneId: base.music.lanes[0]?.id ?? '', pieceIds: ['bar'] } }]);
 	});
 
 	it('should refuse what it can\'t do in plain words', () => {

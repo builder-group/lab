@@ -7,7 +7,7 @@ import { framingProblemAt, preflightExport } from '@/modules/design/export-prefl
 import { addShotCommands, shotKinds } from '@/modules/design/shots';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { addedPacks, library, STARTER_PACK, STARTER_PACK_ID, toItemId } from '@/modules/library';
-import { createProject, type TProjectTheme } from '@/modules/project';
+import { createProject, isPatternGroup, type TProjectTheme } from '@/modules/project';
 import { songDisplayName } from '@/modules/design/titles';
 import { commands as registry, commandWorkspace, isCommandEnabled, type TCommand, type TCommandId } from '@/modules/studio/commands';
 import type { StudioCx, TAgentStepNotice } from '@/modules/studio/StudioCx';
@@ -424,7 +424,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	const compose = await openCompose(cx, 'Apply Pattern');
 	const stop = cx.mcp.presence.stopEpoch;
 	const settings = { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) };
-	const existing = project.groups?.find((group) => group.laneId === laneId && group.kind === kind && Math.abs(group.from - from) < 1e-3 && Math.abs(group.to - to) < 1e-3);
+	const existing = project.groups?.filter(isPatternGroup).find((group) => group.laneId === laneId && group.kind === kind && Math.abs(group.from - from) < 1e-3 && Math.abs(group.to - to) < 1e-3);
 	const target = { laneId, from, to, ...(existing != null ? { group: existing } : {}) };
 	const report = (answer: Awaited<ReturnType<typeof compose.patterns.apply>>): Record<string, unknown> =>
 		answer == null

@@ -11,7 +11,7 @@ import { decorTips, pieceProblems, struckPieces, type TPreflightIssue } from '@/
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import { updateLightCommands } from '@/modules/design/scene-layers';
 import { shotKindLabel } from '@/modules/design/shots';
-import type { TEntity, TProject } from '@/modules/project';
+import { isPatternGroup, type TEntity, type TProject } from '@/modules/project';
 import { patternOfPiece, soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime } from './format';
@@ -298,7 +298,7 @@ function pieceRowStatus(piece: TEntity, resolved: TResolvedPiece | undefined, hi
 }
 
 function canRename(row: TOutlineRow): boolean {
-	return row.kind === 'marble' || row.kind === 'piece' || row.kind === 'title' || row.kind === 'decor' || (row.kind === 'light' && row.light != null);
+	return row.kind === 'marble' || row.kind === 'piece' || row.kind === 'title' || row.kind === 'decor' || (row.kind === 'light' && row.light != null) || (row.kind === 'patternGroup' && !isPatternGroup(row.group));
 }
 
 /** Every row except pieces: the song, marbles, groups, the wall, lights, the camera, shots and titles */
@@ -310,6 +310,7 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 		cx.$renaming.set(null);
 		if (value == null || value === view.label) return;
 		if (row.kind === 'marble') cx.execute([{ type: 'upsertLane', lane: { ...row.lane, name: value } }]);
+		else if (row.kind === 'patternGroup') cx.execute([{ type: 'upsertGroup', group: { ...row.group, name: value } }]);
 		else if (row.kind === 'title') cx.execute([{ type: 'upsertEntity', entity: { ...row.entity, name: value } }]);
 		else if (row.kind === 'light' && row.light != null && cx.project != null) cx.execute(updateLightCommands(cx.project, row.light.id, { name: value }));
 	}
@@ -372,7 +373,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'group':
 			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isEmpty === true ? undefined : row.isOpen };
 		case 'patternGroup':
-			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.group.name, title: `${row.group.name}: made by a Pattern; Flatten to edit its pieces one by one`, isOpen: row.hasChildren ? row.isOpen : undefined };
+			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.group.name, ...(isPatternGroup(row.group) ? { title: `${row.group.name}: made by a Pattern; Flatten to edit its pieces one by one` } : {}), isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'wall':
 			return { icon: <BrickWall size={14} strokeWidth={1.75} />, label: 'Wall' };
 		case 'light':

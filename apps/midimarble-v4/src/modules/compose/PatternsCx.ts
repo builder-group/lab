@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import { createPatternClient, flattenCommands, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCancelledError, type TGroupChange, type TPatternAnswer, type TPatternClient, type TPatternKind, type TPatternProblem, type TResolvedPiece } from '@/modules/simulation';
-import type { TGroup, TProject } from '@/modules/project';
+import type { TGroup, TPatternGroup, TProject } from '@/modules/project';
 import { parseHitKey, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 
@@ -14,7 +14,7 @@ export interface TPatternTarget {
 	laneId: string;
 	from: number;
 	to: number;
-	group?: TGroup;
+	group?: TPatternGroup;
 }
 
 export interface TPatternPreview {
@@ -134,7 +134,7 @@ export class PatternsCx {
 	}
 
 	/** Flatten Pattern: one Undo step, and the pieces are selected, to edit one by one */
-	flatten(group: TGroup): void {
+	flatten(group: TPatternGroup): void {
 		this.endHover();
 		if (!this.studio.execute(flattenCommands(group))) return;
 		this.studio.$selection.set(group.pieceIds);
@@ -145,7 +145,7 @@ export class PatternsCx {
 	private toldGroup: string | null = null;
 
 	/** Says once per try that a live Pattern's piece doesn't edit: a held key or a long drag is one try */
-	tellLocked(group: TGroup): void {
+	tellLocked(group: TPatternGroup): void {
 		const now = performance.now();
 		if (this.toldGroup === group.id && now - this.toldAt < LOCK_NOTICE_MS) {
 			this.toldAt = now;
@@ -274,6 +274,12 @@ export function patternTargets(project: TProject, selection: readonly string[]):
 export function withWholePatterns(project: TProject, selection: readonly string[]): string[] {
 	const groups = new Set(selection.flatMap((key) => patternOfPiece(project, key) ?? []));
 	return [...new Set([...selection, ...[...groups].flatMap(groupSelection)])];
+}
+
+/** A selection with every piece of any Group standing for that Group, as a marquee finds Figma's groups */
+export function withWholeGroups(project: TProject, selection: readonly string[]): string[] {
+	const groups = (project.groups ?? []).filter((group) => group.pieceIds.some((id) => selection.includes(id)));
+	return [...new Set([...selection, ...groups.flatMap(groupSelection)])];
 }
 
 /** Selecting a Group selects its pieces with it, so the wall and the hits show them and Delete takes them */

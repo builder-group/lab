@@ -7,6 +7,7 @@ import { lanesWithoutBowl } from '@/modules/compose/bowl-assist';
 import { newProjectTitle } from '@/environment';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { followKey, toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
+import { canGroup, canUngroup, groupSelected, ungroupSelected } from '@/modules/compose/group-commands';
 import { canMakeBacking } from '@/modules/compose/reachability';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import { armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu } from '@/modules/compose/tie-commands';
@@ -278,6 +279,8 @@ export const commands: readonly TCommand[] = [
 		}
 	},
 	{ id: 'edit.duplicate', title: 'Duplicate', section: 'Edit', shortcut: '⌘D', keywords: 'copy clone', isEnabled: (cx) => hasPieces(cx) || (inDesign(cx) && selectedDecorIds(cx.$selection.get()).length > 0), run: (cx) => void duplicateSelection(cx) },
+	{ id: 'edit.group', title: 'Group Selection', section: 'Edit', shortcut: '⌘G', keywords: 'folder collect', isEnabled: canGroup, run: (cx) => groupSelected(cx) },
+	{ id: 'edit.ungroup', title: 'Ungroup', section: 'Edit', shortcut: '⇧⌘G', keywords: 'folder separate', isEnabled: canUngroup, run: (cx) => ungroupSelected(cx) },
 	{
 		id: 'edit.selectAll', workspace: 'compose',
 		title: 'Select All Track Pieces',
@@ -715,6 +718,8 @@ export type TCommandId =
 	| 'piece.playNote'
 	| 'piece.follow'
 	| 'edit.duplicate'
+	| 'edit.group'
+	| 'edit.ungroup'
 	| 'edit.makeBacking'
 	| 'piece.detach'
 	| 'marble.add'

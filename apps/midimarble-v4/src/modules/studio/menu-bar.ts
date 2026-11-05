@@ -78,6 +78,8 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ standard: 'copy' },
 			{ standard: 'paste' },
 			{ command: 'edit.duplicate' },
+			{ command: 'edit.group' },
+			{ command: 'edit.ungroup' },
 			// ⌫ stays with the web view, where it also edits text, so the item shows no key
 			{ command: 'edit.delete', hasNoKey: true },
 			{ command: 'edit.selectAll', title: 'Select All', text: 'selectAll' },

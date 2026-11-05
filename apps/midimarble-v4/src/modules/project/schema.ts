@@ -375,7 +375,7 @@ export const BACKING_ID = 'backing';
  * What a Pattern made (prototype): an ordinary list of ordinary pieces, one Undo step, named after the Pattern. The
  * range and settings let it run again; hand edits to its pieces stay until it does. `from` and `to` are song seconds.
  */
-export const SGroup = z.strictObject({
+const SPatternGroup = z.strictObject({
 	id: SId,
 	name: z.string(),
 	laneId: SId,
@@ -390,6 +390,16 @@ export const SGroup = z.strictObject({
 	// What the last run couldn't do, shown beside the tiles
 	problems: z.array(z.strictObject({ hitId: z.string(), words: z.string() })).optional()
 });
+
+// A Group with no Pattern, made by hand or left by a Flatten. `laneId` while its pieces are one marble's
+const SPlainGroup = z.strictObject({
+	id: SId,
+	name: z.string(),
+	laneId: SId.optional(),
+	pieceIds: z.array(SId)
+});
+
+export const SGroup = z.union([SPatternGroup, SPlainGroup]);
 
 export const SProject = z.strictObject({
 	$schema: z.literal('marble-project@5'),
@@ -445,6 +455,12 @@ export type TMadeInBlender = z.infer<typeof SMadeInBlender>;
 export type TKeyLightPose = z.infer<typeof SKeyLightPose>;
 export type TShot = z.infer<typeof SShot>;
 export type TGroup = z.infer<typeof SGroup>;
+export type TPatternGroup = z.infer<typeof SPatternGroup>;
+export type TPlainGroup = z.infer<typeof SPlainGroup>;
+
+export function isPatternGroup(group: TGroup): group is TPatternGroup {
+	return 'kind' in group;
+}
 export type TTempo = z.infer<typeof STempo>;
 export type TPhysics = z.infer<typeof SPhysics>;
 export type TPathNode = z.infer<typeof SPathNode>;

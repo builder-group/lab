@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Folder, Spline } from 'lucide-react';
 import React from 'react';
 import { InspectorHeader, Panel, SliderField } from '@/components';
-import type { TGroup, TProject } from '@/modules/project';
+import { isPatternGroup, type TPatternGroup, type TProject } from '@/modules/project';
 import { hitsInRange, MAX_TILT, PATTERN_LABELS, type TPatternKind, type TPatternProblem } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { toGroupKey, toRangeKey } from '@/modules/studio/selection';
@@ -40,7 +40,7 @@ export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; 
 export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId: string }> = (props) => {
 	const { cx, project, groupId } = props;
 	const compose = useFeatureState(cx.$compose);
-	const group = project.groups?.find((item) => item.id === groupId);
+	const group = project.groups?.filter(isPatternGroup).find((item) => item.id === groupId);
 	const lane = project.music.lanes.find((item) => item.id === group?.laneId);
 	if (group == null || lane == null || compose == null) return null;
 	const target: TPatternTarget = { laneId: group.laneId, from: group.from, to: group.to, group };
@@ -70,7 +70,7 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 					</div>
 				) : null}
 				<TiltNote project={project} group={group} />
-				<button className="mm-button" onClick={() => compose.patterns.flatten(group)} title="Keep these pieces as they are and remove the Pattern, to edit them one by one" type="button">
+				<button className="mm-button" onClick={() => compose.patterns.flatten(group)} title="Keep these pieces as they are, as a plain Group, and remove the Pattern" type="button">
 					Flatten
 				</button>
 			</TilesPanel>
@@ -131,7 +131,7 @@ const PatternProblems: React.FC<{ compose: ComposeCx; failureKey: string; proble
 	);
 };
 
-const TiltNote: React.FC<{ project: TProject; group: TGroup }> = (props) => {
+const TiltNote: React.FC<{ project: TProject; group: TPatternGroup }> = (props) => {
 	const { project, group } = props;
 	const tilts = project.entities.filter((entity) => group.pieceIds.includes(entity.id) && entity.components.piece?.type === 'platform').map((entity) => Math.abs(entity.components.hitLink?.angle ?? 0) * (180 / Math.PI));
 	if (!tilts.length) return null;

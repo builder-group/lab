@@ -39,8 +39,8 @@ Every skin tile, Decor item and theme shows where it comes from as its quiet ori
 | The moment a marble strikes its note | **Hit** | contact, strike, collision | rhythm games; the hit has a timing status |
 | Everything built for the marbles | **Track**: Insert's heading in Compose. Made of Platform, Rail, Tunnel, Windmill and Bowl | run (that is the marble's flight line), course, object, prop, asset | marble-run kits |
 | An action that makes pieces for a range of a marble's row (prototype) | **Pattern**: Zigzag, Staircase, Long Rail. An action like a Blender operator, never a thing in the project | Section, Array, template | Blender's operators |
-| The pieces a Pattern made (prototype) | **Group**: ordinary pieces with a row in Layers and a block in the strip, named after the Pattern | Collection, cluster | |
-| Keeping a Pattern's pieces and removing the Pattern, like Blender's Apply | **Flatten** | Apply, Detach, Bake | |
+| Pieces kept together | **Group**: ordinary pieces with a row in Layers and a block in the strip. A Pattern's is named after it and live; a plain Group has no Pattern. **Group Selection** ⌘G and **Ungroup** ⇧⌘G, like Figma | Collection, cluster | |
+| Keeping a Pattern's pieces and removing the Pattern, like Blender's Apply; they stay a plain Group | **Flatten** | Apply, Detach, Bake | |
 | A Group's settings (prototype) | **Width**: bar centres apart in a Zigzag, sideways per hit in a Staircase. **Bounce**: how lively the hops are, solved per bar, so a higher one falls less per hit. **Tilt limit**: 40° unless asked otherwise | Offset, spacing | |
 | One of any kind of them, in the rare case the kind doesn't matter | **Track Piece**; prose after the first mention may say piece. Internal code keeps `piece` | object, element, part | |
 | The line a marble flies along | **Run**: "Melody's run", only this | path (a drawn route), trajectory (in the UI) | |

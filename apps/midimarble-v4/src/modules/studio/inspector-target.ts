@@ -1,5 +1,5 @@
 import { addedLights } from '@/modules/design/scene-layers';
-import type { TProject } from '@/modules/project';
+import { isPatternGroup, type TProject } from '@/modules/project';
 import { CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseRangeKey, parseShotKey, SONG_KEY, WALL_KEY } from './selection';
 import { hasSongLayer } from './song-layer';
 import type { TWorkspace } from './StudioCx';
@@ -15,7 +15,7 @@ import type { TWorkspace } from './StudioCx';
 export function inspectorTarget(project: TProject, selection: readonly string[], workspace: TWorkspace = 'design'): TInspectorTarget {
 	// Patterns are Compose's: in Film a Group's selection is its pieces. In Compose a live Pattern's piece shows its Group
 	if (workspace === 'compose') {
-		const group = project.groups?.find((item) => selection.some((key) => parseGroupKey(key) === item.id || item.pieceIds.includes(key)));
+		const group = project.groups?.filter(isPatternGroup).find((item) => selection.some((key) => parseGroupKey(key) === item.id || item.pieceIds.includes(key)));
 		if (group != null) return { kind: 'group', id: group.id };
 		const range = selection.flatMap((key) => parseRangeKey(key) ?? [])[0];
 		if (range != null) return { kind: 'patternRange', ...range };

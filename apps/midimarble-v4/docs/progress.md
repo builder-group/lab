@@ -56,7 +56,7 @@ Playground projects and Jingle Bells are the test ground throughout.
 
 - **Keys:** a gentle run with one key per hit that lights as the marble rolls onto it, the hit being the crossing. After the films unless the reference needs them.
 - **Fixed assemblies** (a funnel, a showpiece) as a Track Piece from a Pack, Blender or an agent, and later Save as Piece from a Group. Its own speed-matching needs a test.
-- **More Pattern tiles:** C and Chain. A Group made by hand with ⌘G.
+- **More Pattern tiles:** C and Chain.
 - **Garland** for Jingle Bells, as a Blender object
 
 Parked: Start and End handles, rail-based looping, lights on the canvas and a light's timeline row.

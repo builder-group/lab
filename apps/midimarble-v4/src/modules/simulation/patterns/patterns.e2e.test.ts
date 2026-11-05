@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { applyProjectCommands, createProject, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, createProject, isPatternGroup, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
 import { createSimulator, type TSimulator } from '../simulate';
 import { extraStrikes, rollingHits, touchingPairs } from '../track-problems';
 import type { TSimulationResult } from '../types';
@@ -84,13 +84,13 @@ describe('Patterns chained on the reference hits', () => {
 
 		expect(measures.onTime).toBe(58);
 		// Width stays what's asked, so what it can't do is said, not fixed by another Width
-		expect(chain.groups?.every((group) => group.width === 0.14 || group.width === 0.09)).toBe(true);
-		const said = chain.groups?.flatMap((group) => group.problems ?? []).map((problem) => problem.words).join(' ') ?? '';
+		expect(chain.groups?.filter(isPatternGroup).every((group) => group.width === 0.14 || group.width === 0.09)).toBe(true);
+		const said = chain.groups?.filter(isPatternGroup).flatMap((group) => group.problems ?? []).map((problem) => problem.words).join(' ') ?? '';
 		if (extraStrikes(chain, result).length > 0) expect(said).toMatch(/twice|a second time|another bar/);
 		if (rollingHits(chain, result).length > 0) expect(said).toContain('rolls');
 		for (const fall of falls) expect(fall).toBeLessThan(0.4);
 
-		const first = chain.groups?.find((group) => group.from < 2);
+		const first = chain.groups?.filter(isPatternGroup).find((group) => group.from < 2);
 		const changedAt = performance.now();
 		const changed = runGroupChange(chain, { laneId: LANE, groupId: first?.id, from: first?.from ?? 0, to: first?.to ?? 0, kind: 'zigzag', width: 0.15, bounce: 0.5 }, { sim });
 		const after = apply(chain, changed.commands);

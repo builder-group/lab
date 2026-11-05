@@ -21,10 +21,14 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 
 	if (hasSongLayer(project)) rows.push({ kind: 'song', id: SONG_KEY, depth: 0, parentId: null, source: songSource(project), label: SONG_LAYER_LABEL });
 
+	// A plain Group across marbles or of free pieces lists its pieces under Track Pieces, like one layer of them
+	const looseGroups = (project.groups ?? []).filter((group) => group.laneId == null);
+	const beyondMarbles = new Set(looseGroups.flatMap((group) => group.pieceIds));
+
 	for (const lane of project.music.lanes) {
 		const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
 		const id = marble?.id ?? lane.id;
-		const pieces = lanePieces(project, lane);
+		const pieces = lanePieces(project, lane).filter((piece) => !beyondMarbles.has(piece.id));
 		const isOpen = !collapsed.includes(lane.id);
 		rows.push({ kind: 'marble', id, depth: 0, parentId: null, lane, groupKey: lane.id, hasChildren: pieces.length > 0 || (project.groups ?? []).some((group) => group.laneId === lane.id), isOpen });
 		if (isOpen) rows.push(...lanePieceRows(project, lane.id, id, pieces, collapsed));
@@ -32,11 +36,19 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 
 	// Newest first, like Figma's layer list
 	const startRails = new Set(project.music.lanes.map((lane) => startRailOf(project, lane.id)));
-	const free = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink == null && !startRails.has(entity)).reverse();
-	if (free.length > 0) {
+	const free = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink == null && !startRails.has(entity) && !beyondMarbles.has(entity.id)).reverse();
+	if (free.length > 0 || looseGroups.length > 0) {
 		const isOpen = !collapsed.includes(FREE_PIECES_KEY);
-		rows.push({ kind: 'group', id: FREE_PIECES_KEY, depth: 0, parentId: null, label: PIECES_GROUP_LABEL, help: PIECES_GROUP_HELP, groupKey: FREE_PIECES_KEY, childIds: free.map((piece) => piece.id), isOpen });
-		if (isOpen) for (const piece of free) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: FREE_PIECES_KEY, piece, laneId: null });
+		rows.push({ kind: 'group', id: FREE_PIECES_KEY, depth: 0, parentId: null, label: PIECES_GROUP_LABEL, help: PIECES_GROUP_HELP, groupKey: FREE_PIECES_KEY, childIds: [...free.map((piece) => piece.id), ...beyondMarbles], isOpen });
+		if (isOpen) {
+			for (const group of looseGroups) {
+				const isGroupOpen = !collapsed.includes(group.id);
+				const key = toGroupKey(group.id);
+				rows.push({ kind: 'patternGroup', id: key, depth: 1, parentId: FREE_PIECES_KEY, group, groupKey: group.id, hasChildren: group.pieceIds.length > 0, isOpen: isGroupOpen });
+				if (isGroupOpen) for (const piece of project.entities.filter((entity) => group.pieceIds.includes(entity.id))) rows.push({ kind: 'piece', id: piece.id, depth: 2, parentId: key, piece, laneId: null });
+			}
+			for (const piece of free) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: FREE_PIECES_KEY, piece, laneId: null });
+		}
 	}
 
 	if (workspace === 'compose') return rows;
@@ -100,7 +112,9 @@ export function groupsOfSelection(project: TProject, selection: readonly string[
 		if (key.startsWith('decor:') || key.startsWith('blender:')) return [DECOR_KEY];
 		const laneId = project.entities.find((entity) => entity.id === key)?.components.hitLink?.laneId ?? project.music.lanes.find((lane) => startRailOf(project, lane.id)?.id === key)?.id;
 		const group = project.groups?.find((item) => item.pieceIds.includes(key));
-		return laneId != null ? [laneId, ...(group != null ? [group.id] : [])] : [];
+		if (laneId != null && group?.laneId != null) return [laneId, group.id];
+		if (group != null) return [FREE_PIECES_KEY, group.id];
+		return laneId != null ? [laneId] : [];
 	});
 }
 
@@ -151,7 +165,7 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'song'; source: TSource | undefined; label: string })
 	| (TOutlineRowBase & { kind: 'marble'; lane: TLane; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TEntity; laneId: string | null })
-	// What a Pattern made (prototype): selects as itself, with its pieces under it
+	// What a Pattern made (prototype) or a plain Group: selects as itself, with its pieces under it
 	| (TOutlineRowBase & { kind: 'patternGroup'; group: TGroup; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'group'; label: string; help?: string; groupKey: string; childIds: string[]; isOpen: boolean; isEmpty?: boolean })
 	| (TOutlineRowBase & { kind: 'wall' })

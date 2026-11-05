@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { applyProjectCommands, createProject, type TProject, type TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, createProject, isPatternGroup, type TProject, type TProjectCommand } from '@/modules/project';
 import { createSimulator, type TSimulator } from '../simulate';
 import { BAR_LENGTH, ZIGZAG_WIDTH } from './fit-bars';
 import { fitPattern } from './fit-pattern';
@@ -178,7 +178,7 @@ describe('runGroupChange function', () => {
 		const again = apply(dressed, runGroupChange(dressed, { ...change, groupId: group!.id, width: 0.16 }, { sim }).commands);
 
 		expect(again.entities.find((entity) => entity.id === bar!.id)?.components.skin?.assetId).toBe('platform:gift');
-		expect(again.groups?.[0]?.width).toBe(0.16);
+		expect(again.groups?.filter(isPatternGroup)[0]?.width).toBe(0.16);
 	});
 
 	it('should open a track on a Long Rail before the first note, from a release at the start of the range', () => {
@@ -201,14 +201,14 @@ describe('runGroupChange function', () => {
 		expect(outcome.problems.some((problem) => /falls [\d.]+ m/.test(problem.words) && problem.words.includes('Long Rail'))).toBe(true);
 	});
 
-	it('should flatten to plain pieces that later Groups leave alone', () => {
+	it('should flatten to a plain Group that later Groups leave alone', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
 		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
-		const firstGroup = first.groups?.[0];
+		const firstGroup = first.groups?.filter(isPatternGroup)[0];
 		expect(patternOfPiece(first, firstGroup?.pieceIds[0] ?? '')?.id).toBe(firstGroup?.id);
 		const flat = apply(first, flattenCommands(firstGroup!));
 
-		expect(flat.groups).toBeUndefined();
+		expect(flat.groups).toEqual([{ id: firstGroup?.id, name: firstGroup?.name, laneId: LANE, pieceIds: firstGroup?.pieceIds }]);
 		expect(flat.entities).toHaveLength(first.entities.length);
 		expect(patternOfPiece(flat, firstGroup?.pieceIds[0] ?? '')).toBeNull();
 		const next = apply(flat, runGroupChange(flat, { ...change, from: 2.2, to: 3 }, { sim }).commands);
@@ -230,7 +230,7 @@ describe('runGroupChange function', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
 		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
 		const second = apply(first, runGroupChange(first, { ...change, from: 2.2, to: 3 }, { sim }).commands);
-		const earlier = second.groups?.find((group) => group.from === 1);
+		const earlier = second.groups?.filter(isPatternGroup).find((group) => group.from === 1);
 		const moved = runGroupChange(second, { ...change, groupId: earlier?.id, to: 1.8, width: 0.16 }, { sim });
 		const next = apply(second, moved.commands);
 		const result = sim.simulate(next);
@@ -244,7 +244,7 @@ describe('runGroupChange function', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
 		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
 		const second = apply(first, runGroupChange(first, { ...change, from: 2.2, to: 3 }, { sim }).commands);
-		const earlier = second.groups?.find((group) => group.from === 1);
+		const earlier = second.groups?.filter(isPatternGroup).find((group) => group.from === 1);
 		const same = runGroupChange(second, { ...change, groupId: earlier?.id, to: 1.8 }, { sim });
 		expect(same.later).toEqual([]);
 	});
@@ -253,7 +253,7 @@ describe('runGroupChange function', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6]);
 		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
 		const second = apply(first, [{ type: 'upsertGroup', group: { id: 'late', name: 'Long Rail', laneId: LANE, from: 2.2, to: 2.6, kind: 'longRail', width: 0.14, bounce: 0.5, pieceIds: [] } }]);
-		const earlier = second.groups?.find((group) => group.from === 1);
+		const earlier = second.groups?.filter(isPatternGroup).find((group) => group.from === 1);
 		const outcome = runGroupChange(second, { ...change, groupId: earlier?.id, to: 1.8, width: 0.16 }, { sim });
 		const later = outcome.later.find((item) => item.groupId === 'late');
 
@@ -265,7 +265,7 @@ describe('runGroupChange function', () => {
 		const first = apply(project, runGroupChange(project, { ...change, to: 1 }, { sim }).commands);
 		const railed = apply(first, runGroupChange(first, { ...change, from: 1.2, to: 2, kind: 'longRail' }, { sim }).commands);
 		const again = apply(railed, runGroupChange(railed, { ...change, from: 1.3, to: 1.9, kind: 'longRail' }, { sim }).commands);
-		const rail = again.groups?.find((group) => group.kind === 'longRail');
+		const rail = again.groups?.filter(isPatternGroup).find((group) => group.kind === 'longRail');
 
 		expect(again.groups).toHaveLength(2);
 		expect(rail?.pieceIds).toHaveLength(1);
