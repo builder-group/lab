@@ -17,25 +17,23 @@ describe('checkRun function on whole songs', () => {
 		simulator = await createSimulator();
 	});
 
-	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera loses once the bass moves far sideways', () => {
+	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report the marble a long Close-Up leaves out', () => {
 		const project = withSongFixture('jingle-bells');
 		expect(checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS).issues).toEqual([]);
 
-		// The bass pieces follow their marble, so moving its release moves its whole run away from the melody. The 120° camera widens for any run in reach, so it takes 8 m to lose a marble
-		const bass = project.marbles.find((marble) => marble.name === 'Bass');
-		if (bass == null) throw new Error('No bass release');
-		bass.start.position.x += 8;
+		// The automatic camera widens for any run in reach, however far sideways, and a Close-Up frames the leading marble alone
+		project.film.camera.shots = [{ id: 'close', time: 5, kind: 'closeUp', distance: project.film.camera.distance * 0.45, hold: 20 }];
 		const result = simulator.simulate(project);
 		const preflight = checkRun(project, result, NO_BLENDER_OBJECTS);
 		const framing = preflight.issues.filter((issue) => issue.kind === 'framing');
-		const first = framing.find((issue) => issue.marbleId === 'marble-2');
+		const first = framing.find((issue) => issue.severity === 'warning');
 
 		expect(first).toEqual(
 			expect.objectContaining({
-				id: 'frame:marble-2:1',
+				id: expect.stringMatching(/^frame:marble-\d:\d+$/),
 				severity: 'warning',
-				title: expect.stringMatching(/^Bass leaves the frame at 0:0\d\.\d\d \(\d+ hits\)$/),
-				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:\d\d\.\d\d\.$/),
+				title: expect.stringMatching(/^(Melody|Bass) leaves the frame at \d:\d\d\.\d\d \(\d+ hits?\)$/),
+				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:\d\d\.\d\d\. The camera follows Bass there\.$/),
 				// Framing problems open Film at their time with the Camera selected, with a span for the Camera track
 				target: { ids: ['camera'], time: first?.span?.from, workspace: 'film' }
 			})
