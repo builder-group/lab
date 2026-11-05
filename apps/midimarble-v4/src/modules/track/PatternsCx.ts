@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, patternLockWords, patternOfPiece, patternSpan, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCanceledError, type TGroupChange, type TPatternClient, type TPatternKind, type TPatternProblem } from '@/modules/building';
+import { createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, isPatternKind, patternLabel, patternLockWords, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, type TGroupChange, type TPatternClient, type TPatternKind, type TPatternProblem } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
 import { type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TPatternGroup, TProject } from '@/modules/project';
@@ -142,6 +142,7 @@ export class PatternsCx {
 			const group = groupsOfMarble(project, marble.id).find((item) => patternSpan(marble, item) != null);
 			const span = group != null ? patternSpan(marble, group) : null;
 			if (group == null || span == null) continue;
+			if (!isPatternKind(group.pattern.kind)) continue;
 			const answer = await this.fit(changeFor({ marbleId: group.marbleId, from: span.from, to: span.to, group }, group.pattern.kind), false);
 			if (answer == null) {
 				if (this.isStopped) this.studio.undo();
@@ -168,7 +169,7 @@ export class PatternsCx {
 			this.refuse(target, kind, settings, answer);
 			return answer;
 		}
-		if (!this.studio.simulation.landWorkedOut(answer.commands, { label: PATTERN_LABELS[kind] })) return null;
+		if (!this.studio.simulation.landWorkedOut(answer.commands, { label: PATTERNS[kind].label })) return null;
 		const group = this.studio.project?.track.groups.find((item) => item.id === answer.groupId);
 		const pieceIds = group?.pieceIds ?? [];
 		this.studio.$selection.set([toGroupKey(answer.groupId), ...pieceIds]);
@@ -181,7 +182,7 @@ export class PatternsCx {
 	/** Nothing changed: the notice says which hit and why, the wall shows it, the tiles keep saying it */
 	private refuse(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings, answer: TPatternAnswer): void {
 		const { refusal, nearestWidth } = answer;
-		const words = refusal?.words ?? answer.problems[0]?.words ?? `${PATTERN_LABELS[kind]} can't fit here.`;
+		const words = refusal?.words ?? answer.problems[0]?.words ?? `${PATTERNS[kind].label} can't fit here.`;
 		this.$failure.set({ key: failureKey(target), problems: [{ hitId: refusal?.hitId ?? answer.problems[0]?.hitId ?? '', words }] });
 		const width = nearestWidth != null && settings.width !== nearestWidth ? nearestWidth : null;
 		const actions = width != null ? [{ label: `Try Width ${Math.round(width * 100)} cm`, title: 'The nearest Width with no problems', run: () => void this.apply(target, kind, { ...settings, width }) }] : [];
@@ -230,7 +231,7 @@ export class PatternsCx {
 		const run = { key: history != null ? stepKey(history) : '', isReplaced: false };
 		this.run = run;
 		this.$isRunning.set(true);
-		const label = PATTERN_LABELS[change.kind];
+		const label = patternLabel(change.kind);
 		const noticeId = this.studio.notify(`Fitting ${label}`, 'info', { progress: 0, actions: [{ label: 'Stop', title: 'Stop fitting; nothing changes', run: () => this.stop() }] });
 		try {
 			const answer = await this.clientNow().run(project, change, (progress) => {
@@ -284,7 +285,7 @@ function failureKey(target: TPatternTarget): string {
 
 function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): TGroupChange {
 	const { group, marbleId, from, to } = target;
-	const defaults = PATTERN_DEFAULTS[kind];
+	const { defaults } = PATTERNS[kind];
 	const isSameKind = group?.pattern.kind === kind;
 	const maxTilt = settings.maxTilt ?? (isSameKind ? group.pattern.maxTilt : undefined);
 	return {
@@ -303,7 +304,7 @@ function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatter
 function madeWords(target: TPatternTarget, span: { from: number; to: number } | null, kind: TPatternKind, settings: TPatternSettings, name: string): string {
 	const { group } = target;
 	if (group == null) return `Made ${name}`;
-	if (group.pattern.kind !== kind) return `${group.name} is now ${PATTERN_LABELS[kind]}`;
+	if (group.pattern.kind !== kind) return `${group.name} is now ${PATTERNS[kind].label}`;
 	if (settings.width != null) return `${name}: Width ${(settings.width * 100).toFixed(0)} cm`;
 	if (settings.bounce != null) return `${name}: Bounce ${settings.bounce.toFixed(2)}`;
 	if (settings.maxTilt != null) return `${name}: Tilt limit ${settings.maxTilt.toFixed(0)}°`;

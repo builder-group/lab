@@ -7,9 +7,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildTrack, localBuildDeps } from '../src/modules/building/build-track';
 import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '../src/modules/building/export-preflight';
-import { checkGroupChange } from '../src/modules/building/patterns/check-group';
-import { PATTERN_DEFAULTS, runGroupChange, type TGroupChange } from '../src/modules/building/patterns/run-group';
-import type { TPatternKind } from '../src/modules/building/patterns/fit-pattern';
+import { checkPattern } from '../src/modules/building/patterns/check-pattern';
+import { PATTERN_KINDS, PATTERNS, type TPatternKind } from '../src/modules/building/patterns/registry';
+import type { TGroupChange } from '../src/modules/building/patterns/run-group';
 import { applyProjectCommands } from '../src/modules/project/commands';
 import { parseProject, serializeProject } from '../src/modules/project/project-file';
 import type { TProject } from '../src/modules/project/schema';
@@ -31,7 +31,7 @@ interface TAttempt {
 	fixture: string;
 	state: TState;
 	marble: string;
-	kind: TPatternKind;
+	kind: string;
 	hits: number;
 	from: number;
 	to: number;
@@ -131,13 +131,12 @@ function attempt(project: TProject, range: Omit<TGroupChange, 'width' | 'bounce'
 	const hitIds = (marble?.hits ?? []).filter((hit) => hit.time >= range.from - 1e-6 && hit.time <= range.to + 1e-6).map((hit) => hit.id);
 	const row = { fixture, state, marble: marble?.name ?? '', kind: range.kind, hits: hitIds.length, from: range.from, to: range.to };
 	const startedAt = performance.now();
-	const change: TGroupChange = { ...range, ...PATTERN_DEFAULTS[range.kind] };
-	const outcome = runGroupChange(project, change, { sim });
-	const check = outcome.commands.length > 0 ? checkGroupChange(project, outcome, range.marbleId, sim) : null;
+	const change: TGroupChange = { ...range, ...PATTERNS[range.kind as TPatternKind].defaults };
+	const check = checkPattern(project, change, { sim });
 	const ms = Math.round(performance.now() - startedAt);
-	const words = check?.refusal?.words ?? (outcome.commands.length > 0 ? null : (outcome.problems[0]?.words ?? 'nothing made'));
+	const words = check.refusal?.words ?? (check.commands.length > 0 ? null : (check.problems[0]?.words ?? 'nothing made'));
 	if (words != null) return { ...row, outcome: 'refused', reason: reasonOf(words), words, ms };
-	const [isOk, err, after] = applyProjectCommands(project, check?.commands ?? []);
+	const [isOk, err, after] = applyProjectCommands(project, check.commands);
 	if (!isOk) return { ...row, outcome: 'worse', reason: `the edit doesn’t apply: ${err.message.slice(0, 40)}`, words: err.message, ms };
 	const now = standing(after, sim);
 	const lost = [...before.onTime].filter((hitId) => !now.onTime.has(hitId));
@@ -152,7 +151,7 @@ function attempt(project: TProject, range: Omit<TGroupChange, 'width' | 'bounce'
 function table(attempts: readonly TAttempt[]): string {
 	const lines: string[] = [];
 	for (const state of ['unbuilt', 'built'] as const) {
-		for (const kind of ['zigzag', 'staircase', 'longRail'] as const) {
+		for (const kind of PATTERN_KINDS) {
 			const rows = attempts.filter((row) => row.state === state && row.kind === kind);
 			if (!rows.length) continue;
 			const applied = rows.filter((row) => row.outcome === 'applied').length;

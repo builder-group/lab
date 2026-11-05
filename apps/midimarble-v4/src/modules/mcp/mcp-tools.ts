@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
-import { framingProblemAt, patternSpan, preflightExport } from '@/modules/building';
+import { framingProblemAt, PATTERN_KINDS, PATTERNS, patternSpan, preflightExport } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
 import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY, toShotKey } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
@@ -399,7 +399,7 @@ const SApplyPattern = z.strictObject({
 	marbleId: z.string(),
 	from: z.number(),
 	to: z.number(),
-	kind: z.enum(['zigzag', 'staircase', 'longRail']),
+	kind: z.enum(PATTERN_KINDS),
 	width: z.number().positive().optional(),
 	bounce: z.number().min(0).max(1).optional(),
 	maxTilt: z.number().positive().optional(),
@@ -436,7 +436,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 		return text(cx, { changed: false, dryRun: true, ...report(answer) });
 	}
 	if (cx.mcp.presence.stopEpoch !== stop) return text(cx, { changed: false, selection: cx.$selection.get() });
-	cx.mcp.presence.relabel(label ?? `Fitting ${kind === 'longRail' ? 'Long Rail' : kind === 'zigzag' ? 'Zigzag' : 'Staircase'}`);
+	cx.mcp.presence.relabel(label ?? `Fitting ${PATTERNS[kind].label}`);
 	let reply: Record<string, unknown> = {};
 	return editStep(cx, label ?? 'Apply Pattern', async () => {
 		reply = report(await cx.patterns.apply(target, kind, settings));

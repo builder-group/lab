@@ -392,7 +392,8 @@ export const BACKING_ID = 'backing';
  * Its settings let it run again; hand edits to its pieces stay until it does.
  */
 const SPattern = z.strictObject({
-	kind: z.enum(['zigzag', 'staircase', 'longRail']),
+	// A name from `PATTERNS`, which only the app's building layer knows
+	kind: z.string(),
 	hitIds: z.array(SId),
 	width: z.number().positive(),
 	bounce: z.number().min(0).max(1),

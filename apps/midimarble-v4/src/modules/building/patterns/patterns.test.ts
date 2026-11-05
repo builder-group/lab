@@ -4,7 +4,8 @@ import { createSimulator, type TSimulator, startRailId } from '@/modules/simulat
 import { BAR_LENGTH, ZIGZAG_WIDTH } from './fit-bars';
 import { fitPattern } from './fit-pattern';
 import { measurePattern } from './measures';
-import { dropForBounce, flattenCommands, patternOfPiece, runGroupChange } from './run-group';
+import { dropForBounce } from './registry';
+import { flattenCommands, patternOfPiece, runGroupChange } from './run-group';
 
 // Real fits of a few hits, which an otherwise busy machine runs several times slower
 vi.setConfig({ testTimeout: 30_000 });
@@ -145,7 +146,7 @@ describe('fitPattern function', () => {
 
 	it('should use the same bounce on every bar when one is given', () => {
 		const project = smallProject([1, 1.4, 1.8]);
-		const fit = fitPattern({ project, marbleId: MARBLE, hitIds: ids(1, 3), kind: 'zigzag', width: 0.14, bounce: 0.6, maxTries: 1 }, { sim });
+		const fit = fitPattern({ project, marbleId: MARBLE, hitIds: ids(1, 3), kind: 'zigzag', width: 0.14, fixedBounce: 0.6, maxTries: 1 }, { sim });
 		expect(fit.drop).toBeNull();
 		expect(fit.pieces[0]?.params['bounce']).toBeCloseTo(0.6, 1);
 	});

@@ -1,6 +1,7 @@
 import type { TPiece, TProject } from '@/modules/project';
 import { gravityOf, platformDefinition, createLinkedPiece, rollingHits } from '@/modules/simulation';
 import type { TSimulator, TMarbleSample, TSimulationResult } from '@/modules/simulation';
+import type { TPatternMoment } from './contract';
 
 // Zigzag and Staircase: decide the shape first, then solve each bar's tilt, and optionally its bounce, against the real
 // simulator. Promoted from the Patterns experiment (`.local/patterns/zigzag.mts`).
@@ -93,7 +94,7 @@ interface TTrial {
 	why: TBarIssue[];
 }
 
-export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitIds: string[], shape: TBarShape, onBar?: (done: number, total: number) => void): TBarsFit {
+export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitIds: string[], firstArrival: TPatternMoment, shape: TBarShape, onBar?: (done: number, total: number) => void): TBarsFit {
 	const gravity = Math.abs(gravityOf(base));
 	const marble = base.marbles.find((item) => item.id === marbleId);
 	if (marble == null) throw new Error(`Marble ${marbleId} does not exist`);
@@ -109,12 +110,9 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 	let project = base;
 	const bars: TBar[] = [];
 	const pieces: TPiece[] = [];
-	const first = times.get(hitIds[0] ?? '') ?? 0;
-	let result = run(project, first + 0.03);
+	let result: TSimulationResult;
 	const arrival = (time: number): TMarbleSample | null => sampleAt(result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [], time - 1e-6);
-	const firstArrival = arrival(first);
-	if (firstArrival == null) return { project, pieces, bars, sims, center: 0 };
-	const firstDot = result.hits.find((hit) => hit.hitId === hitIds[0])?.dot ?? firstArrival.position;
+	const firstDot = firstArrival.position;
 
 	// Sides. Zigzag: a marble moving right lands in the right column
 	const firstSide = shape.dir ?? (Math.abs(firstArrival.velocity.x) > 0.02 ? Math.sign(firstArrival.velocity.x) : 1);

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
-import { checkGroupChange } from './check-group';
+import { checkGroupChange } from './check-pattern';
 import { runGroupChange, type TGroupRunOutcome } from './run-group';
 
 const MARBLE = 'marble';

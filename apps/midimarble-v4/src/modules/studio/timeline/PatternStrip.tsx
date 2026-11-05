@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { groupProblems, patternSpan } from '@/modules/building';
+import { groupProblems, isPatternKind, patternOfKind, patternSpan } from '@/modules/building';
 import { groupSelection, rangeSelection, plainGroupSpan } from '@/modules/track';
 import { isPatternGroup, type TPatternGroup, type TMarble, formatTime, parseGroupKey, parseHitKey, parseRangeKey } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
@@ -68,7 +68,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		const from = edit.edge === 'from' ? Math.min(edit.time, span.to) : span.from;
 		const to = edit.edge === 'to' ? Math.max(edit.time, span.from) : span.to;
 		if (Math.abs(from - span.from) < 1e-4 && Math.abs(to - span.to) < 1e-4) return;
-		void cx.patterns.apply({ marbleId: marble.id, from, to, group }, group.pattern.kind);
+		if (isPatternKind(group.pattern.kind)) void cx.patterns.apply({ marbleId: marble.id, from, to, group }, group.pattern.kind);
 	}
 
 	const isHinting = hoverX != null && range == null && selectedRange == null;
@@ -101,7 +101,8 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 				const from = isResizing && resize.edge === 'from' ? Math.min(resize.time, span.to) : span.from;
 				const to = isResizing && resize.edge === 'to' ? Math.max(resize.time, span.from) : span.to;
 				// A rail's block stops short of the notes around its silence, whose blocks reach past them
-				const pad = group.pattern?.kind === 'longRail' ? -BLOCK_PAD : BLOCK_PAD;
+				const isSilence = group.pattern != null && patternOfKind(group.pattern.kind)?.takes === 'silence';
+				const pad = isSilence ? -BLOCK_PAD : BLOCK_PAD;
 				return (
 					<div
 						key={group.id}
@@ -122,7 +123,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						{/* A block too short for its name shows none, not "Zig…"; the tooltip has it */}
 						{(to - from) * zoom + 2 * pad >= MIN_NAMED_BLOCK ? <span className="mm-pattern-block-name">{group.name}</span> : null}
 						{/* A Long Rail always fills its silence, and a plain Group has no Pattern to fit, so only a Pattern on notes has edges to drag */}
-						{isPatternGroup(group) && group.pattern.kind !== 'longRail'
+						{isPatternGroup(group) && !isSilence
 							? (['from', 'to'] as const).map((edge) => (
 									<span
 										key={edge}

@@ -3,7 +3,8 @@ import type { TProject, TProjectCommand } from '@/modules/project';
 import { parseHitKey, tieOf } from '@/modules/project';
 import { answerSettle, changedPieces } from '@/modules/simulation';
 import type { TSimulator, TSimulationResult } from '@/modules/simulation';
-import type { TGroupRunOutcome } from './run-group';
+import type { THitVerdict } from './contract';
+import { runGroupChange, type TGroupChange, type TGroupRunOptions, type TGroupRunOutcome } from './run-group';
 
 // A Pattern matches the hits it was asked for, or it isn't made. Before an edit lands, this looks at the whole song with
 // the one problem model: the next platforms take up the change where they can, or what follows moves with the marble. If
@@ -56,6 +57,51 @@ function isKept(before: TProblemSummary, after: TProblemSummary): boolean {
 function firstNew(before: TProblemSummary, after: TProblemSummary): TProblemSummary['problems'][number] | null {
 	const had = new Set(before.problems.map((issue) => issue.title));
 	return after.problems.find((issue) => !had.has(issue.title)) ?? after.problems[0] ?? null;
+}
+
+/** What a Pattern would do, asked of the whole song: the answer to show first, and the only thing ever applied */
+export type TPatternCheck = TGroupRunOutcome & {
+	/** Why nothing is to change, naming the hit */
+	refusal: TPatternRefusal | null;
+	/** Pieces after the range that move with the marble */
+	movedAfter: number;
+	/** The later hit it breaks: the ending is part of the check */
+	ending: THitVerdict | null;
+};
+
+export interface TPatternCheckOptions extends TGroupRunOptions {
+	/** Whether it must keep the song as good as it was, which a re-fit for new Gravity can't */
+	isChecked?: boolean;
+}
+
+/**
+ * Asks a Pattern, a pure calculation: the project isn't touched, and nothing comes of it until the answer's commands are
+ * applied. An answer with commands fits, on every hit and at its ending.
+ */
+export function checkPattern(project: TProject, change: TGroupChange, options: TPatternCheckOptions): TPatternCheck {
+	const { isChecked = true, ...run } = options;
+	const outcome = runGroupChange(project, change, run);
+	const isAlreadyRefused = outcome.groupId == null;
+	const check = isChecked && !isAlreadyRefused && options.isPreview !== true ? checkGroupChange(project, outcome, change.marbleId, options.sim) : null;
+	const refusal = check?.refusal ?? (isChecked && isAlreadyRefused && outcome.problems[0] != null ? refusalOf(project, outcome, change.marbleId) : null);
+	const named = refusal?.hitId ?? null;
+	const isOwnHit = outcome.verdicts.some((verdict) => verdict.hitId === named);
+	return {
+		...outcome,
+		commands: check != null ? check.commands : outcome.commands,
+		groupId: refusal != null ? null : outcome.groupId,
+		refusal,
+		movedAfter: check?.movedAfter ?? 0,
+		verdicts: refusal != null && isOwnHit ? outcome.verdicts.map((verdict) => (verdict.hitId === named ? { ...verdict, fits: false, words: verdict.words ?? refusal.words } : verdict)) : outcome.verdicts,
+		ending: refusal != null && !isOwnHit ? { hitId: named ?? '', fits: false, words: refusal.words } : null
+	};
+}
+
+/** The refusal for a Pattern that made no pieces at all */
+function refusalOf(project: TProject, outcome: TGroupRunOutcome, marbleId: string): TPatternRefusal {
+	const [problem] = outcome.problems;
+	const hit = problem != null ? hitWords(project, problem.hitId) : null;
+	return { marbleId: hit?.marbleId ?? marbleId, hitId: hit?.hitId ?? null, words: problem?.words ?? 'It doesn’t fit here. Nothing changed.' };
 }
 
 /** Decides whether a Group change lands, and with what. Nothing is changed here */
