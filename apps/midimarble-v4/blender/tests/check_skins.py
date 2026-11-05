@@ -266,8 +266,26 @@ def check_gift_candy():
     themes.set_scene_look(None, None)
 
 
+def check_none():
+    """The skin None wears the label color the scene builder passes, whatever the theme"""
+    label = parse_color('#c8102e')[:3]
+    for theme in ('pegboard', 'brass', 'neon'):
+        context = skins.skin_context(theme, RADIUS)
+        for element in ('platform', 'rail', 'tunnel', 'windmill', 'bowl'):
+            entity = piece(linked_skin(element + ':none'), element, color='#c8102e')
+            spec = skins.build_spec('piece', entity, context)
+            meshes = [spec['root'], *(part['mesh'] for part in spec['parts'])]
+            colors = [node.inputs['Base Color'].default_value[:3] for mesh in meshes for material in mesh.materials for node in (material.node_tree.nodes if material.use_nodes else []) if node.type == 'BSDF_PRINCIPLED']
+            check(any(np.allclose(color, label, atol=0.02) for color in colors), 'None %s in %s wears its label color (%s)' % (element, theme, materials(spec)))
+        marble = skins.build_spec('marble', {'radius': RADIUS, 'color': '#c8102e', 'skin': linked_skin('marble:none')}, context)
+        names = materials(marble)
+        tree_colors = [node.inputs['Base Color'].default_value[:3] for mesh in [marble['root']] for material in mesh.materials for node in material.node_tree.nodes if node.type == 'BSDF_PRINCIPLED']
+        check(any(np.allclose(color, label, atol=0.02) for color in tree_colors), 'None marble in %s wears its label color (%s)' % (theme, names))
+
+
 bpy.ops.wm.read_homefile(use_empty=True)
 check_parity()
+check_none()
 check_gift_candy()
 check_every_skin_in_every_theme()
 check_marbles()
