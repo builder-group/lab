@@ -2,7 +2,8 @@ import type { TLibraryItem } from '@/modules/library';
 import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TSkinComponent, type TVec2 } from '@/modules/project';
 import { sampleCameraTrack } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
-import { filmCamera, imageToWall } from './film-camera';
+import { filmCamera } from './film-camera';
+import { imageToWall } from './image-to-wall';
 import { resolveTheme } from './project-themes';
 import { resetKeyLightCommands, wallCommands } from './scene-layers';
 import { entitySkinElement, type TSkinElement } from './skin-catalog';
@@ -115,10 +116,6 @@ function publicUrl(path: string): string {
 }
 
 export type TSkinTarget = { kind: 'entities'; entityIds: string[] } | { kind: 'pieceType'; pieceType: string };
-
-export function cameraCommands(project: TProject, patch: Partial<TDesign['camera']>): TProjectCommand[] {
-	return [{ type: 'setDesign', design: { camera: { ...project.design.camera, ...patch } } }];
-}
 
 /** Pieces and marbles a skin target covers: the given entities, or every one of a type (`marble` for the marbles) */
 export function skinTargetIds(project: TProject, target: TSkinTarget): string[] {

@@ -164,7 +164,7 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 	isDuplicating = true;
 	let placed: TClearDuplicate;
 	try {
-		placed = await duplicateClear(project, cx.simulation.$result.get(), ids, clearSimulate(cx));
+		placed = await duplicateClear(project, cx.simulation.$result.get(), ids, clearSimulate(cx), cx.design.$blenderObjects.get());
 	} catch (error) {
 		cx.notify(`Duplicate failed, so nothing changed: ${(error as Error).message}`, 'error');
 		return;
@@ -239,7 +239,7 @@ async function pasteClipboard(cx: StudioCx): Promise<void> {
 	isDuplicating = true;
 	let placed: TClearDuplicate;
 	try {
-		placed = await pasteClear(project, cx.simulation.$result.get(), kept.pieces, clearSimulate(cx));
+		placed = await pasteClear(project, cx.simulation.$result.get(), kept.pieces, clearSimulate(cx), cx.design.$blenderObjects.get());
 	} catch (error) {
 		cx.notify(`Paste failed, so nothing changed: ${(error as Error).message}`, 'error');
 		return;

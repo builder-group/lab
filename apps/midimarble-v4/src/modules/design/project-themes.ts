@@ -1,6 +1,6 @@
 import type { TSceneThemeOverrides } from '@/modules/blender/scene-description';
 import { createId, type TDesign, type TEntity, type TKeyLightPose, type TProject, type TPackOrigin, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
-import { isPackAdded, STARTER_ORIGIN } from '@/modules/library';
+import { STARTER_ORIGIN } from '@/modules/library/pack-data';
 import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, type TSkinElement, type TSkinLook } from './skin-catalog';
 
 // Themes a project makes from a built-in one. A project theme keeps its base's skins, reactions and render look and
@@ -13,7 +13,7 @@ export function packOrigin(name: string): string {
 }
 
 /** The origin line of a copy from a Pack: "Christmas Pack", with "· Not Added" where this Mac doesn't have the Pack */
-export function packOriginLine(origin: TPackOrigin): string {
+export function packOriginLine(origin: TPackOrigin, isPackAdded: (packId: string) => boolean): string {
 	return isPackAdded(origin.packId) ? packOrigin(origin.packName) : `${packOrigin(origin.packName)} · Not Added`;
 }
 
@@ -355,9 +355,9 @@ export function copyName(name: string, taken: readonly string[]): string {
 }
 
 /** Where a theme comes from, as its tile's quiet line: Starter, its Pack, Made by Agent or Based on Neon */
-export function themeOrigin(theme: TResolvedTheme): string {
+export function themeOrigin(theme: TResolvedTheme, isPackAdded: (packId: string) => boolean): string {
 	if (theme.isBuiltIn) return STARTER_ORIGIN;
-	if (theme.projectTheme?.pack != null) return packOriginLine(theme.projectTheme.pack);
+	if (theme.projectTheme?.pack != null) return packOriginLine(theme.projectTheme.pack, isPackAdded);
 	if (theme.projectTheme?.origin === 'agent') return 'Made by Agent';
 	return `Based on ${builtInThemeLabel(theme.base) ?? theme.base}`;
 }

@@ -2,7 +2,7 @@ import type React from 'react';
 import { SIDE_ANGLE } from '@/modules/camera';
 import type { TDesign } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { cameraCommands } from './design-commands';
+import { cameraCommands, type TCameraAngles } from './film-camera';
 
 /** Radians per pixel of a drag, Blender's orbit speed */
 const ORBIT_SPEED = (0.4 * Math.PI) / 180;
@@ -10,13 +10,6 @@ const ORBIT_SPEED = (0.4 * Math.PI) / 180;
 export const MAX_TILT_DEGREES = 80;
 /** Pixels a press moves before it is a drag rather than a click */
 const DRAG_THRESHOLD = 3;
-
-export interface TCameraAngles {
-	/** Turn in radians */
-	side: number;
-	/** Tilt in radians */
-	pitch: number;
-}
 
 export function cameraAngles(camera: TDesign['camera']): TCameraAngles {
 	return { side: camera.side ?? SIDE_ANGLE, pitch: camera.pitch };

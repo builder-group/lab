@@ -1,14 +1,15 @@
 import { createState } from 'feature-state';
-import { addedPacks, type TLibraryItem } from '@/modules/library';
+import { addedBuiltInDecor, addedPacks, type TLibraryItem } from '@/modules/library';
 import { sampleCameraTrack } from '@/modules/camera';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
-import { $blenderObjects, addDecorCommands, assetDecorSource, builtInSource, moveDecorClear, type TDecorSource } from './decor';
+import { addDecorCommands, assetDecorSource, builtInSource, moveDecorClear, type TDecorSource } from './decor';
 import { decorItem, listedDecorItems, usedDecorSources } from './decor-catalog';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from './decor-scatter';
 import { previewPointToWall } from './design-commands';
-import { filmCamera, imageToWall } from './film-camera';
+import { filmCamera } from './film-camera';
+import { imageToWall } from './image-to-wall';
 
 // Decor's edits that need the studio: what the Add menu, Insert, ⌘K and the viewer's drops share.
 
@@ -110,7 +111,7 @@ export function openScatterPanel(cx: StudioCx): void {
 /** What the panel offers: the listed items that scatter, then Decor from the Library that is in this project */
 export function scatterItems(cx: StudioCx): { id: string; label: string }[] {
 	const assets = cx.library.$projectItems.get().flatMap((item) => (item.manifest?.role === 'decoration' ? [{ id: assetDecorSource(item.id, item.manifest.label, item.manifest.fittedParams).source, label: item.manifest.label }] : []));
-	return [...listedDecorItems(usedDecorSources(cx.project?.design)).filter((item) => item.scatter), ...assets];
+	return [...listedDecorItems(addedBuiltInDecor(), usedDecorSources(cx.project?.design)).filter((item) => item.scatter), ...assets];
 }
 
 /** Scatters with the panel's settings; everything the panel does until it closes is one undo step */
@@ -135,7 +136,7 @@ export function scatter(cx: StudioCx, items: readonly TDecorSource[], density: n
 		cx.notify('The track is still updating. Try Scatter Decor again in a moment');
 		return null;
 	}
-	const { commands, count, isAtMost } = scatterDecorCommands(project, result, track, { items, density, seed, blenderObjects: $blenderObjects.get() });
+	const { commands, count, isAtMost } = scatterDecorCommands(project, result, track, { items, density, seed, blenderObjects: cx.design.$blenderObjects.get() });
 	if (group != null && cx.editGroup === group) cx.execute(commands, { group });
 	else cx.execute(commands);
 	return { count, isAtMost };

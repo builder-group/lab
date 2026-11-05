@@ -58,7 +58,7 @@ describe('duplicateClear', () => {
 	}
 
 	it('should place the copy of a platform that plays a note clear of every path, keeping every hit', async () => {
-		const placed = await duplicateClear(project, run, ['piece-1-3'], async (next) => simulate(next));
+		const placed = await duplicateClear(project, run, ['piece-1-3'], async (next) => simulate(next), []);
 		if (placed.spot === 'refused') throw new Error('refused');
 		const copy = placed.copies[0];
 		expect(copy?.components.hitLink).toBeUndefined();
@@ -68,7 +68,7 @@ describe('duplicateClear', () => {
 	});
 
 	it('should place several copies together, with the same shift', async () => {
-		const placed = await duplicateClear(project, run, ['piece-1-3', 'piece-1-4'], async (next) => simulate(next));
+		const placed = await duplicateClear(project, run, ['piece-1-3', 'piece-1-4'], async (next) => simulate(next), []);
 		if (placed.spot === 'refused') throw new Error('refused');
 		expect(placed.copies).toHaveLength(2);
 		expect(newlyBroken(run.hits, simulate(withCopies(placed.copies)).hits)).toEqual([]);
@@ -80,7 +80,7 @@ describe('duplicateClear', () => {
 			calls += 1;
 			// The three nearby tries come back broken
 			return calls <= 3 ? { ...simulate(next), hits: run.hits.map((hit, index) => (index === 0 ? { ...hit, status: 'missed' as const } : hit)) } : simulate(next);
-		});
+		}, []);
 		expect(calls).toBe(4);
 		expect(placed.spot).toBe('beside the run');
 		if (placed.spot === 'refused') return;
@@ -94,7 +94,7 @@ describe('duplicateClear', () => {
 		const placed = await duplicateClear(project, run, ['piece-1-3'], async (next) => ({
 			...simulate(next),
 			hits: run.hits.map((hit, index) => (index < 2 ? { ...hit, status: 'missed' as const } : hit))
-		}));
+		}), []);
 		expect(placed).toEqual({ spot: 'refused', breaks: 2 });
 	});
 });

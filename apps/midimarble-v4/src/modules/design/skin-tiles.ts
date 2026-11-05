@@ -3,7 +3,7 @@ import { draftMarble } from './draft-look';
 import { resolveTheme, type TResolvedTheme } from './project-themes';
 import { wallLayer, WALL_KINDS } from './scene-layers';
 import { catalogSkin, catalogSkins, type TSkinElement } from './skin-catalog';
-import { STARTER_ORIGIN } from '@/modules/library';
+import { STARTER_ORIGIN } from '@/modules/library/pack-data';
 
 // What a selection's picker offers, as tiles: the theme's choice first, the rest as the catalog lists them, and which
 // one the selection wears. A mixed selection rings none.

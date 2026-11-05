@@ -106,7 +106,7 @@ function themeTile(cx: StudioCx, theme: TResolvedTheme): Pick<TPickerTile, 'key'
 	return {
 		key: theme.id,
 		label: theme.name,
-		detail: themeOrigin(theme),
+		detail: themeOrigin(theme, isPackAdded),
 		onDetail: origin != null && !isPackAdded(origin.packId) ? () => cx.library.openPackCard(origin) : undefined,
 		previewUrl: null,
 		thumb: (
@@ -121,7 +121,7 @@ function themeTile(cx: StudioCx, theme: TResolvedTheme): Pick<TPickerTile, 'key'
 				) : null}
 			</>
 		),
-		title: themePresets.find((item) => item.id === theme.id)?.description ?? themeOrigin(theme)
+		title: themePresets.find((item) => item.id === theme.id)?.description ?? themeOrigin(theme, isPackAdded)
 	};
 }
 

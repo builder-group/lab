@@ -1,4 +1,4 @@
-import { addedBuiltInDecor, STARTER_PACK } from '@/modules/library';
+import { STARTER_PACK } from '@/modules/library/pack-data';
 import type { TDecor, TDesign } from '@/modules/project';
 import catalog from '../../../blender/mm_worker/decor_catalog.json';
 
@@ -27,8 +27,7 @@ export interface TDecorItem {
 export const DECOR_ITEMS: readonly TDecorItem[] = catalog.items.map(({ preview, ...item }) => ({ ...item, previewUrl: `/decor/${preview}` }) as TDecorItem);
 
 /** The items Insert and the pickers offer: the Starter Pack's, an added Pack's, and the whole Pack of any item the project has */
-export function listedDecorItems(inUse: ReadonlySet<string> = new Set()): TDecorItem[] {
-	const added = addedBuiltInDecor();
+export function listedDecorItems(added: readonly string[], inUse: ReadonlySet<string> = new Set()): TDecorItem[] {
 	const packsInUse = new Set(DECOR_ITEMS.filter((item) => inUse.has(item.id)).map((item) => item.origin));
 	return DECOR_ITEMS.filter((item) => STARTER_PACK.builtInDecor.includes(item.id) || added.includes(item.id) || packsInUse.has(item.origin));
 }

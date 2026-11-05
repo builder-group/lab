@@ -51,7 +51,7 @@ describe('project theme commands', () => {
 		const copied = apply(project, first.commands);
 		expect(copied.design.theme).toBe(first.themeId);
 		expect(resolveTheme(copied.design)).toMatchObject({ name: 'Neon Copy', base: 'neon', overrides: {} });
-		expect(themeOrigin(resolveTheme(copied.design))).toBe('Based on Neon');
+		expect(themeOrigin(resolveTheme(copied.design), () => false)).toBe('Based on Neon');
 		const second = apply(copied, duplicateThemeCommands(copied, first.themeId).commands);
 		expect(second.design.themes.map((theme) => theme.name)).toEqual(['Neon Copy', 'Neon Copy 2']);
 		expect(copyName('Neon Copy 2', ['Neon Copy', 'Neon Copy 2'])).toBe('Neon Copy 3');

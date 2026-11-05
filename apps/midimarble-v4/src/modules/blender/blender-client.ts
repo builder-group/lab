@@ -2,6 +2,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { specta } from '@/environment/specta';
 import { SCENE_DESCRIPTION_PATH, type TSceneBuild } from './scene-builder';
+import type { TFilmEngine, TRenderPreset } from '@/modules/design/export-estimate';
 
 /**
  * Host wrapper around the Blender worker of an open package. In the browser UI development surface every
@@ -339,11 +340,6 @@ export interface TInspectResult {
 	frameEnd: number;
 	fps: number;
 }
-
-export type TRenderPreset = 'draft' | 'final';
-
-/** Engine a film renders with; the draft preset always uses Workbench */
-export type TFilmEngine = 'eevee' | 'cycles' | 'workbench';
 
 export interface TRenderFilmOptions {
 	/** Draft 720p 30 fps in Workbench, Final 1080p 30 fps in Eevee; short side for portrait frames */

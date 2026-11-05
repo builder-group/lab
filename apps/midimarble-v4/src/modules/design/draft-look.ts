@@ -1,5 +1,5 @@
 import type { TWallLook } from '@/modules/compose/ComposeRenderer';
-import type { TRenderPreset } from '@/modules/blender';
+import type { TRenderPreset } from './export-estimate';
 import type { TScenePiece } from '@/modules/blender/scene-description';
 import type { TThemeOverrides, TThemeParts, TWallKind } from '@/modules/project';
 import { filmSize } from './export-estimate';

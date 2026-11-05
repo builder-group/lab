@@ -6,8 +6,11 @@ import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, pass
 import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
-import { $blenderObjects, decorOverlaps, overlapLabel, type TBlenderObject } from './decor';
+import { decorOverlaps, overlapLabel, type TBlenderObject } from './decor';
 import { getRenderPreset } from './export-estimate';
+
+/** For a run with no Blender to ask: a worker, a script or a test */
+export const NO_BLENDER_OBJECTS: readonly TBlenderObject[] = [];
 
 /**
  * The project's problems, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
@@ -15,7 +18,7 @@ import { getRenderPreset } from './export-estimate';
  * pieces that touch, the loop and a stale result. It is the one source for the hit summary in the timeline header, its menu, the export sheet and the
  * Camera track. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
  */
-export function preflightExport(project: TProject, result: TSimulationResult | null, blenderObjects: readonly TBlenderObject[] = $blenderObjects.get()): TExportPreflight {
+export function preflightExport(project: TProject, result: TSimulationResult | null, blenderObjects: readonly TBlenderObject[]): TExportPreflight {
 	if (result == null || result.revision !== project.revision) {
 		return {
 			state: 'pending',

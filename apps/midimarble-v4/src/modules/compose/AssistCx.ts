@@ -577,7 +577,7 @@ export class AssistCx {
 		const result: TSimulationResult = { ...outcome.result, revision: present?.revision ?? outcome.project.revision };
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
 		this.lastFixRevision = result.revision;
-		const summary = problemSummary(preflightExport(present ?? outcome.project, result));
+		const summary = problemSummary(preflightExport(present ?? outcome.project, result, this.studio.design.$blenderObjects.get()));
 		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterward
 		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'hit' : 'hits'} on time`;
 		await this.studio.lengthenForCatch();
@@ -725,7 +725,7 @@ export class AssistCx {
 
 	/** With problems Fix doesn't mend left, says which needs a hand instead of "Nothing to fix" */
 	private nothingToFixWords(project: TProject, result: TSimulationResult): string {
-		const [first] = problemSummary(preflightExport(project, { ...result, revision: project.revision })).problems;
+		const [first] = problemSummary(preflightExport(project, { ...result, revision: project.revision }, this.studio.design.$blenderObjects.get())).problems;
 		return first != null ? `Fix mends broken hits, double hits, rolls and touching pieces. ${first.title} needs moving by hand.` : 'Nothing to fix';
 	}
 
@@ -809,13 +809,13 @@ export class AssistCx {
 			return;
 		}
 		// How the run stands comes from the one problem model, the same as the hit summary and the export sheet
-		const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }));
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
+		const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }, this.studio.design.$blenderObjects.get()));
+		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, this.studio.design.$blenderObjects.get()));
 		if (!fixHelps(before, summary)) {
 			this.studio.notifyEdit(fixWorseWords(before, summary), [], { isUndoFirst: true });
 			return;
 		}
-		const added = addedProblems(project, result, outcome.project, outcome.result);
+		const added = addedProblems(project, result, outcome.project, outcome.result, this.studio.design.$blenderObjects.get());
 		if (!this.studio.execute(commands)) return;
 		const revision = this.studio.project?.revision ?? outcome.result.revision;
 		this.baseline = { projectId: project.id, revision, hits: outcome.result.hits };
@@ -851,10 +851,10 @@ export class AssistCx {
 		const stop = { label: 'Stop', title: 'Stop trying; the pieces go on waiting', run: () => (run.isCanceled = true) };
 		const progressId = this.studio.notify('Fixing the break', 'info', { progress: 0, actions: [stop] });
 		const verdict: { fixed: TProject | null; label: string; worse: string | null } = { fixed: null, label: '', worse: null };
-		const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }));
+		const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }, this.studio.design.$blenderObjects.get()));
 		// Every way is tried on a copy and judged on the whole run, every marble's, by what the hit summary will say
 		const judge = (next: TProject, nextResult: TSimulationResult): void => {
-			const after = problemSummary(preflightExport(next, { ...nextResult, revision: next.revision }));
+			const after = problemSummary(preflightExport(next, { ...nextResult, revision: next.revision }, this.studio.design.$blenderObjects.get()));
 			if (fixHelps(before, after)) Object.assign(verdict, { fixed: next, label: after.label });
 			else verdict.worse = fixWorseWords(before, after);
 		};
@@ -879,7 +879,7 @@ export class AssistCx {
 				if (!outcome.isStopped) {
 					if (!brokenHits(outcome.result.hits).length) judge(outcome.project, outcome.result);
 					// Hits still broken are no fix, whatever else got better: the notice gives the counts
-					else verdict.worse = fixWorseWords(before, problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision })));
+					else verdict.worse = fixWorseWords(before, problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, this.studio.design.$blenderObjects.get())));
 				}
 			}
 		} catch (error) {

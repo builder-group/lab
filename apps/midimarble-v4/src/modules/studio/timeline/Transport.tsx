@@ -3,7 +3,7 @@ import type { TBuildProgress } from '@/modules/compose/build-track';
 import { createState } from 'feature-state';
 import { ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
-import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
+import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
@@ -72,7 +72,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const workspace = useFeatureState(cx.$workspace);
 	// While Build Track works the summary only says so, so no step checks the whole run again for it
 	const preflight = useRunPreflight(cx, project);
-	const summary = React.useMemo(() => problemSummary(preflight ?? preflightExport(project, null), workspace === 'compose' ? 'compose' : 'film'), [preflight, project, workspace]);
+	const summary = React.useMemo(() => problemSummary(preflight ?? preflightExport(project, null, NO_BLENDER_OBJECTS), workspace === 'compose' ? 'compose' : 'film'), [preflight, project, workspace]);
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
 
 	if (fixing != null || building != null || summary.state === 'pending') {

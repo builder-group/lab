@@ -17,7 +17,7 @@ import {
 	TITLE_FADE
 } from './draft-look';
 import { laneColors } from '@/modules/project/create-project';
-import { imageToWall } from './film-camera';
+import { imageToWall } from './image-to-wall';
 
 describe('draft look', () => {
 	it('should use the Blender note wheel by pitch class, C red and G teal', () => {

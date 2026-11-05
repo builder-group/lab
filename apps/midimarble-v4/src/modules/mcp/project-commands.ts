@@ -1,7 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createFreePiece } from '@/modules/compose/attach-edit';
 import { pieceForHit } from '@/modules/compose/step-loop';
-import { addDecorCommands, assetDecorSource, builtInSource, $blenderObjects } from '@/modules/design/decor';
+import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject } from '@/modules/design/decor';
 import { decorItem } from '@/modules/design/decor-catalog';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from '@/modules/design/decor-scatter';
 import { readScatterChoice } from '@/modules/design/decor-actions';
@@ -327,7 +327,7 @@ function misleadingComponent(project: TProject, command: TAgentCommand): string 
 	return "A marble starts at its release, not a transform. Use { type: 'setComponent', entityId, component: { name: 'release', value: { position: { x, y }, time } } }.";
 }
 
-export function expandCommands(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], input: readonly TAgentCommand[], packThemes: readonly TProjectTheme[] = []): TResult<TExpandedCommands, Error> {
+export function expandCommands(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], input: readonly TAgentCommand[], packThemes: readonly TProjectTheme[] = [], blenderObjects: readonly TBlenderObject[] = []): TResult<TExpandedCommands, Error> {
 	const commands: TProjectCommand[] = [];
 	const createdIds: string[] = [];
 	const notices: string[] = [];
@@ -336,7 +336,7 @@ export function expandCommands(project: TProject, result: TSimulationResult | nu
 		const command = withCurrentValues(running, given);
 		const problem = commandProblem(command) ?? misleadingComponent(running, command) ?? valueProblem(running, items, packThemes, command);
 		if (problem != null) return Err(new Error(problem));
-		const [isExpandedOk, expandedErr, expanded] = expandOne(running, result, items, packThemes, command);
+		const [isExpandedOk, expandedErr, expanded] = expandOne(running, result, items, packThemes, blenderObjects, command);
 		if (!isExpandedOk) return Err(expandedErr);
 		const [isAppliedOk, appliedErr, applied] = applyProjectCommands(running, expanded.commands);
 		if (!isAppliedOk) return Err(appliedErr);
@@ -354,7 +354,7 @@ function changesRadius(project: TProject, command: TAgentCommand): boolean {
 	return radius !== command.component.value.radius;
 }
 
-function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; entity?: TEntity }, Error> {
+function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], blenderObjects: readonly TBlenderObject[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; entity?: TEntity }, Error> {
 	switch (command.type) {
 		case 'flattenPattern': {
 			const group = project.groups?.find((item) => item.id === command.groupId);
@@ -389,7 +389,7 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 			if (track == null) return Err(new Error('The run has no camera path yet, so Decor has no wall to fill'));
 			const sources = (command.sources ?? readScatterChoice()).flatMap((source: string) => decorSource(items, source) ?? []);
 			if (sources.length === 0) return Err(new Error('Scatter Decor needs at least one Decor source'));
-			const { commands } = scatterDecorCommands(project, result, track, { items: sources, density: command.density ?? DEFAULT_SCATTER_DENSITY, seed: command.seed ?? 1, blenderObjects: $blenderObjects.get() });
+			const { commands } = scatterDecorCommands(project, result, track, { items: sources, density: command.density ?? DEFAULT_SCATTER_DENSITY, seed: command.seed ?? 1, blenderObjects });
 			return Ok({ commands });
 		}
 		default:

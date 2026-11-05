@@ -1,3 +1,4 @@
+import type { TBlenderObject } from '@/modules/design/decor';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { resolveElementLook, resolveTheme } from '@/modules/design/project-themes';
 import { keyLightLayer, wallLayer } from '@/modules/design/scene-layers';
@@ -26,8 +27,8 @@ export interface THitReport {
 	tips?: string[];
 }
 
-export function hitReport(project: TProject, result: TSimulationResult | null): THitReport {
-	const preflight = preflightExport(project, result);
+export function hitReport(project: TProject, result: TSimulationResult | null, blenderObjects: readonly TBlenderObject[]): THitReport {
+	const preflight = preflightExport(project, result, blenderObjects);
 	const summary = problemSummary(preflight);
 	const tips = preflight.issues.filter((issue) => issue.kind === 'fall').slice(0, MAX_PROBLEMS).map((issue) => issue.title);
 	return {
@@ -43,7 +44,7 @@ export function hitReport(project: TProject, result: TSimulationResult | null): 
 }
 
 /** The project in short. Hit keys in `openHits` work for `select` and `placePiece`. */
-export function projectState(project: TProject, result: TSimulationResult | null, view: { path: string | null; workspace: string; selection: readonly TSelectedItem[]; playhead: number; isPlaying: boolean; agentFolder: string | null; packThemes?: { id: string; name: string; pack: string }[]; references: { images: number; text: string }; building?: unknown; lastBuild?: unknown }): Record<string, unknown> {
+export function projectState(project: TProject, result: TSimulationResult | null, view: { path: string | null; workspace: string; selection: readonly TSelectedItem[]; playhead: number; isPlaying: boolean; agentFolder: string | null; packThemes?: { id: string; name: string; pack: string }[]; references: { images: number; text: string }; building?: unknown; lastBuild?: unknown; blenderObjects: readonly TBlenderObject[] }): Record<string, unknown> {
 	const design = project.design;
 	const theme = resolveTheme(design);
 	const wall = wallLayer(design);
@@ -91,7 +92,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				})
 			};
 		}),
-		...hitReport(project, result),
+		...hitReport(project, result, view.blenderObjects),
 		layers: {
 			pieceCounts: countBy(pieces.map((entity) => entity.components.piece?.type ?? 'piece')),
 			pieces: pieces.slice(0, MAX_PIECES).map((entity) => {

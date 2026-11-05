@@ -4,7 +4,7 @@ import { CircleAlert, CircleCheck, Film, Monitor } from 'lucide-react';
 import React from 'react';
 import { HelpTip, Select } from '@/components';
 import { host } from '@/environment';
-import type { TRenderPreset } from '@/modules/blender';
+import type { TRenderPreset } from './export-estimate';
 import { mutedSoundtrackNote } from '@/modules/music';
 import type { StudioCx } from '@/modules/studio';
 import { estimateExport, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresetOption, renderPresets, type TExportEstimate } from './export-estimate';

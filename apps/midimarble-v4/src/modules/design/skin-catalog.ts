@@ -1,6 +1,6 @@
 import type { TAssetProperty } from '@/modules/library/asset-manifest';
 import type { TEntity, TSkinComponent, TThemeParts } from '@/modules/project';
-import { STARTER_ORIGIN } from '@/modules/library';
+import { STARTER_ORIGIN } from '@/modules/library/pack-data';
 import catalog from '../../../blender/mm_worker/skin_catalog.json';
 
 // Every built-in skin per element, free of themes, and what each theme dresses an element with. The Blender worker reads

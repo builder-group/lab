@@ -1,6 +1,7 @@
 import { createState } from 'feature-state';
 import { host } from '@/environment';
-import { blender, renderFilm, type TFilmEngine, type TRenderFilmResult, type TRenderPreset } from '@/modules/blender';
+import { blender, renderFilm, type TRenderFilmResult } from '@/modules/blender';
+import type { TFilmEngine, TRenderPreset } from './export-estimate';
 import { soundtrackProject, type TResolveSourceUrl, type TSongMix } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import type { DesignCx } from './DesignCx';

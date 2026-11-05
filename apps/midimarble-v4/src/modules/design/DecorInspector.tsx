@@ -6,7 +6,7 @@ import type { TDecor, TProject, TProjectCommand, TSnowfall } from '@/modules/pro
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/studio/format';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
-import { $blenderObjects, madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands } from './decor';
+import { madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands } from './decor';
 import { moveDecorClearAction, openScatterPanel, revealMadeInBlender } from './decor-actions';
 import { decorItem } from './decor-catalog';
 import { SNOWFALL_DEFAULTS, snowfallOf } from './decor-effects';
@@ -20,7 +20,7 @@ import { titleSpan, withTitleTime } from './titles';
 /** The amber tip on a layer a marble's path crosses, from the one problem model */
 function useDecorTip(cx: StudioCx, project: TProject, key: string): string | null {
 	const result = useFeatureState(cx.simulation.$result);
-	const objects = useFeatureState($blenderObjects);
+	const objects = useFeatureState(cx.design.$blenderObjects);
 	return React.useMemo(() => (result != null && result.revision === project.revision ? (decorTips(preflightExport(project, result, objects)).get(key)?.label ?? null) : null), [project, result, objects, key]);
 }
 

@@ -4,6 +4,7 @@ import { addedProblems, withCommands } from '@/modules/compose/fix-it';
 import { createId, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { layoutOf, nextPieceName, shapesBounds, shapesDistance, soundsHit, transformShape, unanchorPiece, unlinkPiece, type TPieceShape, type TSimulationResult } from '@/modules/simulation';
 import { resolvedPieceShapes, shapesGap } from '@/modules/simulation/clearance';
+import type { TBlenderObject } from '@/modules/design/decor';
 
 /** How far a copy lands from its original, right and down on the wall in meters, like Finder's and Figma's Duplicate */
 export const DUPLICATE_OFFSET = { x: 0.05, y: -0.05 };
@@ -77,12 +78,12 @@ export type TClearDuplicate = (TDuplicate & { spot: 'near the original' | 'besid
  * path and every piece, checked with a what-if run, or to the marble-free side at their height, which the notice
  * then says. When even that would break hits, nothing is copied. Without `simulate` the clearance alone decides.
  */
-export function duplicateClear(project: TProject, result: TSimulationResult | null, entityIds: string[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null): Promise<TClearDuplicate> {
-	return pasteClear(project, result, freePieces(project, result, entityIds), simulate);
+export function duplicateClear(project: TProject, result: TSimulationResult | null, entityIds: string[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null, blenderObjects: readonly TBlenderObject[]): Promise<TClearDuplicate> {
+	return pasteClear(project, result, freePieces(project, result, entityIds), simulate, blenderObjects);
 }
 
 /** The same for free pieces kept by ⌘C, which may come from another project */
-export async function pasteClear(project: TProject, result: TSimulationResult | null, pieces: readonly TEntity[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null): Promise<TClearDuplicate> {
+export async function pasteClear(project: TProject, result: TSimulationResult | null, pieces: readonly TEntity[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null, blenderObjects: readonly TBlenderObject[]): Promise<TClearDuplicate> {
 	const atOriginals = copiesOf(project, pieces, { x: 0, y: 0 });
 	// Without a run nothing moves a marble's path yet that a spot could be checked against
 	if (result == null || !atOriginals.copies.length) return { ...copiesOf(project, pieces, DUPLICATE_OFFSET), spot: 'near the original' };
@@ -94,7 +95,7 @@ export async function pasteClear(project: TProject, result: TSimulationResult | 
 		const next = withCommands(project, commands);
 		const run = await simulate(next);
 		const broken = newlyBroken(base.hits, run.hits).length;
-		return broken > 0 ? broken : addedProblems(project, base, next, run).length > 0 ? 1 : null;
+		return broken > 0 ? broken : addedProblems(project, base, next, run, blenderObjects).length > 0 ? 1 : null;
 	};
 	let breaks = 0;
 	let tries = 0;

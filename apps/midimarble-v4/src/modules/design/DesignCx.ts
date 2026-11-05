@@ -4,9 +4,9 @@ import { Err, Ok, type TResult } from 'tuple-result';
 import { blender, buildSceneDescription, type TApplySceneResult, type TPreviewFrameResult } from '@/modules/blender';
 import type { TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
-import type { TCameraAngles } from './camera-orbit';
-import { $blenderObjects } from './decor';
-import { getRenderPreset } from './export-estimate';
+import type { TCameraAngles } from './film-camera';
+import type { TBlenderObject } from './decor';
+import { getRenderPreset, renderFps } from './export-estimate';
 import { sceneSignature } from './live-preview';
 import { LivePreviewCx } from './LivePreviewCx';
 
@@ -33,6 +33,8 @@ export class DesignCx {
 	readonly $editingTitle = createState<string | null>(null);
 	/** Turn and Tilt of a camera drag in the preview, drawn by the Draft Preview until Blender's still has caught up */
 	readonly $orbit = createState<TCameraAngles | null>(null);
+	/** What the worker reported last; empty until the app talks to Blender */
+	readonly $blenderObjects = createState<TBlenderObject[]>([]);
 	/** Background Blender frames for playback, renewed after every scene sync */
 	readonly live: LivePreviewCx;
 
@@ -201,7 +203,7 @@ export class DesignCx {
 		for (const holder of inspected.holders) links[holder.mmId] = { link: holder.link, reason: holder.reason };
 		this.$links.set(links);
 		const objects = inspected.madeInBlender ?? [];
-		if (JSON.stringify(objects) !== JSON.stringify($blenderObjects.get())) $blenderObjects.set(objects);
+		if (JSON.stringify(objects) !== JSON.stringify(this.$blenderObjects.get())) this.$blenderObjects.set(objects);
 	}
 
 	/** Saves and stops the worker of the package that was open */
@@ -214,7 +216,7 @@ export class DesignCx {
 		this.idPixels = null;
 		this.$preview.set(null);
 		this.$links.set({});
-		$blenderObjects.set([]);
+		this.$blenderObjects.set([]);
 		this.$camera.set(null);
 		this.$status.set('idle');
 		if (packagePath == null) return;
@@ -328,10 +330,6 @@ export interface TDesignPreview {
 	time: number;
 	revision: number;
 	renderMs: number;
-}
-
-export function renderFps(project: TProject): number {
-	return getRenderPreset(project.design.renderPreset).fps;
 }
 
 export interface TDesignLink {

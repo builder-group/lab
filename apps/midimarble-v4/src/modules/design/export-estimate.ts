@@ -1,4 +1,9 @@
-import type { TFilmEngine, TRenderPreset } from '@/modules/blender';
+import type { TProject } from '@/modules/project';
+
+export type TRenderPreset = 'draft' | 'final';
+
+/** Engine a film renders with; the draft preset always uses Workbench */
+export type TFilmEngine = 'eevee' | 'cycles' | 'workbench';
 
 export interface TRenderPresetInfo {
 	id: TRenderPreset;
@@ -22,6 +27,10 @@ export const renderPresets: readonly TRenderPresetInfo[] = [
 
 export function getRenderPreset(id: TRenderPreset): TRenderPresetInfo {
 	return renderPresets.find((preset) => preset.id === id) ?? (renderPresets[1] as TRenderPresetInfo);
+}
+
+export function renderFps(project: Pick<TProject, 'design'>): number {
+	return getRenderPreset(project.design.renderPreset).fps;
 }
 
 /** Quality picker entry: `Draft · 720p · Flat Light`, `Final · 1080p` */

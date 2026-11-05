@@ -3,9 +3,9 @@ import { buildSceneDescription, skinAssetPath } from '@/modules/blender';
 import type { TLibraryItem } from '@/modules/library';
 import { type TProject } from '@/modules/project';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
+import { cameraCommands } from './film-camera';
 import {
 	addWallTextCommands,
-	cameraCommands,
 	handChangeCount,
 	resetHandChangesCommands,
 	builtInSkinCommands,

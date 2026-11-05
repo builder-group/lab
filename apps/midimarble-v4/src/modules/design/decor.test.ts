@@ -9,7 +9,6 @@ import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection } from '@/m
 import { inspectorTarget } from '@/modules/studio/inspector-target';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import {
-	$blenderObjects,
 	addDecorCommands,
 	assetDecorSource,
 	builtInSource,
@@ -27,7 +26,7 @@ import { DECOR_ITEMS, isFrameEffect } from './decor-catalog';
 import { effectDefaults, flakeAt, snowFlakes } from './decor-effects';
 import { buildObstacleField, distanceToBox, type TWallBox } from './decor-clearance';
 import { SCATTER_MARGIN, scatterDecorCommands, scatterPlacements } from './decor-scatter';
-import { decorTips, preflightExport } from './export-preflight';
+import { NO_BLENDER_OBJECTS, decorTips, preflightExport } from './export-preflight';
 import { filmCamera } from './film-camera';
 import { pieceOutline } from '@/modules/compose/scene';
 import { apply, loadFixture } from '@/modules/project/test-helpers';
@@ -75,7 +74,6 @@ describe('Decor', () => {
 
 	afterAll(() => {
 		simulator.dispose();
-		$blenderObjects.set([]);
 	});
 
 	function onTheRun(): { x: number; y: number } {
@@ -180,12 +178,12 @@ describe('Decor', () => {
 			const { commands, decorId } = addDecorCommands(project, builtInSource('decor:star'), onTheRun());
 			const over = apply(project, commands);
 			const run = { ...result, revision: over.revision };
-			const preflight = preflightExport(over, run);
+			const preflight = preflightExport(over, run, NO_BLENDER_OBJECTS);
 			const tip = decorTips(preflight).get(toDecorKey(decorId));
 			expect(tip?.severity).toBe('info');
 			expect(tip?.label).toMatch(/^Overlaps .+'s path/);
 			expect(tip?.target?.workspace).toBe('design');
-			const warnings = preflightExport(project, { ...result, revision: project.revision }).warnings;
+			const warnings = preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS).warnings;
 			expect(preflight.warnings).toBe(warnings);
 		});
 
@@ -204,9 +202,7 @@ describe('Decor', () => {
 			const object = { name: 'Tree', bounds: { minX: x - 0.02, minY: y - 0.02, maxX: x + 0.02, maxY: y + 0.02 } };
 			expect(decorOverlaps(project, result, [object])[0]?.key).toBe(toMadeInBlenderKey('Tree'));
 			expect(decorOverlaps(apply(project, madeInBlenderCommands(project, 'Tree', { hidden: true })), result, [object])).toEqual([]);
-			$blenderObjects.set([object]);
-			expect(decorTips(preflightExport(project, { ...result, revision: project.revision })).has(toMadeInBlenderKey('Tree'))).toBe(true);
-			$blenderObjects.set([]);
+			expect(decorTips(preflightExport(project, { ...result, revision: project.revision }, [object])).has(toMadeInBlenderKey('Tree'))).toBe(true);
 		});
 
 		it('should word several marbles', () => {

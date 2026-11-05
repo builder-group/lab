@@ -1,4 +1,3 @@
-import { createState } from 'feature-state';
 import { createId, type TDecor, type TDesign, type TMadeInBlender, type TProject, type TProjectCommand, type TSnowfall, type TVec2 } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { parseDecorKey, toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
@@ -19,9 +18,6 @@ export interface TBlenderObject {
 	/** Its bounds on the wall in meters at the time of the report */
 	bounds: { minX: number; minY: number; maxX: number; maxY: number };
 }
-
-/** What the worker reported last; empty until the app talks to Blender */
-export const $blenderObjects = createState<TBlenderObject[]>([]);
 
 export function madeInBlenderLayer(design: Pick<TDesign, 'madeInBlender'>, name: string): TMadeInBlender {
 	return design.madeInBlender.find((item) => item.name === name) ?? { name };

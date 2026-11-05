@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
-import { framingProblemAt, preflightExport } from './export-preflight';
+import { NO_BLENDER_OBJECTS, framingProblemAt, preflightExport } from './export-preflight';
 
 function withSongFixture(name: string): TProject {
 	const project = loadFixture(name);
@@ -19,14 +19,14 @@ describe('preflightExport function on whole songs', () => {
 
 	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera loses once the bass moves far sideways', () => {
 		const project = withSongFixture('jingle-bells');
-		expect(preflightExport(project, simulator.simulate(project)).issues).toEqual([]);
+		expect(preflightExport(project, simulator.simulate(project), NO_BLENDER_OBJECTS).issues).toEqual([]);
 
 		// The bass pieces follow their marble, so moving its release moves its whole run away from the melody. The 120° camera widens for any run in reach, so it takes 8 m to lose a marble
 		const bass = project.entities.find((entity) => entity.name === 'Bass' && entity.components.release != null);
 		if (bass?.components.release == null) throw new Error('No bass release');
 		bass.components.release.position.x += 8;
 		const result = simulator.simulate(project);
-		const preflight = preflightExport(project, result);
+		const preflight = preflightExport(project, result, NO_BLENDER_OBJECTS);
 		const framing = preflight.issues.filter((issue) => issue.kind === 'framing');
 		const first = framing.find((issue) => issue.laneId === 'lane-2');
 

@@ -6,14 +6,13 @@ import type { TBuildProgress } from '@/modules/compose/build-track';
 import type { TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/studio/format';
-import { $blenderObjects } from './decor';
 import { preflightExport, type TExportPreflight, type TPreflightIssue } from './export-preflight';
 
 /** The export preflight of the open project and its current simulation result */
 export function useExportPreflight(cx: StudioCx): TExportPreflight | null {
 	const project = useFeatureState(cx.$history)?.present ?? null;
 	const result = useFeatureState(cx.simulation.$result);
-	const blenderObjects = useFeatureState($blenderObjects);
+	const blenderObjects = useFeatureState(cx.design.$blenderObjects);
 	return React.useMemo(() => (project != null ? preflightExport(project, result, blenderObjects) : null), [project, result, blenderObjects]);
 }
 
@@ -26,7 +25,7 @@ const NOT_BUILDING = createState<TBuildProgress | null>(null);
  */
 export function useRunPreflight(cx: StudioCx, project: TProject | undefined): TExportPreflight | null {
 	const result = useFeatureState(cx.simulation.$result);
-	const blenderObjects = useFeatureState($blenderObjects);
+	const blenderObjects = useFeatureState(cx.design.$blenderObjects);
 	const isPreviewing = useFeatureState(cx.simulation.$previewing);
 	const isBuilding = useFeatureState(useFeatureState(cx.$compose)?.assist.$building ?? NOT_BUILDING) != null;
 	return React.useMemo(() => {

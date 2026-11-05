@@ -1,4 +1,4 @@
-import { preflightExport, problemSummary, type TProblemSummary } from '@/modules/design/export-preflight';
+import { NO_BLENDER_OBJECTS, preflightExport, problemSummary, type TProblemSummary } from '@/modules/design/export-preflight';
 import type { TProject, TProjectCommand } from '@/modules/project';
 import { parseHitKey } from '@/modules/studio/selection';
 import { answerSettle, changedEntities } from '../local-edit';
@@ -27,7 +27,7 @@ export interface TGroupCheck {
 }
 
 function standing(project: TProject, result: TSimulationResult): TProblemSummary {
-	return problemSummary(preflightExport(project, { ...result, revision: project.revision }), 'compose');
+	return problemSummary(preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS), 'compose');
 }
 
 function hitWords(project: TProject, hitId: string): { laneId: string; hitId: string; number: number; name: string } | null {

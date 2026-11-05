@@ -9,8 +9,8 @@ import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/studio/format';
 import { parseTime } from '@/modules/studio/timeline/parse-time';
+import { cameraCommands } from '@/modules/design/film-camera';
 import {
-	cameraCommands,
 	builtInSkinCommands,
 	commonPieceType,
 	defaultTitleColor,
@@ -171,7 +171,7 @@ const FramingProblem: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 	const { cx, project } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	const playhead = useFeatureState(cx.$playhead);
-	const preflight = React.useMemo(() => preflightExport(project, result), [project, result]);
+	const preflight = React.useMemo(() => preflightExport(project, result, cx.design.$blenderObjects.get()), [project, result]);
 	const issue = framingProblemAt(preflight, playhead);
 	if (issue == null) return null;
 	return <StateRow tone="warn" label={issue.title} detail={issue.detail} />;

@@ -5,7 +5,7 @@ import { HelpTip, openContextMenu, RenameField, type TMenuEntry } from '@/compon
 import { attachState } from '@/modules/compose/attach-edit';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon, type TBadgeStatus } from '@/modules/compose/status';
-import { $blenderObjects, madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
+import { madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
 import { $scatterPanel, revealMadeInBlender } from '@/modules/design/decor-actions';
 import { decorTips, pieceProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
@@ -75,7 +75,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 
 	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.entityId, piece])), [result]);
 	// Pieces another marble hits, from the problem model the hit summary and the inspector read
-	const blenderObjects = useFeatureState($blenderObjects);
+	const blenderObjects = useFeatureState(cx.design.$blenderObjects);
 	// Badges wait while Build Track works: each step would check the whole run again, and the hit summary says Building…
 	const preflight = useRunPreflight(cx, project);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);

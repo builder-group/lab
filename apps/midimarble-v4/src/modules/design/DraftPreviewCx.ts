@@ -6,7 +6,7 @@ import { isPointInPolygon } from '@/modules/compose/picking';
 import { marblePositionAt, pieceAngleAt } from '@/modules/compose/scene';
 import { marbleFilmColor, type TVec2 } from '@/modules/project';
 import { toDecorKey, toMadeInBlenderKey, WALL_KEY } from '@/modules/studio/selection';
-import { $blenderObjects, blenderObjectBox, decorBox, decorList, madeInBlenderLayer } from './decor';
+import { blenderObjectBox, decorBox, decorList, madeInBlenderLayer } from './decor';
 import { decorExtent, decorItem, isFrameEffect, type TDecorItem } from './decor-catalog';
 import { snowfallOf, snowFlakes, type TFlake } from './decor-effects';
 import { distanceToBox, type TWallBox } from './decor-clearance';
@@ -16,7 +16,8 @@ import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { pickPiece, pieceScreenOutline } from './draft-outline';
-import { FilmCameraCache, imageToWall, type TFilmCamera } from './film-camera';
+import { FilmCameraCache, type TFilmCamera } from './film-camera';
+import { imageToWall } from './image-to-wall';
 import { hitboxOutlines } from './hitbox-outline';
 
 /**
@@ -58,7 +59,7 @@ export class DraftPreviewCx {
 			studio.simulation.$result.listen(() => this.draw()),
 			studio.$playhead.listen(() => this.draw()),
 			studio.$hidden.listen(() => this.draw()),
-			$blenderObjects.listen(() => this.draw()),
+			studio.design.$blenderObjects.listen(() => this.draw()),
 			studio.design.$orbit.listen(() => this.draw())
 		];
 		this.draw();
@@ -224,7 +225,7 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
-		return $blenderObjects.get().flatMap((object) => {
+		return this.studio.design.$blenderObjects.get().flatMap((object) => {
 			const layer = madeInBlenderLayer(project.design, object.name);
 			const opacity = layer.hidden === true ? 0 : titleOpacity(time, layer);
 			if (opacity <= 0) return [];
@@ -254,7 +255,7 @@ export class DraftPreviewCx {
 		const time = this.studio.$playhead.get();
 		const shown = decorList(project.design).filter((decor) => decor.hidden !== true && titleOpacity(time, decor) > 0 && !isFrameEffect(decor));
 		return [
-			...$blenderObjects
+			...this.studio.design.$blenderObjects
 				.get()
 				.filter((object) => {
 					const layer = madeInBlenderLayer(project.design, object.name);

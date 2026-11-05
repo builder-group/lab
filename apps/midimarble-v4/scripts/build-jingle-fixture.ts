@@ -17,7 +17,7 @@ import { buildTrack, localBuildDeps } from '../src/modules/compose/build-track';
 import { withBowls } from '../src/modules/compose/bowl-assist';
 import { builtInSource, newDecor, setDecorList } from '../src/modules/design/decor';
 import { scatterDecorCommands } from '../src/modules/design/decor-scatter';
-import { preflightExport } from '../src/modules/design/export-preflight';
+import { NO_BLENDER_OBJECTS, preflightExport } from '../src/modules/design/export-preflight';
 import { filmCamera } from '../src/modules/design/film-camera';
 import { fittedSongEnd } from '../src/modules/camera/bowl-exit';
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
@@ -168,7 +168,7 @@ for (const line of describePace(project, finalResult)) say(line);
 say(`heights every 4 s (melody | bass | y*, m): ${describeHeights(finalResult)}`);
 for (const hit of outcome.attention) say(`needs attention: ${hit.hitId} at ${hit.time.toFixed(2)} s, ${hit.status}`);
 for (const line of outcome.bowls) say(`bowl: ${line}`);
-say(`export preflight: ${preflightExport(project, finalResult).issues.map((issue) => `${issue.title} (${issue.detail})`).join('; ') || 'clean'}`);
+say(`export preflight: ${preflightExport(project, finalResult, NO_BLENDER_OBJECTS).issues.map((issue) => `${issue.title} (${issue.detail})`).join('; ') || 'clean'}`);
 
 const json = serializeProject(dressed(await finalized(apply(project, [], 0), simulate), simulate));
 simulator.dispose();

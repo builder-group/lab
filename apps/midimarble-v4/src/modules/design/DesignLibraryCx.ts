@@ -269,7 +269,7 @@ export function notAddedPackAction(cx: { library: DesignLibraryCx }, item: TLibr
 
 /** Where an item comes from, as its quiet second line */
 export function libraryItemOrigin(item: TLibraryItem): string {
-	if (item.manifest?.pack != null) return packOriginLine(item.manifest.pack);
+	if (item.manifest?.pack != null) return packOriginLine(item.manifest.pack, isPackAdded);
 	return item.manifest?.origin === 'agent' ? 'Made by Agent' : 'Imported';
 }
 

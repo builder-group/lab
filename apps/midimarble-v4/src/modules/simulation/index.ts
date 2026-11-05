@@ -1,4 +1,3 @@
-export * from './assist-pool';
 export * from './assists';
 export * from './client';
 export * from './gap-pieces';
@@ -17,6 +16,5 @@ export * from './attach';
 export * from './bowl';
 export * from './build-track-defaults';
 export * from './track-problems';
-export * from './transit';
 export * from './local-edit';
 export * from './patterns';

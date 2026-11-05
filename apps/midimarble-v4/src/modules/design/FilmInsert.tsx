@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Box, Lightbulb, Package, Star, Type } from 'lucide-react';
 import React from 'react';
-import { addedPacks } from '@/modules/library';
+import { addedBuiltInDecor, addedPacks } from '@/modules/library';
 import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
 import { InsertPopover } from '@/modules/compose/InsertLibrary';
 import type { StudioCx } from '@/modules/studio';
@@ -145,7 +145,7 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 			}
 		>
 			<InsertSection title="Decor" help={DECOR_HELP}>
-				{listedDecorItems(usedDecorSources(history?.present.design)).map((item) => (
+				{listedDecorItems(addedBuiltInDecor(), usedDecorSources(history?.present.design)).map((item) => (
 					<InsertTile
 						key={item.id}
 						label={item.label}

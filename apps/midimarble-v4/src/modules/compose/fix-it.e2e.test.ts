@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
+import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { assignNotesCommands } from '@/modules/music';
 import { applyProjectCommands, BACKING_ID, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
@@ -47,8 +47,8 @@ describe('fixTrack function on Jingle Bells', () => {
 	}
 
 	function messageOf(edited: TProject, broken: TSimulationResult, outcome: Awaited<ReturnType<typeof fixTrack>>): string {
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
-		return fixMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added: addedProblems(edited, broken, outcome.project, outcome.result) });
+		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
+		return fixMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added: addedProblems(edited, broken, outcome.project, outcome.result, NO_BLENDER_OBJECTS) });
 	}
 
 	it('should recover every hit after 6 Melody notes become Backing, within a minute, and name what it added', async () => {
@@ -67,7 +67,7 @@ describe('fixTrack function on Jingle Bells', () => {
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
 		expect(messageOf(edited, broken, outcome)).toMatch(/^Fixed \d+ hits · .*\d+ of \d+ hits on time/);
 		// A problem the new run adds is said out loud, as Bass hitting Melody's last platform is here
-		const added = addedProblems(edited, broken, outcome.project, outcome.result);
+		const added = addedProblems(edited, broken, outcome.project, outcome.result, NO_BLENDER_OBJECTS);
 		for (const problem of added) expect(messageOf(edited, broken, outcome)).toContain(problem.title);
 		expect(performance.now() - startedAt).toBeLessThan(60_000);
 	}, 120_000);

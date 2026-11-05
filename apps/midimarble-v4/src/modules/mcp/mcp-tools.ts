@@ -84,6 +84,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				selection: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get()),
 				building: assist?.$building.get(),
 				lastBuild: assist?.$lastBuild.get(),
+				blenderObjects: cx.design.$blenderObjects.get(),
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
@@ -210,7 +211,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		await settled(cx);
 		const [isFrameOk, frameErr, frame] = await cx.design.renderStill(time, quality === 'blender' ? BLENDER_WIDTH : DRAFT_WIDTH);
 		if (!isFrameOk) return fail(cx, frameErr.message);
-		const framing = framingProblemAt(preflightExport(cx.project, cx.simulation.$result.get()), time);
+		const framing = framingProblemAt(preflightExport(cx.project, cx.simulation.$result.get(), cx.design.$blenderObjects.get()), time);
 		const words = `${frame.width} × ${frame.height} at ${time} s, ${Math.round(frame.renderMs)} ms${framing != null ? `. ${framing.title} here: this frame may not show it` : ''}`;
 		return { content: [{ type: 'imagePath', path: frame.path }, { type: 'text', text: words }], isError: false, packagePath: cx.$path.get() };
 	},
@@ -459,12 +460,12 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 	const items = cx.library.$projectItems.get();
 	const packThemes = await packThemesToApply(cx, commands);
 	// Stop came while waiting for the run: this edit never starts, and McpCx's reply says why
-	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get()) });
-	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes);
+	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.design.$blenderObjects.get()) });
+	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes, cx.design.$blenderObjects.get());
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
 	if (!expanded.isChange) {
 		applySelection(cx, args);
-		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
+		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.design.$blenderObjects.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
 	}
 	const created = expanded.createdIds.length === 1 ? expanded.commands.find((command) => command.type === 'upsertEntity' && command.entity.id === expanded.createdIds[0]) : undefined;
 	cx.mcp.presence.relabel(editPresenceLabel(label, expanded.summary, created?.type === 'upsertEntity' ? (created.entity.name ?? null) : null));
@@ -493,7 +494,7 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 		...(extra.redid != null ? { redid: extra.redid } : {}),
 		...after?.(),
 		selection: cx.$selection.get(),
-		...(project != null ? hitReport(project, cx.simulation.$result.get()) : {}),
+		...(project != null ? hitReport(project, cx.simulation.$result.get(), cx.design.$blenderObjects.get()) : {}),
 		...(notices.length > 0 ? { notices } : {}),
 		...(errors.length > 0 ? { errors } : {})
 	};

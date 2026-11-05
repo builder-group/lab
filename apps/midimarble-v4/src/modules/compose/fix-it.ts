@@ -25,7 +25,8 @@ import {
 } from '@/modules/simulation';
 import { crossesOtherLanes, openFrontiers } from '@/modules/simulation/assists';
 import { resolvedPieceShapes, shapesGap } from '@/modules/simulation/clearance';
-import { preflightExport, type TPreflightIssue, type TProblemSummary } from '@/modules/design/export-preflight';
+import type { TBlenderObject } from '@/modules/design/decor';
+import { NO_BLENDER_OBJECTS, preflightExport, type TPreflightIssue, type TProblemSummary } from '@/modules/design/export-preflight';
 
 // The one Fix, after an edit that broke the run or for a piece with a problem. The edit's notice, the hit summary's
 // menu, a piece's status pill and A all offer it. Undo goes back; Rebuild From Here deletes and builds again.
@@ -259,7 +260,7 @@ export async function fixPiece(
 	project: TProject,
 	result: TSimulationResult,
 	entityId: string,
-	deps: Pick<TFixDeps, 'simulate' | 'autoPlace'> & Partial<Pick<TFixDeps, 'gapPiece' | 'settle'>>
+	deps: Pick<TFixDeps, 'simulate' | 'autoPlace'> & Partial<Pick<TFixDeps, 'gapPiece' | 'settle' | 'blenderObjects'>>
 ): Promise<TPieceFix> {
 	const entity = project.entities.find((item) => item.id === entityId);
 	const link = entity?.components.hitLink;
@@ -267,7 +268,7 @@ export async function fixPiece(
 	const name = pieceName(project, entityId);
 	if (entity == null || link == null || type == null) return { commands: null, message: `${name} has nothing to fix` };
 	const hitters = strayHitters(project, result, entityId);
-	const check = (commands: TProjectCommand[]): Promise<TFixTrial> => tryOnRun(project, result, entityId, commands, deps.simulate);
+	const check = (commands: TProjectCommand[]): Promise<TFixTrial> => tryOnRun(project, result, entityId, commands, deps);
 
 	// A Bowl is placed again on its marble's fall, wherever it went wrong
 	if (type === BOWL_TYPE) return bowlFix(project, result, entityId, deps);
@@ -315,11 +316,11 @@ export async function fixPiece(
 }
 
 /** The run of `commands`, stamped as this project's, with what it means for the piece: clear of every marble, hits broken, problems added */
-async function tryOnRun(project: TProject, result: TSimulationResult, entityId: string, commands: TProjectCommand[], simulate: TFixDeps['simulate']): Promise<TFixTrial> {
+async function tryOnRun(project: TProject, result: TSimulationResult, entityId: string, commands: TProjectCommand[], deps: Pick<TFixDeps, 'simulate'> & Partial<Pick<TFixDeps, 'blenderObjects'>>): Promise<TFixTrial> {
 	const next = withCommands(project, commands);
-	const run = await simulate(next);
+	const run = await deps.simulate(next);
 	const isClear = run.pieces.find((piece) => piece.entityId === entityId)?.status !== 'blocked' && !strayHitters(next, run, entityId).length;
-	return { run: { ...run, revision: project.revision }, broken: newlyBroken(result.hits, run.hits).length, added: addedProblems(project, result, next, run), isClear };
+	return { run: { ...run, revision: project.revision }, broken: newlyBroken(result.hits, run.hits).length, added: addedProblems(project, result, next, run, deps.blenderObjects?.() ?? NO_BLENDER_OBJECTS), isClear };
 }
 
 interface TFixTrial {
@@ -463,7 +464,7 @@ export async function sceneryFix(
 	project: TProject,
 	result: TSimulationResult,
 	entityId: string,
-	deps: Pick<TFixDeps, 'simulate'> & Partial<Pick<TFixDeps, 'gapPiece'>> & { isCanceled?: () => boolean }
+	deps: Pick<TFixDeps, 'simulate'> & Partial<Pick<TFixDeps, 'gapPiece' | 'blenderObjects'>> & { isCanceled?: () => boolean }
 ): Promise<TPieceFix> {
 	const entity = project.entities.find((item) => item.id === entityId);
 	const link = entity?.components.hitLink;
@@ -475,7 +476,7 @@ export async function sceneryFix(
 	const runs = joinWords([...new Set([link.laneId, ...hitters.map((hitter) => hitter.laneId)])].map((laneId) => laneName(project, laneId)));
 	let refusal = '';
 	const check = async (commands: TProjectCommand[], what: string): Promise<TSimulationResult | null> => {
-		const trial = await tryOnRun(project, result, entityId, commands, deps.simulate);
+		const trial = await tryOnRun(project, result, entityId, commands, deps);
 		if (trial.isClear && trial.broken === 0 && trial.added.length === 0) return trial.run;
 		refusal ||= !trial.isClear ? `${what} leaves it in the way` : costOf(what, trial);
 		return null;
@@ -549,6 +550,8 @@ export function replaceCommands(project: TProject, placed: TEntity): TProjectCom
 }
 
 export interface TFixDeps {
+	/** What Blender reports now, for the problems a fix must not add. Without it there are none: a script or a test */
+	blenderObjects?: () => readonly TBlenderObject[];
 	simulate: (project: TProject) => Promise<TSimulationResult>;
 	/** Auto place for a hit's existing platform; rejects when no angle passes */
 	autoPlace: (project: TProject, hit: THitResult, entity: TEntity) => Promise<TEntity>;
@@ -860,7 +863,7 @@ async function keepFix(fixing: TFixing, base: TProject, trial: TSimulationResult
 	const whole = { ...base, end: current.end };
 	const run = trial.duration >= current.end - 1e-6 ? trial : await deps.simulate(whole);
 	if (isCanceled(fixing) || !advances(fixing, whole, run, problem)) return null;
-	const added = addedProblems(current, latest, whole, run, { laneId: problem.laneId, from: problem.targetTime });
+	const added = addedProblems(current, latest, whole, run, fixing.deps.blenderObjects?.() ?? NO_BLENDER_OBJECTS, { laneId: problem.laneId, from: problem.targetTime });
 	return added.length ? null : { commands, run };
 }
 
@@ -966,7 +969,7 @@ async function fixPlatforms(fixing: TFixing, progress: TFixProgress): Promise<bo
 /** Blocked scenery, and scenery the new run carries into another marble's way that was clear before. False when stopped. */
 async function fixScenery(fixing: TFixing): Promise<boolean> {
 	const { project, result, deps } = fixing;
-	const strays = addedProblems(project, result, fixing.current, fixing.latest)
+	const strays = addedProblems(project, result, fixing.current, fixing.latest, fixing.deps.blenderObjects?.() ?? NO_BLENDER_OBJECTS)
 		.filter((issue) => issue.kind === 'contact')
 		.flatMap((issue) => issue.target?.ids ?? [])
 		.filter((id) => isStrayScenery(fixing.current, id));
@@ -1075,11 +1078,12 @@ export function addedProblems(
 	before: TSimulationResult,
 	afterProject: TProject,
 	after: TSimulationResult,
+	blenderObjects: readonly TBlenderObject[],
 	working?: { laneId: string; from: number }
 ): TPreflightIssue[] {
 	const warnings = (project: TProject, result: TSimulationResult): TPreflightIssue[] =>
 		// A fix that plays the hits again may cost a second bounce or a roll, which keep their own problem and their own Fix
-		preflightExport(project, { ...result, revision: project.revision }).issues.filter((issue) => issue.severity === 'warning' && issue.kind !== 'strike' && issue.kind !== 'roll');
+		preflightExport(project, { ...result, revision: project.revision }, blenderObjects).issues.filter((issue) => issue.severity === 'warning' && issue.kind !== 'strike' && issue.kind !== 'roll');
 	const had = new Set(warnings(beforeProject, before).map((issue) => issue.id));
 	return warnings(afterProject, after).filter((issue) => {
 		if (had.has(issue.id)) return false;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
-import { preflightExport } from './export-preflight';
+import { NO_BLENDER_OBJECTS, preflightExport } from './export-preflight';
 
 describe('preflightExport memo', () => {
 	const project = createProject({ title: 'Song' });
@@ -9,7 +9,7 @@ describe('preflightExport memo', () => {
 
 	it('checks a run once for every caller', () => {
 		const result = run();
-		expect(preflightExport(project, result)).toBe(preflightExport(project, result));
+		expect(preflightExport(project, result, NO_BLENDER_OBJECTS)).toBe(preflightExport(project, result, NO_BLENDER_OBJECTS));
 	});
 
 	it('knows the run under a copy stamped with the revision, as Fix asks', () => {

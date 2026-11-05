@@ -2,8 +2,7 @@ import { convertFileSrc, isTauri } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { specta } from '@/environment/specta';
-import starterManifest from '../../../packs/Starter.marblepack/pack.json';
-import { SProjectTheme, type TPackOrigin, type TProjectTheme } from '@/modules/project/schema';
+import type { TPackOrigin } from '@/modules/project/schema';
 import {
 	parseAssetManifest,
 	parseCandidateManifest,
@@ -11,6 +10,7 @@ import {
 	uniqueItemId,
 	type TAssetManifest
 } from './asset-manifest';
+import { parsePackTheme, STARTER_PACK, STARTER_PACK_ID, type TLibraryItem, type TLibraryScope, type TPack } from './pack-data';
 
 /**
  * Asset libraries: the project library in `<package>/assets/` and the global library in the app's support
@@ -117,72 +117,6 @@ export const library = {
 	}
 };
 
-export type TLibraryScope = specta.LibraryScope;
-
-export interface TLibraryItem {
-	id: string;
-	scope: TLibraryScope;
-	/** Absolute folder of the item */
-	path: string;
-	/** Null when `manifest.json` is missing or invalid; `manifestError` says why */
-	manifest: TAssetManifest | null;
-	manifestError: string | null;
-	hasAsset: boolean;
-	previewUrl: string | null;
-	/** The imported Pack it lives in, null once in a project or for a kept item */
-	packId: string | null;
-}
-
-/** An imported Pack: its themes and items as they stand in the library, copied into a project when used */
-export interface TPack {
-	id: string;
-	/** Absolute folder */
-	path: string;
-	name: string;
-	version: string;
-	description: string | null;
-	author: string | null;
-	link: string | null;
-	pictureUrl: string | null;
-	themes: TProjectTheme[];
-	items: TLibraryItem[];
-	/** Decor the app draws itself, by source such as `decor:bauble-red`, for a bundled Pack without assets yet */
-	builtInDecor: string[];
-	/** Themes and skins the app draws itself, for the Starter Pack */
-	builtIn?: readonly TPackBuiltIn[];
-}
-
-export interface TPackBuiltIn {
-	kind: 'theme' | 'skin';
-	label: string;
-	source: string;
-}
-
-export const STARTER_PACK_ID = 'starter';
-/** The origin line of everything in the Starter Pack */
-export const STARTER_ORIGIN = 'Starter';
-
-/** Always present and can't be removed: manifest entries for the items the app draws itself */
-export const STARTER_PACK: TPack = {
-	id: STARTER_PACK_ID,
-	path: '',
-	name: starterManifest.name,
-	version: starterManifest.version,
-	description: starterManifest.description,
-	author: starterManifest.author,
-	link: null,
-	pictureUrl: null,
-	themes: [],
-	items: [],
-	builtInDecor: starterManifest.items.filter((item) => item.kind === 'decor').map((item) => item.source),
-	builtIn: starterManifest.items.flatMap((item) => (item.kind === 'decor' ? [] : [{ kind: item.kind as TPackBuiltIn['kind'], label: item.label, source: item.source }]))
-};
-
-/** The Packs on this Mac with the Starter Pack first, whatever an older version left on disk */
-export function withStarterPack(packs: readonly TPack[]): TPack[] {
-	return [STARTER_PACK, ...packs.filter((pack) => pack.id !== STARTER_PACK_ID)];
-}
-
 /**
  * The Packs added on this Mac, for every project; the Starter Pack is always one. Insert and the pickers read this list.
  */
@@ -191,11 +125,6 @@ export const addedPacks = createState<TPack[]>([STARTER_PACK]);
 /** Whether a Pack is added on this Mac */
 export function isPackAdded(packId: string): boolean {
 	return packId === STARTER_PACK_ID || addedPacks.get().some((pack) => pack.id === packId);
-}
-
-/** What a copy of this Pack's items records */
-export function packOriginOf(pack: Pick<TPack, 'id' | 'name' | 'version' | 'author' | 'link'>): TPackOrigin {
-	return { packId: pack.id, packName: pack.name, version: pack.version, ...(pack.author != null ? { author: pack.author } : {}), ...(pack.link != null ? { link: pack.link } : {}) };
 }
 
 /** The built-in Decor the added Packs offer, by source */
@@ -218,15 +147,6 @@ function toPack(dto: specta.PackDto): TPack {
 		themes: dto.themesJson.flatMap((json) => parsePackTheme(json) ?? []),
 		items: dto.items.map(toLibraryItem)
 	};
-}
-
-export function parsePackTheme(json: string): TProjectTheme | null {
-	try {
-		const parsed = SProjectTheme.safeParse(JSON.parse(json));
-		return parsed.success ? parsed.data : null;
-	} catch {
-		return null;
-	}
 }
 
 export function toLibraryItem(dto: specta.LibraryItemDto): TLibraryItem {

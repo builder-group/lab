@@ -367,7 +367,7 @@ export class StudioCx {
 	showFirstProblem(): void {
 		const project = this.project;
 		if (project == null) return;
-		const summary = problemSummary(preflightExport(project, this.simulation.$result.get()));
+		const summary = problemSummary(preflightExport(project, this.simulation.$result.get(), this.design.$blenderObjects.get()));
 		if (summary.state === 'pending') {
 			this.notify('Checking the track…');
 			return;

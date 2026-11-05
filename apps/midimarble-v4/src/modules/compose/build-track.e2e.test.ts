@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
+import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '@/modules/music';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
@@ -58,7 +58,7 @@ function piecesByOrder(project: TProject): string[] {
 
 /** A long fall is only a tip: Build Track still leaves one on a 1.06 s gap, which the Patterns prototype doesn't change */
 function problemsBesidesSong(project: TProject, outcome: TBuildOutcome): string[] {
-	return preflightExport(project, { ...outcome.result, revision: project.revision }).issues.filter((issue) => issue.kind !== 'song' && issue.kind !== 'fall').map((issue) => issue.title);
+	return preflightExport(project, { ...outcome.result, revision: project.revision }, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.kind !== 'song' && issue.kind !== 'fall').map((issue) => issue.title);
 }
 
 describe('buildTrack function', () => {
@@ -72,7 +72,7 @@ describe('buildTrack function', () => {
 		expect(problemsBesidesSong(outcome.project, outcome)).toEqual([]);
 		for (const lane of outcome.project.music.lanes) expect(bowlOfLane(outcome.project, lane.id)).not.toBeNull();
 		expect(progress.at(-1)).toMatchObject({ done: 115, total: 115, fraction: 1 });
-		expect(problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision })).label).toBe('115 of 115 hits on time');
+		expect(problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS)).label).toBe('115 of 115 hits on time');
 		// How it looks: nothing touches on the wall, each platform is struck once
 		expect(touchingPairs(outcome.project, outcome.result)).toEqual([]);
 		expect(extraStrikes(outcome.project, outcome.result)).toEqual([]);
@@ -102,7 +102,7 @@ describe('buildTrack function', () => {
 		expect(performance.now() - startedAt).toBeLessThan(2.5 * MINUTES);
 		expect(outcome.isStopped).toBe(false);
 		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime').length + outcome.attention.length).toBe(24);
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
+		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
 		expect(summary.label).toMatch(/of 24 hits on time|problem/);
 	}, 5 * MINUTES);
 
