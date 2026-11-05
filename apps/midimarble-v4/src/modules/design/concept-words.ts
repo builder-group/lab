@@ -6,7 +6,7 @@ export const SKIN_HELP = 'Skin: how one thing looks.';
 export const THEME_HELP = 'Theme: a preset of skins and lights for the whole film; you can still change any part.';
 export const DECOR_HELP = 'Decor: extras you add to the scene; marbles pass through them.';
 
-/** Add Pack…'s notice: "Christmas Pack added: 1 theme, 4 skins, 8 decor items. Nothing in your project changed." */
+/** Adding a Pack's notice: "Christmas Pack added: 1 theme, 4 skins, 8 decor items. Nothing in your project changed." */
 export function packAddedNotice(name: string, counts: { themes: number; skins: number; decor: number }): string {
 	const count = (value: number, one: string, many: string): string => `${value} ${value === 1 ? one : many}`;
 	const contents = [

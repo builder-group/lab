@@ -44,7 +44,7 @@ export interface TPackExport {
 	assetIds: string[];
 }
 
-/** What Export Pack… writes for the project. An item the theme needs comes along even when it wasn't chosen. */
+/** What Export This Look… writes for the project. An item the theme needs comes along even when it wasn't chosen. */
 export function packExport(project: TProject, items: readonly TLibraryItem[], options: TPackExportOptions): TResult<TPackExport, Error> {
 	const name = options.name.trim();
 	if (name === '') return Err(new Error('A Pack needs a name'));

@@ -164,8 +164,9 @@ function canRun(cx: StudioCx, command: TCommand): boolean {
  */
 function searchCommands(cx: StudioCx, query: string): TCommand[] {
 	const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-	if (!words.length) return commands.filter((command) => opensWorkspace(cx, command) == null);
-	const scored = commands.flatMap((command) => {
+	const listed = commands.filter((command) => command.isForAgents !== true);
+	if (!words.length) return listed.filter((command) => opensWorkspace(cx, command) == null);
+	const scored = listed.flatMap((command) => {
 		const title = commandTitle(cx, command).toLowerCase();
 		const haystack = `${title} ${command.section.toLowerCase()} ${command.keywords ?? ''}`;
 		const tokens = haystack.split(/[\s.…°]+/);

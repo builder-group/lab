@@ -19,11 +19,11 @@ export class DesignLibraryCx {
 	readonly $globalItems = createState<TLibraryItem[]>([]);
 	/** The Packs that ship inside the app */
 	readonly $bundledPacks = createState<TPack[]>([]);
-	/** Add Pack…'s sheet is open */
-	readonly $isAddPackOpen = createState(false);
+	/** The Packs… sheet is open */
+	readonly $isPacksOpen = createState(false);
 	/** The Pack whose card the sheet shows; a Pack that is on no list here has only its origin to show */
 	readonly $packCard = createState<TPackOrigin | null>(null);
-	/** Export Pack…'s sheet while it is open */
+	/** Export This Look…'s sheet while it is open */
 	readonly $exportPack = createState<TPackExportOptions | null>(null);
 	readonly $status = createState<'idle' | 'loading' | 'ready' | 'unavailable' | 'error'>('idle');
 	readonly $error = createState<string | null>(null);
@@ -101,7 +101,7 @@ export class DesignLibraryCx {
 	/** Clicking an origin line that reads "Not Added": that Pack's card in the sheet */
 	openPackCard(origin: TPackOrigin): void {
 		this.$packCard.set(origin);
-		this.$isAddPackOpen.set(true);
+		this.$isPacksOpen.set(true);
 	}
 
 	/**
@@ -122,7 +122,7 @@ export class DesignLibraryCx {
 		return Ok(pack);
 	}
 
-	/** Export Pack…'s sheet for the current look, with the library skins the project wears already ticked */
+	/** Export This Look…'s sheet for the current look, with the library skins the project wears already ticked */
 	openExportPack(): void {
 		const project = this.source.getProject();
 		if (project == null) return;

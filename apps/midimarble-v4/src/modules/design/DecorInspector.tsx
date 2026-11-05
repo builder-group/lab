@@ -7,7 +7,7 @@ import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/studio/format';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { $blenderObjects, madeInBlenderCommands, madeInBlenderLayer, updateDecorCommands } from './decor';
-import { moveDecorClearAction, revealMadeInBlender } from './decor-actions';
+import { moveDecorClearAction, openScatterPanel, revealMadeInBlender } from './decor-actions';
 import { decorItem } from './decor-catalog';
 import { SNOWFALL_DEFAULTS, snowfallOf } from './decor-effects';
 import { ColorWell } from './SceneLayerInspector';
@@ -70,9 +70,19 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 				<TextField key={`in-${timingKey}`} id="decor-in" label="In" name="Time it appears" value={formatTime(span.start)} onCommit={(value) => setTime('in', value)} />
 				<TextField key={`out-${timingKey}`} id="decor-out" label="Out" name="Time it disappears" value={formatTime(span.end)} onCommit={(value) => setTime('out', value)} />
 			</Panel>
+			{item?.effect == null ? <ScatterPanel cx={cx} /> : null}
 		</>
 	);
 };
+
+/** Scatter Decor… is an action on the Decor layer, here and in its menu and ⌘K */
+export const ScatterPanel: React.FC<{ cx: StudioCx }> = ({ cx }) => (
+	<Panel id="design.decor.scatter" title="Scatter">
+		<button className="mm-button" data-span="2" onClick={() => openScatterPanel(cx)} title="Asks what to scatter, then fills the free wall the camera shows" type="button">
+			Scatter Decor…
+		</button>
+	</Panel>
+);
 
 /** Snowfall's settings. It fills the frame, so it has no place on the wall. */
 const SnowfallPanel: React.FC<{ cx: StudioCx; decor: TDecor }> = (props) => {

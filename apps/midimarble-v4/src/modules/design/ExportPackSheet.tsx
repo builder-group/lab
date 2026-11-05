@@ -3,7 +3,7 @@ import React from 'react';
 import type { StudioCx } from '@/modules/studio';
 import { libraryItemLabel } from './DesignLibraryCx';
 
-/** Export Pack…: a name, then the current look always goes in as a theme under that name, with any skins and decor ticked */
+/** Export This Look…, from Packs…: a name, then the current look always goes in as a theme under that name, with any skins and decor ticked */
 export const ExportPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 	const options = useFeatureState(cx.library.$exportPack);
 	const items = useFeatureState(cx.library.$projectItems);
@@ -38,8 +38,8 @@ export const ExportPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 
 	return (
 		<div className="absolute inset-0 z-50 flex justify-center bg-black/10" onPointerDown={(event) => event.stopPropagation()}>
-			<div role="dialog" aria-modal aria-label="Export Pack" className="mm-sheet mt-[60px] flex w-[420px] flex-col">
-				<div className="font-semibold">Export Pack</div>
+			<div role="dialog" aria-modal aria-label="Export This Look" className="mm-sheet mt-[60px] flex w-[420px] flex-col">
+				<div className="font-semibold">Export This Look</div>
 				<label className="flex items-center gap-3">
 					<span className="w-[64px] text-right text-[var(--text-secondary)]">Name</span>
 					<input className="mm-input flex-1" autoFocus value={options.name} onChange={(event) => cx.library.$exportPack.set({ ...options, name: event.target.value })} />

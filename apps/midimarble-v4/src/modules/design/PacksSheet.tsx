@@ -9,12 +9,14 @@ import { decorItem } from './decor-catalog';
 import { libraryItemLabel, packContents } from './DesignLibraryCx';
 
 /**
- * Add Pack…: the Packs that ship inside the app and the added ones as cards, each with a detail view before adding. The
- * Starter Pack is always added and can't be removed; an added Pack stays on this Mac for every project. Import from File…
- * takes any `.marblepack`.
+ * Packs…, the one place for Packs like Figma's Libraries: the Packs that ship inside the app and the added ones as cards,
+ * each with a detail view before adding. The Starter Pack is always added and can't be removed; an added Pack stays on
+ * this Mac for every project. Import from File… takes any `.marblepack`; Export This Look… makes one from this project.
  */
-export const AddPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
-	const isOpen = useFeatureState(cx.library.$isAddPackOpen);
+export const PacksSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
+	const isOpen = useFeatureState(cx.library.$isPacksOpen);
+	const isExporting = useFeatureState(cx.library.$exportPack) != null;
+	const hasProject = useFeatureState(cx.$history)?.present != null;
 	const bundled = useFeatureState(cx.library.$bundledPacks);
 	const added = useFeatureState(addedPacks);
 	const card = useFeatureState(cx.library.$packCard);
@@ -24,11 +26,11 @@ export const AddPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 	const setDetail = (pack: TPack | null): void => cx.library.$packCard.set(pack != null ? packOriginOf(pack) : null);
 	const close = React.useCallback(() => {
 		cx.library.$packCard.set(null);
-		cx.library.$isAddPackOpen.set(false);
+		cx.library.$isPacksOpen.set(false);
 	}, [cx]);
 
 	React.useEffect(() => {
-		if (!isOpen) return;
+		if (!isOpen || isExporting) return;
 		void cx.library.refresh();
 		function onKeyDown(event: KeyboardEvent): void {
 			if (event.key !== 'Escape') return;
@@ -38,9 +40,10 @@ export const AddPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 		}
 		window.addEventListener('keydown', onKeyDown, true);
 		return () => window.removeEventListener('keydown', onKeyDown, true);
-	}, [cx, isOpen, close]);
+	}, [cx, isOpen, isExporting, close]);
 
-	if (!isOpen) return null;
+	// Export This Look… takes the sheet's place, and Cancel comes back to it
+	if (!isOpen || isExporting) return null;
 	const isAdded = (pack: TPack): boolean => added.some((item) => item.id === pack.id);
 
 	const action = (pack: TPack): React.ReactElement =>
@@ -64,7 +67,7 @@ export const AddPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 
 	return (
 		<div className="absolute inset-0 z-50 flex justify-center bg-black/10" onPointerDown={(event) => event.stopPropagation()}>
-			<div role="dialog" aria-modal aria-label="Add Pack" className="mm-sheet mt-[60px] flex max-h-[70vh] w-[520px] flex-col">
+			<div role="dialog" aria-modal aria-label="Packs" className="mm-sheet mt-[60px] flex max-h-[70vh] w-[520px] flex-col">
 				{card != null && detail == null ? (
 					<MissingPackCard origin={card} onBack={() => setDetail(null)} />
 				) : detail != null ? (
@@ -95,7 +98,7 @@ export const AddPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 					</>
 				) : (
 					<>
-						<div className="font-semibold">Add Pack</div>
+						<div className="font-semibold">Packs</div>
 						<div className="flex min-h-0 flex-col gap-1.5 overflow-y-auto">
 							{packs.map((pack) => (
 								<div key={pack.id} role="button" tabIndex={0} className="flex cursor-default items-center gap-3 rounded-[8px] border border-[var(--separator)] bg-[var(--content)] p-2" onClick={() => setDetail(pack)} onKeyDown={(event) => (event.key === 'Enter' ? setDetail(pack) : undefined)}>
@@ -111,9 +114,12 @@ export const AddPackSheet: React.FC<{ cx: StudioCx }> = ({ cx }) => {
 						</div>
 					</>
 				)}
-				<div className="flex items-center justify-between gap-2">
+				<div className="flex items-center gap-2">
 					<button className="mm-button" data-size="dialog" onClick={() => void cx.library.addPack()} type="button">
 						Import from File…
+					</button>
+					<button className="mm-button mr-auto" data-size="dialog" disabled={!hasProject} onClick={() => cx.library.openExportPack()} title="Keep this project's look as a theme in a Pack, with chosen skins and decor" type="button">
+						Export This Look…
 					</button>
 					<button className="mm-button" data-size="dialog" onClick={close} title="Close (Esc)" type="button">
 						Done

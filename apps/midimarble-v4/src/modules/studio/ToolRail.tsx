@@ -67,7 +67,6 @@ const ComposeTools: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => 
 const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const placing = useFeatureState(cx.design.$placing);
-	const history = useFeatureState(cx.$history);
 	const isInsertOpen = useFeatureState(cx.library.$insertOpen);
 	const insertButtonRef = React.useRef<HTMLButtonElement>(null);
 
@@ -102,18 +101,14 @@ const DesignTools: React.FC<{ cx: StudioCx }> = (props) => {
 				<MousePointer2 size={17} strokeWidth={1.6} />
 			</RailButton>
 			<div className="mm-tool-rail-divider" />
-			<RailButton ref={insertButtonRef} label="Insert" detail="A marble, titles, Decor, a light or a shot" shortcut="⇧I" isActive={false} isOpen={isInsertOpen} onClick={() => cx.library.$insertOpen.set(!isInsertOpen)}>
+			<RailButton ref={insertButtonRef} label="Insert" detail="Decor, titles or a light" shortcut="⇧I" isActive={false} isOpen={isInsertOpen} onClick={() => cx.library.$insertOpen.set(!isInsertOpen)}>
 				<Plus size={18} strokeWidth={1.6} />
 			</RailButton>
 			{isInsertOpen ? <FilmInsert
 					cx={cx}
 					anchor={insertButtonRef}
-					hasSong={history?.present != null && hasSongLayer(history.present)}
-					onAddSong={() => getCommand('file.importMidi').run(cx)}
-					onAddMarble={() => getCommand('marble.add').run(cx)}
 					onAddTitle={() => getCommand('design.addText').run(cx)}
 					onAddLight={() => getCommand('light.add').run(cx)}
-					onAddShot={() => getCommand('camera.addShot').run(cx)}
 				/> : null}
 		</>
 	);

@@ -14,7 +14,7 @@ import { TilePicker, type TPickerTile } from './TilePicker';
 /**
  * The Scene inspector's Theme in Film: one row, the theme's picture and name, which opens the themes in a picker.
  * A theme has nothing to edit: changes are made on the layers, and the row counts them with a Reset that clears them.
- * Export Pack… keeps a look.
+ * Packs… exports a look.
  */
 export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
@@ -87,13 +87,6 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 							<RotateCcw size={12} strokeWidth={1.9} />
 						</button>
 					) : null
-				}
-				footer={
-					<>
-						<button className="mm-button w-full" onClick={() => cx.library.openExportPack()} title="Keep this look as a theme in a Pack, with chosen skins and decor" type="button">
-							Export Pack…
-						</button>
-					</>
 				}
 			/>
 	);

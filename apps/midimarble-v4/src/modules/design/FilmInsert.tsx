@@ -1,13 +1,12 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, Lightbulb, Music, PackagePlus, Star, Type, Video, Wand2 } from 'lucide-react';
+import { Box, Lightbulb, Package, Star, Type } from 'lucide-react';
 import React from 'react';
 import { addedPacks } from '@/modules/library';
 import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
 import { InsertPopover } from '@/modules/compose/InsertLibrary';
-import { PiecePreview } from '@/modules/compose/PiecePreview';
 import type { StudioCx } from '@/modules/studio';
 import { builtInSource, type TDecorSource } from './decor';
-import { libraryDecorSource, openScatterPanel, placeDecor, placeLibraryDecor } from './decor-actions';
+import { libraryDecorSource, placeDecor, placeLibraryDecor } from './decor-actions';
 import { DECOR_HELP } from './concept-words';
 import { listedDecorItems, usedDecorSources } from './decor-catalog';
 import { TileDetail } from './TilePicker';
@@ -45,13 +44,12 @@ export function dropTitle(event: React.DragEvent, cx: StudioCx): boolean {
 }
 
 /**
- * Film's Insert popover, the one place to add something, the same as Compose's with its tiles: titles, Decor with its
- * origin line and the Keep in Library star on what an agent made or you imported, a light and a shot, then the song
- * while there is none and a marble. A click adds the item, a drag onto the viewer places it. How the selection looks, its
+ * Film's Insert popover, only what Film is for: Decor with its origin line and the Keep in Library star on what an agent
+ * made or you imported, titles and a light, with Packs… at its foot. Marbles and pieces are Track's. A click adds the item, a drag onto the viewer places it. How the selection looks, its
  * skins and the theme, is in the inspector.
  */
 export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
-	const { cx, anchor, hasSong, onAddSong, onAddMarble, onAddTitle, onAddLight, onAddShot } = props;
+	const { cx, anchor, onAddTitle, onAddLight } = props;
 	const status = useFeatureState(cx.library.$status);
 	const error = useFeatureState(cx.library.$error);
 	const projectItems = useFeatureState(cx.library.$projectItems);
@@ -93,13 +91,19 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 	}
 
 	return (
-		<InsertPopover anchor={anchor} onClose={close} shortcut="⇧I" isHidden={isDragging} isDense>
-			<InsertSection title="Titles">
-				<InsertTile label="Wall Title" title="Click the preview where it goes (T)" preview={<Type size={22} strokeWidth={1.4} />} onAdd={() => add(onAddTitle)} />
-				{TITLE_TILES.map((title) => (
-					<InsertTile key={title.style} label={title.label} title={title.description} preview={<span className="mm-title-preview" data-style={title.style} />} onAdd={() => add(() => cx.addScreenTitle(title.style))} {...drag(TITLE_DRAG_TYPE, title.style)} />
-				))}
-			</InsertSection>
+		<InsertPopover
+			anchor={anchor}
+			onClose={close}
+			shortcut="⇧I"
+			isHidden={isDragging}
+			isDense
+			footer={
+				<button className="mm-button w-full" onClick={() => add(() => cx.library.$isPacksOpen.set(true))} title="The Packs of more themes, skins and decor: add, remove or export one" type="button">
+					<Package size={12} strokeWidth={1.8} />
+					Packs…
+				</button>
+			}
+		>
 			<InsertSection title="Decor" help={DECOR_HELP}>
 				{listedDecorItems(usedDecorSources(history?.present.design)).map((item) => (
 					<InsertTile
@@ -116,21 +120,14 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 					<LibraryTile key={libraryItemKey(entry.item)} cx={cx} entry={entry} onAdd={add} drag={drag} />
 				))}
 			</InsertSection>
-			<button className="mm-button mt-2 w-full" onClick={() => add(() => openScatterPanel(cx))} title="Asks what to scatter, then fills the free wall the camera shows" type="button">
-				<Wand2 size={12} strokeWidth={1.8} />
-				Scatter Decor…
-			</button>
-			<button className="mm-button mt-1.5 mb-2 w-full" onClick={() => add(() => cx.library.$isAddPackOpen.set(true))} title="A Pack brings more themes, skins and decor; nothing in your project changes" type="button">
-				<PackagePlus size={12} strokeWidth={1.8} />
-				Add Pack…
-			</button>
-			<InsertSection title="Light and Camera">
-				<InsertTile label="Light" title="Add a light to the scene" preview={<Lightbulb size={22} strokeWidth={1.4} />} onAdd={() => add(onAddLight)} />
-				<InsertTile label="Shot" title="Add a shot at the playhead" preview={<Video size={22} strokeWidth={1.4} />} onAdd={() => add(onAddShot)} />
+			<InsertSection title="Titles">
+				<InsertTile label="Wall Title" title="Click the preview where it goes (T)" preview={<Type size={22} strokeWidth={1.4} />} onAdd={() => add(onAddTitle)} />
+				{TITLE_TILES.map((title) => (
+					<InsertTile key={title.style} label={title.label} title={title.description} preview={<span className="mm-title-preview" data-style={title.style} />} onAdd={() => add(() => cx.addScreenTitle(title.style))} {...drag(TITLE_DRAG_TYPE, title.style)} />
+				))}
 			</InsertSection>
-			<InsertSection title={hasSong ? 'Marble' : 'Song and Marble'}>
-				{hasSong ? null : <InsertTile label="Song…" title="Add a MIDI file or a recording: the only sound of the film" preview={<Music size={22} strokeWidth={1.4} />} onAdd={() => add(onAddSong)} />}
-				<InsertTile label="Marble" title="A new marble with its own layer" preview={<PiecePreview item="marble" width={72} height={48} />} onAdd={() => add(onAddMarble)} />
+			<InsertSection title="Lights">
+				<InsertTile label="Light" title="Add a light to the scene" preview={<Lightbulb size={22} strokeWidth={1.4} />} onAdd={() => add(onAddLight)} />
 			</InsertSection>
 			{status === 'error' && error != null ? (
 				<p role="alert" className="mm-caption px-1 pt-2 !text-[var(--bad)]">
@@ -145,12 +142,8 @@ interface TFilmInsertProps {
 	cx: StudioCx;
 	/** The rail's Insert button, which the popover opens beside */
 	anchor: React.RefObject<HTMLButtonElement | null>;
-	hasSong: boolean;
-	onAddSong: () => void;
-	onAddMarble: () => void;
 	onAddTitle: () => void;
 	onAddLight: () => void;
-	onAddShot: () => void;
 }
 
 const TITLE_TILES: readonly { style: TTitleStyle; label: string; description: string }[] = [

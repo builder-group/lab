@@ -191,7 +191,7 @@ export const host = {
 	async choosePackPath(name: string): Promise<string | null> {
 		if (!isTauri()) return null;
 		const { save } = await import('@tauri-apps/plugin-dialog');
-		return save({ title: 'Export Pack', defaultPath: `${name}.marblepack` });
+		return save({ title: 'Export This Look', defaultPath: `${name}.marblepack` });
 	},
 
 	/** Opens a web link in the browser; anything but http and https is refused */

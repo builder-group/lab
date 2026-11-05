@@ -25,7 +25,7 @@ Use these with the person. One word per thing.
 | Tilt | Pitch | The camera's angle; the field stays `pitch` |
 | Skin | material, asset | How one piece looks |
 | Decor | prop | Things on the wall; no hitbox |
-| Pack | bundle, plugin | A file of themes, skins and decor. Add Pack…, Export Pack… |
+| Pack | bundle, plugin | A file of themes, skins and decor. One sheet, Packs…, adds, removes and exports them |
 | Layer | object | A row in Layers |
 | Shot | keyframe | A camera move at a time |
 | Sway | wobble, drift | How much the camera turns and rolls on its own |

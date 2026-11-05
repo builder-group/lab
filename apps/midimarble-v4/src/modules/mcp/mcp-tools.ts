@@ -317,7 +317,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		if (name != null && named == null) throw new Error(`There is no Pack called ${name} in the app`);
 		const from = named?.path ?? path;
 		if (from == null) {
-			cx.library.$isAddPackOpen.set(true);
+			cx.library.$isPacksOpen.set(true);
 			return;
 		}
 		const [isAddedOk, addedErr, pack] = await cx.library.addPack(from);
@@ -377,7 +377,7 @@ function addTitle(cx: StudioCx, args: Record<string, unknown>): void {
 	if (cx.execute(styled)) cx.$selection.set([entityId]);
 }
 
-/** Remove Pack by name, which the Add Pack sheet does for a person */
+/** Remove Pack by name, which the Packs… sheet does for a person */
 async function removePack(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
 	const { name } = z.object({ name: z.string() }).parse(args);
 	const pack = addedPacks.get().find((item) => item.name.toLowerCase() === name.toLowerCase());

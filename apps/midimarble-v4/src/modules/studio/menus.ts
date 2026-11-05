@@ -140,7 +140,7 @@ export function laneMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[]
 				}
 			: null,
 		labelColorItem(laneLabelEntries(cx, lane)),
-		commandItem(cx, 'marble.add'),
+		cx.$workspace.get() === 'compose' ? commandItem(cx, 'marble.add') : null,
 		{ label: 'Delete Marble', disabled: project.music.lanes.length <= 1, onSelect: () => cx.execute([{ type: 'removeLane', laneId: lane.id }]) }
 	]);
 }

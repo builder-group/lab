@@ -56,8 +56,8 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 				</button>
 			</div>
 			{items.length === 0 ? (
-				<button className="mm-button" onClick={() => cx.library.$isAddPackOpen.set(true)} title="A Pack brings more themes, skins and decor" type="button">
-					Add Pack…
+				<button className="mm-button" onClick={() => cx.library.$isPacksOpen.set(true)} title="A Pack brings more themes, skins and decor" type="button">
+					Packs…
 				</button>
 			) : null}
 			<div className="flex flex-wrap gap-1" role="group" aria-label="Items">

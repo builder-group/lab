@@ -62,8 +62,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'file.replaceSong' },
 			{ command: 'file.removeSong' },
 			'separator',
-			{ command: 'design.addPack' },
-			{ command: 'design.exportPack' },
+			{ command: 'design.packs' },
 			'separator',
 			{ command: 'file.export' }
 		]
@@ -99,7 +98,6 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'build.addBowl', variant: 'insert' },
 			'separator',
 			{ command: 'design.addText', showsKey: true },
-			{ command: 'decor.scatter' },
 			'separator',
 			{ command: 'light.add' },
 			{ command: 'camera.addShot', showsKey: true },

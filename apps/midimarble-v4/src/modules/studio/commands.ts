@@ -36,6 +36,8 @@ export interface TCommand {
 	/** The title right now, where a row reads by state: Connect or Disconnect. The palette and every menu show it. */
 	currentTitle?: (cx: StudioCx) => string;
 	section: TCommandSection;
+	/** Only agents call it: the palette leaves it out */
+	isForAgents?: boolean;
 	/** Shortcut glyphs as macOS menus show them */
 	shortcut?: string;
 	/** Extra words the palette matches, such as Blender's names for an action */
@@ -598,6 +600,7 @@ export const commands: readonly TCommand[] = [
 		id: 'marble.add',
 		title: 'Add Marble',
 		section: 'Marble',
+		workspace: 'compose',
 		shortcut: toolKeys.find((item) => item.tool === 'marble')?.key,
 		keywords: 'track new ball release tool',
 		isEnabled: hasProject,
@@ -673,8 +676,10 @@ export const commands: readonly TCommand[] = [
 	},
 	{ id: 'help.copyMcpCommand', title: 'Copy Command for Other Apps', section: 'Help', keywords: 'ai agent connect mcp stdio server clipboard', run: (cx) => void cx.mcp.copyServerCommand() },
 	{ id: 'agent.showFolder', title: 'Show Agent Folder', section: 'File', keywords: 'ai references notes runs scratch finder', isEnabled: hasProject, run: (cx) => void cx.showAgentFolder() },
-	{ id: 'design.addPack', title: 'Add Pack…', section: 'File', keywords: 'themes skins decor library browse import starter community', run: (cx) => cx.library.$isAddPackOpen.set(true) },
-	{ id: 'design.exportPack', title: 'Export Pack…', section: 'File', keywords: 'themes skins decor share file', isEnabled: hasProject, run: (cx) => cx.library.openExportPack() }
+	{ id: 'design.packs', title: 'Packs…', section: 'File', keywords: 'themes skins decor library browse import export add remove starter community share file look', run: (cx) => cx.library.$isPacksOpen.set(true) },
+	// An agent's ways to the same, with their arguments; a person has Packs…
+	{ id: 'design.addPack', title: 'Add Pack', section: 'File', isForAgents: true, run: (cx) => cx.library.$isPacksOpen.set(true) },
+	{ id: 'design.exportPack', title: 'Export Pack', section: 'File', isForAgents: true, isEnabled: hasProject, run: (cx) => cx.library.openExportPack() }
 ];
 
 export type TCommandId =
@@ -770,6 +775,7 @@ export type TCommandId =
 	| 'help.connectCodex'
 	| 'help.copyMcpCommand'
 	| 'agent.showFolder'
+	| 'design.packs'
 	| 'design.addPack'
 	| 'design.exportPack';
 

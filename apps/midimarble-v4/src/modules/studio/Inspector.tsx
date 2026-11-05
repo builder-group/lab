@@ -15,7 +15,7 @@ import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspect
 import { MarbleSkin } from '@/modules/design/SkinProperties';
 import { THEME_HELP } from '@/modules/design/concept-words';
 import { ThemeRow } from '@/modules/design/ThemePanel';
-import { DecorInspector, MadeInBlenderInspector } from '@/modules/design/DecorInspector';
+import { DecorInspector, MadeInBlenderInspector, ScatterPanel } from '@/modules/design/DecorInspector';
 import { KeyLightInspector, LightInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
 import { addedLights } from '@/modules/design/scene-layers';
 import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts } from '@/modules/music';
@@ -98,9 +98,9 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return <SongInspector cx={cx} project={project} />;
 		case 'camera':
 			return <CameraInspector cx={cx} project={project} />;
-		// Wall, lights and Decor belong to Film; inspectorTarget shows the Scene for them in Compose
+		// Lights and Decor belong to Film; inspectorTarget shows the Scene for them in Compose
 		case 'wall':
-			return <WallInspector cx={cx} project={project} />;
+			return <WallInspector cx={cx} project={project} isFilm={isFilm} />;
 		case 'light': {
 			if (target.id === KEY_LIGHT_ID) return <KeyLightInspector cx={cx} project={project} />;
 			const light = addedLights(project.design).find((item) => item.id === target.id);
@@ -111,7 +111,12 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return decor == null ? null : <DecorInspector key={decor.id} cx={cx} project={project} decor={decor} />;
 		}
 		case 'decorItems':
-			return <InspectorHeader icon={<Sparkles size={16} strokeWidth={1.7} />} title={`${target.ids.length} Decor Items`} subtitle="Multiple selection" />;
+			return (
+				<>
+					<InspectorHeader icon={<Sparkles size={16} strokeWidth={1.7} />} title={`${target.ids.length} Decor Items`} subtitle="Multiple selection" />
+					<ScatterPanel cx={cx} />
+				</>
+			);
 		case 'madeInBlender':
 			return <MadeInBlenderInspector key={target.name} cx={cx} project={project} name={target.name} />;
 		case 'scene':
@@ -204,9 +209,9 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 				}
 			/>
 			{release != null && !isFilm ? (
-				<Panel id="marble.release" title="Release">
-					<ScrubField id="release-x" label="X" name="Release X" value={round1(release.position.x * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ x: value / 100 })} onCommit={(value) => commitRelease({ x: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
-					<ScrubField id="release-y" label="Y" name="Release Y" value={round1(release.position.y * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ y: value / 100 })} onCommit={(value) => commitRelease({ y: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
+				<Panel id="marble.release" title="Position" accessory={<HelpTip text="Start Position: where the marble is released on the wall." />}>
+					<ScrubField id="release-x" label="Start X" name="Start Position X" value={round1(release.position.x * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ x: value / 100 })} onCommit={(value) => commitRelease({ x: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
+					<ScrubField id="release-y" label="Start Y" name="Start Position Y" value={round1(release.position.y * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ y: value / 100 })} onCommit={(value) => commitRelease({ y: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
 				</Panel>
 			) : null}
 		</>
@@ -499,7 +504,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 		<>
 			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Scene" subtitle={formatTime(project.end)} />
 			{isFilm ? (
-				<Panel id="scene.film" title="Film" accessory={<HelpTip text={`${THEME_HELP} Picking a theme keeps your changes on the layers. Export Pack… keeps a look as a theme. Format is the shape of the film: Portrait suits phones and Shorts; the camera frames the marbles for it.`} />}>
+				<Panel id="scene.film" title="Film" accessory={<HelpTip text={`${THEME_HELP} Picking a theme keeps your changes on the layers. Packs… exports a look as a Pack. Format is the shape of the film: Portrait suits phones and Shorts; the camera frames the marbles for it.`} />}>
 					<ThemeRow cx={cx} project={project} />
 					<FormatField cx={cx} project={project} />
 				</Panel>

@@ -59,12 +59,10 @@ export const TilePicker: React.FC<{
 	/** The row's tooltip */
 	title: string;
 	tiles: readonly TPickerTile[];
-	/** At the panel's bottom */
-	footer?: React.ReactNode;
 	/** Beside the row, such as Reset */
 	accessory?: React.ReactNode;
 }> = (props) => {
-	const { id, heading, label, current, title, tiles, footer, accessory } = props;
+	const { id, heading, label, current, title, tiles, accessory } = props;
 	const [isOpen, setIsOpen] = React.useState(false);
 	const rowRef = React.useRef<HTMLButtonElement>(null);
 	const close = React.useCallback(() => setIsOpen(false), []);
@@ -79,13 +77,13 @@ export const TilePicker: React.FC<{
 				<ChevronDown size={12} strokeWidth={2} className="shrink-0 text-[var(--text-tertiary)]" />
 			</button>
 			{accessory}
-			{isOpen ? createPortal(<PickerPanel heading={heading} label={label} anchor={rowRef} tiles={tiles} footer={footer} onClose={close} />, document.body) : null}
+			{isOpen ? createPortal(<PickerPanel heading={heading} label={label} anchor={rowRef} tiles={tiles} onClose={close} />, document.body) : null}
 		</div>
 	);
 };
 
-const PickerPanel: React.FC<{ heading: string; label: string; anchor: React.RefObject<HTMLButtonElement | null>; tiles: readonly TPickerTile[]; footer?: React.ReactNode; onClose: () => void }> = (props) => {
-	const { heading, label, anchor, tiles, footer, onClose } = props;
+const PickerPanel: React.FC<{ heading: string; label: string; anchor: React.RefObject<HTMLButtonElement | null>; tiles: readonly TPickerTile[]; onClose: () => void }> = (props) => {
+	const { heading, label, anchor, tiles, onClose } = props;
 	const [query, setQuery] = React.useState('');
 	const [isDragging, setIsDragging] = React.useState(false);
 	const shown = filterTiles(tiles, query);
@@ -118,7 +116,6 @@ const PickerPanel: React.FC<{ heading: string; label: string; anchor: React.RefO
 					</label>
 				) : null
 			}
-			footer={footer}
 		>
 			<div className="mm-library-grid" role="listbox" aria-label={label}>
 				{shown.map((tile) => (
