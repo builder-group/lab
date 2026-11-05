@@ -7,8 +7,7 @@ import { framingProblemAt, preflightExport } from '@/modules/building';
 import type { TrackCx } from '@/modules/track';
 import { addedPacks, library } from '@/modules/library';
 import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY, toShotKey } from '@/modules/project';
-import { commands as registry, commandWorkspace, isCommandEnabled, type TCommand, type TCommandId } from '@/modules/studio/commands';
-import type { StudioCx, TAgentStepNotice } from '@/modules/studio';
+import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
 import { editPresenceLabel } from './agent-presence';
 import { hitReport, projectState, resolveSelection } from './mcp-state';
 import { builtInSkinIds, expandCommands, type TAgentCommand } from './project-commands';
@@ -93,7 +92,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 	list_commands: async (cx, args) => {
 		const { filter } = z.object({ filter: z.string().optional() }).parse(args);
 		const words = (filter ?? '').toLowerCase().split(/\s+/).filter(Boolean);
-		const listed = registry
+		const listed = cx.commands.all
 			.filter((command) => !PERSON_COMMANDS.has(command.id))
 			.filter((command) => words.every((word) => `${command.id} ${command.title} ${command.keywords ?? ''}`.toLowerCase().includes(word)))
 			.map((command) => ({
@@ -131,7 +130,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 			return text(cx, { selection: cx.$selection.get(), changed: false });
 		}
 		if (id === REMOVE_PACK) return removePack(cx, commandArgs);
-		const command = registry.find((item) => item.id === id);
+		const command = cx.commands.all.find((item) => item.id === id);
 		if (command == null) return fail(cx, `There is no command called ${id}. Use list_commands to find one.`);
 		if (PERSON_COMMANDS.has(command.id)) return fail(cx, `${command.title} is for the person, in the Agent menu.`);
 		const special = ARGUMENT_COMMANDS[command.id];
@@ -540,20 +539,20 @@ function buildRefusal(cx: StudioCx): string {
 
 /** Runs a registered command in its workspace, opening that first as the palette does */
 async function invoke(cx: StudioCx, command: TCommand): Promise<void> {
-	const target = commandWorkspace(command);
+	const target = cx.commands.workspaceOf(command);
 	if (target != null && cx.$workspace.get() !== target && cx.project != null) {
 		cx.$workspace.set(target);
 		await waitFor(() => target === 'film' || cx.$trackCx.get() != null, 1500);
 		await sleep(50);
 	}
-	if (!isCommandEnabled(cx, command)) throw new Error(`${command.title} can't run right now. ${command.whyDisabled ?? 'get_state shows the project and selection it would act on.'}`);
+	if (!cx.commands.isEnabled(command)) throw new Error(`${command.title} can't run right now. ${command.whyDisabled ?? 'get_state shows the project and selection it would act on.'}`);
 	command.run(cx);
 }
 
 function canRun(cx: StudioCx, command: TCommand): boolean {
-	const target = commandWorkspace(command);
+	const target = cx.commands.workspaceOf(command);
 	// A command of the other workspace opens it first; only then can it say whether it applies
-	return target != null && target !== cx.$workspace.get() ? cx.project != null : isCommandEnabled(cx, command);
+	return target != null && target !== cx.$workspace.get() ? cx.project != null : cx.commands.isEnabled(command);
 }
 
 /** `args.select`'s keys the project doesn't know, in words, so a bad key is never a silent success */

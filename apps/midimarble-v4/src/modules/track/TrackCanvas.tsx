@@ -5,8 +5,6 @@ import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
 import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2, formatTime, noteName, parseHitKey, toHitKey } from '@/modules/project';
 import { frameBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
-import { commandItem } from '@/modules/studio/commands';
-import { hitMenu, laneMenu, pieceMenu } from '@/modules/studio/menus';
 import type { StudioCx } from '@/modules/studio';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
 import type { TPose, TSnap } from '@/modules/building';
@@ -112,14 +110,14 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 		case 'nodeIn':
 		case 'nodeOut':
 			if (!cx.$selection.get().includes(target.entityId)) cx.$selection.set([target.entityId]);
-			openContextMenu(event, pieceMenu(cx));
+			openContextMenu(event, cx.menus.piece());
 			return;
 		case 'dot': {
 			const lane = trackCx.project?.music.lanes.find((item) => item.id === target.laneId);
 			const hit = trackCx.result?.hits.find((item) => item.laneId === target.laneId && item.hitId === target.hitId);
 			if (lane != null && hit != null && hit.status !== 'open') {
 				cx.$selection.set([toHitKey(target.laneId, target.hitId)]);
-				openContextMenu(event, hitMenu(cx, lane, target.hitId));
+				openContextMenu(event, cx.menus.hit(lane, target.hitId));
 				return;
 			}
 			openContextMenu(event, dotMenu(trackCx, target.laneId, target.hitId));
@@ -129,7 +127,7 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 			const laneId = trackCx.project?.entities.find((entity) => entity.id === target.entityId)?.components.marble?.laneId;
 			const lane = trackCx.project?.music.lanes.find((item) => item.id === laneId);
 			cx.$selection.set([target.entityId]);
-			if (lane != null) openContextMenu(event, laneMenu(cx, lane));
+			if (lane != null) openContextMenu(event, cx.menus.lane(lane));
 			return;
 		}
 		default:
@@ -1056,12 +1054,12 @@ const ZoomMenu: React.FC<{ trackCx: TrackCx }> = (props) => {
 				</>
 			}
 			items={[
-				commandItem(cx, 'view.zoomIn'),
-				commandItem(cx, 'view.zoomOut'),
-				commandItem(cx, 'view.zoom100'),
+				cx.commands.item('view.zoomIn'),
+				cx.commands.item('view.zoomOut'),
+				cx.commands.item('view.zoom100'),
 				'separator',
-				commandItem(cx, 'view.fitAll'),
-				commandItem(cx, 'view.fitSelection')
+				cx.commands.item('view.fitAll'),
+				cx.commands.item('view.fitSelection')
 			]}
 		/>
 	);

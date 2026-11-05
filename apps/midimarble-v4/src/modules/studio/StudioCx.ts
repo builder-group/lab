@@ -21,6 +21,8 @@ import { withWholePatterns } from '@/modules/track';
 import { earliestHitTime, releaseFollowsFirstHit, preflightExport, problemSummary, type TPreflightTarget } from '@/modules/building';
 import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
+import { commandItem, commands, commandWorkspace, deleteTheme, isCommandEnabled, type TCommand, type TCommandId } from './commands';
+import { filmMenu, filmObjectMenu, hitMenu, laneMenu, pieceMenu } from './menus';
 import { addWallTextCommands, FilmCx, FilmLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, songDisplayName } from '@/modules/scene';
 
@@ -124,6 +126,22 @@ export class StudioCx {
 		film: this.film
 	});
 	readonly mcp = new McpCx(this);
+	/** The command registry, for the features and MCP, which don't import the shell */
+	readonly commands = {
+		all: commands,
+		item: (id: TCommandId) => commandItem(this, id),
+		workspaceOf: (command: TCommand) => commandWorkspace(command),
+		isEnabled: (command: TCommand) => isCommandEnabled(this, command),
+		deleteTheme: (themeId: string) => deleteTheme(this, themeId)
+	};
+	/** The context menus the canvases open */
+	readonly menus = {
+		piece: () => pieceMenu(this),
+		hit: (lane: TLane, hitId: string) => hitMenu(this, lane, hitId),
+		lane: (lane: TLane) => laneMenu(this, lane),
+		film: () => filmMenu(this),
+		filmObject: (id: string) => filmObjectMenu(this, id)
+	};
 	/** The project's References: images and words in `agent/references/` */
 	readonly $references = createState<THostReferences>(NO_REFERENCES);
 	private audioEngine: TAudioEngine | null = null;

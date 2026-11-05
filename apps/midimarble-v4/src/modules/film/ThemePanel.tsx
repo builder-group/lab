@@ -6,7 +6,6 @@ import { packOriginOf, draftMarble, draftPieceColors, draftWall, themeCommands, 
 import type { TMenuEntry } from '@/components';
 import type { TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
-import { deleteTheme } from '@/modules/studio/commands';
 import { handChangeCount, resetHandChangesCommands, themePresets } from './film-commands';
 import { TilePicker, type TPickerTile } from './TilePicker';
 
@@ -32,7 +31,7 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 	function menu(item: TResolvedTheme): TMenuEntry[] {
 		return [
 			{ label: 'Rename', onSelect: () => setRenamingId(item.id) },
-			{ label: 'Delete Theme', onSelect: () => deleteTheme(cx, item.id) }
+			{ label: 'Delete Theme', onSelect: () => cx.commands.deleteTheme(item.id) }
 		];
 	}
 

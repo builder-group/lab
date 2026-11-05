@@ -301,7 +301,7 @@ apps/midimarble-v4/
 │       ├── film/           # layer 8: Film workspace: FilmCx, preview, layers, Packs, export sheet
 │       ├── studio/         # layer 9: window: Layers, inspector, timeline, commands, menus, notices
 │       ├── mcp/            # layer 9: tools, project commands, presence
-│       └── start/          # layer 9: start window, examples; the only module the start bundle holds, `StartCx` loads the studio on open
+│       └── start/          # layer 9: start window, examples; the only module the start bundle holds, `StartCx` imports the studio
 ├── src-tauri/src/
 │   ├── app/
 │   ├── environment/

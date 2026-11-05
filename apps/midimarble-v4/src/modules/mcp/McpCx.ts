@@ -1,7 +1,6 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
 import { specta } from '@/environment';
-import { commands as registry } from '@/modules/studio/commands';
 import type { StudioCx } from '@/modules/studio';
 import { COMMAND_COPIED_NOTICE, connectedNotice, disconnectedNotice, SERVER_COMMAND_COPIED_NOTICE, type TAgentTool } from './agent-connect';
 import { presenceLabel, touchedKeys } from './agent-presence';
@@ -188,7 +187,7 @@ export class McpCx {
 		} catch {
 			args = {};
 		}
-		const label = presenceLabel(request.tool, args, (id) => registry.find((command) => command.id === id)?.title ?? null);
+		const label = presenceLabel(request.tool, args, (id) => this.studio.commands.all.find((command) => command.id === id)?.title ?? null);
 		if (label == null) return runTool(this.studio, request.tool, args);
 		const packagePath = this.studio.$path.get();
 		if (arrival.isStopHeld || arrival.epoch !== this.presence.stopEpoch) return { content: [{ type: 'text', text: STOPPED_WORDS }], isError: true, packagePath };

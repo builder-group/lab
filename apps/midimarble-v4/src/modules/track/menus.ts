@@ -1,5 +1,4 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
-import { commandItem } from '@/modules/studio/commands';
 import { formatTime, noteName } from '@/modules/project';
 import type { TrackCx } from './TrackCx';
 
@@ -38,17 +37,17 @@ export function dotMenu(trackCx: TrackCx, laneId: string, hitId: string): TMenuE
 export function canvasMenu(trackCx: TrackCx): TMenuEntry[] {
 	const cx = trackCx.studio;
 	return tidyMenu([
-		commandItem(cx, 'build.next'),
-		commandItem(cx, 'build.track'),
-		commandItem(cx, 'build.repeat'),
-		commandItem(cx, 'build.mirror'),
-		trackCx.assist.hasGhosts ? commandItem(cx, 'build.continue') : null,
+		cx.commands.item('build.next'),
+		cx.commands.item('build.track'),
+		cx.commands.item('build.repeat'),
+		cx.commands.item('build.mirror'),
+		trackCx.assist.hasGhosts ? cx.commands.item('build.continue') : null,
 		'separator',
-		commandItem(cx, 'view.fitAll'),
+		cx.commands.item('view.fitAll'),
 		'separator',
-		cx.$clipboard.get()?.pieces.length ? commandItem(cx, 'edit.paste') : null,
-		commandItem(cx, 'edit.selectAll'),
+		cx.$clipboard.get()?.pieces.length ? cx.commands.item('edit.paste') : null,
+		cx.commands.item('edit.selectAll'),
 		// Releasing a new marble takes a click on the flat wall
-		cx.$trackView.get() === '2d' ? commandItem(cx, 'marble.add') : null
+		cx.$trackView.get() === '2d' ? cx.commands.item('marble.add') : null
 	]);
 }

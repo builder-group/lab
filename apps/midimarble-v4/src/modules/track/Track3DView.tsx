@@ -5,7 +5,6 @@ import { openContextMenu } from '@/components';
 import type { TVec2 } from '@/modules/project';
 import { patternOfPiece } from '@/modules/building';
 import { startCameraOrbit, toPoints } from '@/modules/canvas';
-import { pieceMenu } from '@/modules/studio/menus';
 import { CAMERA_KEY } from '@/modules/project';
 import type { StudioCx, TTrackView } from '@/modules/studio';
 import type { TrackCx } from './TrackCx';
@@ -168,7 +167,7 @@ const Viewport: React.FC<{ trackCx: TrackCx; view: TTrackView; startsIn3d: boole
 					return;
 				}
 				if (!cx.$selection.get().includes(id)) select(id, false);
-				openContextMenu(event, pieceMenu(cx));
+				openContextMenu(event, cx.menus.piece());
 			}}
 		>
 			<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />

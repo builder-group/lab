@@ -3,7 +3,6 @@ import { LoaderCircle, Type } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { isEditingTarget } from '@/lib';
-import { filmMenu, filmObjectMenu } from '@/modules/studio/menus';
 import { CAMERA_KEY } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { startCameraOrbit } from '@/modules/canvas';
@@ -106,7 +105,7 @@ export const FilmView: React.FC<TFilmViewProps> = (props) => {
 				if (canOrbit && event.button === 0 && event.target instanceof Element && event.target.closest('.mm-preview') != null) startCameraOrbit(studio, event);
 			}}
 			onContextMenu={(event) => {
-				if (!event.defaultPrevented) openContextMenu(event, filmMenu(studio));
+				if (!event.defaultPrevented) openContextMenu(event, studio.menus.film());
 			}}
 			onClick={(event) => {
 				// The surroundings of the preview are empty space, like the wall around a piece
@@ -143,7 +142,7 @@ export const FilmView: React.FC<TFilmViewProps> = (props) => {
 						const { u, v } = toImage(event);
 						void cx.pick(u, v).then((id) => {
 							if (id != null && !studio.$selection.get().includes(id)) onPick(id, false);
-							openContextMenu({ clientX, clientY, preventDefault: () => undefined }, (id != null ? filmObjectMenu(studio, id) : null) ?? filmMenu(studio));
+							openContextMenu({ clientX, clientY, preventDefault: () => undefined }, (id != null ? studio.menus.filmObject(id) : null) ?? studio.menus.film());
 						});
 					}}
 					onPointerDown={(event) => {

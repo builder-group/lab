@@ -5,7 +5,6 @@ import { openContextMenu } from '@/components';
 import { BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from '@/modules/canvas';
 import { pieceKind, SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from '@/modules/scene';
 import type { TVec2 } from '@/modules/project';
-import { filmObjectMenu } from '@/modules/studio/menus';
 import type { StudioCx } from '@/modules/studio';
 import { startDecorDrag } from './decor-actions';
 import { DraftDecorShape } from './DraftDecorShape';
@@ -86,7 +85,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 						const id = draft.pick(pointOf(event).point, titleBoxes(draft.titles()));
 						if (id == null) return;
 						if (!studio.$selection.get().includes(id)) onPick(id, false);
-						const menu = filmObjectMenu(studio, id);
+						const menu = studio.menus.filmObject(id);
 						if (menu != null) openContextMenu(event, menu);
 					}}
 					onPointerDown={(event) => {

@@ -4,7 +4,7 @@ import { resolveElementLook, resolveTheme, keyLightLayer, wallLayer } from '@/mo
 import type { TEntity, TProject } from '@/modules/project';
 import { DEFAULT_GRAVITY_SCALE, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
-import { hasSongLayer } from '@/modules/studio/song-layer';
+import { hasSong } from '@/modules/music';
 
 // The compact words `get_state` and every edit's reply give an agent, built from the same problem model as the hit
 // summary in the window.
@@ -66,7 +66,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		playhead: round(view.playhead),
 		isPlaying: view.isPlaying,
 		selection: view.selection,
-		song: hasSongLayer(project) ? { sources: project.music.sources.map((source) => ({ name: source.name, kind: source.kind, offset: source.offset })), backingNotes: project.music.backing.length, tempo: project.music.tempo ?? null } : null,
+		song: hasSong(project) ? { sources: project.music.sources.map((source) => ({ name: source.name, kind: source.kind, offset: source.offset })), backingNotes: project.music.backing.length, tempo: project.music.tempo ?? null } : null,
 		marbles: project.music.lanes.map((lane) => {
 			const marble = project.entities.find((entity) => entity.components.marble?.laneId === lane.id);
 			const own = hits.filter((hit) => hit.laneId === lane.id);

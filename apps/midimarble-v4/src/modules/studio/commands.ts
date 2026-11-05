@@ -1,8 +1,7 @@
 import { problemPieces, lanesWithoutBowl, canMakeBacking } from '@/modules/building';
 import { onNextFrame } from './next-frame';
 import { fitsSong, lastHitTime } from '@/modules/music';
-import { followKey, toolKeys, tunnelPathKey, type TTrackTool } from '@/modules/track/keys';
-import { removeSelectedHits, canGroup, canUngroup, groupSelected, selectedPattern, ungroupSelected, selectedPieceIds, armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu, handNotes } from '@/modules/track';
+import { followKey, toolKeys, tunnelPathKey, type TTrackTool, removeSelectedHits, canGroup, canUngroup, groupSelected, selectedPattern, ungroupSelected, selectedPieceIds, armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu, handNotes } from '@/modules/track';
 import { $rollHasFocus } from './timeline/timeline-state';
 import type { TMenuItem } from '@/components';
 import { newProjectTitle } from '@/environment';
