@@ -16,7 +16,9 @@
 	--content: #ffffff;
 	--content-raised: #ffffff;
 	--canvas: #f2f1ee;
-	--canvas-dot: rgb(0 0 0 / 0.13);
+	/* Track's wall, one surface in 2D, 3D and Camera */
+	--track-wall: #efeae1;
+	--track-wall-hole: rgb(72 56 40 / 0.38);
 	--separator: rgb(0 0 0 / 0.1);
 	--hover: rgb(0 0 0 / 0.05);
 	--pressed: rgb(0 0 0 / 0.09);
@@ -65,7 +67,8 @@
 		--content: #1e1e1f;
 		--content-raised: #2a2a2c;
 		--canvas: #19191a;
-		--canvas-dot: rgb(255 255 255 / 0.12);
+		--track-wall: #19191a;
+		--track-wall-hole: rgb(255 255 255 / 0.14);
 		--separator: rgb(255 255 255 / 0.1);
 		--hover: rgb(255 255 255 / 0.06);
 		--pressed: rgb(255 255 255 / 0.11);
@@ -1043,30 +1046,13 @@ button.mm-hit-summary:hover {
 	color: var(--text-secondary);
 }
 
-/* Pegboard dot grid. Holes read as pegs while staying a quiet FigJam-style canvas. The canvas drives
-   spacing and offset from its camera; the fine layer fades in between densities while zooming. */
+/* Track's wall shows through WebGL; this is the same color until the first frame and for what sits on the wall */
 .mm-pegboard {
+	--canvas: var(--track-wall);
 	background-color: var(--canvas);
-	background-image:
-		radial-gradient(circle at center, var(--canvas-dot) 1.3px, transparent 1.8px),
-		radial-gradient(
-			circle at center,
-			color-mix(in srgb, var(--canvas-dot) calc(var(--grid-fine-alpha, 0) * 100%), transparent) 1.3px,
-			transparent 1.8px
-		);
-	background-size:
-		var(--grid, 24px) var(--grid, 24px),
-		var(--grid-fine, 12px) var(--grid-fine, 12px);
-	background-position:
-		var(--grid-x, 0) var(--grid-y, 0),
-		var(--grid-fine-x, 0) var(--grid-fine-y, 0);
 }
 
 /* A newly opened project shows its wall once the first run has framed it, so the zoom never jumps */
-.mm-pegboard[data-opening='true'] {
-	background-image: none;
-}
-
 .mm-pegboard[data-opening='true'] > * {
 	visibility: hidden;
 }

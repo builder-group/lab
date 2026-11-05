@@ -6,7 +6,7 @@ import { getPieceDefinition, layoutOf, rotorLocalShapes, shownDepth, type TResol
 import { pathMeshes } from './path-meshes';
 import { worldToScreen, type TView, type TViewport } from './view';
 
-// Draws the wall content with WebGL over the CSS dot grid. Objects are kept between updates and only
+// Draws the wall and what is on it with WebGL. Objects are kept between updates and only
 // their buffers and transforms change. Frames render on demand through `invalidate`.
 
 export interface TComposeCamera {
@@ -89,7 +89,7 @@ export class ComposeRenderer {
 	private readonly film = new THREE.PerspectiveCamera(30, 1, CAMERA_CLIP_START, CAMERA_CLIP_END);
 	private filmView: TFilmView | null = null;
 	private orbit: TOrbitView = { yaw: 0, pitch: 0, fov: 30, z: 0 };
-	private readonly wall: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>;
+	private readonly wall: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
 	private readonly pieces = new Map<string, TPieceObject>();
 	private readonly marbles = new Map<string, { mesh: THREE.Mesh; radius: number }>();
 	private readonly tracks = new Map<string, TrackLine>();
@@ -120,13 +120,12 @@ export class ComposeRenderer {
 		this.orthographic.position.set(0, 0, 10);
 		this.orthographic.lookAt(0, 0, 0);
 
-		// The wall only shows in the Camera view, where the CSS grid cannot follow the perspective
+		// The same wall in every view, so 3D is the flat view tilted, unlit so its color is the one chosen
 		this.wall = new THREE.Mesh(
 			new THREE.PlaneGeometry(1, 1),
-			new THREE.MeshLambertMaterial({ map: createPegTexture(), transparent: true })
+			new THREE.MeshBasicMaterial({ map: createPegTexture(), transparent: true })
 		);
 		this.wall.renderOrder = -1;
-		this.wall.visible = false;
 		this.scene.add(this.wall);
 
 		this.guides = new TrackLine(1);
@@ -179,11 +178,11 @@ export class ComposeRenderer {
 		this.invalidate();
 	}
 
-	/** Repaints the wall texture, such as a theme's wall in the Film Draft Preview; null restores the pegboard */
-	setWallLook(look: TWallLook | null): void {
+	/** Repaints the wall texture: Track's wall, or a theme's in the Film Draft Preview */
+	setWallLook(look: TWallLook): void {
 		const material = this.wall.material;
 		const previous = material.map;
-		material.map = createPegTexture(look ?? undefined);
+		material.map = createPegTexture(look);
 		if (previous != null) {
 			material.map.repeat.copy(previous.repeat);
 			material.map.offset.copy(previous.offset);
@@ -411,7 +410,7 @@ export class ComposeRenderer {
 		this.orthographic.updateProjectionMatrix();
 
 		const isFlat = mode === '2d';
-		this.wall.visible = !isFlat;
+		if (isFlat) this.placeWall(view.center, Math.max(width, height) / view.scale + 0.1);
 		// Only the flat view shows trajectories and frame guides
 		for (const track of this.tracks.values()) track.mesh.visible = isFlat;
 		this.guides.mesh.visible = isFlat;
@@ -608,11 +607,11 @@ function disposeOwned(object: TPieceObject): void {
 }
 
 /** How strong the holes stay in each smaller mip level: they fade out with distance and at grazing angles instead of shimmering */
-const PEG_MIP_FADES = [1, 1, 0.7, 0.35, 0.1, 0, 0];
+const PEG_MIP_FADES = [1, 1, 1, 1, 0.7, 0.35, 0.1, 0, 0];
 
-/** Pegboard holes for the Camera view's wall, one hole per texture repeat, fading with distance through its mip levels */
-function createPegTexture(look: TWallLook = { color: '#f2f1ee', holes: 'rgba(0, 0, 0, 0.16)' }): THREE.Texture {
-	const size = 64;
+/** Pegboard holes for the wall, one hole per texture repeat, sharp up close and fading with distance through its mip levels */
+function createPegTexture(look: TWallLook = { color: '#efeae1', holes: null }): THREE.Texture {
+	const size = 256;
 	const levels = PEG_MIP_FADES.map((fade, level) => {
 		const side = size >> level;
 		const canvas = document.createElement('canvas');

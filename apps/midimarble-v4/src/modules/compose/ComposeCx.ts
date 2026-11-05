@@ -3,6 +3,7 @@ import type React from 'react';
 import * as THREE from 'three';
 import { isEditingTarget } from '@/lib';
 import { isPatternGroup, type TEntity, type TPatternGroup, type TPathNode, type TProject, type TVec2 } from '@/modules/project';
+import { trackWall } from '@/modules/design/draft-look';
 import {
 	anchorHit,
 	findLongGaps,
@@ -77,7 +78,6 @@ import { asLaneBowl, commitAtHit, findStepTarget, followerAt, linkedPieces, piec
 import {
 	boundsOf,
 	fitBounds,
-	gridLayers,
 	isBoundsVisible,
 	panBy,
 	screenToWorld,
@@ -184,15 +184,26 @@ export class ComposeCx {
 
 		const scheme = window.matchMedia('(prefers-color-scheme: dark)');
 		const applyTheme = (): void => {
-			renderer.setWallHidden(this.studio.$hidden.get().includes(WALL_KEY));
 			const style = getComputedStyle(container);
-			const canvasColor = style.getPropertyValue('--canvas').trim() || '#f2f1ee';
+			const wallColor = this.studio.project?.design.wall.labelColor;
+			const canvasColor = wallColor ?? style.getPropertyValue('--track-wall').trim();
+			renderer.setWallLook(trackWall(container, wallColor));
+			renderer.setWallHidden(this.studio.$hidden.get().includes(WALL_KEY));
 			const guide = new THREE.Color(canvasColor).lerp(new THREE.Color(scheme.matches ? '#ffffff' : '#000000'), 0.13);
 			renderer.setTheme({ canvas: canvasColor, guide: `#${guide.getHexString()}` });
 		};
 		applyTheme();
 		scheme.addEventListener('change', applyTheme);
 		cleanups.push(() => scheme.removeEventListener('change', applyTheme));
+		let paintedWall = this.studio.project?.design.wall.labelColor;
+		cleanups.push(
+			this.studio.$history.listen(({ value }) => {
+				const wallColor = value?.present.design.wall.labelColor;
+				if (wallColor === paintedWall) return;
+				paintedWall = wallColor;
+				applyTheme();
+			})
+		);
 
 		cleanups.push(this.assist.mount());
 		cleanups.push(this.patterns.mount());
@@ -207,27 +218,14 @@ export class ComposeCx {
 		observer.observe(container);
 		cleanups.push(() => observer.disconnect());
 
-		const updateGrid = (): void => {
-			const camera = this.$camera.get();
-			const grid = gridLayers(camera.view, this.$viewport.get());
-			container.style.setProperty('--grid', `${grid.size}px`);
-			container.style.setProperty('--grid-x', `${grid.offset.x}px`);
-			container.style.setProperty('--grid-y', `${grid.offset.y}px`);
-			container.style.setProperty('--grid-fine', `${grid.fineSize}px`);
-			container.style.setProperty('--grid-fine-x', `${grid.fineOffset.x}px`);
-			container.style.setProperty('--grid-fine-y', `${grid.fineOffset.y}px`);
-			container.style.setProperty('--grid-fine-alpha', `${grid.fineAlpha}`);
-		};
 		cleanups.push(
 			this.$camera.subscribe(({ value }) => {
 				renderer.setCamera(value);
-				updateGrid();
 				this.screenTracks = null;
 			}),
 			this.$viewport.listen(() => {
 				this.screenTracks = null;
 			}),
-			this.$viewport.listen(updateGrid),
 			this.studio.simulation.$result.subscribe(({ value }) => {
 				this.screenTracks = null;
 				if (this.tilted != null && value != null && value.revision >= this.tilted.revision) this.tilted = null;
@@ -646,9 +644,9 @@ export class ComposeCx {
 	}
 
 	/** The user moves the view by hand: Follow turns off and a glide in progress stops where it is */
-	/** Follow works in 2D; the 3D and Camera views keep it for coming back */
+	/** Follow works in 2D and 3D, which share the view; Camera keeps it for coming back */
 	private isFollowing(): boolean {
-		return this.$follow.get() && this.studio.$trackView.get() === '2d';
+		return this.$follow.get() && this.studio.$trackView.get() !== 'camera';
 	}
 
 	/** Pans from Track's 3D view, which has no flat drag of its own */
@@ -2188,7 +2186,7 @@ export class ComposeCx {
 	runKeyAction(action: TComposeKeyAction): boolean {
 		switch (action.type) {
 			case 'follow':
-				if (this.studio.$trackView.get() === '2d') this.toggleFollow();
+				if (this.studio.$trackView.get() !== 'camera') this.toggleFollow();
 				return true;
 			case 'view3d':
 				this.studio.$trackView.set(this.studio.$trackView.get() === '2d' ? '3d' : '2d');

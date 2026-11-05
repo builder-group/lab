@@ -20,7 +20,7 @@ const views: { id: TTrackView; label: string; Icon: LucideIcon; tooltip: string;
 	{ id: 'camera', label: 'Camera', Icon: Video, tooltip: "Camera: through the film's camera" }
 ];
 
-/** Track's 2D, 3D or Camera view, as icons at the canvas's top right beside Snap and Follow */
+/** Track's 2D, 3D or Camera view, as icons at the canvas's top right beside the pills that change with the view */
 export const TrackViewSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const view = useFeatureState(cx.$trackView);

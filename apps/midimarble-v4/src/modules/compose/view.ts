@@ -110,52 +110,6 @@ export function isBoundsVisible(view: TView, viewport: TViewport, bounds: TBound
 	);
 }
 
-// MARK: - Dot grid
-
-/** Hole spacing of the pegboard at real scale, 2.5 cm */
-export const PEG_PITCH = 0.025;
-// The coarse layer stays between these spacings; the fine layer at half the spacing fades in as it grows
-const MIN_SPACING = 18;
-
-export interface TGridLayers {
-	/** Spacing of the always visible layer in CSS pixels */
-	size: number;
-	/** Background position of a tile whose dot sits at its center */
-	offset: TVec2;
-	/** Spacing of the fading layer, half of `size` */
-	fineSize: number;
-	fineOffset: TVec2;
-	/** Opacity of the fine layer from 0 to 1 */
-	fineAlpha: number;
-	/** World spacing of the coarse layer in meters */
-	pitch: number;
-}
-
-/**
- * Dot grid layers for the CSS pegboard. Spacing doubles in powers of two of the peg pitch, so dots
- * keep their world positions while zooming and the fine layer fades in or out between densities.
- */
-export function gridLayers(view: TView, viewport: TViewport): TGridLayers {
-	const level = Math.ceil(Math.log2(MIN_SPACING / (PEG_PITCH * view.scale)) - 1e-9);
-	const pitch = PEG_PITCH * 2 ** level;
-	const size = pitch * view.scale;
-	const fineSize = size / 2;
-	const fineAlpha = Math.min(1, Math.max(0, (fineSize - MIN_SPACING / 2) / (MIN_SPACING / 2)));
-	const origin = worldToScreen(view, viewport, { x: 0, y: 0 });
-	return {
-		size,
-		offset: { x: mod(origin.x - size / 2, size), y: mod(origin.y - size / 2, size) },
-		fineSize,
-		fineOffset: { x: mod(origin.x - fineSize / 2, fineSize), y: mod(origin.y - fineSize / 2, fineSize) },
-		fineAlpha,
-		pitch
-	};
-}
-
-function mod(value: number, size: number): number {
-	return ((value % size) + size) % size;
-}
-
 // MARK: - Floating bars
 
 /** A screen rectangle in CSS pixels */

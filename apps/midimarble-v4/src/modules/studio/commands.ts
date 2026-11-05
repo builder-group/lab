@@ -453,7 +453,7 @@ export const commands: readonly TCommand[] = [
 		section: 'View',
 		shortcut: followKey.key,
 		keywords: 'catch playhead autoscroll track scroll keep in view playback',
-		isEnabled: (cx) => compose(cx) != null && cx.$trackView.get() === '2d',
+		isEnabled: (cx) => compose(cx) != null && cx.$trackView.get() !== 'camera',
 		isChecked: (cx) => compose(cx)?.$follow.get() === true,
 		run: (cx) => compose(cx)?.toggleFollow()
 	},

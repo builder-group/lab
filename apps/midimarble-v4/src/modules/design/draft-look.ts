@@ -38,6 +38,17 @@ export function noteColor(pitch: number): string {
 	return NOTE_COLORS[index] ?? '#888888';
 }
 
+/** The peg holes on a wall the Wall layer colors */
+const LABELED_WALL_HOLES = 'rgb(72 56 40 / 0.55)';
+
+/** Track's wall in 2D, 3D and Camera, whatever the theme: calm birch from the app's tokens, or the Wall layer's Label Color */
+export function trackWall(element: Element, labelColor: string | undefined): TWallLook {
+	const style = getComputedStyle(element);
+	return labelColor != null
+		? { color: labelColor, holes: LABELED_WALL_HOLES }
+		: { color: style.getPropertyValue('--track-wall').trim(), holes: style.getPropertyValue('--track-wall-hole').trim() };
+}
+
 const DRAFT_WALL_COLORS: Record<string, string> = { brass: '#a098ac', neon: '#141a2a' };
 
 /**

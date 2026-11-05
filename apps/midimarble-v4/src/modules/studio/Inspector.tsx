@@ -1,8 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus, Sparkles, Type } from 'lucide-react';
 import React from 'react';
-import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
-import type { ComposeCx } from '@/modules/compose/ComposeCx';
+import { HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { unreachableActions } from '@/modules/compose/unreachable-fixes';
 import { GroupInspector, PatternRangeInspector, PatternTiles } from '@/modules/compose/PatternInspector';
@@ -10,7 +9,6 @@ import { FixButton, PieceInspector } from '@/modules/compose/PieceInspector';
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/compose/reachability';
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
-import { ZOOM_100_SCALE } from '@/modules/compose/view';
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector } from '@/modules/design/DesignInspector';
 import { MarbleSkin } from '@/modules/design/SkinProperties';
 import { THEME_HELP } from '@/modules/design/concept-words';
@@ -21,7 +19,6 @@ import { addedLights } from '@/modules/design/scene-layers';
 import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts } from '@/modules/music';
 import { BACKING_ID, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
-import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
 import { KEY_LIGHT_ID, parseHitKey } from './selection';
@@ -34,8 +31,7 @@ import { setPartSound } from './timeline/PartRows';
 import { PartToggles } from './timeline/PartToggles';
 
 /**
- * Properties of the selection, like Figma UI3's properties panel: the zoom at the top in Compose, then a
- * header row and sections for the selected layer, or the Scene without one. Each layer owns its settings: the
+ * Properties of the selection, like Figma UI3's properties panel: a header row and sections for the selected layer, or the Scene without one. Each layer owns its settings: the
  * Song its file and Backing, the Camera its frame and rig, a marble, a piece, a hit, a shot or a title their own.
  */
 export const Inspector: React.FC<TInspectorProps> = (props) => {
@@ -49,7 +45,6 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 
 	return (
 		<aside className="mm-inspector" aria-label="Inspector" data-quick-help="inspector">
-			<InspectorTopBar cx={cx} />
 			<div className="mm-insp-scroll">
 				<TargetInspector cx={cx} project={project} target={target} workspace={workspace} />
 			</div>
@@ -127,47 +122,6 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 interface TInspectorProps {
 	cx: StudioCx;
 }
-
-/**
- * The wall's zoom with its menu, like the top of Figma's right panel. Blender and Export live in the title
- * bar, so Film, which has no zoom, has no top bar
- */
-const InspectorTopBar: React.FC<{ cx: StudioCx }> = (props) => {
-	const { cx } = props;
-	const compose = useFeatureState(cx.$compose);
-	const workspace = useFeatureState(cx.$workspace);
-	if (workspace !== 'compose' || compose == null) return null;
-	return (
-		<div className="mm-insp-top">
-			<ZoomMenu cx={cx} compose={compose} />
-		</div>
-	);
-};
-
-const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
-	const { cx, compose } = props;
-	const camera = useFeatureState(compose.$camera);
-	const zoom = Math.round((camera.view.scale / ZOOM_100_SCALE) * 100);
-	return (
-		<MenuButton
-			className="mm-zoom-button mm-tabular"
-			title="Zoom"
-			label={
-				<>
-					{zoom}%<ChevronDown size={11} strokeWidth={2} />
-				</>
-			}
-			items={[
-				commandItem(cx, 'view.zoomIn'),
-				commandItem(cx, 'view.zoomOut'),
-				commandItem(cx, 'view.zoom100'),
-				'separator',
-				commandItem(cx, 'view.fitAll'),
-				commandItem(cx, 'view.fitSelection')
-			]}
-		/>
-	);
-};
 
 // MARK: - Marble
 

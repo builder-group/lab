@@ -1,10 +1,11 @@
 import { useFeatureState } from 'feature-react/state';
 import { createState } from 'feature-state';
-import { Anchor, ChevronsRight, Link2, LocateFixed, Magnet, Unlink2 } from 'lucide-react';
+import { Anchor, ChevronDown, ChevronsRight, Link2, LocateFixed, Magnet, Unlink2 } from 'lucide-react';
 import React from 'react';
-import { openContextMenu } from '@/components';
+import { MenuButton, openContextMenu } from '@/components';
 import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2 } from '@/modules/project';
 import { frameBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { commandItem } from '@/modules/studio/commands';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { hitMenu, laneMenu, pieceMenu } from '@/modules/studio/menus';
 import { parseHitKey, toHitKey } from '@/modules/studio/selection';
@@ -23,15 +24,12 @@ import { PatternGhost } from './PatternInspector';
 import { HitFlashLayer } from './HitFlashLayer';
 import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, projectedOutline, toPoints, usePannedProjection, type TScreenProjection } from './PieceLayer';
-import { placeBar, type TScreenRect } from './view';
+import { placeBar, type TScreenRect, ZOOM_100_SCALE } from './view';
 import { hiddenMarbleLanes, pathRun, pathToWorld, pieceKind } from './scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
 import { findStepTarget, linkedPieces, nextOpenHitPerLane, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
-/** The peg holes on a wall the Wall layer colors, as the Draft draws them */
-const WALL_COLOR_DOT = 'rgb(72 56 40 / 0.55)';
-
-/** The Compose wall: WebGL content over the CSS dot grid, with screen-space handles on top */
+/** The Compose wall: the wall and its content in WebGL, with screen-space handles on top */
 export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 	const { cx } = props;
 	const [compose] = React.useState(() => new ComposeCx(cx));
@@ -66,7 +64,7 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 		: 'default';
 
 	return (
-		<div ref={containerRef} className="mm-pegboard relative h-full w-full overflow-hidden" style={wallColor != null ? ({ '--canvas': wallColor, '--canvas-dot': WALL_COLOR_DOT } as React.CSSProperties) : undefined}>
+		<div ref={containerRef} className="mm-pegboard relative h-full w-full overflow-hidden" style={wallColor != null ? ({ '--canvas': wallColor } as React.CSSProperties) : undefined}>
 			<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
 				<PieceLayer compose={compose} />
@@ -1004,41 +1002,73 @@ const AssistButton: React.FC<{ label: string; detail: string; shortcut: string; 
 
 // MARK: - Canvas chrome
 
-/** Snap and Follow */
+/** The pills beside the view icons change with the view: Snap and Follow in 2D, Follow in 3D, each with the zoom; nothing in Camera */
 const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 	const { compose } = props;
 	const follow = useFeatureState(compose.$follow);
 	const snapping = useFeatureState(compose.studio.$snapping);
 	const trackView = useFeatureState(compose.studio.$trackView);
-	// Only the flat view snaps and follows
-	if (trackView !== '2d') return null;
+	if (trackView === 'camera') return null;
 	return (
-		<div className="mm-floating mm-tooltip-below flex items-center gap-0.5 p-[3px]">
-			<button
-				className="mm-tool-button !h-7 !w-7"
-				data-active={snapping}
-				aria-label="Snap"
-				aria-pressed={snapping}
-				onClick={() => compose.studio.$snapping.set(!snapping)}
-				type="button"
-			>
-				<Magnet size={14} strokeWidth={1.7} />
-				<span className="mm-tooltip">Snap pieces to notes and marbles · hold ⌥ to skip</span>
-			</button>
-			<button
-				className="mm-tool-button !h-7 !w-7"
-				data-active={follow}
-				aria-label="Follow"
-				aria-pressed={follow}
-				onClick={() => compose.toggleFollow()}
-				type="button"
-			>
-				<LocateFixed size={14} strokeWidth={1.7} />
-				<span className="mm-tooltip">
-					Follow the marble at the playhead · panning turns it off <kbd>{followKey.key}</kbd>
-				</span>
-			</button>
-		</div>
+		<>
+			<div className="mm-floating mm-tooltip-below flex items-center gap-0.5 p-[3px]">
+				{trackView === '2d' ? (
+					<button
+						className="mm-tool-button !h-7 !w-7"
+						data-active={snapping}
+						aria-label="Snap"
+						aria-pressed={snapping}
+						onClick={() => compose.studio.$snapping.set(!snapping)}
+						type="button"
+					>
+						<Magnet size={14} strokeWidth={1.7} />
+						<span className="mm-tooltip">Snap pieces to notes and marbles · hold ⌥ to skip</span>
+					</button>
+				) : null}
+				<button
+					className="mm-tool-button !h-7 !w-7"
+					data-active={follow}
+					aria-label="Follow"
+					aria-pressed={follow}
+					onClick={() => compose.toggleFollow()}
+					type="button"
+				>
+					<LocateFixed size={14} strokeWidth={1.7} />
+					<span className="mm-tooltip">
+						Follow the marble at the playhead · panning turns it off <kbd>{followKey.key}</kbd>
+					</span>
+				</button>
+			</div>
+			<div className="mm-floating flex items-center p-[3px]">
+				<ZoomMenu compose={compose} />
+			</div>
+		</>
+	);
+};
+
+const ZoomMenu: React.FC<{ compose: ComposeCx }> = (props) => {
+	const { compose } = props;
+	const cx = compose.studio;
+	const camera = useFeatureState(compose.$camera);
+	const zoom = Math.round((camera.view.scale / ZOOM_100_SCALE) * 100);
+	return (
+		<MenuButton
+			className="mm-zoom-button mm-tabular !h-7"
+			title="Zoom"
+			label={
+				<>
+					{zoom}%<ChevronDown size={11} strokeWidth={2} />
+				</>
+			}
+			items={[
+				commandItem(cx, 'view.zoomIn'),
+				commandItem(cx, 'view.zoomOut'),
+				commandItem(cx, 'view.zoom100'),
+				'separator',
+				commandItem(cx, 'view.fitAll'),
+				commandItem(cx, 'view.fitSelection')
+			]}
+		/>
 	);
 };
 

@@ -5,7 +5,7 @@ import { dragRotation, formatDegrees, normalizeSurfaceAngle, parseDegrees, snapA
 import { pick, piecesInRect, type TPickScene } from './picking';
 import { marblePositionAt, rotationGrip } from './scene';
 import { findStepTarget, stepAngle } from './step-loop';
-import { fitBounds, gridLayers, PEG_PITCH, popoverFrame, screenToWorld, worldToScreen, zoomAt } from './view';
+import { fitBounds, popoverFrame, screenToWorld, worldToScreen, zoomAt } from './view';
 
 const viewport = { width: 800, height: 600 };
 
@@ -40,27 +40,6 @@ describe('view', () => {
 		const bottom = worldToScreen(view, viewport, { x: 0, y: 0 });
 		expect(top.y).toBeCloseTo(50);
 		expect(bottom.y).toBeCloseTo(550);
-	});
-
-	it('keeps grid dots on fixed world positions and fades the fine layer between densities', () => {
-		const view = { center: { x: 0.013, y: -0.4 }, scale: 1000 };
-		const grid = gridLayers(view, viewport);
-		expect(grid.size).toBeGreaterThanOrEqual(18);
-		expect(grid.size).toBeLessThan(36);
-		// The world origin lands on a dot center: tile offset plus half a tile
-		const origin = worldToScreen(view, viewport, { x: 0, y: 0 });
-		expect((((origin.x - grid.offset.x - grid.size / 2) % grid.size) + grid.size) % grid.size).toBeCloseTo(0, 6);
-		// At exactly the threshold the fine layer is invisible, at double it fully visible
-		expect(gridLayers({ ...view, scale: 18 / PEG_PITCH }, viewport).fineAlpha).toBeCloseTo(0);
-		expect(gridLayers({ ...view, scale: 35.99 / PEG_PITCH }, viewport).fineAlpha).toBeCloseTo(1, 1);
-	});
-
-	it('changes density continuously while zooming', () => {
-		// Just below and above a level change the visible dot spacing barely moves
-		const below = gridLayers({ center: { x: 0, y: 0 }, scale: 35.9 / PEG_PITCH }, viewport);
-		const above = gridLayers({ center: { x: 0, y: 0 }, scale: 36.1 / PEG_PITCH }, viewport);
-		expect(below.fineAlpha).toBeGreaterThan(0.95);
-		expect(Math.abs(below.fineSize - above.size)).toBeLessThan(0.2);
 	});
 });
 

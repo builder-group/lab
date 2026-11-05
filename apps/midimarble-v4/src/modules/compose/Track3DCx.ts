@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { draftWall } from '@/modules/design/draft-look';
+import { trackWall } from '@/modules/design/draft-look';
 import { pickPiece, pieceScreenOutline } from '@/modules/design/draft-outline';
 import { trackPieceColors } from '@/modules/design/label-colors';
 import type { TVec2 } from '@/modules/project';
@@ -40,6 +40,7 @@ export class Track3DCx {
 	private size = { width: 1, height: 1 };
 	private view: 'orbit' | 'camera' = 'orbit';
 	private wallColor: string | undefined;
+	private container: HTMLElement | null = null;
 	private readonly cameras = new FilmCameraCache();
 	private readonly scratchPose = createCameraPose();
 	/** The film frame in the Camera view, in CSS pixels; null in 3D */
@@ -51,6 +52,7 @@ export class Track3DCx {
 		const renderer = new ComposeRenderer(canvas);
 		this.renderer = renderer;
 		renderer.setSolidLight();
+		this.container = container;
 		this.paintWall(renderer);
 		const observer = new ResizeObserver(() => {
 			const rect = container.getBoundingClientRect();
@@ -136,10 +138,11 @@ export class Track3DCx {
 		return pickPiece(this.pieces(), point, (at, z) => this.toScreen(at, z), this.pathZ);
 	}
 
-	/** The plain Pegboard wall in the Wall layer's color */
+	/** The same wall as the flat view */
 	private paintWall(renderer: ComposeRenderer): void {
+		if (this.container == null) return;
 		const wallColor = this.compose.studio.project?.design.wall.labelColor;
-		renderer.setWallLook(draftWall('pegboard', wallColor != null ? { wallColor } : {}));
+		renderer.setWallLook(trackWall(this.container, wallColor));
 		this.wallColor = wallColor;
 	}
 
