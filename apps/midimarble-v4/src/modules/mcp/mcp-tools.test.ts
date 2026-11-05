@@ -425,16 +425,6 @@ describe('MCP tools', () => {
 			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, kind: 'wide', distance: 1.2, length: 2 })]);
 			expect(state.camera.distance).toBeGreaterThan(0);
 		});
-
-		it('should say why Add Wide Shot Here can not run, in the list and the reply', async () => {
-			const { cx } = studio();
-			cx.$workspace.set('design');
-			const reply = await runTool(cx, 'run_command', { id: 'camera.addWideShot', args: { time: 0.5 } });
-			expect(textOf(reply)).toContain('none does here');
-			expect(reply.isError).toBe(true);
-			const listed = JSON.parse(textOf(await runTool(cx, 'list_commands', { filter: 'wide shot' }))) as { commands: { id: string; why?: string }[] };
-			expect(listed.commands.find((item) => item.id === 'camera.addWideShot')?.why).toContain('camera.addShot');
-		});
 	});
 
 	describe('assets and themes', () => {

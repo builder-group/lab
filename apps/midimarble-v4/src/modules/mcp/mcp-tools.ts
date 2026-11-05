@@ -9,7 +9,7 @@ import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { addedPacks, library, STARTER_PACK, STARTER_PACK_ID, toItemId } from '@/modules/library';
 import { createProject, type TProjectTheme } from '@/modules/project';
 import { songDisplayName } from '@/modules/design/titles';
-import { commands as registry, commandWorkspace, getCommand, isCommandEnabled, type TCommand, type TCommandId } from '@/modules/studio/commands';
+import { commands as registry, commandWorkspace, isCommandEnabled, type TCommand, type TCommandId } from '@/modules/studio/commands';
 import type { StudioCx, TAgentStepNotice } from '@/modules/studio/StudioCx';
 import { CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY } from '@/modules/studio/selection';
 import { toShotKey } from '@/modules/studio/selection';
@@ -47,7 +47,6 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'design.exportPack': 'args.path, plus name and either theme or items',
 	'design.addText': 'args.text, and style, at, color, in and out if wanted',
 	'camera.addShot': 'args.time, kind, distance and length if wanted',
-	'camera.addWideShot': 'args.time if wanted',
 	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
 
@@ -293,11 +292,6 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(length != null ? { length } : {}) });
 		cx.$workspace.set('design');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
-	},
-	'camera.addWideShot': async (cx, args) => {
-		const { time } = z.object({ time: z.number().min(0).optional() }).parse(args);
-		if (time != null) cx.seek(time);
-		await invoke(cx, getCommand('camera.addWideShot'));
 	},
 	'file.new': async (cx, args) => {
 		const { title, path } = z.object({ title: z.string().optional(), path: SPath.optional() }).parse(args);

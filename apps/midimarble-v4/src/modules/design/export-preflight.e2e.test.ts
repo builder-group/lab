@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
-import { framingFix, framingProblemAt, preflightExport } from './export-preflight';
+import { framingProblemAt, preflightExport } from './export-preflight';
 
 function withSongFixture(name: string): TProject {
 	const project = loadFixture(name);
@@ -46,7 +46,5 @@ describe('preflightExport function on whole songs', () => {
 		expect(shown?.span?.from).toBeLessThanOrEqual(first.span.from);
 		expect(shown?.span?.to).toBeGreaterThanOrEqual(first.span.from);
 
-		// Add Wide Shot Here is offered only after a what-if keeps the marble in frame; the camera already widens as far as a Wide shot would
-		expect(framing.every((issue) => framingFix(project, result, issue) == null)).toBe(true);
 	}, 20_000);
 });

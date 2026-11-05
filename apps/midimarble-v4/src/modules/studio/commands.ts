@@ -13,7 +13,6 @@ import { armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection,
 import { BACKING_ID, type TLane, type TProject } from '@/modules/project';
 import { isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
 import { deleteThemeCommands, resolveTheme } from '@/modules/design/project-themes';
-import { framingFix, framingProblemAt, preflightExport, type TPreflightFix } from '@/modules/design/export-preflight';
 import { deleteDecorCommands, duplicateDecorCommands, selectedDecorIds } from '@/modules/design/decor';
 import { openScatterPanel } from '@/modules/design/decor-actions';
 import { addLightCommands, deleteLightsCommands } from '@/modules/design/scene-layers';
@@ -195,15 +194,6 @@ function backingKeys(cx: StudioCx): string[] {
 
 function hasHits(cx: StudioCx): boolean {
 	return cx.$selection.get().some((key) => parseHitKey(key) != null);
-}
-
-/** Add Wide Shot Here of the framing problem at the playhead, once the problem model's what-if found it works */
-function wideShotFix(cx: StudioCx): TPreflightFix | null {
-	const project = cx.project;
-	if (project == null) return null;
-	const result = cx.simulation.$result.get();
-	const issue = framingProblemAt(preflightExport(project, result), cx.$playhead.get());
-	return issue != null ? framingFix(project, result, issue) : null;
 }
 
 function selectedShotIds(cx: StudioCx): string[] {
@@ -529,20 +519,6 @@ export const commands: readonly TCommand[] = [
 		}
 	},
 	{
-		// The Fix-it of a framing problem at the playhead, found by a what-if of the camera with the shot
-		id: 'camera.addWideShot',
-		title: 'Add Wide Shot Here',
-		section: 'Film',
-		keywords: 'camera framing frame marble out leaves fix wide shot',
-		isEnabled: (cx) => wideShotFix(cx) != null,
-		whyDisabled: 'It fixes a marble leaving the frame at the playhead, and none does here. Add a wide shot anywhere with camera.addShot and args.kind wide.',
-		run: (cx) => {
-			const fix = wideShotFix(cx);
-			if (fix == null) return;
-			if (cx.execute(fix.commands) && fix.shotId != null) cx.$selection.set([toShotKey(fix.shotId)]);
-		}
-	},
-	{
 		id: 'design.deleteTheme',
 		title: 'Delete Theme',
 		section: 'Film',
@@ -695,7 +671,6 @@ export type TCommandId =
 	| 'camera.addShot'
 	| 'light.add'
 	| 'decor.scatter'
-	| 'camera.addWideShot'
 	| 'design.deleteTheme'
 	| 'design.cancelExport'
 	| 'edit.undo'

@@ -7,7 +7,6 @@ import { PieceIcon } from '@/modules/compose/piece-icons';
 import type { TDesign, TEntity, TProject, TProjectCommand, TShot } from '@/modules/project';
 import { getPieceDefinition, resolvePieceParams } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { getCommand } from '@/modules/studio/commands';
 import { formatTime } from '@/modules/studio/format';
 import { parseTime } from '@/modules/studio/timeline/parse-time';
 import {
@@ -28,7 +27,7 @@ import { themeOriginLabel } from './scene-layers';
 import { skinElement } from './skin-catalog';
 import { SkinPicker } from './SkinPickers';
 import { ResetToTheme, SkinPropertyRows } from './SkinProperties';
-import { framingFix, framingProblemAt, preflightExport } from './export-preflight';
+import { framingProblemAt, preflightExport } from './export-preflight';
 import { shotKindLabel, shotKinds, updateShotCommands, type TShotKind } from './shots';
 import { songDisplayName, titleSpan, withTitleTime } from './titles';
 
@@ -156,8 +155,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 
 /**
  * The framing problem at the playhead, which a jump from the hit summary, the export sheet or the Camera track lands
- * on, with its Fix-it once the problem model's what-if found one: "Bass leaves the frame at 0:12.00 (6 hits)" ·
- * Add Wide Shot Here
+ * on: "Bass leaves the frame at 0:12.00 (6 hits)"
  */
 const FramingProblem: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
@@ -165,19 +163,8 @@ const FramingProblem: React.FC<{ cx: StudioCx; project: TProject }> = (props) =>
 	const playhead = useFeatureState(cx.$playhead);
 	const preflight = React.useMemo(() => preflightExport(project, result), [project, result]);
 	const issue = framingProblemAt(preflight, playhead);
-	// The what-if runs once the problem shows; a fix that would not help is not offered
-	const fix = React.useMemo(() => (issue != null ? framingFix(project, result, issue) : null), [issue, project, result]);
 	if (issue == null) return null;
-	return (
-		<>
-			<StateRow tone="warn" label={issue.title} detail={issue.detail} />
-			{fix != null && (
-				<button className="mm-button" data-span="2" onClick={() => getCommand('camera.addWideShot').run(cx)} title={fix.detail} type="button">
-					{fix.label}
-				</button>
-			)}
-		</>
-	);
+	return <StateRow tone="warn" label={issue.title} detail={issue.detail} />;
 };
 
 // MARK: - Shot
