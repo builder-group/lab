@@ -171,7 +171,7 @@ export class StudioCx {
 		const unmountMcp = this.mcp.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
-		// Tapping along belongs to the playback T started, so stopping playback bowls the tap session
+		// Tapping along belongs to the playback T started, so stopping playback finishes the tap session
 		const stopTapSessionListener = this.$playing.listen(({ value }) => {
 			if (value) return;
 			this.finishTapSession();

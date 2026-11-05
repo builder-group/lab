@@ -27,7 +27,7 @@ export interface TKeyContext {
 	hasNotes?: boolean;
 }
 
-/** Tools of the Compose tool rail, in rail order, then the pieces only the Insert library arms */
+/** Tools of the Compose tool rail, then the pieces the Insert library arms */
 export type TComposeTool = 'select' | 'hand' | 'marble' | 'platform' | 'path' | 'windmill' | 'bowl';
 
 /** Piece the path tool draws; the inspector switches a drawn path between both */
@@ -52,7 +52,7 @@ export type TComposeKeyAction =
 	| { type: 'undoPathPoint' }
 	| { type: 'follow' };
 
-/** Tool rail keys, shared by the rail tooltips and the command palette */
+/** Tool keys, shared by the rail tooltips, the Insert tiles and the command palette */
 export const toolKeys: { tool: TComposeTool; code: string; key: string }[] = [
 	{ tool: 'select', code: 'KeyV', key: 'V' },
 	{ tool: 'hand', code: 'KeyH', key: 'H' },

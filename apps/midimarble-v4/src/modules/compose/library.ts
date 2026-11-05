@@ -1,7 +1,7 @@
 import type { TComposeTool, TPathType } from './keys';
 
 // Items of the Insert library, the tool rail's + popover. A click arms the tool that places the item and a
-// drag drops it on the canvas. Marble, Platform and Rail are the rail's own tools, so they are not listed here.
+// drag drops it on the canvas. Each tile shows the key that arms it without opening the panel.
 
 export type TInsertItem = 'platform' | 'rail' | 'tunnel' | 'windmill' | 'bowl' | 'marble';
 
@@ -22,6 +22,9 @@ export const insertSections: TInsertSection[] = [
 	{
 		title: 'Track',
 		entries: [
+			{ item: 'marble', label: 'Marble', description: 'Click to release a new marble', shortcut: 'O' },
+			{ item: 'platform', label: 'Platform', description: 'Click or drag to place, click a dot to play its note', shortcut: 'P' },
+			{ item: 'rail', label: 'Rail', description: 'Draw a rail: click points, drag for curves', shortcut: 'B' },
 			{ item: 'tunnel', label: 'Tunnel', description: 'The marble drops in and rolls through, hidden', shortcut: 'U' },
 			{ item: 'windmill', label: 'Windmill', description: 'The marble strikes a blade and sets it turning', shortcut: 'W' },
 			{ item: 'bowl', label: 'Bowl', description: 'Collects the marble, so the film can end on the catch' }

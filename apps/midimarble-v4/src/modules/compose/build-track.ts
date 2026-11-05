@@ -44,7 +44,7 @@ import { hitReach } from './reachability';
 // still gets stuck, or whose finished run leaves the pace or the camera's frame, is started again with the releases a
 // few millimetres over, as a person would: what a stuck hit tries costs more than a song's first hits, so a release
 // ends at the first hit nothing solves. That goes on until `SEARCHES_PER_HIT` searches per hit are spent; the attempt that got
-// furthest then bowls past the hits nothing solves and names them, for Fix. The limit counts searches, not seconds,
+// furthest then finishes past the hits nothing solves and names them, for Fix. The limit counts searches, not seconds,
 // so every choice follows from the project and the same project always gets the same track.
 
 const DEGREE = Math.PI / 180;

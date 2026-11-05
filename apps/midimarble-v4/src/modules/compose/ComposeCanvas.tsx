@@ -626,7 +626,7 @@ const PenOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 			</svg>
 			{end != null && first != null ? (
 				<div className="mm-snap-chip" style={{ left: end.point.x + 14, top: end.point.y + 12 }}>
-					{pen.nodes.length < 2 ? <span>Click the next point · drag for a curve</span> : <span>Return to bowl</span>}
+					{pen.nodes.length < 2 ? <span>Click the next point · drag for a curve</span> : <span>Return to finish</span>}
 					<kbd className="opacity-60">esc</kbd>
 				</div>
 			) : null}

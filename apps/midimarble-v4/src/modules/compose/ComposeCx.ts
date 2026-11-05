@@ -262,10 +262,10 @@ export class ComposeCx {
 			}),
 			// After the playhead moved, so the marble is read at its new time
 			this.studio.$playheadReveal.listen(() => this.revealPlayhead()),
-			// Switching tools bowls a rail in progress, like Figma's pen
+			// Switching tools finishes a rail in progress, like Figma's pen
 			this.$tool.listen(({ value }) => {
 				this.clearHoverPreview();
-				if (value !== 'path' && this.$pen.get() != null) this.bowlPen();
+				if (value !== 'path' && this.$pen.get() != null) this.finishPen();
 			})
 		);
 
@@ -931,7 +931,7 @@ export class ComposeCx {
 
 		const target = this.pickAt(point);
 		if (this.$playNoteFor.get() != null) {
-			this.bowlPlayNote(target);
+			this.finishPlayNote(target);
 			return;
 		}
 		switch (target?.kind) {
@@ -1308,6 +1308,8 @@ export class ComposeCx {
 		}
 		const world = this.toWorld(point);
 		drag.at = world;
+		// A marble is no piece: its tile follows the pointer and the drop releases it there
+		if (drag.item === 'marble') return false;
 		const pose = { position: world, angle: 0 };
 		// Rails and tunnels get their default run as an explicit path, so switching the type keeps the shape
 		const path = isPathPieceType(drag.item) ? { points: resolvePiecePath(drag.item, undefined).map((item) => ({ ...item })) } : undefined;
@@ -1334,6 +1336,11 @@ export class ComposeCx {
 		if (drag == null) return;
 		const candidate = drag.candidate;
 		this.studio.simulation.endPreview();
+		if (isDrop && drag.item === 'marble' && drag.at != null) {
+			this.studio.addMarble(drag.at);
+			this.$tool.set('select');
+			return;
+		}
 		if (!isDrop || candidate == null) {
 			this.$override.set(null);
 			return;
@@ -1797,9 +1804,9 @@ export class ComposeCx {
 		const first = pen.nodes[0];
 		const last = pen.nodes[pen.nodes.length - 1];
 		const isNear = (node: TPathNode | undefined): boolean => node != null && Math.hypot(this.toScreen(node.point).x - point.x, this.toScreen(node.point).y - point.y) <= 8;
-		// Clicking the first or the last point bowls the rail
+		// Clicking the first or the last point finishes the rail
 		if (pen.nodes.length >= 2 && (isNear(first) || isNear(last))) {
-			this.bowlPen();
+			this.finishPen();
 			return;
 		}
 		this.$pen.set({ ...pen, nodes: [...pen.nodes, { point: world }], pointer: world, isDragging: true, downAt: point });
@@ -1856,7 +1863,7 @@ export class ComposeCx {
 	}
 
 	/** Return, or a click on the first or last point: adds the rail, anchored when it starts on a trajectory */
-	bowlPen(): void {
+	finishPen(): void {
 		const pen = this.$pen.get();
 		const project = this.project;
 		this.$pen.set(null);
@@ -2055,7 +2062,7 @@ export class ComposeCx {
 				this.placeAgain();
 				return true;
 			case 'finishPath':
-				this.bowlPen();
+				this.finishPen();
 				return true;
 			case 'undoPathPoint':
 				this.undoPenPoint();
@@ -2086,7 +2093,7 @@ export class ComposeCx {
 		this.$playNoteFor.set(entityId);
 	}
 
-	private bowlPlayNote(target: TPick | null): void {
+	private finishPlayNote(target: TPick | null): void {
 		const entityId = this.$playNoteFor.get();
 		this.$playNoteFor.set(null);
 		const project = this.project;

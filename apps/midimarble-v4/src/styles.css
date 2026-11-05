@@ -2206,6 +2206,7 @@ button.mm-layer-disclosure:hover {
 	min-height: 0;
 	margin: 0 -8px;
 	padding: 0 8px;
+	overflow-x: hidden;
 	overflow-y: auto;
 }
 
@@ -2414,10 +2415,17 @@ button.mm-layer-disclosure:hover {
 	font-weight: 500;
 }
 
+/* Beside the panel, level with its tile: positioned against the panel, so the scrolling body can't clip it */
+.mm-library-tile:has(> .mm-tooltip) {
+	position: static;
+}
+
 .mm-library-tile .mm-tooltip {
+	top: auto;
 	bottom: auto;
-	top: calc(100% + 4px);
+	left: calc(100% + 8px);
 	z-index: 2;
+	transform: none;
 }
 
 .mm-library-tile:hover .mm-tooltip {

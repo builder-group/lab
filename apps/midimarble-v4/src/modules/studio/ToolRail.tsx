@@ -1,10 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
-import { Hand, MousePointer2, PenTool, Plus } from 'lucide-react';
+import { Hand, MousePointer2, Plus } from 'lucide-react';
 import React from 'react';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { InsertDragGhost, InsertLibrary } from '@/modules/compose/InsertLibrary';
 import { toolKeys, type TComposeTool } from '@/modules/compose/keys';
-import { PieceIcon } from '@/modules/compose/piece-icons';
 import { FilmInsert } from '@/modules/design/FilmInsert';
 import { isEditingTarget } from '@/lib';
 import { getCommand } from './commands';
@@ -32,31 +31,26 @@ const ComposeTools: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => 
 	const { cx, compose } = props;
 	const history = useFeatureState(cx.$history);
 	const tool = useFeatureState(compose.$tool);
-	const pathType = useFeatureState(compose.$pathType);
 	const isLibraryOpen = useFeatureState(compose.$libraryOpen);
 	const inserting = useFeatureState(compose.$inserting);
 	const insertButtonRef = React.useRef<HTMLButtonElement>(null);
 	const ghost = useInsertDrag(compose);
 	const item = (id: TComposeTool, label: string, detail: string, icon: React.ReactNode): React.ReactNode => (
-		<RailButton key={id} label={label} detail={detail} shortcut={toolKeys.find((key) => key.tool === id)?.key} isActive={tool === id && (id !== 'path' || pathType === 'rail')} onClick={() => compose.armTool(id)}>
+		<RailButton key={id} label={label} detail={detail} shortcut={toolKeys.find((key) => key.tool === id)?.key} isActive={tool === id} onClick={() => compose.armTool(id)}>
 			{icon}
 		</RailButton>
 	);
-	// Pieces only the library arms light up its button, like Figma's shape tools behind one slot
-	const isLibraryTool = tool === 'windmill' || tool === 'bowl' || (tool === 'path' && pathType === 'tunnel');
+	// Pieces the library arms light up its button, like Figma's shape tools behind one slot
+	const isLibraryTool = tool !== 'select' && tool !== 'hand';
 	return (
 		<>
 			{item('select', 'Move', 'Select, drag and turn', <MousePointer2 size={17} strokeWidth={1.6} />)}
 			{item('hand', 'Hand', 'Pan the wall', <Hand size={17} strokeWidth={1.6} />)}
 			<div className="mm-tool-rail-divider" />
-			{item('marble', 'Marble', 'Click to release a new marble', <PieceIcon type="marble" size={18} />)}
-			{item('platform', 'Platform', 'Click or drag to place, click a dot to play its note', <PieceIcon type="platform" size={18} />)}
-			{item('path', 'Rail', 'Draw a rail: click points, drag for curves', <PenTool size={17} strokeWidth={1.6} />)}
-			<div className="mm-tool-rail-divider" />
 			<RailButton
 				ref={insertButtonRef}
 				label="Insert"
-				detail="More of the track, and the song"
+				detail="The track, and the song"
 				shortcut="⇧I"
 				isActive={isLibraryTool}
 				isOpen={isLibraryOpen}
