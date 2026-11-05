@@ -17,7 +17,7 @@ export const DEFAULT_GRAVITY_SCALE = 0.5;
  * they need (`camera.py`, readable distance). Measured in `references.md`, Tuned film view.
  */
 export const DEFAULT_CAMERA_DISTANCE = 1.36;
-export const DEFAULT_CAMERA_PITCH = 1.15;
+export const DEFAULT_CAMERA_PITCH = 1;
 /** Distance between the releases of neighbouring marbles, and between their lanes' bands in the frame */
 export const LANE_SPACING = 0.26;
 

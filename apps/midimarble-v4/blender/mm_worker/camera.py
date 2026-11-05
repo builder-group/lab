@@ -46,7 +46,7 @@ ROLL_LIMIT = math.radians(40)
 ROLL_DRIFT = math.radians(16)
 ROLL_PERIOD = 14.0
 # Where the camera stands around the target on the wall: 0 straight below, positive to the right
-SIDE_ANGLE = math.radians(120)
+SIDE_ANGLE = math.radians(95)
 SIDE_FOLLOW = 0.3
 HEADING_TAU = 1.5
 # The lead may move the target at most this fraction of the camera distance ahead of the marble
@@ -108,7 +108,7 @@ OPENING_MARBLE_SHARE = 0.045
 # The opening's own margin: tighter than GROUP_MARGIN, as its box holds still pieces rather than marbles that swing out
 OPENING_MARGIN = 1.1
 # A view ray that misses the wall, or meets it further than this, counts this many camera heights away when sizing
-# the wall. The steep default pitch (1.15 rad) meets the wall up to about 40 heights away at the far frame corner
+# the wall. A steep pitch (1.15 rad) meets the wall up to about 40 heights away at the far frame corner
 FAR_REACH = 60.0
 CAMERA_PATHS = ('location', 'rotation_euler')
 CAMERA_DATA_PATHS = ('dof.focus_distance',)
