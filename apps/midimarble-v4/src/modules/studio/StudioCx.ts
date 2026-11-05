@@ -21,7 +21,7 @@ import { AssistCx, PatternsCx, withWholePatterns } from '@/modules/track';
 import { earliestHitTime, releaseFollowsFirstHit, problemSummary, type TPreflightTarget } from '@/modules/building';
 import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
-import { commandItem, commands, commandWorkspace, deleteTheme, isCommandEnabled, type TCommand, type TCommandId } from './commands';
+import { commandItem, commands, commandWorkspace, isCommandEnabled, type TCommand, type TCommandId } from './commands';
 import { filmMenu, filmObjectMenu, hitMenu, marbleMenu, pieceMenu } from './menus';
 import { addWallTextCommands, FilmCx, FilmLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, songDisplayName } from '@/modules/scene';
@@ -109,7 +109,13 @@ export class StudioCx {
 		getResult: () => this.simulation.$result.get(),
 		getPackagePath: () => this.$path.get(),
 		getPlayhead: () => this.$playhead.get(),
-		isPlaying: () => this.$playing.get()
+		isPlaying: () => this.$playing.get(),
+		leaveCameraToBlender: () => {
+			const camera = this.project?.film.camera;
+			if (camera == null || !camera.auto) return;
+			this.execute([{ type: 'updateFilm', film: { camera: { ...camera, auto: false } } }]);
+			this.notify('The camera was edited in Blender, so Follow Marbles is off and the edit stays. Turning it on follows the marbles again and discards the edit.');
+		}
 	});
 	readonly library = new FilmLibraryCx({
 		getPackagePath: () => this.$path.get(),
@@ -134,8 +140,7 @@ export class StudioCx {
 		all: commands,
 		item: (id: TCommandId) => commandItem(this, id),
 		workspaceOf: (command: TCommand) => commandWorkspace(command),
-		isEnabled: (command: TCommand) => isCommandEnabled(this, command),
-		deleteTheme: (themeId: string) => deleteTheme(this, themeId)
+		isEnabled: (command: TCommand) => isCommandEnabled(this, command)
 	};
 	/** The context menus the canvases open */
 	readonly menus = {

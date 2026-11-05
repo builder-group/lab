@@ -350,6 +350,10 @@ def set_resolution(scene, frame):
     scene.render.resolution_percentage = 100
 
 
+# On the camera while it is the user's: since Follow Marbles went off, or since an edit that turns it off
+LEFT_TO_USER = 'mm_left_to_user'
+
+
 def camera_owned(camera):
     """True while the camera holds what the app last wrote"""
     if camera.get('mm_written_json') is not None:
@@ -361,8 +365,11 @@ def remember_camera(camera):
     camera['mm_written_json'] = json.dumps(camera_rig.signature(camera))
 
 
-def update_camera(scene, bounds, settings, marbles, motions, fps, regenerate=False):
+def update_camera(scene, bounds, settings, marbles, motions, fps):
     """Bakes the follow rig, or frames the run with a static front camera without rig settings.
+
+    A camera edited while the app was baking it answers `takenOver`, and the app turns Follow Marbles off. From then on
+    the camera is the user's, until a rig comes again: that is Follow Marbles turned back on, which bakes over it.
 
     Returns `framed`, `baked`, `takenOver`, `manual` or `missing`.
     """
@@ -370,8 +377,10 @@ def update_camera(scene, bounds, settings, marbles, motions, fps, regenerate=Fal
     if camera is None or camera.type != 'CAMERA':
         return 'missing'
     if settings is not None and settings['mode'] == 'manual':
+        camera[LEFT_TO_USER] = True
         return 'manual'
-    if not regenerate and not camera_owned(camera):
+    if camera.pop(LEFT_TO_USER, False) is False and not camera_owned(camera):
+        camera[LEFT_TO_USER] = True
         return 'takenOver'
     if settings is None:
         camera_rig.clear(camera)

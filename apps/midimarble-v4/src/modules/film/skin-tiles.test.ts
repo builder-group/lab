@@ -9,7 +9,7 @@ function platform(id: string, assetId?: string): TPiece {
 
 function brassProject(pieces: TPiece[] = []): TProject {
 	const project = createProject({ id: 'p', title: 'T' });
-	project.film.theme = 'brass';
+	project.film.theme = { base: 'brass' };
 	project.track.pieces.push(...pieces);
 	return project;
 }
@@ -65,9 +65,9 @@ describe('hidden skins', () => {
 		expect(skinTiles(brassProject().film, 'platform', [], used).find((tile) => tile.label === 'Knob')?.detail).toBe('Brass Sections');
 	});
 
-	it('should count what a project theme names as used', () => {
+	it('should count what the theme names as used', () => {
 		const project = brassProject();
-		const used = usedSkinIds({ ...project, film: { ...project.film, themes: [{ id: 't', name: 'T', base: 'brass', overrides: {}, parts: { rail: { skin: 'rail:candy' } } }] } });
+		const used = usedSkinIds({ ...project, film: { ...project.film, theme: { base: 'brass', parts: { rail: { skin: 'rail:candy' } } } } });
 		expect(used.has('rail:candy')).toBe(true);
 	});
 

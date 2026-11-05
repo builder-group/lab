@@ -57,7 +57,7 @@ function createTwoMarbleProject(): TProject {
 			],
 			groups: []
 		},
-		film: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], titles: [], quality: 'final', camera: { auto: true, distance: 0.85, tilt: 1, sway: 1, shots: [] } }
+		film: { theme: { base: 'pegboard' }, wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], titles: [], quality: 'final', camera: { auto: true, distance: 0.85, tilt: 1, sway: 1, shots: [] } }
 	};
 }
 

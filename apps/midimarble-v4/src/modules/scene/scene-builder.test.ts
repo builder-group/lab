@@ -294,7 +294,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 
 	it('passes the film camera rig settings', () => {
 		const { project, result } = fixture();
-		project.film.camera.shots.push({ id: 'shot-1', time: 1, kind: 'pushIn', distance: 0.4 });
+		project.film.camera.shots.push({ id: 'shot-1', time: 1, distance: 0.4, hold: 2 });
 		const { description } = buildSceneDescription(project, result, { fps: 60 });
 		expect(description.camera).toEqual({
 			mode: 'rig',
@@ -303,8 +303,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			lead: 0.15,
 			sway: 1,
 			smoothing: 0.6,
-			// A Push In without a length of its own holds 2 s before the camera eases back
-			shots: [{ time: 1, kind: 'pushIn', distance: 0.4, length: 2 }],
+			shots: [{ time: 1, distance: 0.4, length: 2 }],
 			focusMarbleId: null,
 			descent: null,
 			holdAfter: lastStruckTime(result),

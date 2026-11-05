@@ -153,7 +153,7 @@ describe('follow camera on whole songs', () => {
 						camera: {
 							...jingle.film.camera,
 							shots: [
-								{ id: 'shot', time: 10, kind: 'pushIn', distance: rig * 0.7, hold: 2 }
+								{ id: 'shot', time: 10, distance: rig * 0.7, hold: 2 }
 							]
 						}
 					}
@@ -296,7 +296,6 @@ describe('follow camera on whole songs', () => {
 						{
 							id: 'shot',
 							time: 6,
-							kind: 'pushIn',
 							distance: rig * 0.7,
 							...(length != null ? { hold: length } : {})
 						}
@@ -304,7 +303,7 @@ describe('follow camera on whole songs', () => {
 				}
 			}
 		});
-		const held = required(followCameraTrack(withShot(), result, 30));
+		const held = required(followCameraTrack(withShot(2), result, 30));
 		expect(at(held.distance, 7.5 * 30)).toBeLessThan(rig * 0.85);
 		expect(at(held.distance, 11 * 30)).toBeCloseTo(rig, 2);
 		const open = required(followCameraTrack(withShot(0), result, 30));
@@ -317,7 +316,7 @@ describe('follow camera on whole songs', () => {
 		it.skipIf(dump == null)(`matches the camera Blender bakes for ${name}`, () => {
 			const { project: loaded, result } = fixture(name);
 			const track = required(
-				followCameraTrack({ ...loaded, film: { ...loaded.film, theme: 'brass' } }, result, 30)
+				followCameraTrack({ ...loaded, film: { ...loaded.film, theme: { base: 'brass' } } }, result, 30)
 			);
 			const error = compareCameraTrack(track, required(dump));
 			expect(error.frameCountDelta).toBe(0);

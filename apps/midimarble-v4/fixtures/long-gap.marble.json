@@ -286,8 +286,9 @@
 		"groups": []
 	},
 	"film": {
-		"theme": "pegboard",
-		"themes": [],
+		"theme": {
+			"base": "pegboard"
+		},
 		"wall": {},
 		"lights": {
 			"added": []

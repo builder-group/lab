@@ -189,7 +189,6 @@ export function buildSceneCamera(camera: TFilm['camera']): TSceneCamera {
 		sway: camera.sway,
 		shots: camera.shots.map((shot) => ({
 			time: shot.time,
-			kind: shot.kind,
 			distance: shot.distance,
 			length: shotHold(shot)
 		})),

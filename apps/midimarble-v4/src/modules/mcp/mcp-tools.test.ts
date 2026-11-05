@@ -350,11 +350,11 @@ describe('MCP tools', () => {
 	describe('updateFilm', () => {
 		it('should refuse an unknown theme and name the ones there are', async () => {
 			const { cx } = studio();
-			const reply = await execute(cx, { type: 'updateFilm', film: { theme: 'theme-nope' } });
+			const reply = await execute(cx, { type: 'applyTheme', theme: 'theme-nope' });
 			expect(reply.isError).toBe(true);
 			expect(textOf(reply)).toContain('There is no theme theme-nope');
 			expect(textOf(reply)).toContain('pegboard');
-			expect(cx.project?.film.theme).not.toBe('theme-nope');
+			expect(cx.project?.film.theme.base).not.toBe('theme-nope');
 		});
 
 		it('should change only the fields it names', async () => {
@@ -380,13 +380,13 @@ describe('MCP tools', () => {
 
 		it("should apply an added Pack's theme by its id", async () => {
 			const { cx } = studio();
-			const theme = { id: 'theme-pack', name: 'Golden', base: 'brass', overrides: { wallColor: '#ffefc8' } };
+			const theme = { id: 'theme-pack', name: 'Golden', base: 'brass', wall: { color: '#ffefc8' } };
 			addedPacks.set([{ id: 'xmas', name: 'Christmas', version: '1.0', themes: [theme], items: [], builtInDecor: [] } as unknown as TPack]);
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { packThemes: { id: string; pack: string }[] };
 			expect(state.packThemes).toEqual([{ id: 'theme-pack', name: 'Golden', pack: 'Christmas' }]);
-			expect((await execute(cx, { type: 'updateFilm', film: { theme: 'theme-pack' } })).isError).toBe(false);
-			expect(cx.project?.film.theme).toBe('theme-pack');
-			expect(cx.project?.film.themes[0]?.pack?.packName).toBe('Christmas');
+			expect((await execute(cx, { type: 'applyTheme', theme: 'theme-pack' })).isError).toBe(false);
+			expect(cx.project?.film.theme).toMatchObject({ base: 'brass', pack: { packName: 'Christmas', themeId: 'theme-pack', themeName: 'Golden' } });
+			expect(cx.project?.film.wall.color).toBe('#ffefc8');
 			addedPacks.set([]);
 		});
 	});
@@ -440,9 +440,9 @@ describe('MCP tools', () => {
 
 		it('should add a shot from its arguments, readable in get_state', async () => {
 			const { cx } = studio();
-			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, kind: 'wide', distance: 1.2, hold: 2 } });
+			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, distance: 1.2, hold: 2 } });
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { camera: { shots: unknown[]; distance: number } };
-			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, kind: 'wide', distance: 1.2, hold: 2 })]);
+			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, distance: 1.2, hold: 2 })]);
 			expect(state.camera.distance).toBeGreaterThan(0);
 		});
 	});

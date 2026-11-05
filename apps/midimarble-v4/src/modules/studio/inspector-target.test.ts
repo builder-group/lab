@@ -12,7 +12,7 @@ function fullProject(): TProject {
 	const free: TPiece = { id: 'rail-1', type: 'rail', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } };
 	project.track.pieces.push(platform, free);
 	project.film.titles = ['title-1', 'title-2'].map((id) => ({ id, name: id, text: id, font: 'sans', size: 0.1, position: { x: 0, y: 0 }, angle: 0 }));
-	project.film.camera.shots = [{ id: 'shot-1', time: 2, kind: 'wide' } as TProject['film']['camera']['shots'][number]];
+	project.film.camera.shots = [{ id: 'shot-1', time: 2} as TProject['film']['camera']['shots'][number]];
 	return project;
 }
 

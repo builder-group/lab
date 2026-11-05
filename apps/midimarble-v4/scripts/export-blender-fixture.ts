@@ -16,7 +16,7 @@ if (packageDir == null) throw new Error('Usage: export-blender-fixture <fixture>
 const json = readFileSync(new URL(`../fixtures/${fixture}.marble.json`, import.meta.url), 'utf8');
 const [isProjectOk, projectErr, parsed] = parseProject(json);
 if (!isProjectOk) throw projectErr;
-const project = { ...parsed, film: { ...parsed.film, theme } };
+const project = { ...parsed, film: { ...parsed.film, theme: { base: theme } } };
 
 const simulator = await createSimulator();
 const result = simulator.simulate(project);

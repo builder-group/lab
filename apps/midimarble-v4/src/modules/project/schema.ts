@@ -217,25 +217,12 @@ export const SPiece = z.strictObject({
 const SShot = z.strictObject({
 	id: SId,
 	time: z.number(),
-	kind: z.enum(['wide', 'follow', 'pushIn', 'closeUp']),
 	distance: z.number().positive(),
-	// Seconds the shot holds before the camera eases back to the rig, 0 until the next shot; absent uses the kind's
-	// default (2 s for Push In and Close-Up, until the next shot for Wide and Follow)
+	// Seconds the shot holds before the camera eases back to the rig; absent or 0 holds until the next shot
 	hold: z.number().nonnegative().optional()
 });
 
 const SHexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
-
-/**
- * The few colors a project theme changes on top of its built-in base, in display sRGB. Absent fields keep the
- * base's look. `glowColor` replaces the marble-colored glowing edges of a theme that has them (Neon).
- */
-const SThemeOverrides = z.strictObject({
-	wallColor: SHexColor.optional(),
-	lightColor: SHexColor.optional(),
-	glowColor: SHexColor.optional(),
-	backgroundColor: SHexColor.optional()
-});
 
 /** The wall's skin in Film: `plain` is one smooth color with no pattern at all, `grid` the Neon wall's lit grid */
 const SWallKind = z.enum(['plain', 'plaster', 'pegboard', 'grid']);
@@ -250,7 +237,7 @@ const lightPoseShape = {
 	height: z.number().min(-1).max(1)
 };
 
-/** What a project theme changes on the Key Light besides its color; absent fields keep the base's */
+/** What a film changes on the Key Light besides its color; absent fields keep the base theme's */
 const SKeyLightPose = z.strictObject({
 	strength: lightPoseShape.strength.optional(),
 	side: lightPoseShape.side.optional(),
@@ -258,20 +245,13 @@ const SKeyLightPose = z.strictObject({
 	// How soft its shadows are: a share of the widest sun, 0 hard and 1 very soft
 	softness: z.number().min(0).max(1).optional(),
 	// The whole film's brightness in stops on top of the base theme, and how much what glows spills light. Here because a
-	// film has one Key Light, and it travels with the theme the same way
+	// film has one Key Light
 	exposure: z.number().min(-3).max(3).optional(),
 	bloom: z.number().min(0).max(1).optional()
 });
 
 /** A light added with Add Light, a layer in Film; a sun like the Key Light */
 const SLight = z.strictObject({ id: SId, name: z.string(), color: SHexColor, ...lightPoseShape });
-
-/** A project theme's Wall skin, Key Light and added lights: what a kept look stores */
-const projectThemeSceneShape = {
-	wallKind: SWallKind.optional(),
-	keyLight: SKeyLightPose.optional(),
-	lights: z.array(SLight).optional()
-};
 
 /**
  * Where something copied from a Pack came from, so a project moved to another Mac still names the Pack. `version` changes
@@ -285,19 +265,39 @@ export const SPackOrigin = z.strictObject({
 	link: z.string().optional()
 });
 
-/** A theme the project made from a built-in one: from a Pack, or New Theme with Agent */
-export const SProjectTheme = z.strictObject({
+/** Where the theme a film wears came from: the Pack, and the theme's own ID and name in it */
+const SThemePack = SPackOrigin.extend({ themeId: SId, themeName: z.string() });
+
+/** The one theme a film wears: a built-in base and what changes its skins. Colors and light are on `wall` and `lights`. */
+const SFilmTheme = z.strictObject({
+	// Built-in theme the look starts from: `pegboard`, `brass` or `neon`
+	base: z.string(),
+	parts: SThemeParts.optional(),
+	// Replaces the marble-colored glowing edges of a theme that has them (Neon)
+	glowColor: SHexColor.optional(),
+	pack: SThemePack.optional()
+});
+
+/** A film's Wall: what it changes on its theme. Absent fields keep the base theme's. */
+const wallLookShape = {
+	color: SHexColor.optional(),
+	backgroundColor: SHexColor.optional()
+};
+
+const SLights = z.strictObject({
+	key: SKeyLightPose.extend({ color: SHexColor.optional() }).optional(),
+	added: z.array(SLight)
+});
+
+/** A theme as a Pack stores it: applying it writes its look into the film's `theme`, `wall` and `lights` */
+export const SPackTheme = z.strictObject({
 	id: SId,
 	name: z.string(),
-	// Built-in theme id the look starts from: `pegboard`, `brass` or `neon`
 	base: z.string(),
-	overrides: SThemeOverrides,
-	// `agent` when a New Theme with Agent Result made it; absent otherwise
-	origin: z.enum(['agent']).optional(),
-	// The Pack it came from
-	pack: SPackOrigin.optional(),
-	...projectThemeSceneShape,
-	parts: SThemeParts.optional()
+	parts: SThemeParts.optional(),
+	glowColor: SHexColor.optional(),
+	wall: z.strictObject({ ...wallLookShape, kind: SWallKind.optional() }).optional(),
+	lights: SLights.optional()
 });
 
 /**
@@ -337,23 +337,17 @@ const SMadeInBlender = z.strictObject({
 });
 
 export const SFilm = z.strictObject({
-	// A built-in theme id or the id of one of `themes`
-	theme: z.string(),
-	// Themes made in this project
-	themes: z.array(SProjectTheme),
-	// This project's changes to the Wall layer on top of the theme, like a piece's skin
+	// The one theme the film wears
+	theme: SFilmTheme,
+	// The Wall layer's values on top of the base theme, like a piece's skin
 	wall: z.strictObject({
-		color: SHexColor.optional(),
-		backgroundColor: SHexColor.optional(),
+		...wallLookShape,
 		kind: z.union([SWallKind, z.literal('none')]).optional(),
 		// The plain Pegboard wall's color in Track, and in Film under the skin None; like a piece's label color
 		labelColor: SHexColor.optional()
 	}),
-	// This project's changes to the Key Light on top of the theme, and its added lights
-	lights: z.strictObject({
-		key: SKeyLightPose.extend({ color: SHexColor.optional() }).optional(),
-		added: z.array(SLight)
-	}),
+	// The Key Light's values on top of the base theme, and the added lights
+	lights: SLights,
 	// The Decor layers
 	decor: z.array(SDecor),
 	madeInBlender: z.array(SMadeInBlender),
@@ -444,12 +438,12 @@ export type TFollows = z.infer<typeof SFollows>;
 export type TRide = z.infer<typeof SRide>;
 export type TTitle = z.infer<typeof STitle>;
 export type TFilm = z.infer<typeof SFilm>;
-export type TProjectTheme = z.infer<typeof SProjectTheme>;
+export type TFilmTheme = z.infer<typeof SFilmTheme>;
+export type TPackTheme = z.infer<typeof SPackTheme>;
 export type TPackOrigin = z.infer<typeof SPackOrigin>;
 export type TSkin = z.infer<typeof SSkin>;
 export type TThemePart = z.infer<typeof SThemePart>;
 export type TThemeParts = z.infer<typeof SThemeParts>;
-export type TThemeOverrides = z.infer<typeof SThemeOverrides>;
 export type TWallKind = z.infer<typeof SWallKind>;
 /** What the Wall layer can wear: a wall kind, or None, the plain Pegboard wall in the layer's color */
 export type TWallSkin = TWallKind | 'none';

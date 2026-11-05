@@ -4,9 +4,12 @@ import { STARTER_PACK, withStarterPack, type TLibraryItem, type TPack } from './
 import { decorItem } from './decor-catalog';
 import { WALL_KINDS } from './scene-layers';
 import { catalogSkins, SKIN_ELEMENTS } from './skin-catalog';
-import { createProject, type TProjectTheme } from '@/modules/project';
+import { createProject, type TPackTheme, type TProject } from '@/modules/project';
+import { apply } from '@/modules/project/test-helpers';
+import { createHistory, pushHistory, undoHistory } from '@/modules/project/history';
+import { packThemeCommands, themeCommands } from './project-themes';
 import { libraryEntries, libraryItemOrigin, packContents } from '@/modules/film';
-import { packExport, packThemeCommands, themeAssetIds, withThemeAssets } from './packs';
+import { packExport, themeAssetIds, withThemeAssets } from './packs';
 import { packOrigin } from './project-themes';
 
 function item(id: string, role: 'skin' | 'decoration', extra: Partial<TLibraryItem> = {}, pack?: string): TLibraryItem {
@@ -23,7 +26,7 @@ function item(id: string, role: 'skin' | 'decoration', extra: Partial<TLibraryIt
 	};
 }
 
-const theme: TProjectTheme = { id: 'cozy', name: 'Cozy', base: 'brass', overrides: {}, parts: { platform: { skin: 'brass-bar' }, rail: { skin: 'rail:chrome' } } };
+const theme: TPackTheme = { id: 'cozy', name: 'Cozy', base: 'brass', parts: { platform: { skin: 'brass-bar' }, rail: { skin: 'rail:chrome' } } };
 
 function pack(items: TLibraryItem[], extra: Partial<TPack> = {}): TPack {
 	return { id: 'christmas', path: '/p', name: 'Christmas', version: '1.0', description: null, author: null, link: null, pictureUrl: null, themes: [], items, builtInDecor: [], ...extra };
@@ -35,22 +38,22 @@ describe('Packs', () => {
 		expect(withThemeAssets(theme, new Map([['brass-bar', 'brass-bar-2']])).parts?.platform?.skin).toBe('brass-bar-2');
 	});
 
-	it('should add a theme and show it as one edit', () => {
+	it('should wear a theme as one edit', () => {
 		const project = createProject({ title: 'Song' });
-		const commands = packThemeCommands(project, theme);
-		expect(commands[0]).toEqual({ type: 'updateFilm', film: { themes: [theme] } });
-		expect(commands.some((command) => command.type === 'updateFilm' && command.film.theme === 'cozy')).toBe(true);
+		const commands = packThemeCommands(project, theme, { packId: 'christmas', packName: 'Christmas', version: '1.0' });
+		expect(commands).toHaveLength(1);
+		expect(apply(project, commands).film.theme).toEqual({ base: 'brass', parts: theme.parts, pack: { packId: 'christmas', packName: 'Christmas', version: '1.0', themeId: 'cozy', themeName: 'Cozy' } });
 	});
 
 	it('should export the shown theme and chosen items, with what the theme needs', () => {
 		const project = createProject({ title: 'Song' });
-		const withTheme = { ...project, film: { ...project.film, themes: [theme], theme: 'cozy' } };
+		const withTheme = { ...project, film: { ...project.film, theme: { base: 'brass', parts: theme.parts } } };
 		const [isOk, , exported] = packExport(withTheme, [item('brass-bar', 'skin'), item('bauble', 'decoration'), item('tree', 'decoration')], { name: ' Christmas ', includesTheme: true, assetIds: ['bauble'] });
 		expect(isOk).toBe(true);
 		expect(exported?.manifest).toMatchObject({ id: 'christmas', name: 'Christmas', version: '1.0' });
 		expect(exported?.assetIds.sort()).toEqual(['bauble', 'brass-bar']);
 		expect(exported?.manifest.items.map((entry) => entry.kind).sort()).toEqual(['decor', 'skin', 'theme']);
-		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TProjectTheme;
+		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TPackTheme;
 		expect(stored.name).toBe('Christmas');
 		expect(stored.id).not.toBe('cozy');
 	});
@@ -58,8 +61,8 @@ describe('Packs', () => {
 	it('should export a built-in theme as a stored theme on its base', () => {
 		const project = createProject({ title: 'Song' });
 		const [, , exported] = packExport(project, [], { name: 'Mine', includesTheme: true, assetIds: [] });
-		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TProjectTheme;
-		expect(stored.base).toBe(project.film.theme);
+		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TPackTheme;
+		expect(stored.base).toBe(project.film.theme.base);
 	});
 
 	it('should refuse an empty or unnamed Pack and an item that is not in the project', () => {
@@ -87,13 +90,12 @@ describe('Packs', () => {
 		expect(packContents(pack([]))).toBe('Nothing yet');
 	});
 
-	it('should list a Pack\'s item until the project holds the Pack\'s copy, without a star', () => {
-		const inPack = item('a', 'decoration', { scope: 'global', packId: 'christmas' }, 'Christmas');
-		const before = libraryEntries([], [], [pack([inPack])]);
-		expect(before).toEqual([{ item: inPack, isKept: false }]);
+	it('should list a Pack\'s item until the project holds the Pack\'s copy', () => {
+		const inPack = item('a', 'decoration', { scope: 'pack', packId: 'christmas' }, 'Christmas');
+		expect(libraryEntries([], [pack([inPack])])).toEqual([inPack]);
 		const copy = item('a-2', 'decoration', {}, 'Christmas');
 		copy.manifest = { ...(copy.manifest as NonNullable<TLibraryItem['manifest']>), label: 'a' };
-		expect(libraryEntries([copy], [], [pack([inPack])]).map((entry) => entry.item.id)).toEqual(['a-2']);
+		expect(libraryEntries([copy], [pack([inPack])]).map((entry) => entry.id)).toEqual(['a-2']);
 	});
 
 	it('should hold every offered skin, wall and theme and Particles in the Starter Pack, and never lose it', () => {
@@ -107,5 +109,47 @@ describe('Packs', () => {
 		expect(packContents(STARTER_PACK)).toBe(`3 themes, ${skins.length} skins, 4 decor items`);
 		expect(withStarterPack([{ ...pack([]), id: 'starter' }, pack([])]).map((item) => item.id)).toEqual(['starter', pack([]).id]);
 		expect(isPackAdded('starter')).toBe(true);
+	});
+
+	describe('changing theme with changes on the look', () => {
+		const origin = { packId: 'christmas', packName: 'Christmas', version: '1.0' };
+		const lights = { key: { strength: 3 }, added: [{ id: 'fill', name: 'Fill', color: '#ffffff', strength: 1, side: 0.2, height: 0.3 }] };
+		const wall = { color: '#112233', labelColor: '#445566' };
+
+		function edited(worn: 'pack' | 'builtIn'): TProject {
+			const start = worn === 'pack' ? apply(createProject(), packThemeCommands(createProject(), theme, origin)) : createProject();
+			return apply(start, [{ type: 'updateFilm', film: { wall, lights } }]);
+		}
+
+		it.each([
+			['a Pack theme for a built-in one', 'pack', (project: TProject) => themeCommands(project, 'neon')],
+			['a Pack theme for another', 'pack', (project: TProject) => packThemeCommands(project, { ...theme, id: 'other', name: 'Other' }, origin)],
+			['a built-in theme for a Pack one', 'builtIn', (project: TProject) => packThemeCommands(project, theme, origin)]
+		] as const)('should replace Wall and Lights leaving %s, and one Undo should give them back', (_name, worn, commands) => {
+			// Prepare
+			const before = edited(worn);
+
+			// Act
+			const after = pushHistory(createHistory(before), apply(before, commands(before)));
+			const undone = undoHistory(after);
+
+			// Assert
+			expect(after.present.film.lights).toEqual({ added: [] });
+			expect(after.present.film.wall).toEqual({ labelColor: '#445566' });
+			expect(undone.past).toHaveLength(0);
+			expect(undone.present.film).toEqual(before.film);
+		});
+
+		it('should keep Wall and Lights between built-in themes', () => {
+			// Prepare
+			const before = edited('builtIn');
+
+			// Act
+			const after = apply(before, themeCommands(before, 'neon'));
+
+			// Assert
+			expect(after.film.wall).toEqual(wall);
+			expect(after.film.lights).toEqual(lights);
+		});
 	});
 });

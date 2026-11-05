@@ -34,7 +34,7 @@ def curves(holder, paths):
 def main():
     package = Path(sys.argv[sys.argv.index('--') + 1]).resolve()
     worker = Worker(package)
-    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json', 'regenerateCamera': True})
+    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
     scene = bpy.context.scene
     camera = scene.camera
     pose = curves(camera, ('location', 'rotation_euler'))

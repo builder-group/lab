@@ -5,7 +5,7 @@ import { HelpTip, openContextMenu, RenameField, type TMenuEntry } from '@/compon
 import { attachState, decorTips, pieceProblems, struckPieces, type TPreflightIssue, patternOfPiece } from '@/modules/building';
 import { PieceIcon, useRunPreflight } from '@/modules/canvas';
 import { badgeStatus, StatusIcon, type TBadgeStatus, groupSelection } from '@/modules/track';
-import { madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands, updateLightCommands, shotKindLabel } from '@/modules/scene';
+import { madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands, updateLightCommands } from '@/modules/scene';
 import { $scatterPanel, revealMadeInBlender } from '@/modules/film';
 import { isPatternGroup, type TPiece, type TProject, formatTime, SCENE_KEY, tieOf } from '@/modules/project';
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
@@ -383,7 +383,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'camera':
 			return { icon: <Video size={14} strokeWidth={1.75} />, label: 'Camera', isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'shot':
-			return { icon: <Bookmark size={13} strokeWidth={1.75} />, label: shotKindLabel(row.shot.kind), time: row.shot.time };
+			return { icon: <Bookmark size={13} strokeWidth={1.75} />, label: 'Shot', time: row.shot.time };
 		case 'title':
 			return { icon: <Type size={14} strokeWidth={1.75} style={{ color: row.title.labelColor }} />, label: row.title.name ?? row.title.text };
 		case 'piece':

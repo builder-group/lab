@@ -17,7 +17,7 @@ function project(options: { hasSong?: boolean; pieces?: TPiece[]; titles?: TTitl
 			{ id: 'marble-2', name: 'Bass', hits: [] }
 		],
 		track: { pieces, groups: [] },
-		film: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], titles, camera: { shots } }
+		film: { theme: { base: 'pegboard' }, wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], titles, camera: { shots } }
 	} as unknown as TProject;
 }
 

@@ -22,7 +22,7 @@ describe('checkRun function on whole songs', () => {
 		expect(checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS).issues).toEqual([]);
 
 		// The automatic camera widens for any run in reach, however far sideways, and a Close-Up frames the leading marble alone
-		project.film.camera.shots = [{ id: 'close', time: 5, kind: 'closeUp', distance: project.film.camera.distance * 0.45, hold: 20 }];
+		project.film.camera.shots = [{ id: 'close', time: 5, distance: project.film.camera.distance * 0.45, hold: 20 }];
 		const result = simulator.simulate(project);
 		const preflight = checkRun(project, result, NO_BLENDER_OBJECTS);
 		const framing = preflight.issues.filter((issue) => issue.kind === 'framing');

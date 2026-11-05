@@ -2,10 +2,11 @@ import { isTauri } from '@tauri-apps/api/core';
 import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
-import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
+import type { TReadyPackTheme } from './project-commands';
+import { defaultTitleColor, packOriginOf, filmFileName, addShotCommands, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
 import { framingProblemAt, patternSpan } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
-import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey } from '@/modules/project';
+import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
 import { editPresenceLabel } from './agent-presence';
 import { hitReport, projectState, resolveSelection } from './mcp-state';
@@ -40,7 +41,7 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.export': 'the export_film tool',
 	'film.exportPack': 'args.path, plus name and either theme or items',
 	'film.addText': 'args.text, and style, at, color, in and out if wanted',
-	'camera.addShot': 'args.time, kind, distance and hold if wanted',
+	'camera.addShot': 'args.time, distance and hold if wanted',
 	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
 
@@ -81,7 +82,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
-				packThemes: addedPacks.get().flatMap((pack) => pack.themes.filter((theme) => !project.film.themes.some((item) => item.id === theme.id)).map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
+				packThemes: addedPacks.get().flatMap((pack) => pack.themes.map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
 				references: { images: references.images.length, text: references.text }
 			})
 		);
@@ -283,10 +284,10 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		addTitle(cx, args);
 	},
 	'camera.addShot': async (cx, args) => {
-		const { time, kind, distance, hold } = SShotArgs.parse(args);
+		const { time, distance, hold } = SShotArgs.parse(args);
 		const project = cx.project;
 		if (project == null) return;
-		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(hold != null ? { hold } : {}) });
+		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(distance != null ? { distance } : {}), ...(hold != null ? { hold } : {}) });
 		cx.$workspace.set('film');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
 	},
@@ -319,7 +320,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		}
 		const [isAddedOk, addedErr, pack] = await cx.library.addPack(from);
 		if (!isAddedOk) throw addedErr;
-		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'updateFilm', film: { theme: id } }.`);
+		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'applyTheme', theme: id }.`);
 	},
 	'film.restartBlender': async (cx) => {
 		await cx.film.restart();
@@ -338,9 +339,8 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	}
 };
 
-const SShotArgs = z.object({
+const SShotArgs = z.strictObject({
 	time: z.number().min(0).optional(),
-	kind: z.enum(shotKinds.map((item) => item.kind) as [string, ...string[]]).optional() as z.ZodOptional<z.ZodType<(typeof shotKinds)[number]['kind']>>,
 	distance: z.number().positive().optional(),
 	hold: z.number().nonnegative().optional()
 });
@@ -380,15 +380,15 @@ async function removePack(cx: StudioCx, args: Record<string, unknown>): Promise<
 	return text(cx, { removed: pack.name, changed: false });
 }
 
-/** The themes of added Packs that `commands` apply, as a project stores them: their items copied in */
-async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TProjectTheme[]> {
-	const wanted = commands.flatMap((command) => (command.type === 'updateFilm' ? [(command as { film?: { theme?: unknown } }).film?.theme] : []));
-	const themes: TProjectTheme[] = [];
+/** The themes of added Packs that `commands` apply, with their items copied in */
+async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TReadyPackTheme[]> {
+	const wanted = commands.flatMap((command) => (command.type === 'applyTheme' ? [(command as { theme?: unknown }).theme] : []));
+	const themes: TReadyPackTheme[] = [];
 	for (const pack of addedPacks.get()) {
 		for (const theme of pack.themes) {
-			if (!wanted.includes(theme.id) || cx.project?.film.themes.some((item) => item.id === theme.id) === true) continue;
+			if (!wanted.includes(theme.id)) continue;
 			const ready = await cx.library.packThemeInProject(pack, theme);
-			if (ready != null) themes.push(ready);
+			if (ready != null) themes.push({ theme: ready, origin: packOriginOf(pack) });
 		}
 	}
 	return themes;

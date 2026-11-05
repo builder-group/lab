@@ -3,51 +3,35 @@ import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { specta } from '@/environment/specta';
 import type { TPackOrigin } from '@/modules/project';
-import { parseAssetManifest, parseCandidateManifest, serializeAssetManifest, uniqueItemId, type TAssetManifest, parsePackTheme, STARTER_PACK, STARTER_PACK_ID, type TLibraryItem, type TLibraryScope, type TPack } from '@/modules/scene';
+import { parseAssetManifest, parseCandidateManifest, serializeAssetManifest, uniqueItemId, type TAssetManifest, parsePackTheme, STARTER_PACK, STARTER_PACK_ID, type TLibraryItem, type TPack } from '@/modules/scene';
 
 /**
- * Asset libraries: the project library in `<package>/assets/` and the global library in the app's support
- * folder. Both use `<id>/{manifest.json, asset.blend, preview.png}`. The browser development surface has no
- * libraries.
+ * Asset libraries: the project library in `<package>/assets/` and added Packs in the app's support folder. Both
+ * use `<id>/{manifest.json, asset.blend, preview.png}`. The browser development surface has no libraries.
  */
 export const library = {
 	isAvailable(): boolean {
 		return isTauri();
 	},
 
-	async list(
-		scope: TLibraryScope,
-		packagePath: string | null
-	): Promise<TResult<TLibraryItem[], Error>> {
+	async list(packagePath: string): Promise<TResult<TLibraryItem[], Error>> {
 		if (!isTauri()) return Ok([]);
-		const result = await specta.commands.libraryList(scope, packagePath);
+		const result = await specta.commands.libraryList(packagePath);
 		if (result.status === 'error') return Err(new Error(result.error));
 		return Ok(result.data.map(toLibraryItem));
 	},
 
-	/** Save to my library: copies a project item into the global library */
-	async promote(packagePath: string, itemId: string): Promise<TResult<TLibraryItem, Error>> {
-		if (!isTauri()) return Err(unavailable());
-		const result = await specta.commands.libraryPromote(packagePath, itemId);
-		if (result.status === 'error') return Err(new Error(result.error));
-		return Ok(toLibraryItem(result.data));
-	},
-
-	/** Copies a global item or an imported Pack's item into the project so the package stays portable */
-	async import(packagePath: string, itemId: string, packId: string | null = null): Promise<TResult<TLibraryItem, Error>> {
+	/** Copies an added Pack's item into the project so the package stays portable */
+	async import(packagePath: string, itemId: string, packId: string): Promise<TResult<TLibraryItem, Error>> {
 		if (!isTauri()) return Err(unavailable());
 		const result = await specta.commands.libraryImport(packagePath, itemId, packId);
 		if (result.status === 'error') return Err(new Error(result.error));
 		return Ok(toLibraryItem(result.data));
 	},
 
-	async remove(
-		scope: TLibraryScope,
-		packagePath: string | null,
-		itemId: string
-	): Promise<TResult<void, Error>> {
+	async remove(packagePath: string, itemId: string): Promise<TResult<void, Error>> {
 		if (!isTauri()) return Err(unavailable());
-		const result = await specta.commands.libraryRemove(scope, packagePath, itemId);
+		const result = await specta.commands.libraryRemove(packagePath, itemId);
 		if (result.status === 'error') return Err(new Error(result.error));
 		return Ok(undefined);
 	},
@@ -60,7 +44,7 @@ export const library = {
 		if (!isTauri()) return Err(unavailable());
 		const [isManifestOk, manifestErr, manifest] = parseCandidateManifest(manifestJson);
 		if (!isManifestOk) return Err(new Error(`The asset's manifest is invalid: ${manifestErr.message}`));
-		const [isListOk, listErr, items] = await library.list('project', packagePath);
+		const [isListOk, listErr, items] = await library.list(packagePath);
 		if (!isListOk) return Err(listErr);
 		const itemId = uniqueItemId(
 			manifest.id,

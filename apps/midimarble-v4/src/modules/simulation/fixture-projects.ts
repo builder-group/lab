@@ -121,8 +121,7 @@ export function createBareRunProject(options: {
 		track: { pieces: [], groups: [] },
 		gravity: options.gravity ?? DEFAULT_GRAVITY,
 		film: {
-			theme: 'pegboard',
-			themes: [],
+			theme: { base: 'pegboard' },
 			wall: {},
 			lights: { added: [] },
 			decor: [],

@@ -25,15 +25,15 @@ export function placeDecor(cx: StudioCx, source: TDecorSource, u = 0.5, v = 0.5)
 
 /** A library item as a decoration: a built-in one by its id, a project's item by its asset path; null for anything else */
 export function libraryDecorSource(cx: StudioCx, asset: { id: string; scope: string; packId?: string | null }): TDecorSource | null {
-	const items = [...cx.library.$projectItems.get(), ...cx.library.$globalItems.get(), ...addedPacks.get().flatMap((pack) => pack.items)];
+	const items = [...cx.library.$projectItems.get(), ...addedPacks.get().flatMap((pack) => pack.items)];
 	const item = items.find((candidate) => candidate.id === asset.id && candidate.scope === asset.scope && candidate.packId === (asset.packId ?? null));
 	if (item?.manifest?.role !== 'decoration') return null;
-	// A drop places at once, so a Pack's or kept item's file arrives in the project right after
+	// A drop places at once, so a Pack's item's file arrives in the project right after
 	if (item.scope !== 'project') void cx.library.inProject(item);
 	return assetDecorSource(item.id, item.manifest.label, item.manifest.fittedParams);
 }
 
-/** Places a library item at the playhead, copying a Pack's or kept item into the project first */
+/** Places a library item at the playhead, copying a Pack's item into the project first */
 export async function placeLibraryDecor(cx: StudioCx, item: TLibraryItem, label: string): Promise<boolean> {
 	const id = await cx.library.inProject(item);
 	return id != null && placeDecor(cx, assetDecorSource(id, label, item.manifest?.fittedParams));

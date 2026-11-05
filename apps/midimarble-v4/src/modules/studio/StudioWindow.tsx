@@ -43,7 +43,7 @@ export const StudioWindow: React.FC<{ cx: StudioCx }> = (props) => {
 						}}
 						onPlace={(u, v) => cx.placeWallText(u, v)}
 						onDropAsset={(entityId, asset) => {
-							const item = [...cx.library.$projectItems.get(), ...cx.library.$globalItems.get()].find((candidate) => candidate.id === asset.id && candidate.scope === asset.scope);
+							const item = cx.library.$projectItems.get().find((candidate) => candidate.id === asset.id && candidate.scope === asset.scope);
 							if (item == null) return;
 							cx.$selection.set([entityId]);
 							void cx.library.applySkin(item, { kind: 'pieces', entityIds: [entityId] });

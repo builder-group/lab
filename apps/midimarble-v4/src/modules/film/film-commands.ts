@@ -100,12 +100,16 @@ function handSkinnedIds(project: TProject): string[] {
 export function handChangeCount(project: TProject): number {
 	const { wall, lights } = project.film;
 	// The Wall's label color is Track's, like a piece's, so it isn't a change over the theme
-	return handSkinnedIds(project).length + Object.keys(wall).filter((name) => name !== 'labelColor').length + Object.keys(lights.key ?? {}).length;
+	const skins = handSkinnedIds(project).length;
+	// A Pack theme's Wall and Key Light are its look, so they aren't changes over it
+	if (project.film.theme.pack != null) return skins;
+	return skins + Object.keys(wall).filter((name) => name !== 'labelColor').length + Object.keys(lights.key ?? {}).length;
 }
 
 /** Clears those changes so the theme shows as it is, as one edit. Added lights and Decor are things added, so they stay. */
 export function resetHandChangesCommands(project: TProject): TProjectCommand[] {
-	return [...resetToThemeCommands(project, handSkinnedIds(project)), ...wallCommands(project, { kind: null, color: null, backgroundColor: null }), ...resetKeyLightCommands(project)];
+	const skins = resetToThemeCommands(project, handSkinnedIds(project));
+	return project.film.theme.pack != null ? skins : [...skins, ...wallCommands(project, { kind: null, color: null, backgroundColor: null }), ...resetKeyLightCommands(project)];
 }
 
 function publicUrl(path: string): string {

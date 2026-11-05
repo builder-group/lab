@@ -138,7 +138,7 @@ function filmLabel(before: TProject, film: Extract<TProjectCommand, { type: 'upd
 		if (after != null && layer.words != null) return listLabel(layer.items(before.film) ?? [], after, layer.words.one, layer.words.many);
 	}
 	if (film.camera != null) return film.camera.shots.length !== before.film.camera.shots.length ? listLabel(before.film.camera.shots, film.camera.shots, 'Shot', 'Shots') : 'Change Camera';
-	if (film.theme != null || film.themes != null) return 'Change Theme';
+	if (film.theme != null) return 'Change Theme';
 	if (film.wall != null) return 'Change Wall';
 	return null;
 }
