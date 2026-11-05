@@ -1,5 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fittedHeight, HEADER_WIDTH, MIN_HEIGHT, sliderToZoom, TIME_INSET, TIME_ORIGIN, zoomToSlider } from './timeline-layout';
+import { fittedHeight, HEADER_WIDTH, MIN_HEIGHT, sliderToZoom, TIME_INSET, TIME_ORIGIN, zoomToSlider, tieSpans } from './timeline-layout';
+
+describe('tieSpans function', () => {
+	it('should give one stretch per song, ended by a hit of its own or of another song', () => {
+		const spans = tieSpans([
+			{ time: 3, songId: 'a' },
+			{ time: 1, songId: 'a' },
+			{ time: 4 },
+			{ time: 5, songId: 'a' },
+			{ time: 6, songId: 'b' },
+			{ time: 7, songId: 'b' }
+		]);
+
+		expect(spans).toEqual([
+			{ songId: 'a', from: 1, to: 3 },
+			{ songId: 'a', from: 5, to: 5 },
+			{ songId: 'b', from: 6, to: 7 }
+		]);
+	});
+
+	it('should have nothing to draw for own hits', () => {
+		expect(tieSpans([{ time: 1 }, { time: 2 }])).toEqual([]);
+	});
+});
 
 describe('zoom slider', () => {
 	it('should map the zoom range to the ends of the slider', () => {

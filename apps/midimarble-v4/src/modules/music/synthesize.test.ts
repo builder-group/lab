@@ -33,7 +33,7 @@ describe('renderMarbles function', () => {
 	it('should play Backing on its own channel with the notes held for their length', () => {
 		const backing = { instrument: 0, hits: [{ id: 'b', time: 0.2, pitch: 60, duration: 1 }] };
 
-		const audio = renderMarbles([marble('a', 9, [])], { sampleRate, duration: 1.5, bank, backing });
+		const audio = renderMarbles([marble('a', 9, [])], { sampleRate, duration: 1.5, bank, backing: [backing] });
 
 		expect(peak(audio.left, 0, 0.19)).toBe(0);
 		expect(peak(audio.left, 0.2, 0.4)).toBeGreaterThan(0.01);

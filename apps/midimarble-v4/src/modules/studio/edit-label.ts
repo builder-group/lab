@@ -91,11 +91,16 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 		case 'updateSong':
 			if (command.patch.tempo !== undefined) return 'Change Tempo';
 			return command.patch.backingSound !== undefined ? 'Change Backing' : null;
+		case 'moveSong':
+			return 'Move Song';
 		case 'addSong':
 			return 'Import Song';
 		case 'removeSong':
 			// Backing without a file is notes alone
-			return before.songs.some((song) => song.path != null) ? 'Delete Song' : `Delete ${counted(backingOf(before).length, 'Hit')}`;
+			{
+			const song = before.songs.find((item) => item.id === command.songId);
+			return song == null || song.path != null ? 'Delete Song' : `Delete ${counted(song.backing.length, 'Hit')}`;
+		}
 		case 'removeMarble':
 			return 'Delete Marble';
 		case 'addMarble':

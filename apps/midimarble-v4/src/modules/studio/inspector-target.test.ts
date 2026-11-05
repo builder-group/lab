@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createProject, type TDecor, type TPiece, type TProject, CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toDecorKey, toHitKey, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
+import { createProject, type TDecor, type TPiece, type TProject, CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, toSongKey, toDecorKey, toHitKey, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
 import { inspectorTarget, selectionEnteringFilm } from './inspector-target';
 import { buildOutline, DECOR_KEY, isSelectableRow, TITLES_KEY, type TOutlineRow } from './outline';
 
@@ -43,7 +43,7 @@ describe('inspectorTarget function', () => {
 
 		expect(kinds).toEqual([
 			[SCENE_KEY, 'scene'],
-			[SONG_KEY, 'song'],
+			[toSongKey('source-1'), 'song'],
 			[CAMERA_KEY, 'camera'],
 			[toShotKey('shot-1'), 'shot'],
 			[WALL_KEY, 'wall'],
@@ -64,7 +64,7 @@ describe('inspectorTarget function', () => {
 		const marbleId = project.marbles[0]?.id ?? '';
 		const rows = buildOutline(project).filter(isSelectableRow);
 		// The keys the timeline's row headers and clips select: Song, a marble, Camera, a shot and a title
-		const timelineKeys = [SONG_KEY, marbleId, CAMERA_KEY, toShotKey('shot-1'), 'title-1'];
+		const timelineKeys = [toSongKey('source-1'), marbleId, CAMERA_KEY, toShotKey('shot-1'), 'title-1'];
 
 		for (const key of timelineKeys) {
 			const row = rows.find((item) => item.id === key);
@@ -87,7 +87,7 @@ describe('inspectorTarget function', () => {
 		const project = fullProject();
 		project.songs = [];
 
-		expect(inspectorTarget(project, [SONG_KEY])).toEqual({ kind: 'scene' });
+		expect(inspectorTarget(project, [toSongKey('source-1')])).toEqual({ kind: 'scene' });
 	});
 });
 
@@ -116,7 +116,7 @@ describe('selectionEnteringFilm function', () => {
 	it('should keep a layer Film is about', () => {
 		const project = fullProject();
 		const marble = project.marbles[0]?.id ?? '';
-		for (const selection of [[WALL_KEY], [CAMERA_KEY], [toShotKey('shot-1')], ['title-1'], [SONG_KEY], [marble], [toLightKey('key')]]) {
+		for (const selection of [[WALL_KEY], [CAMERA_KEY], [toShotKey('shot-1')], ['title-1'], [toSongKey('source-1')], [marble], [toLightKey('key')]]) {
 			expect(selectionEnteringFilm(project, selection)).toEqual(selection);
 		}
 		expect(selectionEnteringFilm(project, [])).toEqual([]);

@@ -1,8 +1,9 @@
 import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
+import { moveSongCommands } from '@/modules/building';
 import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
-import { createId, type TProject, type TSong, SONG_KEY } from '@/modules/project';
-import { deleteSongCommands, deleteSongNotice, deleteSongQuestion, hasSongLayer } from './song-layer';
+import { createId, earliestSongStart, shownSongs, type TProject, type TSong, toSongKey } from '@/modules/project';
+import { deleteSongCommands, deleteSongNotice, deleteSongQuestion } from './song-layer';
 import type { StudioCx } from './StudioCx';
 
 // Imported music starts after this lead-in so the first marble has time to fall
@@ -18,12 +19,13 @@ export class SourcesCx {
 
 	// MARK: - MIDI
 
-	async pickMidi(): Promise<void> {
+	async pickMidi(replaces?: string): Promise<void> {
 		const file = await host.chooseSourceFile('midi');
-		if (file != null) await this.openMidi(file);
+		if (file != null) await this.openMidi(file, replaces);
 	}
 
-	async openMidi(file: THostPickedFile): Promise<void> {
+	/** Opens the import sheet for a new song, or for the file of a song being replaced */
+	async openMidi(file: THostPickedFile, replaces?: string): Promise<void> {
 		const url = host.pickedFileUrl(file);
 		if (url == null) return;
 		const [isBytesOk, bytesErr, bytes] = await host.readFile(url);
@@ -40,6 +42,8 @@ export class SourcesCx {
 		this.$midiImport.set({
 			file,
 			midi,
+			start: replaces == null ? this.nextStart() : IMPORT_START,
+			...(replaces != null ? { replaces } : {}),
 			trackIds: (melodic.length ? melodic : midi.tracks).map((track) => track.id),
 			options: { strategy: 'split', maxMarbles: 4 }
 		});
@@ -65,8 +69,7 @@ export class SourcesCx {
 			this.studio.notify(`${pending.file.name} could not be copied: ${importedErr.message}`, 'error');
 			return;
 		}
-		// A film has one song, so a new MIDI file replaces the previous one, as a new recording does
-		const replaced = project.songs.filter((item) => item.kind === 'midi');
+		const replaced = project.songs.filter((item) => item.id === pending.replaces);
 		const source: TSong = {
 			id: createId('song'),
 			kind: 'midi',
@@ -86,6 +89,7 @@ export class SourcesCx {
 				names: preview.names,
 				backing: preview.backing,
 				source,
+				keepsBacking: shownSongs(project).some((item) => item.id !== pending.replaces),
 				instrument: firstTrack == null ? undefined : suggestInstrument(firstTrack.program)
 			})
 		]);
@@ -99,12 +103,13 @@ export class SourcesCx {
 
 	// MARK: - Audio
 
-	async pickAudio(): Promise<void> {
+	async pickAudio(replaces?: string): Promise<void> {
 		const file = await host.chooseSourceFile('audio');
-		if (file != null) await this.importAudio(file);
+		if (file != null) await this.importAudio(file, replaces);
 	}
 
-	async importAudio(file: THostPickedFile): Promise<void> {
+	/** Adds a recording as a new song. Replacing one keeps its ID and start, so the hits tied to it stay tied. */
+	async importAudio(file: THostPickedFile, replaces?: string): Promise<void> {
 		const project = this.studio.project;
 		const packagePath = this.studio.$path.get();
 		if (project == null || packagePath == null) return;
@@ -113,19 +118,18 @@ export class SourcesCx {
 			this.studio.notify(`${file.name} could not be copied: ${importedErr.message}`, 'error');
 			return;
 		}
-		const replaced = project.songs.filter((item) => item.kind === 'audio');
+		const replaced = project.songs.find((item) => item.id === replaces);
 		const source: TSong = {
-			id: createId('song'),
+			id: replaced?.id ?? createId('song'),
 			kind: 'audio',
 			path: relativePath,
 			name: file.name,
-			start: IMPORT_START,
-			...carriedOver(replaced)
+			start: replaced?.start ?? this.nextStart(),
+			...carriedOver(replaced == null ? [] : [replaced])
 		};
 		const analysis = await this.analyze(source);
 		if (analysis == null) return;
 		this.studio.execute([
-			...replaced.map((item) => ({ type: 'removeSong' as const, songId: item.id })),
 			{ type: 'addSong', song: source },
 			{ type: 'updateProject', patch: { length: Math.max(project.length, Math.ceil(source.start + analysis.duration)) } }
 		]);
@@ -134,30 +138,46 @@ export class SourcesCx {
 
 	// MARK: - Song
 
-	/** Picks a new file of the same kind as the current song; the import then replaces it */
-	async replaceSong(): Promise<void> {
-		const song = this.studio.project == null ? undefined : songSource(this.studio.project);
-		if (song?.kind === 'audio') await this.pickAudio();
-		else await this.pickMidi();
+	/** Picks a new file of the same kind for a song; the import then replaces it */
+	async replaceSong(song: TSong): Promise<void> {
+		if (song.kind === 'audio') await this.pickAudio(song.id);
+		else await this.pickMidi(song.id);
 	}
 
 	/**
-	 * Deletes the Song layer: the song files and Backing go as one undo step, the marbles keep their hits. Asks
-	 * first only when Backing notes would be lost; the notice offers Undo.
+	 * Deletes a Song layer: its file and Backing go as one undo step, the marbles keep their hits. Asks first only when
+	 * Backing notes would be lost; the notice offers Undo.
 	 */
-	async deleteSong(): Promise<boolean> {
-		const project = this.studio.project;
-		if (project == null || !hasSongLayer(project)) return false;
-		const question = deleteSongQuestion(project);
+	async deleteSong(songId: string): Promise<boolean> {
+		const song = this.studio.project?.songs.find((item) => item.id === songId);
+		if (song == null) return false;
+		const question = deleteSongQuestion(song);
 		if (question != null && !(await this.studio.confirm({ question, detail: 'The marbles keep their hits.', action: 'Delete' }))) return false;
 		// The project may have changed while the alert was open
 		const current = this.studio.project;
-		if (current == null || !hasSongLayer(current)) return false;
-		const message = deleteSongNotice(current);
-		if (!this.studio.execute(deleteSongCommands(current))) return false;
-		this.studio.$selection.set(this.studio.$selection.get().filter((key) => key !== SONG_KEY));
+		const still = current?.songs.find((item) => item.id === songId);
+		if (current == null || still == null) return false;
+		const message = deleteSongNotice(still);
+		if (!this.studio.execute(deleteSongCommands(current, songId))) return false;
+		this.studio.$selection.set(this.studio.$selection.get().filter((key) => key !== toSongKey(songId)));
 		this.studio.notifyEdit(message);
 		return true;
+	}
+
+	/** Where a new song starts: after the lead-in when it is the first, at the playhead beside other songs, like Logic */
+	private nextStart(): number {
+		const project = this.studio.project;
+		const playhead = this.studio.$playhead.get();
+		return project != null && shownSongs(project).length > 0 && playhead > 0 ? Math.round(playhead * 1000) / 1000 : IMPORT_START;
+	}
+
+	/** Moves a song and everything tied to it as one undo step, no earlier than it can go */
+	moveSong(songId: string, start: number): boolean {
+		const project = this.studio.project;
+		const song = project?.songs.find((item) => item.id === songId);
+		if (project == null || song == null) return false;
+		const to = Math.round(Math.max(earliestSongStart(project, songId), start) * 10000) / 10000;
+		return to !== song.start && this.studio.execute(moveSongCommands(project, this.studio.simulation.$result.get(), songId, to));
 	}
 
 	/** Loads waveform and onsets for audio sources of a reopened project */
@@ -203,6 +223,10 @@ export class SourcesCx {
 export interface TMidiImport {
 	file: THostPickedFile;
 	midi: TMidiFile;
+	// Timeline time of the song's first note
+	start?: number;
+	// The song this file takes the place of
+	replaces?: string;
 	trackIds: string[];
 	options: TProposeMarblesOptions;
 }
@@ -215,12 +239,6 @@ export interface TSourceAnalysis {
 	onsets: number[];
 }
 
-/** The project's song with a file: the recording when there is one, since it is what plays, otherwise the first with a file */
-export function songSource(project: TProject): TSong | undefined {
-	const files = project.songs.filter((song) => song.path != null);
-	return files.find((song) => song.kind === 'audio') ?? files[0];
-}
-
 /** What a new file takes over from the songs it replaces, which outlives their files: Backing, its sound and the tempo */
 function carriedOver(replaced: readonly TSong[]): Pick<TSong, 'backing' | 'backingSound' | 'tempo'> {
 	const backingSound = replaced.find((song) => song.backingSound != null)?.backingSound;
@@ -231,12 +249,13 @@ function carriedOver(replaced: readonly TSong[]): Pick<TSong, 'backing' | 'backi
 /**
  * What an import makes with the current settings: notes of the chosen tracks spread over marbles, and Backing for
  * the notes no marble can play and for the other melodic tracks. Drum tracks are left out, as the instrument bank
- * has no drums. Every note moves by the same offset, so the first note of the song starts at the import start.
+ * has no drums. Every note moves by the same offset, so the first note of the song starts at its start.
  */
 export function previewMidiImport(pending: TMidiImport): TMidiImportPreview {
 	const melodic = pending.midi.tracks.filter((track) => pending.trackIds.includes(track.id) || !track.isDrums);
 	const first = melodic.flatMap((track) => track.notes).reduce((min, note) => Math.min(min, note.time), Number.POSITIVE_INFINITY);
-	const offset = Number.isFinite(first) ? IMPORT_START - first : IMPORT_START;
+	const start = pending.start ?? IMPORT_START;
+	const offset = Number.isFinite(first) ? start - first : start;
 	const shift = (notes: TMidiNote[]): TMidiNote[] => notes.map((note) => ({ ...note, time: note.time + offset }));
 	const chosen = melodic.filter((track) => pending.trackIds.includes(track.id));
 	const others = melodic.filter((track) => !pending.trackIds.includes(track.id));

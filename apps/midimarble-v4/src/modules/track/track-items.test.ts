@@ -314,7 +314,7 @@ describe('an added note', () => {
 		const marble = project.marbles[0];
 		if (marble == null) throw new Error('expected a marble');
 		const last = Math.max(...marble.hits.map((hit) => hit.time));
-		const { hit, commands } = addNoteCommands(marble.id, { time: last + 0.5, pitch: 67, duration: 0.25 });
+		const { hit, commands } = addNoteCommands(marble.id, 'song', { time: last + 0.5, pitch: 67, duration: 0.25 });
 		const [isOk, error, added] = applyProjectCommands(project, commands);
 		if (!isOk) throw error;
 		const history = pushHistory(createHistory(project), added);

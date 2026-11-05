@@ -218,7 +218,7 @@ describe('MCP tools', () => {
 		expect(state.gravity).toEqual({ value: 0.5, default: 0.5, range: [0.05, 2] });
 		expect(state.wall).toMatchObject({ own: {} });
 		expect((state.wall as { kind: string }).kind).toBeTypeOf('string');
-		expect(state.marbles[0]).toMatchObject({ marbleId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y'], hitList: [['hit1', 1, 'C4', 'open', 0, -1]] });
+		expect(state.marbles[0]).toMatchObject({ marbleId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y', 'songId'], hitList: [['hit1', 1, 'C4', 'open', 0, -1, null]] });
 	});
 
 	it('should select a marble and a title by their IDs', async () => {
@@ -269,7 +269,7 @@ describe('MCP tools', () => {
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.project.format).toEqual({ width: 9, height: 16 });
 		expect(state.quality).toBe('final');
-		expect(state.song.songs).toEqual([{ id: 'song-1', name: 'Song.wav', kind: 'audio', start: 1 }]);
+		expect(state.song.songs).toEqual([{ id: 'song-1', name: 'Song.wav', kind: 'audio', start: 1, backingNotes: 0 }]);
 		expect(state.marbles[0]).toMatchObject({ marbleId, start: { x: 0, y: 0 } });
 		expect(state.marbles[0]).not.toHaveProperty('entityId');
 		expect(state.camera).toEqual({ auto: true, distance: 1.36, tilt: 1, sway: 1, shots: [] });

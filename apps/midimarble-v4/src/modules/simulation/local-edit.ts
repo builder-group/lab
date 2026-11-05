@@ -1,4 +1,4 @@
-import { type TPiece, type TProject, type TVec2, tieOf, type TPlays } from '@/modules/project';
+import { type TMarble, type TPiece, type TProject, type TVec2, tieOf, type TPlays } from '@/modules/project';
 import { gravityOf } from './geometry';
 import { getPieceDefinition, soundsHit } from './pieces';
 import { trajectoryAt, type TSimulator } from './simulate';
@@ -539,6 +539,7 @@ export function marbleEdits(before: TProject, after: TProject): TMarbleEdit[] {
 	for (const marble of after.marbles) {
 		const old = before.marbles.find((item) => item.id === marble.id);
 		if (old == null) continue;
+		if (isWholeRunMoved(old, marble) && physicsOfMarble(before, marble.id) === physicsOfMarble(after, marble.id)) continue;
 		let last = -2;
 		for (const [index, hit] of marble.hits.entries()) {
 			const was = old.hits.find((item) => item.id === hit.id);
@@ -566,6 +567,24 @@ export function marbleEdits(before: TProject, after: TProject): TMarbleEdit[] {
 		else if (hasOtherChange(before, after, marble.id)) edits.push({ marbleId: marble.id, afterIndex: marble.hits.length });
 	}
 	return edits;
+}
+
+function physicsOfMarble(project: TProject, marbleId: string): string {
+	return project.track.pieces
+		.filter((piece) => tieOf(piece)?.marbleId === marbleId)
+		.map(physicsOf)
+		.join();
+}
+
+/** Whether a marble's start and every hit moved by the same time, as a song does with a marble that plays only it: the same run, later */
+function isWholeRunMoved(before: TMarble, after: TMarble): boolean {
+	const delta = after.start.time - before.start.time;
+	if (delta === 0 || before.hits.length !== after.hits.length) return false;
+	if (JSON.stringify({ ...before.start, time: 0 }) !== JSON.stringify({ ...after.start, time: 0 })) return false;
+	return after.hits.every((hit, index) => {
+		const was = before.hits[index];
+		return was?.id === hit.id && Math.abs(hit.time - was.time - delta) < 1e-5;
+	});
 }
 
 /**

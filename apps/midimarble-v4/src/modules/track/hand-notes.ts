@@ -1,6 +1,6 @@
 import type { TMenuEntry } from '@/components';
 import { canMakeBacking, assignNotesCommands, newMarbleCommands } from '@/modules/building';
-import { BACKING_COLOR, DEFAULT_BACKING_INSTRUMENT, soundsNotes } from '@/modules/music';
+import { BACKING_COLOR, DEFAULT_BACKING_INSTRUMENT } from '@/modules/music';
 import { BACKING_ID, createMarble, type THit, type TProject, type TProjectCommand, parseHitKey, toHitKey, tieOf, backingOf, backingSong } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
@@ -120,16 +120,16 @@ export function isNoteSelection(keys: string[]): boolean {
 	return keys.length > 0 && keys.every((key) => parseHitKey(key) != null);
 }
 
-/** Plays a note as feedback, with its Part's Sound; a hit without a pitch plays nothing */
-export function auditionNote(cx: StudioCx, ownerId: string, pitch?: number): void {
+/** Plays a note as feedback, with its marble's Sound; a hit without a pitch plays nothing */
+export function auditionNote(cx: StudioCx, ownerId: string, pitch?: number, songId?: string): void {
 	const project = cx.project;
 	if (project == null) return;
 	if (ownerId !== BACKING_ID) {
 		cx.audition(ownerId, pitch);
 		return;
 	}
-	if (pitch == null || !soundsNotes(project)) return;
-	const instrument = backingSong(project)?.backingSound ?? DEFAULT_BACKING_INSTRUMENT;
+	if (pitch == null) return;
+	const instrument = (project.songs.find((song) => song.id === songId) ?? backingSong(project))?.backingSound ?? DEFAULT_BACKING_INSTRUMENT;
 	void cx.audio.audition({ ...createMarble(0, { x: 0, y: 0 }, BACKING_ID), name: 'Backing', labelColor: BACKING_COLOR, sound: instrument }, pitch);
 }
 

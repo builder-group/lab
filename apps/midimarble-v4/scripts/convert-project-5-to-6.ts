@@ -60,8 +60,11 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 
 	const groups = (raw.groups ?? []).map((group: TAny) => convertGroup(group, lanes, marbleId, notes));
 	const songs = convertSongs(raw.music, notes);
+	// A MIDI note belongs to its file; in a project with only a recording every hit was made against it
 	const midiSongId = songs.find((song: TAny) => song.kind === 'midi' && song.path != null)?.id;
-	const tied = midiSongId == null ? marbles : marbles.map((marble) => ({ ...marble, hits: marble.hits.map((hit: TAny) => (hit.pitch != null ? { ...hit, songId: midiSongId } : hit)) }));
+	const recordingId = songs.find((song: TAny) => song.kind === 'audio' && song.path != null)?.id;
+	const songOf = (hit: TAny): string | undefined => (midiSongId != null ? (hit.pitch != null ? midiSongId : undefined) : recordingId);
+	const tied = marbles.map((marble) => ({ ...marble, hits: marble.hits.map((hit: TAny) => (songOf(hit) != null ? { ...hit, songId: songOf(hit) } : hit)) }));
 
 	// A marble's start Rail is found by its ID, which says whose it is
 	const startRails = new Map([...marbleIdOf].map(([laneId, id]) => [`start-rail-${laneId}`.slice(0, 64), `start-rail-${id}`.slice(0, 64)]));

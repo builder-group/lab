@@ -1,6 +1,6 @@
 import { cachedFollowCameraTrack, framingStretches, isInFrame, type TCameraTrack, type TFramingStretch } from '@/modules/camera';
 import { hitReach, isUnreachable, reachStatus } from './reachability';
-import { hasSong } from '@/modules/music';
+import { hasSong, marbleSounds } from '@/modules/music';
 import type { TProject, TVec2 } from '@/modules/project';
 import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, passThroughs, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, CAMERA_KEY, toHitKey, tieOf } from '@/modules/project';
@@ -70,9 +70,9 @@ const preflightMemo = new WeakMap<TSimulationResult, { project: TProject; blende
 
 export const ADD_SONG_LABEL = 'Add a Song';
 
-/** An older project can have hits without a Song; it plays silently and exports silently, which the sheet warns of */
+/** Hits without a Song or a note play silently and export silently, which the sheet warns of */
 function songIssues(project: TProject): TPreflightIssue[] {
-	if (hasSong(project) || countHits(project) === 0) return [];
+	if (hasSong(project) || countHits(project) === 0 || project.marbles.some((marble) => marbleSounds(project, marble))) return [];
 	return [{ id: 'song', kind: 'song', severity: 'warning', title: ADD_SONG_LABEL, detail: 'This project has hits but no song, so the film has no sound.', target: null }];
 }
 

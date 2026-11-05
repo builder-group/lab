@@ -298,7 +298,8 @@ describe('applyProjectCommands function', () => {
 	const commands: { [GType in TProjectCommand['type']]: Extract<TProjectCommand, { type: GType }> } = {
 		updateProject: { type: 'updateProject', patch: { title: 'New', length: 20 } },
 		addSong: { type: 'addSong', song: { ...song('s2'), backing: [{ id: 'y', time: 2 }, { id: 'x', time: 1 }] } },
-		updateSong: { type: 'updateSong', songId: 's', patch: { start: 2, path: null } },
+		updateSong: { type: 'updateSong', songId: 's', patch: { name: 'Mine', path: null } },
+		moveSong: { type: 'moveSong', songId: 's', start: 2 },
 		removeSong: { type: 'removeSong', songId: 's' },
 		addMarble: { type: 'addMarble', marble: { ...createMarble(2, { x: 1, y: 0 }, 'marble-2'), hits: [{ id: 'z', time: 2 }, { id: 'w', time: 1 }] } },
 		updateMarble: { type: 'updateMarble', marbleId: 'marble-1', patch: { name: 'Bass', hits: [{ id: 'd', time: 2 }, { id: 'e', time: 1 }] } },

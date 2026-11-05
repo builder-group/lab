@@ -2,8 +2,8 @@ import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
-import { amendHistory, applyProjectCommands, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_KEY, isFilmLayerKey, parseGroupKey, parseHitKey, stepHitTarget, toHitKey, tieOf } from '@/modules/project';
+import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, type TAudioEngine, type TMix } from '@/modules/music';
+import { amendHistory, applyProjectCommands, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_KEY, isFilmLayerKey, parseGroupKey, parseHitKey, stepHitTarget, toHitKey, tieOf, songPlayingAt } from '@/modules/project';
 import type { TClipboard } from './clipboard';
 import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
@@ -82,8 +82,8 @@ export class StudioCx {
 	// Zero fits the timeline to its marbles until the user drags it to a height of their own
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));
 	readonly $paletteOpen = createState(false);
-	/** Muted and soloed Parts of the Song. View state, not saved; each opened project starts with everything on. */
-	readonly $mix = createState<TSongMix>(EMPTY_MIX);
+	/** Muted and soloed marbles and songs. View state, not saved; each opened project starts with everything on. */
+	readonly $mix = createState<TMix>(EMPTY_MIX);
 	/** The hits a marble just landed while playing, for their dots to flash (`useHitFlash`) */
 	readonly $hitFlash = createState<THitFlash[]>([]);
 	/** The mounted Track canvas, so commands and menus outside it can drive its tools */
@@ -253,13 +253,12 @@ export class StudioCx {
 	};
 
 	/**
-	 * Plays a note of the Song as feedback when it is placed or selected. The Song is the only sound, so a tapped hit
-	 * has nothing to play, and neither has a project without a Song or with a recording, which has no notes to pick.
+	 * Plays a note as feedback when it is placed or selected, with its marble's Sound. A tapped hit has nothing to play.
 	 */
 	audition(marbleId: string, pitch?: number): void {
 		const project = this.project;
 		const marble = project?.marbles.find((item) => item.id === marbleId);
-		if (project == null || marble == null || pitch == null || !soundsNotes(project)) return;
+		if (project == null || marble == null || pitch == null) return;
 		void this.audio.audition(marble, pitch);
 	}
 
@@ -271,7 +270,7 @@ export class StudioCx {
 
 	/**
 	 * Starts hearing a playhead drag, from the press, which is the gesture WebKit asks for. What plays is the soundtrack
-	 * with the Parts' mute and solo. While playing, a drag already restarts playback at each position, so it adds nothing.
+	 * with its Mute and Solo. While playing, a drag already restarts playback at each position, so it adds nothing.
 	 */
 	beginAudioScrub(): void {
 		const project = this.project;
@@ -861,12 +860,12 @@ export class StudioCx {
 		this.$panels.set((panels) => ({ ...panels, [panel]: !panels[panel] }));
 	}
 
-	toggleMute(partId: string): void {
-		this.$mix.set((mix) => ({ ...mix, muted: toggleItem(mix.muted, partId) }));
+	toggleMute(id: string): void {
+		this.$mix.set((mix) => ({ ...mix, muted: toggleItem(mix.muted, id) }));
 	}
 
-	toggleSolo(partId: string): void {
-		this.$mix.set((mix) => ({ ...mix, solo: toggleItem(mix.solo, partId) }));
+	toggleSolo(id: string): void {
+		this.$mix.set((mix) => ({ ...mix, solo: toggleItem(mix.solo, id) }));
 	}
 
 	/**
@@ -918,7 +917,9 @@ export class StudioCx {
 		this.tapSession ??= { isAutoEnd: isAutoEnd(project), hasTapped: false };
 		const time = tapTime(marble.hits, this.audio.getTime());
 		if (time == null) return;
-		const hit = { id: createId('hit'), time };
+		// Tapped along with a song, so it stays in sync with it
+		const song = songPlayingAt(project, time);
+		const hit = { id: createId('hit'), time, ...(song != null ? { songId: song.id } : {}) };
 		if (this.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [hit] }])) this.tapSession.hasTapped = true;
 	}
 

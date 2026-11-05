@@ -1,7 +1,7 @@
 import React from 'react';
 import { isEditingTarget, isTextEntryTarget } from '@/lib';
 import { deleteSelectedHits, getCommand, isCommandEnabled } from './commands';
-import { CAMERA_KEY, isFilmLayerKey, parseMadeInBlenderKey, SONG_KEY, WALL_KEY } from '@/modules/project';
+import { CAMERA_KEY, isFilmLayerKey, parseMadeInBlenderKey, WALL_KEY, parseSongKey } from '@/modules/project';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 
 /**
@@ -96,16 +96,17 @@ export function useStudioShortcuts(cx: StudioCx): void {
 			}
 			// A selected Song, Camera, Wall or light layer keeps Return's meaning, like an empty selection
 			const selection = cx.$selection.get();
-			const isLayersOnly = selection.every((key) => key === SONG_KEY || key === CAMERA_KEY || key === WALL_KEY || isFilmLayerKey(key) || parseMadeInBlenderKey(key) != null);
+			const isLayersOnly = selection.every((key) => parseSongKey(key) != null || key === CAMERA_KEY || key === WALL_KEY || isFilmLayerKey(key) || parseMadeInBlenderKey(key) != null);
 			if ((event.key === 'Enter' || event.key === 'Home') && !cx.$playing.get() && isLayersOnly) {
 				cx.$playhead.set(0);
 				return;
 			}
 			if (event.key === 'Backspace' || event.key === 'Delete' || (key === 'x' && !event.shiftKey)) {
-				// The Song layer alone deletes the song file and Backing, asking first when Backing notes would go
-				if (selection.length === 1 && selection[0] === SONG_KEY) {
+				// A Song layer alone deletes its file and Backing, asking first when Backing notes would go
+				const songId = selection.length === 1 ? parseSongKey(selection[0] ?? '') : null;
+				if (songId != null) {
 					event.preventDefault();
-					void cx.sources.deleteSong();
+					void cx.sources.deleteSong(songId);
 					return;
 				}
 				if (deleteSelectedHits(cx)) event.preventDefault();

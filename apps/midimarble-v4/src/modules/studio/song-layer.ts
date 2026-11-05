@@ -1,43 +1,48 @@
 import { hasSong } from '@/modules/music';
-import { type TProject, type TProjectCommand, backingOf } from '@/modules/project';
-import { songSource } from './SourcesCx';
+import { parseSongKey, shownSongs, type TProject, type TProjectCommand, type TSong } from '@/modules/project';
 
 /**
- * The Song layer is optional: it exists while the project has a song file or Backing notes. A new project and a
- * project of tapped hits have none, so Layers and the timeline show no Song row until a song is imported.
+ * A Song layer is optional: one exists per song with a file or Backing notes. A new project and a project of tapped hits
+ * have none, so Layers and the timeline show no Song row until a song is imported.
  */
 export function hasSongLayer(project: TProject): boolean {
 	return hasSong(project);
 }
 
-/** The Song layer's name in Layers and the timeline; its file is the subtitle */
+/** A Song layer's name in Layers and the timeline; its file is the subtitle */
 export const SONG_LAYER_LABEL = 'Song';
 
-/** What notices call the song: its file's name, or "Song" for Backing notes left without a file */
-export function songLayerName(project: TProject): string {
-	return songSource(project)?.name ?? SONG_LAYER_LABEL;
+/** What notices call a song: its file's name, or "Song" for Backing notes left without a file */
+export function songLayerName(song: TSong): string {
+	return song.path != null ? song.name : SONG_LAYER_LABEL;
+}
+
+/** The song an action without a song named is for: the selected one, or the only one */
+export function targetSong(project: TProject, selection: readonly string[]): TSong | undefined {
+	const songs = shownSongs(project);
+	const selected = selection.flatMap((key) => parseSongKey(key) ?? []);
+	return songs.find((song) => selected.includes(song.id)) ?? (songs.length === 1 ? songs[0] : undefined);
 }
 
 /**
- * Deleting the Song layer removes the song files and Backing as one edit; the marbles keep their hits, which
- * are theirs and not the song's
+ * Deleting a Song layer removes its file and Backing as one edit; the marbles keep their hits, which lose the tie and
+ * stay where they are
  */
-export function deleteSongCommands(project: TProject): TProjectCommand[] {
-	if (!hasSongLayer(project)) return [];
-	return project.songs.map((song) => ({ type: 'removeSong', songId: song.id }));
+export function deleteSongCommands(project: TProject, songId: string): TProjectCommand[] {
+	return project.songs.some((song) => song.id === songId) ? [{ type: 'removeSong', songId }] : [];
 }
 
-/** The confirmation before deleting the Song layer, only when Backing notes would be lost with it */
-export function deleteSongQuestion(project: TProject): string | null {
-	const count = backingOf(project).length;
+/** The confirmation before deleting a Song layer, only when Backing notes would be lost with it */
+export function deleteSongQuestion(song: TSong): string | null {
+	const count = song.backing.length;
 	if (count === 0) return null;
-	return `Delete ${songLayerName(project)} and its ${backingNotes(count)}?`;
+	return `Delete ${songLayerName(song)} and its ${backingNotes(count)}?`;
 }
 
-/** The notice after deleting the Song layer, with Undo beside it */
-export function deleteSongNotice(project: TProject): string {
-	const count = backingOf(project).length;
-	const name = songLayerName(project);
+/** The notice after deleting a Song layer, with Undo beside it */
+export function deleteSongNotice(song: TSong): string {
+	const count = song.backing.length;
+	const name = songLayerName(song);
 	return count > 0 ? `Deleted ${name} and its ${backingNotes(count)}. The marbles keep their hits.` : `Deleted ${name}. The marbles keep their hits.`;
 }
 

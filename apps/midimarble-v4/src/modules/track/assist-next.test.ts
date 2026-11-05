@@ -10,6 +10,8 @@ function studio(assists: Record<string, unknown>): { cx: StudioCx; project: TPro
 	const project: TProject = { ...created, marbles: [marble] };
 	const hit = { marbleId: marble.id, hitId: 'hit1', targetTime: 1, pieceId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' } as unknown as THitResult;
 	const cx = new StudioCx();
+	// Placing a note plays it, and tests have no audio
+	cx.audition = () => undefined;
 	cx.$history.set(createHistory(project));
 	Object.defineProperty(cx.simulation, 'assists', { get: () => assists });
 	cx.simulation.$result.set({ revision: project.revision, duration: project.length, marbles: [], pieces: [], contacts: [], hits: [hit], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult);

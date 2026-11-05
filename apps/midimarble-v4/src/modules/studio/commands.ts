@@ -6,7 +6,7 @@ import { $rollHasFocus } from './timeline/timeline-state';
 import type { TMenuItem } from '@/components';
 import { newProjectTitle } from '@/environment';
 import type { TrackCx } from '@/modules/track';
-import { BACKING_ID, type TMarble, type TProject, CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey, tieOf } from '@/modules/project';
+import { BACKING_ID, type TMarble, type TProject, CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey, tieOf, parseSongKey, shownSongs, type TSong, toSongKey } from '@/modules/project';
 import { isSuperseded, PIECE_TYPES, pieceDefinitions, soundsHit, type TPieceType, type TSimulationResult } from '@/modules/simulation';
 import { deleteThemeCommands, resolveTheme, deleteDecorCommands, duplicateDecorCommands, selectedDecorIds, addLightCommands, deleteLightsCommands, addShotCommands, removeShotsCommands } from '@/modules/scene';
 import { openScatterPanel } from '@/modules/film';
@@ -15,7 +15,7 @@ import { shownRepeatRange } from './repeat-range';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
 import { pasteFilmCommands } from './clipboard';
 import { duplicateClear, freePieces, pasteClear, type TClearDuplicate } from './duplicate';
-import { hasSongLayer } from './song-layer';
+import { hasSongLayer, targetSong } from './song-layer';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
 // Every studio command in one list. The command palette lists them all; context menus and the
@@ -64,9 +64,14 @@ function hasSong(cx: StudioCx): boolean {
 	return cx.project != null && hasSongLayer(cx.project);
 }
 
-/** Whether the Song layer is selected, in Layers or in the timeline */
+/** The song selected in Layers or the timeline, or the only one */
+function currentSong(cx: StudioCx): TSong | undefined {
+	return cx.project == null ? undefined : targetSong(cx.project, cx.$selection.get());
+}
+
+/** Whether a Song layer is selected, in Layers or in the timeline */
 function isSongSelected(cx: StudioCx): boolean {
-	return hasSong(cx) && cx.$selection.get().includes(SONG_KEY);
+	return hasSong(cx) && cx.$selection.get().some((key) => parseSongKey(key) != null);
 }
 
 /** Added lights in the selection; the Key Light can't be deleted */
@@ -343,8 +348,14 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.saveAs', title: 'Save As…', section: 'File', shortcut: '⇧⌘S', keywords: 'copy duplicate keep elsewhere', isEnabled: hasProject, run: (cx) => void cx.saveAs() },
 	{ id: 'file.revert', title: 'Revert to Opened…', section: 'File', keywords: 'back restore undo all discard last saved', isEnabled: (cx) => cx.canRevert(), run: (cx) => void cx.revertToOpened() },
 	{ id: 'file.importMidi', title: 'Import Song…', section: 'File', shortcut: '⌘I', keywords: 'midi recording audio wav mp3 music', isEnabled: hasProject, run: (cx) => void cx.importSong() },
-	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: hasSong, run: (cx) => void cx.sources.replaceSong() },
-	{ id: 'file.removeSong', title: 'Delete Song', section: 'File', keywords: 'music midi audio soundtrack remove backing', isEnabled: hasSong, run: (cx) => void cx.sources.deleteSong() },
+	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: (cx) => currentSong(cx)?.path != null, run: (cx) => {
+			const song = currentSong(cx);
+			if (song != null) void cx.sources.replaceSong(song);
+		} },
+	{ id: 'file.removeSong', title: 'Delete Song', section: 'File', keywords: 'music midi audio soundtrack remove backing', isEnabled: (cx) => currentSong(cx) != null, run: (cx) => {
+			const song = currentSong(cx);
+			if (song != null) void cx.sources.deleteSong(song.id);
+		} },
 	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.filmExport.openSheet() },
 
 	// MARK: - Edit
@@ -359,9 +370,10 @@ export const commands: readonly TCommand[] = [
 		keywords: 'remove',
 		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || selectedShotIds(cx).length > 0 || (inFilm(cx) && (selectedLightIds(cx).length > 0 || selectedDecorIds(cx.$selection.get()).length > 0 || selectedTitleIds(cx).length > 0)) || isSongSelected(cx),
 		run: (cx) => {
-			// The Song layer alone deletes the song file and Backing; the marbles keep their hits
-			if (isSongSelected(cx) && cx.$selection.get().length === 1) {
-				void cx.sources.deleteSong();
+			// A Song layer alone deletes its file and Backing; the marbles keep their hits
+			const songId = cx.$selection.get().length === 1 ? parseSongKey(cx.$selection.get()[0] ?? '') : null;
+			if (songId != null) {
+				void cx.sources.deleteSong(songId);
 				return;
 			}
 			if (trackCx(cx)?.deleteSelection() === true) return;
@@ -663,9 +675,12 @@ export const commands: readonly TCommand[] = [
 		id: 'layer.song',
 		title: 'Song',
 		section: 'Marble',
-		keywords: 'solo mute listen hear isolate parts sound instrument tempo backing',
+		keywords: 'solo mute listen hear isolate sound instrument tempo backing',
 		isEnabled: hasSong,
-		run: (cx) => cx.$selection.set([SONG_KEY])
+		run: (cx) => {
+			const song = cx.project == null ? undefined : shownSongs(cx.project)[0];
+			if (song != null) cx.$selection.set([toSongKey(song.id)]);
+		}
 	},
 	{
 		id: 'film.format',

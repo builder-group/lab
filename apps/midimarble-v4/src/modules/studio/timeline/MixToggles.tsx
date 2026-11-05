@@ -3,8 +3,8 @@ import { Headphones, Volume2, VolumeOff } from 'lucide-react';
 import React from 'react';
 import type { StudioCx } from '../StudioCx';
 
-/** Mute and Solo icon toggles for a Part, or for a recording's one Song, like GarageBand's track header */
-export const PartToggles: React.FC<{ cx: StudioCx; id: string; name: string }> = (props) => {
+/** Mute and Solo icon toggles of a marble or a song, like GarageBand's track header */
+export const MixToggles: React.FC<{ cx: StudioCx; id: string; name: string }> = (props) => {
 	const { cx, id, name } = props;
 	const mix = useFeatureState(cx.$mix);
 	const isMuted = mix.muted.includes(id);

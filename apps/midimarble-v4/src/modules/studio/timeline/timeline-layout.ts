@@ -8,8 +8,6 @@ export const ROW_HEIGHT = 44;
 // The slim Pattern strip above a marble's hits in Track (prototype); the hits sit in the rest of the row
 export const PATTERN_STRIP_HEIGHT = 16;
 export const SONG_ROW_HEIGHT = 40;
-// One Part of the expanded Song, below its piano roll
-export const PART_ROW_HEIGHT = 28;
 // The expanded Song piano roll scrolls inside this height, so the canvas and the marble tracks stay in view
 export const SONG_ROLL_MAX_HEIGHT = 240;
 // Transport bar above the ruler
@@ -20,9 +18,44 @@ export const CAMERA_ROW_HEIGHT = 32;
 export const NOTE_ROW_HEIGHT = 12;
 // Keyboard strip at the right of the expanded Song header
 export const KEYBOARD_WIDTH = 40;
+// Pixels a hit, a note or a song must move sideways before its time changes, like the drag threshold of Logic's regions
+export const TIME_DEAD_ZONE = 5;
+// A dragged song lands on this grid in seconds, like a timeline's snapping. It is whole physics steps at the rate pieces wake
+// up (6 of 240 Hz), so its marbles' runs stay what they were and only start later.
+export const SONG_MOVE_STEP = 0.025;
 export const MIN_ZOOM = 20;
 export const MAX_ZOOM = 800;
 export const MIN_HEIGHT = 120;
+
+/** The tint of a song's clip and of the line under the hits tied to it: quiet for the first song, then one each */
+const SONG_TINTS = ['var(--text-tertiary)', '#2fb5a8', '#a77ce8', '#e0749c'];
+
+export function songTint(index: number): string {
+	return SONG_TINTS[Math.max(0, index) % SONG_TINTS.length] ?? 'var(--text-tertiary)';
+}
+
+/** The stretches of a marble's hits tied to one song, in time order. A hit of its own or of another song ends a stretch. */
+export function tieSpans(hits: readonly { time: number; songId?: string | undefined }[]): TTieSpan[] {
+	const spans: TTieSpan[] = [];
+	let open = null as TTieSpan | null;
+	for (const hit of [...hits].sort((a, b) => a.time - b.time)) {
+		if (hit.songId == null) {
+			open = null;
+		} else if (open?.songId === hit.songId) {
+			open.to = hit.time;
+		} else {
+			open = { songId: hit.songId, from: hit.time, to: hit.time };
+			spans.push(open);
+		}
+	}
+	return spans;
+}
+
+export interface TTieSpan {
+	songId: string;
+	from: number;
+	to: number;
+}
 
 /** Height that shows every track with a little room, like a video editor sizing its timeline to the tracks */
 export function fittedHeight(rowsHeight: number): number {

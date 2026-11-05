@@ -99,7 +99,7 @@ export function usePlayback(cx: StudioCx): void {
 		};
 		if (cx.project != null) schedule();
 		const stopPath = cx.$path.listen(schedule);
-		// A Part muted or soloed while stopped is rendered now too, so the next Play or playhead drag has it at once
+		// A marble or song muted or soloed while stopped is rendered now too, so the next Play or playhead drag has it at once
 		const stopMix = cx.$mix.listen(schedule);
 		return () => {
 			stopPath();
@@ -108,7 +108,7 @@ export function usePlayback(cx: StudioCx): void {
 		};
 	}, [cx]);
 
-	// Muting or soloing a Part while playing takes effect immediately, like a mixer
+	// Muting or soloing while playing takes effect immediately, like a mixer
 	useListener(cx.$mix, ({ value }) => {
 		const project = cx.project;
 		if (!cx.$playing.get() || project == null) return;

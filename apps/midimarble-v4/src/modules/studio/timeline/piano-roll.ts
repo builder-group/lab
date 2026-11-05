@@ -1,5 +1,5 @@
 import { MAX_BACKING_NOTE_LENGTH, MAX_NOTE_LENGTH } from '@/modules/music';
-import { BACKING_ID, createId, type THit, type TProject, type TProjectCommand, type TSong, toHitKey, backingOf } from '@/modules/project';
+import { BACKING_ID, createId, hitsOfSong, type THit, type TProject, type TProjectCommand, type TSong, toHitKey, backingOf } from '@/modules/project';
 import { round } from './timeline-layout';
 
 // Semitones shown above the highest and below the lowest note of the Song's piano roll
@@ -10,10 +10,18 @@ const PITCH_MARGIN = 2;
  * is a flat waveform, whatever pitches its marbles' hits have, and a song without pitched notes has nothing to show.
  */
 export function songRollRange(project: TProject, song: TSong | undefined): TPitchRange | null {
-	if (song?.kind === 'audio') return null;
-	const pitches = [...project.marbles.flatMap((marble) => marble.hits), ...backingOf(project)].flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch]));
+	if (song == null || song.kind === 'audio') return null;
+	const pitches = hitsOfSong(project, song.id).flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch]));
 	if (!pitches.length) return null;
 	return { low: Math.max(0, Math.min(...pitches) - PITCH_MARGIN), high: Math.min(127, Math.max(...pitches) + PITCH_MARGIN) };
+}
+
+/** Where a song's clip lies on the timeline: its recording, and its notes as far as they reach; null with nothing to show */
+export function songSpan(project: TProject, song: TSong, duration: number | undefined): { from: number; to: number } | null {
+	const hits = hitsOfSong(project, song.id);
+	const recording = song.kind === 'audio' && song.path != null && duration != null ? [song.start, song.start + duration] : [];
+	const times = [...recording, ...hits.map((hit) => hit.time), ...hits.map((hit) => hit.time + (hit.duration ?? 0))];
+	return times.length ? { from: Math.min(...times), to: Math.max(...times) } : null;
 }
 
 /** The edit a note drag makes: every dragged hit or Backing note moves in time and, in the Song's piano roll, in pitch */
@@ -49,11 +57,11 @@ export function snapNoteTime(time: number, bpm: number | undefined, zoom: number
 }
 
 /**
- * The edit that adds a note: a hit with a pitch in a marble, so the run gets a dot for it, or a Backing note.
- * One command, so one undo step.
+ * The edit that adds a note in a song's piano roll: a hit with a pitch in a marble, tied to the song, so the run gets a dot
+ * for it, or a Backing note of that song. One command, so one undo step.
  */
-export function addNoteCommands(ownerId: string, note: { time: number; pitch: number; duration: number }): { hit: THit; commands: TProjectCommand[] } {
-	const hit: THit = { id: createId('hit'), time: round(note.time), pitch: note.pitch, duration: round(note.duration) };
+export function addNoteCommands(ownerId: string, songId: string, note: { time: number; pitch: number; duration: number }): { hit: THit; commands: TProjectCommand[] } {
+	const hit: THit = { id: createId('hit'), time: round(note.time), pitch: note.pitch, duration: round(note.duration), songId };
 	return { hit, commands: [{ type: 'upsertHits', marbleId: ownerId, hits: [hit] }] };
 }
 
