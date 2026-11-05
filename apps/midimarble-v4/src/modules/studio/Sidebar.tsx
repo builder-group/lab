@@ -201,7 +201,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		if (!isTinted(row) || row.kind === 'group') select(row);
 		if (row.kind === 'marble') openContextMenu(event, marbleMenu(cx, row.marble));
 		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
-		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
+		else if (row.kind === 'song') openContextMenu(event, songMenu(cx, row.source));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
 		else if (row.kind === 'title') openContextMenu(event, titleMenu(cx, row.title));
 		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
@@ -362,12 +362,12 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'scene':
 			return { icon: <Globe size={14} strokeWidth={1.75} />, label: 'Scene', title: 'The film as a whole: Gravity in Track, the theme and Format in Film' };
 		case 'song': {
-			const isRecording = row.source?.kind === 'audio';
+			const isRecording = row.source.path != null && row.source.kind === 'audio';
 			return {
 				icon: isRecording ? <AudioLines size={14} strokeWidth={1.75} /> : <Music size={14} strokeWidth={1.75} />,
 				label: row.label,
-				title: row.source == null ? 'Song · Backing' : isRecording ? `Song · Recording · ${row.source.name}` : `Song · MIDI · ${row.source.name}`,
-				subtitle: row.source?.name
+				title: row.source.path == null ? 'Song · Backing' : isRecording ? `Song · Recording · ${row.source.name}` : `Song · MIDI · ${row.source.name}`,
+				subtitle: row.source.name
 			};
 		}
 		case 'marble':

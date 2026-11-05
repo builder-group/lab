@@ -3,7 +3,7 @@ import React from 'react';
 import { openContextMenu } from '@/components';
 import { unreachableStatus, hitTiming, type THitTiming } from '@/modules/building';
 import { findMarbleConflicts, isHitAudible, MIN_HIT_GAP, type TMix } from '@/modules/music';
-import { SONG_KEY, type THit, type TMarble } from '@/modules/project';
+import { type THit, type TMarble, toSongKey } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { formatTime, noteName, toHitKey } from '@/modules/project';
 import { hitMenu, marbleMenu } from '../menus';
@@ -11,6 +11,7 @@ import type { StudioCx } from '../StudioCx';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from '../suggested-hits';
 import { offsetLabel } from '@/modules/canvas';
 import { PatternStrip } from './PatternStrip';
+import type { TPitchRange } from './piano-roll';
 import type { TSongMove } from './SongTrack';
 import { PATTERN_STRIP_HEIGHT, ROW_HEIGHT, tieSpans } from './timeline-layout';
 
@@ -50,7 +51,6 @@ export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
 	const hitsTop = isTrack ? PATTERN_STRIP_HEIGHT : 0;
 	const marquee = useMarquee(cx, marble, zoom, selection, timeAt, hitsTop);
 	const ties = React.useMemo(() => tieSpans(marble.hits), [marble.hits]);
-	const isSongSelected = selection.includes(SONG_KEY);
 
 	return (
 		<div
@@ -72,7 +72,7 @@ export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
 			) : null}
 			{ties.map((tie) => {
 				const shift = move?.songId === tie.songId ? move.delta : 0;
-				return <span key={`${tie.songId}:${tie.from}`} className="mm-tie-line" data-selected={isSongSelected} style={{ left: (tie.from + shift) * zoom - 3, width: (tie.to - tie.from) * zoom + 6, background: songTints.get(tie.songId) }} aria-hidden />;
+				return <span key={`${tie.songId}:${tie.from}`} className="mm-tie-line" data-selected={selection.includes(toSongKey(tie.songId))} style={{ left: (tie.from + shift) * zoom - 3, width: (tie.to - tie.from) * zoom + 6, background: songTints.get(tie.songId) }} aria-hidden />;
 			})}
 			{marble.hits.map((hit, index) => {
 				const key = toHitKey(marble.id, hit.id);
@@ -124,12 +124,14 @@ export interface TDrag {
 	// Semitones, only for drags that started in the Song's piano roll
 	pitchDelta: number;
 	isPitched: boolean;
+	// The piano roll it started in, which keeps its pitches
+	range: TPitchRange | null;
 	keys: string[];
 	// The grabbed note, auditioned at its new pitch on drop; `marbleId` is `BACKING_ID` for a Backing note
 	grabbed: { marbleId: string; hitId: string };
 }
 
-export type TDragStart = (hitKey: string, event: { clientX: number; clientY: number }, isPitched: boolean) => void;
+export type TDragStart = (hitKey: string, event: { clientX: number; clientY: number }, isPitched: boolean, range?: TPitchRange | null) => void;
 
 /** A hit diamond: click selects and plays its note if it has one, Shift-click toggles, drag moves */
 const HitButton: React.FC<THitButtonProps> = (props) => {

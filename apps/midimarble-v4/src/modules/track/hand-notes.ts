@@ -121,7 +121,7 @@ export function isNoteSelection(keys: string[]): boolean {
 }
 
 /** Plays a note as feedback, with its marble's Sound; a hit without a pitch plays nothing */
-export function auditionNote(cx: StudioCx, ownerId: string, pitch?: number): void {
+export function auditionNote(cx: StudioCx, ownerId: string, pitch?: number, songId?: string): void {
 	const project = cx.project;
 	if (project == null) return;
 	if (ownerId !== BACKING_ID) {
@@ -129,7 +129,7 @@ export function auditionNote(cx: StudioCx, ownerId: string, pitch?: number): voi
 		return;
 	}
 	if (pitch == null) return;
-	const instrument = backingSong(project)?.backingSound ?? DEFAULT_BACKING_INSTRUMENT;
+	const instrument = (project.songs.find((song) => song.id === songId) ?? backingSong(project))?.backingSound ?? DEFAULT_BACKING_INSTRUMENT;
 	void cx.audio.audition({ ...createMarble(0, { x: 0, y: 0 }, BACKING_ID), name: 'Backing', labelColor: BACKING_COLOR, sound: instrument }, pitch);
 }
 

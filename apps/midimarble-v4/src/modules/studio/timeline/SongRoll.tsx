@@ -51,8 +51,8 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 			cx.$selection.set(selected.has(note.key) ? selection.filter((key) => key !== note.key) : [...selection, note.key]);
 			return;
 		}
-		auditionNote(cx, note.ownerId, note.hit.pitch);
-		onDragStart(note.key, event, true);
+		auditionNote(cx, note.ownerId, note.hit.pitch, song.id);
+		onDragStart(note.key, event, true, range);
 	}
 
 	function startResize(note: TSongNote, event: React.PointerEvent): void {
@@ -74,7 +74,7 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 		const { hit, commands } = addNoteCommands(ownerId, song.id, { time, pitch, duration: $noteLength.get() });
 		if (!cx.execute(commands)) return;
 		cx.$selection.set([toHitKey(ownerId, hit.id)]);
-		auditionNote(cx, ownerId, pitch);
+		auditionNote(cx, ownerId, pitch, song.id);
 	}
 
 	function openNoteMenu(note: TSongNote, event: React.MouseEvent): void {

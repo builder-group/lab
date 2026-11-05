@@ -2,7 +2,7 @@ import type { TBlenderObject } from '@/modules/scene';
 import { preflightExport, problemSummary } from '@/modules/building';
 import { resolveElementLook, resolveTheme, keyLightLayer, wallLayer } from '@/modules/scene';
 import type { TPiece, TProject } from '@/modules/project';
-import { DEFAULT_GRAVITY, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey, backingOf, tempoOf, tieOf } from '@/modules/project';
+import { DEFAULT_GRAVITY, shownSongs, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey, backingOf, tempoOf, tieOf } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { hasSong } from '@/modules/music';
 
@@ -11,7 +11,7 @@ import { hasSong } from '@/modules/music';
 
 const MAX_PROBLEMS = 20;
 /** What each row of a marble's `hitList` holds; x and y are the hit's dot, null while the marble has not got there */
-const HIT_COLUMNS = ['hitId', 'time', 'note', 'status', 'x', 'y'];
+const HIT_COLUMNS = ['hitId', 'time', 'note', 'status', 'x', 'y', 'songId'];
 const MAX_PIECES = 200;
 
 export interface THitReport {
@@ -66,7 +66,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		playhead: round(view.playhead),
 		isPlaying: view.isPlaying,
 		selection: view.selection,
-		song: hasSong(project) ? { songs: project.songs.filter((song) => song.path != null).map((song) => ({ id: song.id, name: song.name, kind: song.kind, start: song.start })), backingNotes: backingOf(project).length, tempo: tempoOf(project) ?? null } : null,
+		song: hasSong(project) ? { songs: shownSongs(project).map((song) => ({ id: song.id, name: song.name, kind: song.kind, start: song.start, backingNotes: song.backing.length, ...(song.backingSound != null ? { backingSound: song.backingSound } : {}) })), backingNotes: backingOf(project).length, tempo: tempoOf(project) ?? null } : null,
 		marbles: project.marbles.map((marble) => {
 			const own = hits.filter((hit) => hit.marbleId === marble.id);
 			return {
@@ -83,7 +83,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				hitColumns: HIT_COLUMNS,
 				hitList: marble.hits.map((hit) => {
 					const run = own.find((item) => item.hitId === hit.id);
-					return [hit.id, round(hit.time), hit.pitch != null ? noteName(hit.pitch) : null, run?.status ?? 'open', run?.dot != null ? round(run.dot.x) : null, run?.dot != null ? round(run.dot.y) : null];
+					return [hit.id, round(hit.time), hit.pitch != null ? noteName(hit.pitch) : null, run?.status ?? 'open', run?.dot != null ? round(run.dot.x) : null, run?.dot != null ? round(run.dot.y) : null, hit.songId ?? null];
 				})
 			};
 		}),

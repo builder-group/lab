@@ -12,7 +12,6 @@ import { BACKING_ID, type THit, type TMarble, type TProject, type TVec2, formatT
 import { getPieceDefinition } from '@/modules/simulation';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
 import { SONG_LAYER_LABEL } from './song-layer';
-import { songSource } from './SourcesCx';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
 /**
@@ -74,7 +73,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			);
 		}
 		case 'song':
-			return <SongInspector cx={cx} project={project} />;
+			return <SongInspector cx={cx} project={project} songId={target.id} />;
 		case 'camera':
 			return <CameraInspector cx={cx} project={project} />;
 		// Lights and Decor belong to Film; inspectorTarget shows the Scene for them in Track
@@ -403,30 +402,31 @@ const HitGlyph: React.FC<{ color?: string }> = (props) => {
  * The Song layer's inspector: the file and its kind, tempo and meter, and Replace Song…, then Backing with its note
  * count and Sound. The layer exists only while the project has a song file or Backing notes.
  */
-const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
-	const song = songSource(project) ?? backingSong(project);
-	const tempo = song?.tempo;
-	const backing = song?.backing ?? [];
-	const kind = song?.path == null ? 'Backing' : song.kind === 'audio' ? 'Recording' : 'MIDI';
+const SongInspector: React.FC<{ cx: StudioCx; project: TProject; songId: string }> = (props) => {
+	const { cx, project, songId } = props;
+	const song = project.songs.find((item) => item.id === songId);
+	if (song == null) return null;
+	const tempo = song.tempo;
+	const backing = song.backing;
+	const kind = song.path == null ? 'Backing' : song.kind === 'audio' ? 'Recording' : 'MIDI';
 
 	return (
 		<>
 			<InspectorHeader
-				icon={song?.path != null && song.kind === 'audio' ? <AudioLines size={16} strokeWidth={1.7} /> : <FileMusic size={16} strokeWidth={1.7} />}
+				icon={song.path != null && song.kind === 'audio' ? <AudioLines size={16} strokeWidth={1.7} /> : <FileMusic size={16} strokeWidth={1.7} />}
 				title={SONG_LAYER_LABEL}
-				subtitle={song?.path != null ? `${song.name} · ${kind}` : kind}
+				subtitle={song.path != null ? `${song.name} · ${kind}` : kind}
 			/>
 			<Panel id="song.file" title="Song">
-				{project.songs.filter((item) => item.path != null).map((source) => (
-					<ReadoutField key={source.id} label={source.kind === 'audio' ? 'Recording' : 'MIDI'} name={source.name} span={2}>
+				{song.path != null ? (
+					<ReadoutField label={song.kind === 'audio' ? 'Recording' : 'MIDI'} name={song.name} span={2}>
 						<span className="flex items-center gap-2">
-							{source.kind === 'audio' ? <AudioLines size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" /> : <FileMusic size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" />}
-							<span className="truncate">{source.name}</span>
+							{song.kind === 'audio' ? <AudioLines size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" /> : <FileMusic size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" />}
+							<span className="truncate">{song.name}</span>
 						</span>
 					</ReadoutField>
-				))}
-				{song != null ? <ScrubField id="song-start" label="Start" name="Start" span={2} value={song.start} unit="s" step={0.01} precision={2} onCommit={(value) => cx.sources.moveSong(song.id, value)} /> : null}
+				) : null}
+				<ScrubField id="song-start" label="Start" name="Start" span={2} value={song.start} unit="s" step={0.01} precision={2} onCommit={(value) => cx.sources.moveSong(song.id, value)} />
 				{tempo != null ? (
 					<>
 						<ReadoutField label="Tempo" name="Tempo">
@@ -437,11 +437,11 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 						</ReadoutField>
 					</>
 				) : null}
-				<button className="mm-button" data-span="2" onClick={() => void (song?.path == null ? cx.importSong() : cx.sources.replaceSong())} title="Choose another MIDI file or recording; the marbles keep their hits" type="button">
-					{song?.path == null ? 'Import Song…' : 'Replace Song…'}
+				<button className="mm-button" data-span="2" onClick={() => void (song.path == null ? cx.importSong() : cx.sources.replaceSong(song))} title="Choose another MIDI file or recording; the marbles keep their hits" type="button">
+					{song.path == null ? 'Import Song…' : 'Replace Song…'}
 				</button>
 			</Panel>
-			{song != null && backing.length > 0 ? (
+			{backing.length > 0 ? (
 				<Panel id="song.backing" title="Backing" accessory={<HelpTip text="The notes no marble plays, heard in the film with no platform needed." />}>
 					<ReadoutField label="Notes" name="Backing notes">
 						{backing.length}
@@ -450,7 +450,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 						id="backing-sound"
 						value={song.backingSound ?? DEFAULT_BACKING_INSTRUMENT}
 						onChange={(backingSound) => {
-							if (cx.execute([{ type: 'updateSong', songId: song.id, patch: { backingSound } }])) auditionNote(cx, BACKING_ID, firstPitch(backing));
+							if (cx.execute([{ type: 'updateSong', songId: song.id, patch: { backingSound } }])) auditionNote(cx, BACKING_ID, firstPitch(backing), song.id);
 						}}
 					/>
 				</Panel>

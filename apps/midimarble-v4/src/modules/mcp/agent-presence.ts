@@ -1,5 +1,5 @@
 import type { TProject } from '@/modules/project';
-import { formatTime, KEY_LIGHT_KEY, SONG_KEY, CAMERA_KEY, toDecorKey, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
+import { formatTime, KEY_LIGHT_KEY, toSongKey, CAMERA_KEY, toDecorKey, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
 
 // The words and the edit diff behind an agent's presence in the window: who is connected, what it is doing, what it
 // just touched.
@@ -148,7 +148,8 @@ export function touchedKeys(before: TProject, after: TProject): string[] {
 	const changedShots = isCamera.shots.filter((shot) => !isSame(shots.get(shot.id), shot));
 	for (const shot of changedShots) keys.push(toShotKey(shot.id));
 	if (!changedShots.length && !isSame(wasCamera, isCamera)) keys.push(CAMERA_KEY);
-	if (!isSame(songFiles(before), songFiles(after))) keys.push(SONG_KEY);
+	const songsBefore = new Map(before.songs.map((song) => [song.id, songFile(song)]));
+	for (const song of after.songs) if (!isSame(songsBefore.get(song.id), songFile(song))) keys.push(toSongKey(song.id));
 	return keys;
 }
 
@@ -158,6 +159,6 @@ function layersOf(project: TProject): { id: string }[] {
 }
 
 /** What says a song changed: not its notes, which are shown on their own */
-function songFiles(project: TProject): unknown[] {
-	return project.songs.map(({ id, name, kind, path, start }) => [id, name, kind, path, start]);
+function songFile({ id, name, kind, path, start }: TProject['songs'][number]): unknown[] {
+	return [id, name, kind, path, start];
 }

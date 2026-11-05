@@ -1,6 +1,5 @@
 import { addedLights } from '@/modules/scene';
-import { isPatternGroup, type TProject, CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseRangeKey, parseShotKey, SONG_KEY, WALL_KEY } from '@/modules/project';
-import { hasSongLayer } from './song-layer';
+import { isPatternGroup, type TProject, CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseRangeKey, parseShotKey, parseSongKey, shownSongs, WALL_KEY } from '@/modules/project';
 import type { TWorkspace } from './StudioCx';
 
 /**
@@ -67,7 +66,8 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 	if (blenderName != null) return { kind: 'madeInBlender', name: blenderName };
 
 	if (selected.has(WALL_KEY)) return { kind: 'wall' };
-	if (selected.has(SONG_KEY) && hasSongLayer(project)) return { kind: 'song' };
+	const songId = selection.flatMap((key) => parseSongKey(key) ?? [])[0];
+	if (songId != null && shownSongs(project).some((song) => song.id === songId)) return { kind: 'song', id: songId };
 	if (selected.has(CAMERA_KEY)) return { kind: 'camera' };
 	return { kind: 'scene' };
 }
@@ -86,6 +86,6 @@ export type TInspectorTarget =
 	| { kind: 'decorItems'; ids: string[] }
 	| { kind: 'madeInBlender'; name: string }
 	| { kind: 'wall' }
-	| { kind: 'song' }
+	| { kind: 'song'; id: string }
 	| { kind: 'camera' }
 	| { kind: 'scene' };

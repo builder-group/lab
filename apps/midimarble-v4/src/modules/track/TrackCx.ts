@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import type React from 'react';
 import * as THREE from 'three';
 import { isEditingTarget } from '@/lib';
-import { isPatternGroup, type TPiece, type TPatternGroup, type TPathNode, type TPlace, type TProject, type TVec2, formatTime, freePosition, noteName, CAMERA_KEY, parseHitKey, SONG_KEY, toHitKey, WALL_KEY, tieOf } from '@/modules/project';
+import { isPatternGroup, type TPiece, type TPatternGroup, type TPathNode, type TPlace, type TProject, type TVec2, formatTime, freePosition, noteName, CAMERA_KEY, parseHitKey, parseSongKey, toHitKey, WALL_KEY, tieOf } from '@/modules/project';
 import { trackWall, distanceToSegment, isOnGhost, pick, pickTrack, PLACED_DOT_PICK_RADIUS, piecesInRect, rectFromPoints, TRACK_PICK_RADIUS, type TPick, type TPickScene, type TScreenTrack, boundsOfPieces, contentBounds, firstHitsView, fitTargets, marblePositionAt, pathHandles, pathToLocal, pathToWorld, pieceAngleAt, pieceKind, pieceOutline, struckAt, rotationGrip, trackBuffers, withPathBend, withPathEnd, hiddenMarbleIds, boundsOf, fitBounds, isBoundsVisible, panBy, screenToWorld, worldToScreen, zoomAt, ZOOM_100_SCALE, type TBounds, type TPadding, type TView, type TViewport, trackPieceColors } from '@/modules/scene';
 import { anchorHit, findLongGaps, frameBand, gravityOf, layoutOf, linkPieceToHit, PLACEMENT_LENGTH, resolvePieceParams, resolvePiecePath, soundsHit, shownDepth, trajectoryAt, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { patternOfPiece, dotClickAction, ANCHOR_LEAD, asAnchored, asFree, canLink, clearRotorPosition, createFreePiece, displayPiece, isPathPieceType, KEEP_PLAYS_REACH, piecePose, playsDrop, railPath, rotateResolved, withPiece, withSnap, type TPlaysDrop, type TPose, type TSnap, rebaseNodes, withNodeHandle, withNodePoint, marblesWithoutBowl, newlyBroken } from '@/modules/building';
@@ -2107,7 +2107,7 @@ export class TrackCx {
 		const action = trackKeyAction(event, {
 			hasPieces: project != null && (selectedPieceIds(project, selection).length > 0 || project.marbles.some((marble) => selection.includes(marble.id))),
 			// A selected Song or Camera track is no Next target, so Return keeps its timeline meaning there
-			hasSelection: selection.some((key) => key !== SONG_KEY && key !== CAMERA_KEY),
+			hasSelection: selection.some((key) => parseSongKey(key) == null && key !== CAMERA_KEY),
 			hasGhosts: this.studio.assist.hasGhosts,
 			canTilt: project != null && this.tiltTargets(project).length > 0,
 			isDrawing: this.$pen.get() != null,

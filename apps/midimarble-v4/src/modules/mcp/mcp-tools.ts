@@ -5,7 +5,7 @@ import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles
 import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
 import { framingProblemAt, patternSpan, preflightExport } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
-import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY, toShotKey } from '@/modules/project';
+import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, WALL_KEY, toShotKey } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
 import { editPresenceLabel } from './agent-presence';
 import { hitReport, projectState, resolveSelection } from './mcp-state';
@@ -36,7 +36,7 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.open': 'args.path, the .marble package to open',
 	'file.saveAs': 'args.path, where to save',
 	'file.importMidi': 'the add_song tool',
-	'file.replaceSong': 'the add_song tool',
+	'file.replaceSong': 'removeSong, then the add_song tool',
 	'file.export': 'the export_film tool',
 	'film.exportPack': 'args.path, plus name and either theme or items',
 	'film.addText': 'args.text, and style, at, color, in and out if wanted',
@@ -559,7 +559,7 @@ function unknownSelection(cx: StudioCx, args: Record<string, unknown>): string |
 		if ([...project.marbles, ...project.track.pieces, ...project.film.titles].some((piece) => piece.id === key)) return true;
 		const hit = parseHitKey(key);
 		if (hit != null) return project.marbles.some((marble) => marble.id === hit.marbleId && marble.hits.some((item) => item.id === hit.hitId));
-		return key === WALL_KEY || key === CAMERA_KEY || key === SONG_KEY || parseLightKey(key) != null || parseDecorKey(key) != null || key.includes(':');
+		return key === WALL_KEY || key === CAMERA_KEY || parseLightKey(key) != null || parseDecorKey(key) != null || key.includes(':');
 	};
 	const bad = select.filter((key) => !isKnown(key));
 	return bad.length > 0 ? `Nothing can be selected as ${bad.join(', ')}. Use a piece or marble ID from get_state, a hit key such as hit:marbleId:hitId, wall, light:key, camera or song.` : null;

@@ -109,6 +109,19 @@ describe('audibleProject function', () => {
 		expect(createAudioSignature(muted, resolve)).not.toBe(createAudioSignature(recording, resolve));
 	});
 
+	it('should mix every recording at its start, in what a film and playback hear alike', () => {
+		const first = { ...AUDIO, id: 'first', path: 'audio/a.wav', start: 1 };
+		const second = { ...AUDIO, id: 'second', path: 'audio/b.wav', start: 5 };
+		const both = project([first, second], [], []);
+		const signature = JSON.parse(createAudioSignature(both, resolve)) as { audioSources: { url: string; offset: number }[] };
+
+		expect(signature.audioSources).toEqual([
+			{ url: 'asset://audio/a.wav', offset: 1 },
+			{ url: 'asset://audio/b.wav', offset: 5 }
+		]);
+		expect(soundtrackProject(both, { muted: ['first'], solo: [] }).songs.map((song) => song.id)).toEqual(['second']);
+	});
+
 	it('should re-render when the mix changes what sounds', () => {
 		const heard = createAudioSignature(song, resolve);
 
@@ -180,6 +193,27 @@ describe('renderProjectAudio function', () => {
 		expect(audio.left).toHaveLength(2 * SAMPLE_RATE);
 		expect(peak(audio.left, 0.2, 0.4)).toBeGreaterThan(0.005);
 		expect(peak(audio.left, 1.5, 1.7)).toBeLessThan(0.005);
+	});
+
+	it('should play every song: each Backing with its own Sound and the notes tied to each at their times', async () => {
+		const second: TSong = { ...MIDI, id: 'second', name: 'Second.mid', path: 'second.mid', start: 1 };
+		const song: TProject = {
+			...project([MIDI], [{ ...note('a', 0.2), songId: 'midi' }], [{ ...note('b', 1.5), songId: 'second' }]),
+			songs: [
+				{ ...MIDI, backing: [] },
+				{ ...second, backing: [{ id: 'c', time: 1, pitch: 48, duration: 0.2 }], backingSound: 12 }
+			]
+		};
+
+		const audio = await render(song);
+
+		expect(peak(audio.left, 0.2, 0.4)).toBeGreaterThan(0.005);
+		expect(peak(audio.left, 1, 1.15)).toBeGreaterThan(0.005);
+		expect(peak(audio.left, 1.5, 1.7)).toBeGreaterThan(0.005);
+
+		const without = await render(soundtrackProject(song, { muted: ['second'], solo: [] }));
+		expect(peak(without.left, 0.2, 0.4)).toBeGreaterThan(0.005);
+		expect(peak(without.left, 1.1, 1.9)).toBeLessThan(peak(audio.left, 1.5, 1.7));
 	});
 
 	it('should be silent without notes or files, and need no instruments for that', async () => {

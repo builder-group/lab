@@ -1,6 +1,6 @@
 import { tieOf, type TProject } from './schema';
 
-// Selection holds marble, piece and title IDs, hit keys, shot marker keys, the Song and Camera track keys and the Wall and light
+// Selection holds marble, piece and title IDs, hit keys, shot marker keys, song keys, the Camera track key and the Wall and light
 // layer keys. Hit keys carry their marble so one list can mix them.
 
 /**
@@ -10,8 +10,14 @@ import { tieOf, type TProject } from './schema';
  */
 export const SCENE_KEY = 'scene';
 
-/** The Song track and its row in Layers */
-export const SONG_KEY = 'song';
+/** A song's timeline row and its row in Layers */
+export function toSongKey(songId: string): string {
+	return `song:${songId}`;
+}
+
+export function parseSongKey(key: string): string | null {
+	return key.startsWith('song:') ? key.slice('song:'.length) : null;
+}
 
 /** The Camera track and its row in Layers */
 export const CAMERA_KEY = 'camera';

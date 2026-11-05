@@ -2,7 +2,7 @@ import { AudioLines, ChevronRight, Music } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, earliestSongStart, hitsOfSong, type TProject, type TSong, SONG_KEY, toHitKey, formatTime } from '@/modules/project';
+import { BACKING_ID, earliestSongStart, hitsOfSong, type TProject, type TSong, toHitKey, formatTime, toSongKey } from '@/modules/project';
 import { songMenu } from '../menus';
 import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
@@ -25,7 +25,7 @@ import { toggleSongExpanded } from './timeline-state';
  * while the project has a song file or Backing notes; without a file it reads Song and shows the Backing notes.
  */
 export const SongTrack: React.FC<TSongTrackProps> = (props) => {
-	const { cx, project, song, tint, name, analysis, zoom, width, range, isExpanded, height, selection, drag, onDragStart, move, onMove, onAddHit, timeAt } = props;
+	const { cx, project, song, tint, name, analysis, zoom, width, range, isExpanded, isFirst, height, selection, drag, onDragStart, move, onMove, onAddHit, timeAt } = props;
 	const isAudio = song.kind === 'audio';
 	const backingCount = song.backing.length;
 	const details =
@@ -36,7 +36,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 				: [song.name, song.tempo == null ? null : `${Math.round(song.tempo.bpm)} BPM`];
 	const span = songSpan(project, song, analysis?.duration);
 	const moved = move?.songId === song.id ? move.delta : 0;
-	const isSelected = selection.includes(SONG_KEY);
+	const songKey = toSongKey(song.id);
+	const isSelected = selection.includes(songKey);
 	const moveStartRef = React.useRef<number | null>(null);
 
 	const clipHandlers = {
@@ -45,7 +46,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 			event.stopPropagation();
 			event.currentTarget.setPointerCapture(event.pointerId);
 			moveStartRef.current = event.clientX;
-			cx.$selection.set([SONG_KEY]);
+			cx.$selection.set([songKey]);
 		},
 		onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
 			if (moveStartRef.current == null) return;
@@ -65,7 +66,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	};
 
 	function openMenu(event: React.MouseEvent): void {
-		openContextMenu(event, songMenu(cx));
+		openContextMenu(event, songMenu(cx, song));
 	}
 
 	// An expanded roll taller than its track scrolls inside it, keyboard and notes together, like GarageBand's
@@ -106,12 +107,12 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 			<div
 				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-start border-r border-b border-[var(--separator)] pl-1"
 				style={{ width: HEADER_WIDTH, paddingRight: isExpanded ? 0 : 8 }}
-				data-track={SONG_KEY}
-				data-quick-help="song"
-				data-hint-anchor="song"
+				data-track={songKey}
+				data-quick-help={isFirst ? 'song' : undefined}
+				data-hint-anchor={isFirst ? 'song' : undefined}
 				data-selected={isSelected}
 				data-expanded={isExpanded}
-				onClick={() => cx.$selection.set([SONG_KEY])}
+				onClick={() => cx.$selection.set([songKey])}
 				onContextMenu={openMenu}
 				title={name}
 			>
@@ -120,7 +121,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 						<button
 							className="mm-disclosure"
 							data-open={isExpanded}
-							onClick={toggleSongExpanded}
+							onClick={() => toggleSongExpanded(song.id)}
 							title={isExpanded ? 'Collapse Song' : 'Show Every Note'}
 							aria-label={isExpanded ? 'Collapse Song' : 'Expand Song'}
 							aria-expanded={isExpanded}
@@ -141,7 +142,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 				</div>
 				{isExpanded && range != null ? (
 					<div className="flex self-stretch" onClick={(event) => event.stopPropagation()}>
-						<Keyboard cx={cx} project={project} song={song} name="Song" range={range} offset={shown} onPlay={(pitch) => auditionNote(cx, BACKING_ID, pitch)} />
+						<Keyboard cx={cx} project={project} song={song} name="Song" range={range} offset={shown} onPlay={(pitch) => auditionNote(cx, BACKING_ID, pitch, song.id)} />
 					</div>
 				) : null}
 			</div>
@@ -186,7 +187,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 					) : null}
 					{isAudio ? null : <NoteOverview project={project} song={song} zoom={zoom} width={width} height={SONG_ROW_HEIGHT - 1} />}
 				</div>
-				{isAudio ? <HitTicks project={project} zoom={zoom} width={width} height={SONG_ROW_HEIGHT - 1} drag={drag} move={move} /> : null}
+				{isAudio ? <HitTicks project={project} song={song} zoom={zoom} width={width} height={SONG_ROW_HEIGHT - 1} drag={drag} move={move} /> : null}
 			</div>
 			)}
 		</div>
@@ -205,6 +206,8 @@ interface TSongTrackProps {
 	// Pitch rows of the expanded piano roll; null when the song cannot expand
 	range: TPitchRange | null;
 	isExpanded: boolean;
+	// The first song's row carries the first-run hint and quick help
+	isFirst: boolean;
 	height: number;
 	selection: string[];
 	drag: TDrag | null;
@@ -221,14 +224,14 @@ export interface TSongMove {
 	delta: number;
 }
 
-/** Every marble's hits as ticks over the waveform, in its color; dragged hits move with the drag, tied hits with their song */
-const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; height: number; drag: TDrag | null; move: TSongMove | null }> = (props) => {
-	const { project, zoom, width, height, drag, move } = props;
+/** The hits tied to this recording and every marble's own as ticks over the waveform, in their colors; dragged hits move with the drag, tied hits with their song */
+const HitTicks: React.FC<{ project: TProject; song: TSong; zoom: number; width: number; height: number; drag: TDrag | null; move: TSongMove | null }> = (props) => {
+	const { project, song, zoom, width, height, drag, move } = props;
 	return (
 		<svg className="pointer-events-none absolute top-0 left-0" width={width} height={height} aria-hidden>
 			{project.marbles.map((marble) => (
 				<g key={marble.id} fill={marble.labelColor}>
-					{marble.hits.map((hit) => {
+					{marble.hits.filter((hit) => hit.songId == null || hit.songId === song.id).map((hit) => {
 						const delta = (drag?.keys.includes(toHitKey(marble.id, hit.id)) === true ? drag.delta : 0) + (move != null && hit.songId === move.songId ? move.delta : 0);
 						return <rect key={hit.id} x={Math.max(0, hit.time + delta) * zoom - 0.75} y={4} width={1.5} height={height - 8} rx={0.75} />;
 					})}
