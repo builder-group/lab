@@ -1,15 +1,4 @@
-import {
-	BACKING_ID,
-	createId,
-	createLane,
-	createMarble,
-	LANE_SPACING,
-	type THit,
-	type TLane,
-	type TProject,
-	type TProjectCommand,
-	type TSource
-} from '@/modules/project';
+import { BACKING_ID, createId, createLane, createMarble, LANE_SPACING, type THit, type TLane, type TProject, type TProjectCommand, type TSource } from '@/modules/project';
 import { MIN_HIT_GAP } from './lane-proposal';
 import type { TMidiNote } from './midi';
 

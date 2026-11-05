@@ -7,16 +7,13 @@
 // Usage: tsx scripts/build-tap-fixture.ts
 import { readFileSync, writeFileSync } from 'node:fs';
 import { SoundBankLoader } from 'spessasynth_core';
-import { detectOnsets, encodeMonoWav, IMPORT_RELEASE_LEAD, renderLanes, songEnd, suggestedHitTimes } from '../src/modules/music';
-import {
-	applyProjectCommands,
-	parseProject,
-	serializeProject,
-	type TLane,
-	type TProject,
-	type TProjectCommand,
-	type TSource
-} from '../src/modules/project';
+import { detectOnsets, suggestedHitTimes } from '../src/modules/music/onsets';
+import { encodeMonoWav } from '../src/modules/music/audio-engine';
+import { IMPORT_RELEASE_LEAD, songEnd } from '../src/modules/music/lane-commands';
+import { renderLanes } from '../src/modules/music/synthesize';
+import { applyProjectCommands, type TProjectCommand } from '../src/modules/project/commands';
+import { parseProject, serializeProject } from '../src/modules/project/project-file';
+import { type TLane, type TProject, type TSource } from '../src/modules/project/schema';
 import { autoPlace, continueSuggestions, mirrorPiece } from '../src/modules/simulation/assists';
 import { createBareRunProject } from '../src/modules/simulation/fixture-projects';
 import { namePiecesInOrder } from '../src/modules/simulation/piece-names';

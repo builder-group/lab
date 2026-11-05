@@ -1,11 +1,10 @@
 import { Video } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { addShotCommands, shotKindLabel, updateShotCommands } from '@/modules/design/shots';
+import { addShotCommands, shotKindLabel, updateShotCommands } from '@/modules/scene';
 import type { TProject } from '@/modules/project';
 import { commandItem } from '../commands';
-import { formatTime } from '../format';
-import { CAMERA_KEY, parseShotKey, toShotKey } from '../selection';
+import { formatTime, CAMERA_KEY, parseShotKey, toShotKey } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 import { CameraIssues } from './CameraIssues';
 import { CameraShotSpans } from './CameraShotSpans';

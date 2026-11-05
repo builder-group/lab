@@ -1,7 +1,7 @@
-import { endsOnBowl, BOWL_TAIL_MAX, lastPlayingLanes, projectSongEnd } from '@/modules/music/lane-commands';
+import { endsOnBowl, BOWL_TAIL_MAX, lastPlayingLanes, projectSongEnd } from '@/modules/music';
 import type { TProject } from '@/modules/project';
-import { BOWL_TYPE, bowlCatch, bowlOfLane } from '@/modules/simulation/bowl';
-import type { TSimulationResult } from '@/modules/simulation/types';
+import { BOWL_TYPE, bowlCatch, bowlOfLane } from '@/modules/simulation';
+import type { TSimulationResult } from '@/modules/simulation';
 import { projectToFrame } from './framing';
 import { followCameraTrack } from './project-track';
 

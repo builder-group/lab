@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bowlTail, SONG_TAIL, songEnd } from '@/modules/music';
 import { type TProject } from '@/modules/project';
-import { createSimulator } from '@/modules/simulation/simulate';
+import { createSimulator } from '@/modules/simulation';
 import { exitRunProject, bowlExit, fittedSongEnd } from './bowl-exit';
 import { loadFixture } from '@/modules/project/test-helpers';
 

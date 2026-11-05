@@ -1,1 +1,1 @@
-export * as specta from './bindings.gen';
+export * as specta from '@/environment/specta/bindings.gen';

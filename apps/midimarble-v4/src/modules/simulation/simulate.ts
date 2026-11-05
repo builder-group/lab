@@ -1,46 +1,13 @@
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
 import { DEFAULT_MARBLE_RADIUS, type TProject, type TTransit, type TVec2 } from '@/modules/project';
 import { ballistic, gravityOf } from './geometry';
-import {
-	layoutAtMarble,
-	layoutFree,
-	type TLayoutInput,
-	type TPieceLayout,
-	type TRotorLayout
-} from './piece-layout';
-import {
-	getPieceDefinition,
-	soundsHit,
-	pieceRestitution,
-	resolvePieceParams,
-	resolvePiecePath,
-	type TRailLayout
-} from './pieces';
+import { layoutAtMarble, layoutFree, type TLayoutInput, type TPieceLayout, type TRotorLayout } from './piece-layout';
+import { getPieceDefinition, soundsHit, pieceRestitution, resolvePieceParams, resolvePiecePath, type TRailLayout } from './pieces';
 import { descentPace, descentPoints } from './pace';
 import { frameBand } from './placement';
 import { hasRide, LEAVE_STEPS, rideFrame, rideHash, rideKey, rideLength, rideTolerance, rideVelocity } from './transit';
-import {
-	shapeClosestPoint,
-	shapeDistance,
-	shapesBounds,
-	transformShape,
-	wrapAngle,
-	type TBounds2,
-	type TPieceShape
-} from './shapes';
-import {
-	HIT_DRIFT,
-	HIT_TOLERANCE,
-	IMPACT_SPEED,
-	PHYSICS_HZ,
-	type TContact,
-	type THitResult,
-	type TMarbleSample,
-	type TPieceDefinition,
-	type TPieceMotionSample,
-	type TResolvedPiece,
-	type TSimulationResult
-} from './types';
+import { shapeClosestPoint, shapeDistance, shapesBounds, transformShape, wrapAngle, type TBounds2, type TPieceShape } from './shapes';
+import { HIT_DRIFT, HIT_TOLERANCE, IMPACT_SPEED, PHYSICS_HZ, type TContact, type THitResult, type TMarbleSample, type TPieceDefinition, type TPieceMotionSample, type TResolvedPiece, type TSimulationResult } from './types';
 
 const DT = 1 / PHYSICS_HZ;
 const GLASS_DENSITY = 2500;

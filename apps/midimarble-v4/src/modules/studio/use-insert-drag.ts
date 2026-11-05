@@ -1,6 +1,5 @@
 import React from 'react';
-import type { ComposeCx } from '@/modules/compose/ComposeCx';
-import type { TInsertItem } from '@/modules/compose/library';
+import type { ComposeCx, TInsertItem } from '@/modules/track';
 
 /**
  * Press on a library tile: a release in place arms its tool, a drag past a few pixels takes it out of the

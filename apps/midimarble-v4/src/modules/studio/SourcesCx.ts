@@ -1,21 +1,7 @@
 import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
-import {
-	computePeaks,
-	createImportCommands,
-	decodeAudioFile,
-	detectOnsets,
-	instruments,
-	mixToMono,
-	parseMidiFile,
-	laneNamesFromTracks,
-	proposeLanes,
-	type TMidiFile,
-	type TMidiNote,
-	type TProposeLanesOptions
-} from '@/modules/music';
-import { createId, type TProject, type TSource } from '@/modules/project';
-import { SONG_KEY } from './selection';
+import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, mixToMono, parseMidiFile, laneNamesFromTracks, proposeLanes, type TMidiFile, type TMidiNote, type TProposeLanesOptions } from '@/modules/music';
+import { createId, type TProject, type TSource, SONG_KEY } from '@/modules/project';
 import { deleteSongCommands, deleteSongNotice, deleteSongQuestion, hasSongLayer } from './song-layer';
 import type { StudioCx } from './StudioCx';
 

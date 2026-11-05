@@ -1,10 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { renderedSpans } from '@/modules/design/live-preview';
+import { renderedSpans } from '@/modules/film';
 import { commandItem } from '../commands';
 import { draggedRepeatSpan, shownRepeatRange, type TRepeatRangeDrag } from '../repeat-range';
-import { formatTime } from '../format';
+import { formatTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 import { formatRulerTime, RULER_HEIGHT, rulerSteps, TIME_INSET, TIME_ORIGIN } from './timeline-layout';
 

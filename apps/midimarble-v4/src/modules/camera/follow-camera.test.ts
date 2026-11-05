@@ -1,9 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { bowlCatch } from '@/modules/simulation/bowl';
-import { createSimulator } from '@/modules/simulation/simulate';
-import type { TSimulationResult } from '@/modules/simulation/types';
+import { bowlCatch, createSimulator } from '@/modules/simulation';
+import type { TSimulationResult } from '@/modules/simulation';
 import { quaternionToMatrix } from './compare-track';
 import { bakeFollowCamera, pyRound, sampleCameraTrack, SIDE_ANGLE, verticalFov, type TCameraTrack, type TFollowCameraInput, type TFollowMarble } from './follow-camera';
 import { at, project, required } from './follow-camera-test-helpers';

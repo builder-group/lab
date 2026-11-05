@@ -1,20 +1,8 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import {
-	DEFAULT_MARBLE_RADIUS,
-	type TEntity,
-	type TProject,
-	type TProjectCommand,
-	type TVec2
-} from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { gravityOf } from './geometry';
 import { layoutFree, layoutOf, type TLayoutInput } from './piece-layout';
-import {
-	ANCHOR_DELAY,
-	isMusicalPiece,
-	resolvePieceParams,
-	resolvePiecePath,
-	soundsHit
-} from './pieces';
+import { ANCHOR_DELAY, isMusicalPiece, resolvePieceParams, resolvePiecePath, soundsHit } from './pieces';
 import { trajectoryAt } from './simulate';
 import type { TResolvedPiece, TSimulationResult } from './types';
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { host } from './index';
+import { host } from '@/environment/host';
 
 // The browser development surface keeps packages in localStorage, which Node lacks
 function stubStorage(): void {

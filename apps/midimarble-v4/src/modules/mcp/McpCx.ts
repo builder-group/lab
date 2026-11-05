@@ -2,7 +2,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
 import { specta } from '@/environment';
 import { commands as registry } from '@/modules/studio/commands';
-import type { StudioCx } from '@/modules/studio/StudioCx';
+import type { StudioCx } from '@/modules/studio';
 import { COMMAND_COPIED_NOTICE, connectedNotice, disconnectedNotice, SERVER_COMMAND_COPIED_NOTICE, type TAgentTool } from './agent-connect';
 import { presenceLabel, touchedKeys } from './agent-presence';
 import { AgentPresenceCx } from './AgentPresenceCx';

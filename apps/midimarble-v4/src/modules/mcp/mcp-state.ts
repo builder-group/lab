@@ -1,11 +1,8 @@
-import type { TBlenderObject } from '@/modules/design/decor';
-import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
-import { resolveElementLook, resolveTheme } from '@/modules/design/project-themes';
-import { keyLightLayer, wallLayer } from '@/modules/design/scene-layers';
+import type { TBlenderObject } from '@/modules/scene';
+import { preflightExport, problemSummary } from '@/modules/building';
+import { resolveElementLook, resolveTheme, keyLightLayer, wallLayer } from '@/modules/scene';
 import type { TEntity, TProject } from '@/modules/project';
-import { DEFAULT_GRAVITY_SCALE, marbleFilmColor } from '@/modules/project';
-import { noteName } from '@/modules/studio/format';
-import { parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey } from '@/modules/studio/selection';
+import { DEFAULT_GRAVITY_SCALE, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { hasSongLayer } from '@/modules/studio/song-layer';
 

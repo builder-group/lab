@@ -1,6 +1,5 @@
-import { addedLights } from '@/modules/design/scene-layers';
-import { isPatternGroup, type TProject } from '@/modules/project';
-import { CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseRangeKey, parseShotKey, SONG_KEY, WALL_KEY } from './selection';
+import { addedLights } from '@/modules/scene';
+import { isPatternGroup, type TProject, CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseRangeKey, parseShotKey, SONG_KEY, WALL_KEY } from '@/modules/project';
 import { hasSongLayer } from './song-layer';
 import type { TWorkspace } from './StudioCx';
 

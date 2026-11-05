@@ -1,4 +1,4 @@
-import { pasteDecorCommands } from '@/modules/design/decor';
+import { pasteDecorCommands } from '@/modules/scene';
 import { createId, type TDecor, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
 import { DUPLICATE_OFFSET } from './duplicate';
 

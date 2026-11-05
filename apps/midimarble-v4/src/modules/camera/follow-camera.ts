@@ -1,4 +1,4 @@
-import type { TMotionFile, TSceneCamera, TSceneDescription } from '@/modules/blender';
+import type { TMotionFile, TSceneCamera, TSceneDescription } from '@/modules/scene';
 
 /**
  * TypeScript port of the follow camera in `blender/mm_worker/camera.py`, which stays the source of the film. Given

@@ -1,6 +1,6 @@
 import { ChevronsUpDown } from 'lucide-react';
 import React from 'react';
-import { MenuList } from './Menu';
+import { MenuList } from '@/components/Menu';
 
 /**
  * Pop-up button drawn like an AppKit pop-up button. It opens a menu with a check on the current choice and an

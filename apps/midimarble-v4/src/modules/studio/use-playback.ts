@@ -4,7 +4,7 @@ import { repeatPlayFrom, repeatRestart } from './repeat-range';
 import { startPlaybackTicker } from './playback-ticker';
 import { audibleProject } from '@/modules/music';
 import type { StudioCx } from './StudioCx';
-import { useHitFlash } from './timeline/hit-flash';
+import { useHitFlash } from '@/modules/canvas';
 
 // After the project's first run and draw, so the warm-up never delays opening
 const WARM_UP_DELAY_MS = 600;

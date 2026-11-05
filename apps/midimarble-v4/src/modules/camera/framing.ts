@@ -1,4 +1,4 @@
-import type { TMarbleTrack, TSimulationResult } from '@/modules/simulation/types';
+import type { TMarbleTrack, TSimulationResult } from '@/modules/simulation';
 import { quaternionToMatrix } from './compare-track';
 import { verticalFov, type TCameraTrack } from './follow-camera';
 

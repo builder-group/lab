@@ -4,10 +4,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { SoundBankLoader } from 'spessasynth_core';
-import { buildSceneDescription, SCENE_DESCRIPTION_PATH } from '../src/modules/blender/scene-builder';
+import { buildSceneDescription, SCENE_DESCRIPTION_PATH } from '../src/modules/scene/scene-builder';
 import { encodeWav } from '../src/modules/music/audio-engine';
 import { renderLanes } from '../src/modules/music/synthesize';
-import { parseProject, serializeProject } from '../src/modules/project';
+import { parseProject, serializeProject } from '../src/modules/project/project-file';
 import { createSimulator } from '../src/modules/simulation/simulate';
 
 const [fixture = 'zigzag', packageDir, theme = 'brass', fpsText = '60'] = process.argv.slice(2);

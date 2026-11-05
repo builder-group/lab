@@ -5,7 +5,7 @@ import { StudioCx } from './StudioCx';
 const simulate = vi.fn<(project: TProject, horizon?: number) => Promise<never>>(() => new Promise(() => undefined));
 
 vi.mock('@/modules/simulation', async (original) => ({
-	...(await original<typeof import('@/modules/simulation')>()),
+	...(await original<typeof import('@/modules/simulation/index')>()),
 	createSimulationClient: () => ({ simulate, dispose: () => undefined })
 }));
 

@@ -1,12 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import {
-	createId,
-	type TEntity,
-	type THit,
-	type TProject,
-	type TProjectCommand,
-	type TVec2
-} from '@/modules/project';
+import { createId, type TEntity, type THit, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { pathGap, resolvedPieceShapes, shapesGap } from './clearance';
 import { GRAVITY_Y, gravityOf, surfaceNormal } from './geometry';
 import { descentPace, longGapThreshold, paceAt, takeoffSpeed } from './pace';
@@ -17,15 +10,7 @@ import { wrapAngle, type TPieceShape } from './shapes';
 import { BOWL_TYPE } from './bowl';
 import { columnOffset } from './build-track-defaults';
 import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
-import {
-	HIT_TOLERANCE,
-	IMPACT_SPEED,
-	type THitResult,
-	type THitStatus,
-	type TMarbleSample,
-	type TResolvedPiece,
-	type TSimulationResult
-} from './types';
+import { HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from './types';
 
 // Step loop assists. Each one is a pure function over the project and its latest simulation result that
 // returns entities and the commands that add them. Assists that predict the future take a `simulate`

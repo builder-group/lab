@@ -1,7 +1,7 @@
 import React from 'react';
-import { useRunPreflight } from '@/modules/design/use-run-preflight';
+import { useRunPreflight } from '@/modules/canvas';
 import type { TProject } from '@/modules/project';
-import { formatTime } from '../format';
+import { formatTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 
 /**

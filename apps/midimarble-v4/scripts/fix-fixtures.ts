@@ -1,9 +1,13 @@
 // Runs the app's own Fix on committed fixtures in place, for the ones whose builders no longer reproduce them or
 // leave a look problem by hand. Run it after `fixtures:build` or `fixtures:reference`. Usage: tsx scripts/fix-fixtures.ts staircase reference-20
 import { readFileSync, writeFileSync } from 'node:fs';
-import { fixTrack } from '../src/modules/compose/fix-it';
-import { applyProjectCommands, parseProject, serializeProject, type TProject } from '../src/modules/project';
-import { autoPlace, createChainForGap, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap } from '../src/modules/simulation';
+import { fixTrack } from '../src/modules/building/fix-it';
+import { applyProjectCommands } from '../src/modules/project/commands';
+import { parseProject, serializeProject } from '../src/modules/project/project-file';
+import { type TProject } from '../src/modules/project/schema';
+import { autoPlace } from '../src/modules/simulation/assists';
+import { createChainForGap, createRailForGap, createSwitchbackForGap, createTunnelForGap } from '../src/modules/simulation/gap-pieces';
+import { createSimulator } from '../src/modules/simulation/simulate';
 
 const simulator = await createSimulator();
 const simulate = (project: TProject): ReturnType<typeof simulator.simulate> => simulator.simulate(project);

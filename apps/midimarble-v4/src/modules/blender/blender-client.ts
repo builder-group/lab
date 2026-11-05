@@ -1,8 +1,8 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { specta } from '@/environment/specta';
-import { SCENE_DESCRIPTION_PATH, type TSceneBuild } from './scene-builder';
-import type { TFilmEngine, TRenderPreset } from '@/modules/design/export-estimate';
+import { SCENE_DESCRIPTION_PATH, type TSceneBuild } from '@/modules/scene';
+import type { TFilmEngine, TRenderPreset } from '@/modules/scene';
 
 /**
  * Host wrapper around the Blender worker of an open package. In the browser UI development surface every

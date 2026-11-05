@@ -1,10 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { groupSelection, rangeSelection } from '@/modules/compose/PatternsCx';
-import { plainGroupSpan } from '@/modules/compose/group-commands';
-import { isPatternGroup, type TPatternGroup, type TLane } from '@/modules/project';
-import { formatTime } from '../format';
-import { parseGroupKey, parseHitKey, parseRangeKey } from '../selection';
+import { groupSelection, rangeSelection, plainGroupSpan } from '@/modules/track';
+import { isPatternGroup, type TPatternGroup, type TLane, formatTime, parseGroupKey, parseHitKey, parseRangeKey } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 import { PATTERN_STRIP_HEIGHT } from './timeline-layout';
 

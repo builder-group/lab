@@ -3,11 +3,13 @@
 // Usage: tsx scripts/export-marble-skin-scenes.ts <package-dir>
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { buildSceneDescription } from '../src/modules/blender/scene-builder';
-import { builtInSkinCommands } from '../src/modules/design/design-commands';
-import type { TLibraryItem } from '../src/modules/library';
+import { buildSceneDescription } from '../src/modules/scene/scene-builder';
+import { builtInSkinCommands } from '../src/modules/film/film-commands';
+import type { TLibraryItem } from '../src/modules/scene/pack-data';
 import { expandCommands, type TAgentCommand } from '../src/modules/mcp/project-commands';
-import { applyProjectCommands, parseProject, type TProject, type TProjectCommand } from '../src/modules/project';
+import { applyProjectCommands, type TProjectCommand } from '../src/modules/project/commands';
+import { parseProject } from '../src/modules/project/project-file';
+import { type TProject } from '../src/modules/project/schema';
 import { createSimulator } from '../src/modules/simulation/simulate';
 
 const [packageDir] = process.argv.slice(2);

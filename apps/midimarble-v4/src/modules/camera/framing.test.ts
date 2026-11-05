@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { THitResult, TMarbleTrack, TSimulationResult } from '@/modules/simulation/types';
+import type { THitResult, TMarbleTrack, TSimulationResult } from '@/modules/simulation';
 import { bakeFollowCamera, type TCameraTrack } from './follow-camera';
 import { framingStretches } from './framing';
 

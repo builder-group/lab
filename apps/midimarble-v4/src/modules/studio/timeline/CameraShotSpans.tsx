@@ -1,7 +1,7 @@
 import React from 'react';
-import { SHOT_EASE_SECONDS, shotSpans } from '@/modules/camera/shots';
+import { SHOT_EASE_SECONDS, shotSpans } from '@/modules/scene';
 import type { TProject } from '@/modules/project';
-import { parseShotKey } from '../selection';
+import { parseShotKey } from '@/modules/project';
 
 /**
  * How long each shot frames, as a band behind its marker on the Camera track: to its hold's end, where a fade shows

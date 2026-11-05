@@ -1,10 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
 import { Hand, MousePointer2, Plus } from 'lucide-react';
 import React from 'react';
-import type { ComposeCx } from '@/modules/compose/ComposeCx';
-import { InsertDragGhost, InsertLibrary } from '@/modules/compose/InsertLibrary';
-import { toolKeys, type TComposeTool } from '@/modules/compose/keys';
-import { FilmInsert } from '@/modules/design/FilmInsert';
+import type { ComposeCx } from '@/modules/track';
+import { InsertDragGhost, InsertLibrary, toolKeys, type TComposeTool } from '@/modules/track';
+import { FilmInsert } from '@/modules/film';
 import { isEditingTarget } from '@/lib';
 import { getCommand } from './commands';
 import { hasSongLayer } from './song-layer';

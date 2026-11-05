@@ -9,7 +9,7 @@ import type { StudioCx } from './StudioCx';
 const client = vi.hoisted(() => ({ current: null as unknown }));
 
 vi.mock('@/modules/simulation', async (original) => ({
-	...(await original<typeof import('@/modules/simulation')>()),
+	...(await original<typeof import('@/modules/simulation/index')>()),
 	createSimulationClient: () => client.current
 }));
 vi.mock('./next-frame', () => ({

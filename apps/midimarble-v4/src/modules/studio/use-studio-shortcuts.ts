@@ -1,7 +1,7 @@
 import React from 'react';
 import { isEditingTarget, isTextEntryTarget } from '@/lib';
 import { deleteSelectedHits, getCommand, isCommandEnabled } from './commands';
-import { CAMERA_KEY, parseDecorKey, parseLightKey, parseMadeInBlenderKey, SONG_KEY, WALL_KEY } from './selection';
+import { CAMERA_KEY, parseDecorKey, parseLightKey, parseMadeInBlenderKey, SONG_KEY, WALL_KEY } from '@/modules/project';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 
 /**

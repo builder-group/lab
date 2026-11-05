@@ -1,16 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LANE_SPACING } from '@/modules/project';
 import { createBareRunProject } from './fixture-projects';
-import {
-	COLUMN_CLEARANCE,
-	columnRate,
-	descentPace,
-	descentPoints,
-	longGapThreshold,
-	paceAt,
-	paceRate,
-	PACE_LIMIT
-} from './pace';
+import { COLUMN_CLEARANCE, columnRate, descentPace, descentPoints, longGapThreshold, paceAt, paceRate, PACE_LIMIT } from './pace';
 import { frameBand } from './placement';
 
 function evenTimes(count: number, gap: number, start = 0.5): number[] {

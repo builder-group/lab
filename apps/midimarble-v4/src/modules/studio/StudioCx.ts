@@ -3,49 +3,26 @@ import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
 import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
-import {
-	amendHistory,
-	applyProjectCommands,
-	createHistory,
-	createId,
-	createLane,
-	createMarble,
-	createProject,
-	LANE_SPACING,
-	isPatternGroup,
-	parseProject,
-	pushHistory,
-	redoHistory,
-	serializeProject,
-	undoHistory,
-	type TLane,
-	type TProject,
-	type TProjectCommand,
-	type TProjectHistory,
-	type TSource,
-	type TVec2
-} from '@/modules/project';
+import { amendHistory, applyProjectCommands, createHistory, createId, createLane, createMarble, createProject, LANE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TLane, type TProject, type TProjectCommand, type TProjectHistory, type TSource, type TVec2, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey } from '@/modules/project';
 import type { TClipboard } from './clipboard';
 import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
 import { shownRepeatRange, toggledRepeatRange, type TRepeatRange, type TRepeatSpan } from './repeat-range';
-import { fittedSongEnd } from '@/modules/camera/bowl-exit';
+import { fittedSongEnd } from '@/modules/camera';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
-import { KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey } from './selection';
 import { tapTime } from './tap';
-import type { THitFlash } from './timeline/hit-flash';
+import type { THitFlash } from '@/modules/canvas';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
-import type { ComposeCx } from '@/modules/compose/ComposeCx';
-import { withWholePatterns } from '@/modules/compose/PatternsCx';
-import { earliestHitTime, releaseFollowsFirstHit } from '@/modules/compose/reachability';
-import type { TView } from '@/modules/compose/view';
+import type { ComposeCx } from '@/modules/track';
+import { withWholePatterns } from '@/modules/track';
+import { earliestHitTime, releaseFollowsFirstHit, preflightExport, problemSummary, type TPreflightTarget } from '@/modules/building';
+import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
-import { addWallTextCommands, defaultTitleColor, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/design';
-import { songDisplayName } from '@/modules/design/titles';
-import { preflightExport, problemSummary, type TPreflightTarget } from '@/modules/design/export-preflight';
+import { addWallTextCommands, DesignCx, DesignLibraryCx, FilmExportCx, frameHeightOnWall, previewPointToWall, withTitleStyle, type TTitleStyle } from '@/modules/film';
+import { defaultTitleColor, songDisplayName } from '@/modules/scene';
 
 export interface TAgentStepNotice {
 	message: string;

@@ -1,8 +1,8 @@
 import { Type } from 'lucide-react';
 import React from 'react';
-import { titleClips } from '@/modules/design/titles';
+import { titleClips } from '@/modules/scene';
 import type { TComponents, TProject } from '@/modules/project';
-import { formatTime } from '../format';
+import { formatTime } from '@/modules/project';
 import { TITLES_KEY } from '../outline';
 import type { StudioCx } from '../StudioCx';
 import { TimeGutter } from './Ruler';

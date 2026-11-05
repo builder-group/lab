@@ -1,5 +1,5 @@
 import React from 'react';
-import { MenuList, type TMenuEntry } from './Menu';
+import { MenuList, type TMenuEntry } from '@/components/Menu';
 
 /** Button with a pull-down menu styled like a macOS menu */
 export const MenuButton: React.FC<TMenuButtonProps> = (props) => {

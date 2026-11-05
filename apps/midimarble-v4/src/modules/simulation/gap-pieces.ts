@@ -1,21 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import {
-	createId,
-	type TEntity,
-	type TProject,
-	type TProjectCommand,
-	type TVec2
-} from '@/modules/project';
-import {
-	crossesOtherLanes,
-	findHitResult,
-	hitOwners,
-	isInBand,
-	openFrontiers,
-	simulateTrial,
-	withEntities,
-	type TSimulateFn
-} from './assists';
+import { createId, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { crossesOtherLanes, findHitResult, hitOwners, isInBand, openFrontiers, simulateTrial, withEntities, type TSimulateFn } from './assists';
 import { gravityOf } from './geometry';
 import { descentPace, paceAt } from './pace';
 import { chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime } from './piece-layout';

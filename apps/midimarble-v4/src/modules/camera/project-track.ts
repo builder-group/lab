@@ -1,6 +1,6 @@
-import { buildSceneDescription } from '@/modules/blender/scene-builder';
+import { buildSceneDescription } from '@/modules/scene';
 import type { TProject } from '@/modules/project';
-import type { TSimulationResult } from '@/modules/simulation/types';
+import type { TSimulationResult } from '@/modules/simulation';
 import { bakeFollowCamera, followCameraInput, type TCameraTrack } from './follow-camera';
 
 /**

@@ -6,10 +6,11 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { buildSceneDescription } from '../src/modules/blender/scene-builder';
-import { buildTrack, localBuildDeps } from '../src/modules/compose/build-track';
+import { buildSceneDescription } from '../src/modules/scene/scene-builder';
+import { buildTrack, localBuildDeps } from '../src/modules/building/build-track';
 import { backingVoice } from '../src/modules/music/synthesize';
-import { parseProject, type TProject } from '../src/modules/project';
+import { parseProject } from '../src/modules/project/project-file';
+import { type TProject } from '../src/modules/project/schema';
 import { createSimulator } from '../src/modules/simulation/simulate';
 import type { TSimulationResult } from '../src/modules/simulation/types';
 

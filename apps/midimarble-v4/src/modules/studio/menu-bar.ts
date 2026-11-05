@@ -1,5 +1,4 @@
-import type { THostRecentProject } from '@/environment';
-import type { specta } from '@/environment';
+import type { THostRecentProject, specta } from '@/environment';
 import { commandTitle, getCommand, isCommandEnabled, type TCommandId } from './commands';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 

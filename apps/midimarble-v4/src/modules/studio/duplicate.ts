@@ -1,10 +1,7 @@
-import { displayPiece } from '@/modules/compose/attach-edit';
-import { newlyBroken } from '@/modules/compose/bowl-assist';
-import { addedProblems, withCommands } from '@/modules/compose/fix-it';
+import { displayPiece, newlyBroken, addedProblems, withCommands } from '@/modules/building';
 import { createId, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
-import { layoutOf, nextPieceName, shapesBounds, shapesDistance, soundsHit, transformShape, unanchorPiece, unlinkPiece, type TPieceShape, type TSimulationResult } from '@/modules/simulation';
-import { resolvedPieceShapes, shapesGap } from '@/modules/simulation/clearance';
-import type { TBlenderObject } from '@/modules/design/decor';
+import { layoutOf, nextPieceName, shapesBounds, shapesDistance, soundsHit, transformShape, unanchorPiece, unlinkPiece, type TPieceShape, type TSimulationResult, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
+import type { TBlenderObject } from '@/modules/scene';
 
 /** How far a copy lands from its original, right and down on the wall in meters, like Finder's and Figma's Duplicate */
 export const DUPLICATE_OFFSET = { x: 0.05, y: -0.05 };

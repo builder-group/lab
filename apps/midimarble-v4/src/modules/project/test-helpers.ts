@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { applyProjectCommands, parseProject, type TProject, type TProjectCommand } from '.';
+import { applyProjectCommands, type TProjectCommand } from './commands';
+import { parseProject } from './project-file';
+import { type TProject } from './schema';
 
 // Shared by the tests; not part of the module's barrel, as it reads the file system
 

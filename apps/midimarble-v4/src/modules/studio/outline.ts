@@ -1,8 +1,7 @@
-import { decorList, type TBlenderObject } from '@/modules/design/decor';
-import { addedLights } from '@/modules/design/scene-layers';
+import { decorList, type TBlenderObject, addedLights } from '@/modules/scene';
 import type { TDecor, TEntity, TGroup, TLane, TLight, TProject, TShot, TSource } from '@/modules/project';
 import { startRailOf } from '@/modules/simulation';
-import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toDecorKey, toLightKey, toGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toDecorKey, toLightKey, toGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY } from '@/modules/project';
 import { hasSongLayer, SONG_LAYER_LABEL } from './song-layer';
 import { songSource } from './SourcesCx';
 import type { TWorkspace } from './StudioCx';

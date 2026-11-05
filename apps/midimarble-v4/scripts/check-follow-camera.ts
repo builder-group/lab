@@ -5,8 +5,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { TMotionFile } from '../src/modules/blender/scene-builder';
-import type { TSceneDescription } from '../src/modules/blender/scene-description';
+import type { TMotionFile } from '../src/modules/scene/scene-builder';
+import type { TSceneDescription } from '../src/modules/scene/scene-description';
 import { compareCameraTrack, type TBlenderCameraDump } from '../src/modules/camera/compare-track';
 import { bakeFollowCamera, followCameraInput } from '../src/modules/camera/follow-camera';
 

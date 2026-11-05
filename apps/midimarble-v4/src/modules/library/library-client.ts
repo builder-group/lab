@@ -2,15 +2,8 @@ import { convertFileSrc, isTauri } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { specta } from '@/environment/specta';
-import type { TPackOrigin } from '@/modules/project/schema';
-import {
-	parseAssetManifest,
-	parseCandidateManifest,
-	serializeAssetManifest,
-	uniqueItemId,
-	type TAssetManifest
-} from './asset-manifest';
-import { parsePackTheme, STARTER_PACK, STARTER_PACK_ID, type TLibraryItem, type TLibraryScope, type TPack } from './pack-data';
+import type { TPackOrigin } from '@/modules/project';
+import { parseAssetManifest, parseCandidateManifest, serializeAssetManifest, uniqueItemId, type TAssetManifest, parsePackTheme, STARTER_PACK, STARTER_PACK_ID, type TLibraryItem, type TLibraryScope, type TPack } from '@/modules/scene';
 
 /**
  * Asset libraries: the project library in `<package>/assets/` and the global library in the app's support

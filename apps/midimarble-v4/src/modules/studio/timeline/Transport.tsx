@@ -1,16 +1,15 @@
 import { useFeatureState } from 'feature-react/state';
-import type { TBuildProgress } from '@/modules/compose/build-track';
+import type { TBuildProgress } from '@/modules/building';
 import { createState } from 'feature-state';
 import { ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '@/modules/design/export-preflight';
-import { useRunPreflight } from '@/modules/design/use-run-preflight';
+import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '@/modules/building';
+import { useRunPreflight } from '@/modules/canvas';
 import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';
-import { formatTime } from '../format';
+import { formatTime, parseTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
-import { parseTime } from './parse-time';
 import { sliderToZoom, zoomToSlider } from './timeline-layout';
 
 /**

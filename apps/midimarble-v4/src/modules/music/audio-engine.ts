@@ -1,12 +1,6 @@
 import { SoundBankLoader, SpessaLog, type BasicSoundBank } from 'spessasynth_core';
 import type { TLane, TProject, TSource } from '@/modules/project';
-import {
-	backingVoice,
-	mixAudioSource,
-	renderLanes,
-	type TDecodedAudio,
-	type TStereoAudio
-} from './synthesize';
+import { backingVoice, mixAudioSource, renderLanes, type TDecodedAudio, type TStereoAudio } from './synthesize';
 import { hasSong } from './parts';
 import { createScrubber } from './scrub';
 import { decodeAudioFile } from './waveform';

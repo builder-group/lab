@@ -1,0 +1,114 @@
+import type { TProject } from './schema';
+
+// Selection holds entity IDs, hit keys, shot marker keys, the Song and Camera track keys and the Wall and light
+// layer keys. Hit keys carry their lane so one list can mix them.
+
+/**
+ * The Scene row in Layers, like Blender's Scene Collection. An empty selection is the Scene, so this key never enters
+ * the selection: whatever clears the selection (an empty click, Esc, deleting the selected layer) selects the Scene,
+ * and nothing can stay stuck on a layer.
+ */
+export const SCENE_KEY = 'scene';
+
+/** The Song track and its row in Layers */
+export const SONG_KEY = 'song';
+
+/** The Camera track and its row in Layers */
+export const CAMERA_KEY = 'camera';
+
+/** The Wall layer in Layers; it has no timeline row */
+export const WALL_KEY = 'wall';
+
+/** The light ID of the Key Light, which comes from the theme; added lights have created IDs with a prefix */
+export const KEY_LIGHT_ID = 'key';
+
+/** The Key Light layer in Layers; it has no timeline row */
+export const KEY_LIGHT_KEY = 'light:key';
+
+export function toLightKey(lightId: string): string {
+	return `light:${lightId}`;
+}
+
+/** The light a key selects: `key` for the Key Light, an added light's ID otherwise */
+export function parseLightKey(key: string): string | null {
+	return key.startsWith('light:') ? key.slice('light:'.length) : null;
+}
+
+export function toDecorKey(decorId: string): string {
+	return `decor:${decorId}`;
+}
+
+export function parseDecorKey(key: string): string | null {
+	return key.startsWith('decor:') ? key.slice('decor:'.length) : null;
+}
+
+/** An object added directly in Blender, by its Blender name */
+export function toMadeInBlenderKey(name: string): string {
+	return `blender:${name}`;
+}
+
+export function parseMadeInBlenderKey(key: string): string | null {
+	return key.startsWith('blender:') ? key.slice('blender:'.length) : null;
+}
+
+export function toShotKey(shotId: string): string {
+	return `shot:${shotId}`;
+}
+
+export function parseShotKey(key: string): string | null {
+	return key.startsWith('shot:') ? key.slice('shot:'.length) : null;
+}
+
+/**
+ * Where Previous and Next Hit go. In Compose they stay on the marble in focus (of the selected hit, platform or marble)
+ * and go on from the selected hit; with nothing in focus, and in Film, they step every marble's hits from the playhead.
+ */
+export function stepHitTarget(project: TProject, selection: readonly string[], playhead: number, direction: 1 | -1, isCompose: boolean): { laneId: string; hitId: string; time: number } | null {
+	const focus = isCompose ? stepFocus(project, selection) : null;
+	const lanes = focus == null ? project.music.lanes : project.music.lanes.filter((lane) => lane.id === focus.laneId);
+	const hits = lanes.flatMap((lane) => lane.hits.map((hit) => ({ laneId: lane.id, hitId: hit.id, time: hit.time }))).sort((a, b) => a.time - b.time);
+	const from = focus?.time ?? playhead;
+	return (direction === 1 ? hits.find((hit) => hit.time > from + 1e-4) : [...hits].reverse().find((hit) => hit.time < from - 1e-4)) ?? null;
+}
+
+function stepFocus(project: TProject, selection: readonly string[]): { laneId: string; time: number | null } | null {
+	for (const key of selection) {
+		const parsed = parseHitKey(key);
+		const entity = project.entities.find((item) => item.id === key);
+		const hitId = parsed?.hitId ?? entity?.components.hitLink?.hitId;
+		const laneId = parsed?.laneId ?? entity?.components.hitLink?.laneId ?? entity?.components.marble?.laneId;
+		const lane = project.music.lanes.find((item) => item.id === laneId);
+		if (lane != null) return { laneId: lane.id, time: lane.hits.find((hit) => hit.id === hitId)?.time ?? null };
+	}
+	return null;
+}
+
+/** A Group from a Pattern (prototype), selected together with its pieces */
+export function toGroupKey(groupId: string): string {
+	return `pattern:${groupId}`;
+}
+
+export function parseGroupKey(key: string): string | null {
+	return key.startsWith('pattern:') ? key.slice('pattern:'.length) : null;
+}
+
+/** A silence dragged out in a marble's Pattern strip; a range over notes selects the notes instead */
+export function toRangeKey(laneId: string, from: number, to: number): string {
+	return `range:${laneId}:${from.toFixed(4)}:${to.toFixed(4)}`;
+}
+
+export function parseRangeKey(key: string): { laneId: string; from: number; to: number } | null {
+	const [kind, laneId, from, to] = key.split(':');
+	if (kind !== 'range' || laneId == null || from == null || to == null) return null;
+	return { laneId, from: Number(from), to: Number(to) };
+}
+
+export function toHitKey(laneId: string, hitId: string): string {
+	return `hit:${laneId}:${hitId}`;
+}
+
+export function parseHitKey(key: string): { laneId: string; hitId: string } | null {
+	const [kind, laneId, hitId] = key.split(':');
+	if (kind !== 'hit' || laneId == null || hitId == null) return null;
+	return { laneId, hitId };
+}

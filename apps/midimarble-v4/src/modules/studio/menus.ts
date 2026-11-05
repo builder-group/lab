@@ -1,15 +1,11 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
-import { canUngroup, selectedPattern } from '@/modules/compose/group-commands';
-import { canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection } from '@/modules/compose/tie-commands';
-import { createId, laneColors, type TEntity, type TLane, type TProjectCommand } from '@/modules/project';
-import { selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
-import { moveDecorClearAction } from '@/modules/design/decor-actions';
+import { canUngroup, selectedPattern, canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection, deleteHits, playedByMenu } from '@/modules/track';
+import { createId, laneColors, type TEntity, type TLane, type TProjectCommand, formatTime, parseDecorKey, toHitKey } from '@/modules/project';
+import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
+import { moveDecorClearAction } from '@/modules/film';
 import { commandItem, getCommand, isCommandEnabled, type TCommandId } from './commands';
-import { formatTime } from './format';
-import { parseDecorKey, toHitKey } from './selection';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
 import type { StudioCx } from './StudioCx';
-import { deleteHits, playedByMenu } from './timeline/hand-notes';
 
 // Context menus list the same commands as the palette and the shortcuts, so each shows its key
 

@@ -1,3 +1,3 @@
-export * from './cn';
-export * from './keyboard';
-export * from './open-external-url';
+export * from '@/lib/cn';
+export * from '@/lib/keyboard';
+export * from '@/lib/open-external-url';

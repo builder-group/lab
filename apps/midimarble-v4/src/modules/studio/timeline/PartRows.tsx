@@ -4,7 +4,7 @@ import { MenuButton } from '@/components';
 import { instruments, setPartSoundCommands, type TPart } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
-import { auditionNote } from './hand-notes';
+import { auditionNote } from '@/modules/track';
 import { PartToggles } from './PartToggles';
 import { TimeGutter } from './Ruler';
 import { NoteOverview } from './SongTrack';

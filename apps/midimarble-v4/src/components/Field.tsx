@@ -1,7 +1,7 @@
 import { ChevronRight, ChevronsUpDown } from 'lucide-react';
 import React from 'react';
-import { HelpTip } from './HelpTip';
-import { PopUpButton, type TSelectOption } from './Select';
+import { HelpTip } from '@/components/HelpTip';
+import { PopUpButton, type TSelectOption } from '@/components/Select';
 
 // Inspector fields on the two-column grid of `Panel`, each with its label inside like Figma UI3
 

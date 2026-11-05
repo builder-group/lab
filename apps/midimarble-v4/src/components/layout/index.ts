@@ -1,1 +1,1 @@
-export * from './WindowHeader';
+export * from '@/components/layout/WindowHeader';

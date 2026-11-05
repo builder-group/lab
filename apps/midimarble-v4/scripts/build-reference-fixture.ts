@@ -7,19 +7,13 @@
 //   --dress re-applies skins, titles, the Bowl, piece names and the film end to the existing fixture without
 //   rebuilding its pieces
 import { readFileSync, writeFileSync } from 'node:fs';
-import {
-	applyProjectCommands,
-	DEFAULT_CAMERA_DISTANCE,
-	DEFAULT_CAMERA_PITCH,
-	parseProject,
-	serializeProject,
-	type TEntity,
-	type TProject,
-	type TProjectCommand
-} from '../src/modules/project';
-import { withBowls } from '../src/modules/compose/bowl-assist';
+import { applyProjectCommands, type TProjectCommand } from '../src/modules/project/commands';
+import { DEFAULT_CAMERA_DISTANCE, DEFAULT_CAMERA_PITCH } from '../src/modules/project/create-project';
+import { parseProject, serializeProject } from '../src/modules/project/project-file';
+import { type TEntity, type TProject } from '../src/modules/project/schema';
+import { withBowls } from '../src/modules/building/bowl-assist';
 import { fittedSongEnd } from '../src/modules/camera/bowl-exit';
-import { songEnd } from '../src/modules/music';
+import { songEnd } from '../src/modules/music/lane-commands';
 import { autoPlace, continueSuggestions, mirrorPiece } from '../src/modules/simulation/assists';
 import { createBareRunProject } from '../src/modules/simulation/fixture-projects';
 import { createRailForGap } from '../src/modules/simulation/gap-pieces';

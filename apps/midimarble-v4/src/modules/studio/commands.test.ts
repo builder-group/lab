@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { tidyMenu } from '@/components';
-import { toolKeys } from '@/modules/compose/keys';
+import { toolKeys } from '@/modules/track';
 import { commands } from './commands';
 
 describe('commands', () => {

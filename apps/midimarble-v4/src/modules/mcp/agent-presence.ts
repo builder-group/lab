@@ -1,6 +1,5 @@
 import type { TProject } from '@/modules/project';
-import { formatTime } from '@/modules/studio/format';
-import { KEY_LIGHT_KEY, SONG_KEY, CAMERA_KEY, toDecorKey, toLightKey, toShotKey, WALL_KEY } from '@/modules/studio/selection';
+import { formatTime, KEY_LIGHT_KEY, SONG_KEY, CAMERA_KEY, toDecorKey, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
 
 // The words and the edit diff behind an agent's presence in the window: who is connected, what it is doing, what it
 // just touched.

@@ -1,14 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { encodeWav, renderProjectAudio, type TResolveSourceUrl } from '@/modules/music';
 import type { TProject } from '@/modules/project';
-import {
-	blender,
-	BlenderError,
-	type TJobProgress,
-	type TRenderFilmOptions,
-	type TRenderFilmResult,
-	type TRenderFilmStarted
-} from './blender-client';
+import { blender, BlenderError, type TJobProgress, type TRenderFilmOptions, type TRenderFilmResult, type TRenderFilmStarted } from './blender-client';
 
 export const SOUNDTRACK_PATH = 'renders/soundtrack.wav';
 const SOUNDTRACK_SAMPLE_RATE = 48000;

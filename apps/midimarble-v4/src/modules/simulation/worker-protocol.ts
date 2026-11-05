@@ -1,31 +1,7 @@
 import type { TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import type { TResult } from 'tuple-result';
-import {
-	autoPlace,
-	autoPlaceHorizon,
-	continueSuggestions,
-	findHitResult,
-	prepareAutoPlace,
-	simulateTrial,
-	withEntities,
-	type TAngleEvaluation,
-	type TAngleTry,
-	type TAutoPlacePlan,
-	type TContinueResult,
-	type TSimulateFn
-} from './assists';
-import {
-	createRailForGap,
-	createChainForGap,
-	createSwitchbackForGap,
-	createTunnelForGap,
-	prepareGapSearch,
-	type TGapEvaluation,
-	type TGapPieceCheck,
-	type TGapPieceProposal,
-	type TGapSearchPlan,
-	type TGapTry
-} from './gap-pieces';
+import { autoPlace, autoPlaceHorizon, continueSuggestions, findHitResult, prepareAutoPlace, simulateTrial, withEntities, type TAngleEvaluation, type TAngleTry, type TAutoPlacePlan, type TContinueResult, type TSimulateFn } from './assists';
+import { createRailForGap, createChainForGap, createSwitchbackForGap, createTunnelForGap, prepareGapSearch, type TGapEvaluation, type TGapPieceCheck, type TGapPieceProposal, type TGapSearchPlan, type TGapTry } from './gap-pieces';
 import { answerSettle, reconnect, type TSettleAnswer, type TSettleBase, type TSettleRequest } from './local-edit';
 import type { TSimulator } from './simulate';
 import type { TResolvedPiece, TSimulationResult } from './types';

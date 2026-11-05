@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHistory, createLane, createMarble, createProject, type TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
-import { StudioCx } from '@/modules/studio/StudioCx';
+import { StudioCx } from '@/modules/studio';
 import { agentClientName, agentStatusLine, connectedAgents, doingWords, editPresenceLabel, presenceLabel, touchedKeys } from './agent-presence';
 import { AgentPresenceCx, PRESENCE_HOLD_MS, STOP_GRACE_MS, TOUCH_MS } from './AgentPresenceCx';
 import { resolveSelection } from './mcp-state';

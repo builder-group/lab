@@ -1,19 +1,13 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { createFreePiece } from '@/modules/compose/attach-edit';
-import { pieceForHit } from '@/modules/compose/step-loop';
-import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject } from '@/modules/design/decor';
-import { decorItem } from '@/modules/design/decor-catalog';
-import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from '@/modules/design/decor-scatter';
-import { readScatterChoice } from '@/modules/design/decor-actions';
-import { skinCommands } from '@/modules/design/design-commands';
-import { packThemeCommands } from '@/modules/design/packs';
-import { isBuiltInTheme, projectThemes } from '@/modules/design/project-themes';
-import { catalogSkin, catalogSkins, elementLabel, entitySkinElement, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/design/skin-catalog';
-import { filmCamera } from '@/modules/design/film-camera';
-import type { TLibraryItem } from '@/modules/library';
+import { createFreePiece, flattenCommands, patternLockWords, patternOfPiece } from '@/modules/building';
+import { pieceForHit } from '@/modules/track';
+import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, projectThemes, catalogSkin, catalogSkins, elementLabel, entitySkinElement, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
+import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, readScatterChoice, skinCommands } from '@/modules/film';
+import { filmCamera } from '@/modules/camera';
+import type { TLibraryItem } from '@/modules/scene';
 import { z } from 'zod';
 import { applyProjectCommands, SComponents, SDesign, SEntity, SHit, SLane, SPhysics, SSource, STempo, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TVec2 } from '@/modules/project';
-import { flattenCommands, getPieceDefinition, patternLockWords, patternOfPiece, RAIL_LAYOUTS, railLayoutInfo, type TRailLayout, type TSimulationResult } from '@/modules/simulation';
+import { getPieceDefinition, RAIL_LAYOUTS, railLayoutInfo, type TRailLayout, type TSimulationResult } from '@/modules/simulation';
 
 // `project.execute` takes the project's own commands plus a few that say what an agent means, so it needs not know a
 // piece's every field. Each expands here into project commands, against the project as the earlier ones left it.

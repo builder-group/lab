@@ -6,36 +6,23 @@ import { currentMix, EMPTY_MIX, isAudioSong, isPartAudible, songParts } from '@/
 import type { THitResult } from '@/modules/simulation';
 import { addHit } from '../menus';
 import { TITLES_KEY } from '../outline';
-import { CAMERA_KEY, parseHitKey, parseShotKey, toHitKey } from '../selection';
+import { CAMERA_KEY, parseHitKey, parseShotKey, toHitKey } from '@/modules/project';
 import { hasSongLayer, SONG_LAYER_LABEL } from '../song-layer';
 import { songSource } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
 import { CameraRow } from './CameraRow';
-import { auditionNote, handNotes, isNoteSelection, ownerForKey, selectedNotes } from './hand-notes';
+import { auditionNote, handNotes, isNoteSelection, ownerForKey, selectedNotes } from '@/modules/track';
 import { LaneTrack, type TDrag, type TDragStart } from './LaneTrack';
 import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange } from './piano-roll';
 import { PartRows } from './PartRows';
 import { PlayheadLine, Ruler, TimeGutter } from './Ruler';
 import { SongTrack } from './SongTrack';
-import {
-	CAMERA_ROW_HEIGHT,
-	clampZoom,
-	fittedHeight,
-	HEADER_WIDTH,
-	TIME_ORIGIN,
-	MIN_HEIGHT,
-	NOTE_ROW_HEIGHT,
-	PART_ROW_HEIGHT,
-	ROW_HEIGHT,
-	RULER_HEIGHT,
-	SONG_ROLL_MAX_HEIGHT,
-	SONG_ROW_HEIGHT
-} from './timeline-layout';
+import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, PART_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
 import { $songExpanded } from './timeline-state';
 import { TitlesRow } from './TitlesRow';
 import { TrackHeader } from './TrackHeader';
-import { flashElement } from './hit-flash';
+import { flashElement } from '@/modules/canvas';
 import { Transport } from './Transport';
 
 /**

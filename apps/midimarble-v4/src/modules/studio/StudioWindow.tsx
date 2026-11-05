@@ -1,8 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { ComposeCanvas } from '@/modules/compose';
-import { DesignView } from '@/modules/design';
-import { mountNativeMenu, Studio, StudioCx } from '@/modules/studio';
+import { ComposeCanvas } from '@/modules/track';
+import { DesignView } from '@/modules/film';
+import { mountNativeMenu } from './native-menu';
+import { Studio } from './Studio';
+import { StudioCx } from './StudioCx';
 
 export { StudioCx };
 

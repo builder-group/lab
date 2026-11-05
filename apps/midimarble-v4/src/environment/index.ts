@@ -1,2 +1,2 @@
-export * from './host';
-export * from './specta';
+export * from '@/environment/host';
+export * from '@/environment/specta';

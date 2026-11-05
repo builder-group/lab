@@ -1,17 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, LANE_SPACING, type TEntity, type TProject } from '@/modules/project';
-import {
-	autoPlace,
-	continueSuggestions,
-	copyLinkedPiece,
-	crossesOtherLanes,
-	findLongGaps,
-	mirrorPiece,
-	nextOpenHit,
-	openLongGaps,
-	repeatPiece,
-	type TSimulateFn
-} from './assists';
+import { autoPlace, continueSuggestions, copyLinkedPiece, crossesOtherLanes, findLongGaps, mirrorPiece, nextOpenHit, openLongGaps, repeatPiece, type TSimulateFn } from './assists';
 import { resolvedPieceShapes, shapesGap } from './clearance';
 import { createBareRunProject } from './fixture-projects';
 import { createRailForGap, createSwitchbackForGap } from './gap-pieces';

@@ -1,7 +1,7 @@
 import { convertFileSrc, isTauri } from '@tauri-apps/api/core';
 import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { Err, Ok, type TResult } from 'tuple-result';
-import { specta } from '../specta';
+import { specta } from '@/environment/specta';
 
 const midiExtensions = ['mid', 'midi'];
 const audioExtensions = ['wav', 'mp3', 'm4a', 'aac', 'aiff', 'aif', 'flac', 'ogg'];

@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject, type TVec2 } from '@/modules/project';
-import { NO_BLENDER_OBJECTS, preflightExport } from '@/modules/design/export-preflight';
+import { NO_BLENDER_OBJECTS, preflightExport } from '@/modules/building';
 import { findLongGaps } from './assists';
 import { bowlCatch, bowlOfLane } from './bowl';
 import { paceAt } from './pace';

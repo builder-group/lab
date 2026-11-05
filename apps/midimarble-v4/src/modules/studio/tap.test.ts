@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createState } from 'feature-state';
 import { describe, expect, it, vi } from 'vitest';
-import { earliestHitTime, releaseFollowsFirstHit } from '@/modules/compose/reachability';
+import { earliestHitTime, releaseFollowsFirstHit } from '@/modules/building';
 import { createProject, parseProject, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
 import { addHit } from './menus';
 import { StudioCx } from './StudioCx';

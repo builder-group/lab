@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PatternsCx, groupSelection } from '@/modules/compose/PatternsCx';
+import { PatternsCx, groupSelection } from '@/modules/track';
 import { createHistory, createLane, createMarble, createProject, type TPatternGroup, type TProject } from '@/modules/project';
 import { createLinkedPiece } from '@/modules/simulation';
 import { StudioCx } from './StudioCx';

@@ -2,14 +2,10 @@
 // simulation when a project is opened. The M3 fixtures are built with the assists, which simulate while
 // building, so regenerating them after an engine change may change their angles; commit the result.
 import { writeFileSync } from 'node:fs';
-import { parseProject, serializeProject, type TProject } from '../src/modules/project';
-import { buildTrack, localBuildDeps } from '../src/modules/compose/build-track';
-import {
-	buildLongGapProject,
-	buildWindmillProject,
-	buildZigzagProject,
-	createTwoMarblesStart
-} from '../src/modules/simulation/fixture-builders';
+import { parseProject, serializeProject } from '../src/modules/project/project-file';
+import { type TProject } from '../src/modules/project/schema';
+import { buildTrack, localBuildDeps } from '../src/modules/building/build-track';
+import { buildLongGapProject, buildWindmillProject, buildZigzagProject, createTwoMarblesStart } from '../src/modules/simulation/fixture-builders';
 import { createStaircaseProject } from '../src/modules/simulation/fixture-projects';
 import { namePiecesInOrder } from '../src/modules/simulation/piece-names';
 import { createSimulator } from '../src/modules/simulation/simulate';

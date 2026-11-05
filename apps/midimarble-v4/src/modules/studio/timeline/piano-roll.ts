@@ -1,6 +1,5 @@
 import { MAX_BACKING_NOTE_LENGTH, MAX_NOTE_LENGTH } from '@/modules/music';
-import { BACKING_ID, createId, type THit, type TProject, type TProjectCommand, type TSource } from '@/modules/project';
-import { toHitKey } from '../selection';
+import { BACKING_ID, createId, type THit, type TProject, type TProjectCommand, type TSource, toHitKey } from '@/modules/project';
 import { round } from './timeline-layout';
 
 // Semitones shown above the highest and below the lowest note of the Song's piano roll

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Ok } from 'tuple-result';
 import { host } from '@/environment';
-import { addedPacks, library, type TLibraryItem, type TPack } from '@/modules/library';
+import { addedPacks, library } from '@/modules/library';
+import { type TLibraryItem, type TPack } from '@/modules/scene';
 import { createHistory, createLane, createMarble, createProject, type TEntity, type TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { readMenuItem } from '@/modules/studio/menu-bar';
-import { StudioCx } from '@/modules/studio/StudioCx';
+import { StudioCx } from '@/modules/studio';
 import { expandCommands } from './project-commands';
 import { busyReason, runTool } from './mcp-tools';
 

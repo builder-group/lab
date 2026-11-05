@@ -1,11 +1,4 @@
-import {
-	createLane,
-	DEFAULT_GRAVITY_SCALE,
-	DEFAULT_MARBLE_RADIUS,
-	type TEntity,
-	type TProject,
-	type TVec2
-} from '@/modules/project';
+import { createLane, DEFAULT_GRAVITY_SCALE, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
 import { KIT_SCALE } from './pieces';
 import { createLinkedPiece } from './placement';
 

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { applyProjectCommands, createHistory, createProject, pushHistory, undoHistory, type TProject } from '@/modules/project';
+import { applyProjectCommands, createHistory, createProject, pushHistory, undoHistory, type TProject, SONG_KEY } from '@/modules/project';
 import { buildOutline } from './outline';
-import { SONG_KEY } from './selection';
 import { deleteSongCommands, deleteSongNotice, deleteSongQuestion, hasSongLayer, songLayerName } from './song-layer';
 
 function songProject(options: { hasFile?: boolean; backing?: number; backingInstrument?: number } = {}): TProject {

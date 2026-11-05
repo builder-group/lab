@@ -13,28 +13,20 @@
 //   --dress only re-applies the theme and the Decor to the existing fixture
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as toneMidi from '@tonejs/midi';
-import { buildTrack, localBuildDeps } from '../src/modules/compose/build-track';
-import { withBowls } from '../src/modules/compose/bowl-assist';
-import { builtInSource, newDecor, setDecorList } from '../src/modules/design/decor';
-import { scatterDecorCommands } from '../src/modules/design/decor-scatter';
-import { NO_BLENDER_OBJECTS, preflightExport } from '../src/modules/design/export-preflight';
-import { filmCamera } from '../src/modules/design/film-camera';
+import { buildTrack, localBuildDeps } from '../src/modules/building/build-track';
+import { withBowls } from '../src/modules/building/bowl-assist';
+import { builtInSource, newDecor, setDecorList } from '../src/modules/scene/decor';
+import { scatterDecorCommands } from '../src/modules/film/decor-scatter';
+import { NO_BLENDER_OBJECTS, preflightExport } from '../src/modules/building/export-preflight';
+import { filmCamera } from '../src/modules/camera/film-camera';
 import { fittedSongEnd } from '../src/modules/camera/bowl-exit';
-import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
-import {
-	applyProjectCommands,
-	createProject,
-	DEFAULT_CAMERA_DISTANCE,
-	DEFAULT_CAMERA_PITCH,
-	LANE_SPACING,
-	parseProject,
-	serializeProject,
-	type TProject,
-	type TProjectCommand,
-	type TDecor,
-	type TProjectTheme,
-	type TSource
-} from '../src/modules/project';
+import { alignNotes, proposeLanes } from '../src/modules/music/lane-proposal';
+import { createImportCommands } from '../src/modules/music/lane-commands';
+import { parseMidiFile } from '../src/modules/music/midi';
+import { applyProjectCommands, type TProjectCommand } from '../src/modules/project/commands';
+import { createProject, DEFAULT_CAMERA_DISTANCE, DEFAULT_CAMERA_PITCH, LANE_SPACING } from '../src/modules/project/create-project';
+import { parseProject, serializeProject } from '../src/modules/project/project-file';
+import { type TProject, type TDecor, type TProjectTheme, type TSource } from '../src/modules/project/schema';
 import type { TSimulateFn } from '../src/modules/simulation/assists';
 import { paceAt } from '../src/modules/simulation/pace';
 import { namePiecesInOrder } from '../src/modules/simulation/piece-names';

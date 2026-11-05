@@ -1,11 +1,10 @@
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { BACKING_ID, type THit, type TProject } from '@/modules/project';
-import { formatTime, noteName } from '../format';
-import { toHitKey } from '../selection';
+import { BACKING_ID, type THit, type TProject, formatTime, noteName, toHitKey } from '@/modules/project';
 import { focusedLane, type StudioCx } from '../StudioCx';
-import { auditionNote, BACKING_COLOR, isNoteSelection, playedByMenu } from './hand-notes';
-import { isPitched } from './hit-status';
+import { auditionNote, isNoteSelection, playedByMenu } from '@/modules/track';
+import { BACKING_COLOR } from '@/modules/music';
+import { isPitched } from '@/modules/building';
 import type { TDrag, TDragStart } from './LaneTrack';
 import { addNoteCommands, clampPitch, isBlackKey, pitchToRow, resizedNoteLength, rowCount, snapNoteTime, type TPitchRange } from './piano-roll';
 import { useSoundingKeys } from './sounding-keys';

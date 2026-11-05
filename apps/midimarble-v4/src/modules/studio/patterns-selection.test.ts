@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { groupSelection, patternTargets, rangeSelection } from '@/modules/compose/PatternsCx';
-import { createProject, type TGroup, type TProject } from '@/modules/project';
+import { groupSelection, patternTargets, rangeSelection } from '@/modules/track';
+import { createProject, type TGroup, type TProject, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/project';
 import { inspectorTarget } from './inspector-target';
 import { buildOutline, defaultCollapsed } from './outline';
-import { parseRangeKey, toGroupKey, toHitKey, toRangeKey } from './selection';
 
 const group: TGroup = { id: 'g1', name: 'Zigzag', laneId: 'lane', from: 1, to: 2, kind: 'zigzag', width: 0.14, bounce: 0.5, pieceIds: ['p1', 'p2'] };
 

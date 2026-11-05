@@ -1,17 +1,15 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { unreachableStatus } from '@/modules/compose/reachability';
+import { unreachableStatus, hitTiming, type THitTiming } from '@/modules/building';
 import { findLaneConflicts, MIN_HIT_GAP } from '@/modules/music';
 import type { THit, TLane } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
-import { formatTime, noteName } from '../format';
+import { formatTime, noteName, toHitKey } from '@/modules/project';
 import { hitMenu, laneMenu } from '../menus';
-import { toHitKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from '../suggested-hits';
-import { offsetLabel } from './hit-flash';
-import { hitTiming, type THitTiming } from './hit-status';
+import { offsetLabel } from '@/modules/canvas';
 import { PatternStrip } from './PatternStrip';
 import { PATTERN_STRIP_HEIGHT, ROW_HEIGHT } from './timeline-layout';
 

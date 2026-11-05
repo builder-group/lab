@@ -1,5 +1,5 @@
 import React from 'react';
-import { TextField } from './Field';
+import { TextField } from '@/components/Field';
 
 /** A slider with a typeable value field beside it, previewing while dragged and committing once on release */
 export const SliderField: React.FC<TSliderFieldProps> = (props) => {
